@@ -1,0 +1,2260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Binder and Table</title>
+<link rel="stylesheet" href="shared/grammar.css">
+<style>
+/* ===== Mockup B: Binder and Table. Light parchment only. ===== */
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+:root { --dg-l: #efe6d0; --dg-d: #ddd0b4; --dg-line: rgba(77, 69, 60, .3); }
+body { font: var(--fs-md)/var(--lh) var(--font-body); color: var(--ink); background: var(--floor-base) var(--floor); background-attachment: fixed; min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4 { margin: 0; font-weight: 600; }
+p { margin: 0; }
+img { display: block; }
+button { font: inherit; font-weight: 700; min-height: 40px; padding: 8px 12px; color: var(--ink); cursor: pointer;
+  background: linear-gradient(var(--vellum), #efe4cc); border: 1px solid var(--stone-700); border-radius: var(--radius);
+  box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.8); }
+button.primary { color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent)); border-color: var(--accent-deep);
+  box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255,220,200,.35); }
+button.quiet { background: transparent; box-shadow: none; border-color: var(--stone-500); font-weight: 400; }
+.bare { all: unset; box-sizing: border-box; cursor: pointer; }
+.bare:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+.disp { font-family: var(--font-display); letter-spacing: var(--track-display); text-transform: uppercase; font-weight: 600; }
+.icon-w { filter: brightness(1.32) saturate(.25); }
+.icon-b { filter: invert(1) sepia(.25); }
+/* a value inside a sentence: a dotted gold-ink word, not a capsule */
+.pw { all: unset; cursor: pointer; color: var(--gold-ink); font-weight: 700; border-bottom: 1.5px dotted var(--gold-ink); line-height: 1.1; white-space: nowrap; }
+.pw:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.pw:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+.pw.is-on { color: var(--accent); border-bottom-style: solid; }
+/* the shared pop-in ends at opacity 1; keep dimmed and ghost marks at their own opacity */
+.kdm-ripple.kdm-dim { animation-name: kdm-pop-dim; }
+.kdm-ripple.kdm-ghost { animation-name: kdm-pop-ghost; }
+@keyframes kdm-pop-dim { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 0.25; } }
+@keyframes kdm-pop-ghost { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 0.35; } }
+.peek-board .kdm-ripple.kdm-ghost { animation-name: kdm-pop; }
+/* black figures read on dark stone */
+.board-svg .kdm-pieces image[href*="-b.webp"] { filter: drop-shadow(0 0 .75px rgba(251,247,238,.75)) drop-shadow(0 0 .75px rgba(43,38,33,.7)) brightness(1.15); }
+
+/* ---------- desktop frame ---------- */
+#app { position: relative; margin: 0 auto; overflow: hidden; }
+@media (min-width: 641px) { #app { width: 1440px; height: 900px; } }
+.topbar { position: absolute; left: 0; top: 0; width: 100%; height: 56px; border-bottom: 1px solid var(--line);
+  background: linear-gradient(rgba(251,247,238,.75), rgba(251,247,238,.25)); z-index: 5; }
+.topbar .l { position: absolute; left: 24px; top: 8px; }
+.topbar .c { position: absolute; left: 50%; top: 0; height: 56px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.topbar .c .disp { font-size: 18px; }
+.topbar .r { position: absolute; right: 24px; top: 8px; display: flex; gap: 8px; }
+.rail { position: absolute; left: 0; top: 56px; width: 80px; bottom: 0; background: linear-gradient(90deg, var(--parchment-deep), #e2d1ae);
+  border-right: 1px solid var(--line); z-index: 4; }
+.tab { position: absolute; left: 0; width: 80px; height: 80px; display: grid; justify-items: center; align-content: center; gap: 5px; opacity: .6; color: var(--ink); }
+.tab:hover { opacity: .85; }
+.tab.on { opacity: 1; }
+.tab.on::before { content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+.tab small { font: 400 var(--fs-xs)/1 var(--font-body); }
+.tab svg { width: 28px; height: 28px; }
+
+/* ---------- library pages ---------- */
+.lib { position: absolute; left: 80px; top: 56px; right: 0; bottom: 0; overflow-y: auto; padding: 18px 20px 40px 20px; }
+.lib-h h1 { font: 600 23px/28px var(--font-display); letter-spacing: var(--track-display); display: flex; align-items: center; gap: 14px; }
+.lib-h p { margin-top: 4px; font: italic 400 15.5px/20px var(--font-body); color: var(--ink-soft); }
+.grid { display: grid; grid-template-columns: repeat(7, 168px); gap: 24px; margin-top: 16px; }
+.yours { margin-top: 28px; min-height: 160px; }
+.yours h2, .shelf > h3 { font: 600 14px/18px var(--font-display); letter-spacing: var(--track-display); color: var(--ink-soft); display: flex; align-items: center; gap: 10px; }
+.yours h2::after, .shelf > h3::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--gold), rgba(201,154,62,0)); }
+.yours .empty { margin-top: 10px; font: italic 400 14px/1.4 var(--font-body); color: var(--ink-soft); }
+.yours .row { display: flex; gap: 16px; margin-top: 12px; }
+
+/* piece thumbnail (168x254) */
+.pc { position: relative; display: block; width: 168px; height: 254px; border-radius: 10px; background: var(--vellum); border: 2px solid var(--gold);
+  box-shadow: var(--shadow-card), 0 6px 16px rgba(43,38,33,.13); cursor: pointer; text-align: left; padding: 0; color: var(--ink);
+  transition: transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); overflow: hidden; font-weight: 400; min-height: 0; }
+.pc::after { content: ''; position: absolute; inset: 3px; border: 1px solid var(--gold-ink); border-radius: 7px; pointer-events: none; opacity: .5; }
+.pc:hover, .pc:focus-visible { transform: translateY(-4px); box-shadow: var(--shadow-card), 0 14px 26px rgba(43,38,33,.2); }
+.pc .t { height: 30px; display: flex; align-items: center; gap: 6px; padding: 2px 10px 0 9px; }
+.pc .t b { flex: 1; font: 600 13px/1 var(--font-display); letter-spacing: var(--track-display); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc .t img { width: 18px; height: 18px; }
+.art { position: relative; overflow: hidden; background: radial-gradient(110% 95% at 50% 26%, #fdf7e8 0%, #f1e3c4 48%, #dcc699 100%); }
+.art::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 18px rgba(90,62,24,.28), inset 0 -10px 16px rgba(90,62,24,.12); pointer-events: none; }
+.art img { position: absolute; left: 50%; transform: translateX(-50%); filter: var(--rim) drop-shadow(0 6px 6px rgba(43,38,33,.18)); }
+.pc .art { height: 92px; margin: 0 6px; border-radius: 4px; }
+.pc .art img { top: 5px; height: 146px; }
+/* the 7x7 diagram: the Workshop's soft cream grid */
+.dgw { --c: 14px; position: relative; background-color: var(--dg-l);
+  background-image: linear-gradient(90deg, var(--dg-line) 1px, transparent 1px), linear-gradient(var(--dg-line) 1px, transparent 1px), repeating-conic-gradient(var(--dg-d) 0 25%, var(--dg-l) 0 50%);
+  background-size: var(--c) var(--c), var(--c) var(--c), calc(var(--c) * 2) calc(var(--c) * 2);
+  box-shadow: 0 0 0 1px rgba(77,69,60,.45); }
+.dgw > svg { position: absolute; left: 0; top: 0; }
+.pc .dgw { width: 98px; height: 98px; margin: 8px auto 0; }
+.pc .dgw .marks { transform-origin: 50% 50%; }
+.pc:hover .dgw .marks { animation: dg-grow 260ms var(--ease-out) both; }
+@keyframes dg-grow { from { clip-path: circle(4% at 50% 50%); } to { clip-path: circle(75% at 50% 50%); } }
+.pc .sl { position: absolute; left: 0; right: 0; bottom: 9px; display: flex; justify-content: center; gap: 6px; }
+.pc .sl svg { display: block; }
+.pc.copy { border-color: var(--stone-500); }
+.pc.copy::after { display: none; }
+.pc .ytag { position: absolute; right: 6px; top: 7px; }
+.pc.door .fan { position: relative; height: 106px; margin-top: 6px; }
+.pc.door .fan span { position: absolute; left: 50%; top: 4px; width: 36px; height: 36px; margin-left: -18px; border-radius: 50%; transform-origin: 50% 170px;
+  background: radial-gradient(circle at 40% 30%, #fbf7ee, #d9ccb0 70%, #b9aa8a); border: 1px solid var(--stone-700); box-shadow: 0 2px 0 var(--stone-700); padding: 4px; }
+.pc.door .fan span img { width: 100%; height: 100%; object-fit: contain; }
+.pc.new { background: var(--parchment-deep); border: 0; box-shadow: inset 0 2px 6px rgba(29,25,21,.28), 0 1px 0 rgba(255,255,255,.7); display: grid; place-items: center; align-content: center; gap: 8px; }
+.pc.new::after { display: none; }
+.pc.new .plus { font: 300 48px/1 var(--font-body); color: var(--stone-500); }
+.pc.new b { font: 600 13px/1 var(--font-display); letter-spacing: var(--track-display); color: var(--ink-soft); }
+.pc.mini { width: 112px; height: 160px; border-radius: 8px; }
+.pc.mini .t { height: 22px; padding: 1px 6px 0; }
+.pc.mini .t b { font-size: 10.5px; }
+.pc.mini .art { height: 58px; margin: 0 4px; }
+.pc.mini .art img { height: 92px; top: 3px; }
+.pc.mini .dgw { width: 70px; height: 70px; margin-top: 5px; }
+.pc.mini .ytag { right: 4px; top: auto; bottom: 4px; transform: scale(.85); transform-origin: right bottom; }
+
+/* kings page: 2 rows of 3, large art */
+.grid.kings { grid-template-columns: repeat(3, 380px); gap: 24px 28px; }
+.pc.king { width: 380px; height: 360px; }
+.pc.king .t { height: 38px; padding: 4px 14px 0; gap: 8px; }
+.pc.king .t b { font-size: 15px; }
+.pc.king .t img { width: 24px; height: 24px; }
+.pc.king .art { height: 222px; margin: 0 8px; }
+.pc.king .art img { height: 300px; top: 6px; }
+.pc.king .coins { height: 96px; display: flex; justify-content: center; align-items: center; gap: 44px; }
+.pc.king .coins .pw2 { display: grid; justify-items: center; gap: 14px; }
+.pc.king .coins small { font: 400 var(--fs-sm)/1 var(--font-body); color: var(--ink); }
+
+/* cards page (LAB): the art hand, then name chips */
+.labban { display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px 3px 10px; border-radius: 4px; background: linear-gradient(var(--accent-bright), var(--accent));
+  color: var(--vellum); font: 700 11px/18px var(--font-display); letter-spacing: .16em; box-shadow: 0 1px 2px rgba(29,25,21,.3); }
+.labban small { font: italic 400 13.5px/18px var(--font-body); letter-spacing: 0; opacity: .92; }
+.hand-row { display: grid; grid-template-columns: repeat(5, 184px); gap: 22px 24px; margin-top: 18px; }
+.hc { position: relative; width: 184px; height: 244px; padding: 8px 8px 0; border-radius: 10px; background: var(--vellum); border: 2px solid var(--gold); text-align: center;
+  box-shadow: var(--shadow-card), 0 6px 16px rgba(43,38,33,.13); font-weight: 400; min-height: 0; display: grid; grid-template-rows: 164px 1fr; transition: transform var(--dur-2) var(--ease-out); }
+.hc:hover, .hc:focus-visible { transform: translateY(-4px) rotate(-.6deg); }
+.hart { position: relative; display: block; border-radius: 5px; overflow: hidden; background: #e9dcc0; }
+.hart img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.86) sepia(.08); }
+.hart::after { content: ''; position: absolute; inset: 0; border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(122,87,18,.7), inset 0 0 0 4px rgba(251,247,238,.35), inset 0 0 26px rgba(40,24,8,.5); pointer-events: none; }
+.hc b { align-self: center; font: 600 14px/1.15 var(--font-display); letter-spacing: .06em; text-transform: uppercase; }
+.hc .badge, .cchip .ce { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 40% 30%, #fbf7ee, #d9ccb0 70%, #b9aa8a); border: 1px solid var(--stone-700); padding: 2px; display: grid; place-items: center; }
+.hc .badge { position: absolute; right: 13px; top: 13px; z-index: 1; }
+.hc .badge img, .cchip .ce img { width: 100%; height: 100%; object-fit: contain; }
+.chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.cchip { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; padding: 4px 14px 4px 6px; border-radius: 999px; background: var(--vellum); border: 1px solid var(--stone-300);
+  box-shadow: 0 1px 0 rgba(43,38,33,.08); font: 400 15px/1.2 var(--font-body); }
+.cchip:hover { border-color: var(--gold-ink); }
+.cchip .ce { width: 32px; height: 32px; color: var(--gold-ink); }
+.cchip .ce.plain { background: var(--parchment); }
+.cchip i { font: 700 12px/1 var(--font-body); font-style: normal; color: var(--gold-ink); padding: 3px 6px; border-radius: 99px; background: rgba(233,192,113,.3); }
+
+/* rules page */
+.shelf { margin-top: 20px; }
+.sealrow { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 12px; }
+.sealtile { width: 118px; display: grid; justify-items: center; align-content: start; gap: 7px; padding: 8px 4px; border-radius: 10px; }
+.sealtile:hover { background: rgba(233,192,113,.18); }
+.sealtile b { font: 400 14px/1.25 var(--font-body); text-align: center; }
+.laws { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-top: 14px; max-width: 1300px; }
+.law { position: relative; display: grid; grid-template-rows: 54px auto 1fr; justify-items: center; gap: 8px; padding: 16px 10px 12px; border-radius: 8px; background: var(--vellum);
+  border: 1px solid var(--stone-300); box-shadow: var(--shadow-card), 0 4px 10px rgba(43,38,33,.08); cursor: pointer; text-align: center; min-height: 176px; }
+.law:hover { border-color: var(--gold-ink); }
+.law .pic { width: 54px; height: 54px; display: grid; place-items: center; color: var(--ink); }
+.law b { font: 600 13px/1.25 var(--font-display); letter-spacing: .06em; text-transform: uppercase; }
+.law .ctl { align-self: end; }
+.switch { position: relative; width: 56px; height: 44px; padding: 0; min-height: 0; border: 0; background: none; box-shadow: none; }
+.switch::before { content: ''; position: absolute; left: 2px; top: 8px; width: 52px; height: 28px; border-radius: 99px; background: var(--stone-300); box-shadow: inset 0 2px 3px rgba(29,25,21,.3); transition: background var(--dur-2); }
+.switch::after { content: ''; position: absolute; left: 5px; top: 11px; width: 22px; height: 22px; border-radius: 50%; background: var(--vellum); box-shadow: 0 1px 2px rgba(29,25,21,.45); transition: transform var(--dur-2) var(--ease-out); }
+.switch[aria-checked="true"]::before { background: linear-gradient(var(--gold), var(--gold-ink)); }
+.switch[aria-checked="true"]::after { transform: translateX(24px); }
+.promo { display: inline-flex; gap: 2px; align-items: center; min-height: 44px; padding: 4px 10px; border-radius: 99px; background: var(--parchment); border: 1px solid var(--stone-500); box-shadow: none; font-weight: 400; }
+.promo img { width: 22px; height: 22px; }
+.fixed { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: flex-start; margin-top: 16px; padding: 14px 20px; border-radius: 8px; max-width: 1300px;
+  background: repeating-linear-gradient(45deg, rgba(243,234,215,.8), rgba(243,234,215,.8) 8px, rgba(239,227,200,.8) 8px, rgba(239,227,200,.8) 16px); border: 1px solid var(--stone-300); }
+.fixed > span { display: grid; justify-items: center; gap: 6px; width: 104px; text-align: center; font: 400 13px/1.25 var(--font-body); color: var(--ink-soft); }
+.fixed > span svg { width: 40px; height: 40px; }
+.fixed .lk { align-self: center; color: var(--stone-500); width: auto; }
+
+/* ---------- the card screen: brushes | card | table | receipt ---------- */
+.keycol { position: absolute; left: 28px; top: 84px; width: 56px; display: grid; justify-items: center; gap: 10px; z-index: 3; }
+.keycol .kt { display: grid; justify-items: center; gap: 4px; position: relative; }
+.keycol .kt button { width: 44px; height: 44px; padding: 0; min-height: 0; border: 0; background: none; box-shadow: none; border-radius: 6px; position: relative; }
+.keycol .kt button svg { display: block; }
+.keycol .kt.armed button { transform: translateY(-2px); box-shadow: 0 0 0 3px var(--gold-bright), 0 0 0 4px var(--ink), 0 4px 8px rgba(43,38,33,.25); }
+.keycol .kt small { font: 400 var(--fs-xs)/1 var(--font-body); color: var(--ink); white-space: nowrap; }
+.keycol .sep { width: 28px; height: 1px; background: var(--stone-300); margin: 4px 0 0; }
+.tool { width: 44px; height: 44px; border-radius: 8px; display: grid; place-items: center; background: var(--vellum); border: 1px solid var(--stone-300); box-shadow: var(--shadow-card); color: var(--ink); }
+.tool svg { width: 26px; height: 26px; }
+
+.stagecard { position: absolute; left: 92px; top: 72px; z-index: 2; perspective: 1600px; }
+.flipper { position: relative; width: 340px; height: 600px; transform-style: preserve-3d; transition: transform var(--dur-4) var(--ease-in-out); }
+.flipper.flipped { transform: rotateY(180deg); }
+.flipper.copy-out { transform: translate(12px, -12px); }
+.flipper.copy-out.flipped { transform: translate(12px, -12px) rotateY(180deg); }
+.flipper.copy-new { animation: copy-out var(--dur-3) var(--ease-spring) both; }
+@keyframes copy-out { from { transform: translate(0, 0); } to { transform: translate(12px, -12px); } }
+.face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.card { width: 340px; height: 600px; border-radius: 14px; background: linear-gradient(180deg, #fdfaf2, var(--vellum) 30%, #f7f0df);
+  border: 2px solid var(--gold); box-shadow: var(--shadow-card), 0 18px 40px rgba(43,38,33,.22), 0 2px 0 rgba(122,87,18,.25); }
+.card::after { content: ''; position: absolute; inset: 4px; border: 1px solid var(--gold-ink); border-radius: 10px; pointer-events: none; opacity: .55; }
+.card.is-copy { border-color: var(--stone-500); }
+.card.is-copy::after { display: none; }
+.card.back { transform: rotateY(180deg); overflow: hidden; }
+.card-ghost { position: absolute; left: 0; top: 0; width: 340px; height: 600px; border-radius: 14px; background: linear-gradient(#efe4cc, #e2d3b2);
+  border: 2px solid var(--gold); box-shadow: 0 10px 26px rgba(43,38,33,.25), inset 0 0 0 1px rgba(122,87,18,.35); cursor: grab; touch-action: none; }
+.card-ghost:hover { box-shadow: 0 10px 26px rgba(43,38,33,.25), inset 0 0 0 1px rgba(122,87,18,.35), 0 0 0 3px rgba(233,192,113,.6); }
+.otab { position: absolute; left: 14px; top: 597px; height: 38px; display: flex; align-items: center; gap: 6px; padding: 4px 12px 0 8px; border-radius: 0 0 8px 8px;
+  background: linear-gradient(#e2d3b2, #d8c6a0); border: 2px solid var(--gold); border-top: 0; font: 600 12px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--gold-ink); }
+.otab img { width: 20px; height: 20px; }
+.peeking .card-ghost { border-color: var(--stone-500); background: linear-gradient(#e9e3d6, #d9d0bf); }
+.ct { position: relative; height: 50px; display: flex; align-items: center; gap: 10px; padding: 6px 40px 0 14px; }
+.ct .nm { flex: 0 1 auto; min-width: 0; display: grid; }
+.ct .nm b { font: 600 22px/1.05 var(--font-display); letter-spacing: var(--track-display); text-transform: uppercase; white-space: nowrap; }
+.ct .nm small { font: 400 var(--fs-xs)/1.15 var(--font-body); color: var(--ink-soft); }
+.ct img.ic { width: 28px; height: 28px; flex: none; }
+.flipcorner { position: absolute; right: 6px; top: 6px; width: 36px; height: 36px; display: grid; place-items: center; color: var(--gold-ink); border-radius: 0 10px 0 8px; }
+.flipcorner svg { width: 24px; height: 24px; }
+.flipcorner:hover { background: rgba(233,192,113,.25); }
+.cart { position: relative; height: 138px; margin: 0 10px; border-radius: 6px; }
+.cart img { top: 6px; height: 214px; }
+.cdg { position: relative; width: 238px; height: 238px; margin: 12px auto 0; box-shadow: 0 0 0 1px var(--stone-500), 0 0 0 4px var(--vellum), 0 0 0 5px rgba(122,87,18,.55), 0 4px 12px rgba(43,38,33,.16); border-radius: 1px; }
+.cells { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(7, 1fr); }
+.cells > button { all: unset; cursor: pointer; position: relative; }
+.cells > button:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+.cells > button.hl::after, .hits > button.hl::after { content: ''; position: absolute; inset: 1px; border: 2px solid var(--gold-bright); border-radius: 3px; box-shadow: 0 0 0 1px rgba(43,38,33,.65), inset 0 0 0 1px rgba(43,38,33,.4); pointer-events: none; }
+.cdg.painting .cells > button:hover::before { content: ''; position: absolute; inset: 3px; border-radius: 4px; background: rgba(233,192,113,.35); box-shadow: inset 0 0 0 1.5px var(--gold-bright); }
+.cdg.painting { cursor: crosshair; }
+.dghint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); white-space: nowrap; pointer-events: none; padding: 4px 10px; border-radius: 999px; background: rgba(251,247,238,.94); border: 1px solid var(--gold-ink); font: 400 13px/1.2 var(--font-body); box-shadow: var(--shadow-card); }
+.cseals { position: absolute; left: 0; right: 0; top: 452px; bottom: 10px; padding: 0 12px 0 30px; display: grid; align-content: center; gap: 4px; }
+.cseals .none { text-align: center; font: italic 400 14px/1.3 var(--font-body); color: var(--ink-soft); padding-left: 0; }
+.srow { position: relative; display: flex; align-items: center; gap: 10px; min-height: 38px; border-radius: 8px; padding: 2px 4px 2px 2px; }
+.srow .sealbtn { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 50%; }
+.srow .sealbtn svg { overflow: visible; }
+.srow .stext { flex: 1; font: 400 15.5px/1.3 var(--font-body); }
+.srow .stext .wp { display: inline-block; width: 17px; height: 17px; margin-right: 4px; vertical-align: -3px; color: var(--gold-ink); }
+.srow .stext .wp svg { width: 17px; height: 17px; display: block; }
+.srow.on { background: rgba(233,192,113,.22); box-shadow: inset 0 0 0 1px rgba(122,87,18,.35); }
+.srow.asleep .stext { color: var(--ink-soft); }
+.srow.asleep .stext .wp { color: var(--stone-500); }
+.srow.dead .stext { text-decoration: line-through; text-decoration-color: rgba(43,38,33,.6); opacity: .4; }
+.srow.dead .sealbtn { opacity: .4; filter: grayscale(.6); }
+.srow.ghost { opacity: .8; animation: kdm-pulse 1.2s var(--ease-in-out) infinite alternate; }
+.srow.ghost .sealbtn { filter: drop-shadow(0 0 6px rgba(233,192,113,.9)); }
+.srow .srm { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: var(--stone-500); font: 400 18px/1 var(--font-body); opacity: 0; }
+.srow:hover .srm, .srow .srm:focus-visible { opacity: 1; }
+.srow.stamped .sealbtn { animation: stamp var(--dur-3) var(--ease-spring) both; }
+.srow.stamped .sealbtn::after { content: ''; position: absolute; width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(132,44,33,.55); animation: waxring var(--dur-4) var(--ease-out) both; pointer-events: none; }
+@keyframes stamp { from { transform: scale(1.15); } to { transform: scale(1); } }
+@keyframes waxring { from { transform: scale(1); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+.knot-v { position: absolute; left: 6px; width: 20px; display: grid; }
+.knot-v > button { all: unset; cursor: pointer; display: block; }
+.knot-v .kb { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; line-height: 0; }
+.knot-v .kb.brk { width: 28px; height: 28px; border-radius: 50%; background: var(--vellum); box-shadow: 0 0 0 1.5px var(--stone-500), 0 2px 4px rgba(43,38,33,.25); display: grid; place-items: center; }
+.knot-v .kb.res { border-radius: 4px; box-shadow: 0 0 0 2px var(--gold-bright), 0 2px 4px rgba(43,38,33,.3); }
+.bounce { animation: bounce 260ms ease-in-out; }
+@keyframes bounce { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-4px); } }
+
+/* card back: the game's card back with a parchment plate */
+.cb { position: absolute; inset: 0; }
+.cb .cbart { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cb .plate { position: absolute; left: 18px; right: 18px; top: 250px; border-radius: 10px; padding: 18px 18px 16px; display: grid; justify-items: center; align-content: start; gap: 10px; text-align: center;
+  background: linear-gradient(180deg, #fdfaf2, var(--vellum) 40%, #f3e8d0); box-shadow: 0 0 0 2px var(--gold), 0 0 0 4px rgba(29,46,92,.6), 0 10px 24px rgba(10,14,30,.45); }
+.cb h3 { font: 600 16px/1.1 var(--font-display); letter-spacing: var(--track-display); color: var(--ink-soft); }
+.cb .worth { display: flex; align-items: baseline; gap: 10px; }
+.cb .worth b { font: 600 64px/1 var(--font-display); color: var(--ink); }
+.cb .worth span { font: 400 20px/1 var(--font-body); color: var(--ink-soft); }
+.pawnrow { display: flex; gap: 3px; align-items: center; height: 26px; }
+.pawnrow span { position: relative; width: 22px; height: 26px; overflow: hidden; }
+.pawnrow span img { width: 22px; height: 22px; margin-top: 2px; }
+.pawnrow span.part { opacity: 1; }
+.cb .line { font: italic 400 16px/1.35 var(--font-body); color: var(--ink); max-width: 260px; }
+.cb .acts { margin-top: 6px; display: flex; gap: 8px; }
+
+/* add a rule: a ribbon tab under the card, and the drawer it opens */
+.addrib { position: absolute; left: 252px; top: 670px; z-index: 3; height: 40px; display: flex; align-items: center; gap: 8px; padding: 2px 16px 0 10px; border-radius: 0 0 10px 10px;
+  background: linear-gradient(var(--accent-bright), var(--accent)); color: var(--vellum); box-shadow: 0 4px 10px rgba(43,38,33,.25); font: 600 12.5px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; }
+.addrib:hover { filter: brightness(1.08); }
+.addrib .plus { font: 400 20px/1 var(--font-body); margin-right: -2px; }
+.addrib svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,.3)); }
+.addrib[aria-expanded="true"] { background: linear-gradient(var(--parchment-deep), #d9c59c); color: var(--ink); }
+.addrib.rise { animation: rise var(--dur-3) var(--ease-spring) both; }
+@keyframes rise { from { transform: translateY(-10px); opacity: 0; } to { transform: none; opacity: 1; } }
+.tray { position: absolute; left: 92px; top: 712px; width: 340px; height: 180px; z-index: 3; border-radius: 10px; padding: 10px 10px 10px;
+  background: linear-gradient(#e6d6b4, var(--parchment-deep)); box-shadow: inset 0 2px 5px rgba(29,25,21,.16), 0 8px 20px rgba(43,38,33,.18);
+  animation: trayopen var(--dur-3) var(--ease-out) both; display: grid; grid-template-rows: auto 1fr; gap: 6px; }
+@keyframes trayopen { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+.tray .seals { display: grid; grid-template-columns: repeat(5, 1fr); justify-items: center; row-gap: 2px; }
+.tseal { position: relative; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; }
+.tseal[draggable="true"] { cursor: grab; }
+.tseal.sel { box-shadow: 0 0 0 3px var(--gold-bright), 0 0 0 4px var(--ink); }
+.tseal.dim { opacity: .4; }
+.tseal.have::after { content: '✓'; position: absolute; right: 0; top: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--gold-ink); color: var(--vellum); font: 700 10px/16px var(--font-body); text-align: center; }
+.tray .bar { display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 8px; border-radius: 8px; background: var(--vellum); box-shadow: var(--shadow-card); align-self: end; min-height: 52px; }
+.tray .bar .tx { flex: 1; min-width: 0; font: 400 14px/1.25 var(--font-body); }
+.tray .bar .tx b { display: block; font-weight: 700; }
+.tray .bar button { min-height: 40px; padding: 4px 16px; }
+.tray .hint { font: italic 400 14px/1.3 var(--font-body); color: var(--ink-soft); padding: 4px 2px; align-self: end; text-align: center; }
+
+/* the table */
+.table { position: absolute; left: 464px; top: 0; width: 948px; height: 900px; }
+.table.enter { animation: tablein var(--dur-3) var(--ease-out) both; }
+@keyframes tablein { from { transform: translateX(60px); opacity: 0; } to { transform: none; opacity: 1; } }
+.rim { position: absolute; left: 0; top: 72px; width: 672px; height: 672px; border-radius: 6px; background: linear-gradient(145deg, #5a5148, var(--stone-700) 40%, #3e372f);
+  box-shadow: 0 16px 34px rgba(29,25,21,.35), inset 0 1px 0 rgba(255,255,255,.12); }
+.rim.idle .field { opacity: .45; filter: saturate(.3); }
+.rim::after { content: ''; position: absolute; inset: 15px; border: 1px solid var(--gold-ink); pointer-events: none; }
+.rim .fl, .rim .rk { position: absolute; font: 600 10.5px/1 var(--font-display); color: var(--stone-300); width: 80px; text-align: center; }
+.rim .rk { width: 16px; height: 80px; display: grid; place-items: center; }
+.field { position: absolute; left: 16px; top: 16px; width: 640px; height: 640px; }
+.field > svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+.hits { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); }
+.hits > button { all: unset; position: relative; cursor: pointer; }
+.hits > button:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+.hits > button.lift::before { content: ''; position: absolute; inset: 2px; border-radius: 5px; box-shadow: inset 0 0 0 3px var(--gold-bright); }
+.notch { position: absolute; right: 0; width: 10px; height: 16px; background: var(--gold-bright); clip-path: polygon(100% 0, 0 50%, 100% 100%); filter: drop-shadow(0 0 1px #000); }
+.peek-board .kdm-ghost { opacity: 1; }
+.field .mover { position: absolute; pointer-events: none; z-index: 4; filter: var(--rim); }
+.field .puff { position: absolute; pointer-events: none; z-index: 5; }
+.tablehint { position: absolute; left: 0; top: 762px; width: 672px; text-align: center; font: italic 400 15px/1.3 var(--font-body); color: var(--ink-soft); }
+.noscene { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 10px 16px; border-radius: 8px; background: rgba(251,247,238,.95); border: 1px solid var(--stone-500); box-shadow: var(--shadow-float); font: 400 14px/1.35 var(--font-body); text-align: center; max-width: 280px; z-index: 3; }
+/* the things you bring to the table: a king, a card; tools behind one button */
+.trayrow { position: absolute; left: 0; top: 758px; width: 672px; display: flex; justify-content: center; align-items: flex-start; gap: 30px; }
+.tok { position: relative; display: grid; justify-items: center; gap: 6px; }
+.tok > button { padding: 0; min-height: 0; display: grid; place-items: center; }
+.tok small { font: 400 var(--fs-xs)/1 var(--font-body); color: var(--ink); white-space: nowrap; }
+.tok .crown { width: 60px; height: 60px; border-radius: 50%; background: radial-gradient(circle at 40% 30%, #fbf7ee, #d9ccb0 70%, #b9aa8a); border: 1px solid var(--stone-700); box-shadow: var(--lift), inset 0 0 0 3px rgba(255,255,255,.5); color: var(--gold-ink); }
+.tok .crown svg { width: 30px; height: 30px; }
+.tok .slot { width: 46px; height: 62px; border-radius: 5px; overflow: hidden; border: 1.5px solid var(--gold); box-shadow: 0 2px 0 var(--stone-700), 0 4px 8px rgba(43,38,33,.2); background: #1d2e5c; position: relative; }
+.tok .slot img { width: 100%; height: 100%; object-fit: cover; }
+.tok .slot .lab-ribbon { top: 6px; right: -26px; width: 80px; font-size: 7.5px; line-height: 11px; }
+.tok > button.on { box-shadow: 0 0 0 3px var(--gold-bright), 0 0 0 4px var(--ink); }
+.tok .more { width: 44px; height: 44px; margin-top: 8px; border-radius: 50%; background: transparent; border: 1px solid var(--stone-500); box-shadow: none; font: 700 18px/1 var(--font-body); color: var(--ink-soft); }
+.trayrow .div { width: 1px; height: 52px; margin-top: 6px; background: var(--stone-300); }
+.tok .seatwide { display: flex; align-items: center; gap: 10px; padding: 0 12px 0 6px; height: 62px; border-radius: 31px; background: var(--parchment-deep); box-shadow: inset 0 2px 4px rgba(29,25,21,.3); }
+.tok .seatwide img.k { height: 58px; filter: var(--rim); margin-top: -8px; cursor: pointer; }
+.tok .seatwide .cn { position: relative; border-radius: 50%; cursor: pointer; }
+.tok .seatwide .cn .echo-eq { position: absolute; right: -8px; top: -6px; }
+
+/* power coins: each power has its own face */
+.pcoin { overflow: visible; }
+.pcoin > img.pa { inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); object-fit: cover; border-radius: 50%; }
+.pcoin > img.pe { opacity: .22; filter: grayscale(.3); }
+.pcoin > svg.pg { position: absolute; left: 22%; top: 22%; width: 56%; height: 56%; overflow: visible; }
+.pcoin::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgba(122,87,18,.55), inset 0 0 8px rgba(40,24,8,.25); pointer-events: none; }
+
+/* receipt: the right column */
+.receipt { position: absolute; left: 688px; top: 72px; width: 260px; padding: 14px 14px 16px; border-radius: 10px; background: var(--vellum);
+  border: 1px solid var(--stone-300); box-shadow: var(--shadow-card), 0 12px 28px rgba(43,38,33,.18); animation: rcpt var(--dur-2) var(--ease-out) both; z-index: 3; }
+@keyframes rcpt { from { transform: translateX(-10px); opacity: 0; } to { transform: none; opacity: 1; } }
+.receipt .ptr { position: absolute; left: -9px; width: 10px; height: 18px; background: var(--gold-bright); clip-path: polygon(0 50%, 100% 0, 100% 100%); filter: drop-shadow(-1px 0 0 var(--gold-ink)); }
+.receipt .hd { display: flex; align-items: center; gap: 10px; padding-right: 26px; }
+.receipt .hd img { width: 28px; height: 28px; }
+.receipt .hd b { font: 600 20px/1 var(--font-display); letter-spacing: .06em; }
+.receipt .hd small { display: block; font: 400 14px/1.2 var(--font-body); color: var(--ink-soft); margin-top: 3px; }
+.receipt .sum { margin-top: 14px; }
+.receipt .why-sum { gap: 3px; flex-wrap: nowrap; }
+.receipt .why-sum .op { font-size: 18px; line-height: 40px; width: 12px; text-align: center; }
+.receipt .why-sum .part > small { font-size: 12.5px; max-width: 54px; line-height: 1.15; }
+.receipt .steps { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(122,87,18,.3); }
+.receipt .steps svg { border-radius: 3px; box-shadow: 0 0 0 1px var(--stone-700); }
+.receipt .steps .ar { color: var(--ink); font: 400 16px/1 var(--font-body); }
+.receipt .foot { margin-top: 12px; font: italic 400 14.5px/1.35 var(--font-body); color: var(--ink-soft); }
+.receipt .acts { margin-top: 14px; display: grid; gap: 8px; }
+.receipt .acts button { min-height: 44px; }
+.receipt .none { font: 400 14.5px/1.4 var(--font-body); color: var(--ink-soft); }
+.receipt .x { position: absolute; right: 6px; top: 6px; width: 32px; height: 32px; display: grid; place-items: center; color: var(--stone-500); font-size: 20px; border-radius: 50%; }
+.receipt .x:hover { background: var(--wash); }
+.turnstrip { display: flex; gap: 6px; margin-top: 12px; }
+.turnstrip span { flex: 1; height: 30px; border-radius: 4px; border: 1px solid var(--stone-300); display: grid; place-items: center; font: 400 12.5px/1 var(--font-body); position: relative; color: var(--ink-soft); background: var(--parchment); }
+.turnstrip span:nth-child(2) { background: #4a4850; color: var(--parchment); border-color: #4a4850; }
+.turnstrip span.on::before { content: ''; position: absolute; left: 4px; right: 4px; top: -6px; height: 4px; border-radius: 3px; background: var(--power-mid); border: 1px solid var(--power-edge); }
+/* one quiet line of pictograms: only what is not the usual */
+.fline { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font: 400 13.5px/1.2 var(--font-body); color: var(--ink-soft); }
+.fline span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.fline svg { width: 16px; height: 16px; flex: none; }
+
+/* popovers, toast, menu */
+.pop { position: absolute; z-index: 20; padding: 12px; border-radius: 10px; background: var(--vellum); border: 1px solid var(--stone-300); box-shadow: var(--shadow-float); }
+.pop h5 { margin: 0 0 10px; font: 600 12px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+.pop .choices { display: flex; flex-wrap: wrap; gap: 8px 14px; max-width: 300px; font: 400 15.5px/1.6 var(--font-body); }
+.pop .kings { display: grid; grid-template-columns: repeat(3, 88px); gap: 6px; }
+.pop .kings button { min-height: 0; padding: 6px 2px; display: grid; justify-items: center; gap: 4px; font: 400 13px/1 var(--font-body); background: none; border: 1px solid transparent; box-shadow: none; }
+.pop .kings button:hover { border-color: var(--stone-300); background: rgba(233,192,113,.15); }
+.pop .kings img { height: 60px; filter: var(--rim); }
+.pop .cardsp { display: grid; grid-template-columns: repeat(5, 66px); gap: 8px; }
+.pop .cardsp button { position: relative; min-height: 0; padding: 0; width: 66px; height: 88px; border-radius: 6px; overflow: hidden; border: 1.5px solid var(--gold); box-shadow: var(--shadow-card); background: var(--parchment); display: grid; align-content: end; font-weight: 400; }
+.pop .cardsp button img { position: absolute; inset: 0; width: 100%; height: 66px; object-fit: cover; }
+.pop .cardsp button span { position: relative; background: var(--vellum); font: 600 8.5px/1.2 var(--font-display); letter-spacing: .06em; text-transform: uppercase; padding: 3px 2px; text-align: center; }
+.pop .tools { display: grid; gap: 4px; min-width: 170px; }
+.pop .tools button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 10px; background: none; border: 1px solid transparent; box-shadow: none; font-weight: 400; text-align: left; }
+.pop .tools button:hover { background: rgba(233,192,113,.18); }
+.pop .tools button[aria-pressed="true"] { border-color: var(--gold-ink); background: rgba(233,192,113,.22); }
+.pop .tools svg { width: 22px; height: 22px; }
+#toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; z-index: 50; padding: 10px 12px 10px 18px; border-radius: 10px;
+  background: var(--vellum); border: 1px solid var(--stone-500); box-shadow: var(--shadow-float); font: 400 15px/1.3 var(--font-body); transition: all var(--dur-2) var(--ease-out); max-width: 90vw; text-align: center;
+  display: flex; align-items: center; gap: 14px; }
+#toast.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+#toast button { min-height: 36px; padding: 4px 14px; }
+#menu { position: fixed; inset: 0; z-index: 60; background: rgba(29,25,21,.35); display: grid; place-items: center; }
+#menu[hidden] { display: none; }
+#menu .box { width: min(600px, 92vw); max-height: 86vh; overflow: auto; padding: 18px 20px; border-radius: 12px; background: var(--vellum); box-shadow: var(--shadow-float); }
+#menu h3 { font: 600 16px/1 var(--font-display); letter-spacing: .08em; margin-bottom: 12px; }
+#menu .st { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+#menu .st a { color: var(--ink); text-decoration: none; padding: 4px 6px; border-radius: 4px; font: 400 14px/1.3 var(--font-body); }
+#menu .st a:hover { background: rgba(233,192,113,.25); }
+#menu .st a code { font: 400 12px/1 ui-monospace, Menlo, monospace; color: var(--gold-ink); margin-right: 6px; }
+#menu label { display: inline-flex; align-items: center; gap: 6px; margin: 14px 16px 0 0; font: 400 14px/1 var(--font-body); }
+body.rm *, body.rm *::before, body.rm *::after { animation-duration: 1ms !important; transition-duration: 120ms !important; }
+body.cb #app { filter: url(#cb-deut); }
+
+/* stage cards for kings, LAB cards, rules and table rules */
+.scard-h { position: relative; height: auto; padding-bottom: 18px; }
+.kcard .kart { height: 210px; margin: 0 10px; border-radius: 6px; }
+.kcard .kart img { top: 6px; height: 300px; }
+.kcard .powers { padding: 14px 16px 0; display: grid; gap: 16px; }
+.prow { display: grid; grid-template-columns: 76px 1fr; gap: 12px; align-items: start; }
+.prow .pt b { font: 600 15px/1.2 var(--font-display); letter-spacing: .06em; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+.prow .pt p { font: 400 14.5px/1.35 var(--font-body); margin: 3px 0 0; }
+.coinbtn { all: unset; cursor: pointer; border-radius: 50%; position: relative; display: block; }
+.coinbtn:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.coinbtn .echo-eq { position: absolute; right: -6px; top: -4px; }
+.scard .sart2 { position: relative; height: 250px; overflow: hidden; border-radius: 12px 12px 0 0; background: #e9dcc0; margin: 0; }
+.scard .sart2 img { width: 100%; height: 100%; object-fit: cover; }
+.scard .sart2::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 30px rgba(40,24,8,.45); }
+.scard .medal2 { display: grid; place-items: center; padding-top: 34px; }
+.scard .medal2 span { width: 104px; height: 104px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 40% 30%, #fbf7ee, #d9ccb0 70%, #b9aa8a);
+  border: 1px solid var(--stone-700); box-shadow: var(--lift), inset 0 0 0 4px rgba(255,255,255,.5); color: var(--gold-ink); padding: 14px; }
+.scard .medal2 img { width: 100%; height: 100%; object-fit: contain; }
+.scard .medal2 svg { width: 52px; height: 52px; }
+.scard .lab-ribbon.tl { left: -30px; top: 18px; width: 116px; font-size: 11px; line-height: 18px; z-index: 2; }
+.lab-ribbon.tl { right: auto; left: -26px; transform: rotate(-45deg); top: 12px; }
+.scard h3 { padding: 16px 18px 4px; font: 600 23px/1.1 var(--font-display); letter-spacing: var(--track-display); text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
+.scard h3 img { width: 26px; height: 26px; margin-left: auto; }
+.scard .vars { display: flex; gap: 6px; padding: 2px 18px 6px; }
+.scard .vars button { min-height: 36px; min-width: 44px; padding: 2px 10px; font: 700 14px/1 var(--font-body); background: var(--parchment); border-color: var(--stone-300); box-shadow: none; }
+.scard .vars button.on { background: var(--vellum); border-color: var(--gold-ink); box-shadow: 0 0 0 2px var(--gold-bright); }
+.scard .ctext { padding: 4px 18px 0; font: 400 15.5px/1.4 var(--font-body); }
+.scard .fline { padding: 8px 18px 0; margin: 0; }
+.sealcard .big { display: grid; justify-items: center; padding-top: 22px; gap: 8px; }
+.sealcard h3 { font: 600 18px/1.15 var(--font-display); letter-spacing: var(--track-display); text-align: center; text-transform: uppercase; padding: 0 20px; }
+.sealcard .ex { text-align: center; font: italic 400 15.5px/1.35 var(--font-body); color: var(--ink-soft); padding: 0 24px; }
+.sealcard .exdg { display: grid; justify-items: center; margin-top: 10px; }
+.sealcard .exdg .dgw { width: 182px; height: 182px; }
+.sealcard .lab { font: 600 11px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--gold-ink); padding: 0 18px; margin-top: 14px; }
+.sealcard .seen { display: flex; gap: 8px; padding: 6px 18px 0; }
+.sealcard .seen button { min-height: 0; padding: 2px 6px 5px; background: rgba(251,247,238,.6); border: 1px solid var(--stone-300); box-shadow: none; display: grid; justify-items: center; font: 400 13px/1 var(--font-body); gap: 3px; }
+.sealcard .seen img { height: 52px; filter: var(--rim); }
+.sealcard .whens { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 18px 0; }
+.capsule { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 4px; border: 1px solid var(--gold-ink); background: var(--vellum); font: 400 var(--fs-xs)/1.15 var(--font-body); }
+.lawcard { padding: 26px 22px; display: grid; gap: 14px; justify-items: center; text-align: center; align-content: start; }
+.lawcard .pic { width: 84px; height: 84px; display: grid; place-items: center; }
+.lawcard .pic svg { width: 76px; height: 76px; }
+.lawcard h3 { font: 600 22px/1.15 var(--font-display); letter-spacing: var(--track-display); text-transform: uppercase; }
+.lawcard p { font: 400 15.5px/1.4 var(--font-body); }
+
+/* ===================== PHONE ===================== */
+body.phone #app { width: 100%; height: auto; min-height: 100vh; overflow: hidden; position: relative; }
+body.phone .ptop { position: relative; z-index: 6; height: 48px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--line); background: linear-gradient(rgba(251,247,238,.75), rgba(251,247,238,.25)); }
+body.phone .ptop .l { position: absolute; left: 4px; top: 2px; }
+body.phone .ptop .r { position: absolute; right: 4px; top: 2px; display: flex; }
+body.phone .ptop .ib { width: 44px; height: 44px; display: grid; place-items: center; font: 400 22px/1 var(--font-body); color: var(--ink); }
+body.phone .ptop .ib svg { width: 22px; height: 22px; }
+body.phone .ptop .disp { font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.ptabs { display: flex; gap: 2px; padding: 8px 12px 0; height: 52px; justify-content: space-between; overflow-x: auto; scrollbar-width: none; }
+.ptabs button { flex: none; min-height: 44px; height: 44px; padding: 0 9px; display: flex; align-items: center; gap: 5px; font-size: 15px; background: none; border: 1px solid transparent; box-shadow: none; font-weight: 400; opacity: .6; border-radius: 22px; }
+.ptabs button.on { opacity: 1; background: var(--vellum); border-color: var(--stone-300); box-shadow: inset 0 -3px 0 var(--accent); }
+.ptabs svg { width: 18px; height: 18px; }
+.plib { padding: 12px 16px 32px; }
+.plib .lib-h h1 { font-size: 20px; }
+.plib .lib-h p { font-size: 14px; }
+.pgrid { display: grid; grid-template-columns: 171px 171px; gap: 16px; margin-top: 12px; justify-content: space-between; }
+.pgrid .pc { width: 171px; height: 256px; }
+.pgrid .pc.king { height: 268px; }
+.pgrid .pc.king .t { height: 32px; padding: 3px 9px 0; gap: 6px; }
+.pgrid .pc.king .t b { font-size: 12px; }
+.pgrid .pc.king .t img { width: 18px; height: 18px; }
+.pgrid .pc.king .art { height: 150px; margin: 0 6px; }
+.pgrid .pc.king .art img { height: 210px; }
+.pgrid .pc.king .coins { height: 84px; gap: 18px; }
+.pgrid .pc.king .coins small { font-size: 12.5px; }
+.phand { display: grid; grid-template-columns: 171px 171px; gap: 14px; justify-content: space-between; margin-top: 14px; }
+.phand .hc { width: 171px; height: 226px; grid-template-rows: 150px 1fr; }
+.psealrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 10px; }
+.psealrow .sealtile { width: auto; }
+.plaws { display: grid; gap: 10px; margin-top: 10px; }
+.plaws .law { grid-template-columns: 48px 1fr auto; grid-template-rows: auto; text-align: left; justify-items: start; align-items: center; min-height: 64px; padding: 8px 10px; }
+.plaws .law .pic { width: 44px; height: 44px; }
+.plaws .law .pic svg { width: 36px; height: 36px; }
+.plaws .law .ctl { align-self: center; }
+.plib .fixed > span { width: 92px; }
+.ph { position: relative; width: 100%; height: 844px; }
+.pboard { position: absolute; left: 16px; top: 8px; width: 358px; height: 358px; border-radius: 4px; box-shadow: 0 0 0 1px rgba(29,25,21,.4), 0 8px 20px rgba(29,25,21,.3); }
+.pboard .field { left: 0; top: 0; width: 358px; height: 358px; }
+.ptray { position: absolute; left: 16px; right: 16px; top: 374px; height: 48px; display: flex; justify-content: center; gap: 22px; align-items: center; }
+.ptray button { width: 48px; height: 48px; min-height: 0; padding: 0; border-radius: 50%; display: grid; place-items: center; }
+.ptray .crown { background: radial-gradient(circle at 40% 30%, #fbf7ee, #d9ccb0 70%, #b9aa8a); border: 1px solid var(--stone-700); box-shadow: var(--lift); color: var(--gold-ink); }
+.ptray .crown svg { width: 24px; height: 24px; }
+.ptray .crown img { width: 34px; }
+.ptray .slot { border-radius: 5px; width: 36px; height: 48px; overflow: hidden; border: 1.5px solid var(--gold); background: #1d2e5c; box-shadow: 0 2px 0 var(--stone-700); }
+.ptray .slot img { width: 100%; height: 100%; object-fit: cover; }
+.ptray button.on { box-shadow: 0 0 0 3px var(--gold-bright), 0 0 0 4px var(--ink); }
+.ptray .eye { background: linear-gradient(var(--vellum), #efe4cc); border: 1px solid var(--stone-300); box-shadow: 0 2px 0 var(--stone-300); }
+.ptray .eye svg { width: 22px; height: 22px; }
+.hand { position: absolute; left: 16px; top: 430px; width: 358px; height: 204px; border-radius: 12px; background: linear-gradient(180deg, #fdfaf2, var(--vellum) 40%, #f7f0df); border: 2px solid var(--gold); box-shadow: var(--shadow-card), 0 8px 20px rgba(43,38,33,.18); display: flex; overflow: hidden; }
+.hand.is-copy { border-color: var(--stone-500); }
+.hand .hdg { width: 178px; padding: 16px 0 0 8px; flex: none; }
+.hand .hdg .dgw { width: 168px; height: 168px; }
+.hand .hr { flex: 1; min-width: 0; padding: 8px 8px 6px 6px; display: grid; grid-template-rows: auto 1fr; }
+.hand .hh { display: flex; gap: 6px; align-items: flex-start; }
+.hand .hh .nm { flex: 1; min-width: 0; padding-top: 4px; }
+.hand .hh .nm b { display: block; font: 600 16px/1.1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; }
+.hand .hh .nm small { font: 400 12px/1.2 var(--font-body); color: var(--ink-soft); }
+.hand .crop { width: 48px; height: 62px; flex: none; border-radius: 5px; }
+.hand .crop img { height: 100px; top: 3px; }
+.hand .hs { display: grid; align-content: end; gap: 0; }
+.hand .hs .srow { min-height: 44px; padding: 0; gap: 4px; }
+.hand .hs .srow .sealbtn { width: 44px; height: 44px; }
+.hand .hs .stext { font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+.hand .hs .stext span { overflow: hidden; text-overflow: ellipsis; }
+.pkeys { position: absolute; left: 16px; right: 16px; top: 644px; display: flex; justify-content: center; gap: 22px; }
+.pkeys.brushes { justify-content: space-between; gap: 0; }
+.pkeys .pk { display: grid; justify-items: center; gap: 3px; }
+.pkeys .pk small { font: 400 12px/1 var(--font-body); }
+.pkeys button { width: 44px; height: 44px; min-height: 0; padding: 0; border: 0; background: none; box-shadow: none; border-radius: 6px; display: grid; place-items: center; }
+.pkeys button.armed { box-shadow: 0 0 0 3px var(--gold-bright), 0 0 0 4px var(--ink); }
+.pkeys button.tool { background: var(--vellum); border: 1px solid var(--stone-300); }
+.padd { position: absolute; left: 16px; right: 16px; top: 716px; height: 48px; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 10px; font: 600 13.5px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 16px 16px 0 0; background: var(--vellum); box-shadow: var(--shadow-sheet); z-index: 10; animation: sheetup var(--dur-3) var(--ease-out) both; }
+@keyframes sheetup { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--stone-500); opacity: .5; margin: 8px auto 4px; }
+.sheet .sx { position: absolute; right: 6px; top: 4px; width: 44px; height: 44px; display: grid; place-items: center; font-size: 22px; color: var(--stone-500); }
+.sheet.paint { top: 374px; padding: 0 16px; background: linear-gradient(var(--parchment), var(--parchment-deep)); }
+.sheet.paint .pkeys { position: static; margin: 4px 0 12px; }
+.sheet.paint .dgw { width: 336px; height: 336px; margin: 0 auto; }
+.sheet.rc { top: 374px; padding: 4px 20px 20px; }
+.sheet.rc .receipt { position: static; width: auto; box-shadow: none; border: 0; padding: 4px 0 0; animation: none; background: none; }
+.sheet.rc .receipt .why-sum .op { font-size: 22px; line-height: 48px; width: 18px; }
+.sheet.rc .receipt .why-sum { gap: 6px; }
+.sheet.rc .receipt .why-sum .part > small { max-width: 66px; font-size: 13px; }
+.sheet.rc .receipt .acts button { min-height: 48px; }
+.sheet.seals { top: 420px; padding: 0 16px 16px; background: linear-gradient(#e6d6b4, var(--parchment-deep)); }
+.sheet.seals .seals { display: grid; grid-template-columns: repeat(5, 1fr); justify-items: center; gap: 6px 0; margin-top: 18px; }
+.sheet.seals .tseal { width: 60px; height: 60px; }
+.sheet.seals .bar { display: flex; gap: 10px; align-items: center; margin-top: 16px; padding: 8px; border-radius: 8px; background: var(--vellum); box-shadow: var(--shadow-card); }
+.sheet.seals .bar button { min-height: 48px; padding: 4px 22px; }
+.sheet.seals .hint { margin-top: 16px; text-align: center; font: italic 400 14.5px/1.35 var(--font-body); color: var(--ink-soft); }
+.pstage { padding: 12px 16px 24px; display: grid; gap: 16px; justify-items: center; }
+.pstage .stagecard { position: relative; left: auto; top: auto; }
+.pstage .pboard { position: relative; left: auto; top: auto; }
+.pstage .card { width: 358px; }
+</style>
+</head>
+<body>
+<div id="app" aria-live="off"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="menu" hidden><div class="box" role="dialog" aria-label="States"><h3>STATES</h3><div class="st" id="menu-states"></div>
+  <label><input type="checkbox" id="rm"> Reduced motion</label><label><input type="checkbox" id="cbx"> Colour check</label>
+  <p style="margin-top:12px;font:italic 400 13px/1.3 var(--font-body);color:var(--ink-soft)">M opens this menu. F flips the card. Esc steps back.</p></div></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="cb-deut"><feColorMatrix type="matrix" values="0.367 0.861 -0.228 0 0  0.280 0.673 0.047 0 0  -0.012 0.043 0.969 0 0  0 0 0 1 0"/></filter></svg>
+<script src="shared/marks.js"></script>
+<script src="shared/scenes.js"></script>
+<script>
+(function () {
+  'use strict';
+  const M = KD.marks, SC = KD.scenes, A = 'assets/';
+  // the shared opt-in board look: washed tiles, a red ring under a taken figure (both mockups use it)
+  if (M.look) M.look.wash = true;
+  // one word for each mark, in every place
+  Object.assign(M.NAMES, { take: 'Take', both: 'Both', shot: 'Shot', moveshot: 'Move or shot' });
+  const app = document.getElementById('app');
+  const clone = (o) => (o == null ? o : JSON.parse(JSON.stringify(o)));
+  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const FILES = 'abcdefgh';
+  const parse = (q) => [FILES.indexOf(q[0]), +q.slice(1)];
+  const sqn = (f, r) => (f >= 0 && f < 8 && r >= 1 && r <= 8 ? FILES[f] + r : null);
+  const DV = { n: [0, 1], ne: [1, 1], e: [1, 0], se: [1, -1], s: [0, -1], sw: [-1, -1], w: [-1, 0], nw: [-1, 1] };
+  const DIRS = Object.keys(DV);
+  const sg = (name, size = 24, w = 2) => M.sigil(name, size, { width: w });
+  const iconImg = (k, side = 'w', size = 24, cls = '') => `<img src="${A}icons/${k}.svg" width="${size}" height="${size}" class="icon-${side} ${cls}" alt="">`;
+  const BOARD_S = 80, PHONE_S = 44.75;
+
+  /* ================= DATA ================= */
+  const PIECES = {
+    pawn: { name: 'Pawn', scene: 'pawn-e2-knight', worth: 1.0 },
+    knight: { name: 'Knight', scene: 'knight', worth: 3.3 },
+    bishop: { name: 'Bishop', scene: 'bishop', worth: 3.0 },
+    rook: { name: 'Rook', scene: 'rook', worth: 4.0 },
+    queen: { name: 'Queen', scene: 'queen', worth: 9.3 },
+    archer: { name: 'Archer', scene: 'archer', worth: 2.9 },
+    paladin: { name: 'Paladin', scene: 'paladin', worth: 4.1 },
+    guard: { name: 'Guard', scene: 'guard', worth: 0.9 },
+    maester: { name: 'Maester', scene: 'maester', worth: 3.3 },
+    beast: { name: 'Beast', scene: 'beast', worth: 4.1 },
+    ogre: { name: 'Ogre', scene: 'ogre', worth: 2.6 },
+  };
+  const CLASSIC = ['pawn', 'bishop', 'knight', 'rook', 'queen'];
+  const ROW1 = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'archer', 'paladin'];
+  const ROW2 = ['guard', 'maester', 'beast', 'ogre'];
+  // the rule blocks: an example line, where a player sees it, and its one-word caption in a Receipt
+  const BX = {
+    step2: { ex: 'From its start rank, as a pawn does.', seen: ['pawn'], cap: () => 'start rank',
+      whens: [{ on: 'always' }, { on: 'zone', zone: 'enemyHalf' }, { on: 'zone', zone: 'startRank' }, { on: 'zone', zone: 'ownHalf' }] },
+    movesLike: { ex: 'On a center square, it also moves like a queen.', seen: [], cap: (p) => 'as ' + choice('movesLike', p),
+      whens: [{ on: 'zone', zone: 'capital' }, { on: 'zone', zone: 'enemyHalf' }, { on: 'near', who: 'king' }, { on: 'fromMove', n: 10 }, { on: 'afterFirstCapture' }, { on: 'zone', zone: 'startRank' }] },
+    linesPass: { ex: 'It slides past its own pieces, as the Paladin does.', seen: ['paladin'], cap: () => 'passes',
+      whens: [{ on: 'always' }, { on: 'zone', zone: 'capital' }, { on: 'zone', zone: 'enemyHalf' }, { on: 'near', who: 'king' }] },
+    chain: { ex: 'After a take, it may take again from there.', seen: ['beast'], cap: () => 'again', whens: [{ on: 'takes' }] },
+    cannotBeTaken: { ex: 'For example, pawns cannot take it.', seen: ['guard'], cap: () => 'safe',
+      whens: [{ on: 'always' }, { on: 'zone', zone: 'capital' }, { on: 'zone', zone: 'enemyHalf' }, { on: 'near', who: 'king' }] },
+    push: { ex: 'It pushes a piece 1 square away, and follows it.', seen: ['ogre'], cap: () => 'push',
+      whens: [{ on: 'always' }, { on: 'zone', zone: 'capital' }, { on: 'zone', zone: 'enemyHalf' }, { on: 'near', who: 'king' }] },
+    swap: { ex: 'It trades squares with a friend next to it.', seen: ['maester'], cap: () => 'swap',
+      whens: [{ on: 'always' }, { on: 'zone', zone: 'capital' }, { on: 'zone', zone: 'enemyHalf' }] },
+    becomes: { ex: 'On the last rank, as a pawn does.', seen: ['pawn'], cap: () => 'becomes', whens: [{ on: 'reaches', zone: 'lastRank' }, { on: 'firstTake' }] },
+    cannotTake: { ex: 'It cannot take a king.', seen: ['paladin'], cap: () => 'no king',
+      whens: [{ on: 'always' }, { on: 'zone', zone: 'capital' }, { on: 'zone', zone: 'enemyHalf' }, { on: 'near', who: 'king' }] },
+    removedAfter: { ex: 'It takes a piece and leaves the board too.', seen: ['paladin'], cap: () => 'leaves', whens: [{ on: 'takes' }] },
+  };
+  const PILL_WORDS = { push: { follow: 'and follows it', stay: 'and stays' }, cannotBeTaken: { pawns: 'by pawns', allButKing: 'by anything but a king' } };
+  function choice(a, v) {
+    const b = M.blockOf(a);
+    if (!b.pill) return '';
+    const val = v || b.pill.def;
+    if (PILL_WORDS[a] && PILL_WORDS[a][val]) return PILL_WORDS[a][val];
+    const c = b.pill.choices.find((x) => x[0] === val);
+    return c ? c[1] : val;
+  }
+  const BIDX = Object.fromEntries(M.BLOCKS.map((b, i) => [b.a, i]));
+
+  const KINGS = [
+    { id: 'flame', name: 'Flame king', powers: ['Strike', 'Haste'], tint: '#b4471f' },
+    { id: 'frost', name: 'Frost king', powers: ['Freeze', 'IceWall'], tint: '#2f5ea8' },
+    { id: 'mud', name: 'Mud king', powers: ['March', 'Leap'], tint: '#6b4a24' },
+    { id: 'shadow', name: 'Shadow king', powers: ['DeathTouch', 'Darkness'], tint: '#3d2f4f' },
+    { id: 'spirit', name: 'Spirit king', powers: ['HolyLight', 'Mercy'], tint: '#9a7414' },
+    { id: 'stratus', name: 'Stratus king', powers: ['Flight', 'Sacrifice'], tint: '#3f6f9a' },
+  ];
+  const KING = Object.fromEntries(KINGS.map((k) => [k.id, k]));
+  const T = (side, notKing) => ({ side, notKing });
+  const POWERS = {
+    Strike: { name: 'Strike', king: 'flame', uses: 1, text: 'Move any piece except a pawn or the king as if it were a queen, to an empty square.', f: { targets: T('w', true), cost: 'move', captures: 'never', duration: 'now' } },
+    Haste: { name: 'Haste', king: 'flame', uses: 1, text: 'Move one piece twice in one turn. The second move is optional. Neither move takes.', f: { targets: T('w'), cost: 'two', captures: 'never', duration: 'now' } },
+    Freeze: { name: 'Freeze', king: 'frost', uses: 1, art: 'freeze', text: 'Freeze an enemy piece (not the king), then make your move. The frozen piece cannot move on its next turn.', f: { targets: T('b', true), cost: 'free', captures: 'never', duration: 'them' } },
+    IceWall: { name: 'Ice Wall', king: 'frost', uses: 2, art: 'icewall', text: 'Wall one of your pieces (not the king), then make your move. It cannot be taken on the next turn.', f: { targets: T('w', true), cost: 'free', captures: 'never', duration: 'them' } },
+    March: { name: 'March', king: 'mud', uses: Infinity, art: 'march', text: 'Any pawn may step two squares from any rank.', f: { targets: T('w'), cost: 'move', captures: 'may', duration: 'now' } },
+    Leap: { name: 'Leap', king: 'mud', uses: 3, art: 'leap', text: 'A rook, bishop or queen passes over your own pawns.', f: { targets: T('w'), cost: 'move', captures: 'may', duration: 'now' } },
+    DeathTouch: { name: 'Death Touch', king: 'shadow', uses: Infinity, text: 'Your king takes an enemy next to it, or two squares straight forward or back over an empty square, without moving.', f: { targets: T('b'), cost: 'move', captures: 'may', duration: 'always' } },
+    Darkness: { name: 'Darkness', king: 'shadow', uses: Infinity, text: 'Your pawns may also step diagonally, and take only straight ahead. Your king may step two squares in a line.', f: { targets: T('w'), cost: 'move', captures: 'may', duration: 'always' } },
+    HolyLight: { name: 'Holy Light', king: 'spirit', uses: Infinity, text: 'Enemy pawns cannot take your king. Your pieces beside, in front of or behind it cannot be taken.', f: { targets: T('w'), cost: 'move', captures: 'may', duration: 'always' } },
+    Mercy: { name: 'Mercy', king: 'spirit', uses: Infinity, text: 'Your king steps 1 or 2 squares and jumps your pieces. It takes only a pawn or a guard.', f: { targets: T('w'), cost: 'move', captures: 'may', duration: 'always' } },
+    Flight: { name: 'Flight', king: 'stratus', uses: 1, text: 'Move any piece except the king to any empty square in your half of the board.', f: { targets: T('w', true), cost: 'move', captures: 'never', duration: 'now' } },
+    Sacrifice: { name: 'Sacrifice', king: 'stratus', uses: 1, art: 'sacrifice', text: 'Turn one of your pawns into one of your pieces that was taken earlier.', f: { targets: T('w'), cost: 'move', captures: 'never', duration: 'now' } },
+  };
+  // a pictogram for each power without card art (24x24, stroked unless noted)
+  const PGLYPH = {
+    Strike: { d: 'M13.6 2.5L5.4 13.6h5.7l-1.6 7.9 8.9-11.7h-5.9z', fill: true },
+    Haste: { d: 'M4 6l6 6-6 6M12 6l6 6-6 6' },
+    Flight: { d: 'M2 12c3.4-3.6 6.8-3.6 10 .4 3.2-4 6.6-4 10-.4M5.5 16c2.2-1.6 4.4-1.4 6.5.6 2.1-2 4.3-2.2 6.5-.6' },
+    DeathTouch: { d: 'M12 3.5a7 7 0 0 0-7 7c0 2.4 1.2 4.3 3 5.3V19h8v-3.2c1.8-1 3-2.9 3-5.3a7 7 0 0 0-7-7zM9.3 10.8h.01M14.7 10.8h.01M10.6 19v2.2M13.4 19v2.2' },
+    Darkness: { d: 'M15.5 4a8.5 8.5 0 1 0 4.8 13.6A7 7 0 0 1 15.5 4z' },
+    HolyLight: { d: 'M12 8.2a3.8 3.8 0 1 0 .01 0M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1' },
+    Mercy: { d: 'M12 20s-7-4.3-7-9.6A3.9 3.9 0 0 1 12 8a3.9 3.9 0 0 1 7 2.4C19 15.7 12 20 12 20z' },
+  };
+  function powerCoin(p, size = 56, o = {}) {
+    const P = POWERS[p], kg = KING[P.king];
+    let notches = '';
+    if (P.uses === Infinity) notches = '<span class="inf">∞</span>';
+    else for (let i = 0; i < P.uses; i++) notches += `<span class="notch${i < (o.spent || 0) ? ' is-spent' : ''}"></span>`;
+    let face;
+    if (P.art) face = `<img class="pa" src="${A}cards/${P.art}.jpg" alt="">`;
+    else {
+      const g = PGLYPH[p];
+      face = `<img class="pe" src="${A}emblems/${P.king}.webp" alt=""><svg class="pg" viewBox="0 0 24 24"><path d="${g.d}" fill="${g.fill ? kg.tint : 'none'}" stroke="${kg.tint}" stroke-width="${g.fill ? 1.2 : 2.3}" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    }
+    return `<span class="coin pcoin"${o.state ? ` data-state="${o.state}"` : ''} style="width:${size}px;height:${size}px" title="${esc(P.name)}">${face}<span class="notches">${notches}</span></span>`;
+  }
+  const CARDS = [
+    ['Freeze', 'Freeze', 'freeze', 'frost', 'As your move, freeze an enemy piece (not the king). It cannot move on its next turn.', 'move', 'never', 'them'],
+    ['IceWall', 'Ice Wall', 'icewall', 'frost', 'As your move, wall one of your pieces (not the king). It cannot be taken on the next turn.', 'move', 'never', 'them'],
+    ['March', 'March', 'march', 'mud', 'A pawn steps two squares from any rank.', 'move', 'never', 'now'],
+    ['Leap', 'Leap', 'leap', 'mud', 'A rook, bishop or queen passes over your own pawns.', 'move', 'may', 'now'],
+    ['Sacrifice', 'Sacrifice', 'sacrifice', 'stratus', 'Turn one of your pawns into one of your pieces that was taken earlier.', 'move', 'never', 'now'],
+    ['Mimic', 'Mimic', 'mimic', null, 'Move one of your pieces (not a pawn or the king) to an empty square, the way another of your pieces moves.', 'move', 'never', 'now'],
+    ['Vault', 'Vault', 'vault', null, 'A rook, bishop or queen passes over one piece on its line.', 'move', 'may', 'now'],
+    ['SkyLift', 'Sky Lift', 'skylift', null, 'Two of your pieces (not pawns or the king, not of one kind) trade squares.', 'move', 'never', 'now'],
+    ['Rescue', 'Rescue', 'rescue', null, 'As your move, your Freeze, Ice Wall or Firewall from your previous turn lasts one more turn.', 'move', 'never', 'them'],
+    ['Strike', 'Strike', null, 'flame', 'Move any piece except a pawn or the king as if it were a queen, to an empty square.', 'move', 'never', 'now'],
+    ['Haste', 'Haste', null, 'flame', 'Move one piece twice in one turn. The second move is optional. Neither move takes.', 'two', 'never', 'now'],
+    ['Flight', 'Flight', null, 'stratus', 'Move any piece except the king to any empty square in your half of the board.', 'move', 'never', 'now'],
+    ['Curse', 'Curse', null, null, 'Move an enemy piece or pawn (not the king) one square, to an empty square.', 'move', 'never', 'now'],
+    ['Salvation', 'Salvation', 'salvation', null, 'Return one of your taken pieces to an empty square of your back rank.', 'move', 'never', 'now'],
+    ['Rage', 'Rage', null, null, 'One of your pieces moves twice this turn and may take on either move.', 'two', 'may', 'now'],
+    ['RageB', 'Rage B', null, null, 'One of your pieces moves twice this turn. Its second move, if it makes one, must take.', 'two', 'must', 'now'],
+    ['Mirror', 'Mirror', null, null, 'Play the card your opponent played last, as if it were in your hand.', 'move', 'may', 'now'],
+    ['MirrorB', 'Mirror B', null, null, 'Play another card from your hand. It stays in your hand.', 'free', 'may', 'now'],
+    ['Firewall', 'Firewall', null, null, 'As your move, none of your pieces can be taken on your opponent’s next turn.', 'move', 'never', 'them'],
+    ['FirewallB', 'Firewall B', null, null, 'Swap one of your pieces (not the king) with an enemy piece (not the king) next to it.', 'move', 'never', 'now'],
+    ['EarthQuake', 'Earth Quake', null, null, 'Choose a square. Each piece next to it, except a king, is pushed one square away if that square is empty.', 'move', 'never', 'now'],
+    ['EarthQuakeB', 'Earth Quake B', null, null, 'Choose a square next to one of your pieces. Each piece next to it, except a king, is pushed one square away.', 'move', 'never', 'now'],
+    ['Burn', 'Burn', null, null, 'One of your pieces (not a pawn or the king) takes an enemy piece on d4, e4, d5 or e5 as a queen would.', 'move', 'must', 'now'],
+    ['FireStarter', 'Fire Starter', null, null, 'One of your pieces (not a pawn or the king) takes an enemy piece on the enemy back rank as a queen would.', 'move', 'must', 'now'],
+    ['Control', 'Control', null, null, 'One of your pieces (not a pawn or the king) moves and takes this turn as a friendly piece next to it does.', 'move', 'may', 'now'],
+    ['Growth', 'Growth', null, null, 'As your move, draw the next card.', 'move', 'never', 'now'],
+    ['GrowthB', 'Growth B', null, null, 'Draw the next card, then make your move.', 'free', 'never', 'now'],
+    ['Rally', 'Rally', null, null, 'Move one of your pieces, then a different one. The second move is optional. Neither move takes.', 'two', 'never', 'now'],
+    ['Morph', 'Morph', null, null, 'One of your pieces (not a pawn or the king) becomes another kind of piece where it stands.', 'move', 'never', 'now'],
+    ['MorphB', 'Morph B', null, null, 'One of your pieces becomes another kind of piece where it stands (not a queen).', 'move', 'never', 'now'],
+    ['MorphP', 'Morph P', null, null, 'One of your pawns becomes a knight or a bishop where it stands.', 'move', 'never', 'now'],
+    ['MorphS', 'Morph S', null, null, 'Two of your pieces (not pawns or the king, not of one kind) swap places.', 'move', 'never', 'now'],
+    ['Spawn', 'Spawn', null, null, 'As your move, a new pawn of yours appears on an empty square of your pawns’ start rank.', 'move', 'never', 'now'],
+    ['SpawnK', 'Spawn K', null, null, 'As your move, a new pawn of yours appears on an empty square next to your king.', 'move', 'never', 'now'],
+    ['Spawn2', 'Spawn 2', null, null, 'As your move, two new pawns of yours appear on your pawns’ start rank.', 'move', 'never', 'now'],
+    ['SpawnK2', 'Spawn K2', null, null, 'As your move, two new pawns of yours appear next to your king.', 'move', 'never', 'now'],
+  ].map(([id, name, art, twin, text, cost, captures, duration]) => ({ id, name, art, twin, text, cost, captures, duration }));
+  const CARD = Object.fromEntries(CARDS.map((c) => [c.id, c]));
+  // a variant card sits inside its parent card: Rage | B
+  const VAR_OF = { RageB: 'Rage', MirrorB: 'Mirror', FirewallB: 'Firewall', EarthQuakeB: 'EarthQuake', GrowthB: 'Growth', MorphB: 'Morph', MorphP: 'Morph', MorphS: 'Morph', SpawnK: 'Spawn', Spawn2: 'Spawn', SpawnK2: 'Spawn' };
+  const familyOf = (id) => { const p = VAR_OF[id] || id; return [p, ...CARDS.filter((c) => VAR_OF[c.id] === p).map((c) => c.id)]; };
+  const varLabel = (id) => (VAR_OF[id] ? CARD[id].name.replace(CARD[VAR_OF[id]].name, '').trim() : 'A');
+  const LAWS = [
+    { id: 'promo', name: 'Promotion', vals: ['Q R B N', 'Q', 'Q R B N A'], text: 'A pawn on the last rank becomes one of these pieces.' },
+    { id: 'fifty', name: '50-move draw', vals: ['On', 'Off'], text: 'Fifty moves each with no take and no pawn move: the game is a draw.' },
+    { id: 'three', name: 'Threefold repetition', vals: ['On', 'Off'], text: 'The same position three times: the game is a draw.' },
+    { id: 'material', name: 'Too few pieces', vals: ['On', 'Off'], text: 'When no side can give mate, the game is a draw.' },
+    { id: 'guard', name: 'Guard by its king', vals: ['On', 'Off'], text: 'The Guard starts next to its own king.' },
+    { id: 'bishops', name: 'Bishops on two colours', vals: ['On', 'Off'], text: 'Two bishops of one side start on squares of two colours.' },
+  ];
+  const PROMO_IC = { Q: 'queen', R: 'rook', B: 'bishop', N: 'knight', A: 'archer' };
+
+  /* ================= STATE ================= */
+  const S0 = () => ({
+    tab: 'pieces', view: 'lib', item: null, design: null, sq: null,
+    focus: null, knot: null, select: null, hover: null,
+    brush: null, mirror: 'mirror', trayOpen: false, traySel: null,
+    flipped: false, peek: false,
+    seat: null, armed: null, spent: 0, slot: null, cardPlayed: null,
+    threats: false, played: null, cleared: false, lift: false,
+    yours: [], sheet: null, pop: null,
+    laws: { promo: 'Q R B N', fifty: 'On', three: 'On', material: 'On', guard: 'On', bishops: 'On' }, lawsYours: false,
+    undoLabel: null,
+  });
+  let S = S0();
+  let hist = [];
+  const isPhone = () => matchMedia('(max-width: 640px)').matches;
+
+  function snap(label) {
+    hist.push(JSON.stringify({ design: S.design, sq: S.sq, yours: S.yours, laws: S.laws, lawsYours: S.lawsYours, label: S.undoLabel }));
+    if (hist.length > 40) hist.shift();
+    S.undoLabel = label;
+  }
+  function undo() {
+    const h = hist.pop();
+    if (!h) return;
+    const o = JSON.parse(h);
+    S.design = o.design; S.sq = o.sq; S.yours = o.yours; S.laws = o.laws; S.lawsYours = o.lawsYours; S.undoLabel = hist.length ? o.label : null;
+    S.played = null; S.select = null; S.traySel = null;
+    render();
+  }
+
+  /* ================= DESIGNS AND SCENES ================= */
+  function designOf(k) {
+    if (k === 'new') return { base: 'new', name: 'New piece', icon: null, squares: [], lines: [], rules: [], copy: false, isNew: true };
+    const p = SC.patterns[k], sc = SC.get(PIECES[k].scene);
+    return { base: k, name: PIECES[k].name, icon: p.icon, squares: clone(p.squares), lines: p.lines.slice(), rules: sc.seals.map((s) => ({ a: s.a, pill: s.pill, when: s.when })), copy: false };
+  }
+  const defaultSq = (k) => (k === 'new' ? 'd4' : SC.get(PIECES[k].scene).pieces.find((p) => p.open).sq);
+  const sigOf = (rules) => rules.map((r) => r.a + (r.pill ? ':' + r.pill : '')).join(',');
+  const EMPTY = { squares: [], lines: [] };
+  const origPattern = (d) => (d.base === 'new' ? EMPTY : SC.patterns[d.base]);
+
+  function designPattern(d, extra) {
+    const rules = extra ? canonical([...d.rules, extra]) : d.rules;
+    const p = { squares: clone(d.squares), lines: d.lines.slice(), pass: null, icon: d.icon, rules };
+    const lp = rules.find((r) => r.a === 'linesPass');
+    if (lp && p.lines.length) p.pass = lp.pill || 'own';
+    const ml = rules.find((r) => r.a === 'movesLike');
+    if (ml) {
+      const like = ml.pill || 'queen';
+      if (['queen', 'rook', 'bishop'].includes(like) && !p.lines.length) { p.lines = SC.patterns[like].lines.slice(); p.condLines = 'pattern'; }
+      else if (like === 'knight' || like === 'king') SC.patterns[like].squares.forEach((q) => { if (!p.squares.find((s) => s.x === q.x && s.y === q.y)) p.squares.push({ ...q, cond: true }); });
+    }
+    return p;
+  }
+  const canonical = (rules) => rules.slice().sort((a, b) => BIDX[a.a] - BIDX[b.a]);
+
+  const getS = (id) => clone(SC.get(id));
+  const setImg = (sc, sq, img) => sc.pieces.forEach((p) => { if (p.sq === sq && p.k === 'king') p.img = img; });
+  function withKnightD3(sc) {
+    sc.pieces.push({ sq: 'd3', k: 'knight', side: 'b' });
+    sc.marks = sc.marks.map((m) => (m.sq === 'd3' ? { sq: 'd3', k: 'take' } : m));
+    return sc;
+  }
+  const sameRules = (a, b) => sigOf(canonical(a)) === sigOf(canonical(b));
+
+  // the scripted scene for a design at a square, plus the pattern that scene assumes (G22: no move generator)
+  function baseSceneFor(d, sq) {
+    const sig = sigOf(d.rules);
+    const P = SC.patterns;
+    let sc = null, expect = d.base === 'new' ? EMPTY : P[d.base];
+    switch (d.base) {
+      case 'pawn':
+        if (sig === 'step2,becomes:choice') sc = sq === 'e2' ? getS('pawn-e2-knight') : sq === 'd4' ? getS('pawn') : null;
+        else if (sig === 'step2,movesLike:queen,becomes:choice') {
+          expect = P.mypawn;
+          sc = sq === 'e2' ? withKnightD3(getS('mypawn-queen-e2')) : sq === 'd4' ? getS('mypawn-queen-knight') : sq === 'b4' ? getS('mypawn-queen-b4') : null;
+        }
+        break;
+      case 'beast':
+        sc = sig === 'chain' ? getS('beast') : sig === 'chain,removedAfter:piece' ? getS('mybeast') : sig === 'chain,removedAfter:any' ? getS('mybeast-any') : null;
+        break;
+      case 'rook':
+        if (!d.rules.length) {
+          sc = S.seat === 'mud' && S.armed === 'Leap' ? getS('rook-leap') : getS('rook');
+          if (S.seat !== 'mud') setImg(sc, 'e1', S.seat ? `kings/${S.seat}.webp` : 'kings/spirit.webp');
+        }
+        break;
+      case 'paladin':
+        if (sig === 'linesPass:own,cannotTake:king,removedAfter:piece') {
+          if (S.slot === 'Freeze') sc = getS(S.cardPlayed === 'c6' ? 'freeze-card' : 'freeze');
+          else if (S.seat === 'frost') {
+            if (S.armed === 'Freeze' && S.cardPlayed === 'c6') sc = getS('frost-power');
+            else { sc = getS('freeze'); delete sc.card; if (S.armed !== 'Freeze') sc.effects = sc.effects.filter((e) => e.k === 'threat'); setImg(sc, 'b1', 'kings/frost.webp'); }
+          } else if (S.seat === 'mud' && S.armed === 'Leap') sc = getS('echo');
+          else { sc = getS('paladin'); if (S.seat) setImg(sc, 'b1', `kings/${S.seat}.webp`); }
+        }
+        break;
+      case 'new':
+        sc = { pieces: [{ sq: 'd4', k: 'new', side: 'w', open: true, img: 'workshop/iron-warden-w.webp' }], marks: [], seals: [] };
+        break;
+      default:
+        if (sameRules(d.rules, designOf(d.base).rules)) sc = getS(PIECES[d.base].scene);
+    }
+    if (sc) for (const k of ['marks', 'rails', 'arches', 'effects', 'impressions', 'chalk', 'knots', 'seals']) sc[k] = sc[k] || [];
+    return { sc, expect };
+  }
+
+  const cellKey = (q) => q.x + ',' + q.y;
+  const cellMap = (p) => Object.fromEntries((p.squares || []).map((q) => [cellKey(q), q]));
+  const KIND = { move: 'move', take: 'take', both: 'both', shoot: 'shot', moveShoot: 'moveshot', shot: 'shot', moveshot: 'moveshot' };
+  function effKind(mark, occ, side) {
+    const k = KIND[mark];
+    if (!occ) return k;
+    if ((occ.side || 'w') === side) return null;
+    if (k === 'move') return null;
+    if (k === 'take' || k === 'both') return 'take';
+    return 'shot';
+  }
+  // Paint the design's geometry onto the board, where it differs from the pattern that the scene assumes.
+  // This only places painted squares and plain lines. It runs no rules (G22: no move generator).
+  function project(sc, want, expect, orig) {
+    const open = sc.pieces.find((p) => p.open);
+    if (!open) return sc;
+    const at = {};
+    sc.pieces.forEach((p) => { if (!p.ghost) at[p.sq] = p; });
+    const [f0, r0] = parse(open.sq), side = open.side || 'w', fw = side === 'b' ? -1 : 1;
+    const Wm = cellMap(want), Em = cellMap(expect), Om = cellMap(orig);
+    const same = (a, b) => (!a && !b) || (a && b && a.mark === b.mark && !!a.cond === !!b.cond);
+    for (const k of new Set([...Object.keys(Wm), ...Object.keys(Em)])) {
+      if (same(Wm[k], Em[k])) continue;
+      const [x, y] = k.split(',').map(Number);
+      const sq = sqn(f0 + x, r0 + y * fw);
+      if (!sq) continue;
+      const old = sc.marks.find((m) => m.sq === sq);
+      sc.marks = sc.marks.filter((m) => m.sq !== sq);
+      sc.impressions = sc.impressions.filter((i) => i.sq !== sq);
+      const w = Wm[k];
+      if (!w) { if (old) sc.marks.push({ sq, k: old.k, cond: old.cond, diff: '-' }); continue; }
+      const kind = effKind(w.mark, at[sq], side);
+      if (!kind) continue;
+      const m = { sq, k: kind };
+      if (w.cond) m.cond = r0 === 2 ? 'awake' : 'asleep';
+      if (!same(w, Om[k])) { m.diff = '+'; m.quill = true; }
+      sc.marks.push(m);
+    }
+    const wl = new Set(want.lines || []), el = new Set(expect.lines || []), ol = new Set(orig.lines || []);
+    for (const dir of DIRS) {
+      if (wl.has(dir) === el.has(dir)) continue;
+      const [dx, dy0] = DV[dir], dy = dy0 * fw;
+      const onRay = (r) => { const a = parse(r.from), b = parse(r.to); return r.from === open.sq && Math.sign(b[0] - a[0]) === dx && Math.sign(b[1] - a[1]) === dy; };
+      if (!wl.has(dir)) {
+        sc.rails = sc.rails.filter((r) => !onRay(r));
+        for (let i = 1; i < 8; i++) {
+          const q = sqn(f0 + dx * i, r0 + dy * i);
+          if (!q) break;
+          const m = sc.marks.find((mm) => mm.sq === q);
+          if (m) { m.diff = '-'; delete m.by; }
+          if (at[q] && !sc.arches.some((a) => a.over === q)) break;
+        }
+        continue;
+      }
+      let last = null, end = 'arrow';
+      const added = !ol.has(dir);
+      for (let i = 1; i < 8; i++) {
+        const q = sqn(f0 + dx * i, r0 + dy * i);
+        if (!q) break;
+        const occ = at[q];
+        sc.marks = sc.marks.filter((mm) => mm.sq !== q);
+        if (occ) {
+          last = q;
+          if ((occ.side || 'w') === side) end = 'stop';
+          else { end = 'x'; sc.marks.push({ sq: q, k: 'take', diff: added ? '+' : undefined, quill: added }); }
+          break;
+        }
+        sc.marks.push({ sq: q, k: 'move', diff: added ? '+' : undefined, quill: added && i === 1 });
+        last = q;
+      }
+      if (last) sc.rails.push({ from: open.sq, to: last, end });
+    }
+    return sc;
+  }
+
+  // the scene on the table now
+  function tableScene(opt = {}) {
+    const d = opt.design || S.design;
+    if (!d) return null;
+    const sq = S.sq;
+    const { sc: base, expect } = baseSceneFor(d, sq);
+    let sc = base, noScene = false, exp = expect;
+    if (!sc) {
+      noScene = true;
+      const fb = baseSceneFor(designOf(d.base === 'new' ? 'new' : d.base), defaultSq(d.base));
+      sc = fb.sc || { pieces: [], marks: [] };
+      exp = fb.expect;
+      for (const k of ['marks', 'rails', 'arches', 'effects', 'impressions', 'chalk', 'knots', 'seals']) sc[k] = sc[k] || [];
+    }
+    const geo = { squares: d.squares, lines: d.lines };
+    if (S.cleared && !opt.noClear) {
+      const open = sc.pieces.find((p) => p.open);
+      sc = { pieces: [open], marks: [], rails: [], arches: [], effects: [], impressions: [], chalk: sc.chalk, knots: sc.knots, seals: sc.seals };
+      project(sc, geo, EMPTY, origPattern(d));
+    } else project(sc, geo, exp, origPattern(d));
+    if (!S.threats) sc.effects = sc.effects.filter((e) => e.k !== 'threat');
+    if (S.played && !opt.noPlay) {
+      const pl = S.played, open = sc.pieces.find((p) => p.open);
+      const tgt = sc.pieces.find((p) => !p.open && !p.ghost && p.sq === pl.to);
+      sc.pieces = sc.pieces.filter((p) => p !== tgt && !p.ghost);
+      if (!pl.shot) open.sq = pl.to;
+      if (pl.removed) sc.pieces = sc.pieces.filter((p) => p !== open);
+      sc.marks = []; sc.rails = []; sc.arches = []; sc.chalk = [];
+      sc.effects = sc.effects.filter((e) => e.k === 'frost');
+      sc.impressions = pl.removed ? [{ sq: pl.to, list: [{ a: 'removedAfter' }] }] : [];
+      delete sc.why; sc.dim = false;
+    }
+    sc.noScene = noScene;
+    return sc;
+  }
+  const openOf = (sc) => sc && sc.pieces.find((p) => p.open);
+
+  /* ================= SMALL BUILDERS ================= */
+  function railIcon(size = 26) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 26 26"><path d="M4 22L19 7" stroke="rgba(251,247,238,.92)" stroke-width="9" stroke-linecap="round"/><path d="M4 22L19 7" stroke="#1c2e5c" stroke-width="7" stroke-linecap="round"/><path d="M4 22L19 7" stroke="#7cb342" stroke-width="4.4" stroke-linecap="round"/><path d="M12.5 5.5h9v9" fill="none" stroke="#1c2e5c" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 5.5h9v9" fill="none" stroke="#7cb342" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+  const TABS = [
+    ['pieces', 'Pieces', `<svg viewBox="0 0 24 24"><path d="M12 3.2a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM9 10.2h6l-.6 1.4c0 2.6.9 4.8 2.6 6.6H7c1.7-1.8 2.6-4 2.6-6.6zM5.5 19.2h13v2.3h-13z" fill="currentColor"/></svg>`],
+    ['kings', 'Kings', `<svg viewBox="0 0 24 24"><path d="M3.5 18.5h17v2.2h-17zM4 17l-1-9.5 5 4.2L12 4l4 7.7 5-4.2-1 9.5z" fill="currentColor"/></svg>`],
+    ['cards', 'Cards', `<svg viewBox="0 0 24 24"><rect x="5" y="2.8" width="14" height="18.4" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12.5 2.8H17a2 2 0 0 1 2 2v4.7z" fill="#842c21"/><path d="M8.5 15h7M8.5 18h4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`],
+    ['rules', 'Rules', null],
+  ];
+  const tabIcon = (t, size = 28) => t[2] || M.seal('linesPass', size, { title: 'Rules' });
+
+  // what a rule does to the 7x7 diagram, drawn in the cells it changes (swap, push, chain)
+  function arrowSvg(p0, p1, col, w, both) {
+    const vx = p1[0] - p0[0], vy = p1[1] - p0[1], L = Math.hypot(vx, vy) || 1, u = [vx / L, vy / L], hl = Math.max(4, w * 2.6), hw = hl * 0.62;
+    const head = (t, uu) => { const b = [t[0] - uu[0] * hl, t[1] - uu[1] * hl]; return `M${t[0].toFixed(1)} ${t[1].toFixed(1)}L${(b[0] - uu[1] * hw).toFixed(1)} ${(b[1] + uu[0] * hw).toFixed(1)}L${(b[0] + uu[1] * hw).toFixed(1)} ${(b[1] - uu[0] * hw).toFixed(1)}z`; };
+    const a = both ? [p0[0] + u[0] * hl * 0.7, p0[1] + u[1] * hl * 0.7] : p0, b = [p1[0] - u[0] * hl * 0.7, p1[1] - u[1] * hl * 0.7];
+    const shaft = `M${a[0].toFixed(1)} ${a[1].toFixed(1)}L${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
+    const heads = head(p1, u) + (both ? head(p0, [-u[0], -u[1]]) : '');
+    return `<path d="${shaft}" stroke="rgba(251,247,238,.95)" stroke-width="${w + 2.5}" stroke-linecap="round"/><path d="${heads}" fill="rgba(251,247,238,.95)" stroke="rgba(251,247,238,.95)" stroke-width="2.5" stroke-linejoin="round"/>` +
+      `<path d="${shaft}" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/><path d="${heads}" fill="${col}"/>`;
+  }
+  function ruleOverlay(rules, s) {
+    if (!rules || !rules.length) return '';
+    const has = (a) => rules.some((r) => r.a === a);
+    const cc = (x, y) => [(x + 3) * s + s / 2, (3 - y) * s + s / 2];
+    const ring = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
+    const w = s < 20 ? 1.6 : 2.6;
+    let g = '';
+    if (has('chain')) {
+      // takes again: the second ring of takes, dashed
+      for (let x = -2; x <= 2; x++) for (let y = -2; y <= 2; y++) {
+        if (Math.max(Math.abs(x), Math.abs(y)) !== 2) continue;
+        // the shared conditional take tile (dashed frame, red target), as the diagram draws any take that needs a condition
+        const [cx, cy] = cc(x, y);
+        g += M.tileMarkup('take', cx - s / 2, cy - s / 2, s, { cond: 'pattern' });
+      }
+    }
+    if (has('push')) for (const [x, y] of ring) { const a = cc(x * 1.15, y * 1.15), b = cc(x * 1.85, y * 1.85); g += arrowSvg(a, b, '#2f7f75', w); }
+    if (has('swap')) for (const [x, y] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a = cc(x * 0.42, y * 0.42), b = cc(x * 1.3, y * 1.3); g += arrowSvg(a, b, '#7a58c0', w, true); }
+    return g;
+  }
+  function diagramSvg(pattern, s, o = {}) {
+    const p = Object.assign({}, pattern);
+    if (s < 20) p.pass = null; // no bridges on a thumbnail: they make a tangle
+    const inner = M.diagram(p, Object.assign({ s, cells: false, assets: A }, o)).replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
+    // the overlay goes under the centre icon: split the icon off the end
+    const m = inner.match(/(<image[^>]*\/>|<circle[^>]*\/>)$/);
+    const body = m ? inner.slice(0, -m[0].length) : inner, icon = m ? m[0] : '';
+    return body + `<g>${ruleOverlay(pattern.rules, s)}</g>` + icon;
+  }
+  function thumbDiagram(pattern, s, cls = '') {
+    return `<div class="dgw ${cls}" style="--c:${s}px;width:${7 * s}px;height:${7 * s}px"><svg class="marks" width="${7 * s}" height="${7 * s}" viewBox="0 0 ${7 * s} ${7 * s}" style="overflow:visible">${diagramSvg(pattern, s)}</svg></div>`;
+  }
+  function pieceThumb(k) {
+    const d = designOf(k), pat = designPattern(d);
+    const seals = d.rules.length ? `<div class="sl">${d.rules.map((r) => M.seal(r.a, 22)).join('')}</div>` : '';
+    return `<button class="pc" data-act="open" data-k="${k}" aria-label="${d.name}">
+      <div class="t">${iconImg(pat.icon, 'w', 18)}<b>${d.name}</b></div>
+      <div class="art"><img src="${A}pieces/${k}-w.webp" alt=""></div>
+      ${thumbDiagram(pat, 14)}${seals}</button>`;
+  }
+  function copyThumb(y, i, mini) {
+    const d = y.design;
+    const art = d.base === 'new' ? `workshop/iron-warden-w.webp` : `pieces/${d.base}-w.webp`;
+    const pat = designPattern(d);
+    const seals = !mini && d.rules.length ? `<div class="sl">${d.rules.map((r) => M.seal(r.a, 22)).join('')}</div>` : '';
+    return `<button class="pc copy${mini ? ' mini' : ''}" data-act="openyours" data-i="${i}" aria-label="${esc(titleOf(d))}">
+      <div class="t">${d.icon ? iconImg(d.icon, 'w', mini ? 14 : 18) : ''}<b>${esc(titleOf(d))}</b></div>
+      <div class="art"><img src="${A}${art}" alt=""></div>
+      ${thumbDiagram(pat, mini ? 10 : 14)}${seals}
+      <span class="ytag">${M.tag('yours')}</span></button>`;
+  }
+  const titleOf = (d) => (d.isNew ? 'New piece' : d.copy ? 'My ' + d.name : d.name);
+  function kingsDoor() {
+    const fan = KINGS.map((k, i) => `<span style="transform:rotate(${-25 + i * 10}deg)"><img src="${A}emblems/${k.id}.webp" alt=""></span>`).join('');
+    return `<button class="pc door" data-act="tab" data-tab="kings" aria-label="Kings">
+      <div class="t"><b>Kings</b></div><div class="art"><img src="${A}kings/spirit.webp" alt=""></div><div class="fan">${fan}</div></button>`;
+  }
+  function kingThumb(kg) {
+    const coins = kg.powers.map((p) => `<span class="pw2">${powerCoin(p, isPhone() ? 48 : 60)}<small>${POWERS[p].name}</small></span>`).join('');
+    return `<button class="pc king" data-act="king" data-k="${kg.id}" aria-label="${kg.name}">
+      <div class="t"><img src="${A}emblems/${kg.id}.webp" alt=""><b>${kg.name}</b></div>
+      <div class="art"><img src="${A}kings/${kg.id}.webp" alt=""></div>
+      <div class="coins">${coins}</div></button>`;
+  }
+  function handCard(c) {
+    return `<button class="hc" data-act="card" data-k="${c.id}" aria-label="${c.name}, LAB card"><span class="hart"><img src="${A}cards/${c.art}.jpg" alt=""></span>
+      ${c.twin ? `<span class="badge" title="Also a power of the ${c.twin} king"><img src="${A}emblems/${c.twin}.webp" alt=""></span>` : ''}<b>${c.name}</b></button>`;
+  }
+  function cardChip(c) {
+    const fam = familyOf(c.id);
+    const face = c.twin ? `<span class="ce"><img src="${A}emblems/${c.twin}.webp" alt=""></span>` : `<span class="ce plain">${sg('card', 18, 1.8)}</span>`;
+    return `<button class="bare cchip" data-act="card" data-k="${c.id}" aria-label="${c.name}, LAB card">${face}<span>${c.name}</span>${fam.length > 1 ? `<i title="${fam.length} versions">×${fam.length}</i>` : ''}</button>`;
+  }
+  // the captures cell of the shared facet band (M.facets), as a bare <svg>
+  function facetCapture(captures) {
+    const t = document.createElement('template');
+    t.innerHTML = M.facets({ captures });
+    return t.content.querySelectorAll('.facet .cell')[2].querySelector('svg').outerHTML;
+  }
+  // the facets that are not the usual value, as one quiet line of pictograms
+  const FG = {
+    enemy: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" fill="#4a4850" stroke="#2b2621" stroke-width="1.2"/></svg>',
+    notKing: `<svg viewBox="0 0 24 24"><path d="${M.SIGILS.crown}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M3 3l18 18" stroke="#d63428" stroke-width="2.6" stroke-linecap="round"/></svg>`,
+    free: '<svg viewBox="0 0 24 16"><circle cx="6" cy="8" r="4.5" fill="none" stroke="#2b2621" stroke-width="1.6"/><circle cx="18" cy="8" r="4.5" fill="#2b2621"/></svg>',
+    two: '<svg viewBox="0 0 24 16"><circle cx="6" cy="8" r="4.5" fill="#2b2621"/><circle cx="18" cy="8" r="4.5" fill="#2b2621"/></svg>',
+    // take facets come from the shared facet band: a grey target with a bar (never), a target with a line under it (must)
+    never: facetCapture('never'),
+    must: facetCapture('must'),
+    them: '<svg viewBox="0 0 34 16"><rect x="1" y="5" width="9" height="10" rx="1.5" fill="#fffcf4" stroke="#4d453c"/><rect x="12.5" y="5" width="9" height="10" rx="1.5" fill="#4a4850" stroke="#4d453c"/><rect x="24" y="5" width="9" height="10" rx="1.5" fill="#fffcf4" stroke="#4d453c"/><rect x="12.5" y="0.5" width="9" height="3" rx="1.5" fill="#7fb2ff" stroke="#2f5ea8" stroke-width=".8"/></svg>',
+    always: '<svg viewBox="0 0 24 16"><text x="12" y="14" text-anchor="middle" font-family="Alegreya Sans, sans-serif" font-weight="700" font-size="17" fill="#2f5ea8">∞</text></svg>',
+  };
+  function facetLine(f) {
+    const it = [];
+    if (f.targets && f.targets.side === 'b') it.push([FG.enemy, 'an enemy']);
+    if (f.targets && f.targets.notKing) it.push([FG.notKing, 'not the king']);
+    if (f.cost === 'free') it.push([FG.free, 'then your move']);
+    if (f.cost === 'two') it.push([FG.two, 'two moves']);
+    if (f.captures === 'never') it.push([FG.never, 'no take']);
+    if (f.captures === 'must') it.push([FG.must, 'must take']);
+    if (f.duration === 'them') it.push([FG.them, 'their turn']);
+    if (f.duration === 'always') it.push([FG.always, 'always on']);
+    return it.length ? `<div class="fline">${it.map(([g, w]) => `<span>${g}${w}</span>`).join('')}</div>` : '';
+  }
+
+  /* ================= TOP BAR AND RAIL ================= */
+  function topbar() {
+    if (S.view === 'lib') return `<header class="topbar"><div class="l"><button class="quiet" data-act="menu">‹ Menu</button></div><div class="c"><span class="disp">Workshop</span></div></header>`;
+    const back = { piece: '‹ Pieces', king: '‹ Kings', card: '‹ Cards', seal: '‹ Rules', law: '‹ Rules' }[S.view];
+    let right = '';
+    if (S.view === 'piece') {
+      right = `${hist.length ? `<button class="quiet" data-act="undo">↶ Undo ${esc(S.undoLabel || '')}</button>` : ''}<button class="quiet" data-act="share">Share</button>`;
+    }
+    return `<header class="topbar"><div class="l"><button class="quiet" data-act="back">${back}</button></div><div class="r">${right}</div></header>`;
+  }
+  function rail() {
+    return `<nav class="rail" aria-label="Library">${TABS.map((t, i) => `<button class="bare tab${S.tab === t[0] ? ' on' : ''}" style="top:${16 + i * 88}px" data-act="tab" data-tab="${t[0]}" aria-current="${S.tab === t[0]}">${tabIcon(t)}<small>${t[1]}</small></button>`).join('')}</nav>`;
+  }
+
+  /* ================= LIBRARY PAGES ================= */
+  function library() {
+    if (S.tab === 'pieces') {
+      const yours = S.yours.map((y, i) => copyThumb(y, i, true)).join('');
+      return `<main class="lib"><header class="lib-h"><h1>PIECES</h1><p>Pick a card. Change anything. The original stays.</p></header>
+        <div class="grid">${ROW1.map(pieceThumb).join('')}${ROW2.map(pieceThumb).join('')}${kingsDoor()}
+        <button class="pc new" data-act="open" data-k="new" aria-label="New piece"><span class="plus">+</span><b>NEW</b></button></div>
+        <section class="yours"><h2>YOURS</h2>${yours ? `<div class="row">${yours}</div>` : '<p class="empty">Your cards come here.</p>'}</section></main>`;
+    }
+    if (S.tab === 'kings') return `<main class="lib"><header class="lib-h"><h1>KINGS</h1><p>Each king has two powers. A player picks one, or none.</p></header>
+      <div class="grid kings">${KINGS.map(kingThumb).join('')}</div></main>`;
+    if (S.tab === 'cards') return `<main class="lib">${cardsPage()}</main>`;
+    return `<main class="lib">${rulesPage(false)}</main>`;
+  }
+  function cardsPage() {
+    const art = CARDS.filter((c) => c.art), rest = CARDS.filter((c) => !c.art && !VAR_OF[c.id]);
+    return `<header class="lib-h"><h1>CARDS <span class="labban">LAB <small>Test deck. Not in the game.</small></span></h1></header>
+      <div class="${isPhone() ? 'phand' : 'hand-row'}">${art.map(handCard).join('')}</div>
+      <section class="shelf" style="margin-top:26px"><h3>NO ART YET</h3><div class="chips">${rest.map(cardChip).join('')}</div></section>`;
+  }
+  // pictures for the table rules and the fixed facts
+  const LAWPIC = {
+    promo: () => `<svg viewBox="0 0 24 24" width="44" height="44"><path d="${M.SIGILS.becomes}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    fifty: () => `<svg viewBox="0 0 24 24" width="44" height="44"><path d="${M.SIGILS.hourglass}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><text x="19.5" y="23" text-anchor="middle" font-family="Alegreya Sans, sans-serif" font-weight="800" font-size="8.5" fill="#842c21" stroke="#fbf7ee" stroke-width="2" paint-order="stroke">50</text></svg>`,
+    three: () => `<svg viewBox="0 0 24 24" width="44" height="44"><g fill="#fbf7ee" stroke="currentColor" stroke-width="1.4"><rect x="2.5" y="2.5" width="11" height="11" rx="1"/><rect x="6.5" y="6.5" width="11" height="11" rx="1"/><rect x="10.5" y="10.5" width="11" height="11" rx="1"/></g><path d="M10.5 16h11M16 10.5v11" stroke="currentColor" stroke-width=".6" opacity=".5"/></svg>`,
+    material: () => `<svg viewBox="0 0 24 24" width="44" height="44"><path d="${M.SIGILS.scale}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    guard: () => `<span style="display:flex;align-items:end;gap:0">${iconImg('guard', 'w', 30)}${iconImg('king', 'w', 30)}</span>`,
+    bishops: () => `<svg viewBox="0 0 24 24" width="44" height="44"><rect x="1" y="7" width="11" height="11" fill="#efe6d0" stroke="#4d453c" stroke-width=".8"/><rect x="12" y="7" width="11" height="11" fill="#6f6b65" stroke="#4d453c" stroke-width=".8"/><image href="${A}icons/bishop.svg" x="2" y="8" width="9" height="9"/><image href="${A}icons/bishop.svg" x="13" y="8" width="9" height="9"/></svg>`,
+  };
+  const barred = (inner) => `<svg viewBox="0 0 40 40">${inner}<path d="M6 34L34 6" stroke="#fbf7ee" stroke-width="6" stroke-linecap="round"/><path d="M6 34L34 6" stroke="#4d453c" stroke-width="3" stroke-linecap="round"/></svg>`;
+  const FIXED = [
+    ['8×8 board', `<svg viewBox="0 0 40 40">${Array.from({ length: 16 }, (_, i) => `<rect x="${4 + (i % 4) * 8}" y="${4 + Math.floor(i / 4) * 8}" width="8" height="8" fill="${(i + Math.floor(i / 4)) % 2 ? '#6f6b65' : '#efe6d0'}"/>`).join('')}<rect x="4" y="4" width="32" height="32" fill="none" stroke="#4d453c"/></svg>`],
+    ['Check and mate', `<svg viewBox="0 0 40 40"><image href="${A}icons/king.svg" x="6" y="6" width="28" height="28"/><circle cx="20" cy="20" r="17" fill="none" stroke="#e02828" stroke-width="2.5"/></svg>`],
+    ['No castling', barred(`<image href="${A}icons/rook.svg" x="3" y="8" width="18" height="18"/><image href="${A}icons/king.svg" x="19" y="14" width="18" height="18"/>`)],
+    ['No en passant', barred(`<image href="${A}icons/pawn.svg" x="8" y="8" width="24" height="24"/>`)],
+    ['A power never takes a king', barred(`<circle cx="20" cy="20" r="15" fill="#e9dcc0" stroke="#4d453c"/><path d="${'M10 25h20M10.5 25l-1-9 5 3.7L20 12l4.5 7.7 5-3.7-1 9'}" fill="none" stroke="#7a5712" stroke-width="2" stroke-linejoin="round"/>`)],
+  ];
+  function lawCtl(l) {
+    if (l.id === 'promo') return `<button class="promo" data-act="lawdial" data-k="promo" aria-label="Promotion: ${S.laws.promo}">${S.laws.promo.split(' ').map((c) => iconImg(PROMO_IC[c], 'w', 22)).join('')}</button>`;
+    return `<button class="switch" role="switch" aria-checked="${S.laws[l.id] === 'On'}" data-act="lawflip" data-k="${l.id}" aria-label="${l.name}"></button>`;
+  }
+  function rulesPage(phone) {
+    const seals = M.BLOCKS.map((b) => `<button class="bare sealtile" data-act="sealpage" data-a="${b.a}">${M.seal(b.a, phone ? 56 : 64)}<b>${esc(b.title.replace(/\s*…$/, ''))}</b></button>`).join('');
+    const laws = LAWS.map((l) => `<div class="law" data-act="law" data-k="${l.id}" role="button" tabindex="0"><span class="pic">${LAWPIC[l.id]()}</span><b>${l.name}</b><span class="ctl">${lawCtl(l)}</span></div>`).join('');
+    const fixed = FIXED.map(([w, svg]) => `<span title="${w}. Fixed in the engine.">${svg}${w}</span>`).join('') + `<span class="lk" title="Fixed in the engine">${sg('lock', 20)}</span>`;
+    return `<header class="lib-h"><h1>RULES</h1><p>A piece rule changes one piece. A table rule changes the whole game.</p></header>
+      <section class="shelf"><h3>PIECE RULES</h3><div class="${phone ? 'psealrow' : 'sealrow'}">${seals}</div></section>
+      <section class="shelf" style="margin-top:22px"><h3>TABLE RULES ${S.lawsYours ? `<span style="font:700 12.5px var(--font-body);letter-spacing:0;color:var(--ink)">MY RULES</span> ${M.tag('yours')}` : ''}</h3><div class="${phone ? 'plaws' : 'laws'}">${laws}</div>
+      <div class="fixed">${fixed}</div></section>`;
+  }
+
+  /* ================= THE PIECE CARD ================= */
+  function sentence(rule, i, o = {}) {
+    const b = M.blockOf(rule.a), when = rule.when || b.when;
+    const pill = b.pill ? `<button class="pw" data-act="pill" data-i="${i}" ${o.ghost ? 'tabindex="-1"' : ''}>${esc(choice(rule.a, rule.pill))}</button>` : '';
+    const wp = when && when.on !== 'always' ? `<span class="wp" title="${esc(M.whenWords(when))}">${M.picto(when, 17)}</span>` : '';
+    const W = { startRank: 'On its start rank', capital: 'On a center square', lastRank: 'On the last rank', enemyHalf: 'In the enemy half', ownHalf: 'In your half' };
+    const lead = when && when.zone && W[when.zone] ? W[when.zone] : '';
+    switch (rule.a) {
+      case 'step2': return `${wp}${lead}, it steps 2 straight ahead.`;
+      case 'movesLike': return `${wp}${lead}, it also moves like ${pill}.`;
+      case 'linesPass': return `Its lines pass over ${pill}.`;
+      case 'chain': return `${wp}When it takes, it may take again.`;
+      case 'cannotBeTaken': return `It cannot be taken ${pill}.`;
+      case 'push': return `It pushes a piece 1 square ${pill}.`;
+      case 'swap': return `It swaps with ${pill} next to it.`;
+      case 'becomes': return `${wp}${lead}, it becomes ${pill}.`;
+      case 'cannotTake': return `It cannot take ${pill}.`;
+      case 'removedAfter': return `${wp}When it takes ${pill}, it is removed too.`;
+    }
+    return '';
+  }
+  function bandRules() {
+    const d = S.peek ? designOf(S.design.base) : S.design;
+    let rules = d.rules.map((r) => ({ ...r }));
+    if (S.traySel && !rules.some((r) => r.a === S.traySel) && rules.length < 3) {
+      const b = M.blockOf(S.traySel);
+      rules.push({ a: S.traySel, pill: b.pill ? b.pill.def : undefined, when: b.when, ghost: true });
+      rules = canonical(rules);
+    }
+    return rules;
+  }
+  const deadRow = (sc) => { const k = sc && !S.traySel && !S.peek && (sc.knots || []).find((x) => x.type === 'cracked'); return k ? (k.dead != null ? k.dead : k.a) : null; };
+  function sealBand() {
+    const sc = tableScene();
+    const rules = bandRules();
+    const asleepOf = (a) => { const s = sc && sc.seals.find((x) => x.a === a); return !!(s && s.asleep); };
+    const edit = S.design.copy || S.design.isNew;
+    const dead = deadRow(sc);
+    if (!rules.length) return `<p class="none">No rules. Only its moves.</p>`;
+    return rules.map((r, i) => {
+      const asleep = !r.ghost && asleepOf(r.a);
+      const on = (S.focus === i && !r.ghost) || (S.knot && S.knot.includes(i));
+      const cls = ['srow', on ? 'on' : '', asleep ? 'asleep' : '', r.ghost ? 'ghost' : '', S._stamped === r.a ? 'stamped' : '', dead === i ? 'dead' : ''].join(' ');
+      const title = M.blockOf(r.a).title;
+      return `<div class="${cls}" data-row="${i}"><button class="bare sealbtn" data-act="seal" data-i="${i}" aria-pressed="${!!on}" aria-label="${esc(title)}. Tap to show only its marks." title="${esc(title)}">${M.seal(r.a, 34, { asleep })}</button>
+        <div class="stext">${sentence(r, i, { asleep, ghost: r.ghost })}</div>
+        ${edit && !r.ghost ? `<button class="bare srm" data-act="rmseal" data-i="${i}" aria-label="Remove this rule" title="Remove">×</button>` : ''}</div>`;
+    }).join('');
+  }
+  function knotsHtml() {
+    const sc = tableScene();
+    if (!sc || S.peek || S.traySel) return '';
+    return (sc.knots || []).filter((k) => k.type !== 'unknown' || S.focus === k.a || S.focus === k.b).map((k) =>
+      `<span class="knot-v ${k.type}" data-ka="${k.a}" data-kb="${k.b}"><button data-act="knot" data-a="${k.a}" data-b="${k.b}" aria-label="${esc(k.words)}" title="${esc(k.words)}"></button></span>`).join('');
+  }
+  function cardDiagram(s, painting) {
+    const d = S.peek ? designOf(S.design.base) : S.design;
+    const pat = designPattern(d, S.traySel && !d.rules.some((r) => r.a === S.traySel) ? { a: S.traySel, pill: (M.blockOf(S.traySel).pill || {}).def } : null);
+    let iso;
+    if (S.focus != null && !S.traySel) {
+      const r = d.rules[S.focus];
+      iso = r ? (r.a === 'linesPass' ? 'pass' : r.a === 'step2' || r.a === 'movesLike' ? 'cond' : 'none') : undefined;
+    }
+    if (S.knot) iso = 'none';
+    if (!S.peek) { const dead = deadRow(tableScene()); if (dead != null && d.rules[dead]) pat.rules = pat.rules.filter((r) => r !== d.rules[dead]); }
+    const svg = `<svg width="${7 * s}" height="${7 * s}" viewBox="0 0 ${7 * s} ${7 * s}" overflow="visible" role="img" aria-label="Reach diagram">${diagramSvg(pat, s, { iso })}</svg>`;
+    let cells = '';
+    for (let y = 3; y >= -3; y--) for (let x = -3; x <= 3; x++) cells += `<button data-act="cell" data-x="${x}" data-y="${y}" aria-label="${cellLabel(pat, x, y)}"></button>`;
+    const hint = d.isNew && !d.squares.length && !d.lines.length ? `<span class="dghint">Tap a square to paint a move</span>` : '';
+    return `<div class="dgw cdg${painting ? ' painting' : ''}" style="--c:${s}px;width:${7 * s}px;height:${7 * s}px">${svg}<div class="cells">${cells}</div>${hint}</div>`;
+  }
+  function cellLabel(pat, x, y) {
+    if (!x && !y) return 'The piece';
+    const q = pat.squares.find((c) => c.x === x && c.y === y);
+    const dir = lineDirOf(x, y);
+    const parts = [`${x > 0 ? '+' : ''}${x}, ${y > 0 ? '+' : ''}${y}`];
+    if (q) parts.push(M.NAMES[KIND[q.mark]] + (q.cond ? ', only sometimes' : ''));
+    else if (dir && pat.lines.includes(dir)) parts.push('Line');
+    else parts.push('No mark');
+    return parts.join(': ');
+  }
+  function lineDirOf(x, y) {
+    if (!x && !y) return null;
+    if (x && y && Math.abs(x) !== Math.abs(y)) return null;
+    const sx = Math.sign(x), sy = Math.sign(y);
+    return DIRS.find((k) => DV[k][0] === sx && DV[k][1] === sy);
+  }
+  const cardArt = (d) => (d.base === 'new' ? `${A}workshop/iron-warden-w.webp` : `${A}pieces/${d.base}-w.webp`);
+  function pieceCardFront(d, o = {}) {
+    const isCopy = d.copy || d.isNew;
+    const tag = o.original ? M.tag('original') : isCopy ? M.tag('yours') : '';
+    return `<header class="ct">${d.icon ? `<img class="ic icon-w" src="${A}icons/${d.icon}.svg" alt="">` : `<span class="ic" style="width:28px;height:28px;border-radius:50%;background:var(--parchment-deep);box-shadow:inset 0 1px 3px rgba(29,25,21,.35)"></span>`}
+        <div class="nm"><b>${esc(titleOf(d))}</b>${d.copy && !d.isNew ? `<small>from ${esc(d.name)}</small>` : ''}</div>${tag}
+        <button class="bare flipcorner" data-act="flip" aria-label="Flip the card (F)" title="Its worth">${sg('flip', 24, 1.6)}</button></header>
+      <div class="art cart"><img src="${cardArt(d)}" alt=""></div>
+      ${cardDiagram(34, !!S.brush && !o.original)}
+      <div class="cseals" id="cseals">${sealBand()}${knotsHtml()}</div>`;
+  }
+  // the back: about how strong it is, as a number of pawns and one plain line
+  function compareLine(k, w) {
+    const others = CLASSIC.filter((c) => c !== k).map((c) => [c, PIECES[c].worth]).sort((a, b) => a[1] - b[1]);
+    const near = others.find(([, v]) => Math.abs(v - w) <= 0.15);
+    if (near) return `About as strong as a ${near[0]}.`;
+    const lo = others.filter(([, v]) => v < w).pop(), hi = others.find(([, v]) => v > w);
+    if (lo && hi) return `Stronger than a ${lo[0]}, weaker than a ${hi[0]}.`;
+    return hi ? `Weaker than a ${hi[0]}.` : `Stronger than a ${lo[0]}.`;
+  }
+  function pawnRow(w) {
+    let h = '';
+    for (let i = 0; i < Math.ceil(w); i++) {
+      const part = Math.min(1, w - i);
+      h += `<span style="width:${Math.max(6, Math.round(22 * part))}px">${iconImg('pawn', 'w', 22)}</span>`;
+    }
+    return `<div class="pawnrow" aria-hidden="true">${h}</div>`;
+  }
+  function pieceCardBack(d) {
+    const P = PIECES[d.base];
+    let body;
+    if (!P) body = `<h3>${esc(titleOf(d))}</h3><p class="line">Paint its moves. Then the lab measures its worth.</p>`;
+    else if (d.copy) body = `<h3>${esc(titleOf(d))}</h3><div class="worth"><b>?</b></div><p class="line">Not measured yet. The original ${esc(d.name.toLowerCase())} is about ${P.worth.toFixed(1)} pawns.</p>`;
+    else body = `<h3>${esc(titleOf(d))}</h3><div class="worth"><b>${P.worth.toFixed(1)}</b><span>pawns</span></div>${pawnRow(P.worth)}<p class="line">${compareLine(d.base, P.worth)}</p>`;
+    return `<div class="cb"><img class="cbart" src="${A}cards/back.jpg" alt=""><div class="plate">${body}<div class="acts"><button class="quiet" data-act="flip">Front</button><button class="primary" data-act="share">Share</button></div></div></div>`;
+  }
+  function shareCode(d) {
+    const can = { kind: 'piece', squares: d.squares.map((q) => [q.x, q.y, q.mark]), lines: d.lines, rules: d.rules.map((r) => [r.a, r.pill || '']), name: titleOf(d) };
+    return btoa(JSON.stringify(can)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+  }
+  function pieceCard() {
+    const d = S.design, peek = S.peek && d.copy;
+    const shown = peek ? designOf(d.base) : d;
+    const ghost = d.copy ? `<div class="card-ghost" data-act="peek" role="button" tabindex="0" aria-label="Press and hold: see the original" title="Press and hold: the original" style="${peek ? 'transform:translate(12px,-12px)' : ''}">
+      <span class="otab">${d.icon ? iconImg(d.icon, 'w', 20) : ''}${peek ? 'Yours' : 'Original'}</span></div>` : '';
+    const fl = ['flipper', S.flipped ? 'flipped' : '', d.copy && !peek ? (S._copied ? 'copy-new' : 'copy-out') : ''].join(' ');
+    return `<div class="stagecard${peek ? ' peeking' : ''}" id="stagecard">${ghost}
+      <div class="${fl}"><section class="card face front${shown.copy || shown.isNew ? ' is-copy' : ''}" aria-label="${esc(titleOf(shown))} card">${pieceCardFront(shown, { original: peek })}</section>
+      <section class="card face back" aria-label="Card back">${pieceCardBack(shown)}</section></div></div>`;
+  }
+  function keyCol() {
+    const d = S.design, edit = d.copy || d.isNew || !!S.brush;
+    const tile = (k, w) => `<div class="kt${S.brush === k ? ' armed' : ''}"><button data-act="brush" data-k="${k}" aria-pressed="${S.brush === k}" aria-label="${w}: paint" title="${w}. Tap, then tap the diagram to paint.">${M.tile(k, 44, { fill: true })}</button><small>${w}</small></div>`;
+    let h = `<div class="keycol" aria-label="Key and brushes">${tile('move', 'Move')}${tile('take', 'Take')}${tile('both', 'Both')}`;
+    if (edit) {
+      const mirrorW = { mirror: 'Mirror', all: 'All 8', one: 'One' }[S.mirror];
+      h += `<span class="sep"></span>${tile('shot', 'Shot')}
+        <div class="kt${S.brush === 'line' ? ' armed' : ''}"><button class="tool" data-act="brush" data-k="line" aria-label="Line brush" title="Line">${railIcon()}</button><small>Line</small></div>
+        <div class="kt"><button class="tool" data-act="mirror" aria-label="Paint on: ${mirrorW}" title="${mirrorW}">${mirrorIcon()}</button><small>${mirrorW}</small></div>
+        <div class="kt${S.brush === 'eraser' ? ' armed' : ''}"><button class="tool" data-act="brush" data-k="eraser" aria-label="Eraser" title="Eraser">${sg('eraser', 24)}</button><small>Eraser</small></div>`;
+    }
+    return h + '</div>';
+  }
+  function mirrorIcon() {
+    if (S.mirror === 'all') return `<svg width="26" height="26" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>`;
+    if (S.mirror === 'one') return `<svg width="26" height="26" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 10v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+    return sg('mirror', 24, 1.8);
+  }
+
+  /* ================= ADD A RULE: the ribbon and the drawer ================= */
+  function fits(d, a) {
+    const takesAny = d.squares.some((q) => q.mark !== 'move') || d.lines.length > 0;
+    if (d.rules.some((r) => r.a === a)) return { have: true, why: 'Already in this piece.' };
+    if (a === 'linesPass' && !d.lines.length) return { why: 'Paint a line first.' };
+    if (a === 'chain' && !(d.squares.some((q) => q.mark === 'take' || q.mark === 'both') || d.lines.length)) return { why: 'It needs a square it takes on by moving.' };
+    if ((a === 'cannotTake' || a === 'removedAfter') && !takesAny) return { why: 'It takes nothing already.' };
+    return { ok: true };
+  }
+  function trayHtml() {
+    const d = S.design;
+    if (S.flipped) return '';
+    const rib = `<button class="bare addrib${S._trayRise ? ' rise' : ''}" data-act="tray" aria-expanded="${S.trayOpen}">${S.trayOpen ? '' : '<span class="plus">+</span>'}${S.trayOpen ? 'Close' : 'Add a rule'}</button>`;
+    if (!S.trayOpen) return rib;
+    const seals = M.BLOCKS.map((b) => {
+      const f = fits(d, b.a);
+      return `<button class="bare tseal${f.ok ? '' : f.have ? ' have' : ' dim'}${S.traySel === b.a ? ' sel' : ''}" data-act="tseal" data-a="${b.a}" draggable="true" aria-label="${esc(b.title)}" title="${esc(b.title)}${f.ok ? '' : ' · ' + f.why}">${M.seal(b.a, 44)}</button>`;
+    }).join('');
+    let bar;
+    if (S.traySel) {
+      const b = M.blockOf(S.traySel);
+      bar = `<div class="bar">${M.seal(b.a, 40)}<div class="tx"><b>${esc(b.title)}</b>${esc(BX[b.a].ex)}</div><button class="primary" data-act="stamp">Add</button></div>`;
+    } else bar = `<p class="hint">Tap a rule to try it on the board.</p>`;
+    return `${rib}<div class="tray" role="region" aria-label="Add a rule"><div class="seals">${seals}</div>${bar}</div>`;
+  }
+
+  /* ================= THE TABLE ================= */
+  function boardInner(sc, s, phone, opts = {}) {
+    const focus = S.view === 'piece' || S.view === 'seal' ? S.focus : null;
+    const drawOpts = { s, assets: A, select: S.select || undefined, hover: S.hover || S.select || undefined, ripple: !!S._ripple, preview: !!S.traySel };
+    if (S.knot) drawOpts.focusAll = S.knot;
+    else if (focus != null && !S.traySel) drawOpts.focus = focus;
+    if (phone) drawOpts.imps = focus != null ? focus : -1;
+    // one crown glyph on the board; the Receipt lists the choices (no fan of tiny icons)
+    const scn = Object.assign({}, sc, { effects: (sc.effects || []).filter((e) => e.k !== 'becomes') });
+    return M.drawString(scn, Object.assign(drawOpts, opts));
+  }
+  function previewScene() {
+    // a rule held over the piece: the table shows the scene it would make, with its marks pulsing
+    if (!S.traySel || !S.design) return null;
+    const d = clone(S.design);
+    if (d.rules.some((r) => r.a === S.traySel) || d.rules.length >= 3) return null;
+    const b = M.blockOf(S.traySel);
+    d.rules = canonical([...d.rules, { a: S.traySel, pill: b.pill ? b.pill.def : undefined, when: b.when }]);
+    const sc = tableScene({ design: d });
+    if (!sc || sc.noScene) return null;
+    const idx = sc.seals.findIndex((x) => x.a === S.traySel);
+    sc.marks.forEach((m) => { if (m.by && m.by.includes(idx)) m.diff = '+'; });
+    sc.rails.forEach((r) => { if (r.by && r.by.includes(idx)) r.diff = '+'; });
+    (sc.impressions || []).forEach((im) => { if (im.list.some((x) => x.by === idx)) im.diff = '+'; });
+    return sc;
+  }
+  function currentBoardScene() {
+    if (S.view === 'law') return lawScene();
+    if (S.peek && S.design && S.design.copy) return peekScene();
+    return previewScene() || tableScene();
+  }
+  function peekScene() {
+    const orig = tableScene({ design: designOf(S.design.base), noClear: false });
+    const mine = tableScene();
+    const mk = Object.fromEntries(mine.marks.filter((m) => m.diff !== '-').map((m) => [m.sq, m.k]));
+    orig.marks.forEach((m) => { if (mk[m.sq] !== m.k) m.diff = '-'; });
+    Object.keys(mk).forEach((q) => { if (!orig.marks.some((m) => m.sq === q)) orig.marks.push({ sq: q, k: mk[q], diff: '+' }); });
+    orig.peek = true;
+    return orig;
+  }
+  function lawScene() {
+    const l = S.item;
+    if (l === 'promo') return { pieces: [{ sq: 'd7', k: 'pawn', side: 'w', open: true }, { sq: 'e1', k: 'king', side: 'w' }, { sq: 'g8', k: 'king', side: 'b' }],
+      marks: [{ sq: 'd8', k: 'move', by: [0] }, { sq: 'c8', k: 'take' }, { sq: 'e8', k: 'take' }], rails: [], arches: [], chalk: [{ zone: 'lastRank', always: true }],
+      effects: [], impressions: [{ sq: 'd8', list: [{ a: 'becomes' }] }], seals: [], knots: [] };
+    return { pieces: [{ sq: 'e1', k: 'king', side: 'w' }, { sq: 'e8', k: 'king', side: 'b' }, ...(l === 'guard' ? [{ sq: 'd1', k: 'guard', side: 'w' }, { sq: 'f8', k: 'guard', side: 'b' }] : []),
+      ...(l === 'bishops' ? [{ sq: 'c1', k: 'bishop', side: 'w' }, { sq: 'f1', k: 'bishop', side: 'w' }] : [])], marks: [], rails: [], arches: [], effects: [], impressions: [], chalk: [], seals: [], knots: [] };
+  }
+  function tableHtml(phone) {
+    const sc = currentBoardScene();
+    if (!sc) return '';
+    const s = phone ? PHONE_S : BOARD_S;
+    const svg = `<svg class="board-svg" viewBox="0 0 ${8 * s} ${8 * s}" role="img" aria-label="Test table">${boardInner(sc, s, phone)}</svg>`;
+    let hits = '';
+    for (let r = 8; r >= 1; r--) for (let f = 0; f < 8; f++) {
+      const q = FILES[f] + r;
+      hits += `<button data-act="sq" data-sq="${q}" aria-label="${esc(sqLabel(sc, q))}"${S.lift && openOf(sc) && openOf(sc).sq === q ? ' class="lift"' : ''}></button>`;
+    }
+    const field = `<div class="field${sc.peek ? ' peek-board' : ''}" id="field">${svg}<div class="hits" id="hits">${hits}</div>${sc.noScene ? `<div class="noscene">${noSceneWords()}</div>` : ''}</div>`;
+    if (phone) return `<div class="pboard">${field}</div>`;
+    let rimx = '';
+    for (let f = 0; f < 8; f++) rimx += `<span class="fl" style="left:${16 + f * s}px;bottom:2px">${FILES[f]}</span>`;
+    for (let r = 1; r <= 8; r++) rimx += `<span class="rk" style="left:0;top:${16 + (8 - r) * s}px">${r}</span>`;
+    const sel = S.select && receiptOpen() ? S.select : null;
+    const notch = sel ? `<span class="notch" style="top:${16 + (8 - parse(sel)[1]) * s + s / 2 - 8}px"></span>` : '';
+    return `<div class="table${S._enter ? ' enter' : ''}" id="table">
+      <div class="rim${idleBoard() ? ' idle' : ''}" id="rim">${rimx}${field}${notch}</div>
+      ${S.view === 'piece' ? trayRow() : `<p class="tablehint">${tableHint()}</p>`}${rightPanel(sc)}</div>`;
+  }
+  // a king or a card with no test board: the board stays, but quiet
+  const idleBoard = () => (S.view === 'card' && S.item !== 'Freeze') || (S.view === 'king' && !['mud', 'frost'].includes(S.item));
+  function tableHint() {
+    if (S.view === 'king') return S.item === 'mud' || S.item === 'frost' ? (S.armed ? 'Tap a square to see why.' : 'Tap a coin to try it on the board.') : 'This king has no test board yet.';
+    if (S.view === 'card') return S.item === 'Freeze' ? (S.cardPlayed ? 'Take back to try again.' : 'Tap c6 to freeze the knight.') : 'This card has no test board yet.';
+    if (S.view === 'seal') return 'Tap a square to see why.';
+    return '';
+  }
+  function noSceneWords() { return 'The table has no test board for this rule yet. The card keeps it.'; }
+  function sqLabel(sc, q) {
+    const at = sc.pieces.find((p) => p.sq === q && !p.ghost);
+    const m = sc.marks.find((x) => x.sq === q && !x.on);
+    let t = q + ': ';
+    t += m ? (m.k.startsWith('blocked') ? 'Blocked' : M.NAMES[m.k]) : 'no mark';
+    if (at) t += ', ' + (at.side === 'b' ? 'black ' : 'white ') + at.k;
+    const imps = (sc.impressions || []).filter((i) => i.sq === q).flatMap((i) => i.list).map((x) => (x.a ? M.blockOf(x.a).title : x.power ? 'king power' : 'LAB card'));
+    if (imps.length) t += '. Made by: ' + imps.join(', ');
+    return t;
+  }
+  function seatHtml() {
+    if (!S.seat) return `<div class="tok"><button class="crown${S.pop && S.pop.type === 'king' ? ' on' : ''}" data-act="seat" aria-label="Seat a king" title="Seat a king">${sg('crown', 30, 1.8)}</button><small>King</small></div>`;
+    const kg = KING[S.seat];
+    const coins = kg.powers.map((p) => {
+      const armed = S.armed === p, echo = armed && S.design.base === 'paladin' && p === 'Leap';
+      return `<span class="cn" data-act="arm" data-p="${p}" role="button" tabindex="0" aria-label="${POWERS[p].name}${armed ? ', armed' : ''}" title="${POWERS[p].name}">${powerCoin(p, 42, { spent: p === 'Leap' ? S.spent : 0, state: echo ? 'echo' : armed ? 'armed' : undefined })}${echo ? '<span class="echo-eq" title="Adds nothing here">=</span>' : ''}</span>`;
+    }).join('');
+    return `<div class="tok"><div class="seatwide"><img class="k" src="${A}kings/${kg.id}.webp" alt="${kg.name}" data-act="seat" title="Change the king">${coins}</div><small>${kg.name}</small></div>`;
+  }
+  function slotHtml() {
+    const c = S.slot && CARD[S.slot];
+    return `<div class="tok"><button class="slot${S.slot ? ' on' : ''}" data-act="slot" aria-label="Lay a LAB card" title="Lay a LAB card"><img src="${A}cards/${c && c.art ? c.art : 'back'}.jpg" alt=""><span class="lab-ribbon">LAB</span></button><small>Card</small></div>`;
+  }
+  function trayRow() {
+    return `<div class="trayrow" role="toolbar" aria-label="Bring to the table">${seatHtml()}${slotHtml()}<span class="div"></span>
+      <div class="tok"><button class="more" data-act="tools" aria-label="More: threats, stir, clear" title="Threats · Stir · Clear">⋯</button></div></div>`;
+  }
+  const receiptOpen = () => !!S.select && (S.view === 'piece' || S.view === 'king' || S.view === 'seal');
+
+  /* ================= RECEIPT ================= */
+  function piecesAt(sc) { const at = {}; sc.pieces.forEach((p) => { if (!p.ghost) at[p.sq] = p; }); return at; }
+  function railDir(sc, from, q) {
+    const a = parse(from), b = parse(q);
+    for (const r of sc.rails) {
+      if (r.from !== from) continue;
+      const t = parse(r.to), dx = Math.sign(t[0] - a[0]), dy = Math.sign(t[1] - a[1]);
+      const n = Math.max(Math.abs(t[0] - a[0]), Math.abs(t[1] - a[1]));
+      for (let i = 1; i <= n; i++) if (a[0] + dx * i === b[0] && a[1] + dy * i === b[1]) return DIRS.find((k) => DV[k][0] === dx && DV[k][1] === dy);
+    }
+    return null;
+  }
+  const FOOT = {
+    'beast|e5': 'Then it may take f6. Not g7: a king.',
+    'mybeast|e5': 'Then f6. Then it is removed.',
+    'mybeast-any|e5': 'It is removed at once. It never takes again.',
+    'rook-leap|d5': 'Each Leap move spends one diamond.',
+    'archer|d6': 'It shoots and stays on d4.',
+  };
+  const KW = { move: 'move', take: 'take', both: 'both', shot: 'shot', moveshot: 'move or shot', blocked: 'refused', 'blocked-move': 'refused', empty: 'no mark' };
+  // one or two words under each tile
+  function captionsFor(sum, sc) {
+    const base = sum.base.rail ? 'line' : sum.base.cond ? 'sometimes' : KW[sum.base.k] || sum.base.k;
+    const imps = (sum.imps || []).map((i) => (i.a ? BX[i.a].cap(sc && sc.seals.find((s) => s.a === i.a)?.pill) : i.power ? 'Leap' : 'card'));
+    const r = sum.result;
+    let res = r.cond === 'asleep' ? 'asleep' : KW[r.k] || r.k;
+    if ((sum.imps || []).some((i) => i.a === 'removedAfter') && (r.k === 'take' || r.k === 'both')) res = r.k === 'both' ? 'both, leave' : 'take, leave';
+    return [base, ...imps, res];
+  }
+  function receiptData(sc, q) {
+    const at = piecesAt(sc), occ = at[q], open = openOf(sc);
+    const occWords = occ ? `${occ.side === 'b' ? 'Black' : 'White'} ${occ.k === 'new' ? 'piece' : occ.k}` : 'Empty';
+    if (sc.why && sc.why[q] && !S.played) { const w = clone(sc.why[q]); w.sum.captions = captionsFor(w.sum, sc); return { ...w, occupant: occWords, icon: occ && occ.k, side: occ && occ.side }; }
+    const m = sc.marks.find((x) => x.sq === q && (!x.on || x.on === S.select || x.on === S.hover));
+    if (!m) return { none: true, occupant: occWords, icon: occ && occ.k !== 'new' ? occ.k : null, side: occ && occ.side, self: occ && occ.open };
+    const imps = [];
+    (sc.impressions || []).filter((i) => i.sq === q && (!i.on || i.on === S.select)).forEach((i) => i.list.forEach((x) => imps.push(x.a ? { a: x.a } : x.power ? { power: x.power } : { card: x.card })));
+    if (m.by && m.by.includes('leap') && !imps.some((i) => i.power)) imps.push({ power: 'mud' });
+    const dir = open ? railDir(sc, open.sq, q) : null;
+    const base = dir ? { k: 'move', rail: dir } : { k: m.k === 'blocked' ? 'take' : m.k === 'blocked-move' ? 'move' : m.k, cond: m.cond ? 'awake' : undefined };
+    const sum = { base, imps, result: { k: m.k, cond: m.cond } };
+    sum.captions = captionsFor(sum, sc);
+    const promo = imps.some((i) => i.a === 'becomes');
+    return { occupant: occWords, icon: occ && occ.k, side: occ && occ.side, sum,
+      foot: FOOT[`${sc.id || ''}|${q}`] || (promo ? 'It becomes a queen, rook, bishop or knight. You choose.' : null) };
+  }
+  function canMoveHere(sc, q) {
+    const m = sc.marks.find((x) => x.sq === q && !x.on);
+    if (!m || S.played) return false;
+    if (m.k.startsWith('blocked') || m.cond === 'asleep' || m.diff === '-') return false;
+    if ((m.k === 'take' || m.k === 'shot') && !piecesAt(sc)[q]) return false; // a take needs something to take
+    return !sc.dim;
+  }
+  function playedHtml() {
+    const pl = S.played, d = S.design;
+    const before = tableScene({ noPlay: true });
+    const tgt = before.pieces.find((p) => !p.open && !p.ghost && p.sq === pl.to);
+    const open = openOf(before);
+    const who = d ? titleOf(d) : 'The piece';
+    let line = pl.shot ? `${who} shoots from ${pl.from}. It stays there.` : tgt ? `${who} takes the ${tgt.side === 'b' ? 'black' : 'white'} ${tgt.k} on ${pl.to}.` : `${who} moves ${pl.from} to ${pl.to}.`;
+    if (pl.removed) line += ' Then it leaves the board too.';
+    if (S.armed === 'Leap' && d && d.base === 'rook') line += ' Leap spends one diamond.';
+    return `<div class="hd">${open && open.k !== 'new' ? iconImg(open.k, 'w', 28) : ''}<div><b>${pl.from} → ${pl.to}</b></div></div>
+      <p class="foot" style="font-style:normal;color:var(--ink)">${esc(line)}</p>${pl.removed ? `<div style="display:flex;justify-content:center;margin-top:8px">${M.impression({ a: 'removedAfter' }, 40, { assets: A })}</div>` : ''}
+      <div class="acts"><button class="quiet" data-act="takeback">Take back</button></div>`;
+  }
+  function receiptHtml(sc, q, phone) {
+    if (S.played) return playedHtml();
+    const r = receiptData(sc, q);
+    const T = phone ? 48 : 40, I = phone ? 40 : 32;
+    let body = '';
+    const icon = r.icon ? iconImg(r.icon, r.side || 'w', 28) : `<span style="width:28px;height:28px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--stone-300)"></span>`;
+    body += `<div class="hd">${icon}<div><b>${q.toUpperCase()}</b><small>${esc(r.occupant)}</small></div></div>`;
+    if (r.none) {
+      if (r.self) body += `<p class="none" style="margin-top:12px">The piece. Tap a mark to see why it is there.</p>`;
+      else if (r.occupant !== 'Empty') body += `<div class="sum"><div class="why-sum">${part(M.tile('move', T), 'move')}<span class="op">+</span>${part(`<span style="display:grid;place-items:center;height:${T}px">${iconImg(r.icon, r.side, I)}</span>`, r.side === 'w' ? 'own piece' : 'a piece')}<span class="op">=</span>${part(M.tile('empty', T), 'no mark')}</div></div>`;
+      else body += `<div class="sum"><div class="why-sum">${part(M.tile('empty', T), 'no mark')}</div></div><p class="none" style="margin-top:8px">Its moves do not reach here.</p>`;
+    } else {
+      body += `<div class="sum">${M.whySum(r.sum, { tile: T, imp: I, assets: A, words: true })}</div>`;
+      if (r.steps && !phone) {
+        body += `<div class="steps" aria-label="Steps">${r.steps.map((st, i) => {
+          const s2 = 22, vb = M.viewBox(s2, st.crop);
+          const scn = Object.assign({ marks: [], rails: [], arches: [], effects: [], impressions: [] }, st);
+          return `${i ? '<span class="ar">→</span>' : ''}<svg width="60" height="100" viewBox="${vb}">${M.drawString(scn, { s: s2, assets: A, noOpenGlow: true })}</svg>`;
+        }).join('')}</div>`;
+      }
+      if (r.foot) body += `<p class="foot">${esc(r.foot)}</p>`;
+    }
+    let acts = '';
+    if (!r.none && canMoveHere(sc, q)) {
+      const mk = sc.marks.find((x) => x.sq === q && !x.on), shoots = mk && (mk.k === 'shot' || (mk.k === 'moveshot' && piecesAt(sc)[q]));
+      acts = `<button class="primary" data-act="movehere">${shoots ? 'Take from here' : 'Move here'}</button>`; // a shot takes and stays
+    }
+    else if (r.self && S.design && S.design.base === 'pawn' && S.design.rules.some((x) => x.a === 'movesLike')) acts = `<p class="none">Tap a square to move it: d4, b4 or e2.</p>`;
+    body += acts ? `<div class="acts">${acts}</div>` : '';
+    return body;
+  }
+  const part = (svg, cap) => `<span class="part">${svg}<small>${esc(cap)}</small></span>`;
+  function rightPanel(sc) {
+    if (S.view === 'piece' || S.view === 'king') {
+      if (S.cardPlayed) return `<aside class="receipt" aria-label="Card played">${cardPanel()}</aside>`;
+      if (!receiptOpen()) return '';
+      const y = (8 - parse(S.select)[1]) * BOARD_S + 16 + BOARD_S / 2 - 9;
+      return `<aside class="receipt" aria-label="Why ${S.select}"><span class="ptr" style="top:${Math.max(12, Math.min(500, y))}px"></span><button class="bare x" data-act="closercpt" aria-label="Close">×</button>${receiptHtml(sc, S.select)}</aside>`;
+    }
+    if (S.view === 'law') {
+      const l = LAWS.find((x) => x.id === S.item);
+      return `<aside class="receipt"><div class="hd"><b style="font-size:15px">${l.name}</b></div><p class="foot" style="font-style:normal;color:var(--ink)">${esc(l.text)}</p>${S.item === 'promo' ? `<p class="foot">On d8 it becomes ${esc(S.laws.promo === 'Q' ? 'a queen' : 'a piece you choose')}.</p>` : ''}</aside>`;
+    }
+    if (S.view === 'seal' && receiptOpen()) return `<aside class="receipt"><button class="bare x" data-act="closercpt" aria-label="Close">×</button>${receiptHtml(sc, S.select)}</aside>`;
+    return '';
+  }
+  function cardPanel() {
+    const isCard = S.slot === 'Freeze';
+    const f = isCard ? { targets: T('b', true), cost: 'move', captures: 'never', duration: 'them' } : clone(POWERS.Freeze.f);
+    return `<button class="bare x" data-act="takeback" aria-label="Take back">×</button>
+      <div class="hd">${iconImg('knight', 'b', 28)}<div><b>C6</b><small>Black knight · frozen</small></div><span style="margin-left:auto">${M.impression(isCard ? { card: 'freeze' } : { power: 'frost' }, 26, { assets: A })}</span></div>
+      ${facetLine(f)}
+      <div class="turnstrip" aria-label="Lasts: their next turn"><span>you</span><span class="on">them</span><span>you</span></div>
+      <p class="foot">${isCard ? 'The card was your move. The Paladin waits.' : 'A free action. The Paladin still moves.'}</p>
+      <div class="acts"><button class="quiet" data-act="takeback">Take back</button></div>`;
+  }
+
+  /* ================= STAGE CARDS: KING, LAB CARD, RULE, TABLE RULE ================= */
+  function kingStage() {
+    const kg = KING[S.item];
+    const rows = kg.powers.map((p) => {
+      const P = POWERS[p], armed = S.armed === p, echo = armed && S.design && S.design.base === 'paladin' && p === 'Leap';
+      return `<div class="prow"><button class="coinbtn" data-act="arm" data-p="${p}" aria-pressed="${armed}" aria-label="${P.name}${armed ? ', armed' : ''}. Tap to try it.">${powerCoin(p, 72, { spent: p === 'Leap' ? S.spent : 0, state: echo ? 'echo' : armed ? 'armed' : undefined })}${echo ? '<span class="echo-eq">=</span>' : ''}</button>
+        <div class="pt"><b>${P.name}</b><p>${esc(P.text)}</p>${facetLine(P.f)}</div></div>`;
+    }).join('');
+    return `<div class="stagecard"><section class="card kcard scard-h"><header class="ct"><img class="ic" src="${A}emblems/${kg.id}.webp" alt=""><div class="nm"><b>${kg.name}</b></div></header>
+      <div class="art kart"><img src="${A}kings/${kg.id}.webp" alt=""></div><div class="powers">${rows}</div></section></div>`;
+  }
+  function spellStage() {
+    const c = CARD[S.item], fam = familyOf(c.id);
+    const f = { targets: { side: c.id === 'Freeze' || c.id === 'Curse' ? 'b' : 'w', notKing: /not the king|except the king/.test(c.text) }, cost: c.cost, captures: c.captures, duration: c.duration };
+    const top = c.art ? `<div class="sart2"><img src="${A}cards/${c.art}.jpg" alt=""></div>`
+      : `<div class="medal2"><span>${c.twin ? `<img src="${A}emblems/${c.twin}.webp" alt="">` : sg('card', 52, 1.4)}</span></div>`;
+    const vars = fam.length > 1 ? `<div class="vars" role="group" aria-label="Versions">${fam.map((id) => `<button class="${id === c.id ? 'on' : ''}" data-act="card" data-k="${id}">${varLabel(id)}</button>`).join('')}</div>` : '';
+    return `<div class="stagecard"><section class="card scard scard-h lab-host">${top}<span class="lab-ribbon tl">LAB</span>
+      <h3>${CARD[VAR_OF[c.id] || c.id].name}${c.twin ? `<img src="${A}emblems/${c.twin}.webp" alt="" title="Also a power of the ${c.twin} king">` : ''}</h3>${vars}
+      <p class="ctext">${esc(c.text)}</p>${facetLine(f)}</section></div>`;
+  }
+  function sealStage() {
+    const b = M.blockOf(S.item), x = BX[S.item];
+    const seen = x.seen.length ? x.seen : ['pawn'];
+    const pd = S.item === 'movesLike' ? Object.assign(designOf('pawn'), { squares: clone(SC.patterns.mypawn.squares), rules: canonical([...designOf('pawn').rules, { a: 'movesLike', pill: 'queen', when: b.when }]) }) : designOf(seen[0]);
+    const pat = designPattern(pd);
+    const iso = S.item === 'linesPass' ? 'pass' : S.item === 'step2' || S.item === 'movesLike' ? 'cond' : undefined;
+    const whens = x.whens.map((w) => (w.on === 'always' ? '<span class="capsule">Always</span>' : M.chip(w))).join('');
+    return `<div class="stagecard"><section class="card sealcard scard-h">
+      <div class="big">${M.seal(b.a, 76)}<h3>${esc(b.title.replace(/\s*…$/, ''))}</h3><p class="ex">${esc(x.ex)}</p></div>
+      <div class="exdg"><div class="dgw" style="--c:26px"><svg width="182" height="182" viewBox="0 0 182 182" overflow="visible">${diagramSvg(pat, 26, { iso })}</svg></div></div>
+      <p class="lab">On these pieces</p><div class="seen">${x.seen.length ? x.seen.map((k) => `<button data-act="seenon" data-k="${k}" aria-label="Open ${k}"><img src="${A}pieces/${k}-w.webp" alt="">${PIECES[k].name}</button>`).join('') : `<button data-act="seenon" data-k="pawn"><img src="${A}pieces/pawn-w.webp" alt="">My Pawn</button>`}</div>
+      <p class="lab">When</p><div class="whens">${whens}</div></section></div>`;
+  }
+  function lawStage() {
+    const l = LAWS.find((x) => x.id === S.item);
+    return `<div class="stagecard"><section class="card lawcard scard-h"><span class="pic">${LAWPIC[l.id]().replace(/width="44" height="44"/, 'width="76" height="76"')}</span>
+      <h3>${l.name}</h3><p>${esc(l.text)}</p><div>${lawCtl(l)}</div>
+      ${S.lawsYours ? `<p style="display:flex;gap:8px;align-items:center"><b>MY RULES</b>${M.tag('yours')}</p>` : '<p style="color:var(--ink-soft);font-size:14px">A change makes your own edition: MY RULES.</p>'}</section></div>`;
+  }
+
+  /* ================= POPOVERS ================= */
+  function popLayer(phone) {
+    const p = S.pop;
+    if (!p) return '';
+    const pos = phone ? `left:16px;right:16px;bottom:${p.type === 'tools' ? 140 : 380}px;top:auto` : `left:${p.x}px;top:${p.y}px`;
+    if (p.type === 'pill') {
+      const r = S.design.rules[p.i], b = M.blockOf(r.a);
+      return `<div class="pop" style="${pos}" role="dialog" aria-label="Choices"><h5>${esc(b.title.replace(/\s*…$/, ''))}</h5><div class="choices">${b.pill.choices.map(([v]) =>
+        `<button class="pw${(r.pill || b.pill.def) === v ? ' is-on' : ''}" data-act="pick" data-v="${v}">${esc(choice(r.a, v))}</button>`).join('')}</div></div>`;
+    }
+    if (p.type === 'king') return `<div class="pop" style="${pos}" role="dialog" aria-label="Seat a king"><h5>Seat a king</h5><div class="kings">${KINGS.map((k) =>
+      `<button data-act="pickking" data-k="${k.id}"><img src="${A}kings/${k.id}.webp" alt="">${k.name.replace(' king', '')}</button>`).join('')}</div>${S.seat ? `<button class="quiet" data-act="pickking" data-k="" style="margin-top:8px;min-height:36px;padding:4px 10px">Empty the seat</button>` : ''}</div>`;
+    if (p.type === 'card') return `<div class="pop" style="${pos}" role="dialog" aria-label="Lay a LAB card"><h5>Lay a card · LAB</h5><div class="cardsp">${CARDS.filter((c) => c.art).map((c) =>
+      `<button data-act="pickcard" data-k="${c.id}"><img src="${A}cards/${c.art}.jpg" alt=""><span>${c.name}</span></button>`).join('')}</div>${S.slot ? `<button class="quiet" data-act="pickcard" data-k="" style="margin-top:8px;min-height:36px;padding:4px 10px">Empty the slot</button>` : ''}</div>`;
+    if (p.type === 'tools') return `<div class="pop" style="${pos}" role="dialog" aria-label="More"><div class="tools">
+      <button data-act="threats" aria-pressed="${S.threats}">${sg('eye', 22, 1.8)}Threats</button>
+      <button data-act="stir">${sg('die', 22, 1.8)}Stir</button>
+      <button data-act="clear" aria-pressed="${S.cleared}">${sg('broom', 22, 1.8)}Clear the board</button>${phone ? `<button data-act="share">${sg('quill', 22, 1.8)}Share</button>` : ''}</div></div>`;
+    if (p.type === 'law') {
+      const l = LAWS.find((x) => x.id === p.k);
+      return `<div class="pop" style="${pos}" role="dialog"><h5>${l.name}</h5><div class="choices">${l.vals.map((v) => `<button class="promo${S.laws[l.id] === v ? ' is-on' : ''}" data-act="picklaw" data-k="${l.id}" data-v="${v}" style="${S.laws[l.id] === v ? 'border-color:var(--gold-ink);box-shadow:0 0 0 2px var(--gold-bright)' : ''}">${v.split(' ').map((c) => iconImg(PROMO_IC[c], 'w', 22)).join('')}</button>`).join('')}</div></div>`;
+    }
+    if (p.type === 'say') {
+      const r = S.design.rules[p.i];
+      return `<div class="pop" style="${pos}" role="dialog"><div class="srow" style="min-height:0">${M.seal(r.a, 34)}<div class="stext">${sentence(r, p.i)}</div></div></div>`;
+    }
+    return '';
+  }
+
+  /* ================= DESKTOP RENDER ================= */
+  function stageHtml() {
+    if (S.view === 'piece') return keyCol() + pieceCard() + trayHtml() + tableHtml(false);
+    if (S.view === 'king') return kingStage() + tableHtml(false);
+    if (S.view === 'card') return spellStage() + tableHtml(false);
+    if (S.view === 'seal') return sealStage() + tableHtml(false);
+    if (S.view === 'law') return lawStage() + tableHtml(false);
+    return '';
+  }
+  function renderDesktop() {
+    app.innerHTML = topbar() + (S.view === 'lib' ? rail() + library() : stageHtml()) + popLayer(false);
+  }
+
+  /* ================= PHONE RENDER ================= */
+  function phoneTop(center, right = '') {
+    const back = S.view === 'lib' ? `<button class="bare ib" data-act="menu" aria-label="Menu">‹</button>` : `<button class="bare ib" data-act="back" aria-label="Back">‹</button>`;
+    return `<header class="ptop"><span class="l">${back}</span><span class="disp">${center}</span><span class="r">${right}</span></header>`;
+  }
+  function phoneTabs() {
+    return `<nav class="ptabs" aria-label="Library">${TABS.map((t) => `<button class="${S.tab === t[0] ? 'on' : ''}" data-act="tab" data-tab="${t[0]}">${tabIcon(t, 22)}${t[1]}</button>`).join('')}</nav>`;
+  }
+  function phoneLib() {
+    let inner = '';
+    if (S.tab === 'pieces') {
+      inner = `<header class="lib-h"><h1>PIECES</h1><p>Pick a card. Change anything. The original stays.</p></header>
+        <div class="pgrid">${[...ROW1, ...ROW2].map(pieceThumb).join('')}${kingsDoor()}
+        <button class="pc new" data-act="open" data-k="new"><span class="plus">+</span><b>NEW</b></button></div>
+        <section class="yours"><h2>YOURS</h2>${S.yours.length ? `<div class="pgrid">${S.yours.map((y, i) => copyThumb(y, i, false)).join('')}</div>` : '<p class="empty">Your cards come here.</p>'}</section>`;
+    } else if (S.tab === 'kings') inner = `<header class="lib-h"><h1>KINGS</h1><p>Each king has two powers. A player picks one, or none.</p></header><div class="pgrid">${KINGS.map(kingThumb).join('')}</div>`;
+    else if (S.tab === 'cards') inner = cardsPage();
+    else inner = rulesPage(true);
+    return `<main class="plib">${inner}</main>`;
+  }
+  function phonePiece() {
+    const d = S.design, sc = currentBoardScene();
+    const shown = S.peek && d.copy ? designOf(d.base) : d;
+    const right = `<button class="bare ib" data-act="flip" aria-label="Flip the card">${sg('flip', 22, 1.6)}</button><button class="bare ib" data-act="tools" aria-label="More">⋯</button>`;
+    let h = phoneTop(`${shown.icon ? iconImg(shown.icon, 'w', 20) : ''}${esc(titleOf(shown))}`, right);
+    h += `<div class="ph">${tableHtml(true)}`;
+    const c = S.slot && CARD[S.slot];
+    h += `<div class="ptray" role="toolbar" aria-label="Bring to the table">
+      <button class="crown${S.seat ? ' on' : ''}" data-act="seat" aria-label="Seat a king">${S.seat ? `<img src="${A}emblems/${S.seat}.webp" alt="">` : sg('crown', 24, 1.8)}</button>
+      <button class="slot${S.slot ? ' on' : ''}" data-act="slot" aria-label="Lay a LAB card"><img src="${A}cards/${c && c.art ? c.art : 'back'}.jpg" alt=""></button>
+      <button class="eye${S.threats ? ' on' : ''}" data-act="threats" aria-label="Threats">${sg('eye', 22, 1.8)}</button></div>`;
+    if (S.flipped) h += `<div class="hand${shown.copy ? ' is-copy' : ''}" style="display:block">${pieceCardBack(shown).replace('class="plate"', 'class="plate" style="top:14px;left:120px;right:10px;bottom:10px;padding:10px;gap:6px"')}</div>`;
+    else h += `<div class="hand${shown.copy || shown.isNew ? ' is-copy' : ''}"><div class="hdg"><button class="bare" data-act="paintsheet" aria-label="Open the paint sheet" style="display:block">${thumbDiagram(designPattern(shown), 24)}</button></div>
+      <div class="hr"><div class="hh"><div class="nm"><b>${esc(titleOf(shown))}</b>${shown.copy && !shown.isNew ? `<small>from ${esc(shown.name)}</small>` : ''}</div><div class="art crop"><img src="${cardArt(shown)}" alt=""></div></div>
+      <div class="hs">${phoneSeals(shown)}</div></div></div>`;
+    const edit = d.copy || d.isNew;
+    if (edit) h += phoneBrushes('pkeys brushes');
+    else h += `<div class="pkeys" aria-label="Key and brushes">${[['move', 'Move'], ['take', 'Take'], ['both', 'Both']].map(([k, w]) => `<span class="pk"><button data-act="brush" data-k="${k}" aria-label="${w}: paint">${M.tile(k, 44, { fill: true })}</button><small>${w}</small></span>`).join('')}</div>`;
+    h += `<button class="primary padd" data-act="sealsheet"><span style="font:400 22px/1 var(--font-body)">+</span> Add a rule</button>`;
+    if (S.sheet === 'paint') h += `<div class="sheet paint" role="dialog" aria-label="Paint"><div class="grab"></div>${phoneBrushes('pkeys brushes')}${cardDiagram(48, true)}</div>`;
+    if (S.sheet === 'receipt' && S.select) h += `<div class="sheet rc" role="dialog" aria-label="Why"><div class="grab"></div><button class="bare sx" data-act="closercpt" aria-label="Close">×</button><div class="receipt">${S.cardPlayed ? cardPanel() : receiptHtml(sc, S.select, true)}</div></div>`;
+    if (S.sheet === 'seals') h += `<div class="sheet seals" role="dialog" aria-label="Add a rule"><div class="grab"></div><button class="bare sx" data-act="closesheet" aria-label="Close">×</button>${phoneSealSheet()}</div>`;
+    h += '</div>';
+    return h;
+  }
+  function phoneSeals(d) {
+    const sc = tableScene(), dead = deadRow(sc);
+    if (!d.rules.length) return `<p style="font:italic 400 13.5px/1.3 var(--font-body);color:var(--ink-soft);padding-bottom:8px">No rules. Only its moves.</p>`;
+    return d.rules.map((r, i) => {
+      const asleep = !!(sc && sc.seals[i] && sc.seals[i].asleep);
+      return `<div class="srow${S.focus === i ? ' on' : ''}${dead === i ? ' dead' : ''}"><button class="bare sealbtn" data-act="seal" data-i="${i}" aria-label="${esc(M.blockOf(r.a).title)}">${M.seal(r.a, 32, { asleep })}</button><span class="stext" data-act="sealsay" data-i="${i}"><span>${esc(shortWords(r))}</span></span></div>`;
+    }).join('');
+  }
+  // the few words for a rule row on the phone hand card
+  function shortWords(r) {
+    const c = choice(r.a, r.pill);
+    return { step2: 'steps 2 from the start', movesLike: 'moves like ' + c, linesPass: 'passes ' + c, chain: 'takes again', cannotBeTaken: 'safe ' + c,
+      push: 'pushes ' + c, swap: 'swaps with ' + c, becomes: 'becomes ' + c, cannotTake: 'cannot take ' + c, removedAfter: 'removed after a take' }[r.a] || '';
+  }
+  function phoneBrushes(cls) {
+    const b = (k, inner, lab) => `<button class="${S.brush === k ? 'armed' : ''}${inner ? ' tool' : ''}" data-act="brush" data-k="${k}" aria-label="${lab}">${inner || M.tile(k, 40, { fill: true })}</button>`;
+    return `<div class="${cls}" aria-label="Brushes">${b('move', '', 'Move')}${b('take', '', 'Take')}${b('both', '', 'Both')}${b('shot', '', 'Shot')}${b('line', railIcon(24), 'Line')}<button class="tool" data-act="mirror" aria-label="Mirror: ${S.mirror}">${mirrorIcon()}</button><button class="tool" data-act="undo" aria-label="Undo" ${hist.length ? '' : 'disabled'}>↶</button>${S.sheet === 'paint' ? '<button class="primary" data-act="closesheet" aria-label="Done" style="width:44px;color:var(--vellum);font-size:20px;background:linear-gradient(var(--accent-bright),var(--accent))">✓</button>' : ''}</div>`;
+  }
+  function phoneSealSheet() {
+    const d = S.design;
+    const seals = M.BLOCKS.map((b) => {
+      const f = fits(d, b.a);
+      return `<button class="bare tseal${f.ok ? '' : f.have ? ' have' : ' dim'}${S.traySel === b.a ? ' sel' : ''}" data-act="tseal" data-a="${b.a}" aria-label="${esc(b.title)}">${M.seal(b.a, 52)}</button>`;
+    }).join('');
+    const bar = S.traySel ? `<div class="bar">${M.seal(S.traySel, 40)}<div style="flex:1;font:400 14.5px/1.25 var(--font-body)"><b>${esc(M.blockOf(S.traySel).title)}</b></div><button class="primary" data-act="stamp">Add</button></div>` : `<p class="hint">Tap a rule to try it on the board.</p>`;
+    return `<div class="seals">${seals}</div>${bar}`;
+  }
+  function phoneStage() {
+    let card = '';
+    if (S.view === 'king') card = kingStage();
+    else if (S.view === 'card') card = spellStage();
+    else if (S.view === 'seal') card = sealStage();
+    else if (S.view === 'law') card = lawStage();
+    return `<div class="pstage">${card}${tableHtml(true)}</div>`;
+  }
+  function renderPhone() {
+    let h;
+    if (S.view === 'lib') h = phoneTop('Workshop') + phoneTabs() + phoneLib();
+    else if (S.view === 'piece') h = phonePiece();
+    else {
+      const name = S.view === 'king' ? KING[S.item].name : S.view === 'card' ? CARD[VAR_OF[S.item] || S.item].name : S.view === 'seal' ? 'Piece rule' : 'Table rule';
+      h = phoneTop(name) + phoneStage();
+    }
+    app.innerHTML = h + popLayer(true);
+  }
+
+  /* ================= RENDER + AFTER ================= */
+  function render() {
+    document.body.classList.toggle('phone', isPhone());
+    if (isPhone()) renderPhone(); else renderDesktop();
+    after();
+    S._enter = S._ripple = S._copied = S._stamped = S._trayRise = false;
+    fitDesktop();
+  }
+  function knotBadge(k, sc) {
+    if (k.type === 'cracked') return `<span class="kb brk" title="${esc(k.words)}"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M9.5 6.5L11 5a3.5 3.5 0 0 1 5 5l-1.5 1.5M14.5 17.5L13 19a3.5 3.5 0 0 1-5-5l1.5-1.5M4 4l3 3M20 20l-3-3M8 2.5v2.5M16 21.5V19" fill="none" stroke="#5b5045" stroke-width="2" stroke-linecap="round"/></svg></span>`;
+    if (k.type === 'gold') {
+      const q = (k.words.match(/[a-h][1-8]/) || [])[0];
+      const m = q && sc.marks.find((x) => x.sq === q);
+      if (!m) return '';
+      return `<span class="kb res" title="${esc(k.words)}">${M.tile(m.k === 'blocked' ? 'blocked' : m.k === 'both' ? 'both' : m.k, 22, { fill: true })}</span>`;
+    }
+    return '';
+  }
+  function after() {
+    // knots in the margin of the rule band
+    const band = document.getElementById('cseals');
+    if (band) {
+      const sc = tableScene();
+      band.querySelectorAll('.knot-v').forEach((el) => {
+        const a = +el.dataset.ka, b = +el.dataset.kb;
+        const ra = band.querySelector(`[data-row="${a}"]`), rb = band.querySelector(`[data-row="${b}"]`);
+        if (!ra || !rb) { el.remove(); return; }
+        const ya = ra.offsetTop + ra.offsetHeight / 2, yb = rb.offsetTop + rb.offsetHeight / 2;
+        const k = (sc.knots || []).find((x) => x.a === a && x.b === b);
+        el.style.top = ya + 'px';
+        el.style.height = Math.max(20, yb - ya) + 'px';
+        el.querySelector('button').innerHTML = M.knot(k.type, { vertical: true, h: Math.max(20, yb - ya), w: 18 });
+        el.insertAdjacentHTML('beforeend', knotBadge(k, sc));
+      });
+    }
+    if (S._fly) {
+      const sc = document.getElementById('stagecard');
+      if (sc && sc.animate) {
+        const r = sc.getBoundingClientRect(), f = S._fly, z = zoom();
+        const dx = (f.left - r.left) / z, dy = (f.top - r.top) / z, k = f.width / r.width;
+        sc.animate([{ transform: `translate(${dx}px,${dy}px) scale(${k})`, transformOrigin: '0 0', opacity: .6 }, { transform: 'none', transformOrigin: '0 0', opacity: 1 }], { duration: 320, easing: 'cubic-bezier(0.2,0.8,0.2,1)' });
+      }
+      S._fly = null;
+    }
+  }
+  const zoom = () => parseFloat(app.style.zoom || 1) || 1;
+  function fitDesktop() {
+    if (isPhone()) { app.style.zoom = ''; return; }
+    const z = Math.min(1, window.innerWidth / 1440, Math.max(0.6, window.innerHeight / 900));
+    app.style.zoom = z < 0.999 ? z : '';
+  }
+  function refreshBoard() {
+    const svg = document.querySelector('.board-svg');
+    if (!svg) return;
+    svg.innerHTML = boardInner(currentBoardScene(), isPhone() ? PHONE_S : BOARD_S, isPhone());
+  }
+
+  let toastT;
+  function toast(t, ms = 2200, action) {
+    const el = document.getElementById('toast');
+    el.innerHTML = `<span>${esc(t)}</span>${action ? `<button class="quiet" data-act="${action.act}">${esc(action.label)}</button>` : ''}`;
+    el.classList.add('on');
+    clearTimeout(toastT);
+    toastT = setTimeout(() => el.classList.remove('on'), ms);
+  }
+  const hideToast = () => { clearTimeout(toastT); document.getElementById('toast').classList.remove('on'); };
+
+  /* ================= ACTIONS ================= */
+  function resetTable() {
+    Object.assign(S, { focus: null, knot: null, select: null, hover: null, brush: null, trayOpen: false, traySel: null, flipped: false, peek: false,
+      seat: null, armed: null, spent: 0, slot: null, cardPlayed: null, played: null, cleared: false, lift: false, sheet: null, pop: null });
+  }
+  function openPiece(k, from) {
+    resetTable();
+    S.view = 'piece'; S.tab = 'pieces'; S.item = k;
+    S.design = designOf(k); S.sq = defaultSq(k);
+    S.threats = k !== 'new' && !!SC.get(PIECES[k].scene).threats;
+    if (k === 'new') S.brush = 'move';
+    hist = []; S.undoLabel = null;
+    S._enter = S._ripple = true; S._fly = from || null;
+  }
+  function openYours(i) {
+    const y = S.yours[i];
+    resetTable();
+    S.view = 'piece'; S.tab = 'pieces'; S.item = y.design.base;
+    S.design = clone(y.design); S.sq = y.sq || defaultSq(y.design.base);
+    hist = []; S.undoLabel = null; S._enter = S._ripple = true;
+  }
+  function makeCopy(quiet) {
+    const d = S.design;
+    if (d.copy) return;
+    d.copy = true;
+    S._copied = true;
+    S.yours.push({ id: Date.now(), design: d });
+    if (!quiet) setTimeout(() => toast('Your copy. The original stays.', 3600, { label: 'Undo', act: 'undo' }), 30);
+  }
+  function syncYours() {
+    const y = S.yours.find((x) => x.design === S.design) || S.yours[S.yours.length - 1];
+    if (y && S.design.copy) { y.design = S.design; y.sq = S.sq; }
+  }
+  function paint(x, y) {
+    const d = S.design;
+    if (!x && !y) return;
+    const brush = S.brush;
+    if (brush === 'line') {
+      const dir = lineDirOf(x, y);
+      if (!dir) { toast('A line runs straight or on a diagonal from the piece.'); return; }
+      snap('paint'); if (!d.copy) makeCopy();
+      d.lines = d.lines.includes(dir) ? d.lines.filter((q) => q !== dir) : [...d.lines, dir];
+      S._ripple = true; syncYours(); render(); return;
+    }
+    const targets = S.mirror === 'one' ? [[x, y]] : S.mirror === 'mirror' ? [[x, y], [-x, y]]
+      : [[x, y], [-x, y], [x, -y], [-x, -y], [y, x], [-y, x], [y, -x], [-y, -x]];
+    const uniq = [...new Map(targets.map((t) => [t.join(','), t])).values()];
+    const cur = d.squares.find((q) => q.x === x && q.y === y);
+    const curK = cur ? cur.mark : null;
+    let next;
+    if (brush === 'eraser') next = null;
+    else if (brush === 'shot') next = curK === 'move' ? 'moveShoot' : curK === 'shoot' ? null : 'shoot';
+    else next = curK === brush && !(cur && cur.cond) ? null : brush;
+    snap('paint');
+    if (!d.copy) makeCopy();
+    for (const [tx, ty] of uniq) {
+      d.squares = d.squares.filter((q) => !(q.x === tx && q.y === ty));
+      if (next) d.squares.push({ x: tx, y: ty, mark: next });
+    }
+    S.played = null; S.select = null;
+    S._ripple = true; syncYours(); render();
+  }
+  function stamp(a) {
+    const d = S.design;
+    const f = fits(d, a);
+    if (f.have) { bounce(); toast('Already in this piece.'); return; }
+    if (d.rules.length >= 3) { bounce(); toast('3 of 3 rules. Remove one to add another.'); return; }
+    if (!f.ok) { bounce(); toast(f.why); return; }
+    snap('rule');
+    const wasCopy = d.copy;
+    if (!d.copy) makeCopy(true);
+    const b = M.blockOf(a);
+    d.rules = canonical([...d.rules, { a, pill: b.pill ? b.pill.def : undefined, when: b.when }]);
+    S.traySel = null; S.trayOpen = false; S._stamped = a; S._ripple = true; S.focus = null; S.select = null; S.played = null;
+    if (isPhone()) S.sheet = null;
+    syncYours(); render();
+    const sc = tableScene();
+    if (sc.noScene) toast('The table has no test board for this rule yet. The card keeps it.');
+    else if (!wasCopy) toast('Your copy. The original stays.', 3600, { label: 'Undo', act: 'undo' });
+  }
+  function bounce() { const el = document.querySelector('.tray, .cseals'); if (el) { el.classList.remove('bounce'); void el.offsetWidth; el.classList.add('bounce'); } }
+
+  function tapSquare(q) {
+    const sc = currentBoardScene();
+    if (!sc) return;
+    const open = openOf(sc);
+    if (S.lift && open) {
+      S.lift = false;
+      if (q === open.sq) { render(); return; }
+      if (S.design.base === 'pawn' && ['e2', 'd4', 'b4'].includes(q) && (q !== 'b4' || S.design.rules.some((r) => r.a === 'movesLike'))) {
+        S.sq = q; S.select = null; S._ripple = true; syncYours(); render(); return;
+      }
+      toast('This mockup has d4, b4 and e2.'); render(); return;
+    }
+    const wantsTarget = (S.slot === 'Freeze' || (S.seat === 'frost' && S.armed === 'Freeze')) && !S.cardPlayed;
+    if (wantsTarget) {
+      if (q === 'c6') { S.cardPlayed = 'c6'; S.select = null; S.threats = true; if (isPhone()) S.sheet = 'receipt', S.select = 'c6'; render(); return; }
+      if (q === 'g8') { toast('Not the king.'); return; }
+      if (q === 'e5' || q === 'h8') { toast('This mockup plays Freeze on c6.'); return; }
+    }
+    if (open && q === open.sq && S.design && S.design.base === 'pawn' && !S.played) { S.lift = true; S.select = q; render(); return; }
+    if (S.played) { S.select = q; render(); return; }
+    S.select = S.select === q && !isPhone() ? null : q;
+    if (isPhone()) S.sheet = 'receipt';
+    render();
+  }
+  function moveHere() {
+    const sc = currentBoardScene(), q = S.select, open = openOf(sc);
+    if (!open) return;
+    const m = sc.marks.find((x) => x.sq === q && !x.on);
+    const shot = m && (m.k === 'shot' || (m.k === 'moveshot' && piecesAt(sc)[q]));
+    const removed = (sc.impressions || []).some((i) => i.sq === q && !i.on && i.list.some((x) => x.a === 'removedAfter'));
+    const arch = (sc.arches || []).some((a) => a.to === q || railDir(sc, open.sq, q) && a.from === open.sq) || open.k === 'knight';
+    const doIt = () => {
+      S.played = { from: open.sq, to: q, shot, removed };
+      if (S.armed === 'Leap' && S.design.base === 'rook') S.spent = Math.min(3, S.spent + 1);
+      render();
+      if (removed) puff(q);
+    };
+    animateMove(open, q, arch && !shot, shot, doIt);
+  }
+  function animateMove(open, to, arc, shot, done) {
+    const field = document.getElementById('field');
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches || document.body.classList.contains('rm');
+    if (!field || reduce || shot) { done(); return; }
+    const s = isPhone() ? PHONE_S : BOARD_S;
+    const xy = (q) => { const [f, r] = parse(q); return [f * s, (8 - r) * s]; };
+    const [x0, y0] = xy(open.sq), [x1, y1] = xy(to);
+    const imgs = [...field.querySelectorAll('.kdm-pieces image')];
+    const find = (q) => imgs.find((im) => (im.querySelector('title') || {}).textContent?.startsWith(q + ':'));
+    const src = find(open.sq), tgt = find(to);
+    const el = document.createElement('img');
+    el.className = 'mover';
+    el.src = src ? src.getAttribute('href') : '';
+    el.style.cssText = `left:${x0 + s * 0.05}px;top:${y0 + s * 0.025}px;width:${s * 0.9}px;height:${s * 0.9}px;object-fit:contain;object-position:bottom`;
+    field.appendChild(el);
+    if (src) src.style.visibility = 'hidden';
+    const kf = [];
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10, lift = arc ? -Math.sin(Math.PI * t) * s * 1.1 : 0;
+      kf.push({ transform: `translate(${(x1 - x0) * t}px, ${(y1 - y0) * t + lift}px)` });
+    }
+    const an = el.animate(kf, { duration: 320, easing: 'cubic-bezier(0.65,0,0.35,1)', fill: 'forwards' });
+    if (tgt) tgt.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: 200, fill: 'forwards' });
+    an.onfinish = () => { el.remove(); done(); };
+  }
+  function puff(q) {
+    const field = document.getElementById('field');
+    if (!field || !field.animate) return;
+    const s = isPhone() ? PHONE_S : BOARD_S, [f, r] = parse(q);
+    const el = document.createElement('div');
+    el.className = 'puff';
+    el.style.cssText = `left:${f * s + s / 2 - 22}px;top:${(8 - r) * s + s / 2 - 22}px;width:44px;height:44px`;
+    el.innerHTML = M.impression({ a: 'removedAfter' }, 44, { assets: A });
+    field.appendChild(el);
+    el.animate([{ transform: 'scale(.6)', opacity: 0 }, { transform: 'scale(1.15)', opacity: 1, offset: .4 }, { transform: 'scale(1.6) translateY(-10px)', opacity: 0 }], { duration: 480, easing: 'ease-out', fill: 'forwards' }).onfinish = () => el.remove();
+  }
+
+  // the two-way link between the diagram and the table
+  function cellSquares(x, y) {
+    const sc = currentBoardScene(), open = openOf(sc);
+    if (!open) return [];
+    const [f0, r0] = parse(open.sq);
+    const d = S.design, dir = lineDirOf(x, y);
+    const pat = designPattern(d);
+    if (dir && pat.lines.includes(dir) && !pat.squares.some((q) => q.x === x && q.y === y)) {
+      const out = [];
+      const [dx, dy] = DV[dir];
+      for (let i = 1; i < 8; i++) { const q = sqn(f0 + dx * i, r0 + dy * i); if (!q) break; if (sc.marks.some((m) => m.sq === q)) out.push(q); else if (!sc.pieces.some((p) => p.sq === q)) break; }
+      return out;
+    }
+    const q = sqn(f0 + x, r0 + y);
+    return q && sc.marks.some((m) => m.sq === q) ? [q] : [];
+  }
+  function squareCells(q) {
+    const sc = currentBoardScene(), open = openOf(sc);
+    if (!open || !S.design) return [];
+    const [f0, r0] = parse(open.sq), [f, r] = parse(q), x = f - f0, y = r - r0;
+    if (!sc.marks.some((m) => m.sq === q)) return [];
+    const pat = designPattern(S.design);
+    if (Math.abs(x) <= 3 && Math.abs(y) <= 3 && pat.squares.some((c) => c.x === x && c.y === y)) return [[x, y]];
+    const dir = lineDirOf(x, y);
+    if (dir && pat.lines.includes(dir)) { const [dx, dy] = DV[dir]; return [1, 2, 3].map((i) => [dx * i, dy * i]); }
+    return [];
+  }
+  function clearLink() { document.querySelectorAll('.hl').forEach((e) => e.classList.remove('hl')); }
+  function linkFromCell(x, y) {
+    clearLink();
+    cellSquares(x, y).forEach((q) => { const b = document.querySelector(`#hits [data-sq="${q}"]`); if (b) b.classList.add('hl'); });
+  }
+  function linkFromSquare(q) {
+    clearLink();
+    squareCells(q).forEach(([x, y]) => { const b = document.querySelector(`.cdg .cells [data-x="${x}"][data-y="${y}"]`); if (b) b.classList.add('hl'); });
+  }
+
+  function back() {
+    if (S.view === 'piece') { S.view = 'lib'; S.tab = 'pieces'; }
+    else if (S.view === 'king') { S.view = 'lib'; S.tab = 'kings'; }
+    else if (S.view === 'card') { S.view = 'lib'; S.tab = 'cards'; }
+    else { S.view = 'lib'; S.tab = 'rules'; }
+    resetTable();
+    render();
+  }
+  function popAt(type, el, extra = {}) {
+    const ar = app.getBoundingClientRect(), r = el.getBoundingClientRect(), z = zoom();
+    S.pop = Object.assign({ type, x: Math.round((r.left - ar.left) / z), y: Math.round((r.bottom - ar.top) / z + 6), top: Math.round((r.top - ar.top) / z) }, extra);
+  }
+
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-act]');
+    if (!t) { if (S.pop) { S.pop = null; render(); } return; }
+    const act = t.dataset.act;
+    if (t.closest('#toast')) hideToast();
+    if (S.pop && !['pick', 'pickking', 'pickcard', 'picklaw', 'threats', 'clear'].includes(act) && !t.closest('.pop')) S.pop = null;
+    switch (act) {
+      case 'menu': openMenu(); break;
+      case 'tab': S.view = 'lib'; S.tab = t.dataset.tab; resetTable(); render(); break;
+      case 'open': { const r = t.getBoundingClientRect(); openPiece(t.dataset.k, isPhone() ? null : r); render(); break; }
+      case 'openyours': openYours(+t.dataset.i); render(); break;
+      case 'back': back(); break;
+      case 'undo': undo(); break;
+      case 'share': S.pop = null; toast('Link copied. A friend can open your card.'); render(); break;
+      case 'flip': S.flipped = !S.flipped; render(); break;
+      case 'brush': {
+        const k = t.dataset.k;
+        if (isPhone() && !S.design.copy && !S.design.isNew) { S.brush = k; S.sheet = 'paint'; render(); break; }
+        S.brush = S.brush === k ? null : k; S.select = null; render();
+        if (S.brush && !S.design.copy && !S.design.isNew) toast('Tap the diagram to paint. That makes your own copy.', 2600);
+        break;
+      }
+      case 'mirror': S.mirror = { mirror: 'all', all: 'one', one: 'mirror' }[S.mirror]; render(); toast({ mirror: 'Mirror: left and right.', all: 'All 8: every turn and mirror.', one: 'One square.' }[S.mirror], 1400); break;
+      case 'cell': {
+        const x = +t.dataset.x, y = +t.dataset.y;
+        if (S.brush) { paint(x, y); break; }
+        if (!x && !y) break;
+        const sqs = cellSquares(x, y);
+        if (!sqs.length) { toast('No mark from this square here.'); break; }
+        S.select = sqs[sqs.length - 1]; if (isPhone()) S.sheet = 'receipt'; render(); break;
+      }
+      case 'seal': { const i = +t.dataset.i; S.knot = null; S.focus = S.focus === i ? null : i; render(); break; }
+      case 'sealsay': if (isPhone()) { S.pop = { type: 'say', i: +t.dataset.i }; render(); } break;
+      case 'knot': {
+        const a = +t.dataset.a, b = +t.dataset.b;
+        const k = tableScene().knots.find((x) => x.a === a && x.b === b);
+        S.focus = null; S.knot = S.knot && S.knot[0] === a && S.knot[1] === b ? null : [a, b]; render(); if (S.knot) toast(k.words); break;
+      }
+      case 'pill': if (S.peek) break; popAt('pill', t, { i: +t.dataset.i }); render(); break;
+      case 'pick': {
+        const d = S.design, r = d.rules[S.pop.i];
+        if ((r.pill || M.blockOf(r.a).pill.def) !== t.dataset.v) {
+          snap('rule');
+          if (!d.copy) makeCopy();
+          r.pill = t.dataset.v; S.played = null; S._ripple = true; syncYours();
+        }
+        S.pop = null; render();
+        const sc = tableScene();
+        if (sc.noScene) toast('The table has no test board for this choice yet. The card keeps it.');
+        else if (sc.knots.some((k) => k.type === 'cracked')) toast(sc.knots.find((k) => k.type === 'cracked').words, 2600, { label: 'Undo', act: 'undo' });
+        else if (sc.knots.some((k) => k.type === 'gold')) toast(sc.knots.find((k) => k.type === 'gold').words);
+        break;
+      }
+      case 'rmseal': { const d = S.design, i = +t.dataset.i; snap('rule'); d.rules.splice(i, 1); S.focus = null; S.knot = null; S.played = null; S._ripple = true; syncYours(); render(); break; }
+      case 'tray': S.trayOpen = !S.trayOpen; if (!S.trayOpen) S.traySel = null; S.select = null; render(); break;
+      case 'tseal': {
+        const a = t.dataset.a, f = fits(S.design, a);
+        if (!f.ok) { S.traySel = null; render(); toast(f.why); break; }
+        if (S.design.rules.length >= 3) { render(); bounce(); toast('3 of 3 rules. Remove one to add another.'); break; }
+        S.traySel = S.traySel === a ? null : a; S.focus = null; S.knot = null; S.select = null;
+        render(); break;
+      }
+      case 'stamp': if (S.traySel) stamp(S.traySel); break;
+      case 'sealsheet': S.sheet = 'seals'; render(); break;
+      case 'closesheet': S.sheet = null; S.traySel = null; render(); break;
+      case 'paintsheet': if (!S.brush) S.brush = 'both'; S.sheet = 'paint'; render(); break;
+      case 'tools': if (S.pop && S.pop.type === 'tools') { S.pop = null; render(); break; } popAt('tools', t); if (!isPhone()) { S.pop.y = S.pop.top - 186; S.pop.x -= 70; } render(); break;
+      case 'sq': tapSquare(t.dataset.sq); break;
+      case 'closercpt': S.select = null; S.sheet = null; render(); break;
+      case 'movehere': moveHere(); break;
+      case 'takeback': S.played = null; S.cardPlayed = null; if (S.design && S.design.base === 'rook') S.spent = 0; S.select = null; S.sheet = null; render(); break;
+      case 'seat': popAt('king', t, {}); if (!isPhone()) { S.pop.y = S.pop.top - 300; S.pop.x -= 20; } render(); break;
+      case 'slot': popAt('card', t, {}); if (!isPhone()) { S.pop.y = S.pop.top - 250; S.pop.x -= 140; } render(); break;
+      case 'pickking': {
+        const k = t.dataset.k || null;
+        S.seat = k; S.armed = null; S.spent = 0; S.cardPlayed = null; S.played = null; S.select = null; S.pop = null; S._ripple = true;
+        if (k && !['mud', 'frost'].includes(k) && S.design) toast('No test board for this king yet. Tap a coin to read it.');
+        render(); break;
+      }
+      case 'pickcard': {
+        const k = t.dataset.k || null;
+        S.slot = k; S.cardPlayed = null; S.played = null; S.select = null; S.pop = null; S._ripple = true;
+        if (k === 'Freeze') { if (S.design.base !== 'paladin') toast('Freeze has its test board on the Paladin.'); S.threats = true; }
+        else if (k) toast('This card has no test board yet.');
+        render(); break;
+      }
+      case 'arm': {
+        const p = t.dataset.p;
+        S.armed = S.armed === p ? null : p; S.cardPlayed = null; S.played = null; S.select = null; S._ripple = true;
+        if (S.armed && !['Leap', 'Freeze'].includes(p)) toast(POWERS[p].name + ': no test board in this mockup.');
+        if (S.armed === 'Leap' && S.design.base === 'paladin') toast('Leap adds nothing here. The Paladin already passes its own pieces.');
+        if (S.armed === 'Freeze') S.threats = true;
+        render(); break;
+      }
+      case 'threats': S.threats = !S.threats; render(); break;
+      case 'stir': S.cleared = false; S.played = null; S.select = null; S.pop = null; S._ripple = true; render(); toast('The example board is back.', 1400); break;
+      case 'clear': S.cleared = !S.cleared; S.played = null; S.select = null; S._ripple = true; render(); break;
+      case 'peek': break;
+      case 'king': openKing(t.dataset.k); render(); break;
+      case 'card': openCard(t.dataset.k); render(); break;
+      case 'sealpage': openSeal(t.dataset.a); render(); break;
+      case 'seenon': {
+        const a = S.item, k = t.dataset.k;
+        if (a === 'movesLike') { openPiece('pawn'); applyMyPawnQueen('d4'); S.focus = 1; }
+        else { openPiece(k); S.focus = S.design.rules.findIndex((r) => r.a === a); if (S.focus < 0) S.focus = null; }
+        render(); break;
+      }
+      case 'law': if (!e.target.closest('.ctl, .switch, .promo')) { openLaw(t.dataset.k); render(); } break;
+      case 'lawdial': popAt('law', t, { k: t.dataset.k }); render(); break;
+      case 'lawflip': { const k = t.dataset.k; snap('table rule'); S.laws[k] = S.laws[k] === 'On' ? 'Off' : 'On'; S.lawsYours = true; render(); toast('MY RULES: your own edition.', 2600, { label: 'Undo', act: 'undo' }); break; }
+      case 'picklaw': snap('table rule'); S.laws[t.dataset.k] = t.dataset.v; S.lawsYours = true; S.pop = null; render(); toast('MY RULES: your own edition.', 2600, { label: 'Undo', act: 'undo' }); break;
+    }
+  });
+  // press and hold the stacked original
+  document.addEventListener('pointerdown', (e) => {
+    const g = e.target.closest('[data-act="peek"]');
+    if (!g) return;
+    S.peek = true; render();
+    const up = () => { S.peek = false; render(); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
+    window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  });
+  document.addEventListener('pointerover', (e) => {
+    const c = e.target.closest('.cdg .cells > button');
+    if (c) { linkFromCell(+c.dataset.x, +c.dataset.y); return; }
+    const s = e.target.closest('#hits > button');
+    if (s) {
+      linkFromSquare(s.dataset.sq);
+      const sc = currentBoardScene();
+      const hasOn = sc && (sc.marks.some((m) => m.on) || sc.effects.some((x) => x.on) || (sc.impressions || []).some((x) => x.on));
+      if (hasOn && S.hover !== s.dataset.sq) { S.hover = s.dataset.sq; refreshBoard(); }
+    }
+  });
+  document.addEventListener('pointerout', (e) => {
+    if (e.target.closest('.cdg .cells > button, #hits > button') && !e.relatedTarget?.closest?.('.cdg .cells > button, #hits > button')) {
+      clearLink();
+      if (S.hover) { S.hover = null; refreshBoard(); }
+    }
+  });
+  // drag a rule from the drawer onto the card
+  document.addEventListener('dragstart', (e) => { const t = e.target.closest('.tseal'); if (t) { e.dataTransfer.setData('text/plain', t.dataset.a); S.traySel = t.dataset.a; } });
+  document.addEventListener('dragover', (e) => { if (e.target.closest('.card.front')) e.preventDefault(); });
+  document.addEventListener('drop', (e) => { if (e.target.closest('.card.front')) { e.preventDefault(); stamp(e.dataTransfer.getData('text/plain')); } });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.matches('input, textarea')) return;
+    const k = e.key;
+    if (k === 'm' || k === 'M') { const m = document.getElementById('menu'); if (m.hidden) openMenu(); else m.hidden = true; return; }
+    if (k === 'Escape') {
+      if (!document.getElementById('menu').hidden) { document.getElementById('menu').hidden = true; return; }
+      if (S.pop) S.pop = null; else if (S.sheet) S.sheet = null; else if (S.traySel) S.traySel = null; else if (S.trayOpen) S.trayOpen = false; else if (S.select) S.select = null; else if (S.brush) S.brush = null; else if (S.focus != null || S.knot) { S.focus = null; S.knot = null; } else if (S.view !== 'lib') { back(); return; }
+      render(); return;
+    }
+    if ((k === 'f' || k === 'F') && S.view === 'piece') { S.flipped = !S.flipped; render(); return; }
+    if (k.startsWith('Arrow')) {
+      const b = document.activeElement;
+      const grid = b && b.closest('#hits, .cells');
+      if (!grid) return;
+      const all = [...grid.children], i = all.indexOf(b), n = grid.id === 'hits' ? 8 : 7;
+      const j = i + ({ ArrowLeft: -1, ArrowRight: 1, ArrowUp: -n, ArrowDown: n }[k]);
+      if (all[j]) { all[j].focus(); e.preventDefault(); }
+    }
+  });
+  window.addEventListener('resize', () => { const p = document.body.classList.contains('phone'); if (p !== isPhone()) render(); else fitDesktop(); });
+
+  /* ================= OTHER OPENERS ================= */
+  function openKing(id) {
+    resetTable();
+    S.view = 'king'; S.tab = 'kings'; S.item = id;
+    S.design = designOf(id === 'mud' ? 'rook' : 'paladin'); S.sq = defaultSq(S.design.base);
+    S.seat = id; S.threats = id === 'frost';
+    S._enter = S._ripple = true;
+  }
+  function openCard(id) {
+    resetTable();
+    S.view = 'card'; S.tab = 'cards'; S.item = id;
+    S.design = designOf('paladin'); S.sq = 'd4'; S.slot = id;
+    S.threats = id === 'Freeze';
+    S._enter = S._ripple = true;
+  }
+  function openSeal(a) {
+    resetTable();
+    S.view = 'seal'; S.tab = 'rules'; S.item = a;
+    if (a === 'movesLike') applyMyPawnQueen('d4', true);
+    else { const k = BX[a].seen[0]; S.design = designOf(k); S.sq = defaultSq(k); S.threats = !!SC.get(PIECES[k].scene).threats; }
+    S.focus = S.design.rules.findIndex((r) => r.a === a);
+    S._enter = S._ripple = true;
+  }
+  function openLaw(id) { resetTable(); S.view = 'law'; S.tab = 'rules'; S.item = id; S.design = null; S._enter = true; }
+  function applyMyPawnQueen(sq, noYours) {
+    S.design = designOf('pawn');
+    S.design.copy = true;
+    S.design.squares = clone(SC.patterns.mypawn.squares);
+    S.design.rules = canonical([...S.design.rules, { a: 'movesLike', pill: 'queen', when: M.blockOf('movesLike').when }]);
+    S.sq = sq;
+    if (!noYours && !S.yours.some((y) => y.design.base === 'pawn')) S.yours.push({ id: 1, design: S.design, sq });
+  }
+
+  /* ================= STATES (?state=) ================= */
+  const STATES = {
+    binder: ['The opening screen: the binder.', () => {}],
+    'card-paladin': ['The Paladin card and its table.', () => openPiece('paladin')],
+    hero: ['The Paladin: why d7 (the Receipt).', () => { openPiece('paladin'); S.select = 'd7'; }],
+    'hero-isolate-1': ['Rule I alone on the card and the table.', () => { openPiece('paladin'); S.select = 'd7'; S.focus = 0; }],
+    'pawn-e2': ['The Pawn: e2, with a knight on d3.', () => openPiece('pawn')],
+    'pawn-brush': ['The Pawn with the Both brush armed (no copy yet).', () => { openPiece('pawn'); S.brush = 'both'; }],
+    'pawn-painted': ['MY PAWN: Both painted, mirrored.', () => { openPiece('pawn'); S.brush = 'both'; makeCopy(true); S.design.squares = clone(SC.patterns.mypawn.squares); snap('paint'); }],
+    'pawn-tray': ['Add a rule: the drawer, with a preview on d4.', () => { STATES['pawn-painted'][1](); S.brush = null; S.sq = 'd4'; S.trayOpen = true; S.traySel = 'movesLike'; }],
+    'pawn-stamped': ['MY PAWN with "moves like a queen": its lines sleep on e2.', () => { STATES['pawn-painted'][1](); S.brush = null; applyMyPawnQueen('e2', true); S.yours = [{ id: 1, design: S.design, sq: 'e2' }]; S._stamped = 'movesLike'; snap('rule'); }],
+    'pawn-d4': ['MY PAWN on d4: the lines wake, a gold knot.', () => { STATES['pawn-stamped'][1](); S._stamped = false; S.sq = 'd4'; S.yours[0].sq = 'd4'; }],
+    'pawn-d8': ['MY PAWN on d4: why d8 (moves like + becomes).', () => { STATES['pawn-d4'][1](); S.select = 'd8'; }],
+    flip: ['The back of the Paladin card: its worth.', () => { openPiece('paladin'); S.flipped = true; }],
+    peek: ['Hold the original behind MY PAWN.', () => { STATES['pawn-painted'][1](); S.brush = null; S.peek = true; }],
+    'rook-leap': ['The Rook with the Mud king and Leap armed.', () => { openPiece('rook'); S.seat = 'mud'; S.armed = 'Leap'; S.select = 'd5'; }],
+    echo: ['The Paladin with Leap: it adds nothing.', () => { openPiece('paladin'); S.seat = 'mud'; S.armed = 'Leap'; }],
+    'freeze-targets': ['A LAB Freeze card waits for a target.', () => { openPiece('paladin'); S.slot = 'Freeze'; S.threats = true; }],
+    'freeze-card': ['A LAB Freeze card played on c6.', () => { openPiece('paladin'); S.slot = 'Freeze'; S.threats = true; S.cardPlayed = 'c6'; }],
+    tools: ['The ⋯ tools: Threats, Stir, Clear.', () => { openPiece('paladin'); S.pop = { type: 'tools', x: 807, y: 590 }; }],
+    beast: ['MY BEAST: two rules combine (gold knot).', () => { openPiece('beast'); makeCopy(true); S.design.rules = canonical([...S.design.rules, { a: 'removedAfter', pill: 'piece', when: { on: 'takes' } }]); S.select = 'e5'; }],
+    'beast-cancel': ['MY BEAST: "anything" stops "takes again".', () => { STATES.beast[1](); S.design.rules[1].pill = 'any'; }],
+    kings: ['The Kings page.', () => { S.tab = 'kings'; }],
+    mud: ['The Mud king on the stage.', () => { openKing('mud'); }],
+    frost: ['The Frost king: Freeze on c6, the marks stay.', () => { openKing('frost'); S.armed = 'Freeze'; S.cardPlayed = 'c6'; }],
+    cards: ['The Cards page (LAB).', () => { S.tab = 'cards'; }],
+    'card-freeze': ['The Freeze card (LAB) on the stage.', () => { openCard('Freeze'); }],
+    'card-rage': ['A card with versions: Rage | B.', () => { openCard('RageB'); }],
+    rules: ['The Rules page.', () => { S.tab = 'rules'; }],
+    'seal-linespass': ['One piece rule: its lines pass over pieces.', () => { openSeal('linesPass'); }],
+    'law-promo': ['One table rule: promotion.', () => { openLaw('promo'); }],
+    'new-piece': ['NEW PIECE with the Move brush.', () => { openPiece('new'); }],
+    'phone-binder': ['Phone: the binder.', () => {}],
+    'phone-card': ['Phone: the Paladin card.', () => openPiece('paladin')],
+    'phone-paint': ['Phone: the paint sheet on MY PAWN.', () => { STATES['pawn-painted'][1](); S.sheet = 'paint'; }],
+    'phone-receipt': ['Phone: why d7.', () => { openPiece('paladin'); S.select = 'd7'; S.sheet = 'receipt'; }],
+    'phone-add': ['Phone: add a rule.', () => { STATES['pawn-painted'][1](); S.brush = null; S.sheet = 'seals'; S.traySel = 'movesLike'; }],
+  };
+  function applyState(id) {
+    S = S0(); hist = [];
+    const st = STATES[id];
+    if (st) st[1]();
+    S._fly = null;
+  }
+  function openMenu() {
+    const m = document.getElementById('menu');
+    document.getElementById('menu-states').innerHTML = Object.entries(STATES).map(([id, [w]]) => `<a href="?state=${id}" data-state="${id}"><code>${id}</code>${esc(w)}</a>`).join('');
+    m.hidden = false;
+  }
+  document.getElementById('menu').addEventListener('click', (e) => {
+    const a = e.target.closest('[data-state]');
+    if (a) { e.preventDefault(); history.replaceState(null, '', '?state=' + a.dataset.state); applyState(a.dataset.state); document.getElementById('menu').hidden = true; render(); return; }
+    if (e.target.id === 'menu') e.currentTarget.hidden = true;
+  });
+  document.getElementById('rm').addEventListener('change', (e) => document.body.classList.toggle('rm', e.target.checked));
+  document.getElementById('cbx').addEventListener('change', (e) => document.body.classList.toggle('cb', e.target.checked));
+
+  const q = new URLSearchParams(location.search).get('state');
+  applyState(q && STATES[q] ? q : 'binder');
+  render();
+  window.KDB = { S: () => S, applyState, render, STATES };
+})();
+</script>
+</body>
+</html>

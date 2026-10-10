@@ -1,0 +1,2206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proving Ground</title>
+<meta name="description" content="King Down Workshop mockup A: the board is the editor. Paint tiles, press rule seals, seat a king, lay a LAB card.">
+<link rel="stylesheet" href="shared/grammar.css">
+<style>
+/* ================= base ================= */
+html, body { margin: 0; height: 100%; }
+body { background: var(--floor-base) var(--floor); color: var(--ink); font: var(--fs-md)/var(--lh) var(--font-body); overflow: hidden; -webkit-font-smoothing: antialiased; }
+body::before { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .55; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .36 0 0 0 0 .3 0 0 0 0 .22 0 0 0 .07 0'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>"); }
+body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(122, 87, 18, .10) 100%); }
+* { box-sizing: border-box; }
+button { font: inherit; font-weight: 700; min-height: 40px; padding: 8px 14px; color: var(--ink); cursor: pointer;
+  background: linear-gradient(var(--vellum), #efe4cc); border: 1px solid var(--stone-700); border-radius: var(--radius);
+  box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.8); }
+button.primary { color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent)); border-color: var(--accent-deep);
+  box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255,220,200,.35); letter-spacing: .01em; }
+button.primary:hover { background: linear-gradient(#a8443a, var(--accent-bright)); }
+button.quiet { background: transparent; box-shadow: none; border-color: var(--stone-500); font-weight: 400; }
+button.quiet:hover:not(:disabled) { background: rgba(255,255,255,.35); }
+button:disabled { opacity: .45; cursor: default; }
+button.bare { background: none; border: 0; box-shadow: none; padding: 0; min-height: 0; font-weight: 400; }
+.cinzel { font-family: var(--font-display); letter-spacing: var(--track-display); }
+img { -webkit-user-drag: none; user-select: none; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* ================= stage (desktop 1440 x 900) ================= */
+#frame { position: relative; z-index: 1; width: 100%; height: 100%; overflow: hidden; }
+#stage { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; }
+.region { position: absolute; }
+
+/* 1 top bar */
+#top { left: 0; top: 0; width: 100%; height: 56px; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 24px; gap: 8px; }
+#top .title { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; display: flex; align-items: center; gap: 14px;
+  font: 600 18px/1 var(--font-display); letter-spacing: .08em; color: var(--ink); }
+#top .title i { display: block; width: 46px; height: 7px; background:
+  linear-gradient(90deg, transparent, var(--gold) 70%) center / 100% 1px no-repeat; position: relative; }
+#top .title i::after { content: ''; position: absolute; right: -3px; top: 50%; width: 6px; height: 6px; background: var(--gold); transform: translateY(-50%) rotate(45deg); }
+#top .title i.r { transform: scaleX(-1); }
+#top .sp { flex: 1; }
+#top button { min-height: 44px; padding: 6px 16px; }
+#top .icon-btn { display: none; }
+
+/* 2 plinth column: the name, the figure on a plain stone base, the rule lines */
+#plinth { left: 24px; top: 64px; width: 336px; height: 676px; }
+.nameband { position: absolute; left: 0; right: 0; top: 8px; height: 60px; display: flex; flex-direction: column; justify-content: center; padding: 0 4px; }
+.nameband .row { display: flex; align-items: center; gap: 10px; }
+.nameband h2 { margin: 0; font: 600 var(--fs-2xl)/1.05 var(--font-display); letter-spacing: .08em; white-space: nowrap; }
+.nameband h2.long { font-size: 25px; }
+.nameband .from { font-size: var(--fs-xs); color: var(--ink-soft); margin-top: 2px; }
+.nameband::after { content: ''; position: absolute; left: 4px; right: 40px; bottom: -4px; height: 1px; background: linear-gradient(90deg, var(--gold), rgba(201,154,62,0)); }
+.nameband.is-copy::after { background: linear-gradient(90deg, var(--stone-500), rgba(138,128,114,0)); }
+.nameband.stamp h2 { animation: namestamp var(--dur-3) var(--ease-spring) both; }
+@keyframes namestamp { 0% { transform: scale(1.18) rotate(-2deg); opacity: 0; } 60% { opacity: 1; } 100% { transform: none; } }
+.nameband .weigh { margin-left: auto; min-height: 44px; padding: 4px 12px; font-weight: 400; display: inline-flex; align-items: center; gap: 6px; }
+
+.figure { position: absolute; left: 0; right: 0; top: 72px; height: 236px; display: grid; justify-items: center; align-items: end; pointer-events: none; }
+.figure img { height: 236px; max-width: 300px; object-fit: contain; filter: var(--rim) drop-shadow(0 10px 8px rgba(29,25,21,.18)); position: relative; z-index: 2; }
+.figure .halo { position: absolute; left: 50%; top: 54%; width: 300px; height: 300px; transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, rgba(255,250,236,.95), rgba(255,248,230,.5) 55%, rgba(255,248,230,0)); z-index: 1; }
+.figure.enter img { animation: figin var(--dur-4) var(--ease-out) both; }
+@keyframes figin { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray mark at its right edge */
+
+/* the plain stone base under the figure (no sockets: the rule lines are the only place for rules) */
+.stone { position: absolute; left: 48px; width: 240px; top: 290px; height: 46px; }
+.stone .top { position: absolute; left: 0; right: 0; top: 0; height: 18px; clip-path: polygon(4% 0, 96% 0, 100% 100%, 0 100%);
+  background: linear-gradient(180deg, #d6ccb8 0%, var(--stone-300) 35%, var(--stone-500) 100%); }
+.stone .top::after { content: ''; position: absolute; left: 50%; top: 2px; width: 140px; height: 12px; transform: translateX(-50%); border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(29,25,21,.42), rgba(29,25,21,0)); }
+.stone .top.lit::before { content: ''; position: absolute; left: 50%; top: 1px; width: 120px; height: 13px; transform: translateX(-50%); border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(233,192,113,.9), rgba(233,192,113,0)); z-index: 1; }
+.stone .front { position: absolute; left: 0; right: 0; top: 18px; height: 28px; border-radius: 0 0 4px 4px;
+  background: linear-gradient(180deg, #5a5147 0%, var(--stone-700) 30%, #403931 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 14px 18px -8px rgba(29,25,21,.55), 0 2px 0 #2c2620; }
+.stone .front::before { content: ''; position: absolute; left: 6px; right: 6px; top: 5px; bottom: 5px; border: 1px solid rgba(201,154,62,.5); border-radius: 2px; pointer-events: none; }
+.stone.shake .front { animation: shake 160ms linear; }
+@keyframes shake { 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+
+/* the rule lines: a 44px seal and its sentence. A gold bracket in the left gutter ties two rules that combine. */
+.lines { position: absolute; left: 0; right: 0; top: 352px; padding-left: 22px; }
+.sline { position: relative; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 6px 6px; cursor: pointer; border-radius: 8px; }
+.sline + .sline { box-shadow: 0 -1px 0 rgba(43,38,33,.07); }
+.sline:hover { background: rgba(255,255,255,.3); }
+.sline.is-focus { background: linear-gradient(90deg, rgba(233,192,113,.34), rgba(233,192,113,0)); }
+.sline.is-other { opacity: .45; }
+.sline .sl-seal { flex: none; width: 44px; height: 44px; line-height: 0; }
+.sline .sl-seal .kd-seal { width: 44px; height: 44px; }
+.sline.stamping .sl-seal { animation: sealstamp var(--dur-3) var(--ease-spring) both; position: relative; }
+.sline.stamping .sl-seal::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 8px solid rgba(156,58,45,.5); animation: waxring 420ms var(--ease-out) both; }
+@keyframes sealstamp { from { transform: scale(1.35) rotate(-8deg); } to { transform: none; } }
+@keyframes waxring { from { transform: scale(.9); opacity: .9; } to { transform: scale(1.8); opacity: 0; } }
+.lines.bounce { animation: bounce 260ms linear; }
+@keyframes bounce { 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+.sline .txt { display: grid; gap: 4px; min-width: 0; }
+.sline .l1 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sline .l2 { font-size: var(--fs-md); line-height: 1.3; }
+/* a value reads as plain words until the line is hovered or focused; then it shows as a pill */
+.sline .pill { position: relative; cursor: pointer; border-color: transparent; background: none; padding-left: 2px; padding-right: 2px; text-decoration: underline dotted var(--stone-500); text-underline-offset: 3px; }
+.sline .pill::before { content: ''; position: absolute; inset: -12px -6px; }
+.sline:hover .pill, .sline:focus-within .pill, .sline.is-focus .pill, .sline .pill.is-open { border-color: var(--stone-500); background: var(--vellum); padding-left: 10px; padding-right: 9px; text-decoration: none; }
+.sline .pill:hover { border-color: var(--gold-ink); }
+.sline.unroll .plate, .sline.unroll .flag { animation: unroll var(--dur-2) var(--ease-out) both; }
+@keyframes unroll { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.choices { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 4px 10px 62px; }
+.choices .pill { cursor: pointer; min-height: 32px; }
+.sline.add { color: var(--ink-soft); }
+.sline.add .sl-seal { display: grid; place-items: center; border-radius: 50%; border: 1.5px dashed var(--stone-500); color: var(--accent); font: 400 24px/1 var(--font-body); }
+.sline.add b { color: var(--accent); font-weight: 700; }
+.sline.empty { min-height: 52px; cursor: default; pointer-events: none; }
+.sline.empty .sl-seal { border-radius: 50%; border: 1.5px dotted var(--stone-300); }
+.sline.empty .txt { width: 150px; height: 1px; border-top: 1.5px dotted var(--stone-300); }
+.kbr { position: absolute; left: 0; z-index: 3; padding: 0; min-height: 0; background: none; border: 0; box-shadow: none; line-height: 0; cursor: pointer; }
+.kbr .knot { display: block; }
+.kbr.knot-unknown { opacity: 0; pointer-events: none; transition: opacity var(--dur-2); }
+.kbr.knot-unknown.show { opacity: 1; pointer-events: auto; }
+.also { position: absolute; left: 4px; right: 0; height: 44px; display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--ink-soft); }
+.also .ac { width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; padding: 0; min-height: 0; background: none; border: 0; box-shadow: none; }
+.also .ac .coin { width: 32px !important; height: 32px !important; }
+.also .ac .mini-card { width: 22px; height: 31px; }
+.weigh-pop { position: absolute; right: 0; top: 70px; width: 300px; padding: 14px 16px; background: var(--vellum); border-radius: var(--radius);
+  box-shadow: var(--shadow-float); display: grid; grid-template-columns: 48px 1fr; gap: 4px 12px; align-items: center; z-index: 30; }
+.weigh-pop .medal { grid-row: span 2; width: 48px; height: 48px; }
+.weigh-pop b { font: 600 18px/1.2 var(--font-display); letter-spacing: .04em; }
+.weigh-pop small { color: var(--ink-soft); }
+
+/* item views: card, seal, law, king (their words sit in the right column) */
+.bigcard { position: absolute; left: 48px; top: 76px; width: 240px; border-radius: 12px; background: var(--vellum);
+  box-shadow: 0 1px 0 rgba(255,255,255,.7) inset, 0 16px 30px -10px rgba(43,38,33,.45), 0 0 0 1px var(--stone-300); overflow: hidden; padding-bottom: 16px; }
+.bigcard .art { height: 168px; background-size: cover; background-position: center; border-bottom: 2px solid var(--gold); }
+.bigcard .art.back { background-image: url(assets/cards/back.jpg); }
+.bigcard .ttl { margin: 12px 14px 0; text-align: center; font: 600 19px/1.1 var(--font-display); letter-spacing: .08em; }
+.bigcard .rule { height: 1px; margin: 8px 40px; background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+.bigcard p { margin: 0 18px; font-size: var(--fs-sm); line-height: 1.35; text-align: center; color: var(--ink); }
+.bigcard::after { content: ''; position: absolute; inset: 6px; border: 1px solid rgba(201,154,62,.6); border-radius: 8px; pointer-events: none; }
+.bigseal { position: absolute; z-index: 3; left: 50%; top: 126px; transform: translateX(-50%); width: 168px; height: 168px; filter: drop-shadow(0 14px 12px rgba(29,25,21,.35)); }
+.bigseal .kd-seal { width: 168px; height: 168px; }
+.tablet { position: absolute; left: 50%; top: 120px; transform: translateX(-50%); width: 240px; padding: 22px 18px 20px; text-align: center; border-radius: 6px 6px 4px 4px;
+  background: linear-gradient(180deg, #d8cfbd, var(--stone-300) 40%, #b3a892); box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 -2px 0 rgba(43,38,33,.25), 0 14px 22px -12px rgba(29,25,21,.6), 0 2px 0 #8a8072; }
+.tablet b { display: block; font: 700 20px/1.2 var(--font-display); letter-spacing: .08em; color: #3d362f; text-shadow: 0 1px 0 rgba(255,255,255,.55); margin-bottom: 10px; }
+.look-pick { position: absolute; left: 22px; right: 0; }
+.look-pick .row { display: grid; grid-template-columns: repeat(4, 72px); gap: 8px; }
+.look-pick button { width: 72px; height: 88px; padding: 4px; min-height: 0; background: linear-gradient(#fbf6ea, #efe3c8); border: 1px solid var(--stone-300); box-shadow: 0 2px 0 var(--stone-300); border-radius: 8px; }
+.look-pick button.on { border-color: var(--gold-ink); box-shadow: 0 0 0 2px var(--gold-bright), 0 2px 0 var(--stone-500); }
+.look-pick img { width: 100%; height: 100%; object-fit: contain; filter: var(--rim); }
+
+/* 3 board */
+#boardWrap { left: 384px; top: 64px; width: 672px; height: 672px; }
+#boardWrap::before { content: ''; position: absolute; left: 4%; right: 4%; bottom: -26px; height: 50px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(29,25,21,.45), rgba(29,25,21,0)); filter: blur(6px); z-index: -1; }
+#rim { position: absolute; inset: 0; border-radius: 6px;
+  background: linear-gradient(160deg, #5c534a 0%, var(--stone-700) 40%, #3a332c 100%);
+  box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 -1px 0 rgba(0,0,0,.4) inset, 0 22px 40px -18px rgba(20,14,8,.6), 0 3px 0 #2a241e; }
+#rim::after { content: ''; position: absolute; inset: 7px; border: 1px solid rgba(201,154,62,.65); border-radius: 2px; pointer-events: none; }
+#field { position: absolute; left: 16px; top: 16px; width: 640px; height: 640px; box-shadow: 0 0 0 1px rgba(0,0,0,.45); }
+#board { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+#board .kdm-pieces image { transition: opacity var(--dur-2); }
+#paintfx { position: absolute; inset: 0; pointer-events: none; }
+#paintfx svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+#hits { position: absolute; inset: 0; }
+#hits .sq { position: absolute; padding: 0; margin: 0; min-height: 0; background: transparent; border: 0; box-shadow: none; border-radius: 3px; cursor: pointer; }
+#hits .sq:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+#hits .sq.is-open { cursor: grab; }
+#hits.brush .sq { cursor: crosshair; }
+.nub { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; pointer-events: auto; padding: 0; min-height: 0; background: none; border: 0; box-shadow: none; z-index: 5; }
+.nub svg { width: 22px; height: 22px; overflow: visible; }
+.nub.on svg path { fill: var(--leg-green); }
+.files, .ranks { position: absolute; font: 600 12px/1 var(--font-display); color: var(--gold); pointer-events: none; letter-spacing: 0; }
+.files { left: 16px; right: 16px; bottom: 0; height: 16px; display: grid; grid-template-columns: repeat(8, 1fr); align-items: center; text-align: center; text-transform: uppercase; }
+.ranks { left: 0; top: 16px; bottom: 16px; width: 16px; display: grid; grid-template-rows: repeat(8, 1fr); align-items: center; text-align: center; }
+#chev { position: absolute; left: 50%; top: 1px; width: 14px; height: 14px; margin-left: -7px; color: var(--gold); pointer-events: none; }
+#notch { position: absolute; right: 0; width: 16px; height: 16px; display: none; pointer-events: none; }
+#notch::before { content: ''; position: absolute; right: 2px; top: 2px; width: 10px; height: 12px; background: var(--gold-bright); clip-path: polygon(0 50%, 100% 0, 100% 100%); filter: drop-shadow(0 0 3px rgba(233,192,113,.9)); }
+#tryPlaque { position: absolute; left: 8px; top: -14px; z-index: 6; }
+#tryPlaque .plaque { height: 26px; box-shadow: 0 2px 6px rgba(29,25,21,.25); animation: tagin var(--dur-3) var(--ease-out) both; }
+#tryPlaque .plaque.lab { background: linear-gradient(var(--accent-bright), var(--accent)); color: var(--vellum); border-color: var(--accent-deep); font-weight: 700; letter-spacing: .04em; }
+#tryPlaque .plaque.lab svg { color: var(--vellum); }
+#toast { position: absolute; left: 50%; bottom: 34px; transform: translate(-50%, 10px); z-index: 50; padding: 10px 18px; border-radius: var(--radius); background: var(--vellum);
+  border: 1px solid var(--stone-300); box-shadow: var(--shadow-float); font-size: var(--fs-md); opacity: 0; pointer-events: none; transition: opacity var(--dur-2), transform var(--dur-2) var(--ease-out); white-space: nowrap; display: flex; gap: 8px; align-items: center; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+#toast svg { color: var(--stone-700); }
+.lockflash { position: absolute; display: grid; place-items: center; color: var(--vellum); background: rgba(29,25,21,.55); border-radius: 4px; animation: lockflash 420ms ease both; pointer-events: none; }
+@keyframes lockflash { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; } }
+/* 4 right column: brushes (also the key) at the top, the Why tag floats in the middle, the Try tray sits at the bottom */
+#right { left: 1080px; top: 64px; width: 336px; height: 676px; display: flex; flex-direction: column; }
+#brushes { position: relative; flex: none; display: flex; justify-content: center; gap: 12px; padding-top: 16px; }
+#brushes:empty { display: none; }
+.brush { width: 80px; padding: 0; min-height: 0; background: none; border: 0; box-shadow: none; display: grid; justify-items: center; gap: 4px; font-weight: 400;
+  transition: transform var(--dur-2) var(--ease-out), opacity var(--dur-2); }
+.brush .tile { width: 80px; height: 80px; border-radius: 10px; display: grid; place-items: center; position: relative; }
+.brush .tile::before { content: ''; position: absolute; inset: 4px; border-radius: 8px; box-shadow: 0 6px 10px -4px rgba(29,25,21,.35); pointer-events: none; }
+.brush .w { font-size: var(--fs-sm); color: var(--ink); letter-spacing: .02em; }
+.brush:hover .tile { transform: translateY(-2px); }
+.brush.armed { transform: translateY(-2px); }
+.brush.armed .tile::after { content: ''; position: absolute; inset: 2px; border-radius: 9px; box-shadow: 0 0 0 3px var(--gold-bright), 0 0 0 4px var(--ink), 0 0 16px rgba(233,192,113,.8); }
+.brush.dim { opacity: .45; }
+/* the live key: only the other mark kinds that are on the board now */
+#keyrow { flex: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; padding: 10px 8px 0; }
+#keyrow:empty { display: none; }
+#keyrow .k { display: grid; grid-template-rows: 38px auto; align-items: center; justify-items: center; gap: 2px; font-size: var(--fs-xs); color: var(--ink-soft); min-width: 44px; }
+#keyrow .k svg { display: block; }
+#tools { flex: none; display: none; align-items: flex-start; justify-content: center; gap: 12px; padding-top: 14px; }
+#tools.on { display: flex; }
+#tools .tool { width: 52px; padding: 0; min-height: 0; display: grid; justify-items: center; gap: 4px; background: none; border: 0; box-shadow: none; font-weight: 400; }
+#tools .tool .tb { width: 48px; height: 48px; border-radius: 8px; display: grid; place-items: center; background: linear-gradient(var(--vellum), #efe4cc); border: 1px solid var(--stone-500); box-shadow: 0 2px 0 var(--stone-500); }
+#tools .tool.armed .tb { box-shadow: 0 0 0 3px var(--gold-bright), 0 0 0 4px var(--ink); }
+#tools .tool small { font-size: var(--fs-xs); color: var(--ink-soft); white-space: nowrap; }
+#tools .done { margin-top: 2px; min-height: 48px; padding: 8px 18px; }
+#hint { flex: none; text-align: center; font: italic var(--fs-md)/1.3 var(--font-body); color: var(--ink-soft); padding-top: 10px; }
+#hint:empty { display: none; }
+
+/* item words (king, card, seal, law) take the place of the brushes */
+#info { flex: none; padding-top: 12px; }
+#info:empty { display: none; }
+.pline { display: grid; grid-template-columns: 60px 1fr; gap: 6px 14px; align-items: start; padding: 10px 6px; border-radius: 8px; cursor: pointer; }
+.pline + .pline { box-shadow: 0 -1px 0 rgba(43,38,33,.07); }
+.pline:hover { background: rgba(255,255,255,.3); }
+.pline.armed { background: linear-gradient(90deg, rgba(233,192,113,.3), rgba(233,192,113,0)); }
+.pline b { display: block; font: 600 16px/1.2 var(--font-display); letter-spacing: .07em; margin-bottom: 2px; }
+.pline .pt { font-size: var(--fs-sm); line-height: 1.3; color: var(--ink); }
+.pline .mini3 { grid-column: 2; display: flex; align-items: center; gap: 10px; }
+.pline .mini3 svg { border-radius: 4px; box-shadow: 0 2px 5px rgba(29,25,21,.35); }
+.pline .mini3 small { font-size: var(--fs-xs); color: var(--ink-soft); }
+.lab-note { color: var(--accent); font-weight: 700; font-size: var(--fs-sm); display: flex; align-items: center; gap: 8px; }
+.lab-note i { display: inline-block; width: 30px; height: 14px; background: linear-gradient(var(--accent-bright), var(--accent)); color: var(--vellum); font: 700 9px/14px var(--font-display); letter-spacing: .12em; text-align: center; font-style: normal; border-radius: 2px; }
+.info-p { margin: 12px 0 0; font-size: var(--fs-md); line-height: 1.35; }
+.info-p.ex { font: italic 18px/1.35 var(--font-body); color: var(--ink); }
+.info-h { margin: 18px 0 6px; font: 600 12.5px/1 var(--font-display); letter-spacing: .1em; color: var(--ink-soft); text-transform: uppercase; }
+.twin { display: flex; align-items: center; gap: 10px; font-size: var(--fs-sm); color: var(--ink-soft); }
+.twin button { padding: 0; min-height: 44px; min-width: 44px; background: none; border: 0; box-shadow: none; display: grid; place-items: center; }
+.variant { font-size: var(--fs-sm); color: var(--ink); padding: 8px 10px; border-radius: 6px; background: rgba(255,255,255,.35); margin-top: 6px; }
+.variant b { font-family: var(--font-display); letter-spacing: .06em; font-size: 13px; margin-right: 6px; }
+.seen { display: flex; gap: 14px; align-items: flex-end; }
+.seen button { padding: 4px 6px 2px; min-height: 0; background: none; border: 0; box-shadow: none; display: grid; justify-items: center; font: 600 12px/1.2 var(--font-display); letter-spacing: .06em; color: var(--ink); border-radius: 8px; }
+.seen button:hover { background: rgba(255,255,255,.4); }
+.seen img { height: 64px; filter: var(--rim); }
+.lawpills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.lawpills .pill { cursor: pointer; min-height: 32px; }
+
+/* Why tag: floats on the parchment with a soft shadow */
+#why { position: relative; flex: none; width: 336px; margin-top: 18px; display: none; }
+#why.open { display: block; animation: tagin var(--dur-3) var(--ease-out) both; }
+@keyframes tagin { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+.tag { position: relative; min-height: 200px; background: var(--vellum); border-radius: 4px 12px 12px 4px; padding: 12px 14px 14px 24px;
+  box-shadow: 0 14px 34px -14px rgba(43,38,33,.45), 0 2px 6px rgba(43,38,33,.08);
+  clip-path: polygon(14px 0, 100% 0, 100% 100%, 14px 100%, 0 calc(100% - 14px), 0 14px); display: flex; flex-direction: column; }
+.tag::before { content: ''; position: absolute; left: 5px; top: 22px; width: 7px; height: 7px; border-radius: 50%; background: var(--parchment-deep); box-shadow: inset 0 1px 2px rgba(29,25,21,.5), 0 0 0 1.5px var(--gold); }
+.pointer { position: absolute; left: -10px; width: 12px; height: 18px; margin-top: -9px; background: var(--gold-bright); clip-path: polygon(0 50%, 100% 0, 100% 100%); filter: drop-shadow(0 0 2px rgba(122,87,18,.6)); }
+.why-h { display: flex; align-items: center; gap: 10px; }
+.why-h img.ic { width: 28px; height: 28px; }
+.why-h .sqn { font: 600 18px/1 var(--font-display); letter-spacing: .06em; }
+.why-h .occ { font-size: var(--fs-sm); color: var(--ink-soft); }
+.why-h .count-ring { margin-left: auto; }
+.why-h .x { margin-left: 2px; min-height: 44px; width: 44px; height: 44px; padding: 0; border-radius: 50%; font-weight: 400; display: grid; place-items: center; background: none; border: 0; box-shadow: none; font-size: 20px; color: var(--ink-soft); }
+.why-h .x:hover { background: rgba(43,38,33,.06); }
+.why-sumrow { margin-top: 8px; display: flex; justify-content: center; }
+.why-sum .op { font-size: 20px; padding: 0 1px; }
+#why .why-sum { gap: 6px; }
+#why .why-sum .part > small { max-width: 70px; }
+.why-hr { height: 1px; margin: 8px 0; background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+.why-steps { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.why-steps .mini { width: 80px; height: 56px; border-radius: 4px; background: #2e2822; display: grid; place-items: center; box-shadow: 0 2px 5px rgba(29,25,21,.3); overflow: hidden; }
+.why-steps .ar { color: var(--ink-soft); font-size: 14px; }
+.why-foot { margin: 8px 0 0; font: italic var(--fs-sm)/1.3 var(--font-body); color: var(--ink-soft); text-align: center; }
+.why-act { margin-top: auto; display: flex; gap: 8px; justify-content: center; padding-top: 10px; }
+.why-act button { min-height: 44px; }
+.why-act .ghost-enemy { display: inline-flex; align-items: center; gap: 8px; border-style: dashed; }
+.why-act .ghost-enemy img { width: 26px; height: 26px; opacity: .55; }
+.why-solo { display: grid; justify-items: center; gap: 6px; }
+.why-solo small { font-size: var(--fs-xs); color: var(--ink-soft); }
+.why-swap { display: flex; align-items: center; gap: 8px; justify-content: center; }
+
+/* Try tray: no card, it stands at the foot of the column */
+#tray { flex: none; margin-top: auto; padding: 4px 4px 0; display: none; position: relative; }
+#tray.open { display: block; }
+#tray h3 { margin: 0 0 6px; font: 600 13px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.tokens { display: flex; gap: 14px; align-items: flex-end; }
+.tok { width: 56px; height: 64px; padding: 0; min-height: 0; display: grid; justify-items: center; align-items: end; background: none; border: 0; box-shadow: none; position: relative; }
+.tok .fig { height: 50px; filter: var(--rim) drop-shadow(0 3px 2px rgba(29,25,21,.25)); position: relative; z-index: 1; margin-bottom: -4px; }
+.tok .base { width: 46px; height: 10px; border-radius: 2px; background: linear-gradient(180deg, var(--stone-300), var(--stone-500)); box-shadow: 0 2px 0 var(--stone-700), 0 5px 6px -2px rgba(29,25,21,.4); }
+.tok.on .base { box-shadow: 0 0 0 2px var(--gold-bright), 0 2px 0 var(--stone-700); }
+.tok .sockc { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 4px;
+  background: radial-gradient(circle at 50% 40%, #ddcfb1, var(--parchment-deep)); box-shadow: inset 0 2px 5px rgba(29,25,21,.45), 0 1px 0 rgba(255,255,255,.7); }
+.tok .sockc img { width: 32px; height: 32px; opacity: .28; filter: grayscale(1); }
+.tok.cardslot .cs { width: 40px; height: 56px; border-radius: 4px; position: relative; overflow: hidden; margin-bottom: 2px; background: var(--parchment-deep); box-shadow: inset 0 2px 4px rgba(29,25,21,.4); }
+.tok.cardslot .cs::before { content: ''; position: absolute; inset: 0; background: url(assets/cards/back.jpg) center/cover; opacity: .3; }
+.tok.cardslot .cs.filled { box-shadow: 0 2px 5px rgba(29,25,21,.45), 0 0 0 1px var(--stone-500); background-size: cover; background-position: center; }
+.tok.cardslot .cs.filled::before { content: none; }
+.tok.cardslot .cs i { position: absolute; right: -11px; top: 4px; width: 36px; transform: rotate(45deg); background: var(--accent); height: 7px; }
+.tok.cardslot.on .cs { box-shadow: 0 0 0 3px var(--gold-bright), 0 0 0 4px var(--ink); }
+.tok.kingseat { width: auto; height: 64px; align-items: center; }
+.tok .coins { display: flex; gap: 6px; }
+.tok .coins > span { width: 48px; height: 48px; display: grid; place-items: center; cursor: pointer; }
+.trow2 { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+.trow2 > button { width: 44px; height: 44px; min-height: 0; padding: 0; display: grid; place-items: center; background: none; border: 0; box-shadow: none; border-radius: 50%; color: var(--ink-soft); }
+.trow2 > button:hover { background: rgba(43,38,33,.06); color: var(--ink); }
+.trow2 > button.is-on { color: var(--accent); background: rgba(233,192,113,.3); }
+.trow2 .tb { margin-left: auto; width: auto; min-height: 44px; padding: 4px 14px; font-weight: 400; }
+.picker { position: absolute; left: 0; bottom: calc(100% + 8px); width: 336px; padding: 12px; background: var(--vellum); border-radius: var(--radius); box-shadow: var(--shadow-float); z-index: 30; }
+.picker h4 { margin: 0 0 8px; font: 600 12.5px/1 var(--font-display); letter-spacing: .1em; color: var(--ink-soft); }
+.picker .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.picker button { padding: 2px; min-height: 0; background: none; border: 0; box-shadow: none; display: grid; justify-items: center; gap: 2px; font-weight: 400; font-size: 12px; color: var(--ink-soft); }
+
+/* power coins with an effect glyph (the king emblem is a badge on the rim) */
+.pcoin { display: inline-grid !important; place-items: center; }
+.pcoin > svg.pg { width: 62%; height: 62%; color: var(--ink); position: relative; z-index: 1; }
+.pcoin img.emb { position: absolute; inset: auto; right: -3px; bottom: -3px; width: 36%; height: 36%; max-width: 20px; max-height: 20px; min-width: 14px; min-height: 14px; border-radius: 50%; background: var(--vellum); box-shadow: 0 0 0 1px var(--stone-500); padding: 1px; z-index: 2; }
+.pcoin .notches { z-index: 3; }
+
+/* Rules shelf */
+#shelf { position: absolute; left: 1080px; top: 64px; width: 336px; height: 672px; z-index: 20; background: var(--vellum); border-radius: var(--radius); box-shadow: var(--shadow-float);
+  transform: translateX(380px); opacity: 0; pointer-events: none; transition: transform var(--dur-3) var(--ease-out), opacity var(--dur-3); padding: 10px 14px 14px; display: flex; flex-direction: column; }
+#shelf.open { transform: none; opacity: 1; pointer-events: auto; }
+#shelf header { display: flex; align-items: center; justify-content: space-between; }
+#shelf header h3 { margin: 0; font: 600 18px/1 var(--font-display); letter-spacing: .08em; }
+#shelf header button { width: 44px; height: 44px; min-height: 0; padding: 0; border-radius: 50%; font-weight: 400; background: none; border: 0; box-shadow: none; font-size: 20px; color: var(--ink-soft); }
+.groups { margin-top: 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 8px; overflow: auto; min-height: 0; flex: 1 1 auto; align-content: start; }
+.grp.wide { grid-column: 1 / -1; }
+.grp h5 { margin: 0 0 4px; font: 600 12px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+.grp .seals { display: flex; gap: 4px; }
+.sbtn { width: 72px; padding: 4px 2px 6px; min-height: 0; background: none; border: 0; box-shadow: none; display: grid; justify-items: center; gap: 4px; font-weight: 400; font-size: 12.5px; line-height: 1.1; color: var(--ink); border-radius: 8px; position: relative; text-align: center; }
+.sbtn:hover { background: rgba(233,192,113,.18); }
+.sbtn.sel { background: rgba(233,192,113,.32); box-shadow: inset 0 0 0 1.5px var(--gold-ink); }
+.sbtn .kd-seal { width: 48px; height: 48px; }
+.sbtn.dim { opacity: .45; }
+.sbtn.has::after { content: '✓'; position: absolute; right: 8px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--gold-ink); color: var(--vellum); font: 700 11px/18px var(--font-body); text-align: center; box-shadow: 0 0 0 1.5px var(--vellum); }
+.sbtn.pulse .kd-seal { animation: kdm-pulse .4s 3 alternate; }
+.sentence { margin-top: 8px; padding: 12px; border-radius: var(--radius); background: var(--parchment); display: grid; grid-template-columns: 44px 1fr; gap: 8px 12px; align-items: center; }
+.sentence .say { font-size: var(--fs-md); line-height: 1.35; }
+.sentence .act { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
+.sentence .act button { min-height: 44px; }
+.sentence .needs { grid-column: 1 / -1; color: var(--accent); font-size: var(--fs-sm); }
+
+/* 5 ledge: one row of word tabs, then the figures on one stone lip */
+#ledge { left: 0; top: 744px; width: 100%; height: 156px; background: linear-gradient(180deg, #e2d1ad, var(--parchment-deep) 30%, #e2d2b0);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.65), 0 -6px 18px -8px rgba(43,38,33,.3); }
+#ledge::before { content: ''; position: absolute; left: 0; right: 0; top: -8px; height: 8px; background: linear-gradient(180deg, #d9cfbd, var(--stone-300));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 1px 0 rgba(43,38,33,.25); }
+.ltabs { position: absolute; left: 24px; top: 4px; height: 36px; display: flex; gap: 22px; z-index: 2; }
+.ltab { height: 36px; padding: 0 2px; min-height: 0; background: none; border: 0; box-shadow: none; border-radius: 0; display: inline-flex; align-items: center; gap: 6px;
+  font: 600 12.5px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); position: relative; }
+.ltab:hover { color: var(--ink); }
+.ltab.on { color: var(--ink); }
+.ltab.on::after { content: ''; position: absolute; left: 0; right: 0; bottom: 2px; height: 3px; border-radius: 2px; background: var(--accent); }
+.ltab .lab { display: inline-block; padding: 0 4px; border-radius: 2px; background: linear-gradient(var(--accent-bright), var(--accent)); color: var(--vellum); font: 700 8.5px/13px var(--font-display); letter-spacing: .12em; }
+.lrow { position: absolute; left: 0; right: 0; top: 36px; height: 120px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
+.lrow::-webkit-scrollbar { display: none; }
+.lrow .inner { display: flex; align-items: flex-start; height: 120px; padding: 0 24px; width: max-content; position: relative; }
+/* the one stone lip the figures stand on */
+.lrow .inner.lip::before { content: ''; position: absolute; left: 24px; right: 24px; top: 72px; height: 8px; border-radius: 2px;
+  background: linear-gradient(180deg, #d6ccb8, var(--stone-300) 45%, var(--stone-500)); box-shadow: 0 2px 0 rgba(77,69,60,.55), 0 6px 8px -4px rgba(29,25,21,.4); }
+.slot { width: 92px; flex: none; padding: 0; min-height: 0; background: none; border: 0; box-shadow: none; position: relative; height: 120px; font-weight: 400; transition: transform var(--dur-2) var(--ease-out); }
+.slot .fig { position: absolute; left: 50%; bottom: 46px; height: 64px; transform: translateX(-50%); filter: var(--rim); max-width: 86px; object-fit: contain; object-position: bottom; z-index: 2; transition: transform var(--dur-2) var(--ease-out); }
+.slot:hover .fig, .slot:focus-visible .fig { transform: translateX(-50%) translateY(-4px); }
+.slot .nm { position: absolute; left: 0; right: 0; top: 88px; text-align: center; font: 600 12.5px/1.1 var(--font-display); letter-spacing: .06em; color: var(--ink); white-space: nowrap; }
+.slot.open .fig { transform: translateX(-50%) translateY(-6px); }
+.slot.open::before { content: ''; position: absolute; left: 50%; top: 62px; width: 70px; height: 16px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(233,192,113,.95), rgba(233,192,113,0)); z-index: 1; }
+.slot.open .nm::after { content: ''; display: block; width: 28px; height: 2px; margin: 4px auto 0; background: var(--gold-ink); border-radius: 2px; }
+.slot .qt { position: absolute; right: 10px; top: 4px; z-index: 3; }
+.slot .qt svg { width: 16px; height: 16px; color: var(--stone-700); background: var(--vellum); border-radius: 50%; padding: 2px; box-shadow: 0 0 0 1px var(--stone-500); }
+.slot.flash .fig { animation: flash 600ms ease; }
+@keyframes flash { 0% { filter: var(--rim) drop-shadow(0 0 0 rgba(233,192,113,0)); } 40% { filter: var(--rim) drop-shadow(0 0 12px rgba(233,192,113,1)); } }
+.lsep { flex: none; align-self: stretch; width: 1px; margin: 8px 12px 20px; background: linear-gradient(transparent, var(--gold), transparent); }
+.lhead { flex: none; align-self: flex-start; margin-top: 90px; font: 600 12px/1 var(--font-display); letter-spacing: .12em; font-variant: small-caps; color: var(--ink-soft); margin-right: 6px; text-transform: lowercase; font-size: 14px; }
+.newtile .fig { opacity: 1; }
+.newtile .ghostfig { position: absolute; left: 50%; bottom: 46px; width: 44px; height: 62px; transform: translateX(-50%); z-index: 2; }
+.newtile .ghostfig svg { width: 100%; height: 100%; overflow: visible; }
+/* reach on hover: a 96px mini board above the slot */
+#reachPop { position: fixed; z-index: 90; pointer-events: none; padding: 6px; border-radius: 8px; background: var(--vellum); box-shadow: var(--shadow-float); opacity: 0; transition: opacity var(--dur-1); }
+#reachPop.show { opacity: 1; }
+#reachPop svg { display: block; border-radius: 4px; }
+/* cards fan */
+.cfan { display: flex; align-items: flex-start; padding-top: 8px; }
+.cface { flex: none; width: 72px; height: 100px; margin-right: -3px; padding: 0; min-height: 0; border: 0; border-radius: 6px; background: var(--vellum); position: relative; overflow: hidden;
+  box-shadow: 0 1px 0 rgba(255,255,255,.7) inset, 0 4px 8px -2px rgba(43,38,33,.4), 0 0 0 1px var(--stone-300); transition: transform var(--dur-2) var(--ease-out); font-weight: 400; }
+.cface:nth-child(odd) { transform: rotate(-2deg); } .cface:nth-child(even) { transform: rotate(1.5deg) translateY(2px); }
+.cface:hover, .cface.open { transform: translateY(-6px) rotate(0); z-index: 5; }
+.cface.open { box-shadow: 0 0 0 2px var(--gold-bright), 0 0 0 3px var(--ink), 0 8px 14px -4px rgba(43,38,33,.5); }
+.cface .art { height: 64px; background-size: cover; background-position: center; border-bottom: 1px solid var(--gold); }
+.cface .art.back { background-image: url(assets/cards/back.jpg); }
+.cface .t { padding: 6px 3px 0; font: 600 9.5px/1.1 var(--font-display); letter-spacing: .04em; text-align: center; }
+.cface .lab-ribbon { top: 6px; right: -30px; width: 84px; font-size: 7px; line-height: 11px; }
+.cface .badge { position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--vellum); box-shadow: 0 0 0 1px var(--power-edge); display: grid; place-items: center; }
+.cface .badge img { width: 14px; height: 14px; }
+.cstack { flex: none; width: 92px; height: 108px; margin-left: 22px; padding: 0; min-height: 0; background: none; border: 0; box-shadow: none; position: relative; }
+.cstack span.c { position: absolute; left: 6px; top: 4px; width: 72px; height: 100px; border-radius: 6px; background: url(assets/cards/back.jpg) center/cover; box-shadow: 0 0 0 1px var(--stone-500), 0 3px 6px -2px rgba(43,38,33,.45); }
+.cstack span.c:nth-child(2) { transform: translate(5px, -3px) rotate(3deg); }
+.cstack span.c:nth-child(3) { transform: translate(10px, -6px) rotate(6deg); }
+.cstack b { position: absolute; left: 18px; top: 38px; z-index: 4; min-width: 48px; padding: 3px 8px; border-radius: 99px; background: var(--vellum); box-shadow: 0 0 0 1px var(--gold-ink), 0 2px 4px rgba(29,25,21,.3); font: 700 15px/1.2 var(--font-body); color: var(--ink); text-align: center; }
+.cstack:hover span.c:nth-child(3) { transform: translate(14px, -10px) rotate(9deg); }
+.cback { flex: none; align-self: center; margin-left: 4px; min-height: 44px; }
+/* rules ledge */
+.rgroups { display: flex; gap: 16px; align-items: flex-start; padding-top: 6px; }
+.rgrp h6 { margin: 0 0 4px; font: 600 11px/1 var(--font-display); letter-spacing: .1em; color: var(--ink-soft); text-transform: uppercase; white-space: nowrap; }
+.rgrp .ss { display: flex; gap: 2px; }
+.rgrp button { width: 64px; padding: 2px 0 4px; min-height: 0; background: none; border: 0; box-shadow: none; border-radius: 8px; display: grid; justify-items: center; gap: 3px; font: 400 11.5px/1.1 var(--font-body); color: var(--ink); }
+.rgrp button:hover { background: rgba(255,255,255,.35); }
+.rgrp button.open { background: rgba(233,192,113,.35); box-shadow: inset 0 0 0 1.5px var(--gold-ink); }
+.rgrp button .kd-seal { width: 44px; height: 44px; }
+.laws { display: flex; gap: 10px; align-items: flex-start; padding-top: 14px; }
+.law { width: 128px; height: 74px; padding: 10px 10px 8px; min-height: 0; border: 0; border-radius: 5px 5px 3px 3px; display: grid; align-content: space-between; justify-items: start; gap: 6px; text-align: left; position: relative;
+  background: linear-gradient(180deg, #d8cfbd, var(--stone-300) 45%, #b9ae98); box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 -2px 0 rgba(43,38,33,.22), 0 2px 0 #8a8072, 0 6px 8px -4px rgba(29,25,21,.45);
+  font: 700 12.5px/1.15 var(--font-display); letter-spacing: .04em; color: #3d362f; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
+.law.open { box-shadow: 0 0 0 2px var(--gold-bright), 0 0 0 3px var(--ink), 0 2px 0 #8a8072; }
+.law .pill { font: 400 12px/1.3 var(--font-body); padding: 0 7px; text-shadow: none; }
+.lamp { position: absolute; right: 2px; bottom: 0; width: 44px; height: 44px; display: grid; place-items: center; }
+.lamp i { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #6a6056, #2e2924); box-shadow: inset 0 1px 2px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.5); }
+.lamp.on i { background: radial-gradient(circle at 40% 35%, #fff3c9, var(--gold-bright) 45%, var(--gold)); box-shadow: 0 0 8px 2px rgba(233,192,113,.9), 0 0 0 1px var(--gold-ink); }
+.law.fixed { width: 210px; font: 400 11.5px/1.25 var(--font-body); letter-spacing: 0; color: #4d453c; }
+.law.fixed b { font: 700 12.5px/1 var(--font-display); letter-spacing: .06em; color: #3d362f; display: flex; gap: 5px; align-items: center; }
+
+/* flight overlay */
+.fly { position: fixed; z-index: 100; pointer-events: none; filter: var(--rim); object-fit: contain; object-position: bottom; }
+.puff { position: fixed; z-index: 101; pointer-events: none; animation: puff 320ms var(--ease-out) both; }
+@keyframes puff { from { transform: scale(.6); opacity: 1; } to { transform: scale(1.6) translateY(-10px); opacity: 0; } }
+
+/* states menu */
+#menu { position: fixed; inset: 0; z-index: 200; background: rgba(29,25,21,.35); display: none; place-items: center; }
+#menu.open { display: grid; }
+#menu .box { width: 560px; max-width: calc(100vw - 32px); max-height: calc(100vh - 40px); overflow: auto; background: var(--vellum); border-radius: var(--radius-lg); box-shadow: var(--shadow-float); padding: 18px 20px; }
+#menu h3 { margin: 0 0 4px; font: 600 18px/1.2 var(--font-display); letter-spacing: .08em; }
+#menu p { margin: 0 0 12px; color: var(--ink-soft); font-size: var(--fs-sm); }
+#menu .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+#menu .grid a { display: block; padding: 6px 8px; border-radius: 6px; color: var(--ink); text-decoration: none; font-size: var(--fs-sm); border: 1px solid var(--stone-300); background: #fff; }
+#menu .grid a:hover { border-color: var(--gold-ink); }
+#menu .grid a b { display: block; font-size: 12.5px; }
+#menu .grid a small { color: var(--ink-soft); font-size: 11.5px; }
+#menu .sws { display: flex; gap: 18px; margin: 14px 0 6px; }
+#menu .sws label { display: flex; gap: 8px; align-items: center; cursor: pointer; font-size: var(--fs-sm); }
+
+/* modifiers */
+html.no-words .w, html.no-words .why-sum small, html.no-words .sline .l2, html.no-words .tool small, html.no-words #keyrow .k span, html.no-words .rgrp button span, html.no-words .sbtn span { visibility: hidden; }
+html.no-words .sline .l2 .pill { visibility: visible; }
+html.rm *, html.rm *::before, html.rm *::after { animation-duration: 120ms !important; animation-delay: 0ms !important; transition-duration: 120ms !important; }
+html.cb #frame { filter: url(#deut); }
+.muted20 { opacity: .2; }
+
+/* ================= phone (390 x 844) ================= */
+html.phone body { overflow-x: hidden; overflow-y: auto; }
+html.phone #stage { position: relative; width: 100%; height: 844px; transform: none !important; left: 0 !important; }
+html.phone-frame body { background: #d9cbb0; overflow: auto; }
+html.phone-frame #frame { width: 390px; height: 844px; margin: 20px auto; border-radius: 34px; box-shadow: 0 0 0 10px #2b2621, 0 30px 60px rgba(20,14,8,.5); background: var(--floor-base) var(--floor); }
+html.phone #top { height: 48px; padding: 0 4px; }
+html.phone #top .title { font-size: 16px; gap: 8px; }
+html.phone #top .title i { width: 18px; }
+html.phone #top .desk { display: none; }
+html.phone #top .icon-btn { display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px; padding: 0; background: none; border: 0; box-shadow: none; font-size: 22px; font-weight: 400; }
+#morePop { position: absolute; right: 8px; top: 46px; z-index: 70; width: 200px; padding: 6px; border-radius: var(--radius); background: var(--vellum); box-shadow: var(--shadow-float); display: none; }
+#morePop.open { display: grid; }
+#morePop button { min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: none; border: 0; box-shadow: none; font-weight: 400; text-align: left; border-radius: 6px; }
+#morePop button:hover { background: rgba(233,192,113,.2); }
+#morePop button:disabled { opacity: .4; }
+html.phone #plinth { left: 16px; right: 16px; width: auto; top: 52px; height: 68px; }
+html.phone #plinth .nameband { top: 0; height: 68px; left: 64px; right: 150px; padding: 0; }
+html.phone #plinth .nameband::after, html.phone #plinth .nameband .weigh { display: none; }
+html.phone #plinth .nameband h2 { font-size: 20px; }
+html.phone #plinth .nameband h2.long { font-size: 16px; }
+html.phone #plinth .nameband .from { font-size: 12px; }
+html.phone #plinth .figure { left: 0; top: 6px; width: 56px; height: 56px; right: auto; border-radius: 10px; overflow: hidden; background: radial-gradient(circle at 50% 30%, #fffaf0, var(--parchment-deep)); box-shadow: inset 0 0 0 1px var(--stone-300); align-items: start; }
+html.phone #plinth .figure img { height: 96px; max-width: none; margin-top: 2px; }
+html.phone #plinth .figure .halo, html.phone #plinth .stone, html.phone #plinth .lines, html.phone #plinth .also, html.phone #plinth .look-pick, html.phone #plinth .tablet { display: none; }
+.pseals { display: none; }
+html.phone .pseals { position: absolute; right: 0; top: 12px; display: flex; gap: 2px; }
+html.phone .pseals button { width: 44px; height: 44px; padding: 0; min-height: 0; background: none; border: 0; box-shadow: none; border-radius: 50%; display: grid; place-items: center; }
+html.phone .pseals button .kd-seal { width: 42px; height: 42px; }
+html.phone .pseals button.is-focus { box-shadow: 0 0 0 2px var(--gold-bright), 0 0 10px rgba(233,192,113,.8); }
+html.phone .pseals button.is-other { opacity: .45; }
+html.phone .pseals .padd { border: 1.5px dashed var(--stone-500); color: var(--accent); font: 400 22px/1 var(--font-body); width: 40px; height: 40px; margin: 2px; }
+html.phone #plinth .bigcard { left: 0; top: 6px; width: 56px; height: 56px; border-radius: 8px; padding: 0; }
+html.phone #plinth .bigcard .ttl, html.phone #plinth .bigcard p, html.phone #plinth .bigcard .rule { display: none; }
+html.phone #plinth .bigcard .art { height: 56px; border: 0; }
+html.phone #plinth .bigseal { left: 0; top: 6px; transform: none; width: 56px; height: 56px; }
+html.phone #plinth .bigseal .kd-seal { width: 56px; height: 56px; }
+html.phone .plock { display: inline-grid; }
+.plock { display: none; width: 20px; height: 20px; place-items: center; color: var(--stone-700); }
+html.phone #boardWrap { left: 16px; top: 128px; width: calc(100% - 32px); height: auto; aspect-ratio: 1; max-width: 420px; }
+html.phone #boardWrap::before { display: none; }
+html.phone #rim { background: none; box-shadow: none; }
+html.phone #rim::after, html.phone .files, html.phone .ranks, html.phone #chev, html.phone #notch, html.phone #tryPlaque { display: none; }
+html.phone #field { left: 0; top: 0; width: 100%; height: 100%; border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 10px 20px -10px rgba(20,14,8,.5); }
+html.phone #coords span { position: absolute; font: 700 9px/1 var(--font-body); color: rgba(251,247,238,.85); text-shadow: 0 0 2px rgba(0,0,0,.8); pointer-events: none; }
+html.phone #toast { bottom: 12px; font-size: 14px; white-space: normal; width: max-content; max-width: 330px; }
+html.phone #right { left: 16px; right: 16px; width: auto; top: 490px; height: 62px; display: block; }
+html.phone #brushes { padding: 0; height: 62px; justify-content: flex-start; align-items: center; gap: 10px; }
+html.phone .brush { width: 48px; gap: 1px; }
+html.phone .brush .tile { width: 40px; height: 40px; border-radius: 6px; }
+html.phone .brush .tile::before { display: none; }
+html.phone .brush .w { font-size: 11px; }
+html.phone .brush .tile svg { width: 40px; height: 40px; }
+html.phone #brushes .more { margin-left: auto; width: 44px; height: 44px; min-height: 44px; padding: 0; font-size: 20px; line-height: 1; }
+html.phone #brushes .phint { font: italic 14px/1.2 var(--font-body); color: var(--ink-soft); flex: 1; padding-left: 4px; }
+html.phone #keyrow, html.phone #hint, html.phone #info { display: none; }
+html.phone #tools { position: absolute; right: 0; top: auto; bottom: 64px; padding: 10px; background: var(--vellum); border-radius: var(--radius); box-shadow: var(--shadow-float); z-index: 30; gap: 8px; display: none; }
+html.phone #tools.pop { display: flex; }
+html.phone #why { position: absolute; left: -16px; right: -16px; top: -4px; bottom: -292px; margin: 0; width: auto; z-index: 60; }
+html.phone #shelf { position: absolute; left: 0; right: 0; top: auto; bottom: 0; width: auto; height: auto; max-height: 358px; z-index: 60; }
+html.phone .tag { min-height: 0; clip-path: none; border-radius: 16px 16px 0 0; padding: 18px 16px 16px; box-shadow: 0 -8px 40px rgba(20,14,8,.35); }
+html.phone #why .tag { height: 100%; box-sizing: border-box; }
+html.phone #why .why-act { margin-top: 14px; }
+html.phone .tag::before { left: 50%; top: 6px; width: 36px; height: 4px; margin: 0 0 0 -18px; border-radius: 2px; box-shadow: none; background: var(--stone-300); }
+html.phone .pointer { display: none; }
+html.phone #shelf { transform: translateY(380px); border-radius: 16px 16px 0 0; }
+html.phone #shelf.open { transform: none; }
+html.phone .groups { grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+html.phone .sbtn { width: 64px; font-size: 11.5px; }
+html.phone .sbtn .kd-seal { width: 40px; height: 40px; }
+html.phone #tray { position: static; display: block; margin: 0; padding: 6px 0 0; }
+html.phone #tray h3 { display: none; }
+html.phone .picker { width: 100%; }
+html.phone #ledge { left: 0; right: 0; width: auto; top: 556px; height: 288px; border-radius: 16px 16px 0 0; background: var(--vellum); box-shadow: 0 -6px 20px -6px rgba(43,38,33,.3); }
+html.phone #ledge::before { display: none; }
+html.phone .ltabs { left: 8px; right: 8px; top: 0; height: 44px; gap: 0; border-bottom: 1px solid var(--line); }
+html.phone .ltab { flex: 1; height: 44px; justify-content: center; font-size: 11px; letter-spacing: .06em; padding: 0; }
+html.phone .ltab.on::after { bottom: 0; }
+html.phone .lrow { top: 48px; height: 240px; -webkit-mask-image: none; mask-image: none; }
+html.phone .lrow .inner { height: 150px; padding: 0 12px; }
+html.phone .lrow .inner.lip::before { top: 92px; left: 12px; right: 12px; }
+html.phone .slot { width: 86px; height: 150px; }
+html.phone .slot .fig { height: 72px; bottom: 58px; }
+html.phone .slot .nm { top: 108px; font-size: 11.5px; }
+html.phone .slot.open::before { top: 82px; }
+html.phone .lhead { margin-top: 110px; }
+html.phone .newtile .ghostfig { bottom: 58px; }
+html.phone .boardtab { padding: 8px 16px; width: 358px; }
+html.phone .rgroups { padding-top: 10px; flex-wrap: wrap; width: 360px; gap: 10px 10px; }
+html.phone .laws { display: none; }
+html.phone .cfan { padding-top: 16px; }
+html.phone .cface { width: 88px; height: 124px; }
+html.phone .cface .art { height: 80px; }
+html.phone .cface .t { font-size: 10.5px; }
+html.phone #plinth .nameband .tag-yours { display: none; }
+html.phone .nameband.is-copy .from::before { content: 'Yours \00b7  '; font-weight: 700; color: var(--ink); }
+.phone-sent .sline .sl-seal { display: none; }
+.phone-sent .sline { padding-left: 0; }
+.echo-note { display: block; margin: 0 0 10px; font: italic 13px/1.3 var(--font-body); color: var(--ink-soft); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="deut"><feColorMatrix type="matrix" values="0.625 0.375 0 0 0  0.7 0.3 0 0 0  0 0.3 0.7 0 0  0 0 0 1 0"/></filter></svg>
+<div id="frame"><div id="stage">
+  <header id="top" class="region"></header>
+  <div id="morePop" role="menu"></div>
+  <section id="plinth" class="region" aria-label="The open item"></section>
+  <section id="boardWrap" class="region" aria-label="Try board">
+    <div id="rim">
+      <div class="files" aria-hidden="true"><span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span></div>
+      <div class="ranks" aria-hidden="true"><span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div>
+      <svg id="chev" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 10l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 13l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/></svg>
+      <div id="notch"></div>
+      <div id="field">
+        <svg id="board" role="img" aria-label="Board"></svg>
+        <div id="paintfx"></div>
+        <div id="coords" aria-hidden="true"></div>
+        <div id="hits" role="grid" aria-label="Squares"></div>
+      </div>
+    </div>
+    <span id="tryPlaque"></span>
+    <div id="toast" role="status" aria-live="polite"></div>
+  </section>
+  <section id="right" class="region">
+    <div id="info"></div>
+    <div id="brushes"></div>
+    <div id="keyrow" aria-label="Also on the board"></div>
+    <div id="tools"></div>
+    <div id="hint"></div>
+    <div id="why" aria-live="polite"></div>
+    <div id="tray"></div>
+  </section>
+  <aside id="shelf" class="region" aria-label="Rules"></aside>
+  <footer id="ledge" class="region" aria-label="Library"></footer>
+</div></div>
+<div id="menu" role="dialog" aria-label="States"></div>
+<div id="reachPop" aria-hidden="true"></div>
+
+<script src="shared/marks.js"></script>
+<script src="shared/scenes.js"></script>
+<script>
+(function () {
+  'use strict';
+  const M = KD.marks, SC = KD.scenes, A = 'assets/';
+  // this mockup uses the refined look: tiles are a wash on the stone, each seal family has its own wax
+  M.look.wash = true; M.look.familyWax = true;
+  const $ = (s) => document.querySelector(s);
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const FILES = 'abcdefgh';
+  const pq = (q) => ({ f: FILES.indexOf(q[0]), r: +q.slice(1) });
+  const sqn = (f, r) => FILES[f] + r;
+  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  const reduced = () => document.documentElement.classList.contains('rm') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const wait = (ms) => new Promise((r) => setTimeout(r, reduced() ? Math.min(ms, 120) : ms));
+  const ICON = (name, size = 20) => M.sigil(name, size);
+
+  /* ======================= DATA ======================= */
+  const PNAME = { pawn: 'Pawn', knight: 'Knight', bishop: 'Bishop', rook: 'Rook', queen: 'Queen', archer: 'Archer', paladin: 'Paladin', guard: 'Guard', maester: 'Maester', beast: 'Beast', ogre: 'Ogre', king: 'King', custom: 'New piece' };
+  const POOL = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'archer', 'paladin', 'guard', 'maester', 'beast', 'ogre'];
+  const LEAPVAULT = [{ coin: 'mud', p: 'Leap' }, { card: 'Vault' }];
+  const PIECE = {
+    pawn: { at: { d4: 'pawn', e2: 'pawn-e2' }, entry: 'step', also: [{ coin: 'mud', p: 'March' }, { coin: 'shadow', p: 'Darkness' }, { card: 'MorphP' }], stir: ['pawn', 'pawn-e2', 'pawn-e2-knight'] },
+    knight: { at: { d4: 'knight' }, entry: 'hop' },
+    bishop: { at: { d4: 'bishop' }, entry: 'slide', also: LEAPVAULT },
+    rook: { at: { d1: 'rook', d4: 'rook-alone' }, entry: 'slide', also: LEAPVAULT, alone: 'rook-alone' },
+    queen: { at: { d4: 'queen' }, entry: 'slide', also: LEAPVAULT },
+    archer: { at: { d4: 'archer' }, entry: 'step', alone: 'archer-alone' },
+    paladin: { at: { d4: 'paladin' }, entry: 'slide' },
+    guard: { at: { d4: 'guard' }, entry: 'step' },
+    maester: { at: { d4: 'maester' }, entry: 'step' },
+    beast: { at: { d4: 'beast' }, entry: 'step' },
+    ogre: { at: { d4: 'ogre' }, entry: 'step' },
+  };
+  const COPY = { mypawn: { name: 'My Pawn', of: 'pawn' }, mybeast: { name: 'My Beast', of: 'beast' } };
+  const KINGS = { flame: ['Strike', 'Haste'], frost: ['Freeze', 'IceWall'], mud: ['March', 'Leap'], shadow: ['DeathTouch', 'Darkness'], spirit: ['HolyLight', 'Mercy'], stratus: ['Flight', 'Sacrifice'] };
+  const KING_ORDER = ['flame', 'frost', 'mud', 'shadow', 'spirit', 'stratus'];
+  const F = (side, notKing, cost, captures, uses, duration, caps, live, when) => ({ targets: { side, notKing }, cost, captures, uses, duration, caps, live, when });
+  const POWER = {
+    Freeze: { t: 'Freeze', king: 'frost', uses: 1, text: 'freeze an enemy piece (not the king), then make your move: the frozen piece cannot move on its next turn',
+      f: F('b', true, 'free', 'never', 1, 'them', ['enemy, not king', 'free, then move', 'never takes', '1 use', 'their turn'], ['uses', 'duration']) },
+    IceWall: { t: 'Ice Wall', king: 'frost', uses: 2, text: 'wall one of your pieces (not the king), then make your move: the walled piece cannot be taken on the next turn',
+      f: F('w', true, 'free', 'never', 2, 'them', ['yours, not king', 'free, then move', 'never takes', '2 uses', 'their turn'], ['uses', 'duration']) },
+    Strike: { t: 'Strike', king: 'flame', uses: 1, text: 'move any piece except a pawn or the king as if it were a queen, to an empty square',
+      f: F('w', true, 'move', 'never', 1, 'now', ['yours, not pawn', 'your move', 'never takes', '1 use', 'at once'], ['uses']) },
+    Haste: { t: 'Haste', king: 'flame', uses: 1, text: 'move one piece twice in one turn (the second move is optional); neither move takes',
+      f: F('w', false, 'two', 'never', 1, 'now', ['your piece', 'two moves', 'never takes', '1 use', 'at once'], ['uses']) },
+    Flight: { t: 'Flight', king: 'stratus', uses: 1, text: 'move any piece except the king to any empty square in your half of the board',
+      f: F('w', true, 'move', 'never', 1, 'now', ['yours, not king', 'your move', 'never takes', '1 use', 'at once', 'in your half'], ['uses'], { on: 'zone', zone: 'ownHalf' }) },
+    Sacrifice: { t: 'Sacrifice', king: 'stratus', uses: 1, text: 'turn one of your pawns into one of your pieces that was taken earlier',
+      f: F('w', false, 'move', 'never', 1, 'now', ['your pawn', 'your move', 'never takes', '1 use', 'at once'], ['uses']) },
+    March: { t: 'March', king: 'mud', uses: Infinity, text: 'any pawn may step two squares from any rank',
+      f: F('w', false, 'move', 'may', Infinity, 'now', ['your pawn', 'your move', 'may take', 'always', 'at once'], []) },
+    Leap: { t: 'Leap', king: 'mud', uses: 3, text: 'a rook, bishop or queen passes over your own pawns',
+      f: F('w', false, 'move', 'may', 3, 'now', ['your R, B or Q', 'your move', 'may take', '3 uses', 'at once'], ['uses']) },
+    HolyLight: { t: 'Holy Light', king: 'spirit', uses: Infinity, always: true, text: 'enemy pawns cannot take your king; your pieces beside, in front of or behind it cannot be taken' },
+    Mercy: { t: 'Mercy', king: 'spirit', uses: Infinity, always: true, text: 'your king steps 1 or 2 squares and jumps your pieces, but takes only a pawn or a guard; your pieces next to it cannot be taken, except by pawns' },
+    DeathTouch: { t: 'Death Touch', king: 'shadow', uses: Infinity, always: true, text: 'your king takes an enemy next to it, or 2 squares straight forward or back over an empty square, without moving: it can only take this way' },
+    Darkness: { t: 'Darkness', king: 'shadow', uses: Infinity, always: true, text: 'your pawns may also step diagonally, and take only straight ahead' },
+  };
+  const CF = (side, notKing, cost, captures, duration, caps, when) => ({ targets: { side, notKing }, cost, captures, uses: 0, duration, caps, when });
+  const CARDS = [
+    { id: 'Freeze', art: 'freeze', twin: 'frost', text: 'as your move, freeze an enemy piece (not the king): it cannot move on its next turn', f: CF('b', true, 'move', 'never', 'them', ['enemy, not king', 'your move', 'never takes', 'one card', 'their turn']) },
+    { id: 'IceWall', t: 'Ice Wall', art: 'icewall', twin: 'frost', text: 'as your move, wall one of your pieces (not the king): it cannot be taken on the next turn', f: CF('w', true, 'move', 'never', 'them', ['yours, not king', 'your move', 'never takes', 'one card', 'their turn']) },
+    { id: 'Strike', twin: 'flame', text: POWER.Strike.text, f: CF('w', true, 'move', 'never', 'now', ['yours, not pawn', 'your move', 'never takes', 'one card', 'at once']) },
+    { id: 'Haste', twin: 'flame', text: POWER.Haste.text, f: CF('w', false, 'two', 'never', 'now', ['your piece', 'two moves', 'never takes', 'one card', 'at once']) },
+    { id: 'Flight', twin: 'stratus', text: POWER.Flight.text, f: CF('w', true, 'move', 'never', 'now', ['yours, not king', 'your move', 'never takes', 'one card', 'at once']) },
+    { id: 'Sacrifice', art: 'sacrifice', twin: 'stratus', text: POWER.Sacrifice.text, f: CF('w', false, 'move', 'never', 'now', ['your pawn', 'your move', 'never takes', 'one card', 'at once']) },
+    { id: 'March', art: 'march', twin: 'mud', text: 'a pawn steps two squares from any rank', f: CF('w', false, 'move', 'may', 'now', ['your pawn', 'your move', 'may take', 'one card', 'at once']) },
+    { id: 'Leap', art: 'leap', twin: 'mud', text: POWER.Leap.text, f: CF('w', false, 'move', 'may', 'now', ['your R, B or Q', 'your move', 'may take', 'one card', 'at once']) },
+    { id: 'Mimic', art: 'mimic', text: 'move one of your pieces (not a pawn or the king), to an empty square, the way another of your pieces moves', f: CF('w', true, 'move', 'never', 'now', ['yours, not pawn', 'your move', 'never takes', 'one card', 'at once']) },
+    { id: 'Vault', art: 'vault', text: 'a rook, bishop or queen passes over one piece on its line' },
+    { id: 'Curse', text: 'move an enemy piece or pawn (not the king) one square, to an empty square', f: CF('b', true, 'move', 'never', 'now', ['enemy, not king', 'your move', 'never takes', 'one card', 'at once']) },
+    { id: 'SkyLift', t: 'Sky Lift', art: 'skylift', text: 'two of your pieces (not pawns or the king, not of one kind) trade squares' },
+    { id: 'Salvation', art: 'salvation', text: 'return one of your taken pieces to an empty square of your back rank', f: CF('w', true, 'move', 'never', 'now', ['your lost piece', 'your move', 'never takes', 'one card', 'at once']) },
+    { id: 'Rescue', art: 'rescue', text: 'your Freeze, Ice Wall or Firewall from your previous turn lasts one more turn' },
+    { id: 'Firewall', text: 'as your move, none of your pieces can be taken on your opponent’s next turn', f: CF('w', false, 'move', 'never', 'them', ['all yours', 'your move', 'never takes', 'one card', 'their turn']) },
+    { id: 'FirewallB', t: 'Firewall B', text: 'swap one of your pieces (not the king) with an enemy piece (not the king) next to it' },
+    { id: 'EarthQuake', t: 'Earth Quake', text: 'choose a square: each piece next to it, except a king, is pushed one square straight away from it if that square is empty', f: CF('b', true, 'move', 'never', 'now', ['any, not king', 'your move', 'never takes', 'one card', 'at once']) },
+    { id: 'EarthQuakeB', t: 'Earth Quake B', text: 'choose a square next to one of your pieces: each piece next to it, except a king, is pushed one square straight away from it if that square is empty' },
+    { id: 'Burn', text: 'one of your pieces (not a pawn or the king) takes an enemy piece on d4, e4, d5 or e5 as a queen would', f: CF('b', true, 'move', 'must', 'now', ['enemy, not king', 'your move', 'must take', 'one card', 'at once', 'on a center square'], { on: 'zone', zone: 'capital' }) },
+    { id: 'FireStarter', t: 'Fire Starter', text: 'one of your pieces (not a pawn or the king) takes an enemy piece on the enemy back rank as a queen would' },
+    { id: 'Control', text: 'one of your pieces (not a pawn or the king) moves and takes this turn as a friendly piece next to it does' },
+    { id: 'Growth', text: 'as your move, draw the next card' },
+    { id: 'GrowthB', t: 'Growth B', text: 'draw the next card, then make your move' },
+    { id: 'Rally', text: 'move one of your pieces, then a different one (the second move is optional); neither move takes', f: CF('w', false, 'two', 'never', 'now', ['two of yours', 'two moves', 'never takes', 'one card', 'at once']) },
+    { id: 'Spawn2', t: 'Spawn 2', text: 'as your move, two new pawns of yours appear on two empty squares of your pawns’ start rank', f: CF('w', false, 'move', 'never', 'now', ['two new pawns', 'your move', 'never takes', 'one card', 'at once']) },
+    { id: 'SpawnK', t: 'Spawn K', text: 'as your move, a new pawn of yours appears on an empty square next to your king (not on the first or last rank)' },
+    { id: 'SpawnK2', t: 'Spawn K2', text: 'as your move, two new pawns of yours appear on two empty squares next to your king (not on the first or last rank)' },
+    { id: 'MorphP', t: 'Morph P', text: 'one of your pawns becomes a knight or a bishop where it stands', f: CF('w', false, 'move', 'never', 'now', ['your pawn', 'your move', 'never takes', 'one card', 'at once']) },
+    { id: 'MirrorB', t: 'Mirror B', text: 'play another card from your hand; it stays in your hand' },
+  ];
+  CARDS.forEach((c) => { c.t = c.t || c.id; });
+  // the B and K2 copies show inside the detail of their card, not as cards of their own
+  const VARIANTS = { Firewall: ['FirewallB'], EarthQuake: ['EarthQuakeB'], Growth: ['GrowthB'], SpawnK: ['SpawnK2'] };
+  const VARIANT_IDS = new Set(Object.values(VARIANTS).flat());
+  const DECK = CARDS.filter((c) => !VARIANT_IDS.has(c.id));
+  const ART_CARDS = DECK.filter((c) => c.art), BACK_CARDS = DECK.filter((c) => !c.art);
+  // short seal names (two or three words), under every seal in the shelf and the Rules ledge
+  const SHORT = { step2: 'Steps 2', movesLike: 'Moves like…', linesPass: 'Lines pass', chain: 'Takes again', cannotBeTaken: "Can't be taken", push: 'Pushes', swap: 'Swaps', becomes: 'Becomes', cannotTake: "Can't take…", removedAfter: 'Removed too' };
+  // a coin face shows what the power does; the king's emblem is a small badge on the rim
+  const PGLYPH = {
+    March: '<path d="M8 9.5l4-4 4 4M8 13.5l4-4 4 4"/><path d="M12 15.3a1.9 1.9 0 1 0 .01 0M9.2 21.5h5.6l-.9-3.4h-3.8z" fill="currentColor" stroke="none"/>',
+    Leap: '<path d="M3.5 19.5C4.5 8 19.5 8 20.5 19.5"/><path d="M17.4 17.2l3.1 2.3.6-3.8"/><path d="M12 15.4a1.6 1.6 0 1 0 .01 0M10 20.8h4l-.8-2.9h-2.4z" fill="currentColor" stroke="none"/>',
+    Freeze: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9.8 4.6L12 6.6l2.2-2M9.8 19.4l2.2-2 2.2 2"/>',
+    IceWall: '<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M12 8.5v7M9 10.2l6 3.6M15 10.2l-6 3.6"/>',
+    Strike: '<path d="M13.5 2.5L5.5 13.5h6l-1 8 8-11h-6z"/>',
+    Haste: '<path d="M4 6l6 6-6 6M12 6l6 6-6 6"/>',
+    Flight: '<path d="M2.5 13.5C7 13.5 10 10.5 12 5.5c2 5 5 8 9.5 8-3 2.2-6.2 3-9.5 1.2-3.3 1.8-6.5 1-9.5-1.2z"/>',
+    Sacrifice: '<path d="M5 10h14M5.5 10L4.5 4.5l4 2.8L12 2.5l3.5 4.8 4-2.8-1 5.5"/><path d="M12 21.5v-7.5M9 17l3-3 3 3"/>',
+    HolyLight: '<circle cx="12" cy="12" r="3.8"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+    Mercy: '<path d="M12 20s-7.5-4.5-7.5-10A4 4 0 0 1 12 7.5 4 4 0 0 1 19.5 10C19.5 15.5 12 20 12 20z"/>',
+    DeathTouch: '<path d="M12 3.5c-4.4 0-7.5 3-7.5 7 0 2.4 1.2 4 2.8 5v3.5h9.4v-3.5c1.6-1 2.8-2.6 2.8-5 0-4-3.1-7-7.5-7z"/><circle cx="9.2" cy="11" r="1.5" fill="currentColor"/><circle cx="14.8" cy="11" r="1.5" fill="currentColor"/>',
+    Darkness: '<path d="M15.5 4a8.5 8.5 0 1 0 4.8 13.6A7 7 0 0 1 15.5 4z"/>',
+  };
+  function powerCoin(p, size, o = {}) {
+    const P = POWER[p];
+    const uses = o.uses != null ? o.uses : P.uses;
+    let notches = '';
+    if (!o.noNotch) {
+      if (uses === Infinity) notches = '<span class="inf">∞</span>';
+      else for (let i = 0; i < uses; i++) notches += `<span class="notch${i < (o.spent || 0) ? ' is-spent' : ''}"></span>`;
+    }
+    return `<span class="coin pcoin"${o.state ? ` data-state="${o.state}"` : ''} style="width:${size}px;height:${size}px" title="${esc(P.t)} (${cap(P.king)} king)"><svg class="pg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PGLYPH[p] || ''}</svg><img class="emb" src="${A}emblems/${P.king}.webp" alt="">${notches ? `<span class="notches">${notches}</span>` : ''}</span>`;
+  }
+  // one 3x3 board under each power line: its effect, drawn by marks.js
+  const PMINI = {
+    March: { crop: 'c3:e5', cap: 'from any rank', sc: { pieces: [{ sq: 'd3', k: 'pawn', side: 'w', open: true }], marks: [{ sq: 'd4', k: 'move' }, { sq: 'd5', k: 'move', power: true }] } },
+    Leap: { crop: 'c1:e3', cap: 'over your own pawn', sc: { pieces: [{ sq: 'd1', k: 'rook', side: 'w', open: true }, { sq: 'd2', k: 'pawn', side: 'w' }], marks: [{ sq: 'd3', k: 'move', power: true }], arches: [{ from: 'd1', to: 'd3', power: 'mud' }] } },
+    Freeze: { crop: 'c5:e7', cap: 'it cannot move for a turn', sc: { pieces: [{ sq: 'd6', k: 'knight', side: 'b' }], effects: [{ k: 'frost', sq: 'd6', turns: 1 }] } },
+    IceWall: { crop: 'c4:e6', cap: 'it cannot be taken for a turn', sc: { pieces: [{ sq: 'd5', k: 'bishop', side: 'w' }, { sq: 'e6', k: 'pawn', side: 'b' }], effects: [{ k: 'icewall', sq: 'd5' }, { k: 'threat', from: 'e6', to: 'd5', stopped: true }] } },
+  };
+  const miniBoard = (p, px = 72) => { const m = PMINI[p]; if (!m) return ''; const s = 24; return `<svg width="${px}" height="${px}" viewBox="${M.viewBox(s, m.crop)}" aria-hidden="true">${M.drawString(m.sc, { s, assets: A, noOpenGlow: true })}</svg>`; };
+  const cardOf = (id) => CARDS.find((c) => c.id === id);
+  const LAWS = [
+    { id: 'promotion', t: 'Promotion', pill: ['Q R B N', 'Q only', 'Q R B N A'] },
+    { id: 'fifty', t: '50-move draw', on: true }, { id: 'threefold', t: 'Threefold', on: true }, { id: 'material', t: 'Material', on: true },
+    { id: 'guardKing', t: 'Guard by its king', on: true }, { id: 'bishops', t: 'Bishops on two colours', on: true },
+  ];
+  const SEALINFO = {
+    step2: { ex: 'From its start rank, as a pawn does.', mx: '4a Movement: special first move', seen: ['pawn'], show: { piece: 'pawn', focus: 0 } },
+    movesLike: { ex: 'On a center square, it also moves like a queen.', mx: 'C3 moves differently while there', seen: [], show: { copy: 'mypawn', queen: true, focus: 1 } },
+    linesPass: { ex: 'It slides past its own pieces, as the Paladin does.', mx: '4d Hop: over friends only', seen: ['paladin'], show: { piece: 'paladin', focus: 0 } },
+    chain: { ex: 'After a take by moving, it may take again from there.', mx: '6a Trigger on capture', seen: ['beast'], show: { piece: 'beast', focus: 0, why: 'e5' } },
+    cannotBeTaken: { ex: 'For example, pawns cannot take it.', mx: '2 Shield: cannot be taken by X', seen: ['guard'], show: { piece: 'guard', focus: 0 } },
+    push: { ex: '1 square straight away, and it follows.', mx: '5a Control: move any adjacent piece', seen: ['ogre'], show: { piece: 'ogre', focus: 0 } },
+    swap: { ex: 'It trades squares with a friend.', mx: '5b Control: friends only', seen: ['maester'], show: { piece: 'maester', focus: 0 } },
+    becomes: { ex: 'On the last rank, as a pawn does.', mx: 'Last rank', seen: ['pawn'], show: { copy: 'mypawn', queen: true, focus: 2 } },
+    cannotTake: { ex: 'It cannot take a king.', mx: '3 Handicap: cannot take X', seen: ['paladin'], show: { piece: 'paladin', focus: 1 } },
+    removedAfter: { ex: 'It takes a piece and leaves the board too.', mx: '6a Trigger on capture', seen: ['paladin'], show: { piece: 'paladin', focus: 2 } },
+  };
+  const LOOKS = ['iron-warden', 'blade-dancer', 'hare-scout', 'fox-pathfinder', 'owl-archivist', 'clay-golem', 'fire-spirit', 'crossbow-warden'];
+  // extra Why data for squares that scenes.js has no `why` for (receipts only; every mark still comes from scenes.js)
+  const WHY = {
+    'pawn-e2': { e4: { count: 2, occupant: 'Empty', sum: { base: { k: 'move', cond: 'awake' }, imps: [{ a: 'step2' }], result: { k: 'move', cond: 'awake' }, captions: ['step 2', 'on its start rank', 'awake here'] } } },
+    mypawn: { c5: { count: 1, occupant: 'Empty', sum: { base: { k: 'both' }, imps: [], result: { k: 'both' }, captions: ['you painted it'] }, foot: 'Your copy. The Pawn only takes here.' },
+      d6: { count: 2, occupant: 'Empty', sum: { base: { k: 'move', cond: 'awake' }, imps: [{ a: 'step2' }], result: { k: 'empty', cond: 'asleep' }, captions: ['step 2', 'on its start rank', 'asleep here'] } } },
+    'mypawn-queen': { d8: { count: 3, occupant: 'Empty', sum: { base: { k: 'move', rail: 'n' }, imps: [{ a: 'movesLike' }, { a: 'becomes' }], result: { k: 'move', cond: 'awake', tag: { a: 'becomes' } }, captions: ['line', 'like a queen, on a center square', 'becomes', 'moves, then becomes'] } },
+      h8: { count: 3, occupant: 'Empty', sum: { base: { k: 'move', rail: 'ne' }, imps: [{ a: 'movesLike' }, { a: 'becomes' }], result: { k: 'move', cond: 'awake', tag: { a: 'becomes' } }, captions: ['line', 'like a queen, on a center square', 'becomes', 'moves, then becomes'] } },
+      g4: { count: 2, occupant: 'Empty', sum: { base: { k: 'move', rail: 'e' }, imps: [{ a: 'movesLike' }], result: { k: 'move', cond: 'awake' }, captions: ['line', 'like a queen, on a center square', 'awake here'] } } },
+    archer: { d6: { count: 1, occupant: 'Black knight', icon: 'knight', side: 'b', sum: { base: { k: 'shot' }, imps: [], result: { k: 'shot', xtag: true }, captions: ['shot: 2 away', 'takes, stays on d4'] }, foot: 'It never takes next to itself: e5 has no mark.' },
+      f6: { count: 1, occupant: 'Black bishop', icon: 'bishop', side: 'b', sum: { base: { k: 'shot' }, imps: [], result: { k: 'shot', xtag: true }, captions: ['shot: 2 away', 'takes, stays on d4'] } },
+      e5: { count: 1, occupant: 'Black pawn', icon: 'pawn', side: 'b', solo: 'empty', soloCap: 'Next to it. It never takes here.' } },
+    beast: { e5: { count: 2, occupant: 'Black pawn', icon: 'pawn', side: 'b', sum: { base: { k: 'both' }, imps: [{ a: 'chain' }], result: { k: 'both', tag: { a: 'chain' } }, captions: ['step', 'takes again', 'then f6'] }, foot: 'It takes e5, then f6. Never the king on g7.' } },
+    mybeast: { e5: { count: 2, occupant: 'Black pawn', icon: 'pawn', side: 'b', sum: { base: { k: 'both' }, imps: [{ a: 'chain' }, { a: 'removedAfter' }], result: { k: 'both', tag: { a: 'chain' } }, captions: ['step', 'takes again', 'removed after f6', 'e5, then f6'] }, foot: 'After the knight on f6, it is removed too.' } },
+    'mybeast-any': { e5: { count: 2, occupant: 'Black pawn', icon: 'pawn', side: 'b', sum: { base: { k: 'both' }, imps: [{ a: 'removedAfter' }], result: { k: 'both', tag: { a: 'removedAfter' } }, captions: ['step', 'removed after anything', 'takes, then leaves'] }, foot: 'It leaves at once, so Takes again never fires.' } },
+    maester: { e4: { count: 1, occupant: 'White rook', icon: 'rook', side: 'w', swap: true, captions: ['swaps places'] }, d3: { count: 1, occupant: 'White pawn', icon: 'pawn', side: 'w', swap: true, captions: ['swaps places'] } },
+    ogre: { c3: { count: 2, occupant: 'Black guard', icon: 'guard', side: 'b', sum: { base: { k: 'both' }, imps: [{ a: 'cannotBeTaken' }], result: { k: 'blocked' }, captions: ['step', 'only a king takes a guard', 'refused'] }, foot: 'It may push the guard to b2.' },
+      d5: { count: 1, occupant: 'Black pawn', icon: 'pawn', side: 'b', sum: { base: { k: 'both' }, imps: [], result: { k: 'both', xtag: true }, captions: ['takes', 'or pushes to d6'] } } },
+    'rook-leap': { d5: { count: 2, occupant: 'Empty', sum: { base: { k: 'move', rail: 'n' }, imps: [{ power: 'mud' }], result: { k: 'move' }, captions: ['line', 'Leap: passes your pawn', 'move'] } },
+      d7: { count: 2, occupant: 'Black pawn', icon: 'pawn', side: 'b', sum: { base: { k: 'move', rail: 'n' }, imps: [{ power: 'mud' }], result: { k: 'take', xtag: true }, captions: ['line', 'Leap: passes your pawn', 'takes'] } } },
+    rook: { d3: { count: 1, occupant: 'Empty', solo: 'empty', soloCap: 'Your pawn on d2 stops the line.' } },
+  };
+
+  /* ======================= STATE ======================= */
+  const S0 = () => ({
+    tab: 'pieces', item: { k: 'piece', id: 'pawn' }, sq: 'd4', copy: null, queen: false, beastPill: 'piece', enemyD3: false,
+    design: null, mode: 'look', brush: null, mirror: 'lr', focus: null, knot: null, why: null, hover: null,
+    shelf: false, shelfSel: null, preview: false, king: null, armed: null, spent: { Leap: 0, Freeze: 0 }, leapUses: 3,
+    card: null, cardOn: null, threats: false, done: null, compare: false, opened: 1, edited: false, weighOpen: false,
+    yours: [], undo: [], laws: { promotion: 'Q R B N' }, lawsEdited: false, look: 'iron-warden', pillOpen: null, picker: null, alone: false, stir: 0,
+    phoneSentence: null, toolsPop: false, extra: [], hoverFocus: null, plaque: false, cardsAll: false, morePop: false,
+  });
+  let S = S0();
+  const FX = { ripple: false, stamp: null, slideFrom: null, unroll: null, nameStamp: false, paintSq: [], figIn: false, kbd: null };
+  let BS = 80; // square size
+  let PHONE = false;
+  const isCopy = () => S.item.k === 'copy';
+  const openId = () => (S.item.k === 'copy' ? COPY[S.item.id].of : S.item.id);
+
+  /* ======================= SCENES ======================= */
+  const scn = (id) => clone(SC.get(id));
+  function withKingImg(sc, king) {
+    if (!king) return sc;
+    const k = sc.pieces.find((p) => p.k === 'king' && p.side === 'w');
+    if (k) k.img = `kings/${king}.webp`;
+    else if (!sc.pieces.some((p) => p.sq === 'e1')) sc.pieces.push({ sq: 'e1', k: 'king', side: 'w', img: `kings/${king}.webp` });
+    return sc;
+  }
+  function designScene() {
+    // the player's painted pattern on an empty board (no rules are run: it is the paint itself)
+    const d = S.design, o = pq('d4');
+    const sc = { id: 'design', pieces: [], marks: [], rails: [], arches: [], effects: [], impressions: [], chalk: [], knots: [], seals: [] };
+    const piece = S.item.k === 'new' ? { sq: 'd4', k: 'custom', side: 'w', open: true, img: `workshop/${S.look}-w.webp` } : { sq: 'd4', k: openId(), side: 'w', open: true };
+    sc.pieces.push(piece);
+    const marks = {};
+    for (const dir of d.lines) {
+      const [dx, dy] = { n: [0, 1], ne: [1, 1], e: [1, 0], se: [1, -1], s: [0, -1], sw: [-1, -1], w: [-1, 0], nw: [-1, 1] }[dir];
+      let last = null;
+      for (let i = 1; i <= 3; i++) { const q = sqn(o.f + dx * i, o.r + dy * i); marks[q] = 'move'; last = q; }
+      sc.rails.push({ from: 'd4', to: last, end: 'arrow' });
+    }
+    for (const [k, m] of Object.entries(d.cells)) { const [dx, dy] = k.split(',').map(Number); marks[sqn(o.f + dx, o.r + dy)] = m; }
+    for (const [q, k] of Object.entries(marks)) sc.marks.push({ sq: q, k });
+    if (d.step2) { sc.marks.push({ sq: 'd6', k: 'move', cond: 'asleep', by: [0] }); sc.impressions.push({ sq: 'd6', list: [{ a: 'step2', by: 0 }] }); }
+    sc.seals = d.seals || [];
+    return sc;
+  }
+  const PAWN_DESIGN = () => ({ cells: { '0,1': 'move', '-1,1': 'take', '1,1': 'take' }, lines: [], step2: true });
+  const isMyPawnDesign = (d) => d && !d.lines.length && Object.keys(d.cells).length === 3 && d.cells['0,1'] === 'move' && d.cells['-1,1'] === 'both' && d.cells['1,1'] === 'both';
+  function copyScene() {
+    if (S.item.id === 'mybeast') return scn(S.beastPill === 'any' ? 'mybeast-any' : 'mybeast');
+    if (S.design && !isMyPawnDesign(S.design)) { const sc = designScene(); sc.yours = true; sc.from = 'Pawn'; return sc; }
+    if (S.queen) {
+      const id = { d4: S.enemyD3 ? 'mypawn-queen-knight' : 'mypawn-queen', b4: 'mypawn-queen-b4', e2: 'mypawn-queen-e2' }[S.sq] || 'mypawn-queen';
+      return scn(id);
+    }
+    return scn('mypawn');
+  }
+  function pieceSceneId() {
+    const id = S.item.id;
+    if (id === 'paladin') {
+      if (S.card === 'Freeze') return S.cardOn === 'c6' ? 'freeze-card' : 'freeze';
+      if (S.king === 'frost') return S.cardOn === 'c6' ? 'frost-power' : 'frost-pick';
+      if (S.king === 'mud' && S.armed === 'Leap') return 'echo';
+      return 'paladin';
+    }
+    if (id === 'rook') { if (S.alone) return 'rook-alone'; return S.king === 'mud' && S.armed === 'Leap' ? 'rook-leap' : 'rook'; }
+    if (id === 'pawn') return PIECE.pawn.stir[S.stir] || 'pawn';
+    if (S.alone && PIECE[id].alone) return PIECE[id].alone;
+    return Object.values(PIECE[id].at)[0];
+  }
+  function baseScene() {
+    if (S.mode === 'brush') return designScene();
+    if (S.item.k === 'new') return designScene();
+    if (S.item.k === 'law') return lawScene();
+    if (isCopy()) return copyScene();
+    const id = pieceSceneId();
+    let sc;
+    if (id === 'frost-pick') {
+      sc = scn('freeze'); delete sc.card; sc.id = 'frost-pick';
+      sc.pieces.find((p) => p.sq === 'b1').img = 'kings/frost.webp';
+      sc.power = { king: 'frost', name: 'Freeze', uses: 1, spent: 0 };
+      if (S.armed !== 'Freeze') sc.effects = sc.effects.filter((e) => e.k !== 'rune');
+    } else sc = scn(id);
+    if (S.king && !['rook-leap', 'echo', 'freeze', 'freeze-card', 'frost-power', 'frost-pick'].includes(sc.id)) withKingImg(sc, S.king);
+    if (sc.id === 'echo' || (sc.id === 'paladin' && S.king)) withKingImg(sc, S.king);
+    if ((sc.id === 'rook' || sc.id === 'rook-leap') && !S.king) withKingImg(sc, 'spirit');
+    return sc;
+  }
+  function lawScene() {
+    const sc = { id: 'law', pieces: [{ sq: 'd7', k: 'pawn', side: 'w', open: true }], marks: [{ sq: 'd8', k: 'move' }], rails: [], arches: [], effects: [], impressions: [], chalk: [{ zone: 'lastRank', always: true }], knots: [], seals: [] };
+    if (S.item.id === 'promotion') {
+      for (const f of FILES) { sc.effects.push({ k: 'becomes', sq: f + 8 }); sc.impressions.push({ sq: f + 8, list: [{ a: 'becomes' }] }); }
+      sc.marks = [];
+    }
+    return sc;
+  }
+  function sceneNow() {
+    let sc = baseScene();
+    // enemies the player put on the board ("Put an enemy here")
+    for (const q of S.extra) if (!sc.pieces.some((p) => p.sq === q)) sc.pieces.push({ sq: q, k: 'pawn', side: 'b' });
+    if (isCopy()) paintDiff(sc);
+    if (S.done) sc = doneScene(sc, S.done);
+    if (S.mode === 'look' && !S.threats) sc.effects = sc.effects.filter((e) => e.k !== 'threat');
+    if (S.preview && S.shelfSel === 'movesLike') sc = previewScene();
+    if (S.preview && S.shelfSel === 'removedAfter') { sc = scn('mybeast'); markAdded(sc, 1); }
+    if (S.hideOpen) sc.pieces = sc.pieces.filter((p) => !p.open);
+    if (S.hideSq) sc.pieces = sc.pieces.filter((p) => !S.hideSq.includes(p.sq));
+    return sc;
+  }
+  function markAdded(sc, idx) {
+    for (const k of ['marks', 'rails', 'arches', 'effects']) for (const e of sc[k]) if (e.by && e.by.includes(idx)) { e.diff = '+'; }
+  }
+  function previewScene() {
+    const sc = scn('mypawn-queen');
+    markAdded(sc, 1);
+    sc.chalk = sc.chalk.filter((z) => z.zone === 'capital');
+    return sc;
+  }
+  // a copy always shows how it differs from its original: a quill pip on each painted change,
+  // a dashed outline where an original mark is gone (no press-and-hold compare)
+  const PAWN_REL = { '0,1': 'move', '-1,1': 'take', '1,1': 'take' };
+  function paintDiff(sc) {
+    if (!(S.item.id === 'mypawn' || S.item.k === 'new')) return;
+    const op = sc.pieces.find((p) => p.open); if (!op || S.item.k === 'new') return;
+    const o = pq(op.sq);
+    const rel = (q) => { const t = pq(q); return `${t.f - o.f},${t.r - o.r}`; };
+    const seen = new Set();
+    for (const m of sc.marks) {
+      if (m.by && m.by.length) continue; // a rule made this mark: its seal says so
+      const k = rel(m.sq); seen.add(k);
+      if (PAWN_REL[k] !== m.k) m.quill = true;
+    }
+    for (const [k, kind] of Object.entries(PAWN_REL)) {
+      if (seen.has(k)) continue;
+      const [dx, dy] = k.split(',').map(Number); const f = o.f + dx, r = o.r + dy;
+      if (f < 0 || f > 7 || r < 1 || r > 8) continue;
+      const q = sqn(f, r);
+      if (!sc.marks.some((m) => m.sq === q)) sc.marks.push({ sq: q, k: kind, diff: '-' });
+    }
+  }
+  function doneScene(sc, d) {
+    const out = clone(sc);
+    const op = out.pieces.find((p) => p.open);
+    out.marks = []; out.rails = []; out.arches = []; out.impressions = []; out.chalk = []; out.knots = [];
+    out.effects = out.effects.filter((e) => e.k === 'frost');
+    if (d.swap) {
+      const other = out.pieces.find((p) => p.sq === d.to); other.sq = op.sq; op.sq = d.to;
+      return out;
+    }
+    if (d.kill) out.pieces = out.pieces.filter((p) => p.sq !== d.kill);
+    if (d.shot) return out;
+    if (d.removed) { out.pieces = out.pieces.filter((p) => !p.open); out.impressions = [{ sq: d.to, list: [{ a: 'removedAfter' }] }]; return out; }
+    op.sq = d.to;
+    return out;
+  }
+
+  /* ======================= WHY ======================= */
+  function occupantAt(sc, q) { return sc.pieces.find((p) => p.sq === q && !p.ghost); }
+  function whyData(sc, q) {
+    if (sc.why && sc.why[q]) return sc.why[q];
+    if (WHY[sc.id] && WHY[sc.id][q]) return WHY[sc.id][q];
+    const m = sc.marks.find((x) => x.sq === q);
+    const occ = occupantAt(sc, q);
+    const occW = occ ? `${occ.side === 'b' ? 'Black' : 'White'} ${PNAME[occ.k] ? PNAME[occ.k].toLowerCase() : occ.k}` : 'Empty';
+    const base = { occupant: cap(occW), icon: occ ? occ.k === 'custom' ? null : occ.k : null, side: occ ? occ.side : null };
+    if (!m) {
+      if (occ && occ.open) return { ...base, count: 0, solo: 'self', soloCap: 'The open piece.' };
+      if (occ && occ.side === 'w') return { ...base, count: 0, solo: 'empty', soloCap: 'Its own piece.' };
+      return { ...base, count: 0, solo: 'empty', soloCap: 'Out of reach.' };
+    }
+    const imps = (sc.impressions.find((i) => i.sq === q) || { list: [] }).list.map((x) => (x.a ? { a: x.a } : x.power ? { power: x.power } : { card: x.card }));
+    const rail = sc.rails.find((r) => { const a = pq(r.from), b = pq(r.to), c = pq(q); const dx = Math.sign(b.f - a.f), dy = Math.sign(b.r - a.r); for (let i = 1; i < 8; i++) { const f = a.f + dx * i, r2 = a.r + dy * i; if (f === c.f && r2 === c.r) return true; if (f === b.f && r2 === b.r) break; } return false; });
+    let railDir = null;
+    if (rail) { const a = pq(rail.from), b = pq(rail.to); railDir = ({ '0,1': 'n', '1,1': 'ne', '1,0': 'e', '1,-1': 'se', '0,-1': 's', '-1,-1': 'sw', '-1,0': 'w', '-1,1': 'nw' })[`${Math.sign(b.f - a.f)},${Math.sign(b.r - a.r)}`]; }
+    const names = { move: 'move', take: 'takes', both: 'move or take', shot: 'shot: takes from here', moveshot: 'move or shot', blocked: 'refused', 'blocked-move': 'refused' };
+    const resultK = m.k;
+    const sum = { base: { k: railDir ? 'move' : m.k === 'blocked' ? 'take' : m.k, rail: railDir }, imps, result: { k: resultK, cond: m.cond, xtag: !!(occ && /take|both|shot/.test(resultK)) }, captions: [] };
+    sum.captions.push(railDir ? 'line' : names[sum.base.k] || m.k);
+    for (const im of imps) sum.captions.push(im.a ? M.blockOf(im.a).short : im.power ? "king's power" : 'LAB card');
+    sum.captions.push(m.cond === 'asleep' ? 'asleep here' : names[resultK] || resultK);
+    if (!imps.length && !railDir) return { ...base, count: 1, solo: resultK, soloCond: m.cond, soloCap: cap(M.NAMES[resultK] || resultK) };
+    return { ...base, count: 1 + imps.length, sum };
+  }
+  function moveHere(sc, q) {
+    const op = sc.pieces.find((p) => p.open); if (!op) return null;
+    const m = sc.marks.find((x) => x.sq === q);
+    const w = WHY[sc.id] && WHY[sc.id][q];
+    if (w && w.swap) return { to: q, swap: true };
+    if (!m || /blocked/.test(m.k) || m.cond === 'asleep') return null;
+    const occ = occupantAt(sc, q);
+    if (m.k === 'take' && !occ) return null; // a take needs something to take
+    if (m.diff === '-') return null;
+    if (sc.id === 'paladin' && q === 'd7') return { to: q, kill: 'd7', removed: true, hop: 'd5' };
+    if (m.k === 'shot' || m.k === 'moveshot' && occ) return occ ? { to: q, kill: q, shot: true } : null;
+    return { to: q, kill: occ ? q : null, hop: sc.arches.some((a) => a.to === q || true) ? null : null };
+  }
+
+  /* ======================= RENDER: TOP ======================= */
+  function renderTop() {
+    const u = S.undo[S.undo.length - 1];
+    const ulab = u ? `↶ Undo ${({ seal: "rule", law: "rule" })[u.scope] || u.scope}` : "↶ Undo";
+    // Undo and Share show only after the first edit: a new player has nothing to undo or share
+    const edited = S.edited || S.undo.length > 0;
+    $('#top').innerHTML = `
+      <button class="quiet desk" data-act="menu" title="Open the states menu (M)">‹ Menu</button>
+      <button class="icon-btn" data-act="menu" aria-label="Menu">‹</button>
+      <h1 class="title"><i></i>WORKSHOP<i class="r"></i></h1>
+      <span class="sp"></span>
+      ${edited ? `<button class="quiet desk" data-act="undo" ${u ? '' : 'disabled'}>${ulab}</button><button class="quiet desk" data-act="share">Share</button>` : ''}
+      ${edited ? `<button class="icon-btn" data-act="undo" aria-label="Undo" ${u ? '' : 'disabled'}>↶</button>` : ''}
+      <button class="icon-btn" data-act="more" aria-label="More" aria-expanded="${S.morePop}">⋯</button>`;
+    const mp = $('#morePop');
+    mp.classList.toggle('open', PHONE && S.morePop);
+    const words = !document.documentElement.classList.contains('no-words');
+    mp.innerHTML = PHONE && S.morePop ? `<button data-act="share">${M.sigil('quill', 18)} Share</button><button data-act="aa">${M.sigil('eye', 18)} Words ${words ? 'off' : 'on'}</button><button data-act="weigh" ${S.edited && isCopy() ? '' : 'disabled'}>${M.sigil('scale', 18)} Weigh</button>` : '';
+  }
+
+  /* ======================= RENDER: PLINTH ======================= */
+  const sealsNow = (sc) => (sc.seals || []);
+  function pillText(a, key) {
+    const b = M.blockOf(a);
+    if (!b || !b.pill) return '';
+    const c = b.pill.choices.find((x) => x[0] === key) || b.pill.choices[0];
+    return c[1];
+  }
+  function sealLineHTML(seal, i, sc) {
+    const p = seal.pill ? `<span class="pill${S.pillOpen === i ? ' is-open' : ''}" role="button" tabindex="0" data-pill="${i}" title="Change this">${esc(pillText(seal.a, seal.pill))}</span>` : '';
+    const hollow = !!seal.asleep;
+    let l1 = '', l2 = '';
+    switch (seal.a) {
+      case 'step2': l1 = M.chip(seal.when, { hollow }); l2 = 'steps 2 straight ahead'; break;
+      case 'movesLike': l1 = M.chip(seal.when, { hollow }); l2 = `also moves like ${p}`; break;
+      case 'linesPass': l2 = `its lines pass over ${p}`; break;
+      case 'chain': l1 = M.chip({ on: 'takes' }); l2 = 'it may take again (not a king)'; break;
+      case 'cannotBeTaken': l2 = `cannot be taken ${p}`; break;
+      case 'push': l2 = `pushes a piece next to it ${p}`; break;
+      case 'swap': l2 = `swaps with ${p} next to it`; break;
+      case 'becomes': l1 = M.chip(seal.when || { on: 'reaches', zone: 'lastRank' }); l2 = `becomes ${p}`; break;
+      case 'cannotTake': l2 = `cannot take ${p}`; break;
+      case 'removedAfter': l1 = M.chip({ on: 'takes' }) + p; l2 = 'it is removed too'; break;
+    }
+    const cls = ['sline'];
+    if (S.focus === i) cls.push('is-focus'); else if (S.focus != null) cls.push('is-other');
+    if (FX.unroll === i) cls.push('unroll');
+    if (FX.stamp === i) cls.push('stamping');
+    let h = `<div class="${cls.join(' ')}" data-seal="${i}" role="button" tabindex="0" aria-pressed="${S.focus === i}" aria-label="Rule ${['I', 'II', 'III'][i]}: ${esc(M.blockOf(seal.a).title)}. Tap to show only its marks.">
+      <span class="sl-seal">${M.seal(seal.a, 44, { asleep: seal.asleep })}</span>
+      <span class="txt">${l1 ? `<span class="l1">${l1}</span>` : ''}<span class="l2">${l2}</span></span></div>`;
+    if (S.pillOpen === i && seal.pill) {
+      const b = M.blockOf(seal.a);
+      h += `<div class="choices">${b.pill.choices.map(([k, w]) => `<span class="pill is-choice${k === seal.pill ? ' is-on' : ''}" role="button" tabindex="0" data-choice="${i}:${k}">${esc(w)}</span>`).join('')}</div>`;
+    }
+    return h;
+  }
+  // knots: a gold bracket in the left gutter ties two rules that combine; a cracked one shows a cancel
+  function placeKnots(sc) {
+    const box = document.querySelector('#plinth .lines');
+    if (!box || S.mode === 'brush') return;
+    let h = '';
+    sc.knots.forEach((k, ki) => {
+      const a = Math.min(k.a, k.b), b = Math.max(k.a, k.b);
+      const ra = box.querySelector(`.sline[data-seal="${a}"]`), rb = box.querySelector(`.sline[data-seal="${b}"]`);
+      if (!ra || !rb) return;
+      const ya = ra.offsetTop + ra.offsetHeight / 2, yb = rb.offsetTop + rb.offsetHeight / 2;
+      const show = k.type !== 'unknown' || S.focus === k.a || S.focus === k.b;
+      const x = b - a === 2 ? -6 : 2;
+      h += `<button class="kbr knot-${k.type}${show ? ' show' : ''}" data-knot="${ki}" title="${esc(k.words)}" aria-label="${esc(k.words)}" style="top:${ya}px;left:${x}px">${M.knot(k.type, { vertical: true, w: 18, h: yb - ya })}</button>`;
+    });
+    box.insertAdjacentHTML('beforeend', h);
+  }
+  function figureSrc() {
+    if (S.item.k === 'new') return `${A}workshop/${S.look}-w.webp`;
+    return `${A}pieces/${openId()}-w.webp`;
+  }
+  const LOCK = (s = 14) => M.sigil('lock', s);
+  const STONE = (lit = true) => `<div class="stone"><div class="top${lit ? ' lit' : ''}"></div><div class="front"></div></div>`;
+  function renderPlinth() {
+    const el = $('#plinth');
+    const sc = baseScene();
+    const k = S.item.k;
+    let h = '';
+    if (k === 'piece' || k === 'copy' || k === 'new') {
+      const copy = k === 'copy' || k === 'new';
+      const name = k === 'copy' ? COPY[S.item.id].name : k === 'new' ? 'New piece' : PNAME[S.item.id];
+      const weigh = S.edited && isCopy() ? `<button class="quiet weigh" data-act="weigh" aria-expanded="${S.weighOpen}">${M.sigil('scale', 16)} Weigh</button>` : '';
+      h += `<div class="nameband${copy ? ' is-copy' : ''}${FX.nameStamp ? ' stamp' : ''}"><div class="row"><h2 class="${name.length > 9 ? 'long' : ''}">${esc(name.toUpperCase())}</h2>${copy ? M.tag('yours') : ''}<span class="plock" title="Try board">${M.sigil('lockOpen', 18)}</span>${weigh}</div>${k === 'copy' ? `<div class="from">from ${PNAME[COPY[S.item.id].of]}</div>` : ''}</div>`;
+      h += `<div class="figure${FX.figIn ? ' enter' : ''}"><span class="halo"></span><img src="${figureSrc()}" alt="${esc(name)}"></div>`;
+      h += STONE();
+      // the rule lines are the only place for rules
+      const seals = sealsNow(sc);
+      h += `<div class="lines${FX.bounce != null ? ' bounce' : ''}">`;
+      seals.forEach((s, i) => { h += sealLineHTML(s, i, sc); });
+      if (seals.length < 3) {
+        h += `<div class="sline add" data-act="shelf" role="button" tabindex="0" aria-label="Add a rule"><span class="sl-seal">+</span><span class="add-rule w"><b>Add a rule</b></span></div>`;
+        // the limit shows only after the player adds a rule: dotted rows up to 3
+        if (S.edited && seals.length) for (let i = seals.length + 1; i < 3; i++) h += `<div class="sline empty" aria-hidden="true"><span class="sl-seal"></span><span class="txt"></span></div>`;
+      }
+      h += '</div>';
+      // phone: the seals sit in a row in the name strip
+      h += `<div class="pseals">${seals.map((s, i) => `<button class="${S.focus === i ? 'is-focus' : S.focus != null ? 'is-other' : ''}" data-seal="${i}" aria-label="${esc(M.blockOf(s.a).title)}">${M.seal(s.a, 42, { asleep: s.asleep })}</button>`).join('')}${seals.length < 3 ? '<button class="padd" data-act="shelf" aria-label="Add a rule">+</button>' : ''}</div>`;
+      if (k === 'new') h += `<div class="look-pick" data-at="lines"><div class="row">${LOOKS.map((l) => `<button class="${l === S.look ? 'on' : ''}" data-look="${l}" title="${l.replace(/-/g, ' ')}" aria-pressed="${l === S.look}"><img src="${A}workshop/${l}-w.webp" alt="${l.replace(/-/g, ' ')}"></button>`).join('')}</div></div>`;
+      const also = S.opened >= 2 && k === 'piece' ? PIECE[S.item.id].also : null;
+      if (also && also.length) {
+        h += `<div class="also" data-at="lines"><span class="w">Also changed by</span>${also.map((x) => x.coin
+          ? `<button class="ac" data-also="coin:${x.coin}:${x.p}" title="${esc(POWER[x.p].t)} (${cap(x.coin)} king)">${powerCoin(x.p, 32, { noNotch: true })}</button>`
+          : `<button class="ac" data-also="card:${x.card}" title="${esc(cardOf(x.card).t)} card (LAB)">${miniCard(x.card)}</button>`).join('')}</div>`;
+      }
+      if (S.weighOpen) h += weighHTML();
+    } else if (k === 'king') {
+      const id = S.item.id;
+      h += `<div class="nameband"><div class="row"><h2>${id.toUpperCase()} KING</h2></div></div>`;
+      h += `<div class="figure${FX.figIn ? ' enter' : ''}"><span class="halo"></span><img src="${A}kings/${id}.webp" alt="${cap(id)} king"></div>`;
+      h += STONE();
+    } else if (k === 'card') {
+      const c = cardOf(S.item.id);
+      h += `<div class="nameband"><div class="row"><h2 class="${c.t.length > 9 ? 'long' : ''}">${esc(c.t.toUpperCase())}</h2></div></div>`;
+      h += `<div class="bigcard lab-host">${c.art ? `<div class="art" style="background-image:url(${A}cards/${c.art}.jpg)"></div>` : `<div class="art back"></div>`}<div class="ttl">${esc(c.t.toUpperCase())}</div><div class="rule"></div><p>${esc(cap(c.text))}.</p><span class="lab-ribbon">LAB</span></div>`;
+    } else if (k === 'seal') {
+      const b = M.blockOf(S.item.id);
+      h += `<div class="nameband"><div class="row"><h2 class="long">${esc(SHORT[b.a].replace('…', '').toUpperCase())}</h2></div></div>`;
+      h += `<div class="figure"><span class="halo"></span></div><div class="bigseal">${M.seal(b.a, 168)}</div>`;
+      h += STONE(false);
+    } else if (k === 'law') {
+      const L = LAWS.find((x) => x.id === S.item.id);
+      h += `<div class="nameband${S.lawsEdited ? ' is-copy' : ''}"><div class="row"><h2>${S.lawsEdited ? 'MY RULES' : 'RULES'}</h2>${S.lawsEdited ? M.tag('yours') : ''}</div>${S.lawsEdited ? '<div class="from">from the game rules</div>' : ''}</div>`;
+      const on = L.pill ? true : S.laws[L.id] !== false;
+      h += `<div class="tablet"><b>${esc(L.t.toUpperCase())}</b>${L.pill ? `<span class="pill">${esc(S.laws.promotion)}</span>` : `<span class="lamp${on ? ' on' : ''}" style="position:static;margin:0 auto" data-lawsw="${L.id}" role="switch" aria-checked="${on}"><i></i></span>`}</div>`;
+    }
+    el.innerHTML = h;
+    // phone: the name band ends where the seals start
+    const ps = el.querySelector('.pseals'), nb = el.querySelector('.nameband');
+    if (PHONE && ps && nb) nb.style.right = `${ps.offsetWidth + 6}px`;
+    // place the parts that follow the rule lines
+    const lines = el.querySelector('.lines');
+    if (lines) {
+      let y = lines.offsetTop + lines.offsetHeight + 10;
+      for (const part of el.querySelectorAll('[data-at="lines"]')) { part.style.top = `${y}px`; y += part.offsetHeight + 12; }
+      placeKnots(sc);
+    }
+  }
+  function weighText() { return S.item.id === 'mybeast' ? 'About 2.9 pawns (estimate).' : S.queen ? 'About 4.1 pawns (estimate).' : 'About 1.4 pawns (estimate).'; }
+  function weighHTML() {
+    const q = S.item.id === 'mybeast' ? ['About 2.9 pawns', 'A little weaker than the Beast.'] : S.queen ? ['About 4.1 pawns', 'About as strong as a paladin.'] : ['About 1.4 pawns', 'A little stronger than a pawn.'];
+    return `<div class="weigh-pop" role="dialog"><svg class="medal" viewBox="0 0 48 48"><path d="M16 2l8 14 8-14" fill="none" stroke="#842c21" stroke-width="5"/><circle cx="24" cy="30" r="15" fill="#e9c071" stroke="#7a5712" stroke-width="2"/><circle cx="24" cy="30" r="10" fill="none" stroke="#7a5712" stroke-width="1.2"/><path d="M24 23l2 4.5 5 .5-3.8 3.3 1.1 4.9L24 33.7l-4.3 2.5 1.1-4.9L17 28l5-.5z" fill="#7a5712"/></svg><b>${q[0]} <small style="font:400 12.5px var(--font-body)">· estimate</small></b><small>${q[1]}</small></div>`;
+  }
+  function miniCard(id) {
+    const c = cardOf(id);
+    return `<span class="mini-card lab-host" style="display:block;border-radius:3px;background:url(${A}cards/${c.art || 'back'}.jpg) center/cover;box-shadow:0 0 0 1px var(--stone-500),0 1px 2px rgba(0,0,0,.3);position:relative;overflow:hidden"><i style="position:absolute;right:-7px;top:2px;width:22px;height:4px;background:var(--accent);transform:rotate(45deg)"></i></span>`;
+  }
+
+  /* ======================= RENDER: RIGHT-COLUMN WORDS (king, card, seal, law) ======================= */
+  function renderInfo() {
+    const el = $('#info');
+    const k = S.item.k;
+    let h = '';
+    if (k === 'king') {
+      const id = S.item.id;
+      h += KINGS[id].map((p) => {
+        const P = POWER[p];
+        const uses = p === 'Leap' ? S.leapUses : P.uses;
+        const armed = S.king === id && S.armed === p;
+        const mini = PMINI[p] && !P.always;
+        return `<div class="pline${armed ? ' armed' : ''}" data-power="${p}" role="button" tabindex="0" aria-pressed="${armed}">${powerCoin(p, 56, { uses, spent: S.spent[p] || 0, state: armed ? 'armed' : '' })}<div><b>${esc(P.t.toUpperCase())}</b><div class="pt">${esc(cap(P.text))}.</div></div>${mini ? `<div class="mini3">${miniBoard(p)}<small>${esc(PMINI[p].cap)}</small></div>` : ''}</div>`;
+      }).join('');
+    } else if (k === 'card') {
+      const c = cardOf(S.item.id);
+      h += `<div class="lab-note"><i>LAB</i>Test deck. Not in the game.</div>`;
+      if (c.twin && POWER[c.id]) h += `<div class="info-h">Also a king's power</div><div class="twin"><button data-king="${c.twin}" title="Open the ${cap(c.twin)} king">${powerCoin(c.id, 44, { noNotch: true })}</button>${esc(POWER[c.id].t)}, a power of the ${cap(c.twin)} king.</div>`;
+      for (const v of VARIANTS[c.id] || []) { const vc = cardOf(v); h += `<div class="info-h">Second form</div><div class="variant"><b>${esc(vc.t.toUpperCase())}</b>${esc(cap(vc.text))}.</div>`; }
+      if (c.id === 'Freeze') h += `<p class="info-p" style="color:var(--ink-soft)">Tap a blue ring on the board.</p>`;
+    } else if (k === 'seal') {
+      const info = SEALINFO[S.item.id];
+      h += `<p class="info-p ex">${esc(info.ex)}</p>`;
+      h += `<div class="info-h">Seen on</div><div class="seen">${info.seen.length ? info.seen.map((p) => `<button data-seenon="${p}" title="Open the ${PNAME[p]} with this rule shown"><img src="${A}pieces/${p}-w.webp" alt="">${PNAME[p].toUpperCase()}</button>`).join('') : `<button data-copyseen="mypawn" title="Open My Pawn"><img src="${A}pieces/pawn-w.webp" alt="">MY PAWN</button>`}</div>`;
+    } else if (k === 'law') {
+      const L = LAWS.find((x) => x.id === S.item.id);
+      const say = { promotion: 'A pawn on the last rank becomes one of these.', fifty: 'Fifty moves with no take and no pawn move: a draw.', threefold: 'The same position three times: a draw.', material: 'Too few pieces to checkmate: a draw.', guardKing: 'A guard starts next to its king.', bishops: 'Two bishops start on squares of two colours.' }[L.id];
+      h += `<p class="info-p ex">${esc(say)}</p>`;
+      if (L.pill) h += `<div class="lawpills">${L.pill.map((v) => `<span class="pill is-choice${S.laws.promotion === v ? ' is-on' : ''}" role="button" tabindex="0" data-promo="${v}">${esc(v)}</span>`).join('')}</div>`;
+      else h += `<p class="info-p" style="color:var(--ink-soft)">Tap the lamp to turn it off.</p>`;
+    }
+    el.innerHTML = h;
+  }
+
+  /* ======================= RENDER: BOARD ======================= */
+  function boardOpts(sc) {
+    const o = { s: BS, assets: A };
+    if (S.knot != null) o.focus = 99; else if (S.focus != null) o.focus = S.focus; else if (S.hoverFocus != null) o.focus = S.hoverFocus;
+    // a card that is not laid yet: the piece's own marks step back, so its picks stand out
+    if (S.item.k === 'card' && !S.cardOn) o.dim = true;
+    const hov = S.why || S.hover;
+    if (hov) o.hover = hov;
+    if (S.why) o.select = S.why;
+    if (S.preview) { o.preview = true; o.chalk = true; }
+    if (S.chalkOn) o.chalk = true;
+    if (PHONE) o.imps = S.focus != null ? S.focus : (sc.id === 'rook-leap' ? 'leap' : 'none');
+    if (FX.ripple) o.ripple = true;
+    if (S.mode === 'brush') o.noOpenGlow = false;
+    return o;
+  }
+  function knotScene(sc) {
+    const k = sc.knots[S.knot];
+    const both = (by) => by && by.includes(k.a) && by.includes(k.b);
+    for (const key of ['marks', 'rails', 'arches', 'effects']) for (const e of sc[key]) e.by = both(e.by) ? [99] : e.by ? e.by.map(() => -1) : e.by;
+    for (const im of sc.impressions) { const bys = im.list.map((x) => x.by); if (bys.includes(k.a) && bys.includes(k.b)) im.list.forEach((x) => { x.by = 99; }); }
+    return sc;
+  }
+  function renderBoard() {
+    let sc = sceneNow();
+    if (S.knot != null && sc.knots[S.knot]) sc = knotScene(sc);
+    const o = boardOpts(sc);
+    const svg = $('#board');
+    svg.setAttribute('viewBox', `0 0 ${8 * BS} ${8 * BS}`);
+    let markup = M.drawString(sc, o);
+    if (S.mode === 'brush') markup = markup.replace('<g class="kdm-pieces">', '<g class="kdm-pieces">');
+    svg.innerHTML = markup;
+    // paint ripple on the painted squares only
+    if (FX.paintSq.length) {
+      for (const g of svg.querySelectorAll('.kdm-under > g')) { const t = g.querySelector('title'); if (t && FX.paintSq.includes(t.textContent.split(':')[0])) g.classList.add('kdm-ripple'); }
+    }
+    renderPaintFx(sc);
+    renderHits(sc);
+    renderNotch();
+    // the plaque: "Try board" after the first look around; a burgundy "LAB card" while a card is on the board
+    const lab = S.card && (S.item.k === 'card' || S.cardOn || S.item.k === 'piece');
+    $('#tryPlaque').innerHTML = lab ? `<span class="plaque lab" title="A test card. It is not in the game.">${M.sigil('card', 13)}LAB card</span>` : S.plaque || S.opened >= 2 ? M.plaque() : '';
+    renderBoard.sc = sc;
+    renderKeyRow(sc);
+  }
+  // the live key: the brushes name Move, Take and Both; this row names every other kind on the board now
+  function renderKeyRow(sc) {
+    const el = $('#keyrow');
+    if (PHONE || S.mode === 'brush' || !['piece', 'copy', 'new', 'king', 'card'].includes(S.item.k)) { el.innerHTML = ''; return; }
+    const SHORTK = { asleep: 'Asleep', cond: 'Sometimes', blocked: 'Refused', 'blocked-move': 'Refused', shot: 'Shot', moveshot: 'Move or shot', line: 'Line', arch: 'Hops', power: 'Power', removed: 'Removed', push: 'Push', swap: 'Swap', becomes: 'Becomes', rune: 'Card pick', frost: 'Frozen', threat: 'Threat', tstop: 'Stopped' };
+    const kinds = keyKinds(sc).filter(([k]) => !['move', 'take', 'both'].includes(k));
+    el.innerHTML = kinds.slice(0, 6).map(([k, svg, w]) => `<span class="k" title="${esc(w)}">${svg}<span>${esc(SHORTK[k] || w)}</span></span>`).join('');
+  }
+  function keyKinds(sc) {
+    const out = [];
+    const has = (k) => out.some((x) => x[0] === k);
+    const add = (k, svg, w) => { if (!has(k)) out.push([k, svg, w]); };
+    for (const m of sc.marks) {
+      if (m.on && m.on !== S.hover && m.on !== S.why) continue;
+      if (m.diff === '-') continue;
+      if (m.cond === 'asleep') add('asleep', M.tile('move', 36, { cond: 'asleep' }), 'Asleep here');
+      else if (m.cond) add('cond', M.tile('move', 36, { cond: 'awake' }), 'Only sometimes');
+      else if (m.k === 'blocked' || m.k === 'blocked-move') add('blocked', M.tile(m.k, 36), 'Blocked by a rule');
+      else add(m.k, M.tile(m.k, 36), M.NAMES[m.k]);
+    }
+    if (sc.rails.length) add('line', M.tile('move', 36, { rail: 'e', railHead: true }), 'Line');
+    if (sc.arches.some((a) => !a.power)) add('arch', M.effect('arch', 36), 'Passes over');
+    if (sc.arches.some((a) => a.power) || sc.marks.some((m) => m.by && m.by.includes('leap'))) add('power', M.effect('arch-power', 36, { assets: A, king: 'mud' }), "King's power");
+    for (const im of sc.impressions) for (const x of im.list) if (x.a === 'removedAfter') add('removed', M.impression({ a: 'removedAfter' }, 26, { assets: A }), 'Removed too');
+    for (const e of sc.effects) {
+      if (e.k === 'push') add('push', M.effect('push', 36), 'Pushes');
+      if (e.k === 'swap') add('swap', M.effect('swap', 36), 'Swaps');
+      if (e.k === 'becomes') add('becomes', M.impression({ a: 'becomes' }, 26, { assets: A }), 'Becomes');
+      if (e.k === 'rune') add('rune', M.effect('rune', 36), 'LAB card pick');
+      if (e.k === 'frost') add('frost', M.effect('frost', 36), 'Frozen');
+      if (e.k === 'threat') add(e.stopped ? 'tstop' : 'threat', M.effect(e.stopped ? 'threat-stopped' : 'threat', 36, { assets: A, imp: e.imp }), e.stopped ? 'Threat stopped' : 'Can hit this piece');
+    }
+    return out;
+  }
+  function renderNotch() {
+    const n = $('#notch');
+    if (!S.why || PHONE) { n.style.display = 'none'; return; }
+    const { r } = pq(S.why);
+    n.style.display = 'block';
+    n.style.top = `${16 + (8 - r) * BS + BS / 2 - 8}px`;
+  }
+  function renderPaintFx(sc) {
+    const fx = $('#paintfx');
+    let h = '';
+    if (S.mode === 'brush') {
+      const s = BS;
+      h += `<svg viewBox="0 0 ${8 * s} ${8 * s}"><rect x="${7 * s}" y="0" width="${s}" height="${8 * s}" fill="rgba(43,38,33,.32)"/><rect x="0" y="0" width="${7 * s}" height="${s}" fill="rgba(43,38,33,.32)"/>
+        <rect x="1" y="${s + 1}" width="${7 * s - 2}" height="${7 * s - 2}" fill="none" stroke="rgba(233,192,113,.65)" stroke-width="2"/><rect x="1" y="${s + 1}" width="${7 * s - 2}" height="${7 * s - 2}" fill="none" stroke="var(--gold-ink)" stroke-width="1.5" opacity=".9"/></svg>`;
+      // the 8 line nubs on the inner edges of d4
+      const c = { x: 3 * s + s / 2, y: 4 * s + s / 2 };
+      const dirs = { n: [0, -1], ne: [1, -1], e: [1, 0], se: [1, 1], s: [0, 1], sw: [-1, 1], w: [-1, 0], nw: [-1, -1] };
+      for (const [d, [dx, dy]] of Object.entries(dirs)) {
+        const k = dx && dy ? 0.42 : 0.4;
+        const x = c.x + dx * s * k, y = c.y + dy * s * k;
+        const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+        const on = S.design.lines.includes(d);
+        h += `<button class="nub${on ? ' on' : ''}" data-nub="${d}" style="left:${(x / (8 * s)) * 100}%;top:${(y / (8 * s)) * 100}%" aria-label="Line ${d}" title="${on ? 'Remove this line' : 'Add a line'}"><svg viewBox="-11 -11 22 22"><g transform="rotate(${ang})"><path d="M-5 -7L5 0L-5 7z" fill="${on ? '#7cb342' : '#9ccc65'}" stroke="#fbf7ee" stroke-width="4" stroke-linejoin="round" paint-order="stroke"/><path d="M-5 -7L5 0L-5 7z" fill="${on ? '#7cb342' : '#9ccc65'}" stroke="#1c2e5c" stroke-width="1.5" stroke-linejoin="round"/></g></svg></button>`;
+      }
+    }
+    fx.innerHTML = h;
+  }
+  function renderHits(sc) {
+    const hits = $('#hits');
+    hits.classList.toggle('brush', S.mode === 'brush');
+    if (hits.childElementCount !== 64 || hits.dataset.bs !== String(BS)) {
+      let h = '';
+      for (let r = 8; r >= 1; r--) for (let f = 0; f < 8; f++) { const q = sqn(f, r); h += `<button class="sq" role="gridcell" data-sq="${q}" tabindex="-1" style="left:${f * BS}px;top:${(8 - r) * BS}px;width:${BS}px;height:${BS}px"></button>`; }
+      hits.innerHTML = h; hits.dataset.bs = String(BS);
+      // phone coordinates sit inside the edge squares
+      let c = '';
+      for (let f = 0; f < 8; f++) c += `<span style="left:${f * BS + BS - 9}px;top:${8 * BS - 13}px">${FILES[f]}</span>`;
+      for (let r = 1; r <= 8; r++) c += `<span style="left:3px;top:${(8 - r) * BS + 3}px">${r}</span>`;
+      $('#coords').innerHTML = c;
+    }
+    const kbd = FX.kbd || S.why || (sc.pieces.find((p) => p.open) || {}).sq || 'd4';
+    for (const b of hits.children) {
+      const q = b.dataset.sq;
+      b.setAttribute('aria-label', squareLabel(sc, q));
+      b.tabIndex = q === kbd ? 0 : -1;
+      b.classList.toggle('is-open', !!sc.pieces.find((p) => p.open && p.sq === q));
+    }
+  }
+  function squareLabel(sc, q) {
+    const m = sc.marks.find((x) => x.sq === q);
+    const occ = occupantAt(sc, q);
+    const occW = occ ? `${occ.side === 'b' ? 'black' : 'white'} ${PNAME[occ.k] ? PNAME[occ.k].toLowerCase() : 'piece'}` : '';
+    let t = `${q}: `;
+    if (m) t += (m.cond === 'asleep' ? 'asleep here' : (M.NAMES[m.k] || m.k).toLowerCase().replace('blocked by: ', 'blocked'));
+    else t += occ ? '' : 'empty';
+    if (occW) t += (m ? ', ' : '') + occW;
+    t += '.';
+    if (m && m.by && m.by.length) {
+      const seals = sealsNow(sc);
+      const words = m.by.map((i) => (typeof i === 'number' && seals[i] ? M.blockOf(seals[i].a).title.toLowerCase() : i === 'leap' ? 'Leap' : '')).filter(Boolean);
+      if (words.length) t += ` Made by: ${words.join(', ')}.`;
+    }
+    return t;
+  }
+
+  /* ======================= RENDER: RIGHT ======================= */
+  function renderBrushes() {
+    const show = ['piece', 'copy', 'new'].includes(S.item.k);
+    const br = [['move', 'Move', '1'], ['take', 'Take', '2'], ['both', 'Both', '3']];
+    let h = '';
+    if (show) {
+      // the brushes are the key too: full strength, one word each, no instruction until one is tapped
+      br.forEach(([k, w, key]) => {
+        h += `<button class="brush${S.mode === 'brush' && S.brush === k ? ' armed' : ''}" data-brush="${k}" title="${M.NAMES[k]}. Tap to paint (${key})" aria-pressed="${S.mode === 'brush' && S.brush === k}"><span class="tile">${M.tile(k, PHONE ? 40 : 80)}</span><span class="w">${w}</span></button>`;
+      });
+    }
+    if (PHONE) {
+      if (S.mode === 'brush') h += `<span class="phint">Tap a square.</span>`;
+      if (show && S.mode === 'brush') h += `<button class="more" data-act="tools" aria-label="More tools">⋯</button>`;
+    }
+    $('#brushes').innerHTML = h;
+  }
+  function renderTools() {
+    const el = $('#tools');
+    let h = '';
+    if (S.mode === 'brush') {
+      const mir = { lr: ['mirror', 'Mirror'], all: ['spark', 'All 8'], one: ['square', 'One'] }[S.mirror];
+      h += `<button class="tool${S.brush === 'shot' ? ' armed' : ''}" data-brush="shot" title="Shot: takes from where it stands"><span class="tb">${M.tile('shot', 44)}</span><small>Shot</small></button>`;
+      h += `<button class="tool${S.brush === 'eraser' ? ' armed' : ''}" data-brush="eraser" title="Eraser"><span class="tb">${M.sigil('eraser', 24)}</span><small>Eraser</small></button>`;
+      h += `<button class="tool" data-act="mirror" title="Paint on: ${mir[1]}"><span class="tb">${mirrorIcon(S.mirror)}</span><small>${mir[1]}</small></button>`;
+      h += `<button class="primary done" data-act="done">Done</button>`;
+    }
+    el.innerHTML = h;
+    el.classList.toggle('on', S.mode === 'brush' && !PHONE);
+    el.classList.toggle('pop', PHONE && S.toolsPop && S.mode === 'brush');
+    $('#hint').textContent = S.mode === 'brush' && !PHONE ? (S.brush === 'eraser' ? 'Tap a square to clear it.' : 'Tap a square to paint it.') : '';
+  }
+  function mirrorIcon(m) {
+    if (m === 'lr') return `<svg width="26" height="26" viewBox="0 0 26 26"><path d="M13 2v22" stroke="#7a5712" stroke-width="1.5" stroke-dasharray="0"/><rect x="3" y="9" width="7" height="7" rx="1.5" fill="#7cb342" stroke="#1c2e5c"/><rect x="16" y="9" width="7" height="7" rx="1.5" fill="#7cb342" stroke="#1c2e5c"/></svg>`;
+    if (m === 'all') { let g = ''; for (const [x, y] of [[2, 2], [10, 2], [18, 2], [2, 10], [18, 10], [2, 18], [10, 18], [18, 18]]) g += `<rect x="${x}" y="${y}" width="6" height="6" rx="1" fill="#7cb342" stroke="#1c2e5c"/>`; return `<svg width="26" height="26" viewBox="0 0 26 26">${g}<circle cx="13" cy="13" r="2.5" fill="#2b2621"/></svg>`; }
+    return `<svg width="26" height="26" viewBox="0 0 26 26"><rect x="8" y="8" width="10" height="10" rx="2" fill="#7cb342" stroke="#1c2e5c" stroke-width="1.5"/></svg>`;
+  }
+  const iconImg = (k, side, size = 28) => (k ? `<img class="ic" src="${A}icons/${k}.svg" width="${size}" height="${size}" alt="" style="filter:${side === 'b' ? 'invert(1) sepia(.25)' : 'brightness(1.3) saturate(.25)'}">` : `<span style="width:${size}px;height:${size}px;border-radius:4px;box-shadow:inset 0 0 0 1.5px var(--stone-500);display:inline-block"></span>`);
+  function stepsHTML(steps) {
+    let h = '<div class="why-steps">';
+    steps.forEach((st, i) => {
+      const s = 16;
+      const sc = { pieces: st.pieces || [], marks: st.marks || [], rails: [], arches: [], effects: st.effects || [], impressions: st.impressions || [], chalk: [], knots: [] };
+      const vb = M.viewBox(s, st.crop);
+      h += `${i ? '<span class="ar">→</span>' : ''}<span class="mini"><svg width="34" height="56" viewBox="${vb}">${M.drawString(sc, { s, assets: A, noOpenGlow: true })}</svg></span>`;
+    });
+    return h + '</div>';
+  }
+  function renderWhy() {
+    const el = $('#why');
+    if (!S.why) { el.className = ''; el.innerHTML = ''; return; }
+    const sc = renderBoard.sc || sceneNow();
+    const q = S.why;
+    const w = whyData(sc, q);
+    const T = PHONE ? 48 : 52;
+    let h = '<div class="tag">';
+    h += `<div class="why-h">${iconImg(w.icon, w.side)}<span class="sqn">${q}</span><span class="occ">${esc(w.occupant || '')}</span>${w.count ? `<span class="count-ring" title="${w.count} parts make this mark">${w.count}</span>` : ''}<button class="x" data-act="closewhy" aria-label="Close">×</button></div>`;
+    h += '<div class="why-sumrow">';
+    if (w.swap) h += `<div class="why-swap"><span class="why-sum"><span class="part">${M.tile('empty', T)}<small>${esc('it stands here')}</small></span><span class="op">+</span><span class="part"><span style="display:grid;place-items:center;height:${T}px">${M.impression({ a: 'swap' }, 40, { assets: A })}</span><small>swaps with a friend</small></span><span class="op">=</span><span class="part">${M.effect('swap', T)}<small>${esc(w.captions[0])}</small></span></span></div>`;
+    else if (w.solo) h += `<div class="why-solo">${w.solo === 'self' ? iconImg(openId() === 'custom' ? null : sc.pieces.find((p) => p.open).k, 'w', 48) : M.tile(w.solo, T, { cond: w.soloCond })}<small class="w">${esc(w.soloCap)}</small></div>`;
+    else h += M.whySum(w.sum, { tile: T, imp: PHONE ? 34 : 40, assets: A });
+    h += '</div>';
+    if (w.steps && !PHONE) h += `<div class="why-hr"></div>${stepsHTML(w.steps)}`;
+    if (w.foot) h += `<p class="why-foot">${esc(w.foot)}</p>`;
+    // actions: Move here only where the piece can really go; an empty take square offers an enemy instead
+    const mh = S.done ? null : moveHere(sc, q);
+    let act = '';
+    if (S.done) act += `<button class="quiet" data-act="takeback">Take back</button>`;
+    else if (mh) act += `<button class="primary" data-act="movehere">${mh.shot ? 'Take from here' : 'Move here'}</button>`; // a shot takes and stays
+    else if (needsEnemy(sc, q)) act += `<button class="quiet ghost-enemy" data-act="putenemy"><img src="${A}pieces/pawn-b.webp" alt="">Put an enemy here</button>`;
+    if (sc.id === 'pawn' && q === 'd6') act += `<button class="quiet" data-act="showe2">Show on e2</button>`;
+    if (act) h += `<div class="why-act">${act}</div>`;
+    h += '</div>';
+    if (!PHONE) h += `<span class="pointer"></span>`;
+    el.innerHTML = h;
+    el.className = 'open';
+    if (!PHONE) {
+      // the pointer looks at the row of the square
+      const { r } = pq(q);
+      const y = 64 + 16 + (8 - r) * 80 + 40 - (64 + el.offsetTop);
+      el.querySelector('.pointer').style.top = `${Math.max(18, Math.min(el.offsetHeight - 18, y))}px`;
+    }
+  }
+  function needsEnemy(sc, q) {
+    const m = sc.marks.find((x) => x.sq === q);
+    return !!m && (m.k === 'take' || m.k === 'shot') && !m.cond && !occupantAt(sc, q) && !!sc.pieces.find((p) => p.open);
+  }
+  function renderTray() {
+    const el = $('#tray');
+    const sc = renderBoard.sc || sceneNow();
+    const show = PHONE ? S.tab === 'board' : (['piece', 'copy', 'king', 'card'].includes(S.item.k) && S.mode === 'look' && !S.shelf && !(S.opened < 2 && !S.edited && S.item.k === 'piece'));
+    if (!show) { el.className = ''; el.innerHTML = ''; return; }
+    const king = S.king;
+    let h = '<h3>Try with</h3>';
+    if (sc.id === 'echo') h += `<span class="echo-note"><span class="echo-eq">=</span> Leap adds nothing to the Paladin. No mark changes.</span>`;
+    h += '<div class="tokens">';
+    h += `<button class="tok" data-tok="friend" title="Friend: one of your pieces"><img class="fig" src="${A}pieces/pawn-w.webp" alt="Friend"><span class="base"></span></button>`;
+    h += `<button class="tok${S.enemyD3 || S.placeEnemy ? ' on' : ''}" data-tok="enemy" title="Enemy: tap, then tap a square"><img class="fig" src="${A}pieces/pawn-b.webp" alt="Enemy"><span class="base"></span></button>`;
+    if (king) {
+      h += `<span class="tok kingseat" title="${cap(king)} king"><span class="coins">${KINGS[king].map((p) => `<span data-power="${p}" role="button" tabindex="0" title="${esc(POWER[p].t)}">${powerCoin(p, 44, { uses: p === 'Leap' ? S.leapUses : POWER[p].uses, spent: S.spent[p] || 0, state: S.armed === p ? (sc.id === 'echo' ? 'echo' : 'armed') : '' })}</span>`).join('')}</span>${sc.id === 'echo' ? '<span class="echo-eq" style="position:absolute;right:-4px;top:-4px">=</span>' : ''}</span>`;
+    } else h += `<button class="tok" data-tok="king" title="King: seat a king and his powers"><span class="sockc"><img src="${A}emblems/spirit.webp" alt=""></span></button>`;
+    const cd = S.card ? cardOf(S.card) : null;
+    h += `<button class="tok cardslot${S.card ? ' on' : ''}" data-tok="card" title="Card: lay a LAB card"><span class="cs${cd ? ' filled' : ''}" style="${cd ? `background-image:url(${A}cards/${cd.art || 'back'}.jpg)` : ''}"><i></i></span></button>`;
+    h += '</div><div class="trow2">';
+    h += `<button class="${S.threats ? 'is-on' : ''}" data-act="threats" title="Threats: what can hit your piece" aria-pressed="${S.threats}">${M.sigil('eye', 22)}</button>`;
+    h += `<button data-act="stir" title="Stir: another board">${M.sigil('die', 22)}</button>`;
+    h += `<button data-act="clear" title="Clear: the piece alone">${M.sigil('broom', 22)}</button>`;
+    if (S.cardOn) h += `<button class="quiet tb" data-act="takeback">Take back</button>`;
+    h += '</div>';
+    if (S.picker === 'king') h += `<div class="picker"><h4>SEAT A KING</h4><div class="row">${KING_ORDER.map((k) => `<button data-seat="${k}" title="${cap(k)} king"><img src="${A}kings/${k}.webp" alt="" style="height:52px;filter:var(--rim)">${cap(k)}</button>`).join('')}</div></div>`;
+    if (S.picker === 'card') h += `<div class="picker"><h4>LAY A LAB CARD</h4><div class="row">${['Freeze', 'IceWall', 'Leap', 'March', 'Mimic', 'Vault'].map((c) => `<button data-lay="${c}" title="${cardOf(c).t}">${miniCard(c).replace('display:block', 'display:block;width:36px;height:50px')}${cardOf(c).t}</button>`).join('')}</div></div>`;
+    el.innerHTML = h;
+    el.className = 'open';
+  }
+
+  /* ======================= RENDER: SHELF ======================= */
+  function needsText(a) {
+    const sc = baseScene();
+    const takes = sc.marks.some((m) => /take|both|shot/.test(m.k)) || openId() === 'pawn';
+    if (a === 'linesPass' && !sc.rails.length && !(isCopy() && S.queen)) return 'Paint a line first.';
+    if ((a === 'cannotTake' || a === 'removedAfter') && !takes) return 'It takes nothing already.';
+    if (a === 'chain' && !takes) return 'It needs a square it takes on by moving.';
+    return null;
+  }
+  function renderShelf() {
+    const el = $('#shelf');
+    el.classList.toggle('open', S.shelf);
+    if (!S.shelf) { el.innerHTML = ''; return; }
+    const seals = sealsNow(baseScene()).map((s) => s.a);
+    let h = `<header><h3>Rules</h3><button class="quiet" data-act="closeshelf" aria-label="Close">×</button></header><div class="groups">`;
+    for (const g of M.GROUPS) {
+      const gb = M.BLOCKS.filter((x) => x.group === g);
+      h += `<div class="grp${gb.length > 2 ? ' wide' : ''}"><h5>${g}</h5><div class="seals">`;
+      for (const b of gb) {
+        const has = seals.includes(b.a), need = needsText(b.a);
+        h += `<button class="sbtn${has ? ' has' : ''}${need ? ' dim' : ''}${S.shelfSel === b.a ? ' sel' : ''}" data-shelf="${b.a}" title="${esc(b.title)}" aria-pressed="${S.shelfSel === b.a}">${M.seal(b.a, 48)}<span>${esc(SHORT[b.a])}</span></button>`;
+      }
+      h += '</div></div>';
+    }
+    if (!S.shelfSel) h += `<p class="hint w" style="grid-column:1/-1;margin:4px 0 0;font:italic var(--fs-sm)/1.3 var(--font-body);color:var(--ink-soft)">Tap a seal. The board shows what it does.</p>`;
+    h += '</div>';
+    if (S.shelfSel) {
+      const b = M.blockOf(S.shelfSel);
+      const need = needsText(b.a), has = seals.includes(b.a);
+      const sayP = b.pill ? `<span class="pill">${esc(b.pill.choices.find((c) => c[0] === b.pill.def)[1])}</span>` : '';
+      const say = { step2: 'it may also step 2 squares straight ahead', movesLike: `it also moves and takes like ${sayP}`, linesPass: `its lines pass over ${sayP}`, chain: 'it may take again from the new square (not a king)', cannotBeTaken: `it cannot be taken ${sayP}`, push: `it may push a piece next to it 1 square straight away, ${sayP}`, swap: `it may swap places with ${sayP} next to it (not a king)`, becomes: `it becomes ${sayP}`, cannotTake: `it cannot take ${sayP}`, removedAfter: 'it is removed too' }[b.a];
+      const chipW = b.a === 'removedAfter' ? M.chip({ on: 'takes' }, { words: 'when it takes' }) + ` <span class="pill">a piece, not a pawn</span>` : M.chip(b.when);
+      h += `<div class="sentence">${M.seal(b.a, 44)}<div class="say">${chipW ? `<div style="margin:0 0 4px">${chipW}</div>` : ''}${cap(say)}.</div>${need ? `<div class="needs">${esc(need)}</div>` : has ? `<div class="needs">Already in this piece.</div>` : ''}<div class="act"><button class="primary" data-act="stamp" ${need || has ? 'disabled' : ''}>Stamp</button></div></div>`;
+    }
+    el.innerHTML = h;
+  }
+
+  /* ======================= RENDER: LEDGE ======================= */
+  function slotHTML(id, opts) {
+    return `<button class="slot${opts.open ? ' open' : ''}" data-${opts.kind}="${opts.key || id}" data-reach="${opts.pattern || id}" title="${esc(opts.name)}"><img class="fig" src="${opts.img}" alt="">${opts.quill ? `<span class="qt">${M.sigil('quill', 16)}</span>` : ''}<span class="nm">${esc(opts.name.toUpperCase())}</span></button>`;
+  }
+  // "New": a dashed figure outline with a quill
+  const GHOST_FIG = `<svg viewBox="0 0 44 62" aria-hidden="true"><path d="M22 4a7 7 0 1 1-.01 0zM13 24c2-4 16-4 18 0l2 14h-4l1 10h6l2 10H8l2-10h6l1-10h-4z" fill="rgba(255,255,255,.25)" stroke="var(--stone-500)" stroke-width="1.5" stroke-dasharray="4 3" stroke-linejoin="round"/><g transform="translate(24 30) scale(.8)"><circle cx="12" cy="12" r="12" fill="var(--vellum)" stroke="var(--gold-ink)" stroke-width="1.5"/><path d="M18 5C12 5.5 8 9.5 7 18M7 18l2.4-.9M9.8 12.5h4" fill="none" stroke="var(--gold-ink)" stroke-width="2" stroke-linecap="round"/></g></svg>`;
+  function renderLedge() {
+    const el = $('#ledge');
+    const tabs = PHONE ? ['pieces', 'kings', 'cards', 'rules', 'board'] : ['pieces', 'kings', 'cards', 'rules'];
+    const lbl = { pieces: 'Pieces', kings: 'Kings', cards: 'Cards', rules: 'Rules', board: 'Board' };
+    let h = `<div class="ltabs" role="tablist">${tabs.map((t) => `<button class="ltab${S.tab === t ? ' on' : ''}" role="tab" aria-selected="${S.tab === t}" data-tab="${t}">${lbl[t]}${t === 'cards' ? '<span class="lab" title="A test deck. Not in the game.">LAB</span>' : ''}</button>`).join('')}</div>`;
+    h += '<div class="lrow">';
+    if (S.tab === 'pieces') {
+      h += '<div class="inner lip">';
+      for (const id of POOL) h += slotHTML(id, { kind: 'piece', name: PNAME[id], img: `${A}pieces/${id}-w.webp`, open: S.item.k === 'piece' && S.item.id === id });
+      if (S.yours.length) {
+        h += '<span class="lsep"></span><span class="lhead">Yours</span>';
+        for (const c of S.yours) h += slotHTML(c, { kind: 'copy', name: COPY[c].name, img: `${A}pieces/${COPY[c].of}-w.webp`, pattern: c === 'mypawn' ? 'mypawn' : COPY[c].of, open: S.item.k === 'copy' && S.item.id === c, quill: true });
+      }
+      h += `<button class="slot newtile${S.item.k === 'new' ? ' open' : ''}" data-act="new" title="Make a new piece"><span class="ghostfig">${GHOST_FIG}</span><span class="nm">NEW</span></button>`;
+      h += '</div>';
+    } else if (S.tab === 'kings') {
+      h += '<div class="inner lip">';
+      for (const k of KING_ORDER) h += slotHTML(k, { kind: 'king', name: k, img: `${A}kings/${k}.webp`, open: S.item.k === 'king' && S.item.id === k });
+      h += '</div>';
+    } else if (S.tab === 'cards') {
+      // the cards with art make a fan; the rest wait in one stack (a tap spreads them)
+      h += '<div class="inner"><div class="cfan">';
+      const face = (c) => `<button class="cface lab-host${S.item.k === 'card' && S.item.id === c.id ? ' open' : ''}" data-card="${c.id}" title="${esc(c.t)} (LAB)"><div class="art${c.art ? '' : ' back'}"${c.art ? ` style="background-image:url(${A}cards/${c.art}.jpg)"` : ''}></div><div class="t">${esc(c.t.toUpperCase())}</div>${c.twin ? `<span class="badge"><img src="${A}emblems/${c.twin}.webp" alt=""></span>` : ''}<span class="lab-ribbon">LAB</span></button>`;
+      if (S.cardsAll) h += BACK_CARDS.map(face).join('') + `</div><button class="quiet cback" data-act="cardsart">‹ Back</button>`;
+      else h += ART_CARDS.map(face).join('') + `</div><button class="cstack" data-act="cardsall" title="${BACK_CARDS.length} more cards"><span class="c"></span><span class="c"></span><span class="c"></span><b>+${BACK_CARDS.length}</b></button>`;
+      h += '</div>';
+    } else if (S.tab === 'rules') {
+      h += '<div class="inner"><div class="rgroups">';
+      for (const g of M.GROUPS) h += `<div class="rgrp"><h6>${g}</h6><div class="ss">${M.BLOCKS.filter((b) => b.group === g).map((b) => `<button class="${S.item.k === 'seal' && S.item.id === b.a ? 'open' : ''}" data-sealitem="${b.a}" title="${esc(b.title)}">${M.seal(b.a, 44)}<span>${esc(SHORT[b.a])}</span></button>`).join('')}</div></div>`;
+      h += '</div><span class="lsep"></span><div class="laws">';
+      for (const L of LAWS) {
+        const on = S.laws[L.id] !== false;
+        h += `<button class="law${S.item.k === 'law' && S.item.id === L.id ? ' open' : ''}" data-law="${L.id}">${esc(L.t)}${L.pill ? `<span class="pill">${esc(S.laws.promotion)}</span>` : `<span class="lamp${on ? ' on' : ''}" data-lawsw="${L.id}" role="switch" aria-checked="${on}" aria-label="${esc(L.t)}: ${on ? 'on' : 'off'}" title="${on ? 'On. Tap to turn off.' : 'Off. Tap to turn on.'}"><i></i></span>`}</button>`;
+      }
+      h += `<span class="law fixed"><b>${LOCK(12)} Fixed</b>8x8 board · check and checkmate · no castling · no en passant · a power never takes a king</span></div></div>`;
+    } else if (S.tab === 'board') {
+      h += '<div class="inner"><div class="boardtab"></div></div>';
+    }
+    h += '</div>';
+    el.innerHTML = h;
+    if (PHONE && S.tab === 'board') { el.querySelector('.boardtab').appendChild($('#tray')); }
+    else if ($('#tray').parentElement !== $('#right')) $('#right').appendChild($('#tray'));
+    // keep the open slot in view
+    const open = el.querySelector('.slot.open, .cface.open');
+    if (open) { const row = el.querySelector('.lrow'); const x = open.offsetLeft - row.clientWidth / 2 + 48; if (x > 0) row.scrollLeft = x; }
+  }
+  // reach on hover or focus: a 96px mini board above the ledge figure
+  function showReach(slot) {
+    const pop = $('#reachPop');
+    const p = slot && SC.patterns[slot.dataset.reach];
+    if (!p || PHONE) { pop.classList.remove('show'); return; }
+    pop.innerHTML = M.diagram(p, { s: 96 / 7, assets: A, icon: p.icon });
+    const r = slot.getBoundingClientRect();
+    pop.style.left = `${r.left + r.width / 2 - 54}px`;
+    pop.style.top = `${r.top - 116}px`;
+    pop.classList.add('show');
+  }
+
+  /* ======================= RENDER ALL ======================= */
+  function render() {
+    document.documentElement.classList.toggle('is-brush', S.mode === 'brush');
+    renderTop(); renderBoard(); renderPlinth(); renderInfo(); renderBrushes(); renderTools(); renderLedge(); renderTray(); renderWhy(); renderShelf();
+    FX.ripple = false; FX.stamp = null; FX.slideFrom = null; FX.unroll = null; FX.nameStamp = false; FX.paintSq = []; FX.figIn = false; FX.bounce = null;
+  }
+  function boardOnly() { renderBoard(); renderWhy(); }
+
+  /* ======================= TOAST ======================= */
+  let toastT = 0;
+  function toast(msg, icon) {
+    const t = $('#toast');
+    t.innerHTML = `${icon ? M.sigil(icon, 16) : ''}<span>${esc(msg)}</span>`;
+    t.classList.add('show');
+    clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2000);
+  }
+
+  /* ======================= MOTION ======================= */
+  function squareRect(q) {
+    const b = document.querySelector(`#hits .sq[data-sq="${q}"]`);
+    return b.getBoundingClientRect();
+  }
+  function figRectIn(r) {
+    const s = r.width, h = s * 0.9;
+    return { left: r.left + s * 0.05, top: r.top + s - s * 0.075 - h, width: s * 0.9, height: h };
+  }
+  function flyEl(src, from, to, kind, dur) {
+    const img = document.createElement('img');
+    img.src = src; img.className = 'fly';
+    Object.assign(img.style, { left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px` });
+    document.body.appendChild(img);
+    const dx = from.left - to.left, dy = from.top - to.top, sc = from.height / to.height;
+    const T = (x, y, s = 1) => `translate(${x}px, ${y}px) scale(${s})`;
+    let frames;
+    const hop = Math.max(40, Math.abs(dy) * 0.3);
+    if (kind === 'hop') frames = [{ transform: T(dx, dy, sc), opacity: 0.9 }, { transform: T(dx * 0.5, dy * 0.5 - hop, (sc + 1) / 2), offset: 0.5 }, { transform: T(0, 0) , opacity: 1}];
+    else if (kind === 'step') frames = [{ transform: T(dx, dy, sc), opacity: 0.9 }, { transform: T(dx * 0.5, dy * 0.5 - 18, (sc + 1) / 2), offset: 0.3 }, { transform: T(dx * 0.35, dy * 0.35, (sc + 1) / 2), offset: 0.5 }, { transform: T(dx * 0.1, -14), offset: 0.78 }, { transform: T(0, 0), opacity: 1 }];
+    else if (kind === 'arc') frames = [{ transform: T(dx, dy, sc) }, { transform: T(dx * 0.5 + 28, dy * 0.5), offset: 0.5 }, { transform: T(0, 0) }];
+    else frames = [{ transform: T(dx, dy, sc), opacity: 0.9 }, { transform: T(0, 0), opacity: 1 }];
+    if (reduced()) frames = [{ opacity: 0 }, { opacity: 1 }];
+    const anim = img.animate(frames, { duration: reduced() ? 120 : dur, easing: kind === 'slide' ? 'cubic-bezier(0.2, 0.8, 0.2, 1)' : 'ease-in-out', fill: 'both' });
+    return anim.finished.then(() => img).catch(() => img);
+  }
+  async function enterPiece(fromEl, sq, kind) {
+    // the open piece travels from the ledge to its square, by its move type
+    const img = fromEl ? fromEl.querySelector('.fig, img') : null;
+    S.hideOpen = true; boardOnly();
+    const to = figRectIn(squareRect(sq));
+    const from = img ? img.getBoundingClientRect() : { left: to.left, top: to.top - 60, width: to.width, height: to.height };
+    const el = await flyEl(img ? img.src : figureSrc(), from, to, kind === 'hop' ? 'hop' : kind === 'step' ? 'step' : 'slide', 320);
+    S.hideOpen = false; FX.ripple = true; boardOnly(); renderTray();
+    el.remove();
+  }
+  function snap(scope) { const c = clone(S); c.undo = []; S.undo.push({ scope, s: c }); if (S.undo.length > 30) S.undo.shift(); }
+
+  /* ======================= ACTIONS ======================= */
+  function resetTransient() { S.extra = []; S.hoverFocus = null; S.focus = null; S.knot = null; S.why = null; S.hover = null; S.done = null; S.pillOpen = null; S.picker = null; S.weighOpen = false; S.preview = false; S.chalkOn = false; S.alone = false; S.stir = 0; S.compare = false; }
+  function openPiece(id, fromEl) {
+    if (S.mode === 'brush') S.mode = 'look';
+    const changed = !(S.item.k === 'piece' && S.item.id === id);
+    resetTransient();
+    if (changed) S.opened++;
+    S.item = { k: 'piece', id }; S.tab = 'pieces';
+    if (S.card === 'Freeze' && id !== 'paladin') { S.card = null; S.cardOn = null; }
+    if (S.king === 'frost' && id !== 'paladin') { S.cardOn = null; }
+    S.sq = Object.keys(PIECE[id].at)[0];
+    S.threats = id === 'guard' || (id === 'paladin' && (S.card === 'Freeze' || S.king === 'frost'));
+    if (id === 'beast') S.why = null;
+    S.shelf = false; S.shelfSel = null; S.design = null;
+    FX.figIn = true;
+    render();
+    const sc = sceneNow(); const op = sc.pieces.find((p) => p.open);
+    if (fromEl && op) enterPiece(fromEl, op.sq, PIECE[id].entry);
+    else { FX.ripple = true; boardOnly(); }
+  }
+  function openCopy(id, fromEl) {
+    resetTransient(); S.mode = 'look'; S.shelf = false; S.shelfSel = null;
+    S.item = { k: 'copy', id }; S.tab = 'pieces'; S.sq = 'd4'; S.threats = false; S.card = null; S.cardOn = null;
+    FX.figIn = true; render();
+    if (fromEl) enterPiece(fromEl, 'd4', 'step'); else { FX.ripple = true; boardOnly(); }
+  }
+  function openKing(id, fromEl) {
+    resetTransient(); S.mode = 'look'; S.shelf = false; S.shelfSel = null;
+    S.item = { k: 'king', id }; S.tab = 'kings';
+    seatKing(id, true);
+    FX.figIn = true; render();
+  }
+  function seatKing(id, quiet) {
+    S.king = id; S.picker = null; S.done = null;
+    S.armed = null; S.cardOn = null;
+    if (S.card === 'Freeze' && id === 'frost') S.card = null;
+    if (id === 'mud') {
+      if (S.item.k === 'king' || !['rook', 'bishop', 'queen', 'paladin'].includes(openId())) { if (S.item.k !== 'king') S.item = { k: 'piece', id: 'rook' }; S.sq = 'd1'; }
+    } else if (id === 'frost') {
+      if (S.item.k !== 'king') S.item = { k: 'piece', id: 'paladin' };
+      S.armed = 'Freeze'; S.threats = true; S.card = null;
+    } else if (!quiet || S.item.k === 'king') toast('Scene not in this mockup.', 'lockOpen');
+  }
+  function sceneHostId() { return S.item.k === 'king' ? (S.king === 'mud' ? 'rook' : S.king === 'frost' ? 'paladin' : 'pawn') : openId(); }
+  function openCard(id) {
+    resetTransient(); S.mode = 'look'; S.shelf = false; S.shelfSel = null;
+    S.item = { k: 'card', id }; S.tab = 'cards';
+    if (id === 'Freeze') { S.card = 'Freeze'; S.cardOn = null; S.king = null; S.armed = null; S.threats = true; }
+    else { S.card = id; toast('No test board for this card yet.', 'lockOpen'); }
+    FX.figIn = true; render();
+  }
+  function openSeal(a) {
+    resetTransient(); S.mode = 'look'; S.shelf = false;
+    S.item = { k: 'seal', id: a }; S.tab = 'rules';
+    render();
+  }
+  function cardOrKingHost() {
+    // the board under a king, card, seal or law item
+    return null;
+  }
+  // the board for non-piece items is the piece scene behind them
+  const _baseScene = baseScene;
+  baseScene = function () {
+    const k = S.item.k;
+    if (k === 'king') {
+      const keep = S.item; S.item = { k: 'piece', id: sceneHostId() };
+      const sc = _baseScene(); S.item = keep; return sc;
+    }
+    if (k === 'card') {
+      const keep = S.item; S.item = { k: 'piece', id: S.card === 'Freeze' ? 'paladin' : 'paladin' };
+      const sc = _baseScene(); S.item = keep; return sc;
+    }
+    if (k === 'seal') {
+      const sh = SEALINFO[S.item.id].show; const keep = { item: S.item, queen: S.queen, design: S.design };
+      if (sh.copy) { S.item = { k: 'copy', id: sh.copy }; S.queen = true; S.design = null; } else S.item = { k: 'piece', id: sh.piece };
+      const sc = _baseScene(); Object.assign(S, keep); return sc;
+    }
+    return _baseScene();
+  };
+
+  function isolate(i) {
+    if (S.mode === 'brush') return;
+    S.knot = null;
+    S.focus = S.focus === i ? null : i;
+    S.chalkOn = false;
+    if (S.focus != null) { S.why = null; }
+    const sc = baseScene();
+    if (S.focus === 2 && sc.id === 'paladin') FX.pulsePill = 2;
+    render();
+    if (S.focus != null && S.focus < sealsNow(sc).length && !PHONE) {
+      const k = sc.knots.find((x) => (x.a === S.focus || x.b === S.focus) && x.type === 'gold');
+      if (k) toast(k.words);
+    }
+    if (FX.pulsePill != null) { const p = document.querySelector(`.sline[data-seal="${FX.pulsePill}"] .pill`); if (p) p.animate([{ boxShadow: '0 0 0 0 rgba(233,192,113,0)' }, { boxShadow: '0 0 0 5px rgba(233,192,113,.9)' }, { boxShadow: '0 0 0 0 rgba(233,192,113,0)' }], { duration: 700 }); FX.pulsePill = null; }
+  }
+  function onSquare(q) {
+    if (S.mode === 'brush') return paint(q);
+    if (S.picker) { S.picker = null; }
+    const sc = renderBoard.sc || sceneNow();
+    const op = sc.pieces.find((p) => p.open);
+    // freeze target picking
+    const rune = sc.effects.find((e) => e.k === 'rune' && e.sq === q);
+    if (rune) {
+      if (rune.barred) { toast('Not the king.', 'lock'); return; }
+      if (q !== 'c6') { toast('This mockup freezes c6.', 'lockOpen'); return; }
+      snap('card'); S.cardOn = 'c6'; if (S.king === 'frost') S.spent.Freeze = 1; S.why = null; render(); return;
+    }
+    if (S.lifted) { return placeLifted(q); }
+    if (op && op.sq === q && !S.done) { S.lifted = true; liftFx(q); return; }
+    if (S.placeEnemy) { S.placeEnemy = false; return placeEnemy(q); }
+    S.focus = null; S.knot = null; S.plaque = true;
+    if (S.why === q) { S.why = null; } else S.why = q;
+    S.hover = null;
+    render();
+  }
+  function liftFx(q) {
+    const sc = sceneNow();
+    S.hideOpen = true; boardOnly(); S.hideOpen = false;
+    const op = sc.pieces.find((p) => p.open);
+    const r = figRectIn(squareRect(q));
+    const img = document.createElement('img');
+    img.src = `${A}${op.img || `pieces/${op.k}-w.webp`}`; img.className = 'fly lifted';
+    Object.assign(img.style, { left: `${r.left}px`, top: `${r.top - 4}px`, width: `${r.width}px`, height: `${r.height}px`, filter: 'var(--rim) drop-shadow(0 8px 6px rgba(29,25,21,.4))', transition: 'top 120ms' });
+    document.body.appendChild(img);
+    liftFx.img = img;
+    toast('Tap a square to place it.');
+  }
+  function dropLift() { if (liftFx.img) { liftFx.img.remove(); liftFx.img = null; } S.lifted = false; }
+  function placeLifted(q) {
+    dropLift();
+    const id = openId();
+    let ok = false;
+    if (isCopy() && S.item.id === 'mypawn') {
+      const allowed = S.queen ? ['d4', 'b4', 'e2'] : ['d4'];
+      if (allowed.includes(q)) { ok = true; snap('move'); const wake = S.sq !== 'd4' && q === 'd4'; S.sq = q; S.why = null; FX.ripple = wake || true; }
+      else toast(S.queen ? 'This mockup has d4, b4 and e2.' : 'This mockup has d4 only.', 'lockOpen');
+    } else if (id === 'pawn' && S.item.k === 'piece') {
+      if (q === 'd4' || q === 'e2') { ok = true; S.stir = q === 'e2' ? 1 : 0; S.why = null; FX.ripple = true; }
+      else toast('This mockup has d4 and e2.', 'lockOpen');
+    } else toast('This mockup has one square for this piece.', 'lockOpen');
+    render();
+  }
+  function placeEnemy(q) {
+    if (isCopy() && S.queen && S.sq === 'd4' && q === 'd3') { S.enemyD3 = true; FX.ripple = true; render(); return; }
+    if (openId() === 'pawn' && S.stir === 1 && q === 'd3') { S.stir = 2; render(); return; }
+    toast('Try d3, with the pawn on e2 or My Pawn on d4.', 'lockOpen');
+  }
+  async function doMoveHere() {
+    const sc = renderBoard.sc;
+    const q = S.why;
+    const mh = moveHere(sc, q);
+    if (!mh) return;
+    const op = sc.pieces.find((p) => p.open);
+    const src = `${A}${op.img || `pieces/${op.k}-w.webp`}`;
+    const from = figRectIn(squareRect(op.sq)), to = figRectIn(squareRect(q));
+    S.hideOpen = true; S.why = q; boardOnly();
+    if (!mh.shot && !mh.swap) {
+      const kind = sc.arches.some((a) => a.to && (a.from === op.sq || a.over)) && q === 'd7' ? 'arc' : 'slide';
+      const img = await flyEl(src, from, to, kind, 320);
+      S.hideOpen = false;
+      if (mh.kill) { S.hideSq = [q]; }
+      S.done = { ...mh, removed: false, from: op.sq }; S.hideOpen = false;
+      if (mh.removed) { S.done.removed = false; }
+      boardOnly(); img.remove();
+      if (mh.removed) {
+        // the Paladin fades with a dagger puff
+        await wait(200);
+        S.done = mh; S.hideSq = null;
+        const r = squareRect(q);
+        const puff = document.createElement('div');
+        puff.className = 'puff';
+        puff.innerHTML = M.impression({ a: 'removedAfter' }, 40, { assets: A });
+        Object.assign(puff.style, { left: `${r.left + r.width / 2 - 20}px`, top: `${r.top + r.height / 2 - 20}px` });
+        document.body.appendChild(puff); setTimeout(() => puff.remove(), 400);
+      }
+      S.hideSq = null;
+    } else {
+      S.hideOpen = false; S.done = mh;
+    }
+    if (sc.id === 'rook-leap') S.spent.Leap = Math.min(S.leapUses, (S.spent.Leap || 0) + 1);
+    render();
+  }
+  function takeBack() {
+    if (S.done) { if (S.done && renderBoard.sc && (S.item.id === 'rook' || S.king === 'mud') && S.spent.Leap) S.spent.Leap--; S.done = null; }
+    else if (S.cardOn) { S.cardOn = null; if (S.king === 'frost') S.spent.Freeze = 0; }
+    render();
+  }
+
+  /* ---- Brush mode ---- */
+  function enterBrush(kind) {
+    if (!['piece', 'copy', 'new'].includes(S.item.k)) return;
+    const id = openId();
+    if (S.item.k === 'piece' && id !== 'pawn') { toast('In this mockup, paint the Pawn.', 'lockOpen'); return; }
+    if (S.item.k === 'copy' && S.item.id !== 'mypawn') { toast('In this mockup, paint the Pawn.', 'lockOpen'); return; }
+    if (S.item.k === 'copy' && S.queen) { toast('Remove the queen rule to paint this copy.', 'lockOpen'); return; }
+    resetTransient();
+    if (!S.design) S.design = S.item.k === 'copy' ? { cells: { '0,1': 'move', '-1,1': 'both', '1,1': 'both' }, lines: [], step2: true } : S.item.k === 'new' ? { cells: {}, lines: [] } : PAWN_DESIGN();
+    if (S.design.step2 && !S.design.seals) S.design.seals = [{ a: 'step2', when: { on: 'zone', zone: 'startRank' }, asleep: true }, { a: 'becomes', pill: 'choice', when: { on: 'reaches', zone: 'lastRank' } }];
+    S.mode = 'brush'; S.brush = kind; S.sq = 'd4'; S.shelf = false;
+    render();
+  }
+  function exitBrush() {
+    S.mode = 'look'; S.brush = null;
+    FX.ripple = true;
+    render();
+  }
+  function paint(q) {
+    const o = pq('d4'), t = pq(q);
+    const dx = t.f - o.f, dy = t.r - o.r;
+    if (!dx && !dy) return;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+      const r = squareRect(q), f = $('#field').getBoundingClientRect();
+      const d = document.createElement('div'); d.className = 'lockflash';
+      Object.assign(d.style, { left: `${r.left - f.left}px`, top: `${r.top - f.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+      d.innerHTML = M.sigil('lock', 26); $('#paintfx').appendChild(d); setTimeout(() => d.remove(), 450);
+      toast('Reach ends 3 squares out.', 'lock'); return;
+    }
+    if (S.design.step2 && dx === 0 && dy === 2) { toast('A rule makes this mark. Tap its seal.', 'lockOpen'); return; }
+    const key = (x, y) => `${x},${y}`;
+    const targets = [[dx, dy]];
+    if (S.mirror === 'lr' && dx) targets.push([-dx, dy]);
+    if (S.mirror === 'all') for (const [a, b] of [[dx, dy], [-dx, dy], [dx, -dy], [-dx, -dy], [dy, dx], [-dy, dx], [dy, -dx], [-dy, -dx]]) if (!targets.some(([x, y]) => x === a && y === b)) targets.push([a, b]);
+    const cur = S.design.cells[key(dx, dy)];
+    const b = S.brush;
+    let next;
+    if (b === 'eraser') next = null;
+    else if (b === 'shot') next = cur === 'move' ? 'moveshot' : cur === 'shot' || cur === 'moveshot' ? cur : 'shot';
+    else next = b;
+    if (next === cur) { FX.paintSq = targets.map(([x, y]) => sqn(o.f + x, o.r + y)); renderBoard(); return; } // the same paint: the tile only pulses
+    snap('paint');
+    for (const [x, y] of targets) { if (next) S.design.cells[key(x, y)] = next; else delete S.design.cells[key(x, y)]; }
+    FX.paintSq = targets.map(([x, y]) => sqn(o.f + x, o.r + y));
+    makeCopyIfNeeded();
+    render();
+  }
+  function makeCopyIfNeeded() {
+    if (S.item.k === 'piece' && S.item.id === 'pawn') {
+      S.item = { k: 'copy', id: 'mypawn' }; S.edited = true; FX.nameStamp = true;
+      if (!S.yours.includes('mypawn')) { S.yours.push('mypawn'); setTimeout(() => flyToYours('mypawn'), 30); }
+    }
+    if (S.item.k === 'new') S.edited = true;
+  }
+  function flyToYours(id) {
+    const fig = document.querySelector('#plinth .figure img');
+    const slot = document.querySelector(`#ledge .slot[data-copy="${id}"] .fig`);
+    if (!fig || !slot) return;
+    const to = slot.getBoundingClientRect();
+    slot.style.opacity = '0';
+    flyEl(fig.src, fig.getBoundingClientRect(), to, 'slide', 320).then((img) => { img.remove(); slot.style.opacity = ''; slot.closest('.slot').classList.add('flash'); });
+  }
+  function toggleLine(d) {
+    snap('paint');
+    const i = S.design.lines.indexOf(d);
+    if (i >= 0) S.design.lines.splice(i, 1); else S.design.lines.push(d);
+    makeCopyIfNeeded();
+    render();
+  }
+
+  /* ---- Rules shelf and stamp ---- */
+  function openShelf() {
+    if (S.mode === 'brush') exitBrush();
+    if (!['piece', 'copy', 'new'].includes(S.item.k)) return;
+    if (sealsNow(baseScene()).length >= 3) { FX.bounce = 2; render(); toast('3 of 3 rules. Remove one to add another.', 'lock'); return; }
+    S.shelf = true; S.why = null; S.focus = null; render();
+  }
+  function selectShelf(a) {
+    const seals = sealsNow(baseScene()).map((s) => s.a);
+    S.shelfSel = a;
+    S.preview = false;
+    if (seals.includes(a)) { toast('Already in this piece.', 'lock'); }
+    else if (needsText(a)) { toast(needsText(a), 'lock'); }
+    else if (a === 'movesLike' && ((isCopy() && S.item.id === 'mypawn') || (S.item.k === 'piece' && S.item.id === 'pawn')) && !S.queen && isMyPawnDesign(S.design || { cells: { '0,1': 'move', '-1,1': 'both', '1,1': 'both' }, lines: [] })) S.preview = true;
+    else if (a === 'removedAfter' && openId() === 'beast' && S.item.k === 'piece') S.preview = true;
+    render();
+  }
+  async function stamp() {
+    const a = S.shelfSel;
+    if (sealsNow(baseScene()).length >= 3) { FX.bounce = 2; render(); toast('3 of 3 rules. Remove one to add another.', 'lock'); return; }
+    if (a === 'movesLike' && S.preview) {
+      snap('seal');
+      makeCopyIfNeeded();
+      S.queen = true; S.design = null; S.sq = 'd4';
+      S.shelf = false; S.shelfSel = null; S.preview = false;
+      FX.stamp = 1; FX.slideFrom = 2; FX.unroll = 1; FX.ripple = true; S.edited = true;
+      render(); shakeStone();
+      return;
+    }
+    if (a === 'removedAfter' && S.preview) {
+      snap('seal');
+      S.item = { k: 'copy', id: 'mybeast' }; S.beastPill = 'piece'; S.edited = true;
+      if (!S.yours.includes('mybeast')) S.yours.push('mybeast');
+      S.shelf = false; S.shelfSel = null; S.preview = false;
+      FX.stamp = 1; FX.unroll = 1; FX.ripple = true; FX.nameStamp = true;
+      render(); shakeStone(); setTimeout(() => flyToYours('mybeast'), 30);
+      return;
+    }
+    toast('No test board for this rule yet.', 'lockOpen');
+  }
+  function shakeStone() { const s = document.querySelector('#plinth .stone'); if (s) { s.classList.add('shake'); setTimeout(() => s.classList.remove('shake'), 200); } }
+
+  /* ---- pills ---- */
+  function choosePill(i, key) {
+    const sc = baseScene();
+    const seal = sealsNow(sc)[i];
+    S.pillOpen = null;
+    if (!seal || seal.pill === key) { render(); return; }
+    if (isCopy() && S.item.id === 'mybeast' && seal.a === 'removedAfter') {
+      snap('rule'); S.beastPill = key; FX.ripple = true; render();
+      const k = baseScene().knots[0]; if (k) toast(k.words);
+      return;
+    }
+    toast('No test board for that choice yet.', 'lockOpen'); render();
+  }
+  function previewPill(i, key) {
+    if (isCopy() && S.item.id === 'mybeast') { const keep = S.beastPill; S.beastPill = key; renderBoard(); S.beastPill = keep; }
+  }
+
+  /* ---- also changed by ---- */
+  function also(spec) {
+    const [kind, a, b] = spec.split(':');
+    if (kind === 'coin') {
+      if (a === 'mud' && b === 'Leap') { snap('king'); S.king = 'mud'; S.armed = null; S.done = null; if (openId() === 'rook') S.sq = 'd1'; else if (openId() !== 'rook') { toast('Leap shows on the Rook in this mockup.'); S.item = { k: 'piece', id: 'rook' }; } kingWalk('mud'); return; }
+      snap('king'); S.king = a; kingWalk(a); toast('Scene not in this mockup.', 'lockOpen'); return;
+    }
+    if (a === 'MorphP' || a === 'Vault') { toast('No test board for this card yet.', 'lockOpen'); }
+  }
+  async function kingWalk(k) {
+    render();
+    const sc = renderBoard.sc; const king = sc.pieces.find((p) => p.k === 'king' && p.side === 'w');
+    if (!king || reduced()) return;
+    const to = figRectIn(squareRect(king.sq));
+    S.hideSq = [king.sq]; renderBoard(); S.hideSq = null;
+    const from = { left: to.left + to.width * 2.2, top: to.top, width: to.width, height: to.height };
+    const img = await flyEl(`${A}kings/${k}.webp`, from, to, 'step', 320);
+    renderBoard(); img.remove();
+  }
+  function tapPower(p) {
+    const P = POWER[p];
+    if (!S.king || P.king !== S.king) { snap('king'); S.king = P.king; }
+    if (p === 'Leap') {
+      if (S.armed === 'Leap') { S.armed = null; render(); return; }
+      if (S.spent.Leap >= S.leapUses) { toast('No Leap uses left.', 'lock'); return; }
+      S.armed = 'Leap'; S.done = null;
+      if (S.item.k === 'piece' && !['rook', 'paladin'].includes(openId())) { S.item = { k: 'piece', id: 'rook' }; S.sq = 'd1'; }
+      FX.ripple = true; render();
+      if (renderBoard.sc.id === 'echo') toast('Leap adds nothing here. No mark changes.');
+      return;
+    }
+    if (p === 'Freeze') {
+      S.armed = S.armed === 'Freeze' ? null : 'Freeze'; S.threats = true; S.cardOn = null; S.spent.Freeze = 0;
+      if (S.item.k === 'piece' && openId() !== 'paladin') S.item = { k: 'piece', id: 'paladin' };
+      render(); return;
+    }
+    toast('Scene not in this mockup.', 'lockOpen');
+  }
+  function layCard(c) {
+    S.picker = null;
+    if (c === 'Freeze') {
+      snap('card');
+      S.card = 'Freeze'; S.cardOn = null; S.threats = true; S.done = null;
+      if (S.king === 'frost') { S.king = null; S.armed = null; }
+      if (S.item.k !== 'card') S.item = { k: 'piece', id: 'paladin' };
+      resetTransientKeepItem(); S.threats = true;
+      FX.ripple = true; render(); return;
+    }
+    toast('No test board for this card yet.', 'lockOpen'); render();
+  }
+  function resetTransientKeepItem() { S.focus = null; S.knot = null; S.why = null; S.hover = null; S.pillOpen = null; S.preview = false; }
+
+  /* ======================= EVENTS ======================= */
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-act],[data-sq],[data-brush],[data-seal],[data-piece],[data-copy],[data-king],[data-card],[data-tab],[data-sealitem],[data-law],[data-shelf],[data-pill],[data-choice],[data-knot],[data-nub],[data-also],[data-power],[data-tok],[data-seat],[data-lay],[data-look],[data-seenon],[data-lawsw],[data-promo],[data-copyseen]');
+    if (!t) { if (S.picker) { S.picker = null; renderTray(); } if (S.morePop) { S.morePop = false; renderTop(); } return; }
+    const d = t.dataset;
+    if (d.act) return act(d.act, t);
+    if (d.sq) return onSquare(d.sq);
+    if (d.nub) return toggleLine(d.nub);
+    if (d.brush) {
+      if (S.mode === 'brush') { S.brush = d.brush; renderBrushes(); renderTools(); return; }
+      return enterBrush(d.brush);
+    }
+    if (d.choice) { const [i, k] = d.choice.split(':'); return choosePill(+i, k); }
+    if (d.pill) { e.stopPropagation(); S.pillOpen = S.pillOpen === +d.pill ? null : +d.pill; renderPlinth(); return; }
+    if (d.seal != null && d.seal !== '') {
+      const i = +d.seal;
+      if (PHONE && S.focus === i) { S.phoneSentence = i; return showPhoneSentence(i); }
+      return isolate(i);
+    }
+    if (d.knot) { S.knot = S.knot === +d.knot ? null : +d.knot; S.focus = null; const k = baseScene().knots[+d.knot]; render(); if (S.knot != null && k) toast(k.words); return; }
+    if (d.piece) return openPiece(d.piece, t);
+    if (d.copy) return openCopy(d.copy, t);
+    if (d.king) return openKing(d.king, t);
+    if (d.card) return openCard(d.card);
+    if (d.tab) { S.tab = d.tab; renderLedge(); if (PHONE) renderTray(); return; }
+    if (d.sealitem) return openSeal(d.sealitem);
+    if (d.lawsw) { e.stopPropagation(); snap('rule'); S.laws[d.lawsw] = S.laws[d.lawsw] === false; S.lawsEdited = true; S.edited = true; resetTransient(); S.item = { k: 'law', id: d.lawsw }; render(); return; }
+    if (d.law) { resetTransient(); S.item = { k: 'law', id: d.law }; if (d.law === 'promotion' && S.item.id === 'promotion' && t.classList.contains('open')) { } render(); return; }
+    if (d.shelf) return selectShelf(d.shelf);
+    if (d.also) return also(d.also);
+    if (d.power) return tapPower(d.power);
+    if (d.tok) {
+      if (d.tok === 'king') { S.picker = S.picker === 'king' ? null : 'king'; renderTray(); return; }
+      if (d.tok === 'card') { S.picker = S.picker === 'card' ? null : 'card'; renderTray(); return; }
+      if (d.tok === 'enemy') { if (S.enemyD3) { S.enemyD3 = false; render(); return; } S.placeEnemy = true; toast('Tap a square for the enemy.'); return; }
+      if (d.tok === 'friend') { toast('This mockup has fixed boards. Friends stay as set.', 'lockOpen'); return; }
+    }
+    if (d.seat) {
+      snap('king'); const k = d.seat; S.picker = null;
+      if (k === 'mud') { S.king = 'mud'; S.armed = null; if (!['rook', 'paladin'].includes(openId())) { S.item = { k: 'piece', id: 'rook' }; S.sq = 'd1'; } kingWalk('mud'); return; }
+      if (k === 'frost') { S.king = 'frost'; S.armed = 'Freeze'; S.threats = true; S.card = null; S.cardOn = null; S.item = { k: 'piece', id: 'paladin' }; kingWalk('frost'); return; }
+      S.king = k; S.armed = null; kingWalk(k); toast('Scene not in this mockup.', 'lockOpen'); return;
+    }
+    if (d.lay) return layCard(d.lay);
+    if (d.look) { S.look = d.look; render(); return; }
+    if (d.seenon) { const a = S.item.id; const f = SEALINFO[a].show.focus; openPiece(d.seenon); S.focus = f; render(); return; }
+    if (d.copyseen) { applyState('stamped'); S.focus = 1; render(); return; }
+    if (d.promo) { S.laws.promotion = d.promo; S.lawsEdited = d.promo !== 'Q R B N'; snap('rule'); S.edited = true; render(); return; }
+  });
+  function act(a, el) {
+    switch (a) {
+      case 'menu': return openMenu();
+      case 'more': if (!PHONE) return openMenu(); S.morePop = !S.morePop; return renderTop();
+      case 'share': S.morePop = false; renderTop(); return toast('Link copied.', 'quill');
+      case 'putenemy': { snap('enemy'); S.extra.push(S.why); S.edited = true; FX.ripple = true; render(); return; }
+      case 'cardsall': S.cardsAll = true; return renderLedge();
+      case 'cardsart': S.cardsAll = false; return renderLedge();
+      case 'undo': {
+        const u = S.undo.pop(); if (!u) return;
+        const keepUndo = S.undo; S = u.s; S.undo = keepUndo; dropLift(); render(); toast(`Undone: ${u.scope}.`); return;
+      }
+      case 'shelf': return openShelf();
+      case 'closeshelf': S.shelf = false; S.shelfSel = null; S.preview = false; return render();
+      case 'stamp': return stamp();
+      case 'done': return exitBrush();
+      case 'mirror': S.mirror = { lr: 'all', all: 'one', one: 'lr' }[S.mirror]; return renderTools();
+      case 'closewhy': S.why = null; return render();
+      case 'movehere': return doMoveHere();
+      case 'takeback': return takeBack();
+      case 'showe2': S.stir = 1; S.why = 'e4'; FX.ripple = true; return render();
+      case 'aa': document.documentElement.classList.toggle('no-words'); S.morePop = false; renderTop(); return renderPlinth();
+      case 'weigh': S.weighOpen = !S.weighOpen; S.morePop = false; renderTop(); if (PHONE && S.weighOpen) { S.weighOpen = false; return toast(weighText()); } return renderPlinth();
+      case 'threats': S.threats = !S.threats; return render();
+      case 'stir': {
+        const id = openId();
+        if (id === 'pawn' && S.item.k === 'piece') { S.stir = (S.stir + 1) % 3; S.why = null; FX.ripple = true; return render(); }
+        if (S.alone) { S.alone = false; FX.ripple = true; return render(); }
+        return toast('This mockup has one board for this piece.', 'lockOpen');
+      }
+      case 'clear': {
+        const id = openId();
+        if (S.item.k === 'piece' && PIECE[id] && PIECE[id].alone) { S.alone = true; S.why = null; S.king = id === 'rook' ? S.king : S.king; FX.ripple = true; return render(); }
+        if (id === 'pawn' && S.item.k === 'piece') { S.stir = 0; FX.ripple = true; return render(); }
+        return toast('This mockup has no empty board for this piece.', 'lockOpen');
+      }
+      case 'new': {
+        resetTransient(); S.item = { k: 'new', id: 'new' }; S.design = { cells: {}, lines: [] }; S.mode = 'brush'; S.brush = 'move'; S.tab = 'pieces'; FX.figIn = true; render(); return;
+      }
+      case 'tools': S.toolsPop = !S.toolsPop; if (S.mode !== 'brush' && S.toolsPop) { S.toolsPop = false; toast('Pick a tile first.'); } return renderTools();
+    }
+  }
+  // keyboard on seal lines and pills
+  document.addEventListener('keydown', (e) => {
+    const tag = e.target.closest('[role="button"]');
+    if (tag && (e.key === 'Enter' || e.key === ' ') && !e.target.matches('button')) { e.preventDefault(); tag.click(); return; }
+    if (e.target.matches('input, textarea')) return;
+    const k = e.key;
+    if (k === 'm' || k === 'M') { e.preventDefault(); return $('#menu').classList.contains('open') ? closeMenu() : openMenu(); }
+    if (k === 'Escape') {
+      if ($('#menu').classList.contains('open')) return closeMenu();
+      if (S.lifted) { dropLift(); return render(); }
+      if (S.mode === 'brush') return exitBrush();
+      if (S.shelf) { S.shelf = false; S.shelfSel = null; S.preview = false; return render(); }
+      if (S.why || S.focus != null || S.knot != null) { S.why = null; S.focus = null; S.knot = null; return render(); }
+      return;
+    }
+    if (k === '1' || k === '2' || k === '3') { const b = ['move', 'take', 'both'][+k - 1]; if (S.mode === 'brush') { S.brush = b; renderBrushes(); renderTools(); } else enterBrush(b); return; }
+    if (k === 'b' || k === 'B') { if (S.mode === 'brush') exitBrush(); else enterBrush('move'); return; }
+    if (k === 's' || k === 'S') { if (S.shelf) { S.shelf = false; render(); } else openShelf(); return; }
+    const sq = e.target.closest('#hits .sq');
+    if (sq && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) {
+      e.preventDefault();
+      const p = pq(sq.dataset.sq);
+      const f = Math.max(0, Math.min(7, p.f + (k === 'ArrowRight') - (k === 'ArrowLeft')));
+      const r = Math.max(1, Math.min(8, p.r + (k === 'ArrowUp') - (k === 'ArrowDown')));
+      const q = sqn(f, r);
+      FX.kbd = q;
+      for (const b of $('#hits').children) b.tabIndex = b.dataset.sq === q ? 0 : -1;
+      document.querySelector(`#hits .sq[data-sq="${q}"]`).focus();
+      if (hasHoverOnly(q)) { S.hover = q; renderBoard(); document.querySelector(`#hits .sq[data-sq="${q}"]`).focus(); }
+      return;
+    }
+  });
+  // hover: only re-draw when the square has hover-only marks
+  function hasHoverOnly(q) {
+    const sc = renderBoard.sc; if (!sc) return false;
+    return sc.marks.some((m) => m.on === q) || sc.effects.some((e) => e.on === q) || sc.impressions.some((i) => i.on === q);
+  }
+  $('#hits').addEventListener('pointermove', (e) => {
+    const b = e.target.closest('.sq'); if (!b) return;
+    const q = b.dataset.sq;
+    const next = hasHoverOnly(q) ? q : null;
+    if (next !== S.hover && !S.why) { S.hover = next; renderBoard(); }
+    if (liftFx.img && S.dragging) {
+      const r = squareRect(q), f = figRectIn(r);
+      liftFx.img.style.left = `${e.clientX - f.width / 2}px`; liftFx.img.style.top = `${e.clientY - f.height * 0.8}px`;
+    }
+  });
+  $('#hits').addEventListener('pointerleave', () => { if (S.hover && !S.why) { S.hover = null; renderBoard(); } });
+  // drag the open figure: a drag is the same as tap, then tap
+  let dragStart = null;
+  $('#hits').addEventListener('pointerdown', (e) => {
+    const b = e.target.closest('.sq.is-open'); if (!b || S.mode === 'brush') return;
+    dragStart = { x: e.clientX, y: e.clientY, sq: b.dataset.sq };
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!dragStart || S.dragging) return;
+    if (Math.hypot(e.clientX - dragStart.x, e.clientY - dragStart.y) > 8) { S.dragging = true; S.lifted = true; liftFx(dragStart.sq); }
+  });
+  document.addEventListener('pointerup', (e) => {
+    if (S.dragging) {
+      S.dragging = false; dragStart = null;
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const b = el && el.closest('#hits .sq');
+      suppressClick = true; setTimeout(() => { suppressClick = false; }, 0);
+      if (b && b.dataset.sq !== (sceneNow().pieces.find((p) => p.open) || {}).sq) placeLifted(b.dataset.sq); else { dropLift(); render(); }
+      return;
+    }
+    dragStart = null;
+  });
+  let suppressClick = false;
+  document.addEventListener('click', (e) => { if (suppressClick) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+  // pill choices preview on hover or focus
+  document.addEventListener('pointerover', (e) => { const c = e.target.closest('[data-choice]'); if (c) { const [i, k] = c.dataset.choice.split(':'); previewPill(+i, k); } });
+  document.addEventListener('focusin', (e) => { const c = e.target.closest('[data-choice]'); if (c) { const [i, k] = c.dataset.choice.split(':'); previewPill(+i, k); } });
+  // hover a rule line: the board shows only that rule's marks (a tap keeps it)
+  document.addEventListener('pointerover', (e) => {
+    const l = e.target.closest('#plinth .sline[data-seal]');
+    const i = l ? +l.dataset.seal : null;
+    if (i !== S.hoverFocus && S.mode === 'look' && S.focus == null) { S.hoverFocus = i; renderBoard(); }
+    const slot = e.target.closest('#ledge .slot[data-reach]');
+    showReach(slot);
+  });
+  document.addEventListener('focusin', (e) => { const slot = e.target.closest('#ledge .slot[data-reach]'); showReach(slot); });
+  document.addEventListener('focusout', () => showReach(null));
+
+  /* ---- phone: the sentence card ---- */
+  function showPhoneSentence(i) {
+    const sc = baseScene(); const seal = sealsNow(sc)[i];
+    const el = $('#why');
+    el.innerHTML = `<div class="tag phone-sent"><div class="why-h">${M.seal(seal.a, 40, { asleep: seal.asleep })}<span class="sqn" style="font-size:15px">${esc(SHORT[seal.a].toUpperCase())}</span><button class="x" data-act="closewhy" aria-label="Close">×</button></div><div style="margin-top:6px">${sealLineHTML(seal, i, sc)}</div><p class="why-foot" style="text-align:left">${esc(SEALINFO[seal.a].ex)}</p></div>`;
+    el.className = 'open';
+  }
+
+  /* ======================= STATES MENU ======================= */
+  const STATES = [
+    ['open', 'The opening: the Pawn on d4'], ['paint', 'Brush mode, Both armed'], ['painted', 'My Pawn after one paint'], ['stamp-preview', 'Rules shelf: preview "Also moves like"'],
+    ['stamped', 'My Pawn moves like a queen in the center'], ['asleep-b4', 'My Pawn on b4: queen lines sleep'], ['awake-e2', 'My Pawn on e2: step 2 wakes'],
+    ['hero', 'Paladin, Why on d7'], ['hero-i1', 'Paladin: rule I alone'], ['hero-i2', 'Paladin: rule II alone'], ['hero-i3', 'Paladin: rule III alone'], ['why-g7', 'Paladin, Why on g7'],
+    ['archer', 'Archer: shots'], ['beast', 'Beast: takes again'], ['beast-cancel', 'My Beast: one rule stops the other'], ['maester', 'Maester: swaps'], ['ogre', 'Ogre: pushes'], ['guard', 'Guard: threat stopped'],
+    ['rook-leap', 'Rook + Mud king, Leap armed'], ['echo', 'Paladin + Leap: no change'], ['freeze-card', 'LAB card: Freeze on c6'], ['frost-power', 'Frost king: Freeze on c6'],
+    ['kings', 'Kings tab: Mud king'], ['cards', 'Cards tab (LAB): Freeze'], ['card-salvation', 'LAB card: Salvation'], ['card-rescue', 'LAB card: Rescue'], ['rules', 'Rules tab: a seal'], ['phone-open', 'Phone: the opening'], ['phone-hero', 'Phone: the Paladin'],
+  ];
+  function openMenu() {
+    const rmOn = document.documentElement.classList.contains('rm'), cbOn = document.documentElement.classList.contains('cb');
+    $('#menu').innerHTML = `<div class="box"><h3>STATES</h3><p>Each link opens a named state (?state=id). Press M to close.</p><div class="grid">${STATES.map(([id, w]) => `<a href="?state=${id}"><b>${id}</b><small>${esc(w)}</small></a>`).join('')}</div>
+      <div class="sws"><label><input type="checkbox" id="wdSw" ${document.documentElement.classList.contains('no-words') ? '' : 'checked'}> Words</label><label><input type="checkbox" id="rmSw" ${rmOn ? 'checked' : ''}> Reduced motion</label><label><input type="checkbox" id="cbSw" ${cbOn ? 'checked' : ''}> Colour check (deuteranopia)</label></div></div>`;
+    $('#menu').classList.add('open');
+    $('#wdSw').onchange = (e) => { document.documentElement.classList.toggle('no-words', !e.target.checked); render(); };
+    $('#rmSw').onchange = (e) => document.documentElement.classList.toggle('rm', e.target.checked);
+    $('#cbSw').onchange = (e) => document.documentElement.classList.toggle('cb', e.target.checked);
+  }
+  function closeMenu() { $('#menu').classList.remove('open'); }
+  $('#menu').addEventListener('click', (e) => { if (e.target.id === 'menu') closeMenu(); });
+
+  /* ======================= LAYOUT ======================= */
+  function layout(forcePhone) {
+    const html = document.documentElement;
+    const w = window.innerWidth;
+    PHONE = forcePhone || w < 700;
+    html.classList.toggle('phone', PHONE);
+    html.classList.toggle('phone-frame', PHONE && w >= 700);
+    if (PHONE) {
+      const bw = Math.min((w >= 700 ? 390 : w) - 32, 420);
+      BS = bw / 8;
+      $('#stage').style.transform = '';
+    } else {
+      BS = 80;
+      const k = Math.min(w / 1440, window.innerHeight / 900);
+      const kk = Math.max(0.55, Math.min(1, k));
+      $('#stage').style.transform = kk < 1 ? `scale(${kk})` : '';
+      $('#stage').style.left = kk < 1 ? `${Math.max(0, (w - 1440 * kk) / 2)}px` : `${Math.max(0, (w - 1440) / 2)}px`;
+    }
+  }
+  let forced = false;
+  window.addEventListener('resize', () => { const was = PHONE; layout(forced); if (was !== PHONE) $('#hits').innerHTML = ''; render(); });
+
+  /* ======================= NAMED STATES ======================= */
+  function applyState(id) {
+    S = S0();
+    const mypawn = () => { S.item = { k: 'copy', id: 'mypawn' }; S.yours = ['mypawn']; S.edited = true; S.opened = 2; S.design = { cells: { '0,1': 'move', '-1,1': 'both', '1,1': 'both' }, lines: [], step2: true }; S.undo = [{ scope: 'paint', s: Object.assign(S0(), {}) }]; };
+    const piece = (p) => { S.item = { k: 'piece', id: p }; S.sq = Object.keys(PIECE[p].at)[0]; S.opened = 2; };
+    switch (id) {
+      case 'open': case 'phone-open': break;
+      case 'paint': S.design = PAWN_DESIGN(); S.design.seals = [{ a: 'step2', when: { on: 'zone', zone: 'startRank' }, asleep: true }, { a: 'becomes', pill: 'choice', when: { on: 'reaches', zone: 'lastRank' } }]; S.mode = 'brush'; S.brush = 'both'; break;
+      case 'painted': mypawn(); break;
+      case 'stamp-preview': mypawn(); S.shelf = true; S.shelfSel = 'movesLike'; S.preview = true; break;
+      case 'stamped': mypawn(); S.queen = true; S.design = null; S.undo.push({ scope: 'seal', s: S0() }); break;
+      case 'asleep-b4': mypawn(); S.queen = true; S.design = null; S.sq = 'b4'; S.undo.push({ scope: 'seal', s: S0() }); break;
+      case 'awake-e2': mypawn(); S.queen = true; S.design = null; S.sq = 'e2'; S.undo.push({ scope: 'seal', s: S0() }); break;
+      case 'hero': case 'phone-hero': piece('paladin'); S.why = 'd7'; break;
+      case 'hero-i1': piece('paladin'); S.focus = 0; break;
+      case 'hero-i2': piece('paladin'); S.focus = 1; break;
+      case 'hero-i3': piece('paladin'); S.focus = 2; break;
+      case 'why-g7': piece('paladin'); S.why = 'g7'; break;
+      case 'archer': piece('archer'); S.why = 'd6'; break;
+      case 'beast': piece('beast'); S.why = 'e5'; break;
+      case 'beast-cancel': S.item = { k: 'copy', id: 'mybeast' }; S.yours = ['mybeast']; S.beastPill = 'any'; S.edited = true; S.opened = 2; S.why = 'e5'; S.undo = [{ scope: 'rule', s: S0() }]; break;
+      case 'maester': piece('maester'); S.why = 'e4'; break;
+      case 'ogre': piece('ogre'); S.why = 'c3'; S.hover = 'd6'; break;
+      case 'guard': piece('guard'); S.threats = true; break;
+      case 'rook-leap': piece('rook'); S.king = 'mud'; S.armed = 'Leap'; S.why = 'd5'; break;
+      case 'echo': piece('paladin'); S.king = 'mud'; S.armed = 'Leap'; break;
+      case 'freeze-card': piece('paladin'); S.card = 'Freeze'; S.cardOn = 'c6'; S.threats = true; break;
+      case 'frost-power': S.item = { k: 'king', id: 'frost' }; S.tab = 'kings'; S.king = 'frost'; S.armed = 'Freeze'; S.cardOn = 'c6'; S.spent.Freeze = 1; S.threats = true; S.opened = 2; break;
+      case 'compare': mypawn(); break; // old link: a copy now always shows its changes
+      case 'kings': S.item = { k: 'king', id: 'mud' }; S.tab = 'kings'; S.king = 'mud'; S.armed = 'Leap'; S.opened = 2; break;
+      case 'cards': S.item = { k: 'card', id: 'Freeze' }; S.tab = 'cards'; S.card = 'Freeze'; S.threats = true; S.opened = 2; break;
+      case 'card-salvation': S.item = { k: 'card', id: 'Salvation' }; S.tab = 'cards'; S.card = 'Salvation'; S.opened = 2; break;
+      case 'card-rescue': S.item = { k: 'card', id: 'Rescue' }; S.tab = 'cards'; S.card = 'Rescue'; S.opened = 2; break;
+      case 'rules': S.item = { k: 'seal', id: 'linesPass' }; S.tab = 'rules'; S.focus = 0; S.opened = 2; break;
+      default: return false;
+    }
+    if (id.startsWith('phone')) S.tab = id === 'phone-hero' ? 'pieces' : 'pieces';
+    return true;
+  }
+
+  /* ======================= BOOT ======================= */
+  const params = new URLSearchParams(location.search);
+  const st = params.get('state') || 'open';
+  forced = st.startsWith('phone-');
+  layout(forced);
+  applyState(st) || applyState('open');
+  M.ensureDefs();
+  render();
+  if (st === 'open' || st === 'phone-open') {
+    // the Pawn steps from its ledge slot to d4, then its tiles ripple out
+    const slot = document.querySelector('#ledge .slot[data-piece="pawn"]');
+    if (slot) enterPiece(slot, 'd4', 'step');
+  } else { FX.ripple = false; }
+  window.PG = { S: () => S, render, applyState: (id) => { applyState(id); render(); }, sceneNow };
+})();
+</script>
+</body>
+</html>

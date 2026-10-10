@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visual Grammar</title>
+<meta name="description" content="King Down Workshop: the one mark language for pieces, powers, cards and rules.">
+<link rel="stylesheet" href="shared/grammar.css">
+<style>
+  * { box-sizing: border-box; }
+  html { background: var(--floor-base); }
+  body { margin: 0; font: var(--fs-md)/var(--lh) var(--font-body); color: var(--ink); background: var(--floor-base) var(--floor); }
+  .page { position: relative; width: min(1240px, calc(100% - 32px)); margin: 40px auto 80px; padding: 72px 88px 88px;
+    background:
+      radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,.55), rgba(255,255,255,0) 60%),
+      linear-gradient(180deg, #f8f1e1, #f3ead7 30%, #efe3cb);
+    border: 1px solid #dccbaa; border-radius: 4px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.8) inset, 0 30px 60px -30px rgba(43,38,33,.35), 0 2px 6px rgba(43,38,33,.08); }
+  .page::before { content: ''; position: absolute; inset: 14px; border: 1px solid rgba(122,87,18,.35); border-radius: 2px; pointer-events: none; }
+  .page::after { content: ''; position: absolute; inset: 18px; border: 1px solid rgba(122,87,18,.16); border-radius: 2px; pointer-events: none; }
+
+  h1, h2, h3, .cinzel { font-family: var(--font-display); font-weight: 600; letter-spacing: var(--track-display); }
+  .folio { text-align: center; }
+  .folio .kicker { font: 600 12.5px/1 var(--font-display); letter-spacing: .32em; color: var(--gold-ink); text-transform: uppercase; }
+  .folio h1 { margin: 18px 0 6px; font-size: 52px; line-height: 1.05; font-weight: 700; color: var(--ink); text-transform: uppercase; }
+  .folio h1 span { color: var(--accent); }
+  .folio p { margin: 10px auto 0; max-width: 620px; font-style: italic; font-size: 18px; color: var(--ink-soft); }
+  .ornament { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 26px auto 0; color: var(--gold-ink); }
+  .ornament::before, .ornament::after { content: ''; height: 1px; width: 180px; background: linear-gradient(90deg, transparent, var(--gold) 40%, var(--gold-ink)); }
+  .ornament::after { transform: scaleX(-1); }
+
+  .toc { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px 28px; margin: 40px auto 0; max-width: 900px; padding: 18px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .toc a { display: flex; gap: 10px; color: var(--ink); text-decoration: none; font-size: 14.5px; }
+  .toc a b { width: 34px; flex: none; font: 600 13px/1.5 var(--font-display); color: var(--gold-ink); letter-spacing: .06em; }
+  .toc a:hover { color: var(--accent); }
+
+  section { margin-top: 84px; }
+  .sh { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 6px 18px; margin-bottom: 26px; }
+  .sh .num { font: 700 15px/1 var(--font-display); color: var(--gold-ink); letter-spacing: .1em; }
+  .sh h2 { margin: 0; font-size: 26px; text-transform: uppercase; color: var(--ink); }
+  .sh p { grid-column: 2; margin: 2px 0 0; font-style: italic; color: var(--ink-soft); font-size: 16.5px; max-width: 760px; }
+  .sh::after { content: ''; grid-column: 1 / -1; height: 1px; margin-top: 12px; background: linear-gradient(90deg, var(--gold-ink), rgba(201,154,62,.5) 30%, rgba(201,154,62,0)); }
+  h3 { margin: 0 0 12px; font-size: 14px; text-transform: uppercase; color: var(--ink-soft); letter-spacing: .14em; }
+  .cap { font-size: 14px; color: var(--ink-soft); line-height: 1.35; }
+  .cap b { color: var(--ink); font-weight: 700; }
+  .quiet { color: var(--ink-soft); font-style: italic; }
+
+  /* frontispiece */
+  .front { display: grid; grid-template-columns: 512px 1fr; gap: 44px; margin-top: 52px; align-items: start; }
+  .rim { position: relative; display: inline-block; padding: 16px; background: linear-gradient(180deg, #5a5046, var(--stone-700) 40%, #3f3831);
+    border-radius: 6px; box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 14px 30px -12px rgba(29,25,21,.6); }
+  .rim::before { content: ''; position: absolute; inset: 11px; border: 1px solid rgba(201,154,62,.55); border-radius: 2px; pointer-events: none; }
+  .rim svg { display: block; }
+  .card > .rim, .strip > .rim { justify-self: start; }
+  .rim .coord { position: absolute; font: 600 10px/1 var(--font-display); color: var(--stone-300); letter-spacing: .04em; }
+  .rim .fwd { position: absolute; top: 3px; left: 50%; transform: translateX(-50%); color: var(--gold-bright); }
+  .rim.sm { padding: 8px; border-radius: 4px; }
+  .rim.sm::before { inset: 5px; }
+  .plinth { display: grid; gap: 18px; }
+  .nameband { display: flex; align-items: center; gap: 12px; }
+  .nameband h3 { margin: 0; font-size: 30px; color: var(--ink); letter-spacing: .08em; }
+  .sockets { position: relative; display: flex; gap: 36px; padding: 30px 26px 18px; width: max-content; border-radius: 6px;
+    background: linear-gradient(180deg, #5d544a, var(--stone-700)); box-shadow: 0 -10px 0 -2px #9a8f7e inset, 0 2px 0 rgba(255,255,255,.15) inset, 0 10px 22px -10px rgba(29,25,21,.6); }
+  .sockets::after { content: ''; position: absolute; inset: 5px 5px 13px; border: 1px solid rgba(201,154,62,.5); border-radius: 3px; pointer-events: none; }
+  .sockets .socket { width: 56px; height: 56px; background: #3d362f; box-shadow: inset 0 3px 5px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.18); }
+  .sockets .socket .seal { width: 52px; height: 52px; }
+  .sockets > .knot { position: absolute; top: -8px; left: 50px; }
+  .seal-lines { display: grid; gap: 10px; }
+  .seal-line { display: grid; grid-template-columns: 36px 1fr; gap: 12px; align-items: center; min-height: 44px; }
+  .seal-line .seal { width: 34px; height: 34px; }
+  .seal-line .txt { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 15.5px; }
+  .why { padding: 18px 20px 20px; background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius); box-shadow: var(--shadow-card); position: relative; }
+  .why::before { content: ''; position: absolute; left: -9px; top: 26px; width: 16px; height: 16px; background: var(--vellum); border-left: 1px solid var(--stone-300); border-bottom: 1px solid var(--stone-300); transform: rotate(45deg); }
+  .why-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .why-head .sqn { font: 700 18px/1 var(--font-display); letter-spacing: .06em; }
+  .why-head .occ { font-size: 14px; color: var(--ink-soft); }
+  .why-head .count-ring { margin-left: auto; }
+  .why .rule { height: 1px; background: linear-gradient(90deg, var(--gold), transparent); margin: 14px 0 12px; }
+  .steps { display: flex; align-items: center; gap: 8px; }
+  .steps .arrow { color: var(--ink-soft); font-size: 18px; }
+  .icon-w { filter: brightness(1.32) saturate(.25); }
+  .icon-b { filter: invert(1) sepia(.25); }
+  .front-actions { display: flex; gap: 10px; margin-top: 14px; }
+  button { font: inherit; font-weight: 700; min-height: 40px; padding: 8px 14px; color: var(--ink); background: linear-gradient(var(--vellum), #efe4cc);
+    border: 1px solid var(--stone-700); border-radius: var(--radius); box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.8); cursor: pointer; }
+  button.primary { color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent)); border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255,220,200,.35); }
+  button.quiet { background: transparent; box-shadow: none; border-color: var(--stone-500); font-weight: 400; }
+
+  /* I. legend */
+  .legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  .leg { display: grid; justify-items: center; align-content: start; gap: 14px; text-align: center; }
+  .leg .pair { display: flex; }
+  .stone { display: inline-grid; place-items: center; background-size: cover; background-position: center; line-height: 0; flex: none; }
+  .stone.light { background-image: url('assets/board/white-tile.jpg'); }
+  .stone.dark { background-image: url('assets/board/black-tile.jpg'); }
+  .stone.dl { background: var(--diag-light); }
+  .stone.dd { background: var(--diag-dark); }
+  .leg .name { font: 700 19px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; }
+  .leg .rule { font-size: 15px; color: var(--ink-soft); max-width: 260px; }
+  .keyline { display: flex; justify-content: center; gap: 36px; margin-top: 34px; padding: 16px 0; border-top: 1px dashed transparent; }
+  .keyline span { display: inline-flex; align-items: center; gap: 10px; font-size: 16px; }
+  .owner { display: flex; align-items: center; gap: 18px; margin-top: 18px; justify-content: center; }
+  .owner img { width: 220px; border-radius: 4px; box-shadow: var(--shadow-card); border: 1px solid var(--stone-300); }
+
+  /* II. matrix */
+  table.mx { border-collapse: separate; border-spacing: 10px 8px; margin-left: -10px; }
+  .mx th { font: 600 11.5px/1.2 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); text-align: center; padding-bottom: 4px; vertical-align: bottom; }
+  .mx th small { display: block; font: 400 12px/1.2 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--stone-500); margin-top: 3px; }
+  .mx td { text-align: center; vertical-align: middle; }
+  .mx td.lab { text-align: left; padding-right: 12px; width: 210px; }
+  .mx td.lab b { display: block; font-size: 15.5px; }
+  .mx td.lab span { font-size: 13px; color: var(--ink-soft); }
+  .mx .grp td { padding-top: 14px; }
+  .mx .grp td span { font: 600 12px/1 var(--font-display); letter-spacing: .16em; color: var(--gold-ink); text-transform: uppercase; }
+  .mx .stone { border-radius: 2px; box-shadow: 0 0 0 1px rgba(29,25,21,.25); }
+  .mx .glyph { display: inline-grid; place-items: center; width: 34px; height: 34px; background: linear-gradient(#9a8f7e, var(--stone-500)); border-radius: 3px; box-shadow: 0 1px 0 var(--stone-700); }
+  .sep { width: 1px; background: var(--line); }
+
+  /* strips and minis */
+  .strips { display: grid; grid-template-columns: 1fr 1fr; gap: 26px 48px; }
+  .strip { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; }
+  .strip .rim { padding: 6px; }
+  .strip .rim::before { inset: 3px; }
+  .cards { display: grid; gap: 30px 26px; }
+  .cards.c3 { grid-template-columns: repeat(3, 1fr); }
+  .cards.c4 { grid-template-columns: repeat(4, 1fr); }
+  .cards.c5 { grid-template-columns: repeat(5, 1fr); }
+  .card { display: grid; gap: 10px; align-content: start; }
+  .card .t { font: 700 14px/1.2 var(--font-display); letter-spacing: .08em; text-transform: uppercase; display: flex; gap: 8px; align-items: baseline; }
+  .card .t i { font: 600 11px/1 var(--font-display); color: var(--gold-ink); font-style: normal; letter-spacing: .1em; }
+  .card .d { font-size: 14px; color: var(--ink-soft); line-height: 1.35; }
+  .pairrow { display: flex; gap: 30px; align-items: flex-start; flex-wrap: wrap; }
+
+  /* seals */
+  .groups { display: flex; flex-wrap: wrap; gap: 30px 44px; }
+  .group h4 { margin: 0 0 14px; font: 600 12px/1 var(--font-display); letter-spacing: .16em; color: var(--gold-ink); text-transform: uppercase; }
+  .group .row { display: flex; gap: 22px; }
+  .sealcard { display: grid; justify-items: center; gap: 8px; width: 112px; text-align: center; }
+  .sealcard .seal { width: 72px; height: 72px; }
+  .sealcard b { font-size: 14px; line-height: 1.2; }
+  .sealcard code { font: 400 11.5px/1 ui-monospace, Menlo, monospace; color: var(--stone-500); }
+  .sizes { display: flex; align-items: flex-end; gap: 26px; }
+  .sizes figure { margin: 0; display: grid; justify-items: center; gap: 6px; }
+  .sizes figcaption, .tiny { font-size: 12.5px; color: var(--ink-soft); text-align: center; }
+  .sigils { display: grid; grid-template-columns: repeat(10, 1fr); gap: 18px 10px; }
+  .sigils figure { margin: 0; display: grid; justify-items: center; gap: 6px; color: var(--ink); }
+  .sigils figure span { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--vellum); border: 1px solid var(--stone-300); }
+
+  .when-grid { display: flex; flex-wrap: wrap; gap: 14px 16px; align-items: center; }
+  .sentence { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 16px 20px; background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius); box-shadow: var(--shadow-card); font-size: 16px; }
+  .shapes3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 28px; }
+  .shapes3 > div { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+
+  .knots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  .knotdemo { display: grid; justify-items: center; gap: 10px; padding: 22px 12px 18px; background: rgba(251,247,238,.6); border: 1px solid var(--line); border-radius: var(--radius); }
+  .knotdemo .pair { position: relative; display: flex; gap: 70px; padding-top: 22px; }
+  .knotdemo .pair .knot { position: absolute; top: 0; left: 50%; transform: translateX(-50%); }
+  .knotdemo .pair .seal { width: 52px; height: 52px; }
+  .knotdemo q { font-style: italic; color: var(--ink); quotes: '“' '”'; }
+
+  .coins { display: flex; gap: 34px; flex-wrap: wrap; align-items: flex-start; }
+  .coinset { display: grid; justify-items: center; gap: 14px; }
+  .coinset .two { display: flex; gap: 12px; }
+  .coinset b { font: 700 13px/1 var(--font-display); letter-spacing: .1em; }
+  .status-row { display: flex; gap: 30px; flex-wrap: wrap; align-items: center; }
+  .status-row > span { display: inline-flex; gap: 8px; align-items: center; font-size: 14.5px; }
+  .facet-rows { display: grid; gap: 18px; }
+  .facet-row { display: grid; grid-template-columns: 210px 1fr; align-items: start; gap: 14px; }
+  .facet-row .who { display: flex; gap: 10px; align-items: center; padding-top: 6px; }
+  .facet-row .who b { display: block; font: 700 14px/1.2 var(--font-display); letter-spacing: .06em; }
+  .facet-row .who small { color: var(--ink-soft); font-size: 12.5px; }
+  .cardface { position: relative; width: 132px; height: 184px; border-radius: 10px; background: var(--vellum); border: 2px solid var(--gold); box-shadow: var(--shadow-card); padding: 6px; display: grid; grid-template-rows: 104px auto 1fr; gap: 6px; }
+  .cardface::before { content: ''; position: absolute; inset: 3px; border: 1px solid var(--gold-ink); border-radius: 7px; pointer-events: none; opacity: .5; }
+  .cardface img { width: 100%; height: 104px; object-fit: cover; border-radius: 5px; }
+  .cardface .ct { font: 700 12.5px/1 var(--font-display); letter-spacing: .08em; text-align: center; }
+  .cardface p { margin: 0; font-size: 11px; line-height: 1.25; color: var(--ink-soft); text-align: center; }
+
+  .scenes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px 30px; }
+  .scene { display: grid; gap: 10px; align-content: start; }
+  .scene .t { display: flex; align-items: baseline; gap: 10px; font: 700 15px/1.2 var(--font-display); letter-spacing: .08em; text-transform: uppercase; }
+  .scene .t i { font: 600 11.5px/1 var(--font-display); color: var(--gold-ink); font-style: normal; letter-spacing: .1em; }
+  .scene .d { font-size: 14px; color: var(--ink-soft); line-height: 1.35; }
+  .scene .seals { display: flex; gap: 8px; align-items: center; min-height: 28px; flex-wrap: wrap; }
+  .scene .seals .seal { width: 28px; height: 28px; }
+  .check { display: inline-flex; align-items: center; gap: 10px; margin-top: 8px; padding: 8px 14px; border-radius: 99px; background: var(--vellum); border: 1px solid var(--stone-300); font-size: 14px; }
+  .colophon { margin-top: 90px; text-align: center; font-size: 13.5px; color: var(--ink-soft); font-style: italic; }
+  @media (max-width: 760px) {
+    .page { padding: 40px 18px; margin: 16px auto; }
+    .front, .legend, .strips, .cards.c3, .cards.c4, .cards.c5, .scenes, .knots, .shapes3 { grid-template-columns: 1fr; }
+    .toc { grid-template-columns: 1fr 1fr; }
+    .groups { grid-template-columns: repeat(2, auto); }
+    .sigils { grid-template-columns: repeat(5, 1fr); }
+    .mx-wrap { overflow-x: auto; }
+    .folio h1 { font-size: 34px; }
+    .front { grid-template-columns: minmax(0, 1fr); }
+    .rim { max-width: 100%; }
+    .rim svg { max-width: 100%; height: auto; }
+    .rim .coord, .rim .fwd { display: none; }
+    .strip, .facet-row { grid-template-columns: 1fr; }
+    .legend .pair .stone { width: 44vw !important; height: 44vw !important; }
+    .sockets { gap: 16px; }
+    .pairrow > div, .pairrow > div > div { flex-wrap: wrap; }
+    .group .row { flex-wrap: wrap; }
+    .when-grid > span { flex-wrap: wrap; }
+    #s-coins > div[style] { grid-template-columns: minmax(0,1fr) !important; }
+    .facets { flex-wrap: wrap; }
+    .facet-rows, .facet-row { min-width: 0; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="folio">
+    <div class="kicker">King Down · Workshop</div>
+    <h1>The Visual <span>Grammar</span></h1>
+    <p>One mark language for every piece, power, card and rule. A fill moves. A target takes. A target with an arrow takes from afar.</p>
+    <div class="ornament" id="orn"></div>
+    <nav class="toc" id="toc"></nav>
+  </header>
+
+  <!-- FRONTISPIECE -->
+  <div class="front" id="front"></div>
+
+  <section id="s-legend">
+    <div class="sh"><span class="num">I</span><h2>The three tiles</h2><p>The owner's own legend, laid on the game's stone. Shape carries the meaning; colour only repeats it.</p></div>
+    <div class="legend" id="legend"></div>
+    <h3 style="margin:46px 0 22px;text-align:center">Taking from afar, and refused</h3>
+    <div class="legend" id="legend2"></div>
+    <div class="keyline" id="keyline"></div>
+  </section>
+
+  <section id="s-sizes">
+    <div class="sh"><span class="num">II</span><h2>Every mark, every size</h2><p>One renderer draws each mark on the board, on a phone, on a card diagram, on a thumbnail and as a ledge glyph. Each one reads on light and dark stone.</p></div>
+    <div class="mx-wrap"><table class="mx" id="matrix"></table></div>
+  </section>
+
+  <section id="s-lines">
+    <div class="sh"><span class="num">III</span><h2>Lines, leaps and hops</h2><p>A line is a rail of green tiles. How it ends tells why it stops.</p></div>
+    <div class="strips" id="strips"></div>
+    <div class="pairrow" id="diagrams" style="margin-top:40px"></div>
+  </section>
+
+  <section id="s-cond">
+    <div class="sh"><span class="num">IV</span><h2>Only sometimes</h2><p>A stitched frame means "conditional", and nothing else is ever dashed. Full when awake. Hollow when asleep.</p></div>
+    <div class="cards c4" id="cond"></div>
+  </section>
+
+  <section id="s-zones">
+    <div class="sh"><span class="num">V</span><h2>Zones in chalk</h2><p>Where a rule works. Chalk never means an action. It shows only while its rule is in focus.</p></div>
+    <div class="cards c5" id="zones"></div>
+  </section>
+
+  <section id="s-effects">
+    <div class="sh"><span class="num">VI</span><h2>Other effects</h2><p>Push, swap, becomes, kings' powers, LAB cards, frost and threats. Each has one colour and one shape.</p></div>
+    <div class="cards c4" id="effects"></div>
+  </section>
+
+  <section id="s-seals">
+    <div class="sh"><span class="num">VII</span><h2>Seals and sigils</h2><p>A wax seal is what a rule does. Its sigil is its name: the same sigil marks the squares it changes.</p></div>
+    <div class="groups" id="groups"></div>
+    <div class="pairrow" style="margin-top:44px; gap:64px" id="sealstates"></div>
+    <h3 style="margin-top:44px">More sigils</h3>
+    <div class="sigils" id="sigils"></div>
+  </section>
+
+  <section id="s-imps">
+    <div class="sh"><span class="num">VIII</span><h2>Impressions</h2><p>Which rule made which mark. An impression sits only where a rule changes the result.</p></div>
+    <div class="cards c4" id="imps"></div>
+  </section>
+
+  <section id="s-when">
+    <div class="sh"><span class="num">IX</span><h2>When chips and pills</h2><p>Three shapes, three meanings.</p></div>
+    <div class="shapes3" id="shapes3"></div>
+    <h3>States: a plate</h3>
+    <div class="when-grid" id="plates"></div>
+    <h3 style="margin-top:26px">Events: a flag</h3>
+    <div class="when-grid" id="flags"></div>
+    <h3 style="margin-top:26px">A rule as one line</h3>
+    <div style="display:grid; gap:12px" id="sentences"></div>
+  </section>
+
+  <section id="s-knots">
+    <div class="sh"><span class="num">X</span><h2>Combinations</h2><p>Knots join two seals. Gold: they shape one square together. Cracked: one stops the other. A grey "?" means not checked.</p></div>
+    <div class="knots" id="knots"></div>
+    <div class="pairrow" id="echo" style="margin-top:36px; gap:56px"></div>
+  </section>
+
+  <section id="s-coins">
+    <div class="sh"><span class="num">XI</span><h2>Powers, cards and status</h2><p>A king carries two coins. Diamonds count uses. A LAB card has one use and a burgundy ribbon.</p></div>
+    <div class="coins" id="coins"></div>
+    <h3 style="margin-top:44px">Facet band</h3>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:40px;align-items:start"><div class="facet-rows" id="facets"></div>
+    <div style="display:grid;gap:10px;justify-items:center"><div class="cardface lab-host"><img src="assets/cards/freeze.jpg" alt=""><span class="lab-ribbon">LAB</span><div class="ct">FREEZE</div><p>An enemy piece, not the king, cannot move next turn.</p></div><span class="tiny" style="max-width:150px">LAB · Test deck. Not in the game.</span></div></div>
+    <h3 style="margin-top:44px">Status and modes</h3>
+    <div class="status-row" id="status"></div>
+  </section>
+
+  <section id="s-why">
+    <div class="sh"><span class="num">XII</span><h2>Why this square</h2><p>The Why tag (or Receipt) adds the parts: the plain mark, plus each rule, gives the result.</p></div>
+    <div class="cards c3" id="whys"></div>
+  </section>
+
+  <section id="s-scenes">
+    <div class="sh"><span class="num">XIII</span><h2>The verified scenes</h2><p>Hard-coded from the current rules and checked square by square. Both mockups load these and nothing else.</p></div>
+    <div id="checkline"></div>
+    <div class="scenes" id="scenes" style="margin-top:26px"></div>
+  </section>
+
+  <p class="colophon">shared/grammar.css · shared/marks.js · shared/scenes.js — grammar.md G0 to G22 · 2026-10-10</p>
+</main>
+
+<script src="shared/marks.js"></script>
+<script src="shared/scenes.js"></script>
+<script>
+(function () {
+  const M = KD.marks, S = KD.scenes;
+  const $ = (id) => document.getElementById(id);
+  const B = (a) => M.blockOf(a);
+
+  // ---------- helpers ----------
+  function board(scene, o = {}) {
+    const s = o.s || 40;
+    const vb = M.viewBox(s, o.crop);
+    const [, , w, h] = vb.split(' ').map(Number);
+    const svg = `<svg width="${w}" height="${h}" viewBox="${vb}" role="img" aria-label="${scene.title || 'board'}">${M.drawString(scene, { s, ...o })}</svg>`;
+    if (o.rim === false) return svg;
+    let coords = '';
+    if (o.coords) {
+      const files = 'abcdefgh', pad = o.small ? 8 : 16;
+      for (let f = 0; f < 8; f++) coords += `<span class="coord" style="left:${pad + f * s + s / 2 - 3}px;bottom:${o.small ? -1 : 2}px">${files[f]}</span>`;
+      for (let r = 1; r <= 8; r++) coords += `<span class="coord" style="left:${o.small ? 1 : 5}px;top:${pad + (8 - r) * s + s / 2 - 5}px">${r}</span>`;
+      coords += `<span class="fwd">${M.sigil('step2', 12, { width: 2.4 })}</span>`;
+    }
+    return `<div class="rim${o.small ? ' sm' : ''}">${svg}${coords}</div>`;
+  }
+  const iconImg = (k, side, size = 28) => `<img src="assets/icons/${k}.svg" width="${size}" height="${size}" class="icon-${side}" alt="">`;
+  const sealWords = (sl) => {
+    const b = B(sl.a);
+    const pv = sl.pill && b.pill ? b.pill.choices.find(([k]) => k === sl.pill) : null;
+    const pillText = pv ? pv[1] : '';
+    switch (sl.a) {
+      case 'linesPass': return `its lines pass over ${M.pill(pillText)}`;
+      case 'cannotTake': return `cannot take ${M.pill(pillText)}`;
+      case 'removedAfter': return `${M.chip(sl.when)} ${M.pill(pillText)} <span>it is removed too</span>`;
+      case 'step2': return `${M.chip(sl.when, { hollow: sl.asleep })} <span>steps 2 straight ahead</span>`;
+      case 'becomes': return `${M.chip(sl.when)} <span>becomes</span> ${M.pill(pillText)}`;
+      case 'movesLike': return `${M.chip(sl.when, { hollow: sl.asleep })} <span>also moves like</span> ${M.pill(pillText)}`;
+      case 'chain': return `${M.chip(sl.when)} <span>takes again (not a king)</span>`;
+      case 'swap': return `swaps with ${M.pill(pillText)}`;
+      case 'push': return `pushes a piece next to it ${M.pill(pillText)}`;
+      case 'cannotBeTaken': return `cannot be taken ${M.pill(pillText)}`;
+    }
+    return b.short;
+  };
+
+  // ---------- ornament and contents ----------
+  $('orn').innerHTML = M.seal('becomes', 30, { title: 'King Down' });
+  const toc = [...document.querySelectorAll('section')].map((s) => `<a href="#${s.id}"><b>${s.querySelector('.num').textContent}</b>${s.querySelector('h2').textContent}</a>`);
+  $('toc').innerHTML = toc.join('');
+
+  // ---------- frontispiece: the Paladin hero ----------
+  (function front() {
+    const sc = S.get('paladin');
+    const w = sc.why.d7;
+    const seals = sc.seals.map((sl) => `<span class="socket"><span class="seal">${M.seal(sl.a, 52)}</span></span>`).join('');
+    const lines = sc.seals.map((sl, i) => `<div class="seal-line"><span class="seal">${M.seal(sl.a, 34)}</span><span class="txt">${sealWords(sl)}</span></div>`).join('');
+    const steps = w.steps.map((st) => board({ ...st, marks: st.marks || [], rails: [], arches: [], impressions: st.impressions || [], effects: st.effects || [] }, { s: 18, crop: st.crop, rim: false, noOpenGlow: true }))
+      .map((b) => `<span style="display:inline-block;border-radius:3px;overflow:hidden;box-shadow:0 0 0 1px rgba(29,25,21,.35)">${b}</span>`).join('<span class="arrow">→</span>');
+    $('front').innerHTML = `
+      <div>${board(sc, { s: 60, coords: true, select: 'd7' })}
+        <p class="cap" style="margin:14px 2px 0">Scene S1 · The Paladin on d4. Green tiles: it moves there. White tiles with a target: it takes there. The grey tile on g7: a rule refuses it. Arches: it passes its own pieces.</p></div>
+      <div class="plinth">
+        <div class="nameband"><h3>Paladin</h3>${M.status('official', 14)}</div>
+        <div class="sockets">${seals}${M.knot('gold', { w: 192, h: 26 })}</div>
+        <div class="seal-lines">${lines}</div>
+        <div class="why">
+          <div class="why-head">${iconImg('knight', 'b', 30)}<span class="sqn">d7</span><span class="occ">Black knight</span><span class="count-ring">${w.count}</span></div>
+          ${M.whySum(w.sum, { tile: 56, imp: 40 })}
+          <div class="rule"></div>
+          <div class="steps">${steps}</div>
+          <p class="cap" style="margin:10px 0 0;font-style:italic">${w.foot}</p>
+          <div class="front-actions"><button class="primary">Move here</button></div>
+        </div>
+      </div>`;
+  })();
+
+  // ---------- I. legend ----------
+  const legendItems = [
+    ['move', 'Move', 'It may move here when the square is empty.'],
+    ['take', 'Take only', 'It may take a piece here. It cannot move here when empty.'],
+    ['both', 'Move or take', 'It may move here, or take a piece here.'],
+  ];
+  $('legend').innerHTML = legendItems.map(([k, name, rule]) => `
+    <div class="leg"><div class="pair"><span class="stone light" style="width:120px;height:120px">${M.tile(k, 120)}</span><span class="stone dark" style="width:120px;height:120px">${M.tile(k, 120)}</span></div>
+    <div class="name">${name}</div><div class="rule">${rule}</div></div>`).join('');
+  const legend2 = [
+    ['shot', 'Shot', 'It takes the piece here, and stays where it stands.'],
+    ['moveshot', 'Move or shot', 'It may move here, or take a piece here and stay.'],
+    ['blocked', 'Refused', 'A rule stops this take. A grey target and a bar.'],
+  ];
+  $('legend2').innerHTML = legend2.map(([k, name, rule]) => `
+    <div class="leg"><div class="pair"><span class="stone light" style="width:120px;height:120px">${M.tile(k, 120)}</span><span class="stone dark" style="width:120px;height:120px">${M.tile(k, 120)}</span></div>
+    <div class="name">${name}</div><div class="rule">${rule}</div></div>`).join('');
+  $('keyline').innerHTML = `
+    <span>${M.tile('move', 40, { fill: true })} a fill: it moves there</span>
+    <span>${M.tile('take', 40, { fill: true })} a target: it takes there</span>
+    <span>${M.tile('shot', 40, { fill: true })} a target with an arrow: it takes from where it stands</span>`;
+  $('keyline').insertAdjacentHTML('afterend', `<div class="owner"><img src="assets/legend/range-tiles.jpg" alt="The owner's physical legend"><span class="cap" style="max-width:300px"><b>The source.</b> The owner's legend from the physical game. The Workshop keeps it with one change: the red X is now a red target. It adds a navy frame and a vellum halo, so each tile passes 3:1 on both stones.</span></div>`);
+
+  // ---------- II. matrix ----------
+  (function matrix() {
+    const cols = [
+      ['Board', '80 px', 80, ['light', 'dark']],
+      ['Phone', '44 px', 44, ['light', 'dark']],
+      ['Diagram', '36 px', 36, ['dl', 'dd']],
+      ['Thumbnail', '14 px', 14, ['dl', 'dd']],
+      ['Glyph', '6 px, shown ×3', 6, ['dl']],
+    ];
+    const rows = [
+      ['Action'],
+      ['move', 'Move', 'a green tile', {}],
+      ['take', 'Take only', 'a white tile and a target', {}],
+      ['both', 'Move or take', 'a green tile and a target', {}],
+      ['shot', 'Shot', 'a target with an arrow: it stays', {}],
+      ['moveshot', 'Move or shot', 'a green tile and a target with an arrow', {}],
+      ['move', 'Line', 'a rail through the tiles', { rail: 'e' }],
+      ['Only sometimes'],
+      ['move', 'Pattern', 'on a diagram: 45% and stitched', { cond: 'pattern' }],
+      ['move', 'Awake', 'its When is true now', { cond: 'awake' }],
+      ['move', 'Asleep', 'its When is false here', { cond: 'asleep' }],
+      ['Refused, power, change'],
+      ['blocked', 'Blocked take', 'a grey target and a bar', {}],
+      ['blocked-move', 'Blocked move', 'a rule refuses this square', {}],
+      ['move', "King's power", 'a blue ring around the tile', { power: true }],
+      ['move', 'Added', 'a "+" dog-ear', { diff: '+' }],
+      ['take', 'Removed', 'the old mark at 35%, "−"', { diff: '-' }],
+    ];
+    let h = '<tr><th></th>' + cols.map(([n, px, , st]) => `<th colspan="${st.length}">${n}<small>${px}</small></th>`).join('') + '</tr>';
+    for (const r of rows) {
+      if (r.length === 1) { h += `<tr class="grp"><td colspan="11"><span>${r[0]}</span></td></tr>`; continue; }
+      const [k, name, sub, o] = r;
+      h += `<tr><td class="lab"><b>${name}</b><span>${sub}</span></td>`;
+      for (const [, , size, stones] of cols) {
+        for (const st of stones) {
+          const t = M.tile(k, size, o);
+          const inner = o.diff === '-' ? `<span style="opacity:.35;display:contents">${t}</span>`.replace('display:contents', 'line-height:0') : t;
+          if (size < 12) h += `<td><span class="glyph"><span style="width:${size}px;height:${size}px;line-height:0;transform:scale(3)">${inner}</span></span></td>`;
+          else h += `<td><span class="stone ${st}" style="width:${size}px;height:${size}px">${inner}</span></td>`;
+        }
+      }
+      h += '</tr>';
+    }
+    $('matrix').innerHTML = h;
+  })();
+
+  // ---------- III. lines: strips ----------
+  (function strips() {
+    const P = (sq, k, side = 'w', x = {}) => ({ sq, k, side, ...x });
+    const strip = (pieces, marks, rails, extra = {}) => ({ pieces, marks, rails, arches: extra.arches || [], effects: [], impressions: extra.impressions || [], chalk: [] });
+    const mv = (l, x = {}) => l.split(' ').map((sq) => ({ sq, k: 'move', ...x }));
+    const items = [
+      ['At an enemy', 'The rail ends in the target under it.', strip([P('a4', 'rook', 'w', { open: true }), P('d4', 'knight', 'b')], [...mv('b4 c4'), { sq: 'd4', k: 'take' }], [{ from: 'a4', to: 'd4', end: 'x' }]), 'a4:d4'],
+      ['A rule refuses it', 'The rail ends in a grey, barred tile, with the rule that refuses it.', strip([P('a4', 'paladin', 'w', { open: true }), P('d4', 'king', 'b', { img: 'kings/shadow-b.webp' })], [...mv('b4 c4'), { sq: 'd4', k: 'blocked' }], [{ from: 'a4', to: 'd4', end: 'blocked' }], { impressions: [{ sq: 'd4', list: [{ a: 'cannotTake' }] }] }), 'a4:d4'],
+      ['At a friend', 'A navy stop bar at the edge of its square.', strip([P('a4', 'rook', 'w', { open: true }), P('d4', 'pawn')], mv('b4 c4'), [{ from: 'a4', to: 'd4', end: 'stop' }]), 'a4:d4'],
+      ['At the edge', 'A green arrowhead: it slides to the end.', strip([P('e4', 'rook', 'w', { open: true })], mv('f4 g4 h4'), [{ from: 'e4', to: 'h4', end: 'arrow' }]), 'e4:h4'],
+      ['Passes over', 'A navy arch over its own piece (a rule).', strip([P('a4', 'paladin', 'w', { open: true }), P('b4', 'pawn')], mv('c4 d4'), [{ from: 'a4', to: 'd4', end: 'arrow' }], { arches: [{ from: 'a4', over: 'b4', to: 'c4' }] }), 'a4:d4'],
+      ["A king's power", 'Blue rail edges and a blue arch, with the emblem.', strip([P('e4', 'rook', 'w', { open: true }), P('f4', 'pawn')], mv('g4 h4'), [{ from: 'e4', to: 'h4', startAt: 'g4', end: 'arrow', power: true }], { arches: [{ from: 'e4', over: 'f4', to: 'g4', power: 'mud' }] }), 'e4:h4'],
+      ['Awake line', 'A full rail with stitched edges: a rule that holds now.', strip([P('a4', 'pawn', 'w', { open: true })], mv('b4 c4 d4', { cond: 'awake' }), [{ from: 'a4', to: 'd4', end: 'arrow', style: 'awake', }]), 'a4:d4'],
+      ['Asleep line', 'Only a hollow rail at 40%: the rule sleeps here.', strip([P('a4', 'pawn', 'w', { open: true })], [], [{ from: 'a4', to: 'd4', end: 'edge', style: 'asleep' }]), 'a4:d4'],
+    ];
+    $('strips').innerHTML = items.map(([t, d, sc, crop]) => `<div class="strip">${board(sc, { s: 60, crop, small: true })}<div class="card"><div class="t">${t}</div><div class="d">${d}</div></div></div>`).join('');
+    const P2 = S.patterns;
+    const dia = (key, label, s) => `<div class="card" style="justify-items:start"><span class="rim sm" style="padding:8px">${M.diagram(P2[key], { s })}</span><div class="t">${label}</div></div>`;
+    $('diagrams').innerHTML = `
+      <div class="card" style="flex:0 0 100%"><div class="t">On a card diagram</div><div class="d" style="max-width:760px">The 7×7 diagram shows only the shape. Rails run to the rim and end in a chevron with a small red target: it slides on and takes the first enemy. A small navy bridge over the first cell: its lines pass over pieces.</div></div>
+      ${dia('queen', 'Queen', 36)}${dia('paladin', 'Paladin', 36)}${dia('knight', 'Knight · leaps', 36)}
+      <div style="flex-basis:100%; display:flex; gap:56px; align-items:flex-start"><div class="card" style="justify-items:start"><div style="display:flex; gap:12px; align-items:end">${['queen', 'paladin', 'archer', 'pawn'].map((k) => `<span class="rim sm" style="padding:5px">${M.diagram(P2[k], { s: 14 })}</span>`).join('')}</div><div class="t">Thumbnails · 14 px</div></div>
+      <div class="card" style="justify-items:start"><div style="display:flex; gap:10px; align-items:end">${['queen', 'paladin', 'archer', 'pawn', 'knight', 'beast'].map((k) => `<span style="display:inline-block;padding:4px;background:var(--stone-500);border-radius:3px;box-shadow:0 1px 0 var(--stone-700)">${M.diagram(P2[k], { s: 6 })}</span>`).join('')}</div><div class="t">Ledge glyphs · 6 px</div></div></div>`;
+  })();
+
+  // ---------- IV. conditional ----------
+  (function cond() {
+    const items = [
+      ['pawn', 'Asleep', 'Pawn on d4. The double step sleeps: a hollow stitched tile.', { crop: 'b3:f7' }],
+      ['pawn-e2', 'Awake', 'Pawn on e2. On its start rank it wakes: full, stitched.', { crop: 'c1:g5' }],
+      ['mypawn-queen', 'Awake lines', 'My Pawn on a center square moves like a queen.', { crop: 'a1:h8', s: 25 }],
+      ['mypawn-queen-b4', 'Asleep lines', 'On b4 the queen lines sleep: hollow rails at 40%.', { crop: 'a1:h8', s: 25 }],
+    ];
+    $('cond').innerHTML = items.map(([id, t, d, o]) => `<div class="card">${board(S.get(id), { s: o.s || 40, crop: o.crop, small: true })}<div class="t">${t}</div><div class="d">${d}</div></div>`).join('') +
+      `<div class="card" style="grid-column:1/-1; display:flex; gap:40px; align-items:center; flex-wrap:wrap">
+        <span style="display:inline-flex;gap:12px;align-items:center">${M.seal('step2', 44)}${M.chip({ on: 'zone', zone: 'startRank' })}<span class="cap"><b>Awake rule</b></span></span>
+        <span style="display:inline-flex;gap:12px;align-items:center">${M.seal('step2', 44, { asleep: true })}${M.chip({ on: 'zone', zone: 'startRank' }, { hollow: true })}<span class="cap"><b>Asleep rule:</b> 50%, no colour, a hollow chip</span></span>
+      </div>`;
+  })();
+
+  // ---------- V. zones ----------
+  (function zones() {
+    const blank = { pieces: [], marks: [], rails: [], arches: [], effects: [], impressions: [] };
+    const zs = ['startRank', 'ownHalf', 'enemyHalf', 'lastRank', 'capital'];
+    $('zones').innerHTML = zs.map((z) => `<div class="card" style="justify-items:center">${board({ ...blank, chalk: [{ zone: z, always: true }] }, { s: 22, small: true })}<div>${M.chip({ on: 'zone', zone: z })}</div></div>`).join('');
+  })();
+
+  // ---------- VI. effects ----------
+  (function effects() {
+    const items = [
+      ['ogre', 'Pushes', 'Teal arrows. The Ogre pushes 1 square away and follows.', { crop: 'a1:g7', s: 34, showAll: true }],
+      ['maester', 'Swaps', 'A violet arrow with two heads.', { crop: 'b2:f6', s: 46 }],
+      ['mypawn-queen', 'Becomes', 'A crown and a fan of the pieces it may become.', { crop: 'c6:f8', s: 60 }],
+      ['rook-leap', "King's power", 'Blue edges, a blue arch and the emblem.', { crop: 'a1:e8', s: 30 }],
+      ['freeze', 'LAB card picks', 'Blue rune rings: the pieces it can pick. A barred ring: not the king.', { crop: 'b3:h8', s: 34 }],
+      ['freeze-card', 'Frozen', 'Frost on the square. One moon pip: one turn left.', { crop: 'b4:f8', s: 46, dim: false }],
+      ['freeze', 'Threats', 'Red arrows at 60% and a red glow: they can hit this piece.', { crop: 'b3:f7', s: 46 }],
+      ['guard', 'Threat stopped', 'Grey, barred, with the rule that stops it.', { crop: 'b2:f6', s: 46 }],
+    ];
+    $('effects').innerHTML = items.map(([id, t, d, o]) => `<div class="card">${board(S.get(id), { ...o, small: true })}<div class="t">${t}</div><div class="d">${d}</div></div>`).join('');
+  })();
+
+  // ---------- VII. seals ----------
+  (function seals() {
+    $('groups').innerHTML = M.GROUPS.map((g) => `<div class="group"><h4>${g}</h4><div class="row">${M.BLOCKS.filter((b) => b.group === g).map((b) => `<div class="sealcard"><span class="seal">${M.seal(b.a, 72)}</span><b>${b.title}</b><code>${b.a}</code></div>`).join('')}</div></div>`).join('');
+    $('sealstates').innerHTML = `
+      <div><h3>Sizes</h3><div class="sizes">${[28, 32, 44, 48, 72].map((z) => `<figure>${M.seal('linesPass', z)}<figcaption>${z}</figcaption></figure>`).join('')}</div></div>
+      <div><h3>States</h3><div class="sizes">
+        <figure>${M.seal('removedAfter', 48)}<figcaption>event ✶</figcaption></figure>
+        <figure>${M.seal('step2', 48, { asleep: true })}<figcaption>asleep</figcaption></figure>
+        <figure>${M.seal('linesPass', 48, { dim: true })}<figcaption>needs a line</figcaption></figure>
+        <figure style="position:relative">${M.seal('chain', 48, { echo: true })}<span class="echo-eq" style="position:absolute;right:-6px;top:-4px">=</span><figcaption>adds nothing</figcaption></figure>
+      </div></div>
+      <div><h3>Sockets</h3><div class="sizes">
+        <figure>${M.socket()}<figcaption>empty</figcaption></figure>
+        <figure>${M.socket(`<span class="seal">${M.seal('swap', 40)}</span>`)}<figcaption>stamped</figcaption></figure>
+      </div></div>`;
+    const extra = [['spark', 'event'], ['crown', 'king'], ['card', 'card'], ['hourglass', 'move N'], ['near', 'next to'], ['lock', 'fixed'], ['lockOpen', 'try board'], ['eye', 'threats'], ['die', 'stir'], ['broom', 'clear'],
+      ['quill', 'yours'], ['scale', 'weigh'], ['moon', 'turn left'], ['key', 'key'], ['take', 'take brush'], ['shot', 'shot brush'], ['eraser', 'eraser'], ['mirror', 'mirror'], ['flip', 'flip card'], ['map', 'zone']];
+    $('sigils').innerHTML = extra.map(([k, w]) => `<figure><span>${M.sigil(k, 24)}</span><figcaption class="tiny">${w}</figcaption></figure>`).join('');
+  })();
+
+  // ---------- VIII. impressions ----------
+  (function imps() {
+    const sq = (inner, st = 'light') => `<span class="stone ${st}" style="width:80px;height:80px">${inner}</span>`;
+    const items = [
+      ['A piece rule', 'Burgundy ring, the seal\'s sigil.', `${M.impression({ a: 'linesPass' }, 40)} ${M.impression({ a: 'cannotTake' }, 18)}`, sq(M.tile('move', 80, { imps: [{ a: 'linesPass' }] }))],
+      ['An event rule', 'A gold ✶ notch on its ring.', `${M.impression({ a: 'removedAfter' }, 40)} ${M.impression({ a: 'chain' }, 18)}`, sq(M.tile('take', 80, { imps: [{ a: 'chain' }] }), 'dark')],
+      ["A king's power", 'Blue ring, the king\'s emblem.', `${M.impression({ power: 'mud' }, 40)} ${M.impression({ power: 'frost' }, 18)}`, sq(M.tile('move', 80, { power: true, imps: [{ power: 'mud' }] }))],
+      ['A LAB card', 'A small card with a burgundy corner.', `${M.impression({ card: 'freeze' }, 40)} ${M.impression({ card: 'freeze' }, 18)}`, sq(M.tile('take', 80, { imps: [{ card: 'freeze' }] }), 'dark')],
+      ['Two rules on one square', 'At most two, then a "+1".', '', sq(M.tile('take', 80, { imps: [{ a: 'linesPass' }, { a: 'removedAfter' }] })) + ' ' + sq(M.tile('move', 80, { imps: [{ a: 'movesLike' }, { a: 'becomes' }, { a: 'step2' }] }), 'dark')],
+      ['The take badge', 'On an enemy piece: a small take tile, top-left, so badges and impressions never meet. A shot badge has the arrow.', '', sq(M.tile('take', 80, { xtag: true, imps: [{ a: 'removedAfter' }] })) + ' ' + sq(M.tile('shot', 80, { xtag: true }), 'dark')],
+    ];
+    $('imps').innerHTML = items.map(([t, d, big, onSq]) => `<div class="card"><div style="display:flex;gap:12px;align-items:center;min-height:80px">${onSq}<span style="display:inline-flex;gap:10px;align-items:center">${big}</span></div><div class="t">${t}</div><div class="d">${d}</div></div>`).join('');
+  })();
+
+  // ---------- IX. When chips, pills ----------
+  (function when() {
+    $('shapes3').innerHTML = `
+      <div>${M.seal('removedAfter', 48)}<div><b>A round wax seal</b><div class="cap">what the rule does</div></div></div>
+      <div><span style="display:grid;gap:6px">${M.chip({ on: 'zone', zone: 'capital' })}${M.chip({ on: 'takes' })}</span><div><b>A plate or a flag</b><div class="cap">when: a plate is a state, a flag is an event</div></div></div>
+      <div>${M.pill('a piece, not a pawn')}<div><b>A capsule with ▾</b><div class="cap">a value you can change</div></div></div>`;
+    const states = [{ on: 'zone', zone: 'capital' }, { on: 'zone', zone: 'enemyHalf' }, { on: 'near', who: 'king' }, { on: 'fromMove', n: 10 }, { on: 'afterFirstCapture' },
+      { on: 'zone', zone: 'ownHalf' }, { on: 'zone', zone: 'startRank' }, { on: 'zone', zone: 'lastRank' }, { on: 'near', who: 'friend' }, { on: 'near', who: 'enemy' }, { on: 'near', who: 'G' },
+      { on: 'beforeMove', n: 5 }, { on: 'afterCard', card: 'any' }];
+    $('plates').innerHTML = states.map((w) => M.chip(w)).join('') + `<span class="cap" style="margin-left:6px">"Always": no chip.</span>`;
+    $('flags').innerHTML = [{ on: 'takes' }, { on: 'firstTake' }, { on: 'reaches', zone: 'lastRank' }].map((w) => M.chip(w)).join('') +
+      `<span style="margin-left:24px; display:inline-flex; gap:10px; align-items:center">${M.pill('a queen')}${M.pill('its own pieces')}${M.pill('by anything but a king')}</span>` +
+      `<span style="display:inline-flex; gap:6px; align-items:center; padding:6px 10px; background:var(--parchment-deep); border-radius:99px">${['a king', 'pawns', 'anything'].map((t, i) => M.pill(t, { choice: true, on: i === 0 })).join('')}</span>`;
+    const ex = [
+      ['removedAfter', `${M.chip({ on: 'takes' })} ${M.pill('a piece, not a pawn')} it is removed too`],
+      ['movesLike', `${M.chip({ on: 'zone', zone: 'capital' })} it also moves and takes like ${M.pill('a queen')}`],
+      ['becomes', `${M.chip({ on: 'reaches', zone: 'lastRank' })} it becomes ${M.pill('a piece you choose')}`],
+      ['cannotBeTaken', `it cannot be taken ${M.pill('by anything but a king')}`],
+    ];
+    $('sentences').innerHTML = ex.map(([a, t]) => `<div class="sentence">${M.seal(a, 36)}${t}</div>`).join('');
+  })();
+
+  // ---------- X. knots ----------
+  (function knots() {
+    const items = [
+      ['gold', 'linesPass', 'removedAfter', 'Both shape d7.', 'They combine: both rules shape one square.'],
+      ['cracked', 'chain', 'removedAfter', 'Removed too stops Takes again.', 'One rule stops the other here.'],
+      ['unknown', 'linesPass', 'cannotTake', 'Not checked yet.', 'The default for a pair with no data. Shows on focus.'],
+    ];
+    $('knots').innerHTML = items.map(([t, a, b, q, d]) => `<div class="knotdemo"><div class="pair">${M.knot(t, { w: 110, h: 24 })}<span class="seal">${M.seal(a, 52)}</span><span class="seal">${M.seal(b, 52)}</span></div><q>${q}</q><div class="cap" style="text-align:center">${d}</div></div>`).join('');
+    $('echo').innerHTML = `
+      <span style="display:inline-flex;gap:14px;align-items:center"><span style="position:relative;display:inline-block">${M.coin('mud', { uses: 3, state: 'echo' })}<span class="echo-eq" style="position:absolute;right:-8px;top:-6px">=</span></span><span class="cap"><b>Echo.</b> Leap adds nothing to a Paladin. 50% and "=". The board does not change.</span></span>
+      <span style="display:inline-flex;gap:14px;align-items:center">${M.seal('linesPass', 48, { dim: true })}<span class="cap"><b>Needs.</b> "Paint a line first." 45%, and the missing part pulses gold.</span></span>
+      <span style="display:inline-flex;gap:14px;align-items:center">${M.seal('cannotTake', 48, { dim: true })}<span class="cap"><b>Needs.</b> "It takes nothing already."</span></span>`;
+  })();
+
+  // ---------- XI. coins, facets, status ----------
+  (function coins() {
+    const kings = [['frost', 'Freeze', 1, 'Ice Wall', 2], ['flame', 'Strike', 1, 'Haste', 1], ['stratus', 'Flight', 1, 'Sacrifice', 1], ['mud', 'March', Infinity, 'Leap', 3], ['spirit', 'Holy Light', Infinity, 'Mercy', Infinity], ['shadow', 'Death Touch', Infinity, 'Darkness', Infinity]];
+    $('coins').innerHTML = kings.map(([k, a, ua, b, ub]) => `<div class="coinset"><img src="assets/kings/${k}.webp" alt="" style="height:96px;filter:var(--rim)"><div class="two">${M.coin(k, { uses: ua, title: a })}${M.coin(k, { uses: ub, title: b })}</div><b>${k.toUpperCase()}</b><span class="tiny" style="margin-top:-8px">${a} · ${b}</span></div>`).join('') +
+      `<div class="coinset" style="margin-left:12px"><div style="height:96px"></div><div class="two">${M.coin('mud', { uses: 3, spent: 1, state: 'armed' })}${M.coin('frost', { uses: 1, spent: 1, state: 'used' })}</div><b>STATES</b><span class="tiny" style="margin-top:-8px">armed · used</span></div>`;
+    const rows = [
+      ['mud', 'Leap', 'Mud king', { targets: { side: 'w' }, cost: 'move', captures: 'may', uses: 3, duration: 'now', live: ['uses'], caps: ['your rook, bishop or queen', 'as your move', 'may take', '3 uses', 'at once'] }],
+      ['mud', 'March', 'Mud king', { targets: { side: 'w' }, cost: 'move', captures: 'may', uses: Infinity, duration: 'now', live: ['uses'], caps: ['a pawn', 'as your move', 'may take', 'always on', 'at once'] }],
+      ['frost', 'Freeze', 'Frost king', { targets: { side: 'b', notKing: true }, cost: 'free', captures: 'never', uses: 1, duration: 'them', live: ['uses', 'duration'], caps: ['enemy piece, not the king', 'free, then your move', 'never takes', '1 use', 'their next turn'] }],
+      ['frost', 'Ice Wall', 'Frost king', { targets: { side: 'w', notKing: true }, cost: 'free', captures: 'never', uses: 2, duration: 'them', live: ['uses'], caps: ['your piece, not the king', 'free, then your move', 'never takes', '2 uses', 'their next turn'] }],
+      [null, 'Freeze card', 'LAB · default rules', { targets: { side: 'b', notKing: true }, cost: 'move', captures: 'never', uses: 0, duration: 'them', caps: ['enemy piece, not the king', 'as your move', 'never takes', 'one card', 'their next turn'] }],
+    ];
+    $('facets').innerHTML = rows.map(([k, n, sub, f]) => `<div class="facet-row"><div class="who">${k ? M.coin(k, { size: 36 }) : `<span class="lab-host" style="display:inline-block;width:36px;height:48px;border-radius:5px;border:1.5px solid var(--gold);background:url(assets/cards/freeze.jpg) center/cover"><span class="lab-ribbon" style="font-size:7px;line-height:10px;top:5px;right:-30px">LAB</span></span>`}<span><b>${n}</b><small>${sub}</small></span></div>${M.facets(f)}</div>`).join('') +
+      `<div class="facet-row"><div class="who"><span><b>Condition</b><small>only when one is set</small></span></div>${M.facets({ targets: { side: 'w' }, cost: 'move', captures: 'must', uses: 1, duration: 'now', when: { on: 'fromMove', n: 10 }, caps: ['your piece', 'as your move', 'must take', '1 use', 'at once', 'from move 10'] })}</div>`;
+    $('status').innerHTML = `
+      <span>${M.status('official', 14)} Official</span>
+      <span>${M.status('lab', 14)} Lab</span>
+      <span>${M.status('designed', 14)} Designed, not built <span class="notbuilt">not built</span></span>
+      <span>${M.tag('yours')} <span class="tiny">from Pawn</span></span>
+      <span>${M.tag('original')}</span>
+      <span>${M.plaque()}</span>
+      <span style="gap:12px">${['move', 'take', 'both'].map((k) => `<span style="opacity:.6;line-height:0">${M.tile(k, 36, { fill: true })}</span>`).join('')} <span class="tiny">the brushes at 60% are the key</span></span>`;
+  })();
+
+  // ---------- XII. why ----------
+  (function whys() {
+    const sc = S.get('paladin'), pawn = S.get('pawn');
+    const card = (sqn, w) => `<div class="why" style="padding:16px 18px">
+      <div class="why-head">${w.icon ? iconImg(w.icon, w.side, 26) : `<span style="width:26px;height:26px;border-radius:50%;border:1.5px dashed transparent;box-shadow:inset 0 0 0 1.5px var(--stone-300)"></span>`}<span class="sqn">${sqn}</span><span class="occ">${w.occupant}</span><span class="count-ring">${w.count}</span></div>
+      ${M.whySum(w.sum, { tile: 48, imp: 34 })}${w.foot ? `<p class="cap" style="margin:10px 0 0;font-style:italic">${w.foot}</p>` : ''}</div>`;
+    $('whys').innerHTML = card('g7', sc.why.g7) + card('d6', pawn.why.d6) + card('b6', sc.why.b6);
+  })();
+
+  // ---------- XIII. scenes ----------
+  (function scenes() {
+    const problems = S.check();
+    problems.forEach((p) => console.error('scene check:', p));
+    $('checkline').innerHTML = `<span class="check">${problems.length ? '' : M.status('official', 12)} Self-check: ${S.list.length} scenes, ${problems.length ? problems.length + ' problems (see console)' : 'every rail, end and square agrees with G22'}.</span>`;
+    $('scenes').innerHTML = S.list.map((sc) => {
+      const seals = sc.seals.map((sl) => `<span class="seal">${M.seal(sl.a, 28, { asleep: sl.asleep })}</span>`).join('') +
+        (sc.power ? M.coin(sc.power.king, { size: 28, uses: sc.power.uses, spent: sc.power.spent, state: sc.power.echo ? 'echo' : sc.power.armed ? 'armed' : undefined }) : '') +
+        (sc.card ? `<span class="tiny" style="display:inline-flex;gap:4px;align-items:center">${M.status('lab', 12)} LAB card</span>` : '') +
+        (sc.knots.filter((k) => k.type !== 'unknown').map((k) => `<span class="tiny" style="display:inline-flex;gap:6px;align-items:center">${M.knot(k.type, { w: 34, h: 14 })}${k.words}</span>`).join(''));
+      return `<div class="scene">${board(sc, { s: 40, showAll: true, small: true })}<div class="t"><i>${sc.ref}</i>${sc.title}</div><div class="seals">${seals}</div><div class="d">${sc.line}</div></div>`;
+    }).join('');
+  })();
+})();
+</script>
+</body>
+</html>

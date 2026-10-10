@@ -5,7 +5,7 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 ## Open items
 
 - **After the redesign** · `needs-triage` · Done (tickets 01 to 05, PRs #33 to #37, 2026-10-10): three check runs share this Mac; `main.ts` 1,348 → 210 lines. Small follow-ups wait in the Comments of tickets 04 and 05. · [spec](docs/specs/after-redesign/spec.md)
-- **Workshop finish** · `ready-for-agent` · Parked (owner, 2026-10-09: "park workshop for now"). Later: start from a working sample? A "What changed" line? · [spec](docs/specs/workshop-finish/spec.md)
+- **Proving Ground and legend** · `ready-for-agent` · Owner chose Workshop mockup A and the red-target legend (2026-10-10). Building. · [spec](docs/specs/workshop-proving-ground/spec.md)
 - **Card deal** · `needs-info` · The owner chose MirrorB and dropped Mirror and Rescue (2026-10-07); Hand size: **4 cards** (owner 2026-10-09: "yes. 4 cards."; draws 12.6% at depth 4, against 11.0% with 6). Keep March (below the floor in `cards-d1`)? Which cards make the deal, and do the four new cards join it? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Web redesign** · `ready-for-agent` · Merged (PR #26); the polish PRs #31 and #32 merged 2026-10-10. Deploy waits for the owner. · [spec](docs/specs/web-redesign/spec.md)
 - **Balance framework** · `needs-info` · Merged (PR #30, 2026-10-10); `npm run balance:check` guards the rule documents. The three proposed runs and the open choices in `docs/balance/FRAMEWORK.md` wait for the owner. · [spec](docs/specs/balance-framework/spec.md)

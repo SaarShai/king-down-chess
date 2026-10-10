@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A and B Compared</title>
+<link rel="stylesheet" href="mockups/shared/grammar.css">
+<style>
+  * { box-sizing: border-box; }
+  html { background: var(--floor-base); }
+  body {
+    margin: 0; color: var(--ink); background: var(--floor) fixed;
+    font: var(--fs-body)/var(--lh) var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 0 32px; }
+  a { color: var(--accent); }
+
+  /* ---- header ---- */
+  header { padding: 48px 0 28px; border-bottom: 1px solid var(--line); }
+  .eyebrow { font: 600 var(--fs-xs)/1 var(--font-display); letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold-ink); margin: 0 0 14px; }
+  h1 { font: 600 var(--fs-3xl)/1.1 var(--font-display); letter-spacing: 0.04em; margin: 0 0 14px; }
+  .frame { font-size: 22px; line-height: 1.35; margin: 0; max-width: none; color: var(--ink); }
+  .frame b { color: var(--accent); font-weight: 700; }
+  .heads { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; margin-top: 26px; }
+  .who { display: inline-flex; align-items: center; gap: 10px; font-size: var(--fs-md); color: var(--ink-soft); }
+  .who b { color: var(--ink); font-weight: 700; }
+  .letter {
+    display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+    font: 700 15px/1 var(--font-display); color: var(--vellum); background: var(--stone-700);
+  }
+  .letter.a { background: var(--accent); }
+  .choice {
+    display: inline-block; padding: 3px 9px 3px; border-radius: var(--radius-pill);
+    font: 700 11px/1.3 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--gold-ink); background: #f6e6bf; border: 1px solid var(--gold);
+  }
+  .marks { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-left: auto; font-size: var(--fs-sm); color: var(--ink-soft); }
+  .marks span { display: inline-flex; align-items: center; gap: 7px; }
+  .marks .mk-move, .marks .mk-take, .marks .mk-both, .marks .mk-shot { --mk: 26px; }
+  .marks em { font-style: normal; font-weight: 700; color: var(--ink); margin-right: 2px; }
+
+  nav.jump { display: flex; flex-wrap: wrap; gap: 8px; padding: 18px 0 0; }
+  nav.jump a {
+    text-decoration: none; color: var(--ink-soft); font-size: var(--fs-sm);
+    padding: 5px 12px; border: 1px solid var(--line); border-radius: var(--radius-pill); background: rgba(251, 247, 238, 0.6);
+  }
+  nav.jump a:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ---- rows ---- */
+  section.row { padding: 44px 0 40px; border-bottom: 1px solid var(--line); }
+  .rowhead { display: flex; align-items: baseline; gap: 14px; margin: 0 0 18px; }
+  .num { font: 600 var(--fs-xl)/1 var(--font-display); color: var(--gold); min-width: 1.2em; }
+  h2 { font: 600 var(--fs-2xl)/1.15 var(--font-display); letter-spacing: 0.03em; margin: 0; }
+  .states { font-size: var(--fs-sm); color: var(--stone-500); margin-left: auto; white-space: nowrap; }
+  .states code { font: 13px/1 ui-monospace, Menlo, monospace; color: var(--ink-soft); }
+
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  figure { margin: 0; min-width: 0; }
+  .tag { display: flex; align-items: center; gap: 9px; margin: 0 0 10px; font: 600 var(--fs-sm)/1 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; }
+  .tag .letter { width: 24px; height: 24px; font-size: 12px; }
+  .shot {
+    display: block; position: relative; border-radius: var(--radius); overflow: hidden;
+    border: 1px solid rgba(43, 38, 33, 0.22); background: var(--vellum);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 6px 22px rgba(43, 38, 33, 0.14);
+    transition: transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+  }
+  figure.a .shot { border-color: rgba(132, 44, 33, 0.45); }
+  .shot img { display: block; width: 100%; height: auto; aspect-ratio: 1440 / 900; }
+  .shot .open {
+    position: absolute; right: 10px; bottom: 10px; padding: 6px 11px; border-radius: var(--radius-pill);
+    font-size: 13px; font-weight: 700; color: var(--vellum); background: rgba(43, 38, 33, 0.82);
+    opacity: 0; transform: translateY(4px); transition: opacity var(--dur-2), transform var(--dur-2);
+  }
+  .shot:hover, .shot:focus-visible { transform: translateY(-2px); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 12px 30px rgba(43, 38, 33, 0.22); }
+  .shot:hover .open, .shot:focus-visible .open { opacity: 1; transform: none; }
+  .shot:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+
+  figcaption { margin-top: 14px; display: grid; gap: 6px; font-size: var(--fs-md); line-height: 1.4; color: var(--ink-soft); }
+  figcaption p { margin: 0; display: grid; grid-template-columns: 4.6em 1fr; gap: 10px; }
+  figcaption i { font-style: normal; font: 600 11px/1.9 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--stone-500); }
+
+  .key {
+    margin: 24px 0 0; padding: 14px 18px 14px 20px; border-left: 4px solid var(--gold);
+    background: rgba(251, 247, 238, 0.75); border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: var(--fs-lg); line-height: 1.4;
+  }
+  .key strong { font-weight: 700; }
+  .key small { display: block; font: 600 11px/1.6 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-ink); margin-bottom: 2px; }
+
+  /* ---- at a glance ---- */
+  section.glance { padding: 48px 0 24px; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--vellum); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-card); font-size: var(--fs-md); }
+  th, td { text-align: left; vertical-align: top; padding: 13px 18px; border-bottom: 1px solid var(--line); }
+  tr:last-child th, tr:last-child td { border-bottom: 0; }
+  thead th { background: var(--parchment); font: 600 var(--fs-sm)/1.3 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; padding-top: 15px; padding-bottom: 15px; }
+  thead th .h { display: inline-flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  thead th .letter { width: 22px; height: 22px; font-size: 11px; }
+  thead th.a { background: #efe1c6; }
+  tbody th { width: 21%; font-weight: 700; color: var(--ink); background: rgba(243, 234, 215, 0.45); }
+  td.a { background: rgba(132, 44, 33, 0.045); }
+  td { width: 39.5%; color: var(--ink); }
+  td b { font-weight: 700; }
+  .score { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+  .score span { padding: 2px 9px; border-radius: var(--radius-pill); border: 1px solid var(--line); background: var(--parchment); font-size: var(--fs-sm); white-space: nowrap; }
+  .score span.mean { border-color: var(--gold); background: #f6e6bf; font-weight: 700; }
+
+  .next { margin: 26px 0 0; padding: 16px 20px; border: 1px dashed var(--stone-300); border-radius: var(--radius); font-size: var(--fs-md); color: var(--ink-soft); }
+  .next b { color: var(--ink); }
+  footer { padding: 24px 0 56px; font-size: var(--fs-sm); color: var(--stone-500); }
+
+  /* ---- narrow ---- */
+  @media (max-width: 1100px) {
+    .pair { grid-template-columns: 1fr; gap: 34px; }
+    .marks { margin-left: 0; }
+  }
+  @media (max-width: 640px) {
+    .wrap { padding: 0 16px; }
+    header { padding-top: 28px; }
+    h1 { font-size: var(--fs-2xl); }
+    .frame { font-size: 19px; }
+    h2 { font-size: var(--fs-xl); }
+    .rowhead { flex-wrap: wrap; }
+    .states { margin-left: 0; width: 100%; white-space: normal; }
+    figcaption p { grid-template-columns: 1fr; gap: 0; }
+    .key { font-size: var(--fs-body); }
+    table, thead, tbody, tr, th, td { display: block; width: 100%; }
+    thead { display: none; }
+    tbody tr { border-bottom: 1px solid var(--line); }
+    tbody tr:last-child { border-bottom: 0; }
+    tbody th { width: 100%; padding-bottom: 6px; border-bottom: 0; }
+    td { border-bottom: 0; padding-top: 6px; padding-bottom: 6px; }
+    td:last-child { padding-bottom: 14px; }
+    td::before { content: attr(data-l); display: block; font: 600 11px/1.6 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--stone-500); }
+    td.a::before { color: var(--accent); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">King Down · Rules workshop · 10 Oct 2026</p>
+  <h1>A and B, side by side</h1>
+  <p class="frame">Same rules, same marks.<br>The difference is where a rule lives: <b>A&nbsp;on&nbsp;the&nbsp;board</b>, <b>B&nbsp;on&nbsp;a&nbsp;card</b>.</p>
+  <div class="heads">
+    <span class="who"><span class="letter a">A</span><b>Proving Ground</b> <span class="choice">Your choice</span></span>
+    <span class="who"><span class="letter">B</span><b>Binder and Table</b></span>
+    <div class="marks" aria-label="The marks in both mockups">
+      <em>Marks in both:</em>
+      <span><i class="mk-move"></i>Move</span>
+      <span><i class="mk-take"></i>Take</span>
+      <span><i class="mk-both"></i>Move or take</span>
+      <span><i class="mk-shot"></i>Shot</span>
+    </div>
+  </div>
+  <nav class="jump" aria-label="Sections">
+    <a href="#first">1 · First screen</a>
+    <a href="#edit">2 · Edit a piece</a>
+    <a href="#why">3 · Ask “why?”</a>
+    <a href="#kings">4 · Kings and cards</a>
+    <a href="#glance">At a glance</a>
+  </nav>
+</header>
+
+<!-- 1 -->
+<section class="row" id="first">
+  <div class="rowhead"><span class="num">1</span><h2>First screen</h2><span class="states">A <code>open</code> · B <code>binder</code></span></div>
+  <div class="pair">
+    <figure class="a">
+      <div class="tag"><span class="letter a">A</span>Proving Ground</div>
+      <a class="shot" href="mockups/proving-ground.html?state=open" target="_blank" rel="noopener"><img src="screens/compare-first-a.jpg" alt="A: the Pawn on d4 on a large stone board, its rules at left, a ledge of figures below"><span class="open">Open live ↗</span></a>
+      <figcaption>
+        <p><i>You see</i><span>One piece, the Pawn, on a large stone board. Its rules are seals at left. All figures stand on a ledge below.</span></p>
+        <p><i>You do</i><span>Tap a figure to put it on the board. Paint or add a rule right there.</span></p>
+      </figcaption>
+    </figure>
+    <figure class="b">
+      <div class="tag"><span class="letter">B</span>Binder and Table</div>
+      <a class="shot" href="mockups/binder-and-table.html?state=binder" target="_blank" rel="noopener"><img src="screens/compare-first-b.jpg" alt="B: a binder page with one card for each piece, each card with art, a small move diagram and seals"><span class="open">Open live ↗</span></a>
+      <figcaption>
+        <p><i>You see</i><span>A binder page: one card for each piece. A card shows art, a small move diagram and up to three seals.</span></p>
+        <p><i>You do</i><span>Pick a card. It opens, and a test board opens beside it.</span></p>
+      </figcaption>
+    </figure>
+  </div>
+  <p class="key"><small>Key difference</small><strong>A starts with one piece at work on the board. B starts with the whole set, but no board.</strong></p>
+</section>
+
+<!-- 2 -->
+<section class="row" id="edit">
+  <div class="rowhead"><span class="num">2</span><h2>Edit a piece: paint and rules</h2><span class="states">A <code>stamped</code> · B <code>pawn-d4</code></span></div>
+  <div class="pair">
+    <figure class="a">
+      <div class="tag"><span class="letter a">A</span>Proving Ground</div>
+      <a class="shot" href="mockups/proving-ground.html?state=stamped" target="_blank" rel="noopener"><img src="screens/compare-edit-a.jpg" alt="A: My Pawn on d4 with painted squares and queen lines on the board, three seals at left"><span class="open">Open live ↗</span></a>
+      <figcaption>
+        <p><i>You see</i><span>My Pawn. The painted squares and the queen lines from the new rule are on the board. Dashed tiles mean “only sometimes”.</span></p>
+        <p><i>You do</i><span>Pick a brush (Move, Take, Both) and tap squares on the board. Add a rule: the board shows a preview first.</span></p>
+      </figcaption>
+    </figure>
+    <figure class="b">
+      <div class="tag"><span class="letter">B</span>Binder and Table</div>
+      <a class="shot" href="mockups/binder-and-table.html?state=pawn-d4" target="_blank" rel="noopener"><img src="screens/compare-edit-b.jpg" alt="B: the My Pawn card with a 7 by 7 diagram and three seals, and the same moves on the test board"><span class="open">Open live ↗</span></a>
+      <figcaption>
+        <p><i>You see</i><span>The My Pawn card: its diagram and three seals. The same moves show again on the test board.</span></p>
+        <p><i>You do</i><span>Pick a brush at the far left and tap the card diagram. Add a rule from the drawer under the card.</span></p>
+      </figcaption>
+    </figure>
+  </div>
+  <p class="key"><small>Key difference</small><strong>In A you paint the real board. In B you paint the small diagram on the card, and the board copies it.</strong></p>
+</section>
+
+<!-- 3 -->
+<section class="row" id="why">
+  <div class="rowhead"><span class="num">3</span><h2>Ask “why?” on one square</h2><span class="states">A <code>hero</code> · B <code>hero</code></span></div>
+  <div class="pair">
+    <figure class="a">
+      <div class="tag"><span class="letter a">A</span>Proving Ground</div>
+      <a class="shot" href="mockups/proving-ground.html?state=hero" target="_blank" rel="noopener"><img src="screens/compare-why-a.jpg" alt="A: the Paladin with d7 selected and a Why panel that adds three rules into one result"><span class="open">Open live ↗</span></a>
+      <figcaption>
+        <p><i>You see</i><span>The Paladin. Tap d7, and the Why panel adds the rules: line + passes own pieces + removed too = takes, then leaves.</span></p>
+        <p><i>You do</i><span>Read the sum and the three-step replay. Tap a seal at left to see only its marks.</span></p>
+      </figcaption>
+    </figure>
+    <figure class="b">
+      <div class="tag"><span class="letter">B</span>Binder and Table</div>
+      <a class="shot" href="mockups/binder-and-table.html?state=hero" target="_blank" rel="noopener"><img src="screens/compare-why-b.jpg" alt="B: the Paladin card at left, the board in the middle and the same Why panel at right"><span class="open">Open live ↗</span></a>
+      <figcaption>
+        <p><i>You see</i><span>The same sum and replay in a panel at the right. The rules are on the card at the far left.</span></p>
+        <p><i>You do</i><span>Read the sum. Tap a seal on the card to see only its marks on the card and on the board.</span></p>
+      </figcaption>
+    </figure>
+  </div>
+  <p class="key"><small>Key difference</small><strong>Almost the same. In A, the marks and the seals that made them are on one board. In B, the moves show in two places: the card diagram and the board.</strong></p>
+</section>
+
+<!-- 4 -->
+<section class="row" id="kings">
+  <div class="rowhead"><span class="num">4</span><h2>Kings and cards</h2><span class="states">A <code>kings</code> · B <code>kings</code></span></div>
+  <div class="pair">
+    <figure class="a">
+      <div class="tag"><span class="letter a">A</span>Proving Ground</div>
+      <a class="shot" href="mockups/proving-ground.html?state=kings" target="_blank" rel="noopener"><img src="screens/compare-kings-a.jpg" alt="A: the Mud king on the board, its powers March and Leap as coins at right, Leap drawn as a blue arc"><span class="open">Open live ↗</span></a>
+      <figcaption>
+        <p><i>You see</i><span>The Mud king on the board. Its two powers are coins at right, each with a small diagram. Leap shows as a blue arc.</span></p>
+        <p><i>You do</i><span>Tap a coin to try it on the board. Pick another king on the Kings tab. LAB cards work the same way.</span></p>
+      </figcaption>
+    </figure>
+    <figure class="b">
+      <div class="tag"><span class="letter">B</span>Binder and Table</div>
+      <a class="shot" href="mockups/binder-and-table.html?state=kings" target="_blank" rel="noopener"><img src="screens/compare-kings-b.jpg" alt="B: the Kings page with six king cards, each with art and two power coins"><span class="open">Open live ↗</span></a>
+      <figcaption>
+        <p><i>You see</i><span>The Kings page: six king cards. Each has art and two power coins.</span></p>
+        <p><i>You do</i><span>Open a king card. A test board opens; tap a coin to try it. LAB cards have their own page.</span></p>
+      </figcaption>
+    </figure>
+  </div>
+  <p class="key"><small>Key difference</small><strong>A shows a power at work on the board at once. B shows all six kings first; you open one to test it.</strong></p>
+</section>
+
+<!-- glance -->
+<section class="glance" id="glance">
+  <div class="rowhead"><h2>At a glance</h2></div>
+  <table>
+    <thead>
+      <tr><th scope="col"></th><th scope="col" class="a"><span class="h"><span class="letter a">A</span>Proving Ground<span class="choice">Your choice</span></span></th><th scope="col"><span class="h"><span class="letter">B</span>Binder and Table</span></th></tr>
+    </thead>
+    <tbody>
+      <tr><th scope="row">Where a rule lives</th><td class="a" data-l="A · Proving Ground">On the board: seals beside it, marks on the squares.</td><td data-l="B · Binder and Table">On a card: a move diagram and up to 3 seals.</td></tr>
+      <tr><th scope="row">What you see first</th><td class="a" data-l="A · Proving Ground">One piece (the Pawn) on the board. The library is a ledge below.</td><td data-l="B · Binder and Table">The binder: every piece as a card. No board yet.</td></tr>
+      <tr><th scope="row">How you edit moves</th><td class="a" data-l="A · Proving Ground">Paint the board squares with Move, Take or Both.</td><td data-l="B · Binder and Table">Paint the 7×7 diagram on the card. The board copies it.</td></tr>
+      <tr><th scope="row">How many places show the moves</th><td class="a" data-l="A · Proving Ground"><b>One:</b> the board.</td><td data-l="B · Binder and Table"><b>Two:</b> the card diagram and the board.</td></tr>
+      <tr><th scope="row">Library</th><td class="a" data-l="A · Proving Ground">A ledge of figures with tabs: Pieces, Kings, Cards (LAB), Rules.</td><td data-l="B · Binder and Table">Binder pages from a side rail: Pieces, Kings, Cards, Rules.</td></tr>
+      <tr><th scope="row">Kings and powers</th><td class="a" data-l="A · Proving Ground">The king stands on the board. Its powers are coins beside it; tap one to try it.</td><td data-l="B · Binder and Table">A page of king cards with two coins each. Open one to test it.</td></tr>
+      <tr><th scope="row">Cards (LAB)</th><td class="a" data-l="A · Proving Ground">A hand on the ledge. Play a card on the board.</td><td data-l="B · Binder and Table">A page of card art. Open a card to test it on the table.</td></tr>
+      <tr><th scope="row">Best at</th><td class="a" data-l="A · Proving Ground">Change and test in one step. Cause and effect in one view.</td><td data-l="B · Binder and Table">Seeing the whole set. Sharing a piece as one card. One-to-one with the code (seal = rule block, 3 sockets).</td></tr>
+      <tr><th scope="row">Weak at</th><td class="a" data-l="A · Proving Ground">No view of all pieces at once. It needs a “See all” page.</td><td data-l="B · Binder and Table">The same moves in two places. More steps before you test. The diagram is small.</td></tr>
+      <tr><th scope="row">Judges</th><td class="a" data-l="A · Proving Ground"><span class="score"><span>Art 8.5</span><span>UX 8.5</span><span>Systems 7.5</span><span class="mean">Mean 8.2</span></span></td><td data-l="B · Binder and Table"><span class="score"><span>Art 8</span><span>UX 7</span><span>Systems 8</span><span class="mean">Mean 7.7</span></span></td></tr>
+    </tbody>
+  </table>
+  <p class="next"><b>Plan:</b> build A. Take two parts of B into A: the binder grid as the “See all” page, and the card face as the thing a player shares.</p>
+</section>
+
+<footer>Click a screenshot to open that state of the live mockup in a new tab. In a mockup, press M for all states.</footer>
+
+</div>
+</body>
+</html>
