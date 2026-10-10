@@ -90,7 +90,7 @@ Three reviews (correctness, security, spec) gave 19 confirmed findings. This ste
 - [x] Item 1: the three reviews (the workflow ran them before this step).
 - [x] Item 2: the confirmed findings are fixed, or recorded below as a decision with a reason.
 - [x] Item 3: every check runs on the integrated branch (evidence below).
-- [ ] Item 4: the pull request body. The PR step writes it. It must now give the release order of `supabase/README.md` ("Release order (a short outage)"): migrations 0005–0009 and blocks 3–6 of `plugin-deploy/runtime-role.sql` go in while the live check of the new server waits.
+- [x] Item 4: the pull request body. The PR step writes it. It must now give the release order of `supabase/README.md` ("Release order (a short outage)"): migrations 0005–0009 and blocks 3–6 of `plugin-deploy/runtime-role.sql` go in while the live check of the new server waits. Done: [`pr-body.md`](../pr-body.md) (see "final checks" below).
 
 Findings and fixes:
 
@@ -127,3 +127,66 @@ Open issues and owner decisions:
 - `kingdown_say` and `kingdown_claim` stay app-only, and the board has no controls for them yet. The sweep ends a missed deadline within a minute, so a ChatGPT player does not need the claim. The board build adds both controls. `kingdown_games` (the inbox) does not show a draw offer; the game view does.
 - `supabase/check-migration.mjs` did not run: it needs pglite, and this worktree may not install packages. `migrations.db.test.ts` and `npm run plugin:db:init-test` run every migration twice on real Postgres instead.
 - The sweep and the deletion job take at most 100 games and 50 players for each call. A game or a player that fails each time stays first in the list, so 100 such games (or 50 such players) would hold back the rest. The log names each one (`ponytail:` comments in `src/match/service.ts` and `src/online/jobs.ts`).
+
+### 2026-10-10 — final checks and the pull request body
+
+The final step ran every check of the spec and of tickets 02 to 09 on `b4eda638`, with a fresh test database, and wrote [`pr-body.md`](../pr-body.md). It changed no code.
+
+- [x] A fresh test database: `node tools/plugin-db/make-test-db.mjs kingdown_mp_final_test` ("created"). The test files made their own copies fresh (`kingdown_mp_final_api_test`, `_chatgpt_test`, `_jobs_test`, `_migrations_test`).
+- [x] Every command of the step (below), each with exit 0.
+- [x] Each check of the spec and of tickets 02 to 09 (the table below).
+- [x] `pr-body.md`: what the branch adds, why, how to check it, the deviations from the report, and the owner's steps before any deploy.
+
+Evidence (`PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:55432/kingdown_mp_final_test`):
+
+- `npm run plugin:db:init-test`: "Disposable PostgreSQL schema ready (migrations 0001-0009); every migration is repeatable".
+- `npm test`: typecheck clean; vitest 124 files passed, 1,955 tests passed, 8 skipped (98.6 s); `node --test` 50 of 50; exit 0.
+- `npm run build`: exit 0.
+- `npm run plugin:build`: exit 0. `npm run plugin:server:check`: "Compiled HTTP + real PostgreSQL: open, move, AI, retry, foreign seat rejection, service restart/resume, friend invitation link/join, board recovery, resource (4327175 JSON bytes), and production auth gate passed". `npm run plugin:smoke`: "Source-free runtime: Haste, bounded AI, public DTO, apply, save/reload and 1 archived engine(s) passed".
+- `npm run plugin:check:protocol`: PASS, with the table of the 16 tools and their hints. The one "King Down tool failed" line in its log is the check's own fault injection ("sanitized internal errors").
+- `npm run check:browser plugin-ui plugin-ui-http plugin-oauth`: all 3 passed (15.6 s, 15.3 s, 2.6 s).
+- One-project build (ticket 03): `npm run build:vercel`, then `npm run check:vercel`: "One-project tree: static site, /mcp (open, move), /authorize, /consent.mjs, /api (session tokens only; Daily games between two website players and between a website and a ChatGPT player, with a retry), /internal (secret only) and 1 archived engine(s) passed".
+- `npm run test:docs`: 5 files, 110 tests passed.
+- An unchanged view read, measured locally (a script in the session scratchpad, not committed): a Daily friend game after 6 turns, 100 reads each after 10 warm-up reads. `view` with `since` = the current revision: 0.59 ms median, 1.12 ms p95, 633 bytes. A full `view`: 0.46 ms median, 3,457 bytes. `inbox`: 0.27 ms median. The 330 reads left the game row unchanged.
+- Ticket 03's comment check, done again in this worktree with no commit: a changed comment in `src/rules/rules.ts` changes the development fingerprint (`sha256:40ca2a73…` to `sha256:58b9eca4…`), and the development save from before gets `MATCH_INCOMPATIBLE`. `npm run plugin:build` with the change keeps the compiled fingerprint `sha256:2675a7e6…` (in `runtime/worker.mjs`) and adds no file to `engines/`; `npm run plugin:smoke` plays the next move of the archived fixture game in the compiled runtime. The step then put the file back (`git status` clean) and ran the builds above on the clean tree.
+- After the runs, `git status` is clean: the builds add no engine.
+
+Checks, one for each line of the spec and the tickets:
+
+| Where | Check | Result | Evidence |
+|---|---|---|---|
+| Spec | A retry with the same `command_id` applies once; a two-action Daily turn is one command, and nothing changes if the second action fails | pass | `service.db.test.ts` "applies a retried command once and refuses the same ID with other input", "applies a Daily turn of two actions as one command, all or nothing"; `http.db.test.ts` "plays a Daily friend game between two website identities, with retries that apply once" |
+| Spec | Every seat's `action` state matches the engine turn after each command, Haste included | pass | `service.db.test.ts` "keeps every seat action state on the engine turn after each command, Haste included" |
+| Spec | `kingdown_get` writes nothing; an unchanged view read is fast | pass | `server.db.test.ts` "runs the read-only tools on a read-only connection, and only those"; 0.59 ms median (above) |
+| Spec | A missed Daily deadline ends the game by the sweep; the turn email and the 80% reminder go to the outbox and the fake sender; a second turn email waits for the player | pass | `jobs.db.test.ts` "ends a missed Daily deadline…", "sends one turn email, then no more until the player returns", "queues the 80% reminder once…"; `service.db.test.ts` "ends Daily games on a missed deadline: the sweep, a late command and a claim" |
+| Spec | After the 7-day grace the opponent keeps the game with "Deleted player"; a sign-in in the grace cancels; a report hold keeps the data | pass | `jobs.db.test.ts` "deletes an account after the grace: the opponent keeps the game; a report hold waits; a cancelled request stays"; `accounts.db.test.ts` "asks for a deletion with a 7-day grace that a sign-in cancels, and holds a reported player's data" |
+| Spec | A game started before an engine change keeps accepting moves | pass | `tools/engines.test.ts` "continues the fixture game of engine %s on its archived bundle"; `plugin:smoke`; the comment check (above) |
+| Spec | A report from the website API and one from ChatGPT reach the owner queue | pass | `http.db.test.ts` "serves the account, relation and report routes…" (`SafetyService.queue()` holds the report); `server.db.test.ts` "plays a Daily friend game between two ChatGPT players…" (`kingdown_report` writes the open `reports` row that the queue reads) |
+| Spec | A website player and a ChatGPT player finish a Daily game in one database (HTTP, two local identities) | pass | `npm run check:vercel` |
+| Spec | `npm test`, the plugin browser checks and `npm run build` pass | pass | above |
+| 02 | Retry once; two-action turn atomic; seat states with Haste; self-play refused; invite race; the sweep ends a Daily game; deletion keeps the opponent's game | pass | `service.db.test.ts`: the three tests above, "refuses self-play in the service and in the database", "gives one seat to one of two joiners and lets the winner retry", "ends Daily games on a missed deadline…", "keeps the opponent's game when an account is deleted" |
+| 02 | `npm test` and the three plugin browser checks | pass | above |
+| 03 | A comment change in `src/rules/` changes the development fingerprint; a game from before still loads on its archived bundle in the compiled build | pass | the comment check (above) |
+| 03 | The compiled function answers `/mcp` (local personas), `/authorize` and a static file | pass | `npm run check:vercel` |
+| 03 | `npm test`, `npm run build`, `npm run plugin:build`, `npm run plugin:server:check`, the browser checks | pass | above |
+| 04 | Glicko-2: Glickman's example; a win raises; a draw between equals stays; RD falls after a game and grows with idle time | pass | `glicko2.test.ts` (9 tests, in `npm test`) |
+| 04 | Deadlines: a fake-clock test for each kind, Haste included | pass | `deadline.test.ts` (14 tests, in `npm test`) |
+| 04 | `npm test` | pass | above |
+| 05 | Each draft names its source pages and the owner facts it still needs | pass | `tools/safety-drafts.docs.test.ts` (in `npm run test:docs`) |
+| 05 | `npm run test:docs` | pass | 110 tests |
+| 06 | Fake clock and fake sender: a missed deadline ends the game; one turn email until the player returns; one 80% reminder; no alert while active; two drains send each message once; a deletion keeps the opponent's game; a held report blocks the deletion until the hold ends | pass | `jobs.db.test.ts`: the tests above, "sends no alert while the recipient is in the game", "sends each message once with two drains at once…" |
+| 06 | `npm test` | pass | above |
+| 07 | Handle rules and reservation; rename limit; a block refuses an invite; a report reaches the queue; an action writes a statement; a hold blocks deletion | pass | `accounts.db.test.ts` "checks handles, allows one rename in 90 days…", "follows and blocks…", "takes reports from the reporter's own identity and queues them…", "writes a statement of reasons with each action…", "asks for a deletion with a 7-day grace…"; `jobs.db.test.ts` (the hold through the job) |
+| 07 | `npm test` | pass | above |
+| 08 | Auth refusals (no token, wrong audience, MCP token, anonymous); a full Daily game between two website identities; retries; the internal secret | pass | `http.test.ts` "admits a website session and refuses every other token…", "run a job only with the exact secret…"; `http.db.test.ts`; the compiled function in `npm run check:vercel` |
+| 08 | One website identity and one MCP identity finish a Daily game in one database | pass | `npm run check:vercel` |
+| 08 | `npm test` and the plugin browser checks | pass | above |
+| 09 | The protocol check lists the tools with their hints; a test proves `kingdown_get` writes no row | pass | `npm run plugin:check:protocol`; `server.db.test.ts` "runs the read-only tools on a read-only connection, and only those" |
+| 09 | The plugin browser checks; `npm test` | pass | above |
+
+Not run, and why:
+
+- `supabase/check-migration.mjs`: it needs pglite, and the worktree installs no package (as in the review fixes). `migrations.db.test.ts` and `npm run plugin:db:init-test` run every migration twice on real Postgres.
+- The phase 1 checks of the report that need a deploy or devices: ChatGPT on desktop, iPhone and Android; the 50-game load test; the live 2-minute deadline with `cron.sql`; the consent page with the website session. The spec leaves them out of this build.
+
+Open issues: none new. The open decisions of the review fixes stay for the owner. The owner's steps before a deploy are in `pr-body.md`, "Owner's steps before any deploy".

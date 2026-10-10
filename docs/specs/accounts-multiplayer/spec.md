@@ -1,6 +1,6 @@
 # Accounts and multiplayer
 
-Status: foundation build in progress on `claude/multiplayer-foundation`
+Status: foundation build done on `claude/multiplayer-foundation` (tickets 02–10 resolved; every check passes); waits for the pull request ([pr-body.md](pr-body.md)) and the owner's review. Nothing is deployed.
 
 ## Purpose
 
