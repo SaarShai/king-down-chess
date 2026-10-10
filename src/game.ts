@@ -60,6 +60,9 @@ export class Game {
     this.status = s === 'playing' && RULES.threefold && (this.seen.get(this.key()) ?? 1) >= 3 ? 'drawRepetition' : s;
   }
 
+  /** The board after a recorded ply, including the last position. */
+  positionAfter(ply: number): Position { return ply === this.history.length ? this.pos : this.history[ply].pos; }
+
   get legal(): Move[] { return (this.cache ??= legalMoves(this.pos)); }
   get inCheck(): boolean { return inCheck(this.pos); }
 

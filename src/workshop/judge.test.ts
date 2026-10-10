@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANCHOR_DESIGNS, anchorOf } from './anchors';
-import { BAND_WORD, THRESHOLDS, badgeText, bandOf, judge, memoryOf, shelfOf, whyHead, whyTitle, worthOf, type Label } from './judge';
+import { BAND_WORD, THRESHOLDS, badgeText, bandOf, judge, memoryOf, whyHead, whyTitle, worthOf, type Label } from './judge';
 import { halves } from './text';
 import { DIAG, DIRS, KING_STEP, KNIGHT_JUMP, ORTHO, PRESETS, empty, keyOf, limit, presetOf, type Dir, type Mark, type PieceDesign, type Rule, type Square, type When } from './model';
 import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS } from './vocab';
@@ -136,8 +136,8 @@ describe('the judge (§6)', () => {
 
   it('gives an unchanged Pawn and Queen their own words in every view, and Why? its title from the verdict', () => {
     const pawn = judge(p('pawn')), queen = judge(p('queen'));
-    expect([bandOf(pawn), shelfOf(pawn), whyTitle(pawn), pawn.warn]).toEqual(['The unit of worth', 'Standard', 'Why this worth?', false]);
-    expect([bandOf(queen), shelfOf(queen), whyTitle(queen), queen.warn]).toEqual(['The queen’s worth', 'Standard', 'Why this worth?', false]);
+    expect([bandOf(pawn), whyTitle(pawn), pawn.warn]).toEqual(['The unit of worth', 'Why this worth?', false]);
+    expect([bandOf(queen), whyTitle(queen), queen.warn]).toEqual(['The queen’s worth', 'Why this worth?', false]);
     const paladin = judge(p('paladin'));
     expect([paladin.label, paladin.warn, whyTitle(paladin)]).toEqual(['fair', true, 'Why this warning?']);
     expect(whyTitle(judge(d(NN, ORTHO)))).toBe('Why “likely overpowered”?');

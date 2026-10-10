@@ -6,15 +6,15 @@ import {
   pressMenu, readUi, refusalText, resultText, waitForUi,
 } from './app-ui.mjs';
 
-type Node = { textContent: string; querySelectorAll?: (sel: string) => Node[] };
-const row = (text: string): Node => ({ textContent: text });
+type Node = { textContent: string; dataset?: Record<string, string>; open?: boolean; querySelectorAll?: (sel: string) => Node[] };
+const row = (text: string): Node => ({ textContent: text, dataset: { lan: text.trim().replace(/\?+$/, ''), mark: text.trim().match(/\?*$/)![0] } });
 const line = (...rows: Node[]): Node => ({ textContent: rows.map(r => r.textContent).join(' '), querySelectorAll: () => rows });
 
 /** What the stand-in page did: each press, focus and key, in order. */
 let log: string[] = [];
 /** A document with the readout ids; a value of null leaves that id out. */
 function page(ids: Record<string, Node | null>) {
-  (globalThis as { document?: unknown }).document = { getElementById: (id: string) => ids[id] ?? null };
+  (globalThis as { document?: unknown }).document = { getElementById: (id: string) => ids[id] ?? (id === 'menu-sheet' ? { open: false } : null) };
   return {
     evaluate: async (fn: () => unknown) => fn(),
     locator: (sel: string) => ({
@@ -32,13 +32,19 @@ const moves = (...lines: Node[]): Node => ({
 });
 const today = (over: Record<string, Node | null> = {}) => page({
   moves: moves(line(row('e2-e4?'), row('e7-e5??')), line(row('Nd2-d8!'))),
-  status: row(''), 'move-help': row(' Not allowed: no. '), moment: row('The archer shot.'),
+  'context-text': row('Not allowed: no.\nThe archer shot.'), status: row(''), 'move-help': row(' Not allowed: no. '), moment: row('The archer shot.'),
   ...over,
 });
 
 afterEach(() => { delete (globalThis as { document?: unknown }).document; log = []; });
 
 describe('the readouts', () => {
+  it('reports a learned lesson only from the visible success line', () => {
+    today({ 'context-text': row('Archer learned.') });
+    expect(readUi().lessonLearned).toBe('Archer');
+    today({ 'context-text': row('Tap your Archer.') });
+    expect(readUi().lessonLearned).toBe('');
+  });
   it('lanMoves gives the LAN of each ply without the key-moment marks', async () => {
     expect(await lanMoves(today())).toEqual(['e2-e4', 'e7-e5', 'Nd2-d8!']);
   });
@@ -50,8 +56,8 @@ describe('the readouts', () => {
   });
   it('contextText gives one line for each readout that has words, trimmed', async () => {
     expect(await contextText(today())).toBe('Not allowed: no.\nThe archer shot.');
-    expect(await contextText(today({ status: row('thinking…') }))).toBe('thinking…\nNot allowed: no.\nThe archer shot.');
-    expect(await contextText(today({ 'move-help': row(''), moment: row('') }))).toBe('');
+    expect(await contextText(today({ status: row('thinking…') }))).toBe('Not allowed: no.\nThe archer shot.');
+    expect(await contextText(today({ 'context-text': row(''), 'move-help': row(''), moment: row('') }))).toBe('');
   });
   it('refusalText gives the help line only, trimmed, and empty when it has no words', async () => {
     expect(await refusalText(today())).toBe('Not allowed: no.');
@@ -65,7 +71,7 @@ describe('the readouts', () => {
     expect([await computerThinks(over), await resultText(over)]).toEqual([false, 'White wins by checkmate']);
   });
   it('a missing readout fails with its id', async () => {
-    await expect(contextText(today({ moment: null }))).rejects.toThrow('the page has no #moment');
+    await expect(contextText(today({ 'context-text': null }))).rejects.toThrow('the page has no #context-text');
     await expect(lanMoves(today({ moves: null }))).rejects.toThrow('the page has no #moves');
     await expect(refusalText(today({ 'move-help': null }))).rejects.toThrow('the page has no #move-help');
     await expect(computerThinks(today({ status: null }))).rejects.toThrow('the page has no #status');
@@ -82,27 +88,27 @@ describe('the controls', () => {
     expect(menuItem(p, 'New game')).toMatchObject({ sel: '#new-game-btn' });
     expect(menuItem(p, 'Guide')).toMatchObject({ sel: '#rules-btn' });
     expect(menuItem(p, 'Workshop')).toMatchObject({ sel: '#workshop-btn' });
-    expect(menuItem(p, 'Settings')).toMatchObject({ sel: '#settings-btn' });
+    expect(menuItem(p, 'Settings')).toMatchObject({ sel: '[data-go="help"]' });
     expect(() => menuItem(p, 'Menu')).toThrow('no menu item "Menu"; the items are New game, Guide, Workshop, Settings');
   });
   it('pressMenu gives its press options to the item, and taps when asked', async () => {
     const p = page({});
     await pressMenu(p, 'New game', { timeout: 1000 });
     await pressMenu(p, 'Settings', { tap: true });
-    expect(log).toEqual(['click #new-game-btn {"timeout":1000}', 'tap #settings-btn {}']);
+    expect(log).toEqual(['click #menu-btn {"timeout":1000}', 'click [data-go="new"] {"timeout":1000}', 'click #new-game-btn {"timeout":1000}', 'tap #menu-btn {}', 'tap [data-go="help"] {}']);
   });
   it('boardHelp opens the board switches, acts, then closes them', async () => {
     const p = page({});
     await boardHelp(p, async () => { log.push('act'); }, { tap: true });
-    expect(log).toEqual(['tap #settings-btn {}', 'act', 'key Escape']);
+    expect(log).toEqual(['tap #menu-btn {}', 'tap [data-go="help"] {}', 'act', 'click #menu-close undefined']);
   });
   it('focusBoard reaches the board with a key; leaveBoard only moves the focus away', async () => {
     const p = page({});
     await focusBoard(p);
-    expect(log).toEqual(['focus #new-game-btn', 'key Shift+Tab']);
+    expect(log).toEqual(['focus #menu-btn', 'key Tab', 'focus #board']);
     log = [];
     await leaveBoard(p);
-    expect(log).toEqual(['focus #new-game-btn']);
+    expect(log).toEqual(['focus #menu-btn']);
   });
   it('moveRow takes a ply from 1', () => {
     expect(moveRow(page({}), 2)).toMatchObject({ sel: '#moves [data-ply="2"]' });

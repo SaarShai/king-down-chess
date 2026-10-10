@@ -154,18 +154,29 @@ calligraphic touch that stays readable at 12–15 px.
   `--parchment-deep #e7d8b8`; text `--ink #2b2621` and `--ink-soft #5b5045`; stone `--stone-100/300/500/700/900`;
   `--accent #842c21` (primary buttons, checked boxes), `--accent-deep #5a1c14`; `--gold #c99a3e` (ornament),
   `--gold-ink #7a5712` (gold as text); `--danger #b0251b` (threats, check); `--focus #1c5bb0`;
-  `--night #221d18`, `--on-night`, `--on-night-soft` (title screen).
+  `--accent-bright #9c3a2d` (the lit top of a crimson control), `--gold-bright #e9c071` (a lit gold edge, never text);
+  `--on-night` (the Workshop note, on `--stone-900`); `--night #221d18` and `--on-night-soft` stay as names, with
+  no use now; the mark colours `--mark-move`, `--mark-capture`, `--mark-swap`, `--mark-shove`, `--mark-power`
+  (as "r g b").
+- **The Quiet Table floor.** The page is light only (`color-scheme: only light`, also when the device is in dark
+  mode). `--floor` is a radial gradient from `#faf5ea` through `--floor-base #f2e9d6` to `--floor-edge #e6d7b9`.
+  The page, the first-visit title and the Workshop surround stand on it, and the painted board's canvas is clear
+  round its frame. The Workshop fills the screen with flat `--parchment`, so its surround (`::backdrop`) does not
+  show. `--fg`, `--fg-soft`, `--line` (a hairline) and `--wash` (a quiet hover) go on the floor.
 - **Type.** `--font-display`, `--font-body`; sizes `--fs-xs 12.5` · `--fs-sm 14` · `--fs-md 15.5` (body) ·
-  `--fs-lg 18` · `--fs-xl 23` · `--fs-2xl 30`; `--lh 1.45`.
-- **Space and shape.** `--space-1…6` = 4 · 8 · 12 · 16 · 24 · 32 px; `--radius-sm 5`, `--radius 8`, `--radius-lg 14`;
-  `--tap 44px`; `--lift`, `--shadow-card`, `--shadow-float`.
+  `--fs-body 16` (body on a phone) · `--fs-lg 18` · `--fs-xl 23` · `--fs-2xl 30` · `--fs-3xl 40`; `--lh 1.45`,
+  `--lh-tight 1.2`, `--track-display 0.08em`.
+- **Space and shape.** `--space-1…7` = 4 · 8 · 12 · 16 · 24 · 32 · 48 px; `--radius-sm 5`, `--radius 8`, `--radius-lg 14`,
+  `--radius-pill`; `--tap 44px`; `--lift`, `--shadow-card`, `--shadow-float`, `--shadow-sheet`.
+- **Motion.** `--dur-1…4` = 120 · 200 · 320 · 480 ms; `--ease-out`, `--ease-in-out`, `--ease-in`, `--ease-spring`.
 
 ## Contrast (WCAG 2.2 AA)
 
-`node docs/visual-design/contrast.mjs` checks 26 text/surface and UI pairs read from the tokens
-([contrast.json](contrast.json)); all pass. Lowest text pairs: `--gold-ink` on parchment 5.49:1, `--danger`
-on parchment 5.62:1, `--ink-soft` on `--stone-100` (disabled labels) 6.30:1. Body text is 12.5:1 on the
-panel and 14.0:1 in dialogs. UI parts: focus ring 5.5:1, borders 3.6–7.9:1.
+`node docs/visual-design/contrast.mjs` checks 36 text/surface and UI pairs read from the tokens
+([contrast.json](contrast.json)); all pass. Lowest text pairs: `--gold-ink` on `--floor-edge` 4.62:1, `--danger`
+on `--floor-edge` 4.73:1, `--gold-ink` on parchment 5.49:1. Body text is 12.5:1 on the panel, 12.4:1 on the
+floor and 14.0:1 in dialogs. UI parts: focus ring 4.7–6.2:1, borders 3.6–7.9:1, an off label (ink-soft at
+75 %) 3.3–3.7:1.
 
 ## Checks
 

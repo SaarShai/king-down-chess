@@ -4,8 +4,8 @@
 // Screenshots in PLAYABLE_OUT: desktop-computer.jpg, desktop-powers.jpg, phone-computer.jpg, phone-powers.jpg.
 // Run: npm run check:browser new-game (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
-import { pressMenu, waitForUi } from './app-ui.mjs';
-import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
+import { openExtra, powersHidden, startLesson, endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
+import { assertNoErrors, env, insideViewport, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -42,7 +42,6 @@ const motion = (page, sel) => page.evaluate(sel => {
 const kingsDrawn = (page, kings) => page.waitForFunction(k => {
   const v = window.view.kings; return v && [...v.set, ...v.drawn].join() === [...k, ...k].join();
 }, kings, { timeout: 10000 });
-const info = (page, re) => page.waitForFunction(r => new RegExp(r, 's').test(document.getElementById('info').textContent), re.source, { timeout: 10000 });
 
 try {
   // 1. Defaults on a first visit: Play the computer, Club, White, a random army; Spirit and Shadow.
@@ -50,6 +49,7 @@ try {
   await pressMenu(page, 'New game');
   assert.deepEqual([await checked(page, 'mode'), await checked(page, 'level'), await checked(page, 'side')], ['computer', 'club', '0']);
   assert.equal(await page.inputValue('#army'), 'random');
+  assert.deepEqual(await page.locator('#new-game label:has(input:checked)').evaluateAll(labels => labels.map(el => [getComputedStyle(el).borderTopWidth, getComputedStyle(el).borderTopColor, getComputedStyle(el).color])), Array(4).fill(['2px', 'rgb(77, 69, 60)', 'rgb(43, 38, 33)']), 'mode, level and side use the same selected border and ink');
   assert.equal(await page.evaluate(() => document.getElementById('more-options').open), false, 'More options starts folded');
   assert.equal(await shown(page, 'king-picker'), false, 'no king picker without powers');
   assert.equal(await page.locator('#modes input[type="radio"]').count(), 3);
@@ -66,9 +66,10 @@ try {
   }
   assert.deepEqual(await pressed(page, 0), ['Spirit', 'HolyLight']);
   assert.deepEqual(await pressed(page, 1), ['Shadow', 'DeathTouch']);
+  assert.equal(await page.locator('#pick-0 .power-choice [aria-pressed="true"]').evaluate(el => getComputedStyle(el).borderTopColor), 'rgb(77, 69, 60)', 'the power selection uses the segment border');
   assert.equal(await page.getByRole('group', { name: "White's king" }).getByRole('button', { name: 'Spirit', pressed: true }).count(), 1);
-  assert.equal(await powerLine(page, 0), 'Holy Light (always on) — enemy pawns cannot take your king; your pieces beside, in front of or behind it cannot be taken.');
-  assert.equal(await powerLine(page, 1), 'Death Touch (always on) — your king takes an enemy next to it, or two squares away straight forward, back or sideways over an empty square, without moving — it can only take this way.');
+  assert.equal(await powerLine(page, 0), 'Holy Light (always on). Enemy pawns cannot take your king. Your pieces beside, in front of or behind it cannot be taken.');
+  assert.equal(await powerLine(page, 1), 'Death Touch (always on). Your king takes an enemy next to it, or two squares away straight forward or back over an empty square, without moving. It can only take this way.');
   assert.match(await page.textContent('#pick-0 h3'), /you/);
   assert.match(await page.textContent('#pick-1 h3'), /computer/);
   await shot(page, 'desktop-powers.jpg', jpeg);
@@ -83,10 +84,10 @@ try {
     lines.push(await powerLine(page, 0));
   }
   assert.equal(new Set(lines).size, 12, 'twelve different power lines');
-  assert.ok(lines.every(l => /^[A-Z][a-zA-Z ]+ \((\d per game|always on)\) — [a-z].+\.$/.test(l)), lines.join('\n'));
-  assert.equal(lines[0], 'Freeze (1 per game) — freeze an enemy piece (not the king), then make your move: the frozen piece cannot move on its next turn.');
-  assert.equal(lines[9], 'Mercy (always on) — your king steps 1–2 squares and jumps your pieces, but takes only a pawn or a guard; your pieces next to it cannot be taken except by pawns.');
-  assert.ok(lines.includes('Darkness (always on) — your pawns may also step diagonally, and take only straight ahead; your king may also step two squares in a straight line, over an empty square.'), lines.join('\n'));
+  assert.ok(lines.every(l => /^[A-Z][a-zA-Z ]+ \((\d per game|always on)\)\. [A-Z].+\.$/.test(l)), lines.join('\n'));
+  assert.equal(lines[0], 'Freeze (1 per game). Freeze an enemy piece (not the king). Then make your move. The frozen piece cannot move on its next turn.');
+  assert.equal(lines[9], 'Mercy (always on). Your king steps 1–2 squares and jumps your pieces, but takes only a pawn or a guard. Your pieces next to it cannot be taken except by pawns.');
+  assert.ok(lines.includes('Darkness (always on). Your pawns may also step diagonally, and take only straight ahead. Your king may also step two squares in a straight line, over an empty square.'), lines.join('\n'));
   await page.click('#pick-0 .power-choice button[data-power=""]');
   assert.deepEqual(await pressed(page, 0), ['Shadow', '']);
   assert.equal(await powerLine(page, 0), 'No power: a plain chess king.');
@@ -132,7 +133,7 @@ try {
   let s = await saved(page);
   assert.deepEqual([s.white, s.black, s.skill, s.rules.kings], ['human', 'ai', 'club', [null, null]]);
   assert.match(s.back, /^[A-Z]{8}$/);
-  assert.equal(await page.isHidden('#powers'), true, 'no power bar');
+  assert.equal(await powersHidden(page), true, 'no power bar');
   await kingsDrawn(page, ['spirit', 'shadow']);
   ok('Play the computer: White against the Club computer, kings without powers, drawn as Spirit and Shadow');
 
@@ -150,12 +151,10 @@ try {
   s = await saved(page);
   assert.deepEqual([s.white, s.black, s.skill], ['human', 'ai', 'club']);
   assert.deepEqual(s.rules.kings, [{ king: 'Spirit', power: 'HolyLight' }, { king: 'Shadow', power: 'DeathTouch' }]);
-  await info(page, /White's king: Holy Light — .*Black's king: Death Touch — /);
   // Other kings, and No power for one side.
   await startGame(page, { mode: 'powers', kings: ['Mud:March', 'Frost:none'], army: 'classic' });
   s = await saved(page);
   assert.deepEqual(s.rules.kings, [{ king: 'Mud', power: 'March' }, null]);
-  await info(page, /White's king: March — .*Black's king: no power/);
   await kingsDrawn(page, ['mud', 'shadow']); // a king with no power is drawn as the plain king
   ok("Kings' powers: Spirit Holy Light and Shadow Death Touch by default; Mud March against a king with no power");
 
@@ -221,16 +220,99 @@ try {
   // sets them), so the picker shows them so, and the game it starts plays the line the picker showed.
   page = await open({ query: '?rules=2017' });
   await setUpGame(page, { mode: 'powers', kings: ['Frost:Freeze', 'Spirit:Mercy'] });
-  const freeze2017 = 'Freeze (2 per game) — as your move, freeze an enemy piece (not the king): it cannot move on its next turn.';
+  const freeze2017 = 'Freeze (2 per game). As your move, freeze an enemy piece (not the king). It cannot move on its next turn.';
   assert.equal(await powerLine(page, 0), freeze2017);
-  assert.equal(await powerLine(page, 1), 'Mercy (always on) — your king steps 1–2 squares and jumps your pieces, but takes only a guard.');
+  assert.equal(await powerLine(page, 1), 'Mercy (always on). Your king steps 1–2 squares and jumps your pieces, but takes only a guard.');
   await page.click('#pick-1 .emblem[data-king="Shadow"]');
   await page.click('#pick-1 .power-choice button[data-power="Darkness"]');
-  assert.equal(await powerLine(page, 1), 'Darkness (always on) — your pawns step diagonally and take straight ahead, with no double step.');
+  assert.equal(await powerLine(page, 1), 'Darkness (always on). Your pawns step diagonally and take straight ahead, with no double step.');
   await startGame(page, { army: 'classic' });
-  await info(page, /White's king: Freeze, 2 left — as your move, freeze an enemy piece \(not the king\): it cannot move on its next turn/);
   await page.context().close();
   ok('?rules=2017: the picker shows the printed powers (Freeze twice, Mercy, Darkness), and the game plays them');
+
+  // Menu Today uses the same warning as New game, also for a kept match.
+  for (const lesson of [false, true]) {
+    page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' } });
+    if (lesson) await startLesson(page);
+    await openExtra(page); await page.click('#today-army');
+    assert.equal(await page.inputValue('#army'), 'daily');
+    assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.', 'Menu Today warns before it ends the kept match');
+    assert.equal(await page.textContent('#start-game'), 'Start new game');
+    await page.keyboard.press('Escape');
+    if (lesson) await page.click('#return-game');
+    assert.deepEqual(await lanMoves(page), ['e2-e4', 'e7-e5'], 'Close keeps the match');
+    await page.context().close();
+  }
+
+  // The sheet replaces the Start question with a warn line. Close keeps the game.
+  page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'human', sound: false, skill: 'club' } });
+  await pressMenu(page, 'New game');
+  assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.');
+  assert.equal(await page.textContent('#start-game'), 'Start new game');
+  await page.click('#new-game button[value="cancel"]');
+  assert.deepEqual((await saved(page)).moves, ['e2-e4', 'e7-e5']);
+  await startGame(page);
+  assert.deepEqual((await saved(page)).moves, []);
+  await page.context().close();
+  ok('warn line: names the move; Close keeps the game; Start ends it without a question');
+  page = await open();
+  await startGame(page, { mode: 'two', army: 'MMSSNBNK' });
+  assert.equal((await saved(page)).back, 'MMSSNBNK');
+  await setUpGame(page, { army: null });
+  assert.equal(await page.inputValue('#army'), 'MMSSNBNK');
+  await page.click('#more-options summary');
+  assert.equal(await page.evaluate(() => document.getElementById('other-armies').open), true);
+  await page.context().close();
+  ok('More: Start uses the example army and remembers it when the sheet opens again');
+
+  // A staged mate is still a live game, also when a lesson keeps it.
+  page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['f2-f3', 'e7-e5', 'g2-g4'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' } });
+  for (const sq of [59, 31]) {
+    const p = await page.evaluate(s => window.view.screenOf(s), sq);
+    await page.mouse.click(p.x, p.y);
+  }
+  await waitForUi(page, ui => ui.lan.length === 4);
+  await page.waitForFunction(() => document.getElementById('end-turn').getAttribute('aria-disabled') === 'false');
+  await pressMenu(page, 'New game');
+  assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.');
+  assert.equal(await page.textContent('#start-game'), 'Start new game');
+  await page.keyboard.press('Escape');
+  assert.equal((await lanMoves(page)).length, 4, 'Close keeps the staged mate');
+  await openExtra(page); await page.click('#today-army');
+  assert.equal(await page.inputValue('#army'), 'daily');
+  assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.', 'Menu Today warns for a staged mate');
+  await page.keyboard.press('Escape');
+  await startLesson(page);
+  await openExtra(page); await page.click('#today-army');
+  assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.', 'Menu Today warns for a staged mate kept by a lesson');
+  await page.keyboard.press('Escape');
+  await pressMenu(page, 'New game');
+  assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.', 'the lesson keeps the staged game');
+  await page.keyboard.press('Escape');
+  await page.click('#return-game');
+  await endTurn(page);
+  await page.locator('#over').waitFor({ state: 'visible' });
+  await page.keyboard.press('Escape');
+  await pressMenu(page, 'New game');
+  assert.equal(await page.isHidden('#new-game-warn'), true, 'a handed-over mate needs no warning');
+  assert.equal(await page.textContent('#start-game'), 'Start game');
+  await startGame(page, { mode: 'two', army: 'classic' });
+  assert.deepEqual((await saved(page)).moves, []);
+  assert.equal(await page.getAttribute('#end-turn', 'aria-disabled'), 'true', 'Start resets the turn boundary');
+  await page.context().close();
+  ok('staged mate: the live and kept games warn at the turn boundary; the press ends it; Start resets the turn');
+
+  for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    page = await open({ viewport, touch: true });
+    for (const mode of ['computer', 'powers', 'two']) {
+      await setUpGame(page, { mode, powers: mode === 'two' ? true : undefined, army: 'MMSSNBNK' });
+      await insideViewport(page, '#start-game');
+      assert.equal(await page.inputValue('#army'), 'MMSSNBNK');
+      assert.equal(await page.evaluate(() => document.getElementById('other-armies').open), true);
+    }
+    await page.context().close();
+  }
+  ok('sheet: Start stays in view in all modes at 390×844 and 844×390; More keeps the example army');
 
   // 10. Phone 390×844: no sideways scroll in any mode, More options open; screenshots.
   page = await open({ viewport: { width: 390, height: 844 }, touch: true });
@@ -242,6 +324,19 @@ try {
     if (mode === 'two') await page.check('#two-powers');
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.getElementById('new-game').scrollWidth <= document.getElementById('new-game').clientWidth), mode);
     if (mode === 'powers') await shot(page, 'phone-powers.jpg', jpeg);
+  }
+  assert.ok(await page.locator('.em-name').evaluateAll(labels => labels.every(l => l.scrollWidth <= l.clientWidth + 1 && l.scrollHeight <= l.clientHeight + 1)), 'king names fit on the phone');
+  assert.ok(await page.locator('#army-examples option').evaluateAll(options => options.every(o => !/^[A-Z]{8}$/.test(o.textContent))), 'example armies have word labels');
+  const examples = await page.locator('#army-examples option').evaluateAll(options => options.filter(o => /^[A-Z]{8}$/.test(o.value)).map(o => ({ code: o.value, label: o.textContent })));
+  assert.deepEqual(examples.map(o => +o.label.match(/Example army (\d+)/)[1]), examples.map((_, i) => i + 1), 'only example armies count, with no gaps');
+  assert.equal(examples.filter(o => o.code.includes('C')).length, 3, 'three Catapult armies');
+  assert.ok(examples.filter(o => o.code.includes('C')).every(o => o.label.includes('Catapult')), 'each Catapult army keeps its word mark');
+  await page.locator('#more-options').evaluate(el => { el.open = true; });
+  await page.locator('#other-armies').evaluate(el => { el.open = true; });
+  for (const example of examples.filter(o => o.code.includes('C'))) {
+    await page.selectOption('#army', example.code);
+    assert.equal(await page.locator('#army-strip > *').count(), 8, 'an eight-piece army has eight marks');
+    assert.equal(await page.locator('#army-strip [title=catapult]').innerText(), 'C', 'Catapult has a text mark');
   }
   // The power buttons with their pictures: 44 px targets or more, labels whole and at 14 px.
   for (const b of await page.$$eval('#king-picker .power-choice button', bs => bs.map(b => {

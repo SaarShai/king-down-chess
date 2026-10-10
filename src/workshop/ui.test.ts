@@ -3,8 +3,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { figureHtml, gaugeHtml, modelHtml } from './art';
+import { cardHtml } from './card';
 import { figureById, selectedFigure } from './figures';
-import { judge, whyHead } from './judge';
+import { judge, whyHead, type Label } from './judge';
 import { lookOf, lookWords } from './look';
 import { BLANK, PRESETS, fromPreset, presetOf, type PieceDesign, type Rule, type When } from './model';
 import { KEY, MAX, deleteDesign, loadDesigns, loadShelf, saveDesign } from './store';
@@ -104,6 +105,82 @@ describe('art (§8.4.11)', () => {
     const l = lookOf({ ...rook(chain), look: { ...rook().look, glow: 'Flame', army: 1 } });
     expect(lookWords(l)).toBe(`${figureById(l.figure)!.name} look, charcoal.`);
     for (const d of [rook(), rook(chain), rook(chain, noKing)]) expect(lookWords(lookOf(d))).not.toMatch(/plinth|floor|rim|glow|crack/i);
+  });
+});
+
+describe('the read-only card (web redesign ticket 22)', () => {
+  /** The mark classes of one cell of the card's grid: 'move' or 'take'. */
+  const cell = (html: string, grid: string, x: number, y: number): string[] => {
+    const part = html.split(`data-grid="${grid}"`)[1].split('</div>')[0];
+    const m = part.match(new RegExp(`<i class="ws-grid-cell([^"]*)" data-x="${x}" data-y="${y}"`));
+    if (!m) throw new Error(`no cell ${x},${y} in the ${grid} grid`);
+    return m[1].trim().split(/\s+/).filter(c => c && c !== 'dk');
+  };
+  const design = (over: Partial<PieceDesign> = {}): PieceDesign => ({ ...fromPreset(BLANK), name: 'Test Piece', letter: 'T', ...over });
+
+  it('draws the move grid and the take grid, 7 by 7, read only, with the marks of each square', () => {
+    const d = design({ squares: [{ x: 1, y: 1, mark: 'both' }, { x: -1, y: 1, mark: 'move' }, { x: 0, y: -2, mark: 'shoot' }, { x: 2, y: 2, mark: 'moveShoot' }], lines: ['e'] });
+    const html = cardHtml(d, judge(d));
+    for (const grid of ['move', 'take']) expect(html.split(`data-grid="${grid}"`)[1].split('</div>')[0].match(/<i class="ws-grid-cell/g)).toHaveLength(49);
+    expect(html).not.toMatch(/<button|<input|<select/);
+    expect(cell(html, 'move', 1, 1)).toEqual(['c-move']);
+    expect(cell(html, 'take', 1, 1)).toEqual(['c-take']);
+    expect(cell(html, 'move', -1, 1)).toEqual(['c-move']);
+    expect(cell(html, 'take', -1, 1)).toEqual([]);
+    expect(cell(html, 'move', 0, -2)).toEqual([]);
+    expect(cell(html, 'take', 0, -2)).toEqual(['c-shoot']);
+    expect(cell(html, 'move', 2, 2)).toEqual(['c-move']);
+    expect(cell(html, 'take', 2, 2)).toEqual(['c-shoot']);
+    // A slide line in both grids, with an arrow on the edge square.
+    for (const grid of ['move', 'take']) {
+      expect(cell(html, grid, 1, 0)).toEqual(['ln', 'ln-e']);
+      expect(cell(html, grid, 3, 0)).toEqual(['ln', 'ln-e', 'ln-end']);
+      expect(cell(html, grid, -1, 0)).toEqual([]);
+    }
+  });
+
+  it('marks a warning card, but keeps a fair card and an empty card clear', () => {
+    const warning = rook(chain), fair = fromPreset(presetOf('knight')), blank = fromPreset(BLANK);
+    expect(cardHtml(warning, judge(warning))).toContain('class="ws-piece-card ws-read warn"');
+    for (const d of [fair, blank]) expect(cardHtml(d, judge(d))).not.toContain('ws-read warn');
+  });
+
+  it('reads the move and take patterns beside the grids', () => {
+    const d = design({ lines: ['n', 'e', 's', 'w'] });
+    const html = cardHtml(d, judge(d));
+    expect(html).toContain('<p class="ws-caption">Moves like a rook.</p>');
+    expect(html).toContain('<p class="ws-caption">Takes the same squares.</p>');
+  });
+
+  /** The text of the first element with this class. */
+  const textOf = (html: string, cls: string): string => html.match(new RegExp(`class="${cls}"[^>]*>([^<]*)<`))![1];
+
+  it('shows the band word and the worth line of every band', () => {
+    const rook = design({ lines: ['n', 'e', 's', 'w'] }), v = judge(rook);
+    const words = (label: Label): string[] => { const html = cardHtml(rook, { ...v, own: '', label }); return [textOf(html, 'ws-learn'), textOf(html, 'ws-worth')]; };
+    expect(words('fair')).toEqual(['Fair', 'Estimated worth · 4 pawns']);
+    expect(words('possiblyOP')).toEqual(['Possibly overpowered', 'Estimated worth · 4 pawns']);
+    expect(words('untestedOP')).toEqual(['Possibly overpowered', 'Estimated worth · 4 pawns']);
+    expect(words('likelyOP')).toEqual(['Likely overpowered', 'Estimated worth · 4 pawns']);
+    expect(words('possiblyWeak')).toEqual(['Possibly too weak', 'Estimated worth · 4 pawns']);
+    expect(words('likelyWeak')).toEqual(['Likely too weak', 'Estimated worth · 4 pawns']);
+  });
+
+  it('gives an unchanged Pawn and Queen their own words', () => {
+    const own = (key: string): string[] => { const d = { ...fromPreset(presetOf(key)), letter: 'D' }, html = cardHtml(d, judge(d)); return [textOf(html, 'ws-learn'), textOf(html, 'ws-worth')]; };
+    expect(own('pawn')).toEqual(['The unit of worth', 'Estimated worth · 1 pawn']);
+    expect(own('queen')[0]).toBe('The queen’s worth');
+  });
+
+  it('shows the name, the figure, the rules and a hidden summary; a piece with no move and no take has no band', () => {
+    const d = design({ name: `Ann's <b>`, look: { ...fromPreset(BLANK).look, figure: 'clay-golem' }, squares: [{ x: 0, y: 1, mark: 'both' }], rules: [chain] });
+    const html = cardHtml(d, judge(d));
+    expect(textOf(html, 'ws-name-t')).toBe('Ann&#39;s &#60;b&#62;');
+    expect(html).toContain('<img class="ws-fig" src="/ui/workshop/clay-golem-w.webp"');
+    expect(html.match(/<li>([^<]*)<\/li>/g)).toEqual(['<li>When it takes by moving, it may take again from the new square (not a king).</li>']);
+    expect(textOf(html, 'sr-only ws-summary')).toBe('Clay Golem look, ivory. Moves 1 square straight ahead. Takes the same squares. When it takes by moving, it may take again from the new square (not a king). About half a pawn, likely too weak.');
+    const blank = cardHtml(design(), judge(design()));
+    expect([textOf(blank, 'ws-learn'), textOf(blank, 'ws-worth')]).toEqual(['', 'It has no moves and no takes.']);
   });
 });
 

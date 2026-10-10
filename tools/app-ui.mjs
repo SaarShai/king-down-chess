@@ -1,94 +1,145 @@
-// The app's controls and readouts for the browser checks and the sample tool: the one place that knows
-// today's ids (docs/specs/web-redesign/issues/00-check-helpers.md). A step that moves a control or a
-// readout changes the helper body here, and the checks do not change. Each helper fails with the id
-// that it looked for.
-//
-// The menu
-//   menuItem(page, name)    The Locator of a menu item: 'New game', 'Guide', 'Workshop' or 'Settings'.
-//                           Today: #new-game-btn, #rules-btn, #workshop-btn, #settings-btn. Call openMenu first.
-//   openMenu(page, options) Opens the menu that holds the items. Today: nothing to open.
-//   pressMenu(page, name, options)
-//                           Opens what the item opens (the New game dialog, the Guide, the Workshop, Settings).
-//                           options: { tap: true } taps on a touch page; the rest (such as timeout) go to each
-//                           click or tap, so a press that something covers fails at the first control it meets.
-//   openExtra(page)         Opens the place of Look, Reset view, This game and Account. Today: Settings.
-//   boardHelp(page, act, options)
-//                           Opens the place of the board switches (#threats, #coords, #labels, #queen), runs
-//                           act(), and closes it. options go to pressMenu. Today: Settings, then Escape.
-//   setPace(page, value)    Sets the animations to 'normal', 'fast' or 'off'. Today: Settings and #pace, then Escape.
-// The board
-//   focusBoard(page)        Moves the keyboard focus to the board, so that it shows its square cursor. Today:
-//                           the focus goes to #new-game-btn, then Shift+Tab (a key, so the focus is :focus-visible).
-//   leaveBoard(page)        Moves the keyboard focus off the board, so that the cursor goes. Today: to #new-game-btn.
-// The turn
-//   endTurn(page)           Hands the turn to the other side. Today: nothing to press; the computer replies at once.
-// The readouts
-//   contextText(page)       The words beside the board. Today: #status, #move-help and #moment, one line each,
-//                           with no empty line. Match a line with a RegExp and the m flag.
-//   refusalText(page)       The words that say why a tap did nothing (a refusal or a notice, spec §4.9 rank 4),
-//                           or ''. Today: #move-help. It also holds the help of a selected piece, the review note
-//                           and the link line, so read it when no piece is selected and no review is open.
-//   computerThinks(page)    True while the computer searches for its move. Today: #status is "thinking…".
-//   resultText(page)        The result words of a finished game, or ''. Today: #status when it is not "thinking…".
-//   lanMoves(page)          The LAN of each ply, in order. Today: the #moves [data-ply] buttons with no ? or ?? mark.
-//   lanTurns(page)          The LAN in groups, one group for each move number. Today: the #moves li rows.
-//   moveMarks(page)         The key-moment mark of each ply: '?', '??' or ''. Today: the end of each #moves [data-ply] button.
-//   openMoves(page)         Shows the move list. Today: nothing to open.
-//   moveRow(page, ply)      The Locator of the row of ply `ply` (1 is the first ply); a click opens its review.
-//                           Today: #moves [data-ply="<ply>"]. Call openMoves first.
-//   waitForUi(page, test, arg, options)
-//                           Waits until test(ui, arg) is true in the page, as page.waitForFunction does, and gives
-//                           its handle. ui is { lan, turns, marks, context, refusal, thinking, result }: what
-//                           lanMoves, lanTurns, moveMarks, contextText, refusalText, computerThinks and resultText
-//                           read. `test` runs in the page, so it can use only its arguments and the page. `arg`
-//                           goes to the page as JSON: a value that JSON changes (a RegExp, NaN, a Date) is refused.
+// The browser checks use these stable actions and readouts when the controls move.
 import { isDeepStrictEqual } from 'node:util';
 
 /** The menu items and the button of each one today. */
-const MENU = { 'New game': '#new-game-btn', Guide: '#rules-btn', Workshop: '#workshop-btn', Settings: '#settings-btn' };
+/** Guide is the sheet name; All rules is the read action. */
+const MENU = { 'New game': '#new-game-btn', Guide: '#rules-btn', Workshop: '#workshop-btn', Settings: '[data-go="help"]' };
 
 export function menuItem(page, name) {
   if (!Object.hasOwn(MENU, name)) throw new Error(`menuItem: no menu item "${name}"; the items are ${Object.keys(MENU).join(', ')}`);
   return page.locator(MENU[name]);
 }
 
-export async function openMenu(page, options = {}) {
-  void [page, options]; // today the four items are always on the screen
+/** The first visit has one Start. A returning game opens Home. */
+export function titleStart(page) {
+  return page.locator('#title-start:visible, #title-play:visible, #home-new:visible').first();
 }
+
+/** Learn opens from Guide after the first deal; a returning title still has Learn. */
+export function arriveContinue(page) {
+  return page.locator('#home-main:visible, #title-continue:visible').first();
+}
+
+export async function learnFromTitle(page, { tap = false } = {}) {
+  const learn = page.locator('#title-learn');
+  if (await learn.isVisible()) { await (tap ? learn.tap() : learn.click()); return; }
+  if (!await page.locator('#home-head').isVisible()) await (tap ? titleStart(page).tap() : titleStart(page).click());
+  await page.waitForFunction(() => !document.getElementById('title-screen').open);
+  await startLesson(page, 'Archer', { tap });
+}
+
+export async function openMenu(page, options = {}) {
+  const { tap = false, ...press } = options;
+  if (await page.evaluate(() => document.getElementById('menu-sheet').open)) await page.locator('#menu-close').click(press);
+  await (tap ? page.locator('#menu-btn').tap(press) : page.locator('#menu-btn').click(press));
+}
+
+export const closeMenu = page => page.locator('#menu-close').click();
 
 export async function pressMenu(page, name, { tap = false, ...press } = {}) {
   await openMenu(page, { tap, ...press });
+  if (name === 'New game' || name === 'Workshop') {
+    const route = page.locator(`[data-go="${name === 'New game' ? 'new' : 'extra'}"]`);
+    await (tap ? route.tap(press) : route.click(press));
+  }
   const item = menuItem(page, name);
   await (tap ? item.tap(press) : item.click(press));
 }
 
-export const openExtra = page => pressMenu(page, 'Settings');
+/** A named figure starts the same lesson even when another figure is Next. */
+export async function startLesson(page, name = 'Archer', { tap = false } = {}) {
+  await pressMenu(page, 'Guide', { tap });
+  const figure = page.locator(`#lesson-shelf .shelf-piece[data-piece="${name.toLowerCase()}"]`);
+  await (tap ? figure.tap() : figure.click());
+}
+
+export async function openExtra(page) {
+  await openMenu(page);
+  await page.locator('[data-go="extra"]').click();
+}
+export async function openTricks(page) {
+  await openExtra(page);
+  await page.locator('[data-go="tricks"]').click();
+}
+export async function openAccount(page) {
+  await openExtra(page);
+  await page.locator('[data-go="account"]').click();
+}
+export async function openThisGame(page) {
+  await openExtra(page);
+  await page.locator('[data-go="game"]').click();
+}
+export async function openResign(page) {
+  await openMenu(page);
+  await page.locator('#resign').click();
+}
+export async function confirmResign(page) {
+  await openResign(page);
+  await page.locator('#resign-confirm').click();
+}
+
+export async function startNewGame(page, accept = true) {
+  if (!await page.evaluate(() => document.getElementById('new-game').open)) await pressMenu(page, 'New game');
+  const warning = await page.evaluate(() => {
+    const line = document.getElementById('new-game-warn');
+    if (!line) throw new Error('startNewGame: the page has no #new-game-warn');
+    return line.hidden ? null : line.textContent.trim();
+  });
+  if (accept || !warning) await page.click('#start-game');
+  return warning;
+}
+
+
 
 export async function boardHelp(page, act, options = {}) {
   await pressMenu(page, 'Settings', options);
   await act();
-  await page.keyboard.press('Escape');
+  await page.locator('#menu-close').click();
 }
 
 export async function setPace(page, value) {
-  await pressMenu(page, 'Settings');
+  await openMenu(page);
   await page.selectOption('#pace', value);
-  await page.keyboard.press('Escape');
+  await page.locator('#menu-close').click();
 }
 
 export async function focusBoard(page) {
-  await leaveBoard(page);
-  await page.keyboard.press('Shift+Tab');
+  await page.locator('#menu-btn').focus();
+  await page.keyboard.press('Tab');
+  await page.locator('#board').focus();
 }
 
 export async function leaveBoard(page) {
-  await openMenu(page);
-  await menuItem(page, 'New game').focus();
+  await page.locator('#menu-btn').focus();
 }
 
-export async function endTurn(page) {
-  void page; // today the turn ends with the move
+export async function endTurn(page, { keyboard = false } = {}) {
+  await page.waitForFunction(() => {
+    const b = document.getElementById('end-turn');
+    return b && !b.hidden && b.getAttribute('aria-disabled') === 'false';
+  });
+  if (keyboard) await page.keyboard.press('Enter');
+  else await page.click('#end-turn');
 }
+
+export const powerCoin = (page, side) => page.locator(side ? `#power-${side}` : '.player-strip.is-turn .coin');
+/** An off coin still reads. Use is a separate control. */
+export const readPower = (page, side) => powerCoin(page, side).click();
+export async function usePower(page) {
+  await readPower(page);
+  await page.locator('#power-use').click();
+}
+export const powerButtonText = page => powerCoin(page).getAttribute('aria-label');
+export const powersHidden = async page => await page.locator('.coin').count() === 0;
+/** The board's arrow keys move its cursor. Review arrows start outside the board. */
+export async function previousReview(page) {
+  await page.locator('#back-to-game').focus();
+  await page.keyboard.press('ArrowLeft');
+}
+export const seeAgain = page => page.locator('#see-again[aria-disabled="false"]').click();
+
+/** An opened link finishes its replay before the check taps the board. */
+export const waitForLinkReplay = page => page.waitForFunction(() => document.getElementById('see-again').getAttribute('aria-disabled') === 'false');
 
 /**
  * What the readouts show, read in the page. Playwright sends the source of this function to the page,
@@ -101,14 +152,16 @@ export function readUi() {
     return found;
   };
   const text = id => element(id).textContent.trim();
-  const lan = row => row.textContent.trim().replace(/\?+$/, ''); // a key moment adds ? or ?? to its row
+  const lan = row => row.dataset.lan; // a key moment adds ? or ?? to its row
   const moves = element('moves'), rows = [...moves.querySelectorAll('[data-ply]')];
   const status = text('status'), thinking = status === 'thinking…';
+  const context = (element('context-text').innerText ?? element('context-text').textContent).trim();
   return {
     lan: rows.map(lan),
     turns: [...moves.querySelectorAll('li')].map(li => [...li.querySelectorAll('[data-ply]')].map(lan)),
-    marks: rows.map(row => row.textContent.trim().match(/\?*$/)[0]),
-    context: [status, text('move-help'), text('moment')].filter(Boolean).join('\n'),
+    marks: rows.map(row => row.dataset.mark),
+    context,
+    lessonLearned: context.match(/^([A-Za-z]+) learned\.$/m)?.[1] ?? '',
     refusal: text('move-help'),
     thinking,
     result: thinking ? '' : status,
@@ -117,6 +170,18 @@ export function readUi() {
 
 const read = async (page, key) => (await page.evaluate(readUi))[key];
 export const contextText = page => read(page, 'context');
+/** Read each drawn rectangle of a word range in the wrapped context. */
+export const contextWordsInView = (page, words) => page.evaluate(words => {
+  const context = document.getElementById('context-text').getBoundingClientRect();
+  return [...document.querySelectorAll('#context-text > span')].some(row => {
+    const at = row.textContent.indexOf(words);
+    if (at < 0) return false;
+    const range = document.createRange();
+    range.setStart(row.firstChild, at); range.setEnd(row.firstChild, at + words.length);
+    return [...range.getClientRects()].every(r => r.left >= context.left && r.right <= context.right + 1 && r.top >= context.top && r.bottom <= context.bottom + 1);
+  });
+}, words);
+export const lastMoveText = page => page.locator('#last-move').innerText();
 export const refusalText = page => read(page, 'refusal');
 export const computerThinks = page => read(page, 'thinking');
 export const resultText = page => read(page, 'result');
@@ -125,7 +190,14 @@ export const lanTurns = page => read(page, 'turns');
 export const moveMarks = page => read(page, 'marks');
 
 export async function openMoves(page) {
-  void page; // today the list is always on the screen
+  if (!await page.evaluate(() => document.getElementById('sheet-moves').open)) await page.locator('#moves-line').click();
+}
+
+/** The result opens Review; key moments stay in the Moves sheet. */
+export async function openEndReview(page) {
+  await page.locator('#over').waitFor({ state: 'visible' });
+  await page.locator('#over-review').click();
+  await page.locator('#sheet-moves').waitFor({ state: 'visible' });
 }
 
 export function moveRow(page, ply) {
@@ -151,4 +223,47 @@ export async function waitForUi(page, test, arg = null, options = {}) {
     error.stack = error.message + (frames < 0 ? '' : stack.slice(frames));
     throw error;
   }
+}
+
+/** Keep a copy now sits in the read-only view's footer. */
+export const keepWorkshopCopy = page => page.locator('#workshop .ws-keep-copy');
+
+/** Copy link is the main action when the device cannot share. */
+export const workshopCopyLink = page => page.locator('#workshop .ws-sheet[open] :is(.ws-copy-link, .ws-send)').filter({ hasText: /^Copy link$/ }).filter({ visible: true });
+
+/** Text controls on the Workshop card; the save label belongs to the editor. */
+export async function workshopCardText(page) {
+  const selectors = ['.ws-name-t', '.ws-worth', '.ws-bottom', '.ws-bar button', '.ws-footer button'];
+  if (await page.locator('#workshop .ws-save-state').count()) selectors.push('.ws-save-state');
+  return selectors;
+}
+
+/** The read line opens the Guide at the piece. */
+export const openPieceRules = page => page.locator('#all-rules').click();
+
+/** A coin read opens the same rules action at its power. */
+export const openPowerRules = openPieceRules;
+
+/** Lesson board IDs and taps follow the shelf's order. */
+export const lessonPath = () => [
+  [0, [27, 45]], [1, [27, 35, 43]], [2, [27, 28]],
+  [3, [27, 35]], [4, [11, 12]], [5, [3, 43]],
+];
+
+/** King Down moves into the result when the board sequence ends. */
+export const ceremonyWords = page => page.locator('#over-words:visible, .kd-words:visible').first();
+/** Review tiles keep their ply when their display order changes. */
+export const ceremonyTile = (page, ply) => page.locator(`.ceremony-tile[data-ply="${ply}"]`);
+
+/** Coordinate input waits for images and the resize callback that fits the canvas. */
+export async function readyBoard(page) {
+  await page.waitForFunction(() => window.view?.ready);
+  await page.evaluate(() => window.view.ready());
+  await page.waitForFunction(() => {
+    const board = document.getElementById('board'), canvas = board?.querySelector('canvas');
+    if (!canvas) return false;
+    const b = board.getBoundingClientRect(), c = canvas.getBoundingClientRect();
+    return c.width > 0 && c.height > 0 && c.width <= b.width + 1 && c.height <= b.height + 1
+      && c.left >= b.left - 1 && c.right <= b.right + 1;
+  });
 }

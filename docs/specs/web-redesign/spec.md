@@ -58,7 +58,7 @@ When the work starts: the decisions "Reading a piece" and "The power control" ta
 2. **One pull request per step.** Each step ships alone and makes the app better at once. A step merges when all its checks pass and, for a visual step, after the owner's yes on its sample (AGENTS.md). A step does not ship a button whose destination comes in a later step.
 3. **Samples.** A visual step stays a draft pull request until the owner says yes to a rendered sample of the real app from the step branch. Step 00 adds a state table to `docs/specs/web-ux/capture.mjs` for the samples. Sizes: phone 390×844 (touch, DPR 2) and desktop 1440×900 for every visual step; layout steps add 1280×720, 820×1180 and 844×390. Motion steps add one phone video. Renders stay out of Git. The ticket records the owner's words and the date.
 4. **Tests.** `npm test` and `npm run check:browser` (all checks) pass before each pull request. Each new browser check runs three times with no failure before the pull request, because a flaky check blocks every deploy. A check of the player's flow presses the real End turn through `endTurn(page)`. The switch `?turn=auto` is for isolated rule probes only.
-5. **The plugin page.** Every module that `src/plugin/app.ts` imports, directly or through other modules, also runs in the ChatGPT plugin page. Today that is `src/render/PaintedView.ts`, `marks.ts`, `renderer.ts`, `tap.ts`, `docs/2d-first-pieces/board/scene.mjs` and the modules it imports, `src/move-text.ts`, `src/rules/engine.ts`, `src/rules/rules.ts` and `src/rules/setup.ts`. A step that changes one of them:
+5. **The plugin page.** Every module that `src/plugin/app.ts` imports, directly or through other modules, also runs in the ChatGPT plugin page. Today that is `src/render/PaintedView.ts`, `marks.ts`, `board-ink.ts`, `tap.ts`, `docs/2d-first-pieces/board/scene.mjs` and the modules it imports, `src/move-text.ts`, `src/powers-ui.ts`, `src/rules/engine.ts`, `src/rules/rules.ts` and `src/rules/setup.ts`. `renderer.ts` and `read.ts` come in only as types. A step that changes one of them:
    - keeps the old behaviour as the default, and runs `npm run check:browser plugin-ui` and `plugin-ui-http`;
    - records the plugin page size before and after (`node tools/plugin-ui-build.mjs` prints it). The build stops at 4,400,000 bytes, and today the page is 4,291,318 bytes. When a step passes 4,350,000 bytes, stop and ask;
    - adds no new raster image to a shared module (draw new marks and motions on the canvas);
@@ -225,7 +225,7 @@ One ordered list for every ticket. The first state that is true gives the line. 
 | 12 | The second look (20) | "Their archer can take your queen." | – |
 | 13 | The turn waits | "Your turn is ready. Tap End turn." / a staged check: "Check. Your turn is ready. Tap End turn." / one device: "White's turn is ready. Tap End turn." / link: "Your turn is ready. Tap Send your turn." / after 4 s in the first three games (§4.1): "The computer waits for End turn." | – |
 | 14 | Previously (21) | "Previously: their archer shot your knight." | See again |
-| 15 | Check against the active side, nothing staged (07) | "Check! Your move." and the cause | – |
+| 15 | Check against the viewer, nothing staged (07) | "Check! Your move." and the cause | – |
 | 16 | The computer plays its reply | "Their move." ("thinking…" shows in their strip after 1 s) | – |
 | 17 | The read tip (04), until the first read | "Tap any piece to read it." | – |
 | 18 | Your move | "Your move." / one device: "White to move." | – |
@@ -339,6 +339,19 @@ The owner accepted every pick on 2026-10-09 ("picks, go ahead"). The text keeps 
 **D15. The computer searches while you decide.** Options: 1, the search starts when your turn waits and plays nothing until the press; 2, the search starts at the press. Pick: 1 (the reply comes soon after the press). Cost: the phone's processor works while the player decides, for one search of the level's time. On yes: ticket 13, step 1.
 
 **D16. A resignation travels in a link.** Options: 1, the link gets a field `resign`, and after Resign the button reads "Send the result"; 2, the friend does not learn of it. Pick: 1 (today the friend opens a game that can still be played). On yes: ticket 02c.
+
+## 8. The fast plan (2026-10-09)
+
+The owner found the first build too slow and asked for an independent review with the Ponytail rules (the owner, 2026-10-09). [fast-plan.md](fast-plan.md) is that review. Where it and this spec differ, fast-plan.md wins.
+
+- **Scope.** The cuts, merges and simpler forms of fast-plan.md §2 apply. Tickets 09, 15 and 23 are cut, and ticket 20 is deferred.
+- **Y1, the second look:** deferred. The owner said "go with what you think" for this pick.
+- **Y2, a reload:** a reload hands a staged turn over, as today. This is stricter than the Undo rule, never looser.
+- **Work units.** Units W0 to W12 of fast-plan.md §5.1 replace the 27 steps of §5.
+- **One integration branch.** All units go on `claude/web-redesign-int`, which has one draft pull request to main. Each unit is a branch from the integration tip, in its own worktree, built test-first. It merges the integration tip into itself before it is done, and then merges into the integration branch. Units that do not block each other run at the same time.
+- **Checks.** A unit runs its named checks while it builds. It runs `npm test` and the full `npm run check:browser` once at the end, and each new browser check two times. One code review covers the integration branch at the end. W1, W2 and W6 also get one review each.
+- **Samples.** The builder renders `SAMPLE=<unit>` at phone and desktop size; W2 also renders 844×390. W6 has one phone video. The owner sees three batches (fast-plan.md §5.3). The integration branch merges to main after the owner's yes on its samples (AGENTS.md).
+- **Ticket notes.** At most 10 lines for each unit: what changed, what was cut, the check results, the owner's yes.
 
 ## Review record
 

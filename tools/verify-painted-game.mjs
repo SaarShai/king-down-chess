@@ -1,7 +1,7 @@
 // Plays real games in the painted 2D look and checks the view keeps up with the game.
 // Run: npm run check:browser painted-game (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { contextText, lanMoves, moveRow, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
+import { lessonPath, startLesson, confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 const url = new URL(env('PLAYABLE_URL'));
@@ -24,6 +24,7 @@ try {
   const both = new URL(url); both.searchParams.set('players', 'ai,ai'); both.searchParams.set('think', '200');
   await page.goto(both.href);
   await page.waitForFunction(() => document.querySelector('#board canvas'));
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).white === 'ai');
   assert.deepEqual(await players(page), ['ai', 'ai']);
   // The game runs to 60 plies and at least one capture (a random 60-ply game can have none), or to its end.
   const captures = () => page.$$eval('#took-w span, #took-b span', s => s.length);
@@ -49,6 +50,7 @@ try {
   await page.waitForFunction(() => document.querySelector('#board canvas') && document.getElementById('asset-status').textContent === '');
   const rook = await page.evaluate(() => window.view.screenOf(0)), mate = await page.evaluate(() => window.view.screenOf(56));
   await page.mouse.click(rook.x, rook.y); await page.mouse.click(mate.x, mate.y); // Ra1-a8 mates
+  await endTurn(page);
   await page.waitForFunction(() => document.getElementById('over').open, null, { timeout: 10000 });
   await assert.rejects(pressMenu(page, 'New game', { timeout: 1000 }), 'the open result window covers the panel');
   await page.click('#over button[value="close"]');
@@ -65,6 +67,7 @@ try {
   const e2 = await at(12), e4 = await at(28);
   await page.mouse.move(e2.x, e2.y); await page.mouse.down(); await page.mouse.move(e4.x, e4.y, { steps: 8 }); await page.mouse.up();
   await waitForUi(page, ui => /e2-e4/.test(ui.lan.join(' ')), null, { timeout: 5000 });
+  await endTurn(page);
   await waitForUi(page, ui => ui.turns[0]?.length >= 2, null, { timeout: 15000 });
   await page.waitForTimeout(2500); // the reply's animation keeps the board busy
   const d2 = await at(11), d3 = await at(19);
@@ -78,9 +81,9 @@ try {
   await waitForUi(page, ui => ui.lan.length > 0, null, { timeout: 15000 });
   const a8 = await page.evaluate(() => window.view.screenOf(56)), a1 = await page.evaluate(() => window.view.screenOf(0));
   assert.ok(a8.y > a1.y, 'Black at the bottom when the human plays Black');
-  await page.click('#undo');
+  assert.equal(await page.getAttribute('#undo', 'aria-disabled'), 'true', 'the computer turn is final');
   await page.waitForTimeout(300);
-  console.log('ok flipped board, undo during play');
+  console.log('ok flipped board; Undo is off after the computer turn');
 
   // 2b. The Maester's goggle beam and a lab piece (a token) capture and finish without errors.
   for (const [fen, from, to, move] of [['7k/8/8/2p5/2M5/8/8/4K3 w - - 0 1', 26, 34, 'Mc4xc5'], ['7k/8/4p3/8/4p3/8/4C3/K7 w - - 0 1', 12, 44, 'Ce2*e6']]) {
@@ -156,20 +159,22 @@ try {
   await page.evaluate(() => { const s = document.getElementById('pace'); s.value = 'normal'; s.dispatchEvent(new Event('change')); });
   console.log(`ok quiet moves (normal/fast): ${glides.join(', ')}; tap-skip ${qTap.ms} ms; off none`);
   // 2d. Review: a move in the list shows the board after it, ← steps back, → replays the next move,
-  // the board is read-only meanwhile, and a tap on it returns to the game.
+  // the board reads pieces meanwhile; Back to game or Esc returns to play.
   {
     const u = new URL(url); u.searchParams.set('fen', '7k/8/8/3p4/4P3/8/8/K7 w - - 0 1'); u.searchParams.set('players', 'human,human');
     await page.goto(u.href);
     await page.waitForFunction(() => window.view?.pos?.board[35] > 0);
-    for (const sq of [28, 35, 63, 62]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); }
+    for (const sq of [28, 35, 63, 62]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); if (sq === 35 || sq === 62) await endTurn(page); }
     await waitForUi(page, ui => /Kh8-g8/.test(ui.lan.join(' ')));
     const board = () => page.evaluate(() => [28, 35, 62, 63].map(sq => window.view.pos.board[sq] > 0 ? 1 : 0).join(''));
     assert.equal(await board(), '0110', 'live: pawn on d5, king on g8');
     await openMoves(page); await moveRow(page, 1).click();
     assert.equal(await board(), '0101', 'after move 1: pawn on d5, king still on h8');
     assert.equal(await page.textContent('#turn'), 'Reviewing after 1. e4xd5');
-    const pawn = await at(35); await page.mouse.click(pawn.x, pawn.y); // leaves the review, selects nothing
-    assert.equal(await board(), '0110', 'a tap on the board returns to the game');
+    const pawn = await at(35); await page.mouse.click(pawn.x, pawn.y);
+    assert.equal(await board(), '0101', 'a tap reads the shown board and keeps Review');
+    await page.click('#back-to-game');
+    assert.equal(await board(), '0110', 'Back to game returns to the live board');
     await openMoves(page); await moveRow(page, 1).click(); await page.keyboard.press('ArrowLeft');
     assert.equal(await board(), '1101', 'the start: both pawns, king on h8');
     await page.keyboard.press('ArrowRight');
@@ -189,11 +194,11 @@ try {
     const u = new URL(url); u.searchParams.set('fen', '4r1k1/8/8/8/8/8/5PPP/R5K1 w - - 0 1'); u.searchParams.set('players', 'human,human');
     await page.goto(u.href);
     await page.waitForFunction(() => window.view?.pos?.board[60] > 0);
-    for (const sq of [0, 48, 60, 4]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); }
-    await page.waitForFunction(() => document.getElementById('over').open && document.querySelector('#over-moments button'), null, { timeout: 15000 });
+    for (const sq of [0, 48, 60, 4]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); if (sq === 48 || sq === 4) await endTurn(page); }
+    await openEndReview(page);
+    await page.waitForFunction(() => document.querySelector('#over-moments button'), null, { timeout: 15000 });
     assert.equal(await page.evaluate(() => window.view.fallen?.sq), 6, 'the mated king on g1 topples');
     await waitForUi(page, ui => ui.lan[0] === 'Ra1-a7' && ui.marks[0] === '??');
-    await openMoves(page);
     assert.match(await moveRow(page, 1).getAttribute('title'), /allowed a forced mate/, 'the move list marks the blunder');
     const text = await page.textContent('#over-moments button');
     assert.match(text, /^1\. Ra1-a7: White allowed a forced mate\. Better: /, text);
@@ -217,11 +222,10 @@ try {
     assert.ok((await at(56)).y > (await at(0)).y, 'Black, to move, plays from the bottom');
     for (const sq of [52, 36]) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
     await waitForUi(page, ui => /e7-e5/.test(ui.lan.join(' ')) && !window.view.scene.animating);
-    assert.match(await contextText(page), /Send the game link/);
+    assert.match(await contextText(page), /Send your turn/);
     const d2 = await at(11); await page.mouse.click(d2.x, d2.y);
     assert.equal(await page.evaluate(() => window.view.marks.selected), null, "the friend's pieces do not move here");
-    assert.ok(await page.evaluate(() => document.getElementById('hint').disabled), "no Hint on the friend's turn");
-    await page.click('#share');
+    await endTurn(page);
     const sent = new URL(await page.evaluate(() => navigator.clipboard.readText()));
     assert.deepEqual([sent.searchParams.get('army'), sent.searchParams.get('moves')], ['RNBQKBNR', 'e2-e4_e7-e5']);
     await page.reload(); await page.waitForFunction(() => window.view?.pos?.board[36] > 0);
@@ -239,23 +243,23 @@ try {
   // taken back; the saved game stays as it was.
   {
     const before = await page.evaluate(() => localStorage.getItem('kingdown.save'));
-    await pressMenu(page, 'Guide'); await page.click('#learn');
+    await startLesson(page);
     /** The lesson's verdict line in the words beside the board, or ''. */
-    const verdict = text => text.split('\n').find(t => /^(Well done|Not quite)/.test(t)) ?? '';
+    const verdict = text => text.split('\n').find(t => /(?:learned\.$|^Not quite)/.test(t)) ?? '';
     const play = async squares => {
       const prev = verdict(await contextText(page));
       for (const sq of squares) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
       if (await page.evaluate(() => document.getElementById('move-choice').open)) await page.click('#choose-push');
-      await waitForUi(page, (ui, prev) => { const t = ui.context.split('\n').find(t => /^(Well done|Not quite)/.test(t)) ?? ''; return t && t !== prev && !window.view.scene.animating; }, prev);
+      await waitForUi(page, (ui, prev) => { const t = ui.context.split('\n').find(t => /(?:learned\.$|^Not quite)/.test(t)) ?? ''; return t && t !== prev && !window.view.scene.animating; }, prev);
     };
     await play([27, 35]); // the Archer steps instead of shooting
     assert.match(await contextText(page), /^Not quite/m);
     assert.equal(await page.evaluate(() => window.view.pos.board[27] > 0 && !window.view.pos.board[35]), true, 'the wrong move is taken back');
-    const steps = [[27, 36], [11, 12], [27, 28], [27, 35, 43], [27, 35], [3, 43]];
-    for (const [i, squares] of steps.entries()) {
+    const steps = lessonPath();
+    for (const [i, squares] of steps) {
       assert.match(await page.textContent('#turn'), new RegExp(`Lesson ${i + 1} of 6`));
       await play(squares);
-      assert.match(await contextText(page), /^Well done/m, `lesson ${i + 1}`);
+      assert.equal(await contextText(page), `${['Archer', 'Beast', 'Maester', 'Ogre', 'Guard', 'Paladin'][i]} learned.`, `lesson ${i + 1}`);
       assert.equal(await page.isVisible('#next-lesson'), true);
       if (i < 5) await page.click('#next-lesson');
     }
@@ -268,7 +272,7 @@ try {
     const army = async () => { await startGame(page, { mode: 'computer', side: 'white', army: 'daily' }); return page.textContent('#setup'); };
     const first = await army(), second = await army();
     assert.ok(/^[A-Z]{8}$/.test(first) && first === second, `${first} / ${second}`);
-    page.once('dialog', d => d.accept()); await page.click('#resign');
+    await confirmResign(page);
     await page.waitForFunction(() => document.getElementById('over').open);
     assert.equal(await page.evaluate(() => window.view.fallen?.sq), await page.evaluate(() => window.view.pos.board.findIndex(v => v === 6)), 'the resigning White king topples');
     await page.click('#share-result');

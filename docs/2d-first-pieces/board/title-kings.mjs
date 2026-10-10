@@ -3,7 +3,8 @@
 // painted area: docs/visual-design/make-ui-art.py). Once an image has risen into place, a canvas over it
 // draws the same figure from the king's sheet, with his effect fading in, and the image is hidden; so the
 // layout never changes and the title's first paint never waits. stop() puts the images back.
-// The images' CSS filter is kept: brightness on the canvas, the drop shadow drawn under the figure.
+// The images' CSS filter is kept: brightness on the canvas, and the drop shadows (the rim, then the cast shadow)
+// drawn under the figure in their CSS order.
 import * as court from '../court-motion.mjs';
 import {createKingEffects} from './king-effects.mjs';
 import {KING_FILES} from './king-sheets.mjs';
@@ -25,10 +26,11 @@ function ivoryBox(image){
  for(let y=0;y<h;y++)for(let x=0;x<mid;x++)if(data[(y*mid+x)*4+3]){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
  return [x0,y0,x1+1,y1+1];
 }
-/** The CSS filter of an image, split into the brightness (for the canvas) and the drop shadow (drawn). */
-function filterOf(img){
- const f=getComputedStyle(img).filter,b=/brightness\(([\d.]+)\)/.exec(f),d=/drop-shadow\((rgba?\([^)]*\))\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+([\d.]+)px\)/.exec(f);
- return {brightness:b?+b[1]:1,shadow:d?{color:d[1],x:+d[2],y:+d[3],blur:+d[4]}:null};
+/** A computed CSS filter, split into the brightness (for the canvas) and the drop shadows in their order (drawn). */
+export function filterOf(css){
+ const b=/brightness\(([\d.]+)\)/.exec(css);
+ const shadows=[...css.matchAll(/drop-shadow\((rgba?\([^)]*\))\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+([\d.]+)px\)/g)].map(d=>({color:d[1],x:+d[2],y:+d[3],blur:+d[4]}));
+ return {brightness:b?+b[1]:1,shadows};
 }
 
 /**
@@ -88,12 +90,26 @@ export function startTitleKings(root,{enabled=()=>true}={}){
   const layer=effects(k),l=layer.getContext('2d');
   const put=()=>{cutNeighbours(k,l);g.save();g.setTransform(1,0,0,1,0,0);g.drawImage(layer,0,0);g.restore();};
   l.setTransform(1,0,0,1,0,0);l.clearRect(0,0,layer.width,layer.height);l.setTransform(g.getTransform());fx.back(l,s);put();
-  g.save();
-  if(k.filter.shadow){const d=k.filter.shadow;g.shadowColor=d.color;g.shadowOffsetX=d.x*dpr;g.shadowOffsetY=d.y*dpr;g.shadowBlur=d.blur*dpr;}
-  g.translate(s.pose.foot.x,s.pose.foot.y);g.scale(SCALE*facing*(s.pose.sx??1),SCALE*(s.pose.sy??1));
-  g.drawImage(sprite(design,s.pose.sheet??image),-A.x,-A.y);
-  g.restore();
+  // The figure, with one pass for each drop shadow, as CSS draws them: each shadow falls from the figure and the
+  // shadows before it. The passes before the last draw on the effect layer (free until the front effects) and,
+  // from a third shadow on, a second scratch layer.
+  const shadows=k.filter.shadows.length?k.filter.shadows:[null];let src=null;
+  shadows.forEach((d,i)=>{
+   const to=i===shadows.length-1?g:i%2?scratch(k):l;
+   to.save();
+   if(to!==g){to.setTransform(1,0,0,1,0,0);to.clearRect(0,0,c.width,c.height);}
+   if(d){to.shadowColor=d.color;to.shadowOffsetX=d.x*dpr;to.shadowOffsetY=d.y*dpr;to.shadowBlur=d.blur*dpr;}
+   if(src){to.setTransform(1,0,0,1,0,0);to.drawImage(src,0,0);}
+   else{to.setTransform(g.getTransform());to.translate(s.pose.foot.x,s.pose.foot.y);to.scale(SCALE*facing*(s.pose.sx??1),SCALE*(s.pose.sy??1));to.drawImage(sprite(design,s.pose.sheet??image),-A.x,-A.y);}
+   to.restore();src=to.canvas;
+  });
   l.setTransform(1,0,0,1,0,0);l.clearRect(0,0,layer.width,layer.height);l.setTransform(g.getTransform());fx.front(l,s);put();
+ }
+ // A second scratch layer the size of a king's canvas (a third drop shadow needs it).
+ function scratch(k){
+  const c=k.canvas,a=k.scratch??=document.createElement('canvas');
+  if(a.width!==c.width||a.height!==c.height){a.width=c.width;a.height=c.height;}
+  return a.getContext('2d');
  }
  // A king's effect layer, the size of his canvas.
  function effects(k){
@@ -137,7 +153,7 @@ export function startTitleKings(root,{enabled=()=>true}={}){
   Promise.all([sheet,k.img.decode?.().catch(()=>{}),...(k.img.getAnimations?.()??[]).map(a=>a.finished.catch(()=>{}))]).then(()=>{
    if(!running)return;
    sheets[k.design]=image;fx.has(k.design);
-   k.box=ivoryBox(image);k.filter=filterOf(k.img);k.offset=i*1371;
+   k.box=ivoryBox(image);k.filter=filterOf(getComputedStyle(k.img).filter);k.offset=i*1371;
    const c=k.canvas=document.createElement('canvas');c.setAttribute('aria-hidden','true');
    const z=getComputedStyle(k.img).zIndex;
    Object.assign(c.style,{position:'absolute',pointerEvents:'none',visibility:'hidden',zIndex:z==='auto'?'auto':z,filter:k.filter.brightness!==1?`brightness(${k.filter.brightness})`:''});

@@ -1,6 +1,6 @@
 # 20 · The second look: an opt-in practice aid
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: needs-info (deferred by the fast plan, Y1; the owner can bring it back)
 Blocked by: 05 (Board help), 13 (the search before the press)
 
 ## Scope

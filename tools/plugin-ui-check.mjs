@@ -15,6 +15,12 @@ try {
   await frame.locator('#solo').click();
   await frame.locator('#solo:not(:disabled)').waitFor();
   await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+  // The plugin page keeps the scene's own floor round the board: #e6e1cf at a canvas pixel above the board's
+  // frame (the game asks for no floor; web redesign ticket 01, spec rule 5). The scene draws once its art is in.
+  const floorPixel = () => frame.locator('canvas').evaluate(c => [...c.getContext('2d').getImageData(1, 1, 1, 1).data].join(','));
+  let floor = await floorPixel();
+  for (let i = 0; i < 50 && floor !== '230,225,207,255'; i++) { await page.waitForTimeout(200); floor = await floorPixel(); }
+  assert.equal(floor, '230,225,207,255', 'The plugin board keeps its #e6e1cf floor round the board');
   async function clickSquare(file, rank) {
     const box = await frame.locator('canvas').boundingBox(); assert(box);
     await page.mouse.click(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (64 + 32 + (7 - rank + .5) * 112) * box.width / 960);

@@ -113,18 +113,90 @@
   },
   {
     "text": "--on-night #f3ead7",
-    "surface": "--night #221d18",
-    "where": "title tagline and buttons on the title",
-    "ratio": 13.97,
+    "surface": "--stone-900 #1d1915",
+    "where": "the Workshop note on dark stone",
+    "ratio": 14.61,
     "min": 4.5,
     "pass": true
   },
   {
-    "text": "--on-night-soft #d6c9ad",
-    "surface": "--night #221d18",
-    "where": "title tagline",
-    "ratio": 10.2,
+    "text": "--ink #2b2621",
+    "surface": "--floor-base #f2e9d6",
+    "where": "text on the floor: the title's wordmark",
+    "ratio": 12.41,
     "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--ink #2b2621",
+    "surface": "--floor-edge #e6d7b9",
+    "where": "text on the floor, at its edge",
+    "ratio": 10.55,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--ink-soft #5b5045",
+    "surface": "--floor-base #f2e9d6",
+    "where": "secondary text on the floor: the wordmark's \"Chess\" line, the lineup names",
+    "ratio": 6.5,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--ink-soft #5b5045",
+    "surface": "--floor-edge #e6d7b9",
+    "where": "secondary text on the floor, at its edge",
+    "ratio": 5.52,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--gold-ink #7a5712",
+    "surface": "--floor-base #f2e9d6",
+    "where": "\"Down\" in the wordmark; gold text on the floor",
+    "ratio": 5.44,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--gold-ink #7a5712",
+    "surface": "--floor-edge #e6d7b9",
+    "where": "gold text on the floor, at its edge",
+    "ratio": 4.62,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--danger #b0251b",
+    "surface": "--floor-base #f2e9d6",
+    "where": "danger text on the floor",
+    "ratio": 5.57,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--danger #b0251b",
+    "surface": "--floor-edge #e6d7b9",
+    "where": "danger text on the floor, at its edge",
+    "ratio": 4.73,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--focus #1c5bb0",
+    "surface": "--floor-base #f2e9d6",
+    "where": "focus ring on the floor (the title)",
+    "ratio": 5.48,
+    "min": 3,
+    "pass": true
+  },
+  {
+    "text": "--focus #1c5bb0",
+    "surface": "--floor-edge #e6d7b9",
+    "where": "focus ring on the floor, at its edge",
+    "ratio": 4.66,
+    "min": 3,
     "pass": true
   },
   {
@@ -168,27 +240,11 @@
     "pass": true
   },
   {
-    "text": "#e9c071",
-    "surface": "#221d18",
-    "where": "\"Down\" in the wordmark (large)",
-    "ratio": 9.74,
-    "min": 3,
-    "pass": true
-  },
-  {
     "text": "#2b2621",
     "surface": "#fff6dc",
     "where": "help line",
     "ratio": 13.89,
     "min": 4.5,
-    "pass": true
-  },
-  {
-    "text": "#8cc0ff",
-    "surface": "#221d18",
-    "where": "focus ring on the title screen",
-    "ratio": 8.83,
-    "min": 3,
     "pass": true
   },
   {
@@ -202,9 +258,33 @@
   {
     "text": "#2b2621",
     "surface": "#e6e1cf",
-    "where": "board surround (coordinates are drawn by the scene)",
+    "where": "the scene's own floor round the board (the plugin page and the trial)",
     "ratio": 11.44,
     "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "#817669",
+    "surface": "#f2e9d6",
+    "where": "an off label (ink-soft at 75 %) on the floor",
+    "ratio": 3.68,
+    "min": 3,
+    "pass": true
+  },
+  {
+    "text": "#7e7262",
+    "surface": "#e6d7b9",
+    "where": "an off label (ink-soft at 75 %) on the floor, at its edge",
+    "ratio": 3.31,
+    "min": 3,
+    "pass": true
+  },
+  {
+    "text": "#7f766a",
+    "surface": "#ebe6da",
+    "where": "an off label (ink-soft at 75 %) on a disabled button",
+    "ratio": 3.59,
+    "min": 3,
     "pass": true
   }
 ]

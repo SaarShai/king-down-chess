@@ -13,6 +13,13 @@ const play = (g: Game, ...lans: string[]): void => {
 };
 
 describe('Game history and undo', () => {
+  it('reads the position after the last ply as well as earlier plies', () => {
+    const g = new Game(CLASSIC_CHESS);
+    play(g, 'e2-e4', 'e7-e5');
+    expect(g.positionAfter(2)).toBe(g.pos);
+    expect(g.positionAfter(1).board[parseSq('e7')]).not.toBe(0);
+    expect(g.positionAfter(1).board[parseSq('e4')]).not.toBe(0);
+  });
   it('undo on a fresh game reports nothing to take back', () => {
     const g = new Game(CLASSIC_CHESS);
     expect(g.undo()).toBe(false);

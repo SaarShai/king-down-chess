@@ -1,0 +1,36 @@
+/* The chosen feat-king-down/end.css words and tile rise. */
+.kd-words {
+  position: absolute; left: 0; right: 0; top: 46%; z-index: 160; pointer-events: none; text-align: center;
+  padding: 2% 0; font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(24px, 6vw, 64px); line-height: 1; letter-spacing: .14em;
+  color: var(--gold-bright); text-shadow: 0 2px 0 rgba(20, 14, 8, .6);
+  background: radial-gradient(closest-side, rgba(20, 14, 8, .76) 58%, rgba(20, 14, 8, 0));
+}
+.kd-words[hidden] { display: none; }
+.kd-words::after {
+  content: ''; display: block; width: 36%; height: 2px; margin: 2% auto 0;
+  background: linear-gradient(90deg, transparent, var(--gold-bright), transparent);
+}
+.kd-words.is-in { animation: king-down-settle 480ms cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes king-down-settle { from { opacity: 0; transform: scale(1.08); } }
+.tiles-head { margin: 0 0 var(--space-2); font-size: var(--fs-sm); font-weight: 700; color: var(--ink-soft); }
+.ceremony-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.ceremony-tile {
+  display: grid; align-content: center; width: 100%; min-height: 64px; padding: 8px;
+  text-align: left; cursor: pointer; background: var(--vellum);
+  border: 1px solid var(--stone-300); border-top: 3px solid var(--gold); border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+.ceremony-tile.theirs { border-top-color: var(--stone-700); }
+.ceremony-tile b { display: block; font-size: var(--fs-xs); letter-spacing: .04em; color: var(--gold-ink); text-transform: uppercase; }
+.ceremony-tile.theirs b { color: var(--ink-soft); }
+.ceremony-tile span { display: block; font-size: var(--fs-sm); line-height: 1.2; color: var(--ink); }
+.ceremony-tile.is-in { animation: tile-rise 300ms cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 150ms); }
+@keyframes tile-rise { from { opacity: 0; transform: translateY(10px); } }
+:root[data-pace='off'] .ceremony-tile.is-in, :root[data-pace='off'] .kd-words.is-in { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ceremony-tile.is-in, .kd-words.is-in { animation: none; } }
+
+#context-line { position: relative; }
+.ceremony-caption { position: absolute; inset: 0; display: grid; align-items: center; text-align: center; padding: 8px; background: var(--vellum); color: var(--ink); pointer-events: none; font-size: var(--fs-sm); }
+.over-words { text-align: center; color: var(--gold-ink); font-family: var(--font-display); font-size: var(--fs-lg); margin: 0 0 var(--space-2); }
+#over #over-review { margin-top: var(--space-3); text-align: center; justify-content: center; color: var(--ink-soft); }

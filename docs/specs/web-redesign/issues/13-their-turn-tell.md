@@ -1,6 +1,6 @@
 # 13 · Their turn: the computer thinks while you decide, then the tell
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
 Blocked by: 02b, 03, 07 (`tools/verify-their-turn.mjs`)
 
 ## Scope
@@ -11,21 +11,18 @@ Blocked by: 02b, 03, 07 (`tools/verify-their-turn.mjs`)
 
 ## Plan
 
-1. [ ] The search before the press (D15): when a person's turn against the computer waits (the turn passed; not mid-way), start the computer's search of the new position, with the level's normal time. It is background work: it sets neither `busy` nor `thinking`, and Undo, reading and the press stay on. It plays nothing. Undo, a rule change and a game change stop it and drop its result.
-2. [ ] On the press: when the stored search is still the live one (`Engine.think` ids) and the position is the same, use its result (the blunder rule applies then). Else search again. A search that another `think()` call cancelled never answers, so the press never waits on it.
-3. [ ] The tell: the piece that will move lifts about 3 px (0.075 of a square) in 120 ms, with a soft glow mark on its square, then the move plays. `tellPlan(capMs, msSincePress)` gives a tell of 240 ms, cut so that the reply comes no later than the level's time after the press, but never under 160 ms.
-4. [ ] A power move with no moving piece (Freeze, Ice Wall, Sacrifice, a pass): their king lifts. Each Haste move gets its own tell. A blunder move lifts the piece that really moves.
-5. [ ] Their strip: the portrait breathes once when their turn starts; a thin ring draws once and stays; "thinking…" shows after 1 s (ticket 03).
-6. [ ] No tell on one device or in a link game. Motion Off: no lift. Reduced motion: the glow mark only.
-7. [ ] The game counter (`gen`) guards the tell wait: New game or Rematch during the tell plays no move. (Undo is off after the press.)
+1. [x] The computer searches after the press. The actual mover lifts 3 px for 200 ms before its reply.
+2. [x] A move with no moving figure has no tell. The shared scene's tell stays opt-in.
+3. [x] A game on one device or a link has no tell. Off has no cue. Reduced motion shows a still glow with no lift.
+4. [x] A new game cancels the wait and clears the cue. An old wait plays no reply on the new board.
 
 ## Verification
 
-- [ ] `tellPlan` test: 240 ms with time to spare; never under 160 ms; the total after the press passes the level's time by at most 160 ms, and only when the press came before the search ended.
-- [ ] Node test of the lift timing: it lifts and returns to the rest pose.
-- [ ] `their-turn` check (part 2), with `?think=`: no reply before the press; Undo works while the search runs and after its result is stored, and a press after that Undo searches again; the reply comes inside the limit after the press; a press before and after the search ends; the tell lifts the mover (a scene state hook); a mid-way Haste turn starts no search.
-- [ ] `npm test`, `npm run check:browser` and `plugin-ui` pass. Record the plugin page size. The plugin session knows before the pull request.
-- [ ] Rendered sample: one phone video of three replies (a plain move, a shot, a Freeze) and a still of the strip while it thinks, 390×844 and 1440×900. The owner's yes, with the date, in Comments.
+- [x] `turn` proves that the normal and still cues come before the reply and clear after it.
+- [x] `w6-parts` checks the lifted frame, the still glow, the figure at rest and clear.
+- [x] `npm test`, the type check and all ten named browser checks pass. Both new checks pass twice.
+- [x] Sample W6 uses the phone and desktop sizes and one Archer mate video.
+- [ ] The owner gives yes on the sample.
 
 ## Risks
 
@@ -37,3 +34,20 @@ Blocked by: 02b, 03, 07 (`tools/verify-their-turn.mjs`)
 - No king shake, no progress ring, no spinner.
 
 ## Comments
+
+The actual computer mover lifts 3 px for 200 ms after the press.
+Reduced motion shows a still glow with no lift. Off has no cue.
+The still cue fixes the review's minor finding. A new game cancels the wait.
+Cut: search before the press, tell math, portrait breath and ring.
+Tests: 1644 passed, 13 skipped; 50 motion tests pass. Type check passes.
+All ten named checks pass. The new end and parts checks each pass twice.
+Both plugin checks pass. The page is 4,294,665 bytes; its default stays.
+Sample W6: four stills, one phone video and two sheets. No fault.
+The sample waits for the owner's yes. Integration runs the full suite.
+
+Batch 3: decided by delegation (2026-10-09).
+W6 adds a Beginner reply video and a reduced-motion glow still.
+The still holds the reply clock. Normal pace with reduced motion shows the glow.
+Motion Off keeps its existing rule: no tell. The sample options are in README.
+Tests: 1,667 pass, 13 skip; all 50 board tests pass. All ten browser checks pass.
+W6: 10 renders, zero faults. The stills and video frames get a visual check.

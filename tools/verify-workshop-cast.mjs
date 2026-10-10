@@ -4,7 +4,7 @@
 // Image paths are compared with imageIs, so the check passes on the dev server and on the preview server.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { pressMenu } from './app-ui.mjs';
+import { pressMenu, workshopCopyLink } from './app-ui.mjs';
 import { assertNoErrors, env, imageIs, launch, shot, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -103,7 +103,7 @@ async function allArtLoads(page, width) {
 async function shareTryReload(page, width) {
   await page.click('.ws-eye');
   await page.click('.ws-share');
-  await page.click('.ws-copy-link');
+  await workshopCopyLink(page).click();
   const link = await page.evaluate(() => navigator.clipboard.readText());
   await page.click('.ws-try');
   await page.waitForSelector('.tb-me');

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { powerButtonText, usePower, endTurn } from './app-ui.mjs';
 /**
  * Browser QA for the takeover changes. The runner builds the app, serves the build and runs this check:
  *
@@ -79,7 +80,7 @@ async function clickSq(page, name, shift = false) {
 const snap = async page => ({
   ...await page.evaluate(() => ({
     fen: document.getElementById('setup').title,
-    info: document.getElementById('info').textContent,
+    info: document.getElementById('context-text').textContent,
     scene: Object.fromEntries([...window.view.pieces].map(([sq, g]) => [sq, g.userData.code])),
   })),
   moves: (await lanMoves(page)).join(' '),
@@ -225,12 +226,13 @@ await caseFn('catapult lobs over a screen and stays put', `?fen=${encodeURICompo
 });
 
 // ---------------------------------------------------------------------------------------------
-// The AI in a lab position, and the Kings info line after a restore.
+// The AI in a lab position, and the king choices after a restore.
 
 await caseFn('AI answers in an ogre position', `?fen=${encodeURIComponent(OGRE_ENEMY_FEN)}&think=200`, async (page, errors) => {
   await clickSq(page, 'e4');
   await clickSq(page, 'd4');
   await page.click('#choose-push');
+  await endTurn(page);
   await waitPly(page, 2); // human shove + the AI's reply
   await page.waitForTimeout(800);
   const s = await snap(page);
@@ -241,11 +243,10 @@ await caseFn('AI answers in an ogre position', `?fen=${encodeURIComponent(OGRE_E
 await caseFn('kings choice survives save/restore', '?kings=mud:march', async (page, errors) => {
   await page.goto(BASE); // no query
   await page.waitForFunction(() => window.view && document.getElementById('setup').title.length > 5, null, { timeout: 40000 });
-  // The info card names each side's power (main.ts kingsInfo); it said "Kings — both Mud:March" before.
-  await page.waitForFunction(() => /White's king:/.test(document.getElementById('info').textContent), null, { timeout: 20000 });
-  const s = await snap(page);
-  const ok = /White's king: March — .*Black's king: March — /.test(s.info.replace(/\s+/g, ' ')) && errors.length === 0;
-  return ok ? true : `info="${s.info.replace(/\n/g, ' ')}" errors=${errors.join(' | ')}`;
+  await page.waitForFunction(() => document.querySelector('#strip-me img').src.includes('/mud.webp') && document.querySelector('#strip-them img').src.includes('/mud-b.webp'));
+  const kings = await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).rules.kings);
+  const ok = kings.length === 2 && kings.every(k => k.king === 'Mud' && k.power === 'March') && errors.length === 0;
+  return ok ? true : `kings=${JSON.stringify(kings)} errors=${errors.join(' | ')}`;
 });
 
 // Death Touch through the real worker: the AI's only good move is the shot a plain king cannot play.
@@ -336,18 +337,18 @@ await caseFn('mobile layout has no horizontal overflow', '', async (page, errors
 // d2 reaches d8 only through the power: the arming, the click path, the LAN suffix and the live rule
 // all have to line up.
 await caseFn('strike: an armed knight moves as a queen once (flame:strike)', `?kings=flame:strike&fen=${encodeURIComponent('4k3/8/8/8/7p/8/3N4/4K3 w - - 0 1')}`, async (page, errors) => {
-  const info = await page.evaluate(() => document.getElementById('info').textContent);
+  const info = await powerButtonText(page);
   await clickSq(page, 'd2');
   await clickSq(page, 'd8'); // unarmed: not a knight's move, so nothing happens
   await page.waitForTimeout(400);
   const unarmed = (await snap(page)).moves;
-  await page.click('#power-btn');
+  await usePower(page);
   await clickSq(page, 'd2');
   await clickSq(page, 'd8');
   await waitPly(page, 1);
   await page.waitForTimeout(400);
   const s = await snap(page);
-  const spent = /White's king: Strike, 0 left/.test(s.info);
+  const spent = s.fen.split(' ')[6]?.split('/').includes('u1.0') === true;
   const ok = info.includes('Strike') && unarmed === '' && s.moves.includes('Nd2-d8!') && s.scene[sqOf('d8')] === CODE.N && spent && errors.length === 0;
   return ok ? true : `info=${info.includes('Strike')} unarmed="${unarmed}" moves="${s.moves}" d8=${s.scene[sqOf('d8')] ?? 'empty'} spent=${spent} errors=${errors.join(' | ')}`;
 });

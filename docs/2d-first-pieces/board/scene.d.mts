@@ -1,5 +1,11 @@
 // Types for scene.mjs, so the game's TypeScript can import the shared painted scene.
 export const SIZE: number, PAD: number, TILE: number;
+/** The floor round the board, by default ('#e6e1cf'). */
+export const FLOOR: string;
+/** The floor that createScene draws: FLOOR when `floor` is undefined, else `floor` (a colour, or null for none). */
+export function floorOf(floor: string | null | undefined): string | null;
+/** Clears the canvas (the headroom included) and fills it with `floor`; null only clears it. */
+export function paintFloor(ctx: Pick<CanvasRenderingContext2D, 'clearRect' | 'fillRect' | 'fillStyle'>, floor: string | null, headroom: number): void;
 /** A king sheet: docs/2d-first-pieces/king-<design>/. */
 export type KingDesign = 'frost' | 'flame' | 'stratus' | 'mud' | 'spirit' | 'shadow';
 export interface ScenePieces {
@@ -21,6 +27,9 @@ export interface PaintedScene {
   load(): Promise<void>;
   setPosition(position: { board: ArrayLike<number> }): void;
   setSelected(square: number | null): void;
+  /** Opt-in tell: glow and lift 3 screen pixels; lift=false keeps a still glow. Null clears it. */
+  setLifted(square: number | null, lift?: boolean): void;
+  readonly lifted: number | null;
   setAim(square: number | null): void;
   setFlipped(on: boolean): void;
   /** [white, black]: the king design each side's King is drawn with; a sheet not yet loaded loads now. */
@@ -28,10 +37,10 @@ export interface PaintedScene {
   readonly kings: KingDesign[];
   /** The design each side's King was last drawn with (null: not drawn yet). */
   readonly drawnKings: (KingDesign | null)[];
-  setCoords(on: boolean, size?: number): void;
+  setCoords(on: boolean, size?: number, inset?: number): void;
   setLabels(on: boolean): void;
   setReducedMotion(on: boolean): void;
-  setFallen(square: number | null, animate?: boolean): void;
+  setFallen(square: number | null, animate?: boolean, rotation?: number): void;
   /** Backing pixels per board unit; resizes the canvas and the effect layer. Default 1. */
   setResolution(k: number): void;
   /**
@@ -60,6 +69,7 @@ export interface PaintedScene {
   /** A see-through copy of figure `piece` standing on `square` (a move preview), drawn into `ctx`; for setDecorate. */
   ghost(ctx: CanvasRenderingContext2D, piece: number, square: number, opacity?: number): void;
   /** onContact fires once when the strike lands (not for plain moves or swaps). */
+  /** speed scales duration: 2 is half playback speed; 0.5 is double. */
   /** gait: play a quiet move with this gait (a GAITS name) even when `moves` is off. */
   play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null }): Promise<boolean>;
   cancel(): void;
@@ -72,4 +82,6 @@ export function createScene(options: {
   headroom?: number;
   /** [white, black] king designs to start with; default Frost for both (the trial and the trailer). */
   kings?: readonly [KingDesign, KingDesign];
+  /** The colour round the board; default FLOOR. null leaves the canvas clear there, so the page shows (the game). */
+  floor?: string | null;
 }): PaintedScene;

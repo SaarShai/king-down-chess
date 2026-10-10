@@ -2,17 +2,74 @@
  * Plain-language helpers for the HUD that only read the engine: the screen-reader sentence for a
  * move, the threat markers, and move numbers that stay right when a Haste turn plays two plies.
  */
-import { Color, K, Move, NAMES, Position, colorOf, isAttacked, isSpawnTag, pseudoMoves, sqName, typeOf } from './rules/engine';
+import { A, C, Color, K, Move, N, NAMES, Position, colorOf, file, findKing, genPiece, isAttacked, isSpawnTag, pseudoMoves, rank, sqName, typeOf } from './rules/engine';
+
+import type { Mode } from './turn';
 
 const SIDE = ['White', 'Black'] as const;
 
+export interface Checker { sq: number; king: number; path: 'straight' | 'arc' }
+
+/** The cause of the current check, in one short line. */
+export function checkCause(pos: Position, last?: Move, mode?: Mode, viewer: Color = pos.turn): string {
+  const checkers = checkersOf(pos), names = checkers.map(ch => NAMES[typeOf(pos.board[ch.sq])]);
+  if (!checkers.length) return '';
+  const attacker = mode === 'device' ? `${SIDE[(pos.turn ^ 1) as Color]}'s` : viewer === pos.turn ? 'Their' : 'Your';
+  const target = mode === 'device' ? `the ${SIDE[pos.turn].toLowerCase()} king` : viewer === pos.turn ? 'your king' : 'their king';
+  if (checkers.length === 2) return `${attacker} ${names.join(' and ')} attack ${target}.`;
+  if (checkers.length > 2) return `Check: ${names.slice(0, 5).join(', ')}${names.length > 5 ? `; ${names.length - 5} more.` : '.'}`;
+  const ch = checkers[0], name = names[0];
+  const df = file(ch.king) - file(ch.sq), dr = rank(ch.king) - rank(ch.sq);
+  const mid = name === 'archer' && Math.max(Math.abs(df), Math.abs(dr)) === 2 && df % 2 === 0 && dr % 2 === 0
+    ? (ch.sq + ch.king) / 2 : -1;
+  const over = mid >= 0 && pos.board[mid] ? sqName(mid) : '';
+  if (mode) {
+    const strike = last?.power === 'strike' && last.from !== last.to && last.to === ch.sq;
+    const cause = `${strike ? 'Strike: ' : ''}${attacker} ${name} ${name === 'archer' ? 'shoots' : 'attacks'} ${target}`;
+    return `${cause}${over && cause.split(/\s+/).length <= 6 ? ` over ${over}` : ''}.`;
+  }
+  if (last?.power === 'strike' && last.from !== last.to && last.to === ch.sq) {
+    return over ? `Strike lets their ${name} shoot over ${over}.` : `Strike lets their ${name} attack your king.`;
+  }
+  if (over) return `Their archer can shoot over ${over}.`;
+  return name === 'archer' ? 'Their archer can shoot your king.' : `Their ${name} attacks your king.`;
+}
+
+/** Attacks on the king, including frozen pieces. A Freeze stops moves, not check. */
+export function checkersOf(pos: Position): Checker[] {
+  const king = findKing(pos.board, pos.turn);
+  if (king < 0) return [];
+  const checkers: Checker[] = [];
+  for (let sq = 0; sq < 64; sq++) {
+    const p = pos.board[sq];
+    if (!p || colorOf(p) === pos.turn) continue;
+    const attacks: Move[] = [];
+    genPiece(pos.board, sq, 'attacks', attacks);
+    if (attacks.some(m => m.captures.includes(king))) {
+      checkers.push({ sq, king, path: checkPath(pos.board, sq, king) });
+    }
+  }
+  return checkers;
+}
+
+function checkPath(board: Uint8Array, from: number, king: number): Checker['path'] {
+  const t = typeOf(board[from]), df = file(king) - file(from), dr = rank(king) - rank(from);
+  const distance = Math.max(Math.abs(df), Math.abs(dr));
+  if (t === N || t === C || (t === A && distance > 1) || (df && dr && Math.abs(df) !== Math.abs(dr))) return 'arc';
+  const step = Math.sign(df) + 8 * Math.sign(dr);
+  for (let s = from + step; s !== king; s += step) if (board[s]) return 'arc';
+  return 'straight';
+}
+
 /** One sentence for a screen reader: who moved what, and what it did. */
-export function describeMove(pre: Position, m: Move): string {
+export function describeMove(pre: Position, m: Move, freePass = false, final = false): string {
   // The side is the one to move, not the piece on `from`: a Freeze names an enemy piece.
   const side = SIDE[pre.turn], piece = pre.board[m.from], name = NAMES[typeOf(piece)];
   const the = (s: number): string => `${NAMES[typeOf(pre.board[s])]} on ${sqName(s)}`;
   const colour = (s: number): string => (colorOf(pre.board[s]) ? 'black' : 'white');
   // King powers that move nothing, or change a piece where it stands.
+  // The pass of a free mark (or a GrowthB draw) ends a turn that had no second move to skip.
+  if (freePass && m.pass && pre.free) return `${side} ends the turn after the ${pre.marks?.[pre.turn] ? 'mark' : 'draw'}.`;
   if (m.pass) return `${side} ends the turn without the ${pre.rage === 3 ? 'Rally' : 'Haste'} second move.`;
   if (m.power === 'freeze') return `${side} freezes the ${colour(m.to)} ${the(m.to)}.`;
   if (m.power === 'ward') return `${side} puts an Ice Wall on the ${colour(m.to)} ${the(m.to)}.`;
@@ -29,8 +86,8 @@ export function describeMove(pre: Position, m: Move): string {
   if (m.promo) text += `, and becomes a ${NAMES[m.promo]}`;
   if (m.selfRemove) text += `; the ${name} leaves the board`;
   if (m.power === 'strike') text += ' with Strike';
-  if (m.power === 'haste') text += `, with Haste: the ${name} may move again`;
-  if (m.power === 'rally') text += ', with Rally: a different piece may move next';
+  if (!final && m.power === 'haste') text += `, with Haste: the ${name} may move again`;
+  if (!final && m.power === 'rally') text += ', with Rally: a different piece may move next';
   return `${text}.`;
 }
 

@@ -1,40 +1,99 @@
 # 18 · Lessons: the piece shelf
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
-Blocked by: 02a (Show me), 05
+Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
+Blocked by: none
 
 ## Scope
 
-- Owner choice: Lessons A, the piece shelf ("four small boards for one piece"). Decision D10.
-- Demo: `feat-lessons` option A (`index.html` 15–91; `lessons.js` 15–55 the Guard boards, 62–86 the order and lines, 112–128 the shelf, 304–309 Show me, 362–401 the learned card).
-- Files: `src/lessons.ts` and test; `src/main.ts` (the lesson flow, `noteLesson`, the Guide; call lines only); `index.html` (the Guide, the lesson parts); `src/style.css`; `src/powers-ui.test.ts`; `tools/verify-lesson-return.mjs`; new `tools/verify-lessons.mjs`; `tools/verify-account.mjs`, `tools/verify-painted-game.mjs`, `tools/ux-defects/` d4 and d8.
+- Owner choice: Lessons A, Piece shelf. Decision D10.
+- The [fast plan](../fast-plan.md) §2 sets this unit's scope.
+- Demo: `feat-lessons` option A. Reuse its figure order, short lines and stone shelf.
+- Keep the six lesson boards and W1's controls. W2's Menu opens Guide on the shelf.
 
 ## Plan
 
-1. [ ] The lesson shape becomes a list of boards (key, name, position, task, how, done, retry, goal). The Guard gets the demo's four boards (move, block, the twist, choose). The other five pieces keep one board until the owner says yes to each new position.
-2. [ ] The Archer lesson reads the Archer rule in force (spec rule 11). Today's position (`7k/8/8/4p3/3A4`) uses a diagonal shot at distance 1, which the far2 reading removes; give the lesson a position and a goal that work under each Archer reading, or one position for each reading.
-3. [ ] The Guide sheet opens with the shelf at the top: six figures on a stone shelf in the order Archer, Beast, Maester, Ogre, Guard, Paladin; under each, its name, one line and its state ("Learned", "Next" on the first one not learned, "Bonus" on the Paladin). A main button "Learn the <piece>" ("Play a game" when all are learned). The line "Lessons never change your saved game." Any figure opens its lesson.
-4. [ ] The lesson screen: a top bar (‹ back to the shelf, the piece icon and name, Play = back to the kept game), the task line, "Show me" (from ticket 02a: it marks the goal move from `hintMoves()` with the lesson goal), and a step track only for a lesson with more boards. On success: a "<Piece> learned" card with its rule line, "Play a game" and "Next: <piece>".
-5. [ ] Lessons have no turn button and no Undo; each move is judged at once, and the lesson takes back a wrong move itself.
-6. [ ] `noteLesson()` keeps every other field of `kingdown.lessons` (ticket 19 adds `tricks`). The account keeps the `done` list as today.
-7. [ ] One verb for the Ogre: "shove" in all copy.
-8. [ ] Remove `#lesson-progress`, `#next-lesson` and `#return-game` and the lesson actions of the context line.
+1. [x] Build a pure shelf model. Read Learned and Next from the lesson store. Use this order: Archer, Beast, Maester, Ogre, Guard, Paladin. Read Bonus from the pool.
+2. [x] Put six figures on a stone shelf. Show each name, rule line and state. Any figure opens its lesson. The main button opens the next lesson, or returns to the game when all are learned.
+3. [x] Keep Show me and the current lesson controls. Show “<Piece> learned.” in the context line on success. Lessons have no Undo or End turn.
+4. [x] Keep every other field of `kingdown.lessons` when a lesson is learned. Keep the account's done list.
+5. [x] Use “shove” for the Ogre in player text.
+6. [x] Update the check helpers for the shelf controls. Keep each check's flow and purpose.
 
 ## Verification
 
-- [ ] `src/lessons.test.ts`: on every board a goal move is legal and reaches the goal, and a wrong move does not; the Archer lesson under each Archer reading; the order; the Guard has four boards.
-- [ ] `src/powers-ui.test.ts`: "Show me" gives only goal moves (update the lesson index for the new order).
-- [ ] New check `lessons`: the Guide opens on the shelf; "Learned" follows the store; a figure opens its lesson; Show me marks the goal; no Undo and no End turn in a lesson; Play returns to the kept game with no change.
-- [ ] `lesson-return`, `account` (a learned lesson syncs), `npm test` and `npm run check:browser` pass.
-- [ ] Rendered sample, 390×844 and 1440×900: the shelf; the Guard twist board; the learned card. The owner's yes, with the date, in Comments.
+- [x] Test the shelf order, state, next lesson and short lines at the pure seam.
+- [x] Test the lesson store and learned context line before the code change.
+- [x] Keep the lesson goal and Show me tests. Run `npm run typecheck` during the build.
+- [x] Run `npm test`: 85 files pass, one is skipped; 1,531 tests pass, 13 are skipped. All 50 scene tests pass.
+- [x] Run the three lessons cases at phone and desktop sizes twice. Check the shelf, a figure's lesson and Learned from the store.
+- [x] Run the touched checks: lessons, lesson-return, account, painted-game, game-screen, turn, ux-defects, new-game, playable-clay, menu-extra, visual-design, special-moves.
+- [x] Render the shelf at 390×844 and 1440×900. Inspect both contact sheets. Both renders have no capture fault.
+- [ ] The owner says yes to the sample.
 
 ## Risks
 
-- The kept game and a newer game from the account must stay safe during a lesson.
-- The Paladin is not in the draw pool; its "Bonus" line must stay true to the rules in force.
+- The saved game and a newer account game must stay safe during a lesson. The return and account checks cover both cases.
+- The Paladin is in the draw pool. All pool pieces share one shelf.
 
 ## Does not do
 
-- No four boards for the other five pieces yet. No path layout (B). No crowns.
+- No board lists, four Guard boards, alternate Archer reading tests, new lesson screen or learned card.
+- No path layout or crowns. Keep the current lesson controls and one board per piece.
 
 ## Comments
+
+- The shelf model and DOM show six figures, Learned, Next and Bonus. A figure starts its current lesson.
+- The lesson store keeps other fields. The context line shows the piece learned. Player text uses shove.
+- The fast plan cuts board lists, four Guard boards, alternate Archer tests, the new lesson screen and learned card.
+- `npm test`: 85 files pass, one is skipped; 1,531 tests pass, 13 are skipped; all 50 scene tests pass. Typecheck passes.
+- One full run has a search clock timeout. The full test run with one worker passes on retry.
+- The M1 launcher routes to this Mac. All 12 named browser checks pass. The new lessons check passes twice.
+- Sample W9: phone and desktop shelf; two renders, no capture fault. Both contact sheets pass the review.
+- The integration merge keeps the check cause text and learned line. The sample waits for the owner's yes.
+
+## Integration
+
+Plan: merge W9 without a fast-forward, check the tree, then push the integration branch.
+Checks: no lost changes, no conflicts, and a passing pre-push test and gate.
+The owner asks for this merge and push. The starting branch is clean.
+The start is `80860c174b4dbf930a63ca1976aaa1866378e528`, an ancestor of W9.
+Merge `7d9b4bc77ea40ac11855b6d34e9bae26147696fc` has no conflicts.
+Its tree is the same as W9. The builder's full run above stands under the owner's rule.
+The push hook must pass before the branch goes to origin.
+The first push stops on three five-second test timeouts: one piece-activity case and two gate cases.
+All 1,528 other tests pass. This Mac has a high load.
+Retry the push with `VITEST_MAX_WORKERS=1`. Keep the assertions and time limits.
+
+## Batch 3 words
+
+- decided by delegation (2026-10-09).
+- Next lesson uses the shelf's next unlearned lesson for its label and action. Archer leads to Beast.
+- The Paladin line is “Jumps over its own pieces”.
+- The browser helpers give both lesson flows the shelf order. Existing flow assertions stay.
+- Shared lane edit: export the existing progress function from `src/lesson-shelf-ui.ts`.
+- Checks: npm test passes (1,695 tests; 13 skipped). Typecheck and all ten required browser checks pass. Three extra checks pass.
+- Sample W9: 4 renders, 0 faults. Both contact sheets are inspected.
+
+## Batch 3 sheet fixes
+
+Decision: decided by delegation (2026-10-09).
+The first rule line shows under the phone shelf. The save note is centred.
+The heading is smaller. The Paladin shares the shelf with all pool pieces.
+Figures have hover and press states. The kept-game action says Return to game.
+Tests: 1,666 pass; 13 skip. All 50 scene tests pass.
+Samples: 128 renders across W2, W4, W9, W11 and W12; zero faults. All are inspected.
+All nine required browser checks pass. Typecheck and the doc checks pass.
+
+## Batch 3 repair 2
+
+Item 3: decided by delegation (2026-10-09).
+Boards, progress and shelf use Archer, Beast, Maester, Ogre, Guard, Paladin.
+Progress reads learned names, not the boards before the current index.
+The store already saves names; saved learned results keep their meaning.
+The lesson order test and browser check pass. After Archer, Beast is second; Guard and Maester are not done.
+
+Item 3 check: decided by delegation (2026-10-09). Shelf tests use the new lesson indices. Saved-name tests still cover gaps, duplicate names and old names.
+
+Item 3 browser check: decided by delegation (2026-10-09). The shared lesson path and the painted-game check use the shelf indices and names. The first full run finds the old map; the new run checks the repair.
+
+Item 7: decided by delegation (2026-10-09). An active lesson shows current before the saved learned state. When it ends, the dot shows done. The lessons check plays a learned Archer lesson again and checks current.

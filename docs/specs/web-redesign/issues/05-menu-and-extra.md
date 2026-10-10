@@ -1,43 +1,78 @@
 # 05 · Menu and Extra: one sheet, Board help, Feel, and Resign in place
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
 Blocked by: 02c
 
 ## Scope
 
-- Owner choices: Menu and Extra C (the index part; Tricks come in ticket 19), Board help beside Guide (our pick), Warm joy with no dial (Sound, Vibration and Motion). Decision D6 (option 2: the designer tools stay visible).
+- Owner choices: Menu and Extra C (the index part; Tricks come in ticket 19), Board help beside Guide (our pick), Warm joy with no dial (Sound and Motion). Decision D6 (option 2: the designer tools stay visible).
 - This step comes before the table (03), in today's layout. One Menu button takes the place of the four buttons New game, Guide, Workshop and Settings in the panel. Ticket 03 then only moves the Menu button into the bar.
 - Demo: `feat-menu-extra` (`PAGES` 227–271, the index 274–296, the Coming group 303–305, the live previews 333 and on, navigation 359–410).
-- Files: `index.html` (the Settings dialog goes; the four nav buttons, `#resign`, `#share`, `#account`, `#setup` and `#copy` move); new `src/ui/menu.ts`; `src/main.ts` (settings handlers, Resign, the Workshop and Guide openers); new `src/haptic.ts`; `src/account/sync.ts` and test; `tools/app-ui.mjs` (the helper bodies: `openMenu`, `menuItem`, `openExtra`, `setPace`); new `tools/verify-menu-extra.mjs`; `docs/specs/web-redesign/samples/05.mjs`.
+- Files: `index.html` (the Settings dialog goes; the four nav buttons, `#resign`, `#share`, `#account`, `#setup` and `#copy` move); new `src/ui/menu.ts`; `src/main.ts` (settings handlers, Resign, the Workshop and Guide openers); `tools/app-ui.mjs` (the helper bodies: `openMenu`, `menuItem`, `openExtra`, `setPace`); new `tools/verify-menu-extra.mjs`; `docs/specs/web-redesign/samples/W2.mjs`.
 
 ## Plan
 
-1. [ ] Menu rows: New game › (a page with "Play again" and "Change setup"; the lead line "A new game ends this game."); Guide ("Pieces, powers and lessons."); Board help ›; Feel (Sound, Vibration, Motion: Normal · Fast · Off); Extra ›; a gap; Resign › (the page "Lay your king down?", one line on who wins, Resign and Keep playing; off when no side can resign). "Send the game link" is a Menu row in a two-player game. Resign leaves the action row: Undo · End turn.
-2. [ ] One `<dialog>` holds the pages. ‹ goes back one page. Esc goes back one page, and closes on the first page. × and a tap outside close it. Game keys stay off while it is open. The focus goes back to the Menu button.
-3. [ ] No dialog over the Menu: Guide, the Workshop, New game and the account's `#delete-account` close the Menu first, then open. The focus goes back to the Menu button when they close.
-4. [ ] Board help: Show threats, Coordinates, Piece letters, Always promote to a queen. Each switch acts at once and saves, as today. Each switch has a small live preview: a window on the real board, cropped to three squares, as in the demo.
-5. [ ] Extra index. Play and make: Today's army (opens New game with Today's army), Workshop (the fox figure, "Make your own piece."). Board and game: This game (the army code `#setup`, Copy moves `#copy`), Account (the `#account` section moves as one node), Look (Painted, Clay) and Reset view (D6, option 2: no lab switch). Coming: Card mode ("A hand of power cards."), a static row with no action.
-6. [ ] Motion: the label "Animations" becomes "Motion". The id `#pace`, the values and `data-pace` do not change.
-7. [ ] Vibration: a new setting `vibration`, written only when off, in `SETTINGS`. `src/haptic.ts` calls `navigator.vibrate` in `try`/`catch`, with short pulses only. The row hides where the device has no vibration. This ticket pulses on a capture; tickets 07 and 09 add check and refusal.
-8. [ ] Remove the Settings dialog and the four nav buttons. Keep `#setup` in the page (the `qa` check waits for it).
-9. [ ] Change the helper bodies in `tools/app-ui.mjs`; the checks do not change.
+The fast plan, §2, sets this build scope.
+
+1. [x] Build New game, Guide, Board help, Feel, Extra and Resign rows. Feel holds Sound and Motion. Move Resign off the game bar.
+2. [x] Use one native dialog with pages, Back, Esc, Close, outside close and focus return. Game keys stay off under the Menu.
+3. [x] Close Menu before Guide, Workshop, New game or the account delete question opens.
+4. [x] Move the four Board help switches as they are. Each saves and changes the board. Cut live previews.
+5. [x] Build Extra: Today's army, Workshop, This game, Account, Look and Reset view. Keep Card mode as a static Coming row.
+6. [x] Rename Animations to Motion. Keep `#pace` and its values.
+7. [x] Cut Vibration and the haptic module under the fast plan.
+8. [x] Remove Settings and the four old nav buttons. Keep the army code node and the account node.
+9. [x] Update the Menu helper bodies for the moved controls.
 
 ## Verification
 
-- [ ] `src/account/sync.test.ts`: `vibration` travels with the settings; an old save reads as on.
-- [ ] New check `menu-extra`: the rows; ‹, Esc and × at each page; the focus goes back; Guide, the Workshop, New game and the delete question open with the Menu closed; Sound, Vibration and Motion change the save; Board help switches change the board and the preview at once; Look and Reset view work with no lab switch; Resign asks in the sheet, with no `window.confirm`; a stubbed `navigator.vibrate` counts one pulse on a capture, and the row hides with no API.
-- [ ] `account` signs in and out through Extra › Account.
-- [ ] `npm test` and `npm run check:browser` pass.
-- [ ] Rendered sample, 390×844 and 1440×900: the Menu, Board help with its previews, Extra, This game, Account, the Resign page. The owner's yes, with the date, in Comments.
+- [x] Check all rows, Back, Esc, Close, outside close, focus return and dialog hand-over. Check saved Sound on and off, saved Motion Fast and Off, and the board pace.
+- [x] Check Board help, Look, Reset view and the in-sheet Resign question.
+- [x] Run `account` through Extra. Run `npm test` and the named browser checks. Run the new `menu-extra` check twice after the merge.
+- [x] Render Menu, Board help, Extra and Resign in W2 at all three sizes. Inspect each contact sheet.
+- [ ] The owner's yes on the sample waits.
 
 ## Risks
 
-- `account.ts` finds its nodes by id once; rebuild no page with `innerHTML`.
-- iOS has no vibration; Chrome allows it only after the first tap.
-- The previews draw a second small board: keep them still, and draw them only while Board help is open.
+- Account finds its nodes by id once. Keep each node when the page changes.
 
 ## Does not do
 
 - No Tricks (19), no new New game sheet (06), no `?lab=1` switch (D6), no new layout (03).
 
 ## Comments
+
+
+W2 builds this ticket with 03 under the fast plan, §2.
+The native sheet keeps its pages and setting nodes. Resign asks in the sheet.
+Feel checks prove that Sound and Motion save each change.
+Cut: live previews, Vibration and the haptic module.
+`npm test`: 1499 tests and 50 scene tests pass. All 19 named checks pass.
+`menu-extra` passes twice after the merge. The supplied M1 script uses its local fallback.
+W2 has 45 clean renders. All three size sheets and the phone pair are inspected.
+
+Batch 2: decided by delegation (2026-10-09).
+Menu and Moves keep their headers in view. One body scrolls to every row.
+Close uses a framed 44 px button. Back names the parent sheet.
+Coming names power coins by the king. Motion Off hides the pace note.
+All eight required browser checks pass. `npm test`: 1514 tests and 50 scene tests pass.
+W2 has 68 inspected renders and no faults. Landscape includes every Menu sheet.
+
+## Batch 3 sheet fixes
+
+Decision: decided by delegation (2026-10-09).
+Menu pages fit their content. Desktop Back and Close keep the opening top edge.
+Phone Back and Close move with each page height.
+Phone Menu rests at the bottom. Board help stays on one heading line.
+The Resign question uses the heading size and ink colour.
+Tests: 1,666 pass; 13 skip. All 50 scene tests pass.
+Samples: 128 renders across W2, W4, W9, W11 and W12; zero faults. All are inspected.
+All nine required browser checks pass. Typecheck and the doc checks pass.
+
+Item 13: decided by delegation (2026-10-09). Each Menu page fits its content. On desktop, the sheet keeps its opening top edge as pages change. On phones, the head moves with each page height. Short pages have no large blank area under their content.
+
+Item 1: decided by delegation (2026-10-09). The first layout uses fit-content. Below 900 px, each page uses fit-content, up to the screen height minus a 24 px top gap. Its bottom stays on the screen edge. The head moves with the page height. Desktop Menu opens in the centre and keeps its opening top. Compact short-phone rows fit without cut glyphs. menu-extra checks all four sizes and each phone page.
+
+Small repair item 1: decided by delegation (2026-10-09). Phone Menu follows the standard bottom-sheet pattern. No page keeps spare height from another page. A bottom shade shows an overflowing body. Where a whole row fits, the body ends after that row. Browser checks compare each sheet with its head, page content and padding.
+
+The shade check also requires generated pseudo-element content. A display value alone does not show that the shade paints.

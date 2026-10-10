@@ -1,30 +1,34 @@
 # 11 · The move story: one sentence in player words, and a Review state
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
 Blocked by: 03, 04
 
 ## Scope
 
 - Owner choice: the move history at rest, A, one line (ticket 03 gives the line). This ticket gives its words and the open story. Advisors: show an old move in a clear Review state. Decision D12 (d): no chips, scrubber or ghost, and no "B as a Menu choice".
 - Demo: `feat-move-story` option A (`tell()` 42–91, the line 168–176).
-- Files: `src/move-text.ts` (new `storyLine`; `describeMove` does not change here) and test; `src/main.ts` (the Moves line, the list rows, `showPly`, `#moment`); `index.html`; `src/style.css`; `tools/app-ui.mjs` (the `lanMoves` body reads the data field); new `tools/verify-move-story.mjs`.
+- Files: `src/ui/table.ts`, `src/main.ts` call sites, `src/game.ts`, pure `src/review.ts` and tests, `index.html`, table styles and check helpers.
 
 ## Plan
 
-1. [ ] `storyLine(pre, move, voice)` (pure): an icon, a verb (step, take, shot, shove, swap, bites ×N, power, mate) from `momentKind` and the move, and a sentence of 8 words or fewer. Voice "Your/Their" against the computer and in a link game; "White/Black" on one device.
-2. [ ] The Moves line shows the piece icon, the verb badge, the sentence, "Move N" and the chevron.
-3. [ ] The open list: one row for each ply with the piece icon, the verb and an event icon. A Haste turn is two rows under one number. Each row keeps its LAN text in a data field, so Copy moves, links and the checks keep LAN.
-4. [ ] A row tap enters Review: the Moves header shows ◀ ▶ and "Back to game"; the board plays that move once and shows it; the live game waits. A tap on a piece reads it in the shown position (spec §4.10). Only "Back to game" or Esc goes back.
-5. [ ] The one line replaces the finished-move caption of `#moment`. The preview words of `moment.ts` feed the target sentence of ticket 08.
-6. [ ] Undo removes the line of the undone ply and shows the line before it, with no other words.
-7. [ ] `lanMoves(page)` in `tools/app-ui.mjs` reads the data field. Every check that reads `#moves` goes through it (the list is in ticket 00), so no assertion line changes.
+The fast plan, §2, keeps only this small part in W2.
+
+1. [x] Cut `storyLine`. Reuse today's `describeMove` sentence and keep its shared default.
+2. [x] Add the represented piece's icon to the one Moves line. Cut the verb badge.
+3. [x] Add each row's piece icon. Keep LAN in data fields and the existing turn groups.
+4. [x] Keep row and arrow navigation in Review, including its last ply. Add Back to game. Only Back to game or Esc exits. Cut the arrow header.
+5. [x] Let the one Moves line show the finished move's sentence. Keep existing hover marks.
+6. [x] Undo shows the prior move's line.
+7. [x] Keep LAN check helpers. Cut the new move-story check; test Review in `game-screen`.
 
 ## Verification
 
-- [ ] `src/move-text.test.ts`: `storyLine` has 8 words or fewer for each verb and uses the right voice; a Freeze names the side that froze, not the frozen piece.
-- [ ] New check `move-story`: the line text at rest; rows = plies; a row tap enters Review; ◀ ▶ and Back to game work; a tap on a piece in Review reads it and stays in Review; Esc goes back; Copy moves gives LAN.
-- [ ] The checks pass through `lanMoves`; `npm test` and `npm run check:browser` pass. `plugin-ui` does not change (`describeMove` stays).
-- [ ] Rendered sample, 390×844 and 1440×900: the line after a shot, a shove and bites ×3; the list open; Review with a piece read. The owner's yes, with the date, in Comments.
+- [x] Test the last-ply position reader and Review navigation through pure modules.
+- [x] Check row and arrow routes to the last ply, a read in Review, Back to game, Freeze icons and the free-mark pass in `game-screen`.
+- [x] Keep existing Clay replay assertions. Use Back to game before Undo. Check Copy moves through the named checks.
+- [x] Run `npm test`, the named checks and both plugin checks. Run the new W2 checks twice after the merge.
+- [x] Render the Moves sheet, last-ply Review, Freeze and the free pass in W2.
+- [ ] The owner's yes on the sample waits.
 
 ## Risks
 
@@ -35,3 +39,12 @@ Blocked by: 03, 04
 - No chips, no scrubber, no notation switch, no ghost replay over the live board (D12).
 
 ## Comments
+
+W2 builds only the part kept by the fast plan, §2.
+Use today's sentence, piece icons and LAN data fields. Keep the shared default.
+The last ply stays in Review. Back to game and Esc give an explicit exit.
+Freeze draws the enemy piece. The free-mark pass names the mark.
+Cut: `storyLine`, verb badges, the arrow header and the new move-story check.
+`npm test`: 1499 tests and 50 scene tests pass. All 19 named checks pass; both new W2 checks pass twice after the merge.
+Both plugin checks pass. The page stays at 4,291,968 bytes. The M1 script uses its local fallback.
+W2 has 45 clean renders and four inspected sheets outside Git.

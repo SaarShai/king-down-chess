@@ -1,11 +1,11 @@
 // Settings → Account and the cloud save in a real browser, against a fake Supabase (every request to
 // the project is answered here; nothing reaches the real server). Signed out, the sign-in redirect,
 // the return from it, the cloud save (newer copy comes down, a move goes up after 2 s), sign-out,
-// account deletion, a newer game arriving during a lesson or under the title, a newer game another
+// account deletion, a newer game arriving during a lesson or on Home, a newer game another
 // device sent while this one was behind, a server that cannot be reached, and signing out offline.
 // Run: npm run check:browser account (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
-import { contextText, lanMoves, openExtra, pressMenu, waitForUi } from './app-ui.mjs';
+import { startLesson, arriveContinue, closeMenu, contextText, lanMoves, openAccount, pressMenu, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -32,15 +32,16 @@ const offline = [{
 }];
 
 /** A page with the fake server. `row` is the player's user_data row; `down` makes every request fail. */
-async function open({ query = '', stored = null, row = null, down = false, phone = false, verifier = false, delay = 0, title = false } = {}) {
+async function open({ query = '', stored = null, row = null, down = false, phone = false, verifier = false, delay = 0, title = false, saved = null } = {}) {
   const ctx = await browser.newContext(phone ? { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } : { viewport: { width: 1280, height: 900 } });
-  await ctx.addInitScript(([s, v, t]) => {
+  await ctx.addInitScript(([s, v, t, save]) => {
     if (!t) sessionStorage.setItem('kingdown.title-seen', '1');
     if (sessionStorage.getItem('seeded')) return;
     sessionStorage.setItem('seeded', '1');
+    if (save) localStorage.setItem('kingdown.save', JSON.stringify(save));
     if (s) localStorage.setItem('kingdown.auth', JSON.stringify(s));
     if (v) localStorage.setItem('kingdown.auth-code-verifier', JSON.stringify('the-verifier'));
-  }, [stored, verifier, title]);
+  }, [stored, verifier, title, saved]);
   const server = { row, requests: [], errors: null, scripts: [], phone };
   await ctx.route('https://avatars.example/**', r => r.fulfill({ contentType: 'image/png', body: PNG }));
   await ctx.route(`${SUPABASE}/**`, async r => {
@@ -86,7 +87,7 @@ const seen = async (server, test, n = 1) => {
   return server.requests.filter(test);
 };
 const accountButtons = page => page.locator('#account-body button').allInnerTexts();
-const settings = async page => { await openExtra(page); await page.locator('#account:not([hidden])').waitFor(); };
+const settings = async page => { await openAccount(page); await page.locator('#account:not([hidden])').waitFor(); };
 const small = page => page.$$eval('#account button, #account a', els => els.filter(e => e.offsetParent)
   .map(e => ({ t: e.textContent.trim(), r: e.getBoundingClientRect() })).filter(({ r }) => r.height < 44 || r.width < 44).map(({ t }) => t));
 const moves = page => lanMoves(page);
@@ -178,7 +179,7 @@ try {
     assert.deepEqual(await accountButtons(page), ['Sign out', 'Delete my account']);
     assert.ok(await page.locator('#account-body img').evaluate(i => i.complete && i.naturalWidth > 0), 'the picture shows');
     if (phone) assert.deepEqual(await small(page), []);
-    await page.keyboard.press('Escape');
+    await closeMenu(page);
     const before = server.requests.filter(r => r.method === 'POST').length;
     await tap(p, 6); await tap(p, 21); // g1-f3
     await waitForUi(page, ui => ui.lan.length === 3);
@@ -205,15 +206,17 @@ try {
     assert.match(await dlg.innerText(), /name, picture and rating, and the settings, lessons\s+and game saved with it/);
     await dlg.locator('button[value=cancel]').click();
     assert.equal(server.requests.some(r => r.path.includes('delete_my_account')), false, 'Keep my account deletes nothing');
+    await settings(page);
     await page.click('#account-body >> text=Delete my account');
     await dlg.locator('button[value=delete]').click();
-    await page.locator('#account-body >> text=Continue with Google').waitFor();
+    await page.waitForFunction(() => document.getElementById('account-note').textContent.startsWith('Your account is deleted.'));
+    await settings(page);
     assert.equal(await page.locator('#account-note').innerText(), 'Your account is deleted. Your games stay on this device.');
     assert.ok(server.requests.some(r => r.method === 'POST' && r.path === '/rest/v1/rpc/delete_my_account'));
     assert.ok(server.requests.some(r => r.path === '/auth/v1/logout' && r.url.searchParams.get('scope') === 'local'));
     assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.auth')), null);
-    assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Continue with Google', 'focus stays in the section');
-    await page.keyboard.press('Escape');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'menu-title', 'Account opens in the Menu after deletion');
+    await closeMenu(page);
     const posts = server.requests.filter(r => r.method === 'POST' && r.path === '/rest/v1/user_data').length;
     await tap(p, 6); await tap(p, 21); // g1-f3
     await waitForUi(page, ui => ui.lan.length === 3);
@@ -236,10 +239,10 @@ try {
   ok('Delete my account: the confirm names what goes, Keep deletes nothing, delete_my_account then sign-out; the game plays on, saved here only; Sign out works');
 
   // 6. The newer game arrives during a lesson: the lesson goes on; Return to game opens the newer game.
-  //    Under the title, the title offers it and the computer waits until the player chooses.
+  //    Home refreshes with the new game; the computer waits for Continue.
   {
     const p = await open({ stored: session(), row: structuredClone(row), delay: 1500 }), { page, server, close } = p;
-    await pressMenu(page, 'Guide'); await page.click('#learn');
+    await startLesson(page);
     await seen(server, r => r.method === 'GET' && r.path === '/rest/v1/user_data');
     await new Promise(r => setTimeout(r, 2000));
     assert.match(await page.textContent('#turn'), /Lesson 1 of 6/, 'the lesson goes on');
@@ -251,16 +254,16 @@ try {
   {
     const aiToMove = structuredClone(row);
     aiToMove.saved_game.v = { ...aiToMove.saved_game.v, moves: ['e2-e4'], black: 'ai' };
-    const p = await open({ stored: session(), row: aiToMove, delay: 300, title: true }), { page, close } = p;
-    await page.locator('#title-continue:not([hidden])').waitFor();
-    await page.waitForFunction(() => document.querySelector('#title-continue .label').textContent === 'Continue · move 1');
+    const p = await open({ stored: session(), row: aiToMove, delay: 300, title: true, saved: { ...row.saved_game.v, moves: ['e2-e4', 'e7-e5'] } }), { page, close } = p;
+    await arriveContinue(page).waitFor();
+    await page.waitForFunction(() => document.querySelector('#home-progress').textContent === 'Move 1');
     await new Promise(r => setTimeout(r, 1500));
-    assert.deepEqual(await moves(page), ['e2-e4'], 'the computer waits behind the title');
-    await page.click('#title-continue');
+    assert.deepEqual(await moves(page), ['e2-e4'], 'the computer waits on Home');
+    await arriveContinue(page).click();
     await waitForUi(page, ui => ui.lan.length === 2, null, { timeout: 15_000 });
     await close();
   }
-  ok('the newer game during a lesson waits for Return to game; under the title, Continue offers it and the computer waits');
+  ok('the newer game during a lesson waits for Return to game; Home refreshes and the computer waits for Continue');
 
   // 7. The server cannot be reached: the game loads and plays, nothing on screen, quiet retries.
   {

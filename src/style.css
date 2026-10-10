@@ -34,14 +34,31 @@
   --stone-900: #1d1915;
   --accent: #842c21;       /* primary buttons: vellum text 8.3:1 */
   --accent-deep: #5a1c14;
+  --accent-bright: #9c3a2d; /* the lit top of a crimson control */
   --gold: #c99a3e;         /* ornament on dark stone */
+  --gold-bright: #e9c071;  /* the lit gold edge: ornament, never text on parchment */
   --gold-ink: #7a5712;     /* gold as text on parchment: 5.5:1 */
   --danger: #b0251b;
   --focus: #1c5bb0;        /* focus ring: 5.5:1 on parchment */
   --check: #e02828;        /* matches renderer CHECK_RING on the king square */
-  --night: #221d18;        /* title screen */
+  --night: #221d18;        /* dark stone (no screen stands on it: the base look is light only) */
   --on-night: #f3ead7;
   --on-night-soft: #d6c9ad;
+  /* marks on the board (src/render/marks.ts), as "r g b": each kind also has its own shape */
+  --mark-move: 255 214 128;     /* gold gem */
+  --mark-capture: 214 52 40;    /* crimson ring and brackets */
+  --mark-swap: 160 120 220;     /* violet: the Maester's trade */
+  --mark-shove: 64 190 176;     /* teal: the Ogre's push */
+  --mark-power: 96 160 255;     /* blue rune: a king's power */
+
+  /* The Quiet Table: one parchment floor under every screen, also when the device is in dark mode. */
+  --floor-base: #f2e9d6;   /* the floor's middle colour, and the page colour under it */
+  --floor-edge: #e6d7b9;   /* the floor at the far edge: the darkest surface that text stands on */
+  --floor: radial-gradient(90% 75% at 50% 40%, #faf5ea 0%, var(--floor-base) 55%, var(--floor-edge) 100%);
+  --fg: var(--ink);
+  --fg-soft: var(--ink-soft);
+  --line: rgba(43, 38, 33, 0.16); /* a hairline on the floor */
+  --wash: rgba(43, 38, 33, 0.06); /* a quiet hover or a pressed state on the floor */
 
   /* type */
   --font-display: 'Cinzel', 'Trajan Pro', Georgia, 'Times New Roman', serif;
@@ -49,10 +66,14 @@
   --fs-xs: 12.5px;
   --fs-sm: 14px;
   --fs-md: 15.5px;
+  --fs-body: 16px;         /* body text on a phone */
   --fs-lg: 18px;
   --fs-xl: 23px;
   --fs-2xl: 30px;
+  --fs-3xl: 40px;
   --lh: 1.45;
+  --lh-tight: 1.2;
+  --track-display: 0.08em; /* Cinzel letter spacing */
 
   /* spacing, radii, depth */
   --space-1: 4px;
@@ -61,35 +82,50 @@
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
+  --space-7: 48px;
   --radius-sm: 5px;
   --radius: 8px;
   --radius-lg: 14px;
+  --radius-pill: 999px;
   --tap: 44px;              /* minimum touch target on phones */
   --lift: 0 2px 0 var(--stone-700);
   --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 2px 8px rgba(43, 38, 33, 0.1);
   --shadow-float: 0 18px 50px rgba(20, 14, 8, 0.45);
+  --shadow-sheet: 0 -8px 40px rgba(20, 14, 8, 0.35);
 
-  --rail: 272px;
+  /* motion: most UI motion is 120 to 400 ms; each animation shows a change, a cause or a place */
+  --dur-1: 120ms;          /* press, hover, small state */
+  --dur-2: 200ms;          /* a mark appears, a chip toggles */
+  --dur-3: 320ms;          /* a sheet, a panel, a figure's slide */
+  --dur-4: 480ms;          /* one strong moment: a win, a reveal */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-in: cubic-bezier(0.5, 0, 0.75, 0);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1); /* a gentle overshoot */
+
   --caret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%232b2621' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M3 7.5l2.8 2.8L11 4.5' fill='none' stroke='%23fbf7ee' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 
+  /* Light only: the browser keeps its light controls and does not darken the page in dark mode. */
+  color-scheme: only light;
   font-family: var(--font-body);
   font-size: var(--fs-md);
   line-height: var(--lh);
   color: var(--ink);
-  background: var(--parchment);
+  background: var(--floor-base);
   -webkit-text-size-adjust: 100%;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html, body { margin: 0; height: 100%; background: var(--parchment); overflow: hidden; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+/* The floor: lit in the middle, a little deeper at the edges. */
+body { background-color: var(--floor-base); background-image: var(--floor); }
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
 /* ---- board ---- */
-#board { position: fixed; inset: 0 var(--rail) 0 0; }
 #board canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
 #board:focus { outline: none; }
 #board:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
@@ -113,37 +149,6 @@ html, body { margin: 0; height: 100%; background: var(--parchment); overflow: hi
   box-shadow: 0 0 0 2px var(--vellum), inset 0 0 0 2px var(--vellum);
 }
 
-/* ---- header card over the board ---- */
-#top {
-  position: fixed; top: var(--space-3); left: var(--space-3); padding: 10px 16px 10px;
-  background: linear-gradient(var(--vellum), var(--parchment));
-  border: 1px solid var(--stone-700); border-radius: var(--radius-lg);
-  box-shadow: 0 0 0 3px var(--parchment-deep), 0 0 0 4px var(--stone-500), 0 8px 22px rgba(43, 38, 33, 0.22);
-  pointer-events: none;
-}
-#top h1 {
-  margin: 0;
-  font-family: var(--font-display); font-size: 21px; font-weight: 800;
-  letter-spacing: 0.08em; line-height: 1.25; color: var(--ink);
-}
-#turn { margin-top: 6px; color: var(--ink-soft); font-weight: 700; }
-body:has(#board.king-in-check) #turn { color: var(--danger); }
-#status, #moment { margin-top: 2px; }
-#info { margin-top: 2px; max-width: 34ch; font-size: var(--fs-sm); line-height: 1.45; color: var(--ink); }
-#info b { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.04em; text-transform: capitalize; }
-#info b .pi { width: 22px; height: 22px; margin-right: 1px; vertical-align: -6px; }
-#asset-status:empty, #turn:empty, #status:empty, #moment:empty, #info:empty { display: none; }
-
-/* ---- right rail ---- */
-#panel {
-  position: fixed; top: 0; right: 0; bottom: 0; width: var(--rail);
-  padding: var(--space-3) var(--space-3) var(--space-3) calc(var(--space-3) + 4px); overflow: auto;
-  background:
-    linear-gradient(90deg, var(--stone-700) 0 1px, var(--stone-300) 1px 4px, transparent 4px),
-    radial-gradient(120% 60% at 50% 0%, var(--vellum) 0%, transparent 70%),
-    var(--parchment);
-  display: flex; flex-direction: column; gap: var(--space-3);
-}
 section { display: flex; flex-direction: column; gap: var(--space-2); }
 
 /* ---- icons ---- */
@@ -175,11 +180,11 @@ button > span { min-width: 0; }
 /* Touch screens keep :hover after a tap, which left a tapped button dark. */
 @media (hover: hover) { button:hover { background: linear-gradient(#fffdf6, #f5ebd5); } }
 button:active { transform: translateY(2px); box-shadow: 0 0 0 var(--stone-700), inset 0 1px 0 rgba(255, 255, 255, 0.8); }
-button.primary, #stop-chain {
-  color: var(--vellum); background: linear-gradient(#9c3a2d, var(--accent));
+button.primary {
+  color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent));
   border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35);
 }
-@media (hover: hover) { button.primary:hover, #stop-chain:hover { background: linear-gradient(#a8422f, #8f3124); } }
+@media (hover: hover) { button.primary:hover { background: linear-gradient(#a8422f, #8f3124); } }
 button.quiet { background: transparent; box-shadow: none; border-color: var(--stone-500); font-weight: 400; }
 @media (hover: hover) { button.quiet:hover { background: rgba(255, 255, 255, 0.5); } }
 button:disabled, button:disabled:hover {
@@ -238,16 +243,6 @@ input[type='checkbox']:checked { background: var(--accent) var(--tick) no-repeat
 #share .icon, #learn .icon { width: 20px; height: 20px; }
 
 /* ---- help, lesson and moment lines ---- */
-#move-help:empty { display: none; }
-#move-help {
-  padding: 8px 10px; font-weight: 700; line-height: 1.35;
-  background: #fff6dc; border: 1px solid #e3cc8f; border-left: 4px solid var(--gold); border-radius: var(--radius-sm);
-}
-#moment { line-height: 1.4; }
-body.in-lesson #moment {
-  padding: 10px 12px; background: var(--vellum); border: 1px solid var(--stone-300);
-  border-left: 4px solid var(--accent); border-radius: var(--radius-sm); box-shadow: var(--shadow-card);
-}
 /* The six lessons as the icons of the pieces they teach, on one track: done in burgundy, the
    current one ringed in gold, the rest in stone. */
 #lesson-progress { position: relative; display: flex; justify-content: space-between; align-items: center; }
@@ -257,16 +252,9 @@ body.in-lesson #moment {
 #lesson-progress .done .pi { color: var(--accent); --pi-disc: var(--vellum); --pi-glyph: var(--accent); }
 #lesson-progress .now .pi { color: var(--ink); --pi-disc: #bccac8; --pi-glyph: var(--ink); }
 #lesson-progress .now { box-shadow: 0 0 0 2px var(--parchment), 0 0 0 4px var(--gold); }
-#selection-actions button { min-height: var(--tap); }
-#info:not(:empty) {
-  padding: 8px 10px; background: rgba(251, 247, 238, 0.7);
-  border: 1px solid var(--stone-300); border-radius: var(--radius-sm);
-}
-
 /* ---- move sheet ---- */
 /* The move sheet takes whatever the rail has left; long games scroll inside the list, so the
    latest move and the captured pieces stay in view. */
-.sheet { flex: 1 1 0; min-height: 180px; }
 #moves {
   flex: 1; min-height: 66px; overflow: auto; margin: 0; padding: 4px;
   list-style: none; background: var(--vellum); border: 1px solid var(--stone-500); border-radius: var(--radius);
@@ -323,38 +311,36 @@ dialog form button { width: auto; min-width: 96px; justify-content: center; padd
 .fields { display: flex; flex-direction: column; gap: 10px; }
 dialog small { color: var(--ink-soft); }
 #asset-status, #army-note, #pace-note, #threats-note { font-size: var(--fs-xs); color: var(--ink-soft); line-height: 1.4; }
-#settings { width: min(420px, calc(100vw - 32px)); }
 #move-choice, #promo { max-width: min(460px, calc(100vw - 32px)); }
 #move-choice button, #promo button { min-height: var(--tap); }
 #cancel-choice, #cancel-promo { margin-top: var(--space-4); justify-content: center; }
 
-/* ---- New game: three suggested games, the level, a king picker per side, More options ---- */
-#new-game { width: min(560px, calc(100vw - 32px)); }
+/* ---- New game sheet ---- */
+#new-game { width: min(560px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); padding: 0; overflow: hidden; }
+#new-game[open] { display: flex; flex-direction: column; }
+.new-game-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; flex: none; }
+.new-game-head h2 { margin: 0; padding: 0; background: none; }
+.new-game-head form { margin: 0; }
+.new-game-head form button { width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 0; font-size: 24px; }
+.new-game-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 16px; }
+.new-game-foot { flex: none; padding: 12px 16px max(16px, env(safe-area-inset-bottom)); border-top: 1px solid var(--stone-300); background: var(--parchment); }
+.new-game-foot button { width: 100%; justify-content: center; min-height: 52px; }
+#new-game-warn { margin: 0 0 8px; color: var(--ink-soft); text-align: center; }
+#level-line, #army-line { margin: 8px 0 0; color: var(--ink-soft); }
+#army-strip { display: flex; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
+#army-strip .pi { width: 28px; height: 28px; }
+#army-strip .army-letter { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--ink); border-radius: 50%; font-weight: 700; }
 .modes, .seg { margin: 0; padding: 0; border: 0; min-width: 0; }
-.modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
-/* The radios stay in the page for the keyboard and screen readers; the card or segment shows the state. */
+.modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 3px; border-radius: var(--radius); background: var(--parchment-deep); }
+/* Keep native radios for the keyboard and screen reader. */
 .modes input, .seg input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
-label.mode {
-  position: relative; flex-direction: column; justify-content: flex-start; gap: 6px;
-  padding: 10px 8px 12px; text-align: center; cursor: pointer;
-  background: linear-gradient(var(--vellum), #efe4cc);
-  border: 1px solid var(--stone-500); border-radius: var(--radius);
-  box-shadow: var(--lift), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  transition: box-shadow 120ms, border-color 120ms;
-}
-@media (hover: hover) { label.mode:hover { background: linear-gradient(#fffdf6, #f5ebd5); } }
-label.mode:has(input:checked) {
-  border-color: var(--accent-deep); background: linear-gradient(#fffaf0, var(--parchment-deep));
-  box-shadow: 0 0 0 2px var(--accent), 0 3px 0 var(--accent-deep);
-}
-.mode-art { display: flex; align-items: flex-end; justify-content: center; height: 64px; }
-.mode-art img { height: 100%; width: auto; filter: drop-shadow(0 3px 3px rgba(43, 38, 33, 0.3)); }
-.mode-art .face-left { transform: scaleX(-1); margin-left: -8px; }
-.emblem-fan img { height: 44px; margin: 0 -7px; }
-.emblem-fan img:nth-child(2) { position: relative; z-index: 1; height: 62px; }
-.mode-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.mode-text b { font-family: var(--font-display); font-size: var(--fs-md); font-weight: 700; letter-spacing: 0.02em; line-height: 1.2; }
-.mode-text small { font-size: var(--fs-xs); line-height: 1.35; }
+label.mode { position: relative; flex-direction: column; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; text-align: center; cursor: pointer; border-radius: var(--radius); }
+label.mode:has(input:checked) { color: var(--ink); background: var(--parchment-deep); }
+.mode-art { display: flex; align-items: center; justify-content: center; height: 24px; }
+.mode-art img { height: 100%; width: auto; }
+.mode-art .face-left { transform: scaleX(-1); margin-left: -4px; }
+.emblem-fan img { margin: 0 -3px; }
+.mode-text b { font-size: var(--fs-sm); line-height: 1.2; }
 label.mode:has(input:focus-visible), .seg-row label:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
 
 /* Segmented choices: the computer's level, and the side you play. */
@@ -371,8 +357,8 @@ label.mode:has(input:focus-visible), .seg-row label:has(input:focus-visible) { o
 .seg-row label:first-child { border-left: 0; border-radius: var(--radius) 0 0 var(--radius); }
 .seg-row label:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
 @media (hover: hover) { .seg-row label:hover { background: #fffdf6; } }
-.seg-row label:has(input:checked) { color: var(--vellum); background: linear-gradient(#9c3a2d, var(--accent)); }
-.seg-row label:has(input:focus-visible) { outline-offset: -3px; outline-color: #8cc0ff; }
+.seg-row label:has(input:checked) { color: var(--ink); background: var(--parchment-deep); }
+.seg-row label:has(input:focus-visible) { outline-offset: -3px; outline-color: var(--focus); }
 
 label.check {
   justify-content: flex-start; gap: var(--space-3); margin-top: var(--space-4); padding: 8px 12px; cursor: pointer;
@@ -396,7 +382,8 @@ button.emblem img {
   filter: saturate(0.7) drop-shadow(0 2px 2px rgba(43, 38, 33, 0.25)); opacity: 0.82;
   transition: opacity 120ms, filter 120ms;
 }
-button.emblem .em-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+button.emblem .em-name { max-width: 100%; white-space: normal; }
+@media (max-width: 480px) { .emblems { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (hover: hover) { button.emblem:hover { background: rgba(255, 255, 255, 0.55); } button.emblem:hover img { opacity: 1; } }
 button.emblem[aria-pressed='true'] {
   color: var(--ink); background: var(--vellum); border-color: var(--accent-deep);
@@ -406,14 +393,14 @@ button.emblem[aria-pressed='true'] img { opacity: 1; filter: drop-shadow(0 2px 3
 .power-choice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
 .power-choice button { justify-content: center; padding: 6px 4px; text-align: center; font-size: var(--fs-sm); }
 .power-choice button[aria-pressed='true'] {
-  color: var(--vellum); background: linear-gradient(#9c3a2d, var(--accent));
+  color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent));
   border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35);
 }
 .power-text { min-height: 2.9em; margin: var(--space-2) 0 0; font-size: var(--fs-sm); line-height: 1.45; }
 
 #more-options { margin-top: var(--space-4); padding-top: var(--space-1); border-top: 1px solid var(--stone-300); }
 #more-options summary {
-  display: flex; align-items: center; gap: 10px; min-height: var(--tap); width: fit-content;
+  display: flex; align-items: center; gap: 10px; min-height: var(--tap); width: 100%;
   font-weight: 700; cursor: pointer; list-style: none;
 }
 #more-options summary::-webkit-details-marker { display: none; }
@@ -423,18 +410,15 @@ button.emblem[aria-pressed='true'] img { opacity: 1; filter: drop-shadow(0 2px 3
   transform: rotate(-45deg); transition: transform 120ms;
 }
 #more-options[open] summary::before { transform: rotate(45deg); }
+#side-army-value { margin-left: auto; text-align: right; }
+#other-armies { margin-top: 12px; }
+#new-game button.emblem { min-height: 44px; }
+#new-game :is(label.mode, .seg-row label, .power-choice button, button.emblem) { border: 2px solid transparent; box-shadow: none; }
+#new-game :is(label.mode:has(input:checked), .seg-row label:has(input:checked), .power-choice button[aria-pressed='true'], button.emblem[aria-pressed='true']) { color: var(--ink); background: var(--parchment-deep); border-color: var(--stone-700); }
 #more-options .seg { margin-top: var(--space-2); }
 label.army { flex-direction: column; align-items: stretch; gap: 6px; margin-top: var(--space-4); font-weight: 700; }
 label.army select { width: 100%; font-weight: 400; }
 #army-note { display: block; margin-top: 6px; }
-
-@media (max-width: 600px) {
-  .modes { grid-template-columns: minmax(0, 1fr); }
-  label.mode { flex-direction: row; gap: var(--space-3); padding: 8px 12px; text-align: left; }
-  .mode-art { flex: none; width: 66px; height: 50px; }
-  .emblem-fan img { height: 32px; margin: 0 -8px; }
-  .emblem-fan img:nth-child(2) { height: 46px; }
-}
 
 /* Settings → Account (src/account/account.ts) */
 #account-body p { margin: 0; }
@@ -470,14 +454,11 @@ label.army select { width: 100%; font-weight: 400; }
   display: flex; justify-content: center; align-items: flex-end; gap: 18px; height: 112px; margin: -4px 0 var(--space-2);
   background: radial-gradient(50% 18% at 50% 92%, rgba(43, 38, 33, 0.28), transparent);
 }
-.over-king { height: 104px; width: auto; transform-origin: 50% 92%; transition: transform 500ms cubic-bezier(.5, 0, .7, 1.3) 150ms, filter 400ms; }
+.over-king { height: 104px; width: auto; }
 .over-b { transform: scaleX(-1); }
-#over[data-fallen='w'] .over-w { transform: rotate(-80deg) translate(-4px, 6px); filter: saturate(0.6) brightness(0.92); }
-#over[data-fallen='b'] .over-b { transform: scaleX(-1) rotate(-80deg) translate(-4px, 6px); filter: saturate(0.6) brightness(0.92); }
 
 /* ---- Guide: painted piece cards ---- */
 #rules { width: min(940px, calc(100vw - 32px)); max-width: none; }
-#rules .learn { margin-bottom: var(--space-4); }
 .piece-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: var(--space-3); margin: 0 0 var(--space-4); }
 .piece-card {
   display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: var(--space-3); padding: var(--space-3);
@@ -516,69 +497,101 @@ label.army select { width: 100%; font-weight: 400; }
 #powers-guide { font-size: var(--fs-sm); color: var(--ink-soft); }
 #powers-list { margin: 0; padding-left: 1.2em; font-size: var(--fs-sm); line-height: var(--lh); }
 
+/* The power coin: feat-king-powers option B. */
+.coin {
+  position: relative; flex: none; width: 48px; height: 48px; padding: 0; border-radius: 50%; cursor: pointer;
+  background: radial-gradient(circle at 40% 30%, #fbf7ee, #d9ccb0 70%, #b9aa8a);
+  border: 1px solid var(--stone-700); box-shadow: var(--lift), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+  transition: box-shadow var(--dur-2), filter var(--dur-2);
+}
+.coin img { position: absolute; inset: 5px; width: 36px; height: 36px; }
+.coin .notches { position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%); display: flex; gap: 3px; }
+.coin .notch { width: 9px; height: 9px; transform: rotate(45deg); background: #7fb2ff; border: 1.5px solid var(--frost-ink); }
+.coin .notch.is-spent { background: var(--stone-300); border-color: var(--stone-500); }
+.coin:focus-visible { outline-offset: -3px; }
+.coin[aria-current='true'] { outline: 1px solid var(--ink); outline-offset: -3px; }
+.coin[aria-current='true']:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+.coin[data-state='armed'] { box-shadow: var(--lift), inset 0 0 0 2px var(--ink), inset 0 0 0 5px var(--gold-bright); }
+.coin[data-state='used'] { filter: grayscale(1); opacity: 0.7; }
+.coin-row { --frost-ink: #2c5a8f; position: relative; display: flex; align-items: center; gap: 6px; }
+#strip-them .coin { width: 44px; height: 44px; }
+#strip-them .coin img { width: 32px; height: 32px; }
+
 /* ---- title screen ---- */
 #title-screen {
   width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0;
   border: 0; border-radius: 0; box-shadow: none; overflow: hidden;
-  color: var(--on-night);
-  background:
-    radial-gradient(60% 45% at 50% 40%, rgba(214, 160, 72, 0.28), transparent 70%),
-    radial-gradient(120% 90% at 50% 30%, #4a3e31 0%, var(--night) 55%, #120f0c 100%);
+  color: var(--ink);
+  background-color: var(--floor-base); background-image: var(--floor); /* the Quiet Table floor, as under the game */
+  /* A thin ink edge round each figure: pale art (Spirit, Stratus, the Ogre) keeps its outline on the pale floor. */
+  --rim: drop-shadow(0 0 0.75px rgba(43, 38, 33, 0.7));
 }
 /* One column the width of the screen: no content (the lineup's names) can widen the title and push it off centre. */
 #title-screen[open] { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto; }
-#title-screen::backdrop { background: var(--night); }
+/* The fallbacks serve a browser whose ::backdrop does not inherit the custom properties. */
+#title-screen::backdrop { background-color: var(--floor-base, #f2e9d6); background-image: var(--floor, none); }
 .title-stage { position: relative; min-height: 0; perspective: 900px; }
-.title-floor {
-  position: absolute; left: 50%; bottom: -6%; width: min(84vh, 96vw); height: auto;
+/* The stone board under the kings, in two layers. The board (the image) fades out round the kings' feet; under it a
+   light copy (::before) fades into the floor further out. So the dark squares end in light stone, not in a grey haze. */
+.title-floor, .title-stage::before {
+  position: absolute; left: 50%; bottom: -6%; width: min(84vh, 96vw); height: auto; aspect-ratio: 1;
   transform: translateX(-50%) rotateX(64deg); transform-origin: 50% 100%;
-  filter: brightness(0.62) sepia(0.25);
+}
+.title-floor {
+  filter: brightness(0.9) sepia(0.2);
+  -webkit-mask-image: radial-gradient(closest-side, #000 38%, transparent 72%);
+  mask-image: radial-gradient(closest-side, #000 38%, transparent 72%);
+}
+.title-stage::before {
+  content: ''; background: url('/ui/stone-board.webp') center / 100% 100%;
+  filter: contrast(0.3) brightness(1.3) sepia(0.7) saturate(1.2);
   -webkit-mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
   mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
 }
-/* The six kings: the centre two largest and nearest, the outer ones smaller, set back (higher) and dimmed. */
+/* The six kings: the centre two largest and nearest, the outer ones smaller, set back (higher) and a little dimmed.
+   Each filter is one brightness and drop shadows (the rim, then the cast shadow): title-kings.mjs draws them on its canvas. */
 .title-kings {
   position: absolute; left: 50%; bottom: 7%; translate: -50% 0; height: min(62%, 25vw); width: max-content;
   display: flex; align-items: flex-end; justify-content: center;
 }
-.title-kings img { flex: none; height: 100%; width: auto; margin: 0 -1.2%; filter: drop-shadow(0 14px 12px rgba(0, 0, 0, 0.55)); }
+.title-kings img { flex: none; height: 100%; width: auto; margin: 0 -1.2%; filter: var(--rim) drop-shadow(0 14px 12px rgba(43, 38, 33, 0.42)); }
 .title-kings .tk-right { transform: scaleX(-1); }
-.title-kings .tk-inner { position: relative; z-index: -1; height: 82%; margin-bottom: 4%; filter: brightness(0.86) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); }
-.title-kings .tk-outer { position: relative; z-index: -2; height: 66%; margin-bottom: 8%; filter: brightness(0.72) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); }
+.title-kings .tk-inner { position: relative; z-index: -1; height: 82%; margin-bottom: 4%; filter: brightness(0.94) var(--rim) drop-shadow(0 12px 10px rgba(43, 38, 33, 0.36)); }
+.title-kings .tk-outer { position: relative; z-index: -2; height: 66%; margin-bottom: 8%; filter: brightness(0.86) var(--rim) drop-shadow(0 12px 10px rgba(43, 38, 33, 0.32)); }
 .title-copy { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4) max(6vh, 28px); text-align: center; }
 .wordmark {
   display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 0 0.28em;
   margin: 0; font-family: var(--font-display); font-weight: 900; font-size: clamp(46px, 8.4vw, 96px);
-  line-height: 0.95; letter-spacing: 0.05em; color: var(--on-night);
-  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.55), 0 0 28px rgba(214, 160, 72, 0.35);
+  line-height: 0.95; letter-spacing: 0.05em; color: var(--ink);
+  text-shadow: 0 2px 0 rgba(251, 247, 238, 0.9), 0 0 28px rgba(201, 154, 62, 0.3);
 }
-.wm-down { color: #e9c071; }
+.wm-down { color: var(--gold-ink); }
 .wm-chess {
   flex-basis: 100%; margin-top: 0.5em; font-size: 0.24em; font-weight: 700; letter-spacing: 0.7em; text-indent: 0.7em;
-  color: var(--on-night-soft); text-shadow: none;
+  color: var(--ink-soft); text-shadow: none;
 }
 .wordmark-crown {
   width: 0.62em; height: 0.62em; margin-right: -0.12em; align-self: flex-start;
-  fill: rgba(233, 192, 113, 0.28); stroke: #e9c071; stroke-width: 1.6; stroke-linejoin: round;
+  fill: rgba(201, 154, 62, 0.3); stroke: var(--gold-ink); stroke-width: 1.6; stroke-linejoin: round;
   transform: translateY(-0.05em) rotate(-28deg);
 }
 .title-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); margin-top: var(--space-2); }
 .title-actions button { width: auto; min-width: 200px; min-height: 52px; justify-content: center; font-size: var(--fs-lg); padding: 10px 22px; }
-.title-actions button.primary { border-color: #e9c071; box-shadow: 0 2px 0 var(--accent-deep), 0 0 0 1px rgba(233, 192, 113, 0.5); }
+.title-actions button.primary { border-color: var(--gold-bright); box-shadow: 0 2px 0 var(--accent-deep), 0 0 0 1px rgba(233, 192, 113, 0.5); }
 /* The lineup: every piece on a stone ledge, alternating armies, sized as they stand on the board. */
 .title-lineup {
   --fig: 112px; /* the tallest figure (the Ogre); the others scale by --h */
   position: relative; display: flex; justify-content: center; align-items: flex-end; gap: 0 2px;
   width: min(100%, 1040px); margin: 0 auto; padding: 0 var(--space-4) 0; list-style: none;
 }
-/* The ledge: a strip of dark stone with a lit gold edge, under the figures' feet. */
+/* The ledge: a soft shadow on the floor with a hairline edge, under the figures' feet. */
 .title-lineup::before {
   content: ''; position: absolute; left: 6%; right: 6%; bottom: 17px; height: 16px; border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(10, 7, 4, 0.75), rgba(10, 7, 4, 0));
+  background: radial-gradient(closest-side, rgba(43, 38, 33, 0.3), rgba(43, 38, 33, 0));
 }
 .title-lineup::after {
   content: ''; position: absolute; left: 10%; right: 10%; bottom: 20px; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(233, 192, 113, 0.55) 20%, rgba(233, 192, 113, 0.55) 80%, transparent);
+  background: linear-gradient(90deg, transparent, var(--line) 20%, var(--line) 80%, transparent);
 }
 .title-lineup li {
   position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
@@ -586,18 +599,18 @@ label.army select { width: 100%; font-weight: 400; }
 }
 .title-lineup img {
   height: calc(var(--fig) * var(--h)); width: auto; max-width: 118%; object-fit: contain; object-position: bottom;
-  filter: drop-shadow(0 6px 5px rgba(0, 0, 0, 0.6));
+  filter: var(--rim) drop-shadow(0 6px 5px rgba(43, 38, 33, 0.45));
   transition: translate 220ms cubic-bezier(.2, .8, .2, 1), filter 220ms;
 }
 .title-lineup span {
   display: inline-flex; align-items: center; gap: 4px;
   margin-top: 6px; font-family: var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
-  text-transform: uppercase; color: var(--on-night-soft); white-space: nowrap; transition: color 220ms;
+  text-transform: uppercase; color: var(--ink-soft); white-space: nowrap; transition: color 220ms;
 }
-/* On the night stone: a pale ring and glyph on a dark disc, gold under the pointer like the name. */
-.title-lineup .pi { width: 15px; height: 15px; color: inherit; --pi-disc: #2b2520; --pi-glyph: var(--on-night); }
-.title-lineup li:hover img { translate: 0 -6px; filter: drop-shadow(0 10px 7px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 10px rgba(233, 192, 113, 0.45)); }
-.title-lineup li:hover span { color: #e9c071; }
+/* On the floor: the ring and glyph in the name's colour on a pale disc, gold under the pointer like the name. */
+.title-lineup .pi { width: 15px; height: 15px; color: inherit; --pi-disc: var(--vellum); }
+.title-lineup li:hover img { translate: 0 -6px; filter: var(--rim) drop-shadow(0 10px 7px rgba(43, 38, 33, 0.4)) drop-shadow(0 0 10px rgba(201, 154, 62, 0.5)); }
+.title-lineup li:hover span { color: var(--gold-ink); }
 /* The one-time entrance: none with reduced motion or Settings → Animations Off (main.ts sets data-pace before the title opens). */
 @media (prefers-reduced-motion: no-preference) {
   :root:not([data-pace='off']) #title-screen[open] .title-lineup li { animation: rise 520ms cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(260ms + var(--i) * 45ms); }
@@ -620,29 +633,10 @@ label.army select { width: 100%; font-weight: 400; }
 /* ---- focus & motion ---- */
 :focus { outline: none; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-#title-screen :focus-visible { outline-color: #8cc0ff; }
 #moves [data-ply]:focus-visible { outline: 3px solid var(--focus); outline-offset: 0; }
 
 /* ---- phones ---- */
 @media (max-width: 720px) {
-  body { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto min(100vw, 48vh) minmax(0, 1fr); }
-  #top {
-    position: relative; grid-row: 1; top: auto; left: auto; padding: 7px 12px;
-    border: 0; border-radius: 0; border-bottom: 1px solid var(--stone-300);
-    box-shadow: none; background: var(--vellum);
-  }
-  /* Turn and status share one line, so "thinking…" never pushes the board down. */
-  #top { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; }
-  #top h1 { font-size: 16px; flex-basis: 100%; }
-  #turn { margin-top: 2px; }
-  #status { margin-top: 0; }
-  #info { max-width: none; font-size: var(--fs-xs); }
-  #board { position: relative; grid-row: 2; inset: auto; height: 100%; min-height: 0; min-width: 0; }
-  #panel {
-    position: relative; grid-row: 3; inset: auto; width: 100%; height: auto; min-height: 0;
-    padding: var(--space-3); background: var(--parchment); border-top: 1px solid var(--stone-700);
-    box-shadow: inset 0 3px 0 var(--stone-300);
-  }
   /* 44 px touch targets */
   button, select { min-height: var(--tap); }
   label { min-height: var(--tap); }
@@ -667,7 +661,7 @@ label.army select { width: 100%; font-weight: 400; }
   .title-lineup::before, .title-lineup::after { display: none; }
   .title-lineup li::before {
     content: ''; position: absolute; z-index: -1; left: 4%; right: 4%; bottom: 32px; height: 10px; border-radius: 50%; /* under the feet, above icon and name */
-    background: radial-gradient(closest-side, rgba(10, 7, 4, 0.75), rgba(10, 7, 4, 0));
+    background: radial-gradient(closest-side, rgba(43, 38, 33, 0.3), rgba(43, 38, 33, 0));
   }
   .title-lineup span { flex-direction: column; gap: 2px; margin-top: 3px; font-size: 9.5px; letter-spacing: 0.04em; }
   .title-lineup .pi { width: 16px; height: 16px; }
@@ -692,16 +686,24 @@ label.army select { width: 100%; font-weight: 400; }
   * { transition: none !important; animation: none !important; }
 }
 
-/* Painted 2D look: one square canvas, centred in the board area, on a lit stone floor. */
+/* Painted 2D look: one square canvas, centred in the board area. The canvas is clear round the board's
+   frame (main.ts asks the scene for no floor), so the board stands on the page's parchment floor. */
 #board.painted {
   display: flex; align-items: center; justify-content: center;
-  background: #e6e1cf; /* the painted scene's own floor colour, so the canvas has no visible edge */
+  background: transparent;
 }
-/* Desktop: keep the board below the floating title card. */
-@media (min-width: 721px) { #board.painted { padding: 64px 16px 8px; box-sizing: border-box; } }
 #board.painted canvas { image-rendering: auto; touch-action: none; width: auto; height: auto; }
 
 /* Kings' powers: the bar under the play row; an armed power is outlined until it is spent or cancelled. */
-#powers { margin-top: var(--space-2); }
-#power-status { margin-top: var(--space-1); font-size: var(--fs-sm); line-height: var(--lh); color: var(--ink); }
-#power-btn.armed { outline: 3px solid var(--accent); outline-offset: 2px; } /* burgundy: 3:1 or more on parchment, unlike gold */
+
+/* Off turn controls keep keyboard focus. */
+button[aria-disabled="true"], button[aria-disabled="true"]:hover {
+  color: var(--ink-soft);
+  opacity: 0.75;
+  cursor: default;
+}
+
+@media (max-height: 640px) and (max-width: 899px) and (orientation: portrait) {
+  .coin { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.5); }
+  .coin[data-state='armed'] { box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 5px var(--gold-bright); }
+}

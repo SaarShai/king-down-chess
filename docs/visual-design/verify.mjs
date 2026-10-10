@@ -1,10 +1,11 @@
 // Checks the visual design pass in a real browser: title screen, keyboard play, move announcements,
-// Show threats, refusal messages, piece cards, phone tap targets, the title's piece lineup and the move markers.
+// Show threats, refusal messages, piece cards, phone tap targets, the title's piece lineup, the move markers and
+// the Quiet Table floor (light only, also in device dark mode).
 // Run: npm run check:browser visual-design (the result file checks.json goes to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { boardHelp, contextText, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
+import { usePower, startLesson, boardHelp, contextText, titleStart, arriveContinue, endTurn, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from '../../tools/lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -13,8 +14,8 @@ const checks = [];
 const ok = msg => { checks.push(msg); console.log(`ok ${msg}`); };
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';
 
-async function open(query = '', { skipTitle = true, save = null, viewport = { width: 1280, height: 900 }, touch = false } = {}) {
-  const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch });
+async function open(query = '', { skipTitle = true, save = null, viewport = { width: 1280, height: 900 }, touch = false, scheme = 'light' } = {}) {
+  const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, colorScheme: scheme });
   await ctx.addInitScript(([skip, s]) => {
     if (skip) sessionStorage.setItem('kingdown.title-seen', '1');
     if (s && !sessionStorage.getItem('seeded')) { localStorage.setItem('kingdown.save', JSON.stringify(s)); sessionStorage.setItem('seeded', '1'); }
@@ -32,41 +33,50 @@ const titleOpen = page => page.evaluate(() => !!document.querySelector('#title-s
 const help = page => contextText(page);
 
 try {
-  // 1. Title screen: a first visit leads with the lessons.
+  // 1. A first visit shows one Start and deals seed 83.
   let page = await open('', { skipTitle: false });
   assert.equal(await titleOpen(page), true, 'title on a first visit');
-  assert.equal(await page.locator('#title-learn').evaluate(b => b.classList.contains('primary') && !b.previousElementSibling), true, 'Learn leads, first, on a first visit');
+  assert.equal(await page.locator('.title-actions button:visible').count(), 1, 'one Start on a first visit');
   assert.equal(await page.locator('.title-kings img').evaluateAll(imgs => imgs.filter(i => i.complete && i.naturalWidth && i.checkVisibility()).length), 6, 'the six kings on the title');
   assert.equal(await page.locator('#title-continue').isVisible(), false, 'no Continue without a saved game');
-  assert.equal(await page.evaluate(() => document.activeElement.id), 'title-learn', 'Learn has the focus on a first visit');
-  await page.click('#title-learn');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'title-start', 'Start has the focus on a first visit');
+  await page.reload(); await ready(page);
+  assert.equal(await page.locator('#title-start').isVisible(), true, 'reload before Start keeps the first visit');
+  await titleStart(page).click();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save') || '{}').back === 'QRNAKBBS');
+  const firstDeal = await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
+  assert.deepEqual([firstDeal.back, firstDeal.white, firstDeal.black, firstDeal.skill, firstDeal.rules.kings], ['QRNAKBBS', 'human', 'ai', 'beginner', [null, null]], 'Start deals seed 83 against Beginner as White, without powers');
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.new-game')).level), 'beginner', 'the next New game keeps Beginner');
+  assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.first-deal')), '1', 'Start stores the first-deal key');
+  await startLesson(page);
   await page.waitForFunction(() => /Lesson 1 of 6/.test(document.getElementById('turn').textContent));
   assert.equal(await page.locator('#lesson-progress span').count(), 6);
   await page.reload(); await ready(page);
   assert.equal(await titleOpen(page), false, 'once per tab: a reload goes straight to the game');
-  ok('title: first visit points to the lessons, Learn starts lesson 1, a reload skips the title');
+  ok('title: one Start deals QRNAKBBS, then Guide opens lessons; a reload skips the title');
   await page.context().close();
 
-  // Returning player: Continue resumes the saved game; Play opens New game.
+  // Returning player: Home keeps the saved board; New game opens the sheet.
   const save = { back: 'RNBQKBNR', fen: START, moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', sound: false };
   page = await open('', { skipTitle: false, save });
-  assert.equal(await page.locator('#title-continue').isVisible(), true);
-  assert.match(await page.locator('#title-continue').innerText(), /Continue · move 2/);
-  assert.equal(await page.locator('#title-learn').evaluate(b => b.classList.contains('primary')), false, 'Learn does not lead for a returning player');
-  await page.click('#title-continue');
+  assert.equal(await arriveContinue(page).isVisible(), true);
+  assert.match(await arriveContinue(page).innerText(), /Continue/);
+  assert.equal(await page.locator('#home-progress').innerText(), 'Move 2', 'Home shows the saved move');
+  await arriveContinue(page).click();
   assert.equal(await titleOpen(page), false);
   assert.match((await lanMoves(page)).join(' '), /e2-e4/);
   await page.context().close();
-  // Play with the computer to move: it waits while New game is open, and moves once it is closed.
+  // The computer waits on Home and behind New game. Continue starts it.
   page = await open('', { skipTitle: false, save: { ...save, moves: ['e2-e4'], skill: 'beginner', think: 200 } });
-  await page.click('#title-play');
+  await titleStart(page).click();
   await page.waitForFunction(() => document.getElementById('new-game').open);
   await page.waitForTimeout(2500); // the beginner computer answers in well under a second
   assert.equal((await lanMoves(page)).length, 1, 'the computer does not move behind New game');
   await page.keyboard.press('Escape');
+  await arriveContinue(page).click();
   await waitForUi(page, ui => ui.lan.length === 2, null, { timeout: 15000 });
   await page.context().close();
-  ok('title: Continue resumes the saved game, Play opens New game and the computer waits for it');
+  ok('Home: Continue resumes the saved game; New game opens the sheet; the computer waits for Continue');
 
   for (const q of ['?fen=' + encodeURIComponent(START), '?army=RNBQKBNR&moves=e2-e4', '?title=0']) {
     page = await open(q, { skipTitle: false });
@@ -89,6 +99,10 @@ try {
   await page.keyboard.press('Enter');
   await waitForUi(page, ui => /e2-e4/.test(ui.lan.join(' ')));
   assert.match(await page.locator('#announce').textContent(), /^White pawn e2 to e4\./);
+  await page.waitForFunction(() => document.activeElement.id === 'end-turn');
+  await endTurn(page, { keyboard: true });
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'board');
+  assert.equal(await page.locator('#board-marks .mk-cursor').count(), 1);
   await page.waitForFunction(() => /^Black /.test(document.getElementById('announce').textContent), null, { timeout: 20000 });
   ok(`keyboard: Tab, arrows and Enter play e2-e4; announced "White pawn e2 to e4." then "${await page.locator('#announce').textContent()}"`);
   // The move list is a row of buttons: Tab reaches them, Enter opens the review.
@@ -123,14 +137,14 @@ try {
   // 4. Refusals say why. A tap on an enemy piece with no piece selected is no refusal: it shows the piece's card.
   page = await open('?fen=' + encodeURIComponent('4k3/4r3/8/8/8/8/4B3/4K3 w - - 0 1'));
   await ready(page);
-  await tap(page, 52); assert.equal(await refusalText(page), ''); assert.match(await page.textContent('#info'), /Black rook/);
+  await tap(page, 52); assert.equal(await refusalText(page), ''); assert.match(await contextText(page), /Black rook/);
   await tap(page, 12); assert.match(await help(page), /This bishop has no legal move/);
-  await tap(page, 19); assert.match(await help(page), /that bishop move would leave your king in check/);
+  await tap(page, 19); assert.match(await help(page), /That leaves your king in check/);
   await page.context().close();
   page = await open('?fen=' + encodeURIComponent('4k3/8/8/g7/8/8/8/R3K3 w - - 0 1'));
   await ready(page);
-  await tap(page, 0); await tap(page, 32); assert.match(await help(page), /a guard can only be taken by a king/);
-  await tap(page, 0); await tap(page, 9); assert.match(await help(page), /the rook cannot reach b2/);
+  await tap(page, 0); await tap(page, 32); assert.match(await help(page), /Only a king can take a guard/);
+  await tap(page, 9); assert.match(await help(page), /The rook cannot reach b2/);
   ok('refusals: no legal move, pinned, guard, unreachable square; an enemy piece shows its card');
   await page.context().close();
 
@@ -177,8 +191,8 @@ try {
     .map(e => ({ id: e.id || e.textContent.trim().slice(0, 24), r: e.getBoundingClientRect() }))
     .filter(({ r }) => r.height < 44 || r.width < 44)
     .map(({ id, r }) => `${id} ${Math.round(r.width)}×${Math.round(r.height)}`));
-  assert.deepEqual(await small('#panel'), []);
-  for (const [item, dlg] of [['New game', '#new-game'], ['Settings', '#settings'], ['Guide', '#rules']]) {
+  assert.deepEqual(await small('#game-table'), []);
+  for (const [item, dlg] of [['New game', '#new-game'], ['Settings', '#menu-sheet'], ['Guide', '#rules']]) {
     await pressMenu(page, item); assert.deepEqual(await small(dlg), [], dlg); await page.keyboard.press('Escape');
   }
   // New game in each of its three modes, with More options open: the king picker's emblems and powers too.
@@ -195,21 +209,28 @@ try {
   await page.context().close();
 
   // 7. Round 2: the title's lineup shows all twelve pieces and leaves the buttons on screen.
-  for (const [kind, viewport, touch] of [['desktop', { width: 1280, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {
+  for (const [kind, viewport, touch] of [['desktop', { width: 1440, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {
     page = await open('', { skipTitle: false, viewport, touch });
     const figs = page.locator('.title-lineup img');
     assert.equal(await figs.count(), 12, 'twelve figures');
     await page.waitForFunction(() => [...document.querySelectorAll('.title-lineup img')].every(i => i.complete && i.naturalWidth > 0));
     const names = await page.locator('.title-lineup span').allInnerTexts();
     assert.equal(new Set(names.map(n => n.toLowerCase())).size, 12, 'twelve different names');
-    for (const id of ['#title-learn', '#title-play', '#title-workshop']) {
+    for (const id of ['#title-start']) {
       const r = await page.locator(id).boundingBox();
       assert.ok(r && r.y >= 0 && r.y + r.height <= viewport.height, `${id} on screen (${kind})`);
     }
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `no sideways scroll (${kind})`);
+    if (process.env.SAMPLE === 'W8') {
+      const out = env('PLAYABLE_OUT'); mkdirSync(out, { recursive: true });
+      await page.screenshot({ path: join(out, `w8-first-${kind}.png`), animations: 'disabled' });
+      await titleStart(page).click(); await ready(page);
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save') || '{}').back === 'QRNAKBBS');
+      await page.screenshot({ path: join(out, `w8-deal-${kind}.png`), animations: 'disabled' });
+    }
     await page.context().close();
   }
-  ok('title lineup: twelve painted figures with names; Learn, Play and Workshop stay on screen at 1280×900 and 390×844');
+  ok('title lineup: twelve painted figures with names; Start stays on screen at 1440×900 and 390×844');
 
   // 7b. The title from a small phone to a desktop: the lineup inside the screen, no name into the next one,
   // and the lineup, kings, wordmark and buttons centred (a tablet's lineup once widened the whole title);
@@ -247,11 +268,56 @@ try {
   await page.context().close();
   page = await open('?kings=stratus:flight,none&fen=' + encodeURIComponent('4k3/p7/8/8/8/8/P7/1N2K3 w - - 0 1'));
   await ready(page);
-  await page.click('#power-btn'); await tap(page, 1);
+  await usePower(page); await tap(page, 1);
   const flight = await page.evaluate(() => ({ powers: window.view.marks.powers.length, moves: window.view.marks.moves.length }));
   assert.ok(flight.powers > 0 && flight.powers === flight.moves, `Flight's squares are power marks (${flight.powers}/${flight.moves})`);
   await page.context().close();
   ok('markers: Archer targets are sights; an armed Flight marks its squares as power moves');
+
+  // 9. The Quiet Table (web redesign ticket 01): the page is light only. With the device in dark mode, the
+  // page, the first-visit title and the Workshop surround show the same parchment floor as in light mode, and
+  // the painted board's canvas is clear round its frame, so the floor shows there.
+  const background = (p, selector, pseudo = null) => p.evaluate(([s, ps]) => {
+    const c = getComputedStyle(document.querySelector(s), ps);
+    return `${c.backgroundColor} ${c.backgroundImage}`;
+  }, [selector, pseudo]);
+  const looks = {};
+  for (const scheme of ['light', 'dark']) {
+    page = await open('', { skipTitle: false, scheme });
+    assert.equal(await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches), scheme === 'dark', `the device is in ${scheme} mode`);
+    assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), 'light only', `${scheme}: the computed color-scheme`);
+    assert.equal(await titleOpen(page), true, `${scheme}: the title on a first visit`);
+    const look = { body: await background(page, 'body'), title: await background(page, '#title-screen'), titleBackdrop: await background(page, '#title-screen', '::backdrop') };
+    await page.context().close();
+    page = await open('', { scheme });
+    await ready(page);
+    // The art can be in before the first frame: wait until the scene draws, so the canvas read sees its floor.
+    await page.waitForFunction(() => window.view.scene.frames > 0);
+    // A point inside the canvas, outside the board's frame: the top right corner, above the back rank.
+    const corner = await page.evaluate(() => {
+      const c = document.querySelector('#board canvas'), r = c.getBoundingClientRect(), x = Math.floor(r.right) - 4, y = Math.ceil(r.top) + 4;
+      const alpha = c.getContext('2d').getImageData(Math.floor((x - r.left) * c.width / r.width), Math.floor((y - r.top) * c.height / r.height), 1, 1).data[3];
+      return { x, y, alpha, board: getComputedStyle(document.getElementById('board')).backgroundColor };
+    });
+    assert.equal(corner.alpha, 0, `${scheme}: the canvas is clear outside the board's frame`);
+    assert.equal(corner.board, 'rgba(0, 0, 0, 0)', `${scheme}: the board area has no colour of its own`);
+    const pixel = () => page.screenshot({ clip: { x: corner.x, y: corner.y, width: 1, height: 1 } });
+    // Hide every layer over the body (the board, its canvas and the panels): the pixel must not change, so the
+    // screen shows the body's floor there, with no colour or image of the board area or of a layer between.
+    const layers = visible => page.evaluate(v => { for (const el of document.body.children) el.style.visibility = v; }, visible ? '' : 'hidden');
+    const shown = await pixel();
+    await layers(false);
+    assert.ok(shown.equals(await pixel()), `${scheme}: outside the frame the screen shows the floor under the canvas`);
+    await layers(true);
+    await pressMenu(page, 'Workshop');
+    await page.locator('#workshop').waitFor();
+    look.workshopBackdrop = await background(page, '#workshop', '::backdrop');
+    looks[scheme] = look;
+    await page.context().close();
+  }
+  for (const [part, value] of Object.entries(looks.light)) assert.match(value, /^rgb\(242, 233, 214\) radial-gradient\(/, `${part}: the parchment floor`);
+  assert.deepEqual(looks.dark, looks.light, 'dark mode: the same floor under the page, the title and the Workshop');
+  ok('Quiet Table: color-scheme "light only"; in light and dark mode the page, the title, its backdrop and the Workshop backdrop show the parchment floor; the canvas is clear outside the board frame');
 
   assertNoErrors();
   const out = env('PLAYABLE_OUT');

@@ -10,20 +10,21 @@ import { FIGURES, FIGURE_TAGS, selectedFigure, suggestedFigures, figureUrl, type
 import { snd } from '../render/sfx';
 import { pieceIcon } from '../piece-icons';
 import {
-  BLANK, DIR, DIRS, MAX_RULES, PRESETS, designCode, empty, fromPreset, likeAlways, limit, orbit, setMark,
+  BLANK, DIRS, MAX_RULES, PRESETS, designCode, empty, fromPreset, likeAlways, limit, orbit, setMark,
   parseDesign, presetOf, validName, type Body, type Dir, type Mark, type PaintOn, type PieceDesign, type Rule, type When,
 } from './model';
 import { BLOCKS, BODY, GROUPS, MORE_WHENS, TOP_WHENS, EVENT_WHENS, blockOf, takesAny, whenWords, type Block } from './vocab';
-import { BAND_WORD, autoBody, badgeText, bandOf, judge, shelfOf, whyHead, whyTitle, type Label, type Verdict } from './judge';
-import { lookOf, lookWords, type StageLook } from './look';
+import { BAND_WORD, autoBody, badgeText, bandOf, judge, whyHead, whyTitle, type Label, type Verdict } from './judge';
+import { lookOf, type StageLook } from './look';
 import { figureHtml, gaugeHtml, modelHtml } from './art';
 import { cap, describe, dirWords, esc, pawns, ruleParts, ruleText } from './text';
 import { autoName, letterFollows, letterOf, rollName, saveName } from './names';
 import { MAX, deleteDesign, loadDesigns, loadShelf, saveDesign, type SaveResult } from './store';
 import { sandbox } from './sandbox';
 import { cancel, react } from './motion';
+import { cardHtml, cellMarks, summaryOf } from './card';
 
-type Screen = 'home' | 'start' | 'editor' | 'try';
+type Screen = 'home' | 'start' | 'editor' | 'card' | 'try';
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 const rand = (n: number): number => Math.floor(Math.random() * n);
@@ -42,9 +43,6 @@ const PILL_TITLE: Record<string, string> = { as: 'Moves like which piece?', over
 const LIKE_ADDED: Record<string, string> = { king: "the king's squares", knight: "the knight's squares", bishop: "the bishop's lines", rook: "the rook's lines", queen: "the queen's lines" };
 const DISCLAIMER = 'This is a guess from computer games with the pieces we know. A new mix can play stronger or weaker. You can keep it.';
 
-/** The ray from the piece through (x, y), or null when (x, y) is on none of the 8. */
-const rayOf = (x: number, y: number): Dir | null =>
-  x && y && Math.abs(x) !== Math.abs(y) ? null : DIRS.find(d => DIR[d][0] === Math.sign(x) && DIR[d][1] === Math.sign(y)) ?? null;
 const NEVER = 'never tested in computer games';
 
 export function workshopDialog(): { open(): void; openDesign(code: string): void } {
@@ -86,7 +84,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const s = document.createElement('dialog');
     s.className = 'ws-sheet';
     s.setAttribute('aria-labelledby', 'ws-sheet-h');
-    s.innerHTML = `<header class="ws-sheet-bar"><h2 id="ws-sheet-h" tabindex="-1" autofocus>${esc(title)}</h2><button type="button" class="quiet ws-close">Close</button></header><div class="ws-sheet-body">${html}</div>`;
+    s.innerHTML = `<header class="ws-sheet-bar"><h2 id="ws-sheet-h" tabindex="-1" autofocus>${esc(title)}</h2><button type="button" class="quiet ws-close" aria-label="Close">×</button></header><div class="ws-sheet-body">${html}</div>`;
     dlg.append(s);
     const close = (): void => s.close();
     s.addEventListener('close', () => s.remove());
@@ -122,7 +120,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     for (const modal of qa<HTMLDialogElement>('.ws-sheet')) { modal.close(); modal.remove(); }
     screen = s;
     dlg.dataset.screen = s;
-    ({ home, start, editor, try: tryIt })[s]();
+    ({ home, start, editor, card, try: tryIt })[s]();
     fit();
     drawAlert();
     focusTitle();
@@ -144,7 +142,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     alertEl.hidden = !u;
     dlg.append(alertEl);
     const status = q('.ws-save-state');
-    if (status) status.textContent = fromLink ? 'From a link' : u ? 'Not saved' : onShelf ? 'Saved on this device' : 'New piece';
+    if (status) status.textContent = u ? 'Not saved' : onShelf ? 'Saved on this device' : 'New piece';
     if (!u) { alertEl.innerHTML = ''; delete alertEl.dataset.html; return; }
     const html = u.why === 'full'
       ? `<p>Not saved: your shelf is full (${MAX} designs). Delete one to keep this piece.</p><button type="button" class="ws-alert-del">Choose one to delete</button>`
@@ -189,7 +187,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       + `</div><button type="button" class="ws-surprise">${DIE}<span>Surprise me</span></button>`
       + `<h3>Your designs (${list.length}), on this device</h3>`
       + (list.length ? `<div class="ws-shelf">${list.map((d, i) => { const jv = judge(d, false); return `<button type="button" class="ws-tile${jv.warn ? ' warn' : ''}" data-i="${i}">`
-        + `<span class="ws-tile-art" aria-hidden="true">${modelHtml(lookOf(d))}</span><b>${esc(d.name)}</b><small>${shelfOf(jv)}</small></button>`; }).join('')}</div>`
+        + `<span class="ws-tile-art" aria-hidden="true">${modelHtml(lookOf(d))}</span><b>${esc(d.name)}</b><small>${bandOf(jv)}</small></button>`; }).join('')}</div>`
         : '<p class="ws-empty">Your pieces will appear here. They are saved on this device.</p>')
       + (bad ? `<p class="ws-note">${bad === 1 ? '1 saved entry' : `${bad} saved entries`} could not be read. ${bad === 1 ? 'It stays' : 'They stay'} on this device; the other designs work.</p>` : '')
       + '</div>';
@@ -279,9 +277,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   function editor(): void {
     screenEl.innerHTML = '<div class="ws-editor ws-dashboard">'
       + bar('Workshop', 'Your piece', '<span class="ws-save-state" role="status"></span><button type="button" class="ws-share">Share</button>')
-      + '<div class="ws-workspace"><article class="ws-piece-card" aria-label="Your piece"><div class="ws-card-border"><div class="ws-portrait"><div class="ws-model-box" aria-hidden="true"></div><div class="ws-gauge-box"></div></div><div class="ws-name-row"></div><p class="ws-worth"></p><div class="ws-bottom"></div><div class="ws-appearance" hidden></div>'
-      + (fromLink ? '<button type="button" class="primary ws-keep-copy">Keep a copy</button>' : '')
-      + '<p class="sr-only ws-summary"></p><p class="sr-only ws-live" role="status"></p></div></article>'
+      + '<div class="ws-workspace">' + cardHtml(cur, judge(cur), true)
       + '<div class="ws-properties"><div class="ws-patterns"></div><section class="ws-rules-panel" aria-label="Properties"></section><section class="ws-property-options" hidden></section></div></div>'
       + '<footer class="ws-footer"><button type="button" class="quiet ws-undo" aria-label="Undo">'+UNDO+'</button><button type="button" class="quiet ws-why">Why this estimate?</button><button type="button" class="primary ws-try">Try it</button></footer></div>';
     q<HTMLButtonElement>('.ws-back').onclick = () => show('home');
@@ -289,10 +285,9 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     q<HTMLButtonElement>('.ws-why').onclick = why;
     q<HTMLButtonElement>('.ws-try').onclick = () => {
       if (empty(cur)) return toast('Add a move or a take first.');
-      if (!fromLink && !onShelf) store();
+      if (!onShelf) store();
       show('try');
     };
-    q<HTMLButtonElement>('.ws-keep-copy')?.addEventListener('click', keepCopy);
     movesTab(q('.ws-patterns'));
     update(true);
   }
@@ -339,10 +334,10 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   function update(first: boolean, noise?: () => void): void {
     cancel(screenEl);
     v = judge(cur);
-    const l = lookOf(cur), d = describe(cur), w = v.worth.point;
+    const l = lookOf(cur), w = v.worth.point;
     put(q('.ws-model-box'), modelHtml(l));
     const nameRow = q('.ws-name-row');
-    if (!q('input', nameRow) && put(nameRow, `<span class="ws-name-t">${esc(cur.name)}</span><button type="button" class="quiet ws-name" aria-label="Change name"${fromLink ? ' disabled' : ''}>${PEN}</button><button type="button" class="quiet ws-eye" aria-label="Choose appearance" aria-expanded="${!q<HTMLElement>('.ws-appearance').hidden}"${fromLink ? ' hidden' : ''}>${icon('M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0')}</button>`)) {
+    if (!q('input', nameRow) && put(nameRow, `<span class="ws-name-t">${esc(cur.name)}</span><button type="button" class="quiet ws-name" aria-label="Change name">${PEN}</button><button type="button" class="quiet ws-eye" aria-label="Choose appearance" aria-expanded="${!q<HTMLElement>('.ws-appearance').hidden}">${icon('M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0')}</button>`)) {
       q<HTMLButtonElement>('.ws-name').onclick = rename;
       q<HTMLButtonElement>('.ws-eye').onclick = () => {
         const box = q<HTMLElement>('.ws-appearance'); box.hidden = !box.hidden;
@@ -357,13 +352,13 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     paintBoard();
     const appearance = q<HTMLElement>('.ws-appearance');
     if (!appearance.hidden) lookTab(appearance);
-    q('.ws-summary').textContent = `${lookWords(l)} ${d.summary} About ${pawns(w)}, ${bandOf(v).toLowerCase()}.`;
+    q('.ws-summary').textContent = summaryOf(cur, v);
     const live = q('.ws-live'), say = `About ${pawns(w)}. ${bandOf(v)}.`;
     if (!first && v.label !== lastLabel && live.textContent !== say) live.textContent = say;
     lastLabel = v.label;
     if (!first) sound(noise ?? snd.move);
     for (const ub of qa<HTMLButtonElement>('.ws-undo')) {
-      ub.disabled = !undos.length || fromLink; ub.onclick = undo;
+      ub.disabled = !undos.length; ub.onclick = undo;
     }
     drawAlert();
     fit();
@@ -399,6 +394,20 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     inp.select();
   }
 
+  /* ---- a design from a link: its card, read only (web redesign ticket 22) ---- */
+
+  function card(): void {
+    v = judge(cur);
+    screenEl.innerHTML = bar('Workshop', 'From a link') + '<div class="ws-scroll ws-read-view">' + cardHtml(cur, v)
+      + '<p class="ws-note ws-read-note">Read only. Keep a copy to change it. It plays on the test board, not in games.</p>'
+      + '<button type="button" class="quiet ws-why">Why this estimate?</button></div>'
+      + '<footer class="ws-footer"><button type="button" class="ws-keep-copy">Keep a copy</button><button type="button" class="primary ws-try">Try it</button></footer>';
+    q<HTMLButtonElement>('.ws-back').onclick = () => show('home');
+    q<HTMLButtonElement>('.ws-why').onclick = why;
+    q<HTMLButtonElement>('.ws-keep-copy').onclick = keepCopy;
+    q<HTMLButtonElement>('.ws-try').onclick = () => (empty(cur) ? toast('This piece has no move and no take.') : show('try'));
+  }
+
   /* ---- the panel: Moves, Rules, Look ---- */
 
   const guardType = (): boolean => cur.rules.some(r => r.does.a === 'cannotBeTaken' && r.does.by === 'allButKing');
@@ -407,16 +416,16 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   function movesTab(p: HTMLElement): void {
     const grid = (mode: 'move' | 'take'): string => {
       let cells = '';
-      for (let y = 3; y >= -3; y--) for (let x = -3; x <= 3; x++) cells += `<button type="button" class="ws-cell${x || y ? '' : ' ws-me'}" data-x="${x}" data-y="${y}" tabindex="${x || y ? -1 : 0}"${fromLink ? ' disabled' : ''}><i class="ws-arrow" aria-hidden="true"></i></button>`;
-      return `<section class="ws-pattern"><h3>${mode === 'move' ? 'Moves' : 'Takes'}</h3><p class="ws-mode">${mode === 'move' ? 'Tap empty squares it can move to.' : 'Tap squares where it can take an enemy.'}</p><p class="ws-fwd">forward ↑</p><div class="ws-board" data-action="${mode === 'take' ? takeMethod : mode}" role="group" aria-label="${mode === 'move' ? 'Moves' : 'Takes'}">${cells}</div><p class="ws-caption"></p>${mode === 'take' && !fromLink ? '<label class="ws-take-mode">Take by <select aria-label="Take method"><option value="take">Moving there</option><option value="shoot">Shooting</option></select></label>' : ''}</section>`;
+      for (let y = 3; y >= -3; y--) for (let x = -3; x <= 3; x++) cells += `<button type="button" class="ws-cell${x || y ? '' : ' ws-me'}" data-x="${x}" data-y="${y}" tabindex="${x || y ? -1 : 0}"><i class="ws-arrow" aria-hidden="true"></i></button>`;
+      return `<section class="ws-pattern"><h3>${mode === 'move' ? 'Moves' : 'Takes'}</h3><p class="ws-mode">${mode === 'move' ? 'Tap empty squares it can move to.' : 'Tap squares where it can take an enemy.'}</p><p class="ws-fwd">forward ↑</p><div class="ws-board" data-action="${mode === 'take' ? takeMethod : mode}" role="group" aria-label="${mode === 'move' ? 'Moves' : 'Takes'}">${cells}</div><p class="ws-caption"></p>${mode === 'take' ? '<label class="ws-take-mode">Take by <select aria-label="Take method"><option value="take">Moving there</option><option value="shoot">Shooting</option></select></label>' : ''}</section>`;
     };
-    p.innerHTML = (!fromLink ? `<label class="ws-symmetry">Apply to <select name="ws-paint" aria-label="Apply to">${PAINT.map(([k,t]) => `<option value="${k}"${k === paintOn ? ' selected' : ''}>${t}</option>`).join('')}</select></label>` : '')
+    p.innerHTML = `<label class="ws-symmetry">Apply to <select name="ws-paint" aria-label="Apply to">${PAINT.map(([k,t]) => `<option value="${k}"${k === paintOn ? ' selected' : ''}>${t}</option>`).join('')}</select></label>`
       + `<div class="ws-dual-boards">${grid('move')}${grid('take')}</div>`
-      + `<details class="ws-sliding"><summary>Sliding directions</summary><p>Slides continue until a piece stops them. They apply to both moves and takes.</p><div class="ws-directions">${DIRS.map(dir => `<button type="button" data-dir="${dir}" aria-label="Slide ${dir}"${fromLink ? ' disabled' : ''}>${({n:'↑',ne:'↗',e:'→',se:'↘',s:'↓',sw:'↙',w:'←',nw:'↖'})[dir]}</button>`).join('')}</div></details>`;
-    q<HTMLSelectElement>('[name="ws-paint"]', p)?.addEventListener('change', e => { paintOn = (e.target as HTMLSelectElement).value as PaintOn; });
-    q<HTMLSelectElement>('.ws-take-mode select', p)?.addEventListener('change', e => { q<HTMLElement>('.ws-board[data-action="take"], .ws-board[data-action="shoot"]', p).dataset.action = takeMethod = (e.target as HTMLSelectElement).value as 'take' | 'shoot'; paintBoard(); });
-    const method = q<HTMLSelectElement>('.ws-take-mode select', p); if (method) method.value = takeMethod;
-    for (const board of qa<HTMLElement>('.ws-board', p)) if (!fromLink) wireBoard(board);
+      + `<details class="ws-sliding"><summary>Sliding directions</summary><p>Slides continue until a piece stops them. They apply to both moves and takes.</p><div class="ws-directions">${DIRS.map(dir => `<button type="button" data-dir="${dir}" aria-label="Slide ${dir}">${({n:'↑',ne:'↗',e:'→',se:'↘',s:'↓',sw:'↙',w:'←',nw:'↖'})[dir]}</button>`).join('')}</div></details>`;
+    q<HTMLSelectElement>('[name="ws-paint"]', p).addEventListener('change', e => { paintOn = (e.target as HTMLSelectElement).value as PaintOn; });
+    q<HTMLSelectElement>('.ws-take-mode select', p).addEventListener('change', e => { q<HTMLElement>('.ws-board[data-action="take"], .ws-board[data-action="shoot"]', p).dataset.action = takeMethod = (e.target as HTMLSelectElement).value as 'take' | 'shoot'; paintBoard(); });
+    q<HTMLSelectElement>('.ws-take-mode select', p).value = takeMethod;
+    for (const board of qa<HTMLElement>('.ws-board', p)) wireBoard(board);
     for (const b of qa<HTMLButtonElement>('[data-dir]', p)) b.onclick = () => {
       if (guardType()) return toast(H2B);
       const dir = b.dataset.dir as Dir;
@@ -431,10 +440,8 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       for (const b of qa<HTMLButtonElement>('.ws-cell', board)) {
         const x = +b.dataset.x!, y = +b.dataset.y!;
         if (!x && !y) { put(b, figureHtml({ figure: selectedFigure(cur).id, army: cur.look.army }, 'ws-me-fig')); b.setAttribute('aria-label', 'Your piece'); continue; }
-        const s = cur.squares.find(s => s.x === x && s.y === y), ray = rayOf(x, y), line = !!ray && cur.lines.includes(ray);
-        const active = mode === 'move' ? s && ['move','both','moveShoot'].includes(s.mark) : s && ['take','both','shoot','moveShoot'].includes(s.mark);
-        const shot = s && ['shoot','moveShoot'].includes(s.mark);
-        b.className = `ws-cell${(x+y)&1 ? ' dk' : ''}${active ? mode === 'move' ? ' c-move' : shot ? ' c-shoot' : ' c-take' : ''}${line ? ` ln ln-${ray}${Math.max(Math.abs(x),Math.abs(y))===3 ? ' ln-end' : ''}` : ''}`;
+        const marks = cellMarks(cur, mode as 'move' | 'take' | 'shoot', x, y), active = / c-/.test(marks), line = / ln /.test(`${marks} `);
+        b.className = `ws-cell${marks}`;
         b.setAttribute('aria-pressed', String(!!active || line));
         b.setAttribute('aria-label', `${dirWords(x,y)}: ${active || line ? 'on' : 'off'}${line ? ', slide' : ''}`);
       }
@@ -516,13 +523,13 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   function rulesTab(p: HTMLElement): void {
     const full = cur.rules.length >= MAX_RULES;
     p.innerHTML = `<header class="ws-properties-title"><h3>Properties</h3><span>${cur.rules.length} / ${MAX_RULES}</span></header><div class="ws-property-cards">`
-      + cur.rules.map((r,i) => `<article class="ws-rule"><header><span class="ws-property-icon" aria-hidden="true">${icon(blockOf(r.does.a).icon)}</span><b>${esc(blockOf(r.does.a).title)}</b>${fromLink ? '' : `<button type="button" class="quiet ws-remove" data-i="${i}" aria-label="Remove ${esc(blockOf(r.does.a).title)}">×</button>`}</header><p class="ws-sentence">${fromLink ? esc(ruleText(r)) : partsHtml(r,i)}</p></article>`).join('')
-      + (fromLink ? '' : `<button type="button" class="ws-add" aria-label="Add a property"${full ? ' disabled' : ''}>${icon('M12 5v14M5 12h14')}</button>`) + '</div>';
+      + cur.rules.map((r,i) => `<article class="ws-rule"><header><span class="ws-property-icon" aria-hidden="true">${icon(blockOf(r.does.a).icon)}</span><b>${esc(blockOf(r.does.a).title)}</b><button type="button" class="quiet ws-remove" data-i="${i}" aria-label="Remove ${esc(blockOf(r.does.a).title)}">×</button></header><p class="ws-sentence">${partsHtml(r,i)}</p></article>`).join('')
+      + `<button type="button" class="ws-add" aria-label="Add a property"${full ? ' disabled' : ''}>${icon('M12 5v14M5 12h14')}</button></div>`;
     for (const b of qa<HTMLButtonElement>('.ws-remove', p)) b.onclick = () => {
       const i = +b.dataset.i!;
       change('remove a rule', d => { d.rules.splice(i, 1); });
     };
-    q<HTMLButtonElement>('.ws-add', p)?.addEventListener('click', ruleBook);
+    q<HTMLButtonElement>('.ws-add', p).onclick = ruleBook;
     for (const b of qa<HTMLButtonElement>('.ws-pill', p)) b.onclick = () => pillSheet(+b.dataset.i!, b.dataset.pill!);
   }
   /** A rule's sentence: fixed words and pill buttons. */
@@ -685,9 +692,14 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     update(true);
   }
   function share(): void {
-    sheet('Share this piece', '<div class="ws-share-actions"><button type="button" class="ws-send">Send link</button><button type="button" class="ws-copy-link">Copy link</button><button type="button" class="ws-copy">Copy as text</button>'
-      + (fromLink ? '<button type="button" class="ws-keep-copy">Keep a copy</button>' : '<button type="button" class="ws-dup">Make a copy</button><button type="button" class="quiet ws-del">Delete</button>') + '</div>', (body, closeShare) => {
+    sheet('Share this piece', `<p class="ws-note ws-share-note">Your friend opens this card. It opens read only.</p>${cardHtml(cur, v)}`
+      + '<footer class="ws-share-actions"><button type="button" class="primary ws-send">Send link</button><button type="button" class="ws-copy-link">Copy link</button><button type="button" class="ws-copy">Copy as text</button>'
+      + '<button type="button" class="quiet ws-dup">Make a copy</button><button type="button" class="quiet ws-del">Delete</button></footer>', (body, closeShare) => {
       const jv = v;
+      if (!navigator.share) {
+        q('.ws-send', body).textContent = 'Copy link';
+        q('.ws-copy-link', body).hidden = true;
+      }
       q<HTMLButtonElement>('.ws-copy-link', body).onclick = () => { closeShare(); void copyText(link(cur), 'Link copied.'); };
       // Every design the editor makes fits a share code (a unit test); this guard says so if one ever does not.
       const shareable = (): boolean => !!parseDesign(designCode(cur)) || (toast('This design cannot be shared: it breaks a limit.'), false);
@@ -700,16 +712,15 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
         await copyText(link(cur), 'Link copied.');
       };
       q<HTMLButtonElement>('.ws-copy', body).onclick = () => { if (shareable()) { closeShare(); void copyText(asText(cur, jv, link(cur)), 'Copied as text.'); } };
-      q<HTMLButtonElement>('.ws-dup', body)?.addEventListener('click', () => {
+      q<HTMLButtonElement>('.ws-dup', body).onclick = () => {
         closeShare();
         const c: PieceDesign = { ...clone(cur), id: fromPreset(BLANK).id, name: `${cur.name.slice(0, 12).trim()} copy`, named: true };
         cur = c;
         const ok = store();
         edit(c, { shelf: ok });
         if (ok) toast('A copy is on your shelf.');
-      });
-      q<HTMLButtonElement>('.ws-keep-copy', body)?.addEventListener('click', () => { closeShare(); keepCopy(); });
-      q<HTMLButtonElement>('.ws-del', body)?.addEventListener('click', () => { closeShare(); sheet(`Delete ${cur.name}?`, '<p>This cannot be undone.</p><div class="ws-sheet-actions"><button type="button" class="primary ws-yes">Delete</button><button type="button" class="ws-no">Keep</button></div>', (body, close) => {
+      };
+      q<HTMLButtonElement>('.ws-del', body).onclick = () => { closeShare(); sheet(`Delete ${cur.name}?`, '<p>This cannot be undone.</p><div class="ws-sheet-actions"><button type="button" class="primary ws-yes">Delete</button><button type="button" class="ws-no">Keep</button></div>', (body, close) => {
         q<HTMLButtonElement>('.ws-no', body).onclick = close;
         q<HTMLButtonElement>('.ws-yes', body).onclick = () => {
           close();
@@ -717,7 +728,8 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
           onShelf = false;
           show('home');
         };
-      }); });
+      }); };
+      body.after(q('.ws-share-actions', body));
     });
   }
 
@@ -734,7 +746,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   function tryIt(): void {
     screenEl.innerHTML = bar('Back', `Try ${cur.name}`, '<button type="button" class="quiet ws-reset">Reset</button>') + '<div class="ws-scroll"><div class="ws-try-host"></div></div>';
     const box = sandbox(q('.ws-try-host'), cur, cur.name);
-    q<HTMLButtonElement>('.ws-back').onclick = () => show('editor');
+    q<HTMLButtonElement>('.ws-back').onclick = () => show(fromLink ? 'card' : 'editor');
     q<HTMLButtonElement>('.ws-reset').onclick = () => box.reset();
   }
 
@@ -750,7 +762,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       return;
     }
     // Only the editor itself: a key pressed in a sheet acts on the sheet alone.
-    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && screen === 'editor' && !q('.ws-sheet[open]') && !q('.ws-property-options:not([hidden])') && !fromLink && !(e.target as HTMLElement).closest('input[type="text"]')) {
+    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && screen === 'editor' && !q('.ws-sheet[open]') && !q('.ws-property-options:not([hidden])') && !(e.target as HTMLElement).closest('input[type="text"]')) {
       e.preventDefault();
       undo();
     }
@@ -766,7 +778,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       const d = parseDesign(code);
       unsaved = null;
       if (!d) { show('home'); toast('This design link could not be read.'); }
-      else { cur = d; undos = []; fromLink = true; onShelf = false; show('editor'); }
+      else { cur = d; undos = []; fromLink = true; onShelf = false; show('card'); }
       if (!dlg.open) dlg.showModal();
       focusTitle();
     },

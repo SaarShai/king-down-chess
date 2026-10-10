@@ -11,11 +11,13 @@
 // card (A1, A4, A5), measured from the animations that each edit starts and their end times.
 // The last groups check the landscape phone layout of workshop-finish/08 (review fix 11): both boards and
 // Try it in view at 568x320, each board whole after a scroll at the other sizes, and a refit on a turn.
+// The group workshopCard checks web redesign ticket 22 at 320x568, 390x844 and 1440x900: a design link opens its
+// card read only, the Share sheet shows the card above Send link, and the shelf shows mini cards; the band word fits.
 // Run it with `npm run check:browser workshop`. It reads its server, channel and output folder from the
 // shared check module (tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { pressMenu } from './app-ui.mjs';
+import { keepWorkshopCopy, workshopCopyLink, openMenu, pressMenu, workshopCardText } from './app-ui.mjs';
 import { assertNoErrors, env, imageIs, insideViewport, launch, minTarget, noOverlap, noRunningAnimations, noSidewaysScroll, shot, textNotCut, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -156,7 +158,7 @@ async function keyboardAndRefusedSave(p) {
 async function shareTryReload(p) {
   const before = await saved(p);
   await p.click('.ws-share');
-  const link = await copied(p, () => p.click('.ws-copy-link'));
+  const link = await copied(p, () => workshopCopyLink(p).click());
   await p.click('.ws-try');
   await p.waitForSelector('.tb-me');
   await imageIs(p, '.tb-me', 'ui/workshop/clay-golem-w.webp');
@@ -166,7 +168,7 @@ async function shareTryReload(p) {
   await p.goto(link);
   await p.waitForSelector('.ws-keep-copy');
   assert.equal(await p.locator('.ws-cell:not([disabled])').count(), 0, 'a share link opens read-only');
-  await p.click('.ws-keep-copy');
+  await keepWorkshopCopy(p).click();
   assert.equal((await saved(p)).name, before.name, 'Keep a copy saves the design');
   await p.reload();
   await ready(p);
@@ -213,6 +215,7 @@ async function open(browser, { width = 390, height = 844, title = false, query =
   p.setDefaultTimeout(10000);
   trapErrors(p);
   if (!title) await p.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1'));
+  else await p.addInitScript(() => localStorage.setItem('kingdown.first-deal', '1')); // returning title door
   if (init) await p.addInitScript(init);
   await p.goto(base + query);
   await ready(p);
@@ -236,7 +239,7 @@ async function openLink(p, key, name, keep = false) {
   await ready(p);
   await p.waitForSelector('#workshop[open] .ws-piece-card');
   if (!keep) return;
-  await p.click('.ws-piece-card .ws-keep-copy');
+  await keepWorkshopCopy(p).click();
   await p.waitForSelector('.ws-add');
 }
 /** Adds a property from the + picker. */
@@ -252,7 +255,8 @@ async function rename(p, name) {
 /** Opens the Share sheet and taps one of its actions. */
 async function shareAction(p, action) {
   await p.click('.ws-share');
-  await p.click(`${sheetOpen} .ws-${action}`);
+  if (action === 'copy-link') await workshopCopyLink(p).click();
+  else await p.click(`${sheetOpen} .ws-${action}`);
 }
 
 /** The smaller controls of the card in short landscape, as in the approved mockup: [selector, minimum px]. */
@@ -275,7 +279,7 @@ async function screenFits(p, what) {
   await targetsFit(p);
   if (!await p.locator('.ws-piece-card').count()) return;
   for (const row of ['.ws-bar > *', '.ws-card-border > *', '.ws-portrait > *', '.ws-name-row > *', '.ws-footer > *']) await noOverlap(p, `#workshop ${row}`);
-  for (const words of ['.ws-name-t', '.ws-worth', '.ws-bottom', '.ws-save-state', '.ws-bar button', '.ws-footer button']) await textNotCut(p, `#workshop ${words}`);
+  for (const words of await workshopCardText(p)) await textNotCut(p, `#workshop ${words}`);
 }
 
 /** Layout: the home, New piece, a blank card, a likely-overpowered design with its chip, and an 18-letter name. */
@@ -299,16 +303,17 @@ async function cardLayout(browser, width, height) {
   await p.context().close();
 }
 
-/** The game menu: New game, Guide, Workshop and Settings in one row, none cut or on top of another; the Guide has no Workshop door. */
+/** The Menu rows have touch size and do not overlap; the Guide has no Workshop door. */
 async function gameMenu(browser, width, height) {
   const p = await open(browser, { width, height });
-  const menu = 'nav.menu button';
-  assert.deepEqual((await p.locator(menu).allInnerTexts()).map(t => t.trim()), ['New game', 'Guide', 'Workshop', 'Settings'], 'the menu order');
+  await openMenu(p);
+  const menu = '#menu-sheet [data-menu-page="menu"] > button.menu-row';
+  assert.deepEqual((await p.locator(menu).allInnerTexts()).map(t => t.trim().split('\n')[0]), ['New game', 'Guide', 'Board help', 'Extra', 'Resign'], 'the Menu row order');
   await minTarget(p, menu);
   await noOverlap(p, menu);
-  await textNotCut(p, 'nav.menu .label');
-  const tops = await p.locator(menu).evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().top)));
-  assert.equal(new Set(tops).size, 1, `the menu is one row: tops ${tops}`);
+  await textNotCut(p, menu);
+  const lefts = await p.locator(menu).evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().left)));
+  assert.equal(new Set(lefts).size, 1, `the Menu rows share a left edge: ${lefts}`);
   await shot(p, `${width}x${height}-menu`);
   await pressMenu(p, 'Guide');
   await p.waitForSelector('#rules[open]');
@@ -320,7 +325,7 @@ async function gameMenu(browser, width, height) {
 async function tapOutside(browser) {
   const p = await open(browser, { width: 390, height: 844 });
   const drag = async (from, to) => { await p.mouse.move(...from); await p.mouse.down(); await p.mouse.move(...to, { steps: 4 }); await p.mouse.up(); };
-  for (const [item, dialog] of [['Settings', '#settings'], ['Guide', '#rules'], ['New game', '#new-game']]) {
+  for (const [item, dialog] of [['Settings', '#menu-sheet'], ['Guide', '#rules'], ['New game', '#new-game']]) {
     await pressMenu(p, item);
     await p.waitForSelector(`${dialog}[open]`);
     const box = await p.locator(dialog).boundingBox();
@@ -494,12 +499,12 @@ async function sharedLink(browser) {
   assert.equal(await text(p, '.ws-name-t'), 'Rook Rider', 'the link opens the design');
   assert.equal(await text(p, '.ws-worth'), worth, 'the link shows the same verdict');
   assert.equal(await p.locator('.ws-cell:not([disabled]), .ws-add, .ws-remove, [data-dir]:not([disabled])').count(), 0, 'a shared design has no editing control');
-  assert.equal(await p.isDisabled('.ws-name'), true, 'the name is read-only');
+  assert.equal(await p.locator('.ws-name, .ws-name-in').count(), 0, 'the name has no pen and no field');
   assert.equal(await p.evaluate(() => localStorage.getItem('kingdown.workshop')), null, 'opening a link saves nothing');
   await p.click('.ws-try');
   await p.click('.ws-back');
   assert.equal(await p.evaluate(() => localStorage.getItem('kingdown.workshop')), null, 'Try it on a shared design saves nothing');
-  await p.click('.ws-piece-card .ws-keep-copy');
+  await keepWorkshopCopy(p).click();
   await p.waitForSelector('.ws-add');
   assert.equal(await p.locator('.ws-cell:not([disabled])').count(), 98, 'Keep a copy makes each cell of both boards editable');
   assert.deepEqual((await designs(p)).map(d => d.name), ['Rook Rider'], 'Keep a copy saves one design');
@@ -568,6 +573,96 @@ async function tryIt(browser) {
   await p.click('.ws-why');
   await p.waitForSelector(sheetOpen);
   assert.equal(await text(p, `${sheetOpen} h2`), 'Why this warning?', 'the Paladin\'s warning opens "Why this warning?"');
+  await p.context().close();
+}
+
+/* ---- Web redesign ticket 22: the Workshop card ---- */
+
+/** A design link opens its card read only, with Keep a copy and Try it; the Share sheet shows the card above Send link;
+ * the shelf shows mini cards. The band word is not cut at 320x568, 390x844 and 1440x900. */
+async function workshopCard(browser, width, height) {
+  const p = await open(browser, { width, height, init: () => {
+    Object.defineProperty(navigator, 'share', { value: async () => {}, configurable: true });
+  } });
+  const card = '#workshop .ws-read', size = `${width}x${height}`;
+  await openLink(p, 'likelyOP', 'Rook Rider');
+  assert.equal(await p.locator(`${card} :is(button, input, select)`).count(), 0, `${size}: the card of a link has no control`);
+  assert.deepEqual([await text(p, `${card} .ws-name-t`), await text(p, `${card} .ws-learn`)], ['Rook Rider', 'Likely overpowered'], `${size}: the card shows the name and the band word`);
+  assert.equal(await p.locator(`${card} [data-grid="move"] .ln`).count(), 12, `${size}: the card draws the slide lines`);
+  assert.equal(await text(p, '.ws-read-note'), 'Read only. Keep a copy to change it. It plays on the test board, not in games.', `${size}: the card says that it is read only`);
+  assert.deepEqual(await p.locator('#workshop .ws-footer button').allInnerTexts(), ['Keep a copy', 'Try it'], `${size}: Keep a copy and Try it`);
+  assert.equal(await p.locator('#workshop .primary').count(), 1, `${size}: one main action`);
+  await screenFits(p, `${size}: the card of a link`);
+  await textNotCut(p, `${card} .ws-bottom`);
+  if (width > 720) {
+    const footer = await p.locator('#workshop .ws-footer').boundingBox(), cardBox = await p.locator(card).boundingBox();
+    assert.deepEqual([footer.x, footer.width], [cardBox.x, cardBox.width], `${size}: the footer sits under the card at its width`);
+  }
+  await shot(p, `${size}-card-link`);
+
+  await keepWorkshopCopy(p).click();
+  await p.waitForSelector('.ws-add');
+  await p.click('.ws-share');
+  await p.waitForSelector(`${sheetOpen} .ws-read`);
+  assert.equal(await text(p, `${sheetOpen} .ws-share-note`), 'Your friend opens this card. It opens read only.', `${size}: the Share sheet says what the friend sees`);
+  assert.equal(await text(p, `${sheetOpen} .ws-read .ws-name-t`), 'Rook Rider', `${size}: the Share sheet shows the card`);
+  assert.deepEqual(await p.locator(`${sheetOpen} .ws-share-actions button`).allInnerTexts(), ['Send link', 'Copy link', 'Copy as text', 'Make a copy', 'Delete'], `${size}: the Share actions, Send link first`);
+  assert.equal(await p.locator(`${sheetOpen} .primary.ws-send`).count(), 1, `${size}: Send link is the main action`);
+  await insideViewport(p, `${sheetOpen} .ws-share-actions button:not([hidden])`);
+  await noSidewaysScroll(p, `${sheetOpen} .ws-sheet-body`);
+  await textNotCut(p, `${sheetOpen} .ws-bottom`);
+  await targetsFit(p);
+  await shot(p, `${size}-card-share`);
+  await p.keyboard.press('Escape');
+
+  await p.click('.ws-back');
+  await p.waitForSelector('.ws-tile');
+  assert.deepEqual([await text(p, '.ws-tile b'), await text(p, '.ws-tile small'), await p.locator('.ws-tile .ws-fig').count()], ['Rook Rider', 'Likely overpowered', 1], `${size}: a mini card has the figure, the name and the band word`);
+  await textNotCut(p, '.ws-tile small');
+  await screenFits(p, `${size}: the shelf`);
+  await shot(p, `${size}-card-shelf`);
+  await p.context().close();
+}
+
+/** The Share sheet names the action that the device can do. */
+async function shareWithoutDeviceShare(browser) {
+  const p = await open(browser, { width: 320, height: 568, init: () => {
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+  } });
+  await openLink(p, 'likelyOP', 'North Tower Knight', true);
+  await p.click('.ws-share');
+  assert.equal(await p.locator(`${sheetOpen} .ws-send`).innerText(), 'Copy link', 'without device share, the main action says Copy link');
+  assert.equal(await p.locator(`${sheetOpen} .ws-copy-link`).isVisible(), false, 'without device share, the second Copy link stays hidden');
+  await insideViewport(p, `${sheetOpen} .ws-share-actions button:not([hidden])`);
+  assert.equal(await p.locator(`${sheetOpen} .ws-close`).getAttribute('aria-label'), 'Close', 'the sheet has one named Close form');
+  const closeBox = await p.locator(`${sheetOpen} .ws-close`).boundingBox();
+  assert.deepEqual([closeBox.width, closeBox.height], [44, 44], 'Close has a framed 44 px target');
+  assert.equal(await p.locator(`${sheetOpen} .ws-model-box`).evaluate(e => getComputedStyle(e).getPropertyValue('--model').trim()), '72px', 'the small phone sheet uses a 72 px figure');
+  assert.ok(await p.locator(`${sheetOpen} .ws-fwd`).evaluate(e => parseFloat(getComputedStyle(e).fontSize) >= 12.5), 'Forward is at least 12.5 px');
+  const actions = p.locator(`${sheetOpen} .ws-share-actions`), before = await actions.boundingBox();
+  await p.locator(`${sheetOpen} .ws-sheet-body`).evaluate(e => { e.scrollTop = e.scrollHeight; });
+  assert.deepEqual(await actions.boundingBox(), before, 'Share actions stay in place when the card scrolls');
+  const bandColour = await p.locator(`${sheetOpen} .ws-bottom`).evaluate(e => getComputedStyle(e).color);
+  assert.equal(await p.locator(`${sheetOpen} .ws-learn`).evaluate(e => getComputedStyle(e, '::before').content), '"⚠︎ "', 'the warning card has a warning mark');
+  const link = await copied(p, () => p.click(`${sheetOpen} .ws-send`));
+  assert.ok(new URL(link).searchParams.has('design'), 'the main Copy link copies a design link');
+  await p.evaluate(() => Object.defineProperty(navigator, 'share', { value: async data => { window.sentDesign = data; }, configurable: true }));
+  await p.click('.ws-share');
+  assert.equal(await p.locator(`${sheetOpen} .ws-send`).innerText(), 'Send link', 'with device share, the main action says Send link');
+  assert.equal(await p.locator(`${sheetOpen} .ws-copy-link`).isVisible(), true, 'with device share, Copy link stays available');
+  await p.click(`${sheetOpen} .ws-send`);
+  assert.equal(await p.evaluate(() => window.sentDesign.url), link, 'Send link gives the design link to device share');
+  await p.click('.ws-share');
+  await p.click(`${sheetOpen} .ws-dup`);
+  assert.ok(await p.locator('.ws-save-state').evaluate(e => parseFloat(getComputedStyle(e).fontSize) >= 12.5), 'the save state is at least 12.5 px');
+  await p.click('.ws-back');
+  assert.deepEqual((await p.locator('.ws-tile b').allInnerTexts()).sort(), ['North Tower Knight', 'North Tower copy'], 'the 18-character name and its copy have distinct names');
+  await textNotCut(p, '.ws-tile b');
+  assert.deepEqual(await p.locator('.ws-tile small').evaluateAll(es => es.map(e => getComputedStyle(e).color)), [bandColour, bandColour], 'the shelf and card use one band colour');
+  assert.deepEqual(await p.locator('.ws-tile small').evaluateAll(es => es.map(e => getComputedStyle(e, '::before').content)), ['"⚠︎ "', '"⚠︎ "'], 'the shelf has the same warning mark as the card');
+  const shelfBox = await p.locator('.ws-shelf').boundingBox(), doorBox = await p.locator('.ws-doors').boundingBox();
+  assert.deepEqual([shelfBox.x, shelfBox.width], [doorBox.x, doorBox.width], 'the shelf and New piece share one column');
+  for (const tile of await p.locator('.ws-tile').all()) assert.ok((await tile.boundingBox()).width >= 120, 'a shelf column is at least 120 px');
   await p.context().close();
 }
 
@@ -714,9 +809,9 @@ async function fix27PressOnPadding(browser) {
     assert.equal(await isOpen(p, dialog), true, `fix 27: a press on ${what}'s padding released on the backdrop keeps it open`);
   };
   await pressMenu(p, 'Settings');
-  await p.waitForSelector('#settings[open]');
-  await pressOut('#settings', 'Settings');
-  await p.keyboard.press('Escape');
+  await p.waitForSelector('#menu-sheet[open]');
+  await pressOut('#menu-sheet', 'Settings');
+  await p.click('#menu-close');
   await newPiece(p);
   await p.click('.ws-share');
   await p.waitForSelector(sheetOpen);
@@ -833,7 +928,7 @@ async function fix13SafeRule(browser) {
 /** Fix 28, the lines: a slide line on the board is gold with a dark edge, so it reads on the pale squares. */
 async function fix28LineEdge(browser) {
   const p = await open(browser);
-  await openLink(p, 'rook', 'Line Rook');
+  await openLink(p, 'rook', 'Line Rook', true);
   for (const mode of ['move', 'take']) {
     const lines = p.locator(`.ws-board[data-action="${mode}"] .ws-cell.ln`);
     assert.equal(await lines.count(), 12, `fix 28: the ${mode} board draws 4 lines of 3 squares`);
@@ -1147,6 +1242,7 @@ async function turnRefits(browser) {
 
 const browser = await launch();
 try {
+  await shareWithoutDeviceShare(browser);
   for (const [width, height] of viewports) {
     const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: width < 721, permissions: ['clipboard-read', 'clipboard-write'] });
     const p = await ctx.newPage();
@@ -1177,6 +1273,8 @@ try {
   for (const [width, height] of [[390, 844], [1280, 900]]) await editStateKept(browser, width, height);
   await tryIt(browser);
   console.log('ok the judge reacts, the shelf, a shared link, the edit state after Try it and Share, Try it');
+  for (const [width, height] of [[320, 568], [390, 844], [1440, 900]]) await workshopCard(browser, width, height);
+  console.log('ok ticket 22, the Workshop card: a link opens the card read only, the Share sheet shows the card, the shelf shows mini cards');
   await fix2FullShelf(browser);
   await fix4UndoKeysUnderSheet(browser);
   await fix20CopyByHand(browser);

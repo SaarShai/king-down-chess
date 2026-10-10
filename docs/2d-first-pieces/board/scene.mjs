@@ -19,6 +19,18 @@ import {DEATHS,THEMED,drawDeath} from './king-captures.mjs';
 import * as pawnIdle from '../lance/idle.mjs';
 import {SHADE,shadowField,shadowWeights,fxFade} from './contact-shadow.mjs';
 export const SIZE=960, PAD=32, TILE=112;
+/** The floor round the board, by default: the trial, the trailer and the plugin page draw it. */
+export const FLOOR='#e6e1cf';
+/** The floor that createScene draws: FLOOR when the caller names none (the plugin page and the trial), else the caller's colour or null. */
+export const floorOf=floor=>floor===undefined?FLOOR:floor;
+/**
+ * Clears the whole canvas (board units, the headroom above the board included) and fills it with `floor`.
+ * A floor of null only clears it, so the page under the canvas shows round the board (the game's parchment floor).
+ */
+export function paintFloor(ctx,floor,headroom){
+ ctx.clearRect(0,-headroom,SIZE,SIZE+headroom);
+ if(floor){ctx.fillStyle=floor;ctx.fillRect(0,-headroom,SIZE,SIZE+headroom);}
+}
 // One literal URL per image: bundlers resolve and copy each file (a template string would not).
 const ART_FILES={beast:new URL('../beast/beast.webp',import.meta.url).href,queen:new URL('../queen/queen.webp',import.meta.url).href,paladin:new URL('../paladin/paladin.webp',import.meta.url).href,maester:new URL('../maester/maester.webp',import.meta.url).href,pawn:new URL('../lance/pawn.webp',import.meta.url).href,archer:new URL('../wrist-bow/archer.webp',import.meta.url).href,ogre:new URL('../ogre/ogre.webp',import.meta.url).href,knight:new URL('../knight/knight.webp',import.meta.url).href,bishop:new URL('../bishop/bishop.webp',import.meta.url).href,rook:new URL('../rook/rook.webp',import.meta.url).href,guard:new URL('../guard/guard.webp',import.meta.url).href};
 // One sheet per king design (king-sheets.mjs); a side draws the king it plays (setKings).
@@ -32,8 +44,10 @@ const BOARD_ART=new URL('../board-art/stone-board.webp',import.meta.url).href;
  * setDecorate(fn): fn(ctx, scene, 'under') draws markers below the figures; fn(ctx, scene, 'over', row) is called
  * for each screen row 0–7 (top to bottom), after that row's figures and before the rows in front.
  * kings: [white, black] king designs (court.KING_DESIGNS); the trial and the trailer keep the Frost King.
+ * floor: the colour round the board (floorOf: FLOOR when none is named; paintFloor); null leaves the canvas clear there.
  */
-export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost']}) {
+export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost'],floor:floorOption}) {
+ const floor=floorOf(floorOption);
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
  const FALL=650, CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
@@ -67,8 +81,8 @@ for(const [type,name] of Object.entries(courtNames)){
  // Lab pieces without painted art: a token that slides in, no body motion.
  for(let type=1;type<16;type++){if(!specs[type])specs[type]=FALLBACK;newMotions[type]??={DURATION:900,actionAt:()=>0};}
  const idle=new Map(), work=new Map();
- let position={board:new Uint8Array(64)}, selected=null, aimSquare=null, animation=null, aimAngle=0, aimFacing=1;
- let fallen=null, res=1, frame=0, previousTime=0, ready=false, flipped=false, coords=true, coordSize=13, labels=false, reducedMotion=false, decorate=null;
+ let position={board:new Uint8Array(64)}, selected=null, lifted=null, liftTell=true, aimSquare=null, animation=null, aimAngle=0, aimFacing=1;
+ let fallen=null, res=1, frame=0, previousTime=0, ready=false, flipped=false, coords=true, coordSize=13, coordInset=14, labels=false, reducedMotion=false, decorate=null;
  // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, the board's frame and light,
  // and each king's own idle effect (king-effects.mjs). All off by default, so the trial and the trailer draw exactly as before.
  const lively={moves:false,idle:false,atmosphere:false,kings:false,captures:false,pawns:false};
@@ -470,7 +484,7 @@ function vortex(out,foot,phase,strength) {
  out.restore();
 }
  function boardBackground() {
-  ctx.clearRect(0,-headroom,SIZE,SIZE+headroom);ctx.fillStyle='#e6e1cf';ctx.fillRect(0,-headroom,SIZE,SIZE+headroom);
+  paintFloor(ctx,floor,headroom);
   if(boardArt.complete&&boardArt.naturalWidth){
    // The painted board turns with the viewer, like the physical board.
    if(lively.atmosphere)drawFrame();
@@ -485,7 +499,7 @@ function vortex(out,foot,phase,strength) {
   decorate?.(ctx,api,'under');
   if(selected!==null){const c=cell(selected);ctx.strokeStyle='#6b7954';ctx.lineWidth=3;ctx.strokeRect(PAD+c.col*TILE+1.5,PAD+c.row*TILE+1.5,TILE-3,TILE-3);ctx.lineWidth=1;}
   if(coords){ctx.fillStyle=lively.atmosphere&&boardArt.naturalWidth?'#e4d8bb':'#6d765d';ctx.font=`${coordSize}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
-   for(let i=0;i<8;i++){ctx.fillText('abcdefgh'[flipped?7-i:i],PAD+(i+.5)*TILE,SIZE-14);ctx.fillText(String(flipped?i+1:8-i),15,PAD+(i+.5)*TILE);}}
+   for(let i=0;i<8;i++){ctx.fillText('abcdefgh'[flipped?7-i:i],PAD+(i+.5)*TILE,SIZE-coordInset);ctx.fillText(String(flipped?i+1:8-i),15,PAD+(i+.5)*TILE);}}
  }
  // A slate frame cut from the board's own dark stone, lit from the top left like the board.
  function drawFrame() {
@@ -580,12 +594,23 @@ function vortex(out,foot,phase,strength) {
  const a0=animation,since=a0?.shakeAt!=null?(time-a0.start)/a0.speed-a0.shakeAt:-1,shake=since>=0&&since<240?7*(1-since/240):0;
  ctx.save();ctx.translate(0,headroom);if(shake)ctx.translate(Math.sin(since*.09)*shake,Math.cos(since*.13)*shake*.6);
  boardBackground();
+ if(lifted!==null&&!animation&&position.board[lifted]){
+  const f=foot(lifted);ctx.save();ctx.translate(f.x,f.y-2);ctx.scale(1,.35);
+  const glow=ctx.createRadialGradient(0,0,8,0,0,48);
+  glow.addColorStop(0,'#e6b84aa8');glow.addColorStop(1,'#e6b84a00');
+  ctx.fillStyle=glow;ctx.fillRect(-48,-48,96,96);ctx.restore();
+ }
  const poses=new Map();
  for(let sq=0;sq<64;sq++)if(position.board[sq])poses.set(sq,{value:position.board[sq],pose:poseFor(position.board[sq],sq),opacity:1,extension:0});
  if(selected!==null&&poses.has(selected))Object.assign(poses.get(selected).pose,{angle:aimAngle,facing:aimFacing});
  if(idling()){const p=poses.get(selected).pose,i=idleAt(time-selectedAt);Object.assign(p,{ground:p.foot,foot:{x:p.foot.x,y:p.foot.y-i.lift},sx:i.sx,sy:i.sy,shadow:i.shadow});}
+ // The tell: a fixed lift; the contact shadow stays on the board.
+ if(lifted!==null&&liftTell&&!reducedMotion&&!animation&&poses.has(lifted)){
+  const p=poses.get(lifted).pose,lift=3*SIZE/(canvas.getBoundingClientRect().width||SIZE);
+  Object.assign(p,{ground:p.ground??p.foot,foot:{x:p.foot.x,y:p.foot.y-lift},lift});
+ }
  // King Down: the beaten king topples backwards onto the board.
- if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq);u.pose={...u.pose,rotation:-1.5*ease((time-fallen.start)/FALL)};}
+ if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq);u.pose={...u.pose,rotation:fallen.rotation*ease((time-fallen.start)/FALL)};}
  let shot=null,hit=null;const effects=[];
  if(animation){
   const a=animation,t=clamp((time-a.start)/a.speed,0,a.duration),actor=poses.get(a.move.from),victim=poses.get(a.move.swap?a.move.to:a.move.shove?.from??a.move.captures[0]);
@@ -905,8 +930,11 @@ function drawEncounter(a,t) {
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
   load(){const board=new Promise(resolve=>{boardArt.onload=boardArt.onerror=resolve;boardArt.src=BOARD_ART;});return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;wake();});},
   /** New position: ends any finished or running animation. */
-  setPosition(next){endMove();position=next;aimAngle=0;wake();},
+  setPosition(next){endMove();lifted=null;position=next;aimAngle=0;wake();},
   setSelected(sq){if(sq!==selected){selected=sq;selectedAt=performance.now();aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
+  /** Opt-in tell; lift=false shows only the glow. A new position or move clears it. */
+  setLifted(sq,lift=true){lifted=sq;liftTell=lift;wake();},
+  get lifted(){return lifted;},
   setAim(sq){aimSquare=sq;wake();},
   // (The contact shadows are kept: no sprite depends on the side shown.)
   setFlipped(on){flipped=on;idle.clear();wake();},
@@ -916,11 +944,11 @@ function drawEncounter(a,t) {
   /** The king design each side's figure was last drawn with (null: not yet drawn). */
   get drawnKings(){return [...drawnKings];},
   /** size: letter height in board units (default 13); a small board on a phone needs more. */
-  setCoords(on,size=13){coords=on;coordSize=size;wake();},
+  setCoords(on,size=13,inset=14){coords=on;coordSize=size;coordInset=inset;wake();},
   setLabels(on){labels=on;wake();},
   setReducedMotion(on){reducedMotion=on;},
   /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. */
-  setFallen(sq,animate=true){fallen=sq==null?null:{sq,start:animate?performance.now():-Infinity};wake();},
+  setFallen(sq,animate=true,rotation=-1.5){fallen=sq==null?null:{sq,rotation,start:animate?performance.now():-Infinity};wake();},
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
   setResolution(k){if(k===res)return;res=k;canvas.width=fxCanvas.width=Math.round(SIZE*k);canvas.height=fxCanvas.height=Math.round((SIZE+headroom)*k);ctx.setTransform(k,0,0,k,0,0);wake();},
   /**
@@ -943,6 +971,7 @@ function drawEncounter(a,t) {
   ghost(out,value,square,opacity=.4){if(ready&&value)drawPiece(out,value,poseFor(value,square),opacity);},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
   play(move,{speed=1,onContact=null,gait=null}={}){
+   lifted=null;
    if(animation&&!animation.done)animation.resolve(false);
    const {base,verb}=plan(move,speed,gait);
    return new Promise(resolve=>{animation={...base,resolve,onContact};onStatus(verb);wake();});

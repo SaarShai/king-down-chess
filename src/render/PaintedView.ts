@@ -1,6 +1,7 @@
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, RULES, S, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { drawMarks, POP_MS, RIPPLE_MS } from './marks';
+import { boardInk } from './board-ink';
 import { pastTap } from './tap';
 import type { Highlights } from './renderer';
 import type { Style } from './styles';
@@ -15,13 +16,16 @@ export interface BoardView {
   onSquareHover: (sq: number | null) => void;
   onLoadError?: (error: unknown) => void;
   sync(pos: Position): void;
-  /** `onContact` fires when a capture or shove lands; it may fire more than once, or not at all. */
-  animateMove(pos: Position, m: Move, onContact?: () => void): Promise<void>;
+  /** `onContact` can fire more than once, or not at all. Optional playback speed: 0.5 is half speed. */
+  animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void>;
+  /** Rewind one ply; other looks may sync at once. */
+  animateBack?(pre: Position, m: Move, post: Position): Promise<void>;
+  setLifted?(sq: number | null): void;
   setPace(pace: Pace): void;
   /** End the running move animation now; its animateMove() resolves. No-op when nothing plays. */
   skip(): void;
   /** The beaten king on `sq` topples; it stays down while the board shows this position. */
-  setFallen(sq: number | null): void;
+  setFallen(sq: number | null, animate?: boolean): void;
   highlight(h: Highlights): void;
   flip(black: boolean): void;
   setLabels(on: boolean): void;
@@ -61,6 +65,7 @@ export class PaintedView implements BoardView {
   /** Marker size factor: >1 on boards under 700 px, so a phone's markers stay visible. */
   private mark = 1;
   private coords = true;
+  private width = 960;
   private fallen: { pos: Position; sq: number } | null = null;
   private motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
   /** Keyboard cursor square, previewed like the hovered square. */
@@ -69,11 +74,15 @@ export class PaintedView implements BoardView {
   private marksSince = 0;
   private marksKey = '';
 
-  constructor(private container: HTMLElement) {
+  /**
+   * options.floor: the colour round the board (default: the scene's own floor, as the plugin page draws it);
+   * null leaves the canvas clear there, so the page's floor shows (the game).
+   */
+  constructor(private container: HTMLElement, private options: { floor?: string | null; webInk?: boolean } = {}) {
     container.classList.add('painted');
     this.canvas.width = 960; this.canvas.height = 960 + HEADROOM; // resolution 1 until the first resize
     container.appendChild(this.canvas);
-    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(0), kingDesign(1)] });
+    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(0), kingDesign(1)], floor: options.floor });
     this.scene.setDecorate((ctx, scene, layer, row) => this.drawMarks(ctx, scene, layer, row));
     // The game opts in to quiet-move gaits, the selected figure's idle and the framed, warm board
     // (the trial and the trailer keep the plain scene).
@@ -88,6 +97,7 @@ export class PaintedView implements BoardView {
       const width = Math.floor(Math.min(box.width, box.height * 960 / (960 + HEADROOM)));
       this.canvas.style.width = `${width}px`;
       this.canvas.style.height = `${width * (960 + HEADROOM) / 960}px`;
+      this.width = width;
       this.mark = Math.max(1, 700 / width);
       this.setCoords(this.coords);
       // Enough backing pixels for this size on this screen, in quarter steps, at most 2×.
@@ -104,22 +114,41 @@ export class PaintedView implements BoardView {
     this.pos = pos;
     this.scene.setKings([kingDesign(0), kingDesign(1)]);
     this.scene.setPosition(pos);
-    this.scene.setFallen(this.fallen?.pos === pos ? this.fallen.sq : null, false);
+    const sq = this.fallen?.pos === pos ? this.fallen.sq : null;
+    this.scene.setFallen(sq, false, this.fallRotation(sq));
   }
 
-  setFallen(sq: number | null): void {
+  setFallen(sq: number | null, animate = true): void {
     this.fallen = sq == null || !this.pos ? null : { pos: this.pos, sq };
-    this.scene.setFallen(sq);
+    this.scene.setFallen(sq, animate && this.motion(), this.fallRotation(sq));
   }
 
-  async animateMove(pos: Position, m: Move, onContact?: () => void): Promise<void> {
+  private fallRotation(sq: number | null): number {
+    return this.options.webInk && sq != null && this.scene.cell(sq).col === 7 ? 1.5 : -1.5;
+  }
+
+  async animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void> {
     if (this.pos !== pos) this.sync(pos);
     if (this.pace === 'off') return;
     // King powers that move nothing (Freeze, Ice Wall, a Haste pass) or change a piece in place
     // (Sacrifice): there is no motion to play, and main.ts syncs the new board right after.
     if (m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice') return;
-    await this.scene.play(m, { onContact, speed: this.pace === 'fast' ? 0.5 : 1 });
+    // The scene scales duration; the caller gives playback speed.
+    await this.scene.play(m, { onContact, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });
   }
+
+  async animateBack(pre: Position, m: Move, post: Position): Promise<void> {
+    this.sync(post);
+    // A shot has no travel. A removed or changed figure has no reverse scene move.
+    if (this.motion() && !m.pass && !m.promo && !m.selfRemove && m.from !== m.to
+      && post.board[m.to] === pre.board[m.from]) {
+      await this.scene.play({ from: m.to, to: m.from, captures: [], swap: m.swap }, { speed: this.pace === 'fast' ? 0.5 : 1 });
+    }
+    // A new position cancels the old rewind; never draw it over that position.
+    if (this.pos === post) this.sync(pre);
+  }
+
+  setLifted(sq: number | null): void { this.scene.setLifted(this.pace !== 'off' ? sq : null, !this.motionQuery.matches); }
 
   setPace(pace: Pace): void { this.pace = pace; this.applyLively(); }
   skip(): void { if (this.scene.animating) this.scene.cancel(); }
@@ -132,6 +161,7 @@ export class PaintedView implements BoardView {
    */
   private applyLively(): void {
     const motion = this.pace !== 'off' && !this.motionQuery.matches, shown = motion && !document.hidden;
+    if (this.pace === 'off') this.scene.setLifted(null);
     this.scene.setLively({ moves: true, atmosphere: true, captures: true, idle: motion, kings: shown, pawns: shown });
   }
 
@@ -140,7 +170,7 @@ export class PaintedView implements BoardView {
     this.container.classList.toggle('king-in-check', h.check != null);
     this.scene.setSelected(h.selected ?? null);
     // A new selection (or new targets) pops its markers in, rippling out from the piece.
-    const key = [h.selected, h.moves, h.captures, h.swaps, h.shoves, h.powers].map(l => String(l ?? '')).join('|');
+    const key = [h.selected, h.moves, h.captures, h.swaps, h.shoves, h.powers, h.shoveTo?.map(s => `${s.from}:${s.to}`), h.bites].map(l => String(l ?? '')).join('|');
     if (key !== this.marksKey) {
       this.marksKey = key; this.marksSince = performance.now();
       if (this.motion()) this.scene.keepAwake(POP_MS + 12 * RIPPLE_MS + 50);
@@ -160,7 +190,11 @@ export class PaintedView implements BoardView {
 
   flip(black: boolean): void { this.scene.setFlipped(black); }
   setLabels(on: boolean): void { this.scene.setLabels(on); }
-  setCoords(on: boolean): void { this.coords = on; this.scene.setCoords(on, 13 * this.mark); }
+  setCoords(on: boolean): void {
+    this.coords = on;
+    const size = this.options.webInk ? boardInk(this.width).coord : 13 * this.mark;
+    this.scene.setCoords(on, size, this.options.webInk ? Math.max(14, size / 2 + 4) : 14);
+  }
   resetView(): void {}
   applyStyle(): void {}
   ready(): Promise<void> { return this.loaded; }
@@ -185,10 +219,15 @@ export class PaintedView implements BoardView {
       ctx.save();
       // The last move: a warm wash, strong enough for both stone colours (Hint keeps the outline).
       for (const sq of m.last ?? []) { const b = box(sq); ctx.fillStyle = '#e6b84a6e'; ctx.fillRect(b.x, b.y, TILE, TILE); }
-      if (m.check != null) {
+      if (m.check != null && (m.checkers === undefined || !scene.animating)) {
         const f = scene.foot(m.check);
-        ctx.fillStyle = '#c0392b55'; ctx.strokeStyle = '#b3261e'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.ellipse(f.x, f.y - 2, 44, 15, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = m.checkers === undefined ? '#c0392b55' : '#c4501f33';
+        ctx.strokeStyle = m.checkers === undefined ? '#b3261e' : '#c4501f'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(f.x, f.y - 2, 44, 15, 0, 0, Math.PI * 2); ctx.fill();
+        if (this.options.webInk && m.checkers !== undefined) {
+          ctx.strokeStyle = '#fbf6e8'; ctx.lineWidth = boardInk(this.width).causeHalo; ctx.stroke();
+          ctx.strokeStyle = '#c4501f'; ctx.lineWidth = boardInk(this.width).checkRing; ctx.stroke();
+        } else ctx.stroke();
       }
       ctx.restore();
     }
@@ -196,7 +235,26 @@ export class PaintedView implements BoardView {
     const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
     drawMarks(ctx, scene, layer, {
       marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, motion: this.motion(), since: this.marksSince,
+      ink: this.options.webInk ? boardInk(this.width) : undefined,
     }, row);
+    // Row 7 runs after all figures, so the cause stays visible across the board.
+    if (layer === 'over' && row === 7 && m.check != null) {
+      ctx.save(); ctx.lineCap = 'round';
+      for (const ch of m.checkers ?? []) {
+        const a = scene.foot(ch.sq), b = scene.foot(ch.king);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y - 24);
+        if (ch.path === 'arc') {
+          // A shot along a file bows to the side, as in the demo.
+          const alongFile = Math.abs(a.x - b.x) < 1;
+          const cx = (a.x + b.x) / 2 + (alongFile ? Math.abs(a.y - b.y) * 0.45 : 0);
+          const cy = alongFile ? (a.y + b.y) / 2 - 24 : Math.min(a.y, b.y) - TILE * 0.65;
+          ctx.quadraticCurveTo(cx, cy, b.x, b.y - 24);
+        } else ctx.lineTo(b.x, b.y - 24);
+        ctx.strokeStyle = '#fbf6e8dd'; ctx.lineWidth = this.options.webInk ? boardInk(this.width).causeHalo : 5.5; ctx.stroke();
+        ctx.strokeStyle = '#c4501f'; ctx.lineWidth = this.options.webInk ? boardInk(this.width).causeCore : 2.2; ctx.stroke();
+      }
+      ctx.restore();
+    }
   }
 
   private pick(e: PointerEvent): number | null {

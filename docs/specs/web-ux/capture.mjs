@@ -6,7 +6,7 @@
 // The sample of a web redesign step (spec rule 3 in docs/specs/web-redesign/spec.md):
 //   SAMPLE=<NN> node docs/specs/web-ux/capture.mjs <base-url> [out-dir]
 // It reads the state table docs/specs/web-redesign/samples/<NN>.mjs (the format is in samples/README.md),
-// renders each state at the table's sizes with Motion Off, and checks each render: the app keeps every move
+// renders each state at the table's sizes with Motion Off (or the state's Motion Normal option), and checks each render: the app keeps every move
 // of the seeded save, no sideways scroll, the state's controls inside the screen, and 44 px targets on a touch
 // size. A state with `video: true` also gets one phone video of its steps, with Motion Normal. It writes
 // <state>-<size>.png, <state>-phone.webm and report.json in the out folder (default <system temp
@@ -16,7 +16,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { boardHelp, lanMoves, moveRow, openMoves, pressMenu } from '../../../tools/app-ui.mjs';
+import { readyBoard, boardHelp, lanMoves, moveRow, openMoves, pressMenu } from '../../../tools/app-ui.mjs';
 import { insideViewport, isInside, launch, minTarget, noSidewaysScroll, trapErrors } from '../../../tools/lib/checks.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
@@ -24,11 +24,12 @@ const sizes = {
   desktop: { width: 1440, height: 900 },
   laptop: { width: 1280, height: 720 },
   tablet: { width: 820, height: 1180, hasTouch: true, isMobile: true },
+  smallPhone: { width: 320, height: 568, hasTouch: true, isMobile: true },
   phone: { width: 390, height: 844, hasTouch: true, isMobile: true },
   landscape: { width: 844, height: 390, hasTouch: true, isMobile: true },
 };
 const browser = await launch({ headless: true });
-const ready = page => page.waitForFunction(() => window.view?.ready, null, { timeout: 30000 }).then(() => page.evaluate(() => window.view.ready()));
+const ready = readyBoard;
 const settle = (page, ms = 700) => page.waitForTimeout(ms);
 
 if (process.env.SAMPLE) await sample(process.env.SAMPLE, process.argv[3]);
@@ -38,7 +39,7 @@ else await review(process.argv[3], process.argv[4]?.split(','));
 async function sample(nn, out = join(tmpdir(), 'kingdown-samples', nn)) {
   const file = fileURLToPath(new URL(`../web-redesign/samples/${nn}.mjs`, import.meta.url));
   const stop = async message => { console.error(message); await browser.close(); process.exit(2); };
-  if (!/^\d\d[a-z]?$/.test(nn) || !existsSync(file)) await stop(`capture: no sample "${nn}": SAMPLE names a file docs/specs/web-redesign/samples/<NN>.mjs`);
+  if (!/^(?:\d\d[a-z]?|W\d{1,2})$/.test(nn) || !existsSync(file)) await stop(`capture: no sample "${nn}": SAMPLE names a file docs/specs/web-redesign/samples/<NN>.mjs`);
   const checkout = fileURLToPath(new URL('../../../', import.meta.url));
   if (isInside(checkout, out)) await stop(`capture: the out folder ${out} is inside the checkout ${checkout}; renders stay out of Git`);
   const table = (await import(pathToFileURL(file).href)).default;
@@ -56,22 +57,23 @@ async function sample(nn, out = join(tmpdir(), 'kingdown-samples', nn)) {
   console.log(`capture: sample ${nn}: ${report.length} renders, ${failed} with a fault; out folder ${out}`);
   process.exit(failed ? 1 : 0);
 
-  /** One still of `state` at `size` with Motion Off, or (video) one video of its steps with Motion Normal. */
+  /** One still at the state's motion setting, or one video with Motion Normal. */
   async function render(state, size, video) {
     const { width, height, ...touch } = sizes[size];
     const ctx = await browser.newContext({
       viewport: { width, height }, deviceScaleFactor: size === 'phone' ? 2 : 1, ...touch,
-      reducedMotion: video ? 'no-preference' : 'reduce',
+      reducedMotion: video || state.motion === 'normal' ? 'no-preference' : 'reduce', colorScheme: state.scheme ?? 'light',
       ...(video ? { recordVideo: { dir: join(out, '.video'), size: { width, height } } } : {}),
     });
-    // A still has Motion Off: the seeded save says so, and with no save the app takes Off from reduced motion.
+    // Stills use Motion Off unless the state asks for Motion Normal.
     await ctx.addInitScript(([save, title, pace]) => {
       if (!title) sessionStorage.setItem('kingdown.title-seen', '1');
       if (sessionStorage.getItem('sample.seeded')) return; // a reload in the steps keeps the game it made
       sessionStorage.setItem('sample.seeded', '1');
       if (save) localStorage.setItem('kingdown.save', JSON.stringify({ ...save, pace }));
-    }, [state.save ?? null, state.title ?? false, video ? 'normal' : 'off']);
+    }, [state.save ?? null, state.title ?? false, video || state.motion === 'normal' ? 'normal' : state.stillPace ?? 'off']);
     const page = await ctx.newPage();
+    if (state.clock) await page.clock.install();
     const errors = trapErrors(page);
     page.on('dialog', d => d.accept());
     const tap = async sq => {
@@ -86,17 +88,23 @@ async function sample(nn, out = join(tmpdir(), 'kingdown-samples', nn)) {
         const want = state.save.moves ?? [], kept = await lanMoves(page);
         if (kept.join(' ') !== want.join(' ')) row.faults.push(`seed: the app keeps ${kept.length} of the ${want.length} saved moves: [${kept.join(' ')}] of [${want.join(' ')}]`);
       }
-      await state.steps?.({ page, tap, size });
+      await page.evaluate(() => document.fonts.ready);
+      await state.steps?.({ page, tap, size, video });
       if (video) {
         await settle(page, 2000); // the last motion ends on the video
       } else {
         await page.evaluate(() => document.fonts.ready);
-        await settle(page);
+        await settle(page, state.settleMs ?? 700);
         await page.screenshot({ path: row.file });
         const checks = [() => noSidewaysScroll(page)];
         if (state.controls) checks.push(() => insideViewport(page, state.controls));
         if (touch.hasTouch) checks.push(async () => {
-          const scope = await page.evaluate(() => (document.querySelector('dialog[open]') ? 'dialog[open]' : 'body'));
+          const scope = await page.evaluate(() => {
+            const top = [...document.querySelectorAll('dialog[open]')].at(-1);
+            if (!top) return 'body';
+            top.setAttribute('data-sample-scope', '');
+            return '[data-sample-scope]';
+          });
           await minTarget(page, `${scope} :is(${state.targets ?? 'button, select, summary, label'})`);
         });
         for (const check of checks) await check().catch(e => row.faults.push(e.message.split('\n')[0]));
@@ -162,6 +170,7 @@ async function review(out, only) {
   const step = async (label, fn) => { try { await fn(); } catch (e) { errors.push(`${label}: ${e.message.split('\n')[0]}`); } };
 
   for (const kind of Object.keys(sizes)) {
+    if (kind === 'smallPhone') continue; // W12 adds this size to samples; the review keeps its five sizes.
     if (only && !only.includes(kind)) continue;
     await step(`${kind} title-first`, async () => {
       const page = await open(kind, { title: true, save: null });
