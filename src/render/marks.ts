@@ -1,21 +1,24 @@
 import type { PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import type { boardInk } from './board-ink';
+import { badge, kindOf, occupied, paint, tile, type Kind, type Shape } from './legend';
 import type { Highlights } from './renderer';
 
 /**
- * Move and capture markers for the painted board, drawn on its canvas (no DOM).
- *
+ * Move and take marks for the painted board, drawn on its canvas (no DOM), in the owner's legend (legend.ts).
  * Each kind has its own shape, so colour is never the only cue:
- * - move: a gold gem floating over a glow on the ground where the feet will stand;
- * - capture: a crimson ring at the enemy's feet and four corner brackets that breathe inwards;
- * - shot (the Archer shoots without moving): a turning sight over the target's body;
+ * - move: a green tile;
+ * - take on an empty square: a white tile with a red target; move or take: a green tile with the target;
+ * - take on a figure: a thin red edge, a ring and a red glow under its feet, and the badge (a small white tile
+ *   with the target) at the square's top-left, over the figure;
+ * - shot (the piece takes from where it stands): the target pierced by an arrow, on the tile or the badge;
+ * - power (a king's power): two blue frames round the mark, over a blue rune circle with a six-point star;
  * - swap (Maester): two violet arrows chasing round the friend's feet;
- * - shove (Ogre): a teal ring and chevrons on the side the piece will be pushed to;
- * - power (a king's power): a blue rune circle with a six-point star, under any of the above.
- * When a piece is selected the markers pop in, rippling out from it. While motion is allowed they
- * keep a slow pulse (riding the selected figure's ~30 fps idle); otherwise they are drawn still.
- * The square under the pointer (or the keyboard cursor) grows its marker; on a move it also
- * shows a faint copy of the piece standing there.
+ * - shove (Ogre): a teal ring and chevrons on the side the piece will be pushed to.
+ * The read of an enemy piece shows the same legend marks at half strength.
+ * When a piece is selected the marks grow in, rippling out from it. The legend marks then stand still; while
+ * motion is allowed the swap, shove and rune marks keep moving (riding the selected figure's ~30 fps idle).
+ * The square under the pointer (or the keyboard cursor) gets a gold-bright edge and a larger badge; on a move
+ * it also shows a faint copy of the piece standing there.
  */
 export interface MarkState {
   marks: Highlights;
@@ -25,6 +28,10 @@ export interface MarkState {
   preview: number | null;
   /** Size factor for small boards (>= 1). */
   k: number;
+  /** Scene units for one CSS pixel: the legend's widths and thresholds are CSS pixels. */
+  px: number;
+  /** The shown position's squares: a take on a figure is the occupied take. */
+  board?: ArrayLike<number>;
   /** Animate (pop-in, pulse, turn); false draws the settled markers. */
   motion: boolean;
   /** When the current markers appeared (performance.now()). */
@@ -64,9 +71,7 @@ function stroke2(ctx: CanvasRenderingContext2D, colour: string, width: number, h
   ctx.lineWidth = width; ctx.strokeStyle = colour; ctx.stroke();
 }
 
-const COLOURS = {
-  move: '255,214,128', capture: '214,52,40', shot: '214,52,40', swap: '160,120,220', shove: '64,190,176', power: '96,160,255',
-};
+const COLOURS = { swap: '160,120,220', shove: '64,190,176', power: '96,160,255' };
 
 /** `row`: for the 'over' layer, draw only that screen row's squares (the scene calls it row by row). */
 export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', s: MarkState, row?: number): void {
@@ -83,9 +88,29 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
   const pulse = (sq: number, rate = 2.4) => 0.5 + 0.5 * Math.sin(time * rate * TAU / 2.4 - sq * 0.7);
   const box = (sq: number) => { const c = scene.cell(sq); return { x: PAD + c.col * TILE, y: PAD + c.row * TILE }; };
   const ground = (sq: number) => { const f = scene.foot(sq); return { x: f.x, y: f.y - 4 }; };
-  const powers = new Set(m.powers ?? []), shots = new Set(m.shots ?? []);
   const hover = (sq: number) => s.preview === sq;
   const inRow = (sq: number) => row == null || scene.cell(sq).row === row;
+  const figure = (sq: number) => !!s.board?.[sq];
+  const readKind = (sq: number): Kind => m.read?.shot.has(sq) ? 'shot' : 'take';
+  /** A legend mark grows from 0.6 of its size round the square's centre as it appears; a read mark is at half strength. */
+  const legend = (sq: number, shapes: Shape[], alpha = 1): void => {
+    const a = appear(sq); if (a <= 0) return;
+    const b = box(sq), c = 0.6 + 0.4 * a, cx = b.x + TILE / 2, cy = b.y + TILE / 2;
+    ctx.save(); ctx.globalAlpha = Math.min(1, a) * alpha;
+    ctx.translate(cx, cy); ctx.scale(c, c); ctx.translate(-cx, -cy);
+    paint(ctx, shapes); ctx.restore();
+  };
+  /** The under part of a mark: the tile, or the occupied take on a figure. */
+  const under = (sq: number, kind: Kind, alpha = 1, power = false): void => {
+    const b = box(sq), o = { px: s.px, power, hover: alpha === 1 && hover(sq) };
+    legend(sq, kind !== 'move' && figure(sq) ? occupied(kind, b.x, b.y, TILE, ground(sq).y, o) : tile(kind, b.x, b.y, TILE, o), alpha);
+  };
+  /** The badge of a take on a figure, after its row's figures. */
+  const over = (sq: number, kind: Kind, alpha = 1): void => {
+    if (!inRow(sq) || !figure(sq)) return;
+    const b = box(sq); legend(sq, badge(b.x, b.y, TILE, kind, { px: s.px, hover: alpha === 1 && hover(sq) }), alpha);
+  };
+  const readTakes = m.read ? new Set([...m.read.take, ...m.read.shot]) : new Set<number>();
 
   const pointerFrame = (): void => {
     const p = s.preview;
@@ -96,12 +121,11 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
   ctx.save();
   if (layer === 'under') {
     if (m.read) {
-      const takes = new Set([...m.read.take, ...m.read.shot]);
-      const squares = new Set([...m.read.step, ...takes, ...m.read.swap, ...m.read.push.map(p => p.from)]);
-      for (const sq of squares) {
+      for (const sq of m.read.step) under(sq, 'move', 0.5);
+      for (const sq of readTakes) under(sq, readKind(sq), 0.5);
+      for (const sq of new Set([...m.read.swap, ...m.read.push.map(p => p.from)])) {
         const g = ground(sq);
-        ctx.beginPath(); ctx.ellipse(g.x, g.y, 38, 14, 0, 0, TAU);
-        stroke2(ctx, takes.has(sq) ? '#b3261e' : '#68583d', 2.2);
+        ctx.beginPath(); ctx.ellipse(g.x, g.y, 38, 14, 0, 0, TAU); stroke2(ctx, '#68583d', 2.2);
       }
     }
     // The selected piece stands in warm light.
@@ -114,23 +138,10 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
       const a = appear(sq); if (a <= 0) continue;
       const g = ground(sq); rune(ctx, g.x, g.y, 46 * a, time, pulse(sq), hover(sq));
     }
-    for (const sq of m.moves ?? []) {
-      const a = appear(sq); if (a <= 0) continue;
-      const g = ground(sq), h = hover(sq);
-      groundGlow(ctx, g.x, g.y, (h ? 48 : 32) * k * a, COLOURS.move, (0.55 + 0.35 * pulse(sq)) * Math.min(1, a));
-      if (h && s.piece) {
-        // Preview: the piece, see-through, standing where it would go, on a gold ring.
-        ctx.beginPath(); ctx.ellipse(g.x, g.y, 40, 14, 0, 0, TAU); stroke2(ctx, '#e9b44c', 2.5, 'rgba(40,28,10,0.5)');
-        scene.ghost(ctx, s.piece, sq, 0.5);
-      }
-    }
-    for (const sq of m.captures ?? []) {
-      const a = appear(sq); if (a <= 0) continue;
-      const g = ground(sq), h = hover(sq), p = pulse(sq, 3);
-      groundGlow(ctx, g.x, g.y, (48 + 6 * p) * a, COLOURS.capture, 0.5 + 0.3 * p);
-      ctx.beginPath(); ctx.ellipse(g.x, g.y, 44 * a, 15 * a, 0, 0, TAU);
-      stroke2(ctx, h ? '#f0c060' : '#b3261e', (h ? 3.5 : 3) * Math.min(k, 1.5));
-      if (shots.has(sq)) { ctx.setLineDash([6, 6]); ctx.lineDashOffset = -time * 20; ctx.beginPath(); ctx.ellipse(g.x, g.y, 54 * a, 19 * a, 0, 0, TAU); stroke2(ctx, '#b3261e', 1.5); ctx.setLineDash([]); }
+    for (const sq of new Set([...m.moves ?? [], ...m.captures ?? []])) {
+      under(sq, kindOf(sq, m), 1, m.powers?.includes(sq));
+      // Preview: the piece, see-through, standing where it would go.
+      if (m.moves?.includes(sq) && hover(sq) && s.piece && appear(sq) > 0) scene.ghost(ctx, s.piece, sq, 0.5);
     }
     for (const sq of m.swaps ?? []) {
       const a = appear(sq); if (a <= 0) continue;
@@ -152,10 +163,7 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
       shoveArrow(ctx, g.x, s.ink ? PAD + (landing.row + 0.5) * TILE : g.y, landing.col - target.col, landing.row - target.row, a, k, s.ink ? Math.max(3, s.ink.causeCore * 1.7) : 3);
     }
   } else {
-    for (const sq of m.read?.shot ?? []) {
-      if (!inRow(sq)) continue;
-      const g = ground(sq); sight(ctx, g.x, g.y - 58, 16 * Math.max(1, k * 0.8), time, false);
-    }
+    for (const sq of readTakes) over(sq, readKind(sq), 0.5);
     // The web board draws the bite badges last, so no frame covers a number; the plugin keeps its old order.
     const bites = (): void => { for (const [i, sq] of (m.bites ?? []).entries()) {
       if (!inRow(sq)) continue;
@@ -168,76 +176,11 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(i + 1), x, y);
     } };
     if (!s.ink) bites();
-    for (const sq of m.moves ?? []) {
-      const a = appear(sq); if (a <= 0 || !inRow(sq)) continue;
-      const g = ground(sq), bob = s.motion ? Math.sin(time * 2.6 + sq) * 2.2 : 0;
-      if (hover(sq) && s.piece) continue; // the preview figure stands there instead
-      gem(ctx, g.x, g.y - 22 * Math.min(k, 1.6) - bob, Math.min(k, 1.6) * a, time + sq * 0.37, powers.has(sq));
-    }
-    for (const sq of m.captures ?? []) {
-      const a = appear(sq); if (a <= 0 || !inRow(sq)) continue;
-      const b = box(sq), h = hover(sq), p = pulse(sq, 3);
-      brackets(ctx, b.x, b.y, TILE, (h ? 13 : 6 + 4 * p) + (1 - Math.min(1, a)) * 18, Math.min(a, 1), h, k, powers.has(sq));
-      if (shots.has(sq)) sight(ctx, b.x + TILE / 2, ground(sq).y - 58, (h ? 19 : 16) * Math.max(1, k * 0.8) * a, time, h);
-    }
+    for (const sq of m.captures ?? []) over(sq, kindOf(sq, m));
     for (const sq of m.hint ?? []) { if (!inRow(sq)) continue; const b = box(sq); ctx.strokeStyle = '#c99a2e'; ctx.lineWidth = 4 * k; ctx.strokeRect(b.x + 4, b.y + 4, TILE - 8, TILE - 8); }
     pointerFrame();
     if (s.ink) bites();
   }
-  ctx.restore();
-}
-
-/** A cut gem: four facets, a dark outline and a glint that sweeps across now and then. */
-function gem(ctx: CanvasRenderingContext2D, x: number, y: number, k: number, t: number, power: boolean): void {
-  if (k <= 0) return;
-  const w = 10 * k, h = 15 * k, girdle = y - h * 0.18;
-  const [light, mid, dark] = power ? ['#e3f0ff', '#7fb2ff', '#2f5ea8'] : ['#fff4cf', '#f0bf52', '#9a6418'];
-  ctx.save();
-  // A small shadow on the ground under the gem anchors it.
-  ctx.fillStyle = 'rgba(30,20,8,0.28)'; ctx.beginPath(); ctx.ellipse(x, y + h + 10 * k, w * 0.8, w * 0.28, 0, 0, TAU); ctx.fill();
-  const top = { x, y: y - h }, bottom = { x, y: y + h }, left = { x: x - w, y: girdle }, right = { x: x + w, y: girdle };
-  const face = (pts: { x: number; y: number }[], colour: string) => { ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (const q of pts.slice(1)) ctx.lineTo(q.x, q.y); ctx.closePath(); ctx.fillStyle = colour; ctx.fill(); };
-  // Outline first (wide, dark), then the facets.
-  ctx.beginPath(); ctx.moveTo(top.x, top.y); ctx.lineTo(right.x, right.y); ctx.lineTo(bottom.x, bottom.y); ctx.lineTo(left.x, left.y); ctx.closePath();
-  ctx.lineJoin = 'round'; ctx.lineWidth = 3.2 * Math.min(k, 1.6); ctx.strokeStyle = power ? '#0f2244' : '#3a2408'; ctx.stroke();
-  face([top, { x, y: girdle }, left], light);
-  face([top, right, { x, y: girdle }], mid);
-  face([left, { x, y: girdle }, bottom], mid);
-  face([{ x, y: girdle }, right, bottom], dark);
-  // Glint: a bright sliver crossing the upper facets once every few seconds.
-  const g = (t * 0.45) % 1;
-  if (g < 0.25) {
-    const u = g / 0.25;
-    ctx.save(); ctx.beginPath(); ctx.moveTo(top.x, top.y); ctx.lineTo(right.x, right.y); ctx.lineTo(bottom.x, bottom.y); ctx.lineTo(left.x, left.y); ctx.closePath(); ctx.clip();
-    ctx.globalAlpha = Math.sin(u * Math.PI) * 0.9; ctx.fillStyle = '#ffffff';
-    ctx.translate(x - w * 1.6 + u * w * 3.2, y); ctx.rotate(0.5); ctx.fillRect(-1.6 * k, -h * 2, 3.2 * k, h * 4); ctx.restore();
-  }
-  ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(x - w * 0.38, y - h * 0.5, 1.4 * k, 0, TAU); ctx.fill();
-  ctx.restore();
-}
-
-/** Four L-shaped corners round the square, pulled in by `inset`; crimson (gold on hover, blue for a power). */
-function brackets(ctx: CanvasRenderingContext2D, x: number, y: number, tile: number, inset: number, alpha: number, hover: boolean, k: number, power: boolean): void {
-  const l = tile * 0.22, w = (hover ? 4.5 : 3.6) * Math.min(k, 1.6);
-  ctx.save(); ctx.globalAlpha = alpha; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  for (const [cx, cy, sx, sy] of [[x, y, 1, 1], [x + tile, y, -1, 1], [x, y + tile, 1, -1], [x + tile, y + tile, -1, -1]]) {
-    const px = cx + sx * inset, py = cy + sy * inset;
-    ctx.beginPath(); ctx.moveTo(px, py + sy * l); ctx.lineTo(px, py); ctx.lineTo(px + sx * l, py);
-    stroke2(ctx, hover ? '#f0c060' : power ? '#3f7fd0' : '#c0281c', w, 'rgba(24,14,8,0.7)');
-  }
-  ctx.restore();
-}
-
-/** A gun-sight over the target's body: a ring, four ticks and a centre dot, turning slowly. */
-function sight(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number, hover: boolean): void {
-  if (r <= 0) return;
-  ctx.save(); ctx.translate(x, y); ctx.rotate(t * 0.8);
-  const colour = hover ? '#f0c060' : '#e0392b';
-  ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); stroke2(ctx, colour, 2.4, 'rgba(24,14,8,0.65)');
-  ctx.beginPath();
-  for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; ctx.moveTo(Math.cos(a) * r * 0.45, Math.sin(a) * r * 0.45); ctx.lineTo(Math.cos(a) * r * 1.45, Math.sin(a) * r * 1.45); }
-  stroke2(ctx, colour, 2.4, 'rgba(24,14,8,0.65)');
-  ctx.fillStyle = colour; ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, TAU); ctx.fill();
   ctx.restore();
 }
 

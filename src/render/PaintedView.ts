@@ -234,8 +234,8 @@ export class PaintedView implements BoardView {
     if (scene.animating) return;
     const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
     drawMarks(ctx, scene, layer, {
-      marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, motion: this.motion(), since: this.marksSince,
-      ink: this.options.webInk ? boardInk(this.width) : undefined,
+      marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, px: 960 / Math.max(1, this.width), board: this.pos?.board,
+      motion: this.motion(), since: this.marksSince, ink: this.options.webInk ? boardInk(this.width) : undefined,
     }, row);
     // Row 7 runs after all figures, so the cause stays visible across the board.
     if (layer === 'over' && row === 7 && m.check != null) {

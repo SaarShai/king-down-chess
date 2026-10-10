@@ -263,7 +263,7 @@ try {
   await ready(page);
   await tap(page, 27); // the archer on d4
   const shotMarks = await page.evaluate(() => ({ shots: window.view.marks.shots, captures: window.view.marks.captures }));
-  assert.deepEqual([...shotMarks.shots].sort(), [41, 45], 'the archer sights b6 and f6');
+  assert.deepEqual([...shotMarks.shots].sort(), [41, 45], 'the archer\'s shot targets are b6 and f6');
   assert.deepEqual([...shotMarks.captures].sort(), [41, 45]);
   await page.context().close();
   page = await open('?kings=stratus:flight,none&fen=' + encodeURIComponent('4k3/p7/8/8/8/8/P7/1N2K3 w - - 0 1'));
@@ -272,7 +272,7 @@ try {
   const flight = await page.evaluate(() => ({ powers: window.view.marks.powers.length, moves: window.view.marks.moves.length }));
   assert.ok(flight.powers > 0 && flight.powers === flight.moves, `Flight's squares are power marks (${flight.powers}/${flight.moves})`);
   await page.context().close();
-  ok('markers: Archer targets are sights; an armed Flight marks its squares as power moves');
+  ok('markers: Archer targets are shot targets; an armed Flight marks its squares as power moves');
 
   // 9. The Quiet Table (web redesign ticket 01): the page is light only. With the device in dark mode, the
   // page, the first-visit title and the Workshop surround show the same parchment floor as in light mode, and

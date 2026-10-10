@@ -124,13 +124,13 @@ describe('the read-only card (web redesign ticket 22)', () => {
     for (const grid of ['move', 'take']) expect(html.split(`data-grid="${grid}"`)[1].split('</div>')[0].match(/<i class="ws-grid-cell/g)).toHaveLength(49);
     expect(html).not.toMatch(/<button|<input|<select/);
     expect(cell(html, 'move', 1, 1)).toEqual(['c-move']);
-    expect(cell(html, 'take', 1, 1)).toEqual(['c-take']);
+    expect(cell(html, 'take', 1, 1)).toEqual(['c-both']);
     expect(cell(html, 'move', -1, 1)).toEqual(['c-move']);
     expect(cell(html, 'take', -1, 1)).toEqual([]);
     expect(cell(html, 'move', 0, -2)).toEqual([]);
     expect(cell(html, 'take', 0, -2)).toEqual(['c-shoot']);
     expect(cell(html, 'move', 2, 2)).toEqual(['c-move']);
-    expect(cell(html, 'take', 2, 2)).toEqual(['c-shoot']);
+    expect(cell(html, 'take', 2, 2)).toEqual(['c-moveshot']);
     // A slide line in both grids, with an arrow on the edge square.
     for (const grid of ['move', 'take']) {
       expect(cell(html, grid, 1, 0)).toEqual(['ln', 'ln-e']);

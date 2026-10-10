@@ -17,6 +17,7 @@ import { PieceContourPass } from './prototype/PieceContourPass';
 import type { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import type { Pace } from './PaintedView';
 import { pastTap } from './tap';
+import { badge, kindOf, occupied, paint, tile, type Kind } from './legend';
 import type { Reach } from '../read';
 import type { Checker } from '../move-text';
 
@@ -213,8 +214,11 @@ export class BoardRenderer {
   private lastPos: Position | null = null;
   private positionVersion = 0;
   private flipped = false;
-  private markerGeo = new THREE.BoxGeometry(0.22, 0.12, 0.22);
-  private moveMat = new THREE.MeshLambertMaterial({ color: 0x5fd35f, emissive: 0x1f6f1f });
+  /** The legend marks (legend.ts) as ground quads: one texture for each mark, power and detail level. Each quad is
+   *  1.5 squares wide, because the power frames of a take reach past the square (0.15 square at the 24 px floor of legendDetail()). */
+  private legendGeo = new THREE.PlaneGeometry(1.5, 1.5).rotateX(-Math.PI / 2);
+  private legendMats = new Map<string, THREE.MeshBasicMaterial>();
+  private legendSize = 0;
   private checkRingGeo = checkRingGeometry();
   private checkHaloGeo = checkRingGeometry(0.52, 0.30);
   // The halo shares the ring pass; the opaque board would cover it in the opaque pass.
@@ -465,6 +469,7 @@ export class BoardRenderer {
     if (black === this.flipped) return;
     this.flipped = black;
     this.placeCoords();
+    this.highlight(this.highlights); // the legend quads turn, so a badge stays at the screen's top-left
     const to = this.offset();
     to.theta += Math.PI;
     void this.tweenTo(to, this.controls.target.clone(), this.camera.zoom);
@@ -636,8 +641,7 @@ export class BoardRenderer {
     for (const tile of this.tiles) tile.material.emissive.setHex(0);
     const set = (sqs: number[] | undefined, hex: number) => sqs?.forEach(sq => this.tiles[sq].material.emissive.setHex(hex));
     set(h.last, 0x2a3f6a);
-    set(h.hint, 0x1f6a3a);
-    set(h.captures, 0x8a1f1f);
+    set(h.hint, 0x7a5712); // gold, as the painted board's hint frame: green means a move
     set(h.swaps, 0x3f3f9a);
     set(h.shoves, 0x8a5a10); // amber: a shove target is occupied like a capture, but nothing is taken
     // A Freeze, Ice Wall or Sacrifice target: amber like a shove (a power, not a capture).
@@ -649,10 +653,11 @@ export class BoardRenderer {
     for (const geometry of this.causeGeometry) geometry.dispose();
     this.causeGeometry = [];
     this.markers.clear();
-    for (const sq of h.moves ?? []) {
-      const m = new THREE.Mesh(this.markerGeo, this.moveMat);
-      m.position.copy(tileCenter(sq)).setY(0.06);
-      this.markers.add(m);
+    for (const sq of new Set([...h.moves ?? [], ...h.captures ?? []])) {
+      const kind = kindOf(sq, h), q = new THREE.Mesh(this.legendGeo, this.legendMat(kind, kind !== 'move' && !!this.lastPos?.board[sq], !!h.powers?.includes(sq)));
+      q.position.copy(tileCenter(sq)).setY(0.01); // under the check ring
+      if (this.flipped) q.rotation.y = Math.PI;
+      this.markers.add(q);
     }
     if (h.check != null) {
       if (h.checkers !== undefined) {
@@ -678,6 +683,23 @@ export class BoardRenderer {
         }
       }
     }
+  }
+
+  /** One legend mark as a ground texture: the tile, or on a figure the occupied take with its badge. */
+  private legendMat(kind: Kind, figure: boolean, power: boolean): THREE.MeshBasicMaterial {
+    const key = `${kind}:${figure}:${power}`;
+    let mat = this.legendMats.get(key);
+    if (!mat) {
+      const cv = document.createElement('canvas'), o = { px: 256 / this.legendSize, power };
+      cv.width = cv.height = 384; // the square is the middle 256 × 256
+      paint(cv.getContext('2d')!, figure ? [...occupied(kind, 64, 64, 256, 192, o), ...badge(64, 64, 256, kind, o)] : tile(kind, 64, 64, 256, o));
+      const map = new THREE.CanvasTexture(cv);
+      map.colorSpace = THREE.SRGBColorSpace;
+      mat = new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false });
+      mat.userData.legend = key;
+      this.legendMats.set(key, mat);
+    }
+    return mat;
   }
 
   setPace(pace: Pace): void { this.pace = pace; this.tweens.rate = pace === 'fast' ? 2 : 1; }
@@ -839,6 +861,7 @@ export class BoardRenderer {
     this.tweens.step(dt);
     this.debris.step(dt);
     this.controls.update(dt);
+    this.legendDetail();
     // Sprites are billboards: the plane's pivot is its bottom edge, so copying the camera
     // quaternion stands it on the tile and leans it back at the camera from any angle.
     for (const g of this.pieces.values()) if (g.userData.sprite) g.children[0].quaternion.copy(this.camera.quaternion);
@@ -860,6 +883,17 @@ export class BoardRenderer {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
     this.composer.setSize(w, h);
+    this.legendDetail();
+  }
+
+  /** The legend's detail (the middle ring, the badge size) follows a square's size on screen: one world unit at the camera's zoom. */
+  private legendDetail(): void {
+    const square = Math.max(24, Math.round((this.renderer.domElement.width / (this.camera.right - this.camera.left)) * this.camera.zoom / 8) * 8);
+    if (square === this.legendSize) return;
+    this.legendSize = square;
+    for (const mat of this.legendMats.values()) { mat.map?.dispose(); mat.dispose(); }
+    this.legendMats.clear();
+    this.highlight(this.highlights);
   }
 
   private pick(e: PointerEvent): number | null {
