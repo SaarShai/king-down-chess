@@ -45,6 +45,18 @@ Not applied yet. Apply them in order, after 0001–0004, with a privileged conne
 (`npm run plugin:db:migrate` applies 0002–0009). Then apply the third to the sixth blocks of
 `plugin-deploy/runtime-role.sql` to the existing runtime role. The migrations are safe to run again.
 
+**Release order (a short outage).** The old and the new server code each need their own schema. The
+plugin that is live now writes boards that 0006 refuses, so after 0006 its `kingdown_open` fails. The
+new code needs 0005–0009 and the role blocks: its start check (`tools/plugin-db-check.mjs`) refuses to
+serve without them, so every path of the function answers 503 and the next request tries again. Do it
+in one short window:
+
+1. Run `tools/deploy.sh --target plugin` (the checks only; it publishes nothing).
+2. Run `tools/deploy.sh --target plugin --publish` with `DEPLOY_LIVE_TIMEOUT_MS=900000`. When the
+   publish step ends, the live check waits, because the server answers 503.
+3. While it waits, apply 0005–0009, then blocks 3–6 of `plugin-deploy/runtime-role.sql`. The next
+   request starts the server, and the live check passes.
+
 - `0005_accounts_v2.sql`: handles, a preset icon and the privacy settings on `profiles`
   (signed-in players read only `id`, `rating`, `handle` and `icon`: no longer the name and photo
   that 0001 copied from the provider); `reserved_handles`; `account_deletions`. A new account no
