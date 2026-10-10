@@ -1,5 +1,6 @@
 -- King Down accounts, phase 1: player profiles, each player's saved data, and account deletion.
--- Paste the whole file into the Supabase SQL editor and press Run. It is safe to run again.
+-- Paste the whole file into the Supabase SQL editor and press Run. It is safe to run again, also
+-- after 0005 to 0009: it then leaves what they replaced.
 -- The browser uses only the publishable key, so these grants and Row Level Security policies are
 -- the whole protection. New tables are not exposed automatically in this project: every grant is here.
 
@@ -76,33 +77,48 @@ language sql immutable set search_path = '' as $$
     and url ~ '^https://([a-z0-9-]+\.)*(googleusercontent\.com|githubusercontent\.com|fbsbx\.com|fbcdn\.net)/'
 $$;
 
--- A profile for every new account.
-create or replace function public.handle_new_user() returns trigger
-language plpgsql security definer set search_path = '' as $$
-begin
+-- 0005 and 0008 replace three things of this file: the profile grants, the sign-up function (no
+-- provider name or photo) and the deletion (a 7-day grace). This block makes the first versions only
+-- before 0005 has run, so a second run of this file never puts them back.
+do $first$ begin
+  if exists (select from pg_attribute where attrelid = 'public.profiles'::regclass and attname = 'handle' and not attisdropped) then
+    return;
+  end if;
+
+  -- A profile for every new account.
+  create or replace function public.handle_new_user() returns trigger
+  language plpgsql security definer set search_path = '' as $$
+  begin
+    insert into public.profiles (id, display_name, avatar_url)
+    values (new.id, public.profile_name(new.raw_user_meta_data), public.profile_picture(new.raw_user_meta_data))
+    on conflict (id) do nothing;
+    return new;
+  exception when others then
+    -- A missing profile must never stop a sign-up.
+    raise warning 'handle_new_user: no profile for %: %', new.id, sqlerrm;
+    return new;
+  end $$;
+
+  -- Accounts made before this file ran (test sign-ins) get their profile too.
   insert into public.profiles (id, display_name, avatar_url)
-  values (new.id, public.profile_name(new.raw_user_meta_data), public.profile_picture(new.raw_user_meta_data))
+  select id, public.profile_name(raw_user_meta_data), public.profile_picture(raw_user_meta_data) from auth.users
   on conflict (id) do nothing;
-  return new;
-exception when others then
-  -- A missing profile must never stop a sign-up.
-  raise warning 'handle_new_user: no profile for %: %', new.id, sqlerrm;
-  return new;
-end $$;
+
+  -- Deletes the signed-in player's account. Profile and saved data go with it (on delete cascade).
+  create or replace function public.delete_my_account() returns void
+  language sql security definer set search_path = '' as $$
+    delete from auth.users where id = auth.uid();
+  $$;
+
+  -- Other players see a name, a picture and a rating (the privacy page), not when an account was made.
+  -- Rating is not writable from the browser (a server will set it later).
+  revoke all on public.profiles from public, anon, authenticated;
+  grant select (id, display_name, avatar_url, rating) on public.profiles to authenticated;
+  grant update (display_name) on public.profiles to authenticated;
+end $first$;
 
 create or replace trigger on_auth_user_created after insert on auth.users
   for each row execute function public.handle_new_user();
-
--- Accounts made before this file ran (test sign-ins) get their profile too.
-insert into public.profiles (id, display_name, avatar_url)
-select id, public.profile_name(raw_user_meta_data), public.profile_picture(raw_user_meta_data) from auth.users
-on conflict (id) do nothing;
-
--- Deletes the signed-in player's account. Profile and saved data go with it (on delete cascade).
-create or replace function public.delete_my_account() returns void
-language sql security definer set search_path = '' as $$
-  delete from auth.users where id = auth.uid();
-$$;
 
 -- Row Level Security: signed-in players read profiles and change only their own display name;
 -- saved data is visible and writable only by its owner. Signed-out visitors (anon) get nothing.
@@ -126,13 +142,10 @@ drop policy if exists "Players change their own data" on public.user_data;
 create policy "Players change their own data" on public.user_data
   for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
 
--- Grants. Rating and unlocks are not writable from the browser (a server will set them later).
+-- Grants (the profile grants are in the block above). Unlocks are not writable from the browser.
 -- user_id is in the update list because an upsert names it in its "on conflict do update".
-revoke all on public.profiles, public.user_data from public, anon, authenticated;
+revoke all on public.user_data from public, anon, authenticated;
 grant usage on schema public to authenticated;
--- Other players see a name, a picture and a rating (the privacy page), not when an account was made.
-grant select (id, display_name, avatar_url, rating) on public.profiles to authenticated;
-grant update (display_name) on public.profiles to authenticated;
 grant select on public.user_data to authenticated;
 grant insert (user_id, settings, lessons, saved_game) on public.user_data to authenticated;
 grant update (user_id, settings, lessons, saved_game) on public.user_data to authenticated;
