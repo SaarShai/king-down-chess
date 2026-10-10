@@ -21,7 +21,8 @@ try {
   await page.waitForFunction(() => window.boardText['2']?.font.includes('bold'));
   const badge = await boardText(page, '2');
   assert.ok(badge.glyphHeight >= 8.5, `bite digit has at least 8.5 CSS px of ink: ${badge.glyphHeight}`);
-  assert.match(badge.font, /sans-serif/, 'bite digits use lining figures');
+  assert.doesNotMatch(badge.font, /Alegreya/i, 'bite digits reject the body font');
+  assert.match(badge.font, /bold/, 'the measured bite digit is bold');
   assert.deepEqual(await lanMoves(page), [], 'chosen bites do not write a ply');
   await tap(8);
   assert.deepEqual((await marks()).bites, [26, 35], 'off-mark taps keep the chain');
@@ -40,6 +41,12 @@ try {
   await tap(27); await tap(26); await tap(35); await tap(36); await tap(45);
   assert.deepEqual((await marks()).bites, [26, 35, 36, 45], 'four bites fit a 375 px phone');
   await page.waitForFunction(() => window.boardText['4']?.font.includes('bold'));
-  for (const digit of ['1', '2', '3', '4']) assert.ok((await boardText(page, digit)).glyphHeight >= 8.5, `bite ${digit} stays readable at 375 px`);
+  for (const digit of ['1', '2', '3', '4']) {
+    await page.waitForFunction(digit => window.boardText[`bold:${digit}`]?.font.includes('bold'), digit);
+    const record = await boardText(page, `bold:${digit}`);
+    assert.match(record.font, /bold/, `bite ${digit} is a bold record`);
+    assert.doesNotMatch(record.font, /Alegreya/i, `bite ${digit} rejects the body font`);
+    assert.ok(record.glyphHeight >= 8.5, `bite ${digit} stays readable at 375 px`);
+  }
   console.log('verb-marks: Ogre, Beast, Maester and Archer pass; landing tap passes');
 } finally { try { assertNoErrors(errors); } finally { await close(); } }

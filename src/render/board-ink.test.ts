@@ -8,7 +8,7 @@ it('phone board text and cause lines keep their CSS size', () => {
     expect(ink.biteFont * scale).toBeCloseTo(14, 8);
     expect(ink.causeCore * scale).toBeCloseTo(1.5, 8);
     expect(ink.causeHalo * scale).toBeCloseTo(3.5, 8);
-    expect(ink.biteRadius * scale).toBeCloseTo(7, 8);
+    expect(ink.biteRadius * scale).toBeCloseTo(8, 8);
   }
 });
 

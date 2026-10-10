@@ -9,6 +9,7 @@ export async function recordBoardText(page) {
         const font = Number(this.font.match(/([\d.]+)px/)?.[1] ?? 0);
         const transform = this.getTransform(), glyph = this.measureText(text);
         window.boardText[text] = { font: this.font, glyphHeight: (glyph.actualBoundingBoxAscent + glyph.actualBoundingBoxDescent) * transform.d * scale, size: font * transform.a * scale, bottom: ((y + this.measureText(text).actualBoundingBoxDescent) * transform.d + transform.f) * scale, height: this.canvas.getBoundingClientRect().height };
+        if (this.font.includes('bold')) window.boardText[`bold:${text}`] = window.boardText[text];
       }
       return fill.call(this, text, x, y, ...rest);
     };
