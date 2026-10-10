@@ -101,3 +101,5 @@ Power and card names use the Guide names and plain card names. Code suffixes do 
 Stationary Archer takes keep Rage or Haste. A Reaver take names its landing square.
 The new Haste chain turn needs at least four lines at 320 by 568. The check requires a hidden whole detail row, a three-line height limit and full visible glyphs above Moves.
 Unit tests first fail for Sacrifice articles, new summaries, stationary powers and the Reaver landing. All text tests then pass.
+
+Polish 2: decided by delegation (2026-10-09). The Rescue detail says “Rescue puts the mark on the pawn on a2 again.” A unit test checks the named pawn. The empty-square form stays valid.

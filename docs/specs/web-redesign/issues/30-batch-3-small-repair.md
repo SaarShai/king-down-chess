@@ -21,13 +21,13 @@ Pass criteria: items 1 to 7 pass; all tests and checks pass; each sample report 
 
 The first code and render check confirms the fixed phone height, blank Resign area, missing scroll cue, two-line long turn and bite overlap. The text forms match the report claims. No claim is rejected at this stage.
 
-The requested renewed-mark sentence has nine words with Previously. The exact requested sentence stays; its test permits nine words for that one form. All other new summaries keep the eight-word cap.
+The Rescue nine-word exception is gone; the cap is 8 for every first-line form, decided by delegation (2026-10-09).
 
 The phone height guard rejects both auto and fixed height. The first auto probe gives the same bounds under the repaired bottom anchor, so the guard also checks the declared content height. A fixed-height probe fails the whole-sheet content bound.
 
 ## Answer
 
-All seven repairs are checked in code and samples. The verification report claims are correct. The brief's exact renewed-mark form has nine words with Previously, so that exact form is the one word-count exception. No other new summary exceeds eight words.
+All seven repairs are checked in code and samples. The verification report claims are correct. Each first-line form keeps the eight-word cap.
 
 | Item | Change and evidence |
 | --- | --- |
