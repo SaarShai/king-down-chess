@@ -268,12 +268,12 @@ Note on parallel work: `npm run check:browser` takes one lock for all worktrees 
 | Need | Use this | Instead of |
 |---|---|---|
 | Half-speed replay of the final blow | `scene.play(move, { speed: 0.5 })` (`scene.d.mts`) | A new timing module |
-| The king falls | `setFallen(square, true)` (main.ts 1052) | A new fall in the result dialog |
+| The king falls | `setFallen(square, true)` (`ceremony.ts:startCeremony`) | A new fall in the result dialog |
 | Undo plays backward | The reverse scene move through `scene.play`, then `sync(pre)` | `rewindPlan` with a track for each move kind |
-| Reading words | `pieceGuide(t)` (main.ts 169; reads the rules in force) | A new `read-text.ts` |
+| Reading words | `pieceGuide(t)` (`read.ts:pieceGuide`; reads the rules in force) | A new `read-text.ts` |
 | Reach of a piece | `reachOf` from `feat-hold-to-read/read.js` 86–101 (the real engine) | A new design |
-| Refusal words | Today's `whyNot` (main.ts 561) | A new `why-not.ts` module |
-| Take or Shove | Today's `#move-choice` dialog (main.ts 753) | A choice in the context line |
+| Refusal words | Today's `whyNot` (`read.ts:whyNot`) | A new `why-not.ts` module |
+| Take or Shove | Today's `#move-choice` dialog (`screen/play.ts:choosePushOrCapture`) | A choice in the context line |
 | Show me in lessons | Today's `#hint` handler with `hintMoves` and the lesson goal | New code |
 | Stop here | Today's `#stop-chain` button | New code |
 | Moves line words | Today's `describeMove` (plugin-shared, tested) | `storyLine` |

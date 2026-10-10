@@ -210,7 +210,7 @@ export function powerTitle(power: PowerName, r: Rules = RULES): string {
 
 /**
  * The rules a game with powers is played under: the official readings, which an older `?rules=`
- * preset overrides (as `newGame` in main.ts sets them). The picker and the Guide both read them.
+ * preset overrides (as `newGame` in screen/play.ts sets them). The picker and the Guide both read them.
  */
 export const powersRules = (preset?: Partial<Rules>): Rules => ({ ...RULES, ...POWERS_BALANCED, ...preset });
 

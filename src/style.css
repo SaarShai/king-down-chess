@@ -130,7 +130,7 @@ body { background-color: var(--floor-base); background-image: var(--floor); }
 #board:focus { outline: none; }
 #board:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
 
-/* Threat markers and the keyboard cursor (main.ts drawMarks); never catch a tap. */
+/* Threat markers and the keyboard cursor (screen/play.ts drawMarks); never catch a tap. */
 #board-marks { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
 #board-marks i { position: absolute; display: block; }
 .mk-cover::after {

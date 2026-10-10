@@ -9,7 +9,7 @@ import type { Style } from './styles';
 /** Animation setting: Fast plays moves at double speed, Off shows only the result. */
 export type Pace = 'normal' | 'fast' | 'off';
 
-/** What main.ts needs from a board: the clay BoardRenderer and the PaintedView both provide it. */
+/** What the game screen needs from a board (main.ts makes it, screen/play.ts drives it): the clay BoardRenderer and the PaintedView both provide it. */
 export interface BoardView {
   onSquareClick: (sq: number, shift: boolean) => void;
   onDragSelect: (sq: number) => void;
@@ -131,7 +131,7 @@ export class PaintedView implements BoardView {
     if (this.pos !== pos) this.sync(pos);
     if (this.pace === 'off') return;
     // King powers that move nothing (Freeze, Ice Wall, a Haste pass) or change a piece in place
-    // (Sacrifice): there is no motion to play, and main.ts syncs the new board right after.
+    // (Sacrifice): there is no motion to play, and screen/play.ts syncs the new board right after.
     if (m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice') return;
     // The scene scales duration; the caller gives playback speed.
     await this.scene.play(m, { onContact, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });

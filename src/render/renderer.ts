@@ -682,15 +682,15 @@ export class BoardRenderer {
 
   setPace(pace: Pace): void { this.pace = pace; this.tweens.rate = pace === 'fast' ? 2 : 1; }
 
-  /** Stale-version tweens return early, so the flush just resolves them; main.ts then syncs. */
+  /** Stale-version tweens return early, so the flush just resolves them; screen/play.ts then syncs. */
   skip(): void { if (!this.moving) return; this.positionVersion++; this.tweens.flush(); }
 
   /** Animate a move on the pre-move board; call sync(newPos) afterwards. */
-  /** `onContact` fires when a capture or shove lands (main.ts times the hit sound to it). */
+  /** `onContact` fires when a capture or shove lands (screen/play.ts commit times the hit sound to it). */
   async animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void> {
     if (this.pace === 'off') return;
     // King powers that move nothing (Freeze, Ice Wall, a Haste pass) or change a piece in place
-    // (Sacrifice): nothing to animate; main.ts syncs the board afterwards.
+    // (Sacrifice): nothing to animate; screen/play.ts syncs the board afterwards.
     if (m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice') return;
     if (speed != null) this.tweens.rate = speed;
     this.moving = true;
