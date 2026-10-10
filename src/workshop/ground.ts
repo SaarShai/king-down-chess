@@ -11,7 +11,7 @@ import { NAMES as PIECE, file, parseSq, rank, sq, sqName, type PieceType } from 
 import { pieceArt } from '../ui/guide';
 import { figureUrl, selectedFigure } from './figures';
 import { bandOf, judge } from './judge';
-import { NAMES, chip, drawString, effect, ensureDefs, mirrorIcon, nub, pill, seal, sigil, tagYours, tile, viewBox } from './marks';
+import { NAMES, chip, drawString, effect, ensureDefs, impression, knot, mirrorIcon, nub, pill, seal, sigil, tagYours, tile, viewBox } from './marks';
 import {
   DIR, DIRS, FULL, MAX_RULES, PRESETS, brushMark, canonical, designCode, empty, fromPreset, likeAlways, limit, lineOrbit, orbit, parseDesign, presetOf,
   type Ability, type Body, type Brush, type Dir, type LikeAs, type PaintOn, type PieceDesign, type Rule, type When,
@@ -31,7 +31,8 @@ const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.str
 const FILES = 'abcdefgh';
 const BRUSHES: [Kind & Brush, string][] = [['move', 'Move'], ['take', 'Take'], ['both', 'Both']];
 /** The key row's short words (proving-ground.html:1187). */
-const SHORT: Record<string, string> = { asleep: 'Asleep', cond: 'Sometimes', shot: 'Shot', moveshot: 'Move or shot', line: 'Line', arch: 'Hops', push: 'Push', swap: 'Swap' };
+const SHORT: Record<string, string> = { asleep: 'Asleep', cond: 'Sometimes', blocked: 'Refused', shot: 'Shot', moveshot: 'Move or shot', line: 'Line', arch: 'Hops', removed: 'Removed', push: 'Push', swap: 'Swap' };
+const ROMAN = ['I', 'II', 'III'];
 /** The Mirror tool's words for each "Paint on" (renderTools, proving-ground.html:1287). */
 const MIRROR: Record<PaintOn, string> = { lr: 'Mirror', all: 'All 8', one: 'One' };
 const MEDAL = '<svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><path d="M16 2l8 14 8-14" fill="none" stroke="#842c21" stroke-width="5"/><circle cx="24" cy="30" r="15" fill="#e9c071" stroke="#7a5712" stroke-width="2"/>'
@@ -89,6 +90,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
    *  design under a choice that has the pointer or the focus, the Rules shelf and its chosen seal, the phone's rule card. */
   let row: { a: Ability['a']; when: boolean; more: boolean } | null = null, peek: PieceDesign | null = null;
   let shelfOpen = false, pick: Ability['a'] | null = null, card: Ability['a'] | null = null, added = 0;
+  /** Isolate (proving-ground.html:1141, :1632-1645): the rule that a tap keeps, the rule under the pointer or the keyboard focus, and the knot that a tap keeps. */
+  let focus: number | null = null, hover: number | null = null, knotAt: number | null = null;
   /** A design from a link stays read only. */
   const editable = (): boolean => cur.key !== 'link';
 
@@ -143,6 +146,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (why) { toast(why); return false; }
     undos.push({ item: clone(cur), label });
     if (undos.length > 50) undos.shift();
+    // A rule that comes or goes moves the rule numbers: the kept rule and knot let go.
+    if (d.rules.length !== cur.d.rules.length) focus = knotAt = null;
     if (!cur.yours) {
       const base = `My ${d.name}`;
       let name = base;
@@ -162,6 +167,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (!u) return;
     if (!u.item.yours && shelf.some(x => x.id === cur.d.id) && !deleteDesign(cur.d.id)) return toast('Could not undo: this device refused.');
     undos.pop();
+    if (u.item.d.rules.length !== cur.d.rules.length) focus = knotAt = null;
     cur = u.item;
     if (u.item.yours) save(); else { unsaved = null; shelf = loadShelf().designs; }
     render();
@@ -205,7 +211,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   function arm(b: Brush): void {
     if (!editable()) return;
     brush = b;
-    row = peek = pick = card = null;
+    row = peek = pick = card = focus = knotAt = null;
     shelfOpen = false;
     render();
   }
@@ -269,13 +275,16 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   /** The When button of an "always" rule, which has no chip. */
   const whenButton = (r: Rule): string =>
     (r.when.on === 'always' && hasWhens(r.does.a) ? hit('data-when', r.does.a, row?.a === r.does.a && row.when, pill('When'), 'When: always') : '');
+  /** The words of a seal that isolates rule `i` (a tap keeps it). */
+  const press = (i: number, what: string): string => `aria-pressed="false" aria-label="Rule ${ROMAN[i]}: ${esc(what)}. Show only its marks."`;
   /** A rule line: the seal, the When chip (a button that opens the When choices), the short line with its pill (spec
-   *  decision 38), and on the wide layout the × that removes the rule. The phone's card shows the line with no seal. */
-  function lineHtml(r: Rule, inCard = false): string {
-    const a = r.does.a, ed = editable(), P = lineParts(r), asleep = asleepOf(r), c = chip(r.when, { hollow: asleep });
+   *  decision 38), and on the wide layout the × that removes the rule. A tap on the line or its seal isolates rule `i`
+   *  (the seal is the button, for the keyboard). The phone's card shows the line with no seal and no `i`. */
+  function lineHtml(r: Rule, i?: number): string {
+    const a = r.does.a, ed = editable(), P = lineParts(r), asleep = asleepOf(r), c = chip(r.when, { hollow: asleep }), inCard = i === undefined;
     const part = (p: Part): string => (typeof p === 'string' ? esc(p) : ed ? hit('data-pill', a, row?.a === a && !row.when, pill(p.text)) : esc(p.text));
     const l1 = (c && hasWhens(a) ? hit('data-when', a, row?.a === a && row.when, c, `When: ${whenWords(r.when)}`) : c) + P.after.map(part).join('');
-    return `<div class="sline">${inCard ? '' : seal(a, 44, { asleep })}<span class="txt">${l1 ? `<span class="l1">${l1}</span>` : ''}<span class="l2">${P.line.map(part).join('')}</span></span>`
+    return `<div class="sline"${inCard ? '' : ` data-seal="${i}"`}>${inCard ? '' : `<button type="button" class="sl-seal" ${press(i, blockOf(a).title)}>${seal(a, 44, { asleep })}</button>`}<span class="txt">${l1 ? `<span class="l1">${l1}</span>` : ''}<span class="l2">${P.line.map(part).join('')}</span></span>`
       + (ed && !inCard ? `<span class="acts">${whenButton(r)}<button type="button" class="pg-rm" data-rm="${a}" aria-label="Remove ${esc(blockOf(a).label.replace('…', ''))}">×</button></span>` : '') + '</div>';
   }
   /** The choices of the open row: a pill's values, or the When choices of whenChoices. */
@@ -326,15 +335,80 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       + (weighOpen ? `<div class="pg-weighpop">${MEDAL}<b>${esc(head)}</b><small>${esc(like)}</small></div>` : '')
       + `<div class="pg-figure"><span class="halo"></span><img src="${esc(figureOf(d))}" alt=""></div><div class="pg-stone"><div class="top"></div><div class="front"></div></div>`
       + (narrow.matches
-        // The narrow layout shows the seals in a row beside the name: a tap opens the rule's card; + opens the shelf.
-        ? `<div class="pg-pseals">${rules.map(r => `<button type="button" class="pg-pseal" data-card="${r.does.a}" aria-expanded="${card === r.does.a}">${seal(r.does.a, 42, { asleep: asleepOf(r), label: ruleText(r) })}</button>`).join('')}`
+        // The narrow layout shows the seals in a row beside the name: a tap keeps the rule, a tap on the kept seal opens its card; + opens the shelf.
+        ? `<div class="pg-pseals">${rules.map((r, i) => `<button type="button" class="pg-pseal" data-seal="${i}" data-card="${r.does.a}" aria-expanded="${card === r.does.a}" ${press(i, ruleText(r))}>${seal(r.does.a, 42, { asleep: asleepOf(r) })}</button>`).join('')}`
           + `${room ? '<button type="button" class="padd" data-act="shelf" aria-label="Add a rule">+</button>' : ''}</div>`
         // The lines, the Add row, and dotted rows up to 3 once the piece is the player's (:1044-1051).
-        : `<div class="pg-lines">${rules.length ? `<ol aria-label="Rules">${rules.map(r => `<li>${lineHtml(r)}${row?.a === r.does.a ? rowHtml() : ''}</li>`).join('')}</ol>` : ''}`
+        : `<div class="pg-lines">${rules.length ? `<ol aria-label="Rules">${rules.map((r, i) => `<li>${lineHtml(r, i)}${row?.a === r.does.a ? rowHtml() : ''}</li>`).join('')}</ol>` : ''}`
           + (room ? '<button type="button" class="sline add" data-act="shelf"><span class="sl-seal" aria-hidden="true">+</span><b>Add a rule</b></button>'
             + '<div class="sline empty" aria-hidden="true"><span class="sl-seal"></span><span class="txt"></span></div>'.repeat(cur.yours && rules.length ? MAX_RULES - 1 - rules.length : 0) : '')
           + '</div>');
+    placeKnots();
+    isolate();
   }
+  /** The knots in the lines' 22 px gutter, from the middle of one rule line to the middle of the other (placeKnots, :1009-1022). Wide layout only.
+   *  A knot from rule I to rule III beside another knot gets a second gutter, so each knot keeps its own 24 px hit area. */
+  function placeKnots(): void {
+    plinthEl.querySelectorAll('.knot').forEach(k => k.remove());
+    if (narrow.matches || !sc) return;
+    const line = (i: number) => q<HTMLElement>(`.sline[data-seal="${i}"]`), mid = (l: HTMLElement) => l.offsetTop + l.offsetHeight / 2;
+    const far = (k: Scene['knots'][number]) => k.b - k.a === 2 && sc.knots.length > 1;
+    plinthEl.querySelector('.pg-lines')?.classList.toggle('far', sc.knots.some(far));
+    sc.knots.forEach((k, i) => {
+      const a = line(k.a), len = mid(line(k.b)) - mid(a);
+      a.insertAdjacentHTML('beforeend', `<button type="button" class="knot${far(k) ? ' far' : ''}" data-knot="${i}" aria-pressed="${knotAt === i}" aria-label="${esc(k.words)}" title="${esc(k.words)}" style="top:${a.offsetHeight / 2}px;height:${len}px">${knot(k.type, len)}</button>`);
+    });
+  }
+  /** Shows the isolated rule or knot on the plinth; the classes change in place, so the keyboard focus stays. */
+  function isolate(): void {
+    for (const l of plinthEl.querySelectorAll<HTMLElement>('[data-seal]')) {
+      const i = +l.dataset.seal!;
+      l.classList.toggle('is-focus', focus === i);
+      l.classList.toggle('is-other', focus !== null && focus !== i);
+      (l.matches('button') ? l : l.querySelector('.sl-seal'))!.setAttribute('aria-pressed', `${focus === i}`);
+    }
+    for (const k of plinthEl.querySelectorAll<HTMLElement>('[data-knot]')) k.setAttribute('aria-pressed', `${knotAt === +k.dataset.knot!}`);
+  }
+  // A pill, a chip and × keep their own taps; brush mode isolates nothing (isolate, proving-ground.html:1634).
+  plinthEl.addEventListener('click', e => {
+    if (brush) return;
+    const t = e.target as Element, k = t.closest<HTMLElement>('[data-knot]'), l = t.closest('[data-pill], [data-when], [data-rm]') ? null : t.closest<HTMLElement>('[data-seal]');
+    if (k) {
+      knotAt = knotAt === +k.dataset.knot! ? null : +k.dataset.knot!;
+      focus = null;
+      if (knotAt !== null) toast(sc.knots[knotAt].words);
+    } else if (l) {
+      const i = +l.dataset.seal!, gold = sc.knots.find(x => x.type === 'gold' && (x.a === i || x.b === i));
+      // On the phone, a tap on the kept seal opens its card (:1938); while a card is open, a tap on a seal opens that rule's card.
+      if (l.dataset.card && (focus === i || card)) { focus = i; return openCard(l.dataset.card as Ability['a']); }
+      // A second tap lets the rule go, and the hover or keyboard focus on it too, until a new one.
+      if (focus === i) focus = hover = null; else focus = i;
+      knotAt = null;
+      // A desktop tap names what the rule makes with another one.
+      if (focus !== null && gold && !narrow.matches) toast(gold.words);
+    } else return;
+    isolate();
+    drawBoard();
+  });
+  /** Hover or keyboard focus on a rule line shows that rule alone until the pointer or the focus goes; a kept rule or knot wins. */
+  const hoverOn = (t: EventTarget | null): void => {
+    const l = t instanceof Element && !t.closest('.knot') ? t.closest<HTMLElement>('[data-seal]') : null, i = l ? +l.dataset.seal! : null;
+    if (i === hover) return;
+    hover = i;
+    if (focus === null && knotAt === null) drawBoard();
+  };
+  plinthEl.addEventListener('pointerover', e => hoverOn(e.target));
+  plinthEl.addEventListener('pointerleave', () => hoverOn(null));
+  plinthEl.addEventListener('focusin', e => { if ((e.target as Element).matches(':focus-visible')) hoverOn(e.target); });
+  plinthEl.addEventListener('focusout', e => hoverOn(e.relatedTarget));
+  // Esc stops the isolate before it closes the dialog (wherever the focus is).
+  dlg.addEventListener('cancel', e => {
+    if (focus === null && knotAt === null) return;
+    e.preventDefault();
+    focus = knotAt = hover = null;
+    isolate();
+    drawBoard();
+  });
 
   /* ---- the Rules shelf (renderShelf, :1406-1432) and the phone's rule card (showPhoneSentence, :2099-2104) ---- */
 
@@ -351,7 +425,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       const b = blockOf(r.does.a);
       shelfEl.className = 'pg-shelf pg-card';
       shelfEl.innerHTML = `<header>${seal(b.a, 40, { asleep: asleepOf(r) })}<h3 id="pg-shelf-h">${esc(b.label)}</h3><button type="button" class="pg-x" data-act="closecard" aria-label="Close">×</button></header>`
-        + lineHtml(r, true) + (row ? rowHtml() : '') + `<p class="pg-ex">${esc(b.example)}</p>`
+        + lineHtml(r) + (row ? rowHtml() : '') + `<p class="pg-ex">${esc(b.example)}</p>`
         + (editable() ? `<div class="pg-act">${whenButton(r)}<button type="button" class="pg-remove" data-rm="${b.a}">Remove</button></div>` : '');
       return;
     }
@@ -359,7 +433,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (!shelfOpen) { shelfEl.innerHTML = ''; return; }
     const sealButton = (a: Ability['a']): string => {
       const b = blockOf(a), has = !!ruleIn(cur.d, a), need = !has && b.needs?.(cur.d);
-      return `<button type="button" class="sbtn${has ? ' has' : ''}${need ? ' dim' : ''}" data-seal="${a}" aria-pressed="${pick === a}" aria-label="${esc(b.title)}${has ? ', already in this piece' : need ? `. ${esc(need)}` : ''}">${seal(a, 48)}<span>${esc(b.label)}</span></button>`;
+      return `<button type="button" class="sbtn${has ? ' has' : ''}${need ? ' dim' : ''}" data-sealitem="${a}" aria-pressed="${pick === a}" aria-label="${esc(b.title)}${has ? ', already in this piece' : need ? `. ${esc(need)}` : ''}">${seal(a, 48)}<span>${esc(b.label)}</span></button>`;
     };
     let h = '<header><h3 id="pg-shelf-h">Rules</h3><button type="button" class="pg-x" data-act="closeshelf" aria-label="Close">×</button></header><div class="groups">'
       + GROUPS.map(g => { const bs = BLOCKS.filter(b => b.group === g); return `<div class="grp${bs.length > 2 ? ' wide' : ''}"><h4>${g}</h4><div class="seals">${bs.map(b => sealButton(b.a)).join('')}</div></div>`; }).join('')
@@ -379,7 +453,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   function openShelf(): void {
     if (!editable()) return;
     if (cur.d.rules.length >= MAX_RULES) return toast(FULL, 'lock');
-    brush = row = peek = pick = card = null;
+    brush = row = peek = pick = card = focus = knotAt = null;
     toolsOpen = false;
     shelfOpen = true;
     render();
@@ -452,14 +526,18 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (!s) return;
     drawnAt = s;
     boardEl.setAttribute('viewBox', viewBox(s));
-    boardEl.innerHTML = drawString(sc, { s, art });
+    // A preview and brush mode show every mark: the rule numbers of a preview's `by` are those of the design under preview.
+    const look = !brush && !peek && !pick, k = look && knotAt !== null ? sc.knots[knotAt] : undefined, i = look ? focus ?? hover : null;
+    const iso = k ? (by: readonly number[]) => by.includes(k.a) && by.includes(k.b) : i === null ? undefined : (by: readonly number[]) => by.includes(i);
+    // The phone shows the stamps of the kept rule only (boardOpts, :1149).
+    boardEl.innerHTML = drawString(sc, { s, art, focus: iso, stamps: narrow.matches ? x => look && x === focus : undefined });
     for (const p of pulse) boardEl.querySelector(`[data-sq="${p}"]:not(.kdm-ghost)`)?.classList.add('kdm-ripple');
     pulse = [];
   }
   function squareLabel(at: string): string {
     const m = sc.marks.find(x => x.sq === at), occ = sc.pieces.find(p => p.sq === at);
     const who = occ ? `${occ.side === 'b' ? 'black' : 'white'} ${occ.open ? (cur.d.name || 'piece').toLowerCase() : occ.k}` : '';
-    const kind = m && NAMES[m.k].toLowerCase();
+    const kind = m && [NAMES[m.k], m.byWords].filter(Boolean).join(', ').toLowerCase();
     const what = !m ? (occ ? '' : 'empty') : m.diff === '-' ? `was ${kind}` : `${m.cond === 'asleep' ? 'asleep here' : kind}${m.diff ? ', changed' : ''}`;
     return `${at}: ${[what, who].filter(Boolean).join(', ')}.`;
   }
@@ -514,10 +592,12 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       if (m.diff === '-') continue;
       if (m.cond === 'asleep') add('asleep', () => tile('move', 36, { cond: 'asleep' }), NAMES.asleep);
       else if (m.cond) add('cond', () => tile('move', 36, { cond: 'awake' }), NAMES.cond);
+      else if (m.k.startsWith('blocked')) add('blocked', () => tile(m.k, 36), 'Blocked by a rule');
       else if (m.k === 'shot' || m.k === 'moveshot') add(m.k, () => tile(m.k, 36), NAMES[m.k]);
     }
     if (sc.rails.length) add('line', () => tile('move', 36, { rail: true }), NAMES.line);
     if (sc.arches.length) add('arch', () => effect('arch', 36), NAMES.arch);
+    if (sc.impressions.some(im => im.list.some(x => x.a === 'removedAfter'))) add('removed', () => impression('removedAfter', 26), NAMES.removed);
     for (const e of sc.effects) add(e.k, () => effect(e.k, 36), NAMES[e.k]);
     keyEl.innerHTML = phone || brush ? '' : [...kinds].slice(0, 6).map(([k, [svg, w]]) => `<span class="k" title="${w}">${svg}<span>${SHORT[k]}</span></span>`).join('');
   }
@@ -559,13 +639,15 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     sc = of(cur.d);
     added = 0;
     if (next) {
-      const was = new Set(Object.values(sc).flat().map(x => JSON.stringify(x)));
-      sc = of(next);
-      for (const x of [...sc.marks, ...sc.rails, ...sc.arches, ...sc.effects]) if (!was.has(JSON.stringify(x))) { x.pv = true; added++; }
+      // A part is new when it differs in more than its rule numbers (`by`); the knots stay those of the rule lines on the plinth.
+      const key = (x: object): string => JSON.stringify(x, (k, v) => (k === 'by' ? undefined : v)), was = new Set(Object.values(sc).flat().map(key));
+      sc = { ...of(next), knots: sc.knots };
+      for (const x of [...sc.marks, ...sc.rails, ...sc.arches, ...sc.effects]) if (!was.has(key(x))) { x.pv = true; added++; }
     }
     if (brush) {
       // The reach ends 3 squares out: a line shows 3 squares, then its arrow (designScene, proving-ground.html:781-797).
       sc.marks = sc.marks.filter(m => !out(m.sq));
+      sc.impressions = sc.impressions.filter(m => !out(m.sq));
       for (const r of sc.rails) if (out(r.to)) { const t = parseSq(r.to); r.to = sqName(sq(3 + 3 * Math.sign(file(t) - 3), 3 + 3 * Math.sign(rank(t) - 3))); r.end = 'arrow'; }
     }
     drawBoard();
@@ -576,7 +658,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   /** Draws everything for the open item. A control that a part replaced gets the focus back. */
   function render(): void {
     const a = document.activeElement as HTMLElement | null;
-    const keep = ['brush', 'act', 'nub', 'piece', 'design', 'pill', 'when', 'choice', 'seal', 'card', 'rm'].map(k => a?.dataset?.[k] && `[data-${k}="${a.dataset[k]}"]`).find(Boolean);
+    const keep = ['brush', 'act', 'nub', 'piece', 'design', 'pill', 'when', 'choice', 'sealitem', 'seal', 'rm'].map(k => a?.dataset?.[k] && `[data-${k}="${a.dataset[k]}"]`).find(Boolean);
     // A row or a card of a rule that is gone closes.
     if (row && !ruleIn(cur.d, row.a)) row = null;
     if (card && !ruleIn(cur.d, card)) card = row = null;
@@ -592,7 +674,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   function show(item: Item): void {
     if (item.key !== cur.key) undos = [];
     cur = item;
-    brush = row = peek = pick = card = null;
+    brush = row = peek = pick = card = focus = hover = knotAt = null;
     weighOpen = moreOpen = toolsOpen = shelfOpen = false;
     mirror = presetOf(item.d.from[0] ?? '').paintOn;
     kbd = examplesOf(item.d)[0].sq;
@@ -600,20 +682,20 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     render();
   }
   new ResizeObserver(() => { if (fieldEl.clientWidth / 8 !== drawnAt) drawBoard(); }).observe(fieldEl);
+  new ResizeObserver(placeKnots).observe(plinthEl);
   narrow.addEventListener('change', () => { row = peek = card = null; if (dlg.open) render(); });
   q<HTMLButtonElement>('.pg-menu').onclick = () => dlg.close();
 
   dlg.addEventListener('click', e => {
-    const t = (e.target as Element).closest<HTMLElement>('[data-act], [data-brush], [data-nub], .pg-hits .sq, [data-pill], [data-when], [data-choice], [data-seal], [data-card], [data-rm]');
+    const t = (e.target as Element).closest<HTMLElement>('[data-act], [data-brush], [data-nub], .pg-hits .sq, [data-pill], [data-when], [data-choice], [data-sealitem], [data-rm]');
     if (!t) { if (moreOpen) { moreOpen = false; renderTop(); } return; }
-    const { sq: at, nub: l, brush: b, pill: pa, when: wa, choice, seal: sa, card: ca, rm } = t.dataset;
+    const { sq: at, nub: l, brush: b, pill: pa, when: wa, choice, sealitem: sa, rm } = t.dataset;
     if (at) { if (brush) paint(at); return; }
     if (l) return toggleLine(l as Dir);
     if (b) return arm(b as Brush);
     if (pa || wa) return toggleRow((pa ?? wa) as Ability['a'], !!wa);
     if (choice) return choose(choice);
     if (sa) { pick = sa as Ability['a']; return render(); }
-    if (ca) return openCard(ca as Ability['a']);
     if (rm) return removeRule(rm as Ability['a']);
     const act = t.dataset.act;
     if (act === 'shelf') return openShelf();

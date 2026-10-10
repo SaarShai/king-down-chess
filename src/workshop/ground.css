@@ -85,7 +85,18 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .sline { position: relative; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 6px; border-radius: 8px; }
 .pg-lines li + li > .sline, .pg-lines ol + .sline, .pg-lines .sline + .sline { box-shadow: 0 -1px 0 rgba(43, 38, 33, 0.07); }
 @media (hover: hover) { .pg-lines .sline:hover { background: rgba(255, 255, 255, 0.3); } }
-.sline .kd-seal { flex: none; }
+.sline[data-seal] { cursor: pointer; }
+#workshop.pg button.sl-seal { width: 44px; border-radius: 50%; line-height: 0; }
+/* isolate (:89-90, :471-472): the kept rule glows, the other lines and the other marks step back */
+.pg-lines .sline.is-focus { background: linear-gradient(90deg, rgba(233, 192, 113, 0.34), rgba(233, 192, 113, 0)); }
+/* the × bar keeps its own opacity (hidden until the pointer or the focus), so its buttons step back instead */
+.sline.is-other > :not(.knot, .acts), .sline.is-other .acts > *, .pg-pseals .is-other { opacity: 0.45; }
+.kdm-iso { filter: drop-shadow(0 0 6px rgba(233, 192, 113, 0.8)); }
+.kdm-dim { opacity: 0.25; }
+/* a knot stands in the 22 px gutter from one rule line to the other (:116-118); its hit area is 24 px wide */
+#workshop.pg .knot { position: absolute; z-index: 1; left: -22px; width: 24px; display: flex; justify-content: center; line-height: 0; cursor: pointer; }
+.pg-lines.far { padding-left: 46px; }
+#workshop.pg .knot.far { left: -46px; }
 .sline .txt { display: grid; gap: 4px; min-width: 0; }
 .sline .l1 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 /* the 44 px pill buttons stand 11 px out of a row: the padding holds them, and the margin keeps the line as high as before */
@@ -312,7 +323,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .pg-name.is-copy .from::before { content: 'Yours \00b7  '; font-weight: 700; color: var(--ink); }
   .pg-pseals { flex: none; display: flex; gap: 2px; }
   #workshop.pg .pg-pseals button { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; }
-  #workshop.pg .pg-pseals button[aria-expanded='true'] { box-shadow: 0 0 0 2px var(--gold-bright), 0 0 10px rgba(233, 192, 113, 0.8); }
+  #workshop.pg .pg-pseals .is-focus { box-shadow: 0 0 0 2px var(--gold-bright), 0 0 10px rgba(233, 192, 113, 0.8); }
   .pg-pseals .kd-seal { width: 42px; height: 42px; }
   #workshop.pg .pg-pseals .padd { width: 40px; height: 40px; margin: 2px; min-width: 44px; min-height: 44px; border: 1.5px dashed var(--stone-500); color: var(--accent); font: 400 22px/1 var(--font-body); }
   /* the shelf and the rule card: a bottom sheet over the brushes and the ledge */

@@ -93,3 +93,11 @@ Evidence of the fixes (R as above; the probes were scratch scripts, and their lo
 - `npm run check:browser proving-ground workshop`: both passed (25.8 and 64.6 s). Then `npm run check:browser proving-ground` two more times: each passed (25.7 and 25.5 s). Each run log ends "proving-ground: all groups pass". Logs: `R/check-1.log` to `R/check-3.log`, `R/pg-run-1.log` to `R/pg-run-3.log` and `R/old-workshop.log`. An earlier run (`R/check-0.log`) failed only because this ticket changed during the run; its groups passed (`R/pg-run-0.log`).
 - `SAMPLE=W14 node docs/specs/web-ux/capture.mjs` on the dev server of this worktree (port 5183): 36 renders, 0 with a fault (`R/w14.log`, `R/w14/`).
 - The build beside the mockup after the fixes: `R/build-<state>-<size>.png` beside `R/mock-<state>-<size>.png` for `stamp-preview` and `stamped` at 1440 and 390, and `R/build-phone-sentence-390.png` beside `R/mock-phone-sentence-390.png`. The only new difference is the height of a line of two rows with buttons (finding 2). The check's own screens: `R/check/`.
+
+### 2026-10-10 · Merge of ticket 04
+
+The merge of `claude/pg-why` (ticket 04) changes three parts of this ticket. The reasons and the evidence are in the Comments of ticket 04 ("Merged into `claude/proving-ground`").
+
+1. The seal buttons of the Rules shelf use `data-sealitem`, not `data-seal`, because the rule lines and the phone seals now use `data-seal`.
+2. On the phone, the first tap on a seal keeps its rule, and a tap on the kept seal opens the rule card (step 5 as written: "a tap on a focused seal"). Before the merge, the first tap opened the card. The `removeRule` check group and the W14 states `pill-open`, `when-open` and `phone-sentence` tap two times.
+3. The `stamp-preview` and `stamped` boards show the stamp of "moves like" on each square of the queen lines (ticket 04). The mockup shows it on d4, d8 and h8 only. This waits for the owner.

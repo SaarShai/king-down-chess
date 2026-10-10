@@ -1,12 +1,13 @@
-// W14: the Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground tickets 01 and 02).
-// The open piece on its example board with its marks, the plinth with its rules, the key and the Pieces ledge; then
+// W14: the Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground tickets 01 to 04).
+// The open piece on its example board with its marks, the plinth with its rules, the key and the Pieces ledge;
+// a rule kept by a tap (hero-i1 to hero-i3) and a cracked knot (beast-cancel) (ticket 04); then
 // the editor (ticket 02): paint (Both armed), painted (My Pawn with its paint diff), weigh (the popover; on the phone,
 // the toast from ⋯) and phone-tools (the tools popover; on the desktop it is the paint state); then the rules (ticket 03):
 // stamp-preview (the Rules shelf, "Moves like" picked, the board previews it), stamped (Stamp), pill-open and when-open
 // (the row of the new rule's pill and chip; on the phone, in its card), three-of-three (S at 3 rules) and phone-sentence
 // (the rule card; on the desktop, the × bar of the line under the pointer).
-// Mockup states to set beside them: open, hero, archer, beast, maester, ogre, guard, phone-open, paint, painted,
-// stamp-preview, stamped (docs/research/rules-ui-2026-10-10/mockups/proving-ground.html?state=<id>, served, never file://).
+// Mockup states to set beside them: open, hero, hero-i1, hero-i2, hero-i3, archer, beast, beast-cancel, maester, ogre, guard,
+// phone-open, paint, painted, stamp-preview, stamped (docs/research/rules-ui-2026-10-10/mockups/proving-ground.html?state=<id>, served, never file://).
 // The targets leave out the board squares (24 px or more, spec decision 9) and the later nubs and knots.
 // Run: SAMPLE=W14 node docs/specs/web-ux/capture.mjs <base-url> <out-dir>. Renders stay outside Git.
 import { pressMenu } from '../../../../tools/app-ui.mjs';
@@ -25,6 +26,12 @@ const piece = key => async ({ page }) => {
   await page.locator(`.slot[data-piece="${key}"][aria-current="true"]`).waitFor();
 };
 const state = (name, key) => ({ name, query: '?workshop=a', save, targets, controls, steps: piece(key) });
+/** The Paladin with rule i kept by a tap on its seal. */
+const kept = i => ({ ...state(`hero-i${i + 1}`, 'paladin'), steps: async a => { await piece('paladin')(a); await a.page.click(`.sline[data-seal="${i}"] .sl-seal, .pg-pseal[data-seal="${i}"]`); } });
+/** My Beast of the mockup, removed after anything (scenes.js:208-214), on the shelf. */
+const beastAny = JSON.stringify({ v: 1, designs: [{ v: 1, kind: 'piece', id: 'mybeast-any', name: 'My Beast', named: true, look: { body: 'S', auto: false, glow: null, army: 0 }, letter: 'Y',
+  ownLetter: false, squares: [[-1, 1], [0, 1], [1, 1], [-1, 0], [1, 0], [-1, -1], [0, -1], [1, -1]].map(([x, y]) => ({ x, y, mark: 'both' })), lines: [],
+  rules: [{ when: { on: 'takes' }, does: { a: 'chain' } }, { when: { on: 'takes' }, does: { a: 'removedAfter', what: 'any' } }], from: ['beast'], updated: 1760000000000 }] });
 /** The Pawn with Both armed; `paint` paints c5 (and e5, its mirror) and leaves brush mode; `then` acts on the phone or the desktop. */
 const brush = (name, paint, then) => ({ ...state(name, 'pawn'), steps: async ({ page, size }) => {
   await piece('pawn')({ page });
@@ -37,13 +44,15 @@ const brush = (name, paint, then) => ({ ...state(name, 'pawn'), steps: async ({ 
 const seals = (name, stamp, then) => ({ ...state(name, 'pawn'), steps: async ({ page, size }) => {
   await piece('pawn')({ page });
   await page.click('[data-act="shelf"]');
-  await page.click('[data-seal="movesLike"]');
+  await page.click('[data-sealitem="movesLike"]');
   if (stamp) await page.click('[data-act="stamp"]');
   await then?.(page, size === 'phone');
 } });
+/** On the phone, a tap keeps the rule's seal and a second tap opens its card. */
+const card = async (page, a) => { await page.click(`[data-card="${a}"]`); await page.click(`[data-card="${a}"]`); };
 /** Opens the row of the "moves like" line's pill or chip (`attr`); on the phone the line is in the rule's card. */
 const row = attr => async (page, phone) => {
-  if (phone) await page.click('[data-card="movesLike"]');
+  if (phone) await card(page, 'movesLike');
   await page.click(`${phone ? '.pg-card ' : ''}[${attr}="movesLike"]`);
 };
 
@@ -51,11 +60,19 @@ export default {
   states: [
     state('open-pawn', 'pawn'),
     state('paladin', 'paladin'),
+    state('hero', 'paladin'),
+    kept(0), kept(1), kept(2),
     state('archer', 'archer'),
     state('beast', 'beast'),
     state('maester', 'maester'),
     state('ogre', 'ogre'),
     state('guard', 'guard'),
+    { name: 'beast-cancel', query: '?workshop=a', save, targets, controls, steps: async ({ page }) => {
+      await page.evaluate(v => localStorage.setItem('kingdown.workshop', v), beastAny);
+      await pressMenu(page, 'Workshop');
+      await page.click('.slot[data-design="mybeast-any"]');
+      await page.locator('.slot[data-design="mybeast-any"][aria-current="true"]').waitFor();
+    } },
     { name: 'link', query: `?workshop=a&design=${Buffer.from(JSON.stringify(rider)).toString('base64url')}`, save, targets, controls,
       steps: async ({ page }) => { await page.locator('#workshop.pg[open]').waitFor(); } },
     brush('paint', false),
@@ -71,6 +88,6 @@ export default {
     seals('pill-open', true, row('data-pill')),
     seals('when-open', true, row('data-when')),
     seals('three-of-three', true, page => page.keyboard.press('s')),
-    seals('phone-sentence', true, (page, phone) => (phone ? page.click('[data-card="movesLike"]') : page.hover('.sline:has([data-rm="movesLike"])'))),
+    seals('phone-sentence', true, (page, phone) => (phone ? card(page, 'movesLike') : page.hover('.sline:has([data-rm="movesLike"])'))),
   ],
 };

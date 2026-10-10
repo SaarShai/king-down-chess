@@ -6,24 +6,33 @@
  */
 import { BLACK, LETTERS, NAMES, T, WHITE, colorOf, file, parseSq, piece, rank, sqName, typeOf, type PieceType } from '../rules/engine';
 import { marksModel } from '../marks-model';
-import { DIR, type PieceDesign } from './model';
+import { DIR, canonical, type Ability, type PieceDesign, type Zone } from './model';
 import { blockOf } from './vocab';
-import { START, holds, movesOf, patternOf, step, type Can, type TryState } from './moves';
+import { START, holds, movesOf, patternOf, step, type Can, type Refused, type TryState } from './moves';
+import { traceOf, type Knot } from './why';
 
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules'>;
 export type Kind = 'move' | 'take' | 'both' | 'shot' | 'moveshot';
 /** `k` is the piece's engine name; the open design is 'design', because its look comes from the design. */
 export interface ScenePiece { sq: string; k: string; side: 'w' | 'b'; open?: true }
-/** `x`: the line ends in a take; `stop`: a friend stops it; `arrow`: the board edge; `none`: an enemy it cannot take (ticket 04 draws it). */
-export interface Rail { from: string; to: string; end: 'x' | 'stop' | 'arrow' | 'none'; style?: 'asleep' | 'awake'; pv?: true }
-/** `pv` on a part: a preview adds it (a choice or a new rule that the player looks at, ground.ts). */
+/** `by` (here and below): the rules, by their index in canonical(d).rules (the seals I, II and III), that make, change or refuse it.
+ *  `pv`: a preview adds it (a choice or a new rule that the player looks at, ground.ts). */
+type By = { by?: number[]; pv?: true };
+/** `x`: the line ends in a take; `stop`: a friend stops it; `arrow`: the board edge; `blocked`: an enemy that a rule refuses. */
+export interface Rail extends By { from: string; to: string; end: 'x' | 'stop' | 'arrow' | 'blocked'; style?: 'asleep' | 'awake' }
 export interface Scene {
   pieces: ScenePiece[];
-  /** diff: the paint diff of a copy (diffOf): '+' a new or changed mark, '-' a mark of its pool piece that is gone. */
-  marks: { sq: string; k: Kind; cond?: 'asleep' | 'awake'; diff?: '+' | '-'; pv?: true }[];
+  /** `blocked`: a refused take; `blocked-move`: a refused push or swap (a king). `byWords`: what refuses it.
+   *  `diff`: the paint diff of a copy (diffOf): '+' a new or changed mark, '-' a mark of its pool piece that is gone. */
+  marks: (By & { sq: string; k: Kind | 'blocked' | 'blocked-move'; cond?: 'asleep' | 'awake'; byWords?: string; diff?: '+' | '-' })[];
   rails: Rail[];
-  arches: { from: string; over: string; to: string; pv?: true }[];
-  effects: (({ k: 'swap'; a: string; b: string } | { k: 'push'; from: string; to: string }) & { pv?: true })[];
+  arches: (By & { from: string; over: string; to: string })[];
+  effects: (By & ({ k: 'swap'; a: string; b: string } | { k: 'push'; from: string; to: string }))[];
+  /** The stamps on a mark: the table rule that refuses it (no `by`), then each rule of its `by`. */
+  impressions: { sq: string; list: { a: Ability['a']; by?: number }[] }[];
+  /** The zone of a rule's When, shown while that rule is isolated. */
+  chalk: (By & { zone: Zone })[];
+  knots: Knot[];
 }
 
 /** The example board of each pool piece (the `pieces` of scenes.js): the open piece's square, then each other
@@ -67,18 +76,20 @@ function layer(d: D, board: Uint8Array, from: number, st: TryState) {
   // Each line: its reach is movesOf with that line only, less swaps, shoves and chains.
   const rails: Rail[] = [], arches: Scene['arches'] = [];
   for (const l of pattern.lines) {
-    const [x, y] = DIR[l], ray: number[] = [], reach = new Map<number, boolean>();
+    const [x, y] = DIR[l], ray: number[] = [], reach = new Map<number, boolean>(), refused: Refused[] = [];
     for (let s = step(from, x, y * dy); s >= 0; s = step(s, x, y * dy)) ray.push(s);
-    for (const m of movesOf({ squares: [], lines: [l], rules: d.rules }, board, from, st)) {
+    for (const m of movesOf({ squares: [], lines: [l], rules: d.rules }, board, from, st, refused)) {
       const s = m.captures[0] ?? m.to;
       if (!m.swap && !m.shove && m.captures.length < 2 && ray.includes(s)) reach.set(s, m.captures.length > 0);
     }
     for (const [s, take] of reach) add(s, { m: !take, t: take, s: false });
-    const far = Math.max(-1, ...[...reach.keys()].map(s => ray.indexOf(s))), next = ray[far + 1];
-    for (let i = 0; i < far; i++) if (board[ray[i]]) arches.push({ from: sqName(i ? ray[i - 1] : from), over: sqName(ray[i]), to: sqName(ray[i + 1]) });
-    const end = reach.get(ray[far]) ? 'x' : next === undefined ? 'arrow' : colorOf(board[next]) === c ? 'stop' : 'none';
-    if (end === 'stop') rails.push({ from: sqName(from), to: sqName(next), end });
-    else if (far >= 0) rails.push({ from: sqName(from), to: sqName(ray[far]), end });
+    // The rail ends on the first refused enemy past its reach, else on its last take, at the edge, or on the friend that stops it.
+    const far = Math.max(-1, ...[...reach.keys()].map(s => ray.indexOf(s)));
+    const bar = Math.min(...refused.filter(r => !r.caps.length).map(r => ray.indexOf(r.sq)).filter(i => i > far));
+    const end = bar < ray.length ? 'blocked' : reach.get(ray[far]) ? 'x' : far + 1 === ray.length ? 'arrow' : 'stop';
+    const to = end === 'blocked' ? bar : end === 'stop' ? far + 1 : far;
+    for (let i = 0; i < to; i++) if (board[ray[i]]) arches.push({ from: sqName(i ? ray[i - 1] : from), over: sqName(ray[i]), to: sqName(ray[i + 1]) });
+    if (to >= 0) rails.push({ from: sqName(from), to: sqName(ray[to]), end });
   }
   // A move that no painted square or line gives (a rule's move, such as step 2).
   const mm = marksModel(moves);
@@ -87,28 +98,42 @@ function layer(d: D, board: Uint8Array, from: number, st: TryState) {
   return { marks: new Map([...can].map(([s, n]) => [s, kindOf(n)])), rails, arches, moves };
 }
 
-/** The scene of design `d` for the piece on `from`. Ticket 04 adds the refused marks, stamps and knots; ticket 05 the hover-only marks. */
-export function sceneOf(d: D, board: Uint8Array, from: number, st: TryState = START): Scene {
-  const now = layer(d, board, from, st);
-  const marks: Scene['marks'] = [...now.marks].map(([s, k]) => ({ sq: sqName(s), k })), rails = now.rails;
+/** The scene of design `d` for the piece on `from`, with the why-trace's stamps, refused targets and knots. Ticket 05 adds the hover-only marks. */
+export function sceneOf(design: D, board: Uint8Array, from: number, st: TryState = START): Scene {
+  const d = canonical(design), now = layer(d, board, from, st), trace = traceOf(d, board, from, st);
+  const by = (s: number): number[] | undefined => trace.by.get(s)?.map(x => x.i), of = (a: Ability['a']): number[] => [d.rules.findIndex(r => r.does.a === a)].filter(i => i >= 0);
+  const marks: Scene['marks'] = [...now.marks].map(([s, k]) => ({ sq: sqName(s), k, by: by(s) })), rails = now.rails;
   // A state rule whose When does not hold: what it adds when its When is "always" is asleep. One that holds: what goes without it is awake.
-  for (const r of d.rules) {
+  for (const [i, r] of d.rules.entries()) {
     if (blockOf(r.does.a).event || r.when.on === 'always') continue;
     const awake = holds(r.when, board, from, st);
     const other = layer({ ...d, rules: awake ? d.rules.filter(x => x !== r) : d.rules.map(x => (x === r ? { ...x, when: { on: 'always' as const } } : x)) }, board, from, st);
     const lines = new Set((awake ? other.rails : rails).map(lineOf));
     if (awake) {
       for (const m of marks) if (!m.cond && !other.marks.has(parseSq(m.sq))) m.cond = 'awake';
-      for (const rl of rails) if (!rl.style && !lines.has(lineOf(rl))) rl.style = 'awake';
+      for (const rl of rails) if (!rl.style && !lines.has(lineOf(rl))) Object.assign(rl, { style: 'awake', by: [i] });
     } else {
-      for (const [s, k] of other.marks) if (!marks.some(m => m.sq === sqName(s))) marks.push({ sq: sqName(s), k, cond: 'asleep' });
-      for (const rl of other.rails) if (!lines.has(lineOf(rl))) rails.push({ ...rl, style: 'asleep' });
+      for (const [s, k] of other.marks) if (!marks.some(m => m.sq === sqName(s))) marks.push({ sq: sqName(s), k, cond: 'asleep', by: [i] });
+      for (const rl of other.rails) if (!lines.has(lineOf(rl))) rails.push({ ...rl, style: 'asleep', by: [i] });
     }
   }
+  // A refused first take is grey with a bar, by the rules that refuse it only (a push and a swap may both refuse a king);
+  // a chain's refused next take waits for its hover (ticket 05).
+  for (const r of trace.refused) {
+    const m = r.caps.length ? null : marks.find(x => x.sq === sqName(r.sq)), by = r.rule === undefined ? [] : [r.rule];
+    if (m?.k.startsWith('blocked')) Object.assign(m, { by: [...m.by ?? [], ...by].sort(), byWords: `${m.byWords}, ${r.words}` });
+    else if (m === undefined) marks.push({ sq: sqName(r.sq), k: r.why === 'push' || r.why === 'swap' ? 'blocked-move' : 'blocked', by: by.length ? by : undefined, byWords: r.words });
+  }
+  const impressions = marks.flatMap(m => {
+    const table = m.k.startsWith('blocked') && trace.refused.some(r => r.rule === undefined && sqName(r.sq) === m.sq);
+    const list = [...(table ? [{ a: 'cannotBeTaken' as const }] : []), ...(m.by ?? []).map(i => ({ a: d.rules[i].does.a, by: i }))];
+    return list.length ? [{ sq: m.sq, list }] : [];
+  });
+  const chalk = d.rules.flatMap((r, i) => (r.when.on === 'zone' || r.when.on === 'reaches' ? [{ zone: r.when.zone, by: [i] }] : []));
   const effects = new Map<string, Scene['effects'][number]>();
   for (const m of now.moves) {
-    if (m.swap) effects.set(`swap ${m.to}`, { k: 'swap', a: sqName(from), b: sqName(m.to) });
-    if (m.shove) effects.set(`push ${m.shove.from}`, { k: 'push', from: sqName(m.shove.from), to: sqName(m.shove.to) });
+    if (m.swap) effects.set(`swap ${m.to}`, { k: 'swap', a: sqName(from), b: sqName(m.to), by: of('swap') });
+    if (m.shove) effects.set(`push ${m.shove.from}`, { k: 'push', from: sqName(m.shove.from), to: sqName(m.shove.to), by: of('push') });
   }
   const pieces: ScenePiece[] = [];
   board.forEach((v, s) => {
@@ -116,7 +141,7 @@ export function sceneOf(d: D, board: Uint8Array, from: number, st: TryState = ST
     const p: ScenePiece = { sq: sqName(s), k: s === from ? 'design' : NAMES[typeOf(v)], side: colorOf(v) ? 'b' : 'w' };
     pieces.push(s === from ? { ...p, open: true } : p);
   });
-  return { pieces, marks, rails, arches: now.arches, effects: [...effects.values()] };
+  return { pieces, marks, rails, arches: now.arches.map(a => ({ ...a, by: of('linesPass') })), effects: [...effects.values()], impressions, chalk, knots: trace.knots };
 }
 
 /** The paint diff of a copy (paintDiff, proving-ground.html:875): the scene of `d`, where each mark that `base`'s paint

@@ -1,17 +1,19 @@
 /**
  * The Proving Ground's marks: the part of the approved mockup's mark module
- * (docs/research/rules-ui-2026-10-10/mockups/shared/marks.js, its line numbers in the comments) that ticket 01
- * draws. The tiles, targets, shots, occupied takes and badges come from src/render/legend.ts; the blocks and
- * When words from vocab.ts. The mockup's looks `wash` and `familyWax` are always on. Later tickets port the rest.
+ * (docs/research/rules-ui-2026-10-10/mockups/shared/marks.js, its line numbers in the comments) that tickets 01 and
+ * 04 draw. The tiles, targets, shots, occupied takes and badges come from src/render/legend.ts; the blocks and
+ * When words from vocab.ts. The refused forms, the stamps, the knots and the zone chalk stay here: the legend has
+ * none. The mockup's looks `wash` and `familyWax` are always on. Later tickets port the rest.
  */
-import { DEFS as LEG_DEFS, LEG, badge, occupied, tile as legendTile, toSvg, type Kind, type Shape } from '../render/legend';
-import type { Ability, PaintOn, When } from './model';
+import { DEFS as LEG_DEFS, LEG, badge, occupied, tile as legendTile, toSvg, type Shape } from '../render/legend';
+import type { Ability, PaintOn, When, Zone } from './model';
 import type { Scene, ScenePiece } from './scene';
 import { esc } from './text';
 import { blockOf, whenWords, type Group } from './vocab';
 
-/** The colours that the legend does not hold (marks.js:73-86). */
-const C = { goldI: '#7a5712', push: '#2f7f75', swap: '#7a58c0' };
+/** The colours that the legend does not hold (marks.js:73-86): the stone greys of a refused mark, the wax red of a stamp, the chalk. */
+const C = { goldI: '#7a5712', push: '#2f7f75', swap: '#7a58c0', acc: '#842c21', bFill: '#c9bfac', bX: '#8a8072', bBar: '#4d453c', chalk: 'rgba(251,247,238,.95)', chalkSh: 'rgba(43,38,33,.55)' };
+type MarkKind = Scene['marks'][number]['k'];
 
 /** 24 × 24 stroked sigils (marks.js:88-124): the 10 blocks with the G11 replacements, and the extras in use. */
 const SIGILS: Record<Ability['a'] | 'quill' | 'moon' | 'near' | 'card' | 'lock' | 'lockOpen' | 'eraser' | 'scale', string> = {
@@ -39,6 +41,7 @@ const SIGILS: Record<Ability['a'] | 'quill' | 'moon' | 'near' | 'card' | 'lock' 
 export const NAMES = {
   move: 'Move', take: 'Take only', both: 'Move or take', shot: 'Shot: takes from here', moveshot: 'Move or shot',
   line: 'Line', arch: 'Passes over', cond: 'Only sometimes', asleep: 'Asleep here', push: 'Pushes', swap: 'Swaps',
+  blocked: 'Refused', 'blocked-move': 'Refused', removed: 'Removed too',
 };
 
 const n = (v: number) => Math.round(v * 100) / 100;
@@ -62,7 +65,8 @@ const DEFS = LEG_DEFS
   + '<filter id="kdm-arc-shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#1d1915" flood-opacity=".55"/></filter>'
   + `<radialGradient id="kdm-glow-gold"><stop offset="0" stop-color="${LEG.gold}" stop-opacity=".95"/><stop offset=".55" stop-color="${LEG.gold}" stop-opacity=".55"/><stop offset="1" stop-color="${LEG.gold}" stop-opacity="0"/></radialGradient>`
   + '<filter id="kdm-rim" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0" stdDeviation=".75" flood-color="#2b2621" flood-opacity=".7"/></filter>'
-  + '<filter id="kdm-seal-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2.5" stdDeviation="2.2" flood-color="#1d1915" flood-opacity=".42"/></filter>';
+  + '<filter id="kdm-seal-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2.5" stdDeviation="2.2" flood-color="#1d1915" flood-opacity=".42"/></filter>'
+  + '<pattern id="kdm-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="rgba(251,247,238,.18)" stroke-width="1"/><line x1="1" y1="0" x2="1" y2="8" stroke="rgba(43,38,33,.10)" stroke-width="1"/></pattern>';
 
 /** Puts the gradients and filters that the marks name into the page once. */
 export function ensureDefs(): void {
@@ -143,16 +147,38 @@ const moonPip = (cx: number, cy: number, d: number) =>
 const quillPip = (cx: number, cy: number, d: number) =>
   `<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(d / 2 + 1.2)}" fill="${LEG.halo}"/><circle cx="${n(cx)}" cy="${n(cy)}" r="${n(d / 2)}" fill="${LEG.white}" stroke="${C.goldI}" stroke-width="1.3"/>`
   + sigilInline('quill', cx - d * 0.34, cy - d * 0.34, d * 0.68, C.goldI, 2.4);
-/** A legend tile as SVG; an asleep tile gets the moon pip in its lower right corner (marks.js:337). The paint diff
- *  (marks.js:310, :340): '+' adds the quill pip in the lower left corner; '-' draws the dashed outline only. */
-function tileSvg(kind: Kind, x: number, y: number, s: number, o: { solid?: boolean; cond?: Style; diff?: '+' | '-' } = {}): string {
-  const shapes = legendTile(kind, x, y, s, { ...o, cond: o.diff === '-' ? 'awake' : o.cond }), f = shapes.find(sh => sh.dash) as Extract<Shape, { k: 'rect' }> | undefined;
+
+/* ---- the refused forms (marks.js:242, :300-342, :519-531, :1080-1093): the legend's take in stone grey, with a bar ---- */
+
+const GREY: Record<string, string> = { [LEG.white]: C.bFill, [LEG.navy]: C.bBar, green: C.bFill, 'rgba(214,52,40,.08)': 'rgba(201,191,172,.18)' };
+/** The shapes in grey, with no red glow; red becomes `red`. */
+const grey = (shapes: Shape[], red = C.bX): Shape[] => {
+  const tint = (c?: string) => (c === LEG.red ? red : c && (GREY[c] ?? c));
+  return shapes.filter(sh => sh.fill !== 'glow-red').map(sh => ({ ...sh, fill: tint(sh.fill), stroke: tint(sh.stroke) }));
+};
+const bar = (cx: number, cy: number, len: number, w: number) =>
+  line(cx - len / 2, cy, cx + len / 2, cy, LEG.white, w + 2, 'stroke-linecap="round"') + line(cx - len / 2, cy, cx + len / 2, cy, C.bBar, w, 'stroke-linecap="round"');
+/** The refused badge with its bar, and the bar under the figure's feet. */
+function refusedBadge(x: number, y: number, s: number): string {
+  const b = grey(badge(x, y, s, 'take')), f = b[0] as Extract<Shape, { k: 'rect' }>;
+  return toSvg(b) + bar(f.x + f.w / 2, f.y + f.h / 2, f.w * 0.78, 2) + bar(x + s / 2, y + s * 0.955, s * 0.56, clamp(0.0375 * s, 1.5, 3));
+}
+
+/** A legend tile as SVG; an asleep tile gets the moon pip in its lower right corner (marks.js:337). A refused tile is grey
+ *  with a bar. The paint diff (marks.js:310, :340): '+' adds the quill pip in the lower left corner; '-' draws the dashed outline only. */
+function tileSvg(kind: MarkKind, x: number, y: number, s: number, o: { solid?: boolean; cond?: Style; diff?: '+' | '-' } = {}): string {
+  const refused = kind === 'blocked' || kind === 'blocked-move';
+  const shapes = legendTile(refused ? 'take' : kind, x, y, s, { ...o, cond: o.diff === '-' ? 'awake' : o.cond }), f = shapes.find(sh => sh.dash) as Extract<Shape, { k: 'rect' }> | undefined;
   if (o.diff === '-' && f) return toSvg([{ ...f, stroke: LEG.halo, lw: (f.lw ?? 1) + 2, a: 0.6, dash: undefined }, { ...f, a: 0.6 }]);
-  return toSvg(shapes) + (o.cond === 'asleep' && f && s >= 24 ? moonPip(f.x + f.w - 0.13 * s, f.y + f.h - 0.13 * s, clamp(0.2 * s, 10, 16)) : '') + diffPip(kind, x, y, s, o.diff);
+  if (refused) {
+    const g = grey(shapes).filter(sh => kind === 'blocked' || sh.k !== 'circle'), r = g[0] as Extract<Shape, { k: 'rect' }>;
+    return toSvg(g) + bar(r.x + r.w / 2, r.y + r.h / 2, r.w * 0.78, clamp(0.0375 * s, 1.5, 3.5)) + diffPip(x, y, s, o.diff);
+  }
+  return toSvg(shapes) + (o.cond === 'asleep' && f && s >= 24 ? moonPip(f.x + f.w - 0.13 * s, f.y + f.h - 0.13 * s, clamp(0.2 * s, 10, 16)) : '') + diffPip(x, y, s, o.diff);
 }
 /** The quill pip of a '+' mark, in the lower left corner of its tile. */
-function diffPip(kind: Kind, x: number, y: number, s: number, diff?: '+' | '-'): string {
-  const f = legendTile(kind, x, y, s).find(sh => sh.k === 'rect') as Extract<Shape, { k: 'rect' }>;
+function diffPip(x: number, y: number, s: number, diff?: '+' | '-'): string {
+  const f = legendTile('move', x, y, s).find(sh => sh.k === 'rect') as Extract<Shape, { k: 'rect' }>;
   return diff === '+' && s >= 24 ? quillPip(f.x + 0.13 * s, f.y + f.h - 0.13 * s, clamp(0.2 * s, 12, 16)) : '';
 }
 /** A small four-point star (the event spark). */
@@ -222,10 +248,42 @@ export const pill = (text: string, o: { choice?: boolean; on?: boolean } = {}): 
   `<span class="pill${o.choice ? ' is-choice' : ''}${o.on ? ' is-on' : ''}">${esc(text)}</span>`;
 export const tagYours = (): string => `<span class="tag-yours">${sigil('quill', 13)}Yours</span>`;
 
+/* ---- stamps (marks.js:476-511) and knots (:758-797) ---- */
+
+/** A rule's stamp: its sigil in wax red on a vellum disc; an event rule adds a gold spark. */
+function stamp(a: Ability['a'], cx: number, cy: number, d: number): string {
+  const R = d / 2, g = (d * 12) / 18, k = Math.PI * 0.75;
+  return `<circle cx="${n(cx)}" cy="${n(cy + 0.6)}" r="${n(R)}" fill="rgba(29,25,21,.28)"/><circle cx="${n(cx)}" cy="${n(cy)}" r="${n(R - 0.75)}" fill="${LEG.white}" stroke="${C.acc}" stroke-width="1.5"/>`
+    + sigilInline(a, cx - g / 2, cy - g / 2, g, C.acc, d >= 30 ? 2 : 2.4)
+    + (blockOf(a).event ? `<path d="${sparkPath(cx + Math.cos(k) * (R - 0.5), cy + Math.sin(k) * (R - 0.5), Math.max(3, d * 0.2))}" fill="${C.goldI}" stroke="${LEG.white}" stroke-width=".8" stroke-linejoin="round"/>` : '');
+}
+/** A stamp alone, for the key row. */
+export const impression = (a: Ability['a'], size: number): string =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" overflow="visible" aria-hidden="true">${stamp(a, size / 2, size / 2, size)}</svg>`;
+/** The stamps at a square's top right, from the right: two, then "+N". */
+function stamps(list: readonly Ability['a'][], x: number, y: number, s: number): string {
+  const d = clamp(Math.round(s * 0.225), 12, 20), cy = y + 3 + d / 2, px = x + s - 3 - 2 * (d + 2) - d * 0.75;
+  return list.slice(0, 2).map((a, i) => stamp(a, x + s - 3 - d / 2 - i * (d + 2), cy, d)).join('') + (list.length > 2
+    ? `<rect x="${n(px - d * 0.55)}" y="${n(cy - d * 0.38)}" width="${n(d * 1.1)}" height="${n(d * 0.76)}" rx="${n(d * 0.38)}" fill="${LEG.white}" stroke="${C.bX}"/>`
+      + `<text x="${n(px)}" y="${n(cy + d * 0.2)}" text-anchor="middle" font-family="Alegreya Sans, sans-serif" font-weight="700" font-size="${n(d * 0.5)}" fill="${LEG.ink}">+${list.length - 2}</text>` : '');
+}
+/** A knot that stands between two rule lines, `len` px long: gold when the rules combine, cracked when one stops the other. */
+export function knot(type: 'gold' | 'cracked', len: number): string {
+  const w = 18, pad = 4, mx = len / 2, my = w * 0.24, ink = type === 'gold' ? C.goldI : C.bX, d = `M${pad} ${w - 3}Q${n(mx)} ${n(-w * 0.55)} ${n(len - pad)} ${w - 3}`;
+  // Drawn lying down, then stood up; the gold knot's glyph turns back, so it stays level.
+  const g = type === 'gold'
+    ? `<path d="${d}" fill="none" stroke="${LEG.gold}" stroke-width="4" stroke-linecap="round" opacity=".5"/><path d="${d}" fill="none" stroke="${ink}" stroke-width="2" stroke-linecap="round"/>`
+      + `<g transform="translate(${n(mx)} ${n(my)}) rotate(90)"><ellipse rx="8.5" ry="6" fill="${LEG.white}"/><path d="M-7 1.5c2-5 5-5 7-1.5s5 3.5 7-1.5M-7-1.5c2 5 5 5 7 1.5s5-3.5 7 1.5" fill="none" stroke="${ink}" stroke-width="1.8" stroke-linecap="round"/></g>`
+    : `<path d="${d}" fill="none" stroke="${ink}" stroke-width="2" stroke-linecap="round" stroke-dasharray="${n(len * 0.56 - 7)} 15.4 999"/>`
+      + `<path d="M${n(mx - 6)} ${n(my - 6)}l3 4-3 3 4 3-2 3M${n(mx + 3)} ${n(my - 7)}l-2 4 3 3-3 3 3 3" fill="none" stroke="${ink}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+  return `<svg width="${w}" height="${n(len)}" viewBox="0 0 ${w} ${n(len)}" overflow="visible" aria-hidden="true"><g transform="translate(0 ${n(len)}) rotate(-90)">${g}`
+    + [pad, len - pad].map(cx => `<circle cx="${n(cx)}" cy="${w - 3}" r="2.4" fill="${ink}"/>`).join('') + '</g></svg>';
+}
+
 /* ---- single tiles and effects for the key (marks.js:852-918) ---- */
 
 /** A full-strength legend tile in an SVG of `size` px; `rail` adds a rail stub to the right with its arrowhead. */
-export function tile(kind: Kind, size: number, o: { cond?: Style; rail?: boolean } = {}): string {
+export function tile(kind: MarkKind, size: number, o: { cond?: Style; rail?: boolean } = {}): string {
   const s = size, c = s / 2;
   const inner = (o.rail ? rail([0, c], [c + s * 0.28, c], s) : '') + tileSvg(kind, 0, 0, s, { solid: true, cond: o.cond })
     + (o.rail ? arrowHead([c + s * 0.46, c], [1, 0], s * 0.8) : '');
@@ -262,18 +320,43 @@ const FILES = 'abcdefgh';
 export const squareXY = (q: string, s: number): { x: number; y: number } => ({ x: FILES.indexOf(q[0]) * s, y: (8 - +q.slice(1)) * s });
 export const viewBox = (s: number): string => `0 0 ${n(8 * s)} ${n(8 * s)}`;
 
+/** A When's zone in chalk (ZONES and chalkMarkup, marks.js:605-647): hatched squares, one outline, and the When's picture on its top-left square. */
+function chalk(z: Zone, side: 'w' | 'b', s: number): string {
+  const ranks = (q: string) => (side === 'b' ? 9 - +q[1] : +q[1]);
+  const set = new Set([...FILES].flatMap(f => [1, 2, 3, 4, 5, 6, 7, 8].map(r => f + r)).filter(q => (z === 'capital' ? /^[de][45]$/.test(q)
+    : z === 'startRank' ? ranks(q) === 2 : z === 'lastRank' ? ranks(q) === 8 : z === 'ownHalf' ? ranks(q) <= 4 : ranks(q) >= 5)));
+  let fills = '', edges = '';
+  for (const q of set) {
+    const { x, y } = squareXY(q, s), f = FILES.indexOf(q[0]), r = +q[1], i = 2;
+    fills += `<rect x="${n(x)}" y="${n(y)}" width="${n(s)}" height="${n(s)}" fill="url(#kdm-hatch)"/>`;
+    if (!set.has(FILES[f] + (r + 1))) edges += `M${n(x + i)} ${n(y + i)}H${n(x + s - i)}`;
+    if (!set.has(FILES[f] + (r - 1))) edges += `M${n(x + i)} ${n(y + s - i)}H${n(x + s - i)}`;
+    if (!set.has(FILES[f - 1] + r)) edges += `M${n(x + i)} ${n(y + i)}V${n(y + s - i)}`;
+    if (!set.has(FILES[f + 1] + r)) edges += `M${n(x + s - i)} ${n(y + i)}V${n(y + s - i)}`;
+  }
+  const { x, y } = squareXY([...set].reduce((a, q) => (+q[1] > +a[1] || (q[1] === a[1] && q < a) ? q : a)), s);
+  return `${fills}<path d="${edges}" fill="none" stroke="${C.chalkSh}" stroke-width="5" stroke-linecap="round" transform="translate(.6 .9)"/><path d="${edges}" fill="none" stroke="${C.chalk}" stroke-width="3" stroke-linecap="round"/>`
+    + `<rect x="${n(x + 4)}" y="${n(y + 4)}" width="20" height="20" rx="4" fill="${LEG.white}" stroke="${C.goldI}"/><svg x="${n(x + 6)}" y="${n(y + 6)}" width="16" height="16" viewBox="0 0 24 24" color="${LEG.ink}">${pictoInner({ on: 'zone', zone: z })}</svg>`;
+}
+
 /**
- * The scene as SVG in three layers: under (rails, marks, line ends, glows), the pieces, and over (arches, take
- * badges, swaps and pushes). The board image is the field's background. `art` gives each piece's image. Only a
- * mark's group has data-sq (with data-k, data-cond and data-diff; a '-' mark has the class kdm-ghost); a rail, an arch and an effect have data-k, data-from and data-to.
- * A part that a preview adds (the scene's `pv`) has data-pv.
+ * The scene as SVG in four layers: the chalk of the isolated rule's zone, under (rails, marks, line ends, glows), the
+ * pieces, and over (arches, take badges, swaps and pushes, stamps). The board image is the field's background. `art`
+ * gives each piece's image. `focus` isolates (drawString's o.focus, marks.js:1014-1020): each part whose `by` it keeps
+ * glows, and every other part is dim. `stamps` keeps the stamps of some rules only (the phone). Only a mark's group
+ * has data-sq (with data-k, data-cond and data-diff; a '-' mark has the class kdm-ghost); a rail, an arch and an
+ * effect have data-k, data-from and data-to; a badge has data-badge, and the stamps of a square data-stamp and data-a
+ * (the rules' abilities). A part that a preview adds (the scene's `pv`) has data-pv.
  */
-export function drawString(scene: Scene, o: { s: number; art: (p: ScenePiece) => string }): string {
+export function drawString(scene: Scene, o: { s: number; art: (p: ScenePiece) => string; focus?: (by: readonly number[]) => boolean; stamps?: (by?: number) => boolean }): string {
   const s = o.s, XY = (q: string) => squareXY(q, s), CTR = (q: string): P => { const { x, y } = XY(q); return [x + s / 2, y + s / 2]; };
   const open = scene.pieces.find(p => p.open), side = open?.side ?? 'w';
   const enemy = (q: string) => scene.pieces.some(p => p.sq === q && p.side !== side);
-  const group = (attrs: Record<string, string | undefined>, svg: string) =>
-    `<g${Object.entries(attrs).filter(([, v]) => v).map(([k, v]) => (k === 'class' ? ` class="${v}"` : ` data-${k}="${v}"`)).join('')}>${svg}</g>`;
+  const group = (attrs: Record<string, string | undefined>, svg: string, by?: readonly number[]) => {
+    const cls = [o.focus && (by && o.focus(by) ? 'kdm-iso' : 'kdm-dim'), attrs.class].filter(Boolean).join(' ');
+    return `<g${cls && ` class="${cls}"`}${Object.entries(attrs).filter(([k, v]) => v && k !== 'class').map(([k, v]) => ` data-${k}="${v}"`).join('')}>${svg}</g>`;
+  };
+  const zones = o.focus ? scene.chalk.filter(z => z.by && o.focus!(z.by)).map(z => `<g data-k="chalk" data-zone="${z.zone}">${chalk(z.zone, side, s)}</g>`).join('') : '';
   let under = '', ends = '', over = '';
   for (const rl of scene.rails) {
     const a = XY(rl.from), b = XY(rl.to), dx = Math.sign(b.x - a.x), dy = Math.sign(a.y - b.y);
@@ -286,14 +369,16 @@ export function drawString(scene: Scene, o: { s: number; art: (p: ScenePiece) =>
       p1 = [tip[0] - uu[0] * s * 0.16, tip[1] - uu[1] * s * 0.16];
       end = arrowHead(tip, uu, s, { style: rl.style, wash: true });
     }
-    under += group({ k: 'line', from: rl.from, to: rl.to, end: rl.end, pv: rl.pv && '1' }, rail(p0, p1, s, { style: rl.style, wash: true }));
-    if (end) ends += group({ k: 'line-end', to: rl.to }, end);
+    under += group({ k: 'line', from: rl.from, to: rl.to, end: rl.end, pv: rl.pv && '1' }, rail(p0, p1, s, { style: rl.style, wash: true }), rl.by);
+    if (end) ends += group({ k: 'line-end', to: rl.to }, end, rl.by);
   }
   for (const m of scene.marks) {
-    const { x, y } = XY(m.sq), ring = enemy(m.sq) && m.diff !== '-';
-    const svg = ring ? toSvg(occupied(m.k, x, y, s, y + 0.9 * s, { cond: m.cond })) + diffPip(m.k, x, y, s, m.diff) : tileSvg(m.k, x, y, s, { cond: m.cond, diff: m.diff });
-    under += group({ sq: m.sq, k: m.k, cond: m.cond, diff: m.diff, pv: m.pv && '1', class: m.diff === '-' ? 'kdm-ghost' : undefined }, svg);
-    if (ring) over += group({ badge: m.sq }, toSvg(badge(x, y, s, m.k)));
+    const { x, y } = XY(m.sq), foe = enemy(m.sq) && m.diff !== '-', foot = y + 0.9 * s;
+    // A refused take is the grey occupied take; a refused push or swap is a grey tile under the king.
+    const svg = !foe || m.k === 'blocked-move' ? tileSvg(m.k, x, y, s, { cond: m.cond, diff: m.diff })
+      : toSvg(m.k === 'blocked' ? grey(occupied('take', x, y, s, foot, { cond: m.cond }), C.bBar) : occupied(m.k, x, y, s, foot, { cond: m.cond })) + diffPip(x, y, s, m.diff);
+    under += group({ sq: m.sq, k: m.k, cond: m.cond, diff: m.diff, pv: m.pv && '1', class: m.diff === '-' ? 'kdm-ghost' : undefined }, svg, m.by);
+    if (foe && m.k !== 'blocked-move') over += group({ badge: m.sq }, m.k === 'blocked' ? refusedBadge(x, y, s) : toSvg(badge(x, y, s, m.k)), m.by);
   }
   under += ends;
   if (open) { const { x, y } = XY(open.sq); under += `<ellipse cx="${n(x + s / 2)}" cy="${n(y + s * 0.9)}" rx="${n(s * 0.36)}" ry="${n(s * 0.11)}" fill="url(#kdm-glow-gold)"/>`; }
@@ -301,12 +386,16 @@ export function drawString(scene: Scene, o: { s: number; art: (p: ScenePiece) =>
     const { x, y } = XY(p.sq), h = 0.9 * s;
     return `<image href="${esc(o.art(p))}" x="${n(x + (s - h) / 2)}" y="${n(y + s - 0.075 * s - h)}" width="${n(h)}" height="${n(h)}" preserveAspectRatio="xMidYMax meet" filter="url(#kdm-rim)"/>`;
   }).join('');
-  for (const ar of scene.arches) over += group({ k: 'arch', from: ar.from, over: ar.over, to: ar.to, pv: ar.pv && '1' }, arch(CTR(ar.from), CTR(ar.to), s));
+  for (const ar of scene.arches) over += group({ k: 'arch', from: ar.from, over: ar.over, to: ar.to, pv: ar.pv && '1' }, arch(CTR(ar.from), CTR(ar.to), s), ar.by);
   const head = clamp(s * 0.125, 7, 10);
   for (const e of scene.effects) {
     over += e.k === 'push'
-      ? group({ k: 'push', from: e.from, to: e.to, pv: e.pv && '1' }, arrowLine(CTR(e.from), CTR(e.to), C.push, 3, { trim0: s * 0.16, trim1: s * 0.18, head }))
-      : group({ k: 'swap', from: e.a, to: e.b, pv: e.pv && '1' }, arrowLine(CTR(e.a), CTR(e.b), C.swap, 3, { both: true, trim0: s * 0.12, trim1: s * 0.12, head }));
+      ? group({ k: 'push', from: e.from, to: e.to, pv: e.pv && '1' }, arrowLine(CTR(e.from), CTR(e.to), C.push, 3, { trim0: s * 0.16, trim1: s * 0.18, head }), e.by)
+      : group({ k: 'swap', from: e.a, to: e.b, pv: e.pv && '1' }, arrowLine(CTR(e.a), CTR(e.b), C.swap, 3, { both: true, trim0: s * 0.12, trim1: s * 0.12, head }), e.by);
   }
-  return `<g class="kdm-under">${under}</g><g class="kdm-pieces">${pieces}</g><g class="kdm-over">${over}</g>`;
+  for (const im of scene.impressions) {
+    const list = im.list.filter(x => !o.stamps || o.stamps(x.by)), { x, y } = XY(im.sq);
+    if (list.length) over += group({ stamp: im.sq, a: list.map(i => i.a).join(' ') }, stamps(list.map(i => i.a), x, y, s), list.flatMap(i => i.by ?? []));
+  }
+  return `<g class="kdm-chalk">${zones}</g><g class="kdm-under">${under}</g><g class="kdm-pieces">${pieces}</g><g class="kdm-over">${over}</g>`;
 }

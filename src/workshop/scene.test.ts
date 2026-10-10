@@ -18,18 +18,20 @@ const ctx = { window: {} as { KD?: { scenes: { get(id: string): Hand; check(): s
 runInNewContext(readFileSync(new URL('../../docs/research/rules-ui-2026-10-10/mockups/shared/scenes.js', import.meta.url), 'utf8'), ctx);
 const scenes = ctx.window.KD!.scenes;
 const sorted = <T>(l: T[]): T[] => [...l].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+/** Sorted, less the why-trace's fields. */
+const plain = <T>(l: T[]) => sorted(l.map(x => ({ ...x, by: undefined, byWords: undefined })));
 
-/** The hand scene `id` and the built one, less what later tickets add: refused marks and rails (04), hover-only marks and effects (05). */
+/** The hand scene `id` and the built one, less what ticket 05 adds (hover-only marks and effects) and less the why-trace (why.test.ts). */
 function both(id: string, d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'>) {
   const hand = scenes.get(id), got = sceneOf(d, boardOf(hand.pieces), parseSq(hand.pieces.find(p => p.open)!.sq));
   return [{
-    marks: sorted(got.marks),
-    rails: sorted(got.rails.filter(r => r.end !== 'none')),
-    arches: sorted(got.arches),
-    effects: sorted(got.effects),
+    marks: plain(got.marks),
+    rails: plain(got.rails),
+    arches: plain(got.arches),
+    effects: plain(got.effects),
   }, {
-    marks: sorted(hand.marks.filter(m => !m.k.startsWith('blocked') && !m.on).map(({ sq, k, cond }) => ({ sq, k, cond }))),
-    rails: sorted(hand.rails.filter(r => r.end !== 'blocked').map(({ from, to, end, style }) => ({ from, to, end, style }))),
+    marks: sorted(hand.marks.filter(m => !m.on).map(({ sq, k, cond }) => ({ sq, k, cond }))),
+    rails: sorted(hand.rails.map(({ from, to, end, style }) => ({ from, to, end, style }))),
     arches: sorted(hand.arches.map(({ from, over, to }) => ({ from, over, to }))),
     effects: sorted(hand.effects.filter(e => (e.k === 'swap' || e.k === 'push') && !e.on).map(({ k, a, b, from, to }) => ({ k, a, b, from, to }))),
   }];
