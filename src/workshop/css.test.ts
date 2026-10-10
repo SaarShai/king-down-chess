@@ -9,7 +9,8 @@ const source = [
   ...readdirSync(here).filter(f => f.endsWith('.ts') && !f.endsWith('.test.ts')).map(f => read(new URL(f, here))),
   read(new URL('../piece-icons.ts', import.meta.url)),
 ].join('\n').replace(/^\s*\/\/.*$/gm, '');
-const css = read(new URL('workshop.css', here));
+// A data URI (the legend's SVGs) holds no class: "www.w3.org" is not one.
+const css = read(new URL('workshop.css', here)).replace(/url\("[^"]*"\)/g, 'url()');
 const classes = [...new Set([...css.matchAll(/\.(-?[_a-zA-Z][-\w]*)/g)].map(m => m[1]))];
 const esc = (s: string): string => s.replace(/[$-]/g, '\\$&');
 

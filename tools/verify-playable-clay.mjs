@@ -75,7 +75,11 @@ try {
   await startGame(page, { mode: 'two', army: 'classic' }); await ready();
   assert.deepEqual(await page.evaluate(()=>Array.from({length:8},(_,i)=>{const sq=8+i,p=window.view.screenOf(sq);return window.view.pick({clientX:p.x,clientY:p.y});})),[8,9,10,11,12,13,14,15]);
   checks.push('every initial pawn-square centre selects its own pawn, not the back rank');
-  await clickSquare(1); await clickSquare(18);
+  await clickSquare(1);
+  // The move legend (docs/specs/move-legend): the selected knight's two moves are green tile quads on the ground.
+  assert.deepEqual(await page.evaluate(()=>window.view.markers.children.filter(m=>m.material?.userData.legend).map(m=>`${m.material.userData.legend}@${m.position.x},${m.position.z}`).sort()),
+    ['move:false:false@-1.5,1.5', 'move:false:false@-3.5,1.5'], 'a selected knight makes legend quads on a3 and c3');
+  await clickSquare(18);
   await page.waitForFunction(()=>window.view.pieces.get(1)?.position.y>.1);
   await settled(18,2); await page.click('#undo'); await settled(1,2);
   checks.push('the clay knight retains its leap and returns to its rest pose');
