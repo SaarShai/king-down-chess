@@ -31,7 +31,7 @@
 .pm [class*='trace'], .pm .wisp, .pm .gust, .pm .flake, .pm .facet, .pm .glint, .pm .spark, .pm .spark-gold,
 .pm .bolt-tail, .pm .ring-ice, .pm .ring-gold, .pm .tendril, .pm .tendril-glow { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 
-/* Settings → Animations: Off stills the pictures and the chosen emblem, as reduced motion does (main.ts sets data-pace). */
+/* Settings → Animations: Off stills the pictures and the chosen emblem, as reduced motion does (screen/settings.ts sets data-pace). */
 :root[data-pace='off'] :is(.pm, .kx) * { animation: none !important; }
 
 /* every animated part shares one loop; each scene names its own keyframes */

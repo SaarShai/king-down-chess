@@ -611,7 +611,7 @@ label.army select { width: 100%; font-weight: 400; }
 .title-lineup .pi { width: 15px; height: 15px; color: inherit; --pi-disc: var(--vellum); }
 .title-lineup li:hover img { translate: 0 -6px; filter: var(--rim) drop-shadow(0 10px 7px rgba(43, 38, 33, 0.4)) drop-shadow(0 0 10px rgba(201, 154, 62, 0.5)); }
 .title-lineup li:hover span { color: var(--gold-ink); }
-/* The one-time entrance: none with reduced motion or Settings → Animations Off (main.ts sets data-pace before the title opens). */
+/* The one-time entrance: none with reduced motion or Settings → Animations Off (ui/title.ts sets data-pace before the title opens). */
 @media (prefers-reduced-motion: no-preference) {
   :root:not([data-pace='off']) #title-screen[open] .title-lineup li { animation: rise 520ms cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(260ms + var(--i) * 45ms); }
   :root:not([data-pace='off']) #title-screen[open] .title-kings img { animation: rise 700ms cubic-bezier(.2, .8, .2, 1) both; }
