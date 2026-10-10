@@ -71,3 +71,6 @@ W4: 30 inspected renders, 0 faults. Tests and all nine required checks pass.
 Item 5: decided by delegation (2026-10-09). Bite digits use 14 CSS px lining type and 7 CSS px badge radii. The browser measures the actual visible glyph through measureText and the canvas scale. All four digits pass 8.5 CSS px at 375 px. The first final3 images show that larger circles cover the figures. The smaller circles sit at the cell corner and keep clear of the figures.
 
 Item 11: decided by delegation (2026-10-09). Web bite badges use an 8 px radius on phones. The plugin keeps its old default. The font check rejects the body font. Bold digit records stay separate from rank labels; each measured digit is bold. Unit and verb-marks checks pass.
+
+Small repair item 5: decided by delegation (2026-10-09).
+Phone bite badges return to radius 7 CSS px. Their centres move 2 CSS px toward the corner. The bold digits keep their size. The plugin default values stay fixed. Compare the W4 two-bite and four-bite stills with final3 and final4.

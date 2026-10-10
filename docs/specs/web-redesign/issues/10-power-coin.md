@@ -71,7 +71,7 @@ The sample still waits for the owner's yes.
 
 Decision: decided by delegation (2026-10-09).
 Coin size follows the strip: their coin is 44 px; your coin is 48 px.
-Both coins use 44 px on short phones. The armed coin has a dark outer ring.
+Both coins use 44 px on short phones. The armed coin has inset dark and gold rings.
 The powers check covers both board sides and the armed ring.
 W3: 15 inspected renders, 0 faults. Tests and all required checks pass.
 
@@ -82,7 +82,7 @@ A staged coin says Undo your move to use it.
 The web Guide uses take and taken; the plugin keeps its old words by default.
 The Guide target power gets the piece-card outline. Power tests and browser checks pass.
 
-Item 6: decided by delegation (2026-10-09). Read, armed and focus rings sit inside the coin. The outer lift goes only on short portrait phones. The browser grows the coin by its ring and checks the board and strip edges at 320 by 568.
+Item 6: decided by delegation (2026-10-09). Read, armed and focus rings sit inside the coin. The outer lift is removed only on short portrait phones. The browser grows the coin by its ring and checks the board and strip edges at 320 by 568.
 
 Items 6 and 9: decided by delegation (2026-10-09). A read coin keeps the 3 px keyboard focus ring. After Tab, its 1 px read mark stays. The lift shadow returns outside short phones. Short-phone rings stay inset. The powers and Menu checks pass.
 
