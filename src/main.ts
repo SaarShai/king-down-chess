@@ -3,7 +3,7 @@ import { SkillName, skillPlan } from './ai/skill';
 import { Engine, Game, Side, resigningSide } from './game';
 import { setEvaluator } from './ai/eval';
 import { positionKey, type SearchResult } from './ai/search';
-import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
+import { PaintedView, type BoardView } from './render/PaintedView';
 import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
@@ -16,7 +16,7 @@ import { lessonShelf } from './lesson-shelf';
 import { mulberry32 } from './sim/rng';
 import { checkersOf, describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
 import { POWER_TAG, autoQueen, hintMoves, offered } from './powers-ui';
-import { defaultSetup, isLevel, kingsOf, newGameDialog, newGameWarning, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
+import { defaultSetup, kingsOf, newGameDialog, newGameWarning, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 import { pieceIcon } from './piece-icons';
 import { copyText } from './clipboard';
 import './dialog-dismiss';
@@ -40,7 +40,7 @@ import { initHome } from './ui/home-view';
 import { connectPreviously } from './ui/previously';
 import { connectGuide, kingArt, pieceArt, pieceText } from './ui/guide';
 import { gameUrl } from './screen/links';
-import { settingsOf } from './screen/settings';
+import { LOOK_KEY, connectSettings } from './screen/settings';
 import type { Save } from './screen/save';
 
 const params = new URLSearchParams(location.search);
@@ -67,19 +67,10 @@ let game = new Game();
 let home: ReturnType<typeof initHome> | null = null;
 const engine = new Engine();
 /** `?look=painted|clay`, else the saved choice. Painted 2D is the default (owner, 2026-09-27). */
-const LOOK_KEY = 'kingdown.look';
 const look = params.get('look') ?? (() => { try { return localStorage.getItem(LOOK_KEY); } catch { return null; } })() ?? 'painted';
 // Clay (three.js) is a separate chunk, fetched only for that look; painted needs none of it.
 // The painted board stands on the page's parchment floor: the scene draws no floor of its own.
 const view: BoardView = look === 'clay' ? await (await import('./render/clay')).createClayView($('board')) : new PaintedView($('board'), { floor: null, webInk: true });
-$<HTMLSelectElement>('look').value = look === 'clay' ? 'clay' : 'painted';
-$<HTMLSelectElement>('look').onchange = () => {
-  try { localStorage.setItem(LOOK_KEY, $<HTMLSelectElement>('look').value); } catch { /* private mode: the URL still switches */ }
-  const url = new URL(location.href);
-  url.searchParams.set('look', $<HTMLSelectElement>('look').value);
-  location.href = url.href;
-};
-$('reset-view').hidden = look !== 'clay';
 view.onLoadError = () => { $('asset-status').textContent = 'A piece cannot load. Reload to try again.'; refresh(); };
 (window as unknown as Record<string, unknown>).view = view; // tools/styleboard2.mjs aims its crops with view.screenOf()
 /** Threat markers and the keyboard cursor, drawn over the board (pointer events pass through). */
@@ -153,7 +144,7 @@ const resigner = (): Color | null => (ended() || lesson != null || busy ? null :
 
 const moveMoments = connectMoveMoments(view, {
   game: () => game, allowed: undoOn, chain: () => pending.length > 0,
-  generation: () => gen, motion: () => pace.value !== 'off', reset, lock: value => { busy = value; }, refresh,
+  generation: () => gen, motion: () => settings.pace() !== 'off', reset, lock: value => { busy = value; }, refresh,
   afterUndo: () => {
     restoreMoments();
     if (game.pos.haste !== undefined && game.pos.rage !== 3) selected = game.pos.haste;
@@ -163,7 +154,7 @@ const moveMoments = connectMoveMoments(view, {
 });
 const gameEnd = connectGameEnd(view, $('board'), $<HTMLDialogElement>('over'), $('over-tiles'), {
   game: () => game, sides: () => sides, linkSide: () => linkSide, resigned: () => resigned,
-  generation: () => gen, motion: () => pace.value !== 'off', lock: value => { busy = value; }, refresh,
+  generation: () => gen, motion: () => settings.pace() !== 'off', lock: value => { busy = value; }, refresh,
   turnButton: $<HTMLButtonElement>('end-turn'),
   newGameSheet: $<HTMLDialogElement>('new-game'),
   announce: ceremony => { $('announce').textContent = `${ceremony ? 'King Down. ' : ''}${result()}`; },
@@ -196,7 +187,7 @@ connectTurnPress($<HTMLButtonElement>('end-turn'), $('board'), {
 });
 const previously = connectPreviously($<HTMLButtonElement>('see-again'), {
   game: () => game, view, generation: () => gen, navigation: () => navGen,
-  motion: () => pace.value !== 'off', blocked: () => busy || viewing != null || lesson != null,
+  motion: () => settings.pace() !== 'off', blocked: () => busy || viewing != null || lesson != null,
   show: (ply, playing) => { viewing = ply; busy = replaying = playing; selected = inspected = null; pending = []; },
   refresh,
 });
@@ -339,7 +330,7 @@ let marksFrame = 0;
 function drawMarks(): void {
   cancelAnimationFrame(marksFrame);
   view.setPreview?.(cursor);
-  const on = $<HTMLInputElement>('threats').checked && viewing == null && !busy && !ended() && (myTurn() || currentTurn().waits);
+  const on = settings.threats() && viewing == null && !busy && !ended() && (myTurn() || currentTurn().waits);
   const t = on ? threatsIn({ ...game.pos, turn: currentTurn().activeSide }) : { pieces: [], squares: [] };
   if (!t.pieces.length && !t.squares.length && cursor == null) { marksLayer.innerHTML = ''; return; }
   const box = $('board').getBoundingClientRect(), items: string[] = [];
@@ -529,7 +520,7 @@ function pickPromotion(options: Move[]): Promise<Move | null> {
 }
 
 async function choose(moves: Move[]): Promise<void> {
-  const queen = $<HTMLInputElement>('queen').checked ? autoQueen(moves) : undefined;
+  const queen = settings.queen() ? autoQueen(moves) : undefined;
   if (queen) return commit(queen);
   if (moves.length === 1 || !moves.every(m => m.promo)) return commit(moves[0]);
   const generation = gen;
@@ -676,7 +667,7 @@ $('stop-chain').onclick = () => { const m = candidates().find(m => clickPath(m).
 $('show-me').onclick = async () => {
   if (lesson == null || busy || viewing != null || finished() || !myTurn()) return;
   const tag = armedTag(), l = lesson == null ? null : LESSONS[lesson], pos = game.pos;
-  const rootMoves = hintMoves(game.legal, tag, l ? m => l.goal(pos, m) : undefined, $<HTMLInputElement>('queen').checked);
+  const rootMoves = hintMoves(game.legal, tag, l ? m => l.goal(pos, m) : undefined, settings.queen());
   if (!rootMoves.length) { notice = 'No goal move is available.'; return refresh(); }
   busy = true;
   refresh();
@@ -935,28 +926,17 @@ let account: typeof import('./account/account') | null = null;
 /** A newer saved game came from the account during a lesson: Return to game opens it. */
 let cloudGame = false;
 
-/** The save's settings fields (account/sync.ts SETTINGS). */
-const settingsNow = () => settingsOf({
-  skill,
-  coords: coords.checked,
-  sound: $<HTMLInputElement>('sound').checked,
-  queen: $<HTMLInputElement>('queen').checked,
-  pace: pace.value as Pace,
-  threats: $<HTMLInputElement>('threats').checked,
-  labels: labels.checked,
-});
-
 function save(): void {
   // A lesson never replaces the saved game: it changes only the settings in the save.
   const kept = lesson == null ? null : readSave();
   if (lesson != null && !kept) return;
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(kept ? { ...kept, ...settingsNow() } : {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(kept ? { ...kept, ...settings.settingsNow() } : {
       back: game.backRank,
       fen: toFen(game.history[0]?.pos ?? game.pos), // the position the game started from
       moves: game.history.map(h => h.lan),
       white: sides[0], black: sides[1],
-      ...settingsNow(),
+      ...settings.settingsNow(),
       link: linkSide,
       daily,
       resigned,
@@ -966,18 +946,6 @@ function save(): void {
     } satisfies Save));
   } catch { /* private mode or a full quota: play on without a save */ }
   account?.changed();
-}
-
-/** A save's settings onto the controls (at start-up, or newer ones from the account). */
-function applySettings(s: Save): void {
-  if (typeof s.sound === 'boolean') $<HTMLInputElement>('sound').checked = s.sound;
-  if (typeof s.queen === 'boolean') $<HTMLInputElement>('queen').checked = s.queen;
-  if (typeof s.threats === 'boolean') $<HTMLInputElement>('threats').checked = s.threats;
-  if (s.pace === 'normal' || s.pace === 'fast' || s.pace === 'off') pace.value = s.pace;
-  // Old saves with no skill field stay Strong so a resumed game does not suddenly get easier.
-  skill = isLevel(s.skill) ? s.skill : 'strong';
-  if (typeof s.coords === 'boolean') coords.checked = s.coords;
-  labels.checked = s.labels === true; // no field: off (an old save, or the account's settings with the letters off)
 }
 
 /** A save's rules, army and moves onto `game`; a save it cannot read starts a new game. */
@@ -997,8 +965,8 @@ function fromAccount(down: string[]): void {
   const s = readSave();
   if (!s) return;
   if (down.includes('settings')) {
-    applySettings(s);
-    setSound($<HTMLInputElement>('sound').checked); applyPace(); view.setCoords(coords.checked); view.setLabels(labels.checked);
+    settings.applySettings(s);
+    setSound(settings.sound()); settings.applyPace(); view.setCoords(settings.coords()); view.setLabels(settings.labels());
     refresh();
   }
   if (down.includes('saved_game')) { if (lesson != null) cloudGame = true; else if (!fen) openSaved(s); }
@@ -1102,23 +1070,7 @@ $('share-result').onclick = () => {
   const text = `King Down daily ${daily} (${game.backRank}): ${outcome} in ${n} move${n === 1 ? '' : 's'}${vs}. ${location.origin}${location.pathname}`;
   void copyAndSay($('share-result'), text, 'Result copied');
 };
-$('sound').onchange = () => { setSound($<HTMLInputElement>('sound').checked); save(); };
-$('queen').onchange = save;
-$('threats').onchange = () => { drawMarks(); save(); };
-const pace = $<HTMLSelectElement>('pace');
-// No saved choice: the system's reduced-motion setting picks Off.
-if (matchMedia('(prefers-reduced-motion: reduce)').matches) pace.value = 'off';
-/** The board's animation speed; Off also stills the New game picker's motion art (power-motion.css), as reduced motion does. */
-function applyPace(): void {
-  view.setPace(pace.value as Pace);
-  document.documentElement.dataset.pace = pace.value;
-}
-pace.onchange = () => { applyPace(); save(); };
-const labels = $<HTMLInputElement>('labels');
-labels.onchange = () => { view.setLabels(labels.checked); save(); };
-const coords = $<HTMLInputElement>('coords');
-coords.onchange = () => { view.setCoords(coords.checked); save(); };
-$('reset-view').onclick = () => view.resetView();
+const settings = connectSettings(view, { look, skill: () => skill, setSkill: level => { skill = level; }, save, drawMarks });
 addEventListener('keydown', e => {
   // No game key acts under a dialog: there Esc only closes the dialog (the Workshop's Esc closes its top sheet,
   // else an open choices panel, else the Workshop).
@@ -1179,7 +1131,7 @@ const isSide = (v: unknown): v is Side => v === 'human' || v === 'ai';
 if (saved) {
   if (isSide(saved.white)) sides[0] = saved.white;
   if (isSide(saved.black)) sides[1] = saved.black;
-  applySettings(saved);
+  settings.applySettings(saved);
 }
 setup = loadSetup() ?? (saved ? setupOfGame(sides, saved.rules?.kings ?? [null, null], skill) : defaultSetup());
 /** `?players=human,ai` (White, then Black): who plays the game this page opens. For the lab and the browser checks. */
@@ -1194,14 +1146,14 @@ const TITLE_SEEN = 'kingdown.title-seen';
 const titleSeen = (): boolean => { try { return sessionStorage.getItem(TITLE_SEEN) === '1'; } catch { return false; } };
 const showHome = !link && shouldShowHome(params, { hasSave: !!saved, titleSeen: titleSeen(), firstVisit: firstVisit(saved?.moves.length ?? 0) });
 const showTitle = !showHome && !link && !params.has('fen') && !params.has('army') && !params.has('design') && params.get('title') !== '0' && !titleSeen();
-const titleClosed = showTitle ? openTitle(firstVisit(saved?.moves.length ?? 0), !!saved?.moves.length, () => pace.value) : Promise.resolve('continue' as const);
+const titleClosed = showTitle ? openTitle(firstVisit(saved?.moves.length ?? 0), !!saved?.moves.length, () => settings.pace()) : Promise.resolve('continue' as const);
 
 // The playable game has one art direction; study controls stay in the study.
 view.applyStyle(STYLES.clay);
-if (params.get('labels') === '1') labels.checked = true; // `?labels=1` turns the letters on over the saved choice
-view.setLabels(labels.checked);
-view.setCoords(coords.checked);
-applyPace();
+if (params.get('labels') === '1') settings.showLabels(); // `?labels=1` turns the letters on over the saved choice
+view.setLabels(settings.labels());
+view.setCoords(settings.coords());
+settings.applyPace();
 const fen = link ? null : params.get('fen');
 const lans = linkMoves?.split('_').filter(Boolean) ?? [];
 const continues = !!saved && (params.get('army') ? saved.back === params.get('army') : !saved.back && saved.fen === params.get('fen'))
@@ -1235,7 +1187,7 @@ view.sync(previously.position());
 await view.ready();
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
 guide.fill(); // after every setRules path (URL preset / save restore)
-setSound($<HTMLInputElement>('sound').checked);
+setSound(settings.sound());
 restoreMoments();
 refresh();
 if (showHome) home.open();
