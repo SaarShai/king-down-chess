@@ -99,3 +99,5 @@ Piece and power targets share the focus outline. Read tests and browser checks p
 Item 7 browser check: decided by delegation (2026-10-09). The special-move check reads the same friendly-piece Maester sentence as the read test.
 
 Item 2: decided by delegation (2026-10-09). Each Guide power has one block and a full stop. Separator lines go. The focused power outline clears the king name and colon. The powers browser check passes.
+
+Item 10: decided by delegation (2026-10-09). The three over-shot readings say only over a piece. Each reach test refuses a far shot with an empty middle, then allows it with a piece there. The Flight tile test uses a rook, which Flight may move. npm test passes.

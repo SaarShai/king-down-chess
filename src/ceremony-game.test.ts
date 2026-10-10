@@ -41,7 +41,7 @@ it('names each review act in words', () => {
 
 it('names powers in two to four words without squares', () => {
   const pos = fromFen('7k/8/8/8/8/n7/8/R5MK w - - 0 1');
-  expect(ceremonyMoveLabel(pos, { from: 7, to: 23, captures: [], power: 'flight' })).toBe('King flies');
+  expect(ceremonyMoveLabel(pos, { from: 0, to: 8, captures: [], power: 'flight' })).toBe('Rook flies');
   expect(ceremonyMoveLabel(pos, { from: 0, to: 8, captures: [], power: 'haste' })).toBe('Rook moves with Haste');
   expect(ceremonyMoveLabel(pos, { from: 16, to: 16, captures: [], power: 'freeze' })).toBe('Freeze on knight');
 });

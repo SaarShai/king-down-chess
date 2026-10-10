@@ -55,9 +55,9 @@ const ARCHER_READ: Record<ArcherShots, string> = {
   fwd2NoBack: 'Shoots near diagonals; 2 ahead, sideways, diagonally forward.',
   fwd2NoSide: 'Shoots near diagonals; 2 ahead, behind, diagonally forward.',
   far2: 'Shoots 2 squares straight or diagonally forward.',
-  over2: 'Shoots 2 straight or diagonally forward, over pieces.',
-  nearOver2: 'Shoots near diagonals; 2 straight or diagonally forward over pieces.',
-  fwdNearOver2: 'Shoots nearby diagonally forward; 2 straight or diagonally forward over pieces.',
+  over2: 'Shoots 2 straight or diagonally forward, only over a piece.',
+  nearOver2: 'Shoots near diagonals; 2 straight or diagonally forward, only over a piece.',
+  fwdNearOver2: 'Shoots nearby diagonally forward; 2 straight or diagonally forward, only over a piece.',
 };
 
 /** One guide for both the dialog table and the hover card — reads live rules and POOL. */

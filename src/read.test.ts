@@ -228,3 +228,12 @@ it.each([
   const pos = fromFen(`7k/8/8/8/3${letter}4/8/8/K7 w - - 0 1`);
   expect(readText(pos, at('d4'))).toBe(words);
 });
+
+it.each(['over2', 'nearOver2', 'fwdNearOver2'] as const)('reads %s shots only over a piece', archerShots => {
+  setRules({ archerShots });
+  const pos = fromFen('7k/8/8/8/3A1p2/8/8/7K w - - 0 1');
+  expect(reachOf(pos, at('d4')).shot.has(at('f4'))).toBe(false);
+  pos.board[at('e4')] = 1;
+  expect(reachOf(pos, at('d4')).shot.has(at('f4'))).toBe(true);
+  expect(readText(pos, at('d4'))).toContain('only over a piece');
+});
