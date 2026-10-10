@@ -5,7 +5,7 @@
  */
 import type { SkillName } from './ai/skill';
 import type { Game, Side } from './game';
-import { KINGS, LETTERS, PLAIN_KINGS, moveNumber, type PieceType, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
+import { KINGS, LETTERS, NAMES, PLAIN_KINGS, moveNumber, type PieceType, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
 import { emblemArt, powerArt } from './power-motion';
 import { POWER_NAME, powerOptions } from './powers-ui';
 import { pieceIcon } from './piece-icons';
@@ -181,7 +181,10 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
     const code = draft.army === 'daily' ? randomBackRank(mulberry32(+new Date().toLocaleDateString('en-CA').replace(/-/g, '')))
       : draft.army === 'classic' ? CLASSIC_CHESS
       : /^[A-Z]{8}$/.test(draft.army) ? draft.army : [...new Set(POOL)].join('');
-    $('army-strip').innerHTML = [...code].map(p => pieceIcon(LETTERS.indexOf(p) as PieceType, draft.side)).join('');
+    $('army-strip').innerHTML = [...code].map(p => {
+      const type = LETTERS.indexOf(p) as PieceType;
+      return pieceIcon(type, draft.side) || `<span class="army-letter" title="${NAMES[type]}">${p}</span>`;
+    }).join('');
   }
 
   return {

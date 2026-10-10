@@ -331,6 +331,13 @@ try {
   assert.deepEqual(examples.map(o => +o.label.match(/Example army (\d+)/)[1]), examples.map((_, i) => i + 1), 'only example armies count, with no gaps');
   assert.equal(examples.filter(o => o.code.includes('C')).length, 3, 'three Catapult armies');
   assert.ok(examples.filter(o => o.code.includes('C')).every(o => o.label.includes('Catapult')), 'each Catapult army keeps its word mark');
+  await page.locator('#more-options').evaluate(el => { el.open = true; });
+  await page.locator('#other-armies').evaluate(el => { el.open = true; });
+  for (const example of examples.filter(o => o.code.includes('C'))) {
+    await page.selectOption('#army', example.code);
+    assert.equal(await page.locator('#army-strip > *').count(), 8, 'an eight-piece army has eight marks');
+    assert.equal(await page.locator('#army-strip [title=catapult]').innerText(), 'C', 'Catapult has a text mark');
+  }
   // The power buttons with their pictures: 44 px targets or more, labels whole and at 14 px.
   for (const b of await page.$$eval('#king-picker .power-choice button', bs => bs.map(b => {
     const r = b.getBoundingClientRect(), l = b.querySelector('.pm-label');

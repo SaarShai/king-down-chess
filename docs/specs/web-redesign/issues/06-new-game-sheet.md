@@ -61,3 +61,5 @@ All ten browser checks pass. W7 has 18 renders and zero faults.
 Both sheets get a visual check. No rules or plugin module changes.
 
 Item 10: decided by delegation (2026-10-09). Only example armies add to the number. The three Catapult armies keep Catapult in words. The browser checks both facts.
+
+Item 12: decided by delegation (2026-10-09). An army piece with no icon gets its letter in a round text mark. Each Catapult example shows eight marks, with C for Catapult. The new-game browser check covers all three examples.
