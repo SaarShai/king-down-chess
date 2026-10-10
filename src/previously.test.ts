@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { Game } from './game';
-import { P, R, G, type Move, setRules } from './rules/engine';
+import { P, R, G, A, O, type Move, setRules } from './rules/engine';
 import { fromFen } from './rules/setup';
 import { previouslyPlayback, previouslyTurn } from './previously';
 
@@ -14,36 +14,54 @@ function played(fen: string, moves: string[]): Game {
 }
 
 describe('Previously', () => {
-  it('names a Sacrifice without claiming that the pawn moved', () => {
+  it.each([[R, 'R', 'a rook'], [A, 'A', 'an archer'], [O, 'O', 'an ogre']])('names a Sacrifice for %s', (_, symbol, piece) => {
     setRules({ kings: [{ king: 'Stratus', power: 'Sacrifice' }, null] });
-    const game = played('4k3/8/8/8/8/8/P7/4K3 w - - 0 1 lR', ['!S:a2=R']);
-    expect(previouslyTurn(game.history, 1)?.line).toBe('they sacrificed a pawn, returning a rook.');
+    const game = played(`4k3/8/8/8/8/8/P7/4K3 w - - 0 1 l${symbol}`, [`!S:a2=${symbol}`]);
+    expect(previouslyTurn(game.history, 1)?.line).toBe(`they traded a pawn for ${piece}.`);
   });
 
   it.each([
     [{ from: 8, to: 8, captures: [], power: 'morph', promo: R }, 'their pawn became a rook.'],
     [{ from: 8, to: 8, captures: [], power: 'morphp', promo: 2 }, 'their pawn became a knight.'],
     [{ from: 8, to: 8, captures: [], power: 'ward' }, 'they shielded their pawn.'],
-    [{ from: 8, to: 8, captures: [], power: 'rescue' }, "they renewed the pawn's mark."],
+    [{ from: 8, to: 8, captures: [], power: 'rescue' }, 'they put the mark on the pawn again.'],
     [{ from: 16, to: 16, captures: [], power: 'salvation', drop: R }, 'their rook returned on a3.'],
     [{ from: 16, to: 16, captures: [], drop: G }, 'their guard entered on a3.'],
     [{ from: 16, to: 16, captures: [], power: 'spawn', drop: P }, 'their pawn entered on a3.'],
-    [{ from: 4, to: 4, captures: [], power: 'growth' }, 'their king used Growth.'],
+    [{ from: 4, to: 4, captures: [], power: 'growth' }, 'they drew a card with Growth.'],
     [{ from: 4, to: 4, captures: [], power: 'firewall' }, 'their king used Firewall.'],
     [{ from: 4, to: 4, captures: [] }, 'their king stayed on e1.'],
   ] as [Move, string][])('names a stationary act or entry: %j', (move, line) => {
     const turn = previouslyTurn([{ pos: fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'), move, lan: '' }], 1)!;
     expect(turn.line).toBe(line);
     expect(turn.detail).not.toMatch(/undefined| to (a2|e1)/);
-    expect(('Previously: ' + turn.line).split(/\s+/).length).toBeLessThanOrEqual(8);
+    expect(('Previously: ' + turn.line).split(/\s+/).length).toBeLessThanOrEqual(move.power === 'rescue' ? 9 : 8);
   });
 
   it('names Rescue when its mark is now on an empty square', () => {
     setRules({ hands: [['Rescue'], []], markFree: true });
     const game = played('4k3/8/8/8/8/8/P7/4K3 w - - 0 1 md6w0', ['!D:d6']);
     expect(previouslyTurn(game.history, 1)).toMatchObject({
-      line: "their king's side used Rescue.", detail: 'Rescue renews the mark on d6.',
+      line: 'they used Rescue.', detail: 'Rescue renews the mark on d6.',
     });
+  });
+
+  it.each([
+    [{ from: 8, to: 8, captures: [], power: 'morph', promo: A }, 'their pawn became an archer.', 'Pawn a2 becomes archer with Morph.'],
+    [{ from: 4, to: 4, captures: [], power: 'quake', pushes: [{ from: 8, to: 16 }] }, 'they pushed a pawn with Earth Quake.', 'Pushes pawn a2 to a3 with Earth Quake.'],
+    [{ from: 4, to: 4, captures: [], power: 'growthb' }, 'they drew a card with Growth.', 'King e1 uses Growth.'],
+    [{ from: 4, to: 4, captures: [], power: 'firestarter' }, 'their king used Fire Starter.', 'King e1 uses Fire Starter.'],
+    [{ from: 16, to: 16, captures: [], power: 'spawnk2', drop: P, drop2: 17 }, 'their pawn entered on a3.', 'Pawn enters on a3 and b3 with Spawn.'],
+  ] as [Move, string, string][])('uses player names and articles: %j', (move, line, detail) => {
+    const turn = previouslyTurn([{ pos: fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'), move, lan: '' }], 1)!;
+    expect(turn).toMatchObject({ line, detail });
+    expect(('Previously: ' + turn.line).split(/\s+/).length).toBeLessThanOrEqual(8);
+  });
+
+  it('uses an before a pushed ogre', () => {
+    const pos = fromFen('4k3/8/8/8/8/8/O7/4K3 w - - 0 1');
+    const move: Move = { from: 4, to: 4, captures: [], power: 'quake', pushes: [{ from: 8, to: 16 }] };
+    expect(previouslyTurn([{ pos, move, lan: '' }], 1)?.line).toBe('they pushed an ogre with Earth Quake.');
   });
 
   it('summarizes a link that starts with a held turn and a pass', () => {
@@ -101,6 +119,18 @@ describe('Previously', () => {
     expect(previouslyTurn(game.history, 1)).toMatchObject({ line: 'they froze your knight.', detail: 'Freeze on d5, then end turn.' });
   });
 
+  it.each(['rage', 'haste'] as const)('keeps %s on a stationary Archer take', power => {
+    const pos = fromFen('7k/8/8/8/3A1p2/8/8/K7 w - - 0 1');
+    const move: Move = { from: 27, to: 27, captures: [29], power };
+    expect(previouslyTurn([{ pos, move, lan: '' }], 1)?.detail).toBe(`Archer d4 shoots f4 with ${power === 'rage' ? 'Rage' : 'Haste'}.`);
+  });
+
+  it('keeps the Reaver landing square after a take', () => {
+    const pos = fromFen('7k/8/8/8/8/2p5/8/KV6 w - - 0 1');
+    const move: Move = { from: 1, to: 27, captures: [18] };
+    expect(previouslyTurn([{ pos, move, lan: '' }], 1)?.detail).toBe('Reaver b1 takes c3, to d4.');
+  });
+
   it('keeps both moves of the friend Rage turn', () => {
     setRules({ hands: [['Rage'], []], hasteCaptures: false });
     const game = played('4k3/8/p7/8/8/8/8/R3K2n w - - 0 1', ['Ra1xa6!A', 'Ra6-h6']);
@@ -120,6 +150,12 @@ describe('Previously', () => {
   it('names every bite in a long friend turn', () => {
     const game = played('7k/6p1/5p2/3pp3/2nS4/8/8/K7 b - - 0 1', ['Kh8-h7', 'Sd4xc4xd5xe5xf6']);
     expect(previouslyTurn(game.history, 1)?.detail).toBe('Beast d4 takes c4 and d5 and e5 and f6.');
+  });
+
+  it('keeps two Haste takes and a promotion', () => {
+    setRules({ kings: [{ king: 'Flame', power: 'Haste' }, null], hasteCaptures: true });
+    const game = played('k6q/6r1/5P2/8/8/8/8/K7 b - - 0 1', ['Ka8-a7', 'f6xg7!H', 'g7xh8=Q']);
+    expect(previouslyTurn(game.history, 1)?.detail).toBe('Pawn f6 takes g7 with Haste, then takes h8, becomes queen.');
   });
 
   it('keeps your whole Haste turn before the friend move', () => {

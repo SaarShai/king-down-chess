@@ -91,3 +91,13 @@ W11 adds a Haste turn with takes under the 2017 rules, where Haste can take.
 Item 3: decided by delegation (2026-10-09). Sacrifice names the pawn and returned piece. Stationary acts and entries name their piece. Each bite appears in the full detail. Text uses line-height 1.25. Detail hides when the fixed row has no room. W11 adds a four-bite turn at all three sizes. Unit and link-game checks pass.
 
 Item 3 also covers an empty Rescue mark and a pass-only link from a held turn. Each test uses a legal engine act. Rescue names the king's side when no target piece remains. The pass names the piece that stays. The summary has no blank name and the pass-only link does not throw.
+
+## Small repair
+
+Decision: decided by delegation (2026-10-09).
+Sacrifice uses traded and the correct article. Growth names the card draw.
+Rescue uses the requested plain sentence. Its full sentence has nine words with Previously; this one exact requested form has that cap. All other new summaries have eight words or fewer with Previously.
+Power and card names use the Guide names and plain card names. Code suffixes do not appear.
+Stationary Archer takes keep Rage or Haste. A Reaver take names its landing square.
+The new Haste promotion turn needs at least four lines at 320 by 568. The check requires a hidden whole detail row, a three-line height limit and full visible glyphs above Moves.
+Unit tests first fail for Sacrifice articles, new summaries, stationary powers and the Reaver landing. All text tests then pass.
