@@ -133,3 +133,16 @@ Evidence (S = `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/08f29
 - `SAMPLE=W14 node docs/specs/web-ux/capture.mjs` on `npm run build` and a preview server: 16 renders, 0 with a fault. Renders: `S/w14/<state>-desktop.png` and `S/w14/<state>-phone.png`; log `S/w14-capture.log`.
 - The build beside the mockup, at 1440 × 900 and 390 × 844, both served by a Vite dev server from the worktree: `S/build-<state>-<size>.png` beside `S/mock-<state>-<size>.png`, for `open`, `hero`, `archer`, `beast`, `maester`, `ogre`, `guard` and `phone-open`. The differences that stay are in the list above, or they are parts of later tickets (the Try board tag, Add a rule, the Try with tray, the plaque, the refused and chain marks, NEW, ⋯, and the Kings, Cards and Rules tabs).
 - The check's own screens at the six sizes: `S/check/<piece>-<width>x<height>.png`.
+
+### 2026-10-10: review of part 2
+
+Reviews:
+
+- Should-fix, `src/workshop/ground.ts:147`: a ledge slot opened with Enter or Space loses the keyboard focus, because `renderLedge` replaces each slot through `innerHTML`. **Confirmed.** A new part of the check's `keys` group focuses the Knight slot and presses Enter. Before the fix it failed: "the focus stays on the slot that Enter opens", with no slot in focus. **Fix:** the slot click handler gives the focus to the new open slot with `focus({ preventScroll: true })`. The option keeps the narrow layout on the board after `show()` scrolls to the top (the `layouts` group holds the board in view after each slot tap). The `keys` group now also holds Tab from the Knight slot to the Bishop slot, and Space on the Bishop slot, with the focus kept.
+
+Evidence (R = `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/08f2956c-63a7-4276-8738-a657bdb42b06/scratchpad/build/pg01-review`):
+
+- Before the fix: `npm run check:browser proving-ground` failed in `keys`. Logs: `R/check-red.log` and `R/pg-red.log`.
+- After the fix: `npm run check:browser proving-ground`, three runs: each "ok proving-ground" (9.9 to 10.0 s), "proving-ground: all groups pass". Logs: `R/check-pg-1.log` to `R/check-pg-3.log` and `R/pg-run-1.log` to `R/pg-run-3.log`.
+- `npm run check:browser workshop workshop-cast menu-extra home`: all 4 passed (65.8, 8.6, 12.3 and 7.8 s). Log: `R/check-old.log`.
+- `npm test` through the shared lock: 113 test files passed and 1 skipped, 1,856 tests passed and 21 skipped, the node tests 50 of 50, `exit 0`. Log: `R/npm-test-1.log`.

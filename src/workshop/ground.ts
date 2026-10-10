@@ -153,6 +153,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (!b) return;
     const d = shelf.find(x => x.id === b.dataset.design);
     show(d ? { key: `design:${d.id}`, d, yours: true } : pool(b.dataset.piece!));
+    // renderLedge replaced the slot: give the focus to its new copy, with no scroll away from the board.
+    q<HTMLElement>('.slot.open').focus({ preventScroll: true });
   });
 
   /** Opens `item` on the plinth and the board. On a short screen the narrow layout scrolls: go back to the top, to the board. */

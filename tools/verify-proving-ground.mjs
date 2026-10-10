@@ -2,7 +2,7 @@
 // Groups: opens (the menu door, ‹ Menu and Esc, the focus back on the menu), poolPieces (each pool piece opens;
 // the Pawn's and the Paladin's marks equal src/workshop/scene.test.ts), yours (the shelf designs in the ledge),
 // link (a design link opens read only; a bad code shows the toast), keys (one tab stop, the arrow keys, the square
-// labels), layouts (six sizes: no sideways scroll, the top bar and the board in view, no cut text, 44 px targets and
+// labels, Enter and Space on a ledge slot keep the focus), layouts (six sizes: no sideways scroll, the top bar and the board in view, no cut text, 44 px targets and
 // 24 px squares) and oldDefault (no ?workshop=a: the old Workshop opens).
 // Run it with `npm run check:browser proving-ground`.
 import assert from 'node:assert/strict';
@@ -143,6 +143,16 @@ async function keys() {
   assert.deepEqual(await p.$$eval('.sq[tabindex="0"]', s => s.map(b => b.dataset.sq)), ['a1'], 'the tab stop follows the arrows');
   await p.keyboard.press('Tab');
   assert.equal(await p.evaluate(() => document.activeElement?.classList.contains('sq')), false, 'Tab leaves the board');
+  const slot = () => p.evaluate(() => document.activeElement?.dataset.piece);
+  await p.focus('.slot[data-piece="knight"]');
+  await p.keyboard.press('Enter');
+  assert.equal(await name(p), 'Knight', 'Enter on a ledge slot opens its piece');
+  assert.equal(await slot(), 'knight', 'the focus stays on the slot that Enter opens');
+  await p.keyboard.press('Tab');
+  assert.equal(await slot(), 'bishop', 'Tab goes on to the next slot');
+  await p.keyboard.press('Space');
+  assert.equal(await name(p), 'Bishop', 'Space on a ledge slot opens its piece');
+  assert.equal(await slot(), 'bishop', 'the focus stays on the slot that Space opens');
   await p.context().close();
 }
 
