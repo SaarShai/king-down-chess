@@ -50,7 +50,8 @@ export function initTable(back: () => void): void {
 
 /**
  * What refresh() (screen/play.ts) shows beside the board, as plain values that it reads from the turn
- * state. renderTable builds the text and the html from them; refreshTable then reads some of it back.
+ * state. renderTable builds the text and the html from them, reads the snapshot at once and keeps no
+ * part of it (`pending`, `sides` and `marked` are the live arrays, not copies).
  */
 export interface TableSnapshot {
   /** The selected square, its piece type (0: none), and the chain squares clicked so far. */
@@ -80,14 +81,17 @@ export interface TableSnapshot {
   /** The key moments marked in the move list. */
   marked: readonly (KeyMoment & { text: string })[];
   /** The piece codes that each side took, up to the move shown. */
-  taken: [number[], number[]];
+  taken: readonly [readonly number[], readonly number[]];
   sides: readonly Side[]; linkSide: Color | null;
   undoOn: boolean;
   /** The side that Resign gives up now, or null while it is off. */
   resigner: Color | null;
 }
 
-/** The writes of refresh() outside the board. refresh() calls it, then refreshTable, once each. */
+/**
+ * Most writes of refresh() outside the board (not the info card or End turn, which read the turn core).
+ * refresh() calls it once; refreshTable runs later in the same refresh() and reads some of it back.
+ */
 export function renderTable(s: TableSnapshot): void {
   const { selected, selectedType, pending, canFinish, busy, thinking, notice, viewing, lesson, lessonDone, taken, sides, linkSide } = s;
   $('selection-actions').hidden = selected == null || busy;
@@ -135,7 +139,7 @@ export function renderTable(s: TableSnapshot): void {
   else moves.querySelector('.viewing')?.scrollIntoView({ block: 'nearest' });
   // Grouped icons in each piece's own colours (a paladin that removed itself is on its own side's line).
   // A screen reader and a pointer get the names: "pawn ×2, beast". A lab piece has no icon, only its name.
-  const names = (codes: number[]): string => {
+  const names = (codes: readonly number[]): string => {
     const count = new Map<number, number>(); // key: type * 2 + colour
     for (const p of codes) { const k = typeOf(p) * 2 + colorOf(p); count.set(k, (count.get(k) ?? 0) + 1); }
     return [...count].sort(([a], [b]) => a - b).map(([k, n]) => {
@@ -152,7 +156,7 @@ export function renderTable(s: TableSnapshot): void {
   $('share').hidden = sides[0] !== 'human' || sides[1] !== 'human' || s.history.length === 0 || lesson != null || linkSide != null || s.staged > 0;
   $('next-lesson').hidden = lesson == null || !lessonDone;
   $('return-game').hidden = lesson == null;
-  $('next-lesson').querySelector('.label')!.textContent = s.nextLesson ? `Next lesson: ${s.nextLesson}` : 'Start a game';
+  $('next-lesson').querySelector('.label')!.textContent = s.nextLesson != null ? `Next lesson: ${s.nextLesson}` : 'Start a game';
   $('show-me').hidden = lesson == null || lessonDone;
   $('show-me').setAttribute('aria-disabled', String(s.finished || busy || viewing != null || !s.myTurn));
 }
