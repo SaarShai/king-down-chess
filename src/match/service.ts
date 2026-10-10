@@ -179,6 +179,7 @@ export class GameService {
   actor = id(actor);
   const key = typeof tokenOrCode === 'string' ? tokenOrCode.trim() : '', token = /^[A-Za-z0-9_-]{43}$/.test(key), code = key.toUpperCase().replace(/[\s-]/g, '');
   if (!token && !/^[A-HJKMNP-Z2-9]{6}$/.test(code)) fail('INVALID_INPUT', 400, 'Invalid invitation');
+  if (!token) await this.store.codeTry(actor); // a 6-character code can be guessed; a 43-character token cannot
   const column = token ? 'token_hash' : 'code_hash', value = hash(token ? key : code), at = new Date();
   return this.store.transaction(async client => {
    const found = await client.query(`select game_id from public.game_invites where ${column}=$1`, [value]);

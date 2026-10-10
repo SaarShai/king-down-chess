@@ -13,8 +13,14 @@ import { consentConfig, renderConsent } from '../src/plugin/consent-config.ts';
 import { createPluginHandler } from '../src/plugin/http.ts';
 import { MatchService } from '../src/match/service.ts';
 import { PostgresMatchStore } from '../src/match/store.ts';
+import { createApiHandler, createInternalHandler, sessionVerifier } from '../src/api/http.ts';
+import { AccountService } from '../src/online/accounts.ts';
+import { SafetyService } from '../src/online/safety.ts';
+import { resendSender } from '../src/online/mail.ts';
 
-export async function configurePlugin(env = process.env, { localDev = false } = {}) {
+/** `sessionKeys` (a jose key set) lets a local check sign website sessions itself; never in production. */
+export async function configurePlugin(env = process.env, { localDev = false, sessionKeys } = {}) {
+  if (sessionKeys && !localDev) throw new Error('Test session keys require local development');
   const publicOrigin = pluginOrigin(env.KINGDOWN_PLUGIN_ORIGIN || (localDev ? 'http://127.0.0.1:3100' : ''));
   const connectionString = env.KINGDOWN_PLUGIN_DATABASE_URL;
   if (!connectionString) throw new Error('KINGDOWN_PLUGIN_DATABASE_URL is required');
@@ -45,12 +51,16 @@ export async function configurePlugin(env = process.env, { localDev = false } = 
   pool.on('error', error => { console.error('King Down database connection failed', diagnostic(error)); });
   try { await checkPluginDatabase(pool, config, auth?.resource); }
   catch (error) { await pool.end(); throw error; }
-  const mcp = createPluginHandler({ consent, service: new MatchService(new PostgresMatchStore(pool)), publicOrigin, resourceHtml, auth, localDev });
-  // One function serves every server path of kingdown.dev. Tickets 08 (the website API, /api/*) and
-  // 06 (the jobs, /internal/*) add their handlers here; until then both answer 404.
+  const store = new PostgresMatchStore(pool), service = new MatchService(store), games = service.games;
+  const mcp = createPluginHandler({ consent, service, publicOrigin, resourceHtml, auth, localDev });
+  // The website signs in with Supabase Auth; without SUPABASE_URL, /api answers 503.
+  const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), publicOrigin, verify: env.SUPABASE_URL ? sessionVerifier(env.SUPABASE_URL, sessionKeys) : undefined });
+  const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET, sender: () => resendSender(env) });
+  // One function serves every server path of kingdown.dev: the website API, the jobs, then MCP and its OAuth pages.
   const handler = async (req, res) => {
     const path = req.url?.startsWith('/') && URL.canParse(req.url, publicOrigin) ? new URL(req.url, publicOrigin).pathname : '';
-    if (/^\/(api|internal)(\/|$)/.test(path)) { res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ error: 'Not found' })); return; }
+    if (/^\/api(\/|$)/.test(path)) return api(req, res);
+    if (/^\/internal(\/|$)/.test(path)) return internal(req, res);
     await mcp(req, res);
   };
   return { handler, pool, publicOrigin };

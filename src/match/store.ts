@@ -83,6 +83,14 @@ export class PostgresMatchStore {
    [row.token_hash, row.code_hash, row.game_id, row.seat, row.created_by, row.expires_at]);
   return result.rowCount === 1;
  }
+ /** Counts one short-code try, on its own commit so a refused join still counts: RATE_LIMITED after 10 in one hour
+  * (report part 03, section 8.5). The row lock queues tries at once, so a burst cannot pass the limit. */
+ async codeTry(actor: string): Promise<void> {
+  const fresh = "t.window_start>now()-interval '1 hour'";
+  const { tries } = (await this.pool.query(`insert into public.invite_code_tries as t (user_id) values($1) on conflict (user_id) do update
+   set tries=case when ${fresh} then t.tries+1 else 1 end,window_start=case when ${fresh} then t.window_start else now() end returning tries`, [actor])).rows[0];
+  if (tries > 10) throw new MatchServiceError('RATE_LIMITED', 429, 'Too many invitation codes. Wait one hour, or use the invitation link.');
+ }
  /** A block either way refuses; so does the host's "who can challenge me" setting (nobody, or only people they follow). */
  async mayJoin(client: Client, host: string, joiner: string): Promise<boolean> {
   const result = await client.query(`select ${unblocked('$1', '$2')}
