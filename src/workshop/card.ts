@@ -6,20 +6,23 @@
 import { figureHtml, modelHtml } from './art';
 import { bandOf, type Verdict } from './judge';
 import { lookOf, lookWords } from './look';
-import { DIR, DIRS, empty, type Dir, type PieceDesign } from './model';
+import { DIR, DIRS, empty, type Dir, type Mark, type PieceDesign } from './model';
 import { describe, esc, pawns, ruleText } from './text';
 
 /** The ray from the piece through (x, y), or null when (x, y) is on none of the 8. */
 const rayOf = (x: number, y: number): Dir | null =>
   x && y && Math.abs(x) !== Math.abs(y) ? null : DIRS.find(d => DIR[d][0] === Math.sign(x) && DIR[d][1] === Math.sign(y)) ?? null;
 
+/** The legend mark of each square on the take grid (docs/specs/move-legend): take only, move or take, shot, move or shot. */
+const TAKES: Partial<Record<Mark, string>> = { take: ' c-take', both: ' c-both', shoot: ' c-shoot', moveShoot: ' c-moveshot' };
+
 /** The mark classes of the square (x, y) on the move grid or the take grid ('shoot' is the take grid of a shooter):
- * the light or dark square, the move, take or shot mark, and the slide line with its arrow on the edge. */
+ * the light or dark square, the legend mark (c-move on the move grid; on the take grid the mark of TAKES), and the
+ * slide line with its arrow on the edge. */
 export function cellMarks(d: Pick<PieceDesign, 'squares' | 'lines'>, grid: 'move' | 'take' | 'shoot', x: number, y: number): string {
   const s = d.squares.find(s => s.x === x && s.y === y), ray = rayOf(x, y), line = !!ray && d.lines.includes(ray);
-  const active = grid === 'move' ? s && ['move', 'both', 'moveShoot'].includes(s.mark) : s && ['take', 'both', 'shoot', 'moveShoot'].includes(s.mark);
-  const shot = s && ['shoot', 'moveShoot'].includes(s.mark);
-  return `${(x + y) & 1 ? ' dk' : ''}${active ? grid === 'move' ? ' c-move' : shot ? ' c-shoot' : ' c-take' : ''}${line ? ` ln ln-${ray}${Math.max(Math.abs(x), Math.abs(y)) === 3 ? ' ln-end' : ''}` : ''}`;
+  const mark = !s ? '' : grid !== 'move' ? TAKES[s.mark] ?? '' : ['move', 'both', 'moveShoot'].includes(s.mark) ? ' c-move' : '';
+  return `${(x + y) & 1 ? ' dk' : ''}${mark}${line ? ` ln ln-${ray}${Math.max(Math.abs(x), Math.abs(y)) === 3 ? ' ln-end' : ''}` : ''}`;
 }
 
 /** The words of the card for a screen reader: the look, the piece in words, the worth and its band. */
