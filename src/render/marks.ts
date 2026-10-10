@@ -153,8 +153,8 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
     for (const [i, sq] of (m.bites ?? []).entries()) {
       if (!inRow(sq)) continue;
       const b = box(sq), size = Math.min(k, 1.8), radius = s.ink?.biteRadius ?? 11 * size;
-      const x = s.ink ? b.x + TILE - radius + s.ink.biteInset : b.x + 18 * size;
-      const y = s.ink ? b.y + TILE - radius + s.ink.biteInset : b.y + 18 * size;
+      const x = s.ink ? b.x + TILE - radius - s.ink.biteInset : b.x + 18 * size;
+      const y = s.ink ? b.y + TILE - radius - s.ink.biteInset : b.y + 18 * size;
       ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU);
       ctx.fillStyle = '#ece7dd'; ctx.fill(); stroke2(ctx, '#706b63', 1.5);
       ctx.fillStyle = '#4b4741'; ctx.font = `bold ${s.ink?.biteFont ?? 16 * size}px sans-serif`;

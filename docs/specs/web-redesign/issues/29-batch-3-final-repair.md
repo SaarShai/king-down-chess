@@ -37,7 +37,7 @@ The capture check also fixes the W6 computer sample's two random rolls and tests
 
 ## Visible changes from final3
 
-Every changed state is in the scratch report `b3-fix3-render-comparison.md`. The JSON report includes all 274 stills. Each changed or new still has an item number: 85 stills in total. Each other still is checked for no visible change.
+Every changed state is in the scratch report `b3-fix3-render-comparison.md`. The JSON report includes all 274 stills. Each changed or new still has an item number. Each other still is checked for no visible change.
 
 | Unit/state and size | Visible change | Item |
 | --- | --- | --- |

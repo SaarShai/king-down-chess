@@ -73,4 +73,4 @@ Item 5: decided by delegation (2026-10-09). Bite digits use 14 CSS px lining typ
 Item 11: decided by delegation (2026-10-09). Web bite badges use an 8 px radius on phones. The plugin keeps its old default. The font check rejects the body font. Bold digit records stay separate from rank labels; each measured digit is bold. Unit and verb-marks checks pass.
 
 Small repair item 5: decided by delegation (2026-10-09).
-Phone bite badges return to radius 7 CSS px. Their centres move 2 CSS px toward the corner. The bold digits keep their size. The plugin default values stay fixed. Compare the W4 two-bite and four-bite stills with final3 and final4.
+Web bite badges move at every size. Their radius is 7 CSS px on phones. Each centre sits one radius plus 1 CSS px inside the tile corner. The bold digits keep their size. The plugin default values stay fixed. Compare the W4 two-bite and four-bite stills with final3 and final4.

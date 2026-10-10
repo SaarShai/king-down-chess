@@ -28,9 +28,10 @@ export function previouslyTurn(history: Readonly<Game['history']>, side: Color):
   const friend = history.slice(from).reverse(), lastAct = friend.find(h => !h.move.pass) ?? friend[0];
   const main = friend.find(h => h.move.captures.length) ?? lastAct;
   const { pos, move } = main, name = NAMES[move.drop ?? typeOf(pos.board[move.from])];
+  const takes = friend.reduce((count, ply) => count + ply.move.captures.length, 0);
   const victim = (sq: number) => NAMES[typeOf(pos.board[sq])];
   const summary = move.pass ? `their ${name} stayed; the turn ended.` : move.captures.length
-    ? `their ${name} ${typeOf(pos.board[move.from]) === A && move.from === move.to ? 'shot' : 'took'} ${move.captures.length > 1 ? `${move.captures.length} pieces` : `your ${victim(move.captures[0])}`}.`
+    ? `their ${name} ${typeOf(pos.board[move.from]) === A && move.from === move.to ? 'shot' : 'took'} ${takes > 1 ? `${takes} pieces` : `your ${victim(move.captures[0])}`}.`
     : move.power === 'sacrifice' ? `they traded a pawn for ${article(NAMES[move.promo!])}.`
     : move.drop ? `their ${name} ${move.power === 'salvation' ? 'returned' : 'entered'} on ${sqName(move.to)}.`
     : move.shove ? `their ${name} shoved your ${victim(move.shove.from)}.`
@@ -38,7 +39,7 @@ export function previouslyTurn(history: Readonly<Game['history']>, side: Color):
     : move.power === 'freeze' ? `they froze your ${victim(move.to)}.`
     : move.power === 'ward' ? `they shielded their ${victim(move.to)}.`
     : move.promo && move.from === move.to ? `their ${name} became ${article(NAMES[move.promo])}.`
-    : move.power === 'rescue' ? name ? `they put the mark on the ${name} again.` : `they used Rescue.`
+    : move.power === 'rescue' ? name ? `they marked the ${name} again.` : `they used Rescue.`
     : move.pushes ? `they pushed ${article(victim(move.pushes[0].from))} with ${powerName(move.power!)}.`
     : move.power === 'growth' || move.power === 'growthb' ? `they drew a card with Growth.`
     : move.from === move.to ? `their ${name} ${move.power ? `used ${powerName(move.power)}` : `stayed on ${sqName(move.to)}`}.`
@@ -65,7 +66,7 @@ function compactPly(pos: Position, m: Move, continued: boolean): string {
     : m.power === 'sacrifice' ? `Sacrifice on ${sqName(m.from)} for ${NAMES[m.promo!]}`
     : m.drop ? `${name} ${m.power === 'salvation' ? 'returns' : 'enters'} on ${sqName(m.to)}${m.drop2 !== undefined ? ` and ${sqName(m.drop2)}` : ''}`
     : m.promo && m.from === m.to ? `${subject}becomes ${NAMES[m.promo]}`
-    : m.power === 'rescue' ? `${name ? `renews the ${name}'s mark` : 'Rescue renews the mark'} on ${sqName(m.to)}`
+    : m.power === 'rescue' ? `${name || 'Rescue'} puts the mark on ${sqName(m.to)} again`
     : m.pushes ? `pushes ${m.pushes.map(p => `${NAMES[typeOf(pos.board[p.from])]} ${sqName(p.from)} to ${sqName(p.to)}`).join(' and ')}`
     : m.from === m.to && !m.captures.length ? `${subject}${m.power ? `uses ${powerName(m.power)}` : 'stays'}`
     : m.swap ? `${subject}swaps with ${sqName(m.to)}`
