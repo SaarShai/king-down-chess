@@ -32,18 +32,20 @@ const remoteMain = (repo: Repo) => repo.run('git', ['rev-parse', 'main'], { cwd:
 const worktrees = (repo: Repo) => repo.git('worktree', 'list').stdout.trim().split('\n').length;
 
 describe('push-main.sh', { timeout: 60_000 }, () => {
-  it('pushes the commit of main from a clean worktree while another edit sits in the checkout', () => {
+  it('pushes the tip of main from a clean worktree while another edit sits in the checkout, from any worktree', () => {
     const repo = setup();
     const sha = repo.git('rev-parse', 'HEAD').stdout.trim();
     repo.write('notes.md', 'three\n'); // another session's uncommitted edit
+    const side = join(repo.root, 'side'); // a worktree of another branch: the default is still main's tip
+    repo.git('worktree', 'add', '-q', '-b', 'side', side, 'HEAD~1');
     const direct = repo.git('push', 'origin', 'main');
     expect(direct.status).not.toBe(0);
     expect(direct.stderr).toContain('differ from HEAD');
     expect(direct.stderr).toContain('tools/push-main.sh');
-    const run = repo.run('bash', [script]);
+    const run = repo.run('bash', [script], { cwd: side });
     expect(run.status, run.stderr).toBe(0);
     expect(remoteMain(repo)).toBe(sha);
-    expect(worktrees(repo)).toBe(1);
+    expect(worktrees(repo)).toBe(2);
     expect(repo.read('notes.md')).toBe('three\n');
   });
 

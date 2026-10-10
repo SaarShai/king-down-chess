@@ -1,7 +1,7 @@
 #!/bin/bash
 # push-main: push a commit of main to origin from a clean detached worktree. Bash 3.2 and BSD tools.
 #
-#   tools/push-main.sh [--dry-run] [<commit>]    (default: HEAD)
+#   tools/push-main.sh [--dry-run] [<commit>]    (default: the tip of the local main branch)
 #
 # --dry-run does everything but the send: the hook still runs npm test and the gate in the worktree.
 #
@@ -9,7 +9,8 @@
 # run on the commit that goes out. When another session's uncommitted edits sit in the main checkout,
 # this script checks the commit out in a worktree under the system's temporary folder, links the
 # packages, pushes from there (the hook runs its tests in that worktree) and removes the worktree.
-# The commit must be on the local main branch; a branch goes out from its own worktree.
+# The commit must be on the local main branch; a branch goes out from its own worktree. The default
+# is the branch tip, not HEAD, so the script does the same from any worktree of the repository.
 set -eu
 
 die() { echo "push-main: $*" >&2; exit 1; }
@@ -19,7 +20,7 @@ if [ "${1:-}" = --dry-run ]; then dry=--dry-run; shift; fi
 [ $# -le 1 ] || die "usage: tools/push-main.sh [--dry-run] [<commit>]"
 common=$(git rev-parse --path-format=absolute --git-common-dir) || die "not in a git repository"
 main=$(dirname "$common")
-sha=$(git rev-parse --verify -q "${1:-HEAD}^{commit}") || die "${1:-HEAD} is not a commit"
+sha=$(git rev-parse --verify -q "${1:-refs/heads/main}^{commit}") || die "${1:-main} is not a commit"
 git merge-base --is-ancestor "$sha" refs/heads/main || die "$sha is not on the local main branch"
 
 parent=$(mktemp -d "${TMPDIR:-/tmp}/kingdown-push.XXXXXX")
