@@ -29,7 +29,7 @@ suite('migrations run again on a database in use', () => {
    expect(await rows(`select confrelid::regclass::text as target from pg_constraint where conrelid='public.plugin_boards'::regclass and conname='plugin_boards_match_id_fkey'`)).toEqual([{ target: 'games' }]);
    // 0005 owns the profile grants and the sign-up rule (no provider name or photo); 0008 owns the deletion (a 7-day grace).
    expect((await rows(`select column_name from information_schema.column_privileges where grantee='authenticated' and table_name='profiles' and privilege_type='SELECT' order by column_name`)).map(row => row.column_name))
-    .toEqual(['avatar_url', 'display_name', 'handle', 'icon', 'id', 'rating']);
+    .toEqual(['handle', 'icon', 'id', 'rating']);
    await admin.query(`insert into auth.users(id,raw_user_meta_data) values($1,'{"full_name":"Ada Lovelace","avatar_url":"https://avatars.githubusercontent.com/u/1"}')`, [users[1]]);
    expect(await rows('select display_name,avatar_url from public.profiles where id=$1', [users[1]])).toEqual([{ display_name: null, avatar_url: null }]);
    const client = await admin.connect();

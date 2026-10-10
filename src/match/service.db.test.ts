@@ -340,7 +340,7 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   for (const role of ['anon','authenticated']) for (const table of tables)
    expect((await rows('select has_table_privilege($1,$2,$3) as allowed',[role,`public.${table}`,'SELECT,INSERT,UPDATE,DELETE']))[0].allowed,`${role} ${table}`).toBe(false);
   const readable = await rows("select column_name from information_schema.column_privileges where grantee='authenticated' and table_name='profiles' and privilege_type='SELECT' order by column_name");
-  expect(readable.map(row => row.column_name)).toEqual(['avatar_url','display_name','handle','icon','id','rating']);
+  expect(readable.map(row => row.column_name)).toEqual(['handle','icon','id','rating']);
   expect((await rows("select relrowsecurity as rls from pg_class where oid='public.outbox'::regclass"))[0].rls).toBe(true);
  });
 

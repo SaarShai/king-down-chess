@@ -27,7 +27,10 @@ alter table public.profiles add constraint profiles_online_visible_to check (onl
 create unique index if not exists profiles_handle_key on public.profiles (handle);
 
 -- Other signed-in players see the public columns only; a player's own settings go through the server.
-grant select (id, display_name, avatar_url, rating, handle, icon) on public.profiles to authenticated;
+-- Not display_name or avatar_url: 0001 copied the provider's full name and photo into them, and a
+-- handle filter would link that name and photo to the handle that each opponent sees.
+revoke select (display_name, avatar_url) on public.profiles from authenticated;
+grant select (id, rating, handle, icon) on public.profiles to authenticated;
 
 -- No real-name default: a new profile no longer copies the provider's full name or photo.
 create or replace function public.handle_new_user() returns trigger

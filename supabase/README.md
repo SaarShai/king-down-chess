@@ -46,8 +46,9 @@ Not applied yet. Apply them in order, after 0001–0004, with a privileged conne
 `plugin-deploy/runtime-role.sql` to the existing runtime role. The migrations are safe to run again.
 
 - `0005_accounts_v2.sql`: handles, a preset icon and the privacy settings on `profiles`
-  (signed-in players read only `id`, `display_name`, `avatar_url`, `rating`, `handle` and `icon`);
-  `reserved_handles`; `account_deletions`. A new account no longer copies the provider's name or photo.
+  (signed-in players read only `id`, `rating`, `handle` and `icon`: no longer the name and photo
+  that 0001 copied from the provider); `reserved_handles`; `account_deletions`. A new account no
+  longer copies the provider's name or photo.
 - `0006_games.sql`: the game tables of both surfaces (`games`, `game_players`, `game_commands`,
   `game_invites`), `relations`, `reports`, `mod_actions`, `notifications`, `notification_prefs`,
   `alert_state` and `outbox`. RLS is on and the browser roles get nothing. A deleted account leaves
