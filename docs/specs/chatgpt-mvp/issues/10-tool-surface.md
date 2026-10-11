@@ -112,3 +112,10 @@ Page metadata keeps the CSP from ticket 09. `openai/ui` declares inline and full
 - Friend create and join require a handle.
 - Switch now permits a solo abort only when the actor's earlier waiting random game gets an opponent after the solo start and remains active. Ordinary late aborts remain blocked.
 - Check: 14 test files pass, with 246 tests and 50 art tests. The preview and Switch now tests fail before the changes and pass after them.
+
+### Step 8
+
+- Open advertises the thread and global entrypoints. Each starts with `{}`.
+- The resource permits clipboard writes and offers inline and fullscreen display. Inline is the preferred mode. The CSP stays the same.
+- Each model tool starts its description with "Use this when". Open maps the play, join and profile phrases. Games maps the turn question.
+- Check: 3 server tests and 50 art tests pass. The new metadata test first fails on the missing entrypoints.

@@ -35,7 +35,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   const server = new McpServer({ name: 'kingdown', version: '1.0.0' });
   const origin = new URL(publicOrigin).origin;
   const { html, uri: boardResource } = boardPage(resourceHtml, origin);
-  registerAppResource(server, 'King Down board', boardResource, {}, async () => ({ contents: [{ uri: boardResource, mimeType: RESOURCE_MIME_TYPE, text: html, _meta: { ui: { domain: origin, csp: { resourceDomains: [origin], connectDomains: [] } }, 'openai/widgetCSP': { resource_domains: [origin], connect_domains: [] } } }] }));
+  registerAppResource(server, 'King Down board', boardResource, {}, async () => ({ contents: [{ uri: boardResource, mimeType: RESOURCE_MIME_TYPE, text: html, _meta: { ui: { domain: origin, permissions: { clipboardWrite: {} }, csp: { resourceDomains: [origin], connectDomains: [] } }, 'openai/widgetCSP': { resource_domains: [origin], connect_domains: [] }, 'openai/ui': { availableDisplayModes: ['inline', 'fullscreen'], preferredDisplayMode: 'inline' } } }] }));
   const gameId = z.string().uuid();
   const boardId = z.string().uuid().optional();
   const command = { game_id: gameId, command_id: z.string().min(1).max(200), expected_revision: z.number().int().min(0).max(MAX_REVISION) };
@@ -82,7 +82,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   const optional = { game_id: gameId, command_id: command.command_id.optional(), expected_revision: command.expected_revision.optional() };
 
   register('kingdown_open', 'Use this when the player says "play King Down", wants to open a game, says "join King Down game K7QX2M", or says "show my King Down profile". Use code to preview a join; use screen "profile" for the profile page. Opens home with no new game; game_id or "next" selects a game.',
-    { screen: z.enum(['home', 'play', 'board', 'profile']).optional(), game_id: z.union([gameId, z.literal('next')]).optional(), code: z.string().min(1).max(300).optional() }, { visibility: ['model', 'app'], idempotent: false }, async args => {
+    { screen: z.enum(['home', 'play', 'board', 'profile']).optional(), game_id: z.union([gameId, z.literal('next')]).optional(), code: z.string().min(1).max(300).optional() }, { visibility: ['model', 'app'], idempotent: false, meta: { 'openai/ui': { entrypoints: [{ type: 'thread' }, { type: 'global' }] } } }, async args => {
       const preview = args.code ? await service.preview(actorId, args.code) : undefined;
       const view = preview ? null : args.game_id === 'next' ? await next() : args.game_id ? await service.view(actorId, args.game_id) : null;
       const board = await service.openBoard(actorId, view?.game_id);
