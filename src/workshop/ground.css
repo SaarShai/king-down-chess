@@ -291,6 +291,38 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .tok .fig { position: relative; z-index: 1; height: 50px; margin-bottom: -4px; filter: var(--rim) drop-shadow(0 3px 2px rgba(29, 25, 21, 0.25)); }
 .tok .base { width: 46px; height: 10px; border-radius: 2px; background: linear-gradient(180deg, var(--stone-300), var(--stone-500)); box-shadow: 0 2px 0 var(--stone-700), 0 5px 6px -2px rgba(29, 25, 21, 0.4); }
 .tok[aria-pressed='true'] .base { box-shadow: 0 0 0 2px var(--gold-bright), 0 2px 0 var(--stone-700); }
+/* The kings (ticket 13): an open king's power lines in place of the brushes (:219-224), the King socket and its coins, SEAT A
+   KING (:284-307), and the echo "=" (grammar.css:125, :140). The coin is the game's (src/style.css .coin). */
+.pg-brushes.pg-powers { flex-direction: column; justify-content: flex-start; gap: 0; padding-top: 12px; }
+#workshop.pg .pline { display: grid; grid-template-columns: 60px 1fr; gap: 6px 14px; align-items: start; width: 100%; padding: 10px 6px; border-radius: 8px; text-align: left; }
+#workshop.pg .pline + .pline { box-shadow: 0 -1px 0 rgba(43, 38, 33, 0.07); }
+@media (hover: hover) { #workshop.pg .pline:hover { background: rgba(255, 255, 255, 0.3); } }
+#workshop.pg .pline[aria-pressed='true'] { background: linear-gradient(90deg, rgba(233, 192, 113, 0.3), rgba(233, 192, 113, 0)); }
+.pline b { display: block; margin-bottom: 2px; font: 600 16px/1.2 var(--font-display); letter-spacing: 0.07em; text-transform: uppercase; }
+.pline .pt { font-size: var(--fs-sm); line-height: 1.3; }
+.pline .coin { width: 56px; height: 56px; }
+.pline .coin img { width: 44px; height: 44px; }
+#workshop.pg .coin { cursor: inherit; }
+.coin[data-state='echo'] { opacity: 0.5; }
+.coin .echo-eq { position: absolute; right: -4px; top: -4px; }
+.echo-eq { display: inline-grid; place-items: center; min-width: 18px; height: 16px; padding: 0 4px; border-radius: 99px; background: var(--vellum); border: 1px solid var(--stone-500); color: var(--ink-soft); font: 700 12px/1 var(--font-body); }
+.echo-note { margin: 0 0 10px; font: italic 13px/1.3 var(--font-body); color: var(--ink-soft); }
+.tok .sockc { width: 48px; height: 48px; margin-bottom: 4px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #ddcfb1, var(--parchment-deep)); box-shadow: inset 0 2px 5px rgba(29, 25, 21, 0.45), 0 1px 0 rgba(255, 255, 255, 0.7); }
+.tok .sockc img { width: 32px; height: 32px; opacity: 0.28; filter: grayscale(1); }
+#workshop.pg .pg-socket[aria-disabled='true'] { opacity: 0.6; cursor: default; }
+.pg-kingnote { align-self: center; max-width: 120px; font: italic 13px/1.3 var(--font-body); color: var(--ink-soft); }
+#workshop.pg .tok.kingseat { width: auto; height: 64px; display: flex; align-items: center; gap: 6px; }
+#workshop.pg .pg-kingfig { min-width: 44px; height: 64px; display: grid; justify-items: center; align-items: end; }
+.pg-kingfig img { height: 54px; filter: var(--rim); }
+.kingseat .coins { display: flex; gap: 6px; }
+#workshop.pg .pg-coin { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; }
+.pg-tray { position: relative; }
+.pg-tray .picker { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 30; width: 336px; max-width: calc(100vw - 32px); padding: 12px; background: var(--vellum); border-radius: var(--radius); box-shadow: var(--shadow-float); }
+.picker h4 { margin: 0 0 8px; font: 600 12.5px/1 var(--font-display); letter-spacing: 0.1em; color: var(--ink-soft); }
+.picker .row { display: flex; flex-wrap: wrap; gap: 8px; }
+#workshop.pg .picker button { min-width: 44px; min-height: 44px; padding: 2px; display: grid; justify-items: center; gap: 2px; font-size: 12px; color: var(--ink-soft); border-radius: 8px; }
+#workshop.pg .picker button[aria-pressed='true'] { box-shadow: inset 0 0 0 1.5px var(--gold-ink); }
+.picker img { height: 52px; filter: var(--rim); }
 .trow2 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
 #workshop.pg .trow2 > button { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--ink-soft); }
 @media (hover: hover) { #workshop.pg .trow2 > button:hover { background: rgba(43, 38, 33, 0.06); color: var(--ink); } }

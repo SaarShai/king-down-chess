@@ -20,13 +20,17 @@
 // card: My Paladin from Make a copy, with its 3 rules, on a device with no share: one Copy link), link-card (the Rook Rider
 // link opens its card face first), phone-link-card (a link to a piece with 3 rules: the longest card) and reach-popover (the
 // pointer on the Paladin in the ledge shows its reach; the phone has no popover). The state `link` opens that link on the board.
+// Ticket 13: kings (the Rook, then the Mud king from the Kings tab with Leap armed: his powers in the right column, Leap's marks on
+// the board; on the phone the board and the Kings tab), rook-leap (the Rook with the Mud king seated from the tray's King socket
+// and Leap armed), frost-power (the Paladin, the Frost king, Freeze armed and played on d7: frost with one turn, a spent notch,
+// the eye on) and echo (the Paladin with Leap armed: the coin shows "=", and the tray says that Leap adds nothing).
 // Ticket 09 renders open-pawn, paint, stamp-preview, why-d7 and tray also on a phone held sideways (landscape, 844 x 390): the
 // board on the left, the plinth strip, the brush row and the tray in one column, the shelf and the Why tag as side sheets, and the
 // pieces from the sheet that Pieces opens. The mockup has no landscape state.
 // Ticket 10 records painted (the first paint: the copy flies to Yours), stamped (the stamp) and moved (Move here) also as phone
 // videos with Motion Normal. In a video, each step's motion plays out (700 ms) before the next step.
 // Mockup states to set beside them: open, hero, hero-i1, hero-i2, hero-i3, archer, beast, beast-cancel, maester, ogre, guard,
-// phone-open, phone-hero, why-g7, paint, painted, stamp-preview, stamped, asleep-b4, awake-e2, rook-leap; for new-piece, the
+// phone-open, phone-hero, why-g7, paint, painted, stamp-preview, stamped, asleep-b4, awake-e2, rook-leap, kings, frost-power, echo; for new-piece, the
 // open state and a tap on NEW; for design-menu, painted and ⋯ (the phone's ⋯; the mockup's desktop has no ⋯); for the card
 // face, card-paladin and phone-card of mockup B (binder-and-table.html); for reach-popover, open with the pointer on the Paladin
 // (docs/research/rules-ui-2026-10-10/mockups/proving-ground.html?state=<id>, served, never file://).
@@ -127,6 +131,11 @@ const myPawnOn = (name, sq) => ({ ...state(name, 'pawn'), steps: async a => {
   await page.click(`.sq[data-sq="${sq}"]`);
 } });
 
+/** Ticket 13: the Kings tab opens king `k`; the King socket in the tray seats him; a coin arms his power (on the phone, in the Board tab). */
+const openKing = async (page, k) => { await ledge(page); await page.click('[data-tab="kings"]'); await page.click(`.slot[data-king="${k}"]`); };
+const seat = async (page, size, k) => { await tray(page, size === 'phone'); await page.click('.pg-socket'); await page.click(`[data-seat="${k}"]`); };
+const arm = async (page, size, p) => { await tray(page, size === 'phone'); await page.click(`.pg-tray [data-power="${p}"]`); };
+
 export default {
   states: [
     turned(state('open-pawn', 'pawn')),
@@ -142,6 +151,7 @@ export default {
       const phone = narrow(size);
       await page.evaluate(v => localStorage.setItem('kingdown.workshop', v), beastPiece);
       await pressMenu(page, 'Workshop');
+      await page.locator('#workshop.pg[open]').waitFor();
       await ledge(page);
       await page.click('.slot[data-design="mybeast"]');
       await page.locator('.slot[data-design="mybeast"][aria-current="true"]').waitFor({ state: 'attached' });
@@ -208,5 +218,21 @@ export default {
     { name: 'link-card', query: linkTo(rider), save, targets, controls, steps: async ({ page }) => { await page.locator('.pg-sheet[open] .pg-face').waitFor(); } },
     { name: 'phone-link-card', query: linkTo(lancer), save, targets, controls, steps: async ({ page }) => { await page.locator('.pg-sheet[open] .pg-face').waitFor(); } },
     { ...state('reach-popover', 'pawn'), steps: async ({ page, size }) => { await piece('pawn')({ page }); if (!narrow(size)) await page.hover('.slot[data-piece="paladin"]'); } },
+    { ...state('kings', 'rook'), steps: async ({ page, size }) => {
+      await piece('rook')({ page });
+      await openKing(page, 'Mud');
+      await arm(page, size, 'Leap');
+      if (size === 'phone') await page.click('[data-tab="kings"]');
+    } },
+    { ...state('rook-leap', 'rook'), steps: async ({ page, size }) => { await piece('rook')({ page }); await seat(page, size, 'Mud'); await arm(page, size, 'Leap'); } },
+    { ...state('frost-power', 'paladin'), steps: async ({ page, size }) => {
+      await piece('paladin')({ page });
+      await openKing(page, 'Frost');
+      await arm(page, size, 'Freeze');
+      await page.click('.sq[data-sq="d7"]');
+      await page.click('[data-act="threats"]');
+      if (size === 'phone') await page.click('[data-tab="kings"]');
+    } },
+    { ...state('echo', 'paladin'), steps: async ({ page, size }) => { await piece('paladin')({ page }); await seat(page, size, 'Mud'); await arm(page, size, 'Leap'); } },
   ],
 };
