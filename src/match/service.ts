@@ -1,10 +1,11 @@
 /** The one write path for online games (report part 03, section 5.2). Actor IDs come from verified identity, never from input. */
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import type { z } from 'zod';
-import { createMatch, loadMatch, MatchError, type MatchSetup, type MatchSnapshot } from './index';
-import { commandSchema, createSchema, type Command, type EndReason, type InboxEntry, type Invite, type Seat, type SeatAction, type Surface, type View } from './protocol';
+import { createMatch, loadMatch, MatchError, type MatchSnapshot } from './index';
+import { commandSchema, createSchema, type Command, type CreateOptions, type EndReason, type InboxEntry, type Invite, type Seat, type SeatAction, type Surface, type View } from './protocol';
 import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
 import { diagnostic } from '../plugin/diagnostics';
+import { buildSetup, defaultChoice, draw, seatChoicesNeeded } from './setup';
 export { MatchServiceError } from './store';
 
 const DAY = 86_400_000, FIRST_TURN_DAYS = 3, DRAW_OFFERS = 3, LIMIT = 1000; // LIMIT: the last revision that 0006 allows
@@ -20,7 +21,7 @@ const colour = (seat: Seat) => seat === 0 ? 'white' : 'black';
 const other = (seat: Seat) => (1 - seat) as Seat;
 /** The next revision of a game, for one change to edit. */
 function step(game: Game): Game { return { ...game, revision: game.revision + 1, players: [{ ...game.players[0] }, { ...game.players[1] }] }; }
-function actionOf(game: Game, seat: Seat): SeatAction { return game.status === 'playing' ? (game.turn === seat ? 'ready' : 'waiting') : game.status === 'waiting' ? 'waiting' : 'done'; }
+function actionOf(game: Game, seat: Seat): SeatAction { return game.status === 'playing' ? (game.turn === seat ? 'ready' : 'waiting') : game.status === 'setup' ? (game.players[seat].ready ? 'waiting' : 'ready') : game.status === 'waiting' ? 'waiting' : 'done'; }
 
 /** Refuses what the seat may not do now. True when a Daily deadline has passed: the game then ends on time instead. */
 function check(game: Game, seat: Seat, { expected_revision, action }: Command, at: Date): boolean {
@@ -41,7 +42,7 @@ function check(game: Game, seat: Seat, { expected_revision, action }: Command, a
  return false;
 }
 function end(game: Game, out: Outgoing, result: Game['result'], reason: EndReason, at: Date): void {
- Object.assign(game, { status: reason === 'abort' || reason === 'no_start' ? 'aborted' : 'finished', result, end_reason: reason, finished_at: at, moves: game.snapshot.history, draw_offer: null, deadline_at: null, deadline_kind: null });
+ Object.assign(game, { status: reason === 'abort' || reason === 'no_start' ? 'aborted' : 'finished', result, end_reason: reason, finished_at: at, moves: game.snapshot?.history ?? [], draw_offer: null, deadline_at: null, deadline_kind: null });
  out.outbox.push({ kind: 'game_finished', payload: { game_id: game.id, result, reason } });
 }
 /** A missed Daily deadline: no first turn cancels the game; a later turn loses on time. */
@@ -70,7 +71,7 @@ async function play(game: Game, mover: Seat, lans: string[] | 'computer', engine
  catch (error) { if (error instanceof MatchError && error.code === 'MATCH_INCOMPATIBLE') fail('MATCH_INCOMPATIBLE', 409, 'This saved game uses a different game version. Start a new game to continue playing.'); throw error; }
  try {
   const actions = lans === 'computer' ? [await match.chooseMove({ maxTimeMs: 250, maxDepth: 6 })] : lans;
-  let snapshot = game.snapshot;
+  let snapshot = game.snapshot!;
   for (const [index, lan] of actions.entries()) {
    // One command is one side's turn: an action after the turn passed is refused with the whole command.
    if (snapshot.status !== 'playing' || snapshot.turn !== mover) fail('INVALID_MOVE', 400, 'This move is no longer available. Reload and choose a move.');
@@ -87,29 +88,47 @@ async function play(game: Game, mover: Seat, lans: string[] | 'computer', engine
 export class GameService {
  constructor(readonly store: PostgresMatchStore) {}
  async create(actor: string, input: unknown): Promise<View> {
-  actor = id(actor); const options = parse(createSchema, input);
-  const speed = options.speed ?? (options.kind === 'friend' ? 'daily' : 'live');
-  if (options.days_per_move && speed !== 'daily' || options.kind === 'solo' && speed === 'daily') fail('INVALID_INPUT', 400, 'Daily games are friend games; days per move are for Daily games');
-  const seat: Seat = options.colour === 'white' ? 0 : options.colour === 'black' ? 1 : randomInt(2) as Seat, setup: MatchSetup = options.setup ?? {};
-  let snapshot: MatchSnapshot, state: string, match;
-  try { match = await createMatch(setup); snapshot = await match.snapshot(); state = await match.exportSave(); }
-  catch (error) {
-   if (error instanceof MatchError && /^(Malformed |Noncanonical FEN|Unsupported or malformed power state|Private card data unsupported)/.test(error.message)) fail('INVALID_INPUT', 400, 'Invalid game setup');
-   return fail('UNAVAILABLE', 503, 'The game worker is unavailable. Retry.');
-  } finally { await match?.close(); }
-  const at = new Date(), solo = options.kind === 'solo', days = speed === 'daily' ? options.days_per_move ?? 3 : null, powers = snapshot.rules.kings.some(Boolean);
-  const player = (s: Seat): Player => ({ seat: s, user_id: s === seat ? actor : null, computer: solo && s !== seat, handle_at_start: null, handle: null, power: snapshot.rules.kings[s]?.power ?? 'none',
+  actor = id(actor);
+  const game = await this.newGame(actor, parse(createSchema, input));
+  settle(game, game.created_at);
+  await this.store.insert(game);
+  return this.render(game, seatOf(game, actor), { rules: true });
+ }
+ private async newGame(actor: string, input: CreateOptions): Promise<Game> {
+  const speed = input.speed ?? (input.kind === 'solo' ? 'live' : 'daily'), options = input.options ?? null;
+  if (input.days_per_move && speed !== 'daily' || input.kind === 'solo' && speed === 'daily' || options && input.setup) fail('INVALID_INPUT', 400, 'Invalid game setup');
+  const seat: Seat = input.colour === 'black' ? 1 : input.colour === 'random' ? randomInt(2) as Seat : 0;
+  const at = new Date(), solo = input.kind === 'solo', days = speed === 'daily' ? input.days_per_move ?? 3 : null;
+  const drawn = options ? draw(options, () => Math.random()) : null, needs = options && Object.values(seatChoicesNeeded(options)).some(Boolean);
+  const player = (s: Seat): Player => ({ seat: s, user_id: s === seat ? actor : null, computer: solo && s !== seat, handle_at_start: null, handle: null, power: 'none',
+   choice: options ? defaultChoice(options, drawn!, s, Math.random, solo && s !== seat) : null, ready: !!options && (solo && s !== seat || !needs),
    action: 'waiting', turns_played: 0, draw_offers: 0, said: [], last_seen_at: s === seat ? at : null, last_surface: null, active: true, ended_at: null });
+  const powers = options?.kingPowers ?? false;
   const game: Game = {
-   id: randomUUID(), kind: options.kind, speed, days_per_move: days, category: `${speed}${days ? `-${days}d` : ''}/${powers ? 'powers' : 'no-powers'}/no-cards`,
-   readings: powers ? 'POWERS_BALANCED' : null, colour_rule: options.colour ?? 'random', engine_fingerprint: JSON.parse(state).engine, setup, rules: snapshot.rules,
-   status: solo ? 'playing' : 'waiting', result: null, end_reason: null, turn: snapshot.turn, revision: 0, draw_offer: null, state, snapshot,
-   deadline_at: null, deadline_kind: null, moves: null, created_by: actor, created_at: at, started_at: solo ? at : null, finished_at: null, updated_at: at,
+   id: randomUUID(), kind: input.kind, speed, days_per_move: days, category: `${speed}${days ? `-${days}d` : ''}/${powers ? 'powers' : 'no-powers'}/${options?.cards ? 'cards' : 'no-cards'}`,
+   readings: powers ? 'POWERS_BALANCED' : null, colour_rule: input.colour ?? 'white', engine_fingerprint: null, setup: input.setup ?? {}, rules: null,
+   options, draw: drawn?.army ?? null, deal: drawn?.hand ?? null, level: input.level ?? 'club', setup_deadline_at: null, rematch_offer: null, rematch_game_id: null,
+   status: solo ? needs ? 'setup' : 'playing' : 'waiting', result: null, end_reason: null, turn: 0, revision: 0, draw_offer: null, state: null, snapshot: null,
+   deadline_at: null, deadline_kind: null, moves: null, created_by: actor, created_at: at, started_at: null, finished_at: null, updated_at: at,
    players: [player(0), player(1)],
   };
-  settle(game, at);
-  await this.store.insert(game);
-  return this.render(game, seat, { rules: true });
+  if (!options || solo && !needs) await this.start(game, at);
+  return game;
+ }
+ private async start(game: Game, at: Date): Promise<void> {
+  if (game.options) game.setup = buildSetup(game.options, { army: game.draw!, hand: game.deal! }, [game.players[0].choice!, game.players[1].choice!]);
+  let match;
+  try {
+   match = await createMatch(game.setup);
+   const snapshot = await match.snapshot(), state = await match.exportSave(), powers = snapshot.rules.kings.some(Boolean);
+   Object.assign(game, { snapshot, state, rules: snapshot.rules, turn: snapshot.turn, engine_fingerprint: JSON.parse(state).engine, setup_deadline_at: null });
+   if (game.status !== 'waiting') Object.assign(game, { status: 'playing', started_at: at });
+   if (!game.options) Object.assign(game, { readings: powers ? 'POWERS_BALANCED' : null, category: `${game.speed}${game.days_per_move ? `-${game.days_per_move}d` : ''}/${powers ? 'powers' : 'no-powers'}/no-cards` });
+   for (const p of game.players) p.power = snapshot.rules.kings[p.seat]?.power ?? 'none';
+  } catch (error) {
+   if (error instanceof MatchError && /^(Malformed |Noncanonical FEN|Unsupported or malformed power state|Private card data unsupported)/.test(error.message)) fail('INVALID_INPUT', 400, 'Invalid game setup');
+   fail('UNAVAILABLE', 503, 'The game worker is unavailable. Retry.');
+  } finally { await match?.close(); }
  }
  /** Read-only: one seat's view. `since` returns the commands after that revision. */
  async view(actor: string, gameId: string, since?: number): Promise<View> {
@@ -236,13 +255,13 @@ export class GameService {
   const commands = await this.store.commands(game.id, since, client);
   return {
    game_id: game.id, revision: game.revision, seat, kind: game.kind, speed: game.speed, days_per_move: game.days_per_move, status: game.status, turn: game.turn, action: actionOf(game, seat),
-   fen: game.snapshot.fen, in_check: game.snapshot.inCheck, legal: playing && game.turn === seat ? game.snapshot.legal : [],
+   fen: game.snapshot?.fen ?? '', in_check: game.snapshot?.inCheck ?? false, legal: playing && game.turn === seat ? game.snapshot!.legal : [],
    last_commands: sees.presets ? commands : commands.map(entry => entry.seat === opponent.seat && entry.action.type === 'say' ? { ...entry, action: { type: 'hidden' as const } } : entry),
    opponent: game.status === 'waiting' && !opponent.user_id ? null : { handle: opponent.handle, computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online && opponent.last_seen_at ? now.getTime() - opponent.last_seen_at.getTime() : null },
    draw_offer: game.draw_offer,
    ...(game.end_reason && { result: { winner: game.result === 'white' ? 0 : game.result === 'black' ? 1 : null, reason: game.end_reason } }),
    deadline_at: game.deadline_at?.toISOString() ?? null, server_now: now.toISOString(),
-   ...(rules && { rules: game.rules }),
+   ...(rules && game.rules && { rules: game.rules }),
   };
  }
 }

@@ -5,6 +5,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { GameService } from './service';
 import { PostgresMatchStore } from './store';
+import { DEFAULT_OPTIONS } from './setup';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 
@@ -33,6 +34,22 @@ suite('game setup through PostgreSQL', () => {
   await withRoleLock(own.href, () => admin.query(`drop owned by ${role}; drop role ${role}`));
   await admin.end();
  });
+ it('stores validated options and waits for the player without an engine match', async () => {
+  const created = await service.create(a, { kind: 'solo', options: DEFAULT_OPTIONS, level: 'beginner' });
+  expect(created).toMatchObject({ status: 'setup', seat: 0, action: 'ready', legal: [] });
+  const row = (await admin.query('select options,draw,deal,level,state,snapshot,started_at from public.games where id=$1', [created.game_id])).rows[0];
+  expect(row).toMatchObject({ options: DEFAULT_OPTIONS, deal: [], level: 'beginner', state: null, snapshot: null, started_at: null });
+  expect(row.draw).toHaveLength(8);
+  expect((await admin.query('select seat,choice,ready from public.game_players where game_id=$1 order by seat', [created.game_id])).rows).toEqual([
+   { seat: 0, choice: { king: null, order: row.draw }, ready: false }, { seat: 1, choice: expect.objectContaining({ king: null }), ready: true },
+  ]);
+  await expect(service.create(a, { kind: 'solo', options: { ...DEFAULT_OPTIONS, pool: ['G'] } })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  await expect(service.create(a, { kind: 'solo', options: DEFAULT_OPTIONS, setup: { backRank: 'RNBQKBNR' } })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  const classic = await service.create(a, { kind: 'solo', options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true, cards: true } });
+  expect(classic).toMatchObject({ status: 'playing', seat: 0, action: 'ready', rules: { classicChess: true } });
+  expect(classic.rules?.hands[0]).toHaveLength(4);
+  expect(classic.rules?.hands[0]).toEqual(classic.rules?.hands[1]);
+ }, 30_000);
  it('adds repeatable setup columns and grants without changing a saved game', async () => {
   const game = await service.create(a, { kind: 'solo', colour: 'white' });
   const migration = await readFile(new URL('../../supabase/migrations/0010_game_setup.sql', import.meta.url), 'utf8');

@@ -1,15 +1,19 @@
 /** Server-only PostgreSQL I/O for online games; never import into a browser bundle. The service decides; this writes. */
 import type { Pool, PoolClient } from 'pg';
+import type { Options, Choice } from './setup';
+import type { SkillName } from '../ai/skill';
+import type { CardName } from '../rules/rules';
 import type { MatchSetup, MatchSnapshot, PublicMatchRules } from './index';
 import type { EndReason, ErrorCode, GameStatus, InboxEntry, LoggedCommand, Preset, Seat, SeatAction, Surface } from './protocol';
 export class MatchServiceError extends Error {
  constructor(public code: ErrorCode, public status: number, message: string) { super(message); this.name = 'MatchServiceError'; }
 }
-export interface Player { seat: Seat; user_id: string | null; computer: boolean; handle_at_start: string | null; /** current, from profiles */ handle: string | null; power: string; action: SeatAction; turns_played: number; draw_offers: number; said: Preset[]; last_seen_at: Date | null; last_surface: Surface | null; active: boolean; ended_at: Date | null }
+export interface Player { seat: Seat; user_id: string | null; computer: boolean; handle_at_start: string | null; /** current, from profiles */ handle: string | null; power: string; choice: Choice | null; ready: boolean; action: SeatAction; turns_played: number; draw_offers: number; said: Preset[]; last_seen_at: Date | null; last_surface: Surface | null; active: boolean; ended_at: Date | null }
 export interface Game {
- id: string; kind: 'solo' | 'friend'; speed: 'daily' | 'live'; days_per_move: 1 | 3 | 7 | null; category: string; readings: string | null; colour_rule: 'white' | 'black' | 'random';
- engine_fingerprint: string; setup: MatchSetup; rules: PublicMatchRules; status: GameStatus; result: 'white' | 'black' | 'draw' | null; end_reason: EndReason | null;
- turn: Seat; revision: number; draw_offer: Seat | null; /** the engine save; loaded only for engine work */ state?: string; snapshot: MatchSnapshot;
+ id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; days_per_move: 1 | 3 | 7 | null; category: string; readings: string | null; colour_rule: 'white' | 'black' | 'random';
+ options: Options | null; draw: string | null; deal: CardName[] | null; level: SkillName; setup_deadline_at: Date | null; rematch_offer: Seat | null; rematch_game_id: string | null;
+ engine_fingerprint: string | null; setup: MatchSetup; rules: PublicMatchRules | null; status: GameStatus; result: 'white' | 'black' | 'draw' | null; end_reason: EndReason | null;
+ turn: Seat; revision: number; draw_offer: Seat | null; /** the engine save; loaded only for engine work */ state?: string | null; snapshot: MatchSnapshot | null;
  deadline_at: Date | null; deadline_kind: 'first_turn' | 'move' | null; moves: string[] | null; created_by: string | null;
  created_at: Date; started_at: Date | null; finished_at: Date | null; updated_at: Date; players: [Player, Player];
 }
@@ -17,8 +21,8 @@ export interface Game {
 export interface Log { seat: Seat | null; actor_id: string | null; command_id: string | null; kind: string; payload: object; actions: string[] | null; surface: Surface | null; received_at: Date }
 export interface Outgoing { notify: { user_id: string; kind: string; payload: object }[]; outbox: { kind: string; payload: object }[] }
 type Client = Pool | PoolClient;
-const GAME = 'id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,result,end_reason,turn,revision,draw_offer,snapshot,deadline_at,deadline_kind,moves,created_by,created_at,started_at,finished_at,updated_at';
-const PLAYER = 'p.seat,p.user_id,p.computer,p.handle_at_start,pr.handle,p.power,p.action,p.turns_played,p.draw_offers,p.said,p.last_seen_at,p.last_surface,p.active,p.ended_at';
+const GAME = 'id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,result,end_reason,turn,revision,draw_offer,snapshot,deadline_at,deadline_kind,moves,created_by,created_at,started_at,finished_at,updated_at,options,draw,deal,level,setup_deadline_at,rematch_offer,rematch_game_id';
+const PLAYER = 'p.seat,p.user_id,p.computer,p.handle_at_start,pr.handle,p.power,p.choice,p.ready,p.action,p.turns_played,p.draw_offers,p.said,p.last_seen_at,p.last_surface,p.active,p.ended_at';
 /** SQL: no block either way between users `a` and `b`. */
 const unblocked = (a: string, b: string) => `not exists(select from public.relations where kind='block' and ((user_id=${a} and other_id=${b}) or (user_id=${b} and other_id=${a})))`;
 /** SQL: `viewer` may see when `other` was last seen (their "who sees that I am online", given in `setting`). */
@@ -42,11 +46,11 @@ export class PostgresMatchStore {
  }
  async insert(game: Game): Promise<void> {
   await this.transaction(async client => {
-   await client.query(`insert into public.games(id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,turn,revision,state,snapshot,created_by,created_at,started_at,updated_at)
-    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$17)`,
-    [game.id, game.kind, game.speed, game.days_per_move, game.category, game.readings, game.colour_rule, game.engine_fingerprint, game.setup, game.rules, game.status, game.turn, game.revision, game.state, game.snapshot, game.created_by, game.created_at, game.started_at]);
-   for (const p of game.players) await client.query(`insert into public.game_players(game_id,seat,user_id,computer,handle_at_start,power,action,last_seen_at)
-    values($1,$2,$3,$4,(select handle from public.profiles where id=$3),$5,$6,$7)`, [game.id, p.seat, p.user_id, p.computer, p.power, p.action, p.last_seen_at]);
+   await client.query(`insert into public.games(id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,turn,revision,state,snapshot,created_by,created_at,started_at,updated_at,options,draw,deal,level,setup_deadline_at)
+    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$17,$19,$20,$21,$22,$23)`,
+    [game.id, game.kind, game.speed, game.days_per_move, game.category, game.readings, game.colour_rule, game.engine_fingerprint, game.setup, game.rules, game.status, game.turn, game.revision, game.state, game.snapshot, game.created_by, game.created_at, game.started_at, game.options, game.draw, game.deal === null ? null : JSON.stringify(game.deal), game.level, game.setup_deadline_at]);
+   for (const p of game.players) await client.query(`insert into public.game_players(game_id,seat,user_id,computer,handle_at_start,power,action,last_seen_at,choice,ready)
+    values($1,$2,$3,$4,(select handle from public.profiles where id=$3),$5,$6,$7,$8,$9)`, [game.id, p.seat, p.user_id, p.computer, p.power, p.action, p.last_seen_at, p.choice, p.ready]);
   });
  }
  /** Writes `next` (revision = before + 1), its log row and its alerts. State and snapshot are written only when they changed. */

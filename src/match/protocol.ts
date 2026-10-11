@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import type { PublicMatchRules } from './index';
 import type { Status } from '../rules/engine';
+import { optionsSchema } from './setup-schema';
 
 export type Seat = 0 | 1;
 export type Surface = 'web' | 'chatgpt';
@@ -25,10 +26,12 @@ export const actionSchema = z.discriminatedUnion('type', [
 /** `command_id` is the client's ID (a UUID); a retry sends the same ID and gets the same result. */
 export const commandSchema = z.strictObject({ command_id: text(200), expected_revision: z.number().int().min(0).max(1000), action: actionSchema });
 export const createSchema = z.strictObject({
-  kind: z.enum(['solo', 'friend']),
+  kind: z.enum(['solo', 'friend', 'random']),
+  options: optionsSchema.optional(),
+  level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(),
   speed: z.enum(['daily', 'live']).optional(),      // default: daily for friend games, live for solo games
   days_per_move: z.union([z.literal(1), z.literal(3), z.literal(7)]).optional(), // Daily only; default 3
-  colour: z.enum(['white', 'black', 'random']).optional(), // default random
+  colour: z.enum(['white', 'black', 'random']).optional(), // default White
   // The engine worker validates the content; this only bounds the shape.
   setup: z.strictObject({ backRank: z.string().max(8).optional(), fen: z.string().max(4096).optional(), preset: z.enum(['current', '2017', '2021']).optional(), kings: z.string().max(100).optional() }).optional(),
 });
@@ -41,7 +44,7 @@ export type ErrorCode = 'INVALID_INPUT' | 'NOT_FOUND' | 'FORBIDDEN' | 'WAITING' 
   | 'RATE_LIMITED' | 'UNAUTHENTICATED';
 export type Reply = { type: 'ack'; command_id: string; revision: number; view: View } | { type: 'reject'; command_id: string; code: ErrorCode; message: string };
 
-export type GameStatus = 'waiting' | 'playing' | 'finished' | 'aborted';
+export type GameStatus = 'waiting' | 'setup' | 'playing' | 'finished' | 'aborted';
 export type EndReason = Exclude<Status, 'playing'> | 'resignation' | 'agreement' | 'timeout' | 'abort' | 'no_start';
 /** Who must act: ready (your turn), waiting, or done (the game ended). Every list, badge and alert reads it. */
 export type SeatAction = 'waiting' | 'ready' | 'done';
@@ -60,7 +63,7 @@ export interface View {
   game_id: string;
   revision: number;
   seat: Seat;
-  kind: 'solo' | 'friend';
+  kind: 'solo' | 'friend' | 'random';
   speed: 'daily' | 'live';
   days_per_move: 1 | 3 | 7 | null;
   status: GameStatus;
@@ -82,6 +85,6 @@ export interface View {
   rules?: PublicMatchRules;
 }
 /** One line of "Your games": your turn first, then the nearest deadline. */
-export interface InboxEntry { game_id: string; kind: 'solo' | 'friend'; speed: 'daily' | 'live'; status: 'waiting' | 'playing'; seat: Seat; action: SeatAction; turn: Seat; revision: number; deadline_at: string | null; opponent: Opponent | null; updated_at: string }
+export interface InboxEntry { game_id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; status: 'waiting' | 'setup' | 'playing'; seat: Seat; action: SeatAction; turn: Seat; revision: number; deadline_at: string | null; opponent: Opponent | null; updated_at: string }
 /** The link token (43 characters) and the short code (6 characters) open the same seat. */
 export interface Invite { token: string; code: string; expires_at: string }
