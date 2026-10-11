@@ -1,6 +1,6 @@
 // The Workshop: the Proving Ground (docs/WORKSHOP.md; docs/specs/workshop-proving-ground, tickets 01 to 11).
 // Groups: opens (the menu door, ‹ Menu and Esc, the focus back on the menu), poolPieces (each pool piece opens;
-// the Pawn's and the Paladin's marks equal src/workshop/scene.test.ts), yours (the shelf designs in the ledge),
+// the Pawn's and the Paladin's marks equal src/workshop/scene.test.ts), yours (the shelf designs in the ledge; a damaged entry's toast),
 // link (a design link opens read only; a bad code shows the toast and no card face), keys (one tab stop, the arrow keys, the square
 // labels, Enter and Space on a ledge slot keep the focus), refused (grey barred marks and their stamps), isolate (hover, a tap and
 // Esc; the phone's stamps), knots (gold and cracked; a tap on each of three knots and the desktop toast), layouts (eight sizes: no sideways scroll, the
@@ -12,7 +12,7 @@
 // firstCopy (the first paint makes "My Pawn" in Yours; a reload keeps it; the pool Pawn stays), undo (the scope, Ctrl or
 // Cmd+Z, nothing under a sheet, a refused delete, back before the first edit), saveAlerts (a full shelf, a storage that
 // throws, Copy link), shareLink (Share by the Enter key, then Copy link; the copied ?design= link, unchanged, opens the same design; a
-// refused clipboard opens the copy sheet) and weigh (the words; on the phone, ⋯ by the keys gives the focus back to ⋯);
+// refused clipboard opens the copy sheet; fix 27: a press in it released on the backdrop keeps it, a tap there closes it) and weigh (the words; on the phone, ⋯ by the keys gives the focus back to ⋯);
 // then the rules of ticket 03: shelf (S, Esc, Tab skips what the shelf covers, the groups, ✓ and dim seals, the preview,
 // Stamp; the phone's bottom sheet), threeOfThree (the Add row, the dotted rows, the limit words), pill (no two 44 px buttons
 // of the lines overlap, the row, the arrows, the preview, Esc, Enter, a refused choice), whenChip (the When choices, More
@@ -215,8 +215,9 @@ async function poolPieces() {
 }
 
 async function yours() {
-  const p = await open('', { shelf: SHELF });
+  const p = await open('', { shelf: SHELF.replace(/]}$/, ',{"id":"damaged","y":4}]}') });
   await door(p);
+  assert.equal(await toast(p), '1 saved entry could not be read. It stays on this device; the other designs work.', 'a damaged entry: the toast tells that it stays');
   assert.equal(await p.locator('.lhead').textContent(), 'Yours', 'the shelf designs follow a Yours divider');
   assert.deepEqual(await p.$$eval('.slot[data-design]', s => s.map(b => b.dataset.design)), ['golden-a', 'golden-b'], 'the ledge holds the shelf designs');
   await p.click('.slot[data-design="golden-a"]');
@@ -754,6 +755,15 @@ async function shareLink() {
   await p.locator(`${SHEET} textarea`).waitFor();
   assert.equal(await p.locator(`${SHEET} h2`).textContent(), 'Copy this', 'a refused clipboard opens the copy sheet');
   assert.equal(await p.locator(`${SHEET} textarea`).inputValue(), link.href, 'the sheet holds the link');
+  // Fix 27: a press in the sheet released on the backdrop keeps it open; a tap on the backdrop closes it.
+  const box = await p.locator(SHEET).boundingBox(), out = [box.x + box.width / 2, Math.max(2, box.y - 12)];
+  await p.mouse.move(box.x + box.width / 2, box.y + 6);
+  await p.mouse.down();
+  await p.mouse.move(...out, { steps: 4 });
+  await p.mouse.up();
+  assert.equal(await p.locator(SHEET).count(), 1, 'fix 27: a press in the sheet released on the backdrop keeps it open');
+  await p.mouse.click(...out);
+  assert.equal(await p.locator(SHEET).count(), 0, 'fix 27: a tap on the backdrop closes the sheet');
   await p.context().close();
   // The copied link, unchanged, opens the same design with the same marks.
   const q = await open(link.href);

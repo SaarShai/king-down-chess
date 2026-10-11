@@ -1407,7 +1407,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   }
 
   return {
-    open: () => enter(cur),
+    open(): void {
+      enter(cur);
+      const { bad } = loadShelf(); // the note of fix 19: a damaged entry is not lost, only not shown
+      if (bad) toast(`${bad === 1 ? '1 saved entry' : `${bad} saved entries`} could not be read. ${bad === 1 ? 'It stays' : 'They stay'} on this device; the other designs work.`);
+    },
     openDesign(code: string): void {
       const d = parseDesign(code);
       if (!d) toast('This design link could not be read.');

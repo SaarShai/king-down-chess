@@ -75,3 +75,14 @@ Changes from the ticket, each with its reason:
 8. The fix table: fix 27 (dialog dismissal) is "not checked": A's sheets use the game's shared `src/dialog-dismiss.ts`, which has no Workshop test. Fixes 5, 17, 28 and 29 are "superseded" (no strokes, no Try it screen, no 7 × 7 grids, one screen).
 9. Plan step 8: `TASKS.md` is a tracker file and changes on main only (AGENTS.md), so its line changes at the merge.
 10. The `Removed-check:` trailers: 262, one for each removed assertion line, made by `tools/trailers.mjs` in the build folder from the staged diff (`tools/lib/removed-checks.mjs`). Each names the old group and the A group that covers it, or "superseded: <feature> left with A". Each A group that a trailer names is a function of `tools/verify-workshop.mjs` (checked by a script).
+
+### 2026-10-11 · Reviews
+
+The review of the cutover (`review-11.md` in the build folder). Each finding, checked against the code:
+
+1. **should-fix, confirmed: the damaged-entry note is gone.** Main's `home()` (`dialog.ts`) shows "1 saved entry could not be read…"; on this branch no code reads `loadShelf().bad` (grep: only `compat.test.ts` and `ui.test.ts`), so a shelf with a damaged entry opens with no word. Fix: the Workshop's `open` shows the same words as a toast (`role="status"`); the group `yours` seeds the shelf with a damaged entry (`y: 4`) and asserts the toast. Fix 19 of the fix table names `workshop` `yours` (the note, a toast) in place of "superseded". `docs/WORKSHOP.md` (Doors) tells the toast.
+2. **should-fix, confirmed: fix 27 has no check.** Grep finds no test or check that presses in a dialog and releases on its backdrop (the drag tests of `tools/` are board drags). Fix: `shareLink`, with the copy sheet open, presses in the sheet, releases on the backdrop and asserts that the sheet stays; then a tap on the backdrop closes it. Fix 27 names `workshop` `shareLink`. `docs/WORKSHOP.md` (Accessibility) tells the rule.
+3. **nit, confirmed: `loadDesigns` is dead outside the tests.** Fixed, although it costs more than one line: the owner's rule is "delete what becomes dead". `store.ts` loses the line; `model.test.ts` and `ui.test.ts` read `loadShelf(…).designs`.
+4. **nit, confirmed, not fixed: the touch-target selector has three copies** (`01.mjs`, `W13.mjs`, `W14.mjs`). One shared export costs more than one line in four files; no failure today.
+
+Evidence (build folder `11/`): `npm test` through the lock, `test-review.log` (exit 0; the 50 node tests pass). `npm run check:browser workshop`: `check-review1.log` has "workshop: all groups pass", but the runner marks it FAIL because this ticket changed during the run; `check-review2.log` and `check-review3.log`, with no edits, pass (97.9 s, 97.6 s).

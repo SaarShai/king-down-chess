@@ -6,7 +6,7 @@ import { BLANK, DIRS, KING_STEP, KNIGHT_JUMP, MAX_CODE, ORTHO, PRESETS, brushMar
 import { autoName, letterFollows, letterOf, saveName } from './names';
 import { describe as words } from './text';
 import { BLOCKS, blockOf, validDoes, whenOk } from './vocab';
-import { KEY, loadDesigns } from './store';
+import { KEY, loadShelf } from './store';
 
 const named = (d: PieceDesign, name = 'Test piece'): PieceDesign => ({ ...d, name, letter: letterOf(name) });
 const code = (o: unknown): string => btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -140,7 +140,7 @@ describe('validation (§8.4.8, §4.9)', () => {
     const d = { ...named(fromPreset(presetOf('knight'))), id: 'g1', updated: 1, look: { ...fromPreset(presetOf('knight')).look, glow: 'Flame' as const } };
     expect(parseDesign(code(raw(d)))?.look.glow).toBe('Flame');
     const m = new Map([[KEY, JSON.stringify({ v: 1, designs: [d] })]]);
-    expect(loadDesigns({ getItem: k => m.get(k) ?? null, setItem: () => {} }).map(x => [x.id, x.look.glow])).toEqual([['g1', 'Flame']]);
+    expect(loadShelf({ getItem: k => m.get(k) ?? null, setItem: () => {} }).designs.map(x => [x.id, x.look.glow])).toEqual([['g1', 'Flame']]);
   });
 
   it('describes many squares in words, with no picture', () => {
