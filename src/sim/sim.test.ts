@@ -8,12 +8,14 @@ import { analyze, elo, excessDecisiveness, fitValues, group, leadMetrics, matchS
 import { RunSpec, adjudication, buildJobs, loadSpec, parseFlags, parseRuleFlags, parseValues, paths, sampleBackRank, sideOptions, usePairs } from './spec';
 import { checkResume, stampOf } from './run';
 import { eventsMatch, replayRecord } from './replay';
-import { ARCHER_V, GUARD_V, VALUES, evaluate, setPieceValues } from '../ai/eval';
+import { ARCHER_V, GUARD_V, PAWN_V, VALUES, evaluate, setPieceValues } from '../ai/eval';
+import { PRESETS, specOf } from '../workshop/model';
+import { worthOf } from '../workshop/judge';
 import { armStats, swapRank, valueSpecs } from './experiments';
 import { applyDrawRules } from './game';
 import { mulberry32 } from './rng';
 import { Game } from '../game';
-import { A, BLACK, G, WHITE, moverAt, parseSq } from '../rules/engine';
+import { A, BLACK, G, T, WHITE, moverAt, parseSq } from '../rules/engine';
 import { setRules } from '../rules/rules';
 import { CLASSIC_CHESS } from '../rules/setup';
 
@@ -352,6 +354,18 @@ describe('runtime piece values', () => {
     setPieceValues();
     expect([VALUES[A], VALUES[G]]).toEqual([ARCHER_V, GUARD_V]);
     expect(evaluate(pos)).toBe(before);
+  });
+
+  it('a design in T gets its judge worth in a run, as in the browser worker (ticket 16, change 10)', () => {
+    const design = specOf(PRESETS.find(p => p.key === 'knight')!);
+    // maxPlies 0: the runner sets the rules and the values, then stops before the first move.
+    const spec: RunSpec = { id: 'vitest-design', games: 1, backRanks: ['KQRBNMAG'], ai: { depth: 1 }, seed: 1, maxPlies: 0, rules: { design } };
+    try {
+      expect(playGame(spec, buildJobs(spec)[0]).plies).toBe(0);
+      expect(VALUES[T]).toBe(Math.round(worthOf(design) * PAWN_V));
+      playGame({ ...spec, values: { T: 500 } }, buildJobs(spec)[0]);
+      expect(VALUES[T]).toBe(500); // --values wins over the judge
+    } finally { setRules(); setPieceValues(); }
   });
 });
 

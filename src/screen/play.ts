@@ -791,10 +791,10 @@ export function connectPlay(view: BoardView, c: {
 
   /**
    * The start-up restore: an opened game link (`link`; `continues`: it continues the saved game), a
-   * `?fen=` position, or the autosave. `urlRules`: the URL names a rule set. `title`: the title opens.
+   * `?fen=` position, or the autosave. `urlRules`: the URL names a rule set. `title`: the title opens. `notice`: the first notice.
    * It runs before any async work starts, so it is the one game switch that does not call `reset()`.
    */
-  function restore(saved: Save | null, r: { link: boolean; continues: boolean; urlRules: boolean; title: boolean }): void {
+  function restore(saved: Save | null, r: { link: boolean; continues: boolean; urlRules: boolean; title: boolean; notice: string }): void {
     if (r.link) {
       previously.load(params, r.continues ? saved!.moves.length : 0);
       sides[0] = sides[1] = 'human';
@@ -816,6 +816,7 @@ export function connectPlay(view: BoardView, c: {
     // The title's Continue names the move the restored game is on (set before the first paint; a
     // Haste turn is two plies by one side, so the number comes from the replayed game, not the save).
     if (r.title) labelContinue();
+    notice = r.notice;
     orient();
     view.sync(previously.position());
   }

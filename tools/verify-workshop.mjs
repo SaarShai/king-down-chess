@@ -6,7 +6,7 @@
 // Esc; the phone's stamps), knots (gold and cracked; a tap on each of three knots and the desktop toast), layouts (nine sizes: no sideways scroll, the
 // top bar and the board in view, no cut text, 44 px targets, 24 px squares and knots; at 844 x 390, 667 x 375 and 568 x 320 of ticket 09, the
 // short landscape form: the board as high as the screen less the top bar, the ledge's sheet from Pieces, the Why tag and the
-// shelf as side sheets (from 375 px high, each seal in full above the sentence card), and 24 px nubs that keep most of their hit area), turnRefits (ticket 09: a turn from 390 x 844 to 844 x 390
+// shelf as side sheets (each seal in full above the sentence card, and the sentence at 15 px or more), and 24 px nubs that keep most of their hit area), turnRefits (ticket 09: a turn from 390 x 844 to 844 x 390
 // and back refits the board and keeps the design, the brush, an open Why tag, an open shelf and the Board tab), and the editor of ticket 02: paint (the brushes,
 // the keys, Shot, Eraser, the three Mirror modes, the same paint twice, the reach and rule toasts, the nubs, the targets),
 // firstCopy (the first paint makes "My Pawn" in Yours; a reload keeps it; the pool Pawn stays), undo (the scope, Ctrl or
@@ -145,8 +145,8 @@ const refuse = p => p.evaluate(() => {
 const lines = p => p.$$eval('.pg-lines .sline:not(.add, .empty) .l2', ls => ls.map(l => l.textContent));
 const focusOn = (p, sel) => p.$eval(sel, e => e === document.activeElement);
 const previewed = p => p.locator('.pg-board [data-pv]').count();
-/** The pairs of targets in `sel` whose boxes overlap: each 44 px button has its own area (decision 9). */
-const overlaps = (p, sel) => p.$$eval(sel, bs => bs.flatMap((b, i) => bs.slice(i + 1).filter(c => {
+/** The pairs of targets in `sel` whose boxes overlap: each 44 px button has its own area (decision 9). A 1 px box (a name for screen readers only) does not count. */
+const overlaps = (p, sel) => p.$$eval(sel, all => all.filter(b => b.getBoundingClientRect().width > 1).flatMap((b, i, bs) => bs.slice(i + 1).filter(c => {
   const r = b.getBoundingClientRect(), s = c.getBoundingClientRect();
   return Math.min(r.bottom, s.bottom) - Math.max(r.top, s.top) > 0.5 && Math.min(r.right, s.right) - Math.max(r.left, s.left) > 0.5;
 }).map(c => `${b.textContent} and ${c.textContent}`)));
@@ -495,14 +495,15 @@ async function landscape(p, size) {
   assert.ok((await p.locator('.pg-shelf').boundingBox()).x >= f.x + f.width, `${size}: the shelf is a side sheet beside the board`);
   await insideViewport(p, '.pg-shelf, .pg-shelf .sentence, .pg-stamp');
   await minTarget(p, '.pg-shelf button', 44);
-  // From 375 px high, with each seal picked in turn, each seal shows in full above the sentence card, with no scroll (owner, 2026-10-11).
-  if (parseInt(size.split('x')[1]) >= 375) for (const pick of [...await p.$$eval('.pg-shelf .sbtn', bs => bs.map(b => b.dataset.sealitem)), 'movesLike']) {
+  // With each seal picked in turn, each seal shows in full above the sentence card, with no scroll, and the sentence stays readable (owner, 2026-10-11).
+  for (const pick of [...await p.$$eval('.pg-shelf .sbtn', bs => bs.map(b => b.dataset.sealitem)), 'movesLike']) {
     await p.click(`[data-sealitem="${pick}"]`);
     const hid = await p.$$eval('.pg-shelf .sbtn', bs => bs.filter(b => {
       const r = b.getBoundingClientRect(), g = b.closest('.groups').getBoundingClientRect(), s = document.querySelector('.pg-shelf .sentence').getBoundingClientRect();
       return r.top < g.top || r.bottom > Math.min(g.bottom, s.top) + 0.5;
     }).map(b => b.dataset.sealitem));
     assert.deepEqual(hid, [], `${size}: with ${pick} picked, each seal of the shelf shows in full above the sentence card`);
+    assert.ok(await p.$eval('.pg-shelf .say', e => parseFloat(getComputedStyle(e).fontSize)) >= 15, `${size}: with ${pick} picked, the sentence is 15 px or more`);
     assert.deepEqual(await overlaps(p, '.pg-shelf button, .pg-shelf h4'), [], `${size}: with ${pick} picked, no seal, group name or Stamp covers another`);
   }
   await shot(p, `shelf-${size}`);
