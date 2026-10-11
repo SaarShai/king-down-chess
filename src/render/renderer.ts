@@ -26,6 +26,8 @@ export const tileCenter = (sq: number): THREE.Vector3 => new THREE.Vector3(file(
 /** The king a king piece shows: its side's king with a power, else Spirit or Shadow; undefined for other pieces. */
 const kingOf = (code: number): KingName | undefined =>
   typeOf(code) === K ? RULES.kings[colorOf(code)]?.king ?? PLAIN_KINGS[colorOf(code)] : undefined;
+/** The Workshop figure of the design that plays as `T` (ticket 17), or null. */
+const designFigure = (): string | null => { const d = playedDesign(); return d && selectedFigure(d).id; };
 
 export interface Highlights {
   selected?: number | null;
@@ -526,7 +528,7 @@ export class BoardRenderer {
       const code = pos.board[sq];
       const cur = this.pieces.get(sq);
       // A king is rebuilt when the next game gives it another king (its figure shows which).
-      if (cur && cur.userData.code === code && cur.userData.king === kingOf(code) && cur.position.distanceTo(tileCenter(sq)) < 0.01) continue;
+      if (cur && cur.userData.code === code && cur.userData.king === kingOf(code) && cur.userData.design === (typeOf(code) === T && designFigure()) && cur.position.distanceTo(tileCenter(sq)) < 0.01) continue;
       if (cur) { this.removeFigure(cur); this.pieces.delete(sq); }
       if (code) this.pieces.set(sq, this.spawn(sq, typeOf(code), colorOf(code)));
     }
@@ -573,7 +575,7 @@ export class BoardRenderer {
     const king = kingOf(t | (c << 4));
     const kingDesign = king && { Frost: 'frost', Flame: 'ember', Stratus: 'celestial', Mud: 'gaya', Spirit: 'spirit', Shadow: 'shadow' }[king];
     const design = kingDesign ? `king-${kingDesign}` : CAST.find(entry => entry.code === t)?.key;
-    const played = t === T && playedDesign(), figure = played && selectedFigure(played).id;
+    const figure = t === T && designFigure();
     if (design && ((this.style.pieces === 'clay' && (t !== O || this.options.ogreModel !== false)) || (t === O && this.options.ogreModel !== false))) {
       // Clay sculpts face local +Z; White advances toward world -Z.
       if (c === 0) g.rotation.y = Math.PI;
@@ -636,6 +638,7 @@ export class BoardRenderer {
     g.position.copy(tileCenter(sq));
     g.userData.code = t | (c << 4);
     g.userData.king = kingOf(g.userData.code);
+    g.userData.design = figure; // a new design's figure rebuilds `T`
     this.world.add(g);
     return g;
   }

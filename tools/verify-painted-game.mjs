@@ -295,6 +295,17 @@ try {
     await startGame(p, { mode: 'two', army: 'classic', design: 'Old Ward' });
     assert.deepEqual(await p.evaluate(() => [window.view.pos.board[1], window.view.pos.board[57]]), [15, 31], 'the design stands on b1 and b8');
     await p.waitForFunction(() => ['w', 'b'].every(c => performance.getEntriesByType('resource').some(e => e.name.includes(`ui/workshop/ram-bastion-${c}.webp`))));
+    // The scene draws the figure, not the lettered token: b1 shows (almost) no pixel of the white token's disc, #efe9d8.
+    const disc = () => p.evaluate(() => {
+      const c = document.querySelector('#board canvas'), r = c.getBoundingClientRect(), q = window.view.screenOf(1), k = c.width / r.width;
+      const d = c.getContext('2d').getImageData((q.x - r.left) * k - 8, (q.y - r.top) * k - 8, 16, 16).data;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) n += Math.abs(d[i] - 239) + Math.abs(d[i + 1] - 233) + Math.abs(d[i + 2] - 216) < 9 ? 1 : 0;
+      return n;
+    });
+    await p.waitForFunction(() => new Promise(requestAnimationFrame).then(() => true));
+    const n = await disc();
+    assert.ok(n < 26, `b1 draws the design's figure, not the lettered token (${n} of 256 pixels are the token's disc)`);
     const at = sq => p.evaluate(sq => window.view.screenOf(sq), sq), click = async sq => { const q = await at(sq); await p.mouse.click(q.x, q.y); };
     await click(57);
     assert.match(await contextText(p), /Black Old Ward/, 'the read names the design');

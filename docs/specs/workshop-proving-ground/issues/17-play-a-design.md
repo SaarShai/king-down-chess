@@ -67,3 +67,19 @@ Evidence (the logs are outside Git, in `/tmp`):
 - `npm run balance:check`: 98 rule axes, 0 errors (`/tmp/pg17-balance.log`).
 - Renders (outside Git): `scratchpad/build/owner4/play-design/`: `01-new-game-1440x900.jpg` and `02-new-game-390x844.jpg` (before left, after right), `03-game-1440x900.jpg` and `04-game-390x844.jpg` (a game with Old Ward, painted left, clay right; no before, as no game could play a design). The owner sees them before the merge.
 - No game ran. The self-play unit test (6 short games with a design) is a unit test.
+
+### 2026-10-11 · Reviews
+
+The review (`scratchpad/build/review-17.md`) had 9 findings. I checked each against the code.
+
+1. **must-fix, confirmed:** a design with no move was an enabled choice, but `parseDesign` refuses its code, so Start threw after the dialog closed. Fix: `refusal` says "it has no move" first (`src/new-game.ts`); the option is then disabled and `parseSetup` drops it. A unit test in `src/new-game.test.ts`.
+2. **should-fix, confirmed:** with a design link, Cancel on "Open the game from this link?" still gave `urlRules` true, and `restore` dropped the saved game, because `GAME_RULES` held the link's design. Fix: `urlRules` counts the design only when the link opens (`openLink && linkDesign`, `src/main.ts`).
+3. **should-fix, confirmed:** the clay `sync` kept a `T` mesh when the design changed and the code and square stayed. Fix: `spawn` keeps the figure id in `userData.design`, and `sync` compares it (`designFigure`, `src/render/renderer.ts`).
+4. **should-fix, confirmed:** the Custom prompt starts from the current back rank, which holds `T` after a design game, and `withDesign` changed a second piece. Fix: `withDesign` keeps a back rank that holds `T`. A unit test.
+5. **should-fix, confirmed:** the painted-game check waited only for the figure's network request. Fix: the check counts the pixels of the white token's disc (#efe9d8) on b1 and asserts fewer than 26 of 256. Evidence: with `figureOf` broken on purpose, the group fails with 160 of 256 (`/tmp/pg17r-broken.log`); with the real code it passes.
+6. **nit, confirmed, fixed (one line):** with Ogre practice the line now says "Ogre practice takes no design."
+7. **nit, confirmed, not fixed:** the worth of `T` is set in two places (`src/ai/worker.ts`, `src/game.ts`). One shared helper costs more than one line; a follow-up.
+8. **nit, confirmed, not fixed (a decision):** "The My Rook …" and "This Old Ward …" keep the article. Removing it touches each sentence in `read.ts` and `previously.ts`; the owner can ask for it.
+9. **nit, confirmed, not fixed:** a game link with a design that this version cannot read opens as no game, with no message. This version cannot make such a link; a follow-up.
+
+Evidence of the review fixes: `npm test` through the shared lock (`/tmp/pg17r-test.log`): exit 0; 117 test files pass (1 skipped), 1,910 tests pass (21 skipped); the node tests, 50 of 50. `npm run check:browser painted-game new-game workshop` (`/tmp/pg17r-checks.log`, `pg-design-XoC6oQ`): all 3 pass.

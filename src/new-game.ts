@@ -14,7 +14,7 @@ import { mulberry32 } from './sim/rng';
 import { VALUES } from './ai/eval';
 import { figureUrl, selectedFigure } from './workshop/figures';
 import { worthOf } from './workshop/judge';
-import { designCode, limit, parseDesign, type PieceDesign } from './workshop/model';
+import { designCode, empty, limit, parseDesign, type PieceDesign } from './workshop/model';
 import { loadShelf } from './workshop/store';
 
 /** Power words in the New game sheet. */
@@ -90,11 +90,12 @@ export function setupOfGame(sides: readonly [Side, Side], kings: readonly [KingC
 
 /** Why a game cannot play design `d` yet, or '' (version 1: no When that counts moves or cards; `setRules`). */
 export const refusal = (d: PieceDesign): string =>
-  limit(d) ? 'it breaks a Workshop limit' : d.rules.some(r => HISTORY_WHENS.includes(r.when.on)) ? 'a rule counts moves or cards' : '';
+  empty(d) ? 'it has no move' : limit(d) ? 'it breaks a Workshop limit' : d.rules.some(r => HISTORY_WHENS.includes(r.when.on)) ? 'a rule counts moves or cards' : '';
 const playable = (code: unknown): code is string => typeof code === 'string' && !!parseDesign(code) && !refusal(parseDesign(code)!);
 
 /** Back rank `back` with a design worth `worth` pawns in place of one piece: not the king, the one nearest that worth (the left one on a tie). */
 export function withDesign(back: string, worth: number): string {
+  if (back.includes('T')) return back; // a custom back rank from a design game already holds it
   const gap = (i: number): number => (back[i] === 'K' ? Infinity : Math.abs(VALUES[LETTERS.indexOf(back[i])] / 100 - worth));
   const i = [...Array(back.length).keys()].reduce((a, b) => (gap(b) < gap(a) ? b : a));
   return back.slice(0, i) + 'T' + back.slice(i + 1);
@@ -196,7 +197,7 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
     design.value = draft.design ?? '';
     if (design.value !== (draft.design ?? '')) design.value = '', draft.design = null; // a design that is gone or changed
     const brought = draft.design ? parseDesign(draft.design) : null;
-    $('design-line').textContent = brought ? `Each side gets one ${brought.name}, in place of the piece nearest its worth.`
+    $('design-line').textContent = brought && draft.army === 'ogre' ? 'Ogre practice takes no design.' : brought ? `Each side gets one ${brought.name}, in place of the piece nearest its worth.`
       : shelf.length ? 'Play one of your Workshop pieces.' : 'No designs yet. Make one in the Workshop.';
     army.value = draft.army;
     if (army.value !== draft.army) army.value = draft.army = 'random'; // an example army that is gone

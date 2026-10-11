@@ -181,7 +181,7 @@ const continues = !!saved && (params.get('army') ? saved.back === params.get('ar
   && saved.moves.every((m, i) => lans[i] === m);
 const openLink = link && (!saved?.moves.length || continues || confirm('Open the game from this link? It replaces your current game.'));
 if (link) history.replaceState(null, '', gameLinkless()); // a reload then resumes the autosave
-play.restore(saved, { link: openLink, continues, urlRules: !!(preset || kings || (link && linkDesign)), title: showTitle });
+play.restore(saved, { link: openLink, continues, urlRules: !!(preset || kings || (openLink && linkDesign)), title: showTitle });
 await view.ready();
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
 guide.fill(); // after every setRules path (URL preset / save restore)
