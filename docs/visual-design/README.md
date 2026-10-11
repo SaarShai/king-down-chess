@@ -29,24 +29,28 @@ The owner asked for three things; screenshots (from the production build) in [ro
    [close-up](round2/ivory-closeup-before-after.webp) · [black unchanged](round2/charcoal-unchanged-before-after.webp)
 3. **"Improve the presentation of available moves and takes when clicking on a piece."** New markers
    on the painted board ([`src/render/marks.ts`](../../src/render/marks.ts)), all drawn on the canvas.
-   Each kind has its own shape, so colour is never the only cue:
+   Since 2026-10-10 the moves and takes use the owner's legend ([move legend](../specs/move-legend/spec.md),
+   [`src/render/legend.ts`](../../src/render/legend.ts)); the rows Move, Capture and Archer shot replace the
+   gem, the brackets and the sight of round 2. Each kind has its own shape, so colour is never the only cue:
 
    | Kind | Marker |
    |---|---|
-   | Move | A gold cut gem floating over a soft glow where the feet will stand; a glint crosses it now and then. |
-   | Capture | A crimson ring at the enemy's feet and four corner brackets that breathe inwards. |
-   | Archer shot | The same, plus a turning gun-sight over the target's body and a dashed outer ring. |
+   | Move | A green tile. |
+   | Capture | On an empty square, a white tile with a red target; on an enemy, a thin red edge, a red ring and glow at its feet, and the badge (a small white tile with the target) at the square's top-left. A square that is a move and a capture is a green tile with the target. |
+   | Archer shot | The same, with the target pierced by an arrow (on the tile or on the badge). |
    | Maester swap | Two violet arrows chasing round the friend's feet. |
    | Ogre shove | A teal ring and chevrons marching out on the side the piece will be pushed to. |
-   | King's power | A blue rune circle (six-point star) under the square; armed power moves get blue gems. Freeze, Ice Wall and Sacrifice targets show the rune. |
+   | King's power | A blue rune circle (six-point star) under the square; an armed power's moves and takes get two blue frames round the tile. Freeze, Ice Wall and Sacrifice targets show the rune. |
    | Selected piece | A warm glow and a gold ring at its feet. |
 
-   When a piece is selected its markers pop in, rippling out from it (300 ms each, 38 ms later per
-   square of distance). Pointing at a move shows a see-through copy of the piece standing there on a
-   gold ring; pointing at a capture turns its brackets and ring gold. The keyboard cursor previews the
-   same way. With Animations off or reduced motion the markers appear at once and stay still. Pulses
-   ride the selected figure's ~30 fps idle; only the pop-in asks for full-rate frames. The clay look
-   keeps its tile tints (Freeze/Ice Wall/Sacrifice targets now tint amber there too).
+   When a piece is selected its markers grow in, rippling out from it (300 ms each, 38 ms later per
+   square of distance); the legend marks then stand still. Pointing at a move shows a see-through copy of
+   the piece standing there, and the tile's edge turns gold-bright; pointing at a capture turns its edge
+   gold-bright and makes its badge larger. The keyboard cursor previews the same way. The read of an enemy
+   piece shows the same marks at half strength. With Animations off or reduced motion the markers appear at
+   once. The swap, shove and rune pulses ride the selected figure's ~30 fps idle; only the pop-in asks for
+   full-rate frames. The clay look shows the same legend as flat textures on the squares
+   (Freeze/Ice Wall/Sacrifice targets tint amber there).
    [moves](round2/moves-desktop.webp) · [phone](round2/moves-phone.webp) ·
    [preview](round2/moves-hover-move-desktop.webp) · [capture under the pointer](round2/moves-hover-capture-desktop.webp) ·
    [Archer](round2/special-archer-desktop.webp) · [Ogre](round2/special-ogre-desktop.webp) ·
@@ -126,7 +130,7 @@ them. import those. you also need to come up with a new one for ogre." Then: "sy
 | Promotion | Letter buttons. | Each choice shows its painted figure (in the promoting side's colour). |
 | Result | Plain dialog. | The two painted kings; the beaten one lies toppled (none after a draw). |
 | Lessons | Text in the panel. | A six-step progress bar and the task in a lesson card. |
-| Threats | — | Settings → **Show threats** (off by default): a red ring at the feet of each of your pieces the other side can take, and a red dot on each empty square it covers. Uses only the engine's exported `pseudoMoves` and `isAttacked`. |
+| Threats | — | Settings → **Show threats** (off by default): an amber warning triangle with "!" beside the feet of each of your pieces the other side can take, and an amber diamond on each empty square it covers, both at the square's bottom-right corner. No move or take mark uses amber, these shapes or that corner, so a threat never reads as a take (move-legend ticket 02). Uses only the engine's exported `pseudoMoves` and `isAttacked`. |
 | Refused moves | The tap did nothing, or deselected silently. | The help line says why: "This bishop has no legal move…", "Not allowed: that bishop move would leave your king in check.", "Not allowed: a guard can only be taken by a king.", "Not allowed: the rook cannot reach b2…", "The computer is thinking…". A tap on an enemy piece with no piece selected shows its card, with no refusal (web UX review, pick D10). |
 | Keyboard | Panel buttons only; the board needed a pointer. | Tab to the board; arrow keys move a square cursor (it follows the board's orientation), Enter or Space selects and moves, Shift+Enter is the Ogre push shortcut, Escape cancels. Moves in the list are buttons. |
 | Screen readers | Help and moment lines only. | Every move by either side is announced ("White pawn e2 to e4.", "Black archer on c7 takes the knight on d6 without moving."), plus Undo, and the cursor's square and piece. |
@@ -153,11 +157,12 @@ calligraphic touch that stays readable at 12–15 px.
 - **Colour.** `--parchment #f3ead7` (panel), `--vellum #fbf7ee` (dialogs, cards, fields),
   `--parchment-deep #e7d8b8`; text `--ink #2b2621` and `--ink-soft #5b5045`; stone `--stone-100/300/500/700/900`;
   `--accent #842c21` (primary buttons, checked boxes), `--accent-deep #5a1c14`; `--gold #c99a3e` (ornament),
-  `--gold-ink #7a5712` (gold as text); `--danger #b0251b` (threats, check); `--focus #1c5bb0`;
+  `--gold-ink #7a5712` (gold as text); `--danger #b0251b` (check; the threat marks are amber `#f08c1a`, in their SVG); `--focus #1c5bb0`;
   `--accent-bright #9c3a2d` (the lit top of a crimson control), `--gold-bright #e9c071` (a lit gold edge, never text);
   `--on-night` (the Workshop note, on `--stone-900`); `--night #221d18` and `--on-night-soft` stay as names, with
   no use now; the mark colours `--mark-move`, `--mark-capture`, `--mark-swap`, `--mark-shove`, `--mark-power`
-  (as "r g b").
+  (as "r g b"); the move legend `--leg-green #7cb342`, `--leg-green-hi`, `--leg-green-lo`, `--leg-navy #1c2e5c` (the
+  tile's edge), `--leg-red #d63428` (the target), `--leg-white` and `--leg-halo`.
 - **The Quiet Table floor.** The page is light only (`color-scheme: only light`, also when the device is in dark
   mode). `--floor` is a radial gradient from `#faf5ea` through `--floor-base #f2e9d6` to `--floor-edge #e6d7b9`.
   The page, the first-visit title and the Workshop surround stand on it, and the painted board's canvas is clear

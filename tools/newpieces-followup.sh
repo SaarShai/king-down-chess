@@ -6,8 +6,10 @@
 # Stops on the first failure. ~25 minutes on 16 free cores.
 
 set -euo pipefail
+RESULTS_DIR=$(node "$(dirname "$0")/lib/results-root.mjs")
+mkdir -p "$RESULTS_DIR"
 cd "$(dirname "$0")/.."
-LOG=sim/out/newpieces-followup-2026-09-16.log
+LOG="${RESULTS_DIR}/newpieces-followup-2026-09-16.log"
 run() {
   echo "== $(date '+%F %T') $*" | tee -a "$LOG"
   "$@" 2>&1 | tee -a "$LOG"
@@ -30,5 +32,5 @@ run npm run sim -- --id ov-C2-stay --experiment values --pieces C --games 300 --
 run npm run sim -- --spec sim/specs/newpieces/ab-O-push.json --experiment ab --id ab-O-push-d4 \
   --games 800 --depth 4 --seed 51 --workers 16 --rule ogreMode=push
 
-touch sim/out/newpieces-followup-2026-09-16.done
+touch "${RESULTS_DIR}/newpieces-followup-2026-09-16.done"
 echo "== follow-up complete $(date '+%F %T')" | tee -a "$LOG"

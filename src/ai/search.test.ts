@@ -4,6 +4,8 @@ import {
 } from '../rules/engine';
 import { fromFen, randomBackRank, startPosition, toLan } from '../rules/setup';
 import { MATE, evaluate, positionKey, resetSearchState, search } from './search';
+import { setDesignValue, setPieceValues } from './eval';
+import { PRESETS, specOf } from '../workshop/model';
 
 const MID = '1sakg1l1/1p1pppq1/3b4/r1p3p1/p1PPB1Pp/4P2P/PP1GQP2/RSAKL3 w - - 0 13';
 
@@ -223,4 +225,35 @@ describe('root temperature (opening variety)', () => {
       expect(sampled.score).toBeLessThanOrEqual(a.score);
     }
   }, 20_000);
+});
+
+describe('self-play with a design (ticket 17)', () => {
+  it('plays 6 short games with a design in T, with its judge worth, without an illegal move or an exception', () => {
+    const designs = [
+      specOf({ ...PRESETS.find(p => p.key === 'bishop')!, rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }] }),
+      specOf({ ...PRESETS.find(p => p.key === 'knight')!, rules: [{ when: { on: 'near', who: 'king' }, does: { a: 'cannotBeTaken', by: 'pawns' } }, { when: { on: 'takes' }, does: { a: 'chain' } }] }),
+      specOf({ ...PRESETS.find(p => p.key === 'maester')!, rules: [{ when: { on: 'afterFirstCapture' }, does: { a: 'movesLike', as: 'rook' } }, { when: { on: 'always' }, does: { a: 'push', then: 'follow' } }] }),
+    ];
+    let seed = 20261011, plies = 0;
+    const rng = () => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+    try {
+      for (let game = 0; game < 6; game++) {
+        const design = designs[game % designs.length];
+        setRules({ design });
+        setDesignValue(design);
+        const back = randomBackRank(rng), i = back.indexOf('K') ? 0 : 1;
+        let pos = startPosition(back.slice(0, i) + 'T' + back.slice(i + 1));
+        const seen: number[] = [positionKey(pos)];
+        for (let ply = 0; ply < 40 && status(pos) === 'playing'; ply++) {
+          const res = search(pos, { timeMs: 15, history: seen });
+          expect(res.move, `game ${game} ply ${ply}: no move`).not.toBeNull();
+          expect(legalMoves(pos).some(m => same(m, res.move!)), `game ${game} ply ${ply}: ${toLan(pos, res.move!)} is not legal`).toBe(true);
+          pos = makeMove(pos, res.move!);
+          seen.push(positionKey(pos));
+          plies++;
+        }
+      }
+    } finally { setRules(); setPieceValues(); }
+    expect(plies).toBeGreaterThan(6 * 10);
+  }, 120_000);
 });

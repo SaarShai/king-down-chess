@@ -1,5 +1,6 @@
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
-import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, RULES, S, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
+import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, RULES, S, T, colorOf, playedDesign, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
+import { figureUrl, selectedFigure } from '../workshop/figures';
 import { drawMarks, POP_MS, RIPPLE_MS } from './marks';
 import { boardInk } from './board-ink';
 import { pastTap } from './tap';
@@ -113,6 +114,9 @@ export class PaintedView implements BoardView {
   sync(pos: Position): void {
     this.pos = pos;
     this.scene.setKings([kingDesign(0), kingDesign(1)]);
+    // The design that plays as `T` (ticket 17) stands as its Workshop figure.
+    const d = playedDesign(), id = d && selectedFigure(d).id;
+    this.scene.setFigure(T, id ? [figureUrl(id, 0), figureUrl(id, 1)] : null);
     this.scene.setPosition(pos);
     const sq = this.fallen?.pos === pos ? this.fallen.sq : null;
     this.scene.setFallen(sq, false, this.fallRotation(sq));
@@ -234,8 +238,8 @@ export class PaintedView implements BoardView {
     if (scene.animating) return;
     const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
     drawMarks(ctx, scene, layer, {
-      marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, motion: this.motion(), since: this.marksSince,
-      ink: this.options.webInk ? boardInk(this.width) : undefined,
+      marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, px: 960 / Math.max(1, this.width), board: this.pos?.board,
+      motion: this.motion(), since: this.marksSince, ink: this.options.webInk ? boardInk(this.width) : undefined,
     }, row);
     // Row 7 runs after all figures, so the cause stays visible across the board.
     if (layer === 'over' && row === 7 && m.check != null) {

@@ -4,19 +4,21 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelatedPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { A, C, Color, G, LETTERS, Move, K, type KingName, L, M, N, O, PLAIN_KINGS, RULES, Position, PieceType, colorOf, file, rank, typeOf } from '../rules/engine';
+import { A, C, Color, G, LETTERS, Move, K, type KingName, L, M, N, O, PLAIN_KINGS, RULES, Position, PieceType, T, colorOf, file, playedDesign, rank, typeOf } from '../rules/engine';
+import { figureUrl, selectedFigure } from '../workshop/figures';
 import { ARMY, TARGET_HEIGHT, pieceGeometry } from './voxels';
 import { Debris, Tweens, easeOut, labelSprite, linear } from './fx';
 import { PALETTES, createPalettePass, paletteTexture } from './palette';
 import { hasSprite, spriteMesh } from './sprites';
 import { STYLES, type Style } from './styles';
-import { ClayFigure } from './ClayFigure';
+import { CLAY_PALETTES, ClayFigure } from './ClayFigure';
 import { CAST } from './prototype/CastCatalog';
 import { applyLookLighting } from './prototype/ClayLook';
 import { PieceContourPass } from './prototype/PieceContourPass';
 import type { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import type { Pace } from './PaintedView';
 import { pastTap } from './tap';
+import { badge, kindOf, occupied, paint, tile, type Kind } from './legend';
 import type { Reach } from '../read';
 import type { Checker } from '../move-text';
 
@@ -24,6 +26,8 @@ export const tileCenter = (sq: number): THREE.Vector3 => new THREE.Vector3(file(
 /** The king a king piece shows: its side's king with a power, else Spirit or Shadow; undefined for other pieces. */
 const kingOf = (code: number): KingName | undefined =>
   typeOf(code) === K ? RULES.kings[colorOf(code)]?.king ?? PLAIN_KINGS[colorOf(code)] : undefined;
+/** The Workshop figure of the design that plays as `T` (ticket 17), or null. */
+const designFigure = (): string | null => { const d = playedDesign(); return d && selectedFigure(d).id; };
 
 export interface Highlights {
   selected?: number | null;
@@ -213,8 +217,11 @@ export class BoardRenderer {
   private lastPos: Position | null = null;
   private positionVersion = 0;
   private flipped = false;
-  private markerGeo = new THREE.BoxGeometry(0.22, 0.12, 0.22);
-  private moveMat = new THREE.MeshLambertMaterial({ color: 0x5fd35f, emissive: 0x1f6f1f });
+  /** The legend marks (legend.ts) as ground quads: one texture for each mark, power and detail level. Each quad is
+   *  1.5 squares wide, because the power frames of a take reach past the square (0.15 square at the 24 px floor of legendDetail()). */
+  private legendGeo = new THREE.PlaneGeometry(1.5, 1.5).rotateX(-Math.PI / 2);
+  private legendMats = new Map<string, THREE.MeshBasicMaterial>();
+  private legendSize = 0;
   private checkRingGeo = checkRingGeometry();
   private checkHaloGeo = checkRingGeometry(0.52, 0.30);
   // The halo shares the ring pass; the opaque board would cover it in the opaque pass.
@@ -465,6 +472,7 @@ export class BoardRenderer {
     if (black === this.flipped) return;
     this.flipped = black;
     this.placeCoords();
+    this.highlight(this.highlights); // the legend quads turn, so a badge stays at the screen's top-left
     const to = this.offset();
     to.theta += Math.PI;
     void this.tweenTo(to, this.controls.target.clone(), this.camera.zoom);
@@ -520,7 +528,7 @@ export class BoardRenderer {
       const code = pos.board[sq];
       const cur = this.pieces.get(sq);
       // A king is rebuilt when the next game gives it another king (its figure shows which).
-      if (cur && cur.userData.code === code && cur.userData.king === kingOf(code) && cur.position.distanceTo(tileCenter(sq)) < 0.01) continue;
+      if (cur && cur.userData.code === code && cur.userData.king === kingOf(code) && cur.userData.design === (typeOf(code) === T && designFigure()) && cur.position.distanceTo(tileCenter(sq)) < 0.01) continue;
       if (cur) { this.removeFigure(cur); this.pieces.delete(sq); }
       if (code) this.pieces.set(sq, this.spawn(sq, typeOf(code), colorOf(code)));
     }
@@ -567,6 +575,7 @@ export class BoardRenderer {
     const king = kingOf(t | (c << 4));
     const kingDesign = king && { Frost: 'frost', Flame: 'ember', Stratus: 'celestial', Mud: 'gaya', Spirit: 'spirit', Shadow: 'shadow' }[king];
     const design = kingDesign ? `king-${kingDesign}` : CAST.find(entry => entry.code === t)?.key;
+    const figure = t === T && designFigure();
     if (design && ((this.style.pieces === 'clay' && (t !== O || this.options.ogreModel !== false)) || (t === O && this.options.ogreModel !== false))) {
       // Clay sculpts face local +Z; White advances toward world -Z.
       if (c === 0) g.rotation.y = Math.PI;
@@ -587,8 +596,13 @@ export class BoardRenderer {
         g.add(figure.model);
         this.updateContours();
       }).catch(error => { console.error('Could not load clay figure', error); this.onLoadError?.(error); });
-    } else if (this.style.pieces === 'sprite' && hasSprite(t)) {
-      g.add(spriteMesh(t, c, this.style.spriteOutline ? (this.style.outlineColor ?? 0x151515) : undefined, king));
+    } else if ((this.style.pieces === 'sprite' && hasSprite(t)) || figure) {
+      // The design that plays as `T` (ticket 17) stands as its Workshop figure, a billboard in every style.
+      // On clay, White's figure painted in each side's clay, so the side reads as on the sculpts beside it.
+      const clay = figure && this.style.pieces === 'clay';
+      const mesh = spriteMesh(t, c, this.style.spriteOutline ? (this.style.outlineColor ?? 0x151515) : undefined, king, figure ? figureUrl(figure, clay ? 0 : c) : undefined, clay ? CLAY_PALETTES[c].light : undefined);
+      if (figure) mesh.scale.setScalar(.7 * (this.style.pieceScale ?? 1)); // as tall as the clay figures beside it
+      g.add(mesh);
       g.userData.sprite = true;
     } else {
       const geo = pieceGeometry(t, c);
@@ -626,6 +640,7 @@ export class BoardRenderer {
     g.position.copy(tileCenter(sq));
     g.userData.code = t | (c << 4);
     g.userData.king = kingOf(g.userData.code);
+    g.userData.design = figure; // a new design's figure rebuilds `T`
     this.world.add(g);
     return g;
   }
@@ -636,8 +651,7 @@ export class BoardRenderer {
     for (const tile of this.tiles) tile.material.emissive.setHex(0);
     const set = (sqs: number[] | undefined, hex: number) => sqs?.forEach(sq => this.tiles[sq].material.emissive.setHex(hex));
     set(h.last, 0x2a3f6a);
-    set(h.hint, 0x1f6a3a);
-    set(h.captures, 0x8a1f1f);
+    set(h.hint, 0x7a5712); // gold, as the painted board's hint frame: green means a move
     set(h.swaps, 0x3f3f9a);
     set(h.shoves, 0x8a5a10); // amber: a shove target is occupied like a capture, but nothing is taken
     // A Freeze, Ice Wall or Sacrifice target: amber like a shove (a power, not a capture).
@@ -649,10 +663,11 @@ export class BoardRenderer {
     for (const geometry of this.causeGeometry) geometry.dispose();
     this.causeGeometry = [];
     this.markers.clear();
-    for (const sq of h.moves ?? []) {
-      const m = new THREE.Mesh(this.markerGeo, this.moveMat);
-      m.position.copy(tileCenter(sq)).setY(0.06);
-      this.markers.add(m);
+    for (const sq of new Set([...h.moves ?? [], ...h.captures ?? []])) {
+      const kind = kindOf(sq, h), q = new THREE.Mesh(this.legendGeo, this.legendMat(kind, kind !== 'move' && !!this.lastPos?.board[sq], !!h.powers?.includes(sq)));
+      q.position.copy(tileCenter(sq)).setY(0.01); // under the check ring
+      if (this.flipped) q.rotation.y = Math.PI;
+      this.markers.add(q);
     }
     if (h.check != null) {
       if (h.checkers !== undefined) {
@@ -678,6 +693,23 @@ export class BoardRenderer {
         }
       }
     }
+  }
+
+  /** One legend mark as a ground texture: the tile, or on a figure the occupied take with its badge. */
+  private legendMat(kind: Kind, figure: boolean, power: boolean): THREE.MeshBasicMaterial {
+    const key = `${kind}:${figure}:${power}`;
+    let mat = this.legendMats.get(key);
+    if (!mat) {
+      const cv = document.createElement('canvas'), o = { px: 256 / this.legendSize, power };
+      cv.width = cv.height = 384; // the square is the middle 256 × 256
+      paint(cv.getContext('2d')!, figure ? [...occupied(kind, 64, 64, 256, 192, o), ...badge(64, 64, 256, kind, o)] : tile(kind, 64, 64, 256, o));
+      const map = new THREE.CanvasTexture(cv);
+      map.colorSpace = THREE.SRGBColorSpace;
+      mat = new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false });
+      mat.userData.legend = key;
+      this.legendMats.set(key, mat);
+    }
+    return mat;
   }
 
   setPace(pace: Pace): void { this.pace = pace; this.tweens.rate = pace === 'fast' ? 2 : 1; }
@@ -839,6 +871,7 @@ export class BoardRenderer {
     this.tweens.step(dt);
     this.debris.step(dt);
     this.controls.update(dt);
+    this.legendDetail();
     // Sprites are billboards: the plane's pivot is its bottom edge, so copying the camera
     // quaternion stands it on the tile and leans it back at the camera from any angle.
     for (const g of this.pieces.values()) if (g.userData.sprite) g.children[0].quaternion.copy(this.camera.quaternion);
@@ -860,6 +893,17 @@ export class BoardRenderer {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
     this.composer.setSize(w, h);
+    this.legendDetail();
+  }
+
+  /** The legend's detail (the middle ring, the badge size) follows a square's size on screen: one world unit at the camera's zoom. */
+  private legendDetail(): void {
+    const square = Math.max(24, Math.round((this.renderer.domElement.width / (this.camera.right - this.camera.left)) * this.camera.zoom / 8) * 8);
+    if (square === this.legendSize) return;
+    this.legendSize = square;
+    for (const mat of this.legendMats.values()) { mat.map?.dispose(); mat.dispose(); }
+    this.legendMats.clear();
+    this.highlight(this.highlights);
   }
 
   private pick(e: PointerEvent): number | null {

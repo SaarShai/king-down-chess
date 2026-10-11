@@ -2,11 +2,11 @@
 // docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
 import { describe, expect, it } from 'vitest';
 import { judge } from './judge';
-import { BLANK, DIRS, KING_STEP, KNIGHT_JUMP, MAX_CODE, ORTHO, PRESETS, setMark, designCode, empty, fromPreset, keyOf, likeAlways, limit, parseDesign, presetOf, validName, type PieceDesign, type Rule } from './model';
+import { BLANK, DIRS, KING_STEP, KNIGHT_JUMP, MAX_CODE, ORTHO, PRESETS, brushMark, setMark, designCode, empty, fromPreset, keyOf, likeAlways, limit, parseDesign, presetOf, validName, type PieceDesign, type Rule } from './model';
 import { autoName, letterFollows, letterOf, saveName } from './names';
 import { describe as words } from './text';
 import { BLOCKS, blockOf, validDoes, whenOk } from './vocab';
-import { KEY, loadDesigns } from './store';
+import { KEY, loadShelf } from './store';
 
 const named = (d: PieceDesign, name = 'Test piece'): PieceDesign => ({ ...d, name, letter: letterOf(name) });
 const code = (o: unknown): string => btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -140,7 +140,7 @@ describe('validation (§8.4.8, §4.9)', () => {
     const d = { ...named(fromPreset(presetOf('knight'))), id: 'g1', updated: 1, look: { ...fromPreset(presetOf('knight')).look, glow: 'Flame' as const } };
     expect(parseDesign(code(raw(d)))?.look.glow).toBe('Flame');
     const m = new Map([[KEY, JSON.stringify({ v: 1, designs: [d] })]]);
-    expect(loadDesigns({ getItem: k => m.get(k) ?? null, setItem: () => {} }).map(x => [x.id, x.look.glow])).toEqual([['g1', 'Flame']]);
+    expect(loadShelf({ getItem: k => m.get(k) ?? null, setItem: () => {} }).designs.map(x => [x.id, x.look.glow])).toEqual([['g1', 'Flame']]);
   });
 
   it('describes many squares in words, with no picture', () => {
@@ -163,5 +163,18 @@ describe('separate move and take channels', () => {
     expect(setMark('moveShoot', 'shoot', false)).toBe('move');
     expect(setMark(undefined, 'take', true)).toBe('take');
     expect(setMark('take', 'take', false)).toBeNull();
+  });
+});
+
+describe('the Proving Ground brushes (ticket 02)', () => {
+  const MARKS = [undefined, 'move', 'take', 'both', 'shoot', 'moveShoot'] as const;
+  it('Move, Take and Both paint the whole mark; Erase clears the square', () => {
+    for (const m of MARKS) {
+      for (const b of ['move', 'take', 'both'] as const) expect(brushMark(m, b), `${m} ${b}`).toBe(b);
+      expect(brushMark(m, 'erase'), `${m} erase`).toBeNull();
+    }
+  });
+  it('Shot adds a shot and keeps the move (spec decision 34)', () => {
+    expect(MARKS.map(m => brushMark(m, 'shot'))).toEqual(['shoot', 'moveShoot', 'shoot', 'moveShoot', 'shoot', 'moveShoot']);
   });
 });

@@ -20,6 +20,14 @@ async function raw(out: string, id: string, games: unknown[], spec: Record<strin
 }
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
 describe('all-history dataset', () => {
+  it('keeps preserved conflicts out of automatic statistical samples', async () => {
+    const { root, out } = await fixture();
+    await raw(out, 'study', [game(0)]);
+    await raw(join(out, '.variants/hash'), 'study', [game(1)]);
+    const data = await buildDataset({ root, sources: [out] });
+    expect(data.measurements.find(m => m.run === 'study' && m.measure === 'whiteScore')?.sample).toBe(1);
+    expect(data.sources.find(s => s.source === 'sim/out/.variants')?.reasons[0]).toContain('source-manifest review');
+  });
   it('counts exact copies and gzip backups once and retains every source', async () => {
     const { root, out } = await fixture();
     await raw(out, 'study', [game(0), game(1, 0)]);

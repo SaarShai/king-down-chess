@@ -14,6 +14,7 @@
 #   ./tools/q6-collect.sh        # safe to run any time; waits for the chain first
 
 set -euo pipefail
+RESULTS_DIR=$(node "$(dirname "$0")/lib/results-root.mjs")
 setopt null_glob # a glob that matches nothing expands to nothing instead of erroring the copy
 cd "$(dirname "$0")/.."
 SRC=../king-down-sim
@@ -22,9 +23,9 @@ while pgrep -f "q6-chain.sh" >/dev/null; do sleep 60; done
 echo "q6-collect: the chain has ended; collecting from $SRC"
 
 mkdir -p sim/q6-g2/out sim/q6-g2/nnue
-for f in "$SRC"/sim/out/nnue-g2.summary.json "$SRC"/sim/out/q6-nnue-g2.done \
-         "$SRC"/sim/out/nnue-res2-*.summary.json "$SRC"/sim/out/nnue-res2-*.tuned.json \
-         "$SRC"/sim/out/nnue-res2-*.report.json; do
+for f in "$RESULTS_DIR"/nnue-g2.summary.json "$RESULTS_DIR"/q6-nnue-g2.done \
+         "$RESULTS_DIR"/nnue-res2-*.summary.json "$RESULTS_DIR"/nnue-res2-*.tuned.json \
+         "$RESULTS_DIR"/nnue-res2-*.report.json; do
   [[ -e "$f" ]] && cp -f "$f" sim/q6-g2/out/
 done
 for f in "$SRC"/sim/nnue/positions.json "$SRC"/sim/nnue/net.json "$SRC"/sim/nnue/train.json \
@@ -34,7 +35,7 @@ done
 
 # Every gate/decision/confirmation arm that exists in the worktree must be present in the copy.
 missing=0
-for f in "$SRC"/sim/out/nnue-res2-*.tuned.json; do
+for f in "$RESULTS_DIR"/nnue-res2-*.tuned.json; do
   b=$(basename "$f")
   if [[ ! -e "sim/q6-g2/out/$b" ]]; then
     echo "q6-collect: $b exists in the worktree but was not copied — refusing to write a report" >&2

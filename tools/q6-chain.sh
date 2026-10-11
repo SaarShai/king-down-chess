@@ -9,16 +9,18 @@
 #   - Run it from a Git worktree pinned to a committed revision (`git worktree add ../king-down-sim
 #     <commit>`), so a live run never shares files with the working tree (LESSONS.md 2026-09-14).
 #
-# The ids carry a "2" so nothing can resume the unvalidated Q6 files (sim/out/UNVALIDATED-Q6.md).
+# The ids carry a "2" so nothing can resume the unvalidated Q6 files (${RESULTS_DIR}/UNVALIDATED-Q6.md).
 
 set -euo pipefail
+RESULTS_DIR=$(node "$(dirname "$0")/lib/results-root.mjs")
+mkdir -p "$RESULTS_DIR"
 cd "$(dirname "$0")/.."
 
 ID=nnue-g2
 GATE=nnue-res2-gate
 D3=nnue-res2-d3
 D4=nnue-res2-d4
-LOG=sim/out/q6-$ID.log
+LOG="${RESULTS_DIR}/q6-$ID.log"
 
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   echo "q6-chain: the tracked working tree is dirty; commit first or run in a pinned worktree" >&2
@@ -56,4 +58,4 @@ run npm run nnue -- bench --depth 5 --positions 12
 # 5. Every gate at once, then — and only then — the done marker.
 run node tools/q6-validate.mjs final "$GATE" "$D3" "$D4"
 echo "== $(date '+%F %T') ACCEPTED" | tee -a "$LOG"
-touch "sim/out/q6-$ID.done"
+touch "${RESULTS_DIR}/q6-$ID.done"

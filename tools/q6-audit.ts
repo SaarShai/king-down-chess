@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Audit of the inherited Q6 corpus (docs/TAKEOVER-PLAN.md §3).
  *
@@ -23,7 +24,7 @@ const flag = (name: string, dflt: string): string => {
   const i = flags.indexOf(`--${name}`);
   return i >= 0 && flags[i + 1] ? flags[i + 1] : dflt;
 };
-const file = flag('file', 'sim/out/nnue-g1.jsonl');
+const file = flag('file', `${resultsRoot()}/nnue-g1.jsonl`);
 const wantGames = Number(flag('games', '200'));
 /** Lines to keep as the "prefix" (the Q6 corpus has 686 unknown-provenance records first). */
 const prefixLines = Number(flag('prefix', '686'));

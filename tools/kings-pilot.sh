@@ -9,8 +9,10 @@
 # The summary writes docs/research/sim-kings-2026-09-16.md. ~1h40m on 16 free cores.
 
 set -euo pipefail
+RESULTS_DIR=$(node "$(dirname "$0")/lib/results-root.mjs")
+mkdir -p "$RESULTS_DIR"
 cd "$(dirname "$0")/.."
-LOG=sim/out/kings-2026-09-16.log
+LOG="${RESULTS_DIR}/kings-2026-09-16.log"
 run() {
   echo "== $(date '+%F %T') $*" | tee -a "$LOG"
   "$@" 2>&1 | tee -a "$LOG"
@@ -44,12 +46,12 @@ done
 
 run node_modules/.bin/tsx tools/kings-summary.ts
 
-if [[ -s sim/out/kings-depth4.ids ]]; then
+if [[ -s "${RESULTS_DIR}/kings-depth4.ids" ]]; then
   while read -r name rule; do
     run npm run sim -- --id "$name-d4" --experiment ab --games 400 --sample 40 --depth 4 --seed 63 --workers 16 --rule "kings=$rule"
-  done < sim/out/kings-depth4.ids
+  done < "${RESULTS_DIR}/kings-depth4.ids"
   run node_modules/.bin/tsx tools/kings-summary.ts --final
 fi
 
-touch sim/out/kings-2026-09-16.done
+touch "${RESULTS_DIR}/kings-2026-09-16.done"
 echo "== kings campaign complete $(date '+%F %T')" | tee -a "$LOG"

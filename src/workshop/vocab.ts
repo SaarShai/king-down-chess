@@ -1,8 +1,7 @@
 /**
  * The one table of rule blocks (revision 3 §4.2, build 1a): for each block its group, its
- * sentence with pills and defaults, the Whens it allows, what it needs, its MATRIX row, the pieces
- * that have it today, and whether Try it shows it. When the owner adds a MATRIX row, the matching
- * entry is one more object here. Types only from model.ts, so the two modules load in any order.
+ * sentence with pills and defaults, the Whens it allows, what it needs and its MATRIX row. When the
+ * owner adds a MATRIX row, the matching entry is one more object here. Types only from model.ts, so the two modules load in any order.
  * Here too: BODY, the one record of the pool bodies that the other body tables derive from.
  * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
@@ -20,6 +19,8 @@ export interface Block {
   group: Group;
   /** The rule book row: a bold title and an example under it. */
   title: string;
+  /** The seal's short name, under each seal on the shelf (the Proving Ground mockup, proving-ground.html:681). */
+  label: string;
   example: string;
   /** An event rule happens at one moment; a state rule holds while its When holds. */
   event: boolean;
@@ -32,12 +33,6 @@ export interface Block {
   needs?: (d: D) => string | null;
   /** A row label in docs/MATRIX.md (the vocab test finds it there). */
   matrix: string;
-  /** The pool pieces that have it today. */
-  seenOn: Body[];
-  /** Try it can show it (the other side never moves, so a Safe rule cannot). */
-  tryIt: boolean;
-  /** A 24 × 24 path, stroked in currentColor. */
-  icon: string;
   /** An event rule's head, with its pills: "When it takes by moving". A state rule's head is its When. */
   head?: (r: Rule) => Part[];
   /** What it does, after the head: "it may take again from the new square (not a king)". */
@@ -64,60 +59,60 @@ const NOT_TAKE: Choices = [['king', 'a king'], ['pawns', 'pawns'], ['any', 'anyt
 const TAKES_NOTHING = 'It takes nothing already.';
 
 export const BLOCKS: readonly Block[] = [
-  { a: 'step2', group: 'Moving', title: 'Steps 2 straight ahead', example: 'From its start rank, as a pawn does.', event: false,
+  { a: 'step2', group: 'Moving', title: 'Steps 2 straight ahead', label: 'Steps 2', example: 'From its start rank, as a pawn does.', event: false,
     rule: { when: { on: 'zone', zone: 'startRank' }, does: { a: 'step2' } },
     whens: w => w.on === 'always' || (w.on === 'zone' && ['startRank', 'ownHalf', 'enemyHalf'].includes(w.zone)),
-    matrix: '4a Movement — special first move', seenOn: ['P'], tryIt: true, icon: 'M7 13l5-5 5 5M7 19l5-5 5 5',
+    matrix: '4a Movement — special first move',
     say: () => ['it may also step 2 squares straight ahead, over an empty square, to an empty square'], short: () => 'steps 2 straight ahead' },
-  { a: 'movesLike', group: 'Moving', title: 'Also moves like another piece', example: 'On a center square, it also moves like a queen.', event: false,
+  { a: 'movesLike', group: 'Moving', title: 'Also moves like another piece', label: 'Moves like…', example: 'On a center square, it also moves like a queen.', event: false,
     rule: { when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }, pill: { key: 'as', choices: LIKE },
     // "Always" is offered in its sheet, but it moves the piece's squares into the Moves tab (W6), so it is never stored.
     whens: w => !['always', 'takes', 'firstTake', 'reaches'].includes(w.on),
-    matrix: 'C3 moves differently while there', seenOn: [], tryIt: true, icon: 'M4 12h14M13 7l5 5-5 5',
+    matrix: 'C3 moves differently while there',
     say: function (r) { return ['it also moves and takes like ', pill(this, r)]; }, short: r => `also moves like ${choiceText(LIKE, val(r, 'as'))}` },
-  { a: 'linesPass', group: 'Moving', title: 'Its lines pass over pieces', example: 'It slides past its own pieces, as the Paladin does.', event: false,
+  { a: 'linesPass', group: 'Moving', title: 'Its lines pass over pieces', label: 'Lines pass', example: 'It slides past its own pieces, as the Paladin does.', event: false,
     rule: { when: ALWAYS, does: { a: 'linesPass', over: 'own' } }, pill: { key: 'over', choices: [['own', 'its own pieces'], ['any', 'any piece']] },
     whens: w => ['always', 'zone', 'near'].includes(w.on), needs: d => (d.lines.length ? null : 'Paint a line first.'),
-    matrix: '4d Hop — over friends only', seenOn: ['L'], tryIt: true, icon: 'M3 18c3-9 15-9 18 0M12 15v4',
+    matrix: '4d Hop — over friends only',
     say: function (r) { return ['its lines pass over ', pill(this, r)]; }, short: r => `its lines pass over ${val(r, 'over') === 'own' ? 'its own pieces' : 'any piece'}` },
-  { a: 'chain', group: 'Taking', title: 'Takes again', example: 'After a take by moving, it may take again from there.', event: true,
+  { a: 'chain', group: 'Taking', title: 'Takes again', label: 'Takes again', example: 'After a take by moving, it may take again from there.', event: true,
     rule: { when: { on: 'takes' }, does: { a: 'chain' } }, whens: w => w.on === 'takes',
     needs: d => (takesByMoving(d) ? null : 'It needs a square it takes on by moving.'),
-    matrix: '6a Trigger on capture', seenOn: ['S'], tryIt: true, icon: 'M4 7l5 5m0-5l-5 5M14 12l5 5m0-5l-5 5',
+    matrix: '6a Trigger on capture',
     head: () => ['When it takes by moving'], say: () => ['it may take again from the new square (not a king)'], short: () => 'takes again' },
-  { a: 'cannotBeTaken', group: 'Safe', title: 'Some pieces cannot take it', example: 'For example, pawns cannot take it.', event: false,
+  { a: 'cannotBeTaken', group: 'Safe', title: 'Some pieces cannot take it', label: "Can't be taken", example: 'For example, pawns cannot take it.', event: false,
     rule: { when: ALWAYS, does: { a: 'cannotBeTaken', by: 'pawns' } }, pill: { key: 'by', choices: [['pawns', 'by pawns'], ['allButKing', 'by anything but a king']] },
     whens: w => ['always', 'zone', 'near', 'beforeMove'].includes(w.on),
-    matrix: '2 Shield — cannot be taken by X', seenOn: ['G'], tryIt: false, icon: 'M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z',
+    matrix: '2 Shield — cannot be taken by X',
     say: function (r) { return ['it cannot be taken ', pill(this, r)]; }, short: r => (val(r, 'by') === 'pawns' ? 'pawns cannot take it' : 'only a king can take it') },
-  { a: 'push', group: 'Moving others', title: 'Pushes a piece next to it', example: '1 square straight away, and it follows.', event: false,
+  { a: 'push', group: 'Moving others', title: 'Pushes a piece next to it', label: 'Pushes', example: '1 square straight away, and it follows.', event: false,
     rule: { when: ALWAYS, does: { a: 'push', then: 'follow' } }, pill: { key: 'then', choices: [['follow', 'and follow it'], ['stay', 'and stay']] },
     whens: w => ['always', 'zone', 'near'].includes(w.on),
-    matrix: '5a Control — move any adjacent piece', seenOn: ['O'], tryIt: true, icon: 'M3 12h11M10 8l4 4-4 4M19 5v14',
+    matrix: '5a Control — move any adjacent piece',
     // "Never a king" is its own sentence, so the sentence with a long When still fits in 120 characters.
     say: function (r) { return ['it may push a piece next to it 1 square straight away, onto an empty square, ', pill(this, r), '. Never a king']; },
     short: () => 'pushes a piece next to it' },
-  { a: 'swap', group: 'Moving others', title: 'Swaps with a piece next to it', example: 'It trades squares with a friend.', event: false,
+  { a: 'swap', group: 'Moving others', title: 'Swaps with a piece next to it', label: 'Swaps', example: 'It trades squares with a friend.', event: false,
     rule: { when: ALWAYS, does: { a: 'swap', with: 'friend' } }, pill: { key: 'with', choices: [['friend', 'a friend'], ['enemy', 'an enemy']] },
     whens: w => ['always', 'zone'].includes(w.on),
-    matrix: '5b Control — friends only', seenOn: ['M'], tryIt: true, icon: 'M4 9h15l-4-4M20 15H5l4 4',
+    matrix: '5b Control — friends only',
     say: function (r) { return ['it may swap places with ', pill(this, r), ' next to it (not a king)']; },
     short: r => `swaps with ${val(r, 'with') === 'friend' ? 'a friend' : 'an enemy'}` },
-  { a: 'becomes', group: 'Changing', title: 'Becomes another piece', example: 'On the last rank, as a pawn does.', event: true,
+  { a: 'becomes', group: 'Changing', title: 'Becomes another piece', label: 'Becomes', example: 'On the last rank, as a pawn does.', event: true,
     rule: { when: { on: 'reaches', zone: 'lastRank' }, does: { a: 'becomes', into: 'choice' } }, pill: { key: 'into', choices: INTO },
     whens: w => w.on === 'firstTake' || (w.on === 'reaches' && w.zone === 'lastRank'),
-    matrix: 'Last rank', seenOn: ['P'], tryIt: true, icon: 'M12 21V10M8 14l4-4 4 4M6 7l3 2 3-5 3 5 3-2',
+    matrix: 'Last rank',
     head: r => ['When it ', { pill: 'when', text: r.when.on === 'firstTake' ? 'takes for the first time' : 'reaches the last rank' }],
     say: function (r) { return ['it becomes ', pill(this, r)]; }, short: r => `becomes ${choiceText(INTO, val(r, 'into')).replace(/:.*/, '')}` },
-  { a: 'cannotTake', group: 'Holding back', title: 'Cannot take …', example: 'It cannot take a king.', event: false,
+  { a: 'cannotTake', group: 'Holding back', title: 'Cannot take …', label: "Can't take…", example: 'It cannot take a king.', event: false,
     rule: { when: ALWAYS, does: { a: 'cannotTake', what: 'king' } }, pill: { key: 'what', choices: NOT_TAKE },
     whens: w => ['always', 'zone', 'near', 'beforeMove'].includes(w.on), needs: d => (takesAny(d) ? null : TAKES_NOTHING),
-    matrix: '3 Handicap — cannot take X', seenOn: ['L'], tryIt: true, icon: 'M5 5l14 14M12 3a9 9 0 1 0 .01 0',
+    matrix: '3 Handicap — cannot take X',
     say: function (r) { return ['it cannot take ', pill(this, r)]; }, short: r => `cannot take ${choiceText(NOT_TAKE, val(r, 'what'))}` },
-  { a: 'removedAfter', group: 'Holding back', title: 'Is removed after it takes', example: 'It takes a piece and leaves the board too.', event: true,
+  { a: 'removedAfter', group: 'Holding back', title: 'Is removed after it takes', label: 'Removed too', example: 'It takes a piece and leaves the board too.', event: true,
     rule: { when: { on: 'takes' }, does: { a: 'removedAfter', what: 'piece' } }, pill: { key: 'what', choices: [['piece', 'a piece, not a pawn'], ['any', 'anything']] },
     whens: w => w.on === 'takes', needs: d => (takesAny(d) ? null : TAKES_NOTHING),
-    matrix: '6a Trigger on capture', seenOn: ['L'], tryIt: true, icon: 'M6 6l12 12M18 6L6 18',
+    matrix: '6a Trigger on capture',
     head: function (r) { return ['When it takes ', pill(this, r)]; }, say: () => ['it is removed too'], short: () => 'is removed after it takes' },
 ];
 export const GROUPS: readonly Group[] = ['Moving', 'Taking', 'Safe', 'Moving others', 'Changing', 'Holding back'];
@@ -186,3 +181,9 @@ export const MORE_WHENS: readonly When[] = [
   { on: 'afterCard', card: 'any' },
 ];
 export const EVENT_WHENS: readonly When[] = [{ on: 'reaches', zone: 'lastRank' }, { on: 'firstTake' }];
+/** The When choices of a block's rule (the When sheet; the Proving Ground's When chip): an event block's list, else the
+ *  first six (`top`) and the rest, each one that the block allows, with "always" for "moves like" (it adds to Moves). */
+export function whenChoices(a: Ability['a']): { top: When[]; more: When[] } {
+  const b = blockOf(a), fits = (w: When): boolean => b.whens(w) || (a === 'movesLike' && w.on === 'always');
+  return b.event ? { top: EVENT_WHENS.filter(fits), more: [] } : { top: TOP_WHENS.filter(fits), more: MORE_WHENS.filter(fits) };
+}

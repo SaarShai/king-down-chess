@@ -8,6 +8,11 @@ import { ensureSurfaceUv, materialForLook, softenClayNormals, type ClayLook } fr
 
 const sources = new Map<string, Promise<THREE.Group>>();
 const materials = new Map<string, THREE.Material>();
+/** Each side's clay: White's cream, Black's blue. */
+export const CLAY_PALETTES: Record<string, number>[] = [
+  { army: 0xdcc9a2, shade: 0x958365, light: 0xf2e2c0, ink: 0x514638 },
+  { army: 0x485875, shade: 0x28374c, light: 0x839abc, ink: 0x192335 },
+];
 
 /** Accepted board cast, shared geometry/materials and an independent skeleton/mixer per piece. */
 export class ClayFigure {
@@ -21,9 +26,7 @@ export class ClayFigure {
       .catch(error => { sources.delete(name); throw error; }));
     const model = clone(await sources.get(name)!) as THREE.Group;
     if (look === 'handmade' && name !== 'ogre') softenClayNormals(model);
-    const palette: Record<string, number> = side === 0
-      ? { army: 0xdcc9a2, shade: 0x958365, light: 0xf2e2c0, ink: 0x514638 }
-      : { army: 0x485875, shade: 0x28374c, light: 0x839abc, ink: 0x192335 };
+    const palette = CLAY_PALETTES[side];
     const accent = CAST.find(c => c.key === name)!.accent;
     model.traverse(o => {
       if (!(o as THREE.Mesh).isMesh) return;

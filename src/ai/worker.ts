@@ -1,6 +1,6 @@
 import { Position } from '../rules/engine';
 import { Rules, setRules } from '../rules/rules';
-import { setEvaluator } from './eval';
+import { setDesignValue, setEvaluator } from './eval';
 import { SearchOptions, search } from './search';
 
 // The adopted Q6 residual net (src/ai/nnue/weights.ts). The worker builds its own module graph,
@@ -18,5 +18,6 @@ const ctx = self as unknown as Worker;
 ctx.onmessage = (e: MessageEvent<{ id: number; pos: Position; opts: SearchOptions; rules: Rules }>) => {
   const { id, pos, opts, rules } = e.data;
   setRules(rules);
+  setDesignValue(rules.design);
   ctx.postMessage({ id, ...search(pos, opts) });
 };

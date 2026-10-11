@@ -1,6 +1,7 @@
-import { A, B, C, G, K, L, M, N, NAMES, LETTERS, O, P, Q, R, RULES as GAME_RULES, S, T, V, colorOf, file, findKing, rank, legalMoves, pseudoMoves, sqName, markKind, type ArcherShots, type Color, typeOf, type PieceType, type Position } from './rules/engine';
+import { A, B, C, G, K, L, M, N, nameOf, LETTERS, O, P, Q, R, RULES as GAME_RULES, S, T, V, colorOf, file, findKing, rank, legalMoves, pseudoMoves, sqName, markKind, playedDesign, theName, type ArcherShots, type Color, typeOf, type PieceType, type Position } from './rules/engine';
 import { needsArming, offered } from './powers-ui';
 import { POOL } from './rules/setup';
+import { describe } from './workshop/text';
 
 export interface Reach {
   step: Set<number>;
@@ -168,12 +169,16 @@ export function pieceGuide(t: PieceType): GuideRow {
         captures: 'Takes like a knight; the step after never takes.',
         special: 'Tap the enemy piece, then the landing square.',
       };
-    case T:
+    case T: {
+      // A design in the slot (ticket 17): the Workshop's own sentences for it.
+      const d = playedDesign(), t = d && describe(d);
+      if (t) return { moves: `Moves ${t.moves}`, captures: t.takes.startsWith('Shoots') ? t.takes : `Takes ${t.takes}`, special: t.special.join(' ') };
       return {
         moves: 'Moves 1 square in any direction. On a capital square (d4 e4 d5 e5) it moves and takes like a queen.',
         captures: 'Takes by moving onto the enemy.',
         special: '',
       };
+    }
     default:
       return { moves: '', captures: '', special: '' };
   }
@@ -194,11 +199,11 @@ export function readText(pos: Position, sq: number): string {
     [O]: 'Can shove a neighbour.',
     [C]: 'Takes beyond an enemy piece.',
     [V]: 'Can step after a take.',
-    [T]: 'Moves like a queen on capital squares.',
+    ...(!playedDesign() && { [T]: 'Moves like a queen on capital squares.' }),
   };
   const first = special[t] ?? pieceGuide(t).moves.split(/(?<=[.!?])\s/)[0];
   const states = pieceStates(pos, sq);
-  return `${NAMES[t]} · ${first}` + (states.length ? `\n${states.join(' · ')}` : '');
+  return `${nameOf(t)} · ${first}` + (states.length ? `\n${states.join(' · ')}` : '');
 }
 
 /** Live state words, also used for a refused move. */
@@ -217,7 +222,7 @@ export function pieceStates(pos: Position, sq: number): string[] {
 
 /** Why a tap on `to` did not play a move for the piece on `from` (only exported engine functions). */
 export function whyNot(pos: Position, from: number, to: number, tag: string | null = null, bites: readonly number[] = []): string {
-  const mover = pos.board[from], name = NAMES[typeOf(mover)], target = pos.board[to];
+  const mover = pos.board[from], target = pos.board[to];
   if (bites.length && typeOf(mover) === S && target && typeOf(target) === K) return 'A bite chain cannot take a king.';
   if (pieceStates(pos, from).includes('Frozen')) return 'Frozen: it cannot move this turn.';
   if (pieceStates(pos, to).includes('Ice Wall')) return 'Ice Wall: nothing can take it now.';
@@ -245,7 +250,7 @@ export function whyNot(pos: Position, from: number, to: number, tag: string | nu
     return 'That leaves your king in check.';
   }
   if (GAME_RULES.guardImmune && target && typeOf(target) === G && colorOf(target) !== pos.turn && typeOf(mover) !== K) return 'Only a king can take a guard.';
-  return `The ${name} cannot ${target ? `take the ${NAMES[typeOf(target)]} on` : 'reach'} ${sqName(to)}.`;
+  return `${theName(typeOf(mover), 'The')} cannot ${target ? `take ${theName(typeOf(target))} on` : 'reach'} ${sqName(to)}.`;
 }
 
 /** A read keeps the move role; a movable friend takes that role. */
@@ -263,7 +268,7 @@ export function unmarkedTap(pos: Position, sq: number, selected: number | null, 
   const enemy = pos.board[sq] && colorOf(pos.board[sq]) !== pos.turn;
   let notice = selected != null && (!pos.board[sq] || enemy) ? whyNot(pos, selected, sq, tag) : '';
   if (next.selected != null && next.selected !== selected && !legalMoves(pos).some(m => m.from === next.selected && offered(m, tag))) {
-    notice = pieceStates(pos, sq).includes('Frozen') ? 'Frozen: it cannot move this turn.' : `This ${NAMES[typeOf(pos.board[sq])]} has no legal move.`;
+    notice = pieceStates(pos, sq).includes('Frozen') ? 'Frozen: it cannot move this turn.' : `${theName(typeOf(pos.board[sq]), 'This')} has no legal move.`;
   }
   return { ...next, pending: [], notice };
 }

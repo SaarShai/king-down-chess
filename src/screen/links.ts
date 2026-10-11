@@ -8,14 +8,15 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 
 /**
  * A link that holds a whole game, for a friend to open and answer on their device (no server): this
- * page, its `?rules=` preset, the kings, the start (the army, else the position) and the moves.
+ * page, its `?rules=` preset, the kings, the design's share code (ticket 17), the start (the army, else the position) and the moves.
  */
 export function gameUrl(page: { origin: string; pathname: string }, rules: string | null, kings: Rules['kings'],
-  start: { army: string } | { fen: string }, lans: readonly string[]): string {
+  start: { army: string } | { fen: string }, lans: readonly string[], design?: string): string {
   const url = new URL(page.pathname, page.origin);
   if (rules) url.searchParams.set('rules', rules);
   const k = kingsParam(kings);
   if (k) url.searchParams.set('kings', k);
+  if (design) url.searchParams.set('design', design);
   if ('army' in start) url.searchParams.set('army', start.army);
   else url.searchParams.set('fen', start.fen);
   url.searchParams.set('moves', lans.join('_')); // '_' needs no escaping in a URL
@@ -25,7 +26,7 @@ export function gameUrl(page: { origin: string; pathname: string }, rules: strin
 /** This page's URL without a game link's parameters. */
 export function gameLinkless(): string {
   const url = new URL(location.href);
-  for (const k of ['army', 'fen', 'moves']) url.searchParams.delete(k);
+  for (const k of ['army', 'fen', 'moves', 'design']) url.searchParams.delete(k);
   return url.href;
 }
 
@@ -50,7 +51,7 @@ export function connectLinks(c: { game(): Game; turnStart(): number; rules: stri
   function gameLink(lans = c.game().history.slice(0, c.turnStart()).map(h => h.lan)): string {
     const game = c.game();
     return gameUrl(location, c.rules, GAME_RULES.kings,
-      game.backRank ? { army: game.backRank } : { fen: toFen(game.history[0]?.pos ?? game.pos) }, lans);
+      game.backRank ? { army: game.backRank } : { fen: toFen(game.history[0]?.pos ?? game.pos) }, lans, GAME_RULES.design?.code);
   }
 
   $('share').onclick = async () => {

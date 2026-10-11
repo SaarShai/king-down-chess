@@ -129,9 +129,23 @@ try {
   assert.equal(await page.locator('#board-marks .mk-threat').count(), 1);
   assert.equal(await page.locator('#board-marks .mk-cover').count(), 15);
   const ring = await page.locator('#board-marks .mk-threat').boundingBox(), d2 = await page.evaluate(() => window.view.screenOf(11));
-  assert.ok(Math.abs(ring.x + ring.width / 2 - d2.x) < 2 && Math.abs(ring.y + ring.height / 2 - d2.y) < 2, 'the ring sits on d2');
+  assert.ok(Math.abs(ring.x + ring.width / 2 - d2.x) < 2 && Math.abs(ring.y + ring.height / 2 - d2.y) < 2, 'the threat mark is on d2');
+  // Ticket 02: amber marks, not the legend's red; a selected piece's moves keep them.
+  const art = cls => page.evaluate(c => {
+    const { backgroundImage, content, width, right, bottom } = getComputedStyle(document.querySelector(`#board-marks .${c}`), '::after');
+    return { backgroundImage, content, width, right, bottom };
+  }, cls);
+  for (const cls of ['mk-threat', 'mk-cover']) {
+    const { backgroundImage, content, width, right, bottom } = await art(cls);
+    assert.match(backgroundImage, /f08c1a/, `${cls} draws the amber threat mark`);
+    assert.ok(content !== 'none' && parseFloat(width) > 0 && right !== 'auto' && bottom !== 'auto', `${cls} draws in the bottom-right corner`);
+  }
+  await tap(page, 11);
+  assert.ok((await page.evaluate(() => window.view.marks.moves.length)) > 0, 'the knight shows its moves');
+  assert.equal(await page.locator('#board-marks .mk-threat').count(), 1, 'the threat mark stays with the moves');
+  assert.equal(await page.locator('#board-marks .mk-cover').count(), 15);
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).threats), true, 'the choice is saved');
-  ok('Show threats: off by default; marks the attacked knight and 15 covered squares; saved');
+  ok('Show threats: off by default; marks the attacked knight and 15 covered squares in amber, also with moves shown; saved');
   await page.context().close();
 
   // 4. Refusals say why. A tap on an enemy piece with no piece selected is no refusal: it shows the piece's card.
@@ -263,7 +277,7 @@ try {
   await ready(page);
   await tap(page, 27); // the archer on d4
   const shotMarks = await page.evaluate(() => ({ shots: window.view.marks.shots, captures: window.view.marks.captures }));
-  assert.deepEqual([...shotMarks.shots].sort(), [41, 45], 'the archer sights b6 and f6');
+  assert.deepEqual([...shotMarks.shots].sort(), [41, 45], 'the archer\'s shot targets are b6 and f6');
   assert.deepEqual([...shotMarks.captures].sort(), [41, 45]);
   await page.context().close();
   page = await open('?kings=stratus:flight,none&fen=' + encodeURIComponent('4k3/p7/8/8/8/8/P7/1N2K3 w - - 0 1'));
@@ -272,7 +286,7 @@ try {
   const flight = await page.evaluate(() => ({ powers: window.view.marks.powers.length, moves: window.view.marks.moves.length }));
   assert.ok(flight.powers > 0 && flight.powers === flight.moves, `Flight's squares are power marks (${flight.powers}/${flight.moves})`);
   await page.context().close();
-  ok('markers: Archer targets are sights; an armed Flight marks its squares as power moves');
+  ok('markers: Archer targets are shot targets; an armed Flight marks its squares as power moves');
 
   // 9. The Quiet Table (web redesign ticket 01): the page is light only. With the device in dark mode, the
   // page, the first-visit title and the Workshop surround show the same parchment floor as in light mode, and

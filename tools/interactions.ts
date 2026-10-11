@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Interaction profiler: what actually happens in the game, how often, and whether it tracks
  * decisive games. Pure streaming arithmetic over recorded corpora — no model, no judgment.
@@ -18,11 +19,11 @@ const flag = (name: string, dflt: string): string => {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : dflt;
 };
-const FILES = flag('files', '../king-down-sim/sim/out/nnue-g2.jsonl,sim/out/np-O.jsonl')
+const FILES = flag('files', `${resultsRoot()}/nnue-g2.jsonl,${resultsRoot()}/np-O.jsonl`)
   .split(',').filter(f => existsSync(f));
 if (!FILES.length) { console.error('interactions: no input files'); process.exit(2); }
 const OUT_MD = flag('out', 'docs/research/interactions-2026-09-17.md');
-const OUT_JSON = 'sim/out/interactions.json';
+const OUT_JSON = `${resultsRoot()}/interactions.json`;
 
 const KEYS = ['archerShots', 'beastChainMoves', 'maesterSwaps', 'maesterLongSwaps', 'paladinSacrifices', 'promotions', 'checks', 'ogreShoves', 'ogreShovesFriend', 'ogreShovesGuard', 'catapultChecks'] as const;
 type Key = typeof KEYS[number];

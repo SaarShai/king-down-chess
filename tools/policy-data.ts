@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Policy distillation data: label positions with the search's own best move at a chosen depth, so a
  * small policy net can later rank moves instantly (move ordering, and eventually an instant player).
@@ -34,7 +35,7 @@ const flag = (name: string, dflt: string): string => {
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : dflt;
 };
 export const REC = 70;
-const FILE = flag('file', '../king-down-sim/sim/out/nnue-g2.jsonl');
+const FILE = flag('file', `${resultsRoot()}/nnue-g2.jsonl`);
 const WANT = Number(flag('positions', '20000'));
 const DEPTH = Number(flag('depth', '4'));
 const OUT_DIR = 'sim/nnue';

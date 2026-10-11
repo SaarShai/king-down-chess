@@ -89,7 +89,7 @@ export type RuleDimension<K extends keyof Rules = keyof Rules> = {
   allowed: readonly Rules[K][];
   default: Rules[K];
   /** Structured fields have a domain, rather than a finite list. */
-  domain?: 'kingPair' | 'cardPair' | 'cardMoveMap';
+  domain?: 'kingPair' | 'cardPair' | 'cardMoveMap' | 'designSpec';
 };
 
 /** Fixed choices from the reviewed source. Changes require a review of this table. */
@@ -191,6 +191,7 @@ export const RULE_DIMENSIONS = {
   fiftyMove: { allowed: [false,true], default: true },
   threefold: { allowed: [false,true], default: true },
   insufficientMaterial: { allowed: [false,true], default: true },
+  design: { allowed: [], default: null, domain: "designSpec" },
 
 } as const satisfies { [K in keyof Rules]: RuleDimension<K> };
 

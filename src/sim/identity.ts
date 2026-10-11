@@ -15,7 +15,7 @@ import { DEFAULT_RULES } from '../rules/rules';
 import { RunSpec, adjudication, usePairs } from './spec';
 
 /** The code that decides how a stored game plays back. A `weights.ts` retrain changes this on purpose. */
-const SRC_ROOTS = ['src/rules', 'src/ai', 'src/sim'];
+const SRC_ROOTS = ['src/rules', 'src/ai', 'src/sim', 'src/workshop']; // src/rules reads the Workshop's design model (ticket 16)
 
 function filesUnder(dir: string): string[] {
   const out: string[] = [];

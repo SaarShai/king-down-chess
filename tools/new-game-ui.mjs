@@ -10,13 +10,15 @@ import { pressMenu, startNewGame } from './app-ui.mjs';
  * mode: 'computer' | 'powers' | 'two' · level: 'beginner' | 'casual' | 'club' | 'strong' ·
  * side: 'white' | 'black' (against the computer) · powers: the Two players box ·
  * kings: [White, Black] as 'King:Power' or 'King:none' · army: 'random' (the default), 'daily',
- * 'classic', 'custom', an example army's code or 'ogre'. Options left out keep the dialog's choice.
+ * 'classic', 'custom', an example army's code or 'ogre' · design: a Workshop design's name, or 'No design'.
+ * Options left out keep the dialog's choice.
  */
-export async function setUpGame(page, { mode, level, side, powers, kings, army = 'random' } = {}) {
+export async function setUpGame(page, { mode, level, side, powers, kings, design, army = 'random' } = {}) {
   if (!await page.evaluate(() => document.getElementById('new-game').open)) await pressMenu(page, 'New game');
   if (mode) await page.click(`#new-game label:has(#mode-${mode})`);
   if (level) await page.click(`#new-game label:has(#level-${level})`);
   if (powers !== undefined) await page.setChecked('#two-powers', powers);
+  if (design) await page.selectOption('#design', { label: design });
   for (const [c, choice] of (kings ?? []).entries()) {
     if (!choice) continue;
     const [king, power] = choice.split(':');

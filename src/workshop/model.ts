@@ -7,39 +7,11 @@
 import { figureById } from './figures';
 import type { KingName } from '../rules/engine';
 import { BLOCKS, BODY, keysAre, takesAny, whenOk } from './vocab';
-
-export type Body = 'P' | 'N' | 'B' | 'R' | 'Q' | 'A' | 'L' | 'G' | 'M' | 'S' | 'O';
-export type Mark = 'both' | 'move' | 'take' | 'shoot' | 'moveShoot';
-export type Dir = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw';
-export type Zone = 'startRank' | 'ownHalf' | 'enemyHalf' | 'lastRank' | 'capital';
-export type MoveN = 5 | 10 | 15 | 20;
-/** MATRIX D.1. A state holds for a while; an event happens at one moment. */
-export type When =
-  | { on: 'always' }
-  | { on: 'zone'; zone: Zone }
-  | { on: 'near'; who: 'king' | 'friend' | 'enemy' | Body }
-  | { on: 'fromMove'; n: MoveN } | { on: 'beforeMove'; n: MoveN }
-  | { on: 'afterFirstCapture' }
-  | { on: 'afterCard'; card: 'any' }
-  | { on: 'takes' } | { on: 'firstTake' }
-  | { on: 'reaches'; zone: 'lastRank' };
-/** The pieces that "also moves like" can name. */
-export type LikeAs = 'king' | 'knight' | 'bishop' | 'rook' | 'queen';
-/** The 10 rule blocks of build 1a (§4.2); vocab.ts has the sentence and the limits of each. */
-export type Ability =
-  | { a: 'step2' }
-  | { a: 'movesLike'; as: LikeAs }
-  | { a: 'linesPass'; over: 'own' | 'any' }
-  | { a: 'chain' }
-  | { a: 'cannotBeTaken'; by: 'pawns' | 'allButKing' }
-  | { a: 'push'; then: 'follow' | 'stay' }
-  | { a: 'swap'; with: 'friend' | 'enemy' }
-  | { a: 'becomes'; into: 'choice' | 'Q' | 'R' | 'B' | 'N' | 'A' }
-  | { a: 'cannotTake'; what: 'king' | 'pawns' | 'any' }
-  | { a: 'removedAfter'; what: 'piece' | 'any' };
-export interface Rule { when: When; does: Ability }
-/** x to the right, y forward, both in −3..3, never (0, 0). Black's pattern is the mirror image. */
-export interface Square { x: number; y: number; mark: Mark }
+// The rule types live with the engine's move interpreter (src/rules/design.ts, ticket 16).
+import type { Ability, Body, DesignSpec, Dir, LikeAs, Mark, Rule, Square, When } from '../rules/design';
+import { DIR } from '../rules/design';
+export type { Ability, Body, DesignSpec, Dir, LikeAs, Mark, MoveN, Rule, Square, When, Zone } from '../rules/design';
+export { DIR };
 export interface Look { figure?: string; body: Body | 'token'; auto: boolean; glow: KingName | null; army: 0 | 1 }
 export interface PieceDesign {
   v: 1; kind: 'piece';
@@ -64,12 +36,13 @@ export type PaintOn = 'all' | 'lr' | 'one';
 
 export const BODIES = Object.keys(BODY) as readonly Body[];
 export const DIRS: readonly Dir[] = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
-export const DIR: Record<Dir, readonly [number, number]> = { n: [0, 1], ne: [1, 1], e: [1, 0], se: [1, -1], s: [0, -1], sw: [-1, -1], w: [-1, 0], nw: [-1, 1] };
 export const ORTHO: readonly Dir[] = ['n', 'e', 's', 'w'];
 export const DIAG: readonly Dir[] = ['ne', 'se', 'sw', 'nw'];
 /** Letters the engine does not use (src/rules/engine.ts LETTERS), and E (the Squire, MATRIX A.3). */
 export const FREE_LETTERS = 'DFHIJUWXYZ';
 export const MAX_RULES = 3;
+/** The words of a try to add a rule past MAX_RULES. */
+export const FULL = '3 of 3 rules. Remove one to add another.';
 /** The longest share code: the largest design the editor can make is about 2,800 characters (a unit test). */
 export const MAX_CODE = 4000;
 
@@ -152,7 +125,7 @@ export const ruleKey = (r: Rule): string => JSON.stringify(sorted(r));
 
 /** The hard limits a stored design breaks (§4.9 H2b, H8, H12; the others cannot be stored), or null. */
 export function limit(d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'>): string | null {
-  if (d.rules.length > MAX_RULES) return '3 of 3 rules. Remove one to add another.';
+  if (d.rules.length > MAX_RULES) return FULL;
   if (new Set(d.rules.map(r => r.does.a)).size < d.rules.length) return 'Already in this piece.';
   for (const r of d.rules) if (!whenOk(r)) return 'That choice does not fit this rule.';
   if (d.rules.some(r => r.does.a === 'cannotBeTaken' && r.does.by === 'allButKing') && takesAny(d))
@@ -167,6 +140,11 @@ export const empty = (d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'>): bool
 export function likeSquares(as: LikeAs): { squares: readonly Square[]; lines: readonly Dir[] } {
   const p = presetOf(as === 'king' ? 'maester' : as);
   return { squares: p.squares, lines: p.lines };
+}
+/** What the engine plays (`RULES.design`, `genDesigned`): the canonical squares, lines and rules, with "moves like" expanded. */
+export function specOf(d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'>): DesignSpec {
+  const { squares, lines, rules } = canonical(d), like = rules.find(r => r.does.a === 'movesLike')?.does;
+  return { squares, lines, rules, like: like?.a === 'movesLike' ? likeSquares(like.as) : null };
 }
 /** "Always" for "also moves like": the piece's squares and lines with that piece's added, or null where a square
  *  would need a shot and a take by moving at once, which a stored square cannot hold. */
@@ -239,3 +217,10 @@ export function setMark(mark: Mark | undefined, channel: 'move' | 'take' | 'shoo
     : on ? channel : null;
   return capture === 'shoot' ? moves ? 'moveShoot' : 'shoot' : capture === 'take' ? moves ? 'both' : 'take' : moves ? 'move' : null;
 }
+
+/** The Proving Ground's brushes and tools (docs/specs/workshop-proving-ground, ticket 02). */
+export type Brush = 'move' | 'take' | 'both' | 'shot' | 'erase';
+/** The mark a brush leaves on a square that holds `mark`: Move, Take and Both paint the whole mark; Shot adds a shot
+ *  and keeps the move (spec decision 34); Erase clears the square. */
+export const brushMark = (mark: Mark | undefined, brush: Brush): Mark | null =>
+  brush === 'erase' ? null : brush === 'shot' ? setMark(mark, 'shoot', true) : brush;

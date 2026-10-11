@@ -3,6 +3,7 @@ import { Color, Move, Position, Status, inCheck, legalMoves, makeMove, status } 
 import { RULES } from './rules/rules';
 import { randomBackRank, startPosition, toLan } from './rules/setup';
 import { SearchOptions, SearchResult, positionKey, search } from './ai/search';
+import { setDesignValue } from './ai/eval';
 
 export type Side = 'human' | 'ai';
 
@@ -98,6 +99,12 @@ export class Game {
   }
 }
 
+/** The search on the page (no worker) under the page's rules: a design in `T` is worth what the judge says, as in the worker. */
+function inline(pos: Position, opts: SearchOptions): SearchResult {
+  setDesignValue(RULES.design);
+  return search(pos, opts);
+}
+
 export class Engine {
   private worker: Worker | null = this.spawn();
   private id = 0;
@@ -116,7 +123,7 @@ export class Engine {
     const id = ++this.id;
     const worker = this.worker;
     const live = (): boolean => id === this.id;
-    if (!worker) return new Promise(resolve => setTimeout(() => { if (live()) resolve(search(pos, opts)); }, 30));
+    if (!worker) return new Promise(resolve => setTimeout(() => { if (live()) resolve(inline(pos, opts)); }, 30));
     return new Promise(resolve => {
       const onMessage = (e: MessageEvent<SearchResult & { id: number }>) => {
         if (e.data.id !== id) return;
@@ -131,7 +138,7 @@ export class Engine {
         worker.removeEventListener('message', onMessage);
         if (!live()) return;
         this.worker = null;
-        resolve(search(pos, opts));
+        resolve(inline(pos, opts));
       }, (opts.timeMs ?? 1000) + 2500);
       worker.addEventListener('message', onMessage);
       // The rules the page is playing, by value. Snapshot at call time: `?rules=`/`?kings=` set them

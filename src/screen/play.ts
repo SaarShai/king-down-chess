@@ -10,14 +10,15 @@ import { positionKey } from '../ai/search';
 import type { BoardView } from '../render/PaintedView';
 import { momentKind } from '../moment';
 import { setSound, snd } from '../render/sfx';
-import { Color, Move, NAMES, PieceType, Position, RULES as GAME_RULES, S, colorOf, file as fileOf, findKing, setRules, sqName, typeOf, type Rules } from '../rules/engine';
+import { Color, Move, NAMES, PieceType, Position, RULES as GAME_RULES, S, colorOf, file as fileOf, findKing, parseRule, setRules, sqName, typeOf, type Rules } from '../rules/engine';
 import { fromFen, randomBackRank, toFen } from '../rules/setup';
 import { LESSONS } from '../lessons';
 import { progress, recordLesson } from '../lesson-shelf-ui';
 import { lessonShelf } from '../lesson-shelf';
 import { checkersOf, describeMove, nextMoveNumber, threatsIn } from '../move-text';
 import { POWER_TAG, autoQueen, hintMoves, offered } from '../powers-ui';
-import { kingsOf, newGameWarning, playersOf, type Setup } from '../new-game';
+import { kingsOf, newGameWarning, playersOf, withDesign, type Setup } from '../new-game';
+import { worthOf } from '../workshop/judge';
 import { pieceIcon } from '../piece-icons';
 import { reachOf, readTap, unmarkedTap } from '../read';
 import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, turnLine, turnOf } from '../turn';
@@ -652,7 +653,10 @@ export function connectPlay(view: BoardView, c: {
     reset();
     if (!rematch) {
       const k = kingsOf(setup);
-      setRules({ ...withPowers(k), ...preset, kings: k });
+      // "Bring a design" (ticket 17): the design plays as `T`, in place of one back-rank piece; a position (`fen`) has no place for it.
+      const design = setup.design && !fen ? parseRule(`design=${setup.design}`).design! : null;
+      setRules({ ...withPowers(k), ...preset, kings: k, design });
+      if (design) backRank = withDesign(backRank ?? randomBackRank(), worthOf(design));
       skill = setup.level;
     }
     resigned = null;
@@ -788,10 +792,10 @@ export function connectPlay(view: BoardView, c: {
 
   /**
    * The start-up restore: an opened game link (`link`; `continues`: it continues the saved game), a
-   * `?fen=` position, or the autosave. `urlRules`: the URL names a rule set. `title`: the title opens.
+   * `?fen=` position, or the autosave. `urlRules`: the URL names a rule set. `title`: the title opens. `notice`: the first notice.
    * It runs before any async work starts, so it is the one game switch that does not call `reset()`.
    */
-  function restore(saved: Save | null, r: { link: boolean; continues: boolean; urlRules: boolean; title: boolean }): void {
+  function restore(saved: Save | null, r: { link: boolean; continues: boolean; urlRules: boolean; title: boolean; notice: string }): void {
     if (r.link) {
       previously.load(params, r.continues ? saved!.moves.length : 0);
       sides[0] = sides[1] = 'human';
@@ -813,6 +817,7 @@ export function connectPlay(view: BoardView, c: {
     // The title's Continue names the move the restored game is on (set before the first paint; a
     // Haste turn is two plies by one side, so the number comes from the replayed game, not the save).
     if (r.title) labelContinue();
+    notice = r.notice;
     orient();
     view.sync(previously.position());
   }

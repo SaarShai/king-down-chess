@@ -6,7 +6,9 @@
  * No file-indexed opening knowledge anywhere: the back rank is randomised, so tables are
  * left-right symmetric and encode only centrality and advancement.
  */
-import { A, B, C, Color, G, K, L, M, N, O, P, PieceType, Position, Q, R, S, T, V, WHITE, canCapture, colorOf, typeOf } from '../rules/engine';
+import { A, B, C, Color, G, K, L, M, N, O, P, PieceType, Position, Q, R, RULES, S, T, V, WHITE, canCapture, colorOf, typeOf } from '../rules/engine';
+import { worthOf } from '../workshop/judge';
+import type { DesignSpec } from '../rules/design';
 import { NetKind, RESIDUAL_MAX, loadNet, loadedNetB64, netHasOgre, netKind, netLoaded, nnueEval } from './nnue/net';
 
 /*
@@ -125,7 +127,7 @@ const TYPE_BY_LETTER: Readonly<Record<string, PieceType>> = Object.freeze({ P, N
  * Module-level state, like `setRules` in `src/rules/rules.ts`, and for the same reason: the hot
  * paths take a bare `Uint8Array`, not a carrier for per-run options. One value set per thread is
  * enough — each simulation worker is its own module instance and sets the values before it plays;
- * the browser never calls this.
+ * the browser calls it only through `setDesignValue`.
  */
 export function setPieceValues(over?: Readonly<Record<string, number>>): void {
   for (const letter of Object.keys(TYPE_BY_LETTER)) {
@@ -134,6 +136,11 @@ export function setPieceValues(over?: Readonly<Record<string, number>>): void {
     VAL[t] = v;
     VALUES[t] = v;
   }
+}
+
+/** A design in `T` (ticket 16) is worth what the Workshop's judge says; `over` wins. No design and no `over` restore the shipped values. */
+export function setDesignValue(design: DesignSpec | null, over?: Readonly<Record<string, number>>): void {
+  setPieceValues(design ? { T: Math.round(worthOf(design) * PAWN_V), ...over } : over);
 }
 
 /**
@@ -510,7 +517,7 @@ export function evaluateBoard(board: Uint8Array, turn: Color): number {
     let v = VAL[t] + PST[t][c === WHITE ? s : s ^ 56];
     if (t !== P) npm += VAL[t];
     if (t === B || t === R || t === Q || t === L) v += mobility(board, s, t, c);
-    else if (t === T && CAPITAL_SQ.has(s)) v += TEMPLAR_ON_CAPITAL;
+    else if (t === T && !RULES.design && CAPITAL_SQ.has(s)) v += TEMPLAR_ON_CAPITAL; // a design in the slot is no Templar
     else if (t === S) v += beastTargets(board, s, c);
     else if (t === M) maesters.push(s);
     score += c === WHITE ? v : -v;

@@ -5,7 +5,7 @@ import { type Game, type Side } from '../game';
 import type { KeyMoment } from '../moment';
 import { checkCause, describeMove, moveNumbers } from '../move-text';
 import { pieceIcon } from '../piece-icons';
-import { type Color, type PieceType, type Rules, type Position, A, C, L, M, NAMES, O, S, V, colorOf, typeOf } from '../rules/engine';
+import { type Color, type PieceType, type Rules, type Position, A, C, L, M, NAMES, nameOf, O, S, V, colorOf, typeOf } from '../rules/engine';
 import { readText } from '../read';
 import type { SkillName } from '../ai/skill';
 import { turnLine, type Mode, type Turn } from '../turn';
@@ -20,7 +20,7 @@ let thinkingAt = 0, thinkTimer: ReturnType<typeof setTimeout> | undefined;
 export function readPiece(pos: Position, sq: number | null, inspecting: boolean): void {
   const code = sq == null ? 0 : pos.board[sq];
   const [line = '', states = ''] = sq == null ? [] : readText(pos, sq).split('\n');
-  read = code ? `${colorOf(code) ? 'Black' : 'White'} ${NAMES[typeOf(code)]}.${states ? ` ${states}.` : ''}` : '';
+  read = code ? `${colorOf(code) ? 'Black' : 'White'} ${nameOf(typeOf(code))}.${states ? ` ${states}.` : ''}` : '';
   readNote = line.split(' · ')[1] ?? '';
   reading = inspecting;
   const button = $('all-rules');
@@ -143,7 +143,7 @@ export function renderTable(s: TableSnapshot): void {
     const count = new Map<number, number>(); // key: type * 2 + colour
     for (const p of codes) { const k = typeOf(p) * 2 + colorOf(p); count.set(k, (count.get(k) ?? 0) + 1); }
     return [...count].sort(([a], [b]) => a - b).map(([k, n]) => {
-      const t = (k >> 1) as PieceType, icon = pieceIcon(t, (k & 1) as Color), name = `${NAMES[t]}${n > 1 ? ` ×${n}` : ''}`;
+      const t = (k >> 1) as PieceType, icon = pieceIcon(t, (k & 1) as Color), name = `${nameOf(t)}${n > 1 ? ` ×${n}` : ''}`;
       return icon ? `<span class="took" title="${name}">${icon}${n > 1 ? `<span aria-hidden="true">×${n}</span>` : ''}<span class="sr-only">${name}</span></span>` : `<span class="took">${name}</span>`;
     }).join('<span class="sr-only">, </span>');
   };

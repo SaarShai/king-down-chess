@@ -2,7 +2,7 @@
  * Plain-language helpers for the HUD that only read the engine: the screen-reader sentence for a
  * move, the threat markers, and move numbers that stay right when a Haste turn plays two plies.
  */
-import { A, C, Color, K, Move, N, NAMES, Position, colorOf, file, findKing, genPiece, isAttacked, isSpawnTag, pseudoMoves, rank, sqName, typeOf } from './rules/engine';
+import { A, aName, C, Color, K, Move, N, nameOf, Position, theName, colorOf, file, findKing, genPiece, isAttacked, isSpawnTag, pseudoMoves, rank, sqName, typeOf } from './rules/engine';
 
 import type { Mode } from './turn';
 
@@ -12,7 +12,7 @@ export interface Checker { sq: number; king: number; path: 'straight' | 'arc' }
 
 /** The cause of the current check, in one short line. */
 export function checkCause(pos: Position, last?: Move, mode?: Mode, viewer: Color = pos.turn): string {
-  const checkers = checkersOf(pos), names = checkers.map(ch => NAMES[typeOf(pos.board[ch.sq])]);
+  const checkers = checkersOf(pos), names = checkers.map(ch => nameOf(typeOf(pos.board[ch.sq])));
   if (!checkers.length) return '';
   const attacker = mode === 'device' ? `${SIDE[(pos.turn ^ 1) as Color]}'s` : viewer === pos.turn ? 'Their' : 'Your';
   const target = mode === 'device' ? `the ${SIDE[pos.turn].toLowerCase()} king` : viewer === pos.turn ? 'your king' : 'their king';
@@ -64,8 +64,9 @@ function checkPath(board: Uint8Array, from: number, king: number): Checker['path
 /** One sentence for a screen reader: who moved what, and what it did. */
 export function describeMove(pre: Position, m: Move, freePass = false, final = false): string {
   // The side is the one to move, not the piece on `from`: a Freeze names an enemy piece.
-  const side = SIDE[pre.turn], piece = pre.board[m.from], name = NAMES[typeOf(piece)];
-  const the = (s: number): string => `${NAMES[typeOf(pre.board[s])]} on ${sqName(s)}`;
+  const side = SIDE[pre.turn], piece = pre.board[m.from], name = nameOf(typeOf(piece));
+  const the = (s: number): string => `${nameOf(typeOf(pre.board[s]))} on ${sqName(s)}`;
+  const theOn = (s: number): string => `${theName(typeOf(pre.board[s]))} on ${sqName(s)}`;
   const colour = (s: number): string => (colorOf(pre.board[s]) ? 'black' : 'white');
   // King powers that move nothing, or change a piece where it stands.
   // The pass of a free mark (or a GrowthB draw) ends a turn that had no second move to skip.
@@ -73,20 +74,20 @@ export function describeMove(pre: Position, m: Move, freePass = false, final = f
   if (m.pass) return `${side} ends the turn without the ${pre.rage === 3 ? 'Rally' : 'Haste'} second move.`;
   if (m.power === 'freeze') return `${side} freezes the ${colour(m.to)} ${the(m.to)}.`;
   if (m.power === 'ward') return `${side} puts an Ice Wall on the ${colour(m.to)} ${the(m.to)}.`;
-  if (m.power === 'sacrifice') return `${side} sacrifices the pawn on ${sqName(m.from)} and brings back a ${NAMES[m.promo!]} there.`;
-  if (m.power === 'morph' || m.power === 'morphb' || m.power === 'morphp') return `${side} turns the ${the(m.from)} into a ${NAMES[m.promo!]}.`;
+  if (m.power === 'sacrifice') return `${side} sacrifices the pawn on ${sqName(m.from)} and brings back ${aName(m.promo!)} there.`;
+  if (m.power === 'morph' || m.power === 'morphb' || m.power === 'morphp') return `${side} turns ${theOn(m.from)} into ${aName(m.promo!)}.`;
   if (isSpawnTag(m.power)) return m.drop2 === undefined ? `${side} adds a pawn on ${sqName(m.to)}.` : `${side} adds pawns on ${sqName(m.to)} and ${sqName(m.drop2)}.`;
   let text = m.power === 'flight'
     ? `${side} ${name} flies from ${sqName(m.from)} to ${sqName(m.to)}`
     : m.shove
-    ? `${side} ${name} on ${sqName(m.from)} shoves the ${the(m.shove.from)} to ${sqName(m.shove.to)}${m.to !== m.from ? `, stepping to ${sqName(m.to)}` : ''}`
-    : m.swap ? `${side} ${name} on ${sqName(m.from)} swaps places with the ${the(m.to)}`
-    : m.to === m.from && m.captures.length ? `${side} ${name} on ${sqName(m.from)} takes the ${m.captures.map(the).join(' and the ')} without moving`
-    : `${side} ${name} ${sqName(m.from)} to ${sqName(m.to)}${m.captures.length ? `, taking the ${m.captures.map(the).join(', then the ')}` : ''}`;
-  if (m.promo) text += `, and becomes a ${NAMES[m.promo]}`;
-  if (m.selfRemove) text += `; the ${name} leaves the board`;
+    ? `${side} ${name} on ${sqName(m.from)} shoves ${theOn(m.shove.from)} to ${sqName(m.shove.to)}${m.to !== m.from ? `, stepping to ${sqName(m.to)}` : ''}`
+    : m.swap ? `${side} ${name} on ${sqName(m.from)} swaps places with ${theOn(m.to)}`
+    : m.to === m.from && m.captures.length ? `${side} ${name} on ${sqName(m.from)} takes ${m.captures.map(theOn).join(' and ')} without moving`
+    : `${side} ${name} ${sqName(m.from)} to ${sqName(m.to)}${m.captures.length ? `, taking ${m.captures.map(theOn).join(', then ')}` : ''}`;
+  if (m.promo) text += `, and becomes ${aName(m.promo)}`;
+  if (m.selfRemove) text += `; ${theName(typeOf(piece))} leaves the board`;
   if (m.power === 'strike') text += ' with Strike';
-  if (!final && m.power === 'haste') text += `, with Haste: the ${name} may move again`;
+  if (!final && m.power === 'haste') text += `, with Haste: ${theName(typeOf(piece))} may move again`;
   if (!final && m.power === 'rally') text += ', with Rally: a different piece may move next';
   return `${text}.`;
 }
