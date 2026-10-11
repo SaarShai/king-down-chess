@@ -35,6 +35,7 @@ A rule flag (off by default) that adds the two chess rules King Down leaves out.
 - Perft with the flag on: start 20, 400, 8,902, 197,281, 4,865,609; Kiwipete to depth 4 (4,085,603); positions 3 (depth 5, 674,624), 4 (depth 4, 422,333) and 5 (depth 4, 2,103,487). All match the published counts.
 - `src/rules/classic-chess.test.ts`: 21 tests (perft, flag off, castling through check, rights lost by king, rook, capture and Maester swap, a frozen rook, en passant only on the next move, none with Darkness or after March, keys differ by rights and by the en-passant square, the search's legal list and keys equal the engine's, the search plays en passant, the move text). All pass.
 - `npm test` on the branch: 2,018 passed, 3 timed out (a fixed-depth search test, a Darkness random-board test, a judge random-design test). Load average was 30 to 36 from other agents; an A/B timing of the timed-out search and of perft shows no slowdown (140 ms against 137 to 160 ms). The base had the same Darkness timeout under load.
+- After the merge of the `claude/chatgpt-mvp` tip: `npm test` passes, 2,033 vitest tests (56 skipped, no database URL) and 50 node tests; the three timeouts did not come back.
 - `npm run plugin:build` asked for a new engine: `engines/797aeca0….mjs` and its save fixture are committed. The merger rebuilds after other engine changes land.
 
 Open items:
