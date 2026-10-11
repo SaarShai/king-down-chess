@@ -92,7 +92,7 @@ Preview takes no seat. `_meta.preview` is `{ code, options, colour, kind, creato
 
 Full views give opponent icon and rating, and finished games give `outcome: { rating_before, rating, provisional, badges }`. Polls with `since_revision` omit rating and outcome. Views and inbox rows give `created_at`; inbox rows also give options, move number, level and `open_until`. `abort_open` is true while waiting or in setup, or until both seats move once. A solo game can also abort for Switch now when the actor's waiting random game gets a join after that solo game starts.
 
-The friend code lasts 7 days. This is owner choice A from the current integration tip. Invite gives no link: the plugin has no join page. A code is stored as a hash. A new invite ends the old code. The page never calls Invite on mount. Full-read rating and end data use pending owner choice B; the read lives in the results module.
+The friend code lasts 7 days. This is owner choice A from the current integration tip. Invite gives no link: the plugin has no join page. A code is stored as a hash. A new invite ends the old code. The page never calls Invite on mount. Full-read rating and end data show the rating in the strips, and the rating change and new badges in the end card (owner, 2026-10-11). The read lives in the results module.
 
 The orchestrator's solo-rematch decision: when the player must choose a king or order, the computer alone is Ready and the new game stays in setup. End words for `no_start` depend on the view: no opponent means the invitation or open game expired; empty FEN means setup time ran out; otherwise no first move. The board uses `ending()`.
 
@@ -169,7 +169,7 @@ The 24-tool surface, settings migration, full-read screen data, join preview and
 - `npm run plugin:build` and `npm run plugin:server:check`: the compiled server passes on local PostgreSQL with migration 0013.
 - Fixture and harness type checks pass.
 - Page: 437,425 HTML bytes; the compiled server resource is 438,870 JSON bytes, below the 1 MB limit.
-- Open item: owner choice B for full-read rating and end data. The stated default is built. Choice A uses the shared 7-day constant from the integration tip.
+- Full-read rating and end data are approved (owner, 2026-10-11). The friend code uses the shared 7-day constant from the integration tip.
 
 The implementer check keeps the existing board-follow rule, command receipt path and shared schemas. It finds and fixes the board-only poll case with one condition and two failing tests. No engine or setup-module change is needed.
 
