@@ -1,6 +1,6 @@
 // The parked clay look (docs/specs/park-clay): nothing in the game names it, the build ships none of it,
-// and old data that asks for it opens the painted board. This file is the one file of src/ and tools/
-// that may name the parked folder.
+// and old data that asks for it opens the painted board. This file is the one code file of src/ and tools/
+// that may name the parked folder; the repo gate's size allowlist and its test name two parked sculpts as data.
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -18,7 +18,7 @@ const rel = (from: string, path: string) => relative(from, path).split(sep).join
 
 describe('the parked clay look', () => {
   it('no file of src/ or tools/, vite.config.ts or index.html names a path under parked/', () => {
-    const r = spawnSync('git', ['grep', '--untracked', '-nI', '-e', 'parked/', '--', 'src', 'tools', 'vite.config.ts', 'index.html', ':!tools/parked.test.ts'], { cwd: root, encoding: 'utf8' });
+    const r = spawnSync('git', ['grep', '--untracked', '-nI', '-e', 'parked/', '--', 'src', 'tools', 'vite.config.ts', 'index.html', ':!tools/parked.test.ts', ':!tools/gate/size-allowlist.txt', ':!tools/gate.test.ts'], { cwd: root, encoding: 'utf8' });
     expect(r.status, r.stderr).toBe(1); // 1: no match
   });
 

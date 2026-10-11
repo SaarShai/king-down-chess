@@ -17,10 +17,12 @@ try {
     trapErrors(page);
     const url = env('PLAYABLE_URL');
     await page.goto(url);
+    // The fresh game saves itself once its board is up; seeding before that loses the seed.
+    await readyBoard(page); await page.waitForFunction(() => localStorage.getItem('kingdown.save'));
     async function seed(fen) {
       await page.evaluate(fen => localStorage.setItem('kingdown.save', JSON.stringify({ fen, back: '', moves: [], white: 'human', black: 'human', sound: false })), fen);
       await page.goto(url); await readyBoard(page);
-      await page.waitForFunction(() => window.view.pos);
+      await page.waitForFunction(() => window.view.pos && !window.view.scene.animating);
     }
     async function tap(sq) {
       const p = await page.evaluate(s => window.view.screenOf(s), sq);
