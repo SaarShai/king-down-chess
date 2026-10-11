@@ -6,9 +6,6 @@ import type { Save } from './save';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
-/** The saved look (`?look=` wins over it); main.ts reads it before it makes the view. */
-export const LOOK_KEY = 'kingdown.look';
-
 /** The settings controls' values, and the computer's level. */
 export interface Controls { skill: SkillName; coords: boolean; sound: boolean; queen: boolean; pace: Pace; threats: boolean; labels: boolean }
 
@@ -24,28 +21,18 @@ export const settingsOf = (c: Controls) => ({
 });
 
 /**
- * The settings controls: sound, auto-queen, threats, pace, piece letters, coordinates, the look and
- * Reset view. A change goes to the view and to the save (`save`). `look`: the look this page draws.
- * `skill`: the computer's level, which the save keeps beside the settings.
+ * The settings controls: sound, auto-queen, threats, pace, piece letters and coordinates.
+ * A change goes to the view and to the save (`save`). `skill`: the computer's level, which the save keeps beside the settings.
  */
 export function connectSettings(view: BoardView, c: {
-  look: string;
   skill(): SkillName;
   setSkill(level: SkillName): void;
   save(): void;
-  drawMarks(): void;
+  refresh(): void;
 }) {
-  $<HTMLSelectElement>('look').value = c.look === 'clay' ? 'clay' : 'painted';
-  $<HTMLSelectElement>('look').onchange = () => {
-    try { localStorage.setItem(LOOK_KEY, $<HTMLSelectElement>('look').value); } catch { /* private mode: the URL still switches */ }
-    const url = new URL(location.href);
-    url.searchParams.set('look', $<HTMLSelectElement>('look').value);
-    location.href = url.href;
-  };
-  $('reset-view').hidden = c.look !== 'clay';
   $('sound').onchange = () => { setSound($<HTMLInputElement>('sound').checked); c.save(); };
   $('queen').onchange = c.save;
-  $('threats').onchange = () => { c.drawMarks(); c.save(); };
+  $('threats').onchange = () => { c.refresh(); c.save(); };
   const pace = $<HTMLSelectElement>('pace');
   // No saved choice: the system's reduced-motion setting picks Off.
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) pace.value = 'off';
@@ -59,7 +46,6 @@ export function connectSettings(view: BoardView, c: {
   labels.onchange = () => { view.setLabels(labels.checked); c.save(); };
   const coords = $<HTMLInputElement>('coords');
   coords.onchange = () => { view.setCoords(coords.checked); c.save(); };
-  $('reset-view').onclick = () => view.resetView();
 
   /** The save's settings fields (account/sync.ts SETTINGS). */
   const settingsNow = () => settingsOf({

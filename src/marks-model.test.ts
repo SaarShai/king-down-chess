@@ -1,7 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
-import { DEFAULT_RULES, legalMoves, parseSq, setRules } from './rules/engine';
+import { DEFAULT_RULES, legalMoves, parseSq, setRules, sqName } from './rules/engine';
 import { fromFen } from './rules/setup';
-import { marksModel, landingMoves } from './marks-model';
+import { marksModel, landingMoves, railsOf } from './marks-model';
 
 const at = parseSq;
 afterEach(() => setRules(DEFAULT_RULES));
@@ -71,4 +71,27 @@ it('plays a unique shove landing while a normal step wins', () => {
 it('keeps a Reaver landing after its victim tap', () => {
   const m = { from: at('b1'), to: at('d3'), captures: [at('c3')] };
   expect(marksModel([m], [at('c3')]).moves).toEqual([at('d3')]);
+});
+
+/** The rails of the piece on `sq`: its lines' last squares and ends, by square name. */
+function rails(fen: string, sq: string): string[] {
+  const pos = fromFen(fen), mm = marksModel(legalMoves(pos).filter(m => m.from === at(sq)));
+  return railsOf(pos.board, at(sq), [...mm.moves, ...mm.captures], mm.captures).map(r => `${sqName(r.to)} ${r.end}`).sort();
+}
+
+it('joins the marks of each line of a slider, with the Workshop line ends', () => {
+  // The W13 queen: takes on d7, g4, f2 and b6; the board edge on h8, d1, a1 and a4.
+  expect(rails('k7/3p4/1n6/8/3Q2b1/8/5r2/7K w - - 0 1', 'd4')).toEqual(['a1 arrow', 'a4 arrow', 'b6 x', 'd1 arrow', 'd7 x', 'f2 x', 'g4 x', 'h8 arrow']);
+  // A friend stops the rook's line: the bar is on its square.
+  expect(rails('7k/8/8/8/R2P4/8/8/7K w - - 0 1', 'a4')).toEqual(['a1 arrow', 'a8 arrow', 'd4 stop']);
+  // The paladin passes its own pawn.
+  expect(rails('k7/8/8/8/L1P5/8/8/7K w - - 0 1', 'a4')).toContain('h4 arrow');
+  // The catapult's lob over the screen a2 to a3 is a jump: its rail stops at the screen.
+  expect(rails('7k/8/8/8/8/n7/p7/C6K w - - 0 1', 'a1')).not.toContain('a3 x');
+});
+
+it('gives no rail to a step, a pawn\'s double step or a line with no move', () => {
+  const start = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  for (const sq of ['e2', 'g1', 'a1', 'd1']) expect(rails(start, sq)).toEqual([]);
+  expect(rails('k7/8/8/8/3K4/8/8/8 w - - 0 1', 'd4')).toEqual([]);
 });

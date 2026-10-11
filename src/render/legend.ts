@@ -9,7 +9,7 @@
  *
  * Ported from docs/research/rules-ui-2026-10-10/mockups/shared/marks.js in its "wash" look (the marks.js line
  * numbers are in the comments). Each function returns plain shapes; toSvg() and paint() draw them, so the SVG
- * (the Proving Ground) and the canvas (the painted board, the clay textures) show one drawing.
+ * (the Proving Ground) and the canvas (the painted board) show one drawing.
  * Units: x, y, s and R are drawing units; o.px is the drawing units of one CSS pixel. Every width and each
  * threshold (16 and 48 px) is in CSS pixels.
  */
@@ -31,8 +31,11 @@ export type Kind = 'move' | 'take' | 'both' | 'shot' | 'moveshot';
 export interface Opts { px?: number; power?: boolean; hover?: boolean; solid?: boolean; cond?: 'asleep' | 'awake' }
 interface TargetOpts extends Opts { color?: string; halo?: string | null; rw?: number; len?: number }
 
-/** fill: a colour, 'green' (the tile gradient, marks.js:168) or 'glow-red' (the radial glow, marks.js:178). a: opacity. dash: the stroke's dash and gap. */
-interface Ink { fill?: string; stroke?: string; lw?: number; a?: number; dash?: number[] }
+/**
+ * fill: a colour, 'green' (the tile gradient, marks.js:168), 'glow-red' (the radial glow, marks.js:178) or 'glow-gold'
+ * (the Workshop's glow under the open piece). a: opacity. dash: the stroke's dash and gap. cap: 'butt' (a rail), else round.
+ */
+interface Ink { fill?: string; stroke?: string; lw?: number; a?: number; dash?: number[]; cap?: 'butt' }
 export type Shape = Ink & (
   | { k: 'rect'; x: number; y: number; w: number; h: number; r: number }
   | { k: 'circle'; x: number; y: number; r: number }
@@ -42,7 +45,7 @@ export type Shape = Ink & (
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const shoots = (kind: Kind) => kind === 'shot' || kind === 'moveshot';
 
-/** The kind of a marked square of the game (src/render/renderer.ts Highlights): a square in moves and captures is both. */
+/** The kind of a marked square of the game (src/render/marks.ts Highlights): a square in moves and captures is both. */
 export const kindOf = (sq: number, h: { moves?: number[]; captures?: number[]; shots?: number[] }): Kind =>
   !h.captures?.includes(sq) ? 'move' : h.moves?.includes(sq) ? h.shots?.includes(sq) ? 'moveshot' : 'both' : h.shots?.includes(sq) ? 'shot' : 'take';
 
@@ -141,30 +144,112 @@ export function badge(x: number, y: number, s: number, kind: Kind, o: Opts = {})
   ];
 }
 
+/**
+ * The glow under the feet (an ellipse at the foot line footY): gold under the selected piece (the Workshop's open piece),
+ * red under a piece that an enemy can take (a threat, marks.js:1100).
+ */
+export const glow = (cx: number, footY: number, s: number, red = false): Shape =>
+  ({ k: 'ellipse', x: cx, y: footY, rx: (red ? 0.4 : 0.36) * s, ry: (red ? 0.13 : 0.11) * s, fill: red ? 'glow-red' : 'glow-gold' });
+
+/* ---- rails, line ends and arrows (marks.js:386-440, :533-555, :1139-1148) ---- */
+
+type P = readonly [number, number];
+/** Shapes drawn together at one opacity a (an SVG group's opacity). */
+export interface Layer { a: number; shapes: Shape[] }
+export type RailStyle = 'asleep' | 'awake';
+/** px: drawing units for one CSS pixel; wash: the thin rail of the board; style: stitched edges ("only sometimes"). */
+interface RailOpts { px?: number; style?: RailStyle; wash?: boolean }
+const seg = (a: P, b: P, stroke: string, lw: number, ink: Ink = {}): Shape => ({ k: 'line', pts: [a[0], a[1], b[0], b[1]], stroke, lw, ...ink });
+/** A closed triangle: the tip t, the unit direction u, the length l and the half width hw. */
+const tri = (t: P, u: P, l: number, hw: number): number[] => {
+  const b = [t[0] - u[0] * l, t[1] - u[1] * l];
+  return [t[0], t[1], b[0] - u[1] * hw, b[1] + u[0] * hw, b[0] + u[1] * hw, b[1] - u[0] * hw, t[0], t[1]];
+};
+
+/** A rail from p0 to p1: on the board (wash) thin and at .85; asleep and awake rails have stitched edges, asleep at .4. */
+export function rail(p0: P, p1: P, s: number, o: RailOpts = {}): Layer {
+  const p = o.px ?? 1, w = o.wash ? Math.max(3 * p, 0.04 * s) : Math.max(4 * p, 0.1 * s), e = (o.wash ? 0.9 : s < 48 * p ? 1 : 1.5) * p;
+  const l = (stroke: string, lw: number, a?: number) => seg(p0, p1, stroke, lw, { a, cap: 'butt' });
+  if (!o.style) return o.wash ? { a: 0.85, shapes: [l(LEG.halo, w + 2 * e + 1.5 * p, 0.6), l(LEG.navy, w + 2 * e, 0.75), l(LEG.green, w)] }
+    : { a: 1, shapes: [l(LEG.halo, w + 2 * e + 2 * p), l(LEG.navy, w + 2 * e), l(LEG.green, w)] };
+  // The stitched edges: two dashed lines beside the rail.
+  const dx = p1[0] - p0[0], dy = p1[1] - p0[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, off = w / 2 + e / 2;
+  const asleep = o.style === 'asleep', dash = s < 40 * p ? [3 * p, 2 * p] : [4 * p, 3 * p];
+  const edges = [1, -1].map(k => seg([p0[0] + nx * off * k, p0[1] + ny * off * k], [p1[0] + nx * off * k, p1[1] + ny * off * k], LEG.navy, e + (asleep ? 0.5 * p : 0), { dash, cap: 'butt' }));
+  return asleep ? { a: 0.4, shapes: [l(LEG.halo, w + 2 * e + 2 * p, 0.5), ...edges] } : { a: 1, shapes: [l(LEG.halo, w + 2 * e + 2 * p), l(LEG.green, w), ...edges] };
+}
+/** A line's arrowhead at tip, pointing along u: green with a navy edge; asleep, an outline at .4. */
+export function arrowHead(tip: P, u: P, s: number, o: RailOpts = {}): Shape[] {
+  const p = o.px ?? 1, pts = tri(tip, u, (o.wash ? 0.17 : 0.22) * s, (o.wash ? 0.11 : 0.15) * s), asleep = o.style === 'asleep', small = s < 48 * p;
+  return [{ k: 'line', pts, stroke: LEG.halo, lw: (small ? 4 : 5) * p },
+    { k: 'line', pts, fill: asleep ? undefined : LEG.green, stroke: LEG.navy, lw: (small ? 1.25 : 1.5) * p, a: asleep ? 0.4 : undefined }];
+}
+/** The navy bar across the end of a line that a friend stops. */
+function stopBar(pt: P, u: P, s: number, p: number): Shape[] {
+  const h = 0.25 * s, a: P = [pt[0] - u[1] * h, pt[1] + u[0] * h], b: P = [pt[0] + u[1] * h, pt[1] - u[0] * h];
+  return [seg(a, b, LEG.halo, 6 * p), seg(a, b, LEG.navy, 3 * p)];
+}
+
+/**
+ * A line of a piece on the board, from the centre c0 of its square to the centre c1 of the line's last square (s: the
+ * square's side): the rail from the square's edge, and its end. end: 'stop' (a friend stops it: a bar before c1),
+ * 'arrow' (the board edge), 'edge' (the board edge of an asleep line, no arrow); any other end runs into c1 (a take).
+ */
+export function railLine(c0: P, c1: P, s: number, end: string, o: { px?: number; style?: RailStyle } = {}): { rail: Layer; end: Shape[] } {
+  const p = o.px ?? 1, u: P = [Math.sign(c1[0] - c0[0]), Math.sign(c1[1] - c0[1])], L = Math.hypot(...u), uu: P = [u[0] / L, u[1] / L], diag = !!(u[0] && u[1]);
+  const at = (c: P, k: number): P => [c[0] + u[0] * s * k, c[1] + u[1] * s * k];
+  let p1 = c1, ends: Shape[] = [];
+  if (end === 'stop') { p1 = at(c1, -0.5); ends = stopBar(p1, uu, s, p); }
+  else if (end === 'arrow') {
+    const tip = at(c1, diag ? 0.4 : 0.44);
+    p1 = [tip[0] - uu[0] * s * 0.16, tip[1] - uu[1] * s * 0.16];
+    ends = arrowHead(tip, uu, s, { px: p, style: o.style, wash: true });
+  } else if (end === 'edge') p1 = at(c1, diag ? 0.4 : 0.44);
+  return { rail: rail(at(c0, 0.42), p1, s, { px: p, style: o.style, wash: true }), end: ends };
+}
+
+/** An arrow from p0 to p1 with a vellum halo; trim0 and trim1 cut its ends; head: the arrowhead's length; both: two heads. */
+export function arrowLine(p0: P, p1: P, color: string, w: number, o: { trim0?: number; trim1?: number; head: number; both?: boolean; px?: number }): Shape[] {
+  const p = o.px ?? 1, L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1, u: P = [(p1[0] - p0[0]) / L, (p1[1] - p0[1]) / L], back: P = [-u[0], -u[1]];
+  const a: P = [p0[0] + u[0] * (o.trim0 ?? 0), p0[1] + u[1] * (o.trim0 ?? 0)], b: P = [p1[0] - u[0] * (o.trim1 ?? 0), p1[1] - u[1] * (o.trim1 ?? 0)];
+  const hl = o.head, heads: [P, P][] = o.both ? [[b, u], [a, back]] : [[b, u]];
+  const s0: P = o.both ? [a[0] + u[0] * hl * 0.7, a[1] + u[1] * hl * 0.7] : a, s1: P = [b[0] - u[0] * hl * 0.7, b[1] - u[1] * hl * 0.7];
+  const head = ([t, uu]: [P, P], ink: Ink): Shape => ({ k: 'line', pts: tri(t, uu, hl, hl * 0.62), ...ink });
+  return [seg(s0, s1, LEG.halo, w + 3 * p), ...heads.map(h => head(h, { fill: LEG.halo, stroke: LEG.halo, lw: 3 * p })),
+    seg(s0, s1, color, w), ...heads.map(h => head(h, { fill: color }))];
+}
+
+/** A threat (marks.js:1139-1148): a faint red arrow from the attacker's centre c0 to the attacked piece's centre c1. */
+export function threat(c0: P, c1: P, s: number, o: { px?: number; trim?: number } = {}): Layer {
+  const p = o.px ?? 1, trim = o.trim ?? s * 0.25;
+  return { a: 0.6, shapes: arrowLine(c0, c1, LEG.red, 2 * p, { trim0: trim * 0.88, trim1: trim * 1.12, head: 9 * p, px: p }) };
+}
+
 /** The gradients that toSvg() names: put them once in the page's <defs> (marks.js:168, :178). */
 export const DEFS = `<linearGradient id="leg-green" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${LEG.hi}"/><stop offset=".55" stop-color="${LEG.green}"/><stop offset="1" stop-color="${LEG.lo}"/></linearGradient>`
-  + '<radialGradient id="leg-glow-red"><stop offset="0" stop-color="rgb(214,52,40)" stop-opacity=".55"/><stop offset=".6" stop-color="rgb(214,52,40)" stop-opacity=".3"/><stop offset="1" stop-color="rgb(214,52,40)" stop-opacity="0"/></radialGradient>';
+  + '<radialGradient id="leg-glow-red"><stop offset="0" stop-color="rgb(214,52,40)" stop-opacity=".55"/><stop offset=".6" stop-color="rgb(214,52,40)" stop-opacity=".3"/><stop offset="1" stop-color="rgb(214,52,40)" stop-opacity="0"/></radialGradient>'
+  + `<radialGradient id="leg-glow-gold"><stop offset="0" stop-color="${LEG.gold}" stop-opacity=".95"/><stop offset=".55" stop-color="${LEG.gold}" stop-opacity=".55"/><stop offset="1" stop-color="${LEG.gold}" stop-opacity="0"/></radialGradient>`;
 
 const n = (v: number) => Math.round(v * 100) / 100;
 
 /** The shapes as SVG elements (one element for each shape); the gradients are in DEFS. */
 export function toSvg(shapes: Shape[]): string {
   return shapes.map(sh => {
-    const fill = sh.fill === 'green' || sh.fill === 'glow-red' ? `url(#leg-${sh.fill})` : sh.fill ?? 'none';
+    const fill = sh.fill === 'green' || sh.fill === 'glow-red' || sh.fill === 'glow-gold' ? `url(#leg-${sh.fill})` : sh.fill ?? 'none';
     const ink = `fill="${fill}"${sh.stroke ? ` stroke="${sh.stroke}" stroke-width="${n(sh.lw ?? 1)}"` : ''}${sh.dash ? ` stroke-dasharray="${sh.dash.map(n).join(' ')}"` : ''}${sh.a != null ? ` opacity="${sh.a}"` : ''}`;
     if (sh.k === 'rect') return `<rect x="${n(sh.x)}" y="${n(sh.y)}" width="${n(sh.w)}" height="${n(sh.h)}" rx="${n(sh.r)}" ${ink}/>`;
     if (sh.k === 'circle') return `<circle cx="${n(sh.x)}" cy="${n(sh.y)}" r="${n(sh.r)}" ${ink}/>`;
     if (sh.k === 'ellipse') return `<ellipse cx="${n(sh.x)}" cy="${n(sh.y)}" rx="${n(sh.rx)}" ry="${n(sh.ry)}" ${ink}/>`;
-    return `<polyline points="${sh.pts.map(n).join(' ')}" ${ink} stroke-linecap="round" stroke-linejoin="round"/>`;
+    return `<polyline points="${sh.pts.map(n).join(' ')}" ${ink} stroke-linecap="${sh.cap ?? 'round'}" stroke-linejoin="round"/>`;
   }).join('');
 }
 
-/** The shapes on a canvas, at the context's alpha. It sets round caps and joins. */
+/** The shapes on a canvas, at the context's alpha. It sets round caps (or a shape's cap) and joins. */
 export function paint(ctx: CanvasRenderingContext2D, shapes: Shape[]): void {
   const base = ctx.globalAlpha;
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.lineJoin = 'round';
   for (const sh of shapes) {
-    ctx.globalAlpha = base * (sh.a ?? 1);
+    ctx.globalAlpha = base * (sh.a ?? 1); ctx.lineCap = sh.cap ?? 'round';
     ctx.beginPath();
     if (sh.k === 'rect') ctx.roundRect(sh.x, sh.y, sh.w, sh.h, sh.r);
     else if (sh.k === 'circle') ctx.arc(sh.x, sh.y, sh.r, 0, Math.PI * 2);
@@ -174,11 +259,12 @@ export function paint(ctx: CanvasRenderingContext2D, shapes: Shape[]): void {
       const g = ctx.createLinearGradient(0, sh.y, 0, sh.y + sh.h);
       g.addColorStop(0, LEG.hi); g.addColorStop(0.55, LEG.green); g.addColorStop(1, LEG.lo);
       ctx.fillStyle = g; ctx.fill();
-    } else if (sh.fill === 'glow-red' && sh.k === 'ellipse') {
+    } else if ((sh.fill === 'glow-red' || sh.fill === 'glow-gold') && sh.k === 'ellipse') {
       // A radial gradient is round: draw it in a space squashed to the ellipse.
       ctx.save(); ctx.translate(sh.x, sh.y); ctx.scale(1, sh.ry / sh.rx);
       const g = ctx.createRadialGradient(0, 0, 0, 0, 0, sh.rx);
-      g.addColorStop(0, 'rgba(214,52,40,.55)'); g.addColorStop(0.6, 'rgba(214,52,40,.3)'); g.addColorStop(1, 'rgba(214,52,40,0)');
+      if (sh.fill === 'glow-red') { g.addColorStop(0, 'rgba(214,52,40,.55)'); g.addColorStop(0.6, 'rgba(214,52,40,.3)'); g.addColorStop(1, 'rgba(214,52,40,0)'); }
+      else { g.addColorStop(0, 'rgba(233,192,113,.95)'); g.addColorStop(0.55, 'rgba(233,192,113,.55)'); g.addColorStop(1, 'rgba(233,192,113,0)'); }
       ctx.fillStyle = g; ctx.fill(); ctx.restore();
     } else if (sh.fill) { ctx.fillStyle = sh.fill; ctx.fill(); }
     if (sh.stroke) {

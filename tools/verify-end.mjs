@@ -34,14 +34,14 @@ const tap = async sq => {
   const p = await page.evaluate(s => window.view.screenOf(s), sq);
   await page.mouse.click(p.x, p.y);
 };
-const open = async (fen, moves = [], pace = 'off', sides = ['human', 'human'], look = 'painted', query = '') => {
+const open = async (fen, moves = [], pace = 'off', sides = ['human', 'human'], query = '') => {
   await page.goto(base);
   await page.evaluate(seed => sessionStorage.setItem('w6.seed', JSON.stringify(seed)), { back: '', fen, moves, white: sides[0], black: sides[1], pace, sound: false, skill: 'club' });
-  await page.goto(new URL(`?think=50&look=${look}${query}`, base).href);
+  await page.goto(new URL(`?think=50${query}`, base).href);
   await readyBoard(page);
 };
-const stageMate = async (pace = 'off', look = 'painted') => {
-  await open('7k/6pp/8/8/8/p7/8/R5MK w - - 0 1', ['Ra1xa3', 'Kh8-g8', 'Mg1<>h1', 'Kg8-h8'], pace, ['human', 'human'], look);
+const stageMate = async (pace = 'off') => {
+  await open('7k/6pp/8/8/8/p7/8/R5MK w - - 0 1', ['Ra1xa3', 'Kh8-g8', 'Mg1<>h1', 'Kg8-h8'], pace);
   await tap(16); await tap(56);
   await page.waitForFunction(() => !window.view.scene?.animating && !window.view.moving);
 };
@@ -69,7 +69,7 @@ try {
   assert.equal(await page.locator('.kd-words').count(), 0, 'Review clears the end words');
   console.log('ok Ceremony tiles open their review ply');
 
-  await open('7k/6pp/8/8/8/R7/8/6MK w - - 0 1', [], 'off', ['human', 'human'], 'painted', '&kings=flame:haste,none');
+  await open('7k/6pp/8/8/8/R7/8/6MK w - - 0 1', [], 'off', ['human', 'human'], '&kings=flame:haste,none');
   await usePower(page); await tap(16); await tap(56); await endTurn(page);
   await page.locator('#over').waitFor({ state: 'visible' });
   assert.doesNotMatch(await page.locator('#over-detail').innerText(), /ends the turn/, 'the result skips the trailing pass');
@@ -133,8 +133,10 @@ try {
 
   await stageMate('normal');
   assert.equal(await page.locator('.kd-words').count(), 0, 'a staged mate plays no Ceremony');
+  await page.evaluate(() => { const s = window.view.scene, play = s.play.bind(s); s.play = (m, o) => { window.blowSpeed = o?.speed; return play(m, o); }; });
   await endTurn(page);
   await page.locator('.kd-words').waitFor({ state: 'attached' });
+  check(await (await page.waitForFunction(() => window.blowSpeed)).jsonValue(), 2, 'the Ceremony replays the final blow at half speed');
   assert.equal(await page.locator('#over').isVisible(), false, 'the board beats come before the dialog');
   await page.locator('#board').focus();
   await page.keyboard.press('Enter');
@@ -168,15 +170,6 @@ try {
   assert.equal(await page.locator('.kd-words').count(), 0, 'a draw stays quiet');
   assert.equal(await page.evaluate(() => window.view.fallen), null, 'a draw has no beaten king');
   console.log('checked quiet loss, draw and result announcement');
-
-  await stageMate('normal', 'clay'); await endTurn(page);
-  await page.waitForFunction(() => window.view.moving && document.querySelector('.kd-words'));
-  check(await page.evaluate(() => window.view.tweens.rate), 0.5, 'Clay replays at half speed');
-  await page.locator('#over').waitFor({ state: 'visible' });
-  await stageMate('off', 'clay'); await endTurn(page);
-  await page.locator('#over').waitFor({ state: 'visible' });
-  check(await page.evaluate(() => window.view.pieces.get(63).rotation.z), 1.4, 'Clay Off shows the fallen frame at once');
-  console.log('checked Clay replay speed and fallen frame');
   assertNoErrors();
   if (faults.length) throw new AggregateError(faults, 'End frame checks fail');
   console.log('ok end frames and one result announcement');

@@ -19,8 +19,7 @@ import type { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import type { Pace } from './PaintedView';
 import { pastTap } from './tap';
 import { badge, kindOf, occupied, paint, tile, type Kind } from './legend';
-import type { Reach } from '../read';
-import type { Checker } from '../move-text';
+import type { Highlights } from './marks';
 
 export const tileCenter = (sq: number): THREE.Vector3 => new THREE.Vector3(file(sq) - 3.5, 0, 3.5 - rank(sq));
 /** The king a king piece shows: its side's king with a power, else Spirit or Shadow; undefined for other pieces. */
@@ -29,32 +28,6 @@ const kingOf = (code: number): KingName | undefined =>
 /** The Workshop figure of the design that plays as `T` (ticket 17), or null. */
 const designFigure = (): string | null => { const d = playedDesign(); return d && selectedFigure(d).id; };
 
-export interface Highlights {
-  selected?: number | null;
-  moves?: number[];
-  captures?: number[];
-  swaps?: number[];
-  /** Squares holding a piece an Ogre may shove (occupied, never a capture). */
-  shoves?: number[];
-  /** Captures made from a distance (the Archer shoots without moving); also listed in `captures`. */
-  shots?: number[];
-  /** Read outlines; omitted in the plugin and the Clay look. */
-  read?: Reach;
-  /** Shove targets and their landings; omitted keeps the old chevrons. */
-  shoveTo?: { from: number; to: number }[];
-  /** Beast victim squares already chosen, in bite order. */
-  bites?: number[];
-  /**
-   * Squares a king's power acts on: an armed power's moves (also listed in `moves` or `captures`)
-   * and the pieces an armed Freeze, Ice Wall or Sacrifice can name.
-   */
-  powers?: number[];
-  last?: number[];
-  hint?: number[];
-  check?: number | null;
-  /** Opt in to the still ember ring and cause lines. Omit to keep the original check mark. */
-  checkers?: Checker[];
-}
 
 const LIGHT = 0xefebe3, DARK = 0x6f6b65;
 const BG_BRIGHT = 0xe9e6df, BG_TORCH = 0x120e0a;
