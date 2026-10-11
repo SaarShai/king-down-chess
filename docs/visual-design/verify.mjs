@@ -129,10 +129,17 @@ try {
   assert.equal(await page.locator('#board-marks .mk-threat').count(), 1);
   assert.equal(await page.locator('#board-marks .mk-cover').count(), 15);
   const ring = await page.locator('#board-marks .mk-threat').boundingBox(), d2 = await page.evaluate(() => window.view.screenOf(11));
-  assert.ok(Math.abs(ring.x + ring.width / 2 - d2.x) < 2 && Math.abs(ring.y + ring.height / 2 - d2.y) < 2, 'the ring sits on d2');
+  assert.ok(Math.abs(ring.x + ring.width / 2 - d2.x) < 2 && Math.abs(ring.y + ring.height / 2 - d2.y) < 2, 'the threat mark is on d2');
   // Ticket 02: amber marks, not the legend's red; a selected piece's moves keep them.
-  const art = cls => page.evaluate(c => getComputedStyle(document.querySelector(`#board-marks .${c}`), '::after').backgroundImage, cls);
-  for (const cls of ['mk-threat', 'mk-cover']) assert.match(await art(cls), /f08c1a/, `${cls} draws the amber threat mark`);
+  const art = cls => page.evaluate(c => {
+    const { backgroundImage, content, width, right, bottom } = getComputedStyle(document.querySelector(`#board-marks .${c}`), '::after');
+    return { backgroundImage, content, width, right, bottom };
+  }, cls);
+  for (const cls of ['mk-threat', 'mk-cover']) {
+    const { backgroundImage, content, width, right, bottom } = await art(cls);
+    assert.match(backgroundImage, /f08c1a/, `${cls} draws the amber threat mark`);
+    assert.ok(content !== 'none' && parseFloat(width) > 0 && right !== 'auto' && bottom !== 'auto', `${cls} draws in the bottom-right corner`);
+  }
   await tap(page, 11);
   assert.ok((await page.evaluate(() => window.view.marks.moves.length)) > 0, 'the knight shows its moves');
   assert.equal(await page.locator('#board-marks .mk-threat').count(), 1, 'the threat mark stays with the moves');
