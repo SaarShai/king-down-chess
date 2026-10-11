@@ -34,7 +34,7 @@ try {
       assert.equal(restRows.find(row => row.id === 'moves-line').height, 44);
     }
     if (width === 320 || width === 390) {
-      const file = await boardText(page, 'a'), rank = await boardText(page, '8');
+      const file = await boardText(page, 'A'), rank = await boardText(page, '8');
       assert.ok(file.size >= 11.99 && rank.size >= 11.99, 'board labels draw at 12 CSS px');
       assert.ok(file.bottom <= file.height - 1, 'file letters clear the canvas edge');
     }
