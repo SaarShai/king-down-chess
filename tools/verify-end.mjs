@@ -133,8 +133,10 @@ try {
 
   await stageMate('normal');
   assert.equal(await page.locator('.kd-words').count(), 0, 'a staged mate plays no Ceremony');
+  await page.evaluate(() => { const s = window.view.scene, play = s.play.bind(s); s.play = (m, o) => { window.blowSpeed = o?.speed; return play(m, o); }; });
   await endTurn(page);
   await page.locator('.kd-words').waitFor({ state: 'attached' });
+  check(await (await page.waitForFunction(() => window.blowSpeed)).jsonValue(), 2, 'the Ceremony replays the final blow at half speed');
   assert.equal(await page.locator('#over').isVisible(), false, 'the board beats come before the dialog');
   await page.locator('#board').focus();
   await page.keyboard.press('Enter');

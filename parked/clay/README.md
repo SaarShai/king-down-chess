@@ -30,5 +30,6 @@ The imports between these files are still correct. The imports into the game's c
    - `src/render/PaintedView.ts`: `resetView()` and `applyStyle()` in `BoardView`.
    - `vite.config.ts`: the `render/clay` on-demand chunk, and the publish filter (only `prototype/models/board-*.glb` and `models/` of the assets ship).
    - `package.json`: the `graphics:study`, `graphics:check` and `graphics:check:cast` scripts; `src/entry.ts`: the `?study` branch.
+   - `tools/gate/size-allowlist.txt` and its exact list in `tools/gate.test.ts`: change the two `parked/clay/public/prototype/models/rebuilt-*.glb` paths back to `public/prototype/models/`, or the size gate refuses the two sculpts.
    - `tools/lib/registry.mjs`: the `playable-clay` entry; the clay parts of the checks `end`, `lesson-return`, `menu-extra`, `cursor-adoption`, `special-moves`, `qa`, the probes `ux-defects/d6`, `d7`, `d8`, `tools/measure-load.mjs`, and the W5 and W13 samples.
 3. Remove the guard test `tools/parked.test.ts`, then run `npm test` and `npm run check:browser`.

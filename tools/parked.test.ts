@@ -18,7 +18,7 @@ const rel = (from: string, path: string) => relative(from, path).split(sep).join
 
 describe('the parked clay look', () => {
   it('no file of src/ or tools/, vite.config.ts or index.html names a path under parked/', () => {
-    const r = spawnSync('git', ['grep', '--untracked', '-nI', '-e', 'parked/', '--', 'src', 'tools', 'vite.config.ts', 'index.html', ':!tools/parked.test.ts', ':!tools/gate/size-allowlist.txt', ':!tools/gate.test.ts'], { cwd: root, encoding: 'utf8' });
+    const r = spawnSync('git', ['grep', '--untracked', '-nI', '-e', 'parked/', '-e', `['"]parked['"]`, '--', 'src', 'tools', 'vite.config.ts', 'index.html', ':!tools/parked.test.ts', ':!tools/gate/size-allowlist.txt', ':!tools/gate.test.ts'], { cwd: root, encoding: 'utf8' });
     expect(r.status, r.stderr).toBe(1); // 1: no match
   });
 

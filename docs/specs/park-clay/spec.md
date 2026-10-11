@@ -84,3 +84,16 @@ Pick: move the clay-only source, tools, checks and assets with `git mv` into the
 | Plugin page (`board.html`, `tools/plugin-ui-build.mjs`) | 4,312,074 B | 4,312,047 B | −27 B (the empty `resetView()` and `applyStyle()`) |
 
 The `legend` chunk (66,790 B) is now part of the `guide` chunk; both loaded before the board already, so the first visit loads the same code in fewer files. The published `prototype/models/board-*.glb` sculpts and `models/*.json` (about 12 MB) are gone from `dist/`.
+
+## 7. Reviews
+
+Two independent reviews of `0dd3fc36..f45ef300` (A: is the parking complete; B: regressions for players). Each finding was read against the code.
+
+- **A1 (should-fix), the return steps omit the size allowlist.** Confirmed: `tools/gate/size-allowlist.txt` and the exact list in `tools/gate.test.ts` name the two sculpts at `parked/clay/public/...`; after the reverse `git mv` the gate test fails and the size gate refuses the files. Fix: `parked/clay/README.md` step 2 names both files and the path change.
+- **A2 and B2 (should-fix), dropped assertions have no `Removed-check:` trailer.** Confirmed: no commit of the range has a trailer, and the ticket said each removal had one. The commit-msg hook did not catch it (it counts removed `assert` lines in registered checks; most lines moved to `parked/` or call `check(...)`). Fix: the review commit carries one trailer for each dropped assertion; the ticket line now says so. History stays as it is.
+- **B1 (medium), the Ceremony's half-speed replay had no check.** Confirmed: the dropped clay check `view.tweens.rate === 0.5` was the only check of `src/ceremony.ts` (`animateMove(..., 0.5)`) and `PaintedView.animateMove` (`speed: 1 / speed`). Fix: `tools/verify-end.mjs` records the speed of the last scene move before the end words and checks that it is 2 (the scene's duration factor for half speed). The fallen-frame half was already checked on the painted board (`view.fallen.sq === 63`).
+- **B2, the drawn check ring.** Confirmed as a gap, not fixed: the ring is now checked as data (`view.marks.check`), not as pixels. A pixel probe is more than the smallest change; the W5 samples show the ring.
+- **A3 and B3 (nit), d8 still says "the look changes to clay".** Confirmed, not fixed: the fix costs three lines, and the check is correct (an old `?look=` link keeps the letters).
+- **A4 (nit), the one-value look block in `tools/measure-load.mjs`.** Refuted as a defect: it keeps the `docs/perf` result shape, and its comment says so.
+- **A5 (nit), `docs/special-moves/README.md` names `verify-playable-clay.mjs`.** Confirmed. Fix: one parked note at the top, as in `docs/perf/README.md`. The perf README's `graphics:study` line is under its parked note already.
+- **A6 (nit), the guard grep sees only `parked/`.** Confirmed. Fix: the grep also matches a quoted `'parked'` or `"parked"` (a `join(root, 'parked', ...)` path); no current file matches.
