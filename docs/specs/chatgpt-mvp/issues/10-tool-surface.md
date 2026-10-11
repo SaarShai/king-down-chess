@@ -1,6 +1,6 @@
 # 10 · The ChatGPT tools, profile and settings
 
-Status: resolved
+Status: claimed
 Type: AFK
 Size: L
 Blocked by: 06, 07, 08
@@ -45,6 +45,13 @@ Verify each step with `npm test`. Use `kingdown_mvp10_test` on 127.0.0.1:55432. 
 Fix review items 1 to 15 in small commits. Use the existing game-service, MCP-client and fixture seams. Add a browser check for the pending-command switch. Each code fix starts with a failing check. Check the rating rows and history for setup ends. Keep the page fix to pending-command removal before the empty-FEN return.
 
 Final checks: `npm test`, plugin build, server and protocol checks, local Vercel build and check, and both plugin browser checks. Merge the local integration tip, repeat `npm test`, then push the branch. Keep all database checks on `kingdown_mvp10_test` at 127.0.0.1:55432.
+
+## Third-round plan and checks
+
+1. Add a failing tool-read test with the server clock two days ahead. Use the database clock for activity ages in views and the inbox. Keep the 30-second write limit and hidden status.
+2. Add a failing fixture test for Abort during setup. Clear the setup deadline in the Abort reply.
+
+Use the existing MCP-client and fixture seams. Run full `npm test`, `npm run plugin:build` and `npm run plugin:server:check`. Use `kingdown_mvp10_test` on 127.0.0.1:55432. The branch starts from integration tip `9793db1f`; merge again only if that tip moves.
 
 ## Interface
 
@@ -177,6 +184,7 @@ All 15 review items are fixed. Each code fix starts with a failing check. Tempor
 
 Status stays resolved. All review items pass their checks. The 24-tool interface stays in place.
 
+- Third-round item 1: views, polls and the inbox use database activity ages. The two-day clock test first fails, then passes. Focused `npm test`: 2 files, 24 tests and 50 art tests pass. The 30-second write limit and hidden status also pass.
 - Full `npm test`: 145 files pass, with 2,269 tests and 50 art tests; 8 tests skip.
 - Focused server `npm test`: 2 files pass, with 23 tests and 50 art tests.
 - `npm run plugin:build` and `npm run plugin:server:check`: pass on local PostgreSQL with migration 0013.

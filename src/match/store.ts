@@ -9,7 +9,7 @@ import type { EndReason, ErrorCode, GameStatus, InboxEntry, LobbyEntry, LoggedCo
 export class MatchServiceError extends Error {
  constructor(public code: ErrorCode, public status: number, message: string) { super(message); this.name = 'MatchServiceError'; }
 }
-export interface Player { seat: Seat; user_id: string | null; computer: boolean; handle_at_start: string | null; /** current, from profiles */ handle: string | null; icon?: Icon | null; power: string; choice: Choice | null; ready: boolean; action: SeatAction; turns_played: number; draw_offers: number; said: Preset[]; last_seen_at: Date | null; last_surface: Surface | null; active: boolean; ended_at: Date | null }
+export interface Player { seat: Seat; user_id: string | null; computer: boolean; handle_at_start: string | null; /** current, from profiles */ handle: string | null; icon?: Icon | null; power: string; choice: Choice | null; ready: boolean; action: SeatAction; turns_played: number; draw_offers: number; said: Preset[]; last_seen_at: Date | null; last_seen_ms: number | null; last_surface: Surface | null; active: boolean; ended_at: Date | null }
 export interface Game {
  id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; days_per_move: 1 | 3 | 7 | null; category: string; readings: string | null; colour_rule: 'white' | 'black' | 'random';
  options: Options | null; draw: string | null; deal: CardName[] | null; level: SkillName; setup_deadline_at: Date | null; rematch_offer: Seat | null; rematch_game_id: string | null;
@@ -23,7 +23,7 @@ export interface Log { seat: Seat | null; actor_id: string | null; command_id: s
 export interface Outgoing { notify: { user_id: string; kind: string; payload: object }[]; outbox: { kind: string; payload: object }[] }
 type Client = Pool | PoolClient;
 const GAME = 'id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,result,end_reason,turn,revision,draw_offer,snapshot,deadline_at,deadline_kind,moves,created_by,created_at,started_at,finished_at,updated_at,options,draw,deal,level,setup_deadline_at,rematch_offer,rematch_game_id';
-const PLAYER = 'p.seat,p.user_id,p.computer,p.handle_at_start,pr.handle,pr.icon,p.power,p.choice,p.ready,p.action,p.turns_played,p.draw_offers,p.said,p.last_seen_at,p.last_surface,p.active,p.ended_at';
+const PLAYER = 'p.seat,p.user_id,p.computer,p.handle_at_start,pr.handle,pr.icon,p.power,p.choice,p.ready,p.action,p.turns_played,p.draw_offers,p.said,p.last_seen_at,(extract(epoch from statement_timestamp()-p.last_seen_at)*1000)::double precision as last_seen_ms,p.last_surface,p.active,p.ended_at';
 /** SQL: no block either way between users `a` and `b`. */
 const unblocked = (a: string, b: string) => `not exists(select from public.relations where kind='block' and ((user_id=${a} and other_id=${b}) or (user_id=${b} and other_id=${a})))`;
 /** SQL: `viewer` may see when `other` was last seen (their "who sees that I am online", given in `setting`). */
@@ -119,13 +119,12 @@ export class PostgresMatchStore {
   const result = await this.pool.query(`select g.id as game_id,g.kind,g.speed,g.status,me.seat,me.action,g.turn,g.revision,g.deadline_at,g.updated_at,g.options,g.level,g.created_at,
     nullif(split_part(g.snapshot->>'fen',' ',6),'')::int as move,
     case when g.status='waiting' then case when g.kind='random' then g.created_at+interval '24 hours' else (select expires_at from public.game_invites where game_id=g.id) end end as open_until,
-    op.user_id as op_user,op.computer as op_computer,case when ${online('$1', 'op.user_id', 'pr.online_visible_to')} then op.last_seen_at end as op_seen,pr.handle as op_handle,pr.icon as op_icon
+    op.user_id as op_user,op.computer as op_computer,case when ${online('$1', 'op.user_id', 'pr.online_visible_to')} then (extract(epoch from statement_timestamp()-op.last_seen_at)*1000)::double precision end as op_seen,pr.handle as op_handle,pr.icon as op_icon
    from public.game_players me join public.games g on g.id=me.game_id
    join public.game_players op on op.game_id=me.game_id and op.seat<>me.seat left join public.profiles pr on pr.id=op.user_id
    where me.user_id=$1 and me.active order by me.action='ready' desc,g.deadline_at asc nulls last,g.updated_at desc limit 100`, [actor]);
-  const now = Date.now();
   return result.rows.map(({ op_user, op_computer, op_seen, op_handle, op_icon, ...r }) => ({ ...r, created_at: r.created_at.toISOString(), open_until: r.open_until?.toISOString() ?? null, deadline_at: r.deadline_at?.toISOString() ?? null, updated_at: r.updated_at.toISOString(),
-   opponent: r.status === 'waiting' && !op_user ? null : { handle: op_handle ?? null, icon: op_icon ?? null, computer: op_computer, deleted: !op_user && !op_computer, last_seen_ms: op_seen ? now - op_seen.getTime() : null } }));
+   opponent: r.status === 'waiting' && !op_user ? null : { handle: op_handle ?? null, icon: op_icon ?? null, computer: op_computer, deleted: !op_user && !op_computer, last_seen_ms: op_seen } }));
  }
  async lobby(actor: string, { client = this.pool as Client, lock = false } = {}): Promise<LobbyEntry[]> {
   const result = await client.query(`select g.id as game_id,g.options,p.seat,pr.handle,pr.icon,g.created_at from public.games g
