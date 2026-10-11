@@ -1,6 +1,6 @@
 # 08 · Results: history, ratings and badges
 
-Status: resolved
+Status: claimed
 Type: AFK
 Size: M
 Blocked by: 06
@@ -25,12 +25,12 @@ Blocked by: 06
 
 ## Plan
 
-1. Test each badge through the pure badge function. Check six king wins and repeat awards.
-2. Test the game service with a local test database. Add migration 0012 and runtime grants. Write ratings and badges in the game end transaction.
-3. Add finished history with a page cursor and the player record. Check order, totals, computer games, aborts, retries and reads with a read-only connection.
-4. Run `npm test`, commit, merge the integration tip, run `npm test` again and push this branch.
+1. Test two human games that commit in reverse date order. Keep the latest rated game date.
+2. Extend the long-break test with another human game. Check both saved ratings, RD and volatility. Show that the test fails when the update ignores idle days.
+3. Finish a random game. Check both ratings, saved Stranger Match badges, history and totals. Show that the test fails when random games are not rated.
+4. Run `npm test`, commit, merge the current integration tip, run `npm test` again and push this branch.
 
-Checks pass when every badge has a unit test and database tests prove one result update per game, both human ratings, no rating for computer or aborted games, and complete history pages.
+Use the ticket's game-service database seam. Checks pass when the reverse-date test fails before the SQL fix, both missing checks detect their fault, and all tests pass with the fixes. Use the local `kingdown_mvp08_test` database and its separate results copy. Ticket 07 is not in the integration branch at the start. The random-game test uses ticket 06's service: create a game of kind `random`, then join its second seat.
 
 ## Result
 

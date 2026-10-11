@@ -142,6 +142,21 @@ suite('finished game results in PostgreSQL', () => {
   expect(record.badges.map(b => b.badge).sort()).toEqual(['first_win', 'friend_match', 'purist']);
   expect((await admin.query('select count(*)::int as n from public.rating_history where user_id=$1', [a])).rows[0].n).toBe(2);
  });
+ it('keeps the latest rated game date when an older end commits last', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  try {
+   vi.setSystemTime(new Date('2026-10-11T12:00:00.000Z'));
+   const a = await user(), b = await user(), older = await friend(a, b), newer = await friend(a, b);
+   vi.setSystemTime(new Date('2026-10-13T12:00:00.000Z'));
+   await games[0].command(b, newer.game_id, command(newer.revision, { type: 'resign' }));
+   vi.setSystemTime(new Date('2026-10-12T12:00:00.000Z'));
+   await games[1].command(b, older.game_id, command(older.revision, { type: 'resign' }));
+   const ratings = (await admin.query('select last_game_at from public.player_ratings where user_id=any($1)', [[a,b]])).rows;
+   expect(ratings).toHaveLength(2);
+   expect(ratings.map(r => r.last_game_at.toISOString())).toEqual(['2026-10-13T12:00:00.000Z', '2026-10-13T12:00:00.000Z']);
+   expect((await games[0].record(a)).totals).toEqual({ played: 2, won: 2, drawn: 0, lost: 0 });
+  } finally { vi.useRealTimers(); }
+ });
  it('earns Royal Collection from six saved king wins', async () => {
   const a = await user(), b = await user();
   const kings: KingName[] = ['Frost', 'Flame', 'Stratus', 'Mud', 'Spirit', 'Shadow'];

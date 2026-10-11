@@ -29,7 +29,7 @@ export async function recordResult(client: PoolClient, game: Game): Promise<void
    { idle: [idleDays(at, before[0].last_game_at), idleDays(at, before[1].last_game_at)] });
   for (const [seat, rating] of after.entries()) {
    const old = before[seat];
-   await client.query('update public.player_ratings set rating=$2,rd=$3,volatility=$4,last_game_at=$5 where user_id=$1', [old.user_id, rating.rating, rating.rd, rating.volatility, at]);
+   await client.query('update public.player_ratings set rating=$2,rd=$3,volatility=$4,last_game_at=greatest(last_game_at,$5) where user_id=$1', [old.user_id, rating.rating, rating.rd, rating.volatility, at]);
    await client.query(`insert into public.rating_history(game_id,user_id,rating_before,rd_before,volatility_before,rating,rd,volatility,created_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
     [game.id, old.user_id, old.rating, old.rd, old.volatility, rating.rating, rating.rd, rating.volatility, at]);
   }
