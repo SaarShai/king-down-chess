@@ -1,6 +1,6 @@
 # 04 · The game setup module
 
-Status: ready-for-agent
+Status: resolved
 Type: AFK
 Size: M
 Blocked by: none (it names the classic flag of ticket 03 as an option field; ticket 05 maps it)
@@ -24,3 +24,12 @@ A new pure module, the core of the toggles (spec "Modules: Game setup"). No data
 ## Notes
 
 - Explorer note C (§2, §4, §5, §6, §11). Kings: `KINGS`, `PLAIN_KINGS`, `parseKings` in `src/rules/rules.ts`; pool: `POOL`, `CLASSIC_CHESS`, `randomBackRank` in `src/rules/setup.ts`.
+
+## Result
+
+- `src/match/setup.ts` (pure, no zod; the page may import it): `Options`, `DEFAULT_OPTIONS`, `POOL_KINDS`, `DEAL_CARDS`, `ALWAYS_ON`, `validate`, `draw`, `seatChoicesNeeded`, `validateChoice`, `defaultChoice`, `buildSetup`.
+- `src/match/setup-schema.ts` (server): `optionsSchema` (it runs `validate`) and `choiceSchema`.
+- The arrangement check (ported from `claude/arrange-mode`, with the guard check added) lives in `setup.ts`, not in `src/rules/`. So the engine hash and the saved matches do not change.
+- `buildSetup` returns `{ match, classic, hand }`. `match` is a `MatchSetup` (`backRank` or a canonical FEN, and `kings`, `none,none` with powers off) that `createMatch` accepts today. `MatchSetup` has no field for the classic flag or the hand yet: ticket 05 maps `classic` and `hand` into it.
+- Checks: `npm test` passes, 2025 tests (25 new in `src/match/setup.test.ts`, seam 2), 56 skipped.
+- Open item: with ticket 05 merged, add the cards and classic mixes to the `createMatch` test with their fields in `match`.
