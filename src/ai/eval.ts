@@ -7,6 +7,8 @@
  * left-right symmetric and encode only centrality and advancement.
  */
 import { A, B, C, Color, G, K, L, M, N, O, P, PieceType, Position, Q, R, RULES, S, T, V, WHITE, canCapture, colorOf, typeOf } from '../rules/engine';
+import { worthOf } from '../workshop/judge';
+import type { DesignSpec } from '../rules/design';
 import { NetKind, RESIDUAL_MAX, loadNet, loadedNetB64, netHasOgre, netKind, netLoaded, nnueEval } from './nnue/net';
 
 /*
@@ -125,7 +127,7 @@ const TYPE_BY_LETTER: Readonly<Record<string, PieceType>> = Object.freeze({ P, N
  * Module-level state, like `setRules` in `src/rules/rules.ts`, and for the same reason: the hot
  * paths take a bare `Uint8Array`, not a carrier for per-run options. One value set per thread is
  * enough — each simulation worker is its own module instance and sets the values before it plays;
- * the browser calls this only for a design in `T` (src/ai/worker.ts, and src/game.ts without a worker).
+ * the browser calls it only through `setDesignValue`.
  */
 export function setPieceValues(over?: Readonly<Record<string, number>>): void {
   for (const letter of Object.keys(TYPE_BY_LETTER)) {
@@ -134,6 +136,11 @@ export function setPieceValues(over?: Readonly<Record<string, number>>): void {
     VAL[t] = v;
     VALUES[t] = v;
   }
+}
+
+/** A design in `T` (ticket 16) is worth what the Workshop's judge says; `over` wins. No design and no `over` restore the shipped values. */
+export function setDesignValue(design: DesignSpec | null, over?: Readonly<Record<string, number>>): void {
+  setPieceValues(design ? { T: Math.round(worthOf(design) * PAWN_V), ...over } : over);
 }
 
 /**

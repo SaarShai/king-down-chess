@@ -4,9 +4,8 @@ import {
 } from '../rules/engine';
 import { fromFen, randomBackRank, startPosition, toLan } from '../rules/setup';
 import { MATE, evaluate, positionKey, resetSearchState, search } from './search';
-import { PAWN_V, setPieceValues } from './eval';
+import { setDesignValue, setPieceValues } from './eval';
 import { PRESETS, specOf } from '../workshop/model';
-import { worthOf } from '../workshop/judge';
 
 const MID = '1sakg1l1/1p1pppq1/3b4/r1p3p1/p1PPB1Pp/4P2P/PP1GQP2/RSAKL3 w - - 0 13';
 
@@ -241,7 +240,7 @@ describe('self-play with a design (ticket 17)', () => {
       for (let game = 0; game < 6; game++) {
         const design = designs[game % designs.length];
         setRules({ design });
-        setPieceValues({ T: Math.round(worthOf(design) * PAWN_V) });
+        setDesignValue(design);
         const back = randomBackRank(rng), i = back.indexOf('K') ? 0 : 1;
         let pos = startPosition(back.slice(0, i) + 'T' + back.slice(i + 1));
         const seen: number[] = [positionKey(pos)];

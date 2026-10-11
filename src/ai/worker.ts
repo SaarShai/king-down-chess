@@ -1,7 +1,6 @@
 import { Position } from '../rules/engine';
 import { Rules, setRules } from '../rules/rules';
-import { PAWN_V, setEvaluator, setPieceValues } from './eval';
-import { worthOf } from '../workshop/judge';
+import { setDesignValue, setEvaluator } from './eval';
 import { SearchOptions, search } from './search';
 
 // The adopted Q6 residual net (src/ai/nnue/weights.ts). The worker builds its own module graph,
@@ -19,7 +18,6 @@ const ctx = self as unknown as Worker;
 ctx.onmessage = (e: MessageEvent<{ id: number; pos: Position; opts: SearchOptions; rules: Rules }>) => {
   const { id, pos, opts, rules } = e.data;
   setRules(rules);
-  // A design in the slot `T` (ticket 16) is worth what the Workshop's judge says; no design restores the shipped values.
-  setPieceValues(rules.design ? { T: Math.round(worthOf(rules.design) * PAWN_V) } : undefined);
+  setDesignValue(rules.design);
   ctx.postMessage({ id, ...search(pos, opts) });
 };
