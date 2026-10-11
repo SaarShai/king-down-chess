@@ -1,6 +1,6 @@
 # 10 · The ChatGPT tools, profile and settings
 
-Status: claimed
+Status: resolved
 Type: AFK
 Size: L
 Blocked by: 06, 07, 08
@@ -89,7 +89,7 @@ Command fields are `{ game_id, command_id, expected_revision }`. Revisions and `
 
 `open {}` and `open { game_id: 'next' }` create no game on an empty inbox. They make an empty board selection. The summary gives `screen: 'home'`, its `board_id`, and `your_turn_count`; text says "Your move in 2 games" when two games need you. A named game defaults to screen `board`. The other screen values select the page. With a code, screen is `join`; no code, handle or icon goes in the open summary.
 
-`get { board_id }` follows the board's current game and ignores any supplied `game_id`. The page can recover with only its board ID. A background read of another game sends `game_id` with no board ID. Full reads and polls record seat activity at most once each 30 seconds. This includes the reads in Open and Resume. Hidden online status still gives the other seat a null last-seen time. All paths that move the board use `select(board_id, action)`. Rematch returns the old game and never moves a board. Tap to resume, Switch now and a move to `rematch_game_id` use `resume { board_id, game_id }`. A solo rematch accepts only `offer`.
+`get { board_id }` follows the board's current game and ignores any supplied `game_id`. The page can recover with only its board ID. A background read of another game sends `game_id` with no board ID. Full reads and polls record seat activity at most once each 30 seconds. Activity ages and the write limit use the database clock. This includes the reads in Open and Resume. Hidden online status still gives the other seat a null last-seen time. All paths that move the board use `select(board_id, action)`. Rematch returns the old game and never moves a board. Tap to resume, Switch now and a move to `rematch_game_id` use `resume { board_id, game_id }`. A solo rematch accepts only `offer`.
 
 Create takes the shared `optionsSchema`. Without options it uses `settings.last_setup.options`, else `DEFAULT_OPTIONS`. It sends no fixed `setup`, mode, speed or days-per-move input. Games against people are Daily, with 3 days per move. Create has no command ID; retry can create a second game. The initiator's king stays in `last_setup.king`; the seat page uses it to prefill the choice. Choose is refused while waiting.
 
@@ -184,10 +184,12 @@ All 15 review items are fixed. Each code fix starts with a failing check. Tempor
 
 Status stays resolved. All review items pass their checks. The 24-tool interface stays in place.
 
+This round runs the full test suite, plugin build and server check. The protocol, local build, browser and harness checks below are from the prior round. Integration tip stays `9793db1f`; no further merge is needed.
+
 - Third-round item 1: views, polls and the inbox use database activity ages. The two-day clock test first fails, then passes. Focused `npm test`: 2 files, 24 tests and 50 art tests pass. The 30-second write limit and hidden status also pass.
 - Third-round item 2: Abort clears both fixture deadlines. The setup-deadline test first fails on Abort, then checks a null deadline in its reply and the other seat's read. Focused `npm test`: 1 file, 7 tests and 50 art tests pass.
-- Full `npm test`: 145 files pass, with 2,269 tests and 50 art tests; 8 tests skip.
-- Focused server `npm test`: 2 files pass, with 23 tests and 50 art tests.
+- Full `npm test`: 145 files pass, with 2,271 tests and 50 art tests; 8 tests skip.
+- Focused server `npm test`: 2 files pass, with 24 tests and 50 art tests.
 - `npm run plugin:build` and `npm run plugin:server:check`: pass on local PostgreSQL with migration 0013.
 - `npm run plugin:check:protocol`: 24 tools pass.
 - `npm run build:vercel` and `npm run check:vercel`: pass locally, with 20 art files and 4 archived engines. These checks publish nothing.
