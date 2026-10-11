@@ -1,6 +1,6 @@
 // Ticket 02 sample, second round: each state is one screen of the MVP, built from the web game's own parts
 // (src/style.css, src/ui/table.css, src/ceremony.css, the painted scene). ?s=<state>. data.js holds the real rule texts.
-import { drawBoard } from './board.mjs';
+import { drawGame } from './board.mjs';
 
 const UI = '/ui/';
 const q = new URLSearchParams(location.search);
@@ -76,29 +76,37 @@ function setupBody({ fairy = true, arrange = true, classic = false, cards = true
 const startFoot = '<button class="primary">Start game</button>';
 
 // ---- the table: the game's #game-table with its strips, context line, moves line and bar ----
-const MID = ['r..gk.a.', 'pp.m.ppp', '..p..s..', '...pP...', '..L.....', '..N..O..', 'PP...PPP', 'R..GK.A.'];
-const START = ['rnbgkmal', 'pppppppp', '........', '........', '........', '........', 'PPPPPPPP', 'RNBGKMAL'];
 const HAND = ['Vault', 'Leap', 'Salvation', 'Curse'];
+// The fixtures: a FEN and the moves the engine plays from it (board.mjs). The game: Mud (March) against Shadow
+// (Darkness), cards on (the hand above for each side). used: the spent cards, one bit for each hand index.
+const MVP = { kings: [{ king: 'Mud', power: 'March' }, { king: 'Shadow', power: 'Darkness' }], hands: [HAND, HAND], marchUses: 0 };
+const bits = list => list.reduce((n, c) => n | 1 << HAND.indexOf(c), 0);
+const ME_SPENT = ['Vault', 'Leap'], THEM_SPENT = ['Vault'];
+const game = (fen, play, o = {}) => ({ fen, play, rules: MVP, used: [bits(ME_SPENT), bits(THEM_SPENT)], ...o });
+// Move 13: Black's pawn e6 to d5 (Darkness lets Black's pawns step on the diagonal).
+const MID = 'r2gk1a1/pp1m1ppp/2p1ps2/4P3/2L5/2N2O2/PP3PPP/R2GK1A1 b - - 0 13';
+const START = 'rnbgkmal/pppppppp/8/8/8/8/PPPPPPPP/RNBGKMAL w - - 0 1';
 // Card mode C (web-redesign §1.1, "Coins by the king"): the power coin first, by the portrait, then one coin for each card.
 const cardCoin = (c, spent) => `<button class="coin card-coin" data-state="${spent ? 'used' : 'always'}" aria-label="${nm(c)}${spent ? ', spent' : ''}">${cardArt(c) ? `<img src="${cardArt(c)}" alt="">` : `<img src="${UI}cards/back.webp" alt=""><span class="cc-word">${nm(c).slice(0, 2)}</span>`}</button>`;
-const strip = (id, { pic, name, sub, power, cards, spent, turn }) => `<div id="${id}" class="player-strip ${turn ? 'is-turn' : ''}"><div class="coin-row">${portrait(pic)}${power ? coinBtn(power) : ''}${cards ? HAND.map(c => cardCoin(c, c === spent)).join('') : ''}</div><span class="player-name"><b>${name}</b><small>${sub}</small></span></div>`;
+const strip = (id, { pic, name, sub, power, cards, spent = [], turn }) => `<div id="${id}" class="player-strip ${turn ? 'is-turn' : ''}"><div class="coin-row">${portrait(pic)}${power ? coinBtn(power) : ''}${cards ? HAND.map(c => cardCoin(c, spent.includes(c))).join('') : ''}</div><span class="player-name"><b>${name}</b><small>${sub}</small></span></div>`;
 const BAR = { draw: ['hand', 'Offer draw'], resign: ['resign', 'Resign'], menu: ['settings', 'Menu'], shuffle: ['shuffle', 'Shuffle'], ready: ['check', 'Ready'] };
 
-function table({ id = 'b', them, me, context, actions = '', moves = '14. Ogre f3 shoves e5', bar = ['draw', 'resign', 'menu'], primary = '', disabled = [], extra = '' }) {
+// context and moves: null takes the game's own words for the board's state (board.mjs); a string is a plugin line.
+function table({ id = 'b', them, me, context = null, actions = '', moves = null, bar = ['draw', 'resign', 'menu'], primary = '', disabled = [], extra = '' }) {
   return `<div id="game-table" class="mvp-table">
     <div id="board" data-board="${id}"></div>
     <div class="table-side">
       ${strip('strip-them', them)}<div class="table-space"></div>${strip('strip-me', me)}
-      <div id="context-line"><div id="context-text">${context}</div><div id="context-actions">${actions}</div></div>
-      <button id="moves-line"><span id="last-move"><span>${moves}</span></span><span class="moves-label">Moves <span aria-hidden="true">⌄</span></span></button>
+      <div id="context-line"><div id="context-text" ${context == null ? 'data-auto' : ''}>${context ?? ''}</div><div id="context-actions">${actions}</div></div>
+      <button id="moves-line"><span id="last-move" ${moves == null ? 'data-auto' : ''}><span>${moves ?? ''}</span></span><span class="moves-label">Moves <span aria-hidden="true">⌄</span></span></button>
       <nav id="table-bar">${bar.map(b => `<button class="${b === primary ? 'primary' : ''}" ${disabled.includes(b) ? 'aria-disabled="true"' : ''}>${ic(BAR[b][0])}<span class="label">${BAR[b][1]}</span></button>`).join('')}</nav>
     </div>${extra}</div>`;
 }
-const ME = { pic: PRESETS[5], name: 'stone_saar', sub: '1500? · White', power: 'Mud', cards: true, spent: 'Leap', turn: true };
-const THEM = { pic: PRESETS[10], name: 'mira_k', sub: '1540 · Black', power: 'Shadow', cards: true, spent: 'Vault' };
+// As the game's strips (src/ui/table.ts): each side shows its own king, Black's in black.
+const ME = { pic: king('Mud'), name: 'stone_saar', sub: '1500? · White', power: 'Mud', cards: true, spent: ME_SPENT, turn: true };
+const THEM = { pic: king('Shadow', true), name: 'mira_k', sub: '1540 · Black', power: 'Shadow', cards: true, spent: THEM_SPENT };
 const BOARDS = {};
-const board = (id, ranks, o) => { BOARDS[id] = [ranks, o]; return id; };
-const midKings = ['mud', 'shadow'];
+const board = (id, fixture) => { BOARDS[id] = fixture; return id; };
 
 const S = {
   // The inline card in the chat (Q25): the title's kings on the stone board, the wordmark, two actions.
@@ -169,18 +177,22 @@ const S = {
   seat: () => full('Set up your side', seat(false)),
   'seat-waiting': () => full('Set up your side', seat(true)),
 
-  board: () => full('King Down', table({ id: board('b', MID, { kings: midKings, sel: 'c3', moves: ['a4', 'b5', 'e4', 'e2', 'b1'], takes: ['d5'] }), them: THEM, me: ME,
-    context: '<span><b>Knight.</b> Jumps in an L.</span><span>A green tile moves. A red target takes.</span>', actions: '<button>All rules</button>' })),
-  'board-abort': () => full('King Down', table({ id: board('b', START, { kings: midKings }), them: { ...THEM, spent: null }, me: { ...ME, spent: null }, moves: 'No moves yet.',
-    context: '<span>Your move · move 1</span><span>Abort ends the game with no result, until each side moves once.</span>', actions: '<button>Abort</button>' })),
-  'board-claim': () => full('King Down', table({ id: board('b', MID, { kings: midKings, last: ['d4', 'd5'] }), them: { ...THEM, turn: true }, me: { ...ME, turn: false },
+  // White's knight selected: its moves and its take, from the engine; the context line is the game's piece text.
+  board: () => full('King Down', table({ id: board('b', game(MID, ['e6-d5'], { sel: 'c3' })), them: THEM, me: ME, actions: '<button>All rules</button>' })),
+  // A slider selected: the rails join each line's marks, with an arrow at the board edge, a bar before a piece, a cross on a take.
+  'board-rails': () => full('King Down', table({ id: board('b', game(MID.replace('2N2O2', '2NQ1O2'), ['e6-d5'], { sel: 'd3' })), them: THEM, me: ME, actions: '<button>All rules</button>' })),
+  // Check with Show threats on: the check mark and its cause line on the king, and the threat arrows (owner, 2026-10-11).
+  'board-check': () => full('King Down', table({ id: board('b', game('r2gk1a1/pp1m1ppp/2p2s2/3pP3/2L2n2/2N2O2/PP3PPP/R2GK1A1 b - - 0 14', ['Nf4-d3'], { threats: true })), them: THEM, me: ME })),
+  'board-abort': () => full('King Down', table({ id: board('b', { fen: START, rules: MVP }), them: { ...THEM, spent: [] }, me: { ...ME, spent: [] },
+    context: '<span>Your move.</span><span>Abort ends the game with no result, until each side moves once.</span>', actions: '<button>Abort</button>' })),
+  'board-claim': () => full('King Down', table({ id: board('b', game(MID, ['e6-d5', 'Nc3xd5'])), them: { ...THEM, turn: true }, me: { ...ME, turn: false },
     context: '<span>mira_k has not moved for 3 days.</span><span>You may claim the win.</span>', actions: '<button class="primary">Claim the win</button>' })),
-  'board-symbols': () => full('King Down', table({ id: board('b', MID, { kings: midKings, symbols: true, threats: ['e5', 'c4'] }), them: THEM, me: ME,
-    context: '<span>Your move · move 14</span><span>Symbols only and Show threats are on.</span>' })),
+  'board-symbols': () => full('King Down', table({ id: board('b', game('r2gk1a1/pp1m1ppp/2p2s2/3pP2n/2L5/2N2O2/PP3PPP/R2GK1A1 b - - 0 14', ['Nh5-f4'], { symbols: true, threats: true })), them: THEM, me: ME })),
 
   // The end: the Ceremony (web-redesign §1.1): the king lies down, "King Down" settles in, three tiles.
-  end: () => full('King Down', table({ id: board('b', ['R.....k.', '.....ppp', '..s.....', '........', '...O....', '........', '.....PPP', '......K.'], { kings: midKings, fallen: 'g8', last: ['a1', 'a8'] }),
-    them: { ...THEM, spent: 'Vault', turn: false }, me: { ...ME, turn: false }, moves: '31. Rook a8 takes the king', bar: [], context: '',
+  // Checkmate from the engine (Black's Curse is spent, so no card saves the king); the beaten king lies down.
+  end: () => full('King Down', table({ id: board('b', game('6k1/5ppp/8/8/3O4/8/5PPP/R5K1 w - - 0 31', ['Ra1-a8'], { used: [bits(ME_SPENT), bits(['Vault', 'Curse'])] })),
+    them: { ...THEM, spent: ['Vault', 'Curse'], turn: false }, me: { ...ME, turn: false }, bar: [], context: '',
     extra: `<div class="scrim"></div><dialog open id="over" class="end-card" aria-labelledby="over-title">
       <div class="over-art" aria-hidden="true"><img class="over-king over-w" src="${king('Mud')}" alt=""><img class="over-king over-b" src="${king('Shadow', true)}" alt=""></div>
       <p class="over-words">King Down</p>
@@ -206,8 +218,8 @@ const S = {
       <button class="primary wide-btn">${ic('play')}<span class="label">Play the computer while you wait</span></button>
       <button class="quiet wide-btn">Cancel my open game</button>`)),
 
-  'opponent-found': () => full('King Down', table({ id: board('b', START.map((r, i) => i === 6 ? 'PPPP.PPP' : i === 4 ? '....P...' : r), { kings: ['mud', 'shadow'], last: ['e2', 'e4'] }),
-    them: { pic: king('Shadow'), name: 'Computer', sub: 'Club · Black' }, me: { ...ME, power: null, cards: false }, moves: '1. Pawn e4', context: '<span>The computer is thinking.</span>' })
+  'opponent-found': () => full('King Down', table({ id: board('b', { fen: START, play: ['e2-e4'] }),
+    them: { pic: king('Shadow', true), name: 'Computer', sub: 'Club · Black' }, me: { ...ME, pic: king('Spirit'), power: null, cards: false }, context: '<span>The computer is thinking.</span>' })
     + `<div class="scrim"></div><dialog open id="over" class="found" aria-labelledby="found-title">
       <div class="over-art">${portrait(PRESETS[7], 'big')}</div>
       <h2 id="found-title">Opponent found</h2><p><b>olek</b> joined your open game. Switch now? The computer game then ends with no result.</p>
@@ -229,7 +241,7 @@ const S = {
         <label>Symbols only <input type="checkbox"></label>
         <p class="set-line">Each piece shows as its flat symbol, not the painted figure. <span class="sym-demo"><img src="${UI}pieces/knight-w.webp" alt="Painted knight"> › ${pi('knight')}</span></p>
         <label>Show threats <input type="checkbox" checked></label>
-        <p class="set-line">A red mark shows each of your pieces that the opponent can take.</p>
+        <p class="set-line">A red arrow points from each enemy piece to your piece it can take.</p>
       </section>
       <h3 class="group-head">You</h3>
       ${row('stone_saar', 'Name and picture', { lead: portrait(PRESETS[5]) })}
@@ -245,11 +257,12 @@ const S = {
 };
 
 function seat(ready) {
-  const ranks = ['........', '........', '........', '........', '........', '........', 'PPPPPPPP', 'RNBGKMAL'];
-  return table({ id: board('b', ranks, { kings: ['mud', 'shadow'], sel: ready ? null : 'b1', moves: ready ? [] : ['a1', 'c1', 'd1', 'f1', 'g1', 'h1'], veil: 'Their side stays hidden until both players are ready.' }),
-    them: { pic: PRESETS[10], name: 'mira_k', sub: ready ? 'Choosing · 3 days left' : 'Choosing' },
-    me: { pic: PRESETS[5], name: 'stone_saar', sub: 'Mud · March · tap the coin to change', power: 'Mud', turn: !ready },
-    context: ready ? '<span>Waiting for the other player.</span><span>mira_k has 3 days to choose.</span>' : '<span>Tap two pieces to swap them.</span><span>Bishops on opposite colours. The guard next to the king.</span>',
+  // The arrangement: the tapped piece stands in the gold glow; the game's swap mark (marks.ts) shows each piece it may
+  // trade places with under the arrangement rules (board.mjs seatSwaps).
+  return table({ id: board('b', { fen: '8/8/8/8/8/8/PPPPPPPP/RNBGKMAL w - - 0 1', rules: MVP, seat: 'RNBGKMAL', sel: ready ? null : 'b1', veil: 'Their side stays hidden until both players are ready.' }),
+    them: { pic: king('Shadow', true), name: 'mira_k', sub: ready ? 'Choosing · 3 days left' : 'Choosing' },
+    me: { pic: king('Mud'), name: 'stone_saar', sub: 'Mud · March · tap the coin to change', power: 'Mud', turn: !ready },
+    context: ready ? '<span>Waiting for the other player.</span><span>mira_k has 3 days to choose.</span>' : '<span>Tap a marked piece to swap the knight with it.</span><span>The guard stays next to the king.</span>',
     moves: 'Your back rank: R N B G K M A L', bar: ['shuffle', 'ready', 'menu'], primary: ready ? '' : 'ready', disabled: ready ? ['shuffle', 'ready'] : [] });
 }
 
@@ -281,6 +294,11 @@ const state = q.get('s') || 'home';
 document.getElementById('app').innerHTML = (S[state] ?? S.home)();
 document.body.dataset.state = state;
 await document.fonts.ready;
-await Promise.all(Object.entries(BOARDS).map(([id, [ranks, o]]) => drawBoard(document.querySelector(`[data-board="${id}"]`), ranks, o)));
+for (const [id, fixture] of Object.entries(BOARDS)) {
+  const words = await drawGame(document.querySelector(`[data-board="${id}"]`), fixture);
+  const context = document.querySelector('#context-text[data-auto]'), moves = document.querySelector('#last-move[data-auto]');
+  if (context) context.innerHTML = [words.context.line, words.context.note].filter(Boolean).map(t => `<span>${t}</span>`).join('');
+  if (moves) moves.innerHTML = words.story;
+}
 if (state === 'profile-badges') document.querySelector('.new-game-body').scrollTop = 9999;
 window.STATES = Object.keys(S);

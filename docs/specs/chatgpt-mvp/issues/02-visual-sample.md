@@ -1,6 +1,6 @@
 # 02 · The visual sample
 
-Status: needs-info (waits for the owner's yes on round 2)
+Status: needs-info (waits for the owner's yes on round 3)
 Type: HITL (the owner's yes on the rendered sample)
 Size: M
 Blocked by: none
@@ -39,7 +39,7 @@ A static, clickable mock of the MVP screens with the real art, for the owner's y
 ### Open items
 
 - The owner's yes on `sample/contact-sheet.png`, or a list of changes (Acceptance).
-- The board is a mock: the piece cut-outs from `public/ui/pieces` on the stone board, not the canvas scene. The build uses the real painted board.
+- Done in round 3: the board draws through `PaintedView` with real engine state (see Comments).
 - Abort and Claim show in separate states (`board-abort`, `board-claim`). The owner may prefer one action row with all four.
 
 ## Notes
@@ -61,3 +61,15 @@ The owner's verdict on round 1, word for word: "the GUI look doesn't seem like i
 - Checks: `node docs/specs/chatgpt-mvp/sample/render.mjs`: 23 states × 3 sizes, no faults. `sample/contact-sheet.png` and `sample/compare.png` (the game beside the sample for title, New game, the king picker, Board help, Menu, the game and the Ceremony). No `npm test` and no browser-check run in this round (a design sample; the Mac stays quiet for deploys).
 - Open: the owner's yes on `sample/contact-sheet.png` and `sample/compare.png`, or a list of changes. The game's power buttons show small board pictures; the sample's king sheet shows the power names only.
 
+
+### 2026-10-11 · round 3: the board through the game's code
+
+The rules session reviewed round 2. The screens read as the game; the board marks did not (review: four MUST, three SHOULD, two NIT items). Round 3 fixes every MUST and SHOULD item, and items 4 and 8.
+
+- Every board is real game state. `sample/board.mjs` sets the rules, reads a FEN and lets the engine play the moves. The marks come from `marksModel()`, `railsOf()`, `offered()`, `threatsIn()`, `checkersOf()` and the last engine move, as `play.ts` refresh() makes them. `PaintedView` draws them with the web game's options. The words come from the table's piece text, `contextLine()`, `checkCause()` and `describeMove()`.
+- New states: `board-rails` (the queen selected: rails with arrows, a bar, crosses) and `board-check` (the check ring, the cause line and the threat arrows together, owner 2026-10-11). The sample now has 25 states.
+- Fixes: the selected knight with its gold glow and the game's words ("White knight."); the take badge; threat arrows, not frames; legal last moves with the last-move mark; a real checkmate on the end card; the Settings words for Show threats; the swap mark on the seat screen; each strip shows its own king.
+- Reference: two new captures of the game on main with Show threats on (`reference/board-select-*`, `reference/board-check-*`), on the sample's own fixtures. At full size the marks match the sample's: the rails, the ends, the take badges, the check ring, the cause line and the threat arrows.
+- The README's "Round 3" section lists each review item, its change and its PNGs.
+- Checks: `node docs/specs/chatgpt-mvp/sample/render.mjs`: 25 states × 3 sizes, no faults. No `npm test` and no browser-check run (another agent ran the full suite on this Mac; each render batch waited until no test run was active).
+- Open: the owner's yes on `sample/contact-sheet.png` and `sample/compare.png`, or a list of changes.

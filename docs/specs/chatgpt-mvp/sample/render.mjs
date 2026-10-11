@@ -12,15 +12,18 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../../../..');
 const out = join(here, 'png');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.ts': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.png': 'image/png', '.woff2': 'font/woff2' };
-// The worktree root, with the game's public folder at /fonts and /ui (as the game serves them); a .ts file goes out as plain JS.
+// The worktree root, with the game's public folder at /fonts and /ui (as the game serves them); a .ts file goes out as
+// plain JS, an import with no extension finds its .ts file (as Vite resolves the game's imports), and
+// import.meta.env.BASE_URL is '/'.
 const server = createServer(async (req, res) => {
   let path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (/^\/(fonts|ui)\//.test(path)) path = `/public${path}`;
   path = join(root, path);
   if (!path.startsWith(root)) return res.writeHead(403).end();
   try {
+    if (!extname(path)) path += '.ts';
     let body = await readFile(path);
-    if (path.endsWith('.ts')) body = (await transform(body.toString(), { loader: 'ts' })).code;
+    if (path.endsWith('.ts')) body = (await transform(body.toString(), { loader: 'ts', define: { 'import.meta.env': '{"BASE_URL":"/"}' } })).code;
     res.writeHead(200, { 'content-type': TYPES[extname(path)] ?? 'application/octet-stream' }).end(body);
   } catch { res.writeHead(404).end(); }
 }).listen(0, '127.0.0.1');
@@ -85,14 +88,15 @@ const sheet = await browser.newPage({ viewport: { width: 1800, height: 800 } });
 const cell = (s, size, w) => `<figure><img src="png/${s}-${size}.png" style="width:${w}px"><figcaption>${s} · ${size}</figcaption></figure>`;
 await sheet.setContent(`<base href="${base}"><style>body{margin:0;padding:16px;font:14px system-ui;background:#ddd}h1{font-size:20px;margin:0 0 12px}
   .r{display:flex;gap:16px;align-items:flex-start;margin-bottom:18px}figure{margin:0}img{display:block;border:1px solid #999;background:#fff}figcaption{padding:3px 0}</style>
-  <h1>King Down in ChatGPT · ticket 02 sample, round 2 (the game's design) · phone 390×844, side panel 400×900, desktop 1440×900</h1>
+  <h1>King Down in ChatGPT · ticket 02 sample, round 3 (the game's design, the game's board code) · phone 390×844, side panel 400×900, desktop 1440×900</h1>
   ${states.map(s => `<div class="r">${cell(s, 'phone', 220)}${cell(s, 'panel', 220)}${cell(s, 'desktop', 880)}</div>`).join('')}`);
 await sheet.waitForLoadState('networkidle');
 await sheet.evaluate(() => Promise.all([...document.images].map(i => i.decode())));
 await sheet.screenshot({ path: join(here, 'contact-sheet.png'), fullPage: true });
 // The compare sheet: the game on main (reference/, from reference/capture.mjs) beside the sample, phone size.
 const PAIRS = [['title', 'home', 'Title · inline home card'], ['new-game-computer', 'setup', 'New game · setup'], ['new-game-powers', 'setup-king', "New game, kings' powers · king sheet"],
-  ['settings', 'settings', 'Board help · settings'], ['menu', 'play', 'Menu · play'], ['board-powers', 'board', 'Game with powers · board with cards'], ['ceremony', 'end', 'Ceremony · end card']];
+  ['settings', 'settings', 'Board help · settings'], ['menu', 'play', 'Menu · play'], ['board-powers', 'board', 'Game with powers · board with cards'],
+  ['board-select', 'board-rails', 'Queen selected, Show threats on · queen selected (rails)'], ['board-check', 'board-check', 'Check, Show threats on · check, Show threats on'], ['ceremony', 'end', 'Ceremony · end card']];
 const cmp = await browser.newPage({ viewport: { width: 1400, height: 800 } });
 await cmp.setContent(`<base href="${base}"><style>body{margin:0;padding:16px;font:14px system-ui;background:#ddd}h1{font-size:20px;margin:0 0 12px}
   .r{display:inline-flex;gap:8px;margin:0 18px 18px 0;vertical-align:top;background:#ccc;padding:8px;border-radius:8px}figure{margin:0}img{display:block;width:300px;border:1px solid #999}figcaption{padding:3px 0}</style>

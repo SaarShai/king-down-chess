@@ -1,67 +1,107 @@
-// The sample's board: the game's own painted scene (docs/2d-first-pieces/board/scene.mjs, as src/render/PaintedView.ts
-// drives it) and the game's own move legend (src/render/legend.ts; render.mjs serves .ts as plain JS).
-import { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, piece } from '/docs/2d-first-pieces/board/rules.mjs';
-import { createScene } from '/docs/2d-first-pieces/board/scene.mjs';
-import { tile, occupied, paint } from '/src/render/legend.ts';
+// The sample's board: real game state through the game's own code. The engine (src/rules) plays the fixture's moves;
+// marks-model.ts, move-text.ts and powers-ui.ts give the marks as src/screen/play.ts refresh() does; PaintedView draws
+// them (marks.ts, legend.ts, scene.mjs) with the web game's options; table.ts's piece text and context-line.ts give
+// the words. render.mjs serves the .ts files as plain JS. The imports have no extension, as the game's own do, so each
+// module loads once (one RULES).
+import { setRules, RULES } from '/src/rules/rules';
+import { legalMoves, makeMove, inCheck, findKing, parseSq, colorOf, typeOf, nameOf, status } from '/src/rules/engine';
+import { fromFen, toLan } from '/src/rules/setup';
+import { threatsIn, checkersOf, checkCause, describeMove } from '/src/move-text';
+import { marksModel, railsOf } from '/src/marks-model';
+import { offered } from '/src/powers-ui';
+import { readText } from '/src/read';
+import { contextLine } from '/src/context-line';
+import { pieceIcon } from '/src/piece-icons';
+import { PaintedView } from '/src/render/PaintedView';
 
-const HEADROOM = 64;
-const TYPE = { P, N, B, R, Q, K, A, L, G, M, S, O };
-const ICON = { P: 'pawn', N: 'knight', B: 'bishop', R: 'rook', Q: 'queen', K: 'king', A: 'archer', L: 'paladin', G: 'guard', M: 'maester', S: 'beast', O: 'ogre' };
-export const sq = name => (name.charCodeAt(0) - 97) + (+name[1] - 1) * 8;
+const ICON = { 1: 'pawn', 2: 'knight', 3: 'bishop', 4: 'rook', 5: 'queen', 6: 'king', 7: 'archer', 8: 'paladin', 9: 'guard', 10: 'maester', 11: 'beast', 12: 'ogre' };
+
+/** The game state of a fixture: the FEN, then the moves (long algebraic, toLan) the engine plays from it. */
+export function gameOf(f) {
+  setRules(f.rules ?? {});
+  let pos = { ...fromFen(f.fen), ...(f.used ? { used: f.used } : {}) }, prev = null, last = null;
+  for (const lan of f.play ?? []) {
+    const m = legalMoves(pos).find(m => toLan(pos, m) === lan);
+    if (!m) throw new Error(`not a legal move here: ${lan}`);
+    prev = pos; last = m; pos = makeMove(pos, m);
+  }
+  return { pos, prev, last };
+}
+
+/** The table's piece text (src/ui/table.ts readPiece): "White knight." and the note from read.ts. */
+function pieceText(pos, sq) {
+  const code = pos.board[sq], [line = '', states = ''] = readText(pos, sq).split('\n');
+  return { read: `${colorOf(code) ? 'Black' : 'White'} ${nameOf(typeOf(code))}.${states ? ` ${states}.` : ''}`, readNote: line.split(' · ')[1] ?? '' };
+}
 
 /**
- * Draws one board into `host` (an element with a size). ranks: 8 strings, rank 8 first, '.' for an empty square.
- * o: kings [white, black] designs; last, moves, takes, threats: square names; sel: a square name; fallen: a square
- * name (the king lies down); symbols: piece icons in place of the figures; veil: words over ranks 5 to 8.
- * Resolves when the board is drawn.
+ * The legal swaps of an arrangement (the seat screen): the back-rank squares the piece on `from` may trade with, under
+ * the rules' own arrangement conditions (`bishopsOppositeColours`, `guardNextToKing`, as setup.ts randomBackRank()).
  */
-export async function drawBoard(host, ranks, o = {}) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 960; canvas.height = 960 + HEADROOM;
-  host.classList.add('painted');
-  host.append(canvas);
-  const board = new Uint8Array(64);
-  ranks.forEach((row, i) => [...row].forEach((l, f) => {
-    if (l !== '.') board[(7 - i) * 8 + f] = piece(TYPE[l.toUpperCase()], l === l.toUpperCase() ? 0 : 1);
-  }));
-  const scene = createScene({ canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName }, headroom: HEADROOM, kings: o.kings ?? ['spirit', 'shadow'], floor: null });
-  scene.setLively({ moves: true, atmosphere: true, captures: true, idle: false, kings: false, pawns: false });
-  scene.setReducedMotion(true);
-  const set = list => new Set((list ?? []).map(sq));
-  const last = set(o.last), moves = set(o.moves), takes = set(o.takes), threats = set(o.threats);
-  scene.setDecorate((ctx, sc, layer) => {
-    if (layer !== 'under') return;
-    const { PAD, TILE } = sc;
-    const box = s => { const c = sc.cell(s); return { x: PAD + c.col * TILE, y: PAD + c.row * TILE }; };
-    for (const s of last) { const b = box(s); ctx.fillStyle = '#e6b84a6e'; ctx.fillRect(b.x, b.y, TILE, TILE); }
-    for (const s of moves) { const b = box(s); paint(ctx, tile(takes.has(s) ? 'both' : 'move', b.x, b.y, TILE)); }
-    for (const s of takes) if (!moves.has(s)) { const b = box(s); paint(ctx, occupied('take', b.x, b.y, TILE, sc.foot(s).y)); }
-    for (const s of threats) { const b = box(s); paint(ctx, occupied('take', b.x, b.y, TILE, sc.foot(s).y)); }
+function seatSwaps(row, from) {
+  return [...row].flatMap((_, to) => {
+    if (to === from) return [];
+    const r = [...row]; [r[from], r[to]] = [r[to], r[from]];
+    const k = r.indexOf('K'), g = r.indexOf('G'), b = r.flatMap((p, i) => (p === 'B' ? [i] : []));
+    const ok = !(RULES.guardNextToKing && g >= 0 && Math.abs(g - k) !== 1) && !(RULES.bishopsOppositeColours && b.length === 2 && (b[0] + b[1]) % 2 === 0);
+    return ok ? [to] : [];
   });
-  scene.setPosition({ board: o.symbols ? new Uint8Array(64) : board, turn: 0, halfmove: 0, ply: 0 });
-  if (o.sel) scene.setSelected(sq(o.sel));
-  if (o.fallen) scene.setFallen(sq(o.fallen), false, -1.5);
-  // As PaintedView: the square board as large as the host allows, sharp on a dense screen.
-  const box = host.getBoundingClientRect();
-  const width = Math.floor(Math.min(box.width, box.height * 960 / (960 + HEADROOM)));
-  canvas.style.width = `${width}px`;
-  canvas.style.height = `${width * (960 + HEADROOM) / 960}px`;
-  scene.setCoords(true, Math.max(13, 13 * 700 / width), 14);
-  scene.setResolution(Math.min(2, Math.max(1, Math.ceil(width * devicePixelRatio / 960 * 4) / 4)));
-  await scene.load();
-  // Symbols only: the game's piece icons (src/piece-icons.ts) stand on the squares, in a layer over the canvas.
-  const k = width / 960;
+}
+
+/**
+ * Draws a fixture into `host` (an element with a size) and resolves with the table's words for it.
+ * f: fen, play (moves), rules (setRules), used (spent cards, a bit for each hand index), sel (the selected square),
+ * threats (Settings → Show threats), seat (the arrangement: the White back rank, as letters), symbols, veil.
+ * Returns { context: { line, note }, story (the moves line, as the table writes it), status }.
+ */
+export async function drawGame(host, f) {
+  const { pos, prev, last } = gameOf(f);
+  const view = new PaintedView(host, { floor: null, webInk: true });
+  const sel = f.sel ? parseSq(f.sel) : null;
+  let h;
+  if (f.seat) h = { selected: sel, swaps: sel == null ? [] : seatSwaps(f.seat, sel) };
+  else {
+    // As play.ts refresh(): the selected piece's offered moves, the power squares, the last move, check, the rails, the threats.
+    const cands = sel == null ? [] : legalMoves(pos).filter(m => m.from === sel && offered(m, null));
+    const verb = marksModel(cands, []);
+    h = {
+      selected: sel, ...verb,
+      powers: [...new Set(cands.filter(m => m.power && !m.pass).map(m => m.to))],
+      last: !last ? [] : last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? [...last.captures] : [last.to],
+      check: inCheck(pos) ? findKing(pos.board, pos.turn) : null,
+      checkers: checkersOf(pos),
+      rails: sel == null ? [] : railsOf(pos.board, sel, [...verb.moves, ...verb.captures], verb.captures),
+      threats: f.threats ? threatsIn(pos) : [],
+    };
+  }
+  view.sync(pos);
+  view.highlight(h);
+  const result = status(pos);
+  if (result === 'checkmate') view.setFallen(findKing(pos.board, pos.turn), false);
+  // Symbols only (a plugin setting; the web game has none): the scene stands no figures, the game's piece icons
+  // (src/piece-icons.ts) stand on the squares instead; the marks still read the real position.
+  if (f.symbols) view.scene.setPosition({ ...pos, board: new Uint8Array(64) });
+  await view.ready();
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const scene = view.scene, canvas = host.querySelector('canvas'), width = parseFloat(canvas.style.width), k = width / 960, head = 64;
   const layer = document.createElement('div');
   layer.className = 'board-layer';
-  layer.style.cssText = `width:${width}px;height:${width * (960 + HEADROOM) / 960}px`;
-  if (o.symbols) board.forEach((v, s) => {
+  layer.style.cssText = `width:${width}px;height:${canvas.style.height}`;
+  if (f.symbols) pos.board.forEach((v, s) => {
     if (!v) return;
-    const l = ranks[7 - (s >> 3)][s & 7], c = scene.cell(s);
-    layer.insertAdjacentHTML('beforeend', `<svg class="pi pi-${l === l.toUpperCase() ? 'w' : 'b'}" style="left:${(scene.PAD + c.col * scene.TILE + 14) * k}px;top:${(HEADROOM + scene.PAD + c.row * scene.TILE + 14) * k}px;width:${(scene.TILE - 28) * k}px;height:${(scene.TILE - 28) * k}px"><use href="/ui/icons/${ICON[l.toUpperCase()]}.svg#icon"/></svg>`);
+    const c = scene.cell(s);
+    layer.insertAdjacentHTML('beforeend', `<svg class="pi pi-${colorOf(v) ? 'b' : 'w'}" style="left:${(scene.PAD + c.col * scene.TILE + 14) * k}px;top:${(head + scene.PAD + c.row * scene.TILE + 14) * k}px;width:${(scene.TILE - 28) * k}px;height:${(scene.TILE - 28) * k}px"><use href="/ui/icons/${ICON[typeOf(v)]}.svg#icon"/></svg>`);
   });
-  if (o.veil) layer.insertAdjacentHTML('beforeend', `<div class="veil" style="left:${scene.PAD * k}px;top:${(HEADROOM + scene.PAD) * k}px;width:${8 * scene.TILE * k}px;height:${4 * scene.TILE * k}px"><span>${o.veil}</span></div>`);
+  if (f.veil) layer.insertAdjacentHTML('beforeend', `<div class="veil" style="left:${scene.PAD * k}px;top:${(head + scene.PAD) * k}px;width:${8 * scene.TILE * k}px;height:${4 * scene.TILE * k}px"><span>${f.veil}</span></div>`);
   host.append(layer);
   const start = scene.frames;
+  scene.redraw();
   await new Promise(r => { const tick = () => scene.frames > start ? r() : requestAnimationFrame(tick); tick(); });
-  return scene;
+
+  // The words, as src/ui/table.ts refreshTable() makes them (a game with a person: mode 'link', you play White).
+  const piece = sel != null && !f.seat ? pieceText(pos, sel) : { read: '', readNote: '' };
+  const check = inCheck(pos);
+  const context = contextLine({ voice: 'you', selected: piece.read, readNote: piece.readNote, check, checkCause: check ? checkCause(pos, last, 'link', 0) : '' });
+  const story = last ? `${pieceIcon(typeOf(prev.board[last.from]), colorOf(prev.board[last.from]))}<span>${describeMove(prev, last, true)}</span>` : '<span>No moves yet.</span>';
+  return { context, story, status: result, pos };
 }
