@@ -28,7 +28,7 @@ Owner, 2026-10-11, on the side-by-side renders of the game board and the Worksho
 - [x] Unit tests: `railsOf` (the queen's lines and ends, a pawn's double step has no rail, a paladin passes a friend); the legend's rail shapes; the gold glow under the selected piece and no ring.
 - [x] `npm test` through the lock script passes.
 - [x] `npm run check:browser painted-game workshop` and every check that the marks touch pass.
-- [ ] Renders, before and after, at 1440 × 900 and 390 × 844: the queen, the archer, a start position with a piece selected, the Workshop queen (it looks the same).
+- [x] Renders, before and after, at 1440 × 900 and 390 × 844: the queen, the archer, a start position with a piece selected, the Workshop queen (it looks the same).
 
 ## Does not do
 
@@ -58,3 +58,6 @@ Changes from the ticket, and why:
 - In the game a line also ends early when a rule cuts it (a pin or a check): the rail then ends in the centre of its last marked square, with no end mark.
 - The SVG keeps each rail's group opacity (.85); the canvas draws each shape at that opacity times its own. The rail's centre on the canvas is therefore a little darker than in the Workshop. A group opacity on a canvas needs a second canvas for each rail; the difference does not show at this size.
 - The plugin page gets the glow and the rails too: it draws with `marks.ts`. Its coordinates change only where its board is framed (`setLively` atmosphere), as on the game board.
+
+**2026-10-11, the renders (with ticket 04).** Before: main `ce2fe345` in a temporary detached worktree (removed after); after: this branch. W13 states through a temporary copy of the table with only these states (deleted after): before 10 renders, 0 with a fault (`S/logs/before.log`); after 14 renders, 0 with a fault (`S/logs/after.log`). Side by side, before left: `S/1-queen-*.jpg`, `S/2-archer-*.jpg`, `S/4-start-*.jpg`, `S/5-workshop-queen-*.jpg` (desktop 1440 × 900, phone 390 × 844). The Workshop queen in the final render: 12 (desktop) and 28 (phone) pixels change by more than 2 of 255, as above.
+- I looked at each render. The gold capitals and numbers sit in the frame; the rails join the tiles; the arrows sit at the board edge. The gold glow is faint under a tall figure, most on the phone (the knight g1 covers most of it); it is the Workshop's size and colour.

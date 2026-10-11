@@ -71,3 +71,21 @@ it('puts the gold glow under the selected piece, with no ring, and joins its lin
   expect(calls.slice(0, 5)).toEqual(['ellipse', 'glow', 'line', 'line', 'line']);
   expect(calls.slice(-2)).toEqual(['line', 'line']);
 });
+
+it('draws Show threats as the red glow under the attacked piece and the red arrow after the last row', () => {
+  const calls: string[] = [], gradient = () => ({ addColorStop() {} });
+  const ctx = {
+    globalAlpha: 1, save() {}, restore() {}, beginPath() {}, fill() {}, stroke() {}, translate() {}, scale() {}, lineTo() {}, roundRect() {}, arc() {},
+    moveTo() { calls.push('line'); }, ellipse() { calls.push('ellipse'); }, strokeRect() {},
+    createLinearGradient: gradient, createRadialGradient: gradient,
+  } as unknown as CanvasRenderingContext2D;
+  const scene = { PAD: 0, TILE: 100, cell: (sq: number) => ({ col: sq % 8, row: 7 - (sq >> 3) }), foot: () => ({ x: 0, y: 0 }) } as unknown as PaintedScene;
+  const state: MarkState = { marks: { threats: [{ from: 35, to: 11 }] }, piece: 0, preview: null, k: 1, px: 1, motion: false, since: 0 };
+  drawMarks(ctx, scene, 'under', state);
+  expect(calls).toEqual(['ellipse']);
+  calls.length = 0;
+  drawMarks(ctx, scene, 'over', state, 3);
+  expect(calls).toEqual([]);
+  drawMarks(ctx, scene, 'over', state, 7);
+  expect(calls).toEqual(['line', 'line', 'line', 'line']);
+});

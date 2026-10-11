@@ -153,12 +153,18 @@ describe('screen-reader lines for king powers', () => {
 });
 
 describe('threat markers', () => {
+  it('give each attacker and the own piece it can take, the king too', () => {
+    // The W13 threats position: the rook d5 attacks the knight d2; the queen b3 is safe.
+    expect(threatsIn(fromFen('4k3/8/8/3r4/8/1Q6/3N4/4K3 w - - 0 1'))).toEqual([{ from: parseSq('d5'), to: parseSq('d2') }]);
+    // Check: the rook e4 attacks the king e1; the king comes from checkersOf.
+    expect(threatsIn(fromFen('4k3/8/8/8/4r3/8/8/4K3 w - - 0 1'))).toEqual([{ from: parseSq('e4'), to: parseSq('e1') }]);
+  });
   it('still show during a Haste turn’s pending second move', () => {
     powers('Haste');
     const pos = fromFen('7k/8/8/r7/8/8/8/R5K1 w - - 0 1');
     const held = makeMove(pos, find(pos, 'Ra1-a4!H'));
     expect(held.haste).toBe(parseSq('a4'));
-    expect(threatsIn(held).pieces).toContain(parseSq('a4')); // the black rook on a5 attacks it
+    expect(threatsIn(held)).toContainEqual({ from: parseSq('a5'), to: parseSq('a4') }); // the black rook on a5 attacks it
     expect(threatsIn(held)).toEqual(threatsIn({ ...held, haste: undefined }));
   });
 });

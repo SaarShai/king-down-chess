@@ -1,6 +1,6 @@
 import type { PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import type { boardInk } from './board-ink';
-import { badge, glow as footGlow, kindOf, occupied, paint, railLine, tile, type Kind, type Shape } from './legend';
+import { badge, glow as footGlow, kindOf, occupied, paint, railLine, threat, tile, type Kind, type Layer, type Shape } from './legend';
 import type { Highlights } from './renderer';
 
 /**
@@ -15,6 +15,8 @@ import type { Highlights } from './renderer';
  * - swap (Maester): two violet arrows chasing round the friend's feet;
  * - shove (Ogre): a teal ring and chevrons on the side the piece will be pushed to.
  * The read of an enemy piece shows the same legend marks at half strength.
+ * Show threats (the Workshop's threats): a red glow under each piece that an enemy can take, and a faint red arrow from
+ * each attacker to it, over the figures.
  * The selected piece stands in a gold glow. When a piece is selected the marks grow in, rippling out from it. The legend marks then stand still; while
  * motion is allowed the swap, shove and rune marks keep moving (riding the selected figure's ~30 fps idle).
  * The square under the pointer (or the keyboard cursor) gets a gold-bright edge and a larger badge; on a move
@@ -88,6 +90,8 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
   const pulse = (sq: number) => 0.5 + 0.5 * Math.sin(time * TAU - sq * 0.7);
   const box = (sq: number) => { const c = scene.cell(sq); return { x: PAD + c.col * TILE, y: PAD + c.row * TILE }; };
   const centre = (sq: number): [number, number] => { const b = box(sq); return [b.x + TILE / 2, b.y + TILE / 2]; };
+  /** Legend shapes at the layer's opacity. */
+  const atAlpha = (l: Layer): void => { const a = ctx.globalAlpha; ctx.globalAlpha = a * l.a; paint(ctx, l.shapes); ctx.globalAlpha = a; };
   const ground = (sq: number) => { const f = scene.foot(sq); return { x: f.x, y: f.y - 4 }; };
   const hover = (sq: number) => s.preview === sq;
   const inRow = (sq: number) => row == null || scene.cell(sq).row === row;
@@ -129,13 +133,14 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
         ctx.beginPath(); ctx.ellipse(g.x, g.y, 38, 14, 0, 0, TAU); stroke2(ctx, '#68583d', 2.2);
       }
     }
+    for (const sq of new Set((m.threats ?? []).map(t => t.to))) { const g = ground(sq); paint(ctx, [footGlow(g.x, g.y, TILE, true)]); }
     // The selected piece stands in the Workshop's gold glow; its lines' rails fade in with it.
     const lines = m.selected == null ? [] : (m.rails ?? []).map(r => ({ to: r.to, ...railLine(centre(m.selected!), centre(r.to), TILE, r.end, { px: s.px }) }));
     if (m.selected != null) {
       const g = ground(m.selected);
       paint(ctx, [footGlow(g.x, g.y, TILE)]);
       ctx.globalAlpha = Math.min(1, appear(m.selected));
-      for (const l of lines) { ctx.globalAlpha *= l.rail.a; paint(ctx, l.rail.shapes); ctx.globalAlpha /= l.rail.a; }
+      for (const l of lines) atAlpha(l.rail);
       ctx.globalAlpha = 1;
     }
     for (const sq of m.powers ?? []) {
@@ -184,6 +189,8 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
     for (const sq of m.captures ?? []) over(sq, kindOf(sq, m));
     for (const sq of m.hint ?? []) { if (!inRow(sq)) continue; const b = box(sq); ctx.strokeStyle = '#c99a2e'; ctx.lineWidth = 4 * k; ctx.strokeRect(b.x + 4, b.y + 4, TILE - 8, TILE - 8); }
     pointerFrame();
+    // After the last row's figures, so each arrow stays in sight.
+    if (row == null || row === 7) for (const t of m.threats ?? []) atAlpha(threat(centre(t.from), centre(t.to), TILE, { px: s.px }));
     if (s.ink) bites();
   }
   ctx.restore();

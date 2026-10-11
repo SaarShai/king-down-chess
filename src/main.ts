@@ -76,7 +76,7 @@ let account: typeof import('./account/account') | null = null;
 
 // The parts that the turn core calls. Their closures read `play` only after it exists.
 const guide = connectGuide({ shownPos: () => play.shownPos(), preset });
-const settings = connectSettings(view, { look, skill: () => play.skill(), setSkill: level => play.setSkill(level), save: () => play.save(), drawMarks: () => play.drawMarks() });
+const settings = connectSettings(view, { look, skill: () => play.skill(), setSkill: level => play.setSkill(level), save: () => play.save(), refresh: () => play.refresh() });
 const home = initHome({
   read: () => play.homeInput(),
   continue: () => { play.refresh(); void play.maybeAi(); },

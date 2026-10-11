@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DEFS, LEG, TR, badge, glow, occupied, paint, railLine, shot, target, tile, toSvg, type Kind, type Shape } from './legend';
+import { DEFS, LEG, TR, badge, glow, occupied, paint, railLine, shot, target, threat, tile, toSvg, type Kind, type Shape } from './legend';
 
 const circles = (shapes: Shape[]) => shapes.filter((s): s is Extract<Shape, { k: 'circle' }> => s.k === 'circle');
 const red = (shapes: Shape[]) => circles(shapes).filter(s => s.stroke === LEG.red || s.fill === LEG.red);
@@ -113,6 +113,15 @@ describe('the move legend', () => {
     expect(glow(50, 90, 100, true)).toMatchObject({ rx: 40, ry: 13, fill: 'glow-red' });
     expect(toSvg([glow(50, 90, 100)])).toContain('fill="url(#leg-glow-gold)"');
     expect(DEFS).toContain('id="leg-glow-gold"');
+  });
+
+  it('draws a threat as a faint red arrow from the attacker, cut short at both centres', () => {
+    const t = threat([50, 50], [50, 450], 100);
+    expect(t.a).toBe(0.6);
+    // The halo line, the halo head, the red line, the red head; the head's tip is 0.28 of a square short of the target's centre.
+    expect(t.shapes.map(sh => sh.fill ?? sh.stroke)).toEqual([LEG.halo, LEG.halo, LEG.red, LEG.red]);
+    expect(t.shapes[3]).toMatchObject({ k: 'line', pts: [50, 422, expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Number), 50, 422] });
+    expect(t.shapes[2]).toMatchObject({ pts: [50, 72, 50, 415.7], lw: 2 });
   });
 
   it('leaves none of the old marks in the game or the Workshop', () => {
