@@ -71,6 +71,27 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect((await player.ok('kingdown_open', { game_id: 'next' }))._meta.view).toBeUndefined();
  });
 
+ it('lists, finds, accepts and cancels open games without exposing the lobby to the model', async () => {
+  const [a, b] = [await user('lobby-a'), await user('lobby-b')], host = await connect(a), guest = await connect(b);
+  const home = await host.ok('kingdown_open'), board_id = home.structuredContent.board_id;
+  const options = { ...DEFAULT_OPTIONS, arrangement: false };
+  const found = await host.ok('kingdown_find', { options, board_id }), game_id = found.structuredContent.game_id;
+  expect(view(await host.ok('kingdown_find', { options, board_id })).game_id).toBe(game_id);
+  expect((await rows("select count(*)::int as n from public.games where created_by=$1 and kind='random' and status='waiting'", [a]))[0].n).toBe(1);
+  const lobby = await guest.ok('kingdown_lobby');
+  expect(lobby._meta.lobby).toMatchObject({ games: [expect.objectContaining({ game_id, creator: { handle: `lobby-a-${tag}`, icon: null } })], server_now: expect.any(String) });
+  expect(lobby.structuredContent).toEqual({ count: 1 });
+  expect(JSON.stringify([lobby.content, lobby.structuredContent])).not.toContain(`lobby-a-${tag}`);
+  const guestBoard = (await guest.ok('kingdown_open')).structuredContent.board_id;
+  expect(view(await guest.ok('kingdown_accept', { game_id, board_id: guestBoard }))).toMatchObject({ status: 'playing', seat: 1 });
+  expect(view(await guest.ok('kingdown_accept', { game_id, board_id: guestBoard })).revision).toBe(1);
+  expect((await guest.ok('kingdown_get', { board_id: guestBoard })).structuredContent.game_id).toBe(game_id);
+  const open = await host.ok('kingdown_create', { kind: 'random', options });
+  const cancelled = await host.ok('kingdown_cancel', { game_id: view(open).game_id });
+  expect(view(cancelled)).toMatchObject({ status: 'aborted', result: { winner: null, reason: 'abort' } });
+  expect(view(await host.ok('kingdown_cancel', { game_id: view(open).game_id })).revision).toBe(view(cancelled).revision);
+ });
+
  it('plays a Daily friend game between two ChatGPT players and shows the model no position and no opponent text', async () => {
   const host = await connect(ann), guest = await connect(bob), handles = [`ann-${tag}`, `bob-${tag}`];
   const created = await host.ok('kingdown_create', { options: { ...DEFAULT_OPTIONS, arrangement: false }, kind: 'friend', colour: 'white' });
@@ -135,7 +156,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
  it('runs the read-only tools on a read-only connection, and only those', async () => {
   const cy = await user('cy'), player = await connect(cy), reader = await connect(cy, readOnly);
   const tools = (await reader.client.listTools()).tools;
-  expect(tools.filter(tool => tool.annotations?.readOnlyHint).map(tool => tool.name).sort()).toEqual(['kingdown_games', 'kingdown_get', 'kingdown_profile']);
+  expect(tools.filter(tool => tool.annotations?.readOnlyHint).map(tool => tool.name).sort()).toEqual(['kingdown_games', 'kingdown_get', 'kingdown_lobby', 'kingdown_profile']);
   const solo = await player.ok('kingdown_create', { kind: 'solo', options: { ...DEFAULT_OPTIONS, arrangement: false } });
   const opened = await player.ok('kingdown_open', { game_id: solo.structuredContent.game_id }), { game_id, board_id } = opened.structuredContent;
   expect(view(opened)).toMatchObject({ kind: 'solo', revision: 0, action: 'ready' });

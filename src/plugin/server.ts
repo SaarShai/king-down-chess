@@ -114,6 +114,13 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       // The board may show another game since it last read: then a full view.
       return reply(await service.view(actorId, id, id === args.game_id ? args.since_revision : undefined), args.board_id);
     });
+  register('kingdown_lobby', 'List open games, oldest first.', {}, { visibility: ['app'], readOnly: true }, async () => {
+    const lobby = await service.lobby(actorId);
+    return { content: text(`${lobby.games.length} open games.`), structuredContent: { count: lobby.games.length }, _meta: { lobby: { ...lobby, server_now: new Date().toISOString() } } };
+  });
+  register('kingdown_accept', 'Take the open seat in a random game.', { game_id: gameId, board_id: boardId }, { visibility: ['app'] }, args => select(args.board_id, () => service.accept(actorId, args.game_id)));
+  register('kingdown_find', 'Take the oldest open game, or open your own.', { options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), board_id: boardId }, { visibility: ['app'], idempotent: false }, args => select(args.board_id, () => service.find(actorId, args.options, args.colour)));
+  register('kingdown_cancel', 'Cancel your waiting random game with no result.', { game_id: gameId }, { visibility: ['app'], destructive: true }, async args => reply(await service.cancel(actorId, args.game_id)));
   register('kingdown_move', 'Play one exact legal move; retry with the same command ID.', { ...command, lan: z.string().min(1).max(120) }, { visibility: ['app'] }, ({ lan, ...args }) => play(args, { type: 'turn', actions: [lan] }));
   register('kingdown_computer', 'Ask the computer opponent to play its turn.', command, { visibility: ['app'] }, args => play(args, { type: 'computer' }));
   register('kingdown_say', 'Send one preset message to the opponent; each preset goes once in each game.', { ...command, preset: z.enum(PRESETS) }, { visibility: ['app'] }, ({ preset, ...args }) => play(args, { type: 'say', preset }));

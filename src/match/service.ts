@@ -176,6 +176,8 @@ export class GameService {
    await this.requireHandle(actor, client);
    // An empty lobby has no row to lock; serialize the search and create as one step.
    await client.query('select pg_advisory_xact_lock(7007008)');
+   const own = (await client.query("select id from public.games where created_by=$1 and kind='random' and status='waiting' and created_at>statement_timestamp()-interval '24 hours' order by created_at,id limit 1 for update", [actor])).rows[0];
+   if (own) { const game = await this.store.load(own.id, { client }); return this.render(game, seatOf(game, actor), { client, rules: true }); }
    for (;;) {
     const [open] = await this.store.lobby(actor, { client, lock: true });
     if (!open) break;

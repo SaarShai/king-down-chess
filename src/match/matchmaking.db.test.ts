@@ -75,7 +75,6 @@ suite('matchmaking through PostgreSQL', () => {
   const blocked = await service.create(users[3], { kind: 'random', options: DEFAULT_OPTIONS });
   await admin.query("update public.games set created_at=now()-interval '1 hour' where id=$1", [blocked.game_id]);
   await admin.query("insert into public.relations(user_id,other_id,kind) values($1,$2,'block')", [users[1], users[3]]);
-  await service.create(users[1], { kind: 'random', options: DEFAULT_OPTIONS });
   const found = await plugin.find(users[1], DEFAULT_OPTIONS, 'white');
   expect(found).toMatchObject({ game_id: created.game_id, status: 'setup', seat: 0, revision: 1, options });
   expect((await plugin.lobby(users[1])).games.map(g => g.game_id)).toEqual([newer.game_id]);
