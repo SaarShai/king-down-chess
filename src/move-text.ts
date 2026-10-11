@@ -2,7 +2,7 @@
  * Plain-language helpers for the HUD that only read the engine: the screen-reader sentence for a
  * move, the threat markers, and move numbers that stay right when a Haste turn plays two plies.
  */
-import { A, aName, C, Color, Move, N, nameOf, Position, theName, colorOf, file, findKing, genPiece, isSpawnTag, pseudoMoves, rank, sqName, typeOf } from './rules/engine';
+import { A, aName, C, Color, Move, N, P, nameOf, Position, theName, colorOf, file, findKing, genPiece, isSpawnTag, pseudoMoves, rank, sqName, typeOf } from './rules/engine';
 
 import type { Mode } from './turn';
 
@@ -77,13 +77,14 @@ export function describeMove(pre: Position, m: Move, freePass = false, final = f
   if (m.power === 'sacrifice') return `${side} sacrifices the pawn on ${sqName(m.from)} and brings back ${aName(m.promo!)} there.`;
   if (m.power === 'morph' || m.power === 'morphb' || m.power === 'morphp') return `${side} turns ${theOn(m.from)} into ${aName(m.promo!)}.`;
   if (isSpawnTag(m.power)) return m.drop2 === undefined ? `${side} adds a pawn on ${sqName(m.to)}.` : `${side} adds pawns on ${sqName(m.to)} and ${sqName(m.drop2)}.`;
+  if (m.castle) return `${side} castles ${file(m.to) === 6 ? 'short' : 'long'}.`;
   let text = m.power === 'flight'
     ? `${side} ${name} flies from ${sqName(m.from)} to ${sqName(m.to)}`
     : m.shove
     ? `${side} ${name} on ${sqName(m.from)} shoves ${theOn(m.shove.from)} to ${sqName(m.shove.to)}${m.to !== m.from ? `, stepping to ${sqName(m.to)}` : ''}`
     : m.swap ? `${side} ${name} on ${sqName(m.from)} swaps places with ${theOn(m.to)}`
     : m.to === m.from && m.captures.length ? `${side} ${name} on ${sqName(m.from)} takes ${m.captures.map(theOn).join(' and ')} without moving`
-    : `${side} ${name} ${sqName(m.from)} to ${sqName(m.to)}${m.captures.length ? `, taking ${m.captures.map(theOn).join(', then ')}` : ''}`;
+    : `${side} ${name} ${sqName(m.from)} to ${sqName(m.to)}${m.captures.length ? `, taking ${m.captures.map(theOn).join(', then ')}${typeOf(piece) === P && m.captures[0] !== m.to ? ' en passant' : ''}` : ''}`;
   if (m.promo) text += `, and becomes ${aName(m.promo)}`;
   if (m.selfRemove) text += `; ${theName(typeOf(piece))} leaves the board`;
   if (m.power === 'strike') text += ' with Strike';

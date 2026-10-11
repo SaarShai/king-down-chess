@@ -1,6 +1,6 @@
 # 03 · Classic chess in the engine: castling and en passant
 
-Status: ready-for-agent
+Status: resolved
 Type: AFK
 Size: M
 Blocked by: none
@@ -28,3 +28,16 @@ A rule flag (off by default) that adds the two chess rules King Down leaves out.
 - The engine says "No castling" at `src/rules/engine.ts:4`; RULES.md §1 lists both as off. Update RULES.md §1 with a "Classic" column.
 - Lessons: `docs/lessons/engine-and-tests.md` (fairy pawn movement and repetition, helpers outside the engine after a new move kind).
 - Explorer note C §3.
+
+## Result
+
+- The rule flag is `classicChess` (`src/rules/rules.ts`, off by default). Castling is a king move of two squares (`Ke1-g1`) with the rook's step in `Move.castle`; en passant is a pawn move whose capture square is not its landing square. `Position.castle` and `Position.ep` hold the state; FEN fields 3 and 4 carry it only when the flag is on. The search keeps both in its own make/unmake and in the incremental key (two new key groups appended to `src/ai/zobrist.ts`, so no old key moves). RULES.md §1 has the Classic column and the rules.
+- Perft with the flag on: start 20, 400, 8,902, 197,281, 4,865,609; Kiwipete to depth 4 (4,085,603); positions 3 (depth 5, 674,624), 4 (depth 4, 422,333) and 5 (depth 4, 2,103,487). All match the published counts.
+- `src/rules/classic-chess.test.ts`: 21 tests (perft, flag off, castling through check, rights lost by king, rook, capture and Maester swap, a frozen rook, en passant only on the next move, none with Darkness or after March, keys differ by rights and by the en-passant square, the search's legal list and keys equal the engine's, the search plays en passant, the move text). All pass.
+- `npm test` on the branch: 2,018 passed, 3 timed out (a fixed-depth search test, a Darkness random-board test, a judge random-design test). Load average was 30 to 36 from other agents; an A/B timing of the timed-out search and of perft shows no slowdown (140 ms against 137 to 160 ms). The base had the same Darkness timeout under load.
+- After the merge of the `claude/chatgpt-mvp` tip: `npm test` passes, 2,033 vitest tests (56 skipped, no database URL) and 50 node tests; the three timeouts did not come back.
+- `npm run plugin:build` asked for a new engine: `engines/797aeca0….mjs` and its save fixture are committed. The merger rebuilds after other engine changes land.
+
+Open items:
+- Ticket 05: the match setup has no classic field yet. The worker's FEN check already accepts fields 3 and 4 when `RULES.classicChess` is on; 05 maps its flag and adds the worker test (a classic game castles and replays).
+- The web board's tap path (`clickPath`) asks for two taps on en passant (the victim, then the landing square). The plugin board accepts either square. The board ticket (15) may want one tap and a rook slide in the castling animation.

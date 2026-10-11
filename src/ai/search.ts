@@ -15,15 +15,15 @@
  */
 import {
   A, BLACK, CardCtx, Color, G, GenMode, K, Move, P, Position, RULES, TAG_POWER, WHITE, cardAt, colorOf, drawsOnLost, filterFree, filterHeld, filterMarks, freePass, genGuardDrops,
-  genHasteFollowUp, genPiece, genPowerMoves, handOf, heldCount, holdsTurn, isAttacked, isMarkTag, isStill, keepsLost, landed, lapsing, materialDraw, moverOf, overShots, piece,
-  moveNumber, powerOf, powerUses, returnable, spend, tracksLast, typeOf,
+  epAfter, genClassic, genHasteFollowUp, genPiece, genPowerMoves, handOf, heldCount, holdsTurn, isAttacked, isMarkTag, isStill, keepsLost, landed, lapsing, materialDraw, moverOf, overShots, piece,
+  moveNumber, powerOf, powerUses, returnable, rightsAfter, spend, tracksLast, typeOf,
 } from '../rules/engine';
 import { ALL_CARDS, type CardName, type PowerName } from '../rules/rules';
 import { VALUES, evalBoard } from './eval';
 import { NET_POWERS } from './nnue/net';
 import {
-  Z_ALL_HI, Z_ALL_LO, Z_DRAWN_HI, Z_DRAWN_LO, Z_FREE_HI, Z_FREE_LO, Z_HASTE_HI, Z_HASTE_LO, Z_HI, Z_LAST_HI, Z_LAST_LO, Z_LEFTB_HI, Z_LEFTB_LO, Z_LEFT_HI, Z_LEFT_LO,
-  Z_LO, Z_LOST_HI, Z_LOST_LO, Z_MARK_HI, Z_MARK_LO, Z_RAGE_HI, Z_RAGE_LO,
+  Z_ALL_HI, Z_ALL_LO, Z_CASTLE_HI, Z_CASTLE_LO, Z_DRAWN_HI, Z_DRAWN_LO, Z_FREE_HI, Z_FREE_LO, Z_HASTE_HI, Z_HASTE_LO, Z_HI, Z_LAST_HI, Z_LAST_LO, Z_LEFTB_HI, Z_LEFTB_LO, Z_LEFT_HI, Z_LEFT_LO,
+  Z_EP_HI, Z_EP_LO, Z_LO, Z_LOST_HI, Z_LOST_LO, Z_MARK_HI, Z_MARK_LO, Z_RAGE_HI, Z_RAGE_LO,
   Z_TURN_HI, Z_TURN_LO, Z_USED_HI, Z_USED_LO, Z_WAIT_HI, Z_WAIT_LO, Z_WARD_HI, Z_WARD_LO,
   combine, drawnIndex, hashBoard, lastIndex, lostIndex, usedIndex, waitIndex, zIndex,
 } from './zobrist';
@@ -111,7 +111,10 @@ const fMark = new Int32Array(FRAMES), fHaste = new Int32Array(FRAMES), fLostTop 
 const fMark1 = new Int32Array(FRAMES), fMarkLeft = new Uint8Array(FRAMES), fMarkLeft1 = new Uint8Array(FRAMES), fFree = new Uint8Array(FRAMES), fWard = new Uint8Array(FRAMES);
 const fWait0 = new Uint8Array(FRAMES), fWait1 = new Uint8Array(FRAMES);
 const fMoveNo = new Int32Array(FRAMES), fRage = new Uint8Array(FRAMES), fDrawn0 = new Uint8Array(FRAMES), fDrawn1 = new Uint8Array(FRAMES), fLast0 = new Int8Array(FRAMES), fLast1 = new Int8Array(FRAMES);
+const fCastle = new Uint8Array(FRAMES), fEp = new Int8Array(FRAMES);
 let fsp = 0;
+/** Classic chess (`Position.castle`, `Position.ep`): the castling rights and the en-passant square (-1 = none). */
+let castleR = 0, epSq = -1, classic = false;
 /**
  * Power moves are offered only at plies 0…`powerPlyMax` (root, reply, own next move by default);
  * below that the search plays the pieces' own moves. A search heuristic, not a rule: Flight alone
@@ -212,6 +215,15 @@ function setDrawn(c: number, v: number): void {
 }
 function setFree(v: boolean): void {
   if (v !== free) { hLo ^= Z_FREE_LO[0]; hHi ^= Z_FREE_HI[0]; free = v; }
+}
+function setCastle(v: number): void {
+  for (let d = castleR ^ v, i = 0; d; d >>= 1, i++) if (d & 1) { hLo ^= Z_CASTLE_LO[i]; hHi ^= Z_CASTLE_HI[i]; }
+  castleR = v;
+}
+function setEp(v: number): void {
+  if (epSq >= 0) { hLo ^= Z_EP_LO[epSq & 7]; hHi ^= Z_EP_HI[epSq & 7]; }
+  if (v >= 0) { hLo ^= Z_EP_LO[v & 7]; hHi ^= Z_EP_HI[v & 7]; }
+  epSq = v;
 }
 function setHaste(v: number): void {
   if (hasteSq >= 0) { hLo ^= Z_HASTE_LO[hasteSq]; hHi ^= Z_HASTE_HI[hasteSq]; }
@@ -331,6 +343,7 @@ function apply(m: Move, c: Color): number {
   fWait0[fsp] = waitN[0]; fWait1[fsp] = waitN[1];
   fMoveNo[fsp] = moveNo; fRage[fsp] = rageKind; fDrawn0[fsp] = drawnN[0]; fDrawn1[fsp] = drawnN[1];
   fLast0[fsp] = lastName[0] ? ALL_CARDS.indexOf(lastName[0]) : -1; fLast1[fsp] = lastName[1] ? ALL_CARDS.indexOf(lastName[1]) : -1;
+  fCastle[fsp] = castleR; fEp[fsp] = epSq;
   const still = isStill(m);
   if (!still) {
     const mover = moverOf(board, m, c), other = board[m.to];
@@ -348,8 +361,11 @@ function apply(m: Move, c: Color): number {
       write(m.from, m.swap ? other : 0);
       write(m.to, m.selfRemove ? 0 : landed(mover, m));
       if (m.drop2 !== undefined) write(m.drop2, mover);
+      if (m.castle) { write(m.castle.to, board[m.castle.from]); write(m.castle.from, 0); }
     }
   }
+  if (castleR) setCastle(rightsAfter(castleR, m));
+  if (classic) setEp(still ? -1 : epAfter(board, m, c));
   if (m.power) setUsed(c, spend(c, usedPair[c], m.power, drawnN[c], m.via));
   if (m.power === 'growth' || m.power === 'growthb') setDrawn(c, drawnN[c] + 1);
   if (m.power && trackLast && handAt[c].length) setLast(c, TAG_POWER[m.power]);
@@ -378,6 +394,8 @@ function undo(base: number): void {
   fsp--;
   if (fFlip[fsp]) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; }
   moveNo = fMoveNo[fsp];
+  setCastle(fCastle[fsp]);
+  setEp(fEp[fsp]);
   setHaste(fHaste[fsp]);
   setRage(fRage[fsp]);
   setFree(fFree[fsp] === 1);
@@ -435,6 +453,10 @@ function applyQuiet(m: Move, c: Color): number {
   undoSq[sp] = m.to; undoPc[sp] = board[m.to]; sp++;
   board[m.to] = m.selfRemove ? 0 : landed(mover, m);
   if (m.drop2 !== undefined) { undoSq[sp] = m.drop2; undoPc[sp] = board[m.drop2]; sp++; board[m.drop2] = mover; }
+  if (m.castle) {
+    undoSq[sp] = m.castle.to; undoPc[sp] = board[m.castle.to]; sp++; board[m.castle.to] = board[m.castle.from];
+    undoSq[sp] = m.castle.from; undoPc[sp] = board[m.castle.from]; sp++; board[m.castle.from] = 0;
+  }
   return base;
 }
 
@@ -479,6 +501,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
       const p = board[s];
       if (p && colorOf(p) === c) genPiece(board, s, mode, out);
     }
+    if (classic) genClassic(board, c, castleR, epSq, mode, out);
     if (mode === 'all' && waitN[c] > 0) genGuardDrops(board, c, out);
     if (free) { filterFree(c, true, out); if (mode === 'all') out.push(freePass(board, c)); }
     else if (mode === 'all' && ply <= powerPlyMax && usesMax[c] >= 0) {
@@ -841,6 +864,8 @@ export function positionKey(pos: Position): number {
   if (pos.free) { lo ^= Z_FREE_LO[0]; hi ^= Z_FREE_HI[0]; }
   if (pos.haste !== undefined) { lo ^= Z_HASTE_LO[pos.haste]; hi ^= Z_HASTE_HI[pos.haste]; }
   if (pos.rage) { lo ^= Z_RAGE_LO[pos.rage - 1]; hi ^= Z_RAGE_HI[pos.rage - 1]; }
+  for (let i = 0; i < 4; i++) if ((pos.castle ?? 0) & (1 << i)) { lo ^= Z_CASTLE_LO[i]; hi ^= Z_CASTLE_HI[i]; }
+  if (pos.ep !== undefined) { lo ^= Z_EP_LO[pos.ep & 7]; hi ^= Z_EP_HI[pos.ep & 7]; }
   hashOut[0] = lo;
   hashOut[1] = hi;
   return combine(lo, hi);
@@ -866,6 +891,9 @@ function initPosition(pos: Position): void {
   free = !!pos.free;
   hasteSq = pos.haste ?? -1;
   rageKind = pos.rage ?? 0;
+  castleR = pos.castle ?? 0;
+  epSq = pos.ep ?? -1;
+  classic = RULES.classicChess;
   moveNo = moveNumber(pos);
   trackLast = tracksLast();
   lapse = lapsing();
