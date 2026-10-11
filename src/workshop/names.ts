@@ -41,6 +41,14 @@ export function rollName(d: D, auto = d.look.body, rand = Math.random): string {
 }
 /** A typed name that equals a pool piece or a card gets " (yours)". */
 export const saveName = (name: string): string => (TAKEN.some(t => t.toLowerCase() === name.trim().toLowerCase()) ? `${name.trim().slice(0, 10)} (yours)` : name.trim());
+/** A copy's name (the Proving Ground, spec decision 7): the name, or with the next free number when the shelf has it
+ *  ("My Pawn", "My Pawn 2"). A copy of "My Pawn 2" counts on from "My Pawn"; the name stays within 18 letters. */
+export function copyName(name: string, taken: readonly string[]): string {
+  const base = name.replace(/ \d+$/, '').slice(0, 15).trim();
+  let n = base;
+  for (let i = 2; taken.includes(n); i++) n = `${base} ${i}`;
+  return n;
+}
 /** The first free letter of the name, else the first free letter. */
 export const letterOf = (name: string): string => [...name.toUpperCase()].find(c => FREE_LETTERS.includes(c)) ?? FREE_LETTERS[0];
 /** The letter follows the name until the player taps it. A design saved before `ownLetter`: while it matches the name. */

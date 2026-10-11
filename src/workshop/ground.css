@@ -23,11 +23,12 @@
   min-height: 44px; padding: 6px 16px; gap: 4px; border: 1px solid var(--stone-500); border-radius: var(--radius); }
 @media (hover: hover) { #workshop.pg button:is(.pg-menu, .pg-undo, .pg-share, .pg-weigh, .pg-room-del):hover:not(:disabled), #workshop.pg .pg-alert button:hover { background: rgba(255, 255, 255, 0.35); } }
 #workshop.pg button:disabled { opacity: 0.45; cursor: default; }
-/* Undo and Share once the piece is the player's (:952-969); on the phone, ⋯ opens Share and Weigh */
+/* Undo and Share once the piece is the player's (:952-969); ⋯ opens the design menu (ticket 07), on the phone with Share and Weigh */
 .pg-acts { margin-left: auto; display: flex; gap: 8px; }
-#workshop.pg .pg-more { display: none; }
-.pg-morepop { position: absolute; z-index: 70; right: 8px; top: 46px; width: 200px; padding: 6px; display: grid; border-radius: var(--radius); background: var(--vellum); box-shadow: var(--shadow-float); }
+.pg-morepop { position: absolute; z-index: 70; right: 8px; top: calc(100% - 2px); width: 200px; padding: 6px; display: grid; border-radius: var(--radius); background: var(--vellum); box-shadow: var(--shadow-float); }
 #workshop.pg .pg-morepop button { min-height: 44px; gap: 10px; padding: 0 12px; border-radius: 6px; }
+@media (hover: hover) { #workshop.pg .pg-morepop button:hover { background: rgba(233, 192, 113, 0.2); } }
+.pg-noic { flex: none; width: 18px; }
 #workshop.pg .pg-title {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; padding: 0; background: none;
   display: flex; align-items: center; gap: 14px; font: 600 18px/1.2 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap;
@@ -50,6 +51,12 @@
 .pg-name .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 4px 8px; }
 #workshop.pg .pg-name h3 { margin: 0; font: 600 var(--fs-2xl)/1.3 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 #workshop.pg .pg-name h3.long { font-size: 25px; }
+/* the pen at the end of the name's rule line opens the name field (ticket 07) */
+#workshop.pg .pg-pen { position: absolute; z-index: 3; right: 0; bottom: -26px; width: 44px; height: 44px; justify-content: center; color: var(--ink-soft); border-radius: 50%; }
+@media (hover: hover) { #workshop.pg .pg-pen:hover { color: var(--ink); background: rgba(255, 255, 255, 0.35); } }
+.pg-name h3:has(.pg-name-in) { flex: 1 1 0; min-width: 8em; }
+.pg-name-in { box-sizing: border-box; width: 100%; min-height: 44px; padding: 0 8px; font: inherit; letter-spacing: 0.04em; text-transform: none; color: var(--ink);
+  background: var(--vellum); border: 1px solid var(--stone-500); border-radius: 6px; }
 .pg-name .from { font-size: var(--fs-xs); color: var(--ink-soft); margin-top: 2px; }
 #workshop.pg .pg-weigh { margin-left: auto; padding: 4px 10px; gap: 6px; }
 /* Weigh (:125-129): the worth and the like line under the name band */
@@ -63,7 +70,7 @@
 .tag-yours { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 6px; border-radius: 4px; font: 700 var(--fs-xs)/1.4 var(--font-body);
   background: var(--vellum); border: 1px solid var(--stone-500); color: var(--stone-700); }
 .tag-yours svg { width: 13px; height: 13px; }
-.pg-figure { position: relative; flex: 0 1 236px; min-height: 96px; margin-top: 4px; display: grid; justify-items: center; align-items: end; pointer-events: none; }
+.pg-figure { position: relative; flex: 0 20 236px; min-height: 96px; margin-top: 4px; display: grid; justify-items: center; align-items: end; pointer-events: none; }
 .pg-figure img { position: relative; z-index: 2; height: 100%; max-height: 236px; max-width: 300px; object-fit: contain; object-position: bottom; filter: var(--rim) drop-shadow(0 10px 8px rgba(29, 25, 21, 0.18)); }
 .pg-figure .halo { position: absolute; z-index: 1; left: 50%; top: 54%; width: 300px; height: 300px; max-width: 100%; transform: translate(-50%, -50%);
   background: radial-gradient(closest-side, rgba(255, 250, 236, 0.95), rgba(255, 248, 230, 0.5) 55%, rgba(255, 248, 230, 0)); }
@@ -96,6 +103,13 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 /* a knot stands in the 22 px gutter from one rule line to the other (:116-118); its hit area is 24 px wide */
 #workshop.pg .knot { position: absolute; z-index: 1; left: -22px; width: 24px; display: flex; justify-content: center; line-height: 0; cursor: pointer; }
 .pg-lines.far { padding-left: 46px; }
+/* the look row under the rule lines (:145-149): the suggested figures, then More */
+.pg-looks { flex: none; display: grid; grid-template-columns: repeat(4, minmax(44px, 72px)); gap: 8px; padding: 4px 0 8px 22px; }
+#workshop.pg .pg-look { aspect-ratio: 72 / 88; padding: 4px; justify-content: center; border: 1px solid var(--stone-300); border-radius: 8px;
+  background: linear-gradient(#fbf6ea, #efe3c8); box-shadow: 0 2px 0 var(--stone-300); }
+#workshop.pg .pg-look[aria-pressed='true'] { border-color: var(--gold-ink); box-shadow: 0 0 0 2px var(--gold-bright), 0 2px 0 var(--stone-500); }
+.pg-look img { width: 100%; height: 100%; object-fit: contain; filter: var(--rim); }
+#workshop.pg .pg-lookmore { font: 600 12.5px/1.2 var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; }
 #workshop.pg .knot.far { left: -46px; }
 .sline .txt { display: grid; gap: 4px; min-width: 0; }
 .sline .l1 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -346,6 +360,11 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .slot .qt svg { width: 16px; height: 16px; padding: 2px; border-radius: 50%; color: var(--stone-700); background: var(--vellum); box-shadow: 0 0 0 1px var(--stone-500); }
 .lsep { flex: none; align-self: stretch; width: 1px; margin: 8px 12px 20px; background: linear-gradient(transparent, var(--gold), transparent); }
 .lhead { flex: none; margin: 90px 6px 0 0; font: 600 14px/1 var(--font-display); letter-spacing: 0.12em; font-variant: small-caps; text-transform: lowercase; color: var(--ink-soft); }
+/* NEW: a dashed figure with a quill (:370-372) */
+.newtile .ghostfig { position: absolute; z-index: 2; left: 50%; bottom: 46px; width: 44px; height: 62px; transform: translateX(-50%); transition: transform var(--dur-2) var(--ease-out); }
+.newtile .ghostfig svg { width: 100%; height: 100%; overflow: visible; }
+@media (hover: hover) { .newtile:hover .ghostfig { transform: translateX(-50%) translateY(-4px); } }
+.newtile:focus-visible .ghostfig, .newtile.open .ghostfig { transform: translateX(-50%) translateY(-4px); }
 
 /* ---- the toast (:208-211) ---- */
 .pg-toast { position: absolute; z-index: 50; left: 50%; bottom: 172px; max-width: calc(100% - 32px); margin: 0; padding: 10px 18px; transform: translate(-50%, 10px);
@@ -366,6 +385,20 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .pg-sheet-body { padding: 12px 16px 24px; }
 .pg-room-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px solid var(--stone-300); }
 .pg-copybox { width: 100%; font: var(--fs-sm)/1.4 var(--font-body); }
+/* Delete asks first; the Look sheet: the tag filter, the 34 figures and the army (ticket 07) */
+.pg-ask { display: flex; gap: 8px; }
+#workshop.pg :is(.pg-ask button, .pg-army label) { min-height: 44px; padding: 6px 16px; gap: 8px; border: 1px solid var(--stone-500); border-radius: var(--radius); }
+#workshop.pg .pg-ask .primary { font-weight: 700; color: var(--vellum); border-color: var(--accent-deep); background: linear-gradient(var(--accent-bright), var(--accent)); }
+.pg-filter { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+.pg-filter select { min-height: 44px; }
+.pg-figs { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; margin: 8px 0 12px; }
+#workshop.pg .pg-fig { display: grid; justify-items: center; gap: 2px; padding: 4px; border: 1px solid var(--stone-300); border-radius: 8px; background: linear-gradient(#fbf6ea, #efe3c8); }
+#workshop.pg .pg-fig[aria-pressed='true'] { border-color: var(--gold-ink); box-shadow: 0 0 0 2px var(--gold-bright); }
+.pg-fig img { width: 64px; height: 78px; object-fit: contain; filter: var(--rim); }
+.pg-fig b { font-size: var(--fs-xs); line-height: 1.2; text-align: center; }
+.pg-army { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; padding: 0; border: 0; }
+.pg-army legend { padding: 0 0 4px; font-weight: 700; }
+#workshop.pg .pg-army label { display: inline-flex; align-items: center; }
 
 /* ---- narrow: the phone form, one column (:443-540) ---- */
 @media (max-width: 999px) {
@@ -374,7 +407,6 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   #workshop.pg .pg-menu { width: 44px; height: 44px; padding: 0; justify-content: center; border: 0; font-size: 22px; }
   .pg-word, #workshop.pg :is(.pg-share, .pg-weigh) { display: none; }
   #workshop.pg .pg-acts button { width: 44px; padding: 0; justify-content: center; border: 0; font-size: 22px; }
-  #workshop.pg .pg-more { display: flex; }
   #workshop.pg .pg-title { font-size: 16px; gap: 8px; }
   .pg-title i { width: 18px; }
   .pg-main { display: flex; flex-direction: column; flex: none; gap: 0; width: 100%; max-width: 592px; margin: 0 auto; padding: 4px 16px; }
@@ -441,6 +473,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .slot .nm { top: 108px; font-size: 11.5px; }
   .slot.open::before { top: 82px; }
   .lhead { margin-top: 110px; }
+  .newtile .ghostfig { bottom: 58px; }
   .pg-toast { position: fixed; bottom: 12px; font-size: 14px; }
   /* the Why tag: a bottom sheet over the brushes and the ledge, 358 px high and still as the rule card (:500-505); on a short screen half of it */
   .pg-why { position: fixed; z-index: 60; left: 0; right: 0; bottom: 0; margin: 0; animation: none; }
@@ -454,4 +487,8 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   /* a sum of three rules does not fit one row: it wraps */
   .why-sum { flex-wrap: wrap; justify-content: center; row-gap: 4px; }
   #workshop.pg .pg-name h3 { font-size: 16px; letter-spacing: 0.04em; }
+  /* a long name (ticket 07: Rename) gets the row; the seals go under it */
+  #workshop.pg .pg-plinth:has(h3.long) { flex-wrap: wrap; height: auto; row-gap: 4px; }
+  .pg-plinth:has(h3.long) .pg-name { flex-basis: calc(100% - 64px); }
+  .pg-plinth:has(h3.long) .pg-pseals { margin-left: 64px; }
 }

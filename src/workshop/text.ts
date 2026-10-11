@@ -4,6 +4,7 @@
  * Pure, so the tests run it in Node.
  * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
+import { bandOf, type Verdict } from './judge';
 import { DIAG, DIRS, ORTHO, type Ability, type Dir, type LikeAs, type PieceDesign, type Rule, type Square, type When } from './model';
 import { blockOf, choiceText, whenWords, type Part } from './vocab';
 
@@ -148,4 +149,12 @@ export function describe(d: D): Described {
   if (d.rules.some(r => r.does.a === 'cannotBeTaken' && r.does.by === 'allButKing')) takes += ' Only a king can take it.';
   const special = d.rules.map(ruleText);
   return { moves, takes, special, summary: [`Moves ${moves}`, takes.startsWith('Shoots') ? takes : `Takes ${takes}`, ...special].join(' ') };
+}
+
+/** Copy as text (§7.6): the sentences, a MATRIX-style row and the link. `v` is the judge's verdict of `d`. */
+export function designText(d: D & Pick<PieceDesign, 'name'>, v: Verdict, link: string): string {
+  const t = describe(d), band = bandOf(v);
+  const parts = [`squares: moves ${t.moves.replace(/\.$/, '')}; takes ${t.takes.replace(/\.$/, '')}`, ...d.rules.map(r => `${blockOf(r.does.a).matrix}: ${ruleText(r).replace(/\.$/, '')}`)];
+  return [d.name, `Moves: ${t.moves}`, `Takes: ${t.takes}`, ...t.special.map(s => `Special: ${s}`), `About ${pawns(v.worth.point)}. ${band}.`, '',
+    `| ${d.name} | piece | ${parts.join(' · ')} | ${v.worth.point.toFixed(2)} | ${band.toLowerCase()} |`, '', link].join('\n');
 }

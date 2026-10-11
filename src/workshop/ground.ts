@@ -12,26 +12,27 @@ import './ground.css';
 import { BLACK, NAMES as PIECE, P, T, WHITE, colorOf, file, makeMove, parseSq, piece, rank, sq, sqName, typeOf, type Move, type PieceType } from '../rules/engine';
 import { pieceIcon } from '../piece-icons';
 import { pieceArt } from '../ui/guide';
-import { figureUrl, selectedFigure } from './figures';
-import { bandOf, judge } from './judge';
+import { FIGURES, FIGURE_TAGS, figureUrl, selectedFigure, suggestedFigures, type Figure } from './figures';
+import { autoBody, bandOf, judge } from './judge';
 import { NAMES, chip, countRing, drawString, effect, ensureDefs, impression, knot, mirrorIcon, nub, pill, plaque, seal, sigil, tagYours, tile, viewBox, whySum } from './marks';
 import {
-  DIR, DIRS, FULL, MAX_RULES, PRESETS, brushMark, canonical, designCode, empty, fromPreset, likeAlways, limit, lineOrbit, orbit, parseDesign, presetOf,
+  BLANK, DIR, DIRS, FULL, MAX_RULES, PRESETS, brushMark, canonical, designCode, empty, fromPreset, likeAlways, limit, lineOrbit, orbit, parseDesign, presetOf, validName,
   type Ability, type Body, type Brush, type Dir, type LikeAs, type PaintOn, type PieceDesign, type Preset, type Rule, type When,
 } from './model';
 import { BODY_TYPE, START, holds, movesOf, step, type TryState } from './moves';
-import { letterOf } from './names';
+import { autoName, copyName, letterFollows, letterOf, saveName } from './names';
 import {
   actOf, boardOf, clear, diffOf, examplesOf, piecesOf, sceneOf, stir, tapOf, threatsOf, wakeSquare, type Act, type Kind, type Scene, type ScenePiece,
 } from './scene';
 import { MAX, deleteDesign, loadShelf, saveDesign, type SaveResult } from './store';
-import { LIKE_ADDED, LIKE_CLASH, brief, cap, esc, lineParts, lineWords, pawns, ruleText, whenLabel } from './text';
+import { LIKE_ADDED, LIKE_CLASH, brief, cap, designText, esc, lineParts, lineWords, pawns, ruleText, whenLabel } from './text';
 import { BLOCKS, BODY, GROUPS, blockOf, whenChoices, whenWords, type Part } from './vocab';
 import { traceOf, whyWords } from './why';
 
-/** What the board and the plinth show: a pool piece, a design on the shelf (or the player's new copy), or a design from a link. */
+/** What the board and the plinth show: a pool piece, a design on the shelf (or the player's new copy), a new piece before its
+ *  first change (key `new`), or a design from a link. */
 interface Item { key: string; d: PieceDesign; yours: boolean }
-const pool = (key: string): Item => { const p = PRESETS.find(x => x.key === key) ?? PRESETS[0]; return { key: `piece:${p.key}`, d: { ...fromPreset(p), name: p.name }, yours: false }; };
+const pool = (key: string): Item => { const p = PRESETS.find(x => x.key === key) ?? PRESETS[0]; return { key: `piece:${p.key}`, d: { ...fromPreset(p), name: p.name, letter: letterOf(p.name) }, yours: false }; };
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 const FILES = 'abcdefgh';
@@ -51,6 +52,11 @@ const ACT: Record<Act, string> = { move: 'Move here', take: 'Move here', shot: '
 interface Try { board: Uint8Array; from: number; st: TryState; gone: boolean; chain: { caps: number[]; more: Move[] } | null; became: PieceType | 0 }
 const MEDAL = '<svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><path d="M16 2l8 14 8-14" fill="none" stroke="#842c21" stroke-width="5"/><circle cx="24" cy="30" r="15" fill="#e9c071" stroke="#7a5712" stroke-width="2"/>'
   + '<circle cx="24" cy="30" r="10" fill="none" stroke="#7a5712" stroke-width="1.2"/><path d="M24 23l2 4.5 5 .5-3.8 3.3 1.1 4.9L24 33.7l-4.3 2.5 1.1-4.9L17 28l5-.5z" fill="#7a5712"/></svg>';
+/** The NEW tile: a dashed figure outline with a quill (GHOST_FIG, proving-ground.html:1439). */
+const GHOST = '<svg viewBox="0 0 44 62" aria-hidden="true"><path d="M22 4a7 7 0 1 1-.01 0zM13 24c2-4 16-4 18 0l2 14h-4l1 10h6l2 10H8l2-10h6l1-10h-4z" fill="rgba(255,255,255,.25)" stroke="var(--stone-500)" stroke-width="1.5" stroke-dasharray="4 3" stroke-linejoin="round"/>'
+  + '<g transform="translate(24 30) scale(.8)"><circle cx="12" cy="12" r="12" fill="var(--vellum)" stroke="var(--gold-ink)" stroke-width="1.5"/><path d="M18 5C12 5.5 8 9.5 7 18M7 18l2.4-.9M9.8 12.5h4" fill="none" stroke="var(--gold-ink)" stroke-width="2" stroke-linecap="round"/></g></svg>';
+/** The words of a name that validName refuses (dialog.ts rename()). */
+const BAD_NAME = "A name uses letters, digits, spaces, - and ', up to 18.";
 
 /** The figure of a design: the pool art of its body, unless it has its own figure or is a token (look.ts). */
 const figureOf = (d: PieceDesign): string =>
@@ -175,12 +181,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (d.rules.length !== cur.d.rules.length) focus = knotAt = null;
     edited = true;
     setUp(restored());
-    if (!cur.yours) {
-      const base = `My ${d.name}`;
-      let name = base;
-      for (let i = 2; shelf.some(x => x.name === name); i++) name = `${base} ${i}`;
-      Object.assign(d, { name, named: true, letter: letterOf(name), ownLetter: false });
-    }
+    // A pool piece's copy is "My <Name>" unless the change names it; an unnamed design's name follows it, and the letter
+    // follows the name until the player sets it (names.ts).
+    if (cur.key.startsWith('piece:') && !d.named) Object.assign(d, { name: copyName(`My ${d.name}`, shelf.map(x => x.name)), named: true });
+    if (!d.named) d.name = autoName(d, autoBody(d));
+    if (letterFollows(cur.d)) d.letter = letterOf(d.name);
     cur = { key: `design:${d.id}`, d, yours: true };
     save();
     render();
@@ -223,15 +228,108 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       };
     });
   }
+  /** Every design the editor makes fits a share code; this guard says so if one ever does not (dialog.ts share()). */
+  const shareable = (): boolean => !!parseDesign(designCode(cur.d)) || (toast('This design cannot be shared: it breaks a limit.'), false);
   function share(): void {
-    // Every design the editor makes fits a share code; this guard says so if one ever does not (dialog.ts share()).
-    if (!parseDesign(designCode(cur.d))) return toast('This design cannot be shared: it breaks a limit.');
-    void copyText(link(cur.d), 'Link copied.');
+    if (shareable()) void copyText(link(cur.d), 'Link copied.');
   }
   /** Weigh (decision 13): the worth, the band word and the like line. `false` skips the Why parts, the fixes and the deltas. */
   function weighWords(): [string, string] {
     const v = judge(cur.d, false);
     return empty(cur.d) ? [v.line, ''] : [`About ${pawns(v.worth.point)} (estimate). ${bandOf(v)}.`, v.like];
+  }
+
+  /* ---- new piece, rename, look and the design menu (ticket 07; spec decisions 16 to 18) ---- */
+
+  /** NEW: a blank piece alone on d4, named by autoName, in brush mode; it saves on its first change (proving-ground.html:2007). */
+  function newPiece(): void {
+    const d = fromPreset(BLANK);
+    d.name = autoName(d, autoBody(d));
+    d.letter = letterOf(d.name);
+    show({ key: 'new', d, yours: false });
+    arm('move');
+  }
+  /** Make a copy: a new id and the name with the next free number, saved and opened. A pool piece's copy is "My <Name>". */
+  function makeCopy(): void {
+    const d: PieceDesign = { ...clone(cur.d), id: fromPreset(BLANK).id, named: true };
+    d.name = copyName(cur.key.startsWith('piece:') ? `My ${d.name}` : d.name, shelf.map(x => x.name));
+    if (letterFollows(cur.d)) d.letter = letterOf(d.name);
+    show({ key: `design:${d.id}`, d, yours: true });
+    save();
+    render();
+    revealOpenSlot();
+    if (!unsaved) toast('A copy is on your shelf.');
+  }
+  /** Delete asks first; then the ledge drops the design, and the pool piece it came from opens (else the Pawn). */
+  function remove(): void {
+    const d = cur.d;
+    sheet(`Delete ${d.name}?`, '<p>This cannot be undone.</p><div class="pg-ask"><button type="button" class="primary" data-yes>Delete</button><button type="button" data-no>Keep</button></div>', (body, close) => {
+      body.querySelector<HTMLButtonElement>('[data-no]')!.onclick = close;
+      body.querySelector<HTMLButtonElement>('[data-yes]')!.onclick = () => {
+        close();
+        if (!deleteDesign(d.id)) return toast('Could not delete: this device refused.');
+        shelf = loadShelf().designs;
+        show(pool(d.from[0] ?? ''));
+        q<HTMLElement>('.pg-more').focus();
+        toast(`Deleted ${d.name}.`);
+      };
+    });
+  }
+  /** The pen: the name becomes a field. Enter or a blur keeps a valid name (" (yours)" after a pool or card name); Esc keeps the old one.
+   *  The focus then goes back to the pen, or on the phone to ⋯. */
+  function rename(): void {
+    const h = q('.pg-name h3');
+    h.innerHTML = `<input class="pg-name-in" type="text" maxlength="18" aria-label="Name" value="${esc(cur.d.name)}">`;
+    const inp = h.querySelector('input')!;
+    let done = false;
+    /** `key`: Enter or Esc ended the field, so the focus goes back to the pen; after a blur it stays where it went. */
+    const end = (keep: boolean, key = true): void => {
+      if (done) return;
+      done = true;
+      const s = inp.value.trim(), next = keep && s && s !== cur.d.name;
+      if (next && !validName(s)) toast(BAD_NAME);
+      if (!next || !validName(s) || !change('name', d => { d.name = saveName(s); d.named = true; })) renderPlinth();
+      if (key) (q('.pg-pen') ?? q('.pg-more'))?.focus();
+    };
+    inp.onkeydown = e => {
+      if (e.key === 'Enter') { e.preventDefault(); end(true); }
+      // Esc ends the field only: not the dialog, not a popover.
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); end(false); }
+    };
+    inp.onblur = () => end(true, false);
+    inp.focus();
+    inp.select();
+  }
+  /** A figure as a look choice: pressed while the piece shows it. */
+  const figureButton = (f: Figure, cls: string): string =>
+    `<button type="button" class="${cls}" data-figure="${f.id}" aria-pressed="${figureOf(cur.d) === figureUrl(f.id, cur.d.look.army)}" aria-label="${f.name}" title="${f.name}"><img src="${esc(figureUrl(f.id, cur.d.look.army))}" alt="" loading="lazy">${cls === 'pg-fig' ? `<b>${f.name}</b>` : ''}</button>`;
+  /** "More" (decision 17): the 34 figures with the tag filter, and the army. Each choice is a look step; the sheet stays open. */
+  function looks(): void {
+    let tag = 'All';
+    sheet('Look', '', body => {
+      const draw = (focus?: string): void => {
+        body.innerHTML = `<fieldset class="pg-army"><legend>Army</legend>${['Ivory', 'Charcoal'].map((w, i) => `<label><input type="radio" name="pg-army" value="${i}"${cur.d.look.army === i ? ' checked' : ''}>${w}</label>`).join('')}</fieldset>`
+          + `<label class="pg-filter">Show <select data-tag aria-label="Figure type">${['All', ...FIGURE_TAGS].map(t => `<option${t === tag ? ' selected' : ''}>${t}</option>`).join('')}</select></label>`
+          + `<div class="pg-figs">${FIGURES.filter(f => tag === 'All' || (f.tags as readonly string[]).includes(tag)).map(f => figureButton(f, 'pg-fig')).join('')}</div>`;
+        if (focus) body.querySelector<HTMLElement>(focus)?.focus();
+      };
+      // The sheet's own choices: the dialog's handlers do not see them.
+      body.addEventListener('click', e => {
+        const b = (e.target as Element).closest<HTMLElement>('[data-figure]');
+        if (!b) return;
+        e.stopPropagation();
+        change('look', d => { d.look.figure = b.dataset.figure; });
+        draw(`[data-figure="${b.dataset.figure}"]`);
+      });
+      body.addEventListener('change', e => {
+        const t = e.target as HTMLInputElement;
+        e.stopPropagation();
+        if (t.matches('[data-tag]')) { tag = t.value; return draw('[data-tag]'); }
+        change('look', d => { d.look.army = +t.value as 0 | 1; });
+        draw(`[name="pg-army"][value="${t.value}"]`);
+      });
+      draw();
+    });
   }
 
   /* ---- brush mode (enterBrush, paint and toggleLine, proving-ground.html:1742-1808) ---- */
@@ -282,15 +380,25 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     change('line', d => { d.lines = DIRS.filter(x => (set.includes(x) ? on : d.lines.includes(x))); });
   }
 
-  /* ---- the top bar (renderTop, proving-ground.html:952-969): Undo and Share once the piece is the player's ---- */
+  /* ---- the top bar (renderTop, proving-ground.html:952-969): Undo and Share once the piece is the player's, and ⋯ ---- */
 
+  /** The ⋯ design menu (decision 16): on the phone Share and Weigh after the first edit, and Rename and Look (the wide
+   *  layout's pen and look row); Copy as text and Make a copy of a piece that moves; Delete of a design on the shelf. */
+  function menuItems(): [string, string, Parameters<typeof sigil>[0]?][] {
+    const phone = narrow.matches, items: [string, string, Parameters<typeof sigil>[0]?][] = [];
+    if (phone && cur.yours) items.push(['share', 'Share', 'quill'], ['weigh', 'Weigh', 'scale']);
+    if (phone && editable()) items.push(['rename', 'Rename'], ['looks', 'Look']);
+    if (!empty(cur.d)) items.push(['astext', 'Copy as text'], ['copydesign', 'Make a copy']);
+    if (shelf.some(x => x.id === cur.d.id)) items.push(['delete', 'Delete']);
+    return items;
+  }
   function renderTop(): void {
-    const u = undos[undos.length - 1];
-    actsEl.innerHTML = !cur.yours ? '' : `<button type="button" class="pg-undo" data-act="undo" aria-label="${u ? `Undo ${u.label}` : 'Undo'}"${u ? '' : ' disabled'}><span aria-hidden="true">↶</span><span class="pg-word"> Undo${u ? ` ${u.label}` : ''}</span></button>`
-      + '<button type="button" class="pg-share" data-act="share">Share</button>'
-      + `<button type="button" class="pg-more" data-act="more" aria-label="More" aria-expanded="${moreOpen}" aria-controls="pg-morepop">⋯</button>`;
-    moreEl.hidden = !(cur.yours && moreOpen);
-    moreEl.innerHTML = moreEl.hidden ? '' : `<button type="button" data-act="share">${sigil('quill', 18)}Share</button><button type="button" data-act="weigh">${sigil('scale', 18)}Weigh</button>`;
+    const u = undos[undos.length - 1], items = menuItems();
+    actsEl.innerHTML = (!cur.yours ? '' : `<button type="button" class="pg-undo" data-act="undo" aria-label="${u ? `Undo ${u.label}` : 'Undo'}"${u ? '' : ' disabled'}><span aria-hidden="true">↶</span><span class="pg-word"> Undo${u ? ` ${u.label}` : ''}</span></button>`
+      + '<button type="button" class="pg-share" data-act="share">Share</button>')
+      + (items.length ? `<button type="button" class="pg-more" data-act="more" aria-label="More" aria-expanded="${moreOpen}" aria-controls="pg-morepop">⋯</button>` : '');
+    moreEl.hidden = !(items.length && moreOpen);
+    moreEl.innerHTML = moreEl.hidden ? '' : items.map(([act, words, icon]) => `<button type="button" data-act="${act}">${icon ? sigil(icon, 18) : '<i class="pg-noic"></i>'}${words}</button>`).join('');
   }
 
   /* ---- the plinth (renderPlinth and sealLineHTML, proving-ground.html:979-1006, :1030-1098) ---- */
@@ -358,12 +466,14 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   function renderPlinth(): void {
     const d = cur.d, name = d.name || 'Piece', origin = cur.key.startsWith('piece:') ? undefined : PRESETS.find(p => d.from.length === 1 && p.key === d.from[0]);
     const rules = canonical(d).rules, ed = editable(), room = ed && rules.length < MAX_RULES;
-    const [head, like] = weighOpen ? weighWords() : ['', ''];
-    plinthEl.innerHTML = `<div class="pg-name${cur.yours ? ' is-copy' : ''}"><div class="row"><h3${name.length > 9 ? ' class="long"' : ''}>${esc(name)}</h3>${cur.yours ? tagYours() : ''}`
+    const [head, like] = weighOpen ? weighWords() : ['', ''], mine = cur.yours || cur.key === 'new';
+    plinthEl.innerHTML = `<div class="pg-name${mine ? ' is-copy' : ''}"><div class="row"><h3${name.length > 9 ? ' class="long"' : ''}>${esc(name)}</h3>${mine ? tagYours() : ''}`
       // On the phone, the plaque is a lock icon in the name row (proving-ground.html:1039).
       + (narrow.matches ? `<span class="plock" role="img" aria-label="Try board" title="An example board. No check test. The other side does not move.">${sigil('lockOpen', 18)}</span>` : '')
       + `${cur.yours ? `<button type="button" class="pg-weigh" data-act="weigh" aria-expanded="${weighOpen}">${sigil('scale', 16)}Weigh</button>` : ''}</div>`
-      + `${origin ? `<div class="from">from ${esc(origin.name)}</div>` : ''}</div>`
+      + `${origin ? `<div class="from">from ${esc(origin.name)}</div>` : ''}`
+      // The pen rests at the end of the name's rule line (wide layout); on the phone, Rename is in ⋯.
+      + `${ed && !narrow.matches ? `<button type="button" class="pg-pen" data-act="rename" aria-label="Rename" title="Rename">${sigil('quill', 18)}</button>` : ''}</div>`
       + (weighOpen ? `<div class="pg-weighpop">${MEDAL}<b>${esc(head)}</b><small>${esc(like)}</small></div>` : '')
       + `<div class="pg-figure"><span class="halo"></span><img src="${esc(figureOf(d))}" alt=""></div><div class="pg-stone"><div class="top"></div><div class="front"></div></div>`
       + (narrow.matches
@@ -374,7 +484,9 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
         : `<div class="pg-lines">${rules.length ? `<ol aria-label="Rules">${rules.map((r, i) => `<li>${lineHtml(r, i)}${row?.a === r.does.a ? rowHtml() : ''}</li>`).join('')}</ol>` : ''}`
           + (room ? '<button type="button" class="sline add" data-act="shelf"><span class="sl-seal" aria-hidden="true">+</span><b>Add a rule</b></button>'
             + '<div class="sline empty" aria-hidden="true"><span class="sl-seal"></span><span class="txt"></span></div>'.repeat(cur.yours && rules.length ? MAX_RULES - 1 - rules.length : 0) : '')
-          + '</div>');
+          // The look row (decision 17; LOOKS, proving-ground.html:733, :1054): the suggested figures, then "More".
+          + `</div>${ed ? `<div class="pg-looks" role="group" aria-label="Look">${suggestedFigures(d).map(f => figureButton(f, 'pg-look')).join('')}`
+            + '<button type="button" class="pg-look pg-lookmore" data-act="looks" aria-haspopup="dialog">More</button></div>' : ''}`);
     placeKnots();
     isolate();
   }
@@ -869,7 +981,10 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     };
     slotsEl.innerHTML = PRESETS.map(p => slot(`data-piece="${p.key}"`, `piece:${p.key}`, pool(p.key).d, false)).join('')
       + (shelf.length ? '<span class="lsep" aria-hidden="true"></span><span class="lhead">Yours</span>' : '')
-      + shelf.map(d => slot(`data-design="${esc(d.id)}"`, `design:${d.id}`, d, true)).join('');
+      + shelf.map(d => slot(`data-design="${esc(d.id)}"`, `design:${d.id}`, d, true)).join('')
+      // NEW at the end of the row (proving-ground.html:1453).
+      + `<button type="button" class="slot newtile${cur.key === 'new' ? ' open' : ''}"${cur.key === 'new' ? ' aria-current="true"' : ''} aria-label="New piece" title="Make a new piece">`
+      + `<span class="ghostfig">${GHOST}</span><span class="nm">New</span></button>`;
   }
   const revealOpenSlot = (): void => {
     const open = q<HTMLElement>('.slot.open');
@@ -879,7 +994,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     const b = (e.target as Element).closest<HTMLElement>('.slot');
     if (!b) return;
     const d = shelf.find(x => x.id === b.dataset.design);
-    show(d ? { key: `design:${d.id}`, d, yours: true } : pool(b.dataset.piece!));
+    if (b.matches('.newtile')) newPiece(); else show(d ? { key: `design:${d.id}`, d, yours: true } : pool(b.dataset.piece!));
     // renderLedge replaced the slot: give the focus to its new copy, with no scroll away from the board.
     q<HTMLElement>('.slot.open').focus({ preventScroll: true });
   });
@@ -920,7 +1035,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   /** Draws everything for the open item. A control that a part replaced gets the focus back (the card box has an empty value). */
   function render(): void {
     const a = document.activeElement as HTMLElement | null;
-    const keep = ['brush', 'act', 'nub', 'piece', 'design', 'pill', 'when', 'choice', 'sealitem', 'seal', 'rm', 'tok', 'tab', 'try', 'promo', 'cardon']
+    const keep = ['brush', 'act', 'nub', 'piece', 'design', 'pill', 'when', 'choice', 'sealitem', 'seal', 'rm', 'tok', 'tab', 'try', 'promo', 'cardon', 'figure']
       .map(k => a?.dataset?.[k] !== undefined && `[data-${k}="${a.dataset[k]}"]`).find(Boolean);
     // A row or a card of a rule that is gone closes.
     if (row && !ruleIn(cur.d, row.a)) row = null;
@@ -962,9 +1077,10 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   q<HTMLButtonElement>('.pg-menu').onclick = () => dlg.close();
 
   dlg.addEventListener('click', e => {
-    const t = (e.target as Element).closest<HTMLElement>('[data-act], [data-brush], [data-nub], .pg-hits .sq, [data-pill], [data-when], [data-choice], [data-sealitem], [data-rm], [data-tok], [data-tab], [data-try], [data-promo]');
+    const t = (e.target as Element).closest<HTMLElement>('[data-act], [data-brush], [data-nub], .pg-hits .sq, [data-pill], [data-when], [data-choice], [data-sealitem], [data-rm], [data-tok], [data-tab], [data-try], [data-promo], [data-figure]');
     if (!t) { if (moreOpen) { moreOpen = false; renderTop(); } return; }
-    const { sq: at, nub: l, brush: b, pill: pa, when: wa, choice, sealitem: sa, rm, tok, tab: tb, try: tr, promo: pr } = t.dataset;
+    const { sq: at, nub: l, brush: b, pill: pa, when: wa, choice, sealitem: sa, rm, tok, tab: tb, try: tr, promo: pr, figure } = t.dataset;
+    if (figure) return void change('look', d => { d.look.figure = figure; });
     if (at) { if (brush) paint(at); else tapSquare(at); return; }
     if (tok) {
       token = token === tok ? null : tok as 'friend' | 'enemy';
@@ -1017,6 +1133,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (moreEl.contains(t)) { renderTop(); q<HTMLElement>('.pg-more').focus(); }
     if (act === 'undo') return undo();
     if (act === 'share') return share();
+    if (act === 'rename') return rename();
+    if (act === 'looks') return looks();
+    if (act === 'astext') return void (shareable() && copyText(designText(cur.d, judge(cur.d, false), link(cur.d)), 'Copied as text.'));
+    if (act === 'copydesign') return makeCopy();
+    if (act === 'delete') return remove();
     if (act === 'done') return leave();
     if (act === 'room') return makeRoom();
     if (act === 'copy') return void copyText(link(cur.d), 'Link copied.');

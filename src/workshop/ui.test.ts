@@ -7,9 +7,10 @@ import { cardHtml } from './card';
 import { figureById, selectedFigure } from './figures';
 import { judge, whyHead, type Label } from './judge';
 import { lookOf, lookWords } from './look';
-import { BLANK, PRESETS, fromPreset, presetOf, type PieceDesign, type Rule, type When } from './model';
+import { BLANK, PRESETS, fromPreset, presetOf, validName, type PieceDesign, type Rule, type When } from './model';
+import { copyName } from './names';
 import { KEY, MAX, deleteDesign, loadDesigns, loadShelf, saveDesign } from './store';
-import { describe as words, esc, lineParts, partsText, ruleText } from './text';
+import { designText, describe as words, esc, lineParts, partsText, ruleText } from './text';
 import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS, whenChoices } from './vocab';
 
 const chain: Rule = { when: { on: 'takes' }, does: { a: 'chain' } };
@@ -254,5 +255,27 @@ describe('store (§8.4.12)', () => {
     expect(deleteDesign('d2', s)).toBe(true);
     const raw = JSON.parse(s.m.get(KEY)!).designs as { id: string }[];
     expect(raw.map(d => d.id)).toEqual(['d3', 'broken', 'd1']);
+  });
+});
+
+describe('the design menu (Proving Ground ticket 07)', () => {
+  it('Copy as text gives the sentences, a MATRIX row and the link', () => {
+    const d: PieceDesign = { ...fromPreset(BLANK), name: 'Rook Rider', letter: 'D', lines: ['n', 'e', 's', 'w'],
+      squares: [{ x: 1, y: 2, mark: 'both' }, { x: -1, y: 2, mark: 'both' }] };
+    const t = designText(d, judge(d, false), 'https://example.test/?design=abc').split('\n');
+    expect(t[0]).toBe('Rook Rider');
+    expect(t[1]).toBe(`Moves: ${words(d).moves}`);
+    expect(t).toContain(`Takes: ${words(d).takes}`);
+    expect(t.at(-3)).toMatch(/^\| Rook Rider \| piece \| squares: moves .*; takes .* \| \d+\.\d\d \| [a-z ]+ \|$/);
+    expect(t.at(-1)).toBe('https://example.test/?design=abc');
+  });
+
+  it('names a copy with the next free number, within 18 letters', () => {
+    expect(copyName('My Pawn', [])).toBe('My Pawn');
+    expect(copyName('My Pawn', ['My Pawn'])).toBe('My Pawn 2');
+    expect(copyName('My Pawn 2', ['My Pawn', 'My Pawn 2'])).toBe('My Pawn 3');
+    const long = copyName('My Wandering Champ', ['My Wandering Ch']);
+    expect(long.length).toBeLessThanOrEqual(18);
+    expect(validName(long)).toBe(true);
   });
 });

@@ -26,8 +26,15 @@
 // broom; the Beast's chain with Finish; a chain that a When starts keeps its next take; the Paladin removed too, and an enemy
 // on its square; the Ogre's two actions; Undo after a promotion; "+5 moves" on a design that reads the move number only; the card
 // box keeps the focus; the phone's Board tab and a real touch drag that does not scroll).
+// Then ticket 07: newPiece (NEW makes a blank piece alone on d4 in brush mode, named by autoName; it saves on its first
+// change, and Undo takes it back; the phone), rename (the pen; a bad name is refused with its words; Esc; " (yours)" and the
+// letter; a blur; on the phone, Rename in ⋯; an 18-letter name at 320 px), look (the look row, a pool piece keeps its pool
+// art until a figure, More with the 34 figures, the tag filter and the army; a reload keeps them; on the phone, Look in ⋯)
+// and designMenu (⋯ of a pool piece, a copy and a link; Copy as text; Make a copy with the next free number; Delete asks
+// first, then opens the pool piece the design came from, else the Pawn; a refused delete; the phone's items).
 // Run it with `npm run check:browser proving-ground`.
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { pressMenu } from './app-ui.mjs';
 import { assertNoErrors, env, imageIs, insideViewport, launch, minTarget, noSidewaysScroll, shot, textNotCut, trapErrors } from './lib/checks.mjs';
 
@@ -1160,6 +1167,221 @@ async function tryWith() {
   await q.context().close();
 }
 
+/** Ticket 07: the cast (src/workshop/figures.ts), the ⋯ menu's items, and a copy of the clipboard. */
+const CAST = JSON.parse(readFileSync(new URL('../src/workshop/figures.ts', import.meta.url), 'utf8').match(/FIGURES: readonly Figure\[\] = (\[[\s\S]*?\n\]);/)[1]);
+const menuItems = async p => { await p.click('[data-act="more"]'); return p.$$eval('.pg-morepop button', bs => bs.map(b => b.textContent)); };
+const pick = (p, act) => p.click(`.pg-morepop [data-act="${act}"]`);
+const clipboard = p => p.evaluate(() => navigator.clipboard.readText());
+/** The figures in view have loaded (a shot after an army change). */
+const loaded = p => p.waitForFunction(() => [...document.querySelectorAll('.pg-figure img, .pg-sheet img')].filter(i => i.getBoundingClientRect().bottom < innerHeight).every(i => i.complete && i.naturalWidth));
+const reopen = async p => { await p.reload(); await p.waitForFunction(() => window.view?.ready); await p.evaluate(() => window.view.ready()); await door(p); };
+
+async function newPiece() {
+  const p = await open();
+  await door(p);
+  await p.click('.newtile');
+  assert.match(await name(p), /^(Ash|Moss|Iron|Amber|Night|Dawn) Spirit$/, 'NEW names the blank piece by autoName');
+  assert.equal(await p.getAttribute('.brush.armed', 'data-brush'), 'move', 'NEW opens in brush mode, Move armed');
+  assert.deepEqual([await marks(p), await figures(p)], [[], 1], 'the blank piece stands alone on d4 with no marks');
+  assert.equal(await p.getAttribute('.newtile', 'aria-current'), 'true', 'NEW is the open slot');
+  assert.equal(await p.locator('.pg-name .tag-yours').count(), 1, 'the new piece is Yours');
+  assert.equal(await p.locator('[data-act="undo"], [data-act="share"], .pg-weigh, [data-act="more"]').count(), 0, 'no Undo, Share, Weigh or ⋯ before its first change');
+  assert.deepEqual(await stored(p), [], 'it is not saved before its first change');
+  await shot(p, 'new-piece-1440x900');
+  await tap(p, 'd6');
+  await has(p, ['b4 move', 'd2 move', 'd6 move', 'f4 move'], 'Move paints with All 8');
+  const saved = await stored(p);
+  assert.deepEqual(saved.map(d => [d.name, d.named, d.from.length, d.letter.length]), [[await name(p), false, 0, 1]], 'the first change saves it; its name follows the design');
+  assert.match(saved[0].name, / Spirit$/, 'the name is still the auto name');
+  assert.deepEqual([await p.getAttribute('.slot[data-design]', 'aria-current'), await p.getAttribute('.newtile', 'aria-current')], ['true', null], 'it joins Yours on the ledge');
+  await p.keyboard.press('ControlOrMeta+z');
+  assert.deepEqual([await stored(p), await p.getAttribute('.newtile', 'aria-current')], [[], 'true'], 'Undo before its first change: the shelf drops it, NEW is open again');
+  await p.context().close();
+  const q = await open('?workshop=a', { width: 390, height: 844 });
+  await door(q);
+  await q.locator('.newtile').scrollIntoViewIfNeeded();
+  await q.tap('.newtile');
+  assert.equal(await q.getAttribute('.brush.armed', 'data-brush'), 'move', 'on the phone NEW opens brush mode too');
+  await minTarget(q, '#workshop button:not(.sq, .nub)', 44);
+  await noSidewaysScroll(q, '#workshop');
+  await q.context().close();
+}
+
+async function rename() {
+  const p = await open();
+  await door(p);
+  const field = p.locator('.pg-name-in');
+  await p.click('.pg-pen');
+  assert.deepEqual([await field.inputValue(), await focusOn(p, '.pg-name-in')], ['Pawn', true], 'the pen opens the name field, with the focus');
+  await field.fill('Bad!name');
+  await p.keyboard.press('Enter');
+  assert.equal(await toast(p), "A name uses letters, digits, spaces, - and ', up to 18.", 'a bad name is refused with its words');
+  assert.deepEqual([await name(p), await stored(p), await focusOn(p, '.pg-pen')], ['Pawn', [], true], 'the name stays, nothing is saved, and the focus is on the pen');
+  await p.click('.pg-pen');
+  await field.fill('Lancer');
+  await p.keyboard.press('Escape');
+  assert.deepEqual([await name(p), await p.locator('#workshop[open]').count()], ['Pawn', 1], 'Esc keeps the old name, and the Workshop stays open');
+  await p.click('.pg-pen');
+  await field.fill('Lancer');
+  await p.keyboard.press('Enter');
+  assert.equal(await name(p), 'Lancer', 'Enter keeps a good name');
+  assert.deepEqual((await stored(p)).map(d => [d.name, d.named, d.letter, d.from.join()]), [['Lancer', true, 'D', 'pawn']], 'a name on the pool Pawn makes the copy with that name; the letter follows the name');
+  assert.equal(await p.getAttribute('[data-act="undo"]', 'aria-label'), 'Undo name', 'the Undo button names the step');
+  await p.click('.pg-pen');
+  await field.fill('Knight');
+  await p.keyboard.press('Enter');
+  assert.deepEqual((await stored(p)).map(d => [d.name, d.letter]), [['Knight (yours)', 'I']], 'a pool name gets " (yours)"; the letter follows');
+  await p.click('.pg-pen');
+  await field.fill('Swift Fox');
+  await p.click('#pg-h');
+  assert.equal(await name(p), 'Swift Fox', 'a blur keeps the name');
+  await p.context().close();
+  // The phone: Rename in ⋯; the focus goes back to ⋯.
+  const q = await open('?workshop=a', { width: 390, height: 844 });
+  await door(q);
+  assert.equal(await q.locator('.pg-pen').count(), 0, 'on the phone the name band has no pen');
+  await menuItems(q);
+  await pick(q, 'rename');
+  await q.locator('.pg-name-in').fill('Lancer');
+  await q.keyboard.press('Enter');
+  assert.deepEqual([await name(q), await focusOn(q, '[data-act="more"]')], ['Lancer', true], 'on the phone ⋯ renames; the focus goes back to ⋯');
+  // An 18-letter name at 320 px stays in the name band.
+  await q.setViewportSize({ width: 320, height: 568 });
+  await menuItems(q);
+  await pick(q, 'rename');
+  await q.locator('.pg-name-in').fill('Wandering Champion');
+  await q.keyboard.press('Enter');
+  assert.equal(await name(q), 'Wandering Champion', 'an 18-letter name');
+  await textNotCut(q, '.pg-name h3');
+  await noSidewaysScroll(q, '#workshop');
+  await insideViewport(q, '.pg-plinth');
+  await shot(q, 'long-name-320x568');
+  await q.context().close();
+}
+
+async function look() {
+  const p = await open();
+  await door(p);
+  await imageIs(p, '.pg-figure img', 'ui/pieces/pawn-w.webp');
+  const row = await p.$$eval('.pg-looks button', bs => bs.map(b => [b.dataset.figure ?? b.textContent, b.getAttribute('aria-pressed')]));
+  assert.deepEqual([row.length, row.at(-1)[0], row.filter(([, on]) => on === 'true').length], [4, 'More', 0], 'the look row: 3 suggested figures and More; the Pawn keeps its pool art');
+  const first = row[0][0];
+  await p.click(`.pg-looks [data-figure="${first}"]`);
+  assert.equal(await name(p), 'My Pawn', 'a figure is the first change: the copy');
+  await imageIs(p, '.pg-figure img', `ui/workshop/${first}-w.webp`);
+  assert.deepEqual([await p.getAttribute(`.pg-looks [data-figure="${first}"]`, 'aria-pressed'), await p.getAttribute('[data-act="undo"]', 'aria-label')], ['true', 'Undo look'], 'the figure is pressed; the step is a look step');
+  await p.click('.pg-lookmore');
+  const sheet = '.pg-sheet[open]';
+  await p.locator(sheet).waitFor();
+  assert.equal(await p.locator(`${sheet} .pg-fig`).count(), CAST.length, `More shows the ${CAST.length} figures`);
+  await p.selectOption(`${sheet} [data-tag]`, 'Ranged');
+  assert.deepEqual(await p.$$eval(`${sheet} .pg-fig`, bs => bs.map(b => b.dataset.figure)), CAST.filter(f => f.tags.includes('Ranged')).map(f => f.id), 'the tag filter shows the Ranged figures');
+  await p.selectOption(`${sheet} [data-tag]`, 'All');
+  await p.click(`${sheet} [data-figure="clay-golem"]`);
+  assert.equal(await p.getAttribute(`${sheet} [data-figure="clay-golem"]`, 'aria-pressed'), 'true', 'a figure in the sheet is pressed, and the sheet stays open');
+  await p.click(`${sheet} .pg-army label:has-text("Charcoal")`);
+  await imageIs(p, '.pg-figure img', 'ui/workshop/clay-golem-b.webp');
+  await imageIs(p, `${sheet} [data-figure="clay-golem"] img`, 'ui/workshop/clay-golem-b.webp');
+  await loaded(p);
+  await shot(p, 'look-more-1440x900');
+  await p.keyboard.press('Escape');
+  await p.locator('.pg-sheet').waitFor({ state: 'detached', timeout: 2000 });
+  assert.equal(await p.locator('#workshop[open]').count(), 1, 'Esc closes the sheet; the Workshop stays open');
+  await reopen(p);
+  await p.click('.slot[data-design]');
+  await imageIs(p, '.pg-figure img', 'ui/workshop/clay-golem-b.webp');
+  assert.deepEqual((await stored(p)).map(d => [d.look.figure, d.look.army]), [['clay-golem', 1]], 'a reload keeps the figure and the army');
+  // The army alone on a pool piece: its pool art in charcoal (decision 18).
+  await p.click('.slot[data-piece="knight"]');
+  await p.click('.pg-lookmore');
+  await p.click(`${sheet} .pg-army label:has-text("Charcoal")`);
+  await imageIs(p, '.pg-figure img', 'ui/pieces/knight-b.webp');
+  assert.equal(await name(p), 'My Knight', 'the army is the first change too');
+  await p.context().close();
+  // The phone: Look in ⋯.
+  const q = await open('?workshop=a', { width: 390, height: 844 });
+  await door(q);
+  assert.equal(await q.locator('.pg-looks').count(), 0, 'on the phone the plinth has no look row');
+  await menuItems(q);
+  await pick(q, 'looks');
+  await q.locator(sheet).waitFor();
+  await minTarget(q, `${sheet} :is(button, select, label)`, 44);
+  await noSidewaysScroll(q, sheet);
+  await q.context().close();
+}
+
+async function designMenu() {
+  const p = await open();
+  await p.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await door(p);
+  assert.deepEqual(await menuItems(p), ['Copy as text', 'Make a copy'], 'the unchanged Pawn: Copy as text and Make a copy');
+  await pick(p, 'astext');
+  await p.locator('.pg-toast', { hasText: 'Copied as text.' }).waitFor({ timeout: 3000 });
+  assert.equal(await focusOn(p, '[data-act="more"]'), true, 'the focus goes back to ⋯');
+  const text = (await clipboard(p)).split('\n');
+  assert.deepEqual(text.slice(0, 3), ['Pawn', 'Moves: like a pawn.', 'Takes: 1 square diagonally forward.'], 'Copy as text gives the sentences');
+  assert.match(text.at(-3), /^\| Pawn \| piece \| squares: moves like a pawn; takes 1 square diagonally forward · .* \| \d+\.\d\d \| the unit of worth \|$/, 'Copy as text gives a MATRIX row');
+  assert.match(text.at(-1), /\?design=[\w-]+$/, 'Copy as text ends with the link');
+  await menuItems(p);
+  await pick(p, 'copydesign');
+  assert.deepEqual([await name(p), await toast(p), (await stored(p)).map(d => d.name)], ['My Pawn', 'A copy is on your shelf.', ['My Pawn']], 'Make a copy of the Pawn: My Pawn, saved and opened');
+  assert.equal(await p.getAttribute('.slot[data-design]', 'aria-current'), 'true', 'the copy is the open slot');
+  assert.deepEqual(await menuItems(p), ['Copy as text', 'Make a copy', 'Delete'], 'a design on the shelf adds Delete');
+  await pick(p, 'copydesign');
+  assert.deepEqual((await stored(p)).map(d => d.name), ['My Pawn 2', 'My Pawn'], 'a copy of My Pawn is My Pawn 2');
+  await menuItems(p);
+  await pick(p, 'delete');
+  const sheet = '.pg-sheet[open]';
+  assert.deepEqual([await p.locator(`${sheet} h2`).textContent(), await p.locator(`${sheet} p`).textContent()], ['Delete My Pawn 2?', 'This cannot be undone.'], 'Delete asks first');
+  await p.click(`${sheet} [data-no]`);
+  assert.deepEqual((await stored(p)).map(d => d.name), ['My Pawn 2', 'My Pawn'], 'Keep keeps it');
+  await menuItems(p);
+  await pick(p, 'delete');
+  await p.click(`${sheet} [data-yes]`);
+  assert.deepEqual([await name(p), await toast(p), (await stored(p)).map(d => d.name)], ['Pawn', 'Deleted My Pawn 2.', ['My Pawn']], 'Delete drops it and opens the Pawn it came from');
+  assert.deepEqual(await p.$$eval('.slot[data-design] .nm', s => s.map(e => e.textContent)), ['My Pawn'], 'and the ledge drops it');
+  assert.equal(await focusOn(p, '[data-act="more"]'), true, 'the focus goes to ⋯');
+  await p.context().close();
+  // A design from the Knight opens the Knight; one with no pool piece opens the Pawn; a refused delete keeps it.
+  const r = await open('?workshop=a', { shelf: SHELF });
+  await door(r);
+  for (const [id, after] of [['golden-a', 'Knight'], ['golden-b', 'Pawn']]) {
+    await r.click(`.slot[data-design="${id}"]`);
+    await menuItems(r);
+    await pick(r, 'delete');
+    await r.click(`${sheet} [data-yes]`);
+    assert.equal(await name(r), after, `deleting ${id} opens the ${after}`);
+  }
+  await r.click('.newtile');
+  await tap(r, 'd6');
+  await refuse(r);
+  await menuItems(r);
+  await pick(r, 'delete');
+  await r.click(`${sheet} [data-yes]`);
+  assert.equal(await toast(r), 'Could not delete: this device refused.', 'a refused delete says so');
+  assert.equal((await stored(r)).length, 1, 'and the design stays');
+  await r.context().close();
+  // A design from a link: Copy as text and Make a copy, which keeps it on the shelf.
+  const l = await open(`?workshop=a&design=${code}`);
+  await l.locator('#workshop.pg[open]').waitFor();
+  assert.deepEqual(await menuItems(l), ['Copy as text', 'Make a copy'], 'a linked design: Copy as text and Make a copy');
+  await pick(l, 'copydesign');
+  assert.deepEqual([await name(l), (await stored(l)).map(d => [d.name, d.letter])], ['Rook Rider', [['Rook Rider', 'D']]], 'Make a copy keeps the linked design on the shelf');
+  await l.context().close();
+  // The phone: Share and Weigh after the first edit, then Rename, Look and the design menu.
+  const q = await open('?workshop=a', { width: 390, height: 844 });
+  await door(q);
+  assert.deepEqual(await menuItems(q), ['Rename', 'Look', 'Copy as text', 'Make a copy'], 'the phone\'s ⋯ on the Pawn');
+  await q.keyboard.press('Escape');
+  await arm(q, 'both');
+  await tap(q, 'c5');
+  assert.deepEqual(await menuItems(q), ['Share', 'Weigh', 'Rename', 'Look', 'Copy as text', 'Make a copy', 'Delete'], 'the phone\'s ⋯ on My Pawn');
+  await minTarget(q, '.pg-morepop button', 44);
+  await insideViewport(q, '.pg-morepop');
+  await shot(q, 'design-menu-390x844');
+  await q.context().close();
+}
+
 try {
   await opens();
   await poolPieces();
@@ -1185,6 +1407,10 @@ try {
   await whyTag();
   await hoverOnly();
   await tryWith();
+  await newPiece();
+  await rename();
+  await look();
+  await designMenu();
   assertNoErrors();
   console.log('proving-ground: all groups pass');
 } finally {

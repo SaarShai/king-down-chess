@@ -17,7 +17,7 @@ import { BLOCKS, BODY, GROUPS, blockOf, takesAny, whenChoices, type Block } from
 import { BAND_WORD, autoBody, badgeText, bandOf, judge, whyHead, whyTitle, type Label, type Verdict } from './judge';
 import { lookOf, type StageLook } from './look';
 import { figureHtml, gaugeHtml, modelHtml } from './art';
-import { LIKE_ADDED, LIKE_CLASH, cap, describe, dirWords, esc, pawns, ruleParts, ruleText, whenLabel } from './text';
+import { LIKE_ADDED, LIKE_CLASH, cap, describe, designText, dirWords, esc, pawns, ruleParts, whenLabel } from './text';
 import { autoName, letterFollows, letterOf, rollName, saveName } from './names';
 import { MAX, deleteDesign, loadDesigns, loadShelf, saveDesign, type SaveResult } from './store';
 import { sandbox } from './sandbox';
@@ -706,7 +706,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
         }
         await copyText(link(cur), 'Link copied.');
       };
-      q<HTMLButtonElement>('.ws-copy', body).onclick = () => { if (shareable()) { closeShare(); void copyText(asText(cur, jv, link(cur)), 'Copied as text.'); } };
+      q<HTMLButtonElement>('.ws-copy', body).onclick = () => { if (shareable()) { closeShare(); void copyText(designText(cur, jv, link(cur)), 'Copied as text.'); } };
       q<HTMLButtonElement>('.ws-dup', body).onclick = () => {
         closeShare();
         const c: PieceDesign = { ...clone(cur), id: fromPreset(BLANK).id, name: `${cur.name.slice(0, 12).trim()} copy`, named: true };
@@ -726,14 +726,6 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       }); };
       body.after(q('.ws-share-actions', body));
     });
-  }
-
-  /** Copy as text (§7.6): the sentences, a MATRIX-style row and the link. */
-  function asText(d: PieceDesign, jv: Verdict, url: string): string {
-    const t = describe(d), band = bandOf(jv).toLowerCase();
-    const parts = [`squares: moves ${t.moves.replace(/\.$/, '')}; takes ${t.takes.replace(/\.$/, '')}`, ...d.rules.map(r => `${blockOf(r.does.a).matrix}: ${ruleText(r).replace(/\.$/, '')}`)];
-    return [d.name, `Moves: ${t.moves}`, `Takes: ${t.takes}`, ...t.special.map(s => `Special: ${s}`), `About ${pawns(jv.worth.point)}. ${bandOf(jv)}.`, '',
-      `| ${d.name} | piece | ${parts.join(' · ')} | ${jv.worth.point.toFixed(2)} | ${band} |`, '', url].join('\n');
   }
 
   /* ---- TRY IT (W10) ---- */
