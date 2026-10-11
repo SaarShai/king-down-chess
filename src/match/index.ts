@@ -2,12 +2,15 @@
 import { Worker as NodeWorker } from 'node:worker_threads';
 import { existsSync } from 'node:fs';
 import { tsWorker } from '../sim/ts-worker';
-import type { Rules } from '../rules/rules';
+import type { CardName, Rules } from '../rules/rules';
+import type { SkillName } from '../ai/skill';
 import type { Move, Status } from '../rules/engine';
-export interface MatchSetup { backRank?: string; fen?: string; preset?: 'current' | '2017' | '2021'; kings?: string }
+/** `classic`: chess castling and en passant (`Rules.classicChess`). `hand`: a public mirror deal, the same cards for both sides. */
+export interface MatchSetup { backRank?: string; fen?: string; preset?: 'current' | '2017' | '2021'; kings?: string; classic?: boolean; hand?: CardName[] }
 export interface MoveCommand { id: string; expectedRevision: number; lan: string }
-export type PublicMatchRules = Omit<Rules, 'hands' | 'piles' | 'cardPool'>;
-export interface ChooseMoveOptions { maxTimeMs?: number; maxDepth?: number }
+export type PublicMatchRules = Omit<Rules, 'piles' | 'cardPool'>;
+/** `level`: the website's skill settings (`skillPlan`); `maxTimeMs` then shortens its time cap, as the website's `?think=`. */
+export interface ChooseMoveOptions { level?: SkillName; maxTimeMs?: number; maxDepth?: number }
 export class MatchError extends Error { constructor(message: string, public code?: 'MATCH_INCOMPATIBLE') { super(message); } }
 declare const __KINGDOWN_COMPILED__: boolean;
 export interface MatchSnapshot { rules: PublicMatchRules; moves: { lan: string; move: Move }[]; revision: number; fen: string; ply: number; turn: 0 | 1; moveNumber: number; status: Status; inCheck: boolean; legal: string[]; history: string[] }

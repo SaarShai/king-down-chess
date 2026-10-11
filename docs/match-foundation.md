@@ -41,14 +41,14 @@ Use `createMatch` and `loadMatch` to obtain initialized handles. Always close th
 
 | Operation | Behavior |
 |---|---|
-| `createMatch(setup?)` | Accepts an eight-piece `backRank` with one king, or a canonical King Down `fen`; never both. Presets are `current` (default), `2017` and `2021`. With no position specified, uses `RNBQKBNR`. |
-| `snapshot()` | Returns detached JSON-compatible data: revision, FEN, actual turn (`0` White, `1` Black), ply, move number, status, check, legal LAN strings, structured legal moves, public effective rules and move history. Private hands/piles are excluded. |
+| `createMatch(setup?)` | Accepts an eight-piece `backRank` with one king, or a canonical King Down `fen`; never both. Presets are `current` (default), `2017` and `2021`. With no position specified, uses `RNBQKBNR`. `classic: true` adds castling and en passant. `hand` gives both sides the same public cards; an empty hand gives no cards. |
+| `snapshot()` | Returns detached JSON-compatible data: revision, FEN, actual turn (`0` White, `1` Black), ply, move number, status, check, legal LAN strings, structured legal moves, public effective rules and move history. Rules include both public hands. FEN holds the played-card state. Piles are excluded. |
 | `apply({id, expectedRevision, lan})` | Selects exactly one currently legal move. New successful commands increment the revision once. Illegal, stale, malformed and post-game commands leave state unchanged. |
-| `chooseMove({maxTimeMs?, maxDepth?})` | Returns a legal LAN without changing the game. Defaults to 250 ms/depth 4; accepts 1–5,000 ms and depth 1–8. The search uses actual turn/history. |
+| `chooseMove({level?, maxTimeMs?, maxDepth?})` | Returns a legal LAN without changing the game. With no level, defaults to 250 ms/depth 4; accepts 1–5,000 ms and depth 1–8. A level uses the website's time cap, score band and random-move chance, with no default depth cap. `maxTimeMs` can shorten the level's time cap. The search uses actual turn/history. |
 | `exportSave()` / `loadMatch(json)` | Exports a JSON string; loading validates the setup and complete command history before returning a handle. |
 | `close()` | Terminates the match's worker. Repeated close is safe. |
 
-`kings` names both sides, for example `Flame:Haste,none`. Setup follows the website's precedence: balanced power settings when a power is selected, then an older preset if requested, then explicit king choices. Arbitrary rule overrides and private card hands/decks are outside this slice.
+`kings` names both sides, for example `Flame:Haste,none`. Setup follows the website's precedence: balanced power settings when a power is selected, then an older preset if requested, then explicit king choices. A public hand cannot share a side with a king power that has uses. Private hands, piles and arbitrary rule overrides are refused. Levels are `beginner` (700 ms), `casual` (800 ms), `club` (800 ms) and `strong` (2,500 ms).
 
 Choose `lan` from the latest snapshot's `legal` list. Revision counts accepted commands, not turns: Haste may leave the same player to move. Use `turn` and `moveNumber`, never ply parity.
 

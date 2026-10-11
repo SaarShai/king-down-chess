@@ -81,10 +81,10 @@ export function defaultChoice(o: Options, d: Draw, seat: 0 | 1, rng: () => numbe
   return { king, order };
 }
 
-/** The match setup from the options, the draw and both seats' choices. `classic` and `hand` wait for the match worker (ticket 05). */
-export function buildSetup(o: Options, d: Draw, seats: readonly [Choice, Choice]): { match: MatchSetup; classic: boolean; hand: CardName[] } {
+/** The match setup from the options, the draw and both seats' choices. */
+export function buildSetup(o: Options, d: Draw, seats: readonly [Choice, Choice]): MatchSetup {
   for (const c of seats) { const error = validateChoice(o, d, c); if (error) throw new Error(error); }
   const [w, b] = seats, kings = `${kingLabel(w.king)},${kingLabel(b.king)}`;
   const match: MatchSetup = w.order === b.order ? { backRank: w.order, kings } : { fen: `${b.order.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${w.order} w - - 0 1`, kings };
-  return { match, classic: o.classic, hand: [...d.hand] };
+  return { ...match, ...(o.classic ? { classic: true } : {}), ...(d.hand.length ? { hand: [...d.hand] } : {}) };
 }

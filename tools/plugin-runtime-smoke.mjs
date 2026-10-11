@@ -23,7 +23,7 @@ let restored;
 try {
   const first = await match.apply({ id: 'haste', expectedRevision: 0, lan: 'Ra1-a2!H' });
   assert.equal(first.turn, 0); assert.equal(first.ply, 1);
-  assert(!('hands' in first.rules)); assert(!('piles' in first.rules));
+  assert.deepEqual(first.rules.hands, [[], []]); assert(!('piles' in first.rules));
   assert.deepEqual(first.moves.map(m => m.lan), first.legal);
   const lan = await match.chooseMove({ maxTimeMs: 25, maxDepth: 2 });
   assert(first.legal.includes(lan)); assert.deepEqual(await match.snapshot(), first);
