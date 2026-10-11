@@ -170,7 +170,7 @@ ChatGPT and privacy
 - `kingdown_join` (model + app): a code.
 - `kingdown_choose`: one seat's king, power, order and ready.
 - `kingdown_get`, `kingdown_move`, `kingdown_computer`, `kingdown_draw`, `kingdown_resign`, `kingdown_abort`, `kingdown_claim`, `kingdown_rematch`.
-- `kingdown_games` (model, read only); `kingdown_profile` (model + app, read only: handle, picture, rating, totals, badges, history page).
+- `kingdown_games` (model + app, read only; the app lists open games in Play and on the profile scroll, full rows in `_meta.games` only; changed from model only by the orchestrator, 2026-10-11, ticket 10); `kingdown_profile` (model + app, read only: handle, picture, rating, totals, badges, history page).
 - `kingdown_handle`: set the handle and the picture. `kingdown_settings`: read and write the settings.
 - `kingdown_say` and `kingdown_report` stay on the server but have no control in this build.
 
