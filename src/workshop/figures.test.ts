@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
-import { FIGURES, selectedFigure, suggestedFigures, type Figure } from './figures';
+import { FIGURES, figureUrl, selectedFigure, suggestedFigures, type Figure } from './figures';
 import { designCode, fromPreset, keyOf, parseDesign, presetOf, validStored } from './model';
 import { judge } from './judge';
-import { lookOf } from './look';
-import { modelHtml } from './art';
 
 describe('Workshop cast', () => {
   const ids = FIGURES.map(f => f.id);
@@ -49,7 +47,7 @@ describe('Workshop cast', () => {
       expect(validStored(d)).toBe(true);
       const back = parseDesign(designCode(d))!;
       expect(back.look.figure).toBe(f.id);
-      expect(modelHtml(lookOf(back))).toContain(`/ui/workshop/${f.id}-b.webp`);
+      expect(figureUrl(selectedFigure(back).id, back.look.army)).toContain(`/ui/workshop/${f.id}-b.webp`);
     }
     d.look.figure = '../unknown';
     expect(validStored(d)).toBe(false);

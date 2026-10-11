@@ -1,20 +1,14 @@
 // The section numbers (§) in this file cite revision 3 of the Workshop doc:
 // docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
-import { figureHtml, gaugeHtml, modelHtml } from './art';
-import { cardHtml } from './card';
-import { figureById, selectedFigure } from './figures';
-import { judge, whyHead, type Label } from './judge';
-import { lookOf, lookWords } from './look';
-import { BLANK, PRESETS, fromPreset, presetOf, type PieceDesign, type Rule, type When } from './model';
-import { KEY, MAX, deleteDesign, loadDesigns, loadShelf, saveDesign } from './store';
-import { describe as words, esc, ruleText } from './text';
-import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS } from './vocab';
-
-const chain: Rule = { when: { on: 'takes' }, does: { a: 'chain' } };
-const noKing: Rule = { when: { on: 'always' }, does: { a: 'cannotTake', what: 'king' } };
-const rook = (...rules: Rule[]): PieceDesign => ({ ...fromPreset(presetOf('rook')), rules, letter: 'D' });
+import { afterEach, describe, expect, it } from 'vitest';
+import { setRules, type Rules } from '../rules/rules';
+import { judge } from './judge';
+import { BLANK, PRESETS, fromPreset, presetOf, validName, type PieceDesign, type Rule, type When } from './model';
+import { copyName } from './names';
+import { KEY, MAX, deleteDesign, loadShelf, saveDesign } from './store';
+import { designText, describe as words, esc, lawsOf, lineParts, partsText, promotion, ruleText } from './text';
+import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS, whenChoices } from './vocab';
 
 /** Every rule of every block, with every pill value and every When it allows. */
 const ALL_RULES: Rule[] = BLOCKS.flatMap(b => [...TOP_WHENS, ...MORE_WHENS, ...EVENT_WHENS, { on: 'takes' } as When].filter(b.whens)
@@ -45,10 +39,10 @@ describe('text (§8.4.9)', () => {
 
   it('uses no engineering word, ends each sentence with a period and keeps it to 120 characters', () => {
     const ENGINEERING = /\b(trigger|shackle|spawn|promotion|mark|arrival|leaper|rider|symmetry|orbit|atom|centipawn|elo|fingerprint)s?\b/i;
-    const texts: string[] = [...ALL_RULES.map(ruleText), ...BLOCKS.flatMap(b => [b.example])];
+    const texts: string[] = [...ALL_RULES.map(ruleText), ...ALL_RULES.map(r => partsText(lineParts(r).say)), ...BLOCKS.flatMap(b => [b.example])];
     for (const p of PRESETS) {
       const v = judge(p);
-      texts.push(words(p).summary, v.line, v.like, whyHead(v), ...v.why, ...v.flags.map(f => f.line));
+      texts.push(words(p).summary, v.line, v.like, ...v.why, ...v.flags.map(f => f.line));
     }
     for (const r of ALL_RULES) {
       const d = { ...presetOf('rook'), rules: [r] }, v = judge(d);
@@ -63,6 +57,13 @@ describe('text (§8.4.9)', () => {
     }
   });
 
+  it('writes the short line of each rule with its pill, and the When pill after the chip (spec decision 38)', () => {
+    const line = (r: Rule) => [partsText(lineParts(r).after), partsText(lineParts(r).line)].filter(Boolean).join(' | ');
+    expect(presetOf('pawn').rules.map(line)).toEqual(['steps 2 straight ahead', 'becomes a piece you choose']);
+    expect(presetOf('paladin').rules.map(line)).toEqual(['its lines pass over its own pieces', 'a piece, not a pawn | it is removed too', 'cannot take a king']);
+    expect(partsText(lineParts(presetOf('pawn').rules[1]).say)).toBe('It becomes a piece you choose.');
+  });
+
   it('escapes names', () => {
     expect(esc(`<img src=x onerror="a()">'&`)).toBe('&#60;img src=x onerror=&#34;a()&#34;&#62;&#39;&#38;');
   });
@@ -73,114 +74,26 @@ describe('vocab (§8.4.10)', () => {
     const matrix = readFileSync(new URL('../../docs/MATRIX.md', import.meta.url), 'utf8');
     for (const b of BLOCKS) expect(matrix, b.matrix).toContain(`| ${b.matrix.startsWith('C3') || b.matrix === 'Last rank' ? '' : '**'}${b.matrix}`);
   });
-});
 
-describe('art (§8.4.11)', () => {
-  it('draws the card: the bare figure and the thermometer', () => {
-    const l = lookOf(rook(chain));
-    // The artwork stands alone, even for a saved design with a glow.
-    const m = modelHtml(lookOf({ ...rook(chain), look: { ...rook().look, glow: 'Flame' } }));
-    expect(m).toBe(`<div class="ws-model ws-bare"><img class="ws-fig" src="/ui/workshop/${l.figure}-w.webp" alt="" decoding="async" /></div>`);
-    expect(figureHtml({ figure: l.figure, army: 1 }, 'tb-me')).toBe(`<img class="tb-me" src="/ui/workshop/${l.figure}-b.webp" alt="" decoding="async" />`);
-    const g = gaugeHtml(judge(presetOf('rook')));
-    expect(g).toMatch(/role="meter"[^>]*aria-valuenow="4"/);
-    expect(g).toContain('ws-thermometer');
-    expect(g).not.toContain('g-gem');
-  });
-
-  it('gives the thermometer the words of the summary', () => {
-    const said = (k: string) => gaugeHtml(judge(presetOf(k))).match(/aria-valuetext="([^"]*)"/)![1];
-    expect(said('pawn')).toBe('about 1 pawn, the unit of worth');
-    expect(said('knight')).toBe('about 3½ pawns, fair');
-  });
-
-  it('shows the bare figure on the card, whatever the verdict or the rules say', () => {
-    const guard = { ...fromPreset(presetOf('guard')), letter: 'D' };
-    const likeQueen = { ...fromPreset(BLANK), squares: presetOf('maester').squares, rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } } as Rule], letter: 'D' };
-    for (const d of [rook(), rook(chain), rook(chain, noKing), guard, likeQueen])
-      expect(modelHtml(lookOf(d))).toBe(`<div class="ws-model ws-bare"><img class="ws-fig" src="/ui/workshop/${selectedFigure(d).id}-w.webp" alt="" decoding="async" /></div>`);
-  });
-
-  it('names in the hidden summary only what the card shows', () => {
-    const l = lookOf({ ...rook(chain), look: { ...rook().look, glow: 'Flame', army: 1 } });
-    expect(lookWords(l)).toBe(`${figureById(l.figure)!.name} look, charcoal.`);
-    for (const d of [rook(), rook(chain), rook(chain, noKing)]) expect(lookWords(lookOf(d))).not.toMatch(/plinth|floor|rim|glow|crack/i);
+  it('gives each block a seal label of 14 characters or fewer', () => {
+    for (const b of BLOCKS) expect(b.label, b.a).toMatch(/^.{1,14}$/u);
   });
 });
 
-describe('the read-only card (web redesign ticket 22)', () => {
-  /** The mark classes of one cell of the card's grid: 'move' or 'take'. */
-  const cell = (html: string, grid: string, x: number, y: number): string[] => {
-    const part = html.split(`data-grid="${grid}"`)[1].split('</div>')[0];
-    const m = part.match(new RegExp(`<i class="ws-grid-cell([^"]*)" data-x="${x}" data-y="${y}"`));
-    if (!m) throw new Error(`no cell ${x},${y} in the ${grid} grid`);
-    return m[1].trim().split(/\s+/).filter(c => c && c !== 'dk');
-  };
-  const design = (over: Partial<PieceDesign> = {}): PieceDesign => ({ ...fromPreset(BLANK), name: 'Test Piece', letter: 'T', ...over });
-
-  it('draws the move grid and the take grid, 7 by 7, read only, with the marks of each square', () => {
-    const d = design({ squares: [{ x: 1, y: 1, mark: 'both' }, { x: -1, y: 1, mark: 'move' }, { x: 0, y: -2, mark: 'shoot' }, { x: 2, y: 2, mark: 'moveShoot' }], lines: ['e'] });
-    const html = cardHtml(d, judge(d));
-    for (const grid of ['move', 'take']) expect(html.split(`data-grid="${grid}"`)[1].split('</div>')[0].match(/<i class="ws-grid-cell/g)).toHaveLength(49);
-    expect(html).not.toMatch(/<button|<input|<select/);
-    expect(cell(html, 'move', 1, 1)).toEqual(['c-move']);
-    expect(cell(html, 'take', 1, 1)).toEqual(['c-take']);
-    expect(cell(html, 'move', -1, 1)).toEqual(['c-move']);
-    expect(cell(html, 'take', -1, 1)).toEqual([]);
-    expect(cell(html, 'move', 0, -2)).toEqual([]);
-    expect(cell(html, 'take', 0, -2)).toEqual(['c-shoot']);
-    expect(cell(html, 'move', 2, 2)).toEqual(['c-move']);
-    expect(cell(html, 'take', 2, 2)).toEqual(['c-shoot']);
-    // A slide line in both grids, with an arrow on the edge square.
-    for (const grid of ['move', 'take']) {
-      expect(cell(html, grid, 1, 0)).toEqual(['ln', 'ln-e']);
-      expect(cell(html, grid, 3, 0)).toEqual(['ln', 'ln-e', 'ln-end']);
-      expect(cell(html, grid, -1, 0)).toEqual([]);
-    }
+describe('whenChoices (Proving Ground ticket 03)', () => {
+  it('gives "steps 2" always and the three zones it allows, two of them on top', () => {
+    expect(whenChoices('step2')).toEqual({ top: [{ on: 'always' }, { on: 'zone', zone: 'enemyHalf' }], more: [{ on: 'zone', zone: 'ownHalf' }, { on: 'zone', zone: 'startRank' }] });
   });
 
-  it('marks a warning card, but keeps a fair card and an empty card clear', () => {
-    const warning = rook(chain), fair = fromPreset(presetOf('knight')), blank = fromPreset(BLANK);
-    expect(cardHtml(warning, judge(warning))).toContain('class="ws-piece-card ws-read warn"');
-    for (const d of [fair, blank]) expect(cardHtml(d, judge(d))).not.toContain('ws-read warn');
+  it('gives "becomes" its two events, and "takes again" and "removed too" no choice', () => {
+    expect(whenChoices('becomes')).toEqual({ top: [{ on: 'reaches', zone: 'lastRank' }, { on: 'firstTake' }], more: [] });
+    expect(whenChoices('chain')).toEqual({ top: [], more: [] });
+    expect(whenChoices('removedAfter')).toEqual({ top: [], more: [] });
   });
 
-  it('reads the move and take patterns beside the grids', () => {
-    const d = design({ lines: ['n', 'e', 's', 'w'] });
-    const html = cardHtml(d, judge(d));
-    expect(html).toContain('<p class="ws-caption">Moves like a rook.</p>');
-    expect(html).toContain('<p class="ws-caption">Takes the same squares.</p>');
-  });
-
-  /** The text of the first element with this class. */
-  const textOf = (html: string, cls: string): string => html.match(new RegExp(`class="${cls}"[^>]*>([^<]*)<`))![1];
-
-  it('shows the band word and the worth line of every band', () => {
-    const rook = design({ lines: ['n', 'e', 's', 'w'] }), v = judge(rook);
-    const words = (label: Label): string[] => { const html = cardHtml(rook, { ...v, own: '', label }); return [textOf(html, 'ws-learn'), textOf(html, 'ws-worth')]; };
-    expect(words('fair')).toEqual(['Fair', 'Estimated worth · 4 pawns']);
-    expect(words('possiblyOP')).toEqual(['Possibly overpowered', 'Estimated worth · 4 pawns']);
-    expect(words('untestedOP')).toEqual(['Possibly overpowered', 'Estimated worth · 4 pawns']);
-    expect(words('likelyOP')).toEqual(['Likely overpowered', 'Estimated worth · 4 pawns']);
-    expect(words('possiblyWeak')).toEqual(['Possibly too weak', 'Estimated worth · 4 pawns']);
-    expect(words('likelyWeak')).toEqual(['Likely too weak', 'Estimated worth · 4 pawns']);
-  });
-
-  it('gives an unchanged Pawn and Queen their own words', () => {
-    const own = (key: string): string[] => { const d = { ...fromPreset(presetOf(key)), letter: 'D' }, html = cardHtml(d, judge(d)); return [textOf(html, 'ws-learn'), textOf(html, 'ws-worth')]; };
-    expect(own('pawn')).toEqual(['The unit of worth', 'Estimated worth · 1 pawn']);
-    expect(own('queen')[0]).toBe('The queen’s worth');
-  });
-
-  it('shows the name, the figure, the rules and a hidden summary; a piece with no move and no take has no band', () => {
-    const d = design({ name: `Ann's <b>`, look: { ...fromPreset(BLANK).look, figure: 'clay-golem' }, squares: [{ x: 0, y: 1, mark: 'both' }], rules: [chain] });
-    const html = cardHtml(d, judge(d));
-    expect(textOf(html, 'ws-name-t')).toBe('Ann&#39;s &#60;b&#62;');
-    expect(html).toContain('<img class="ws-fig" src="/ui/workshop/clay-golem-w.webp"');
-    expect(html.match(/<li>([^<]*)<\/li>/g)).toEqual(['<li>When it takes by moving, it may take again from the new square (not a king).</li>']);
-    expect(textOf(html, 'sr-only ws-summary')).toBe('Clay Golem look, ivory. Moves 1 square straight ahead. Takes the same squares. When it takes by moving, it may take again from the new square (not a king). About half a pawn, likely too weak.');
-    const blank = cardHtml(design(), judge(design()));
-    expect([textOf(blank, 'ws-learn'), textOf(blank, 'ws-worth')]).toEqual(['', 'It has no moves and no takes.']);
+  it('gives "moves like" every state, with "always" first (it adds to Moves)', () => {
+    expect(whenChoices('movesLike')).toEqual({ top: [...TOP_WHENS], more: [...MORE_WHENS] });
+    expect(whenChoices('movesLike').top[0]).toEqual({ on: 'always' });
   });
 });
 
@@ -190,29 +103,29 @@ describe('store (§8.4.12)', () => {
 
   it('works when storage throws or is missing', () => {
     const broken = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('full'); } };
-    expect(loadDesigns(broken)).toEqual([]);
+    expect(loadShelf(broken).designs).toEqual([]);
     expect(saveDesign(design(1), broken)).toBe('failed');
     expect(deleteDesign('d1', broken)).toBe(false);
-    expect(loadDesigns(null)).toEqual([]);
+    expect(loadShelf(null).designs).toEqual([]);
     const bad = mem();
     bad.setItem(KEY, '{not json');
-    expect(loadDesigns(bad)).toEqual([]);
+    expect(loadShelf(bad).designs).toEqual([]);
   });
 
   it('keeps the newest first; a full shelf refuses a new design and drops nothing', () => {
     const s = mem();
     for (let n = 1; n <= MAX; n++) expect(saveDesign(design(n), s)).toBe('saved');
     expect(saveDesign(design(MAX + 1), s)).toBe('full');
-    const list = loadDesigns(s);
+    const list = loadShelf(s).designs;
     expect(list).toHaveLength(MAX);
     expect(list[0].id).toBe(`d${MAX}`);
     expect(list.at(-1)!.id).toBe('d1');
     // A design already on the shelf still saves, and moves to the front.
     expect(saveDesign({ ...design(10), updated: 9999 }, s)).toBe('saved');
-    expect(loadDesigns(s)[0].id).toBe('d10');
-    expect(loadDesigns(s)).toHaveLength(MAX);
+    expect(loadShelf(s).designs[0].id).toBe('d10');
+    expect(loadShelf(s).designs).toHaveLength(MAX);
     expect(deleteDesign('d10', s)).toBe(true);
-    expect(loadDesigns(s).some(d => d.id === 'd10')).toBe(false);
+    expect(loadShelf(s).designs.some(d => d.id === 'd10')).toBe(false);
     expect(saveDesign(design(MAX + 1), s)).toBe('saved');
   });
 
@@ -220,11 +133,62 @@ describe('store (§8.4.12)', () => {
     const s = mem();
     s.setItem(KEY, JSON.stringify({ v: 1, designs: [{ kind: 'piece', id: 'broken' }, { ...design(1), squares: [{ x: 9, y: 0, mark: 'both' }] }, design(2)] }));
     expect(loadShelf(s)).toMatchObject({ bad: 2 });
-    expect(loadDesigns(s).map(d => d.id)).toEqual(['d2']);
-    for (const d of loadDesigns(s)) expect(() => judge(d)).not.toThrow();
+    expect(loadShelf(s).designs.map(d => d.id)).toEqual(['d2']);
+    for (const d of loadShelf(s).designs) expect(() => judge(d)).not.toThrow();
     expect(saveDesign(design(3), s)).toBe('saved');
     expect(deleteDesign('d2', s)).toBe(true);
     const raw = JSON.parse(s.m.get(KEY)!).designs as { id: string }[];
     expect(raw.map(d => d.id)).toEqual(['d3', 'broken', 'd1']);
+  });
+});
+
+describe('the design menu (Proving Ground ticket 07)', () => {
+  it('Copy as text gives the sentences, a MATRIX row and the link', () => {
+    const d: PieceDesign = { ...fromPreset(BLANK), name: 'Rook Rider', letter: 'D', lines: ['n', 'e', 's', 'w'],
+      squares: [{ x: 1, y: 2, mark: 'both' }, { x: -1, y: 2, mark: 'both' }] };
+    const t = designText(d, judge(d, false), 'https://example.test/?design=abc').split('\n');
+    expect(t[0]).toBe('Rook Rider');
+    expect(t[1]).toBe(`Moves: ${words(d).moves}`);
+    expect(t).toContain(`Takes: ${words(d).takes}`);
+    expect(t.at(-3)).toMatch(/^\| Rook Rider \| piece \| squares: moves .*; takes .* \| \d+\.\d\d \| [a-z ]+ \|$/);
+    expect(t.at(-1)).toBe('https://example.test/?design=abc');
+  });
+
+  it('names a copy with the next free number, within 18 letters', () => {
+    expect(copyName('My Pawn', [])).toBe('My Pawn');
+    expect(copyName('My Pawn', ['My Pawn'])).toBe('My Pawn 2');
+    expect(copyName('My Pawn 2', ['My Pawn', 'My Pawn 2'])).toBe('My Pawn 3');
+    // An 18-letter name stays whole while it is free; only a number cuts it.
+    expect(copyName('Wandering Champion', [])).toBe('Wandering Champion');
+    const long = copyName('Wandering Champion', ['Wandering Champion']);
+    expect(long).toBe('Wandering Champi 2');
+    expect(validName(long)).toBe(true);
+  });
+});
+
+describe('the laws of the Rules tab (ticket 12)', () => {
+  afterEach(() => { setRules(); });
+
+  it('says "On" or "Off" as RULES has each law in force', () => {
+    const keys: (keyof Rules)[] = ['fiftyMove', 'threefold', 'insufficientMaterial', 'guardNextToKing', 'bishopsOppositeColours'];
+    keys.forEach((k, i) => {
+      for (const on of [true, false]) {
+        setRules({ [k]: on });
+        expect(lawsOf()[i][2], k).toBe(on ? 'On' : 'Off');
+      }
+    });
+  });
+
+  it('names the promotion pieces of each promotionSet', () => {
+    const want = {
+      standard: ['Q R B N', 'queen, rook, bishop or knight'],
+      anyNonKingNoFairy: ['Q R B N', 'queen, rook, bishop or knight'],
+      anyNonKing: ['Q R B N A L G M S', 'queen, rook, bishop, knight, archer, paladin, guard, maester or beast'],
+      anyNonKingNoGuard: ['Q R B N A L M S', 'queen, rook, bishop, knight, archer, paladin, maester or beast'],
+    } as const;
+    for (const [set, [letters, words]] of Object.entries(want)) {
+      setRules({ promotionSet: set as Rules['promotionSet'] });
+      expect(promotion()).toEqual({ letters, words });
+    }
   });
 });

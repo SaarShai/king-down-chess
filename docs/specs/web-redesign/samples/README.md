@@ -42,6 +42,7 @@ export default {
       motion: 'normal',          // optional; a still with Motion Normal, for replay controls
       video: true,               // optional; also one phone video of the steps: <name>-phone.webm
       scheme: 'dark',            // optional; the device's colour scheme, 'light' (the default) or 'dark'
+      sizes: ['phone', 'desktop', 'landscape'], // optional; this state's sizes in place of the table's
     },
   ],
 };

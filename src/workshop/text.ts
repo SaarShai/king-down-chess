@@ -4,8 +4,11 @@
  * Pure, so the tests run it in Node.
  * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
-import { DIAG, DIRS, ORTHO, type Dir, type PieceDesign, type Rule, type Square } from './model';
-import { blockOf, whenWords, type Part } from './vocab';
+import { LETTERS, NAMES, P, WHITE, genPiece, parseSq, piece, type Move } from '../rules/engine';
+import { RULES } from '../rules/rules';
+import { bandOf, type Verdict } from './judge';
+import { DIAG, DIRS, ORTHO, type Ability, type Dir, type LikeAs, type PieceDesign, type Rule, type Square, type When } from './model';
+import { blockOf, choiceText, whenWords, type Part } from './vocab';
 
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules'>;
 /** The one escaper of the Workshop (a copy of `esc` in src/account/account.ts). */
@@ -79,12 +82,6 @@ const KNIGHT8: [number, number][] = [[1, 2], [2, 1], [2, -1], [1, -2], [-1, -2],
 const isLines = (lines: readonly Dir[], set: readonly Dir[]): boolean => lines.length === set.length && set.every(d => lines.includes(d));
 const jumps = (s: Square): boolean => Math.max(Math.abs(s.x), Math.abs(s.y)) > 1;
 
-/* ---- every square, exactly ---- */
-
-/** "2 up, 1 right": the editor's board labels (forward is up). */
-export const dirWords = (x: number, y: number): string =>
-  [y > 0 ? `${y} up` : y < 0 ? `${-y} down` : '', x > 0 ? `${x} right` : x < 0 ? `${-x} left` : ''].filter(Boolean).join(', ');
-
 /* ---- rule sentences ---- */
 
 /** A rule's sentence as parts. The editor shows "Always" as a pill; the card leaves it out. */
@@ -96,6 +93,33 @@ export function ruleParts(r: Rule, editor = false): Part[] {
 }
 export const partsText = (ps: readonly Part[]): string => ps.map(p => (typeof p === 'string' ? p : p.text)).join('');
 export const ruleText = (r: Rule): string => partsText(ruleParts(r));
+
+/** The short line of each block on the Proving Ground's plinth (its spec, decision 38; proving-ground.html:979-1005), with the block's pill. */
+const LINE: Record<Ability['a'], (pill: Part) => Part[]> = {
+  step2: () => ['steps 2 straight ahead'], movesLike: p => ['also moves like ', p], linesPass: p => ['its lines pass over ', p],
+  chain: () => ['it may take again (not a king)'], cannotBeTaken: p => ['cannot be taken ', p], push: p => ['pushes a piece next to it ', p],
+  swap: p => ['swaps with ', p, ' next to it'], becomes: p => ['becomes ', p], cannotTake: p => ['cannot take ', p], removedAfter: () => ['it is removed too'],
+};
+/** A pill's words on the Proving Ground: "a piece you choose", with no list after a colon. */
+export const brief = (s: string): string => s.replace(/:.*/, '');
+/** A rule on the Proving Ground: `after`, the parts after its When chip (the When's own pill: "a piece, not a pawn");
+ *  `line`, its short line; `say`, its sentence on the Rules shelf (proving-ground.html:1426), the long one of the block. */
+export function lineParts(r: Rule): { after: Part[]; line: Part[]; say: Part[] } {
+  const b = blockOf(r.does.a), short = (p: Part): Part => (typeof p === 'string' ? p : { ...p, text: brief(p.text) });
+  const p: Part = b.pill ? { pill: b.pill.key, text: brief(choiceText(b.pill.choices, (r.does as unknown as Record<string, string>)[b.pill.key])) } : '';
+  const say = b.say(r).map(short);
+  return { after: r.does.a === 'removedAfter' ? [p] : [], line: LINE[r.does.a](p), say: [cap(say[0] as string), ...say.slice(1), '.'] };
+}
+
+/* ---- the When choices (the When sheet; the Proving Ground's When chip) ---- */
+
+/** A When choice in words. "Always" for "moves like" adds that piece's squares to Moves. */
+export const whenLabel = (w: When, like: boolean): string =>
+  w.on === 'always' && like ? 'Always (adds it to Moves)' : w.on === 'zone' && w.zone === 'capital' ? 'On a center square (d4 e4 d5 e5)' : cap(whenWords(w));
+/** Why "Always" cannot take a "moves like" rule into Moves (likeAlways gives null). */
+export const LIKE_CLASH = 'Its shots and these moves meet on a square, and a square cannot hold both. Keep it as a rule.';
+/** What "Always" added to Moves, for its toast. */
+export const LIKE_ADDED: Record<LikeAs, string> = { king: "the king's squares", knight: "the knight's squares", bishop: "the bishop's lines", rook: "the rook's lines", queen: "the queen's lines" };
 
 /* ---- describe ---- */
 
@@ -121,4 +145,30 @@ export function describe(d: D): Described {
   if (d.rules.some(r => r.does.a === 'cannotBeTaken' && r.does.by === 'allButKing')) takes += ' Only a king can take it.';
   const special = d.rules.map(ruleText);
   return { moves, takes, special, summary: [`Moves ${moves}`, takes.startsWith('Shoots') ? takes : `Takes ${takes}`, ...special].join(' ') };
+}
+
+/** Copy as text (§7.6): the sentences, a MATRIX-style row and the link. `v` is the judge's verdict of `d`. */
+export function designText(d: D & Pick<PieceDesign, 'name'>, v: Verdict, link: string): string {
+  const t = describe(d), band = bandOf(v);
+  const parts = [`squares: moves ${t.moves.replace(/\.$/, '')}; takes ${t.takes.replace(/\.$/, '')}`, ...d.rules.map(r => `${blockOf(r.does.a).matrix}: ${ruleText(r).replace(/\.$/, '')}`)];
+  return [d.name, `Moves: ${t.moves}`, `Takes: ${t.takes}`, ...t.special.map(s => `Special: ${s}`), `About ${pawns(v.worth.point)}. ${band}.`, '',
+    `| ${d.name} | piece | ${parts.join(' · ')} | ${v.worth.point.toFixed(2)} | ${band.toLowerCase()} |`, '', link].join('\n');
+}
+
+/** The laws of the Rules tab (ticket 12, spec decision 28): read only, and each word follows RULES in force. Each law: its
+ *  name, what it does, and "On" or "Off". */
+export const lawsOf = (): [string, string, string][] => ([
+  ['50-move draw', 'Fifty moves with no take and no pawn move: a draw.', RULES.fiftyMove],
+  ['Threefold', 'The same position three times: a draw.', RULES.threefold],
+  ['Material', 'Too few pieces to checkmate: a draw.', RULES.insufficientMaterial],
+  ['Guard by its king', 'A guard starts next to its king.', RULES.guardNextToKing],
+  ['Bishops on two colours', 'Two bishops start on squares of two colours.', RULES.bishopsOppositeColours],
+] as const).map(([name, say, on]) => [name, say, on ? 'On' : 'Off']);
+/** Promotion in force: the letters and the words of each piece a pawn may become, from the engine's moves of a pawn on a7. */
+export function promotion(): { letters: string; words: string } {
+  const b = new Uint8Array(64), out: Move[] = [];
+  b[parseSq('a7')] = piece(P, WHITE);
+  genPiece(b, parseSq('a7'), 'all', out);
+  const ts = out.map(m => m.promo!), names = ts.map(t => NAMES[t]);
+  return { letters: ts.map(t => LETTERS[t]).join(' '), words: `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}` };
 }

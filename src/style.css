@@ -45,11 +45,16 @@
   --on-night: #f3ead7;
   --on-night-soft: #d6c9ad;
   /* marks on the board (src/render/marks.ts), as "r g b": each kind also has its own shape */
-  --mark-move: 255 214 128;     /* gold gem */
-  --mark-capture: 214 52 40;    /* crimson ring and brackets */
+  --mark-move: 124 179 66;      /* the legend's green tile */
+  --mark-capture: 214 52 40;    /* the legend's red target */
   --mark-swap: 160 120 220;     /* violet: the Maester's trade */
   --mark-shove: 64 190 176;     /* teal: the Ogre's push */
   --mark-power: 96 160 255;     /* blue rune: a king's power */
+  /* The move legend (src/render/legend.ts LEG): a green tile moves, a red target takes, both on one tile do both */
+  --leg-green: #7cb342; --leg-green-hi: #9ccc65; --leg-green-lo: #6a9a36;
+  --leg-navy: #1c2e5c;          /* the tile's edge */
+  --leg-red: #d63428;           /* the target */
+  --leg-white: var(--vellum); --leg-halo: rgba(251, 247, 238, 0.92);
 
   /* The Quiet Table: one parchment floor under every screen, also when the device is in dark mode. */
   --floor-base: #f2e9d6;   /* the floor's middle colour, and the page colour under it */

@@ -22,7 +22,6 @@ function read(s: Box | null): { designs: PieceDesign[]; bad: unknown[] } {
 }
 /** The designs, and how many entries could not be read. */
 export const loadShelf = (s: Box | null = box()): { designs: PieceDesign[]; bad: number } => { const r = read(s); return { designs: r.designs, bad: r.bad.length }; };
-export const loadDesigns = (s: Box | null = box()): PieceDesign[] => read(s).designs;
 /** Saves `d` as the newest design (a design already there moves to the front). A new design on a full shelf is not saved. */
 export function saveDesign(d: PieceDesign, s: Box | null = box()): SaveResult {
   const { designs, bad } = read(s), others = designs.filter(x => x.id !== d.id);
