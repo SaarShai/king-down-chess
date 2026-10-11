@@ -232,13 +232,15 @@ export function sceneOf(design: D, board: Uint8Array, from: number, st: TryState
 
 /** The paint diff of a copy (paintDiff, proving-ground.html:875): the scene of `d`, where each mark that `base`'s paint
  *  with d's rules does not make on the same board is '+', and each mark of that paint that is gone comes back as '-'.
- *  "Moves like" lays a whole piece over the paint, so a mark that it does not make is compared with base's paint without
- *  it: the paint's own change keeps its pip (My Pawn's c5 and e5 under "moves like a queen", the mockup's stamped state). */
+ *  "Moves like" lays a whole piece over the paint, so on a square that it does not change, d's paint is compared with
+ *  base's paint, both without it: the paint's own change keeps its pip (My Pawn's c5 and e5 under "moves like a queen",
+ *  the mockup's stamped state), and paint that does not change gets none (an empty d5 that "moves like a king" makes Both). */
 export function diffOf(d: D, base: Pick<D, 'squares' | 'lines'>, board: Uint8Array, from: number, st: TryState = START): Scene {
   const sc = sceneOf(d, board, from, st), was = sceneOf({ ...base, rules: d.rules }, board, from, st).marks;
-  const like = canonical(d).rules.findIndex(r => r.does.a === 'movesLike');
-  const bare = like < 0 ? was : sceneOf({ ...base, rules: d.rules.filter(r => r.does.a !== 'movesLike') }, board, from, st).marks;
-  for (const m of sc.marks) if (!(m.by?.includes(like) ? was : bare).some(o => o.sq === m.sq && o.k === m.k && o.cond === m.cond)) m.diff = '+';
+  const like = canonical(d).rules.findIndex(r => r.does.a === 'movesLike'), rules = d.rules.filter(r => r.does.a !== 'movesLike');
+  const [mine, bare] = [d, base].map(x => (like < 0 ? [] : sceneOf({ ...x, rules }, board, from, st).marks));
+  const has = (l: Scene['marks'], m: Scene['marks'][number]): boolean => l.some(o => o.sq === m.sq && o.k === m.k && o.cond === m.cond);
+  for (const m of sc.marks) if (like < 0 || m.by?.includes(like) ? !has(was, m) : mine.some(o => o.sq === m.sq && !has(bare, o))) m.diff = '+';
   for (const o of was) if (!sc.marks.some(m => m.sq === o.sq)) sc.marks.push({ ...o, diff: '-' });
   return sc;
 }

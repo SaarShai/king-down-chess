@@ -116,6 +116,9 @@ describe('the scene builder', () => {
     const mine = [{ x: 0, y: 1, mark: 'move' as const }, { x: -1, y: 1, mark: 'both' as const }, { x: 1, y: 1, mark: 'both' as const }];
     const queen: Rule = { when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } };
     expect(diffOf({ ...pawn, squares: mine, rules: [...pawn.rules, queen] }, pawn, board, d4).marks.filter(m => m.diff).map(m => `${m.sq} ${m.k} ${m.diff}`).sort()).toEqual(['c5 both +', 'e5 both +']);
+    // Paint that does not change gets no pip: "moves like a king" makes the empty d5 Both, but it changes no move there.
+    const king: Rule = { when: { on: 'always' }, does: { a: 'movesLike', as: 'king' } };
+    expect(diffOf({ ...pawn, rules: [...pawn.rules, king] }, pawn, board, d4).marks.filter(m => m.diff)).toEqual([]);
   });
 });
 

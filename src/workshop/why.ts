@@ -8,7 +8,7 @@
 import { BLACK, colorOf, file, parseSq, rank, sqName, type Move } from '../rules/engine';
 import { clickPath } from '../marks-model';
 import { DIR, canonical, likeSquares, type Ability, type Dir, type PieceDesign, type Rule, type Square } from './model';
-import { START, movesOf, type Refused, type TryState } from './moves';
+import { START, holds, movesOf, type Refused, type TryState } from './moves';
 import type { Kind, Scene, ScenePiece } from './scene';
 import { cap } from './text';
 import { LIKE, blockOf, choiceText, whenWords } from './vocab';
@@ -43,7 +43,7 @@ function signatures(moves: readonly Move[], refused: readonly Refused[]): Map<nu
 /** The squares whose signatures differ. */
 const changed = (x: Map<number, string>, y: Map<number, string>): number[] => [...new Set([...x.keys(), ...y.keys()])].filter(q => x.get(q) !== y.get(q));
 const marked = (sig?: string): boolean => !!sig?.split(',').some(f => !f.startsWith('refused'));
-const list = (qs: string[]): string => (qs.length > 1 ? `${qs.slice(0, -1).join(', ')} and ${qs.at(-1)}` : qs[0]);
+const list = (qs: string[], w = 'and'): string => (qs.length > 1 ? `${qs.slice(0, -1).join(', ')} ${w} ${qs.at(-1)}` : qs[0]);
 
 /** The why-trace of design `d` for the piece on `from`. */
 export function traceOf(d: D, board: Uint8Array, from: number, st: TryState = START): Trace {
@@ -74,8 +74,8 @@ export function traceOf(d: D, board: Uint8Array, from: number, st: TryState = ST
   }
 
   // The painted square at the offset (mirrored for Black), else the painted line through the square, else those of the
-  // piece that a "moves like" rule names.
-  const dy = colorOf(board[from]) === BLACK ? -1 : 1, base: Trace['base'] = new Map(), like = rules.find(r => r.does.a === 'movesLike')?.does;
+  // piece that a "moves like" rule names, while its When holds (asleep, it makes no move: e4 of My Pawn on e2 is step 2).
+  const dy = colorOf(board[from]) === BLACK ? -1 : 1, base: Trace['base'] = new Map(), like = rules.find(r => r.does.a === 'movesLike' && holds(r.when, board, from, st))?.does;
   for (let q = 0; q < 64; q++) {
     const x = file(q) - file(from), y = (rank(q) - rank(from)) * dy, k = Math.max(Math.abs(x), Math.abs(y));
     const under = (p: { squares: readonly Square[]; lines: readonly Dir[] }) => p.squares.find(s => s.x === x && s.y === y)?.mark ?? p.lines.find(l => DIR[l][0] * k === x && DIR[l][1] * k === y);
@@ -149,19 +149,23 @@ export function whyWords(d: D & { name?: string }, sc: Scene, trace: Trace, q: s
   const stays = (x: Scene['marks'][number]): boolean => !changes(x.sq, 'removedAfter');
   const other = marks.find(x => takes(x) && stays(x));
   const next = marks.filter(x => x.on === q), takes2 = next.filter(x => x.k === 'take').map(x => x.sq);
+  // The next takes by their order pip: the takes of one order are choices ("d6 or f6"), and each order follows the one before.
+  const order: string[][] = [];
+  for (const e of sc.effects) if (e.k === 'pip' && e.on === q && takes2.includes(e.sq)) (order[e.n] ??= []).push(e.sq);
+  const then = order.filter(Boolean).map(l => list(l, 'or')).join(', then ');
   const kept = takes(m) && !takes2.length && rules.some(r => r.does.a === 'removedAfter')
     ? stays(m) ? `It takes ${one(occ!.k)} and stays.` : other ? `On ${other.sq} it takes ${one(at(other.sq)!.k)} and stays.` : '' : '';
   // A take that removes the piece at once stops the rule of a cracked knot (My Beast, removed after anything).
   const gone = rules.findIndex(r => r.does.a === 'removedAfter'), knot = tags.includes('removedAfter') ? trace.knots.find(k => k.type === 'cracked' && (k.a === gone || k.b === gone)) : undefined;
   const stopped = knot ? `It leaves at once, so ${blockOf(rules[knot.a === gone ? knot.b : knot.a].does.a).label} never fires.` : '';
-  const foot = [kept, stopped, takes2.length ? `It takes ${q}, then ${list(takes2)}.` : '', ...next.filter(x => x.k === 'blocked').map(x => `Never the ${at(x.sq)!.k} on ${x.sq}.`),
+  const foot = [kept, stopped, takes2.length ? `It takes ${q}, then ${then}.` : '', ...next.filter(x => x.k === 'blocked').map(x => `Never the ${at(x.sq)!.k} on ${x.sq}.`),
     ...takes2.filter(t => changes(t, 'removedAfter')).map(t => `After the ${at(t)!.k} on ${t}, it is removed too.`),
     m.on ? `It takes ${m.on} first.` : '', moved].filter(Boolean).join(' ');
   // The base: a painted step ("step"), a painted shot ("shot: 2 away"), a painted line, or the dashed step of "steps 2".
   const k = Math.max(Math.abs(file(s) - file(from)), Math.abs(rank(s) - rank(from))), step2 = !base && imps.some(x => x.a === 'step2');
   const baseWords = rail ? 'line' : step2 ? 'step 2' : painted?.includes('shot') ? `shot: ${k} away` : painted && k === 1 ? 'step' : SAY[painted ?? 'empty'];
   const now = m.cond === 'asleep' ? 'asleep here' : tags.includes('becomes') ? `${foe(q) ? 'takes' : 'moves'}, then becomes` : tags.includes('removedAfter') ? 'takes, then leaves'
-    : takes2.length ? `then ${list(takes2)}` : m.cond ? `${m.cond} here` : m.k === 'shot' ? `takes, stays on ${sqName(from)}` : SAY[m.k];
+    : takes2.length ? `then ${then}` : m.cond ? `${m.cond} here` : m.k === 'shot' ? `takes, stays on ${sqName(from)}` : SAY[m.k];
   return {
     occupant, piece: occ, count: 1 + imps.length,
     sum: {

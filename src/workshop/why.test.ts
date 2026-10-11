@@ -30,6 +30,7 @@ const DESIGNS: Record<string, D> = {
   'mypawn-queen': { ...mine, rules: [pawn.rules[0], { when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }, pawn.rules[1]] },
   mybeast: { ...beast, rules: [...beast.rules, removed('piece')] }, 'mybeast-any': { ...beast, rules: [...beast.rules, removed('any')] },
 };
+DESIGNS['mypawn-queen-e2'] = DESIGNS['mypawn-queen'];
 /** The hand scene `id` and the trace of its design on its board. */
 function both(id: string) {
   const hand = scenes.get(id);
@@ -114,6 +115,17 @@ describe('the Why tag words', () => {
       sum: { base: 'empty', stamps: ['chain'], result: 'take', captions: ['not painted', 'takes again', 'takes'] } });
   });
 
+  it('names the next takes of one order as choices, and each later order after them', () => {
+    const tag = (foes: string) => {
+      const board = boardOf([{ sq: 'd4', k: 'design', side: 'w', open: true }, ...foes.split(' ').map(t => ({ sq: t.slice(1), k: t[0] === 'n' ? 'knight' : 'pawn', side: 'b' as const }))]);
+      const w = whyWords(beast, sceneOf(beast, board, parseSq('d4')), traceOf(beast, board, parseSq('d4')), 'e5');
+      return [w.foot, w.sum?.captions.at(-1)];
+    };
+    // The routes are e5, e5-d6 and e5-f6: it takes d6 or f6, not both.
+    expect(tag('pe5 pd6 nf6')).toEqual(['It takes e5, then d6 or f6.', 'then d6 or f6']);
+    expect(tag('pe5 pd6 nf6 pg7')).toEqual(['It takes e5, then d6 or f6, then g7.', 'then d6 or f6, then g7']);
+  });
+
   it('takes nothing on a mark of the paint diff that is gone: a Beast copy with no northeast square, a Paladin copy with no northwest line', () => {
     const tag = (base: D, d: D, id: string, q: string) => {
       const board = boardOf(scenes.get(id).pieces), from = parseSq('d4');
@@ -154,6 +166,8 @@ describe('the Why tag words', () => {
     // Takes again only; Removed too changes the next take, f6, and the note says so).
     const WHY: [string, string, number, string[], string?][] = [
       ['pawn-e2', 'e4', 2, ['step 2', 'on its start rank', 'awake here']],
+      // On e2 the queen lines sleep, so the base of e4 is the step 2 that makes it, not a queen line.
+      ['mypawn-queen-e2', 'e4', 2, ['step 2', 'on its start rank', 'awake here']],
       ['mypawn', 'd6', 2, ['step 2', 'on its start rank', 'asleep here']],
       ['mypawn-queen', 'd8', 3, ['line', 'like a queen, on a center square', 'becomes', 'moves, then becomes']],
       ['mypawn-queen', 'h8', 3, ['line', 'like a queen, on a center square', 'becomes', 'moves, then becomes']],
