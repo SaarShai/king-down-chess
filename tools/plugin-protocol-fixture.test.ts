@@ -109,3 +109,21 @@ it('allows Switch now only for an earlier own search joined after solo play star
   }
  } finally {vi.useRealTimers();}
 },20000);
+
+it('keeps one three-day setup deadline through each Choose', async () => {
+ const s = fixtureService(); vi.useFakeTimers({toFake:['Date']}); vi.setSystemTime(new Date('2026-10-11T12:00:00.000Z'));
+ try {
+  await s.handle('alice',{handle:'alice'}); await s.handle('bob',{handle:'bob'});
+  const game = await s.create('alice',{kind:'friend',options:DEFAULT_OPTIONS});
+  const joined = await s.join('bob',(await s.invite('alice',game.game_id)).code), deadline = '2026-10-14T12:00:00.000Z';
+  expect(joined.setup_deadline_at).toBe(deadline);
+  const choice = {king:null,order:joined.draw!};
+  for (const [i,actor] of ['alice','bob'].entries()) {
+   vi.setSystemTime(Date.now()+86_400_000);
+   const changed = await s.command(actor,game.game_id,{command_id:actor,expected_revision:1+i,action:{type:'choose',choice,ready:false}});
+   expect(changed.setup_deadline_at).toBe(deadline); expect((await s.view(actor,game.game_id,changed.revision)).setup_deadline_at).toBe(deadline);
+  }
+  await s.command('alice',game.game_id,{command_id:'ready-a',expected_revision:3,action:{type:'choose',choice,ready:true}});
+  expect((await s.command('bob',game.game_id,{command_id:'ready-b',expected_revision:4,action:{type:'choose',choice,ready:true}})).setup_deadline_at).toBeNull();
+ } finally {vi.useRealTimers();await s.close();}
+});

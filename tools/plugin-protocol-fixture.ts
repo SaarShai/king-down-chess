@@ -12,7 +12,7 @@ import { handleProblem, type Icon } from '../src/account/profile';
 const CODE = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', DAY = 86_400_000;
 const fail = (code: MatchServiceError['code'], status: number, message: string): never => { throw new MatchServiceError(code, status, message); };
 const parse = <T>(schema: {safeParse(input:unknown):{success:boolean;data?:T}}, input:unknown):T => { const value = schema.safeParse(input); return value.success ? value.data! : fail('INVALID_INPUT',400,'Invalid input'); };
-interface Game { id:string; creator:string; input:CreateOptions; match?:LocalMatch; players:(string|null)[]; choices:[Choice|null,Choice|null]; ready:[boolean,boolean]; drawn?:Draw; turns:[number,number]; revision:number; status:View['status']; result?:View['result']; commands:Map<string,string>; log:LoggedCommand[]; invite?:{token:string;code:string;expires_at:string;used_by?:string}; draw_offer:Seat|null; rematch_offer:Seat|null; rematch_game_id:string|null; created:number; updated:number; deadline:string|null }
+interface Game { id:string; creator:string; input:CreateOptions; match?:LocalMatch; players:(string|null)[]; choices:[Choice|null,Choice|null]; ready:[boolean,boolean]; drawn?:Draw; turns:[number,number]; revision:number; status:View['status']; result?:View['result']; commands:Map<string,string>; log:LoggedCommand[]; invite?:{token:string;code:string;expires_at:string;used_by?:string}; draw_offer:Seat|null; rematch_offer:Seat|null; rematch_game_id:string|null; created:number; updated:number; setup_deadline:string|null; deadline:string|null }
 export interface FixtureSeed { history?:HistoryEntry[]; games?:InboxEntry[]; record?:PlayerRecord; views?:Record<string,Partial<View>> }
 export function fixtureService(): Pick<PluginService,keyof PluginService> & { seed(actor:string,data:FixtureSeed):void; deleteMatch(id:string):Promise<void>; close():Promise<void> } {
  const games = new Map<string,Game>(), boards = new Map<string,{actor:string;game:string|null;selected:boolean}>(), profiles = new Map<string,{user_id:string;handle:string|null;icon:Icon|null}>(), settings = new Map<string,PlayerSettings>(), seeds = new Map<string,FixtureSeed>();
@@ -21,14 +21,14 @@ export function fixtureService(): Pick<PluginService,keyof PluginService> & { se
  const load = (id:string) => games.get(id) ?? fail('NOT_FOUND',404,'Game not found');
  const seatOf = (game:Game,actor:string):Seat => { const seat = game.players.indexOf(actor); return seat < 0 ? fail('FORBIDDEN',403,'You do not have a seat in this game') : seat as Seat; };
  const requireHandle = async (actor:string) => { if (!(await profile(actor)).handle) fail('HANDLE_NEEDED',409,'Choose a handle first'); };
- async function start(game:Game) { game.match = await createMatch(game.input.options ? buildSetup(game.input.options,game.drawn!,game.choices as [Choice,Choice]) : game.input.setup ?? {}); game.status = 'playing'; await end(game); }
+ async function start(game:Game) { game.match = await createMatch(game.input.options ? buildSetup(game.input.options,game.drawn!,game.choices as [Choice,Choice]) : game.input.setup ?? {}); game.status = 'playing'; game.setup_deadline = null; await end(game); }
  async function end(game:Game) { const after = await game.match!.snapshot(); if (after.status !== 'playing') Object.assign(game,{status:'finished',result:{winner:after.status === 'checkmate' ? 1-after.turn : null,reason:after.status}}); }
- async function enter(game:Game) { if (game.ready.every(Boolean) || !game.input.options) { if (!game.match) await start(game); else game.status = 'playing'; } else game.status = 'setup'; }
+ async function enter(game:Game) { if (game.ready.every(Boolean) || !game.input.options) { if (!game.match) await start(game); else game.status = 'playing'; } else {game.status = 'setup'; if (game.input.kind !== 'solo') game.setup_deadline ??= new Date(Date.now()+3*DAY).toISOString();} }
  async function create(actor:string,input:unknown):Promise<View> {
   const options = parse<CreateOptions>(createSchema,input); if (options.kind !== 'solo') await requireHandle(actor);
   const seat:Seat = options.colour === 'black' ? 1 : options.colour === 'random' ? randomInt(2) as Seat : 0, solo = options.kind === 'solo', drawn = options.options ? draw(options.options,Math.random) : undefined;
   const needs = !!options.options && Object.values(seatChoicesNeeded(options.options)).some(Boolean);
-  const game:Game = {id:randomUUID(),creator:actor,input:options,players:[null,null],choices:[null,null],ready:[!needs,!needs],drawn,turns:[0,0],revision:0,status:solo ? 'setup' : 'waiting',commands:new Map(),log:[],draw_offer:null,rematch_offer:null,rematch_game_id:null,created:Date.now(),updated:Date.now(),deadline:null};
+  const game:Game = {id:randomUUID(),creator:actor,input:options,players:[null,null],choices:[null,null],ready:[!needs,!needs],drawn,turns:[0,0],revision:0,status:solo ? 'setup' : 'waiting',commands:new Map(),log:[],draw_offer:null,rematch_offer:null,rematch_game_id:null,created:Date.now(),updated:Date.now(),setup_deadline:null,deadline:null};
   game.players[seat] = actor;
   if (drawn) for (const s of [0,1] as const) { game.choices[s] = defaultChoice(options.options!,drawn,s,Math.random,solo && s !== seat); if (solo && s !== seat) game.ready[s] = true; }
   games.set(game.id,game);
@@ -45,7 +45,7 @@ export function fixtureService(): Pick<PluginService,keyof PluginService> & { se
    last_commands:game.log.filter(c=>c.seq>(since ?? 0)).slice(since === undefined ? -10 : -50).map(c=>c.seat === other && c.action.type === 'choose' && !allReady ? {...c,action:{type:'hidden'}} : c),
    opponent:opponent || solo ? {handle:otherProfile?.handle ?? null,icon:otherProfile?.icon ?? null,computer:solo,deleted:false,last_seen_ms:null,...(since === undefined && opponent && {rating:{rating:1500,provisional:true}})} : null,
    draw_offer:game.draw_offer,rematch_offer:game.rematch_offer,rematch_game_id:game.rematch_game_id,level:game.input.level ?? 'club',...(game.result && {result:game.result}),deadline_at:game.deadline,server_now:new Date().toISOString(),
-   ...(game.drawn && {options:game.input.options,draw:game.drawn.army,deal:game.drawn.hand,choices:game.choices.map((c,s)=>s === seat || allReady ? c : null) as View['choices'],ready:[...game.ready] as [boolean,boolean],setup_deadline_at:game.status === 'setup' ? new Date(game.updated+DAY).toISOString() : null}),
+   ...(game.drawn && {options:game.input.options,draw:game.drawn.army,deal:game.drawn.hand,choices:game.choices.map((c,s)=>s === seat || allReady ? c : null) as View['choices'],ready:[...game.ready] as [boolean,boolean],setup_deadline_at:game.setup_deadline}),
    ...(snapshot && {kings:snapshot.rules.kings,hands:snapshot.rules.hands,...(since === undefined && {rules:snapshot.rules})}),
    ...(since === undefined && { ...(outcome && {outcome}), ...(seededRules && {rules:seededRules}) })};
  }
