@@ -15,7 +15,7 @@ const light = [
   // A first visit: no save, and the title opens.
   { name: 'title', title: true, controls: '#title-screen .title-actions button:not([hidden])' },
   {
-    name: 'workshop', save, controls: '#workshop .ws-bar button',
+    name: 'workshop', save, controls: '#workshop .pg-menu', targets: 'button:not(.sq, .nub, .knot), select, summary, label',
     steps: async ({ page }) => { await pressMenu(page, 'Workshop'); await page.locator('#workshop').waitFor({ state: 'visible' }); },
   },
 ];

@@ -53,9 +53,8 @@ const deuteranopia = steps => async context => {
   await steps(context);
 };
 
-// A Workshop design with each legend mark on a light and on a dark cell of the grids (the piece's cell is light):
-// c5 moves; e5 and c6 move or take; d6 and e6 take; f5 and b6 shoot; f6 and b5 move or shoot; and an east line.
-// On the Try it board d6, f5 and g4 hold enemies.
+// A Workshop design with each legend mark: c5 moves; e5 and c6 move or take; d6 and e6 take; f5 and b6 shoot; f6 and b5
+// move or shoot; and an east line. Alone on d4, each mark stands on an empty square of the Workshop board.
 const design = {
   kind: 'piece', name: 'Legend Tester',
   look: { figure: 'antler-guardian', body: 'token', auto: true, glow: null, army: 0 }, letter: 'D',
@@ -67,18 +66,12 @@ const design = {
   lines: ['e'], rules: [],
 };
 const WORKSHOP = `?design=${Buffer.from(JSON.stringify(design)).toString('base64url')}`;
-/** Each legend mark of the grids stands on a light and on a dark cell. */
-const shades = async (page, scope) => {
-  for (const mark of ['c-move', 'c-take', 'c-both', 'c-shoot', 'c-moveshot']) for (const shade of ['.dk', ':not(.dk)']) {
-    if (!await page.locator(`${scope} .${mark}${shade}`).count()) throw new Error(`W13: no ${mark}${shade} cell in ${scope}`);
-  }
-};
+// The board squares are 24 px or more (Workshop spec, decision 9), so the touch test leaves them out, as in W14.
+const targets = 'button:not(.sq, .nub, .knot), select, summary, label';
+/** Keep a copy from the card face that the link opens; then each legend mark shows on the Workshop board. */
 const editor = async ({ page }) => {
-  await page.locator('#workshop .ws-read').waitFor();
   await keepWorkshopCopy(page).click();
-  await page.locator('.ws-board .c-moveshot').first().waitFor();
-  await shades(page, '.ws-board');
-  await page.locator('.ws-board').last().scrollIntoViewIfNeeded();
+  for (const k of ['move', 'take', 'both', 'shot', 'moveshot']) await page.locator(`.pg-board [data-k="${k}"]`).first().waitFor({ state: 'attached' });
 };
 
 export default {
@@ -99,19 +92,10 @@ export default {
     { name: 'clay-depth', query: '?look=clay', save: DEPTH, steps: async context => { await select(32, { moves: 10, captures: [36] })(context); await tilt(context); } },
     { name: 'clay-black', query: '?look=clay', save: BLACK, steps: select(35, { moves: 19, captures: [11, 17, 38, 53] }) },
     { name: 'clay-check', query: '?look=clay', save: CHECK, steps: select(4, { moves: 4, captures: [] }) },
-    { name: 'workshop-editor', query: WORKSHOP, steps: editor },
-    { name: 'workshop-read', query: WORKSHOP, steps: async ({ page }) => {
-      await page.locator('.ws-read .c-moveshot').first().waitFor();
-      await shades(page, '.ws-read');
-      await page.locator('.ws-grids').scrollIntoViewIfNeeded();
-    } },
-    { name: 'workshop-try', query: WORKSHOP, steps: async ({ page }) => {
-      await page.locator('#workshop .ws-read').waitFor();
-      await page.click('.ws-try');
-      await page.locator('.tb-board .mk-shot').first().waitFor();
-    } },
+    { name: 'workshop-editor', query: WORKSHOP, targets, steps: editor },
+    { name: 'workshop-read', query: WORKSHOP, targets, steps: async ({ page }) => { await page.locator('#workshop .pg-face').waitFor(); } },
     { name: 'painted-queen-deut', save: QUEEN, steps: deuteranopia(queen) },
     { name: 'clay-queen-deut', query: '?look=clay', save: QUEEN, steps: deuteranopia(queen) },
-    { name: 'workshop-editor-deut', query: WORKSHOP, steps: deuteranopia(editor) },
+    { name: 'workshop-editor-deut', query: WORKSHOP, targets, steps: deuteranopia(editor) },
   ],
 };

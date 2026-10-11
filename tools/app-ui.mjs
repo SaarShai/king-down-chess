@@ -225,18 +225,11 @@ export async function waitForUi(page, test, arg = null, options = {}) {
   }
 }
 
-/** Keep a copy now sits in the read-only view's footer. */
-export const keepWorkshopCopy = page => page.locator('#workshop .ws-keep-copy');
+/** Keep a copy on the card face that a design link opens first. */
+export const keepWorkshopCopy = page => page.locator('#workshop .pg-sheet[open] [data-keep]');
 
-/** Copy link is the main action when the device cannot share. */
-export const workshopCopyLink = page => page.locator('#workshop .ws-sheet[open] :is(.ws-copy-link, .ws-send)').filter({ hasText: /^Copy link$/ }).filter({ visible: true });
-
-/** Text controls on the Workshop card; the save label belongs to the editor. */
-export async function workshopCardText(page) {
-  const selectors = ['.ws-name-t', '.ws-worth', '.ws-bottom', '.ws-bar button', '.ws-footer button'];
-  if (await page.locator('#workshop .ws-save-state').count()) selectors.push('.ws-save-state');
-  return selectors;
-}
+/** Copy link in the Share sheet. */
+export const workshopCopyLink = page => page.locator('#workshop .pg-sheet[open] [data-copy]');
 
 /** The read line opens the Guide at the piece. */
 export const openPieceRules = page => page.locator('#all-rules').click();

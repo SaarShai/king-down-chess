@@ -30,15 +30,14 @@ const RUNNER_FOLDER = 'kingdown-check-runs';
 const DENY: [string, RegExp][] = [
   ['Mix two', /\bmix two\b/i],
   ['the Saved screen', /\b[Ss]aved [Ss]creen\b|\bSAVED\b/],
-  ['brushes', /\bbrush(es)?\b/i],
   ['Edit sheets', /\bedit (sheets?|moves|rules|links?)\b/i],
   ['the uncertainty gauge', /\buncertainty\b|\bgauge\b/i],
-  ['plinth', /\bplinths?\b/i],
   ['floor', /\bfloors?\b/i],
-  ['rim', /\brims?\b/i],
-  ['halo', /\bhalos?\b/i],
-  ['glow on the model', /\bglow(s|ing)?\b/i],
   ['the placeholder cast', /\bplaceholders?\b/i],
+  ['Surprise me', /\bsurprise me\b/i],
+  ['the thermometer', /\bthermometers?\b/i],
+  ['the Why-estimate sheet', /\bwhy this estimate\b|\bwhy-estimate\b/i],
+  ['the Try it screen', /\bTry it\b/],
   ['the revision 3 screenshot folder', /dashboard-2026-10-06/],
 ];
 const TRACKER = /\b(TASKS|QUEUE|LESSONS)\.md\b/;
@@ -121,16 +120,17 @@ describe('the Workshop doc lint', () => {
 
   it('fails on each removed feature of the deny list and on the revision 3 screenshot folder', () => {
     const lines: [string, string][] = [
-      ['Mix two', 'Mix two of your pieces.'], ['the Saved screen', 'The SAVED screen shows it.'], ['brushes', 'Two brushes paint.'],
-      ['Edit sheets', 'An Edit sheet opens.'], ['the uncertainty gauge', 'The gauge shows the pill.'], ['plinth', 'A gold plinth.'],
-      ['floor', 'The floor marks.'], ['rim', 'A gold rim.'], ['halo', 'A halo.'], ['glow on the model', 'A king glow.'],
-      ['the placeholder cast', 'A placeholder cast.'], ['the revision 3 screenshot folder', 'See dashboard-2026-10-06/.'],
+      ['Mix two', 'Mix two of your pieces.'], ['the Saved screen', 'The SAVED screen shows it.'],
+      ['Edit sheets', 'An Edit sheet opens.'], ['the uncertainty gauge', 'The gauge shows the pill.'],
+      ['floor', 'The floor marks.'], ['the placeholder cast', 'A placeholder cast.'], ['Surprise me', 'Tap Surprise me.'],
+      ['the thermometer', 'The thermometer fills.'], ['the Why-estimate sheet', 'Open Why this estimate?.'], ['the Try it screen', 'Try it opens a board.'],
+      ['the revision 3 screenshot folder', 'See dashboard-2026-10-06/.'],
     ];
     for (const [name, line] of lines) expect(docFaults(with_(line)), name).toEqual([expect.stringMatching(new RegExp(`:6: names ${name} `))]);
   });
 
-  it('passes words that only hold a denied word, such as "trims" and "primary"', () => {
-    expect(docFaults(with_('The art script trims each half. The primary button is Saved on this device.'))).toEqual([]);
+  it('passes words that only hold a denied word, such as "floors" in "subfloors", and the words of A: brushes, plinth, rim, halo, glow', () => {
+    expect(docFaults(with_('The subfloors stay. Two brushes paint; the plinth has a gold rim, a halo and a glow. Try with opens on the board.'))).toEqual([]);
   });
 
   it('fails on a missing, a repeated, a moved or an extra section', () => {

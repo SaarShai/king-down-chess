@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANCHOR_DESIGNS, anchorOf } from './anchors';
-import { BAND_WORD, THRESHOLDS, badgeText, bandOf, judge, memoryOf, whyHead, whyTitle, worthOf, type Label } from './judge';
-import { halves } from './text';
+import { BAND_WORD, THRESHOLDS, bandOf, judge, memoryOf, worthOf, type Label } from './judge';
 import { DIAG, DIRS, KING_STEP, KNIGHT_JUMP, ORTHO, PRESETS, empty, keyOf, limit, presetOf, type Dir, type Mark, type PieceDesign, type Rule, type Square, type When } from './model';
 import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS } from './vocab';
 
@@ -134,13 +133,12 @@ describe('the judge (§6)', () => {
     expect(BAND_WORD.likelyOP).toBe('Likely overpowered');
   });
 
-  it('gives an unchanged Pawn and Queen their own words in every view, and Why? its title from the verdict', () => {
+  it('gives an unchanged Pawn and Queen their own words in every view', () => {
     const pawn = judge(p('pawn')), queen = judge(p('queen'));
-    expect([bandOf(pawn), whyTitle(pawn), pawn.warn]).toEqual(['The unit of worth', 'Why this worth?', false]);
-    expect([bandOf(queen), whyTitle(queen), queen.warn]).toEqual(['The queen’s worth', 'Why this worth?', false]);
+    expect([bandOf(pawn), pawn.warn]).toEqual(['The unit of worth', false]);
+    expect([bandOf(queen), queen.warn]).toEqual(['The queen’s worth', false]);
     const paladin = judge(p('paladin'));
-    expect([paladin.label, paladin.warn, whyTitle(paladin)]).toEqual(['fair', true, 'Why this warning?']);
-    expect(whyTitle(judge(d(NN, ORTHO)))).toBe('Why “likely overpowered”?');
+    expect([paladin.label, paladin.warn]).toEqual(['fair', true]);
     expect(bandOf(judge(d(NN, ORTHO)))).toBe('Likely overpowered');
   });
 
@@ -217,12 +215,6 @@ describe('the judge on random designs', () => {
     }
   });
 
-  it('shows a badge in halves, and a change of 0.1 to ¼ pawn as ¼, not 0', () => {
-    expect([0.05, 0.1, 0.24, 0.25, 0.74, 1.59, -0.2, -1].map(badgeText)).toEqual(['+0', '+¼', '+¼', '+½', '+½', '+1½', '−¼', '−1']);
-    // The rook's "also moves like a queen on a center square": small, but not nothing.
-    expect(badgeText(judge(p('rook')).deltas.movesLike!.v)).toBe('+¼');
-  });
-
   it('names what makes a design strong in Why?: the worth without each part, the largest change first', () => {
     const v = judge(d(KING_STEP('both').filter(s => s.x && s.y), ORTHO, chain));
     expect(v.label).toBe('likelyOP');
@@ -232,22 +224,6 @@ describe('the judge on random designs', () => {
       'Without “takes again”: about 6½ pawns.',
       'In all, it can take on about 10 squares; a rook, about 7; a queen, about 12. Past 7, each one counts double.',
     ]);
-  });
-
-  it('names the band in Why? (review fix 28): the title gives the verdict\'s band, the head the shaded fair band', () => {
-    const fair = `Most pieces are worth ${halves(THRESHOLDS.weak)} to ${halves(THRESHOLDS.op)} pawns, the shaded part of the gauge.`;
-    expect(fair).toBe('Most pieces are worth 2½ to 5 pawns, the shaded part of the gauge.');
-    const seen = new Set<Label>();
-    // The pool and each tenth design: every band shows, at a tenth of the time of the full list.
-    for (const x of [...POOL, ...DESIGNS.filter((_, i) => i % 10 === 0)]) {
-      const v = judge(x);
-      if (v.own) continue; // an unchanged Pawn or Queen keeps its own words
-      seen.add(v.label);
-      if (v.label !== 'fair' || !v.warn) expect(whyTitle(v), keyOf(x)).toBe(`Why “${BAND_WORD[v.label].toLowerCase()}”?`);
-      if (v.label === 'untestedOP') expect(whyHead(v), keyOf(x)).toMatch(/It may be overpowered\.$/);
-      else expect(whyHead(v), keyOf(x)).toContain(fair);
-    }
-    expect([...seen].sort()).toEqual(expect.arrayContaining(['fair', 'likelyOP', 'possiblyOP']));
   });
 
   it('keeps the line within 90 characters, and each fix is a removal that lands in the band (§8.4.7)', () => {
