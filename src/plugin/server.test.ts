@@ -65,9 +65,13 @@ it('returns the same plain invalid-input reply for schema errors', async () => {
  await server.connect(a); await client.connect(b);
  try {
   const game_id = '00000000-0000-4000-8000-000000000001';
+  const tools = (await client.listTools()).tools;
+  expect(tools.find(t=>t.name === 'kingdown_create')!.inputSchema.properties!.kind).toMatchObject({enum:['solo','friend','random']});
+  expect(tools.find(t=>t.name === 'kingdown_create')!.inputSchema.properties!.options).toMatchObject({type:'object',properties:{fairy:{type:'boolean'}}});
+  expect(tools.find(t=>t.name === 'kingdown_get')!.inputSchema.properties!.since_revision).toMatchObject({maximum:1100});
   for (const [name,args] of [
    ['kingdown_create',{kind:'solo',options:{...DEFAULT_OPTIONS,pool:[]}}], ['kingdown_handle',{icon:'photo'}],
-   ['kingdown_get',{game_id,since_revision:1101}], ['kingdown_move',{game_id,command_id:'bad',expected_revision:1101,lan:'e2-e4'}],
+   ['kingdown_get',{game_id,since_revision:1101}], ['kingdown_get',{game_id,actorId:'mallory'}], ['kingdown_move',{game_id,command_id:'bad',expected_revision:1101,lan:'e2-e4'}],
   ] as const) expect(await client.callTool({name,arguments:args})).toEqual({isError:true,content:[{type:'text',text:'Invalid input'}],_meta:{code:'INVALID_INPUT'}});
  } finally {await client.close(); await server.close();}
 });
