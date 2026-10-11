@@ -82,7 +82,7 @@ Command fields are `{ game_id, command_id, expected_revision }`. Revisions and `
 
 `open {}` and `open { game_id: 'next' }` create no game on an empty inbox. They make an empty board selection. The summary gives `screen: 'home'`, its `board_id`, and `your_turn_count`; text says "Your move in 2 games" when two games need you. A named game defaults to screen `board`. The other screen values select the page. With a code, screen is `join`; no code, handle or icon goes in the open summary.
 
-`get { board_id }` follows the board's current game and ignores any supplied `game_id`. The page can recover with only its board ID. A background read of another game sends `game_id` with no board ID. All paths that move the board use `select(board_id, action)`. Rematch returns the old game and never moves a board. Tap to resume, Switch now and a move to `rematch_game_id` use `resume { board_id, game_id }`. A solo rematch accepts only `offer`.
+`get { board_id }` follows the board's current game and ignores any supplied `game_id`. The page can recover with only its board ID. A background read of another game sends `game_id` with no board ID. Full reads and polls record seat activity at most once each 30 seconds. This includes the reads in Open and Resume. Hidden online status still gives the other seat a null last-seen time. All paths that move the board use `select(board_id, action)`. Rematch returns the old game and never moves a board. Tap to resume, Switch now and a move to `rematch_game_id` use `resume { board_id, game_id }`. A solo rematch accepts only `offer`.
 
 Create takes the shared `optionsSchema`. Without options it uses `settings.last_setup.options`, else `DEFAULT_OPTIONS`. It sends no fixed `setup`, mode, speed or days-per-move input. Games against people are Daily, with 3 days per move. Create has no command ID; retry can create a second game. The initiator's king stays in `last_setup.king`; the seat page uses it to prefill the choice. Choose is refused while waiting.
 
@@ -158,22 +158,33 @@ A board-only poll keeps `since_revision`. A read that names an old game and foll
 
 The final focused check passes: 10 files, 70 tests and 50 art tests. It checks the seed endpoint and runtime settings writes as the runtime role. `tsc` also checks the fixture, its tests, the harness and the host with a temporary config.
 
+## Fix-round result
+
+All 15 review items are fixed. Each code fix starts with a failing check. Temporary faults check the new acceptance tests; they are removed before the passing checks.
+
+- Find and Accept use the database clock. A clock-difference test first fails on repeated selection.
+- The service refuses a level with no options. The result tests use options.
+- Game reads record seat activity at most once each 30 seconds. Full reads, polls, Open, Resume and reads with no board ID pass. Hidden status stays hidden. A command cannot overwrite a newer read time.
+- Input errors give the exact `INVALID_INPUT` reply. The request handler checks input before SDK validation and keeps the published schemas. Tests check options, icons, revisions, unknown fields and the 1000-character report-note bound.
+- A host switch clears the old pending command before waiting or setup. The browser check waits for the page's saved game ID, so an old turn label cannot satisfy it. The page change stays at the call site listed above.
+- The local Vercel check creates a solo game, gives each user a handle and joins with `code`.
+- Setup-end checks read `player_ratings` and require no `rating_history` row for the game. A temporary rating change makes the check fail.
+- The fixture omits full-read fields on polls, returns a completed Join on retry, supports the narrow Switch now rule and keeps one three-day setup deadline. The Switch now test checks one allowed case and five refused cases.
+- Acceptance checks cover fresh defaults, setup and first-move end words, all retry hints and the generic Move hold hook. Each check detects a temporary fault.
+- The old 14-day note stays as history and is marked as replaced by 7 days. Rating and end-card data are approved (owner, 2026-10-11).
+
 ## Result
 
-The 24-tool surface, settings migration, full-read screen data, join preview and Switch now rule pass their checks. The page call sites and fixture hooks above form the interface for tickets 11 to 16.
+Status stays resolved. All review items pass their checks. The 24-tool interface stays in place.
 
-- Final `npm test` after the integration merge: 145 files pass, with 2,257 tests and 50 art tests; 8 tests skip.
-- Final focused `npm test`: 10 files pass, with 70 tests and 50 art tests. This covers the final poll condition, seed endpoint and runtime settings grants.
-- `npm run check:browser`: all 24 checks pass.
-- `npm run check:browser -- plugin-ui plugin-ui-http`: both checks pass after the full set.
+- Full `npm test`: 145 files pass, with 2,269 tests and 50 art tests; 8 tests skip.
+- Focused server `npm test`: 2 files pass, with 23 tests and 50 art tests.
+- `npm run plugin:build` and `npm run plugin:server:check`: pass on local PostgreSQL with migration 0013.
 - `npm run plugin:check:protocol`: 24 tools pass.
-- `npm run plugin:build` and `npm run plugin:server:check`: the compiled server passes on local PostgreSQL with migration 0013.
-- Fixture and harness type checks pass.
-- Page: 437,425 HTML bytes; the compiled server resource is 438,870 JSON bytes, below the 1 MB limit.
-- Full-read rating and end data are approved (owner, 2026-10-11). The friend code uses the shared 7-day constant from the integration tip.
+- `npm run build:vercel` and `npm run check:vercel`: pass locally, with 20 art files and 4 archived engines. These checks publish nothing.
+- `npm run check:browser plugin-ui plugin-ui-http`: both checks pass with the final code.
+- Fixture and harness type checks pass with a temporary config.
+- Page: 437,425 HTML bytes; MCP resource: 438,870 JSON bytes, below the 1 MB limit.
+- Open items: none.
 
-The implementer check keeps the existing board-follow rule, command receipt path and shared schemas. It finds and fixes the board-only poll case with one condition and two failing tests. No engine or setup-module change is needed.
-
-The final integration merge includes the 7-day code rule and its test. The fixture uses the same constant. Its expiry test first fails at 14 days. The new release-order test also first fails because the README ends at 0012 and role block 8. The README now names 0013 and block 9.
-
-The full test run after the merge passes. The compiled server, protocol check and fixture type check also pass after the merge.
+The final check keeps the changes in this ticket's scope. No engine or setup-module change is needed. The page change moves the pending-command check by one line. The new schema checks preserve the SDK's input fields and output validation.
