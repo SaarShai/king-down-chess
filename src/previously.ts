@@ -1,8 +1,8 @@
 import type { Game } from './game';
 import { POWER_NAME } from './powers-ui';
-import { A, nameOf, TAG_POWER, sqName, typeOf, type Color, type Move, type Position, type PowerName, type PowerTag } from './rules/engine';
+import { A, NAMES, nameOf, theName, TAG_POWER, sqName, typeOf, type Color, type Move, type PieceType, type Position, type PowerName, type PowerTag } from './rules/engine';
 
-const article = (name: string): string => `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
+const article = (t: PieceType): string => theName(t, /^[aeiou]/.test(NAMES[t]) ? 'an' : 'a');
 
 const powerName = (tag: PowerTag): string => {
   const card = TAG_POWER[tag];
@@ -32,15 +32,15 @@ export function previouslyTurn(history: Readonly<Game['history']>, side: Color):
   const victim = (sq: number) => nameOf(typeOf(pos.board[sq]));
   const summary = move.pass ? `their ${name} stayed; the turn ended.` : move.captures.length
     ? `their ${name} ${typeOf(pos.board[move.from]) === A && move.from === move.to ? 'shot' : 'took'} ${takes > 1 ? `${takes} pieces` : `your ${victim(move.captures[0])}`}.`
-    : move.power === 'sacrifice' ? `they traded a pawn for ${article(nameOf(move.promo!))}.`
+    : move.power === 'sacrifice' ? `they traded a pawn for ${article(move.promo!)}.`
     : move.drop ? `their ${name} ${move.power === 'salvation' ? 'returned' : 'entered'} on ${sqName(move.to)}.`
     : move.shove ? `their ${name} shoved your ${victim(move.shove.from)}.`
     : move.swap ? `their ${name} swapped places.`
     : move.power === 'freeze' ? `they froze your ${victim(move.to)}.`
     : move.power === 'ward' ? `they shielded their ${victim(move.to)}.`
-    : move.promo && move.from === move.to ? `their ${name} became ${article(nameOf(move.promo))}.`
-    : move.power === 'rescue' ? name ? `they marked the ${name} again.` : `they used Rescue.`
-    : move.pushes ? `they pushed ${article(victim(move.pushes[0].from))} with ${powerName(move.power!)}.`
+    : move.promo && move.from === move.to ? `their ${name} became ${article(move.promo)}.`
+    : move.power === 'rescue' ? name ? `they marked ${theName(move.drop ?? typeOf(pos.board[move.from]))} again.` : `they used Rescue.`
+    : move.pushes ? `they pushed ${article(typeOf(pos.board[move.pushes[0].from]))} with ${powerName(move.power!)}.`
     : move.power === 'growth' || move.power === 'growthb' ? `they drew a card with Growth.`
     : move.from === move.to ? `their ${name} ${move.power ? `used ${powerName(move.power)}` : `stayed on ${sqName(move.to)}`}.`
     : `their ${name} moved to ${sqName(move.to)}.`;
@@ -66,7 +66,7 @@ function compactPly(pos: Position, m: Move, continued: boolean): string {
     : m.power === 'sacrifice' ? `Sacrifice on ${sqName(m.from)} for ${nameOf(m.promo!)}`
     : m.drop ? `${name} ${m.power === 'salvation' ? 'returns' : 'enters'} on ${sqName(m.to)}${m.drop2 !== undefined ? ` and ${sqName(m.drop2)}` : ''}`
     : m.promo && m.from === m.to ? `${subject}becomes ${nameOf(m.promo)}`
-    : m.power === 'rescue' ? `Rescue puts the mark on ${name ? `the ${name} on ` : ''}${sqName(m.to)} again`
+    : m.power === 'rescue' ? `Rescue puts the mark on ${name ? `${theName(m.drop ?? typeOf(pos.board[m.from]))} on ` : ''}${sqName(m.to)} again`
     : m.pushes ? `pushes ${m.pushes.map(p => `${nameOf(typeOf(pos.board[p.from]))} ${sqName(p.from)} to ${sqName(p.to)}`).join(' and ')}`
     : m.from === m.to && !m.captures.length ? `${subject}${m.power ? `uses ${powerName(m.power)}` : 'stays'}`
     : m.swap ? `${subject}swaps with ${sqName(m.to)}`

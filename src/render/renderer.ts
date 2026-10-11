@@ -11,7 +11,7 @@ import { Debris, Tweens, easeOut, labelSprite, linear } from './fx';
 import { PALETTES, createPalettePass, paletteTexture } from './palette';
 import { hasSprite, spriteMesh } from './sprites';
 import { STYLES, type Style } from './styles';
-import { ClayFigure } from './ClayFigure';
+import { CLAY_PALETTES, ClayFigure } from './ClayFigure';
 import { CAST } from './prototype/CastCatalog';
 import { applyLookLighting } from './prototype/ClayLook';
 import { PieceContourPass } from './prototype/PieceContourPass';
@@ -598,7 +598,9 @@ export class BoardRenderer {
       }).catch(error => { console.error('Could not load clay figure', error); this.onLoadError?.(error); });
     } else if ((this.style.pieces === 'sprite' && hasSprite(t)) || figure) {
       // The design that plays as `T` (ticket 17) stands as its Workshop figure, a billboard in every style.
-      const mesh = spriteMesh(t, c, this.style.spriteOutline ? (this.style.outlineColor ?? 0x151515) : undefined, king, figure ? figureUrl(figure, c) : undefined);
+      // On clay, White's figure painted in each side's clay, so the side reads as on the sculpts beside it.
+      const clay = figure && this.style.pieces === 'clay';
+      const mesh = spriteMesh(t, c, this.style.spriteOutline ? (this.style.outlineColor ?? 0x151515) : undefined, king, figure ? figureUrl(figure, clay ? 0 : c) : undefined, clay ? CLAY_PALETTES[c].light : undefined);
       if (figure) mesh.scale.setScalar(.7 * (this.style.pieceScale ?? 1)); // as tall as the clay figures beside it
       g.add(mesh);
       g.userData.sprite = true;

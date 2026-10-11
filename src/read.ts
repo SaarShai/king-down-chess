@@ -1,4 +1,4 @@
-import { A, B, C, G, K, L, M, N, nameOf, LETTERS, O, P, Q, R, RULES as GAME_RULES, S, T, V, colorOf, file, findKing, rank, legalMoves, pseudoMoves, sqName, markKind, playedDesign, type ArcherShots, type Color, typeOf, type PieceType, type Position } from './rules/engine';
+import { A, B, C, G, K, L, M, N, nameOf, LETTERS, O, P, Q, R, RULES as GAME_RULES, S, T, V, colorOf, file, findKing, rank, legalMoves, pseudoMoves, sqName, markKind, playedDesign, theName, type ArcherShots, type Color, typeOf, type PieceType, type Position } from './rules/engine';
 import { needsArming, offered } from './powers-ui';
 import { POOL } from './rules/setup';
 import { describe } from './workshop/text';
@@ -222,7 +222,7 @@ export function pieceStates(pos: Position, sq: number): string[] {
 
 /** Why a tap on `to` did not play a move for the piece on `from` (only exported engine functions). */
 export function whyNot(pos: Position, from: number, to: number, tag: string | null = null, bites: readonly number[] = []): string {
-  const mover = pos.board[from], name = nameOf(typeOf(mover)), target = pos.board[to];
+  const mover = pos.board[from], target = pos.board[to];
   if (bites.length && typeOf(mover) === S && target && typeOf(target) === K) return 'A bite chain cannot take a king.';
   if (pieceStates(pos, from).includes('Frozen')) return 'Frozen: it cannot move this turn.';
   if (pieceStates(pos, to).includes('Ice Wall')) return 'Ice Wall: nothing can take it now.';
@@ -250,7 +250,7 @@ export function whyNot(pos: Position, from: number, to: number, tag: string | nu
     return 'That leaves your king in check.';
   }
   if (GAME_RULES.guardImmune && target && typeOf(target) === G && colorOf(target) !== pos.turn && typeOf(mover) !== K) return 'Only a king can take a guard.';
-  return `The ${name} cannot ${target ? `take the ${nameOf(typeOf(target))} on` : 'reach'} ${sqName(to)}.`;
+  return `${theName(typeOf(mover), 'The')} cannot ${target ? `take ${theName(typeOf(target))} on` : 'reach'} ${sqName(to)}.`;
 }
 
 /** A read keeps the move role; a movable friend takes that role. */
@@ -268,7 +268,7 @@ export function unmarkedTap(pos: Position, sq: number, selected: number | null, 
   const enemy = pos.board[sq] && colorOf(pos.board[sq]) !== pos.turn;
   let notice = selected != null && (!pos.board[sq] || enemy) ? whyNot(pos, selected, sq, tag) : '';
   if (next.selected != null && next.selected !== selected && !legalMoves(pos).some(m => m.from === next.selected && offered(m, tag))) {
-    notice = pieceStates(pos, sq).includes('Frozen') ? 'Frozen: it cannot move this turn.' : `This ${nameOf(typeOf(pos.board[sq]))} has no legal move.`;
+    notice = pieceStates(pos, sq).includes('Frozen') ? 'Frozen: it cannot move this turn.' : `${theName(typeOf(pos.board[sq]), 'This')} has no legal move.`;
   }
   return { ...next, pending: [], notice };
 }

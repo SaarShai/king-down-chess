@@ -24,6 +24,8 @@ export const LETTERS = ' PNBRQKALGMSOCVT';
 export const NAMES = ['', 'pawn', 'knight', 'bishop', 'rook', 'queen', 'king', 'archer', 'paladin', 'guard', 'maester', 'beast', 'ogre', 'catapult', 'reaver', 'templar'] as const;
 /** A piece's name in this game: the design that plays as `T` has its own (ticket 17). */
 export const nameOf = (t: PieceType): string => (t === T && playedDesign()?.name) || NAMES[t];
+/** A piece's name in a sentence: "the rook", but the design's name takes no article ("Old Ward", not "the Old Ward"). */
+export const theName = (t: PieceType, article = 'the'): string => (t === T && playedDesign()?.name) || `${article} ${NAMES[t]}`;
 /**
  * Promotion targets. The ogre and the catapult are **not** here: they are lab pieces that enter a
  * game only through `--pool` or an explicit back rank, and adding them would hand every shipped

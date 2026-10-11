@@ -52,16 +52,32 @@ function outlined(img: CanvasImageSource & { width: number; height: number }, co
   return cv;
 }
 
-function texture(t: PieceType, c: Color, outline?: number, king?: KingName, src?: string): Promise<THREE.Texture> {
+/** The art in grey, so a material colour can paint it in a side's clay (`spriteMesh`'s `tint`). */
+function grey(img: HTMLImageElement): HTMLCanvasElement {
+  const cv = document.createElement('canvas');
+  cv.width = img.width;
+  cv.height = img.height;
+  const ctx = cv.getContext('2d')!;
+  ctx.drawImage(img, 0, 0);
+  const px = ctx.getImageData(0, 0, cv.width, cv.height), d = px.data;
+  for (let i = 0; i < d.length; i += 4) d[i] = d[i + 1] = d[i + 2] = .3 * d[i] + .59 * d[i + 1] + .11 * d[i + 2];
+  ctx.putImageData(px, 0, 0);
+  return cv;
+}
+
+function texture(t: PieceType, c: Color, outline?: number, king?: KingName, src?: string, tinted?: boolean): Promise<THREE.Texture> {
   const own = t === K && king && ARMY.startsWith('painted-') ? KING_SPRITE[king] : undefined;
   const name = src ?? `${own ?? FILE[t]}-${c ? 'b' : 'w'}`;
-  const key = outline == null ? name : `${name}:${outline}`;
+  const key = `${name}${outline == null ? '' : `:${outline}`}${tinted ? ':grey' : ''}`;
   let p = textures.get(key);
   if (!p) {
     p = loader.loadAsync(src ?? `${import.meta.env.BASE_URL}sprites/${ARMY}/${name}.png`).then(img => {
       let tex: THREE.Texture = img;
       if (outline != null) {
         tex = new THREE.CanvasTexture(outlined(img.image as HTMLImageElement, outline));
+        img.dispose();
+      } else if (tinted) {
+        tex = new THREE.CanvasTexture(grey(img.image as HTMLImageElement));
         img.dispose();
       }
       tex.magFilter = tex.minFilter = src ? THREE.LinearFilter : THREE.NearestFilter; // a painted figure, not pixel art
@@ -89,14 +105,14 @@ function plane(w: number, h: number): THREE.PlaneGeometry {
 }
 
 /**
- * One piece billboard (`src`: an image in place of the set's sprite). The texture may still be loading — the mesh is hidden until it lands,
+ * One piece billboard (`src`: an image in place of the set's sprite; `tint`: a colour that paints the art, made grey first). The texture may still be loading — the mesh is hidden until it lands,
  * then takes its width from the image aspect. The renderer billboards it at the camera every frame.
  */
-export function spriteMesh(t: PieceType, c: Color, outline?: number, king?: KingName, src?: string): THREE.Object3D {
+export function spriteMesh(t: PieceType, c: Color, outline?: number, king?: KingName, src?: string, tint?: THREE.ColorRepresentation): THREE.Object3D {
   const h = TARGET_HEIGHT[t] * SCALE;
-  const mat = new THREE.MeshBasicMaterial({ alphaTest: 0.5, transparent: false, side: THREE.DoubleSide, visible: false });
+  const mat = new THREE.MeshBasicMaterial({ alphaTest: 0.5, transparent: false, side: THREE.DoubleSide, visible: false, color: tint ?? 0xffffff });
   const mesh = new THREE.Mesh(plane(h, h), mat);
-  void texture(t, c, outline, king, src).then(tex => {
+  void texture(t, c, outline, king, src, tint != null).then(tex => {
     const img = tex.image as { width: number; height: number };
     mesh.geometry = plane((h * img.width) / img.height, h);
     mat.map = tex;

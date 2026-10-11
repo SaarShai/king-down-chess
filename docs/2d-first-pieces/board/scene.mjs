@@ -106,7 +106,11 @@ for(const [type,name] of Object.entries(courtNames)){
  function token(value) {
   const fig=figureOf(value),key=`token:${value}${fig?`:${fig.src}`:''}`;let canvas=idle.get(key);if(canvas)return canvas;
   canvas=document.createElement('canvas');canvas.width=canvas.height=1152;const c=canvas.getContext('2d'),dark=colorOf(value);
-  if(fig){const h=1000,w=h*fig.naturalWidth/fig.naturalHeight;c.drawImage(fig,576-w/2,1018-h,w,h);idle.set(key,canvas);return canvas;}
+  if(fig){const h=1000,w=h*fig.naturalWidth/fig.naturalHeight;c.drawImage(fig,576-w/2,1018-h,w,h);
+   // Black's figure no lighter than a mean of 70 a channel, so it reads as dark as the black pieces beside it.
+   if(dark){const px=c.getImageData(0,0,1152,1152),d=px.data;let sum=0,n=0;for(let i=0;i<d.length;i+=4)if(d[i+3]>200){sum+=d[i]+d[i+1]+d[i+2];n++;}
+    const k=210*n/sum;if(k<1){for(let i=0;i<d.length;i+=4){d[i]*=k;d[i+1]*=k;d[i+2]*=k;}c.putImageData(px,0,0);}}
+   idle.set(key,canvas);return canvas;}
   c.fillStyle=dark?'#34383a':'#efe9d8';c.strokeStyle=dark?'#c9cdc8':'#4b4a3c';c.lineWidth=24;c.beginPath();c.arc(576,700,260,0,Math.PI*2);c.fill();c.stroke();
   c.fillStyle=c.strokeStyle;c.font='bold 300px Georgia,serif';c.textAlign='center';c.textBaseline='middle';c.fillText(pieces.LETTERS?.[typeOf(value)]??'?',576,712);
   idle.set(key,canvas);return canvas;

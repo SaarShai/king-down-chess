@@ -83,3 +83,19 @@ The review (`scratchpad/build/review-17.md`) had 9 findings. I checked each agai
 9. **nit, confirmed, not fixed:** a game link with a design that this version cannot read opens as no game, with no message. This version cannot make such a link; a follow-up.
 
 Evidence of the review fixes: `npm test` through the shared lock (`/tmp/pg17r-test.log`): exit 0; 117 test files pass (1 skipped), 1,910 tests pass (21 skipped); the node tests, 50 of 50. `npm run check:browser painted-game new-game workshop` (`/tmp/pg17r-checks.log`, `pg-design-XoC6oQ`): all 3 pass.
+
+### 2026-10-11 · Render review fixes
+
+The lead reviewed the renders `03-game-1440x900.jpg` and `04-game-390x844.jpg` and found two items.
+
+1. **must-fix: the design's side did not show.** On the clay board, Black's Old Ward on b8 was a pale painted figure, as White's on b1; on the painted board, it was lighter silver than the other black pieces. Fix:
+   - Clay: the design stands as White's figure, made grey and painted with the side's light clay colour (`CLAY_PALETTES`, now one shared list in `src/render/ClayFigure.ts`): cream for White, blue for Black. `spriteMesh` takes an optional `tint` (`src/render/sprites.ts`). Reason: the clay pieces are one sculpt in two clays, so one figure in two clays reads the same way. A pixel loop makes the grey, not the canvas `filter`, which older Safari does not draw.
+   - Painted: the scene darkens Black's figure to a mean of at most 70 a channel (the median of the 34 black Workshop figures; `token`, `docs/2d-first-pieces/board/scene.mjs`). A figure that is already dark stays as it is. Reason: the black figures span a mean of 45 to 163, so one fixed factor makes some of them black and leaves others light.
+2. **should-fix (review nit 8): "The My Rook …".** A design's name now takes no article. `theName(t, article)` (`src/rules/engine.ts`) gives "the rook" for a pool piece and "My Rook" for the design. These sentences use it: `whyNot` and the "has no legal move" note (`src/read.ts`), the shove, swap, take, morph, leave and Haste words (`src/move-text.ts`), the Rescue, push and promotion words (`src/previously.ts`), and the Workshop's echo note (`src/workshop/ground.ts`, the article stays for a pool piece; the `workshop` check expects "= Leap adds nothing to My Paladin."). The colour phrases ("freezes the black Old Ward on b8") keep the article, as it goes with the colour. Unit tests: `src/read.test.ts` asserts "My Rook cannot reach e5." and "White rook d1 to d4, taking My Rook on d4."
+
+Renders (outside Git, `scratchpad/build/owner4/play-design/`): `03-game-1440x900.jpg` and `04-game-390x844.jpg` again (same states, same labels), and `05-rows-7-8-zoom.jpg` (rows 7 and 8, before left, after right, painted top, clay bottom). The owner sees them before the merge.
+
+Evidence (the logs are outside Git, in `/tmp/pg17c/`):
+
+- `npm test` through the shared lock, run 1 (`test1.log`): exit 0; 117 test files pass (1 skipped), 1,910 tests pass (21 skipped); the node tests, 50 of 50. Run 2, with this ticket text and the check change (`test2.log`): exit 0; the same counts.
+- `npm run check:browser painted-game new-game workshop visual-design`, run 1 (`checks.log`): 2 of 4 failed. `painted-game` stopped only because this ticket changed during the run. `workshop` expected the old sentence "= Leap adds nothing to the My Paladin."; the check now expects "= Leap adds nothing to My Paladin." (`tools/verify-workshop.mjs`); the pool piece's "the Paladin" stays. Run 2 (`checks2.log`, `pg-design-d0irid`): all 4 pass.

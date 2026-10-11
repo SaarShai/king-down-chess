@@ -1,5 +1,6 @@
 import { afterEach, expect, it } from 'vitest';
-import { A, DEFAULT_RULES, T, nameOf, parseRule, parseSq, setRules } from './rules/engine';
+import { A, DEFAULT_RULES, T, legalMoves, nameOf, parseRule, parseSq, setRules } from './rules/engine';
+import { describeMove } from './move-text';
 import { PRESETS, designCode, fromPreset } from './workshop/model';
 import { fromFen } from './rules/setup';
 import { pieceGuide, guideTypes, reachOf, readText, readTap, unmarkedTap, whyNot } from './read';
@@ -246,5 +247,8 @@ it('names and describes the design that plays as T (ticket 17), and the Templar 
   expect(nameOf(T)).toBe('My Rook');
   expect(pieceGuide(T).moves).toBe('Moves like a rook.');
   expect(readText(pos, at('d4'))).toBe('My Rook · Moves like a rook.');
-  expect(whyNot(pos, at('d4'), at('e5'))).toBe('The My Rook cannot reach e5.');
+  expect(whyNot(pos, at('d4'), at('e5'))).toBe('My Rook cannot reach e5.');
+  // A design's name takes no article (review nit 8).
+  const take = fromFen('4k3/8/8/8/3t4/8/8/3RK3 w - - 0 1');
+  expect(describeMove(take, legalMoves(take).find(m => m.from === at('d1') && m.to === at('d4'))!)).toBe('White rook d1 to d4, taking My Rook on d4.');
 });

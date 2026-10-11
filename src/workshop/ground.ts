@@ -1282,7 +1282,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       : `<span class="tok kingseat"><button type="button" class="pg-kingfig" data-act="seat" aria-expanded="${seating}" aria-label="${king} king: seat another king" title="${king} king"><img src="${kingArt(king)}" alt=""></button>`
         + `<span class="coins">${KINGS[king].map(p => coinButton(p)).join('')}</span></span>${slot}`;
     trayEl.innerHTML = !on ? '' : `<h3 id="pg-tray-h">Try with</h3>`
-      + (echo() ? `<p class="echo-note"><span class="echo-eq" aria-hidden="true">=</span> ${POWER_NAME[armed!]} adds nothing to the ${esc(cur.d.name)}. No mark changes.</p>` : '')
+      + (echo() ? `<p class="echo-note"><span class="echo-eq" aria-hidden="true">=</span> ${POWER_NAME[armed!]} adds nothing to ${cur.yours ? '' : 'the '}${esc(cur.d.name)}. No mark changes.</p>` : '')
       + `<div class="tokens">${tok('friend', 'Friend: one of your pieces')}${tok('enemy', 'Enemy: tap, then tap a square')}${socket}</div>`
       + (seating ? `<div class="picker" role="group" aria-labelledby="pg-seat-h"><h4 id="pg-seat-h">SEAT A KING</h4><div class="row">${KING_LIST.map(k => `<button type="button" data-seat="${k}" aria-pressed="${king === k}"><img src="${kingArt(k)}" alt="">${k}</button>`).join('')}</div></div>` : '')
       + (laying ? `<div class="picker" role="group" aria-labelledby="pg-lay-h"><h4 id="pg-lay-h">LAY A LAB CARD</h4><div class="row">${LAY.map(c => `<button type="button" data-lay="${c}" aria-pressed="${laid === c}">`

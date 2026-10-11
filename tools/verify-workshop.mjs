@@ -1943,7 +1943,7 @@ async function kings() {
   await p.click('.slot[data-king="Mud"]');
   await p.click('.pline[data-power="Leap"]');
   assert.deepEqual([await p.getAttribute('.pline[data-power="Leap"]', 'aria-pressed'), await p.locator('.echo-note').textContent()],
-    ['true', '= Leap adds nothing to the My Paladin. No mark changes.'], 'on a copy Leap is an echo');
+    ['true', '= Leap adds nothing to My Paladin. No mark changes.'], 'on a copy Leap is an echo');
   // A design whose rule counts moves: the powers wait, with the reason.
   await p.click('[data-tab="pieces"]');
   await p.click('.slot[data-design="late"]');
