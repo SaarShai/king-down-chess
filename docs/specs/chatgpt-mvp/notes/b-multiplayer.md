@@ -72,7 +72,7 @@ Evidence: `npm run plugin:db:init-test` applies 0001–0009 twice ("every migrat
 - `inbox(actor)`: active games only, your turn first, then the nearest deadline (`store.ts:101`, `where me.active`, limit 100).
 - `command(...)` (line 124): one transaction; dedupe by `command_id`; `expected_revision`; engine work before the lock; actions `turn` (1–4 LAN, all or nothing), `computer`, `resign`, `abort` (only before each side's first turn), `draw` (`offer/accept/decline`, max 3 offers), `claim` (timeout), `say` (preset, once each per game).
 - Daily deadlines: first turn 3 days for each side (`FIRST_TURN_DAYS`, line 10), miss = `no_start` (cancel); later turns `days_per_move`, miss = loss on time.
-- `invite` (line 164): one invite per game; 43-char token + 6-char code (`ABCDEFGHJKMNPQRSTUVWXYZ23456789`); 14 days (Daily) or 1 day (live).
+- `invite` (line 164): one invite per game; 43-char token + 6-char code (`ABCDEFGHJKMNPQRSTUVWXYZ23456789`); 14 days (Daily) or 1 day (live). The Daily value is replaced by 7 days (owner, 2026-10-11); the earlier value stays here as history.
 - `join` (line 180): token or code; code tries counted; block check through `mayJoin` (`challenge_from` and blocks).
 - `sweep` (line 207): ends due Daily games and waiting games with an expired invite; one bad game does not stop the rest.
 - The last revision (1000) stays free for a resign, abort, claim or the sweep.

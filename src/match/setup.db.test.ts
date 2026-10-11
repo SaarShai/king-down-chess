@@ -89,6 +89,9 @@ suite('game setup through PostgreSQL', () => {
   const error = await service.command(a, aborted.game_id, command(3, { type: 'choose', choice: draft, ready: true })).catch(error => ({ ...error, message: error.message }));
   expect(error).toMatchObject({ code: 'MATCH_TERMINAL' }); expectHidden(error, privateChoice);
  }, 30_000);
+ it('refuses a computer level without game options', async () => {
+  await expect(service.create(a, { kind: 'solo', level: 'strong' })).rejects.toMatchObject({ code: 'INVALID_INPUT', status: 400 });
+ });
  it('ends late setup once with no result and refuses a late Ready command', async () => {
   const create = async () => {
    const game = await service.create(a, { kind: 'friend', speed: 'live', options: DEFAULT_OPTIONS });
@@ -96,8 +99,8 @@ suite('game setup through PostgreSQL', () => {
    return game.game_id;
   };
   const swept = await create(), before = await service.view(a, swept);
-  await admin.query('update public.profiles set rating=case when id=$1 then 1620 else 1380 end where id=any($2)', [a, [a, b]]);
-  const ratings = (await admin.query('select id,rating from public.profiles where id=any($1) order by id', [[a, b]])).rows;
+  await admin.query('insert into public.player_ratings(user_id,rating) values($1,1620),($2,1380) on conflict(user_id) do update set rating=excluded.rating', [a, b]);
+  const ratings = (await admin.query('select user_id,rating,rd,volatility,last_game_at from public.player_ratings where user_id=any($1) order by user_id', [[a, b]])).rows;
   const joined = (await admin.query("select received_at from public.game_commands where game_id=$1 and kind='join'", [swept])).rows[0].received_at;
   const deadline = new Date(joined.getTime() + 3 * 86_400_000);
   await service.sweep(new Date(deadline.getTime() - 1));
@@ -107,12 +110,14 @@ suite('game setup through PostgreSQL', () => {
   expect(await service.view(a, swept)).toMatchObject({ status: 'aborted', revision: 2, result: { winner: null, reason: 'no_start' } });
   expect(before.result).toBeUndefined();
   expect((await admin.query("select count(*)::int as n from public.outbox where kind='game_finished' and payload->>'game_id'=$1", [swept])).rows[0].n).toBe(1);
-  expect((await admin.query('select id,rating from public.profiles where id=any($1) order by id', [[a, b]])).rows).toEqual(ratings);
+  expect((await admin.query('select user_id,rating,rd,volatility,last_game_at from public.player_ratings where user_id=any($1) order by user_id', [[a, b]])).rows).toEqual(ratings);
+  expect((await admin.query('select count(*)::int as n from public.rating_history where game_id=$1', [swept])).rows[0].n).toBe(0);
   const lazy = await create(), row = (await admin.query('select draw from public.games where id=$1', [lazy])).rows[0];
   await admin.query("update public.games set setup_deadline_at=now()-interval '1 minute' where id=$1", [lazy]);
   await expect(service.command(a, lazy, command(1, { type: 'choose', choice: { king: null, order: row.draw }, ready: true }))).rejects.toMatchObject({ code: 'MATCH_TERMINAL' });
   expect(await service.view(b, lazy)).toMatchObject({ status: 'aborted', revision: 2, result: { winner: null, reason: 'no_start' } });
-  expect((await admin.query('select id,rating from public.profiles where id=any($1) order by id', [[a, b]])).rows).toEqual(ratings);
+  expect((await admin.query('select user_id,rating,rd,volatility,last_game_at from public.player_ratings where user_id=any($1) order by user_id', [[a, b]])).rows).toEqual(ratings);
+  expect((await admin.query('select count(*)::int as n from public.rating_history where game_id=$1', [lazy])).rows[0].n).toBe(0);
   expect(await service.sweep()).toBe(0);
  }, 30_000);
  it('offers, declines and accepts one rematch with the same features and swapped seats', async () => {
@@ -164,7 +169,7 @@ suite('game setup through PostgreSQL', () => {
    expect(await service.sweep(deadline)).toBe(0);
   }
  }, 30_000);
- it('starts a computer rematch at once, including a game at the move limit', async () => {
+ it('keeps the player choice open in a computer rematch, including a game at the move limit', async () => {
   const created = await service.create(a, { kind: 'solo', options: { ...DEFAULT_OPTIONS, kingPowers: true }, level: 'strong' });
   expect(created).toMatchObject({ status: 'setup', options: { arrangement: true, kingPowers: true }, ready: [false, true] });
   const playing = await service.command(a, created.game_id, command(0, { type: 'choose', choice: created.choices![0], ready: true }));
@@ -176,14 +181,16 @@ suite('game setup through PostgreSQL', () => {
   expect(await service.command(a, created.game_id, sent)).toEqual(expect.objectContaining({ revision: accepted.revision, rematch_game_id: accepted.rematch_game_id }));
   expect(accepted.rematch_game_id).toEqual(expect.any(String));
   const next = await service.view(a, accepted.rematch_game_id!);
-  expect(next).toMatchObject({ status: 'playing', revision: 0, seat: 1, opponent: { computer: true }, ready: [true, true], options: created.options,
-   kings: [{ king: 'Spirit', power: 'Mercy' }, { king: 'Shadow', power: 'Darkness' }] });
+  expect(next).toMatchObject({ status: 'setup', revision: 0, seat: 1, opponent: { computer: true }, ready: [true, false], options: created.options });
+  expect(next.fen).toBe('');
+  const ready = await service.command(a, next.game_id, command(0, { type: 'choose', choice: next.choices![1], ready: true }));
+  expect(ready).toMatchObject({ status: 'playing', ready: [true, true] });
   expect((await admin.query('select level from public.games where id=$1', [accepted.rematch_game_id])).rows[0].level).toBe('strong');
-  const computer = await service.command(a, next.game_id, command(0, { type: 'computer' }));
-  expect(computer).toMatchObject({ status: 'playing', revision: 1, turn: 1, action: 'ready' });
-  const moved = await service.command(a, next.game_id, command(1, { type: 'turn', actions: [computer.legal[0]] }));
-  expect(moved).toMatchObject({ status: 'playing', revision: 2, turn: 0 });
-  expect(moved.fen).not.toBe(next.fen);
+  const computer = await service.command(a, next.game_id, command(1, { type: 'computer' }));
+  expect(computer).toMatchObject({ status: 'playing', revision: 2, turn: 1, action: 'ready' });
+  const moved = await service.command(a, next.game_id, command(2, { type: 'turn', actions: [computer.legal[0]] }));
+  expect(moved).toMatchObject({ status: 'playing', revision: 3, turn: 0 });
+  expect(moved.fen).not.toBe(ready.fen);
  }, 30_000);
  it('shows setup choices safely and carries each toggle mix through the first move', async () => {
   for (const [fairy, arrangement, classic] of [[true, true, false], [true, false, false], [false, false, false], [false, false, true]]) for (const cards of [false, true]) for (const kingPowers of [false, true]) {
@@ -258,6 +265,7 @@ suite('game setup through PostgreSQL', () => {
  it('lets the account-deletion job abort setup with no result', async () => {
   const gone = randomUUID(); users.push(gone);
   await admin.query('insert into auth.users(id) values($1)', [gone]);
+  await admin.query('update public.profiles set handle=$2 where id=$1', [gone, `gone-${gone.slice(0,8)}`]);
   const game = await service.create(gone, { kind: 'friend', options: DEFAULT_OPTIONS });
   await service.join(b, (await service.invite(gone, game.game_id)).token);
   await admin.query("insert into public.account_deletions(user_id,run_after) values($1,now()-interval '1 minute')", [gone]);

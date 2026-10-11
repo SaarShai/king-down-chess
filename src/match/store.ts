@@ -1,6 +1,7 @@
 /** Server-only PostgreSQL I/O for online games; never import into a browser bundle. The service decides; this writes. */
 import type { Pool, PoolClient } from 'pg';
 import type { Options, Choice } from './setup';
+import type { Icon } from '../account/profile';
 import type { SkillName } from '../ai/skill';
 import type { CardName } from '../rules/rules';
 import type { MatchSetup, MatchSnapshot, PublicMatchRules } from './index';
@@ -8,7 +9,7 @@ import type { EndReason, ErrorCode, GameStatus, InboxEntry, LobbyEntry, LoggedCo
 export class MatchServiceError extends Error {
  constructor(public code: ErrorCode, public status: number, message: string) { super(message); this.name = 'MatchServiceError'; }
 }
-export interface Player { seat: Seat; user_id: string | null; computer: boolean; handle_at_start: string | null; /** current, from profiles */ handle: string | null; power: string; choice: Choice | null; ready: boolean; action: SeatAction; turns_played: number; draw_offers: number; said: Preset[]; last_seen_at: Date | null; last_surface: Surface | null; active: boolean; ended_at: Date | null }
+export interface Player { seat: Seat; user_id: string | null; computer: boolean; handle_at_start: string | null; /** current, from profiles */ handle: string | null; icon?: Icon | null; power: string; choice: Choice | null; ready: boolean; action: SeatAction; turns_played: number; draw_offers: number; said: Preset[]; last_seen_at: Date | null; last_surface: Surface | null; active: boolean; ended_at: Date | null }
 export interface Game {
  id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; days_per_move: 1 | 3 | 7 | null; category: string; readings: string | null; colour_rule: 'white' | 'black' | 'random';
  options: Options | null; draw: string | null; deal: CardName[] | null; level: SkillName; setup_deadline_at: Date | null; rematch_offer: Seat | null; rematch_game_id: string | null;
@@ -22,7 +23,7 @@ export interface Log { seat: Seat | null; actor_id: string | null; command_id: s
 export interface Outgoing { notify: { user_id: string; kind: string; payload: object }[]; outbox: { kind: string; payload: object }[] }
 type Client = Pool | PoolClient;
 const GAME = 'id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,result,end_reason,turn,revision,draw_offer,snapshot,deadline_at,deadline_kind,moves,created_by,created_at,started_at,finished_at,updated_at,options,draw,deal,level,setup_deadline_at,rematch_offer,rematch_game_id';
-const PLAYER = 'p.seat,p.user_id,p.computer,p.handle_at_start,pr.handle,p.power,p.choice,p.ready,p.action,p.turns_played,p.draw_offers,p.said,p.last_seen_at,p.last_surface,p.active,p.ended_at';
+const PLAYER = 'p.seat,p.user_id,p.computer,p.handle_at_start,pr.handle,pr.icon,p.power,p.choice,p.ready,p.action,p.turns_played,p.draw_offers,p.said,p.last_seen_at,p.last_surface,p.active,p.ended_at';
 /** SQL: no block either way between users `a` and `b`. */
 const unblocked = (a: string, b: string) => `not exists(select from public.relations where kind='block' and ((user_id=${a} and other_id=${b}) or (user_id=${b} and other_id=${a})))`;
 /** SQL: `viewer` may see when `other` was last seen (their "who sees that I am online", given in `setting`). */
@@ -52,6 +53,9 @@ export class PostgresMatchStore {
   for (const p of game.players) await client.query(`insert into public.game_players(game_id,seat,user_id,computer,handle_at_start,power,action,last_seen_at,choice,ready)
    values($1,$2,$3,$4,(select handle from public.profiles where id=$3),$5,$6,$7,$8,$9)`, [game.id, p.seat, p.user_id, p.computer, p.power, p.action, p.last_seen_at, p.choice, p.ready]);
  }
+ async seen(game: string, seat: Seat): Promise<void> {
+  await this.pool.query("update public.game_players set last_seen_at=statement_timestamp() where game_id=$1 and seat=$2 and (last_seen_at is null or last_seen_at<=statement_timestamp()-interval '30 seconds')", [game, seat]);
+ }
  /** Writes `next` (revision = before + 1), its log row and its alerts. State and snapshot are written only when they changed. */
  async save(client: PoolClient, before: Game, next: Game, log: Log, out: Outgoing): Promise<void> {
   await client.query(`update public.games set status=$2,result=$3,end_reason=$4,turn=$5,revision=$6,draw_offer=$7,state=coalesce($8,state),snapshot=coalesce($9,snapshot),
@@ -60,7 +64,7 @@ export class PostgresMatchStore {
     next.deadline_at, next.deadline_kind, next.moves, next.started_at, next.finished_at, next.setup, next.rules, next.engine_fingerprint, next.setup_deadline_at, next.rematch_offer, next.rematch_game_id]);
   // A seat keeps the handle its opponent first saw; it is copied once, when the seat gets its player.
   for (const p of next.players) await client.query(`update public.game_players set user_id=$3,handle_at_start=coalesce(handle_at_start,(select handle from public.profiles where id=$3)),action=$4,turns_played=$5,draw_offers=$6,said=$7,
-   last_seen_at=$8,last_surface=$9,active=$10,ended_at=$11,choice=$12,ready=$13,power=$14 where game_id=$1 and seat=$2`,
+   last_seen_at=greatest(last_seen_at,$8),last_surface=$9,active=$10,ended_at=$11,choice=$12,ready=$13,power=$14 where game_id=$1 and seat=$2`,
    [next.id, p.seat, p.user_id, p.action, p.turns_played, p.draw_offers, p.said, p.last_seen_at, p.last_surface, p.active, p.ended_at, p.choice, p.ready, p.power]);
   await client.query(`insert into public.game_commands(game_id,seq,seat,actor_id,command_id,kind,payload,actions,turn_after,status_after,surface,received_at)
    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
@@ -80,6 +84,13 @@ export class PostgresMatchStore {
   const result = await client.query(`select seq,seat,kind,payload,actions,created_at from public.game_commands where game_id=$1 and seq>$2 order by seq desc limit $3`, [game, since ?? 0, since === undefined ? 10 : 50]);
   return result.rows.reverse().map(r => ({ seq: r.seq, seat: r.seat, at: r.created_at.toISOString(),
    action: r.kind === 'join' || r.kind === 'expire' ? { type: r.kind } : r.kind === 'computer' ? { type: 'computer', actions: r.actions } : r.payload.action }));
+ }
+ async hasJoined(game: string, client: Client = this.pool): Promise<boolean> {
+  return (await client.query("select exists(select from public.game_commands where game_id=$1 and kind='join') as joined", [game])).rows[0].joined;
+ }
+ async canSwitch(actor: string, started: Date, client: Client = this.pool): Promise<boolean> {
+  return (await client.query(`select exists(select from public.games g join public.game_commands c on c.game_id=g.id and c.kind='join'
+   where g.created_by=$1 and g.kind='random' and g.status in ('setup','playing') and g.created_at<=$2 and c.created_at>$2) as available`, [actor, started])).rows[0].available;
  }
  async addInvite(client: PoolClient, row: { token_hash: string; code_hash: string; game_id: string; seat: Seat; created_by: string; expires_at: Date }): Promise<boolean> {
   const result = await client.query('insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,$4,$5,$6) on conflict do nothing',
@@ -105,14 +116,16 @@ export class PostgresMatchStore {
   return (await client.query(`select ${unblocked('$1', '$2')} as allowed`, [host, joiner])).rows[0].allowed;
  }
  async inbox(actor: string): Promise<InboxEntry[]> {
-  const result = await this.pool.query(`select g.id as game_id,g.kind,g.speed,g.status,me.seat,me.action,g.turn,g.revision,g.deadline_at,g.updated_at,
-    op.user_id as op_user,op.computer as op_computer,case when ${online('$1', 'op.user_id', 'pr.online_visible_to')} then op.last_seen_at end as op_seen,pr.handle as op_handle
+  const result = await this.pool.query(`select g.id as game_id,g.kind,g.speed,g.status,me.seat,me.action,g.turn,g.revision,g.deadline_at,g.updated_at,g.options,g.level,g.created_at,
+    nullif(split_part(g.snapshot->>'fen',' ',6),'')::int as move,
+    case when g.status='waiting' then case when g.kind='random' then g.created_at+interval '24 hours' else (select expires_at from public.game_invites where game_id=g.id) end end as open_until,
+    op.user_id as op_user,op.computer as op_computer,case when ${online('$1', 'op.user_id', 'pr.online_visible_to')} then op.last_seen_at end as op_seen,pr.handle as op_handle,pr.icon as op_icon
    from public.game_players me join public.games g on g.id=me.game_id
    join public.game_players op on op.game_id=me.game_id and op.seat<>me.seat left join public.profiles pr on pr.id=op.user_id
    where me.user_id=$1 and me.active order by me.action='ready' desc,g.deadline_at asc nulls last,g.updated_at desc limit 100`, [actor]);
   const now = Date.now();
-  return result.rows.map(({ op_user, op_computer, op_seen, op_handle, ...r }) => ({ ...r, deadline_at: r.deadline_at?.toISOString() ?? null, updated_at: r.updated_at.toISOString(),
-   opponent: r.status === 'waiting' && !op_user ? null : { handle: op_handle ?? null, computer: op_computer, deleted: !op_user && !op_computer, last_seen_ms: op_seen ? now - op_seen.getTime() : null } }));
+  return result.rows.map(({ op_user, op_computer, op_seen, op_handle, op_icon, ...r }) => ({ ...r, created_at: r.created_at.toISOString(), open_until: r.open_until?.toISOString() ?? null, deadline_at: r.deadline_at?.toISOString() ?? null, updated_at: r.updated_at.toISOString(),
+   opponent: r.status === 'waiting' && !op_user ? null : { handle: op_handle ?? null, icon: op_icon ?? null, computer: op_computer, deleted: !op_user && !op_computer, last_seen_ms: op_seen ? now - op_seen.getTime() : null } }));
  }
  async lobby(actor: string, { client = this.pool as Client, lock = false } = {}): Promise<LobbyEntry[]> {
   const result = await client.query(`select g.id as game_id,g.options,p.seat,pr.handle,pr.icon,g.created_at from public.games g

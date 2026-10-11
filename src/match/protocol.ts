@@ -43,7 +43,7 @@ export const createSchema = z.strictObject({
   colour: z.enum(['white', 'black', 'random']).optional(), // default White
   // The engine worker validates the content; this only bounds the shape.
   setup: z.strictObject({ backRank: z.string().max(8).optional(), fen: z.string().max(4096).optional(), preset: z.enum(['current', '2017', '2021']).optional(), kings: z.string().max(100).optional() }).optional(),
-});
+}).refine(input => !(input.days_per_move && (input.speed ?? (input.kind === 'solo' ? 'live' : 'daily')) !== 'daily' || input.kind === 'solo' && input.speed === 'daily' || input.options && input.setup));
 export type Action = z.infer<typeof actionSchema>;
 export type Command = z.infer<typeof commandSchema>;
 export type CreateOptions = Omit<z.infer<typeof createSchema>, 'options'> & { options?: Options };
@@ -65,12 +65,15 @@ export interface LoggedCommand { seq: number; seat: Seat | null; action: LoggedA
 /** `deleted`: the account was deleted; show "Deleted player". `last_seen_ms`: time since the seat's last command,
  * null unless the opponent's "who sees that I am online" setting lets you see it (and no block). The setting does not
  * hide the time of each move in a shared game (`last_commands[].at`, `deadline_at`): the safety page says so. */
-export interface Opponent { handle: string | null; computer: boolean; deleted: boolean; last_seen_ms: number | null }
+export interface Opponent { handle: string | null; icon: Icon | null; rating?: { rating: number; provisional: boolean }; computer: boolean; deleted: boolean; last_seen_ms: number | null }
 
 /** One seat's view: small (under about 3 KB) and never the full save. */
 export interface View {
   game_id: string;
   revision: number;
+  created_at: string;
+  abort_open: boolean;
+  outcome?: GameOutcome;
   seat: Seat;
   kind: 'solo' | 'friend' | 'random';
   speed: 'daily' | 'live';
@@ -107,9 +110,11 @@ export interface View {
   rules?: PublicMatchRules;
 }
 /** One line of "Your games": your turn first, then the nearest deadline. */
-export interface InboxEntry { game_id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; status: 'waiting' | 'setup' | 'playing'; seat: Seat; action: SeatAction; turn: Seat; revision: number; deadline_at: string | null; opponent: Opponent | null; updated_at: string }
+export interface GameOutcome { rating_before: number | null; rating: number | null; provisional: boolean; badges: PlayerRecord['badges'] }
+export interface InboxEntry { options: Options | null; move: number | null; created_at: string; open_until: string | null; level: SkillName; game_id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; status: 'waiting' | 'setup' | 'playing'; seat: Seat; action: SeatAction; turn: Seat; revision: number; deadline_at: string | null; opponent: Opponent | null; updated_at: string }
 /** The link token (43 characters) and the short code (6 characters) open the same seat. */
 export interface Invite { token: string; code: string; expires_at: string }
+export interface JoinPreview { code: string; options: Options | null; colour: 'white' | 'black'; kind: 'friend' | 'random' | 'solo'; creator: { handle: string | null; icon: Icon | null }; expires_at: string }
 export interface LobbyEntry { game_id: string; options: Options | null; colour: 'white' | 'black'; creator: { handle: string; icon: Icon | null }; created_at: string }
 export interface Lobby { games: LobbyEntry[]; active_count?: number }
 

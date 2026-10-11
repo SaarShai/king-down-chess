@@ -10,11 +10,21 @@ try {
   const mode = capabilities.mode;
   if (process.env.PLUGIN_EXPECT_MODE) assert.equal(mode, process.env.PLUGIN_EXPECT_MODE, 'Connected to the expected harness backend');
   const frame = page.frameLocator('iframe');
-  await frame.locator('#status').filter({ hasText: /to move|Waiting|wins|Draw/ }).waitFor();
+  await frame.locator('#status').filter({ hasText: /King Down|to move|Waiting|wins|Draw/ }).waitFor();
   await frame.locator('summary').click();
   await frame.locator('#solo').click();
   await frame.locator('#solo:not(:disabled)').waitFor();
   await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+  const firstGame=await page.evaluate(()=>window.harnessView.game_id);
+  const homeReads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
+  await page.evaluate(()=>{window.harnessWithoutWidgetState=true;window.harnessWidgetState=undefined;});
+  await page.locator('#remount').click();
+  await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>n,homeReads);
+  await frame.locator('#status').filter({hasText:'White to move'}).waitFor();
+  assert.equal(await page.evaluate(()=>window.harnessView.game_id),firstGame,'A replayed home result follows its board with no widget state');
+  await page.evaluate(()=>{window.harnessWithoutWidgetState=false;});
+  await page.locator('#remount').click(); await frame.locator('#status').filter({hasText:'White to move'}).waitFor();
+  await frame.locator('summary').click();
   // The plugin page keeps the scene's own floor round the board: #e6e1cf at a canvas pixel above the board's
   // frame (the game asks for no floor; web redesign ticket 01, spec rule 5). The scene draws once its art is in.
   const floorPixel = () => frame.locator('canvas').evaluate(c => [...c.getContext('2d').getImageData(1, 1, 1, 1).data].join(','));
@@ -34,6 +44,8 @@ try {
     const box = await frame.locator('canvas').boundingBox(); assert(box);
     await page.mouse.click(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (64 + 32 + (7 - rank + .5) * 112) * box.width / 960);
   }
+  async function haste() { const result = await (await page.request.post(new URL('/fixture-position?case=haste',base).href)).json(); assert(!result.isError); await page.evaluate(result=>window.harnessShow(result),result); await frame.locator('#status').filter({hasText:'White to move'}).waitFor(); await frame.locator('#reload:not(:disabled)').waitFor(); }
+  await haste();
   await clickSquare(4, 1);
   assert(await frame.locator('#choices button').count() > 0);
   assert(await frame.locator('#choices button').count() > 1, 'Haste and ordinary moves must stay distinct');
@@ -43,8 +55,12 @@ try {
     await frame.locator('#reload:not(:disabled)').waitFor();
     assert.equal(await frame.locator('#retry').isVisible(), false, `${code} must release the pending command`);
   }
-  await page.evaluate(() => { window.dropNextMoveReply = true; });
+  await page.evaluate(() => { window.holdNext = 'kingdown_move'; window.dropNextMoveReply = true; });
   await frame.locator('#choices button[title="e2-e4"]').click();
+  await page.waitForFunction(() => typeof window.releaseHeld === 'function');
+  assert(await frame.locator('#reload').isDisabled(), 'The generic hold hook keeps Move pending');
+  assert.equal(await frame.locator('#retry').isVisible(), false);
+  await page.evaluate(() => window.releaseHeld());
   await frame.locator('#retry').waitFor();
   await page.locator('#remount').click();
   await frame.locator('#retry').waitFor();
@@ -99,6 +115,7 @@ try {
   await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
   assert.equal(await page.evaluate(() => window.harnessView.revision), 1, 'Touch destination commits the ordinary move once');
   await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+  await haste();
   await tapSquare(4, 1);
   await frame.locator('#choices button').filter({ hasText: 'e2 to e4, with Haste' }).tap();
   await frame.locator('#reload:not(:disabled)').waitFor();
@@ -185,6 +202,9 @@ try {
   await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>n,recoveryReads);
   await frame.locator('#status').filter({hasText:'White to move'}).waitFor();
   assert.equal(await page.evaluate(()=>window.harnessView.game_id),replacement,'Deleted-game recovery survives immediate remount');
+  const options = {fairy:true,pool:['R','A','G','Q','M','S','O'],arrangement:false,classic:false,cards:false,cardPool:[],kingPowers:false};
+  const friendTool = async (name,args={}) => (await page.request.post(new URL('/fixture-friend-tool',base).href,{data:{name,arguments:args}})).json();
+  const tool = async (name,args={}) => (await page.request.post(new URL('/fixture-tool',base).href,{data:{name,arguments:args}})).json();
   if (capabilities.friend) {
     await frame.locator('summary').click();
     await frame.locator('#friend').click(); await frame.locator('#reload:not(:disabled)').waitFor();
@@ -202,26 +222,26 @@ try {
     await frame.locator('#friend').click(); await frame.locator('#reload:not(:disabled)').waitFor();
     await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
     await frame.locator('#invite').click(); await frame.locator('#reload:not(:disabled)').waitFor();
-    // The friend joins with the full link.
-    const link = /^Share this link: (\S+) · or the code [A-HJKMNP-Z2-9]{6}$/.exec(await frame.locator('#invitation').innerText())?.[1]; assert.match(link, /\/j\/[A-Za-z0-9_-]{43}$/);
-    const joined = await (await page.request.post(new URL('/fixture-friend-join', base).href, { data: { invitation: link } })).json();
+    const code = /^Share this code: ([A-HJKMNP-Z2-9]{6})$/.exec(await frame.locator('#invitation').innerText())?.[1]; assert(code);
+    const joined = await friendTool('kingdown_join',{code});
     assert(!joined.isError);
     await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
     await clickSquare(4, 1); await clickSquare(4, 3);
     await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
     const friend = await page.evaluate(() => window.harnessView);
-    const replied = await (await page.request.post(new URL('/fixture-friend-move', base).href, { data: { game_id: friend.game_id, command_id: 'friend-reply', expected_revision: friend.revision, lan: 'e7-e5' } })).json();
+    const replied = await friendTool('kingdown_move',{ game_id: friend.game_id, command_id: 'friend-reply', expected_revision: friend.revision, lan: 'e7-e5' });
     assert(!replied.isError);
     await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
     assert.equal(await page.evaluate(() => window.harnessView.revision), friend.revision + 1);
     await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
     assert.equal(await frame.locator('#invitation').innerText(), '');
-    const invitation = await (await page.request.post(new URL('/fixture-friend-invite', base).href)).json();
+    const waiting = await friendTool('kingdown_create',{kind:'friend',colour:'white',options});
+    const invitation = await friendTool('kingdown_invite',{game_id:waiting._meta.view.game_id});
     assert(!invitation.isError);
     await page.evaluate(() => { window.harnessDropWidgetWrites = true; });
     // The board's Join takes the short code too, in lower case with a dash.
-    const { code } = invitation.structuredContent;
-    await frame.locator('#token').fill(`${code.slice(0, 3).toLowerCase()}-${code.slice(3)}`); await frame.locator('#join').click();
+    const otherCode = invitation.structuredContent.code;
+    await frame.locator('#token').fill(`${otherCode.slice(0, 3).toLowerCase()}-${otherCode.slice(3)}`); await frame.locator('#join').click();
     await frame.locator('#status').filter({ hasText: 'You play Black' }).waitFor({ timeout: 5000 });
     const joinedView = await page.evaluate(() => window.harnessView);
     const readsBeforeJoinRemount = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_get').length);
@@ -234,12 +254,54 @@ try {
     await frame.locator('summary').click();
     await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
   }
+  if (capabilities.friend) {
+    const open = await tool('kingdown_find',{options,colour:'white'}); assert(!open.isError);
+    const lobby = await friendTool('kingdown_lobby'); assert(lobby._meta.lobby.games.some(g=>g.game_id===open._meta.view.game_id));
+    const accepted = await friendTool('kingdown_accept',{game_id:open._meta.view.game_id}); assert(!accepted.isError);
+    const shown = await tool('kingdown_open',{game_id:open._meta.view.game_id}); await page.evaluate(r=>window.harnessShow(r),shown);
+    await frame.locator('#status').filter({hasText:'White to move'}).waitFor(); await frame.locator('#reload:not(:disabled)').waitFor();
+    const resign = await tool('kingdown_resign',{game_id:open._meta.view.game_id}); assert(!resign.isError);
+    const offer = await tool('kingdown_rematch',{game_id:open._meta.view.game_id,command_id:'rematch-offer',expected_revision:resign._meta.view.revision,choice:'offer'}); assert(!offer.isError);
+    const rematch = await friendTool('kingdown_rematch',{game_id:open._meta.view.game_id,command_id:'rematch-accept',expected_revision:offer._meta.view.revision,choice:'accept'}); assert(!rematch.isError);
+    assert.equal((await tool('kingdown_get',{board_id:shown.structuredContent.board_id}))._meta.view.game_id,open._meta.view.game_id);
+    const resumed = await tool('kingdown_resume',{board_id:shown.structuredContent.board_id,game_id:rematch._meta.view.rematch_game_id}); assert(!resumed.isError); await page.evaluate(r=>window.harnessShow(r),resumed);
+    await frame.locator('#status').filter({hasText:'You play Black'}).waitFor(); await frame.locator('#reload:not(:disabled)').waitFor();
+    assert.equal(await page.evaluate(()=>window.harnessView.game_id),rematch._meta.view.rematch_game_id);
+    if (await frame.locator('details').getAttribute('open') === null) await frame.locator('summary').click();
+    await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+  }
+  for (const viewport of [{width:390,height:844},{width:1440,height:900},{width:400,height:900}]) {
+    await page.setViewportSize(viewport); await frame.locator('#status').evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+    assert.equal(await frame.locator('body').evaluate(el=>el.scrollWidth>window.innerWidth),false);
+    const reserve=viewport.width===390?96:128;
+    const lower = await frame.locator('nav').evaluate(el=>el.getBoundingClientRect().bottom);
+    const pane=await page.locator('iframe').boundingBox(); assert(pane);
+    assert(pane.y+pane.height<=viewport.height-reserve,`The app pane clears the composer at ${viewport.width}×${viewport.height}`);
+    assert(pane.y+Math.min(lower,pane.height)<=viewport.height-reserve,'Visible controls stay inside the app pane');
+  }
+  for (const [kind,features,status] of [['friend',options,'waiting'],['solo',{...options,arrangement:true},'setup']]) {
+    const start = await tool('kingdown_create',{kind:'solo',options,colour:'white'});
+    await page.evaluate(result=>window.harnessShow(result),start);
+    await page.waitForFunction(id=>window.harnessWidgetState?.game_id === id,start._meta.view.game_id);
+    await frame.locator('#status').filter({hasText:'White to move'}).waitFor();
+    await clickSquare(4,1); await page.evaluate(()=>{window.dropNextMoveReply=true;});
+    await frame.locator('#choices button[title="e2-e4"]').click(); await frame.locator('#retry').waitFor();
+    const switched = await tool('kingdown_create',{kind,options:features,colour:'white'});
+    assert.equal(switched._meta.view.status,status); assert.equal(switched._meta.view.fen,'');
+    await page.evaluate(result=>window.harnessShow(result),switched);
+    await frame.locator('#retry').waitFor({state:'hidden'});
+    assert.equal(await page.evaluate(()=>window.harnessWidgetState?.pending),undefined,'An empty-FEN host switch clears the old command');
+  }
+  const boardAgain = await tool('kingdown_create',{kind:'solo',options,colour:'white'});
+  await page.evaluate(result=>window.harnessShow(result),boardAgain);
+  await page.waitForFunction(id=>window.harnessWidgetState?.game_id === id,boardAgain._meta.view.game_id);
+  await frame.locator('#status').filter({hasText:'White to move'}).waitFor();
   // A host notification can switch games independently of a pending submission.
   await clickSquare(4, 1);
   await page.evaluate(() => { window.dropNextMoveReply = true; });
   await frame.locator('#choices button[title="e2-e4"]').click(); await frame.locator('#retry').waitFor();
   // White, as the board's Solo button sends: with no colour the seat is random, and Black has no move before the computer.
-  const switched = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_create', arguments: { mode: 'solo', colour: 'white' } } })).json();
+  const switched = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_create', arguments: { kind: 'solo', options, colour: 'white' } } })).json();
   await page.evaluate(async result => { await window.harnessShow(result); }, switched);
   await frame.locator('#retry').waitFor({ state: 'hidden' });
   await clickSquare(4, 1); assert(await frame.locator('#choices button').count() > 0);
