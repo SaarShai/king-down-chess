@@ -34,6 +34,13 @@ Base `0dd3fc36`. Every change, with its reason:
 
 - Build sizes before and after: spec §6.
 - `npm test` through the lock: exit 0, 118 test files passed, 1 skipped; 1,913 tests passed (log `scratchpad/park-clay/test1.log`).
-- `npm run check:browser` (all 24): first run 21 passed, 3 failed: `special-moves` and `cursor-adoption` (taps before the painted board settled; fixed above), `painted-game` (not changed; a 5 s wait under load). Rerun of the three: all 3 passed (`checks2.log`). The full run after the commit is below.
+- `npm run check:browser` (all 24): first run 21 passed, 3 failed: `special-moves` and `cursor-adoption` (taps before the painted board settled; fixed above), `painted-game` (not changed; a 5 s wait under load). Rerun of the three: all 3 passed (`checks2.log`).
 - Samples on a preview build: W13 28 renders, 0 faults; W14 112 renders, 0 faults.
 - Screenshots, Menu → Extra (where Look was) at 1440x900 and 390x844, before and after, and the board of `?look=clay` before (clay) and after (painted): `scratchpad/build/owner4/park-clay/`. No page error in any of the eight loads.
+
+### 2026-10-11: after the commit
+
+- The repo gate refused the first commit: the moved sculpts `rebuilt-ogre.glb` and `rebuilt-paladin.glb` are over 2,000,000 bytes, and a rename counts as a new file. Both are now in `tools/gate/size-allowlist.txt` with a reason; `tools/gate.test.ts` lists them; the parked guard lets these two files name `parked/`, as data (they are not build inputs).
+- Full run on 81a10fe7: `special-moves` failed again on its first tap. Cause: the fresh game saves itself once its board is up (`src/main.ts`, `play.save()` after the board), and the painted board starts fast enough that this save came after the check's seed. The check now waits for that first save before it seeds (12 of 12 probes correct; b2ca27ae). The same run had one `menu-extra` failure ("the overflowing body has a bottom shade"); a probe at 320x568, 390x844 and 844x390 shows Extra overflow in landscape (131 px) with its shade on in 9 of 9 loads, and menu-extra then passed 5 times in a row: a timing race in the shade read, not a fault of this change.
+- Full run on b2ca27ae: 23 of 24; `game-screen` read a board label before the first frame drew it (`tools/board-ink-check.mjs` `boardText`). `boardText` now waits for the label (17725935).
+- Final: `npm test` through the lock on b2ca27ae: exit 0, 118 files passed, 1 skipped; 1,913 tests passed. `npm run check:browser` on 17725935: **all 24 passed** (read-piece, verb-marks, lessons, turn, link-game, end, their-turn, game-screen, menu-extra, home, account, cursor-adoption, king-effects, lesson-return, new-game, painted-game, powers, special-moves, ux-defects, visual-design, workshop, workshop-cast, qa, selftest).
