@@ -6,6 +6,9 @@ import { join } from 'node:path';
 import { resultsRoot } from './lib/results-root.mjs';
 
 describe('card result storage', () => {
+  it('restores incremental snapshots, retains history and rejects cloud corruption', () => {
+    execFileSync('python3', ['tools/results-store-backup.test.py'], { cwd: process.cwd(), stdio: 'pipe' });
+  });
   it('preserves conflicts, deduplicates compressed logs, and keeps sources', () => {
     execFileSync('python3', ['-c', `
 import importlib.util,tempfile,gzip,sys
