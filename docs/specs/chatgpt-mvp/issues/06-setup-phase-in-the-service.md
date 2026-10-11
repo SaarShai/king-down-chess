@@ -1,6 +1,6 @@
 # 06 · The game service: options, the setup step and rematch
 
-Status: ready-for-agent
+Status: resolved
 Type: AFK
 Size: L
 Blocked by: 04, 05
@@ -23,3 +23,50 @@ Blocked by: 04, 05
 ## Notes
 
 - Explorer note B §3.2, §5, §10 (risk 1: the fixed setup). Spec "Schema changes".
+
+## Plan
+
+Round 2 fixes the six review findings. Check one finding at a time through GameService on `kingdown_mvp06_round2_test` and its test copies. First prove the missing rematch deadline, then store both deadline columns. Add full response checks for hidden choices, a save seeded under 0009, exact setup sweep boundaries with unchanged ratings, a computer rematch with seat choices, and retries after later commands. Keep the public names and signatures. Do not change `service.db.test.ts`.
+
+For each test gap, first run a check that exposes the old fixture's limit. Then repair the fixture and check the full behavior. Run `npm test`, the compiled server check and `git diff --check` before resolve. Merge the current local integration tip and run `npm test` before push.
+
+1. Add migration 0010 and runtime grants. Check a repeat apply and a restricted role.
+2. Store options, the draw, the deal and the level at create. Keep games with no options on their old path.
+3. Add the setup step and choose command. Start the match in the Ready transaction. Check hidden choices, races and retries.
+4. End setup after 3 days with no result. Check the sweep and a late command.
+5. Add rematch offers and accept or decline. Check swapped seats and retries.
+6. Add setup and power data to the view. Check each toggle mix through the first move.
+
+Each step starts with one failing database test through GameService. Run `npm test` with ticket 06's test database. Run `npm run plugin:server:check` before resolve. Merge the current integration tip and run `npm test` again before push.
+
+## Interface
+
+- Create takes `options` and `level`. No options keeps the fixed-setup path. The default colour is White.
+- Choose uses `{ type: 'choose', choice: { king, order }, ready }`. A Ready choice cannot change. The other choice and its log entry stay hidden until both seats are ready.
+- Rematch uses `{ type: 'rematch', choice: 'offer' | 'accept' | 'decline' }`. The reply stays on the old game and gives `rematch_game_id` after accept. A solo offer creates the new game at once.
+- `View` gives `options`, `draw`, `deal`, `level`, `choices`, `ready` and `setup_deadline_at` for option-based games. `kings` and `hands` appear after the engine starts. The hands are the dealt cards. The FEN records each seat's spent-card bits.
+- Play ends by revision 1000. `MAX_REVISION` is 1100 so a game at the play limit can take a rematch offer. Tool schemas must use this bound.
+- Ticket 07 can call `enterSetup` from its accept transaction. A game with no seat choice starts at once.
+
+## Result
+
+All six Round 2 findings are fixed. The service names and signatures stay the same. This work makes no direct change to `service.db.test.ts`.
+
+- A Daily human rematch keeps both deadline columns. The test covers games with options and the old fixed setup. It sweeps just before and at the first-turn deadline.
+- Hidden-choice checks use distinct legal orders. They check all fields in full reads, polls, lists, join retries, abort replies and errors. They cover both seats before both are Ready.
+- The upgrade test seeds a played save under 0009. It applies 0010 twice, checks all new defaults and the unchanged save, then plays two more turns.
+- The setup sweep keeps the game open 1 ms before 3 days and ends it at 3 days. Both ratings stay unchanged after the sweep and a late Ready command.
+- The computer rematch has Arrangement and King powers on. Both seats are Ready. The computer and player each make their first move.
+- Draft-choice and rematch-decline retries keep the state from later commands. Each command has one log entry.
+
+The deadline test fails on the old insert. Fixture checks reject the old shared order, the old upgrade schema and the old rematch toggles. Temporary faults (a 2-day deadline and ignored retry receipts) make the new checks fail. All faults are removed before the green checks.
+
+Checks use `kingdown_mvp06_round2_test` and its own test copies on `127.0.0.1:55432`.
+
+- Focused `npm test`: 12 service tests pass; 50 document-art tests pass.
+- Full `npm test`: 139 files pass; 2,198 tests pass; 8 skip. All 50 document-art tests pass.
+- Merge check: local integration tip `b02de05f` merges without a conflict. The full `npm test` check then passes with the same counts.
+- `npm run plugin:build` and `npm run plugin:server:check` pass. The compiled HTTP check uses real PostgreSQL. The page resource is 437,582 JSON bytes, with 20 art files.
+- `git diff --check` passes.
+
+Open items: none in this ticket. This work changes no page flow, so browser checks do not apply.

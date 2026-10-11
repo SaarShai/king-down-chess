@@ -54,8 +54,8 @@ suite('migrations run again on a database in use', () => {
  it('starts the server only with the online-game schema and grants: an older runtime role is refused', async () => {
   const admin = new pg.Pool({ connectionString: own.href, max: 1 });
   const grants = await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8'), password = randomUUID();
-  // The role as the live plugin has it today (blocks 1 and 2), and the role with every block.
-  const roles = { old: grants.split(/^commit;$/m).slice(0, 2).join('commit;') + 'commit;', full: grants };
+  // The old role, the role without setup grants, and the full role.
+  const roles = { old: grants.split(/^commit;$/m).slice(0, 2).join('commit;') + 'commit;', withoutsetup: grants.split(/^commit;$/m).slice(0, 6).join('commit;') + 'commit;', full: grants };
   const made: string[] = [];
   try {
    for (const [name, sql] of Object.entries(roles)) {
@@ -64,7 +64,7 @@ suite('migrations run again on a database in use', () => {
     const login = new URL(own.href); login.username = role; login.password = password;
     const pool = new pg.Pool({ connectionString: login.href, max: 1 });
     try {
-     if (name === 'old') await expect(checkPluginDatabase(pool)).rejects.toMatchObject({ code: 'SCHEMA_REQUIRED' });
+     if (name !== 'full') await expect(checkPluginDatabase(pool)).rejects.toMatchObject({ code: 'SCHEMA_REQUIRED' });
      else await checkPluginDatabase(pool);
     } finally { await pool.end(); }
    }
