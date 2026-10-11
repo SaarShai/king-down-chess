@@ -1,6 +1,6 @@
 import type { Pool, PoolClient } from 'pg';
 import { GLICKO2, growRd, provisional, rateGame, type Rating } from '../online/glicko2';
-import type { GameFeatures, HistoryEntry, HistoryPage, PlayerRecord, Seat } from './protocol';
+import type { GameFeatures, GameOutcome, HistoryEntry, HistoryPage, PlayerRecord, Seat } from './protocol';
 import type { Game } from './store';
 import { earnedBadges, type Badge } from './badges';
 import type { KingName } from '../rules/rules';
@@ -73,4 +73,20 @@ export async function gameHistory(pool: Pool, actor: string, before: [string, st
   opponent: { handle: r.handle, icon: r.icon, computer: r.op_computer, deleted: !r.op_user && !r.op_computer, level: r.op_computer ? r.level : null }, features: features(r, r.seat) }));
  const last = rows[limit - 1];
  return { games, next_before: rows.length > limit ? `${last.cursor_at}|${last.game_id}` : null };
+}
+
+/** Full page reads only. A computer game has no rating-history row. */
+export async function opponentRating(client: Pool | PoolClient, actor: string): Promise<{ rating: number; provisional: boolean }> {
+ const row = (await client.query('select rating,rd,volatility,last_game_at from public.player_ratings where user_id=$1', [actor])).rows[0];
+ const rating = row ? growRd(row, idleDays(new Date(), row.last_game_at)) : GLICKO2;
+ return { rating: rating.rating, provisional: provisional(rating.rd) };
+}
+export async function gameOutcome(client: Pool | PoolClient, actor: string, game: string): Promise<GameOutcome> {
+ const [rating, badges] = await Promise.all([
+  client.query('select rating_before,rating,rd from public.rating_history where user_id=$1 and game_id=$2', [actor, game]),
+  client.query('select badge,earned_at from public.player_badges where user_id=$1 and game_id=$2 order by earned_at,badge', [actor, game]),
+ ]);
+ const row = rating.rows[0];
+ return { rating_before: row?.rating_before ?? null, rating: row?.rating ?? null, provisional: row ? provisional(row.rd) : true,
+  badges: badges.rows.map(r => ({ badge: r.badge, earned_at: r.earned_at.toISOString() })) };
 }

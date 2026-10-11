@@ -8,7 +8,7 @@ import type { View } from '../match/protocol';
 import { createPluginHandler, MAX_MCP_BODY, type PluginHttpOptions } from './http';
 const alice = '11111111-1111-4111-8111-111111111111', bob = '22222222-2222-4222-8222-222222222222';
 const matchId = '33333333-3333-4333-8333-333333333333';
-const view: View = { game_id: matchId, revision: 0, seat: 0, kind: 'solo', speed: 'live', days_per_move: null, status: 'playing', turn: 0, action: 'ready', fen: '7k/8/8/8/8/8/8/K7 w - - 0 1',
+const view: View = { game_id: matchId, revision: 0, created_at: '2030-01-01T00:00:00.000Z', abort_open: true, seat: 0, kind: 'solo', speed: 'live', days_per_move: null, status: 'playing', turn: 0, action: 'ready', fen: '7k/8/8/8/8/8/8/K7 w - - 0 1',
   in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: null, server_now: '2030-01-01T00:00:00.000Z' };
 const servers: Server[] = [];
 const provider = vi.fn<typeof fetch>();
@@ -16,7 +16,7 @@ let service: PluginHttpOptions['service'], auth: PluginAuth, address: string, pr
 beforeEach(async () => {
   provider.mockReset();
   provider.mockImplementation(async (_url, options) => Response.json({ id: decodeJwt(new Headers(options?.headers).get('Authorization')!.slice(7)).sub }));
-  service = { openBoard: vi.fn(async () => matchId), board: vi.fn(async () => matchId), selectBoard: vi.fn(async () => {}), inbox: vi.fn(async () => [{ ...view, status: 'playing' as const, updated_at: view.server_now }]), create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view),
+  service = { openBoard: vi.fn(async () => matchId), board: vi.fn(async () => matchId), selectBoard: vi.fn(async () => {}), inbox: vi.fn(async () => [{ ...view, options: null, move: 1, open_until: null, level: 'club' as const, status: 'playing' as const, updated_at: view.server_now }]), create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view),
     invite: vi.fn(async () => ({ token: 'test', code: 'ABCDEF', expires_at: '2030-01-01' })), join: vi.fn(async () => view), lobby: vi.fn(async () => ({ games: [] })), accept: vi.fn(async () => view), find: vi.fn(async () => view), cancel: vi.fn(async () => view), report: vi.fn(async () => ({ id: 1, created_at: '2030-01-01' })), profile: vi.fn(async () => ({ user_id: alice, handle: null, icon: null })),
     handle: vi.fn(async () => ({ user_id: alice, handle: null, icon: null })), settings: vi.fn(async () => ({ symbols_only: false, show_threats: false, last_setup: null })), history: vi.fn(async () => ({ games: [], next_before: null })), record: vi.fn(async () => ({ totals: { played: 0, won: 0, drawn: 0, lost: 0 }, rating: { rating: 1500, rd: 350, volatility: 0.06, provisional: true }, badges: [] })) };
   const pair = await generateKeyPair('ES256'); privateKey = pair.privateKey;

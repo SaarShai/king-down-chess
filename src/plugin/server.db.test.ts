@@ -8,6 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { DEFAULT_OPTIONS } from '../match/setup';
 import type { View } from '../match/protocol';
+import { GameService } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
 import { createPluginServer } from './server';
 import { PluginService } from './service';
@@ -157,6 +158,42 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(profile.content[0].text).toMatch(/Rating 1500.*1 played.*1 lost/);
   expect((await reader.call('kingdown_profile', { before: 'bad' }))._meta.code).toBe('INVALID_INPUT');
   expect((await player.ok('kingdown_games'))._meta.games).toEqual([]);
+ });
+
+ it('gives the page icons, ratings, outcomes, abort state and inbox time, with distinct no-start words', async () => {
+  const [a, b] = [await user('fields-a'), await user('fields-b')], host = await connect(a), guest = await connect(b);
+  await guest.ok('kingdown_handle', { icon: 'frost' });
+  const options = { ...DEFAULT_OPTIONS, arrangement: false };
+  const created = await host.ok('kingdown_create', { kind: 'friend', options });
+  const game_id = view(created).game_id;
+  expect(view(created)).toMatchObject({ created_at: expect.any(String), abort_open: true });
+  const invite = await host.ok('kingdown_invite', { game_id });
+  const games = await host.ok('kingdown_games');
+  expect(games._meta.games[0]).toMatchObject({ options, level: 'club', created_at: view(created).created_at, open_until: invite.structuredContent.expires_at, move: null });
+  await guest.ok('kingdown_join', { code: invite.structuredContent.code });
+  const start = await host.ok('kingdown_get', { game_id });
+  expect(view(start)).toMatchObject({ opponent: { icon: 'frost', rating: { rating: 1500, provisional: true } }, abort_open: true });
+  expect(view(await host.ok('kingdown_get', { game_id, since_revision: 1 })).opponent?.rating).toBeUndefined();
+  await host.ok('kingdown_move', move(start, plain(start)));
+  const black = await guest.ok('kingdown_get', { game_id });
+  await guest.ok('kingdown_move', move(black, plain(black)));
+  const both = await host.ok('kingdown_get', { game_id });
+  expect(view(both).abort_open).toBe(false);
+  expect((await host.ok('kingdown_games'))._meta.games[0]).toMatchObject({ move: 2, opponent: { icon: 'frost' } });
+  await guest.ok('kingdown_resign', { game_id });
+  const finished = await host.ok('kingdown_get', { game_id });
+  expect(view(finished).outcome).toMatchObject({ rating_before: 1500, rating: expect.any(Number), provisional: true, badges: expect.arrayContaining([expect.objectContaining({ badge: 'first_win' })]) });
+  expect(view(finished).outcome!.rating).toBeGreaterThan(1500);
+  expect(view(await host.ok('kingdown_get', { game_id, since_revision: view(finished).revision })).outcome).toBeUndefined();
+  for (const kind of ['friend', 'random'] as const) {
+   const waiting = await host.ok('kingdown_create', { kind, options }), id = view(waiting).game_id;
+   if (kind === 'friend') { await host.ok('kingdown_invite', { game_id: id }); await admin.query("update public.game_invites set expires_at=now()-interval '1 minute' where game_id=$1", [id]); }
+   else await admin.query("update public.games set created_at=now()-interval '25 hours' where id=$1", [id]);
+   await new GameService(new PostgresMatchStore(admin)).sweep();
+   const expired = await host.ok('kingdown_get', { game_id: id });
+   expect(view(expired).opponent).toBeNull();
+   expect(expired.structuredContent.result).toBe(kind === 'friend' ? 'The invitation expired. No result.' : 'No one took your open game. No result.');
+  }
  });
 
  it('plays a Daily friend game between two ChatGPT players and shows the model no position and no opponent text', async () => {

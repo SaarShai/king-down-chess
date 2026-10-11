@@ -55,7 +55,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     // A draw offer from either side; the model can answer the opponent's with kingdown_draw.
     const offer = view.draw_offer === null ? null : view.draw_offer === view.seat ? 'yours' : 'opponent';
     return {
-      content: text(view.status === 'waiting' ? 'Waiting for the other player to join.' : view.status === 'setup' ? view.ready?.[view.seat] ? 'Waiting for the other player to choose.' : 'Choose your king and arrangement.' : result ? `Game over: ${result}.`
+      content: text(view.status === 'waiting' ? 'Waiting for the other player to join.' : view.status === 'setup' ? view.ready?.[view.seat] ? 'Waiting for the other player to choose.' : 'Choose your king and arrangement.' : result ? `Game over: ${result}${result.endsWith('.') ? '' : '.'}`
         : `${view.action === 'ready' ? 'Your move' : 'The other side moves'}, move ${move}.${offer === 'opponent' ? ' The other side offers a draw.' : ''}`),
       structuredContent: { screen: 'board', game_id: view.game_id, ...(board && { board_id: board }), kind: view.kind, speed: view.speed, days_per_move: view.days_per_move, status: view.status,
         colour: view.seat === 0 ? 'white' : 'black', your_turn: view.action === 'ready', ...(move !== undefined && { move }), deadline_at: view.deadline_at, draw_offer: offer, ...(result && { result }) },

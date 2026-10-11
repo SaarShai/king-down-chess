@@ -103,3 +103,5 @@ Page metadata keeps the CSP from ticket 09. `openai/ui` declares inline and full
 - Step 4: Settings first fails as an absent tool. Default reads, partial writes, saved setup defaults and invalid king and options checks now pass. The migration and plugin checks pass.
 
 - Step 5: the handle test first fails on the absent tool. Availability checks, reserved-name checks, icon writes and profile record and history pass. Seven related files pass with 58 tests and 50 art tests. `_meta.history` is the row array; `_meta.next_before` is its cursor.
+
+- Step 6: the page-field test first fails because the fields are absent. Icons, full-read ratings and outcomes, inbox dates and move number, abort state and expired-game words pass. Polls omit rating and outcome. Old-save checks still pass. A solo outcome has null rating numbers and any new badges; computer games have no rating history.
