@@ -79,3 +79,33 @@ it('returns the completed fixture join on retry, also after the code expires', a
   }
  } finally {vi.useRealTimers();await s.close();}
 });
+
+it('allows Switch now only for an earlier own search joined after solo play starts', async () => {
+ vi.useFakeTimers({toFake:['Date']});
+ try {
+  for (const scenario of ['joined after','no search','joined before','opened after','other creator','ended search']) {
+   const s = fixtureService();
+   try {
+    await s.handle('alice',{handle:'alice'}); await s.handle('bob',{handle:'bob'});
+    let open;
+    if (!['no search','opened after'].includes(scenario)) {
+     open = await s.create(scenario === 'other creator' ? 'bob' : 'alice',{kind:'random',options:DEFAULT_OPTIONS});
+     if (scenario === 'joined before') { vi.setSystemTime(Date.now()+1000); await s.accept('bob',open.game_id); }
+    }
+    vi.setSystemTime(Date.now()+1000);
+    let solo = await s.create('alice',{kind:'solo',options:{...DEFAULT_OPTIONS,fairy:false,arrangement:false}});
+    solo = await s.command('alice',solo.game_id,{command_id:'move',expected_revision:0,action:{type:'turn',actions:[solo.legal[0]]}});
+    solo = await s.command('alice',solo.game_id,{command_id:'computer',expected_revision:solo.revision,action:{type:'computer'}});
+    expect(solo.abort_open).toBe(false);
+    vi.setSystemTime(Date.now()+1000);
+    if (scenario === 'opened after') open = await s.create('alice',{kind:'random',options:DEFAULT_OPTIONS});
+    if (open && scenario !== 'joined before') await s.accept(scenario === 'other creator' ? 'alice' : 'bob',open.game_id);
+    if (scenario === 'ended search') await s.command('alice',open!.game_id,{command_id:'cancel',expected_revision:1,action:{type:'abort'}});
+    const read = await s.view('alice',solo.game_id), abort = {command_id:'switch',expected_revision:solo.revision,action:{type:'abort'}};
+    expect(read.abort_open).toBe(scenario === 'joined after');
+    if (scenario === 'joined after') expect((await s.command('alice',solo.game_id,abort)).result).toEqual({winner:null,reason:'abort'});
+    else await expect(s.command('alice',solo.game_id,abort)).rejects.toMatchObject({code:'NOT_ALLOWED'});
+   } finally {await s.close();}
+  }
+ } finally {vi.useRealTimers();}
+},20000);
