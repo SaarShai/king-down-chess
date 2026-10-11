@@ -1,6 +1,6 @@
 # 02 · The visual sample
 
-Status: ready-for-agent
+Status: resolved
 Type: HITL (the owner's yes on the rendered sample)
 Size: M
 Blocked by: none
@@ -26,6 +26,21 @@ A static, clickable mock of the MVP screens with the real art, for the owner's y
 
 - Every screen above renders at the three sizes with no horizontal scroll and no text over the composer zone.
 - The owner says yes (quote and date here), or the changes are listed and done.
+
+## Result
+
+- The sample is in `sample/`: `sample.html` with 23 states, the render script `render.mjs`, the renders in `png/` (69 PNGs: phone 390 × 844 at DPR 2, side panel 400 × 900, desktop 1440 × 900) and `contact-sheet.png`. `sample/README.md` tells how to render it again.
+- States: `home` (inline card), `play`, `setup`, `setup-classic`, `setup-pieces`, `setup-cards`, `setup-king`, `friend-code`, `seat`, `seat-waiting`, `board`, `board-abort`, `board-claim`, `board-symbols`, `end`, `lobby`, `lobby-wait`, `opponent-found`, `profile`, `profile-badges`, `collection`, `settings`, `handle`.
+- New art, made with Codex image_gen on the owner's plan: the coin frame, the scroll and 10 badges (one family look; the First Win badge is the reference for the other nine). The masters and prompts are in `art-src/chatgpt-mvp/`, with rows in `art-src/MANIFEST.md`. The web copies in `sample/art/` total 154,974 bytes. The toggle and feature icons are inline SVG (monochrome outline, the ChatGPT icon rule).
+- The card and power texts come from `src/powers-ui.ts` (`sample/data.js`). The UI text uses system fonts; the brand crimson is only on primary buttons, switches, accents and badges.
+- Checks: `node docs/specs/chatgpt-mvp/sample/render.mjs`: 23 states × 3 sizes, no faults (no sideways scroll, no text over the composer zone, no text past the right edge, no page error, no missing file). `npm test`: see the merge line below.
+- Not in the sample: the page size (the sample is not the plugin page; ticket 09 moves the art off the page).
+
+### Open items
+
+- The owner's yes on `sample/contact-sheet.png`, or a list of changes (Acceptance).
+- The board is a mock: the piece cut-outs from `public/ui/pieces` on the stone board, not the canvas scene. The build uses the real painted board.
+- Abort and Claim show in separate states (`board-abort`, `board-claim`). The owner may prefer one action row with all four.
 
 ## Notes
 
