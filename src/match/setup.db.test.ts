@@ -89,6 +89,9 @@ suite('game setup through PostgreSQL', () => {
   const error = await service.command(a, aborted.game_id, command(3, { type: 'choose', choice: draft, ready: true })).catch(error => ({ ...error, message: error.message }));
   expect(error).toMatchObject({ code: 'MATCH_TERMINAL' }); expectHidden(error, privateChoice);
  }, 30_000);
+ it('refuses a computer level without game options', async () => {
+  await expect(service.create(a, { kind: 'solo', level: 'strong' })).rejects.toMatchObject({ code: 'INVALID_INPUT', status: 400 });
+ });
  it('ends late setup once with no result and refuses a late Ready command', async () => {
   const create = async () => {
    const game = await service.create(a, { kind: 'friend', speed: 'live', options: DEFAULT_OPTIONS });

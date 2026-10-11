@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GameService } from './service';
+import { createMatch } from './index';
 import { PostgresMatchStore } from './store';
 import { DEFAULT_OPTIONS } from './setup';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
@@ -102,7 +103,7 @@ suite('finished game results in PostgreSQL', () => {
  it('lists only finished games newest first, with complete pages even at the same date', async () => {
   const a = await user(), b = await user(), stranger = await user(), handle = `guest-${b.slice(0,8)}`;
   await admin.query("update public.profiles set handle=$2,icon='rook' where id=$1", [b, handle]);
-  const solo = await games[0].create(a, { kind: 'solo', colour: 'black', level: 'strong' });
+  const solo = await games[0].create(a, { kind: 'solo', colour: 'black', level: 'strong', options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false } });
   await games[0].command(a, solo.game_id, command(0, { type: 'resign' }));
   const win = await friend(a, b, { colour: 'black' });
   await games[0].command(b, win.game_id, command(win.revision, { type: 'resign' }));
@@ -125,7 +126,10 @@ suite('finished game results in PostgreSQL', () => {
  });
  it('keeps computer games unrated and excludes abort and no start from the record', async () => {
   const a = await user(), b = await user(), start = (await games[0].record(a)).rating;
-  const solo = await games[0].create(a, { kind: 'solo', level: 'strong', setup: { fen: '7k/8/5KQ1/8/8/8/8/8 w - - 0 1', kings: 'none,none' } });
+  const solo = await games[0].create(a, { kind: 'solo', level: 'strong', options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false } });
+  const fixture = await createMatch({ fen: '7k/8/5KQ1/8/8/8/8/8 w - - 0 1', kings: 'none,none' });
+  try { await admin.query('update public.games set state=$2,snapshot=$3 where id=$1', [solo.game_id, await fixture.exportSave(), await fixture.snapshot()]); }
+  finally { await fixture.close(); }
   const mate = await games[0].command(a, solo.game_id, command(0, { type: 'turn', actions: ['Qg6-g7'] }));
   expect(mate.result).toEqual({ winner: 0, reason: 'checkmate' });
   const record = await games[0].record(a);

@@ -98,6 +98,7 @@ export class GameService {
  constructor(readonly store: PostgresMatchStore) {}
  async create(actor: string, input: unknown): Promise<View> {
   actor = id(actor); const options = parse(createSchema, input);
+  if (options.level && !options.options) fail('INVALID_INPUT', 400, 'A computer level needs game options');
   if (options.kind !== 'solo') await this.requireHandle(actor);
   const game = await this.newGame(actor, options);
   settle(game, game.created_at);
