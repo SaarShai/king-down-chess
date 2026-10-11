@@ -1,6 +1,6 @@
 # 01: Park the clay look
 
-Status: done
+Status: done (PR #51 merged 2026-10-11)
 Spec: [../spec.md](../spec.md)
 
 ## Steps

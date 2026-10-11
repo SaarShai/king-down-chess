@@ -1,6 +1,6 @@
 # 11 · Cut over: A becomes the Workshop
 
-Status: ready-for-agent
+Status: done (PR #42, merged to main with #41, 2026-10-11)
 Size: L
 Blocked by: 02, 03, 04, 05, 06, 07, 08, 09, 10
 

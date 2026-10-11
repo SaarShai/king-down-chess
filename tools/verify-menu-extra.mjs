@@ -10,6 +10,7 @@ async function assertPhoneSheet(page, height) {
       head: sheet.querySelector('.sheet-head').offsetHeight,
       padding: parseFloat(style.paddingTop) + parseFloat(style.paddingBottom),
       overflow: body.scrollHeight > body.clientHeight + 1,
+      below: body.scrollHeight - body.clientHeight - body.scrollTop > 1,
       shade: getComputedStyle(sheet, '::after').display,
       shadeContent: getComputedStyle(sheet, '::after').content,
       page: section.dataset.menuPage, sizing: sheet.computedStyleMap().get('height').toString(),
@@ -19,8 +20,9 @@ async function assertPhoneSheet(page, height) {
   assert.ok(Math.abs(bounds.bottom - height) <= 1, 'each phone page meets the screen bottom');
   assert.ok(bounds.height <= bounds.head + bounds.content + bounds.padding + 24, 'each phone sheet fits its page content');
   if (bounds.page === 'tricks' && height <= 568) assert.ok(bounds.overflow, 'short Tricks scrolls inside the sheet');
-  if (bounds.overflow) assert.equal(bounds.shade, 'block', 'the overflowing body has a bottom shade');
-  if (bounds.overflow) assert.equal(bounds.shadeContent, '""', 'the bottom shade has generated content and paints');
+  // The shade marks rows below the fold; scrolled to the end, none shows (menu.ts updateShade).
+  if (bounds.below) assert.equal(bounds.shade, 'block', 'the overflowing body has a bottom shade');
+  if (bounds.below) assert.equal(bounds.shadeContent, '""', 'the bottom shade has generated content and paints');
 }
 const browser = await launch();
 try {

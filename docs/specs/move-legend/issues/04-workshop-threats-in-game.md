@@ -1,6 +1,6 @@
 # Show threats in the game uses the Workshop's threat marks
 
-Status: ready-for-agent
+Status: done (PR #50 merged 2026-10-11)
 Size: S
 Blocked by: ticket 03 (the shared drawing in `src/render/legend.ts`).
 
@@ -57,7 +57,7 @@ Changes from the ticket, and why:
 
 **2026-10-11, the review fixes (tickets 03 and 04).** The independent review (`review-gm.md` in the build scratch folder) gave one should-fix and four nits. I checked each against the code.
 - Should-fix 1, the threat is hard to see: confirmed in `S/3-threats-desktop.jpg` (a thin pink line over the d3 move tile). Fixed in the game only: `src/render/marks.ts` draws the arrow at 1.5 × the line width and head, at .85 in place of .6. The Workshop keeps its own threat. Reason: the game draws the arrow over move tiles, and the ticket says Show threats must still tell the player which pieces are attacked.
-- Nit 2, in check the king gets the check marks and a threat arrow: confirmed, not changed. The two marks agree, and the threat list keeps the king's attackers for the check test (`move-text.test.ts`). The owner can ask for it.
+- Nit 2, in check the king gets the check marks and a threat arrow: confirmed, not changed. The two marks agree, and the threat list keeps the king's attackers for the check test (`move-text.test.ts`). Owner, 2026-10-11: "Keep both the check mark and the threat arrow."
 - Nit 3, a catapult's rail passes over its screen: confirmed (catapult a1, enemy a2, target a3 gave the rail `a3 x`). Fixed in `src/marks-model.ts` `railsOf()`: a catapult's rail stops at the first piece; the paladin and a design still pass. New case in `marks-model.test.ts`; it fails on the old code (it gave `a3 x`, `h1 stop`) and passes now (`h1 stop` only).
 - Nit 4, the stale W13 comment: fixed ("the rook d5 attacks the knight d2").
 - Nit 5, no test for an archer's threat: added a case to `move-text.test.ts` (archer d5, knight d3: the threat is `d5 → d3`).

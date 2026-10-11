@@ -1,6 +1,6 @@
 # Game and Workshop marks use the owner's legend
 
-Status: ready-for-agent
+Status: done (PR #41 merged 2026-10-11)
 Size: L
 Blocked by: none. The Proving Ground build (`docs/specs/workshop-proving-ground/`, ticket 01) imports `src/render/legend.ts` from this ticket, so this ticket merges first. That ticket can start on a branch stacked on this one.
 

@@ -1,6 +1,6 @@
 # Show threats gets its own marks
 
-Status: ready-for-agent
+Status: done (PR #47 merged 2026-10-11)
 Size: S
 Blocked by: none. Ticket 01 (the legend) is on main.
 

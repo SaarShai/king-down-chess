@@ -1,6 +1,6 @@
 # 08 · The card face for sharing
 
-Status: ready-for-agent
+Status: done (PR #42, merged to main with #41, 2026-10-11)
 Size: M
 Blocked by: 07
 
