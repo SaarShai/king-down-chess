@@ -79,6 +79,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   const chev = '<svg class="pg-chev" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 10l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 13l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/></svg>';
   const rows = Array.from({ length: 8 }, (_, i) => `<div role="row">${[...FILES].map(f => `<button type="button" class="sq" role="gridcell" data-sq="${f}${8 - i}" tabindex="-1"></button>`).join('')}</div>`).join('');
   dlg.innerHTML = `<header class="pg-top"><button type="button" class="pg-menu" aria-label="Menu"><span aria-hidden="true">‹</span> <span class="pg-word">Menu</span></button>`
+    + '<button type="button" class="pg-pieces" data-act="pieces" aria-expanded="false" aria-controls="pg-ledge">Pieces</button>'
     + '<h2 id="pg-h" class="pg-title" tabindex="-1"><i></i>Workshop<i class="r"></i></h2><div class="pg-acts"></div><div class="pg-morepop" id="pg-morepop" hidden></div></header>'
     + '<div class="pg-main"><section class="pg-plinth" aria-label="The open piece"></section>'
     + `<section class="pg-boardcol" aria-label="Try board"><div class="pg-rim"><div class="pg-files" aria-hidden="true">${[...FILES].map(f => `<span>${f}</span>`).join('')}</div>`
@@ -90,7 +91,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     + '<section class="pg-right" aria-label="Key"><div class="pg-brushes"></div><div class="pg-tools" hidden></div><p class="pg-hint"></p><div class="pg-keyrow" aria-label="Also on the board"></div><div class="pg-why" aria-live="polite" hidden></div>'
     + '<div class="pg-tray" role="group" aria-labelledby="pg-tray-h" hidden></div></section>'
     + '<aside class="pg-shelf" aria-labelledby="pg-shelf-h" hidden></aside></div>'
-    + '<footer class="pg-ledge"><div class="ltabs" role="tablist" aria-label="Library"></div>'
+    + '<footer class="pg-ledge" id="pg-ledge"><div class="ltabs" role="tablist" aria-label="Library"></div>'
     + '<div class="lrow" id="pg-row" role="tabpanel" aria-labelledby="pg-tab-pieces"><div class="inner lip"></div></div><div class="pg-boardtab" id="pg-boardtab" role="tabpanel" aria-labelledby="pg-tab-board" hidden></div></footer>'
     + '<div class="pg-alert" role="alert" hidden></div><p class="pg-toast" role="status" aria-live="polite"></p><div class="pg-reachpop" aria-hidden="true"></div>';
   document.body.append(dlg);
@@ -98,9 +99,12 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   const plinthEl = q('.pg-plinth'), fieldEl = q('.pg-field'), boardEl = q<SVGSVGElement>('.pg-board'), hitsEl = q('.pg-hits'), paintEl = q('.pg-paint');
   const actsEl = q('.pg-acts'), moreEl = q('.pg-morepop'), brushesEl = q('.pg-brushes'), toolsEl = q('.pg-tools'), hintEl = q('.pg-hint'), keyEl = q('.pg-keyrow');
   const rowEl = q('.lrow'), slotsEl = q('.lrow .inner'), alertEl = q('.pg-alert'), toastEl = q('.pg-toast'), shelfEl = q('.pg-shelf'), whyEl = q('.pg-why'), notchEl = q('.pg-notch');
-  const trayEl = q('.pg-tray'), tabsEl = q('.ltabs'), boardTabEl = q('.pg-boardtab'), reachEl = q('.pg-reachpop');
-  /** The narrow layout (ground.css): the phone form of the mockup. */
-  const narrow = matchMedia('(max-width: 999px)');
+  const trayEl = q('.pg-tray'), tabsEl = q('.ltabs'), boardTabEl = q('.pg-boardtab'), reachEl = q('.pg-reachpop'), ledgeEl = q('.pg-ledge');
+  /** The narrow layout (ground.css): the phone form of the mockup. Short landscape (a phone held sideways) keeps the phone
+   *  form on its own grid: the tray in the column, the ledge a sheet from Pieces, the Why tag and the shelf side sheets. */
+  const sideways = '(orientation: landscape) and (max-height: 500px)', narrow = matchMedia(`(max-width: 999px), ${sideways}`), short = matchMedia(sideways);
+  /** The phone held upright: the tray in the ledge's Board tab. */
+  const upright = (): boolean => narrow.matches && !short.matches;
 
   let cur = pool('pawn'), shelf: PieceDesign[] = [], sc: Scene, board: Uint8Array = new Uint8Array(64), from = 0, st = START, kbd = 'd4', drawnAt = 0;
   /** Brush mode while a brush or tool is armed (proving-ground.html:1742); "Paint on" (the Mirror tool). */
@@ -122,6 +126,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
    *  changed a design (from then on the tray and the plaque show, proving-ground.html:1179, :1372). */
   let pos: Try = { board, from, st, gone: false, chain: null, became: 0 }, backs: Try[] = [];
   let lifted = false, token: 'friend' | 'enemy' | null = null, threats = false, promo: Move[] | null = null, tab: 'pieces' | 'board' = 'pieces';
+  /** Short landscape: the ledge's sheet is open. */
+  let ledgeOpen = false;
   let opened = 0, tapped = false, edited = false;
 
   let toastTimer = 0;
@@ -737,7 +743,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       + DIRS.map(l => {
         const [x, y] = DIR[l], k = x && y ? 0.42 : 0.4, on = cur.d.lines.includes(l);
         return `<button type="button" class="nub${on ? ' on' : ''}" data-nub="${l}" aria-pressed="${on}" aria-label="${cap(lineWords([l]))}" title="${on ? 'Remove this line' : 'Add a line'}"`
-          + ` style="left:${(3.5 + x * k) * 12.5}%;top:${(4.5 - y * k) * 12.5}%">${nub(on, (Math.atan2(-y, x) * 180) / Math.PI)}</button>`;
+          + ` style="--x:${x * k};--y:${y * k}">${nub(on, (Math.atan2(-y, x) * 180) / Math.PI)}</button>`;
       }).join('');
   }
   // One tab stop; the arrow keys move over the squares (forward is up).
@@ -815,9 +821,12 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   function renderWhy(): void {
     const phone = narrow.matches;
     whyEl.hidden = notchEl.hidden = !why;
-    // On the phone the shelf, the card and the tag cover the ledge, and the tag the brushes too.
-    q('.pg-ledge').inert = phone && (!!why || !shelfEl.hidden);
-    brushesEl.inert = phone && !!why;
+    // On the phone the shelf, the card and the tag cover the ledge, and the tag the brushes too; in short landscape they are
+    // side sheets that cover the plinth strip, and the tag the tray, and the ledge's sheet from Pieces goes over them.
+    const sheet = !!why || !shelfEl.hidden;
+    ledgeEl.inert = upright() && sheet;
+    plinthEl.inert = short.matches && sheet;
+    brushesEl.inert = trayEl.inert = phone && !!why;
     if (!why) { whyEl.innerHTML = ''; return; }
     const w = whyWords(now(), sc, traceOf(now(), board, from, st), why), p = w.piece, T = phone ? 48 : 52;
     const icon = !p ? '' : pieceIcon(p.open ? pos.became || BODY_TYPE[cur.d.look.body as Body] : (PIECE as readonly string[]).indexOf(p.k) as PieceType, p.side === 'b' ? 1 : 0);
@@ -946,10 +955,10 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     render();
   }
   /** The tray (renderTray, :1369-1396): the Friend and Enemy tokens, the eye, the die, the broom, and the move number or the
-   *  card only when a rule reads them (decision 24). On the desktop it stands at the foot of the right column in look mode,
-   *  less on the first open of a pool piece before an edit; on the phone, in the ledge's Board tab. */
+   *  card only when a rule reads them (decision 24). On the desktop and in short landscape it stands at the foot of the right
+   *  column in look mode, less on the first open of a pool piece before an edit; on the phone, in the ledge's Board tab. */
   function renderTray(): void {
-    const phone = narrow.matches, on = phone ? tab === 'board' : !brush && !shelfOpen && (opened > 1 || edited || !cur.key.startsWith('piece:')), reads = (...w: When['on'][]) => cur.d.rules.some(r => w.includes(r.when.on));
+    const phone = upright(), on = phone ? tab === 'board' : !brush && !shelfOpen && (opened > 1 || edited || !cur.key.startsWith('piece:')), reads = (...w: When['on'][]) => cur.d.rules.some(r => w.includes(r.when.on));
     (phone ? boardTabEl : q('.pg-right')).append(trayEl);
     trayEl.hidden = !on;
     const tok = (k: 'friend' | 'enemy', words: string): string => `<button type="button" class="tok" data-tok="${k}" aria-pressed="${token === k}" aria-label="${cap(k)}" title="${words}">`
@@ -994,14 +1003,19 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     keyEl.innerHTML = phone || brush ? '' : [...kinds].slice(0, 6).map(([k, [svg, w]]) => `<span class="k" title="${w}">${svg}<span>${SHORT[k]}</span></span>`).join('');
   }
 
-  /* ---- the ledge: the Pieces tab, and on the phone the Board tab with the tray (renderLedge and slotHTML, :1435-1486) ---- */
+  /* ---- the ledge: the Pieces tab, and on the phone the Board tab with the tray (renderLedge and slotHTML, :1435-1486);
+     in short landscape a sheet from Pieces in the top bar, with the Pieces tab only ---- */
 
   function renderLedge(): void {
-    const tabs: ['pieces' | 'board', string][] = narrow.matches ? [['pieces', 'Pieces'], ['board', 'Board']] : [['pieces', 'Pieces']];
+    const t = upright() ? tab : 'pieces', tabs: ['pieces' | 'board', string][] = upright() ? [['pieces', 'Pieces'], ['board', 'Board']] : [['pieces', 'Pieces']];
     if (!narrow.matches) tab = 'pieces';
-    tabsEl.innerHTML = tabs.map(([k, w]) => `<button type="button" class="ltab${tab === k ? ' on' : ''}" role="tab" id="pg-tab-${k}" data-tab="${k}" aria-selected="${tab === k}" aria-controls="pg-${k === 'board' ? 'boardtab' : 'row'}">${w}</button>`).join('');
-    rowEl.hidden = tab !== 'pieces';
-    boardTabEl.hidden = tab !== 'board';
+    // While the sheet shows, the board and the column under it leave the Tab order and take no taps (a tap there closes it).
+    ledgeEl.hidden = short.matches && !ledgeOpen;
+    q('.pg-main').inert = short.matches && ledgeOpen;
+    q('.pg-pieces').setAttribute('aria-expanded', `${ledgeOpen}`);
+    tabsEl.innerHTML = tabs.map(([k, w]) => `<button type="button" class="ltab${t === k ? ' on' : ''}" role="tab" id="pg-tab-${k}" data-tab="${k}" aria-selected="${t === k}" aria-controls="pg-${k === 'board' ? 'boardtab' : 'row'}">${w}</button>`).join('');
+    rowEl.hidden = t !== 'pieces';
+    boardTabEl.hidden = t !== 'board';
     const slot = (attr: string, key: string, d: PieceDesign, yours: boolean): string => {
       const open = cur.key === key;
       return `<button type="button" class="slot${open ? ' open' : ''}" ${attr}${open ? ' aria-current="true"' : ''}><img class="fig" src="${esc(figureOf(d))}" alt="">`
@@ -1014,6 +1028,12 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       + `<button type="button" class="slot newtile${cur.key === 'new' ? ' open' : ''}"${cur.key === 'new' ? ' aria-current="true"' : ''} aria-label="New piece" title="Make a new piece">`
       + `<span class="ghostfig">${GHOST}</span><span class="nm">New</span></button>`;
   }
+  /** Short landscape: Esc, Pieces or a tap outside the ledge's sheet closes it, and the focus goes back to Pieces. */
+  function closeLedge(): void {
+    ledgeOpen = false;
+    render();
+    q<HTMLElement>('.pg-pieces').focus({ preventScroll: true });
+  }
   const revealOpenSlot = (): void => {
     const open = q<HTMLElement>('.slot.open');
     if (open) rowEl.scrollLeft = Math.max(0, open.offsetLeft - rowEl.clientWidth / 2 + open.offsetWidth / 2);
@@ -1023,8 +1043,9 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (!b) return;
     const d = shelf.find(x => x.id === b.dataset.design);
     if (b.matches('.newtile')) newPiece(); else show(d ? { key: `design:${d.id}`, d, yours: true } : pool(b.dataset.piece!));
-    // renderLedge replaced the slot: give the focus to its new copy, with no scroll away from the board.
-    q<HTMLElement>('.slot.open').focus({ preventScroll: true });
+    // renderLedge replaced the slot: give the focus to its new copy, with no scroll away from the board. In short landscape
+    // the choice closed the sheet (show): the focus goes back to Pieces.
+    q<HTMLElement>(short.matches ? '.pg-pieces' : '.slot.open').focus({ preventScroll: true });
   });
   /** Hover or focus on a ledge figure shows its reach in a 96 px diagram over it; the wide layout only (showReach, proving-ground.html:1487-1497). */
   const reach = (t: EventTarget | null): void => {
@@ -1107,7 +1128,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (item.key !== 'new' && (!opened || item.key !== cur.key)) opened++;
     cur = item;
     brush = row = peek = pick = card = focus = hover = knotAt = why = token = promo = null;
-    weighOpen = moreOpen = toolsOpen = shelfOpen = lifted = false;
+    weighOpen = moreOpen = toolsOpen = shelfOpen = lifted = ledgeOpen = false;
     // A design with no pool piece paints with Mirror (the mockup's S0).
     mirror = item.d.from[0] ? presetOf(item.d.from[0]).paintOn : 'lr';
     const pieces = examplesOf(item.d);
@@ -1123,9 +1144,13 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   new ResizeObserver(placeKnots).observe(plinthEl);
   // A resize sends no pointer event in WebKit: the popover of the wide layout hides here.
   narrow.addEventListener('change', () => { row = peek = card = null; reach(null); if (dlg.open) render(); });
+  // A turn of the phone moves the tray and the ledge (renderTray, renderLedge); the design, the brush, the tag and the shelf stay.
+  short.addEventListener('change', () => { ledgeOpen = false; if (dlg.open) render(); });
   q<HTMLButtonElement>('.pg-menu').onclick = () => dlg.close();
 
   dlg.addEventListener('click', e => {
+    // A tap outside the ledge's sheet closes it, and does nothing else.
+    if (ledgeOpen && !(e.target as Element).closest('.pg-ledge, [data-act="pieces"]')) return closeLedge();
     const t = (e.target as Element).closest<HTMLElement>('[data-act], [data-brush], [data-nub], .pg-hits .sq, [data-pill], [data-when], [data-choice], [data-sealitem], [data-rm], [data-tok], [data-tab], [data-try], [data-promo], [data-figure]');
     if (!t) { if (moreOpen) { moreOpen = false; renderTop(); } return; }
     const { sq: at, nub: l, brush: b, pill: pa, when: wa, choice, sealitem: sa, rm, tok, tab: tb, try: tr, promo: pr, figure } = t.dataset;
@@ -1170,6 +1195,13 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       render();
       // The focus goes to the first of the choices that "More choices" shows.
       return q('.choices').querySelectorAll<HTMLElement>('button, select')[n]?.focus();
+    }
+    if (act === 'pieces') {
+      if (ledgeOpen) return closeLedge();
+      ledgeOpen = true;
+      render();
+      revealOpenSlot();
+      return (q<HTMLElement>('.slot.open') ?? q<HTMLElement>('.slot')).focus({ preventScroll: true });
     }
     if (act === 'more' || act === 'tools' || act === 'mirror') {
       if (act === 'more') moreOpen = !moreOpen;
@@ -1218,10 +1250,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   });
   // The keys (proving-ground.html:1957-1966): 1, 2 and 3 arm a brush, B goes in and out of brush mode, S opens and closes
   // the Rules shelf, Esc closes a row, a card, the shelf, a popover or the Why tag, or leaves brush mode, Ctrl or Cmd+Z undoes. None of
-  // them acts under a sheet or in a text field; in a piece list only Esc acts.
+  // them acts under a sheet or in a text field; in a piece list and under the ledge's sheet only Esc acts.
   document.addEventListener('keydown', e => {
     const field = (e.target as Element).closest?.('input, textarea, select');
-    if (!dlg.open || q('.pg-sheet[open]') || (field && e.key !== 'Escape')) return;
+    if (!dlg.open || q('.pg-sheet[open]') || ((field || ledgeOpen) && e.key !== 'Escape')) return;
+    if (e.key === 'Escape' && ledgeOpen) { e.preventDefault(); return closeLedge(); }
     if (e.key === 'Escape' && (row || card || shelfOpen || brush || moreOpen || weighOpen || why || lifted || token)) {
       e.preventDefault();
       // Esc puts the lifted piece back and lets the armed token go.

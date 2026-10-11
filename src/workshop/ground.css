@@ -196,6 +196,8 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .pg-paint { position: absolute; inset: 0; pointer-events: none; }
 .pg-reach { position: absolute; inset: 0; width: 100%; height: 100%; }
 #workshop.pg .nub { position: absolute; z-index: 5; width: 24px; height: 24px; margin: -12px 0 0 -12px; display: grid; place-items: center; border-radius: 50%; pointer-events: auto; }
+/* a nub stands --x and --y squares from the centre of d4 (renderPaint) */
+.nub { left: calc(43.75% + var(--x) * 12.5%); top: calc(56.25% - var(--y) * 12.5%); }
 .nub svg { overflow: visible; }
 .pg-lock { position: absolute; width: 12.5%; height: 12.5%; display: grid; place-items: center; border-radius: 4px; color: var(--vellum); background: rgba(29, 25, 21, 0.55); animation: pg-lock 420ms ease both; }
 @keyframes pg-lock { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; } }
@@ -434,8 +436,11 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .pg-reachpop.on { opacity: 1; }
 .pg-reachpop svg { display: block; border-radius: 4px; }
 
-/* ---- narrow: the phone form, one column (:443-540) ---- */
-@media (max-width: 999px) {
+/* Pieces in the top bar opens the ledge in short landscape only (below) */
+#workshop.pg .pg-pieces { display: none; }
+
+/* ---- narrow: the phone form, one column (:443-540); short landscape (below) keeps the phone form on its own grid ---- */
+@media (max-width: 999px), (orientation: landscape) and (max-height: 500px) {
   #workshop.pg { overflow-y: auto; }
   .pg-top { height: 48px; padding: 0 4px; }
   #workshop.pg .pg-menu { width: 44px; height: 44px; padding: 0; justify-content: center; border: 0; font-size: 22px; }
@@ -538,4 +543,38 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   #workshop.pg .pg-plinth:has(h3.long) { flex-wrap: wrap; height: auto; row-gap: 4px; }
   .pg-plinth:has(h3.long) .pg-name { flex-basis: calc(100% - 64px); }
   .pg-plinth:has(h3.long) .pg-pseals { margin-left: 64px; }
+}
+
+/* ---- short landscape: a phone held sideways, at most 500 px high (spec decision 23, ticket 09). The board on the left, as
+   high as the screen less the top bar and a 4 px gutter above and below it, and never so wide that the column gets less
+   than 264 px; one column on the right with the plinth strip, the brush row and the tray. Pieces in the top bar opens the
+   ledge as a bottom sheet; the Why tag, the Rules shelf and the rule card are side sheets over the column ---- */
+@media (orientation: landscape) and (max-height: 500px) {
+  #workshop.pg { --board: min(100dvh - 56px, 100vw - 300px); overflow: hidden; }
+  #workshop.pg .pg-pieces { display: inline-flex; min-height: 44px; margin-left: 4px; padding: 0 12px; font: 600 12.5px/1 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase;
+    border: 1px solid var(--stone-500); border-radius: var(--radius); }
+  #workshop.pg .pg-pieces[aria-expanded='true'] { background: rgba(233, 192, 113, 0.3); }
+  .pg-main { flex: 1 1 auto; min-height: 0; max-width: none; display: grid; grid-template: auto minmax(0, 1fr) / var(--board) minmax(0, 1fr); gap: 0 12px; padding: 4px 12px; }
+  .pg-boardcol { grid-area: 1 / 1 / 3; margin: 0; }
+  /* the plinth strip: the figure beside the name and, under the name, the seals */
+  #workshop.pg .pg-plinth { grid-area: 1 / 2; display: grid; grid-template: auto 44px / 56px minmax(0, 1fr); gap: 2px 10px; height: auto; }
+  .pg-figure { grid-row: 1 / 3; align-self: center; }
+  .pg-name, .pg-pseals { grid-column: 2; }
+  /* the brush row and the tray as on the phone, a little tighter, so that a design's plinth (Yours · from Pawn) fits at 568 × 320 */
+  .pg-right { grid-area: 2 / 2; height: auto; min-height: 0; overflow-y: auto; margin: 0; }
+  .pg-brushes { height: 54px; }
+  .pg-tools { top: 54px; bottom: auto; }
+  /* on a square under 45 px the nubs keep the ring of the 390 px phone, so that each keeps most of its 24 px hit area
+     and the centres of the 8 squares round d4 stay free for paint */
+  .nub { left: calc(43.75% + var(--x) * max(12.5%, 45px)); top: calc(56.25% - var(--y) * max(12.5%, 45px)); }
+  .pg-tray { margin-top: auto; padding-top: 2px; }
+  #workshop.pg .tok { height: 56px; }
+  .trow2 { margin-top: 2px; }
+  .pg-ledge { position: fixed; z-index: 60; left: 0; right: 0; bottom: 0; height: 198px; }
+  .pg-shelf, .pg-why { top: 48px; left: calc(var(--board) + 18px); }
+  .pg-shelf { max-height: none; border-radius: 16px 0 0 0; box-shadow: -8px 0 40px rgba(20, 14, 8, 0.35); }
+  .pg-card { height: auto; }
+  .pg-why .tag { height: 100%; min-height: 0; max-height: none; border-radius: 16px 0 0 0; box-shadow: -8px 0 40px rgba(20, 14, 8, 0.35); }
+  /* a side sheet has no grab bar */
+  .pg-card::before, .pg-why .tag::before { display: none; }
 }

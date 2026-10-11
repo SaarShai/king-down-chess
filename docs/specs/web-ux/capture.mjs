@@ -43,12 +43,12 @@ async function sample(nn, out = join(tmpdir(), 'kingdown-samples', nn)) {
   const checkout = fileURLToPath(new URL('../../../', import.meta.url));
   if (isInside(checkout, out)) await stop(`capture: the out folder ${out} is inside the checkout ${checkout}; renders stay out of Git`);
   const table = (await import(pathToFileURL(file).href)).default;
-  const unknown = (table.sizes ?? []).filter(s => !sizes[s]);
+  const unknown = [...new Set([table, ...table.states].flatMap(t => t.sizes ?? []))].filter(s => !sizes[s]);
   if (unknown.length) throw new Error(`capture: sample ${nn}: unknown sizes ${unknown.join(', ')}; known: ${Object.keys(sizes).join(', ')}`);
   mkdirSync(out, { recursive: true });
   const report = [];
   for (const state of table.states) {
-    for (const size of table.sizes ?? ['phone', 'desktop']) report.push(await render(state, size, false));
+    for (const size of state.sizes ?? table.sizes ?? ['phone', 'desktop']) report.push(await render(state, size, false));
     if (state.video) report.push(await render(state, 'phone', true));
   }
   await browser.close();

@@ -1,10 +1,13 @@
-// The Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground, tickets 01 to 08).
+// The Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground, tickets 01 to 09).
 // Groups: opens (the menu door, ‹ Menu and Esc, the focus back on the menu), poolPieces (each pool piece opens;
 // the Pawn's and the Paladin's marks equal src/workshop/scene.test.ts), yours (the shelf designs in the ledge),
 // link (a design link opens read only; a bad code shows the toast and no card face), keys (one tab stop, the arrow keys, the square
 // labels, Enter and Space on a ledge slot keep the focus), refused (grey barred marks and their stamps), isolate (hover, a tap and
-// Esc; the phone's stamps), knots (gold and cracked; a tap on each of three knots and the desktop toast), layouts (six sizes: no sideways scroll, the
-// top bar and the board in view, no cut text, 44 px targets, 24 px squares and knots), oldDefault (no ?workshop=a: the old Workshop opens), and the editor of ticket 02: paint (the brushes,
+// Esc; the phone's stamps), knots (gold and cracked; a tap on each of three knots and the desktop toast), layouts (eight sizes: no sideways scroll, the
+// top bar and the board in view, no cut text, 44 px targets, 24 px squares and knots; at 844 x 390 and 568 x 320 of ticket 09, the
+// short landscape form: the board as high as the screen less the top bar, the ledge's sheet from Pieces, the Why tag and the
+// shelf as side sheets, and 24 px nubs that keep most of their hit area), turnRefits (ticket 09: a turn from 390 x 844 to 844 x 390
+// and back refits the board and keeps the design, the brush, an open Why tag, an open shelf and the Board tab), oldDefault (no ?workshop=a: the old Workshop opens), and the editor of ticket 02: paint (the brushes,
 // the keys, Shot, Eraser, the three Mirror modes, the same paint twice, the reach and rule toasts, the nubs, the targets),
 // firstCopy (the first paint makes "My Pawn" in Yours; a reload keeps it; the pool Pawn stays), undo (the scope, Ctrl or
 // Cmd+Z, nothing under a sheet, a refused delete, back before the first edit), saveAlerts (a full shelf, a storage that
@@ -79,7 +82,7 @@ const browser = await launch();
 
 /** A page at `query` with the game ready; `shelf` seeds the Workshop shelf. */
 async function open(query = '?workshop=a', { width = 1440, height = 900, shelf } = {}) {
-  const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: width < 721 });
+  const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: width < 721 || height <= 500 });
   await ctx.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1'));
   if (shelf) await ctx.addInitScript(v => localStorage.setItem('kingdown.workshop', v), shelf);
   const p = await ctx.newPage();
@@ -386,25 +389,154 @@ async function knots() {
 }
 
 async function layouts() {
-  for (const [width, height] of [[1440, 900], [1280, 800], [1024, 768], [768, 1024], [390, 844], [320, 568]]) {
-    const p = await open('?workshop=a', { width, height });
+  for (const [width, height] of [[1440, 900], [1280, 800], [1024, 768], [768, 1024], [390, 844], [320, 568], [844, 390], [568, 320]]) {
+    const p = await open('?workshop=a', { width, height }), side = height <= 500, size = `${width}x${height}`;
     await door(p);
+    assert.equal(await p.locator('[data-act="pieces"]').isVisible(), side, `${size}: Pieces shows in short landscape only`);
     for (const piece of ['pawn', 'paladin']) {
+      // Short landscape (ticket 09): Pieces opens the ledge as a sheet, and a choice closes it.
+      if (side) await p.click('[data-act="pieces"]');
       await p.click(`.slot[data-piece="${piece}"]`);
       await noSidewaysScroll(p, '#workshop');
       await noSidewaysScroll(p);
       await insideViewport(p, '.pg-top');
       await insideViewport(p, '.pg-field');
-      await textNotCut(p, '.pg-title, .pg-name h3, .slot .nm, .brush .w, .ltab');
+      await textNotCut(p, '.pg-title, .pg-name h3, .slot .nm, .brush .w, .ltab, .pg-pieces');
       if (width >= 1000) await textNotCut(p, '.sline .l2');
       await minTarget(p, '#workshop button:not(.sq, .knot)', 44);
       if (piece === 'paladin' && width >= 1000) await minTarget(p, '#workshop .knot', 24);
       await minTarget(p, '#workshop .sq', width <= 320 ? 36 : 24);
-      assert.equal(await p.locator('.pg-keyrow').isVisible(), width >= 1000, `${width}x${height}: the key row shows on the wide layout only`);
-      await shot(p, `${piece}-${width}x${height}`);
+      assert.equal(await p.locator('.pg-keyrow').isVisible(), width >= 1000, `${size}: the key row shows on the wide layout only`);
+      if (side) {
+        assert.equal(await p.isHidden('.pg-ledge'), true, `${size}: a choice in the ledge's sheet closes it`);
+        const f = await p.locator('.pg-field').boundingBox(), c = await p.locator('.pg-plinth').boundingBox();
+        assert.ok(Math.abs(f.height - (height - 56)) < 1 && f.x + f.width < c.x, `${size}: the board is on the left of the column, ${height - 56} px high (${f.height})`);
+        // The second open shows the tray: the plinth strip, the brush row and the tray fit the column with no scroll.
+        await insideViewport(p, `.pg-plinth, .pg-brushes, .pg-pieces${piece === 'paladin' ? ', .pg-tray' : ''}`);
+        await textNotCut(p, '.pg-right');
+      }
+      await shot(p, `${piece}-${size}`);
     }
+    if (side) await landscape(p, size);
     await p.context().close();
   }
+}
+
+/** Short landscape (ticket 09), on the Paladin: the ledge's sheet (the focus, the keys, Esc, a tap outside it), the Why tag and
+ *  the Rules shelf as side sheets beside the board, and brush mode: 24 px nubs that keep most of their hit area, the squares
+ *  round d4 free for paint, and the tools inside the screen. */
+async function landscape(p, size) {
+  await p.click('[data-act="pieces"]');
+  await insideViewport(p, '.pg-ledge');
+  await minTarget(p, '.pg-ledge button', 44);
+  assert.equal(await p.evaluate(() => document.activeElement?.dataset.piece), 'paladin', `${size}: the focus goes to the open slot of the sheet`);
+  assert.equal(await p.getAttribute('.pg-pieces', 'aria-expanded'), 'true', `${size}: Pieces says that the sheet is open`);
+  await shot(p, `ledge-${size}`);
+  await p.keyboard.press('s');
+  assert.equal(await p.isHidden('.pg-shelf'), true, `${size}: under the sheet S does nothing`);
+  await p.keyboard.press('Escape');
+  assert.equal(await p.isHidden('.pg-ledge'), true, `${size}: Esc closes the sheet`);
+  assert.equal(await p.locator('#workshop[open]').count(), 1, `${size}: Esc closes the sheet, not the Workshop`);
+  assert.equal(await focusOn(p, '.pg-pieces'), true, `${size}: the focus goes back to Pieces`);
+  await p.click('[data-act="pieces"]');
+  const d7 = await p.locator('.sq[data-sq="d7"]').boundingBox();
+  await p.mouse.click(d7.x + d7.width / 2, d7.y + d7.height / 2);
+  assert.equal(await p.isHidden('.pg-ledge'), true, `${size}: a tap outside the sheet closes it`);
+  assert.equal(await tag(p), null, `${size}: and does nothing else`);
+  // The Why tag: a side sheet over the column, beside the board.
+  await tap(p, 'd7');
+  assert.equal((await tag(p))?.sq, 'd7', `${size}: a tap on d7 opens its tag`);
+  const f = await p.locator('.pg-field').boundingBox(), w = await p.locator('.pg-why .tag').boundingBox();
+  assert.ok(w.x >= f.x + f.width && w.y < f.y + 8, `${size}: the tag is a side sheet beside the board`);
+  await insideViewport(p, '.pg-why .tag, .pg-why button');
+  await textNotCut(p, '.why-sum small, .why-foot');
+  await minTarget(p, '.pg-why button', 44);
+  assert.equal(await p.evaluate(() => document.querySelector('.pg-plinth').inert && document.querySelector('.pg-tray').inert), true, `${size}: the plinth strip and the tray under the tag leave the Tab order`);
+  await shot(p, `why-${size}`);
+  // Pieces opens its sheet over the tag, and Esc closes the sheet only.
+  await p.click('[data-act="pieces"]');
+  assert.equal(await p.evaluate(() => !document.querySelector('.pg-ledge').closest('[inert]') && !!document.activeElement?.closest('.pg-ledge')), true, `${size}: the sheet over the tag takes the focus and taps`);
+  await p.keyboard.press('Escape');
+  assert.equal((await tag(p))?.sq, 'd7', `${size}: the tag stays open under the closed sheet`);
+  await p.keyboard.press('Escape');
+  // The Rules shelf of the Pawn, with "Moves like" picked: a side sheet with its sentence card and Stamp in the screen.
+  await p.click('[data-act="pieces"]');
+  await p.click('.slot[data-piece="pawn"]');
+  await p.click('[data-act="shelf"]');
+  await p.click('[data-sealitem="movesLike"]');
+  assert.ok(await previewed(p) > 0, `${size}: the board beside the shelf previews the rule`);
+  assert.ok((await p.locator('.pg-shelf').boundingBox()).x >= f.x + f.width, `${size}: the shelf is a side sheet beside the board`);
+  await insideViewport(p, '.pg-shelf, .pg-shelf .sentence, .pg-stamp');
+  await minTarget(p, '.pg-shelf button', 44);
+  await shot(p, `shelf-${size}`);
+  await p.keyboard.press('Escape');
+  // Brush mode: each nub keeps 24 px and most of its hit area (the 390 px phone's ring), and the 8 squares round d4 take paint.
+  await arm(p, 'both');
+  await minTarget(p, '#workshop .nub', 24);
+  const hits = await p.$$eval('.nub', ns => ns.map(n => {
+    const r = n.getBoundingClientRect(), cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+    let own = 0, all = 0;
+    for (let x = r.x + 0.5; x < r.right; x++) for (let y = r.y + 0.5; y < r.bottom; y++) {
+      if ((x - cx) ** 2 + (y - cy) ** 2 > 144) continue;
+      all++;
+      if (document.elementFromPoint(x, y)?.closest('.nub') === n) own++;
+    }
+    return [n.dataset.nub, own / all];
+  }));
+  for (const [l, own] of hits) assert.ok(own >= 0.6, `${size}: the ${l} nub takes a tap on ${Math.round(own * 100)}% of its 24 px circle, not 60%`);
+  const free = await p.$$eval('.sq', bs => bs.filter(b => ['c5', 'd5', 'e5', 'c4', 'e4', 'c3', 'd3', 'e3'].includes(b.dataset.sq))
+    .map(b => { const r = b.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === b; }));
+  assert.deepEqual(free, Array(8).fill(true), `${size}: no nub covers the centre of a square round d4`);
+  await p.click('[data-act="tools"]');
+  await insideViewport(p, '.pg-tools');
+  await minTarget(p, '#workshop button:not(.sq, .nub)', 44);
+  await shot(p, `paint-${size}`);
+}
+
+/** Ticket 09: a turn of the phone, from 390 x 844 to 844 x 390 and back, refits the board and keeps the open design, the brush,
+ *  an open Why tag, an open Rules shelf with its preview, and the Board tab; the ledge stays closed in landscape. */
+async function turnRefits() {
+  const p = await open('?workshop=a', { width: 390, height: 844 });
+  await door(p);
+  const turn = async (width, height) => {
+    await p.setViewportSize({ width, height });
+    await p.waitForFunction(w => innerWidth === w, width);
+    await p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  };
+  /** Both ways: the board's size and its drawing, the ledge, and `keep` (what must stay, read the same each way). */
+  const both = async (why, keep) => {
+    const was = await keep();
+    for (const [width, height] of [[844, 390], [390, 844]]) {
+      await turn(width, height);
+      const at = `${why}, at ${width}x${height}`, want = height <= 500 ? height - 56 : width - 32, f = await p.locator('.pg-field').boundingBox();
+      assert.ok(Math.abs(f.width - want) < 1, `${at}: the board is ${want} px wide, not ${f.width}`);
+      const cw = await p.$eval('.pg-field', e => e.clientWidth);
+      assert.equal(await p.getAttribute('.pg-board', 'viewBox'), `0 0 ${cw} ${cw}`, `${at}: the board draws its squares for its new size`);
+      await insideViewport(p, '.pg-field');
+      await noSidewaysScroll(p);
+      assert.equal(await p.locator('.pg-ledge').isVisible(), height > 500, `${at}: the ledge shows only on the upright phone`);
+      assert.deepEqual(await keep(), was, `${at}: the turn keeps it`);
+      await shot(p, `turn-${why.replace(/\W+/g, '-')}-${width}x${height}`);
+    }
+  };
+  await arm(p, 'both');
+  await tap(p, 'c5');
+  await both('the brush', async () => [await name(p), await p.getAttribute('[data-brush="both"]', 'aria-pressed'), await p.locator('.nub').count(), await marks(p)]);
+  await p.keyboard.press('Escape');
+  await tap(p, 'd6');
+  await both('the Why tag', async () => { await insideViewport(p, '.pg-why .tag'); return [await name(p), await tag(p), await marks(p)]; });
+  await p.keyboard.press('Escape');
+  await p.click('[data-act="shelf"]');
+  await p.click('[data-sealitem="movesLike"]');
+  await both('the shelf', async () => {
+    await insideViewport(p, '.pg-shelf .pg-stamp');
+    return [await name(p), await p.getAttribute('[data-sealitem="movesLike"]', 'aria-pressed'), await previewed(p), await marks(p)];
+  });
+  await p.keyboard.press('Escape');
+  await p.click('[data-tab="board"]');
+  await both('the Board tab', async () => [await name(p), await p.locator('.pg-tray .tok').count(), await p.isVisible('.pg-tray')]);
+  assert.equal(await p.getAttribute('[data-tab="board"]', 'aria-selected'), 'true', 'back upright, the Board tab is still open');
+  await p.context().close();
 }
 
 async function oldDefault() {
@@ -1609,6 +1741,7 @@ try {
   await isolate();
   await knots();
   await layouts();
+  await turnRefits();
   await oldDefault();
   await paint();
   await firstCopy();

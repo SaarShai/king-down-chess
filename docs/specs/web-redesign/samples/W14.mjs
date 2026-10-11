@@ -1,4 +1,4 @@
-// W14: the Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground tickets 01 to 07).
+// W14: the Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground tickets 01 to 09).
 // The open piece on its example board with its marks, the plinth with its rules, the key and the Pieces ledge;
 // a rule kept by a tap (hero-i1 to hero-i3) and a cracked knot (beast-cancel: My Beast, its pill changed from "a piece, not a
 // pawn" to "anything", so the top bar says Undo rule; a tap on e5 opens its Why tag) (ticket 04); then
@@ -20,6 +20,9 @@
 // card: My Paladin from Make a copy, with its 3 rules, on a device with no share: one Copy link), link-card (the Rook Rider
 // link opens its card face first), phone-link-card (a link to a piece with 3 rules: the longest card) and reach-popover (the
 // pointer on the Paladin in the ledge shows its reach; the phone has no popover). The state `link` opens that link on the board.
+// Ticket 09 renders open-pawn, paint, stamp-preview, why-d7 and tray also on a phone held sideways (landscape, 844 x 390): the
+// board on the left, the plinth strip, the brush row and the tray in one column, the shelf and the Why tag as side sheets, and the
+// pieces from the sheet that Pieces opens. The mockup has no landscape state.
 // Mockup states to set beside them: open, hero, hero-i1, hero-i2, hero-i3, archer, beast, beast-cancel, maester, ogre, guard,
 // phone-open, phone-hero, why-g7, paint, painted, stamp-preview, stamped, asleep-b4, awake-e2, rook-leap; for new-piece, the
 // open state and a tap on NEW; for design-menu, painted and ⋯ (the phone's ⋯; the mockup's desktop has no ⋯); for the card
@@ -43,14 +46,17 @@ const shareOn = async (page, phone, on) => {
   await page.evaluate(on => Object.defineProperty(navigator, 'share', { configurable: true, value: on ? async () => {} : undefined }), on);
   await menu(page, phone, 'share', '.pg-share');
 };
-/** Opens the Workshop from the menu, then the pool piece `key` from the ledge. */
+/** Opens the Workshop from the menu, then the pool piece `key` from the ledge (in short landscape, from the sheet that Pieces opens). */
 const piece = key => async ({ page }) => {
   await pressMenu(page, 'Workshop');
   await page.locator('#workshop.pg[open]').waitFor();
+  if (key !== 'pawn' && await page.isHidden('.pg-ledge')) await page.click('[data-act="pieces"]');
   if (key !== 'pawn') await page.click(`.slot[data-piece="${key}"]`);
-  await page.locator(`.slot[data-piece="${key}"][aria-current="true"]`).waitFor();
+  await page.locator(`.slot[data-piece="${key}"][aria-current="true"]`).waitFor({ state: 'attached' });
 };
 const state = (name, key) => ({ name, query: '?workshop=a', save, targets, controls, steps: piece(key) });
+/** Ticket 09: the state also on a phone held sideways (landscape, 844 × 390). */
+const turned = s => ({ ...s, sizes: ['phone', 'desktop', 'landscape'] });
 /** The Paladin with rule i kept by a tap on its seal. */
 const kept = i => ({ ...state(`hero-i${i + 1}`, 'paladin'), steps: async a => { await piece('paladin')(a); await a.page.click(`.sline[data-seal="${i}"] .sl-seal, .pg-pseal[data-seal="${i}"]`); } });
 /** The Why tag of square `sq` on pool piece `key`: a tap opens it (`how` 'tap'), or Enter on the focused square ('key'), or the pointer rests on it on the desktop ('hover'). */
@@ -111,7 +117,7 @@ const myPawnOn = (name, sq) => ({ ...state(name, 'pawn'), steps: async a => {
 
 export default {
   states: [
-    state('open-pawn', 'pawn'),
+    turned(state('open-pawn', 'pawn')),
     state('paladin', 'paladin'),
     why('hero', 'paladin', 'd7'),
     kept(0), kept(1), kept(2),
@@ -133,7 +139,7 @@ export default {
       await page.click('.sq[data-sq="e5"]');
     } },
     { name: 'link', query: linkTo(rider), save, targets, controls, steps: async ({ page }) => { await page.click('.pg-sheet [data-board]'); } },
-    brush('paint', false),
+    turned(brush('paint', false)),
     brush('painted', true),
     brush('weigh', true, async (page, phone) => {
       if (!phone) return page.click('.pg-weigh');
@@ -141,13 +147,13 @@ export default {
       await page.click('.pg-morepop [data-act="weigh"]');
     }),
     brush('phone-tools', false, async (page, phone) => { if (phone) await page.click('[data-act="tools"]'); }),
-    seals('stamp-preview', false),
+    turned(seals('stamp-preview', false)),
     seals('stamped', true),
     seals('pill-open', true, row('data-pill')),
     seals('when-open', true, row('data-when')),
     seals('three-of-three', true, page => page.keyboard.press('s')),
     seals('phone-sentence', true, (page, phone) => (phone ? card(page, 'movesLike') : page.hover('.sline:has([data-rm="movesLike"])'))),
-    why('why-d7', 'paladin', 'd7', 'key'),
+    turned(why('why-d7', 'paladin', 'd7', 'key')),
     why('why-g7', 'paladin', 'g7'),
     why('beast-hover', 'beast', 'e5', 'hover'),
     why('phone-why', 'pawn', 'd6'),
@@ -160,11 +166,11 @@ export default {
       await page.click('[data-tok="enemy"]');
       await page.click('.sq[data-sq="c5"]');
     } },
-    { ...state('tray', 'archer'), steps: async ({ page, size }) => {
+    turned({ ...state('tray', 'archer'), steps: async ({ page, size }) => {
       await piece('archer')({ page });
       await tray(page, size === 'phone');
       await page.click('[data-act="threats"]');
-    } },
+    } }),
     { ...state('phone-board-tab', 'guard'), steps: async ({ page, size }) => { await piece('guard')({ page }); await tray(page, size === 'phone'); } },
     { ...state('new-piece', 'pawn'), steps: async ({ page }) => { await piece('pawn')({ page }); await page.click('.newtile'); } },
     { ...state('look-more', 'pawn'), steps: async ({ page, size }) => {
