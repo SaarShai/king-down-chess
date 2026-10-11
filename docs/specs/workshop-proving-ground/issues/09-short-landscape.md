@@ -117,3 +117,17 @@ Open problems:
 
 - At 568 × 320 the seal groups of the shelf still scroll (113 px of 220 px show).
 - The owner has not seen the renders of this fix.
+
+### Reviews of the follow-up
+
+One independent reader (read only, review L) gave one should-fix finding and two nits. The probes, the logs and the renders are in `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/08f2956c-63a7-4276-8738-a657bdb42b06/scratchpad/build/review-L-probe/` (`R` below). `R/only.sh <group ...>` runs only the named groups of a copy of the check against a dev server on port 5183.
+
+1. **Should-fix, confirmed, fixed: the seal test picked only Moves like, and a longer sentence cut the second row of seals.** `R/each.mjs` picks each seal of the Pawn in turn (`R/each-before.log`). At 844 × 390 no seal is cut. At 667 × 375, with Steps 2, Takes again or Pushes picked, the sentence card is 135, 112 or 108 px high, the groups scroll 28, 5 or 1 px, and the 5 seals of the second row (Pushes to Removed too) are cut (`R/step2-667x375.png`). Fix (`ground.css`, the short-landscape block): the When chip stands inline at the start of the sentence's first line, not on a line of its own, and the card's top margin is 4 px (was 8 px). The sentence keeps 16 px, and no text is clamped. Trials of other forms (no seal in the card; a 34 px seal in the card) left 3 to 18 px of scroll (`R/try.mjs`). Browser check: in `landscape()`, from 375 px high, the seal test now runs with each seal of the shelf picked in turn, then picks Moves like again for the render. On the old CSS, `layouts` fails with "667x375: with step2 picked, each seal of the shelf shows in full above the sentence card" (`R/only-neg.log`). On the fix, `layouts` and `turnRefits` pass (`R/only-fix.log`).
+2. **Nit, confirmed, fixed (one line): with no seal picked, the hint "Tap a seal. The board shows what it does." stood beside the second row of seals**, because `.groups` is a flex row and `grid-column` has no effect there (`R/none-844x390.png`). Fix: `.pg-shint { flex-basis: 100%; }` in the short-landscape block, so the hint has its own line under the groups.
+3. **Nit, refuted: the disabled Stamp is far from its reason.** The reader asks for `aria-describedby`. In the DOM, the reason line (`.needs`, for example "Paint a line first.") comes directly before Stamp, so a screen reader reads the reason next to the button. A disabled button is not in the Tab order, so the Tab order does not reach it. The visual place does not change what assistive technology reads. No change.
+
+Evidence after the fixes (in `R/logs/`):
+
+- `npm test` through the shared lock: exit 0. 116 test files pass (1 skipped); 1,892 tests pass (21 skipped). Log: `npm-test-1.log`.
+- `npm run check:browser workshop`: passes three times (127.3 s, 113.6 s, 113.4 s). Logs: `check-1.log` to `check-3.log`, and each run's `check-N.workshop.log` ("workshop: all groups pass").
+- W14 render compare against the last commit: `node docs/specs/web-ux/render-compare.mjs --against HEAD --samples W14 --out R/compare` gives 109 pairs, 1 stable change, 10 unstable, 0 faults (`compare.log`). The one change is `stamp-preview-landscape.png`, the state of this fix: Moves like has the When chip "on a center square", which now stands on the sentence's line, so the card is one line shorter (`R/compare/tree/W14/stamp-preview-landscape.png`). The other landscape states, and each state at 1440 × 900 and 390 × 844, have no stable change; the 10 unstable renders differ between two renders of one build.

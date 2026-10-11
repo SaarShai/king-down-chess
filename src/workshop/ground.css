@@ -754,7 +754,10 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   #workshop.pg .sbtn { width: 56px; padding: 2px 1px 4px; gap: 2px; font-size: 10.5px; }
   .sbtn .kd-seal { width: 34px; height: 34px; }
   .sbtn.has::after { right: 4px; }
-  .sentence { padding: 8px; }
+  .pg-shint { flex-basis: 100%; }
+  /* the When chip leads the sentence's first line, so the longest sentence leaves two rows of seals at 375 px */
+  .sentence { margin-top: 4px; padding: 8px; }
+  .sentence .l1 { display: inline-flex; margin: 0 6px 0 0; vertical-align: middle; }
   .sentence .pg-act { position: absolute; top: 6px; right: 56px; }
   #workshop.pg .sentence .pg-stamp { min-height: 44px; margin: 0; }
   .pg-why .tag { height: 100%; min-height: 0; max-height: none; border-radius: 16px 0 0 0; box-shadow: -8px 0 40px rgba(20, 14, 8, 0.35); }

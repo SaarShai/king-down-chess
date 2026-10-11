@@ -493,14 +493,15 @@ async function landscape(p, size) {
   assert.ok((await p.locator('.pg-shelf').boundingBox()).x >= f.x + f.width, `${size}: the shelf is a side sheet beside the board`);
   await insideViewport(p, '.pg-shelf, .pg-shelf .sentence, .pg-stamp');
   await minTarget(p, '.pg-shelf button', 44);
-  // From 375 px high, each seal shows in full above the sentence card, with no scroll (owner, 2026-10-11).
-  if (parseInt(size.split('x')[1]) >= 375) {
+  // From 375 px high, with each seal picked in turn, each seal shows in full above the sentence card, with no scroll (owner, 2026-10-11).
+  if (parseInt(size.split('x')[1]) >= 375) for (const pick of [...await p.$$eval('.pg-shelf .sbtn', bs => bs.map(b => b.dataset.sealitem)), 'movesLike']) {
+    await p.click(`[data-sealitem="${pick}"]`);
     const hid = await p.$$eval('.pg-shelf .sbtn', bs => bs.filter(b => {
       const r = b.getBoundingClientRect(), g = b.closest('.groups').getBoundingClientRect(), s = document.querySelector('.pg-shelf .sentence').getBoundingClientRect();
       return r.top < g.top || r.bottom > Math.min(g.bottom, s.top) + 0.5;
     }).map(b => b.dataset.sealitem));
-    assert.deepEqual(hid, [], `${size}: each seal of the shelf shows in full above the sentence card`);
-    assert.deepEqual(await overlaps(p, '.pg-shelf button, .pg-shelf h4'), [], `${size}: no seal, group name or Stamp covers another`);
+    assert.deepEqual(hid, [], `${size}: with ${pick} picked, each seal of the shelf shows in full above the sentence card`);
+    assert.deepEqual(await overlaps(p, '.pg-shelf button, .pg-shelf h4'), [], `${size}: with ${pick} picked, no seal, group name or Stamp covers another`);
   }
   await shot(p, `shelf-${size}`);
   await p.keyboard.press('Escape');
