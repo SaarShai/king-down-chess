@@ -23,7 +23,7 @@ Later: not needed for v1; it needs ticket 16, a place in New game, a figure on t
 
 - [x] `npm test` passes.
 - [x] `npm run check:browser` (all checks) passes; the plugin checks by name, with the page size.
-- [x] Renders of New game and a game with a design at 1440 × 900 and 390 × 844; the owner sees them before the merge.
+- [x] Renders of New game and a game with a design at 1440 × 900 and 390 × 844; the owner sees them before the merge. Owner, 2026-10-11: "yes" (the painted board; the clay look is parked, owner the same day).
 - [x] No game run without the owner's go.
 
 ## Risks
