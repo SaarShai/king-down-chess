@@ -38,6 +38,6 @@ Checks pass when every badge has a unit test and database tests prove one result
 - The pure badge function covers all 10 badges. Each stored badge keeps its first date. Player row locks keep updates safe when two games end at once.
 - `GameService` and `PluginService` provide `history(actor, before?, limit = 20)` and `record(actor)`. History returns `games` and `next_before`. Pass that cursor back without a change. Each entry has the opponent's handle and icon preset, or the computer level, and the player's game features. The record has totals, rating with `provisional`, and badges with dates.
 - Migration 0012 adds the three result tables. The runtime grants and start check cover them. Test role changes use the shared role lock.
-- Checks before the integration merge: `npm test` passes 141 files, 2,224 tests and 50 art tests; 8 tests skip. Badge unit checks: 11 pass. Result database checks: 16 pass. Start checks: 3 pass. The test database is `kingdown_mvp08_test`, with a separate results copy.
+- Checks before and after merge of integration tip `b02de05f`: `npm test` passes 141 files, 2,224 tests and 50 art tests; 8 tests skip. Badge unit checks: 11 pass. Result database checks: 16 pass. Start checks: 3 pass. `git diff --check` passes. The test database is `kingdown_mvp08_test`, with a separate results copy.
 - No page changes. Page size and browser checks do not apply. Ticket 10 connects the result methods to the profile tool; ticket 16 builds the profile page.
 - Open items: none.
