@@ -509,7 +509,8 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   // which moves several pieces: those are always tested. A drop (a waiting guard, a Salvation, a
   // Spawn's pawn, or a Spawn2's two) fills squares and empties none, so only a catapult's or an `overShots` archer's screen can make it expose the king. A
   // Firewall, a Rescue and a Growth change no square. `setFastLegality(false)` turns this off for
-  // the cross-check test.
+  // the cross-check test. A design (`RULES.design`) is always tested: its Whens read the squares next to it, so any
+  // arriving or leaving piece may wake a rule that attacks the king.
   const k = board.indexOf(piece(K, c));
   const inChk = k < 0 || (inCheckKnown ?? attacked(c));
   const lines = k * 64;
@@ -518,7 +519,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   for (let i = 0; i < out.length; i++) {
     const m = out[i];
     let test: boolean;
-    if (!fastLegality || inChk) test = true;
+    if (!fastLegality || inChk || RULES.design) test = true;
     else if (isStill(m)) test = false; // no square changes
     else if (m.drop) test = lob && (LINE[lines + m.to] === 1 || (m.drop2 !== undefined && LINE[lines + m.drop2] === 1));
     else {

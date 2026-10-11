@@ -1,5 +1,5 @@
 /** Start positions, FEN-style serialisation and move notation. */
-import { BLACK, CardName, Color, G, LETTERS, Mark, Move, P, PieceType, Position, SPENT, V, WHITE, colorOf, moveNumber, parseSq, piece, rank, sq, sqName, typeOf } from './engine';
+import { BLACK, CardName, Color, G, LETTERS, Mark, Move, P, PieceType, Position, SPENT, T, V, WHITE, colorOf, moveNumber, parseSq, piece, rank, sq, sqName, typeOf } from './engine';
 import { ALL_CARDS, RULES } from './rules';
 
 /** King Down Classic pool: 7 of these join the king on the back rank. */
@@ -97,7 +97,7 @@ export function toFen(pos: Position): string {
       const p = pos.board[sq(f, r)];
       if (!p) { empty++; continue; }
       if (empty) { row += empty; empty = 0; }
-      const l = p & SPENT ? 'H' : LETTERS[typeOf(p)];
+      const l = p & SPENT ? (typeOf(p) === T ? 'U' : 'H') : LETTERS[typeOf(p)]; // H a spent guard, U a design after its first take
       row += colorOf(p) === WHITE ? l : l.toLowerCase();
     }
     if (empty) row += empty;
@@ -174,8 +174,8 @@ export function fromFen(fen: string): Position {
     for (const ch of row) {
       if (/\d/.test(ch)) { f += +ch; continue; }
       const up = ch.toUpperCase();
-      const spent = up === 'H' ? SPENT : 0;
-      const t = spent ? G : (LETTERS.indexOf(up) as PieceType);
+      const spent = up === 'H' || up === 'U' ? SPENT : 0;
+      const t = up === 'H' ? G : up === 'U' ? T : (LETTERS.indexOf(up) as PieceType);
       if (t <= 0 || f > 7) throw new Error(`bad FEN ${fen}`);
       board[sq(f++, 7 - i)] = piece(t, ch === up ? WHITE : BLACK) | spent;
     }

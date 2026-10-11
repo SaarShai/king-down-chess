@@ -6,7 +6,7 @@
  * No file-indexed opening knowledge anywhere: the back rank is randomised, so tables are
  * left-right symmetric and encode only centrality and advancement.
  */
-import { A, B, C, Color, G, K, L, M, N, O, P, PieceType, Position, Q, R, S, T, V, WHITE, canCapture, colorOf, typeOf } from '../rules/engine';
+import { A, B, C, Color, G, K, L, M, N, O, P, PieceType, Position, Q, R, RULES, S, T, V, WHITE, canCapture, colorOf, typeOf } from '../rules/engine';
 import { NetKind, RESIDUAL_MAX, loadNet, loadedNetB64, netHasOgre, netKind, netLoaded, nnueEval } from './nnue/net';
 
 /*
@@ -510,7 +510,7 @@ export function evaluateBoard(board: Uint8Array, turn: Color): number {
     let v = VAL[t] + PST[t][c === WHITE ? s : s ^ 56];
     if (t !== P) npm += VAL[t];
     if (t === B || t === R || t === Q || t === L) v += mobility(board, s, t, c);
-    else if (t === T && CAPITAL_SQ.has(s)) v += TEMPLAR_ON_CAPITAL;
+    else if (t === T && !RULES.design && CAPITAL_SQ.has(s)) v += TEMPLAR_ON_CAPITAL; // a design in the slot is no Templar
     else if (t === S) v += beastTargets(board, s, c);
     else if (t === M) maesters.push(s);
     score += c === WHITE ? v : -v;

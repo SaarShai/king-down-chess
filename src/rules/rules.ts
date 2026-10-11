@@ -16,6 +16,8 @@
  * The price is one rule set per thread. That is enough: each simulation worker is its own module
  * instance, `playGame` sets the rules before it plays, and the browser never calls `setRules`.
  */
+import type { DesignSpec } from './design';
+import { limit, parseDesign, specOf } from '../workshop/model';
 
 export type PromotionSet = 'anyNonKing' | 'standard' | 'anyNonKingNoFairy' | 'anyNonKingNoGuard';
 /** Squares an archer may step to (move-only either way). `fwdBack` is the 2021 concept: 1 ahead or 1 back. */
@@ -635,6 +637,11 @@ export interface Rules {
   threefold: boolean;
   /** No side keeps material that can force mate: draw. */
   insufficientMaterial: boolean;
+  /**
+   * A Workshop design that plays in the type slot `T` (the paused Templar's), or null (shipped). One design per game;
+   * `parseRule('design=<share code>')` makes it. Version 1 refuses the Whens that need the game's history (`setRules`).
+   */
+  design: DesignSpec | null;
 }
 
 /**
@@ -755,6 +762,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   fiftyMove: true,
   threefold: true,
   insufficientMaterial: true,
+  design: null as DesignSpec | null,
 });
 
 /** The live rule set. Read it; do not replace it — `setRules` keeps the object identity. */
@@ -828,6 +836,10 @@ export function setRules(over?: Partial<Rules>): Rules {
     if (p && p in RULES.fromMove && !spendable) throw new Error(`fromMove: ${p} is always on for side ${c}; only a spendable power or a card can wait for a move`);
   }
   for (const k of Object.keys(RULES.fromMove)) if (!ALL_CARDS.includes(k as CardName)) throw new Error(`fromMove: ${k} is always on; only a spendable power or a card can wait for a move`);
+  const broken = RULES.design && limit(RULES.design), history = RULES.design?.rules.find(r => ['fromMove', 'beforeMove', 'afterCard'].includes(r.when.on));
+  if (broken) throw new Error(`design: ${broken}`);
+  // Version 1 (ticket 16): a game keeps no move count per piece and no card history for a design.
+  if (history) throw new Error(`design: the When "${history.when.on}" needs the game's history, which version 1 does not keep`);
   return RULES;
 }
 
@@ -871,6 +883,12 @@ export function parseRule(text: string): Partial<Rules> {
   if (key === 'kings') return { kings: parseKings(value) };
   if (key === 'kingWhite') return { kings: [parseKing(value), null] };
   if (key === 'kingBlack') return { kings: [null, parseKing(value)] };
+  // `design=<share code>`: a Workshop design in the slot `T`; `design=` alone clears it.
+  if (key === 'design') {
+    const d = text.length > 7 ? parseDesign(text.slice(7)) : null;
+    if (text.length > 7 && !d) throw new Error('design: not a share code of a design');
+    return { design: d && specOf(d) };
+  }
   // `hands=Freeze+Haste` gives both sides that hand, `hands=Freeze+Haste,Flight` names them apart.
   // `piles=` the same way: the cards each side draws, in order (Growth).
   if (key === 'hands' || key === 'piles') {

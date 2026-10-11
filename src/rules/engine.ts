@@ -9,6 +9,7 @@
  */
 
 import { ArcherShots, CardName, PowerName, RULES, Rules, USES_RULE } from './rules';
+import { genDesigned, shelterOf } from './design';
 export type { ArcherMove, ArcherShots, BeastCapture, BeastMove, CardName, CatapultCapture, GuardCaptures, GuardReserve, KingChoice, KingName, OgreMode, OgreShoveFriends, PaladinKamikaze, PowerName, PromotionSet, Rules, StrikeMode } from './rules';
 export { ALL_CARDS, BUILT, CARD_ONLY, DEFAULT_RULES, KINGS, PLAIN_KINGS, POWERS_BALANCED, RULES, RULES_2017, RULES_2021, TIER1, USES_RULE, kingLabel, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
 
@@ -192,8 +193,8 @@ export interface Mark { sq: number; left?: number; ward?: boolean; all?: boolean
 
 type Delta = readonly [number, number];
 const DIRS8: readonly Delta[] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-/** The four capital squares: d4 e4 d5 e5 (the Templar's queen squares, lab). */
-const CAPITAL: readonly number[] = [27, 28, 35, 36];
+/** The four capital squares: d4 e4 d5 e5 (the Templar's queen squares, lab; a design's center Whens). */
+export const CAPITAL: readonly number[] = [27, 28, 35, 36];
 const ORTHO = DIRS8.slice(0, 4);
 const DIAG = DIRS8.slice(4);
 const KNIGHT: readonly Delta[] = [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]];
@@ -410,6 +411,13 @@ export function canCapture(att: number, vic: PieceType): boolean {
   // (`crossCheckAttacks`) and "it can never check or mate" follows with no branch of its own. The
   // shove is a separate path: it removes nothing and survives this rule.
   if (at === O && RULES.ogreNoCapture) return false;
+  // A designed piece (`RULES.design`, the slot `T`): its "always" rules "cannot take …" and "cannot be taken by …". A rule
+  // with another When reads the board: `genDesigned` and the shelter seam (`sheltered`) hold it.
+  if (RULES.design && (at === T || vic === T)) for (const { when, does: x } of RULES.design.rules) {
+    if (when.on !== 'always') continue;
+    if (at === T && x.a === 'cannotTake' && (x.what === 'any' || (x.what === 'king' && vic === K) || (x.what === 'pawns' && vic === P))) return false;
+    if (vic === T && x.a === 'cannotBeTaken' && (x.by === 'pawns' ? at === P : at !== K)) return false;
+  }
   // A pawn-clearing guard still cannot take a king, so it still never checks and still cannot mate.
   if (at === G && (RULES.guardCaptures === 'none' || (RULES.guardCaptures === 'pawns' && vic !== P))) return false;
   if (at === G && RULES.guardCaptureLimit && (att & SPENT)) return false;
@@ -452,7 +460,8 @@ function inLight(board: Uint8Array, sq: number, side: number): boolean {
 }
 
 /** Is any shelter rule on (`mercyAura`, `holyLightShelter`, `darknessShelter`, `darknessAuraPawns`)? The gate of `sheltered`'s three callers. */
-const shelters = (): boolean => RULES.mercyAura || RULES.holyLightShelter || RULES.darknessShelter || RULES.darknessAuraPawns;
+const shelters = (): boolean => RULES.mercyAura || RULES.holyLightShelter || RULES.darknessShelter || RULES.darknessAuraPawns
+  || !!RULES.design?.rules.some(r => r.does.a === 'cannotBeTaken' && r.when.on !== 'always');
 
 /**
  * Mercy's shelter (`mercyAura`), Holy Light's (`holyLightShelter`) and Darkness's
@@ -461,27 +470,30 @@ const shelters = (): boolean => RULES.mercyAura || RULES.holyLightShelter || RUL
  * only a pawn's (1, `mercyAuraPawns`, `darknessAuraPawns`), every capture but a pawn's (3,
  * `mercyAuraPawnsTake`, `darknessShelterPawnsTake`), or nothing (0). The `*Ortho` readings shelter
  * only the four orthogonal neighbours, `darknessShelter` only the four diagonal ones (`DIRS8` 4-7).
+ * A design whose "cannot be taken" When holds on its square (`shelterOf`) is sheltered from pawns (1), or from all but
+ * a king (4), when no king shelters it.
  */
 function sheltered(board: Uint8Array, sq: number): number {
   const v = board[sq];
   if (!v || typeOf(v) === K) return 0;
+  const d = RULES.design && typeOf(v) === T ? shelterOf(RULES.design, board, sq) : 0;
   const pw = powerOf(colorOf(v));
   let lo = 0, hi: number, level: number;
   if (pw === 'Mercy' && RULES.mercyAura) { hi = RULES.mercyAuraOrtho ? 4 : 8; level = RULES.mercyAuraPawns ? 1 : RULES.mercyAuraPawnsTake ? 3 : 2; }
   else if (pw === 'HolyLight' && RULES.holyLightShelter) { hi = RULES.holyLightShelterOrtho ? 4 : 8; level = 2; }
   else if (pw === 'Darkness' && RULES.darknessShelter) { lo = 4; hi = 8; level = RULES.darknessShelterPawnsTake ? 3 : 2; }
   else if (pw === 'Darkness' && RULES.darknessAuraPawns) { hi = 8; level = 1; }
-  else return 0;
+  else return d;
   const k = piece(K, colorOf(v));
-  for (let d = lo; d < hi; d++) { const n = NEIGHBOUR[sq * 8 + d]; if (n >= 0 && board[n] === k) return level; }
-  return 0;
+  for (let i = lo; i < hi; i++) { const n = NEIGHBOUR[sq * 8 + i]; if (n >= 0 && board[n] === k) return level; }
+  return d;
 }
 
 /** Drop the moves from `n0` on that would capture a sheltered piece (see `sheltered`). */
 function dropSheltered(board: Uint8Array, out: Move[], n0: number): void {
   for (let i = out.length - 1; i >= n0; i--) {
-    const caps = out[i].captures, pawn = typeOf(board[out[i].from]) === P;
-    for (let j = 0; j < caps.length; j++) { const l = sheltered(board, caps[j]); if (l === 2 || (l === 1 && pawn) || (l === 3 && !pawn)) { out.splice(i, 1); break; } }
+    const caps = out[i].captures, t = typeOf(board[out[i].from]), pawn = t === P;
+    for (let j = 0; j < caps.length; j++) { const l = sheltered(board, caps[j]); if (l === 2 || (l === 1 && pawn) || (l === 3 && !pawn) || (l === 4 && t !== K)) { out.splice(i, 1); break; } }
   }
 }
 
@@ -825,6 +837,8 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
       return;
     }
     case T: {
+      // A designed piece (`RULES.design`, ticket 16) plays in the Templar's slot: the Templar is paused, so no game needs both.
+      if (RULES.design) return genDesigned(board, from, mode, out, RULES.design);
       // **Templar** (lab piece, PIECES-PROPOSED.md #4): a king-step while it stands anywhere, and a
       // full queen while it stands on one of the four capital squares (d4 e4 d5 e5). The switch is
       // a pure function of `from`, so no state exists; `isAttacked` mirrors it exactly (a Templar
@@ -965,6 +979,8 @@ export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Mo
 export function landed(mover: number, m: Move): number {
   if (m.promo) return piece(m.promo, colorOf(mover));
   if (RULES.guardCaptureLimit && m.captures.length > 0 && typeOf(mover) === G) return mover | SPENT;
+  // A design remembers its first take when a rule reads it ("after its first capture", "takes for the first time").
+  if (RULES.design && m.captures.length > 0 && typeOf(mover) === T && RULES.design.rules.some(r => r.when.on === 'afterFirstCapture' || r.when.on === 'firstTake')) return mover | SPENT;
   return mover;
 }
 
@@ -1142,6 +1158,8 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
   const shelter = shelters() ? sheltered(board, target) : 0;
   if (shelter === 2) return false;
   const victim = board[target] ? typeOf(board[target]) : 0;
+  // A design that only a king may take here: the king's own attacks are the whole answer.
+  if (shelter === 4) { const k = findKing(board, by), out: Move[] = []; if (k >= 0) genPieceRaw(board, k, 'attacks', out); return out.some(m => m.captures[0] === target); }
   // A shelter only a pawn may break: the pawn walk is the whole answer.
   if (shelter === 3) return pawnTakes(board, target, by, victim);
   // `isAttacked` is the hottest function in the project, so it creates no closure per call (the
@@ -1158,7 +1176,7 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
     // `hits` answers "can this piece take a king here" through `canCapture`, but an empty target
     // short-circuits it, so the no-capture Ogre is gated explicitly — the same shape the guard's
     // `guardCaptures` gate uses. `crossCheckAttacks` fails without it.
-    if (hits(board, s, K, by, victim) || hits(board, s, M, by, victim) || (!RULES.ogreNoCapture && hits(board, s, O, by, victim)) || hits(board, s, T, by, victim) || (RULES.guardCaptures !== 'none' && hits(board, s, G, by, victim) && guardMayLand(p, target))) return true;
+    if (hits(board, s, K, by, victim) || hits(board, s, M, by, victim) || (!RULES.ogreNoCapture && hits(board, s, O, by, victim)) || (!RULES.design && hits(board, s, T, by, victim)) || (RULES.guardCaptures !== 'none' && hits(board, s, G, by, victim) && guardMayLand(p, target))) return true;
     if (hits(board, s, S, by, victim) && beastTakesFrom(DIRS8[d][0], DIRS8[d][1], by)) return true;
   }
   // `deathTouchReach` (round 8): a Death Touch king two squares away in a straight line, over an
@@ -1214,7 +1232,7 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
         continue;
       }
       const t = typeOf(p);
-      if (!blockedForSliders && (t === sliderType || t === Q || (t === T && CAPITAL.includes(s))) && (victim === 0 || canCapture(p, victim as PieceType))) return true;
+      if (!blockedForSliders && (t === sliderType || t === Q || (t === T && !RULES.design && CAPITAL.includes(s))) && (victim === 0 || canCapture(p, victim as PieceType))) return true;
       if (!blockedForPaladin && t === L && (victim === 0 || canCapture(p, victim as PieceType))) return true;
       // Always-on **Leap** (Mud B): an own pawn does not stop a `by` slider, which is the mirror of
       // the `continue` in `slider()`. The paladin is untouched — it jumps friends already. Counted
@@ -1223,7 +1241,19 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
       if (!RULES.paladinJumpsFriends) blockedForPaladin = true;
     }
   }
-  return false;
+  return RULES.design !== null && designHits(board, target, by);
+}
+
+/**
+ * Does a design of `by` take on `target`? A forward test: its Whens read the board, so no reverse walk mirrors it.
+ * An empty target counts as a king there (the Darkness king's safe step and the threat marks ask that).
+ */
+function designHits(board: Uint8Array, target: number, by: Color): boolean {
+  const v = board[target], out: Move[] = [];
+  if (!v) board[target] = piece(K, (by ^ 1) as Color);
+  for (let s = 0; s < 64; s++) if ((board[s] & 31) === piece(T, by)) genDesigned(board, s, 'attacks', out, RULES.design!);
+  board[target] = v;
+  return out.some(m => m.captures[0] === target);
 }
 
 export function inCheck(pos: Position, c: Color = pos.turn): boolean {

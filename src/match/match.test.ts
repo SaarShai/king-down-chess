@@ -194,7 +194,7 @@ describe('isolated local matches', () => {
     try {
       await mkdir(join(copy, 'src/sim'), { recursive: true });
       await Promise.all([
-        ...['rules', 'ai', 'match'].map(dir => cp(join(root, 'src', dir), join(copy, 'src', dir), { recursive: true })),
+        ...['rules', 'ai', 'match', 'workshop'].map(dir => cp(join(root, 'src', dir), join(copy, 'src', dir), { recursive: true })),
         ...['package.json', 'src/game.ts', 'src/sim/ts-worker.ts', 'src/sim/worker-boot.mjs'].map(file => cp(join(root, file), join(copy, file))),
         symlink(join(root, 'node_modules'), join(copy, 'node_modules'), 'dir'),
       ]);
