@@ -504,9 +504,11 @@ function vortex(out,foot,phase,strength) {
    ctx.strokeStyle='#656e4d14';ctx.strokeRect(PAD+col*TILE+.5,PAD+row*TILE+.5,TILE-1,TILE-1);
   }
   decorate?.(ctx,api,'under');
-  if(selected!==null){const c=cell(selected);ctx.strokeStyle='#6b7954';ctx.lineWidth=3;ctx.strokeRect(PAD+c.col*TILE+1.5,PAD+c.row*TILE+1.5,TILE-3,TILE-3);ctx.lineWidth=1;}
-  if(coords){ctx.fillStyle=lively.atmosphere&&boardArt.naturalWidth?'#e4d8bb':'#6d765d';ctx.font=`${coordSize}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
-   for(let i=0;i<8;i++){ctx.fillText('abcdefgh'[flipped?7-i:i],PAD+(i+.5)*TILE,SIZE-coordInset);ctx.fillText(String(flipped?i+1:8-i),15,PAD+(i+.5)*TILE);}}
+  // A host that draws its own marks (setDecorate) draws its own selection.
+  if(selected!==null&&!decorate){const c=cell(selected);ctx.strokeStyle='#6b7954';ctx.lineWidth=3;ctx.strokeRect(PAD+c.col*TILE+1.5,PAD+c.row*TILE+1.5,TILE-3,TILE-3);ctx.lineWidth=1;}
+  // On the framed board, the Workshop's coordinates: gold capitals and numbers in the display serif.
+  if(coords){const framed=lively.atmosphere&&boardArt.naturalWidth;ctx.fillStyle=framed?'#c99a3e':'#6d765d';ctx.font=framed?`600 ${coordSize}px Cinzel,'Trajan Pro',Georgia,serif`:`${coordSize}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
+   for(let i=0;i<8;i++){ctx.fillText((framed?'ABCDEFGH':'abcdefgh')[flipped?7-i:i],PAD+(i+.5)*TILE,SIZE-coordInset);ctx.fillText(String(flipped?i+1:8-i),15,PAD+(i+.5)*TILE);}}
  }
  // A slate frame cut from the board's own dark stone, lit from the top left like the board.
  function drawFrame() {

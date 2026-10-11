@@ -2,7 +2,7 @@
  * Plain-language helpers for the HUD that only read the engine: the screen-reader sentence for a
  * move, the threat markers, and move numbers that stay right when a Haste turn plays two plies.
  */
-import { A, aName, C, Color, K, Move, N, nameOf, Position, theName, colorOf, file, findKing, genPiece, isAttacked, isSpawnTag, pseudoMoves, rank, sqName, typeOf } from './rules/engine';
+import { A, aName, C, Color, Move, N, nameOf, Position, theName, colorOf, file, findKing, genPiece, isSpawnTag, pseudoMoves, rank, sqName, typeOf } from './rules/engine';
 
 import type { Mode } from './turn';
 
@@ -93,22 +93,18 @@ export function describeMove(pre: Position, m: Move, freePass = false, final = f
 }
 
 /**
- * Squares the side not to move attacks: the mover's pieces it can take, and the empty squares it
- * covers. Asked as if it were the other side's turn, outside the turn in progress: a pending Haste
- * second move or the move after a free Freeze belongs to the side to move, so it is left out.
+ * The threats of the side not to move: each of its pieces and each of the mover's pieces it can take (the king: its
+ * checkers). Asked as if it were the other side's turn, outside the turn in progress: a pending Haste second move or the
+ * move after a free Freeze belongs to the side to move, so it is left out.
  */
-export function threatsIn(pos: Position): { pieces: number[]; squares: number[] } {
-  const them = (pos.turn ^ 1) as Color;
-  const pieces = new Set<number>(), squares: number[] = [];
-  for (const m of pseudoMoves({ ...pos, turn: them, haste: undefined, free: undefined }, 'captures')) {
-    for (const c of m.captures) if (pos.board[c] && colorOf(pos.board[c]) === pos.turn) pieces.add(c);
+export function threatsIn(pos: Position): { from: number; to: number }[] {
+  const out = checkersOf(pos).map(ch => ({ from: ch.sq, to: ch.king }));
+  for (const m of pseudoMoves({ ...pos, turn: (pos.turn ^ 1) as Color, haste: undefined, free: undefined }, 'captures')) {
+    for (const to of m.captures) {
+      if (pos.board[to] && colorOf(pos.board[to]) === pos.turn && !out.some(t => t.from === m.from && t.to === to)) out.push({ from: m.from, to });
+    }
   }
-  for (let s = 0; s < 64; s++) {
-    const p = pos.board[s];
-    if (!p) { if (isAttacked(pos.board, s, them)) squares.push(s); }
-    else if (colorOf(p) === pos.turn && typeOf(p) === K && isAttacked(pos.board, s, them)) pieces.add(s);
-  }
-  return { pieces: [...pieces], squares };
+  return out;
 }
 
 /**

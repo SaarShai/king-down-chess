@@ -49,8 +49,7 @@ The owner asked for three things; screenshots (from the production build) in [ro
    gold-bright and makes its badge larger. The keyboard cursor previews the same way. The read of an enemy
    piece shows the same marks at half strength. With Animations off or reduced motion the markers appear at
    once. The swap, shove and rune pulses ride the selected figure's ~30 fps idle; only the pop-in asks for
-   full-rate frames. The clay look shows the same legend as flat textures on the squares
-   (Freeze/Ice Wall/Sacrifice targets tint amber there).
+   full-rate frames. (The clay look, parked on 2026-10-11, showed the same legend as flat textures.)
    [moves](round2/moves-desktop.webp) · [phone](round2/moves-phone.webp) ·
    [preview](round2/moves-hover-move-desktop.webp) · [capture under the pointer](round2/moves-hover-capture-desktop.webp) ·
    [Archer](round2/special-archer-desktop.webp) · [Ogre](round2/special-ogre-desktop.webp) ·
@@ -90,9 +89,8 @@ for white and the shadow for black."
   earth = Mud) and the Spirit and Shadow emblems made for this dialog on 2026-10-03 with image
   generation. Their PNG masters are not in `art-src/` yet: they go there as `spirit emblem.png` and
   `shadow emblem.png` (the script stops while a source is missing).
-- Kings with no power still look like Spirit (White) and Shadow (Black) where a look draws each king
-  differently: the clay look's king figures (`src/render/renderer.ts`; before, both were Frost). A new
-  game with other kings rebuilds the king figures.
+- Kings with no power still look like Spirit (White) and Shadow (Black). A new game with other kings
+  rebuilds the king figures.
 - Check: `tools/verify-new-game.mjs`. Screenshots: [desktop](new-game/desktop-computer.jpg) ·
   [desktop, Kings' powers](new-game/desktop-powers.jpg) · [phone](new-game/phone-computer.jpg) ·
   [phone, Kings' powers](new-game/phone-powers.jpg)
@@ -130,7 +128,7 @@ them. import those. you also need to come up with a new one for ogre." Then: "sy
 | Promotion | Letter buttons. | Each choice shows its painted figure (in the promoting side's colour). |
 | Result | Plain dialog. | The two painted kings; the beaten one lies toppled (none after a draw). |
 | Lessons | Text in the panel. | A six-step progress bar and the task in a lesson card. |
-| Threats | — | Settings → **Show threats** (off by default): an amber warning triangle with "!" beside the feet of each of your pieces the other side can take, and an amber diamond on each empty square it covers, both at the square's bottom-right corner. No move or take mark uses amber, these shapes or that corner, so a threat never reads as a take (move-legend ticket 02). Uses only the engine's exported `pseudoMoves` and `isAttacked`. |
+| Threats | — | Settings → **Show threats** (off by default): the Workshop's threats (move-legend ticket 04): a red glow under each of your pieces the other side can take, and a faint red arrow from each attacker to it, over the figures. Painted board only. Uses only the engine's exported `pseudoMoves` and `genPiece` (through `checkersOf`). |
 | Refused moves | The tap did nothing, or deselected silently. | The help line says why: "This bishop has no legal move…", "Not allowed: that bishop move would leave your king in check.", "Not allowed: a guard can only be taken by a king.", "Not allowed: the rook cannot reach b2…", "The computer is thinking…". A tap on an enemy piece with no piece selected shows its card, with no refusal (web UX review, pick D10). |
 | Keyboard | Panel buttons only; the board needed a pointer. | Tab to the board; arrow keys move a square cursor (it follows the board's orientation), Enter or Space selects and moves, Shift+Enter is the Ogre push shortcut, Escape cancels. Moves in the list are buttons. |
 | Screen readers | Help and moment lines only. | Every move by either side is announced ("White pawn e2 to e4.", "Black archer on c7 takes the knight on d6 without moving."), plus Undo, and the cursor's square and piece. |
@@ -157,7 +155,7 @@ calligraphic touch that stays readable at 12–15 px.
 - **Colour.** `--parchment #f3ead7` (panel), `--vellum #fbf7ee` (dialogs, cards, fields),
   `--parchment-deep #e7d8b8`; text `--ink #2b2621` and `--ink-soft #5b5045`; stone `--stone-100/300/500/700/900`;
   `--accent #842c21` (primary buttons, checked boxes), `--accent-deep #5a1c14`; `--gold #c99a3e` (ornament),
-  `--gold-ink #7a5712` (gold as text); `--danger #b0251b` (check; the threat marks are amber `#f08c1a`, in their SVG); `--focus #1c5bb0`;
+  `--gold-ink #7a5712` (gold as text); `--danger #b0251b` (check); `--focus #1c5bb0`;
   `--accent-bright #9c3a2d` (the lit top of a crimson control), `--gold-bright #e9c071` (a lit gold edge, never text);
   `--on-night` (the Workshop note, on `--stone-900`); `--night #221d18` and `--on-night-soft` stay as names, with
   no use now; the mark colours `--mark-move`, `--mark-capture`, `--mark-swap`, `--mark-shove`, `--mark-power`
@@ -187,7 +185,7 @@ floor and 14.0:1 in dialogs. UI parts: focus ring 4.7–6.2:1, borders 3.6–7.9
 
 - `PLAYABLE_URL=… PLAYABLE_BROWSER=chromium node docs/visual-design/verify.mjs` — title screen (first visit,
   returning player, never over links/`?fen=`/`?title=0`), keyboard play of e2-e4 with both announcements,
-  move-list buttons, Show threats on a known position (1 ring, 15 dots), five refusal messages, Guide cards
+  move-list buttons, Show threats on a known position (one arrow, d5 to d2), five refusal messages, Guide cards
   and promotion figures, and every phone control ≥ 44 px. Results: [checks.json](checks.json).
 - `PLAYABLE_URL=… node tools/verify-new-game.mjs` — the New game dialog: defaults, the game each mode
   starts, the picker's power lines, Cancel, memory, custom army, keyboard, phone.
@@ -215,10 +213,8 @@ floor and 14.0:1 in dialogs. UI parts: focus ring 4.7–6.2:1, borders 3.6–7.9
 ## Limits
 
 - The board itself (squares, markers, coordinates, figures) is drawn by the painted scene, which the
-  motion track owns; this pass did not change it. Threat markers and the keyboard cursor are a separate
-  layer over the canvas, placed with `view.screenOf()`.
-- In the clay 3D look, threat markers follow the camera frame by frame, but they sit flat over the
-  view, not on the tilted squares.
+  motion track owns; this pass did not change it. The keyboard cursor is a separate
+  layer over the canvas, placed with `view.screenOf()`; the threats are on the canvas.
 - The before screenshots were taken in a cloud container without Georgia, so the old header shows a
   fallback serif.
 - Not tested with a real screen reader (NVDA, VoiceOver); the live regions and labels were checked by

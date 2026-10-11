@@ -174,7 +174,7 @@ try {
     await page.selectOption('#pace', 'off');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).pace), 'off');
     assert.equal(await page.evaluate(() => window.view.pace), 'off');
-    await openExtra(page); assert.equal(await page.locator('#look').inputValue(), 'painted');
+    await openExtra(page); assert.equal(await page.locator('#look, #reset-view').count(), 0, 'Extra has no Look and no Reset view: the clay look is parked');
     assert.match(await page.locator('.coming-row').innerText(), /Card mode/);
     await shot(page, `extra-${width}`);
     await openAccount(page); assert.equal(await page.locator('#account').isVisible(), true);
@@ -201,22 +201,15 @@ try {
     console.log(`ok menu-extra ${width}×${height}: rows, Back, Esc, Close, focus, settings, Extra, dialogs, Resign`);
     await context.close();
   }
+  // Old data (park-clay spec §3): a saved clay look and a `?look=clay` link open the painted board, with no error and no notice.
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  await context.addInitScript(() => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'human', sound: false })); });
+  await context.addInitScript(() => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.look', 'clay'); localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'human', sound: false })); });
   const page = await context.newPage(); trapErrors(page);
-  await page.goto(env('PLAYABLE_URL')); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
-  await openExtra(page);
-  await Promise.all([page.waitForURL(u => u.searchParams.get('look') === 'clay'), page.selectOption('#look', 'clay')]);
-  await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
-  assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.look')), 'clay');
-  const home = await page.evaluate(() => window.view.camera.zoom);
-  const board = await page.locator('#board').boundingBox();
-  await page.mouse.move(board.x + board.width / 2, board.y + board.height / 2); await page.mouse.wheel(0, -300);
-  await page.waitForFunction(z => window.view.camera.zoom > z, home);
-  await openExtra(page); assert.equal(await page.locator('#reset-view').isVisible(), true);
-  await page.click('#reset-view'); await page.waitForFunction(() => window.view.tweens.list.length === 0);
-  assert.ok(Math.abs(await page.evaluate(() => window.view.camera.zoom) - home) < 0.00001, 'Reset view restores the view after zoom');
-  console.log('ok menu-extra: Look switches to Clay; Reset view restores zoom');
+  await page.goto(new URL('?look=clay', env('PLAYABLE_URL')).href); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
+  assert.ok(await page.evaluate(() => 'kings' in window.view && window.view.pos.board[4] > 0), 'an old clay look opens the painted board');
+  assert.equal(await page.locator('#asset-status').innerText(), '', 'an old clay look gives no notice');
+  assert.equal(await page.locator('dialog[open]').count(), 0, 'an old clay look opens no dialog');
+  console.log('ok menu-extra: a saved clay look and a ?look=clay link open the painted board');
   await context.close();
   assertNoErrors();
 } finally { await browser.close(); }

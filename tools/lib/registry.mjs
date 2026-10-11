@@ -24,7 +24,6 @@ export const checks = [
   { name: 'lesson-return', script: 'tools/verify-lesson-return.mjs', limit: 180 },
   { name: 'new-game', script: 'tools/verify-new-game.mjs', limit: 240 },
   { name: 'painted-game', script: 'tools/verify-painted-game.mjs', limit: 240, exclusive: true },
-  { name: 'playable-clay', script: 'tools/verify-playable-clay.mjs', limit: 240, channel: 'chromium' },
   { name: 'powers', script: 'tools/verify-powers.mjs', limit: 180 },
   { name: 'special-moves', script: 'tools/verify-special-moves.mjs', limit: 240 },
   { name: 'ux-defects', script: 'tools/verify-ux-defects.mjs', limit: 300 },

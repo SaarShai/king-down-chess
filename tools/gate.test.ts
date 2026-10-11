@@ -145,6 +145,8 @@ describe('the size allowlist of this repository', () => {
       'docs/visual-design/workshop/figure-samples-2026-10-06/strong-minimal.png',
       'docs/visual-design/workshop/motion-desktop.webm',
       'docs/visual-design/workshop/motion-phone.webm',
+      'parked/clay/public/prototype/models/rebuilt-ogre.glb',
+      'parked/clay/public/prototype/models/rebuilt-paladin.glb',
     ]);
     for (const entry of entries) expect(entry.reason, entry.path).not.toBe('');
   });
