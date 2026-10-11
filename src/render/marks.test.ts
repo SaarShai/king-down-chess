@@ -53,3 +53,39 @@ it('draws a move as a tile, and a take on a figure as the red edge and ring unde
   // The badge: its halo and its edge, then the target (its ring and its dot).
   expect(draw(undefined, undefined, { marks, board }).calls).toEqual(['rect', 'rect', 'badge', 'badge']);
 });
+
+it('puts the gold glow under the selected piece, with no ring, and joins its line with a rail', () => {
+  const calls: string[] = [], gradient = () => ({ addColorStop() {} });
+  const ctx = {
+    globalAlpha: 1, save() {}, restore() {}, beginPath() {}, fill() {}, stroke() {}, translate() {}, scale() {}, lineTo() {}, roundRect() {}, arc() {},
+    moveTo() { calls.push('line'); }, ellipse() { calls.push('ellipse'); }, drawImage() { calls.push('image'); },
+    createLinearGradient: gradient, createRadialGradient() { calls.push('glow'); return gradient(); },
+  } as unknown as CanvasRenderingContext2D;
+  const scene = { PAD: 0, TILE: 100, cell: (sq: number) => ({ col: sq % 8, row: 7 - (sq >> 3) }), foot: () => ({ x: 0, y: 0 }) } as unknown as PaintedScene;
+  const state = (marks: MarkState['marks']): MarkState => ({ marks, piece: 0, preview: null, k: 1, px: 1, motion: false, since: 0 });
+  drawMarks(ctx, scene, 'under', state({ selected: 0 }));
+  expect(calls).toEqual(['ellipse', 'glow']);
+  calls.length = 0;
+  // The rook a1 to h1: the glow, the rail's three lines, the 7 tiles, then the arrowhead's two shapes.
+  drawMarks(ctx, scene, 'under', state({ selected: 0, moves: [1, 2, 3, 4, 5, 6, 7], rails: [{ to: 7, end: 'arrow' }] }));
+  expect(calls.slice(0, 5)).toEqual(['ellipse', 'glow', 'line', 'line', 'line']);
+  expect(calls.slice(-2)).toEqual(['line', 'line']);
+});
+
+it('draws Show threats as the red glow under the attacked piece and the red arrow after the last row', () => {
+  const calls: string[] = [], gradient = () => ({ addColorStop() {} });
+  const ctx = {
+    globalAlpha: 1, save() {}, restore() {}, beginPath() {}, fill() {}, stroke() {}, translate() {}, scale() {}, lineTo() {}, roundRect() {}, arc() {},
+    moveTo() { calls.push('line'); }, ellipse() { calls.push('ellipse'); }, strokeRect() {},
+    createLinearGradient: gradient, createRadialGradient: gradient,
+  } as unknown as CanvasRenderingContext2D;
+  const scene = { PAD: 0, TILE: 100, cell: (sq: number) => ({ col: sq % 8, row: 7 - (sq >> 3) }), foot: () => ({ x: 0, y: 0 }) } as unknown as PaintedScene;
+  const state: MarkState = { marks: { threats: [{ from: 35, to: 11 }] }, piece: 0, preview: null, k: 1, px: 1, motion: false, since: 0 };
+  drawMarks(ctx, scene, 'under', state);
+  expect(calls).toEqual(['ellipse']);
+  calls.length = 0;
+  drawMarks(ctx, scene, 'over', state, 3);
+  expect(calls).toEqual([]);
+  drawMarks(ctx, scene, 'over', state, 7);
+  expect(calls).toEqual(['line', 'line', 'line', 'line']);
+});
