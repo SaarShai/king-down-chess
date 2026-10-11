@@ -196,6 +196,56 @@ suite('ChatGPT tools on PostgreSQL', () => {
   }
  });
 
+ it('previews a friend code without taking a seat and requires a handle for human games', async () => {
+  const a = await user('preview-a'), b = await user('preview-b'), host = await connect(a), guest = await connect(b);
+  await admin.query('update public.profiles set handle=null where id=$1', [b]);
+  await host.ok('kingdown_handle', { icon: 'mud' });
+  const options = { ...DEFAULT_OPTIONS, arrangement: false };
+  const game_id = view(await host.ok('kingdown_create', { kind: 'friend', colour: 'black', options })).game_id;
+  const { code, expires_at } = (await host.ok('kingdown_invite', { game_id })).structuredContent;
+  const preview = await guest.ok('kingdown_join', { code, preview: true });
+  const opened = await guest.ok('kingdown_open', { code });
+  for (const result of [preview, opened]) {
+   expect(result.structuredContent.screen).toBe('join');
+   expect(result._meta.preview).toEqual({ code, options, colour: 'white', kind: 'friend', creator: { handle: `preview-a-${tag}`, icon: 'mud' }, expires_at });
+   for (const secret of [code, `preview-a-${tag}`, 'mud']) expect(JSON.stringify([result.content, result.structuredContent])).not.toContain(secret);
+  }
+  expect(view(await host.ok('kingdown_get', { game_id })).status).toBe('waiting');
+  expect((await rows('select tries from public.invite_code_tries where user_id=$1', [b]))[0].tries).toBe(2);
+  expect((await guest.call('kingdown_create', { kind: 'friend', options }))._meta.code).toBe('HANDLE_NEEDED');
+  expect((await guest.call('kingdown_join', { code }))._meta.code).toBe('HANDLE_NEEDED');
+  await guest.ok('kingdown_handle', { handle: `preview-new-${tag}`, icon: 'spirit' });
+  expect(view(await guest.ok('kingdown_join', { code, board_id: opened.structuredContent.board_id })).status).toBe('playing');
+  expect((await guest.call('kingdown_join', { code, preview: true }))._meta.code).toBe('INVITE_UNAVAILABLE');
+ });
+
+ it('allows Switch now only after the waiting random game gets an opponent after the solo start', async () => {
+  const a = await user('switch-a'), b = await user('switch-b'), host = await connect(a), guest = await connect(b);
+  const options = { ...DEFAULT_OPTIONS, arrangement: false };
+  const playBoth = async () => {
+   const solo = await host.ok('kingdown_create', { kind: 'solo', options, level: 'beginner' });
+   const moved = await host.ok('kingdown_move', move(solo, plain(solo)));
+   return host.ok('kingdown_computer', move(moved));
+  };
+  const ordinary = await playBoth();
+  expect((await host.call('kingdown_abort', move(ordinary)))._meta.code).toBe('NOT_ALLOWED');
+  const open = await host.ok('kingdown_find', { options });
+  const waitingSolo = await playBoth();
+  expect(view(waitingSolo).abort_open).toBe(false);
+  await guest.ok('kingdown_accept', { game_id: view(open).game_id });
+  expect(view(await host.ok('kingdown_get', { game_id: view(waitingSolo).game_id })).abort_open).toBe(true);
+  const switched = await host.ok('kingdown_abort', move(waitingSolo));
+  expect(view(switched)).toMatchObject({ status: 'aborted', result: { winner: null, reason: 'abort' } });
+  expect((await host.ok('kingdown_profile'))._meta.record.totals.played).toBe(0);
+  const later = await playBoth();
+  expect((await host.call('kingdown_abort', move(later)))._meta.code).toBe('NOT_ALLOWED');
+  // Opening a random game after a computer game starts does not erase that computer game.
+  const older = await playBoth();
+  const newOpen = await host.ok('kingdown_create', { kind: 'random', options });
+  await guest.ok('kingdown_accept', { game_id: view(newOpen).game_id });
+  expect((await host.call('kingdown_abort', move(older)))._meta.code).toBe('NOT_ALLOWED');
+ }, 60000);
+
  it('plays a Daily friend game between two ChatGPT players and shows the model no position and no opponent text', async () => {
   const host = await connect(ann), guest = await connect(bob), handles = [`ann-${tag}`, `bob-${tag}`];
   const created = await host.ok('kingdown_create', { options: { ...DEFAULT_OPTIONS, arrangement: false }, kind: 'friend', colour: 'white' });

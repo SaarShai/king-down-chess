@@ -26,6 +26,7 @@ export class PluginService {
   command(actor: string, gameId: string, input: unknown) { return this.games.command(actor, gameId, input, 'chatgpt'); }
   invite(actor: string, gameId: string) { return this.games.invite(actor, gameId); }
   join(actor: string, invitation: unknown) { return this.games.join(actor, invitation); }
+  preview(actor: string, code: unknown) { return this.games.preview(actor, code); }
   lobby(actor: string) { return this.games.lobby(actor); }
   accept(actor: string, gameId: string) { return this.games.accept(actor, gameId); }
   find(actor: string, options: unknown, colour: unknown = 'white') { return this.games.find(actor, options, colour); }

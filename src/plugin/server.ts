@@ -81,16 +81,18 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     play({ game_id: args.game_id, command_id: args.command_id ?? randomUUID(), expected_revision: args.expected_revision ?? (await service.view(actorId, args.game_id)).revision }, action);
   const optional = { game_id: gameId, command_id: command.command_id.optional(), expected_revision: command.expected_revision.optional() };
 
-  register('kingdown_open', 'Use this when the player says "play King Down", wants to open a game, or says "show my King Down profile". Opens home with no new game; game_id or "next" selects a game.',
-    { screen: z.enum(['home', 'play', 'board', 'profile']).optional(), game_id: z.union([gameId, z.literal('next')]).optional() }, { visibility: ['model', 'app'], idempotent: false }, async args => {
-      const view = args.game_id === 'next' ? await next() : args.game_id ? await service.view(actorId, args.game_id) : null;
+  register('kingdown_open', 'Use this when the player says "play King Down", wants to open a game, says "join King Down game K7QX2M", or says "show my King Down profile". Use code to preview a join; use screen "profile" for the profile page. Opens home with no new game; game_id or "next" selects a game.',
+    { screen: z.enum(['home', 'play', 'board', 'profile']).optional(), game_id: z.union([gameId, z.literal('next')]).optional(), code: z.string().min(1).max(300).optional() }, { visibility: ['model', 'app'], idempotent: false }, async args => {
+      const preview = args.code ? await service.preview(actorId, args.code) : undefined;
+      const view = preview ? null : args.game_id === 'next' ? await next() : args.game_id ? await service.view(actorId, args.game_id) : null;
       const board = await service.openBoard(actorId, view?.game_id);
       const games = await service.inbox(actorId), count = games.filter(game => game.action === 'ready').length;
       const result = view ? await reply(view, board) : await home(board);
-      result.structuredContent = { ...result.structuredContent, screen: args.screen ?? (view ? 'board' : 'home'), your_turn_count: count };
+      result.structuredContent = { ...result.structuredContent, screen: preview ? 'join' : args.screen ?? (view ? 'board' : 'home'), your_turn_count: count };
       if (!view) result.content = text(`Your move in ${count} games.`);
       const settings = await service.settings(actorId);
-      result._meta = { ...result._meta, games, settings };
+      result._meta = { ...result._meta, games, settings, ...(preview && { preview }) };
+      if (preview) result.content = text('Review the game features before you join.');
       return result;
     });
   register('kingdown_create', 'Use this when the player wants a new King Down game against the computer, a friend or a random player. Choose the features, colour and computer level.',
@@ -143,8 +145,8 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       return { content: text(`Send your friend the code ${code}. It works until ${expires_at}.`), structuredContent: { code, expires_at } };
     });
   register('kingdown_join', 'Use this when the player has a King Down invitation: a 6-character code. Then show the game with kingdown_open.',
-    { code: z.string().min(1).max(300), board_id: boardId }, { visibility: ['model', 'app'] },
-    args => select(args.board_id, () => service.join(actorId, args.code)));
+    { code: z.string().min(1).max(300), preview: z.boolean().optional(), board_id: boardId }, { visibility: ['model', 'app'] },
+    async args => args.preview ? { content: text('Review the game features before you join.'), structuredContent: { screen: 'join', ...(args.board_id && { board_id: args.board_id }) }, _meta: { preview: await service.preview(actorId, args.code) } } : select(args.board_id, () => service.join(actorId, args.code)));
   register('kingdown_report', 'Use this when the player wants to report the opponent in a King Down game: the player, their handle, or a preset message (name it). The King Down team reviews each report.',
     { game_id: gameId, target: z.enum(['player', 'handle', 'message']), category: z.enum(REPORT_CATEGORIES), intimate_image: z.boolean().optional(), preset: z.enum(PRESETS).optional(), note: z.string().max(MAX_REVISION).optional() },
     { visibility: ['model', 'app'], idempotent: false }, async args => {

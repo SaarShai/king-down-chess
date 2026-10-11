@@ -31,6 +31,7 @@ suite('finished game results in PostgreSQL', () => {
  async function user() {
   const id = randomUUID(); users.push(id);
   await admin.query('insert into auth.users(id) values($1)', [id]);
+  await admin.query('update public.profiles set handle=$2 where id=$1', [id, `result-${id.slice(0,8)}`]);
   return id;
  }
  async function friend(a: string, b: string, input: object = {}) {

@@ -260,6 +260,7 @@ suite('game setup through PostgreSQL', () => {
  it('lets the account-deletion job abort setup with no result', async () => {
   const gone = randomUUID(); users.push(gone);
   await admin.query('insert into auth.users(id) values($1)', [gone]);
+  await admin.query('update public.profiles set handle=$2 where id=$1', [gone, `gone-${gone.slice(0,8)}`]);
   const game = await service.create(gone, { kind: 'friend', options: DEFAULT_OPTIONS });
   await service.join(b, (await service.invite(gone, game.game_id)).token);
   await admin.query("insert into public.account_deletions(user_id,run_after) values($1,now()-interval '1 minute')", [gone]);

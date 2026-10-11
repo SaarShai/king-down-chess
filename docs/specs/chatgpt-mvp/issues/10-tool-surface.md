@@ -105,3 +105,10 @@ Page metadata keeps the CSP from ticket 09. `openai/ui` declares inline and full
 - Step 5: the handle test first fails on the absent tool. Availability checks, reserved-name checks, icon writes and profile record and history pass. Seven related files pass with 58 tests and 50 art tests. `_meta.history` is the row array; `_meta.next_before` is its cursor.
 
 - Step 6: the page-field test first fails because the fields are absent. Icons, full-read ratings and outcomes, inbox dates and move number, abort state and expired-game words pass. Polls omit rating and outcome. Old-save checks still pass. A solo outcome has null rating numbers and any new badges; computer games have no rating history.
+
+### Step 7
+
+- Preview counts a code try. It takes no seat. Open and Join keep the code and creator fields in `_meta.preview`.
+- Friend create and join require a handle.
+- Switch now permits a solo abort only when the actor's earlier waiting random game gets an opponent after the solo start and remains active. Ordinary late aborts remain blocked.
+- Check: 14 test files pass, with 246 tests and 50 art tests. The preview and Switch now tests fail before the changes and pass after them.
