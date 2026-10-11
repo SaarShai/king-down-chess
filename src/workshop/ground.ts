@@ -41,7 +41,7 @@ const BRUSHES: [Kind & Brush, string][] = [['move', 'Move'], ['take', 'Take'], [
 /** The key row's short words (proving-ground.html:1187). */
 const SHORT: Record<string, string> = {
   asleep: 'Asleep', cond: 'Sometimes', blocked: 'Refused', shot: 'Shot', moveshot: 'Move or shot', line: 'Line', arch: 'Hops', removed: 'Removed', push: 'Push', swap: 'Swap',
-  threat: 'Threat', tstop: 'Stopped',
+  threat: 'Threat', tstop: 'Stopped', becomes: 'Becomes',
 };
 const ROMAN = ['I', 'II', 'III'];
 /** The Mirror tool's words for each "Paint on" (renderTools, proving-ground.html:1287). */
@@ -411,12 +411,13 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
 
   /* ---- the top bar (renderTop, proving-ground.html:952-969): Undo and Share once the piece is the player's, and ⋯ ---- */
 
-  /** The ⋯ design menu (decision 16): on the phone Share and Weigh after the first edit, and Rename and Look (the wide
-   *  layout's pen and look row); Copy as text and Make a copy of a piece that moves; Delete of a design on the shelf. */
+  /** The ⋯ design menu (decision 16): on the phone Share and Weigh after the first edit, and Rename (the wide layout's
+   *  pen); Look where no look row shows; Copy as text and Make a copy of a piece that moves; Delete of a design on the shelf. */
   function menuItems(): [string, string, Parameters<typeof sigil>[0]?][] {
     const phone = narrow.matches, items: [string, string, Parameters<typeof sigil>[0]?][] = [];
     if (phone && cur.yours) items.push(['share', 'Share', 'quill'], ['weigh', 'Weigh', 'scale']);
-    if (phone) items.push(['rename', 'Rename'], ['looks', 'Look']);
+    if (phone) items.push(['rename', 'Rename']);
+    if (phone || cur.d.from.length) items.push(['looks', 'Look']);
     if (!empty(cur.d)) items.push(['astext', 'Copy as text'], ['copydesign', 'Make a copy']);
     if (shelf.some(x => x.id === cur.d.id)) items.push(['delete', 'Delete']);
     return items;
@@ -513,9 +514,10 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
         : `<div class="pg-lines">${rules.length ? `<ol aria-label="Rules">${rules.map((r, i) => `<li>${lineHtml(r, i)}${row?.a === r.does.a ? rowHtml() : ''}</li>`).join('')}</ol>` : ''}`
           + (room ? '<button type="button" class="sline add" data-act="shelf"><span class="sl-seal" aria-hidden="true">+</span><b>Add a rule</b></button>'
             + '<div class="sline empty" aria-hidden="true"><span class="sl-seal"></span><span class="txt"></span></div>'.repeat(cur.yours && rules.length ? MAX_RULES - 1 - rules.length : 0) : '')
-          // The look row (decision 17; LOOKS, proving-ground.html:733, :1054): the suggested figures, then "More".
-          + `</div><div class="pg-looks" role="group" aria-label="Look">${suggestedFigures(d).map(f => figureButton(f, 'pg-look')).join('')}`
-            + '<button type="button" class="pg-look pg-lookmore" data-act="looks" aria-haspopup="dialog">More</button></div>');
+          // The look row of a piece made with NEW (decision 17; LOOKS, proving-ground.html:733, :1052): the suggested figures,
+          // then "More". A pool piece and its copy have Look in ⋯.
+          + '</div>' + (d.from.length ? '' : `<div class="pg-looks" role="group" aria-label="Look">${suggestedFigures(d).map(f => figureButton(f, 'pg-look')).join('')}`
+            + '<button type="button" class="pg-look pg-lookmore" data-act="looks" aria-haspopup="dialog">More</button></div>'));
     placeKnots();
     isolate();
   }
@@ -842,7 +844,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   const movesNow = (): Move[] => (pos.gone ? [] : pos.chain ? pos.chain.more.filter(m => m.captures.length === pos.chain!.caps.length + 1)
     : movesOf(now(), pos.board, pos.from, pos.st).filter(m => m.captures.length <= 1));
   const movesAt = (q: string): Move[] => movesNow().filter(m => sqName(pos.chain ? m.to : tapOf(m)) === q);
-  const plaqueOn = (): boolean => tapped || opened > 1;
+  const plaqueOn = (): boolean => tapped || edited || opened > 1;
   /** A new set-up (a lift, a token, the die, the broom, "Show on"): no move to take back. */
   function setUp(b: Uint8Array, s = pos.from): void {
     pos = { ...pos, board: b, from: s, chain: null };
@@ -986,6 +988,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (sc.impressions.some(im => im.list.some(x => x.a === 'removedAfter'))) add('removed', () => impression('removedAfter', 26), NAMES.removed);
     for (const e of sc.effects) {
       if (e.k === 'push' || e.k === 'swap') add(e.k, () => effect(e.k as 'push' | 'swap', 36), NAMES[e.k]);
+      else if (e.k === 'becomes') add(e.k, () => impression('becomes', 26), NAMES.becomes);
       else if (e.k === 'threat') { const k = e.stopped ? 'tstop' : 'threat'; add(k, () => effect(k, 36), NAMES[k]); }
     }
     keyEl.innerHTML = phone || brush ? '' : [...kinds].slice(0, 6).map(([k, [svg, w]]) => `<span class="k" title="${w}">${svg}<span>${SHORT[k]}</span></span>`).join('');
@@ -1045,7 +1048,9 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     ({ board, from, st } = brush ? { board: boardOf(examplesOf({ from: [] })), from: parseSq('d4'), st: START } : pos);
     const of = (d: PieceDesign): Scene => (d.from[0] ? diffOf(d, presetOf(d.from[0]), board, from, st) : sceneOf(d, board, from, st));
     const next = peek ?? (shelfOpen && pick && !notNow(pick) ? { ...cur.d, rules: [...cur.d.rules, blockOf(pick).rule] } : null);
-    sc = of(cur.d);
+    // The knots belong to the design: they come from its example board, so a lift or a move keeps them (the mockup's asleep-b4).
+    const home = examplesOf(cur.d);
+    sc = { ...of(cur.d), knots: traceOf(cur.d, boardOf(home), parseSq(home[0].sq)).knots };
     added = 0;
     if (!brush && (pos.became || pos.chain || pos.gone)) {
       // After a "becomes" the piece moves as that piece. A chain in progress shows only its next takes, from the chain itself:
@@ -1059,6 +1064,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       const key = (x: object): string => JSON.stringify(x, (k, v) => (k === 'by' ? undefined : v)), was = new Set(Object.values(sc).flat().map(key));
       sc = { ...of(next), knots: sc.knots };
       for (const x of [...sc.marks, ...sc.rails, ...sc.arches, ...sc.effects]) if (!was.has(key(x))) { x.pv = true; added++; }
+      // The zone of the previewed When shows in chalk (proving-ground.html:1147).
+      for (const z of sc.chalk) if (!was.has(key(z))) z.pv = true;
     }
     if (brush) {
       // The reach ends 3 squares out: a line shows 3 squares, then its arrow (designScene, proving-ground.html:781-797).
@@ -1096,11 +1103,13 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   /** Opens `item` on the plinth and the board, in look mode. On a short screen the narrow layout scrolls: go back to the top, to the board. */
   function show(item: Item): void {
     if (item.key !== cur.key) undos = [];
-    if (!opened || item.key !== cur.key) opened++;
+    // NEW is not an item to look around: it does not count as an open (S.opened, proving-ground.html:2008).
+    if (item.key !== 'new' && (!opened || item.key !== cur.key)) opened++;
     cur = item;
     brush = row = peek = pick = card = focus = hover = knotAt = why = token = promo = null;
     weighOpen = moreOpen = toolsOpen = shelfOpen = lifted = false;
-    mirror = presetOf(item.d.from[0] ?? '').paintOn;
+    // A design with no pool piece paints with Mirror (the mockup's S0).
+    mirror = item.d.from[0] ? presetOf(item.d.from[0]).paintOn : 'lr';
     const pieces = examplesOf(item.d);
     pos = { board: boardOf(pieces), from: parseSq(pieces[0].sq), st: START, gone: false, chain: null, became: 0 };
     backs = [];

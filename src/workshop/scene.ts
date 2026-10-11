@@ -30,12 +30,13 @@ export interface Scene {
   rails: Rail[];
   arches: (By & { from: string; over: string; to: string })[];
   /** The hover-only effects: `follow` (the piece follows its push), `sight` (a shot's line), and a chain's `hop` and order `pip`.
-   *  A `threat` (threatsOf, the eye of Try with) is `stopped` by a "cannot be taken" rule. */
+   *  A `threat` (threatsOf, the eye of Try with) is `stopped` by a "cannot be taken" rule. `becomes`: the pieces that a move to `sq` can become. */
   effects: (By & ({ k: 'swap'; a: string; b: string } | { k: 'push' | 'follow' | 'sight' | 'hop'; from: string; to: string } | { k: 'pip'; sq: string; n: number }
-    | { k: 'threat'; from: string; to: string; stopped?: true }))[];
-  /** The stamps on a mark: the table rule that refuses it (no `by`), then each rule of its `by`. */
+    | { k: 'threat'; from: string; to: string; stopped?: true } | { k: 'becomes'; sq: string; pieces: string[] }))[];
+  /** The stamps on the board: on a mark, the table rule that refuses it (no `by`), then the rules of its `by` that the
+   *  mockup stamps there (sceneOf); on the piece, a rule that wakes its lines. The Why tag reads every rule from the mark's `by`. */
   impressions: { sq: string; list: { a: Ability['a']; by?: number }[]; on?: string }[];
-  /** The zone of a rule's When, shown while that rule is isolated. */
+  /** The zone of a rule's When, shown while that rule is isolated, or while a preview adds it (`pv`, ground.ts). */
   chalk: (By & { zone: Zone })[];
   knots: Knot[];
 }
@@ -197,11 +198,22 @@ export function sceneOf(design: D, board: Uint8Array, from: number, st: TryState
     else if (!m) marks.push({ sq: sqName(r.sq), k: r.why === 'push' || r.why === 'swap' ? 'blocked-move' : 'blocked', by: by.length ? by : undefined, byWords: r.words, ...on && { on } });
     if (on) pip(sqName(r.sq), r.caps.length + 1, on);
   }
+  // The stamps where the mockup puts them (its scenes paladin, beast, ogre and mypawn-queen): a square that a line crosses
+  // but does not end on has none (a hover-only mark of a chain keeps its own); a rule that wakes lines stamps the piece, and a line's last square only beside another
+  // rule (d8 and h8 with "becomes"); an arrow shows a push or a swap, and a chain's hop and pip show its next take, so
+  // those get no stamp unless the rule refuses the mark.
+  const live = rails.filter(rl => rl.style !== 'asleep'), crossed = new Set(live.flatMap(rl => along(rl).slice(0, -1)).map(sqName));
+  const wakes = [...new Set(live.flatMap(rl => (rl.style === 'awake' ? rl.by ?? [] : [])))];
+  const stamped = (m: Scene['marks'][number], i: number): boolean => {
+    const a = d.rules[i].does.a;
+    return !(wakes.includes(i) && m.by!.length < 2) && (m.k.startsWith('blocked') || !(a === 'push' || a === 'swap' || (m.on && a === 'chain')));
+  };
   const impressions = marks.flatMap(m => {
     const table = m.k.startsWith('blocked') && trace.refused.some(r => r.rule === undefined && sqName(r.sq) === m.sq && onOf(r.caps) === m.on);
-    const list = [...(table ? [{ a: 'cannotBeTaken' as const }] : []), ...(m.by ?? []).map(i => ({ a: d.rules[i].does.a, by: i }))];
+    const list = !m.on && crossed.has(m.sq) ? [] : [...(table ? [{ a: 'cannotBeTaken' as const }] : []), ...(m.by ?? []).filter(i => stamped(m, i)).map(i => ({ a: d.rules[i].does.a, by: i }))];
     return list.length ? [{ sq: m.sq, list, ...m.on && { on: m.on } }] : [];
   });
+  if (wakes.length) impressions.push({ sq: sqName(from), list: wakes.map(i => ({ a: d.rules[i].does.a, by: i })) });
   const chalk = d.rules.flatMap((r, i) => (r.when.on === 'zone' || r.when.on === 'reaches' ? [{ zone: r.when.zone, by: [i] }] : []));
   for (const m of now.moves) {
     if (m.swap) effects.set(`swap ${m.to}`, { k: 'swap', a: sqName(from), b: sqName(m.to), by: of('swap') });
@@ -209,16 +221,24 @@ export function sceneOf(design: D, board: Uint8Array, from: number, st: TryState
     // Hover-only: the piece follows its push, on the push's landing square (the Ogre).
     if (m.shove && m.to !== from) effects.set(`follow ${m.shove.from}`, { k: 'follow', from: sqName(from), to: sqName(m.to), on: sqName(m.shove.to), by: of('push') });
   }
+  // The pieces that a move to a square can become: a faint fan on that square (scenes.js, mypawn-queen).
+  for (const t of new Set(now.moves.filter(m => m.promo).map(m => m.to))) {
+    effects.set(`becomes ${t}`, { k: 'becomes', sq: sqName(t), pieces: [...new Set(now.moves.flatMap(m => (m.to === t && m.promo ? [NAMES[m.promo]] : [])))], by: of('becomes') });
+  }
   // Hover-only: a shot's sight line, on each shot mark (the Archer).
   for (const [s, k] of now.marks) if (k === 'shot' || k === 'moveshot') effects.set(`sight ${s}`, { k: 'sight', from: sqName(from), to: sqName(s), on: sqName(s) });
   return { pieces: piecesOf(board, from), marks, rails, arches: now.arches.map(a => ({ ...a, by: of('linesPass') })), effects: [...effects.values()], impressions, chalk, knots: trace.knots };
 }
 
 /** The paint diff of a copy (paintDiff, proving-ground.html:875): the scene of `d`, where each mark that `base`'s paint
- *  with d's rules does not make on the same board is '+', and each mark of that paint that is gone comes back as '-'. */
+ *  with d's rules does not make on the same board is '+', and each mark of that paint that is gone comes back as '-'.
+ *  "Moves like" lays a whole piece over the paint, so a mark that it does not make is compared with base's paint without
+ *  it: the paint's own change keeps its pip (My Pawn's c5 and e5 under "moves like a queen", the mockup's stamped state). */
 export function diffOf(d: D, base: Pick<D, 'squares' | 'lines'>, board: Uint8Array, from: number, st: TryState = START): Scene {
   const sc = sceneOf(d, board, from, st), was = sceneOf({ ...base, rules: d.rules }, board, from, st).marks;
-  for (const m of sc.marks) if (!was.some(o => o.sq === m.sq && o.k === m.k && o.cond === m.cond)) m.diff = '+';
+  const like = canonical(d).rules.findIndex(r => r.does.a === 'movesLike');
+  const bare = like < 0 ? was : sceneOf({ ...base, rules: d.rules.filter(r => r.does.a !== 'movesLike') }, board, from, st).marks;
+  for (const m of sc.marks) if (!(m.by?.includes(like) ? was : bare).some(o => o.sq === m.sq && o.k === m.k && o.cond === m.cond)) m.diff = '+';
   for (const o of was) if (!sc.marks.some(m => m.sq === o.sq)) sc.marks.push({ ...o, diff: '-' });
   return sc;
 }

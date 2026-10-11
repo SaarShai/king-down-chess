@@ -47,8 +47,9 @@
 /* ---- the plinth: the name, the figure on its stone, the rule lines (:52-110) ---- */
 .pg-plinth { position: relative; min-height: 0; display: flex; flex-direction: column; }
 .pg-name { position: relative; flex: none; min-height: 60px; margin-top: 8px; display: flex; flex-direction: column; justify-content: center; padding: 0 4px; }
-/* a long name keeps its line: the Yours tag and Weigh go under it */
-.pg-name .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 4px 8px; }
+/* the name, its Yours tag and Weigh fit one line of the 328 px band ("My Beast": 170 + 6 + 61 + 6 + 80); a longer name
+   keeps its line, and the Yours tag and Weigh go under it */
+.pg-name .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 4px 6px; }
 #workshop.pg .pg-name h3 { margin: 0; font: 600 var(--fs-2xl)/1.3 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 #workshop.pg .pg-name h3.long { font-size: 25px; }
 /* the pen at the end of the name's rule line opens the name field (ticket 07) */
@@ -58,7 +59,7 @@
 .pg-name-in { box-sizing: border-box; width: 100%; min-height: 44px; padding: 0 8px; font: inherit; letter-spacing: 0.04em; text-transform: none; color: var(--ink);
   background: var(--vellum); border: 1px solid var(--stone-500); border-radius: 6px; }
 .pg-name .from { font-size: var(--fs-xs); color: var(--ink-soft); margin-top: 2px; }
-#workshop.pg .pg-weigh { margin-left: auto; padding: 4px 10px; gap: 6px; }
+#workshop.pg .pg-weigh { margin-left: auto; padding: 4px 8px; gap: 6px; }
 /* Weigh (:125-129): the worth and the like line under the name band */
 .pg-weighpop { position: absolute; z-index: 30; right: 0; top: 72px; width: 300px; max-width: 100%; padding: 14px 16px; display: grid; grid-template-columns: 48px 1fr; gap: 4px 12px; align-items: center;
   border-radius: var(--radius); background: var(--vellum); box-shadow: var(--shadow-float); }
@@ -513,6 +514,8 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .pg-why .tag { min-height: min(358px, 50vh); min-height: min(358px, 50dvh); max-height: 358px; box-sizing: border-box; overflow-y: auto; padding: 18px 16px 16px;
     border-radius: 16px 16px 0 0; clip-path: none; box-shadow: 0 -8px 40px rgba(20, 14, 8, 0.35); }
   .pg-why .tag::before { left: 50%; top: 6px; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; box-shadow: none; background: var(--stone-300); }
+  /* the actions come 14 px under the note, not at the foot of the sheet (proving-ground.html:504) */
+  .pg-why .why-act { margin-top: 14px; }
   /* the card face as mockup B's phone card (.hand, binder-and-table.html:502-517): the diagram beside the name and the figure */
   .pg-face { width: auto; max-width: 358px; display: grid; grid-template-columns: 178px minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: 'dg ct' 'dg art' 'seals seals' 'worth worth'; }
   .pg-face .ct { grid-area: ct; height: auto; gap: 6px; padding: 12px 8px 0 2px; }

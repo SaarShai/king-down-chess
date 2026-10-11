@@ -21,10 +21,13 @@ runInNewContext(readFileSync(new URL('../../docs/research/rules-ui-2026-10-10/mo
 const scenes = ctx.window.KD!.scenes;
 
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules'>;
-const beast = presetOf('beast'), removed = (what: 'piece' | 'any'): Rule => ({ when: { on: 'takes' }, does: { a: 'removedAfter', what } });
-/** The designs of the hand scenes: a pool piece, or My Beast (the Beast, removed too after a piece or after anything). */
+const beast = presetOf('beast'), pawn = presetOf('pawn'), removed = (what: 'piece' | 'any'): Rule => ({ when: { on: 'takes' }, does: { a: 'removedAfter', what } });
+const mine: D = { ...pawn, squares: [{ x: 0, y: 1, mark: 'move' }, { x: -1, y: 1, mark: 'both' }, { x: 1, y: 1, mark: 'both' }] };
+/** The designs of the hand scenes: a pool piece; My Beast (the Beast, removed too after a piece or after anything); My Pawn
+ *  (Both painted on the forward diagonals), and My Pawn that moves like a queen on a center square. */
 const DESIGNS: Record<string, D> = {
-  paladin: presetOf('paladin'), beast, ogre: presetOf('ogre'), pawn: presetOf('pawn'),
+  paladin: presetOf('paladin'), beast, ogre: presetOf('ogre'), pawn, 'pawn-e2': pawn, archer: presetOf('archer'), mypawn: mine,
+  'mypawn-queen': { ...mine, rules: [pawn.rules[0], { when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }, pawn.rules[1]] },
   mybeast: { ...beast, rules: [...beast.rules, removed('piece')] }, 'mybeast-any': { ...beast, rules: [...beast.rules, removed('any')] },
 };
 /** The hand scene `id` and the trace of its design on its board. */
@@ -99,14 +102,14 @@ describe('the Why tag words', () => {
 
   it('sums the Paladin\'s d7 (the line, + its lines pass and removed too, = a take that leaves) and g7 (refused)', () => {
     expect(why('paladin', 'd7')).toMatchObject({ occupant: 'Black knight', piece: { k: 'knight', side: 'b' }, count: 3, foot: 'On b6 it takes a pawn and stays.',
-      sum: { base: 'move', rail: 'n', stamps: ['linesPass', 'removedAfter'], result: 'take', tags: ['removedAfter'], captions: ['line', 'lines pass', 'removed too', 'takes, then leaves'] } });
+      sum: { base: 'move', rail: 'n', stamps: ['linesPass', 'removedAfter'], result: 'take', tags: ['removedAfter'], captions: ['line', 'passes own pieces', 'removed too', 'takes, then leaves'] } });
     expect(why('paladin', 'g7')).toEqual({ occupant: 'Black king', piece: { sq: 'g7', k: 'king', side: 'b' }, count: 2,
-      sum: { base: 'move', rail: 'ne', stamps: ['cannotTake'], result: 'blocked', cond: undefined, tags: [], captions: ['line', "can't take a king", 'refused'] } });
+      sum: { base: 'move', rail: 'ne', stamps: ['cannotTake'], result: 'blocked', cond: undefined, tags: [], captions: ['line', 'cannot take a king', 'refused'] } });
   });
 
   it('sums the Beast\'s e5, the first take of a chain, with its next take and the refused king; f6 names the take before it', () => {
-    expect(why('beast', 'e5')).toMatchObject({ occupant: 'Black pawn', count: 2, foot: 'Then it may take f6. Never the king on g7.',
-      sum: { base: 'both', stamps: ['chain'], result: 'both', tags: ['chain'], captions: ['move or take', 'takes again', 'then f6'] } });
+    expect(why('beast', 'e5')).toMatchObject({ occupant: 'Black pawn', count: 2, foot: 'It takes e5, then f6. Never the king on g7.',
+      sum: { base: 'both', stamps: ['chain'], result: 'both', tags: ['chain'], captions: ['step', 'takes again', 'then f6'] } });
     expect(why('beast', 'f6')).toMatchObject({ occupant: 'Black knight', count: 2, foot: 'It takes e5 first.',
       sum: { base: 'empty', stamps: ['chain'], result: 'take', captions: ['not painted', 'takes again', 'takes'] } });
   });
@@ -134,15 +137,35 @@ describe('the Why tag words', () => {
   });
 
   it('agrees with the why of the hand scenes: the occupant, its icon, the count, the stamps, the line, the mark now, the note and the captions', () => {
-    // The rule captions are the seal labels (ticket 05), so only their number and the last caption, the mark now, are the mockup's.
     for (const id of ['paladin', 'pawn']) {
       for (const [q, w] of Object.entries(scenes.get(id).why!)) {
         const got = why(id, q), sum = got.sum!;
         expect({ occupant: got.occupant, icon: got.piece?.k, side: got.piece?.side, count: got.count, stamps: sum.stamps, rail: sum.rail, now: sum.cond ?? sum.result,
-          tag: sum.tags[0], foot: got.foot, captions: sum.captions.length, last: sum.captions.at(-1) }, `${id} ${q}`).toEqual({
+          tag: sum.tags[0], foot: got.foot, captions: sum.captions }, `${id} ${q}`).toEqual({
           occupant: w.occupant, icon: w.icon, side: w.side, count: w.count, stamps: w.sum.imps.map(i => i.a), rail: w.sum.base.rail, now: w.sum.result.cond ?? w.sum.result.k,
-          tag: w.sum.result.tag?.a, foot: w.foot, captions: w.sum.captions.length, last: w.sum.captions.at(-1) });
+          tag: w.sum.result.tag?.a, foot: w.foot, captions: w.sum.captions });
       }
     }
+  });
+
+  it('speaks the captions and notes of the mockup\'s extra Why data (WHY, proving-ground.html:735-751)', () => {
+    // [scene, square, count, captions, note]. Left out, where the scene's marks win: the Archer's d6 (its note names e5, a
+    // square with no mark), the Ogre's d5 (a rule pushes there, so the tag sums it: 2 parts) and My Beast's e5 (its `by` has
+    // Takes again only; Removed too changes the next take, f6, and the note says so).
+    const WHY: [string, string, number, string[], string?][] = [
+      ['pawn-e2', 'e4', 2, ['step 2', 'on its start rank', 'awake here']],
+      ['mypawn', 'd6', 2, ['step 2', 'on its start rank', 'asleep here']],
+      ['mypawn-queen', 'd8', 3, ['line', 'like a queen, on a center square', 'becomes', 'moves, then becomes']],
+      ['mypawn-queen', 'h8', 3, ['line', 'like a queen, on a center square', 'becomes', 'moves, then becomes']],
+      ['mypawn-queen', 'g4', 2, ['line', 'like a queen, on a center square', 'awake here']],
+      ['archer', 'f6', 1, ['shot: 2 away', 'takes, stays on d4']],
+      ['beast', 'e5', 2, ['step', 'takes again', 'then f6'], 'It takes e5, then f6. Never the king on g7.'],
+      ['mybeast-any', 'e5', 2, ['step', 'removed after anything', 'takes, then leaves'], 'It leaves at once, so Takes again never fires.'],
+      ['ogre', 'c3', 2, ['step', 'only a king takes a guard', 'refused'], 'It may push the guard to b2.'],
+    ];
+    for (const [id, q, count, captions, foot] of WHY) { const w = why(id, q); expect([w.count, w.sum?.captions, w.foot], `${id} ${q}`).toEqual([count, captions, foot]); }
+    expect(why('mybeast', 'e5').foot).toBe('It takes e5, then f6. After the knight on f6, it is removed too.');
+    // The base of "steps 2" is the dashed step (proving-ground.html:736: `cond: 'awake'`).
+    expect(why('pawn', 'd6').sum).toMatchObject({ base: 'move', baseCond: 'awake' });
   });
 });

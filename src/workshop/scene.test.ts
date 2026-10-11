@@ -14,17 +14,20 @@ interface Hand {
   rails: { from: string; to: string; end: string; style?: string }[];
   arches: { from: string; over: string; to: string }[];
   effects: { k: string; on?: string; a?: string; b?: string; from?: string; to?: string; sq?: string; n?: number; stopped?: true; by?: (number | string)[] }[];
+  impressions: { sq: string; list: { a?: string }[]; on?: string }[];
 }
 const ctx = { window: {} as { KD?: { scenes: { get(id: string): Hand; check(): string[] } } } };
 runInNewContext(readFileSync(new URL('../../docs/research/rules-ui-2026-10-10/mockups/shared/scenes.js', import.meta.url), 'utf8'), ctx);
 const scenes = ctx.window.KD!.scenes;
 const sorted = <T>(l: T[]): T[] => [...l].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
-/** Sorted, less the why-trace's fields. */
-const plain = <T>(l: T[]) => sorted(l.map(x => ({ ...x, by: undefined, byWords: undefined })));
+/** Sorted, less the why-trace's fields and the pieces of a "becomes" fan (the hand scenes leave them out). */
+const plain = <T>(l: T[]) => sorted(l.map(x => ({ ...x, by: undefined, byWords: undefined, pieces: undefined })));
+/** The stamps: each square with its rules' abilities. */
+const stamps = (l: Hand['impressions']) => sorted(l.map(({ sq, list, on }) => ({ sq, list: list.map(x => x.a), on })));
 
 /** The scenes whose hover-only marks and effects (`on`, ticket 05) the test compares: the hand scene of the Archer alone
- *  leaves them out. The effects that the builder draws; the threat and "becomes" effects are those of later tickets. */
-const ON = ['beast', 'archer', 'ogre'], DRAWN = ['swap', 'push', 'follow', 'sight', 'hop', 'pip'];
+ *  leaves them out. The effects that the builder draws; the threat effect is threatsOf's (ticket 06). */
+const ON = ['beast', 'archer', 'ogre', 'mybeast', 'mybeast-any'], DRAWN = ['swap', 'push', 'follow', 'sight', 'hop', 'pip', 'becomes'];
 /** The hand scene `id` and the built one, less the why-trace (why.test.ts). */
 function both(id: string, d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'>) {
   const hand = scenes.get(id), got = sceneOf(d, boardOf(hand.pieces), parseSq(hand.pieces.find(p => p.open)!.sq)), keep = (x: { on?: string }) => ON.includes(id) || !x.on;
@@ -33,11 +36,13 @@ function both(id: string, d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'>) {
     rails: plain(got.rails),
     arches: plain(got.arches),
     effects: plain(got.effects.filter(keep)),
+    impressions: stamps(got.impressions.filter(keep)),
   }, {
     marks: sorted(hand.marks.filter(keep).map(({ sq, k, cond, on }) => ({ sq, k, cond, on }))),
     rails: sorted(hand.rails.map(({ from, to, end, style }) => ({ from, to, end, style }))),
     arches: sorted(hand.arches.map(({ from, over, to }) => ({ from, over, to }))),
     effects: sorted(hand.effects.filter(e => DRAWN.includes(e.k) && keep(e)).map(({ k, a, b, from, to, sq, n, on }) => ({ k, a, b, from, to, sq, n, on }))),
+    impressions: stamps(hand.impressions.filter(keep)),
   }];
 }
 
@@ -61,7 +66,7 @@ describe('the scene builder', () => {
     });
   }
 
-  it('draws the asleep and awake marks and rails of My Pawn, and of My Pawn that moves like a queen on a center square, on d4, b4 and e2', () => {
+  it('draws the asleep and awake marks, rails, stamps and fans of My Pawn, and of My Pawn that moves like a queen on a center square, on d4, b4 and e2', () => {
     const pawn = presetOf('pawn');
     const mine = { ...pawn, squares: [{ x: 0, y: 1, mark: 'move' as const }, { x: -1, y: 1, mark: 'both' as const }, { x: 1, y: 1, mark: 'both' as const }] };
     const queen: Rule = { when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } };
@@ -70,6 +75,18 @@ describe('the scene builder', () => {
     const cases: [string, Pick<PieceDesign, 'squares' | 'lines' | 'rules'>][] = [['mypawn', mine], ['mypawn-queen', mq], ['mypawn-queen-b4', mq], ['mypawn-queen-e2', mq]];
     for (const [id, d] of cases) {
       const [got, want] = both(id, d);
+      expect(got, id).toEqual(want);
+    }
+    // The fan of "becomes" holds the pieces of the moves: the four of "a piece you choose", or the one that the pill names.
+    const fan = (d: typeof mq) => sceneOf(d, boardOf(examplesOf({ from: [] })), parseSq('d4')).effects.flatMap(e => (e.k === 'becomes' ? [`${e.sq} ${e.pieces.join(' ')}`] : [])).sort();
+    expect(fan(mq)).toEqual(['d8 queen rook bishop knight', 'h8 queen rook bishop knight']);
+    expect(fan({ ...mq, rules: [mq.rules[0], queen, { ...mq.rules[2], does: { a: 'becomes', into: 'A' } }] })).toEqual(['d8 archer', 'h8 archer']);
+  });
+
+  it('stamps My Beast as the mockup does: "takes again" on e5 and on the refused king, "removed too" on the next take', () => {
+    const beast = presetOf('beast'), removed = (what: 'piece' | 'any'): Rule => ({ when: { on: 'takes' }, does: { a: 'removedAfter', what } });
+    for (const [id, what] of [['mybeast', 'piece'], ['mybeast-any', 'any']] as const) {
+      const [got, want] = both(id, { ...beast, rules: [...beast.rules, removed(what)] });
       expect(got, id).toEqual(want);
     }
   });
@@ -94,6 +111,11 @@ describe('the scene builder', () => {
     expect(diff(pawn.squares.filter(s => s.x !== -1))).toEqual(['c5 take -']);
     // A line ahead: d6 was asleep (step 2) and is a plain move now; d7 and d8 are new.
     expect(diff(pawn.squares, ['n'])).toEqual(['d6 move +', 'd7 move +', 'd8 move +']);
+    // My Pawn that moves like a queen on a center square (the mockup's stamped state): the queen's marks are its rule's, and
+    // the paint still changes c5 and e5.
+    const mine = [{ x: 0, y: 1, mark: 'move' as const }, { x: -1, y: 1, mark: 'both' as const }, { x: 1, y: 1, mark: 'both' as const }];
+    const queen: Rule = { when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } };
+    expect(diffOf({ ...pawn, squares: mine, rules: [...pawn.rules, queen] }, pawn, board, d4).marks.filter(m => m.diff).map(m => `${m.sq} ${m.k} ${m.diff}`).sort()).toEqual(['c5 both +', 'e5 both +']);
   });
 });
 

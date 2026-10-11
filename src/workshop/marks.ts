@@ -45,7 +45,7 @@ const SIGILS: Record<Ability['a'] | 'quill' | 'moon' | 'near' | 'card' | 'lock' 
 export const NAMES = {
   move: 'Move', take: 'Take only', both: 'Move or take', shot: 'Shot: takes from here', moveshot: 'Move or shot',
   line: 'Line', arch: 'Passes over', cond: 'Only sometimes', asleep: 'Asleep here', push: 'Pushes', swap: 'Swaps',
-  blocked: 'Refused', 'blocked-move': 'Refused', removed: 'Removed too', threat: 'Can hit this piece', tstop: 'Threat stopped',
+  blocked: 'Refused', 'blocked-move': 'Refused', removed: 'Removed too', threat: 'Can hit this piece', tstop: 'Threat stopped', becomes: 'Becomes',
 };
 
 const n = (v: number) => Math.round(v * 100) / 100;
@@ -317,7 +317,7 @@ export function tile(kind: MarkKind | 'empty', size: number, o: { cond?: Style; 
 /** The Why tag's sum (whySum, marks.js:909-919): the base, + the stamp of each rule, = the mark now; a caption under each part. */
 export function whySum(w: NonNullable<Why['sum']>, T: number, I: number): string {
   const part = (svg: string, i: number): string => `<span class="part">${svg}<small>${esc(w.captions[i])}</small></span>`;
-  return `<span class="why-sum">${part(tile(w.base, T, { rail: w.rail }), 0)}`
+  return `<span class="why-sum">${part(tile(w.base, T, { rail: w.rail, cond: w.baseCond }), 0)}`
     + w.stamps.map((a, i) => `<span class="op">+</span>${part(`<span class="imp" style="height:${T}px">${impression(a, I)}</span>`, i + 1)}`).join('')
     + `<span class="op">=</span>${part(tile(w.result, T, { cond: w.cond, tags: w.tags }), w.stamps.length + 1)}</span>`;
 }
@@ -394,6 +394,15 @@ export function nub(on: boolean, deg: number): string {
 
 /* ---- the board (marks.js:990-1175) ---- */
 
+/** The pieces that a move can become, as a faint fan of icons at the foot of its square (becomesFan, marks.js:596). */
+function becomesFan(x: number, y: number, s: number, pieces: readonly string[]): string {
+  const k = 0.3 * s, mid = (pieces.length - 1) / 2;
+  return `<g opacity=".4">${pieces.map((p, i) => {
+    const cx = x + s / 2 + (i - mid) * 0.19 * s, cy = y + s * 0.72;
+    return `<image href="${import.meta.env?.BASE_URL ?? './'}ui/icons/${p}.svg" x="${n(cx - k / 2)}" y="${n(cy - k / 2)}" width="${n(k)}" height="${n(k)}" transform="rotate(${n((i - mid) * 12)} ${n(cx)} ${n(y + s * 1.1)})"/>`;
+  }).join('')}</g>`;
+}
+
 const FILES = 'abcdefgh';
 /** The top-left corner of square `q` on a board of square side s. */
 export const squareXY = (q: string, s: number): { x: number; y: number } => ({ x: FILES.indexOf(q[0]) * s, y: (8 - +q.slice(1)) * s });
@@ -419,15 +428,16 @@ function chalk(z: Zone, side: 'w' | 'b', s: number): string {
 }
 
 /**
- * The scene as SVG in four layers: the chalk of the isolated rule's zone, under (rails, marks, line ends, glows), the
- * pieces, and over (arches, take badges, swaps, pushes and the hover-only effects, stamps, the Why tag's square). The
- * board image is the field's background. `art` gives each piece's image. `focus` isolates (drawString's o.focus,
+ * The scene as SVG in four layers: the chalk of the isolated rule's zone and of a zone that a preview adds, under (rails,
+ * marks, line ends, glows), the pieces, and over (arches, take badges, swaps, pushes, the fans of "becomes" and the
+ * hover-only effects, stamps, the Why tag's square). The board image is the field's background. `art` gives each piece's
+ * image. `focus` isolates (drawString's o.focus,
  * marks.js:1014-1020): each part whose `by` it keeps glows, and every other part is dim. `stamps` keeps the stamps of
  * some rules only (the phone). A hover-only part (its `on`) shows only when `hover` is its square (marks.js:1020);
  * `select` frames the square of the open Why tag (marks.js:1167-1170); `lift` draws the open piece raised and faint (Try with:
  * the player lifts it). An open threat glows red under its target (marks.js:1100). Only a mark's group has data-sq (with data-k,
  * data-cond, data-diff and data-on; a '-' mark has the class kdm-ghost); a rail, an arch and an effect have data-k,
- * data-from and data-to (a pip: data-at and data-n); a badge has data-badge, and the stamps of a square data-stamp and
+ * data-from and data-to (a pip and a fan: data-at; a pip also data-n); a badge has data-badge, and the stamps of a square data-stamp and
  * data-a (the rules' abilities). A part that a preview adds (the scene's `pv`) has data-pv.
  */
 export function drawString(scene: Scene, o: {
@@ -441,7 +451,7 @@ export function drawString(scene: Scene, o: {
     const cls = [o.focus && (by && o.focus(by) ? 'kdm-iso' : 'kdm-dim'), attrs.class].filter(Boolean).join(' ');
     return `<g${cls && ` class="${cls}"`}${Object.entries(attrs).filter(([k, v]) => v && k !== 'class').map(([k, v]) => ` data-${k}="${v}"`).join('')}>${svg}</g>`;
   };
-  const zones = o.focus ? scene.chalk.filter(z => z.by && o.focus!(z.by)).map(z => `<g data-k="chalk" data-zone="${z.zone}">${chalk(z.zone, side, s)}</g>`).join('') : '';
+  const zones = scene.chalk.filter(z => z.pv || (o.focus && z.by && o.focus(z.by))).map(z => `<g data-k="chalk" data-zone="${z.zone}"${z.pv ? ' data-pv="1"' : ''}>${chalk(z.zone, side, s)}</g>`).join('');
   let under = '', ends = '', over = '';
   for (const rl of scene.rails) {
     const a = XY(rl.from), b = XY(rl.to), dx = Math.sign(b.x - a.x), dy = Math.sign(a.y - b.y);
@@ -479,6 +489,7 @@ export function drawString(scene: Scene, o: {
   const head = clamp(s * 0.125, 7, 10);
   // The effects (marks.js:1133-1160); a follow is a thin push arrow, a sight line a flat gold arc, a hop an ink arc.
   for (const e of shown(scene.effects)) {
+    if (e.k === 'becomes') { const { x, y } = XY(e.sq); over += group({ k: e.k, at: e.sq, pv: e.pv && '1' }, becomesFan(x, y, s, e.pieces), e.by); continue; }
     const svg = e.k === 'swap' ? arrowLine(CTR(e.a), CTR(e.b), C.swap, 3, { both: true, trim0: s * 0.12, trim1: s * 0.12, head })
       : e.k === 'pip' ? pip(XY(e.sq).x + s - 10, XY(e.sq).y + s - 10, 14, e.n)
       : e.k === 'push' ? arrowLine(CTR(e.from), CTR(e.to), C.push, 3, { trim0: s * 0.16, trim1: s * 0.18, head })

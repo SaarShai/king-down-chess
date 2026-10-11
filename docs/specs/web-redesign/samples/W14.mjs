@@ -1,9 +1,10 @@
 // W14: the Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground tickets 01 to 07).
 // The open piece on its example board with its marks, the plinth with its rules, the key and the Pieces ledge;
-// a rule kept by a tap (hero-i1 to hero-i3) and a cracked knot (beast-cancel) (ticket 04); then
+// a rule kept by a tap (hero-i1 to hero-i3) and a cracked knot (beast-cancel: My Beast, its pill changed from "a piece, not a
+// pawn" to "anything", so the top bar says Undo rule; a tap on e5 opens its Why tag) (ticket 04); then
 // the editor (ticket 02): paint (Both armed), painted (My Pawn with its paint diff), weigh (the popover; on the phone,
 // the toast from ⋯) and phone-tools (the tools popover; on the desktop it is the paint state); then the rules (ticket 03):
-// stamp-preview (the Rules shelf, "Moves like" picked, the board previews it), stamped (Stamp), pill-open and when-open
+// stamp-preview (My Pawn, painted, with the Rules shelf open and "Moves like" picked: the board previews it), stamped (Stamp), pill-open and when-open
 // (the row of the new rule's pill and chip; on the phone, in its card), three-of-three (S at 3 rules) and phone-sentence
 // (the rule card; on the desktop, the × bar of the line under the pointer); then the Why tag (ticket 05): hero (a tap on the
 // Paladin's d7), why-d7 (Enter on d7), why-g7 (refused), beast-hover (the pointer on the Beast's e5 shows its chain; on the
@@ -14,7 +15,7 @@
 // in the phone's Board tab; on the desktop, the tray in the right column); then ticket 07: new-piece (NEW on the ledge: a
 // blank piece alone on d4, Move armed), look-more (the Look sheet of the new piece: More under the rule lines; on the
 // phone, Look in ⋯), rename (the name field of the Pawn with a typed name: the pen; on the phone, Rename in ⋯) and
-// design-menu (⋯ of My Pawn after one paint; on the phone with Share, Weigh, Rename and Look); then ticket 08: share (the Share
+// design-menu (⋯ of My Pawn after one paint, with Look; on the phone also Share, Weigh and Rename); then ticket 08: share (the Share
 // sheet of My Pawn with a device share: Send link, Copy link and Copy as text; on the phone from ⋯), phone-share (the longest
 // card: My Paladin from Make a copy, with its 3 rules, on a device with no share: one Copy link), link-card (the Rook Rider
 // link opens its card face first), phone-link-card (a link to a piece with 3 rules: the longest card) and reach-popover (the
@@ -58,21 +59,28 @@ const why = (name, key, sq, how = 'tap') => ({ ...state(name, key), steps: async
   const at = `.sq[data-sq="${sq}"]`;
   if (how === 'key') { await page.focus(at); await page.keyboard.press('Enter'); } else if (how === 'hover' && size !== 'phone') await page.hover(at); else await page.click(at);
 } });
-/** My Beast of the mockup, removed after anything (scenes.js:208-214), on the shelf. */
-const beastAny = JSON.stringify({ v: 1, designs: [{ v: 1, kind: 'piece', id: 'mybeast-any', name: 'My Beast', named: true, look: { body: 'S', auto: false, glow: null, army: 0 }, letter: 'Y',
+/** My Beast of the mockup, removed after a piece (scenes.js:201-207), on the shelf. */
+const beastPiece = JSON.stringify({ v: 1, designs: [{ v: 1, kind: 'piece', id: 'mybeast', name: 'My Beast', named: true, look: { body: 'S', auto: false, glow: null, army: 0 }, letter: 'Y',
   ownLetter: false, squares: [[-1, 1], [0, 1], [1, 1], [-1, 0], [1, 0], [-1, -1], [0, -1], [1, -1]].map(([x, y]) => ({ x, y, mark: 'both' })), lines: [],
-  rules: [{ when: { on: 'takes' }, does: { a: 'chain' } }, { when: { on: 'takes' }, does: { a: 'removedAfter', what: 'any' } }], from: ['beast'], updated: 1760000000000 }] });
+  rules: [{ when: { on: 'takes' }, does: { a: 'chain' } }, { when: { on: 'takes' }, does: { a: 'removedAfter', what: 'piece' } }], from: ['beast'], updated: 1760000000000 }] });
+/** Both armed, c5 painted (and e5, its mirror), and out of brush mode: My Pawn of the mockup. */
+const paintBoth = async page => {
+  await page.click('.brush[data-brush="both"]');
+  await page.click('.sq[data-sq="c5"]');
+  await page.keyboard.press('Escape');
+};
 /** The Pawn with Both armed; `paint` paints c5 (and e5, its mirror) and leaves brush mode; `then` acts on the phone or the desktop. */
 const brush = (name, paint, then) => ({ ...state(name, 'pawn'), steps: async ({ page, size }) => {
   await piece('pawn')({ page });
-  await page.click('.brush[data-brush="both"]');
-  if (paint) { await page.click('.sq[data-sq="c5"]'); await page.keyboard.press('Escape'); }
+  if (paint) await paintBoth(page);
+  else await page.click('.brush[data-brush="both"]');
   await then?.(page, size === 'phone');
 } });
 
-/** The Pawn with the Rules shelf open and "Moves like" picked; `stamp` stamps it; `then` acts on the phone or the desktop. */
+/** My Pawn with the Rules shelf open and "Moves like" picked, as the mockup's states; `stamp` stamps it; `then` acts on the phone or the desktop. */
 const seals = (name, stamp, then) => ({ ...state(name, 'pawn'), steps: async ({ page, size }) => {
   await piece('pawn')({ page });
+  await paintBoth(page);
   await page.click('[data-act="shelf"]');
   await page.click('[data-sealitem="movesLike"]');
   if (stamp) await page.click('[data-act="stamp"]');
@@ -94,14 +102,9 @@ const menu = async (page, phone, act, wide) => {
 /** Ticket 06: on the phone the tray is in the ledge's Board tab. */
 const tray = async (page, phone) => { if (phone) await page.click('[data-tab="board"]'); };
 /** My Pawn of the mockup: Both painted on c5 and e5 and "moves like a queen" on a center square, lifted to `sq`. */
-const myPawnOn = (name, sq) => ({ ...state(name, 'pawn'), steps: async ({ page }) => {
-  await piece('pawn')({ page });
-  await page.click('.brush[data-brush="both"]');
-  await page.click('.sq[data-sq="c5"]');
-  await page.keyboard.press('Escape');
-  await page.click('[data-act="shelf"]');
-  await page.click('[data-sealitem="movesLike"]');
-  await page.click('[data-act="stamp"]');
+const myPawnOn = (name, sq) => ({ ...state(name, 'pawn'), steps: async a => {
+  await seals('', true).steps(a);
+  const { page } = a;
   await page.click('.sq[data-sq="d4"]');
   await page.click(`.sq[data-sq="${sq}"]`);
 } });
@@ -117,11 +120,17 @@ export default {
     state('maester', 'maester'),
     state('ogre', 'ogre'),
     state('guard', 'guard'),
-    { name: 'beast-cancel', query: '?workshop=a', save, targets, controls, steps: async ({ page }) => {
-      await page.evaluate(v => localStorage.setItem('kingdown.workshop', v), beastAny);
+    { name: 'beast-cancel', query: '?workshop=a', save, targets, controls, steps: async ({ page, size }) => {
+      const phone = size === 'phone';
+      await page.evaluate(v => localStorage.setItem('kingdown.workshop', v), beastPiece);
       await pressMenu(page, 'Workshop');
-      await page.click('.slot[data-design="mybeast-any"]');
-      await page.locator('.slot[data-design="mybeast-any"][aria-current="true"]').waitFor();
+      await page.click('.slot[data-design="mybeast"]');
+      await page.locator('.slot[data-design="mybeast"][aria-current="true"]').waitFor();
+      if (phone) await card(page, 'removedAfter');
+      await page.click(`${phone ? '.pg-card ' : ''}[data-pill="removedAfter"]`);
+      await page.click('[data-choice="any"]');
+      if (phone) await page.keyboard.press('Escape');
+      await page.click('.sq[data-sq="e5"]');
     } },
     { name: 'link', query: linkTo(rider), save, targets, controls, steps: async ({ page }) => { await page.click('.pg-sheet [data-board]'); } },
     brush('paint', false),

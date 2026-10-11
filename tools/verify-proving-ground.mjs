@@ -27,10 +27,11 @@
 // on its square; the Ogre's two actions; Undo after a promotion; "+5 moves" on a design that reads the move number only; the card
 // box keeps the focus; the phone's Board tab and a real touch drag that does not scroll).
 // Then ticket 07: newPiece (NEW makes a blank piece alone on d4 in brush mode, named by autoName; it saves on its first
-// change, and Undo takes it back; the phone), rename (the pen; a bad name is refused with its words; Esc; " (yours)" and the
-// letter; a blur; a click on a brush or a piece keeps the name and acts once; on the phone, Rename in ⋯; an 18-letter name at
-// 320 px), look (the look row, a pool piece keeps its pool art until a figure, More with the 34 figures, the tag filter and
-// the army; Esc and × after a change give the focus back to More, on the phone to ⋯; a reload keeps them; on the phone, Look in ⋯)
+// change, and Undo takes it back; it paints with Mirror; the phone), rename (the pen; a bad name is refused with its words; Esc;
+// " (yours)" and the letter; a blur; a click on a brush or a piece keeps the name and acts once; on the phone, Rename in ⋯; an
+// 18-letter name at 320 px), look (the look row of a piece made with NEW, none for a pool piece and its copy, which have Look
+// in ⋯; a pool piece keeps its pool art until a figure; More with the 34 figures, the tag filter and the army; Esc and ×
+// after a change give the focus back to More, else to ⋯; a reload keeps them; on the phone, Look in ⋯)
 // and designMenu (⋯ of a pool piece, a copy and a link; Copy as text; Make a copy with the next free number; Delete asks
 // first, then opens the pool piece the design came from, else the Pawn; a refused delete; the phone's items).
 // Then ticket 08: shareSheet (the card face in the Share sheet: its name, figure, seals and sentences, worth and band word,
@@ -701,6 +702,8 @@ async function shelf() {
   assert.equal(await p.locator('.sentence .l1').textContent(), 'on a center square', 'the sentence card has the When chip');
   assert.equal(await p.locator('.sentence .say').evaluate(e => e.textContent.replace(e.querySelector('.l1').textContent, '')), 'It also moves and takes like a queen.', 'and the sentence with its default pill');
   assert.ok(await previewed(p) > 0 && (await marks(p)).length > before.length, 'the board previews what the rule adds');
+  assert.equal(await p.locator('.pg-board [data-k="chalk"][data-pv]').getAttribute('data-zone'), 'capital', 'and the center squares of its When in chalk (proving-ground.html:1147)');
+  assert.deepEqual(await p.$$eval('.pg-board [data-k="becomes"]', gs => gs.map(g => g.dataset.at).sort()), ['d8', 'h8'], 'and the fan of "becomes" on d8 and h8');
   await shot(p, 'stamp-preview-1440x900');
   await p.click('[data-act="stamp"]');
   assert.equal(await sheet.isVisible(), false, 'Stamp closes the shelf');
@@ -708,6 +711,10 @@ async function shelf() {
   assert.deepEqual(await lines(p), ['steps 2 straight ahead', 'also moves like a queen', 'becomes a piece you choose'], 'and adds the rule');
   assert.equal(await p.getAttribute('[data-act="undo"]', 'aria-label'), 'Undo rule', 'Undo names the rule');
   assert.equal(await previewed(p), 0, 'the preview ends');
+  assert.deepEqual(await p.$$eval('.pg-board [data-stamp]', gs => gs.map(g => `${g.dataset.stamp} ${g.dataset.a}`).sort()), ['d4 movesLike', 'd8 movesLike becomes', 'h8 movesLike becomes'],
+    'the rule stamps the piece and the line ends beside "becomes" (scenes.js, mypawn-queen)');
+  assert.ok((await p.locator('.pg-keyrow').textContent()).includes('Becomes'), 'the key row names the fan');
+  assert.equal(await p.locator('.pg-plaque').isVisible(), true, 'after the first edit the plaque shows');
   assert.deepEqual((await stored(p))[0].rules.map(r => r.does.a).sort(), ['becomes', 'movesLike', 'step2'], 'the copy is saved with the rule');
   await shot(p, 'stamped-1440x900');
   await p.context().close();
@@ -721,6 +728,7 @@ async function shelf() {
   await minTarget(q, '#workshop .pg-shelf button', 44);
   await noSidewaysScroll(q, '#workshop');
   await q.click('[data-sealitem="movesLike"]');
+  assert.equal(await q.locator('.pg-board [data-k="chalk"][data-pv]').getAttribute('data-zone'), 'capital', 'on the phone the preview shows the center squares in chalk too');
   await shot(q, 'stamp-preview-390x844');
   await q.focus('[data-act="stamp"]');
   await q.keyboard.press('Tab');
@@ -897,7 +905,7 @@ async function whyTag() {
   const before = await marks(p);
   assert.equal(await tag(p), null, 'look mode opens with no tag');
   await tap(p, 'd7');
-  assert.deepEqual(await tag(p), { sq: 'd7', occ: 'Black knight', count: '3', parts: ['line', 'lines pass', 'removed too', 'takes, then leaves'], foot: 'On b6 it takes a pawn and stays.' },
+  assert.deepEqual(await tag(p), { sq: 'd7', occ: 'Black knight', count: '3', parts: ['line', 'passes own pieces', 'removed too', 'takes, then leaves'], foot: 'On b6 it takes a pawn and stays.' },
     'd7 on the Paladin: the line, + its two rules, = a take that leaves');
   assert.equal(await p.getAttribute('.pg-board [data-select]', 'data-select'), 'd7', 'a frame marks the square of the tag');
   assert.deepEqual(await marks(p), before, 'the tag changes no mark');
@@ -905,7 +913,7 @@ async function whyTag() {
   await textNotCut(p, '.pg-why .part small, .pg-why .why-foot, .pg-why .occ');
   await shot(p, 'why-d7-1440');
   await tap(p, 'g7');
-  assert.deepEqual(await tag(p), { sq: 'g7', occ: 'Black king', count: '2', parts: ['line', "can't take a king", 'refused'], foot: '' }, 'g7 says refused, by "cannot take"');
+  assert.deepEqual(await tag(p), { sq: 'g7', occ: 'Black king', count: '2', parts: ['line', 'cannot take a king', 'refused'], foot: '' }, 'g7 says refused, by "cannot take"');
   await tap(p, 'g7');
   assert.equal(await tag(p), null, 'a second tap on its square closes the tag');
   await tap(p, 'a4');
@@ -937,7 +945,7 @@ async function whyTag() {
     await door(q);
     await q.click('.slot[data-piece="paladin"]');
     await tap(q, 'd7');
-    assert.deepEqual((await tag(q))?.parts, ['line', 'lines pass', 'removed too', 'takes, then leaves'], `${width}x${height}: the sheet shows the parts of d7`);
+    assert.deepEqual((await tag(q))?.parts, ['line', 'passes own pieces', 'removed too', 'takes, then leaves'], `${width}x${height}: the sheet shows the parts of d7`);
     await insideViewport(q, '.pg-why .tag');
     await noSidewaysScroll(q, '.pg-why .tag');
     await textNotCut(q, '.pg-why .part small, .pg-why .why-foot, .pg-why .occ');
@@ -956,7 +964,7 @@ async function hoverOnly() {
   const p = await open();
   await door(p);
   await p.click('.slot[data-piece="beast"]');
-  const CHAIN = ['e5: blocked g7', 'e5: hop f6', 'e5: pip f6', 'e5: pip g7', 'e5: stamp f6', 'e5: stamp g7', 'e5: take f6'];
+  const CHAIN = ['e5: blocked g7', 'e5: hop f6', 'e5: pip f6', 'e5: pip g7', 'e5: stamp g7', 'e5: take f6'];
   await p.mouse.move(1430, 450);
   assert.deepEqual(await onParts(p), [], 'the next takes of the chain wait for their square');
   await p.hover('.sq[data-sq="e5"]');
@@ -976,7 +984,7 @@ async function hoverOnly() {
   await tap(p, 'e5');
   await p.hover('.sq[data-sq="a1"]');
   assert.deepEqual(await onParts(p), CHAIN, 'a tap on e5 keeps them under its tag, wherever the pointer goes');
-  assert.deepEqual(await tag(p), { sq: 'e5', occ: 'Black pawn', count: '2', parts: ['move or take', 'takes again', 'then f6'], foot: 'Then it may take f6. Never the king on g7.' },
+  assert.deepEqual(await tag(p), { sq: 'e5', occ: 'Black pawn', count: '2', parts: ['step', 'takes again', 'then f6'], foot: 'It takes e5, then f6. Never the king on g7.' },
     'the tag of e5 names the chain');
   await shot(p, 'beast-hover-1440');
   await p.click('.slot[data-piece="archer"]');
@@ -1202,8 +1210,9 @@ async function newPiece() {
   assert.equal(await p.locator('[data-act="undo"], [data-act="share"], .pg-weigh, [data-act="more"]').count(), 0, 'no Undo, Share, Weigh or ⋯ before its first change');
   assert.deepEqual(await stored(p), [], 'it is not saved before its first change');
   await shot(p, 'new-piece-1440x900');
-  await tap(p, 'd6');
-  await has(p, ['b4 move', 'd2 move', 'd6 move', 'f4 move'], 'Move paints with All 8');
+  assert.equal(await p.getAttribute('[data-act="mirror"]', 'aria-label'), 'Paint on: Mirror', 'a piece with no pool piece paints with Mirror (the mockup\'s S0)');
+  await tap(p, 'c6');
+  await has(p, ['c6 move', 'e6 move'], 'Move paints c6 and its mirror e6');
   const saved = await stored(p);
   assert.deepEqual(saved.map(d => [d.name, d.named, d.from.length, d.letter.length]), [[await name(p), false, 0, 1]], 'the first change saves it; its name follows the design');
   assert.match(saved[0].name, / Spirit$/, 'the name is still the auto name');
@@ -1286,11 +1295,13 @@ async function look() {
   const p = await open();
   await door(p);
   await imageIs(p, '.pg-figure img', 'ui/pieces/pawn-w.webp');
+  assert.equal(await p.locator('.pg-looks').count(), 0, 'a pool piece has no look row (proving-ground.html:1052): its Look is in ⋯');
+  await p.click('.newtile');
   const row = await p.$$eval('.pg-looks button', bs => bs.map(b => [b.dataset.figure ?? b.textContent, b.getAttribute('aria-pressed')]));
-  assert.deepEqual([row.length, row.at(-1)[0], row.filter(([, on]) => on === 'true').length], [4, 'More', 0], 'the look row: 3 suggested figures and More; the Pawn keeps its pool art');
-  const first = row[0][0];
+  assert.deepEqual([row.length, row.at(-1)[0], row.filter(([, on]) => on === 'true').length], [4, 'More', 1], 'the look row of a piece made with NEW: 3 suggested figures, one of them its own, and More');
+  const first = row.find(([, on]) => on === 'false')[0], auto = await name(p);
   await p.click(`.pg-looks [data-figure="${first}"]`);
-  assert.equal(await name(p), 'My Pawn', 'a figure is the first change: the copy');
+  assert.deepEqual([await name(p), (await stored(p)).length], [auto, 1], 'a figure is the first change: the new piece is saved');
   await imageIs(p, '.pg-figure img', `ui/workshop/${first}-w.webp`);
   assert.deepEqual([await p.getAttribute(`.pg-looks [data-figure="${first}"]`, 'aria-pressed'), await p.getAttribute('[data-act="undo"]', 'aria-label')], ['true', 'Undo look'], 'the figure is pressed; the step is a look step');
   await p.click('.pg-lookmore');
@@ -1314,15 +1325,16 @@ async function look() {
   await p.click('.slot[data-design]');
   await imageIs(p, '.pg-figure img', 'ui/workshop/clay-golem-b.webp');
   assert.deepEqual((await stored(p)).map(d => [d.look.figure, d.look.army]), [['clay-golem', 1]], 'a reload keeps the figure and the army');
-  // The army alone on a pool piece: its pool art in charcoal (decision 18).
+  // The army alone on a pool piece, from Look in ⋯: its pool art in charcoal (decision 18).
   await p.click('.slot[data-piece="knight"]');
-  await p.click('.pg-lookmore');
+  await menuItems(p);
+  await pick(p, 'looks');
   await p.click(`${sheet} .pg-army label:has-text("Charcoal")`);
   await imageIs(p, '.pg-figure img', 'ui/pieces/knight-b.webp');
   assert.equal(await name(p), 'My Knight', 'the army is the first change too');
   await p.click(`${sheet} .pg-x`);
   await p.locator('.pg-sheet').waitFor({ state: 'detached', timeout: 2000 });
-  assert.equal(await focusOn(p, '.pg-lookmore'), true, '× after a change gives the focus to the new More');
+  assert.deepEqual([await p.locator('.pg-looks').count(), await focusOn(p, '[data-act="more"]')], [0, true], 'its copy has no look row either; × after a change gives the focus to the new ⋯');
   await p.context().close();
   // The phone: Look in ⋯.
   const q = await open('?workshop=a', { width: 390, height: 844 });
@@ -1348,7 +1360,7 @@ async function designMenu() {
   const p = await open();
   await p.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await door(p);
-  assert.deepEqual(await menuItems(p), ['Copy as text', 'Make a copy'], 'the unchanged Pawn: Copy as text and Make a copy');
+  assert.deepEqual(await menuItems(p), ['Look', 'Copy as text', 'Make a copy'], 'the unchanged Pawn: Look (no look row for a pool piece), Copy as text and Make a copy');
   await pick(p, 'astext');
   await p.locator('.pg-toast', { hasText: 'Copied as text.' }).waitFor({ timeout: 3000 });
   assert.equal(await focusOn(p, '[data-act="more"]'), true, 'the focus goes back to ⋯');
@@ -1360,7 +1372,7 @@ async function designMenu() {
   await pick(p, 'copydesign');
   assert.deepEqual([await name(p), await toast(p), (await stored(p)).map(d => d.name)], ['My Pawn', 'A copy is on your shelf.', ['My Pawn']], 'Make a copy of the Pawn: My Pawn, saved and opened');
   assert.equal(await p.getAttribute('.slot[data-design]', 'aria-current'), 'true', 'the copy is the open slot');
-  assert.deepEqual(await menuItems(p), ['Copy as text', 'Make a copy', 'Delete'], 'a design on the shelf adds Delete');
+  assert.deepEqual(await menuItems(p), ['Look', 'Copy as text', 'Make a copy', 'Delete'], 'a design on the shelf adds Delete');
   await pick(p, 'copydesign');
   assert.deepEqual((await stored(p)).map(d => d.name), ['My Pawn 2', 'My Pawn'], 'a copy of My Pawn is My Pawn 2');
   await menuItems(p);

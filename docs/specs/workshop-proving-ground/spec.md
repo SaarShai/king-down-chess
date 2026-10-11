@@ -170,6 +170,7 @@ Each item is in the mockup or the review, and v1 leaves it out for the reason gi
 | [15](issues/15-see-all.md) | See all: the binder grid (later) | S | 08, 11 |
 | [16](issues/16-engine-designed-piece.md) | Engine: the designed-piece case (later) | M | none |
 | [17](issues/17-play-a-design.md) | Play a design in a game (later) | L | 16 (step 5: 13, 14) |
+| [18](issues/18-mockup-fidelity.md) | Mockup fidelity: a pass over tickets 02 to 08 | M | 02 to 08 |
 
 ## Open decisions for the owner
 
