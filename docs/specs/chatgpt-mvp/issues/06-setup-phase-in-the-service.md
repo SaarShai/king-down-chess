@@ -1,6 +1,6 @@
 # 06 · The game service: options, the setup step and rematch
 
-Status: claimed
+Status: resolved
 Type: AFK
 Size: L
 Blocked by: 04, 05
@@ -50,19 +50,22 @@ Each step starts with one failing database test through GameService. Run `npm te
 
 ## Result
 
-Round 2, findings 1 and 2: the rematch test fails with a null deadline, then passes after the insert stores both deadline columns. The privacy fixture check fails with the old shared order. The fixture now uses a distinct legal order and checks all reply fields, including full reads, polls, lists, join retries, abort replies and error messages. It checks hidden choices from both seats. The focused `npm test` check passes 12 service tests and 50 document-art tests.
+All six Round 2 findings are fixed. The service names and signatures stay the same. This work makes no direct change to `service.db.test.ts`.
 
-Round 2, findings 3 to 6: the old upgrade fixture fails the check for a schema without setup columns. The new test seeds a played save under 0009, applies 0010 twice, checks the defaults and unchanged save, and plays two more turns. The sweep test checks 1 ms before and at 3 days and keeps both ratings unchanged. A temporary 2-day deadline makes this test fail. The computer rematch fixture fails with Arrangement and King powers off; it now enables both and checks Ready, play and the first move from each seat. Draft-choice and rematch-decline retries keep the state from later commands and have one log entry each. Both retry tests fail when their receipts are ignored. All temporary faults are removed. The final focused `npm test` check passes 12 service tests and 50 document-art tests.
+- A Daily human rematch keeps both deadline columns. The test covers games with options and the old fixed setup. It sweeps just before and at the first-turn deadline.
+- Hidden-choice checks use distinct legal orders. They check all fields in full reads, polls, lists, join retries, abort replies and errors. They cover both seats before both are Ready.
+- The upgrade test seeds a played save under 0009. It applies 0010 twice, checks all new defaults and the unchanged save, then plays two more turns.
+- The setup sweep keeps the game open 1 ms before 3 days and ends it at 3 days. Both ratings stay unchanged after the sweep and a late Ready command.
+- The computer rematch has Arrangement and King powers on. Both seats are Ready. The computer and player each make their first move.
+- Draft-choice and rematch-decline retries keep the state from later commands. Each command has one log entry.
 
-The service stores validated options, a shared army and deal, and the computer level. It starts the match when both seats are ready. Choices stay hidden before that point. Setup ends after 3 days with no result. Rematch keeps the features and swaps the colours. A saved game with no options keeps its fixed setup. The account-deletion job aborts setup with no result.
+The deadline test fails on the old insert. Fixture checks reject the old shared order, the old upgrade schema and the old rematch toggles. Temporary faults (a 2-day deadline and ignored retry receipts) make the new checks fail. All faults are removed before the green checks.
 
-Checks use `kingdown_mvp06_test` on `127.0.0.1:55432`. Each schema or grant test uses its own copy and the shared role lock.
+Checks use `kingdown_mvp06_round2_test` and its own test copies on `127.0.0.1:55432`.
 
-- `npm test`: 139 files pass; 2,197 tests pass; 8 skip. The document-art tests pass 50 of 50.
-- Setup and job checks: 20 tests pass, including 11 setup tests. One setup test covers all 16 valid toggle mixes from create to the first move. The checks also cover hidden choices, two Ready retries, both rematch paths, two sweeps, two legal orders, card use, all four computer levels, and rollback after a failed Ready write.
-- Migration and server start checks: 5 tests pass. Migration 0010 runs twice. A saved game still plays. A role without setup grants cannot start the server.
+- Focused `npm test`: 12 service tests pass; 50 document-art tests pass.
+- Full `npm test`: 139 files pass; 2,198 tests pass; 8 skip. All 50 document-art tests pass.
 - `npm run plugin:build` and `npm run plugin:server:check` pass. The compiled HTTP check uses real PostgreSQL. The page resource is 437,582 JSON bytes, with 20 art files.
 - `git diff --check` passes.
-- The current integration tip, `0a915696`, is already in this branch. The merge reports `Already up to date`. The full `npm test` check then passes with the same counts.
 
-Open items: none in this ticket. Ticket 07 owns random-game accept. Ticket 08 owns the new tool bindings. This ticket changes no page flow, so browser checks do not apply.
+Open items: none in this ticket. This work changes no page flow, so browser checks do not apply.
