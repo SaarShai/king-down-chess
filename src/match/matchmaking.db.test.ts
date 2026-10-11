@@ -97,6 +97,7 @@ suite('matchmaking through PostgreSQL', () => {
  it('finds a fresh game after the oldest expires during the search lock wait', async () => {
   const late = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
   const fresh = await service.create(users[1], { kind: 'random', options: DEFAULT_OPTIONS });
+  await admin.query("update public.games set created_at=now()-interval '1 hour' where id=$1", [late.game_id]);
   const blocker = await admin.connect();
   await blocker.query('begin');
   await blocker.query('select pg_advisory_xact_lock(7007008)');
@@ -112,6 +113,7 @@ suite('matchmaking through PostgreSQL', () => {
  it('retries a candidate that expires during the game row lock wait', async () => {
   const late = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
   const fresh = await service.create(users[1], { kind: 'random', options: DEFAULT_OPTIONS });
+  await admin.query("update public.games set created_at=now()-interval '1 hour' where id=$1", [late.game_id]);
   const blocker = await admin.connect();
   await blocker.query('begin');
   await blocker.query('select id from public.games where id=$1 for update', [late.game_id]);
@@ -159,14 +161,20 @@ suite('matchmaking through PostgreSQL', () => {
   expect(await service.inbox(users[0])).toEqual([]);
   expect(await service.view(users[2], friend.game_id)).toMatchObject({ status: 'waiting', revision: 0 });
  });
- it('saves cancel and expiry with no result or rating-affecting end', async () => {
+ it('saves cancel and expiry with no result or rating change', async () => {
   const cancelled = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
   const expired = await service.create(users[1], { kind: 'random', options: DEFAULT_OPTIONS });
+  const people = users.slice(0, 2);
+  await admin.query("insert into public.player_ratings(user_id,rating,rd,volatility,last_game_at) values($1,1620,85,0.05,$3),($2,1380,120,0.07,$3)", [...people, '2026-10-01T12:00:00.000Z']);
+  const ratings = (await runtime.query('select * from public.player_ratings where user_id=any($1) order by user_id', [people])).rows;
+  expect(ratings).toHaveLength(2);
   await plugin.cancel(users[0], cancelled.game_id);
   const now = new Date();
   await admin.query("update public.games set created_at=$2::timestamptz-interval '24 hours' where id=$1", [expired.game_id, now]);
   expect(await service.sweep(now)).toBe(1);
   const games = [cancelled.game_id, expired.game_id];
+  expect((await runtime.query('select * from public.player_ratings where user_id=any($1) order by user_id', [people])).rows).toEqual(ratings);
+  expect((await runtime.query('select * from public.rating_history where user_id=any($1)', [people])).rows).toEqual([]);
   expect((await runtime.query('select status,result,end_reason from public.games where id=any($1) order by end_reason', [games])).rows).toEqual([
    { status: 'aborted', result: null, end_reason: 'abort' }, { status: 'aborted', result: null, end_reason: 'no_start' },
   ]);

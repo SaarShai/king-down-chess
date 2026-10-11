@@ -1,11 +1,13 @@
 /** The one write path for online games (report part 03, section 5.2). Actor IDs come from verified identity, never from input. */
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { createMatch, loadMatch, MatchError, type MatchSnapshot } from './index';
 import { commandSchema, createSchema, MAX_REVISION, type Command, type CreateOptions, type EndReason, type InboxEntry, type Invite, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
 import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
 import { diagnostic } from '../plugin/diagnostics';
 import { buildSetup, defaultChoice, draw, seatChoicesNeeded, validateChoice } from './setup';
+import type { HistoryPage, PlayerRecord } from './protocol';
+import { gameHistory, playerRecord, recordResult } from './results';
 export { MatchServiceError } from './store';
 
 const DAY = 86_400_000, FIRST_TURN_DAYS = 3, DRAW_OFFERS = 3, LIMIT = 1000; // the last revision in play
@@ -214,6 +216,13 @@ export class GameService {
   await this.write(client, game, next, { seat, actor_id: actor, command_id: null, kind: 'join', payload: {}, actions: null, surface: null, received_at: at }, out);
   return this.render(next, seat, { client, rules: true });
  }
+ async record(actor: string): Promise<PlayerRecord> { return playerRecord(this.store.pool, id(actor)); }
+ async history(actor: string, before?: string, limit = 20): Promise<HistoryPage> {
+  actor = id(actor);
+  const page = parse(z.strictObject({ before: z.string().max(100).optional(), limit: z.number().int().min(1).max(20) }), { before, limit });
+  const cursor = page.before === undefined ? undefined : parse(z.tuple([z.iso.datetime(), z.string().uuid()]), page.before.split('|'));
+  return gameHistory(this.store.pool, actor, cursor, page.limit);
+ }
  /** One transaction per command: lock, dedupe, seat, turn, revision, status, lazy Daily deadline, write, alerts. */
  async command(actor: string, gameId: string, input: unknown, surface: Surface = 'web'): Promise<View> {
   actor = id(actor); gameId = id(gameId); const command = parse(commandSchema, input), at = new Date(), { action } = command;
@@ -342,6 +351,7 @@ export class GameService {
  }
  private async write(client: Parameters<PostgresMatchStore['save']>[0], before: Game, next: Game, log: Log, out: Outgoing): Promise<void> {
   settle(next, log.received_at);
+  if (before.status !== 'finished' && next.status === 'finished') await recordResult(client, next);
   await this.store.save(client, before, next, log, out);
  }
  private async render(game: Game, seat: Seat, { since, client, rules = false }: { since?: number; client?: Parameters<PostgresMatchStore['save']>[0]; rules?: boolean } = {}): Promise<View> {

@@ -25,10 +25,10 @@ try {
         if not exists(select from pg_roles where rolname='supabase_auth_admin') then create role supabase_auth_admin nologin; end if;
       end $$;`);
     // Each migration twice: every one must be repeatable.
-    for (const name of ['0001_accounts.sql', '0002_matches.sql', '0003_plugin_boards.sql', '0004_plugin_board_recovery.sql', '0005_accounts_v2.sql', '0006_games.sql', '0007_jobs.sql', '0008_accounts_safety.sql', '0009_invite_tries.sql', '0010_game_setup.sql', '0011_matchmaking.sql']) {
+    for (const name of ['0001_accounts.sql', '0002_matches.sql', '0003_plugin_boards.sql', '0004_plugin_board_recovery.sql', '0005_accounts_v2.sql', '0006_games.sql', '0007_jobs.sql', '0008_accounts_safety.sql', '0009_invite_tries.sql', '0010_game_setup.sql', '0011_matchmaking.sql', '0012_results.sql']) {
       await sql(`supabase/migrations/${name}`); await sql(`supabase/migrations/${name}`);
     }
     await sql('plugin-deploy/oauth-audience-hook.sql');
-    console.log('Disposable PostgreSQL schema ready (migrations 0001-0011); every migration is repeatable');
+    console.log('Disposable PostgreSQL schema ready (migrations 0001-0012); every migration is repeatable');
   });
 } finally { await pool.end(); }

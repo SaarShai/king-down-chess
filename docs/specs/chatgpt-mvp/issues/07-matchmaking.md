@@ -62,7 +62,11 @@ Round 2 fixes the expiry wait. The lobby uses the query time. Find checks the ca
 - A temporary missing accept activity update leaves 13 checks passing and fails the count check. The code is restored. The exact reply checks activity from accept and a move, excludes duplicate and old activity, and hides the count below 10.
 - The final focused `npm test` passes: 14 matchmaking checks; 50 of 50 document-art checks.
 - Full `npm test` before the final merge passes: 140 files; 2,212 tests; 8 skip; 50 of 50 document-art checks.
+- Integration tip `a257a3e2` brings ticket 08. Five conflicts join the methods, public types, test fixture and migration lists. Both migrations stay in order. The result, rating and badge modules keep the integration code.
+- The combined 0011/0012 check preserves both saved ratings, RD, volatility and last-game dates after random cancel and expiry. Rating history stays empty. A temporary database fault adds one point at each end; the new check fails and the other 13 checks pass. The fault is removed.
+- `npm run plugin:db:init-test` passes on the base database and the matchmaking copy. Migrations 0001 to 0012 run twice.
+- Full `npm test` after the merge passes: 142 files; 2,241 tests; 8 skip; 50 of 50 document-art checks. All 14 matchmaking checks, 18 result checks and 11 badge checks pass.
 - Checks use `kingdown_mvp07_test` on `127.0.0.1:55432`. Matchmaking uses its own database copy and the runtime role.
 - `git diff --check` passes. This ticket changes no page. Page size and browser checks do not apply.
 
-The local integration tip now has ticket 08. The final merge adds the saved-rating and empty-history checks before this branch goes out.
+Open items: none in this ticket. Ticket 10 adds the tool bindings.
