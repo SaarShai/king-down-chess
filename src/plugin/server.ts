@@ -38,12 +38,14 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   registerAppResource(server, 'King Down board', boardResource, {}, async () => ({ contents: [{ uri: boardResource, mimeType: RESOURCE_MIME_TYPE, text: html, _meta: { ui: { domain: origin, permissions: { clipboardWrite: {} }, csp: { resourceDomains: [origin], connectDomains: [] } }, 'openai/widgetCSP': { resource_domains: [origin], connect_domains: [] }, 'openai/ui': { availableDisplayModes: ['inline', 'fullscreen'], preferredDisplayMode: 'inline' } } }] }));
   const gameId = z.string().uuid();
   const boardId = z.string().uuid().optional();
+  const invalidInput = Symbol('invalid-input');
   const command = { game_id: gameId, command_id: z.string().min(1).max(200), expected_revision: z.number().int().min(0).max(MAX_REVISION) };
   function register<T extends z.ZodRawShape>(name: string, description: string, shape: T, { visibility, readOnly = false, destructive = false, idempotent = true, meta, output }: Hints, run: (args: z.infer<z.ZodObject<T>>) => Promise<Reply>) {
+    // Catch schema failures here so the tool handler gives them the shared error reply.
     // Only kingdown_open carries the board: a template on every tool makes ChatGPT redraw the board too often.
-    registerAppTool(server, name, { description, inputSchema: z.object(shape).strict(), ...(output && { outputSchema: z.object(output).strict() }), annotations: { readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: idempotent, openWorldHint: false },
+    registerAppTool(server, name, { description, inputSchema: z.object(shape).strict().catch(() => ({ [invalidInput]: true } as unknown as z.infer<z.ZodObject<T>>)), ...(output && { outputSchema: z.object(output).strict() }), annotations: { readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: idempotent, openWorldHint: false },
       _meta: { ...meta, ui: { ...(name === 'kingdown_open' && { resourceUri: boardResource }), visibility } } }, async (args: z.infer<z.ZodObject<T>>) => {
-      try { return await run(args); }
+      try { if (invalidInput in args) throw new MatchServiceError('INVALID_INPUT', 400, 'Invalid input'); return await run(args); }
       catch (error) { const known = error instanceof MatchServiceError; if (!known || error.status >= 500) console.error('King Down tool failed', { tool: name, requestId: randomUUID(), ...diagnostic(error) }); return { isError: true, content: text(known ? error.message : 'Could not update the game. Retry or reload.'), _meta: { code: known ? error.code : 'INTERNAL_ERROR' } }; }
     });
   }

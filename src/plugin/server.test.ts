@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { DEFAULT_OPTIONS } from '../match/setup';
 import { ART_ORIGIN, createPluginServer } from './server';
 
 it('loads changed board HTML through a resource cache while reusing identical builds across actors', async () => {
@@ -54,5 +55,18 @@ it('offers inline and fullscreen display, empty thread and global entrypoints, a
   const uri = (open._meta?.ui as {resourceUri:string}).resourceUri;
   const resource = (await client.readResource({uri})).contents[0];
   expect(resource._meta).toMatchObject({ui:{permissions:{clipboardWrite:{}}},'openai/ui':{availableDisplayModes:['inline','fullscreen'],preferredDisplayMode:'inline'}});
+ } finally {await client.close(); await server.close();}
+});
+
+it('returns the same plain invalid-input reply for schema errors', async () => {
+ const server = createPluginServer({service:{} as Parameters<typeof createPluginServer>[0]['service'],actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'invalid-input-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const game_id = '00000000-0000-4000-8000-000000000001';
+  for (const [name,args] of [
+   ['kingdown_create',{kind:'solo',options:{...DEFAULT_OPTIONS,pool:[]}}], ['kingdown_handle',{icon:'photo'}],
+   ['kingdown_get',{game_id,since_revision:1101}], ['kingdown_move',{game_id,command_id:'bad',expected_revision:1101,lan:'e2-e4'}],
+  ] as const) expect(await client.callTool({name,arguments:args})).toEqual({isError:true,content:[{type:'text',text:'Invalid input'}],_meta:{code:'INVALID_INPUT'}});
  } finally {await client.close(); await server.close();}
 });
