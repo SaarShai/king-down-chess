@@ -56,7 +56,7 @@ it.each(levels)('$level uses its $cap ms cap in the worker search', async ({ lev
   expect(m.elapsed()).toBeGreaterThanOrEqual(cap);
   expect(m.elapsed()).toBeLessThanOrEqual(cap + 10);
   expect(await m.snapshot()).toEqual(before);
-});
+}, 30_000); // a fixed amount of real search (250 clock reads at strong); a busy Mac passed the 5 s default
 
 it.each(levels)('$level lets the caller shorten its time cap', async ({ level }) => {
   const m = await controlled(timeSetup, [0.99], 10);
