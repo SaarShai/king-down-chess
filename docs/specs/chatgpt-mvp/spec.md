@@ -1,6 +1,6 @@
 # ChatGPT plugin MVP
 
-Status: needs-info (waits for the owner's approval of this spec)
+Status: ready-for-agent. The owner approved the spec on 2026-10-11: "i approve the spec".
 
 Owner, 2026-10-11: "i'd like you to develop an MVP version of the game as a chatgpt plugin." "build the simplest version of each feature/option." "for this build, all of the cards and pieces and powers will be unlocked from the start."
 Owner, 2026-10-11: another session ("Codex rules framework visualization review") changes the game; "these changes should apply to what you will be building ... fold/merge those changes."
@@ -51,10 +51,10 @@ The app runs as one page. A chat request shows a small inline card. Setup, the b
 | Q15 | Computer levels | Beginner, Casual, Club (default), Strong: the website's four levels. |
 | Q16, Q29b | Settings | Symbols-only piece look; Show threats. |
 | Q17 | Unlocks | A Collection page shows every piece, king, power and card with a one-line rule, all marked "unlocked". |
-| Q18 | Look | The painted pieces and board. New art (scroll, king coins, badges, toggle icons) from Codex image_gen. The owner approves one rendered sample of the home, setup and profile screens before the visual build. The logic is built at the same time. |
+| Q18 | Look | The game's own design: the tokens, fonts and components of the web game (`src/style.css`, the web-redesign screens), with the painted pieces and board. OpenAI's style advice (system fonts, plain cards) does not set the look; the host rules stay only as limits (at most 2 actions in the inline card, room for the composer). The owner, on the first sample: "the GUI look doesn't seem like it is based on our design for the game." New art (scroll, king coins, badges) from Codex image_gen. The owner approves one rendered sample of the home, setup and profile screens before the visual build. The logic is built at the same time. |
 | Q23 | Base | Build on `claude/multiplayer-foundation` (accounts, handles, invites, 3-day turns, game list, rating maths). The release ends the old plugin test games. |
 | Q24 | Address | The plugin moves to `https://kingdown.dev/mcp` at this release. Testers add the new connection. |
-| Q25, Q25b | Display | As OpenAI recommends: a small inline card in the chat (at most 2 actions); setup, board, profile and settings in fullscreen; a side-panel entry and a sidebar entry. One layout serves fullscreen, the side panel and a phone. No picture-in-picture (ChatGPT does not support it). |
+| Q25, Q25b | Display | As OpenAI recommends: a small inline card in the chat (at most 2 actions); setup, board, profile and settings in fullscreen. No picture-in-picture (ChatGPT does not support it). Q25b (the owner delegated the choice, then agreed: "Q25b - agreed."): the page also declares a side-panel entry and a sidebar entry, which open the same fullscreen home. Only the chat path must work for the release; if the two entries do not show for the private plugin, the release goes without them. One layout serves fullscreen, the side panel and a phone. |
 | Q26 | Defaults | A new game starts with Fairy on (all pieces), Arrangement on, Classic off, Cards off, King powers off. The setup screen then remembers the player's last choices. |
 | Q27 | Setup time | In a game against a person, each player has 3 days to pick a king and arrange; a player who does not finish ends the game with no result. |
 | Q28 | Friend invite | A 6-character code with a Copy button. The friend says "Join King Down game K7QX2M" in ChatGPT, or types it in Play → Join. The friend needs the plugin connection. |
