@@ -56,6 +56,15 @@
 // and the designs, each a 44 px face; the All / Pool / Yours filter; Esc; a tap opens the design on the board with the focus
 // on its slot; the phone's two columns; in short landscape the grid opens over the ledge's sheet; a full shelf's "Choose one
 // to delete" shows only the designs, each with Delete, and a delete saves the open copy).
+// Then ticket 13: kings (the Kings tab's six kings; the Mud king on the plinth with his two powers, their coins and words, and no
+// mini boards; Leap armed on the Rook: the power marks of G22 rook-leap with the arch, the stamp and the line; a tap on d5 plays it,
+// spends a notch, and Take back gives it back; the King socket's SEAT A KING and Esc; Freeze on the Paladin's d7: the frost with
+// one turn, then "No Freeze uses left."; Leap on the Paladin is an echo, "="; a copy's socket says that powers wait; the phone's
+// Board tab and Kings tab).
+// Then ticket 14: labCards (the Cards tab (LAB): the fan of the 10 cards with art, the "+15" stack that spreads and "‹ Back"; the
+// Freeze card on the plinth with its art, words and LAB ribbon, its king, the burgundy plaque; its picks as runes on the Paladin's
+// board, the king's rune barred and the piece's own marks stepped back; d7 plays it: frost, and Take back gives it back; a second
+// form; LAY A LAB CARD and Esc; Leap laid on the Rook; one power or one card at a time; a copy's slot waits; the phone).
 // Run it with `npm run check:browser workshop`.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -507,6 +516,14 @@ async function landscape(p, size) {
   await insideViewport(p, '.pg-tools');
   await minTarget(p, '#workshop button:not(.sq, .nub)', 44);
   await shot(p, `paint-${size}`);
+  // Enter on a card in the sheet opens it and closes the sheet: the focus goes back to Pieces (review 14).
+  await p.keyboard.press('Escape');
+  await p.click('[data-act="pieces"]');
+  await p.click('[data-tab="cards"]');
+  await p.focus('.cface[data-lab="Freeze"]');
+  await p.keyboard.press('Enter');
+  assert.equal(await p.isHidden('.pg-ledge'), true, `${size}: a card in the sheet closes it`);
+  assert.equal(await focusOn(p, '.pg-pieces'), true, `${size}: the focus goes back to Pieces after a card`);
 }
 
 /** Ticket 09: a turn of the phone, from 390 x 844 to 844 x 390 and back, refits the board and keeps the open design, the brush,
@@ -1850,9 +1867,179 @@ async function rulesTab() {
   await ph.context().close();
 }
 
+/** Ticket 13: the kings and their powers on the pool pieces. */
+async function kings() {
+  const p = await open();
+  await door(p);
+  await p.click('.slot[data-piece="rook"]');
+  await p.click('[data-tab="kings"]');
+  assert.deepEqual(await p.$$eval('.lrow .slot', bs => bs.map(b => b.dataset.king)), ['Flame', 'Frost', 'Mud', 'Shadow', 'Spirit', 'Stratus'], 'the Kings tab shows the six kings');
+  await p.click('.slot[data-king="Mud"]');
+  assert.equal(await name(p), 'Mud King', 'an open king stands on the plinth with his name');
+  assert.match(await p.getAttribute('.pg-figure img', 'src'), /kings\/mud\.webp$/, 'the plinth shows his figure');
+  assert.deepEqual(await p.$$eval('.pline', ls => ls.map(l => [l.dataset.power, l.querySelector('b').textContent, l.querySelector('.pt').textContent, !!l.querySelector('.coin img')])), [
+    ['March', 'March', 'Any pawn may step two squares from any rank.', true], ['Leap', 'Leap', 'A rook, bishop or queen passes over your own pawns.', true]], 'his two powers, each with its coin and its words');
+  assert.equal(await p.locator('.mini3, .pg-brushes .brush').count(), 0, 'no mini boards (decision 29), and no brushes');
+  const plain = await marks(p);
+  assert.deepEqual(plain, ['a1 move', 'b1 move', 'c1 move'], 'seated, the king adds no mark before a power is armed');
+  await p.click('.pline[data-power="Leap"]');
+  assert.deepEqual(await p.$$eval('.pg-board [data-sq][data-emblem="mud"]', gs => gs.map(g => `${g.dataset.sq} ${g.dataset.k}`).sort()), ['d3 move', 'd4 move', 'd5 move', 'd6 move', 'd7 take'], 'Leap\'s marks have the power edge');
+  assert.deepEqual(await marks(p), [...plain, 'd3 move', 'd4 move', 'd5 move', 'd6 move', 'd7 take'].sort(), 'with Leap the Rook\'s marks are G22 rook-leap (scenes.js:367)');
+  assert.deepEqual(await p.$$eval('.pg-board [data-emblem]:is([data-k="arch"], [data-stamp])', gs => gs.map(g => g.dataset.over ?? `stamp ${g.dataset.stamp}`).sort()), ['d2', 'stamp d7'], 'an arch over the pawn, and the emblem stamp on d7');
+  assert.deepEqual(await p.$$eval('.pg-board [data-k="line"]', gs => gs.map(g => `${g.dataset.from} ${g.dataset.to} ${g.dataset.end}`).sort()), ['d1 a1 arrow', 'd1 e1 stop', 'd2 d7 x'], 'the line goes on past the pawn to the take');
+  assert.equal(await p.getAttribute('.pg-tray [data-power="Leap"]', 'aria-label'), 'Leap, 3 left', 'the socket\'s Leap coin has three uses');
+  await shot(p, 'kings-mud-1440');
+  await tap(p, 'd5');
+  assert.deepEqual([await openSq(p), await toast(p), await p.getAttribute('.pg-tray [data-power="Leap"]', 'aria-label')], ['d5', 'Leap: moved to d5.', 'Leap, 2 left'], 'a tap on a power mark plays it and spends a notch');
+  assert.equal(await p.locator('.pg-tray [data-power="Leap"] .notch.is-spent').count(), 1, 'one notch is spent');
+  await tap(p, 'd4');
+  await p.click('[data-act="takeback"]');
+  assert.deepEqual([await openSq(p), await p.getAttribute('.pg-tray [data-power="Leap"]', 'aria-label')], ['d1', 'Leap, 3 left'], 'Take back gives the move and the use back');
+  // The King socket on the Paladin: SEAT A KING, Esc, the Frost king, Freeze.
+  await p.click('[data-tab="pieces"]');
+  await p.click('.slot[data-piece="paladin"]');
+  await p.click('.pg-kingfig');
+  assert.equal(await p.locator('.picker h4').textContent(), 'SEAT A KING', 'the socket opens SEAT A KING');
+  await p.keyboard.press('Escape');
+  assert.deepEqual([await p.locator('.picker').count(), await p.evaluate(() => document.activeElement?.dataset.act)], [0, 'seat'], 'Esc closes it, and the focus goes back to the socket');
+  await p.click('.pg-kingfig');
+  await p.click('[data-seat="Frost"]');
+  assert.equal(await p.evaluate(() => document.activeElement?.dataset.act), 'seat', 'a king chosen in SEAT A KING: the focus goes to the king figure');
+  await p.click('.pg-tray [data-power="Freeze"]');
+  assert.deepEqual(await p.$$eval('.pg-board [data-sq][data-emblem="frost"]', gs => gs.map(g => g.dataset.sq).sort()), ['b6', 'd7'], 'Freeze marks each enemy piece but the king');
+  await tap(p, 'd7');
+  assert.deepEqual([await toast(p), await p.getAttribute('.pg-board [data-k="frost"]', 'data-at'), await p.getAttribute('.pg-board [data-k="frost"]', 'data-n')], ['Freeze: the enemy knight on d7.', 'd7', '1'], 'Freeze on d7: frost with one turn');
+  assert.equal(await p.getAttribute('.pg-tray [data-power="Freeze"]', 'aria-pressed'), 'false', 'with no use left, Freeze lets go');
+  await p.click('.pg-tray [data-power="Freeze"]');
+  assert.equal(await toast(p), 'No Freeze uses left.', 'a coin with no use left says so');
+  assert.equal(await p.getAttribute('.pg-tray [data-power="IceWall"]', 'aria-label'), 'Ice Wall, 2 left', 'each power of a king counts its own uses');
+  await shot(p, 'kings-freeze-1440');
+  await p.click('[data-act="clear"]');
+  assert.deepEqual([await p.locator('.pg-board [data-k="frost"]').count(), await p.locator('.pg-board image[href*="kings/frost"]').count()], [0, 1], 'the broom: the frost goes, the seated king stays');
+  await p.click('[data-tab="pieces"]');
+  await p.click('.slot[data-piece="paladin"]');
+  // Echo: Leap on the Paladin.
+  await p.click('.pg-kingfig');
+  await p.click('[data-seat="Mud"]');
+  await p.click('.pg-tray [data-power="Leap"]');
+  assert.deepEqual([await p.locator('.echo-note').textContent(), await p.locator('.pg-tray [data-power="Leap"] .echo-eq').textContent(), await marks(p)],
+    ['= Leap adds nothing to the Paladin. No mark changes.', '=', PALADIN], 'Leap on the Paladin is an echo');
+  // A copy: the powers wait.
+  await arm(p, 'move');
+  await tap(p, 'f6');
+  await p.click('[data-act="done"]');
+  assert.deepEqual([await name(p), await p.getAttribute('.pg-socket', 'aria-disabled'), await p.locator('.pg-kingnote').textContent(), await p.locator('.pg-board [data-emblem]').count()],
+    ['My Paladin', 'true', 'Powers work on the pool pieces for now.', 0], 'on a copy the socket says that powers work on the pool pieces for now');
+  await p.click('[data-tab="kings"]');
+  await p.click('.slot[data-king="Mud"]');
+  await p.click('.pline[data-power="Leap"]', { force: true });
+  assert.deepEqual([await p.getAttribute('.pline[data-power="Leap"]', 'aria-disabled'), await p.getAttribute('.pline[data-power="Leap"]', 'aria-pressed'), await toast(p)], ['true', 'false', 'Powers work on the pool pieces for now.'], 'on a copy the king\'s power lines wait');
+  await minTarget(p, '#workshop .pg-tray button', 44);
+  await p.context().close();
+  // The phone: the socket in the Board tab; an open king shows the board only.
+  const f = await open('', { width: 390, height: 844 });
+  await door(f);
+  await f.click('.slot[data-piece="rook"]');
+  await f.click('[data-tab="board"]');
+  await f.click('.pg-socket');
+  await f.click('[data-seat="Mud"]');
+  await f.click('.pg-tray [data-power="Leap"]');
+  assert.ok((await marks(f)).includes('d7 take'), 'the phone: Leap from the Board tab');
+  await f.click('[data-tab="kings"]');
+  await f.click('.slot[data-king="Mud"]');
+  assert.deepEqual([await name(f), await f.locator('.pline').count(), (await marks(f)).includes('d7 take')], ['Mud King', 0, true], 'the phone: an open king shows his name and the board');
+  await minTarget(f, '#workshop .pg-ledge button', 44);
+  await shot(f, 'kings-390x844');
+  await f.context().close();
+}
+async function labCards() {
+  const p = await open();
+  await door(p);
+  await p.click('.slot[data-piece="paladin"]');
+  await p.click('[data-tab="cards"]');
+  const fan = p => p.$$eval('.cfan .cface', bs => bs.map(b => b.dataset.lab));
+  assert.match(await p.locator('[data-tab="cards"]').textContent(), /^Cards LAB$/, 'the Cards tab has the LAB label');
+  assert.deepEqual(await fan(p), ['Freeze', 'IceWall', 'Sacrifice', 'March', 'Leap', 'Mimic', 'Vault', 'SkyLift', 'Salvation', 'Rescue'], 'the cards with art make the fan');
+  assert.equal(await p.locator('.cstack b').textContent(), '+15', 'the others wait in a "+15" stack');
+  await p.click('.cstack');
+  assert.equal((await fan(p)).length, 15, 'a tap spreads the stack');
+  assert.ok(!(await fan(p)).some(c => ['FirewallB', 'EarthQuakeB', 'GrowthB', 'SpawnK2'].includes(c)), 'a second form is not a card of its own');
+  await p.click('[data-act="cardsback"]');
+  assert.equal((await fan(p)).length, 10, '‹ Back closes it');
+  await p.click('.cface[data-lab="Freeze"]');
+  assert.deepEqual([await name(p), (await p.getAttribute('.pg-bigcard .art', 'src')).replace(/^\./, ''), await p.locator('.pg-bigcard p').textContent(), await p.locator('.pg-bigcard .lab-ribbon').textContent()],
+    ['Freeze', '/ui/cards/freeze.webp', 'As your move, freeze an enemy piece (not the king): it cannot move on its next turn.', 'LAB'], 'an open card stands on the plinth with its art, words and LAB ribbon');
+  assert.deepEqual([await p.locator('.lab-note').textContent(), await p.locator('.twin').textContent(), await p.locator('.info-p').textContent()],
+    ['LABTest deck. Not in the game.', 'Freeze, a power of the Frost king.', 'Tap a blue ring on the board.'], 'its words: the LAB note, its king, what to do');
+  assert.deepEqual([await p.locator('.cardslot.on .cs.filled').count(), await p.locator('.pg-plaque .plaque.lab').textContent()], [1, 'LAB card'], 'the card is in the slot, and the plaque turns burgundy');
+  const runes = p => p.$$eval('.pg-board [data-k="rune"]', gs => gs.map(g => `${g.dataset.at}${g.dataset.barred ? ' barred' : ''}`).sort());
+  assert.deepEqual(await runes(p), ['b6', 'd7', 'g7 barred'], 'its picks are runes on each enemy piece, barred on the king');
+  assert.deepEqual(await p.$$eval('.pg-board [data-sq]', gs => [...new Set(gs.map(g => g.classList.contains('kdm-dim')))]), [true], 'the piece\'s own marks step back');
+  await shot(p, 'cards-freeze-1440');
+  await tap(p, 'g7');
+  assert.equal(await toast(p), 'Not the king.', 'a tap on the barred king says why');
+  await tap(p, 'd7');
+  assert.deepEqual([await toast(p), await p.getAttribute('.pg-board [data-k="frost"]', 'data-at'), await runes(p), await p.locator('.info-p').textContent()],
+    ['Freeze: the enemy knight on d7.', 'd7', [], 'Freeze is played.'], 'a tap on a rune plays the card: frost on d7, no more picks');
+  await p.click('.pg-tray [data-act="takeback"]');
+  assert.deepEqual([await p.locator('.pg-board [data-k="frost"]').count(), await runes(p)], [0, ['b6', 'd7', 'g7 barred']], 'Take back gives the card back');
+  await p.click('.twin button');
+  assert.deepEqual([await name(p), await p.getAttribute('[data-tab="kings"]', 'aria-selected')], ['Frost King', 'true'], 'its coin opens its king');
+  // A second form, and a card with no test board.
+  await p.click('[data-tab="cards"]');
+  await p.click('.cstack');
+  await p.click('.cface[data-lab="EarthQuake"]');
+  assert.deepEqual([await p.locator('.variant b').textContent(), await p.locator('.info-p').textContent(), (await p.getAttribute('.pg-bigcard .art', 'src')).replace(/^\./, ''), await runes(p)],
+    ['Earth Quake B', 'No test board for this card yet.', '/ui/cards/back.webp', []], 'a B form shows inside its parent; a card with no art has the card back');
+  await p.click('[data-act="cardsback"]');
+  await p.click('.cface[data-lab="Salvation"]');
+  assert.match(await p.getAttribute('.pg-bigcard .art', 'src'), /\/ui\/cards\/salvation\.webp$/, 'Salvation has the graveyard art');
+  await p.click('.cface[data-lab="Rescue"]');
+  assert.match(await p.getAttribute('.pg-bigcard .art', 'src'), /\/ui\/cards\/rescue\.webp$/, 'Rescue has the hands art');
+  // LAY A LAB CARD on the Rook; one power or one card at a time.
+  await p.click('[data-tab="pieces"]');
+  await p.click('.slot[data-piece="rook"]');
+  await p.click('.cardslot');
+  assert.deepEqual([await p.locator('.picker h4').textContent(), await p.$$eval('[data-lay]', bs => bs.map(b => b.dataset.lay))], ['LAY A LAB CARD', ['Freeze', 'IceWall', 'Leap', 'March', 'Mimic', 'Vault']], 'the slot opens LAY A LAB CARD with six cards');
+  await p.keyboard.press('Escape');
+  assert.deepEqual([await p.locator('.picker').count(), await p.evaluate(() => document.activeElement?.dataset.act)], [0, 'lay'], 'Esc closes it, and the focus goes back to the slot');
+  await p.click('.cardslot');
+  await p.click('[data-lay="Leap"]');
+  assert.deepEqual([await runes(p), await p.evaluate(() => document.activeElement?.dataset.act)], [['d3', 'd4', 'd5', 'd6', 'd7'], 'lay'], 'Leap laid on the Rook: its picks pass the pawn');
+  await tap(p, 'd5');
+  assert.deepEqual([await openSq(p), await toast(p)], ['d5', 'Leap: moved to d5.'], 'a tap on a rune plays the move');
+  await p.click('.pg-tray [data-act="takeback"]');
+  // The Frost king sits since his coin opened him: the socket shows his figure.
+  await p.click('.pg-kingfig');
+  await p.click('[data-seat="Mud"]');
+  await p.click('.pg-tray [data-power="Leap"]');
+  assert.deepEqual([await p.locator('.cs.filled').count(), await runes(p)], [0, []], 'an armed power takes the card away');
+  await p.click('.cardslot');
+  await p.click('[data-lay="Vault"]');
+  assert.equal(await p.getAttribute('.pg-tray [data-power="Leap"]', 'aria-pressed'), 'false', 'a laid card lets the armed power go');
+  await minTarget(p, '#workshop .pg-tray button, #workshop .pg-ledge button', 44);
+  // A copy: the slot waits.
+  await arm(p, 'move');
+  await tap(p, 'f3');
+  await p.click('[data-act="done"]');
+  await p.click('.cardslot', { force: true });
+  assert.deepEqual([await name(p), await p.getAttribute('.cardslot', 'aria-disabled'), await toast(p), await runes(p)], ['My Rook', 'true', 'Cards work on the pool pieces for now.', []], 'on a copy the slot waits');
+  await p.context().close();
+  // The phone: an open card shows its art in the window, its name and the board.
+  const f = await open('', { width: 390, height: 844 });
+  await door(f);
+  await f.click('.slot[data-piece="paladin"]');
+  await f.click('[data-tab="cards"]');
+  await f.click('.cface[data-lab="Freeze"]');
+  assert.deepEqual([await name(f), await f.$eval('.pg-bigcard', c => c.offsetWidth), await f.locator('.lab-note').count(), await runes(f)], ['Freeze', 56, 0, ['b6', 'd7', 'g7 barred']], 'the phone: the card in the 56 px window, and the board');
+  await minTarget(f, '#workshop .pg-ledge button', 44);
+  await shot(f, 'cards-390x844');
+  await f.context().close();
+}
 /** Plays `steps` at `pace` (normal, fast or off; `reduce` emulates reduced motion): after each action the motions that it
  *  plays, none past `limit` ms, the board in its place, and 100 ms after the limit (700 ms at Normal) none running. With no
  *  motion the check looks 100 ms after the action. Gives the still pose after each action. */
+
 async function motionRun(steps, { pace = 'normal', reduce = false, width = 1440, height = 900 } = {}) {
   const p = await open('', { width, height, motion: true, reducedMotion: reduce ? 'reduce' : undefined });
   // The toast fades out on its own timer (3.6 s), not on an action: its fade is off here.
@@ -2025,6 +2212,8 @@ try {
   await shareSheet();
   await linkCard();
   await reachPopover();
+  await kings();
+  await labCards();
   await motion();
   await rulesTab();
   await seeAll();

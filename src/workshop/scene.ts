@@ -25,14 +25,16 @@ export interface Rail extends By { from: string; to: string; end: 'x' | 'stop' |
 export interface Scene {
   pieces: ScenePiece[];
   /** `blocked`: a refused take; `blocked-move`: a refused push or swap (a king). `byWords`: what refuses it.
-   *  `diff`: the paint diff of a copy (diffOf): '+' a new or changed mark, '-' a mark of its pool piece that is gone. */
-  marks: (By & { sq: string; k: Kind | 'blocked' | 'blocked-move'; cond?: 'asleep' | 'awake'; byWords?: string; diff?: '+' | '-' })[];
+   *  `diff`: the paint diff of a copy (diffOf): '+' a new or changed mark, '-' a mark of its pool piece that is gone.
+   *  `power`: a seated king's power makes it (ticket 13; the king's emblem name), and `stamp` puts that emblem on it. */
+  marks: (By & { sq: string; k: Kind | 'blocked' | 'blocked-move'; cond?: 'asleep' | 'awake'; byWords?: string; diff?: '+' | '-'; power?: string; stamp?: true })[];
   rails: Rail[];
-  arches: (By & { from: string; over: string; to: string })[];
+  arches: (By & { from: string; over: string; to: string; power?: string })[];
   /** The hover-only effects: `follow` (the piece follows its push), `sight` (a shot's line), and a chain's `hop` and order `pip`.
-   *  A `threat` (threatsOf, the eye of Try with) is `stopped` by a "cannot be taken" rule. `becomes`: the pieces that a move to `sq` can become. */
+   *  A `threat` (threatsOf, the eye of Try with) is `stopped` by a "cannot be taken" rule. `becomes`: the pieces that a move to `sq` can become.
+   *  `frost`: a Freeze mark on `sq` for `turns` more turns (ticket 13). `rune`: a LAB card's pick, `barred` on the king that it may not pick (ticket 14). */
   effects: (By & ({ k: 'swap'; a: string; b: string } | { k: 'push' | 'follow' | 'sight' | 'hop'; from: string; to: string } | { k: 'pip'; sq: string; n: number }
-    | { k: 'threat'; from: string; to: string; stopped?: true } | { k: 'becomes'; sq: string; pieces: string[] }))[];
+    | { k: 'threat'; from: string; to: string; stopped?: true } | { k: 'becomes'; sq: string; pieces: string[] } | { k: 'frost'; sq: string; turns: number } | { k: 'rune'; sq: string; barred?: true }))[];
   /** The stamps on the board: on a mark, the table rule that refuses it (no `by`), then the rules of its `by` that the
    *  mockup stamps there (sceneOf); on the piece, a rule that wakes its lines. The Why tag reads every rule from the mark's `by`. */
   impressions: { sq: string; list: { a: Ability['a']; by?: number }[]; on?: string }[];

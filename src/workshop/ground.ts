@@ -4,12 +4,16 @@
  * the ledge opens the pool pieces and the designs on the shelf. The board is the editor (ticket 02): the brushes
  * paint squares, the nubs switch lines, and the first edit on a pool piece makes the player's private copy. In look mode a
  * tap on a square opens its Why tag (ticket 05). The board is also the test (Try with, ticket 06): the player lifts and
- * places the piece, adds friends and enemies, sees threats, and plays a move with the engine's makeMove. Mockup:
+ * places the piece, adds friends and enemies, sees threats, and plays a move with the engine's makeMove. The Kings tab and
+ * the tray's King socket seat a king and arm one of his powers on an unchanged pool piece (ticket 13, powers.ts). The Cards
+ * tab (LAB) shows the test deck, and the tray's card slot lays a LAB card on an unchanged pool piece (ticket 14). Mockup:
  * docs/research/rules-ui-2026-10-10/mockups/proving-ground.html (its line numbers in the comments).
  * Loaded on demand (main.ts `import()`).
  */
 import './ground.css';
-import { BLACK, NAMES as PIECE, P, T, WHITE, colorOf, file, makeMove, parseSq, piece, rank, sq, sqName, typeOf, type Move, type PieceType } from '../rules/engine';
+import { BLACK, K, KINGS, NAMES as PIECE, P, T, USES_RULE, WHITE, colorOf, file, isMarkTag, makeMove, parseSq, piece, rank, sq, sqName, typeOf, type CardName, type KingName, type Move, type PieceType, type Position, type PowerName } from '../rules/engine';
+import { POWER_NAME, cardText, coinState, coinWords, powerText } from '../powers-ui';
+import { coinRow } from '../ui/coin';
 import { pieceIcon } from '../piece-icons';
 import { pieceArt } from '../ui/guide';
 import { FIGURES, FIGURE_TAGS, figureUrl, selectedFigure, suggestedFigures, type Figure } from './figures';
@@ -29,6 +33,7 @@ import { MAX, deleteDesign, loadShelf, saveDesign, type SaveResult } from './sto
 import { LIKE_ADDED, LIKE_CLASH, brief, cap, designText, esc, lawsOf, lineParts, lineWords, pawns, promotion, ruleText, whenLabel } from './text';
 import { BLOCKS, BODY, GROUPS, blockOf, whenChoices, whenWords, type Part } from './vocab';
 import { traceOf, whyWords } from './why';
+import { cardMarks, cardRules, enginePos, kingRules, playCard, playPower, powerLayer, powerMarks, seated } from './powers';
 // @ts-expect-error The approved gait curves are shared browser JavaScript, without declarations.
 import { GAITS, GAIT_OF } from '../../docs/2d-first-pieces/board/gait.mjs';
 
@@ -43,16 +48,34 @@ const BRUSHES: [Kind & Brush, string][] = [['move', 'Move'], ['take', 'Take'], [
 /** The key row's short words (proving-ground.html:1187). */
 const SHORT: Record<string, string> = {
   asleep: 'Asleep', cond: 'Sometimes', blocked: 'Refused', shot: 'Shot', moveshot: 'Move or shot', line: 'Line', arch: 'Hops', removed: 'Removed', push: 'Push', swap: 'Swap',
-  threat: 'Threat', tstop: 'Stopped', becomes: 'Becomes',
+  threat: 'Threat', tstop: 'Stopped', becomes: 'Becomes', power: 'Power', frost: 'Frozen', rune: 'Card pick',
 };
+/** The six kings in the ledge's order (KING_ORDER, proving-ground.html:618), each with his art name. */
+const KING_LIST = (Object.keys(KINGS) as KingName[]).sort();
+const kingArt = (k: KingName): string => `${import.meta.env.BASE_URL}ui/kings/${k.toLowerCase()}.webp`;
+/** The king who has power `p`. */
+const kingOf = (p: PowerName): KingName => KING_LIST.find(k => KINGS[k].includes(p))!;
+/** The LAB deck (CARDS and VARIANTS, proving-ground.html:643-679): the cards with art make the fan, the rest wait in a
+ *  stack; a B form shows inside its parent card. The tray's slot lays six of them (decision 30). */
+const DECK: readonly CardName[] = ['Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap', 'Mimic', 'Vault', 'Curse', 'SkyLift', 'Salvation',
+  'Rescue', 'Firewall', 'EarthQuake', 'Burn', 'FireStarter', 'Control', 'Growth', 'Rally', 'Spawn2', 'SpawnK', 'MorphP', 'MirrorB'];
+const SECOND: Partial<Record<CardName, CardName>> = { Firewall: 'FirewallB', EarthQuake: 'EarthQuakeB', Growth: 'GrowthB', SpawnK: 'SpawnK2' };
+const ART: readonly CardName[] = ['Freeze', 'IceWall', 'Sacrifice', 'March', 'Leap', 'Mimic', 'Vault', 'SkyLift', 'Salvation', 'Rescue'];
+const LAY: readonly CardName[] = ['Freeze', 'IceWall', 'Leap', 'March', 'Mimic', 'Vault'];
+const cardArt = (c: CardName): string => `${import.meta.env.BASE_URL}ui/cards/${ART.includes(c) ? c.toLowerCase() : 'back'}.webp`;
+/** "Ice Wall", "Sky Lift", "Spawn K2". */
+const cardName = (c: CardName): string => (c in USES_RULE ? POWER_NAME[c as PowerName] : c.replace(/([a-z])([A-Z0-9])/g, '$1 $2'));
+/** A card's sentence in the web's words (powerText's webWords). */
+const cardWords = (c: CardName): string => cap(cardText(c, cardRules(c)).replace(/captur(ed|es|e)/g, (_, e: string) => ({ ed: 'taken', es: 'takes', e: 'take' })[e]!));
 const ROMAN = ['I', 'II', 'III'];
 /** The Mirror tool's words for each "Paint on" (renderTools, proving-ground.html:1287). */
 const MIRROR: Record<PaintOn, string> = { lr: 'Mirror', all: 'All 8', one: 'One' };
 /** The words of a move's button in the Why tag (proving-ground.html:1351): a take moves there, a shot takes from there. */
 const ACT: Record<Act, string> = { move: 'Move here', take: 'Move here', shot: 'Take from here', push: 'Push', swap: 'Swap' };
 /** Try with: the board, the piece's square (where it was, once a move removed it: `gone`), the move state, a chain in
- *  progress (its takes so far and the longer moves of its turn), and the piece that a "becomes" made it. */
-interface Try { board: Uint8Array; from: number; st: TryState; gone: boolean; chain: { caps: number[]; more: Move[] } | null; became: PieceType | 0 }
+ *  progress (its takes so far and the longer moves of its turn), the piece that a "becomes" made it, and the game: the uses
+ *  of each power, the Freeze marks, and the laid card played (1). */
+interface Try { board: Uint8Array; from: number; st: TryState; gone: boolean; chain: { caps: number[]; more: Move[] } | null; became: PieceType | 0; game: { uses?: Partial<Record<PowerName, number>>; marks?: Position['marks']; played?: number } }
 const MEDAL = '<svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><path d="M16 2l8 14 8-14" fill="none" stroke="#842c21" stroke-width="5"/><circle cx="24" cy="30" r="15" fill="#e9c071" stroke="#7a5712" stroke-width="2"/>'
   + '<circle cx="24" cy="30" r="10" fill="none" stroke="#7a5712" stroke-width="1.2"/><path d="M24 23l2 4.5 5 .5-3.8 3.3 1.1 4.9L24 33.7l-4.3 2.5 1.1-4.9L17 28l5-.5z" fill="#7a5712"/></svg>';
 /** The NEW tile: a dashed figure outline with a quill (GHOST_FIG, proving-ground.html:1439). */
@@ -140,8 +163,14 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   /** Try with (ticket 06): the board now and the boards before each move (Take back); the lifted piece; the armed token;
    *  the eye; the "becomes" choice; the phone's ledge tab; the items opened, and whether the player tapped a square or
    *  changed a design (from then on the tray and the plaque show, proving-ground.html:1179, :1372). */
-  let pos: Try = { board, from, st, gone: false, chain: null, became: 0 }, backs: Try[] = [];
-  let lifted = false, token: 'friend' | 'enemy' | null = null, threats = false, promo: Move[] | null = null, tab: 'pieces' | 'rules' | 'board' = 'pieces';
+  let pos: Try = { board, from, st, gone: false, chain: null, became: 0, game: {} }, backs: Try[] = [];
+  let lifted = false, token: 'friend' | 'enemy' | null = null, threats = false, promo: Move[] | null = null, tab: 'pieces' | 'kings' | 'cards' | 'rules' | 'board' = 'pieces';
+  /** The kings (ticket 13): the king open on the plinth (the Kings tab), the seated king and his armed power (one at a
+   *  time), and the open SEAT A KING picker. The uses spent and the Freeze marks are in the Try state (`pos.game`). */
+  let kingOpen: KingName | null = null, king: KingName | null = null, armed: PowerName | null = null, seating = false;
+  /** The LAB cards (ticket 14): the card open on the plinth (the Cards tab), the card laid in the tray's slot, the open LAY A
+   *  LAB CARD picker, and the Cards tab's stack spread out. One card or one power at a time, as card mode plays (setRules). */
+  let labOpen: CardName | null = null, laid: CardName | null = null, laying = false, spread = false;
   /** The seal open from the Rules tab (ticket 12): the plinth and the right column show it, the board its example piece. */
   let sealOn: Ability['a'] | null = null;
   /** Short landscape: the ledge's sheet is open. */
@@ -500,8 +529,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
 
   function arm(b: Brush): void {
     brush = b;
-    lifted = false;
-    token = null;
+    lifted = seating = laying = false;
+    token = kingOpen = labOpen = null;
     row = peek = pick = card = focus = knotAt = why = null;
     shelfOpen = false;
     render();
@@ -636,6 +665,19 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
         + `<div class="pg-figure pg-bigseal"><span class="halo"></span>${seal(sealOn, 168)}</div><div class="pg-stone"><div class="top"></div><div class="front"></div></div>`;
       return;
     }
+    // An open king (renderPlinth, proving-ground.html:1062-1066): his name and his figure on the stone.
+    if (kingOpen) {
+      plinthEl.innerHTML = `<div class="pg-name"><div class="row"><h3>${kingOpen} King</h3></div></div>`
+        + `<div class="pg-figure"><span class="halo"></span><img src="${kingArt(kingOpen)}" alt="${kingOpen} king"></div><div class="pg-stone"><div class="top"></div><div class="front"></div></div>`;
+      return;
+    }
+    // An open card (renderPlinth, proving-ground.html:1067-1070): its name, and on the plinth its art, title and sentence with the LAB ribbon.
+    if (labOpen) {
+      const n = cardName(labOpen);
+      plinthEl.innerHTML = `<div class="pg-name"><div class="row"><h3${n.length > 9 ? ' class="long"' : ''}>${n}</h3></div></div>`
+        + `<div class="pg-bigcard lab-host"><img class="art" src="${cardArt(labOpen)}" alt=""><b class="ttl">${n}</b><span class="rule"></span><p>${esc(cardWords(labOpen))}.</p><span class="lab-ribbon" aria-hidden="true">LAB</span></div>`;
+      return;
+    }
     const d = cur.d, name = d.name || 'Piece', origin = cur.key.startsWith('piece:') ? undefined : PRESETS.find(p => d.from.length === 1 && p.key === d.from[0]);
     const rules = canonical(d).rules, room = rules.length < MAX_RULES;
     const [head, like] = weighOpen ? weighWords() : ['', ''], mine = cur.yours || cur.key === 'new';
@@ -667,7 +709,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
    *  A knot from rule I to rule III beside another knot gets a second gutter, so each knot keeps its own 24 px hit area. */
   function placeKnots(): void {
     plinthEl.querySelectorAll('.knot').forEach(k => k.remove());
-    if (narrow.matches || !sc) return;
+    if (narrow.matches || !sc || kingOpen || labOpen) return;
     const line = (i: number) => q<HTMLElement>(`.sline[data-seal="${i}"]`), mid = (l: HTMLElement) => l.offsetTop + l.offsetHeight / 2;
     const far = (k: Scene['knots'][number]) => k.b - k.a === 2 && sc.knots.length > 1;
     plinthEl.querySelector('.pg-lines')?.classList.toggle('far', sc.knots.some(far));
@@ -776,7 +818,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       run(q('.pg-lines, .pg-pseals'), [-4, 4, -4, 4].map((x, i) => ({ transform: `translateX(${x}px)`, offset: (i + 1) / 5 })), 260);
       return toast(FULL, 'lock');
     }
-    brush = row = peek = pick = card = focus = knotAt = why = null;
+    brush = row = peek = pick = card = focus = knotAt = why = kingOpen = labOpen = null;
     toolsOpen = false;
     shelfOpen = true;
     render();
@@ -844,7 +886,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
 
   /* ---- the board (renderBoard, renderPaintFx, renderHits and squareLabel, proving-ground.html:1161, :1222-1281) ---- */
 
-  const art = (p: ScenePiece): string => (p.open ? (pos.became && !brush ? pieceArt(pos.became) ?? '' : figureOf(cur.d)) : pieceArt((PIECE as readonly string[]).indexOf(p.k) as PieceType, p.side === 'b') ?? '');
+  const art = (p: ScenePiece): string => (p.open ? (pos.became && !brush ? pieceArt(pos.became) ?? '' : figureOf(cur.d))
+    : king && p.k === 'king' && p.side === 'w' ? kingArt(king) : pieceArt((PIECE as readonly string[]).indexOf(p.k) as PieceType, p.side === 'b') ?? '');
   function drawBoard(): void {
     const s = fieldEl.clientWidth / 8;
     if (!s) return;
@@ -856,8 +899,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     // The phone shows the stamps of the kept rule only (boardOpts, :1149).
     // The hover-only parts of the open tag's square, else of the square under the pointer, else of the focus (proving-ground.html:1144).
     // A lifted piece stands raised and faint in a frame until it is placed.
+    // While an open card is laid and not played, the piece's own marks step back (proving-ground.html:1142-1143); so do they
+    // after a Freeze or an Ice Wall card just played, which is the turn's move in card mode (scenes.js freeze-card, dim).
+    const back = !brush && !!laid && poolPiece() && (pos.game.played ? !backs.at(-1)?.game.played && (laid === 'Freeze' || laid === 'IceWall') : labOpen === laid || sc.effects.some(e => e.k === 'rune'));
     boardEl.innerHTML = drawString(sc, {
-      s, art, focus: iso, stamps: narrow.matches ? x => look && x === focus : undefined, hover: why ?? near ?? keyed, select: why ?? (lifted ? sqName(from) : null), lift: lifted,
+      s, art, focus: iso ?? (back ? () => false : undefined), stamps: narrow.matches ? x => look && x === focus : undefined, hover: why ?? near ?? keyed, select: why ?? (lifted ? sqName(from) : null), lift: lifted,
     });
   }
   function squareLabel(at: string): string {
@@ -995,6 +1041,109 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     : movesOf(now(), pos.board, pos.from, pos.st).filter(m => m.captures.length <= 1));
   const movesAt = (q: string): Move[] => movesNow().filter(m => sqName(pos.chain ? m.to : tapOf(m)) === q);
   const plaqueOn = (): boolean => tapped || edited || opened > 1;
+
+  /* ---- the kings (ticket 13): the King socket, the coins, and the armed power's marks on an unchanged pool piece ---- */
+
+  /** Powers work on the pool pieces only, as the engine makes their moves (decision 31). */
+  const poolPiece = (): boolean => cur.key.startsWith('piece:');
+  /** The Try board as the engine's position: the open pool piece as its own type, with the uses of power `p` spent (each
+   *  power of a king counts its own uses; the engine counts one power for each side) and the marks. */
+  const poolType = (): PieceType => (poolPiece() ? (PIECE as readonly string[]).indexOf(cur.key.slice(6)) as PieceType : T);
+  const kingPos = (p = armed): Position => enginePos(pos.board, pos.from, poolType(), { used: [(p && pos.game.uses?.[p]) || 0, 0], marks: pos.game.marks });
+  /** A power or a card shows its marks on a pool piece: not in brush mode, after a removal, a "becomes" or during a chain. */
+  const live = (): boolean => poolPiece() && !brush && !pos.gone && !pos.became && !pos.chain;
+  const powerLive = (): boolean => !!king && !!armed && live();
+  const powerNow = (): Move[] => (powerLive() ? powerMarks(kingPos(), pos.from, king!, armed!) : []);
+  /** The armed power adds no mark: the echo. */
+  const echo = (): boolean => powerLive() && !powerNow().length;
+  /** The coin of power `p` (coinState): its uses spent and left. */
+  const coinOf = (p: PowerName) => coinState(kingPos(p), WHITE, kingRules(kingOf(p), p), [], armed === p)!;
+  /** The game coin (src/ui/coin.ts) of power `p` as a picture in a button of ours, with "=" on an echo. */
+  function coinHtml(p: PowerName): string {
+    const c = coinOf(p), b = coinRow(document.createElement('span'), WHITE, c, kingPos(p)).querySelector<HTMLElement>('.coin')!, eq = armed === p && echo();
+    return `<span class="coin" data-state="${eq ? 'echo' : c.state}" aria-hidden="true">${b.innerHTML}${eq ? '<span class="echo-eq">=</span>' : ''}</span>`;
+  }
+  /** A coin's button: a tap arms its power; its words are the game's (coinWords). */
+  const coinButton = (p: PowerName, inner = ''): string =>
+    `<button type="button" class="pg-coin" data-power="${p}" aria-pressed="${armed === p}" aria-label="${esc(coinWords(coinOf(p), kingPos()).replace(' · ', ', '))}">${coinHtml(p)}${inner}</button>`;
+  /** Seats king `k` (seatKing, proving-ground.html:1585): on a pool piece's board he stands where a white king stands, else
+   *  on b1, and walks there (kingWalk, :1879). No power is armed yet. */
+  function seat(k: KingName): void {
+    king = k;
+    armed = null;
+    seating = false;
+    if (poolPiece()) setUp(seated(restored()));
+    pos = { ...pos, game: {} };
+    render();
+    const s = pos.board.findIndex(v => v === piece(K, WHITE));
+    if (s < 0 || !poolPiece()) return;
+    const b = figBox(s);
+    fly(kingArt(k), new DOMRect(b.x + b.width * 2.2, b.y, b.width, b.height), b, GAITS.walk);
+    run(boardEl.querySelector(`image[href="${kingArt(k)}"]`), [{ opacity: 0 }, { opacity: 0 }], 320);
+  }
+  /** A king of the Kings tab opens on the plinth with his powers, and takes his seat (openKing, :1579). The board keeps the open piece. */
+  function openKing(k: KingName): void {
+    if (kingOpen !== k) opened++;
+    brush = row = peek = pick = card = focus = knotAt = why = token = promo = labOpen = null;
+    shelfOpen = lifted = ledgeOpen = false;
+    kingOpen = k;
+    sealOn = null;
+    if (king !== k) seat(k); else render();
+    run(q('.pg-figure img'), [{ opacity: 0, transform: 'translateY(14px) scale(0.96)' }, {}], 480, EASE);
+  }
+  /** A tap on a coin (tapPower, :1889): it seats the power's king, then arms the power, or lets it go; with no use left, it says so. */
+  function tapPower(p: PowerName): void {
+    if (!poolPiece()) return toast('Powers work on the pool pieces for now.', 'lock');
+    if (king !== kingOf(p)) seat(kingOf(p));
+    if (armed !== p && coinOf(p).left === 0) return toast(`No ${POWER_NAME[p]} uses left.`, 'lock');
+    armed = armed === p ? null : p;
+    // One power or one card at a time (card mode plays kings with no spendable power).
+    if (armed) laid = null;
+    why = promo = null;
+    render();
+    ripple();
+  }
+  /** The Try board for the laid card: the open pool piece as its own type, the card played or not, and the marks. */
+  const labPos = (): Position => enginePos(pos.board, pos.from, poolType(), { used: [pos.game.played ?? 0, 0], marks: pos.game.marks });
+  /** The picks of the laid card until it is played (ticket 14): the six of LAY only. */
+  const labNow = (): Move[] => (laid && LAY.includes(laid) && !pos.game.played && live() ? cardMarks(labPos(), pos.from, laid) : []);
+  /** The king that a Freeze or an Ice Wall may not pick: the king of its targets' side, else -1. */
+  const barred = (ms: Move[]): number => (ms[0] && isMarkTag(ms[0].power) ? pos.board.indexOf(piece(K, colorOf(pos.board[ms[0].to]))) : -1);
+  /** Plays power move `m` with the engine (makeMove under the king's rules), or the laid card's move: it spends a use (or the
+   *  card), and a Freeze leaves its mark. The other side never moves, so the mark stays. With no use left, the power lets go. */
+  function usePower(m: Move): void {
+    const p = armed, next = p ? playPower(kingPos(), m, king!, p) : playCard(labPos(), m, laid!), to = m.from === pos.from ? m.to : pos.from, b = new Uint8Array(next.board);
+    const who = (s: number): string => `the ${colorOf(pos.board[s]) ? 'enemy' : 'your'} ${PIECE[typeOf(pos.board[s])]} on ${sqName(s)}`;
+    const said = `${p ? POWER_NAME[p] : cardName(laid!)}: ${isMarkTag(m.power) ? `${who(m.to)}.` : m.captures.length ? `took ${who(m.captures[0])}.` : `moved to ${sqName(m.to)}.`}`;
+    b[to] = piece(T, WHITE);
+    backs.push(pos);
+    pos = { ...pos, board: b, from: to, chain: null, game: { ...pos.game, ...(p ? { uses: { ...pos.game.uses, [p]: next.used?.[0] ?? 0 } } : { played: 1 }), marks: next.marks },
+      st: { ...pos.st, captured: pos.st.captured || m.captures.length > 0, move: pos.st.move + (isMarkTag(m.power) ? 0 : 1) } };
+    if (p && coinOf(p).left === 0) armed = null;
+    toast(said);
+    render();
+    ripple();
+  }
+  /** Lays LAB card `c` in the tray's slot (layCard, proving-ground.html:1908): its picks show on the board, and an armed power lets go. */
+  function lay(c: CardName): void {
+    laid = c;
+    laying = false;
+    armed = why = promo = null;
+    pos = { ...pos, game: { ...pos.game, played: 0 } };
+    render();
+    ripple();
+  }
+  /** A card of the Cards tab opens on the plinth and, on a pool piece, goes in the slot (openCard, :1597-1602). The board
+   *  keeps the open piece; only the six of LAY have picks (decision 30). */
+  function openLab(c: CardName): void {
+    if (labOpen !== c) opened++;
+    brush = row = peek = pick = card = focus = knotAt = why = token = promo = kingOpen = null;
+    shelfOpen = lifted = ledgeOpen = false;
+    labOpen = c;
+    sealOn = null;
+    if (poolPiece() && laid !== c) lay(c); else render();
+    run(q('.pg-bigcard'), [{ opacity: 0, transform: 'translateY(14px) scale(0.96)' }, {}], 480, EASE);
+  }
   /** A new set-up (a lift, a token, the die, the broom, "Show on"): no move to take back. */
   function setUp(b: Uint8Array, s = pos.from): void {
     pos = { ...pos, board: b, from: s, chain: null };
@@ -1008,6 +1157,10 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     tapped = true;
     if (lifted) return place(s);
     if (token) return putToken(s);
+    // A tap on a mark of the armed power, or on a pick of the laid card, plays it.
+    const lm = labNow(), pm = [...powerNow(), ...lm].find(m => (m.captures[0] ?? m.to) === s);
+    if (pm) return usePower(pm);
+    if (s === barred(lm)) return toast('Not the king.', 'lock');
     if (s === pos.from && !pos.gone) return lift();
     openWhy(q);
   }
@@ -1066,7 +1219,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     const more = m.selfRemove || m.promo || !fresh.length || m.to === m.from ? [] : all.filter(x => x.captures.length > m.captures.length && m.captures.every((c, i) => x.captures[i] === c));
     backs.push(pos);
     pos = {
-      board, from: m.to, gone: !!m.selfRemove, became: m.promo ?? pos.became, chain: more.length ? { caps: m.captures, more } : null,
+      board, from: m.to, gone: !!m.selfRemove, became: m.promo ?? pos.became, chain: more.length ? { caps: m.captures, more } : null, game: pos.game,
       st: { ...pos.st, captured: pos.st.captured || m.captures.length > 0, move: pos.st.move + (more.length ? 0 : 1) },
     };
     promo = null;
@@ -1112,10 +1265,26 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     trayEl.hidden = !on;
     const tok = (k: 'friend' | 'enemy', words: string): string => `<button type="button" class="tok" data-tok="${k}" aria-pressed="${token === k}" aria-label="${cap(k)}" title="${words}">`
       + `<img class="fig" src="${esc(pieceArt(P, k === 'enemy') ?? '')}" alt=""><span class="base"></span></button>`;
-    trayEl.innerHTML = !on ? '' : `<h3 id="pg-tray-h">Try with</h3><div class="tokens">${tok('friend', 'Friend: one of your pieces')}${tok('enemy', 'Enemy: tap, then tap a square')}</div>`
+    // The King socket (ticket 13; renderTray, :1374-1391): on a copy or a new piece it says that powers wait; empty, it opens
+    // SEAT A KING; with a king, his figure (a tap seats another) and his two coins. An armed power that adds nothing is an echo.
+    const empty = `<span class="sockc"><img src="${import.meta.env.BASE_URL}ui/emblems/spirit.webp" alt=""></span>`;
+    // The card slot (ticket 14; :1383-1384) waits on a copy or a new piece too; else it opens LAY A LAB CARD.
+    const slot = `<button type="button" class="tok cardslot${laid && poolPiece() ? ' on' : ''}" ${poolPiece() ? `data-act="lay" aria-expanded="${laying}"` : 'data-act="nocard" aria-disabled="true"'} title="Card: lay a LAB card"`
+      + ` aria-label="${!poolPiece() ? 'Card. Cards work on the pool pieces for now.' : laid ? `${cardName(laid)} card (LAB): lay another` : 'Card: lay a LAB card'}"><span class="cs${laid ? ' filled' : ''}"${laid ? ` style="background-image:url(${cardArt(laid)})"` : ''}><i></i></span></button>`;
+    const socket = !poolPiece() ? `<button type="button" class="tok pg-socket" data-act="nosocket" aria-disabled="true" aria-label="King. Powers work on the pool pieces for now.">${empty}</button>${slot}<span class="pg-kingnote">Powers work on the pool pieces for now.</span>`
+      : !king ? `<button type="button" class="tok pg-socket" data-act="seat" aria-expanded="${seating}" aria-label="King: seat a king and his powers" title="King: seat a king and his powers">${empty}</button>${slot}`
+      : `<span class="tok kingseat"><button type="button" class="pg-kingfig" data-act="seat" aria-expanded="${seating}" aria-label="${king} king: seat another king" title="${king} king"><img src="${kingArt(king)}" alt=""></button>`
+        + `<span class="coins">${KINGS[king].map(p => coinButton(p)).join('')}</span></span>${slot}`;
+    trayEl.innerHTML = !on ? '' : `<h3 id="pg-tray-h">Try with</h3>`
+      + (echo() ? `<p class="echo-note"><span class="echo-eq" aria-hidden="true">=</span> ${POWER_NAME[armed!]} adds nothing to the ${esc(cur.d.name)}. No mark changes.</p>` : '')
+      + `<div class="tokens">${tok('friend', 'Friend: one of your pieces')}${tok('enemy', 'Enemy: tap, then tap a square')}${socket}</div>`
+      + (seating ? `<div class="picker" role="group" aria-labelledby="pg-seat-h"><h4 id="pg-seat-h">SEAT A KING</h4><div class="row">${KING_LIST.map(k => `<button type="button" data-seat="${k}" aria-pressed="${king === k}"><img src="${kingArt(k)}" alt="">${k}</button>`).join('')}</div></div>` : '')
+      + (laying ? `<div class="picker" role="group" aria-labelledby="pg-lay-h"><h4 id="pg-lay-h">LAY A LAB CARD</h4><div class="row">${LAY.map(c => `<button type="button" data-lay="${c}" aria-pressed="${laid === c}">`
+        + `<span class="mini-card lab-host" style="background-image:url(${cardArt(c)})"><i></i></span>${cardName(c)}</button>`).join('')}</div></div>` : '')
       + `<div class="trow2"><button type="button" data-act="threats" aria-pressed="${threats}" aria-label="Threats" title="Threats: what can hit your piece">${sigil('eye', 22)}</button>`
       + `<button type="button" data-act="stir" aria-label="Stir" title="Stir: another board">${sigil('die', 22)}</button>`
       + `<button type="button" data-act="clear" aria-label="Clear" title="Clear: the piece alone">${sigil('broom', 22)}</button>`
+      + (pos.game.played && backs.length ? '<button type="button" class="quiet tb" data-act="takeback">Take back</button>' : '')
       + (reads('fromMove', 'beforeMove') ? `<span class="pg-moven">Move ${pos.st.move}</span><button type="button" class="pg-plus" data-act="plus5">+5 moves</button>` : '') + '</div>'
       + (reads('afterCard') ? `<label class="pg-cardon"><input type="checkbox" data-cardon${pos.st.card ? ' checked' : ''}>Pretend your opponent played a card</label>` : '');
   }
@@ -1124,7 +1293,20 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
 
   function renderRight(): void {
     const phone = narrow.matches;
-    brushesEl.innerHTML = BRUSHES.map(([k, w], i) => `<button type="button" class="brush${brush === k ? ' armed' : ''}" data-brush="${k}" aria-pressed="${brush === k}" title="${NAMES[k]}. Tap to paint (${i + 1})">`
+    // An open king's words take the place of the brushes (renderInfo, proving-ground.html:1106-1117): each power with its
+    // coin and its line; a tap arms it. The phone shows the board only (the mockup's phone state kings).
+    brushesEl.classList.toggle('pg-powers', !!(kingOpen || labOpen) && !brush);
+    // An open card's words (renderInfo, :1118-1123): the LAB note, its king for a power card, its second form, and what to do.
+    if (labOpen && !brush) {
+      const c = labOpen, twin = c in USES_RULE ? kingOf(c as PowerName) : null, b = SECOND[c];
+      brushesEl.innerHTML = phone ? '' : '<p class="lab-note"><i>LAB</i>Test deck. Not in the game.</p>'
+        + (twin ? `<h4 class="info-h">Also a king's power</h4><p class="twin"><button type="button" data-twin="${twin}" aria-label="Open the ${twin} king">${coinHtml(c as PowerName)}</button>${POWER_NAME[c as PowerName]}, a power of the ${twin} king.</p>` : '')
+        + (b ? `<h4 class="info-h">Second form</h4><p class="variant"><b>${cardName(b)}</b>${esc(cardWords(b))}.</p>` : '')
+        + `<p class="info-p">${!LAY.includes(c) ? 'No test board for this card yet.' : !poolPiece() ? 'Cards work on the pool pieces for now.' : laid !== c ? 'Lay it from the card slot.'
+          : labNow().length ? 'Tap a blue ring on the board.' : pos.game.played ? `${cardName(c)} is played.` : `${cardName(c)} has no target on this board.`}</p>`;
+    } else if (kingOpen && !brush) brushesEl.innerHTML = phone ? '' : KINGS[kingOpen].map(p => `<button type="button" class="pline" data-power="${p}" aria-pressed="${poolPiece() && king === kingOpen && armed === p}"${poolPiece() ? '' : ' aria-disabled="true"'}>`
+      + `${coinHtml(p)}<span><b>${POWER_NAME[p]}</b><span class="pt">${esc(cap(powerText(p, kingRules(kingOpen!, p), true)))}.</span></span></button>`).join('');
+    else brushesEl.innerHTML = BRUSHES.map(([k, w], i) => `<button type="button" class="brush${brush === k ? ' armed' : ''}" data-brush="${k}" aria-pressed="${brush === k}" title="${NAMES[k]}. Tap to paint (${i + 1})">`
       + `<span class="tile">${tile(k, phone ? 40 : 80)}</span><span class="w">${w}</span></button>`).join('') + (phone && brush ? `<span class="phint">Tap a square.</span><button type="button" class="pg-moretools" data-act="tools" aria-label="More tools" aria-expanded="${toolsOpen}">⋯</button>` : '');
     toolsEl.hidden = !brush || (phone && !toolsOpen);
     toolsEl.innerHTML = !brush ? '' : `<button type="button" class="tool" data-brush="shot" aria-pressed="${brush === 'shot'}" title="Shot: takes from where it stands"><span class="tb">${tile('shot', 44)}</span><small>Shot</small></button>`
@@ -1142,12 +1324,15 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       else if (m.k === 'shot' || m.k === 'moveshot') add(m.k, () => tile(m.k, 36), NAMES[m.k]);
     }
     if (sc.rails.length) add('line', () => tile('move', 36, { rail: 'e' }), NAMES.line);
-    if (sc.arches.length) add('arch', () => effect('arch', 36), NAMES.arch);
+    if (sc.arches.some(a => !a.power)) add('arch', () => effect('arch', 36), NAMES.arch);
+    if (sc.marks.some(m => m.power)) add('power', () => tile('move', 36, { power: true }), "King's power");
     if (sc.impressions.some(im => im.list.some(x => x.a === 'removedAfter'))) add('removed', () => impression('removedAfter', 26), NAMES.removed);
     for (const e of sc.effects) {
       if (e.k === 'push' || e.k === 'swap') add(e.k, () => effect(e.k as 'push' | 'swap', 36), NAMES[e.k]);
       else if (e.k === 'becomes') add(e.k, () => impression('becomes', 26), NAMES.becomes);
       else if (e.k === 'threat') { const k = e.stopped ? 'tstop' : 'threat'; add(k, () => effect(k, 36), NAMES[k]); }
+      else if (e.k === 'frost') add('frost', () => effect('frost', 36), 'Frozen');
+      else if (e.k === 'rune' && !e.barred) add('rune', () => effect('rune', 36), 'LAB card pick');
     }
     // The seal view: the example, the MATRIX row and the pool pieces that have the rule (renderInfo, proving-ground.html:1124-1127).
     const seen = sealOn ? PRESETS.filter(p => p.rules.some(r => r.does.a === sealOn)) : [];
@@ -1162,17 +1347,17 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
      in short landscape a sheet from Pieces in the top bar, with no Board tab ---- */
 
   function renderLedge(): void {
-    const t = upright() || tab !== 'board' ? tab : 'pieces', tabs: [typeof tab, string][] = [['pieces', 'Pieces'], ['rules', 'Rules'], ...(upright() ? [['board', 'Board'] as [typeof tab, string]] : [])];
     if (!narrow.matches && tab === 'board') tab = 'pieces';
+    const t = upright() || tab !== 'board' ? tab : 'pieces', tabs: [typeof tab, string][] = [['pieces', 'Pieces'], ['kings', 'Kings'], ['cards', 'Cards'], ['rules', 'Rules'], ...(upright() ? [['board', 'Board'] as [typeof tab, string]] : [])];
     // While the sheet shows, the board and the column under it leave the Tab order and take no taps (a tap there closes it).
     ledgeEl.hidden = short.matches && !ledgeOpen;
     q('.pg-main').inert = short.matches && ledgeOpen;
     q('.pg-pieces').setAttribute('aria-expanded', `${ledgeOpen}`);
-    tabsEl.innerHTML = tabs.map(([k, w]) => `<button type="button" class="ltab${t === k ? ' on' : ''}" role="tab" id="pg-tab-${k}" data-tab="${k}" aria-selected="${t === k}" aria-controls="pg-${k === 'board' ? 'boardtab' : 'row'}">${w}</button>`).join('');
+    tabsEl.innerHTML = tabs.map(([k, w]) => `<button type="button" class="ltab${t === k ? ' on' : ''}" role="tab" id="pg-tab-${k}" data-tab="${k}" aria-selected="${t === k}" aria-controls="pg-${k === 'board' ? 'boardtab' : 'row'}">${w}${k === 'cards' ? ' <span class="lab" title="A test deck. Not in the game.">LAB</span>' : ''}</button>`).join('');
     rowEl.hidden = t === 'board';
     rowEl.setAttribute('aria-labelledby', `pg-tab-${t}`);
     boardTabEl.hidden = t !== 'board';
-    slotsEl.classList.toggle('lip', t === 'pieces');
+    slotsEl.classList.toggle('lip', t === 'pieces' || t === 'kings');
     // The Rules tab (renderLedge, proving-ground.html:1466-1476): the seals in their groups, then the laws in force as read-only
     // plaques (decision 28) and the Fixed plaque. The phone hides the laws.
     if (t === 'rules') {
@@ -1182,6 +1367,20 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       + `<span class="lsep" aria-hidden="true"></span><ul class="laws" aria-label="Laws of the game"><li class="law" title="A pawn on the last rank becomes a ${esc(pr.words)}.">Promotion<span class="pill" aria-hidden="true">${pr.letters}</span><span class="sr-only">${esc(pr.words)}</span></li>`
       + lawsOf().map(([name, say, on]) => `<li class="law" title="${esc(say)}">${name}<b>${on}</b></li>`).join('')
       + `<li class="law fixed"><b>${sigil('lock', 12)} Fixed</b>8×8 board · check and checkmate · no castling · no en passant · a power never takes a king.</li></ul>`;
+      return;
+    }
+    // The Cards tab (renderLedge, :1459-1465): the cards with art make a fan; the others wait in a stack, which a tap spreads.
+    if (t === 'cards') {
+      const rest = DECK.filter(c => !ART.includes(c)), face = (c: CardName): string => `<button type="button" class="cface lab-host${labOpen === c ? ' open' : ''}" data-lab="${c}"${labOpen === c ? ' aria-current="true"' : ''} aria-label="${cardName(c)} (LAB)">`
+        + `<img class="art" src="${cardArt(c)}" alt=""><span class="t">${cardName(c)}</span>${c in USES_RULE ? `<span class="badge"><img src="${import.meta.env.BASE_URL}ui/emblems/${kingOf(c as PowerName).toLowerCase()}.webp" alt=""></span>` : ''}<span class="lab-ribbon" aria-hidden="true">LAB</span></button>`;
+      slotsEl.innerHTML = `<div class="cfan">${(spread ? rest : ART).map(face).join('')}</div>` + (spread ? '<button type="button" class="quiet cback" data-act="cardsback">‹ Back</button>'
+        : `<button type="button" class="cstack" data-act="cardsall" aria-label="${rest.length} more cards"><span class="c"></span><span class="c"></span><span class="c"></span><b>+${rest.length}</b></button>`);
+      return;
+    }
+    // The Kings tab: the six kings (renderLedge, proving-ground.html:1455-1457).
+    if (t === 'kings') {
+      slotsEl.innerHTML = KING_LIST.map(k => `<button type="button" class="slot${kingOpen === k ? ' open' : ''}" data-king="${k}"${kingOpen === k ? ' aria-current="true"' : ''}>`
+        + `<img class="fig" src="${kingArt(k)}" alt=""><span class="nm">${k}</span></button>`).join('');
       return;
     }
     const slot = (attr: string, key: string, d: PieceDesign, yours: boolean): string => {
@@ -1212,8 +1411,9 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     const b = (e.target as Element).closest<HTMLElement>('.slot');
     if (!b || b.dataset.act) return;
     const d = shelf.find(x => x.id === b.dataset.design);
-    if (b.matches('.newtile')) newPiece(); else show(d ? { key: `design:${d.id}`, d, yours: true } : pool(b.dataset.piece!));
-    arrive();
+    if (b.dataset.king) openKing(b.dataset.king as KingName);
+    else if (b.matches('.newtile')) newPiece(); else show(d ? { key: `design:${d.id}`, d, yours: true } : pool(b.dataset.piece!));
+    if (!b.dataset.king) arrive();
     // renderLedge replaced the slot: give the focus to its new copy, with no scroll away from the board. In short landscape
     // the choice closed the sheet (show): the focus goes back to Pieces.
     q<HTMLElement>(short.matches ? '.pg-pieces' : '.slot.open').focus({ preventScroll: true });
@@ -1259,6 +1459,17 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       // The zone of the previewed When shows in chalk (proving-ground.html:1147).
       for (const z of sc.chalk) if (!was.has(key(z))) z.pv = true;
     }
+    if (!brush && !next) {
+      // The armed power's marks take the place of the marks on their squares; its arch takes the place of the line that a
+      // passed piece stops. A Freeze mark shows frost with its turns left (ticket 13).
+      const pm = powerNow(), l = king && pm.length ? powerLayer(pm, board, from, king.toLowerCase()) : null, at = new Set(l?.marks.map(m => m.sq));
+      if (l) sc = { ...sc, marks: [...sc.marks.filter(m => !at.has(m.sq)), ...l.marks], arches: [...sc.arches, ...l.arches], rails: [...sc.rails.filter(r => !(r.end === 'stop' && l.arches.some(a => a.over === r.to))), ...l.rails] };
+      for (const mk of pos.game.marks ?? []) if (mk && board[mk.sq]) sc.effects.push({ k: 'frost', sq: sqName(mk.sq), turns: mk.left ?? 1 });
+      // The laid card's picks are runes, barred on the king that it may not pick (ticket 14).
+      const lm = labNow(), no = barred(lm);
+      for (const m of lm) sc.effects.push({ k: 'rune', sq: sqName(m.captures[0] ?? m.to) });
+      if (no >= 0) sc.effects.push({ k: 'rune', sq: sqName(no), barred: true });
+    }
     if (brush) {
       // The reach ends 3 squares out: a line shows 3 squares, then its arrow (designScene, proving-ground.html:781-797).
       sc.marks = sc.marks.filter(m => !out(m.sq));
@@ -1273,7 +1484,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   /** Draws everything for the open item. A control that a part replaced gets the focus back (the card box has an empty value). */
   function render(): void {
     const a = document.activeElement as HTMLElement | null;
-    const keep = ['brush', 'act', 'nub', 'piece', 'design', 'pill', 'when', 'choice', 'sealitem', 'seal', 'rm', 'tok', 'tab', 'try', 'promo', 'cardon', 'figure', 'openseal']
+    const keep = ['brush', 'act', 'nub', 'piece', 'design', 'pill', 'when', 'choice', 'sealitem', 'seal', 'rm', 'tok', 'tab', 'try', 'promo', 'cardon', 'figure', 'king', 'power', 'seat', 'lay', 'lab', 'twin', 'openseal']
       .map(k => a?.dataset?.[k] !== undefined && `[data-${k}="${a.dataset[k]}"]`).find(Boolean);
     // A row or a card of a rule that is gone closes.
     if (row && !ruleIn(cur.d, row.a)) row = null;
@@ -1284,7 +1495,10 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     renderShelf();
     renderLedge();
     renderTray();
-    q('.pg-plaque').hidden = !plaqueOn();
+    // With a laid card the plaque turns burgundy: "LAB card" (proving-ground.html:1177-1179).
+    const lab = !!laid && poolPiece();
+    q('.pg-plaque').hidden = !plaqueOn() && !lab;
+    q('.pg-plaque').innerHTML = lab ? `<span class="plaque lab" title="A test card. It is not in the game.">${sigil('card', 13)}LAB card</span>` : plaque();
     drawAlert();
     renderWhy();
     // A short right column has no room for the tray under the tag: the tray waits until the tag closes.
@@ -1298,13 +1512,14 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     // NEW is not an item to look around: it does not count as an open (S.opened, proving-ground.html:2008).
     if (item.key !== 'new' && (!opened || item.key !== cur.key)) opened++;
     cur = item;
-    brush = row = peek = pick = card = focus = hover = knotAt = why = token = promo = null;
-    weighOpen = moreOpen = toolsOpen = shelfOpen = lifted = ledgeOpen = false;
+    brush = row = peek = pick = card = focus = hover = knotAt = why = token = promo = kingOpen = labOpen = null;
+    weighOpen = moreOpen = toolsOpen = shelfOpen = lifted = ledgeOpen = seating = laying = false;
     sealOn = null;
     // A design with no pool piece paints with Mirror (the mockup's S0).
     mirror = item.d.from[0] ? presetOf(item.d.from[0]).paintOn : 'lr';
     const pieces = examplesOf(item.d);
-    pos = { board: boardOf(pieces), from: parseSq(pieces[0].sq), st: START, gone: false, chain: null, became: 0 };
+    // The seated king stays: he stands on the board of a pool piece (ticket 13).
+    pos = { board: king && item.key.startsWith('piece:') ? seated(boardOf(pieces)) : boardOf(pieces), from: parseSq(pieces[0].sq), st: START, gone: false, chain: null, became: 0, game: {} };
     backs = [];
     // The eye starts on for a piece that a rule keeps safe (the Guard, proving-ground.html:1564).
     threats = !!ruleIn(item.d, 'cannotBeTaken');
@@ -1333,10 +1548,16 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   dlg.addEventListener('click', e => {
     // A tap outside the ledge's sheet (and outside See all, which opens from it) closes it, and does nothing else.
     if (ledgeOpen && !(e.target as Element).closest('.pg-ledge, .pg-sheet, [data-act="pieces"]')) return closeLedge();
-    const t = (e.target as Element).closest<HTMLElement>('[data-act], [data-brush], [data-nub], .pg-hits .sq, [data-pill], [data-when], [data-choice], [data-sealitem], [data-rm], [data-tok], [data-tab], [data-try], [data-promo], [data-figure], [data-openseal], [data-seenon]');
+    const t = (e.target as Element).closest<HTMLElement>('[data-act], [data-brush], [data-nub], .pg-hits .sq, [data-pill], [data-when], [data-choice], [data-sealitem], [data-rm], [data-tok], [data-tab], [data-try], [data-promo], [data-figure], [data-power], [data-seat], [data-lay], [data-lab], [data-twin], [data-openseal], [data-seenon]');
     if (!t) { if (moreOpen) { moreOpen = false; renderTop(); } return; }
-    const { sq: at, nub: l, brush: b, pill: pa, when: wa, choice, sealitem: sa, rm, tok, tab: tb, try: tr, promo: pr, figure, openseal: os, seenon: seen } = t.dataset;
+    const { sq: at, nub: l, brush: b, pill: pa, when: wa, choice, sealitem: sa, rm, tok, tab: tb, try: tr, promo: pr, figure, power, seat: k, lay: lc, lab: oc, twin, openseal: os, seenon: seen } = t.dataset;
     if (figure) return void change('look', d => { d.look.figure = figure; });
+    if (power) return tapPower(power as PowerName);
+    if (k) { seat(k as KingName); return q<HTMLElement>('[data-act="seat"]')?.focus(); }
+    if (lc) { lay(lc as CardName); return q<HTMLElement>('[data-act="lay"]')?.focus(); }
+    // In short landscape openLab closed the sheet: the focus goes back to Pieces, as in the slots' listener.
+    if (oc) { openLab(oc as CardName); return q<HTMLElement>(short.matches ? '.pg-pieces' : '.cface.open')?.focus({ preventScroll: true }); }
+    if (twin) { tab = 'kings'; return openKing(twin as KingName); }
     if (at) { if (brush) paint(at); else tapSquare(at); return; }
     if (tok) {
       token = token === tok ? null : tok as 'friend' | 'enemy';
@@ -1345,7 +1566,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       if (token) toast(`Tap a square to put a ${tok === 'friend' ? 'white' : 'black'} pawn there, or tap a piece to take it away.`);
       return;
     }
-    if (tb) { tab = tb as typeof tab; return render(); }
+    // A new tab starts at the left of its row, with the open slot in view.
+    if (tb) { tab = tb as typeof tab; render(); rowEl.scrollLeft = 0; return revealOpenSlot(); }
     if (os) return openSeal(os as Ability['a']);
     if (seen) { const a = sealOn; show(pool(seen)); focus = canonical(cur.d).rules.findIndex(r => r.does.a === a); tab = 'pieces'; render(); return q<HTMLElement>(`[data-piece="${seen}"]`)?.focus({ preventScroll: true }); }
     if (tr) return playOne(movesAt(why!).filter(m => actOf(m) === tr));
@@ -1364,8 +1586,16 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (act === 'closewhy') return closeWhy();
     if (act === 'stamp') return stamp();
     if (act === 'threats') { threats = !threats; return render(); }
+    if (act === 'seat') { seating = !seating; laying = false; return render(); }
+    if (act === 'lay') { laying = !laying; seating = false; return render(); }
+    if (act === 'nosocket') return toast('Powers work on the pool pieces for now.', 'lock');
+    if (act === 'nocard') return toast('Cards work on the pool pieces for now.', 'lock');
+    if (act === 'cardsall' || act === 'cardsback') { spread = act === 'cardsall'; render(); rowEl.scrollLeft = 0; return q<HTMLElement>(spread ? '.cface' : '.cstack').focus({ preventScroll: true }); }
     if (act === 'stir' || act === 'clear') {
-      setUp(act === 'stir' ? stir(restored(), pos.from, Math.random) : clear(restored(), pos.from));
+      // The seated king stays on the board; the Freeze marks go with the old enemies.
+      const b = act === 'stir' ? stir(restored(), pos.from, Math.random) : clear(restored(), pos.from);
+      setUp(king && poolPiece() ? seated(b) : b);
+      pos = { ...pos, game: { uses: pos.game.uses } };
       why = null;
       render();
       return ripple();
@@ -1441,8 +1671,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     const field = (e.target as Element).closest?.('input, textarea, select');
     if (!dlg.open || q('.pg-sheet[open]') || ((field || ledgeOpen) && e.key !== 'Escape')) return;
     if (e.key === 'Escape' && ledgeOpen) { e.preventDefault(); return closeLedge(); }
-    if (e.key === 'Escape' && (row || card || shelfOpen || brush || moreOpen || weighOpen || why || lifted || token)) {
+    if (e.key === 'Escape' && (row || card || shelfOpen || brush || moreOpen || weighOpen || why || lifted || token || seating || laying)) {
       e.preventDefault();
+      // Esc closes SEAT A KING, and the focus goes back to the socket.
+      if (seating) { seating = false; render(); return q<HTMLElement>('[data-act="seat"]')?.focus(); }
+      if (laying) { laying = false; render(); return q<HTMLElement>('[data-act="lay"]')?.focus(); }
       // Esc puts the lifted piece back and lets the armed token go.
       if (lifted || token) { lifted = false; token = null; render(); }
       // Esc closes only the row, and the focus goes back to its pill or chip.
