@@ -39,14 +39,15 @@ const kings = params.get('kings');
  * settings, and replaces the autosave after a confirm, unless it continues the saved game.
  */
 const linkMoves = params.get('moves');
-/** A game link's `?design=`: the design that plays as `T` (ticket 17); a link with a design that this page cannot read does not open. */
+/** A game link's `?design=`: the design that plays as `T` (ticket 17); a link with a design that this page cannot read does not open, and says why. */
 const linkDesign = (() => {
   try {
     const d = parseRule(`design=${params.get('design') ?? ''}`).design;
     return d?.rules.some(r => HISTORY_WHENS.includes(r.when.on)) ? undefined : d; // `setRules` refuses it
   } catch { return undefined; }
 })();
-const link = linkMoves != null && (params.has('army') || params.has('fen')) && linkDesign !== undefined;
+const gameLink = linkMoves != null && (params.has('army') || params.has('fen'));
+const link = gameLink && linkDesign !== undefined;
 // Before the first Game: its constructor builds a position and asks for its status.
 /** With any power in play, the balanced readings apply (an older `?rules=` preset still overrides them). */
 const withPowers = (k: Rules['kings']): Partial<Rules> => (k[0] || k[1] ? POWERS_BALANCED : {});
@@ -55,7 +56,7 @@ if (preset || kings || (link && linkDesign)) {
   setRules({ ...(k ? withPowers(k) : {}), ...preset, ...(k ? { kings: k } : {}), ...(link && linkDesign ? { design: linkDesign } : {}) });
 }
 /** A plain `?fen=` position (not a game link): it wins over the autosave, and the account's saved game does not replace it. */
-const fen = link ? null : params.get('fen');
+const fen = gameLink ? null : params.get('fen');
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -180,8 +181,9 @@ const lans = linkMoves?.split('_').filter(Boolean) ?? [];
 const continues = !!saved && (params.get('army') ? saved.back === params.get('army') : !saved.back && saved.fen === params.get('fen'))
   && saved.moves.every((m, i) => lans[i] === m);
 const openLink = link && (!saved?.moves.length || continues || confirm('Open the game from this link? It replaces your current game.'));
-if (link) history.replaceState(null, '', gameLinkless()); // a reload then resumes the autosave
-play.restore(saved, { link: openLink, continues, urlRules: !!(preset || kings || (openLink && linkDesign)), title: showTitle });
+if (gameLink) history.replaceState(null, '', gameLinkless()); // a reload then resumes the autosave
+play.restore(saved, { link: openLink, continues, urlRules: !!(preset || kings || (openLink && linkDesign)), title: showTitle,
+  notice: gameLink && !link ? `The game link holds a piece that this version cannot read.${saved ? ' Your saved game stays.' : ''}` : '' });
 await view.ready();
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
 guide.fill(); // after every setRules path (URL preset / save restore)
@@ -192,7 +194,7 @@ if (showHome) home.open();
 if (!fen) play.save(); // pin the random back rank so a reload keeps this game (and keep an opened link's game)
 void import('./account/account').then(m => { account = m; m.changed(); m.startAccount(play.fromAccount); })
   .catch(() => { /* offline on a first visit: play on without an account */ });
-const designLink = link ? null : params.get('design'); // without a game link, `?design=` opens the Workshop
+const designLink = gameLink ? null : params.get('design'); // without a game link, `?design=` opens the Workshop
 if (designLink) {
   const url = new URL(location.href);
   url.searchParams.delete('design');

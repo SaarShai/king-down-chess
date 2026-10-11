@@ -115,7 +115,7 @@ Changes from the owner's words, each with its reason:
 
 Open problems:
 
-- At 568 × 320 the seal groups of the shelf still scroll (113 px of 220 px show).
+- At 568 × 320 the seal groups of the shelf still scroll (113 px of 220 px show). Resolved 2026-10-11, see "Open end resolved".
 - The owner has not seen the renders of this fix.
 
 ### Reviews of the follow-up
@@ -131,3 +131,27 @@ Evidence after the fixes (in `R/logs/`):
 - `npm test` through the shared lock: exit 0. 116 test files pass (1 skipped); 1,892 tests pass (21 skipped). Log: `npm-test-1.log`.
 - `npm run check:browser workshop`: passes three times (127.3 s, 113.6 s, 113.4 s). Logs: `check-1.log` to `check-3.log`, and each run's `check-N.workshop.log` ("workshop: all groups pass").
 - W14 render compare against the last commit: `node docs/specs/web-ux/render-compare.mjs --against HEAD --samples W14 --out R/compare` gives 109 pairs, 1 stable change, 10 unstable, 0 faults (`compare.log`). The one change is `stamp-preview-landscape.png`, the state of this fix: Moves like has the When chip "on a center square", which now stands on the sentence's line, so the card is one line shorter (`R/compare/tree/W14/stamp-preview-landscape.png`). The other landscape states, and each state at 1440 × 900 and 390 × 844, have no stable change; the 10 unstable renders differ between two renders of one build.
+
+### 2026-10-11 · Open end resolved: the shelf at 568 × 320 (owner: "3. resolve all")
+
+Resolved. At 568 × 320 each seal row of the Rules shelf shows with no scroll, with each seal picked in turn.
+
+The fix (`src/workshop/ground.css`, a new block `@media (orientation: landscape) and (max-height: 340px)`; 667 × 375 and larger do not get it):
+
+1. The 10 seals stand in a grid of 5 columns, in two rows. Each seal button is 52 px wide and 55 px high, with a 28 px seal and its label. Reason: with the 6 groups as flex boxes, the group names make 3 rows, and 3 rows and the longest sentence do not fit in 272 px.
+2. The group names (Moving, Taking …) are for screen readers only (a 1 px clipped box). The order of the seals stays the order of the groups. Reason: each seal keeps its own label, which says more than the group name, and the labels need the space.
+3. The sentence card has no seal of its own, so the sentence takes the full width of the card. Reason: the picked seal shows pressed directly above the card. The sentence stays at 15.5 px, as at 667 × 375.
+4. Smaller gaps: the shelf's padding is 4 px 12 px, the groups have no top margin, the card's row gap is 2 px, and Stamp stands at 4 px from the top (it touched the first seal row by 2 px at 6 px).
+
+The browser check (`tools/verify-workshop.mjs`, `landscape()`): the seal test ran only from 375 px high; now it runs at each short-landscape size (844 × 390, 667 × 375 and 568 × 320), with each seal picked in turn, and also asserts that the sentence is 15 px or more. `overlaps` does not count a 1 px box (a name for screen readers only).
+
+Evidence (outside Git, in `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/08f2956c-63a7-4276-8738-a657bdb42b06/scratchpad/build/open-ends/`):
+
+- The probe `try.mjs` picks each seal of the Pawn at 568 × 320. Before: the groups scroll 99 to 145 px, and 6 seals are cut (`before/`, for example `before/step2-568x320.png`). After: 0 px of scroll and no seal cut for each of the 10 seals; each seal button is 52 × 55 px or more (`after/`, for example `after/step2-568x320.png` and `after/none-568x320.png`).
+- On the old CSS the new check fails: "568x320: with step2 picked, each seal of the shelf shows in full above the sentence card" (`logs/only-neg.log`). On the fix, `layouts` and `turnRefits` pass (`logs/only-fix.log`).
+- No change at the other sizes: `node docs/specs/web-ux/render-compare.mjs --against ce2fe345ee41d602ab643f296105a540ffdcd418 --samples W14 --out /private/tmp/claude-501/-Users-za-Documents-king-down-chess/08f2956c-63a7-4276-8738-a657bdb42b06/scratchpad/build/open-ends/compare` gives 109 pairs, 0 stable changes, 22 unstable, 0 faults (`logs/compare.log`). W14 renders at 844 × 390, 1440 × 900 and 390 × 844. W14 has no state at 667 × 375, so the probe also rendered the shelf with each seal picked at 667 × 375 and 844 × 390 on the old CSS and on the fix: 22 pairs, 0 differ (`px/before/`, `px/after/`, `logs/px-compare.log`).
+- `npm test` through the shared lock: exit 0. 118 test files pass (1 skipped); 1,915 tests pass (21 skipped). Log: `logs/npm-test-1.log`; `logs/npm-test-2.log` is the run with this ticket text.
+- `npm run check:browser workshop new-game painted-game`: all 3 pass (122.4 s, 18.0 s, 112.1 s). Logs: `logs/checks-1.log` and each check's log in `logs/checks-1/`.
+
+The target state (the shelf at 568 × 320) has no W14 render, so the renders for the owner are `after/*-568x320.png`.
+

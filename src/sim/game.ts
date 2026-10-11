@@ -4,7 +4,7 @@ import { RULES, Rules, setRules } from '../rules/rules';
 import { fromFen, toFen, toLan, waitGuards } from '../rules/setup';
 import { readFileSync } from 'node:fs';
 import { Game } from '../game';
-import { EvalParams, setEvalParams, setPieceValues } from '../ai/eval';
+import { EvalParams, setDesignValue, setEvalParams } from '../ai/eval';
 import * as AI from '../ai/search';
 import { setPowerHold } from '../ai/search';
 import { Adjudicate, Job, RunSpec, adjudication, sideOptions } from './spec';
@@ -178,7 +178,7 @@ function resolve(pos: Position, legal: readonly Move[], m: Move | null | undefin
 export function playGame(spec: RunSpec, job: Job): GameRecord {
   const t0 = performance.now();
   setRules(spec.rules); // per game: cheap, and an A/B run changes rules between sub-runs
-  setPieceValues(spec.values); // same reason; with no `values` this restores the shipped constants
+  setDesignValue(RULES.design, spec.values); // same reason; a design in `T` gets its judge worth, and no design and no `values` restore the shipped constants
   setPowerHold(spec.powerHold as Parameters<typeof setPowerHold>[0]); // likewise: none = the search's defaults
   const rng = mulberry32(job.seed);
   const game = startGame(job.backRankWhite, job.backRankBlack, job.fen);

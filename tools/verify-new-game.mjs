@@ -244,11 +244,16 @@ try {
   assert.deepEqual([s.back, s.rules.design.code, await page.evaluate(() => window.view.pos.board[1])], ['RTBQKBNR', code, 15], 'a game link plays the design it holds, on a device without it');
   assert.equal(await page.evaluate(() => document.getElementById('workshop')?.open ?? false), false, 'a game link does not open the Workshop');
   await page.context().close();
+  page = await open({ query: '?design=unreadable&army=RTBQKBNR&moves=e2-e4', save: { back: 'RNBQKBNR', fen: '', moves: ['d2-d4'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' } });
+  assert.equal(await page.textContent('#context-text'), 'The game link holds a piece that this version cannot read. Your saved game stays.', 'a link with a design this version cannot read says why');
+  assert.deepEqual([await lanMoves(page), (await saved(page)).back], [['d2-d4'], 'RNBQKBNR'], 'the saved game stays');
+  assert.deepEqual(await page.evaluate(() => [document.getElementById('workshop')?.open ?? false, location.search]), [false, ''], 'no Workshop, and the URL loses the link');
+  await page.context().close();
   page = await open();
   await pressMenu(page, 'New game');
   assert.deepEqual([await page.$$eval('#design option', os => os.map(o => o.textContent)), await page.textContent('#design-line')], [['No design'], 'No designs yet. Make one in the Workshop.'], 'no designs: the line says where to make one');
   await page.keyboard.press('Escape');
-  ok('Bring a design: the designs, a reason for one that waits, Tab and 44 px, one each side in place of the nearest piece, the computer plays it, memory, a game link');
+  ok('Bring a design: the designs, a reason for one that waits, Tab and 44 px, one each side in place of the nearest piece, the computer plays it, memory, a game link, and a link this version cannot read');
 
   // 8. A save from before the dialog remembered its setup: New game opens on that game.
   page = await open({ save: { back: 'RNBQKBNR', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', moves: [], white: 'ai', black: 'human', skill: 'strong', rules: { kings: [{ king: 'Frost', power: 'Freeze' }, null] }, sound: false } });
