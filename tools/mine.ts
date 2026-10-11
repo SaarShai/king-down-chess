@@ -1,3 +1,4 @@
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Mine the recorded games for "what makes a back rank interesting or unbalanced".
  *
@@ -526,7 +527,7 @@ function rowOf(a: Acc): Record<string, number> {
 
 async function readRun(id: string, byRank: Map<string, Acc>, g: Global): Promise<number> {
   let n = 0;
-  const rl = createInterface({ input: createReadStream(`sim/out/${id}.jsonl`), crlfDelay: Infinity });
+  const rl = createInterface({ input: createReadStream(`${resultsRoot()}/${id}.jsonl`), crlfDelay: Infinity });
   for await (const line of rl) {
     if (!line.trim()) continue;
     const rec = JSON.parse(line) as GameRecord;

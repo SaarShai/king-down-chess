@@ -47,3 +47,13 @@ The run recipes of the 2026-10-03 handoff, now in the [tasks archive](tasks-arch
 - **Engine:** the tournaments play the linear evaluation; the sim never uses the residual net of the computer player in the browser. Thus the balance numbers are for the linear-evaluation engine at the depth of the run.
 - **Raw games:** git does not keep `sim/out/*.jsonl` on the pull-request branches. The branch `claude/kp2-results` on origin holds them: rounds 2–18, `fi-r11..13`, the card rounds and the piece runs. The older branches that the handoff named (`claude/kp2-results-r11-r12`, `claude/kp2-results-r13-cards` and the shard branches) are not on origin (checked 2026-10-07). To get a file: `git fetch origin claude/kp2-results && git checkout origin/claude/kp2-results -- <files>`, then `git restore --staged <files>`.
 - **Stop a process:** do not `pkill -f` a pattern that also matches your own shell command; stop it by its PID. A `pgrep -f` wait loop can find itself.
+
+## Results storage and backup
+
+The authoritative result collection on the main Mac is `/Volumes/card disk/King Down/results`. `~/.config/king-down/results.json` records its volume UUID. The shared result-root module stops if the configured card is absent. A machine without that configuration, such as M1 or Kaggle, uses its local `sim/out` spool. An explicit `KING_DOWN_RESULTS_DIR` selects a test or remote spool. Do not use that override to bypass a missing card on the main Mac.
+
+Run `tools/backup-sim-out.sh` after a completed run or remote pull. The collector reads all registered local worktrees and all M1 project `sim/out` folders. It does not delete source files. A strict byte-for-byte append to a log or JSONL becomes current while retaining the previous version. Other different content at the same path stays in `.variants/<sha256>/<path>`; state manifests record its source. Do not concatenate logs from different runs. Keep the existing invalid-run notices with their data.
+
+Cloud snapshots live in `King Down/results-backups` on Google Drive. Each snapshot is a compressed archive with file hashes and the collection source manifest. The job reads the archive back, checks source stability, uploads it, and uses `rclone check` before it updates `latest.json`. Prior verified snapshots remain. A daily job collects and backs up results; failed M1 access or a missing card prevents a complete-success report.
+
+Tracked `sim/out` files remain in Git as historical evidence and test fixtures. They do not define the runtime destination. Old worktrees that lack the new root module remain spools until their code is updated; the collector includes them.

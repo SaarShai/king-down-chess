@@ -1,3 +1,4 @@
+import { resultsRoot } from './lib/results-root.mjs';
 #!/usr/bin/env -S npx tsx
 /**
  * Start positions for the king-defence runs (docs/research/guard-strategies-2026-10-06.md, Part 2):
@@ -303,7 +304,7 @@ async function* storedGames(args: readonly string[], dir: string): AsyncGenerato
 
 async function main(argv: readonly string[]): Promise<void> {
   const [mode, ...rest] = argv;
-  let n = 100, seed = 1, out = '', dir = 'sim/out';
+  let n = 100, seed = 1, out = '', dir = resultsRoot();
   const filter: RealFilter = { ...REAL_DEFAULT };
   const ids: string[] = [];
   for (let i = 0; i < rest.length; i++) {

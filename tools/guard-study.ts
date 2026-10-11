@@ -1,3 +1,4 @@
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Guard study: what the immortal guard actually does in the 130 000 recorded games, and whether it
  * drags the game to a draw (docs/research/guard-study-2026-09-13.md).
@@ -367,7 +368,7 @@ function mineGame(sts: readonly Study[], run: string, rec: Rec, opt: Opt): void 
 }
 
 async function mineRun(sts: readonly Study[], run: string, opt: Opt): Promise<void> {
-  const rl = createInterface({ input: createReadStream(`sim/out/${run}.jsonl`), crlfDelay: Infinity });
+  const rl = createInterface({ input: createReadStream(`${resultsRoot()}/${run}.jsonl`), crlfDelay: Infinity });
   for await (const line of rl) {
     if (!line) continue;
     let rec: Rec;
@@ -388,7 +389,7 @@ interface Played { games: number; gSeen: number; gCapt: number; gStep2: number; 
 
 async function classify(run: string, limit = 300): Promise<Played> {
   const p: Played = { games: 0, gSeen: 0, gCapt: 0, gStep2: 0, aDiag: 0, aStep: 0, gTaken: 0, gTakenByK: 0 };
-  const rl = createInterface({ input: createReadStream(`sim/out/${run}.jsonl`), crlfDelay: Infinity });
+  const rl = createInterface({ input: createReadStream(`${resultsRoot()}/${run}.jsonl`), crlfDelay: Infinity });
   for await (const line of rl) {
     if (!line) continue;
     let rec: Rec;
@@ -421,7 +422,7 @@ async function classify(run: string, limit = 300): Promise<Played> {
 /** Runs that played the shipped guard: no capture, no 2-step move, and only a king takes it. */
 async function guardRuns(): Promise<{ shipped: string[]; buffedArcher: Set<string> }> {
   const shipped: string[] = [], buffedArcher = new Set<string>();
-  for (const f of globSync('sim/out/*.summary.json')) {
+  for (const f of globSync(`${resultsRoot()}/*.summary.json`)) {
     const id = f.replace(/^sim\/out\//, '').replace(/\.summary\.json$/, '');
     let p: Played;
     try { p = await classify(id); } catch { continue; }
@@ -612,7 +613,7 @@ for (let i = 2; i < process.argv.length; i++) {
 if (typeof f.fen === 'string') {
   // `--fen <run>:<gameId>:<ply>` — the exact position after `ply` plies, for a quoted example.
   const [run, gid, ply] = (f.fen as string).split(':');
-  const rl = createInterface({ input: createReadStream(`sim/out/${run}.jsonl`), crlfDelay: Infinity });
+  const rl = createInterface({ input: createReadStream(`${resultsRoot()}/${run}.jsonl`), crlfDelay: Infinity });
   for await (const line of rl) {
     if (!line.startsWith(`{"gameId":${gid},`)) continue;
     const rec: Rec = JSON.parse(line);
@@ -630,7 +631,7 @@ else if (typeof f.verify === 'string') {
   // paladin's self-removal, the counts diverge.
   let games = 0, bad = 0;
   for (const run of (f.verify as string).split(',')) {
-    const rl = createInterface({ input: createReadStream(`sim/out/${run}.jsonl`), crlfDelay: Infinity });
+    const rl = createInterface({ input: createReadStream(`${resultsRoot()}/${run}.jsonl`), crlfDelay: Infinity });
     for await (const line of rl) {
       if (!line) continue;
       const rec: Rec = JSON.parse(line);
@@ -660,7 +661,7 @@ else if (typeof f.shots === 'string') {
   // built with `step()` alone, so no blocker of either colour is consulted.
   let over = 0, overFriend = 0, overEnemy = 0, all = 0, drawGvK = 0;
   for (const run of (f.shots as string).split(',')) {
-    const rl = createInterface({ input: createReadStream(`sim/out/${run}.jsonl`), crlfDelay: Infinity });
+    const rl = createInterface({ input: createReadStream(`${resultsRoot()}/${run}.jsonl`), crlfDelay: Infinity });
     for await (const line of rl) {
       if (!line) continue;
       const rec: Rec = JSON.parse(line);

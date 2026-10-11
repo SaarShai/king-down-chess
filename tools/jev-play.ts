@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Jev session player — deliberate games where Jev steers the plan and the engine enforces legality
  * and tactics.
@@ -39,7 +40,7 @@ const MIN_CONF = Number(flag('minConf', '0.5'));
 const WHITE = flag('white', 'jev') as 'jev' | 'engine';
 const BLACK = flag('black', 'engine') as 'jev' | 'engine';
 const STAMP = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-'); // seconds: two runs in one minute must not collide
-const OUT_JSONL = `sim/out/jev-session-${STAMP}-${WHITE}-${BLACK}.jsonl`;
+const OUT_JSONL = `${resultsRoot()}/jev-session-${STAMP}-${WHITE}-${BLACK}.jsonl`;
 
 /** Strategic themes, in priority order; the first match is the move's primary theme. */
 const THEME_TEXT: Record<string, string> = {
@@ -173,7 +174,7 @@ for (let g = 0; g < GAMES; g++) {
 const scored = summary.filter(s => s.result !== 'draw');
 const whiteWins = summary.filter(s => s.result === 'white').length;
 const decisive = scored.length;
-writeFileSync(`sim/out/jev-session-${STAMP}-${WHITE}-${BLACK}.summary.json`, JSON.stringify({ white: WHITE, black: BLACK, games: GAMES, depth: DEPTH, seed: SEED, whiteWins, draws: GAMES - decisive, decisive, meanPlies: summary.reduce((a, s) => a + s.plies, 0) / GAMES, jevCalls, jevDiffered, movesTotal, summary }, null, 2) + '\n');
+writeFileSync(`${resultsRoot()}/jev-session-${STAMP}-${WHITE}-${BLACK}.summary.json`, JSON.stringify({ white: WHITE, black: BLACK, games: GAMES, depth: DEPTH, seed: SEED, whiteWins, draws: GAMES - decisive, decisive, meanPlies: summary.reduce((a, s) => a + s.plies, 0) / GAMES, jevCalls, jevDiffered, movesTotal, summary }, null, 2) + '\n');
 console.log(`\njev-play: ${GAMES} games — white(${WHITE}) wins ${whiteWins}, draws ${GAMES - decisive}, mean plies ${(summary.reduce((a, s) => a + s.plies, 0) / GAMES).toFixed(0)}`);
 console.log(`jev-play: ${jevCalls} Jev decisions, ${jevDiffered} differed from the engine (${(100 * jevDiffered / Math.max(1, jevCalls)).toFixed(0)}%), moves ${movesTotal}`);
 console.log(`jev-play: wrote ${OUT_JSONL}`);

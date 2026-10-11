@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Kings' powers: assemble the paired-test evidence into one report (docs/TAKEOVER-PLAN.md §5).
  *
@@ -18,7 +19,7 @@ import { fromFen } from '../src/rules/setup';
 import { B, K, P, Q, R, file, makeMove, rank, typeOf } from '../src/rules/engine';
 import type { GameRecord } from '../src/sim/game';
 
-const OUT = 'sim/out';
+const OUT = resultsRoot();
 const REPORT = 'docs/research/sim-kings-2026-09-16.md';
 
 interface Power { id: string; name: string; rule: string; counters: string[] }
@@ -222,7 +223,7 @@ defaults — never the old-paladin \`pb-ab-base24\`). Both kings of a game carry
 table is the rule's effect on the game, not a piece value. Depth 4 runs only where the depth-3
 difference cleared its own interval.
 
-Seeds: pilot 61, main 62, depth 4 63. Files: \`sim/out/kp-*\`.
+Seeds: pilot 61, main 62, depth 4 63. Files: \`${resultsRoot()}/kp-*\`.
 
 ${sections.join('\n')}
 ${altSection}

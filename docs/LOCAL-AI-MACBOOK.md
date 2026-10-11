@@ -68,7 +68,7 @@ beside this Mac and Kaggle. Its 10 cores (8 performance, 2 efficiency) leave 2 f
 - **Per run:** push the run's commit first, then
   `ssh M1 'export PATH=/usr/local/bin:$PATH; cd ~/projects/king-down-runs && git fetch -q --depth 1 --filter=blob:none origin <branch> && git checkout -q FETCH_HEAD && npm ci --no-audit --no-fund --loglevel=error'`.
   Copy the run flags over (`scp`), start each shard detached (`nohup npx tsx src/sim/tournament.ts run --id <id> <flags> --shard i/n --workers 8 > sim/out/<id>.shard<i>of<n>.log 2>&1 &`),
-  and copy `sim/out/<id>.shard<i>of<n>.jsonl` back into this Mac's `sim/out/` when done. Give M1
+  and run `tools/backup-sim-out.sh` on the main Mac when done. It collects every M1 result spool into the card collection and verifies its Google Drive backup. Give M1
   shards no other machine plays.
 - **Check (2026-10-03):** 82 test games at commit `2f93342`; the 46 this Mac had also played were
   identical move for move. Speed on mains power is not measured yet (on battery, 8 workers: 52

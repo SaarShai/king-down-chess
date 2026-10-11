@@ -28,6 +28,7 @@
 - Every run needs a go, and the launcher records the owner's quote. On this Mac without a go: unit tests, browser checks, a smoke run of at most 20 games with 2 workers.
 - A question is not a go. Write the quote and its date in the `docs/QUEUE.md` row before the launch. A queued run starts by its name.
 - Other compute uses the M1 or Kaggle, not this Mac. Use no cloud agent session as a run worker.
+- Main Mac results use the card via `tools/lib/results-root.mjs`; stop if absent. M1/Kaggle use spools. Back up with `tools/backup-sim-out.sh`; preserve sources until verified.
 - [COMPUTE.md](docs/COMPUTE.md) holds the Kaggle, M1 and power facts, the run recipes and the shell limit.
 
 ## Secrets

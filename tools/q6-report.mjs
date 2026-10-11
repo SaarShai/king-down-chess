@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Q6 accept/reject report (docs/TAKEOVER-PLAN.md §3). Reads what the replacement chain wrote and
  * turns it into `docs/research/ai-q6-acceptance-2026-09-16.md`. Safe to run at any time: a missing
@@ -62,7 +63,7 @@ ${verdict}
 | depth-4 confirmation | ${elo(arms.d4)} |
 | speed | ${bench ? bench.map(r => `${r.evaluator}: ${r.nodesPerSec} nodes/s, 1s depth ${r.meanDepthIn1s}`).join(' · ') : '**not finished**'} |
 
-The raw records \`sim/out/nnue-res2-*.{jsonl,summary.json,tuned.json}\` and \`sim/nnue/{positions,net,train,bench}.json\`
+The raw records \`${resultsRoot()}/nnue-res2-*.{jsonl,summary.json,tuned.json}\` and \`sim/nnue/{positions,net,train,bench}.json\`
 stay on disk; \`docs/takeover/baseline.json\` does not cover them (it froze the *inherited* state), so
 verify them with \`node tools/q6-validate.mjs final\` before quoting any number.
 `;writeFileSync(OUT, md);

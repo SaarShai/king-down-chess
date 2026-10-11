@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Condition-aware piece evaluation. Value (an odds match) is one number; this tool asks the other
  * questions the owner raised: does a piece ever get paralysed? Does its contribution change with the
@@ -33,7 +34,7 @@ if (!RUNS.length && PAIR.length !== 2) {
   console.error('usage: tsx tools/conditions.ts --runs a,b,c | --pair a,b');
   process.exit(2);
 }
-const pathOf = (id: string): string => (id.includes('/') ? id : `sim/out/${id}.jsonl`);
+const pathOf = (id: string): string => (id.includes('/') ? id : `${resultsRoot()}/${id}.jsonl`);
 
 /** Pieces a back rank contains (the rank with the king), counted per colour. */
 const armyOf = (fen: string, colour: 0 | 1): string => {

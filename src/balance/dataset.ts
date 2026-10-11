@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { createGunzip } from 'node:zlib';
 import { createInterface } from 'node:readline';
 import { dirname, join, resolve } from 'node:path';
-import { homedir } from 'node:os';
+import { resultsRoot } from '../../tools/lib/results-root.mjs';
 import { CARD_POOL, RULE_POWERS } from '../sim/tournament';
 import { addMoment, estimate, markdownTables, moments, numericCell, stable, unknownContext, type Measure, type Measurement, type MeasurementContext, type Moments, type Validity } from './measurements';
 
@@ -163,19 +163,8 @@ function queueMachine(rows: readonly string[]): string | null {
   return machines.length && machines[0] !== null && machines.every(machine => machine === machines[0]) ? machines[0] : null;
 }
 export async function defaultSources(root: string): Promise<{ path: string; alias: string }[]> {
-  let primary = join(root, 'sim/out');
-  const marker = `${join('.claude', 'worktrees')}/`;
-  const at = root.indexOf(marker);
-  if (at >= 0) primary = join(root.slice(0, at), 'sim/out');
+  const primary = resolve(root, resultsRoot());
   const sources = existsSync(primary) ? [{ path: primary, alias: 'sim/out' }] : [];
-  const cloud = join(homedir(), 'Library/CloudStorage');
-  if (existsSync(cloud)) {
-    for (const entry of await readdir(cloud)) {
-      if (!entry.startsWith('GoogleDrive-')) continue;
-      const backup = join(cloud, entry, 'My Drive/king-down-sim-out');
-      if (existsSync(backup)) sources.push({ path: backup, alias: 'backup' });
-    }
-  }
   return sources;
 }
 /** Read local evidence only. This does not launch games, fetch records, or replay moves. */
