@@ -42,16 +42,16 @@ function position(fen: unknown): Position {
   if (typeof fen !== 'string' || fen.length > 4096) throw new Error('Malformed FEN');
   const fields = fen.split(' '), rows = fields[0].split('/');
   if (fields.length < 6 || fields.length > 7 || !['w', 'b'].includes(fields[1]) || !(RULES.classicChess ? /^(-|K?Q?k?q?)$/.test(fields[2]) && /^(-|[a-h][36])$/.test(fields[3]) : fields[2] === '-' && fields[3] === '-') || !/^\d+$/.test(fields[4]) || !/^[1-9]\d*$/.test(fields[5]) || rows.length !== 8 || rows.some(r => !/^[1-8PNBRQKALGMSOCVTHpnbrqkalgmsocvth]+$/.test(r) || [...r].reduce((n, c) => n + (/\d/.test(c) ? +c : 1), 0) !== 8) || (fields[0].match(/K/g) ?? []).length !== 1 || (fields[0].match(/k/g) ?? []).length !== 1) throw new Error('Malformed FEN');
-  if (fields[6] && fields[6].split('/').some(t => !/^(u\d+\.\d+|m[a-h][1-8][wb]\d*|f|h[a-h][1-8]|l[PNBRQKALGMSOCVTpnbrqkalgmsocvt]*|g\d+\.\d+)$/.test(t))) throw new Error('Unsupported or malformed power state');
+  if (fields[6] && fields[6].split('/').some(t => !/^([ugd]\d+\.\d+|m[a-h][1-8][wb][ia]?\d*|f|h[a-h][1-8][rto]?|l[PNBRQKALGMSOCVTpnbrqkalgmsocvt]*|y[A-Za-z]*\.[A-Za-z]*)$/.test(t))) throw new Error('Unsupported or malformed power state');
   const p = fromFen(fen);
-  if ([...(p.used ?? []), ...(p.waiting ?? []), ...(p.lost ?? [])].some(n => !integer(n) || n > 10000) || p.marks?.some(m => m && (!integer(m.sq) || m.sq > 63 || m.left !== undefined && (!integer(m.left) || m.left > 2))) || p.haste !== undefined && (!integer(p.haste) || p.haste > 63)) throw new Error('Malformed power state');
+  if ([...(p.used ?? []), ...(p.waiting ?? []), ...(p.lost ?? []), ...(p.drawn ?? [])].some(n => !integer(n) || n > 10000) || p.marks?.some(m => m && (!integer(m.sq) || m.sq > 63 || m.left !== undefined && (!integer(m.left) || m.left > 2))) || p.haste !== undefined && (!integer(p.haste) || p.haste > 63)) throw new Error('Malformed power state');
   if (!integer(p.halfmove) || !integer(p.ply) || !integer(moveNumber(p)) || toFen(p) !== fen) throw new Error('Noncanonical FEN');
   return p;
 }
 function create(input: unknown): void {
   const s = object(input, ['backRank', 'fen', 'preset', 'kings', 'classic', 'hand']) as MatchSetup;
   if (s.backRank !== undefined && (typeof s.backRank !== 'string' || !/^[PNBRQKALGMSOCVT]{8}$/.test(s.backRank)) || s.fen !== undefined && s.backRank !== undefined || s.preset !== undefined && !['current', '2017', '2021'].includes(s.preset) || s.classic !== undefined && typeof s.classic !== 'boolean') throw new Error('Malformed setup');
-  if (s.hand !== undefined && (!Array.isArray(s.hand) || s.hand.length > HAND_MAX || new Set(s.hand).size !== s.hand.length || s.hand.some(c => !ALL_CARDS.includes(c)))) throw new Error('Malformed hand');
+  if (s.hand !== undefined && (!Array.isArray(s.hand) || s.hand.length > HAND_MAX || new Set(s.hand).size !== s.hand.length || [...s.hand].some(c => !ALL_CARDS.includes(c)))) throw new Error('Malformed hand');
   if (s.kings !== undefined && (typeof s.kings !== 'string' || s.kings.length > 100 || s.kings.split(',').length !== 2 || s.kings.split(',').some(x => x !== 'none' && !parseKings(`${x},none`)[0]))) throw new Error('Malformed kings');
   const kings = s.kings !== undefined ? parseKings(s.kings) : undefined;
   const preset = s.preset === '2017' ? RULES_2017 : s.preset === '2021' ? RULES_2021 : undefined;
