@@ -73,6 +73,8 @@ export function fixtureService(): Pick<PluginService, keyof PluginService> & { d
     },
     async report() { return { id: ++reports, created_at: new Date().toISOString() }; },
     async profile(actor) { return { user_id: actor, handle: null }; },
+    async history() { return { games: [], next_before: null }; },
+    async record() { return { totals: { played: 0, won: 0, drawn: 0, lost: 0 }, rating: { rating: 1500, rd: 350, volatility: 0.06, provisional: true }, badges: [] }; },
     async openBoard(actor, id) { seatOf(load(id), actor); const board = randomUUID(); boards.set(board, { actor, game: id }); return board; },
     async board(actor, board) { const row = boards.get(board); if (!row || row.actor !== actor) fail('FORBIDDEN', 403, 'Board unavailable for this account'); return row!.game ?? fail('MATCH_REMOVED', 404, 'This game was deleted. Start, resume or join another game.'); },
     async selectBoard(actor, board, id) { seatOf(load(id), actor); const row = boards.get(board); if (!row || row.actor !== actor) fail('FORBIDDEN', 403, 'Board unavailable for this account'); row!.game = id; },
