@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GameService } from './service';
@@ -51,6 +51,41 @@ suite('finished game results in PostgreSQL', () => {
   expect(loser.totals).toEqual({ played: 1, won: 0, drawn: 0, lost: 1 });
   await games[0].command(b, view.game_id, resign);
   expect((await games[0].record(a)).rating.rating).toBe(winner.rating.rating);
+ });
+ it('saves both random-game ratings, Stranger Match badges, history and totals', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  try {
+   const at = new Date('2026-10-11T12:00:00.000Z'); vi.setSystemTime(at);
+   const a = await user(), b = await user(), handles = [a,b].map(actor => `guest-${actor.slice(0,8)}`);
+   await admin.query("update public.profiles set handle=$2,icon='knight' where id=$1", [a, handles[0]]);
+   await admin.query("update public.profiles set handle=$2,icon='bishop' where id=$1", [b, handles[1]]);
+   const open = await games[0].create(a, { kind: 'random', colour: 'black', options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } });
+   const token = randomBytes(32).toString('base64url');
+   await admin.query("insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,0,$4,$5::timestamptz+interval '1 day')",
+    [createHash('sha256').update(token).digest('hex'), createHash('sha256').update(randomUUID()).digest('hex'), open.game_id, a, at]);
+   const game = await games[1].join(b, token), resign = command(game.revision, { type: 'resign' });
+   await games[0].command(b, game.game_id, resign);
+   const records = await Promise.all([a,b].map(actor => games[0].record(actor)));
+   expect(records[0].rating.rating).toBeCloseTo(1662.2120026057648, 6);
+   expect(records[1].rating.rating).toBeCloseTo(1337.7879973942352, 6);
+   expect(records[0].totals).toEqual({ played: 1, won: 1, drawn: 0, lost: 0 });
+   expect(records[1].totals).toEqual({ played: 1, won: 0, drawn: 0, lost: 1 });
+   expect(records[0].badges.map(b => b.badge).sort()).toEqual(['first_win', 'purist', 'stranger_match']);
+   expect(records[1].badges.map(b => b.badge)).toEqual(['stranger_match']);
+   const ratings = (await admin.query('select user_id,rating,rd,volatility from public.rating_history where game_id=$1', [game.game_id])).rows;
+   expect(ratings).toHaveLength(2);
+   for (const [index, actor] of [a,b].entries()) {
+    const record = records[index];
+    expect(ratings.find(r => r.user_id === actor)).toMatchObject({ rating: record.rating.rating, rd: record.rating.rd, volatility: record.rating.volatility });
+    expect(record.badges.every(b => b.earned_at === at.toISOString())).toBe(true);
+    expect(await games[0].history(actor)).toEqual({ next_before: null, games: [{ game_id: game.game_id, finished_at: at.toISOString(), kind: 'random',
+     colour: index === 0 ? 'black' : 'white', result: index === 0 ? 'won' : 'lost', reason: 'resignation',
+     opponent: { handle: handles[1-index], icon: index === 0 ? 'bishop' : 'knight', computer: false, deleted: false, level: null },
+     features: { fairy: false, arrangement: false, classic: true, cards: false, powers: false, king: index === 0 ? 'Shadow' : 'Spirit', power: null } }] });
+   }
+   await games[1].command(b, game.game_id, resign);
+   expect(await Promise.all([a,b].map(actor => games[0].record(actor)))).toEqual(records);
+  } finally { vi.useRealTimers(); }
  });
  it('stores each badge once across two wins and keeps its first date', async () => {
   const a = await user(), b = await user(), first = await friend(a, b);

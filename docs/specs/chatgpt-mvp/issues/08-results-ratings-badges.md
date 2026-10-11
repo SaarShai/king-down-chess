@@ -1,6 +1,6 @@
 # 08 · Results: history, ratings and badges
 
-Status: claimed
+Status: resolved
 Type: AFK
 Size: M
 Blocked by: 06
@@ -38,6 +38,14 @@ Use the ticket's game-service database seam. Checks pass when the reverse-date t
 - The pure badge function covers all 10 badges. Each stored badge keeps its first date. Player row locks keep updates safe when two games end at once.
 - `GameService` and `PluginService` provide `history(actor, before?, limit = 20)` and `record(actor)`. History returns `games` and `next_before`. Pass that cursor back without a change. Each entry has the opponent's handle and icon preset, or the computer level, and the player's game features. The record has totals, rating with `provisional`, and badges with dates.
 - Migration 0012 adds the three result tables. The runtime grants and start check cover them. Test role changes use the shared role lock.
-- Checks before and after merge of integration tip `b02de05f`: `npm test` passes 141 files, 2,224 tests and 50 art tests; 8 tests skip. Badge unit checks: 11 pass. Result database checks: 16 pass. Start checks: 3 pass. `git diff --check` passes. The test database is `kingdown_mvp08_test`, with a separate results copy.
+- Round 2 fixes all three review findings. The only production change keeps `last_game_at` at the latest game date with `greatest`.
+- Checks before the final integration merge: `npm test` passes 141 files, 2,226 tests and 50 art tests; 8 tests skip. Badge unit checks: 11 pass. Result database checks: 18 pass. `git diff --check` passes. The test database is `kingdown_mvp08_test`, with a separate results copy.
 - No page changes. Page size and browser checks do not apply. Ticket 10 connects the result methods to the profile tool; ticket 16 builds the profile page.
 - Open items: none.
+
+## Reviews
+
+- Must fix: an older game end moves the saved date back. The new reverse-date test fails with October 12 instead of October 13 for both players. The SQL fix makes it pass.
+- Should fix: the old long-break test only reads seeded data. The new test ends another human game after breaks of 365 and 180 days. It checks both saved ratings, RD, volatility and dates. Fixed values come from the tested pure Glicko-2 module. A fault check sets idle days to zero; the new test fails. The correct calculation passes.
+- Should fix: random games have no result database check. The new test checks both ratings, saved rating history, Stranger Match badges and dates, game history, totals and a command retry. A fault check limits ratings to friend games; the test fails with 1500 instead of 1662.21. The human-game rating rule passes.
+- Ticket 07 is not in the integration branch. The test creates a game of kind `random`, seeds an invite, then joins the second human seat through ticket 06's game service. Its invite method permits only friend games; its join method accepts the seeded invite. The test makes no change to ticket 06 or 07 code.
