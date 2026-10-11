@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { MAX_REVISION } from '../match/protocol';
 import { GameService } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
 import { cleanup, drainOutbox, queueReminders, runDeletions, sweepDeadlines } from './jobs';
@@ -84,8 +85,8 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
  it('ends the other due games when one game cannot end', async () => {
   const [a, b] = [await user('ora'), await user('pip')];
   const stuck = await friend(a, b), late = await friend(a, b);
-  // The schema stops at revision 1000, so this game cannot take its expire event; its deadline is the first, so the sweep meets it first.
-  await admin.query(`update public.games set revision=1000,deadline_at=now()-interval '2 minutes' where id=$1`, [stuck]);
+  // The schema stops at MAX_REVISION, so this game cannot take its expire event; its deadline is the first, so the sweep meets it first.
+  await admin.query(`update public.games set revision=$2,deadline_at=now()-interval '2 minutes' where id=$1`, [stuck, MAX_REVISION]);
   await admin.query(`update public.games set deadline_at=now()-interval '1 minute' where id=$1`, [late]);
   const error = vi.spyOn(console, 'error').mockImplementation(() => {});
   try {
@@ -211,8 +212,8 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
   // p sent the job's old fixed command ID first, in a solo game (no deadline ends it).
   const solo = await games[0].create(p, { kind: 'solo', colour: 'white' });
   await games[0].command(p, solo.game_id, { command_id: 'account-deletion', expected_revision: 0, action: { type: 'turn', actions: [solo.legal[0]] } });
-  // q's game cannot take another revision (the schema stops at 1000), so the job cannot end it.
-  const stuck = await friend(q, opp); await admin.query('update public.games set revision=1000 where id=$1', [stuck]);
+  // q's game cannot take another revision (the schema stops at MAX_REVISION), so the job cannot end it.
+  const stuck = await friend(q, opp); await admin.query('update public.games set revision=$2 where id=$1', [stuck, MAX_REVISION]);
   await admin.query(`insert into public.account_deletions(user_id,run_after) values($1,now()-interval '3 minutes'),($2,now()-interval '2 minutes'),($3,now()-interval '1 minute')`, [p, q, r]);
   const error = vi.spyOn(console, 'error').mockImplementation(() => {});
   try {

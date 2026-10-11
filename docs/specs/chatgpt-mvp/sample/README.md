@@ -62,7 +62,7 @@ The rules session reviewed round 2 (2026-10-11). The screens read as the game; t
 ## The new art
 
 - **Badges (10):** crimson and gold, the game's accent and ornament colours. They fit. They stay.
-- **Scroll:** parchment on the parchment floor; it fits. Its brass rollers are glossier than the painted figures. Proposal: a matte bronze or wood roller in the next art pass. No new art in this round.
+- **Scroll:** parchment on the parchment floor; it fits. The first brass rollers were glossier than the painted figures. The art pass of 2026-10-11 made three matte candidates (`candidates/rollers/`); the owner picked the matte walnut rollers ("1. yes", 2026-10-11), and `art/scroll.webp` is now that one.
 - **Coin frame:** not used. The game already has a power coin (a parchment disc with a stone edge, `.coin`). The gold frame does not match it, so the sample uses the game's coin for kings and for cards.
 
 ## Files

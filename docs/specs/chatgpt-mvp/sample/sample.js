@@ -170,7 +170,7 @@ const S = {
       <button class="primary wide-btn">${ic('copy')}<span class="label">Copy the code</span></button>
       <p class="quiet-line">Your friend says “Join King Down game K7QX2M” in ChatGPT, or types the code in Play. They need the King Down connection.</p>
       <h3 class="group-head">This game</h3>
-      ${row('Waiting for your friend', 'The code works for 24 hours.', { lead: `<span class="row-ico">${ic('clock')}</span>`, end: '' })}
+      ${row('Waiting for your friend', 'The code works for 7 days.', { lead: `<span class="row-ico">${ic('clock')}</span>`, end: '' })}
       ${row('Features', `${feats(['fairy', 'arrange', 'cards', 'powers'])} You play White.`, { lead: `<span class="row-ico">${ic('fairy')}</span>`, end: '' })}
       <button class="quiet wide-btn">Cancel the game</button>`)),
 

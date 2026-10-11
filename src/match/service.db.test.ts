@@ -105,6 +105,13 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   await expect(admin.query('update public.game_players set user_id=$2 where game_id=$1 and seat=0',[created.game_id,a])).rejects.toMatchObject({code:'23505'});
  });
 
+ it('keeps a Daily friend code for 7 days',async () => {
+  const created = await games[0].create(a,{kind:'friend',colour:'white'}), before = Date.now();
+  const left = Date.parse((await games[0].invite(a,created.game_id)).expires_at) - before;
+  expect(left).toBeGreaterThanOrEqual(7 * 86_400_000 - 1000);
+  expect(left).toBeLessThanOrEqual(7 * 86_400_000 + 60_000);
+ });
+
  it('gives one seat to one of two joiners and lets the winner retry',async () => {
   const created = await games[0].create(a,{kind:'friend',speed:'live',colour:'white'});
   const old = await games[0].invite(a,created.game_id), invite = await games[0].invite(a,created.game_id);
@@ -118,7 +125,7 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   expect([view.seat,view.status,view.revision,view.opponent?.handle]).toEqual([1,'playing',1,(await rows('select handle from public.profiles where id=$1',[a]))[0].handle]);
   expect((await rows('select token_hash,code_hash from public.game_invites where game_id=$1',[created.game_id]))[0]).not.toMatchObject({token_hash:invite.token});
   const expired = await games[0].create(a,{kind:'friend',colour:'white'}), late = await games[0].invite(a,expired.game_id);
-  expect(new Date(late.expires_at).getTime() - Date.now()).toBeGreaterThan(13 * 86_400_000);
+  expect(new Date(late.expires_at).getTime() - Date.now()).toBeGreaterThan(6 * 86_400_000);
   await admin.query("update public.game_invites set expires_at=now()-interval '1 second' where game_id=$1",[expired.game_id]);
   await expect(games[0].join(b,late.token)).rejects.toMatchObject({code:'INVITE_UNAVAILABLE'});
   await expect(games[0].join(b,'not-a-code')).rejects.toMatchObject({code:'INVALID_INPUT'});

@@ -122,3 +122,21 @@ grant select, insert (user_id), update (window_start, tries) on public.invite_co
 drop policy if exists kingdown_plugin_runtime on public.invite_code_tries;
 create policy kingdown_plugin_runtime on public.invite_code_tries for all to kingdown_plugin_runtime using (true) with check (true);
 commit;
+
+-- Apply after migration 0010: choices stay in the service until both seats are ready.
+begin;
+grant update (setup, rules, engine_fingerprint, setup_deadline_at, rematch_offer, rematch_game_id) on public.games to kingdown_plugin_runtime;
+grant update (choice, ready, power) on public.game_players to kingdown_plugin_runtime;
+commit;
+
+-- Apply after migration 0012: ratings and result history. Result rows cannot change after the game ends.
+begin;
+grant select, insert, update (rating, rd, volatility, last_game_at) on public.player_ratings to kingdown_plugin_runtime;
+grant select, insert on public.rating_history, public.player_badges to kingdown_plugin_runtime;
+drop policy if exists kingdown_plugin_runtime on public.player_ratings;
+create policy kingdown_plugin_runtime on public.player_ratings for all to kingdown_plugin_runtime using (true) with check (true);
+drop policy if exists kingdown_plugin_runtime on public.rating_history;
+create policy kingdown_plugin_runtime on public.rating_history for all to kingdown_plugin_runtime using (true) with check (true);
+drop policy if exists kingdown_plugin_runtime on public.player_badges;
+create policy kingdown_plugin_runtime on public.player_badges for all to kingdown_plugin_runtime using (true) with check (true);
+commit;
