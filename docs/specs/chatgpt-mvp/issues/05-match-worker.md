@@ -1,6 +1,6 @@
 # 05 · Match worker: the open card deal, Classic and the computer levels
 
-Status: claimed
+Status: resolved
 Type: AFK
 Size: M
 Blocked by: 03
@@ -83,3 +83,13 @@ All five findings are confirmed in the code. Findings 1 and 2 affect the two bun
 5. **Level checks:** 18 controlled tests use the real worker and search. Only the clock and random source change. They check all four time caps, shorter caller budgets, the 200/80/15-point bands, the zero band after six moves, and the random-move threshold for each level. The level code is correct; the missing part is effective tests. Controls prove the tests fail: a 250 ms cap fails four cases; a zero score band fails all four sampling cases; a zero random-move chance fails Beginner and Casual; an opening band after six moves fails Club and Strong. Each control is removed. The restored worker passes all 18 tests.
 
 The worker change adds engine `bab22e94d4df81591374763a7f3abe703c30534f80ce771ee3fe7e095dcec7da` and its save fixture. All three prior bundles stay. `npm run plugin:build` passes.
+
+Review checks use Node 26.0.0 and `PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:55432/kingdown_mvp05_test`:
+
+- `npm test`: 137 files pass; 2,183 tests pass, 8 skip; all 50 document checks pass. The shared test lock stays in use.
+- `npm run plugin:build`: passes and adds the bundle above. No prior bundle changes or leaves the archive.
+- `npm run plugin:smoke`: passes with no source tree or runtime packages; all four archived engines load and accept a move.
+- `npm run plugin:server:check`: passes against PostgreSQL. It checks moves, AI, retries, seat access, restart/resume, invitations, board recovery, the resource and all 20 art files.
+- `npm run check:browser plugin-ui plugin-ui-http`: both pass, in 16.3 s and 15.8 s.
+
+The diff against `4953e131` keeps the saved-engine replay path. The API adds empty hands and states the old level limit. The worker uses the existing FEN reader and writer; it has no second parser. The new level tests do not change production code. All four must-fix findings and the should-fix finding are closed. Open items in this ticket: none.
