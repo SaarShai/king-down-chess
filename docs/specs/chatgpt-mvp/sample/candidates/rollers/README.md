@@ -55,3 +55,7 @@ Only the four WebPs, eight profile PNGs, comparison, and this README enter the c
 - No clear new halo or join seam shows in the renders or the detail crops.
 - The desktop sheet clips part of the bottom roller in all four renders. This also occurs with the current scroll.
 - The render palette makes some parchment shading appear in blocks. This occurs in all four renders.
+
+## The owner's pick
+
+The owner picked `wood` on 2026-10-11 ("1. yes"). `sample/art/scroll.webp` is now `scroll-wood.webp`, and `art-src/chatgpt-mvp/scroll.png` is the wood master. The brass master is `art-src/chatgpt-mvp/candidates/scroll-brass.png`.
