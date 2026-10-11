@@ -10,9 +10,9 @@ const url = process.env.PLUGIN_TEST_DATABASE_URL;
 const suite = url ? describe : describe.skip;
 
 suite('the role lock (real PostgreSQL)', () => {
- let other: URL;
+ let own: URL, other: URL;
  const observer = new pg.Pool({ connectionString: url, max: 1 });
- beforeAll(async () => { other = await ownTestDatabase('rolelock'); }, 120_000);
+ beforeAll(async () => { own = await ownTestDatabase('rolelock'); other = await ownTestDatabase('rolelock2'); }, 120_000);
  afterAll(async () => { await observer.end(); });
 
  it('makes a role change from a second test database wait for the first', async () => {
@@ -33,7 +33,7 @@ suite('the role lock (real PostgreSQL)', () => {
    finally { await pool.end(); }
    events.push(`${name} end`);
   });
-  const first = change(url!, roles[0], 'first');
+  const first = change(own.href, roles[0], 'first');
   let second: Promise<void> | undefined;
   try {
    await Promise.race([firstStarted, first]);
@@ -51,7 +51,7 @@ suite('the role lock (real PostgreSQL)', () => {
  }, 30_000);
 
  it.each(['success', 'error'])('closes its client after %s and frees the lock', async outcome => {
-  const named = new URL(url!), application = `rolelock_close_${randomUUID()}`;
+  const named = new URL(own.href), application = `rolelock_close_${randomUUID()}`;
   named.searchParams.set('application_name', application);
   const sessions = async () => (await observer.query('select from pg_stat_activity where application_name=$1', [application])).rowCount;
   const work = withRoleLock(named.href, async () => {
