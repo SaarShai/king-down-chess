@@ -1154,7 +1154,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       const pr = promotion();
       slotsEl.innerHTML = `<div class="rgroups">${GROUPS.map(g => `<div class="rgrp"><h4>${g}</h4><div class="ss">${BLOCKS.filter(b => b.group === g)
       .map(b => `<button type="button" data-openseal="${b.a}" aria-pressed="${sealOn === b.a}" title="${esc(b.title)}">${seal(b.a, 44)}<span>${esc(b.label)}</span></button>`).join('')}</div></div>`).join('')}</div>`
-      + `<span class="lsep" aria-hidden="true"></span><ul class="laws" aria-label="Laws of the game"><li class="law" title="A pawn on the last rank becomes a ${esc(pr.words)}.">Promotion<span class="pill" aria-label="${esc(pr.words)}">${pr.letters}</span></li>`
+      + `<span class="lsep" aria-hidden="true"></span><ul class="laws" aria-label="Laws of the game"><li class="law" title="A pawn on the last rank becomes a ${esc(pr.words)}.">Promotion<span class="pill" aria-hidden="true">${pr.letters}</span><span class="sr-only">${esc(pr.words)}</span></li>`
       + lawsOf().map(([name, say, on]) => `<li class="law" title="${esc(say)}">${name}<b>${on}</b></li>`).join('')
       + `<li class="law fixed"><b>${sigil('lock', 12)} Fixed</b>8×8 board · check and checkmate · no castling · no en passant · a power never takes a king.</li></ul>`;
       return;
@@ -1320,7 +1320,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     }
     if (tb) { tab = tb as typeof tab; return render(); }
     if (os) return openSeal(os as Ability['a']);
-    if (seen) { const a = sealOn; show(pool(seen)); focus = canonical(cur.d).rules.findIndex(r => r.does.a === a); tab = 'pieces'; return render(); }
+    if (seen) { const a = sealOn; show(pool(seen)); focus = canonical(cur.d).rules.findIndex(r => r.does.a === a); tab = 'pieces'; render(); return q<HTMLElement>(`[data-piece="${seen}"]`)?.focus({ preventScroll: true }); }
     if (tr) return playOne(movesAt(why!).filter(m => actOf(m) === tr));
     if (pr) return play(promo![+pr]);
     if (l) return toggleLine(l as Dir);

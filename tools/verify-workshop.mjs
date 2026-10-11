@@ -1788,9 +1788,6 @@ const PHONE = [
   ['a seal on the shelf', async p => { await p.click('.padd'); await p.click('[data-sealitem="movesLike"]'); }, ['svg.kd-seal', 'kdm-pulse']],
   ['Stamp', p => p.click('[data-act="stamp"]'), ['button.pg-pseal', 'span.pg-wax', 'kdm-pop']],
 ];
-/** Plays `steps` at `pace` (normal, fast or off; `reduce` emulates reduced motion): after each action the motions that it
- *  plays, none past `limit` ms, the board in its place, and 100 ms after the limit (700 ms at Normal) none running. With no
- *  motion the check looks 100 ms after the action. Gives the still pose after each action. */
 async function rulesTab() {
   const p = await open();
   await door(p);
@@ -1800,7 +1797,7 @@ async function rulesTab() {
   assert.equal(await p.locator('[data-openseal]').count(), 10, 'the 10 seals');
   await minTarget(p, '#workshop [data-openseal]');
   // The laws follow RULES in force (the defaults in the browser), as words and not as switches.
-  assert.deepEqual(await p.$$eval('.law', ls => ls.map(l => l.textContent)), ['PromotionQ R B N', '50-move drawOn', 'ThreefoldOn', 'MaterialOn', 'Guard by its kingOn', 'Bishops on two coloursOn',
+  assert.deepEqual(await p.$$eval('.law', ls => ls.map(l => l.textContent)), ['PromotionQ R B Nqueen, rook, bishop or knight', '50-move drawOn', 'ThreefoldOn', 'MaterialOn', 'Guard by its kingOn', 'Bishops on two coloursOn',
     ' Fixed8×8 board · check and checkmate · no castling · no en passant · a power never takes a king.'], 'the laws and the Fixed plaque');
   assert.equal(await p.locator('.laws :is(button, input, [role="switch"])').count(), 0, 'the laws are read only');
   await p.click('[data-openseal="linesPass"]');
@@ -1828,6 +1825,7 @@ async function rulesTab() {
   await p.click('[data-seenon="paladin"]');
   assert.equal(await name(p), 'Paladin', 'Seen on opens the Paladin');
   assert.equal(await p.getAttribute('[data-tab="pieces"]', 'aria-selected'), 'true', 'the Pieces tab shows again');
+  assert.equal(await p.locator('.slot[data-piece="paladin"]').evaluate(e => e === document.activeElement), true, 'the focus goes to the Paladin\'s slot');
   assert.equal(await p.locator('.sline.is-focus').getAttribute('data-seal'), '1', 'its rule II ("cannot take") is kept');
   assert.equal(await p.locator('.pg-brushes').isVisible(), true, 'the brushes are back');
   await shot(p, 'rules-tab-1440x900');
@@ -1837,6 +1835,7 @@ async function rulesTab() {
   await door(ph);
   await ph.click('[data-tab="rules"]');
   assert.equal(await ph.locator('.laws').isVisible(), false, 'the phone hides the laws');
+  await minTarget(ph, '#workshop [data-openseal]');
   await noSidewaysScroll(ph);
   await ph.click('[data-openseal="chain"]');
   assert.equal(await ph.$eval('.pg-bigseal .kd-seal', s => Math.round(s.getBoundingClientRect().width)), 56, 'the phone\'s seal is 56 px');
@@ -1847,6 +1846,9 @@ async function rulesTab() {
   await ph.context().close();
 }
 
+/** Plays `steps` at `pace` (normal, fast or off; `reduce` emulates reduced motion): after each action the motions that it
+ *  plays, none past `limit` ms, the board in its place, and 100 ms after the limit (700 ms at Normal) none running. With no
+ *  motion the check looks 100 ms after the action. Gives the still pose after each action. */
 async function motionRun(steps, { pace = 'normal', reduce = false, width = 1440, height = 900 } = {}) {
   const p = await open('', { width, height, motion: true, reducedMotion: reduce ? 'reduce' : undefined });
   // The toast fades out on its own timer (3.6 s), not on an action: its fade is off here.
