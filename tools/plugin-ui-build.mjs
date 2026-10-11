@@ -5,10 +5,9 @@ import { resolve } from 'node:path';
 const output = resolve(process.argv[2] || 'dist-plugin-ui');
 // Matches ART_ORIGIN in src/plugin/server.ts, which swaps in the server's public origin.
 const ART_ORIGIN = 'https://kingdown-art.invalid';
-// The art leaves the page: hashed files under plugin-art/, loaded by absolute URL. A cross-origin image must
-// be a CORS request, or the scene's getImageData throws; the website build keeps the shared code unchanged.
-const crossOrigin = { name: 'plugin-art-cors', transform: (code, id) => id.includes('node_modules') || !code.includes('new Image()') ? undefined : code.replaceAll('new Image()', "Object.assign(new Image(),{crossOrigin:'anonymous'})") };
-await build({ configFile: false, root: resolve('src/plugin'), base: './', publicDir: false, plugins: [crossOrigin], experimental: { renderBuiltUrl: (file, { hostType }) => hostType === 'html' ? { relative: true } : `${ART_ORIGIN}/${file}` },
+// The art leaves the page: hashed files under plugin-art/, loaded by absolute URL. The board scene asks for each
+// image in CORS mode (crossOrigin 'anonymous'), so its getImageData works on art from the plugin origin.
+await build({ configFile: false, root: resolve('src/plugin'), base: './', publicDir: false, experimental: { renderBuiltUrl: (file, { hostType }) => hostType === 'html' ? { relative: true } : `${ART_ORIGIN}/${file}` },
   build: { outDir: output, emptyOutDir: true, assetsDir: 'plugin-art', assetsInlineLimit: 0, cssCodeSplit: false, rolldownOptions: { output: { codeSplitting: false } } } });
 let html = await readFile(resolve(output, 'index.html'), 'utf8');
 const script = html.match(/<script[^>]*src="([^"]+)"[^>]*><\/script>/);

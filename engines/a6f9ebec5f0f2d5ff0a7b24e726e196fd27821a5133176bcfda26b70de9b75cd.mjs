@@ -2625,7 +2625,7 @@ function En(e) {
 }
 function Dn(e, t) {
 	if (!e || kt(t)) return e;
-	let n = Tn[t.from] | Tn[t.to];
+	let n = t.pushes || t.to === t.from && !t.swap && t.promo === void 0 ? 0 : Tn[t.from] | Tn[t.to];
 	for (let e = 0; e < t.captures.length; e++) n |= Tn[t.captures[e]];
 	if (t.shove && (n |= Tn[t.shove.from] | Tn[t.shove.to]), t.pushes) for (let e of t.pushes) n |= Tn[e.from] | Tn[e.to];
 	return t.drop2 !== void 0 && (n |= Tn[t.drop2]), e & ~n;
@@ -2914,6 +2914,7 @@ var Xn = {
 function Zn(e, t) {
 	let n = C(e.board[t.from]), r = n === 1 ? "" : x[n];
 	if (t.pass) return "--";
+	if (t.castle) return t.castle.from > t.from ? "O-O" : "O-O-O";
 	if (t.drop) return `${x[t.drop]}@${E(t.to)}${t.drop2 === void 0 ? "" : "," + E(t.drop2)}${Xn[t.power ?? ""] ?? ""}`;
 	if (t.power === "freeze") return `!F:${E(t.to)}`;
 	if (t.power === "ward") return `!W:${E(t.to)}`;
@@ -4789,7 +4790,7 @@ var vs = class {
 //#endregion
 //#region src/match/worker.ts
 t("sha256");
-var ys = "sha256:797aeca0cf7cf1c3e546bb07c9db4dbfbd53290034139e0f2f6fb8b18cdcc5aa", bs = 1e3, xs = 8e6, Q, $, Ss = !1, Cs = !1;
+var ys = "sha256:a6f9ebec5f0f2d5ff0a7b24e726e196fd27821a5133176bcfda26b70de9b75cd", bs = 1e3, xs = 8e6, Q, $, Ss = !1, Cs = !1;
 function ws(e, t) {
 	if (!e || typeof e != "object" || Array.isArray(e) || Object.keys(e).some((e) => !t.includes(e))) throw Error("Malformed input");
 	return e;

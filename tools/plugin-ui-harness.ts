@@ -54,8 +54,14 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
         res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await buddy!.callTool({ name: 'kingdown_invite', arguments: { game_id: game.game_id } })));
       }
       else if (req.url?.startsWith('/fixture-position?') && req.method === 'POST') {
-        const black = new URL(req.url,'http://localhost').searchParams.get('case') === 'freeze';
-        const setup = black ? {fen:'7k/8/8/8/4P3/8/8/K7 b - - 0 1',kings:'none,Frost:Freeze'} : {fen:'7k/8/8/2p5/8/2A5/8/K7 w - - 0 1',kings:'none,none'};
+        const params = new URL(req.url,'http://localhost').searchParams, scenario = params.get('case'), black = scenario === 'freeze';
+        // The art gallery: every piece type of both colours on the kings' ranks ('gallery'), or only the kings and two pawns
+        // on other squares ('apart'), with one of three king pairs, so the six kings show in three games.
+        const kings = ['Spirit:Mercy,Shadow:Darkness', 'Frost:Freeze,Flame:Haste', 'Stratus:Flight,Mud:March'][Number(params.get('kings') ?? 0)];
+        const setup = black ? {fen:'7k/8/8/8/4P3/8/8/K7 b - - 0 1',kings:'none,Frost:Freeze'}
+          : scenario === 'gallery' ? {fen:'rnbqkalg/msoppppp/8/8/8/8/MSOPPPPP/RNBQKALG w - - 0 1',kings}
+          : scenario === 'apart' ? {fen:'8/8/8/k4p2/2P4K/8/8/8 w - - 0 1',kings}
+          : {fen:'7k/8/8/2p5/8/2A5/8/K7 w - - 0 1',kings:'none,none'};
         let matchId;
         if (seedPosition) matchId = await seedPosition(setup,black);
         else { const created = await service!.create(black?'bob':'alice',{kind:black?'friend':'solo',colour:'white',setup}); if (black) await service!.join('alice',(await service!.invite('bob',created.game_id)).token); matchId=created.game_id; }

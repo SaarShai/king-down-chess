@@ -145,6 +145,34 @@ try {
     for (let i=0;i<9;i++) await page.keyboard.press('ArrowUp');
     assert.match(await frame.locator('#board').getAttribute('aria-label'),black?/a1/:/h8/);
   }
+  // Every piece type and every king is drawn (ticket 09): each square of the gallery differs from the same square
+  // with no piece on it ('apart' keeps its kings and pawns off those squares), in three games for the six kings.
+  const GALLERY=[0,1,6,7].flatMap(rank=>[0,1,2,3,4,5,6,7].map(file=>[file,rank]));
+  async function seed(scenario,kings) {
+    const seeded=await (await page.request.post(new URL(`/fixture-position?case=${scenario}&kings=${kings}`,base).href)).json(); assert(!seeded.isError);
+    const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
+    await page.evaluate(result=>window.harnessShow(result),seeded);
+    await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>n,reads);
+    await frame.locator('#reload:not(:disabled)').waitFor();
+  }
+  /** The mean colour change of each gallery square's centre (48 board units square) against the stored empty board. */
+  const squareChange=(store)=>frame.locator('canvas').evaluate(async (c,{squares,store})=>{
+    // The scene draws a synced board on its next frame.
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const g=c.getContext('2d'), k=c.width/960, h=Math.round(24*k);
+    const boxes=squares.map(([f,r])=>g.getImageData(Math.round((32+(f+.5)*112)*k)-h,Math.round((96+(7-r+.5)*112)*k)-h,2*h,2*h).data);
+    if (store) { window.emptyBoxes=boxes; return []; }
+    return boxes.map((box,i)=>{ let sum=0; for (let j=0;j<box.length;j++) sum+=Math.abs(box[j]-window.emptyBoxes[i][j]); return sum/box.length; });
+  },{squares:GALLERY,store});
+  for (const kings of [0,1,2]) {
+    await seed('apart',kings); await squareChange(true);
+    await seed('gallery',kings);
+    let change=await squareChange(false);
+    for (let i=0;i<50&&Math.min(...change)<8;i++) { await page.waitForTimeout(200); change=await squareChange(false); }
+    const blank=GALLERY.filter((_,i)=>change[i]<8).map(([f,r])=>'abcdefgh'[f]+(r+1));
+    assert.deepEqual(blank,[],`King pair ${kings}: every piece and king is drawn (least change ${Math.min(...change).toFixed(1)})`);
+    await shot(page,`board-gallery-${kings}-${mode}`);
+  }
   await frame.locator('summary').click();
   await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
   const deleted=await page.evaluate(()=>window.harnessView);

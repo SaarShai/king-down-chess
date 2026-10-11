@@ -52,20 +52,22 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const ctx=canvas.getContext('2d');
  const FALL=650, CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
  const ART={[K]:'king',[S]:'beast',[Q]:'queen',[L]:'paladin',[M]:'maester',[P]:'pawn',[A]:'archer',[O]:'ogre',[N]:'knight',[B]:'bishop',[R]:'rook',[G]:'guard'};
- const art=Object.fromEntries(Object.keys(ART).filter(type=>+type!==K).map(type=>[type,new Image()]));
+ // CORS images (crossOrigin 'anonymous'): a canvas may read them when the art comes from another origin (the plugin page).
+ const corsImage=()=>Object.assign(new Image(),{crossOrigin:'anonymous'});
+ const art=Object.fromEntries(Object.keys(ART).filter(type=>+type!==K).map(type=>[type,corsImage()]));
  // King sheets load on demand: the two in play before the scene is ready, others when a side picks them.
  const kingArt={}, drawnKings=[null,null];
  let kings=[...initialKings];
  function kingImage(design){
   let entry=kingArt[design];
   if(!entry){
-   const image=new Image();
+   const image=corsImage();
    entry=kingArt[design]={image:null,loaded:new Promise((resolve,reject)=>{image.onload=()=>{entry.image=image;wake();resolve();};image.onerror=reject;})};
    image.src=KING_FILES[design];
   }
   return entry;
  }
- const boardArt=new Image();
+ const boardArt=corsImage();
  const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.1166,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
 specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.155};
 specs[N]={anchor:knight.ANCHOR,hit:knight.HIT,scale:.125};
@@ -953,7 +955,7 @@ function drawEncounter(a,t) {
   /** [white, black] figure URLs for a lab `type` with no painted art (a Workshop design), or null for its lettered token. */
   setFigure(type,urls){
    if(String(urls)===String(figures[type]?.urls??null))return;
-   figures[type]=urls&&Object.assign(urls.map(u=>{const i=new Image();i.onload=wake;i.src=u;return i;}),{urls});
+   figures[type]=urls&&Object.assign(urls.map(u=>{const i=corsImage();i.onload=wake;i.src=u;return i;}),{urls});
    specs[type]=urls?{...FALLBACK,scale:.12}:FALLBACK;wake();
   },
   /** The king design each side's figure was last drawn with (null: not yet drawn). */

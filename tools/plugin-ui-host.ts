@@ -38,5 +38,8 @@ async function mount() {
   await bridge.connect(new PostMessageTransport(frame.contentWindow!, frame.contentWindow!));
   frame.src = '/board-resource';
 }
-void mount();
-document.querySelector<HTMLButtonElement>('#remount')!.onclick = () => { void mount(); };
+// One mount at a time: a second quick Remount waits, so no old bridge stays open beside the new one.
+let mounting = Promise.resolve();
+const remount = () => { mounting = mounting.then(mount); };
+remount();
+document.querySelector<HTMLButtonElement>('#remount')!.onclick = remount;

@@ -54,3 +54,5 @@ A reader that did not write the diff reviewed `634f5690...claude/mvp-03-classic`
 6. Nit: no test played a position three times. Added: "threefold repetition counts a position only with the same rights". After the kings walk out and back, the position after 1. e4 e5 returns with no rights; the first knight loop does not draw, the second does.
 
 Perft numbers stay as they were: the start position, Kiwipete and positions 3 to 5 pass at the same depths and counts.
+
+Engine archive after the fixes: the build asked for engine `a6f9ebec…`, committed with its save fixture. The review fixes replace engine `797aeca0…` (this ticket's first bundle). `797aeca0…` and `360225ee…` (ticket 01) were never released and no game uses them, so the merge removes them (`engines/README.md`: delete a bundle only when no unfinished game uses it). `2675a7e6…` (the multiplayer base) stays.
