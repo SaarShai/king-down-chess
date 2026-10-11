@@ -26,6 +26,7 @@ try {
   }
 
   await frame.locator('#home-card').waitFor();
+  assert.equal(await frame.locator('#app-head').count(), 0, 'The approved sample has no page title or tabs');
   assert(await frame.locator('#home-play').isDisabled(), 'Play waits for the page and the host to connect');
   assert.equal(await frame.locator('#home-card button').count(), 2, 'The inline home card has only Play and Your games');
   await frame.locator('#home-play:not(:disabled)').waitFor();
@@ -39,9 +40,14 @@ try {
   await page.setViewportSize({width:1000,height:1000});
   await frame.getByRole('button', { name: 'Play', exact: true }).click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  assert.deepEqual(await frame.locator('[data-screen="play"] .row-title').allTextContents(), ['Computer', 'A friend', 'A random player', 'Your games', 'Profile', 'Settings']);
   assert(await frame.locator('[data-screen="play"] h2').evaluate(el => getComputedStyle(el).fontFamily.includes('Cinzel')), 'The page uses the approved Cinzel heading');
   assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests), ['fullscreen'], 'Play asks the host for fullscreen');
-  async function openPlay() { await frame.locator('#app-head [data-nav="play"]').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor({ timeout: 5000 }); }
+  async function openPlay() {
+    for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) await frame.locator('[data-screen]:not([hidden]) [data-back]').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor({ timeout: 5000 });
+  }
+  async function openScreen(screen) { await openPlay(); await frame.locator(`[data-screen="play"] [data-nav="${screen}"]`).click(); }
   await frame.locator('#random').click();
   await frame.locator('#random:not(:disabled)').waitFor();
   assert.equal(await page.evaluate(() => window.harnessCalls.at(-1).name), 'kingdown_find', 'Random uses the API contract tool');
@@ -64,20 +70,20 @@ try {
     await page.setViewportSize({width,height});
     await fits('handle', width); await shot(page, `shell-handle-${width}-${mode}`);
     for (const screen of ['play','games','profile','settings']) {
-      await frame.locator(`#app-head [data-nav="${screen}"]`).click();
+      if (screen === 'play') await openPlay(); else await openScreen(screen);
       await fits(screen, width); await shot(page, `shell-${screen}-${width}-${mode}`);
     }
     await frame.locator('[data-screen="settings"] [data-nav="handle"]').click();
   }
   await page.setViewportSize({width:1000,height:1000});
-  await frame.locator('#app-head [data-nav="games"]').click();
+  await openScreen('games');
   const savedGame = frame.locator('#games-list button').first();
   await savedGame.waitFor();
   const savedId = await savedGame.getAttribute('data-game-id');
   await savedGame.click();
   await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
   assert.deepEqual(await page.evaluate(() => { const { name, arguments: args } = window.harnessCalls.findLast(call => call.name === 'kingdown_open'); return { name, arguments: args }; }), { name: 'kingdown_open', arguments: { screen: 'board', game_id: savedId } }, 'Your games opens the selected board through the API contract');
-  await frame.locator('#app-head [data-nav="settings"]').click();
+  await openScreen('settings');
   await page.evaluate(() => window.harnessSetContext({theme:'dark',safeAreaInsets:{top:10,right:12,bottom:20,left:12},deviceCapabilities:{touch:true}}));
   await frame.locator('body[data-theme="dark"][data-touch="true"]').waitFor();
   assert.deepEqual(await frame.locator('body').evaluate(el => ({theme:el.dataset.theme,touch:el.dataset.touch,left:getComputedStyle(document.documentElement).getPropertyValue('--safe-left')})), {theme:'dark',touch:'true',left:'12px'});
@@ -89,7 +95,10 @@ try {
   await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
   assert.deepEqual(await page.evaluate(() => window.harnessHandle), { handle: 'mvp_test', icon: 'knight' });
 
-  await openPlay(); await frame.locator('#solo').click();
+  const backCalls = await page.evaluate(() => window.harnessCalls.length);
+  await openPlay();
+  assert.equal(await page.evaluate(() => window.harnessCalls.length), backCalls, 'Back changes only the page');
+  await frame.locator('#solo').click();
   await frame.locator('#reload:not(:disabled)').waitFor();
   await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
   // The board leaves its floor clear, as the web game and the approved sample do.
@@ -107,7 +116,7 @@ try {
   assert.equal(art.every(file => file.page), mode === 'fixture', 'The HTTP board loads its art from the plugin origin, not the page origin');
   assert.equal(await page.content().then(html => html.includes('data:image/webp')), false);
   await shot(page, `board-art-${mode}`);
-  await frame.locator('#app-head [data-nav="settings"]').click();
+  await openScreen('settings');
   await frame.locator('#symbols-only').check();
   await page.waitForFunction(() => window.harnessWidgetState?.privateContent?.settings?.symbols_only === true, undefined, { timeout: 5000 });
   const settingsReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
@@ -133,10 +142,10 @@ try {
   }
   for (const scenario of ['threats','threats-black']) {
     const seeded = await seedBoard(scenario), plain = await pixels();
-    await frame.locator('#app-head [data-nav="settings"]').click(); await frame.locator('#show-threats').check();
+    await openScreen('settings'); await frame.locator('#show-threats').check();
     await page.evaluate(result=>window.harnessShow(result),seeded); await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
     const threats = await pixels(); assert(threats.red > plain.red + 10, `${scenario}: Show threats draws enemy arrows to your pieces`);
-    await frame.locator('#app-head [data-nav="settings"]').click(); await frame.locator('#symbols-only').check();
+    await openScreen('settings'); await frame.locator('#symbols-only').check();
     await page.evaluate(result=>window.harnessShow(result),seeded); await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
     let flat = await pixels(); for(let i=0;i<20&&flat.hash===threats.hash;i++) { await frame.locator('canvas').evaluate(()=>new Promise(r=>requestAnimationFrame(r))); flat=await pixels(); }
     assert.notEqual(flat.hash, threats.hash, 'Symbols only replaces the painted figures'); assert(flat.red > plain.red + 10, 'Threat arrows stay on the symbols board');
@@ -151,7 +160,7 @@ try {
       await page.setViewportSize({width,height}); await boardBox(); await fits('board',width); await shot(page, `shell-symbols-${scenario}-${width}-${mode}`);
       const bounds=await frame.locator('.board-actions').evaluate(el=>({bottom:el.getBoundingClientRect().bottom,height:innerHeight})); assert(bounds.bottom <= bounds.height-96, 'Board controls stay above the composer');
     }
-    await frame.locator('#app-head [data-nav="settings"]').click(); await frame.locator('#symbols-only').uncheck(); await frame.locator('#show-threats').uncheck();
+    await openScreen('settings'); await frame.locator('#symbols-only').uncheck(); await frame.locator('#show-threats').uncheck();
   }
   await page.setViewportSize({width:1000,height:1000});
   await openPlay(); await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
@@ -314,7 +323,7 @@ try {
     await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
     await page.evaluate(() => { window.holdNextGet = true; });
     await page.waitForFunction(() => typeof window.releaseHeldGet === 'function');
-    assert(await frame.locator('#app-head [data-nav="play"]').isEnabled(), 'Background polling must not disable game controls');
+    assert(await frame.locator('[data-screen]:not([hidden]) [data-back]').isEnabled(), 'Background polling must not disable game controls');
     await openPlay(); await frame.locator('#solo').click();
     await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
     await frame.locator('#reload:not(:disabled)').waitFor();

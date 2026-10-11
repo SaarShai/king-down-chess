@@ -146,7 +146,7 @@ function navigate(screen: Screen) {
   document.body.dataset.page = screen;
   document.querySelectorAll<HTMLElement>('[data-screen]').forEach(el => { el.hidden = el.dataset.screen !== screen; });
   $('app-frame').hidden = screen === 'home';
-  document.querySelectorAll<HTMLButtonElement>('#app-head [data-nav]').forEach(button => { if (button.dataset.nav === screen) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current'); });
+  if (screen === 'handle') { const back = document.querySelector<HTMLButtonElement>('[data-screen="handle"] [data-back]')!; back.dataset.back = pending ? 'play' : 'settings'; back.textContent = pending ? '‹ Play' : '‹ Settings'; }
   client.save();
   if (screen === 'games') void games();
   if (screen === 'settings') void applySettings();
@@ -188,6 +188,7 @@ $<HTMLInputElement>('handle').oninput = () => $<HTMLInputElement>('handle').setC
 $('home-play').onclick = () => void fullscreen('play');
 $('home-games').onclick = () => void fullscreen('games');
 document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => { button.onclick = () => navigate(button.dataset.nav as Screen); });
+document.querySelectorAll<HTMLButtonElement>('[data-back]').forEach(button => { button.onclick = () => navigate(button.dataset.back as Screen); });
 app.onhostcontextchanged = () => hostContext(app.getHostContext());
 navigate(state.screen);
 

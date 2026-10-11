@@ -73,3 +73,18 @@ These items wait for ticket 10:
 - Account reads and writes through `kingdown_settings`. Part 1 keeps the two board values in private widget state through the client.
 - Account reads and writes through `kingdown_handle`, with real `HANDLE_NEEDED` replies and name errors. The local host checks the form and the return to the pending action.
 - The new create and join contracts (`kind`, options, level and code), and the real `kingdown_find` and profile tools. The page sends the spec's calls now. The test host maps create, join and open to the old server contract; remove that test adapter when ticket 10 merges.
+
+## This round plan
+
+1. Remove the extra title and tabs. Use the Play rows and the game's sheet back control. Check row order and back with no tool call. Commit the owner's look fix.
+2. Keep the pending action through handle Save and retry. Save only screen, sheet, board ID and pending. Fix the symbol preview. Check control access, each piece symbol and both seats' threat squares. Commit the review fixes.
+3. Build step A: the client, router, route stubs, poll and runner, sprite, dialog, shared CSS, art paths and board module. Keep the screen bodies empty. Test each new public seam before its code.
+4. Run all browser checks, both plugin checks and the server check. Record counts and page size. Keep this ticket in progress. Merge the local integration tip, run npm test and push. Step B waits for ticket 10.
+
+Checks use kingdown_mvp11_test on 127.0.0.1:55432. The approved sample sets the look. The host rules set only the limits. No website or server file changes belong to this round.
+
+## Owner look fix result
+
+The page has no extra title or tabs. Play holds the sample's rows in its order. Each other screen has the game's sheet back control. Handle returns to Settings, or Play for a pending start. Back changes page state and sends no tool call.
+
+The browser test fails with the extra title, then passes after the fix. `npm run check:browser plugin-ui` passes 1 of 1. It covers 360, 390, 400 and 1440 px, back with no tool call, and the board's existing move and recovery checks. Step A removes the old games route.
