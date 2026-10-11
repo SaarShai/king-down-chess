@@ -1,6 +1,6 @@
 # Show threats in the game uses the Workshop's threat marks
 
-Status: ready-for-agent
+Status: done (PR #50 merged 2026-10-11)
 Size: S
 Blocked by: ticket 03 (the shared drawing in `src/render/legend.ts`).
 

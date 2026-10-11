@@ -1,6 +1,6 @@
 # 13 · Kings tab and powers (later)
 
-Status: ready-for-agent
+Status: done (PR #42, merged to main with #41, 2026-10-11)
 Size: M
 Blocked by: 06, 11
 Later: not needed for v1; a designed piece cannot use a power until ticket 16, so this is a preview on pool pieces only.

@@ -1,6 +1,6 @@
 # The game board takes the Workshop's coordinates, selection glow and rails
 
-Status: ready-for-agent
+Status: done (PR #50 merged 2026-10-11)
 Size: M
 Blocked by: none. Tickets 01 and 02 and the Proving Ground are on main.
 

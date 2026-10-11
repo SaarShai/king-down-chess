@@ -1,6 +1,6 @@
 # 05 · The Why tag
 
-Status: ready-for-agent
+Status: done (PR #42, merged to main with #41, 2026-10-11)
 Size: S
 Blocked by: 02, 04
 

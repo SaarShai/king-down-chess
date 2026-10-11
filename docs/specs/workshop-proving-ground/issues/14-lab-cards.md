@@ -1,6 +1,6 @@
 # 14 · LAB cards tab (later)
 
-Status: ready-for-agent
+Status: done (PR #42, merged to main with #41, 2026-10-11)
 Size: M
 Blocked by: 13
 Later: not needed for v1; card mode is lab only, and the card deal is still open (`TASKS.md`, "Card deal").

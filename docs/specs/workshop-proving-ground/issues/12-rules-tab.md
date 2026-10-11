@@ -1,6 +1,6 @@
 # 12 · Rules tab (later)
 
-Status: ready-for-agent
+Status: done (PR #42, merged to main with #41, 2026-10-11)
 Size: S
 Blocked by: 03, 11
 Later: not needed for v1; the Rules shelf of ticket 03 already shows each seal with its sentence and preview.

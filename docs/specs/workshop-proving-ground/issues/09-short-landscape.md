@@ -1,6 +1,6 @@
 # 09 · Short landscape
 
-Status: ready-for-agent
+Status: done (PR #42, merged to main with #41, 2026-10-11)
 Size: S
 Blocked by: 03, 06, 07 (the side sheets hold 03's shelf and sentence card, 05's Why tag and 06's tray)
 

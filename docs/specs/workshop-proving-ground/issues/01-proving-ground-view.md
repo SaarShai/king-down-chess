@@ -1,6 +1,6 @@
 # 01 · The Proving Ground view
 
-Status: ready-for-agent
+Status: done (PR #42, merged to main with #41, 2026-10-11)
 Size: L
 Blocked by: move-legend 01 (`src/render/legend.ts`). Work can start on a branch stacked on that ticket's branch.
 
