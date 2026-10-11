@@ -1,0 +1,274 @@
+{
+  "id": "combo-screen-d3",
+  "source": "8d582b066e35",
+  "approval": {
+    "date": "2026-10-10",
+    "quote": "go ahead with that plan. analyze the existing games, shortlist the combinations, build the missing test support, and run the tests on M1 and Kaggle. only check at expected completion times, and don't merge yet."
+  },
+  "rules": {
+    "archerChecks": true,
+    "beastChains": true,
+    "guardImmune": true,
+    "guardCaptures": "none",
+    "guardStep": 1,
+    "guardDoubleFirst": "off",
+    "guardNoSecondRank": false,
+    "guardNoCapital": false,
+    "guardReserve": "off",
+    "capitalSanctuary": false,
+    "capitalNoCapture": false,
+    "guardCapitalStep": false,
+    "guardNextToKing": true,
+    "pawnCapitalCapture": false,
+    "guardCaptureLimit": 0,
+    "archerMove": "any",
+    "archerShots": "far2",
+    "beastMove": "any",
+    "beastCapture": "adjacent",
+    "beastCaptureForward": true,
+    "maesterLongSwap": true,
+    "maesterKingSwapAnywhere": false,
+    "maesterSwapAny": false,
+    "maesterSwapEnemy": false,
+    "maesterStep": 1,
+    "paladinKamikaze": "nonPawn",
+    "paladinChecks": false,
+    "deathTouchMoves": false,
+    "paladinReturn": false,
+    "paladinJumpsFriends": true,
+    "paladinBlockedByEnemies": true,
+    "secondPlayerDoubleFirstTurn": false,
+    "ogreHop": false,
+    "ogreStep2": false,
+    "ogreMode": "push",
+    "ogreNoCapture": false,
+    "ogreShoveFriends": "both",
+    "strikeMode": "move",
+    "strikeCaptures": false,
+    "freezeUses": 2,
+    "iceWallUses": 2,
+    "hasteSecond": "any",
+    "hasteCaptures": false,
+    "hasteApart": false,
+    "hasteNoThreat": false,
+    "hasteNoForward": false,
+    "hasteNoCheck": false,
+    "markFree": true,
+    "freezeQuiet": false,
+    "markTurns": 1,
+    "mercyCaptures": false,
+    "mercyAura": false,
+    "strikePawns": false,
+    "sacrificeBehind": false,
+    "holyLightTakesPawns": false,
+    "holyLightAura": false,
+    "darknessKeep": false,
+    "holyLightKnights": false,
+    "holyLightShelter": false,
+    "holyLightShelterOrtho": false,
+    "mercyAuraOrtho": false,
+    "mercyAuraPawns": false,
+    "mercyAuraPawnsTake": false,
+    "mercyTakesPawns": false,
+    "mercyNoJump": false,
+    "darknessMoves": false,
+    "darknessTakeAhead": false,
+    "darknessStepDiag": false,
+    "darknessShelter": false,
+    "darknessShelterPawnsTake": false,
+    "darknessPawnArmor": false,
+    "darknessAuraPawns": false,
+    "darknessKingStep2": false,
+    "darknessKingStepSafe": false,
+    "darknessKingStepTakes": false,
+    "deathTouchReach": false,
+    "deathTouchReachOrtho": false,
+    "deathTouchReachNoBack": false,
+    "deathTouchReachForwardBack": false,
+    "deathTouchReachPieces": false,
+    "strikeUses": 1,
+    "hasteUses": 1,
+    "flightUses": 1,
+    "sacrificeUses": 1,
+    "marchUses": 3,
+    "leapUses": 3,
+    "reaverStep": "ortho",
+    "catapultCapture": "stay",
+    "kings": [
+      null,
+      null
+    ],
+    "hands": [
+      [],
+      []
+    ],
+    "piles": [
+      [],
+      []
+    ],
+    "fromMove": {},
+    "bishopsOppositeColours": true,
+    "promotionSet": "standard",
+    "fiftyMove": true,
+    "threefold": true,
+    "insufficientMaterial": true
+  },
+  "pool": "QOLRRBBNNAAGMMS",
+  "cardPool": [
+    "Freeze",
+    "IceWall",
+    "Strike",
+    "Haste",
+    "Flight",
+    "Sacrifice",
+    "March",
+    "Leap",
+    "Mimic",
+    "Vault",
+    "Curse",
+    "SkyLift",
+    "Salvation",
+    "Firewall",
+    "FirewallB",
+    "EarthQuake",
+    "EarthQuakeB",
+    "Burn",
+    "FireStarter",
+    "Control",
+    "Growth",
+    "GrowthB",
+    "Rally",
+    "Spawn2",
+    "SpawnK",
+    "SpawnK2",
+    "MorphP",
+    "MirrorB"
+  ],
+  "depth": 3,
+  "blocks": 64,
+  "seed": 92101,
+  "maxPlies": 300,
+  "candidates": [
+    {
+      "id": "archer-ogre",
+      "factors": [
+        {
+          "kind": "piece",
+          "piece": "A",
+          "replacement": "N"
+        },
+        {
+          "kind": "piece",
+          "piece": "O",
+          "replacement": "B"
+        }
+      ],
+      "reason": "Mechanistic: shove then shot"
+    },
+    {
+      "id": "guard-maester",
+      "factors": [
+        {
+          "kind": "piece",
+          "piece": "G",
+          "replacement": "N"
+        },
+        {
+          "kind": "piece",
+          "piece": "M",
+          "replacement": "B"
+        }
+      ],
+      "reason": "Participation and defensive cooperation"
+    },
+    {
+      "id": "archer-beast",
+      "factors": [
+        {
+          "kind": "piece",
+          "piece": "A",
+          "replacement": "N"
+        },
+        {
+          "kind": "piece",
+          "piece": "S",
+          "replacement": "B"
+        }
+      ],
+      "reason": "Strongest piece-pair discovery draw signal"
+    },
+    {
+      "id": "beast-flight",
+      "factors": [
+        {
+          "kind": "piece",
+          "piece": "S",
+          "replacement": "N"
+        },
+        {
+          "kind": "card",
+          "card": "Flight"
+        }
+      ],
+      "reason": "Mechanistic: relocation and participation"
+    },
+    {
+      "id": "guard-quake",
+      "factors": [
+        {
+          "kind": "piece",
+          "piece": "G",
+          "replacement": "N"
+        },
+        {
+          "kind": "card",
+          "card": "EarthQuakeB"
+        }
+      ],
+      "reason": "Piece-card discovery signal"
+    },
+    {
+      "id": "beast-rally",
+      "factors": [
+        {
+          "kind": "piece",
+          "piece": "S",
+          "replacement": "N"
+        },
+        {
+          "kind": "card",
+          "card": "Rally"
+        }
+      ],
+      "reason": "Mobility and piece-card discovery signal"
+    },
+    {
+      "id": "mimic-skylift",
+      "factors": [
+        {
+          "kind": "card",
+          "card": "Mimic"
+        },
+        {
+          "kind": "card",
+          "card": "SkyLift"
+        }
+      ],
+      "reason": "Card-pair draw warning"
+    },
+    {
+      "id": "growth-morph",
+      "factors": [
+        {
+          "kind": "card",
+          "card": "GrowthB"
+        },
+        {
+          "kind": "card",
+          "card": "MorphP"
+        }
+      ],
+      "reason": "Card-pair draw reduction signal"
+    }
+  ]
+}

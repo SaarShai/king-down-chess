@@ -137,6 +137,7 @@ describe('the size allowlist of this repository', () => {
   it('holds the Workshop media and balance dataset, each with a reason', () => {
     expect(entries.map(e => e.path).sort()).toEqual([
       'docs/balance/measurements.json',
+      'docs/balance/status.json',
       'docs/visual-design/workshop/figure-samples-2026-10-06/fast-minimal.png',
       'docs/visual-design/workshop/figure-samples-2026-10-06/mixed-archer-face.png',
       'docs/visual-design/workshop/figure-samples-2026-10-06/mixed-minimal.png',

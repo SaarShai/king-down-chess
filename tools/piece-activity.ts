@@ -33,6 +33,7 @@ import { RULES, Rules, setRules } from '../src/rules/rules';
 import { POOL, fromFen, startPosition, toFen, toLan } from '../src/rules/setup';
 import type { GameRecord } from '../src/sim/game';
 import { replayRecord } from '../src/sim/replay';
+import { advanceIdentities, checkIdentities } from '../src/sim/piece-identities';
 import { mulberry32 } from '../src/sim/rng';
 import { type TRecord, type TournamentSpec, gameSpec } from '../src/sim/tournament';
 
@@ -146,16 +147,12 @@ export function countGame(g: StoredGame, countOpening = false): { row: Float64Ar
     }
     // Follow every piece to its new square, as makeMove moves it. A waiting guard takes its place on
     // the board; a Salvation card's piece is a new piece, like a promotion.
-    if (m.drop) {
-      if (m.power) { ids[m.to] = pieces.length; pieces.push({ type: m.drop, start: false, first: 0 }); }
-      else ids[m.to] = waiting[pos.turn].pop()!;
-    } else if (!(m.power === 'freeze' || m.power === 'ward' || m.pass)) {
-      for (const s of m.captures) ids[s] = -1;
-      if (m.shove) { ids[m.shove.to] = ids[m.shove.from]; ids[m.shove.from] = -1; }
-      const mover = ids[m.from], other = ids[m.to];
-      ids[m.from] = m.swap ? other : -1;
-      ids[m.to] = m.selfRemove ? -1 : mover;
-    }
+    advanceIdentities(ids, m, s => {
+      const id = pieces.length;
+      pieces.push({ type: typeOf(next.board[s]), start: false, first: 0 });
+      return id;
+    }, m.drop && !m.power ? waiting[pos.turn].pop() : undefined);
+    checkIdentities(ids, next);
     for (let s = 0; s < 64; s++) {
       const p = next.board[s];
       if (!p !== (ids[s] < 0)) throw new Error(`ply ${i + 1}: lost track of the piece on square ${s}`);
