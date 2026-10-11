@@ -5,12 +5,13 @@ import { randomUUID } from 'node:crypto';
 import { fail, GameService, id } from '../match/service';
 import type { PostgresMatchStore } from '../match/store';
 import { AccountService } from '../online/accounts';
+import { SettingsService } from './settings';
 import { SafetyService } from '../online/safety';
 
 const seated = 'exists(select from public.game_players where game_id=$3 and user_id=$2)';
 export class PluginService {
-  private games: GameService; private safety: SafetyService; private accounts: AccountService;
-  constructor(private store: PostgresMatchStore) { this.games = new GameService(store); this.safety = new SafetyService(store); this.accounts = new AccountService(store); }
+  private games: GameService; private safety: SafetyService; private accounts: AccountService; private playerSettings: SettingsService;
+  constructor(private store: PostgresMatchStore) { this.games = new GameService(store); this.safety = new SafetyService(store); this.accounts = new AccountService(store); this.playerSettings = new SettingsService(store.pool); }
   create(actor: string, input: unknown) { return this.games.create(actor, input); }
   /** Read-only. */
   view(actor: string, gameId: string, since?: number) { return this.games.view(actor, gameId, since); }
@@ -28,7 +29,8 @@ export class PluginService {
   cancel(actor: string, gameId: string) { return this.games.cancel(actor, gameId); }
   report(actor: string, input: unknown) { return this.safety.report(actor, input); }
   /** Read-only. The ID and the handle; never the email. */
-  async profile(actor: string): Promise<{ user_id: string; handle: string | null }> { const { user_id, handle } = await this.accounts.profile(actor); return { user_id, handle }; }
+  async profile(actor: string) { const { user_id, handle, icon } = await this.accounts.profile(actor); return { user_id, handle, icon }; }
+  settings(actor: string, input: unknown = {}) { return this.playerSettings.settings(actor, input); }
   /** A new board for a game where the actor has a seat. */
   async openBoard(actor: string, gameId?: string): Promise<string> {
     const board = randomUUID();

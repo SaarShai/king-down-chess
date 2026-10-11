@@ -8,6 +8,7 @@ import { MAX_REVISION, PRESETS, type Action, type View } from '../match/protocol
 import { DEFAULT_OPTIONS } from '../match/setup';
 import { choiceSchema, optionsSchema } from '../match/setup-schema';
 import { REPORT_CATEGORIES } from '../account/profile';
+import { settingsSchema } from './settings';
 import { ending } from './ending';
 import type { PluginService } from './service';
 
@@ -86,12 +87,13 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const result = view ? reply(view, board) : home(board);
       result.structuredContent = { ...result.structuredContent, screen: args.screen ?? (view ? 'board' : 'home'), your_turn_count: count };
       if (!view) result.content = text(`Your move in ${count} games.`);
-      result._meta = { ...result._meta, games };
+      const [settings, { handle, icon }] = await Promise.all([service.settings(actorId), service.profile(actorId)]);
+      result._meta = { ...result._meta, games, settings, me: { handle, icon } };
       return result;
     });
   register('kingdown_create', 'Use this when the player wants a new King Down game against the computer, a friend or a random player. Choose the features, colour and computer level.',
     { kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(), board_id: boardId },
-    { visibility: ['model', 'app'], idempotent: false }, ({ board_id, ...input }) => select(board_id, () => service.create(actorId, { ...input, options: input.options ?? DEFAULT_OPTIONS })));
+    { visibility: ['model', 'app'], idempotent: false }, ({ board_id, ...input }) => select(board_id, async () => service.create(actorId, { ...input, options: input.options ?? (await service.settings(actorId)).last_setup?.options ?? DEFAULT_OPTIONS })));
   register('kingdown_resume', 'Show a selected game, or your most urgent game, on this board.', { board_id: z.string().uuid(), game_id: gameId.optional() }, { visibility: ['app'], idempotent: false }, async args => {
     if (args.game_id) return select(args.board_id, () => service.view(actorId, args.game_id!));
     await service.board(actorId, args.board_id).catch(error => { if (!(error instanceof MatchServiceError) || error.code !== 'MATCH_REMOVED') throw error; });
@@ -146,6 +148,10 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const { id, created_at } = await service.report(actorId, args);
       return { content: text('Report sent. The King Down team reviews it.'), structuredContent: { id, created_at } };
     });
+  register('kingdown_settings', 'Read or change your board settings and last setup choices.', settingsSchema.shape, { visibility: ['app'] }, async args => {
+    const [settings, { handle, icon }] = await Promise.all([service.settings(actorId, args), service.profile(actorId)]);
+    return { content: text('Your settings are ready.'), _meta: { settings, me: { handle, icon } } };
+  });
   // ChatGPT tells connected accounts apart by this ID; an invalid reply can stop the account from connecting.
   register('kingdown_profile', 'The signed-in King Down account: its ID and handle.', {}, { visibility: ['model'], readOnly: true, meta: { 'openai/profile': true }, output: { id: z.string(), name: z.string().optional() } }, async () => {
     const { user_id, handle } = await service.profile(actorId);

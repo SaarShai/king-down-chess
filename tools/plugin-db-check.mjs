@@ -10,12 +10,16 @@ const PROBES = `select id,actor_id,match_id,game_selected from public.plugin_boa
  select user_id,rating,rd,volatility,last_game_at from public.player_ratings limit 0;
  select game_id,user_id,rating_before,rd_before,volatility_before,rating,rd,volatility,created_at from public.rating_history limit 0;
  select user_id,badge,earned_at,game_id from public.player_badges limit 0;
+ select user_id,symbols_only,show_threats,last_setup from public.player_settings limit 0;
  select has_function_privilege('kingdown_jobs.request_deletion(uuid)','execute')
   and (select bool_and(has_column_privilege('public.games',name,'update')) from unnest(array['setup','rules','engine_fingerprint','setup_deadline_at','rematch_offer','rematch_game_id']) as columns(name))
   and (select bool_and(has_column_privilege('public.game_players',name,'update')) from unnest(array['choice','ready','power']) as columns(name))
   and has_table_privilege('public.player_ratings','insert')
   and (select bool_and(has_column_privilege('public.player_ratings',name,'update')) from unnest(array['rating','rd','volatility','last_game_at']) as columns(name))
-  and has_table_privilege('public.rating_history','insert') and has_table_privilege('public.player_badges','insert') as allowed`;
+  and has_table_privilege('public.rating_history','insert') and has_table_privilege('public.player_badges','insert')
+  and has_table_privilege('public.player_settings','insert')
+  and (select bool_and(has_column_privilege('public.player_settings',name,'update')) from unnest(array['symbols_only','show_threats','last_setup']) as columns(name))
+  and has_column_privilege('public.plugin_boards','game_selected','insert') and has_column_privilege('public.plugin_boards','game_selected','update') as allowed`;
 // A missing table, column, function or schema, or a missing grant.
 const SCHEMA = ['42P01', '42703', '42883', '3F000', '42501'];
 const required = message => Object.assign(new Error(message), { code: 'SCHEMA_REQUIRED' });

@@ -99,3 +99,5 @@ Page metadata keeps the CSP from ticket 09. `openai/ui` declares inline and full
 - Step 2: the new MCP test fails on the absent Find tool. Lobby, accept, find and cancel now pass. A retry keeps one open game. The related match and plugin checks pass.
 
 - Step 3: the Choose test and the changed solo-rematch test first fail. Choose, Rematch and explicit Resume pass. The solo rematch keeps only the computer Ready when a choice is needed. The related checks pass.
+
+- Step 4: Settings first fails as an absent tool. Default reads, partial writes, saved setup defaults and invalid king and options checks now pass. The migration and plugin checks pass.

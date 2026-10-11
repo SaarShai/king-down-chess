@@ -141,7 +141,10 @@ drop policy if exists kingdown_plugin_runtime on public.player_badges;
 create policy kingdown_plugin_runtime on public.player_badges for all to kingdown_plugin_runtime using (true) with check (true);
 commit;
 
--- Apply after migration 0013: an empty home board can select its first game.
+-- Apply after migration 0013: home boards and account settings.
 begin;
 grant insert (game_selected), update (game_selected) on public.plugin_boards to kingdown_plugin_runtime;
+grant select, insert, update (symbols_only, show_threats, last_setup) on public.player_settings to kingdown_plugin_runtime;
+drop policy if exists kingdown_plugin_runtime on public.player_settings;
+create policy kingdown_plugin_runtime on public.player_settings for all to kingdown_plugin_runtime using (true) with check (true);
 commit;

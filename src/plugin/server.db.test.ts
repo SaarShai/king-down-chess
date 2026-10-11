@@ -119,6 +119,21 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(view(await host.ok('kingdown_get', { board_id })).game_id).toBe(view(resumed).game_id);
  });
 
+ it('reads default settings and preserves partial writes and saved setup across remounts', async () => {
+  const actor = await user('settings'), player = await connect(actor), reader = await connect(actor, readOnly);
+  const initial = await reader.ok('kingdown_settings');
+  expect(initial._meta).toMatchObject({ settings: { symbols_only: false, show_threats: false, last_setup: null }, me: { handle: `settings-${tag}`, icon: null } });
+  const last_setup = { kind: 'solo', options: { ...DEFAULT_OPTIONS, arrangement: false }, colour: 'black', level: 'beginner', king: { king: 'Mud', power: 'March' } };
+  await player.ok('kingdown_settings', { symbols_only: true, last_setup });
+  await player.ok('kingdown_settings', { show_threats: true });
+  const reopened = await player.ok('kingdown_open');
+  expect(reopened._meta.settings).toEqual({ symbols_only: true, show_threats: true, last_setup });
+  expect(view(await player.ok('kingdown_create', { kind: 'solo' })).options).toEqual(last_setup.options);
+  for (const input of [{ last_setup: { ...last_setup, options: { ...DEFAULT_OPTIONS, pool: [] } } }, { last_setup: { ...last_setup, king: { king: 'Flame', power: 'Mercy' } } }]) expect((await player.call('kingdown_settings', input)).isError).toBe(true);
+  expect((await reader.ok('kingdown_settings'))._meta.settings).toEqual(reopened._meta.settings);
+  expect((await reader.call('kingdown_settings', { symbols_only: false }))._meta.code).toBe('INTERNAL_ERROR');
+ });
+
  it('plays a Daily friend game between two ChatGPT players and shows the model no position and no opponent text', async () => {
   const host = await connect(ann), guest = await connect(bob), handles = [`ann-${tag}`, `bob-${tag}`];
   const created = await host.ok('kingdown_create', { options: { ...DEFAULT_OPTIONS, arrangement: false }, kind: 'friend', colour: 'white' });
