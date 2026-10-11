@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { REPORT_CATEGORIES } from '../account/profile';
 import { DEFAULT_OPTIONS } from '../match/setup';
 import { ART_ORIGIN, createPluginServer } from './server';
 
@@ -69,4 +70,19 @@ it('returns the same plain invalid-input reply for schema errors', async () => {
    ['kingdown_get',{game_id,since_revision:1101}], ['kingdown_move',{game_id,command_id:'bad',expected_revision:1101,lan:'e2-e4'}],
   ] as const) expect(await client.callTool({name,arguments:args})).toEqual({isError:true,content:[{type:'text',text:'Invalid input'}],_meta:{code:'INVALID_INPUT'}});
  } finally {await client.close(); await server.close();}
+});
+
+it('bounds report notes at 1000 characters apart from game revisions', async () => {
+ const service = {report:async()=>({id:1,created_at:'2026-10-11T00:00:00.000Z'})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'report-bound-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const args = {game_id:'00000000-0000-4000-8000-000000000001',target:'player',category:REPORT_CATEGORIES[0]};
+  expect((await client.callTool({name:'kingdown_report',arguments:{...args,note:'x'.repeat(1000)}})).isError).not.toBe(true);
+  expect(await client.callTool({name:'kingdown_report',arguments:{...args,note:'x'.repeat(1001)}})).toEqual({isError:true,content:[{type:'text',text:'Invalid input'}],_meta:{code:'INVALID_INPUT'}});
+  const tools = (await client.listTools()).tools;
+  expect(tools.find(t=>t.name === 'kingdown_report')!.inputSchema.properties!.note).toMatchObject({maxLength:1000});
+  expect(tools.find(t=>t.name === 'kingdown_move')!.inputSchema.properties!.expected_revision).toMatchObject({maximum:1100});
+ } finally {await client.close();await server.close();}
 });

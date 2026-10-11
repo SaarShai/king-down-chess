@@ -150,7 +150,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     { code: z.string().min(1).max(300), preview: z.boolean().optional(), board_id: boardId }, { visibility: ['model', 'app'] },
     async args => args.preview ? { content: text('Review the game features before you join.'), structuredContent: { screen: 'join', ...(args.board_id && { board_id: args.board_id }) }, _meta: { preview: await service.preview(actorId, args.code) } } : select(args.board_id, () => service.join(actorId, args.code)));
   register('kingdown_report', 'Use this when the player wants to report the opponent in a King Down game: the player, their handle, or a preset message (name it). The King Down team reviews each report.',
-    { game_id: gameId, target: z.enum(['player', 'handle', 'message']), category: z.enum(REPORT_CATEGORIES), intimate_image: z.boolean().optional(), preset: z.enum(PRESETS).optional(), note: z.string().max(MAX_REVISION).optional() },
+    { game_id: gameId, target: z.enum(['player', 'handle', 'message']), category: z.enum(REPORT_CATEGORIES), intimate_image: z.boolean().optional(), preset: z.enum(PRESETS).optional(), note: z.string().max(1000).optional() },
     { visibility: ['model', 'app'], idempotent: false }, async args => {
       const { id, created_at } = await service.report(actorId, args);
       return { content: text('Report sent. The King Down team reviews it.'), structuredContent: { id, created_at } };
