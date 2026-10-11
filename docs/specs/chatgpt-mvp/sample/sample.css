@@ -1,0 +1,268 @@
+/* Ticket 02 sample, second round. The game's own sheets load first (src/style.css, src/ui/table.css, src/ceremony.css):
+   tokens, fonts, buttons, checkboxes, the New game sheet, the menu rows, the coins, the table and the ceremony.
+   This file adds (1) the host stand-in, (2) the fullscreen frame, and (3) the screens with no twin in the game,
+   built only from the game's tokens. */
+
+/* ---- 1. The host stand-in: ChatGPT's own header, composer and chat (its system font; not the app) ---- */
+:root { --header: 52px; --composer: 96px; }
+.wide { --composer: 128px; }
+.host-head, .composer, .chat .bubble, .chat .said {
+  font: 15px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, Arial, sans-serif; color: #0d0d0d;
+}
+svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.host-head { position: fixed; inset: 0 0 auto 0; height: var(--header); display: flex; align-items: center; gap: 10px; padding: 0 12px; border-bottom: 1px solid #e3e3e3; background: #fff; z-index: 5; }
+.host-head .app { font-weight: 600; }
+.host-head .x { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: #5d5d5d; }
+.host-head .sp { flex: 1; }
+.composer { position: fixed; inset: auto 0 0 0; height: var(--composer); padding: 10px 12px 34px; background: #fff; z-index: 6; display: flex; justify-content: center; }
+.wide .composer { padding-bottom: 44px; }
+.composer .pill { flex: 1; max-width: 760px; height: 52px; border-radius: 26px; border: 1px solid #cfcfcf; display: flex; align-items: center; gap: 10px; padding: 0 14px; color: #6e6e6e; box-shadow: 0 2px 10px rgba(0, 0, 0, .06); }
+.composer .pill span { flex: 1; }
+body:has(.chat) { background: #fff; }
+.chat { position: fixed; inset: 0 0 var(--composer) 0; overflow: auto; background: #fff; }
+.thread { max-width: 760px; margin: 0 auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; }
+.bubble { align-self: flex-end; background: #efefef; border-radius: 18px; padding: 10px 16px; max-width: 80%; }
+
+/* ---- 2. The fullscreen frame: the app's page, on the game's parchment floor, between the header and the composer ---- */
+.frame, .new-game-body, .sheet-body { scrollbar-width: thin; }
+.frame { position: fixed; top: var(--header); bottom: var(--composer); left: 0; right: 0; overflow: hidden; background-color: var(--floor-base); background-image: var(--floor); }
+.icon { width: 20px; height: 20px; }
+.grow { flex: 1; min-width: 0; }
+
+/* The game's sheet as the page: on a phone it fills the frame, on a wide screen it stands 560 px wide on the floor. */
+.frame dialog.page-sheet {
+  position: absolute; inset: 0; margin: 0; width: 100%; max-width: none; height: 100%; max-height: none;
+  display: flex; flex-direction: column; padding: 0; overflow: hidden;
+  border: 0; border-radius: 0; box-shadow: none;
+}
+.wide .frame dialog.page-sheet {
+  inset: 24px 0 24px; margin: 0 auto; width: min(560px, calc(100% - 48px)); height: auto;
+  border: 1px solid var(--stone-700); border-radius: var(--radius-lg);
+  box-shadow: 0 0 0 4px var(--parchment-deep), 0 0 0 5px var(--stone-500), 0 18px 50px rgba(20, 14, 8, .25);
+}
+.wide .frame dialog#profile-sheet { width: min(980px, calc(100% - 48px)); }
+.page-sheet .new-game-head h2 { padding-bottom: 10px; background: linear-gradient(90deg, var(--gold) 0, var(--gold) 64px, var(--stone-300) 64px, transparent) left bottom / 100% 2px no-repeat; flex: 1; }
+.page-sheet .new-game-body { flex: 1; display: flex; flex-direction: column; gap: 0; }
+.page-sheet .new-game-body > p { margin: 0 0 var(--space-3); }
+.page-sheet .new-game-foot { display: flex; align-items: center; gap: var(--space-3); }
+.page-sheet .new-game-foot button { flex: 1; }
+.group-head { margin: var(--space-5) 0 var(--space-2) !important; }
+.group-head small { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; font-size: var(--fs-xs); }
+.quiet-line { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0 !important; }
+.wide-btn { justify-content: center; min-height: 48px; margin-top: var(--space-3); font-size: var(--fs-lg); }
+.seg-line { margin: 8px 0 0; color: var(--ink-soft); }
+
+/* A second sheet over the first (the game's Menu sheet: a bottom sheet on a phone, centred on a wide screen). */
+.scrim { position: absolute; inset: 0; background: rgba(29, 25, 21, 0.55); backdrop-filter: blur(2px); }
+.frame #menu-sheet.over-sheet {
+  position: absolute; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: calc(100% - 40px); height: auto;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.wide .frame #menu-sheet.over-sheet { inset: 0; margin: auto; width: min(560px, calc(100% - 48px)); max-height: calc(100% - 48px); border-radius: var(--radius-lg); }
+.over-sheet .new-game-foot { display: flex; align-items: center; gap: var(--space-3); padding-bottom: 16px; }
+.over-sheet .new-game-foot button { width: auto; flex: 1; }
+.foot-count { flex: 1; margin: 0; color: var(--ink-soft); }
+.sheet-lead { margin: 0 0 var(--space-3); color: var(--ink-soft); }
+.lock-note { display: flex; gap: var(--space-2); align-items: flex-start; margin: 0 0 var(--space-3); padding: 8px 12px; font-size: var(--fs-sm); color: var(--gold-ink); background: rgba(201, 154, 62, .12); border: 1px solid rgba(122, 87, 18, .3); border-radius: var(--radius); }
+
+/* ---- 3. Screens with no twin in the game ---- */
+
+/* The menu's index rows (src/ui/table.css #menu-sheet .menu-row), with an art, a portrait or an icon at the start. */
+.page-sheet .menu-row, .over-sheet .menu-row {
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 12px; align-items: center;
+  width: 100%; min-height: 60px; padding: 8px 32px 8px 0; text-align: left; font-size: 18px;
+  background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none;
+}
+.menu-row.has-lead { grid-template-columns: auto minmax(0, 1fr); }
+.menu-row.has-lead > :first-child { grid-row: 1 / span 2; }
+.menu-row .row-title { grid-column: -2; font-weight: 700; }
+.menu-row .line { grid-column: -2; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: 14px; font-weight: 400; color: var(--ink-soft); }
+.menu-row > i { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-style: normal; }
+.row-art { width: 52px; height: 52px; object-fit: contain; display: flex; align-items: flex-end; justify-content: center; }
+.row-art.pair img { height: 48px; width: auto; }
+.row-art.pair .face-left { transform: scaleX(-1); margin-left: -12px; }
+.row-art.fan img { width: 26px; margin: 0 -4px; }
+.row-ico { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--vellum); box-shadow: 0 0 0 1px var(--stone-300); color: var(--ink); }
+.portrait { position: relative; flex: none; width: 44px; height: 44px; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 50% 30%, #fffaf0, #e2d2b1); box-shadow: 0 0 0 1px var(--stone-300); }
+.portrait img { position: absolute; left: -32%; top: -4%; width: 164%; max-width: none; }
+.portrait.big { width: 72px; height: 72px; }
+.turn-mark, .open-mark { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 2px 8px; font-size: var(--fs-xs); font-weight: 700; color: var(--vellum); background: var(--accent); border-radius: var(--radius-pill); }
+.open-mark { color: var(--ink); background: var(--parchment-deep); }
+.when .turn-mark, .when .open-mark { position: static; transform: none; }
+.feats { display: inline-flex; gap: 4px; color: var(--gold-ink); }
+.feats .icon { width: 16px; height: 16px; }
+.accept { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 6px 14px; font-size: 15px; font-weight: 700; color: var(--ink); background: linear-gradient(var(--vellum), #efe4cc); border: 1px solid var(--stone-700); border-radius: var(--radius); box-shadow: var(--lift); }
+.game-row { padding-right: 96px !important; }
+.online { text-align: right; color: var(--ink-soft); font-size: var(--fs-sm); margin: 0 !important; }
+.key { line-height: 2; }
+.key .icon { width: 16px; height: 16px; vertical-align: -3px; color: var(--gold-ink); }
+
+/* A text field in the game's control look (the select's vellum and stone edge). */
+.code-row { display: flex; gap: var(--space-2); align-items: center; }
+.field { flex: 1; min-width: 0; min-height: var(--tap); padding: 6px 12px; font-family: var(--font-display); font-size: 20px; letter-spacing: .2em; text-transform: uppercase; background: var(--vellum); border: 1px solid var(--stone-700); border-radius: var(--radius-sm); box-shadow: inset 0 1px 3px rgba(43, 38, 33, .12); }
+.field::placeholder { color: var(--stone-500); }
+.field.name { font-family: var(--font-body); letter-spacing: 0; text-transform: none; font-size: var(--fs-lg); }
+.code-row .join { width: auto; min-width: 96px; justify-content: center; }
+.free { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: #3d6b1f; }
+
+/* The toggles: the game's check row, with an icon; a sub-toggle steps in; "All" opens its sheet. */
+label.check.toggle { margin-top: var(--space-2); align-items: center; }
+label.check.toggle .t-ico { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 50%; color: var(--gold-ink); background: var(--vellum); box-shadow: 0 0 0 1px var(--stone-300); }
+label.check.toggle:has(input:not(:checked)) .t-ico { color: var(--stone-500); }
+label.check.toggle.sub { margin-left: 28px; }
+label.check.toggle .all { flex: none; padding: 6px 10px; font-size: var(--fs-sm); color: var(--ink); background: linear-gradient(var(--vellum), #efe4cc); border: 1px solid var(--stone-700); border-radius: var(--radius-sm); box-shadow: 0 1px 0 var(--stone-700); white-space: nowrap; }
+.your-king { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
+.your-king h3 { margin: 0 !important; }
+.your-king .power-text { min-height: 0; margin: 2px 0 0; color: var(--ink-soft); }
+.your-king .chev, .menu-row .chev { font-size: 22px; color: var(--ink); }
+.kings-off { display: flex; align-items: flex-end; gap: 4px; margin-top: var(--space-3); padding: var(--space-3); background: rgba(251, 247, 238, .7); border: 1px solid var(--stone-300); border-radius: var(--radius); }
+.kings-off img { height: 56px; }
+.kings-off .face-left { transform: scaleX(-1); margin-left: -10px; }
+.kings-off p { margin: 0 0 0 8px; align-self: center; color: var(--ink-soft); font-size: var(--fs-sm); }
+
+/* The pieces sheet: one check row a kind, with the painted figure and the rulebook icon. */
+.pick-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: var(--space-2); }
+label.check.pick { margin: 0; padding: 4px 12px 4px 4px; gap: var(--space-2); }
+.pick-art { display: flex; align-items: flex-end; justify-content: center; width: 52px; height: 56px; flex: none; border-radius: var(--radius-sm); background: radial-gradient(55% 12% at 50% 90%, rgba(43, 38, 33, .3), transparent), linear-gradient(#ddd6c6, #c9c0ae); }
+.pick-art img { max-height: 52px; max-width: 48px; }
+label.check.pick .pi { width: 20px; height: 20px; vertical-align: -4px; }
+label.check.pick.locked input:disabled { background-color: var(--stone-500); border-color: var(--stone-700); cursor: default; }
+.lock { color: var(--stone-500); display: grid; }
+.lock .icon { width: 16px; height: 16px; }
+
+/* The cards sheet: a card face in the Guide's piece-card look (vellum, stone edge, the art in a stone window). */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: var(--space-2); }
+label.card-face {
+  position: relative; display: grid; grid-template-rows: auto 1fr; align-items: start; gap: 6px; min-height: 0; padding: 6px; cursor: pointer;
+  background: linear-gradient(var(--vellum), #f4ead4); border: 1px solid var(--stone-300); border-radius: 12px; box-shadow: var(--shadow-card);
+}
+label.card-face:has(input:checked) { border-color: var(--stone-700); }
+label.card-face.out { opacity: .62; }
+.cf-art { display: grid; place-items: center; aspect-ratio: 16 / 9; overflow: hidden; border-radius: var(--radius); background: linear-gradient(#ddd6c6, #c9c0ae); box-shadow: inset 0 0 0 1px rgba(77, 69, 60, .35); }
+.cf-art img { width: 100%; height: 100%; object-fit: cover; }
+.cf-art img.back { object-position: center 30%; opacity: .85; }
+.cf-word { font-family: var(--font-display); font-weight: 700; font-size: var(--fs-md); color: var(--stone-700); letter-spacing: .04em; text-align: center; padding: 0 6px; }
+.cf-text b { display: block; font-family: var(--font-display); font-size: var(--fs-md); letter-spacing: .03em; padding-right: 26px; }
+.cf-text small { display: block; font-size: var(--fs-xs); line-height: 1.35; color: var(--ink-soft); }
+label.card-face input { position: absolute; right: 10px; top: 10px; }
+
+/* The king sheet: the game's king picker; a king or a power that cannot play with cards stays on the page, dimmed. */
+#king-picker { margin-top: 0; }
+button.emblem.is-out img { filter: grayscale(1); opacity: .45; }
+button.emblem.is-out { color: var(--stone-500); }
+.power-choice.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.power-choice button[aria-disabled='true'] { color: var(--stone-500); background: var(--stone-100); box-shadow: none; border-color: var(--stone-300); }
+.power-choice button[aria-pressed='true'] { color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent)); border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep); }
+.power-text.off { color: var(--ink-soft); min-height: 0; }
+
+/* The friend code: six letters in the display face, each on a vellum tile. */
+.game-code { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; max-width: 380px; margin: var(--space-2) auto var(--space-2); width: 100%; }
+.game-code span { display: grid; place-items: center; aspect-ratio: 4 / 5; font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 8vw, 40px); background: var(--vellum); border: 1px solid var(--stone-700); border-radius: var(--radius); box-shadow: var(--lift); }
+
+/* The wait: the title's stone board, Spirit and Shadow face each other. */
+.wait-stage { position: relative; height: 180px; margin: 0 0 var(--space-3); perspective: 900px; }
+.wait-stage .title-floor { position: absolute; left: 50%; bottom: -30%; width: 320px; transform: translateX(-50%) rotateX(64deg); transform-origin: 50% 100%; filter: brightness(.9) sepia(.2); -webkit-mask-image: radial-gradient(closest-side, #000 38%, transparent 72%); mask-image: radial-gradient(closest-side, #000 38%, transparent 72%); }
+.wait-kings { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; gap: 18px; padding-bottom: 14px; }
+.wait-kings img { height: 150px; filter: drop-shadow(0 0 .75px rgba(43, 38, 33, .7)) drop-shadow(0 12px 10px rgba(43, 38, 33, .4)); }
+.wait-kings .face-left { transform: scaleX(-1); }
+.wait-dots { display: flex; gap: 6px; margin-bottom: 70px; }
+.wait-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
+.wait-dots i:nth-child(2) { opacity: .6; } .wait-dots i:nth-child(3) { opacity: .3; }
+
+/* The profile: the scroll registry beside the badges. */
+.who-row { display: flex; align-items: center; gap: var(--space-3); }
+.who-row small { color: var(--ink-soft); font-size: var(--fs-sm); }
+.rating { display: flex; align-items: baseline; gap: 4px; font-family: var(--font-display); }
+.rating b { font-size: var(--fs-2xl); }
+.q { display: inline-grid; place-items: center; width: 20px; height: 20px; font-family: var(--font-body); font-size: 13px; font-weight: 800; color: var(--vellum); background: var(--gold-ink); border-radius: 50%; vertical-align: 2px; }
+.split { display: grid; gap: var(--space-4); margin-top: var(--space-3); }
+.wide .split { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }
+.scroll { padding: 60px 17% 64px; background: url(art/scroll.webp) center / 100% 100% no-repeat; }
+.totals { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.totals b { display: block; font-family: var(--font-display); font-size: var(--fs-xl); }
+.totals span { font-size: var(--fs-xs); color: var(--ink-soft); text-transform: uppercase; letter-spacing: .1em; }
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows li { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.rows .when { width: 48px; flex: none; font-size: var(--fs-xs); color: var(--ink-soft); }
+.rows .pi { width: 18px; height: 18px; }
+.rows b { display: block; font-size: var(--fs-md); line-height: 1.2; }
+.rows small { display: block; font-size: var(--fs-xs); color: var(--ink-soft); }
+.res { width: 18px; flex: none; text-align: center; font-family: var(--font-display); font-weight: 700; }
+.res-w { color: #3d6b1f; } .res-l { color: var(--accent); } .res-d { color: var(--ink-soft); }
+.side-col .group-head { margin-top: 0 !important; }
+.badges { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px 4px; margin-bottom: var(--space-3); }
+.badge { margin: 0; text-align: center; }
+.badge img { width: 100%; max-width: 72px; aspect-ratio: 1; filter: drop-shadow(0 2px 2px rgba(43, 38, 33, .3)); }
+.badge figcaption { font-size: var(--fs-xs); font-weight: 700; line-height: 1.2; }
+.badge.no img { filter: grayscale(1) opacity(.45); }
+.badge.no figcaption { color: var(--ink-soft); font-weight: 400; }
+
+/* The collection: the Guide's piece cards. */
+.piece-cards { margin-top: var(--space-4); }
+.unlocked { display: flex; align-items: center; gap: 4px; color: #3d6b1f; font-weight: 700; }
+.unlocked .icon { width: 16px; height: 16px; }
+
+/* Settings: the Menu's Board help rows. */
+#settings-sheet .fields label { font-weight: 400; }
+.set-line { margin: -6px 0 6px !important; color: var(--ink-soft); font-size: var(--fs-sm); }
+.sym-demo { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; vertical-align: middle; }
+.sym-demo img { height: 36px; }
+.sym-demo .pi { width: 30px; height: 30px; }
+
+/* The handle: the 17 presets in the game's round portrait. */
+.presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: var(--space-2); }
+button.preset { justify-content: center; min-height: 0; padding: 4px; background: transparent; border: 2px solid transparent; box-shadow: none; border-radius: 50%; aspect-ratio: 1; }
+button.preset .portrait { width: 100%; height: 100%; }
+button.preset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--gold-bright); }
+
+/* ---- the table in the frame ---- */
+.frame #game-table { height: 100%; }
+#board.painted { position: relative; }
+.board-layer { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+.board-layer .pi { position: absolute; }
+.board-layer .veil { position: absolute; display: grid; place-items: center; padding: 12px; text-align: center; background: rgba(243, 234, 215, .82); backdrop-filter: blur(3px); border-bottom: 2px dashed var(--stone-500); }
+.board-layer .veil span { max-width: 22ch; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-md); color: var(--ink-soft); }
+/* No End turn in the plugin game: Offer draw, Resign and Menu fill the game's bar. */
+#table-bar > button:nth-child(1) { grid-column: 1; } #table-bar > button:nth-child(2) { grid-column: 2; } #table-bar > button:nth-child(3) { grid-column: 3; }
+#table-bar > button.primary { background: var(--accent); color: var(--vellum); }
+#table-bar > button[aria-disabled='true'] { color: rgb(91 80 69 / 60%); }
+/* Card coins (card mode C): smaller than the power coin, so a full hand fits the strip at 360 px. */
+.coin-row { gap: 4px; }
+#game-table .player-strip { gap: 8px; }
+.coin.card-coin { width: 34px; height: 34px; overflow: hidden; }
+.coin.card-coin img { inset: 3px; width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+.cc-word { position: absolute; inset: 0; color: var(--vellum) !important; text-shadow: 0 1px 2px rgba(0,0,0,.6); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--ink); }
+#game-table .coin:not(.card-coin) { width: 40px; height: 40px; }
+#game-table .coin:not(.card-coin) img { inset: 4px; width: 30px; height: 30px; }
+#game-table .player-name b { font-size: 16px; }
+#game-table .player-name small { font-size: 13px; }
+#context-actions button.primary { color: var(--vellum); }
+
+/* The end: the game's result dialog with the ceremony's words and tiles, over the table; it ends above the composer. */
+.frame dialog#over { position: absolute; inset: auto 0 12px; margin: 0 auto; height: fit-content; max-height: calc(100% - 24px); width: min(440px, calc(100% - 24px)); padding: var(--space-4); }
+#over .over-art { height: 96px; }
+#over .over-king { height: 92px; }
+.end-facts { display: flex; justify-content: center; align-items: center; gap: var(--space-4); margin-bottom: var(--space-3); }
+.end-facts small { color: #3d6b1f; font-weight: 700; }
+.new-badge { display: inline-flex; align-items: center; gap: 6px; text-align: left; }
+.new-badge img { width: 40px; height: 40px; }
+.new-badge b, .new-badge small { display: block; line-height: 1.15; }
+.new-badge small { color: var(--ink-soft); font-weight: 400; }
+#over form { margin-top: var(--space-3); }
+#over .quiet-line { margin-top: var(--space-2) !important; }
+.wide .frame dialog#over.end-card { inset: 0 auto 0 calc(50% - 440px); margin: auto 0; }
+
+/* Opponent found: the game's result dialog, open over the table. */
+.frame dialog#over.found { position: absolute; inset: 0; margin: auto; height: fit-content; }
+#over.found .over-art { height: auto; align-items: center; background: none; }
+
+/* ---- the inline card in the chat: the title's stage, the wordmark, two actions ---- */
+.inline-card { position: relative; overflow: hidden; border: 1px solid #e3e3e3; border-radius: 20px; background-color: var(--floor-base); background-image: var(--floor); --rim: drop-shadow(0 0 .75px rgba(43, 38, 33, .7)); }
+.inline-card .title-stage { height: 190px; overflow: hidden; }
+.inline-card .title-floor, .inline-card .title-stage::before { width: min(400px, 96%); bottom: -40%; }
+.inline-card .title-kings { height: 150px; bottom: 6px; }
+.inline-card .title-copy { gap: var(--space-2); padding: var(--space-2) var(--space-4) var(--space-4); }
+.inline-card .wordmark { font-size: 40px; }
+.inline-line { margin: 0; color: var(--ink-soft); }
+.inline-card .title-actions { width: 100%; flex-direction: row; flex-wrap: nowrap; margin-top: var(--space-1); }
+.inline-card .title-actions button { flex: 1; min-width: 0; min-height: 48px; font-size: var(--fs-md); white-space: nowrap; padding: 8px 10px; }

@@ -347,6 +347,25 @@ untracked. Made 2026-10-06, copied here 2026-10-07.
 
 ---
 
+## chatgpt-mvp — 12 files, 25.5 MB
+
+Made 2026-10-11 for the ChatGPT plugin MVP sample (`docs/specs/chatgpt-mvp/issues/02-visual-sample.md`). Each PNG has a transparent background and its `{id}.prompt.txt` beside it (the prompt, the reference images, the source file). Web copies (WebP) are in `docs/specs/chatgpt-mvp/sample/art/`.
+
+| File | Source | Size | Why kept | Licence note |
+|---|---|---:|---|---|
+| `coin-frame.png` | — (made 2026-10-11) | 961 KB | the king-coin frame: a round gold ring with an empty, transparent centre; a king emblem sits inside it; 1254×1254 | generated with Codex image_gen on the owner's plan, from `spirit emblem.png`, `fire emblem.png` as reference |
+| `scroll.png` | — (made 2026-10-11) | 1.7 MB | the games-registry scroll: two rollers and a plain parchment sheet; the web copy stretches the middle (CSS border-image); 1024×1536 | generated with Codex image_gen on the owner's plan, from `spirit emblem.png`, `cards/generated/back.png` as reference |
+| `badge-first-win.png` | — (made 2026-10-11) | 2.3 MB | badge medallion, First Win: an upright sword in a laurel wreath; the family reference for the other nine; 1254×1254 | generated with Codex image_gen on the owner's plan, from `spirit emblem.png`, `fire emblem.png` as reference |
+| `badge-friend-match.png` | — (made 2026-10-11) | 2.3 MB | badge medallion, Friend Match: clasped hands; 1254×1254 | generated with Codex image_gen on the owner's plan, from `badge-first-win.png`, `spirit emblem.png` as reference |
+| `badge-stranger-match.png` | — (made 2026-10-11) | 2.2 MB | badge medallion, Stranger Match: a traveller's lantern; 1254×1254 | generated with Codex image_gen on the owner's plan, from `badge-first-win.png`, `spirit emblem.png` as reference |
+| `badge-purist.png` | — (made 2026-10-11) | 2.3 MB | badge medallion, Purist: a classic chess knight; 1254×1254 | generated with Codex image_gen on the owner's plan, from `badge-first-win.png`, `spirit emblem.png` as reference |
+| `badge-fairy-tale.png` | — (made 2026-10-11) | 2.3 MB | badge medallion, Fairy Tale: a griffin; 1254×1254 | generated with Codex image_gen on the owner's plan, from `badge-first-win.png`, `spirit emblem.png` as reference |
+| `badge-architect.png` | — (made 2026-10-11) | 2.3 MB | badge medallion, Architect: a tower with a set square and compass; 1254×1254 | generated with Codex image_gen on the owner's plan, from `badge-first-win.png`, `spirit emblem.png` as reference |
+| `badge-card-sharp.png` | — (made 2026-10-11) | 2.3 MB | badge medallion, Card Sharp: three fanned cards; 1254×1254 | generated with Codex image_gen on the owner's plan, from `badge-first-win.png`, `spirit emblem.png` as reference |
+| `badge-crowned.png` | — (made 2026-10-11) | 2.3 MB | badge medallion, Crowned: a crown under a blue rune light; 1254×1254 | generated with Codex image_gen on the owner's plan, from `badge-first-win.png`, `spirit emblem.png` as reference |
+| `badge-royal-collection.png` | — (made 2026-10-11) | 2.3 MB | badge medallion, Royal Collection: six crowns around a star; 1254×1254 | generated with Codex image_gen on the owner's plan, from `badge-first-win.png`, `spirit emblem.png` as reference |
+| `badge-giant-slayer.png` | — (made 2026-10-11) | 2.2 MB | badge medallion, Giant Slayer: a broken club crossed with a sword; 1254×1254 | generated with Codex image_gen on the owner's plan, from `badge-first-win.png`, `spirit emblem.png` as reference |
+
 # Left on Drive
 
 Nothing below was copied. The Drive folder id is `1fuVE1XBIJC5G5I-vr3vzA7ED2_xFuM5r`; every path is
