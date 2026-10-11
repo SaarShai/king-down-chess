@@ -64,4 +64,6 @@ Checks use Node 24.21.0 and the ticket's disposable database:
 - `npm run check:browser plugin-ui plugin-ui-http`: both checks pass (16.4 s and 15.4 s).
 - Page: 436,267 bytes; HTTP resource: 437,582 JSON bytes. All 20 art files pass the server check.
 
+Integration check: merge `claude/chatgpt-mvp` at `b0e16067`. The merge has no conflict and adds two ticket updates. `npm test` passes again: 136 files, 2,131 tests and 50 document checks; 8 tests skip.
+
 Open items: none in this ticket. Ticket 06 selects the worker level in the game service.
