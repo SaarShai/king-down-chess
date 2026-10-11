@@ -53,8 +53,6 @@ export function connectPlay(view: BoardView, c: {
   preset: Partial<Rules> | undefined;
   /** The balanced readings when a king has a power (main.ts, the URL rules). */
   withPowers(k: Rules['kings']): Partial<Rules>;
-  /** The look this page draws: 'painted' or 'clay'. */
-  look: string;
   /** A plain `?fen=` position that this page opened (not a game link), else null. */
   fen: string | null;
   engine: Engine;
@@ -69,7 +67,7 @@ export function connectPlay(view: BoardView, c: {
   setup(): Setup;
   openNewGame(): void;
 }) {
-  const { params, preset, withPowers, look, fen, engine, guide, settings, home } = c;
+  const { params, preset, withPowers, fen, engine, guide, settings, home } = c;
   let game = new Game();
   /** The keyboard cursor, drawn over the board (pointer events pass through). */
   const marksLayer = document.createElement('div');
@@ -261,10 +259,8 @@ export function connectPlay(view: BoardView, c: {
     home?.refresh();
   }
 
-  let marksFrame = 0;
   /** The keyboard cursor, placed with view.screenOf(). */
   function drawMarks(): void {
-    cancelAnimationFrame(marksFrame);
     const cursor = c.keys().cursor();
     view.setPreview?.(cursor);
     if (cursor == null) { marksLayer.innerHTML = ''; return; }
@@ -276,8 +272,6 @@ export function connectPlay(view: BoardView, c: {
     };
     at(cursor, 'mk-cursor');
     marksLayer.innerHTML = items.join('');
-    // The clay camera can orbit and tween; follow it while marks are on screen.
-    if (look === 'clay') marksFrame = requestAnimationFrame(drawMarks);
   }
   new ResizeObserver(() => drawMarks()).observe($('board'));
 
@@ -826,7 +820,7 @@ export function connectPlay(view: BoardView, c: {
     blocked: () => home.visible,
     click: (sq: number, shift: boolean) => view.onSquareClick(sq, shift), read: (sq: number) => refuse('', sq),
     escape: () => { clearCoinRead(); view.skip(); if (viewing != null) void showPly(null, false); selected = null; pending = []; inspected = null; armed = false; hintSquares = []; refresh(); },
-    resetView: () => view.resetView(), undo, step: (by: -1 | 1) => { void showPly((viewing ?? game.history.length) + by); },
+    undo, step: (by: -1 | 1) => { void showPly((viewing ?? game.history.length) + by); },
   };
 
   return {

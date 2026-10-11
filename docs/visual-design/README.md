@@ -49,8 +49,7 @@ The owner asked for three things; screenshots (from the production build) in [ro
    gold-bright and makes its badge larger. The keyboard cursor previews the same way. The read of an enemy
    piece shows the same marks at half strength. With Animations off or reduced motion the markers appear at
    once. The swap, shove and rune pulses ride the selected figure's ~30 fps idle; only the pop-in asks for
-   full-rate frames. The clay look shows the same legend as flat textures on the squares
-   (Freeze/Ice Wall/Sacrifice targets tint amber there).
+   full-rate frames. (The clay look, parked on 2026-10-11, showed the same legend as flat textures.)
    [moves](round2/moves-desktop.webp) · [phone](round2/moves-phone.webp) ·
    [preview](round2/moves-hover-move-desktop.webp) · [capture under the pointer](round2/moves-hover-capture-desktop.webp) ·
    [Archer](round2/special-archer-desktop.webp) · [Ogre](round2/special-ogre-desktop.webp) ·
@@ -90,9 +89,8 @@ for white and the shadow for black."
   earth = Mud) and the Spirit and Shadow emblems made for this dialog on 2026-10-03 with image
   generation. Their PNG masters are not in `art-src/` yet: they go there as `spirit emblem.png` and
   `shadow emblem.png` (the script stops while a source is missing).
-- Kings with no power still look like Spirit (White) and Shadow (Black) where a look draws each king
-  differently: the clay look's king figures (`src/render/renderer.ts`; before, both were Frost). A new
-  game with other kings rebuilds the king figures.
+- Kings with no power still look like Spirit (White) and Shadow (Black). A new game with other kings
+  rebuilds the king figures.
 - Check: `tools/verify-new-game.mjs`. Screenshots: [desktop](new-game/desktop-computer.jpg) ·
   [desktop, Kings' powers](new-game/desktop-powers.jpg) · [phone](new-game/phone-computer.jpg) ·
   [phone, Kings' powers](new-game/phone-powers.jpg)
@@ -217,8 +215,6 @@ floor and 14.0:1 in dialogs. UI parts: focus ring 4.7–6.2:1, borders 3.6–7.9
 - The board itself (squares, markers, coordinates, figures) is drawn by the painted scene, which the
   motion track owns; this pass did not change it. The keyboard cursor is a separate
   layer over the canvas, placed with `view.screenOf()`; the threats are on the canvas.
-- In the clay 3D look, the keyboard cursor follows the camera frame by frame, but it sits flat over the
-  view, not on the tilted squares.
 - The before screenshots were taken in a cloud container without Georgia, so the old header shows a
   fallback serif.
 - Not tested with a real screen reader (NVDA, VoiceOver); the live regions and labels were checked by

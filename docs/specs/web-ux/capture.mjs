@@ -265,12 +265,6 @@ async function review(out, only) {
       await page.locator('#over').waitFor({ state: 'visible' }); await page.waitForTimeout(1800);
       await shot(page, '23-result', kind); await page.context().close();
     });
-    if (kind === 'desktop') await step(`${kind} clay`, async () => {
-      const page = await open(kind, { query: '?look=clay' });
-      await ready(page); await settle(page, 2000);
-      await tap(page, 11); await settle(page);
-      await shot(page, '24-clay-selected', kind); await page.context().close();
-    });
   }
   await browser.close();
   writeFileSync(`${out}/texts.json`, JSON.stringify(texts, null, 1));

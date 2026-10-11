@@ -1,16 +1,14 @@
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, RULES, S, T, colorOf, playedDesign, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { figureUrl, selectedFigure } from '../workshop/figures';
-import { drawMarks, POP_MS, RIPPLE_MS } from './marks';
+import { drawMarks, POP_MS, RIPPLE_MS, type Highlights } from './marks';
 import { boardInk } from './board-ink';
 import { pastTap } from './tap';
-import type { Highlights } from './renderer';
-import type { Style } from './styles';
 
 /** Animation setting: Fast plays moves at double speed, Off shows only the result. */
 export type Pace = 'normal' | 'fast' | 'off';
 
-/** What the game screen needs from a board (main.ts makes it, screen/play.ts drives it): the clay BoardRenderer and the PaintedView both provide it. */
+/** What the game screen needs from a board (main.ts makes it, screen/play.ts drives it). */
 export interface BoardView {
   onSquareClick: (sq: number, shift: boolean) => void;
   onDragSelect: (sq: number) => void;
@@ -31,8 +29,6 @@ export interface BoardView {
   flip(black: boolean): void;
   setLabels(on: boolean): void;
   setCoords(on: boolean): void;
-  resetView(): void;
-  applyStyle(style: Style): void;
   ready(): Promise<void>;
   screenOf(sq: number): { x: number; y: number };
   /** The keyboard cursor's square (null: none), previewed like the square under the pointer. */
@@ -199,8 +195,6 @@ export class PaintedView implements BoardView {
     const size = this.options.webInk ? boardInk(this.width).coord : 13 * this.mark;
     this.scene.setCoords(on, size, this.options.webInk ? Math.max(14, size / 2 + 4) : 14);
   }
-  resetView(): void {}
-  applyStyle(): void {}
   ready(): Promise<void> { return this.loaded; }
   /** [white, black] king designs on the board, and the ones last drawn (for the browser checks). */
   get kings(): { set: KingDesign[]; drawn: (KingDesign | null)[] } { return { set: this.scene.kings, drawn: this.scene.drawnKings }; }
@@ -276,7 +270,7 @@ export class PaintedView implements BoardView {
     this.tap = null; this.tapSq = null; this.dragFrom = null; this.dragArmed = false;
   }
 
-  // Same contract as the clay board: a tap (see pastTap) is onSquareClick on the pressed square;
+  // A tap (see pastTap) is onSquareClick on the pressed square;
   // dragging an own piece selects it and releases onto the target square.
   private onDown(e: PointerEvent): void {
     if (this.tap) { this.clearPointer(); return; }

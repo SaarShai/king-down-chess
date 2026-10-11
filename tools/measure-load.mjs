@@ -1,4 +1,4 @@
-/** Cold-load timing of the built game on a slow phone, both looks, plus a repeat visit and an offline reload.
+/** Cold-load timing of the built game on a slow phone, plus a repeat visit and an offline reload.
  *
  *   npm run build && npx vite preview --host 127.0.0.1 --port 5189 --strictPort &
  *   PLAYABLE_URL=http://127.0.0.1:5189/ PLAYABLE_BROWSER=chromium node tools/measure-load.mjs [--runs 3] [--out file.json]
@@ -9,7 +9,7 @@
  * "first move" is when a tap on e2 then e4 (300 ms apart), made right then, shows in the move list.
  * Bytes are what crossed the network (compressed size) until the first move.
  * The repeat visit reloads in the same profile; the offline check then cuts the network and reloads again.
- * Emulated network limits do not apply to a service worker's own fetches, so one extra cold run per look
+ * Emulated network limits do not apply to a service worker's own fetches, so one extra cold run
  * blocks service workers: its numbers must match the normal cold runs.
  */
 import { chromium } from 'playwright';
@@ -51,18 +51,15 @@ async function measureVisit(page, net, look) {
     catch (e) { log(look, 'move retry', attempt); if (attempt >= 10) throw e; }
   }
   const moveAt = await page.evaluate(() => performance.now());
-  const actualLook = await page.evaluate(() => document.getElementById('look').value);
-  if (actualLook !== look) throw new Error(`expected the ${look} look, got ${actualLook}`);
   page.off('pageerror', onError);
   return { look, boardReadyMs: Math.round(readyAt), firstMoveMs: Math.round(moveAt), bytesAtReady, bytesAtMove: net.bytes, requests: net.requests, wallMs: Date.now() - t0, errors };
 }
 
 async function freshPage(look, serviceWorkers = 'allow') {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: false, serviceWorkers });
-  await context.addInitScript(look => {
-    try { if (!localStorage.getItem('kingdown.look')) localStorage.setItem('kingdown.look', look); } catch { /* storage blocked */ }
+  await context.addInitScript(() => {
     try { sessionStorage.setItem('kingdown.title-seen', '1'); } catch { /* the title screen would cover the board's taps */ }
-  }, look);
+  });
   const page = await context.newPage();
   const cdp = await context.newCDPSession(page);
   const net = { bytes: 0, requests: 0 };
@@ -76,7 +73,8 @@ async function freshPage(look, serviceWorkers = 'allow') {
 const median = xs => [...xs].sort((a, b) => a - b)[xs.length >> 1];
 const results = { url, network: '1.6 Mbps down, 750 kbps up, 150 ms RTT', cpu: `${CPU}x slowdown`, viewport: '390x844', runs, looks: {} };
 
-for (const look of ['painted', 'clay']) {
+{
+  const look = 'painted'; // the only look (the clay look is parked); the results keep their docs/perf shape
   const cold = [];
   let repeat = null, offline = null;
   for (let r = 0; r < runs; r++) {
