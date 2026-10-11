@@ -1,5 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
-import { A, DEFAULT_RULES, parseSq, setRules } from './rules/engine';
+import { A, DEFAULT_RULES, T, legalMoves, nameOf, parseRule, parseSq, setRules } from './rules/engine';
+import { describeMove } from './move-text';
+import { PRESETS, designCode, fromPreset } from './workshop/model';
 import { fromFen } from './rules/setup';
 import { pieceGuide, guideTypes, reachOf, readText, readTap, unmarkedTap, whyNot } from './read';
 
@@ -236,4 +238,24 @@ it.each(['over2', 'nearOver2', 'fwdNearOver2'] as const)('reads %s shots only ov
   pos.board[at('e4')] = 1;
   expect(reachOf(pos, at('d4')).shot.has(at('f4'))).toBe(true);
   expect(readText(pos, at('d4'))).toContain('only over a piece');
+});
+
+it('names and describes the design that plays as T (ticket 17), and the Templar without one', () => {
+  const pos = fromFen('4k3/8/8/8/3T4/8/8/4K3 w - - 0 1');
+  expect([nameOf(T), readText(pos, at('d4')).split(' · ')[0]]).toEqual(['templar', 'templar']);
+  setRules(parseRule(`design=${designCode({ ...fromPreset(PRESETS.find(p => p.key === 'rook')!), name: 'My Rook', letter: 'Y' })}`));
+  expect(nameOf(T)).toBe('My Rook');
+  expect(pieceGuide(T).moves).toBe('Moves like a rook.');
+  expect(readText(pos, at('d4'))).toBe('My Rook · Moves like a rook.');
+  expect(whyNot(pos, at('d4'), at('e5'))).toBe('My Rook cannot reach e5.');
+  // A design's name takes no article (review nit 8).
+  const take = fromFen('4k3/8/8/8/3t4/8/8/3RK3 w - - 0 1');
+  expect(describeMove(take, legalMoves(take).find(m => m.from === at('d1') && m.to === at('d4'))!)).toBe('White rook d1 to d4, taking My Rook on d4.');
+  // Sacrifice brings back the design with no article, and a pool piece with the right one (review 17b, item 1).
+  const sac = { from: at('a2'), to: at('a2'), captures: [], power: 'sacrifice' } as unknown as Parameters<typeof describeMove>[1];
+  expect(describeMove(take, { ...sac, promo: T })).toBe('White sacrifices the pawn on a2 and brings back My Rook there.');
+  expect(describeMove(take, { ...sac, promo: A })).toBe('White sacrifices the pawn on a2 and brings back an archer there.');
+  // A sentence starts with a capital, also for a name typed in lower case (review 17b, item 3).
+  setRules(parseRule(`design=${designCode({ ...fromPreset(PRESETS.find(p => p.key === 'rook')!), name: 'old ward', letter: 'Y' })}`));
+  expect(whyNot(pos, at('d4'), at('e5'))).toBe('Old ward cannot reach e5.');
 });

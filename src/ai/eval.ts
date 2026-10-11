@@ -6,7 +6,7 @@
  * No file-indexed opening knowledge anywhere: the back rank is randomised, so tables are
  * left-right symmetric and encode only centrality and advancement.
  */
-import { A, B, C, Color, G, K, L, M, N, O, P, PieceType, Position, Q, R, S, T, V, WHITE, canCapture, colorOf, typeOf } from '../rules/engine';
+import { A, B, C, Color, G, K, L, M, N, O, P, PieceType, Position, Q, R, RULES, S, T, V, WHITE, canCapture, colorOf, typeOf } from '../rules/engine';
 import { NetKind, RESIDUAL_MAX, loadNet, loadedNetB64, netHasOgre, netKind, netLoaded, nnueEval } from './nnue/net';
 
 /*
@@ -125,7 +125,7 @@ const TYPE_BY_LETTER: Readonly<Record<string, PieceType>> = Object.freeze({ P, N
  * Module-level state, like `setRules` in `src/rules/rules.ts`, and for the same reason: the hot
  * paths take a bare `Uint8Array`, not a carrier for per-run options. One value set per thread is
  * enough — each simulation worker is its own module instance and sets the values before it plays;
- * the browser never calls this.
+ * the browser calls this only for a design in `T` (src/ai/worker.ts, and src/game.ts without a worker).
  */
 export function setPieceValues(over?: Readonly<Record<string, number>>): void {
   for (const letter of Object.keys(TYPE_BY_LETTER)) {
@@ -510,7 +510,7 @@ export function evaluateBoard(board: Uint8Array, turn: Color): number {
     let v = VAL[t] + PST[t][c === WHITE ? s : s ^ 56];
     if (t !== P) npm += VAL[t];
     if (t === B || t === R || t === Q || t === L) v += mobility(board, s, t, c);
-    else if (t === T && CAPITAL_SQ.has(s)) v += TEMPLAR_ON_CAPITAL;
+    else if (t === T && !RULES.design && CAPITAL_SQ.has(s)) v += TEMPLAR_ON_CAPITAL; // a design in the slot is no Templar
     else if (t === S) v += beastTargets(board, s, c);
     else if (t === M) maesters.push(s);
     score += c === WHITE ? v : -v;

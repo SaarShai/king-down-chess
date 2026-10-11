@@ -4,13 +4,14 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelatedPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { A, C, Color, G, LETTERS, Move, K, type KingName, L, M, N, O, PLAIN_KINGS, RULES, Position, PieceType, colorOf, file, rank, typeOf } from '../rules/engine';
+import { A, C, Color, G, LETTERS, Move, K, type KingName, L, M, N, O, PLAIN_KINGS, RULES, Position, PieceType, T, colorOf, file, playedDesign, rank, typeOf } from '../rules/engine';
+import { figureUrl, selectedFigure } from '../workshop/figures';
 import { ARMY, TARGET_HEIGHT, pieceGeometry } from './voxels';
 import { Debris, Tweens, easeOut, labelSprite, linear } from './fx';
 import { PALETTES, createPalettePass, paletteTexture } from './palette';
 import { hasSprite, spriteMesh } from './sprites';
 import { STYLES, type Style } from './styles';
-import { ClayFigure } from './ClayFigure';
+import { CLAY_PALETTES, ClayFigure } from './ClayFigure';
 import { CAST } from './prototype/CastCatalog';
 import { applyLookLighting } from './prototype/ClayLook';
 import { PieceContourPass } from './prototype/PieceContourPass';
@@ -25,6 +26,8 @@ export const tileCenter = (sq: number): THREE.Vector3 => new THREE.Vector3(file(
 /** The king a king piece shows: its side's king with a power, else Spirit or Shadow; undefined for other pieces. */
 const kingOf = (code: number): KingName | undefined =>
   typeOf(code) === K ? RULES.kings[colorOf(code)]?.king ?? PLAIN_KINGS[colorOf(code)] : undefined;
+/** The Workshop figure of the design that plays as `T` (ticket 17), or null. */
+const designFigure = (): string | null => { const d = playedDesign(); return d && selectedFigure(d).id; };
 
 export interface Highlights {
   selected?: number | null;
@@ -525,7 +528,7 @@ export class BoardRenderer {
       const code = pos.board[sq];
       const cur = this.pieces.get(sq);
       // A king is rebuilt when the next game gives it another king (its figure shows which).
-      if (cur && cur.userData.code === code && cur.userData.king === kingOf(code) && cur.position.distanceTo(tileCenter(sq)) < 0.01) continue;
+      if (cur && cur.userData.code === code && cur.userData.king === kingOf(code) && cur.userData.design === (typeOf(code) === T && designFigure()) && cur.position.distanceTo(tileCenter(sq)) < 0.01) continue;
       if (cur) { this.removeFigure(cur); this.pieces.delete(sq); }
       if (code) this.pieces.set(sq, this.spawn(sq, typeOf(code), colorOf(code)));
     }
@@ -572,6 +575,7 @@ export class BoardRenderer {
     const king = kingOf(t | (c << 4));
     const kingDesign = king && { Frost: 'frost', Flame: 'ember', Stratus: 'celestial', Mud: 'gaya', Spirit: 'spirit', Shadow: 'shadow' }[king];
     const design = kingDesign ? `king-${kingDesign}` : CAST.find(entry => entry.code === t)?.key;
+    const figure = t === T && designFigure();
     if (design && ((this.style.pieces === 'clay' && (t !== O || this.options.ogreModel !== false)) || (t === O && this.options.ogreModel !== false))) {
       // Clay sculpts face local +Z; White advances toward world -Z.
       if (c === 0) g.rotation.y = Math.PI;
@@ -592,8 +596,13 @@ export class BoardRenderer {
         g.add(figure.model);
         this.updateContours();
       }).catch(error => { console.error('Could not load clay figure', error); this.onLoadError?.(error); });
-    } else if (this.style.pieces === 'sprite' && hasSprite(t)) {
-      g.add(spriteMesh(t, c, this.style.spriteOutline ? (this.style.outlineColor ?? 0x151515) : undefined, king));
+    } else if ((this.style.pieces === 'sprite' && hasSprite(t)) || figure) {
+      // The design that plays as `T` (ticket 17) stands as its Workshop figure, a billboard in every style.
+      // On clay, White's figure painted in each side's clay, so the side reads as on the sculpts beside it.
+      const clay = figure && this.style.pieces === 'clay';
+      const mesh = spriteMesh(t, c, this.style.spriteOutline ? (this.style.outlineColor ?? 0x151515) : undefined, king, figure ? figureUrl(figure, clay ? 0 : c) : undefined, clay ? CLAY_PALETTES[c].light : undefined);
+      if (figure) mesh.scale.setScalar(.7 * (this.style.pieceScale ?? 1)); // as tall as the clay figures beside it
+      g.add(mesh);
       g.userData.sprite = true;
     } else {
       const geo = pieceGeometry(t, c);
@@ -631,6 +640,7 @@ export class BoardRenderer {
     g.position.copy(tileCenter(sq));
     g.userData.code = t | (c << 4);
     g.userData.king = kingOf(g.userData.code);
+    g.userData.design = figure; // a new design's figure rebuilds `T`
     this.world.add(g);
     return g;
   }

@@ -283,6 +283,43 @@ try {
   }
   console.log(`ok animations: normal ${normal.ms} ms, fast ${fast.ms} ms, tap-skip ${tapped.ms} ms, off ${off.ms} ms`);
 
+  // 2i. A game with a Workshop design (ticket 17): the design stands as its figure, the read names it, and it moves.
+  {
+    const ward = { v: 1, kind: 'piece', id: 'ward', name: 'Old Ward', named: true, look: { body: 'token', auto: true, glow: null, army: 0, figure: 'ram-bastion' }, letter: 'U',
+      squares: [{ x: 0, y: 1, mark: 'move' }, { x: 1, y: 1, mark: 'both' }, { x: -1, y: 1, mark: 'both' }], lines: ['ne', 'nw'], rules: [], from: [], updated: 1760000000000 };
+    const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await p.addInitScript(v => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.workshop', v); }, JSON.stringify({ v: 1, designs: [ward] }));
+    trapErrors(p);
+    await p.goto(url.href);
+    await p.waitForFunction(() => document.querySelector('#board canvas'));
+    await startGame(p, { mode: 'two', army: 'classic', design: 'Old Ward' });
+    assert.deepEqual(await p.evaluate(() => [window.view.pos.board[1], window.view.pos.board[57]]), [15, 31], 'the design stands on b1 and b8');
+    await p.waitForFunction(() => ['w', 'b'].every(c => performance.getEntriesByType('resource').some(e => e.name.includes(`ui/workshop/ram-bastion-${c}.webp`))));
+    // The scene draws the figure, not the lettered token: b1 shows (almost) no pixel of the white token's disc, #efe9d8.
+    const disc = () => p.evaluate(() => {
+      const c = document.querySelector('#board canvas'), r = c.getBoundingClientRect(), q = window.view.screenOf(1), k = c.width / r.width;
+      const d = c.getContext('2d').getImageData((q.x - r.left) * k - 8, (q.y - r.top) * k - 8, 16, 16).data;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) n += Math.abs(d[i] - 239) + Math.abs(d[i + 1] - 233) + Math.abs(d[i + 2] - 216) < 9 ? 1 : 0;
+      return n;
+    });
+    await p.waitForFunction(() => new Promise(requestAnimationFrame).then(() => true));
+    const n = await disc();
+    assert.ok(n < 26, `b1 draws the design's figure, not the lettered token (${n} of 256 pixels are the token's disc)`);
+    const at = sq => p.evaluate(sq => window.view.screenOf(sq), sq), click = async sq => { const q = await at(sq); await p.mouse.click(q.x, q.y); };
+    await click(57);
+    assert.match(await contextText(p), /Black Old Ward/, 'the read names the design');
+    await click(10); await click(26); // c2-c4
+    await endTurn(p);
+    await click(51); await click(43); // d7-d6
+    await endTurn(p);
+    await click(1); await click(10); // the design steps diagonally to c2
+    await p.waitForFunction(() => window.view.pos.board[10] === 15 && !window.view.pos.board[1]);
+    await shot(p, 'design-game');
+    await p.close();
+    console.log('ok a design game: the figure loads, the read names it, it moves');
+  }
+
   // 3. Phone width: the board fits without horizontal scrolling.
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
   await phone.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)

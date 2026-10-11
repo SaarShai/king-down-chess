@@ -24,7 +24,8 @@ if (typeof __KINGDOWN_COMPILED__ !== 'undefined' && __KINGDOWN_COMPILED__) {
 } else {
   hash.update(readFileSync(new URL('../game.ts', import.meta.url)));
   hash.update(readFileSync(new URL('./worker.ts', import.meta.url)));
-  hashTree(new URL('../rules/', import.meta.url)); hashTree(new URL('../ai/', import.meta.url));
+  // The workshop holds the design rule's checks (`RULES.design`, src/rules/rules.ts imports its model).
+  hashTree(new URL('../rules/', import.meta.url)); hashTree(new URL('../ai/', import.meta.url)); hashTree(new URL('../workshop/', import.meta.url));
 }
 const engine = `sha256:${hash.digest('hex')}`;
 // Bounds keep every accepted match export within the JSON load limit.

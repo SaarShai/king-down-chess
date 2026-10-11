@@ -78,6 +78,8 @@ for(const [type,name] of Object.entries(courtNames)){
  newMotions[type]={DURATION:court.figures[name].duration,actionAt:court.actionAt};
 }
  const FALLBACK={anchor:{x:576,y:1018},hit:{x:576,y:640},scale:.1};
+ // A Workshop design's figure for a lab type (the game's slot T, ticket 17): [white, black] images, drawable once loaded.
+ const figures={},figureOf=value=>{const image=figures[typeOf(value)]?.[colorOf(value)];return image?.naturalWidth?image:null;};
  // Lab pieces without painted art: a token that slides in, no body motion.
  for(let type=1;type<16;type++){if(!specs[type])specs[type]=FALLBACK;newMotions[type]??={DURATION:900,actionAt:()=>0};}
  const idle=new Map(), work=new Map();
@@ -100,10 +102,15 @@ for(const [type,name] of Object.entries(courtNames)){
  // as it always did: the trial and the trailer draw as before.)
  const onFloor=point=>lively.atmosphere?{ground:point}:{};
  const poseFor=(value,square)=>({foot:foot(square),scale:specs[typeOf(value)].scale,facing:sideFacing(value),angle:0});
- // Pieces without painted art (lab pieces) draw as a lettered token.
+ // Pieces without painted art (lab pieces) draw as a lettered token, or as the figure that setFigure gives their type.
  function token(value) {
-  const key=`token:${value}`;let canvas=idle.get(key);if(canvas)return canvas;
+  const fig=figureOf(value),key=`token:${value}${fig?`:${fig.src}`:''}`;let canvas=idle.get(key);if(canvas)return canvas;
   canvas=document.createElement('canvas');canvas.width=canvas.height=1152;const c=canvas.getContext('2d'),dark=colorOf(value);
+  if(fig){const h=1000,w=h*fig.naturalWidth/fig.naturalHeight;c.drawImage(fig,576-w/2,1018-h,w,h);
+   // Black's figure no lighter than a mean of 70 a channel, so it reads as dark as the black pieces beside it.
+   if(dark){const px=c.getImageData(0,0,1152,1152),d=px.data;let sum=0,n=0;for(let i=0;i<d.length;i+=4)if(d[i+3]>200){sum+=d[i]+d[i+1]+d[i+2];n++;}
+    const k=210*n/sum;if(k<1){for(let i=0;i<d.length;i+=4){d[i]*=k;d[i+1]*=k;d[i+2]*=k;}c.putImageData(px,0,0);}}
+   idle.set(key,canvas);return canvas;}
   c.fillStyle=dark?'#34383a':'#efe9d8';c.strokeStyle=dark?'#c9cdc8':'#4b4a3c';c.lineWidth=24;c.beginPath();c.arc(576,700,260,0,Math.PI*2);c.fill();c.stroke();
   c.fillStyle=c.strokeStyle;c.font='bold 300px Georgia,serif';c.textAlign='center';c.textBaseline='middle';c.fillText(pieces.LETTERS?.[typeOf(value)]??'?',576,712);
   idle.set(key,canvas);return canvas;
@@ -233,8 +240,8 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
 const outlines=new Map(),stamps=new Map(),EMPTY={empty:true};
 // The key of a figure's still sprite: type:side[:design][:effect] (sprite() caches it under this key).
 function spriteKey(value,sheet=null){
- const type=typeOf(value),side=colorOf(value),design=type===K?kings[side]:null;
- return design?`${type}:${side}:${design}${sheet?':effect':''}`:`${type}:${side}`;
+ const type=typeOf(value),side=colorOf(value),design=type===K?kings[side]:null,fig=figureOf(value);
+ return design?`${type}:${side}:${design}${sheet?':effect':''}`:`${type}:${side}${fig?`:${fig.src}`:''}`;
 }
 // A figure's stamps, or null while they are not built. Missing ones are built when the browser is idle (within half
 // a second), so the first frame does not wait for them; until then the figure has a plain pool (fallbackShape), and
@@ -941,6 +948,12 @@ function drawEncounter(a,t) {
   /** [white, black] king designs ('frost' … 'shadow'): each side's king figure. */
   setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;kings=[...next];for(const design of kings){kingImage(design).loaded.catch(()=>{});if(lively.kings)kingFx.has(design);}wake();},
   get kings(){return [...kings];},
+  /** [white, black] figure URLs for a lab `type` with no painted art (a Workshop design), or null for its lettered token. */
+  setFigure(type,urls){
+   if(String(urls)===String(figures[type]?.urls??null))return;
+   figures[type]=urls&&Object.assign(urls.map(u=>{const i=new Image();i.onload=wake;i.src=u;return i;}),{urls});
+   specs[type]=urls?{...FALLBACK,scale:.12}:FALLBACK;wake();
+  },
   /** The king design each side's figure was last drawn with (null: not yet drawn). */
   get drawnKings(){return [...drawnKings];},
   /** size: letter height in board units (default 13); a small board on a phone needs more. */

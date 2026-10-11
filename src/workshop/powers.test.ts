@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync } from 'node:fs';
-import { NAMES, RULES, WHITE, parseSq, sqName, type Move, type PieceType } from '../rules/engine';
-import { PRESETS, fromPreset } from './model';
+import { NAMES, RULES, T, WHITE, parseSq, piece, sqName, type Move, type PieceType } from '../rules/engine';
+import { PRESETS, fromPreset, specOf } from './model';
 import { boardOf, examplesOf, sceneOf, type ScenePiece } from './scene';
 import { cardMarks, enginePos, playCard, playPower, powerLayer, powerMarks, seated, withRules } from './powers';
 
@@ -71,5 +71,21 @@ describe('cardMarks (ticket 14)', () => {
   it('ships the 11 card pictures of the mockup as webp (public/ui/cards)', () => {
     const art = ['back', 'freeze', 'icewall', 'leap', 'march', 'mimic', 'rescue', 'sacrifice', 'salvation', 'skylift', 'vault'];
     expect(readdirSync('public/ui/cards').sort()).toEqual(art.map(a => `${a}.webp`));
+  });
+});
+
+describe('powers and cards on a copy (ticket 17)', () => {
+  it('a copy plays as T under the engine\'s power rules, and RULES comes back', () => {
+    const P = (sq: string, k: string, side: 'w' | 'b' = 'b'): ScenePiece => ({ sq, k, side });
+    const { from, pos } = at('paladin', [{ sq: 'd4', k: 'design', side: 'w', open: true }, P('b1', 'king', 'w'), P('c6', 'knight'), P('e5', 'pawn'), P('h8', 'rook'), P('g8', 'king')]);
+    const copy = { ...pos, board: new Uint8Array(pos.board) }, before = JSON.stringify(RULES), d = specOf(PRESETS.find(p => p.key === 'rook')!);
+    copy.board[from] = piece(T, WHITE);
+    const freeze = powerMarks(copy, from, 'Frost', 'Freeze', d);
+    expect(freeze.map(m => sqName(m.to)).sort()).toEqual(['c6', 'e5', 'h8']);
+    expect(playPower(copy, freeze[0], 'Frost', 'Freeze', d).used?.[0]).toBe(1);
+    expect(cardMarks(copy, from, 'Freeze', d).length).toBe(3);
+    // The engine's Leap and Vault move only a rook, a bishop or a queen: on a design they are an echo, as in a game.
+    expect([powerMarks(copy, from, 'Mud', 'Leap', d), cardMarks(copy, from, 'Vault', d)]).toEqual([[], []]);
+    expect(JSON.stringify(RULES)).toBe(before);
   });
 });

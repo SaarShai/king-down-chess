@@ -335,9 +335,11 @@ dialog small { color: var(--ink-soft); }
 .new-game-foot { flex: none; padding: 12px 16px max(16px, env(safe-area-inset-bottom)); border-top: 1px solid var(--stone-300); background: var(--parchment); }
 .new-game-foot button { width: 100%; justify-content: center; min-height: 52px; }
 #new-game-warn { margin: 0 0 8px; color: var(--ink-soft); text-align: center; }
-#level-line, #army-line { margin: 8px 0 0; color: var(--ink-soft); }
+#level-line, #army-line, #design-line { margin: 8px 0 0; color: var(--ink-soft); }
+#design { min-height: var(--tap); }
 #army-strip { display: flex; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
 #army-strip .pi { width: 28px; height: 28px; }
+#army-strip .army-design { height: 28px; width: auto; }
 #army-strip .army-letter { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--ink); border-radius: 50%; font-weight: 700; }
 .modes, .seg { margin: 0; padding: 0; border: 0; min-width: 0; }
 .modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 3px; border-radius: var(--radius); background: var(--parchment-deep); }

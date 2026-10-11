@@ -4,7 +4,7 @@ import { setEvaluator } from './ai/eval';
 import { PaintedView, type BoardView } from './render/PaintedView';
 import { setSound } from './render/sfx';
 import { STYLES } from './render/styles';
-import { POWERS_BALANCED, RULES_2017, RULES_2021, parseKings, setRules, type Rules } from './rules/engine';
+import { HISTORY_WHENS, POWERS_BALANCED, RULES_2017, RULES_2021, parseKings, parseRule, setRules, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, POOL, randomBackRank } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { initLessonShelf } from './lesson-shelf-ui';
@@ -34,19 +34,26 @@ const preset = { 2017: RULES_2017, 2021: RULES_2021 }[params.get('rules') ?? '']
  * (docs/RULES.md §4). The default is **no powers**; the New game dialog picks each side's power.
  */
 const kings = params.get('kings');
-// Before the first Game: its constructor builds a position and asks for its status.
-/** With any power in play, the balanced readings apply (an older `?rules=` preset still overrides them). */
-const withPowers = (k: Rules['kings']): Partial<Rules> => (k[0] || k[1] ? POWERS_BALANCED : {});
-if (preset || kings) {
-  const k = kings ? parseKings(kings) : undefined;
-  setRules({ ...(k ? withPowers(k) : {}), ...preset, ...(k ? { kings: k } : {}) });
-}
 /**
  * `?army=` or `?fen=`, with `&moves=`: a game sent by a friend (`gameLink`). It keeps this device's
  * settings, and replaces the autosave after a confirm, unless it continues the saved game.
  */
 const linkMoves = params.get('moves');
-const link = linkMoves != null && (params.has('army') || params.has('fen'));
+/** A game link's `?design=`: the design that plays as `T` (ticket 17); a link with a design that this page cannot read does not open. */
+const linkDesign = (() => {
+  try {
+    const d = parseRule(`design=${params.get('design') ?? ''}`).design;
+    return d?.rules.some(r => HISTORY_WHENS.includes(r.when.on)) ? undefined : d; // `setRules` refuses it
+  } catch { return undefined; }
+})();
+const link = linkMoves != null && (params.has('army') || params.has('fen')) && linkDesign !== undefined;
+// Before the first Game: its constructor builds a position and asks for its status.
+/** With any power in play, the balanced readings apply (an older `?rules=` preset still overrides them). */
+const withPowers = (k: Rules['kings']): Partial<Rules> => (k[0] || k[1] ? POWERS_BALANCED : {});
+if (preset || kings || (link && linkDesign)) {
+  const k = kings ? parseKings(kings) : undefined;
+  setRules({ ...(k ? withPowers(k) : {}), ...preset, ...(k ? { kings: k } : {}), ...(link && linkDesign ? { design: linkDesign } : {}) });
+}
 /** A plain `?fen=` position (not a game link): it wins over the autosave, and the account's saved game does not replace it. */
 const fen = link ? null : params.get('fen');
 
@@ -174,7 +181,7 @@ const continues = !!saved && (params.get('army') ? saved.back === params.get('ar
   && saved.moves.every((m, i) => lans[i] === m);
 const openLink = link && (!saved?.moves.length || continues || confirm('Open the game from this link? It replaces your current game.'));
 if (link) history.replaceState(null, '', gameLinkless()); // a reload then resumes the autosave
-play.restore(saved, { link: openLink, continues, urlRules: !!(preset || kings), title: showTitle });
+play.restore(saved, { link: openLink, continues, urlRules: !!(preset || kings || (openLink && linkDesign)), title: showTitle });
 await view.ready();
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
 guide.fill(); // after every setRules path (URL preset / save restore)
@@ -185,7 +192,7 @@ if (showHome) home.open();
 if (!fen) play.save(); // pin the random back rank so a reload keeps this game (and keep an opened link's game)
 void import('./account/account').then(m => { account = m; m.changed(); m.startAccount(play.fromAccount); })
   .catch(() => { /* offline on a first visit: play on without an account */ });
-const designLink = params.get('design');
+const designLink = link ? null : params.get('design'); // without a game link, `?design=` opens the Workshop
 if (designLink) {
   const url = new URL(location.href);
   url.searchParams.delete('design');
