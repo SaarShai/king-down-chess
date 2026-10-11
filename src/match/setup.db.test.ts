@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { GameService } from './service';
+import { runDeletions } from '../online/jobs';
 import { PostgresMatchStore } from './store';
 import { DEFAULT_OPTIONS, type Options } from './setup';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
@@ -18,6 +19,7 @@ suite('game setup through PostgreSQL', () => {
  beforeAll(async () => {
   own = await ownTestDatabase('setup');
   admin = new pg.Pool({ connectionString: own.href, max: 2 });
+  await admin.query('delete from public.account_deletions where user_id is null');
   role = `setup_${randomUUID().replaceAll('-', '')}`;
   const password = randomUUID(), grants = await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8');
   await withRoleLock(own.href, () => admin.query(`${grants.replaceAll('kingdown_plugin_runtime', role)}; alter role ${role} password '${password}'`));
@@ -28,7 +30,8 @@ suite('game setup through PostgreSQL', () => {
  }, 120_000);
  afterAll(async () => {
   if (!admin) return;
-  await admin.query('delete from public.games where created_by=any($1)', [users]);
+  await admin.query('delete from public.games g where created_by=any($1) or exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1))', [users]);
+  await admin.query('delete from public.account_deletions where user_id=any($1)', [users]);
   await admin.query('delete from auth.users where id=any($1)', [users]);
   await runtime?.end();
   await withRoleLock(own.href, () => admin.query(`drop owned by ${role}; drop role ${role}`));
@@ -180,6 +183,15 @@ suite('game setup through PostgreSQL', () => {
   expect(await service.view(a, game.game_id)).toMatchObject({ status: 'setup', revision: 0, ready: [false, true] });
   expect((await admin.query('select state,snapshot from public.games where id=$1', [game.game_id])).rows[0]).toEqual({ state: null, snapshot: null });
   expect(await service.command(a, game.game_id, sent)).toMatchObject({ status: 'playing', revision: 1 });
+ }, 30_000);
+ it('lets the account-deletion job abort setup with no result', async () => {
+  const gone = randomUUID(); users.push(gone);
+  await admin.query('insert into auth.users(id) values($1)', [gone]);
+  const game = await service.create(gone, { kind: 'friend', options: DEFAULT_OPTIONS });
+  await service.join(b, (await service.invite(gone, game.game_id)).token);
+  await admin.query("insert into public.account_deletions(user_id,run_after) values($1,now()-interval '1 minute')", [gone]);
+  expect(await runDeletions(service)).toBe(1);
+  expect(await service.view(b, game.game_id)).toMatchObject({ status: 'aborted', result: { winner: null, reason: 'abort' }, opponent: { deleted: true } });
  }, 30_000);
  it('stores validated options and waits for the player without an engine match', async () => {
   const created = await service.create(a, { kind: 'solo', options: DEFAULT_OPTIONS, level: 'beginner' });

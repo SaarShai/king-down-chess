@@ -126,7 +126,7 @@ export async function runDeletions(games: GameService): Promise<number> {
  for (const { user_id } of due.rows) try {
   const active = await pool.query('select g.id,g.status,g.revision from public.game_players p join public.games g on g.id=p.game_id where p.user_id=$1 and p.active', [user_id]);
   // A new command ID each time: the player's own client could send a fixed one first, and the receipt would refuse the job (COMMAND_CONFLICT).
-  for (const g of active.rows) await games.command(user_id, g.id, { command_id: randomUUID(), expected_revision: g.revision, action: { type: g.status === 'waiting' ? 'abort' : 'resign' } })
+  for (const g of active.rows) await games.command(user_id, g.id, { command_id: randomUUID(), expected_revision: g.revision, action: { type: g.status === 'waiting' || g.status === 'setup' ? 'abort' : 'resign' } })
    // Ended on time meanwhile, or another run already deleted the account (no seat, no solo game): nothing to end.
    // A move that came first (STALE_REVISION) keeps the game active, so delete_account refuses and the next run tries again.
    .catch(error => { if (!['MATCH_TERMINAL', 'FORBIDDEN', 'NOT_FOUND', 'STALE_REVISION'].includes(error?.code)) throw error; });
