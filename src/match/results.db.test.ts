@@ -219,13 +219,32 @@ suite('finished game results in PostgreSQL', () => {
   expect(first.games).toHaveLength(20); expect(second.games).toHaveLength(1); expect(second.next_before).toBeNull();
   expect([...first.games, ...second.games].map(g => g.game_id)).toEqual(ids.sort().reverse());
  });
- it('uses rating deviation to mark a settled rating and a rating after a long break', async () => {
-  const a = await user(), b = await user(), game = await friend(a, b);
-  await games[0].command(b, game.game_id, command(1, { type: 'resign' }));
-  await admin.query('update public.player_ratings set rd=100 where user_id=$1', [a]);
-  expect((await games[0].record(a)).rating.provisional).toBe(false);
-  await admin.query("update public.player_ratings set rd=65,last_game_at=now()-interval '365 days' where user_id=$1", [a]);
-  expect((await games[0].record(a)).rating.provisional).toBe(true);
+ it('marks a long break as provisional and saves both ratings after the next human game', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  try {
+   const at = new Date('2026-10-11T12:00:00.000Z'); vi.setSystemTime(at);
+   const a = await user(), b = await user(), game = await friend(a, b);
+   await games[0].command(b, game.game_id, command(game.revision, { type: 'resign' }));
+   await admin.query('update public.player_ratings set rd=100 where user_id=$1', [a]);
+   expect((await games[0].record(a)).rating.provisional).toBe(false);
+   await admin.query("update public.player_ratings set rating=1500,rd=65,volatility=0.06,last_game_at=$2::timestamptz-interval '365 days' where user_id=$1", [a, at]);
+   await admin.query("update public.player_ratings set rating=1700,rd=90,volatility=0.07,last_game_at=$2::timestamptz-interval '180 days' where user_id=$1", [b, at]);
+   expect((await games[0].record(a)).rating.provisional).toBe(true);
+   const next = await friend(a, b);
+   await games[0].command(a, next.game_id, command(next.revision, { type: 'resign' }));
+   const expected = [
+    { rating: 1483.7260699008034, rd: 109.04476609507158, volatility: 0.05999670634268343 },
+    { rating: 1717.5656641687417, rd: 113.23748651679657, volatility: 0.06999477661395923 },
+   ];
+   for (const [seat, actor] of [a,b].entries()) {
+    const saved = (await admin.query('select rating,rd,volatility,last_game_at from public.player_ratings where user_id=$1', [actor])).rows[0];
+    expect(saved.rating).toBeCloseTo(expected[seat].rating, 6);
+    expect(saved.rd).toBeCloseTo(expected[seat].rd, 6);
+    expect(saved.volatility).toBeCloseTo(expected[seat].volatility, 10);
+    expect(saved.last_game_at).toEqual(at);
+    expect((await games[0].record(actor)).rating).toEqual({ ...expected[seat], provisional: seat === 1 });
+   }
+  } finally { vi.useRealTimers(); }
  });
  it('writes results with the runtime role, keeps result rows fixed and gives browser roles no access', async () => {
   const role = `result_test_${randomUUID().replaceAll('-', '')}`, password = randomUUID(), login = new URL(own.href);
