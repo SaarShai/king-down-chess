@@ -185,6 +185,7 @@ All 15 review items are fixed. Each code fix starts with a failing check. Tempor
 Status stays resolved. All review items pass their checks. The 24-tool interface stays in place.
 
 - Third-round item 1: views, polls and the inbox use database activity ages. The two-day clock test first fails, then passes. Focused `npm test`: 2 files, 24 tests and 50 art tests pass. The 30-second write limit and hidden status also pass.
+- Third-round item 2: Abort clears both fixture deadlines. The setup-deadline test first fails on Abort, then checks a null deadline in its reply and the other seat's read. Focused `npm test`: 1 file, 7 tests and 50 art tests pass.
 - Full `npm test`: 145 files pass, with 2,269 tests and 50 art tests; 8 tests skip.
 - Focused server `npm test`: 2 files pass, with 23 tests and 50 art tests.
 - `npm run plugin:build` and `npm run plugin:server:check`: pass on local PostgreSQL with migration 0013.
