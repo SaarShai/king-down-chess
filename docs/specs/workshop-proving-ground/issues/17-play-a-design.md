@@ -126,3 +126,16 @@ Evidence (outside Git, in `/private/tmp/claude-501/-Users-za-Documents-king-down
 - `npm test` through the shared lock: exit 0. 118 test files pass (1 skipped); 1,915 tests pass (21 skipped). Log: `logs/npm-test-1.log`; `logs/npm-test-2.log` is the run with this ticket text.
 - `npm run check:browser workshop new-game painted-game`: all 3 pass (122.4 s, 18.0 s, 112.1 s). Logs: `logs/checks-1.log` and each check's log in `logs/checks-1/`.
 
+
+### 2026-10-11 · Review of the open ends
+
+The review (`scratchpad/build/review-ends.md`) had one should-fix item and two nits. I checked each against the code.
+
+1. **should-fix, confirmed, fixed:** a game link with an unreadable design did not open, but its `?kings=` and `?rules=` still applied (`setRules` in `src/main.ts`), and `urlRules` made `play.restore` start a fresh game when the saved game had other rules. The notice still said "Your saved game stays." The URL also kept `kings=` and `rules=`, so a reload played the link's kings. Fix (`src/main.ts`): `unread` (`gameLink && !link`) gives no `preset` and no `kings`, and the URL loses `rules=` and `kings=` too. Reason: a link that does not open must not change this page's game. Browser check: `new-game` step 7b now opens the link with `?kings=spirit:mercy` and asserts that the saved game has no kings (`rules.kings` is `[null, null]`). Not changed: when the owner declines the "Open the game from this link?" confirm, the link's kings still apply. This was so before these tickets; the confirm comes after the first `Game` is built, so a fix needs a larger change.
+2. **nit, not changed:** `src/ai/eval.ts` imports `workshop/judge`. There is no cycle and no bundle change (`game.ts` and `worker.ts` already import it). A new module for one function is an abstraction with one use.
+3. **nit, noted:** a design run now gets the judge worth for `T`, not `TEMPLAR_V` (350). A design run that resumes across this change mixes the two values, and `checkResume` does not see it. No design run exists yet, so no change.
+
+Evidence (outside Git, in `scratchpad/build/open-ends/logs/`):
+
+- `npm test` through the shared lock (`npm-test-3.log`): exit 0. 118 test files pass (1 skipped); 1,915 tests pass (21 skipped); the node tests, 50 of 50. Run 2, with this ticket text (`npm-test-4.log`): exit 0; the same counts.
+- `npm run check:browser new-game` (`review-newgame.log`, `review-newgame.new-game.log`): passes (18.3 s). On the old `src/main.ts` the same check fails: "the saved game stays, without the link's kings" (`review-newgame-neg.log`, `review-newgame-neg.new-game.log`).

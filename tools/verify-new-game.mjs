@@ -244,9 +244,9 @@ try {
   assert.deepEqual([s.back, s.rules.design.code, await page.evaluate(() => window.view.pos.board[1])], ['RTBQKBNR', code, 15], 'a game link plays the design it holds, on a device without it');
   assert.equal(await page.evaluate(() => document.getElementById('workshop')?.open ?? false), false, 'a game link does not open the Workshop');
   await page.context().close();
-  page = await open({ query: '?design=unreadable&army=RTBQKBNR&moves=e2-e4', save: { back: 'RNBQKBNR', fen: '', moves: ['d2-d4'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' } });
+  page = await open({ query: '?kings=spirit:mercy&design=unreadable&army=RTBQKBNR&moves=e2-e4', save: { back: 'RNBQKBNR', fen: '', moves: ['d2-d4'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' } });
   assert.equal(await page.textContent('#context-text'), 'The game link holds a piece that this version cannot read. Your saved game stays.', 'a link with a design this version cannot read says why');
-  assert.deepEqual([await lanMoves(page), (await saved(page)).back], [['d2-d4'], 'RNBQKBNR'], 'the saved game stays');
+  assert.deepEqual([await lanMoves(page), (await saved(page)).back, (await saved(page)).rules.kings], [['d2-d4'], 'RNBQKBNR', [null, null]], 'the saved game stays, without the link\'s kings');
   assert.deepEqual(await page.evaluate(() => [document.getElementById('workshop')?.open ?? false, location.search]), [false, ''], 'no Workshop, and the URL loses the link');
   await page.context().close();
   page = await open();

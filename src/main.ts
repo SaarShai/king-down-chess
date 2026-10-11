@@ -27,13 +27,6 @@ import { readSave } from './screen/save';
 import { connectKeys } from './screen/keys';
 
 const params = new URLSearchParams(location.search);
-/** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
-const preset = { 2017: RULES_2017, 2021: RULES_2021 }[params.get('rules') ?? ''];
-/**
- * `?kings=spirit:mercy,mud:march` — White first; one value gives both sides the same king
- * (docs/RULES.md §4). The default is **no powers**; the New game dialog picks each side's power.
- */
-const kings = params.get('kings');
 /**
  * `?army=` or `?fen=`, with `&moves=`: a game sent by a friend (`gameLink`). It keeps this device's
  * settings, and replaces the autosave after a confirm, unless it continues the saved game.
@@ -48,6 +41,15 @@ const linkDesign = (() => {
 })();
 const gameLink = linkMoves != null && (params.has('army') || params.has('fen'));
 const link = gameLink && linkDesign !== undefined;
+/** A game link that does not open (`gameLink && !link`) also leaves its `?rules=` and `?kings=` out: the saved game stays. */
+const unread = gameLink && !link;
+/** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
+const preset = unread ? undefined : { 2017: RULES_2017, 2021: RULES_2021 }[params.get('rules') ?? ''];
+/**
+ * `?kings=spirit:mercy,mud:march` — White first; one value gives both sides the same king
+ * (docs/RULES.md §4). The default is **no powers**; the New game dialog picks each side's power.
+ */
+const kings = unread ? null : params.get('kings');
 // Before the first Game: its constructor builds a position and asks for its status.
 /** With any power in play, the balanced readings apply (an older `?rules=` preset still overrides them). */
 const withPowers = (k: Rules['kings']): Partial<Rules> => (k[0] || k[1] ? POWERS_BALANCED : {});
@@ -181,9 +183,13 @@ const lans = linkMoves?.split('_').filter(Boolean) ?? [];
 const continues = !!saved && (params.get('army') ? saved.back === params.get('army') : !saved.back && saved.fen === params.get('fen'))
   && saved.moves.every((m, i) => lans[i] === m);
 const openLink = link && (!saved?.moves.length || continues || confirm('Open the game from this link? It replaces your current game.'));
-if (gameLink) history.replaceState(null, '', gameLinkless()); // a reload then resumes the autosave
+if (gameLink) { // a reload then resumes the autosave
+  const url = new URL(gameLinkless());
+  if (unread) for (const k of ['rules', 'kings']) url.searchParams.delete(k);
+  history.replaceState(null, '', url);
+}
 play.restore(saved, { link: openLink, continues, urlRules: !!(preset || kings || (openLink && linkDesign)), title: showTitle,
-  notice: gameLink && !link ? `The game link holds a piece that this version cannot read.${saved ? ' Your saved game stays.' : ''}` : '' });
+  notice: unread ? `The game link holds a piece that this version cannot read.${saved ? ' Your saved game stays.' : ''}` : '' });
 await view.ready();
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
 guide.fill(); // after every setRules path (URL preset / save restore)
