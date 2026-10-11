@@ -1,12 +1,13 @@
 // The section numbers (§) in this file cite revision 3 of the Workshop doc:
 // docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { setRules, type Rules } from '../rules/rules';
 import { judge } from './judge';
 import { BLANK, PRESETS, fromPreset, presetOf, validName, type PieceDesign, type Rule, type When } from './model';
 import { copyName } from './names';
 import { KEY, MAX, deleteDesign, loadShelf, saveDesign } from './store';
-import { designText, describe as words, esc, lineParts, partsText, ruleText } from './text';
+import { designText, describe as words, esc, lawsOf, lineParts, partsText, promotion, ruleText } from './text';
 import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS, whenChoices } from './vocab';
 
 /** Every rule of every block, with every pill value and every When it allows. */
@@ -162,5 +163,32 @@ describe('the design menu (Proving Ground ticket 07)', () => {
     const long = copyName('Wandering Champion', ['Wandering Champion']);
     expect(long).toBe('Wandering Champi 2');
     expect(validName(long)).toBe(true);
+  });
+});
+
+describe('the laws of the Rules tab (ticket 12)', () => {
+  afterEach(() => { setRules(); });
+
+  it('says "On" or "Off" as RULES has each law in force', () => {
+    const keys: (keyof Rules)[] = ['fiftyMove', 'threefold', 'insufficientMaterial', 'guardNextToKing', 'bishopsOppositeColours'];
+    keys.forEach((k, i) => {
+      for (const on of [true, false]) {
+        setRules({ [k]: on });
+        expect(lawsOf()[i][2], k).toBe(on ? 'On' : 'Off');
+      }
+    });
+  });
+
+  it('names the promotion pieces of each promotionSet', () => {
+    const want = {
+      standard: ['Q R B N', 'queen, rook, bishop or knight'],
+      anyNonKingNoFairy: ['Q R B N', 'queen, rook, bishop or knight'],
+      anyNonKing: ['Q R B N A L G M S', 'queen, rook, bishop, knight, archer, paladin, guard, maester or beast'],
+      anyNonKingNoGuard: ['Q R B N A L M S', 'queen, rook, bishop, knight, archer, paladin, maester or beast'],
+    } as const;
+    for (const [set, [letters, words]] of Object.entries(want)) {
+      setRules({ promotionSet: set as Rules['promotionSet'] });
+      expect(promotion()).toEqual({ letters, words });
+    }
   });
 });

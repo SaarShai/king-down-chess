@@ -49,6 +49,9 @@
 // seal's pulse and the stamp; each ends by 600 ms, by 300 ms at Fast, and 100 ms after that limit none runs; the still pose
 // equals the pose with Animations Off and with reduced motion, which show none; the next tap, Fast, reduced motion and a
 // close stop a running motion).
+// Then ticket 12: rulesTab (the Rules tab: the 10 seals in their 6 groups, the laws in force as read-only words and the Fixed
+// plaque; a seal opens at 168 px with its example, MATRIX row and Seen on, and the board shows its example piece with that rule
+// kept; no editor keys there; Seen on opens the pool piece with the rule kept; the phone has no laws and a 56 px seal).
 // Run it with `npm run check:browser workshop`.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -1788,6 +1791,62 @@ const PHONE = [
 /** Plays `steps` at `pace` (normal, fast or off; `reduce` emulates reduced motion): after each action the motions that it
  *  plays, none past `limit` ms, the board in its place, and 100 ms after the limit (700 ms at Normal) none running. With no
  *  motion the check looks 100 ms after the action. Gives the still pose after each action. */
+async function rulesTab() {
+  const p = await open();
+  await door(p);
+  await p.click('[data-tab="rules"]');
+  assert.equal(await p.getAttribute('[data-tab="rules"]', 'aria-selected'), 'true', 'Rules is the selected tab');
+  assert.deepEqual(await p.$$eval('.rgrp h4', hs => hs.map(h => h.textContent)), ['Moving', 'Taking', 'Safe', 'Moving others', 'Changing', 'Holding back'], 'the 6 groups');
+  assert.equal(await p.locator('[data-openseal]').count(), 10, 'the 10 seals');
+  await minTarget(p, '#workshop [data-openseal]');
+  // The laws follow RULES in force (the defaults in the browser), as words and not as switches.
+  assert.deepEqual(await p.$$eval('.law', ls => ls.map(l => l.textContent)), ['PromotionQ R B N', '50-move drawOn', 'ThreefoldOn', 'MaterialOn', 'Guard by its kingOn', 'Bishops on two coloursOn',
+    ' Fixed8×8 board · check and checkmate · no castling · no en passant · a power never takes a king.'], 'the laws and the Fixed plaque');
+  assert.equal(await p.locator('.laws :is(button, input, [role="switch"])').count(), 0, 'the laws are read only');
+  await p.click('[data-openseal="linesPass"]');
+  assert.equal(await name(p), 'Lines pass', 'the plinth names the seal');
+  assert.equal(await p.$eval('.pg-bigseal .kd-seal', s => Math.round(s.getBoundingClientRect().width)), 168, 'the seal is 168 px');
+  assert.deepEqual(await p.$$eval('.pg-info > *', es => es.map(e => e.textContent)),
+    ['It slides past its own pieces, as the Paladin does.', 'Matrix row', '4d Hop — over friends only', 'Seen on', 'Paladin'], 'the example, the MATRIX row and Seen on');
+  assert.equal(await p.getAttribute('[data-openseal="linesPass"]', 'aria-pressed'), 'true', 'the open seal is pressed');
+  assert.equal(await p.locator('[data-openseal="linesPass"]').evaluate(e => e === document.activeElement), true, 'the focus stays on the seal');
+  assert.deepEqual(await marks(p), PALADIN, 'the board shows the Paladin on its example board');
+  assert.deepEqual(await iso(p, 'd6', 'g7'), ['kdm-iso', 'kdm-dim'], 'the board keeps the rule: only its marks stand out');
+  assert.equal(await p.locator('.pg-brushes').isVisible(), false, 'no brushes in the seal view');
+  assert.equal(await p.locator('.pg-tray').isVisible(), false, 'no tray in the seal view');
+  assert.equal(await p.locator('.pg-acts button').count(), 0, 'no Undo, Share or ⋯ in the seal view');
+  await p.keyboard.press('1');
+  await p.keyboard.press('s');
+  assert.equal(await p.locator('.brush.armed, .pg-shelf:not([hidden])').count(), 0, 'the keys arm no brush and open no shelf in the seal view');
+  // A rule that no pool piece has: the Pawn with it, on the Pawn's board.
+  await p.click('[data-openseal="movesLike"]');
+  assert.equal(await p.locator('.pg-info .seen').count(), 0, 'no pool piece has "moves like"');
+  assert.equal(await p.locator('.pg-info p').last().textContent(), 'No pool piece has it yet.', 'Seen on says so');
+  assert.ok((await marks(p)).some(m => m.startsWith('h4 move')), 'the board shows the queen\'s line on the Pawn');
+  // Seen on opens the pool piece with the rule kept.
+  await p.click('[data-openseal="cannotTake"]');
+  await p.click('[data-seenon="paladin"]');
+  assert.equal(await name(p), 'Paladin', 'Seen on opens the Paladin');
+  assert.equal(await p.getAttribute('[data-tab="pieces"]', 'aria-selected'), 'true', 'the Pieces tab shows again');
+  assert.equal(await p.locator('.sline.is-focus').getAttribute('data-seal'), '1', 'its rule II ("cannot take") is kept');
+  assert.equal(await p.locator('.pg-brushes').isVisible(), true, 'the brushes are back');
+  await shot(p, 'rules-tab-1440x900');
+  await p.context().close();
+
+  const ph = await open('', { width: 390, height: 844 });
+  await door(ph);
+  await ph.click('[data-tab="rules"]');
+  assert.equal(await ph.locator('.laws').isVisible(), false, 'the phone hides the laws');
+  await noSidewaysScroll(ph);
+  await ph.click('[data-openseal="chain"]');
+  assert.equal(await ph.$eval('.pg-bigseal .kd-seal', s => Math.round(s.getBoundingClientRect().width)), 56, 'the phone\'s seal is 56 px');
+  assert.equal(await ph.locator('.pg-info .pg-ex').textContent(), 'After a take by moving, it may take again from there.', 'the phone shows the example');
+  await ph.click('[data-tab="board"]');
+  assert.equal(await ph.locator('.pg-tray').isVisible(), true, 'the Board tab still holds the tray');
+  await shot(ph, 'rules-tab-390x844');
+  await ph.context().close();
+}
+
 async function motionRun(steps, { pace = 'normal', reduce = false, width = 1440, height = 900 } = {}) {
   const p = await open('', { width, height, motion: true, reducedMotion: reduce ? 'reduce' : undefined });
   // The toast fades out on its own timer (3.6 s), not on an action: its fade is off here.
@@ -1886,6 +1945,7 @@ try {
   await linkCard();
   await reachPopover();
   await motion();
+  await rulesTab();
   assertNoErrors();
   console.log('workshop: all groups pass');
 } finally {

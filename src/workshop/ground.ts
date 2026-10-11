@@ -26,7 +26,7 @@ import {
   actOf, boardOf, clear, diffOf, examplesOf, piecesOf, sceneOf, stir, tapOf, threatsOf, wakeSquare, type Act, type Kind, type Scene, type ScenePiece,
 } from './scene';
 import { MAX, deleteDesign, loadShelf, saveDesign, type SaveResult } from './store';
-import { LIKE_ADDED, LIKE_CLASH, brief, cap, designText, esc, lineParts, lineWords, pawns, ruleText, whenLabel } from './text';
+import { LIKE_ADDED, LIKE_CLASH, brief, cap, designText, esc, lawsOf, lineParts, lineWords, pawns, promotion, ruleText, whenLabel } from './text';
 import { BLOCKS, BODY, GROUPS, blockOf, whenChoices, whenWords, type Part } from './vocab';
 import { traceOf, whyWords } from './why';
 // @ts-expect-error The approved gait curves are shared browser JavaScript, without declarations.
@@ -101,7 +101,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     + [...FILES].map((f, i) => `<span style="left:calc(${(i + 1) * 12.5}% - 9px);bottom:3px">${f}</span>`).join('')
     + [8, 7, 6, 5, 4, 3, 2, 1].map((r, i) => `<span style="left:3px;top:calc(${i * 12.5}% + 3px)">${r}</span>`).join('')
     + `</div><div class="pg-hits" role="grid" aria-label="Board">${rows}</div><div class="pg-paint"></div></div></div></section>`
-    + '<section class="pg-right" aria-label="Key"><div class="pg-brushes"></div><div class="pg-tools" hidden></div><p class="pg-hint"></p><div class="pg-keyrow" aria-label="Also on the board"></div><div class="pg-why" aria-live="polite" hidden></div>'
+    + '<section class="pg-right" aria-label="Key"><div class="pg-brushes"></div><div class="pg-tools" hidden></div><p class="pg-hint"></p><div class="pg-keyrow" aria-label="Also on the board"></div><div class="pg-why" aria-live="polite" hidden></div><div class="pg-info" hidden></div>'
     + '<div class="pg-tray" role="group" aria-labelledby="pg-tray-h" hidden></div></section>'
     + '<aside class="pg-shelf" aria-labelledby="pg-shelf-h" hidden></aside></div>'
     + '<footer class="pg-ledge" id="pg-ledge"><div class="ltabs" role="tablist" aria-label="Library"></div>'
@@ -112,7 +112,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   const plinthEl = q('.pg-plinth'), fieldEl = q('.pg-field'), boardEl = q<SVGSVGElement>('.pg-board'), hitsEl = q('.pg-hits'), paintEl = q('.pg-paint');
   const actsEl = q('.pg-acts'), moreEl = q('.pg-morepop'), brushesEl = q('.pg-brushes'), toolsEl = q('.pg-tools'), hintEl = q('.pg-hint'), keyEl = q('.pg-keyrow');
   const rowEl = q('.lrow'), slotsEl = q('.lrow .inner'), alertEl = q('.pg-alert'), toastEl = q('.pg-toast'), shelfEl = q('.pg-shelf'), whyEl = q('.pg-why'), notchEl = q('.pg-notch');
-  const trayEl = q('.pg-tray'), tabsEl = q('.ltabs'), boardTabEl = q('.pg-boardtab'), reachEl = q('.pg-reachpop'), ledgeEl = q('.pg-ledge');
+  const trayEl = q('.pg-tray'), tabsEl = q('.ltabs'), boardTabEl = q('.pg-boardtab'), reachEl = q('.pg-reachpop'), ledgeEl = q('.pg-ledge'), infoEl = q('.pg-info');
   /** The narrow layout (ground.css): the phone form of the mockup. Short landscape (a phone held sideways) keeps the phone
    *  form on its own grid: the tray in the column, the ledge a sheet from Pieces, the Why tag and the shelf side sheets. */
   const sideways = '(orientation: landscape) and (max-height: 500px)', narrow = matchMedia(`(max-width: 999px), ${sideways}`), short = matchMedia(sideways);
@@ -138,7 +138,9 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
    *  the eye; the "becomes" choice; the phone's ledge tab; the items opened, and whether the player tapped a square or
    *  changed a design (from then on the tray and the plaque show, proving-ground.html:1179, :1372). */
   let pos: Try = { board, from, st, gone: false, chain: null, became: 0 }, backs: Try[] = [];
-  let lifted = false, token: 'friend' | 'enemy' | null = null, threats = false, promo: Move[] | null = null, tab: 'pieces' | 'board' = 'pieces';
+  let lifted = false, token: 'friend' | 'enemy' | null = null, threats = false, promo: Move[] | null = null, tab: 'pieces' | 'rules' | 'board' = 'pieces';
+  /** The seal open from the Rules tab (ticket 12): the plinth and the right column show it, the board its example piece. */
+  let sealOn: Ability['a'] | null = null;
   /** Short landscape: the ledge's sheet is open. */
   let ledgeOpen = false;
   let opened = 0, tapped = false, edited = false;
@@ -523,6 +525,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
    *  pen); Look where no look row shows; Copy as text and Make a copy of a piece that moves; Delete of a design on the shelf. */
   function menuItems(): [string, string, Parameters<typeof sigil>[0]?][] {
     const phone = narrow.matches, items: [string, string, Parameters<typeof sigil>[0]?][] = [];
+    if (sealOn) return items;
     if (phone && cur.yours) items.push(['share', 'Share', 'quill'], ['weigh', 'Weigh', 'scale']);
     if (phone) items.push(['rename', 'Rename']);
     if (phone || cur.d.from.length) items.push(['looks', 'Look']);
@@ -602,6 +605,12 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   }
 
   function renderPlinth(): void {
+    if (sealOn) {
+      // The seal view (renderPlinth, proving-ground.html:1071-1075): its name, the seal at 168 px, the stone with no light.
+      plinthEl.innerHTML = `<div class="pg-name"><div class="row"><h3 class="long">${esc(blockOf(sealOn).label.replace('…', ''))}</h3></div></div>`
+        + `<div class="pg-figure pg-bigseal"><span class="halo"></span>${seal(sealOn, 168)}</div><div class="pg-stone"><div class="top"></div><div class="front"></div></div>`;
+      return;
+    }
     const d = cur.d, name = d.name || 'Piece', origin = cur.key.startsWith('piece:') ? undefined : PRESETS.find(p => d.from.length === 1 && p.key === d.from[0]);
     const rules = canonical(d).rules, room = rules.length < MAX_RULES;
     const [head, like] = weighOpen ? weighWords() : ['', ''], mine = cur.yours || cur.key === 'new';
@@ -1073,7 +1082,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
    *  card only when a rule reads them (decision 24). On the desktop and in short landscape it stands at the foot of the right
    *  column in look mode, less on the first open of a pool piece before an edit; on the phone, in the ledge's Board tab. */
   function renderTray(): void {
-    const phone = upright(), on = phone ? tab === 'board' : !brush && !shelfOpen && (opened > 1 || edited || !cur.key.startsWith('piece:')), reads = (...w: When['on'][]) => cur.d.rules.some(r => w.includes(r.when.on));
+    const phone = upright(), on = phone ? tab === 'board' : !brush && !shelfOpen && !sealOn && (opened > 1 || edited || !cur.key.startsWith('piece:')), reads = (...w: When['on'][]) => cur.d.rules.some(r => w.includes(r.when.on));
     (phone ? boardTabEl : q('.pg-right')).append(trayEl);
     trayEl.hidden = !on;
     const tok = (k: 'friend' | 'enemy', words: string): string => `<button type="button" class="tok" data-tok="${k}" aria-pressed="${token === k}" aria-label="${cap(k)}" title="${words}">`
@@ -1115,22 +1124,41 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       else if (e.k === 'becomes') add(e.k, () => impression('becomes', 26), NAMES.becomes);
       else if (e.k === 'threat') { const k = e.stopped ? 'tstop' : 'threat'; add(k, () => effect(k, 36), NAMES[k]); }
     }
-    keyEl.innerHTML = phone || brush ? '' : [...kinds].slice(0, 6).map(([k, [svg, w]]) => `<span class="k" title="${w}">${svg}<span>${SHORT[k]}</span></span>`).join('');
+    // The seal view: the example, the MATRIX row and the pool pieces that have the rule (renderInfo, proving-ground.html:1124-1127).
+    const seen = sealOn ? PRESETS.filter(p => p.rules.some(r => r.does.a === sealOn)) : [];
+    infoEl.hidden = !sealOn;
+    brushesEl.hidden = !!sealOn;
+    infoEl.innerHTML = !sealOn ? '' : `<p class="pg-ex">${esc(blockOf(sealOn).example)}</p><h3>Matrix row</h3><p>${esc(blockOf(sealOn).matrix)}</p><h3>Seen on</h3>`
+      + (seen.length ? `<div class="seen">${seen.map(p => `<button type="button" data-seenon="${p.key}" title="Open the ${p.name} with this rule shown"><img src="${esc(figureOf(pool(p.key).d))}" alt="">${p.name}</button>`).join('')}</div>` : '<p>No pool piece has it yet.</p>');
+    keyEl.innerHTML = phone || brush || sealOn ? '' : [...kinds].slice(0, 6).map(([k, [svg, w]]) => `<span class="k" title="${w}">${svg}<span>${SHORT[k]}</span></span>`).join('');
   }
 
-  /* ---- the ledge: the Pieces tab, and on the phone the Board tab with the tray (renderLedge and slotHTML, :1435-1486);
-     in short landscape a sheet from Pieces in the top bar, with the Pieces tab only ---- */
+  /* ---- the ledge: the Pieces and Rules tabs, and on the phone the Board tab with the tray (renderLedge and slotHTML, :1435-1486);
+     in short landscape a sheet from Pieces in the top bar, with no Board tab ---- */
 
   function renderLedge(): void {
-    const t = upright() ? tab : 'pieces', tabs: ['pieces' | 'board', string][] = upright() ? [['pieces', 'Pieces'], ['board', 'Board']] : [['pieces', 'Pieces']];
-    if (!narrow.matches) tab = 'pieces';
+    const t = upright() || tab !== 'board' ? tab : 'pieces', tabs: [typeof tab, string][] = [['pieces', 'Pieces'], ['rules', 'Rules'], ...(upright() ? [['board', 'Board'] as [typeof tab, string]] : [])];
+    if (!narrow.matches && tab === 'board') tab = 'pieces';
     // While the sheet shows, the board and the column under it leave the Tab order and take no taps (a tap there closes it).
     ledgeEl.hidden = short.matches && !ledgeOpen;
     q('.pg-main').inert = short.matches && ledgeOpen;
     q('.pg-pieces').setAttribute('aria-expanded', `${ledgeOpen}`);
     tabsEl.innerHTML = tabs.map(([k, w]) => `<button type="button" class="ltab${t === k ? ' on' : ''}" role="tab" id="pg-tab-${k}" data-tab="${k}" aria-selected="${t === k}" aria-controls="pg-${k === 'board' ? 'boardtab' : 'row'}">${w}</button>`).join('');
-    rowEl.hidden = t !== 'pieces';
+    rowEl.hidden = t === 'board';
+    rowEl.setAttribute('aria-labelledby', `pg-tab-${t}`);
     boardTabEl.hidden = t !== 'board';
+    slotsEl.classList.toggle('lip', t === 'pieces');
+    // The Rules tab (renderLedge, proving-ground.html:1466-1476): the seals in their groups, then the laws in force as read-only
+    // plaques (decision 28) and the Fixed plaque. The phone hides the laws.
+    if (t === 'rules') {
+      const pr = promotion();
+      slotsEl.innerHTML = `<div class="rgroups">${GROUPS.map(g => `<div class="rgrp"><h4>${g}</h4><div class="ss">${BLOCKS.filter(b => b.group === g)
+      .map(b => `<button type="button" data-openseal="${b.a}" aria-pressed="${sealOn === b.a}" title="${esc(b.title)}">${seal(b.a, 44)}<span>${esc(b.label)}</span></button>`).join('')}</div></div>`).join('')}</div>`
+      + `<span class="lsep" aria-hidden="true"></span><ul class="laws" aria-label="Laws of the game"><li class="law" title="A pawn on the last rank becomes a ${esc(pr.words)}.">Promotion<span class="pill" aria-label="${esc(pr.words)}">${pr.letters}</span></li>`
+      + lawsOf().map(([name, say, on]) => `<li class="law" title="${esc(say)}">${name}<b>${on}</b></li>`).join('')
+      + `<li class="law fixed"><b>${sigil('lock', 12)} Fixed</b>8×8 board · check and checkmate · no castling · no en passant · a power never takes a king.</li></ul>`;
+      return;
+    }
     const slot = (attr: string, key: string, d: PieceDesign, yours: boolean): string => {
       const open = cur.key === key;
       return `<button type="button" class="slot${open ? ' open' : ''}" ${attr}${open ? ' aria-current="true"' : ''}><img class="fig" src="${esc(figureOf(d))}" alt="">`
@@ -1218,7 +1246,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   /** Draws everything for the open item. A control that a part replaced gets the focus back (the card box has an empty value). */
   function render(): void {
     const a = document.activeElement as HTMLElement | null;
-    const keep = ['brush', 'act', 'nub', 'piece', 'design', 'pill', 'when', 'choice', 'sealitem', 'seal', 'rm', 'tok', 'tab', 'try', 'promo', 'cardon', 'figure']
+    const keep = ['brush', 'act', 'nub', 'piece', 'design', 'pill', 'when', 'choice', 'sealitem', 'seal', 'rm', 'tok', 'tab', 'try', 'promo', 'cardon', 'figure', 'openseal']
       .map(k => a?.dataset?.[k] !== undefined && `[data-${k}="${a.dataset[k]}"]`).find(Boolean);
     // A row or a card of a rule that is gone closes.
     if (row && !ruleIn(cur.d, row.a)) row = null;
@@ -1245,6 +1273,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     cur = item;
     brush = row = peek = pick = card = focus = hover = knotAt = why = token = promo = null;
     weighOpen = moreOpen = toolsOpen = shelfOpen = lifted = ledgeOpen = false;
+    sealOn = null;
     // A design with no pool piece paints with Mirror (the mockup's S0).
     mirror = item.d.from[0] ? presetOf(item.d.from[0]).paintOn : 'lr';
     const pieces = examplesOf(item.d);
@@ -1254,6 +1283,15 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     threats = !!ruleIn(item.d, 'cannotBeTaken');
     kbd = pieces[0].sq;
     dlg.scrollTop = 0;
+    render();
+  }
+  /** A seal of the Rules tab opens: its example piece (the first pool piece with the rule, else the Pawn with its default rule)
+   *  stands on its board with that rule kept, as the mockup's SEALINFO `show` (proving-ground.html:721-732). */
+  function openSeal(a: Ability['a']): void {
+    const p = PRESETS.find(x => x.rules.some(r => r.does.a === a)), pawn = pool('pawn');
+    show(p ? pool(p.key) : { key: `seal:${a}`, d: { ...pawn.d, rules: [...pawn.d.rules, clone(blockOf(a).rule)] }, yours: false });
+    sealOn = a;
+    focus = canonical(cur.d).rules.findIndex(r => r.does.a === a);
     render();
   }
   new ResizeObserver(() => { if (fieldEl.clientWidth / 8 !== drawnAt) drawBoard(); placePointer(); }).observe(fieldEl);
@@ -1268,9 +1306,9 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   dlg.addEventListener('click', e => {
     // A tap outside the ledge's sheet closes it, and does nothing else.
     if (ledgeOpen && !(e.target as Element).closest('.pg-ledge, [data-act="pieces"]')) return closeLedge();
-    const t = (e.target as Element).closest<HTMLElement>('[data-act], [data-brush], [data-nub], .pg-hits .sq, [data-pill], [data-when], [data-choice], [data-sealitem], [data-rm], [data-tok], [data-tab], [data-try], [data-promo], [data-figure]');
+    const t = (e.target as Element).closest<HTMLElement>('[data-act], [data-brush], [data-nub], .pg-hits .sq, [data-pill], [data-when], [data-choice], [data-sealitem], [data-rm], [data-tok], [data-tab], [data-try], [data-promo], [data-figure], [data-openseal], [data-seenon]');
     if (!t) { if (moreOpen) { moreOpen = false; renderTop(); } return; }
-    const { sq: at, nub: l, brush: b, pill: pa, when: wa, choice, sealitem: sa, rm, tok, tab: tb, try: tr, promo: pr, figure } = t.dataset;
+    const { sq: at, nub: l, brush: b, pill: pa, when: wa, choice, sealitem: sa, rm, tok, tab: tb, try: tr, promo: pr, figure, openseal: os, seenon: seen } = t.dataset;
     if (figure) return void change('look', d => { d.look.figure = figure; });
     if (at) { if (brush) paint(at); else tapSquare(at); return; }
     if (tok) {
@@ -1280,7 +1318,9 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       if (token) toast(`Tap a square to put a ${tok === 'friend' ? 'white' : 'black'} pawn there, or tap a piece to take it away.`);
       return;
     }
-    if (tb) { tab = tb as 'pieces' | 'board'; return render(); }
+    if (tb) { tab = tb as typeof tab; return render(); }
+    if (os) return openSeal(os as Ability['a']);
+    if (seen) { const a = sealOn; show(pool(seen)); focus = canonical(cur.d).rules.findIndex(r => r.does.a === a); tab = 'pieces'; return render(); }
     if (tr) return playOne(movesAt(why!).filter(m => actOf(m) === tr));
     if (pr) return play(promo![+pr]);
     if (l) return toggleLine(l as Dir);
@@ -1385,7 +1425,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       else if (moreOpen || weighOpen) { moreOpen = weighOpen = false; render(); } else if (why) closeWhy(); else leave();
       return;
     }
-    if (field) return;
+    if (field || sealOn) return;
     if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undo(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const b = ({ 1: 'move', 2: 'take', 3: 'both' } as Record<string, Brush>)[e.key];

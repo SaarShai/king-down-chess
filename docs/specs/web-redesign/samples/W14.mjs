@@ -1,4 +1,4 @@
-// W14: the Workshop, the Proving Ground (docs/specs/workshop-proving-ground tickets 01 to 11).
+// W14: the Workshop, the Proving Ground (docs/specs/workshop-proving-ground tickets 01 to 12).
 // The open piece on its example board with its marks, the plinth with its rules, the key and the Pieces ledge;
 // a rule kept by a tap (hero-i1 to hero-i3) and a cracked knot (beast-cancel: My Beast, its pill changed from "a piece, not a
 // pawn" to "anything", so the top bar says Undo rule; a tap on e5 opens its Why tag) (ticket 04); then
@@ -25,8 +25,10 @@
 // pieces from the sheet that Pieces opens. The mockup has no landscape state.
 // Ticket 10 records painted (the first paint: the copy flies to Yours), stamped (the stamp) and moved (Move here) also as phone
 // videos with Motion Normal. In a video, each step's motion plays out (700 ms) before the next step.
+// Ticket 12: rules-tab (the Rules tab with "Lines pass" open: the seal on the plinth, its example, MATRIX row and Seen on,
+// the Paladin on its board with that rule kept, and on the desktop the laws and the Fixed plaque).
 // Mockup states to set beside them: open, hero, hero-i1, hero-i2, hero-i3, archer, beast, beast-cancel, maester, ogre, guard,
-// phone-open, phone-hero, why-g7, paint, painted, stamp-preview, stamped, asleep-b4, awake-e2, rook-leap; for new-piece, the
+// phone-open, phone-hero, why-g7, paint, painted, stamp-preview, stamped, asleep-b4, awake-e2, rook-leap, rules; for new-piece, the
 // open state and a tap on NEW; for design-menu, painted and ⋯ (the phone's ⋯; the mockup's desktop has no ⋯); for the card
 // face, card-paladin and phone-card of mockup B (binder-and-table.html); for reach-popover, open with the pointer on the Paladin
 // (docs/research/rules-ui-2026-10-10/mockups/proving-ground.html?state=<id>, served, never file://).
@@ -142,6 +144,7 @@ export default {
       const phone = narrow(size);
       await page.evaluate(v => localStorage.setItem('kingdown.workshop', v), beastPiece);
       await pressMenu(page, 'Workshop');
+      await page.locator('#workshop.pg[open]').waitFor();
       await ledge(page);
       await page.click('.slot[data-design="mybeast"]');
       await page.locator('.slot[data-design="mybeast"][aria-current="true"]').waitFor({ state: 'attached' });
@@ -207,6 +210,7 @@ export default {
     } },
     { name: 'link-card', query: linkTo(rider), save, targets, controls, steps: async ({ page }) => { await page.locator('.pg-sheet[open] .pg-face').waitFor(); } },
     { name: 'phone-link-card', query: linkTo(lancer), save, targets, controls, steps: async ({ page }) => { await page.locator('.pg-sheet[open] .pg-face').waitFor(); } },
+    { ...state('rules-tab', 'pawn'), steps: async ({ page }) => { await piece('pawn')({ page }); await page.click('[data-tab="rules"]'); await page.click('[data-openseal="linesPass"]'); } },
     { ...state('reach-popover', 'pawn'), steps: async ({ page, size }) => { await piece('pawn')({ page }); if (!narrow(size)) await page.hover('.slot[data-piece="paladin"]'); } },
   ],
 };
