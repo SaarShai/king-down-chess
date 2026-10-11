@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createMatch, loadMatch, LocalMatch } from './index';
+import { fromFen, toFen } from '../rules/setup';
+import type { Position } from '../rules/engine';
 const matches: LocalMatch[] = [];
 afterEach(async () => { await Promise.all(matches.splice(0).map(m => m.close())); });
 async function create(setup = {}) { const m = await createMatch(setup); matches.push(m); return m; }
@@ -15,7 +17,7 @@ async function move(m: LocalMatch, lan: string, id?: string) { const s = await m
 describe('isolated local matches', () => {
   it('exposes detached public rules and legal engine moves without private card state', async () => {
     const m = await create({ kings: 'Flame:Haste,none' }), before = await m.snapshot();
-    expect(before.rules).not.toHaveProperty('hands');
+    expect(before.rules.hands).toEqual([[], []]);
     expect(before.rules).not.toHaveProperty('piles');
     expect(before.rules).not.toHaveProperty('cardPool');
     expect(before.moves.map(m => m.lan)).toEqual(before.legal);
@@ -70,6 +72,105 @@ describe('isolated local matches', () => {
     await expect(createMatch({ fen: 'rnbqkbnr/pppp1ppp/8/8/3pP3/8/PPPP1PPP/RNBQKBNR b - e3 0 3' })).rejects.toThrow('Malformed FEN');
     expect((await (await create({ fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1' })).snapshot()).legal).not.toContain('O-O');
   });
+  it.each([0, 1] as const)('roundtrips each mark kind and lifetime written by the engine for side %s', async side => {
+    const base = '7k/8/8/8/8/8/P7/R5K1 w - - 0 1';
+    for (const kind of ['', 'i', 'a']) for (const left of [0, 1, 2]) {
+      const p = fromFen(base);
+      p.marks = side === 0 ? [{ sq: 0, left, ward: kind !== '', all: kind === 'a' }, undefined] : [undefined, { sq: 0, left, ward: kind !== '', all: kind === 'a' }];
+      const fen = toFen(p);
+      expect(fen).toBe(`${base} ma1${side === 0 ? 'w' : 'b'}${kind}${left === 1 ? '' : left}`);
+      const m = await create({ fen });
+      expect((await m.snapshot()).fen).toBe(fen);
+      expect(await (await restart(m)).snapshot()).toEqual(await m.snapshot());
+    }
+  });
+  it.each([
+    ['u1.2', { used: [1, 2] }],
+    ['ma1wi/ma8ba2', { marks: [{ sq: 0, ward: true }, { sq: 56, all: true, left: 2 }] }],
+    ['f', { free: true }],
+    ['ha2', { haste: 8 }],
+    ['ha2r', { haste: 8, rage: 1 }],
+    ['ha2t', { haste: 8, rage: 2 }],
+    ['ha2o', { haste: 8, rage: 3 }],
+    ['l', { lost: Array(32).fill(0) }],
+    ['lRn', { lost: Array.from({ length: 32 }, (_, i) => i === 4 || i === 18 ? 1 : 0) }],
+    ['g1.2', { waiting: [1, 2] }],
+    ['yHaste.Freeze', { last: ['Haste', 'Freeze'] }],
+    ['y.MorphP', { last: [undefined, 'MorphP'] }],
+    ['d1.2', { drawn: [1, 2] }],
+  ] as const)('roundtrips the engine-written power form %s', async (field, state) => {
+    const base = '7k/8/8/8/8/8/P7/R5K1 w - - 0 1';
+    const p = { ...fromFen(base), ...state } as Position, fen = toFen(p);
+    expect(fen).toBe(`${base} ${field}`);
+    const m = await create({ fen });
+    expect((await m.snapshot()).fen).toBe(fen);
+    expect(await (await restart(m)).snapshot()).toEqual(await m.snapshot());
+  });
+  it.each(['ma1wx', 'ma1wia', 'ma1wi3', 'ma1wa3', 'ha2x', 'yUnknown.Freeze', 'yHaste.Unknown', 'd10001.0', 'd1.-1', 'd1.2.3'])('refuses malformed power form %s', async field => {
+    await expect(createMatch({ fen: `7k/8/8/8/8/8/P7/R5K1 w - - 0 1 ${field}` })).rejects.toThrow();
+  });
+  it('plays a public mirror deal: the computer plays a card, the snapshot shows the hands, a reload replays it', async () => {
+    const fen = '7k/8/8/8/4q3/8/8/R5K1 w - - 0 1', m = await create({ fen, hand: ['Haste'] }), plain = await create({ fen });
+    const start = await m.snapshot(), card = await m.chooseMove({ level: 'club', maxTimeMs: 400 });
+    expect(start.rules.hands).toEqual([['Haste'], ['Haste']]);
+    expect((await plain.snapshot()).legal).not.toContain(card);
+    const after = await move(m, card); expect(after.fen.split(' ')[6]).toContain('u1.0');
+    await move(m, await m.chooseMove({ level: 'club', maxTimeMs: 400 }));
+    const played = await m.snapshot(); expect(played.fen.split(' ')[0]).not.toContain('q');
+    expect(await (await restart(m)).snapshot()).toEqual(played);
+  });
+  it('accepts an empty public hand as a game with no cards', async () => {
+    expect(await (await create({ hand: [] })).snapshot()).toEqual(await (await create()).snapshot());
+  });
+  it.each([
+    ['one empty slot', Array(1)],
+    ['an empty slot after a card', ['Haste', ,]],
+    ['a null slot', [null]],
+    ['a null slot after a card', ['Haste', null]],
+  ])('refuses a public hand with %s before it can produce an unloadable save', async (_label, hand) => {
+    await expect(create({ hand } as any).then(() => undefined)).rejects.toThrow('Malformed hand');
+  });
+  it('refuses a private hand, a pile, an unknown card and a hand with a spendable king power', async () => {
+    for (const setup of [{ hand: ['Nonsense'] }, { hand: ['Haste', 'Haste'] }, { hand: 'Haste' }, { hand: ['Haste'], kings: 'Flame:Strike,none' }]) await expect(createMatch(setup as any)).rejects.toThrow();
+    const save = JSON.parse(await (await create({ hand: ['Haste'] })).exportSave());
+    for (const rules of [{ ...save.rules, hands: [['Haste'], []] }, { ...save.rules, piles: [['Freeze'], ['Freeze']] }]) await expect(loadMatch(JSON.stringify({ ...save, rules }))).rejects.toThrow();
+  });
+  it('accepts the castling and en-passant FEN fields with the classic flag', async () => {
+    expect((await (await create({ classic: true, fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' })).snapshot()).fen).toContain(' w KQkq - ');
+    const ep = await create({ classic: true, fen: 'rnbqkbnr/pppp1ppp/8/8/3pP3/8/PPPP1PPP/RNBQKBNR b - e3 0 3' });
+    expect((await ep.snapshot()).legal).toContain('d4xe3');
+    await expect(createMatch({ classic: 'yes' } as any)).rejects.toThrow('Malformed');
+  });
+  // Only O-O mates: the Mercy king on g1 shelters the knight on g2 (Rh1-f1 allows Kxg2; Ke1-g1 gives no check).
+  it('castles O-O with a Mercy king through apply and chooseMove, and replays it', async () => {
+    const m = await create({ classic: true, kings: 'Spirit:Mercy,none', fen: '4R3/8/7N/7N/8/5k2/6N1/4K2R w K - 0 1' });
+    const s = await m.snapshot(); expect(s.legal).toEqual(expect.arrayContaining(['O-O', 'Ke1-g1']));
+    expect(await m.chooseMove({ level: 'club', maxTimeMs: 400 })).toBe('O-O');
+    const castled = await move(m, 'O-O'); expect(castled.status).toBe('checkmate');
+    expect(await (await restart(m)).snapshot()).toEqual(castled);
+    const start = await create({ classic: true, kings: 'Spirit:Mercy,none', backRank: 'RNBQKBNR' });
+    for (const lan of ['e2-e4', 'e7-e5', 'Ng1-f3', 'Nb8-c6', 'Bf1-c4', 'Ng8-f6', 'O-O']) await move(start, lan);
+    const played = await start.snapshot(); expect(played.fen.split(' ')[0].split('/')[7]).toBe('RNBQ1RK1');
+    expect(await (await restart(start)).snapshot()).toEqual(played);
+  });
+  it.each(['beginner', 'casual', 'club', 'strong'] as const)('the %s level returns a legal move within its time cap', async level => {
+    const cap = { beginner: 700, casual: 800, club: 800, strong: 2500 }[level];
+    const m = await create({ backRank: 'RAGKLMSO', kings: 'Spirit:Mercy,Shadow:Darkness', hand: ['Freeze', 'Strike', 'Burn', 'Rally'] });
+    for (const lan of ['e2-e4', 'e7-e5']) await move(m, lan);
+    const s = await m.snapshot(), t = performance.now(), lan = await m.chooseMove({ level });
+    expect(s.legal).toContain(lan);
+    expect(performance.now() - t).toBeLessThan(cap + 1000);
+  }, 10000);
+  it('refuses an unknown level', async () => {
+    await expect((await create()).chooseMove({ level: 'master' } as any)).rejects.toThrow('Malformed');
+  });
+  it('keeps the Strong time cap when the caller asks for a longer search', async () => {
+    const m = await create({ backRank: 'RAGKLMSO', kings: 'Spirit:Mercy,Shadow:Darkness', hand: ['Freeze', 'Strike', 'Burn', 'Rally'] });
+    for (const lan of ['e2-e4', 'e7-e5']) await move(m, lan);
+    const s = await m.snapshot(), t = performance.now(), lan = await m.chooseMove({ level: 'strong', maxTimeMs: 5000 });
+    expect(s.legal).toContain(lan);
+    expect(performance.now() - t).toBeLessThan(3500);
+  }, 10000);
   it('rejects illegal/stale/conflicting commands and deduplicates after reload', async () => {
     const m = await create(); const start = await m.snapshot();
     await expect(move(m, 'invented')).rejects.toThrow('Illegal');

@@ -11,6 +11,7 @@ import { ENGINE_STAMP, ENGINES } from './plugin-runtime-build.mjs';
 
 const files = readdirSync(ENGINES);
 const bundles = files.filter(file => file.endsWith('.mjs')).map(file => file.slice(0, -4));
+const legacyBundles = ['2675a7e6e32d635615350089a490902f4842ae26a7866d7123c6d95b49c60c5b', 'a6f9ebec5f0f2d5ff0a7b24e726e196fd27821a5133176bcfda26b70de9b75cd'];
 const fixture = (hex: string) => readFileSync(join(ENGINES, `${hex}.save.json`), 'utf8');
 const matches: LocalMatch[] = [];
 afterEach(async () => { await Promise.all(matches.splice(0).map(m => m.close())); });
@@ -31,6 +32,32 @@ describe('engine archive', () => {
     const { revision, legal } = await m.snapshot();
     expect(revision).toBe(JSON.parse(fixture(hex)).revision);
     expect((await m.apply({ id: 'archive-check', expectedRevision: revision, lan: legal[0] })).revision).toBe(revision + 1);
+  });
+  it.each(legacyBundles)('accepts a level at the built-in strength of old engine %s', async hex => {
+    const m = await loadMatch(fixture(hex)); matches.push(m);
+    const before = await m.snapshot(), save = await m.exportSave();
+    const options = { maxTimeMs: 1000, maxDepth: 1 };
+    const selected = await m.chooseMove(options);
+    for (const level of ['beginner', 'casual', 'club', 'strong'] as const) {
+      expect(await m.chooseMove({ ...options, level })).toBe(selected);
+    }
+    expect(before.legal).toContain(selected);
+    expect(await m.snapshot()).toEqual(before);
+    expect(await m.exportSave()).toBe(save);
+    await expect(m.chooseMove({ level: 'master' } as any)).rejects.toThrow('Malformed level');
+  });
+  it.each(legacyBundles)('returns detached empty hands on every snapshot from old engine %s', async hex => {
+    const m = await loadMatch(fixture(hex)); matches.push(m);
+    const before = await m.snapshot();
+    expect(before.rules.hands[0]).toEqual([]);
+    expect(before.rules.hands[1]).toEqual([]);
+    before.rules.hands[0].push('Haste');
+    expect((await m.snapshot()).rules.hands).toEqual([[], []]);
+    const after = await m.apply({ id: 'old-hands', expectedRevision: before.revision, lan: before.legal[0] });
+    expect(after.rules.hands).toEqual([[], []]);
+    expect((await m.apply({ id: 'old-hands', expectedRevision: before.revision, lan: before.legal[0] })).rules.hands).toEqual([[], []]);
+    const resumed = await loadMatch(await m.exportSave()); matches.push(resumed);
+    expect(await resumed.snapshot()).toEqual(after);
   });
   it('refuses a save whose engine has no bundle with MATCH_INCOMPATIBLE', async () => {
     const save = fixture(bundles[0]).replace(`sha256:${bundles[0]}`, `sha256:${'0'.repeat(64)}`);

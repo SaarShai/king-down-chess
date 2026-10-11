@@ -2,12 +2,15 @@
 import { Worker as NodeWorker } from 'node:worker_threads';
 import { existsSync } from 'node:fs';
 import { tsWorker } from '../sim/ts-worker';
-import type { Rules } from '../rules/rules';
+import type { CardName, Rules } from '../rules/rules';
+import type { SkillName } from '../ai/skill';
 import type { Move, Status } from '../rules/engine';
-export interface MatchSetup { backRank?: string; fen?: string; preset?: 'current' | '2017' | '2021'; kings?: string }
+/** `classic`: chess castling and en passant (`Rules.classicChess`). `hand`: a public mirror deal, the same cards for both sides. */
+export interface MatchSetup { backRank?: string; fen?: string; preset?: 'current' | '2017' | '2021'; kings?: string; classic?: boolean; hand?: CardName[] }
 export interface MoveCommand { id: string; expectedRevision: number; lan: string }
-export type PublicMatchRules = Omit<Rules, 'hands' | 'piles' | 'cardPool'>;
-export interface ChooseMoveOptions { maxTimeMs?: number; maxDepth?: number }
+export type PublicMatchRules = Omit<Rules, 'piles' | 'cardPool'>;
+/** `level`: the website's skill settings (`skillPlan`); `maxTimeMs` then shortens its time cap. Old engines keep their built-in strength. */
+export interface ChooseMoveOptions { level?: SkillName; maxTimeMs?: number; maxDepth?: number }
 export class MatchError extends Error { constructor(message: string, public code?: 'MATCH_INCOMPATIBLE') { super(message); } }
 declare const __KINGDOWN_COMPILED__: boolean;
 export interface MatchSnapshot { rules: PublicMatchRules; moves: { lan: string; move: Move }[]; revision: number; fen: string; ply: number; turn: 0 | 1; moveNumber: number; status: Status; inCheck: boolean; legal: string[]; history: string[] }
@@ -26,6 +29,7 @@ export class LocalMatch {
   private worker: NodeWorker;
   private next = 0;
   private closed = false;
+  private supportsLevels = true;
   private pending = new Map<number, { resolve: (v: any) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>();
   /** Without `engine` (an archived bundle) the match runs the current engine. */
   constructor(engine?: URL) {
@@ -33,7 +37,15 @@ export class LocalMatch {
     this.worker.on('message', ({ id, value, error, code }) => {
       const p = this.pending.get(id); if (!p) return;
       clearTimeout(p.timer); this.pending.delete(id);
-      if (error) p.reject(new MatchError(error, code)); else p.resolve(value);
+      if (error) p.reject(new MatchError(error, code));
+      else {
+        if (value?.rules) {
+          // The two engines before public hands also reject level options.
+          this.supportsLevels = value.rules.hands !== undefined;
+          value.rules.hands ??= [[], []];
+        }
+        p.resolve(value);
+      }
     });
     this.worker.on('error', e => this.fail(e instanceof Error ? e : new Error(String(e))));
     this.worker.on('exit', code => this.fail(new Error(`Match worker exited (${code})`)));
@@ -53,10 +65,20 @@ export class LocalMatch {
       try { this.worker.postMessage({ id, op, input }); } catch (e) { this.fail(e as Error); }
     });
   }
-  async initialize(input: unknown, load = false): Promise<void> { await this.call(load ? 'load' : 'create', input); }
+  async initialize(input: unknown, load = false): Promise<void> {
+    await this.call(load ? 'load' : 'create', input);
+    await this.call('snapshot');
+  }
   snapshot(): Promise<MatchSnapshot> { return this.call('snapshot'); }
   apply(command: MoveCommand): Promise<MatchSnapshot> { return this.call('apply', command); }
-  chooseMove(options: ChooseMoveOptions = {}): Promise<string> { return this.call('chooseMove', options); }
+  async chooseMove(options: ChooseMoveOptions = {}): Promise<string> {
+    if (!this.supportsLevels && options.level !== undefined) {
+      if (!['beginner', 'casual', 'club', 'strong'].includes(options.level)) throw new Error('Malformed level');
+      const { level: _level, ...bounds } = options;
+      return this.call('chooseMove', bounds);
+    }
+    return this.call('chooseMove', options);
+  }
   exportSave(): Promise<string> { return this.call('save'); }
   async close(): Promise<void> { this.fail(new Error('Match closed')); await this.worker.terminate(); }
 }

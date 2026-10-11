@@ -166,30 +166,34 @@ describe('the built setup', () => {
 
   it('mirrors one back rank when both orders match, with no powers', async () => {
     const built = buildSetup(DEFAULT_OPTIONS, D, [choice(ARMY), choice(ARMY)]);
-    expect(built).toEqual({ match: { backRank: ARMY, kings: 'none,none' }, classic: false, hand: [] });
-    expect((await start(built.match)).fen).toBe('qrnakbbs/pppppppp/8/8/8/8/PPPPPPPP/QRNAKBBS w - - 0 1');
+    expect(built).toEqual({ backRank: ARMY, kings: 'none,none' });
+    expect((await start(built)).fen).toBe('qrnakbbs/pppppppp/8/8/8/8/PPPPPPPP/QRNAKBBS w - - 0 1');
   });
   it('gives each side its own rank by a FEN when the orders differ', async () => {
     const built = buildSetup(DEFAULT_OPTIONS, D, [choice(ARMY), choice('SBBKANRQ')]);
-    expect(built.match).toEqual({ fen: 'sbbkanrq/pppppppp/8/8/8/8/PPPPPPPP/QRNAKBBS w - - 0 1', kings: 'none,none' });
-    expect((await start(built.match)).fen).toBe(built.match.fen);
+    expect(built).toEqual({ fen: 'sbbkanrq/pppppppp/8/8/8/8/PPPPPPPP/QRNAKBBS w - - 0 1', kings: 'none,none' });
+    expect((await start(built)).fen).toBe(built.fen);
   });
   it('carries both kings and powers', async () => {
     const built = buildSetup(powers, D, [choice(ARMY, { king: 'Frost', power: 'Freeze' }), choice(ARMY, { king: 'Shadow', power: 'Darkness' })]);
-    expect(built.match.kings).toBe('Frost:Freeze,Shadow:Darkness');
-    expect((await start(built.match)).rules.kings).toEqual([{ king: 'Frost', power: 'Freeze' }, { king: 'Shadow', power: 'Darkness' }]);
+    expect(built.kings).toBe('Frost:Freeze,Shadow:Darkness');
+    expect((await start(built)).rules.kings).toEqual([{ king: 'Frost', power: 'Freeze' }, { king: 'Shadow', power: 'Darkness' }]);
   });
   it('builds a game the match module starts for each toggle mix', async () => {
     const mixes: Options[] = [DEFAULT_OPTIONS, opts({ pool: ['N', 'A', 'M', 'S'] }), opts({ fairy: false, arrangement: false }), opts({ fairy: false, arrangement: false, classic: true }), opts({ kingPowers: true, cards: true }), opts({ arrangement: false, kingPowers: true })];
     for (const [i, o] of mixes.entries()) {
       const d = draw(o, mulberry32(i + 1)), seats = [defaultChoice(o, d, 0, mulberry32(10 + i), true), defaultChoice(o, d, 1, mulberry32(20 + i), true)] as const;
       const built = buildSetup(o, d, seats);
-      expect(built.classic).toBe(o.classic);
-      expect(built.hand).toEqual(d.hand);
-      const s = await start(built.match);
+      const m = await createMatch(built); matches.push(m);
+      const s = await m.snapshot();
       expect(s.status).toBe('playing');
       expect(s.fen.split(' ')[0].split('/')[7]).toBe(seats[0].order);
       expect(s.fen.split(' ')[0].split('/')[0]).toBe(seats[1].order.toLowerCase());
+      expect(s.rules.hands).toEqual(o.cards ? [d.hand, d.hand] : [[], []]);
+      if (o.cards) expect(d.hand).toHaveLength(4);
+      if (!o.classic) continue;
+      for (const [r, lan] of ['e2-e4', 'e7-e5', 'Ng1-f3', 'Nb8-c6', 'Bf1-c4', 'Ng8-f6'].entries()) await m.apply({ id: `c${r}`, expectedRevision: r, lan });
+      expect((await m.snapshot()).legal).toContain('O-O');
     }
   });
   it('refuses a seat choice that does not validate', () => {
