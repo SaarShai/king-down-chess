@@ -50,6 +50,8 @@ Use `createMatch` and `loadMatch` to obtain initialized handles. Always close th
 
 `kings` names both sides, for example `Flame:Haste,none`. Setup follows the website's precedence: balanced power settings when a power is selected, then an older preset if requested, then explicit king choices. A public hand cannot share a side with a king power that has uses. Private hands, piles and arbitrary rule overrides are refused. Levels are `beginner` (700 ms), `casual` (800 ms), `club` (800 ms) and `strong` (2,500 ms).
 
+The two archived engines before public hands have one built-in computer strength. A level request on their saves uses that strength. These engines still use `maxTimeMs` and `maxDepth`; their defaults are 250 ms and depth 4. The API returns empty public hands for these games. It does not change the saved engine or its rules.
+
 Choose `lan` from the latest snapshot's `legal` list. Revision counts accepted commands, not turns: Haste may leave the same player to move. Use `turn` and `moveNumber`, never ply parity.
 
 Reusing a successful command ID with identical move and expected revision returns the **current** snapshot without applying it again, including after reload. Reusing it with different input throws. Two different commands submitted at the same revision to one handle cannot both succeed. On a stale error, fetch a fresh snapshot before choosing another move. Errors reject with `Error`/`MatchError`; incompatible schema/engine saves carry `MATCH_INCOMPATIBLE`. The durable service exposes typed command, permission and recovery errors to the MCP adapter.

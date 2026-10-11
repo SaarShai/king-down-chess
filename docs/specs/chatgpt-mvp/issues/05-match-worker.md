@@ -1,6 +1,6 @@
 # 05 · Match worker: the open card deal, Classic and the computer levels
 
-Status: resolved
+Status: claimed
 Type: AFK
 Size: M
 Blocked by: 03
@@ -67,3 +67,14 @@ Checks use Node 24.21.0 and the ticket's disposable database:
 Integration check: merge `claude/chatgpt-mvp` at `b0e16067`. The merge has no conflict and adds two ticket updates. `npm test` passes again: 136 files, 2,131 tests and 50 document checks; 8 tests skip.
 
 Open items: none in this ticket. Ticket 06 selects the worker level in the game service.
+
+## Review
+
+Plan: confirm each finding, then add its failing test before its fix. Check the old saves through the match API. Check all FEN power forms and every hand slot. Use a controlled clock and random source to check each worker level. Keep each saved engine bundle. Build the new bundle, run all required checks with `kingdown_mvp05_test`, then commit and push this branch.
+
+Pass criteria: both old bundles accept a level request at their built-in strength and return empty public hands. Each power form written by `toFen` can start, save and reload a match. Sparse and null hands reject. Each level uses its website time cap, score band and random-move chance. The full tests, plugin build, smoke, server check and both browser checks pass.
+
+All five findings are confirmed in the code. Findings 1 and 2 affect the two bundles before the public-hand worker. Finding 3 also affects Rage, RageB, last-played cards and drawn-card counts. Finding 4 comes from `Array.some`, which skips holes. Finding 5 needs controlled worker tests; a legal move alone does not prove a level setting.
+
+1. **Old-save levels:** the API removes a valid level option for the two old engines. They keep their built-in strength and their time/depth controls. The API comment and match contract state the limit. The two archive tests fail with `Malformed input` before the fix. They then pass for all four level names, keep the save and position unchanged, and refuse an invalid level.
+2. **Old-save hands:** the API adds `[[], []]` to each old snapshot. It covers reads, moves and command retries. The two archive tests fail on `hands[0]` before the fix. They then pass, including detached arrays and save/reload. `npm test` with `KINGDOWN_TEST_FILE=tools/engines.test.ts` passes all 11 tests after both fixes.
