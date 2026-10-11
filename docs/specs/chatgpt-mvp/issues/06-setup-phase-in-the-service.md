@@ -55,5 +55,6 @@ Checks use `kingdown_mvp06_test` on `127.0.0.1:55432`. Each schema or grant test
 - Migration and server start checks: 5 tests pass. Migration 0010 runs twice. A saved game still plays. A role without setup grants cannot start the server.
 - `npm run plugin:build` and `npm run plugin:server:check` pass. The compiled HTTP check uses real PostgreSQL. The page resource is 437,582 JSON bytes, with 20 art files.
 - `git diff --check` passes.
+- The current integration tip, `0a915696`, is already in this branch. The merge reports `Already up to date`. The full `npm test` check then passes with the same counts.
 
 Open items: none in this ticket. Ticket 07 owns random-game accept. Ticket 08 owns the new tool bindings. This ticket changes no page flow, so browser checks do not apply.
