@@ -69,7 +69,14 @@ Changes from the ticket, each with its reason:
 16. Move here draws the new board at once, under the flight. The mockup keeps the old marks and the old tag until the flight lands. The still pose comes first, so a stop at any time leaves the true board.
 17. Plan step 4 says that the check looks 700 ms after each action. The check looks 100 ms after the limit: 700 ms at Normal, 400 ms at Fast, and 100 ms with no motion (Animations Off and reduced motion). With 700 ms after every action the check took 118 s, and one run went past the 180 s limit (`logs/first/pg-3.log`, 207 s). The end of each motion comes from its own timing (`endTime`), so a motion past the limit fails at any wait. Before the still pose, the check waits for the fonts and for each image that shows.
 18. In a W14 video, each step's motion plays out (700 ms) before the next step. Without the pause, the Escape after the first paint stopped the copy's flight at once, so the video did not show it. The stills do not wait.
-19. The check finds a motion by its exact name, or its name and classes: `img` (the plinth figure) does not match `img.pg-fly`.
+19. The check finds a motion by its exact name; a name with a class also matches that element with more classes. So `img` (the plinth figure) does not match `img.pg-fly` (fixed after the review, finding 1).
+
+Reviews:
+
+- Review of the commit `ece88c04` (`build/review-10.md` in the scratchpad):
+  1. should-fix, confirmed: the `motion` check matched the want `img` with the flight `img.pg-fly`, so "the figure fades in" passed with no fade. The proof: with the fade line of `arrive()` removed, the group `motion` alone passes (`build/10-review/neg-before-fix.log`). The fix: a want with no class matches only by its exact name (`tools/verify-proving-ground.mjs`, one line). With the fix and no fade, the group fails with "the Workshop opens: plays img; it played kdm-pop, ..., img.pg-fly, image" (`neg-after-fix.log`); with the fade back, it passes (`motion-fixed.log`).
+  2. nit, confirmed but not changed: `gaitOf` of `ground.ts` repeats `gaitOf` of `motion.ts`. Ticket 11 (step 2) deletes `motion.ts`, and with it the copy; its search for each removed name also finds the comment "(motion.ts gaitOf)" in `ground.ts`.
+- After the fix: `npm test` passes (`build/10-review/npm-test.log`), and `npm run check:browser proving-ground` passes (`build/10-review/pg.log`).
 
 Open problems:
 

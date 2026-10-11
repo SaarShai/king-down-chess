@@ -1810,7 +1810,7 @@ async function motionRun(steps, { pace = 'normal', reduce = false, width = 1440,
     assert.deepEqual(await p.locator('.pg-board').boundingBox(), box, `${why}: the board does not move`);
     const m = await p.evaluate(() => window.motions);
     if (none) assert.deepEqual(m, [], `${why}: no motion`);
-    for (const w of none ? [] : want) assert.ok(m.some(x => x.name === w || x.name.startsWith(`${w}.`)), `${why}: plays ${w}; it played ${m.map(x => x.name).join(', ')}`);
+    for (const w of none ? [] : want) assert.ok(m.some(x => x.name === w || (w.includes('.') && x.name.startsWith(`${w}.`))), `${why}: plays ${w}; it played ${m.map(x => x.name).join(', ')}`);
     for (const x of m) assert.ok(x.end <= limit, `${why}: ${x.name} ends at ${x.end} ms, after ${limit} ms`);
     await noRunningAnimations(p, '#workshop');
     assert.deepEqual(await p.evaluate(() => [document.querySelector('#workshop').getAnimations({ subtree: true }).length, document.querySelectorAll('.pg-fly, .pg-wax').length]), [0, 0],
