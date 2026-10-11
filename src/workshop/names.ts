@@ -42,11 +42,12 @@ export function rollName(d: D, auto = d.look.body, rand = Math.random): string {
 /** A typed name that equals a pool piece or a card gets " (yours)". */
 export const saveName = (name: string): string => (TAKEN.some(t => t.toLowerCase() === name.trim().toLowerCase()) ? `${name.trim().slice(0, 10)} (yours)` : name.trim());
 /** A copy's name (the Proving Ground, spec decision 7): the name, or with the next free number when the shelf has it
- *  ("My Pawn", "My Pawn 2"). A copy of "My Pawn 2" counts on from "My Pawn"; the name stays within 18 letters. */
+ *  ("My Pawn", "My Pawn 2"). A copy of "My Pawn 2" counts on from "My Pawn"; only a number cuts the name, to 18 letters. */
 export function copyName(name: string, taken: readonly string[]): string {
-  const base = name.replace(/ \d+$/, '').slice(0, 15).trim();
+  if (!taken.includes(name)) return name;
+  const base = name.replace(/ \d+$/, '');
   let n = base;
-  for (let i = 2; taken.includes(n); i++) n = `${base} ${i}`;
+  for (let i = 2; taken.includes(n); i++) n = `${base.slice(0, 17 - String(i).length).trim()} ${i}`;
   return n;
 }
 /** The first free letter of the name, else the first free letter. */

@@ -274,8 +274,10 @@ describe('the design menu (Proving Ground ticket 07)', () => {
     expect(copyName('My Pawn', [])).toBe('My Pawn');
     expect(copyName('My Pawn', ['My Pawn'])).toBe('My Pawn 2');
     expect(copyName('My Pawn 2', ['My Pawn', 'My Pawn 2'])).toBe('My Pawn 3');
-    const long = copyName('My Wandering Champ', ['My Wandering Ch']);
-    expect(long.length).toBeLessThanOrEqual(18);
+    // An 18-letter name stays whole while it is free; only a number cuts it.
+    expect(copyName('Wandering Champion', [])).toBe('Wandering Champion');
+    const long = copyName('Wandering Champion', ['Wandering Champion']);
+    expect(long).toBe('Wandering Champi 2');
     expect(validName(long)).toBe(true);
   });
 });

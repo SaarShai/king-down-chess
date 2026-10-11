@@ -28,8 +28,9 @@
 // box keeps the focus; the phone's Board tab and a real touch drag that does not scroll).
 // Then ticket 07: newPiece (NEW makes a blank piece alone on d4 in brush mode, named by autoName; it saves on its first
 // change, and Undo takes it back; the phone), rename (the pen; a bad name is refused with its words; Esc; " (yours)" and the
-// letter; a blur; on the phone, Rename in ⋯; an 18-letter name at 320 px), look (the look row, a pool piece keeps its pool
-// art until a figure, More with the 34 figures, the tag filter and the army; a reload keeps them; on the phone, Look in ⋯)
+// letter; a blur; a click on a brush or a piece keeps the name and acts once; on the phone, Rename in ⋯; an 18-letter name at
+// 320 px), look (the look row, a pool piece keeps its pool art until a figure, More with the 34 figures, the tag filter and
+// the army; Esc and × after a change give the focus back to More, on the phone to ⋯; a reload keeps them; on the phone, Look in ⋯)
 // and designMenu (⋯ of a pool piece, a copy and a link; Copy as text; Make a copy with the next free number; Delete asks
 // first, then opens the pool piece the design came from, else the Pawn; a refused delete; the phone's items).
 // Run it with `npm run check:browser proving-ground`.
@@ -1235,6 +1236,15 @@ async function rename() {
   await field.fill('Swift Fox');
   await p.click('#pg-h');
   assert.equal(await name(p), 'Swift Fox', 'a blur keeps the name');
+  // A click on a brush or a piece ends the field: the name is kept, and the click acts once.
+  await p.click('.pg-pen');
+  await field.fill('Lancer');
+  await arm(p, 'move');
+  assert.deepEqual([await name(p), await p.getAttribute('[data-brush="move"]', 'aria-pressed')], ['Lancer', 'true'], 'a click on a brush keeps the name and arms the brush');
+  await p.click('.pg-pen');
+  await field.fill('Lancer Two');
+  await p.click('.slot[data-piece="knight"]');
+  assert.deepEqual([await name(p), (await stored(p)).map(d => d.name)], ['Knight', ['Lancer Two']], 'a click on a piece keeps the name and opens the piece');
   await p.context().close();
   // The phone: Rename in ⋯; the focus goes back to ⋯.
   const q = await open('?workshop=a', { width: 390, height: 844 });
@@ -1286,7 +1296,7 @@ async function look() {
   await shot(p, 'look-more-1440x900');
   await p.keyboard.press('Escape');
   await p.locator('.pg-sheet').waitFor({ state: 'detached', timeout: 2000 });
-  assert.equal(await p.locator('#workshop[open]').count(), 1, 'Esc closes the sheet; the Workshop stays open');
+  assert.deepEqual([await p.locator('#workshop[open]').count(), await focusOn(p, '.pg-lookmore')], [1, true], 'Esc closes the sheet; the Workshop stays open; the focus is on the new More');
   await reopen(p);
   await p.click('.slot[data-design]');
   await imageIs(p, '.pg-figure img', 'ui/workshop/clay-golem-b.webp');
@@ -1297,6 +1307,9 @@ async function look() {
   await p.click(`${sheet} .pg-army label:has-text("Charcoal")`);
   await imageIs(p, '.pg-figure img', 'ui/pieces/knight-b.webp');
   assert.equal(await name(p), 'My Knight', 'the army is the first change too');
+  await p.click(`${sheet} .pg-x`);
+  await p.locator('.pg-sheet').waitFor({ state: 'detached', timeout: 2000 });
+  assert.equal(await focusOn(p, '.pg-lookmore'), true, '× after a change gives the focus to the new More');
   await p.context().close();
   // The phone: Look in ⋯.
   const q = await open('?workshop=a', { width: 390, height: 844 });
@@ -1307,6 +1320,14 @@ async function look() {
   await q.locator(sheet).waitFor();
   await minTarget(q, `${sheet} :is(button, select, label)`, 44);
   await noSidewaysScroll(q, sheet);
+  // After a change, Esc and × give the focus back to the new ⋯.
+  for (const [i, end] of [[0, () => q.keyboard.press('Escape')], [1, () => q.click(`${sheet} .pg-x`)]]) {
+    if (i) { await menuItems(q); await pick(q, 'looks'); }
+    await q.click(`${sheet} .pg-fig >> nth=${i}`);
+    await end();
+    await q.locator('.pg-sheet').waitFor({ state: 'detached', timeout: 2000 });
+    assert.equal(await focusOn(q, '[data-act="more"]'), true, `${i ? '×' : 'Esc'} after a change on the phone gives the focus to the new ⋯`);
+  }
   await q.context().close();
 }
 

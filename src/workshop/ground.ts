@@ -133,15 +133,16 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     toastTimer = window.setTimeout(() => toastEl.classList.remove('on'), 3600);
   }
 
-  /** A nested modal sheet (dialog.ts sheet()); `wire` gets its body. A tap on the backdrop closes it (src/dialog-dismiss.ts). */
+  /** A nested modal sheet (dialog.ts sheet()); `wire` gets its body. A tap on the backdrop closes it (src/dialog-dismiss.ts).
+   *  A change under the sheet can redraw the control that opened it: the focus then goes back to its new copy. */
   function sheet(title: string, html: string, wire: (body: HTMLElement, close: () => void) => void): void {
-    const s = document.createElement('dialog');
+    const s = document.createElement('dialog'), opener = document.activeElement as HTMLElement | null, act = opener?.dataset.act;
     s.className = 'pg-sheet';
     s.setAttribute('aria-labelledby', 'pg-sheet-h');
     s.innerHTML = `<header><h2 id="pg-sheet-h" tabindex="-1" autofocus>${esc(title)}</h2><button type="button" class="pg-x" aria-label="Close">×</button></header><div class="pg-sheet-body">${html}</div>`;
     dlg.append(s);
     const close = (): void => s.close();
-    s.addEventListener('close', () => s.remove());
+    s.addEventListener('close', () => { s.remove(); if (act && !opener!.isConnected) q<HTMLElement>(`[data-act="${act}"]`)?.focus(); });
     s.querySelector<HTMLButtonElement>('.pg-x')!.onclick = close;
     wire(s.querySelector('.pg-sheet-body')!, close);
     s.showModal();
@@ -296,10 +297,16 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       // Esc ends the field only: not the dialog, not a popover.
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); end(false); }
     };
-    inp.onblur = () => end(true, false);
+    // A press elsewhere blurs the field before its click, and the save redraws the control it pressed: so the field ends in
+    // that click, before the click acts. A blur from the keyboard ends it at once.
+    inp.onblur = () => (pressing ? addEventListener('click', () => end(true, false), { capture: true, once: true }) : end(true, false));
     inp.focus();
     inp.select();
   }
+  /** A mouse press, or a tap's, is in progress: a blur in it comes before its click (rename). */
+  let pressing = false;
+  dlg.addEventListener('mousedown', () => { pressing = true; }, true);
+  addEventListener('mouseup', () => { pressing = false; }, true);
   /** A figure as a look choice: pressed while the piece shows it. */
   const figureButton = (f: Figure, cls: string): string =>
     `<button type="button" class="${cls}" data-figure="${f.id}" aria-pressed="${figureOf(cur.d) === figureUrl(f.id, cur.d.look.army)}" aria-label="${f.name}" title="${f.name}"><img src="${esc(figureUrl(f.id, cur.d.look.army))}" alt="" loading="lazy">${cls === 'pg-fig' ? `<b>${f.name}</b>` : ''}</button>`;
