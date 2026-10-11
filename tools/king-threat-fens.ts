@@ -1,5 +1,5 @@
-import { resultsRoot } from './lib/results-root.mjs';
 #!/usr/bin/env -S npx tsx
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Start positions for the king-defence runs (docs/research/guard-strategies-2026-10-06.md, Part 2):
  * the defender's king under attack, the attacker to move, in four arms that differ only in the

@@ -20,6 +20,7 @@ import { resultsRoot } from './lib/results-root.mjs';
 import { createReadStream, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { globSync } from 'node:fs';
+import { basename } from 'node:path';
 import { WHITE, moverAt } from '../src/rules/engine';
 
 // ------------------------------------------------------------------ board (letters as bytes)
@@ -423,7 +424,7 @@ async function classify(run: string, limit = 300): Promise<Played> {
 async function guardRuns(): Promise<{ shipped: string[]; buffedArcher: Set<string> }> {
   const shipped: string[] = [], buffedArcher = new Set<string>();
   for (const f of globSync(`${resultsRoot()}/*.summary.json`)) {
-    const id = f.replace(/^sim\/out\//, '').replace(/\.summary\.json$/, '');
+    const id = basename(f).replace(/\.summary\.json$/, '');
     let p: Played;
     try { p = await classify(id); } catch { continue; }
     if (!p.games) continue;

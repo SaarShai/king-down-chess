@@ -8,7 +8,8 @@ import { resultsRoot } from './lib/results-root.mjs';
 describe('card result storage', () => {
   it('preserves conflicts, deduplicates compressed logs, and keeps sources', () => {
     execFileSync('python3', ['-c', `
-import importlib.util,tempfile,gzip
+import importlib.util,tempfile,gzip,sys
+sys.dont_write_bytecode=True
 from pathlib import Path
 spec=importlib.util.spec_from_file_location('store','tools/results-store.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 with tempfile.TemporaryDirectory() as t:

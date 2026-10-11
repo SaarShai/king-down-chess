@@ -123,7 +123,12 @@ function sourceValidity(file: File, c: MeasurementContext): { validity: Validity
 async function inventory(path: string, alias: string, into: File[]): Promise<void> {
   for (const dirent of (await readdir(path, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
     const child = join(path, dirent.name), id = `${alias}/${dirent.name}`;
-    if (dirent.isDirectory()) { await inventory(child, id, into); continue; }
+    if (dirent.isDirectory()) {
+      if (dirent.name === '.variants') {
+        into.push({ path: child, id, run: '', kind: 'unsupported', entry: { source: id, run: null, kind: 'unsupported', status: 'unsupported', reasons: ['Preserved conflicting versions require source-manifest review before analysis; they are not independent samples.'], bytes: 0, records: 0, accepted: 0, duplicates: 0, invalid: 0 } });
+      } else await inventory(child, id, into);
+      continue;
+    }
     if (!dirent.isFile()) {
       into.push({ path: child, id, run: '', kind: 'unsupported', entry: { source: id, run: null, kind: 'unsupported', status: 'unsupported', reasons: ['Not a regular file; links are not followed.'], bytes: 0, records: 0, accepted: 0, duplicates: 0, invalid: 0 } }); continue;
     }

@@ -63,10 +63,10 @@ beside this Mac and Kaggle. Its 10 cores (8 performance, 2 efficiency) leave 2 f
   mains power (it was on battery at the first test), and not busy with Illustrator, Photoshop or
   Ollama work. Run the identity check above first.
 - **Checkout:** `~/projects/king-down-runs`, a sparse checkout (`package.json`, `package-lock.json`,
-  `tsconfig.json`, `src/`) of the public repo, Node 24 at `/usr/local/bin`. The other King Down
+  `tsconfig.json`, `src/`, `tools/lib/`) of the public repo, Node 24 at `/usr/local/bin`. The other King Down
   folders in `~/projects` belong to earlier sessions; leave them.
 - **Per run:** push the run's commit first, then
-  `ssh M1 'export PATH=/usr/local/bin:$PATH; cd ~/projects/king-down-runs && git fetch -q --depth 1 --filter=blob:none origin <branch> && git checkout -q FETCH_HEAD && npm ci --no-audit --no-fund --loglevel=error'`.
+  `ssh M1 'export PATH=/usr/local/bin:$PATH; cd ~/projects/king-down-runs && git fetch -q --depth 1 --filter=blob:none origin <branch> && git sparse-checkout add tools/lib && git checkout -q FETCH_HEAD && npm ci --no-audit --no-fund --loglevel=error'`.
   Copy the run flags over (`scp`), start each shard detached (`nohup npx tsx src/sim/tournament.ts run --id <id> <flags> --shard i/n --workers 8 > sim/out/<id>.shard<i>of<n>.log 2>&1 &`),
   and run `tools/backup-sim-out.sh` on the main Mac when done. It collects every M1 result spool into the card collection and verifies its Google Drive backup. Give M1
   shards no other machine plays.

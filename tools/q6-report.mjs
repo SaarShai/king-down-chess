@@ -14,8 +14,9 @@ const OUT = 'docs/research/ai-q6-acceptance-2026-09-16.md';
 const baseArg = process.argv.indexOf('--base');
 /** Where the chain wrote. Default this repo; pass the worktree, e.g. `--base ../king-down-sim/sim`. */
 const BASE = baseArg >= 0 && process.argv[baseArg + 1] ? process.argv[baseArg + 1] : 'sim';
+const RESULTS = baseArg >= 0 ? `${BASE}/out` : resultsRoot();
 const read = (f) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null);
-const at = (rel) => read(`${BASE}/${rel}`);
+const at = (rel) => read(rel.startsWith('out/') ? `${RESULTS}/${rel.slice(4)}` : `${BASE}/${rel}`);
 const arms = {
   gate: at('out/nnue-res2-gate.tuned.json'),
   d3: at('out/nnue-res2-d3.tuned.json'),
@@ -26,7 +27,7 @@ const train = at('nnue/train.json');
 const bench = at('nnue/bench.json');
 const gen = at('out/nnue-g2.summary.json');
 const residual = at('nnue/eval-residual.json');
-const done = existsSync(`${BASE}/out/q6-nnue-g2.done`);
+const done = existsSync(`${RESULTS}/q6-nnue-g2.done`);
 
 const elo = (a) => (a ? `${a.elo >= 0 ? '+' : ''}${a.elo.toFixed(0)} ± ${a.err95.toFixed(0)} Elo (score ${a.mu.toFixed(3)}, ${a.games} games, ${a.pairs} pairs)` : '**not finished**');
 const verdict = (() => {
@@ -63,7 +64,7 @@ ${verdict}
 | depth-4 confirmation | ${elo(arms.d4)} |
 | speed | ${bench ? bench.map(r => `${r.evaluator}: ${r.nodesPerSec} nodes/s, 1s depth ${r.meanDepthIn1s}`).join(' · ') : '**not finished**'} |
 
-The raw records \`${resultsRoot()}/nnue-res2-*.{jsonl,summary.json,tuned.json}\` and \`sim/nnue/{positions,net,train,bench}.json\`
+The raw records \`${RESULTS}/nnue-res2-*.{jsonl,summary.json,tuned.json}\` and \`sim/nnue/{positions,net,train,bench}.json\`
 stay on disk; \`docs/takeover/baseline.json\` does not cover them (it froze the *inherited* state), so
 verify them with \`node tools/q6-validate.mjs final\` before quoting any number.
 `;writeFileSync(OUT, md);

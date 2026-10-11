@@ -69,7 +69,7 @@ def m1_sources(stage):
     ssh=['ssh','-o','BatchMode=yes','-o','ConnectTimeout=8','M1']
     identity=run(ssh+['printf "%s\\n" "$USER"; scutil --get LocalHostName; sysctl -n hw.model; ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub']).splitlines()
     if identity[:3]!=M1_ID[:3] or M1_ID[3] not in identity[3]:raise RuntimeError('M1 identity mismatch')
-    paths=run(ssh+['find ~/projects -maxdepth 5 -path "*/sim/out" -type d -print']).splitlines()
+    paths=run(ssh+['find ~/projects -name node_modules -prune -o -path "*/sim/out" -type d -print -prune']).splitlines()
     for i,path in enumerate(paths):
         if not path.startswith('/Users/new/projects/') or not path.endswith('/sim/out'):raise RuntimeError('Unexpected M1 source')
         local=stage/str(i);local.mkdir()
