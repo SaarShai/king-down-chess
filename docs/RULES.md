@@ -7,14 +7,20 @@ Sections 1–3 describe the current default. Kings' powers in §4 are optional l
 
 Classic chess on 8×8 (check, checkmate, stalemate) with these deltas:
 
-| Rule | King Down Classic | Our default |
-|---|---|---|
-| Castling | not official (optional) | off |
-| En passant | not official (optional) | off |
-| Promotion | any piece except a king, fairy pieces included | **Q, R, B or N — the chess set** (§6.13, revised 2026-09-17) |
-| 50-move draw | not stated | on (100 plies) |
-| Threefold repetition | not stated | on (3rd occurrence of the same board, side to move and spent-Strike state) |
-| Insufficient material | not stated | on (conservative engine check; a live Strike power prevents this draw) |
+| Rule | King Down Classic | Our default | Classic (`classicChess`) |
+|---|---|---|---|
+| Castling | not official (optional) | off | **on**, FIDE rules (below) |
+| En passant | not official (optional) | off | **on**, FIDE rules (below) |
+| Promotion | any piece except a king, fairy pieces included | **Q, R, B or N — the chess set** (§6.13, revised 2026-09-17) | Q, R, B or N |
+| 50-move draw | not stated | on (100 plies) | on |
+| Threefold repetition | not stated | on (3rd occurrence of the same board, side to move and spent-Strike state) | on; the castling rights and the en-passant square are part of the position |
+| Insufficient material | not stated | on (conservative engine check; a live Strike power prevents this draw) | on |
+
+**Classic** is the plugin's real-chess setup (the normal start position, spec Q30, Q31). Only it sets the rule flag `classicChess`; every other setup keeps King Down's rules.
+
+- **Castling.** The king moves two squares toward a rook (`Ke1-g1`, `Ke1-c1`), and the rook goes to the square the king passed. The king and the rook have not moved, the squares between them are empty, and the king is not in check, does not pass an attacked square and does not land on one. A right ends when the king or the rook leaves its square for any reason (a move, a swap, a push, Strike, Flight, Sky Lift) or the rook is taken. A piece that comes back gets no right. A frozen rook does not castle.
+- **En passant.** Only on the move right after an enemy pawn's two-square advance from its start rank, and only by a pawn that takes diagonally. A side with Darkness (its pawns take straight ahead) gives and takes no en passant. A March double step from another rank gives none.
+- **FEN.** Field 3 holds the rights (`KQkq`), field 4 the en-passant square (`e3`), written only when an enemy pawn stands beside the pawn that advanced. With the flag off both fields are `-`.
 
 ## 2. Setup (Chess960-style)
 
