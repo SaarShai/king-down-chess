@@ -5,8 +5,10 @@ import type { PublicMatchRules } from './index';
 import type { Status } from '../rules/engine';
 import { choiceSchema, optionsSchema } from './setup-schema';
 import type { Choice, Options } from './setup';
-import type { CardName, KingChoice } from '../rules/rules';
+import type { CardName, KingChoice, KingName, PowerName } from '../rules/rules';
 import type { SkillName } from '../ai/skill';
+import type { Badge } from './badges';
+import type { Rating } from '../online/glicko2';
 
 export type Seat = 0 | 1;
 export const MAX_REVISION = 1100;
@@ -107,3 +109,15 @@ export interface View {
 export interface InboxEntry { game_id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; status: 'waiting' | 'setup' | 'playing'; seat: Seat; action: SeatAction; turn: Seat; revision: number; deadline_at: string | null; opponent: Opponent | null; updated_at: string }
 /** The link token (43 characters) and the short code (6 characters) open the same seat. */
 export interface Invite { token: string; code: string; expires_at: string }
+
+export interface GameFeatures { fairy: boolean; arrangement: boolean; classic: boolean; cards: boolean; powers: boolean; king: KingName; power: PowerName | null }
+export interface HistoryEntry {
+ game_id: string; finished_at: string; kind: 'solo' | 'friend' | 'random'; colour: 'white' | 'black'; result: 'won' | 'drawn' | 'lost'; reason: EndReason;
+ opponent: { handle: string | null; icon: string | null; computer: boolean; deleted: boolean; level: SkillName | null }; features: GameFeatures;
+}
+export interface HistoryPage { games: HistoryEntry[]; next_before: string | null }
+export interface PlayerRecord {
+ totals: { played: number; won: number; drawn: number; lost: number };
+ rating: Rating & { provisional: boolean };
+ badges: { badge: Badge; earned_at: string }[];
+}
