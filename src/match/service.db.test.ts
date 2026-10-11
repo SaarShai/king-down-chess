@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { GameService } from './service';
 import { PostgresMatchStore } from './store';
 import { PluginService } from '../plugin/service';
+import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 const url = process.env.PLUGIN_TEST_DATABASE_URL;
 if (url) {
@@ -20,8 +21,7 @@ const command = (expected_revision: number, action: object, command_id: string =
 const turn = (expected_revision: number, ...actions: string[]) => command(expected_revision, { type: 'turn', actions });
 
 suite('PostgreSQL online games (real connections and processes)', () => {
- const pools = [new pg.Pool({connectionString:url,max:1}),new pg.Pool({connectionString:url,max:1})], admin = pools[0];
- const games = pools.map(pool => new GameService(new PostgresMatchStore(pool)));
+ let own: URL, pools: pg.Pool[], admin: pg.Pool, games: GameService[];
  const users: string[] = [];
  const rows = async (sql: string, params: unknown[] = []) => (await admin.query(sql, params)).rows;
  async function user(handle?: string) {
@@ -40,10 +40,14 @@ suite('PostgreSQL online games (real connections and processes)', () => {
  const seats = async (gameId: string) => (await rows('select g.turn,g.status,array_agg(p.action order by p.seat) as actions from public.games g join public.game_players p on p.game_id=g.id where g.id=$1 group by g.id',[gameId]))[0];
  let a: string, b: string, c: string;
  beforeAll(async () => {
+  own = await ownTestDatabase('service');
+  pools = [0,1].map(() => new pg.Pool({connectionString:own.href,max:1})); admin = pools[0];
+  games = pools.map(pool => new GameService(new PostgresMatchStore(pool)));
   const server = await admin.query('select version() as version'); expect(server.rows[0].version).toMatch(/^PostgreSQL /);
   [a,b,c] = [await user('ann'),await user('bob'),await user('cy')];
- });
+ },120000);
  afterAll(async () => {
+  if (!admin) return;
   await admin.query('delete from public.games g where created_by=any($1) or exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1))',[users]);
   await admin.query('delete from auth.users where id=any($1)',[users]);
   await Promise.all(pools.map(pool => pool.end()));
@@ -250,7 +254,7 @@ suite('PostgreSQL online games (real connections and processes)', () => {
 
  it('allows exactly one writer across separate Node processes',async () => {
   const game = await games[0].create(a,{kind:'solo',colour:'white'});
-  const clients = [0,1].map(() => fork(fileURLToPath(new URL('../../tools/plugin-db/race-client.ts',import.meta.url)),[],{execArgv:['--import','tsx'],stdio:['ignore','ignore','pipe','ipc'],env:process.env}));
+  const clients = [0,1].map(() => fork(fileURLToPath(new URL('../../tools/plugin-db/race-client.ts',import.meta.url)),[],{execArgv:['--import','tsx'],stdio:['ignore','ignore','pipe','ipc'],env:{...process.env,PLUGIN_TEST_DATABASE_URL:own.href}}));
   try {
    await Promise.all(clients.map(child => new Promise<void>((resolve,reject) => { child.once('message',() => resolve()); child.once('error',reject); child.once('exit',code => { if (code) reject(new Error(`Race client exited ${code}`)); }); })));
    const answers = clients.map(child => new Promise<any>((resolve,reject) => { child.once('message',resolve); child.once('error',reject); child.once('exit',() => reject(new Error('Race client exited without result'))); }));
@@ -284,9 +288,9 @@ suite('PostgreSQL online games (real connections and processes)', () => {
 
  it('runs a Daily friend game with the reviewed runtime role and refuses extra access',async () => {
   const role = `plugin_test_${randomUUID().replaceAll('-','')}`, password = randomUUID();
-  const runtimeUrl = new URL(url!); runtimeUrl.username = role; runtimeUrl.password = password;
+  const runtimeUrl = new URL(own.href); runtimeUrl.username = role; runtimeUrl.password = password;
   const runtime = new pg.Pool({connectionString:runtimeUrl.href,max:1});
-  const locked = (sql: string) => withRoleLock(url!, () => admin.query(sql));
+  const locked = (sql: string) => withRoleLock(own.href, () => admin.query(sql));
   await locked(`${(await readFile(new URL('../../plugin-deploy/runtime-role.sql',import.meta.url),'utf8')).replaceAll('kingdown_plugin_runtime',role)}; alter role ${role} password '${password}'`);
   try {
    expect((await runtime.query('select current_user as name,rolsuper,rolbypassrls from pg_roles where rolname=current_user')).rows[0]).toEqual({name:role,rolsuper:false,rolbypassrls:false});
@@ -330,7 +334,19 @@ suite('PostgreSQL online games (real connections and processes)', () => {
    ]) await expect(runtime.query(statement),statement).rejects.toMatchObject({code:'42501'});
   } finally {
    await runtime.end();
-   await locked(`drop owned by ${role}; drop role ${role}`);
+   await withRoleLock(own.href, async () => {
+    const reader = new pg.Client({connectionString:url}); await reader.connect();
+    try {
+     await reader.query('begin');
+     await reader.query('select from public.profiles left join public.account_deletions on user_id=id limit 1');
+     await admin.query("set lock_timeout='1s'");
+     await admin.query(`drop owned by ${role}`);
+    } finally {
+     await reader.query('rollback'); await reader.end();
+     await admin.query('reset lock_timeout');
+     await admin.query(`drop owned by ${role}; drop role ${role}`);
+    }
+   });
   }
  },60000);
 

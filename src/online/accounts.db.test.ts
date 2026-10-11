@@ -11,6 +11,7 @@ import { GameService } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
 import { AccountService } from './accounts';
 import { APPEAL, SafetyService } from './safety';
+import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 const url = process.env.PLUGIN_TEST_DATABASE_URL;
 if (url) {
@@ -22,13 +23,11 @@ const DAY = 86_400_000;
 const later = (days: number) => new Date(Date.now() + days * DAY);
 
 suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
- const admin = new pg.Pool({ connectionString: url, max: 2 }), role = `accounts_test_${randomUUID().replaceAll('-', '')}`, password = randomUUID();
- const runtimeUrl = new URL(url ?? 'postgresql://x@127.0.0.1/x_test'); runtimeUrl.username = role; runtimeUrl.password = password;
- const runtime = new pg.Pool({ connectionString: runtimeUrl.href, max: 2 }), store = new PostgresMatchStore(runtime);
- const games = new GameService(store), accounts = new AccountService(store), safety = new SafetyService(store), owner = new SafetyService(new PostgresMatchStore(admin));
+ let own: URL, admin: pg.Pool, runtime: pg.Pool, games: GameService, accounts: AccountService, safety: SafetyService, owner: SafetyService;
+ const role = `accounts_test_${randomUUID().replaceAll('-', '')}`, password = randomUUID();
  const users: string[] = [], tag = randomUUID().slice(0, 6);
  const rows = async (sql: string, params: unknown[] = []) => (await admin.query(sql, params)).rows;
- const locked = (sql: string) => withRoleLock(url!, () => admin.query(sql));
+ const locked = (sql: string) => withRoleLock(own.href, () => admin.query(sql));
  async function user(handle?: string) {
   const id = randomUUID(); users.push(id);
   await admin.query('insert into auth.users(id) values($1)', [id]);
@@ -44,9 +43,16 @@ suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
  const say = async (actor: string, gameId: string, preset: string) => games.command(actor, gameId, { command_id: randomUUID(), expected_revision: (await games.view(actor, gameId)).revision, action: { type: 'say', preset } });
 
  beforeAll(async () => {
+  own = await ownTestDatabase('accounts');
+  admin = new pg.Pool({ connectionString: own.href, max: 2 });
+  const runtimeUrl = new URL(own.href); runtimeUrl.username = role; runtimeUrl.password = password;
+  runtime = new pg.Pool({ connectionString: runtimeUrl.href, max: 2 });
+  const store = new PostgresMatchStore(runtime);
+  games = new GameService(store); accounts = new AccountService(store); safety = new SafetyService(store); owner = new SafetyService(new PostgresMatchStore(admin));
   await locked(`${(await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8')).replaceAll('kingdown_plugin_runtime', role)}; alter role ${role} password '${password}'`);
- });
+ }, 120_000);
  afterAll(async () => {
+  if (!admin) return;
   await runtime.end();
   await admin.query('delete from public.reports where reporter_id=any($1) or reported_id=any($1)', [users]);
   await admin.query('delete from public.mod_actions where user_id=any($1)', [users]);
@@ -87,7 +93,7 @@ suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
  it('keeps a handle that its owner leaves while another player asks for it at the same time', async () => {
   const [a, b] = [await user('lv'), await user()], old = (await handleOf(a))!;
   // A fixed order: A changes the handle and holds the commit; B asks for the old handle and waits; then A commits.
-  const leaving = await admin.connect(), taking = new pg.Client({ connectionString: url }); await taking.connect();
+  const leaving = await admin.connect(), taking = new pg.Client({ connectionString: own.href }); await taking.connect();
   try {
    await leaving.query('begin'); await leaving.query('update public.profiles set handle=$2 where id=$1', [a, `lv2-${tag}`]);
    const pid = (await taking.query('select pg_backend_pid() as pid')).rows[0].pid;
@@ -263,7 +269,7 @@ suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
   const { id } = await safety.report(a, { target: 'player', user_id: b, category: 'other', note: 'Seen in the CLI.' });
   // A note that came in before the service refused controls: the output escapes them, and the JSON keeps the text.
   const raw = 'Old \u009b2J \u202e\u007f note.', old = Number((await rows(`insert into public.reports(reporter_id,reported_id,target,category,note) values($1,$2,'player','other',$3) returning id`, [a, b, raw]))[0].id);
-  const mod = (...args: string[]) => promisify(execFile)(process.execPath, ['--import', 'tsx', fileURLToPath(new URL('../../tools/mod.ts', import.meta.url)), ...args], { env: { ...process.env, KINGDOWN_ADMIN_DATABASE_URL: url } });
+  const mod = (...args: string[]) => promisify(execFile)(process.execPath, ['--import', 'tsx', fileURLToPath(new URL('../../tools/mod.ts', import.meta.url)), ...args], { env: { ...process.env, KINGDOWN_ADMIN_DATABASE_URL: own.href } });
   const listed = (await mod('list')).stdout;
   expect(listed).not.toMatch(/[\u007f-\u009f\u202e]/);
   expect(JSON.parse(listed).find((entry: { id: number }) => entry.id === old)).toMatchObject({ note: raw });

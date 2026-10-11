@@ -65,3 +65,28 @@ Result:
 - Restore the helper with no final change. `npm test` with `PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:55432/kingdown_mvp20_test` passes 137 test files, 2,122 tests and 50 artwork checks; 8 tests skip. All three role-lock cases pass. The deadlocks do not recur.
 - `npm run plugin:db:init-test` passes on the same test database. All 9 migrations run twice.
 - `git diff --check` passes. Both review findings are fixed.
+
+## Round 2
+
+The role lock cannot protect readers in another test file. The PostgreSQL log shows a deadlock between `drop owned` in the service test and a profile read in the accounts test. Both files still use the shared database. Grants and role drops change the schema, so each file needs its own copy.
+
+Plan:
+
+1. Add a shared profile reader to the runtime-role test. Hold its transaction open during `drop owned`, with a short lock timeout. This checks the table lock without random timing.
+2. Move the service and accounts tests to `ownTestDatabase`. Keep `withRoleLock` for all role work. Send the copy URL to each child process and extra connection.
+3. Check every role and grant caller. Verify the two review fixes already in the integration tip.
+4. Run `npm test` with `kingdown_mvp20_test` three times. Require three passes with no deadlock. Commit, merge the current local integration tip, check again and push.
+
+Checks: the new read-lock case fails on the shared database and passes on the copy. All role changes keep the server lock. The lock tests observe a blocked second session and a closed client after success and error. Each full run records its pass counts.
+
+Result:
+
+- Red check: `npm test` fails the runtime-role test with `canceling statement due to lock timeout`. It has 2,185 passes, 1 failure and 8 skips across 138 files. The shared reader holds a read lock while `drop owned` asks for the same table lock. This proves the blocking path. The PostgreSQL log supplied with the ticket is the evidence for the full deadlock cycle.
+- The service and accounts files now use `kingdown_mvp20_service_test` and `kingdown_mvp20_accounts_test`. Extra connections, race workers and the owner command line use the copy URL. Role and grant work keeps `withRoleLock`.
+- The role-lock file now uses two copies, `kingdown_mvp20_rolelock_test` and `kingdown_mvp20_rolelock2_test`. Its observer only reads the shared database. The caller search finds no other test file with role or grant changes on the shared database.
+- Both round 1 review fixes are already in the integration tip. The wait test holds the first callback until PostgreSQL shows the named second session waiting for the advisory lock. The close tests check that the named session is gone after success and error.
+- `npm run plugin:db:init-test` passes on `kingdown_mvp20_test`. All 9 migrations run twice.
+- Full check 1: `npm test` with `PLUGIN_TEST_DATABASE_URL` set to `kingdown_mvp20_test` passes 138 files, 2,186 tests and 50 artwork checks; 8 tests skip. No deadlock occurs. The shared-reader case and all three role-lock cases pass.
+- Full check 2: the same database suite passes 138 files, 2,186 tests and 50 artwork checks; 8 tests skip. No deadlock occurs.
+- Full check 3: the same database suite passes 138 files, 2,186 tests and 50 artwork checks; 8 tests skip. No deadlock occurs. All three required runs pass.
+- `git diff --check` passes. Open items: none.
