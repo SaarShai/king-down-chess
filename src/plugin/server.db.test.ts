@@ -32,7 +32,19 @@ suite('ChatGPT tools on PostgreSQL', () => {
   const server = createPluginServer({ service: new PluginService(new PostgresMatchStore(pool)), actorId: actor, resourceHtml: '<html>board</html>', publicOrigin: 'https://kingdown.example' });
   const client = new Client({ name: 'db-test', version: '1' }), [a, b] = InMemoryTransport.createLinkedPair();
   await server.connect(a); await client.connect(b); closers.push(async () => { await client.close(); await server.close(); });
-  const call = async (name: string, args: Record<string, unknown> = {}) => await client.callTool({ name, arguments: args }) as Result;
+  const call = async (name: string, args: Record<string, unknown> = {}) => {
+   const result = await client.callTool({ name, arguments: args }) as Result;
+   const model = JSON.stringify([result.content,result.structuredContent]);
+   expect(model).not.toMatch(/"(?:fen|legal|handle|icon|choices|draw|deal)"\s*:/);
+   const meta = result._meta;
+   for (const opponent of [meta?.view?.opponent,meta?.preview?.creator,...(meta?.games ?? []).map((g:any)=>g.opponent),...(meta?.lobby?.games ?? []).map((g:any)=>g.creator),...(meta?.history ?? []).map((g:any)=>g.opponent)])
+    if (opponent?.handle) expect(model).not.toContain(opponent.handle);
+   if (meta?.view?.fen) expect(model).not.toContain(meta.view.fen.split(' ')[0]);
+   for (const lan of meta?.view?.legal ?? []) expect(model).not.toContain(JSON.stringify(lan));
+   if (name === 'kingdown_open' && args.code) expect(model).not.toContain(meta.preview.code);
+   if (meta?.view?.ready && !meta.view.ready.every(Boolean)) { expect(meta.view.choices[1-meta.view.seat]).toBeNull(); expect(meta.view.last_commands.some((c:any)=>c.seat !== meta.view.seat && c.action.type === 'choose')).toBe(false); }
+   return result;
+  };
   const ok = async (name: string, args: Record<string, unknown> = {}) => { const result = await call(name, args); if (result.isError) throw new Error(`${name}: ${result.content[0]?.text} (${result._meta?.code})`); return result; };
   return { client, call, ok };
  }
@@ -59,6 +71,32 @@ suite('ChatGPT tools on PostgreSQL', () => {
   await admin.query('delete from public.games g where created_by=any($1) or exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1))', [users]);
   await admin.query('delete from auth.users where id=any($1)', [users]);
   await admin.end();
+ });
+
+ it('keeps old games working through open, board reads, moves, inbox and history', async () => {
+  const actor = await user('legacy'), player = await connect(actor);
+  const legacy = await new GameService(new PostgresMatchStore(admin)).create(actor,{kind:'solo',colour:'white',setup:{backRank:'RNBQKBNR',kings:'none,none'}});
+  const opened = await player.ok('kingdown_open',{game_id:legacy.game_id}), board_id = opened.structuredContent.board_id;
+  expect(view(opened).options).toBeUndefined();
+  expect(view(await player.ok('kingdown_get',{board_id})).game_id).toBe(legacy.game_id);
+  const moved = await player.ok('kingdown_move',move(opened,'e2-e4'));
+  expect(view(moved).revision).toBe(1);
+  expect((await player.ok('kingdown_games'))._meta.games[0]).toMatchObject({game_id:legacy.game_id,options:null,move:1});
+  await player.ok('kingdown_resign',{game_id:legacy.game_id});
+  expect((await player.ok('kingdown_profile'))._meta.history[0].game_id).toBe(legacy.game_id);
+ });
+
+ it('accepts revision 1100 and refuses 1101 without changing a game', async () => {
+  const actor = await user('bounds'), player = await connect(actor);
+  const created = await player.ok('kingdown_create',{kind:'solo',options:{...DEFAULT_OPTIONS,arrangement:false}});
+  const game_id = view(created).game_id;
+  expect(view(await player.ok('kingdown_get',{game_id,since_revision:1100})).revision).toBe(0);
+  const opened = await player.ok('kingdown_open',{game_id});
+  expect(view(await player.ok('kingdown_get',{board_id:opened.structuredContent.board_id,since_revision:1100})).rules).toBeUndefined();
+  expect((await player.call('kingdown_move',{game_id,command_id:'bounds',expected_revision:1100,lan:plain(created)}))._meta.code).toBe('STALE_REVISION');
+  expect((await player.call('kingdown_get',{game_id,since_revision:1101})).isError).toBe(true);
+  expect((await player.call('kingdown_move',{game_id,command_id:'bounds',expected_revision:1101,lan:plain(created)})).isError).toBe(true);
+  expect((await rows('select revision from public.games where id=$1',[game_id]))[0].revision).toBe(0);
  });
 
  it('opens home with no game and reads that board by ID alone', async () => {
@@ -185,6 +223,9 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(view(finished).outcome).toMatchObject({ rating_before: 1500, rating: expect.any(Number), provisional: true, badges: expect.arrayContaining([expect.objectContaining({ badge: 'first_win' })]) });
   expect(view(finished).outcome!.rating).toBeGreaterThan(1500);
   expect(view(await host.ok('kingdown_get', { game_id, since_revision: view(finished).revision })).outcome).toBeUndefined();
+  const board = await host.ok('kingdown_open',{game_id});
+  const poll = await host.ok('kingdown_get',{board_id:board.structuredContent.board_id,since_revision:view(finished).revision});
+  expect(view(poll).outcome).toBeUndefined(); expect(view(poll).opponent?.rating).toBeUndefined();
   for (const kind of ['friend', 'random'] as const) {
    const waiting = await host.ok('kingdown_create', { kind, options }), id = view(waiting).game_id;
    if (kind === 'friend') { await host.ok('kingdown_invite', { game_id: id }); await admin.query("update public.game_invites set expires_at=now()-interval '1 minute' where game_id=$1", [id]); }

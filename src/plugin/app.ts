@@ -5,6 +5,7 @@ import { legalMoves, moveNumber, setRules, sqName, type Move, type Position } fr
 import { needsArming } from '../powers-ui';
 import { describeMove } from '../move-text';
 import type { View } from '../match/protocol';
+import { DEFAULT_OPTIONS } from '../match/setup';
 import { ending } from './ending';
 import './app.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
@@ -27,6 +28,7 @@ const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
 function show(next: View | undefined) {
   if (!next) return;
+  if (!next.fen) { view = next; pos = undefined; moves = []; $('status').textContent = next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : next.result ? ending(next) : 'Choose your king and arrangement.'; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; $('computer').hidden = true; $('choices').replaceChildren(); saveState(); return; }
   if (next.rules) rules = { game: next.game_id, value: next.rules };
   // A full read carries the rules; a reply without them is for a game this board no longer shows.
   if (rules?.game !== next.game_id) return;
@@ -64,7 +66,7 @@ async function call(name: string, args: Record<string, unknown>, retain = false,
     const next = (result._meta as { view?: View } | undefined)?.view;
     if (background && next?.game_id === view?.game_id && next?.revision === view?.revision) return;
     show(next);
-    if (name === 'kingdown_invite') { const { link, code } = result.structuredContent as { link: string; code: string }; $('invitation').textContent = `Share this link: ${link} · or the code ${code}`; }
+    if (name === 'kingdown_invite') { const { code } = result.structuredContent as { code: string }; $('invitation').textContent = `Share this code: ${code}`; }
     // A reload preserves the command receipt; retry still uses its original ID.
     if (retain || ['kingdown_create', 'kingdown_join', 'kingdown_resume'].includes(name)) pending = undefined;
     saveState(); $('retry').hidden = !pending;
@@ -106,14 +108,16 @@ $('retry').onclick = () => { if (pending) void call(pending.name, pending.args, 
 $('computer').onclick = () => { if (view) void call('kingdown_computer', { game_id: view.game_id, command_id: crypto.randomUUID(), expected_revision: view.revision }, true); };
 $('invite').onclick = () => { if (view) void call('kingdown_invite', { game_id: view.game_id }); };
 // The board has no colour choice yet: its creator plays White, as before.
-$('solo').onclick = () => void call('kingdown_create', { mode: 'solo', colour: 'white' });
-$('friend').onclick = () => void call('kingdown_create', { mode: 'friend', colour: 'white' });
+$('solo').onclick = () => void call('kingdown_create', { kind: 'solo', colour: 'white', options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: false } });
+$('friend').onclick = () => void call('kingdown_create', { kind: 'friend', colour: 'white', options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: false } });
 $('resume').onclick = () => void call('kingdown_resume', {});
-$('join').onclick = () => void call('kingdown_join', { invitation: $<HTMLInputElement>('token').value.trim() });
+$('join').onclick = () => void call('kingdown_join', { code: $<HTMLInputElement>('token').value.trim() });
 board.onLoadError = () => { $('error').textContent = 'The board artwork could not load. Reload the board.'; };
 app.ontoolresult = result => {
   const value = result.structuredContent;
-  if (!value || typeof value !== 'object' || !('game_id' in value) || typeof value.game_id !== 'string') return;
+  if (!value || typeof value !== 'object') return;
+  if ('board_id' in value && typeof value.board_id === 'string' && !('game_id' in value)) { boardId = value.board_id; awaitingInitialResult = false; $('status').textContent = 'King Down. Start a game from Play.'; if (connected) void call('kingdown_get', {}); return; }
+  if (!('game_id' in value) || typeof value.game_id !== 'string') return;
   // The first result is a replay; widget state can name a game selected since then.
   boardId = 'board_id' in value && typeof value.board_id === 'string' ? value.board_id : undefined;
   hostGameId = awaitingInitialResult ? saved?.game_id ?? value.game_id : value.game_id;
@@ -121,7 +125,7 @@ app.ontoolresult = result => {
   if (connected) void call('kingdown_get', { game_id: hostGameId });
 };
 const refresh = setInterval(() => {
-  if (connected && !document.hidden && !busy && !pending && view?.kind === 'friend' && view.action === 'waiting') void call('kingdown_get', { game_id: view.game_id, since_revision: view.revision }, false, true);
+  if (connected && !document.hidden && !busy && !pending && view?.kind === 'friend' && view.action === 'waiting') void call('kingdown_get', { game_id: view.game_id, ...(view.fen && { since_revision: view.revision }) }, false, true);
 }, 3000);
 app.onclose = () => { connected = false; clearInterval(refresh); };
-void app.connect().then(() => { connected = true; if (hostGameId && !awaitingInitialResult) return call('kingdown_get', { game_id: hostGameId }); }).catch(error => { $('error').textContent = `Could not connect to the game: ${String(error)}`; });
+void app.connect().then(() => { connected = true; if (!awaitingInitialResult && (hostGameId || boardId)) return call('kingdown_get', hostGameId ? { game_id: hostGameId } : {}); }).catch(error => { $('error').textContent = `Could not connect to the game: ${String(error)}`; });

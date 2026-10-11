@@ -120,7 +120,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       if (!id && args.board_id) return home(args.board_id);
       if (!id) throw new MatchServiceError('INVALID_INPUT', 400, 'Name a game or a board');
       // The board may show another game since it last read: then a full view.
-      return reply(await service.view(actorId, id, id === args.game_id ? args.since_revision : undefined), args.board_id);
+      return reply(await service.view(actorId, id, !args.game_id || id === args.game_id ? args.since_revision : undefined), args.board_id);
     });
   register('kingdown_lobby', 'List open games, oldest first.', {}, { visibility: ['app'], readOnly: true }, async () => {
     const lobby = await service.lobby(actorId);

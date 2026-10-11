@@ -4,13 +4,16 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createPluginServer } from '../src/plugin/server';
 import { fixtureService } from './plugin-protocol-fixture';
 import type { View } from '../src/match/protocol';
+import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { POOL } from '../src/rules/setup';
 // The tool table of report part 03, section 4.5: who may call each tool, then its read-only and destructive hints.
 const TABLE: Record<string, [string, boolean, boolean]> = {
-  kingdown_open: ['model,app', false, false], kingdown_create: ['model,app', false, false], kingdown_resume: ['app', false, false], kingdown_games: ['model', true, false],
+  kingdown_open: ['model,app', false, false], kingdown_create: ['model,app', false, false], kingdown_resume: ['app', false, false], kingdown_games: ['model,app', true, false],
+  kingdown_lobby: ['app', true, false], kingdown_accept: ['app', false, false], kingdown_find: ['app', false, false], kingdown_cancel: ['app', false, true],
+  kingdown_choose: ['app', false, false], kingdown_rematch: ['app', false, false], kingdown_handle: ['app', false, false], kingdown_settings: ['app', false, false],
   kingdown_get: ['app', true, false], kingdown_move: ['app', false, false], kingdown_computer: ['app', false, false], kingdown_say: ['app', false, false],
   kingdown_draw: ['model,app', false, true], kingdown_claim: ['app', false, true], kingdown_resign: ['model,app', false, true], kingdown_abort: ['model,app', false, true],
-  kingdown_invite: ['model,app', false, false], kingdown_join: ['model,app', false, false], kingdown_report: ['model,app', false, false], kingdown_profile: ['model', true, false],
+  kingdown_invite: ['model,app', false, false], kingdown_join: ['model,app', false, false], kingdown_report: ['model,app', false, false], kingdown_profile: ['model,app', true, false],
 };
 const service = fixtureService();
 const server = createPluginServer({ service, actorId: 'alice', resourceHtml: '<html>board</html>', publicOrigin: 'https://kingdown.example' });
@@ -29,8 +32,12 @@ try {
   assert.deepEqual(tools.filter(tool => ui(tool).resourceUri).map(tool => tool.name), ['kingdown_open'], 'Only the render tool carries the board');
   assert.equal(tools.find(tool => tool.name === 'kingdown_profile')!._meta?.['openai/profile'], true);
   assert.equal((await client.readResource({ uri: boardResource })).contents[0].mimeType, 'text/html;profile=mcp-app');
-  // The first open starts a solo game. The board reads the view in _meta; the model reads a summary with no position.
-  const opened = await call('kingdown_open'), view = opened._meta.view as View;
+  const home = await call('kingdown_open'); assert.equal(home.structuredContent.screen, 'home'); assert.equal(home._meta.view, undefined);
+  await call('kingdown_handle', { handle: 'alice', icon: 'rook' });
+  const options = { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: false };
+  const created = await call('kingdown_create', { kind: 'solo', options, colour: 'white', board_id: home.structuredContent.board_id });
+  assert.equal((await call('kingdown_get', { board_id: home.structuredContent.board_id })).structuredContent.game_id, created.structuredContent.game_id);
+  const opened = await call('kingdown_open', { game_id: created.structuredContent.game_id }), view = opened._meta.view as View;
   assert.equal(opened.content[0].text, 'Your move, move 1.'); assert.equal(opened.structuredContent.game_id, view.game_id); assert.match(opened.structuredContent.board_id, /^[0-9a-f-]{36}$/);
   assert(!JSON.stringify([opened.content, opened.structuredContent]).includes(view.fen.split(' ')[0]) && !('legal' in opened.structuredContent));
   const army = view.fen.split(' ')[0].split('/').at(-1)!;
@@ -46,18 +53,18 @@ try {
   // "next" reopens the one active game on a new board.
   const next = await call('kingdown_open', { game_id: 'next' });
   assert.equal(next.structuredContent.game_id, view.game_id); assert.notEqual(next.structuredContent.board_id, opened.structuredContent.board_id);
-  const friend = await call('kingdown_create', { mode: 'friend', colour: 'white', board_id: opened.structuredContent.board_id });
+  const friend = await call('kingdown_create', { kind: 'friend', options, colour: 'white', board_id: opened.structuredContent.board_id });
   assert.equal(friend.structuredContent.status, 'waiting'); assert.equal(friend.structuredContent.speed, 'daily');
   assert.equal((await call('kingdown_get', { game_id: view.game_id, board_id: opened.structuredContent.board_id })).structuredContent.game_id, friend.structuredContent.game_id);
   const invite = await call('kingdown_invite', { game_id: friend.structuredContent.game_id });
-  assert.match(invite.structuredContent.link, /^https:\/\/kingdown\.example\/j\/[A-Za-z0-9_-]{43}$/); assert.match(invite.structuredContent.code, /^[A-HJKMNP-Z2-9]{6}$/);
+  assert.equal(invite.structuredContent.link, undefined); assert.match(invite.structuredContent.code, /^[A-HJKMNP-Z2-9]{6}$/);
   assert.equal((await call('kingdown_games')).structuredContent.games.length, 2);
   const resigned = await call('kingdown_resign', { game_id: view.game_id });
   assert.equal(resigned.structuredContent.result, 'Black wins · Resignation'); assert.equal(resigned.content[0].text, 'Game over: Black wins · Resignation.');
-  assert.deepEqual((await call('kingdown_profile')).structuredContent, { id: 'alice' });
+  assert.deepEqual((await call('kingdown_profile')).structuredContent, { id: 'alice', name: 'alice' });
   assert.equal((await call('kingdown_get', { game_id: view.game_id, actorId: 'mallory' })).isError, true);
   service.view = async () => { throw new Error('database password=never-share'); };
   const failed = await call('kingdown_get', { game_id: view.game_id });
   assert.equal(failed.isError, true); assert(!JSON.stringify(failed).includes('never-share'));
-  console.log('PASS: the tool table and its hints, the board resource on kingdown_open only, the profile tool, board data in _meta only, new solo game, next game, real engine move, duplicate command, stale revision, since_revision, board selection, invitation link and code, inbox, model resign, actor injection rejection, sanitized internal errors');
+  console.log('PASS: 24 tools and their hints, the board resource on kingdown_open only, the profile tool, board data in _meta only, empty home, explicit solo game, next game, real engine move, duplicate command, stale revision, since_revision, board selection, invitation code and expiry, inbox, model resign, actor injection rejection, sanitized internal errors');
 } finally { await client.close(); await server.close(); await service.close(); }

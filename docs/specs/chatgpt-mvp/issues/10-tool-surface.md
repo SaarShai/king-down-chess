@@ -119,3 +119,34 @@ Page metadata keeps the CSP from ticket 09. `openai/ui` declares inline and full
 - The resource permits clipboard writes and offers inline and fullscreen display. Inline is the preferred mode. The CSP stays the same.
 - Each model tool starts its description with "Use this when". Open maps the play, join and profile phrases. Games maps the turn question.
 - Check: 3 server tests and 50 art tests pass. The new metadata test first fails on the missing entrypoints.
+
+### Step 9
+
+- The fixture implements all service methods and command actions. Options, level and the deal pass through. Setup hides the other choice and Choose log until both seats are Ready.
+- One `seed(actor, data)` hook supplies history, open rows, records and outcome data. `/fixture-seed` calls it with `{ actor: 'alice' | 'bob', data }` in fixture mode. History pages contain at most 20 rows.
+- The harness gives both personas a handle. `/fixture-friend-tool` calls any tool as the friend. `holdNext` holds one named tool reply; `holdNextGet` stays available.
+- Each board flow starts a game with Arrangement and King powers off. Separate positions check Haste, Archer and Freeze. The harness reserves the composer space outside the app pane.
+- The database tool tests inspect every reply for private fields. They check old saves, revision bounds, full-read ratings and outcomes, and hidden seat choices.
+- Checks so far: 143 test files pass, with 2,253 tests and 50 art tests; 8 tests skip. The protocol check passes for 24 tools. The compiled server check passes on the disposable database. Both named plugin browser checks pass.
+
+### Page call sites for ticket 11
+
+Only the old page's forced input and mount paths change. There is no new screen or CSS.
+
+- `src/plugin/app.ts:8`: import the shared defaults for the old Create buttons.
+- `src/plugin/app.ts:31`: accept a waiting view with an empty FEN.
+- `src/plugin/app.ts:69`: show the friend code instead of the removed link.
+- `src/plugin/app.ts:111`: Solo sends `kind` and turns seat choices off.
+- `src/plugin/app.ts:112`: Friend sends `kind` and turns seat choices off.
+- `src/plugin/app.ts:114`: Join sends `code`.
+- `src/plugin/app.ts:118`: accept a home result with no game ID.
+- `src/plugin/app.ts:119`: keep the home board ID and read its current game on a remount.
+- `src/plugin/app.ts:120`: reject other results with no game ID.
+- `src/plugin/app.ts:128`: a waiting game uses a full read until its rules exist.
+- `src/plugin/app.ts:131`: read by board ID when the initial result has no game ID.
+
+The home-remount check first fails with no widget state. It passes after the board read is added. The lobby and rematch checks keep the board on the old game until Resume selects the new game.
+
+A board-only poll keeps `since_revision`. A read that names an old game and follows a board to another game gets a full view. Two tests first fail on extra rules, ratings and outcomes, then check this rule.
+
+The final focused check passes: 10 files, 70 tests and 50 art tests. It checks the seed endpoint and runtime settings writes as the runtime role. `tsc` also checks the fixture, its tests, the harness and the host with a temporary config.
