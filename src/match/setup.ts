@@ -2,6 +2,8 @@
  * The plugin game setup (spec "Modules: Game setup"): the initiator's options, the draw, the seat choices and
  * the built match setup. Pure and zod-free, so the app page may import it; the schema is in `setup-schema.ts`.
  * It lives outside `src/rules/`, so it leaves the engine hash (saved matches) alone.
+ * `draw` uses `randomBackRank`, which reads the live `RULES`; `validateChoice` always checks the bishops and the guard,
+ * so the server must draw under the default rules (a preset with `guardNextToKing: false` can draw an order it refuses).
  */
 import { CLASSIC_CHESS, POOL, randomBackRank, shuffle } from '../rules/setup';
 import { KINGS, kingLabel, type CardName, type KingChoice, type PowerName } from '../rules/rules';
@@ -15,10 +17,11 @@ export const DEAL_CARDS: readonly CardName[] = [
 /** The piece kinds of the "all" sheet: each kind of `POOL` once (spec Q7); a kind brings its `POOL` count. */
 export const POOL_KINDS: readonly string[] = [...new Set(POOL)];
 
-export interface Options { fairy: boolean; pool: string[]; arrangement: boolean; classic: boolean; cards: boolean; cardPool: CardName[]; kingPowers: boolean }
-export const DEFAULT_OPTIONS: Readonly<Options> = Object.freeze({ fairy: true, pool: [...POOL_KINDS], arrangement: true, classic: false, cards: false, cardPool: [...DEAL_CARDS], kingPowers: false });
+export interface Options { fairy: boolean; pool: readonly string[]; arrangement: boolean; classic: boolean; cards: boolean; cardPool: readonly CardName[]; kingPowers: boolean }
+/** Frozen to the arrays: a caller copies them (`[...o.pool]`) before an edit. */
+export const DEFAULT_OPTIONS: Readonly<Options> = Object.freeze({ fairy: true, pool: Object.freeze([...POOL_KINDS]), arrangement: true, classic: false, cards: false, cardPool: Object.freeze([...DEAL_CARDS]), kingPowers: false });
 
-const letters = (kinds: string[]): string => [...POOL].filter(l => kinds.includes(l)).join('');
+const letters = (kinds: readonly string[]): string => [...POOL].filter(l => kinds.includes(l)).join('');
 
 /** Why `o` is not a legal set of options, or null (spec Q7, Q19, Q20). */
 export function validate(o: Options): string | null {
@@ -48,7 +51,7 @@ export const seatChoicesNeeded = (o: Options): { king: boolean; order: boolean }
 
 /** One seat's choice: its king and power (null with powers off) and its order of the army. */
 export interface Choice { king: KingChoice | null; order: string }
-/** The powers with no uses: the only ones a hand allows (`setRules`; spec Q19). */
+/** The powers with no uses under `POWERS_BALANCED`: the only ones a hand allows (`setRules`; spec Q19). A test holds it to the engine. */
 export const ALWAYS_ON: readonly PowerName[] = ['HolyLight', 'Mercy', 'DeathTouch', 'Darkness', 'March'];
 
 /** Why `row` is not a legal order of `army`: the same letters, bishops on opposite colours, the guard next to the king (spec Q8). */
@@ -65,7 +68,7 @@ export function validateChoice(o: Options, d: Draw, c: Choice): string | null {
   const orderError = o.arrangement ? arrangementError(c.order, d.army) : c.order === d.army ? null : 'Use the drawn order.';
   if (orderError) return orderError;
   if (!o.kingPowers) return c.king ? 'King powers are off.' : null;
-  if (!c.king || !KINGS[c.king.king]?.includes(c.king.power)) return 'Pick a king and one of its two powers.';
+  if (!c.king || !(Object.hasOwn(KINGS, c.king.king) && KINGS[c.king.king].includes(c.king.power))) return 'Pick a king and one of its two powers.';
   if (o.cards && !ALWAYS_ON.includes(c.king.power)) return 'With cards, pick a power that is always on.';
   return null;
 }

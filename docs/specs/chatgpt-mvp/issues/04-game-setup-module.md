@@ -33,3 +33,13 @@ A new pure module, the core of the toggles (spec "Modules: Game setup"). No data
 - `buildSetup` returns `{ match, classic, hand }`. `match` is a `MatchSetup` (`backRank` or a canonical FEN, and `kings`, `none,none` with powers off) that `createMatch` accepts today. `MatchSetup` has no field for the classic flag or the hand yet: ticket 05 maps `classic` and `hand` into it.
 - Checks: `npm test` passes, 2025 tests (25 new in `src/match/setup.test.ts`, seam 2), 56 skipped.
 - Open item: with ticket 05 merged, add the cards and classic mixes to the `createMatch` test with their fields in `match`.
+
+## Review
+
+A reader that did not write the diff reviewed `634f5690...claude/mvp-04-setup` (no must-fix). The merger checked each finding against the code and fixed it in the integration branch after the merge. Tests: `src/match/setup.test.ts`.
+
+1. Should-fix: `Object.freeze` was shallow, so `{ ...DEFAULT_OPTIONS }.pool.splice(...)` changed the defaults. Correct (the new test failed before the fix). Fix: `DEFAULT_OPTIONS` freezes `pool` and `cardPool` too, and `Options` types them `readonly`. Test: "keeps the default pool and card pool safe from a caller that edits a copy".
+2. Should-fix: the toggle-mix test sends the cards and classic mixes to `createMatch` without the hand or the classic flag. Correct: `MatchSetup` has no field for them before ticket 05. Fix: an acceptance line in ticket 05 adds the two mixes, with the hand and the flag, to that test.
+3. Nit: `KINGS[c.king.king]?.includes` threw a TypeError for `constructor` or `toString`. Correct (the new test failed with that TypeError). Fix: `Object.hasOwn(KINGS, …)`. Test: "refuses a king name that is an Object.prototype key with an error string, not a throw".
+4. Nit: `ALWAYS_ON` copies an engine fact by hand. Correct. Fix: a test, not a derived list, because the engine's `spendable` test is local to `setRules` and an export from `src/rules/` changes the engine hash. Test: "lists exactly the powers that the engine allows next to a full hand": for each of the 12 powers, `setRules` with `POWERS_BALANCED` (the readings the match worker plays) and a full hand passes exactly when `ALWAYS_ON` holds the power. A first version without `POWERS_BALANCED` refused March: March is always on only under those readings.
+5. Nit: `draw` reads the live `RULES` through `randomBackRank`, but `validateChoice` always checks the bishops and the guard. Correct; a risk only, because the server keeps the default rules. Fix: the module comment says so.

@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { choiceSchema, optionsSchema } from './setup-schema';
 import { createMatch, type LocalMatch, type MatchSetup } from './index';
 import { mulberry32 } from '../sim/rng';
-import { DEAL_CARDS, DEFAULT_OPTIONS, buildSetup, defaultChoice, draw, seatChoicesNeeded, validate, validateChoice, type Choice, type Options } from './setup';
+import { KINGS, POWERS_BALANCED, setRules, type PowerName } from '../rules/rules';
+import { ALWAYS_ON, DEAL_CARDS, DEFAULT_OPTIONS, buildSetup, defaultChoice, draw, seatChoicesNeeded, validate, validateChoice, type Choice, type Options } from './setup';
 
 const opts = (over: Partial<Options>): Options => ({ ...DEFAULT_OPTIONS, ...over });
 
@@ -12,6 +13,13 @@ describe('game setup options', () => {
     expect([...DEFAULT_OPTIONS.pool].sort().join('')).toBe('ABGLMNOQRS');
     expect(DEFAULT_OPTIONS.cardPool).toHaveLength(21);
     expect(validate(DEFAULT_OPTIONS)).toBeNull();
+  });
+  it('keeps the default pool and card pool safe from a caller that edits a copy', () => {
+    const o = { ...DEFAULT_OPTIONS };
+    expect(() => (o.pool as string[]).splice(0, 3)).toThrow(TypeError);
+    expect(() => (o.cardPool as string[]).push('Rage')).toThrow(TypeError);
+    expect(DEFAULT_OPTIONS.pool).toHaveLength(10);
+    expect(DEFAULT_OPTIONS.cardPool).toHaveLength(21);
   });
   it('keeps at least 7 pool pieces, counted as in POOL', () => {
     expect(validate(opts({ pool: ['N', 'A', 'M', 'S'] }))).toBeNull(); // NNAAMMS
@@ -112,12 +120,27 @@ describe('validating a seat choice', () => {
     expect(validateChoice(powers, D, choice(ARMY))).not.toBeNull();
     expect(validateChoice(DEFAULT_OPTIONS, D, choice(ARMY, { king: 'Spirit', power: 'Mercy' }))).not.toBeNull();
   });
+  it('refuses a king name that is an Object.prototype key with an error string, not a throw', () => {
+    for (const king of ['constructor', 'toString', '__proto__'])
+      expect(validateChoice(powers, D, choice(ARMY, { king, power: 'Mercy' } as unknown as Choice['king']))).toMatch(/king/);
+  });
   it('offers only the always-on powers with cards on (spec Q19)', () => {
     const o = opts({ kingPowers: true, cards: true });
     for (const [king, power] of [['Spirit', 'HolyLight'], ['Spirit', 'Mercy'], ['Shadow', 'DeathTouch'], ['Shadow', 'Darkness'], ['Mud', 'March']] as const)
       expect(validateChoice(o, D, choice(ARMY, { king, power }))).toBeNull();
     for (const [king, power] of [['Frost', 'Freeze'], ['Frost', 'IceWall'], ['Flame', 'Strike'], ['Flame', 'Haste'], ['Stratus', 'Flight'], ['Stratus', 'Sacrifice'], ['Mud', 'Leap']] as const)
       expect(validateChoice(o, D, choice(ARMY, { king, power }))).toMatch(/cards/);
+  });
+});
+
+describe('ALWAYS_ON and the engine', () => {
+  afterEach(() => { setRules(); });
+  it('lists exactly the powers that the engine allows next to a full hand (the readings the match worker plays)', () => {
+    const hand = DEAL_CARDS.slice(0, 4);
+    for (const [king, two] of Object.entries(KINGS)) for (const power of two as readonly PowerName[]) {
+      const start = () => setRules({ ...POWERS_BALANCED, kings: [{ king, power } as never, null], hands: [hand, hand] });
+      if (ALWAYS_ON.includes(power)) expect(start, power).not.toThrow(); else expect(start, power).toThrow(/hand/);
+    }
   });
 });
 

@@ -16,6 +16,7 @@ Blocked by: 03
 ## Acceptance
 
 - Worker tests: a card game plays a card and replays from its save; the hand shows in the snapshot; a private hand is still refused; a classic game castles and replays; each level returns a legal move within its cap.
+- Ticket 04's toggle-mix test (`src/match/setup.test.ts`, "builds a game the match module starts for each toggle mix") passes the cards mix and the classic mix to `createMatch` with `buildSetup`'s `hand` and `classic` in the match setup, and asserts that the snapshot shows the hand and that the classic game can castle (review of ticket 04, finding 2).
 - `npm test`, `npm run plugin:build`, `npm run plugin:smoke` pass.
 
 ## Notes
