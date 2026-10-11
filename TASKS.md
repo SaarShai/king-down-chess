@@ -4,7 +4,8 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 
 ## Open items
 
-- **Accounts and multiplayer** · `needs-info` · Built on `claude/multiplayer-foundation`; checks pass; not pushed. PR? The 8 [report](docs/research/multiplayer-2026-10-10/README.md) decisions.
+- **ChatGPT plugin MVP** · `needs-info` · Spec and tickets 01–19 on `claude/chatgpt-mvp` (2026-10-11). Does the owner approve the spec, and add the side-panel and sidebar entries (Q25b)? Tickets 02, 03, 04 and 09 are in work; 02 is the visual sample for the owner's yes. · [spec](https://github.com/SaarShai/king-down-chess/blob/claude/chatgpt-mvp/docs/specs/chatgpt-mvp/spec.md)
+- **Accounts and multiplayer** · `needs-info` · Built on `claude/multiplayer-foundation` (pushed 2026-10-11); the ChatGPT plugin MVP builds on it. The 8 [report](docs/research/multiplayer-2026-10-10/README.md) decisions.
 - **After the redesign** · `needs-triage` · Done (tickets 01 to 05, PRs #33 to #37, 2026-10-10): three check runs share this Mac; `main.ts` 1,348 → 210 lines. Small follow-ups wait in the Comments of tickets 04 and 05. · [spec](docs/specs/after-redesign/spec.md)
 - **Proving Ground and legend** · `needs-info` · Done: #41, #42, #47 to #51 (2026-10-11); the game board has the Workshop's marks (#50). Deploy: owner's go. · [spec](docs/specs/workshop-proving-ground/spec.md)
 - **Card deal** · `needs-info` · The owner chose MirrorB and dropped Mirror and Rescue (2026-10-07); Hand size: **4 cards** (owner 2026-10-09: "yes. 4 cards."; draws 12.6% at depth 4, against 11.0% with 6). Keep March (below the floor in `cards-d1`)? Which cards make the deal, and do the four new cards join it? · [2026-10](docs/tasks-archive/2026-10.md)
