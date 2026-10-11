@@ -1,19 +1,19 @@
 /**
  * The Proving Ground's marks: the part of the approved mockup's mark module
  * (docs/research/rules-ui-2026-10-10/mockups/shared/marks.js, its line numbers in the comments) that tickets 01 to
- * 06 draw. The tiles, targets, shots, occupied takes and badges come from src/render/legend.ts; the blocks and
+ * 08 draw. The tiles, targets, shots, occupied takes and badges come from src/render/legend.ts; the blocks and
  * When words from vocab.ts. The refused forms, the stamps, the knots and the zone chalk stay here: the legend has
  * none. The mockup's looks `wash` and `familyWax` are always on. Later tickets port the rest.
  */
-import { DEFS as LEG_DEFS, LEG, badge, occupied, tile as legendTile, toSvg, type Shape } from '../render/legend';
-import { DIR, type Ability, type Dir, type PaintOn, type When, type Zone } from './model';
+import { DEFS as LEG_DEFS, LEG, badge, occupied, target, tile as legendTile, toSvg, type Shape } from '../render/legend';
+import { DIR, likeSquares, type Ability, type Dir, type PaintOn, type PieceDesign, type When, type Zone } from './model';
 import type { Scene, ScenePiece } from './scene';
 import { esc } from './text';
-import { blockOf, whenWords, type Group } from './vocab';
-import type { Why } from './why';
+import { BODY, blockOf, whenWords, type Group } from './vocab';
+import { KIND, type Why } from './why';
 
-/** The colours that the legend does not hold (marks.js:73-86): the stone greys of a refused mark, the wax red of a stamp, the chalk. */
-const C = { goldI: '#7a5712', push: '#2f7f75', swap: '#7a58c0', acc: '#842c21', bFill: '#c9bfac', bX: '#8a8072', bBar: '#4d453c', chalk: 'rgba(251,247,238,.95)', chalkSh: 'rgba(43,38,33,.55)' };
+/** The colours that the legend does not hold (marks.js:73-86): the stone greys of a refused mark, the wax red of a stamp, the chalk, the diagram's squares. */
+const C = { goldI: '#7a5712', push: '#2f7f75', swap: '#7a58c0', acc: '#842c21', bFill: '#c9bfac', bX: '#8a8072', bBar: '#4d453c', chalk: 'rgba(251,247,238,.95)', chalkSh: 'rgba(43,38,33,.55)', dLight: '#e2d3b2', dDark: '#4a4036' };
 type MarkKind = Scene['marks'][number]['k'];
 
 /** 24 × 24 stroked sigils (marks.js:88-124): the 10 blocks with the G11 replacements, and the extras in use. */
@@ -110,11 +110,11 @@ function stopBar(pt: P, u: P, s: number): string {
   return line(a[0], a[1], b[0], b[1], LEG.halo, 6, 'stroke-linecap="round"') + line(a[0], a[1], b[0], b[1], LEG.navy, 3, 'stroke-linecap="round"');
 }
 /** "Passes over": a dashed gold-ink arc with an arrowhead, bulging up (marks.js:441-464, the gold look); a shot's sight
- *  line is a flatter one. `ink`: a chain's hop, a solid ink arc. */
-function arch(p0: P, p1: P, s: number, o: { bulge?: number; ink?: boolean } = {}): string {
+ *  line is a flatter one. `ink`: a chain's hop, a solid ink arc. `left`: it bulges to the left of its way (a diagram's bridge). */
+function arch(p0: P, p1: P, s: number, o: { bulge?: number; ink?: boolean; left?: boolean } = {}): string {
   const mx = (p0[0] + p1[0]) / 2, my = (p0[1] + p1[1]) / 2, vx = p1[0] - p0[0], vy = p1[1] - p0[1], L = Math.hypot(vx, vy) || 1, k = 2 * (o.bulge ?? 0.45) * s;
   let nx = -vy / L, ny = vx / L;
-  if (Math.abs(vx) < 1e-6) { if (nx < 0) { nx = -nx; ny = -ny; } } else if (ny > 0) { nx = -nx; ny = -ny; }
+  if (o.left) { nx = -nx; ny = -ny; } else if (Math.abs(vx) < 1e-6) { if (nx < 0) { nx = -nx; ny = -ny; } } else if (ny > 0) { nx = -nx; ny = -ny; }
   const c = [mx + nx * k, my + ny * k], d = `M${n(p0[0])} ${n(p0[1])}Q${n(c[0])} ${n(c[1])} ${n(p1[0])} ${n(p1[1])}`;
   const sw = o.ink ? 2 : s >= 40 ? 2.5 : 1.8, [col, halo] = o.ink ? [LEG.ink, LEG.halo] : [C.goldI, LEG.gold];
   let g = o.ink ? `<path d="${d}" fill="none" stroke="${halo}" stroke-width="${sw + 3}" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round"/>`
@@ -329,6 +329,49 @@ export function effect(kind: 'arch' | 'push' | 'swap' | 'threat' | 'tstop', s: n
     : kind === 'threat' || kind === 'tstop' ? threat([s * 0.1, s * 0.9], [s * 0.9, s * 0.1], s, kind === 'tstop', 0)
     : kind === 'push' ? arrowLine([s * 0.12, c], [s * 0.92, c], C.push, 3, { head }) : arrowLine([s * 0.1, c], [s * 0.9, c], C.swap, 3, { both: true, head });
   return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" overflow="visible" aria-hidden="true">${g}</svg>`;
+}
+
+/* ---- the 7 × 7 reach diagram (diagram and chevronT, marks.js:425-439, :923-985) ---- */
+
+/** A line's end on the diagram: a chevron with a small red target past its tip (it slides on and takes the first enemy). */
+function chevron(tip: P, u: P, s: number): string {
+  const L = Math.max(4, 0.26 * s), hw = Math.max(3, 0.2 * s), b = [tip[0] - u[0] * L, tip[1] - u[1] * L], tr = Math.max(2.6, 0.12 * s);
+  const d = `M${n(b[0] - u[1] * hw)} ${n(b[1] + u[0] * hw)}L${n(tip[0])} ${n(tip[1])}L${n(b[0] + u[1] * hw)} ${n(b[1] - u[0] * hw)}`;
+  const path = (stroke: string, w: number) => `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  return path(LEG.navy, Math.max(3.5, 0.1 * s) + 2) + path(LEG.green, Math.max(2, 0.1 * s)) + toSvg(target(tip[0] + u[0] * tr * 1.55, tip[1] + u[1] * tr * 1.55, tr, { rw: Math.max(1.2, 0.045 * s) }));
+}
+/**
+ * The reach diagram of a design on 7 × 7 squares of side s, forward up, the piece in the centre (the card face and the
+ * ledge's reach popover). Its squares and lines; "steps 2" and "also moves like" add theirs as "only sometimes" (a dashed
+ * frame, stitched rails; designPattern, binder-and-table.html:769-781); "passes over" adds a bridge on the first square of
+ * each line. `cells`: the light and dark squares (the popover); else the page draws the grid (the card). The centre is the
+ * icon of the body, or a gold-ringed disc for a token. A tile's group has data-xy and data-k, a rail's data-k="line" and data-dir; "only sometimes" adds data-cond.
+ */
+export function diagram(d: Pick<PieceDesign, 'squares' | 'lines' | 'rules' | 'look'>, o: { s: number; cells?: boolean }): string {
+  const s = o.s, W = n(7 * s), cc = (x: number, y: number): P => [(x + 3) * s + s / 2, (3 - y) * s + s / 2], has = (a: Ability['a']) => d.rules.find(r => r.does.a === a)?.does;
+  const like = has('movesLike') as Extract<Ability, { a: 'movesLike' }> | undefined, add = like ? likeSquares(like.as) : { squares: [], lines: [] };
+  const extra = [...add.squares, ...(has('step2') ? [{ x: 0, y: 2, mark: 'move' as const }] : [])].filter(a => !d.squares.some(q => q.x === a.x && q.y === a.y));
+  const cond = !d.lines.length && add.lines.length > 0, lines = cond ? add.lines : d.lines;
+  const way = (l: Dir) => { const [dx, dy] = DIR[l], L = Math.hypot(dx, dy), e = cc(dx * 3, dy * 3); return { dx, dy, u: [dx / L, -dy / L] as P, tip: [e[0] + dx * s * 0.08, e[1] - dy * s * 0.08] as P }; };
+  let g = '';
+  if (o.cells) for (let r = 0; r < 7; r++) for (let f = 0; f < 7; f++) g += `<rect x="${n(f * s)}" y="${n(r * s)}" width="${n(s)}" height="${n(s)}" fill="${(f + r) % 2 ? C.dDark : C.dLight}"/>`;
+  const c0 = cc(0, 0), k = 0.6 * Math.max(4, 0.26 * s);
+  for (const l of lines) {
+    const { dx, dy, u, tip } = way(l);
+    g += `<g data-k="line" data-dir="${l}"${cond ? ' data-cond="1"' : ''}>${rail([c0[0] + dx * s * 0.42, c0[1] - dy * s * 0.42], [tip[0] - u[0] * k, tip[1] - u[1] * k], s, { style: cond ? 'awake' : undefined })}</g>`;
+  }
+  for (const [q, sometimes] of [...d.squares.map(q => [q, false] as const), ...extra.map(q => [q, true] as const)]) {
+    g += `<g data-xy="${q.x},${q.y}" data-k="${KIND[q.mark]}"${sometimes ? ' data-cond="1"' : ''}>${tileSvg(KIND[q.mark], (q.x + 3) * s, (3 - q.y) * s, s, { solid: true, cond: sometimes ? 'awake' : undefined })}</g>`;
+  }
+  for (const l of lines) {
+    const { dx, dy, u, tip } = way(l), c = cc(dx, dy), h = (dx && dy ? 0.3 : 0.32) * s;
+    g += chevron(tip, u, s) + (!has('linesPass') ? '' : `<circle cx="${n(c[0])}" cy="${n(c[1])}" r="${n(Math.max(2, 0.09 * s))}" fill="${LEG.navy}" stroke="${LEG.halo}" stroke-width="1.2"/>`
+      + arch([c[0] - u[0] * h, c[1] - u[1] * h], [c[0] + u[0] * h, c[1] + u[1] * h], s, { bulge: 0.24, left: true }));
+  }
+  const body = d.look.body, i = s * 0.84;
+  g += body === 'token' ? `<circle cx="${n(c0[0])}" cy="${n(c0[1])}" r="${n(s * 0.3)}" fill="${LEG.ink}" stroke="${LEG.gold}" stroke-width="2"/>`
+    : `<image href="${import.meta.env?.BASE_URL ?? './'}ui/icons/${BODY[body].name}.svg" x="${n(c0[0] - i / 2)}" y="${n(c0[1] - i / 2)}" width="${n(i)}" height="${n(i)}"/>`;
+  return `<svg width="${W}" height="${W}" viewBox="0 0 ${W} ${W}" overflow="visible" role="img" aria-label="Reach diagram">${g}</svg>`;
 }
 
 /* ---- brush mode: the Mirror tool's icon and the line nubs (proving-ground.html:1227-1240, :1281-1286) ---- */

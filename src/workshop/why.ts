@@ -110,7 +110,8 @@ export interface Why {
 const SAY: Record<Kind | 'empty' | 'blocked' | 'blocked-move', string> = {
   move: 'move', take: 'takes', both: 'move or take', shot: 'shot: takes from here', moveshot: 'move or shot', blocked: 'refused', 'blocked-move': 'refused', empty: 'not painted',
 };
-const KIND: Record<Square['mark'], Kind> = { move: 'move', take: 'take', both: 'both', shoot: 'shot', moveShoot: 'moveshot' };
+/** The legend kind of a painted mark. */
+export const KIND: Record<Square['mark'], Kind> = { move: 'move', take: 'take', both: 'both', shoot: 'shot', moveShoot: 'moveshot' };
 /** A rule's caption: the seal's label with its pill's words in place of "…", then a state rule's When ("moves like a queen, on a center square"). */
 function ruleWords(r: Rule): string {
   const b = blockOf(r.does.a), v = b.pill && brief(choiceText(b.pill.choices, (r.does as unknown as Record<string, string>)[b.pill.key]));

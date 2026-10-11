@@ -14,10 +14,15 @@
 // in the phone's Board tab; on the desktop, the tray in the right column); then ticket 07: new-piece (NEW on the ledge: a
 // blank piece alone on d4, Move armed), look-more (the Look sheet of the new piece: More under the rule lines; on the
 // phone, Look in ⋯), rename (the name field of the Pawn with a typed name: the pen; on the phone, Rename in ⋯) and
-// design-menu (⋯ of My Pawn after one paint; on the phone with Share, Weigh, Rename and Look).
+// design-menu (⋯ of My Pawn after one paint; on the phone with Share, Weigh, Rename and Look); then ticket 08: share (the Share
+// sheet of My Pawn with a device share: Send link, Copy link and Copy as text; on the phone from ⋯), phone-share (the longest
+// card: My Paladin from Make a copy, with its 3 rules, on a device with no share: one Copy link), link-card (the Rook Rider
+// link opens its card face first), phone-link-card (a link to a piece with 3 rules: the longest card) and reach-popover (the
+// pointer on the Paladin in the ledge shows its reach; the phone has no popover). The state `link` opens that link on the board.
 // Mockup states to set beside them: open, hero, hero-i1, hero-i2, hero-i3, archer, beast, beast-cancel, maester, ogre, guard,
 // phone-open, phone-hero, why-g7, paint, painted, stamp-preview, stamped, asleep-b4, awake-e2, rook-leap; for new-piece, the
-// open state and a tap on NEW; for design-menu, painted and ⋯ (the phone's ⋯; the mockup's desktop has no ⋯)
+// open state and a tap on NEW; for design-menu, painted and ⋯ (the phone's ⋯; the mockup's desktop has no ⋯); for the card
+// face, card-paladin and phone-card of mockup B (binder-and-table.html); for reach-popover, open with the pointer on the Paladin
 // (docs/research/rules-ui-2026-10-10/mockups/proving-ground.html?state=<id>, served, never file://).
 // The targets leave out the board squares (24 px or more, spec decision 9) and the later nubs and knots.
 // Run: SAMPLE=W14 node docs/specs/web-ux/capture.mjs <base-url> <out-dir>. Renders stay outside Git.
@@ -26,9 +31,17 @@ import { pressMenu } from '../../../../tools/app-ui.mjs';
 const save = { back: 'SQBKRSML', fen: '', moves: [], white: 'human', black: 'human', sound: false, pace: 'off' };
 const targets = 'button:not(.sq, .nub, .knot), select, summary, label';
 const controls = '#workshop .pg-menu, #workshop .pg-field';
-/** The W12 design (samples/W12.mjs) as a link. */
+/** The W12 design (samples/W12.mjs) as a link; a piece with the Paladin's moves and 3 rules as a link. */
 const rider = { kind: 'piece', name: 'Rook Rider', look: { figure: 'antler-guardian', body: 'token', auto: true, glow: null, army: 0 }, letter: 'D',
   squares: [{ x: 1, y: 2, mark: 'both' }, { x: -1, y: 2, mark: 'both' }], lines: ['n', 'e', 's', 'w'], rules: [] };
+const lancer = { kind: 'piece', name: 'Holy Lancer', look: { body: 'L', auto: false, glow: null, army: 0 }, letter: 'H', squares: [], lines: ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'],
+  rules: [{ when: { on: 'always' }, does: { a: 'linesPass', over: 'own' } }, { when: { on: 'always' }, does: { a: 'cannotTake', what: 'king' } }, { when: { on: 'takes' }, does: { a: 'removedAfter', what: 'piece' } }] };
+const linkTo = d => `?workshop=a&design=${Buffer.from(JSON.stringify(d)).toString('base64url')}`;
+/** Ticket 08: a device share (`on`) or none, then Share: the top bar's on the desktop, ⋯ on the phone. */
+const shareOn = async (page, phone, on) => {
+  await page.evaluate(on => Object.defineProperty(navigator, 'share', { configurable: true, value: on ? async () => {} : undefined }), on);
+  await menu(page, phone, 'share', '.pg-share');
+};
 /** Opens the Workshop from the menu, then the pool piece `key` from the ledge. */
 const piece = key => async ({ page }) => {
   await pressMenu(page, 'Workshop');
@@ -110,8 +123,7 @@ export default {
       await page.click('.slot[data-design="mybeast-any"]');
       await page.locator('.slot[data-design="mybeast-any"][aria-current="true"]').waitFor();
     } },
-    { name: 'link', query: `?workshop=a&design=${Buffer.from(JSON.stringify(rider)).toString('base64url')}`, save, targets, controls,
-      steps: async ({ page }) => { await page.locator('#workshop.pg[open]').waitFor(); } },
+    { name: 'link', query: linkTo(rider), save, targets, controls, steps: async ({ page }) => { await page.click('.pg-sheet [data-board]'); } },
     brush('paint', false),
     brush('painted', true),
     brush('weigh', true, async (page, phone) => {
@@ -157,5 +169,15 @@ export default {
       await page.keyboard.type('Lancer');
     } },
     brush('design-menu', true, page => page.click('[data-act="more"]')),
+    brush('share', true, (page, phone) => shareOn(page, phone, true)),
+    { ...state('phone-share', 'paladin'), steps: async ({ page, size }) => {
+      await piece('paladin')({ page });
+      await page.click('[data-act="more"]');
+      await page.click('.pg-morepop [data-act="copydesign"]');
+      await shareOn(page, size === 'phone', false);
+    } },
+    { name: 'link-card', query: linkTo(rider), save, targets, controls, steps: async ({ page }) => { await page.locator('.pg-sheet[open] .pg-face').waitFor(); } },
+    { name: 'phone-link-card', query: linkTo(lancer), save, targets, controls, steps: async ({ page }) => { await page.locator('.pg-sheet[open] .pg-face').waitFor(); } },
+    { ...state('reach-popover', 'pawn'), steps: async ({ page, size }) => { await piece('pawn')({ page }); if (size !== 'phone') await page.hover('.slot[data-piece="paladin"]'); } },
   ],
 };

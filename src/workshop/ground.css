@@ -386,7 +386,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .pg-room-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px solid var(--stone-300); }
 .pg-copybox { width: 100%; font: var(--fs-sm)/1.4 var(--font-body); }
 /* Delete asks first; the Look sheet: the tag filter, the 34 figures and the army (ticket 07) */
-.pg-ask { display: flex; gap: 8px; }
+.pg-ask { display: flex; flex-wrap: wrap; gap: 8px; }
 #workshop.pg :is(.pg-ask button, .pg-army label) { min-height: 44px; padding: 6px 16px; gap: 8px; border: 1px solid var(--stone-500); border-radius: var(--radius); }
 #workshop.pg .pg-ask .primary { font-weight: 700; color: var(--vellum); border-color: var(--accent-deep); background: linear-gradient(var(--accent-bright), var(--accent)); }
 .pg-filter { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
@@ -399,6 +399,39 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .pg-army { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; padding: 0; border: 0; }
 .pg-army legend { padding: 0 0 4px; font-weight: 700; }
 #workshop.pg .pg-army label { display: inline-flex; align-items: center; }
+
+/* ---- the card face (ticket 08; mockup B's piece card, binder-and-table.html:80-90, :196-236) in the Share sheet and a
+   link's sheet: the sheet takes the screen's height less 16 px each side, and its buttons stay in view on a footer ---- */
+#workshop.pg .pg-sheet:has(.pg-face) { max-height: calc(100dvh - 32px); }
+.pg-note { margin: 0 0 12px; font-size: var(--fs-sm); color: var(--ink-soft); }
+.pg-face + .pg-ask { position: sticky; bottom: 0; margin: 0 -16px -24px; padding: 12px 16px 16px; border-top: 1px solid var(--stone-300); background: var(--parchment); }
+.pg-face { position: relative; width: 340px; box-sizing: border-box; margin: 0 auto 16px; padding-bottom: 10px; border: 2px solid var(--gold); border-radius: 14px;
+  background: linear-gradient(180deg, #fdfaf2, var(--vellum) 30%, #f7f0df); box-shadow: var(--shadow-card), 0 18px 40px rgba(43, 38, 33, 0.22), 0 2px 0 rgba(122, 87, 18, 0.25); }
+.pg-face::after { content: ''; position: absolute; inset: 4px; border: 1px solid var(--gold-ink); border-radius: 10px; opacity: 0.55; pointer-events: none; }
+.pg-face .ct { height: 50px; display: flex; align-items: center; gap: 10px; padding: 6px 14px 0; box-sizing: border-box; }
+.pg-face .ct :is(.pi, .ic) { flex: none; width: 28px; height: 28px; }
+.pg-face .ct .ic { border-radius: 50%; background: var(--parchment-deep); box-shadow: inset 0 1px 3px rgba(29, 25, 21, 0.35); }
+.pg-face .ct b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 22px/1.05 var(--font-display); letter-spacing: var(--track-display); text-transform: uppercase; }
+.pg-face .cart { position: relative; height: 138px; margin: 0 10px; overflow: hidden; border-radius: 6px; background: radial-gradient(110% 95% at 50% 26%, #fdf7e8 0%, #f1e3c4 48%, #dcc699 100%); }
+.pg-face .cart::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 18px rgba(90, 62, 24, 0.28), inset 0 -10px 16px rgba(90, 62, 24, 0.12); }
+.pg-face .cart img { position: absolute; left: 50%; top: 6px; height: 214px; transform: translateX(-50%); filter: var(--rim) drop-shadow(0 6px 6px rgba(43, 38, 33, 0.18)); }
+/* the diagram on the soft cream grid of the Workshop */
+.pg-face .cdg { --c: 34px; width: 238px; height: 238px; margin: 12px auto 0; background-color: #efe6d0;
+  background-image: linear-gradient(90deg, rgba(77, 69, 60, 0.3) 1px, transparent 1px), linear-gradient(rgba(77, 69, 60, 0.3) 1px, transparent 1px), repeating-conic-gradient(#ddd0b4 0 25%, #efe6d0 0 50%);
+  background-size: var(--c) var(--c), var(--c) var(--c), calc(var(--c) * 2) calc(var(--c) * 2);
+  box-shadow: 0 0 0 1px var(--stone-500), 0 0 0 4px var(--vellum), 0 0 0 5px rgba(122, 87, 18, 0.55), 0 4px 12px rgba(43, 38, 33, 0.16); }
+.pg-face .cdg svg { display: block; width: 100%; height: 100%; }
+.pg-face .cseals { display: grid; gap: 4px; margin: 12px 0 0; padding: 0 12px 0 30px; list-style: none; }
+.pg-face .cseals li { display: flex; align-items: center; gap: 10px; min-height: 38px; font: 400 15.5px/1.3 var(--font-body); }
+.pg-face .cseals .kd-seal { flex: none; }
+.pg-face .cseals b { font-weight: 700; color: var(--gold-ink); text-decoration: underline 1.5px; text-underline-offset: 3px; }
+.pg-face .cseals.none { padding: 0 12px; text-align: center; font: italic 400 14px/1.3 var(--font-body); color: var(--ink-soft); }
+.pg-face .cworth { margin: 8px 14px 0; text-align: center; font-size: var(--fs-sm); color: var(--ink-soft); }
+.pg-face .cworth b { color: var(--ink); }
+/* the reach popover over a ledge figure (#reachPop, proving-ground.html:374-376) */
+.pg-reachpop { position: fixed; z-index: 90; padding: 6px; border-radius: 8px; background: var(--vellum); box-shadow: var(--shadow-float); opacity: 0; pointer-events: none; transition: opacity var(--dur-1); }
+.pg-reachpop.on { opacity: 1; }
+.pg-reachpop svg { display: block; border-radius: 4px; }
 
 /* ---- narrow: the phone form, one column (:443-540) ---- */
 @media (max-width: 999px) {
@@ -480,6 +513,17 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .pg-why .tag { min-height: min(358px, 50vh); min-height: min(358px, 50dvh); max-height: 358px; box-sizing: border-box; overflow-y: auto; padding: 18px 16px 16px;
     border-radius: 16px 16px 0 0; clip-path: none; box-shadow: 0 -8px 40px rgba(20, 14, 8, 0.35); }
   .pg-why .tag::before { left: 50%; top: 6px; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; box-shadow: none; background: var(--stone-300); }
+  /* the card face as mockup B's phone card (.hand, binder-and-table.html:502-517): the diagram beside the name and the figure */
+  .pg-face { width: auto; max-width: 358px; display: grid; grid-template-columns: 178px minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: 'dg ct' 'dg art' 'seals seals' 'worth worth'; }
+  .pg-face .ct { grid-area: ct; height: auto; gap: 6px; padding: 12px 8px 0 2px; }
+  .pg-face .ct :is(.pi, .ic) { width: 22px; height: 22px; }
+  .pg-face .ct b { white-space: normal; font-size: 16px; letter-spacing: 0.06em; }
+  .pg-face .cart { grid-area: art; height: auto; min-height: 96px; margin: 6px 10px 0 2px; }
+  .pg-face .cart img { height: 150px; top: 4px; }
+  .pg-face .cdg { --c: 24px; grid-area: dg; width: 168px; height: 168px; margin: 14px 0 0 8px; }
+  .pg-face .cseals { grid-area: seals; padding: 0 10px; }
+  .pg-face .cseals li { min-height: 36px; font-size: 14px; line-height: 1.25; }
+  .pg-face .cworth { grid-area: worth; }
 }
 /* the smallest phones: smaller seals and name, so a seven-letter name keeps one line; the Why sum wraps */
 @media (max-width: 359px) {

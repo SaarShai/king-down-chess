@@ -13,8 +13,9 @@ import { BLACK, NAMES as PIECE, P, T, WHITE, colorOf, file, makeMove, parseSq, p
 import { pieceIcon } from '../piece-icons';
 import { pieceArt } from '../ui/guide';
 import { FIGURES, FIGURE_TAGS, figureUrl, selectedFigure, suggestedFigures, type Figure } from './figures';
+import { faceHtml } from './face';
 import { autoBody, bandOf, judge } from './judge';
-import { NAMES, chip, countRing, drawString, effect, ensureDefs, impression, knot, mirrorIcon, nub, pill, plaque, seal, sigil, tagYours, tile, viewBox, whySum } from './marks';
+import { NAMES, chip, countRing, diagram, drawString, effect, ensureDefs, impression, knot, mirrorIcon, nub, pill, plaque, seal, sigil, tagYours, tile, viewBox, whySum } from './marks';
 import {
   BLANK, DIR, DIRS, FULL, MAX_RULES, PRESETS, brushMark, canonical, designCode, empty, fromPreset, likeAlways, limit, lineOrbit, orbit, parseDesign, presetOf, validName,
   type Ability, type Body, type Brush, type Dir, type LikeAs, type PaintOn, type PieceDesign, type Preset, type Rule, type When,
@@ -91,13 +92,13 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     + '<aside class="pg-shelf" aria-labelledby="pg-shelf-h" hidden></aside></div>'
     + '<footer class="pg-ledge"><div class="ltabs" role="tablist" aria-label="Library"></div>'
     + '<div class="lrow" id="pg-row" role="tabpanel" aria-labelledby="pg-tab-pieces"><div class="inner lip"></div></div><div class="pg-boardtab" id="pg-boardtab" role="tabpanel" aria-labelledby="pg-tab-board" hidden></div></footer>'
-    + '<div class="pg-alert" role="alert" hidden></div><p class="pg-toast" role="status" aria-live="polite"></p>';
+    + '<div class="pg-alert" role="alert" hidden></div><p class="pg-toast" role="status" aria-live="polite"></p><div class="pg-reachpop" aria-hidden="true"></div>';
   document.body.append(dlg);
   const q = <T extends Element = HTMLElement>(s: string): T => dlg.querySelector(s) as T;
   const plinthEl = q('.pg-plinth'), fieldEl = q('.pg-field'), boardEl = q<SVGSVGElement>('.pg-board'), hitsEl = q('.pg-hits'), paintEl = q('.pg-paint');
   const actsEl = q('.pg-acts'), moreEl = q('.pg-morepop'), brushesEl = q('.pg-brushes'), toolsEl = q('.pg-tools'), hintEl = q('.pg-hint'), keyEl = q('.pg-keyrow');
   const rowEl = q('.lrow'), slotsEl = q('.lrow .inner'), alertEl = q('.pg-alert'), toastEl = q('.pg-toast'), shelfEl = q('.pg-shelf'), whyEl = q('.pg-why'), notchEl = q('.pg-notch');
-  const trayEl = q('.pg-tray'), tabsEl = q('.ltabs'), boardTabEl = q('.pg-boardtab');
+  const trayEl = q('.pg-tray'), tabsEl = q('.ltabs'), boardTabEl = q('.pg-boardtab'), reachEl = q('.pg-reachpop');
   /** The narrow layout (ground.css): the phone form of the mockup. */
   const narrow = matchMedia('(max-width: 999px)');
 
@@ -122,8 +123,6 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   let pos: Try = { board, from, st, gone: false, chain: null, became: 0 }, backs: Try[] = [];
   let lifted = false, token: 'friend' | 'enemy' | null = null, threats = false, promo: Move[] | null = null, tab: 'pieces' | 'board' = 'pieces';
   let opened = 0, tapped = false, edited = false;
-  /** A design from a link stays read only. */
-  const editable = (): boolean => cur.key !== 'link';
 
   let toastTimer = 0;
   function toast(text: string, icon?: 'lock' | 'lockOpen'): void {
@@ -182,9 +181,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (d.rules.length !== cur.d.rules.length) focus = knotAt = null;
     edited = true;
     setUp(restored());
-    // A pool piece's copy is "My <Name>" unless the change names it; an unnamed design's name follows it, and the letter
-    // follows the name until the player sets it (names.ts).
-    if (cur.key.startsWith('piece:') && !d.named) Object.assign(d, { name: copyName(`My ${d.name}`, shelf.map(x => x.name)), named: true });
+    // A pool piece's copy is "My <Name>" unless the change names it, and a link's copy keeps its name unless the shelf has
+    // it; an unnamed design's name follows it, and the letter follows the name until the player sets it (names.ts).
+    const names = shelf.map(x => x.name);
+    if (cur.key.startsWith('piece:') && !d.named) Object.assign(d, { name: copyName(`My ${d.name}`, names), named: true });
+    else if (cur.key === 'link') d.name = copyName(d.name, names);
     if (!d.named) d.name = autoName(d, autoBody(d));
     if (letterFollows(cur.d)) d.letter = letterOf(d.name);
     cur = { key: `design:${d.id}`, d, yours: true };
@@ -231,8 +232,30 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   }
   /** Every design the editor makes fits a share code; this guard says so if one ever does not (dialog.ts share()). */
   const shareable = (): boolean => !!parseDesign(designCode(cur.d)) || (toast('This design cannot be shared: it breaks a limit.'), false);
+  const face = (): string => faceHtml(cur.d, judge(cur.d, false), figureOf(cur.d));
+  /** The Share sheet (ticket 08): the card face, then Send link (the device's share), Copy link and Copy as text; with no
+   *  device share, one Copy link (dialog.ts share()). A device that refuses the copy gets the copy sheet (copyText). */
   function share(): void {
-    if (shareable()) void copyText(link(cur.d), 'Link copied.');
+    if (!shareable()) return;
+    const send = !!navigator.share;
+    sheet('Share this piece', `<p class="pg-note">Your friend opens this card. It opens read only.</p>${face()}<div class="pg-ask">`
+      + `${send ? '<button type="button" class="primary" data-send>Send link</button>' : ''}<button type="button"${send ? '' : ' class="primary"'} data-copy>Copy link</button>`
+      + '<button type="button" data-text>Copy as text</button></div>', (body, close) => {
+      const d = cur.d, on = (k: string, f: () => unknown): void => { body.querySelector<HTMLButtonElement>(`[data-${k}]`)!.onclick = () => { close(); void f(); }; };
+      if (send) on('send', () => navigator.share({ title: d.name, text: `${d.name}: a King Down piece.`, url: link(d) })
+        .catch((e: Error) => { if (e.name !== 'AbortError') void copyText(link(d), 'Link copied.'); }));
+      on('copy', () => copyText(link(d), 'Link copied.'));
+      on('text', () => copyText(designText(d, judge(d, false), link(d)), 'Copied as text.'));
+    });
+  }
+  /** A design link (decision 25): its card face first, read only. Keep a copy saves it and opens it on the board (dialog.ts
+   *  keepCopy); Open on the board, × and Esc show it on the board, where the first edit keeps a copy, as for a pool piece. */
+  function linkCard(): void {
+    sheet('A shared piece', `<p class="pg-note">It opens read only. Keep a copy to change it.</p>${face()}`
+      + '<div class="pg-ask"><button type="button" class="primary" data-keep>Keep a copy</button><button type="button" data-board>Open on the board</button></div>', (body, close) => {
+      body.querySelector<HTMLButtonElement>('[data-keep]')!.onclick = () => { close(); makeCopy(); };
+      body.querySelector<HTMLButtonElement>('[data-board]')!.onclick = close;
+    });
   }
   /** Weigh (decision 13): the worth, the band word and the like line. `false` skips the Why parts, the fixes and the deltas. */
   function weighWords(): [string, string] {
@@ -342,7 +365,6 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   /* ---- brush mode (enterBrush, paint and toggleLine, proving-ground.html:1742-1808) ---- */
 
   function arm(b: Brush): void {
-    if (!editable()) return;
     brush = b;
     lifted = false;
     token = null;
@@ -394,7 +416,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   function menuItems(): [string, string, Parameters<typeof sigil>[0]?][] {
     const phone = narrow.matches, items: [string, string, Parameters<typeof sigil>[0]?][] = [];
     if (phone && cur.yours) items.push(['share', 'Share', 'quill'], ['weigh', 'Weigh', 'scale']);
-    if (phone && editable()) items.push(['rename', 'Rename'], ['looks', 'Look']);
+    if (phone) items.push(['rename', 'Rename'], ['looks', 'Look']);
     if (!empty(cur.d)) items.push(['astext', 'Copy as text'], ['copydesign', 'Make a copy']);
     if (shelf.some(x => x.id === cur.d.id)) items.push(['delete', 'Delete']);
     return items;
@@ -413,7 +435,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   /** A state rule sleeps while its When does not hold here: its seal is grey and its chip hollow. */
   const asleepOf = (r: Rule): boolean => !blockOf(r.does.a).event && r.when.on !== 'always' && !holds(r.when, board, from, st);
   /** The rule has When choices (decision 10): not "takes again" and "removed too", whose only When is "when it takes". */
-  const hasWhens = (a: Ability['a']): boolean => { const w = whenChoices(a); return editable() && w.top.length + w.more.length > 0; };
+  const hasWhens = (a: Ability['a']): boolean => { const w = whenChoices(a); return w.top.length + w.more.length > 0; };
   /** A button with a 44 px hit area round a pill or a chip; `aria-expanded` while its row is open. */
   const hit = (attr: string, a: string, open: boolean, inner: string, label = ''): string =>
     `<button type="button" class="pg-hit" ${attr}="${a}" aria-expanded="${open}"${label ? ` aria-label="${esc(label)}"` : ''}>${inner}</button>`;
@@ -426,11 +448,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
    *  decision 38), and on the wide layout the × that removes the rule. A tap on the line or its seal isolates rule `i`
    *  (the seal is the button, for the keyboard). The phone's card shows the line with no seal and no `i`. */
   function lineHtml(r: Rule, i?: number): string {
-    const a = r.does.a, ed = editable(), P = lineParts(r), asleep = asleepOf(r), c = chip(r.when, { hollow: asleep }), inCard = i === undefined;
-    const part = (p: Part): string => (typeof p === 'string' ? esc(p) : ed ? hit('data-pill', a, row?.a === a && !row.when, pill(p.text)) : esc(p.text));
+    const a = r.does.a, P = lineParts(r), asleep = asleepOf(r), c = chip(r.when, { hollow: asleep }), inCard = i === undefined;
+    const part = (p: Part): string => (typeof p === 'string' ? esc(p) : hit('data-pill', a, row?.a === a && !row.when, pill(p.text)));
     const l1 = (c && hasWhens(a) ? hit('data-when', a, row?.a === a && row.when, c, `When: ${whenWords(r.when)}`) : c) + P.after.map(part).join('');
     return `<div class="sline"${inCard ? '' : ` data-seal="${i}"`}>${inCard ? '' : `<button type="button" class="sl-seal" ${press(i, blockOf(a).title)}>${seal(a, 44, { asleep })}</button>`}<span class="txt">${l1 ? `<span class="l1">${l1}</span>` : ''}<span class="l2">${P.line.map(part).join('')}</span></span>`
-      + (ed && !inCard ? `<span class="acts">${whenButton(r)}<button type="button" class="pg-rm" data-rm="${a}" aria-label="Remove ${esc(blockOf(a).label.replace('…', ''))}">×</button></span>` : '') + '</div>';
+      + (!inCard ? `<span class="acts">${whenButton(r)}<button type="button" class="pg-rm" data-rm="${a}" aria-label="Remove ${esc(blockOf(a).label.replace('…', ''))}">×</button></span>` : '') + '</div>';
   }
   /** The choices of the open row: a pill's values, or the When choices of whenChoices. */
   function choicesOf(): Choice[] {
@@ -472,7 +494,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
 
   function renderPlinth(): void {
     const d = cur.d, name = d.name || 'Piece', origin = cur.key.startsWith('piece:') ? undefined : PRESETS.find(p => d.from.length === 1 && p.key === d.from[0]);
-    const rules = canonical(d).rules, ed = editable(), room = ed && rules.length < MAX_RULES;
+    const rules = canonical(d).rules, room = rules.length < MAX_RULES;
     const [head, like] = weighOpen ? weighWords() : ['', ''], mine = cur.yours || cur.key === 'new';
     plinthEl.innerHTML = `<div class="pg-name${mine ? ' is-copy' : ''}"><div class="row"><h3${name.length > 9 ? ' class="long"' : ''}>${esc(name)}</h3>${mine ? tagYours() : ''}`
       // On the phone, the plaque is a lock icon in the name row (proving-ground.html:1039).
@@ -480,7 +502,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       + `${cur.yours ? `<button type="button" class="pg-weigh" data-act="weigh" aria-expanded="${weighOpen}">${sigil('scale', 16)}Weigh</button>` : ''}</div>`
       + `${origin ? `<div class="from">from ${esc(origin.name)}</div>` : ''}`
       // The pen rests at the end of the name's rule line (wide layout); on the phone, Rename is in ⋯.
-      + `${ed && !narrow.matches ? `<button type="button" class="pg-pen" data-act="rename" aria-label="Rename" title="Rename">${sigil('quill', 18)}</button>` : ''}</div>`
+      + `${!narrow.matches ? `<button type="button" class="pg-pen" data-act="rename" aria-label="Rename" title="Rename">${sigil('quill', 18)}</button>` : ''}</div>`
       + (weighOpen ? `<div class="pg-weighpop">${MEDAL}<b>${esc(head)}</b><small>${esc(like)}</small></div>` : '')
       + `<div class="pg-figure"><span class="halo"></span><img src="${esc(figureOf(d))}" alt=""></div><div class="pg-stone"><div class="top"></div><div class="front"></div></div>`
       + (narrow.matches
@@ -492,8 +514,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
           + (room ? '<button type="button" class="sline add" data-act="shelf"><span class="sl-seal" aria-hidden="true">+</span><b>Add a rule</b></button>'
             + '<div class="sline empty" aria-hidden="true"><span class="sl-seal"></span><span class="txt"></span></div>'.repeat(cur.yours && rules.length ? MAX_RULES - 1 - rules.length : 0) : '')
           // The look row (decision 17; LOOKS, proving-ground.html:733, :1054): the suggested figures, then "More".
-          + `</div>${ed ? `<div class="pg-looks" role="group" aria-label="Look">${suggestedFigures(d).map(f => figureButton(f, 'pg-look')).join('')}`
-            + '<button type="button" class="pg-look pg-lookmore" data-act="looks" aria-haspopup="dialog">More</button></div>' : ''}`);
+          + `</div><div class="pg-looks" role="group" aria-label="Look">${suggestedFigures(d).map(f => figureButton(f, 'pg-look')).join('')}`
+            + '<button type="button" class="pg-look pg-lookmore" data-act="looks" aria-haspopup="dialog">More</button></div>');
     placeKnots();
     isolate();
   }
@@ -578,7 +600,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       shelfEl.className = 'pg-shelf pg-card';
       shelfEl.innerHTML = `<header>${seal(b.a, 40, { asleep: asleepOf(r) })}<h3 id="pg-shelf-h">${esc(b.label)}</h3><button type="button" class="pg-x" data-act="closecard" aria-label="Close">×</button></header>`
         + lineHtml(r) + (row ? rowHtml() : '') + `<p class="pg-ex">${esc(b.example)}</p>`
-        + (editable() ? `<div class="pg-act">${whenButton(r)}<button type="button" class="pg-remove" data-rm="${b.a}">Remove</button></div>` : '');
+        + `<div class="pg-act">${whenButton(r)}<button type="button" class="pg-remove" data-rm="${b.a}">Remove</button></div>`;
       return;
     }
     shelfEl.className = 'pg-shelf';
@@ -603,7 +625,6 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   }
   /** S, the Add row and the phone's +: the shelf opens (no more than 3 rules: the limit words). */
   function openShelf(): void {
-    if (!editable()) return;
     if (cur.d.rules.length >= MAX_RULES) return toast(FULL, 'lock');
     brush = row = peek = pick = card = focus = knotAt = why = null;
     toolsOpen = false;
@@ -943,11 +964,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
 
   function renderRight(): void {
     const phone = narrow.matches;
-    brushesEl.innerHTML = BRUSHES.map(([k, w], i) => {
-      const inner = `<span class="tile">${tile(k, phone ? 40 : 80)}</span><span class="w">${w}</span>`;
-      return editable() ? `<button type="button" class="brush${brush === k ? ' armed' : ''}" data-brush="${k}" aria-pressed="${brush === k}" title="${NAMES[k]}. Tap to paint (${i + 1})">${inner}</button>`
-        : `<span class="brush" title="${NAMES[k]}">${inner}</span>`;
-    }).join('') + (phone && brush ? `<span class="phint">Tap a square.</span><button type="button" class="pg-moretools" data-act="tools" aria-label="More tools" aria-expanded="${toolsOpen}">⋯</button>` : '');
+    brushesEl.innerHTML = BRUSHES.map(([k, w], i) => `<button type="button" class="brush${brush === k ? ' armed' : ''}" data-brush="${k}" aria-pressed="${brush === k}" title="${NAMES[k]}. Tap to paint (${i + 1})">`
+      + `<span class="tile">${tile(k, phone ? 40 : 80)}</span><span class="w">${w}</span></button>`).join('') + (phone && brush ? `<span class="phint">Tap a square.</span><button type="button" class="pg-moretools" data-act="tools" aria-label="More tools" aria-expanded="${toolsOpen}">⋯</button>` : '');
     toolsEl.hidden = !brush || (phone && !toolsOpen);
     toolsEl.innerHTML = !brush ? '' : `<button type="button" class="tool" data-brush="shot" aria-pressed="${brush === 'shot'}" title="Shot: takes from where it stands"><span class="tb">${tile('shot', 44)}</span><small>Shot</small></button>`
       + `<button type="button" class="tool" data-brush="erase" aria-pressed="${brush === 'erase'}" title="Eraser"><span class="tb">${sigil('eraser', 24)}</span><small>Eraser</small></button>`
@@ -1005,6 +1023,20 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     // renderLedge replaced the slot: give the focus to its new copy, with no scroll away from the board.
     q<HTMLElement>('.slot.open').focus({ preventScroll: true });
   });
+  /** Hover or focus on a ledge figure shows its reach in a 96 px diagram over it; the wide layout only (showReach, proving-ground.html:1487-1497). */
+  const reach = (t: EventTarget | null): void => {
+    const b = t instanceof Element ? t.closest<HTMLElement>('.slot[data-piece], .slot[data-design]') : null;
+    const d = b && !narrow.matches ? (b.dataset.piece ? pool(b.dataset.piece).d : shelf.find(x => x.id === b.dataset.design)) : undefined;
+    reachEl.classList.toggle('on', !!d);
+    if (!d) return;
+    const r = b!.getBoundingClientRect();
+    reachEl.innerHTML = diagram(d, { s: 96 / 7, cells: true });
+    Object.assign(reachEl.style, { left: `${r.left + r.width / 2 - 54}px`, top: `${r.top - 116}px` });
+  };
+  slotsEl.addEventListener('pointerover', e => reach(e.target));
+  slotsEl.addEventListener('pointerleave', () => reach(null));
+  slotsEl.addEventListener('focusin', e => reach(e.target));
+  slotsEl.addEventListener('focusout', () => reach(null));
 
   /** The scene of the open design on its board, or of the design under preview (a choice that has the pointer or the
    *  focus, or the shelf's new rule), with `pv` on each part that the preview adds (`sceneOf` of both). Then the board and the right column. */
@@ -1204,6 +1236,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   function enter(item: Item): void {
     ensureDefs();
     shelf = loadShelf().designs;
+    reachEl.classList.remove('on');
     if (!dlg.open) dlg.showModal();
     show(item);
     revealOpenSlot();
@@ -1216,6 +1249,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       const d = parseDesign(code);
       if (!d) toast('This design link could not be read.');
       enter(d ? { key: 'link', d, yours: false } : pool('pawn'));
+      if (d) linkCard();
     },
   };
 }
