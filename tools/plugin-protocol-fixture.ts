@@ -2,6 +2,7 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { createMatch, type LocalMatch } from '../src/match';
 import { MatchServiceError } from '../src/match/store';
+import { FRIEND_CODE_DAYS } from '../src/match/service';
 import { createSchema, commandSchema, type CreateOptions, type InboxEntry, type View, type Seat, type LoggedCommand, type HistoryEntry, type PlayerRecord } from '../src/match/protocol';
 import { buildSetup, defaultChoice, draw, seatChoicesNeeded, validateChoice, type Draw, type Choice } from '../src/match/setup';
 import { handleSchema, type PluginService } from '../src/plugin/service';
@@ -77,7 +78,7 @@ export function fixtureService(): Pick<PluginService,keyof PluginService> & { se
    }
    g.revision++; g.updated = Date.now(); g.commands.set(key,payload); g.log.push({seq:g.revision,seat,action,at:new Date(g.updated).toISOString()}); return view(actor,id,g.revision-1);
   },
-  async invite(actor,id) { const g = load(id); seatOf(g,actor); if (g.input.kind !== 'friend' || g.status !== 'waiting') fail('FORBIDDEN',403,'Only the waiting creator can invite'); g.invite = {token:randomBytes(32).toString('base64url'),code:Array.from({length:6},()=>CODE[randomInt(CODE.length)]).join(''),expires_at:new Date(Date.now()+14*DAY).toISOString()}; return {...g.invite}; },
+  async invite(actor,id) { const g = load(id); seatOf(g,actor); if (g.input.kind !== 'friend' || g.status !== 'waiting') fail('FORBIDDEN',403,'Only the waiting creator can invite'); g.invite = {token:randomBytes(32).toString('base64url'),code:Array.from({length:6},()=>CODE[randomInt(CODE.length)]).join(''),expires_at:new Date(Date.now()+FRIEND_CODE_DAYS*DAY).toISOString()}; return {...g.invite}; },
   async preview(actor,code) { const g = await invitation(code), creator = await profile(g.players.find(Boolean)!); if (g.players.includes(actor)) fail('FORBIDDEN',403,'You already have a seat'); return {code:g.invite!.code,options:g.input.options ?? null,colour:g.players[0] === null ? 'white' : 'black',kind:g.input.kind,creator:{handle:creator.handle,icon:creator.icon},expires_at:g.invite!.expires_at}; },
   async join(actor,code) { await requireHandle(actor); return accept(actor,(await invitation(code)).id); },
   async report() {return {id:++reports,created_at:new Date().toISOString()};},

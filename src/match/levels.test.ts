@@ -1,8 +1,11 @@
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { Worker } from 'node:worker_threads';
 import { once } from 'node:events';
 import type { MatchSetup, MatchSnapshot, ChooseMoveOptions } from './index';
 
+// Each test starts a worker that loads the engine through tsx and runs real search; the strong cap test alone takes about 3 s
+// on an idle Mac. A busy Mac (other test runs, browser checks) needs more: the 60 s limit of docs/lessons/agents-and-tools.md.
+vi.setConfig({ testTimeout: 60_000 });
 const workers: Worker[] = [];
 afterEach(async () => { await Promise.all(workers.splice(0).map(w => w.terminate())); });
 
@@ -23,7 +26,7 @@ async function controlled(setup: MatchSetup, random = [0.99], step = 0) {
   workers.push(worker);
   let id = 0;
   async function call<T>(op: string, input?: unknown): Promise<T> {
-    const response = once(worker, 'message', { signal: AbortSignal.timeout(10000) });
+    const response = once(worker, 'message', { signal: AbortSignal.timeout(50_000) });
     worker.postMessage({ id: ++id, op, input });
     const [reply] = await response;
     if (reply.error) throw new Error(reply.error);
@@ -56,7 +59,7 @@ it.each(levels)('$level uses its $cap ms cap in the worker search', async ({ lev
   expect(m.elapsed()).toBeGreaterThanOrEqual(cap);
   expect(m.elapsed()).toBeLessThanOrEqual(cap + 10);
   expect(await m.snapshot()).toEqual(before);
-}, 30_000); // a fixed amount of real search (250 clock reads at strong); a busy Mac passed the 5 s default
+});
 
 it.each(levels)('$level lets the caller shorten its time cap', async ({ level }) => {
   const m = await controlled(timeSetup, [0.99], 10);

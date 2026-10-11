@@ -27,6 +27,7 @@ it('supports the screen tools, hidden setup choices, board selection and rematch
   expect((await s.view('alice',rematch.rematch_game_id!)).status).toBe('setup');
   const friend = await s.create('alice',{kind:'friend',options:{...DEFAULT_OPTIONS,arrangement:false}});
   const invite = await s.invite('alice',friend.game_id); expect((await s.preview('bob',invite.code)).creator.handle).toBe('alice');
+  expect(Date.parse(invite.expires_at)-Date.now()).toBeGreaterThan(6*86_400_000); expect(Date.parse(invite.expires_at)-Date.now()).toBeLessThanOrEqual(7*86_400_000);
   expect((await s.view('alice',friend.game_id)).opponent).toBeNull();
   expect((await s.join('bob',invite.code)).status).toBe('playing');
   const pending = await s.find('alice',DEFAULT_OPTIONS); expect((await s.cancel('alice',pending.game_id)).status).toBe('aborted');

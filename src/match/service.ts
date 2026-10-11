@@ -11,6 +11,7 @@ import { gameHistory, gameOutcome, opponentRating, playerRecord, recordResult } 
 export { MatchServiceError } from './store';
 
 const DAY = 86_400_000, FIRST_TURN_DAYS = 3, DRAW_OFFERS = 3, LIMIT = 1000; // the last revision in play
+export const FRIEND_CODE_DAYS = 7; // a Daily friend code (owner, 2026-10-11)
 const ENGINE_REJECTS = ['Illegal or ambiguous move', 'Match terminal', 'Match history limit reached', 'Stale revision', 'Command ID conflict', 'Malformed command'];
 const CODE = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no I, L, O, 0 or 1
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -289,7 +290,7 @@ export class GameService {
    if (game.kind !== 'friend' || game.status !== 'waiting') fail('FORBIDDEN', 403, 'Only the waiting creator can invite');
    // One invitation for each game: a new one ends the old one.
    await client.query('delete from public.game_invites where game_id=$1', [game.id]);
-   const expires = new Date(Date.now() + (game.speed === 'daily' ? 14 : 1) * DAY);
+   const expires = new Date(Date.now() + (game.speed === 'daily' ? FRIEND_CODE_DAYS : 1) * DAY);
    for (let attempt = 0; attempt < 5; attempt++) {
     const token = randomBytes(32).toString('base64url'), code = Array.from({ length: 6 }, () => CODE[randomInt(CODE.length)]).join('');
     if (await this.store.addInvite(client, { token_hash: hash(token), code_hash: hash(code), game_id: game.id, seat: other(seat), created_by: actor, expires_at: expires })) return { token, code, expires_at: expires.toISOString() };

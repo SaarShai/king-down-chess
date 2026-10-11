@@ -86,7 +86,7 @@ Preview takes no seat. `_meta.preview` is `{ code, options, colour, kind, creato
 
 Full views give opponent icon and rating, and finished games give `outcome: { rating_before, rating, provisional, badges }`. Polls with `since_revision` omit rating and outcome. Views and inbox rows give `created_at`; inbox rows also give options, move number, level and `open_until`. `abort_open` is true while waiting or in setup, or until both seats move once. A solo game can also abort for Switch now when the actor's waiting random game gets a join after that solo game starts.
 
-The default friend code lasts 14 days. This is the pending owner choice A. Invite gives no link: the plugin has no join page. A code is stored as a hash. A new invite ends the old code. The page never calls Invite on mount. Full-read rating and end data use pending owner choice B; the read lives in the results module.
+The friend code lasts 7 days. This is owner choice A from the current integration tip. Invite gives no link: the plugin has no join page. A code is stored as a hash. A new invite ends the old code. The page never calls Invite on mount. Full-read rating and end data use pending owner choice B; the read lives in the results module.
 
 The orchestrator's solo-rematch decision: when the player must choose a king or order, the computer alone is Ready and the new game stays in setup. End words for `no_start` depend on the view: no opponent means the invitation or open game expired; empty FEN means setup time ran out; otherwise no first move. The board uses `ending()`.
 
@@ -155,7 +155,7 @@ The final focused check passes: 10 files, 70 tests and 50 art tests. It checks t
 
 The 24-tool surface, settings migration, full-read screen data, join preview and Switch now rule pass their checks. The page call sites and fixture hooks above form the interface for tickets 11 to 16.
 
-- `npm test`: 143 files pass, with 2,253 tests and 50 art tests; 8 tests skip.
+- Final `npm test` after the integration merge: 145 files pass, with 2,257 tests and 50 art tests; 8 tests skip.
 - Final focused `npm test`: 10 files pass, with 70 tests and 50 art tests. This covers the final poll condition, seed endpoint and runtime settings grants.
 - `npm run check:browser`: all 24 checks pass.
 - `npm run check:browser -- plugin-ui plugin-ui-http`: both checks pass after the full set.
@@ -163,6 +163,10 @@ The 24-tool surface, settings migration, full-read screen data, join preview and
 - `npm run plugin:build` and `npm run plugin:server:check`: the compiled server passes on local PostgreSQL with migration 0013.
 - Fixture and harness type checks pass.
 - Page: 437,425 HTML bytes; the compiled server resource is 438,870 JSON bytes, below the 1 MB limit.
-- Open item: owner choice B for full-read rating and end data. The stated default is built. The integration tip resolves choice A to 7 days; the final merge brings it in.
+- Open item: owner choice B for full-read rating and end data. The stated default is built. Choice A uses the shared 7-day constant from the integration tip.
 
-The final review keeps the existing board-follow rule, command receipt path and shared schemas. It finds and fixes the board-only poll case with one condition and two failing tests. No engine or setup-module change is needed.
+The implementer check keeps the existing board-follow rule, command receipt path and shared schemas. It finds and fixes the board-only poll case with one condition and two failing tests. No engine or setup-module change is needed.
+
+The final integration merge includes the 7-day code rule and its test. The fixture uses the same constant. Its expiry test first fails at 14 days. The new release-order test also first fails because the README ends at 0012 and role block 8. The README now names 0013 and block 9.
+
+The full test run after the merge passes. The compiled server, protocol check and fixture type check also pass after the merge.
