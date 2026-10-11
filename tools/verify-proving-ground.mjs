@@ -37,7 +37,8 @@
 // no control in it; Send link with a device share, a cancel and a failure; Copy link; Copy as text; a refused clipboard; Esc;
 // with no device share one Copy link; the phone's ⋯), linkCard (a link opens its face first; Keep a copy saves it and opens it,
 // Yours; Open on the board saves nothing until the first edit, which keeps a copy with the next free name; Esc; the phone)
-// and reachPopover (hover or focus on a ledge figure shows its 96 px reach diagram over it; away hides it; none on the phone).
+// and reachPopover (hover or focus on a ledge figure shows its 96 px reach diagram over it; away hides it; a resize to the
+// phone layout hides it; none on the phone).
 // Since ticket 08, link, shareLink, weigh and designMenu go through the card face and the Share sheet.
 // Run it with `npm run check:browser proving-ground`.
 import assert from 'node:assert/strict';
@@ -1570,6 +1571,13 @@ async function reachPopover() {
   await p.keyboard.press('Escape');
   await door(p);
   assert.equal(await p.locator(pop).count(), 0, 'a Workshop that opens again shows no old popover');
+  // WebKit sends no pointer event on a resize. The check stops the pointer and focus events, so only the layout change can hide it.
+  await p.focus('.slot[data-piece="pawn"]');
+  await p.locator(pop).waitFor();
+  await p.evaluate(() => { for (const t of ['pointerover', 'pointerleave', 'focusin', 'focusout']) addEventListener(t, e => e.stopImmediatePropagation(), true); });
+  await p.setViewportSize({ width: 390, height: 844 });
+  await p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  assert.equal(await p.locator(pop).count(), 0, 'focus on a figure, then a resize to the phone layout: no popover');
   await p.context().close();
   const q = await open('?workshop=a', { width: 390, height: 844 });
   await door(q);

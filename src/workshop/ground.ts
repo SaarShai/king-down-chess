@@ -1112,7 +1112,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   }
   new ResizeObserver(() => { if (fieldEl.clientWidth / 8 !== drawnAt) drawBoard(); placePointer(); }).observe(fieldEl);
   new ResizeObserver(placeKnots).observe(plinthEl);
-  narrow.addEventListener('change', () => { row = peek = card = null; if (dlg.open) render(); });
+  // A resize sends no pointer event in WebKit: the popover of the wide layout hides here.
+  narrow.addEventListener('change', () => { row = peek = card = null; reach(null); if (dlg.open) render(); });
   q<HTMLButtonElement>('.pg-menu').onclick = () => dlg.close();
 
   dlg.addEventListener('click', e => {

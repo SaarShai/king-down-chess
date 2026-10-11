@@ -25,10 +25,13 @@ describe('the reach diagram (marks.js diagram)', () => {
     expect(marks(diagram(design('pawn'), { s: 34 }))).toEqual(['-1,1 take', '0,1 move', '0,2 move cond', '1,1 take']);
     const queen: Rule = { when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } };
     expect(marks(diagram({ ...fromPreset(BLANK), rules: [queen] }, { s: 34 }))).toEqual(['e', 'n', 'ne', 'nw', 's', 'se', 'sw', 'w'].map(l => `line ${l} cond`));
-    // A painted square stays as it is; a design with lines keeps them (designPattern, binder-and-table.html:776).
+    // A painted square and a line of the design stay as they are; the rule adds the others.
     const knight: Rule = { when: { on: 'always' }, does: { a: 'movesLike', as: 'knight' } };
     expect(marks(diagram({ ...design('rook'), squares: [{ x: 1, y: 2, mark: 'move' }], rules: [knight] }, { s: 34 })))
       .toEqual(['-1,-2 both cond', '-1,2 both cond', '-2,-1 both cond', '-2,1 both cond', '1,-2 both cond', '1,2 move', '2,-1 both cond', '2,1 both cond', 'line e', 'line n', 'line s', 'line w']);
+    const bishop: Rule = { when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'bishop' } };
+    expect(marks(diagram({ ...design('rook'), rules: [bishop] }, { s: 34 })))
+      .toEqual(['line e', 'line n', 'line ne cond', 'line nw cond', 'line s', 'line se cond', 'line sw cond', 'line w']);
     const bridges = (d: PieceDesign) => (diagram(d, { s: 34 }).match(/stroke-dasharray="6 4"/g) ?? []).length;
     expect([bridges(design('paladin')), bridges(design('queen'))]).toEqual([8, 0]);
   });
@@ -52,6 +55,11 @@ describe('the card face (ticket 08)', () => {
     expect(rows.map(text)).toEqual(canonical(d).rules.map(ruleText));
     expect(rows.map(text)).toEqual(['Its lines pass over its own pieces.', 'It cannot take a king.', 'When it takes a piece, not a pawn, it is removed too.']);
     expect(text(face(design('knight')))).toContain('No rules. Only its moves.');
+  });
+
+  it('says its moves and takes in words for a screen reader', () => {
+    expect(face(design('knight'))).toContain('<p class="sr-only">Moves in an L, like a knight. Takes the same squares.</p>');
+    expect(face(design('archer'))).toMatch(/<p class="sr-only">Moves [^<]+ Shoots without moving: [^<]+<\/p>/);
   });
 
   it('says the worth in pawns and the band word', () => {

@@ -342,8 +342,9 @@ function chevron(tip: P, u: P, s: number): string {
 }
 /**
  * The reach diagram of a design on 7 × 7 squares of side s, forward up, the piece in the centre (the card face and the
- * ledge's reach popover). Its squares and lines; "steps 2" and "also moves like" add theirs as "only sometimes" (a dashed
- * frame, stitched rails; designPattern, binder-and-table.html:769-781); "passes over" adds a bridge on the first square of
+ * ledge's reach popover). Its squares and lines; "steps 2" and "also moves like" add the squares and lines that it does not
+ * have as "only sometimes" (a dashed frame, stitched rails; designPattern, binder-and-table.html:769-781, adds lines only to a
+ * design with none); "passes over" adds a bridge on the first square of
  * each line. `cells`: the light and dark squares (the popover); else the page draws the grid (the card). The centre is the
  * icon of the body, or a gold-ringed disc for a token. A tile's group has data-xy and data-k, a rail's data-k="line" and data-dir; "only sometimes" adds data-cond.
  */
@@ -351,13 +352,13 @@ export function diagram(d: Pick<PieceDesign, 'squares' | 'lines' | 'rules' | 'lo
   const s = o.s, W = n(7 * s), cc = (x: number, y: number): P => [(x + 3) * s + s / 2, (3 - y) * s + s / 2], has = (a: Ability['a']) => d.rules.find(r => r.does.a === a)?.does;
   const like = has('movesLike') as Extract<Ability, { a: 'movesLike' }> | undefined, add = like ? likeSquares(like.as) : { squares: [], lines: [] };
   const extra = [...add.squares, ...(has('step2') ? [{ x: 0, y: 2, mark: 'move' as const }] : [])].filter(a => !d.squares.some(q => q.x === a.x && q.y === a.y));
-  const cond = !d.lines.length && add.lines.length > 0, lines = cond ? add.lines : d.lines;
+  const lines = [...d.lines, ...add.lines.filter(l => !d.lines.includes(l))];
   const way = (l: Dir) => { const [dx, dy] = DIR[l], L = Math.hypot(dx, dy), e = cc(dx * 3, dy * 3); return { dx, dy, u: [dx / L, -dy / L] as P, tip: [e[0] + dx * s * 0.08, e[1] - dy * s * 0.08] as P }; };
   let g = '';
   if (o.cells) for (let r = 0; r < 7; r++) for (let f = 0; f < 7; f++) g += `<rect x="${n(f * s)}" y="${n(r * s)}" width="${n(s)}" height="${n(s)}" fill="${(f + r) % 2 ? C.dDark : C.dLight}"/>`;
   const c0 = cc(0, 0), k = 0.6 * Math.max(4, 0.26 * s);
   for (const l of lines) {
-    const { dx, dy, u, tip } = way(l);
+    const { dx, dy, u, tip } = way(l), cond = !d.lines.includes(l);
     g += `<g data-k="line" data-dir="${l}"${cond ? ' data-cond="1"' : ''}>${rail([c0[0] + dx * s * 0.42, c0[1] - dy * s * 0.42], [tip[0] - u[0] * k, tip[1] - u[1] * k], s, { style: cond ? 'awake' : undefined })}</g>`;
   }
   for (const [q, sometimes] of [...d.squares.map(q => [q, false] as const), ...extra.map(q => [q, true] as const)]) {
