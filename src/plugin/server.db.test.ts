@@ -134,6 +134,31 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect((await reader.call('kingdown_settings', { symbols_only: false }))._meta.code).toBe('INTERNAL_ERROR');
  });
 
+ it('checks a handle without a write and exposes the record and history only in profile metadata', async () => {
+  const actor = await user('profile'), player = await connect(actor), reader = await connect(actor, readOnly);
+  await admin.query('update public.profiles set handle=null where id=$1', [actor]);
+  const handle = `picked-${tag}`;
+  expect((await reader.ok('kingdown_handle', { handle, check: true })).structuredContent).toEqual({ available: true });
+  expect((await reader.ok('kingdown_profile')).structuredContent).toEqual({ id: actor });
+  const changed = await player.ok('kingdown_handle', { handle, icon: 'mud' });
+  expect(changed._meta.me).toEqual({ handle, icon: 'mud' });
+  expect((await reader.ok('kingdown_handle', { handle, check: true })).structuredContent).toEqual({ available: true });
+  expect((await player.call('kingdown_handle', { handle: 'ab', check: true }))._meta.code).toBe('INVALID_INPUT');
+  expect((await player.call('kingdown_handle', { icon: 'photo' })).isError).toBe(true);
+  const other = await connect(await user('profile-other'));
+  expect((await other.call('kingdown_handle', { handle, check: true }))._meta.code).toBe('HANDLE_TAKEN');
+  await player.ok('kingdown_handle', { handle: `renamed-${tag}` });
+  expect((await other.call('kingdown_handle', { handle, check: true }))._meta.code).toBe('HANDLE_TAKEN');
+  const game = await player.ok('kingdown_create', { kind: 'solo', options: { ...DEFAULT_OPTIONS, arrangement: false } });
+  await player.ok('kingdown_resign', { game_id: view(game).game_id });
+  const profile = await reader.ok('kingdown_profile');
+  expect(profile.structuredContent).toEqual({ id: actor, name: `renamed-${tag}` });
+  expect(profile._meta).toMatchObject({ handle: `renamed-${tag}`, icon: 'mud', record: { totals: { played: 1, lost: 1 }, rating: { provisional: true } }, history: [expect.objectContaining({ game_id: view(game).game_id })], next_before: null });
+  expect(profile.content[0].text).toMatch(/Rating 1500.*1 played.*1 lost/);
+  expect((await reader.call('kingdown_profile', { before: 'bad' }))._meta.code).toBe('INVALID_INPUT');
+  expect((await player.ok('kingdown_games'))._meta.games).toEqual([]);
+ });
+
  it('plays a Daily friend game between two ChatGPT players and shows the model no position and no opponent text', async () => {
   const host = await connect(ann), guest = await connect(bob), handles = [`ann-${tag}`, `bob-${tag}`];
   const created = await host.ok('kingdown_create', { options: { ...DEFAULT_OPTIONS, arrangement: false }, kind: 'friend', colour: 'white' });

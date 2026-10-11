@@ -10,6 +10,7 @@ const PROBES = `select id,actor_id,match_id,game_selected from public.plugin_boa
  select user_id,rating,rd,volatility,last_game_at from public.player_ratings limit 0;
  select game_id,user_id,rating_before,rd_before,volatility_before,rating,rd,volatility,created_at from public.rating_history limit 0;
  select user_id,badge,earned_at,game_id from public.player_badges limit 0;
+ select handle from public.reserved_handles limit 0;
  select user_id,symbols_only,show_threats,last_setup from public.player_settings limit 0;
  select has_function_privilege('kingdown_jobs.request_deletion(uuid)','execute')
   and (select bool_and(has_column_privilege('public.games',name,'update')) from unnest(array['setup','rules','engine_fingerprint','setup_deadline_at','rematch_offer','rematch_game_id']) as columns(name))

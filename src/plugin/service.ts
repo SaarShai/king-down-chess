@@ -2,12 +2,15 @@
  * profile and the board selections. A board selection (`plugin_boards`) lets a remounted board find the game it shows,
  * also when the host replays an old tool result and drops the widget state. The actor is a verified user ID, never input. */
 import { randomUUID } from 'node:crypto';
-import { fail, GameService, id } from '../match/service';
+import { z } from 'zod';
+import { handleProblem, ICONS } from '../account/profile';
+import { fail, GameService, id, parse } from '../match/service';
 import type { PostgresMatchStore } from '../match/store';
 import { AccountService } from '../online/accounts';
 import { SettingsService } from './settings';
 import { SafetyService } from '../online/safety';
 
+export const handleSchema = z.strictObject({ handle: z.string().max(40).optional(), icon: z.enum(Object.keys(ICONS) as [keyof typeof ICONS, ...(keyof typeof ICONS)[]]).optional(), check: z.boolean().optional() });
 const seated = 'exists(select from public.game_players where game_id=$3 and user_id=$2)';
 export class PluginService {
   private games: GameService; private safety: SafetyService; private accounts: AccountService; private playerSettings: SettingsService;
@@ -31,6 +34,20 @@ export class PluginService {
   /** Read-only. The ID and the handle; never the email. */
   async profile(actor: string) { const { user_id, handle, icon } = await this.accounts.profile(actor); return { user_id, handle, icon }; }
   settings(actor: string, input: unknown = {}) { return this.playerSettings.settings(actor, input); }
+  async handle(actor: string, input: unknown) {
+    actor = id(actor); const { handle, icon, check } = parse(handleSchema, input);
+    if (check) {
+      if (handle === undefined || icon !== undefined) return fail('INVALID_INPUT', 400, 'Name one handle to check');
+      const name = handle.trim().toLowerCase(), problem = handleProblem(name);
+      if (problem) fail('INVALID_INPUT', 400, problem);
+      const taken = (await this.store.pool.query('select exists(select from public.profiles where handle=$1 and id<>$2) or exists(select from public.reserved_handles where handle=$1) as taken', [name, actor])).rows[0].taken;
+      if (taken) fail('HANDLE_TAKEN', 409, 'This handle is taken');
+    } else {
+      if (handle !== undefined) await this.accounts.setHandle(actor, { handle });
+      if (icon !== undefined) await this.accounts.updateSettings(actor, { icon });
+    }
+    return this.profile(actor);
+  }
   /** A new board for a game where the actor has a seat. */
   async openBoard(actor: string, gameId?: string): Promise<string> {
     const board = randomUUID();

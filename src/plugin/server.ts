@@ -10,6 +10,7 @@ import { choiceSchema, optionsSchema } from '../match/setup-schema';
 import { REPORT_CATEGORIES } from '../account/profile';
 import { settingsSchema } from './settings';
 import { ending } from './ending';
+import { handleSchema } from './service';
 import type { PluginService } from './service';
 
 /** The plugin build writes this origin before each art file (tools/plugin-ui-build.mjs); the server swaps in its own. */
@@ -48,7 +49,8 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   }
   /** The position, the legal moves, the opponent's handle and presets go in `_meta`, which only the board reads.
    * The model gets a short summary with no position and no opponent text (part 03, section 4.5; part 01, section 6.6). */
-  function reply(view: View, board?: string): Reply {
+  async function reply(view: View, board?: string): Promise<Reply> {
+    const { handle, icon } = await service.profile(actorId);
     const move = view.fen ? Number(view.fen.split(' ')[5]) : undefined, result = ending(view);
     // A draw offer from either side; the model can answer the opponent's with kingdown_draw.
     const offer = view.draw_offer === null ? null : view.draw_offer === view.seat ? 'yours' : 'opponent';
@@ -57,7 +59,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
         : `${view.action === 'ready' ? 'Your move' : 'The other side moves'}, move ${move}.${offer === 'opponent' ? ' The other side offers a draw.' : ''}`),
       structuredContent: { screen: 'board', game_id: view.game_id, ...(board && { board_id: board }), kind: view.kind, speed: view.speed, days_per_move: view.days_per_move, status: view.status,
         colour: view.seat === 0 ? 'white' : 'black', your_turn: view.action === 'ready', ...(move !== undefined && { move }), deadline_at: view.deadline_at, draw_offer: offer, ...(result && { result }) },
-      _meta: { view },
+      _meta: { view, me: { handle, icon } },
     };
   }
   /** A board that switches games keeps its ID, so a remount finds the new game. A board whose game was deleted may pick another; another player's board may not. */
@@ -67,7 +69,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     if (board) await service.selectBoard(actorId, board, view.game_id);
     return reply(view, board);
   }
-  const home = (board?: string): Reply => ({ content: text('King Down. Start a game from Play.'), structuredContent: { screen: 'home', ...(board && { board_id: board }), your_turn_count: 0 }, _meta: {} });
+  const home = async (board?: string): Promise<Reply> => { const { handle, icon } = await service.profile(actorId); return { content: text('King Down. Start a game from Play.'), structuredContent: { screen: 'home', ...(board && { board_id: board }), your_turn_count: 0 }, _meta: { me: { handle, icon } } }; };
   /** The most urgent game, or home when no game is open. */
   async function next(): Promise<View | null> {
     const urgent = (await service.inbox(actorId))[0];
@@ -84,11 +86,11 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const view = args.game_id === 'next' ? await next() : args.game_id ? await service.view(actorId, args.game_id) : null;
       const board = await service.openBoard(actorId, view?.game_id);
       const games = await service.inbox(actorId), count = games.filter(game => game.action === 'ready').length;
-      const result = view ? reply(view, board) : home(board);
+      const result = view ? await reply(view, board) : await home(board);
       result.structuredContent = { ...result.structuredContent, screen: args.screen ?? (view ? 'board' : 'home'), your_turn_count: count };
       if (!view) result.content = text(`Your move in ${count} games.`);
-      const [settings, { handle, icon }] = await Promise.all([service.settings(actorId), service.profile(actorId)]);
-      result._meta = { ...result._meta, games, settings, me: { handle, icon } };
+      const settings = await service.settings(actorId);
+      result._meta = { ...result._meta, games, settings };
       return result;
     });
   register('kingdown_create', 'Use this when the player wants a new King Down game against the computer, a friend or a random player. Choose the features, colour and computer level.',
@@ -103,11 +105,12 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     return reply(view, args.board_id);
   });
   register('kingdown_games', 'Use this when the player asks about their King Down games, or "is it my turn?". Lists the active games, your turn first, then the nearest deadline. Open one with kingdown_open.',
-    {}, { visibility: ['model'], readOnly: true }, async () => {
-      const games = (await service.inbox(actorId)).map(({ opponent, seat, turn: _turn, ...entry }) => ({ ...entry, colour: seat === 0 ? 'white' : 'black', your_turn: entry.action === 'ready',
-        opponent: !opponent ? 'none yet' : opponent.computer ? 'computer' : opponent.deleted ? 'deleted player' : 'player' }));
+    {}, { visibility: ['model', 'app'], readOnly: true }, async () => {
+      const rows = await service.inbox(actorId), games = rows.map(entry => ({ game_id: entry.game_id, kind: entry.kind, speed: entry.speed, status: entry.status,
+        revision: entry.revision, deadline_at: entry.deadline_at, colour: entry.seat === 0 ? 'white' : 'black', your_turn: entry.action === 'ready',
+        opponent: !entry.opponent ? 'none yet' : entry.opponent.computer ? 'computer' : entry.opponent.deleted ? 'deleted player' : 'player' }));
       const ready = games.filter(game => game.your_turn).length;
-      return { content: text(games.length ? `${games.length} active game${games.length === 1 ? '' : 's'}; your turn in ${ready}.` : 'No active games. Start one with kingdown_create.'), structuredContent: { games } };
+      return { content: text(games.length ? `${games.length} active game${games.length === 1 ? '' : 's'}; your turn in ${ready}.` : 'No active games. Start one with kingdown_create.'), structuredContent: { games }, _meta: { games: rows } };
     });
   register('kingdown_get', 'Reload the authoritative board. With since_revision, only the commands after that revision. Writes nothing.',
     { game_id: gameId.optional(), since_revision: z.number().int().min(0).max(MAX_REVISION).optional(), board_id: boardId }, { visibility: ['app'], readOnly: true }, async args => {
@@ -148,14 +151,19 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const { id, created_at } = await service.report(actorId, args);
       return { content: text('Report sent. The King Down team reviews it.'), structuredContent: { id, created_at } };
     });
+  register('kingdown_handle', 'Pick a handle and a preset picture, or check that a handle is free without a write.', handleSchema.shape, { visibility: ['app'] }, async args => {
+    const { handle, icon } = await service.handle(actorId, args);
+    return { content: text(args.check ? 'This handle is free.' : 'Your name and picture are ready.'), ...(args.check && { structuredContent: { available: true } }), _meta: { me: { handle, icon } } };
+  });
   register('kingdown_settings', 'Read or change your board settings and last setup choices.', settingsSchema.shape, { visibility: ['app'] }, async args => {
     const [settings, { handle, icon }] = await Promise.all([service.settings(actorId, args), service.profile(actorId)]);
     return { content: text('Your settings are ready.'), _meta: { settings, me: { handle, icon } } };
   });
   // ChatGPT tells connected accounts apart by this ID; an invalid reply can stop the account from connecting.
-  register('kingdown_profile', 'The signed-in King Down account: its ID and handle.', {}, { visibility: ['model'], readOnly: true, meta: { 'openai/profile': true }, output: { id: z.string(), name: z.string().optional() } }, async () => {
-    const { user_id, handle } = await service.profile(actorId);
-    return { content: text(handle ? `Signed in to King Down as ${handle}.` : 'Signed in to King Down; no handle yet.'), structuredContent: { id: user_id, ...(handle && { name: handle }) } };
+  register('kingdown_profile', 'Use this when the player asks for their King Down rating, totals or badges in text. For "show my King Down profile", open kingdown_open with screen "profile".', { before: z.string().max(100).optional() }, { visibility: ['model', 'app'], readOnly: true, meta: { 'openai/profile': true }, output: { id: z.string(), name: z.string().optional() } }, async args => {
+    const [{ user_id, handle, icon }, record, history] = await Promise.all([service.profile(actorId), service.record(actorId), service.history(actorId, args.before)]);
+    const { played, won, drawn, lost } = record.totals;
+    return { content: text(`Rating ${Math.round(record.rating.rating)}${record.rating.provisional ? '?' : ''}; ${played} played, ${won} won, ${drawn} drawn, ${lost} lost; ${record.badges.length} badges.`), structuredContent: { id: user_id, ...(handle && { name: handle }) }, _meta: { handle, icon, record, history: history.games, next_before: history.next_before } };
   });
   return server;
 }
