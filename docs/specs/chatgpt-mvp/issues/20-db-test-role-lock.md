@@ -41,6 +41,7 @@ The database tests (`src/online/accounts.db.test.ts`, `src/match/service.db.test
 - Before the API fix: `npm test` passes 137 test files, 2,121 tests and 50 artwork checks; 8 tests skip. Both role tests pass.
 - The next check finds a deadlock when the game test drops its role. The API test also changes roles and has no lock. The full caller search finds this missed path; it now uses the same helper. This check has 2,120 passes, 1 failure and 8 skips.
 - After the API fix, `npm test` passes 137 test files, 2,121 tests and 50 artwork checks; 8 tests skip. Both role tests pass.
+- Integration tip `b0e16067` merges with no conflicts. The check after the merge passes with the same counts.
 - `npm run plugin:db:init-test` passes. All 9 migrations run twice.
 - `git diff --check` passes.
 - Open items: none.

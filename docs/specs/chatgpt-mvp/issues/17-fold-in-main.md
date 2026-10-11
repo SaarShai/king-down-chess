@@ -35,3 +35,18 @@ After each merge to main from the rules session (`claude/game-marks`, `claude/pa
   - Run 4: `src/online/accounts.db.test.ts` stops in `beforeAll` with "deadlock detected". Roles belong to the whole server, but `pg_advisory_lock` holds only in one database. So a test run in a different worktree on the same server can make role changes at the same time.
 - Page size: `dist-plugin-ui/board.html` is 4,349,798 bytes. The MCP resource payload is 4,351,121 bytes (budget 4,400,000). **Flag:** the payload is above the 4,350,000 stop-and-ask line, 1,121 bytes over. At ticket 01 it was 4,348,027; game marks add 3,094 bytes.
 - Open items: (1) the payload size needs a decision before the plugin page grows more; (2) the power-fixes test needs its own longer limit, or it fails under load; (3) the role lock in `accounts.db.test.ts` needs to hold across all databases on the server.
+
+### Round 2 · 2026-10-11
+
+- Merges: `origin/main` at 943a5b60 (PRs #52 check fixes, #53 the shared test lock; the website deploy tasks) as 6226b0c4, no conflicts; then `claude/mvp-02-sample` (the approved sample, round 3) as 7f575402, no conflicts.
+- Checks (every browser check, as the 2026-10-11 lesson asks for a change to the board code; ticket 09 moved `crossOrigin` into the shared scene):
+
+| Check | Result |
+|---|---|
+| `npm test` with a test database | pass on run 2: 136 files, 2,119 passed, 8 skipped. Run 1 stopped on the server-wide role deadlock (ticket 20 fixes it). |
+| `npm run build` | pass |
+| `npm run plugin:build`, `plugin:smoke`, `plugin:server:check` | pass; resource 437,582 JSON bytes; 20 art files |
+| `npm run check:browser` (all) | pass: 24 of 24 |
+
+- Page size: `plugin-server-dist/board.html` is 436,267 bytes (ticket 09 moved the art out). Open item (1) of round 1 is closed.
+- Open item (2) of round 1 is closed by the shared test lock: runs no longer overlap. Open item (3) is ticket 20.
