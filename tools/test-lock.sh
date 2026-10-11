@@ -16,7 +16,7 @@
 dir=$(git rev-parse --git-common-dir 2>/dev/null) || exec "$@"
 command -v perl >/dev/null || exec "$@"
 export KINGDOWN_TEST_LOCKED=1
-exec perl -MFcntl=:flock -e '
+exec perl -MFcntl=:flock -MTime::HiRes=time,sleep -e '
   my ($lock, $wait) = (shift, shift);
   $^F = 255; # keep the lock file open across exec
   open(my $f, ">>", $lock) or die "test-lock: cannot open $lock: $!\n";
