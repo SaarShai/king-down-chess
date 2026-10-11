@@ -7,7 +7,9 @@ const PROBES = `select id,actor_id,match_id from public.plugin_boards limit 0;
  select handle_changed_at,quiet_mode from public.profiles limit 0;
  select requested_at from public.account_deletions limit 0;
  select user_id,tries from public.invite_code_tries limit 0;
- select has_function_privilege('kingdown_jobs.request_deletion(uuid)','execute') as allowed`;
+ select has_function_privilege('kingdown_jobs.request_deletion(uuid)','execute')
+  and (select bool_and(has_column_privilege('public.games',name,'update')) from unnest(array['setup','rules','engine_fingerprint','setup_deadline_at','rematch_offer','rematch_game_id']) as columns(name))
+  and (select bool_and(has_column_privilege('public.game_players',name,'update')) from unnest(array['choice','ready','power']) as columns(name)) as allowed`;
 // A missing table, column, function or schema, or a missing grant.
 const SCHEMA = ['42P01', '42703', '42883', '3F000', '42501'];
 const required = message => Object.assign(new Error(message), { code: 'SCHEMA_REQUIRED' });
@@ -16,7 +18,7 @@ export async function checkPluginDatabase(pool, config, resource) {
   let probes;
   try { probes = await pool.query(PROBES); }
   catch (error) { if (SCHEMA.includes(error?.code)) throw required('Apply migrations 0005-0010, then blocks 3-7 of plugin-deploy/runtime-role.sql, before starting the server'); throw error; }
-  if (!probes.at(-1).rows[0]?.allowed) throw required('Apply block 5 of plugin-deploy/runtime-role.sql before starting the server');
+  if (!probes.at(-1).rows[0]?.allowed) throw required('Apply the runtime grants in plugin-deploy/runtime-role.sql before starting the server');
   // Boards keep their owner when a game goes (0004), and they point at the online games (0006).
   const constraint = await pool.query("select confdeltype,confrelid=to_regclass('public.games') as games from pg_constraint where conrelid='public.plugin_boards'::regclass and conname='plugin_boards_match_id_fkey'");
   if (constraint.rows[0]?.confdeltype !== 'n' || !constraint.rows[0].games) throw required('Apply plugin migrations 0004 and 0006 before starting the server');
