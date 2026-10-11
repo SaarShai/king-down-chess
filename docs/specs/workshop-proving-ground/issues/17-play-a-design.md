@@ -99,3 +99,15 @@ Evidence (the logs are outside Git, in `/tmp/pg17c/`):
 
 - `npm test` through the shared lock, run 1 (`test1.log`): exit 0; 117 test files pass (1 skipped), 1,910 tests pass (21 skipped); the node tests, 50 of 50. Run 2, with this ticket text and the check change (`test2.log`): exit 0; the same counts.
 - `npm run check:browser painted-game new-game workshop visual-design`, run 1 (`checks.log`): 2 of 4 failed. `painted-game` stopped only because this ticket changed during the run. `workshop` expected the old sentence "= Leap adds nothing to the My Paladin."; the check now expects "= Leap adds nothing to My Paladin." (`tools/verify-workshop.mjs`); the pool piece's "the Paladin" stays. Run 2 (`checks2.log`, `pg-design-d0irid`): all 4 pass.
+
+### 2026-10-11 · Review of the render review fixes
+
+The review (`scratchpad/build/review-17b.md`) had no must-fix item, one low item and two nits. I checked each against the code.
+
+1. **low, confirmed, fixed:** the Sacrifice sentence said "brings back a My Rook there", and pool pieces got "a archer" and "a ogre" (`src/move-text.ts`). Fix: the `article` helper moves from `src/previously.ts` to `src/rules/engine.ts` as `aName(t)` ("a rook", "an archer", or the design's name). The Sacrifice, morph and promotion words use it. Unit tests in `src/read.test.ts`: "brings back My Rook there." and "brings back an archer there."
+2. **nit, confirmed, not fixed:** the clay tint for Black's design is `CLAY_PALETTES[1].light`, paler than the black sculpts. The reviewer says it reads as Black, and a new colour is a visual change that needs new renders for the owner. A follow-up if the owner asks.
+3. **nit, confirmed, fixed:** `validName` accepts a name in lower case, so "old ward cannot reach e5." started with a small letter. Fix: `theName` makes the first letter of the design's name a capital when the article starts with a capital ("The", "This"). Unit test: "Old ward cannot reach e5."
+
+Renders: not made again. The fixes change only screen-reader and notice sentences, and no image in `owner4/play-design/` shows them.
+
+Evidence (the logs are outside Git, in `/tmp`): `npm test` through the shared lock (`/tmp/pg17d-test1.log`): exit 0; 117 test files pass (1 skipped), 1,910 tests pass (21 skipped); the node tests, 50 of 50. The new asserts are in an existing test, so the count stays the same. `npm run check:browser painted-game workshop` (`/tmp/pg17d-checks.log`, `pg-design-z2n6cq`): both pass.

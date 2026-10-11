@@ -1,8 +1,6 @@
 import type { Game } from './game';
 import { POWER_NAME } from './powers-ui';
-import { A, NAMES, nameOf, theName, TAG_POWER, sqName, typeOf, type Color, type Move, type PieceType, type Position, type PowerName, type PowerTag } from './rules/engine';
-
-const article = (t: PieceType): string => theName(t, /^[aeiou]/.test(NAMES[t]) ? 'an' : 'a');
+import { A, aName, nameOf, theName, TAG_POWER, sqName, typeOf, type Color, type Move, type Position, type PowerName, type PowerTag } from './rules/engine';
 
 const powerName = (tag: PowerTag): string => {
   const card = TAG_POWER[tag];
@@ -32,15 +30,15 @@ export function previouslyTurn(history: Readonly<Game['history']>, side: Color):
   const victim = (sq: number) => nameOf(typeOf(pos.board[sq]));
   const summary = move.pass ? `their ${name} stayed; the turn ended.` : move.captures.length
     ? `their ${name} ${typeOf(pos.board[move.from]) === A && move.from === move.to ? 'shot' : 'took'} ${takes > 1 ? `${takes} pieces` : `your ${victim(move.captures[0])}`}.`
-    : move.power === 'sacrifice' ? `they traded a pawn for ${article(move.promo!)}.`
+    : move.power === 'sacrifice' ? `they traded a pawn for ${aName(move.promo!)}.`
     : move.drop ? `their ${name} ${move.power === 'salvation' ? 'returned' : 'entered'} on ${sqName(move.to)}.`
     : move.shove ? `their ${name} shoved your ${victim(move.shove.from)}.`
     : move.swap ? `their ${name} swapped places.`
     : move.power === 'freeze' ? `they froze your ${victim(move.to)}.`
     : move.power === 'ward' ? `they shielded their ${victim(move.to)}.`
-    : move.promo && move.from === move.to ? `their ${name} became ${article(move.promo)}.`
+    : move.promo && move.from === move.to ? `their ${name} became ${aName(move.promo)}.`
     : move.power === 'rescue' ? name ? `they marked ${theName(move.drop ?? typeOf(pos.board[move.from]))} again.` : `they used Rescue.`
-    : move.pushes ? `they pushed ${article(typeOf(pos.board[move.pushes[0].from]))} with ${powerName(move.power!)}.`
+    : move.pushes ? `they pushed ${aName(typeOf(pos.board[move.pushes[0].from]))} with ${powerName(move.power!)}.`
     : move.power === 'growth' || move.power === 'growthb' ? `they drew a card with Growth.`
     : move.from === move.to ? `their ${name} ${move.power ? `used ${powerName(move.power)}` : `stayed on ${sqName(move.to)}`}.`
     : `their ${name} moved to ${sqName(move.to)}.`;

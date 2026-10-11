@@ -251,4 +251,11 @@ it('names and describes the design that plays as T (ticket 17), and the Templar 
   // A design's name takes no article (review nit 8).
   const take = fromFen('4k3/8/8/8/3t4/8/8/3RK3 w - - 0 1');
   expect(describeMove(take, legalMoves(take).find(m => m.from === at('d1') && m.to === at('d4'))!)).toBe('White rook d1 to d4, taking My Rook on d4.');
+  // Sacrifice brings back the design with no article, and a pool piece with the right one (review 17b, item 1).
+  const sac = { from: at('a2'), to: at('a2'), captures: [], power: 'sacrifice' } as unknown as Parameters<typeof describeMove>[1];
+  expect(describeMove(take, { ...sac, promo: T })).toBe('White sacrifices the pawn on a2 and brings back My Rook there.');
+  expect(describeMove(take, { ...sac, promo: A })).toBe('White sacrifices the pawn on a2 and brings back an archer there.');
+  // A sentence starts with a capital, also for a name typed in lower case (review 17b, item 3).
+  setRules(parseRule(`design=${designCode({ ...fromPreset(PRESETS.find(p => p.key === 'rook')!), name: 'old ward', letter: 'Y' })}`));
+  expect(whyNot(pos, at('d4'), at('e5'))).toBe('Old ward cannot reach e5.');
 });
