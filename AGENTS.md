@@ -60,6 +60,6 @@
 - Measurements, thresholds, adoption and taste stay in code and with the owner.
 
 ## Helpers and machines
-- Helpers may be used. Start a Claude helper with `tools/claude-agent.sh` (the API key), not the Agent tool or a workflow. Tell a helper whose output the owner reads to write in ASD-STE100. [DELEGATION.md](docs/DELEGATION.md) holds the measured M1 capabilities and prompt templates.
+- Helpers (subagents, workflows) may be used. Tell a helper whose output the owner reads to write in ASD-STE100. [DELEGATION.md](docs/DELEGATION.md) holds the measured M1 capabilities and prompt templates.
 - For SSH, Remote Management or Ollama work on the M1, read [LOCAL-AI-MACBOOK.md](docs/LOCAL-AI-MACBOOK.md) and verify its device identity before a state change.
 - Cloud sessions (claude.ai/code): `.claude/hooks/cloud-setup.sh` runs `npm ci` and tries to install Playwright Chromium. A cloud clone holds only Git: no raw art in `art-src/` (only its manifest), no bulk sim data, no TypeSafe key, no access to the M1. Commit and push finished work to its branch; work left only in the cloud is lost.
