@@ -40,6 +40,12 @@ Build one test first for each change. Use the MCP client and the game service as
 
 Verify each step with `npm test`. Use `kingdown_mvp10_test` on 127.0.0.1:55432. At the end, run the protocol check, server check and all browser checks. Merge the current integration tip, run `npm test` again and push this branch.
 
+## Fix-round plan and checks
+
+Fix review items 1 to 15 in small commits. Use the existing game-service, MCP-client and fixture seams. Add a browser check for the pending-command switch. Each code fix starts with a failing check. Check the rating rows and history for setup ends. Keep the page fix to pending-command removal before the empty-FEN return.
+
+Final checks: `npm test`, plugin build, server and protocol checks, local Vercel build and check, and both plugin browser checks. Merge the local integration tip, repeat `npm test`, then push the branch. Keep all database checks on `kingdown_mvp10_test` at 127.0.0.1:55432.
+
 ## Interface
 
 Only `kingdown_open` carries the page resource. Model tools start their description with "Use this when". Each tool keeps the visibility and read, write, destructive and retry hints below. Errors have plain text and `_meta.code`; a bad option gives `INVALID_INPUT`. The page calls `validate()` before Start for the useful option text.

@@ -181,7 +181,7 @@ export class GameService {
    for (;;) {
     const [open] = await this.store.lobby(actor, { client, lock: true });
     if (!open) break;
-    const game = await this.store.load(open.game_id, { client, lock: true }), at = new Date();
+    const game = await this.store.load(open.game_id, { client, lock: true }), at = (await client.query('select statement_timestamp() as at')).rows[0].at;
     if (game.created_at.getTime() + DAY <= at.getTime()) continue;
     return this.acceptSeat(client, game, actor, at);
    }
@@ -205,7 +205,8 @@ export class GameService {
    return this.render(next, seat, { client });
   });
  }
- private async acceptSeat(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, at = new Date()): Promise<View> {
+ private async acceptSeat(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, at?: Date): Promise<View> {
+  at ??= (await client.query('select statement_timestamp() as at')).rows[0].at as Date;
   if (game.kind !== 'random' || game.created_by === actor) fail('NOT_ALLOWED', 409, 'This open game cannot be accepted');
   const seated = game.players.find(p => p.user_id === actor);
   if (seated) return this.render(game, seated.seat, { client, rules: true });

@@ -2,7 +2,7 @@
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GameService } from './service';
 import { PostgresMatchStore } from './store';
 import { DEFAULT_OPTIONS } from './setup';
@@ -79,6 +79,18 @@ suite('matchmaking through PostgreSQL', () => {
   expect(found).toMatchObject({ game_id: created.game_id, status: 'setup', seat: 0, revision: 1, options });
   expect((await plugin.lobby(users[1])).games.map(g => g.game_id)).toEqual([newer.game_id]);
   await expect(plugin.find(users[4], { ...DEFAULT_OPTIONS, pool: [] }, 'white')).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+ });
+ it('uses the database clock when the server clock is ahead', async () => {
+  const open = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
+  const realLobby = service.store.lobby.bind(service.store);
+  let reads = 0;
+  const guard = vi.spyOn(service.store, 'lobby').mockImplementation((...args) => {
+   if (++reads > 2) throw new Error('Find repeats the same candidate');
+   return realLobby(...args);
+  });
+  vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(Date.now() + 2 * 86_400_000);
+  try { expect(await service.find(users[1], DEFAULT_OPTIONS)).toMatchObject({ game_id: open.game_id, status: 'setup' }); }
+  finally { vi.useRealTimers(); guard.mockRestore(); }
  });
  it('pairs two finds on an empty lobby in one game', async () => {
   const clients = await Promise.all([runtime.connect(), runtime.connect()]);
