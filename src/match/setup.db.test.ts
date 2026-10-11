@@ -31,7 +31,10 @@ suite('game setup through PostgreSQL', () => {
   const login = new URL(own.href); login.username = role; login.password = password;
   runtime = new pg.Pool({ connectionString: login.href, max: 2 }); service = new GameService(new PostgresMatchStore(runtime));
   a = randomUUID(); b = randomUUID(); users.push(a, b);
-  for (const id of users) await admin.query('insert into auth.users(id) values($1)', [id]);
+  for (const id of users) {
+   await admin.query('insert into auth.users(id) values($1)', [id]);
+   await admin.query('update public.profiles set handle=$2 where id=$1', [id, `setup-${id.slice(0, 8)}`]);
+  }
  }, 120_000);
  afterAll(async () => {
   if (!admin) return;

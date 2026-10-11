@@ -2,7 +2,7 @@
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { createMatch, loadMatch, MatchError, type MatchSnapshot } from './index';
-import { commandSchema, createSchema, MAX_REVISION, type Command, type CreateOptions, type EndReason, type InboxEntry, type Invite, type Seat, type SeatAction, type Surface, type View } from './protocol';
+import { commandSchema, createSchema, MAX_REVISION, type Command, type CreateOptions, type EndReason, type InboxEntry, type Invite, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
 import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
 import { diagnostic } from '../plugin/diagnostics';
 import { buildSetup, defaultChoice, draw, seatChoicesNeeded, validateChoice } from './setup';
@@ -96,8 +96,9 @@ async function play(game: Game, mover: Seat, lans: string[] | 'computer', engine
 export class GameService {
  constructor(readonly store: PostgresMatchStore) {}
  async create(actor: string, input: unknown): Promise<View> {
-  actor = id(actor);
-  const game = await this.newGame(actor, parse(createSchema, input));
+  actor = id(actor); const options = parse(createSchema, input);
+  if (options.kind === 'random') await this.requireHandle(actor);
+  const game = await this.newGame(actor, options);
   settle(game, game.created_at);
   await this.store.insert(game);
   return this.render(game, seatOf(game, actor), { rules: true });
@@ -153,6 +154,68 @@ export class GameService {
  }
  /** The actor's active games: your turn first, then the nearest deadline. */
  async inbox(actor: string): Promise<InboxEntry[]> { return this.store.inbox(id(actor)); }
+ async lobby(actor: string): Promise<Lobby> {
+  actor = id(actor);
+  const [games, count] = await Promise.all([this.store.lobby(actor), this.store.activeCount()]);
+  return { games, ...(count >= 10 && { active_count: count }) };
+ }
+ private async requireHandle(actor: string, client: Parameters<PostgresMatchStore['privacy']>[0] = this.store.pool): Promise<void> {
+  if (!(await client.query('select handle from public.profiles where id=$1', [actor])).rows[0]?.handle) fail('HANDLE_NEEDED', 409, 'Pick a handle before you play another person');
+ }
+ async accept(actor: string, gameId: string): Promise<View> {
+  actor = id(actor); gameId = id(gameId);
+  return this.store.transaction(async client => {
+   await this.requireHandle(actor, client);
+   const game = await this.store.load(gameId, { client, lock: true });
+   return this.acceptSeat(client, game, actor);
+  });
+ }
+ async find(actor: string, options: unknown, colour: unknown = 'white'): Promise<View> {
+  actor = id(actor); const input = parse(createSchema, { kind: 'random', options, colour });
+  return this.store.transaction(async client => {
+   await this.requireHandle(actor, client);
+   // An empty lobby has no row to lock; serialize the search and create as one step.
+   await client.query('select pg_advisory_xact_lock(7007008)');
+   for (;;) {
+    const [open] = await this.store.lobby(actor, { client, lock: true });
+    if (!open) break;
+    const game = await this.store.load(open.game_id, { client, lock: true }), at = new Date();
+    if (game.created_at.getTime() + DAY <= at.getTime()) continue;
+    return this.acceptSeat(client, game, actor, at);
+   }
+   const game = await this.newGame(actor, input); settle(game, game.created_at);
+   await this.store.insert(game, client);
+   return this.render(game, seatOf(game, actor), { client, rules: true });
+  });
+ }
+ async cancel(actor: string, gameId: string): Promise<View> {
+  actor = id(actor); gameId = id(gameId);
+  return this.store.transaction(async client => {
+   const game = await this.store.load(gameId, { client, lock: true });
+   if (game.created_by !== actor) fail('FORBIDDEN', 403, 'Only the creator can cancel this open game');
+   if (game.kind !== 'random') fail('NOT_ALLOWED', 409, 'Only an open random game can be cancelled');
+   const seat = seatOf(game, actor);
+   if (game.status === 'aborted' && game.end_reason === 'abort') return this.render(game, seat, { client });
+   if (game.status !== 'waiting') fail('NOT_ALLOWED', 409, 'This game is no longer waiting for an opponent');
+   const at = new Date(), next = step(game), out: Outgoing = { notify: [], outbox: [] };
+   end(next, out, null, 'abort', at);
+   await this.write(client, game, next, { seat, actor_id: actor, command_id: null, kind: 'abort', payload: { action: { type: 'abort' } }, actions: null, surface: null, received_at: at }, out);
+   return this.render(next, seat, { client });
+  });
+ }
+ private async acceptSeat(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, at = new Date()): Promise<View> {
+  if (game.kind !== 'random' || game.created_by === actor) fail('NOT_ALLOWED', 409, 'This open game cannot be accepted');
+  const seated = game.players.find(p => p.user_id === actor);
+  if (seated) return this.render(game, seated.seat, { client, rules: true });
+  const seat = game.players.find(p => !p.user_id && !p.computer)?.seat;
+  if (game.status !== 'waiting' || seat === undefined || game.created_at.getTime() + DAY <= at.getTime()) return fail('NOT_ALLOWED', 409, 'This open game is no longer available');
+  if (!game.created_by || !await this.store.unblocked(client, game.created_by, actor)) fail('FORBIDDEN', 403, 'This open game cannot be accepted');
+  const next = step(game), out: Outgoing = { notify: [], outbox: [] };
+  Object.assign(next.players[seat], { user_id: actor, last_seen_at: at });
+  await this.enterSetup(next, at); turnTo(next, out, at, actor);
+  await this.write(client, game, next, { seat, actor_id: actor, command_id: null, kind: 'join', payload: {}, actions: null, surface: null, received_at: at }, out);
+  return this.render(next, seat, { client, rules: true });
+ }
  async record(actor: string): Promise<PlayerRecord> { return playerRecord(this.store.pool, id(actor)); }
  async history(actor: string, before?: string, limit = 20): Promise<HistoryPage> {
   actor = id(actor);
@@ -263,7 +326,7 @@ export class GameService {
    return this.render(next, seat, { client, rules: true });
   });
  }
- /** Ends Daily games whose deadline passed, and waiting games whose invitation ran out (no start); safe to run twice at once. Returns how many it ended. */
+ /** Ends missed deadlines, expired invitations and 24-hour open games; safe to run twice at once. */
  async sweep(now = new Date()): Promise<number> {
   let ended = 0;
   for (const gameId of await this.store.due(now)) try {
@@ -271,7 +334,8 @@ export class GameService {
     const game = await this.store.load(gameId, { client, lock: true });
     // A command, a new invitation or another sweep may have come first.
     const late = game.status === 'setup' ? !!game.setup_deadline_at && game.setup_deadline_at <= now : game.status === 'playing' ? !!game.deadline_at && game.deadline_at <= now
-     : game.status === 'waiting' && !!(await client.query('select from public.game_invites where game_id=$1 and used_by is null and expires_at<=$2', [gameId, now])).rowCount;
+     : game.status === 'waiting' && (game.kind === 'random' ? game.created_at.getTime() + DAY <= now.getTime()
+      : !!(await client.query('select from public.game_invites where game_id=$1 and used_by is null and expires_at<=$2', [gameId, now])).rowCount);
     if (!late) return 0;
     const next = step(game), out: Outgoing = { notify: [], outbox: [] };
     if (game.status === 'waiting') end(next, out, null, 'no_start', now); else expire(next, out, now);
