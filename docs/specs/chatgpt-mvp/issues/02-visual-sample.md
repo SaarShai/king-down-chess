@@ -1,6 +1,6 @@
 # 02 · The visual sample
 
-Status: resolved
+Status: needs-info (waits for the owner's yes on round 2)
 Type: HITL (the owner's yes on the rendered sample)
 Size: M
 Blocked by: none
@@ -11,7 +11,7 @@ A static, clickable mock of the MVP screens with the real art, for the owner's y
 
 - Screens: the inline home card (Play, Your games); Play (computer, friend, random, Join with a code); Setup (the five toggles with their one-line texts, colour, level; the pieces "all" sheet with locks at 7; the cards "all" sheet; the king-coin sheet: six kings, then two powers, with the cards-on filter); Seat setup (king coin + arranging the back rank on the board, Shuffle, Ready, "waiting for the other player"); the board in a game with cards (both hands, spent cards, the power coin) and the action row (Resign, Draw, Abort/Claim when they apply); the end card with Rematch; Lobby (open games list with features and Accept, Find an opponent, the wait with "Play the computer while you wait", "Opponent found. Switch now?"); Profile (the scroll registry with totals, rating with "?", the 10 badges, earned and not earned); Collection; Settings (Symbols only, Show threats); the handle and picture screen (17 presets).
 - Sizes: phone 390 × 844 (DPR 2) and desktop 1440 × 900; the side panel at about 400 × 900. Fullscreen screens leave room at the bottom for the ChatGPT composer.
-- ChatGPT UI rules (explorer note F, §8): system fonts for all UI text; brand colour only on primary buttons, accents and badges; decorative lettering only inside images; WCAG AA contrast.
+- Look: the web game's own design (tokens, Cinzel and Alegreya Sans, components). The owner's design wins over OpenAI's style advice (system fonts); the fonts load from the plugin origin like the art. Host limits stay: at most 2 actions on the inline card, room for the composer, WCAG AA contrast.
 - Art: existing art first (king portraits and emblems in `public/ui/kings`, `public/ui/emblems`; piece art; `public/ui/icons/*.svg`; the 10 card faces and the back in `public/ui/cards`). New art with Codex image_gen only (global rule): the scroll, the king-coin frame, 10 badges, toggle icons. Keep the masters and `.prompt.txt` files in `art-src/` with manifest rows.
 
 ## Plan
@@ -45,3 +45,19 @@ A static, clickable mock of the MVP screens with the real art, for the owner's y
 ## Notes
 
 - Explorer notes: `../notes/e-art.md`, `../notes/f-host.md`.
+
+## Comments
+
+### 2026-10-11 · round 2: the game's design
+
+The owner's verdict on round 1, word for word: "the GUI look doesn't seem like it is based on our design for the game." Round 1 used OpenAI's generic app style. Round 2 rebuilds every screen on the web game.
+
+- Reference: the game on origin/main (b661ff0d), phone 390 × 844 and desktop 1440 × 900, in `sample/reference/` (title, home, New game for the computer and for kings' powers, Menu, Board help, a game with powers, the Ceremony). `sample/reference/capture.mjs` makes them from a production build.
+- The sample loads the game's real style sheets (`src/style.css`, `src/ui/table.css`, `src/ceremony.css`) and fonts, and draws the boards with the game's painted scene and move legend (`sample/board.mjs`). The table in the README lists the component that each screen reuses.
+- Cards in a game use the owner's card mode C, "Coins by the king" (web-redesign §1.1): the power coin, then one coin for each card.
+- The plugin game has no Undo and no End turn (Q14), so the game's bar holds Offer draw, Resign and Menu. Abort and Claim go in the context line, as the game's context actions do.
+- Art: the 10 badges fit and stay. The scroll fits; its glossy brass rollers are a little off the painted look (proposal: matte rollers in the next art pass). The gold coin frame is not used: the game's own coin replaces it. No new art in this round.
+- Fonts from the plugin origin: 82,444 bytes for all four files, 62,656 without the italic.
+- Checks: `node docs/specs/chatgpt-mvp/sample/render.mjs`: 23 states × 3 sizes, no faults. `sample/contact-sheet.png` and `sample/compare.png` (the game beside the sample for title, New game, the king picker, Board help, Menu, the game and the Ceremony). No `npm test` and no browser-check run in this round (a design sample; the Mac stays quiet for deploys).
+- Open: the owner's yes on `sample/contact-sheet.png` and `sample/compare.png`, or a list of changes. The game's power buttons show small board pictures; the sample's king sheet shows the power names only.
+
