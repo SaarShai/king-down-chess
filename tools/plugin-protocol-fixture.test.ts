@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { fixtureService } from './plugin-protocol-fixture';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 
@@ -63,4 +63,19 @@ it('keeps seeded end data and rules out of since polls', async () => {
   const poll = await s.view('alice',game.game_id,1);
   expect(poll).not.toHaveProperty('outcome'); expect(poll).not.toHaveProperty('rules'); expect(poll.opponent).not.toHaveProperty('rating');
  } finally {await s.close();}
+});
+
+it('returns the completed fixture join on retry, also after the code expires', async () => {
+ const s = fixtureService(); vi.useFakeTimers({toFake:['Date']});
+ try {
+  for (const actor of ['alice','bob','cara']) await s.handle(actor,{handle:actor});
+  for (const options of [DEFAULT_OPTIONS,{...DEFAULT_OPTIONS,arrangement:false}]) {
+   const game = await s.create('alice',{kind:'friend',options}), invite = await s.invite('alice',game.game_id);
+   const joined = await s.join('bob',invite.code);
+   expect(await s.join('bob',invite.code)).toMatchObject({game_id:game.game_id,status:joined.status,revision:joined.revision,seat:joined.seat});
+   vi.setSystemTime(Date.now()+8*86_400_000);
+   expect(await s.join('bob',invite.code)).toMatchObject({game_id:game.game_id,revision:joined.revision});
+   await expect(s.join('cara',invite.code)).rejects.toMatchObject({code:'INVITE_UNAVAILABLE'});
+  }
+ } finally {vi.useRealTimers();await s.close();}
 });
