@@ -66,6 +66,49 @@ suite('matchmaking through PostgreSQL', () => {
    expect(await service.view(users[game === one ? 1 : 2], game.game_id)).toMatchObject({ status: 'waiting', revision: 0, opponent: null });
   }
  });
+ it('creates on an empty lobby and finds the oldest eligible game with its creator’s features', async () => {
+  const options = { ...DEFAULT_OPTIONS, kingPowers: true };
+  const created = await plugin.find(users[0], options, 'black');
+  expect(created).toMatchObject({ status: 'waiting', kind: 'random', seat: 1, revision: 0, options });
+  const newer = await service.create(users[2], { kind: 'random', options: DEFAULT_OPTIONS });
+  const blocked = await service.create(users[3], { kind: 'random', options: DEFAULT_OPTIONS });
+  await admin.query("update public.games set created_at=now()-interval '1 hour' where id=$1", [blocked.game_id]);
+  await admin.query("insert into public.relations(user_id,other_id,kind) values($1,$2,'block')", [users[1], users[3]]);
+  await service.create(users[1], { kind: 'random', options: DEFAULT_OPTIONS });
+  const found = await plugin.find(users[1], DEFAULT_OPTIONS, 'white');
+  expect(found).toMatchObject({ game_id: created.game_id, status: 'setup', seat: 0, revision: 1, options });
+  expect((await plugin.lobby(users[1])).games.map(g => g.game_id)).toEqual([newer.game_id]);
+  await expect(plugin.find(users[4], { ...DEFAULT_OPTIONS, pool: [] }, 'white')).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+ });
+ it('pairs two finds on an empty lobby in one game', async () => {
+  const clients = await Promise.all([runtime.connect(), runtime.connect()]);
+  for (const client of clients) client.release();
+  // Hold the first insert long enough for the other client to search the empty lobby.
+  await admin.query(`create function public.slow_seek() returns trigger language plpgsql as $$ begin perform pg_sleep(0.1); return new; end $$;
+   create trigger slow_seek before insert on public.games for each row execute function public.slow_seek()`);
+  try {
+   const found = await Promise.all([plugin.find(users[0], DEFAULT_OPTIONS, 'white'), plugin.find(users[1], DEFAULT_OPTIONS, 'black')]);
+   expect(new Set(found.map(game => game.game_id)).size).toBe(1);
+   expect(found.map(game => game.status).sort()).toEqual(['setup', 'waiting']);
+   expect(await service.view(users[0], found[0].game_id)).toMatchObject({ status: 'setup', revision: 1, opponent: { handle: handles[1] } });
+  } finally { await admin.query('drop trigger slow_seek on public.games; drop function public.slow_seek()'); }
+ });
+ it('lets only the creator cancel a waiting random game with no result', async () => {
+  const game = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
+  await expect(plugin.cancel(users[1], game.game_id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  const cancelled = await plugin.cancel(users[0], game.game_id);
+  expect(cancelled).toMatchObject({ status: 'aborted', revision: 1, result: { winner: null, reason: 'abort' }, action: 'done' });
+  expect(cancelled.last_commands.at(-1)?.action).toEqual({ type: 'abort' });
+  expect(await plugin.cancel(users[0], game.game_id)).toMatchObject({ status: 'aborted', revision: 1 });
+  expect(await service.inbox(users[0])).toEqual([]);
+  expect((await plugin.lobby(users[1])).games).toEqual([]);
+  await expect(plugin.accept(users[1], game.game_id)).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
+  const joined = await plugin.find(users[0], DEFAULT_OPTIONS);
+  await plugin.accept(users[1], joined.game_id);
+  await expect(plugin.cancel(users[0], joined.game_id)).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
+  const friend = await service.create(users[0], { kind: 'friend', options: DEFAULT_OPTIONS });
+  await expect(plugin.cancel(users[0], friend.game_id)).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
+ });
  it('gives one open seat to one of 20 clients and lets the winner retry', async () => {
   const created = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS, colour: 'black' });
   const pools = Array.from({ length: 20 }, () => new pg.Pool({ connectionString: login.href, max: 1 }));

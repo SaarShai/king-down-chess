@@ -114,12 +114,12 @@ export class PostgresMatchStore {
   return result.rows.map(({ op_user, op_computer, op_seen, op_handle, ...r }) => ({ ...r, deadline_at: r.deadline_at?.toISOString() ?? null, updated_at: r.updated_at.toISOString(),
    opponent: r.status === 'waiting' && !op_user ? null : { handle: op_handle ?? null, computer: op_computer, deleted: !op_user && !op_computer, last_seen_ms: op_seen ? now - op_seen.getTime() : null } }));
  }
- async lobby(actor: string): Promise<LobbyEntry[]> {
-  const result = await this.pool.query(`select g.id as game_id,g.options,p.seat,pr.handle,pr.icon,g.created_at from public.games g
+ async lobby(actor: string, { client = this.pool as Client, lock = false } = {}): Promise<LobbyEntry[]> {
+  const result = await client.query(`select g.id as game_id,g.options,p.seat,pr.handle,pr.icon,g.created_at from public.games g
    join public.game_players p on p.game_id=g.id and p.user_id is null and not p.computer
    join public.profiles pr on pr.id=g.created_by
    where g.kind='random' and g.status='waiting' and g.created_by<>$1 and pr.handle is not null and ${unblocked('$1', 'g.created_by')}
-   order by g.created_at,g.id limit 100`, [actor]);
+   order by g.created_at,g.id limit ${lock ? 1 : 100}${lock ? ' for update of g' : ''}`, [actor]);
   return result.rows.map(({ seat, handle, icon, created_at, ...row }) => ({ ...row, colour: seat === 0 ? 'white' : 'black', creator: { handle, icon }, created_at: created_at.toISOString() }));
  }
  /** What `viewer` sees of `other`: their presets (no block, and the viewer's quiet mode is off) and when they were last seen. */

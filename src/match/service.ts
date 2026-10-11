@@ -159,6 +159,33 @@ export class GameService {
    return this.acceptSeat(client, game, actor);
   });
  }
+ async find(actor: string, options: unknown, colour: unknown = 'white'): Promise<View> {
+  actor = id(actor); const input = parse(createSchema, { kind: 'random', options, colour });
+  return this.store.transaction(async client => {
+   // An empty lobby has no row to lock; serialize the search and create as one step.
+   await client.query('select pg_advisory_xact_lock(7007008)');
+   const [open] = await this.store.lobby(actor, { client, lock: true });
+   if (open) return this.acceptSeat(client, await this.store.load(open.game_id, { client, lock: true }), actor);
+   const game = await this.newGame(actor, input); settle(game, game.created_at);
+   await this.store.insert(game, client);
+   return this.render(game, seatOf(game, actor), { client, rules: true });
+  });
+ }
+ async cancel(actor: string, gameId: string): Promise<View> {
+  actor = id(actor); gameId = id(gameId);
+  return this.store.transaction(async client => {
+   const game = await this.store.load(gameId, { client, lock: true });
+   if (game.created_by !== actor) fail('FORBIDDEN', 403, 'Only the creator can cancel this open game');
+   if (game.kind !== 'random') fail('NOT_ALLOWED', 409, 'Only an open random game can be cancelled');
+   const seat = seatOf(game, actor);
+   if (game.status === 'aborted' && game.end_reason === 'abort') return this.render(game, seat, { client });
+   if (game.status !== 'waiting') fail('NOT_ALLOWED', 409, 'This game is no longer waiting for an opponent');
+   const at = new Date(), next = step(game), out: Outgoing = { notify: [], outbox: [] };
+   end(next, out, null, 'abort', at);
+   await this.write(client, game, next, { seat, actor_id: actor, command_id: null, kind: 'abort', payload: { action: { type: 'abort' } }, actions: null, surface: null, received_at: at }, out);
+   return this.render(next, seat, { client });
+  });
+ }
  private async acceptSeat(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string): Promise<View> {
   if (game.kind !== 'random' || game.created_by === actor) fail('NOT_ALLOWED', 409, 'This open game cannot be accepted');
   const seated = game.players.find(p => p.user_id === actor);

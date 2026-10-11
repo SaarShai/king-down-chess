@@ -17,7 +17,7 @@ beforeEach(async () => {
   provider.mockReset();
   provider.mockImplementation(async (_url, options) => Response.json({ id: decodeJwt(new Headers(options?.headers).get('Authorization')!.slice(7)).sub }));
   service = { openBoard: vi.fn(async () => matchId), board: vi.fn(async () => matchId), selectBoard: vi.fn(async () => {}), inbox: vi.fn(async () => []), create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view),
-    invite: vi.fn(async () => ({ token: 'test', code: 'ABCDEF', expires_at: '2030-01-01' })), join: vi.fn(async () => view), lobby: vi.fn(async () => ({ games: [] })), accept: vi.fn(async () => view), report: vi.fn(async () => ({ id: 1, created_at: '2030-01-01' })), profile: vi.fn(async () => ({ user_id: alice, handle: null })) };
+    invite: vi.fn(async () => ({ token: 'test', code: 'ABCDEF', expires_at: '2030-01-01' })), join: vi.fn(async () => view), lobby: vi.fn(async () => ({ games: [] })), accept: vi.fn(async () => view), find: vi.fn(async () => view), cancel: vi.fn(async () => view), report: vi.fn(async () => ({ id: 1, created_at: '2030-01-01' })), profile: vi.fn(async () => ({ user_id: alice, handle: null })) };
   const pair = await generateKeyPair('ES256'); privateKey = pair.privateKey;
   const server = createServer(); servers.push(server); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   address = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
