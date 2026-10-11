@@ -239,6 +239,12 @@ export class PaintedView implements BoardView {
     const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
     drawMarks(ctx, scene, layer, {
       marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, px: 960 / Math.max(1, this.width), board: this.pos?.board,
+      ghost: !this.symbols ? undefined : (ctx, piece, sq, opacity = 0.4) => {
+        const cell = scene.cell(sq);
+        ctx.save(); ctx.globalAlpha = opacity;
+        ctx.drawImage(this.symbols!(piece), PAD + cell.col * TILE + 14, PAD + cell.row * TILE + 14, TILE - 28, TILE - 28);
+        ctx.restore();
+      },
       motion: this.motion(), since: this.marksSince, ink: this.options.webInk ? boardInk(this.width) : undefined,
     }, row);
     if (layer === 'under' && this.symbols && this.pos) {

@@ -1,11 +1,39 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { register } from 'tsx/esm/api';
+const unregister = register();
+const { fromFen } = await import('../src/rules/setup.ts');
+const { setRules } = await import('../src/rules/engine.ts');
+const { threatsIn } = await import('../src/move-text.ts');
+const iconNames = { P:'pawn', N:'knight', B:'bishop', R:'rook', Q:'queen', K:'king', A:'archer', L:'paladin', G:'guard', M:'maester', S:'beast', O:'ogre' };
+const iconSources = Object.fromEntries(await Promise.all(Object.values(iconNames).map(async name => [name, await readFile(`public/ui/icons/${name}.svg`, 'utf8')])));
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL');
 const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: true });
 trapErrors(page);
 try {
-  await page.addInitScript(() => { window.harnessBootDelay = 300; });
+  await page.addInitScript(() => {
+    window.harnessBootDelay = 300;
+    window.harnessArrowLines = [];
+    window.harnessGhostSymbols = [];
+    const paths = new WeakMap(), proto = CanvasRenderingContext2D.prototype;
+    const drawImage = proto.drawImage;
+    proto.drawImage = function(image, ...args) {
+      if (this.globalAlpha === 0.5 && image.src?.includes('.svg')) window.harnessGhostSymbols.push(image.src);
+      return drawImage.call(this, image, ...args);
+    };
+    for (const name of ['beginPath', 'moveTo', 'lineTo', 'stroke']) {
+      const original = proto[name];
+      proto[name] = function(...args) {
+        if (name === 'beginPath') paths.set(this, []);
+        if (name === 'moveTo' || name === 'lineTo') paths.get(this)?.push(args);
+        const path = paths.get(this);
+        if (name === 'stroke' && this.strokeStyle === '#d63428' && path?.length === 2) window.harnessArrowLines.push(path);
+        return original.apply(this, args);
+      };
+    }
+  });
   await page.goto(base);
   const capabilities = await (await page.request.get(new URL('/harness-mode', base).href)).json();
   const mode = capabilities.mode;
@@ -61,6 +89,22 @@ try {
     const layout = await frame.locator('body').evaluate(el => ({ overflow: el.scrollWidth > innerWidth, width: innerWidth, heading: getComputedStyle(document.querySelector(`[data-screen="${el.dataset.page}"] h2`) ?? el).fontFamily }));
     assert.equal(layout.overflow, false, `${screen} has no horizontal scroll at ${width}px`);
     assert(layout.width <= width);
+    const controls = frame.locator(`[data-screen="${screen}"] button:visible, [data-screen="${screen}"] input:visible`);
+    for (let i = 0; i < await controls.count(); i++) {
+      const control = controls.nth(i); await control.scrollIntoViewIfNeeded();
+      const bounds = await control.evaluate(el => {
+        const r = el.getBoundingClientRect(), css = getComputedStyle(document.documentElement);
+        const safe = edge => parseFloat(css.getPropertyValue(`--safe-${edge}`)) || 0;
+        const limit = innerHeight - safe('bottom') - (innerWidth >= 900 ? 128 : 96);
+        let accessible = r.left >= safe('left') - 1 && r.right <= innerWidth - safe('right') + 1 && r.top >= safe('top') - 1 && r.bottom <= limit + 1;
+        for (let p = el.parentElement; p; p = p.parentElement) {
+          if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(p).overflowY)) { const box = p.getBoundingClientRect(); accessible &&= r.top >= box.top - 1 && r.bottom <= box.bottom + 1; }
+        }
+        return { accessible, text: el.textContent || el.getAttribute('aria-label'), rect: [r.x, r.y, r.width, r.height], limit };
+      });
+      assert(bounds.accessible, `${screen} control scrolls into the safe area at ${width}px: ${JSON.stringify(bounds)}`);
+    }
+    await frame.locator(`[data-screen="${screen}"] .new-game-body`).evaluateAll(els => els.forEach(el => { el.scrollTop = 0; }));
     if (screen === 'handle') assert(await frame.locator('#presets').evaluate(el => {
       const box = el.getBoundingClientRect();
       return [...el.querySelectorAll('button')].every(button => { const rect = button.getBoundingClientRect(); return rect.left >= box.left && rect.right <= box.right + 1; });
@@ -87,6 +131,8 @@ try {
   await page.evaluate(() => window.harnessSetContext({theme:'dark',safeAreaInsets:{top:10,right:12,bottom:20,left:12},deviceCapabilities:{touch:true}}));
   await frame.locator('body[data-theme="dark"][data-touch="true"]').waitFor();
   assert.deepEqual(await frame.locator('body').evaluate(el => ({theme:el.dataset.theme,touch:el.dataset.touch,left:getComputedStyle(document.documentElement).getPropertyValue('--safe-left')})), {theme:'dark',touch:'true',left:'12px'});
+  for (const [width,height] of [[360,844],[390,844],[400,900],[1440,900]]) { await page.setViewportSize({width,height}); await fits('settings',width); }
+  await page.setViewportSize({width:1000,height:1000});
   await page.evaluate(() => window.harnessSetContext({theme:'light',safeAreaInsets:{top:0,right:0,bottom:0,left:0},deviceCapabilities:{touch:true}}));
   await frame.locator('[data-screen="settings"] [data-nav="handle"]').click();
   await frame.locator('#handle').fill('mvp_test');
@@ -118,15 +164,27 @@ try {
   await shot(page, `board-art-${mode}`);
   await openScreen('settings');
   await frame.locator('#symbols-only').check();
-  await page.waitForFunction(() => window.harnessWidgetState?.privateContent?.settings?.symbols_only === true, undefined, { timeout: 5000 });
+  assert(await frame.locator('#symbols-only').isChecked());
+  assert.equal(await page.evaluate(() => window.harnessWidgetState.modelContent.game_id), undefined);
+  assert.deepEqual(await page.evaluate(() => Object.keys(window.harnessWidgetState.privateContent).sort()), ['board_id', 'pending', 'screen', 'sheet']);
   const settingsReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
   await page.locator('#remount').click();
   await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, settingsReads);
   await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
-  assert(await frame.locator('#symbols-only').isChecked(), 'Symbols only survives a remount');
+  assert(!await frame.locator('#symbols-only').isChecked(), 'Settings stay in page memory until ticket 10');
   await frame.locator('#symbols-only').uncheck();
+  await openPlay();
+  await page.evaluate(() => { window.requireHandleNext = true; window.failActionAfterHandle = true; });
+  await frame.locator('#friend').click();
+  await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+  await frame.locator('#handle').fill('retry_name'); await frame.locator('#save-handle').click();
+  await frame.locator('#error').filter({ hasText: 'Harness action after Save failed' }).waitFor();
+  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending?.name), 'kingdown_create', 'Save keeps the action until it succeeds');
+  await page.locator('#remount').click();
+  await frame.locator('#retry').waitFor(); await frame.locator('#retry').click();
+  await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
+  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending), undefined);
   await openPlay(); await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
-
 
   const pixels = () => frame.locator('canvas').evaluate(c => {
     const data = c.getContext('2d').getImageData(0,0,c.width,c.height).data; let hash=0, red=0;
@@ -144,6 +202,15 @@ try {
     const seeded = await seedBoard(scenario), plain = await pixels();
     await openScreen('settings'); await frame.locator('#show-threats').check();
     await page.evaluate(result=>window.harnessShow(result),seeded); await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
+    await frame.locator('canvas').evaluate(() => { window.harnessArrowLines = []; });
+    const arrowBox = await boardBox(); await page.mouse.move(arrowBox.x+arrowBox.width/2, arrowBox.y+arrowBox.height/2);
+    await frame.locator('canvas').evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const arrows = await frame.locator('canvas').evaluate((c, black) => {
+      const square = ([x,y]) => { const col = Math.floor((x-32)/112), row = Math.floor((y-32)/112); return black ? 7-col+8*row : col+8*(7-row); };
+      return [...new Set(window.harnessArrowLines.map(path => path.map(square).join(':')))].sort();
+    }, seeded._meta.view.seat === 1);
+    setRules(seeded._meta.view.rules); const expectedArrows = threatsIn({ ...fromFen(seeded._meta.view.fen), turn: seeded._meta.view.seat }).map(t => `${t.from}:${t.to}`).sort();
+    assert.deepEqual(arrows, expectedArrows, `${scenario}: every arrow starts and ends on the threatsIn squares`);
     const threats = await pixels(); assert(threats.red > plain.red + 10, `${scenario}: Show threats draws enemy arrows to your pieces`);
     await openScreen('settings'); await frame.locator('#symbols-only').check();
     await page.evaluate(result=>window.harnessShow(result),seeded); await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
@@ -156,9 +223,9 @@ try {
     const expected = scenario==='threats-black' ? [74,72,80] : [255,252,244];
     assert(disc.every((channel,i)=>Math.abs(channel-expected[i])<8), `The ${scenario==='threats-black'?'black':'white'} pawn shows its rulebook symbol and army colour (${disc})`);
 
-    for (const [width,height] of [[390,844],[1440,900]]) {
+    for (const [width,height] of [[360,844],[390,844],[400,900],[1440,900]]) {
       await page.setViewportSize({width,height}); await boardBox(); await fits('board',width); await shot(page, `shell-symbols-${scenario}-${width}-${mode}`);
-      const bounds=await frame.locator('.board-actions').evaluate(el=>({bottom:el.getBoundingClientRect().bottom,height:innerHeight})); assert(bounds.bottom <= bounds.height-96, 'Board controls stay above the composer');
+      const bounds=await frame.locator('.board-actions').evaluate(el=>({bottom:el.getBoundingClientRect().bottom,height:innerHeight})); assert(bounds.bottom <= bounds.height-(width >= 900 ? 128 : 96), 'Board controls stay above the composer');
     }
     await openScreen('settings'); await frame.locator('#symbols-only').uncheck(); await frame.locator('#show-threats').uncheck();
   }
@@ -305,6 +372,37 @@ try {
     const blank=GALLERY.filter((_,i)=>change[i]<8).map(([f,r])=>'abcdefgh'[f]+(r+1));
     assert.deepEqual(blank,[],`King pair ${kings}: every piece and king is drawn (least change ${Math.min(...change).toFixed(1)})`);
     await shot(page,`board-gallery-${kings}-${mode}`);
+    await openScreen('settings'); await frame.locator('#symbols-only').check();
+    await page.evaluate(result => window.harnessShow(result), (await (await page.request.post(new URL(`/fixture-position?case=gallery&kings=${kings}`,base).href)).json()));
+    await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
+    const symbolErrors = await frame.locator('canvas').evaluate(async (c, { sources, names }) => {
+      const images = new Map();
+      for (const [name, source] of Object.entries(sources)) for (const side of [0,1]) {
+        const style = side ? 'color:#2b2621;--pi-disc:#4a4850;--pi-ring:#6e6a74;--pi-glyph:#f3ead7' : 'color:#2b2621;--pi-disc:#fffcf4';
+        const image = new Image(); image.src = 'data:image/svg+xml,' + encodeURIComponent(source.replace('<svg ', `<svg style="${style}" `)); await image.decode(); images.set(`${name}-${side}`, image);
+      }
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const expected = document.createElement('canvas'); expected.width = c.width; expected.height = c.height;
+      const g = expected.getContext('2d'), scale = c.width / 960;
+      for (const [rank, row] of [[0,'RNBQKALG'],[1,'MSOPPPPP'],[6,'msoppppp'],[7,'rnbqkalg']]) [...row].forEach((letter, file) => {
+        g.drawImage(images.get(`${names[letter.toUpperCase()]}-${rank >= 6 ? 1 : 0}`), (32+file*112+14)*scale, (96+(7-rank)*112+14)*scale, 84*scale, 84*scale);
+      });
+      const want = g.getImageData(0,0,c.width,c.height).data, got = c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+      return [[0,'RNBQKALG'],[1,'MSOPPPPP'],[6,'msoppppp'],[7,'rnbqkalg']].flatMap(([rank,row]) => [...row].map((letter,file) => {
+        let sum=0, n=0;
+        for(let y=Math.ceil((96+(7-rank)*112+14)*scale);y<(96+(7-rank)*112+98)*scale;y++) for(let x=Math.ceil((32+file*112+14)*scale);x<(32+file*112+98)*scale;x++) {
+          const i=(y*c.width+x)*4; if(want[i+3]<254) continue;
+          for(let channel=0;channel<3;channel++) { sum+=Math.abs(got[i+channel]-want[i+channel]); n++; }
+        }
+        return { square: 'abcdefgh'[file]+(rank+1), piece: names[letter.toUpperCase()], error: sum/n };
+      })).filter(item => !Number.isFinite(item.error) || item.error > 3);
+    }, { sources: iconSources, names: iconNames });
+    assert.deepEqual(symbolErrors, [], 'Every piece on both armies matches its own source SVG');
+    await clickSquare(1,0); await frame.locator('canvas').evaluate(() => { window.harnessGhostSymbols = []; });
+    const box = await boardBox(); await page.mouse.move(box.x+(32+.5*112)*box.width/960, box.y+(96+5.5*112)*box.width/960);
+    await frame.locator('canvas').evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    assert(await frame.locator('canvas').evaluate(() => window.harnessGhostSymbols.some(src => /knight-0-/.test(src))), 'The knight move preview uses the same symbol at half opacity');
+    await openScreen('settings'); await frame.locator('#symbols-only').uncheck();
   }
   await openPlay(); await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
   const deleted=await page.evaluate(()=>window.harnessView);
@@ -381,7 +479,7 @@ try {
   await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
   await page.evaluate(() => { window.harnessWithoutWidgetState = true; window.harnessWidgetState = undefined; });
   await page.locator('#remount').click();
-  await page.waitForFunction(() => window.harnessWidgetState?.modelContent?.game_id === window.harnessMatchId);
+  await page.waitForFunction(() => window.harnessWidgetState?.modelContent?.revision === 0);
   await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
   assert.equal(await page.evaluate(() => window.harnessWidgetState.modelContent.revision), 0, 'Hosts without widget state still receive standard model context');
   if (mode === 'fixture') {
@@ -395,4 +493,4 @@ try {
   console.log(`PASS: home card, fullscreen request, Settings remount, 4 viewport widths, symbols and threats in both seats, safe areas, theme, touch, handle gate and 17 pictures, SDK AppBridge initialization, painted board move, iframe remount with identical FEN/revision, Haste ambiguity, lost-reply same-ID retry committed once, bounded computer turn, definitive rejection recovery, match switch recovery, ${capabilities.friend ? 'friend join/reply polling, ' : ''}no fullscreen control, 390px touch moves, no page errors${mode === 'fixture' ? ', terminal fixture' : ', real HTTP MCP and PostgreSQL'}`);
 } catch (error) {
   assertNoErrors(); throw error;
-} finally { await browser.close(); }
+} finally { await browser.close(); unregister(); }

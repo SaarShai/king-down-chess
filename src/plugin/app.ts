@@ -18,7 +18,7 @@ const extension = (window as Window & { openai?: WidgetHost }).openai;
 const savedScreen = extension?.widgetState?.privateContent?.screen;
 const app = new App({ name: 'King Down', version: '1.0.0' }, {});
 const client = createClient(app, extension), state = client.state;
-let hostGameId = state.game_id;
+let hostGameId: string | undefined;
 let awaitingInitialResult = true;
 const board = new PaintedView($('board'), { floor: null, webInk: true });
 board.setPace('off');
@@ -27,7 +27,7 @@ let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined, moves: Choice[] = [];
 let pos: Position | undefined, selected: number | undefined, busy = false, polling = false;
 let pending = state.pending;
-function saveState() { state.game_id = view?.game_id ?? hostGameId; state.pending = pending; client.save(); }
+function saveState() { state.pending = pending; client.save(); }
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
 function show(next: View | undefined) {
@@ -51,7 +51,7 @@ function show(next: View | undefined) {
   // The identifier is presentation state; every board reload still reads server authority.
   saveState();
   // Widget state also supplies model context; a second writer would replace it.
-  if (!extension?.setWidgetState) void app.updateModelContext({ structuredContent: { game_id: view.game_id, revision: view.revision } }).catch(() => {});
+  if (!extension?.setWidgetState) void app.updateModelContext({ structuredContent: { revision: view.revision, status: view.status, your_turn: view.turn === view.seat } }).catch(() => {});
 }
 async function call(name: string, args: Record<string, unknown>, retain = false, background = false) {
   if (busy || (background && polling)) return;
@@ -72,7 +72,7 @@ async function call(name: string, args: Record<string, unknown>, retain = false,
     const next = (result._meta as { view?: View } | undefined)?.view;
     if (background && next?.game_id === view?.game_id && next?.revision === view?.revision) return;
     show(next);
-    if (name === 'kingdown_handle') { followup = pending; pending = undefined; navigate(followup ? 'play' : 'settings'); }
+    if (name === 'kingdown_handle') { followup = pending; navigate(followup ? 'play' : 'settings'); }
     if (next && ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find'].includes(name)) navigate('board');
     if (name === 'kingdown_invite') { const { link, code } = result.structuredContent as { link: string; code: string }; $('invitation').textContent = `Share this link: ${link} · or the code ${code}`; }
     // A reload preserves the command receipt; retry still uses its original ID.
@@ -80,7 +80,7 @@ async function call(name: string, args: Record<string, unknown>, retain = false,
     saveState(); $('retry').hidden = !pending;
   } catch (error) { if (background && (busy || view !== before)) return; $('error').textContent = error instanceof Error ? error.message : 'Could not update the game.'; $('retry').hidden = !pending; }
   finally { if (background) polling = false; else { busy = false; buttons().forEach(b => b.disabled = false); } }
-  if (followup) void call(followup.name, followup.args);
+  if (followup) void call(followup.name, followup.args, true);
 }
 function choose(lan: string) {
   if (!view || busy || pending) return;
@@ -130,7 +130,7 @@ app.ontoolresult = result => {
   awaitingInitialResult = false;
   if ('screen' in value && ['home', 'play', 'board', 'profile'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen as Screen);
   if ('game_id' in value && typeof value.game_id === 'string') {
-    hostGameId = initial ? state.game_id ?? value.game_id : value.game_id;
+    hostGameId = value.game_id;
     if (!initial && !('screen' in value)) navigate('board');
     if (connected) void call('kingdown_get', { game_id: hostGameId });
   }
@@ -196,19 +196,19 @@ function highlight() {
   if (!pos) return;
   const offered = selected === undefined ? [] : moves.filter(({ move }) => move.from === selected && !needsArming(move)).map(({ move }) => move);
   const marks = marksModel(offered);
-  board.highlight({ ...marks, selected, rails: selected === undefined ? [] : railsOf(pos.board, selected, [...marks.moves, ...marks.captures], marks.captures), check: inCheck(pos) ? findKing(pos.board, pos.turn) : null, checkers: checkersOf(pos), threats: state.settings.show_threats ? threatsIn({ ...pos, turn: view?.seat ?? pos.turn }) : [] });
+  board.highlight({ ...marks, selected, rails: selected === undefined ? [] : railsOf(pos.board, selected, [...marks.moves, ...marks.captures], marks.captures), check: inCheck(pos) ? findKing(pos.board, pos.turn) : null, checkers: checkersOf(pos), threats: client.settings.show_threats ? threatsIn({ ...pos, turn: view?.seat ?? pos.turn }) : [] });
 }
 async function applySettings() {
-  $<HTMLInputElement>('symbols-only').checked = state.settings.symbols_only;
-  $<HTMLInputElement>('show-threats').checked = state.settings.show_threats;
+  $<HTMLInputElement>('symbols-only').checked = client.settings.symbols_only;
+  $<HTMLInputElement>('show-threats').checked = client.settings.show_threats;
   highlight();
-  if (!state.settings.symbols_only) { board.setSymbols(); return; }
+  if (!client.settings.symbols_only) { board.setSymbols(); return; }
   try {
     symbolImages ??= Promise.all(Object.entries(symbols).flatMap(([path, urls]) => urls.map(async (src, side) => {
       const image = new Image(); image.crossOrigin = 'anonymous'; image.src = src; await image.decode(); return [`${path.split('/').at(-1)!.slice(0, -4)}-${side}`, image] as const;
     }))).then(entries => new Map(entries)).catch(error => { symbolImages = undefined; throw error; });
     const images = await symbolImages;
-    if (state.settings.symbols_only) board.setSymbols(piece => images.get(`${nameOf(typeOf(piece))}-${colorOf(piece)}`)!);
+    if (client.settings.symbols_only) board.setSymbols(piece => images.get(`${nameOf(typeOf(piece))}-${colorOf(piece)}`)!);
   } catch { $('error').textContent = 'The board symbols could not load. Try again.'; }
 }
 for (const [id, key] of [['symbols-only', 'symbols_only'], ['show-threats', 'show_threats']] as const) {

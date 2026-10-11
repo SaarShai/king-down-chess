@@ -21,7 +21,8 @@ async function mount() {
     if ((window as any).rejectNextGet && params.name === 'kingdown_get') { (window as any).rejectNextGet = false; throw new Error('Harness saved-game read failed'); }
     if ((window as any).rejectNextMove && params.name === 'kingdown_move') { const code = (window as any).rejectNextMove; (window as any).rejectNextMove = undefined; return { isError: true, content: [{ type: 'text', text: 'Harness definitive rejection' }], _meta: { code } }; }
     if ((window as any).requireHandleNext) { (window as any).requireHandleNext = false; return { isError: true, content: [{ type: 'text', text: 'Pick a name and picture first.' }], _meta: { code: 'HANDLE_NEEDED' } }; }
-    if (params.name === 'kingdown_handle') { (window as any).harnessHandle = params.arguments; return { content: [], structuredContent: { handle: params.arguments?.handle, icon: params.arguments?.icon } }; }
+    if ((window as any).failNextAction && params.name !== 'kingdown_handle') { (window as any).failNextAction = false; throw new Error('Harness action after Save failed'); }
+    if (params.name === 'kingdown_handle') { if ((window as any).failActionAfterHandle) { (window as any).failActionAfterHandle = false; (window as any).failNextAction = true; } (window as any).harnessHandle = params.arguments; return { content: [], structuredContent: { handle: params.arguments?.handle, icon: params.arguments?.icon } }; }
     const args = params.arguments ?? {};
     const legacy = params.name === 'kingdown_create' && 'kind' in args ? { mode: args.kind, colour: args.colour, board_id: args.board_id } : params.name === 'kingdown_join' && 'code' in args ? { invitation: args.code, board_id: args.board_id } : params.name === 'kingdown_open' && 'screen' in args ? { game_id: args.game_id } : args;
     const result = await invoke(params.name, legacy);

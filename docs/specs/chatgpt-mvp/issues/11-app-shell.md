@@ -88,3 +88,11 @@ Checks use kingdown_mvp11_test on 127.0.0.1:55432. The approved sample sets the 
 The page has no extra title or tabs. Play holds the sample's rows in its order. Each other screen has the game's sheet back control. Handle returns to Settings, or Play for a pending start. Back changes page state and sends no tool call.
 
 The browser test fails with the extra title, then passes after the fix. `npm run check:browser plugin-ui` passes 1 of 1. It covers 360, 390, 400 and 1440 px, back with no tool call, and the board's existing move and recovery checks. Step A removes the old games route.
+
+## Review fixes result
+
+Save keeps the pending action until that action succeeds. Retry is in the shared sheet area, so a failed start and a remount can reach it. Widget state has only screen, sheet, board ID and pending. The model context has no game ID. Settings stay in page memory until step B. The move preview uses the same symbol as the piece, at half opacity.
+
+Red tests catch the lost action, the extra saved fields and the painted preview path. `npm test` passes 2,246 tests in 143 files, with 8 skipped; all 50 art tests pass. The type check passes. The Save failure and remount browser check passes 1 of 1.
+
+The browser checks now test each control's scroll access and bounds with safe insets and the 96/128 px gap, the board at all four widths, each piece against its source SVG, each threat arrow against threatsIn for both seats, and the symbol preview. The stronger fixture and HTTP checks pass the control and threat checks. The expected symbol map needs L for Paladin and S for Beast; the test now uses that map. The full rerun follows step A, when the shared browser slot is free.

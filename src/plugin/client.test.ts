@@ -7,18 +7,19 @@ describe('app client', () => {
     const saved = { privateContent: { screen: 'settings' as const, sheet: 'king', game_id: 'g1', board_id: 'b1', pending } };
     let widgetState: unknown;
     const client = createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: saved, setWidgetState: state => { widgetState = state; } });
-    expect(client.state).toMatchObject({ screen: 'settings', sheet: 'king', game_id: 'g1', board_id: 'b1', pending });
+    expect(client.state).toEqual({ screen: 'settings', sheet: 'king', board_id: 'b1', pending });
     client.save();
-    expect(widgetState).toMatchObject({ modelContent: { game_id: 'g1' }, privateContent: { pending } });
+    expect(widgetState).toEqual({ modelContent: {}, privateContent: { screen: 'settings', sheet: 'king', board_id: 'b1', pending } });
     expect((widgetState as { modelContent: object }).modelContent).not.toHaveProperty('pending');
   });
-  it('keeps board settings for a remount until the settings tool is ready', async () => {
+  it('keeps board settings in page memory until the settings tool is ready', async () => {
     let widgetState: unknown;
     const client = createClient({ callServerTool: async () => { throw new Error('No settings server in Part 1'); } }, { setWidgetState: value => { widgetState = value; } });
     const result = await client.call('kingdown_settings', { symbols_only: true, show_threats: true });
     expect(result._meta?.settings).toEqual({ symbols_only: true, show_threats: true });
     const mounted = createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: widgetState as WidgetHost['widgetState'] });
-    expect((await mounted.call('kingdown_settings'))._meta?.settings).toEqual({ symbols_only: true, show_threats: true });
+    expect((await mounted.call('kingdown_settings'))._meta?.settings).toEqual({ symbols_only: false, show_threats: false });
+    expect(widgetState).toBeUndefined();
   });
   it('keeps the new board binding when an old read returns after opening a game', async () => {
     let release!: (value: { content: []; structuredContent: { board_id: string } }) => void;

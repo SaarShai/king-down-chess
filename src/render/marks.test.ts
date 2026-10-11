@@ -89,3 +89,9 @@ it('draws Show threats as the red glow under the attacked piece and the red arro
   drawMarks(ctx, scene, 'over', state, 7);
   expect(calls).toEqual(['line', 'line', 'line', 'line']);
 });
+
+it('uses the piece look for the move preview at half opacity', () => {
+  let preview: unknown;
+  draw(undefined, undefined, { marks: { moves: [0] }, piece: 2, ...{ ghost: (_ctx: CanvasRenderingContext2D, piece: number, square: number, opacity: number) => { preview = [piece, square, opacity]; } } }, 'under');
+  expect(preview).toEqual([2, 0, 0.5]);
+});
