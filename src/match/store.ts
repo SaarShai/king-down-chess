@@ -121,6 +121,7 @@ export class PostgresMatchStore {
  /** Games past their Daily deadline, oldest first, then waiting games whose invitation ran out (a game has at most one). */
  async due(now: Date, limit = 100): Promise<string[]> {
   return (await this.pool.query(`(select id from public.games where status='playing' and deadline_at<=$1 order by deadline_at limit $2)
+   union all (select id from public.games where status='setup' and setup_deadline_at<=$1 order by setup_deadline_at limit $2)
    union all (select i.game_id from public.game_invites i join public.games g on g.id=i.game_id where g.status='waiting' and i.used_by is null and i.expires_at<=$1 limit $2)`, [now, limit])).rows.map(r => r.id);
  }
 }

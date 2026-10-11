@@ -59,6 +59,25 @@ suite('game setup through PostgreSQL', () => {
   expect(await service.command(a, created.game_id, command(3, { type: 'turn', actions: [white.legal[0]] }))).toMatchObject({ revision: 4 });
   expect((await admin.query('select count(*)::int as n from public.game_commands where game_id=$1', [created.game_id])).rows[0].n).toBe(4);
  }, 30_000);
+ it('ends late setup once with no result and refuses a late Ready command', async () => {
+  const create = async () => {
+   const game = await service.create(a, { kind: 'friend', speed: 'live', options: DEFAULT_OPTIONS });
+   await service.join(b, (await service.invite(a, game.game_id)).token);
+   return game.game_id;
+  };
+  const swept = await create(), before = await service.view(a, swept);
+  const late = new Date(Date.now() + 3 * 86_400_000 + 1000);
+  const totals = await Promise.all([service.sweep(late), service.sweep(late)]);
+  expect(totals.reduce((n, value) => n + value, 0)).toBeGreaterThan(0);
+  expect(await service.view(a, swept)).toMatchObject({ status: 'aborted', revision: 2, result: { winner: null, reason: 'no_start' } });
+  expect(before.result).toBeUndefined();
+  expect((await admin.query("select count(*)::int as n from public.outbox where kind='game_finished' and payload->>'game_id'=$1", [swept])).rows[0].n).toBe(1);
+  const lazy = await create(), row = (await admin.query('select draw from public.games where id=$1', [lazy])).rows[0];
+  await admin.query("update public.games set setup_deadline_at=now()-interval '1 minute' where id=$1", [lazy]);
+  await expect(service.command(a, lazy, command(1, { type: 'choose', choice: { king: null, order: row.draw }, ready: true }))).rejects.toMatchObject({ code: 'MATCH_TERMINAL' });
+  expect(await service.view(b, lazy)).toMatchObject({ status: 'aborted', revision: 2, result: { winner: null, reason: 'no_start' } });
+  expect(await service.sweep()).toBe(0);
+ }, 30_000);
  it('stores validated options and waits for the player without an engine match', async () => {
   const created = await service.create(a, { kind: 'solo', options: DEFAULT_OPTIONS, level: 'beginner' });
   expect(created).toMatchObject({ status: 'setup', seat: 0, action: 'ready', legal: [] });

@@ -28,10 +28,10 @@ function check(game: Game, seat: Seat, { expected_revision, action }: Command, a
  if (game.revision !== expected_revision) fail('STALE_REVISION', 409, 'The game changed; reload before you act');
  if (game.status === 'finished' || game.status === 'aborted') fail('MATCH_TERMINAL', 409, 'The game has ended');
  if (game.status === 'waiting' && action.type !== 'abort') fail('WAITING', 409, 'Waiting for the other player');
- if (game.status === 'setup' && action.type !== 'choose' && action.type !== 'abort' || action.type === 'choose' && (game.status !== 'setup' || game.players[seat].ready)) fail('NOT_ALLOWED', 409, 'This action is not available during setup');
- const expired = game.status === 'playing' && !!game.deadline_at && game.deadline_at <= at;
- if (action.type === 'claim' && (!expired || game.turn === seat)) fail('NOT_ALLOWED', 409, 'There is no missed deadline to claim');
+ const expired = game.status === 'setup' ? !!game.setup_deadline_at && game.setup_deadline_at <= at : game.status === 'playing' && !!game.deadline_at && game.deadline_at <= at;
+ if (action.type === 'claim' && (game.status !== 'playing' || !expired || game.turn === seat)) fail('NOT_ALLOWED', 409, 'There is no missed deadline to claim');
  if (expired) return true;
+ if (game.status === 'setup' && action.type !== 'choose' && action.type !== 'abort' || action.type === 'choose' && (game.status !== 'setup' || game.players[seat].ready)) fail('NOT_ALLOWED', 409, 'This action is not available during setup');
  // The last revision is kept for the end of the game (a resignation, an abort, a claim or the sweep), so a game never stops at the limit while in play.
  if (game.revision >= LIMIT - 1 && action.type !== 'resign' && action.type !== 'abort') fail('MATCH_LIMIT', 409, 'Match history limit reached');
  const me = game.players[seat], offer = game.draw_offer;
@@ -43,12 +43,12 @@ function check(game: Game, seat: Seat, { expected_revision, action }: Command, a
  return false;
 }
 function end(game: Game, out: Outgoing, result: Game['result'], reason: EndReason, at: Date): void {
- Object.assign(game, { status: reason === 'abort' || reason === 'no_start' ? 'aborted' : 'finished', result, end_reason: reason, finished_at: at, moves: game.snapshot?.history ?? [], draw_offer: null, deadline_at: null, deadline_kind: null });
+ Object.assign(game, { status: reason === 'abort' || reason === 'no_start' ? 'aborted' : 'finished', result, end_reason: reason, finished_at: at, moves: game.snapshot?.history ?? [], draw_offer: null, deadline_at: null, deadline_kind: null, setup_deadline_at: null });
  out.outbox.push({ kind: 'game_finished', payload: { game_id: game.id, result, reason } });
 }
 /** A missed Daily deadline: no first turn cancels the game; a later turn loses on time. */
 function expire(game: Game, out: Outgoing, at: Date): void {
- if (game.deadline_kind === 'first_turn') end(game, out, null, 'no_start', at); else end(game, out, colour(other(game.turn)), 'timeout', at);
+ if (game.status === 'setup' || game.deadline_kind === 'first_turn') end(game, out, null, 'no_start', at); else end(game, out, colour(other(game.turn)), 'timeout', at);
 }
 /** The turn is now `game.turn`'s: a Daily friend game sets its deadline and alerts that player. */
 function turnTo(game: Game, out: Outgoing, at: Date, actor: string): void {
@@ -239,7 +239,7 @@ export class GameService {
    ended += await this.store.transaction(async client => {
     const game = await this.store.load(gameId, { client, lock: true });
     // A command, a new invitation or another sweep may have come first.
-    const late = game.status === 'playing' ? !!game.deadline_at && game.deadline_at <= now
+    const late = game.status === 'setup' ? !!game.setup_deadline_at && game.setup_deadline_at <= now : game.status === 'playing' ? !!game.deadline_at && game.deadline_at <= now
      : game.status === 'waiting' && !!(await client.query('select from public.game_invites where game_id=$1 and used_by is null and expires_at<=$2', [gameId, now])).rowCount;
     if (!late) return 0;
     const next = step(game), out: Outgoing = { notify: [], outbox: [] };
