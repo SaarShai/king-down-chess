@@ -140,3 +140,8 @@ create policy kingdown_plugin_runtime on public.rating_history for all to kingdo
 drop policy if exists kingdown_plugin_runtime on public.player_badges;
 create policy kingdown_plugin_runtime on public.player_badges for all to kingdown_plugin_runtime using (true) with check (true);
 commit;
+
+-- Apply after migration 0013: an empty home board can select its first game.
+begin;
+grant insert (game_selected), update (game_selected) on public.plugin_boards to kingdown_plugin_runtime;
+commit;

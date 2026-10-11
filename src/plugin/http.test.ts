@@ -16,7 +16,7 @@ let service: PluginHttpOptions['service'], auth: PluginAuth, address: string, pr
 beforeEach(async () => {
   provider.mockReset();
   provider.mockImplementation(async (_url, options) => Response.json({ id: decodeJwt(new Headers(options?.headers).get('Authorization')!.slice(7)).sub }));
-  service = { openBoard: vi.fn(async () => matchId), board: vi.fn(async () => matchId), selectBoard: vi.fn(async () => {}), inbox: vi.fn(async () => []), create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view),
+  service = { openBoard: vi.fn(async () => matchId), board: vi.fn(async () => matchId), selectBoard: vi.fn(async () => {}), inbox: vi.fn(async () => [{ ...view, status: 'playing' as const, updated_at: view.server_now }]), create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view),
     invite: vi.fn(async () => ({ token: 'test', code: 'ABCDEF', expires_at: '2030-01-01' })), join: vi.fn(async () => view), lobby: vi.fn(async () => ({ games: [] })), accept: vi.fn(async () => view), find: vi.fn(async () => view), cancel: vi.fn(async () => view), report: vi.fn(async () => ({ id: 1, created_at: '2030-01-01' })), profile: vi.fn(async () => ({ user_id: alice, handle: null })),
     history: vi.fn(async () => ({ games: [], next_before: null })), record: vi.fn(async () => ({ totals: { played: 0, won: 0, drawn: 0, lost: 0 }, rating: { rating: 1500, rd: 350, volatility: 0.06, provisional: true }, badges: [] })) };
   const pair = await generateKeyPair('ES256'); privateKey = pair.privateKey;
@@ -53,7 +53,7 @@ describe('stateless authenticated MCP HTTP', () => {
     expect((await post(get, await token())).status).toBe(200);
   });
   it.each(['kingdown_create','kingdown_resume','kingdown_join'])('recovers a deleted selection for %s but rejects another actor board', async name => {
-    const args = name === 'kingdown_create' ? {mode:'solo'} : name === 'kingdown_join' ? {invitation:'invitation'} : {};
+    const args = name === 'kingdown_create' ? {kind:'solo'} : name === 'kingdown_join' ? {code:'ABCDEF'} : {};
     const request = {...get,params:{name,arguments:{...args,board_id:matchId}}};
     vi.mocked(service.board).mockRejectedValueOnce(new MatchServiceError('MATCH_REMOVED',404,'Deleted'));
     expect((await (await post(request,await token())).json()).result.isError).not.toBe(true);
@@ -124,7 +124,7 @@ describe('stateless authenticated MCP HTTP', () => {
     expect(service.view).not.toHaveBeenCalled();
   });
   it('rejects JSON-RPC batches before a single request can fan out service work', async () => {
-    const batch = Array.from({ length: 20 }, (_, id) => ({ jsonrpc: '2.0', id, method: 'tools/call', params: { name: 'kingdown_create', arguments: { mode: 'solo' } } }));
+    const batch = Array.from({ length: 20 }, (_, id) => ({ jsonrpc: '2.0', id, method: 'tools/call', params: { name: 'kingdown_create', arguments: { kind: 'solo' } } }));
     expect(Buffer.byteLength(JSON.stringify(batch))).toBeLessThan(MAX_MCP_BODY);
     const response = await post(batch, await token()); expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: 'JSON-RPC batches are not supported' });

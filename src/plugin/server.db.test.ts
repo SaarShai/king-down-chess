@@ -6,6 +6,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { DEFAULT_OPTIONS } from '../match/setup';
 import type { View } from '../match/protocol';
 import { PostgresMatchStore } from '../match/store';
 import { createPluginServer } from './server';
@@ -13,7 +14,7 @@ import { PluginService } from './service';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
 type Result = { isError?: boolean; content: { type: string; text: string }[]; structuredContent?: any; _meta?: any };
-const SUMMARY = ['board_id', 'colour', 'days_per_move', 'deadline_at', 'draw_offer', 'game_id', 'kind', 'move', 'speed', 'status', 'your_turn'];
+const SUMMARY = ['board_id', 'screen', 'colour', 'days_per_move', 'deadline_at', 'draw_offer', 'game_id', 'kind', 'move', 'speed', 'status', 'your_turn'];
 
 suite('ChatGPT tools on PostgreSQL', () => {
  // Every transaction on readOnly is read-only: any write fails (25006), so a tool that succeeds on it wrote nothing.
@@ -39,7 +40,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
  const move = (result: Result, lan?: string) => ({ game_id: view(result).game_id, command_id: randomUUID(), expected_revision: view(result).revision, ...(lan && { lan }) });
  /** What the model reads: a short summary, never the position, the moves or a handle. */
  function summary(result: Result, ...secrets: string[]) {
-  expect(Object.keys(result.structuredContent).filter(key => key !== 'result').sort()).toEqual(SUMMARY.filter(key => key !== 'board_id' || 'board_id' in result.structuredContent));
+  expect(Object.keys(result.structuredContent).filter(key => !['result', 'your_turn_count'].includes(key)).sort()).toEqual(SUMMARY.filter(key => key !== 'board_id' || 'board_id' in result.structuredContent).sort());
   const seen = JSON.stringify([result.content, result.structuredContent]);
   for (const secret of [view(result).fen.split(' ')[0], ...secrets]) expect(seen).not.toContain(secret);
  }
@@ -59,14 +60,25 @@ suite('ChatGPT tools on PostgreSQL', () => {
   await admin.end();
  });
 
+ it('opens home with no game and reads that board by ID alone', async () => {
+  const actor = await user('home'), player = await connect(actor);
+  const opened = await player.ok('kingdown_open');
+  expect(opened.structuredContent).toMatchObject({ screen: 'home', board_id: expect.any(String), your_turn_count: 0 });
+  expect(opened._meta.view).toBeUndefined();
+  expect(await rows('select count(*)::int as n from public.games where created_by=$1', [actor])).toEqual([{ n: 0 }]);
+  const board_id = opened.structuredContent.board_id;
+  expect((await player.ok('kingdown_get', { board_id })).structuredContent).toMatchObject({ screen: 'home', board_id });
+  expect((await player.ok('kingdown_open', { game_id: 'next' }))._meta.view).toBeUndefined();
+ });
+
  it('plays a Daily friend game between two ChatGPT players and shows the model no position and no opponent text', async () => {
   const host = await connect(ann), guest = await connect(bob), handles = [`ann-${tag}`, `bob-${tag}`];
-  const created = await host.ok('kingdown_create', { mode: 'friend', colour: 'white' });
+  const created = await host.ok('kingdown_create', { options: { ...DEFAULT_OPTIONS, arrangement: false }, kind: 'friend', colour: 'white' });
   expect(created.structuredContent).toMatchObject({ kind: 'friend', speed: 'daily', days_per_move: 3, status: 'waiting', colour: 'white', your_turn: false });
   expect(created.content[0].text).toBe('Waiting for the other player to join.');
   const game: string = created.structuredContent.game_id, invite = await host.ok('kingdown_invite', { game_id: game });
-  expect(invite.structuredContent.link).toMatch(/^https:\/\/kingdown\.example\/j\/[A-Za-z0-9_-]{43}$/); expect(invite.structuredContent.code).toMatch(/^[A-HJKMNP-Z2-9]{6}$/);
-  const joined = await guest.ok('kingdown_join', { invitation: `Join me: ${invite.structuredContent.link}` });
+  expect(invite.structuredContent.code).toMatch(/^[A-HJKMNP-Z2-9]{6}$/);
+  const joined = await guest.ok('kingdown_join', { code: invite.structuredContent.code });
   expect(joined.structuredContent).toMatchObject({ game_id: game, colour: 'black', status: 'playing', your_turn: false });
   // "next" opens the most urgent game: Ann's turn in this one.
   const opened = await host.ok('kingdown_open', { game_id: 'next' });
@@ -80,7 +92,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect((await host.call('kingdown_move', { ...first, command_id: randomUUID() }))._meta.code).toBe('STALE_REVISION');
   const games = await guest.ok('kingdown_games');
   expect(games.structuredContent.games[0]).toMatchObject({ game_id: game, your_turn: true, colour: 'black', opponent: 'player' });
-  expect(JSON.stringify(games)).not.toContain(`ann-${tag}`);
+  expect(JSON.stringify([games.content, games.structuredContent])).not.toContain(`ann-${tag}`);
   const said = await guest.ok('kingdown_say', { ...move(await guest.ok('kingdown_get', { game_id: game })), preset: 'good_luck' });
   const polled = await host.ok('kingdown_get', { game_id: game, since_revision: view(moved).revision });
   expect(view(polled).last_commands.map(entry => entry.action)).toEqual([{ type: 'say', preset: 'good_luck' }]); expect(view(polled).rules).toBeUndefined();
@@ -103,9 +115,9 @@ suite('ChatGPT tools on PostgreSQL', () => {
  it('aborts by short code before the first turns and claims a missed Daily deadline', async () => {
   const host = await connect(ann), guest = await connect(bob);
   const start = async () => {
-   const game = (await host.ok('kingdown_create', { mode: 'friend', colour: 'white', days_per_move: 1 })).structuredContent.game_id;
+   const game = (await host.ok('kingdown_create', { options: { ...DEFAULT_OPTIONS, arrangement: false }, kind: 'friend', colour: 'white' })).structuredContent.game_id;
    const { code } = (await host.ok('kingdown_invite', { game_id: game })).structuredContent;
-   await guest.ok('kingdown_join', { invitation: `${code.slice(0, 3).toLowerCase()}-${code.slice(3)}` });
+   await guest.ok('kingdown_join', { code: `${code.slice(0, 3).toLowerCase()}-${code.slice(3)}` });
    return game as string;
   };
   const aborted = await host.ok('kingdown_abort', { game_id: await start() });
@@ -124,7 +136,8 @@ suite('ChatGPT tools on PostgreSQL', () => {
   const cy = await user('cy'), player = await connect(cy), reader = await connect(cy, readOnly);
   const tools = (await reader.client.listTools()).tools;
   expect(tools.filter(tool => tool.annotations?.readOnlyHint).map(tool => tool.name).sort()).toEqual(['kingdown_games', 'kingdown_get', 'kingdown_profile']);
-  const opened = await player.ok('kingdown_open'), { game_id, board_id } = opened.structuredContent;
+  const solo = await player.ok('kingdown_create', { kind: 'solo', options: { ...DEFAULT_OPTIONS, arrangement: false } });
+  const opened = await player.ok('kingdown_open', { game_id: solo.structuredContent.game_id }), { game_id, board_id } = opened.structuredContent;
   expect(view(opened)).toMatchObject({ kind: 'solo', revision: 0, action: 'ready' });
   for (const args of [{ game_id }, { game_id, since_revision: 0 }, { game_id, board_id }, { game_id, since_revision: 0, board_id }]) await reader.ok('kingdown_get', args);
   expect((await reader.ok('kingdown_games')).structuredContent.games.map((game: { game_id: string }) => game.game_id)).toEqual([game_id]);
@@ -136,15 +149,16 @@ suite('ChatGPT tools on PostgreSQL', () => {
 
  it('keeps board selections: a switch, another player’s board, the next game and recovery after a deleted game', async () => {
   const [dee, eve] = [await user('dee'), await user('eve')], d = await connect(dee), e = await connect(eve);
-  const first = await d.ok('kingdown_open'), board: string = first.structuredContent.board_id, firstGame: string = first.structuredContent.game_id;
+  const initial = await d.ok('kingdown_create', { kind: 'solo', options: { ...DEFAULT_OPTIONS, arrangement: false } });
+  const first = await d.ok('kingdown_open', { game_id: initial.structuredContent.game_id }), board: string = first.structuredContent.board_id, firstGame: string = first.structuredContent.game_id;
   const other = await d.ok('kingdown_open', { game_id: firstGame });
   expect(other.structuredContent).toMatchObject({ game_id: firstGame }); expect(other.structuredContent.board_id).not.toBe(board);
   // White: with no colour the seat is random, and Black has no legal move before the computer plays.
-  const created = await d.ok('kingdown_create', { mode: 'solo', colour: 'white', board_id: board }), second: string = created.structuredContent.game_id;
+  const created = await d.ok('kingdown_create', { options: { ...DEFAULT_OPTIONS, arrangement: false }, kind: 'solo', colour: 'white', board_id: board }), second: string = created.structuredContent.game_id;
   expect(created.structuredContent).toMatchObject({ board_id: board, kind: 'solo', speed: 'live', colour: 'white' });
   expect((await d.ok('kingdown_get', { game_id: firstGame, board_id: board })).structuredContent.game_id).toBe(second);
   expect((await d.ok('kingdown_get', { game_id: firstGame, board_id: other.structuredContent.board_id })).structuredContent.game_id).toBe(firstGame);
-  for (const [name, args] of [['kingdown_get', { game_id: firstGame, board_id: board }], ['kingdown_get', { game_id: firstGame }], ['kingdown_create', { mode: 'solo', board_id: board }], ['kingdown_open', { game_id: firstGame }]] as const)
+  for (const [name, args] of [['kingdown_get', { game_id: firstGame, board_id: board }], ['kingdown_get', { game_id: firstGame }], ['kingdown_create', { options: { ...DEFAULT_OPTIONS, arrangement: false }, kind: 'solo', board_id: board }], ['kingdown_open', { game_id: firstGame }]] as const)
    expect((await e.call(name, args))._meta.code, name).toBe('FORBIDDEN');
   expect((await rows('select count(*)::int as n from public.games where created_by=$1', [eve]))[0].n).toBe(0);
   // A solo move and the computer's reply; then the first game is the most urgent.
