@@ -27,7 +27,7 @@ Owner, 2026-10-11, on the W13 renders: "3. resolve all." Item D5 of ticket 01 wa
 - [x] `npm run check:browser visual-design` passes.
 - [x] The W13 threats states render at 1440 × 900 and 390 × 844 with no fault.
 - [x] Side-by-side images (before left, after right) for painted, clay, dark scheme and deuteranopia.
-- [ ] The owner sees the side-by-side images before the merge.
+- [x] The owner sees the side-by-side images before the merge. Owner, 2026-10-11: "amber threat marks approved".
 
 ## Does not do
 
