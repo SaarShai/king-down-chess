@@ -1,3 +1,4 @@
+import { resultsRoot } from '../../tools/lib/results-root.mjs';
 /** Run spec: what to play, how, and with which seed. JSON file and/or CLI flags. */
 import { readFileSync } from 'node:fs';
 import { LETTERS } from '../rules/engine';
@@ -96,7 +97,7 @@ export interface RunSpec {
  */
 export const DEFAULTS = { maxPlies: 300, openingRandomPlies: 4 };
 
-export const OUT_DIR = 'sim/out';
+export const OUT_DIR = resultsRoot();
 export const paths = (id: string) => ({
   jsonl: `${OUT_DIR}/${id}.jsonl`,
   summary: `${OUT_DIR}/${id}.summary.json`,

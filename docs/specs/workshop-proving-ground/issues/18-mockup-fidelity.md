@@ -94,6 +94,10 @@ Open problems:
 
 - The owner has not seen the renders (the last Verification box).
 
+### 2026-10-11 · the auto name, resolved
+
+The owner approved the renders of tickets 09 to 18 and wrote "resolve all" (2026-10-11). The choice is delegated (owner, 2026-10-09: decide by UI/UX best practice), so this is not the owner's yes. Resolved: a new piece keeps its auto name ("Dawn Spirit" and the like, `autoName`), not the mockup's "New piece". Reason: names must be distinct on the ledge; two pieces named "New piece" cannot be told apart in Yours, in a link or in a game. Spec decision 39.
+
 ### Reviews
 
 The first review (an independent reader, read only) gave three should-fix findings. Each is confirmed: a probe shows the failure on a copy of the last commit (`b992340f`) and the correct result on the fix. The probes and the logs are in `R` = `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/08f2956c-63a7-4276-8738-a657bdb42b06/scratchpad/build/18-review3/` (`probe/probe.mts`; `logs/probe-before.log` and `logs/probe-after.log`).

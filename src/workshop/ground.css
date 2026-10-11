@@ -744,7 +744,38 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .pg-shelf, .pg-why { top: 48px; left: calc(var(--board) + 18px); }
   .pg-shelf { max-height: none; border-radius: 16px 0 0 0; box-shadow: -8px 0 40px rgba(20, 14, 8, 0.35); }
   .pg-card { height: auto; }
+  /* the shelf fits 375 px with no scroll: the groups wrap in two rows of smaller seals, and Stamp stands in the header beside ×,
+     as the action of a full-screen dialog */
+  .pg-shelf:not(.pg-card) { padding: 6px 12px 8px; }
+  .groups { display: flex; flex-wrap: wrap; gap: 2px 6px; }
+  .grp { flex: none; }
+  #workshop.pg .grp h4 { font-size: 10.5px; letter-spacing: 0.04em; }
+  .grp .seals { gap: 0; }
+  #workshop.pg .sbtn { width: 56px; padding: 2px 1px 4px; gap: 2px; font-size: 10.5px; }
+  .sbtn .kd-seal { width: 34px; height: 34px; }
+  .sbtn.has::after { right: 4px; }
+  .pg-shint { flex-basis: 100%; }
+  /* the When chip leads the sentence's first line, so the longest sentence leaves two rows of seals at 375 px */
+  .sentence { margin-top: 4px; padding: 8px; }
+  .sentence .l1 { display: inline-flex; margin: 0 6px 0 0; vertical-align: middle; }
+  .sentence .pg-act { position: absolute; top: 6px; right: 56px; }
+  #workshop.pg .sentence .pg-stamp { min-height: 44px; margin: 0; }
   .pg-why .tag { height: 100%; min-height: 0; max-height: none; border-radius: 16px 0 0 0; box-shadow: -8px 0 40px rgba(20, 14, 8, 0.35); }
   /* a side sheet has no grab bar */
   .pg-card::before, .pg-why .tag::before { display: none; }
+}
+/* at 320 px high (568 × 320) the shelf still fits with no scroll: the 10 seals stand in two rows of 5, the group names are
+   for screen readers only, and the sentence card has no seal, as the picked seal shows pressed above it */
+@media (orientation: landscape) and (max-height: 340px) {
+  .pg-shelf:not(.pg-card) { padding: 4px 12px; }
+  .groups { margin-top: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; }
+  .grp, .grp .seals { display: contents; }
+  #workshop.pg .grp h4 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  #workshop.pg .sbtn { width: auto; padding: 1px 1px 2px; gap: 1px; }
+  .sbtn .kd-seal { width: 28px; height: 28px; }
+  .pg-shint { grid-column: 1 / -1; }
+  .sentence { row-gap: 2px; }
+  .sentence .pg-act { top: 4px; }
+  .sentence > .kd-seal { display: none; }
+  .sentence .say { grid-column: 1 / -1; }
 }

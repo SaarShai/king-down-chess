@@ -1,4 +1,5 @@
 #!/usr/bin/env npx tsx
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Placement analysis: does where a piece starts change how it plays and how the game goes?
  *
@@ -30,7 +31,7 @@ const empty = (): Cell => ({ games: 0, decisive: 0, draws: 0, plies: 0, moves: 0
 const pct = (x: number): string => `${(100 * x).toFixed(1)}%`;
 
 async function scan(id: string): Promise<void> {
-  const file = existsSync(id) ? id : `sim/out/${id}.jsonl`;
+  const file = existsSync(id) ? id : `${resultsRoot()}/${id}.jsonl`;
   if (!existsSync(file)) { console.log(`\n${id}: missing (${file})`); return; }
   // letter -> file -> cell, and letter -> adjacency-to-king split.
   const byFile = new Map<string, Map<string, Cell>>();

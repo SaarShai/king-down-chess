@@ -1,8 +1,11 @@
 // W13: the move legend (docs/specs/move-legend ticket 01) on the painted board and in the Workshop (the clay look is parked).
 // A green tile moves; a white tile with a red target takes only; a green tile with the target moves or takes;
 // the target with an arrow is a shot; a take on a figure is a red edge and the badge at the top-left.
+// The threats states (move-legend ticket 04) show Settings → Show threats: the Workshop's red threat arrows and the red glow.
+// Ticket 03: the painted board has the Workshop's coordinates, the gold glow under the selected piece and the rails of its lines;
+// workshop-queen shows the Workshop's own rails, which stay as they were.
 // Run: SAMPLE=W13 node docs/specs/web-ux/capture.mjs <base-url> <out-dir>. Renders stay outside Git.
-import { keepWorkshopCopy, usePower } from '../../../../tools/app-ui.mjs';
+import { keepWorkshopCopy, pressMenu, usePower } from '../../../../tools/app-ui.mjs';
 
 const save = fen => ({ back: '', fen, moves: [], white: 'human', black: 'human', sound: false });
 // The queen on d4 (dark); enemies on b6 and f2 (dark), d7 and g4 (light).
@@ -19,6 +22,17 @@ const POWER = `?kings=stratus:flight,none&fen=${encodeURIComponent('4k3/p7/8/8/8
 // Haste on the rook a1 under the 2017 rules (as printed, Haste may take): a5 is a power take on a figure, and its two
 // blue frames reach past the square. The game's own rules have no power that takes.
 const HASTE = `?rules=2017&kings=flame:haste,none&fen=${encodeURIComponent('7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1')}`;
+// Show threats on (move-legend ticket 04): the rook d5 attacks the knight d2.
+const THREATS = { ...save('4k3/8/8/3r4/8/1Q6/3N4/4K3 w - - 0 1'), threats: true };
+const START = save('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+/** The Workshop from the menu, with the pool Queen open. */
+const workshopQueen = async ({ page }) => {
+  await pressMenu(page, 'Workshop');
+  await page.locator('#workshop.pg[open]').waitFor();
+  if (await page.isHidden('.pg-ledge')) await page.click('[data-act="pieces"]');
+  await page.click('.slot[data-piece="queen"]');
+  await page.locator('.slot[data-piece="queen"][aria-current="true"]').waitFor({ state: 'attached' });
+};
 
 /** Taps a square and checks the engine's marks (moves and captures of the selected piece) before the shot. */
 const select = (sq, want) => async ({ page, tap }) => {
@@ -32,6 +46,9 @@ const select = (sq, want) => async ({ page, tap }) => {
     if (JSON.stringify(got[key]) !== JSON.stringify(value)) throw new Error(`W13: ${key} is ${JSON.stringify(got[key])}, not ${JSON.stringify(value)}`);
   }
 };
+const threatQueen = select(17, { captures: [35] });
+// A tap on the enemy rook reads it: its half-strength take mark lands on the threatened knight d2.
+const readRook = ({ tap }) => tap(35);
 const queen = select(27, { moves: 19, captures: [13, 30, 41, 51], shots: [] });
 const hover = sq => async context => {
   await queen(context);
@@ -69,6 +86,8 @@ export default {
   sizes: ['phone', 'desktop'],
   states: [
     { name: 'painted-queen', save: QUEEN, steps: queen },
+    { name: 'painted-start', save: START, steps: select(6, { moves: 2, captures: [] }) },
+    { name: 'workshop-queen', targets, steps: workshopQueen },
     { name: 'painted-knight', save: KNIGHT, steps: select(27, { moves: 6, captures: [42, 44] }) },
     { name: 'painted-archer', save: ARCHER, steps: select(27, { captures: [41, 45], shots: [41, 45] }) },
     { name: 'painted-archer-light', save: ARCHER_LIGHT, steps: select(28, { captures: [42, 46], shots: [42, 46] }) },
@@ -81,6 +100,11 @@ export default {
     { name: 'workshop-editor', query: WORKSHOP, targets, steps: editor },
     { name: 'workshop-read', query: WORKSHOP, targets, steps: async ({ page }) => { await page.locator('#workshop .pg-face').waitFor(); } },
     { name: 'painted-queen-deut', save: QUEEN, steps: deuteranopia(queen) },
+    { name: 'painted-threats', save: THREATS },
+    { name: 'painted-threats-queen', save: THREATS, steps: threatQueen },
+    { name: 'painted-threats-read', save: THREATS, steps: readRook },
+    { name: 'painted-threats-dark', save: THREATS, steps: threatQueen, scheme: 'dark' },
+    { name: 'painted-threats-queen-deut', save: THREATS, steps: deuteranopia(threatQueen) },
     { name: 'workshop-editor-deut', query: WORKSHOP, targets, steps: deuteranopia(editor) },
   ],
 };

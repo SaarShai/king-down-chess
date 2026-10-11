@@ -23,7 +23,7 @@ Later: not needed for v1; it needs ticket 16, a place in New game, a figure on t
 
 - [x] `npm test` passes.
 - [x] `npm run check:browser` (all checks) passes; the plugin checks by name, with the page size.
-- [x] Renders of New game and a game with a design at 1440 × 900 and 390 × 844; the owner sees them before the merge.
+- [x] Renders of New game and a game with a design at 1440 × 900 and 390 × 844; the owner sees them before the merge. Owner, 2026-10-11: "yes" (the painted board; the clay look is parked, owner the same day).
 - [x] No game run without the owner's go.
 
 ## Risks
@@ -56,7 +56,7 @@ Changes from the plan, each with its reason:
 3. **The share code rides in the rule:** `DesignSpec` gets an optional `code` (set by `parseRule`); the engine does not read it. Reason: the autosave, the account save, a rematch and a game link then keep the name and the figure with no new save field. `playedDesign()` (`src/rules/rules.ts`) parses it once per code.
 4. **The Try board stays out of a game's design** (review of ticket 16, items 9 and 10): `tryBoard` (`src/workshop/moves.ts`) clears `RULES.design` while `movesOf` and the threat eye run, so a game's design never changes the Try board. The main-thread search sets the worth of `T` (step 3).
 5. **Leap and Vault on a design are an echo:** the engine's Leap and Vault move only a rook, a bishop or a queen (`engine.ts`, case 'Leap'). On a copy the Workshop shows "= Leap adds nothing", as a game plays it. Freeze, Ice Wall and the other powers that do not ask the piece type work.
-6. **`src/sim/game.ts` still does not set the worth of `T`** (ticket 16, change 10): no simulation runs a design yet, and a run needs the owner's go.
+6. **`src/sim/game.ts` still does not set the worth of `T`** (ticket 16, change 10): no simulation runs a design yet, and a run needs the owner's go. Resolved 2026-10-11, see "Open ends resolved".
 7. Not done: the painted letter labels (`?labels=1`) show `T` for a design, not its own letter; the "All rules" card has no design card. Both are small follow-ups.
 
 Evidence (the logs are outside Git, in `/tmp`):
@@ -78,9 +78,9 @@ The review (`scratchpad/build/review-17.md`) had 9 findings. I checked each agai
 4. **should-fix, confirmed:** the Custom prompt starts from the current back rank, which holds `T` after a design game, and `withDesign` changed a second piece. Fix: `withDesign` keeps a back rank that holds `T`. A unit test.
 5. **should-fix, confirmed:** the painted-game check waited only for the figure's network request. Fix: the check counts the pixels of the white token's disc (#efe9d8) on b1 and asserts fewer than 26 of 256. Evidence: with `figureOf` broken on purpose, the group fails with 160 of 256 (`/tmp/pg17r-broken.log`); with the real code it passes.
 6. **nit, confirmed, fixed (one line):** with Ogre practice the line now says "Ogre practice takes no design."
-7. **nit, confirmed, not fixed:** the worth of `T` is set in two places (`src/ai/worker.ts`, `src/game.ts`). One shared helper costs more than one line; a follow-up.
-8. **nit, confirmed, not fixed (a decision):** "The My Rook …" and "This Old Ward …" keep the article. Removing it touches each sentence in `read.ts` and `previously.ts`; the owner can ask for it.
-9. **nit, confirmed, not fixed:** a game link with a design that this version cannot read opens as no game, with no message. This version cannot make such a link; a follow-up.
+7. **nit, confirmed, fixed 2026-10-11** (see "Open ends resolved"): the worth of `T` was set in two places (`src/ai/worker.ts`, `src/game.ts`).
+8. **nit, confirmed, fixed:** "The My Rook …" and "This Old Ward …" kept the article. The render review fixed it (item 2 of "Render review fixes": `theName`, `aName`).
+9. **nit, confirmed, fixed 2026-10-11** (see "Open ends resolved"): a game link with a design that this version cannot read opened as no game, with no message.
 
 Evidence of the review fixes: `npm test` through the shared lock (`/tmp/pg17r-test.log`): exit 0; 117 test files pass (1 skipped), 1,910 tests pass (21 skipped); the node tests, 50 of 50. `npm run check:browser painted-game new-game workshop` (`/tmp/pg17r-checks.log`, `pg-design-XoC6oQ`): all 3 pass.
 
@@ -105,9 +105,37 @@ Evidence (the logs are outside Git, in `/tmp/pg17c/`):
 The review (`scratchpad/build/review-17b.md`) had no must-fix item, one low item and two nits. I checked each against the code.
 
 1. **low, confirmed, fixed:** the Sacrifice sentence said "brings back a My Rook there", and pool pieces got "a archer" and "a ogre" (`src/move-text.ts`). Fix: the `article` helper moves from `src/previously.ts` to `src/rules/engine.ts` as `aName(t)` ("a rook", "an archer", or the design's name). The Sacrifice, morph and promotion words use it. Unit tests in `src/read.test.ts`: "brings back My Rook there." and "brings back an archer there."
-2. **nit, confirmed, not fixed:** the clay tint for Black's design is `CLAY_PALETTES[1].light`, paler than the black sculpts. The reviewer says it reads as Black, and a new colour is a visual change that needs new renders for the owner. A follow-up if the owner asks.
+2. **nit, void:** the clay tint for Black's design is `CLAY_PALETTES[1].light`, paler than the black sculpts. The clay look is parked (owner, 2026-10-11), so this nit has no effect on the game; it is void.
 3. **nit, confirmed, fixed:** `validName` accepts a name in lower case, so "old ward cannot reach e5." started with a small letter. Fix: `theName` makes the first letter of the design's name a capital when the article starts with a capital ("The", "This"). Unit test: "Old ward cannot reach e5."
 
 Renders: not made again. The fixes change only screen-reader and notice sentences, and no image in `owner4/play-design/` shows them.
 
 Evidence (the logs are outside Git, in `/tmp`): `npm test` through the shared lock (`/tmp/pg17d-test1.log`): exit 0; 117 test files pass (1 skipped), 1,910 tests pass (21 skipped); the node tests, 50 of 50. The new asserts are in an existing test, so the count stays the same. `npm run check:browser painted-game workshop` (`/tmp/pg17d-checks.log`, `pg-design-z2n6cq`): both pass.
+
+### 2026-10-11 · Open ends resolved (owner: "3. resolve all")
+
+Each item is resolved.
+
+1. **Review nit 7, the worth of `T` in two places: resolved.** `setDesignValue(design, over)` (`src/ai/eval.ts`, beside `setPieceValues`) is the one place that sets it: `T` is worth `worthOf(design) × PAWN_V`, and `over` wins. The browser worker, the page's own search (`src/game.ts`) and the self-play test call it.
+2. **Review nit 9, a game link with a design that this version cannot read: resolved.** The link does not open, and the game's notice line says "The game link holds a piece that this version cannot read. Your saved game stays." (the second sentence only when a saved game exists). The saved game stays, and the URL loses the link, so a reload resumes the saved game. Changes: `src/main.ts` tells a game link (`gameLink`) from a link that opens (`link`); with an unreadable design the link's `?fen=` is not used as a plain position, and its `?design=` does not open the Workshop (before, it opened the Workshop with the toast "This design link could not be read."). `play.restore` takes the first `notice` (`src/screen/play.ts`, 2 lines). Browser check: `new-game` step 7b opens such a link over a saved game and asserts the line, the saved moves, no Workshop and a clean URL. On the old code this step fails: "a link with a design this version cannot read says why" (`logs/newgame-neg.log`, `logs/newgame-neg.new-game.log`).
+3. **Ticket 16 change 10 (change 6 above), the worth of `T` in a simulation: resolved.** `playGame` (`src/sim/game.ts`) calls `setDesignValue(RULES.design, spec.values)` after `setRules`, as the worker does; a `--values` entry for `T` still wins. Unit test (`src/sim/sim.test.ts`, "a design in T gets its judge worth in a run"): `playGame` with `maxPlies: 0` stops before the first move (0 plies, so no game plays), and `VALUES[T]` equals the judge worth; with `values: { T: 500 }` it is 500. No simulation ran.
+4. **Stale text: resolved.** Review nit 8 ("The My Rook") is marked fixed (the render review fixed it). The clay tint nit is marked void: the clay look is parked (owner, 2026-10-11).
+
+Evidence (outside Git, in `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/08f2956c-63a7-4276-8738-a657bdb42b06/scratchpad/build/open-ends/`):
+
+- `npm test` through the shared lock: exit 0. 118 test files pass (1 skipped); 1,915 tests pass (21 skipped). Log: `logs/npm-test-1.log`; `logs/npm-test-2.log` is the run with this ticket text.
+- `npm run check:browser workshop new-game painted-game`: all 3 pass (122.4 s, 18.0 s, 112.1 s). Logs: `logs/checks-1.log` and each check's log in `logs/checks-1/`.
+
+
+### 2026-10-11 · Review of the open ends
+
+The review (`scratchpad/build/review-ends.md`) had one should-fix item and two nits. I checked each against the code.
+
+1. **should-fix, confirmed, fixed:** a game link with an unreadable design did not open, but its `?kings=` and `?rules=` still applied (`setRules` in `src/main.ts`), and `urlRules` made `play.restore` start a fresh game when the saved game had other rules. The notice still said "Your saved game stays." The URL also kept `kings=` and `rules=`, so a reload played the link's kings. Fix (`src/main.ts`): `unread` (`gameLink && !link`) gives no `preset` and no `kings`, and the URL loses `rules=` and `kings=` too. Reason: a link that does not open must not change this page's game. Browser check: `new-game` step 7b now opens the link with `?kings=spirit:mercy` and asserts that the saved game has no kings (`rules.kings` is `[null, null]`). Not changed: when the owner declines the "Open the game from this link?" confirm, the link's kings still apply. This was so before these tickets; the confirm comes after the first `Game` is built, so a fix needs a larger change.
+2. **nit, not changed:** `src/ai/eval.ts` imports `workshop/judge`. There is no cycle and no bundle change (`game.ts` and `worker.ts` already import it). A new module for one function is an abstraction with one use.
+3. **nit, noted:** a design run now gets the judge worth for `T`, not `TEMPLAR_V` (350). A design run that resumes across this change mixes the two values, and `checkResume` does not see it. No design run exists yet, so no change.
+
+Evidence (outside Git, in `scratchpad/build/open-ends/logs/`):
+
+- `npm test` through the shared lock (`npm-test-3.log`): exit 0. 118 test files pass (1 skipped); 1,915 tests pass (21 skipped); the node tests, 50 of 50. Run 2, with this ticket text (`npm-test-4.log`): exit 0; the same counts.
+- `npm run check:browser new-game` (`review-newgame.log`, `review-newgame.new-game.log`): passes (18.3 s). On the old `src/main.ts` the same check fails: "the saved game stays, without the link's kings" (`review-newgame-neg.log`, `review-newgame-neg.new-game.log`).

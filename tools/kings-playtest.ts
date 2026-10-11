@@ -1,3 +1,4 @@
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Playtest review of a kings' powers tournament: replays every game and says how each power was
  * actually used — what it touched, when, and the material swing over the next few plies — plus a
@@ -37,7 +38,7 @@ const uses = new Map<string, Use[]>();
 const games = new Map<string, Rec[]>();
 
 for (const id of ids) {
-  const spec = JSON.parse(readFileSync(`sim/out/${id}.tournament.json`, 'utf8'));
+  const spec = JSON.parse(readFileSync(`${resultsRoot()}/${id}.tournament.json`, 'utf8'));
   for (const r of readRecords(id) as Rec[]) {
     // By entrant, so a rule variant (`Sacrifice~vbehind`) is reviewed apart from its base power.
     const sides = [r.white, r.black];
@@ -93,5 +94,5 @@ for (const [power, list] of [...uses].sort((a, b) => a[0].localeCompare(b[0]))) 
   lines.push('');
 }
 const text = lines.join('\n') + '\n';
-writeFileSync(`sim/out/${ids.join('+')}.playtest.md`, text);
+writeFileSync(`${resultsRoot()}/${ids.join('+')}.playtest.md`, text);
 console.log(text);

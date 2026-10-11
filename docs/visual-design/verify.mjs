@@ -121,17 +121,30 @@ try {
   ok('mouse: after a tap on the board, ← still opens the review (no cursor)');
   await page.context().close();
 
-  // 3. Show threats: a rook on d5 attacks the knight on d2 and covers 12 empty squares; its king 3 more.
+  // 3. Show threats (move-legend ticket 04, the Workshop's threats): the rook on d5 attacks the knight on d2.
   page = await open('?fen=' + encodeURIComponent('4k3/8/8/3r4/8/8/3N4/4K3 w - - 0 1'));
   await ready(page);
-  assert.equal(await page.locator('#board-marks i').count(), 0, 'off by default');
+  const threats = () => page.evaluate(() => window.view.marks.threats);
+  // The most red (red less green) on a row of 13 canvas pixels across the arrow's middle, half way from d5 to d2.
+  const redAcross = () => page.evaluate(() => new Promise(requestAnimationFrame).then(() => {
+    const c = document.querySelector('#board canvas'), r = c.getBoundingClientRect(), k = c.width / r.width, a = window.view.screenOf(35), b = window.view.screenOf(11);
+    const d = c.getContext('2d').getImageData(((a.x + b.x) / 2 - r.left) * k - 6, ((a.y + b.y) / 2 - r.top) * k, 13, 1).data;
+    let most = -255;
+    for (let i = 0; i < d.length; i += 4) most = Math.max(most, d[i] - d[i + 1]);
+    return most;
+  }));
+  assert.deepEqual(await threats(), [], 'off by default');
+  const plain = await redAcross();
   await boardHelp(page, () => page.check('#threats'));
-  assert.equal(await page.locator('#board-marks .mk-threat').count(), 1);
-  assert.equal(await page.locator('#board-marks .mk-cover').count(), 15);
-  const ring = await page.locator('#board-marks .mk-threat').boundingBox(), d2 = await page.evaluate(() => window.view.screenOf(11));
-  assert.ok(Math.abs(ring.x + ring.width / 2 - d2.x) < 2 && Math.abs(ring.y + ring.height / 2 - d2.y) < 2, 'the ring sits on d2');
+  assert.deepEqual(await threats(), [{ from: 35, to: 11 }], 'the rook d5 threatens the knight d2');
+  const lit = await redAcross();
+  assert.ok(lit > plain + 30, `the red arrow draws between d5 and d2 (red less green ${plain} off, ${lit} on)`);
+  assert.equal(await page.locator('#board-marks i').count(), 0, 'no amber mark is left');
+  await tap(page, 11);
+  assert.ok((await page.evaluate(() => window.view.marks.moves.length)) > 0, 'the knight shows its moves');
+  assert.deepEqual(await threats(), [{ from: 35, to: 11 }], 'the threat stays with the moves');
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).threats), true, 'the choice is saved');
-  ok('Show threats: off by default; marks the attacked knight and 15 covered squares; saved');
+  ok('Show threats: off by default; the red arrow from the rook d5 to the knight d2, also with moves shown; saved');
   await page.context().close();
 
   // 4. Refusals say why. A tap on an enemy piece with no piece selected is no refusal: it shows the piece's card.

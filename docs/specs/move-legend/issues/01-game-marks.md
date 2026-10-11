@@ -71,7 +71,7 @@ Owner, 2026-10-10: "yes, go with my legend, but change the red X to a red target
 - **D2 "Both" on the old Takes board:** the Takes board shows the full legend for each square that takes (`c-take`, `c-both`, `c-shoot`, `c-moveshot`); the Moves board shows green for each square that moves. The two boards go at the Proving Ground cutover.
 - **D3 Clay hint:** gold, as on the painted board. Green now means move.
 - **D4 Read of an enemy piece:** the same legend marks at half strength, so one mark language serves both.
-- **D5 Show threats** (`src/style.css:134-146`, `src/screen/play.ts:262-281`): it keeps its red dot and ring in this ticket. Ask the owner with the screenshots, because a red dot can now read as a take target.
+- **D5 Show threats** (`src/style.css:134-146`, `src/screen/play.ts:262-281`): it keeps its red dot and ring in this ticket. Ask the owner with the screenshots, because a red dot can now read as a take target. 2026-10-11: D5 moves to ticket 02 (`docs/specs/move-legend/issues/02-threat-marks.md`, built on branch `claude/threat-marks`); the owner wrote "resolve all".
 - **D6 Hover:** the ghost figure stays; the gold ellipse becomes a gold-bright tile edge.
 - **D7 Plugin:** the plugin board follows the legend through the shared modules. No plugin release until the owner asks.
 
@@ -139,7 +139,7 @@ Changes from the ticket, and why:
 
 Open:
 - The owner sees the W13 renders (`S/w13-2`, `S/w13-check`) before the merge.
-- D5, for the owner: Show threats keeps its red dot and ring. With the legend, a red dot can read as a take target. Keep it, or change it?
+- D5, for the owner: Show threats keeps its red dot and ring. With the legend, a red dot can read as a take target. Keep it, or change it? Moved 2026-10-11 to ticket 02 (`02-threat-marks.md`, on branch `claude/threat-marks`), so it is not open in this ticket.
 
 **2026-10-10, the review fixes.** A reader that did not write the diff reviewed the branch (`S/../review-legend.md`).
 
@@ -154,3 +154,8 @@ Evidence after the fixes:
 - `plugin-ui` and `plugin-ui-http` (with the local test database): both passed (`S/logs/checks-5.log`, `move-legend-zZMNxN`). The plugin page is 4,297,565 bytes, no change (`S/logs/plugin-review.log`).
 - W13 on a preview of this tree: 42 renders, 0 with a fault (`S/w13-3`, `S/logs/w13-3.log`).
 - `npm test` (lock script): 111 files passed, 1 skipped; 1833 tests passed, 21 skipped; exit 0 (`S/logs/npm-test-5.log`).
+
+**2026-10-10, the owner's samples.** `O` is `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/08f2956c-63a7-4276-8738-a657bdb42b06/scratchpad/build/owner`.
+- W13 on a Vite dev server of this worktree at 59f6ac97 (port 5181, stopped by its PID after): 42 renders, 0 with a fault (`O/legend`, log `O/legend-capture.log`). Contact sheet: `O/legend-sheet.png`.
+- What the owner sees beside the earlier notes: on the clay phone a figure covers most of its own badge (f2 in `clay-queen`, a5 in `clay-power-take`), and at the lowest tilt (`clay-depth`) the queen hides most of the e5 badge. With deuteranopia the red edge of a take on a figure looks olive, as the move tiles do; the badge is then the only sign of the take.
+- Open for the owner: his yes on the W13 renders, and D5 (Show threats).

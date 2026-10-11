@@ -135,20 +135,9 @@ body { background-color: var(--floor-base); background-image: var(--floor); }
 #board:focus { outline: none; }
 #board:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
 
-/* Threat markers and the keyboard cursor (screen/play.ts drawMarks); never catch a tap. */
+/* The keyboard cursor (screen/play.ts drawMarks); never catches a tap. */
 #board-marks { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
 #board-marks i { position: absolute; display: block; }
-.mk-cover::after {
-  content: ''; position: absolute; left: 50%; top: 50%; width: 20%; height: 20%;
-  transform: translate(-50%, -50%); border-radius: 50%;
-  background: rgba(176, 37, 27, 0.62); box-shadow: 0 0 0 2px rgba(251, 247, 238, 0.75);
-}
-/* A red ring at the figure's feet: a tall painted figure still shows its face. */
-.mk-threat::after {
-  content: ''; position: absolute; left: 8%; right: 8%; bottom: 3%; height: 40%;
-  border-radius: 50%; border: 3px solid var(--danger);
-  box-shadow: 0 0 0 2px rgba(251, 247, 238, 0.8), inset 0 0 0 2px rgba(251, 247, 238, 0.8);
-}
 .mk-cursor {
   border: 3px solid var(--focus); border-radius: var(--radius-sm);
   box-shadow: 0 0 0 2px var(--vellum), inset 0 0 0 2px var(--vellum);

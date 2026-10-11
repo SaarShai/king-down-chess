@@ -3,8 +3,7 @@ import { Color, Move, Position, Status, inCheck, legalMoves, makeMove, status } 
 import { RULES } from './rules/rules';
 import { randomBackRank, startPosition, toLan } from './rules/setup';
 import { SearchOptions, SearchResult, positionKey, search } from './ai/search';
-import { PAWN_V, setPieceValues } from './ai/eval';
-import { worthOf } from './workshop/judge';
+import { setDesignValue } from './ai/eval';
 
 export type Side = 'human' | 'ai';
 
@@ -102,7 +101,7 @@ export class Game {
 
 /** The search on the page (no worker) under the page's rules: a design in `T` is worth what the judge says, as in the worker. */
 function inline(pos: Position, opts: SearchOptions): SearchResult {
-  setPieceValues(RULES.design ? { T: Math.round(worthOf(RULES.design) * PAWN_V) } : undefined);
+  setDesignValue(RULES.design);
   return search(pos, opts);
 }
 

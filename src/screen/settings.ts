@@ -28,11 +28,11 @@ export function connectSettings(view: BoardView, c: {
   skill(): SkillName;
   setSkill(level: SkillName): void;
   save(): void;
-  drawMarks(): void;
+  refresh(): void;
 }) {
   $('sound').onchange = () => { setSound($<HTMLInputElement>('sound').checked); c.save(); };
   $('queen').onchange = c.save;
-  $('threats').onchange = () => { c.drawMarks(); c.save(); };
+  $('threats').onchange = () => { c.refresh(); c.save(); };
   const pace = $<HTMLSelectElement>('pace');
   // No saved choice: the system's reduced-motion setting picks Off.
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) pace.value = 'off';

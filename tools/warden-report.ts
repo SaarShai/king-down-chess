@@ -1,3 +1,4 @@
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Guard activity, drag and pool checks for the Warden study (docs/research/sim-warden-2026-09-13.md).
  *
@@ -185,7 +186,7 @@ interface Run {
 interface Opt { excerpts: number }
 
 function mineRun(id: string, opt: Opt): Run {
-  const file = `sim/out/${id}.jsonl`;
+  const file = `${resultsRoot()}/${id}.jsonl`;
   if (!existsSync(file)) throw new Error(`no such run: ${file}`);
   const run: Run = { id, games: 0, s: side(), guardsPerRank: {}, reasons: {}, excerpts: [] };
   const s = run.s;
@@ -322,13 +323,13 @@ function oddsPaired(runs: readonly string[]): void {
     return m;
   };
   const elo = (s: number): number => (s <= 0 || s >= 1 ? NaN : -400 * Math.log10(1 / s - 1));
-  const base = armScore(`sim/out/${runs[0]}.G.jsonl`);
+  const base = armScore(`${resultsRoot()}/${runs[0]}.G.jsonl`);
   const mu0 = [...base.values()].reduce((a, b) => a + b, 0) / (base.size || 1);
   // Elo per unit of score at the base arm's own score: the arms sit far from 0.5, where the
   // logistic is flat, so a slope taken at 0.5 would over-read every delta.
   const slope = 400 / (Math.LN10 * mu0 * (1 - mu0));
   const rows = runs.map(id => {
-    const arm = armScore(`sim/out/${id}.G.jsonl`);
+    const arm = armScore(`${resultsRoot()}/${id}.G.jsonl`);
     const d: number[] = [];
     for (const [g, v] of arm) if (base.has(g)) d.push(v - base.get(g)!);
     const mu = d.reduce((a, b) => a + b, 0) / (d.length || 1);
