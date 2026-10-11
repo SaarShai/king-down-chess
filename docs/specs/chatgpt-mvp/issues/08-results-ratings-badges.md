@@ -40,6 +40,7 @@ Use the ticket's game-service database seam. Checks pass when the reverse-date t
 - Migration 0012 adds the three result tables. The runtime grants and start check cover them. Test role changes use the shared role lock.
 - Round 2 fixes all three review findings. The only production change keeps `last_game_at` at the latest game date with `greatest`.
 - Checks before the final integration merge: `npm test` passes 141 files, 2,226 tests and 50 art tests; 8 tests skip. Badge unit checks: 11 pass. Result database checks: 18 pass. `git diff --check` passes. The test database is `kingdown_mvp08_test`, with a separate results copy.
+- Checks after the merge of integration tip `70faac4d`: `npm test` passes 141 files, 2,227 tests and 50 art tests; 8 tests skip. All 18 result database tests and all 11 badge tests pass. `git diff --check` passes.
 - No page changes. Page size and browser checks do not apply. Ticket 10 connects the result methods to the profile tool; ticket 16 builds the profile page.
 - Open items: none.
 
