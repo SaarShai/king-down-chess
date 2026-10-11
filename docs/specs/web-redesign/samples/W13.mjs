@@ -1,6 +1,7 @@
 // W13: the move legend (docs/specs/move-legend ticket 01) on the painted board, the clay look and the Workshop.
 // A green tile moves; a white tile with a red target takes only; a green tile with the target moves or takes;
 // the target with an arrow is a shot; a take on a figure is a red edge and the badge at the top-left.
+// The threats states (move-legend ticket 02) show Settings → Show threats: amber diamonds and an amber warning triangle.
 // Run: SAMPLE=W13 node docs/specs/web-ux/capture.mjs <base-url> <out-dir>. Renders stay outside Git.
 import { keepWorkshopCopy, usePower } from '../../../../tools/app-ui.mjs';
 
@@ -21,6 +22,8 @@ const POWER = `?kings=stratus:flight,none&fen=${encodeURIComponent('4k3/p7/8/8/8
 const HASTE = `?rules=2017&kings=flame:haste,none&fen=${encodeURIComponent('7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1')}`;
 // The rook a5 takes the knight e5, and the queen e4 stands in front of e5.
 const DEPTH = save('4k3/8/8/R3n3/4Q3/8/8/4K3 w - - 0 1');
+// Show threats on (ticket 02): the rook d5 attacks the knight d2 and covers d3 and b5, where the queen b3 can move.
+const THREATS = { ...save('4k3/8/8/3r4/8/1Q6/3N4/4K3 w - - 0 1'), threats: true };
 
 /** Taps a square and checks the engine's marks (moves and captures of the selected piece) before the shot. */
 const select = (sq, want) => async ({ page, tap }) => {
@@ -34,6 +37,9 @@ const select = (sq, want) => async ({ page, tap }) => {
     if (JSON.stringify(got[key]) !== JSON.stringify(value)) throw new Error(`W13: ${key} is ${JSON.stringify(got[key])}, not ${JSON.stringify(value)}`);
   }
 };
+const threatQueen = select(17, { captures: [35] });
+// A tap on the enemy rook reads it: its half-strength take mark lands on the threatened knight d2.
+const readRook = ({ tap }) => tap(35);
 const queen = select(27, { moves: 19, captures: [13, 30, 41, 51], shots: [] });
 const hover = sq => async context => {
   await queen(context);
@@ -96,6 +102,14 @@ export default {
     { name: 'workshop-read', query: WORKSHOP, targets, steps: async ({ page }) => { await page.locator('#workshop .pg-face').waitFor(); } },
     { name: 'painted-queen-deut', save: QUEEN, steps: deuteranopia(queen) },
     { name: 'clay-queen-deut', query: '?look=clay', save: QUEEN, steps: deuteranopia(queen) },
+    { name: 'painted-threats', save: THREATS },
+    { name: 'painted-threats-queen', save: THREATS, steps: threatQueen },
+    { name: 'painted-threats-read', save: THREATS, steps: readRook },
+    { name: 'painted-threats-dark', save: THREATS, steps: threatQueen, scheme: 'dark' },
+    { name: 'clay-threats-queen', query: '?look=clay', save: THREATS, steps: threatQueen },
+    { name: 'clay-threats-read', query: '?look=clay', save: THREATS, steps: readRook },
+    { name: 'painted-threats-queen-deut', save: THREATS, steps: deuteranopia(threatQueen) },
+    { name: 'clay-threats-queen-deut', query: '?look=clay', save: THREATS, steps: deuteranopia(threatQueen) },
     { name: 'workshop-editor-deut', query: WORKSHOP, targets, steps: deuteranopia(editor) },
   ],
 };

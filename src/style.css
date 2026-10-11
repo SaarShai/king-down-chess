@@ -138,16 +138,20 @@ body { background-color: var(--floor-base); background-image: var(--floor); }
 /* Threat markers and the keyboard cursor (screen/play.ts drawMarks); never catch a tap. */
 #board-marks { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
 #board-marks i { position: absolute; display: block; }
-.mk-cover::after {
-  content: ''; position: absolute; left: 50%; top: 50%; width: 20%; height: 20%;
-  transform: translate(-50%, -50%); border-radius: 50%;
-  background: rgba(176, 37, 27, 0.62); box-shadow: 0 0 0 2px rgba(251, 247, 238, 0.75);
+.mk-cover::after, .mk-threat::after {
+  content: ''; position: absolute; aspect-ratio: 1; background: center / contain no-repeat;
 }
-/* A red ring at the figure's feet: a tall painted figure still shows its face. */
+/* Threat marks use amber with an ink edge and a vellum halo, and the square's bottom-right corner: no move or take mark
+   uses that colour, shape or corner (the badge is top-left, the target and the ring under the feet are centred).
+   A covered square gets a diamond. */
+.mk-cover::after {
+  right: 6%; bottom: 6%; width: max(11px, 24%);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 2 18 10 10 18 2 10z' fill='none' stroke='%23fbf7ee' stroke-width='4' stroke-linejoin='round'/%3E%3Cpath d='M10 2 18 10 10 18 2 10z' fill='%23f08c1a' stroke='%232b2621' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+/* A threatened piece gets the warning triangle with "!", beside its feet: a tall painted figure still shows its face. */
 .mk-threat::after {
-  content: ''; position: absolute; left: 8%; right: 8%; bottom: 3%; height: 40%;
-  border-radius: 50%; border: 3px solid var(--danger);
-  box-shadow: 0 0 0 2px rgba(251, 247, 238, 0.8), inset 0 0 0 2px rgba(251, 247, 238, 0.8);
+  right: 3%; bottom: 3%; width: max(16px, 34%);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3 22 21H2z' fill='none' stroke='%23fbf7ee' stroke-width='4' stroke-linejoin='round'/%3E%3Cpath d='M12 3 22 21H2z' fill='%23f08c1a' stroke='%232b2621' stroke-width='2.4' stroke-linejoin='round'/%3E%3Crect x='10.9' y='9' width='2.2' height='6.5' rx='1.1' fill='%232b2621'/%3E%3Ccircle cx='12' cy='18' r='1.3' fill='%232b2621'/%3E%3C/svg%3E");
 }
 .mk-cursor {
   border: 3px solid var(--focus); border-radius: var(--radius-sm);
