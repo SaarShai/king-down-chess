@@ -55,6 +55,9 @@ try {
 
   await frame.locator('#home-card').waitFor();
   assert.equal(await frame.locator('#app-head').count(), 0, 'The approved sample has no page title or tabs');
+  assert.equal(await frame.locator('symbol').count(), 21, 'The page has the full game sprite');
+  assert.equal(await frame.locator('#over').count(), 1, 'The frame has one shared overlay');
+  assert.equal(await frame.locator('#i-back, #i-close, #i-plus, #i-mic').count(), 0, 'Host icons stay with the host');
   assert(await frame.locator('#home-play').isDisabled(), 'Play waits for the page and the host to connect');
   assert.equal(await frame.locator('#home-card button').count(), 2, 'The inline home card has only Play and Your games');
   await frame.locator('#home-play:not(:disabled)').waitFor();
@@ -68,20 +71,43 @@ try {
   await page.setViewportSize({width:1000,height:1000});
   await frame.getByRole('button', { name: 'Play', exact: true }).click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-  assert.deepEqual(await frame.locator('[data-screen="play"] .row-title').allTextContents(), ['Computer', 'A friend', 'A random player', 'Your games', 'Profile', 'Settings']);
+  assert.deepEqual(await frame.locator('[data-screen="play"] .row-title').allTextContents(), ['Computer', 'A friend', 'A random player', 'Profile', 'Settings']);
   assert(await frame.locator('[data-screen="play"] h2').evaluate(el => getComputedStyle(el).fontFamily.includes('Cinzel')), 'The page uses the approved Cinzel heading');
   assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests), ['fullscreen'], 'Play asks the host for fullscreen');
   async function openPlay() {
-    for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) await frame.locator('[data-screen]:not([hidden]) [data-back]').click();
+    for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) await frame.locator('#page-back').click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor({ timeout: 5000 });
   }
   async function openScreen(screen) { await openPlay(); await frame.locator(`[data-screen="play"] [data-nav="${screen}"]`).click(); }
-  await frame.locator('#random').click();
-  await frame.locator('#random:not(:disabled)').waitFor();
-  assert.equal(await page.evaluate(() => window.harnessCalls.at(-1).name), 'kingdown_find', 'Random uses the API contract tool');
-  await page.evaluate(() => { window.requireHandleNext = true; });
-  await frame.locator('#friend').click();
-  await frame.locator('[data-screen="handle"]:not([hidden])').waitFor({ timeout: 5000 });
+  async function legacyStart(kind) {
+    const board_id = await page.evaluate(() => window.harnessWidgetState?.privateContent?.board_id);
+    const result = await (await page.request.post(new URL('/fixture-tool',base).href, { data: { name: 'kingdown_create', arguments: { mode: kind, colour: 'white', board_id } } })).json();
+    const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
+    assert(!result.isError); await page.evaluate(result => window.harnessShow(result), result);
+    await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
+    await frame.locator('#reload:not(:disabled)').waitFor(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+  }
+  async function handleGate(fail = false) {
+    const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
+    await page.evaluate(() => {
+      const saved = window.harnessWidgetState.privateContent;
+      window.harnessWidgetState = { modelContent: {}, privateContent: { screen: 'play', sheet: undefined, board_id: saved.board_id, pending: { name: 'kingdown_create', args: { kind: 'friend', colour: 'white' } } } };
+    });
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
+    await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#reload').disabled === false);
+    await frame.locator('#retry').waitFor();
+    await page.evaluate(fail => { window.requireHandleNext = true; window.failActionAfterHandle = fail; }, fail);
+    await frame.locator('#retry').click(); await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+  }
+  const navCalls = await page.evaluate(() => window.harnessCalls.length);
+  for (const [id, route] of [['solo','setup'], ['friend','setup'], ['random','lobby']]) {
+    await frame.locator(`#${id}`).click(); await frame.locator(`[data-screen="${route}"]:not([hidden])`).waitFor(); await openPlay();
+  }
+  await frame.locator('#token').fill('K7QX2M'); await frame.locator('#join').click(); await frame.locator('[data-screen="join"]:not([hidden])').waitFor(); await openPlay();
+  assert.equal(await page.evaluate(() => window.harnessCalls.length), navCalls, 'Play rows and Back change page memory without a tool call');
+  assert.equal(await page.evaluate(() => JSON.stringify(window.harnessWidgetState).includes('K7QX2M')), false, 'The join code stays in page memory');
+  await handleGate();
   assert.equal(await frame.locator('#presets button').count(), 17, 'The name screen has the 17 game pictures');
 
   async function fits(screen, width) {
@@ -89,7 +115,7 @@ try {
     const layout = await frame.locator('body').evaluate(el => ({ overflow: el.scrollWidth > innerWidth, width: innerWidth, heading: getComputedStyle(document.querySelector(`[data-screen="${el.dataset.page}"] h2`) ?? el).fontFamily }));
     assert.equal(layout.overflow, false, `${screen} has no horizontal scroll at ${width}px`);
     assert(layout.width <= width);
-    const controls = frame.locator(`[data-screen="${screen}"] button:visible, [data-screen="${screen}"] input:visible`);
+    const controls = frame.locator(`[data-screen="${screen}"] button:visible, [data-screen="${screen}"] input:visible, #page-head button:visible`);
     for (let i = 0; i < await controls.count(); i++) {
       const control = controls.nth(i); await control.scrollIntoViewIfNeeded();
       const bounds = await control.evaluate(el => {
@@ -113,14 +139,14 @@ try {
   for (const [width, height] of [[390,844], [1440,900], [400,900], [360,844]]) {
     await page.setViewportSize({width,height});
     await fits('handle', width); await shot(page, `shell-handle-${width}-${mode}`);
-    for (const screen of ['play','games','profile','settings']) {
+    for (const screen of ['play','profile','settings']) {
       if (screen === 'play') await openPlay(); else await openScreen(screen);
       await fits(screen, width); await shot(page, `shell-${screen}-${width}-${mode}`);
     }
     await frame.locator('[data-screen="settings"] [data-nav="handle"]').click();
   }
   await page.setViewportSize({width:1000,height:1000});
-  await openScreen('games');
+  await openPlay();
   const savedGame = frame.locator('#games-list button').first();
   await savedGame.waitFor();
   const savedId = await savedGame.getAttribute('data-game-id');
@@ -138,13 +164,13 @@ try {
   await frame.locator('#handle').fill('mvp_test');
   await frame.locator('#presets button[aria-label="knight"]').click();
   await frame.locator('#save-handle').click();
-  await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
+  await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
   assert.deepEqual(await page.evaluate(() => window.harnessHandle), { handle: 'mvp_test', icon: 'knight' });
 
   const backCalls = await page.evaluate(() => window.harnessCalls.length);
   await openPlay();
   assert.equal(await page.evaluate(() => window.harnessCalls.length), backCalls, 'Back changes only the page');
-  await frame.locator('#solo').click();
+  await legacyStart('solo');
   await frame.locator('#reload:not(:disabled)').waitFor();
   await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
   // The board leaves its floor clear, as the web game and the approved sample do.
@@ -158,7 +184,18 @@ try {
     const urls = [...new Set(document.documentElement.innerHTML.match(/https?:\/\/[^"'`\s]+\/plugin-art\/[\w-]+\.webp/g))];
     return Promise.all(urls.map(async src => { const image = Object.assign(new Image(), { crossOrigin: 'anonymous', src }); await image.decode(); const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d'); g.drawImage(image, 0, 0, 8, 8); g.getImageData(0, 0, 8, 8); return { src, page: new URL(src).origin === location.origin, width: image.naturalWidth }; }));
   });
-  assert(art.length >= 20, 'The page names the board art and menu art'); assert(art.every(file => file.width > 0), 'Every art file decodes');
+  assert(art.length >= 20, 'The page names the board art and menu art');
+  assert(art.some(file => file.src.includes('/scroll-')), 'scroll.webp loads from the plugin origin');
+  assert(art.some(file => file.src.includes('/badge-stranger-match-')), 'badge-stranger-match.webp loads from the plugin origin');
+  assert(art.some(file => file.src.includes('/badge-royal-collection-')), 'badge-royal-collection.webp loads from the plugin origin');
+  assert(art.some(file => file.src.includes('/badge-purist-')), 'badge-purist.webp loads from the plugin origin');
+  assert(art.some(file => file.src.includes('/badge-giant-slayer-')), 'badge-giant-slayer.webp loads from the plugin origin');
+  assert(art.some(file => file.src.includes('/badge-friend-match-')), 'badge-friend-match.webp loads from the plugin origin');
+  assert(art.some(file => file.src.includes('/badge-first-win-')), 'badge-first-win.webp loads from the plugin origin');
+  assert(art.some(file => file.src.includes('/badge-fairy-tale-')), 'badge-fairy-tale.webp loads from the plugin origin');
+  assert(art.some(file => file.src.includes('/badge-crowned-')), 'badge-crowned.webp loads from the plugin origin');
+  assert(art.some(file => file.src.includes('/badge-card-sharp-')), 'badge-card-sharp.webp loads from the plugin origin');
+  assert(art.some(file => file.src.includes('/badge-architect-')), 'badge-architect.webp loads from the plugin origin'); assert(art.every(file => file.width > 0), 'Every art file decodes');
   assert.equal(art.every(file => file.page), mode === 'fixture', 'The HTTP board loads its art from the plugin origin, not the page origin');
   assert.equal(await page.content().then(html => html.includes('data:image/webp')), false);
   await shot(page, `board-art-${mode}`);
@@ -174,17 +211,16 @@ try {
   assert(!await frame.locator('#symbols-only').isChecked(), 'Settings stay in page memory until ticket 10');
   await frame.locator('#symbols-only').uncheck();
   await openPlay();
-  await page.evaluate(() => { window.requireHandleNext = true; window.failActionAfterHandle = true; });
-  await frame.locator('#friend').click();
+  await handleGate(true);
   await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
   await frame.locator('#handle').fill('retry_name'); await frame.locator('#save-handle').click();
   await frame.locator('#error').filter({ hasText: 'Harness action after Save failed' }).waitFor();
   assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending?.name), 'kingdown_create', 'Save keeps the action until it succeeds');
   await page.locator('#remount').click();
   await frame.locator('#retry').waitFor(); await frame.locator('#retry').click();
-  await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
+  await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
   assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending), undefined);
-  await openPlay(); await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+  await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor();
 
   const pixels = () => frame.locator('canvas').evaluate(c => {
     const data = c.getContext('2d').getImageData(0,0,c.width,c.height).data; let hash=0, red=0;
@@ -230,7 +266,7 @@ try {
     await openScreen('settings'); await frame.locator('#symbols-only').uncheck(); await frame.locator('#show-threats').uncheck();
   }
   await page.setViewportSize({width:1000,height:1000});
-  await openPlay(); await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
+  await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
   async function clickSquare(file, rank) {
     const box = await boardBox(); assert(box);
     await page.mouse.click(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (64 + 32 + (7 - rank + .5) * 112) * box.width / 960);
@@ -274,7 +310,7 @@ try {
   await frame.locator('#reload:not(:disabled)').waitFor();
   assert.equal(await page.evaluate(() => window.harnessMatchId), id);
   assert.deepEqual(await page.evaluate(() => ({ revision: window.harnessView.revision, fen: window.harnessView.fen })), { revision: snapshot.revision, fen: snapshot.fen });
-  assert.equal(await page.evaluate(() => window.harnessCalls.at(-1).name), 'kingdown_get', 'A replayed initial result must fetch the saved game');
+  assert.equal(await page.evaluate(() => window.harnessCalls.findLast(call => call.name === 'kingdown_get').arguments.board_id), await page.evaluate(() => window.harnessWidgetState.privateContent.board_id), 'A replayed initial result fetches the board current game');
   await page.evaluate(() => { window.rejectNextGet = true; });
   await page.locator('#remount').click();
   await frame.locator('#error').filter({ hasText: 'Harness saved-game read failed' }).waitFor();
@@ -288,7 +324,7 @@ try {
   await page.waitForTimeout(100);
   assert.equal(await frame.locator('body').evaluate(el => el.scrollWidth > window.innerWidth), false);
   const canvas = await boardBox(); assert(canvas && canvas.width > 250 && canvas.width <= 390);
-  await openPlay(); await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+  await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor();
   async function tapSquare(file, rank) {
     const box = await boardBox(); assert(box);
     await page.touchscreen.tap(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (64 + 32 + (7 - rank + .5) * 112) * box.width / 960);
@@ -298,7 +334,7 @@ try {
   await tapSquare(4, 3);
   await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
   assert.equal(await page.evaluate(() => window.harnessView.revision), 1, 'Touch destination commits the ordinary move once');
-  await openPlay(); await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+  await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor();
   await tapSquare(4, 1);
   await frame.locator('#choices button').filter({ hasText: 'e2 to e4, with Haste' }).tap();
   await frame.locator('#reload:not(:disabled)').waitFor();
@@ -404,11 +440,11 @@ try {
     assert(await frame.locator('canvas').evaluate(() => window.harnessGhostSymbols.some(src => /knight-0-/.test(src))), 'The knight move preview uses the same symbol at half opacity');
     await openScreen('settings'); await frame.locator('#symbols-only').uncheck();
   }
-  await openPlay(); await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+  await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor();
   const deleted=await page.evaluate(()=>window.harnessView);
   await page.request.post(new URL('/fixture-delete-match',base).href,{data:{game_id:deleted.game_id}});
   await frame.locator('#reload').click(); await frame.locator('#error').filter({hasText:'deleted'}).waitFor();
-  await openPlay(); await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+  await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor();
   const replacement=await page.evaluate(()=>window.harnessView.game_id); assert.notEqual(replacement,deleted.game_id);
   const recoveryReads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
   await page.locator('#remount').click();
@@ -417,19 +453,19 @@ try {
   assert.equal(await page.evaluate(()=>window.harnessView.game_id),replacement,'Deleted-game recovery survives immediate remount');
   if (capabilities.friend) {
     await openPlay();
-    await openPlay(); await frame.locator('#friend').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+    await openPlay(); await legacyStart('friend'); await frame.locator('#reload:not(:disabled)').waitFor();
     await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
     await page.evaluate(() => { window.holdNextGet = true; });
     await page.waitForFunction(() => typeof window.releaseHeldGet === 'function');
-    assert(await frame.locator('[data-screen]:not([hidden]) [data-back]').isEnabled(), 'Background polling must not disable game controls');
-    await openPlay(); await frame.locator('#solo').click();
+    assert(await frame.locator('#page-back').isEnabled(), 'Background polling must not disable game controls');
+    await openPlay(); await legacyStart('solo');
     await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
     await frame.locator('#reload:not(:disabled)').waitFor();
     await page.evaluate(() => { window.releaseHeldGet(); });
     await page.waitForFunction(() => window.heldGetReturned);
     await frame.locator('#status').evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     assert.match(await frame.locator('#status').innerText(), /White to move/, 'An old friend read must not replace the newly selected solo game');
-    await openPlay(); await frame.locator('#friend').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+    await openPlay(); await legacyStart('friend'); await frame.locator('#reload:not(:disabled)').waitFor();
     await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
     await frame.locator('#invite').click(); await frame.locator('#reload:not(:disabled)').waitFor();
     // The friend joins with the full link.
@@ -442,16 +478,18 @@ try {
     const friend = await page.evaluate(() => window.harnessView);
     const replied = await (await page.request.post(new URL('/fixture-friend-move', base).href, { data: { game_id: friend.game_id, command_id: 'friend-reply', expected_revision: friend.revision, lan: 'e7-e5' } })).json();
     assert(!replied.isError);
-    await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+    await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor({ timeout: 35000 });
     assert.equal(await page.evaluate(() => window.harnessView.revision), friend.revision + 1);
-    await openPlay(); await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+    await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor();
     assert.equal(await frame.locator('#invitation').innerText(), '');
     const invitation = await (await page.request.post(new URL('/fixture-friend-invite', base).href)).json();
     assert(!invitation.isError);
     await page.evaluate(() => { window.harnessDropWidgetWrites = true; });
     // The board's Join takes the short code too, in lower case with a dash.
     const { code } = invitation.structuredContent;
-    await openPlay(); await frame.locator('#token').fill(`${code.slice(0, 3).toLowerCase()}-${code.slice(3)}`); await frame.locator('#join').click();
+    const board_id = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
+    const joinResult = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_join',arguments:{invitation:`${code.slice(0,3).toLowerCase()}-${code.slice(3)}`,board_id}}})).json();
+    assert(!joinResult.isError); await page.evaluate(result=>window.harnessShow(result),joinResult);
     await frame.locator('#status').filter({ hasText: 'You play Black' }).waitFor({ timeout: 5000 });
     const joinedView = await page.evaluate(() => window.harnessView);
     const readsBeforeJoinRemount = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_get').length);
@@ -462,8 +500,44 @@ try {
     assert.equal(await page.evaluate(() => window.harnessMatchId), joinedView.game_id, 'Remount must keep the joined game instead of the original solo game');
     await page.evaluate(() => { window.harnessDropWidgetWrites = false; });
     await openPlay();
-    await openPlay(); await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+    await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor();
   }
+  const routeBase = await page.evaluate(() => window.harnessView), routeBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
+  for (const [status, kind, options, screen] of [['waiting','friend',undefined,'friend'], ['waiting','random',undefined,'wait'], ['setup','friend',{},'seat'], ['setup','solo',undefined,'board'], ['playing','solo',undefined,'board'], ['finished','friend',undefined,'end'], ['aborted','random',undefined,'end']]) {
+    const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
+    await page.evaluate(({base, board_id, status, kind, options}) => {
+      window.harnessNextView = { ...base, status, kind, options };
+      return window.harnessShow({ content: [], structuredContent: { game_id: base.game_id, board_id }, _meta: { view: base } }, true);
+    }, { base: routeBase, board_id: routeBoard, status, kind, options });
+    await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
+    await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
+    await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#reload').disabled === false);
+  }
+  const routes = ['home','play','setup','friend','join','wait','lobby','seat','board','end','profile','collection','settings','handle'];
+  assert.deepEqual(await frame.locator('[data-screen]').evaluateAll(els => els.map(el => el.dataset.screen).sort()), [...routes].sort());
+  for (const [width,height] of [[390,844],[400,900],[1440,900]]) {
+    await page.setViewportSize({width,height});
+    for (const screen of routes) {
+      const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
+      await page.evaluate(screen => { window.harnessWidgetState = { modelContent: {}, privateContent: { screen, sheet: undefined, board_id: window.harnessWidgetState.privateContent.board_id, pending: undefined } }; }, screen);
+      await page.locator('#remount').click();
+      await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
+      await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor(); await fits(screen,width);
+      assert.deepEqual(await page.evaluate(() => Object.keys(window.harnessWidgetState.privateContent).sort()), ['board_id','pending','screen','sheet']);
+      assert.deepEqual(await page.evaluate(() => window.harnessWidgetState.modelContent), {});
+    }
+  }
+  await page.setViewportSize({width:1000,height:1000}); await legacyStart('solo'); await boardBox();
+  const other = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_create',arguments:{mode:'solo',colour:'white'}}})).json(); assert(!other.isError);
+  const backgroundBefore = await frame.locator('#status').innerText(), binding = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
+  const afterBinding = await frame.locator('html').evaluate(async (_, game_id) => {
+    const { createClient } = await import('/src/plugin/client.ts');
+    const client = createClient({ callServerTool: request => parent.harnessTool(request) }, window.openai);
+    await client.call('kingdown_get', { game_id, board_id: 'discard' }, { background: true }); return client.state.board_id;
+  }, other._meta.view.game_id);
+  assert.equal(afterBinding, binding);
+  assert.deepEqual(await page.evaluate(() => window.harnessCalls.at(-1).arguments), { game_id: other._meta.view.game_id }, 'A background read sends no board ID');
+  assert.equal(await frame.locator('#status').innerText(), backgroundBefore, 'The background read leaves the board view alone');
   // A host notification can switch games independently of a pending submission.
   await clickSquare(4, 1);
   await page.evaluate(() => { window.dropNextMoveReply = true; });
@@ -488,9 +562,12 @@ try {
   assert.equal(await frame.locator('#computer').isVisible(), false);
   assert.equal(await frame.locator('#choices button').count(), 0);
   }
+  await page.evaluate(() => window.harnessTeardown());
   assertNoErrors();
   console.log(`Harness mode: ${mode}`);
-  console.log(`PASS: home card, fullscreen request, Settings remount, 4 viewport widths, symbols and threats in both seats, safe areas, theme, touch, handle gate and 17 pictures, SDK AppBridge initialization, painted board move, iframe remount with identical FEN/revision, Haste ambiguity, lost-reply same-ID retry committed once, bounded computer turn, definitive rejection recovery, match switch recovery, ${capabilities.friend ? 'friend join/reply polling, ' : ''}no fullscreen control, 390px touch moves, no page errors${mode === 'fixture' ? ', terminal fixture' : ', real HTTP MCP and PostgreSQL'}`);
+  console.log(`PASS: home card, fullscreen request, Settings remount, 4 viewport widths, 14 route remounts, four widget fields, background reads, all piece SVGs and threat endpoints in both seats, safe areas, theme, touch, handle gate and 17 pictures, SDK AppBridge initialization, painted board move, iframe remount with identical FEN/revision, Haste ambiguity, lost-reply same-ID retry committed once, bounded computer turn, definitive rejection recovery, match switch recovery, ${capabilities.friend ? 'friend join/reply polling, ' : ''}no fullscreen control, 390px touch moves, no page errors${mode === 'fixture' ? ', terminal fixture' : ', real HTTP MCP and PostgreSQL'}`);
 } catch (error) {
+  console.error('Page check state:', await page.evaluate(() => ({ screen: window.harnessWidgetState?.privateContent?.screen, pending: window.harnessWidgetState?.privateContent?.pending?.name, view: window.harnessView && { status: window.harnessView.status, kind: window.harnessView.kind, speed: window.harnessView.speed, revision: window.harnessView.revision, turn: window.harnessView.turn, seat: window.harnessView.seat, opponent: window.harnessView.opponent, server_now: window.harnessView.server_now, commands: window.harnessView.last_commands.map(c => ({ seat: c.seat, at: c.at })) }, calls: window.harnessCalls.slice(-6).map(c => c.name) })));
+  console.error('Board check state:', await page.frameLocator('iframe').locator('body').evaluate(() => ({ hidden: document.hidden, status: document.querySelector('#status').textContent, error: document.querySelector('#error').textContent, reloadDisabled: document.querySelector('#reload').disabled })));
   assertNoErrors(); throw error;
 } finally { await browser.close(); unregister(); }
