@@ -21,6 +21,15 @@ try {
   let floor = await floorPixel();
   for (let i = 0; i < 50 && floor !== '230,225,207,255'; i++) { await page.waitForTimeout(200); floor = await floorPixel(); }
   assert.equal(floor, '230,225,207,255', 'The plugin board keeps its #e6e1cf floor round the board');
+  // The art is not in the page (ticket 09): each named file loads from the plugin origin and a canvas may read it.
+  const art = await frame.locator('html').evaluate(async () => {
+    const urls = [...new Set(document.documentElement.innerHTML.match(/https?:\/\/[^"'`\s]+\/plugin-art\/[\w-]+\.webp/g))];
+    return Promise.all(urls.map(async src => { const image = Object.assign(new Image(), { crossOrigin: 'anonymous', src }); await image.decode(); const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d'); g.drawImage(image, 0, 0, 8, 8); g.getImageData(0, 0, 8, 8); return { src, page: new URL(src).origin === location.origin, width: image.naturalWidth }; }));
+  });
+  assert.equal(art.length, 20, 'The page names 11 pieces, 6 kings, the board and 2 effect masks'); assert(art.every(file => file.width >= 1024), 'Every art file decodes');
+  assert.equal(art.every(file => file.page), mode === 'fixture', 'The HTTP board loads its art from the plugin origin, not the page origin');
+  assert.equal(await page.content().then(html => html.includes('data:image/webp')), false);
+  await shot(page, `board-art-${mode}`);
   async function clickSquare(file, rank) {
     const box = await frame.locator('canvas').boundingBox(); assert(box);
     await page.mouse.click(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (64 + 32 + (7 - rank + .5) * 112) * box.width / 960);

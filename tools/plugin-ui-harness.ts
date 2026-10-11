@@ -1,6 +1,6 @@
 import { createServer } from 'vite';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -8,6 +8,18 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createPluginServer } from '../src/plugin/server';
 import type { MatchSetup } from '../src/match';
 import { fixtureService } from './plugin-protocol-fixture';
+import { ART_HEADERS } from './plugin-art-headers.mjs';
+/** The page as a host gets it: through the resource the open tool names, with the art origin set by the server. */
+async function board(client: Client) {
+  const tools = (await client.listTools()).tools;
+  const uri = (tools.find(tool => tool.name === 'kingdown_open')?._meta?.ui as {resourceUri?: string})?.resourceUri;
+  if (!uri) throw new Error('The MCP server did not advertise the board resource');
+  const result = await client.readResource({ uri });
+  const resource = result.contents.find(content => content.mimeType === 'text/html;profile=mcp-app' && 'text' in content);
+  if (!resource || !('text' in resource)) throw new Error('The MCP server did not return the board HTML');
+  console.log(`Read board resource through MCP: ${Buffer.byteLength(JSON.stringify(result))} JSON bytes`);
+  return resource.text;
+}
 export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor, seedPosition, deleteMatch }: { boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string; seedPosition?: (setup: MatchSetup, black: boolean) => Promise<string>; deleteMatch?: (id: string) => Promise<void> } = {}) {
   if (endpoint && (endpoint.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname) || endpoint.username || endpoint.password)) throw new Error('The HTTP harness accepts only a loopback development endpoint');
   let buddy: Client | undefined;
@@ -29,21 +41,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
     if (!actor || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actor)) throw new Error('Set PLUGIN_DEV_ACTOR to the disposable development actor UUID');
     if (friendActor) { if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(friendActor) || friendActor === actor) throw new Error('PLUGIN_FRIEND_ACTOR must be a different development actor UUID'); buddy = new Client({ name: 'local-browser-friend', version: '1' }); await buddy.connect(new StreamableHTTPClientTransport(endpoint, { requestInit: { headers: { 'X-Kingdown-Dev-Actor': friendActor }, redirect: 'error' } })); }
     await client.connect(new StreamableHTTPClientTransport(endpoint, { requestInit: { headers: { 'X-Kingdown-Dev-Actor': actor }, redirect: 'error' } }));
-    const tools = (await client.listTools()).tools;
-    const uri = (tools.find(tool => tool.name === 'kingdown_open')?._meta?.ui as {resourceUri?: string})?.resourceUri;
-    if (!uri) throw new Error('The HTTP MCP server did not advertise the board resource');
-    const result = await client.readResource({ uri });
-    const resource = result.contents.find(content => content.mimeType === 'text/html;profile=mcp-app' && 'text' in content);
-    if (!resource || !('text' in resource)) throw new Error('The HTTP MCP server did not return the board HTML');
-    resourceHtml = resource.text;
-    console.log(`Read board resource through HTTP MCP: ${Buffer.byteLength(JSON.stringify(result))} JSON bytes`);
-  } else {
-    resourceHtml = await readFile(boardPath, 'utf8');
-    server = createPluginServer({ service: service!, actorId: 'alice', resourceHtml, publicOrigin: 'https://kingdown.example' });
-    const [a, b] = InMemoryTransport.createLinkedPair(); await server.connect(a); await client.connect(b);
-    // The friend plays through the same tools as in HTTP mode.
-    buddyServer = createPluginServer({ service: service!, actorId: 'bob', resourceHtml, publicOrigin: 'https://kingdown.example' }); buddy = new Client({ name: 'local-browser-friend', version: '1' });
-    const [c, d] = InMemoryTransport.createLinkedPair(); await buddyServer.connect(c); await buddy.connect(d);
+    resourceHtml = await board(client);
   }
   const body = async (req: AsyncIterable<Buffer>) => { const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(chunk); return JSON.parse(Buffer.concat(chunks).toString()); };
   vite = await createServer({ configFile: false, server: { host: '127.0.0.1', port: 0, strictPort: true }, plugins: [{ name: 'mcp-app-harness', configureServer(vite) {
@@ -70,6 +68,10 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
         res.end('{}');
       }
       else if (req.url === '/fixture-terminal' && service) { const view = await service.create('alice', { kind: 'solo', colour: 'white', setup: { fen: '7k/6Q1/6K1/8/8/8/8/8 b - - 0 1' } }); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ content: [], structuredContent: { game_id: view.game_id }, _meta: { view } })); }
+      else if (!endpoint && /^\/plugin-art\/[\w-]+\.webp$/.test(req.url ?? '')) {
+        const file = await readFile(resolve(dirname(boardPath), req.url!.slice(1))).catch(() => undefined);
+        if (!file) { res.statusCode = 404; res.end(); } else { res.writeHead(200, { 'Content-Type': 'image/webp', ...ART_HEADERS }); res.end(file); }
+      }
       else if (req.url === '/board-resource') {
         res.setHeader('Content-Type', 'text/html');
         res.end(resourceHtml.replace('<head>', '<head><script>window.openai = parent.harnessWithoutWidgetState ? undefined : {widgetState: parent.harnessWidgetState, setWidgetState(state) {if (!parent.harnessDropWidgetWrites) parent.harnessWidgetState = structuredClone(state);}};</script>'));
@@ -82,7 +84,18 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
     });
   } }] });
   await vite.listen();
-  return { url: vite.resolvedUrls!.local[0], close };
+  const url = vite.resolvedUrls!.local[0];
+  if (!endpoint) {
+    // The fixture server's public origin is this host, which serves the board art as the plugin origin does.
+    const html = await readFile(boardPath, 'utf8'), publicOrigin = new URL(url).origin;
+    server = createPluginServer({ service: service!, actorId: 'alice', resourceHtml: html, publicOrigin });
+    const [a, b] = InMemoryTransport.createLinkedPair(); await server.connect(a); await client.connect(b);
+    // The friend plays through the same tools as in HTTP mode.
+    buddyServer = createPluginServer({ service: service!, actorId: 'bob', resourceHtml: html, publicOrigin }); buddy = new Client({ name: 'local-browser-friend', version: '1' });
+    const [c, d] = InMemoryTransport.createLinkedPair(); await buddyServer.connect(c); await buddy.connect(d);
+    resourceHtml = await board(client);
+  }
+  return { url, close };
   } catch (error) { await close(); throw error; }
 }
 
