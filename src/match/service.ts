@@ -112,7 +112,7 @@ export class GameService {
   const drawn = options ? draw(options, () => Math.random()) : null, needs = options && Object.values(seatChoicesNeeded(options)).some(Boolean);
   const player = (s: Seat): Player => ({ seat: s, user_id: s === seat ? actor : null, computer: solo && s !== seat, handle_at_start: null, handle: null, power: 'none',
    choice: options ? defaultChoice(options, drawn!, s, Math.random, solo && s !== seat) : null, ready: !!options && (solo && s !== seat || !needs),
-   action: 'waiting', turns_played: 0, draw_offers: 0, said: [], last_seen_at: s === seat ? at : null, last_surface: null, active: true, ended_at: null });
+   action: 'waiting', turns_played: 0, draw_offers: 0, said: [], last_seen_at: s === seat ? at : null, last_seen_ms: s === seat ? 0 : null, last_surface: null, active: true, ended_at: null });
   const powers = options?.kingPowers ?? false;
   const game: Game = {
    id: randomUUID(), kind: input.kind, speed, days_per_move: days, category: `${speed}${days ? `-${days}d` : ''}/${powers ? 'powers' : 'no-powers'}/${options?.cards ? 'cards' : 'no-cards'}`,
@@ -151,8 +151,8 @@ export class GameService {
   actor = id(actor); gameId = id(gameId);
   if (since !== undefined && !(Number.isInteger(since) && since >= 0 && since <= MAX_REVISION)) fail('INVALID_INPUT', 400, 'Invalid revision');
   const game = await this.store.load(gameId);
-  const seat = seatOf(game, actor), seen = game.players[seat].last_seen_at;
-  if (!seen || Date.now() - seen.getTime() >= 30_000) await this.store.seen(gameId, seat);
+  const seat = seatOf(game, actor), age = game.players[seat].last_seen_ms;
+  if (age === null || age >= 30_000) await this.store.seen(gameId, seat);
   return this.render(game, seat, { since, rules: since === undefined });
  }
  /** The actor's active games: your turn first, then the nearest deadline. */
@@ -383,7 +383,7 @@ export class GameService {
    game_id: game.id, revision: game.revision, seat, kind: game.kind, speed: game.speed, days_per_move: game.days_per_move, status: game.status, turn: game.turn, action: actionOf(game, seat),
    fen: game.snapshot?.fen ?? '', in_check: game.snapshot?.inCheck ?? false, legal: playing && game.turn === seat ? game.snapshot!.legal : [],
    last_commands: commands.map(entry => entry.seat === opponent.seat && (entry.action.type === 'choose' && !game.players.every(p => p.ready) || entry.action.type === 'say' && !sees.presets) ? { ...entry, action: { type: 'hidden' as const } } : entry),
-   opponent: vacant ? null : { handle: opponent.handle, icon: opponent.icon ?? null, ...(rating && { rating }), computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online && opponent.last_seen_at ? now.getTime() - opponent.last_seen_at.getTime() : null },
+   opponent: vacant ? null : { handle: opponent.handle, icon: opponent.icon ?? null, ...(rating && { rating }), computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online ? opponent.last_seen_ms : null },
    draw_offer: game.draw_offer, rematch_offer: game.rematch_offer, rematch_game_id: game.rematch_game_id,
    ...(game.options && { options: game.options, draw: game.draw!, deal: game.deal!, level: game.level,
     choices: game.players.map(p => p.seat === seat || game.players.every(s => s.ready) ? p.choice : null) as View['choices'],

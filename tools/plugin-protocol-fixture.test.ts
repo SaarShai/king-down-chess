@@ -110,7 +110,7 @@ it('allows Switch now only for an earlier own search joined after solo play star
  } finally {vi.useRealTimers();}
 },20000);
 
-it('keeps one three-day setup deadline through each Choose', async () => {
+it.each(['Ready','Abort'])('keeps one three-day setup deadline through each Choose and clears it on %s', async ending => {
  const s = fixtureService(); vi.useFakeTimers({toFake:['Date']}); vi.setSystemTime(new Date('2026-10-11T12:00:00.000Z'));
  try {
   await s.handle('alice',{handle:'alice'}); await s.handle('bob',{handle:'bob'});
@@ -123,7 +123,13 @@ it('keeps one three-day setup deadline through each Choose', async () => {
    const changed = await s.command(actor,game.game_id,{command_id:actor,expected_revision:1+i,action:{type:'choose',choice,ready:false}});
    expect(changed.setup_deadline_at).toBe(deadline); expect((await s.view(actor,game.game_id,changed.revision)).setup_deadline_at).toBe(deadline);
   }
-  await s.command('alice',game.game_id,{command_id:'ready-a',expected_revision:3,action:{type:'choose',choice,ready:true}});
-  expect((await s.command('bob',game.game_id,{command_id:'ready-b',expected_revision:4,action:{type:'choose',choice,ready:true}})).setup_deadline_at).toBeNull();
+  if (ending === 'Ready') {
+   await s.command('alice',game.game_id,{command_id:'ready-a',expected_revision:3,action:{type:'choose',choice,ready:true}});
+   expect((await s.command('bob',game.game_id,{command_id:'ready-b',expected_revision:4,action:{type:'choose',choice,ready:true}})).setup_deadline_at).toBeNull();
+  } else {
+   const aborted = await s.command('alice',game.game_id,{command_id:'abort',expected_revision:3,action:{type:'abort'}});
+   expect(aborted).toMatchObject({status:'aborted',setup_deadline_at:null,deadline_at:null,result:{winner:null,reason:'abort'}});
+   expect((await s.view('bob',game.game_id)).setup_deadline_at).toBeNull();
+  }
  } finally {vi.useRealTimers();await s.close();}
 });
