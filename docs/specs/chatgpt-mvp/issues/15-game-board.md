@@ -11,9 +11,9 @@ Blocked by: 11
 - The computer replies on its own after the player's move (no Computer move button).
 - Cards: both hands as simple faces (spec Q22), spent cards marked, play a card on the player's turn through the move choices; the power coin with its uses.
 - Actions: Resign, Offer draw / Accept / Decline, Abort (before each side's first move), Claim (after a missed deadline), each with a confirm.
-- The end card: the result and the reason, Rematch, Back to Play.
-- Polling by the schedule of research part 01 §6.5 for games between people.
-- The opponent's handle and picture above the board.
+- The end card (owner, 2026-10-11: the approved sample wins): the result and the reason, the rating change and any new badge, Rematch, Your games. No "Moves to look at again" tiles (no replay in the MVP).
+- Polling by the schedule of research part 01 §6.5 for games between people; at the board, every 3 s while it is the opponent's turn and the opponent was seen in the last 2 minutes (owner, 2026-10-11).
+- The strips (owner, 2026-10-11: the approved sample wins): each side's king portrait and handle, as the sample and the web game show; the opponent's rating.
 
 ## Acceptance
 
