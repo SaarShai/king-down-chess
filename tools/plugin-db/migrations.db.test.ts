@@ -11,6 +11,7 @@ import { GameService } from '../../src/match/service';
 import { PostgresMatchStore } from '../../src/match/store';
 import { PluginService } from '../../src/plugin/service';
 import { ownTestDatabase } from './own-test-db';
+import { withRoleLock } from './role-lock.mjs';
 import { checkPluginDatabase } from '../plugin-db-check.mjs';
 
 const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
@@ -27,8 +28,10 @@ suite('migrations run again on a database in use', () => {
    const store = new PostgresMatchStore(admin), game = await new GameService(store).create(users[0], { kind: 'solo', colour: 'white' });
    const board = await new PluginService(store).openBoard(users[0], game.game_id);
    // The owner's two paths: npm run plugin:db:migrate (0002-0009), then 0001 in the SQL editor.
-   execFileSync(process.execPath, ['--import', 'tsx', fileURLToPath(new URL('./migrate.ts', import.meta.url))], { env: { ...process.env, PLUGIN_DATABASE_URL: own.href } });
-   await admin.query(await readFile(new URL('../../supabase/migrations/0001_accounts.sql', import.meta.url), 'utf8'));
+   await withRoleLock(own.href, async () => {
+    execFileSync(process.execPath, ['--import', 'tsx', fileURLToPath(new URL('./migrate.ts', import.meta.url))], { env: { ...process.env, PLUGIN_DATABASE_URL: own.href } });
+    await admin.query(await readFile(new URL('../../supabase/migrations/0001_accounts.sql', import.meta.url), 'utf8'));
+   });
    expect(await rows('select match_id from public.plugin_boards where id=$1', [board])).toEqual([{ match_id: game.game_id }]);
    expect(await rows(`select confrelid::regclass::text as target from pg_constraint where conrelid='public.plugin_boards'::regclass and conname='plugin_boards_match_id_fkey'`)).toEqual([{ target: 'games' }]);
    // 0005 owns the profile grants and the sign-up rule (no provider name or photo); 0008 owns the deletion (a 7-day grace).
@@ -57,7 +60,7 @@ suite('migrations run again on a database in use', () => {
   try {
    for (const [name, sql] of Object.entries(roles)) {
     const role = `check_${name}_${randomUUID().replaceAll('-', '')}`; made.push(role);
-    await admin.query(`${sql.replaceAll('kingdown_plugin_runtime', role)}; alter role ${role} password '${password}'`);
+    await withRoleLock(own.href, () => admin.query(`${sql.replaceAll('kingdown_plugin_runtime', role)}; alter role ${role} password '${password}'`));
     const login = new URL(own.href); login.username = role; login.password = password;
     const pool = new pg.Pool({ connectionString: login.href, max: 1 });
     try {
@@ -66,7 +69,7 @@ suite('migrations run again on a database in use', () => {
     } finally { await pool.end(); }
    }
   } finally {
-   for (const role of made) await admin.query(`drop owned by ${role}; drop role ${role}`);
+   for (const role of made) await withRoleLock(own.href, () => admin.query(`drop owned by ${role}; drop role ${role}`));
    await admin.end();
   }
  }, 120_000);
