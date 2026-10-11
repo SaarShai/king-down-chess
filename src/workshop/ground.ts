@@ -1490,7 +1490,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (power) return tapPower(power as PowerName);
     if (k) { seat(k as KingName); return q<HTMLElement>('[data-act="seat"]')?.focus(); }
     if (lc) { lay(lc as CardName); return q<HTMLElement>('[data-act="lay"]')?.focus(); }
-    if (oc) { openLab(oc as CardName); return q<HTMLElement>('.cface.open')?.focus({ preventScroll: true }); }
+    // In short landscape openLab closed the sheet: the focus goes back to Pieces, as in the slots' listener.
+    if (oc) { openLab(oc as CardName); return q<HTMLElement>(short.matches ? '.pg-pieces' : '.cface.open')?.focus({ preventScroll: true }); }
     if (twin) { tab = 'kings'; return openKing(twin as KingName); }
     if (at) { if (brush) paint(at); else tapSquare(at); return; }
     if (tok) {

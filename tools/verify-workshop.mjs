@@ -509,6 +509,14 @@ async function landscape(p, size) {
   await insideViewport(p, '.pg-tools');
   await minTarget(p, '#workshop button:not(.sq, .nub)', 44);
   await shot(p, `paint-${size}`);
+  // Enter on a card in the sheet opens it and closes the sheet: the focus goes back to Pieces (review 14).
+  await p.keyboard.press('Escape');
+  await p.click('[data-act="pieces"]');
+  await p.click('[data-tab="cards"]');
+  await p.focus('.cface[data-lab="Freeze"]');
+  await p.keyboard.press('Enter');
+  assert.equal(await p.isHidden('.pg-ledge'), true, `${size}: a card in the sheet closes it`);
+  assert.equal(await focusOn(p, '.pg-pieces'), true, `${size}: the focus goes back to Pieces after a card`);
 }
 
 /** Ticket 09: a turn of the phone, from 390 x 844 to 844 x 390 and back, refits the board and keeps the open design, the brush,

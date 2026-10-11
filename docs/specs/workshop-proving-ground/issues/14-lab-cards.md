@@ -69,3 +69,15 @@ Open problems:
 
 - The owner has not seen the renders (the last Verification box).
 - No Rules tab here: ticket 12. The tabs list in `renderLedge` and the phone tab CSS are the merge points; at 320 px five tabs may not fit.
+
+### 2026-10-11 · Reviews
+
+The review of 6d3e2e5f..97ba7434 (`build/review-14.md` in the scratchpad). Logs in `build/14-cards/logs/`.
+
+1. **should-fix, confirmed: the focus after a card in the sheet.** In short landscape, `openLab` sets `ledgeOpen = false`, and `renderLedge` hides the ledge (`ledgeEl.hidden`). The focus went to `.cface.open` in the hidden sheet, so it fell to `<body>`. Shown: a new step at the end of `landscape` in `tools/verify-workshop.mjs` (Pieces, the Cards tab, Enter on Freeze) fails with the old code: "844x390: the focus goes back to Pieces after a card" (`check-r0-nofix.log`). Fix: in short landscape the focus goes to `.pg-pieces`, as the slots' listener does (one line in `ground.ts`).
+2. **should-fix, confirmed: a weak test.** `next` comes from `makeMove`, so Black moves, and Black has no card: `cardMarks(next, …)` is empty also when the card is not spent. Shown: a temporary run with `used: [0, 0]` (the card not spent) passed the old line, and with White to move gave marks (`npm-test-r0-proof.log`, then removed). Fix: the test reads `cardMarks({ ...next, turn: WHITE }, …)`.
+3. **nit, no change: a second copy of the "take" words.** The copy is on purpose: `src/powers-ui.ts` is a plugin module that this ticket does not change (comment 2), and the `cardWords` doc comment already points to `powerText`'s webWords. A shared helper costs more than one line.
+
+The reviewer's refuted points (the twin coin's focus, the CSS paths, the deck order, Take back after a card, one power or one card at a time) stay refuted.
+
+Evidence after the fixes: `npm test` exit 0, 116 test files pass, 1 skipped (`npm-test-r1.log`); `npm run check:browser workshop` passes three times in a row (`check-r2.log`, `check-r3.log`, `check-r4.log`). `check-r1.log` failed only because the ticket file changed in the checkout during the run (the check's guard), not on a test step.

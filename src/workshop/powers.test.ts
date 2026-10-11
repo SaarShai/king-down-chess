@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync } from 'node:fs';
-import { NAMES, RULES, parseSq, sqName, type Move, type PieceType } from '../rules/engine';
+import { NAMES, RULES, WHITE, parseSq, sqName, type Move, type PieceType } from '../rules/engine';
 import { PRESETS, fromPreset } from './model';
 import { boardOf, examplesOf, sceneOf, type ScenePiece } from './scene';
 import { cardMarks, enginePos, playCard, playPower, powerLayer, powerMarks, seated, withRules } from './powers';
@@ -61,7 +61,7 @@ describe('cardMarks (ticket 14)', () => {
     const next = playCard(pos, freeze.find(m => sqName(m.to) === 'c6')!, 'Freeze');
     expect(next.marks?.[0]?.sq).toBe(parseSq('c6'));
     expect(next.used?.[0]).toBe(1);
-    expect(cardMarks(next, from, 'Freeze')).toEqual([]);
+    expect(cardMarks({ ...next, turn: WHITE }, from, 'Freeze')).toEqual([]);
   });
   it('the Leap card on the Rook: the same squares as the Mud king\'s Leap', () => {
     const { from, pos } = at('rook');
