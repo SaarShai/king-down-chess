@@ -20,6 +20,7 @@ import { fakeSender } from '../online/mail';
 import { SafetyService } from '../online/safety';
 import { createApiHandler, createInternalHandler, sessionVerifier } from './http';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
+import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 
 const url = process.env.PLUGIN_TEST_DATABASE_URL, supabase = 'https://project.supabase.co', secret = randomUUID() + randomUUID();
 const suite = url ? describe : describe.skip;
@@ -29,6 +30,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
  let own: URL, admin: pg.Pool, runtime: pg.Pool, server: Server, address: string, sign: (sub: string) => Promise<string>;
  const role = `api_test_${randomUUID().replaceAll('-', '')}`, users: string[] = [], tag = randomUUID().slice(0, 6), sender = fakeSender();
  const rows = async (sql: string, params: unknown[] = []) => (await admin.query(sql, params)).rows;
+ const locked = (sql: string) => withRoleLock(own.href, () => admin.query(sql));
  /** A website identity: a signed-in user with a handle, and the client the website would use. */
  async function player(name: string): Promise<{ id: string; api: OnlineClient; handle: string }> {
   const id = randomUUID(), handle = `${name}-${tag}`; users.push(id);
@@ -42,8 +44,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   own = await ownTestDatabase('api');
   admin = new pg.Pool({ connectionString: own.href, max: 2 });
   const password = randomUUID();
-  await admin.query((await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8')).replaceAll('kingdown_plugin_runtime', role));
-  await admin.query(`alter role ${role} password '${password}'`);
+  await locked(`${(await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8')).replaceAll('kingdown_plugin_runtime', role)}; alter role ${role} password '${password}'`);
   const runtimeUrl = new URL(own.href); runtimeUrl.username = role; runtimeUrl.password = password;
   runtime = new pg.Pool({ connectionString: runtimeUrl.href, max: 4 });
   const store = new PostgresMatchStore(runtime), games = new GameService(store);
@@ -65,7 +66,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   await admin.query('delete from public.account_deletions where user_id=any($1)', [users]);
   await admin.query('delete from auth.users where id=any($1)', [users]);
   await admin.query('delete from public.outbox'); // this database is the suite's own
-  await admin.query(`drop owned by ${role}; drop role ${role}`);
+  await locked(`drop owned by ${role}; drop role ${role}`);
   await admin.end();
  });
 

@@ -23,7 +23,7 @@ The database tests (`src/online/accounts.db.test.ts`, `src/match/service.db.test
 ## Plan
 
 1. Check that two role changes in two databases overlap with the old helper.
-2. Hold one client on `postgres` until the role change ends. Use the helper in the three tests, the bootstrap and the migration test, which also changes roles.
+2. Hold one client on `postgres` until the role change ends. Use the helper in the three tests, the bootstrap and the API and migration tests, which also change roles.
 3. Check lock release after an error. Run the bootstrap and `npm test` with `kingdown_mvp20_test`.
 4. Commit the fix. Merge the current integration tip, run `npm test` again and push this branch.
 
@@ -35,10 +35,12 @@ The database tests (`src/online/accounts.db.test.ts`, `src/match/service.db.test
 
 ## Result
 
-- The helper holds one client on `postgres` until the work ends. Closing the client frees the lock, also when the work fails. The accounts, games, jobs and migration tests and the bootstrap use it for role and grant changes.
+- The helper holds one client on `postgres` until the work ends. Closing the client frees the lock, also when the work fails. The accounts, games, jobs, API and migration tests and the bootstrap use it for role and grant changes.
 - Test database: `kingdown_mvp20_test` on `127.0.0.1:55432`. The role test uses a second copy, `kingdown_mvp20_rolelock_test`.
 - Red check: `npm test` fails the role test because the two changes overlap; 2,119 other tests pass and 8 skip.
-- Final check: `npm test` passes 137 test files, 2,121 tests and 50 artwork checks; 8 tests skip. Both role tests pass.
+- Before the API fix: `npm test` passes 137 test files, 2,121 tests and 50 artwork checks; 8 tests skip. Both role tests pass.
+- The next check finds a deadlock when the game test drops its role. The API test also changes roles and has no lock. The full caller search finds this missed path; it now uses the same helper. This check has 2,120 passes, 1 failure and 8 skips.
+- After the API fix, `npm test` passes 137 test files, 2,121 tests and 50 artwork checks; 8 tests skip. Both role tests pass.
 - `npm run plugin:db:init-test` passes. All 9 migrations run twice.
 - `git diff --check` passes.
 - Open items: none.
