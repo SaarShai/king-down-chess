@@ -1,6 +1,7 @@
 /** A test file's own disposable database: the name of PLUGIN_TEST_DATABASE_URL with `_<suffix>` before `_test`, made if
  * absent, then given every migration (bootstrap-test.mjs). Test files run at the same time on the shared database, so a
- * test that ends every due game (a sweep), sets a deadline in the past, or changes the schema uses its own copy. */
+ * test that ends every due game (a sweep), sets a deadline in the past, or changes the schema (also grants and role
+ * drops) uses its own copy. */
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';

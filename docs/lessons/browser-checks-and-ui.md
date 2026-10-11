@@ -2,6 +2,12 @@
 
 The lessons on browser checks, screenshots and the game interface. [LESSONS.md](../../LESSONS.md) holds the Always rules and the index of all topic files.
 
+## 2026-10-11 — a UI for another host took the host's look
+- Round 1 of the ChatGPT plugin sample followed OpenAI's app style advice: the system font, white cards, iOS switches. The owner: "the GUI look doesn't seem like it is based on our design for the game." → A King Down screen on another host reuses the game's tokens, fonts and components (`src/style.css`, the web-redesign screens). Capture the current game first and build each screen from the game part that matches it. The host's rules stay only as limits (actions in an inline card, room for the composer). (2026-10-11)
+
+## 2026-10-11 — a design sample drew the board marks by hand
+- Round 2 of the same sample placed tiles and frames by hand. The rules session's review found four faults: no gold glow under the selected piece, a take with no badge, threats as red frames (PR #50 made them arrows), and a last move that was not legal in the shown position. → A sample or mockup that shows the board draws it through the game's own code (PaintedView, `marks.ts`, `legend.ts`) from engine state: a fixture position, the selected square, the engine's moves, `threatsIn()`, a real last move, the engine's check. Compare one render with a capture of the game in the same position. (2026-10-11)
+
 ## 2026-10-10 — a render compare against one render of main lists the unstable states as changes
 - The pixel compare of a branch's renders against main (`docs/specs/web-ux/render-compare.mjs`, threshold 16) listed 17 to 28 differing renders a ticket. Most were states that main itself renders two ways: a sprite that loads late, a corner pixel of End turn, art in the rules sheet. → Render main twice, alone, and list the states that differ between the two main renders first. A render that differs between main and the branch counts as a change only when it is stable in main; when it is not in the main-against-main list, render the branch a second time before you call it a change. Sample `00` exits 1 on every build since the redesign (its `controls` selector is stale), so read its renders and not its exit code. (2026-10-10)
 

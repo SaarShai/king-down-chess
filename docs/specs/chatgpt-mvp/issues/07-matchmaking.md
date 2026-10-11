@@ -29,7 +29,7 @@ Blocked by: 06
 1. Test the lobby through the plugin service on a test database with the runtime role. Add the list and its public types.
 2. Test accept, find and cancel. Use 20 separate database clients for the accept race. Reuse the setup step and row lock.
 3. Test the 24-hour expiry, blocks, handle errors and the 10-minute active count. Add migration 0011 and its checks.
-4. Run `npm test` with the test database. Merge the integration tip, run the checks again and push the branch.
+4. Run `npm test` with the test database. Confirm that the commit command ends and the checkout is clean before the merge. Merge the integration tip, run the checks again and push the branch.
 
 Checks: one accept wins; the oldest eligible game matches; expiry and cancel give no result; blocks hide games; counts below 10 stay hidden. Each test fails before its service change.
 
@@ -50,9 +50,11 @@ Checks use `kingdown_mvp07_test` on `127.0.0.1:55432`. The matchmaking tests use
 
 - Nine matchmaking database checks pass. The accept race uses 20 separate clients: one wins, 19 are refused, and the winner's retry keeps one join. Other checks cover blocks in both directions, oldest-first find, two finds on an empty lobby, cancel, two sweeps at 24 hours, handle errors, and a read-only count with duplicate and old activity.
 - `npm run plugin:db:init-test` passes. Migration 0011 runs twice.
-- Full `npm test`: 140 files pass; 2,206 tests pass; 8 skip. The document-art checks pass 50 of 50.
+- Full `npm test` before the merge: 140 files pass; 2,206 tests pass; 8 skip. The document-art checks pass 50 of 50.
 - The first full check finds one setup fixture with no handle. The fixture now gives its players preset handles. The full check then passes.
 - `git diff --check` passes.
 - This ticket changes no page. Page size and browser checks do not apply.
+- Integration tip `ba1d5a5d` merges without conflict and brings the ticket 06 review fixes. The full `npm test` after the merge passes: 140 files; 2,207 tests; 8 skip; 50 of 50 document-art checks.
+- One earlier full check reaches the 5-second limit in the unchanged Strong-computer test. Its 18 checks pass alone. The final full check above passes.
 
-Open items: none in this ticket. Ticket 10 adds the tool bindings. The integration merge and its final check follow this commit.
+Open items: none in this ticket. Ticket 10 adds the tool bindings.

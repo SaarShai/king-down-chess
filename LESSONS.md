@@ -85,6 +85,8 @@ Read the section Always. Then read the Index, and open a topic file only when a 
 
 ### Browser checks and UI
 
+- [2026-10-11 — a UI for another host took the host's look](docs/lessons/browser-checks-and-ui.md)
+- [2026-10-11 — a design sample drew the board marks by hand](docs/lessons/browser-checks-and-ui.md)
 - [2026-10-10 — a render compare against one render of main lists the unstable states as changes](docs/lessons/browser-checks-and-ui.md)
 - [2026-10-02 — the cloud Chromium build for Playwright](docs/lessons/browser-checks-and-ui.md)
 - [2026-10-02 — a timing check failed for reasons outside the code](docs/lessons/browser-checks-and-ui.md)
