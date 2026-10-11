@@ -1,6 +1,6 @@
 # 10 · The ChatGPT tools, profile and settings
 
-Status: claimed
+Status: resolved
 Type: AFK
 Size: L
 Blocked by: 06, 07, 08
@@ -150,3 +150,19 @@ The home-remount check first fails with no widget state. It passes after the boa
 A board-only poll keeps `since_revision`. A read that names an old game and follows a board to another game gets a full view. Two tests first fail on extra rules, ratings and outcomes, then check this rule.
 
 The final focused check passes: 10 files, 70 tests and 50 art tests. It checks the seed endpoint and runtime settings writes as the runtime role. `tsc` also checks the fixture, its tests, the harness and the host with a temporary config.
+
+## Result
+
+The 24-tool surface, settings migration, full-read screen data, join preview and Switch now rule pass their checks. The page call sites and fixture hooks above form the interface for tickets 11 to 16.
+
+- `npm test`: 143 files pass, with 2,253 tests and 50 art tests; 8 tests skip.
+- Final focused `npm test`: 10 files pass, with 70 tests and 50 art tests. This covers the final poll condition, seed endpoint and runtime settings grants.
+- `npm run check:browser`: all 24 checks pass.
+- `npm run check:browser -- plugin-ui plugin-ui-http`: both checks pass after the full set.
+- `npm run plugin:check:protocol`: 24 tools pass.
+- `npm run plugin:build` and `npm run plugin:server:check`: the compiled server passes on local PostgreSQL with migration 0013.
+- Fixture and harness type checks pass.
+- Page: 437,425 HTML bytes; the compiled server resource is 438,870 JSON bytes, below the 1 MB limit.
+- Open item: owner choice B for full-read rating and end data. The stated default is built. The integration tip resolves choice A to 7 days; the final merge brings it in.
+
+The final review keeps the existing board-follow rule, command receipt path and shared schemas. It finds and fixes the board-only poll case with one condition and two failing tests. No engine or setup-module change is needed.
