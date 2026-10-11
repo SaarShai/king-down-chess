@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { boardHelp, lastMoveText, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
+import { boardHelp, lastMoveText, lanMoves, pressMenu, readyBoard, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 
@@ -14,7 +14,6 @@ mkdirSync(out, { recursive: true });
 const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, hasTouch: true });
 await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
-await page.addInitScript(() => localStorage.setItem('kingdown.look', 'clay')); // painted is the default look
 const errors = trapErrors(page), checks = [];
 await page.addInitScript(() => {
   window.audioContexts = 0;
@@ -27,11 +26,8 @@ await page.addInitScript(() => {
   };
 });
 async function ready() {
-  await page.waitForFunction(() => window.view?.pieces.size > 0);
-  await page.evaluate(() => window.view.ready());
-  // Tweens advance at most 50 ms a frame, and headless WebGL draws ~20 fps, so the 400 ms Black-view
-  // flip outlasts any fixed wait; screenOf() aims at the settled camera only.
-  await page.waitForFunction(() => window.view.tweens.list.length === 0);
+  await readyBoard(page);
+  await page.waitForFunction(() => window.view.pos);
 }
 async function seed(fen, settings = {}, query = '') {
   await page.evaluate(({ fen, settings }) => localStorage.setItem('kingdown.save', JSON.stringify({
@@ -44,6 +40,7 @@ const point = square => page.evaluate(square => window.view.screenOf(square), sq
 async function click(square) { const p = await point(square); await page.mouse.click(p.x, p.y); }
 async function played(count) {
   await page.waitForFunction(count => JSON.parse(localStorage.getItem('kingdown.save')).moves.length === count, count);
+  await page.waitForFunction(() => !window.view.scene.animating); // a tap during a move or a rewind skips it
 }
 async function drag(from, to) {
   const a = await point(from), b = await point(to);
@@ -85,14 +82,12 @@ try {
 
   await startGame(page, { mode: 'two', army: 'classic' }); await ready();
   await page.waitForTimeout(650);
-  assert.deepEqual(await page.evaluate(() => window.view.highlights.hint), []);
+  assert.deepEqual(await page.evaluate(() => window.view.marks.hint ?? []), []);
   assert.deepEqual(await lanMoves(page), []);
-  const camera = await page.evaluate(() => window.view.camera.position.toArray());
   await drag(12, 28); await played(1);
   assert.match((await lanMoves(page)).join(' '), /e2-e4/);
-  assert.deepEqual(await page.evaluate(() => window.view.camera.position.toArray()), camera);
   await page.click('#undo'); await played(0);
-  checks.push('real piece dragging plays through the normal move path without orbiting');
+  checks.push('real piece dragging plays through the normal move path');
 
   await seed('7k/4p3/8/8/8/8/P7/K7 b - - 0 1', { white: 'ai', black: 'human' });
   await drag(52, 36);
@@ -100,7 +95,6 @@ try {
   await startGame(page, { mode: 'two', army: 'classic' }); await ready();
   await page.waitForTimeout(700); // a stale computer reply would land here
   assert.deepEqual(await lanMoves(page), []);
-  assert.ok(await page.evaluate(() => window.view.controls.enabled));
   checks.push('dragging works from the flipped Black view and a new game cancels the pending computer move');
 
   const promotion = '7k/P7/8/8/8/8/8/K7 w - - 0 1';
@@ -108,14 +102,14 @@ try {
   await page.locator('#promo').waitFor({ state: 'visible' });
   await page.click('#cancel-promo'); // Cancel keeps the pawn and frees the board
   assert.equal(await page.locator('#promo').isVisible(), false);
-  assert.ok(await page.evaluate(() => window.view.pieces.get(48)?.userData.code === 1 && document.getElementById('end-turn').getAttribute('aria-disabled') === 'true'));
+  assert.ok(await page.evaluate(() => window.view.pos.board[48] === 1 && document.getElementById('end-turn').getAttribute('aria-disabled') === 'true'));
   await click(48); await click(56);
   await page.locator('#promo').waitFor({ state: 'visible' });
   await page.locator('#promo button').filter({ hasText: 'rook' }).click(); await played(1);
-  assert.equal(await page.evaluate(() => window.view.pieces.get(56)?.userData.code), 4);
+  assert.equal(await page.evaluate(() => window.view.pos.board[56]), 4);
   await seed(promotion, { queen: true }); await click(48); await click(56); await played(1);
   assert.equal(await page.locator('#promo').isVisible(), false);
-  assert.equal(await page.evaluate(() => window.view.pieces.get(56)?.userData.code), 5);
+  assert.equal(await page.evaluate(() => window.view.pos.board[56]), 5);
   await seed(promotion, { queen: true }, '?rules=2017'); await click(48); await click(56);
   await page.locator('#promo').waitFor({ state: 'visible' });
   assert.equal(await page.locator('#promo button').filter({ hasText: 'paladin' }).count(), 1);
@@ -158,30 +152,30 @@ try {
   await page.locator('#rules form button').click();
   await seed('7k/8/8/8/8/8/7r/7K w - - 0 1');
   assert.ok(await page.evaluate(() => document.querySelector('#board').classList.contains('king-in-check')
-    && window.view.highlights.check === 7 && window.view.markers.children.some(m => m.material.color.getHex() === 0xc4501f)));
-  checks.push('lab examples are in the New game army list; current pieces enter the guide; check has a visible king ring');
+    && window.view.marks.check === 7));
+  checks.push('lab examples are in the New game army list; current pieces enter the guide; check marks the king');
 
   await seed('7k/8/4p3/8/4p3/8/4C3/K7 w - - 0 1');
   await click(12); await click(44); await played(1);
-  assert.ok(await page.evaluate(() => window.view.pieces.has(12) && window.view.pieces.has(28) && !window.view.pieces.has(44)));
+  assert.ok(await page.evaluate(() => window.view.pos.board[12] > 0 && window.view.pos.board[28] > 0 && !window.view.pos.board[44]));
   assert.match(await lastMoveText(page), /catapult.*takes.*without moving/);
   await page.click('#undo'); await played(0);
   await click(12); await click(44);
   await waitForUi(page, ui => ui.lan.join(' ').includes('Ce2*e6'));
   await page.click('#undo'); await played(0); await page.waitForTimeout(700);
-  assert.ok(await page.evaluate(() => window.view.pieces.has(44) && window.view.pieces.has(12)));
+  assert.ok(await page.evaluate(() => window.view.pos.board[44] > 0 && window.view.pos.board[12] > 0));
   checks.push('Catapult lob keeps the shooter and screen; undo during the arc preserves the restored victim');
 
   await seed('7k/8/4p3/8/3V4/8/P7/K7 w - - 0 1');
   await click(27); await click(44); await click(43); await played(1);
-  assert.ok(await page.evaluate(() => window.view.pieces.has(43) && !window.view.pieces.has(27) && !window.view.pieces.has(44)));
+  assert.ok(await page.evaluate(() => window.view.pos.board[43] > 0 && !window.view.pos.board[27] && !window.view.pos.board[44]));
   assert.match((await lanMoves(page)).join(' '), /Vd4xe6-d6/);
   assert.match(await lastMoveText(page), /reaver.*taking/);
   await page.click('#undo'); await played(0);
   await click(27); await click(44); await click(43);
   await waitForUi(page, ui => ui.lan.join(' ').includes('Vd4xe6-d6'));
   await page.click('#undo'); await played(0); await page.waitForTimeout(700);
-  assert.ok(await page.evaluate(() => window.view.pieces.has(27) && window.view.pieces.has(44) && !window.view.pieces.has(43)));
+  assert.ok(await page.evaluate(() => window.view.pos.board[27] > 0 && window.view.pos.board[44] > 0 && !window.view.pos.board[43]));
   checks.push('Reaver capture-then-step uses the real selection path and cancels cleanly on undo');
 
   await startGame(page, { mode: 'two', army: 'classic' }); await ready();
@@ -195,7 +189,7 @@ try {
   await played(1);
   assert.match((await lanMoves(page)).join(' '), /e2-e4/);
   assert.deepEqual(await page.locator('#board').boundingBox(), boardBounds, 'piece guidance must not move the board under a touch gesture');
-  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && window.view.controls.enabled));
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await shot(page, 'touch-mobile');
   checks.push('real touch events drag a pawn on the mobile layout without horizontal overflow');
   assertNoErrors();

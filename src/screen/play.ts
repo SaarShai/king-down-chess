@@ -25,7 +25,7 @@ import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, t
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from '../turn-controls';
 import { awardTurnSeals } from '../ui/tricks';
 import { readPiece, refreshTable, renderTable } from '../ui/table';
-import { clickPath, landingMoves, marksModel } from '../marks-model';
+import { clickPath, landingMoves, marksModel, railsOf } from '../marks-model';
 import { clearCoinRead, initCoins, refreshCoins } from '../ui/powers';
 import { reviewStep } from '../review';
 import { connectMoveMoments } from '../move-moments';
@@ -53,8 +53,6 @@ export function connectPlay(view: BoardView, c: {
   preset: Partial<Rules> | undefined;
   /** The balanced readings when a king has a power (main.ts, the URL rules). */
   withPowers(k: Rules['kings']): Partial<Rules>;
-  /** The look this page draws: 'painted' or 'clay'. */
-  look: string;
   /** A plain `?fen=` position that this page opened (not a game link), else null. */
   fen: string | null;
   engine: Engine;
@@ -69,9 +67,9 @@ export function connectPlay(view: BoardView, c: {
   setup(): Setup;
   openNewGame(): void;
 }) {
-  const { params, preset, withPowers, look, fen, engine, guide, settings, home } = c;
+  const { params, preset, withPowers, fen, engine, guide, settings, home } = c;
   let game = new Game();
-  /** Threat markers and the keyboard cursor, drawn over the board (pointer events pass through). */
+  /** The keyboard cursor, drawn over the board (pointer events pass through). */
   const marksLayer = document.createElement('div');
   marksLayer.id = 'board-marks';
   marksLayer.setAttribute('aria-hidden', 'true');
@@ -230,6 +228,9 @@ export function connectPlay(view: BoardView, c: {
       hint: hintSquares,
       check: (!busy || thinking) && game.inCheck && viewing == null ? findKing(game.pos.board, game.pos.turn) : null,
       checkers: (!busy || thinking) && viewing == null ? checkersOf(game.pos) : [],
+      rails: selected == null ? [] : railsOf(game.pos.board, selected, [...verb.moves, ...verb.captures], verb.captures),
+      // Settings → Show threats.
+      threats: settings.threats() && viewing == null && !busy && !ended() && (myTurn() || currentTurn().waits) ? threatsIn({ ...game.pos, turn: currentTurn().activeSide }) : [],
     });
     const canFinish = pending.length > 0 && cands.some(m => clickPath(m).length === pending.length);
     // Captured pieces: a piece the mover removed counts for the mover; a paladin that removes itself is its own side's loss.
@@ -258,27 +259,19 @@ export function connectPlay(view: BoardView, c: {
     home?.refresh();
   }
 
-  let marksFrame = 0;
-  /** Threat markers (Settings → Show threats) and the keyboard cursor, placed with view.screenOf(). */
+  /** The keyboard cursor, placed with view.screenOf(). */
   function drawMarks(): void {
-    cancelAnimationFrame(marksFrame);
     const cursor = c.keys().cursor();
     view.setPreview?.(cursor);
-    const on = settings.threats() && viewing == null && !busy && !ended() && (myTurn() || currentTurn().waits);
-    const t = on ? threatsIn({ ...game.pos, turn: currentTurn().activeSide }) : { pieces: [], squares: [] };
-    if (!t.pieces.length && !t.squares.length && cursor == null) { marksLayer.innerHTML = ''; return; }
+    if (cursor == null) { marksLayer.innerHTML = ''; return; }
     const box = $('board').getBoundingClientRect(), items: string[] = [];
     const at = (s: number, cls: string): void => {
       const c = view.screenOf(s), n = view.screenOf(fileOf(s) < 7 ? s + 1 : s - 1);
       const w = Math.hypot(c.x - n.x, c.y - n.y);
       items.push(`<i class="${cls}" style="left:${(c.x - box.left - w / 2).toFixed(1)}px;top:${(c.y - box.top - w / 2).toFixed(1)}px;width:${w.toFixed(1)}px;height:${w.toFixed(1)}px"></i>`);
     };
-    for (const s of t.squares) at(s, 'mk-cover');
-    for (const s of t.pieces) at(s, 'mk-threat');
-    if (cursor != null) at(cursor, 'mk-cursor');
+    at(cursor, 'mk-cursor');
     marksLayer.innerHTML = items.join('');
-    // The clay camera can orbit and tween; follow it while marks are on screen.
-    if (look === 'clay') marksFrame = requestAnimationFrame(drawMarks);
   }
   new ResizeObserver(() => drawMarks()).observe($('board'));
 
@@ -827,7 +820,7 @@ export function connectPlay(view: BoardView, c: {
     blocked: () => home.visible,
     click: (sq: number, shift: boolean) => view.onSquareClick(sq, shift), read: (sq: number) => refuse('', sq),
     escape: () => { clearCoinRead(); view.skip(); if (viewing != null) void showPly(null, false); selected = null; pending = []; inspected = null; armed = false; hintSquares = []; refresh(); },
-    resetView: () => view.resetView(), undo, step: (by: -1 | 1) => { void showPly((viewing ?? game.history.length) + by); },
+    undo, step: (by: -1 | 1) => { void showPly((viewing ?? game.history.length) + by); },
   };
 
   return {

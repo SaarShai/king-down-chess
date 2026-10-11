@@ -27,14 +27,13 @@ export interface KeyCommands {
   /** `i`: read the piece on the cursor. */
   read(sq: number): void;
   escape(): void;
-  resetView(): void;
   undo(): void;
   /** ← →: one move back or forward in the review. */
   step(by: -1 | 1): void;
 }
 
 /**
- * The keys: the page keys (Esc, r, z, ← →) and the keyboard cursor on the board (arrows, Enter or Space,
+ * The keys: the page keys (Esc, z, ← →) and the keyboard cursor on the board (arrows, Enter or Space,
  * i to read). The keys own the cursor square and send commands; `drawMarks` (screen/play.ts) draws the cursor.
  */
 export function connectKeys(board: HTMLElement, play: KeysPlay, commands: KeyCommands) {
@@ -48,7 +47,6 @@ export function connectKeys(board: HTMLElement, play: KeysPlay, commands: KeyCom
     // Nor in a field that takes typing.
     const field = e.target as HTMLElement;
     if (field.closest('input,select,textarea') || field.isContentEditable) return;
-    if (e.key === 'r') commands.resetView();
     if (e.key === 'z') commands.undo();
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
       e.preventDefault();

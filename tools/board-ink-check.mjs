@@ -16,4 +16,5 @@ export async function recordBoardText(page) {
   });
 }
 
-export const boardText = (page, text) => page.evaluate(text => window.boardText[text], text);
+// It waits for the first frame that draws `text`: a read right after view.ready() can come before it.
+export const boardText = async (page, text) => (await page.waitForFunction(text => window.boardText[text], text)).jsonValue();
