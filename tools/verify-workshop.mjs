@@ -52,6 +52,10 @@
 // Then ticket 12: rulesTab (the Rules tab: the 10 seals in their 6 groups, the laws in force as read-only words and the Fixed
 // plaque; a seal opens at 168 px with its example, MATRIX row and Seen on, and the board shows its example piece with that rule
 // kept; no editor keys there; Seen on opens the pool piece with the rule kept; the phone has no laws and a 56 px seal).
+// Then ticket 15: seeAll (See all at the end of Yours, and none with an empty shelf; a full-screen grid of the 11 pool pieces
+// and the designs, each a 44 px face; the All / Pool / Yours filter; Esc; a tap opens the design on the board with the focus
+// on its slot; the phone's two columns; in short landscape the grid opens over the ledge's sheet; a full shelf's "Choose one
+// to delete" shows only the designs, each with Delete, and a delete saves the open copy).
 // Run it with `npm run check:browser workshop`.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -1914,6 +1918,80 @@ async function motion() {
   await p.context().close();
 }
 
+async function seeAll() {
+  const ALL = '.pg-sheet.pg-all[open]', shown = p => p.$$eval(`${ALL} .pg-thumb:not([hidden])`, ts => ts.map(t => t.dataset.key));
+  const p = await open('', { shelf: SHELF });
+  await door(p);
+  assert.deepEqual(await p.$$eval('.lrow .slot', s => s.slice(-4).map(b => b.dataset.design ?? b.textContent)), ['golden-a', 'golden-b', 'See all', 'New'], 'See all ends the Yours row');
+  await p.click('[data-act="seeall"]');
+  assert.deepEqual(await p.$eval(ALL, s => { const r = s.getBoundingClientRect(); return [r.width, r.height]; }), [1440, 900], 'the grid fills the screen');
+  assert.deepEqual(await shown(p), [...POOL.map(k => `piece:${k}`), 'design:golden-a', 'design:golden-b'], 'the grid holds the pool pieces, then the designs');
+  assert.equal(await p.getAttribute(`${ALL} [data-key="piece:pawn"]`, 'aria-current'), 'true', 'the open piece is marked');
+  assert.equal(await p.locator(`${ALL} [data-key="design:golden-a"]`).getAttribute('aria-label'), 'Jumper', 'a face is named');
+  assert.equal(await p.locator(`${ALL} [data-key^="design:"] .tag-yours`).count(), 2, 'a design is Yours');
+  assert.equal(await p.locator(`${ALL} [data-key="piece:paladin"] .kd-seal`).count(), 3, 'a face shows its seals');
+  await minTarget(p, `${ALL} button`);
+  await p.click(`${ALL} [data-show="Pool"]`);
+  assert.deepEqual(await shown(p), POOL.map(k => `piece:${k}`), 'Pool shows the pool pieces');
+  await p.click(`${ALL} [data-show="Yours"]`);
+  assert.deepEqual(await shown(p), ['design:golden-a', 'design:golden-b'], 'Yours shows the designs');
+  assert.deepEqual(await p.$$eval(`${ALL} [data-show]`, bs => bs.map(b => b.getAttribute('aria-pressed'))), ['false', 'false', 'true'], 'the chosen filter is pressed');
+  await shot(p, 'see-all-1440x900');
+  await p.keyboard.press('Escape');
+  assert.equal(await p.locator(ALL).count(), 0, 'Esc closes the grid');
+  assert.equal(await focusOn(p, '[data-act="seeall"]'), true, 'the focus goes back to See all');
+  await p.click('[data-act="seeall"]');
+  await p.click(`${ALL} [data-key="design:golden-a"]`);
+  assert.equal(await p.locator(ALL).count(), 0, 'a tap closes the grid');
+  assert.equal(await name(p), 'Jumper', 'and opens the design on the board');
+  await p.locator('.slot[data-design="golden-a"]:focus').waitFor({ timeout: 1000 }).catch(() => assert.fail('the focus goes to its slot'));
+  await p.context().close();
+  const none = await open();
+  await door(none);
+  assert.equal(await none.locator('[data-act="seeall"]').count(), 0, 'an empty shelf has no See all');
+  await none.context().close();
+
+  const ph = await open('', { width: 390, height: 844, shelf: SHELF });
+  await door(ph);
+  await ph.click('[data-act="seeall"]');
+  assert.equal(new Set(await ph.$$eval(`${ALL} .pg-thumb`, ts => ts.map(t => Math.round(t.getBoundingClientRect().left)))).size, 2, 'the phone shows two columns');
+  await noSidewaysScroll(ph, ALL);
+  await minTarget(ph, `${ALL} button`);
+  await shot(ph, 'see-all-390x844');
+  await ph.click(`${ALL} [data-key="piece:ogre"]`);
+  assert.equal(await name(ph), 'Ogre', 'the phone opens a pool piece');
+  await ph.context().close();
+
+  // Short landscape: See all is in the ledge's sheet; a tap in the grid does not close that sheet under it.
+  const ls = await open('', { width: 844, height: 390, shelf: SHELF });
+  await door(ls);
+  await ls.click('[data-act="pieces"]');
+  await ls.click('[data-act="seeall"]');
+  await ls.click(`${ALL} [data-show="Yours"]`);
+  assert.equal(await ls.getAttribute(`${ALL} [data-show="Yours"]`, 'aria-pressed'), 'true', 'the filter works over the ledge\'s sheet');
+  await ls.click(`${ALL} [data-key="design:golden-b"]`);
+  assert.equal(await name(ls), 'Old Ward', 'a tap opens the design');
+  await ls.locator('.pg-pieces:focus').waitFor({ timeout: 1000 }).catch(() => assert.fail('the focus goes back to Pieces'));
+  await ls.context().close();
+
+  // A full shelf: "Choose one to delete" opens the grid with only the designs, each with Delete.
+  const seed = JSON.parse(SHELF).designs[0];
+  const f = await open('', { shelf: JSON.stringify({ v: 1, designs: Array.from({ length: 50 }, (_, i) => ({ ...seed, id: `seed-${i}`, name: `Seed ${i}` })) }) });
+  await door(f);
+  await arm(f, 'both');
+  await tap(f, 'c5');
+  await f.click('.pg-alert [data-act="room"]');
+  assert.equal(await f.locator(`${ALL} h2`).textContent(), 'Delete one design', 'the grid asks for one design');
+  assert.deepEqual([await f.locator(`${ALL} .pg-thumb`).count(), await f.locator(`${ALL} .pg-thumb .pg-room-del`).count()], [50, 50], 'each design has Delete');
+  assert.equal(await f.locator(`${ALL} :is([data-show], [data-key])`).count(), 0, 'no filter and no pool piece');
+  await minTarget(f, `${ALL} .pg-room-del`);
+  await f.click(`${ALL} [aria-label="Delete Seed 3"]`);
+  assert.equal(await toast(f), 'Deleted Seed 3. My Pawn is saved.', 'a delete makes room and saves the copy');
+  const names = (await stored(f)).map(d => d.name);
+  assert.ok(names.length === 50 && names.includes('My Pawn') && !names.includes('Seed 3'), 'the shelf holds the copy in place of Seed 3');
+  await f.context().close();
+}
+
 try {
   await opens();
   await poolPieces();
@@ -1948,6 +2026,7 @@ try {
   await reachPopover();
   await motion();
   await rulesTab();
+  await seeAll();
   assertNoErrors();
   console.log('workshop: all groups pass');
 } finally {

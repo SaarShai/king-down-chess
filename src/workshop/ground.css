@@ -369,10 +369,10 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .lsep { flex: none; align-self: stretch; width: 1px; margin: 8px 12px 20px; background: linear-gradient(transparent, var(--gold), transparent); }
 .lhead { flex: none; margin: 90px 6px 0 0; font: 600 14px/1 var(--font-display); letter-spacing: 0.12em; font-variant: small-caps; text-transform: lowercase; color: var(--ink-soft); }
 /* NEW: a dashed figure with a quill (:370-372) */
-.newtile .ghostfig { position: absolute; z-index: 2; left: 50%; bottom: 46px; width: 44px; height: 62px; transform: translateX(-50%); transition: transform var(--dur-2) var(--ease-out); }
-.newtile .ghostfig svg { width: 100%; height: 100%; overflow: visible; }
-@media (hover: hover) { .newtile:hover .ghostfig { transform: translateX(-50%) translateY(-4px); } }
-.newtile:focus-visible .ghostfig, .newtile.open .ghostfig { transform: translateX(-50%) translateY(-4px); }
+:is(.newtile, .seeall) .ghostfig { position: absolute; z-index: 2; left: 50%; bottom: 46px; width: 44px; height: 62px; transform: translateX(-50%); transition: transform var(--dur-2) var(--ease-out); }
+:is(.newtile, .seeall) .ghostfig svg { width: 100%; height: 100%; overflow: visible; }
+@media (hover: hover) { :is(.newtile, .seeall):hover .ghostfig { transform: translateX(-50%) translateY(-4px); } }
+:is(.newtile, .seeall):focus-visible .ghostfig, .newtile.open .ghostfig { transform: translateX(-50%) translateY(-4px); }
 /* the Rules tab (ticket 12, :398-415): the seals in their groups, the laws as read-only plaques, the Fixed plaque */
 .rgroups { display: flex; gap: 16px; align-items: flex-start; padding-top: 6px; }
 #workshop.pg .rgrp h4 { margin: 0 0 4px; font: 600 11px/1 var(--font-display); letter-spacing: 0.1em; color: var(--ink-soft); text-transform: uppercase; white-space: nowrap; }
@@ -417,7 +417,6 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 #workshop.pg .pg-sheet h2 { flex: 1 1 auto; margin: 0; padding: 8px 0; background: none; font-size: var(--fs-lg); }
 #workshop.pg .pg-x { width: 44px; height: 44px; justify-content: center; font-size: 24px; }
 .pg-sheet-body { padding: 12px 16px 24px; }
-.pg-room-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px solid var(--stone-300); }
 .pg-copybox { width: 100%; font: var(--fs-sm)/1.4 var(--font-body); }
 /* Delete asks first; the Look sheet: the tag filter, the 34 figures and the army (ticket 07) */
 .pg-ask { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -462,6 +461,37 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .pg-face .cseals.none { padding: 0 12px; text-align: center; font: italic 400 14px/1.3 var(--font-body); color: var(--ink-soft); }
 .pg-face .cworth { margin: 8px 14px 0; text-align: center; font-size: var(--fs-sm); color: var(--ink-soft); }
 .pg-face .cworth b { color: var(--ink); }
+/* ---- See all (ticket 15; mockup B's library grid and piece thumbnail, binder-and-table.html:61-99, :469-470): a full-screen
+   sheet; 168 px faces, two columns on the phone ---- */
+#workshop.pg .pg-sheet.pg-all { width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; border: 0; border-radius: 0; background: var(--parchment); }
+.pg-all .pg-sheet-body { max-width: 1400px; margin: 0 auto; }
+.pg-all .pg-note { font-style: italic; }
+.pg-allf { display: flex; gap: 8px; margin-bottom: 16px; }
+#workshop.pg .pg-allf button { min-height: 44px; padding: 6px 18px; border: 1px solid var(--stone-500); border-radius: 22px; font-weight: 700; }
+#workshop.pg .pg-allf [aria-pressed='true'] { color: var(--vellum); border-color: var(--ink); background: var(--ink); }
+.pg-grid { display: grid; grid-template-columns: repeat(auto-fill, 168px); justify-content: center; gap: 24px; }
+#workshop.pg .pg-thumb { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; min-width: 0; padding: 0 0 8px; overflow: hidden; text-align: left; color: var(--ink);
+  border-radius: 10px; background: var(--vellum); border: 2px solid var(--gold); box-shadow: var(--shadow-card), 0 6px 16px rgba(43, 38, 33, 0.13); transition: transform var(--dur-2) var(--ease-out); }
+#workshop.pg .pg-thumb[hidden] { display: none; }
+.pg-thumb::after { content: ''; position: absolute; inset: 3px; border: 1px solid var(--gold-ink); border-radius: 7px; opacity: 0.5; pointer-events: none; }
+#workshop.pg .pg-thumb:has(.tag-yours) { border-color: var(--stone-500); }
+.pg-thumb:has(.tag-yours)::after { display: none; }
+#workshop.pg .pg-thumb[aria-current='true'] { box-shadow: 0 0 0 3px var(--gold-bright), var(--shadow-card); }
+@media (hover: hover) { #workshop.pg button.pg-thumb:hover { transform: translateY(-4px); } }
+.pg-thumb .t { display: flex; align-items: center; gap: 6px; height: 30px; padding: 2px 10px 0 9px; }
+.pg-thumb .t :is(.pi, .ic) { flex: none; width: 18px; height: 18px; }
+.pg-thumb .t .ic { border-radius: 50%; background: var(--parchment-deep); }
+.pg-thumb .t b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 13px/1.1 var(--font-display); letter-spacing: var(--track-display); text-transform: uppercase; }
+.pg-thumb .art { position: relative; display: block; height: 92px; margin: 0 6px; overflow: hidden; border-radius: 4px; background: radial-gradient(110% 95% at 50% 26%, #fdf7e8 0%, #f1e3c4 48%, #dcc699 100%); }
+.pg-thumb .art img { position: absolute; left: 50%; top: 5px; height: 146px; transform: translateX(-50%); filter: var(--rim) drop-shadow(0 6px 6px rgba(43, 38, 33, 0.18)); }
+.pg-thumb .dg { --c: 14px; position: relative; display: block; width: 98px; height: 98px; margin: 8px auto 0; background-color: #efe6d0;
+  background-image: linear-gradient(90deg, rgba(77, 69, 60, 0.3) 1px, transparent 1px), linear-gradient(rgba(77, 69, 60, 0.3) 1px, transparent 1px), repeating-conic-gradient(#ddd0b4 0 25%, #efe6d0 0 50%);
+  background-size: var(--c) var(--c), var(--c) var(--c), calc(var(--c) * 2) calc(var(--c) * 2); box-shadow: 0 0 0 1px rgba(77, 69, 60, 0.45); }
+.pg-thumb .dg > svg { display: block; overflow: visible; }
+.pg-thumb .sl { position: absolute; left: -30px; right: -30px; bottom: 1px; display: flex; justify-content: center; gap: 6px; }
+.pg-thumb .band { display: block; margin: 6px 8px 0; text-align: center; font: italic 400 var(--fs-xs)/1.25 var(--font-body); color: var(--ink-soft); }
+.pg-thumb .tag-yours { position: absolute; right: 6px; top: 34px; }
+#workshop.pg .pg-thumb .pg-room-del { margin: 8px 8px 0; justify-content: center; }
 /* the reach popover over a ledge figure (#reachPop, proving-ground.html:374-376) */
 .pg-reachpop { position: fixed; z-index: 90; padding: 6px; border-radius: 8px; background: var(--vellum); box-shadow: var(--shadow-float); opacity: 0; pointer-events: none; transition: opacity var(--dur-1); }
 .pg-reachpop.on { opacity: 1; }
@@ -552,7 +582,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .pg-info { padding: 4px 4px 0; }
   .pg-info > :not(.pg-ex) { display: none; }
   #workshop.pg .pg-info .pg-ex { font-size: 16px; line-height: 1.3; }
-  .newtile .ghostfig { bottom: 58px; }
+  :is(.newtile, .seeall) .ghostfig { bottom: 58px; }
   .pg-toast { position: fixed; bottom: 12px; font-size: 14px; }
   /* the Why tag: a bottom sheet over the brushes and the ledge, 358 px high and still as the rule card (:500-505); on a short screen half of it */
   .pg-why { position: fixed; z-index: 60; left: 0; right: 0; bottom: 0; margin: 0; animation: none; }
@@ -563,6 +593,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .pg-why .why-act { margin-top: 14px; }
   /* the card face as mockup B's phone card (.hand, binder-and-table.html:502-517): the diagram beside the name and the figure */
   .pg-face { width: auto; max-width: 358px; display: grid; grid-template-columns: 178px minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: 'dg ct' 'dg art' 'seals seals' 'worth worth'; }
+  .pg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   .pg-face .ct { grid-area: ct; height: auto; gap: 6px; padding: 12px 8px 0 2px; }
   .pg-face .ct :is(.pi, .ic) { width: 22px; height: 22px; }
   .pg-face .ct b { white-space: normal; font-size: 16px; letter-spacing: 0.06em; }

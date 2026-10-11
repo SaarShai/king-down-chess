@@ -1,4 +1,4 @@
-// W14: the Workshop, the Proving Ground (docs/specs/workshop-proving-ground tickets 01 to 12).
+// W14: the Workshop, the Proving Ground (docs/specs/workshop-proving-ground tickets 01 to 12 and 15).
 // The open piece on its example board with its marks, the plinth with its rules, the key and the Pieces ledge;
 // a rule kept by a tap (hero-i1 to hero-i3) and a cracked knot (beast-cancel: My Beast, its pill changed from "a piece, not a
 // pawn" to "anything", so the top bar says Undo rule; a tap on e5 opens its Why tag) (ticket 04); then
@@ -27,10 +27,12 @@
 // videos with Motion Normal. In a video, each step's motion plays out (700 ms) before the next step.
 // Ticket 12: rules-tab (the Rules tab with "Lines pass" open: the seal on the plinth, its example, MATRIX row and Seen on,
 // the Paladin on its board with that rule kept, and on the desktop the laws and the Fixed plaque).
+// Ticket 15: see-all (My Beast on the shelf, then See all at the end of Yours: the pool pieces and the design in the grid) and
+// phone-see-all (a full shelf of 50 copies of My Beast, a paint on the Pawn, then "Choose one to delete": the designs, each with Delete).
 // Mockup states to set beside them: open, hero, hero-i1, hero-i2, hero-i3, archer, beast, beast-cancel, maester, ogre, guard,
 // phone-open, phone-hero, why-g7, paint, painted, stamp-preview, stamped, asleep-b4, awake-e2, rook-leap, rules; for new-piece, the
 // open state and a tap on NEW; for design-menu, painted and ⋯ (the phone's ⋯; the mockup's desktop has no ⋯); for the card
-// face, card-paladin and phone-card of mockup B (binder-and-table.html); for reach-popover, open with the pointer on the Paladin
+// face, card-paladin and phone-card of mockup B (binder-and-table.html); for See all, binder of mockup B; for reach-popover, open with the pointer on the Paladin
 // (docs/research/rules-ui-2026-10-10/mockups/proving-ground.html?state=<id>, served, never file://).
 // The targets leave out the board squares (24 px or more, spec decision 9) and the later nubs and knots.
 // Run: SAMPLE=W14 node docs/specs/web-ux/capture.mjs <base-url> <out-dir>. Renders stay outside Git.
@@ -211,6 +213,19 @@ export default {
     { name: 'link-card', query: linkTo(rider), save, targets, controls, steps: async ({ page }) => { await page.locator('.pg-sheet[open] .pg-face').waitFor(); } },
     { name: 'phone-link-card', query: linkTo(lancer), save, targets, controls, steps: async ({ page }) => { await page.locator('.pg-sheet[open] .pg-face').waitFor(); } },
     { ...state('rules-tab', 'pawn'), steps: async ({ page }) => { await piece('pawn')({ page }); await page.click('[data-tab="rules"]'); await page.click('[data-openseal="linesPass"]'); } },
+    { ...state('see-all', 'pawn'), steps: async ({ page }) => {
+      await page.evaluate(v => localStorage.setItem('kingdown.workshop', v), beastPiece);
+      await piece('pawn')({ page });
+      await ledge(page);
+      await page.click('[data-act="seeall"]');
+    } },
+    { ...state('phone-see-all', 'pawn'), steps: async ({ page }) => {
+      const beast = JSON.parse(beastPiece).designs[0];
+      await page.evaluate(v => localStorage.setItem('kingdown.workshop', v), JSON.stringify({ v: 1, designs: Array.from({ length: 50 }, (_, i) => ({ ...beast, id: `b${i}`, name: `My Beast ${i + 1}` })) }));
+      await piece('pawn')({ page });
+      await paintBoth(page);
+      await page.click('.pg-alert [data-act="room"]');
+    } },
     { ...state('reach-popover', 'pawn'), steps: async ({ page, size }) => { await piece('pawn')({ page }); if (!narrow(size)) await page.hover('.slot[data-piece="paladin"]'); } },
   ],
 };

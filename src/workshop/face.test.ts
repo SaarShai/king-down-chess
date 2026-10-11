@@ -1,6 +1,6 @@
 // The card face and its reach diagram (docs/specs/workshop-proving-ground, ticket 08).
 import { describe, expect, it } from 'vitest';
-import { faceHtml } from './face';
+import { faceHtml, thumbHtml } from './face';
 import { bandOf, judge } from './judge';
 import { diagram } from './marks';
 import { BLANK, canonical, fromPreset, presetOf, type PieceDesign, type Rule } from './model';
@@ -72,5 +72,24 @@ describe('the card face (ticket 08)', () => {
 
   it('holds no control', () => {
     for (const key of ['pawn', 'archer', 'paladin', 'ogre']) expect(face(design(key))).not.toMatch(/<(button|input|select|textarea)\b/);
+  });
+});
+
+describe('the small face of See all (ticket 15)', () => {
+  const thumb = (d: PieceDesign, yours = false): string => thumbHtml(d, judge(d, false), 'ui/pieces/x-w.webp', yours);
+  it('shows the name, the figure, the diagram, a seal for each rule and the band word', () => {
+    const d = design('paladin'), html = thumb(d);
+    expect(html).toContain('<b>Paladin</b>');
+    expect(html).toContain('<img src="ui/pieces/x-w.webp" alt="">');
+    expect(html).toContain('aria-label="Reach diagram"');
+    expect((html.match(/class="kd-seal"/g) ?? []).length).toBe(3);
+    expect(html).toContain(`<span class="band">${bandOf(judge(d, false))}</span>`);
+    expect(thumb(design('knight'))).not.toContain('class="sl"');
+  });
+
+  it('tags a design as Yours, and holds only phrasing content, so a button can hold it', () => {
+    expect(thumb(design('pawn'))).not.toContain('tag-yours');
+    expect(thumb(design('pawn'), true)).toContain('tag-yours');
+    expect(thumb(design('ogre'), true)).not.toMatch(/<(div|p|ul|li|article|button|input|select)\b/);
   });
 });

@@ -13,7 +13,7 @@ import { BLACK, NAMES as PIECE, P, T, WHITE, colorOf, file, makeMove, parseSq, p
 import { pieceIcon } from '../piece-icons';
 import { pieceArt } from '../ui/guide';
 import { FIGURES, FIGURE_TAGS, figureUrl, selectedFigure, suggestedFigures, type Figure } from './figures';
-import { faceHtml } from './face';
+import { faceHtml, thumbHtml } from './face';
 import { autoBody, bandOf, judge } from './judge';
 import { NAMES, chip, countRing, diagram, drawString, effect, ensureDefs, impression, knot, mirrorIcon, nub, pill, plaque, seal, sigil, tagYours, tile, viewBox, whySum } from './marks';
 import {
@@ -58,6 +58,9 @@ const MEDAL = '<svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true
 /** The NEW tile: a dashed figure outline with a quill (GHOST_FIG, proving-ground.html:1439). */
 const GHOST = '<svg viewBox="0 0 44 62" aria-hidden="true"><path d="M22 4a7 7 0 1 1-.01 0zM13 24c2-4 16-4 18 0l2 14h-4l1 10h6l2 10H8l2-10h6l1-10h-4z" fill="rgba(255,255,255,.25)" stroke="var(--stone-500)" stroke-width="1.5" stroke-dasharray="4 3" stroke-linejoin="round"/>'
   + '<g transform="translate(24 30) scale(.8)"><circle cx="12" cy="12" r="12" fill="var(--vellum)" stroke="var(--gold-ink)" stroke-width="1.5"/><path d="M18 5C12 5.5 8 9.5 7 18M7 18l2.4-.9M9.8 12.5h4" fill="none" stroke="var(--gold-ink)" stroke-width="2" stroke-linecap="round"/></g></svg>';
+/** The See all tile: four small cards. */
+const CARDS = '<svg viewBox="0 0 44 62" aria-hidden="true"><g fill="var(--vellum)" stroke="var(--gold-ink)" stroke-width="1.5">'
+  + [[3, 14], [24, 14], [3, 38], [24, 38]].map(([x, y]) => `<rect x="${x}" y="${y}" width="17" height="22" rx="2"/>`).join('') + '</g></svg>';
 /** The words of a name that validName refuses. */
 const BAD_NAME = "A name uses letters, digits, spaces, - and ', up to 18.";
 
@@ -324,17 +327,39 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     alertEl.hidden = !u;
     if (alertEl.dataset.html !== html) { alertEl.innerHTML = html; alertEl.dataset.html = html; }
   }
-  /** A full shelf: the player deletes one design, then the open one is saved. */
-  function makeRoom(): void {
-    sheet('Delete one design', `<p>Your shelf holds ${MAX} designs. Delete one, and ${esc(cur.d.name)} is saved in its place.</p>`
-      + shelf.map(d => `<div class="pg-room-row"><span>${esc(d.name)}</span><button type="button" class="pg-room-del" data-id="${esc(d.id)}" aria-label="Delete ${esc(d.name)}">Delete</button></div>`).join(''), (body, close) => {
-      for (const b of body.querySelectorAll<HTMLButtonElement>('.pg-room-del')) b.onclick = () => {
-        const name = shelf.find(d => d.id === b.dataset.id)?.name ?? '';
-        if (!deleteDesign(b.dataset.id!)) return toast('Could not delete: this device refused.');
-        close();
-        save();
-        render();
-        toast(unsaved ? `Deleted ${name}.` : `Deleted ${name}. ${cur.d.name} is saved.`);
+  /** See all (ticket 15; library in mockup B, binder-and-table.html:1088-1095): the pool pieces and the shelf designs as small
+   *  faces in a full-screen grid, with an All / Pool / Yours filter; a tap opens the piece on the board. `room`, from a full
+   *  shelf: only the designs, each with Delete; a delete makes room, and the open design is saved in its place. */
+  function seeAll(room = false): void {
+    const items = [...(room ? [] : PRESETS.map(p => pool(p.key))), ...shelf.map(d => ({ key: `design:${d.id}`, d, yours: true }))];
+    const thumb = (it: Item): string => { const t = thumbHtml(it.d, judge(it.d, false), figureOf(it.d), it.yours), name = esc(it.d.name);
+      return room ? `<div class="pg-thumb">${t}<button type="button" class="pg-room-del" data-id="${esc(it.d.id)}" aria-label="Delete ${name}">Delete</button></div>`
+        : `<button type="button" class="pg-thumb" data-key="${esc(it.key)}" aria-label="${name}"${cur.key === it.key ? ' aria-current="true"' : ''}>${t}</button>`; };
+    sheet(room ? 'Delete one design' : 'Pieces', (room ? `<p class="pg-note">Your shelf holds ${MAX} designs. Delete one, and ${esc(cur.d.name)} is saved in its place.</p>`
+      : `<p class="pg-note">Pick a piece. Change anything. The original stays.</p><div class="pg-allf" role="group" aria-label="Show">${['All', 'Pool', 'Yours']
+        .map((w, i) => `<button type="button" data-show="${w}" aria-pressed="${!i}">${w}</button>`).join('')}</div>`) + `<div class="pg-grid">${items.map(thumb).join('')}</div>`, (body, close) => {
+      const s = body.parentElement!;
+      s.classList.add('pg-all');
+      body.onclick = e => {
+        const b = (e.target as Element).closest<HTMLElement>('button');
+        if (b?.dataset.show) {
+          for (const f of body.querySelectorAll<HTMLElement>('[data-show]')) f.setAttribute('aria-pressed', `${f === b}`);
+          for (const t of body.querySelectorAll<HTMLElement>('[data-key]')) t.hidden = b.dataset.show !== 'All' && (b.dataset.show === 'Yours') !== t.dataset.key!.startsWith('design:');
+        } else if (b?.dataset.key) {
+          show(items.find(x => x.key === b.dataset.key)!);
+          revealOpenSlot();
+          arrive();
+          // After the sheet's own close, the focus goes to the slot of the piece (in short landscape, to Pieces).
+          s.addEventListener('close', () => q<HTMLElement>(short.matches ? '.pg-pieces' : '.slot.open').focus({ preventScroll: true }));
+          close();
+        } else if (b?.dataset.id) {
+          const name = shelf.find(d => d.id === b.dataset.id)?.name ?? '';
+          if (!deleteDesign(b.dataset.id)) return toast('Could not delete: this device refused.');
+          close();
+          save();
+          render();
+          toast(unsaved ? `Deleted ${name}.` : `Deleted ${name}. ${cur.d.name} is saved.`);
+        }
       };
     });
   }
@@ -1167,6 +1192,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     slotsEl.innerHTML = PRESETS.map(p => slot(`data-piece="${p.key}"`, `piece:${p.key}`, pool(p.key).d, false)).join('')
       + (shelf.length ? '<span class="lsep" aria-hidden="true"></span><span class="lhead">Yours</span>' : '')
       + shelf.map(d => slot(`data-design="${esc(d.id)}"`, `design:${d.id}`, d, true)).join('')
+      // See all at the end of Yours (ticket 15).
+      + (shelf.length ? `<button type="button" class="slot seeall" data-act="seeall" aria-haspopup="dialog"><span class="ghostfig">${CARDS}</span><span class="nm">See all</span></button>` : '')
       // NEW at the end of the row (proving-ground.html:1453).
       + `<button type="button" class="slot newtile${cur.key === 'new' ? ' open' : ''}"${cur.key === 'new' ? ' aria-current="true"' : ''} aria-label="New piece" title="Make a new piece">`
       + `<span class="ghostfig">${GHOST}</span><span class="nm">New</span></button>`;
@@ -1183,7 +1210,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   };
   slotsEl.addEventListener('click', e => {
     const b = (e.target as Element).closest<HTMLElement>('.slot');
-    if (!b) return;
+    if (!b || b.dataset.act) return;
     const d = shelf.find(x => x.id === b.dataset.design);
     if (b.matches('.newtile')) newPiece(); else show(d ? { key: `design:${d.id}`, d, yours: true } : pool(b.dataset.piece!));
     arrive();
@@ -1304,8 +1331,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   q<HTMLButtonElement>('.pg-menu').onclick = () => (ledgeOpen ? closeLedge() : dlg.close());
 
   dlg.addEventListener('click', e => {
-    // A tap outside the ledge's sheet closes it, and does nothing else.
-    if (ledgeOpen && !(e.target as Element).closest('.pg-ledge, [data-act="pieces"]')) return closeLedge();
+    // A tap outside the ledge's sheet (and outside See all, which opens from it) closes it, and does nothing else.
+    if (ledgeOpen && !(e.target as Element).closest('.pg-ledge, .pg-sheet, [data-act="pieces"]')) return closeLedge();
     const t = (e.target as Element).closest<HTMLElement>('[data-act], [data-brush], [data-nub], .pg-hits .sq, [data-pill], [data-when], [data-choice], [data-sealitem], [data-rm], [data-tok], [data-tab], [data-try], [data-promo], [data-figure], [data-openseal], [data-seenon]');
     if (!t) { if (moreOpen) { moreOpen = false; renderTop(); } return; }
     const { sq: at, nub: l, brush: b, pill: pa, when: wa, choice, sealitem: sa, rm, tok, tab: tb, try: tr, promo: pr, figure, openseal: os, seenon: seen } = t.dataset;
@@ -1379,7 +1406,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (act === 'copydesign') return makeCopy();
     if (act === 'delete') return remove();
     if (act === 'done') return leave();
-    if (act === 'room') return makeRoom();
+    if (act === 'room' || act === 'seeall') return seeAll(act === 'room');
     if (act === 'copy') return void copyText(link(cur.d), 'Link copied.');
     if (act === 'retry') { save(); render(); if (!unsaved) toast('Saved on this device.'); return; }
     // Weigh: a popover in the name band; on the phone, from the ⋯ menu, a toast (proving-ground.html:1993).
