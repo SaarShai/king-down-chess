@@ -73,6 +73,9 @@ Open problems:
 - At 1024 × 768 and 1280 × 800, "My Knight" with its Yours tag puts Weigh on a second line. This ticket did not change that row; tickets 02 to 06 show the same.
 - After an army change, the figures in the sheet are blank until their images load.
 
+### 2026-10-11 · the auto name, resolved
+
+The owner approved the renders of tickets 09 to 18 and wrote "resolve all" (2026-10-11). The choice is delegated (owner, 2026-10-09: decide by UI/UX best practice), so this is not the owner's yes. Resolved: a new piece keeps its auto name ("Dawn Spirit" and the like, `autoName`), not the mockup's "New piece". Reason: names must be distinct on the ledge; two pieces named "New piece" cannot be told apart in Yours, in a link or in a game. Spec decision 39.
 
 ### Reviews
 

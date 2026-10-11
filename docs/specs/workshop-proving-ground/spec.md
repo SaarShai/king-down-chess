@@ -121,6 +121,7 @@ Sources: "owner" is a quote; "mockup" is the approved sample; "delegation" is de
 | 36 | A square's mark is the painted mark at that offset: on an empty square, or on an enemy that the piece can take there. A line square is `move` when empty and `take` on the enemy that ends it. A move-only mark on an occupied square, and any friend, has no mark (swap and push show as effects) | mockup | This is how the approved scenes are drawn (`scenes.js` Pawn c5 and e5, Archer b6, Maester c5); `movesOf` gives the reach, the board gives the occupant, and `scene.ts` adds no move rule. |
 | 37 | Hover-only marks and effects (`on` in the scene format, `scenes.js:11`) show while their square has the pointer, the key focus or the open Why tag (`proving-ground.html:1144`, `:2041`, `:2047-2054`) | mockup | The Beast's second take, the Archer's sight lines and the Ogre's follow need a way in on a touch screen (the Why tag) and with keys (the focus). |
 | 38 | A rule line shows the mockup's short line with its pill (`sealLineHTML`, `proving-ground.html:979-1005`): "steps 2 straight ahead", "becomes [a piece you choose]", "cannot take [a king]". The When chip holds only the When words; a When parameter ("a piece, not a pawn") is a pill after the chip. The short lines are one table beside the long sentences in `text.ts` (`lineParts`); `ruleText` stays for the old Workshop and for screen readers | delegation (the approved mockup wins) | Ticket 01 kept the long vocabulary sentence, which takes two or three rows on a line; the approved mockup has one short row. The long sentence stays on the Rules shelf's sentence card, and it names the phone's plinth seals for screen readers. |
+| 39 | A new piece keeps its auto name ("Dawn Spirit" and the like, `autoName`); the mockup shows "New piece". Resolved 2026-10-11 | delegation (owner, 2026-10-11: "resolve all") | Names must be distinct on the ledge: two pieces named "New piece" cannot be told apart in Yours, in a link or in a game. Tickets 07 and 18. |
 
 ## Later, with no ticket
 
@@ -139,8 +140,8 @@ Each item is in the mockup or the review, and v1 leaves it out for the reason gi
 ## Rules for every ticket
 
 1. **Tests:** `npm test` passes (type check, vitest, node tests, the doc lints). Never bare vitest. Pure logic goes in a module with a unit test that runs with no DOM.
-2. **Browser checks:** `npm run check:browser proving-ground` and the checks that the ticket names pass. A new or changed check group runs three times with no failure before the pull request. The check reads marks from the `data-sq` and `data-k` attributes of the SVG, not from pixels.
-3. **Samples:** `SAMPLE=W14 node docs/specs/web-ux/capture.mjs <preview-url> <out>` renders the ticket's states at 1440 × 900 and 390 × 844 (ticket 09 adds `landscape`, 844 × 390). Each W14 state sets `targets: 'button:not(.sq, .nub, .knot), select, summary, label'`, because the 44 px touch test of `capture.mjs:108` would fail the 24 px parts of decision 9; `tools/verify-proving-ground.mjs` tests those parts at 24 px. Renders stay out of Git.
+2. **Browser checks:** `npm run check:browser workshop` (the check of A; ticket 11 gave it this name) and the checks that the ticket names pass. A new or changed check group runs three times with no failure before the pull request. The check reads marks from the `data-sq` and `data-k` attributes of the SVG, not from pixels.
+3. **Samples:** `SAMPLE=W14 node docs/specs/web-ux/capture.mjs <preview-url> <out>` renders the ticket's states at 1440 × 900 and 390 × 844 (ticket 09 adds `landscape`, 844 × 390). Each W14 state sets `targets: 'button:not(.sq, .nub, .knot), select, summary, label'`, because the 44 px touch test of `capture.mjs:108` would fail the 24 px parts of decision 9; `tools/verify-workshop.mjs` tests those parts at 24 px. Renders stay out of Git.
 4. **The owner's look:** a ticket that changes what the player sees stays a draft pull request until the owner says yes to its renders. The ticket records his words and the date.
 5. **The legend:** A imports `src/render/legend.ts`. No colour or size of a mark is written a second time.
 6. **Compatibility:** the golden fixtures of ticket 01 stay green in every ticket.
@@ -168,16 +169,18 @@ Each item is in the mockup or the review, and v1 leaves it out for the reason gi
 | [13](issues/13-kings-and-powers.md) | Kings tab and powers (later) | M | 06, 11 |
 | [14](issues/14-lab-cards.md) | LAB cards tab (later) | M | 13 |
 | [15](issues/15-see-all.md) | See all: the binder grid (later) | S | 08, 11 |
-| [16](issues/16-engine-designed-piece.md) | Engine: the designed-piece case (later) | M | none |
-| [17](issues/17-play-a-design.md) | Play a design in a game (later) | L | 16 (step 5: 13, 14) |
+| [16](issues/16-engine-designed-piece.md) | Engine: the designed-piece case (in build, branch `claude/pg-design`) | M | none |
+| [17](issues/17-play-a-design.md) | Play a design in a game (in build, branch `claude/pg-design`) | L | 16 (step 5: 13, 14) |
 | [18](issues/18-mockup-fidelity.md) | Mockup fidelity: a pass over tickets 02 to 08 | M | 02 to 08 |
 
 ## Open decisions for the owner
 
-1. The engine case and real games with a design (tickets 16 and 17) come after A. Pick: later.
-2. Weigh shows the worth, the band word and the like line; the Why-estimate sheet, fixes and badges go. Pick: yes.
-3. Surprise me goes. Pick: yes.
-4. A design link opens the card face first, then the board. Pick: yes.
-5. The Rules, Kings and Cards tabs and See all come after the cutover. Pick: yes.
-6. "A is final" covers A's motion list, and ticket 10's phone video is the check. Pick: yes.
-7. The `?workshop=a` preview lives on main until the cutover. Pick: yes.
+All 7 are resolved (2026-10-11). The owner approved the renders of the whole build (tickets 09 to 18) and wrote "resolve all".
+
+1. The engine case and real games with a design (tickets 16 and 17) come after A. Pick: later. Resolved 2026-10-11: the owner says build them now; they are in build on branch `claude/pg-design`.
+2. Weigh shows the worth, the band word and the like line; the Why-estimate sheet, fixes and badges go. Pick: yes. Resolved 2026-10-11: yes, as built.
+3. Surprise me goes. Pick: yes. Resolved 2026-10-11: yes, as built.
+4. A design link opens the card face first, then the board. Pick: yes. Resolved 2026-10-11: yes, as built.
+5. The Rules, Kings and Cards tabs and See all come after the cutover. Pick: yes. Resolved 2026-10-11: yes, as built (tickets 12 to 15).
+6. "A is final" covers A's motion list, and ticket 10's phone video is the check. Pick: yes. Resolved 2026-10-11: yes, as built.
+7. The `?workshop=a` preview lives on main until the cutover. Pick: yes. Resolved 2026-10-11: yes; ticket 11 removed the switch at the cutover.

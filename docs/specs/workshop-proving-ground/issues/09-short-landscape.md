@@ -80,3 +80,40 @@ Evidence after the fix (in the same `09-review/` folder):
 - `npm test`: exit 0. 115 test files pass (1 skipped); 1,895 tests pass (21 skipped). Log: `npm-test.log`; `npm-test-2.log` is the run after this text.
 - `npm run check:browser proving-ground`: passes three times (59.4 s, 59.2 s, 59.7 s). Logs: `logs/pg-1.log` to `logs/pg-3.log`, and each run's `logs/check-N.proving-ground.log` ("proving-ground: all groups pass"). The check's own renders of run 1: `check-1/`.
 - The fix changes no render: it changes only what a tap on ‹ Menu does, and no W14 state taps ‹ Menu. So the W14 renders and the pairs beside the mockup stay as above.
+
+### 2026-10-11 · follow-up: the shelf in short landscape (owner: "fix")
+
+The owner approved the renders of tickets 09 to 18 on 2026-10-11 and asked for one fix: at 844 × 390, in `stamp-preview`, the sentence card covered the seal rows of the Rules shelf below "Moving"; only the tops of those seals showed until a scroll.
+
+- [x] At 844 × 390 and 667 × 375 each seal of the shelf shows in full with no scroll, and the sentence card and Stamp stay in the screen.
+- [x] The sentence stays at its size (16 px).
+- [x] The other landscape states (`open-pawn`, `paint`, `why-d7`, `tray`) do not change (W14 render compare against the last commit).
+- [x] A browser check fails on the old CSS and passes on the fix.
+
+The fix (`ground.css`, the short-landscape block only; the selectors are the shelf's own):
+
+1. The seal groups wrap in a flex row, not a grid of 148 px columns: at 667 × 375 and 844 × 390 the 6 groups take two rows, not four. Each group keeps its name above its seals.
+2. The seals are 34 px (were 40 px), each button 56 px wide; the group names are 10.5 px. Each seal button stays 44 px or more in each direction (`minTarget`).
+3. Stamp stands in the shelf's header, beside ×, as the action of a full-screen dialog. Its row under the sentence goes, so the sentence card is one row shorter. Stamp is 44 px high there. In the DOM it stays after the sentence, so the Tab order does not change.
+4. The shelf's padding and the card's padding are a little smaller (6 px 12 px 8 px; 8 px). The rule card (`.pg-card`) keeps its padding.
+
+Why this form, and not the sentence card after the seals: then the sentence and Stamp go below the screen at 375 px high, and the player cannot read what the picked seal does without a scroll. Now the seals, the sentence and Stamp show together.
+
+Evidence (outside Git, in `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/08f2956c-63a7-4276-8738-a657bdb42b06/scratchpad/build/owner4/`, `O` below):
+
+- Screenshots before and after: `O/landscape/before/` and `O/landscape/after/` (`stamp-preview-844x390.png`, `stamp-preview-667x375.png`, `stamp-preview-568x320.png`, and `open-pawn-*` and `paint-*` at the same sizes). `O/landscape/after/dim-*.png` is the shelf with a seal that cannot go on now (Lines pass on the Pawn: Stamp is disabled and the card has the line "Paint a line first."); each seal still shows in full. The probe: `O/../../owner4probe/shot.mjs`.
+- The measures (`measure.txt` in each folder): the groups' box scrolled 146 px at 844 × 390 and 446 px at 667 × 375, and 7 seals were cut (Takes again, Can't be taken, Pushes, Swaps, Becomes, Can't take…, Removed too). After: 0 px of scroll and no seal cut at both sizes.
+- W14 render compare against the last commit: `node docs/specs/web-ux/render-compare.mjs --against HEAD --samples W14 --out O/compare` gives 109 pairs, 1 stable change, 17 unstable, 0 faults (`O/logs/compare.log`). The one change is `stamp-preview-landscape.png`, the state of this fix (confirmed by a second render of each build). `open-pawn`, `paint`, `why-d7` and `tray` at `landscape`, and each state at 1440 × 900 and 390 × 844, have no stable change; the 17 unstable renders differ between two renders of one build, so they prove nothing.
+- Browser check: `layouts` has a ninth size, 667 × 375, so the short-landscape steps also run there. In `landscape()`, from 375 px high, each seal button of the shelf is inside the groups' box and above the sentence card, and no seal, group name or Stamp covers another. On the old CSS, `layouts` fails with "844x390: each seal of the shelf shows in full above the sentence card" (`O/logs/only-neg.log`). On the fix, `layouts` and `turnRefits` pass (`O/logs/only-fix.log`; the check's renders: `O/check/shelf-844x390.png`, `shelf-667x375.png`).
+- `npm run check:browser workshop` (the check of A, see change 1 below): passes three times (111.0 s, 111.4 s, 114.5 s). Logs: `O/logs/check-1.log` to `check-3.log`, and each run's `O/logs/check-N.workshop.log` ("workshop: all groups pass").
+- `npm test` through the shared lock: exit 0. 116 test files pass (1 skipped); 1,892 tests pass (21 skipped). Log: `O/logs/npm-test-1.log`; `O/logs/npm-test-2.log` is the run on the final text of this ticket.
+
+Changes from the owner's words, each with its reason:
+
+1. The browser check name: the brief names `npm run check:browser proving-ground`. Ticket 11 (the cutover) gave that check the name and path of the old one: `workshop`, `tools/verify-workshop.mjs` (`npm run check:browser proving-ground` says "unknown name"). So the runs below are `npm run check:browser workshop`. Rules 2 and 3 of the spec now name `workshop` and `tools/verify-workshop.mjs`.
+2. The new seal test runs only from 375 px high. At 568 × 320 the side sheet is 272 px high, and two rows of seals, the header and the sentence card do not fit. There the groups get 113 px (were 37 px): the first row and the top of the second show, and the groups scroll. This stays an open problem below.
+
+Open problems:
+
+- At 568 × 320 the seal groups of the shelf still scroll (113 px of 220 px show).
+- The owner has not seen the renders of this fix.
