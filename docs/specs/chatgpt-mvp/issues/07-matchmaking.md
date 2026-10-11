@@ -26,6 +26,16 @@ Blocked by: 06
 
 ## Plan
 
+Round 2:
+1. Prove expiry during the search lock and the game row lock. Use a fresh lobby cutoff and retry an expired candidate.
+2. Check that cancel and expiry save no result and no rating change. Add rating assertions when ticket 08 reaches integration.
+3. Check accept and find with arrangement and powers off. Save the first move and check the deadline.
+4. Check activity from accept and commands. Compare the exact lobby reply at each count threshold.
+5. Run the full tests, commit, merge the local integration tip, run the full tests again and push this branch.
+
+Checks: each new test fails or proves the old test gap before the change. Use the ticket 07 test database and runtime role. Keep the page, results and ratings code out of scope.
+
+First build:
 1. Test the lobby through the plugin service on a test database with the runtime role. Add the list and its public types.
 2. Test accept, find and cancel. Use 20 separate database clients for the accept race. Reuse the setup step and row lock.
 3. Test the 24-hour expiry, blocks, handle errors and the 10-minute active count. Add migration 0011 and its checks.
@@ -44,17 +54,15 @@ Checks: one accept wins; the oldest eligible game matches; expiry and cancel giv
 
 ## Result
 
-The lobby lists open games and hides own, blocked and expired games. Accept takes the game row lock and starts setup. Find takes the oldest eligible game or creates one with the caller's features. A transaction lock prevents two finds from making two games on an empty lobby. Cancel and the 24-hour sweep end the game with no result. Random matchmaking requires a handle. The active count appears only at 10 or more.
+Round 2 fixes the expiry wait. The lobby uses the query time. Find checks the candidate after the row lock and retries when it expires. Accept uses the same fresh time for its check and write.
 
-Checks use `kingdown_mvp07_test` on `127.0.0.1:55432`. The matchmaking tests use their own database copy and the runtime role. Each role change holds the shared role lock.
+- Both lock-wait tests fail with `NOT_ALLOWED` before the fix. Both pass after it.
+- A temporary saved draw proves the no-result gap: 11 prior checks pass; the new saved-result check fails. The code is restored. Cancel and expiry save `aborted`, a null result, and an `abort` or `no_start` event.
+- A temporary failure to start play leaves 12 checks passing and fails both new accept and find checks. The code is restored. Both paths start play, save the first move, let the opponent resume, and set the 3-day deadline.
+- A temporary missing accept activity update leaves 13 checks passing and fails the count check. The code is restored. The exact reply checks activity from accept and a move, excludes duplicate and old activity, and hides the count below 10.
+- The final focused `npm test` passes: 14 matchmaking checks; 50 of 50 document-art checks.
+- Full `npm test` before the final merge passes: 140 files; 2,212 tests; 8 skip; 50 of 50 document-art checks.
+- Checks use `kingdown_mvp07_test` on `127.0.0.1:55432`. Matchmaking uses its own database copy and the runtime role.
+- `git diff --check` passes. This ticket changes no page. Page size and browser checks do not apply.
 
-- Nine matchmaking database checks pass. The accept race uses 20 separate clients: one wins, 19 are refused, and the winner's retry keeps one join. Other checks cover blocks in both directions, oldest-first find, two finds on an empty lobby, cancel, two sweeps at 24 hours, handle errors, and a read-only count with duplicate and old activity.
-- `npm run plugin:db:init-test` passes. Migration 0011 runs twice.
-- Full `npm test` before the merge: 140 files pass; 2,206 tests pass; 8 skip. The document-art checks pass 50 of 50.
-- The first full check finds one setup fixture with no handle. The fixture now gives its players preset handles. The full check then passes.
-- `git diff --check` passes.
-- This ticket changes no page. Page size and browser checks do not apply.
-- Integration tip `ba1d5a5d` merges without conflict and brings the ticket 06 review fixes. The full `npm test` after the merge passes: 140 files; 2,207 tests; 8 skip; 50 of 50 document-art checks.
-- One earlier full check reaches the 5-second limit in the unchanged Strong-computer test. Its 18 checks pass alone. The final full check above passes.
-
-Open items: none in this ticket. Ticket 10 adds the tool bindings.
+The local integration tip now has ticket 08. The final merge adds the saved-rating and empty-history checks before this branch goes out.

@@ -174,8 +174,13 @@ export class GameService {
    await this.requireHandle(actor, client);
    // An empty lobby has no row to lock; serialize the search and create as one step.
    await client.query('select pg_advisory_xact_lock(7007008)');
-   const [open] = await this.store.lobby(actor, { client, lock: true });
-   if (open) return this.acceptSeat(client, await this.store.load(open.game_id, { client, lock: true }), actor);
+   for (;;) {
+    const [open] = await this.store.lobby(actor, { client, lock: true });
+    if (!open) break;
+    const game = await this.store.load(open.game_id, { client, lock: true }), at = new Date();
+    if (game.created_at.getTime() + DAY <= at.getTime()) continue;
+    return this.acceptSeat(client, game, actor, at);
+   }
    const game = await this.newGame(actor, input); settle(game, game.created_at);
    await this.store.insert(game, client);
    return this.render(game, seatOf(game, actor), { client, rules: true });
@@ -196,14 +201,14 @@ export class GameService {
    return this.render(next, seat, { client });
   });
  }
- private async acceptSeat(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string): Promise<View> {
+ private async acceptSeat(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, at = new Date()): Promise<View> {
   if (game.kind !== 'random' || game.created_by === actor) fail('NOT_ALLOWED', 409, 'This open game cannot be accepted');
   const seated = game.players.find(p => p.user_id === actor);
   if (seated) return this.render(game, seated.seat, { client, rules: true });
   const seat = game.players.find(p => !p.user_id && !p.computer)?.seat;
-  if (game.status !== 'waiting' || seat === undefined || game.created_at.getTime() + DAY <= Date.now()) return fail('NOT_ALLOWED', 409, 'This open game is no longer available');
+  if (game.status !== 'waiting' || seat === undefined || game.created_at.getTime() + DAY <= at.getTime()) return fail('NOT_ALLOWED', 409, 'This open game is no longer available');
   if (!game.created_by || !await this.store.unblocked(client, game.created_by, actor)) fail('FORBIDDEN', 403, 'This open game cannot be accepted');
-  const at = new Date(), next = step(game), out: Outgoing = { notify: [], outbox: [] };
+  const next = step(game), out: Outgoing = { notify: [], outbox: [] };
   Object.assign(next.players[seat], { user_id: actor, last_seen_at: at });
   await this.enterSetup(next, at); turnTo(next, out, at, actor);
   await this.write(client, game, next, { seat, actor_id: actor, command_id: null, kind: 'join', payload: {}, actions: null, surface: null, received_at: at }, out);

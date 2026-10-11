@@ -118,7 +118,7 @@ export class PostgresMatchStore {
   const result = await client.query(`select g.id as game_id,g.options,p.seat,pr.handle,pr.icon,g.created_at from public.games g
    join public.game_players p on p.game_id=g.id and p.user_id is null and not p.computer
    join public.profiles pr on pr.id=g.created_by
-   where g.kind='random' and g.status='waiting' and g.created_at>now()-interval '24 hours' and g.created_by<>$1 and pr.handle is not null and ${unblocked('$1', 'g.created_by')}
+   where g.kind='random' and g.status='waiting' and g.created_at>statement_timestamp()-interval '24 hours' and g.created_by<>$1 and pr.handle is not null and ${unblocked('$1', 'g.created_by')}
    order by g.created_at,g.id limit ${lock ? 1 : 100}${lock ? ' for update of g' : ''}`, [actor]);
   return result.rows.map(({ seat, handle, icon, created_at, ...row }) => ({ ...row, colour: seat === 0 ? 'white' : 'black', creator: { handle, icon }, created_at: created_at.toISOString() }));
  }

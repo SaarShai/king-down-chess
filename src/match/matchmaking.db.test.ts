@@ -94,6 +94,36 @@ suite('matchmaking through PostgreSQL', () => {
    expect(await service.view(users[0], found[0].game_id)).toMatchObject({ status: 'setup', revision: 1, opponent: { handle: handles[1] } });
   } finally { await admin.query('drop trigger slow_seek on public.games; drop function public.slow_seek()'); }
  });
+ it('finds a fresh game after the oldest expires during the search lock wait', async () => {
+  const late = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
+  const fresh = await service.create(users[1], { kind: 'random', options: DEFAULT_OPTIONS });
+  const blocker = await admin.connect();
+  await blocker.query('begin');
+  await blocker.query('select pg_advisory_xact_lock(7007008)');
+  const found = plugin.find(users[2], DEFAULT_OPTIONS); void found.catch(() => {});
+  try {
+   await expect.poll(async () => (await admin.query("select xact_start from pg_stat_activity where datname=current_database() and query='select pg_advisory_xact_lock(7007008)' and wait_event='advisory'")).rows.length).toBe(1);
+   await admin.query("update public.games set created_at=(select xact_start from pg_stat_activity where datname=current_database() and wait_event='advisory')-interval '24 hours'+interval '1 millisecond' where id=$1", [late.game_id]);
+   await blocker.query('commit');
+   await expect(found).resolves.toMatchObject({ game_id: fresh.game_id, status: 'setup' });
+   expect(await service.view(users[0], late.game_id)).toMatchObject({ status: 'waiting', revision: 0, opponent: null });
+  } finally { await blocker.query('rollback'); blocker.release(); await found.catch(() => {}); }
+ });
+ it('retries a candidate that expires during the game row lock wait', async () => {
+  const late = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
+  const fresh = await service.create(users[1], { kind: 'random', options: DEFAULT_OPTIONS });
+  const blocker = await admin.connect();
+  await blocker.query('begin');
+  await blocker.query('select id from public.games where id=$1 for update', [late.game_id]);
+  const found = plugin.find(users[2], DEFAULT_OPTIONS); void found.catch(() => {});
+  try {
+   await expect.poll(async () => (await admin.query("select query_start from pg_stat_activity where datname=current_database() and wait_event='transactionid'")).rows.length).toBe(1);
+   await blocker.query("update public.games set created_at=(select query_start from pg_stat_activity where datname=current_database() and wait_event='transactionid')-interval '24 hours'+interval '1 millisecond' where id=$1", [late.game_id]);
+   await blocker.query('commit');
+   await expect(found).resolves.toMatchObject({ game_id: fresh.game_id, status: 'setup' });
+   expect(await service.view(users[0], late.game_id)).toMatchObject({ status: 'waiting', revision: 0, opponent: null });
+  } finally { await blocker.query('rollback'); blocker.release(); await found.catch(() => {}); }
+ });
  it('lets only the creator cancel a waiting random game with no result', async () => {
   const game = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
   await expect(plugin.cancel(users[1], game.game_id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
@@ -129,6 +159,43 @@ suite('matchmaking through PostgreSQL', () => {
   expect(await service.inbox(users[0])).toEqual([]);
   expect(await service.view(users[2], friend.game_id)).toMatchObject({ status: 'waiting', revision: 0 });
  });
+ it('saves cancel and expiry with no result or rating-affecting end', async () => {
+  const cancelled = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
+  const expired = await service.create(users[1], { kind: 'random', options: DEFAULT_OPTIONS });
+  await plugin.cancel(users[0], cancelled.game_id);
+  const now = new Date();
+  await admin.query("update public.games set created_at=$2::timestamptz-interval '24 hours' where id=$1", [expired.game_id, now]);
+  expect(await service.sweep(now)).toBe(1);
+  const games = [cancelled.game_id, expired.game_id];
+  expect((await runtime.query('select status,result,end_reason from public.games where id=any($1) order by end_reason', [games])).rows).toEqual([
+   { status: 'aborted', result: null, end_reason: 'abort' }, { status: 'aborted', result: null, end_reason: 'no_start' },
+  ]);
+  expect((await runtime.query("select payload from public.outbox where kind='game_finished' and payload->>'game_id'=any($1) order by payload->>'reason'", [games])).rows.map(row => row.payload)).toEqual([
+   { game_id: cancelled.game_id, result: null, reason: 'abort' }, { game_id: expired.game_id, result: null, reason: 'no_start' },
+  ]);
+ });
+ it.each(['accept', 'find'] as const)('%s starts play with no seat choice and saves the first move and deadline', async method => {
+  const options = { ...DEFAULT_OPTIONS, arrangement: false };
+  const created = await service.create(users[0], { kind: 'random', options, colour: method === 'accept' ? 'black' : 'white' });
+  const joined = method === 'accept' ? await plugin.accept(users[1], created.game_id) : await plugin.find(users[1], DEFAULT_OPTIONS, 'black');
+  expect(joined).toMatchObject({ game_id: created.game_id, status: 'playing', revision: 1, ready: [true, true], setup_deadline_at: null, options });
+  const start = (await runtime.query('select started_at,deadline_kind from public.games where id=$1', [created.game_id])).rows[0];
+  expect(start.deadline_kind).toBe('first_turn');
+  expect(joined.deadline_at).toBe(new Date(start.started_at.getTime() + 3 * 86_400_000).toISOString());
+  const white = method === 'accept' ? users[1] : users[0], black = method === 'accept' ? users[0] : users[1];
+  const playing = await plugin.view(white, created.game_id);
+  expect(playing).toMatchObject({ action: 'ready', turn: 0, kings: [null, null] });
+  expect(playing.legal.length).toBeGreaterThan(0);
+  const move = playing.legal[0];
+  const moved = await plugin.command(white, created.game_id, { command_id: randomUUID(), expected_revision: 1, action: { type: 'turn', actions: [move] } });
+  const saved = await plugin.view(black, created.game_id);
+  expect(saved).toMatchObject({ status: 'playing', revision: 2, turn: 1, action: 'ready', fen: moved.fen });
+  expect(saved.fen).not.toBe(playing.fen);
+  expect(saved.last_commands.at(-1)?.action).toEqual({ type: 'turn', actions: [move] });
+  const received = (await runtime.query("select received_at from public.game_commands where game_id=$1 and kind='turn'", [created.game_id])).rows[0].received_at;
+  expect(saved.deadline_at).toBe(new Date(received.getTime() + 3 * 86_400_000).toISOString());
+  expect(await plugin.command(black, created.game_id, { command_id: randomUUID(), expected_revision: 2, action: { type: 'turn', actions: [saved.legal[0]] } })).toMatchObject({ revision: 3, turn: 0 });
+ });
  it('requires a handle before creating, finding or accepting a random game', async () => {
   const actor = randomUUID(); users.push(actor);
   await admin.query('insert into auth.users(id) values($1)', [actor]);
@@ -147,15 +214,23 @@ suite('matchmaking through PostgreSQL', () => {
   await service.create(users[0], { kind: 'solo', options: DEFAULT_OPTIONS });
   await service.create(users[10], { kind: 'solo', options: DEFAULT_OPTIONS });
   await admin.query("update public.game_players set last_seen_at=now()-interval '10 minutes 1 second' where user_id=$1", [users[10]]);
-  expect(await plugin.lobby(users[21])).not.toHaveProperty('active_count');
-  await service.create(users[9], { kind: 'solo', options: DEFAULT_OPTIONS });
+  const game = await service.create(users[0], { kind: 'random', options: { ...DEFAULT_OPTIONS, arrangement: false } });
+  expect(await plugin.lobby(users[21])).toEqual({ games: [
+   { game_id: game.game_id, options: { ...DEFAULT_OPTIONS, arrangement: false }, colour: 'black', creator: { handle: handles[0], icon: 'flame' }, created_at: expect.any(String) },
+  ] });
+  await plugin.accept(users[9], game.game_id);
   const readOnly = new pg.Pool({ connectionString: login.href, max: 1, options: '-c default_transaction_read_only=on' });
   try {
    const reader = new PluginService(new PostgresMatchStore(readOnly));
-   expect(await reader.lobby(users[21])).toMatchObject({ games: [], active_count: 10 });
+   expect(await reader.lobby(users[21])).toEqual({ games: [], active_count: 10 });
+   await admin.query("update public.game_players set last_seen_at=now()-interval '10 minutes 1 second' where user_id=$1", [users[0]]);
+   expect(await reader.lobby(users[21])).toEqual({ games: [] });
+   const playing = await plugin.view(users[0], game.game_id);
+   await plugin.command(users[0], game.game_id, { command_id: randomUUID(), expected_revision: playing.revision, action: { type: 'turn', actions: [playing.legal[0]] } });
+   expect(await reader.lobby(users[21])).toEqual({ games: [], active_count: 10 });
   } finally { await readOnly.end(); }
   await admin.query("update public.game_players set last_seen_at=now()-interval '10 minutes 1 second' where user_id=$1", [users[9]]);
-  expect(await plugin.lobby(users[21])).not.toHaveProperty('active_count');
+  expect(await plugin.lobby(users[21])).toEqual({ games: [] });
  });
  it('gives one open seat to one of 20 clients and lets the winner retry', async () => {
   const created = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS, colour: 'black' });
