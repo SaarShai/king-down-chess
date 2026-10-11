@@ -65,6 +65,7 @@ Checks use `kingdown_mvp06_round2_test` and its own test copies on `127.0.0.1:55
 
 - Focused `npm test`: 12 service tests pass; 50 document-art tests pass.
 - Full `npm test`: 139 files pass; 2,198 tests pass; 8 skip. All 50 document-art tests pass.
+- Merge check: local integration tip `b02de05f` merges without a conflict. The full `npm test` check then passes with the same counts.
 - `npm run plugin:build` and `npm run plugin:server:check` pass. The compiled HTTP check uses real PostgreSQL. The page resource is 437,582 JSON bytes, with 20 art files.
 - `git diff --check` passes.
 
