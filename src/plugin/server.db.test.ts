@@ -3,7 +3,7 @@
  * and a sweep of src/match/service.db.test.ts, which runs at the same time, would end that game first. */
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { DEFAULT_OPTIONS } from '../match/setup';
@@ -156,6 +156,31 @@ suite('ChatGPT tools on PostgreSQL', () => {
   const resumed = await host.ok('kingdown_resume', { board_id, game_id: view(offered).rematch_game_id });
   expect(view(resumed)).toMatchObject({ game_id: view(offered).rematch_game_id, seat: 1 });
   expect(view(await host.ok('kingdown_get', { board_id })).game_id).toBe(view(resumed).game_id);
+ });
+
+ it('counts full, poll, open, resume and background game reads as seat activity', async () => {
+  const [a, b] = [await user('seen-a'), await user('seen-b')], host = await connect(a), guest = await connect(b);
+  const created = await host.ok('kingdown_create', { kind: 'friend', options: { ...DEFAULT_OPTIONS, arrangement: false } });
+  const game_id = view(created).game_id;
+  await guest.ok('kingdown_join', { code: (await host.ok('kingdown_invite', { game_id })).structuredContent.code });
+  const board_id = (await host.ok('kingdown_open', { game_id })).structuredContent.board_id;
+  await admin.query("update public.profiles set online_visible_to='everyone' where id=$1", [a]);
+  const seen = async () => (await rows('select last_seen_at from public.game_players where game_id=$1 and user_id=$2', [game_id, a]))[0].last_seen_at;
+  for (const [name, args] of [
+   ['kingdown_get', { board_id }], ['kingdown_get', { board_id, since_revision: 1 }],
+   ['kingdown_open', { game_id }], ['kingdown_resume', { board_id, game_id }], ['kingdown_get', { game_id }],
+  ] as const) {
+   await admin.query("update public.game_players set last_seen_at=now()-interval '3 minutes' where game_id=$1 and user_id=$2", [game_id, a]);
+   await host.ok(name, args);
+   const other = view(await guest.ok('kingdown_get', { game_id }));
+   expect(other.opponent!.last_seen_ms).toBeLessThan(120000);
+  }
+  const first = await seen();
+  vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(Date.now() + 3000);
+  try { await host.ok('kingdown_get', { board_id, since_revision: 1 }); expect(await seen()).toEqual(first); }
+  finally { vi.useRealTimers(); }
+  await admin.query("update public.profiles set online_visible_to='nobody' where id=$1", [a]);
+  expect(view(await guest.ok('kingdown_get', { game_id })).opponent!.last_seen_ms).toBeNull();
  });
 
  it('reads default settings and preserves partial writes and saved setup across remounts', async () => {

@@ -114,7 +114,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const ready = games.filter(game => game.your_turn).length;
       return { content: text(games.length ? `${games.length} active game${games.length === 1 ? '' : 's'}; your turn in ${ready}.` : 'No active games. Start one with kingdown_create.'), structuredContent: { games }, _meta: { games: rows } };
     });
-  register('kingdown_get', 'Reload the authoritative board. With since_revision, only the commands after that revision. Writes nothing.',
+  register('kingdown_get', 'Reload the authoritative board. With since_revision, only the commands after that revision. Records seat activity at most once each 30 seconds.',
     { game_id: gameId.optional(), since_revision: z.number().int().min(0).max(MAX_REVISION).optional(), board_id: boardId }, { visibility: ['app'], readOnly: true }, async args => {
       const id = args.board_id ? await service.board(actorId, args.board_id) : args.game_id;
       if (!id && args.board_id) return home(args.board_id);
