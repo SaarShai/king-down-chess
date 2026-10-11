@@ -19,6 +19,8 @@ export class PluginService {
   command(actor: string, gameId: string, input: unknown) { return this.games.command(actor, gameId, input, 'chatgpt'); }
   invite(actor: string, gameId: string) { return this.games.invite(actor, gameId); }
   join(actor: string, invitation: unknown) { return this.games.join(actor, invitation); }
+  lobby(actor: string) { return this.games.lobby(actor); }
+  accept(actor: string, gameId: string) { return this.games.accept(actor, gameId); }
   report(actor: string, input: unknown) { return this.safety.report(actor, input); }
   /** Read-only. The ID and the handle; never the email. */
   async profile(actor: string): Promise<{ user_id: string; handle: string | null }> { const { user_id, handle } = await this.accounts.profile(actor); return { user_id, handle }; }

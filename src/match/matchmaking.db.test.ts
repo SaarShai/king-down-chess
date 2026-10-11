@@ -1,0 +1,93 @@
+/** Ticket 07: matchmaking on a separate disposable database with the runtime role. */
+import { readFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import pg from 'pg';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { GameService } from './service';
+import { PostgresMatchStore } from './store';
+import { DEFAULT_OPTIONS } from './setup';
+import { PluginService } from '../plugin/service';
+import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
+import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
+
+const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
+suite('matchmaking through PostgreSQL', () => {
+ let admin: pg.Pool, runtime: pg.Pool, service: GameService, plugin: PluginService, own: URL, login: URL, role: string;
+ const users: string[] = [], handles: string[] = [];
+ beforeAll(async () => {
+  own = await ownTestDatabase('match');
+  admin = new pg.Pool({ connectionString: own.href, max: 2 });
+  role = `match_${randomUUID().replaceAll('-', '')}`;
+  const password = randomUUID(), grants = await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8');
+  await withRoleLock(own.href, () => admin.query(`${grants.replaceAll('kingdown_plugin_runtime', role)}; alter role ${role} password '${password}'`));
+  login = new URL(own.href); login.username = role; login.password = password;
+  runtime = new pg.Pool({ connectionString: login.href, max: 2 });
+  const store = new PostgresMatchStore(runtime); service = new GameService(store); plugin = new PluginService(store);
+  for (let n = 0; n < 22; n++) {
+   const id = randomUUID(), handle = `match-${id.slice(0, 8)}`; users.push(id); handles.push(handle);
+   await admin.query('insert into auth.users(id) values($1)', [id]);
+   await admin.query("update public.profiles set handle=$2,icon='flame' where id=$1", [id, handle]);
+  }
+ }, 120_000);
+ afterEach(async () => {
+  if (!admin) return;
+  await admin.query('delete from public.games where created_by=any($1)', [users]);
+  await admin.query('delete from public.relations where user_id=any($1) or other_id=any($1)', [users]);
+ });
+ afterAll(async () => {
+  if (!admin) return;
+  await admin.query('delete from auth.users where id=any($1)', [users]);
+  await runtime?.end();
+  await withRoleLock(own.href, () => admin.query(`drop owned by ${role}; drop role ${role}`));
+  await admin.end();
+ });
+ it('lists other open random games oldest first with their features, handle and picture', async () => {
+  const old = await service.create(users[1], { kind: 'random', options: DEFAULT_OPTIONS, colour: 'black' });
+  const options = { ...DEFAULT_OPTIONS, kingPowers: true };
+  const next = await service.create(users[2], { kind: 'random', options });
+  await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
+  await service.create(users[3], { kind: 'friend', options: DEFAULT_OPTIONS });
+  await service.create(users[4], { kind: 'solo', options: DEFAULT_OPTIONS });
+  const lobby = await plugin.lobby(users[0]);
+  expect(lobby.games).toEqual([
+   { game_id: old.game_id, options: DEFAULT_OPTIONS, colour: 'white', creator: { handle: handles[1], icon: 'flame' }, created_at: expect.any(String) },
+   { game_id: next.game_id, options, colour: 'black', creator: { handle: handles[2], icon: 'flame' }, created_at: expect.any(String) },
+  ]);
+  expect(JSON.stringify(lobby)).not.toContain(users[1]);
+ });
+ it('hides and refuses open games across a block in either direction', async () => {
+  const one = await service.create(users[1], { kind: 'random', options: DEFAULT_OPTIONS });
+  const two = await service.create(users[2], { kind: 'random', options: DEFAULT_OPTIONS });
+  const allowed = await service.create(users[3], { kind: 'random', options: DEFAULT_OPTIONS });
+  await admin.query("insert into public.relations(user_id,other_id,kind) values($1,$2,'block'),($3,$1,'block')", [users[0], users[1], users[2]]);
+  expect((await plugin.lobby(users[0])).games.map(g => g.game_id)).toEqual([allowed.game_id]);
+  for (const game of [one, two]) {
+   await expect(plugin.accept(users[0], game.game_id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+   expect(await service.view(users[game === one ? 1 : 2], game.game_id)).toMatchObject({ status: 'waiting', revision: 0, opponent: null });
+  }
+ });
+ it('gives one open seat to one of 20 clients and lets the winner retry', async () => {
+  const created = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS, colour: 'black' });
+  const pools = Array.from({ length: 20 }, () => new pg.Pool({ connectionString: login.href, max: 1 }));
+  try {
+   const clients = await Promise.all(pools.map(pool => pool.connect()));
+   try {
+    const pids = await Promise.all(clients.map(async client => (await client.query('select pg_backend_pid() as pid')).rows[0].pid));
+    expect(new Set(pids).size).toBe(20);
+   } finally { for (const client of clients) client.release(); }
+   const racers = pools.map(pool => new PluginService(new PostgresMatchStore(pool)));
+   const results = await Promise.allSettled(racers.map((racer, n) => racer.accept(users[n + 1], created.game_id)));
+   const winners = results.flatMap((result, n) => result.status === 'fulfilled' ? [n] : []);
+   expect(winners).toHaveLength(1);
+   for (const result of results) if (result.status === 'rejected') expect(result.reason).toMatchObject({ code: 'NOT_ALLOWED' });
+   const winner = winners[0], actor = users[winner + 1];
+   const joined = await racers[winner].accept(actor, created.game_id);
+   expect(joined).toMatchObject({ game_id: created.game_id, status: 'setup', seat: 0, revision: 1, action: 'ready', opponent: { handle: handles[0] } });
+   expect(joined.setup_deadline_at).toEqual(expect.any(String));
+   expect(joined.last_commands).toHaveLength(1);
+   expect(joined.last_commands[0].action).toEqual({ type: 'join' });
+   expect((await service.view(users[0], created.game_id)).opponent?.handle).toBe(handles[winner + 1]);
+   expect((await plugin.lobby(users[21])).games).toEqual([]);
+  } finally { await Promise.all(pools.map(pool => pool.end())); }
+ }, 30_000);
+});

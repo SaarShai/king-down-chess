@@ -4,7 +4,7 @@ import type { Options, Choice } from './setup';
 import type { SkillName } from '../ai/skill';
 import type { CardName } from '../rules/rules';
 import type { MatchSetup, MatchSnapshot, PublicMatchRules } from './index';
-import type { EndReason, ErrorCode, GameStatus, InboxEntry, LoggedCommand, Preset, Seat, SeatAction, Surface } from './protocol';
+import type { EndReason, ErrorCode, GameStatus, InboxEntry, LobbyEntry, LoggedCommand, Preset, Seat, SeatAction, Surface } from './protocol';
 export class MatchServiceError extends Error {
  constructor(public code: ErrorCode, public status: number, message: string) { super(message); this.name = 'MatchServiceError'; }
 }
@@ -101,6 +101,9 @@ export class PostgresMatchStore {
     when 'follows' then exists(select from public.relations where user_id=$1 and other_id=$2 and kind='follow') else true end as allowed`, [host, joiner]);
   return result.rows[0].allowed;
  }
+ async unblocked(client: Client, host: string, joiner: string): Promise<boolean> {
+  return (await client.query(`select ${unblocked('$1', '$2')} as allowed`, [host, joiner])).rows[0].allowed;
+ }
  async inbox(actor: string): Promise<InboxEntry[]> {
   const result = await this.pool.query(`select g.id as game_id,g.kind,g.speed,g.status,me.seat,me.action,g.turn,g.revision,g.deadline_at,g.updated_at,
     op.user_id as op_user,op.computer as op_computer,case when ${online('$1', 'op.user_id', 'pr.online_visible_to')} then op.last_seen_at end as op_seen,pr.handle as op_handle
@@ -110,6 +113,14 @@ export class PostgresMatchStore {
   const now = Date.now();
   return result.rows.map(({ op_user, op_computer, op_seen, op_handle, ...r }) => ({ ...r, deadline_at: r.deadline_at?.toISOString() ?? null, updated_at: r.updated_at.toISOString(),
    opponent: r.status === 'waiting' && !op_user ? null : { handle: op_handle ?? null, computer: op_computer, deleted: !op_user && !op_computer, last_seen_ms: op_seen ? now - op_seen.getTime() : null } }));
+ }
+ async lobby(actor: string): Promise<LobbyEntry[]> {
+  const result = await this.pool.query(`select g.id as game_id,g.options,p.seat,pr.handle,pr.icon,g.created_at from public.games g
+   join public.game_players p on p.game_id=g.id and p.user_id is null and not p.computer
+   join public.profiles pr on pr.id=g.created_by
+   where g.kind='random' and g.status='waiting' and g.created_by<>$1 and pr.handle is not null and ${unblocked('$1', 'g.created_by')}
+   order by g.created_at,g.id limit 100`, [actor]);
+  return result.rows.map(({ seat, handle, icon, created_at, ...row }) => ({ ...row, colour: seat === 0 ? 'white' : 'black', creator: { handle, icon }, created_at: created_at.toISOString() }));
  }
  /** What `viewer` sees of `other`: their presets (no block, and the viewer's quiet mode is off) and when they were last seen. */
  async privacy(client: Client, viewer: string, other: string): Promise<{ presets: boolean; online: boolean }> {

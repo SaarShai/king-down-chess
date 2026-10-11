@@ -1,6 +1,6 @@
 # 07 · Matchmaking: open games, accept, find
 
-Status: ready-for-agent
+Status: claimed
 Type: AFK
 Size: M
 Blocked by: 06
@@ -23,3 +23,12 @@ Blocked by: 06
 ## Notes
 
 - Research part 01 §3.4; explorer note B §5 item 1.
+
+## Plan
+
+1. Test the lobby through the plugin service on a test database with the runtime role. Add the list and its public types.
+2. Test accept, find and cancel. Use 20 separate database clients for the accept race. Reuse the setup step and row lock.
+3. Test the 24-hour expiry, blocks, handle errors and the 10-minute active count. Add migration 0011 and its checks.
+4. Run `npm test` with the test database. Merge the integration tip, run the checks again and push the branch.
+
+Checks: one accept wins; the oldest eligible game matches; expiry and cancel give no result; blocks hide games; counts below 10 stay hidden. Each test fails before its service change.

@@ -2,7 +2,7 @@
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import type { z } from 'zod';
 import { createMatch, loadMatch, MatchError, type MatchSnapshot } from './index';
-import { commandSchema, createSchema, MAX_REVISION, type Command, type CreateOptions, type EndReason, type InboxEntry, type Invite, type Seat, type SeatAction, type Surface, type View } from './protocol';
+import { commandSchema, createSchema, MAX_REVISION, type Command, type CreateOptions, type EndReason, type InboxEntry, type Invite, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
 import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
 import { diagnostic } from '../plugin/diagnostics';
 import { buildSetup, defaultChoice, draw, seatChoicesNeeded, validateChoice } from './setup';
@@ -151,6 +151,27 @@ export class GameService {
  }
  /** The actor's active games: your turn first, then the nearest deadline. */
  async inbox(actor: string): Promise<InboxEntry[]> { return this.store.inbox(id(actor)); }
+ async lobby(actor: string): Promise<Lobby> { return { games: await this.store.lobby(id(actor)) }; }
+ async accept(actor: string, gameId: string): Promise<View> {
+  actor = id(actor); gameId = id(gameId);
+  return this.store.transaction(async client => {
+   const game = await this.store.load(gameId, { client, lock: true });
+   return this.acceptSeat(client, game, actor);
+  });
+ }
+ private async acceptSeat(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string): Promise<View> {
+  if (game.kind !== 'random' || game.created_by === actor) fail('NOT_ALLOWED', 409, 'This open game cannot be accepted');
+  const seated = game.players.find(p => p.user_id === actor);
+  if (seated) return this.render(game, seated.seat, { client, rules: true });
+  const seat = game.players.find(p => !p.user_id && !p.computer)?.seat;
+  if (game.status !== 'waiting' || seat === undefined) return fail('NOT_ALLOWED', 409, 'This open game is no longer available');
+  if (!game.created_by || !await this.store.unblocked(client, game.created_by, actor)) fail('FORBIDDEN', 403, 'This open game cannot be accepted');
+  const at = new Date(), next = step(game), out: Outgoing = { notify: [], outbox: [] };
+  Object.assign(next.players[seat], { user_id: actor, last_seen_at: at });
+  await this.enterSetup(next, at); turnTo(next, out, at, actor);
+  await this.write(client, game, next, { seat, actor_id: actor, command_id: null, kind: 'join', payload: {}, actions: null, surface: null, received_at: at }, out);
+  return this.render(next, seat, { client, rules: true });
+ }
  /** One transaction per command: lock, dedupe, seat, turn, revision, status, lazy Daily deadline, write, alerts. */
  async command(actor: string, gameId: string, input: unknown, surface: Surface = 'web'): Promise<View> {
   actor = id(actor); gameId = id(gameId); const command = parse(commandSchema, input), at = new Date(), { action } = command;

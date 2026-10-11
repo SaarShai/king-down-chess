@@ -7,6 +7,7 @@ import { choiceSchema, optionsSchema } from './setup-schema';
 import type { Choice, Options } from './setup';
 import type { CardName, KingChoice } from '../rules/rules';
 import type { SkillName } from '../ai/skill';
+import type { Icon } from '../account/profile';
 
 export type Seat = 0 | 1;
 export const MAX_REVISION = 1100;
@@ -107,3 +108,5 @@ export interface View {
 export interface InboxEntry { game_id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; status: 'waiting' | 'setup' | 'playing'; seat: Seat; action: SeatAction; turn: Seat; revision: number; deadline_at: string | null; opponent: Opponent | null; updated_at: string }
 /** The link token (43 characters) and the short code (6 characters) open the same seat. */
 export interface Invite { token: string; code: string; expires_at: string }
+export interface LobbyEntry { game_id: string; options: Options | null; colour: 'white' | 'black'; creator: { handle: string; icon: Icon | null }; created_at: string }
+export interface Lobby { games: LobbyEntry[]; active_count?: number }
