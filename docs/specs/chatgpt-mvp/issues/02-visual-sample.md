@@ -1,6 +1,6 @@
 # 02 · The visual sample
 
-Status: needs-info (waits for the owner's yes on round 3)
+Status: resolved. The owner approved the direction of round 2 on 2026-10-11: "Is this the right direction? yes!" Round 3 adds the rules session's board fixes to that direction.
 Type: HITL (the owner's yes on the rendered sample)
 Size: M
 Blocked by: none
@@ -73,3 +73,4 @@ The rules session reviewed round 2. The screens read as the game; the board mark
 - The README's "Round 3" section lists each review item, its change and its PNGs.
 - Checks: `node docs/specs/chatgpt-mvp/sample/render.mjs`: 25 states × 3 sizes, no faults. No `npm test` and no browser-check run (another agent ran the full suite on this Mac; each render batch waited until no test run was active).
 - Open: the owner's yes on `sample/contact-sheet.png` and `sample/compare.png`, or a list of changes.
+- 2026-10-11, the ChatGPT MVP session: round 1 (OpenAI's generic style) was rejected by the owner: "the GUI look doesn't seem like it is based on our design for the game." Round 2 rebuilt each screen from the game's own parts; the owner: "yes!". The rules session reviewed round 2 (4 must-fix items, all on the board); round 3 (5478f5d0) draws each board through the game's code with engine state and fixes them. Screen tickets 11 to 16 follow round 3. Open for the art pass: matte scroll rollers.
