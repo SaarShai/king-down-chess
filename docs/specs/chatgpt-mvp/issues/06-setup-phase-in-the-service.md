@@ -1,6 +1,6 @@
 # 06 · The game service: options, the setup step and rematch
 
-Status: resolved
+Status: claimed
 Type: AFK
 Size: L
 Blocked by: 04, 05
@@ -26,6 +26,10 @@ Blocked by: 04, 05
 
 ## Plan
 
+Round 2 fixes the six review findings. Check one finding at a time through GameService on `kingdown_mvp06_round2_test` and its test copies. First prove the missing rematch deadline, then store both deadline columns. Add full response checks for hidden choices, a save seeded under 0009, exact setup sweep boundaries with unchanged ratings, a computer rematch with seat choices, and retries after later commands. Keep the public names and signatures. Do not change `service.db.test.ts`.
+
+For each test gap, first run a check that exposes the old fixture's limit. Then repair the fixture and check the full behavior. Run `npm test`, the compiled server check and `git diff --check` before resolve. Merge the current local integration tip and run `npm test` before push.
+
 1. Add migration 0010 and runtime grants. Check a repeat apply and a restricted role.
 2. Store options, the draw, the deal and the level at create. Keep games with no options on their old path.
 3. Add the setup step and choose command. Start the match in the Ready transaction. Check hidden choices, races and retries.
@@ -45,6 +49,8 @@ Each step starts with one failing database test through GameService. Run `npm te
 - Ticket 07 can call `enterSetup` from its accept transaction. A game with no seat choice starts at once.
 
 ## Result
+
+Round 2, findings 1 and 2: the rematch test fails with a null deadline, then passes after the insert stores both deadline columns. The privacy fixture check fails with the old shared order. The fixture now uses a distinct legal order and checks all reply fields, including full reads, polls, lists, join retries, abort replies and error messages. It checks hidden choices from both seats. The focused `npm test` check passes 12 service tests and 50 document-art tests.
 
 The service stores validated options, a shared army and deal, and the computer level. It starts the match when both seats are ready. Choices stay hidden before that point. Setup ends after 3 days with no result. Rematch keeps the features and swaps the colours. A saved game with no options keeps its fixed setup. The account-deletion job aborts setup with no result.
 
