@@ -8,7 +8,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createPluginServer } from '../src/plugin/server';
 import type { MatchSetup } from '../src/match';
 import { fixtureService } from './plugin-protocol-fixture';
-import { ART_HEADERS } from './plugin-art-headers.mjs';
+import { ART_HEADERS, artType } from './plugin-art-headers.mjs';
 /** The page as a host gets it: through the resource the open tool names, with the art origin set by the server. */
 async function board(client: Client) {
   const tools = (await client.listTools()).tools;
@@ -44,7 +44,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
     resourceHtml = await board(client);
   }
   const body = async (req: AsyncIterable<Buffer>) => { const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(chunk); return JSON.parse(Buffer.concat(chunks).toString()); };
-  vite = await createServer({ configFile: false, server: { host: '127.0.0.1', port: 0, strictPort: true }, plugins: [{ name: 'mcp-app-harness', configureServer(vite) {
+  vite = await createServer({ configFile: false, cacheDir: resolve(dirname(boardPath), '.harness-cache'), optimizeDeps: { include: ['@modelcontextprotocol/ext-apps/app-bridge'] }, server: { host: '127.0.0.1', port: 0, strictPort: true }, plugins: [{ name: 'mcp-app-harness', configureServer(vite) {
     vite.middlewares.use(async (req, res, next) => {
       if (req.url === '/harness-mode') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ mode: endpoint ? 'http' : 'fixture', friend: !!buddy })); }
       else if (req.url === '/fixture-friend-join' && req.method === 'POST') { const { invitation } = await body(req); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await buddy!.callTool({ name: 'kingdown_join', arguments: { invitation } }))); }
@@ -54,11 +54,12 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
         res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await buddy!.callTool({ name: 'kingdown_invite', arguments: { game_id: game.game_id } })));
       }
       else if (req.url?.startsWith('/fixture-position?') && req.method === 'POST') {
-        const params = new URL(req.url,'http://localhost').searchParams, scenario = params.get('case'), black = scenario === 'freeze';
+        const params = new URL(req.url,'http://localhost').searchParams, scenario = params.get('case'), black = scenario === 'freeze' || scenario === 'threats-black';
         // The art gallery: every piece type of both colours on the kings' ranks ('gallery'), or only the kings and two pawns
         // on other squares ('apart'), with one of three king pairs, so the six kings show in three games.
         const kings = ['Spirit:Mercy,Shadow:Darkness', 'Frost:Freeze,Flame:Haste', 'Stratus:Flight,Mud:March'][Number(params.get('kings') ?? 0)];
-        const setup = black ? {fen:'7k/8/8/8/4P3/8/8/K7 b - - 0 1',kings:'none,Frost:Freeze'}
+        const setup = scenario === 'threats-black' ? {fen:'7k/4p3/8/4R3/8/8/8/K7 w - - 0 1',kings:'none,none'} : black ? {fen:'7k/8/8/8/4P3/8/8/K7 b - - 0 1',kings:'none,Frost:Freeze'}
+          : scenario === 'threats' ? {fen:'7k/8/8/8/4r3/8/4P3/K7 w - - 0 1',kings:'none,none'}
           : scenario === 'gallery' ? {fen:'rnbqkalg/msoppppp/8/8/8/8/MSOPPPPP/RNBQKALG w - - 0 1',kings}
           : scenario === 'apart' ? {fen:'8/8/8/k4p2/2P4K/8/8/8 w - - 0 1',kings}
           : {fen:'7k/8/8/2p5/8/2A5/8/K7 w - - 0 1',kings:'none,none'};
@@ -74,13 +75,13 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
         res.end('{}');
       }
       else if (req.url === '/fixture-terminal' && service) { const view = await service.create('alice', { kind: 'solo', colour: 'white', setup: { fen: '7k/6Q1/6K1/8/8/8/8/8 b - - 0 1' } }); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ content: [], structuredContent: { game_id: view.game_id }, _meta: { view } })); }
-      else if (!endpoint && /^\/plugin-art\/[\w-]+\.webp$/.test(req.url ?? '')) {
+      else if (!endpoint && req.url?.startsWith('/plugin-art/') && artType(req.url.slice(12))) {
         const file = await readFile(resolve(dirname(boardPath), req.url!.slice(1))).catch(() => undefined);
-        if (!file) { res.statusCode = 404; res.end(); } else { res.writeHead(200, { 'Content-Type': 'image/webp', ...ART_HEADERS }); res.end(file); }
+        if (!file) { res.statusCode = 404; res.end(); } else { res.writeHead(200, { 'Content-Type': artType(req.url!.slice(12)), ...ART_HEADERS }); res.end(file); }
       }
       else if (req.url === '/board-resource') {
         res.setHeader('Content-Type', 'text/html');
-        res.end(resourceHtml.replace('<head>', '<head><script>window.openai = parent.harnessWithoutWidgetState ? undefined : {widgetState: parent.harnessWidgetState, setWidgetState(state) {if (!parent.harnessDropWidgetWrites) parent.harnessWidgetState = structuredClone(state);}};</script>'));
+        res.end(resourceHtml.replace('<script type="module">', '<script type="module">await new Promise(r => setTimeout(r, parent.harnessBootDelay ?? 0));').replace('<head>', '<head><script>window.openai = parent.harnessWithoutWidgetState ? undefined : {widgetState: parent.harnessWidgetState, setWidgetState(state) {if (!parent.harnessDropWidgetWrites) parent.harnessWidgetState = structuredClone(state);}};</script>'));
       }
       else if (req.url === '/fixture-tool' && req.method === 'POST') {
         try { const params = await body(req); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await client.callTool(params))); }

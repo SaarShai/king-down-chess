@@ -75,11 +75,11 @@ try {
   };
   // The board names each art file of the static tree, and Vercel serves it with long cache and CORS headers.
   const art = (await readdir(join(tree, 'static/plugin-art'))).sort();
-  assert.equal(art.length, 20); assert(art.every(file => file.endsWith('.webp')));
-  assert.deepEqual([...new Set((await readFile(join(fn, 'board.html'), 'utf8')).match(/(?<=https:\/\/kingdown-art\.invalid\/plugin-art\/)[\w-]+\.webp/g))].sort(), art);
+  for (const type of ['webp', 'png', 'svg', 'woff2']) assert(art.some(file => file.endsWith(`.${type}`)), `The tree has ${type} art`);
+  assert.deepEqual([...new Set((await readFile(join(fn, 'board.html'), 'utf8')).match(/(?<=https:\/\/kingdown-art\.invalid\/plugin-art\/)[\w-]+\.(?:webp|png|svg|woff2)/g))].sort(), art);
   for (const file of art) {
     const response = await fetch(`${origin}/plugin-art/${file}`);
-    assert.equal(response.status, 200, file); assert.equal(response.headers.get('access-control-allow-origin'), '*'); assert.match(response.headers.get('cache-control'), /max-age=31536000.*immutable/);
+    assert.equal(response.status, 200, file); assert.equal(response.headers.get('content-type'), { webp: 'image/webp', png: 'image/png', svg: 'image/svg+xml', woff2: 'font/woff2' }[file.split('.').at(-1)]); assert.equal(response.headers.get('access-control-allow-origin'), '*'); assert.match(response.headers.get('cache-control'), /max-age=31536000.*immutable/);
   }
   const open = await tool('kingdown_open', {}); assert(!open.isError);
   const { game_id, legal } = open._meta.view;
