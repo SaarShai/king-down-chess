@@ -122,3 +122,9 @@ grant select, insert (user_id), update (window_start, tries) on public.invite_co
 drop policy if exists kingdown_plugin_runtime on public.invite_code_tries;
 create policy kingdown_plugin_runtime on public.invite_code_tries for all to kingdown_plugin_runtime using (true) with check (true);
 commit;
+
+-- Apply after migration 0010: choices stay in the service until both seats are ready.
+begin;
+grant update (setup, rules, engine_fingerprint, setup_deadline_at, rematch_offer, rematch_game_id) on public.games to kingdown_plugin_runtime;
+grant update (choice, ready, power) on public.game_players to kingdown_plugin_runtime;
+commit;

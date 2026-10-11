@@ -1,6 +1,6 @@
 # 06 · The game service: options, the setup step and rematch
 
-Status: ready-for-agent
+Status: claimed
 Type: AFK
 Size: L
 Blocked by: 04, 05
@@ -23,3 +23,14 @@ Blocked by: 04, 05
 ## Notes
 
 - Explorer note B §3.2, §5, §10 (risk 1: the fixed setup). Spec "Schema changes".
+
+## Plan
+
+1. Add migration 0010 and runtime grants. Check a repeat apply and a restricted role.
+2. Store options, the draw, the deal and the level at create. Keep games with no options on their old path.
+3. Add the setup step and choose command. Start the match in the Ready transaction. Check hidden choices, races and retries.
+4. End setup after 3 days with no result. Check the sweep and a late command.
+5. Add rematch offers and accept or decline. Check swapped seats and retries.
+6. Add setup and power data to the view. Check each toggle mix through the first move.
+
+Each step starts with one failing database test through GameService. Run `npm test` with ticket 06's test database. Run `npm run plugin:server:check` before resolve. Merge the current integration tip and run `npm test` again before push.
