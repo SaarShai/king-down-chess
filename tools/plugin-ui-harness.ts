@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'vite';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -47,12 +48,8 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
   vite = await createServer({ configFile: false, cacheDir: resolve(dirname(boardPath), '.harness-cache'), optimizeDeps: { include: ['@modelcontextprotocol/ext-apps/app-bridge'] }, server: { host: '127.0.0.1', port: 0, strictPort: true }, plugins: [{ name: 'mcp-app-harness', configureServer(vite) {
     vite.middlewares.use(async (req, res, next) => {
       if (req.url === '/harness-mode') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ mode: endpoint ? 'http' : 'fixture', friend: !!buddy })); }
-      else if (req.url === '/fixture-friend-join' && req.method === 'POST') { const { invitation } = await body(req); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await buddy!.callTool({ name: 'kingdown_join', arguments: { invitation } }))); }
-      else if (req.url === '/fixture-friend-move' && req.method === 'POST') { const command = await body(req); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await buddy!.callTool({ name: 'kingdown_move', arguments: command }))); }
-      else if (req.url === '/fixture-friend-invite' && req.method === 'POST') {
-        const game = (await buddy!.callTool({ name: 'kingdown_create', arguments: { mode: 'friend', colour: 'white' } })).structuredContent as { game_id: string };
-        res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await buddy!.callTool({ name: 'kingdown_invite', arguments: { game_id: game.game_id } })));
-      }
+      else if (req.url === '/fixture-seed' && service && req.method === 'POST') { const {actor='alice',data} = await body(req); if (!['alice','bob'].includes(actor)) { res.statusCode = 400; res.end('{}'); return; } service.seed(actor,data); res.setHeader('Content-Type','application/json'); res.end('{}'); }
+      else if (req.url === '/fixture-friend-tool' && req.method === 'POST') { const params = await body(req); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await buddy!.callTool(params))); }
       else if (req.url?.startsWith('/fixture-position?') && req.method === 'POST') {
         const params = new URL(req.url,'http://localhost').searchParams, scenario = params.get('case'), black = scenario === 'freeze' || scenario === 'threats-black';
         // The art gallery: every piece type of both colours on the kings' ranks ('gallery'), or only the kings and two pawns
@@ -60,6 +57,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
         const kings = ['Spirit:Mercy,Shadow:Darkness', 'Frost:Freeze,Flame:Haste', 'Stratus:Flight,Mud:March'][Number(params.get('kings') ?? 0)];
         const setup = scenario === 'threats-black' ? {fen:'7k/4p3/8/4R3/8/8/8/K7 w - - 0 1',kings:'none,none'} : black ? {fen:'7k/8/8/8/4P3/8/8/K7 b - - 0 1',kings:'none,Frost:Freeze'}
           : scenario === 'threats' ? {fen:'7k/8/8/8/4r3/8/4P3/K7 w - - 0 1',kings:'none,none'}
+          : scenario === 'haste' ? {backRank:'RAGQKMSO',kings:'Flame:Haste,Frost:Freeze'}
           : scenario === 'gallery' ? {fen:'rnbqkalg/msoppppp/8/8/8/8/MSOPPPPP/RNBQKALG w - - 0 1',kings}
           : scenario === 'apart' ? {fen:'8/8/8/k4p2/2P4K/8/8/8 w - - 0 1',kings}
           : {fen:'7k/8/8/2p5/8/2A5/8/K7 w - - 0 1',kings:'none,none'};
@@ -86,7 +84,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
       else if (req.url === '/fixture-tool' && req.method === 'POST') {
         try { const params = await body(req); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await client.callTool(params))); }
         catch (error) { res.statusCode = 500; res.end(JSON.stringify({ isError: true, content: [{ type: 'text', text: String(error) }] })); }
-      } else if (req.url?.split('?')[0] === '/') { res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><link rel="icon" href="data:,"><button id="remount">Remount board</button><iframe title="King Down" style="display:block;width:100%;height:100vh;border:0"></iframe><script type="module" src="/tools/plugin-ui-host.ts"></script>'); }
+      } else if (req.url?.split('?')[0] === '/') { res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><link rel="icon" href="data:,"><style>body{margin:0}#remount{height:24px}iframe{height:calc(100dvh - 24px)!important}</style><button id="remount">Remount board</button><iframe title="King Down" style="display:block;width:100%;height:100vh;border:0"></iframe><script type="module" src="/tools/plugin-ui-host.ts"></script>'); }
       else next();
     });
   } }] });
@@ -102,6 +100,8 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
     const [c, d] = InMemoryTransport.createLinkedPair(); await buddyServer.connect(c); await buddy.connect(d);
     resourceHtml = await board(client);
   }
+  const tag = randomUUID().slice(0,8);
+  for (const [i, persona] of [client,buddy].entries()) if (persona) { const result = await persona.callTool({name:'kingdown_handle',arguments:{handle:`host${i}-${tag}`}}); if (result.isError) throw new Error('The harness cannot set its disposable handles'); }
   return { url, close };
   } catch (error) { await close(); throw error; }
 }

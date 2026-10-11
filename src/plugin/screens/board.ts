@@ -48,6 +48,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   }
   return (next: View) => {
     view = next;
+    if (!next.fen) { pos = undefined; moves = []; selected = undefined; $('status').textContent = next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : next.result ? ending(next) : 'Choose your king and arrangement.'; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; $('computer').hidden = true; choices([]); return; }
     pos = fromFen(next.fen);
     // The server's legal list decides; the local engine only gives each listed move its squares.
     const legal = new Set(view.legal), here = pos;

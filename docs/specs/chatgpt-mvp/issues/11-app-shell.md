@@ -122,3 +122,14 @@ Red tests catch the absent background option, router, start, poll policy, runner
 - Page size: 515,431 HTML bytes; 517,074 JSON bytes in the standalone server check.
 
 Step B stays out of this round. It adds the server settings and me, the shared games list, and the new join and home tool paths. Ticket 10 reaches the local integration branch after these checks. The integration merge and its test result follow below.
+
+
+### Integration merge
+
+The branch merges the local integration tip 9793db1f. The merge keeps ticket 10's code invitation and empty-FEN guard. The owner’s Play navigation and the shared stubs take the place of the old forced Create controls. The harness sends the new tool inputs and uses the real handle tool. It keeps the tool-surface lobby, rematch and empty-FEN switch checks.
+
+The checks catch two reads during mount, two composer gaps, a shaft end outside the target square on a small board, and names reserved by an earlier test. Mount now reads once after the initial tool result. The page alone reserves the composer gap. The arrow check uses its start and arrowhead tip. Each check run uses one new handle and reuses it for Save and Retry.
+
+After this merge, npm test passes 2,279 tests in 148 files, with 8 skipped. All 50 art tests and the type check pass. Both plugin browser checks pass (2 of 2). The rebuilt server check passes. All 101 art files pass. Page size is 516,016 HTML bytes and 517,789 JSON bytes. The full 24-check browser run above precedes the late integration merge; the named plugin checks also pass after it.
+
+Ticket 10 is now merged. Step B stays open and has no new build in this round. A later integration tip has the database-clock and Abort-deadline fixes; its merge result follows.

@@ -7,7 +7,7 @@ const invoke = async (name: string, args: Record<string, unknown>) => {
   const response = await fetch('/fixture-tool', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, arguments: args }) });
   const result = await response.json();
   // The board's data is in _meta; the model would read only the summary.
-  if (result._meta?.view && (name !== 'kingdown_get' || args.board_id || !matchId || result._meta.view.game_id === matchId)) { matchId = result._meta.view.game_id; (window as any).harnessMatchId = matchId; (window as any).harnessView = result._meta.view; }
+  if (result._meta?.view && (name !== 'kingdown_get' || args.board_id || !matchId || result._meta.view.game_id === matchId)) { matchId = result._meta.view.game_id; (window as any).harnessMatchId = matchId; (window as any).harnessView = result._meta?.view; }
   return result;
 };
 // The bridge listens before the page loads, as in a real host: the frame's load event waits for the board art.
@@ -20,13 +20,12 @@ async function mount() {
     (window as any).harnessCalls ??= []; (window as any).harnessCalls.push(params);
     if ((window as any).rejectNextGet && params.name === 'kingdown_get') { (window as any).rejectNextGet = false; throw new Error('Harness saved-game read failed'); }
     if ((window as any).rejectNextMove && params.name === 'kingdown_move') { const code = (window as any).rejectNextMove; (window as any).rejectNextMove = undefined; return { isError: true, content: [{ type: 'text', text: 'Harness definitive rejection' }], _meta: { code } }; }
-    if ((window as any).requireHandleNext) { (window as any).requireHandleNext = false; return { isError: true, content: [{ type: 'text', text: 'Pick a name and picture first.' }], _meta: { code: 'HANDLE_NEEDED' } }; }
+    if ((window as any).requireHandleNext && params.name === 'kingdown_create') { (window as any).requireHandleNext = false; return { isError: true, content: [{ type: 'text', text: 'Pick a name and picture first.' }], _meta: { code: 'HANDLE_NEEDED' } }; }
     if ((window as any).failNextAction && params.name !== 'kingdown_handle') { (window as any).failNextAction = false; throw new Error('Harness action after Save failed'); }
-    if (params.name === 'kingdown_handle') { if ((window as any).failActionAfterHandle) { (window as any).failActionAfterHandle = false; (window as any).failNextAction = true; } (window as any).harnessHandle = params.arguments; return { content: [], structuredContent: { handle: params.arguments?.handle, icon: params.arguments?.icon } }; }
-    const args = params.arguments ?? {};
-    const legacy = params.name === 'kingdown_create' && 'kind' in args ? { mode: args.kind, colour: args.colour, board_id: args.board_id } : params.name === 'kingdown_join' && 'code' in args ? { invitation: args.code, board_id: args.board_id } : params.name === 'kingdown_open' && 'screen' in args ? { game_id: args.game_id } : args;
-    const result = await invoke(params.name, legacy);
-    if (params.name === 'kingdown_get' && (window as any).harnessNextView) { result._meta.view = (window as any).harnessNextView; (window as any).harnessView = result._meta.view; (window as any).harnessNextView = undefined; }
+    if (params.name === 'kingdown_handle') { if ((window as any).failActionAfterHandle) { (window as any).failActionAfterHandle = false; (window as any).failNextAction = true; } (window as any).harnessHandle = params.arguments; }
+    const result = await invoke(params.name, params.arguments ?? {});
+    if (params.name === 'kingdown_get' && (window as any).harnessNextView) { result._meta.view = (window as any).harnessNextView; (window as any).harnessView = result._meta?.view; (window as any).harnessNextView = undefined; }
+    if ((window as any).holdNext === params.name) { (window as any).holdNext = undefined; await new Promise<void>(resolve => { (window as any).releaseHeld = () => { (window as any).releaseHeld = undefined; resolve(); }; }); }
     if ((window as any).holdNextGet && params.name === 'kingdown_get') { (window as any).holdNextGet = false; await new Promise<void>(resolve => { (window as any).releaseHeldGet = () => { (window as any).releaseHeldGet = undefined; resolve(); }; }); (window as any).heldGetReturned = true; }
     if ((window as any).dropNextMoveReply && params.name === 'kingdown_move') { (window as any).dropNextMoveReply = false; throw new Error('Harness lost reply after commit'); }
     return result;
@@ -43,9 +42,9 @@ async function mount() {
     await bridge!.sendToolInput({ arguments: matchId ? { game_id: matchId } : {} });
     await bridge!.sendToolResult(result);
     (window as any).harnessMatchId = matchId;
-    (window as any).harnessView = result._meta.view;
+    (window as any).harnessView = result._meta?.view;
   };
-  (window as any).harnessShow = async (result: any, route = false) => { initialResult = route ? result : { ...result, structuredContent: { ...result.structuredContent, screen: result.structuredContent.screen ?? 'board' } }; matchId = result.structuredContent.game_id; (window as any).harnessMatchId = matchId; (window as any).harnessView = result._meta.view; await bridge!.sendToolResult(initialResult); };
+  (window as any).harnessShow = async (result: any, route = false) => { initialResult = route ? result : { ...result, structuredContent: { ...result.structuredContent, screen: result.structuredContent.screen ?? 'board' } }; matchId = result.structuredContent.game_id; (window as any).harnessMatchId = matchId; (window as any).harnessView = result._meta?.view; await bridge!.sendToolResult(initialResult); };
   await bridge.connect(new PostMessageTransport(frame.contentWindow!, frame.contentWindow!));
   frame.src = '/board-resource';
 }

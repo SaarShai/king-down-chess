@@ -2,16 +2,16 @@
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { createMatch, loadMatch, MatchError, type MatchSnapshot } from './index';
-import { commandSchema, createSchema, MAX_REVISION, type Command, type CreateOptions, type EndReason, type InboxEntry, type Invite, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
+import { commandSchema, createSchema, MAX_REVISION, type Command, type CreateOptions, type EndReason, type InboxEntry, type Invite, type JoinPreview, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
 import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
 import { diagnostic } from '../plugin/diagnostics';
 import { buildSetup, defaultChoice, draw, seatChoicesNeeded, validateChoice } from './setup';
 import type { HistoryPage, PlayerRecord } from './protocol';
-import { gameHistory, playerRecord, recordResult } from './results';
+import { gameHistory, gameOutcome, opponentRating, playerRecord, recordResult } from './results';
 export { MatchServiceError } from './store';
 
 const DAY = 86_400_000, FIRST_TURN_DAYS = 3, DRAW_OFFERS = 3, LIMIT = 1000; // the last revision in play
-const FRIEND_CODE_DAYS = 7; // a Daily friend code (owner, 2026-10-11)
+export const FRIEND_CODE_DAYS = 7; // a Daily friend code (owner, 2026-10-11)
 const ENGINE_REJECTS = ['Illegal or ambiguous move', 'Match terminal', 'Match history limit reached', 'Stale revision', 'Command ID conflict', 'Malformed command'];
 const CODE = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no I, L, O, 0 or 1
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -27,7 +27,7 @@ function step(game: Game): Game { return { ...game, revision: game.revision + 1,
 function actionOf(game: Game, seat: Seat): SeatAction { return game.status === 'playing' ? (game.turn === seat ? 'ready' : 'waiting') : game.status === 'setup' ? (game.players[seat].ready ? 'waiting' : 'ready') : game.status === 'waiting' ? 'waiting' : 'done'; }
 
 /** Refuses what the seat may not do now. True when a Daily deadline has passed: the game then ends on time instead. */
-function check(game: Game, seat: Seat, { expected_revision, action }: Command, at: Date): boolean {
+function check(game: Game, seat: Seat, { expected_revision, action }: Command, at: Date, switchOpen = false): boolean {
  if (game.revision !== expected_revision) fail('STALE_REVISION', 409, 'The game changed; reload before you act');
  if (action.type === 'rematch') {
   if (game.revision >= MAX_REVISION) fail('MATCH_LIMIT', 409, 'Match history limit reached');
@@ -45,7 +45,7 @@ function check(game: Game, seat: Seat, { expected_revision, action }: Command, a
  const me = game.players[seat], offer = game.draw_offer;
  if (action.type === 'turn' && game.turn !== seat || action.type === 'computer' && !game.players[game.turn].computer) fail('WRONG_TURN', 403, 'This operation is not permitted on the current turn');
  // Abort stays open until each side has completed its first turn (turns, not actions: Haste).
- if (action.type === 'abort' && game.status === 'playing' && game.players.every(p => p.turns_played > 0)) fail('NOT_ALLOWED', 409, 'Abort is open only before each side has played a turn');
+ if (action.type === 'abort' && game.status === 'playing' && game.players.every(p => p.turns_played > 0) && !switchOpen) fail('NOT_ALLOWED', 409, 'Abort is open only before each side has played a turn');
  if (action.type === 'draw' && (game.kind === 'solo' || (action.choice === 'offer' ? offer !== null || me.draw_offers >= DRAW_OFFERS : offer !== other(seat)))) fail('NOT_ALLOWED', 409, 'No draw offer is possible now');
  if (action.type === 'say' && (game.kind === 'solo' || me.said.includes(action.preset))) fail('NOT_ALLOWED', 409, 'Each preset message goes once in each game');
  return false;
@@ -98,7 +98,8 @@ export class GameService {
  constructor(readonly store: PostgresMatchStore) {}
  async create(actor: string, input: unknown): Promise<View> {
   actor = id(actor); const options = parse(createSchema, input);
-  if (options.kind === 'random') await this.requireHandle(actor);
+  if (options.level && !options.options) fail('INVALID_INPUT', 400, 'A computer level needs game options');
+  if (options.kind !== 'solo') await this.requireHandle(actor);
   const game = await this.newGame(actor, options);
   settle(game, game.created_at);
   await this.store.insert(game);
@@ -106,7 +107,6 @@ export class GameService {
  }
  private async newGame(actor: string, input: CreateOptions): Promise<Game> {
   const speed = input.speed ?? (input.kind === 'solo' ? 'live' : 'daily'), options = input.options ?? null;
-  if (input.days_per_move && speed !== 'daily' || input.kind === 'solo' && speed === 'daily' || options && input.setup) fail('INVALID_INPUT', 400, 'Invalid game setup');
   const seat: Seat = input.colour === 'black' ? 1 : input.colour === 'random' ? randomInt(2) as Seat : 0;
   const at = new Date(), solo = input.kind === 'solo', days = speed === 'daily' ? input.days_per_move ?? 3 : null;
   const drawn = options ? draw(options, () => Math.random()) : null, needs = options && Object.values(seatChoicesNeeded(options)).some(Boolean);
@@ -146,12 +146,14 @@ export class GameService {
   if (game.players.every(p => p.ready)) await this.start(game, at);
   else game.setup_deadline_at = new Date(at.getTime() + FIRST_TURN_DAYS * DAY);
  }
- /** Read-only: one seat's view. `since` returns the commands after that revision. */
+ /** One seat's view. Reads record activity at most once each 30 seconds. */
  async view(actor: string, gameId: string, since?: number): Promise<View> {
   actor = id(actor); gameId = id(gameId);
   if (since !== undefined && !(Number.isInteger(since) && since >= 0 && since <= MAX_REVISION)) fail('INVALID_INPUT', 400, 'Invalid revision');
   const game = await this.store.load(gameId);
-  return this.render(game, seatOf(game, actor), { since, rules: since === undefined });
+  const seat = seatOf(game, actor), seen = game.players[seat].last_seen_at;
+  if (!seen || Date.now() - seen.getTime() >= 30_000) await this.store.seen(gameId, seat);
+  return this.render(game, seat, { since, rules: since === undefined });
  }
  /** The actor's active games: your turn first, then the nearest deadline. */
  async inbox(actor: string): Promise<InboxEntry[]> { return this.store.inbox(id(actor)); }
@@ -177,10 +179,12 @@ export class GameService {
    await this.requireHandle(actor, client);
    // An empty lobby has no row to lock; serialize the search and create as one step.
    await client.query('select pg_advisory_xact_lock(7007008)');
+   const own = (await client.query("select id from public.games where created_by=$1 and kind='random' and status='waiting' and created_at>statement_timestamp()-interval '24 hours' order by created_at,id limit 1 for update", [actor])).rows[0];
+   if (own) { const game = await this.store.load(own.id, { client }); return this.render(game, seatOf(game, actor), { client, rules: true }); }
    for (;;) {
     const [open] = await this.store.lobby(actor, { client, lock: true });
     if (!open) break;
-    const game = await this.store.load(open.game_id, { client, lock: true }), at = new Date();
+    const game = await this.store.load(open.game_id, { client, lock: true }), at = (await client.query('select statement_timestamp() as at')).rows[0].at;
     if (game.created_at.getTime() + DAY <= at.getTime()) continue;
     return this.acceptSeat(client, game, actor, at);
    }
@@ -204,7 +208,8 @@ export class GameService {
    return this.render(next, seat, { client });
   });
  }
- private async acceptSeat(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, at = new Date()): Promise<View> {
+ private async acceptSeat(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, at?: Date): Promise<View> {
+  at ??= (await client.query('select statement_timestamp() as at')).rows[0].at as Date;
   if (game.kind !== 'random' || game.created_by === actor) fail('NOT_ALLOWED', 409, 'This open game cannot be accepted');
   const seated = game.players.find(p => p.user_id === actor);
   if (seated) return this.render(game, seated.seat, { client, rules: true });
@@ -231,14 +236,14 @@ export class GameService {
   // Engine work runs before the lock; the commit re-checks the revision, so a race costs the loser STALE_REVISION, never a wrong write.
   const before = await this.store.load(gameId, { state: true }), seat = seatOf(before, actor);
   let played: Played | undefined;
-  if (!await this.store.receipt(this.store.pool, gameId, seat, command.command_id, payload) && !check(before, seat, command, at) && (action.type === 'turn' || action.type === 'computer'))
+  if ((action.type === 'turn' || action.type === 'computer') && !await this.store.receipt(this.store.pool, gameId, seat, command.command_id, payload) && !check(before, seat, command, at))
    played = await play(before, action.type === 'turn' ? seat : before.turn, action.type === 'turn' ? action.actions : 'computer', index => hash(`${seat}:${command.command_id}:${index}`));
   const outcome = await this.store.transaction(async client => {
    const game = await this.store.load(gameId, { client, lock: true });
    if (await this.store.receipt(client, gameId, seat, command.command_id, payload)) return this.render(game, seat, { client });
    const next = step(game), out: Outgoing = { notify: [], outbox: [] };
    const log: Log = { seat, actor_id: actor, command_id: command.command_id, kind: action.type, payload, actions: null, surface, received_at: at };
-   if (check(game, seat, command, at)) {
+   if (check(game, seat, command, at, action.type === 'abort' && game.kind === 'solo' && await this.store.canSwitch(actor, game.created_at, client))) {
     expire(next, out, at);
     // Any other command learns that the game ended on time; the claim is the command that ends it.
     if (action.type !== 'claim') { await this.write(client, game, next, { ...log, seat: null, actor_id: null, command_id: null, kind: 'expire', payload: {}, surface: null }, out); return 'expired' as const; }
@@ -259,10 +264,7 @@ export class GameService {
      const initiator = game.created_by ?? actor, previousSeat = seatOf(game, initiator);
      const rematch = await this.newGame(initiator, { kind: game.kind, colour: colour(other(previousSeat)), speed: game.speed, ...(game.days_per_move && { days_per_move: game.days_per_move }), level: game.level, ...(game.options ? { options: game.options } : { setup: game.setup }) });
      for (const p of rematch.players) { p.user_id = game.players[other(p.seat)].user_id; p.computer = game.players[other(p.seat)].computer; }
-     if (game.kind === 'solo') {
-      for (const p of rematch.players) p.ready = true;
-      if (rematch.status !== 'playing') await this.start(rematch, at);
-     } else await this.enterSetup(rematch, at);
+     if (game.kind !== 'solo') await this.enterSetup(rematch, at);
      turnTo(rematch, out, at, actor); settle(rematch, at);
      await this.store.insert(rematch, client);
      next.rematch_offer = null; next.rematch_game_id = rematch.id;
@@ -300,13 +302,24 @@ export class GameService {
    return fail('UNAVAILABLE', 503, 'Could not make an invitation. Retry.');
   });
  }
- /** Takes the open seat with the link token or the short code. A retry by the same player returns the game. */
- async join(actor: string, tokenOrCode: unknown): Promise<View> {
-  actor = id(actor);
+ private async invitation(actor: string, tokenOrCode: unknown) {
   const key = typeof tokenOrCode === 'string' ? tokenOrCode.trim() : '', token = /^[A-Za-z0-9_-]{43}$/.test(key), code = key.toUpperCase().replace(/[\s-]/g, '');
   if (!token && !/^[A-HJKMNP-Z2-9]{6}$/.test(code)) fail('INVALID_INPUT', 400, 'Invalid invitation');
   if (!token) await this.store.codeTry(actor); // a 6-character code can be guessed; a 43-character token cannot
-  const column = token ? 'token_hash' : 'code_hash', value = hash(token ? key : code), at = new Date();
+  return { column: token ? 'token_hash' : 'code_hash', value: hash(token ? key : code), code };
+ }
+ async preview(actor: string, tokenOrCode: unknown): Promise<JoinPreview> {
+  actor = id(actor); const { column, value, code } = await this.invitation(actor, tokenOrCode);
+  const invite = (await this.store.pool.query(`select game_id,seat,expires_at,used_by from public.game_invites where ${column}=$1`, [value])).rows[0] ?? fail('INVITE_UNAVAILABLE', 404, 'Invitation unavailable');
+  const game = await this.store.load(invite.game_id), host = game.players[other(invite.seat as Seat)];
+  if (invite.used_by || invite.expires_at <= new Date() || game.status !== 'waiting') fail('INVITE_UNAVAILABLE', 409, 'Invitation expired or used');
+  if (host.user_id === actor || game.players[invite.seat].user_id || !host.user_id || !await this.store.mayJoin(this.store.pool, host.user_id, actor)) fail('FORBIDDEN', 403, 'This seat cannot be joined');
+  return { code, options: game.options, colour: colour(invite.seat), kind: game.kind, creator: { handle: host.handle, icon: host.icon ?? null }, expires_at: invite.expires_at.toISOString() };
+ }
+ /** Takes the open seat with the link token or the short code. A retry by the same player returns the game. */
+ async join(actor: string, tokenOrCode: unknown): Promise<View> {
+  actor = id(actor); await this.requireHandle(actor);
+  const { column, value } = await this.invitation(actor, tokenOrCode), at = new Date();
   return this.store.transaction(async client => {
    const found = await client.query(`select game_id from public.game_invites where ${column}=$1`, [value]);
    if (!found.rows[0]) fail('INVITE_UNAVAILABLE', 404, 'Invitation unavailable');
@@ -360,11 +373,17 @@ export class GameService {
   // A block or my quiet mode hides the opponent's presets; their own setting decides if I see when they were last here.
   const sees = opponent.user_id ? await this.store.privacy(client ?? this.store.pool, game.players[seat].user_id!, opponent.user_id) : { presets: true, online: true };
   const commands = await this.store.commands(game.id, since, client);
+  const db = client ?? this.store.pool;
+  const vacant = !opponent.user_id && !opponent.computer && !opponent.handle_at_start && !await this.store.hasJoined(game.id, db);
+  const rating = rules && opponent.user_id ? await opponentRating(db, opponent.user_id) : undefined;
+  const outcome = rules && game.status === 'finished' ? await gameOutcome(db, game.players[seat].user_id!, game.id) : undefined;
   return {
+   created_at: game.created_at.toISOString(), abort_open: game.status === 'waiting' || game.status === 'setup' || playing && (game.players.some(p => p.turns_played === 0) || game.kind === 'solo' && await this.store.canSwitch(game.players[seat].user_id!, game.created_at, db)),
+   ...(outcome && { outcome }), level: game.level,
    game_id: game.id, revision: game.revision, seat, kind: game.kind, speed: game.speed, days_per_move: game.days_per_move, status: game.status, turn: game.turn, action: actionOf(game, seat),
    fen: game.snapshot?.fen ?? '', in_check: game.snapshot?.inCheck ?? false, legal: playing && game.turn === seat ? game.snapshot!.legal : [],
    last_commands: commands.map(entry => entry.seat === opponent.seat && (entry.action.type === 'choose' && !game.players.every(p => p.ready) || entry.action.type === 'say' && !sees.presets) ? { ...entry, action: { type: 'hidden' as const } } : entry),
-   opponent: game.status === 'waiting' && !opponent.user_id ? null : { handle: opponent.handle, computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online && opponent.last_seen_at ? now.getTime() - opponent.last_seen_at.getTime() : null },
+   opponent: vacant ? null : { handle: opponent.handle, icon: opponent.icon ?? null, ...(rating && { rating }), computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online && opponent.last_seen_at ? now.getTime() - opponent.last_seen_at.getTime() : null },
    draw_offer: game.draw_offer, rematch_offer: game.rematch_offer, rematch_game_id: game.rematch_game_id,
    ...(game.options && { options: game.options, draw: game.draw!, deal: game.deal!, level: game.level,
     choices: game.players.map(p => p.seat === seat || game.players.every(s => s.ready) ? p.choice : null) as View['choices'],

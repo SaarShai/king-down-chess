@@ -41,13 +41,14 @@ const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
 function show(next: View | undefined) {
   if (!next) return;
+  if (pending?.args.game_id && pending.args.game_id !== next.game_id) { pending = undefined; $('retry').hidden = true; }
   if (next.rules) rules = { game: next.game_id, value: next.rules };
   // A full read carries the rules; a reply without them is for a game this board no longer shows.
-  if (rules?.game !== next.game_id) return;
+  if (next.fen && rules?.game !== next.game_id) return;
   if (view?.game_id !== next.game_id) $('invitation').textContent = '';
-  if (pending?.args.game_id && pending.args.game_id !== next.game_id) { pending = undefined; $('retry').hidden = true; }
   view = next;
-  setRules(rules.value); drawBoard(next);
+  if (rules?.game === next.game_id) setRules(rules.value);
+  drawBoard(next);
   void applySettings(); poll?.update();
   // The identifier is presentation state; every board reload still reads server authority.
   saveState();
@@ -77,7 +78,7 @@ async function call(name: string, args: Record<string, unknown>, retain = false,
     if (name === 'kingdown_handle') { followup = pending; navigate(followup ? 'play' : 'settings'); }
     const resumedStart = retain && next ? router.finishStart(next) : false;
     if (next && !resumedStart && (route ?? ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'].includes(name))) routeView(next);
-    if (name === 'kingdown_invite') { const { link, code } = result.structuredContent as { link: string; code: string }; $('invitation').textContent = `Share this link: ${link} · or the code ${code}`; }
+    if (name === 'kingdown_invite') { const { code } = result.structuredContent as { code: string }; $('invitation').textContent = `Share this code: ${code}`; }
     // A reload preserves the command receipt; retry still uses its original ID.
     if (retain || ['kingdown_create', 'kingdown_join', 'kingdown_resume'].includes(name)) pending = undefined;
     saveState(); $('retry').hidden = !pending;
@@ -102,6 +103,7 @@ app.ontoolresult = result => {
   if (!initial || !state.board_id) state.board_id = 'board_id' in value && typeof value.board_id === 'string' ? value.board_id : undefined;
   awaitingInitialResult = false;
   if ('screen' in value && ['home', 'play', 'board', 'profile'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen as Screen);
+  if (!('game_id' in value) && state.board_id && connected) void call('kingdown_get', {}, false, false, !savedScreen);
   if ('game_id' in value && typeof value.game_id === 'string') {
     hostGameId = value.game_id;
     if (!initial && !('screen' in value)) navigate('board');
@@ -117,7 +119,7 @@ const connection = app.connect().then(() => {
   if (state.screen !== 'home') void fullscreen(state.screen);
   poll = runPoll(() => ['friend', 'wait', 'seat', 'board'].includes(state.screen) ? view : undefined, async () => {
     const game_id = view?.game_id ?? hostGameId;
-    if (connected && game_id && !busy && !pending) await call('kingdown_get', { game_id, ...(view ? { since_revision: view.revision } : {}) }, false, true, !!view && ['friend', 'wait', 'seat', 'board'].includes(state.screen));
+    if (connected && !awaitingInitialResult && (game_id || state.board_id) && !busy && !pending) await call('kingdown_get', { ...(game_id ? { game_id } : {}), ...(view?.fen ? { since_revision: view.revision } : {}) }, false, true, !savedScreen || !!view && ['friend', 'wait', 'seat', 'board'].includes(state.screen));
   });
 }).catch(error => { $('error').textContent = $('home-error').textContent = `Could not connect to the game: ${String(error)}`; });
 

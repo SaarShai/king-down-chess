@@ -48,7 +48,7 @@ Related files: [illegal content risk assessment](uk-illegal-content-risk-assessm
 | M18 | Removal of proscribed organisations | A terms rule and the actions `suspension` and `closure`. | Terms; ticket 07 | draft, planned |
 | M19 | Deletion that keeps games | A deleted player shows as "Deleted player". A 7-day grace period; a sign-in cancels. Data under a report hold stays until the hold ends. | Tickets 02, 06 and 07 | planned |
 | M20 | Phase gates | Until a new risk assessment exists (section 9(4)): no matching with strangers, no guests, no free text, no uploads, no public profiles or boards. | The spec ("Later, by phase") | planned |
-| M21 | Quotas | Each preset once per game. Invitations last 24 hours (live) or 14 days (Daily) and work once. Firewall rate limits at the first deploy. | Ticket 02; owner (firewall) | planned, owner step |
+| M21 | Quotas | Each preset once per game. Invitations last 24 hours (live) or 7 days (Daily) and work once. Firewall rate limits at the first deploy. | Ticket 02; owner (firewall) | planned, owner step |
 | M22 | Under-13 reports | When a parent or another person reports a player under 13, the owner deletes the account. | Owner | owner step |
 | M23 | Review cycle | Review every record at least every 12 months. Write a new assessment before each significant change. In phase 1, read the report counts each month. | Owner | owner step |
 

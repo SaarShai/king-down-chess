@@ -43,22 +43,22 @@ repository.
 stand-in for Supabase's `auth` schema, and checks the trigger, the policies, the grants, the
 newer-copy rule and the deletion, with the attacks a signed-in player could try on another's data. It needs `npm install --no-save @electric-sql/pglite` first.
 
-## Online games: 0005 to 0009
+## Online games: 0005 to 0013
 
 Not applied yet. Apply them in order, after 0001–0004, with a privileged connection
-(`npm run plugin:db:migrate` applies 0002–0009). Then apply the third to the sixth blocks of
+(`npm run plugin:db:migrate` applies 0002–0013). Then apply the third to the ninth blocks of
 `plugin-deploy/runtime-role.sql` to the existing runtime role. The migrations are safe to run again.
 
 **Release order (a short outage).** The old and the new server code each need their own schema. The
 plugin that is live now writes boards that 0006 refuses, so after 0006 its `kingdown_open` fails. The
-new code needs 0005–0009 and the role blocks: its start check (`tools/plugin-db-check.mjs`) refuses to
+new code needs 0005–0013 and the role blocks: its start check (`tools/plugin-db-check.mjs`) refuses to
 serve without them, so every path of the function answers 503 and the next request tries again. Do it
 in one short window:
 
 1. Run `tools/deploy.sh --target plugin` (the checks only; it publishes nothing).
 2. Run `tools/deploy.sh --target plugin --publish` with `DEPLOY_LIVE_TIMEOUT_MS=900000`. When the
    publish step ends, the live check waits, because the server answers 503.
-3. While it waits, apply 0005–0009, then blocks 3–6 of `plugin-deploy/runtime-role.sql`. The next
+3. While it waits, apply 0005–0013, then blocks 3–9 of `plugin-deploy/runtime-role.sql`. The next
    request starts the server, and the live check passes.
 
 - `0005_accounts_v2.sql`: handles, a preset icon and the privacy settings on `profiles`
@@ -87,9 +87,22 @@ in one short window:
 - `0009_invite_tries.sql`: one row for each player that counts the invitation-code tries in one hour.
   The game service refuses an 11th try (`RATE_LIMITED`) on the website and in ChatGPT; the 43-character
   link token is not counted.
+- `0010_game_setup.sql`: the plugin game options (`options`, `draw`, `deal`, `level`), the game kind
+  `random`, the status `setup` with its 3-day `setup_deadline_at`, the rematch columns, and for each seat
+  its hidden `choice` and `ready`. A game saved before 0010 gets no options and the level `club`, and
+  plays on as before. Role block 7 lets the server write the new columns.
+- `0011_matchmaking.sql`: two indexes, for the open random games (the lobby and the 24-hour end) and for
+  the count of players seen in the last 10 minutes. It needs no new grant.
+- `0012_results.sql`: `player_ratings`, `rating_history` and `player_badges`. RLS is on and the browser
+  roles get nothing. Role block 8 lets the server read and add rows and change only the rating columns.
 
-`npm run plugin:db:init-test` applies 0001–0009 twice to a disposable loopback database, and
-`src/match/service.db.test.ts`, `src/online/jobs.db.test.ts`, `src/online/accounts.db.test.ts` and
+- `0013_player_settings.sql`: `player_settings` stores the two board switches and the last setup.
+  Both switches default off. RLS is on and the browser roles get nothing. `plugin_boards.game_selected`
+  tells an empty home board from a deleted game. Role block 9 grants these reads and writes and a handle check.
+
+`npm run plugin:db:init-test` applies 0001–0013 twice to a disposable loopback database, and
+`src/match/service.db.test.ts`, `src/match/setup.db.test.ts`, `src/match/matchmaking.db.test.ts`,
+`src/match/results.db.test.ts`, `src/online/jobs.db.test.ts`, `src/online/accounts.db.test.ts` and
 `src/api/http.db.test.ts` check them.
 
 ## Job schedules: ops/cron.sql

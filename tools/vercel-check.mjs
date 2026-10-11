@@ -42,7 +42,10 @@ try {
     finally { await old.close(); }
   }
 
-  for (const id of [actor, web, web2]) await pool.query('insert into auth.users(id) values($1)', [id]);
+  for (const id of [actor, web, web2]) {
+    await pool.query('insert into auth.users(id) values($1)', [id]);
+    await pool.query('update public.profiles set handle=$2 where id=$1', [id, `vercel-${id.slice(0,8)}`]);
+  }
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const origin = `http://127.0.0.1:${server.address().port}`;
   const { configurePlugin } = await import(pathToFileURL(join(fn, 'server.mjs')).href);
@@ -82,9 +85,16 @@ try {
     assert.equal(response.status, 200, file); assert.equal(response.headers.get('content-type'), { webp: 'image/webp', png: 'image/png', svg: 'image/svg+xml', woff2: 'font/woff2' }[file.split('.').at(-1)]); assert.equal(response.headers.get('access-control-allow-origin'), '*'); assert.match(response.headers.get('cache-control'), /max-age=31536000.*immutable/);
   }
   const open = await tool('kingdown_open', {}); assert(!open.isError);
-  const { game_id, legal } = open._meta.view;
-  const moved = await tool('kingdown_move', { game_id, command_id: 'vercel-first', expected_revision: 0, lan: legal.find(lan => !lan.includes('!')) });
-  assert(!moved.isError); assert.equal(moved._meta.view.revision, 1);
+  assert.equal(open.structuredContent.screen, 'home'); assert.equal(open._meta.view, undefined);
+  let created = await tool('kingdown_create', { kind: 'solo' }); assert(!created.isError);
+  if (created._meta.view.status === 'setup') {
+    const v = created._meta.view;
+    created = await tool('kingdown_choose', { game_id: v.game_id, command_id: 'vercel-ready', expected_revision: v.revision, ...v.choices[v.seat], ready: true });
+    assert(!created.isError);
+  }
+  const { game_id, legal, revision } = created._meta.view;
+  const moved = await tool('kingdown_move', { game_id, command_id: 'vercel-first', expected_revision: revision, lan: legal.find(lan => !lan.includes('!')) });
+  assert(!moved.isError); assert.equal(moved._meta.view.revision, revision + 1);
   const authorize = await fetch(`${origin}/authorize?authorization_id=${randomUUID()}`);
   assert.equal(authorize.status, 200); assert.match(authorize.headers.get('content-type'), /^text\/html/);
   assert((await authorize.text()).includes(clientId)); assert.match(authorize.headers.get('content-security-policy'), /frame-ancestors 'none'/);
@@ -120,7 +130,7 @@ try {
   const made = await api('/api/games', { token, method: 'POST', body: { kind: 'friend', speed: 'daily', colour: 'white' } });
   assert.equal(made.status, 201); assert.equal(made.value.invite.url, `${origin}/j/${made.value.invite.token}`);
   const gameId = made.value.view.game_id;
-  const joined = await tool('kingdown_join', { invitation: made.value.invite.url }); // the website's link, pasted into ChatGPT
+  const joined = await tool('kingdown_join', { code: made.value.invite.code }); // the website's code, sent to ChatGPT
   assert(!joined.isError); assert.equal(joined.structuredContent.game_id, gameId); assert.equal(joined.structuredContent.colour, 'black');
   let view = (await api(`/api/games/${gameId}`, { token })).value;
   const turn = { command_id: 'crossplay-1', expected_revision: view.revision, action: { type: 'turn', actions: [plain(view.legal)] } };

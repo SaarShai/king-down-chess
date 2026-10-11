@@ -11,8 +11,8 @@ it('uses the wait and game schedule, with the owner’s recent-opponent rule', (
   expect(pollDelay(view(), 0, false)).toBe(30000);
   expect(pollDelay(view({ speed: 'live' }), 0, false)).toBe(2000);
   expect(pollDelay(view({ speed: 'live', turn: 0 }), 0, false)).toBe(15000);
-  expect(pollDelay(view({ opponent: { handle: null, computer: false, deleted: false, last_seen_ms: 119999 } }), 0, false)).toBe(3000);
-  expect(pollDelay(view({ opponent: { handle: null, computer: false, deleted: false, last_seen_ms: 120000 } }), 0, false)).toBe(30000);
+  expect(pollDelay(view({ opponent: { handle: null, icon: null, computer: false, deleted: false, last_seen_ms: 119999 } }), 0, false)).toBe(3000);
+  expect(pollDelay(view({ opponent: { handle: null, icon: null, computer: false, deleted: false, last_seen_ms: 120000 } }), 0, false)).toBe(30000);
   expect(pollDelay(view({ last_commands: [
     { seq: 1, seat: 1, at: '2026-10-11T11:58:00.001Z', action: { type: 'join' } },
     { seq: 2, seat: 0, at: '2026-10-11T12:00:00.000Z', action: { type: 'join' } },
