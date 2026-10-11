@@ -76,7 +76,7 @@ async function play(game: Game, mover: Seat, lans: string[] | 'computer', engine
  try { match = await loadMatch(game.state!); }
  catch (error) { if (error instanceof MatchError && error.code === 'MATCH_INCOMPATIBLE') fail('MATCH_INCOMPATIBLE', 409, 'This saved game uses a different game version. Start a new game to continue playing.'); throw error; }
  try {
-  const actions = lans === 'computer' ? [await match.chooseMove({ maxTimeMs: 250, maxDepth: 6 })] : lans;
+  const actions = lans === 'computer' ? [await match.chooseMove(game.options ? { level: game.level, maxTimeMs: 2500 } : { maxTimeMs: 250, maxDepth: 6 })] : lans;
   let snapshot = game.snapshot!;
   for (const [index, lan] of actions.entries()) {
    // One command is one side's turn: an action after the turn passed is refused with the whole command.
@@ -291,6 +291,10 @@ export class GameService {
    last_commands: commands.map(entry => entry.seat === opponent.seat && (entry.action.type === 'choose' && !game.players.every(p => p.ready) || entry.action.type === 'say' && !sees.presets) ? { ...entry, action: { type: 'hidden' as const } } : entry),
    opponent: game.status === 'waiting' && !opponent.user_id ? null : { handle: opponent.handle, computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online && opponent.last_seen_at ? now.getTime() - opponent.last_seen_at.getTime() : null },
    draw_offer: game.draw_offer, rematch_offer: game.rematch_offer, rematch_game_id: game.rematch_game_id,
+   ...(game.options && { options: game.options, draw: game.draw!, deal: game.deal!, level: game.level,
+    choices: game.players.map(p => p.seat === seat || game.players.every(s => s.ready) ? p.choice : null) as View['choices'],
+    ready: game.players.map(p => p.ready) as [boolean, boolean], setup_deadline_at: game.setup_deadline_at?.toISOString() ?? null }),
+   ...(game.snapshot && { kings: game.snapshot.rules.kings, hands: game.snapshot.rules.hands }),
    ...(game.end_reason && { result: { winner: game.result === 'white' ? 0 : game.result === 'black' ? 1 : null, reason: game.end_reason } }),
    deadline_at: game.deadline_at?.toISOString() ?? null, server_now: now.toISOString(),
    ...(rules && game.rules && { rules: game.rules }),

@@ -5,7 +5,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { GameService } from './service';
 import { PostgresMatchStore } from './store';
-import { DEFAULT_OPTIONS } from './setup';
+import { DEFAULT_OPTIONS, type Options } from './setup';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 
@@ -44,7 +44,8 @@ suite('game setup through PostgreSQL', () => {
   const sent = command(1, { type: 'choose', choice, ready: true });
   expect(await service.command(a, created.game_id, sent)).toMatchObject({ status: 'setup', revision: 2, action: 'waiting' });
   const hidden = await service.view(b, created.game_id, 1);
-  expect(JSON.stringify(hidden)).not.toContain('Flame'); expect(JSON.stringify(hidden)).not.toContain('Haste');
+  expect(hidden.choices?.[0]).toBeNull(); expect(hidden.kings).toBeUndefined(); expect(hidden.rules).toBeUndefined();
+  expect(JSON.stringify(hidden.last_commands)).not.toContain('Flame'); expect(JSON.stringify(hidden.last_commands)).not.toContain('Haste');
   expect(hidden.last_commands.at(-1)?.action).toEqual({ type: 'hidden' });
   expect(await service.command(a, created.game_id, sent)).toMatchObject({ revision: 2 });
   await expect(service.command(a, created.game_id, command(2, { type: 'choose', choice, ready: false }))).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
@@ -115,6 +116,70 @@ suite('game setup through PostgreSQL', () => {
   expect(accepted.rematch_game_id).toEqual(expect.any(String));
   expect(await service.view(a, accepted.rematch_game_id!)).toMatchObject({ status: 'playing', revision: 0, seat: 1, opponent: { computer: true } });
   expect((await admin.query('select level from public.games where id=$1', [accepted.rematch_game_id])).rows[0].level).toBe('strong');
+ }, 30_000);
+ it('shows setup choices safely and carries each toggle mix through the first move', async () => {
+  for (const [fairy, arrangement, classic] of [[true, true, false], [true, false, false], [false, false, false], [false, false, true]]) for (const cards of [false, true]) for (const kingPowers of [false, true]) {
+   const options = { ...DEFAULT_OPTIONS, fairy, arrangement, classic, cards, kingPowers };
+   const created = await service.create(a, { kind: 'solo', options });
+   expect(created).toMatchObject({ options, draw: expect.any(String), deal: cards ? expect.any(Array) : [], level: 'club' });
+   const setup = created;
+   let playing = created;
+   if (created.status === 'setup') {
+    expect(setup.choices![1]).toBeNull(); expect(setup.choices![0]).not.toBeNull();
+    playing = await service.command(a, created.game_id, command(0, { type: 'choose', choice: setup.choices![0], ready: true }));
+   }
+   expect(playing).toMatchObject({ status: 'playing', ready: [true, true], kings: kingPowers ? [{ king: 'Spirit', power: 'Mercy' }, { king: 'Shadow', power: 'Darkness' }] : [null, null] });
+   const full = await service.view(a, playing.game_id);
+   expect(full.rules?.classicChess).toBe(classic);
+   expect(full.rules?.hands[0]).toHaveLength(cards ? 4 : 0); expect(full.rules?.hands[0]).toEqual(full.rules?.hands[1]);
+   const moved = await service.command(a, full.game_id, command(full.revision, { type: 'turn', actions: [full.legal.find(lan => !lan.includes('!'))!] }));
+   expect(moved.revision).toBe(full.revision + 1); expect(moved.status).toBe('playing');
+   expect(moved).toMatchObject({ options, deal: setup.deal, hands: [setup.deal, setup.deal] });
+  }
+  expect(await service.create(a, { kind: 'random', options: DEFAULT_OPTIONS })).toMatchObject({ kind: 'random', seat: 0, status: 'waiting', options: DEFAULT_OPTIONS });
+ }, 60_000);
+ it('keeps two legal orders, rejects a card with a spendable power, and keeps card use on one seat', async () => {
+  const options: Options = { ...DEFAULT_OPTIONS, pool: ['Q', 'R', 'B', 'N'], cards: true, cardPool: ['Haste', 'Flight', 'March', 'Leap'], kingPowers: true };
+  const game = await service.create(a, { kind: 'friend', options });
+  await service.join(b, (await service.invite(a, game.game_id)).token);
+  const choice = { king: { king: 'Spirit', power: 'Mercy' }, order: 'RNBQKBNR' };
+  await expect(service.command(a, game.game_id, command(1, { type: 'choose', choice: { ...choice, king: { king: 'Flame', power: 'Haste' } }, ready: true }))).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  await service.command(a, game.game_id, command(1, { type: 'choose', choice, ready: false }));
+  expect((await service.view(b, game.game_id)).choices?.[0]).toBeNull();
+  await service.command(a, game.game_id, command(2, { type: 'choose', choice, ready: true }));
+  const started = await service.command(b, game.game_id, command(3, { type: 'choose', choice: { king: { king: 'Shadow', power: 'Darkness' }, order: 'RNBKQBNR' }, ready: true }));
+  expect(started.fen.split(' ')[0]).toBe('rnbkqbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR');
+  const full = await service.view(a, game.game_id);
+  expect(full.choices?.map(c => c?.order)).toEqual(['RNBQKBNR', 'RNBKQBNR']);
+  expect(full.legal).toContain('e2-e4!H');
+  const card = await service.command(a, game.game_id, command(4, { type: 'turn', actions: ['e2-e4!H'] }));
+  const hasteBit = 1 << full.deal!.indexOf('Haste');
+  expect(card.fen.split(' ')[6].split('/')).toContain(`u${hasteBit}.0`);
+  expect(card.hands).toEqual(full.hands); expect(card.deal).toEqual(full.deal);
+  expect(await service.command(a, game.game_id, command(5, { type: 'turn', actions: ['e4-e5'] }))).toMatchObject({ revision: 6, turn: 1 });
+ }, 30_000);
+ it('skips setup for a joined game with no seat choice, and lets the computer play at each level', async () => {
+  const options = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
+  const friend = await service.create(a, { kind: 'friend', options });
+  expect(await service.join(b, (await service.invite(a, friend.game_id)).token)).toMatchObject({ status: 'playing', revision: 1, setup_deadline_at: null });
+  expect(await service.command(a, friend.game_id, command(1, { type: 'turn', actions: ['e2-e4'] }))).toMatchObject({ turn: 1, revision: 2 });
+  for (const level of ['beginner', 'casual', 'club', 'strong']) {
+   const game = await service.create(a, { kind: 'solo', colour: 'black', options, level });
+   const sent = command(0, { type: 'computer' });
+   const moved = await service.command(a, game.game_id, sent);
+   expect(moved).toMatchObject({ level, seat: 1, turn: 1, action: 'ready', revision: 1 });
+   expect(await service.command(a, game.game_id, sent)).toMatchObject({ revision: 1, fen: moved.fen });
+  }
+ }, 30_000);
+ it('rolls back Ready and its match if the write fails', async () => {
+  const game = await service.create(a, { kind: 'solo', options: DEFAULT_OPTIONS });
+  const sent = command(0, { type: 'choose', choice: game.choices![0], ready: true }), trigger = `reject_${game.game_id.replaceAll('-', '')}`;
+  await admin.query(`create function public.${trigger}() returns trigger language plpgsql as $$ begin raise exception 'test update failure'; end $$; create trigger ${trigger} before update on public.games for each row when (old.id='${game.game_id}'::uuid) execute function public.${trigger}()`);
+  try { await expect(service.command(a, game.game_id, sent)).rejects.toThrow('test update failure'); }
+  finally { await admin.query(`drop trigger ${trigger} on public.games; drop function public.${trigger}()`); }
+  expect(await service.view(a, game.game_id)).toMatchObject({ status: 'setup', revision: 0, ready: [false, true] });
+  expect((await admin.query('select state,snapshot from public.games where id=$1', [game.game_id])).rows[0]).toEqual({ state: null, snapshot: null });
+  expect(await service.command(a, game.game_id, sent)).toMatchObject({ status: 'playing', revision: 1 });
  }, 30_000);
  it('stores validated options and waits for the player without an engine match', async () => {
   const created = await service.create(a, { kind: 'solo', options: DEFAULT_OPTIONS, level: 'beginner' });

@@ -4,7 +4,9 @@ import { z } from 'zod';
 import type { PublicMatchRules } from './index';
 import type { Status } from '../rules/engine';
 import { choiceSchema, optionsSchema } from './setup-schema';
-import type { Options } from './setup';
+import type { Choice, Options } from './setup';
+import type { CardName, KingChoice } from '../rules/rules';
+import type { SkillName } from '../ai/skill';
 
 export type Seat = 0 | 1;
 export const MAX_REVISION = 1100;
@@ -84,6 +86,17 @@ export interface View {
   draw_offer: Seat | null;
   rematch_offer?: Seat | null;
   rematch_game_id?: string | null;
+  options?: Options;
+  draw?: string;
+  deal?: CardName[];
+  level?: SkillName;
+  /** Your choice; the other choice is null until both seats are ready. */
+  choices?: [Choice | null, Choice | null];
+  ready?: [boolean, boolean];
+  setup_deadline_at?: string | null;
+  /** The public king choices and dealt hands once the engine starts. */
+  kings?: readonly [KingChoice | null, KingChoice | null];
+  hands?: readonly [readonly CardName[], readonly CardName[]];
   result?: { winner: Seat | null; reason: EndReason };
   deadline_at: string | null;
   server_now: string;
