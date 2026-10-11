@@ -44,21 +44,20 @@ export class PostgresMatchStore {
   const players = await client.query(`select ${PLAYER} from public.game_players p left join public.profiles pr on pr.id=p.user_id where p.game_id=$1 order by p.seat`, [id]);
   return { ...game.rows[0], players: players.rows as [Player, Player] };
  }
- async insert(game: Game): Promise<void> {
-  await this.transaction(async client => {
+ async insert(game: Game, client?: PoolClient): Promise<void> {
+  if (!client) return this.transaction(c => this.insert(game, c));
    await client.query(`insert into public.games(id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,turn,revision,state,snapshot,created_by,created_at,started_at,updated_at,options,draw,deal,level,setup_deadline_at)
     values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$17,$19,$20,$21,$22,$23)`,
     [game.id, game.kind, game.speed, game.days_per_move, game.category, game.readings, game.colour_rule, game.engine_fingerprint, game.setup, game.rules, game.status, game.turn, game.revision, game.state, game.snapshot, game.created_by, game.created_at, game.started_at, game.options, game.draw, game.deal === null ? null : JSON.stringify(game.deal), game.level, game.setup_deadline_at]);
    for (const p of game.players) await client.query(`insert into public.game_players(game_id,seat,user_id,computer,handle_at_start,power,action,last_seen_at,choice,ready)
     values($1,$2,$3,$4,(select handle from public.profiles where id=$3),$5,$6,$7,$8,$9)`, [game.id, p.seat, p.user_id, p.computer, p.power, p.action, p.last_seen_at, p.choice, p.ready]);
-  });
  }
  /** Writes `next` (revision = before + 1), its log row and its alerts. State and snapshot are written only when they changed. */
  async save(client: PoolClient, before: Game, next: Game, log: Log, out: Outgoing): Promise<void> {
   await client.query(`update public.games set status=$2,result=$3,end_reason=$4,turn=$5,revision=$6,draw_offer=$7,state=coalesce($8,state),snapshot=coalesce($9,snapshot),
-   deadline_at=$10,deadline_kind=$11,moves=$12,started_at=$13,finished_at=$14,updated_at=now(),setup=$15,rules=$16,engine_fingerprint=$17,setup_deadline_at=$18 where id=$1`,
+   deadline_at=$10,deadline_kind=$11,moves=$12,started_at=$13,finished_at=$14,updated_at=now(),setup=$15,rules=$16,engine_fingerprint=$17,setup_deadline_at=$18,rematch_offer=$19,rematch_game_id=$20 where id=$1`,
    [next.id, next.status, next.result, next.end_reason, next.turn, next.revision, next.draw_offer, next.state !== before.state ? next.state : null, next.snapshot !== before.snapshot ? next.snapshot : null,
-    next.deadline_at, next.deadline_kind, next.moves, next.started_at, next.finished_at, next.setup, next.rules, next.engine_fingerprint, next.setup_deadline_at]);
+    next.deadline_at, next.deadline_kind, next.moves, next.started_at, next.finished_at, next.setup, next.rules, next.engine_fingerprint, next.setup_deadline_at, next.rematch_offer, next.rematch_game_id]);
   // A seat keeps the handle its opponent first saw; it is copied once, when the seat gets its player.
   for (const p of next.players) await client.query(`update public.game_players set user_id=$3,handle_at_start=coalesce(handle_at_start,(select handle from public.profiles where id=$3)),action=$4,turns_played=$5,draw_offers=$6,said=$7,
    last_seen_at=$8,last_surface=$9,active=$10,ended_at=$11,choice=$12,ready=$13,power=$14 where game_id=$1 and seat=$2`,

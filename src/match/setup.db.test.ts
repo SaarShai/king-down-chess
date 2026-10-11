@@ -78,6 +78,44 @@ suite('game setup through PostgreSQL', () => {
   expect(await service.view(b, lazy)).toMatchObject({ status: 'aborted', revision: 2, result: { winner: null, reason: 'no_start' } });
   expect(await service.sweep()).toBe(0);
  }, 30_000);
+ it('offers, declines and accepts one rematch with the same features and swapped seats', async () => {
+  const options = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true, kingPowers: true };
+  const created = await service.create(a, { kind: 'friend', options, colour: 'black' });
+  await service.join(b, (await service.invite(a, created.game_id)).token);
+  const choose = async (actor: string, rev: number, king: string, power: string) => service.command(actor, created.game_id, command(rev, { type: 'choose', choice: { king: { king, power }, order: 'RNBQKBNR' }, ready: true }));
+  await choose(a, 1, 'Shadow', 'Darkness'); await choose(b, 2, 'Spirit', 'Mercy');
+  const ended = await service.command(a, created.game_id, command(3, { type: 'resign' }));
+  await expect(service.command(b, created.game_id, command(ended.revision, { type: 'rematch', choice: 'accept' }))).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
+  const offer = command(4, { type: 'rematch', choice: 'offer' });
+  expect(await service.command(a, created.game_id, offer)).toMatchObject({ revision: 5, rematch_offer: 1 });
+  expect(await service.command(a, created.game_id, offer)).toMatchObject({ revision: 5 });
+  await expect(service.command(a, created.game_id, command(5, { type: 'rematch', choice: 'accept' }))).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
+  expect(await service.command(b, created.game_id, command(5, { type: 'rematch', choice: 'decline' }))).toMatchObject({ revision: 6, rematch_offer: null });
+  await service.command(b, created.game_id, command(6, { type: 'rematch', choice: 'offer' }));
+  const accept = command(7, { type: 'rematch', choice: 'accept' });
+  const views = await Promise.all([service.command(a, created.game_id, accept), service.command(a, created.game_id, accept)]);
+  expect(views.map(v => v.revision)).toEqual([8, 8]);
+  const row = (await admin.query('select rematch_game_id from public.games where id=$1', [created.game_id])).rows[0];
+  expect(row.rematch_game_id).toEqual(expect.any(String));
+  expect(views[0]).toMatchObject({ rematch_game_id: row.rematch_game_id });
+  const next = await service.view(a, row.rematch_game_id);
+  expect(next).toMatchObject({ status: 'setup', revision: 0, seat: 0, action: 'ready' });
+  expect(await service.view(b, next.game_id)).toMatchObject({ status: 'setup', seat: 1 });
+  expect((await admin.query('select options from public.games where id=$1', [next.game_id])).rows[0].options).toEqual(options);
+  expect((await service.inbox(a)).filter(v => v.game_id === next.game_id)).toHaveLength(1);
+  await expect(service.command(b, created.game_id, command(8, { type: 'rematch', choice: 'offer' }))).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
+ }, 30_000);
+ it('starts a computer rematch at once, including a game at the move limit', async () => {
+  const created = await service.create(a, { kind: 'solo', options: { ...DEFAULT_OPTIONS, arrangement: false }, level: 'strong' });
+  await service.command(a, created.game_id, command(0, { type: 'resign' }));
+  await admin.query('update public.games set revision=1000 where id=$1', [created.game_id]);
+  const sent = command(1000, { type: 'rematch', choice: 'offer' });
+  const accepted = await service.command(a, created.game_id, sent);
+  expect(await service.command(a, created.game_id, sent)).toEqual(expect.objectContaining({ revision: accepted.revision, rematch_game_id: accepted.rematch_game_id }));
+  expect(accepted.rematch_game_id).toEqual(expect.any(String));
+  expect(await service.view(a, accepted.rematch_game_id!)).toMatchObject({ status: 'playing', revision: 0, seat: 1, opponent: { computer: true } });
+  expect((await admin.query('select level from public.games where id=$1', [accepted.rematch_game_id])).rows[0].level).toBe('strong');
+ }, 30_000);
  it('stores validated options and waits for the player without an engine match', async () => {
   const created = await service.create(a, { kind: 'solo', options: DEFAULT_OPTIONS, level: 'beginner' });
   expect(created).toMatchObject({ status: 'setup', seat: 0, action: 'ready', legal: [] });

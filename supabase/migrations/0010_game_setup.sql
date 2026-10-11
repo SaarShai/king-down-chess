@@ -4,6 +4,11 @@ alter table public.games drop constraint if exists games_kind_check;
 alter table public.games add constraint games_kind_check check (kind in ('solo', 'friend', 'random'));
 alter table public.games drop constraint if exists games_status_check;
 alter table public.games add constraint games_status_check check (status in ('waiting', 'setup', 'playing', 'finished', 'aborted'));
+-- Play ends by revision 1000. The final 100 revisions are for rematch offers.
+alter table public.games drop constraint if exists games_revision_check;
+alter table public.games add constraint games_revision_check check (revision between 0 and 1100);
+alter table public.game_commands drop constraint if exists game_commands_seq_check;
+alter table public.game_commands add constraint game_commands_seq_check check (seq between 1 and 1100);
 alter table public.games
   alter column state drop not null,
   alter column snapshot drop not null,

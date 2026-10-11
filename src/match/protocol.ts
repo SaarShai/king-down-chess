@@ -4,8 +4,10 @@ import { z } from 'zod';
 import type { PublicMatchRules } from './index';
 import type { Status } from '../rules/engine';
 import { choiceSchema, optionsSchema } from './setup-schema';
+import type { Options } from './setup';
 
 export type Seat = 0 | 1;
+export const MAX_REVISION = 1100;
 export type Surface = 'web' | 'chatgpt';
 /** Fixed phrases only: a preset never carries free text, a number or a link (part 01, section 8.2). */
 export const PRESETS = ['hello', 'good_luck', 'good_game', 'well_played', 'thanks'] as const;
@@ -18,6 +20,7 @@ export const actionSchema = z.discriminatedUnion('type', [
   // Solo games: the computer plays its turn when the player asks.
   z.strictObject({ type: z.literal('computer') }),
   z.strictObject({ type: z.literal('choose'), choice: choiceSchema, ready: z.boolean() }),
+  z.strictObject({ type: z.literal('rematch'), choice: z.enum(['offer', 'accept', 'decline']) }),
   z.strictObject({ type: z.literal('resign') }),
   z.strictObject({ type: z.literal('abort') }),
   z.strictObject({ type: z.literal('draw'), choice: z.enum(['offer', 'accept', 'decline']) }),
@@ -25,7 +28,7 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('say'), preset: z.enum(PRESETS) }),
 ]);
 /** `command_id` is the client's ID (a UUID); a retry sends the same ID and gets the same result. */
-export const commandSchema = z.strictObject({ command_id: text(200), expected_revision: z.number().int().min(0).max(1000), action: actionSchema });
+export const commandSchema = z.strictObject({ command_id: text(200), expected_revision: z.number().int().min(0).max(MAX_REVISION), action: actionSchema });
 export const createSchema = z.strictObject({
   kind: z.enum(['solo', 'friend', 'random']),
   options: optionsSchema.optional(),
@@ -38,7 +41,7 @@ export const createSchema = z.strictObject({
 });
 export type Action = z.infer<typeof actionSchema>;
 export type Command = z.infer<typeof commandSchema>;
-export type CreateOptions = z.infer<typeof createSchema>;
+export type CreateOptions = Omit<z.infer<typeof createSchema>, 'options'> & { options?: Options };
 
 export type ErrorCode = 'INVALID_INPUT' | 'NOT_FOUND' | 'FORBIDDEN' | 'WAITING' | 'NOT_ALLOWED' | 'STALE_REVISION' | 'INVALID_MOVE' | 'WRONG_TURN'
   | 'MATCH_TERMINAL' | 'MATCH_LIMIT' | 'MATCH_INCOMPATIBLE' | 'MATCH_REMOVED' | 'COMMAND_CONFLICT' | 'INVITE_UNAVAILABLE' | 'UNAVAILABLE' | 'HANDLE_TAKEN'
@@ -79,6 +82,8 @@ export interface View {
   /** Null while the seat is open. */
   opponent: Opponent | null;
   draw_offer: Seat | null;
+  rematch_offer?: Seat | null;
+  rematch_game_id?: string | null;
   result?: { winner: Seat | null; reason: EndReason };
   deadline_at: string | null;
   server_now: string;
