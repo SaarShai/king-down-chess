@@ -29,6 +29,8 @@ import { MAX, deleteDesign, loadShelf, saveDesign, type SaveResult } from './sto
 import { LIKE_ADDED, LIKE_CLASH, brief, cap, designText, esc, lineParts, lineWords, pawns, ruleText, whenLabel } from './text';
 import { BLOCKS, BODY, GROUPS, blockOf, whenChoices, whenWords, type Part } from './vocab';
 import { traceOf, whyWords } from './why';
+// @ts-expect-error The approved gait curves are shared browser JavaScript, without declarations.
+import { GAITS, GAIT_OF } from '../../docs/2d-first-pieces/board/gait.mjs';
 
 /** What the board and the plinth show: a pool piece, a design on the shelf (or the player's new copy), a new piece before its
  *  first change (key `new`), or a design from a link. */
@@ -67,6 +69,17 @@ const link = (d: PieceDesign): string => `${location.origin}${location.pathname}
 const out = (q: string): boolean => { const s = parseSq(q); return Math.max(Math.abs(file(s) - 3), Math.abs(rank(s) - 3)) > 3; };
 /** A rule of a design by its block: a design holds each block once (limit, model.ts). */
 const ruleIn = (d: PieceDesign, a: Ability['a']): Rule | undefined => d.rules.find(r => r.does.a === a);
+/** Motion (ticket 10, decision 27): none under reduced motion or Animations Off; Fast halves each duration (as motion.ts). */
+const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+const motionless = (): boolean => reduced.matches || document.documentElement.dataset.pace === 'off';
+const pace = (): number => (document.documentElement.dataset.pace === 'fast' ? 0.5 : 1);
+const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)', SPRING = 'cubic-bezier(0.34, 1.4, 0.64, 1)';
+/** The end of a puff (proving-ground.html:420). */
+const PUFF: Keyframe = { opacity: 0, transform: 'translateY(-10px) scale(1.6)' };
+/** A gait of docs/2d-first-pieces/board/gait.mjs: the pose at progress u, which ends at rest. */
+interface Gait { at(u: number, squares: number): { travel: number; lift: number; sx: number; sy: number; tilt: number } }
+/** The gait of a design's body: its own, the pawn's for the token, else a hop (motion.ts gaitOf). */
+const gaitOf = (d: PieceDesign): Gait => GAITS[GAIT_OF[d.look.body === 'token' ? 'pawn' : BODY[d.look.body].name] ?? 'hop'];
 /** One choice of an open row (a pill's value or a When): its words, whether the rule has it now, what it does to a design,
  *  and why the design cannot take it. `w` is the When; `like`, the piece that "Always" adds to Moves. */
 interface Choice { v: string; words: string; on: boolean; off: string | null; apply: (d: PieceDesign) => void; w?: When; like?: LikeAs }
@@ -111,8 +124,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   let brush: Brush | null = null, mirror: PaintOn = 'all';
   /** Undo steps of the open item, each with its scope (dialog.ts:315-331); the design the last save refused, and why. */
   let undos: { item: Item; label: string }[] = [], unsaved: { id: string; why: Exclude<SaveResult, 'saved'> } | null = null;
-  /** The squares that pulse on the next draw; the open popovers. */
-  let pulse: string[] = [], weighOpen = false, moreOpen = false, toolsOpen = false;
+  /** The open popovers. */
+  let weighOpen = false, moreOpen = false, toolsOpen = false;
   /** The rules (ticket 03): the open row of choices (rule `a`'s pill, or its When, with "More choices" open or not), the
    *  design under a choice that has the pointer or the focus, the Rules shelf and its chosen seal, the phone's rule card. */
   let row: { a: Ability['a']; when: boolean; more: boolean } | null = null, peek: PieceDesign | null = null;
@@ -137,6 +150,93 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     clearTimeout(toastTimer);
     toastTimer = window.setTimeout(() => toastEl.classList.remove('on'), 3600);
   }
+
+  /* ---- motion (ticket 10; proving-ground.html:57-108, :1520-1548, :1700-1725, :1796-1802): each ends at its still pose by 600 ms ---- */
+
+  /** Plays `frames` on `el`, one motion at a time on it. It fills backwards only, so it ends at the still style; a `temp` element goes with its motion. */
+  function run(el: Element | null, frames: Keyframe[], ms: number, easing = 'linear', temp = false): void {
+    if (!el) return;
+    if (motionless() || !el.getClientRects().length) return void (temp && el.remove());
+    for (const a of el.getAnimations()) a.cancel();
+    const a = el.animate(frames, { duration: ms * pace(), easing, fill: 'backwards' });
+    if (temp) a.onfinish = a.oncancel = () => el.remove();
+  }
+  /** The next action, a close and a change of the motion setting stop each running motion at its still pose. A transition
+   *  (a button's press) is not one of the motions: it goes on. */
+  const stop = (): void => { for (const a of dlg.getAnimations({ subtree: true })) if (!(a instanceof CSSTransition)) a.cancel(); };
+  dlg.addEventListener('pointerdown', stop, true);
+  dlg.addEventListener('keydown', stop, true);
+  dlg.addEventListener('close', stop);
+  reduced.addEventListener('change', stop);
+  new MutationObserver(stop).observe(document.documentElement, { attributes: true, attributeFilter: ['data-pace'] });
+  /** The box of a figure on square `s` (figRectIn, proving-ground.html:1520). */
+  const figBox = (s: number): DOMRect => {
+    const r = boardEl.getBoundingClientRect(), w = r.width / 8;
+    return new DOMRect(r.x + (file(s) + 0.05) * w, r.y + (7 - rank(s) + 0.025) * w, 0.9 * w, 0.9 * w);
+  };
+  /** A figure `src` over the dialog in box `b`, for one motion. */
+  const overlay = (src: string, b: DOMRect): HTMLImageElement => {
+    const img = document.createElement('img');
+    img.className = 'pg-fly';
+    img.src = src;
+    img.alt = '';
+    Object.assign(img.style, { left: `${b.x}px`, top: `${b.y}px`, width: `${b.width}px`, height: `${b.height}px` });
+    dlg.append(img);
+    return img;
+  };
+  /** A figure flies from box `a` to box `b` in 320 ms (flyEl, :1524): by gait `g`, else straight; `gone` ends it in a puff. */
+  function fly(src: string, a: DOMRect, b: DOMRect, g?: Gait, gone = false): void {
+    const k = a.height / b.height, dx = a.x + a.width / 2 - b.x - b.width / 2, dy = a.bottom - b.bottom, end = gone ? 320 / 520 : 1;
+    const at = (t: number, p = { lift: 0, sx: 1, sy: 1, tilt: 0 }, offset?: number): Keyframe => ({ offset, opacity: 1,
+      transform: `translate(${dx * (1 - t)}px, ${dy * (1 - t) - p.lift}px) scale(${(k + (1 - k) * t) * p.sx}, ${(k + (1 - k) * t) * p.sy}) rotate(${p.tilt}rad)` });
+    const frames = g ? Array.from({ length: 25 }, (_, i) => { const p = g.at(i / 24, 1); return at(p.travel, p, (i / 24) * end); }) : [{ ...at(0), opacity: 0.9, easing: EASE }, at(1, undefined, end)];
+    if (gone) frames.push({ ...PUFF, easing: EASE });
+    run(overlay(src, b), frames, gone ? 520 : 320, 'linear', true);
+  }
+  /** The figure `src` on square `s` goes in a puff after `hold` ms (a taken piece). */
+  const puff = (src: string, s: number, hold: number): void =>
+    run(overlay(src, figBox(s)), [{ opacity: 1 }, { opacity: 1, transform: 'none', offset: hold / (hold + 200), easing: EASE }, PUFF], hold + 200, 'linear', true);
+  /** Hides the open piece on the board while it flies there. */
+  const land = (): void => run(boardEl.querySelector('[data-open]'), [{ opacity: 0 }, { opacity: 0 }], 320);
+  /** The board ripple (marks.js:1028-1033), after this action's last draw: the marks pop ring by ring out from the open
+   *  piece; after a paint, the painted squares `at` only. */
+  const ripple = (at?: string[]): void => queueMicrotask(() => {
+    for (const g of boardEl.querySelectorAll<SVGGElement>('[data-sq]:not(.kdm-ghost)')) {
+      const t = parseSq(g.dataset.sq!);
+      if (at && !at.includes(g.dataset.sq!)) continue;
+      g.classList.add('kdm-ripple');
+      if (!at) g.style.setProperty('--ring', `${Math.max(Math.abs(file(t) - file(from)), Math.abs(rank(t) - rank(from)))}`);
+    }
+  });
+  /** An item opens (enterPiece, :1541-1549): its figure fades in on the plinth, the board ripples, and the piece comes from its ledge slot by its gait. */
+  const arrive = (): void => queueMicrotask(() => {
+    run(q('.pg-figure img'), [{ opacity: 0, transform: 'translateY(14px) scale(0.96)' }, {}], 480, EASE);
+    ripple();
+    const fig = q<HTMLImageElement>('.slot.open .fig');
+    if (brush || !fig?.getClientRects().length || !boardEl.querySelector('[data-open]')) return;
+    fly(fig.src, fig.getBoundingClientRect(), figBox(from), gaitOf(cur.d));
+    land();
+  });
+  /** The first change makes a copy (flyToYours, :1796-1802): the name stamps, the figure flies to its slot in Yours, and the slot flashes (:366). */
+  const copied = (): void => queueMicrotask(() => {
+    run(q('.pg-name h3'), [{ opacity: 0, transform: 'scale(1.18) rotate(-2deg)' }, { opacity: 1, offset: 0.6 }, {}], 320, SPRING);
+    const fig = q<HTMLImageElement>('.pg-figure img'), slot = q('.slot.open .fig');
+    if (!fig || !slot?.getClientRects().length) return;
+    fly(fig.src, fig.getBoundingClientRect(), slot.getBoundingClientRect());
+    run(slot, [{ opacity: 0 }, { opacity: 0, offset: 0.62 }, { opacity: 1, offset: 0.62 },
+      { filter: 'drop-shadow(0 0 0.75px rgba(43, 38, 33, 0.7)) drop-shadow(0 0 12px rgb(233, 192, 113))', offset: 0.77 }], 520);
+  });
+  /** A stamp (:81-108): the seal stamps with its wax ring, the stone shakes, the new line unrolls, and the board ripples. */
+  const stamped = (a: Ability['a']): void => queueMicrotask(() => {
+    const i = canonical(cur.d).rules.findIndex(r => r.does.a === a), seal = q(`.sline[data-seal="${i}"] .sl-seal, .pg-pseal[data-seal="${i}"]`), wax = document.createElement('span');
+    wax.className = 'pg-wax';
+    seal?.append(wax);
+    run(seal, [{ transform: 'scale(1.35) rotate(-8deg)' }, {}], 320, SPRING);
+    run(wax, [{ opacity: 0.9, transform: 'scale(0.9)' }, { opacity: 0, transform: 'scale(1.8)' }], 420, EASE, true);
+    run(q('.pg-stone .front'), [{ transform: 'translateX(-1px)', offset: 0.25 }, { transform: 'translateX(1px)', offset: 0.75 }], 160);
+    run(q(`.sline[data-seal="${i}"] .txt`), [{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0)' }], 200, EASE);
+    ripple();
+  });
 
   /** A nested modal sheet (dialog.ts sheet()); `wire` gets its body. A tap on the backdrop closes it (src/dialog-dismiss.ts).
    *  A change under the sheet can redraw the control that opened it: the focus then goes back to its new copy. */
@@ -197,7 +297,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     cur = { key: `design:${d.id}`, d, yours: true };
     save();
     render();
-    if (!undos[undos.length - 1].item.yours) revealOpenSlot();
+    if (!undos[undos.length - 1].item.yours) { revealOpenSlot(); copied(); }
     return true;
   }
   /** Undo: back to the step before, and on the Try board as an edit does (change). Back before the first edit, the copy
@@ -288,6 +388,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     save();
     render();
     revealOpenSlot();
+    copied();
     if (!unsaved) toast('A copy is on your shelf.');
   }
   /** Delete asks first; then the ledge drops the design, and the pool piece it came from opens (else the Pawn). */
@@ -382,6 +483,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     brush = null;
     toolsOpen = false;
     render();
+    ripple();
   }
   function paint(q: string): void {
     const s = parseSq(q), x = file(s) - 3, y = rank(s) - 3;
@@ -392,14 +494,13 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       lock.style.cssText = `left:${file(s) * 12.5}%;top:${(7 - rank(s)) * 12.5}%`;
       lock.innerHTML = sigil('lock', 26);
       paintEl.append(lock);
-      setTimeout(() => lock.remove(), 450);
+      run(lock, [{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 0 }], 420, 'ease', true);
       return toast('Reach ends 3 squares out.', 'lock');
     }
     // A mark that the paint alone does not make: a rule makes it.
     if (sc.marks.some(m => m.sq === q && m.diff !== '-') && !sceneOf({ squares: cur.d.squares, lines: cur.d.lines, rules: [] }, board, from).marks.some(m => m.sq === q))
       return toast('A rule makes this mark. Tap its seal.', 'lockOpen');
     const pts = orbit(x, y, mirror), b = brush!;
-    pulse = pts.map(([a, c]) => sqName(sq(3 + a, 3 + c)));
     const painted = change('paint', d => {
       for (const [a, c] of pts) {
         const i = d.squares.findIndex(t => t.x === a && t.y === c), m = brushMark(d.squares[i]?.mark, b);
@@ -408,6 +509,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     });
     // The same paint again: nothing changes, the tiles pulse.
     if (!painted) render();
+    ripple(pts.map(([a, c]) => sqName(sq(3 + a, 3 + c))));
   }
   /** A nub switches its line with its Mirror partners (spec decision 35). */
   function toggleLine(l: Dir): void {
@@ -572,6 +674,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     } else return;
     isolate();
     drawBoard();
+    // The kept rule's pill pulses once (:1640, :1646).
+    if (l && focus !== null) run(l.querySelector('.pill'), [{ boxShadow: '0 0 0 5px rgba(233, 192, 113, 0.9)', offset: 0.5 }], 480);
   });
   /** Hover or keyboard focus on a rule line shows that rule alone until the pointer or the focus goes; a kept rule or knot wins. */
   const hoverOn = (t: EventTarget | null): void => {
@@ -633,7 +737,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   }
   /** S, the Add row and the phone's +: the shelf opens (no more than 3 rules: the limit words). */
   function openShelf(): void {
-    if (cur.d.rules.length >= MAX_RULES) return toast(FULL, 'lock');
+    // At 3 of 3 the lines shake (:97-98, :1815).
+    if (cur.d.rules.length >= MAX_RULES) {
+      run(q('.pg-lines, .pg-pseals'), [-4, 4, -4, 4].map((x, i) => ({ transform: `translateX(${x}px)`, offset: (i + 1) / 5 })), 260);
+      return toast(FULL, 'lock');
+    }
     brush = row = peek = pick = card = focus = knotAt = why = null;
     toolsOpen = false;
     shelfOpen = true;
@@ -655,6 +763,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     shelfOpen = false;
     pick = null;
     render();
+    stamped(b.a);
     focusRule(b.a);
   }
   function removeRule(a: Ability['a']): void {
@@ -679,7 +788,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (!c) return;
     if (c.off) return toast(c.off);
     row = peek = null;
-    if (!change('rule', c.apply)) render();
+    if (change('rule', c.apply)) ripple(); else render();
     if (c.like) toast(`Added to Moves: ${LIKE_ADDED[c.like]}.`);
     (q<HTMLElement>(`[data-${when ? 'when' : 'pill'}="${a}"]`) ?? q<HTMLElement>('[data-act="shelf"]') ?? q<HTMLElement>('#pg-h')).focus();
   }
@@ -716,8 +825,6 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     boardEl.innerHTML = drawString(sc, {
       s, art, focus: iso, stamps: narrow.matches ? x => look && x === focus : undefined, hover: why ?? near ?? keyed, select: why ?? (lifted ? sqName(from) : null), lift: lifted,
     });
-    for (const p of pulse) boardEl.querySelector(`[data-sq="${p}"]:not(.kdm-ghost)`)?.classList.add('kdm-ripple');
-    pulse = [];
   }
   function squareLabel(at: string): string {
     const m = sc.marks.find(x => x.sq === at && !x.on), occ = sc.pieces.find(p => p.sq === at);
@@ -890,6 +997,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     }
     kbd = sqName(s);
     render();
+    ripple();
   }
   /** The armed token: a tap on an empty square puts its pawn there, a tap on another piece takes that piece away. */
   function putToken(s: number): void {
@@ -898,6 +1006,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     b[s] = b[s] ? 0 : piece(P, token === 'enemy' ? BLACK : WHITE);
     setUp(b);
     render();
+    ripple();
   }
   /** The board with the piece back on its square as the design, after a removal or a "becomes": for the die, the broom, an edit and Undo. */
   function restored(): Uint8Array {
@@ -918,6 +1027,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     const who = (s: number): string => `${colorOf(pos.board[s]) ? 'enemy' : 'your'} ${PIECE[typeOf(pos.board[s])]}`;
     const said = m.shove ? `Pushed the ${who(m.shove.from)} from ${sqName(m.shove.from)} to ${sqName(m.shove.to)}.` : m.swap ? `Swapped places with the ${who(m.to)} on ${sqName(m.to)}.`
       : fresh.length ? `${actOf(m) === 'shot' ? 'Shot' : 'Took'} the ${fresh.map(s => `${who(s)} on ${sqName(s)}`).join(' and the ')}.` : `Moved to ${sqName(m.to)}.`;
+    const was = pos.from, src = boardEl.querySelector('[data-open]')?.getAttribute('href'), taken = fresh.map(s => [s, pieceArt(typeOf(pos.board[s]), colorOf(pos.board[s]) === BLACK)] as const);
     const board = makeMove({ board: pos.board, turn: WHITE, halfmove: 0, ply: 0 }, { ...m, from: pos.from, captures: fresh }).board;
     const more = m.selfRemove || m.promo || !fresh.length || m.to === m.from ? [] : all.filter(x => x.captures.length > m.captures.length && m.captures.every((c, i) => x.captures[i] === c));
     backs.push(pos);
@@ -928,6 +1038,10 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     promo = null;
     toast(`${said}${m.promo ? ` It became a ${PIECE[m.promo]}.` : ''}${m.selfRemove ? ' It is removed too.' : ''}${more.length ? ' It may take again, or Finish.' : ''}`);
     render();
+    // Move here (doMoveHere, :1700-1725): the piece goes by its gait; a taken piece, and a piece removed too, goes in a puff.
+    const flies = !!src && m.to !== was && !m.swap;
+    if (flies) { fly(src, figBox(was), figBox(m.to), gaitOf(cur.d), !!m.selfRemove); land(); } else if (src && m.selfRemove) puff(src, was, 0);
+    for (const [s, art] of taken) if (art) puff(art, s, flies ? 320 : 0);
   }
   /** The foot of the Why tag on square `q` (proving-ground.html:1346-1352): the "becomes" choice; else a button for each
    *  action that a tap there plays (two actions ask which one), "Put an enemy here" on an empty take, "Show on <square>"
@@ -953,6 +1067,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     why = at >= 0 ? sqName(at) : null;
     kbd = why ?? sqName(to);
     render();
+    ripple();
   }
   /** The tray (renderTray, :1369-1396): the Friend and Enemy tokens, the eye, the die, the broom, and the move number or the
    *  card only when a rule reads them (decision 24). On the desktop and in short landscape it stands at the foot of the right
@@ -1043,6 +1158,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (!b) return;
     const d = shelf.find(x => x.id === b.dataset.design);
     if (b.matches('.newtile')) newPiece(); else show(d ? { key: `design:${d.id}`, d, yours: true } : pool(b.dataset.piece!));
+    arrive();
     // renderLedge replaced the slot: give the focus to its new copy, with no scroll away from the board. In short landscape
     // the choice closed the sheet (show): the focus goes back to Pieces.
     q<HTMLElement>(short.matches ? '.pg-pieces' : '.slot.open').focus({ preventScroll: true });
@@ -1171,7 +1287,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (b) return arm(b as Brush);
     if (pa || wa) return toggleRow((pa ?? wa) as Ability['a'], !!wa);
     if (choice) return choose(choice);
-    if (sa) { pick = sa as Ability['a']; return render(); }
+    // A chosen seal pulses once (:331).
+    if (sa) { pick = sa as Ability['a']; render(); return run(q(`[data-sealitem="${sa}"] .kd-seal`), [{ opacity: 0.55, offset: 0.5 }], 400, 'ease-in-out'); }
     if (rm) return removeRule(rm as Ability['a']);
     const act = t.dataset.act;
     if (act === 'shelf') return openShelf();
@@ -1183,10 +1300,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (act === 'stir' || act === 'clear') {
       setUp(act === 'stir' ? stir(restored(), pos.from, Math.random) : clear(restored(), pos.from));
       why = null;
-      return render();
+      render();
+      return ripple();
     }
     if (act === 'plus5') { pos = { ...pos, st: { ...pos.st, move: pos.st.move + 5 } }; return render(); }
-    if (act === 'putenemy') { const b = new Uint8Array(pos.board); b[parseSq(why!)] = piece(P, BLACK); setUp(b); return render(); }
+    if (act === 'putenemy') { const b = new Uint8Array(pos.board); b[parseSq(why!)] = piece(P, BLACK); setUp(b); render(); return ripple(); }
     if (act === 'showon') return showOn(parseSq(t.dataset.on!));
     if (act === 'finish') { pos = { ...pos, chain: null, st: { ...pos.st, move: pos.st.move + 1 } }; return render(); }
     if (act === 'takeback') { pos = backs.pop() ?? pos; promo = null; return render(); }
@@ -1284,6 +1402,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (!dlg.open) dlg.showModal();
     show(item);
     revealOpenSlot();
+    arrive();
     q<HTMLElement>('#pg-h').focus();
   }
 

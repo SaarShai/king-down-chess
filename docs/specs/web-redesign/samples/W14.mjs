@@ -1,4 +1,4 @@
-// W14: the Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground tickets 01 to 09).
+// W14: the Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground tickets 01 to 10).
 // The open piece on its example board with its marks, the plinth with its rules, the key and the Pieces ledge;
 // a rule kept by a tap (hero-i1 to hero-i3) and a cracked knot (beast-cancel: My Beast, its pill changed from "a piece, not a
 // pawn" to "anything", so the top bar says Undo rule; a tap on e5 opens its Why tag) (ticket 04); then
@@ -23,6 +23,8 @@
 // Ticket 09 renders open-pawn, paint, stamp-preview, why-d7 and tray also on a phone held sideways (landscape, 844 x 390): the
 // board on the left, the plinth strip, the brush row and the tray in one column, the shelf and the Why tag as side sheets, and the
 // pieces from the sheet that Pieces opens. The mockup has no landscape state.
+// Ticket 10 records painted (the first paint: the copy flies to Yours), stamped (the stamp) and moved (Move here) also as phone
+// videos with Motion Normal. In a video, each step's motion plays out (700 ms) before the next step.
 // Mockup states to set beside them: open, hero, hero-i1, hero-i2, hero-i3, archer, beast, beast-cancel, maester, ogre, guard,
 // phone-open, phone-hero, why-g7, paint, painted, stamp-preview, stamped, asleep-b4, awake-e2, rook-leap; for new-piece, the
 // open state and a tap on NEW; for design-menu, painted and ⋯ (the phone's ⋯; the mockup's desktop has no ⋯); for the card
@@ -46,13 +48,16 @@ const shareOn = async (page, phone, on) => {
   await page.evaluate(on => Object.defineProperty(navigator, 'share', { configurable: true, value: on ? async () => {} : undefined }), on);
   await menu(page, phone, 'share', '.pg-share');
 };
+/** Ticket 10: in a video, the motion of a step plays to its end before the next step (the next action stops a motion). */
+const playOut = (page, video) => video && page.waitForTimeout(700);
 /** Opens the Workshop from the menu, then the pool piece `key` from the ledge (in short landscape, from the sheet that Pieces opens). */
-const piece = key => async ({ page }) => {
+const piece = key => async ({ page, video }) => {
   await pressMenu(page, 'Workshop');
   await page.locator('#workshop.pg[open]').waitFor();
   if (key !== 'pawn' && await page.isHidden('.pg-ledge')) await page.click('[data-act="pieces"]');
   if (key !== 'pawn') await page.click(`.slot[data-piece="${key}"]`);
   await page.locator(`.slot[data-piece="${key}"][aria-current="true"]`).waitFor({ state: 'attached' });
+  await playOut(page, video);
 };
 const state = (name, key) => ({ name, query: '?workshop=a', save, targets, controls, steps: piece(key) });
 /** Ticket 09: the state also on a phone held sideways (landscape, 844 × 390). */
@@ -60,35 +65,39 @@ const turned = s => ({ ...s, sizes: ['phone', 'desktop', 'landscape'] });
 /** The Paladin with rule i kept by a tap on its seal. */
 const kept = i => ({ ...state(`hero-i${i + 1}`, 'paladin'), steps: async a => { await piece('paladin')(a); await a.page.click(`.sline[data-seal="${i}"] .sl-seal, .pg-pseal[data-seal="${i}"]`); } });
 /** The Why tag of square `sq` on pool piece `key`: a tap opens it (`how` 'tap'), or Enter on the focused square ('key'), or the pointer rests on it on the desktop ('hover'). */
-const why = (name, key, sq, how = 'tap') => ({ ...state(name, key), steps: async ({ page, size }) => {
-  await piece(key)({ page });
+const why = (name, key, sq, how = 'tap') => ({ ...state(name, key), steps: async ({ page, size, video }) => {
+  await piece(key)({ page, video });
   const at = `.sq[data-sq="${sq}"]`;
   if (how === 'key') { await page.focus(at); await page.keyboard.press('Enter'); } else if (how === 'hover' && size !== 'phone') await page.hover(at); else await page.click(at);
+  await playOut(page, video);
 } });
 /** My Beast of the mockup, removed after a piece (scenes.js:201-207), on the shelf. */
 const beastPiece = JSON.stringify({ v: 1, designs: [{ v: 1, kind: 'piece', id: 'mybeast', name: 'My Beast', named: true, look: { body: 'S', auto: false, glow: null, army: 0 }, letter: 'Y',
   ownLetter: false, squares: [[-1, 1], [0, 1], [1, 1], [-1, 0], [1, 0], [-1, -1], [0, -1], [1, -1]].map(([x, y]) => ({ x, y, mark: 'both' })), lines: [],
   rules: [{ when: { on: 'takes' }, does: { a: 'chain' } }, { when: { on: 'takes' }, does: { a: 'removedAfter', what: 'piece' } }], from: ['beast'], updated: 1760000000000 }] });
 /** Both armed, c5 painted (and e5, its mirror), and out of brush mode: My Pawn of the mockup. */
-const paintBoth = async page => {
+const paintBoth = async (page, video) => {
   await page.click('.brush[data-brush="both"]');
   await page.click('.sq[data-sq="c5"]');
+  await playOut(page, video);
   await page.keyboard.press('Escape');
+  await playOut(page, video);
 };
 /** The Pawn with Both armed; `paint` paints c5 (and e5, its mirror) and leaves brush mode; `then` acts on the phone or the desktop. */
-const brush = (name, paint, then) => ({ ...state(name, 'pawn'), steps: async ({ page, size }) => {
-  await piece('pawn')({ page });
-  if (paint) await paintBoth(page);
+const brush = (name, paint, then) => ({ ...state(name, 'pawn'), steps: async ({ page, size, video }) => {
+  await piece('pawn')({ page, video });
+  if (paint) await paintBoth(page, video);
   else await page.click('.brush[data-brush="both"]');
   await then?.(page, size === 'phone');
 } });
 
 /** My Pawn with the Rules shelf open and "Moves like" picked, as the mockup's states; `stamp` stamps it; `then` acts on the phone or the desktop. */
-const seals = (name, stamp, then) => ({ ...state(name, 'pawn'), steps: async ({ page, size }) => {
-  await piece('pawn')({ page });
-  await paintBoth(page);
+const seals = (name, stamp, then) => ({ ...state(name, 'pawn'), steps: async ({ page, size, video }) => {
+  await piece('pawn')({ page, video });
+  await paintBoth(page, video);
   await page.click('[data-act="shelf"]');
   await page.click('[data-sealitem="movesLike"]');
+  await playOut(page, video);
   if (stamp) await page.click('[data-act="stamp"]');
   await then?.(page, size === 'phone');
 } });
@@ -140,7 +149,7 @@ export default {
     } },
     { name: 'link', query: linkTo(rider), save, targets, controls, steps: async ({ page }) => { await page.click('.pg-sheet [data-board]'); } },
     turned(brush('paint', false)),
-    brush('painted', true),
+    { ...brush('painted', true), video: true },
     brush('weigh', true, async (page, phone) => {
       if (!phone) return page.click('.pg-weigh');
       await page.click('[data-act="more"]');
@@ -148,7 +157,7 @@ export default {
     }),
     brush('phone-tools', false, async (page, phone) => { if (phone) await page.click('[data-act="tools"]'); }),
     turned(seals('stamp-preview', false)),
-    seals('stamped', true),
+    { ...seals('stamped', true), video: true },
     seals('pill-open', true, row('data-pill')),
     seals('when-open', true, row('data-when')),
     seals('three-of-three', true, page => page.keyboard.press('s')),
@@ -159,7 +168,7 @@ export default {
     why('phone-why', 'pawn', 'd6'),
     myPawnOn('asleep-b4', 'b4'),
     myPawnOn('awake-e2', 'e2'),
-    { ...why('moved', 'beast', 'e5'), steps: async a => { await why('', 'beast', 'e5').steps(a); await a.page.click('[data-try="take"]'); } },
+    { ...why('moved', 'beast', 'e5'), video: true, steps: async a => { await why('', 'beast', 'e5').steps(a); await a.page.click('[data-try="take"]'); } },
     { ...state('guard-threats', 'guard'), steps: async ({ page, size }) => {
       await piece('guard')({ page });
       await tray(page, size === 'phone');

@@ -44,11 +44,16 @@
 // and reachPopover (hover or focus on a ledge figure shows its 96 px reach diagram over it; away hides it; a resize to the
 // phone layout hides it; none on the phone).
 // Since ticket 08, link, shareLink, weigh and designMenu go through the card face and the Share sheet.
+// Then ticket 10: motion (each motion of an action, on the desktop and the phone: the entry from the ledge, the kept rule's pill,
+// the tag, Move here with its puffs, the lines at 3 of 3, the paint's ripple, the copy's flight to Yours, the lock, the
+// seal's pulse and the stamp; each ends by 600 ms, by 300 ms at Fast, and 100 ms after that limit none runs; the still pose
+// equals the pose with Animations Off and with reduced motion, which show none; the next tap, Fast, reduced motion and a
+// close stop a running motion).
 // Run it with `npm run check:browser proving-ground`.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { pressMenu } from './app-ui.mjs';
-import { assertNoErrors, env, imageIs, insideViewport, launch, minTarget, noSidewaysScroll, shot, textNotCut, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, env, imageIs, insideViewport, launch, minTarget, noRunningAnimations, noSidewaysScroll, shot, textNotCut, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
 const POOL = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'archer', 'paladin', 'guard', 'maester', 'beast', 'ogre'];
@@ -80,11 +85,12 @@ const KNOTTED = JSON.stringify({ v: 1, designs: [beast('mybeast', 'piece'), beas
 
 const browser = await launch();
 
-/** A page at `query` with the game ready; `shelf` seeds the Workshop shelf. */
-async function open(query = '?workshop=a', { width = 1440, height = 900, shelf } = {}) {
-  const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: width < 721 || height <= 500 });
+/** A page at `query` with the game ready; `shelf` seeds the Workshop shelf; `motion` records the motions (ticket 10). */
+async function open(query = '?workshop=a', { width = 1440, height = 900, shelf, motion, reducedMotion } = {}) {
+  const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: width < 721 || height <= 500, reducedMotion });
   await ctx.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1'));
   if (shelf) await ctx.addInitScript(v => localStorage.setItem('kingdown.workshop', v), shelf);
+  if (motion) await ctx.addInitScript(recordMotion);
   const p = await ctx.newPage();
   trapErrors(p);
   await p.goto(new URL(query, base).href);
@@ -136,8 +142,8 @@ async function has(p, want, why) {
   for (const w of want) assert.ok(m.includes(w), `${why}: no ${w} in ${m.join(', ')}`);
   return m;
 }
-/** The isolate class of the mark on each square: kdm-iso, kdm-dim or null. */
-const iso = (p, ...sqs) => Promise.all(sqs.map(sq => p.getAttribute(`.pg-board [data-sq="${sq}"]`, 'class')));
+/** The isolate class of the mark on each square: kdm-iso, kdm-dim or null (the ripple's class of ticket 10 does not count). */
+const iso = (p, ...sqs) => Promise.all(sqs.map(sq => p.$eval(`.pg-board [data-sq="${sq}"]`, g => ['kdm-iso', 'kdm-dim'].find(c => g.classList.contains(c)) ?? null)));
 const clearToast = p => p.$eval('.pg-toast', t => { t.textContent = ''; });
 /** Ticket 05: the open Why tag (its square, occupant, count ring, the captions of its parts and its note), or null. */
 const tag = p => p.evaluate(() => {
@@ -1734,6 +1740,124 @@ async function reachPopover() {
   await q.context().close();
 }
 
+/** Ticket 10: each animation in the Workshop as { name, end }: a CSS animation by its name, a transition as "transition
+ *  <property>", a script motion by its element ("img.pg-fly"). A press or a key of the check starts a new list (the next action). */
+function recordMotion() {
+  window.motions = [];
+  const seen = new WeakSet(), name = a => a.animationName ?? (a.transitionProperty ? `transition ${a.transitionProperty}`
+    : `${a.effect.target.localName}${[...a.effect.target.classList].map(c => `.${c}`).join('')}`);
+  const look = () => {
+    for (const a of document.getAnimations()) {
+      if (seen.has(a) || !a.effect?.target?.closest?.('#workshop')) continue;
+      seen.add(a);
+      window.motions.push({ name: name(a), end: a.effect.getComputedTiming().endTime });
+    }
+    requestAnimationFrame(look);
+  };
+  requestAnimationFrame(look);
+  for (const k of ['pointerdown', 'keydown']) addEventListener(k, e => { if (e.isTrusted) window.motions = []; }, true);
+}
+/** The still pose: the look and the place of each element that shows in the Workshop (the toast has its own timer). */
+const pose = p => p.$$eval('#workshop *:not(.pg-toast, .pg-toast *)', es => es.filter(e => e.getClientRects().length).map(e => {
+  const s = getComputedStyle(e), r = e.getBoundingClientRect();
+  return [e.localName, e.getAttribute('class'), s.transform, s.opacity, s.filter, s.clipPath, s.boxShadow, Math.round(r.x), Math.round(r.y)].join(' ');
+}));
+/** The actions of the motion check: [what, action, the motions that it plays]. The entry: the piece from its slot, the
+ *  board's open piece hidden while it flies, the plinth figure and the ripple. */
+const ENTRY = ['img.pg-fly', 'image', 'img', 'kdm-pop'];
+const WIDE = [
+  ['the Workshop opens', door, ENTRY],
+  ['the Paladin from the ledge', p => p.click('.slot[data-piece="paladin"]'), ENTRY],
+  ['a tap keeps rule III', p => p.click('.sline[data-seal="2"] .sl-seal'), ['span.pill']],
+  ['a tap on d7', p => tap(p, 'd7'), ['pg-tagin']],
+  ['Move here', p => p.click('[data-try="take"]'), ['img.pg-fly']],
+  ['S at 3 of 3', p => p.keyboard.press('s'), ['div.pg-lines']],
+  ['the Pawn from the ledge', p => p.click('.slot[data-piece="pawn"]'), ENTRY],
+  ['the first paint', async p => { await p.keyboard.press('3'); await tap(p, 'c5'); }, ['kdm-pop', 'h3', 'img.pg-fly', 'img.fig']],
+  ['a paint out of reach', p => tap(p, 'h8'), ['span.pg-lock']],
+  ['Done', p => p.click('[data-act="done"]'), ['kdm-pop']],
+  ['a seal on the shelf', async p => { await p.keyboard.press('s'); await p.click('[data-sealitem="movesLike"]'); }, ['svg.kd-seal', 'kdm-pulse']],
+  ['Stamp', p => p.click('[data-act="stamp"]'), ['button.sl-seal', 'span.pg-wax', 'div.front', 'span.txt', 'kdm-pop']],
+  ['the piece placed on e3', async p => { await tap(p, 'd4'); await tap(p, 'e3'); }, ['kdm-pop']],
+];
+const PHONE = [
+  ['the Workshop opens', door, ENTRY],
+  ['the Paladin from the ledge', p => p.click('.slot[data-piece="paladin"]'), ENTRY],
+  ['Move here', async p => { await tap(p, 'd7'); await p.click('[data-try="take"]'); }, ['img.pg-fly']],
+  ['the Pawn from the ledge', async p => { await p.keyboard.press('Escape'); await p.click('.slot[data-piece="pawn"]'); }, ENTRY],
+  ['the first paint', async p => { await arm(p, 'both'); await tap(p, 'c5'); }, ['kdm-pop', 'h3', 'img.pg-fly', 'img.fig']],
+  ['Esc leaves brush mode', p => p.keyboard.press('Escape'), ['kdm-pop']],
+  ['a seal on the shelf', async p => { await p.click('.padd'); await p.click('[data-sealitem="movesLike"]'); }, ['svg.kd-seal', 'kdm-pulse']],
+  ['Stamp', p => p.click('[data-act="stamp"]'), ['button.pg-pseal', 'span.pg-wax', 'kdm-pop']],
+];
+/** Plays `steps` at `pace` (normal, fast or off; `reduce` emulates reduced motion): after each action the motions that it
+ *  plays, none past `limit` ms, the board in its place, and 100 ms after the limit (700 ms at Normal) none running. With no
+ *  motion the check looks 100 ms after the action. Gives the still pose after each action. */
+async function motionRun(steps, { pace = 'normal', reduce = false, width = 1440, height = 900 } = {}) {
+  const p = await open('?workshop=a', { width, height, motion: true, reducedMotion: reduce ? 'reduce' : undefined });
+  // The toast fades out on its own timer (3.6 s), not on an action: its fade is off here.
+  await p.addStyleTag({ content: '.pg-toast { transition: none !important; }' });
+  await p.evaluate(v => { document.documentElement.dataset.pace = v; }, pace);
+  const none = pace === 'off' || reduce, limit = pace === 'fast' ? 300 : 600, wait = none ? 100 : limit + 100, poses = [];
+  for (const [what, act, want] of steps) {
+    const why = `${width} x ${height}, ${reduce ? 'reduced motion' : `pace ${pace}`}: ${what}`;
+    await act(p);
+    // The board stays still while the motions run (the stone's shake moves only the stone).
+    const box = await p.locator('.pg-board').boundingBox();
+    await p.waitForTimeout(wait);
+    // The still pose waits for the fonts and the images that show, not for a motion.
+    await p.waitForFunction(() => document.fonts.status === 'loaded' && [...document.querySelectorAll('#workshop img')].every(i => i.complete || !i.getClientRects().length));
+    assert.deepEqual(await p.locator('.pg-board').boundingBox(), box, `${why}: the board does not move`);
+    const m = await p.evaluate(() => window.motions);
+    if (none) assert.deepEqual(m, [], `${why}: no motion`);
+    for (const w of none ? [] : want) assert.ok(m.some(x => x.name === w || x.name.startsWith(`${w}.`)), `${why}: plays ${w}; it played ${m.map(x => x.name).join(', ')}`);
+    for (const x of m) assert.ok(x.end <= limit, `${why}: ${x.name} ends at ${x.end} ms, after ${limit} ms`);
+    await noRunningAnimations(p, '#workshop');
+    assert.deepEqual(await p.evaluate(() => [document.querySelector('#workshop').getAnimations({ subtree: true }).length, document.querySelectorAll('.pg-fly, .pg-wax').length]), [0, 0],
+      `${why}: ${wait} ms on, no motion and no flight is left`);
+    poses.push(await pose(p));
+  }
+  await p.context().close();
+  return poses;
+}
+async function motion() {
+  const still = await motionRun(WIDE);
+  for (const [i, p] of (await motionRun(WIDE, { pace: 'off' })).entries()) assert.deepEqual(p, still[i], `${WIDE[i][0]}: the still pose of Animations Off`);
+  for (const [i, p] of (await motionRun(WIDE, { reduce: true })).entries()) assert.deepEqual(p, still[i], `${WIDE[i][0]}: the still pose of reduced motion`);
+  await motionRun(WIDE, { pace: 'fast' });
+  await motionRun(PHONE, { width: 390, height: 844 });
+  await motionRun(PHONE, { width: 390, height: 844, pace: 'fast' });
+
+  // The next action, Fast, reduced motion and a close stop a running motion: the check holds the motions of an entry, then acts.
+  const p = await open('?workshop=a', { motion: true });
+  const hold = async piece => {
+    await p.waitForTimeout(700);
+    await p.click(`.slot[data-piece="${piece}"]`);
+    assert.ok(await p.evaluate(() => {
+      window.held = document.querySelector('#workshop').getAnimations({ subtree: true }).filter(a => !(a instanceof CSSTransition));
+      for (const a of window.held) a.pause();
+      return window.held.length >= 4;
+    }), `the ${piece} enters with its motions`);
+  };
+  const stopped = why => p.waitForFunction(() => window.held.every(a => a.playState === 'idle') && !document.querySelector('.pg-fly'), null, { timeout: 1000 })
+    .catch(() => assert.fail(`${why} stops the running motions`));
+  await door(p);
+  await hold('paladin');
+  await tap(p, 'e6');
+  await stopped('a tap on the board');
+  await hold('pawn');
+  await p.evaluate(() => { document.documentElement.dataset.pace = 'fast'; });
+  await stopped('Fast');
+  await hold('paladin');
+  await p.emulateMedia({ reducedMotion: 'reduce' });
+  await stopped('reduced motion');
+  await p.emulateMedia({ reducedMotion: 'no-preference' });
+  await hold('pawn');
+  await p.evaluate(() => document.querySelector('#workshop').close());
+  await stopped('a close');
+  await p.context().close();
+}
+
 try {
   await opens();
   await poolPieces();
@@ -1767,6 +1891,7 @@ try {
   await shareSheet();
   await linkCard();
   await reachPopover();
+  await motion();
   assertNoErrors();
   console.log('proving-ground: all groups pass');
 } finally {

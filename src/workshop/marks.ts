@@ -438,7 +438,7 @@ function chalk(z: Zone, side: 'w' | 'b', s: number): string {
  * the player lifts it). An open threat glows red under its target (marks.js:1100). Only a mark's group has data-sq (with data-k,
  * data-cond, data-diff and data-on; a '-' mark has the class kdm-ghost); a rail, an arch and an effect have data-k,
  * data-from and data-to (a pip and a fan: data-at; a pip also data-n); a badge has data-badge, and the stamps of a square data-stamp and
- * data-a (the rules' abilities). A part that a preview adds (the scene's `pv`) has data-pv.
+ * data-a (the rules' abilities). A part that a preview adds (the scene's `pv`) has data-pv; the open piece's image has data-open.
  */
 export function drawString(scene: Scene, o: {
   s: number; art: (p: ScenePiece) => string; focus?: (by: readonly number[]) => boolean; stamps?: (by?: number) => boolean; hover?: string | null; select?: string | null; lift?: boolean;
@@ -483,7 +483,7 @@ export function drawString(scene: Scene, o: {
   if (open) { const { x, y } = XY(open.sq); under += `<ellipse cx="${n(x + s / 2)}" cy="${n(y + s * 0.9)}" rx="${n(s * 0.36)}" ry="${n(s * 0.11)}" fill="url(#kdm-glow-gold)"/>`; }
   const pieces = scene.pieces.map(p => {
     const { x, y } = XY(p.sq), h = 0.9 * s, up = p.open && o.lift ? 0.12 * s : 0;
-    return `<image href="${esc(o.art(p))}" x="${n(x + (s - h) / 2)}" y="${n(y + s - 0.075 * s - h - up)}" width="${n(h)}" height="${n(h)}" preserveAspectRatio="xMidYMax meet" filter="url(#kdm-rim)"${up ? ' opacity=".6"' : ''}/>`;
+    return `<image href="${esc(o.art(p))}" x="${n(x + (s - h) / 2)}" y="${n(y + s - 0.075 * s - h - up)}" width="${n(h)}" height="${n(h)}" preserveAspectRatio="xMidYMax meet" filter="url(#kdm-rim)"${p.open ? ' data-open="1"' : ''}${up ? ' opacity=".6"' : ''}/>`;
   }).join('');
   for (const ar of scene.arches) over += group({ k: 'arch', from: ar.from, over: ar.over, to: ar.to, pv: ar.pv && '1' }, arch(CTR(ar.from), CTR(ar.to), s), ar.by);
   const head = clamp(s * 0.125, 7, 10);
