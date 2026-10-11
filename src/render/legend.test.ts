@@ -101,7 +101,7 @@ describe('the move legend', () => {
       .map(f => readFileSync(new URL(f, dir), 'utf8')).join('\n');
     expect(render.match(/\b(gem|brackets|sight)\(/g)).toBeNull();
     // The old gem gold, its light gold and the dashed shot ring (the character classes keep this line out of a grep for them).
-    const css = readFileSync(new URL('../workshop/workshop.css', import.meta.url), 'utf8');
+    const css = readFileSync(new URL('../workshop/ground.css', import.meta.url), 'utf8');
     expect(css.match(/#e9b4[4]c|#f0bf5[2]|dashed #b3261[e]/gi)).toBeNull();
   });
 });

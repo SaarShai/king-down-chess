@@ -1,4 +1,4 @@
-/* The Proving Ground (ground.ts): the Workshop's view A. Mockup: docs/research/rules-ui-2026-10-10/mockups/
+/* The Workshop, the Proving Ground (ground.ts). Mockup: docs/research/rules-ui-2026-10-10/mockups/
    proving-ground.html, its line numbers in the comments. The regions are a CSS grid, not a scaled stage: wide at
    1000 px and up (:31-436), narrow below (the phone form, :443-540). The tokens are in src/style.css. */
 #workshop.pg {
@@ -10,7 +10,7 @@
   font-variant-numeric: lining-nums;
 }
 #workshop.pg[open] { display: flex; flex-direction: column; }
-#workshop.pg::backdrop { background-color: var(--floor-base, #f2e9d6); }
+#workshop.pg::backdrop { background-color: var(--floor-base, #f2e9d6); background-image: var(--floor, none); }
 :root[data-pace='off'] #workshop.pg * { transition: none !important; animation: none !important; }
 /* Motion (ticket 10, decision 27): each motion ends by 600 ms at the still pose, by 300 ms at Fast (--pace); none under
    Animations Off (above) or reduced motion (src/style.css). The CSS motions fill backwards only, so each ends at its still style. */
@@ -382,7 +382,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .pg-toast { display: flex; align-items: center; gap: 8px; }
 .pg-toast svg { flex: none; color: var(--stone-700); }
 
-/* ---- a save the device refused (dialog.ts drawAlert), and the sheets (dialog.ts sheet()) ---- */
+/* ---- a save the device refused, and the sheets ---- */
 .pg-alert { position: absolute; z-index: 40; left: 50%; top: 64px; width: max-content; max-width: calc(100% - 32px); transform: translateX(-50%); padding: 8px 14px;
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; color: var(--danger); background: var(--vellum); border: 2px solid var(--danger); border-radius: var(--radius); box-shadow: var(--shadow-float); }
 .pg-alert p { flex: 1 1 220px; margin: 0; font-size: var(--fs-sm); font-weight: 700; }

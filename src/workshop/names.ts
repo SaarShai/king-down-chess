@@ -1,6 +1,6 @@
 /**
  * Names (revision 3 §4.8): an adjective from the strongest trait and a noun from the body.
- * The name follows the design until the player types or rolls one. The letter is the first free
+ * The name follows the design until the player types one. The letter is the first free
  * letter of the name.
  * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
@@ -33,11 +33,6 @@ const bodyOf = (d: D, auto: string): string => (d.look.auto ? auto : d.look.body
 /** The name a design has until the player names it. */
 export function autoName(d: D, auto = d.look.body): string {
   return `${traits(d)[0] ?? PLAIN[hash(keyOf(d)) % PLAIN.length]} ${NOUN[bodyOf(d, auto)]}`;
-}
-/** The die: another adjective, from the design's traits and the plain words. */
-export function rollName(d: D, auto = d.look.body, rand = Math.random): string {
-  const words = [...new Set([...traits(d), ...PLAIN])];
-  return `${words[Math.floor(rand() * words.length)]} ${NOUN[bodyOf(d, auto)]}`;
 }
 /** A typed name that equals a pool piece or a card gets " (yours)". */
 export const saveName = (name: string): string => (TAKEN.some(t => t.toLowerCase() === name.trim().toLowerCase()) ? `${name.trim().slice(0, 10)} (yours)` : name.trim());

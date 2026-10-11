@@ -1,5 +1,5 @@
 /**
- * The moves of a Workshop design on a board (revision 3 §8.1): what Try it shows, and the
+ * The moves of a Workshop design on a board (revision 3 §8.1): what Try with shows, and the
  * oracle build 2 must match. It reads the engine's board bytes and never calls the engine's move
  * generator, so the engine, the AI and the save have no new code path (§7.1).
  * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
@@ -9,7 +9,7 @@ import { BODIES, DIR, likeSquares, type Body, type Dir, type PieceDesign, type R
 import { BODY } from './vocab';
 
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules'>;
-/** What Try it tracks: the move counter, a first capture, and "Pretend your opponent played a card". */
+/** What Try with tracks: the move counter, a first capture, and "Pretend your opponent played a card". */
 export interface TryState { move: number; captured: boolean; card: boolean }
 export const START: TryState = { move: 1, captured: false, card: false };
 export const CAPITAL: readonly number[] = [27, 28, 35, 36];

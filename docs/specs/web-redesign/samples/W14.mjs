@@ -1,4 +1,4 @@
-// W14: the Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground tickets 01 to 10).
+// W14: the Workshop, the Proving Ground (docs/specs/workshop-proving-ground tickets 01 to 11).
 // The open piece on its example board with its marks, the plinth with its rules, the key and the Pieces ledge;
 // a rule kept by a tap (hero-i1 to hero-i3) and a cracked knot (beast-cancel: My Beast, its pill changed from "a piece, not a
 // pawn" to "anything", so the top bar says Undo rule; a tap on e5 opens its Why tag) (ticket 04); then
@@ -37,12 +37,12 @@ import { pressMenu } from '../../../../tools/app-ui.mjs';
 const save = { back: 'SQBKRSML', fen: '', moves: [], white: 'human', black: 'human', sound: false, pace: 'off' };
 const targets = 'button:not(.sq, .nub, .knot), select, summary, label';
 const controls = '#workshop .pg-menu, #workshop .pg-field';
-/** The W12 design (samples/W12.mjs) as a link; a piece with the Paladin's moves and 3 rules as a link. */
+/** The Rook Rider of the old W12 sample as a link; a piece with the Paladin's moves and 3 rules as a link. */
 const rider = { kind: 'piece', name: 'Rook Rider', look: { figure: 'antler-guardian', body: 'token', auto: true, glow: null, army: 0 }, letter: 'D',
   squares: [{ x: 1, y: 2, mark: 'both' }, { x: -1, y: 2, mark: 'both' }], lines: ['n', 'e', 's', 'w'], rules: [] };
 const lancer = { kind: 'piece', name: 'Holy Lancer', look: { body: 'L', auto: false, glow: null, army: 0 }, letter: 'H', squares: [], lines: ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'],
   rules: [{ when: { on: 'always' }, does: { a: 'linesPass', over: 'own' } }, { when: { on: 'always' }, does: { a: 'cannotTake', what: 'king' } }, { when: { on: 'takes' }, does: { a: 'removedAfter', what: 'piece' } }] };
-const linkTo = d => `?workshop=a&design=${Buffer.from(JSON.stringify(d)).toString('base64url')}`;
+const linkTo = d => `?design=${Buffer.from(JSON.stringify(d)).toString('base64url')}`;
 /** Ticket 08: a device share (`on`) or none, then Share: the top bar's on the desktop, ⋯ on the phone. */
 const shareOn = async (page, phone, on) => {
   await page.evaluate(on => Object.defineProperty(navigator, 'share', { configurable: true, value: on ? async () => {} : undefined }), on);
@@ -50,16 +50,19 @@ const shareOn = async (page, phone, on) => {
 };
 /** Ticket 10: in a video, the motion of a step plays to its end before the next step (the next action stops a motion). */
 const playOut = (page, video) => video && page.waitForTimeout(700);
-/** Opens the Workshop from the menu, then the pool piece `key` from the ledge (in short landscape, from the sheet that Pieces opens). */
+/** In short landscape the ledge is in the sheet that Pieces opens. */
+const ledge = async page => { if (await page.isHidden('.pg-ledge')) await page.click('[data-act="pieces"]'); };
+/** A phone, upright or held sideways, has the narrow controls: ⋯, the rule cards and no pointer. */
+const narrow = size => size !== 'desktop';
+/** Opens the Workshop from the menu, then the pool piece `key` from the ledge. */
 const piece = key => async ({ page, video }) => {
   await pressMenu(page, 'Workshop');
   await page.locator('#workshop.pg[open]').waitFor();
-  if (key !== 'pawn' && await page.isHidden('.pg-ledge')) await page.click('[data-act="pieces"]');
-  if (key !== 'pawn') await page.click(`.slot[data-piece="${key}"]`);
+  if (key !== 'pawn') { await ledge(page); await page.click(`.slot[data-piece="${key}"]`); }
   await page.locator(`.slot[data-piece="${key}"][aria-current="true"]`).waitFor({ state: 'attached' });
   await playOut(page, video);
 };
-const state = (name, key) => ({ name, query: '?workshop=a', save, targets, controls, steps: piece(key) });
+const state = (name, key) => ({ name, save, targets, controls, steps: piece(key) });
 /** Ticket 09: the state also on a phone held sideways (landscape, 844 × 390). */
 const turned = s => ({ ...s, sizes: ['phone', 'desktop', 'landscape'] });
 /** The Paladin with rule i kept by a tap on its seal. */
@@ -68,7 +71,7 @@ const kept = i => ({ ...state(`hero-i${i + 1}`, 'paladin'), steps: async a => { 
 const why = (name, key, sq, how = 'tap') => ({ ...state(name, key), steps: async ({ page, size, video }) => {
   await piece(key)({ page, video });
   const at = `.sq[data-sq="${sq}"]`;
-  if (how === 'key') { await page.focus(at); await page.keyboard.press('Enter'); } else if (how === 'hover' && size !== 'phone') await page.hover(at); else await page.click(at);
+  if (how === 'key') { await page.focus(at); await page.keyboard.press('Enter'); } else if (how === 'hover' && !narrow(size)) await page.hover(at); else await page.click(at);
   await playOut(page, video);
 } });
 /** My Beast of the mockup, removed after a piece (scenes.js:201-207), on the shelf. */
@@ -88,7 +91,7 @@ const brush = (name, paint, then) => ({ ...state(name, 'pawn'), steps: async ({ 
   await piece('pawn')({ page, video });
   if (paint) await paintBoth(page, video);
   else await page.click('.brush[data-brush="both"]');
-  await then?.(page, size === 'phone');
+  await then?.(page, narrow(size));
 } });
 
 /** My Pawn with the Rules shelf open and "Moves like" picked, as the mockup's states; `stamp` stamps it; `then` acts on the phone or the desktop. */
@@ -99,7 +102,7 @@ const seals = (name, stamp, then) => ({ ...state(name, 'pawn'), steps: async ({ 
   await page.click('[data-sealitem="movesLike"]');
   await playOut(page, video);
   if (stamp) await page.click('[data-act="stamp"]');
-  await then?.(page, size === 'phone');
+  await then?.(page, narrow(size));
 } });
 /** On the phone, a tap keeps the rule's seal and a second tap opens its card. */
 const card = async (page, a) => { await page.click(`[data-card="${a}"]`); await page.click(`[data-card="${a}"]`); };
@@ -135,12 +138,13 @@ export default {
     state('maester', 'maester'),
     state('ogre', 'ogre'),
     state('guard', 'guard'),
-    { name: 'beast-cancel', query: '?workshop=a', save, targets, controls, steps: async ({ page, size }) => {
-      const phone = size === 'phone';
+    { name: 'beast-cancel', save, targets, controls, steps: async ({ page, size }) => {
+      const phone = narrow(size);
       await page.evaluate(v => localStorage.setItem('kingdown.workshop', v), beastPiece);
       await pressMenu(page, 'Workshop');
+      await ledge(page);
       await page.click('.slot[data-design="mybeast"]');
-      await page.locator('.slot[data-design="mybeast"][aria-current="true"]').waitFor();
+      await page.locator('.slot[data-design="mybeast"][aria-current="true"]').waitFor({ state: 'attached' });
       if (phone) await card(page, 'removedAfter');
       await page.click(`${phone ? '.pg-card ' : ''}[data-pill="removedAfter"]`);
       await page.click('[data-choice="any"]');
@@ -181,15 +185,16 @@ export default {
       await page.click('[data-act="threats"]');
     } }),
     { ...state('phone-board-tab', 'guard'), steps: async ({ page, size }) => { await piece('guard')({ page }); await tray(page, size === 'phone'); } },
-    { ...state('new-piece', 'pawn'), steps: async ({ page }) => { await piece('pawn')({ page }); await page.click('.newtile'); } },
+    { ...state('new-piece', 'pawn'), steps: async ({ page }) => { await piece('pawn')({ page }); await ledge(page); await page.click('.newtile'); } },
     { ...state('look-more', 'pawn'), steps: async ({ page, size }) => {
       await piece('pawn')({ page });
+      await ledge(page);
       await page.click('.newtile');
-      await menu(page, size === 'phone', 'looks', '.pg-lookmore');
+      await menu(page, narrow(size), 'looks', '.pg-lookmore');
     } },
     { ...state('rename', 'pawn'), steps: async ({ page, size }) => {
       await piece('pawn')({ page });
-      await menu(page, size === 'phone', 'rename', '.pg-pen');
+      await menu(page, narrow(size), 'rename', '.pg-pen');
       await page.keyboard.type('Lancer');
     } },
     brush('design-menu', true, page => page.click('[data-act="more"]')),
@@ -198,10 +203,10 @@ export default {
       await piece('paladin')({ page });
       await page.click('[data-act="more"]');
       await page.click('.pg-morepop [data-act="copydesign"]');
-      await shareOn(page, size === 'phone', false);
+      await shareOn(page, narrow(size), false);
     } },
     { name: 'link-card', query: linkTo(rider), save, targets, controls, steps: async ({ page }) => { await page.locator('.pg-sheet[open] .pg-face').waitFor(); } },
     { name: 'phone-link-card', query: linkTo(lancer), save, targets, controls, steps: async ({ page }) => { await page.locator('.pg-sheet[open] .pg-face').waitFor(); } },
-    { ...state('reach-popover', 'pawn'), steps: async ({ page, size }) => { await piece('pawn')({ page }); if (size !== 'phone') await page.hover('.slot[data-piece="paladin"]'); } },
+    { ...state('reach-popover', 'pawn'), steps: async ({ page, size }) => { await piece('pawn')({ page }); if (!narrow(size)) await page.hover('.slot[data-piece="paladin"]'); } },
   ],
 };

@@ -80,12 +80,6 @@ const KNIGHT8: [number, number][] = [[1, 2], [2, 1], [2, -1], [1, -2], [-1, -2],
 const isLines = (lines: readonly Dir[], set: readonly Dir[]): boolean => lines.length === set.length && set.every(d => lines.includes(d));
 const jumps = (s: Square): boolean => Math.max(Math.abs(s.x), Math.abs(s.y)) > 1;
 
-/* ---- every square, exactly ---- */
-
-/** "2 up, 1 right": the editor's board labels (forward is up). */
-export const dirWords = (x: number, y: number): string =>
-  [y > 0 ? `${y} up` : y < 0 ? `${-y} down` : '', x > 0 ? `${x} right` : x < 0 ? `${-x} left` : ''].filter(Boolean).join(', ');
-
 /* ---- rule sentences ---- */
 
 /** A rule's sentence as parts. The editor shows "Always" as a pill; the card leaves it out. */

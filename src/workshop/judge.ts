@@ -40,13 +40,13 @@ export interface Verdict {
   /** At most 2 removals that bring the point into the band, the smallest change first. */
   fixes: { label: string; design: D; worth: number }[];
   stats: { moves: number; takes: number };
-  /** Rule-book badges by ability: the change in worth (shown by badgeText), `unsure` when never measured; absent = the row cannot work. */
+  /** Rule-book badges by ability: the change in worth, `unsure` when never measured; absent = the row cannot work. */
   deltas: Partial<Record<Rule['does']['a'], { v: number; unsure: boolean }>>;
   /** The warning chip shows. */
   warn: boolean;
   /** At most 90 characters. */
   line: string;
-  /** An unchanged Pawn or Queen: it keeps its own words in every view (bandOf, whyTitle). */
+  /** An unchanged Pawn or Queen: it keeps its own words in every view (bandOf). */
   own: '' | 'pawn' | 'queen';
   /** A hard limit (§4.9) the design breaks, or ''. */
   blocked: string;
@@ -176,9 +176,6 @@ export const metalOf = (w: number): Metal => w >= THRESHOLDS.queen ? 'broken' : 
 export const BAND_WORD: Record<Label, string> = { fair: 'Fair', possiblyOP: 'Possibly overpowered', likelyOP: 'Likely overpowered', untestedOP: 'Possibly overpowered', possiblyWeak: 'Possibly too weak', likelyWeak: 'Likely too weak' };
 /** The label in words, the same on the stage, the gauge, the card, the shelf and in Why?; a Pawn and a Queen keep their own. */
 export const bandOf = (v: Pick<Verdict, 'own' | 'label'>): string => (v.own === 'pawn' ? 'The unit of worth' : v.own === 'queen' ? 'The queen’s worth' : BAND_WORD[v.label]);
-/** The title of the Why? sheet, from the editor and from SAVED alike. */
-export const whyTitle = (v: Pick<Verdict, 'own' | 'label' | 'warn'>): string => (v.own ? 'Why this worth?'
-  : v.label !== 'fair' ? `Why “${BAND_WORD[v.label].toLowerCase()}”?` : v.warn ? 'Why this warning?' : 'Why “fair”?');
 
 /** A rule counts as measured when a measured design has the same rule; "lines pass over" and "becomes" never do (§6.4). */
 const MEASURED = new Set(PRESETS.flatMap(p => p.rules).concat([{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }])
@@ -335,12 +332,6 @@ function hingeText(g: Features): string[] {
   return out;
 }
 
-/** A change in worth for the rule book and the rule cards: halves, but a change of 0.1 to ¼ pawn shows as ¼, not 0. */
-export function badgeText(v: number): string {
-  const a = Math.abs(v), sign = v < 0 ? '−' : '+';
-  return a < 0.1 ? '+0' : a < 0.25 ? `${sign}¼` : `${sign}${halves(a)}`;
-}
-
 /** Every single removal: a rule, a square group (one orbit, one mark), or a line set; `part` names what goes. */
 function removals(d: D): { part: string; label: string; design: D; rule?: Rule }[] {
   const out: { part: string; label: string; design: D; rule?: Rule }[] = [];
@@ -371,12 +362,4 @@ function lineOf(v: Verdict, d: D, mem: ReturnType<typeof memoryOf>, warnFlag: Fl
   }
   if (mem.level === 3) return `Possibly hard to remember: ${mem.rules} rule${mem.rules === 1 ? '' : 's'} and ${mem.exceptions} exception${mem.exceptions === 1 ? '' : 's'}.`;
   return `Fair: about ${pawns(w)}. ${v.like}`;
-}
-
-/** The head of the Why? sheet (W8). */
-export function whyHead(v: Verdict): string {
-  const { point, lo, hi } = v.worth;
-  if (v.label === 'untestedOP') return `About ${pawns(point)}, but the judge is unsure: the guess runs from ${halves(lo)} to ${halves(hi)}. Nothing we measured looks like this. It may be overpowered.`;
-  const range = `About ${pawns(point)} (${halves(lo)} to ${halves(hi)}).`;
-  return `${range} Most pieces are worth 2½ to 5 pawns, the shaded part of the gauge. Only the queen is above.`;
 }

@@ -97,12 +97,12 @@ describe('the fix table of the 2026-10-06 review', () => {
     expect(tableFaults(markdown, sources)).toEqual([]);
   });
 
-  it('gives fix 25 no check, and fix 26 the motion group and "superseded" for its gradients and seams', () => {
+  it('gives fix 25 no check, and fix 26 the motion group and "superseded" for Set A, its gradients and seams', () => {
     const rows = fixRows(markdown);
     expect(rows[24].cell).toBe('not checked: preview page outside the build');
     expect(entries(rows[25].cell)).toEqual([
-      { kind: 'group', file: 'workshop', name: 'motionSetA', note: expect.any(String) },
-      { kind: 'superseded', note: 'gradients and seams' },
+      { kind: 'group', file: 'workshop', name: 'motion', note: expect.any(String) },
+      { kind: 'superseded', note: 'Set A, gradients and seams' },
     ]);
   });
 });

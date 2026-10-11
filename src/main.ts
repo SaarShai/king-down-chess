@@ -86,11 +86,10 @@ const play = connectPlay(view, {
 
 initLessonShelf(play.startLesson, () => $('return-game').click());
 
-/** The Workshop (docs/WORKSHOP.md): its own chunk, loaded on the first tap. It opens over its caller, which stays open.
- *  `?workshop=a` opens view A, the Proving Ground (docs/specs/workshop-proving-ground), in its place. */
-let workshop: Promise<ReturnType<typeof import('./workshop/dialog')['workshopDialog']>> | undefined;
+/** The Workshop (docs/WORKSHOP.md): its own chunk, loaded on the first tap. It opens over its caller, which stays open. */
+let workshop: Promise<ReturnType<typeof import('./workshop/ground')['groundDialog']>> | undefined;
 function openWorkshop(code?: string): void {
-  workshop ??= params.get('workshop') === 'a' ? import('./workshop/ground').then(m => m.groundDialog()) : import('./workshop/dialog').then(m => m.workshopDialog());
+  workshop ??= import('./workshop/ground').then(m => m.groundDialog());
   workshop.then(w => (code ? w.openDesign(code) : w.open()), () => {
     workshop = undefined;
     alert('The Workshop could not load. Check the connection and try again.');

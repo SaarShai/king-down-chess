@@ -53,7 +53,7 @@ export const examplesOf = (d: Pick<PieceDesign, 'from'>): ScenePiece[] =>
     ? { sq: t.slice(1), k: NAMES[LETTERS.indexOf(t[0].toUpperCase())], side: t[0] < 'a' ? 'w' : 'b' }
     : { sq: t, k: 'design', side: 'w', open: true }));
 
-/** The board of a piece list. The open design is piece(T, WHITE), as in Try it: its moves come from the design. */
+/** The board of a piece list. The open design is piece(T, WHITE), as in Try with: its moves come from the design. */
 export function boardOf(pieces: readonly ScenePiece[]): Uint8Array {
   const b = new Uint8Array(64);
   for (const p of pieces) b[parseSq(p.sq)] = p.open ? piece(T, WHITE) : piece((NAMES as readonly string[]).indexOf(p.k) as PieceType, p.side === 'b' ? BLACK : WHITE);
@@ -67,15 +67,15 @@ export const piecesOf = (board: Uint8Array, from: number): ScenePiece[] => [...b
 
 /* ---- Try with (ticket 06): the moves a tap plays, the die, the broom, "Show on" and the threats ---- */
 
-/** What a move does, and the square a tap picks it by: the victim of a shot, the piece pushed, else the landing square (Try it, sandbox.ts). */
+/** What a move does, and the square a tap picks it by: the victim of a shot, the piece pushed, else the landing square. */
 export type Act = 'move' | 'take' | 'shot' | 'push' | 'swap';
 export const actOf = (m: Move): Act => (m.shove ? 'push' : m.swap ? 'swap' : m.captures.length && m.to === m.from ? 'shot' : m.captures.length ? 'take' : 'move');
 export const tapOf = (m: Move): number => (m.shove ? m.shove.from : m.captures.length && m.to === m.from ? m.captures[0] : m.to);
 const far = (a: number, b: number): number => Math.max(Math.abs(file(a) - file(b)), Math.abs(rank(a) - rank(b)));
-/** The enemies of Try it, as piece type and square. */
+/** The enemies of Try with, as piece type and square. */
 const ENEMIES: [PieceType, string][] = [[4, 'h8'], [2, 'f7'], [1, 'd6'], [3, 'b5'], [1, 'f5'], [1, 'g4']];
-/** The die (and Shuffle in Try it): the board less its enemies, then the six enemies on free squares that `rnd` picks,
- *  none next to the piece on `from`; with no `rnd`, on their own squares (the first board of Try it). */
+/** The die of Try with: the board less its enemies, then the six enemies on free squares that `rnd` picks,
+ *  none next to the piece on `from`; with no `rnd`, on their own squares (the first board of Try with). */
 export function stir(board: Uint8Array, from: number, rnd?: () => number): Uint8Array {
   const b = Uint8Array.from(board, v => (v && colorOf(v) !== colorOf(board[from]) ? 0 : v)), free = [...b.keys()].filter(s => !b[s] && far(s, from) > 1);
   for (const [t, q] of ENEMIES) {

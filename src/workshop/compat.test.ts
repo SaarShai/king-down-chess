@@ -6,7 +6,7 @@ import { designCode, keyOf, parseDesign, validStored, type PieceDesign } from '.
 import { KEY, loadShelf } from './store';
 
 type Source = Pick<PieceDesign, 'name' | 'look' | 'letter' | 'squares' | 'lines' | 'rules'>;
-/** The hand-made link of the W12 sample (docs/specs/web-redesign/samples/W12.mjs): its keys are not in designCode order. */
+/** The hand-made link of the old W12 sample (the Rook Rider of W14): its keys are not in designCode order. */
 const W12: [string, Source] = ['eyJraW5kIjoicGllY2UiLCJuYW1lIjoiUm9vayBSaWRlciIsImxvb2siOnsiZmlndXJlIjoiYW50bGVyLWd1YXJkaWFuIiwiYm9keSI6InRva2VuIiwiYXV0byI6dHJ1ZSwiZ2xvdyI6bnVsbCwiYXJteSI6MH0sImxldHRlciI6IkQiLCJzcXVhcmVzIjpbeyJ4IjoxLCJ5IjoyLCJtYXJrIjoiYm90aCJ9LHsieCI6LTEsInkiOjIsIm1hcmsiOiJib3RoIn1dLCJsaW5lcyI6WyJuIiwiZSIsInMiLCJ3Il0sInJ1bGVzIjpbXX0',
     { name: 'Rook Rider', look: { figure: 'antler-guardian', body: 'token', auto: true, glow: null, army: 0 }, letter: 'D', squares: [{ x: 1, y: 2, mark: 'both' }, { x: -1, y: 2, mark: 'both' }], lines: ['n', 'e', 's', 'w'], rules: [] }];
 /** Codes that designCode made: each mark, each of the 10 blocks (with each kind of When), a glow, a token, a figure. */

@@ -1,12 +1,12 @@
 /**
- * The Proving Ground: the Workshop's view A (docs/specs/workshop-proving-ground), behind `?workshop=a`.
+ * The Workshop (docs/WORKSHOP.md): the Proving Ground, view A of docs/specs/workshop-proving-ground.
  * The open piece stands on its example board with its marks; the plinth shows its name, its figure and its rules;
  * the ledge opens the pool pieces and the designs on the shelf. The board is the editor (ticket 02): the brushes
  * paint squares, the nubs switch lines, and the first edit on a pool piece makes the player's private copy. In look mode a
  * tap on a square opens its Why tag (ticket 05). The board is also the test (Try with, ticket 06): the player lifts and
  * places the piece, adds friends and enemies, sees threats, and plays a move with the engine's makeMove. Mockup:
  * docs/research/rules-ui-2026-10-10/mockups/proving-ground.html (its line numbers in the comments).
- * Loaded on demand (main.ts `import()`), as the old Workshop is.
+ * Loaded on demand (main.ts `import()`).
  */
 import './ground.css';
 import { BLACK, NAMES as PIECE, P, T, WHITE, colorOf, file, makeMove, parseSq, piece, rank, sq, sqName, typeOf, type Move, type PieceType } from '../rules/engine';
@@ -58,10 +58,10 @@ const MEDAL = '<svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true
 /** The NEW tile: a dashed figure outline with a quill (GHOST_FIG, proving-ground.html:1439). */
 const GHOST = '<svg viewBox="0 0 44 62" aria-hidden="true"><path d="M22 4a7 7 0 1 1-.01 0zM13 24c2-4 16-4 18 0l2 14h-4l1 10h6l2 10H8l2-10h6l1-10h-4z" fill="rgba(255,255,255,.25)" stroke="var(--stone-500)" stroke-width="1.5" stroke-dasharray="4 3" stroke-linejoin="round"/>'
   + '<g transform="translate(24 30) scale(.8)"><circle cx="12" cy="12" r="12" fill="var(--vellum)" stroke="var(--gold-ink)" stroke-width="1.5"/><path d="M18 5C12 5.5 8 9.5 7 18M7 18l2.4-.9M9.8 12.5h4" fill="none" stroke="var(--gold-ink)" stroke-width="2" stroke-linecap="round"/></g></svg>';
-/** The words of a name that validName refuses (dialog.ts rename()). */
+/** The words of a name that validName refuses. */
 const BAD_NAME = "A name uses letters, digits, spaces, - and ', up to 18.";
 
-/** The figure of a design: the pool art of its body, unless it has its own figure or is a token (look.ts). */
+/** The figure of a design: the pool art of its body, unless it has its own figure or is a token. */
 const figureOf = (d: PieceDesign): string =>
   (!d.look.figure && d.look.body !== 'token' && pieceArt(BODY_TYPE[d.look.body], !!d.look.army)) || figureUrl(selectedFigure(d).id, d.look.army);
 const link = (d: PieceDesign): string => `${location.origin}${location.pathname}?design=${designCode(d)}`;
@@ -69,7 +69,7 @@ const link = (d: PieceDesign): string => `${location.origin}${location.pathname}
 const out = (q: string): boolean => { const s = parseSq(q); return Math.max(Math.abs(file(s) - 3), Math.abs(rank(s) - 3)) > 3; };
 /** A rule of a design by its block: a design holds each block once (limit, model.ts). */
 const ruleIn = (d: PieceDesign, a: Ability['a']): Rule | undefined => d.rules.find(r => r.does.a === a);
-/** Motion (ticket 10, decision 27): none under reduced motion or Animations Off; Fast halves each duration (as motion.ts). */
+/** Motion (ticket 10, decision 27): none under reduced motion or Animations Off; Fast halves each duration. */
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const motionless = (): boolean => reduced.matches || document.documentElement.dataset.pace === 'off';
 const pace = (): number => (document.documentElement.dataset.pace === 'fast' ? 0.5 : 1);
@@ -78,7 +78,7 @@ const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)', SPRING = 'cubic-bezier(0.34, 1.4,
 const PUFF: Keyframe = { opacity: 0, transform: 'translateY(-10px) scale(1.6)' };
 /** A gait of docs/2d-first-pieces/board/gait.mjs: the pose at progress u, which ends at rest. */
 interface Gait { at(u: number, squares: number): { travel: number; lift: number; sx: number; sy: number; tilt: number } }
-/** The gait of a design's body: its own, the pawn's for the token, else a hop (motion.ts gaitOf). */
+/** The gait of a design's body: its own, the pawn's for the token, else a hop. */
 const gaitOf = (d: PieceDesign): Gait => GAITS[GAIT_OF[d.look.body === 'token' ? 'pawn' : BODY[d.look.body].name] ?? 'hop'];
 /** One choice of an open row (a pill's value or a When): its words, whether the rule has it now, what it does to a design,
  *  and why the design cannot take it. `w` is the When; `like`, the piece that "Always" adds to Moves. */
@@ -122,7 +122,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   let cur = pool('pawn'), shelf: PieceDesign[] = [], sc: Scene, board: Uint8Array = new Uint8Array(64), from = 0, st = START, kbd = 'd4', drawnAt = 0;
   /** Brush mode while a brush or tool is armed (proving-ground.html:1742); "Paint on" (the Mirror tool). */
   let brush: Brush | null = null, mirror: PaintOn = 'all';
-  /** Undo steps of the open item, each with its scope (dialog.ts:315-331); the design the last save refused, and why. */
+  /** Undo steps of the open item, each with its scope; the design the last save refused, and why. */
   let undos: { item: Item; label: string }[] = [], unsaved: { id: string; why: Exclude<SaveResult, 'saved'> } | null = null;
   /** The open popovers. */
   let weighOpen = false, moreOpen = false, toolsOpen = false;
@@ -238,7 +238,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     ripple();
   });
 
-  /** A nested modal sheet (dialog.ts sheet()); `wire` gets its body. A tap on the backdrop closes it (src/dialog-dismiss.ts).
+  /** A nested modal sheet; `wire` gets its body. A tap on the backdrop closes it (src/dialog-dismiss.ts).
    *  A change under the sheet can redraw the control that opened it: the focus then goes back to its new copy. */
   function sheet(title: string, html: string, wire: (body: HTMLElement, close: () => void) => void): void {
     const s = document.createElement('dialog'), opener = document.activeElement as HTMLElement | null, act = opener?.dataset.act;
@@ -252,7 +252,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     wire(s.querySelector('.pg-sheet-body')!, close);
     s.showModal();
   }
-  /** Copies `text`; where the device refuses, a sheet shows it, selected, to copy by hand (dialog.ts copyText()). */
+  /** Copies `text`; where the device refuses, a sheet shows it, selected, to copy by hand. */
   async function copyText(text: string, done: string): Promise<void> {
     try { await navigator.clipboard.writeText(text); toast(done); } catch {
       sheet('Copy this', '<p>This device did not let the game copy. Select the text and copy it.</p><textarea class="pg-copybox" readonly rows="5" aria-label="The text to copy"></textarea>', body => {
@@ -263,7 +263,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     }
   }
 
-  /* ---- change, save and undo (spec decision 33: its own copy of dialog.ts:132-178, :315-331 until the cutover) ---- */
+  /* ---- change, save and undo ---- */
 
   /** Saves the open design; a refusal stays on screen while it is the open design. */
   function save(): void {
@@ -336,11 +336,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       };
     });
   }
-  /** Every design the editor makes fits a share code; this guard says so if one ever does not (dialog.ts share()). */
+  /** Every design the editor makes fits a share code; this guard says so if one ever does not. */
   const shareable = (): boolean => !!parseDesign(designCode(cur.d)) || (toast('This design cannot be shared: it breaks a limit.'), false);
   const face = (): string => faceHtml(cur.d, judge(cur.d, false), figureOf(cur.d));
   /** The Share sheet (ticket 08): the card face, then Send link (the device's share), Copy link and Copy as text; with no
-   *  device share, one Copy link (dialog.ts share()). A device that refuses the copy gets the copy sheet (copyText). */
+   *  device share, one Copy link. A device that refuses the copy gets the copy sheet (copyText). */
   function share(): void {
     if (!shareable()) return;
     const send = !!navigator.share;
@@ -354,8 +354,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       on('text', () => copyText(designText(d, judge(d, false), link(d)), 'Copied as text.'));
     });
   }
-  /** A design link (decision 25): its card face first, read only. Keep a copy saves it and opens it on the board (dialog.ts
-   *  keepCopy); Open on the board, × and Esc show it on the board, where the first edit keeps a copy, as for a pool piece. */
+  /** A design link (decision 25): its card face first, read only. Keep a copy saves it and opens it on the board;
+   *  Open on the board, × and Esc show it on the board, where the first edit keeps a copy, as for a pool piece. */
   function linkCard(): void {
     sheet('A shared piece', `<p class="pg-note">It opens read only. Keep a copy to change it.</p>${face()}`
       + '<div class="pg-ask"><button type="button" class="primary" data-keep>Keep a copy</button><button type="button" data-board>Open on the board</button></div>', (body, close) => {
@@ -956,7 +956,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
 
   /** The design whose moves the piece has now: the piece that a "becomes" made it, else the open design. */
   const now = (): PieceDesign | Preset => (pos.became && !brush ? presetOf(PIECE[pos.became]) : cur.d);
-  /** The moves that a tap plays now: the next takes of a chain in progress, else the moves of the turn less the longer chains (Try it, sandbox.ts). */
+  /** The moves that a tap plays now: the next takes of a chain in progress, else the moves of the turn less the longer chains. */
   const movesNow = (): Move[] => (pos.gone ? [] : pos.chain ? pos.chain.more.filter(m => m.captures.length === pos.chain!.caps.length + 1)
     : movesOf(now(), pos.board, pos.from, pos.st).filter(m => m.captures.length <= 1));
   const movesAt = (q: string): Move[] => movesNow().filter(m => sqName(pos.chain ? m.to : tapOf(m)) === q);
@@ -1015,7 +1015,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     pos = { ...pos, gone: false, became: 0 };
     return b;
   }
-  /** The moves of one action of the open tag's square: a "becomes" asks which piece, else it plays the move (Try it's pick, sandbox.ts). */
+  /** The moves of one action of the open tag's square: a "becomes" asks which piece, else it plays the move. */
   function playOne(ms: Move[]): void {
     if (ms.length > 1 && ms.every(m => m.promo)) { promo = ms; render(); return; }
     play(ms[0]);
