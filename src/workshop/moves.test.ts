@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { BLACK, K, WHITE, genPiece, piece, sq, type Move, type PieceType } from '../rules/engine';
 import { PRESETS } from './model';
-import { BODY_TYPE, movesOf } from './moves';
+import { BODY_TYPE, START, movesOf, type Refused } from './moves';
 
 const key = (m: Move): string => [m.from, m.to, m.captures.join('.'), m.swap ? 's' : '', m.shove ? `${m.shove.from}>${m.shove.to}` : '', m.selfRemove ? 'x' : '', m.promo ?? ''].join(',');
 const keys = (ms: Move[]): string[] => ms.map(key).sort();
@@ -37,6 +37,25 @@ describe('presets equal the engine (§8.4.1)', () => {
         b[at] = 0; free.push(at);
       }
     }
+  });
+});
+
+describe('the refusal sink (ticket 04)', () => {
+  it('changes no move, and gets each kind of refusal', () => {
+    const r = rng(11), why = new Set<string>();
+    for (let i = 0; i < 300; i++) {
+      const b = new Uint8Array(64), free = [...Array(64).keys()], take = () => free.splice(Math.floor(r() * free.length), 1)[0];
+      b[take()] = piece(K, WHITE); b[take()] = piece(K, BLACK);
+      for (let n = 8 + Math.floor(r() * 14); n > 0; n--) b[take()] = piece(TYPES[Math.floor(r() * TYPES.length)], r() < 0.5 ? WHITE : BLACK);
+      for (const p of PRESETS) {
+        const at = take(), sink: Refused[] = [];
+        b[at] = piece(BODY_TYPE[p.body as keyof typeof BODY_TYPE], r() < 0.5 ? WHITE : BLACK);
+        expect(keys(movesOf(p, b, at, START, sink)), `${p.key} on board ${i}`).toEqual(keys(movesOf(p, b, at)));
+        for (const x of sink) why.add(x.why);
+        b[at] = 0; free.push(at);
+      }
+    }
+    expect([...why].sort()).toEqual(['cannotTake', 'chain', 'guardImmune', 'push', 'swap']);
   });
 });
 

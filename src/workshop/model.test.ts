@@ -2,7 +2,7 @@
 // docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
 import { describe, expect, it } from 'vitest';
 import { judge } from './judge';
-import { BLANK, DIRS, KING_STEP, KNIGHT_JUMP, MAX_CODE, ORTHO, PRESETS, setMark, designCode, empty, fromPreset, keyOf, likeAlways, limit, parseDesign, presetOf, validName, type PieceDesign, type Rule } from './model';
+import { BLANK, DIRS, KING_STEP, KNIGHT_JUMP, MAX_CODE, ORTHO, PRESETS, brushMark, setMark, designCode, empty, fromPreset, keyOf, likeAlways, limit, parseDesign, presetOf, validName, type PieceDesign, type Rule } from './model';
 import { autoName, letterFollows, letterOf, saveName } from './names';
 import { describe as words } from './text';
 import { BLOCKS, blockOf, validDoes, whenOk } from './vocab';
@@ -163,5 +163,18 @@ describe('separate move and take channels', () => {
     expect(setMark('moveShoot', 'shoot', false)).toBe('move');
     expect(setMark(undefined, 'take', true)).toBe('take');
     expect(setMark('take', 'take', false)).toBeNull();
+  });
+});
+
+describe('the Proving Ground brushes (ticket 02)', () => {
+  const MARKS = [undefined, 'move', 'take', 'both', 'shoot', 'moveShoot'] as const;
+  it('Move, Take and Both paint the whole mark; Erase clears the square', () => {
+    for (const m of MARKS) {
+      for (const b of ['move', 'take', 'both'] as const) expect(brushMark(m, b), `${m} ${b}`).toBe(b);
+      expect(brushMark(m, 'erase'), `${m} erase`).toBeNull();
+    }
+  });
+  it('Shot adds a shot and keeps the move (spec decision 34)', () => {
+    expect(MARKS.map(m => brushMark(m, 'shot'))).toEqual(['shoot', 'moveShoot', 'shoot', 'moveShoot', 'shoot', 'moveShoot']);
   });
 });

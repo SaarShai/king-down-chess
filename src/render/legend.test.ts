@@ -66,6 +66,20 @@ describe('the move legend', () => {
     expect(badge(0, 0, 40, 'take').some(s => s.k === 'line')).toBe(false);
   });
 
+  it('draws the key tile at 0.8 s with a bevel, and a dashed frame for a mark that holds only sometimes', () => {
+    const box = (shapes: Shape[]) => shapes.find((s): s is Extract<Shape, { k: 'rect' }> => s.k === 'rect')!;
+    expect(box(tile('move', 0, 0, 80)).w).toBeCloseTo(0.67 * 80);
+    expect(box(tile('move', 0, 0, 80, { solid: true }))).toMatchObject({ x: 8, w: 64 });
+    expect(tile('move', 0, 0, 80, { solid: true }).filter(s => s.k === 'line')).toHaveLength(2);
+    expect(tile('move', 0, 0, 80).some(s => s.dash)).toBe(false);
+    const asleep = tile('move', 0, 0, 80, { cond: 'asleep' });
+    expect(asleep.filter(s => s.dash)).toHaveLength(1);
+    expect(asleep.some(s => s.fill === LEG.hi)).toBe(true);
+    expect(toSvg(tile('move', 0, 0, 80, { cond: 'awake' }))).toContain('stroke-dasharray="4 3"');
+    expect(toSvg(tile('move', 0, 0, 36, { cond: 'awake', solid: true }))).toContain('stroke-dasharray="3 2"');
+    expect(occupied('take', 0, 0, 80, 72, { cond: 'awake' }).filter(s => s.dash)).toHaveLength(1);
+  });
+
   it('draws each shape once in SVG and once on a canvas', () => {
     const kinds: Kind[] = ['move', 'take', 'both', 'shot', 'moveshot'];
     const shapes = [...kinds.flatMap(k => tile(k, 0, 0, 90, { power: true })), ...occupied('both', 0, 0, 90, 70), ...badge(0, 0, 90, 'moveshot')];

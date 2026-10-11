@@ -7,10 +7,11 @@ import { cardHtml } from './card';
 import { figureById, selectedFigure } from './figures';
 import { judge, whyHead, type Label } from './judge';
 import { lookOf, lookWords } from './look';
-import { BLANK, PRESETS, fromPreset, presetOf, type PieceDesign, type Rule, type When } from './model';
+import { BLANK, PRESETS, fromPreset, presetOf, validName, type PieceDesign, type Rule, type When } from './model';
+import { copyName } from './names';
 import { KEY, MAX, deleteDesign, loadDesigns, loadShelf, saveDesign } from './store';
-import { describe as words, esc, ruleText } from './text';
-import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS } from './vocab';
+import { designText, describe as words, esc, lineParts, partsText, ruleText } from './text';
+import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS, whenChoices } from './vocab';
 
 const chain: Rule = { when: { on: 'takes' }, does: { a: 'chain' } };
 const noKing: Rule = { when: { on: 'always' }, does: { a: 'cannotTake', what: 'king' } };
@@ -45,7 +46,7 @@ describe('text (§8.4.9)', () => {
 
   it('uses no engineering word, ends each sentence with a period and keeps it to 120 characters', () => {
     const ENGINEERING = /\b(trigger|shackle|spawn|promotion|mark|arrival|leaper|rider|symmetry|orbit|atom|centipawn|elo|fingerprint)s?\b/i;
-    const texts: string[] = [...ALL_RULES.map(ruleText), ...BLOCKS.flatMap(b => [b.example])];
+    const texts: string[] = [...ALL_RULES.map(ruleText), ...ALL_RULES.map(r => partsText(lineParts(r).say)), ...BLOCKS.flatMap(b => [b.example])];
     for (const p of PRESETS) {
       const v = judge(p);
       texts.push(words(p).summary, v.line, v.like, whyHead(v), ...v.why, ...v.flags.map(f => f.line));
@@ -63,6 +64,13 @@ describe('text (§8.4.9)', () => {
     }
   });
 
+  it('writes the short line of each rule with its pill, and the When pill after the chip (spec decision 38)', () => {
+    const line = (r: Rule) => [partsText(lineParts(r).after), partsText(lineParts(r).line)].filter(Boolean).join(' | ');
+    expect(presetOf('pawn').rules.map(line)).toEqual(['steps 2 straight ahead', 'becomes a piece you choose']);
+    expect(presetOf('paladin').rules.map(line)).toEqual(['its lines pass over its own pieces', 'a piece, not a pawn | it is removed too', 'cannot take a king']);
+    expect(partsText(lineParts(presetOf('pawn').rules[1]).say)).toBe('It becomes a piece you choose.');
+  });
+
   it('escapes names', () => {
     expect(esc(`<img src=x onerror="a()">'&`)).toBe('&#60;img src=x onerror=&#34;a()&#34;&#62;&#39;&#38;');
   });
@@ -72,6 +80,27 @@ describe('vocab (§8.4.10)', () => {
   it('cites a MATRIX row that exists for every block', () => {
     const matrix = readFileSync(new URL('../../docs/MATRIX.md', import.meta.url), 'utf8');
     for (const b of BLOCKS) expect(matrix, b.matrix).toContain(`| ${b.matrix.startsWith('C3') || b.matrix === 'Last rank' ? '' : '**'}${b.matrix}`);
+  });
+
+  it('gives each block a seal label of 14 characters or fewer', () => {
+    for (const b of BLOCKS) expect(b.label, b.a).toMatch(/^.{1,14}$/u);
+  });
+});
+
+describe('whenChoices (Proving Ground ticket 03)', () => {
+  it('gives "steps 2" always and the three zones it allows, two of them on top', () => {
+    expect(whenChoices('step2')).toEqual({ top: [{ on: 'always' }, { on: 'zone', zone: 'enemyHalf' }], more: [{ on: 'zone', zone: 'ownHalf' }, { on: 'zone', zone: 'startRank' }] });
+  });
+
+  it('gives "becomes" its two events, and "takes again" and "removed too" no choice', () => {
+    expect(whenChoices('becomes')).toEqual({ top: [{ on: 'reaches', zone: 'lastRank' }, { on: 'firstTake' }], more: [] });
+    expect(whenChoices('chain')).toEqual({ top: [], more: [] });
+    expect(whenChoices('removedAfter')).toEqual({ top: [], more: [] });
+  });
+
+  it('gives "moves like" every state, with "always" first (it adds to Moves)', () => {
+    expect(whenChoices('movesLike')).toEqual({ top: [...TOP_WHENS], more: [...MORE_WHENS] });
+    expect(whenChoices('movesLike').top[0]).toEqual({ on: 'always' });
   });
 });
 
@@ -226,5 +255,29 @@ describe('store (§8.4.12)', () => {
     expect(deleteDesign('d2', s)).toBe(true);
     const raw = JSON.parse(s.m.get(KEY)!).designs as { id: string }[];
     expect(raw.map(d => d.id)).toEqual(['d3', 'broken', 'd1']);
+  });
+});
+
+describe('the design menu (Proving Ground ticket 07)', () => {
+  it('Copy as text gives the sentences, a MATRIX row and the link', () => {
+    const d: PieceDesign = { ...fromPreset(BLANK), name: 'Rook Rider', letter: 'D', lines: ['n', 'e', 's', 'w'],
+      squares: [{ x: 1, y: 2, mark: 'both' }, { x: -1, y: 2, mark: 'both' }] };
+    const t = designText(d, judge(d, false), 'https://example.test/?design=abc').split('\n');
+    expect(t[0]).toBe('Rook Rider');
+    expect(t[1]).toBe(`Moves: ${words(d).moves}`);
+    expect(t).toContain(`Takes: ${words(d).takes}`);
+    expect(t.at(-3)).toMatch(/^\| Rook Rider \| piece \| squares: moves .*; takes .* \| \d+\.\d\d \| [a-z ]+ \|$/);
+    expect(t.at(-1)).toBe('https://example.test/?design=abc');
+  });
+
+  it('names a copy with the next free number, within 18 letters', () => {
+    expect(copyName('My Pawn', [])).toBe('My Pawn');
+    expect(copyName('My Pawn', ['My Pawn'])).toBe('My Pawn 2');
+    expect(copyName('My Pawn 2', ['My Pawn', 'My Pawn 2'])).toBe('My Pawn 3');
+    // An 18-letter name stays whole while it is free; only a number cuts it.
+    expect(copyName('Wandering Champion', [])).toBe('Wandering Champion');
+    const long = copyName('Wandering Champion', ['Wandering Champion']);
+    expect(long).toBe('Wandering Champi 2');
+    expect(validName(long)).toBe(true);
   });
 });
