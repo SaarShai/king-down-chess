@@ -55,8 +55,12 @@ try {
     await frame.locator('#reload:not(:disabled)').waitFor();
     assert.equal(await frame.locator('#retry').isVisible(), false, `${code} must release the pending command`);
   }
-  await page.evaluate(() => { window.dropNextMoveReply = true; });
+  await page.evaluate(() => { window.holdNext = 'kingdown_move'; window.dropNextMoveReply = true; });
   await frame.locator('#choices button[title="e2-e4"]').click();
+  await page.waitForFunction(() => typeof window.releaseHeld === 'function');
+  assert(await frame.locator('#reload').isDisabled(), 'The generic hold hook keeps Move pending');
+  assert.equal(await frame.locator('#retry').isVisible(), false);
+  await page.evaluate(() => window.releaseHeld());
   await frame.locator('#retry').waitFor();
   await page.locator('#remount').click();
   await frame.locator('#retry').waitFor();

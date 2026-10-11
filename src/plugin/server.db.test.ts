@@ -183,6 +183,31 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(view(await guest.ok('kingdown_get', { game_id })).opponent!.last_seen_ms).toBeNull();
  });
 
+ it('starts a fresh account with the approved game defaults', async () => {
+  const actor = await user('defaults'), player = await connect(actor);
+  expect((await player.ok('kingdown_settings'))._meta.settings).toEqual({ symbols_only: false, show_threats: false, last_setup: null });
+  expect(view(await player.ok('kingdown_create', { kind: 'solo' }))).toMatchObject({ status: 'setup', level: 'club', options: { fairy: true, arrangement: true, classic: false, cards: false, kingPowers: false } });
+ });
+
+ it('uses the setup and first-move end words in the tool reply', async () => {
+  const [a, b] = [await user('end-a'), await user('end-b')], host = await connect(a), guest = await connect(b);
+  for (const [arrangement, words] of [[true, 'The setup time ran out. No result.'], [false, 'No first move. No result.']] as const) {
+   const game_id = view(await host.ok('kingdown_create', { kind: 'friend', options: { ...DEFAULT_OPTIONS, arrangement } })).game_id;
+   await guest.ok('kingdown_join', { code: (await host.ok('kingdown_invite', { game_id })).structuredContent.code });
+   await admin.query(`update public.games set ${arrangement ? 'setup_deadline_at' : 'deadline_at'}=now()-interval '1 second' where id=$1`, [game_id]);
+   await new GameService(new PostgresMatchStore(admin)).sweep();
+   const ended = await host.ok('kingdown_get', { game_id });
+   expect(ended.content).toEqual([{ type: 'text', text: `Game over: ${words}` }]); expect(ended.structuredContent.result).toBe(words);
+  }
+ });
+
+ it('keeps the retry hints for each tool', async () => {
+  const player = await connect(await user('retry-hints')), tools = (await player.client.listTools()).tools;
+  expect(tools).toHaveLength(24);
+  expect(tools.filter(tool => tool.annotations?.idempotentHint === false).map(tool => tool.name).sort()).toEqual(['kingdown_create', 'kingdown_find', 'kingdown_invite', 'kingdown_open', 'kingdown_report', 'kingdown_resume']);
+  for (const tool of tools) expect(typeof tool.annotations?.idempotentHint).toBe('boolean');
+ });
+
  it('reads default settings and preserves partial writes and saved setup across remounts', async () => {
   const actor = await user('settings'), player = await connect(actor), reader = await connect(actor, readOnly);
   const initial = await reader.ok('kingdown_settings');
