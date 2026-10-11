@@ -99,8 +99,8 @@ suite('game setup through PostgreSQL', () => {
    return game.game_id;
   };
   const swept = await create(), before = await service.view(a, swept);
-  await admin.query('update public.profiles set rating=case when id=$1 then 1620 else 1380 end where id=any($2)', [a, [a, b]]);
-  const ratings = (await admin.query('select id,rating from public.profiles where id=any($1) order by id', [[a, b]])).rows;
+  await admin.query('insert into public.player_ratings(user_id,rating) values($1,1620),($2,1380) on conflict(user_id) do update set rating=excluded.rating', [a, b]);
+  const ratings = (await admin.query('select user_id,rating,rd,volatility,last_game_at from public.player_ratings where user_id=any($1) order by user_id', [[a, b]])).rows;
   const joined = (await admin.query("select received_at from public.game_commands where game_id=$1 and kind='join'", [swept])).rows[0].received_at;
   const deadline = new Date(joined.getTime() + 3 * 86_400_000);
   await service.sweep(new Date(deadline.getTime() - 1));
@@ -110,12 +110,14 @@ suite('game setup through PostgreSQL', () => {
   expect(await service.view(a, swept)).toMatchObject({ status: 'aborted', revision: 2, result: { winner: null, reason: 'no_start' } });
   expect(before.result).toBeUndefined();
   expect((await admin.query("select count(*)::int as n from public.outbox where kind='game_finished' and payload->>'game_id'=$1", [swept])).rows[0].n).toBe(1);
-  expect((await admin.query('select id,rating from public.profiles where id=any($1) order by id', [[a, b]])).rows).toEqual(ratings);
+  expect((await admin.query('select user_id,rating,rd,volatility,last_game_at from public.player_ratings where user_id=any($1) order by user_id', [[a, b]])).rows).toEqual(ratings);
+  expect((await admin.query('select count(*)::int as n from public.rating_history where game_id=$1', [swept])).rows[0].n).toBe(0);
   const lazy = await create(), row = (await admin.query('select draw from public.games where id=$1', [lazy])).rows[0];
   await admin.query("update public.games set setup_deadline_at=now()-interval '1 minute' where id=$1", [lazy]);
   await expect(service.command(a, lazy, command(1, { type: 'choose', choice: { king: null, order: row.draw }, ready: true }))).rejects.toMatchObject({ code: 'MATCH_TERMINAL' });
   expect(await service.view(b, lazy)).toMatchObject({ status: 'aborted', revision: 2, result: { winner: null, reason: 'no_start' } });
-  expect((await admin.query('select id,rating from public.profiles where id=any($1) order by id', [[a, b]])).rows).toEqual(ratings);
+  expect((await admin.query('select user_id,rating,rd,volatility,last_game_at from public.player_ratings where user_id=any($1) order by user_id', [[a, b]])).rows).toEqual(ratings);
+  expect((await admin.query('select count(*)::int as n from public.rating_history where game_id=$1', [lazy])).rows[0].n).toBe(0);
   expect(await service.sweep()).toBe(0);
  }, 30_000);
  it('offers, declines and accepts one rematch with the same features and swapped seats', async () => {
