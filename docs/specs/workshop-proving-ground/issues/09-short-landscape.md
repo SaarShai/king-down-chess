@@ -68,3 +68,15 @@ Open problems:
 - At 568 × 320 the shelf with a picked seal has about 37 px for the seal groups above the sentence card, and the groups scroll; at 844 × 390 they have about 110 px.
 - At 320 × 568 (the narrow layout, which this ticket does not change) the n nub takes a tap on 22% of its circle only.
 - Mockup A has no landscape form, so the landscape renders have no mockup pair.
+
+### Reviews
+
+One independent reader (read only) gave one should-fix finding. The probe, the logs and the renders are in `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/08f2956c-63a7-4276-8738-a657bdb42b06/scratchpad/build/09-review/`. `probe/only.sh <group ...>` runs only the named groups of a copy of the check against a dev server on port 5183.
+
+1. **Should-fix, confirmed, fixed: in short landscape, ‹ Menu closed the Workshop while the ledge's sheet was open (`ground.ts`).** ‹ Menu stands in the top bar, which is not inert under the sheet. Its own `onclick` closed the dialog before the tap-outside guard of the dialog's click listener ran. Fix: with the sheet open, ‹ Menu calls `closeLedge()` (the sheet closes and the focus goes back to Pieces); with the sheet closed, it closes the Workshop as before. Browser check: `layouts` (in `landscape()`, at 844 × 390 and 568 × 320) opens the sheet, taps ‹ Menu, and finds the sheet closed and the Workshop open. Before the fix this step fails: "844x390: a tap on ‹ Menu closes the sheet, not the Workshop" (the Workshop count is 0; `only-neg.log`). After the fix, `layouts`, `opens` (‹ Menu still closes the Workshop) and `turnRefits` pass (`only-fix.log`). The other buttons of the top bar go through the guard, and the board and the column are inert, so ‹ Menu was the only path.
+
+Evidence after the fix (in the same `09-review/` folder):
+
+- `npm test`: exit 0. 115 test files pass (1 skipped); 1,895 tests pass (21 skipped). Log: `npm-test.log`; `npm-test-2.log` is the run after this text.
+- `npm run check:browser proving-ground`: passes three times (59.4 s, 59.2 s, 59.7 s). Logs: `logs/pg-1.log` to `logs/pg-3.log`, and each run's `logs/check-N.proving-ground.log` ("proving-ground: all groups pass"). The check's own renders of run 1: `check-1/`.
+- The fix changes no render: it changes only what a tap on ‹ Menu does, and no W14 state taps ‹ Menu. So the W14 renders and the pairs beside the mockup stay as above.

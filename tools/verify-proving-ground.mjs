@@ -443,6 +443,9 @@ async function landscape(p, size) {
   await p.mouse.click(d7.x + d7.width / 2, d7.y + d7.height / 2);
   assert.equal(await p.isHidden('.pg-ledge'), true, `${size}: a tap outside the sheet closes it`);
   assert.equal(await tag(p), null, `${size}: and does nothing else`);
+  await p.click('[data-act="pieces"]');
+  await p.click('.pg-menu');
+  assert.deepEqual([await p.isHidden('.pg-ledge'), await p.locator('#workshop[open]').count()], [true, 1], `${size}: a tap on ‹ Menu closes the sheet, not the Workshop`);
   // The Why tag: a side sheet over the column, beside the board.
   await tap(p, 'd7');
   assert.equal((await tag(p))?.sq, 'd7', `${size}: a tap on d7 opens its tag`);

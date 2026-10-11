@@ -1146,7 +1146,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   narrow.addEventListener('change', () => { row = peek = card = null; reach(null); if (dlg.open) render(); });
   // A turn of the phone moves the tray and the ledge (renderTray, renderLedge); the design, the brush, the tag and the shelf stay.
   short.addEventListener('change', () => { ledgeOpen = false; if (dlg.open) render(); });
-  q<HTMLButtonElement>('.pg-menu').onclick = () => dlg.close();
+  // With the ledge's sheet open, ‹ Menu is a tap outside it: it closes the sheet only.
+  q<HTMLButtonElement>('.pg-menu').onclick = () => (ledgeOpen ? closeLedge() : dlg.close());
 
   dlg.addEventListener('click', e => {
     // A tap outside the ledge's sheet closes it, and does nothing else.
