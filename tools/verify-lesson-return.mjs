@@ -9,19 +9,19 @@ import { setUpGame, startGame } from './new-game-ui.mjs';
 const base = env('PLAYABLE_URL');
 const browser = await launch();
 try {
-  for (const look of ['painted', 'clay']) for (const phone of [false, true]) {
+  for (const phone of [false, true]) {
     const page = await browser.newPage({ viewport: phone ? { width: 390, height: 844 } : { width: 1280, height: 900 }, hasTouch: phone });
     await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
     trapErrors(page);
     const url = new URL(base);
-    url.search = new URLSearchParams({ look, rules: '2021', army: 'RNBQKBNR', moves: 'e2-e4_e7-e5' });
+    url.search = new URLSearchParams({ rules: '2021', army: 'RNBQKBNR', moves: 'e2-e4_e7-e5' });
     await page.goto(url.href);
     await page.waitForFunction(() => window.view);
     await page.evaluate(() => window.view.ready());
     await setPace(page, 'off');
     await waitForLinkReplay(page);
     const saved = () => page.evaluate(() => localStorage.getItem('kingdown.save'));
-    const board = () => page.evaluate(() => Array.from((window.view.pos ?? window.view.lastPos).board));
+    const board = () => page.evaluate(() => Array.from(window.view.pos.board));
     const before = await saved(), position = await board();
     const tap = async sq => {
       const p = await page.evaluate(sq => window.view.screenOf(sq), sq);
@@ -33,23 +33,21 @@ try {
     await setUpGame(page, { mode: 'computer', level: 'strong' }); await page.keyboard.press('Escape');
     assert.equal(await saved(), before, 'choosing a future opponent in a lesson preserves the saved match');
     assert.match(await page.textContent('#turn'), /Lesson 1 of 6/);
-    if (look === 'painted') {
-      // Under 2021 rules the straight Beast bites are impossible and the Paladin removes itself.
-      // Lessons must use the current rules, then restore the match's older rules on return.
-      const steps = lessonPath();
-      for (const [i, squares] of steps) {
-        for (const sq of squares) await tap(sq);
-        if (await page.evaluate(() => document.getElementById('move-choice').open)) await page.click('#choose-push');
-        await waitForUi(page, ui => !!ui.lessonLearned);
-        if (i < steps.length - 1) await page.click('#next-lesson');
-      }
-      assert.equal((await board())[43], 8, 'the Paladin survives the lesson pawn capture');
-      await page.locator('#return-game').scrollIntoViewIfNeeded();
-      const bounds = await page.locator('#return-game').boundingBox();
-      assert.ok(bounds && bounds.y >= 0 && bounds.y + bounds.height <= page.viewportSize().height);
-      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no horizontal overflow');
-      await shot(page, `lesson-return-${phone ? 'phone' : 'desktop'}`);
+    // Under 2021 rules the straight Beast bites are impossible and the Paladin removes itself.
+    // Lessons must use the current rules, then restore the match's older rules on return.
+    const steps = lessonPath();
+    for (const [i, squares] of steps) {
+      for (const sq of squares) await tap(sq);
+      if (await page.evaluate(() => document.getElementById('move-choice').open)) await page.click('#choose-push');
+      await waitForUi(page, ui => !!ui.lessonLearned);
+      if (i < steps.length - 1) await page.click('#next-lesson');
     }
+    assert.equal((await board())[43], 8, 'the Paladin survives the lesson pawn capture');
+    await page.locator('#return-game').scrollIntoViewIfNeeded();
+    const bounds = await page.locator('#return-game').boundingBox();
+    assert.ok(bounds && bounds.y >= 0 && bounds.y + bounds.height <= page.viewportSize().height);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no horizontal overflow');
+    await shot(page, `lesson-return-${phone ? 'phone' : 'desktop'}`);
     await page.click('#return-game');
     assert.equal(await saved(), before, 'return restores moves, rules, players and link side');
     assert.deepEqual(await board(), position, 'the original board is restored');
@@ -60,14 +58,12 @@ try {
     // Returning midway through a lesson works too; choosing an army explicitly ends the lessons.
     await startLesson(page); await page.click('#return-game');
     assert.equal(await saved(), before);
-    if (look === 'painted') {
-      for (const sq of [11, 19]) await tap(sq); // this device plays White
-      await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length === 3);
-      const sent = await saved(), sentBoard = await board();
-      for (const sq of [51, 43]) await tap(sq); // Black belongs to the friend
-      assert.equal(await saved(), sent, 'return preserves the friend-side input lock');
-      assert.deepEqual(await board(), sentBoard);
-    }
+    for (const sq of [11, 19]) await tap(sq); // this device plays White
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length === 3);
+    const sent = await saved(), sentBoard = await board();
+    for (const sq of [51, 43]) await tap(sq); // Black belongs to the friend
+    assert.equal(await saved(), sent, 'return preserves the friend-side input lock');
+    assert.deepEqual(await board(), sentBoard);
     await startLesson(page);
     await startGame(page, { army: 'classic' });
     assert.equal(await page.isVisible('#return-game'), false);
@@ -75,7 +71,7 @@ try {
     assert.equal(fresh.back, 'RNBQKBNR');
     assert.deepEqual(fresh.moves, []);
     assert.equal(fresh.rules.paladinKamikaze, 'always', 'a new game restores the URL preset');
-    console.log(`ok ${look} ${phone ? 'phone' : 'desktop'}: lesson save protection, return, rules, new game`);
+    console.log(`ok ${phone ? 'phone' : 'desktop'}: lesson save protection, return, rules, new game`);
     await page.close();
   }
   assertNoErrors();

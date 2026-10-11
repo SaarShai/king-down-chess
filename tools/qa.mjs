@@ -49,7 +49,6 @@ const browser = await launch();
 async function newPage() {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await ctx.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
-  await ctx.addInitScript(() => localStorage.setItem('kingdown.look', 'clay')); // painted is the default look
   const page = await ctx.newPage();
   const errors = trapErrors(page);
   return { ctx, page, errors };
@@ -81,7 +80,7 @@ const snap = async page => ({
   ...await page.evaluate(() => ({
     fen: document.getElementById('setup').title,
     info: document.getElementById('context-text').textContent,
-    scene: Object.fromEntries([...window.view.pieces].map(([sq, g]) => [sq, g.userData.code])),
+    scene: Object.fromEntries([...window.view.pos.board].flatMap((code, sq) => code ? [[sq, code]] : [])),
   })),
   moves: (await lanMoves(page)).join(' '),
 });

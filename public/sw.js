@@ -7,8 +7,6 @@
  * on the next visit; it takes over at once and deletes the old cache. The page itself is always asked
  * from the network first, so a returning player gets the new version on that same load; the cached
  * copy is used only when the network fails or is very slow (offline play).
- * The clay look (three.js and its sculpts, ~11 MB) is not downloaded in advance: its files are cached
- * the first time a player opens that look, then work offline too.
  */
 const VERSION = 'dev';
 const PRECACHE = [];

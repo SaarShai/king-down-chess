@@ -3,7 +3,6 @@ import { Engine } from './game';
 import { setEvaluator } from './ai/eval';
 import { PaintedView, type BoardView } from './render/PaintedView';
 import { setSound } from './render/sfx';
-import { STYLES } from './render/styles';
 import { HISTORY_WHENS, POWERS_BALANCED, RULES_2017, RULES_2021, parseKings, parseRule, setRules, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, POOL, randomBackRank } from './rules/setup';
 import { TRY_THESE } from './try-these';
@@ -22,7 +21,7 @@ import { initHome } from './ui/home-view';
 
 import { connectGuide } from './ui/guide';
 import { gameLinkless } from './screen/links';
-import { LOOK_KEY, connectSettings } from './screen/settings';
+import { connectSettings } from './screen/settings';
 import { readSave } from './screen/save';
 import { connectKeys } from './screen/keys';
 
@@ -65,13 +64,11 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 // The adopted Q6 residual net: stronger play at the same time budget, validated before adoption.
 setEvaluator('residual');
 const engine = new Engine();
-/** `?look=painted|clay`, else the saved choice. Painted 2D is the default (owner, 2026-09-27). */
-const look = params.get('look') ?? (() => { try { return localStorage.getItem(LOOK_KEY); } catch { return null; } })() ?? 'painted';
-// Clay (three.js) is a separate chunk, fetched only for that look; painted needs none of it.
-// The painted board stands on the page's parchment floor: the scene draws no floor of its own.
-const view: BoardView = look === 'clay' ? await (await import('./render/clay')).createClayView($('board')) : new PaintedView($('board'), { floor: null, webInk: true });
+// The painted board is the game's only look: an old `?look=` link or saved look opens it too (the clay look is parked).
+// It stands on the page's parchment floor: the scene draws no floor of its own.
+const view: BoardView = new PaintedView($('board'), { floor: null, webInk: true });
 view.onLoadError = () => { $('asset-status').textContent = 'A piece cannot load. Reload to try again.'; play.refresh(); };
-(window as unknown as Record<string, unknown>).view = view; // tools/styleboard2.mjs aims its crops with view.screenOf()
+(window as unknown as Record<string, unknown>).view = view; // the browser checks aim with view.screenOf()
 /** The next game's setup: the last one started from New game (remembered across visits). */
 let setup: Setup = defaultSetup();
 /** Settings → Account and the cloud save, loaded after the board is drawn (null until then, or offline). */
@@ -79,7 +76,7 @@ let account: typeof import('./account/account') | null = null;
 
 // The parts that the turn core calls. Their closures read `play` only after it exists.
 const guide = connectGuide({ shownPos: () => play.shownPos(), preset });
-const settings = connectSettings(view, { look, skill: () => play.skill(), setSkill: level => play.setSkill(level), save: () => play.save(), drawMarks: () => play.drawMarks() });
+const settings = connectSettings(view, { skill: () => play.skill(), setSkill: level => play.setSkill(level), save: () => play.save(), refresh: () => play.refresh() });
 const home = initHome({
   read: () => play.homeInput(),
   continue: () => { play.refresh(); void play.maybeAi(); },
@@ -90,7 +87,7 @@ const home = initHome({
 });
 (window as unknown as Record<string, unknown>).home = home; // Samples read the live game, including a staged turn.
 const play = connectPlay(view, {
-  params, preset, withPowers, look, fen, engine, guide, settings, home,
+  params, preset, withPowers, fen, engine, guide, settings, home,
   keys: () => keys, account: () => account, setup: () => setup, openNewGame: () => openNewGame(),
 });
 
@@ -173,8 +170,6 @@ const showHome = !link && shouldShowHome(params, { hasSave: !!saved, titleSeen: 
 const showTitle = !showHome && !link && !params.has('fen') && !params.has('army') && !params.has('design') && params.get('title') !== '0' && !titleSeen();
 const titleClosed = showTitle ? openTitle(firstVisit(saved?.moves.length ?? 0), !!saved?.moves.length, () => settings.pace()) : Promise.resolve('continue' as const);
 
-// The playable game has one art direction; study controls stay in the study.
-view.applyStyle(STYLES.clay);
 if (params.get('labels') === '1') settings.showLabels(); // `?labels=1` turns the letters on over the saved choice
 view.setLabels(settings.labels());
 view.setCoords(settings.coords());

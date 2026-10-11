@@ -2,7 +2,7 @@
 
 The game can now be played in the painted 2D look: the full rules, random armies, the computer opponent, Hint, Undo, saves, special-move controls and promotions, drawn with the painted figures and their capture animations.
 
-- **Default look** (owner, 2026-09-27). *Look* in **Settings** switches to Clay 3D, or `?look=clay`; the choice is remembered.
+- **Default look** (owner, 2026-09-27); since 2026-10-11 the only look: the clay look is parked (`parked/clay/`), and an old `?look=clay` link or saved choice opens the painted board.
 - **Board:** painted cream and charcoal stone, inspired by the capital tiles of the original King Down board, without the gold ([board-art](../2d-first-pieces/board-art/README.md)); it turns round with the view. Each figure has a soft contrasting rim (dark for ivory, pale for charcoal) so both armies read on the light and dark zones.
 - **Art size:** pieces and board load as WebP at full resolution (1.9 MB in total, down from 23 MB of PNG), so every animation coordinate still matches. PNG masters remain the source; regenerate with `python3 docs/2d-first-pieces/web-art.py`.
 - **How:** `src/render/PaintedView.ts` implements the same board interface as the clay renderer (`BoardView`), so `main.ts` is unchanged apart from choosing the view. It uses the shared scene `docs/2d-first-pieces/board/scene.mjs` — the same figures, poses and capture animations as the board trial, which now runs on that scene too.
