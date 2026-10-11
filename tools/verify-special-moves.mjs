@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { contextText, endTurn, lanMoves } from './app-ui.mjs';
+import { contextText, endTurn, lanMoves, readyBoard } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 const out = env('PLAYABLE_OUT');
 mkdirSync(out, { recursive: true });
@@ -14,14 +14,13 @@ try {
   for (const mobile of [false, true]) {
     const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 }, hasTouch: mobile });
     await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
-    await page.addInitScript(() => localStorage.setItem('kingdown.look', 'clay')); // painted is the default look
     trapErrors(page);
     const url = env('PLAYABLE_URL');
     await page.goto(url);
     async function seed(fen) {
       await page.evaluate(fen => localStorage.setItem('kingdown.save', JSON.stringify({ fen, back: '', moves: [], white: 'human', black: 'human', sound: false })), fen);
-      await page.goto(url); await page.waitForFunction(() => window.view?.pieces.size > 0);
-      await page.evaluate(() => window.view.ready());
+      await page.goto(url); await readyBoard(page);
+      await page.waitForFunction(() => window.view.pos);
     }
     async function tap(sq) {
       const p = await page.evaluate(s => window.view.screenOf(s), sq);
@@ -30,7 +29,10 @@ try {
     async function button(id) {
       if (mobile) await page.locator(id).tap(); else await page.click(id);
     }
-    const played = n => page.waitForFunction(n => JSON.parse(localStorage.getItem('kingdown.save')).moves.length === n, n);
+    const played = async n => {
+      await page.waitForFunction(n => JSON.parse(localStorage.getItem('kingdown.save')).moves.length === n, n);
+      await page.waitForFunction(() => !window.view.scene.animating); // a tap during a move or a rewind skips it
+    };
     const ogre = '7k/8/8/2p5/2O5/8/P7/K7 w - - 0 1';
     await seed(ogre);
     const bounds = await page.locator('#board').boundingBox();
@@ -48,11 +50,11 @@ try {
     assert.equal(await page.locator('#move-choice').isVisible(), false);
     await tap(26); await tap(34); await button('#choose-push'); await played(1);
     assert.match((await lanMoves(page)).join(' '), /Oc4>c5-c6/);
-    assert.ok(await page.evaluate(() => window.view.pieces.has(42) && window.view.pieces.has(34) && !window.view.pieces.has(26)));
+    assert.ok(await page.evaluate(() => window.view.pos.board[42] > 0 && window.view.pos.board[34] > 0 && !window.view.pos.board[26]));
     await button('#undo'); await played(0);
     await tap(26); await tap(34); await button('#choose-capture'); await played(1);
     assert.match((await lanMoves(page)).join(' '), /Oc4xc5/);
-    assert.equal(await page.evaluate(() => window.view.pieces.has(42)), false);
+    assert.equal(await page.evaluate(() => window.view.pos.board[42] > 0), false);
     assert.deepEqual(await page.locator('#board').boundingBox(), bounds);
     checks.push(`${mobile ? 'touch' : 'mouse'}: capture/push chooser, cancel, both outcomes, undo and stable board`);
 
@@ -103,28 +105,9 @@ try {
       await tap(43); await tap(34); await button('#choose-capture'); await played(2);
       await button('#undo'); await played(1);
       assert.equal(await page.locator('#move-choice').isVisible(), false);
-      assert.ok(await page.evaluate(() => window.view.pieces.has(34) && window.view.pieces.has(43)));
+      assert.ok(await page.evaluate(() => window.view.pos.board[34] > 0 && window.view.pos.board[43] > 0));
       checks.push('Undo waits for the choice and keeps the turn that was handed over');
     }
-    await seed('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1');
-    const haloPixels = await page.evaluate(() => {
-      const view = window.view, halo = view.markers.children.find(m => m.material === view.checkHaloMat);
-      const canvas = document.createElement('canvas');
-      canvas.width = view.renderer.domElement.width; canvas.height = view.renderer.domElement.height;
-      const ctx = canvas.getContext('2d');
-      const lightPixels = () => {
-        view.composer.render(); ctx.drawImage(view.renderer.domElement, 0, 0);
-        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        let light = 0;
-        for (let i = 0; i < data.length; i += 4) if (data[i] > 200 && data[i + 1] > 190 && data[i + 2] > 160) light++;
-        return light;
-      };
-      const shown = lightPixels(); halo.visible = false;
-      const hidden = lightPixels(); halo.visible = true; view.composer.render();
-      return shown - hidden;
-    });
-    assert.ok(haloPixels > 20, `${mobile ? 'phone' : 'desktop'}: the check halo draws above the stone (${haloPixels} light pixels)`);
-    checks.push(`${mobile ? 'touch' : 'mouse'}: the 3D check halo is visible`);
     await page.close();
   }
   assertNoErrors();

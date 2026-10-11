@@ -3,6 +3,9 @@
 Work of 2026-10-02 (branch `claude/perf-installable`). What changed, how it was measured, and the
 owner's one-time steps to put the game on GitHub Pages.
 
+> **2026-10-11:** the clay look is parked (`parked/clay/`, [spec](../specs/park-clay/spec.md)). The game has
+> only the painted look, and the build publishes no clay file. The clay parts below are history.
+
 ## In plain words
 
 - **The painted game starts sooner on a phone.** Before, every visitor downloaded the whole 3D clay

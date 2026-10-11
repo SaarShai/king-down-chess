@@ -1,7 +1,36 @@
 import type { PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import type { boardInk } from './board-ink';
 import { badge, kindOf, occupied, paint, tile, type Kind, type Shape } from './legend';
-import type { Highlights } from './renderer';
+import type { Reach } from '../read';
+import type { Checker } from '../move-text';
+
+/** The marks of the board: the selected piece's moves and takes, the last move, the hint, check. */
+export interface Highlights {
+  selected?: number | null;
+  moves?: number[];
+  captures?: number[];
+  swaps?: number[];
+  /** Squares holding a piece an Ogre may shove (occupied, never a capture). */
+  shoves?: number[];
+  /** Captures made from a distance (the Archer shoots without moving); also listed in `captures`. */
+  shots?: number[];
+  /** Read outlines; omitted in the plugin. */
+  read?: Reach;
+  /** Shove targets and their landings; omitted keeps the old chevrons. */
+  shoveTo?: { from: number; to: number }[];
+  /** Beast victim squares already chosen, in bite order. */
+  bites?: number[];
+  /**
+   * Squares a king's power acts on: an armed power's moves (also listed in `moves` or `captures`)
+   * and the pieces an armed Freeze, Ice Wall or Sacrifice can name.
+   */
+  powers?: number[];
+  last?: number[];
+  hint?: number[];
+  check?: number | null;
+  /** Opt in to the still ember ring and cause lines. Omit to keep the original check mark. */
+  checkers?: Checker[];
+}
 
 /**
  * Move and take marks for the painted board, drawn on its canvas (no DOM), in the owner's legend (legend.ts).

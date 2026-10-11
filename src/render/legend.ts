@@ -9,7 +9,7 @@
  *
  * Ported from docs/research/rules-ui-2026-10-10/mockups/shared/marks.js in its "wash" look (the marks.js line
  * numbers are in the comments). Each function returns plain shapes; toSvg() and paint() draw them, so the SVG
- * (the Proving Ground) and the canvas (the painted board, the clay textures) show one drawing.
+ * (the Proving Ground) and the canvas (the painted board) show one drawing.
  * Units: x, y, s and R are drawing units; o.px is the drawing units of one CSS pixel. Every width and each
  * threshold (16 and 48 px) is in CSS pixels.
  */
@@ -42,7 +42,7 @@ export type Shape = Ink & (
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const shoots = (kind: Kind) => kind === 'shot' || kind === 'moveshot';
 
-/** The kind of a marked square of the game (src/render/renderer.ts Highlights): a square in moves and captures is both. */
+/** The kind of a marked square of the game (src/render/marks.ts Highlights): a square in moves and captures is both. */
 export const kindOf = (sq: number, h: { moves?: number[]; captures?: number[]; shots?: number[] }): Kind =>
   !h.captures?.includes(sq) ? 'move' : h.moves?.includes(sq) ? h.shots?.includes(sq) ? 'moveshot' : 'both' : h.shots?.includes(sq) ? 'shot' : 'take';
 
