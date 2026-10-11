@@ -1,6 +1,6 @@
 import type { Game } from '../game';
 import { clickPath } from '../marks-model';
-import { NAMES, colorOf, file as fileOf, rank as rankOf, sq as square, sqName, typeOf, type Move, type Position } from '../rules/engine';
+import { nameOf, colorOf, file as fileOf, rank as rankOf, sq as square, sqName, typeOf, type Move, type Position } from '../rules/engine';
 import { pieceText } from '../ui/guide';
 import { connectReadKey } from '../ui/read';
 
@@ -62,7 +62,7 @@ export function connectKeys(board: HTMLElement, play: KeysPlay, commands: KeyCom
   function sayCursor(): void {
     if (cursor == null) return;
     const p = play.shownPos().board[cursor];
-    const what = p ? `${colorOf(p) ? 'black' : 'white'} ${NAMES[typeOf(p)]}` : 'empty';
+    const what = p ? `${colorOf(p) ? 'black' : 'white'} ${nameOf(typeOf(p))}` : 'empty';
     const selected = play.selected(), target = selected != null && play.candidates().some(m => clickPath(m)[play.pending().length] === cursor);
     const card = cursor === play.inspected() ? `. ${pieceText(typeOf(p))}` : ''; // a piece chosen with Enter to read: its card
     $('cursor-say').textContent = `${sqName(cursor)}, ${what}${cursor === selected ? ', selected' : target ? ', can go here' : card}`;

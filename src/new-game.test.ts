@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSetup, newGamePowerLine, newGameWarning, kingsOf, parseSetup, playersOf, powersOn, setupOfGame, withKing, withMode } from './new-game';
+import { defaultSetup, newGamePowerLine, newGameWarning, kingsOf, parseSetup, playersOf, powersOn, refusal, setupOfGame, withDesign, withKing, withMode } from './new-game';
+import { PRESETS, designCode, fromPreset } from './workshop/model';
 import { powerOptions } from './powers-ui';
 import { Game } from './game';
 import { CLASSIC_CHESS, toLan } from './rules/setup';
@@ -109,4 +110,29 @@ it('the sheet splits power rules into sentences without changing their condition
     .toBe('Holy Light (always on). Enemy pawns cannot take your king. Your pieces beside, in front of or behind it cannot be taken.');
   expect(newGamePowerLine('Freeze (1 use)', 'freeze an enemy piece (not the king), then make your move: the frozen piece cannot move on its next turn'))
     .toBe('Freeze (1 use). Freeze an enemy piece (not the king). Then make your move. The frozen piece cannot move on its next turn.');
+});
+
+describe('Bring a design (ticket 17)', () => {
+  const rook = { ...fromPreset(PRESETS.find(p => p.key === 'rook')!), name: 'My Rook', letter: 'Y' };
+  const late = { ...rook, name: 'Late Rook', rules: [{ when: { on: 'fromMove' as const, n: 10 as const }, does: { a: 'movesLike' as const, as: 'knight' as const } }] };
+
+  it('a setup from before "Bring a design" has none; a playable design code is kept; any other is dropped', () => {
+    const { design: _, ...old } = defaultSetup();
+    expect(parseSetup(old)?.design).toBeNull();
+    expect(parseSetup({ ...defaultSetup(), design: designCode(rook) })?.design).toBe(designCode(rook));
+    expect(parseSetup({ ...defaultSetup(), design: designCode(late) })?.design).toBeNull();
+    expect(parseSetup({ ...defaultSetup(), design: 'nope' })?.design).toBeNull();
+  });
+
+  it('says why a design cannot play yet: a When that counts moves or cards', () => {
+    expect(refusal(rook)).toBe('');
+    expect(refusal(late)).toBe('a rule counts moves or cards');
+  });
+
+  it('puts the design in place of the piece nearest its worth, never the king, the left one on a tie', () => {
+    expect(withDesign(CLASSIC_CHESS, 3.2)).toBe('RNTQKBNR');
+    expect(withDesign(CLASSIC_CHESS, 9)).toBe('RNBTKBNR');
+    expect(withDesign(CLASSIC_CHESS, 4.5)).toBe('TNBQKBNR');
+    expect(withDesign('KQQQQQQQ', 0)).toBe('KTQQQQQQ');
+  });
 });

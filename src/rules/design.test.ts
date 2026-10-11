@@ -204,7 +204,7 @@ describe('the design in the slot T', () => {
 
   it('parseRule reads a share code', () => {
     const d: PieceDesign = { ...fromPreset(PRESETS.find(p => p.key === 'beast')!), name: 'Test', letter: 'X' };
-    expect(parseRule(`design=${designCode(d)}`)).toEqual({ design: specOf(d) });
+    expect(parseRule(`design=${designCode(d)}`)).toEqual({ design: { ...specOf(d), code: designCode(d) } }); // the code: the game's name and figure (ticket 17)
     expect(parseRule('design=')).toEqual({ design: null });
     expect(() => parseRule('design=nope')).toThrow(/share code/);
   });

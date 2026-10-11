@@ -1,5 +1,6 @@
 import { afterEach, expect, it } from 'vitest';
-import { A, DEFAULT_RULES, parseSq, setRules } from './rules/engine';
+import { A, DEFAULT_RULES, T, nameOf, parseRule, parseSq, setRules } from './rules/engine';
+import { PRESETS, designCode, fromPreset } from './workshop/model';
 import { fromFen } from './rules/setup';
 import { pieceGuide, guideTypes, reachOf, readText, readTap, unmarkedTap, whyNot } from './read';
 
@@ -236,4 +237,14 @@ it.each(['over2', 'nearOver2', 'fwdNearOver2'] as const)('reads %s shots only ov
   pos.board[at('e4')] = 1;
   expect(reachOf(pos, at('d4')).shot.has(at('f4'))).toBe(true);
   expect(readText(pos, at('d4'))).toContain('only over a piece');
+});
+
+it('names and describes the design that plays as T (ticket 17), and the Templar without one', () => {
+  const pos = fromFen('4k3/8/8/8/3T4/8/8/4K3 w - - 0 1');
+  expect([nameOf(T), readText(pos, at('d4')).split(' · ')[0]]).toEqual(['templar', 'templar']);
+  setRules(parseRule(`design=${designCode({ ...fromPreset(PRESETS.find(p => p.key === 'rook')!), name: 'My Rook', letter: 'Y' })}`));
+  expect(nameOf(T)).toBe('My Rook');
+  expect(pieceGuide(T).moves).toBe('Moves like a rook.');
+  expect(readText(pos, at('d4'))).toBe('My Rook · Moves like a rook.');
+  expect(whyNot(pos, at('d4'), at('e5'))).toBe('The My Rook cannot reach e5.');
 });

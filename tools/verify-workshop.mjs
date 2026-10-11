@@ -59,12 +59,14 @@
 // Then ticket 13: kings (the Kings tab's six kings; the Mud king on the plinth with his two powers, their coins and words, and no
 // mini boards; Leap armed on the Rook: the power marks of G22 rook-leap with the arch, the stamp and the line; a tap on d5 plays it,
 // spends a notch, and Take back gives it back; the King socket's SEAT A KING and Esc; Freeze on the Paladin's d7: the frost with
-// one turn, then "No Freeze uses left."; Leap on the Paladin is an echo, "="; a copy's socket says that powers wait; the phone's
+// one turn, then "No Freeze uses left."; Leap on the Paladin is an echo, "="; a copy's socket works (ticket 17: Freeze marks, Leap is an
+// echo), and a design whose rule counts moves has a socket that waits and says why; the phone's
 // Board tab and Kings tab).
 // Then ticket 14: labCards (the Cards tab (LAB): the fan of the 10 cards with art, the "+15" stack that spreads and "‹ Back"; the
 // Freeze card on the plinth with its art, words and LAB ribbon, its king, the burgundy plaque; its picks as runes on the Paladin's
 // board, the king's rune barred and the piece's own marks stepped back; d7 plays it: frost, and Take back gives it back; a second
-// form; LAY A LAB CARD and Esc; Leap laid on the Rook; one power or one card at a time; a copy's slot waits; the phone).
+// form; LAY A LAB CARD and Esc; Leap laid on the Rook; one power or one card at a time; a copy's slot works, and the slot of a
+// design whose rule counts cards waits and says why (ticket 17); the phone).
 // Run it with `npm run check:browser workshop`.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -1869,7 +1871,10 @@ async function rulesTab() {
 
 /** Ticket 13: the kings and their powers on the pool pieces. */
 async function kings() {
-  const p = await open();
+  // A design whose rule counts moves: a game cannot play it yet, so its powers wait (ticket 17).
+  const late = { v: 1, kind: 'piece', id: 'late', name: 'Late Queen', named: true, look: { body: 'P', auto: false, glow: null, army: 0 }, letter: 'Y', ownLetter: false,
+    squares: [{ x: 0, y: 1, mark: 'move' }], lines: [], rules: [{ when: { on: 'fromMove', n: 10 }, does: { a: 'movesLike', as: 'queen' } }], from: [], updated: 1760000000000 };
+  const p = await open('', { shelf: JSON.stringify({ v: 1, designs: [late] }) });
   await door(p);
   await p.click('.slot[data-piece="rook"]');
   await p.click('[data-tab="kings"]');
@@ -1924,16 +1929,31 @@ async function kings() {
   await p.click('.pg-tray [data-power="Leap"]');
   assert.deepEqual([await p.locator('.echo-note').textContent(), await p.locator('.pg-tray [data-power="Leap"] .echo-eq').textContent(), await marks(p)],
     ['= Leap adds nothing to the Paladin. No mark changes.', '=', PALADIN], 'Leap on the Paladin is an echo');
-  // A copy: the powers wait.
+  // A copy plays as the design slot T (ticket 17): the socket works, Freeze marks; the engine's Leap moves only a rook, a
+  // bishop or a queen, so on the copy it is an echo, as in a game.
   await arm(p, 'move');
   await tap(p, 'f6');
   await p.click('[data-act="done"]');
+  assert.deepEqual([await name(p), await p.locator('.pg-socket[aria-disabled], .pg-kingnote').count()], ['My Paladin', 0], 'on a copy the socket works');
+  await p.click('[data-tab="kings"]');
+  await p.click('.slot[data-king="Frost"]');
+  await p.click('.pline[data-power="IceWall"]');
+  await p.click('.pline[data-power="Freeze"]');
+  assert.deepEqual(await p.$$eval('.pg-board [data-sq][data-emblem="frost"]', gs => gs.map(g => g.dataset.sq).sort()), ['b6', 'd7'], 'on a copy Freeze marks each enemy piece but the king');
+  await p.click('.slot[data-king="Mud"]');
+  await p.click('.pline[data-power="Leap"]');
+  assert.deepEqual([await p.getAttribute('.pline[data-power="Leap"]', 'aria-pressed'), await p.locator('.echo-note').textContent()],
+    ['true', '= Leap adds nothing to the My Paladin. No mark changes.'], 'on a copy Leap is an echo');
+  // A design whose rule counts moves: the powers wait, with the reason.
+  await p.click('[data-tab="pieces"]');
+  await p.click('.slot[data-design="late"]');
   assert.deepEqual([await name(p), await p.getAttribute('.pg-socket', 'aria-disabled'), await p.locator('.pg-kingnote').textContent(), await p.locator('.pg-board [data-emblem]').count()],
-    ['My Paladin', 'true', 'Powers work on the pool pieces for now.', 0], 'on a copy the socket says that powers work on the pool pieces for now');
+    ['Late Queen', 'true', 'Powers wait: a rule of this piece counts moves or cards.', 0], 'with a rule that counts moves, the socket waits and says why');
   await p.click('[data-tab="kings"]');
   await p.click('.slot[data-king="Mud"]');
   await p.click('.pline[data-power="Leap"]', { force: true });
-  assert.deepEqual([await p.getAttribute('.pline[data-power="Leap"]', 'aria-disabled'), await p.getAttribute('.pline[data-power="Leap"]', 'aria-pressed'), await toast(p)], ['true', 'false', 'Powers work on the pool pieces for now.'], 'on a copy the king\'s power lines wait');
+  assert.deepEqual([await p.getAttribute('.pline[data-power="Leap"]', 'aria-disabled'), await p.getAttribute('.pline[data-power="Leap"]', 'aria-pressed'), await toast(p)],
+    ['true', 'false', 'Powers wait: a rule of this piece counts moves or cards.'], 'with a rule that counts moves, the king\'s power lines wait');
   await minTarget(p, '#workshop .pg-tray button', 44);
   await p.context().close();
   // The phone: the socket in the Board tab; an open king shows the board only.
@@ -1953,7 +1973,9 @@ async function kings() {
   await f.context().close();
 }
 async function labCards() {
-  const p = await open();
+  const card = { v: 1, kind: 'piece', id: 'card', name: 'Card Queen', named: true, look: { body: 'P', auto: false, glow: null, army: 0 }, letter: 'Y', ownLetter: false,
+    squares: [{ x: 0, y: 1, mark: 'move' }], lines: [], rules: [{ when: { on: 'afterCard', card: 'any' }, does: { a: 'movesLike', as: 'queen' } }], from: [], updated: 1760000000000 };
+  const p = await open('', { shelf: JSON.stringify({ v: 1, designs: [card] }) });
   await door(p);
   await p.click('.slot[data-piece="paladin"]');
   await p.click('[data-tab="cards"]');
@@ -2018,12 +2040,16 @@ async function labCards() {
   await p.click('[data-lay="Vault"]');
   assert.equal(await p.getAttribute('.pg-tray [data-power="Leap"]', 'aria-pressed'), 'false', 'a laid card lets the armed power go');
   await minTarget(p, '#workshop .pg-tray button, #workshop .pg-ledge button', 44);
-  // A copy: the slot waits.
+  // A copy: the slot works (ticket 17); a design whose rule counts cards: the slot waits.
   await arm(p, 'move');
   await tap(p, 'f3');
   await p.click('[data-act="done"]');
+  assert.deepEqual([await name(p), await p.getAttribute('.cardslot', 'aria-disabled')], ['My Rook', null], 'on a copy the slot works');
+  await p.click('[data-tab="pieces"]');
+  await p.click('.slot[data-design="card"]');
   await p.click('.cardslot', { force: true });
-  assert.deepEqual([await name(p), await p.getAttribute('.cardslot', 'aria-disabled'), await toast(p), await runes(p)], ['My Rook', 'true', 'Cards work on the pool pieces for now.', []], 'on a copy the slot waits');
+  assert.deepEqual([await name(p), await p.getAttribute('.cardslot', 'aria-disabled'), await toast(p), await runes(p)],
+    ['Card Queen', 'true', 'Cards wait: a rule of this piece counts moves or cards.', []], 'with a rule that counts cards, the slot waits and says why');
   await p.context().close();
   // The phone: an open card shows its art in the window, its name and the board.
   const f = await open('', { width: 390, height: 844 });

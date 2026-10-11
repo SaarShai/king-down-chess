@@ -8,10 +8,10 @@
  * to `setRules` the defaults apply, which is exactly the game the browser plays today.
  */
 
-import { ArcherShots, CardName, PowerName, RULES, Rules, USES_RULE } from './rules';
+import { ArcherShots, CardName, PowerName, RULES, Rules, USES_RULE, playedDesign } from './rules';
 import { genDesigned, shelterOf } from './design';
 export type { ArcherMove, ArcherShots, BeastCapture, BeastMove, CardName, CatapultCapture, GuardCaptures, GuardReserve, KingChoice, KingName, OgreMode, OgreShoveFriends, PaladinKamikaze, PowerName, PromotionSet, Rules, StrikeMode } from './rules';
-export { ALL_CARDS, BUILT, CARD_ONLY, DEFAULT_RULES, KINGS, PLAIN_KINGS, POWERS_BALANCED, RULES, RULES_2017, RULES_2021, TIER1, USES_RULE, kingLabel, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
+export { ALL_CARDS, BUILT, CARD_ONLY, DEFAULT_RULES, KINGS, PLAIN_KINGS, POWERS_BALANCED, RULES, RULES_2017, RULES_2021, HISTORY_WHENS, TIER1, USES_RULE, kingLabel, parseKing, parseKings, parseRule, playedDesign, ruleDiff, setRules } from './rules';
 
 export type Color = 0 | 1;
 export const WHITE: Color = 0;
@@ -22,6 +22,8 @@ export type PieceType = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 
 /** Letter per piece type (index = type). A=archer L=paladin G=guard M=maester S=beast O=ogre C=catapult V=reaver. */
 export const LETTERS = ' PNBRQKALGMSOCVT';
 export const NAMES = ['', 'pawn', 'knight', 'bishop', 'rook', 'queen', 'king', 'archer', 'paladin', 'guard', 'maester', 'beast', 'ogre', 'catapult', 'reaver', 'templar'] as const;
+/** A piece's name in this game: the design that plays as `T` has its own (ticket 17). */
+export const nameOf = (t: PieceType): string => (t === T && playedDesign()?.name) || NAMES[t];
 /**
  * Promotion targets. The ogre and the catapult are **not** here: they are lab pieces that enter a
  * game only through `--pool` or an explicit back rank, and adding them would hand every shipped

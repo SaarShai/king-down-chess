@@ -8,7 +8,7 @@ import { BLACK, K, LETTERS, NAMES, P, T, WHITE, colorOf, file, genPiece, parseSq
 import { marksModel } from '../marks-model';
 import { DIR, canonical, type Ability, type PieceDesign, type Rule, type Zone } from './model';
 import { blockOf } from './vocab';
-import { START, holds, movesOf, patternOf, step, type Can, type Refused, type TryState } from './moves';
+import { START, holds, movesOf, patternOf, step, tryBoard, type Can, type Refused, type TryState } from './moves';
 import { traceOf, type Knot } from './why';
 
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules'>;
@@ -102,7 +102,7 @@ export function threatsOf(design: D, board: Uint8Array, from: number, st: TrySta
   return [...board.keys()].flatMap(s => {
     const v = board[s], ms: Move[] = [];
     if (!v || colorOf(v) === colorOf(board[from])) return [];
-    genPiece(board, s, 'attacks', ms);
+    tryBoard(() => genPiece(board, s, 'attacks', ms));
     const stopped = by === 'allButKing' ? typeOf(v) !== K : by === 'pawns' && typeOf(v) === P;
     return ms.some(m => m.captures.includes(from)) ? [{ k: 'threat' as const, from: sqName(s), to: sqName(from), ...(stopped && { stopped: true as const, by: [i] }) }] : [];
   });

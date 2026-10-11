@@ -11,7 +11,7 @@
  * Loaded on demand (main.ts `import()`).
  */
 import './ground.css';
-import { BLACK, K, KINGS, NAMES as PIECE, P, T, USES_RULE, WHITE, colorOf, file, isMarkTag, makeMove, parseSq, piece, rank, sq, sqName, typeOf, type CardName, type KingName, type Move, type PieceType, type Position, type PowerName } from '../rules/engine';
+import { BLACK, HISTORY_WHENS, K, KINGS, NAMES as PIECE, P, T, USES_RULE, WHITE, colorOf, file, isMarkTag, makeMove, parseSq, piece, rank, sq, sqName, typeOf, type CardName, type KingName, type Move, type PieceType, type Position, type PowerName } from '../rules/engine';
 import { POWER_NAME, cardText, coinState, coinWords, powerText } from '../powers-ui';
 import { coinRow } from '../ui/coin';
 import { pieceIcon } from '../piece-icons';
@@ -21,7 +21,7 @@ import { faceHtml, thumbHtml } from './face';
 import { autoBody, bandOf, judge } from './judge';
 import { NAMES, chip, countRing, diagram, drawString, effect, ensureDefs, impression, knot, mirrorIcon, nub, pill, plaque, seal, sigil, tagYours, tile, viewBox, whySum } from './marks';
 import {
-  BLANK, DIR, DIRS, FULL, MAX_RULES, PRESETS, brushMark, canonical, designCode, empty, fromPreset, likeAlways, limit, lineOrbit, orbit, parseDesign, presetOf, validName,
+  BLANK, DIR, DIRS, FULL, MAX_RULES, PRESETS, brushMark, canonical, designCode, empty, fromPreset, likeAlways, limit, lineOrbit, orbit, parseDesign, presetOf, specOf, validName,
   type Ability, type Body, type Brush, type Dir, type LikeAs, type PaintOn, type PieceDesign, type Preset, type Rule, type When,
 } from './model';
 import { BODY_TYPE, START, holds, movesOf, step, type TryState } from './moves';
@@ -33,6 +33,7 @@ import { MAX, deleteDesign, loadShelf, saveDesign, type SaveResult } from './sto
 import { LIKE_ADDED, LIKE_CLASH, brief, cap, designText, esc, lawsOf, lineParts, lineWords, pawns, promotion, ruleText, whenLabel } from './text';
 import { BLOCKS, BODY, GROUPS, blockOf, whenChoices, whenWords, type Part } from './vocab';
 import { traceOf, whyWords } from './why';
+import type { DesignSpec } from '../rules/design';
 import { cardMarks, cardRules, enginePos, kingRules, playCard, playPower, powerLayer, powerMarks, seated } from './powers';
 // @ts-expect-error The approved gait curves are shared browser JavaScript, without declarations.
 import { GAITS, GAIT_OF } from '../../docs/2d-first-pieces/board/gait.mjs';
@@ -62,6 +63,8 @@ const DECK: readonly CardName[] = ['Freeze', 'IceWall', 'Strike', 'Haste', 'Flig
 const SECOND: Partial<Record<CardName, CardName>> = { Firewall: 'FirewallB', EarthQuake: 'EarthQuakeB', Growth: 'GrowthB', SpawnK: 'SpawnK2' };
 const ART: readonly CardName[] = ['Freeze', 'IceWall', 'Sacrifice', 'March', 'Leap', 'Mimic', 'Vault', 'SkyLift', 'Salvation', 'Rescue'];
 const LAY: readonly CardName[] = ['Freeze', 'IceWall', 'Leap', 'March', 'Mimic', 'Vault'];
+/** A design with a When that counts moves or cards: the socket and the card slot wait (powersWork). */
+const WAIT_POWERS = 'Powers wait: a rule of this piece counts moves or cards.', WAIT_CARDS = 'Cards wait: a rule of this piece counts moves or cards.';
 const cardArt = (c: CardName): string => `${import.meta.env.BASE_URL}ui/cards/${ART.includes(c) ? c.toLowerCase() : 'back'}.webp`;
 /** "Ice Wall", "Sky Lift", "Spawn K2". */
 const cardName = (c: CardName): string => (c in USES_RULE ? POWER_NAME[c as PowerName] : c.replace(/([a-z])([A-Z0-9])/g, '$1 $2'));
@@ -901,7 +904,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     // A lifted piece stands raised and faint in a frame until it is placed.
     // While an open card is laid and not played, the piece's own marks step back (proving-ground.html:1142-1143); so do they
     // after a Freeze or an Ice Wall card just played, which is the turn's move in card mode (scenes.js freeze-card, dim).
-    const back = !brush && !!laid && poolPiece() && (pos.game.played ? !backs.at(-1)?.game.played && (laid === 'Freeze' || laid === 'IceWall') : labOpen === laid || sc.effects.some(e => e.k === 'rune'));
+    const back = !brush && !!laid && powersWork() && (pos.game.played ? !backs.at(-1)?.game.played && (laid === 'Freeze' || laid === 'IceWall') : labOpen === laid || sc.effects.some(e => e.k === 'rune'));
     boardEl.innerHTML = drawString(sc, {
       s, art, focus: iso ?? (back ? () => false : undefined), stamps: narrow.matches ? x => look && x === focus : undefined, hover: why ?? near ?? keyed, select: why ?? (lifted ? sqName(from) : null), lift: lifted,
     });
@@ -1044,16 +1047,19 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
 
   /* ---- the kings (ticket 13): the King socket, the coins, and the armed power's marks on an unchanged pool piece ---- */
 
-  /** Powers work on the pool pieces only, as the engine makes their moves (decision 31). */
   const poolPiece = (): boolean => cur.key.startsWith('piece:');
+  /** The engine makes the power and card moves (decision 31): a copy or a new piece plays as `T` (ticket 17), except with a When
+   *  that counts moves or cards, which a game does not keep yet (`setRules`). */
+  const powersWork = (): boolean => poolPiece() || !cur.d.rules.some(r => HISTORY_WHENS.includes(r.when.on));
+  const designNow = (): DesignSpec | null => (poolPiece() ? null : specOf(cur.d));
   /** The Try board as the engine's position: the open pool piece as its own type, with the uses of power `p` spent (each
    *  power of a king counts its own uses; the engine counts one power for each side) and the marks. */
   const poolType = (): PieceType => (poolPiece() ? (PIECE as readonly string[]).indexOf(cur.key.slice(6)) as PieceType : T);
   const kingPos = (p = armed): Position => enginePos(pos.board, pos.from, poolType(), { used: [(p && pos.game.uses?.[p]) || 0, 0], marks: pos.game.marks });
   /** A power or a card shows its marks on a pool piece: not in brush mode, after a removal, a "becomes" or during a chain. */
-  const live = (): boolean => poolPiece() && !brush && !pos.gone && !pos.became && !pos.chain;
+  const live = (): boolean => powersWork() && !brush && !pos.gone && !pos.became && !pos.chain;
   const powerLive = (): boolean => !!king && !!armed && live();
-  const powerNow = (): Move[] => (powerLive() ? powerMarks(kingPos(), pos.from, king!, armed!) : []);
+  const powerNow = (): Move[] => (powerLive() ? powerMarks(kingPos(), pos.from, king!, armed!, designNow()) : []);
   /** The armed power adds no mark: the echo. */
   const echo = (): boolean => powerLive() && !powerNow().length;
   /** The coin of power `p` (coinState): its uses spent and left. */
@@ -1072,11 +1078,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     king = k;
     armed = null;
     seating = false;
-    if (poolPiece()) setUp(seated(restored()));
+    if (powersWork()) setUp(seated(restored()));
     pos = { ...pos, game: {} };
     render();
     const s = pos.board.findIndex(v => v === piece(K, WHITE));
-    if (s < 0 || !poolPiece()) return;
+    if (s < 0 || !powersWork()) return;
     const b = figBox(s);
     fly(kingArt(k), new DOMRect(b.x + b.width * 2.2, b.y, b.width, b.height), b, GAITS.walk);
     run(boardEl.querySelector(`image[href="${kingArt(k)}"]`), [{ opacity: 0 }, { opacity: 0 }], 320);
@@ -1093,7 +1099,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   }
   /** A tap on a coin (tapPower, :1889): it seats the power's king, then arms the power, or lets it go; with no use left, it says so. */
   function tapPower(p: PowerName): void {
-    if (!poolPiece()) return toast('Powers work on the pool pieces for now.', 'lock');
+    if (!powersWork()) return toast(WAIT_POWERS, 'lock');
     if (king !== kingOf(p)) seat(kingOf(p));
     if (armed !== p && coinOf(p).left === 0) return toast(`No ${POWER_NAME[p]} uses left.`, 'lock');
     armed = armed === p ? null : p;
@@ -1106,13 +1112,13 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   /** The Try board for the laid card: the open pool piece as its own type, the card played or not, and the marks. */
   const labPos = (): Position => enginePos(pos.board, pos.from, poolType(), { used: [pos.game.played ?? 0, 0], marks: pos.game.marks });
   /** The picks of the laid card until it is played (ticket 14): the six of LAY only. */
-  const labNow = (): Move[] => (laid && LAY.includes(laid) && !pos.game.played && live() ? cardMarks(labPos(), pos.from, laid) : []);
+  const labNow = (): Move[] => (laid && LAY.includes(laid) && !pos.game.played && live() ? cardMarks(labPos(), pos.from, laid, designNow()) : []);
   /** The king that a Freeze or an Ice Wall may not pick: the king of its targets' side, else -1. */
   const barred = (ms: Move[]): number => (ms[0] && isMarkTag(ms[0].power) ? pos.board.indexOf(piece(K, colorOf(pos.board[ms[0].to]))) : -1);
   /** Plays power move `m` with the engine (makeMove under the king's rules), or the laid card's move: it spends a use (or the
    *  card), and a Freeze leaves its mark. The other side never moves, so the mark stays. With no use left, the power lets go. */
   function usePower(m: Move): void {
-    const p = armed, next = p ? playPower(kingPos(), m, king!, p) : playCard(labPos(), m, laid!), to = m.from === pos.from ? m.to : pos.from, b = new Uint8Array(next.board);
+    const p = armed, next = p ? playPower(kingPos(), m, king!, p, designNow()) : playCard(labPos(), m, laid!, designNow()), to = m.from === pos.from ? m.to : pos.from, b = new Uint8Array(next.board);
     const who = (s: number): string => `the ${colorOf(pos.board[s]) ? 'enemy' : 'your'} ${PIECE[typeOf(pos.board[s])]} on ${sqName(s)}`;
     const said = `${p ? POWER_NAME[p] : cardName(laid!)}: ${isMarkTag(m.power) ? `${who(m.to)}.` : m.captures.length ? `took ${who(m.captures[0])}.` : `moved to ${sqName(m.to)}.`}`;
     b[to] = piece(T, WHITE);
@@ -1141,7 +1147,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     shelfOpen = lifted = ledgeOpen = false;
     labOpen = c;
     sealOn = null;
-    if (poolPiece() && laid !== c) lay(c); else render();
+    if (powersWork() && laid !== c) lay(c); else render();
     run(q('.pg-bigcard'), [{ opacity: 0, transform: 'translateY(14px) scale(0.96)' }, {}], 480, EASE);
   }
   /** A new set-up (a lift, a token, the die, the broom, "Show on"): no move to take back. */
@@ -1265,13 +1271,13 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     trayEl.hidden = !on;
     const tok = (k: 'friend' | 'enemy', words: string): string => `<button type="button" class="tok" data-tok="${k}" aria-pressed="${token === k}" aria-label="${cap(k)}" title="${words}">`
       + `<img class="fig" src="${esc(pieceArt(P, k === 'enemy') ?? '')}" alt=""><span class="base"></span></button>`;
-    // The King socket (ticket 13; renderTray, :1374-1391): on a copy or a new piece it says that powers wait; empty, it opens
+    // The King socket (ticket 13; renderTray, :1374-1391): on a piece whose rule counts moves or cards it says that powers wait; empty, it opens
     // SEAT A KING; with a king, his figure (a tap seats another) and his two coins. An armed power that adds nothing is an echo.
     const empty = `<span class="sockc"><img src="${import.meta.env.BASE_URL}ui/emblems/spirit.webp" alt=""></span>`;
-    // The card slot (ticket 14; :1383-1384) waits on a copy or a new piece too; else it opens LAY A LAB CARD.
-    const slot = `<button type="button" class="tok cardslot${laid && poolPiece() ? ' on' : ''}" ${poolPiece() ? `data-act="lay" aria-expanded="${laying}"` : 'data-act="nocard" aria-disabled="true"'} title="Card: lay a LAB card"`
-      + ` aria-label="${!poolPiece() ? 'Card. Cards work on the pool pieces for now.' : laid ? `${cardName(laid)} card (LAB): lay another` : 'Card: lay a LAB card'}"><span class="cs${laid ? ' filled' : ''}"${laid ? ` style="background-image:url(${cardArt(laid)})"` : ''}><i></i></span></button>`;
-    const socket = !poolPiece() ? `<button type="button" class="tok pg-socket" data-act="nosocket" aria-disabled="true" aria-label="King. Powers work on the pool pieces for now.">${empty}</button>${slot}<span class="pg-kingnote">Powers work on the pool pieces for now.</span>`
+    // The card slot (ticket 14; :1383-1384) waits on such a piece too; else it opens LAY A LAB CARD.
+    const slot = `<button type="button" class="tok cardslot${laid && powersWork() ? ' on' : ''}" ${powersWork() ? `data-act="lay" aria-expanded="${laying}"` : 'data-act="nocard" aria-disabled="true"'} title="Card: lay a LAB card"`
+      + ` aria-label="${!powersWork() ? `Card. ${WAIT_CARDS}` : laid ? `${cardName(laid)} card (LAB): lay another` : 'Card: lay a LAB card'}"><span class="cs${laid ? ' filled' : ''}"${laid ? ` style="background-image:url(${cardArt(laid)})"` : ''}><i></i></span></button>`;
+    const socket = !powersWork() ? `<button type="button" class="tok pg-socket" data-act="nosocket" aria-disabled="true" aria-label="King. ${WAIT_POWERS}">${empty}</button>${slot}<span class="pg-kingnote">${WAIT_POWERS}</span>`
       : !king ? `<button type="button" class="tok pg-socket" data-act="seat" aria-expanded="${seating}" aria-label="King: seat a king and his powers" title="King: seat a king and his powers">${empty}</button>${slot}`
       : `<span class="tok kingseat"><button type="button" class="pg-kingfig" data-act="seat" aria-expanded="${seating}" aria-label="${king} king: seat another king" title="${king} king"><img src="${kingArt(king)}" alt=""></button>`
         + `<span class="coins">${KINGS[king].map(p => coinButton(p)).join('')}</span></span>${slot}`;
@@ -1302,9 +1308,9 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       brushesEl.innerHTML = phone ? '' : '<p class="lab-note"><i>LAB</i>Test deck. Not in the game.</p>'
         + (twin ? `<h4 class="info-h">Also a king's power</h4><p class="twin"><button type="button" data-twin="${twin}" aria-label="Open the ${twin} king">${coinHtml(c as PowerName)}</button>${POWER_NAME[c as PowerName]}, a power of the ${twin} king.</p>` : '')
         + (b ? `<h4 class="info-h">Second form</h4><p class="variant"><b>${cardName(b)}</b>${esc(cardWords(b))}.</p>` : '')
-        + `<p class="info-p">${!LAY.includes(c) ? 'No test board for this card yet.' : !poolPiece() ? 'Cards work on the pool pieces for now.' : laid !== c ? 'Lay it from the card slot.'
+        + `<p class="info-p">${!LAY.includes(c) ? 'No test board for this card yet.' : !powersWork() ? WAIT_CARDS : laid !== c ? 'Lay it from the card slot.'
           : labNow().length ? 'Tap a blue ring on the board.' : pos.game.played ? `${cardName(c)} is played.` : `${cardName(c)} has no target on this board.`}</p>`;
-    } else if (kingOpen && !brush) brushesEl.innerHTML = phone ? '' : KINGS[kingOpen].map(p => `<button type="button" class="pline" data-power="${p}" aria-pressed="${poolPiece() && king === kingOpen && armed === p}"${poolPiece() ? '' : ' aria-disabled="true"'}>`
+    } else if (kingOpen && !brush) brushesEl.innerHTML = phone ? '' : KINGS[kingOpen].map(p => `<button type="button" class="pline" data-power="${p}" aria-pressed="${powersWork() && king === kingOpen && armed === p}"${powersWork() ? '' : ' aria-disabled="true"'}>`
       + `${coinHtml(p)}<span><b>${POWER_NAME[p]}</b><span class="pt">${esc(cap(powerText(p, kingRules(kingOpen!, p), true)))}.</span></span></button>`).join('');
     else brushesEl.innerHTML = BRUSHES.map(([k, w], i) => `<button type="button" class="brush${brush === k ? ' armed' : ''}" data-brush="${k}" aria-pressed="${brush === k}" title="${NAMES[k]}. Tap to paint (${i + 1})">`
       + `<span class="tile">${tile(k, phone ? 40 : 80)}</span><span class="w">${w}</span></button>`).join('') + (phone && brush ? `<span class="phint">Tap a square.</span><button type="button" class="pg-moretools" data-act="tools" aria-label="More tools" aria-expanded="${toolsOpen}">⋯</button>` : '');
@@ -1496,7 +1502,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     renderLedge();
     renderTray();
     // With a laid card the plaque turns burgundy: "LAB card" (proving-ground.html:1177-1179).
-    const lab = !!laid && poolPiece();
+    const lab = !!laid && powersWork();
     q('.pg-plaque').hidden = !plaqueOn() && !lab;
     q('.pg-plaque').innerHTML = lab ? `<span class="plaque lab" title="A test card. It is not in the game.">${sigil('card', 13)}LAB card</span>` : plaque();
     drawAlert();
@@ -1588,13 +1594,13 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (act === 'threats') { threats = !threats; return render(); }
     if (act === 'seat') { seating = !seating; laying = false; return render(); }
     if (act === 'lay') { laying = !laying; seating = false; return render(); }
-    if (act === 'nosocket') return toast('Powers work on the pool pieces for now.', 'lock');
-    if (act === 'nocard') return toast('Cards work on the pool pieces for now.', 'lock');
+    if (act === 'nosocket') return toast(WAIT_POWERS, 'lock');
+    if (act === 'nocard') return toast(WAIT_CARDS, 'lock');
     if (act === 'cardsall' || act === 'cardsback') { spread = act === 'cardsall'; render(); rowEl.scrollLeft = 0; return q<HTMLElement>(spread ? '.cface' : '.cstack').focus({ preventScroll: true }); }
     if (act === 'stir' || act === 'clear') {
       // The seated king stays on the board; the Freeze marks go with the old enemies.
       const b = act === 'stir' ? stir(restored(), pos.from, Math.random) : clear(restored(), pos.from);
-      setUp(king && poolPiece() ? seated(b) : b);
+      setUp(king && powersWork() ? seated(b) : b);
       pos = { ...pos, game: { uses: pos.game.uses } };
       why = null;
       render();

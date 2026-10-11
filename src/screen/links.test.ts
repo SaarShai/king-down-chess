@@ -22,3 +22,10 @@ describe('gameLink', () => {
     expect([...url.searchParams]).toEqual([['fen', fen], ['moves', 'd4-d5']]);
   });
 });
+
+describe('gameLink with a design (ticket 17)', () => {
+  it('holds the design\'s share code before the army', () => {
+    const url = new URL(gameUrl(page, null, [null, null], { army: 'RNBTKBNR' }, ['e2-e4'], 'abc'));
+    expect([...url.searchParams]).toEqual([['design', 'abc'], ['army', 'RNBTKBNR'], ['moves', 'e2-e4']]);
+  });
+});

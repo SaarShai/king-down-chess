@@ -125,7 +125,7 @@ const TYPE_BY_LETTER: Readonly<Record<string, PieceType>> = Object.freeze({ P, N
  * Module-level state, like `setRules` in `src/rules/rules.ts`, and for the same reason: the hot
  * paths take a bare `Uint8Array`, not a carrier for per-run options. One value set per thread is
  * enough — each simulation worker is its own module instance and sets the values before it plays;
- * the browser never calls this.
+ * the browser calls this only for a design in `T` (src/ai/worker.ts, and src/game.ts without a worker).
  */
 export function setPieceValues(over?: Readonly<Record<string, number>>): void {
   for (const letter of Object.keys(TYPE_BY_LETTER)) {

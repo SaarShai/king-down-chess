@@ -1,16 +1,21 @@
 /**
  * The New game dialog (index.html #new-game): three suggested games, the computer's level, a king
- * picker per side and a folded "Side and army". The dialog edits a copy of the next game's setup;
+ * picker per side, "Bring a design" (ticket 17) and a folded "Side and army". The dialog edits a copy of the next game's setup;
  * Start game hands it to main.ts. Close drops it.
  */
 import type { SkillName } from './ai/skill';
 import type { Game, Side } from './game';
-import { KINGS, LETTERS, NAMES, PLAIN_KINGS, moveNumber, type PieceType, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
+import { HISTORY_WHENS, KINGS, LETTERS, PLAIN_KINGS, T, moveNumber, nameOf, type PieceType, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
 import { emblemArt, powerArt } from './power-motion';
 import { POWER_NAME, powerOptions } from './powers-ui';
 import { pieceIcon } from './piece-icons';
 import { CLASSIC_CHESS, POOL, randomBackRank } from './rules/setup';
 import { mulberry32 } from './sim/rng';
+import { VALUES } from './ai/eval';
+import { figureUrl, selectedFigure } from './workshop/figures';
+import { worthOf } from './workshop/judge';
+import { designCode, limit, parseDesign, type PieceDesign } from './workshop/model';
+import { loadShelf } from './workshop/store';
 
 /** Power words in the New game sheet. */
 export function newGamePowerLine(label: string, title: string): string {
@@ -32,6 +37,8 @@ export interface Setup {
   picks: [Pick, Pick];
   /** 'random', 'daily', 'classic', 'custom', an example army's code, or 'ogre'. */
   army: string;
+  /** "Bring a design": the share code of a Workshop design that plays in place of one back-rank piece, or null. */
+  design: string | null;
 }
 
 export const LEVELS: readonly SkillName[] = ['beginner', 'casual', 'club', 'strong'];
@@ -42,7 +49,7 @@ const SIDE = ['White', 'Black'] as const;
 export const defaultSetup = (): Setup => ({
   mode: 'computer', level: 'club', side: 0, twoPowers: false,
   picks: [{ king: PLAIN_KINGS[0], power: null }, { king: PLAIN_KINGS[1], power: null }],
-  army: 'random',
+  army: 'random', design: null,
 });
 
 export const powersOn = (s: Setup): boolean => s.mode === 'powers' || (s.mode === 'two' && s.twoPowers);
@@ -81,7 +88,19 @@ export function setupOfGame(sides: readonly [Side, Side], kings: readonly [KingC
   return s;
 }
 
-/** A remembered setup, checked field by field; null when it is not one. */
+/** Why a game cannot play design `d` yet, or '' (version 1: no When that counts moves or cards; `setRules`). */
+export const refusal = (d: PieceDesign): string =>
+  limit(d) ? 'it breaks a Workshop limit' : d.rules.some(r => HISTORY_WHENS.includes(r.when.on)) ? 'a rule counts moves or cards' : '';
+const playable = (code: unknown): code is string => typeof code === 'string' && !!parseDesign(code) && !refusal(parseDesign(code)!);
+
+/** Back rank `back` with a design worth `worth` pawns in place of one piece: not the king, the one nearest that worth (the left one on a tie). */
+export function withDesign(back: string, worth: number): string {
+  const gap = (i: number): number => (back[i] === 'K' ? Infinity : Math.abs(VALUES[LETTERS.indexOf(back[i])] / 100 - worth));
+  const i = [...Array(back.length).keys()].reduce((a, b) => (gap(b) < gap(a) ? b : a));
+  return back.slice(0, i) + 'T' + back.slice(i + 1);
+}
+
+/** A remembered setup, checked field by field; null when it is not one. A setup from before "Bring a design" has none. */
 export function parseSetup(v: unknown): Setup | null {
   const s = v as Partial<Setup> | null;
   const pick = (p: Partial<Pick> | undefined): Pick | null =>
@@ -90,7 +109,7 @@ export function parseSetup(v: unknown): Setup | null {
   if (!s || !['computer', 'powers', 'two'].includes(s.mode as string) || !isLevel(s.level) || (s.side !== 0 && s.side !== 1)
     || typeof s.twoPowers !== 'boolean' || typeof s.army !== 'string' || !Array.isArray(s.picks)) return null;
   const [w, b] = [pick(s.picks[0]), pick(s.picks[1])];
-  return w && b ? { mode: s.mode as Mode, level: s.level, side: s.side, twoPowers: s.twoPowers, picks: [w, b], army: s.army } : null;
+  return w && b ? { mode: s.mode as Mode, level: s.level, side: s.side, twoPowers: s.twoPowers, picks: [w, b], army: s.army, design: playable(s.design) ? s.design : null } : null;
 }
 
 /** The sheet warns before Start ends a game with moves. */
@@ -142,6 +161,9 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
     if (/^[A-Z]{8}$/.test(option.value)) option.textContent = `Example army ${++example}${option.value.includes('C') ? ' · Catapult' : ''}`;
   }
   army.onchange = () => { draft.army = army.value; render(); };
+  const design = $<HTMLSelectElement>('design');
+  let shelf: PieceDesign[] = [];
+  design.onchange = () => { draft.design = design.value || null; render(); };
   for (const r of radios('army')) r.onchange = () => { draft.army = r.value; render(); };
   $('start-game').onclick = () => start(copy(draft));
 
@@ -171,6 +193,11 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
       const text = chosen ? newGamePowerLine(chosen.label, chosen.title) : 'No power: a plain chess king.';
       if (line.textContent !== text) line.textContent = text; // a live region: say only a change
     }
+    design.value = draft.design ?? '';
+    if (design.value !== (draft.design ?? '')) design.value = '', draft.design = null; // a design that is gone or changed
+    const brought = draft.design ? parseDesign(draft.design) : null;
+    $('design-line').textContent = brought ? `Each side gets one ${brought.name}, in place of the piece nearest its worth.`
+      : shelf.length ? 'Play one of your Workshop pieces.' : 'No designs yet. Make one in the Workshop.';
     army.value = draft.army;
     if (army.value !== draft.army) army.value = draft.army = 'random'; // an example army that is gone
     for (const r of radios('army')) r.checked = r.value === draft.army;
@@ -181,15 +208,24 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
     const code = draft.army === 'daily' ? randomBackRank(mulberry32(+new Date().toLocaleDateString('en-CA').replace(/-/g, '')))
       : draft.army === 'classic' ? CLASSIC_CHESS
       : /^[A-Z]{8}$/.test(draft.army) ? draft.army : [...new Set(POOL)].join('');
-    $('army-strip').innerHTML = [...code].map(p => {
+    const strip = brought && code.includes('K') ? withDesign(code, worthOf(brought)) : code; // the pool strip has no design place
+    $('army-strip').innerHTML = [...strip].map(p => {
       const type = LETTERS.indexOf(p) as PieceType;
-      return pieceIcon(type, draft.side) || `<span class="army-letter" title="${NAMES[type]}">${p}</span>`;
+      if (type === T && brought) return `<img class="army-design" src="${figureUrl(selectedFigure(brought).id, draft.side)}" alt="" title="${brought.name}">`;
+      return pieceIcon(type, draft.side) || `<span class="army-letter" title="${nameOf(type)}">${p}</span>`;
     }).join('');
   }
 
   return {
     open(s: Setup, warning = ''): void {
       draft = copy(s);
+      // The designs on this device; one with a When that counts moves or cards is listed, not chosen, with the reason.
+      shelf = loadShelf().designs;
+      design.replaceChildren(new Option('No design', ''), ...shelf.map(d => {
+        const why = refusal(d), o = new Option(why ? `${d.name} (not yet: ${why})` : d.name, designCode(d));
+        o.disabled = !!why;
+        return o;
+      }));
       options = new Map(powerOptions(preset).map(g => [g.king, g.options])); // the use counts of the rules in force
       render();
       $<HTMLDetailsElement>('more-options').open = false;

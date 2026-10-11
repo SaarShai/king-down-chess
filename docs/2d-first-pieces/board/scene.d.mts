@@ -34,6 +34,7 @@ export interface PaintedScene {
   setFlipped(on: boolean): void;
   /** [white, black]: the king design each side's King is drawn with; a sheet not yet loaded loads now. */
   setKings(kings: readonly [KingDesign, KingDesign]): void;
+  setFigure(type: number, urls: readonly [string, string] | null): void;
   readonly kings: KingDesign[];
   /** The design each side's King was last drawn with (null: not drawn yet). */
   readonly drawnKings: (KingDesign | null)[];

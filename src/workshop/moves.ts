@@ -3,7 +3,7 @@
  * engine's `genDesigned` (src/rules/design.ts, ticket 16); this module gives it the Workshop's design and Try state.
  * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
-import { type Move, type PieceType } from '../rules/engine';
+import { RULES, type Move, type PieceType } from '../rules/engine';
 import { genDesigned, patternOf as pattern, type Refused, type TryState } from '../rules/design';
 import { BODIES, specOf, type Body, type PieceDesign } from './model';
 import { BODY } from './vocab';
@@ -18,6 +18,13 @@ export const patternOf = (d: D, board: Uint8Array, from: number, st: TryState) =
 /** Pseudo-legal moves of design `d` for the piece on `from` (its colour is the board's), as engine `Move`s. `refused` gets the refused targets. */
 export function movesOf(d: D, board: Uint8Array, from: number, st: TryState = START, refused?: Refused[]): Move[] {
   const out: Move[] = [];
-  genDesigned(board, from, 'all', out, specOf(d), refused, st);
+  tryBoard(() => genDesigned(board, from, 'all', out, specOf(d), refused, st));
   return out;
+}
+
+/** Runs `fn` with no game design (`RULES.design`, ticket 17): the Try board plays only its own design. */
+export function tryBoard<T>(fn: () => T): T {
+  const kept = RULES.design;
+  RULES.design = null;
+  try { return fn(); } finally { RULES.design = kept; }
 }

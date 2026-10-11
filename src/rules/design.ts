@@ -37,8 +37,9 @@ export type Ability =
 export interface Rule { when: When; does: Ability }
 /** x to the right, y forward, both in −3..3, never (0, 0). Black's pattern is the mirror image. */
 export interface Square { x: number; y: number; mark: Mark }
-/** What the engine plays: the squares, lines and rules, and the squares and lines of the "moves like" piece (null without that rule). */
-export interface DesignSpec { squares: Square[]; lines: Dir[]; rules: Rule[]; like: { squares: readonly Square[]; lines: readonly Dir[] } | null }
+/** What the engine plays: the squares, lines and rules, and the squares and lines of the "moves like" piece (null without that rule).
+ *  `code`: in a game, the design's share code, for its name and figure (ticket 17); the engine does not read it. */
+export interface DesignSpec { squares: Square[]; lines: Dir[]; rules: Rule[]; like: { squares: readonly Square[]; lines: readonly Dir[] } | null; code?: string }
 
 export const DIR: Record<Dir, readonly [number, number]> = { n: [0, 1], ne: [1, 1], e: [1, 0], se: [1, -1], s: [0, -1], sw: [-1, -1], w: [-1, 0], nw: [-1, 1] };
 /** What Try with tracks: the move counter, a first capture, and "Pretend your opponent played a card". */

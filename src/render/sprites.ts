@@ -52,19 +52,19 @@ function outlined(img: CanvasImageSource & { width: number; height: number }, co
   return cv;
 }
 
-function texture(t: PieceType, c: Color, outline?: number, king?: KingName): Promise<THREE.Texture> {
+function texture(t: PieceType, c: Color, outline?: number, king?: KingName, src?: string): Promise<THREE.Texture> {
   const own = t === K && king && ARMY.startsWith('painted-') ? KING_SPRITE[king] : undefined;
-  const name = `${own ?? FILE[t]}-${c ? 'b' : 'w'}`;
+  const name = src ?? `${own ?? FILE[t]}-${c ? 'b' : 'w'}`;
   const key = outline == null ? name : `${name}:${outline}`;
   let p = textures.get(key);
   if (!p) {
-    p = loader.loadAsync(`${import.meta.env.BASE_URL}sprites/${ARMY}/${name}.png`).then(img => {
+    p = loader.loadAsync(src ?? `${import.meta.env.BASE_URL}sprites/${ARMY}/${name}.png`).then(img => {
       let tex: THREE.Texture = img;
       if (outline != null) {
         tex = new THREE.CanvasTexture(outlined(img.image as HTMLImageElement, outline));
         img.dispose();
       }
-      tex.magFilter = tex.minFilter = THREE.NearestFilter;
+      tex.magFilter = tex.minFilter = src ? THREE.LinearFilter : THREE.NearestFilter; // a painted figure, not pixel art
       tex.generateMipmaps = false;
       tex.colorSpace = THREE.SRGBColorSpace;
       return tex;
@@ -89,14 +89,14 @@ function plane(w: number, h: number): THREE.PlaneGeometry {
 }
 
 /**
- * One piece billboard. The texture may still be loading — the mesh is hidden until it lands,
+ * One piece billboard (`src`: an image in place of the set's sprite). The texture may still be loading — the mesh is hidden until it lands,
  * then takes its width from the image aspect. The renderer billboards it at the camera every frame.
  */
-export function spriteMesh(t: PieceType, c: Color, outline?: number, king?: KingName): THREE.Object3D {
+export function spriteMesh(t: PieceType, c: Color, outline?: number, king?: KingName, src?: string): THREE.Object3D {
   const h = TARGET_HEIGHT[t] * SCALE;
   const mat = new THREE.MeshBasicMaterial({ alphaTest: 0.5, transparent: false, side: THREE.DoubleSide, visible: false });
   const mesh = new THREE.Mesh(plane(h, h), mat);
-  void texture(t, c, outline, king).then(tex => {
+  void texture(t, c, outline, king, src).then(tex => {
     const img = tex.image as { width: number; height: number };
     mesh.geometry = plane((h * img.width) / img.height, h);
     mat.map = tex;

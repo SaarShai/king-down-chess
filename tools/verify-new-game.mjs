@@ -1,6 +1,6 @@
 // The New game dialog in a real browser: its defaults, the game each of the three modes starts
 // (players, computer level, kings and powers), the king picker's power texts, Cancel, memory, an
-// older save, a custom army, the keyboard, the phone layout, and the picker's motion art.
+// older save, a custom army, Bring a design (ticket 17), the keyboard, the phone layout, and the picker's motion art.
 // Screenshots in PLAYABLE_OUT: desktop-computer.jpg, desktop-powers.jpg, phone-computer.jpg, phone-powers.jpg.
 // Run: npm run check:browser new-game (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
@@ -13,12 +13,13 @@ const browser = await launch();
 const jpeg = { type: 'jpeg', quality: 86 };
 const ok = msg => console.log(`ok ${msg}`);
 
-async function open({ viewport = { width: 1280, height: 900 }, touch = false, save = null, query = '', reducedMotion = 'no-preference' } = {}) {
+async function open({ viewport = { width: 1280, height: 900 }, touch = false, save = null, query = '', reducedMotion = 'no-preference', shelf = null } = {}) {
   const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, reducedMotion });
-  await ctx.addInitScript(s => {
+  await ctx.addInitScript(([s, shelf]) => {
     sessionStorage.setItem('kingdown.title-seen', '1'); // skip the title screen (main.ts)
     if (s && !sessionStorage.getItem('seeded')) { localStorage.setItem('kingdown.save', JSON.stringify(s)); sessionStorage.setItem('seeded', '1'); }
-  }, save);
+    if (shelf) localStorage.setItem('kingdown.workshop', shelf); // the Workshop's designs on this device
+  }, [save, shelf]);
   const page = await ctx.newPage();
   trapErrors(page);
   await page.goto(base + query);
@@ -27,6 +28,12 @@ async function open({ viewport = { width: 1280, height: 900 }, touch = false, sa
   return page;
 }
 const saved = page => page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
+/** Two Workshop designs: Old Ward plays; Late Queen waits, as a rule counts moves (src/rules/rules.ts HISTORY_WHENS). */
+const ward = { v: 1, kind: 'piece', id: 'ward', name: 'Old Ward', named: true, look: { body: 'token', auto: true, glow: null, army: 0, figure: 'ram-bastion' }, letter: 'U',
+  squares: [{ x: 0, y: 1, mark: 'move' }, { x: 1, y: 1, mark: 'both' }, { x: -1, y: 1, mark: 'both' }], lines: ['ne', 'nw'],
+  rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }], from: [], updated: 1760000000000 };
+const SHELF = JSON.stringify({ v: 1, designs: [ward, { ...ward, id: 'late', name: 'Late Queen', updated: 1759000000000,
+  rules: [{ when: { on: 'fromMove', n: 10 }, does: { a: 'movesLike', as: 'queen' } }] }] });
 const checked = (page, name) => page.evaluate(n => document.querySelector(`#new-game input[name="${n}"]:checked`)?.value, name);
 const pressed = (page, c) => page.evaluate(c => [...document.querySelectorAll(`#pick-${c} [aria-pressed="true"]`)].map(b => b.dataset.king ?? b.dataset.power), c);
 const powerLine = (page, c) => page.textContent(`#pick-${c} .power-text`);
@@ -206,6 +213,42 @@ try {
   await page.keyboard.press('Escape');
   await page.context().close();
   ok('keyboard: the arrow keys step through the three modes');
+
+  // 7b. Bring a design (ticket 17): the shelf's designs, and one that waits with its reason; Tab reaches the 44 px choice;
+  // each side gets the design in place of one piece, the computer plays it, a reload remembers it, and a game link holds it.
+  page = await open({ shelf: SHELF });
+  await pressMenu(page, 'New game');
+  assert.deepEqual(await page.$$eval('#design option', os => os.map(o => [o.textContent, o.disabled])),
+    [['No design', false], ['Old Ward', false], ['Late Queen (not yet: a rule counts moves or cards)', true]], 'the designs on this device; one waits, with the reason');
+  assert.equal(await page.textContent('#design-line'), 'Play one of your Workshop pieces.');
+  await page.focus('#level-club');
+  await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'design', 'Tab goes from the level to Bring a design');
+  assert.ok((await page.locator('#design').boundingBox()).height >= 44, 'a 44 px target');
+  await setUpGame(page, { design: 'Old Ward', army: 'classic', side: 'black', level: 'beginner' });
+  assert.equal(await page.textContent('#design-line'), 'Each side gets one Old Ward, in place of the piece nearest its worth.');
+  assert.deepEqual(await page.$$eval('#army-strip > *', ps => ps.map(p => p.getAttribute('title') ?? '')), ['', 'Old Ward', '', '', '', '', '', ''], 'the strip shows the design in its place');
+  await startGame(page, { army: 'classic' });
+  s = await saved(page);
+  const code = s.rules.design.code;
+  assert.deepEqual([s.back, s.white, s.black, typeof code], ['RTBQKBNR', 'ai', 'human', 'string'], 'Old Ward (worth 2) in place of the knight on b1, the nearest worth; the computer as White');
+  assert.deepEqual(await page.evaluate(() => [window.view.pos.board[1], window.view.pos.board[57]]), [15, 31], 'a White and a Black design on the board (the slot T)');
+  await waitForUi(page, ui => ui.lan.length >= 1, null, { timeout: 20000 });
+  await page.reload(); await page.waitForFunction(() => window.view?.ready);
+  await pressMenu(page, 'New game');
+  assert.equal(await page.inputValue('#design'), code, 'a reload remembers the design');
+  await page.keyboard.press('Escape');
+  await page.context().close();
+  page = await open({ query: `?design=${code}&army=RTBQKBNR&moves=` });
+  s = await saved(page);
+  assert.deepEqual([s.back, s.rules.design.code, await page.evaluate(() => window.view.pos.board[1])], ['RTBQKBNR', code, 15], 'a game link plays the design it holds, on a device without it');
+  assert.equal(await page.evaluate(() => document.getElementById('workshop')?.open ?? false), false, 'a game link does not open the Workshop');
+  await page.context().close();
+  page = await open();
+  await pressMenu(page, 'New game');
+  assert.deepEqual([await page.$$eval('#design option', os => os.map(o => o.textContent)), await page.textContent('#design-line')], [['No design'], 'No designs yet. Make one in the Workshop.'], 'no designs: the line says where to make one');
+  await page.keyboard.press('Escape');
+  ok('Bring a design: the designs, a reason for one that waits, Tab and 44 px, one each side in place of the nearest piece, the computer plays it, memory, a game link');
 
   // 8. A save from before the dialog remembered its setup: New game opens on that game.
   page = await open({ save: { back: 'RNBQKBNR', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', moves: [], white: 'ai', black: 'human', skill: 'strong', rules: { kings: [{ king: 'Frost', power: 'Freeze' }, null] }, sound: false } });
