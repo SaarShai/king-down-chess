@@ -9,6 +9,8 @@ import { REPORT_CATEGORIES } from '../account/profile';
 import { ending } from './ending';
 import type { PluginService } from './service';
 
+/** The plugin build writes this origin before each art file (tools/plugin-ui-build.mjs); the server swaps in its own. */
+export const ART_ORIGIN = 'https://kingdown-art.invalid';
 const DEFAULT_SETUP = { backRank: 'RAGQKMSO', kings: 'Flame:Haste,Frost:Freeze' } as const;
 /** Authentication belongs to the HTTP boundary; actorId is never accepted from tool input. */
 type Service = Pick<PluginService, keyof PluginService>;
@@ -19,9 +21,10 @@ const text = (value: string) => [{ type: 'text' as const, text: value }];
 export function createPluginServer({ service, actorId, resourceHtml, publicOrigin }: { service: Service; actorId: string; resourceHtml: string; publicOrigin: string }): McpServer {
   const server = new McpServer({ name: 'kingdown', version: '1.0.0' });
   const origin = new URL(publicOrigin).origin;
+  resourceHtml = resourceHtml.replaceAll(ART_ORIGIN, origin);
   // Hosts cache resources by URI; a changed board must not reuse old controls.
   const boardResource = `ui://kingdown/board-${createHash('sha256').update(resourceHtml).digest('hex')}.html`;
-  registerAppResource(server, 'King Down board', boardResource, {}, async () => ({ contents: [{ uri: boardResource, mimeType: RESOURCE_MIME_TYPE, text: resourceHtml, _meta: { ui: { domain: origin, csp: { resourceDomains: [], connectDomains: [] } } } }] }));
+  registerAppResource(server, 'King Down board', boardResource, {}, async () => ({ contents: [{ uri: boardResource, mimeType: RESOURCE_MIME_TYPE, text: resourceHtml, _meta: { ui: { domain: origin, csp: { resourceDomains: [origin], connectDomains: [] } }, 'openai/widgetCSP': { resource_domains: [origin], connect_domains: [] } } }] }));
   const gameId = z.string().min(1).max(200);
   const boardId = z.string().uuid().optional();
   const command = { game_id: gameId, command_id: z.string().min(1).max(200), expected_revision: z.number().int().min(0).max(1000) };

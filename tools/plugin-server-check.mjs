@@ -66,10 +66,19 @@ try {
   const uri = tools.find(tool => tool.name === 'kingdown_open')._meta.ui.resourceUri;
   assert.match(uri, /^ui:\/\/kingdown\/board-[a-f0-9]{64}\.html$/);
   const resource = await rpc(actors[0], 'resources/read', { uri });
-  assert(resource.result.contents[0].text.includes('<html')); assert(resource.bytes < 4_400_000);
+  assert(resource.result.contents[0].text.includes('<html')); assert(resource.bytes < 1_000_000);
+  // The page names each art file on this origin; a cross-origin page may read it into a canvas, and a new build gets new names.
+  const art = [...new Set(resource.result.contents[0].text.match(new RegExp(`${origin}/plugin-art/[\\w-]+\\.webp`, 'g')))];
+  assert.equal(art.length, 20, 'The page names 11 pieces, 6 kings, the board and 2 effect masks');
+  for (const file of art) {
+    const response = await fetch(file, { headers: { Origin: 'null' } });
+    assert.equal(response.status, 200, file); assert.equal(response.headers.get('content-type'), 'image/webp'); assert.equal(response.headers.get('access-control-allow-origin'), '*');
+    assert.match(response.headers.get('cache-control'), /max-age=31536000.*immutable/); assert((await response.arrayBuffer()).byteLength > 10_000);
+  }
+  assert.equal((await fetch(`${origin}/plugin-art/missing.webp`)).status, 404); assert.equal((await fetch(`${origin}/plugin-art/..%2fserver.mjs`)).status, 404);
   await assert.rejects(configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: 'https://plugin.example', KINGDOWN_PLUGIN_DATABASE_URL: connectionString, SUPABASE_URL: 'https://project.supabase.co', KINGDOWN_PLUGIN_OAUTH_READY: '0' }), /Enable Supabase OAuth/);
   await assert.rejects(configurePlugin({ NODE_ENV: 'production', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString }, { localDev: true }), /Local personas/);
-  console.log(`Compiled HTTP + real PostgreSQL: open, move, AI, retry, foreign seat rejection, service restart/resume, friend invitation link/join, board recovery, resource (${resource.bytes} JSON bytes), and production auth gate passed`);
+  console.log(`Compiled HTTP + real PostgreSQL: open, move, AI, retry, foreign seat rejection, service restart/resume, friend invitation link/join, board recovery, resource (${resource.bytes} JSON bytes), ${art.length} art files, and production auth gate passed`);
 } finally {
   server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
   await app?.pool.end();

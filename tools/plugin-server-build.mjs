@@ -8,6 +8,7 @@ import { cp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRuntime } from './plugin-runtime-build.mjs';
+import { ART_HEADERS } from './plugin-art-headers.mjs';
 
 export async function buildPluginServer(outDir = resolve('plugin-server-dist'), { vercel = false, site } = {}) {
   vercel ||= Boolean(site);
@@ -20,6 +21,8 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
   try {
     await promisify(execFile)(process.execPath, [resolve(root, 'tools/plugin-ui-build.mjs'), boardDir], { cwd: root, timeout: 60000, maxBuffer: 1_000_000 });
     await cp(resolve(boardDir, 'board.html'), resolve(functionDir, 'board.html'));
+    // The board art: a static file on Vercel, beside server.mjs for the standalone server (tools/plugin-server.mjs serves it).
+    await cp(resolve(boardDir, 'plugin-art'), resolve(vercel ? resolve(output, 'static') : functionDir, 'plugin-art'), { recursive: true });
   } finally { await rm(boardDir, { recursive: true, force: true }); }
   await cp(resolve(root, 'src/plugin/consent.html'), resolve(functionDir, 'consent.html'));
   await cp(resolve(root, 'tools/supabase-ca.crt'), resolve(functionDir, 'supabase-ca.crt'));
@@ -47,13 +50,13 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     await symlink('mcp.func', resolve(output, 'functions/consent.mjs.func'));
     await symlink('../mcp.func', resolve(discovery, 'oauth-protected-resource.func'));
     await symlink('../../mcp.func', resolve(discovery, 'oauth-protected-resource/mcp.func'));
-    let routes;
+    const routes = [{ src: '^/plugin-art/[^/]+$', headers: ART_HEADERS, continue: true }];
     if (site) {
       await cp(site, resolve(output, 'static'), { recursive: true });
       // The function entry (tools/plugin-server.mjs) dispatches these paths; Vercel keeps the request path.
       await symlink('mcp.func', resolve(output, 'functions/api.func'));
       await symlink('mcp.func', resolve(output, 'functions/internal.func'));
-      routes = [{ src: '^/api/.+$', dest: '/api' }, { src: '^/internal/.+$', dest: '/internal' }];
+      routes.push({ src: '^/api/.+$', dest: '/api' }, { src: '^/internal/.+$', dest: '/internal' });
     }
     await writeFile(resolve(output, 'config.json'), JSON.stringify({ version: 3, routes }) + '\n');
   }

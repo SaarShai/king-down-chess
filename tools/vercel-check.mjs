@@ -54,9 +54,12 @@ try {
   server.on('request', async (req, res) => {
     try {
       const path = new URL(req.url, origin).pathname;
-      const dest = config.routes?.find(route => new RegExp(route.src).test(path))?.dest ?? path;
+      const routes = config.routes?.filter(route => new RegExp(route.src).test(path)) ?? [];
+      const dest = routes.find(route => route.dest)?.dest ?? path;
+      // A `continue` route adds its headers and goes on to the next match.
+      for (const route of routes) if (route.headers) for (const [name, value] of Object.entries(route.headers)) res.setHeader(name, value);
       const file = join(tree, 'static', dest.endsWith('/') ? `${dest}index.html` : dest);
-      if ((await exists(file))?.isFile()) { served.add(`static ${path}`); res.end(await readFile(file)); return; }
+      if ((await exists(file))?.isFile()) { served.add(`static ${path.startsWith('/plugin-art/') ? '/plugin-art/*' : path}`); res.end(await readFile(file)); return; }
       // Vercel gives the function the original request path, also after a route.
       if (await exists(join(tree, 'functions', `${dest}.func`))) { served.add(`function ${path}`); await app.handler(req, res); return; }
       res.writeHead(404).end();
@@ -70,6 +73,14 @@ try {
     const response = await fetch(`${origin}/mcp`, { method: 'POST', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method: 'tools/call', params: { name, arguments: args } }) });
     assert.equal(response.status, 200); return JSON.parse(await response.text()).result;
   };
+  // The board names each art file of the static tree, and Vercel serves it with long cache and CORS headers.
+  const art = (await readdir(join(tree, 'static/plugin-art'))).sort();
+  assert.equal(art.length, 20); assert(art.every(file => file.endsWith('.webp')));
+  assert.deepEqual([...new Set((await readFile(join(fn, 'board.html'), 'utf8')).match(/(?<=https:\/\/kingdown-art\.invalid\/plugin-art\/)[\w-]+\.webp/g))].sort(), art);
+  for (const file of art) {
+    const response = await fetch(`${origin}/plugin-art/${file}`);
+    assert.equal(response.status, 200, file); assert.equal(response.headers.get('access-control-allow-origin'), '*'); assert.match(response.headers.get('cache-control'), /max-age=31536000.*immutable/);
+  }
   const open = await tool('kingdown_open', {}); assert(!open.isError);
   const { game_id, legal } = open._meta.view;
   const moved = await tool('kingdown_move', { game_id, command_id: 'vercel-first', expected_revision: 0, lan: legal.find(lan => !lan.includes('!')) });
@@ -131,8 +142,8 @@ try {
   assert.equal((await job('/internal/tick')).status, 403); assert.equal((await job('/internal/tick', `${secret}x`)).status, 403);
   const tick = await job('/internal/tick', secret); assert.equal(tick.status, 200); assert.equal(typeof (await tick.json()).ended, 'number');
   assert.equal((await job('/internal/outbox', secret)).status, 503);
-  assert.deepEqual([...served].sort(), ['function /.well-known/oauth-protected-resource/mcp', 'function /api', 'function /api/games', `function /api/games/${friendId}`, `function /api/games/${friendId}/commands`, `function /api/games/${gameId}`, `function /api/games/${gameId}/commands`, 'function /api/invites/redeem', 'function /api/me/games', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /mcp', 'static /', 'static /privacy.html', 'static /sw.js'].sort());
-  console.log(`One-project tree: static site, /mcp (open, move), /authorize, /consent.mjs, /api (session tokens only; Daily games between two website players and between a website and a ChatGPT player, with a retry), /internal (secret only) and ${archive.length} archived engine(s) passed`);
+  assert.deepEqual([...served].sort(), ['function /.well-known/oauth-protected-resource/mcp', 'function /api', 'function /api/games', `function /api/games/${friendId}`, `function /api/games/${friendId}/commands`, `function /api/games/${gameId}`, `function /api/games/${gameId}/commands`, 'function /api/invites/redeem', 'function /api/me/games', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /mcp', 'static /', 'static /plugin-art/*', 'static /privacy.html', 'static /sw.js'].sort());
+  console.log(`One-project tree: static site, ${art.length} board art files, /mcp (open, move), /authorize, /consent.mjs, /api (session tokens only; Daily games between two website players and between a website and a ChatGPT player, with a retry), /internal (secret only) and ${archive.length} archived engine(s) passed`);
 } finally {
   server.closeAllConnections(); await new Promise(done => server.close(done));
   await app?.pool.end();

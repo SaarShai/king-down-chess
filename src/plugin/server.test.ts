@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { createPluginServer } from './server';
+import { ART_ORIGIN, createPluginServer } from './server';
 
 it('loads changed board HTML through a resource cache while reusing identical builds across actors', async () => {
  const cache = new Map<string,string>();
@@ -28,4 +28,17 @@ it('loads changed board HTML through a resource cache while reusing identical bu
  expect(cache.size).toBe(1);
  expect((await render('<html>repaired controls</html>')).html).toBe('<html>repaired controls</html>');
  expect(cache.size).toBe(2);
+});
+
+it('points the board art at the plugin origin and allows that origin in both CSP forms', async () => {
+ const server = createPluginServer({service:{} as Parameters<typeof createPluginServer>[0]['service'],actorId:'alice',resourceHtml:`<img src="${ART_ORIGIN}/plugin-art/rook-1a2b.webp">`,publicOrigin:'https://kingdown.example/mcp'});
+ const client = new Client({name:'csp-host',version:'1'});
+ const [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const uri = ((await client.listTools()).tools.find(tool=>tool.name==='kingdown_open')!._meta?.ui as {resourceUri:string}).resourceUri;
+  const resource = (await client.readResource({uri})).contents[0];
+  expect('text' in resource && resource.text).toBe('<img src="https://kingdown.example/plugin-art/rook-1a2b.webp">');
+  expect(resource._meta).toMatchObject({ui:{domain:'https://kingdown.example',csp:{resourceDomains:['https://kingdown.example'],connectDomains:[]}},'openai/widgetCSP':{resource_domains:['https://kingdown.example'],connect_domains:[]}});
+ } finally {await client.close(); await server.close();}
 });

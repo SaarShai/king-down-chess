@@ -10,7 +10,8 @@ const invoke = async (name: string, args: Record<string, unknown>) => {
   if (result._meta?.view) { matchId = result._meta.view.game_id; (window as any).harnessMatchId = matchId; (window as any).harnessView = result._meta.view; }
   return result;
 };
-frame.onload = async () => {
+// The bridge listens before the page loads, as in a real host: the frame's load event waits for the board art.
+async function mount() {
   await bridge?.close();
   bridge = new AppBridge(null, { name: 'King Down local harness', version: '1' }, { serverTools: {}, updateModelContext: {} }, { hostContext: { displayMode: 'inline', availableDisplayModes: ['inline'] } });
   bridge.oncalltool = async params => {
@@ -35,6 +36,7 @@ frame.onload = async () => {
   };
   (window as any).harnessShow = async (result: any) => { initialResult = result; matchId = result.structuredContent.game_id; (window as any).harnessMatchId = matchId; (window as any).harnessView = result._meta.view; await bridge!.sendToolResult(result); };
   await bridge.connect(new PostMessageTransport(frame.contentWindow!, frame.contentWindow!));
-};
-frame.src = '/board-resource';
-document.querySelector<HTMLButtonElement>('#remount')!.onclick = () => { frame.src = '/board-resource'; };
+  frame.src = '/board-resource';
+}
+void mount();
+document.querySelector<HTMLButtonElement>('#remount')!.onclick = () => { void mount(); };
