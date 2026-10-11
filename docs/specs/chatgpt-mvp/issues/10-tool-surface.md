@@ -140,7 +140,8 @@ Page metadata keeps the CSP from ticket 09. `openai/ui` declares inline and full
 Only the old page's forced input and mount paths change. There is no new screen or CSS.
 
 - `src/plugin/app.ts:8`: import the shared defaults for the old Create buttons.
-- `src/plugin/app.ts:31`: accept a waiting view with an empty FEN.
+- `src/plugin/app.ts:31`: clear a pending command for another game before the empty-FEN return. The waiting and setup host-switch checks first fail on a visible Retry button.
+- `src/plugin/app.ts:32`: accept a waiting view with an empty FEN.
 - `src/plugin/app.ts:69`: show the friend code instead of the removed link.
 - `src/plugin/app.ts:111`: Solo sends `kind` and turns seat choices off.
 - `src/plugin/app.ts:112`: Friend sends `kind` and turns seat choices off.

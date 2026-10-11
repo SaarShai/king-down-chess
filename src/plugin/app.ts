@@ -28,12 +28,12 @@ const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
 function show(next: View | undefined) {
   if (!next) return;
+  if (pending && pending.args.game_id !== next.game_id) { pending = undefined; $('retry').hidden = true; }
   if (!next.fen) { view = next; pos = undefined; moves = []; $('status').textContent = next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : next.result ? ending(next) : 'Choose your king and arrangement.'; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; $('computer').hidden = true; $('choices').replaceChildren(); saveState(); return; }
   if (next.rules) rules = { game: next.game_id, value: next.rules };
   // A full read carries the rules; a reply without them is for a game this board no longer shows.
   if (rules?.game !== next.game_id) return;
   if (view?.game_id !== next.game_id) $('invitation').textContent = '';
-  if (pending && pending.args.game_id !== next.game_id) { pending = undefined; $('retry').hidden = true; }
   view = next;
   setRules(rules.value); pos = fromFen(view.fen);
   // The server's legal list decides; the local engine only gives each listed move its squares.

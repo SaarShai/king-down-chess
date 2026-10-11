@@ -275,6 +275,21 @@ try {
     assert(pane.y+pane.height<=viewport.height-reserve,`The app pane clears the composer at ${viewport.width}×${viewport.height}`);
     assert(pane.y+Math.min(lower,pane.height)<=viewport.height-reserve,'Visible controls stay inside the app pane');
   }
+  for (const [kind,features,status] of [['friend',options,'waiting'],['solo',{...options,arrangement:true},'setup']]) {
+    const start = await tool('kingdown_create',{kind:'solo',options,colour:'white'});
+    await page.evaluate(result=>window.harnessShow(result),start);
+    await frame.locator('#status').filter({hasText:'White to move'}).waitFor();
+    await clickSquare(4,1); await page.evaluate(()=>{window.dropNextMoveReply=true;});
+    await frame.locator('#choices button[title="e2-e4"]').click(); await frame.locator('#retry').waitFor();
+    const switched = await tool('kingdown_create',{kind,options:features,colour:'white'});
+    assert.equal(switched._meta.view.status,status); assert.equal(switched._meta.view.fen,'');
+    await page.evaluate(result=>window.harnessShow(result),switched);
+    await frame.locator('#retry').waitFor({state:'hidden'});
+    assert.equal(await page.evaluate(()=>window.harnessWidgetState?.pending),undefined,'An empty-FEN host switch clears the old command');
+  }
+  const boardAgain = await tool('kingdown_create',{kind:'solo',options,colour:'white'});
+  await page.evaluate(result=>window.harnessShow(result),boardAgain);
+  await frame.locator('#status').filter({hasText:'White to move'}).waitFor();
   // A host notification can switch games independently of a pending submission.
   await clickSquare(4, 1);
   await page.evaluate(() => { window.dropNextMoveReply = true; });
