@@ -97,3 +97,5 @@ Page metadata keeps the CSP from ticket 09. `openai/ui` declares inline and full
 - Step 1: the home test first fails on the old solo-game reply. The new open and board-only read pass. Five tool database tests and 50 art tests pass. Migration 0013 adds `plugin_boards.game_selected` because a null foreign key alone cannot tell an empty board from a deleted game. Existing rows default to selected; a home row starts false; selection sets true.
 
 - Step 2: the new MCP test fails on the absent Find tool. Lobby, accept, find and cancel now pass. A retry keeps one open game. The related match and plugin checks pass.
+
+- Step 3: the Choose test and the changed solo-rematch test first fail. Choose, Rematch and explicit Resume pass. The solo rematch keeps only the computer Ready when a choice is needed. The related checks pass.

@@ -164,7 +164,7 @@ suite('game setup through PostgreSQL', () => {
    expect(await service.sweep(deadline)).toBe(0);
   }
  }, 30_000);
- it('starts a computer rematch at once, including a game at the move limit', async () => {
+ it('keeps the player choice open in a computer rematch, including a game at the move limit', async () => {
   const created = await service.create(a, { kind: 'solo', options: { ...DEFAULT_OPTIONS, kingPowers: true }, level: 'strong' });
   expect(created).toMatchObject({ status: 'setup', options: { arrangement: true, kingPowers: true }, ready: [false, true] });
   const playing = await service.command(a, created.game_id, command(0, { type: 'choose', choice: created.choices![0], ready: true }));
@@ -176,14 +176,16 @@ suite('game setup through PostgreSQL', () => {
   expect(await service.command(a, created.game_id, sent)).toEqual(expect.objectContaining({ revision: accepted.revision, rematch_game_id: accepted.rematch_game_id }));
   expect(accepted.rematch_game_id).toEqual(expect.any(String));
   const next = await service.view(a, accepted.rematch_game_id!);
-  expect(next).toMatchObject({ status: 'playing', revision: 0, seat: 1, opponent: { computer: true }, ready: [true, true], options: created.options,
-   kings: [{ king: 'Spirit', power: 'Mercy' }, { king: 'Shadow', power: 'Darkness' }] });
+  expect(next).toMatchObject({ status: 'setup', revision: 0, seat: 1, opponent: { computer: true }, ready: [true, false], options: created.options });
+  expect(next.fen).toBe('');
+  const ready = await service.command(a, next.game_id, command(0, { type: 'choose', choice: next.choices![1], ready: true }));
+  expect(ready).toMatchObject({ status: 'playing', ready: [true, true] });
   expect((await admin.query('select level from public.games where id=$1', [accepted.rematch_game_id])).rows[0].level).toBe('strong');
-  const computer = await service.command(a, next.game_id, command(0, { type: 'computer' }));
-  expect(computer).toMatchObject({ status: 'playing', revision: 1, turn: 1, action: 'ready' });
-  const moved = await service.command(a, next.game_id, command(1, { type: 'turn', actions: [computer.legal[0]] }));
-  expect(moved).toMatchObject({ status: 'playing', revision: 2, turn: 0 });
-  expect(moved.fen).not.toBe(next.fen);
+  const computer = await service.command(a, next.game_id, command(1, { type: 'computer' }));
+  expect(computer).toMatchObject({ status: 'playing', revision: 2, turn: 1, action: 'ready' });
+  const moved = await service.command(a, next.game_id, command(2, { type: 'turn', actions: [computer.legal[0]] }));
+  expect(moved).toMatchObject({ status: 'playing', revision: 3, turn: 0 });
+  expect(moved.fen).not.toBe(ready.fen);
  }, 30_000);
  it('shows setup choices safely and carries each toggle mix through the first move', async () => {
   for (const [fairy, arrangement, classic] of [[true, true, false], [true, false, false], [false, false, false], [false, false, true]]) for (const cards of [false, true]) for (const kingPowers of [false, true]) {

@@ -92,6 +92,33 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(view(await host.ok('kingdown_cancel', { game_id: view(open).game_id })).revision).toBe(view(cancelled).revision);
  });
 
+ it('hides each setup choice through commands and abort, then keeps rematch on the old board until resume', async () => {
+  const [a, b] = [await user('choice-a'), await user('choice-b')], host = await connect(a), guest = await connect(b);
+  const options = { ...DEFAULT_OPTIONS, pool: ['Q', 'R', 'B', 'N'], kingPowers: true };
+  const created = await host.ok('kingdown_create', { kind: 'friend', options });
+  const game_id = view(created).game_id, board_id = (await host.ok('kingdown_open', { game_id })).structuredContent.board_id;
+  const code = (await host.ok('kingdown_invite', { game_id })).structuredContent.code;
+  await guest.ok('kingdown_join', { code });
+  const chosen = await guest.ok('kingdown_choose', { game_id, command_id: randomUUID(), expected_revision: 1, king: { king: 'Flame', power: 'Haste' }, order: 'RNBQKBNR', ready: true });
+  expect(chosen.content[0].text).toBe('Waiting for the other player to choose.');
+  const read = await host.ok('kingdown_get', { board_id });
+  const aborted = await host.ok('kingdown_abort', { game_id, command_id: randomUUID(), expected_revision: 2 });
+  for (const result of [read, aborted]) {
+   expect(view(result).choices?.[1]).toBeNull();
+   expect(view(result).last_commands.at(-2)?.action.type === 'hidden' || view(result).last_commands.at(-1)?.action.type === 'hidden').toBe(true);
+   expect(JSON.stringify(result)).not.toContain('Flame');
+  }
+  const solo = await host.ok('kingdown_create', { kind: 'solo', options: { ...DEFAULT_OPTIONS, arrangement: false }, board_id });
+  const old = view(solo).game_id;
+  const ended = await host.ok('kingdown_resign', { game_id: old });
+  const offered = await host.ok('kingdown_rematch', { ...move(ended), choice: 'offer' });
+  expect(view(offered).game_id).toBe(old); expect(view(offered).rematch_game_id).toEqual(expect.any(String));
+  expect(view(await host.ok('kingdown_get', { board_id })).game_id).toBe(old);
+  const resumed = await host.ok('kingdown_resume', { board_id, game_id: view(offered).rematch_game_id });
+  expect(view(resumed)).toMatchObject({ game_id: view(offered).rematch_game_id, seat: 1 });
+  expect(view(await host.ok('kingdown_get', { board_id })).game_id).toBe(view(resumed).game_id);
+ });
+
  it('plays a Daily friend game between two ChatGPT players and shows the model no position and no opponent text', async () => {
   const host = await connect(ann), guest = await connect(bob), handles = [`ann-${tag}`, `bob-${tag}`];
   const created = await host.ok('kingdown_create', { options: { ...DEFAULT_OPTIONS, arrangement: false }, kind: 'friend', colour: 'white' });

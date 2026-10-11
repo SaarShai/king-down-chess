@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { MatchServiceError } from '../match/service';
 import { MAX_REVISION, PRESETS, type Action, type View } from '../match/protocol';
 import { DEFAULT_OPTIONS } from '../match/setup';
-import { optionsSchema } from '../match/setup-schema';
+import { choiceSchema, optionsSchema } from '../match/setup-schema';
 import { REPORT_CATEGORIES } from '../account/profile';
 import { ending } from './ending';
 import type { PluginService } from './service';
@@ -92,11 +92,12 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   register('kingdown_create', 'Use this when the player wants a new King Down game against the computer, a friend or a random player. Choose the features, colour and computer level.',
     { kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(), board_id: boardId },
     { visibility: ['model', 'app'], idempotent: false }, ({ board_id, ...input }) => select(board_id, () => service.create(actorId, { ...input, options: input.options ?? DEFAULT_OPTIONS })));
-  register('kingdown_resume', 'Show your most urgent game on this board.', { board_id: boardId }, { visibility: ['app'], idempotent: false }, async args => {
-    if (args.board_id) await service.board(actorId, args.board_id).catch(error => { if (!(error instanceof MatchServiceError) || error.code !== 'MATCH_REMOVED') throw error; });
+  register('kingdown_resume', 'Show a selected game, or your most urgent game, on this board.', { board_id: z.string().uuid(), game_id: gameId.optional() }, { visibility: ['app'], idempotent: false }, async args => {
+    if (args.game_id) return select(args.board_id, () => service.view(actorId, args.game_id!));
+    await service.board(actorId, args.board_id).catch(error => { if (!(error instanceof MatchServiceError) || error.code !== 'MATCH_REMOVED') throw error; });
     const view = await next();
     if (!view) return home(args.board_id);
-    if (args.board_id) await service.selectBoard(actorId, args.board_id, view.game_id);
+    await service.selectBoard(actorId, args.board_id, view.game_id);
     return reply(view, args.board_id);
   });
   register('kingdown_games', 'Use this when the player asks about their King Down games, or "is it my turn?". Lists the active games, your turn first, then the nearest deadline. Open one with kingdown_open.',
@@ -121,6 +122,8 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   register('kingdown_accept', 'Take the open seat in a random game.', { game_id: gameId, board_id: boardId }, { visibility: ['app'] }, args => select(args.board_id, () => service.accept(actorId, args.game_id)));
   register('kingdown_find', 'Take the oldest open game, or open your own.', { options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), board_id: boardId }, { visibility: ['app'], idempotent: false }, args => select(args.board_id, () => service.find(actorId, args.options, args.colour)));
   register('kingdown_cancel', 'Cancel your waiting random game with no result.', { game_id: gameId }, { visibility: ['app'], destructive: true }, async args => reply(await service.cancel(actorId, args.game_id)));
+  register('kingdown_choose', 'Choose your king and back-rank order, then mark your seat Ready.', { ...command, king: choiceSchema.shape.king, order: choiceSchema.shape.order, ready: z.boolean() }, { visibility: ['app'] }, ({ king, order, ready, ...args }) => play(args, { type: 'choose', choice: { king, order }, ready }));
+  register('kingdown_rematch', 'Offer, accept or decline a rematch. The reply stays on this game; resume the rematch to move the board.', { ...command, choice: z.enum(['offer', 'accept', 'decline']) }, { visibility: ['app'] }, ({ choice, ...args }) => play(args, { type: 'rematch', choice }));
   register('kingdown_move', 'Play one exact legal move; retry with the same command ID.', { ...command, lan: z.string().min(1).max(120) }, { visibility: ['app'] }, ({ lan, ...args }) => play(args, { type: 'turn', actions: [lan] }));
   register('kingdown_computer', 'Ask the computer opponent to play its turn.', command, { visibility: ['app'] }, args => play(args, { type: 'computer' }));
   register('kingdown_say', 'Send one preset message to the opponent; each preset goes once in each game.', { ...command, preset: z.enum(PRESETS) }, { visibility: ['app'] }, ({ preset, ...args }) => play(args, { type: 'say', preset }));

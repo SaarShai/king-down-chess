@@ -260,10 +260,7 @@ export class GameService {
      const initiator = game.created_by ?? actor, previousSeat = seatOf(game, initiator);
      const rematch = await this.newGame(initiator, { kind: game.kind, colour: colour(other(previousSeat)), speed: game.speed, ...(game.days_per_move && { days_per_move: game.days_per_move }), level: game.level, ...(game.options ? { options: game.options } : { setup: game.setup }) });
      for (const p of rematch.players) { p.user_id = game.players[other(p.seat)].user_id; p.computer = game.players[other(p.seat)].computer; }
-     if (game.kind === 'solo') {
-      for (const p of rematch.players) p.ready = true;
-      if (rematch.status !== 'playing') await this.start(rematch, at);
-     } else await this.enterSetup(rematch, at);
+     if (game.kind !== 'solo') await this.enterSetup(rematch, at);
      turnTo(rematch, out, at, actor); settle(rematch, at);
      await this.store.insert(rematch, client);
      next.rematch_offer = null; next.rematch_game_id = rematch.id;
