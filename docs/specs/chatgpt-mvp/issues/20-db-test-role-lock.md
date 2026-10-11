@@ -89,4 +89,5 @@ Result:
 - Full check 1: `npm test` with `PLUGIN_TEST_DATABASE_URL` set to `kingdown_mvp20_test` passes 138 files, 2,186 tests and 50 artwork checks; 8 tests skip. No deadlock occurs. The shared-reader case and all three role-lock cases pass.
 - Full check 2: the same database suite passes 138 files, 2,186 tests and 50 artwork checks; 8 tests skip. No deadlock occurs.
 - Full check 3: the same database suite passes 138 files, 2,186 tests and 50 artwork checks; 8 tests skip. No deadlock occurs. All three required runs pass.
+- Integration tip `b341abf0` merges with no conflicts. The database check after the merge passes 138 files, 2,186 tests and 50 artwork checks; 8 tests skip. No deadlock occurs.
 - `git diff --check` passes. Open items: none.
