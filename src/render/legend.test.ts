@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { LEG, TR, badge, occupied, paint, shot, target, tile, toSvg, type Kind, type Shape } from './legend';
+import { DEFS, LEG, TR, badge, glow, occupied, paint, railLine, shot, target, tile, toSvg, type Kind, type Shape } from './legend';
 
 const circles = (shapes: Shape[]) => shapes.filter((s): s is Extract<Shape, { k: 'circle' }> => s.k === 'circle');
 const red = (shapes: Shape[]) => circles(shapes).filter(s => s.stroke === LEG.red || s.fill === LEG.red);
@@ -93,6 +93,26 @@ describe('the move legend', () => {
     expect(paths).toBe(shapes.length);
     expect(toSvg(shapes).match(/<(rect|circle|ellipse|polyline) /g)).toHaveLength(shapes.length);
     expect(ctx.globalAlpha).toBe(1);
+  });
+
+  it('draws a line as a thin rail from the square edge, with an arrow at the board edge, a bar before a friend, none in a take', () => {
+    const arrow = railLine([50, 50], [450, 50], 100, 'arrow');
+    expect(arrow.rail.a).toBe(0.85);
+    expect(arrow.rail.shapes.map(sh => [sh.stroke, sh.cap])).toEqual([[LEG.halo, 'butt'], [LEG.navy, 'butt'], [LEG.green, 'butt']]);
+    // The rail starts 0.42 of a square from the piece's centre; the arrow's tip is 0.44 past the last centre.
+    expect(arrow.rail.shapes[2]).toMatchObject({ k: 'line', pts: [92, 50, 478, 50], lw: 4 });
+    expect(arrow.end.map(sh => sh.k === 'line' && sh.pts.slice(0, 2))).toEqual([[494, 50], [494, 50]]);
+    expect(arrow.end[1]).toMatchObject({ fill: LEG.green, stroke: LEG.navy });
+    expect(railLine([50, 50], [450, 50], 100, 'stop').end.map(sh => sh.stroke)).toEqual([LEG.halo, LEG.navy]);
+    expect(railLine([50, 50], [450, 450], 100, 'x')).toMatchObject({ end: [], rail: { shapes: [{ pts: [92, 92, 450, 450] }, {}, {}] } });
+    expect(toSvg(arrow.rail.shapes)).toContain('stroke-linecap="butt"');
+  });
+
+  it('draws the gold glow under a selected piece and the red one under an attacked piece', () => {
+    expect(glow(50, 90, 100)).toEqual({ k: 'ellipse', x: 50, y: 90, rx: 36, ry: 11, fill: 'glow-gold' });
+    expect(glow(50, 90, 100, true)).toMatchObject({ rx: 40, ry: 13, fill: 'glow-red' });
+    expect(toSvg([glow(50, 90, 100)])).toContain('fill="url(#leg-glow-gold)"');
+    expect(DEFS).toContain('id="leg-glow-gold"');
   });
 
   it('leaves none of the old marks in the game or the Workshop', () => {

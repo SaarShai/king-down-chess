@@ -25,7 +25,7 @@ import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, t
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from '../turn-controls';
 import { awardTurnSeals } from '../ui/tricks';
 import { readPiece, refreshTable, renderTable } from '../ui/table';
-import { clickPath, landingMoves, marksModel } from '../marks-model';
+import { clickPath, landingMoves, marksModel, railsOf } from '../marks-model';
 import { clearCoinRead, initCoins, refreshCoins } from '../ui/powers';
 import { reviewStep } from '../review';
 import { connectMoveMoments } from '../move-moments';
@@ -230,6 +230,7 @@ export function connectPlay(view: BoardView, c: {
       hint: hintSquares,
       check: (!busy || thinking) && game.inCheck && viewing == null ? findKing(game.pos.board, game.pos.turn) : null,
       checkers: (!busy || thinking) && viewing == null ? checkersOf(game.pos) : [],
+      rails: selected == null ? [] : railsOf(game.pos.board, selected, [...verb.moves, ...verb.captures], verb.captures),
     });
     const canFinish = pending.length > 0 && cands.some(m => clickPath(m).length === pending.length);
     // Captured pieces: a piece the mover removed counts for the mover; a paladin that removes itself is its own side's loss.

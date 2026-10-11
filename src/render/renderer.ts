@@ -54,6 +54,8 @@ export interface Highlights {
   check?: number | null;
   /** Opt in to the still ember ring and cause lines. Omit to keep the original check mark. */
   checkers?: Checker[];
+  /** The selected piece's lines (marks-model.ts railsOf); the painted board draws them as rails. */
+  rails?: { to: number; end: 'x' | 'stop' | 'arrow' }[];
 }
 
 const LIGHT = 0xefebe3, DARK = 0x6f6b65;

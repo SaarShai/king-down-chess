@@ -1,9 +1,11 @@
 // W13: the move legend (docs/specs/move-legend ticket 01) on the painted board, the clay look and the Workshop.
 // A green tile moves; a white tile with a red target takes only; a green tile with the target moves or takes;
 // the target with an arrow is a shot; a take on a figure is a red edge and the badge at the top-left.
-// The threats states (move-legend ticket 02) show Settings → Show threats: amber diamonds and an amber warning triangle.
+// The threats states (move-legend ticket 04) show Settings → Show threats: the Workshop's red threat arrows and the red glow.
+// Ticket 03: the painted board has the Workshop's coordinates, the gold glow under the selected piece and the rails of its lines;
+// workshop-queen shows the Workshop's own rails, which stay as they were.
 // Run: SAMPLE=W13 node docs/specs/web-ux/capture.mjs <base-url> <out-dir>. Renders stay outside Git.
-import { keepWorkshopCopy, usePower } from '../../../../tools/app-ui.mjs';
+import { keepWorkshopCopy, pressMenu, usePower } from '../../../../tools/app-ui.mjs';
 
 const save = fen => ({ back: '', fen, moves: [], white: 'human', black: 'human', sound: false });
 // The queen on d4 (dark); enemies on b6 and f2 (dark), d7 and g4 (light).
@@ -24,6 +26,15 @@ const HASTE = `?rules=2017&kings=flame:haste,none&fen=${encodeURIComponent('7k/8
 const DEPTH = save('4k3/8/8/R3n3/4Q3/8/8/4K3 w - - 0 1');
 // Show threats on (ticket 02): the rook d5 attacks the knight d2 and covers d3 and b5, where the queen b3 can move.
 const THREATS = { ...save('4k3/8/8/3r4/8/1Q6/3N4/4K3 w - - 0 1'), threats: true };
+const START = save('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+/** The Workshop from the menu, with the pool Queen open. */
+const workshopQueen = async ({ page }) => {
+  await pressMenu(page, 'Workshop');
+  await page.locator('#workshop.pg[open]').waitFor();
+  if (await page.isHidden('.pg-ledge')) await page.click('[data-act="pieces"]');
+  await page.click('.slot[data-piece="queen"]');
+  await page.locator('.slot[data-piece="queen"][aria-current="true"]').waitFor({ state: 'attached' });
+};
 
 /** Taps a square and checks the engine's marks (moves and captures of the selected piece) before the shot. */
 const select = (sq, want) => async ({ page, tap }) => {
@@ -84,6 +95,8 @@ export default {
   sizes: ['phone', 'desktop'],
   states: [
     { name: 'painted-queen', save: QUEEN, steps: queen },
+    { name: 'painted-start', save: START, steps: select(6, { moves: 2, captures: [] }) },
+    { name: 'workshop-queen', targets, steps: workshopQueen },
     { name: 'painted-knight', save: KNIGHT, steps: select(27, { moves: 6, captures: [42, 44] }) },
     { name: 'painted-archer', save: ARCHER, steps: select(27, { captures: [41, 45], shots: [41, 45] }) },
     { name: 'painted-archer-light', save: ARCHER_LIGHT, steps: select(28, { captures: [42, 46], shots: [42, 46] }) },
