@@ -1,9 +1,9 @@
 /**
  * The kings' powers on the Proving Ground (docs/specs/workshop-proving-ground, ticket 13): a seated king's power on an
- * unchanged pool piece. The engine makes every power move (legalMoves) under the power readings, and each preview runs in
+ * unchanged pool piece. A LAB card in White's hand works the same way (ticket 14). The engine makes every power move (legalMoves) under the power readings, and each preview runs in
  * withRules, which puts the shared RULES back in the same turn (spec decisions 31 and 32). Pure, so it runs in Node.
  */
-import { K, POWERS_BALANCED, RULES, WHITE, colorOf, file, isMarkTag, legalMoves, makeMove, parseSq, piece, rank, setRules, sqName, typeOf, type KingName, type Move, type PieceType, type Position, type PowerName, type Rules } from '../rules/engine';
+import { K, POWERS_BALANCED, RULES, TAG_POWER, WHITE, colorOf, file, isMarkTag, legalMoves, makeMove, parseSq, piece, rank, setRules, sqName, typeOf, type CardName, type KingName, type Move, type PieceType, type Position, type PowerName, type PowerTag, type Rules } from '../rules/engine';
 import { POWER_TAG, usesAllowed } from '../powers-ui';
 import { step } from './moves';
 import type { Scene } from './scene';
@@ -40,12 +40,27 @@ export const enginePos = (board: Uint8Array, from: number, type: PieceType, game
 /** The moves that White's `king` with `power` adds for the piece on `from`: its tagged power moves, and for Freeze and Ice
  *  Wall a mark on any piece. An always-on power has no tagged move: its moves are those that the power adds. None is an echo. */
 export function powerMarks(pos: Position, from: number, king: KingName, power: PowerName): Move[] {
-  const mine = (m: Move): boolean => m.from === from || isMarkTag(m.power);
+  const mine = mover(from);
   const [moves, always] = withRules(over(king, power), () => [legalMoves(pos).filter(mine), !usesAllowed(power) || !POWER_TAG[power]] as const);
   if (!always) return moves.filter(m => m.power === POWER_TAG[power]);
   const key = (m: Move): string => `${m.from} ${m.to} ${m.captures}`, was = new Set(withRules(over(null, power), () => legalMoves(pos)).filter(mine).map(key));
   return moves.filter(m => !was.has(key(m)));
 }
+
+/** A move of the piece on `from`, or a mark (Freeze, Ice Wall) on any piece. */
+const mover = (from: number) => (m: Move): boolean => m.from === from || isMarkTag(m.power);
+
+/** Card mode with LAB card `card` in White's hand and no king power (setRules refuses both, decision 30). */
+const hand = (card: CardName): Partial<Rules> => ({ hands: [[card], []] });
+/** The rules a LAB card plays under: its words read them (cardText). */
+export const cardRules = (card: CardName): Rules => withRules(hand(card), () => ({ ...RULES }));
+/** The moves that LAB card `card` gives the piece on `from` (its tagged moves), and for Freeze and Ice Wall a mark on any piece. */
+export function cardMarks(pos: Position, from: number, card: CardName): Move[] {
+  const tag = (Object.keys(TAG_POWER) as PowerTag[]).find(t => TAG_POWER[t] === card), mine = mover(from);
+  return withRules(hand(card), () => legalMoves(pos).filter(m => m.power === tag && mine(m)));
+}
+/** Plays card move `m` with the engine: the card played and the marks are in the position it gives. */
+export const playCard = (pos: Position, m: Move, card: CardName): Position => withRules(hand(card), () => makeMove(pos, m));
 
 /** Plays power move `m` with the engine under the king's rules: the uses spent and the marks are in the position it gives. */
 export const playPower = (pos: Position, m: Move, king: KingName, power: PowerName): Position => withRules(over(king, power), () => makeMove(pos, m));

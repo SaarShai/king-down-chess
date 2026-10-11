@@ -32,9 +32,9 @@ export interface Scene {
   arches: (By & { from: string; over: string; to: string; power?: string })[];
   /** The hover-only effects: `follow` (the piece follows its push), `sight` (a shot's line), and a chain's `hop` and order `pip`.
    *  A `threat` (threatsOf, the eye of Try with) is `stopped` by a "cannot be taken" rule. `becomes`: the pieces that a move to `sq` can become.
-   *  `frost`: a Freeze mark on `sq` for `turns` more turns (ticket 13). */
+   *  `frost`: a Freeze mark on `sq` for `turns` more turns (ticket 13). `rune`: a LAB card's pick, `barred` on the king that it may not pick (ticket 14). */
   effects: (By & ({ k: 'swap'; a: string; b: string } | { k: 'push' | 'follow' | 'sight' | 'hop'; from: string; to: string } | { k: 'pip'; sq: string; n: number }
-    | { k: 'threat'; from: string; to: string; stopped?: true } | { k: 'becomes'; sq: string; pieces: string[] } | { k: 'frost'; sq: string; turns: number }))[];
+    | { k: 'threat'; from: string; to: string; stopped?: true } | { k: 'becomes'; sq: string; pieces: string[] } | { k: 'frost'; sq: string; turns: number } | { k: 'rune'; sq: string; barred?: true }))[];
   /** The stamps on the board: on a mark, the table rule that refuses it (no `by`), then the rules of its `by` that the
    *  mockup stamps there (sceneOf); on the piece, a rule that wakes its lines. The Why tag reads every rule from the mark's `by`. */
   impressions: { sq: string; list: { a: Ability['a']; by?: number }[]; on?: string }[];

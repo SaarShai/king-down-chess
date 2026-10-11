@@ -288,6 +288,16 @@ function emblem(king: string, cx: number, cy: number, d: number): string {
   return `<circle cx="${n(cx)}" cy="${n(cy + 0.6)}" r="${n(d / 2)}" fill="rgba(29,25,21,.28)"/><circle cx="${n(cx)}" cy="${n(cy)}" r="${n(d / 2 - 0.75)}" fill="${LEG.white}" stroke="${LEG.power}" stroke-width="1.5"/>`
     + `<image href="${import.meta.env?.BASE_URL ?? './'}ui/emblems/${king}.webp" x="${n(cx - e / 2)}" y="${n(cy - e / 2)}" width="${n(e)}" height="${n(e)}" preserveAspectRatio="xMidYMid meet"/>`;
 }
+/** A LAB card's pick (runeRing, marks.js:557-571): a blue ring with six rune diamonds; a barred one is grey with a bar. */
+function rune(cx: number, cy: number, r: number, barred?: boolean): string {
+  const d = Math.max(3, r * 0.17), k = r * 0.78;
+  return `<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(r)}" fill="none" stroke="${barred ? LEG.halo : LEG.power}" stroke-width="${barred ? 4 : 3.5}"/><circle cx="${n(cx)}" cy="${n(cy)}" r="${n(r)}" fill="none" stroke="${barred ? C.bX : LEG.powerMid}" stroke-width="2"/>`
+    + Array.from({ length: 6 }, (_, i) => {
+      const a = -Math.PI / 2 + (i * Math.PI) / 3, px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r;
+      return `<path d="M${n(px)} ${n(py - d)}L${n(px + d)} ${n(py)}L${n(px)} ${n(py + d)}L${n(px - d)} ${n(py)}z" fill="${barred ? C.bFill : C.pHi}" stroke="${barred ? C.bX : LEG.power}" stroke-width="1.5" stroke-linejoin="round"/>`;
+    }).join('')
+    + (barred ? line(cx - k, cy + k, cx + k, cy - k, LEG.halo, 5, 'stroke-linecap="round"') + line(cx - k, cy + k, cx + k, cy - k, C.bBar, 3, 'stroke-linecap="round"') : '');
+}
 /** Freeze on a square (frostOverlay, baseRing and ringPips, marks.js:573-595): the frost and a blue ring under the piece, and
  *  over it one moon pip for each turn left. */
 function frost(x: number, y: number, s: number, turns: number): [string, string] {
@@ -346,9 +356,9 @@ export function whySum(w: NonNullable<Why['sum']>, T: number, I: number): string
 }
 /** The count ring: the number of parts that make the mark (grammar.css:178). */
 export const countRing = (k: number): string => `<span class="count-ring" title="${k} part${k > 1 ? 's make' : ' makes'} this mark">${k}</span>`;
-export function effect(kind: 'arch' | 'push' | 'swap' | 'threat' | 'tstop' | 'frost', s: number): string {
+export function effect(kind: 'arch' | 'push' | 'swap' | 'threat' | 'tstop' | 'frost' | 'rune', s: number): string {
   const c = s / 2, head = Math.max(7, s * 0.125);
-  const g = kind === 'frost' ? frost(0, 0, s, 1).join('') : kind === 'arch' ? arch([s * 0.08, s * 0.85], [s * 0.92, s * 0.85], s * 0.9)
+  const g = kind === 'frost' ? frost(0, 0, s, 1).join('') : kind === 'rune' ? rune(c, c, s * 0.38) : kind === 'arch' ? arch([s * 0.08, s * 0.85], [s * 0.92, s * 0.85], s * 0.9)
     : kind === 'threat' || kind === 'tstop' ? threat([s * 0.1, s * 0.9], [s * 0.9, s * 0.1], s, kind === 'tstop', 0)
     : kind === 'push' ? arrowLine([s * 0.12, c], [s * 0.92, c], C.push, 3, { head }) : arrowLine([s * 0.1, c], [s * 0.9, c], C.swap, 3, { both: true, head });
   return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" overflow="visible" aria-hidden="true">${g}</svg>`;
@@ -462,7 +472,8 @@ function chalk(z: Zone, side: 'w' | 'b', s: number): string {
  * data-cond, data-diff and data-on; a '-' mark has the class kdm-ghost); a rail, an arch and an effect have data-k,
  * data-from and data-to (a pip and a fan: data-at; a pip also data-n); a badge has data-badge, and the stamps of a square data-stamp and
  * data-a (the rules' abilities). A part that a preview adds (the scene's `pv`) has data-pv; the open piece's image has data-open.
- * A king power's mark, stamp and arch (ticket 13) have data-emblem (the king's emblem name); a Freeze mark has data-k="frost", data-at and data-n (its turns).
+ * A king power's mark, stamp and arch (ticket 13) have data-emblem (the king's emblem name); a Freeze mark has data-k="frost", data-at and data-n (its turns);
+ * a LAB card's pick has data-k="rune" and data-at, and data-barred on the king (ticket 14).
  */
 export function drawString(scene: Scene, o: {
   s: number; art: (p: ScenePiece) => string; focus?: (by: readonly number[]) => boolean; stamps?: (by?: number) => boolean; hover?: string | null; select?: string | null; lift?: boolean;
@@ -517,7 +528,9 @@ export function drawString(scene: Scene, o: {
   // The effects (marks.js:1133-1160); a follow is a thin push arrow, a sight line a flat gold arc, a hop an ink arc.
   for (const e of shown(scene.effects)) {
     if (e.k === 'becomes') { const { x, y } = XY(e.sq); over += group({ k: e.k, at: e.sq, pv: e.pv && '1' }, becomesFan(x, y, s, e.pieces), e.by); continue; }
-    if (e.k === 'frost') { const { x, y } = XY(e.sq), [u, v] = frost(x, y, s, e.turns); under += group({ k: e.k, at: e.sq, n: String(e.turns) }, u); over += v; continue; }
+    // Frost and a rune are no rule's part: they stay clear while the piece's own marks step back (ground.ts).
+    if (e.k === 'frost') { const { x, y } = XY(e.sq), [u, v] = frost(x, y, s, e.turns); under += `<g data-k="frost" data-at="${e.sq}" data-n="${e.turns}">${u}</g>`; over += v; continue; }
+    if (e.k === 'rune') { const [x, y] = CTR(e.sq); over += `<g data-k="rune" data-at="${e.sq}"${e.barred ? ' data-barred="1"' : ''}>${rune(x, y, s * 0.42, e.barred)}</g>`; continue; }
     const svg = e.k === 'swap' ? arrowLine(CTR(e.a), CTR(e.b), C.swap, 3, { both: true, trim0: s * 0.12, trim1: s * 0.12, head })
       : e.k === 'pip' ? pip(XY(e.sq).x + s - 10, XY(e.sq).y + s - 10, 14, e.n)
       : e.k === 'push' ? arrowLine(CTR(e.from), CTR(e.to), C.push, 3, { trim0: s * 0.16, trim1: s * 0.18, head })

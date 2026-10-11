@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { readdirSync } from 'node:fs';
 import { NAMES, RULES, parseSq, sqName, type Move, type PieceType } from '../rules/engine';
 import { PRESETS, fromPreset } from './model';
 import { boardOf, examplesOf, sceneOf, type ScenePiece } from './scene';
-import { enginePos, playPower, powerLayer, powerMarks, seated, withRules } from './powers';
+import { cardMarks, enginePos, playCard, playPower, powerLayer, powerMarks, seated, withRules } from './powers';
 
 const typeOf = (key: string): PieceType => (NAMES as readonly string[]).indexOf(key) as PieceType;
 /** A pool piece on board `pieces` (its example board by default), with a seated king. */
@@ -47,5 +48,28 @@ describe('powerMarks (ticket 13)', () => {
     const next = playPower(pos, freeze.find(m => sqName(m.to) === 'c6')!, 'Frost', 'Freeze');
     expect(next.marks?.[0]?.sq).toBe(parseSq('c6'));
     expect(next.used?.[0]).toBe(1);
+  });
+});
+
+describe('cardMarks (ticket 14)', () => {
+  it('the Freeze card on the freeze-card board (scenes.js freeze): each enemy piece but the king; the freeze on c6 plays the card', () => {
+    const P = (sq: string, k: string, side: 'w' | 'b' = 'b'): ScenePiece => ({ sq, k, side });
+    const { from, pos } = at('paladin', [{ sq: 'd4', k: 'design', side: 'w', open: true }, P('b1', 'king', 'w'), P('c6', 'knight'), P('e5', 'pawn'), P('h8', 'rook'), P('g8', 'king')]);
+    const before = JSON.stringify(RULES), freeze = cardMarks(pos, from, 'Freeze');
+    expect(JSON.stringify(RULES)).toBe(before);
+    expect(freeze.map(m => sqName(m.to)).sort()).toEqual(['c6', 'e5', 'h8']);
+    const next = playCard(pos, freeze.find(m => sqName(m.to) === 'c6')!, 'Freeze');
+    expect(next.marks?.[0]?.sq).toBe(parseSq('c6'));
+    expect(next.used?.[0]).toBe(1);
+    expect(cardMarks(next, from, 'Freeze')).toEqual([]);
+  });
+  it('the Leap card on the Rook: the same squares as the Mud king\'s Leap', () => {
+    const { from, pos } = at('rook');
+    expect(squares(cardMarks(pos, from, 'Leap'), false)).toBe('d3 d4 d5 d6');
+    expect(squares(cardMarks(pos, from, 'Leap'), true)).toBe('d7');
+  });
+  it('ships the 11 card pictures of the mockup as webp (public/ui/cards)', () => {
+    const art = ['back', 'freeze', 'icewall', 'leap', 'march', 'mimic', 'rescue', 'sacrifice', 'salvation', 'skylift', 'vault'];
+    expect(readdirSync('public/ui/cards').sort()).toEqual(art.map(a => `${a}.webp`));
   });
 });
