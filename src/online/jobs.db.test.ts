@@ -13,6 +13,7 @@ import { PostgresMatchStore } from '../match/store';
 import { cleanup, drainOutbox, queueReminders, runDeletions, sweepDeadlines } from './jobs';
 import { fakeSender, type Mail, type Sender } from './mail';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
+import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 
 const url = process.env.PLUGIN_TEST_DATABASE_URL, DAY = 86_400_000, MINUTE = 60_000;
 const suite = url ? describe : describe.skip;
@@ -228,10 +229,9 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
  it('runs every job with the reviewed runtime role, which cannot read or delete accounts itself', async () => {
   const role = `jobs_test_${randomUUID().replaceAll('-', '')}`, password = randomUUID();
   const runtimeUrl = new URL(own.href); runtimeUrl.username = role; runtimeUrl.password = password;
-  await admin.query((await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8')).replaceAll('kingdown_plugin_runtime', role));
+  await withRoleLock(own.href, async () => admin.query(`${(await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8')).replaceAll('kingdown_plugin_runtime', role)}; alter role ${role} password '${password}'`));
   const runtime = new pg.Pool({ connectionString: runtimeUrl.href, max: 1 });
   try {
-   await admin.query(`alter role ${role} password '${password}'`);
    const service = new GameService(new PostgresMatchStore(runtime));
    const [h, p, gone] = [await user('uma'), await user('val'), await user('wes')];
    const id = await friend(h, p, { days_per_move: 1 });
@@ -255,7 +255,7 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
    ]) await expect(runtime.query(statement), statement).rejects.toMatchObject({ code: '42501' });
   } finally {
    await runtime.end();
-   await admin.query(`drop owned by ${role}; drop role ${role}`);
+   await withRoleLock(own.href, () => admin.query(`drop owned by ${role}; drop role ${role}`));
   }
  }, 60_000);
 });

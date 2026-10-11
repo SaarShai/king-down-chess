@@ -11,13 +11,14 @@ import { GameService } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
 import { AccountService } from './accounts';
 import { APPEAL, SafetyService } from './safety';
+import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 const url = process.env.PLUGIN_TEST_DATABASE_URL;
 if (url) {
  const target = new URL(url);
  if (!['localhost', '127.0.0.1', '[::1]'].includes(target.hostname) || !target.pathname.endsWith('_test')) throw new Error('Database tests require a disposable loopback database ending in _test');
 }
 const suite = url ? describe : describe.skip;
-const DAY = 86_400_000, ROLE_LOCK = 7_007_007; // the same lock as service.db.test.ts: grants on one table at once fail
+const DAY = 86_400_000;
 const later = (days: number) => new Date(Date.now() + days * DAY);
 
 suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
@@ -27,7 +28,7 @@ suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
  const games = new GameService(store), accounts = new AccountService(store), safety = new SafetyService(store), owner = new SafetyService(new PostgresMatchStore(admin));
  const users: string[] = [], tag = randomUUID().slice(0, 6);
  const rows = async (sql: string, params: unknown[] = []) => (await admin.query(sql, params)).rows;
- const locked = async (sql: string) => { const client = await admin.connect(); try { await client.query('select pg_advisory_lock($1)', [ROLE_LOCK]); await client.query(sql); } finally { await client.query('select pg_advisory_unlock($1)', [ROLE_LOCK]); client.release(); } };
+ const locked = (sql: string) => withRoleLock(url!, () => admin.query(sql));
  async function user(handle?: string) {
   const id = randomUUID(); users.push(id);
   await admin.query('insert into auth.users(id) values($1)', [id]);
@@ -43,8 +44,7 @@ suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
  const say = async (actor: string, gameId: string, preset: string) => games.command(actor, gameId, { command_id: randomUUID(), expected_revision: (await games.view(actor, gameId)).revision, action: { type: 'say', preset } });
 
  beforeAll(async () => {
-  await locked((await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8')).replaceAll('kingdown_plugin_runtime', role));
-  await admin.query(`alter role ${role} password '${password}'`);
+  await locked(`${(await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8')).replaceAll('kingdown_plugin_runtime', role)}; alter role ${role} password '${password}'`);
  });
  afterAll(async () => {
   await runtime.end();

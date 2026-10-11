@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { GameService } from './service';
 import { PostgresMatchStore } from './store';
 import { PluginService } from '../plugin/service';
+import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 const url = process.env.PLUGIN_TEST_DATABASE_URL;
 if (url) {
  const target = new URL(url);
@@ -285,11 +286,9 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   const role = `plugin_test_${randomUUID().replaceAll('-','')}`, password = randomUUID();
   const runtimeUrl = new URL(url!); runtimeUrl.username = role; runtimeUrl.password = password;
   const runtime = new pg.Pool({connectionString:runtimeUrl.href,max:1});
-  // One test file at a time grants on a table (src/online/accounts.db.test.ts takes the same lock): two at once fail.
-  const locked = async (sql: string) => { await admin.query('select pg_advisory_lock(7007007)'); try { await admin.query(sql); } finally { await admin.query('select pg_advisory_unlock(7007007)'); } };
-  await locked((await readFile(new URL('../../plugin-deploy/runtime-role.sql',import.meta.url),'utf8')).replaceAll('kingdown_plugin_runtime',role));
+  const locked = (sql: string) => withRoleLock(url!, () => admin.query(sql));
+  await locked(`${(await readFile(new URL('../../plugin-deploy/runtime-role.sql',import.meta.url),'utf8')).replaceAll('kingdown_plugin_runtime',role)}; alter role ${role} password '${password}'`);
   try {
-   await admin.query(`alter role ${role} password '${password}'`);
    expect((await runtime.query('select current_user as name,rolsuper,rolbypassrls from pg_roles where rolname=current_user')).rows[0]).toEqual({name:role,rolsuper:false,rolbypassrls:false});
    expect((await runtime.query('select 1 from pg_auth_members where member=(select oid from pg_roles where rolname=current_user)')).rowCount).toBe(0);
    const clientId = randomUUID(), resource = 'https://plugin.example/mcp';
