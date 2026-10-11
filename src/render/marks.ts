@@ -190,7 +190,7 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
     for (const sq of m.hint ?? []) { if (!inRow(sq)) continue; const b = box(sq); ctx.strokeStyle = '#c99a2e'; ctx.lineWidth = 4 * k; ctx.strokeRect(b.x + 4, b.y + 4, TILE - 8, TILE - 8); }
     pointerFrame();
     // After the last row's figures, so each arrow stays in sight.
-    if (row == null || row === 7) for (const t of m.threats ?? []) atAlpha(threat(centre(t.from), centre(t.to), TILE, { px: s.px }));
+    if (row == null || row === 7) for (const t of m.threats ?? []) atAlpha({ ...threat(centre(t.from), centre(t.to), TILE, { px: s.px * 1.5 }), a: 0.85 }); // the game's is stronger than the Workshop's: it must read over move tiles
     if (s.ink) bites();
   }
   ctx.restore();

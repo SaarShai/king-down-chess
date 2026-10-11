@@ -24,7 +24,7 @@ const POWER = `?kings=stratus:flight,none&fen=${encodeURIComponent('4k3/p7/8/8/8
 const HASTE = `?rules=2017&kings=flame:haste,none&fen=${encodeURIComponent('7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1')}`;
 // The rook a5 takes the knight e5, and the queen e4 stands in front of e5.
 const DEPTH = save('4k3/8/8/R3n3/4Q3/8/8/4K3 w - - 0 1');
-// Show threats on (ticket 02): the rook d5 attacks the knight d2 and covers d3 and b5, where the queen b3 can move.
+// Show threats on (move-legend ticket 04): the rook d5 attacks the knight d2.
 const THREATS = { ...save('4k3/8/8/3r4/8/1Q6/3N4/4K3 w - - 0 1'), threats: true };
 const START = save('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
 /** The Workshop from the menu, with the pool Queen open. */

@@ -158,6 +158,8 @@ describe('threat markers', () => {
     expect(threatsIn(fromFen('4k3/8/8/3r4/8/1Q6/3N4/4K3 w - - 0 1'))).toEqual([{ from: parseSq('d5'), to: parseSq('d2') }]);
     // Check: the rook e4 attacks the king e1; the king comes from checkersOf.
     expect(threatsIn(fromFen('4k3/8/8/8/4r3/8/8/4K3 w - - 0 1'))).toEqual([{ from: parseSq('e4'), to: parseSq('e1') }]);
+    // An archer's shot stays on its square (to === from): the threat starts at the archer d5.
+    expect(threatsIn(fromFen('4k3/8/8/3a4/8/3N4/8/4K3 w - - 0 1'))).toEqual([{ from: parseSq('d5'), to: parseSq('d3') }]);
   });
   it('still show during a Haste turn’s pending second move', () => {
     powers('Haste');

@@ -86,6 +86,8 @@ it('joins the marks of each line of a slider, with the Workshop line ends', () =
   expect(rails('7k/8/8/8/R2P4/8/8/7K w - - 0 1', 'a4')).toEqual(['a1 arrow', 'a8 arrow', 'd4 stop']);
   // The paladin passes its own pawn.
   expect(rails('k7/8/8/8/L1P5/8/8/7K w - - 0 1', 'a4')).toContain('h4 arrow');
+  // The catapult's lob over the screen a2 to a3 is a jump: its rail stops at the screen.
+  expect(rails('7k/8/8/8/8/n7/p7/C6K w - - 0 1', 'a1')).not.toContain('a3 x');
 });
 
 it('gives no rail to a step, a pawn\'s double step or a line with no move', () => {

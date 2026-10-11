@@ -60,7 +60,8 @@ function linesOf(board: Uint8Array, from: number): Dir[] {
  * The rails that join the marked squares of each line of the piece on `from` (move-legend ticket 03), with the
  * Workshop's line ends (src/workshop/scene.ts layer()): `to` is the line's last square. `arrow`: the line runs to the
  * board edge; `stop`: a piece stops it (`to` is that piece's square); `x`: it ends in a take, or a rule cuts it short.
- * A line passes over a piece when the square past it is marked (the paladin). A line with no marked square has no rail.
+ * A line passes over a piece when the square past it is marked (the paladin); a catapult's lob is a jump, so its rails
+ * stop at the screen. A line with no marked square has no rail.
  */
 export function railsOf(board: Uint8Array, from: number, marked: readonly number[], captures: readonly number[]): { to: number; end: 'x' | 'stop' | 'arrow' }[] {
   const dy = colorOf(board[from]) === BLACK ? -1 : 1, out: { to: number; end: 'x' | 'stop' | 'arrow' }[] = [];
@@ -70,7 +71,7 @@ export function railsOf(board: Uint8Array, from: number, marked: readonly number
     let far = -1;
     for (let i = 0; i < ray.length; i++) {
       if (marked.includes(ray[i])) far = i;
-      else if (!board[ray[i]] || !marked.includes(ray[i + 1])) break;
+      else if (!board[ray[i]] || typeOf(board[from]) === C || !marked.includes(ray[i + 1])) break;
     }
     if (far < 0) continue;
     const next = ray[far + 1];
