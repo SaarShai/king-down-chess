@@ -19,7 +19,7 @@ export function measuredVersions(measurements: Measurement[]) {
       let fits: boolean;
       if (!('domain' in dimension)) fits = (dimension.allowed as readonly unknown[]).includes(value);
       else if (dimension.domain === 'cardPair') fits = Array.isArray(value) && value.length === 2 && value.every(hand => Array.isArray(hand) && hand.every(card => (ALL_CARDS as readonly unknown[]).includes(card)));
-      else if (dimension.domain === 'designSpec') fits = value === null || (!!value && typeof value === 'object' && limit(value as DesignSpec) === null);
+      else if (dimension.domain === 'designSpec') fits = value === null || (!!value && ['squares', 'lines', 'rules'].every(k => Array.isArray((value as Record<string, unknown>)[k])) && limit(value as DesignSpec) === null);
       else if (dimension.domain === 'kingPair') fits = Array.isArray(value) && value.length === 2 && value.every(king => king === null || typeof king === 'object' && king.king in KINGS && (KINGS[king.king as keyof typeof KINGS] as readonly unknown[]).includes(king.power));
       else fits = !!value && typeof value === 'object' && !Array.isArray(value) && Object.entries(value).every(([card, move]) => (ALL_CARDS as readonly string[]).includes(card) && Number.isSafeInteger(move) && (move as number) > 0);
       if (!fits) findings.push(`Rule value does not fit ${key}: ${stable(value)}.`);

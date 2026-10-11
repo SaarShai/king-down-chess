@@ -80,10 +80,11 @@ describe('the design in the slot T', () => {
 
   it('isAttacked agrees with genPiece("attacks") under seeded random designs', () => {
     const r = rng(1600);
-    let designs = 0;
+    let shelters = 0;
     for (let trial = 0; trial < 400; trial++) {
-      setRules({ design: randomDesign(r) });
-      designs++;
+      const d = randomDesign(r);
+      setRules({ design: d });
+      if (d.rules.some(x => x.does.a === 'cannotBeTaken' && x.when.on !== 'always')) shelters++;
       const b = new Uint8Array(64);
       for (let s = 0; s < 64; s++) {
         if (r() < 0.7) continue;
@@ -98,7 +99,7 @@ describe('the design in the slot T', () => {
         for (let s = 0; s < 64; s++) if (b[s] && colorOf(b[s]) !== by) expect(isAttacked(b, s, by), `trial ${trial} ${sqName(s)} by ${by}`).toBe(hit.has(s));
       }
     }
-    expect(designs).toBe(400);
+    expect(shelters).toBeGreaterThan(0); // the random designs reach the shelter seam
   });
 
   it('the search plays the engine\'s legal moves with a design', () => {
@@ -169,6 +170,24 @@ describe('the design in the slot T', () => {
     const own = fromFen('8/8/8/8/3qT3/8/8/K6k b - - 0 1');
     expect(isAttacked(own.board, parseSq('e4'), BLACK)).toBe(true);
     expect(legalMoves(own).some(m => m.captures.includes(parseSq('e4')))).toBe(true);
+  });
+
+  it('a king power\'s shelter and the design\'s "cannot be taken" both hold', () => {
+    // Mercy's balanced shelter (only a pawn takes) and "next to its king: no pawn takes it": nothing takes it.
+    setRules({ ...parseRule('kingWhite=Spirit:Mercy'), mercyAura: true, mercyAuraPawnsTake: true,
+      design: specOf({ squares: KING_STEP('both'), lines: [], rules: [{ when: { on: 'near', who: 'king' }, does: { a: 'cannotBeTaken', by: 'pawns' } }] }) });
+    const pos = fromFen('7k/8/8/3p4/4T3/4K3/8/8 b - - 0 1'), e4 = parseSq('e4');
+    expect(legalMoves(pos).some(m => m.captures.includes(e4))).toBe(false);
+    expect(isAttacked(pos.board, e4, BLACK)).toBe(false);
+  });
+
+  it('the design\'s push obeys ogreShoveFriends only for an Ogre, and its swap obeys the guard\'s landing bans', () => {
+    setRules({ design: spec('rook', [{ when: { on: 'always' }, does: { a: 'push', then: 'stay' } }]), ogreShoveFriends: 'enemies' });
+    const b = fromFen('4k3/8/8/8/3PT3/8/8/K7 w - - 0 1').board;
+    expect(gen(b, parseSq('e4'), 'all').some(k => k.includes(`${parseSq('d4')}>${parseSq('c4')}`))).toBe(true);
+    setRules({ design: spec('rook', [{ when: { on: 'always' }, does: { a: 'swap', with: 'friend' } }]), guardNoCapital: true });
+    const g = fromFen('4k3/8/8/8/3T4/2G5/8/K7 w - - 0 1').board;
+    expect(gen(g, parseSq('d4'), 'all').some(k => k.endsWith(',s,,,') && k.startsWith(`${parseSq('d4')},${parseSq('c3')},`))).toBe(false);
   });
 
   it('with no design the Templar plays as before, and setRules refuses a design version 1 cannot play', () => {

@@ -3,7 +3,7 @@
  * Workshop's Try board calls it through `movesOf`, and the engine calls it for the type slot `T` while `RULES.design`
  * is set. The types are the Workshop's stored form (`src/workshop/model.ts` re-exports them).
  */
-import { BLACK, CAPITAL, K, LETTERS, P, SPENT, T, canCapture, colorOf, file, rank, sq, typeOf, type Color, type GenMode, type Move, type PieceType } from './engine';
+import { BLACK, CAPITAL, K, LETTERS, P, SPENT, T, canCapture, colorOf, guardMayLand, file, rank, sq, typeOf, type Color, type GenMode, type Move, type PieceType } from './engine';
 
 export type Body = 'P' | 'N' | 'B' | 'R' | 'Q' | 'A' | 'L' | 'G' | 'M' | 'S' | 'O';
 export type Mark = 'both' | 'move' | 'take' | 'shoot' | 'moveShoot';
@@ -185,7 +185,7 @@ export function genDesigned(board: Uint8Array, from: number, mode: GenMode, out:
     if (!v) continue;
     const king = typeOf(v) === K, beyond = step(n, x, y * dy); // never a king: the sink gets the refusal
     if (sw?.a === 'swap' && (colorOf(v) === c) === (sw.with === 'friend')) {
-      if (king) refused?.push({ sq: n, why: 'swap', caps: [] }); else out.push({ from, to: n, captures: [], swap: true });
+      if (king) refused?.push({ sq: n, why: 'swap', caps: [] }); else if (guardMayLand(v, from)) out.push({ from, to: n, captures: [], swap: true });
     }
     if (pu?.a === 'push' && beyond >= 0 && !board[beyond]) {
       if (king) refused?.push({ sq: n, why: 'push', caps: [] }); else out.push({ from, to: pu.then === 'follow' ? n : from, captures: [], shove: { from: n, to: beyond } });

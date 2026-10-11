@@ -280,7 +280,7 @@ const fwd = (c: Color): number => (c === WHITE ? 1 : -1);
  * its own second rank (rank 2 / rank 7), the second the capital (d4 e4 d5 e5). Landing bans only,
  * never starting ones — and the one predicate `isAttacked` and the maester swaps share.
  */
-const guardMayLand = (p: number, to: number): boolean => {
+export const guardMayLand = (p: number, to: number): boolean => {
   if (typeOf(p) !== G) return true;
   if (RULES.guardNoSecondRank && rank(to) === (colorOf(p) === WHITE ? 1 : 6)) return false;
   return !RULES.guardNoCapital || !CAPITAL.includes(to);
@@ -471,7 +471,7 @@ const shelters = (): boolean => RULES.mercyAura || RULES.holyLightShelter || RUL
  * `mercyAuraPawnsTake`, `darknessShelterPawnsTake`), or nothing (0). The `*Ortho` readings shelter
  * only the four orthogonal neighbours, `darknessShelter` only the four diagonal ones (`DIRS8` 4-7).
  * A design whose "cannot be taken" When holds on its square (`shelterOf`) is sheltered from pawns (1), or from all but
- * a king (4), when no king shelters it.
+ * a king (4). With a king's shelter too, both hold: 1 and 3, or 4 and 3, stop every capture (2); 1 and 4 give 4.
  */
 function sheltered(board: Uint8Array, sq: number): number {
   const v = board[sq];
@@ -485,7 +485,7 @@ function sheltered(board: Uint8Array, sq: number): number {
   else if (pw === 'Darkness' && RULES.darknessAuraPawns) { hi = 8; level = 1; }
   else return d;
   const k = piece(K, colorOf(v));
-  for (let i = lo; i < hi; i++) { const n = NEIGHBOUR[sq * 8 + i]; if (n >= 0 && board[n] === k) return level; }
+  for (let i = lo; i < hi; i++) { const n = NEIGHBOUR[sq * 8 + i]; if (n >= 0 && board[n] === k) return !d || d === level ? level : level === 1 ? 4 : 2; }
   return d;
 }
 
@@ -933,9 +933,8 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
  * Detection over-reports the threat instead of missing it: deliberately conservative, and the lab
  * measures whether the inconsistency matters.
  *
- * **`ogreShoveFriends`** (2026-09-17, lab): a third single-seam filter, over shoves. Only an Ogre
- * generates a move with `shove`, so the move itself names the victim (`shove.from`) and the filter
- * needs no piece knowledge. `enemies` keeps enemy victims only, `friends` keeps friendly ones; a
+ * **`ogreShoveFriends`** (2026-09-17, lab): a third single-seam filter, over an Ogre's shoves (a
+ * design's push is not an Ogre's). The move itself names the victim (`shove.from`). `enemies` keeps enemy victims only, `friends` keeps friendly ones; a
  * king is excluded upstream under every value. Shoves are not attacks, so `isAttacked` never reads
  * this field.
  */
@@ -957,12 +956,11 @@ export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Mo
   if (RULES.capitalNoCapture && CAPITAL.includes(from)) {
     for (let i = out.length - 1; i >= n0; i--) if (out[i].captures.length > 0) out.splice(i, 1);
   }
-  // `ogreShoveFriends`: who may be shoved. Only an Ogre generates a move with `shove`, so the move
-  // itself names the victim (`shove.from`) and the filter needs no piece knowledge — the same
-  // one-seam shape as C2/C5, so `case O` keeps a single shove loop and the attack mirror is not
-  // involved at all (a shove was never an attack). A friend shove survives `both` and `friends`, an
+  // `ogreShoveFriends`: who an Ogre may shove (a design's push has its own "push" rule). The move
+  // itself names the victim (`shove.from`) — the same one-seam shape as C2/C5, so `case O` keeps a
+  // single shove loop and the attack mirror is not involved at all (a shove was never an attack). A friend shove survives `both` and `friends`, an
   // enemy shove survives `both` and `enemies`.
-  if (RULES.ogreShoveFriends !== 'both') {
+  if (RULES.ogreShoveFriends !== 'both' && typeOf(board[from]) === O) {
     const mover = colorOf(board[from]);
     for (let i = out.length - 1; i >= n0; i--) {
       const sh = out[i].shove;
