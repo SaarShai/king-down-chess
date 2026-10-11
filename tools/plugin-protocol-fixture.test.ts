@@ -51,3 +51,16 @@ it('reads one seeded record and history page and supports deadline claims', asyn
   expect(result.result).toEqual({winner:1,reason:'timeout'});
  } finally {await s.close();}
 });
+
+it('keeps seeded end data and rules out of since polls', async () => {
+ const s = fixtureService();
+ try {
+  const game = await s.create('alice',{kind:'solo',options:{...DEFAULT_OPTIONS,arrangement:false}});
+  await s.command('alice',game.game_id,{command_id:'end',expected_revision:0,action:{type:'resign'}});
+  const outcome = {rating_before:null,rating:null,provisional:false,badges:[{badge:'first_win' as const,earned_at:'2026-10-11T00:00:00.000Z'}]};
+  s.seed('alice',{views:{[game.game_id]:{outcome,rules:game.rules}}});
+  const full = await s.view('alice',game.game_id); expect(full.outcome).toEqual(outcome); expect(full.rules).toBeDefined();
+  const poll = await s.view('alice',game.game_id,1);
+  expect(poll).not.toHaveProperty('outcome'); expect(poll).not.toHaveProperty('rules'); expect(poll.opponent).not.toHaveProperty('rating');
+ } finally {await s.close();}
+});
