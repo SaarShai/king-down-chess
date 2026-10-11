@@ -1906,12 +1906,14 @@ export function castleRights(board: Uint8Array): number {
   return r;
 }
 /**
- * The rights left after `m`: a move ends every right whose king or rook square it touches, whatever
- * moves there (a step, a capture, a swap, a push, a power). A piece that comes back gets none.
+ * The rights left after `m`: a move ends every right whose king or rook leaves or changes on its square
+ * (a step, a capture, a swap, a push, a power, a Morph). A piece that comes back gets none. A move in
+ * place (a shot, an Earth Quake's centre) moves nothing from its own square.
  */
 export function rightsAfter(rights: number, m: Move): number {
   if (!rights || isStill(m)) return rights;
-  let lost = CASTLE_LOST[m.from] | CASTLE_LOST[m.to];
+  const inPlace = m.pushes || (m.to === m.from && !m.swap && m.promo === undefined);
+  let lost = inPlace ? 0 : CASTLE_LOST[m.from] | CASTLE_LOST[m.to];
   for (let i = 0; i < m.captures.length; i++) lost |= CASTLE_LOST[m.captures[i]];
   if (m.shove) lost |= CASTLE_LOST[m.shove.from] | CASTLE_LOST[m.shove.to];
   if (m.pushes) for (const p of m.pushes) lost |= CASTLE_LOST[p.from] | CASTLE_LOST[p.to];

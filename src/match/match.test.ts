@@ -65,6 +65,11 @@ describe('isolated local matches', () => {
     expect(current.history).toHaveLength(1);
     expect(await (await restart(m)).snapshot()).toEqual(current);
   });
+  it('refuses the chess castling and en-passant FEN fields without the classic flag', async () => {
+    await expect(createMatch({ fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' })).rejects.toThrow('Malformed FEN');
+    await expect(createMatch({ fen: 'rnbqkbnr/pppp1ppp/8/8/3pP3/8/PPPP1PPP/RNBQKBNR b - e3 0 3' })).rejects.toThrow('Malformed FEN');
+    expect((await (await create({ fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1' })).snapshot()).legal).not.toContain('O-O');
+  });
   it('rejects illegal/stale/conflicting commands and deduplicates after reload', async () => {
     const m = await create(); const start = await m.snapshot();
     await expect(move(m, 'invented')).rejects.toThrow('Illegal');

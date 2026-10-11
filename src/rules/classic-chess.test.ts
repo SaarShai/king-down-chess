@@ -38,7 +38,7 @@ describe('classic chess (classicChess): perft', () => {
     const pos = fromFen(KIWIPETE);
     expect(pos.castle).toBeUndefined();
     expect(toFen(pos)).toBe('r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w - - 0 1');
-    expect(lans(pos)).not.toContain('Ke1-g1');
+    expect(lans(pos)).not.toContain('O-O');
     expect(startPosition(CLASSIC_CHESS).castle).toBeUndefined();
   });
 });
@@ -52,18 +52,18 @@ describe('classic chess: castling', () => {
 
   it('is refused through an attacked square and out of check, and allowed on the other side', () => {
     classic();
-    expect(lans(fromFen('4kr2/8/8/8/8/8/8/R3K2R w KQ - 0 1'))).toEqual(expect.arrayContaining(['Ke1-c1']));
-    expect(lans(fromFen('4kr2/8/8/8/8/8/8/R3K2R w KQ - 0 1'))).not.toContain('Ke1-g1');
+    expect(lans(fromFen('4kr2/8/8/8/8/8/8/R3K2R w KQ - 0 1'))).toEqual(expect.arrayContaining(['O-O-O']));
+    expect(lans(fromFen('4kr2/8/8/8/8/8/8/R3K2R w KQ - 0 1'))).not.toContain('O-O');
     const check = lans(fromFen('4r1k1/8/8/8/8/8/8/R3K2R w KQ - 0 1'));
-    expect(check).not.toContain('Ke1-g1');
-    expect(check).not.toContain('Ke1-c1');
+    expect(check).not.toContain('O-O');
+    expect(check).not.toContain('O-O-O');
     // b1 may be attacked on the long side: only the king's squares count.
-    expect(lans(fromFen('1r2k3/8/8/8/8/8/8/R3K3 w Q - 0 1'))).toContain('Ke1-c1');
+    expect(lans(fromFen('1r2k3/8/8/8/8/8/8/R3K3 w Q - 0 1'))).toContain('O-O-O');
   });
 
   it('moves the rook too', () => {
     classic();
-    const after = makeMove(fromFen(KIWIPETE), find(fromFen(KIWIPETE), 'Ke1-g1'));
+    const after = makeMove(fromFen(KIWIPETE), find(fromFen(KIWIPETE), 'O-O'));
     expect(toFen(after)).toBe('r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R4RK1 b kq - 1 1');
   });
 
@@ -73,7 +73,7 @@ describe('classic chess: castling', () => {
     expect(toFen(play(start, 'Ke1-e2', 'Ke8-e7', 'Ke2-e1', 'Ke7-e8')).split(' ')[2]).toBe('-');
     expect(toFen(play(start, 'Rh1-h2', 'Ra8-a7')).split(' ')[2]).toBe('Qk');
     expect(toFen(play(start, 'Rh1xh8')).split(' ')[2]).toBe('Qq');
-    expect(lans(play(start, 'Rh1-h2', 'Ra8-a7', 'Rh2-h1', 'Ra7-a8'))).not.toContain('Ke1-g1');
+    expect(lans(play(start, 'Rh1-h2', 'Ra8-a7', 'Rh2-h1', 'Ra7-a8'))).not.toContain('O-O');
   });
 
   it('ends a right when a maester swaps the rook, and it does not come back', () => {
@@ -91,8 +91,8 @@ describe('classic chess: castling', () => {
     const freeze = legalMoves(pos).find(m => m.power === 'freeze' && m.to === parseSq('h1'))!;
     const done = legalMoves(makeMove(pos, freeze)).find(m => !m.power)!;
     const after = makeMove(makeMove(pos, freeze), done);
-    expect(lans(after)).not.toContain('Ke1-g1');
-    expect(lans(after)).toContain('Ke1-c1');
+    expect(lans(after)).not.toContain('O-O');
+    expect(lans(after)).toContain('O-O-O');
   });
 
   it('positions that differ only in their rights are not the same position', () => {
@@ -104,6 +104,64 @@ describe('classic chess: castling', () => {
     for (const l of ['Ke1-e2', 'Ke8-e7', 'Ke2-e1', 'Ke7-e8']) game.play(game.legal.find(m => toLan(game.pos, m) === l)!);
     expect(toFen(game.pos).split(' ')[0]).toBe('rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR');
     expect(positionKey(game.pos)).not.toBe(before);
+  });
+});
+
+describe('classic chess: castling has its own move text', () => {
+  const KINGS_STEP2 = [{ king: 'Spirit', power: 'Mercy' }, { king: 'Shadow', power: 'Darkness' }] as const;
+  for (const king of KINGS_STEP2) it(`is O-O and O-O-O, apart from a ${king.power} king's two-square step`, () => {
+    classic({ ...POWERS_BALANCED, kings: [king, null] });
+    const pos = fromFen('4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1'), all = lans(pos);
+    expect(new Set(all).size).toBe(all.length);
+    expect(all).toEqual(expect.arrayContaining(['O-O', 'O-O-O', 'Ke1-g1']));
+    expect(toFen(makeMove(pos, find(pos, 'O-O'))).split(' ')[0]).toBe('4k3/8/8/8/8/8/8/R4RK1');
+    expect(toFen(makeMove(pos, find(pos, 'Ke1-g1'))).split(' ')[0]).toBe('4k3/8/8/8/8/8/8/R5KR');
+    // The search lists the same moves by the same text.
+    expect(searchLegal(pos).map(m => toLan(pos, m)).sort()).toEqual(all);
+    // An autosave restore (Game.playLan) castles, and does not take the king's step.
+    const game = new Game(CLASSIC_CHESS);
+    game.load(pos);
+    expect(game.playLan(['O-O', 'Ke8-d8', 'Rf1-f2'])).toBe(3);
+    expect(toFen(game.pos).split(' ')[0]).toBe('3k4/8/8/8/8/8/5R2/R5K1');
+  });
+
+  it('a Death Touch shot from the king square and an Earth Quake on it keep the rights', () => {
+    classic({ ...POWERS_BALANCED, kings: [{ king: 'Shadow', power: 'DeathTouch' }, null] });
+    const shot = fromFen('4k3/8/8/8/8/4n3/8/R3K2R w KQ - 0 1');
+    const m = legalMoves(shot).find(x => x.from === parseSq('e1') && x.to === parseSq('e1') && x.captures[0] === parseSq('e3'))!;
+    expect(m).toBeDefined();
+    expect(makeMove(shot, m).castle).toBe(3);
+    classic({ ...POWERS_BALANCED, kings: [{ king: 'Shadow', power: 'Darkness' }, null], hands: [['EarthQuake'], []] });
+    const quake = fromFen('4k3/8/8/8/8/8/3P2P1/R3K2R w KQ - 0 1');
+    for (const centre of ['e1', 'h1']) {
+      const q = legalMoves(quake).find(x => x.power === 'quake' && x.from === parseSq(centre))!;
+      expect(q, centre).toBeDefined();
+      expect(makeMove(quake, q).castle, centre).toBe(3);
+    }
+  });
+
+  it('a morph of the rook on its square ends that right', () => {
+    classic({ ...POWERS_BALANCED, kings: [{ king: 'Shadow', power: 'Darkness' }, null], hands: [['Morph'], []] });
+    const pos = fromFen('4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1');
+    const morph = legalMoves(pos).find(x => x.power === 'morph' && x.from === parseSq('h1'))!;
+    expect(morph).toBeDefined();
+    expect(makeMove(pos, morph).castle).toBe(2);
+  });
+
+  it('threefold repetition counts a position only with the same rights', () => {
+    classic();
+    const loop = ['Ng1-f3', 'Ng8-f6', 'Nf3-g1', 'Nf6-g8'];
+    const kept = new Game(CLASSIC_CHESS);
+    kept.playLan([...loop, ...loop]);
+    expect(kept.status).toBe('drawRepetition');
+    // The kings walk once: the position after e4 e5 comes back with no rights, so it counts anew; with the rights left out of the key, the first loop would draw.
+    const lost = new Game(CLASSIC_CHESS);
+    lost.playLan(['e2-e4', 'e7-e5', 'Ke1-e2', 'Ke8-e7', 'Ke2-e1', 'Ke7-e8']);
+    expect(lost.history).toHaveLength(6);
+    lost.playLan(loop);
+    expect(lost.status).toBe('playing');
+    lost.playLan(loop);
+    expect(lost.status).toBe('drawRepetition');
   });
 });
 
@@ -179,8 +237,8 @@ describe('classic chess: the move text', () => {
   it('names castling and en passant', () => {
     classic();
     const pos = fromFen(KIWIPETE);
-    expect(describeMove(pos, find(pos, 'Ke1-g1'))).toBe('White castles short.');
-    expect(describeMove(pos, find(pos, 'Ke1-c1'))).toBe('White castles long.');
+    expect(describeMove(pos, find(pos, 'O-O'))).toBe('White castles short.');
+    expect(describeMove(pos, find(pos, 'O-O-O'))).toBe('White castles long.');
     const ep = play(startPosition(CLASSIC_CHESS), 'e2-e4', 'a7-a6', 'e4-e5', 'd7-d5');
     expect(describeMove(ep, find(ep, 'e5xd6'))).toBe('White pawn e5 to d6, taking the pawn on d5 en passant.');
   });

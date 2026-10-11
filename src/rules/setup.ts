@@ -241,6 +241,8 @@ function lanOf(pos: Position, m: Move): string {
   // Ice Wall (`W`), Sacrifice (`S`, the pawn's square and the returned piece) and Flight (`~`); and
   // the Curse card (`C`, an enemy piece's step) and SkyLift (`K`, before the maester swap it looks like).
   if (m.pass) return '--';
+  // Castling (`Rules.classicChess`) reads apart from a Mercy or Darkness king's two-square step.
+  if (m.castle) return m.castle.from > m.from ? 'O-O' : 'O-O-O';
   if (m.drop) return `${LETTERS[m.drop]}@${sqName(m.to)}${m.drop2 !== undefined ? ',' + sqName(m.drop2) : ''}${DROP_TAG[m.power ?? ''] ?? ''}`;
   if (m.power === 'freeze') return `!F:${sqName(m.to)}`;
   if (m.power === 'ward') return `!W:${sqName(m.to)}`;

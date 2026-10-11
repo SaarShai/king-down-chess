@@ -187,7 +187,7 @@ export const RULE_DIMENSIONS = {
   piles: { allowed: [], default: [[],[]], domain: "cardPair" },
   fromMove: { allowed: [], default: {}, domain: "cardMoveMap" },
   bishopsOppositeColours: { allowed: [false,true], default: true },
-  classicChess: { allowed: [false,true], default: false },
+  classicChess: { allowed: [false], default: false }, // the sim replay (`parseLan`) rebuilds a move from its text alone: no castling or en passant yet
   promotionSet: { allowed: ["anyNonKing","standard","anyNonKingNoFairy","anyNonKingNoGuard"], default: "standard" },
   fiftyMove: { allowed: [false,true], default: true },
   threefold: { allowed: [false,true], default: true },

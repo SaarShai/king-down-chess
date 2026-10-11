@@ -53,6 +53,11 @@ describe('design schema', () => {
     expect(validateElement(e).some(e => e.includes('always-on power'))).toBe(true);
     expect(validateElement(e).some(e => e.includes('guardStep=3'))).toBe(true);
   });
+  it('refuses classicChess in a lab rule patch: the sim replay rebuilds moves from their text alone', () => {
+    const e = structuredClone(SHIPPED_ELEMENTS.find(e => e.kind === 'kingPower' && e.name === 'March')!) as Extract<DesignElement, { kind: 'kingPower' | 'card' }>;
+    e.rules = { classicChess: true };
+    expect(validateElement(e)).toContain(`${e.id}: classicChess=true is outside the code rule axis`);
+  });
   it('keeps conditions and stage capture separate from worth', () => {
     expect(DIMENSIONS.conditions).toContain('pieceLost');
     const rage = SHIPPED_ELEMENTS.find(e => e.kind === 'card' && e.name === 'RageB')!;
