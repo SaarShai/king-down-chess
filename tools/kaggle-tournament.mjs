@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Play a kings' powers tournament (`src/sim/tournament.ts`) as shards on Kaggle CPU notebooks.
  *
@@ -22,7 +23,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSyn
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-const OUT = 'sim/out';
+const OUT = resultsRoot();
 const REPO = 'https://github.com/SaarShai/king-down-chess.git';
 const USAGE = 'usage: push|status|pull --id <tournament id> [--shards n] [--first i | --only i,j] [--ref commit] [--user name] [-- run flags]';
 const fail = msg => { console.error(`kaggle-tournament: ${msg}`); process.exit(1); };
@@ -209,7 +210,7 @@ try:
     # The pinned commit: the package files, src/ and sim/probes/ (the --evalParams and --fens
     # files) only; the repository holds 370 MB of art.
     sh(f"git init -q {R} && git -C {R} remote add origin {CFG['repo']} && git -C {R} config core.sparseCheckout true")
-    open(f'{R}/.git/info/sparse-checkout', 'w').write('/package.json\\n/package-lock.json\\n/tsconfig.json\\n/src/\\n/sim/probes/\\n')
+    open(f'{R}/.git/info/sparse-checkout', 'w').write('/package.json\\n/package-lock.json\\n/tsconfig.json\\n/src/\\n/tools/lib/results-root.mjs\\n/sim/probes/\\n')
     sh(f"git -C {R} fetch -q --depth 1 --filter=blob:none origin {CFG['sha']} && git -C {R} checkout -q FETCH_HEAD")
     sh('node --version && npm ci --no-audit --no-fund --loglevel=error', cwd=R)
     # Games, spec and log go straight into the notebook's output.

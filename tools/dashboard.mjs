@@ -1,3 +1,4 @@
+import { resultsRoot } from './lib/results-root.mjs';
 // Static results dashboard: reads sim/out/* and writes docs/dashboard/index.html (one self-contained page).
 // Usage: npm run dashboard
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, createReadStream } from 'node:fs';
@@ -5,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const OUT = join(root, 'sim/out');
+const OUT = resultsRoot();
 const DEST = join(root, 'docs/dashboard');
 const PRIORS = { A: 3.5, L: 4.0, G: 2.0, M: 3.5, S: 2.2 };          // fairy-values.md §9
 const PIECE_NAME = { A: 'archer', L: 'paladin', G: 'guard', M: 'maester', S: 'beast' };

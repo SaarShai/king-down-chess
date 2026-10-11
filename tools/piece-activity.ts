@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Piece activity against the piece-balance criteria the owner adopted on 2026-10-03
  * (docs/research/piece-balance-criteria-2026-10-03.md, criteria 2–6; criterion 1, worth, is the
@@ -397,7 +398,7 @@ export function sources(arg: string, dir: string): { files: string[]; spec?: Tou
 
 async function main(argv: readonly string[]): Promise<void> {
   const args: string[] = [];
-  let dir = 'sim/out', B = 500, withPowers = false, countOpening = false;
+  let dir = resultsRoot(), B = 500, withPowers = false, countOpening = false;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dir') dir = argv[++i];

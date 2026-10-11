@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * The numbers the Ogre/Catapult report still needs (docs/TAKEOVER-PLAN.md §4): the piece-vs-knight
  * comparison on matched ranks (np-O / np-C against np-N), guard-shove frequency, and the activity
@@ -7,7 +8,7 @@
 import { readRecords } from '../src/sim/analyze';
 import type { GameRecord } from '../src/sim/game';
 
-const OUT = 'sim/out';
+const OUT = resultsRoot();
 const files = {
   'np-N': `${OUT}/np-N.jsonl`, 'np-O': `${OUT}/np-O.jsonl`, 'np-C': `${OUT}/np-C.jsonl`,
   'ab-O-push.base': `${OUT}/ab-O-push.base.jsonl`, 'ab-O-push.var': `${OUT}/ab-O-push.var.jsonl`,

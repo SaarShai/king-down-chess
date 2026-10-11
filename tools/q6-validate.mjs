@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { resultsRoot } from './lib/results-root.mjs';
 /**
  * Acceptance guard for the Q6 replacement chain (docs/TAKEOVER-PLAN.md §3, bar: docs/research/
  * ai-residual-plan-2026-09-14.md §4). The chain calls this after the 400-game gate and again after
@@ -20,7 +21,7 @@ const readJson = (f) => {
 const stage = process.argv[2];
 if (stage !== 'gate' && stage !== 'final') fail('usage: q6-validate.mjs gate <id> | final <gate> <d3> <d4>');
 
-const armFile = (id) => `sim/out/${id}.tuned.json`;
+const armFile = (id) => `${resultsRoot()}/${id}.tuned.json`;
 const gateFile = armFile(process.argv[3]);
 const gate = readJson(gateFile);
 
