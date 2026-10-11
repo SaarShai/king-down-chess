@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import type { PublicMatchRules } from './index';
 import type { Status } from '../rules/engine';
-import { optionsSchema } from './setup-schema';
+import { choiceSchema, optionsSchema } from './setup-schema';
 
 export type Seat = 0 | 1;
 export type Surface = 'web' | 'chatgpt';
@@ -17,6 +17,7 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('turn'), actions: z.array(text(120)).min(1).max(4) }),
   // Solo games: the computer plays its turn when the player asks.
   z.strictObject({ type: z.literal('computer') }),
+  z.strictObject({ type: z.literal('choose'), choice: choiceSchema, ready: z.boolean() }),
   z.strictObject({ type: z.literal('resign') }),
   z.strictObject({ type: z.literal('abort') }),
   z.strictObject({ type: z.literal('draw'), choice: z.enum(['offer', 'accept', 'decline']) }),

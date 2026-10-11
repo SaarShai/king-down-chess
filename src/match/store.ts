@@ -56,13 +56,13 @@ export class PostgresMatchStore {
  /** Writes `next` (revision = before + 1), its log row and its alerts. State and snapshot are written only when they changed. */
  async save(client: PoolClient, before: Game, next: Game, log: Log, out: Outgoing): Promise<void> {
   await client.query(`update public.games set status=$2,result=$3,end_reason=$4,turn=$5,revision=$6,draw_offer=$7,state=coalesce($8,state),snapshot=coalesce($9,snapshot),
-   deadline_at=$10,deadline_kind=$11,moves=$12,started_at=$13,finished_at=$14,updated_at=now() where id=$1`,
+   deadline_at=$10,deadline_kind=$11,moves=$12,started_at=$13,finished_at=$14,updated_at=now(),setup=$15,rules=$16,engine_fingerprint=$17,setup_deadline_at=$18 where id=$1`,
    [next.id, next.status, next.result, next.end_reason, next.turn, next.revision, next.draw_offer, next.state !== before.state ? next.state : null, next.snapshot !== before.snapshot ? next.snapshot : null,
-    next.deadline_at, next.deadline_kind, next.moves, next.started_at, next.finished_at]);
+    next.deadline_at, next.deadline_kind, next.moves, next.started_at, next.finished_at, next.setup, next.rules, next.engine_fingerprint, next.setup_deadline_at]);
   // A seat keeps the handle its opponent first saw; it is copied once, when the seat gets its player.
   for (const p of next.players) await client.query(`update public.game_players set user_id=$3,handle_at_start=coalesce(handle_at_start,(select handle from public.profiles where id=$3)),action=$4,turns_played=$5,draw_offers=$6,said=$7,
-   last_seen_at=$8,last_surface=$9,active=$10,ended_at=$11 where game_id=$1 and seat=$2`,
-   [next.id, p.seat, p.user_id, p.action, p.turns_played, p.draw_offers, p.said, p.last_seen_at, p.last_surface, p.active, p.ended_at]);
+   last_seen_at=$8,last_surface=$9,active=$10,ended_at=$11,choice=$12,ready=$13,power=$14 where game_id=$1 and seat=$2`,
+   [next.id, p.seat, p.user_id, p.action, p.turns_played, p.draw_offers, p.said, p.last_seen_at, p.last_surface, p.active, p.ended_at, p.choice, p.ready, p.power]);
   await client.query(`insert into public.game_commands(game_id,seq,seat,actor_id,command_id,kind,payload,actions,turn_after,status_after,surface,received_at)
    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
    [next.id, next.revision, log.seat, log.actor_id, log.command_id, log.kind, log.payload, log.actions, next.turn, next.status, log.surface, log.received_at]);

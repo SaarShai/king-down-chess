@@ -34,6 +34,31 @@ suite('game setup through PostgreSQL', () => {
   await withRoleLock(own.href, () => admin.query(`drop owned by ${role}; drop role ${role}`));
   await admin.end();
  });
+ it('joins setup and locks each ready choice without exposing it to the other seat', async () => {
+  const created = await service.create(a, { kind: 'friend', options: { ...DEFAULT_OPTIONS, kingPowers: true } });
+  const invite = await service.invite(a, created.game_id), joined = await service.join(b, invite.token);
+  expect(joined).toMatchObject({ status: 'setup', revision: 1, action: 'ready', legal: [] });
+  expect(await service.join(b, invite.token)).toMatchObject({ status: 'setup', revision: 1 });
+  const army = (await admin.query('select draw from public.games where id=$1', [created.game_id])).rows[0].draw;
+  const choice = { king: { king: 'Flame', power: 'Haste' }, order: army };
+  const sent = command(1, { type: 'choose', choice, ready: true });
+  expect(await service.command(a, created.game_id, sent)).toMatchObject({ status: 'setup', revision: 2, action: 'waiting' });
+  const hidden = await service.view(b, created.game_id, 1);
+  expect(JSON.stringify(hidden)).not.toContain('Flame'); expect(JSON.stringify(hidden)).not.toContain('Haste');
+  expect(hidden.last_commands.at(-1)?.action).toEqual({ type: 'hidden' });
+  expect(await service.command(a, created.game_id, sent)).toMatchObject({ revision: 2 });
+  await expect(service.command(a, created.game_id, command(2, { type: 'choose', choice, ready: false }))).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
+  await expect(service.command(b, created.game_id, command(2, { type: 'turn', actions: ['e7-e5'] }))).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
+  await expect(service.command(b, created.game_id, command(2, { type: 'choose', choice: { ...choice, order: 'KKKKKKKK' }, ready: true }))).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  const ready = command(2, { type: 'choose', choice: { king: { king: 'Shadow', power: 'Darkness' }, order: army }, ready: true });
+  const views = await Promise.all([service.command(b, created.game_id, ready), service.command(b, created.game_id, ready)]);
+  expect(views.map(v => [v.status, v.revision])).toEqual([['playing', 3], ['playing', 3]]);
+  const white = await service.view(a, created.game_id);
+  expect(white.rules?.kings).toEqual([choice.king, { king: 'Shadow', power: 'Darkness' }]);
+  expect(white.legal.length).toBeGreaterThan(0);
+  expect(await service.command(a, created.game_id, command(3, { type: 'turn', actions: [white.legal[0]] }))).toMatchObject({ revision: 4 });
+  expect((await admin.query('select count(*)::int as n from public.game_commands where game_id=$1', [created.game_id])).rows[0].n).toBe(4);
+ }, 30_000);
  it('stores validated options and waits for the player without an engine match', async () => {
   const created = await service.create(a, { kind: 'solo', options: DEFAULT_OPTIONS, level: 'beginner' });
   expect(created).toMatchObject({ status: 'setup', seat: 0, action: 'ready', legal: [] });
