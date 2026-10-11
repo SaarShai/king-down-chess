@@ -1,6 +1,6 @@
 # 07 · Matchmaking: open games, accept, find
 
-Status: claimed
+Status: resolved
 Type: AFK
 Size: M
 Blocked by: 06
@@ -32,3 +32,27 @@ Blocked by: 06
 4. Run `npm test` with the test database. Merge the integration tip, run the checks again and push the branch.
 
 Checks: one accept wins; the oldest eligible game matches; expiry and cancel give no result; blocks hide games; counts below 10 stay hidden. Each test fails before its service change.
+
+## Interface
+
+- `GameService` and `PluginService` expose `lobby(actor)`, `accept(actor, gameId)`, `find(actor, options, colour)` and `cancel(actor, gameId)`.
+- Lobby returns `{ games, active_count? }`. It lists up to 100 open games, oldest first. Each entry gives `game_id`, `options`, the open seat's `colour`, `creator: { handle, icon }` and `created_at`. It gives no account ID.
+- Accept, find and cancel return `View`. Accept reuses the setup step. A game with no seat choice starts at once. A repeated accept by its winner or a repeated cancel by its creator keeps the revision.
+- Random-game create, find and accept require a handle and return `HANDLE_NEEDED` when it is absent. The lobby preview stays available.
+- `active_count` counts distinct players whose game-seat `last_seen_at` is within 10 minutes. Create, join and commands supply those times. The lobby stays read-only. Counts below 10 stay absent.
+- Migration 0011 adds indexes for the lobby, expiry and recent activity. The current runtime grants already cover each read and write.
+
+## Result
+
+The lobby lists open games and hides own, blocked and expired games. Accept takes the game row lock and starts setup. Find takes the oldest eligible game or creates one with the caller's features. A transaction lock prevents two finds from making two games on an empty lobby. Cancel and the 24-hour sweep end the game with no result. Random matchmaking requires a handle. The active count appears only at 10 or more.
+
+Checks use `kingdown_mvp07_test` on `127.0.0.1:55432`. The matchmaking tests use their own database copy and the runtime role. Each role change holds the shared role lock.
+
+- Nine matchmaking database checks pass. The accept race uses 20 separate clients: one wins, 19 are refused, and the winner's retry keeps one join. Other checks cover blocks in both directions, oldest-first find, two finds on an empty lobby, cancel, two sweeps at 24 hours, handle errors, and a read-only count with duplicate and old activity.
+- `npm run plugin:db:init-test` passes. Migration 0011 runs twice.
+- Full `npm test`: 140 files pass; 2,206 tests pass; 8 skip. The document-art checks pass 50 of 50.
+- The first full check finds one setup fixture with no handle. The fixture now gives its players preset handles. The full check then passes.
+- `git diff --check` passes.
+- This ticket changes no page. Page size and browser checks do not apply.
+
+Open items: none in this ticket. Ticket 10 adds the tool bindings. The integration merge and its final check follow this commit.

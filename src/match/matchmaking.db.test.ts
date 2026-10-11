@@ -7,6 +7,7 @@ import { GameService } from './service';
 import { PostgresMatchStore } from './store';
 import { DEFAULT_OPTIONS } from './setup';
 import { PluginService } from '../plugin/service';
+import { AccountService } from '../online/accounts';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 
@@ -108,6 +109,53 @@ suite('matchmaking through PostgreSQL', () => {
   await expect(plugin.cancel(users[0], joined.game_id)).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
   const friend = await service.create(users[0], { kind: 'friend', options: DEFAULT_OPTIONS });
   await expect(plugin.cancel(users[0], friend.game_id)).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
+ });
+ it('hides and refuses games at 24 hours, then sweeps them once with no result', async () => {
+  const late = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
+  const fresh = await service.create(users[1], { kind: 'random', options: DEFAULT_OPTIONS });
+  const friend = await service.create(users[2], { kind: 'friend', options: DEFAULT_OPTIONS });
+  const now = new Date();
+  await admin.query("update public.games set created_at=$2::timestamptz-interval '24 hours' where id=any($1)", [[late.game_id, friend.game_id], now]);
+  expect((await plugin.lobby(users[3])).games.map(g => g.game_id)).toEqual([fresh.game_id]);
+  await expect(plugin.accept(users[3], late.game_id)).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
+  expect(await plugin.find(users[3], DEFAULT_OPTIONS)).toMatchObject({ game_id: fresh.game_id, status: 'setup' });
+  const sweeps = await Promise.all([service.sweep(now), service.sweep(now)]);
+  expect(sweeps.reduce((n, value) => n + value, 0)).toBe(1);
+  expect(await service.sweep(now)).toBe(0);
+  const ended = await service.view(users[0], late.game_id);
+  expect(ended).toMatchObject({ status: 'aborted', revision: 1, action: 'done', result: { winner: null, reason: 'no_start' } });
+  expect(ended.last_commands).toHaveLength(1);
+  expect(ended.last_commands[0].action).toEqual({ type: 'expire' });
+  expect(await service.inbox(users[0])).toEqual([]);
+  expect(await service.view(users[2], friend.game_id)).toMatchObject({ status: 'waiting', revision: 0 });
+ });
+ it('requires a handle before creating, finding or accepting a random game', async () => {
+  const actor = randomUUID(); users.push(actor);
+  await admin.query('insert into auth.users(id) values($1)', [actor]);
+  const game = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
+  await expect(plugin.create(actor, { kind: 'random', options: DEFAULT_OPTIONS })).rejects.toMatchObject({ code: 'HANDLE_NEEDED' });
+  await expect(plugin.find(actor, DEFAULT_OPTIONS)).rejects.toMatchObject({ code: 'HANDLE_NEEDED' });
+  await expect(plugin.accept(actor, game.game_id)).rejects.toMatchObject({ code: 'HANDLE_NEEDED' });
+  expect(await service.inbox(actor)).toEqual([]);
+  expect((await plugin.lobby(actor)).games.map(g => g.game_id)).toEqual([game.game_id]);
+  expect(await plugin.create(actor, { kind: 'solo', options: DEFAULT_OPTIONS })).toMatchObject({ kind: 'solo', status: 'setup' });
+  await new AccountService(new PostgresMatchStore(runtime)).setHandle(actor, { handle: `new-${actor.slice(0, 8)}` });
+  expect(await plugin.accept(actor, game.game_id)).toMatchObject({ game_id: game.game_id, status: 'setup' });
+ });
+ it('counts distinct players seen in 10 minutes and returns the count only at 10 or more', async () => {
+  for (const actor of users.slice(0, 9)) await service.create(actor, { kind: 'solo', options: DEFAULT_OPTIONS });
+  await service.create(users[0], { kind: 'solo', options: DEFAULT_OPTIONS });
+  await service.create(users[10], { kind: 'solo', options: DEFAULT_OPTIONS });
+  await admin.query("update public.game_players set last_seen_at=now()-interval '10 minutes 1 second' where user_id=$1", [users[10]]);
+  expect(await plugin.lobby(users[21])).not.toHaveProperty('active_count');
+  await service.create(users[9], { kind: 'solo', options: DEFAULT_OPTIONS });
+  const readOnly = new pg.Pool({ connectionString: login.href, max: 1, options: '-c default_transaction_read_only=on' });
+  try {
+   const reader = new PluginService(new PostgresMatchStore(readOnly));
+   expect(await reader.lobby(users[21])).toMatchObject({ games: [], active_count: 10 });
+  } finally { await readOnly.end(); }
+  await admin.query("update public.game_players set last_seen_at=now()-interval '10 minutes 1 second' where user_id=$1", [users[9]]);
+  expect(await plugin.lobby(users[21])).not.toHaveProperty('active_count');
  });
  it('gives one open seat to one of 20 clients and lets the winner retry', async () => {
   const created = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS, colour: 'black' });

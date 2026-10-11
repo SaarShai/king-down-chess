@@ -118,9 +118,12 @@ export class PostgresMatchStore {
   const result = await client.query(`select g.id as game_id,g.options,p.seat,pr.handle,pr.icon,g.created_at from public.games g
    join public.game_players p on p.game_id=g.id and p.user_id is null and not p.computer
    join public.profiles pr on pr.id=g.created_by
-   where g.kind='random' and g.status='waiting' and g.created_by<>$1 and pr.handle is not null and ${unblocked('$1', 'g.created_by')}
+   where g.kind='random' and g.status='waiting' and g.created_at>now()-interval '24 hours' and g.created_by<>$1 and pr.handle is not null and ${unblocked('$1', 'g.created_by')}
    order by g.created_at,g.id limit ${lock ? 1 : 100}${lock ? ' for update of g' : ''}`, [actor]);
   return result.rows.map(({ seat, handle, icon, created_at, ...row }) => ({ ...row, colour: seat === 0 ? 'white' : 'black', creator: { handle, icon }, created_at: created_at.toISOString() }));
+ }
+ async activeCount(): Promise<number> {
+  return (await this.pool.query("select count(distinct user_id)::int as n from public.game_players where user_id is not null and last_seen_at>=now()-interval '10 minutes'")).rows[0].n;
  }
  /** What `viewer` sees of `other`: their presets (no block, and the viewer's quiet mode is off) and when they were last seen. */
  async privacy(client: Client, viewer: string, other: string): Promise<{ presets: boolean; online: boolean }> {
@@ -128,10 +131,11 @@ export class PostgresMatchStore {
    coalesce((select ${online('$1', '$2', 'online_visible_to')} from public.profiles where id=$2), false) as online`, [viewer, other]);
   return result.rows[0];
  }
- /** Games past their Daily deadline, oldest first, then waiting games whose invitation ran out (a game has at most one). */
+ /** Games past their deadline, expired invitations and open random games after 24 hours. */
  async due(now: Date, limit = 100): Promise<string[]> {
   return (await this.pool.query(`(select id from public.games where status='playing' and deadline_at<=$1 order by deadline_at limit $2)
    union all (select id from public.games where status='setup' and setup_deadline_at<=$1 order by setup_deadline_at limit $2)
-   union all (select i.game_id from public.game_invites i join public.games g on g.id=i.game_id where g.status='waiting' and i.used_by is null and i.expires_at<=$1 limit $2)`, [now, limit])).rows.map(r => r.id);
+   union all (select i.game_id from public.game_invites i join public.games g on g.id=i.game_id where g.status='waiting' and g.kind<>'random' and i.used_by is null and i.expires_at<=$1 limit $2)
+   union all (select id from public.games where kind='random' and status='waiting' and created_at<=$1::timestamptz-interval '24 hours' order by created_at limit $2)`, [now, limit])).rows.map(r => r.id);
  }
 }

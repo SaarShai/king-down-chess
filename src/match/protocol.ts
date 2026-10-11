@@ -48,7 +48,7 @@ export type CreateOptions = Omit<z.infer<typeof createSchema>, 'options'> & { op
 
 export type ErrorCode = 'INVALID_INPUT' | 'NOT_FOUND' | 'FORBIDDEN' | 'WAITING' | 'NOT_ALLOWED' | 'STALE_REVISION' | 'INVALID_MOVE' | 'WRONG_TURN'
   | 'MATCH_TERMINAL' | 'MATCH_LIMIT' | 'MATCH_INCOMPATIBLE' | 'MATCH_REMOVED' | 'COMMAND_CONFLICT' | 'INVITE_UNAVAILABLE' | 'UNAVAILABLE' | 'HANDLE_TAKEN'
-  | 'RATE_LIMITED' | 'UNAUTHENTICATED';
+  | 'RATE_LIMITED' | 'UNAUTHENTICATED' | 'HANDLE_NEEDED';
 export type Reply = { type: 'ack'; command_id: string; revision: number; view: View } | { type: 'reject'; command_id: string; code: ErrorCode; message: string };
 
 export type GameStatus = 'waiting' | 'setup' | 'playing' | 'finished' | 'aborted';
