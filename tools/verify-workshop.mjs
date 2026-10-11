@@ -1969,6 +1969,7 @@ async function seeAll() {
   await ls.click('[data-act="seeall"]');
   await ls.click(`${ALL} [data-show="Yours"]`);
   assert.equal(await ls.getAttribute(`${ALL} [data-show="Yours"]`, 'aria-pressed'), 'true', 'the filter works over the ledge\'s sheet');
+  assert.equal(await ls.isVisible('.pg-ledge'), true, 'the ledge\'s sheet stays open under the grid');
   await ls.click(`${ALL} [data-key="design:golden-b"]`);
   assert.equal(await name(ls), 'Old Ward', 'a tap opens the design');
   await ls.locator('.pg-pieces:focus').waitFor({ timeout: 1000 }).catch(() => assert.fail('the focus goes back to Pieces'));
