@@ -5,7 +5,7 @@
  * When words from vocab.ts. The refused forms, the stamps, the knots and the zone chalk stay here: the legend has
  * none. The mockup's looks `wash` and `familyWax` are always on. Later tickets port the rest.
  */
-import { DEFS as LEG_DEFS, LEG, badge, occupied, target, tile as legendTile, toSvg, type Shape } from '../render/legend';
+import { DEFS as LEG_DEFS, LEG, arrowHead, arrowLine, badge, glow, occupied, railLine, rail, target, threat as threatLayer, tile as legendTile, toSvg, type Layer, type RailStyle, type Shape } from '../render/legend';
 import { DIR, likeSquares, type Ability, type Dir, type PaintOn, type PieceDesign, type When, type Zone } from './model';
 import type { Scene, ScenePiece } from './scene';
 import { esc } from './text';
@@ -67,7 +67,6 @@ const DEFS = LEG_DEFS
   + WAX('-taking', '#6b2a22', '#4a1712', '#22090a') + WAX('-safe', '#7d9cbc', '#4f6f93', '#2a405c') + WAX('-others', '#4fa197', '#2f7f75', '#174c46')
   + WAX('-changing', '#f1cf7e', '#d0a046', '#8a6418') + WAX('-holding', '#77706a', '#4c4640', '#26221f')
   + '<filter id="kdm-arc-shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#1d1915" flood-opacity=".55"/></filter>'
-  + `<radialGradient id="kdm-glow-gold"><stop offset="0" stop-color="${LEG.gold}" stop-opacity=".95"/><stop offset=".55" stop-color="${LEG.gold}" stop-opacity=".55"/><stop offset="1" stop-color="${LEG.gold}" stop-opacity="0"/></radialGradient>`
   + '<filter id="kdm-rim" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0" stdDeviation=".75" flood-color="#2b2621" flood-opacity=".7"/></filter>'
   + '<filter id="kdm-seal-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2.5" stdDeviation="2.2" flood-color="#1d1915" flood-opacity=".42"/></filter>'
   + '<radialGradient id="kdm-frost"><stop offset="0" stop-color="rgb(127,178,255)" stop-opacity=".6"/><stop offset=".55" stop-color="rgb(127,178,255)" stop-opacity=".35"/><stop offset="1" stop-color="rgb(127,178,255)" stop-opacity="0"/></radialGradient>'
@@ -87,30 +86,9 @@ export function ensureDefs(): void {
 
 /* ---- rails, line ends and arches (marks.js:386-464) ---- */
 
-type Style = 'asleep' | 'awake';
-/** A rail from p0 to p1. On the board (wash) it is thin; asleep and awake rails have stitched edges. */
-function rail(p0: P, p1: P, s: number, o: { style?: Style; wash?: boolean } = {}): string {
-  const w = o.wash ? Math.max(3, 0.04 * s) : Math.max(4, 0.1 * s), e = o.wash ? 0.9 : s < 48 ? 1 : 1.5;
-  const l = (stroke: string, lw: number, extra = '') => line(p0[0], p0[1], p1[0], p1[1], stroke, lw, extra);
-  if (!o.style && o.wash) return `<g opacity=".85">${l(LEG.halo, w + 2 * e + 1.5, 'stroke-opacity=".6"') + l(LEG.navy, w + 2 * e, 'stroke-opacity=".75"') + l(LEG.green, w)}</g>`;
-  if (!o.style) return l(LEG.halo, w + 2 * e + 2) + l(LEG.navy, w + 2 * e) + l(LEG.green, w);
-  // The stitched edges: two dashed lines beside the rail.
-  const dx = p1[0] - p0[0], dy = p1[1] - p0[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, off = w / 2 + e / 2;
-  const dash = `stroke-dasharray="${s < 40 ? '3 2' : '4 3'}"`, asleep = o.style === 'asleep';
-  let out = asleep ? '' : l(LEG.halo, w + 2 * e + 2) + l(LEG.green, w);
-  out += `<g${asleep ? ' opacity=".4"' : ''}>${asleep ? l(LEG.halo, w + 2 * e + 2, 'stroke-opacity=".5"') : ''}`;
-  for (const k of [1, -1]) out += line(p0[0] + nx * off * k, p0[1] + ny * off * k, p1[0] + nx * off * k, p1[1] + ny * off * k, LEG.navy, e + (asleep ? 0.5 : 0), dash);
-  return `${out}</g>`;
-}
-function arrowHead(tip: P, u: P, s: number, o: { style?: Style; wash?: boolean } = {}): string {
-  const d = tri(tip, u, (o.wash ? 0.17 : 0.22) * s, (o.wash ? 0.11 : 0.15) * s), asleep = o.style === 'asleep';
-  return `<path d="${d}" fill="none" stroke="${LEG.halo}" stroke-width="${s < 48 ? 4 : 5}" stroke-linejoin="round"/>`
-    + `<path d="${d}" fill="${asleep ? 'none' : LEG.green}" stroke="${LEG.navy}" stroke-width="${s < 48 ? 1.25 : 1.5}" stroke-linejoin="round"${asleep ? ' opacity=".4"' : ''}/>`;
-}
-function stopBar(pt: P, u: P, s: number): string {
-  const h = 0.25 * s, a = [pt[0] - u[1] * h, pt[1] + u[0] * h], b = [pt[0] + u[1] * h, pt[1] - u[0] * h];
-  return line(a[0], a[1], b[0], b[1], LEG.halo, 6, 'stroke-linecap="round"') + line(a[0], a[1], b[0], b[1], LEG.navy, 3, 'stroke-linecap="round"');
-}
+type Style = RailStyle;
+/** A layer of the legend as SVG: a group at its opacity. */
+const layerSvg = (l: Layer): string => (l.a < 1 ? `<g opacity="${l.a}">${toSvg(l.shapes)}</g>` : toSvg(l.shapes));
 /** "Passes over": a dashed gold-ink arc with an arrowhead, bulging up (marks.js:441-464, the gold look); a shot's sight
  *  line is a flatter one. `ink`: a chain's hop, a solid ink arc. `left`: it bulges to the left of its way (a diagram's bridge). */
 function arch(p0: P, p1: P, s: number, o: { bulge?: number; ink?: boolean; left?: boolean; power?: string } = {}): string {
@@ -136,25 +114,16 @@ const pip = (cx: number, cy: number, d: number, num: number) =>
 
 /* ---- the push and swap arrows (marks.js:533-555) ---- */
 
-function arrowLine(p0: P, p1: P, color: string, w: number, o: { trim0?: number; trim1?: number; head: number; both?: boolean }): string {
-  const L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1, u: P = [(p1[0] - p0[0]) / L, (p1[1] - p0[1]) / L], back: P = [-u[0], -u[1]];
-  const a: P = [p0[0] + u[0] * (o.trim0 ?? 0), p0[1] + u[1] * (o.trim0 ?? 0)], b: P = [p1[0] - u[0] * (o.trim1 ?? 0), p1[1] - u[1] * (o.trim1 ?? 0)];
-  const hl = o.head, heads: [P, P][] = o.both ? [[b, u], [a, back]] : [[b, u]];
-  const s0 = o.both ? [a[0] + u[0] * hl * 0.7, a[1] + u[1] * hl * 0.7] : a, s1 = [b[0] - u[0] * hl * 0.7, b[1] - u[1] * hl * 0.7];
-  let g = line(s0[0], s0[1], s1[0], s1[1], LEG.halo, w + 3, 'stroke-linecap="round"');
-  for (const [t, uu] of heads) g += `<path d="${tri(t, uu, hl, hl * 0.62)}" fill="${LEG.halo}" stroke="${LEG.halo}" stroke-width="3" stroke-linejoin="round"/>`;
-  g += line(s0[0], s0[1], s1[0], s1[1], color, w, 'stroke-linecap="round"');
-  for (const [t, uu] of heads) g += `<path d="${tri(t, uu, hl, hl * 0.62)}" fill="${color}"/>`;
-  return `<g>${g}</g>`;
-}
+/** An arrow (arrowLine in legend.ts) as SVG. */
+const arrowSvg = (...a: Parameters<typeof arrowLine>): string => `<g>${toSvg(arrowLine(...a))}</g>`;
 
 /** A threat (marks.js:1139-1148): a faint red arrow from the attacker; a stopped one is grey, with a bar across its middle
  *  and the stamp of "cannot be taken" beside it. */
 function threat(c0: P, c1: P, s: number, stopped?: boolean, trim = s * 0.25): string {
   const o = { trim0: trim * 0.88, trim1: trim * 1.12, head: 9 };
-  if (!stopped) return `<g opacity=".6">${arrowLine(c0, c1, LEG.red, 2, o)}</g>`;
+  if (!stopped) return layerSvg(threatLayer(c0, c1, s, { trim }));
   const mx = (c0[0] + c1[0]) / 2, my = (c0[1] + c1[1]) / 2, L = Math.hypot(c1[0] - c0[0], c1[1] - c0[1]) || 1, px = (c0[1] - c1[1]) / L, py = (c1[0] - c0[0]) / L, h = s * 0.13;
-  return arrowLine(c0, c1, C.bX, 2, o) + line(mx + px * h, my + py * h, mx - px * h, my - py * h, LEG.halo, 6, 'stroke-linecap="round"')
+  return arrowSvg(c0, c1, C.bX, 2, o) + line(mx + px * h, my + py * h, mx - px * h, my - py * h, LEG.halo, 6, 'stroke-linecap="round"')
     + line(mx + px * h, my + py * h, mx - px * h, my - py * h, C.bBar, 3, 'stroke-linecap="round"') + stamp('cannotBeTaken', mx - px * s * 0.32, my - py * s * 0.32, clamp(Math.round(s * 0.225), 12, 20));
 }
 
@@ -342,9 +311,9 @@ export function knot(type: 'gold' | 'cracked', len: number): string {
 export function tile(kind: MarkKind | 'empty', size: number, o: { cond?: Style; rail?: Dir; tags?: readonly Ability['a'][]; power?: boolean } = {}): string {
   const s = size, c = s / 2, [dx, dy] = DIR[o.rail ?? 'e'], L = Math.hypot(dx, dy), u: P = [dx / L, -dy / L];
   const at = (k: number): P => [c + u[0] * s * k, c + u[1] * s * k];
-  const inner = (o.rail ? rail(at(-0.5), at(0.28), s) : '')
+  const inner = (o.rail ? layerSvg(rail(at(-0.5), at(0.28), s)) : '')
     + (kind === 'empty' ? toSvg(legendTile('move', 0, 0, s, { solid: true }).filter(sh => sh.k === 'rect' && !sh.fill)) : tileSvg(kind, 0, 0, s, { solid: true, cond: o.cond, power: o.power }))
-    + (o.rail ? arrowHead(at(0.46), u, s * 0.8) : '') + (o.tags?.length ? stamps(o.tags, 0, 0, s) : '');
+    + (o.rail ? toSvg(arrowHead(at(0.46), u, s * 0.8)) : '') + (o.tags?.length ? stamps(o.tags, 0, 0, s) : '');
   return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" overflow="visible" aria-hidden="true">${inner}</svg>`;
 }
 /** The Why tag's sum (whySum, marks.js:909-919): the base, + the stamp of each rule, = the mark now; a caption under each part. */
@@ -360,7 +329,7 @@ export function effect(kind: 'arch' | 'push' | 'swap' | 'threat' | 'tstop' | 'fr
   const c = s / 2, head = Math.max(7, s * 0.125);
   const g = kind === 'frost' ? frost(0, 0, s, 1).join('') : kind === 'rune' ? rune(c, c, s * 0.38) : kind === 'arch' ? arch([s * 0.08, s * 0.85], [s * 0.92, s * 0.85], s * 0.9)
     : kind === 'threat' || kind === 'tstop' ? threat([s * 0.1, s * 0.9], [s * 0.9, s * 0.1], s, kind === 'tstop', 0)
-    : kind === 'push' ? arrowLine([s * 0.12, c], [s * 0.92, c], C.push, 3, { head }) : arrowLine([s * 0.1, c], [s * 0.9, c], C.swap, 3, { both: true, head });
+    : kind === 'push' ? arrowSvg([s * 0.12, c], [s * 0.92, c], C.push, 3, { head }) : arrowSvg([s * 0.1, c], [s * 0.9, c], C.swap, 3, { both: true, head });
   return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" overflow="visible" aria-hidden="true">${g}</svg>`;
 }
 
@@ -392,7 +361,7 @@ export function diagram(d: Pick<PieceDesign, 'squares' | 'lines' | 'rules' | 'lo
   const c0 = cc(0, 0), k = 0.6 * Math.max(4, 0.26 * s);
   for (const l of lines) {
     const { dx, dy, u, tip } = way(l), cond = !d.lines.includes(l);
-    g += `<g data-k="line" data-dir="${l}"${cond ? ' data-cond="1"' : ''}>${rail([c0[0] + dx * s * 0.42, c0[1] - dy * s * 0.42], [tip[0] - u[0] * k, tip[1] - u[1] * k], s, { style: cond ? 'awake' : undefined })}</g>`;
+    g += `<g data-k="line" data-dir="${l}"${cond ? ' data-cond="1"' : ''}>${layerSvg(rail([c0[0] + dx * s * 0.42, c0[1] - dy * s * 0.42], [tip[0] - u[0] * k, tip[1] - u[1] * k], s, { style: cond ? 'awake' : undefined }))}</g>`;
   }
   for (const [q, sometimes] of [...d.squares.map(q => [q, false] as const), ...extra.map(q => [q, true] as const)]) {
     g += `<g data-xy="${q.x},${q.y}" data-k="${KIND[q.mark]}"${sometimes ? ' data-cond="1"' : ''}>${tileSvg(KIND[q.mark], (q.x + 3) * s, (3 - q.y) * s, s, { solid: true, cond: sometimes ? 'awake' : undefined })}</g>`;
@@ -489,18 +458,9 @@ export function drawString(scene: Scene, o: {
   const zones = scene.chalk.filter(z => z.pv || (o.focus && z.by && o.focus(z.by))).map(z => `<g data-k="chalk" data-zone="${z.zone}"${z.pv ? ' data-pv="1"' : ''}>${chalk(z.zone, side, s)}</g>`).join('');
   let under = '', ends = '', over = '';
   for (const rl of scene.rails) {
-    const a = XY(rl.from), b = XY(rl.to), dx = Math.sign(b.x - a.x), dy = Math.sign(a.y - b.y);
-    const u: P = [dx, -dy], L = Math.hypot(...u), uu: P = [u[0] / L, u[1] / L], diag = dx && dy, c0 = CTR(rl.from), c1 = CTR(rl.to);
-    const p0: P = [c0[0] + u[0] * s * 0.42, c0[1] + u[1] * s * 0.42];
-    let p1 = c1, end = '';
-    if (rl.end === 'stop') { p1 = [c1[0] - u[0] * s * 0.5, c1[1] - u[1] * s * 0.5]; end = stopBar(p1, uu, s); }
-    else if (rl.end === 'arrow') {
-      const k = diag ? 0.4 : 0.44, tip: P = [c1[0] + u[0] * s * k, c1[1] + u[1] * s * k];
-      p1 = [tip[0] - uu[0] * s * 0.16, tip[1] - uu[1] * s * 0.16];
-      end = arrowHead(tip, uu, s, { style: rl.style, wash: true });
-    } else if (rl.end === 'edge') p1 = [c1[0] + u[0] * s * (diag ? 0.4 : 0.44), c1[1] + u[1] * s * (diag ? 0.4 : 0.44)];
-    under += group({ k: 'line', from: rl.from, to: rl.to, end: rl.end, pv: rl.pv && '1' }, rail(p0, p1, s, { style: rl.style, wash: true }), rl.by);
-    if (end) ends += group({ k: 'line-end', to: rl.to }, end, rl.by);
+    const { rail: r, end } = railLine(CTR(rl.from), CTR(rl.to), s, rl.end, { style: rl.style });
+    under += group({ k: 'line', from: rl.from, to: rl.to, end: rl.end, pv: rl.pv && '1' }, layerSvg(r), rl.by);
+    if (end.length) ends += group({ k: 'line-end', to: rl.to }, toSvg(end), rl.by);
   }
   for (const m of shown(scene.marks)) {
     const { x, y } = XY(m.sq), foe = enemy(m.sq) && m.diff !== '-', foot = y + 0.9 * s;
@@ -516,9 +476,9 @@ export function drawString(scene: Scene, o: {
   under += ends;
   for (const q of new Set(scene.effects.flatMap(e => (e.k === 'threat' && !e.stopped ? [e.to] : [])))) {
     const { x, y } = XY(q);
-    under += `<ellipse cx="${n(x + s / 2)}" cy="${n(y + s * 0.9)}" rx="${n(s * 0.4)}" ry="${n(s * 0.13)}" fill="url(#leg-glow-red)"/>`;
+    under += toSvg([glow(x + s / 2, y + s * 0.9, s, true)]);
   }
-  if (open) { const { x, y } = XY(open.sq); under += `<ellipse cx="${n(x + s / 2)}" cy="${n(y + s * 0.9)}" rx="${n(s * 0.36)}" ry="${n(s * 0.11)}" fill="url(#kdm-glow-gold)"/>`; }
+  if (open) { const { x, y } = XY(open.sq); under += toSvg([glow(x + s / 2, y + s * 0.9, s)]); }
   const pieces = scene.pieces.map(p => {
     const { x, y } = XY(p.sq), h = 0.9 * s, up = p.open && o.lift ? 0.12 * s : 0;
     return `<image href="${esc(o.art(p))}" x="${n(x + (s - h) / 2)}" y="${n(y + s - 0.075 * s - h - up)}" width="${n(h)}" height="${n(h)}" preserveAspectRatio="xMidYMax meet" filter="url(#kdm-rim)"${p.open ? ' data-open="1"' : ''}${up ? ' opacity=".6"' : ''}/>`;
@@ -531,10 +491,10 @@ export function drawString(scene: Scene, o: {
     // Frost and a rune are no rule's part: they stay clear while the piece's own marks step back (ground.ts).
     if (e.k === 'frost') { const { x, y } = XY(e.sq), [u, v] = frost(x, y, s, e.turns); under += `<g data-k="frost" data-at="${e.sq}" data-n="${e.turns}">${u}</g>`; over += v; continue; }
     if (e.k === 'rune') { const [x, y] = CTR(e.sq); over += `<g data-k="rune" data-at="${e.sq}"${e.barred ? ' data-barred="1"' : ''}>${rune(x, y, s * 0.42, e.barred)}</g>`; continue; }
-    const svg = e.k === 'swap' ? arrowLine(CTR(e.a), CTR(e.b), C.swap, 3, { both: true, trim0: s * 0.12, trim1: s * 0.12, head })
+    const svg = e.k === 'swap' ? arrowSvg(CTR(e.a), CTR(e.b), C.swap, 3, { both: true, trim0: s * 0.12, trim1: s * 0.12, head })
       : e.k === 'pip' ? pip(XY(e.sq).x + s - 10, XY(e.sq).y + s - 10, 14, e.n)
-      : e.k === 'push' ? arrowLine(CTR(e.from), CTR(e.to), C.push, 3, { trim0: s * 0.16, trim1: s * 0.18, head })
-      : e.k === 'follow' ? arrowLine(CTR(e.from), CTR(e.to), C.push, 1.5, { trim0: s * 0.2, trim1: s * 0.24, head: clamp(s * 0.1, 6, 8) })
+      : e.k === 'push' ? arrowSvg(CTR(e.from), CTR(e.to), C.push, 3, { trim0: s * 0.16, trim1: s * 0.18, head })
+      : e.k === 'follow' ? arrowSvg(CTR(e.from), CTR(e.to), C.push, 1.5, { trim0: s * 0.2, trim1: s * 0.24, head: clamp(s * 0.1, 6, 8) })
       : e.k === 'threat' ? threat(CTR(e.from), CTR(e.to), s, e.stopped)
       : arch(CTR(e.from), CTR(e.to), s, e.k === 'sight' ? { bulge: 0.2 } : { bulge: 0.25, ink: true });
     const ends = e.k === 'swap' ? { from: e.a, to: e.b } : e.k === 'pip' ? { at: e.sq, n: String(e.n) } : { from: e.from, to: e.to, stopped: e.k === 'threat' && e.stopped ? '1' : undefined };

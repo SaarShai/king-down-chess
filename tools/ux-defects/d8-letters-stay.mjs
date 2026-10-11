@@ -1,9 +1,9 @@
-// D-8: Piece letters stay on after a reload and a look change (painted and clay), also when they are
+// D-8: Piece letters stay on after a reload and an old `?look=` link (the clay look is parked), also when they are
 // ticked in a lesson, where the saved game stays as it was. An old save with no letters field still
 // loads, and ?labels=1 still turns the letters on. With the letters off, an old save keeps its
 // settings as they were, so the account sync sees no change at start-up.
 import assert from 'node:assert/strict';
-import { startLesson, boardHelp, learnFromTitle, lanMoves, openExtra } from '../app-ui.mjs';
+import { startLesson, boardHelp, learnFromTitle, lanMoves } from '../app-ui.mjs';
 
 /** Records each view.setLabels() value in window.letters (main.ts sets window.view before its first setLabels). */
 const recordLetters = () => {
@@ -25,10 +25,10 @@ const probe = async ({ page, ready }) => {
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
   const settings = act => boardHelp(page, act);
   const reload = async () => { await page.reload(); await ready(); };
+  /** Opens an old `?look=` link: the board is painted whatever the link asks. */
   const changeLook = async look => {
-    await openExtra(page);
-    await Promise.all([page.waitForURL(u => u.searchParams.get('look') === look), page.selectOption('#look', look)]);
-    await ready();
+    const url = new URL(page.url()); url.searchParams.set('look', look);
+    await page.goto(url.href); await ready();
   };
   const learn = async () => { await startLesson(page); await page.waitForFunction(() => /^Lesson 1 /.test(document.getElementById('turn').textContent)); };
   return { state, letters, saved, settings, reload, changeLook, learn };
