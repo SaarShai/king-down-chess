@@ -61,7 +61,7 @@ const MIRROR: Record<PaintOn, string> = { lr: 'Mirror', all: 'All 8', one: 'One'
 const ACT: Record<Act, string> = { move: 'Move here', take: 'Move here', shot: 'Take from here', push: 'Push', swap: 'Swap' };
 /** Try with: the board, the piece's square (where it was, once a move removed it: `gone`), the move state, a chain in
  *  progress (its takes so far and the longer moves of its turn), and the piece that a "becomes" made it. */
-interface Try { board: Uint8Array; from: number; st: TryState; gone: boolean; chain: { caps: number[]; more: Move[] } | null; became: PieceType | 0; game: Pick<Position, 'used' | 'marks'> }
+interface Try { board: Uint8Array; from: number; st: TryState; gone: boolean; chain: { caps: number[]; more: Move[] } | null; became: PieceType | 0; game: { uses?: Partial<Record<PowerName, number>>; marks?: Position['marks'] } }
 const MEDAL = '<svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><path d="M16 2l8 14 8-14" fill="none" stroke="#842c21" stroke-width="5"/><circle cx="24" cy="30" r="15" fill="#e9c071" stroke="#7a5712" stroke-width="2"/>'
   + '<circle cx="24" cy="30" r="10" fill="none" stroke="#7a5712" stroke-width="1.2"/><path d="M24 23l2 4.5 5 .5-3.8 3.3 1.1 4.9L24 33.7l-4.3 2.5 1.1-4.9L17 28l5-.5z" fill="#7a5712"/></svg>';
 /** The NEW tile: a dashed figure outline with a quill (GHOST_FIG, proving-ground.html:1439). */
@@ -985,17 +985,20 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
 
   /** Powers work on the pool pieces only, as the engine makes their moves (decision 31). */
   const poolPiece = (): boolean => cur.key.startsWith('piece:');
-  /** The Try board as the engine's position: the open pool piece as its own type, with the uses spent and the marks. */
-  const kingPos = (): Position => enginePos(pos.board, pos.from, (PIECE as readonly string[]).indexOf(cur.key.slice(6)) as PieceType, pos.game);
-  /** The armed power's moves on the board now; none in brush mode, after a removal, a "becomes" or during a chain. */
-  const powerNow = (): Move[] => (king && armed && poolPiece() && !brush && !pos.gone && !pos.became && !pos.chain ? powerMarks(kingPos(), pos.from, king, armed) : []);
+  /** The Try board as the engine's position: the open pool piece as its own type, with the uses of power `p` spent (each
+   *  power of a king counts its own uses; the engine counts one power for each side) and the marks. */
+  const kingPos = (p = armed): Position => enginePos(pos.board, pos.from, poolPiece() ? (PIECE as readonly string[]).indexOf(cur.key.slice(6)) as PieceType : T,
+    { used: [(p && pos.game.uses?.[p]) || 0, 0], marks: pos.game.marks });
+  /** An armed power shows its marks: not in brush mode, after a removal, a "becomes" or during a chain. */
+  const powerLive = (): boolean => !!king && !!armed && poolPiece() && !brush && !pos.gone && !pos.became && !pos.chain;
+  const powerNow = (): Move[] => (powerLive() ? powerMarks(kingPos(), pos.from, king!, armed!) : []);
   /** The armed power adds no mark: the echo. */
-  const echo = (): boolean => !!armed && poolPiece() && !brush && !powerNow().length;
+  const echo = (): boolean => powerLive() && !powerNow().length;
   /** The coin of power `p` (coinState): its uses spent and left. */
-  const coinOf = (p: PowerName) => coinState(kingPos(), WHITE, kingRules(kingOf(p), p), [], armed === p)!;
+  const coinOf = (p: PowerName) => coinState(kingPos(p), WHITE, kingRules(kingOf(p), p), [], armed === p)!;
   /** The game coin (src/ui/coin.ts) of power `p` as a picture in a button of ours, with "=" on an echo. */
   function coinHtml(p: PowerName): string {
-    const c = coinOf(p), b = coinRow(document.createElement('span'), WHITE, c, kingPos()).querySelector<HTMLElement>('.coin')!, eq = armed === p && echo();
+    const c = coinOf(p), b = coinRow(document.createElement('span'), WHITE, c, kingPos(p)).querySelector<HTMLElement>('.coin')!, eq = armed === p && echo();
     return `<span class="coin" data-state="${eq ? 'echo' : c.state}" aria-hidden="true">${b.innerHTML}${eq ? '<span class="echo-eq">=</span>' : ''}</span>`;
   }
   /** A coin's button: a tap arms its power; its words are the game's (coinWords). */
@@ -1027,6 +1030,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   }
   /** A tap on a coin (tapPower, :1889): it seats the power's king, then arms the power, or lets it go; with no use left, it says so. */
   function tapPower(p: PowerName): void {
+    if (!poolPiece()) return toast('Powers work on the pool pieces for now.', 'lock');
     if (king !== kingOf(p)) seat(kingOf(p));
     if (armed !== p && coinOf(p).left === 0) return toast(`No ${POWER_NAME[p]} uses left.`, 'lock');
     armed = armed === p ? null : p;
@@ -1042,7 +1046,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     const said = `${POWER_NAME[p]}: ${isMarkTag(m.power) ? `${who(m.to)}.` : m.captures.length ? `took ${who(m.captures[0])}.` : `moved to ${sqName(m.to)}.`}`;
     b[to] = piece(T, WHITE);
     backs.push(pos);
-    pos = { ...pos, board: b, from: to, chain: null, game: { used: next.used, marks: next.marks },
+    pos = { ...pos, board: b, from: to, chain: null, game: { uses: { ...pos.game.uses, [p]: next.used?.[0] ?? 0 }, marks: next.marks },
       st: { ...pos.st, captured: pos.st.captured || m.captures.length > 0, move: pos.st.move + (isMarkTag(m.power) ? 0 : 1) } };
     if (coinOf(p).left === 0) armed = null;
     toast(said);
@@ -1194,7 +1198,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     // An open king's words take the place of the brushes (renderInfo, proving-ground.html:1106-1117): each power with its
     // coin and its line; a tap arms it. The phone shows the board only (the mockup's phone state kings).
     brushesEl.classList.toggle('pg-powers', !!kingOpen && !brush);
-    if (kingOpen && !brush) brushesEl.innerHTML = phone ? '' : KINGS[kingOpen].map(p => `<button type="button" class="pline" data-power="${p}" aria-pressed="${king === kingOpen && armed === p}">`
+    if (kingOpen && !brush) brushesEl.innerHTML = phone ? '' : KINGS[kingOpen].map(p => `<button type="button" class="pline" data-power="${p}" aria-pressed="${poolPiece() && king === kingOpen && armed === p}"${poolPiece() ? '' : ' aria-disabled="true"'}>`
       + `${coinHtml(p)}<span><b>${POWER_NAME[p]}</b><span class="pt">${esc(cap(powerText(p, kingRules(kingOpen!, p), true)))}.</span></span></button>`).join('');
     else brushesEl.innerHTML = BRUSHES.map(([k, w], i) => `<button type="button" class="brush${brush === k ? ' armed' : ''}" data-brush="${k}" aria-pressed="${brush === k}" title="${NAMES[k]}. Tap to paint (${i + 1})">`
       + `<span class="tile">${tile(k, phone ? 40 : 80)}</span><span class="w">${w}</span></button>`).join('') + (phone && brush ? `<span class="phint">Tap a square.</span><button type="button" class="pg-moretools" data-act="tools" aria-label="More tools" aria-expanded="${toolsOpen}">⋯</button>` : '');
@@ -1397,7 +1401,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     const { sq: at, nub: l, brush: b, pill: pa, when: wa, choice, sealitem: sa, rm, tok, tab: tb, try: tr, promo: pr, figure, power, seat: k } = t.dataset;
     if (figure) return void change('look', d => { d.look.figure = figure; });
     if (power) return tapPower(power as PowerName);
-    if (k) return seat(k as KingName);
+    if (k) { seat(k as KingName); return q<HTMLElement>('[data-act="seat"]')?.focus(); }
     if (at) { if (brush) paint(at); else tapSquare(at); return; }
     if (tok) {
       token = token === tok ? null : tok as 'friend' | 'enemy';
@@ -1427,7 +1431,10 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (act === 'seat') { seating = !seating; return render(); }
     if (act === 'nosocket') return toast('Powers work on the pool pieces for now.', 'lock');
     if (act === 'stir' || act === 'clear') {
-      setUp(act === 'stir' ? stir(restored(), pos.from, Math.random) : clear(restored(), pos.from));
+      // The seated king stays on the board; the Freeze marks go with the old enemies.
+      const b = act === 'stir' ? stir(restored(), pos.from, Math.random) : clear(restored(), pos.from);
+      setUp(king && poolPiece() ? seated(b) : b);
+      pos = { ...pos, game: { uses: pos.game.uses } };
       why = null;
       render();
       return ripple();

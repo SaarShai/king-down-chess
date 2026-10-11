@@ -70,3 +70,19 @@ Open problems:
 
 - The owner has not seen the renders (the last Verification box).
 - No Cards or Rules tab here: tickets 12 and 14. The tabs list in `renderLedge` is the merge point with ticket 12.
+
+### Reviews
+
+The review of the first build (`review-13.md` in the scratchpad), each finding checked against the code:
+
+1. Should-fix, confirmed: the two powers of one king shared one use count (`pos.game.used[WHITE]`), so after Freeze the Ice Wall coin showed "1 left". Fix: the Try state keeps the uses of each power (`game.uses`); `kingPos(p)` gives the engine the uses of power `p` only. Browser check: after Freeze, "Ice Wall, 2 left".
+2. Should-fix, confirmed: `echo()` did not have the guards of `powerNow()`, so after a "becomes", a removal or during a chain the tray said "<Power> adds nothing". Fix: one predicate `powerLive()` for both.
+3. Should-fix, confirmed: the die and the broom kept the old Freeze marks, and the broom removed the seated king. Fix: the die and the broom keep the uses but not the marks, and seat the king again on a pool piece's board. Browser check: after the broom, no frost and the Frost king stays.
+4. Should-fix, confirmed: on a copy the power lines of an open king armed a power with no marks, and `kingPos()` put `piece(-1)` on the board. Fix: the lines get `aria-disabled`, `tapPower` gives the "Powers work on the pool pieces for now." toast, and `kingPos()` uses the design type `T` on a non-pool item. On a non-pool item a line is also never pressed (before, a power armed on the pool piece stayed pressed on the copy). Browser check: on My Paladin, a tap on Leap gives the toast and the line stays not pressed.
+5. Nit, refuted: no scene has a move mark with no power on an enemy square, so no failure shows. No change.
+6. Nit, confirmed but not fixed: G22 is a local of `check()` in `scenes.js` and is not exported; to read it needs more than one line.
+7. Nit, not fixed: a missing test, not a failure; the test needs more than one line.
+8. Nit, confirmed: `kings()` stood under the doc comment of `motionRun`. Fix: `kings()` moves above that comment.
+9. Nit, confirmed: after a king is chosen in SEAT A KING, the focus went to the first brush. Fix: the focus goes to the king figure (`[data-act="seat"]`), as with Esc. Browser check added.
+
+Evidence after the review fixes (logs in `13-kings/logs/`): `npm test` exit 0, 116 test files pass, 1 skipped (`npm-test-review.log`). `npm run check:browser workshop` passes three times (`review-check-2.log` to `review-check-4.log`); `review-check-1.log` failed because Playwright does not click an `aria-disabled` line, so the check now clicks it with `force`. `npm run check:browser powers` passes (`review-check-powers.log`).
