@@ -78,3 +78,16 @@ it('previews a lower-case code, declines without taking a seat and then joins', 
     expect(JSON.stringify(await page.evaluate(() => (window as any).harnessWidgetState))).not.toContain(code.toUpperCase());
   } finally { await page.close(); }
 });
+it('lists another player with features and accepts the open seat', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const created = await buddy(page, 'kingdown_create', { kind: 'random', options, colour: 'white' });
+    await frame.locator('#home-play').click(); await frame.locator('#random').click();
+    await frame.locator('#lobby-list .accept').first().waitFor();
+    expect(await frame.locator('#lobby-list .feats [title="Fairy pieces"]').count()).toBe(1);
+    await frame.locator('#lobby-list .accept').first().click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessView.game_id)).toBe(created._meta.view.game_id);
+    expect((await buddy(page, 'kingdown_get', { game_id: created._meta.view.game_id }))._meta.view.status).toBe('playing');
+  } finally { await page.close(); }
+});
