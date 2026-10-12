@@ -185,3 +185,46 @@ it('keeps both rollers in view while More waits for the next page', async () => 
     await expect.poll(() => frame.locator('#profile-history li').count()).toBe(23);
   } finally { release?.(); await page.close(); }
 });
+
+it('keeps a fresh profile read ahead of More and drops the old cursor reply', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  let releaseCursor: (() => void) | undefined, releaseFull: (() => void) | undefined, game_id: string | undefined;
+  try {
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history, record } } });
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await expect.poll(() => frame.locator('#profile-history li').count()).toBe(20);
+    await page.route('**/fixture-tool', async route => {
+      const params = route.request().postDataJSON();
+      if (params.name !== 'kingdown_profile') return route.continue();
+      const response = await route.fetch();
+      await new Promise<void>(resolve => { if (params.arguments.before) releaseCursor = resolve; else releaseFull = resolve; });
+      await route.fulfill({ response });
+    });
+    await frame.locator('#profile-more').click();
+    await expect.poll(() => !!releaseCursor).toBe(true);
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('collection'));
+    const fresh = { ...history[0], game_id: randomUUID(), finished_at: '2026-10-11T12:00:00Z', opponent: { ...history[0].opponent, handle: 'new_result' } };
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history: [fresh, ...history], record: { ...record, totals: { played: 24, won: 13, drawn: 3, lost: 8 } } } } });
+    game_id = (await tool(page, 'kingdown_create', { kind: 'solo', options: { ...DEFAULT_OPTIONS, arrangement: false }, colour: 'white' }))._meta.view.game_id;
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await expect.poll(() => !!releaseFull).toBe(true);
+    expect(await frame.locator('#profile-more').isVisible()).toBe(false);
+    await frame.locator('#profile-more').evaluate(el => (el as HTMLButtonElement).click());
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_profile' && c.arguments.before).length)).toBe(1);
+    releaseFull!(); releaseFull = undefined;
+    await expect.poll(() => frame.locator('#profile-history b').first().textContent()).toBe('new_result');
+    expect(await frame.locator('#profile-totals b').allTextContents()).toEqual(['24', '13', '3', '8']);
+    expect(await frame.locator(`#profile-open [data-game-id="${game_id}"]`).count()).toBe(1);
+    const oldReply = page.waitForResponse(response => response.url().endsWith('/fixture-tool') && !!response.request().postDataJSON().arguments.before);
+    releaseCursor!(); releaseCursor = undefined; await (await oldReply).finished();
+    // A tool round trip lets the older profile reply reach the app before the row check.
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.client.call('kingdown_games'));
+    expect(await frame.locator('#profile-history li').count()).toBe(20);
+    expect(await frame.locator('#profile-history b').first().textContent()).toBe('new_result');
+    expect(await frame.locator('#profile-more').isVisible()).toBe(true);
+  } finally {
+    releaseFull?.(); releaseCursor?.();
+    if (game_id) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } });
+    await page.close();
+  }
+});

@@ -78,3 +78,15 @@ The branch merges local integration tip `f63606e3` without a conflict. The first
 - Both combined-code plugin browser checks pass, 2 of 2. Their log and screenshot folder is `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/mvp-16-profile-VPmXup`. The same look folder holds the final comparisons.
 - Apple's Git shim stops one browser attempt with an Xcode licence error. The installed Command Line Tools Git runs the final check. No system or licence setting changes.
 - `git diff --check` passes. Open items: none.
+
+### Fix round plan
+
+Keep the resolved status. Work starts from `161f9cc1`. Do not merge the integration branch again.
+
+1. Add a delayed page test for a fresh read with an old cursor page in flight. Clear the cursor and hide More at the start of a full read. Keep older cursor replies out.
+2. Add a delayed page test for a badge tap during More. Update the open sheet in place. Close removes its one scrim.
+3. Check the profile live rows against the approved phone sample. Put Turn or Open on the left, then the king coin, name and detail. Keep Play rows unchanged.
+4. Check each piece rule row and each king power row exactly against the game's rule readers.
+5. Run `npm test`, `npm run plugin:build` and `npm run check:browser plugin-ui`. Save the phone look in `$TMPDIR/kingdown-look/16b/`. Record counts, page bytes and the two deferred review items. Commit and push this branch.
+
+- Fresh read: the delayed test fails because More stays visible. The full read now clears its cursor and hides More. The request guard drops the old cursor reply. Focused `npm test` passes 9 page tests and 50 art tests. The type check passes.

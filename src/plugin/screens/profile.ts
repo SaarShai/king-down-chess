@@ -17,6 +17,7 @@ const badgeArt = (badge: Badge) => art(`assets/badge-${badge.replaceAll('_', '-'
 export function profileScreen() { $('profile-name').onclick = () => navigate('handle'); $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }
 async function readProfile(cursor?: string) {
   const reading = ++request;
+  if (!cursor) { before = null; $('profile-more').hidden = true; }
   // Keep the rollers in view while More waits.
   $('profile-status').textContent = cursor ? '' : 'Loading profile…';
   try {
