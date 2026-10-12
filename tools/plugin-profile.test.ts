@@ -129,3 +129,59 @@ it('lists all pieces, kings, powers and cards with the game text and Unlocked', 
     expect(await frame.getByRole('radio', { name: 'Cards', exact: true }).isChecked()).toBe(true);
   } finally { await page.close(); }
 });
+it('reads a fresh profile after a remount and removes the provisional mark', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { record } } });
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await frame.locator('#profile-rating .q:not([hidden])').waitFor();
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_profile').length);
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { record: { ...record, totals: { played: 24, won: 13, drawn: 3, lost: 8 }, rating: { rating: 1600.6, rd: 90, volatility: .06, provisional: false } } } } });
+    await page.locator('#remount').click();
+    await expect.poll(() => frame.locator('#profile-rating b').textContent()).toBe('1601');
+    expect(await frame.locator('#profile-rating .q').isVisible()).toBe(false);
+    expect(await frame.locator('#profile-totals b').allTextContents()).toEqual(['24', '13', '3', '8']);
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_profile').length)).toBe(reads + 1);
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.screen)).toBe('profile');
+    expect(await page.evaluate(() => Object.keys((window as any).harnessWidgetState.privateContent).sort())).toEqual(['board_id', 'pending', 'screen', 'sheet']);
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.modelContent)).toEqual({});
+  } finally { await page.close(); }
+});
+it('uses the private profile handle and offers the name screen when it is absent', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.route('**/fixture-tool', async route => {
+      if (route.request().postDataJSON().name !== 'kingdown_profile') return route.continue();
+      const response = await route.fetch(), result = await response.json(); result._meta.handle = null; result._meta.icon = null;
+      await route.fulfill({ response, json: result });
+    });
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await frame.locator('#profile-name:not([hidden])').waitFor();
+    expect(await frame.locator('#page-title').textContent()).toBe('Profile');
+    const bounds = await frame.locator('#profile-sheet .scroll').evaluate(el => ({ roller: el.getBoundingClientRect().bottom, body: el.closest('.new-game-body')!.getBoundingClientRect().bottom }));
+    expect(bounds.roller).toBeLessThanOrEqual(bounds.body + 1);
+    await frame.locator('#profile-name').click();
+    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+  } finally { await page.close(); }
+});
+it('keeps both rollers in view while More waits for the next page', async () => {
+  const page = await open(), frame = page.frameLocator('iframe'); let release: (() => void) | undefined;
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history, record } } });
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await expect.poll(() => frame.locator('#profile-history li').count()).toBe(20);
+    await page.route('**/fixture-tool', async route => {
+      const params = route.request().postDataJSON();
+      if (params.name === 'kingdown_profile' && params.arguments.before) await new Promise<void>(resolve => { release = resolve; });
+      await route.continue();
+    });
+    await frame.locator('#profile-more').click();
+    await expect.poll(() => !!release).toBe(true);
+    const bounds = await frame.locator('#profile-sheet .scroll').evaluate(el => ({ roller: el.getBoundingClientRect().bottom, body: el.closest('.new-game-body')!.getBoundingClientRect().bottom }));
+    expect(bounds.roller).toBeLessThanOrEqual(bounds.body + 1);
+    release!(); release = undefined;
+    await expect.poll(() => frame.locator('#profile-history li').count()).toBe(23);
+  } finally { release?.(); await page.close(); }
+});

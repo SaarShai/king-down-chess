@@ -17,7 +17,8 @@ const badgeArt = (badge: Badge) => art(`assets/badge-${badge.replaceAll('_', '-'
 export function profileScreen() { $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }
 async function readProfile(cursor?: string) {
   const reading = ++request;
-  $('profile-status').textContent = 'Loading profile…';
+  // Keep the rollers in view while More waits.
+  $('profile-status').textContent = cursor ? '' : 'Loading profile…';
   try {
     $('profile-more').setAttribute('disabled', '');
     const [result, games] = await Promise.all([client.call('kingdown_profile', cursor ? { before: cursor } : {}), cursor ? undefined : client.call('kingdown_games')]);

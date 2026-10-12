@@ -40,3 +40,18 @@ Checks use the disposable `kingdown_mvp16_test` database on `127.0.0.1:55432`. F
 - Badges: the page test first finds 0 badges instead of 10. It now checks all 10, six earned dates, four grey badges, and the date or goal after a tap. The sheet uses the shared over dialog and scrim. The focused `npm test` passes 4 page tests and 50 art tests. `plugin-ui` passes. Profile styles stay in the profile section.
 - Collection text check: `sample/data.js` keeps the printed readings. `docs/RULES.md` makes the balanced readings official. Nine powers and six cards differ. The page uses the required live readers without `setRules`. The test keeps the sample's unchanged lines and fixed current-rule words for the changed lines. The sample files stay unchanged.
 - Collection: the test first finds 0 pieces instead of 11. All four tabs now pass: 11 pieces, 6 kings, 12 powers and 21 cards, with text and Unlocked. It checks all power and card lines, and restores Cards after a remount. The focused `npm test` passes 5 page tests and 50 art tests. The type check passes.
+- Full page check: 8 focused page tests and 50 art tests pass. A remount reads the new rating and totals. A missing private handle gives Profile and a name row. More's loading line first cuts the bottom roller by 11 px; the disabled More control now shows the pending read without a new line. The name row also cuts the roller; it now sits with the other profile links. Both failing bounds checks pass.
+- `plugin-ui` and `plugin-ui-http` pass before these last two layout fixes. The checks cover all three sizes, 23 fixture rows in two pages, two real open games, all badges, all four collection tabs, every page image, remount reads and hidden data. The HTTP check ends three real games and checks PostgreSQL totals and the friend's handle in the page only.
+
+## Look check
+
+The phone and desktop comparisons cover profile, profile-badges and collection. The files are in `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-look/16/`. All three sizes have separate screenshots in the browser run folder.
+
+Keep these required differences from the sample:
+
+- The shared sheet head has Back. The shared open rows keep their portraits and turn mark, as ticket 11 requires.
+- The owner's matte wood rollers replace the sample's brass rollers. Only the sheet grows. The list scrolls inside it, so both rollers show in full. The desktop badge view needs no outer scroll.
+- Earned badges show their dates. A tap shows the date or goal on a sheet.
+- Piece cards use the full Guide rows, not the sample's short stand-ins. Power and card words use the current official readings, as set out above.
+
+The page keeps the game's fonts, colours, components and art. It adds no art file.

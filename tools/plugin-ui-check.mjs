@@ -118,30 +118,145 @@ try {
   // Ticket 16: profile and collection.
   {
     const { BADGES } = await import('../src/match/badges.ts');
-    if (mode === 'fixture') {
-      const badges = Object.keys(BADGES).slice(0,6).map(badge => ({ badge, earned_at: '2026-10-10T12:00:00Z' }));
-      const seeded = await page.request.post(new URL('/fixture-seed', base).href, { data: { actor: 'alice', data: { record: { totals: { played: 23, won: 12, drawn: 3, lost: 8 }, rating: { rating: 1500.4, rd: 350, volatility: .06, provisional: true }, badges } } } });
-      assert.equal(seeded.status(), 200);
+    const { WHY } = await import('../src/plugin/ending.ts');
+    const { tmpdir } = await import('node:os'), { join } = await import('node:path'), { mkdir } = await import('node:fs/promises');
+    const { default: sharp } = await import('sharp');
+    const look = join(tmpdir(), 'kingdown-look', '16'); await mkdir(look, { recursive: true });
+    const goals = { first_win: 'Win a game.', friend_match: 'Finish a game with a friend.', stranger_match: 'Finish a game with a random player.', purist: 'Win a Classic game.', fairy_tale: 'Win with fairy pieces.', architect: 'Win with your own arrangement.', card_sharp: 'Win a game with cards.', crowned: 'Win with a king power.', royal_collection: 'Win with all six kings.', giant_slayer: 'Beat the Strong computer.' };
+    const profileTool = async (name, args = {}, friend = false) => {
+      const reply = await (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', base).href, { data: { name, arguments: args } })).json();
+      assert(!reply.isError, `${name}: ${JSON.stringify(reply.content)}`); return reply;
+    };
+    const history = Array.from({length:23}, (_,i) => ({ game_id: randomUUID(), finished_at: new Date(Date.UTC(2026,9,10,12-i)).toISOString(), kind:'friend', colour:i%2?'black':'white', result:i<12?'won':i<15?'drawn':'lost', reason:i>=12&&i<15?'agreement':'resignation', opponent:{handle:i===0?'abcdefghijklmnopqrst':i===3||i===1||i===4?null:`player_${i}`,icon:'spirit',computer:i===1||i===4,deleted:i===2,level:i===1?'club':null}, features:{fairy:true,arrangement:true,classic:true,cards:true,powers:true,king:'Spirit',power:'Mercy'} }));
+    const record = { totals:{played:23,won:12,drawn:3,lost:8}, rating:{rating:1500.4,rd:350,volatility:.06,provisional:true}, badges:['first_win','friend_match','stranger_match','fairy_tale','architect','crowned'].map(badge=>({badge,earned_at:'2026-10-10T12:00:00Z'})) };
+    async function seed(data) { const response = await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data}}); assert.equal(response.status(),200); }
+    if (mode === 'fixture') await seed({history,record});
+    else {
+      const prior = (await profileTool('kingdown_profile'))._meta.record.totals;
+      const solo = await profileTool('kingdown_create',{kind:'solo',options,colour:'white'});
+      await profileTool('kingdown_resign',{game_id:solo._meta.view.game_id});
+      for (const draw of [false,true]) {
+        const game = await profileTool('kingdown_create',{kind:'friend',options,colour:'white'}), game_id = game._meta.view.game_id;
+        const invite = await profileTool('kingdown_invite',{game_id}); await profileTool('kingdown_join',{code:invite.structuredContent.code},true);
+        if (draw) { await profileTool('kingdown_draw',{game_id,choice:'offer'}); await profileTool('kingdown_draw',{game_id,choice:'accept'},true); }
+        else await profileTool('kingdown_resign',{game_id},true);
+      }
+      const totals = (await profileTool('kingdown_profile'))._meta.record.totals;
+      assert.deepEqual(totals,{played:prior.played+3,won:prior.won+1,drawn:prior.drawn+1,lost:prior.lost+1},'Three real ends update PostgreSQL totals');
     }
-    await frame.locator('[data-screen="play"] [data-nav="profile"]').click();
-    await frame.locator('#profile-rating b').waitFor();
-    if (mode === 'fixture') assert.deepEqual(await frame.locator('#profile-totals b').allTextContents(), ['23','12','3','8']);
-    const profileTool = async (name, args = {}) => (await page.request.post(new URL('/fixture-tool', base).href, { data: { name, arguments: args } })).json();
-    const profileGames = [];
-    for (const kind of ['solo','friend']) {
-      const result = await profileTool('kingdown_create', { kind, options, colour: 'white' }); assert(!result.isError); profileGames.push(result._meta.view.game_id);
+    const openIds = [];
+    for (const kind of ['solo','friend']) openIds.push((await profileTool('kingdown_create',{kind,options,colour:'white'}))._meta.view.game_id);
+    const result = await profileTool('kingdown_profile'), data = result._meta, seenImages = new Set(), faults = [];
+    for (const entry of data.history) if (entry.opponent.handle) assert(!JSON.stringify([result.content,result.structuredContent]).includes(entry.opponent.handle),'Opponent handles stay in _meta');
+    if (mode === 'http') assert(data.history.some(row=>row.opponent.handle),'The HTTP history has the friend handle');
+    const responseFault = response => { if (response.status() >= 400) faults.push(`${response.status()} ${response.url()}`); }; page.on('response',responseFault);
+    async function images(selector) {
+      const loaded = await frame.locator(`${selector} img`).evaluateAll(async imgs => Promise.all(imgs.map(async img => { await img.decode(); return {src:img.src,width:img.naturalWidth}; })));
+      assert(loaded.every(img=>img.width>0),'Every page image has naturalWidth > 0'); loaded.forEach(img=>seenImages.add(img.src));
     }
-    await openPlay(); await frame.locator('[data-screen="play"] [data-nav="profile"]').click();
-    await frame.locator('#profile-open button').first().waitFor();
-    assert.deepEqual(await frame.locator('#profile-open button').evaluateAll(rows => rows.map(row => row.dataset.gameId)), profileGames);
-    assert.equal(await frame.locator('#profile-badges .badge').count(), 10);
-    await frame.locator('[data-badge="royal_collection"] button').click();
-    assert.equal(await frame.locator('#badge-detail').textContent(), 'Win with all six kings.');
-    await frame.locator('#badge-close').click();
-    await frame.locator('#profile-open button').first().click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
-    assert.equal(await page.evaluate(() => window.harnessView.game_id), profileGames[0]);
-    for (const game_id of profileGames) assert(!(await profileTool('kingdown_abort', { game_id })).isError);
-    await openPlay();
+    async function layout(screen) {
+      const found = await frame.locator('body').evaluate((_,screen) => {
+        const failures=[], limit=innerHeight-(innerWidth>=900?128:96), root=document.querySelector(`[data-screen="${screen}"]`);
+        for (const el of [document.scrollingElement,document.querySelector('.frame'),...root.querySelectorAll('.new-game-body,.registry')]) if (el.scrollWidth>el.clientWidth+1) failures.push('sideways scroll');
+        const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+        for(let n;(n=walker.nextNode());) {
+          if(!n.textContent.trim()||n.parentElement.closest('svg')) continue;
+          const range=document.createRange(); range.selectNodeContents(n);
+          for(const r of range.getClientRects()) {
+            if(r.width<1||r.top>=innerHeight||r.bottom<=0) continue;
+            const p=n.parentElement.getBoundingClientRect(); if(p.right>innerWidth+1) failures.push('text past the right edge');
+            if(r.bottom>limit&&r.top<innerHeight) { const top=document.elementFromPoint(Math.min(innerWidth-1,Math.max(0,r.left+r.width/2)),Math.max(limit,r.top)+1); if(top&&(n.parentElement===top||n.parentElement.contains(top))) failures.push('text over the composer'); }
+          }
+        }
+        return failures;
+      },screen);
+      assert.deepEqual(found,[],`${screen}: ${found.join(', ')}`);
+    }
+    async function rollers() {
+      const bounds = await frame.locator('#profile-sheet .scroll').evaluate(el => {
+        const r=el.getBoundingClientRect(), body=el.closest('.new-game-body').getBoundingClientRect(), css=getComputedStyle(el);
+        return {top:r.top,bottom:r.bottom,bodyTop:body.top,bodyBottom:body.bottom,slice:css.borderImageSlice,source:css.borderImageSource};
+      });
+      assert(bounds.top>=bounds.bodyTop && bounds.bottom<=bounds.bodyBottom+1,'Both scroll rollers show in full');
+      assert.equal(bounds.slice,'96 68 100 fill','One rule keeps the two complete rollers and the side edges');
+      assert(bounds.source.includes('/scroll-'),'scroll.webp loads through the art helper');
+    }
+    async function capture(state,size,width,height) {
+      const path=await shot(page,`${state}-${size}-${mode}`);
+      if(size!=='panel') { const left=await sharp(`docs/specs/chatgpt-mvp/sample/png/${state}-${size}.png`).resize(width,height).toBuffer(), right=await sharp(path).toBuffer(); await sharp({create:{width:width*2,height,channels:3,background:'#fff'}}).composite([{input:left,left:0,top:0},{input:right,left:width,top:0}]).png().toFile(join(look,`${state}-${size}-${mode}.png`)); }
+    }
+    for (const [size,width,height] of [['phone',390,844],['panel',400,900],['desktop',1440,900]]) {
+      await page.setViewportSize({width,height}); await openScreen('profile');
+      await frame.locator('#profile-open button').first().waitFor();
+      assert.deepEqual(await frame.locator('#profile-open button').evaluateAll(rows=>rows.map(row=>row.dataset.gameId)),openIds,'Open games keep your turn first');
+      assert.equal(await frame.locator('#profile-open button').first().locator('.turn-mark').textContent(),'Your turn');
+      assert(await frame.locator('#profile-open').evaluate(el=>!!(el.compareDocumentPosition(document.querySelector('#profile-history'))&Node.DOCUMENT_POSITION_FOLLOWING)),'Open rows precede finished rows');
+      assert.deepEqual(await frame.locator('#profile-totals b').allTextContents(),Object.values(data.record.totals).map(String));
+      assert.equal(await frame.locator('#profile-rating b').textContent(),String(Math.round(data.record.rating.rating)));
+      assert.equal(await frame.locator('#profile-rating .q').isVisible(),data.record.rating.provisional);
+      assert.equal(await frame.locator('#profile-history li').count(),data.history.length);
+      for(const [i,row] of data.history.entries()) {
+        const li=frame.locator('#profile-history li').nth(i), op=row.opponent;
+        assert.equal(await li.locator('time').getAttribute('datetime'),row.finished_at);
+        assert((await li.locator('time').textContent()).trim());
+        assert.equal(await li.locator('img').getAttribute('alt'),`${row.colour} king`);
+        assert.equal(await li.locator('b').textContent(),op.computer?`Computer${op.level?' · '+op.level[0].toUpperCase()+op.level.slice(1):''}`:op.deleted?'Deleted player':op.handle??'A player');
+        assert.equal(await li.locator('.res').textContent(),{won:'W',drawn:'D',lost:'L'}[row.result]);
+        assert.equal(await li.locator('small').textContent(),WHY[row.reason]);
+        assert.equal(await li.locator('.feats use').count(),['fairy','arrangement','classic','cards','powers'].filter(key=>row.features[key]).length);
+      }
+      await rollers(); await images('#profile-sheet'); await layout('profile');
+      if(mode==='fixture') {
+        assert.equal(await frame.locator('#profile-history li').first().locator('.feats use').count(),5);
+        await frame.locator('#profile-more').click();
+        await page.waitForFunction(()=>document.querySelector('iframe').contentDocument.querySelectorAll('#profile-history li').length===23);
+        assert.deepEqual(await page.evaluate(()=>window.harnessCalls.findLast(c=>c.name==='kingdown_profile').arguments),{before:data.next_before},'More sends the unchanged cursor');
+        const ids=await frame.locator('#profile-history li').evaluateAll(rows=>rows.map(row=>row.dataset.gameId)); assert.equal(new Set(ids).size,23);
+        await frame.locator('#profile-history li').last().scrollIntoViewIfNeeded(); assert((await frame.locator('#profile-history li').last().evaluate(controlBounds)).accessible,'The last row clears the composer');
+      }
+      assert.equal(await frame.locator('#profile-more').isVisible(),false);
+      await frame.locator('#profile-sheet .registry').evaluate(el=>{el.scrollTop=0;}); await rollers();
+      await frame.locator('html').evaluate(()=>document.fonts.ready); await capture('profile',size,width,height);
+      assert.equal(await frame.locator('#profile-badges .badge').count(),10);
+      for(const [badge,name] of Object.entries(BADGES)) {
+        const cell=frame.locator(`[data-badge="${badge}"]`), earned=data.record.badges.find(item=>item.badge===badge);
+        assert.equal(await cell.evaluate(el=>el.classList.contains('no')),!earned);
+        assert.equal(await cell.locator('time').count(),earned?1:0);
+        if(earned) assert.equal(await cell.locator('time').getAttribute('datetime'),earned.earned_at);
+        await cell.locator('button').click(); await frame.getByRole('dialog',{name,exact:true}).waitFor(); await images('#over');
+        const detail=await frame.locator('#badge-detail').textContent(); if(earned) assert(detail.startsWith('Earned ')); else assert.equal(detail,goals[badge]);
+        assert.equal(await cell.locator('button').getAttribute('aria-label'),`${name}. ${detail}`);
+        assert((await frame.locator('#badge-close').evaluate(controlBounds)).accessible,'The badge close control clears the composer'); await frame.locator('#badge-close').click();
+      }
+      await frame.locator('#profile-sheet .new-game-body').evaluate(el=>{el.scrollTop=el.scrollHeight;}); await layout('profile'); await capture('profile-badges',size,width,height);
+      await frame.locator('[data-screen="profile"] [data-nav="collection"]').click();
+      for(const [tab,count] of [['Pieces',11],['Kings',6],['Powers',12],['Cards',21]]) {
+        await frame.locator('#collection-tabs label').filter({hasText:tab}).click(); assert.equal(await frame.locator('#collection-items > *').count(),count); assert.equal(await frame.locator('#collection-items .unlocked').count(),count);
+        assert((await frame.locator('#collection-items > *').allTextContents()).every(text=>text.includes('Unlocked')&&text.trim().length>30),'Each collection entry has its rule');
+        await images('#collection-sheet'); await layout('collection');
+        await frame.locator('#collection-items > *').last().scrollIntoViewIfNeeded(); assert((await frame.locator('#collection-items > *').last().evaluate(controlBounds)).accessible,'The last collection entry clears the composer');
+        await frame.locator('#collection-sheet .new-game-body').evaluate(el=>{el.scrollTop=0;});
+        if(tab==='Pieces') await capture('collection',size,width,height);
+      }
+      const settingsReads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length); await page.locator('#remount').click();
+      await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length>n,settingsReads);
+      await frame.locator('#collection-items [data-card="SkyLift"]').waitFor({state:'attached'});
+      assert.equal(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen),'collection'); assert.equal(await frame.getByRole('radio',{name:'Cards',exact:true}).isChecked(),true);
+      await frame.locator('#page-back').click(); await frame.locator('#profile-open button').first().waitFor();
+      await frame.locator('#profile-open button').first().click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); assert.equal(await page.evaluate(()=>window.harnessView.game_id),openIds[0]);
+      assert.deepEqual(await page.evaluate(()=>Object.keys(window.harnessWidgetState.privateContent).sort()),['board_id','pending','screen','sheet']); assert.deepEqual(await page.evaluate(()=>window.harnessWidgetState.modelContent),{});
+      const saved=await page.evaluate(()=>JSON.stringify(window.harnessWidgetState)); for(const row of data.history) { assert(!saved.includes(row.game_id)); if(row.opponent.handle) assert(!saved.includes(row.opponent.handle)); }
+    }
+    if(mode==='fixture') await seed({history,record:{...record,rating:{rating:1600.6,rd:90,volatility:.06,provisional:false}}});
+    await openScreen('profile'); await frame.locator('#profile-status').filter({hasText:'Loading profile…'}).waitFor({state:'hidden'});
+    if(mode==='fixture') { assert.equal(await frame.locator('#profile-rating .q').isVisible(),false); assert.equal(await frame.locator('#profile-rating b').textContent(),'1601'); }
+    const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_profile').length); await page.locator('#remount').click();
+    await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_profile').length>n,reads); await frame.locator('#profile-open button').first().waitFor();
+    assert.equal(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen),'profile');
+    for(const basename of ['pawn-w','archer-w','paladin-w','guard-w','maester-w','beast-w','ogre-w','rook-w','bishop-w','knight-w','queen-w','flame','frost','stratus','mud','spirit','shadow','freeze','icewall','leap','march','mimic','sacrifice','salvation','skylift','vault']) assert([...seenImages].some(src=>src.includes('/'+basename+'-')&&src.endsWith('.webp')),`${basename}.webp loads on the page`);
+    assert.deepEqual(faults,[],'No page response is 4xx'); page.off('response',responseFault);
+    for(const game_id of openIds) await profileTool('kingdown_abort',{game_id});
+    await openPlay(); console.log(`Profile and collection: two open games, ${mode==='fixture'?'23 rows in two pages, six badges, provisional change':'three real PostgreSQL results and private handles'}, all four collection tabs, images, remounts and three viewport sizes. Look: ${look}`);
   }
   const navCalls = await page.evaluate(() => window.harnessCalls.length);
   for (const [id, route] of [['solo','setup'], ['friend','setup'], ['random','lobby']]) {
