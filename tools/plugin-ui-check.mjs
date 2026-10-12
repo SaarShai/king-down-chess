@@ -115,6 +115,17 @@ try {
     assert.equal(await frame.locator('#retry').isVisible(), false, 'HANDLE_NEEDED waits for Save without Retry');
     assert.equal(await frame.locator('#error').textContent(), '', 'HANDLE_NEEDED has no failed-send words');
   }
+  // Ticket 16: profile and collection.
+  {
+    if (mode === 'fixture') {
+      const seeded = await page.request.post(new URL('/fixture-seed', base).href, { data: { actor: 'alice', data: { record: { totals: { played: 23, won: 12, drawn: 3, lost: 8 }, rating: { rating: 1500.4, rd: 350, volatility: .06, provisional: true }, badges: [] } } } });
+      assert.equal(seeded.status(), 200);
+    }
+    await frame.locator('[data-screen="play"] [data-nav="profile"]').click();
+    await frame.locator('#profile-rating b').waitFor();
+    if (mode === 'fixture') assert.deepEqual(await frame.locator('#profile-totals b').allTextContents(), ['23','12','3','8']);
+    await openPlay();
+  }
   const navCalls = await page.evaluate(() => window.harnessCalls.length);
   for (const [id, route] of [['solo','setup'], ['friend','setup'], ['random','lobby']]) {
     await frame.locator(`#${id}`).click(); await frame.locator(`[data-screen="${route}"]:not([hidden])`).waitFor(); await openPlay();
