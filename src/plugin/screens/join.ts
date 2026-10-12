@@ -34,7 +34,7 @@ async function preview() {
     if (result.isError) { memory.joinError = { code: String(result._meta?.code ?? ''), message: result.content.filter(c => c.type === 'text').map(c => c.text).join(' ') }; joinScreen(); return; }
     memory.preview = result._meta?.preview as JoinPreview; $('join-message').textContent = ''; render(memory.preview);
   } catch (error) { showError(error, $('join-message')); $('join-entry').hidden = false; checked = ''; }
-  finally { reading = false; }
+  finally { reading = false; if (client.state.screen === 'join' && memory.code && memory.code !== code) void preview(); }
 }
 async function join() {
   if (joining || !memory.preview) return;

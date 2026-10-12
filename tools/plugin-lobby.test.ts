@@ -344,3 +344,23 @@ it('finishes the computer handoff when the automatic Choose needs Retry', async 
     expect(await frame.locator('#board canvas').isVisible()).toBe(true);
   } finally { await page.close(); }
 });
+
+it('previews the current code after Decline while the old preview loads', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const first = await buddy(page, 'kingdown_create', { kind: 'friend', options, colour: 'white' });
+    const second = await buddy(page, 'kingdown_create', { kind: 'friend', options, colour: 'black' });
+    const a = await buddy(page, 'kingdown_invite', { game_id: first._meta.view.game_id });
+    const b = await buddy(page, 'kingdown_invite', { game_id: second._meta.view.game_id });
+    await frame.locator('#home-play').click(); await page.evaluate(() => { (window as any).holdNext = 'kingdown_join'; });
+    await frame.locator('#token').fill(a.structuredContent.code); await frame.locator('#join').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await frame.locator('#join-decline').click(); await frame.locator('#token').fill(b.structuredContent.code); await frame.locator('#join').click();
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('#join-confirm').waitFor();
+    expect(await frame.locator('#join-preview .line').last().textContent()).toContain('You play White.');
+    await frame.locator('#join-confirm').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessView.game_id)).toBe(second._meta.view.game_id);
+    expect((await buddy(page, 'kingdown_get', { game_id: first._meta.view.game_id }))._meta.view.status).toBe('waiting');
+  } finally { await page.close(); }
+});
