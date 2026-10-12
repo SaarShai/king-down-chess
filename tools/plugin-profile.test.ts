@@ -228,3 +228,33 @@ it('keeps a fresh profile read ahead of More and drops the old cursor reply', as
     await page.close();
   }
 });
+
+it('updates a badge sheet in place when More returns and clears its scrim on Close', async () => {
+  const page = await open(), frame = page.frameLocator('iframe'); let release: (() => void) | undefined;
+  try {
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history, record } } });
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await expect.poll(() => frame.locator('#profile-history li').count()).toBe(20);
+    await page.route('**/fixture-tool', async route => {
+      const params = route.request().postDataJSON();
+      if (params.name !== 'kingdown_profile' || !params.arguments.before) return route.continue();
+      await new Promise<void>(resolve => { release = resolve; }); await route.continue();
+    });
+    await frame.locator('#profile-more').click(); await expect.poll(() => !!release).toBe(true);
+    await frame.locator('[data-badge="first_win"] button').click();
+    await frame.getByRole('dialog', { name: 'First Win', exact: true }).waitFor();
+    expect(await frame.locator('#badge-detail').textContent()).toBe('Win a game.');
+    await frame.locator('#badge-close').focus();
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history, record: { ...record, badges: [{ badge: 'first_win', earned_at: '2026-10-10T12:00:00Z' }] } } } });
+    release!(); release = undefined;
+    await expect.poll(() => frame.locator('#profile-history li').count()).toBe(23);
+    expect(await frame.locator('#badge-detail').textContent()).toBe('Earned 10 Oct 2026');
+    expect(await frame.locator('.scrim').count()).toBe(1);
+    expect(await frame.locator('#badge-close').evaluate(el => el === document.activeElement)).toBe(true);
+    await frame.locator('#badge-close').click();
+    await expect.poll(() => frame.locator('.scrim').count()).toBe(0);
+    expect(await frame.locator('#over').isVisible()).toBe(false);
+    expect(await frame.locator('[data-badge="first_win"] button').evaluate(el => el === document.activeElement)).toBe(true);
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.sheet)).toBeUndefined();
+  } finally { release?.(); await page.close(); }
+});

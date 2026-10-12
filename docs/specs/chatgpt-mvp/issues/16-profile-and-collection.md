@@ -90,3 +90,4 @@ Keep the resolved status. Work starts from `161f9cc1`. Do not merge the integrat
 5. Run `npm test`, `npm run plugin:build` and `npm run check:browser plugin-ui`. Save the phone look in `$TMPDIR/kingdown-look/16b/`. Record counts, page bytes and the two deferred review items. Commit and push this branch.
 
 - Fresh read: the delayed test fails because More stays visible. The full read now clears its cursor and hides More. The request guard drops the old cursor reply. Focused `npm test` passes 9 page tests and 50 art tests. The type check passes.
+- Badge sheet: the delayed test leaves one dark layer after Close. The open sheet now updates its detail in place. Close returns focus to the current badge button. Focused `npm test` passes 10 page tests and 50 art tests. The type check passes.

@@ -53,7 +53,7 @@ function renderBadges(record: PlayerRecord) {
     const earned = record.badges.find(item => item.badge === badge), detail = earned ? `Earned ${fullDate(earned.earned_at)}` : GOALS[badge];
     const figure = document.createElement('figure'); figure.className = `badge${earned ? '' : ' no'}`; figure.dataset.badge = badge;
     const button = document.createElement('button'); button.type = 'button'; button.setAttribute('aria-label', `${BADGES[badge]}. ${detail}`);
-    const image = document.createElement('img'); image.src = badgeArt(badge); image.alt = ''; button.append(image); button.onclick = () => showBadge(badge, detail, button);
+    const image = document.createElement('img'); image.src = badgeArt(badge); image.alt = ''; button.append(image); button.onclick = () => showBadge(badge, detail);
     const caption = document.createElement('figcaption'); caption.textContent = BADGES[badge];
     if (earned) { const when = document.createElement('time'); when.dateTime = earned.earned_at; when.textContent = fullDate(earned.earned_at); caption.append(when); }
     figure.append(button, caption); return figure;
@@ -61,13 +61,15 @@ function renderBadges(record: PlayerRecord) {
   const selected = client.state.sheet?.startsWith('badge:') ? client.state.sheet.slice(6) : '';
   if (selected in BADGES) $('profile-badges').querySelector<HTMLButtonElement>(`[data-badge="${selected}"] button`)!.click();
 }
-function showBadge(badge: Badge, detail: string, button: HTMLButtonElement) {
-  const dialog = $<HTMLDialogElement>('over'); if (dialog.open) dialog.close();
+function showBadge(badge: Badge, detail: string) {
+  const dialog = $<HTMLDialogElement>('over');
+  if (dialog.open && client.state.sheet === `badge:${badge}`) { $('badge-detail').textContent = detail; return; }
+  if (dialog.open) dialog.close();
   const scrim = document.createElement('div'); scrim.className = 'scrim'; $('app-frame').append(scrim);
   dialog.className = 'over-sheet badge-sheet'; dialog.setAttribute('aria-labelledby', 'badge-title');
   dialog.innerHTML = '<header class="new-game-head"><h2 id="badge-title"></h2></header><div class="new-game-body"><img id="badge-art" alt=""><p id="badge-detail"></p></div><footer class="new-game-foot"><button id="badge-close">Close</button></footer>';
   $('badge-title').textContent = BADGES[badge]; $<HTMLImageElement>('badge-art').src = badgeArt(badge); $('badge-detail').textContent = detail;
-  $('badge-close').onclick = () => dialog.close(); dialog.onclose = () => { scrim.remove(); client.state.sheet = undefined; client.save(); button.focus(); };
+  $('badge-close').onclick = () => dialog.close(); dialog.onclose = () => { scrim.remove(); client.state.sheet = undefined; client.save(); $('profile-badges').querySelector<HTMLButtonElement>(`[data-badge="${badge}"] button`)?.focus(); };
   client.state.sheet = `badge:${badge}`; client.save(); dialog.showModal();
 }
 function historyRow(entry: HistoryEntry) {
