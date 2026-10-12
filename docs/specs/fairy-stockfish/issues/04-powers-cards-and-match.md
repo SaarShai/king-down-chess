@@ -34,3 +34,25 @@ pilot is one base pair; five later parts have 38 games each. All sources, starts
 rules, deals and part memberships must be frozen before launch. M1 is busy with
 another owner's job; use Kaggle and preserve M1. The match and final backup are
 pending. No merge.
+
+The support and frozen match are committed and pushed as `5f376872`. The
+Kaggle pilot is accepted at 00:07 Pacific on 2026-10-12, after a zero-active
+account audit. The expected first check is 00:27 Pacific, with a scheduled
+wake at 00:32 for delivery margin. Later parts remain unlaunched until Linux
+conformance, exact game replay and timing checks pass. Each runner has a tested
+eight-hour process-group deadline. Campaign state, launch receipts and all
+saved kernel hashes are on the mounted results card.
+
+The Linux pilot passes: all 2,391 corpus checks match the fresh Mac build,
+all 201 controls pass, and both games replay. There are 197 actions and no caps;
+current AI wins both games. Notebook time is 212.07 seconds; game time is 20.112
+seconds. All five remaining parts are accepted at 00:32 Pacific on October 12
+after a fresh zero-active account audit. All 192 games are launched; none may
+repeat. The conservative cap-length timing estimate is 34.06 minutes, with the
+next scheduled check at 01:15 Pacific. Full match results stay pending.
+
+The initial cloud backup completes at 00:22 Pacific. Receipt:
+`drive:King Down/results-backups/20261012-001548-537219000`; 18,019 files.
+The cloud manifest and required source/settings/check hashes agree. The external
+receipt is `state/fairy-stockfish-full-backup/verified-initial.json`. A new snapshot
+follows pilot collection and launch receipts. This is not the final data backup.
