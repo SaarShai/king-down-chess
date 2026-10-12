@@ -128,7 +128,7 @@ try {
     const { WHY } = await import('../src/plugin/ending.ts');
     const { tmpdir } = await import('node:os'), { join } = await import('node:path'), { mkdir } = await import('node:fs/promises');
     const { default: sharp } = await import('sharp');
-    const look = join(tmpdir(), 'kingdown-look', '16'); await mkdir(look, { recursive: true });
+    const look = join(tmpdir(), 'kingdown-look', '16b'); await mkdir(look, { recursive: true });
     const goals = { first_win: 'Win a game.', friend_match: 'Finish a game with a friend.', stranger_match: 'Finish a game with a random player.', purist: 'Win a Classic game.', fairy_tale: 'Win with fairy pieces.', architect: 'Win with your own arrangement.', card_sharp: 'Win a game with cards.', crowned: 'Win with a king power.', royal_collection: 'Win with all six kings.', giant_slayer: 'Beat the Strong computer.' };
     const profileTool = async (name, args = {}, friend = false) => {
       const reply = await (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', base).href, { data: { name, arguments: args } })).json();
@@ -196,7 +196,7 @@ try {
       await page.setViewportSize({width,height}); await openScreen('profile');
       await frame.locator('#profile-open button').first().waitFor();
       assert.deepEqual(await frame.locator('#profile-open button').evaluateAll(rows=>rows.map(row=>row.dataset.gameId)),openIds,'Open games keep your turn first');
-      assert.equal(await frame.locator('#profile-open button').first().locator('.turn-mark').textContent(),'Your turn');
+      assert.equal(await frame.locator('#profile-open button').first().locator('.when .turn-mark').textContent(),'Turn');
       assert(await frame.locator('#profile-open').evaluate(el=>!!(el.compareDocumentPosition(document.querySelector('#profile-history'))&Node.DOCUMENT_POSITION_FOLLOWING)),'Open rows precede finished rows');
       assert.deepEqual(await frame.locator('#profile-totals b').allTextContents(),Object.values(data.record.totals).map(String));
       assert.equal(await frame.locator('#profile-rating b').textContent(),String(Math.round(data.record.rating.rating)));

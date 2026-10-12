@@ -91,3 +91,4 @@ Keep the resolved status. Work starts from `161f9cc1`. Do not merge the integrat
 
 - Fresh read: the delayed test fails because More stays visible. The full read now clears its cursor and hides More. The request guard drops the old cursor reply. Focused `npm test` passes 9 page tests and 50 art tests. The type check passes.
 - Badge sheet: the delayed test leaves one dark layer after Close. The open sheet now updates its detail in place. Close returns focus to the current badge button. Focused `npm test` passes 10 page tests and 50 art tests. The type check passes.
+- Live rows: the page test first fails on the missing left Turn pill. Profile now owns its live row form. It shows Turn or Open, the seat's king coin, the name and detail. The shared Play rows stay unchanged. Focused `npm test` passes 10 page tests and 50 art tests. The type check passes. New look shots go in `16b`.

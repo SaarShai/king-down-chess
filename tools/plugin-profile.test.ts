@@ -68,7 +68,20 @@ it('puts open games first with your turn first and resumes the tapped game', asy
     await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
     await expect.poll(() => frame.locator('#profile-open button').count()).toBe(2);
     expect(await frame.locator('#profile-open button').evaluateAll(els => els.map(el => (el as HTMLElement).dataset.gameId))).toEqual(ids);
-    expect(await frame.locator('#profile-open button').first().locator('.turn-mark').textContent()).toBe('Your turn');
+    const live = frame.locator('#profile-open button').first(), waiting = frame.locator('#profile-open button').last();
+    expect(await live.locator('.when .turn-mark').textContent()).toBe('Turn');
+    expect(await waiting.locator('.when .open-mark').textContent()).toBe('Open');
+    expect(await live.locator('b').last().textContent()).toBe('Computer · Club');
+    expect(await live.locator('small').textContent()).toBe('Your turn · move 1');
+    expect(await waiting.locator('b').last().textContent()).toBe('Open game');
+    expect(await waiting.locator('small').textContent()).toBe('Waiting for an opponent');
+    for (const row of [live, waiting]) {
+      expect(await row.locator('.pi').getAttribute('alt')).toBe('white king');
+      expect(await row.locator('.portrait, .row-ico, i').count()).toBe(0);
+      const bounds = await row.evaluate(el => ['.when', '.pi', '.grow'].map(selector => { const r = el.querySelector(selector)!.getBoundingClientRect(); return { left: r.left, right: r.right }; }));
+      expect(bounds[0].right).toBeLessThanOrEqual(bounds[1].left);
+      expect(bounds[1].right).toBeLessThanOrEqual(bounds[2].left);
+    }
     await frame.locator('#profile-open button').first().click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await page.evaluate(() => (window as any).harnessView.game_id)).toBe(ids[0]);

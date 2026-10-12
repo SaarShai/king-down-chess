@@ -1,6 +1,5 @@
 import { call, client, navigate, routeView } from '../app';
 import { art, symbols } from '../art';
-import { gamesList } from '../games-list';
 import { WHY } from '../ending';
 import { BADGES, type Badge } from '../../match/badges';
 import { ICONS, type Icon } from '../../account/profile';
@@ -38,7 +37,7 @@ async function readProfile(cursor?: string) {
       number.textContent = String(total); name.textContent = label; cell.append(number, name); return cell;
     }));
     $('profile-sheet').querySelector<HTMLElement>('.scroll')!.style.borderImageSource = `url("${art('assets/scroll.webp')}")`;
-    if (games) gamesList($('profile-open'), games._meta!.games as InboxEntry[], (name, args) => call(name, args, false, false, false), routeView);
+    if (games) $('profile-open').replaceChildren(...(games._meta!.games as InboxEntry[]).map(openRow));
     if (!cursor) { $('profile-history').replaceChildren(); $('profile-sheet').querySelector('.registry')!.scrollTop = 0; }
     $('profile-history').append(...profile.history.map(historyRow));
     before = profile.next_before; $('profile-more').hidden = before === null;
@@ -71,6 +70,23 @@ function showBadge(badge: Badge, detail: string) {
   $('badge-title').textContent = BADGES[badge]; $<HTMLImageElement>('badge-art').src = badgeArt(badge); $('badge-detail').textContent = detail;
   $('badge-close').onclick = () => dialog.close(); dialog.onclose = () => { scrim.remove(); client.state.sheet = undefined; client.save(); $('profile-badges').querySelector<HTMLButtonElement>(`[data-badge="${badge}"] button`)?.focus(); };
   client.state.sheet = `badge:${badge}`; client.save(); dialog.showModal();
+}
+function openRow(entry: InboxEntry) {
+  const waiting = entry.status === 'waiting', yours = !waiting && entry.action === 'ready';
+  const row = document.createElement('button'); row.type = 'button'; row.dataset.gameId = entry.game_id;
+  const when = document.createElement('span'); when.className = 'when';
+  const mark = document.createElement('b'); mark.className = yours ? 'turn-mark' : 'open-mark'; mark.textContent = yours ? 'Turn' : 'Open'; when.append(mark);
+  const colour = document.createElement('img'); colour.className = 'pi'; colour.alt = `${entry.seat === 0 ? 'white' : 'black'} king`; colour.src = entry.seat === 0 ? art('ui/icons/king.svg') : symbols['../../public/ui/icons/king.svg'][1];
+  const player = document.createElement('span'); player.className = 'grow';
+  const name = document.createElement('b'); name.textContent = waiting ? 'Open game' : entry.opponent?.computer ? `Computer · ${entry.level[0].toUpperCase()}${entry.level.slice(1)}` : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
+  const line = document.createElement('small'); line.textContent = waiting ? 'Waiting for an opponent' : entry.status === 'setup' ? yours ? 'Choose your side' : 'Waiting for the other player' : `${yours ? 'Your turn' : 'Their turn'} · move ${entry.move}`; player.append(name, line);
+  const feats = document.createElement('span'); feats.className = 'feats';
+  for (const [field, icon, label] of [['fairy', 'fairy', 'Fairy pieces'], ['arrangement', 'arrange', 'Arrangement'], ['classic', 'classic', 'Classic'], ['cards', 'cards', 'Cards'], ['kingPowers', 'powers', 'King powers']] as const) {
+    if (entry.options?.[field]) { const feat = document.createElement('span'); feat.title = label; feat.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-${icon}"/></svg>`; feats.append(feat); }
+  }
+  row.append(when, colour, player, feats);
+  row.onclick = async () => { const view = await call('kingdown_resume', { game_id: entry.game_id }, false, false, false); if (view) routeView(view); };
+  return row;
 }
 function historyRow(entry: HistoryEntry) {
   const row = document.createElement('li'); row.dataset.gameId = entry.game_id;
