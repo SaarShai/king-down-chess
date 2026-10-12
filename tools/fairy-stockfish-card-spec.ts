@@ -5,5 +5,5 @@ export function cardRepairSpec(baselinePatchSha256:string):MatchSpec{
  if(!/^[a-f0-9]{64}$/.test(baselinePatchSha256))throw Error('Baseline patch hash required');
  const spec=matchSpec(false,1000,184211);
  const jobs=spec.jobs.filter(j=>j.stratum==='cards-balanced').flatMap(j=>[undefined,'native-baseline' as const].map(opponent=>({...j,opponent,stratum:opponent?'cards-native-baseline':'cards-current'}))).map((j,id)=>({...j,id}));
- return {...spec,id:'fairy-card-repair-20261012',approval:CARD_REPAIR_APPROVAL,baselinePatchSha256,jobs,parts:[{name:'pilot',ids:jobs.slice(0,4).map(j=>j.id)},...Array.from({length:5},(_,i)=>({name:'wave'+i,ids:jobs.slice(4).filter(j=>Math.floor((j.id-4)/4)%5===i).map(j=>j.id)}))]};
+ return {...spec,id:'fairy-card-repair-r2-20261012',approval:CARD_REPAIR_APPROVAL,baselinePatchSha256,jobs,parts:[{name:'pilot',ids:jobs.slice(0,4).map(j=>j.id)},...Array.from({length:5},(_,i)=>({name:'wave'+i,ids:jobs.slice(4).filter(j=>Math.floor((j.id-4)/4)%5===i).map(j=>j.id)}))]};
 }

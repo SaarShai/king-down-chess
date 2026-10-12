@@ -1,3 +1,16 @@
+diff --git a/src/Makefile b/src/Makefile
+index 823649f..745da25 100644
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -39,7 +39,7 @@ endif
+ 
+ ### Source and object files
+ SRCS = benchmark.cpp bitbase.cpp bitboard.cpp endgame.cpp evaluate.cpp main.cpp \
+-	material.cpp misc.cpp movegen.cpp movepick.cpp pawns.cpp position.cpp psqt.cpp \
++	kingdown_full.cpp material.cpp misc.cpp movegen.cpp movepick.cpp pawns.cpp position.cpp psqt.cpp \
+ 	search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp syzygy/tbprobe.cpp \
+ 	nnue/evaluate_nnue.cpp nnue/features/half_ka_v2.cpp \
+ 	partner.cpp parser.cpp piece.cpp variant.cpp xboard.cpp \
 diff --git a/src/kingdown_full.cpp b/src/kingdown_full.cpp
 new file mode 100644
 index 0000000..98271b4

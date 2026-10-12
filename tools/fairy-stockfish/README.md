@@ -108,3 +108,9 @@ or held card turn is not bounded by an ordinary quiet move's material effect.
 `kdpruneinspect` lists the retained turns under that shortcut. The card controls
 compare this list with reference complete turns and check that ordinary quiets
 still separate. This repair does not add card prices or a trained evaluator.
+
+Before dispatch, apply the exported patch to a clean pinned upstream tree and
+compare every compiler-input hash with the tested build. Export from the upstream
+tracked index. A new Git index made with ordinary `git add` can omit tracked
+Makefiles because upstream ignores them. Do not replace expected hashes to
+accept a different build.

@@ -52,3 +52,7 @@ All 192 frozen games pass source, spec, native input, controls and every legal a
 ### One-second final backup verified
 
 Snapshot `drive:King Down/results-backups/20261012-044422-586476000` completes at 05:04:50 Pacific. It has 18,922 files. The cloud manifest checksum and all 572 campaign file hashes and byte counts agree, including six raw parts, their status and validation, frozen inputs, reports and independent crosscheck. External proof is `state/fairy-stockfish-long-final-backup/verified-final.json`. Both matches are complete and backed up. The comparison monitor closes. The separate fresh M1 test and its 05:40 monitor stay active. No merge.
+
+### Fresh stress interruption
+
+The fresh run stops after 94.20 minutes on a 60-second `kdturninspect` timeout. All copied output hashes and 430 remote input hashes agree. The saved eight-action prefix replays with 221 pinned reference files. It has 9,272 atomic actions and 96,002 complete turns. The native inspection repeats legality generation per turn; its full comparison does not finish. No rules mismatch is demonstrated and no two-hour pass is claimed. Failure and partial checkpoints remain separate from the old run. No retry or native fix. Final failure-evidence backup is pending. Card repair pilot and its 06:10 monitor stay unchanged.
