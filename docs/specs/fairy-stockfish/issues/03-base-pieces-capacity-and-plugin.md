@@ -1,6 +1,6 @@
 # Remaining base pieces, chain storage and plugin fit
 
-Status: claimed
+Status: verified
 Type: prototype
 
 Owner approval (2026-10-11): "go ahead and port the remaining fairy pieces, verify them against our rules engine, and fix the Beast chain capacity limit. don't merge yet. please also check whether fairy stockfish can be used in a chatgpt plugin (other agents in this project have been working on a chatgpt plugin build)."
@@ -15,7 +15,7 @@ The native build and fresh rebuild pass 241 positions, 16,125 distinct legal eff
 
 Two confirmed implementation issues are fixed: standard promotions must not use shogi base metadata, and predicted search keys must include the next fifty-move clock adjustment. Intermediate output is kept. The original 16-victim artificial perft preflight exceeds 60 seconds; the complete 13-victim comparison proves parity above the former cap. Physical resource bounds remain.
 
-The separate Python trace crosscheck agrees with all 16,125 effects in both builds. It is not a third legality engine or an independent reviewer. Exact evidence is in card campaign `fairy-stockfish-base-20261011`; only `cert-check` and `cert-rebuild-check` certify the final source. All 112 native files match the clean rebuild and all source archive contents pass hash checks. Final cloud backup is pending.
+The separate Python trace crosscheck agrees with all 16,125 effects in both builds. It is not a third legality engine or an independent reviewer. Exact evidence is in card campaign `fairy-stockfish-base-20261011`; only `cert-check` and `cert-rebuild-check` certify the final source. All 112 native files match the clean rebuild and all source archive contents pass hash checks. Code is committed locally as `242badd34e28620d89cc41ca24b3fcf819bb1ebe`. Backup `drive:King Down/results-backups/20261011-222746-515724000` passes its cloud manifest checksum and all 88 campaign file hashes, including decompressed remote bytes. The external receipt is `state/fairy-stockfish-base-backup/verified-base.json`; the completed monitor is removed. No push or merge.
 
 Plugin assessment: `docs/research/fairy-stockfish-plugin-fit-2026-10-11.md`. The current MVP has a suitable server worker seam. A native server engine can return actions for authoritative TypeScript validation and the existing revision check. Cards and powers are still unsupported. A browser worker needs a patched WebAssembly build and actual ChatGPT host checks; support is not assumed from the iframe documentation. No plugin branch is edited.
 

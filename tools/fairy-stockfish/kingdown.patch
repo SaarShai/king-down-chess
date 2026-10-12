@@ -1,29 +1,462 @@
-diff --git a/src/kingdown.h b/src/kingdown.h
+diff --git a/src/Makefile b/src/Makefile
+index 823649f..745da25 100644
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -39,7 +39,7 @@ endif
+ 
+ ### Source and object files
+ SRCS = benchmark.cpp bitbase.cpp bitboard.cpp endgame.cpp evaluate.cpp main.cpp \
+-	material.cpp misc.cpp movegen.cpp movepick.cpp pawns.cpp position.cpp psqt.cpp \
++	kingdown_full.cpp material.cpp misc.cpp movegen.cpp movepick.cpp pawns.cpp position.cpp psqt.cpp \
+ 	search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp syzygy/tbprobe.cpp \
+ 	nnue/evaluate_nnue.cpp nnue/features/half_ka_v2.cpp \
+ 	partner.cpp parser.cpp piece.cpp variant.cpp xboard.cpp \
+diff --git a/src/kingdown_full.cpp b/src/kingdown_full.cpp
 new file mode 100644
-index 0000000..6ee68d6
+index 0000000..98271b4
 --- /dev/null
-+++ b/src/kingdown.h
-@@ -0,0 +1,18 @@
-+// Fixed base-piece geometry shared by generation and attack checks.
-+#ifndef KINGDOWN_H_INCLUDED
-+#define KINGDOWN_H_INCLUDED
++++ b/src/kingdown_full.cpp
+@@ -0,0 +1,356 @@
++// Independent native implementation of the fixed King Down rules. GPLv3 or later.
++#include "kingdown_full.h"
++#include <algorithm>
++#include <cstdlib>
++#include <cstring>
++#include <cctype>
++#include <cstdio>
++#include <limits>
++#include <set>
++#include <sstream>
++#include <tuple>
++namespace Stockfish {
++namespace {
++const char* Letters=" PNBRQKALGMSOCVT";
++const char* Names[KD_POWER_NB]={"","Freeze","IceWall","Strike","Haste","Flight","Sacrifice","March","Leap","HolyLight","Mercy","DeathTouch","Darkness","Mimic","Vault","Curse","SkyLift","Salvation","Rage","RageB","Mirror","MirrorB","Firewall","FirewallB","EarthQuake","EarthQuakeB","Burn","FireStarter","Control","Rescue","Growth","GrowthB","Rally","Morph","MorphB","Spawn","SpawnK","Spawn2","SpawnK2","MorphP","MorphS"};
++const int Dirs[8][2]={{1,0},{-1,0},{0,1},{0,-1},{1,1},{1,-1},{-1,1},{-1,-1}};
++const int Knights[8][2]={{1,2},{2,1},{-1,2},{-2,1},{1,-2},{2,-1},{-1,-2},{-2,-1}};
++int type(int pc) { return pc&15; }
++int color(int pc) { return (pc>>4)&1; }
++int piece(int t,int c) { return t|(c<<4); }
++int file(int s) { return s&7; }
++int rank(int s) { return s>>3; }
++int step(int s,int df,int dr) { int f=file(s)+df,r=rank(s)+dr;return f>=0&&f<8&&r>=0&&r<8?r*8+f:-1; }
++uint64_t bit(int s) { return uint64_t(1)<<s; }
++int king(const KdPosition& p,int c) { for(int s=0;s<64;++s)if(p.board[s]==piece(KD_K,c))return s;return -1; }
++bool capital(int s) { return (file(s)==3||file(s)==4)&&(rank(s)==3||rank(s)==4); }
++bool mark_tag(int t) { return t==KD_FREEZE||t==KD_WARD||t==KD_FIREWALL||t==KD_RESCUE; }
++bool spawn_tag(int t) { return t>=KD_SPAWN&&t<=KD_SPAWNK2; }
++bool returnable(int t) { return t!=KD_P&&t!=KD_K&&t!=KD_G; }
++bool in_deck(const KdConfig& c,int side,int card) { return std::find(c.hands[side].begin(),c.hands[side].end(),card)!=c.hands[side].end()||std::find(c.piles[side].begin(),c.piles[side].end(),card)!=c.piles[side].end(); }
++bool any_deck(const KdConfig& c,int card) { return in_deck(c,0,card)||in_deck(c,1,card); }
++bool draws_lost(const KdConfig& c,int side) { return c.kings[side]==KD_SACRIFICE||in_deck(c,side,KD_SACRIFICE)||in_deck(c,side,KD_SALVATION)||(in_deck(c,side,KD_MIRROR)&&(any_deck(c,KD_SACRIFICE)||any_deck(c,KD_SALVATION))); }
++int held(const KdConfig& c,int side,int drawn) { return int(c.hands[side].size())+drawn; }
++int card_at(const KdConfig& c,int side,int k) { return k<int(c.hands[side].size())?c.hands[side][k]:c.piles[side][k-c.hands[side].size()]; }
++bool has_card(const KdPosition& p,const KdConfig& c,int side,int card) { for(int k=0;k<held(c,side,p.drawn[side]);++k)if(card_at(c,side,k)==card&&!(p.used[side]>>k&1))return true;return false; }
++int power_uses(const KdConfig& c,int side) { int p=c.kings[side];return p>=KD_FREEZE&&p<=KD_LEAP?c.uses[p-1]:-1; }
++bool can_spend(const KdPosition& p,const KdConfig& c,int side) { if(!c.hands[side].empty())return (~p.used[side]&((1u<<held(c,side,p.drawn[side]))-1))!=0;int n=power_uses(c,side);return n<0?false:n==0?(c.kings[side]!=KD_MARCH&&c.kings[side]!=KD_LEAP):p.used[side]<uint32_t(n); }
++bool always(const KdConfig& c,int side,int power) { return c.kings[side]==power&&c.uses[power-1]==0; }
++bool can_capture(int attacker,int victim,const KdConfig& c) {
++ int a=type(attacker),side=color(attacker);
++ if(a==KD_G)return false;
++ if(victim==KD_G)return a==KD_K;
++ if(a==KD_K&&victim!=KD_G&&c.kings[side]==KD_MERCY&&!(c.balanced&&victim==KD_P))return false;
++ if(a==KD_P&&victim==KD_K&&c.kings[side^1]==KD_HOLYLIGHT)return false;
++ if(a==KD_K&&victim==KD_P&&c.kings[side]==KD_HOLYLIGHT&&!c.balanced)return false;
++ return victim!=KD_K||a!=KD_L;
++}
++int shelter(const KdPosition& p,int s,const KdConfig& c) {
++ int v=p.board[s];if(!v||type(v)==KD_K||!c.balanced)return 0;
++ int side=color(v),pw=c.kings[side],k=king(p,side);
++ if(k<0)return 0;int df=std::abs(file(k)-file(s)),dr=std::abs(rank(k)-rank(s));
++ if(pw==KD_MERCY&&std::max(df,dr)==1)return 3;
++ if(pw==KD_HOLYLIGHT&&df+dr==1)return 2;
++ return 0;
++}
++bool sheltered_capture(const KdPosition& p,KdAction a,const KdConfig& c) {
++ bool pawn=type(p.board[kd_from(a)])==KD_P;
++ for(int s=0;s<64;++s)if(a.victims&bit(s)) {int level=shelter(p,s,c);if(level==2||(level==3&&!pawn))return true;}
++ return false;
++}
++KdAction action(int from,int to,uint64_t victims=0,int power=0,int promo=0,uint32_t flags=0,uint64_t pushes=0) {
++ return KdAction(uint32_t(KD_ACTION)+(from<<SQUARE_BITS)+to+(promo<<(2*SQUARE_BITS+MOVE_TYPE_BITS)),victims,pushes,flags|power);
++}
++void pawn_move(std::vector<KdAction>& out,int from,int to,int side,uint64_t victims=0,int power=0) {
++ if(rank(to)==(side?0:7))for(int t:{KD_Q,KD_R,KD_B,KD_N})out.push_back(action(from,to,victims,power,t));
++ else out.push_back(action(from,to,victims,power));
++}
++void chain(const KdPosition& p,int from,int at,int side,uint64_t victims,std::set<std::pair<uint64_t,int>>& seen,std::vector<KdAction>& out) {
++ for(const auto& d:Dirs) {int to=step(at,d[0],d[1]);if(to<0||victims&bit(to))continue;int v=p.board[to];if(!v||color(v)==side||type(v)==KD_K||type(v)==KD_G)continue;
++ uint64_t next=victims|bit(to);if(!seen.emplace(next,to).second)continue;out.push_back(action(from,to,next));chain(p,from,to,side,next,seen,out);}
++}
++void raw_piece(const KdPosition& p,int from,const KdConfig& c,std::vector<KdAction>& out,int overridePiece=0) {
++ int pc=overridePiece?overridePiece:p.board[from],side=color(pc),t=type(pc);size_t begin=out.size();
++ auto leap=[&](const int deltas[][2],int count,bool quietOnly=false) {for(int i=0;i<count;++i) {int to=step(from,deltas[i][0],deltas[i][1]);if(to<0)continue;int v=p.board[to];if(!v)out.push_back(action(from,to));else if(!quietOnly&&color(v)!=side&&type(v)!=KD_K&&can_capture(pc,type(v),c))out.push_back(action(from,to,bit(to)));}};
++ auto slide=[&](int lo,int hi,bool jumpFriends=false) {for(int d=lo;d<hi;++d)for(int to=step(from,Dirs[d][0],Dirs[d][1]);to>=0;to=step(to,Dirs[d][0],Dirs[d][1])) {int v=p.board[to];if(!v){out.push_back(action(from,to));continue;}
++ if(color(v)==side&&(jumpFriends||(always(c,side,KD_LEAP)&&type(v)==KD_P)))continue;
++ if(color(v)!=side&&type(v)!=KD_K&&can_capture(pc,type(v),c))out.push_back(action(from,to,bit(to),0,0,t==KD_L&&type(v)!=KD_P?KD_REMOVE_FLAG:0));break;}};
++ if(t==KD_P) {
++  int dr=side?-1:1;bool dark=c.kings[side]==KD_DARKNESS;
++  if(dark) {for(int df:{-1,1}){int to=step(from,df,dr);if(to>=0&&!p.board[to])pawn_move(out,from,to,side);}int to=step(from,0,dr);
++   if(to>=0&&p.board[to]&&color(p.board[to])!=side&&type(p.board[to])!=KD_K&&can_capture(pc,type(p.board[to]),c))pawn_move(out,from,to,side,bit(to));}
++  if(!dark||c.balanced) {int one=step(from,0,dr);if(one>=0&&!p.board[one]) {pawn_move(out,from,one,side);int two=step(one,0,dr);if(two>=0&&!p.board[two]&&(rank(from)==(side?6:1)||always(c,side,KD_MARCH)))pawn_move(out,from,two,side);}}
++  if(!dark)for(int df:{-1,1}) {int to=step(from,df,dr);if(to>=0&&p.board[to]&&color(p.board[to])!=side&&type(p.board[to])!=KD_K&&can_capture(pc,type(p.board[to]),c))pawn_move(out,from,to,side,bit(to));}
++ } else if(t==KD_N||t==KD_V) {
++  leap(Knights,8);
++  if(t==KD_V)for(const auto& d:Knights){int victim=step(from,d[0],d[1]);if(victim<0||!p.board[victim]||color(p.board[victim])==side||type(p.board[victim])==KD_K||!can_capture(pc,type(p.board[victim]),c))continue;
++   for(int i=0;i<4;++i){int land=step(victim,Dirs[i][0],Dirs[i][1]);if(land>=0&&!p.board[land])out.push_back(action(from,land,bit(victim)));}}
++ } else if(t==KD_B)slide(4,8);else if(t==KD_R)slide(0,4);else if(t==KD_Q||t==KD_L||(t==KD_T&&capital(from)))slide(0,8,t==KD_L);
++ else if(t==KD_A) {
++  leap(Dirs,8,true);for(int d=0;d<8;++d) {if(d>=4&&Dirs[d][1]!=(side?-1:1))continue;int to=step(from,Dirs[d][0]*2,Dirs[d][1]*2);if(to>=0&&p.board[to]&&color(p.board[to])!=side&&type(p.board[to])!=KD_K&&can_capture(pc,type(p.board[to]),c))out.push_back(action(from,from,bit(to)));}
++ } else if(t==KD_S) {leap(Dirs,8,true);std::set<std::pair<uint64_t,int>> seen;chain(p,from,from,side,0,seen,out);}
++ else if(t==KD_G)leap(Dirs,8,true);
++ else if(t==KD_C) {
++  for(int d=0;d<4;++d){int s=step(from,Dirs[d][0],Dirs[d][1]);while(s>=0&&!p.board[s]){out.push_back(action(from,s));s=step(s,Dirs[d][0],Dirs[d][1]);}
++   if(s<0||color(p.board[s])==side)continue;s=step(s,Dirs[d][0],Dirs[d][1]);while(s>=0&&!p.board[s])s=step(s,Dirs[d][0],Dirs[d][1]);
++   if(s>=0&&color(p.board[s])!=side&&type(p.board[s])!=KD_K&&can_capture(pc,type(p.board[s]),c))out.push_back(action(from,from,bit(s)));}
++ } else if(t==KD_K&&c.kings[side]==KD_DEATHTOUCH) {
++  leap(Dirs,8,true);for(int d=0;d<8;++d){int to=step(from,Dirs[d][0],Dirs[d][1]);if(to<0)continue;
++   if(p.board[to]&&color(p.board[to])!=side&&type(p.board[to])!=KD_K&&can_capture(pc,type(p.board[to]),c))out.push_back(action(from,from,bit(to)));
++   if(c.balanced&&!p.board[to]&&Dirs[d][0]==0){int far=step(to,Dirs[d][0],Dirs[d][1]);if(far>=0&&p.board[far]&&color(p.board[far])!=side&&type(p.board[far])!=KD_K&&can_capture(pc,type(p.board[far]),c))out.push_back(action(from,from,bit(far)));}}
++ } else if(t==KD_K&&(c.kings[side]==KD_MERCY||(c.balanced&&c.kings[side]==KD_DARKNESS))) {
++  bool mercy=c.kings[side]==KD_MERCY;
++  for(const auto& d:Dirs){int one=step(from,d[0],d[1]);if(one<0)continue;int v=p.board[one];
++   if(v){if(color(v)!=side){if(type(v)!=KD_K&&can_capture(pc,type(v),c))out.push_back(action(from,one,bit(one)));continue;}if(!mercy)continue;}else out.push_back(action(from,one));
++   int two=step(one,d[0],d[1]);if(two>=0&&!p.board[two])out.push_back(action(from,two));}
++ } else {
++  leap(Dirs,8);
++  if(t==KD_M) {
++   for(const auto& d:Dirs){int to=step(from,d[0],d[1]);if(to>=0&&p.board[to]&&color(p.board[to])==side)out.push_back(action(from,to,0,0,0,KD_SWAP_FLAG));}
++   int k=king(p,side);if(k>=0&&rank(from)==(side?7:0)&&rank(k)==rank(from)&&std::abs(file(k)-file(from))>1)out.push_back(action(from,k,0,0,0,KD_SWAP_FLAG));
++  }
++  if(t==KD_O)for(const auto& d:Dirs){int s=step(from,d[0],d[1]);if(s<0||!p.board[s]||type(p.board[s])==KD_K)continue;int to=step(s,d[0],d[1]);if(to>=0&&!p.board[to])out.push_back(action(from,s,0,0,0,KD_SHOVE_FLAG|(to<<12)));}
++ }
++ // The borrowed piece's capture shelter uses the actual mover, as the reference wrapper does.
++ out.erase(std::remove_if(out.begin()+begin,out.end(),[&](KdAction a){return sheltered_capture(p,a,c);}),out.end());
++}
++bool plain_reach(KdAction a,int from,int to) {return kd_from(a)==from&&kd_to(a)==to&&to!=from&&!kd_swap(a)&&!kd_shove(a)&&!kd_self_remove(a)&&(!a.victims||a.victims==bit(to));}
++bool owns_reach(const std::vector<KdAction>& base,int from,int to) {for(auto a:base)if(plain_reach(a,from,to))return true;return false;}
++bool first_copy(const KdPosition& p,const KdConfig& c,int side,int k) {for(int j=0;j<k;++j)if(card_at(c,side,j)==card_at(c,side,k)&&!(p.used[side]>>j&1))return false;return true;}
++bool beside(const KdPosition& p,int at,int side) {for(const auto& d:Dirs){int s=step(at,d[0],d[1]);if(s>=0&&p.board[s]&&color(p.board[s])==side)return true;}return false;}
++void power_moves(int power,const KdPosition& p,const KdConfig& c,const std::vector<KdAction>& base,std::vector<KdAction>& out) {
++ int side=p.turn,dr=side?-1:1;
++ auto tag=[&](KdAction a){a.flags=(a.flags&~63u)|power;out.push_back(a);};
++ if(power==KD_FREEZE||power==KD_WARD) {for(int s=0;s<64;++s)if(p.board[s]&&type(p.board[s])!=KD_K&&((color(p.board[s])!=side)==(power==KD_FREEZE)))out.push_back(action(s,s,0,power));return;}
++ if(power==KD_HASTE||power==KD_RAGE||power==KD_RAGEB||power==KD_RALLY) {
++  for(auto a:base)if(!kd_self_remove(a)&&((power!=KD_RALLY&&(power!=KD_HASTE||!c.balanced))||!a.victims))tag(a);return;
++ }
++ if(power==KD_STRIKE||power==KD_BURN||power==KD_FIRESTARTER) {
++  for(int s=0;s<64;++s){int pc=p.board[s];if(!pc||color(pc)!=side||type(pc)==KD_K||(type(pc)==KD_P&&(power!=KD_STRIKE||c.balanced)))continue;
++   for(const auto& d:Dirs)for(int to=step(s,d[0],d[1]);to>=0;to=step(to,d[0],d[1])){int v=p.board[to];if(!v){if(power==KD_STRIKE&&!c.strikeCapture)out.push_back(action(s,to,0,power));continue;}
++    bool zone=power==KD_STRIKE?( !c.balanced ):power==KD_BURN?capital(to):rank(to)==(side?0:7);
++    if(zone&&color(v)!=side&&type(v)!=KD_K&&can_capture(pc,type(v),c)&&(power==KD_STRIKE||!owns_reach(base,s,to)))out.push_back(action(s,power==KD_STRIKE&&c.strikeCapture?s:to,bit(to),power));break;}
++  }return;
++ }
++ if(power==KD_FLIGHT) {for(int s=0;s<64;++s){int pc=p.board[s];if(!pc||color(pc)!=side||type(pc)==KD_K)continue;for(int to=side?32:0;to<(side?64:32);++to)if(!p.board[to]&&!(type(pc)==KD_P&&rank(to)==(side?7:0)))out.push_back(action(s,to,0,power));}return;}
++ if(power==KD_SACRIFICE||power==KD_SALVATION) {if(!p.lostPresent)return;for(int t=1;t<16;++t)if(returnable(t)&&p.lost[side*16+t]>0){if(power==KD_SACRIFICE){for(int s=0;s<64;++s)if(p.board[s]==piece(KD_P,side))out.push_back(action(s,s,0,power,t));}else for(int s=side?56:0;s<(side?64:8);++s)if(!p.board[s])out.push_back(action(s,s,0,power,0,t<<18));}return;}
++ if(power==KD_MARCH) {for(int s=0;s<64;++s)if(p.board[s]==piece(KD_P,side)&&rank(s)!=(side?6:1)){int one=step(s,0,dr),two=step(s,0,2*dr);if(one>=0&&two>=0&&!p.board[one]&&!p.board[two])pawn_move(out,s,two,side,0,power);}return;}
++ if(power==KD_LEAP||power==KD_VAULT) {
++  for(int s=0;s<64;++s){int pc=p.board[s],t=type(pc);if(!pc||color(pc)!=side||(t!=KD_R&&t!=KD_B&&t!=KD_Q))continue;
++   int lo=t==KD_B?4:0,hi=t==KD_R?4:8;
++   for(int d=lo;d<hi;++d){bool jumped=false;for(int to=step(s,Dirs[d][0],Dirs[d][1]);to>=0;to=step(to,Dirs[d][0],Dirs[d][1])){int v=p.board[to];if(!v){if(jumped&&(power!=KD_VAULT||!owns_reach(base,s,to)))out.push_back(action(s,to,0,power));continue;}
++    if(power==KD_VAULT?!jumped:color(v)==side&&type(v)==KD_P){jumped=true;continue;}
++    if(jumped&&color(v)!=side&&type(v)!=KD_K&&can_capture(pc,type(v),c)&&(power!=KD_VAULT||!owns_reach(base,s,to)))out.push_back(action(s,to,bit(to),power));break;}}
++  }return;
++ }
++ if(power==KD_MIMIC||power==KD_CONTROL) {
++  for(int s=0;s<64;++s){int pc=p.board[s],t=type(pc);if(!pc||color(pc)!=side||t==KD_K||t==KD_P)continue;std::set<int> lend;
++   if(power==KD_MIMIC){for(int q:p.board)if(q&&color(q)==side)lend.insert(type(q));}
++   else for(const auto& d:Dirs){int at=step(s,d[0],d[1]);if(at>=0&&p.board[at]&&color(p.board[at])==side)lend.insert(type(p.board[at]));}
++   lend.erase(KD_K);lend.erase(KD_P);lend.erase(t);std::set<std::pair<int,uint64_t>> seen;
++   for(int borrowed:lend){std::vector<KdAction> list;raw_piece(p,s,c,list,piece(borrowed,side));for(auto a:list){if(kd_swap(a)||kd_shove(a))continue;int to=kd_to(a);
++     if(power==KD_MIMIC&&(a.victims||kd_self_remove(a)||owns_reach(base,s,to)))continue;
++     bool bad=false;for(int v=0;v<64;++v)if(a.victims&bit(v))if(type(p.board[v])==KD_K||!can_capture(pc,type(p.board[v]),c))bad=true;
++     if(bad||(power==KD_CONTROL&&to!=s&&(!a.victims||a.victims==bit(to))&&owns_reach(base,s,to))||!seen.emplace(to,a.victims).second)continue;
++     a.flags&=~KD_REMOVE_FLAG;tag(a);}}
++  }return;
++ }
++ if(power==KD_CURSE) {for(int s=0;s<64;++s){int pc=p.board[s];if(!pc||color(pc)==side||type(pc)==KD_K)continue;for(const auto& d:Dirs){int to=step(s,d[0],d[1]);if(to>=0&&!p.board[to]&&!(type(pc)==KD_P&&(rank(to)==0||rank(to)==7)))out.push_back(action(s,to,0,power));}}return;}
++ if(power==KD_FIREWALL||power==KD_GROWTH||power==KD_GROWTHB){if(power!=KD_FIREWALL&&(p.drawn[side]>=int(c.piles[side].size())||held(c,side,p.drawn[side])>=8))return;int k=king(p,side);if(k>=0)out.push_back(action(k,k,0,power));return;}
++ if(power==KD_RESCUE){if(p.marks[side].sq>=0)out.push_back(action(p.marks[side].sq,p.marks[side].sq,0,power));return;}
++ if(power==KD_FIREWALLB){for(int s=0;s<64;++s){int pc=p.board[s];if(!pc||color(pc)!=side||type(pc)==KD_K)continue;for(const auto& d:Dirs){int to=step(s,d[0],d[1]);if(to<0)continue;int q=p.board[to];if(!q||color(q)==side||type(q)==KD_K)continue;if((type(pc)==KD_P&&(rank(to)==0||rank(to)==7))||(type(q)==KD_P&&(rank(s)==0||rank(s)==7)))continue;out.push_back(action(s,to,0,power,0,KD_SWAP_FLAG));}}return;}
++ if(power==KD_QUAKE||power==KD_QUAKEB){for(int at=0;at<64;++at){if(power==KD_QUAKEB&&!beside(p,at,side))continue;uint64_t pushes=0;for(const auto& d:Dirs){int s=step(at,d[0],d[1]);if(s<0||!p.board[s]||type(p.board[s])==KD_K)continue;int to=step(s,d[0],d[1]);if(to>=0&&!p.board[to]&&!(type(p.board[s])==KD_P&&(rank(to)==0||rank(to)==7)))pushes|=bit(s);}if(pushes)out.push_back(action(at,at,0,power,0,0,pushes));}return;}
++ if(power==KD_MORPH||power==KD_MORPHB){bool beast=false,guard=false;for(int q:p.board)if(q&&color(q)==side){beast|=type(q)==KD_S;guard|=type(q)==KD_G;}for(int s=0;s<64;++s){int pc=p.board[s];if(!pc||color(pc)!=side||type(pc)==KD_K||type(pc)==KD_P)continue;for(int t:{KD_Q,KD_O,KD_L,KD_R,KD_B,KD_N,KD_A,KD_G,KD_M,KD_S})if(t!=type(pc)&&!(t==KD_S&&beast)&&!(t==KD_G&&guard)&&!(t==KD_Q&&power==KD_MORPHB))out.push_back(action(s,s,0,power,t));}return;}
++ if(spawn_tag(power)){bool near=power==KD_SPAWNK||power==KD_SPAWNK2,two=power==KD_SPAWN2||power==KD_SPAWNK2;std::vector<int> targets;int k=king(p,side);for(int s=0;s<64;++s){if(p.board[s])continue;if(near){if(k<0||rank(s)==0||rank(s)==7||std::max(std::abs(file(s)-file(k)),std::abs(rank(s)-rank(k)))!=1)continue;}else if(rank(s)!=(side?6:1))continue;targets.push_back(s);}for(size_t i=0;i<targets.size();++i){int s=targets[i];if(!two)out.push_back(action(s,s,0,power,0,KD_P<<18));else for(size_t j=i+1;j<targets.size();++j)out.push_back(action(s,s,0,power,0,(KD_P<<18)|KD_DROP2_FLAG|(targets[j]<<23)));}return;}
++ if(power==KD_MORPHP){for(int s=0;s<64;++s)if(p.board[s]==piece(KD_P,side))for(int t:{KD_N,KD_B})out.push_back(action(s,s,0,power,t));return;}
++ if(power==KD_SKYLIFT||power==KD_MORPHS){for(int s=0;s<64;++s){int pc=p.board[s];if(!pc||color(pc)!=side||type(pc)==KD_K||type(pc)==KD_P)continue;for(int to=s+1;to<64;++to){int q=p.board[to];if(q&&color(q)==side&&type(q)!=KD_K&&type(q)!=KD_P&&type(q)!=type(pc))out.push_back(action(s,to,0,power,0,KD_SWAP_FLAG));}}return;}
++}
++int mark_kind(const KdConfig& c,int moving,int by,bool ward) {if(moving==by)return 0;if(!c.hands[by].empty())return ward?2:1;return c.kings[by]==KD_FREEZE?1:c.kings[by]==KD_WARD?2:0;}
++bool filter_mark(KdAction& a,const KdPosition& p,const KdConfig& c,int by,bool heldMark) {
++ const auto& mark=p.marks[by];if(mark.sq<0||mark.left==0)return true;int side=p.turn,power=kd_power(a);bool movingOwn=p.board[mark.sq]&&color(p.board[mark.sq])==side;
++ if(heldMark){if(c.hands[side].empty()||mark_kind(c,side^1,side,mark.ward)!=1)return true;
++  if((power==KD_CURSE&&kd_from(a)==mark.sq)||(power==KD_FIREWALLB&&kd_to(a)==mark.sq))return false;
++  if(!movingOwn&&p.board[mark.sq]&&(a.pushes&bit(mark.sq))){a.pushes&=~bit(mark.sq);return a.pushes!=0;}return true;
++ }
++ int kind=mark_kind(c,side,by,mark.ward);if(!kind)return true;
++ if(kind==1){if((kd_from(a)==mark.sq&&power!=KD_WARD&&power!=KD_FREEZE&&power!=KD_CURSE&&!kd_still(a)&&!kd_drop(a)&&!a.pushes)||(kd_swap(a)&&kd_to(a)==mark.sq&&power!=KD_FIREWALLB)||(kd_shove(a)&&kd_to(a)==mark.sq))return false;
++  if(movingOwn&&(a.pushes&bit(mark.sq))){a.pushes&=~bit(mark.sq);return a.pushes!=0;}return true;
++ }
++ return mark.all?!(a.victims||power==KD_CURSE||power==KD_FIREWALLB):!(a.victims&bit(mark.sq))&&!(power==KD_CURSE&&kd_from(a)==mark.sq)&&!(power==KD_FIREWALLB&&kd_to(a)==mark.sq);
++}
++bool may_play(const KdPosition& p,const KdConfig& c,int side,int card) {if(has_card(p,c,side,card)||(p.last[side^1]==card&&has_card(p,c,side,KD_MIRROR)))return true;if(has_card(p,c,side,KD_GROWTH)||has_card(p,c,side,KD_GROWTHB))return std::find(c.piles[side].begin()+p.drawn[side],c.piles[side].end(),card)!=c.piles[side].end();return false;}
++bool live_material(const KdPosition& p,const KdConfig& c,int side) {
++ if(c.hands[side].empty())return c.kings[side]==KD_STRIKE&&can_spend(p,c,side);
++ if(may_play(p,c,side,KD_STRIKE))return true;
++ if(p.lostPresent&&may_play(p,c,side,KD_SALVATION))for(int t=1;t<16;++t)if(returnable(t)&&p.lost[side*16+t]>0)return true;
++ if(may_play(p,c,side,KD_MORPH)||may_play(p,c,side,KD_MORPHB))for(int pc:p.board)if(pc&&color(pc)==side&&type(pc)!=KD_K)return true;
++ for(int card:{KD_SPAWN,KD_SPAWNK,KD_SPAWN2,KD_SPAWNK2})if(may_play(p,c,side,card))return true;return false;
++}
++uint64_t mix(uint64_t x) {x+=0x9e3779b97f4a7c15ULL;x=(x^(x>>30))*0xbf58476d1ce4e5b9ULL;x=(x^(x>>27))*0x94d049bb133111ebULL;return x^(x>>31);}
++void hash_part(uint64_t& h,uint64_t x) {h=mix(h^x);}
++std::string square(int s) {std::string x="a1";x[0]+=file(s);x[1]+=rank(s);return x;}
++int read_square(const std::string& x) {return x.size()>=2&&x[0]>='a'&&x[0]<='h'&&x[1]>='1'&&x[1]<='8'?(x[1]-'1')*8+x[0]-'a':-1;}
++std::vector<std::string> split(const std::string& x,char delim) {std::vector<std::string> out;std::istringstream ss(x);std::string part;while(std::getline(ss,part,delim))out.push_back(part);return out;}
++}
++bool kd_still(KdAction a) {int p=kd_power(a);return kd_pass(a)||mark_tag(p)||p==KD_GROWTH||p==KD_GROWTHB;}
++bool kd_holds(KdAction a,const KdConfig& c) {int p=kd_power(a);return p==KD_HASTE||p==KD_RAGE||p==KD_RAGEB||p==KD_RALLY||p==KD_GROWTHB||(c.balanced&&mark_tag(p));}
++Piece kd_native_piece(int pc) {
++ static const PieceType types[16]={NO_PIECE_TYPE,PAWN,KNIGHT,BISHOP,ROOK,QUEEN,KING,KD_ARCHER,KD_PALADIN,KD_GUARD,KD_MAESTER,KD_BEAST,KD_OGRE,KD_CATAPULT,KD_REAVER,KD_TEMPLAR};
++ return pc?make_piece(Color(color(pc)),types[type(pc)]):NO_PIECE;
++}
++int kd_reference_piece(Piece pc) {if(!pc)return 0;for(int t=1;t<16;++t)if(type_of(kd_native_piece(t))==type_of(pc))return piece(t,int(color_of(pc)));std::abort();}
++bool kd_attack(const KdPosition& p,int from,int target,const KdConfig& c) {
++ int pc=p.board[from],t=type(pc);if(!pc||from==target||t==KD_G)return false;int v=type(p.board[target]),level=shelter(p,target,c);
++ if(level==2||(level==3&&t!=KD_P)||(v&&!can_capture(pc,v,c)))return false;
++ int side=color(pc),df=file(target)-file(from),dr=rank(target)-rank(from),af=std::abs(df),ar=std::abs(dr);
++ if(t==KD_P)return c.kings[side]==KD_DARKNESS?df==0&&dr==(side?-1:1):af==1&&dr==(side?-1:1);
++ if(t==KD_N||t==KD_V)return af*ar==2;
++ if(t==KD_A)return (af==2&&!dr)||(!df&&ar==2)||(af==2&&dr==(side?-2:2));
++ if(t==KD_K&&c.kings[side]==KD_DEATHTOUCH&&c.balanced&&!df&&ar==2&&!p.board[step(from,0,(dr>0)-(dr<0))])return true;
++ if(t==KD_K||t==KD_S||t==KD_M||t==KD_O||(t==KD_T&&!capital(from)))return std::max(af,ar)==1;
++ bool diagonal=af==ar,orthogonal=!df||!dr;
++ if((t==KD_B&&!diagonal)||((t==KD_R||t==KD_C)&&!orthogonal)||((t==KD_Q||t==KD_L||t==KD_T)&&!diagonal&&!orthogonal))return false;
++ int sf=(df>0)-(df<0),sr=(dr>0)-(dr<0),screens=0;
++ for(int at=step(from,sf,sr);at!=target;at=step(at,sf,sr)){if(at<0)return false;int q=p.board[at];if(!q)continue;
++  if(color(q)==side&&(t==KD_L||((t==KD_R||t==KD_B||t==KD_Q)&&type(q)==KD_P&&always(c,side,KD_LEAP))))continue;
++  if(t!=KD_C||++screens>1||color(q)==side)return false;
++ }return t!=KD_C||screens==1;
++}
++bool kd_check(const KdPosition& p,int side,const KdConfig& c) {int k=king(p,side);if(k<0)return false;for(int s=0;s<64;++s)if(p.board[s]&&color(p.board[s])!=side&&kd_attack(p,s,k,c))return true;return false;}
++KdPosition kd_apply(const KdPosition& p,KdAction a,const KdConfig& c) {
++ KdPosition n=p;int from=kd_from(a),to=kd_to(a),side=p.turn,other=side^1,power=kd_power(a),mover=kd_drop(a)?piece(kd_drop(a),side):p.board[from];bool still=kd_still(a),hold=kd_holds(a,c);
++ if(!still){
++  if(draws_lost(c,0)||draws_lost(c,1)){n.lostPresent=true;for(int s=0;s<64;++s)if(a.victims&bit(s)){int v=p.board[s];++n.lost[color(v)*16+type(v)];}if(kd_self_remove(a))++n.lost[color(mover)*16+type(mover)];if(power==KD_SACRIFICE&&kd_promo(a))--n.lost[color(mover)*16+kd_promo(a)];if(power==KD_SALVATION&&kd_drop(a))--n.lost[color(mover)*16+kd_drop(a)];}
++  for(int s=0;s<64;++s)if(a.victims&bit(s))n.board[s]=0;
++  if(kd_shove(a)){n.board[kd_shove_to(a)]=n.board[to];n.board[to]=0;}
++  if(a.pushes){for(int s=0;s<64;++s)if(a.pushes&bit(s)){int destination=step(s,file(s)-file(from),rank(s)-rank(from));n.board[destination]=n.board[s];n.board[s]=0;}}
++  else {n.board[from]=kd_swap(a)?p.board[to]:0;n.board[to]=kd_self_remove(a)?0:kd_promo(a)?piece(kd_promo(a),color(mover)):mover;if(kd_has_drop2(a))n.board[kd_drop2(a)]=mover;}
++ }
++ bool pawnReset=!kd_drop(a)&&type(mover)==KD_P;
++ if(a.pushes){pawnReset=false;for(int s=0;s<64;++s)if((a.pushes&bit(s))&&type(p.board[s])==KD_P)pawnReset=true;}
++ n.halfmove=!still&&(a.victims||pawnReset)?0:p.halfmove+1;n.turn=hold?side:other;n.ply=p.ply+1;n.move=p.move+(!hold&&side==1);
++ if(power){if(c.hands[side].empty())++n.used[side];else {int spent=kd_via(a)==1?KD_MIRROR:kd_via(a)==2?KD_MIRRORB:power;for(int k=0;k<held(c,side,p.drawn[side]);++k)if(card_at(c,side,k)==spent&&!(p.used[side]>>k&1)){n.used[side]|=1u<<k;break;}}}
++ if(p.marks[other].sq>=0&&!hold){int left=p.marks[other].left-1;if(left>=0&&(left>0||(c.markTurns==1&&any_deck(c,KD_RESCUE))))n.marks[other].left=left;else n.marks[other]=KdMark{};}
++ if(p.marks[side].sq>=0&&p.marks[side].left==0&&!hold)n.marks[side]=KdMark{};
++ n.free=false;n.haste=-1;n.rage=0;
++ if(mark_tag(power)){if(power==KD_RESCUE){n.marks[side]=p.marks[side];n.marks[side].left=p.marks[side].left==0?1:p.marks[side].left+1;}else {n.marks[side]=KdMark{};n.marks[side].sq=to;n.marks[side].left=c.markTurns;n.marks[side].ward=(power==KD_WARD||power==KD_FIREWALL)&&!c.hands[side].empty();n.marks[side].all=power==KD_FIREWALL;}if(c.balanced)n.free=true;}
++ if(power==KD_GROWTHB)n.free=true;
++ if(power==KD_HASTE||power==KD_RAGE||power==KD_RAGEB||power==KD_RALLY){n.haste=to;n.rage=power==KD_RAGE?1:power==KD_RAGEB?2:power==KD_RALLY?3:0;}
++ if(power==KD_GROWTH||power==KD_GROWTHB)++n.drawn[side];
++ if(power&&!c.hands[side].empty()&&any_deck(c,KD_MIRROR))n.last[side]=power;
++ if(kd_drop(a)&&!power)--n.waiting[side];
++ return n;
++}
++bool kd_legal(const KdPosition& p,KdAction a,const KdConfig& c) {return !kd_check(kd_apply(p,a,c),p.turn,c);}
++KdPosition kd_apply_turn(const KdPosition& p,Move m,const KdConfig& c) {KdPosition n=kd_apply(p,first_action(m),c);return m.follow.data?kd_apply(n,m.follow,c):n;}
++std::vector<KdAction> kd_actions(const KdPosition& p,const KdConfig& c,bool legal) {
++ std::vector<KdAction> base,out;int side=p.turn;
++ if(p.haste>=0){
++  if(p.rage==3){for(int s=0;s<64;++s)if(s!=p.haste&&p.board[s]&&color(p.board[s])==side)raw_piece(p,s,c,base);for(auto a:base)if(!a.victims&&!(kd_swap(a)&&kd_to(a)==p.haste)&&!(kd_shove(a)&&kd_to(a)==p.haste))out.push_back(a);}
++  else if(p.board[p.haste]){raw_piece(p,p.haste,c,base);for(auto a:base)if(!(p.rage==2&&!a.victims)&&!(!p.rage&&(c.balanced||c.hasteQuiet)&&a.victims))out.push_back(a);}
++  out.push_back(action(p.haste,p.haste,0,0,0,KD_PASS_FLAG));
++ }else {
++  for(int s=0;s<64;++s)if(p.board[s]&&color(p.board[s])==side)raw_piece(p,s,c,base);
++  out=base;
++  if(p.free){int k=king(p,side);if(k>=0)out.push_back(action(k,k,0,0,0,KD_PASS_FLAG));}
++  else if(can_spend(p,c,side)) {
++   auto generate=[&](int card,int via=0){if(p.move<c.fromMove[card])return;size_t begin=out.size();power_moves(card,p,c,base,out);for(size_t i=begin;i<out.size();++i)out[i].flags|=uint32_t(via)<<6;};
++   if(c.hands[side].empty()){if(c.kings[side])generate(c.kings[side]);}
++   else for(int k=0;k<held(c,side,p.drawn[side]);++k){if(p.used[side]>>k&1||!first_copy(p,c,side,k))continue;int card=card_at(c,side,k);if(p.move<c.fromMove[card])continue;
++    if(card==KD_MIRROR){if(p.last[side^1])generate(p.last[side^1],1);}
++    else if(card==KD_MIRRORB){for(int j=0;j<held(c,side,p.drawn[side]);++j){int copied=card_at(c,side,j);if(!(p.used[side]>>j&1)&&copied!=KD_MIRROR&&copied!=KD_MIRRORB&&first_copy(p,c,side,j))generate(copied,2);}}
++    else generate(card);
++   }
++  }
++ }
++ out.erase(std::remove_if(out.begin(),out.end(),[&](KdAction& a){return sheltered_capture(p,a,c)||!filter_mark(a,p,c,side^1,false)||!filter_mark(a,p,c,side,true)||(legal&&!kd_legal(p,a,c));}),out.end());
++ // Paths and borrowed shapes collapse only when every portable effect field agrees.
++ std::set<std::tuple<uint32_t,uint32_t,uint64_t,uint64_t>> seen;
++ out.erase(std::remove_if(out.begin(),out.end(),[&](KdAction a){return !seen.emplace(a.data,a.flags,a.victims,a.pushes).second;}),out.end());
++ return out;
++}
++bool kd_material_draw(const KdPosition& p,const KdConfig& c) {
++ int minors[2]={};for(int pc:p.board){if(!pc)continue;int t=type(pc);if(t==KD_P||t==KD_R||t==KD_Q||t==KD_A||t==KD_M||t==KD_S||t==KD_O||t==KD_C||t==KD_T)return false;if(t==KD_N||t==KD_B||t==KD_V)++minors[color(pc)];}
++ return minors[0]<=1&&minors[1]<=1&&!live_material(p,c,0)&&!live_material(p,c,1);
++}
++int kd_terminal(const KdPosition& p,const KdConfig& c) {if(king(p,p.turn)<0)return 1;if(kd_actions(p,c).empty())return kd_check(p,p.turn,c)?1:2;if(p.halfmove>=100)return 3;if(kd_material_draw(p,c))return 4;return 0;}
++std::vector<Move> kd_turns(const KdPosition& p,const KdConfig& c) {
++ std::vector<Move> out;
++ for(auto a:kd_actions(p,c)){if(!kd_holds(a,c)){out.emplace_back(a);continue;}auto n=kd_apply(p,a,c);auto follow=kd_actions(n,c);
++  // A draw or mate after the first action ends the game before a follow-up.
++  if(follow.empty()||n.halfmove>=100||kd_material_draw(n,c)){out.emplace_back(a);continue;}
++  for(auto b:follow){assert(!kd_holds(b,c));out.emplace_back(a,b);}
++ }return out;
++}
++uint64_t kd_state_key(const KdPosition& p,const KdConfig& c) {
++ uint64_t h=c.hash;
++ for(int side=0;side<2;++side){hash_part(h,side+1);hash_part(h,!c.hands[side].empty()?p.used[side]&255:power_uses(c,side)>0?p.used[side]:0);
++  if(draws_lost(c,side))for(int t=1;t<16;++t)hash_part(h,p.lost[side*16+t]);hash_part(h,p.waiting[side]);hash_part(h,any_deck(c,KD_MIRROR)?p.last[side]:0);hash_part(h,p.drawn[side]);
++  const auto& m=p.marks[side];hash_part(h,m.sq+1);if(m.sq>=0){hash_part(h,m.left);hash_part(h,m.ward);hash_part(h,m.all);}}
++ hash_part(h,p.free);hash_part(h,p.haste+1);hash_part(h,p.rage);return h;
++}
++uint64_t kd_availability_key(const KdPosition& p,const KdConfig& c) {uint64_t h=0;for(int card=1;card<KD_POWER_NB;++card)if(c.fromMove[card]>0&&p.move<c.fromMove[card])h^=mix(uint64_t(card)*0x100000000ULL+uint64_t(c.fromMove[card]-p.move));return h;}
++std::string kd_token(KdAction a) {std::ostringstream s;s<<"@"<<std::hex<<a.data<<":"<<a.flags<<":"<<a.victims<<":"<<a.pushes;return s.str();}
++bool kd_read_token(const std::string& text,KdAction& a) {
++ if(text.empty()||text[0]!='@')return false;auto parts=split(text.substr(1),':');if(parts.size()!=4)return false;uint64_t values[4];
++ for(int i=0;i<4;++i){if(parts[i].empty()||parts[i].size()>16)return false;char* end=nullptr;values[i]=std::strtoull(parts[i].c_str(),&end,16);if(*end)return false;}
++ if(values[0]>std::numeric_limits<uint32_t>::max()||values[1]>std::numeric_limits<uint32_t>::max())return false;
++ a=KdAction(uint32_t(values[0]),values[2],values[3],uint32_t(values[1]));return type_of(Move(a))==KD_ACTION&&kd_power(a)<KD_POWER_NB&&kd_via(a)<=2;
++}
++bool kd_config(const std::string& text,KdConfig& result,std::string& error) {
++ auto fail=[&](const std::string& message){error=message;return false;};std::istringstream stream(text);std::vector<std::string> args;std::string token;while(stream>>token)args.push_back(token);if(args.size()!=12)return fail("expected twelve configuration fields");
++ auto integer=[&](const std::string& word,int lo,int hi,int& value){if(word.empty())return false;char* end=nullptr;long n=std::strtol(word.c_str(),&end,10);if(*end||n<lo||n>hi)return false;value=int(n);return true;};
++ KdConfig c;int profile;if(!integer(args[0],0,1,profile)||!integer(args[1],0,12,c.kings[0])||!integer(args[2],0,12,c.kings[1]))return fail("invalid profile or king power");c.balanced=profile;
++ auto counts=split(args[3],',');if(counts.size()!=8)return fail("expected eight use limits");for(int i=0;i<8;++i)if(!integer(counts[i],i<6?1:0,6,c.uses[i]))return fail("invalid use limit");
++ for(int field=4;field<8;++field){auto& deck=field<6?c.hands[field-4]:c.piles[field-6];if(args[field]!="-")for(const auto& word:split(args[field],',')){int card;if(!integer(word,1,KD_POWER_NB-1,card)||(card>=KD_HOLYLIGHT&&card<=KD_DARKNESS))return fail("invalid card name");deck.push_back(card);}if(deck.size()>(field<6?8u:64u))return fail("deck exceeds the supported contract");}
++ if(args[8]!="-")for(const auto& entry:split(args[8],',')){auto pair=split(entry,':');int card,move;if(pair.size()!=2||!integer(pair[0],1,KD_POWER_NB-1,card)||!integer(pair[1],0,1000000,move)||(card>=KD_HOLYLIGHT&&card<=KD_DARKNESS))return fail("invalid delayed-card limit");c.fromMove[card]=move;}
++ int strike,quiet;if(!integer(args[9],1,2,c.markTurns)||!integer(args[10],0,1,strike)||!integer(args[11],0,1,quiet))return fail("invalid power reading");c.strikeCapture=strike;c.hasteQuiet=quiet;
++ for(int side=0;side<2;++side){int power=c.kings[side];bool spendable=power>=KD_FREEZE&&power<=KD_LEAP&&!((power==KD_MARCH||power==KD_LEAP)&&c.uses[power-1]==0);if(!c.hands[side].empty()&&spendable)return fail("a hand cannot replace a spendable king power");if(power&&!spendable&&c.fromMove[power])return fail("an always-on king power cannot wait for a move");}
++ uint64_t h=0x4b696e67446f776eULL;hash_part(h,profile);for(int side=0;side<2;++side){hash_part(h,c.kings[side]);for(int card:c.hands[side])hash_part(h,card);hash_part(h,255);for(int card:c.piles[side])hash_part(h,card);hash_part(h,256);}for(int use:c.uses)hash_part(h,use);for(int move:c.fromMove)hash_part(h,move);hash_part(h,c.markTurns);hash_part(h,c.strikeCapture);hash_part(h,c.hasteQuiet);c.hash=h;result=c;return true;
++}
++std::string kd_registry() {std::string out;for(int i=1;i<KD_POWER_NB;++i){if(i>1)out+='.';out+=Names[i];}return out;}
++bool kd_valid_state(const KdPosition& p,const KdConfig& c,std::string& error) {
++ for(int side=0;side<2;++side){
++  if(p.drawn[side]<0||p.drawn[side]>int(c.piles[side].size())||held(c,side,p.drawn[side])>8){error="drawn cards exceed the pile or hand capacity";return false;}
++  if(!c.hands[side].empty() && (p.used[side] >> held(c,side,p.drawn[side]))){error="spent card is outside the held hand";return false;}
++ }
++ return true;
++}
++namespace {
++[[noreturn]] void bad_fen() {std::fputs("Invalid King Down FEN state\n",stderr);std::exit(EXIT_FAILURE);}
++int numeric(const std::string& word,int maximum=1000000) {if(word.empty())bad_fen();char* end=nullptr;long value=std::strtol(word.c_str(),&end,10);if(*end||value<0||value>maximum)bad_fen();return int(value);}
++void read_pair(const std::string& word,int& a,int& b) {auto pair=split(word,'.');if(pair.size()!=2)bad_fen();a=numeric(pair[0]);b=numeric(pair[1]);}
++int name_index(const std::string& name) {if(name.empty())return 0;for(int i=1;i<KD_POWER_NB;++i)if((i<9||i>12)&&name==Names[i])return i;bad_fen();}
++}
++KdPosition kd_parse_fen(const std::string& fen) {
++ KdPosition p;std::istringstream ss(fen);std::string board,turn,castling,ep,half,move,state,extra;
++ if(!(ss>>board>>turn>>castling>>ep>>half>>move)||castling!="-"||ep!="-"||(turn!="w"&&turn!="b"))bad_fen();ss>>state;if(ss>>extra)bad_fen();
++ auto rows=split(board,'/');if(rows.size()!=8)bad_fen();for(int row=0;row<8;++row){int f=0;for(char symbol:rows[row]){if(symbol>='1'&&symbol<='8'){f+=symbol-'0';continue;}char upper=char(std::toupper(static_cast<unsigned char>(symbol)));const char* found=std::strchr(Letters,upper);if(!found||found==Letters||f>=8)bad_fen();int t=int(found-Letters);p.board[(7-row)*8+f++]=uint8_t(piece(t,std::islower(static_cast<unsigned char>(symbol))?1:0));}if(f!=8)bad_fen();}
++ p.turn=turn=="b";p.halfmove=numeric(half);p.move=numeric(move);if(p.move<1)bad_fen();p.ply=(p.move-1)*2+p.turn;
++ if(state=="w"||state=="b"||state=="wb"){p.used[0]=state.find('w')!=std::string::npos;p.used[1]=state.find('b')!=std::string::npos;return p;}
++ for(const auto& field:split(state,'/')){if(field.empty())bad_fen();std::string rest=field.substr(1);
++  if(field[0]=='u'){int a,b;read_pair(rest,a,b);p.used[0]=a;p.used[1]=b;}
++  else if(field[0]=='m'){if(rest.size()<3||(rest[2]!='w'&&rest[2]!='b'))bad_fen();int by=rest[2]=='b';auto& m=p.marks[by];m.sq=read_square(rest);if(m.sq<0)bad_fen();bool all=rest.size()>3&&rest[3]=='a',ward=all||(rest.size()>3&&rest[3]=='i');m.all=all;m.ward=ward;std::string left=rest.substr(ward?4:3);m.left=left.empty()?1:numeric(left,1000);}
++  else if(field[0]=='f'){if(!rest.empty())bad_fen();p.free=true;}
++  else if(field[0]=='h'){p.haste=read_square(rest);if(p.haste<0||rest.size()>3)bad_fen();if(rest.size()==3){auto at=std::string("rto").find(rest[2]);if(at==std::string::npos)bad_fen();p.rage=int(at)+1;}}
++  else if(field[0]=='l'){p.lostPresent=true;if(rest.size()>4096)bad_fen();for(char symbol:rest){const char* found=std::strchr(Letters,char(std::toupper(static_cast<unsigned char>(symbol))));if(!found||found==Letters)bad_fen();++p.lost[(std::islower(static_cast<unsigned char>(symbol))?16:0)+int(found-Letters)];}}
++  else if(field[0]=='d')read_pair(rest,p.drawn[0],p.drawn[1]);
++  else if(field[0]=='g')read_pair(rest,p.waiting[0],p.waiting[1]);
++  else if(field[0]=='y'){auto dot=rest.find('.');if(dot==std::string::npos)bad_fen();p.last[0]=name_index(rest.substr(0,dot));p.last[1]=name_index(rest.substr(dot+1));}
++  else bad_fen();
++ }
++ return p;
++}
++std::string kd_fen(const KdPosition& p) {
++ std::ostringstream out;for(int r=7;r>=0;--r){if(r!=7)out<<'/';int empty=0;for(int f=0;f<8;++f){int pc=p.board[r*8+f];if(!pc){++empty;continue;}if(empty){out<<empty;empty=0;}char letter=Letters[type(pc)];out<<char(color(pc)?std::tolower(static_cast<unsigned char>(letter)):letter);}if(empty)out<<empty;}
++ out<<(p.turn?" b - - ":" w - - ")<<p.halfmove<<' '<<p.move;std::vector<std::string> fields;
++ if(p.used[0]||p.used[1])fields.push_back("u"+std::to_string(p.used[0])+"."+std::to_string(p.used[1]));
++ for(int by=0;by<2;++by){const auto& m=p.marks[by];if(m.sq<0)continue;std::string mark="m"+square(m.sq)+(by?"b":"w")+(m.all?"a":m.ward?"i":"");if(m.left!=1)mark+=std::to_string(m.left);fields.push_back(mark);}
++ if(p.free)fields.push_back("f");if(p.haste>=0)fields.push_back("h"+square(p.haste)+(p.rage?std::string(1," rto"[p.rage]):""));
++ if(p.lostPresent){std::string lost="l";for(int side=0;side<2;++side)for(int t=1;t<16;++t)for(int n=0;n<p.lost[side*16+t];++n)lost+=char(side?std::tolower(static_cast<unsigned char>(Letters[t])):Letters[t]);fields.push_back(lost);}
++ if(p.waiting[0]||p.waiting[1])fields.push_back("g"+std::to_string(p.waiting[0])+"."+std::to_string(p.waiting[1]));
++ if(p.last[0]||p.last[1])fields.push_back(std::string("y")+Names[p.last[0]]+"."+Names[p.last[1]]);
++ if(p.drawn[0]||p.drawn[1])fields.push_back("d"+std::to_string(p.drawn[0])+"."+std::to_string(p.drawn[1]));
++ for(size_t i=0;i<fields.size();++i)out<<(i?'/':' ')<<fields[i];return out.str();
++}
++} // namespace Stockfish
+diff --git a/src/kingdown_full.h b/src/kingdown_full.h
+new file mode 100644
+index 0000000..0c4686c
+--- /dev/null
++++ b/src/kingdown_full.h
+@@ -0,0 +1,76 @@
++// King Down's fixed rules and complete public power/card state. GPLv3 or later.
++#ifndef KINGDOWN_FULL_H_INCLUDED
++#define KINGDOWN_FULL_H_INCLUDED
++#include <array>
++#include <string>
++#include <vector>
 +#include "types.h"
 +namespace Stockfish {
-+inline Square kd_step(Square s, int df, int dr) {
-+  int f = int(file_of(s)) + df, r = int(rank_of(s)) + dr;
-+  return f >= 0 && f < 8 && r >= 0 && r < 8 ? make_square(File(f), Rank(r)) : SQ_NONE;
-+}
-+inline bool kd_capital(Square s) {
-+  return (file_of(s) == FILE_D || file_of(s) == FILE_E) && (rank_of(s) == RANK_4 || rank_of(s) == RANK_5);
-+}
-+inline bool kd_can_capture(PieceType attacker, PieceType victim) {
-+  return attacker != KD_GUARD && (victim != KD_GUARD || attacker == KING)
-+      && (victim != KING || attacker != KD_PALADIN);
-+}
++enum KdPiece { KD_P=1, KD_N, KD_B, KD_R, KD_Q, KD_K, KD_A, KD_L, KD_G, KD_M, KD_S, KD_O, KD_C, KD_V, KD_T };
++enum KdPower { KD_NONE, KD_FREEZE, KD_WARD, KD_STRIKE, KD_HASTE, KD_FLIGHT, KD_SACRIFICE,
++  KD_MARCH, KD_LEAP, KD_HOLYLIGHT, KD_MERCY, KD_DEATHTOUCH, KD_DARKNESS,
++  KD_MIMIC, KD_VAULT, KD_CURSE, KD_SKYLIFT, KD_SALVATION, KD_RAGE, KD_RAGEB,
++  KD_MIRROR, KD_MIRRORB, KD_FIREWALL, KD_FIREWALLB, KD_QUAKE, KD_QUAKEB,
++  KD_BURN, KD_FIRESTARTER, KD_CONTROL, KD_RESCUE, KD_GROWTH, KD_GROWTHB,
++  KD_RALLY, KD_MORPH, KD_MORPHB, KD_SPAWN, KD_SPAWNK, KD_SPAWN2, KD_SPAWNK2, KD_MORPHP, KD_MORPHS, KD_POWER_NB };
++constexpr uint32_t KD_SWAP_FLAG=1u<<8, KD_REMOVE_FLAG=1u<<9, KD_PASS_FLAG=1u<<10,
++  KD_SHOVE_FLAG=1u<<11, KD_DROP2_FLAG=1u<<22;
++struct KdConfig {
++  bool balanced=false;
++  std::array<int,2> kings{};
++  std::vector<int> hands[2], piles[2];
++  std::array<int,8> uses{{2,2,1,1,1,1,3,3}};
++  std::array<int,KD_POWER_NB> fromMove{};
++  int markTurns=1;
++  bool strikeCapture=false; // false = queen movement; true = stationary capture
++  bool hasteQuiet=false;
++  uint64_t hash=0;
++};
++struct KdMark { int sq=-1, left=1; bool ward=false, all=false; };
++struct KdPosition {
++  std::array<uint8_t,64> board{};
++  int turn=0, halfmove=0, move=1, ply=0;
++  std::array<uint32_t,2> used{};
++  std::array<KdMark,2> marks{};
++  bool free=false, lostPresent=false;
++  int haste=-1, rage=0;
++  std::array<int,32> lost{};
++  std::array<int,2> drawn{}, last{}, waiting{};
++};
++inline int kd_from(KdAction a) { return (a.data>>SQUARE_BITS)&63; }
++inline int kd_to(KdAction a) { return a.data&63; }
++inline int kd_promo(KdAction a) { return (a.data>>(2*SQUARE_BITS+MOVE_TYPE_BITS))&15; }
++inline int kd_power(KdAction a) { return a.flags&63; }
++inline int kd_via(KdAction a) { return (a.flags>>6)&3; }
++inline int kd_drop(KdAction a) { return (a.flags>>18)&15; }
++inline int kd_shove_to(KdAction a) { return (a.flags>>12)&63; }
++inline int kd_drop2(KdAction a) { return (a.flags>>23)&63; }
++inline bool kd_swap(KdAction a) { return a.flags&KD_SWAP_FLAG; }
++inline bool kd_self_remove(KdAction a) { return a.flags&KD_REMOVE_FLAG; }
++inline bool kd_pass(KdAction a) { return a.flags&KD_PASS_FLAG; }
++inline bool kd_shove(KdAction a) { return a.flags&KD_SHOVE_FLAG; }
++inline bool kd_has_drop2(KdAction a) { return a.flags&KD_DROP2_FLAG; }
++bool kd_still(KdAction a);
++bool kd_holds(KdAction a, const KdConfig& cfg);
++bool kd_config(const std::string& text, KdConfig& cfg, std::string& error);
++std::string kd_registry();
++bool kd_valid_state(const KdPosition& p, const KdConfig& cfg, std::string& error);
++KdPosition kd_parse_fen(const std::string& fen);
++std::string kd_fen(const KdPosition& p);
++std::string kd_token(KdAction a);
++bool kd_read_token(const std::string& text, KdAction& a);
++Piece kd_native_piece(int piece);
++int kd_reference_piece(Piece piece);
++bool kd_attack(const KdPosition& p, int from, int target, const KdConfig& cfg);
++bool kd_check(const KdPosition& p, int side, const KdConfig& cfg);
++bool kd_legal(const KdPosition& p, KdAction a, const KdConfig& cfg);
++KdPosition kd_apply(const KdPosition& p, KdAction a, const KdConfig& cfg);
++KdPosition kd_apply_turn(const KdPosition& p, Move m, const KdConfig& cfg);
++std::vector<KdAction> kd_actions(const KdPosition& p, const KdConfig& cfg, bool legal=true);
++std::vector<Move> kd_turns(const KdPosition& p, const KdConfig& cfg);
++bool kd_material_draw(const KdPosition& p, const KdConfig& cfg);
++int kd_terminal(const KdPosition& p, const KdConfig& cfg); // 0 playing, 1 mate, 2 stale, 3 fifty, 4 material
++uint64_t kd_state_key(const KdPosition& p, const KdConfig& cfg);
++uint64_t kd_availability_key(const KdPosition& p, const KdConfig& cfg);
 +}
 +#endif
 diff --git a/src/movegen.cpp b/src/movegen.cpp
-index a7b6a9f..a3ce69b 100644
+index a7b6a9f..50e0bbf 100644
 --- a/src/movegen.cpp
 +++ b/src/movegen.cpp
 @@ -17,8 +17,12 @@
@@ -35,103 +468,14 @@ index a7b6a9f..a3ce69b 100644
 +#include <cstdlib>
  
  #include "movegen.h"
-+#include "kingdown.h"
++#include "kingdown_full.h"
  #include "position.h"
  
  namespace Stockfish {
-@@ -525,4 +529,121 @@ ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList) {
+@@ -525,4 +529,32 @@ ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList) {
    return moveList;
  }
  
-+namespace {
-+void kd_chain(const Position& pos, std::vector<ExtMove>& moves, Square from, Square at,
-+              Bitboard victims, std::set<std::pair<uint64_t, int>>& seen) {
-+  Bitboard targets = attacks_bb<KING>(at) & pos.pieces(~pos.side_to_move())
-+                   & ~pos.pieces(KING) & ~pos.pieces(KD_GUARD) & ~victims;
-+  while (targets) {
-+    Square to = pop_lsb(targets);
-+    Bitboard next = victims | to;
-+    if (!seen.emplace(uint64_t(next), int(to)).second) continue;
-+    moves.push_back({make_kingdown(KD_CHAIN, from, to, next), 0});
-+    kd_chain(pos, moves, from, to, next, seen);
-+  }
-+}
-+void kd_generate(const Position& pos, std::vector<ExtMove>& moves) {
-+  Color us = pos.side_to_move();
-+  auto add = [&](Move m) { moves.push_back({m, 0}); };
-+  for (Bitboard b = pos.pieces(us); b;) {
-+    Square from = pop_lsb(b);
-+    PieceType pt = type_of(pos.piece_on(from));
-+    if (pt == PAWN) {
-+      int dr = us == WHITE ? 1 : -1;
-+      auto pawn = [&](Square to) {
-+        if (rank_of(to) == (us == WHITE ? RANK_8 : RANK_1))
-+          for (PieceType promotion : {KNIGHT, BISHOP, ROOK, QUEEN}) add(make<PROMOTION>(from, to, promotion));
-+        else add(make_move(from, to));
-+      };
-+      Square one = kd_step(from, 0, dr);
-+      if (is_ok(one) && pos.empty(one)) {
-+        pawn(one);
-+        Square two = kd_step(one, 0, dr);
-+        if (rank_of(from) == (us == WHITE ? RANK_2 : RANK_7) && is_ok(two) && pos.empty(two)) pawn(two);
-+      }
-+      for (int df : {-1, 1}) {
-+        Square to = kd_step(from, df, dr);
-+        if (is_ok(to) && !pos.empty(to) && color_of(pos.piece_on(to)) != us
-+            && type_of(pos.piece_on(to)) != KING && kd_can_capture(PAWN, type_of(pos.piece_on(to)))) pawn(to);
-+      }
-+      continue;
-+    }
-+    for (Square to = SQ_A1; to < SQUARE_NB; ++to) {
-+      if (to == from) continue;
-+      Piece victim = pos.piece_on(to);
-+      int df = int(file_of(to)) - int(file_of(from)), dr = int(rank_of(to)) - int(rank_of(from));
-+      bool adjacent = std::max(std::abs(df), std::abs(dr)) == 1;
-+      if (pt == KD_ARCHER || pt == KD_BEAST || pt == KD_GUARD) {
-+        if (!victim && adjacent) add(make_move(from, to));
-+        if (pt == KD_ARCHER && victim && color_of(victim) != us && type_of(victim) != KING
-+            && pos.kingdown_attacks(from, to, pos.pieces())) add(make_kingdown(KD_SHOT, from, from, square_bb(to)));
-+        continue;
-+      }
-+      if (pt == KD_CATAPULT) {
-+        if (victim && color_of(victim) != us && type_of(victim) != KING
-+            && pos.kingdown_attacks(from, to, pos.pieces())) add(make_kingdown(KD_SHOT, from, from, square_bb(to)));
-+        if (!victim && (df == 0 || dr == 0)) {
-+          int sf = (df > 0) - (df < 0), sr = (dr > 0) - (dr < 0);
-+          Square at = kd_step(from, sf, sr);
-+          while (at != to && pos.empty(at)) at = kd_step(at, sf, sr);
-+          if (at == to) add(make_move(from, to));
-+        }
-+        continue;
-+      }
-+      if (pt == KD_MAESTER && victim && color_of(victim) == us
-+          && (adjacent || (type_of(victim) == KING && rank_of(from) == (us == WHITE ? RANK_1 : RANK_8) && rank_of(to) == rank_of(from))))
-+        add(make_kingdown(KD_SWAP, from, to, 0));
-+      if (pt == KD_OGRE && victim && adjacent && type_of(victim) != KING) {
-+        Square pushed = kd_step(to, df, dr);
-+        if (is_ok(pushed) && pos.empty(pushed)) add(make_gating<KD_PUSH>(from, to, NO_PIECE_TYPE, pushed));
-+      }
-+      if (victim && (color_of(victim) == us || type_of(victim) == KING)) continue;
-+      // Paladin quiet rays skip friends, unlike its target-sensitive attack predicate.
-+      bool reachable = pos.kingdown_attacks(from, to, pos.pieces());
-+      if (pt == KD_PALADIN && !victim) reachable = pos.kingdown_attacks(from, to, pos.pieces());
-+      if (!reachable) continue;
-+      if (pt == KD_PALADIN && victim && type_of(victim) != PAWN)
-+        add(make_kingdown(KD_REMOVE, from, to, square_bb(to)));
-+      else add(make_move(from, to));
-+      if (pt == KD_REAVER && victim) for (auto delta : {std::pair<int,int>{1,0}, {-1,0}, {0,1}, {0,-1}}) {
-+        Square land = kd_step(to, delta.first, delta.second);
-+        if (is_ok(land) && pos.empty(land)) add(make_kingdown(KD_CHAIN, from, land, square_bb(to)));
-+      }
-+    }
-+    if (pt == KD_BEAST) {
-+      std::set<std::pair<uint64_t, int>> seen;
-+      kd_chain(pos, moves, from, from, 0, seen);
-+    }
-+  }
-+}
-+} // namespace
-+
 +template<GenType T>
 +void generate(const Position& pos, std::vector<ExtMove>& moves, size_t offset) {
 +  if (!pos.kingdown_actions()) {
@@ -143,7 +487,7 @@ index a7b6a9f..a3ce69b 100644
 +  }
 +  moves.resize(offset);
 +  if (T == LEGAL && pos.is_immediate_game_end()) return;
-+  kd_generate(pos, moves);
++  for (Move m : kd_turns(pos.kingdown_state(), pos.kingdown_rules())) moves.push_back({m, 0});
 +  auto first = moves.begin() + offset;
 +  moves.erase(std::remove_if(first, moves.end(), [&](const ExtMove& item) {
 +    Move m = item;
@@ -402,44 +746,53 @@ index 3b05314..3d8a6e9 100644
  
  } // namespace Stockfish
 diff --git a/src/position.cpp b/src/position.cpp
-index 2b5ae3a..4b58c4d 100644
+index 2b5ae3a..0b66077 100644
 --- a/src/position.cpp
 +++ b/src/position.cpp
 @@ -27,6 +27,7 @@
  #include "misc.h"
  #include "movegen.h"
  #include "position.h"
-+#include "kingdown.h"
++#include "kingdown_full.h"
  #include "thread.h"
  #include "tt.h"
  #include "uci.h"
-@@ -929,7 +930,41 @@ Bitboard Position::slider_blockers(Bitboard sliders, Square s, Bitboard& pinners
+@@ -543,6 +544,13 @@ Position& Position::set(const Variant* v, const string& fenStr, bool isChess960,
+   chess960 = isChess960 || v->chess960;
+   tsumeMode = Options["TsumeMode"];
+   thisThread = th;
++  if (kingdown_actions()) {
++      st->kd = kd_parse_fen(fenStr);
++      std::string error;
++      if (!kd_valid_state(st->kd, var->kdRules, error)) { std::cerr << error << std::endl; std::exit(EXIT_FAILURE); }
++      gamePly = st->kd.ply;
++      st->rule50 = st->kd.halfmove;
++  }
+   set_state(st);
+ 
+   assert(pos_is_ok());
+@@ -652,6 +660,7 @@ void Position::set_state(StateInfo* si) const {
+       si->key ^= Zobrist::side;
+ 
+   si->key ^= Zobrist::castling[si->castlingRights];
++  if (kingdown_actions()) si->key ^= kd_state_key(si->kd, var->kdRules);
+ 
+   for (Color c : {WHITE, BLACK})
+       for (PieceType pt = PAWN; pt <= KING; ++pt)
+@@ -696,6 +705,7 @@ Position& Position::set(const string& code, Color c, StateInfo* si) {
+ /// Chess960 the Shredder-FEN notation is used. This is mainly a debugging function.
+ 
+ string Position::fen(bool sfen, bool showPromoted, int countStarted, std::string holdings, Bitboard fogArea) const {
++  if (kingdown_actions()) return kd_fen(st->kd);
+ 
+   int emptyCnt;
+   std::ostringstream ss;
+@@ -929,7 +939,20 @@ Bitboard Position::slider_blockers(Bitboard sliders, Square s, Bitboard& pinners
  /// Position::attackers_to() computes a bitboard of all pieces which attack a
  /// given square. Slider attacks use the occupied bitboard to indicate occupancy.
  
-+bool Position::kingdown_attacks(Square from, Square target, Bitboard occupied) const {
-+  if (from == target) return false;
-+  Piece pc = piece_on(from);
-+  PieceType pt = type_of(pc), victim = type_of(piece_on(target));
-+  if (pt == KD_GUARD || (victim && !kd_can_capture(pt, victim))) return false;
-+  int df = int(file_of(target)) - int(file_of(from)), dr = int(rank_of(target)) - int(rank_of(from));
-+  int af = std::abs(df), ar = std::abs(dr);
-+  bool diagonal = af == ar, orthogonal = !df || !dr;
-+  if (pt == PAWN) return af == 1 && dr == (color_of(pc) == WHITE ? 1 : -1);
-+  if (pt == KNIGHT || pt == KD_REAVER) return af * ar == 2;
-+  if (pt == KD_ARCHER) return (af == 2 && !dr) || (!df && ar == 2) || (af == 2 && dr == (color_of(pc) == WHITE ? 2 : -2));
-+  if (pt == KING || pt == KD_BEAST || pt == KD_MAESTER || pt == KD_OGRE || (pt == KD_TEMPLAR && !kd_capital(from)))
-+    return std::max(af, ar) == 1;
-+  if ((pt == BISHOP && !diagonal) || ((pt == ROOK || pt == KD_CATAPULT) && !orthogonal)
-+      || ((pt == QUEEN || pt == KD_PALADIN || pt == KD_TEMPLAR) && !diagonal && !orthogonal)) return false;
-+  int sf = (df > 0) - (df < 0), sr = (dr > 0) - (dr < 0), screens = 0;
-+  for (Square at = kd_step(from, sf, sr); at != target; at = kd_step(at, sf, sr)) {
-+    if (!is_ok(at)) return false;
-+    if (!(occupied & at)) continue;
-+    if (pt == KD_PALADIN && color_of(piece_on(at)) == color_of(pc)) continue;
-+    if (pt != KD_CATAPULT || ++screens > 1 || color_of(piece_on(at)) == color_of(pc)) return false;
-+  }
-+  return pt != KD_CATAPULT || screens == 1;
++bool Position::kingdown_attacks(Square from, Square target, Bitboard) const {
++  return kd_attack(st->kd, int(from), int(target), var->kdRules);
 +}
 +
  Bitboard Position::attackers_to(Square s, Bitboard occupied, Color c, Bitboard janggiCannons) const {
@@ -455,15 +808,24 @@ index 2b5ae3a..4b58c4d 100644
  
    // Use a faster version for variants with moderate rule variations
    if (var->fastAttacks)
-@@ -1049,6 +1084,7 @@ Bitboard Position::checked_pseudo_royals(Color c) const {
+@@ -1049,6 +1072,16 @@ Bitboard Position::checked_pseudo_royals(Color c) const {
  bool Position::legal(Move m) const {
  
    assert(is_ok(m));
-+  if (kingdown_actions()) return !kingdown_check_after(m, sideToMove);
++  if (kingdown_actions()) {
++    if (!is_kingdown_action(m)) return false;
++    const auto first = first_action(m);
++    if (!kd_legal(st->kd, first, var->kdRules)) return false;
++    if (!m.follow.data) return true; // UCI history may contain an atomic held action.
++    auto next = kd_apply(st->kd, first, var->kdRules);
++    if (next.turn != st->kd.turn || kd_terminal(next, var->kdRules)) return false;
++    return kd_legal(next, m.follow, var->kdRules)
++        && kd_apply(next, m.follow, var->kdRules).turn != st->kd.turn;
++  }
    assert(type_of(m) != DROP || piece_drops());
  
    Color us = sideToMove;
-@@ -1303,6 +1339,8 @@ bool Position::legal(Move m) const {
+@@ -1303,6 +1336,8 @@ bool Position::legal(Move m) const {
  /// due to SMP concurrent access or hash position key aliasing.
  
  bool Position::pseudo_legal(const Move m) const {
@@ -472,37 +834,55 @@ index 2b5ae3a..4b58c4d 100644
  
    Color us = sideToMove;
    Square from = from_sq(m);
-@@ -1429,6 +1467,8 @@ bool Position::pseudo_legal(const Move m) const {
+@@ -1429,6 +1464,8 @@ bool Position::pseudo_legal(const Move m) const {
  /// Position::gives_check() tests whether a pseudo-legal move gives a check
  
  bool Position::gives_check(Move m) const {
-+  if (kingdown_actions()) return kingdown_check_after(m, ~sideToMove);
++  if (kingdown_actions()) { const auto next = kd_apply_turn(st->kd, m, var->kdRules); return kd_check(next, next.turn, var->kdRules); }
 +
  
    assert(is_ok(m));
    assert(color_of(moved_piece(m)) == sideToMove);
-@@ -1540,6 +1580,49 @@ bool Position::gives_check(Move m) const {
+@@ -1540,6 +1577,59 @@ bool Position::gives_check(Move m) const {
    }
  }
  
-+// Compound effects preserve every piece's promotion metadata.
++// Move promotion metadata with the pieces through each atomic effect.
 +void Position::kingdown_apply(Move m) {
-+  Square from = from_sq(m), to = to_sq(m);
-+  Piece mover = piece_on(from), base = unpromotedBoard[from];
-+  bool promoted = is_promoted(from);
-+  Bitboard victims = is_kingdown_action(m) ? Bitboard(m.victims) : (empty(to) ? Bitboard(0) : square_bb(to));
-+  for (Bitboard b = victims; b;) remove_piece(pop_lsb(b));
-+  if (type_of(m) == KD_SHOT) return;
-+  if (type_of(m) == KD_SWAP || type_of(m) == KD_PUSH) {
-+    Piece other = piece_on(to), otherBase = unpromotedBoard[to];
-+    bool otherPromoted = is_promoted(to);
-+    remove_piece(to);
-+    remove_piece(from);
-+    put_piece(other, type_of(m) == KD_SWAP ? from : gating_square(m), otherPromoted, otherBase);
-+  } else remove_piece(from);
-+  if (type_of(m) != KD_REMOVE)
-+    put_piece(type_of(m) == PROMOTION ? make_piece(sideToMove, promotion_type(m)) : mover,
-+              to, type_of(m) == PROMOTION || promoted, type_of(m) == PROMOTION ? NO_PIECE : base);
++  auto apply = [&](KdAction a) {
++      const auto before = st->kd;
++      const auto next = kd_apply(before, a, var->kdRules);
++      Piece saved[SQUARE_NB], bases[SQUARE_NB];
++      Bitboard promoted = promotedPieces;
++      std::copy(unpromotedBoard, unpromotedBoard + SQUARE_NB, bases);
++      auto clear = [&](int sq) { promoted &= ~square_bb(Square(sq)); bases[sq] = NO_PIECE; };
++      auto carry = [&](int from, int to) {
++          if (promotedPieces & Square(from)) promoted |= Square(to); else promoted &= ~square_bb(Square(to));
++          bases[to] = unpromotedBoard[from];
++      };
++      if (!kd_still(a)) {
++          int from = kd_from(a), to = kd_to(a);
++          for (int i = 0; i < 64; ++i) if (a.victims & (uint64_t(1) << i)) clear(i);
++          if (a.pushes) {
++              for (int i = 0; i < 64; ++i) if (a.pushes & (uint64_t(1) << i)) clear(i);
++              for (int i = 0; i < 64; ++i) if (a.pushes & (uint64_t(1) << i)) carry(i, i + (i%8-from%8) + 8*(i/8-from/8));
++          } else {
++              clear(from); clear(to);
++              if (kd_swap(a)) carry(to, from);
++              if (kd_shove(a)) carry(to, kd_shove_to(a));
++              if (!kd_self_remove(a)) {
++                  if (!kd_drop(a)) carry(from, to);
++                  if (kd_promo(a)) { promoted |= Square(to); bases[to] = NO_PIECE; }
++              }
++              if (kd_has_drop2(a)) clear(kd_drop2(a));
++          }
++      }
++      for (int i = 0; i < 64; ++i) saved[i] = kd_native_piece(next.board[i]);
++      st->kd = next;
++      kingdown_restore(saved, bases, promoted);
++  };
++  apply(first_action(m));
++  if (m.follow.data) apply(m.follow);
 +}
 +
 +void Position::kingdown_restore(const Piece* saved, const Piece* base, Bitboard promoted) {
@@ -517,21 +897,13 @@ index 2b5ae3a..4b58c4d 100644
 +}
 +
 +bool Position::kingdown_check_after(Move m, Color king) const {
-+  Position& p = const_cast<Position&>(*this);
-+  Piece saved[SQUARE_NB], base[SQUARE_NB];
-+  std::copy(board, board + SQUARE_NB, saved);
-+  std::copy(unpromotedBoard, unpromotedBoard + SQUARE_NB, base);
-+  Bitboard promoted = promotedPieces;
-+  p.kingdown_apply(m);
-+  bool checked = p.count<KING>(king) && p.attackers_to(p.square<KING>(king), ~king);
-+  p.kingdown_restore(saved, base, promoted);
-+  return checked;
++  return kd_check(kd_apply_turn(st->kd, m, var->kdRules), int(king), var->kdRules);
 +}
 +
  /// Position::do_move() makes a move, and saves all information necessary
  /// to a StateInfo object. The move is assumed to be legal. Pseudo-legal
  /// moves should be filtered out before this function is called.
-@@ -1552,6 +1635,41 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
+@@ -1552,6 +1642,38 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
  #ifndef NO_THREADS
    thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
  #endif
@@ -543,10 +915,8 @@ index 2b5ae3a..4b58c4d 100644
 +      std::copy(unpromotedBoard, unpromotedBoard + SQUARE_NB, st->kingdownBase);
 +      st->kingdownPromoted = promotedPieces;
 +      st->capturedPiece = capture_victim(m);
-+      st->captureSquare = m.victims ? lsb(Bitboard(m.victims)) : to_sq(m);
-+      st->rule50 = capture(m) || type_of(moved_piece(m)) == PAWN ? 0 : st->rule50 + 1;
++      st->captureSquare = all_victims(m) ? lsb(Bitboard(all_victims(m))) : to_sq(m);
 +      ++st->pliesFromNull;
-+      ++gamePly;
 +      st->epSquares = 0;
 +      st->pass = false;
 +      st->capturedpromoted = false;
@@ -554,17 +924,16 @@ index 2b5ae3a..4b58c4d 100644
 +      st->accumulator.computed[WHITE] = st->accumulator.computed[BLACK] = false;
 +      st->dirtyPiece = {};
 +      kingdown_apply(m);
-+      sideToMove = ~sideToMove;
++      sideToMove = Color(st->kd.turn);
++      gamePly = st->kd.ply;
++      st->rule50 = st->kd.halfmove;
 +      set_state(st);
 +      st->move = m;
 +      st->repetition = 0;
-+      int end = std::min(st->rule50, st->pliesFromNull);
-+      if (end >= 4) {
-+          StateInfo* previous = st->previous->previous;
-+          for (int i = 4; i <= end; i += 2) {
-+              previous = previous->previous->previous;
-+              if (previous->key == st->key) { st->repetition = previous->repetition ? -i : i; break; }
-+          }
++      int distance = 0;
++      for (auto* previous = st->previous; previous; previous = previous->previous) {
++          ++distance;
++          if (previous->key == st->key) { st->repetition = previous->repetition ? -distance : distance; break; }
 +      }
 +      assert(bool(st->checkersBB) == givesCheck);
 +      assert(pos_is_ok());
@@ -573,46 +942,40 @@ index 2b5ae3a..4b58c4d 100644
    Key k = st->key ^ Zobrist::side;
  
    // Copy some fields of the old state to our new StateInfo object except the
-@@ -2145,6 +2263,14 @@ void Position::undo_move(Move m) {
+@@ -2145,6 +2267,14 @@ void Position::undo_move(Move m) {
  
    assert(is_ok(m));
  
 +  if (kingdown_actions()) {
 +      kingdown_restore(st->kingdownBoard, st->kingdownBase, st->kingdownPromoted);
-+      sideToMove = ~sideToMove;
 +      st = st->previous;
-+      --gamePly;
++      sideToMove = Color(st->kd.turn);
++      gamePly = st->kd.ply;
 +      assert(pos_is_ok());
 +      return;
 +  }
    sideToMove = ~sideToMove;
  
    Color us = sideToMove;
-@@ -2362,6 +2488,23 @@ void Position::undo_null_move() {
+@@ -2362,6 +2492,17 @@ void Position::undo_null_move() {
  /// en passant and promotions.
  
  Key Position::key_after(Move m) const {
 +  if (kingdown_actions()) {
-+      Position& p = const_cast<Position&>(*this);
-+      Piece saved[SQUARE_NB], base[SQUARE_NB];
-+      std::copy(board, board + SQUARE_NB, saved);
-+      std::copy(unpromotedBoard, unpromotedBoard + SQUARE_NB, base);
-+      Bitboard promoted = promotedPieces;
-+      int nextRule50 = capture(m) || type_of(moved_piece(m)) == PAWN ? 0 : st->rule50 + 1;
-+      p.kingdown_apply(m);
-+      Key k = st->key ^ Zobrist::side;
-+      for (Square s = SQ_A1; s < SQUARE_NB; ++s) {
-+          if (saved[s]) k ^= Zobrist::psq[saved[s]][s];
-+          if (board[s]) k ^= Zobrist::psq[board[s]][s];
++      const auto next = kd_apply_turn(st->kd, m, var->kdRules);
++      Key k = st->key ^ kd_state_key(st->kd, var->kdRules) ^ kd_state_key(next, var->kdRules);
++      if (next.turn != st->kd.turn) k ^= Zobrist::side;
++      for (int i = 0; i < 64; ++i) {
++          if (st->kd.board[i]) k ^= Zobrist::psq[kd_native_piece(st->kd.board[i])][i];
++          if (next.board[i]) k ^= Zobrist::psq[kd_native_piece(next.board[i])][i];
 +      }
-+      p.kingdown_restore(saved, base, promoted);
-+      return nextRule50 < 14 ? k : k ^ make_key((nextRule50 - 14) / 8);
++      k ^= kd_availability_key(next, var->kdRules);
++      return next.halfmove < 14 ? k : k ^ make_key((next.halfmove - 14) / 8);
 +  }
-+
  
    Square from = from_sq(m);
    Square to = to_sq(m);
-@@ -2467,6 +2610,10 @@ Value Position::blast_see(Move m) const {
+@@ -2467,6 +2608,10 @@ Value Position::blast_see(Move m) const {
  /// algorithm similar to alpha-beta pruning with a null window.
  
  bool Position::see_ge(Move m, Value threshold) const {
@@ -623,50 +986,66 @@ index 2b5ae3a..4b58c4d 100644
  
    assert(is_ok(m));
  
-@@ -2622,8 +2769,21 @@ bool Position::see_ge(Move m, Value threshold) const {
+@@ -2622,7 +2767,26 @@ bool Position::see_ge(Move m, Value threshold) const {
  /// Position::is_optional_game_end() tests whether the position may end the game by
  /// 50-move rule, by repetition, or a variant rule that allows a player to claim a game result.
  
 +bool Position::kingdown_material_draw() const {
-+  return !(pieces(PAWN) | pieces(ROOK) | pieces(QUEEN) | pieces(KD_ARCHER) | pieces(KD_BEAST)
-+          | pieces(KD_MAESTER) | pieces(KD_OGRE) | pieces(KD_CATAPULT) | pieces(KD_TEMPLAR))
-+      && count(WHITE, KNIGHT) + count(WHITE, BISHOP) + count(WHITE, KD_REAVER) <= 1
-+      && count(BLACK, KNIGHT) + count(BLACK, BISHOP) + count(BLACK, KD_REAVER) <= 1;
++  return kd_material_draw(st->kd, var->kdRules);
 +}
 +
  bool Position::is_optional_game_end(Value& result, int ply, int countStarted) const {
- 
++  if (kingdown_actions()) {
++      // Relocators can reverse pawn moves. The fifty-move clock cannot bound repetition.
++      bool draw = st->rule50 >= 100 || kingdown_material_draw();
++      int seen = 1;
++      for (auto* old = st->previous; old && seen < 3; old = old->previous) if (old->key == st->key) ++seen;
++      draw = draw || seen >= 3;
++      if (draw && (!checkers() || MoveList<LEGAL>(*this).size())) { result = VALUE_DRAW; return true; }
++      return false;
++  }
++
 +  if (kingdown_actions() && kingdown_material_draw() && (!checkers() || MoveList<LEGAL>(*this).size()))
 +  {
 +      result = VALUE_DRAW;
 +      return true;
 +  }
-+
+ 
    // n-move rule
    if (n_move_rule() && st->rule50 > (2 * n_move_rule() - 1) && (!checkers() || MoveList<LEGAL>(*this).size()))
-   {
+@@ -3115,6 +3279,7 @@ bool Position::has_repeated() const {
+ /// or an earlier position has a move that directly reaches the current position.
+ 
+ bool Position::has_game_cycle(int ply) const {
++  if (kingdown_actions()) return false;
+ 
+   int j;
+ 
 diff --git a/src/position.h b/src/position.h
-index 685c079..c047771 100644
+index 685c079..f9c4de6 100644
 --- a/src/position.h
 +++ b/src/position.h
-@@ -62,6 +62,9 @@ struct StateInfo {
+@@ -62,6 +62,10 @@ struct StateInfo {
    Bitboard   checkersBB;
    Piece      unpromotedCapturedPiece;
    Piece      unpromotedBycatch[SQUARE_NB];
++  KdPosition kd;
 +  Piece      kingdownBoard[SQUARE_NB];
 +  Piece      kingdownBase[SQUARE_NB];
 +  Bitboard   kingdownPromoted;
    Bitboard   promotedBycatch;
    Bitboard   demotedBycatch;
    StateInfo* previous;
-@@ -123,6 +126,17 @@ public:
+@@ -123,6 +127,19 @@ public:
    int ranks() const;
    int files() const;
    bool two_boards() const;
 +  bool kingdown_actions() const { return var->kingDownActions; }
++  const KdPosition& kingdown_state() const { return st->kd; }
++  const KdConfig& kingdown_rules() const { return var->kdRules; }
 +  Piece capture_victim(Move m) const;
 +  bool captures_square(Move m, Square s) const {
-+    return is_kingdown_action(m) ? is_ok(s) && (Bitboard(m.victims) & square_bb(s)) : to_sq(m) == s;
++    return is_kingdown_action(m) ? is_ok(s) && (Bitboard(all_victims(m)) & square_bb(s)) : to_sq(m) == s;
 +  }
 +  Value capture_value(Move m, Phase phase) const;
 +  bool kingdown_check_after(Move m, Color king) const;
@@ -677,45 +1056,65 @@ index 685c079..c047771 100644
    Bitboard board_bb() const;
    Bitboard board_bb(Color c, PieceType pt) const;
    PieceSet piece_types() const;
-@@ -593,6 +607,8 @@ inline bool Position::nnue_use_pockets() const {
+@@ -593,6 +610,8 @@ inline bool Position::nnue_use_pockets() const {
  }
  
  inline bool Position::nnue_applicable() const {
-+  if (kingdown_actions()) return false; // No trained net is certified for this subset.
++  if (kingdown_actions()) return false; // No trained net is certified for these rules.
 +
    // Do not use NNUE during setup phases (placement, sittuyin)
    return (!count_in_hand(ALL_PIECES) || nnue_use_pockets() || !must_drop())
           && !virtualPieces
-@@ -1434,15 +1450,25 @@ inline bool Position::is_chess960() const {
+@@ -1176,6 +1195,8 @@ inline Piece Position::unpromoted_piece_on(Square s) const {
+ }
+ 
+ inline Piece Position::moved_piece(Move m) const {
++  if (is_kingdown_action(m) && kd_drop(first_action(m)))
++      return kd_native_piece(kd_drop(first_action(m)) | (int(sideToMove) << 4));
+   if (type_of(m) == DROP)
+       return make_piece(sideToMove, dropped_piece_type(m));
+   return piece_on(from_sq(m));
+@@ -1372,8 +1393,8 @@ inline int Position::pawns_on_same_color_squares(Color c, Square s) const {
+ }
+ 
+ inline Key Position::key() const {
+-  return st->rule50 < 14 ? st->key
+-                         : st->key ^ make_key((st->rule50 - 14) / 8);
++  Key k = st->key ^ (kingdown_actions() ? kd_availability_key(st->kd, var->kdRules) : 0);
++  return st->rule50 < 14 ? k : k ^ make_key((st->rule50 - 14) / 8);
+ }
+ 
+ inline Key Position::pawn_key() const {
+@@ -1434,15 +1455,25 @@ inline bool Position::is_chess960() const {
    return chess960;
  }
  
 +inline Piece Position::capture_victim(Move m) const {
-+  return is_kingdown_action(m) ? (m.victims ? piece_on(lsb(Bitboard(m.victims))) : NO_PIECE) : piece_on(to_sq(m));
++  return is_kingdown_action(m) ? (all_victims(m) ? piece_on(lsb(Bitboard(all_victims(m)))) : NO_PIECE) : piece_on(to_sq(m));
 +}
 +inline Value Position::capture_value(Move m, Phase phase) const {
 +  if (!is_kingdown_action(m)) return PieceValue[phase][piece_on(to_sq(m))];
 +  Value value = VALUE_ZERO;
-+  for (Bitboard b = Bitboard(m.victims); b;) value += PieceValue[phase][piece_on(pop_lsb(b))];
++  for (Bitboard b = Bitboard(all_victims(m)); b;) value += PieceValue[phase][piece_on(pop_lsb(b))];
 +  return value;
 +}
 +
  inline bool Position::capture_or_promotion(Move m) const {
    assert(is_ok(m));
 -  return type_of(m) == PROMOTION || type_of(m) == EN_PASSANT || (type_of(m) != CASTLING && !empty(to_sq(m)));
-+  return is_kingdown_action(m) ? bool(m.victims) : type_of(m) == PROMOTION || type_of(m) == EN_PASSANT || (type_of(m) != CASTLING && !empty(to_sq(m)));
++  return is_kingdown_action(m) ? bool(all_victims(m) || kd_promo(first_action(m)) || kd_promo(m.follow)) : type_of(m) == PROMOTION || type_of(m) == EN_PASSANT || (type_of(m) != CASTLING && !empty(to_sq(m)));
  }
  
  inline bool Position::capture(Move m) const {
    assert(is_ok(m));
    // Castling is encoded as "king captures rook"
 -  return (!empty(to_sq(m)) && type_of(m) != CASTLING && from_sq(m) != to_sq(m)) || type_of(m) == EN_PASSANT;
-+  return is_kingdown_action(m) ? bool(m.victims) : (!empty(to_sq(m)) && type_of(m) != CASTLING && from_sq(m) != to_sq(m)) || type_of(m) == EN_PASSANT;
++  return is_kingdown_action(m) ? bool(all_victims(m)) : (!empty(to_sq(m)) && type_of(m) != CASTLING && from_sq(m) != to_sq(m)) || type_of(m) == EN_PASSANT;
  }
  
  inline Square Position::capture_square(Square to) const {
 diff --git a/src/search.cpp b/src/search.cpp
-index 651f6bd..63eedbe 100644
+index 651f6bd..895c081 100644
 --- a/src/search.cpp
 +++ b/src/search.cpp
 @@ -75,7 +75,7 @@ namespace {
@@ -736,7 +1135,17 @@ index 651f6bd..63eedbe 100644
      tte = TT.probe(posKey, ss->ttHit);
      ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
      ttMove =  rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
-@@ -1160,7 +1160,7 @@ moves_loop: // When in check, search starts from here
+@@ -933,7 +933,8 @@ namespace {
+         return eval;
+ 
+     // Step 8. Null move search with verification search (~40 Elo)
+-    if (   !PvNode
++    if (   !pos.kingdown_actions()
++        && !PvNode
+         && (ss-1)->currentMove != MOVE_NULL
+         && (ss-1)->statScore < 23767
+         &&  eval >= beta
+@@ -1160,7 +1161,7 @@ moves_loop: // When in check, search starts from here
                // Capture history based pruning when the move doesn't give check
                if (   !givesCheck
                    && lmrDepth < 1
@@ -745,7 +1154,7 @@ index 651f6bd..63eedbe 100644
                    continue;
  
                // SEE based pruning
-@@ -1651,8 +1651,8 @@ moves_loop: // When in check, search starts from here
+@@ -1651,8 +1652,8 @@ moves_loop: // When in check, search starts from here
        if (    bestValue > VALUE_TB_LOSS_IN_MAX_PLY
            && !givesCheck
            && !(   pos.extinction_value() == -VALUE_MATE
@@ -756,7 +1165,7 @@ index 651f6bd..63eedbe 100644
            &&  futilityBase > -VALUE_KNOWN_WIN
            &&  type_of(move) != PROMOTION)
        {
-@@ -1660,7 +1660,7 @@ moves_loop: // When in check, search starts from here
+@@ -1660,7 +1661,7 @@ moves_loop: // When in check, search starts from here
            if (moveCount > 2)
                continue;
  
@@ -765,7 +1174,7 @@ index 651f6bd..63eedbe 100644
  
            if (futilityValue <= alpha)
            {
-@@ -1815,7 +1815,7 @@ moves_loop: // When in check, search starts from here
+@@ -1815,7 +1816,7 @@ moves_loop: // When in check, search starts from here
      Thread* thisThread = pos.this_thread();
      CapturePieceToHistory& captureHistory = thisThread->captureHistory;
      Piece moved_piece = pos.moved_piece(bestMove);
@@ -774,7 +1183,7 @@ index 651f6bd..63eedbe 100644
  
      bonus1 = stat_bonus(depth + 1);
      bonus2 = bestValue > beta + PawnValueMg ? bonus1                                 // larger bonus
-@@ -1854,7 +1854,7 @@ moves_loop: // When in check, search starts from here
+@@ -1854,7 +1855,7 @@ moves_loop: // When in check, search starts from here
      for (int i = 0; i < captureCount; ++i)
      {
          moved_piece = pos.moved_piece(capturesSearched[i]);
@@ -797,7 +1206,7 @@ index 5982d93..c9dd1f7 100644
    // Overwrite less valuable entries (cheapest checks first)
    if (b == BOUND_EXACT
 diff --git a/src/tt.h b/src/tt.h
-index 290ccb1..fdfb1d7 100644
+index 290ccb1..745775d 100644
 --- a/src/tt.h
 +++ b/src/tt.h
 @@ -37,7 +37,7 @@ namespace Stockfish {
@@ -823,7 +1232,7 @@ index 290ccb1..fdfb1d7 100644
  class TranspositionTable {
  
 -  static constexpr int ClusterSize = 5;
-+  static constexpr int ClusterSize = 2;
++  static constexpr int ClusterSize = 1;
  
    struct Cluster {
      TTEntry entry[ClusterSize];
@@ -833,7 +1242,7 @@ index 290ccb1..fdfb1d7 100644
  
    static_assert(sizeof(Cluster) == 64, "Unexpected Cluster size");
 diff --git a/src/types.h b/src/types.h
-index 844d195..b42fed3 100644
+index 844d195..bc85c82 100644
 --- a/src/types.h
 +++ b/src/types.h
 @@ -231,7 +231,7 @@ constexpr int SQUARE_BITS = 6;
@@ -845,41 +1254,50 @@ index 844d195..b42fed3 100644
  #ifdef USE_HEAP_INSTEAD_OF_STACK_FOR_MOVE_LIST
  constexpr int MAX_PLY = 246;
  #else
-@@ -256,10 +256,18 @@ constexpr int MAX_PLY = 246;
+@@ -256,10 +256,31 @@ constexpr int MAX_PLY = 246;
  /// any normal move destination square is always different from origin square
  /// while MOVE_NONE and MOVE_NULL have the same origin and destination square.
  
 -enum Move : int {
 -  MOVE_NONE,
 -  MOVE_NULL = 1 + (1 << SQUARE_BITS)
-+// Keep every victim in the move itself, including TT and PV storage.
-+// Two standard integer fields also work on WebAssembly targets.
++// Complete actions, including a held turn's ordinary follow-up, survive TT/PV storage.
++struct KdAction {
++  uint64_t victims, pushes;
++  uint32_t data, flags;
++  constexpr KdAction(uint32_t d = 0, uint64_t v = 0, uint64_t p = 0, uint32_t f = 0)
++    : victims(v), pushes(p), data(d), flags(f) {}
++};
++constexpr bool operator==(KdAction a, KdAction b) {
++  return a.data == b.data && a.flags == b.flags && a.victims == b.victims && a.pushes == b.pushes;
++}
 +struct Move {
-+  uint64_t victims;
-+  uint32_t data;
-+  constexpr Move(uint32_t d = 0, uint64_t v = 0) : victims(v), data(d) {}
++  uint64_t victims, pushes;
++  uint32_t data, flags;
++  KdAction follow;
++  constexpr Move(uint32_t d = 0, uint64_t v = 0) : victims(v), pushes(0), data(d), flags(0), follow() {}
++  constexpr Move(KdAction first, KdAction second = {})
++    : victims(first.victims), pushes(first.pushes), data(first.data), flags(first.flags), follow(second) {}
 +  constexpr operator uint32_t() const { return data; }
  };
-+constexpr bool operator==(Move a, Move b) { return a.data == b.data && a.victims == b.victims; }
++constexpr KdAction first_action(Move m) { return KdAction(m.data, m.victims, m.pushes, m.flags); }
++constexpr uint64_t all_victims(Move m) { return m.victims | m.follow.victims; }
++constexpr bool operator==(Move a, Move b) { return first_action(a) == first_action(b) && a.follow == b.follow; }
 +constexpr bool operator!=(Move a, Move b) { return !(a == b); }
 +constexpr Move MOVE_NONE(0);
 +constexpr Move MOVE_NULL(1 + (1 << SQUARE_BITS));
  
  enum MoveType : int {
    NORMAL,
-@@ -270,6 +278,11 @@ enum MoveType : int {
+@@ -270,6 +291,7 @@ enum MoveType : int {
    PIECE_PROMOTION    = 5 << (2 * SQUARE_BITS),
    PIECE_DEMOTION     = 6 << (2 * SQUARE_BITS),
    SPECIAL            = 7 << (2 * SQUARE_BITS),
-+  KD_SHOT            = 8 << (2 * SQUARE_BITS),
-+  KD_CHAIN           = 9 << (2 * SQUARE_BITS),
-+  KD_SWAP            = 10 << (2 * SQUARE_BITS),
-+  KD_PUSH            = 11 << (2 * SQUARE_BITS),
-+  KD_REMOVE          = 12 << (2 * SQUARE_BITS),
++  KD_ACTION          = 13 << (2 * SQUARE_BITS),
  };
  
  constexpr int MOVE_TYPE_BITS = 4;
-@@ -428,6 +441,11 @@ enum PieceType {
+@@ -428,6 +450,11 @@ enum PieceType {
    FAIRY_PIECES_END = CUSTOM_PIECES - 1,
    ALL_PIECES = 0,
  };
@@ -891,7 +1309,7 @@ index 844d195..b42fed3 100644
  static_assert(KING < PIECE_TYPE_NB, "KING exceeds PIECE_TYPE_NB.");
  static_assert(PIECE_TYPE_BITS <= 6, "PIECE_TYPE uses more than 6 bit");
  static_assert(!(PIECE_TYPE_NB & (PIECE_TYPE_NB - 1)), "PIECE_TYPE_NB is not a power of 2");
-@@ -573,13 +591,13 @@ struct DirtyPiece {
+@@ -573,13 +600,13 @@ struct DirtyPiece {
    // Max 3 pieces can change in one move. A promotion with capture moves
    // both the pawn and the captured piece to SQ_NONE and the piece promoted
    // to from SQ_NONE to the capture square.
@@ -910,24 +1328,27 @@ index 844d195..b42fed3 100644
  };
  
  /// Score enum stores a middlegame and an endgame value in a single integer (enum).
-@@ -857,8 +875,14 @@ inline bool is_custom(PieceType pt) {
+@@ -857,8 +884,17 @@ inline bool is_custom(PieceType pt) {
    return pt >= CUSTOM_PIECES && pt <= CUSTOM_PIECES_END;
  }
  
-+inline bool is_kingdown_action(Move m) { return type_of(m) >= KD_SHOT && type_of(m) <= KD_REMOVE; }
-+inline Move make_kingdown(MoveType t, Square from, Square to, Bitboard victims) {
-+  return Move(uint32_t(t + (from << SQUARE_BITS) + to), uint64_t(victims));
++inline bool is_kingdown_action(Move m) { return type_of(m) == KD_ACTION; }
++inline Key move_key(Move m) {
++  Key k = 1442695040888963407ULL;
++  for (uint64_t part : {uint64_t(m.data), uint64_t(m.flags), m.victims, m.pushes,
++                        uint64_t(m.follow.data), uint64_t(m.follow.flags), m.follow.victims, m.follow.pushes})
++    k = (k ^ part) * 6364136223846793005ULL;
++  return k;
 +}
-+inline Key move_key(Move m) { return (m.data * 6364136223846793005ULL + 1442695040888963407ULL) ^ (m.victims ? m.victims * 6364136223846793005ULL + 1442695040888963407ULL : 0); }
 +
  inline bool is_ok(Move m) {
 -  return from_sq(m) != to_sq(m) || type_of(m) == PROMOTION || type_of(m) == SPECIAL; // Catch MOVE_NULL and MOVE_NONE
-+  return from_sq(m) != to_sq(m) || type_of(m) == PROMOTION || type_of(m) == SPECIAL || type_of(m) == KD_SHOT; // Catch MOVE_NULL and MOVE_NONE
++  return from_sq(m) != to_sq(m) || type_of(m) == PROMOTION || type_of(m) == SPECIAL || type_of(m) == KD_ACTION; // Catch MOVE_NULL and MOVE_NONE
  }
  
  inline int dist(Direction d) {
 diff --git a/src/uci.cpp b/src/uci.cpp
-index 584977a..b6437aa 100644
+index 584977a..69c4911 100644
 --- a/src/uci.cpp
 +++ b/src/uci.cpp
 @@ -21,10 +21,12 @@
@@ -943,12 +1364,32 @@ index 584977a..b6437aa 100644
  #include "position.h"
  #include "search.h"
  #include "thread.h"
-@@ -385,6 +387,97 @@ void UCI::loop(int argc, char* argv[]) {
+@@ -385,6 +387,75 @@ void UCI::loop(int argc, char* argv[]) {
  
        // Additional custom non-UCI commands, mainly for debugging.
        // Do not use these commands during a search!
-+      else if (token == "kdinspect" && pos.kingdown_actions())
-+      {
++      else if (token == "kdregistry") sync_cout << "kdregistry " << kd_registry() << sync_endl;
++      else if (token == "kdconfig") {
++          Threads.main()->wait_for_search_finished();
++          std::string text, error; std::getline(is, text);
++          KdConfig cfg;
++          if (!kd_config(text, cfg, error)) sync_cout << "kdconfigerror " << error << sync_endl;
++          else {
++              auto* variant = const_cast<Variant*>(variants.at("kingdown"));
++              variant->kdRules = cfg;
++              states = StateListPtr(new std::deque<StateInfo>(1));
++              pos.set(variant, variant->startFen, false, &states->back(), Threads.main());
++              Search::clear();
++              sync_cout << "kdconfigok " << std::hex << cfg.hash << std::dec << sync_endl;
++          }
++      }
++      else if (token == "kdlegal" && pos.kingdown_actions()) {
++          sync_cout << "fen " << pos.fen() << sync_endl;
++          for (auto a : kd_actions(pos.kingdown_state(), pos.kingdown_rules())) sync_cout << "action " << kd_token(a) << sync_endl;
++          sync_cout << "kdlegalok" << sync_endl;
++      }
++      else if ((token == "kdinspect" || token == "kdturninspect") && pos.kingdown_actions()) {
++          const bool whole = token == "kdturninspect";
 +          const auto initialFen = pos.fen();
 +          const auto initialKey = pos.key();
 +          const auto initialPsq = pos.psq_score();
@@ -956,118 +1397,97 @@ index 584977a..b6437aa 100644
 +          const auto initialMaterial = pos.material_key();
 +          bool promoted[64]; Piece base[64];
 +          for (int i = 0; i < 64; ++i) { promoted[i] = pos.is_promoted(Square(i)); base[i] = pos.unpromoted_piece_on(Square(i)); }
-+          auto metadataSame = [&]() {
-+              for (int i = 0; i < 64; ++i)
-+                  if (promoted[i] != pos.is_promoted(Square(i)) || base[i] != pos.unpromoted_piece_on(Square(i))) std::abort();
++          auto unchanged = [&]() {
++              if (pos.fen() != initialFen || pos.key() != initialKey || pos.psq_score() != initialPsq
++                  || pos.pawn_key() != initialPawn || pos.material_key() != initialMaterial) std::abort();
++              for (int i = 0; i < 64; ++i) if (promoted[i] != pos.is_promoted(Square(i)) || base[i] != pos.unpromoted_piece_on(Square(i))) std::abort();
 +          };
-+          const auto moves = MoveList<LEGAL>(pos);
-+          metadataSame();
-+          int recaptureChecks = 0;
-+          std::set<std::pair<int, int>> recaptureKinds;
-+          for (const auto& item : moves) {
-+              Move m = item;
++          std::vector<Move> moves;
++          if (whole) for (const auto& m : MoveList<LEGAL>(pos)) moves.push_back(m);
++          else for (auto a : kd_actions(pos.kingdown_state(), pos.kingdown_rules())) moves.emplace_back(a);
++          sync_cout << "fen " << pos.fen() << sync_endl;
++          sync_cout << "status " << kd_terminal(pos.kingdown_state(), pos.kingdown_rules()) << sync_endl;
++          sync_cout << "check " << bool(pos.checkers()) << sync_endl;
++          sync_cout << "key " << std::hex << pos.key() << std::dec << sync_endl;
++          for (Color c : {WHITE, BLACK}) {
++              uint64_t attacks = 0;
++              for (int i = 0; i < 64; ++i) if (pos.attackers_to(Square(i), c)) attacks |= uint64_t(1) << i;
++              sync_cout << "attack " << int(c) << " " << std::hex << attacks << std::dec << sync_endl;
++          }
++          for (Move m : moves) {
++              if (!pos.legal(m)) std::abort();
 +              const auto label = UCI::move(pos, m);
 +              const auto predicted = pos.key_after(m);
-+              if (!pos.see_ge(m, Value(100000))) std::abort();
-+              if (is_kingdown_action(m) && !pos.checkers()) {
-+                  Bitboard offDestination = Bitboard(m.victims) & ~square_bb(to_sq(m));
-+                  if (offDestination && recaptureKinds.emplace(int(pos.moved_piece(m)), int(type_of(m))).second) {
-+                      Square victim = lsb(offDestination);
-+                      auto* th = Threads.main();
-+                      MovePicker ttPicker(pos, m, DEPTH_QS_RECAPTURES, &th->mainHistory, &th->gateHistory, &th->captureHistory, nullptr, victim);
-+                      if (ttPicker.next_move() != m) std::abort();
-+                      MovePicker picker(pos, MOVE_NONE, DEPTH_QS_RECAPTURES, &th->mainHistory, &th->gateHistory, &th->captureHistory, nullptr, victim);
-+                      bool selected = false;
-+                      for (Move candidate; (candidate = picker.next_move()) != MOVE_NONE;) if (candidate == m) selected = true;
-+                      if (!selected) std::abort();
-+                      ++recaptureChecks;
-+                  }
-+              }
-+              metadataSame();
-+              StateInfo next;
-+              bool found;
-+              auto* entry = TT.probe(initialKey, found);
++              const auto expected = kd_fen(kd_apply_turn(pos.kingdown_state(), m, pos.kingdown_rules()));
++              bool found; auto* entry = TT.probe(initialKey, found);
 +              entry->save(initialKey, VALUE_ZERO, false, BOUND_EXACT, 1, m, VALUE_ZERO);
-+              if (entry->move() != m) { std::cerr << "kd TT mismatch " << label << std::endl; std::abort(); }
-+              pos.do_move(m, next);
-+              bool childPromoted[64]; Piece childBase[64];
-+              std::copy(promoted, promoted + 64, childPromoted);
-+              std::copy(base, base + 64, childBase);
-+              auto clearMetadata = [&](Square square) { childPromoted[square] = false; childBase[square] = NO_PIECE; };
-+              Square from = from_sq(m), to = to_sq(m);
-+              for (Bitboard victims = Bitboard(m.victims); victims;) clearMetadata(pop_lsb(victims));
-+              if (type_of(m) != KD_SHOT) {
-+                  clearMetadata(from); clearMetadata(to);
-+                  if (type_of(m) == KD_SWAP || type_of(m) == KD_PUSH) {
-+                      Square displaced = type_of(m) == KD_SWAP ? from : gating_square(m);
-+                      childPromoted[displaced] = promoted[to]; childBase[displaced] = base[to];
-+                  }
-+                  if (type_of(m) != KD_REMOVE) {
-+                      childPromoted[to] = type_of(m) == PROMOTION || promoted[from];
-+                      childBase[to] = type_of(m) == PROMOTION ? NO_PIECE : base[from];
-+                  }
-+              }
-+              for (int i = 0; i < 64; ++i)
-+                  if (childPromoted[i] != pos.is_promoted(Square(i)) || childBase[i] != pos.unpromoted_piece_on(Square(i))) {
-+                      std::cerr << "kd child metadata mismatch " << label << " " << i << std::endl; std::abort();
-+                  }
-+              StateInfo rebuiltState;
-+              Position rebuilt;
-+              rebuilt.set(pos.variant(), pos.fen(), false, &rebuiltState, Threads.main());
-+              if (pos.key() != rebuilt.key() || pos.pawn_key() != rebuilt.pawn_key()
-+                  || pos.material_key() != rebuilt.material_key() || pos.psq_score() != rebuilt.psq_score()
-+                  || (predicted != pos.key()))
-+                  { std::cerr << "kd child mismatch " << label << " " << pos.fen() << " key " << pos.key() << " cold " << rebuilt.key() << " predicted " << predicted << " pawn " << pos.pawn_key() << " cold " << rebuilt.pawn_key() << " material " << pos.material_key() << " cold " << rebuilt.material_key() << " psq " << pos.psq_score() << " cold " << rebuilt.psq_score() << std::endl; std::abort(); }
-+              sync_cout << "kdstate " << label << "|" << pos.fen() << "|" << bool(pos.checkers()) << sync_endl;
-+              pos.undo_move(m);
-+              metadataSame();
-+              if (pos.fen() != initialFen || pos.key() != initialKey || pos.psq_score() != initialPsq
-+                  || pos.pawn_key() != initialPawn || pos.material_key() != initialMaterial)
-+                  std::abort();
++              if (entry->move() != m) std::abort();
++              StateInfo next; pos.do_move(m, next);
++              for (int i = 0; i < 64; ++i) if (kd_reference_piece(pos.piece_on(Square(i))) != pos.kingdown_state().board[i]) std::abort();
++              StateInfo coldState; Position cold;
++              cold.set(pos.variant(), pos.fen(), false, &coldState, Threads.main());
++              if (pos.fen() != expected || pos.key() != predicted || pos.key() != cold.key()
++                  || pos.pawn_key() != cold.pawn_key() || pos.material_key() != cold.material_key()
++                  || pos.psq_score() != cold.psq_score()) { std::cerr << "King Down transition mismatch " << label << std::endl; std::abort(); }
++              sync_cout << "effect " << label << " " << pos.fen() << sync_endl;
++              sync_cout << "childcheck " << label << " " << bool(pos.checkers()) << sync_endl;
++              pos.undo_move(m); unchanged();
 +          }
-+          uint64_t attacks[2] = {};
-+          for (Color c : { WHITE, BLACK }) for (int i = 0; i < 64; ++i)
-+              if (pos.attackers_to(Square(i), c)) attacks[c] |= uint64_t(1) << i;
-+          sync_cout << "kdrecapturechecks " << recaptureChecks << sync_endl;
-+          sync_cout << "kdattacks " << std::hex << attacks[0] << " " << attacks[1] << std::dec << sync_endl;
 +          Value result;
-+          const char* terminal = !moves.size() ? (pos.checkers() ? "checkmate" : "stalemate")
-+                               : pos.rule50_count() >= 100 ? "draw50"
-+                               : pos.kingdown_material_draw() ? "drawMaterial"
-+                               : pos.is_optional_game_end(result) ? "drawRepetition" : "playing";
-+          sync_cout << "kdterminal " << terminal << sync_endl;
-+          sync_cout << "kdinspectok " << moves.size() << " " << bool(pos.checkers()) << sync_endl;
++          sync_cout << "historydraw " << pos.is_optional_game_end(result) << sync_endl;
++          sync_cout << "kdinspectok " << moves.size() << sync_endl;
 +      }
        else if (token == "flip")     pos.flip();
        else if (token == "bench")    bench(pos, is, states);
        else if (token == "d")        sync_cout << pos << sync_endl;
-@@ -531,6 +624,14 @@ string UCI::move(const Position& pos, Move m) {
+@@ -531,6 +602,9 @@ string UCI::move(const Position& pos, Move m) {
            to = to_sq(m);
    }
  
-+  if (is_kingdown_action(m)) {
-+      if (type_of(m) == KD_SWAP) return UCI::square(pos, from) + UCI::square(pos, to) + "^";
-+      if (type_of(m) == KD_PUSH) return UCI::square(pos, from) + UCI::square(pos, to) + ">" + UCI::square(pos, gating_square(m));
-+      std::ostringstream suffix;
-+      suffix << std::hex << m.victims;
-+      return UCI::square(pos, from) + UCI::square(pos, to) + (type_of(m) == KD_REMOVE ? "!" : "~") + suffix.str();
-+  }
++  if (is_kingdown_action(m))
++      return kd_token(first_action(m)) + (m.follow.data ? "," + kd_token(m.follow) : "");
 +
    string move = (type_of(m) == DROP ? UCI::dropped_piece(pos, m) + (CurrentProtocol == USI ? '*' : '@')
                                      : UCI::square(pos, from)) + UCI::square(pos, to);
  
+@@ -563,6 +637,22 @@ string UCI::move(const Position& pos, Move m) {
+ /// (g1f3, a7a8q) to the corresponding legal Move, if any.
+ 
+ Move UCI::to_move(const Position& pos, string& str) {
++  if (pos.kingdown_actions()) {
++      auto comma = str.find(',');
++      KdAction first, follow;
++      if (!kd_read_token(str.substr(0, comma), first)) return MOVE_NONE;
++      if (comma != std::string::npos && !kd_read_token(str.substr(comma + 1), follow)) return MOVE_NONE;
++      Move m(first, follow);
++      const auto actions = kd_actions(pos.kingdown_state(), pos.kingdown_rules());
++      if (std::find(actions.begin(), actions.end(), first) == actions.end()) return MOVE_NONE;
++      if (follow.data) {
++          const auto next = kd_apply(pos.kingdown_state(), first, pos.kingdown_rules());
++          if (next.turn != pos.kingdown_state().turn || kd_terminal(next, pos.kingdown_rules())) return MOVE_NONE;
++          const auto continuations = kd_actions(next, pos.kingdown_rules());
++          if (std::find(continuations.begin(), continuations.end(), follow) == continuations.end()) return MOVE_NONE;
++      }
++      return pos.legal(m) ? m : MOVE_NONE;
++  }
+ 
+   if (str.length() == 5)
+   {
 diff --git a/src/variant.cpp b/src/variant.cpp
-index 9ec8c49..c2027c7 100644
+index 9ec8c49..ea11d75 100644
 --- a/src/variant.cpp
 +++ b/src/variant.cpp
-@@ -65,6 +65,23 @@ namespace {
+@@ -65,6 +65,26 @@ namespace {
          v->castling = false;
          return v;
      }
-+    // Fixed King Down base pieces. Cards, powers and workshop designs are not enabled.
-+    Variant* kingdown_base_variant() {
++    // Fixed King Down pieces, powers and cards.
++    Variant* kingdown_variant() {
 +        Variant* v = nocastle_variant()->init();
 +        v->kingDownActions = true;
++        v->endgameEval = NO_EG_EVAL; // Orthodox endgame tables omit live cards and powers.
++        std::string error;
++        if (!kd_config("0 0 0 2,2,1,1,1,1,3,3 - - - - - 1 0 0", v->kdRules, error)) std::abort();
 +        v->enPassantTypes[WHITE] = v->enPassantTypes[BLACK] = NO_PIECE_SET;
 +        v->enPassantRegion[WHITE] = v->enPassantRegion[BLACK] = 0;
 +        v->add_piece(KD_ARCHER, 'a', "mKcDcfA");
@@ -1084,23 +1504,32 @@ index 9ec8c49..c2027c7 100644
      // Armageddon Chess
      // https://en.wikipedia.org/wiki/Fast_chess#Armageddon
      Variant* armageddon_variant() {
-@@ -1847,6 +1864,7 @@ namespace {
+@@ -1847,6 +1867,7 @@ namespace {
  void VariantMap::init() {
      // Add to UCI_Variant option
      add("chess", chess_variant());
-+    add("kingdown-base", kingdown_base_variant());
++    add("kingdown", kingdown_variant());
      add("normal", chess_variant());
      add("fischerandom", chess960_variant());
      add("nocastle", nocastle_variant());
 diff --git a/src/variant.h b/src/variant.h
-index 0e6d44c..dc9f15c 100644
+index 0e6d44c..024f22d 100644
 --- a/src/variant.h
 +++ b/src/variant.h
-@@ -42,6 +42,7 @@ struct Variant {
+@@ -29,6 +29,7 @@
+ #include <iostream>
+ 
+ #include "types.h"
++#include "kingdown_full.h"
+ #include "bitboard.h"
+ 
+ namespace Stockfish {
+@@ -42,6 +43,8 @@ struct Variant {
    Rank maxRank = RANK_8;
    File maxFile = FILE_H;
    bool chess960 = false;
 +  bool kingDownActions = false;
++  KdConfig kdRules;
    bool twoBoards = false;
    int pieceValue[PHASE_NB][PIECE_TYPE_NB] = {};
    std::string customPiece[CUSTOM_PIECES_NB] = {};

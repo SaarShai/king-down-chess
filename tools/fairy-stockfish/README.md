@@ -1,16 +1,24 @@
-# Native King Down base-piece port
+# Native King Down port
 
-This patch adds `kingdown-base` to pinned Fairy-Stockfish source
-`9f778da667f6e07dae1e85d3e2ea204fc6dee94d`. It is a test prototype. It does not
-replace the game AI.
+This test patch adds the `kingdown` variant to Fairy-Stockfish commit
+`9f778da667f6e07dae1e85d3e2ea204fc6dee94d`. It does not replace the game AI.
 
-The fixed rules cover ordinary pieces, Archer, Beast, Guard, Maester, Paladin and
-Ogre, plus the lab Catapult, Reaver and fixed Templar. They include standard
-promotions and the current material, fifty-move and threefold draw rules. There
-is no castling, en passant, king power, card or custom workshop design. The
-TypeScript bridge rejects other rule signatures and state.
+The contract covers the six ordinary pieces, nine fixed fairy pieces, twelve
+king powers and all 36 card names in the reference engine. It includes standard
+promotion, marks, spent uses/cards, reserves, ordered draws, copied cards,
+delayed availability, held turns, material draws, the fifty-move rule and
+whole-history threefold repetition. There is no castling or en passant.
 
-Build in a new directory. Use an absolute patch path:
+`fullConfig()` in `tools/fairy-stockfish-full.ts` accepts explicit default and
+balanced profiles. It rejects other workshop/lab rules. The six stateful king
+powers need 1–6 uses; March and Leap allow 0–6. Hands hold at most eight dealt
+and drawn cards; explicit piles hold at most 64. These are support limits, not
+changes to King Down. Unlimited stateful powers need a separate history design
+and checks before support.
+
+## Build and check
+
+Use a new directory and an absolute patch path:
 
 ```sh
 git clone https://github.com/fairy-stockfish/Fairy-Stockfish.git fairy-kd
@@ -20,71 +28,76 @@ git -C fairy-kd apply /absolute/path/tools/fairy-stockfish/kingdown.patch
 make -C fairy-kd/src -j2 build ARCH=apple-silicon COMP=clang nnue=no debug=yes
 ```
 
-This build targets this Mac. Other CPU and browser builds need separate checks.
-Keep assertions on for verification. Do not use an unverified NNUE net.
+Use `ARCH=x86-64 COMP=gcc` on a Linux CPU runner. Each target needs its own
+checks. Keep assertions on for verification. No NNUE net is certified for this
+port; use `Use NNUE=false`.
 
-From the King Down worktree, with dependencies installed, run:
+From the King Down source root, with locked dependencies installed:
 
 ```sh
-node --import ./node_modules/tsx/dist/loader.mjs tools/fairy-stockfish-port.ts /absolute/path/fairy-kd/src/stockfish /absolute/path/to/new-card-verification-directory
+node --import tsx tools/fairy-stockfish-full-check.ts /absolute/path/fairy-kd/src/stockfish /absolute/path/to/new-card-check-directory
+node --import tsx tools/fairy-stockfish-full-controls.ts /absolute/path/fairy-kd/src/stockfish /absolute/path/to/another-new-card-directory
 npm test
 ```
 
-Use a new output directory. Preserve failed checks. The driver records explicit
-rules, fixtures and source/patch/binary hashes. It compares full semantic legal
-effects, every child board, attacks, check flags and terminal outcomes with the
-TypeScript engine. Native assertions check undo, keys, material, promotion data,
-TT storage and deep recapture selection. Ordinary and variant perft, bounded
-search, repetition and illegal-action controls run too. A dense chain must exceed
-the former 8,192-action limit and pass full state comparison and bounded search.
+Use new output directories. Preserve failures. The corpus includes every power
+and card, both profiles and colours, mixed kings, both Mirror variants, sparse
+material, marks, draws, reserves, delays, held actions, seeded traces, and the
+retained base-piece corpus. Native checks cover physical boards, cold keys,
+material, pawn keys, piece-square scores, undo, promotion metadata and complete
+TT payloads. Controls check search replies, perft, illegal actions, unsupported
+configurations and repetition through a reversed pawn move. Evidence belongs
+with the exact source, patch, binary, compiler and settings.
 
-## Action format
+## Rules and search
 
-Normal moves keep UCI notation. Special actions use these forms:
+An independent C++ rules module generates atomic actions. The conformance driver
+compares them with the TypeScript rules engine. Native legality does not call
+back into TypeScript.
 
-| Form | Effect |
-| --- | --- |
-| `fromto~mask` | Stationary Archer/Catapult shot, Beast chain or Reaver capture and step. |
-| `fromto!mask` | Paladin capture that removes the mover too. |
-| `fromto^` | Maester swap. |
-| `fromto>pushTo` | Ogre moves onto `to` and pushes its occupant to `pushTo`. |
+Fairy-Stockfish searches alternating turns. A held first action and its legal
+ordinary follow-up/pass form one complete search move. A terminal first action
+stops the turn. The driver checks the full set of these combinations separately
+from atomic legality. A search reply can contain two actions. The match driver
+validates both, plays the first, then requests another decision if the side still
+holds the turn. Both AIs receive the same time allowance per atomic decision.
+Actual latency includes proposal processing and is recorded.
 
-The victim mask is 64-bit hexadecimal, with bit zero at a1. For example,
-`d4d4~80000000000` removes d6 and keeps the Archer on d4. The move and TT store the
-whole mask. The action kind also distinguishes a swap or push from a capture.
+`kdconfig` sets the immutable rules before a game. FEN field seven carries public
+power/card state. `kdlegal` lists atomic actions; `kdinspect` checks atomic
+transitions; `kdturninspect` checks complete turns. These commands run only when
+search is idle. Normal position history can contain atomic held actions. Search
+moves must be complete turns.
 
-A Beast mask omits path order. Under these fixed rules, paths with the same
-victim set and final square have the same state. The bridge proves this for each
-input and retains a legal reference path for play or display. Do not apply this
-collapse to cards or triggers without new checks.
+An atomic token is `@data:flags:victims:pushes`, with hexadecimal fields. `data`
+holds the action kind, source, destination and promotion. `flags` holds the
+power, Mirror kind, swap, self-removal, pass, Ogre destination and drop fields.
+Both masks use a1 as bit zero. A complete two-action turn joins two tokens with
+a comma. The TypeScript bridge owns encoding; consumers must validate tokens
+against the legal set. Beast paths collapse only when every effect field and
+resulting state agree. A legal reference path remains available for display.
 
-## Implementation and limits
+## Limits
 
-Move lists and search move-picker buffers grow as needed. The chain generator
-has no fixed action cap. Search reductions handle move numbers beyond the
-ordinary table. Memory and elapsed time still limit large positions; removing a
-buffer cap does not make the number of chains small.
+Move lists grow as needed. A complete move is 48 bytes; each 64-byte TT cluster
+holds one entry. Large Beast paths and held-turn combinations still cost time
+and memory. There is no fixed chain action cap.
 
-Compound state changes use one make/undo path. It preserves each piece's
-promotion data and recalculates board keys. The debug driver checks the next
-search key, including the fifty-move clock adjustment. This is a correctness
-prototype; its speed and memory need measurement before player use.
+Null-move pruning, orthodox cycle shortcuts, specialized orthodox endgame tables
+and single-square exchange pruning are disabled for this variant. They omit
+state or actions that these rules permit. Classical evaluation still uses
+approximate movement, pawn structure and piece values. Legal parity does not
+establish strength or a trained evaluation.
 
-A move is 16 bytes. The TT has two entries per 64-byte cluster. Single-square
-exchange pruning stays disabled for the whole base variant: an ordinary capture
-can permit a remote reply. The classical evaluation still uses approximate
-piece movement/value tables. Legal parity does not establish playing strength.
-Only one search thread is checked.
+The port matches the reference Ogre-shove clock: pushing a pawn does not reset
+it. The independent search uses full history for repetition because a relocator
+can reverse a pawn move.
 
-The reference engine's Ogre-shove code does not reset the fifty-move clock when
-it pushes a pawn, despite a comment that says it does. This port matches the
-code. A rules decision and a separate engine change are needed to alter that.
+No browser/WebAssembly build, phone check, production plugin adapter, training
+pipeline or trained net is included. Prior base-port evidence stays in its own
+immutable card snapshot. This full port has separate checks and match data.
 
-No WebAssembly build, phone check, production plugin adapter, training-data
-pipeline or trained net is delivered. The original Archer/Beast evidence stays
-in its own card snapshot; this expanded port has separate evidence.
-
-The upstream code and this derived patch use GPLv3 or later. Preserve upstream
-`Copying.txt` and provide the exact source as required when distributing the
-engine. The plugin assessment is in
+The upstream engine and derived patch use GPLv3 or later. Preserve upstream
+`Copying.txt` and provide the exact source as required when distributing it.
+The plugin assessment is in
 `docs/research/fairy-stockfish-plugin-fit-2026-10-11.md`.
