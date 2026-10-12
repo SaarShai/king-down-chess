@@ -184,26 +184,25 @@ step 'npm test' npm test
 if [ "$target" = website ]; then
   step 'browser checks' npm run check:browser
   step 'site artifact' npm run build:vercel
-  step 'engine archive' engines_committed
-  if [ -n "${KINGDOWN_ENGINES_DATABASE_URL:-}" ]; then
-    step 'engines in use' node tools/engines-check.mjs kingdown-deploy/.vercel/output/functions/mcp.func/runtime/engines
-  else
-    echo 'deploy: KINGDOWN_ENGINES_DATABASE_URL is not set; skipped the check of engines in use'
-  fi
-  step 'site HTTP check' npm run check:vercel
-  step 'plugin protocol check' npm run plugin:check:protocol
-  step 'plugin browser checks' npm run check:browser plugin-ui plugin-ui-http
 else
   step 'plugin artifact' npm run plugin:build:vercel
-  step 'engine archive' engines_committed
-  if [ -n "${KINGDOWN_ENGINES_DATABASE_URL:-}" ]; then
-    step 'engines in use' node tools/engines-check.mjs plugin-deploy/.vercel/output/functions/mcp.func/runtime/engines
-  else
-    echo 'deploy: KINGDOWN_ENGINES_DATABASE_URL is not set; skipped the check of engines in use'
-  fi
-  step 'plugin HTTP check' npm run plugin:server:check -- plugin-deploy/.vercel/output/functions/mcp.func
+fi
+step 'engine archive' engines_committed
+if [ -n "${KINGDOWN_ENGINES_DATABASE_URL:-}" ]; then
+  step 'engines in use' node tools/engines-check.mjs "$artifact/functions/mcp.func/runtime/engines"
+else
+  echo 'deploy: KINGDOWN_ENGINES_DATABASE_URL is not set; skipped the check of engines in use'
+fi
+if [ "$target" = website ]; then
+  step 'site HTTP check' npm run check:vercel
+else
+  step 'plugin HTTP check' npm run plugin:server:check -- "$artifact/functions/mcp.func"
   step 'plugin worker check' npm run plugin:smoke
-  step 'plugin protocol check' npm run plugin:check:protocol
+fi
+step 'plugin protocol check' npm run plugin:check:protocol
+if [ "$target" = website ]; then
+  step 'plugin browser checks' npm run check:browser plugin-ui plugin-ui-http
+else
   step 'plugin browser checks' npm run check:browser plugin-oauth plugin-ui plugin-ui-http
 fi
 if [ $publish = no ]; then

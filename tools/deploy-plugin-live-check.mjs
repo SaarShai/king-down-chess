@@ -1,6 +1,6 @@
 // Unsigned release check. No player token, session cookie or match operation is used.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const [folder, origin, ...extra] = process.argv.slice(2);
@@ -15,6 +15,19 @@ if (base.origin !== origin || (base.protocol !== 'https:' && !['127.0.0.1', 'loc
   process.exit(2);
 }
 const script = readFileSync(join(folder, 'consent.mjs'));
+const artDir = join(folder, '../../static/plugin-art'), configFile = join(folder, '../../config.json');
+const routes = existsSync(configFile) ? JSON.parse(readFileSync(configFile, 'utf8')).routes ?? [] : [];
+// One file per art format checks the static routes without a player token.
+const formats = new Set();
+const art = (existsSync(artDir) ? readdirSync(artDir).sort() : []).filter(name => {
+  const format = /^[\w-]+\.(webp|png|svg|woff2)$/.exec(name)?.[1];
+  if (!format || formats.has(format)) return false;
+  formats.add(format); return true;
+}).map(name => {
+  const path = `/plugin-art/${name}`;
+  return { path, bytes: readFileSync(join(artDir, name)), headers: Object.assign({}, ...routes.filter(route => new RegExp(route.src).test(path)).map(route => route.headers)) };
+});
+const authorize = '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me';
 const issuer = 'https://utqzovjmclfyojedmwok.supabase.co/auth/v1';
 const resource = `${origin}/mcp`;
 const metadataUrl = `${origin}/.well-known/oauth-protected-resource/mcp`;
@@ -26,19 +39,22 @@ async function check() {
     headers: { 'cache-control': 'no-cache', ...options.headers },
     signal: AbortSignal.timeout(Math.max(1, Math.min(15_000, deadline - Date.now()))),
   });
-  const [discovery, challenge, consent, liveScript] = await Promise.all([
-    get('/.well-known/oauth-protected-resource/mcp'),
+  const [discovery, rootDiscovery, challenge, consent, liveScript, ...liveArt] = await Promise.all([
+    get('/.well-known/oauth-protected-resource/mcp'), get('/.well-known/oauth-protected-resource'),
     get('/mcp', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }),
-    get('/authorize'), get('/consent.mjs'),
+    get(authorize), get('/consent.mjs'), ...art.map(file => get(file.path)),
   ]);
   assert.equal(discovery.status, 200, 'discovery status');
   const metadata = await discovery.json();
   assert.equal(metadata.resource, resource, 'discovery resource');
   assert.deepEqual(metadata.authorization_servers, [issuer], 'discovery issuer');
   assert(metadata.scopes_supported?.includes('openid'), 'discovery scope');
+  assert.equal(rootDiscovery.status, 200, 'root discovery status');
+  assert.deepEqual(await rootDiscovery.json(), metadata, 'root discovery metadata');
   assert.equal(challenge.status, 401, 'unsigned MCP status');
   assert.equal(challenge.headers.get('www-authenticate'), `Bearer resource_metadata="${metadataUrl}", scope="openid"`, 'OAuth challenge');
   assert.equal(consent.status, 200, 'consent status');
+  assert.equal(consent.url, origin + authorize, 'consent authorization query');
   const html = await consent.text();
   const config = /<script type="application\/json" id="kingdown-consent-config">([^<]+)<\/script>/.exec(html)?.[1];
   assert(config, 'consent configuration');
@@ -46,12 +62,18 @@ async function check() {
   assert(html.includes('src="/consent.mjs"'), 'consent script reference');
   assert.equal(liveScript.status, 200, 'consent script status');
   assert(script.equals(Buffer.from(await liveScript.arrayBuffer())), 'consent script differs from the build');
+  for (const [i, file] of art.entries()) {
+    const response = liveArt[i];
+    assert.equal(response.status, 200, `${file.path} status`);
+    for (const [name, value] of Object.entries(file.headers)) assert.equal(response.headers.get(name), value, `${file.path} ${name}`);
+    assert(file.bytes.equals(Buffer.from(await response.arrayBuffer())), `${file.path} differs from the build`);
+  }
 }
 
 for (;;) {
   try {
     await check();
-    console.log(`plugin-live-check: pass: ${origin}; discovery, unsigned challenge and built consent script`);
+    console.log(`plugin-live-check: pass: ${origin}; both metadata paths, unsigned challenge, consent query/script and ${art.length} art files with built headers`);
     break;
   } catch (error) {
     if (Date.now() >= deadline) {

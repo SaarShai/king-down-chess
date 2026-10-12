@@ -32,4 +32,23 @@ Owner word, 2026-10-12: "do ticket 19 and anything else you need to do to get it
 
 Pass criteria: each changed path first fails its test. All gates run before a fake publish. Only the combined tree can publish to `kingdown`. Both live checks use the release timeout. No live action runs. The docs agent owns the release packet and public pages.
 
-Deploy gates, publication and configuration pass their red/green cycles. `npm test` passes: 2,355 tests, eight skips, and 50 artwork checks. The 35 deploy tests use fake commands and local HTTP only. The art and consent-query checks come next.
+## Deploy path result
+
+The default path checks and publishes the combined Build Output API tree to `kingdown`. It includes the static site, MCP, OAuth and internal jobs. It exposes no website API. The old `/authorize` redirect is absent. The two live checks use `DEPLOY_LIVE_TIMEOUT_MS`, including 900000 ms. The plugin check covers both metadata paths, the unsigned challenge, the consent query and script, and one art file per format with its built bytes and headers. It checks CSP headers when the build has them.
+
+`--configure` sets seven production server keys. `KINGDOWN_ENGINES_DATABASE_URL` stays on the local release command; the server does not read it. The validator refuses mail and local check keys. The legacy `--setup-plugin`, `--configure-plugin` and `--target plugin` paths remain for the transition week. They name the old project and origin.
+
+The current website configuration has only the old consent redirect before this change. No other header or redirect needs a move. The pinned CLI reads local configuration with `--prebuilt`; the publish folder now holds only the project link and the output tree. The tree keeps the native OAuth paths and art headers in its own configuration. No server-build change is necessary.
+
+Checks use `kingdown_mvp19d_test` on `127.0.0.1:55432`:
+
+- Four red/green cycles cover the gates, combined publication, private configuration and live checks. Each first fails on the prior path.
+- `npm test`: 157 files pass; 2,368 tests pass; eight skip. All 48 deploy cases pass with fake commands and local HTTP. All 50 artwork checks pass.
+- `npm run build:vercel` and `npm run check:vercel`: pass. The local compiled check covers 101 art files, four archived engines, OAuth, MCP, API refusal and internal jobs.
+- `npm run plugin:check:protocol`: 24 tools pass.
+- `npm run check:browser`: all 24 default checks pass. `npm run check:browser plugin-ui plugin-ui-http`: both pass.
+- `bash -n tools/deploy.sh`: pass. The real `engines-check` passes on the disposable database; it has zero engines in use. The deploy cases also check missing and uncommitted engines.
+
+Logs: `/tmp/kingdown-mvp19d/`. The two browser run folders end in `mvp-19-deploy-wnkXu5` and `mvp-19-deploy-XBnvq3`.
+
+Open items: the merger reviews and merges this branch and the docs branch. The real fresh-`origin/main` deploy check waits for that merge. The owner's live steps and ChatGPT widget CSP check remain in the release packet. No live action runs. The release packet and public pages stay with the docs agent.
