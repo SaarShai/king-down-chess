@@ -133,3 +133,5 @@ The checks catch two reads during mount, two composer gaps, a shaft end outside 
 After this merge, npm test passes 2,279 tests in 148 files, with 8 skipped. All 50 art tests and the type check pass. Both plugin browser checks pass (2 of 2). The rebuilt server check passes. All 101 art files pass. Page size is 516,016 HTML bytes and 517,789 JSON bytes. The full 24-check browser run above precedes the late integration merge; the named plugin checks also pass after it.
 
 Ticket 10 is now merged. Step B stays open and has no new build in this round. A later integration tip has the database-clock and Abort-deadline fixes; its merge result follows.
+
+The branch also merges local integration tip 0609d839. This merge adds the database-clock and Abort-deadline fixes and has no conflict. `npm test` passes 2,281 tests in 148 files, with 8 skipped. All 50 art tests and the type check pass. The build and server check pass. All 101 art files pass. The page stays at 516,016 HTML bytes and 517,789 JSON bytes. Step A is complete. Step B stays open.

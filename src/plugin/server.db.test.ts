@@ -183,6 +183,24 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(view(await guest.ok('kingdown_get', { game_id })).opponent!.last_seen_ms).toBeNull();
  });
 
+ it('keeps an active reader recent when the server clock is two days ahead', async () => {
+  const [a, b] = [await user('clock-a'), await user('clock-b')], host = await connect(a), guest = await connect(b);
+  const game_id = view(await host.ok('kingdown_create', { kind: 'friend', options: { ...DEFAULT_OPTIONS, arrangement: false } })).game_id;
+  await guest.ok('kingdown_join', { code: (await host.ok('kingdown_invite', { game_id })).structuredContent.code });
+  await admin.query("update public.profiles set online_visible_to='everyone' where id=$1", [a]);
+  await admin.query("update public.game_players set last_seen_at=now()-interval '3 minutes' where game_id=$1 and user_id=$2", [game_id, a]);
+  vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(Date.now() + 2 * 86_400_000);
+  try {
+   for (const since_revision of [undefined, 1]) {
+    await host.ok('kingdown_get', { game_id, ...(since_revision !== undefined && { since_revision }) });
+    const age = view(await guest.ok('kingdown_get', { game_id, ...(since_revision !== undefined && { since_revision }) })).opponent!.last_seen_ms;
+    expect.soft(age).toBeGreaterThanOrEqual(0); expect.soft(age).toBeLessThan(120000);
+   }
+   const age = (await guest.ok('kingdown_games'))._meta.games.find((g: View) => g.game_id === game_id).opponent.last_seen_ms;
+   expect.soft(age).toBeGreaterThanOrEqual(0); expect.soft(age).toBeLessThan(120000);
+  } finally { vi.useRealTimers(); }
+ });
+
  it('starts a fresh account with the approved game defaults', async () => {
   const actor = await user('defaults'), player = await connect(actor);
   expect((await player.ok('kingdown_settings'))._meta.settings).toEqual({ symbols_only: false, show_threats: false, last_setup: null });
