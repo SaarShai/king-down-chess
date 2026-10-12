@@ -45,11 +45,11 @@ Checks use the disposable `kingdown_mvp16_test` database on `127.0.0.1:55432`. F
 
 ## Look check
 
-The phone and desktop comparisons cover profile, profile-badges and collection. The files are in `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-look/16/`. All three sizes have separate screenshots in the browser run folder.
+The phone and desktop comparisons cover profile, profile-badges and collection. The final fix-round files are in `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-look/16b/`. All three sizes have separate screenshots in the browser run folder.
 
 Keep these required differences from the sample:
 
-- The shared sheet head has Back. The shared open rows keep their portraits and turn mark, as ticket 11 requires.
+- The shared sheet head has Back. Profile live rows use the sample's left Turn or Open pill and king coin. Play keeps the shared row form.
 - The owner's matte wood rollers replace the sample's brass rollers. Only the sheet grows. The list scrolls inside it, so both rollers show in full. The desktop badge view needs no outer scroll.
 - Earned badges show their dates. A tap shows the date or goal on a sheet.
 - Piece cards use the full Guide rows, not the sample's short stand-ins. Power and card words use the current official readings, as set out above.
@@ -58,39 +58,26 @@ The page keeps the game's fonts, colours, components and art. It adds no art fil
 
 ## Result
 
-Profile and collection are complete. The profile reads private tool data, uses the shared open-game list, pages finished rows 20 at a time, and shows the rating, totals and all 10 badges. Each badge opens its date or goal. Collection has 11 pieces, 6 kings, 12 powers and 21 cards, with live rule text and Unlocked. Screen and tab state survive a remount; records and names stay out of widget state.
+Status stays resolved. This fix round starts from `161f9cc1`. It adds no integration merge. Work stays in the ticket worktree on `claude/mvp-16-profile`.
 
-- Full `npm test`: 151 files pass; 2,302 tests pass, 8 skip. All 50 art tests and the type check pass. The 8 page cases pass.
-- `npm run check:browser`: 23 of 24 pass at first. The unchanged web turn check misses its pawn tap. `npm run check:browser turn` then passes 1 of 1 with no code change. Each of the 24 checks has a pass. Full log folder: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/mvp-16-profile-wKJzR4`; turn repeat: `mvp-16-profile-nbvmtQ` in the same parent folder.
-- Final `npm run check:browser plugin-ui plugin-ui-http`: 2 of 2 pass after the full run and both layout fixes. Log and screenshot folder: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/mvp-16-profile-6o04Ij`. The phone, panel and desktop checks pass for rows, paging, badges, all collection entries, image loads, private handles, fresh remount reads and both rollers. The HTTP check verifies three real PostgreSQL results.
-- `npm run plugin:build`, `npm run plugin:server:check` and `npm run plugin:check:protocol`: pass. The server check uses `kingdown_mvp16_test`. All 101 art files pass: 72 WebP, 1 PNG, 24 SVG and 4 woff2. All 24 tools pass.
-- Page bytes before and after: HTML 516,932 → 554,597; build payload 518,976 → 556,828. The standalone server resource is 556,593 JSON bytes. The page stays below 1 MB.
-- `git diff --check`: pass. The look folder and the required differences are above.
+### Fix round
 
-Open items: none in this ticket. The sample's older rule words stay in the sample; the page uses the current official rules.
+- A full read clears the old cursor and hides More before the read starts. The request guard drops an older cursor reply. The delayed page test checks the new result, totals and open game after the old reply arrives.
+- More updates an open badge sheet in place. It keeps the Close control and its focus. Close clears the one dark layer and returns focus to the current badge button. The delayed page test checks this sequence and an updated earned date.
+- Profile live rows now follow the phone sample: a left red Turn or tan Open pill, the seat's king coin, the name and a normal-weight detail line. Profile owns these rows. The shared Play list stays unchanged. The page test checks both row forms, their order and resume.
+- The collection test checks every piece's Moves, Takes and Special rows and both power rows for each king exactly against the game's rule readers. A temporary wrong Takes line fails the new check. The correct collection code stays unchanged.
+- Each code fix starts with a failing page test. The detail-weight check also fails before its style fix. Small commits keep these changes separate.
 
-### Integration check
+### Checks
 
-The branch merges local integration tip `f63606e3` without a conflict. The first combined test finds the hidden profile name link in a Settings-only selector. The profile now owns that link's click handler and calls the shared router. No shared controller or test changes are needed for this fix.
+- Final full `npm test`: 151 files pass; 2,312 tests pass; 8 skip. All 10 profile and collection page tests, 50 art tests and the type check pass. Log: `$TMPDIR/mvp16b-final-tests-look.log`.
+- The first full run has four failures in unchanged engine/search tests: three time limits and a clock-limited mate check. A repeat passes with no code change. The final run after the detail style fix also passes. No engine or search file changes.
+- Final `npm run plugin:build`: pass. HTML: 557,426 bytes. Build resource payload: 559,665 bytes. The browser's standalone resource: 559,395 JSON bytes. The page stays below 1 MB.
+- Final `npm run check:browser plugin-ui`: 1 of 1 passes. It checks Profile and Collection at phone, panel and desktop sizes, then the shared app flows. Run folder: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/mvp-16-profile-2rg6y1`.
+- The final phone look matches the sample's live row form. Raw phone shots and sample comparisons are in `$TMPDIR/kingdown-look/16b/`. The matte wood rollers stay as approved.
+- `git diff --check`: pass. The merger runs the full browser set and other plugin checks on its machine.
 
-- After the fix, full `npm test` passes 151 files and 2,310 tests; 8 skip. All 50 art tests and the type check pass. All 8 profile and collection cases pass.
-- The rebuilt plugin, server check and all 24 protocol tools pass. The server loads all 101 art files. Final page: 555,937 HTML bytes and 558,166 build payload bytes. The standalone resource is 557,931 JSON bytes.
-- Both combined-code plugin browser checks pass, 2 of 2. Their log and screenshot folder is `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/mvp-16-profile-VPmXup`. The same look folder holds the final comparisons.
-- Apple's Git shim stops one browser attempt with an Xcode licence error. The installed Command Line Tools Git runs the final check. No system or licence setting changes.
-- `git diff --check` passes. Open items: none.
+### Open items
 
-### Fix round plan
-
-Keep the resolved status. Work starts from `161f9cc1`. Do not merge the integration branch again.
-
-1. Add a delayed page test for a fresh read with an old cursor page in flight. Clear the cursor and hide More at the start of a full read. Keep older cursor replies out.
-2. Add a delayed page test for a badge tap during More. Update the open sheet in place. Close removes its one scrim.
-3. Check the profile live rows against the approved phone sample. Put Turn or Open on the left, then the king coin, name and detail. Keep Play rows unchanged.
-4. Check each piece rule row and each king power row exactly against the game's rule readers.
-5. Run `npm test`, `npm run plugin:build` and `npm run check:browser plugin-ui`. Save the phone look in `$TMPDIR/kingdown-look/16b/`. Record counts, page bytes and the two deferred review items. Commit and push this branch.
-
-- Fresh read: the delayed test fails because More stays visible. The full read now clears its cursor and hides More. The request guard drops the old cursor reply. Focused `npm test` passes 9 page tests and 50 art tests. The type check passes.
-- Badge sheet: the delayed test leaves one dark layer after Close. The open sheet now updates its detail in place. Close returns focus to the current badge button. Focused `npm test` passes 10 page tests and 50 art tests. The type check passes.
-- Live rows: the page test first fails on the missing left Turn pill. Profile now owns its live row form. It shows Turn or Open, the seat's king coin, the name and detail. The shared Play rows stay unchanged. Focused `npm test` passes 10 page tests and 50 art tests. The type check passes. New look shots go in `16b`.
-- Collection rows: the page test checks every Moves, Takes and Special row and both power rows for each king against the game's rule readers. A temporary wrong Takes line makes the check fail. The correct page code stays unchanged. Focused `npm test` passes 10 page tests and 50 art tests. The type check passes.
-- Look line: the phone shot shows bold detail text. The page test first fails on weight 700 instead of 400. The profile button now uses normal weight; the names and pills stay bold. Full `npm test` passes 151 files, 2,312 tests and 50 art tests; 8 tests skip. The type check passes.
+- Add exact history date and icon asserts.
+- Check an open badge sheet across a remount.
