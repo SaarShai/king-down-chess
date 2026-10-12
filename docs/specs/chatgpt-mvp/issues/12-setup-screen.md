@@ -82,6 +82,7 @@ Gaps in the shared contract:
 ### Fix round
 
 - Retry of a lost solo Choose reply calls finish before routing. The full read loads the rules. The app test fails on the old code, then passes with the fix: 20 app tests and 50 art tests pass; the type check passes.
+- A failed solo board read stays pending. Start stays disabled, and Retry opens the same game. The app test fails on the old code, then passes with the fix: 21 app tests and 50 art tests pass; the type check passes. Create runs once.
 
 ### Open items
 

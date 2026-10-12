@@ -120,7 +120,7 @@ async function pickKing() {
 async function finish(view: View, pick = draft!.king) {
   const choice = soloChoice(view, pick);
   if (choice) { ownCommand = true; const next = await call('kingdown_choose', { ...choice, command_id: crypto.randomUUID().replaceAll('-', '') }, true, false, false); if (!next) return; view = next; }
-  if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, false, false, false); if (!full) return; view = full; }
+  if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, true, false, false); if (!full) return; view = full; }
   ownCommand = false; routeView(view);
 }
 async function launch() {
@@ -160,7 +160,7 @@ document.addEventListener('click', event => {
   if (!(event.target as HTMLElement).closest('#retry') || client.state.screen !== 'setup' || !ownPending()) return;
   const pending = client.state.pending;
   if (['kingdown_create','kingdown_find'].includes(pending?.name ?? '')) { event.preventDefault(); event.stopImmediatePropagation(); void recoverStart(); }
-  else if (pending?.name === 'kingdown_choose') { event.preventDefault(); event.stopImmediatePropagation(); void call(pending.name, pending.args, true, false, false, true).then(async view => { if (view) await finish(view); render(); }); }
+  else if (['kingdown_choose','kingdown_get'].includes(pending?.name ?? '')) { event.preventDefault(); event.stopImmediatePropagation(); void call(pending!.name, pending!.args, true, false, false, true).then(async view => { if (view) await finish(view); render(); }); }
 }, true);
 export function setupScreen() {
   if (!memory.settings) return;
