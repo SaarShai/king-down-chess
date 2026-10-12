@@ -13,7 +13,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   let view: View | undefined, pos: Position | undefined, selected: number | undefined, moves: Choice[] = [];
   function choose(lan: string) {
     if (!view || blocked()) return;
-    void call('kingdown_move', { game_id: view.game_id, command_id: crypto.randomUUID(), expected_revision: view.revision, lan }, true);
+    void call('kingdown_move', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision, lan }, true);
   }
   function select(square: number, submit = true) {
     if (!view || !pos || blocked() || view.action !== 'ready') return;

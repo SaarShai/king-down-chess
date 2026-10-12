@@ -54,7 +54,7 @@ function actions() {
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
 function show(next: View | undefined) {
   if (!next) return;
-  if (pending?.args.game_id && pending.args.game_id !== next.game_id) { pending = undefined; $('retry').hidden = true; }
+  if (pending?.game_tag && !['kingdown_create', 'kingdown_find'].includes(pending.name) && !next.game_id.startsWith(pending.game_tag)) { pending = undefined; $('retry').hidden = true; }
   if (next.rules) rules = { game: next.game_id, value: next.rules };
   // A full read carries the rules; a reply without them is for a game this board no longer shows.
   if (next.fen && rules?.game !== next.game_id) return;
@@ -72,8 +72,14 @@ async function resendPending(command: Pending, mountRead?: ToolResult) {
   const read = mountRead ?? await client.call('kingdown_get');
   if (read.isError) throw new Error(read.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
   const completed = read._meta?.view as View | undefined;
-  if (['kingdown_create', 'kingdown_find'].includes(command.name) && command.started_at !== undefined && completed && completed.game_id !== command.game_id && (command.name === 'kingdown_find' || Date.parse(completed.created_at) >= command.started_at)) return read;
-  if (!mountRead) return client.call(command.name, command.args);
+  if (['kingdown_create', 'kingdown_find'].includes(command.name) && command.started_at !== undefined && completed && (!command.game_tag || !completed.game_id.startsWith(command.game_tag)) && (command.name === 'kingdown_find' || Date.parse(completed.created_at) >= command.started_at)) return read;
+  if (!mountRead) {
+    if (command.game_tag && !['kingdown_create', 'kingdown_find'].includes(command.name)) {
+      if (!completed?.game_id.startsWith(command.game_tag)) { pending = undefined; if (completed) routeView(completed); return read; }
+      command.args.game_id = completed.game_id;
+    }
+    return client.call(command.name, command.args);
+  }
 }
 export async function call(name: string, args: Record<string, unknown>, retain = false, quiet = false, route: boolean | undefined = undefined, retry = false) {
   if (busy || (quiet && polling)) return;
@@ -82,7 +88,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
   if (quiet) polling = true;
   else { busy = true; actions(); $('error').textContent = ''; }
   if (retain) {
-    if (pending?.name !== name || pending.args !== args) pending = { name, args, game_id: view?.game_id, started_at: Date.now(), screen: state.screen };
+    if (pending?.name !== name || pending.args !== args) pending = { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen };
     pending.error = undefined; pending.error_screen = undefined; saveState();
   }
   try {
@@ -100,7 +106,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
       if (quiet && (busy || view !== before)) return;
     }
     if (result.isError) {
-      if (result._meta?.code === 'HANDLE_NEEDED') { pending ??= { name, args, game_id: view?.game_id, started_at: Date.now(), screen: state.screen }; pending.error = undefined; pending.error_screen = undefined; saveState(); navigate('handle'); return; }
+      if (result._meta?.code === 'HANDLE_NEEDED') { pending ??= { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen }; pending.error = undefined; pending.error_screen = undefined; saveState(); navigate('handle'); return; }
       const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
       if (definitive.includes(String(result._meta?.code))) { pending = undefined; saveState(); if (retain) router.finishStart(); }
       throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
@@ -128,7 +134,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
 }
 $('reload').onclick = () => { if (state.board_id) void call('kingdown_get', {}); };
 $('retry').onclick = () => { if (pending) void call(pending.name, pending.args, true, false, undefined, true); };
-$('computer').onclick = () => { if (view) void call('kingdown_computer', { game_id: view.game_id, command_id: crypto.randomUUID(), expected_revision: view.revision }, true); };
+$('computer').onclick = () => { if (view) void call('kingdown_computer', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision }, true); };
 $('invite').onclick = () => { if (view) void call('kingdown_invite', { game_id: view.game_id }); };
 $('solo').onclick = () => { memory.kind = 'solo'; navigate('setup'); };
 $('friend').onclick = () => { memory.kind = 'friend'; navigate('setup'); };
