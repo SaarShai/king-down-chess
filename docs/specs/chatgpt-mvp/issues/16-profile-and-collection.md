@@ -1,6 +1,6 @@
 # 16 · Profile and collection
 
-Status: claimed
+Status: resolved
 Type: AFK
 Size: M
 Blocked by: 11
@@ -55,3 +55,16 @@ Keep these required differences from the sample:
 - Piece cards use the full Guide rows, not the sample's short stand-ins. Power and card words use the current official readings, as set out above.
 
 The page keeps the game's fonts, colours, components and art. It adds no art file.
+
+## Result
+
+Profile and collection are complete. The profile reads private tool data, uses the shared open-game list, pages finished rows 20 at a time, and shows the rating, totals and all 10 badges. Each badge opens its date or goal. Collection has 11 pieces, 6 kings, 12 powers and 21 cards, with live rule text and Unlocked. Screen and tab state survive a remount; records and names stay out of widget state.
+
+- Full `npm test`: 151 files pass; 2,302 tests pass, 8 skip. All 50 art tests and the type check pass. The 8 page cases pass.
+- `npm run check:browser`: 23 of 24 pass at first. The unchanged web turn check misses its pawn tap. `npm run check:browser turn` then passes 1 of 1 with no code change. Each of the 24 checks has a pass. Full log folder: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/mvp-16-profile-wKJzR4`; turn repeat: `mvp-16-profile-nbvmtQ` in the same parent folder.
+- Final `npm run check:browser plugin-ui plugin-ui-http`: 2 of 2 pass after the full run and both layout fixes. Log and screenshot folder: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/mvp-16-profile-6o04Ij`. The phone, panel and desktop checks pass for rows, paging, badges, all collection entries, image loads, private handles, fresh remount reads and both rollers. The HTTP check verifies three real PostgreSQL results.
+- `npm run plugin:build`, `npm run plugin:server:check` and `npm run plugin:check:protocol`: pass. The server check uses `kingdown_mvp16_test`. All 101 art files pass: 72 WebP, 1 PNG, 24 SVG and 4 woff2. All 24 tools pass.
+- Page bytes before and after: HTML 516,932 → 554,597; build payload 518,976 → 556,828. The standalone server resource is 556,593 JSON bytes. The page stays below 1 MB.
+- `git diff --check`: pass. The look folder and the required differences are above.
+
+Open items: none in this ticket. The sample's older rule words stay in the sample; the page uses the current official rules.
