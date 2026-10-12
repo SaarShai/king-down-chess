@@ -91,6 +91,28 @@ it('lists another player with features and accepts the open seat', async () => {
     expect((await buddy(page, 'kingdown_get', { game_id: created._meta.view.game_id }))._meta.view.status).toBe('playing');
   } finally { await page.close(); }
 });
+it('reads the visible lobby every fifteen seconds and pauses while hidden', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  let waiting: string | undefined;
+  try {
+    await page.clock.install(); await page.clock.pauseAt(new Date());
+    waiting = (await buddy(page, 'kingdown_create', { kind: 'random', options, colour: 'white' }))._meta.view.game_id;
+    await frame.locator('#home-play').click(); await frame.locator('#random').click();
+    await frame.locator('#lobby-list .accept').first().waitFor();
+    const reads = () => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_lobby').length);
+    const initial = await reads();
+    await page.clock.runFor(14999); expect(await reads()).toBe(initial);
+    await page.clock.runFor(1); await expect.poll(reads).toBe(initial + 1);
+    await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
+    await page.clock.fastForward(30000); expect(await reads()).toBe(initial + 1);
+    await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: false }); document.dispatchEvent(new Event('visibilitychange')); });
+    await expect.poll(reads).toBe(initial + 2);
+    await frame.locator('#page-back').click();
+    await page.clock.fastForward(30000); expect(await reads()).toBe(initial + 2);
+    await frame.locator('#random').click(); await expect.poll(reads).toBe(initial + 3);
+    await page.clock.resume();
+  } finally { if (waiting) await buddy(page, 'kingdown_cancel', { game_id: waiting }); await page.close(); }
+});
 it('offers a computer game after 25 seconds, watches without a board ID and switches', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

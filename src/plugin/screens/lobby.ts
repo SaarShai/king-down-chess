@@ -5,7 +5,7 @@ import { runPoll } from '../poll';
 import { $, featureNames, features, icon, onStop, portrait, row, showError } from './friend';
 let poll: ReturnType<typeof runPoll> | undefined, finding = false, accepting = false, afterHandle: string | undefined;
 // The list uses the runner's visible 15-second schedule, with no board position.
-const listClock = { kind: 'random', status: 'playing', speed: 'daily', seat: 0, turn: 0, opponent: null, last_commands: [], server_now: '' } as unknown as View;
+const listClock = { kind: 'random', status: 'playing', speed: 'live', seat: 0, turn: 0, opponent: null, last_commands: [], server_now: '' } as unknown as View;
 export function lobbyScreen() {
   if (afterHandle && memory.me?.handle) { const game = afterHandle; afterHandle = undefined; void acceptGame(game); return; }
   const setup = memory.settings?.last_setup;
