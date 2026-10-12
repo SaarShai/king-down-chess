@@ -141,6 +141,7 @@ it('offers a computer game after 25 seconds, watches without a board ID and swit
 it('keeps the five-second wait budget through the computer handoff, then uses fifteen seconds', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await page.emulateMedia({reducedMotion:'reduce'});
     await freeze(page);
     await frame.locator('html').evaluate(() => {
       const host = parent as any, app = (window as any).harnessApp, send = app.client.call;
@@ -156,26 +157,26 @@ it('keeps the five-second wait budget through the computer handoff, then uses fi
       const n = await page.evaluate(() => (window as any).ticketReads.length);
       await page.clock.runFor(ms); await expect.poll(() => page.evaluate(() => (window as any).ticketReads.length)).toBe(n+1);
     };
-    for (let i=0;i<5;i++) await advance(5000); 
+    for (let i=0;i<5;i++) await advance(5000);
     await frame.locator('#page-back').click(); await frame.locator('#random').click(); await frame.locator('#find-opponent').click();
     await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     const reads = await page.evaluate(() => (window as any).ticketReads.length);
     await frame.locator('#wait-computer').click();
     await expect.poll(() => page.evaluate(() => (window as any).ticketReads.length)).toBeGreaterThan(reads);
-    for (let i=5;i<24;i++) await advance(5000); 
+    for (let i=5;i<24;i++) await advance(5000);
     const count = await page.evaluate(() => (window as any).ticketReads.length);
     await page.clock.runFor(14999);
     expect(await page.evaluate(() => (window as any).ticketReads.length)).toBe(count);
-    await advance(1); 
+    await advance(1);
     const times = await page.evaluate(() => (window as any).ticketReads.map((r: any) => r.at));
     expect(times.at(-1)-times.at(-2)).toBe(15000);
     await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
-    const hidden = await page.evaluate(() => (window as any).ticketReads.length); await page.clock.fastForward(30000); 
-    expect(await page.evaluate(() => (window as any).ticketReads.length)).toBe(hidden); 
+    const hidden = await page.evaluate(() => (window as any).ticketReads.length); await page.clock.fastForward(30000);
+    expect(await page.evaluate(() => (window as any).ticketReads.length)).toBe(hidden);
     await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: false }); document.dispatchEvent(new Event('visibilitychange')); });
     await expect.poll(() => page.evaluate(() => (window as any).ticketReads.length)).toBeGreaterThan(hidden);
     await page.clock.resume();
-    await page.evaluate(() => (window as any).harnessTeardown()); 
+    await page.evaluate(() => (window as any).harnessTeardown());
     const closed = await page.evaluate(() => (window as any).ticketReads.length); await page.clock.fastForward(30000);
     expect(await page.evaluate(() => (window as any).ticketReads.length)).toBe(closed);
   } finally { await page.close(); }

@@ -5,7 +5,7 @@ import type { BoardSettings } from './client';
 import { symbols } from './art';
 
 export const board = new PaintedView(document.getElementById('board')!, { floor: null, webInk: true });
-board.setPace('off');
+board.setPace('fast');
 void board.ready().then(() => document.getElementById('board')!.setAttribute('aria-busy', 'false'));
 board.onLoadError = () => { document.getElementById('error')!.textContent = 'The board artwork could not load. Reload the board.'; };
 let settings: BoardSettings = { symbols_only: false, show_threats: false }, marks: Highlights = {};
@@ -16,6 +16,7 @@ export function highlight(next: Highlights) {
 }
 export async function setSettings(next: BoardSettings) {
   settings = { ...next }; highlight(marks);
+  board.setPace(settings.symbols_only ? 'off' : 'fast');
   if (!settings.symbols_only) { board.setSymbols(); return; }
   try {
     symbolImages ??= Promise.all(Object.entries(symbols).flatMap(([path, urls]) => urls.map(async (src, side) => {

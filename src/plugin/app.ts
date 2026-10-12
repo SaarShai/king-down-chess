@@ -6,7 +6,7 @@ import type { InboxEntry, JoinPreview, View } from '../match/protocol';
 import { createClient, type WidgetHost, type Screen, type Pending } from './client';
 import { art } from './art';
 import { handleProblem, ICONS, type Icon } from '../account/profile';
-import { boardScreen } from './screens/board';
+import { boardScreen, rollbackBoardMove } from './screens/board';
 import { setSettings } from './board-view';
 import { runPoll } from './poll';
 import { createRouter } from './router';
@@ -108,7 +108,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     }
     if (result.isError) {
       if (result._meta?.code === 'HANDLE_NEEDED') { pending ??= { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen }; pending.error = undefined; pending.error_screen = undefined; saveState(); navigate('handle'); return; }
-      const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
+      const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'NOT_ALLOWED', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
       if (definitive.includes(String(result._meta?.code))) { pending = undefined; saveState(); if (retain) router.finishStart(); }
       throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     }
@@ -130,6 +130,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     if (retain && pending) { pending.error = message; pending.error_screen = state.screen; saveState(); }
     $('error').textContent = message; $('retry').hidden = !pending?.error || pending.error_screen !== state.screen; }
   finally { if (quiet) polling = false; else { busy = false; actions(); } }
+  if (retain && name === 'kingdown_move' && !received && !pending && before?.game_id === view?.game_id) await rollbackBoardMove();
   if (followup) void call(followup.name, followup.args, true, false, undefined, true);
   return received;
 }

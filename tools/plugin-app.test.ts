@@ -113,11 +113,12 @@ it('opens a usable solo board after Retry of a lost Choose reply without a remou
     const completed = await page.evaluate(() => (window as any).harnessView.game_id);
     await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
-    await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(completed);
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(1);
     await frame.locator('#board').focus();
     await page.keyboard.press('ArrowUp'); await page.keyboard.press('Enter');
+    await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Choose a move',exact:true}).click();
     await frame.locator('#choices button').first().waitFor();
     expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
   } finally { await page.close(); }
@@ -137,7 +138,7 @@ it('keeps Start blocked and retries the same solo game after its board read fail
     await frame.locator('#setup-start').evaluate(button => button.click());
     await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
-    await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(completed);
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(1);
     expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
@@ -190,8 +191,8 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
     await row.click(); await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
     await frame.locator('html').evaluate(async (_, game_id) => {
       await (window as any).harnessApp.call('kingdown_move', { game_id, command_id: 'play-rows-move', expected_revision: 0, lan: 'e2-e4' }, true);
+      (window as any).harnessApp.navigate('play');
     }, game_id);
-    await frame.locator('#page-back').click();
     await row.locator('.line').filter({ hasText: 'Their turn · move 1' }).waitFor();
     expect(await row.locator('.turn-mark').count()).toBe(0);
     expect(await frame.locator('html').evaluate((_, game_id) => (window as any).harnessApp.memory.games.find((entry: any) => entry.game_id === game_id).revision, game_id)).toBe(1);
@@ -384,7 +385,7 @@ it('draws Maester swap marks through the shared board adapter', async () => {
     await frame.locator('#home-play:not(:disabled)').waitFor();
     const seeded = await (await page.request.post(new URL('/fixture-position?case=swap', harness.url).href)).json();
     await page.evaluate(result => (window as any).harnessShow(result), seeded);
-    await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     const point = await frame.locator('html').evaluate(async () => {
       const { board } = await new Function('return import("/src/plugin/board-view.ts")')();
       await board.ready(); return board.screenOf(27);
