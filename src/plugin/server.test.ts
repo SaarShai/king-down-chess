@@ -86,6 +86,7 @@ it('bounds report notes at 1000 characters apart from game revisions', async () 
   expect((await client.callTool({name:'kingdown_report',arguments:{...args,note:'x'.repeat(1000)}})).isError).not.toBe(true);
   expect(await client.callTool({name:'kingdown_report',arguments:{...args,note:'x'.repeat(1001)}})).toEqual({isError:true,content:[{type:'text',text:'Invalid input'}],_meta:{code:'INVALID_INPUT'}});
   const tools = (await client.listTools()).tools;
+  expect(tools.find(t=>t.name === 'kingdown_report')!._meta?.ui).toMatchObject({visibility:['app']});
   expect(tools.find(t=>t.name === 'kingdown_report')!.inputSchema.properties!.note).toMatchObject({maxLength:1000});
   expect(tools.find(t=>t.name === 'kingdown_move')!.inputSchema.properties!.expected_revision).toMatchObject({maximum:1100});
  } finally {await client.close();await server.close();}

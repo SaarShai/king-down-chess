@@ -36,7 +36,11 @@ suite('finished game results in PostgreSQL', () => {
   return id;
  }
  async function friend(a: string, b: string, input: object = {}) {
-  const game = await games[0].create(a, { kind: 'friend', ...('setup' in input ? {} : { options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } }), ...input });
+  const game = await games[0].create(a, { kind: 'setup' in input ? 'solo' : 'friend', ...('setup' in input ? {} : { options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } }), ...input });
+  if ('setup' in input) {
+   await admin.query("update public.games set kind='friend',status='waiting',speed='daily',days_per_move=3,started_at=null,category='daily-3d/no-powers/no-cards' where id=$1", [game.game_id]);
+   await admin.query("update public.game_players set computer=false,action='waiting' where game_id=$1", [game.game_id]);
+  }
   return games[1].join(b, (await games[0].invite(a, game.game_id)).token);
  }
 

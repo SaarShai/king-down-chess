@@ -8,6 +8,8 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { PluginService } from '../plugin/service';
+import { DEFAULT_OPTIONS } from '../match/setup';
 import { MAX_REVISION } from '../match/protocol';
 import { GameService } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
@@ -16,6 +18,7 @@ import { fakeSender, type Mail, type Sender } from './mail';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 
+const CLASSIC_OPTIONS = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
 const url = process.env.PLUGIN_TEST_DATABASE_URL, DAY = 86_400_000, MINUTE = 60_000;
 const suite = url ? describe : describe.skip;
 
@@ -36,7 +39,7 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
  }
  /** A Daily friend game: host White, guest Black, joined now. */
  async function friend(host: string, guest: string, options: object = {}) {
-  const created = await games[0].create(host, { kind: 'friend', colour: 'white', ...options });
+  const created = await games[0].create(host, { kind: 'friend', options: CLASSIC_OPTIONS, colour: 'white', ...options });
   await games[1].join(guest, (await games[0].invite(host, created.game_id)).code);
   return created.game_id;
  }
@@ -62,11 +65,25 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
   await Promise.all([admin, ...pools].map(pool => pool.end()));
  });
 
+ it('cleans up boards older than seven days and keeps their games', async () => {
+  const actor = await user('boards'), plugin = new PluginService(games[0].store);
+  const game = await games[0].create(actor, {kind:'solo'});
+  const empty = await plugin.openBoard(actor), selected = await plugin.openBoard(actor, game.game_id), fresh = await plugin.openBoard(actor, game.game_id);
+  const now = at();
+  await admin.query('update public.plugin_boards set created_at=$2 where id=any($1)', [[empty, selected], new Date(now.getTime()-7*DAY-1)]);
+  await admin.query('update public.plugin_boards set created_at=$2 where id=$1', [fresh, new Date(now.getTime()-7*DAY)]);
+  await cleanup(games[0], now);
+  for (const board of [empty, selected]) await expect(plugin.board(actor, board)).rejects.toMatchObject({code:'FORBIDDEN'});
+  expect(await plugin.board(actor, fresh)).toBe(game.game_id);
+  expect(await plugin.view(actor, game.game_id)).toMatchObject({status:'playing'});
+ });
+
  it('ends a missed Daily deadline and a waiting game whose invitation ran out, once with two sweeps at once', async () => {
   const [a, b] = [await user('ann'), await user('bob')], start = at().getTime();
   const late = await friend(a, b, { days_per_move: 1 });
   await move(a, late); await move(b, late); // White to move by start + 1 day
-  const open = await games[0].create(a, { kind: 'friend', speed: 'live' }); await games[0].invite(a, open.game_id); // runs out in 1 day
+  const open = await games[0].create(a, { kind: 'friend', options: CLASSIC_OPTIONS }); await games[0].invite(a, open.game_id);
+  await admin.query('update public.game_invites set expires_at=$2 where game_id=$1', [open.game_id, new Date(start + DAY)]);
   await sweepDeadlines(games[0], new Date(start + DAY - 1000));
   expect([(await game(late)).status, (await game(open.game_id)).status]).toEqual(['playing', 'waiting']);
   const after = at(DAY + 1000);
@@ -184,7 +201,7 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
   const [x, y, z, b] = [await user('xan'), await user('yul'), await user('zed'), await user('opp')];
   const handle = (await rows('select handle from public.profiles where id=$1', [x]))[0].handle;
   const kept = await friend(x, b); await move(x, kept);
-  const solo = (await games[0].create(x, { kind: 'solo' })).game_id, waiting = (await games[0].create(x, { kind: 'friend' })).game_id;
+  const solo = (await games[0].create(x, { kind: 'solo' })).game_id, waiting = (await games[0].create(x, { kind: 'friend', options: CLASSIC_OPTIONS })).game_id;
   // The grace uses the database clock, so the rows say when.
   await admin.query(`insert into public.account_deletions(user_id,requested_at,run_after,cancelled_at) values
    ($1,now()-interval '8 days',now()-interval '1 minute',null),($2,now()-interval '8 days',now()-interval '1 minute',null),($3,now()-interval '8 days',now()-interval '1 minute',now()-interval '2 days')`, [x, y, z]);

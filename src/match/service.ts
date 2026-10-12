@@ -349,7 +349,7 @@ export class GameService {
     // A command, a new invitation or another sweep may have come first.
     const late = game.status === 'setup' ? !!game.setup_deadline_at && game.setup_deadline_at <= now : game.status === 'playing' ? !!game.deadline_at && game.deadline_at <= now
      : game.status === 'waiting' && (game.kind === 'random' ? game.created_at.getTime() + DAY <= now.getTime()
-      : !!(await client.query('select from public.game_invites where game_id=$1 and used_by is null and expires_at<=$2', [gameId, now])).rowCount);
+      : !!(await client.query('select from public.game_invites where game_id=$1 and used_by is null and expires_at<=$2', [gameId, now])).rowCount || game.created_at.getTime() + FRIEND_CODE_DAYS * DAY <= now.getTime() && !(await client.query('select from public.game_invites where game_id=$1', [gameId])).rowCount);
     if (!late) return 0;
     const next = step(game), out: Outgoing = { notify: [], outbox: [] };
     if (game.status === 'waiting') end(next, out, null, 'no_start', now); else expire(next, out, now);

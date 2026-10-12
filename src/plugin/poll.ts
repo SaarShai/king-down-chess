@@ -8,7 +8,7 @@ export function pollDelay(view: PollView, waitingMs: number, hidden: boolean): n
   const commands = view.last_commands.filter(command => command.seat !== null && command.seat !== view.seat).map(command => Date.parse(command.at)).filter(Number.isFinite);
   const seen = view.opponent?.last_seen_ms ?? Math.max(0, Date.parse(view.server_now) - Math.max(...commands));
   if (view.turn !== view.seat && seen < 120000) return 3000;
-  return view.speed === 'daily' ? 30000 : view.turn === view.seat ? 15000 : 2000;
+  return view.speed === 'daily' ? 30000 : 15000;
 }
 
 export function runPoll(current: () => PollView, read: () => Promise<unknown>, page: EventTarget & { readonly hidden: boolean } = document) {

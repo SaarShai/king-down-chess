@@ -108,7 +108,10 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     });
   register('kingdown_create', 'Use this when the player wants a new King Down game against the computer, a friend or a random player. Choose the features, colour and computer level.',
     { kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(), board_id: boardId },
-    { visibility: ['model', 'app'], idempotent: false }, ({ board_id, ...input }) => select(board_id, async () => service.create(actorId, { ...input, options: input.options ?? (await service.settings(actorId)).last_setup?.options ?? DEFAULT_OPTIONS })));
+    { visibility: ['model', 'app'], idempotent: false }, ({ board_id, ...input }) => select(board_id, async () => {
+      const options = input.options ?? (await service.settings(actorId)).last_setup?.options ?? DEFAULT_OPTIONS;
+      return input.kind === 'random' ? service.find(actorId, options, input.colour) : service.create(actorId, { ...input, options });
+    }));
   register('kingdown_resume', 'Show a selected game, or your most urgent game, on this board.', { board_id: z.string().uuid(), game_id: gameId.optional() }, { visibility: ['app'], idempotent: false }, async args => {
     if (args.game_id) return select(args.board_id, () => service.view(actorId, args.game_id!));
     await service.board(actorId, args.board_id).catch(error => { if (!(error instanceof MatchServiceError) || error.code !== 'MATCH_REMOVED') throw error; });
@@ -160,7 +163,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     async args => args.preview ? { content: text('Review the game features before you join.'), structuredContent: { screen: 'join', ...(args.board_id && { board_id: args.board_id }) }, _meta: { preview: await service.preview(actorId, args.code) } } : select(args.board_id, () => service.join(actorId, args.code)));
   register('kingdown_report', 'Use this when the player wants to report the opponent in a King Down game: the player, their handle, or a preset message (name it). The King Down team reviews each report.',
     { game_id: gameId, target: z.enum(['player', 'handle', 'message']), category: z.enum(REPORT_CATEGORIES), intimate_image: z.boolean().optional(), preset: z.enum(PRESETS).optional(), note: z.string().max(1000).optional() },
-    { visibility: ['model', 'app'], idempotent: false }, async args => {
+    { visibility: ['app'], idempotent: false }, async args => {
       const { id, created_at } = await service.report(actorId, args);
       return { content: text('Report sent. The King Down team reviews it.'), structuredContent: { id, created_at } };
     });

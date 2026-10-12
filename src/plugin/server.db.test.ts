@@ -73,6 +73,14 @@ suite('ChatGPT tools on PostgreSQL', () => {
   await admin.end();
  });
 
+ it('reuses one open random game for two create calls', async () => {
+  const actor = await user('random-retry'), player = await connect(actor);
+  const [first, second] = await Promise.all([player.ok('kingdown_create',{kind:'random'}), player.ok('kingdown_create',{kind:'random'})]);
+  expect(view(first)).toMatchObject({kind:'random',status:'waiting',game_id:view(second).game_id});
+  expect((await player.ok('kingdown_games'))._meta.games.map((game:View)=>game.game_id)).toEqual([view(first).game_id]);
+  await player.ok('kingdown_cancel',{game_id:view(first).game_id});
+ });
+
  it('keeps old games working through open, board reads, moves, inbox and history', async () => {
   const actor = await user('legacy'), player = await connect(actor);
   const legacy = await new GameService(new PostgresMatchStore(admin)).create(actor,{kind:'solo',colour:'white',setup:{backRank:'RNBQKBNR',kings:'none,none'}});
