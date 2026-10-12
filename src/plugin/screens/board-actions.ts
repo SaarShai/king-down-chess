@@ -21,15 +21,15 @@ export function actionButtons(view: View, elapsed: number, hidden: Set<string>) 
   const actions = boardActions(view, elapsed), result: HTMLButtonElement[] = [];
   if (view.status === 'playing') {
     result.push(button('Resign', confirmResign, 'menu-resign'));
-    if (view.kind !== 'solo' && !hidden.has('kingdown_draw')) {
-      if (view.draw_offer === null) result.push(button('Offer draw', () => confirmDraw('offer'), 'menu-draw'));
-      else if (view.draw_offer !== view.seat) result.push(button('Accept draw', () => confirmDraw('accept'), 'accept-draw'), button('Decline draw', () => confirmDraw('decline'), 'decline-draw'));
+    if (view.kind !== 'solo') {
+      if (view.draw_offer === null && !hidden.has('kingdown_draw')) result.push(button('Offer draw', () => confirmDraw('offer'), 'menu-draw'));
+      else if (view.draw_offer !== null && view.draw_offer !== view.seat) result.push(button('Accept draw', () => confirmDraw('accept'), 'accept-draw'), button('Decline draw', () => confirmDraw('decline'), 'decline-draw'));
     }
   }
   if (actions.abort && !hidden.has('kingdown_abort')) result.push(button('Abort', () => confirmAbort(view), 'abort'));
   if (actions.claim && !hidden.has('kingdown_claim')) {
     const label = actions.claim === 'win' ? 'Claim the win' : 'End game';
-    result.push(button(label, () => confirmBoardAction(label + '?', actions.claim === 'win' ? 'Your opponent misses the move deadline. You win.' : 'Your opponent makes no first move. The game ends with no result.', label, () => void sendBoardCommand('kingdown_claim')), 'claim'));
+    const b = button(label, () => confirmBoardAction(label + '?', actions.claim === 'win' ? 'Your opponent misses the move deadline. You win.' : 'Your opponent makes no first move. The game ends with no result.', label, () => void sendBoardCommand('kingdown_claim')), 'claim'); b.className='primary'; result.push(b);
   }
   return result;
 }

@@ -12,7 +12,8 @@ import { art, symbols } from '../art';
 import { pieceIcon } from '../../piece-icons';
 import { client, memory, navigate } from '../app';
 import { actionButtons, confirmDraw, confirmResign } from './board-actions';
-import { applyLan, cardCoins, replayLans, stripLine, type BoardMove } from './board-model';
+import { updateEnd } from './end';
+import { applyLan, boardActions, cardCoins, replayLans, stripLine, type BoardMove } from './board-model';
 import './board.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 type Choice = { lan: string; move: Move };
@@ -61,7 +62,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     const next = await call(name, {game_id:game, command_id:crypto.randomUUID(), expected_revision:view.revision, ...args}, true);
     if (!next && !client.state.pending && view?.game_id === game) {
       const message = $('error').textContent ?? '';
-      if (/No draw offer|Abort is|missed deadline/.test(message)) refused.add(name);
+      if (/Abort is/.test(message) || args.choice==='offer' && /No draw offer/.test(message)) refused.add(name);
       await call('kingdown_get', {}); $('error').textContent = message; refresh();
     }
     return next;
@@ -130,6 +131,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     refresh();
   }
   function bindBoard() {
+    document.querySelector('[data-screen="board"]')!.prepend($('game-table')); $('table-bar').hidden = false;
     $('game-table').prepend($('board'));
     board.onSquareClick = square => select(square); board.onDragSelect = square => select(square, false);
     $('board').tabIndex = 0;
@@ -193,12 +195,17 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   }
   function refresh() {
     if (!view || !pos) return;
+    $('board').dataset.animating = String(animating);
     rules(); const cands = selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
     highlight({ ...marks, selected, last: !lastMove ? [] : lastMove.move.shove ? [lastMove.move.shove.from,lastMove.move.shove.to] : lastMove.move.to === lastMove.move.from ? [...lastMove.move.captures] : [lastMove.move.to], read: inspected === undefined ? undefined : reachOf(pos, inspected), powers: [...new Set([...cands.filter(m => m.power && !m.pass).map(m => m.to), ...named().map(c => c.move.to)])], rails: selected === undefined ? [] : railsOf(pos.board, selected, [...marks.moves, ...marks.captures], marks.captures), check: inCheck(pos) ? findKing(pos.board, pos.turn) : null, checkers: checkersOf(pos), threats: view.status === 'playing' && !animating ? threatsIn({...pos, turn:view.seat}) : [] });
     const square = inspected ?? selected, code = square === undefined ? 0 : pos.board[square];
     const [line = '', states = ''] = square === undefined ? [] : readText(pos, square).split('\n');
     const words = code ? `${colorOf(code) ? 'Black' : 'White'} ${nameOf(typeOf(code))}.${states ? ' ' + states + '.' : ''}` : '';
-    const context = contextLine({voice:'you', result:view.result ? ending(view) : '', refusal:$('error').textContent ?? '', read:inspected === undefined ? '' : words, selected:words, readNote:line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:pos.turn !== view.seat, midWay:pos.haste !== undefined || !!pos.free, free:!!pos.free, turnLine:pos.free ? 'Make your move, or stop here.' : 'Move it again, or stop here.', armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
+    const available = boardActions(view,Date.now()-readAt), opponent = view.opponent?.handle ?? 'Your opponent';
+    const deadline = available.claim === 'end' ? 'The first-turn deadline passes.' : available.claim ? view.days_per_move ? `${opponent} has not moved for ${view.days_per_move} day${view.days_per_move===1?'':'s'}.` : `${opponent} misses the move deadline.` : '';
+    const context = contextLine({voice:'you', result:view.result ? ending(view) : '', refusal:$('error').textContent ?? '', link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:pos.turn !== view.seat, midWay:pos.haste !== undefined || !!pos.free, free:!!pos.free, turnLine:pos.free ? 'Make your move, or stop here.' : 'Move it again, or stop here.', armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
+    if (context.rank==='link' && deadline) context.note=available.claim==='end'?'You may end the game with no result.':'You may claim the win.';
+    if (available.abort && ['your-move','computer'].includes(context.rank)) context.note='Abort ends the game with no result, until each side moves once.';
     if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:'armed',line:cardName(RULES.hands[view.seat][armedCard]),note:'Choose a piece, then a marked square.'});
     $('status').textContent = context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
     const actions: HTMLButtonElement[] = [];
@@ -211,12 +218,13 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     $('offer-draw').hidden = view.kind === 'solo' || view.status !== 'playing' || view.draw_offer !== null || refused.has('kingdown_draw');
     $('resign').hidden = view.status !== 'playing';
     $('context-actions').replaceChildren(...actions); strips();
+    board.setFallen(view.result?.reason === 'checkmate' && view.result.winner !== null ? findKing(pos.board,(1-view.result.winner) as Color) : null);
   }
   $('resign').onclick = confirmResign; $('offer-draw').onclick = () => confirmDraw('offer');
   $('reload').addEventListener('click', closeBoardSheet);
   $('board-menu').onclick = () => boardSheet('Menu', button('Choose a move', () => boardSheet('Choose a move', $('choices'))), ...view ? actionButtons(view,Date.now()-readAt,refused) : [], button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('computer'), $('invite'), $('invitation'));
   $('moves-line').onclick = () => boardSheet('Moves', ...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No moves shown yet.')]);
-  const observer = new MutationObserver(() => { if (active()) refresh(); scheduleComputer(); });
+  const observer = new MutationObserver(() => { if (active()) refresh(); scheduleComputer(); if (client.state.screen === 'end') updateEnd(); });
   observer.observe($('reload'), {attributes:true, attributeFilter:['disabled']});
   observer.observe(document.body, {attributes:true, attributeFilter:['data-page']});
   observer.observe($('over'), {attributes:true, attributeFilter:['open']});
@@ -225,7 +233,8 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (view?.game_id === next.game_id && next.revision < view.revision) return;
     const before = view, same = view?.game_id === next.game_id;
     const unchanged = same && before?.revision === next.revision && before.fen === next.fen && before.status === next.status;
-    view = {...next, rules:next.rules ?? (same ? view?.rules : undefined), opponent:next.opponent && {...next.opponent, rating:next.rules ? next.opponent.rating : next.opponent.rating ?? (same ? view?.opponent?.rating : undefined)}};
+    view = {...next, rules:next.rules ?? (same ? view?.rules : undefined), outcome:next.outcome ?? (same ? view?.outcome : undefined), opponent:next.opponent && {...next.opponent, rating:next.rules ? next.opponent.rating : next.opponent.rating ?? (same ? view?.opponent?.rating : undefined)}};
+    if (['finished','aborted'].includes(next.status)) setTimeout(()=>{ if (active()) { if(client.state.screen==='board') navigate('end'); updateEnd(); } },0);
     readAt = Date.now(); clearTimeout(deadlineTimer);
     if (next.deadline_at && next.turn !== next.seat && next.kind !== 'solo' && next.status === 'playing') deadlineTimer = setTimeout(refresh, Math.max(0,Date.parse(next.deadline_at)-Date.parse(next.server_now))+1);
     if (unchanged && !optimistic) { if (pos) { rules(); refresh(); } scheduleComputer(); return; }
@@ -234,6 +243,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
     const local = optimistic; optimistic = undefined;
     armed = undefined; armedCard = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]);
+    document.querySelector('[data-screen="board"]')!.prepend($('game-table')); $('table-bar').hidden = false;
     $('game-table').dataset.empty = String(!next.fen || next.status === 'setup');
     if (!next.fen || next.status === 'setup') { pos = undefined; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
     rules(); pos = fromFen(next.fen); const legal = new Set(next.legal), here = pos;

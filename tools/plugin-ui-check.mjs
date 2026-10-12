@@ -1,13 +1,15 @@
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { register } from 'tsx/esm/api';
 const unregister = register();
-const { fromFen, toLan } = await import('../src/rules/setup.ts');
-const { setRules, legalMoves } = await import('../src/rules/engine.ts');
+const { fromFen, toFen, toLan } = await import('../src/rules/setup.ts');
+const { setRules, legalMoves, inCheck } = await import('../src/rules/engine.ts');
 const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
-const { cardCoins } = await import('../src/plugin/screens/board-model.ts');
+const { applyLan, cardCoins } = await import('../src/plugin/screens/board-model.ts');
 const { threatsIn } = await import('../src/move-text.ts');
 const iconNames = { P:'pawn', N:'knight', B:'bishop', R:'rook', Q:'queen', K:'king', A:'archer', L:'paladin', G:'guard', M:'maester', S:'beast', O:'ogre' };
 const iconSources = Object.fromEntries(await Promise.all(Object.values(iconNames).map(async name => [name, await readFile(`public/ui/icons/${name}.svg`, 'utf8')])));
@@ -50,7 +52,7 @@ try {
   const options = {fairy:true,pool:['R','A','G','Q','M','S','O'],arrangement:false,classic:false,cards:false,cardPool:[],kingPowers:false};
 
   async function boardBox() {
-    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
     await frame.locator('canvas').evaluate(c => new Promise((resolve, reject) => {
       const end = performance.now() + 10000; let last;
       const tick = () => {
@@ -283,14 +285,19 @@ try {
   });
   async function seedBoard(scenario) {
     const seeded = await (await page.request.post(new URL(`/fixture-position?case=${scenario}`,base).href)).json(); assert(!seeded.isError);
+    delete seeded._meta.settings;
     const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
     await page.evaluate(result=>window.harnessShow(result),seeded);
     await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>n,reads);
     await idleBoard(); await boardBox(); return seeded;
   }
+  async function boardSetting(id, checked) {
+    await frame.locator('#'+id).setChecked(checked);
+    await page.waitForFunction(({id,checked})=>{const input=document.querySelector('iframe').contentDocument.getElementById(id); return !input.disabled && input.checked===checked;},{id,checked});
+  }
   for (const scenario of ['threats','threats-black']) {
     const seeded = await seedBoard(scenario), plain = await pixels();
-    await openScreen('settings'); await frame.locator('#show-threats').check();
+    await openScreen('settings'); await boardSetting('show-threats',true);
     await page.evaluate(result=>window.harnessShow(result),seeded); await idleBoard(); await boardBox();
     await frame.locator('canvas').evaluate(() => { window.harnessArrowLines = []; });
     const arrowBox = await boardBox(); await page.mouse.move(arrowBox.x+arrowBox.width/2, arrowBox.y+arrowBox.height/2);
@@ -303,7 +310,7 @@ try {
     setRules(seeded._meta.view.rules); const expectedArrows = threatsIn({ ...fromFen(seeded._meta.view.fen), turn: seeded._meta.view.seat }).map(t => `${t.from}:${t.to}`).sort();
     assert.deepEqual(arrows, expectedArrows, `${scenario}: every arrow starts and ends on the threatsIn squares`);
     const threats = await pixels(); assert(threats.red > plain.red + 10, `${scenario}: Show threats draws enemy arrows to your pieces`);
-    await openScreen('settings'); await frame.locator('#symbols-only').check();
+    await openScreen('settings'); await boardSetting('symbols-only',true);
     await page.evaluate(result=>window.harnessShow(result),seeded); await idleBoard(); await boardBox();
     await frame.locator('canvas').evaluate((c, minimum) => new Promise((resolve,reject) => {
       const end=performance.now()+5000;
@@ -322,7 +329,7 @@ try {
       await page.setViewportSize({width,height}); await boardBox(); await fits('board',width); await shot(page, `shell-symbols-${scenario}-${width}-${mode}`);
       const bounds=await frame.locator('.board-actions').evaluate(el=>({bottom:el.getBoundingClientRect().bottom,height:innerHeight})); assert(bounds.bottom <= bounds.height-(width >= 900 ? 128 : 96), 'Board controls stay above the composer');
     }
-    await openScreen('settings'); await frame.locator('#symbols-only').uncheck(); await frame.locator('#show-threats').uncheck();
+    await openScreen('settings'); await boardSetting('symbols-only',false); await boardSetting('show-threats',false);
   }
   await page.setViewportSize({width:1000,height:1000});
   await openPlay(); await legacyStart('solo'); await idleBoard(); await boardBox();
@@ -372,6 +379,7 @@ try {
   await frame.locator('#retry').waitFor();
   await page.locator('#remount').click();
   await frame.locator('#retry').waitFor();
+  await page.waitForFunction(()=>window.harnessView.revision===1);
   assert.equal(await page.evaluate(() => window.harnessView.revision), 1, 'Remount must restore the selected game and its pending command');
   await menuAction('reload');
   await idleBoard();
@@ -539,6 +547,12 @@ try {
   await openMoveChoices(); await frame.locator(`#choices button[title="${cardLan}"]`).click();
   await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.lan===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
   assert.equal(await frame.locator('#strip-me .card-coin').nth(cardIndex).getAttribute('data-state'),'used','The played card is spent');
+  const blackBefore=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_computer').length);
+  const blackGame=await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_create',arguments:{kind:'solo',options,colour:'black',board_id:cardBoard}}})).json(); assert(!blackGame.isError);
+  await page.evaluate(r=>window.harnessShow(r),blackGame);
+  await frame.locator('#status').filter({hasText:'Your move'}).waitFor(); await idleBoard();
+  assert.equal(await page.evaluate(()=>window.harnessView.turn),1,'The computer plays first for a Black seat');
+  assert.equal(await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_computer').length),blackBefore+1,'Mount sends one computer turn for Black');
   await openPlay(); await legacyStart('solo'); await idleBoard();
   const deleted=await page.evaluate(()=>window.harnessView);
   await page.request.post(new URL('/fixture-delete-match',base).href,{data:{game_id:deleted.game_id}});
@@ -556,6 +570,77 @@ try {
   await frame.locator('#board-sheet h2').filter({hasText:'Lay your king down?'}).waitFor({timeout:3000});
   assert.equal(await page.evaluate(()=>window.harnessView.status),'playing','Resign waits for its confirm');
   await frame.locator('#board-sheet').getByRole('button',{name:'Keep playing',exact:true}).click();
+  await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
+  await frame.locator('#over.end-card[open] h2').filter({hasText:'You lose'}).waitFor(); await idleBoard();
+  assert.match(await frame.locator('#end-reason').innerText(),/Resignation/);
+  const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);
+  await page.evaluate(()=>{window.dropNextReply='kingdown_rematch';});
+  await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).click();
+  await frame.locator('#over #retry').waitFor();
+  const pendingRematch=await page.evaluate(()=>window.harnessWidgetState.privateContent.pending);
+  await frame.locator('#over #retry').click();
+  await page.waitForFunction(id=>window.harnessView.game_id!==id,ended.game_id); await idleBoard();
+  const rematchSent = await page.evaluate(n=>window.harnessCalls.slice(n),rematchCalls);
+  assert.equal(rematchSent.find(c=>c.name==='kingdown_rematch').arguments.choice,'offer','Solo rematch offers, never accepts');
+  assert.deepEqual(rematchSent.filter(c=>c.name==='kingdown_rematch').map(c=>c.arguments.command_id),[pendingRematch.args.command_id,pendingRematch.args.command_id],'A lost rematch reply retries the same command');
+  const resumedCall = rematchSent.find(c=>c.name==='kingdown_resume'); assert(resumedCall && resumedCall.arguments.board_id,'The new game resumes on the same board');
+  assert(!rematchSent.some(c=>c.name==='kingdown_get' && c.arguments.game_id===resumedCall.arguments.game_id),'Rematch never reads the new game by ID');
+  assert(['board','seat'].includes(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen)));
+  await legacyStart('solo'); await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
+  await frame.locator('#over.end-card[open]').waitFor(); await idleBoard();
+  await frame.locator('#over').getByRole('button',{name:'Your games',exact:true}).click();
+  await frame.locator('[data-screen="profile"]:not([hidden])').waitFor(); assert.equal(await frame.locator('#over').isVisible(),false);
+  await openPlay(); await legacyStart('solo'); await frame.locator('#context-actions #abort').click();
+  await frame.locator('#board-sheet').getByRole('button',{name:'Abort',exact:true}).click();
+  await frame.locator('#over.end-card[open] h2').filter({hasText:'Game aborted'}).waitFor(); await idleBoard();
+  assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).count(),0,'An abort has no rematch');
+  if (capabilities.friend) {
+    async function joinedGame() {
+      const board_id=await page.evaluate(()=>window.harnessWidgetState.privateContent.board_id);
+      const made=await tool('kingdown_create',{kind:'friend',options,colour:'white',board_id}); assert(!made.isError);
+      const invite=await tool('kingdown_invite',{game_id:made._meta.view.game_id}); assert(!invite.isError);
+      const join=await friendTool('kingdown_join',{code:invite.structuredContent.code}); assert(!join.isError);
+      const full=await tool('kingdown_get',{board_id}); await page.evaluate(r=>window.harnessShow(r),full); await idleBoard();
+      await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); return full._meta.view;
+    }
+    async function readGame() { const board_id=await page.evaluate(()=>window.harnessWidgetState.privateContent.board_id); const full=await tool('kingdown_get',{board_id}); await page.evaluate(r=>window.harnessShow(r),full); await idleBoard(); return full._meta.view; }
+    let human=await joinedGame();
+    await frame.locator('#offer-draw').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Offer draw',exact:true}).click(); await idleBoard();
+    let current=await page.evaluate(()=>window.harnessView);
+    assert.equal(current.draw_offer,current.seat);
+    const decline=await friendTool('kingdown_draw',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'decline'}); assert(!decline.isError); await readGame();
+    current=await page.evaluate(()=>window.harnessView);
+    const offer=await friendTool('kingdown_draw',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'offer'}); assert(!offer.isError); await readGame();
+    await frame.locator('#context-actions #decline-draw').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Decline',exact:true}).click(); await idleBoard();
+    current=await page.evaluate(()=>window.harnessView); assert.equal(current.draw_offer,null);
+    const offerAgain=await friendTool('kingdown_draw',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'offer'}); assert(!offerAgain.isError); await readGame();
+    if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:new Date().toISOString()}]}}}}}});
+    await frame.locator('#context-actions #accept-draw').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Accept',exact:true}).click();
+    await frame.locator('#over.end-card[open] h2').filter({hasText:'Draw'}).waitFor(); await idleBoard();
+    if (mode==='fixture') { await frame.locator('.end-facts').filter({hasText:'1561?'}).waitFor(); assert.match(await frame.locator('.end-facts').innerText(),/\+61/); assert.match(await frame.locator('.new-badge img').getAttribute('src'),/badge-fairy-tale-/); }
+    current=await page.evaluate(()=>window.harnessView);
+    const buddyOffer=await friendTool('kingdown_rematch',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'offer'}); assert(!buddyOffer.isError); await readGame();
+    await frame.locator('#over').getByRole('button',{name:'Decline',exact:true}).click(); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.rematch_offer,null);
+    await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).click(); await idleBoard(); current=await page.evaluate(()=>window.harnessView);
+    assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).count(),0,'An offer has no second Rematch button');
+    const buddyAccept=await friendTool('kingdown_rematch',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'accept'}); assert(!buddyAccept.isError);
+    await page.clock.fastForward(31000); await page.waitForFunction(id=>window.harnessView.game_id!==id,human.game_id); await idleBoard();
+    human=await joinedGame();
+    await clickSquare(4,1); await clickSquare(4,3); await idleBoard(); current=await page.evaluate(()=>window.harnessView);
+    const blackMove=await friendTool('kingdown_move',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,lan:'e7-e5'}); assert(!blackMove.isError); await readGame();
+    await clickSquare(3,1); await clickSquare(3,3); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.abort_open,false);
+    if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{deadline_at:new Date(Date.now()-60000).toISOString()}}}}});
+    else { const {Client}=await import('pg'); const db=new Client({connectionString:process.env.PLUGIN_TEST_DATABASE_URL}); await db.connect(); try {await db.query("update public.games set deadline_at=now()-interval '1 minute', deadline_kind='move' where id=$1",[human.game_id]);} finally {await db.end();} }
+    await readGame(); await frame.locator('#context-actions #claim').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Claim the win',exact:true}).click();
+    await frame.locator('#over.end-card[open] h2').filter({hasText:'You win'}).waitFor(); await idleBoard(); assert.match(await frame.locator('#end-reason').innerText(),/Time/);
+    human=await joinedGame(); await clickSquare(4,1); await clickSquare(4,3); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.abort_open,true);
+    if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{deadline_at:new Date(Date.now()-60000).toISOString()}}}}});
+    else {const {Client}=await import('pg'); const db=new Client({connectionString:process.env.PLUGIN_TEST_DATABASE_URL}); await db.connect(); try {await db.query("update public.games set deadline_at=now()-interval '1 minute', deadline_kind='first_turn' where id=$1",[human.game_id]);} finally {await db.end();}}
+    await readGame(); assert.equal(await frame.locator('#context-actions #claim').innerText(),'End game');
+    await frame.locator('#context-actions #claim').click(); await frame.locator('#board-sheet').getByRole('button',{name:'End game',exact:true}).click();
+    await frame.locator('#over.end-card[open] h2').filter({hasText:'No first move. No result.'}).waitFor(); await idleBoard();
+    assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).count(),0);
+  }
   if (capabilities.friend) {
     await openPlay();
     await openPlay(); await legacyStart('friend'); await idleBoard();
@@ -712,6 +797,56 @@ try {
     assert(pane.y+lower<=viewport.height-reserve,`The page controls clear the composer at ${viewport.width}×${viewport.height}`);
     assert(pane.y+Math.min(lower,pane.height)<=viewport.height-reserve,'Visible controls stay inside the app pane');
   }
+  // The approved table states use public views and the host's existing reply override.
+  const look = join(tmpdir(),'kingdown-look','15'); await mkdir(look,{recursive:true});
+  const sharp = (await import('sharp')).default;
+  const sampleHand=['Vault','Leap','Salvation','Curse'], sampleRules={kings:[{king:'Mud',power:'March'},{king:'Shadow',power:'Darkness'}],hands:[sampleHand,sampleHand],marchUses:0};
+  const mid='r2gk1a1/pp1m1ppp/2p1ps2/4P3/2L5/2N2O2/PP3PPP/R2GK1A1 b - - 0 13';
+  const sampleStates=[
+    {name:'board',fen:mid,play:['e6-d5'],select:[2,2]},
+    {name:'board-rails',fen:mid.replace('2N2O2','2NQ1O2'),play:['e6-d5'],select:[3,2]},
+    {name:'board-check',fen:'r2gk1a1/pp1m1ppp/2p2s2/3pP3/2L2n2/2N2O2/PP3PPP/R2GK1A1 b - - 0 14',play:['Nf4-d3'],threats:true},
+    {name:'board-abort',fen:'rnbgkmal/pppppppp/8/8/8/8/PPPPPPPP/RNBGKMAL w - - 0 1',play:[],abort:true,used:[0,0]},
+    {name:'board-claim',fen:mid,play:['e6-d5','Nc3xd5'],claim:true},
+    {name:'board-symbols',fen:'r2gk1a1/pp1m1ppp/2p2s2/3pP2n/2L5/2N2O2/PP3PPP/R2GK1A1 b - - 0 14',play:['Nh5-f4'],symbols:true,threats:true},
+    {name:'end',fen:'6k1/5ppp/8/8/3O4/8/5PPP/R5K1 w - - 0 31',play:['Ra1-a8'],used:[3,9],end:true},
+  ];
+  for (const state of sampleStates) {
+    await openScreen('settings'); await boardSetting('symbols-only',!!state.symbols); await boardSetting('show-threats',!!state.threats);
+    const original=await page.evaluate(()=>window.harnessView), game_id=randomUUID();
+    const snapshot={...original,game_id,revision:100,status:'playing',kind:'friend',speed:'daily',days_per_move:3,seat:0,abort_open:!!state.abort,result:undefined,outcome:undefined,draw_offer:null,rematch_offer:null,rematch_game_id:null,rules:sampleRules,kings:sampleRules.kings,hands:sampleRules.hands,opponent:{handle:'mira_k',computer:false,deleted:false,rating:{rating:1540,provisional:false},last_seen_ms:121000},last_commands:[],deadline_at:null,server_now:new Date().toISOString()};
+    setRules(sampleRules); let position={...fromFen(state.fen),used:state.used??[3,1]};
+    async function showSnapshot(value) {
+      await page.evaluate(value=>{window.harnessNextView=value; return window.harnessShow({content:[],structuredContent:{board_id:window.harnessWidgetState.privateContent.board_id,game_id:value.game_id,screen:'board'},_meta:{view:value}});},value);
+      await page.waitForFunction(value=>window.harnessView.game_id===value.game_id&&window.harnessView.fen===value.fen,value);
+      await idleBoard(); await boardBox();
+    }
+    const legal=()=>position.turn===0?legalMoves(position).map(m=>toLan(position,m)):[];
+    await showSnapshot({...snapshot,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:legal()});
+    const commands=[];
+    for (const [index,lan] of state.play.entries()) {const step=applyLan(position,lan,sampleRules); assert(step,`${state.name}: the sample move is legal`); commands.push({seq:101+index,seat:position.turn,at:snapshot.server_now,action:{type:'turn',actions:[lan]}}); position=step.pos;}
+    const finished=state.end?{status:'finished',result:{winner:0,reason:'checkmate'},outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:snapshot.server_now}]}}:{};
+    await showSnapshot({...snapshot,...finished,revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:state.end?[]:legal(),last_commands:commands,deadline_at:state.claim?new Date(Date.now()-60000).toISOString():null});
+    if (state.select) await clickSquare(...state.select);
+    if (state.claim) assert.equal(await frame.locator('#status').innerText(),'mira_k has not moved for 3 days.');
+    if (state.end) await frame.locator('#over.end-card[open]').waitFor();
+    for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) {
+      await page.setViewportSize({width,height}); await boardBox();
+      await frame.locator('#game-table img,#over.end-card img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
+      const bounds=await frame.locator('#game-table').evaluate(el=>{const r=el.getBoundingClientRect();return {overflow:el.scrollWidth>el.clientWidth+1,left:r.left,right:r.right,width:innerWidth,body:document.body.scrollWidth>innerWidth};});
+      assert(!bounds.overflow&&!bounds.body&&bounds.left>=-1&&bounds.right<=bounds.width+1,`${state.name} fits at ${width}px`);
+      const ids=state.end?['#over','#context-line']:['#table-bar','#context-line'];
+      for(const id of ids) { const box=await frame.locator(id).evaluate(el=>{const r=el.getBoundingClientRect(),frame=document.querySelector('#app-frame').getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,frameBottom:frame.bottom,width:innerWidth};}); assert(box.top>=0&&box.bottom<=box.frameBottom+1&&box.left>=-1&&box.right<=box.width+1,`${state.name} ${id} stays inside the frame at ${width}px`); }
+      await shot(page,`ticket15-${state.name}-${width}-${mode}`);
+      if (width===390||width===1440) {
+        const size=width===390?'phone':'desktop', actual=await page.screenshot(), golden=await readFile(`docs/specs/chatgpt-mvp/sample/png/${state.name}-${size}.png`);
+        const left=await sharp(golden).resize(width,height).toBuffer();
+        await sharp({create:{width:width*2,height,channels:3,background:'#fff'}}).composite([{input:left,left:0,top:0},{input:actual,left:width,top:0}]).png().toFile(join(look,`${state.name}-${size}-${mode}.png`));
+      }
+    }
+  }
+  console.log(`Ticket 15 look comparisons: ${look}`);
+  await openScreen('settings'); await boardSetting('symbols-only',false); await boardSetting('show-threats',false); await openPlay(); await legacyStart('solo');
   for (const [kind,features,status] of [['friend',options,'waiting'],['solo',{...options,arrangement:true},'setup']]) {
     const start = await legacyStart('solo');
     await frame.locator('#status').filter({hasText:'Your move'}).waitFor();

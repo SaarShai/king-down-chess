@@ -180,7 +180,7 @@ it('draws Maester swap marks through the shared board adapter', async () => {
     await frame.locator('#home-play:not(:disabled)').waitFor();
     const seeded = await (await page.request.post(new URL('/fixture-position?case=swap', harness.url).href)).json();
     await page.evaluate(result => (window as any).harnessShow(result), seeded);
-    await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     const point = await frame.locator('html').evaluate(async () => {
       const { board } = await new Function('return import("/src/plugin/board-view.ts")')();
       await board.ready(); return board.screenOf(27);

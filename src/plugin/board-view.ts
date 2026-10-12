@@ -16,6 +16,7 @@ export function highlight(next: Highlights) {
 }
 export async function setSettings(next: BoardSettings) {
   settings = { ...next }; highlight(marks);
+  board.setPace(settings.symbols_only ? 'off' : 'fast');
   if (!settings.symbols_only) { board.setSymbols(); return; }
   try {
     symbolImages ??= Promise.all(Object.entries(symbols).flatMap(([path, urls]) => urls.map(async (src, side) => {

@@ -72,3 +72,13 @@ The fixture check passes 1 of 1 in 137.1 s. The HTTP and PostgreSQL check passes
 The Resign confirm check fails before its code. It passes in the fixture check, 1 of 1 in 115.8 s. The action sheet has Resign, draw choices, Abort and deadline claims. A first-turn expiry says End game. A later expiry says Claim the win. NOT_ALLOWED clears the pending command. A refused action reads the server view again. Full action flows remain in the next check phase.
 
 Haste has the mid-turn words and a Stop here action. Its check keeps the extra-move assertion. The symbol threat check waits for the real paint before it counts the red pixels. It keeps its arrow and pixel assertions.
+
+## Check point: end card and rematch
+
+The rematch helper fails before its code. The unit suite then passes 2,187 tests and 50 art tests, with 121 skipped. The fixture browser check passes 1 of 1 in 107.5 s. The HTTP check passes 1 of 1 in 93.2 s. Both cover Resign, Abort, the draw responses, a later deadline claim, the end card, Your games and both rematch types. A lost rematch reply keeps a visible Retry and the same command ID. The new game uses Resume on the same board. A full finished read fills the outcome. A partial read keeps it.
+
+The end card has no replay tiles. The card uses ending for its reason and describes the final known move. Checkmate has King Down and the fallen king. Human games show the rating and first new badge. The shared poll runner reads while a rematch offer is open. The board uses the shell's runner and its schedule.
+
+The table returns to the board before an empty-position draw. The end scrim leaves the back control accessible. The page keeps one PaintedView. Symbols only uses Off pace: its scene has no painted figures for a travel animation. The same legal LANs and marks still update. The sample-state check catches that replay error before the pace change.
+
+The look check measures all seven states at 360, 390, 400 and 1440 px. Phone and desktop comparisons go in the system temporary folder, kingdown-look/15. Each capture waits for the move and image reads. A reused Open fixture omits its old settings field, so it cannot reset a saved setting. The final runs remain open.
