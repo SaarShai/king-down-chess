@@ -1,4 +1,4 @@
-import { call, client, routeView } from '../app';
+import { call, client, navigate, routeView } from '../app';
 import { art, symbols } from '../art';
 import { gamesList } from '../games-list';
 import { WHY } from '../ending';
@@ -14,7 +14,7 @@ const date = (at: string) => new Date(at).toLocaleDateString('en-GB', { day: 'nu
 const fullDate = (at: string) => new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const GOALS: Record<Badge, string> = { first_win: 'Win a game.', friend_match: 'Finish a game with a friend.', stranger_match: 'Finish a game with a random player.', purist: 'Win a Classic game.', fairy_tale: 'Win with fairy pieces.', architect: 'Win with your own arrangement.', card_sharp: 'Win a game with cards.', crowned: 'Win with a king power.', royal_collection: 'Win with all six kings.', giant_slayer: 'Beat the Strong computer.' };
 const badgeArt = (badge: Badge) => art(`assets/badge-${badge.replaceAll('_', '-')}.webp`);
-export function profileScreen() { $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }
+export function profileScreen() { $('profile-name').onclick = () => navigate('handle'); $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }
 async function readProfile(cursor?: string) {
   const reading = ++request;
   // Keep the rollers in view while More waits.

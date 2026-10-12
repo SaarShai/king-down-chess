@@ -68,3 +68,13 @@ Profile and collection are complete. The profile reads private tool data, uses t
 - `git diff --check`: pass. The look folder and the required differences are above.
 
 Open items: none in this ticket. The sample's older rule words stay in the sample; the page uses the current official rules.
+
+### Integration check
+
+The branch merges local integration tip `f63606e3` without a conflict. The first combined test finds the hidden profile name link in a Settings-only selector. The profile now owns that link's click handler and calls the shared router. No shared controller or test changes are needed for this fix.
+
+- After the fix, full `npm test` passes 151 files and 2,310 tests; 8 skip. All 50 art tests and the type check pass. All 8 profile and collection cases pass.
+- The rebuilt plugin, server check and all 24 protocol tools pass. The server loads all 101 art files. Final page: 555,937 HTML bytes and 558,166 build payload bytes. The standalone resource is 557,931 JSON bytes.
+- Both combined-code plugin browser checks pass, 2 of 2. Their log and screenshot folder is `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/mvp-16-profile-VPmXup`. The same look folder holds the final comparisons.
+- Apple's Git shim stops one browser attempt with an Xcode licence error. The installed Command Line Tools Git runs the final check. No system or licence setting changes.
+- `git diff --check` passes. Open items: none.
