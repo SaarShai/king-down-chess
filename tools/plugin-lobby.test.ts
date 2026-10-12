@@ -273,3 +273,14 @@ it('keeps Join through handle Save and sends nothing when Back cancels it', asyn
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });
+it('shows the lobby name beside Accept without a button over the text', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await buddy(page, 'kingdown_create', { kind: 'random', options, colour: 'white' });
+    await frame.locator('#home-play').click(); await frame.locator('#random').click(); await frame.locator('#lobby-list .row-title').first().waitFor();
+    expect(await frame.locator('#lobby-list .row-title').first().evaluate(el => {
+      const box = el.getBoundingClientRect(), hit = document.elementFromPoint(box.x+box.width/2,box.y+box.height/2);
+      return el.contains(hit) || hit?.closest('button')?.classList.contains('menu-row');
+    })).toBe(true);
+  } finally { await page.close(); }
+});

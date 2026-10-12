@@ -18,8 +18,8 @@ export function portrait(key: Icon | null | undefined, big = false) {
   if (key && Object.hasOwn(ICONS, key)) { const img = document.createElement('img'); img.src = art(ICONS[key]); img.alt = ''; span.append(img); }
   return span;
 }
-export function row(title: string, lead: HTMLElement | string, line: (string | Node)[]) {
-  const el = document.createElement('div'); el.className = 'menu-row has-lead';
+export function row(title: string, lead: HTMLElement | string, line: (string | Node)[], tag: 'div' | 'button' = 'div') {
+  const el = document.createElement(tag); el.className = 'menu-row has-lead';
   const head = document.createElement('span'); head.className = 'row-title'; head.textContent = title;
   const sub = document.createElement('span'); sub.className = 'line'; sub.append(...line);
   if (typeof lead === 'string') { const span = document.createElement('span'); span.className = 'row-ico'; span.innerHTML = icon(lead); el.append(span); } else el.append(lead);
