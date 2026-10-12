@@ -1,6 +1,6 @@
 # 11 · The app page: router, home card, settings, handle
 
-Status: in-progress
+Status: resolved
 Type: AFK
 Size: L
 Blocked by: 02 (the owner's yes), 09, 10
@@ -19,7 +19,7 @@ Blocked by: 02 (the owner's yes), 09, 10
 A cross-ticket audit of the briefs for 12 to 16 (2026-10-11) found that those tickets would build the same parts at the same time. Part 2 builds them once, after part 1 and before 12 to 16 start:
 
 - One `routeView(view)` with stub routes (setup, friend, wait, lobby, seat, board, end) and one `start(kind, args)`; each screen ticket fills its own stub.
-- The pure poll module `src/plugin/poll.ts`: the research §6.5 table; at the board, every 3 s while it is the opponent's turn and the opponent was seen in the last 2 minutes (owner rule).
+- The pure poll module `src/plugin/poll.ts`: the research §6.5 table; at the board, every 3 s while it is the opponent's turn and the opponent was seen in the last 2 minutes (owner, 2026-10-11).
 - The whole game sprite of the sample (not the host icons) and one empty `<dialog id="over">`.
 - Each shared block of `sample.css` ported once into one shared plugin CSS file.
 - `art.ts` covers the card art and one plugin-only folder (the 10 badges, the scroll).
@@ -135,3 +135,52 @@ After this merge, npm test passes 2,279 tests in 148 files, with 8 skipped. All 
 Ticket 10 is now merged. Step B stays open and has no new build in this round. A later integration tip has the database-clock and Abort-deadline fixes; its merge result follows.
 
 The branch also merges local integration tip 0609d839. This merge adds the database-clock and Abort-deadline fixes and has no conflict. `npm test` passes 2,281 tests in 148 files, with 8 skipped. All 50 art tests and the type check pass. The build and server check pass. All 101 art files pass. The page stays at 516,016 HTML bytes and 517,789 JSON bytes. Step A is complete. Step B stays open.
+
+## Step B plan
+
+1. Read settings and me from the server on each mount. Read the selected board with board_id only. Check both values after remount.
+2. Add one shared games list from private inbox rows. Keep server order. Resume each row on the same board, then use routeView.
+3. Accept chat join previews and failed code mounts. Recover the board through Open without a code. Keep join data in page memory.
+4. Match the approved home line, Settings picture and symbol preview, and handle Free mark. Keep the screen stubs empty.
+5. Run npm test, all browser checks, both plugin checks and the server check. Record counts and page size. Merge the local integration tip, run npm test and push.
+
+Checks use kingdown_mvp11_test on 127.0.0.1:55432. The client and shared rows are the unit seams. The SDK harness checks mounts, server values, resume and chat join paths.
+
+### Step B check point
+
+The client sends settings reads and writes to the account tool. Page memory holds settings and me. The page reads a saved game with board_id only. A full read gets the rules when a poll finds a new selected game. Each mount reads the current games list. Screen entry waits for these reads.
+
+The shared gamesList uses private inbox rows, keeps server order and sends Resume on the same board. The sample's home line, account row, symbol preview and Free mark are in place. The join stub gets preview or joinError in memory. A failed chat code gets a fresh board through Open without a code.
+
+Red checks catch the settings stub, Open in place of Resume, the old home line, the missing account row, the clipped Free mark and the missing rules after a board change. The fixes pass. The HTTP check also catches early home buttons; they now wait for the first read. The chat tests check a valid preview and both malformed and own codes on notification and remount. They pass in both modes.
+
+Checks so far: npm test passes 2,281 tests in 148 files, with 8 skipped; all 50 art tests pass. Both named browser checks pass 2 of 2. The full browser run and the final named and server checks follow. The ticket stays in progress until they pass.
+
+## Part 2 result (step B)
+
+Both steps of the shared base are complete. Each mount reads settings and me from kingdown_settings. A saved board reads kingdown_get with board_id only. Page memory holds the view, settings, me, games and join data. Widget state holds only screen, sheet, board_id and pending. Model content has none of the private data.
+
+Play uses the approved sample's games rows. They read _meta.games, keep server order, show the opponent's picture and features, and show the turn or wait. A tap sends Resume on the same board and uses routeView. The home line uses the server turn count. Settings shows the account picture, name and knight symbol preview. Free comes only from the handle check. Both switches use server values and return after a remount.
+
+A chat preview opens join and keeps preview in memory. A failed code opens the join stub with joinError, then calls Open without a code for the board and home data. A home result with no game reads no board. Home buttons and screen entry wait for the mount read. A poll that finds another game gets its full rules before the page draws it.
+
+The screen tickets use these exports:
+
+- app.ts: routeView, start, navigate, client, memory and call. Start keeps the pending action through handle Save and returns the view. Its route option stays in place. Call takes name, args, retain, quiet and route, and returns the view.
+- client.ts: Screen, SCREENS and BOARD_ID_TOOLS (get, create, join, resume, find, accept). Rematch stays out. client.call with background: true sends no board_id, changes no pending command or binding, and leaves the board view alone.
+- poll.ts: PollView, pollDelay and runPoll. The runner uses setTimeout, reads on mount and when visible, and stops while hidden or on teardown. The recent-opponent rule uses 3 seconds (owner, 2026-10-11). Solo games do not poll.
+- board-view.ts: board, highlight(Highlights) and setSettings. One PaintedView draws the board. Highlights keep swaps and all game marks. The settings setter applies both board switches.
+- games-list.ts: gamesList(target, entries, call, routeView, now). Entries are InboxEntry rows from _meta.games. The page passes a call with route false; the component routes the reply. Profile uses the same component.
+- art.ts: art and symbols. Art covers public/ui/cards, the existing game art and src/plugin/assets (all 10 badges and scroll.webp). The knight SVG preview uses the existing symbol asset through art. No new public art file is needed.
+- app.css: the shared frame and page sheet; over sheet and scrim; menu rows, portraits and feature marks; fields; card faces; table and coins; base dialog. Wide rules start at 900 px. The frame keeps the 96/128 px gap and safe insets.
+- screens/: setup (12); friend, join, wait and lobby (13); seat (14); board and end (15); profile and collection (16). Each file and section stays in its ticket's scope. The new bodies stay empty. Board keeps the old checks until 15 replaces it. The sprite has 21 game symbols and one empty over dialog.
+
+Checks on the final code:
+
+- npm test: 2,281 tests pass in 148 files; 8 skip. All 50 art tests pass. The type check passes.
+- npm run check:browser: 24 of 24 pass.
+- npm run check:browser plugin-ui plugin-ui-http after the full run: 2 of 2 pass. They check 14 route remounts, the four widget fields, server settings and me, board_id-only mount reads, background reads, private games rows, chat preview and code-error mounts, all art and symbols, safe control access and the Free mark at phone widths. The 390 x 844, 400 x 900 and 1440 x 900 pages have no sideways scroll. Haste, Archer and Freeze pass.
+- npm run plugin:build and npm run plugin:server:check: pass. The compiled HTTP and PostgreSQL checks pass on kingdown_mvp11_test. All 101 art files have the right type: 72 WebP, 1 PNG, 24 SVG and 4 woff2.
+- Page size: 520,734 HTML bytes and 522,555 JSON bytes. The page stays below the 1 MB build limit.
+
+Open item: none for step B. The local integration tip is 0609d839 and is already in the branch. The final sync and test follow this result. The separate step A review stays in its next round.

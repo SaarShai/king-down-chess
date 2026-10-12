@@ -116,7 +116,12 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 #game-table .player-name small { font-size: 13px; }
 #context-actions button.primary { color: var(--vellum); }
 .frame dialog#over { position: absolute; inset: auto 0 12px; margin: 0 auto; height: fit-content; max-height: calc(100% - 24px); width: min(440px, calc(100% - 24px)); padding: var(--space-4); }
-.set-line { color: var(--ink-soft); font-size: var(--fs-sm); margin: 0 0 12px; }
+#settings-sheet .fields label { font-weight: 400; }
+.set-line { margin: -6px 0 6px !important; color: var(--ink-soft); font-size: var(--fs-sm); }
+.sym-demo { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; vertical-align: middle; }
+.sym-demo img { height: 36px; }
+.sym-demo .pi { width: 30px; height: 30px; }
+#handle-check-error:empty { display: none; }
 .presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: var(--space-2); margin-bottom: 16px; }
 button.preset { justify-content: center; min-width: 0; min-height: var(--tap); padding: 4px; background: transparent; border: 2px solid transparent; box-shadow: none; border-radius: 50%; aspect-ratio: 1; }
 button.preset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--gold-bright); }
@@ -148,7 +153,6 @@ button.preset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 
 .page-sheet .code-row { margin: 0; flex-wrap: nowrap; }
 .page-sheet .new-game-foot { flex: none; padding: 12px 16px; }
 .field { width: 100%; }
-.field.name { flex: none; }
 .code-row button { width: auto; min-width: 96px; justify-content: center; }
 .preset .portrait { display: block; width: 100%; height: 100%; }
 .page-sheet .sheet-head { display: flex; gap: 8px; align-items: center; padding: 12px 16px; flex: none; }

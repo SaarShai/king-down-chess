@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createClient, BOARD_ID_TOOLS, type WidgetHost } from './client';
+import { createClient, BOARD_ID_TOOLS } from './client';
 
 describe('app client', () => {
   it('restores the screen and pending command without putting the command in model context', () => {
@@ -12,14 +12,15 @@ describe('app client', () => {
     expect(widgetState).toEqual({ modelContent: {}, privateContent: { screen: 'settings', sheet: 'king', board_id: 'b1', pending } });
     expect((widgetState as { modelContent: object }).modelContent).not.toHaveProperty('pending');
   });
-  it('keeps board settings in page memory until the settings tool is ready', async () => {
-    let widgetState: unknown;
-    const client = createClient({ callServerTool: async () => { throw new Error('No settings server in Part 1'); } }, { setWidgetState: value => { widgetState = value; } });
-    const result = await client.call('kingdown_settings', { symbols_only: true, show_threats: true });
-    expect(result._meta?.settings).toEqual({ symbols_only: true, show_threats: true });
-    const mounted = createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: widgetState as WidgetHost['widgetState'] });
-    expect((await mounted.call('kingdown_settings'))._meta?.settings).toEqual({ symbols_only: false, show_threats: false });
-    expect(widgetState).toBeUndefined();
+  it('reads and writes settings through the account tool without saving them in widget state', async () => {
+    const requests: unknown[] = [];
+    const settings = { symbols_only: true, show_threats: true, last_setup: null };
+    const me = { handle: 'stone_saar', icon: 'knight' };
+    const client = createClient({ callServerTool: async request => { requests.push(request); return { content: [], _meta: { settings, me } }; } });
+    expect((await client.call('kingdown_settings'))._meta).toEqual({ settings, me });
+    await client.call('kingdown_settings', { symbols_only: false });
+    expect(requests).toEqual([{ name: 'kingdown_settings', arguments: {} }, { name: 'kingdown_settings', arguments: { symbols_only: false } }]);
+    expect(client.state).not.toHaveProperty('settings');
   });
   it('keeps the new board binding when an old read returns after opening a game', async () => {
     let release!: (value: { content: []; structuredContent: { board_id: string } }) => void;
