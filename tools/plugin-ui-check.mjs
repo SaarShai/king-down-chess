@@ -482,6 +482,8 @@ try {
 
   async function fits(screen, width) {
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
+    // The full read replaces old rows and resets the registry scroll.
+    if (screen === 'profile') await frame.locator('#profile-status').waitFor({ state: 'hidden' });
     const layout = await frame.locator('body').evaluate(el => ({ overflow: el.scrollWidth > innerWidth, width: innerWidth, heading: getComputedStyle(document.querySelector(`[data-screen="${el.dataset.page}"] h2`) ?? el).fontFamily }));
     assert.equal(layout.overflow, false, `${screen} has no horizontal scroll at ${width}px`);
     assert(layout.width <= width);
