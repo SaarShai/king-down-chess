@@ -16,6 +16,8 @@ const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: true });
 trapErrors(page);
 try {
+  // Ticket 13: install the clock before the page sets any timer.
+  await page.clock.install();
   await page.addInitScript(() => {
     window.harnessBootDelay = 300;
     window.harnessArrowLines = [];
@@ -293,6 +295,7 @@ try {
     async function lookAt(state, screen) {
       for (const [width, height, suffix] of [[390,844,'phone'],[1440,900,'desktop'],[400,900,'side']]) {
         await page.setViewportSize({ width, height }); await fits(screen, width);
+        await frame.locator('html').evaluate(() => document.fonts.ready);
         await frame.locator(`[data-screen="${screen}"] img`).evaluateAll(images => Promise.all(images.map(img => img.decode())));
         for (const button of await frame.locator('#over.found button:visible').all()) assert((await button.evaluate(controlBounds)).accessible, 'Found controls stay above the composer');
         const capture = await page.screenshot(); await sharp(capture).toFile(join(look, `${state}-${suffix}-${mode}.png`));
@@ -352,7 +355,7 @@ try {
     assert.equal((await tool('kingdown_get', { game_id: seatCode.game.game_id }, true))._meta.view.status, 'setup', 'Arrangement routes the joiner to the seat screen');
 
     const longName = `wwwwwwwwwwwwwwww${randomUUID().slice(0,4)}`;
-    assert(!(await tool('kingdown_handle', { handle: longName, icon: 'archer' }, true)).isError);
+    assert(!(await tool('kingdown_handle', { handle: longName, icon: 'paladin' }, true)).isError);
     const random = await tool('kingdown_create', { kind: 'random', options, colour: 'white' }, true); assert(!random.isError);
     await openPlay(); await frame.locator('#random').click(); await frame.locator('#lobby-list .accept').first().waitFor();
     assert.equal(await frame.locator('#lobby-list .row-title').first().innerText(), longName);
@@ -364,12 +367,14 @@ try {
     assert.equal((await tool('kingdown_get', { game_id: random._meta.view.game_id }, true))._meta.view.status, 'playing', 'Accept starts both seats');
     await openScreen('settings'); await frame.locator('[data-nav="handle"]').click(); await lookAt('handle', 'handle'); await openPlay();
     const setup = await tool('kingdown_settings', { last_setup: { kind: 'random', options, colour: 'white', level: 'club', king: null } }); assert(!setup.isError);
-    await page.evaluate(result => window.harnessShow(result, true), setup);
+    // Only Open mounts the app. It carries the board ID and the new saved settings.
+    const play = await tool('kingdown_open', { screen: 'play' }); assert(!play.isError);
+    await page.evaluate(result => window.harnessShow(result, true), play);
     await frame.locator('#random').click(); await frame.locator('#lobby-status').filter({ hasText: /^$/ }).waitFor({ state: 'attached' });
     await frame.locator('#find-opponent').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     await remount('wait'); await frame.locator('#wait-cancel').click(); await frame.locator('[data-screen="lobby"]:not([hidden])').waitFor();
     await frame.locator('#lobby-status').filter({ hasText: /^$/ }).waitFor({ state: 'attached' });
-    await page.clock.install(); await page.clock.pauseAt(new Date());
+    await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 1000));
     await page.evaluate(() => { const push = window.harnessCalls.push; window.harnessCalls.push = function(call) { call.at = Date.now(); return push.call(this, call); }; window.ticket13Reads = []; window.ticket13Ids = new Set(); addEventListener('message', event => { if (event.data?.method === 'tools/call' && event.data.params?.name === 'kingdown_get') window.ticket13Ids.add(event.data.id); }); });
     await frame.locator('html').evaluate(() => addEventListener('message', event => {
       if (parent.ticket13Ids.delete(event.data?.id) && event.data.result?._meta?.view?.game_id === parent.ticket13WaitingId) { parent.ticket13Reads.push(Date.now()); parent.dispatchEvent(new Event('ticket13-read')); }
@@ -377,7 +382,12 @@ try {
     const receipt = n => page.evaluate(n => new Promise(resolve => {
       if (window.ticket13Reads.length > n) resolve(); else addEventListener('ticket13-read', resolve, { once: true });
     }), n);
-    async function advance(ms) { const n = await page.evaluate(() => window.ticket13Reads.length); const read = receipt(n); await page.clock.runFor(ms); await read; }
+    async function advance(ms) {
+      const n = await page.evaluate(() => window.ticket13Reads.length), read = receipt(n); let limit;
+      await page.clock.runFor(ms);
+      try { await Promise.race([read, new Promise((_, reject) => { limit = setTimeout(() => reject(new Error('The game read does not finish')), 10000); })]); }
+      finally { clearTimeout(limit); }
+    }
     await frame.locator('#find-opponent').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     const waiting = await page.evaluate(() => { window.ticket13WaitingId = window.harnessView.game_id; return window.harnessView; });
     assert.equal(waiting.options.arrangement, false, 'Find uses the last setup choices');
