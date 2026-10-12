@@ -9,6 +9,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { GameService } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
+import { DEFAULT_OPTIONS } from '../match/setup';
 import { AccountService } from './accounts';
 import { APPEAL, SafetyService } from './safety';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
@@ -35,8 +36,9 @@ suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
   return id;
  }
  const handleOf = async (id: string) => (await rows('select handle from public.profiles where id=$1', [id]))[0]?.handle ?? null;
- async function friend(host: string, guest: string) {
-  const created = await games.create(host, { kind: 'friend', colour: 'white' });
+ const READY = { ...DEFAULT_OPTIONS, arrangement: false }; // no seat choices: the game starts at the join
+async function friend(host: string, guest: string) {
+  const created = await games.create(host, { kind: 'friend', colour: 'white', options: READY });
   await games.join(guest, (await games.invite(host, created.game_id)).token);
   return created.game_id;
  }
@@ -142,7 +144,7 @@ suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
   expect(await rows('select user_id,kind from public.relations where user_id=any($1) order by kind', [[a, b]])).toEqual([{ user_id: b, kind: 'block' }]);
   await expect(accounts.relate(a, { kind: 'follow', user_id: b })).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
   for (const [host, guest] of [[a, b], [b, a]]) {
-   const created = await games.create(host, { kind: 'friend' });
+   const created = await games.create(host, { kind: 'friend', options: READY });
    await expect(games.join(guest, (await games.invite(host, created.game_id)).code)).rejects.toMatchObject({ code: 'FORBIDDEN' });
   }
   await accounts.unrelate(b, { kind: 'block', user_id: a });
