@@ -8,6 +8,10 @@ import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { randomUUID } from 'node:crypto';
 import type { HistoryEntry } from '../src/match/protocol';
 import { BADGES } from '../src/match/badges';
+import { LETTERS, NAMES, type PieceType } from '../src/rules/engine';
+import { POOL_KINDS } from '../src/match/setup';
+import { pieceGuide } from '../src/read';
+import { powerOptions } from '../src/powers-ui';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 const record = { totals: { played: 23, won: 12, drawn: 3, lost: 8 }, rating: { rating: 1500.4, rd: 350, volatility: 0.06, provisional: true }, badges: [] };
@@ -133,6 +137,16 @@ it('lists all pieces, kings, powers and cards with the game text and Unlocked', 
       await frame.locator('#collection-tabs label').filter({ hasText: tab }).click();
       expect(await frame.locator('#collection-items > *').count()).toBe(count);
       expect(await frame.locator('#collection-items .unlocked').count()).toBe(count);
+      if (tab === 'Pieces') for (const letter of ['P', ...POOL_KINDS]) {
+        const type = LETTERS.indexOf(letter) as PieceType, guide = pieceGuide(type), card = frame.locator(`[data-piece="${NAMES[type]}"]`);
+        expect(await card.locator('dt').allTextContents()).toEqual(['Moves', 'Takes', ...(guide.special ? ['Special'] : []), 'Status']);
+        expect(await card.locator('dd').allTextContents()).toEqual([guide.moves, guide.captures, ...(guide.special ? [guide.special] : []), 'Unlocked']);
+      }
+      if (tab === 'Kings') for (const group of powerOptions()) {
+        const card = frame.locator(`[data-king="${group.king}"]`);
+        expect(await card.locator('dt').allTextContents()).toEqual([...group.options.map(() => 'Powers'), 'Status']);
+        expect(await card.locator('dd').allTextContents()).toEqual([...group.options.map(option => `${option.label}: ${option.title[0].toUpperCase()}${option.title.slice(1)}.`), 'Unlocked']);
+      }
       if (tab === 'Cards') for (const [card, line] of Object.entries(data.cards)) expect(await frame.locator(`[data-card="${card}"] .cf-text small`).textContent()).toBe(balanced[card] ?? line);
       if (tab === 'Powers') for (const [power, line] of Object.entries(data.powers)) expect(await frame.locator(`[data-power="${power}"] dd`).first().textContent()).toBe(balanced[power] ?? line);
     }
