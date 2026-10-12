@@ -57,3 +57,24 @@ it('reports a true copy and selects the code when both copy paths refuse', async
     expect(await frame.locator('html').evaluate(() => getSelection()?.toString().replace(/\s/g, '').length)).toBe(6);
   } finally { await page.close(); }
 });
+async function buddy(page: Page, name: string, args: Record<string, unknown> = {}) {
+  return (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name, arguments: args } })).json();
+}
+it('previews a lower-case code, declines without taking a seat and then joins', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const created = await buddy(page, 'kingdown_create', { kind: 'friend', options, colour: 'black' });
+    const invite = await buddy(page, 'kingdown_invite', { game_id: created._meta.view.game_id });
+    const code = invite.structuredContent.code.toLowerCase();
+    await frame.locator('#home-play').click(); await frame.locator('#token').fill(`${code.slice(0,3)}-${code.slice(3)}`); await frame.locator('#join').click();
+    await frame.locator('#join-confirm').waitFor();
+    expect(await frame.locator('#join-preview .row-title').allTextContents()).toEqual(['Your opponent', 'Features']);
+    expect(await frame.locator('#join-preview .line').last().textContent()).toContain('You play White.');
+    await frame.locator('#join-decline').click();
+    expect((await buddy(page, 'kingdown_get', { game_id: created._meta.view.game_id }))._meta.view.status).toBe('waiting');
+    await frame.locator('#token').fill(code); await frame.locator('#join').click(); await frame.locator('#join-confirm').waitFor(); await frame.locator('#join-confirm').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect((await buddy(page, 'kingdown_get', { game_id: created._meta.view.game_id }))._meta.view.status).toBe('playing');
+    expect(JSON.stringify(await page.evaluate(() => (window as any).harnessWidgetState))).not.toContain(code.toUpperCase());
+  } finally { await page.close(); }
+});
