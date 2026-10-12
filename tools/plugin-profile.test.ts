@@ -7,6 +7,7 @@ import { startHarness } from './plugin-ui-harness';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { randomUUID } from 'node:crypto';
 import type { HistoryEntry } from '../src/match/protocol';
+import { BADGES } from '../src/match/badges';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 const record = { totals: { played: 23, won: 12, drawn: 3, lost: 8 }, rating: { rating: 1500.4, rd: 350, volatility: 0.06, provisional: true }, badges: [] };
@@ -75,4 +76,23 @@ it('puts open games first with your turn first and resumes the tapped game', asy
     for (const game_id of ids) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } });
     await page.close();
   }
+});
+it('shows all ten badges and opens the earned date or goal on a tap', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const badges = Object.keys(BADGES).slice(0, 6).map(badge => ({ badge, earned_at: '2026-10-10T12:00:00Z' }));
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { record: { ...record, badges } } } });
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await expect.poll(() => frame.locator('#profile-badges .badge').count()).toBe(10);
+    expect(await frame.locator('#profile-badges .badge.no').count()).toBe(4);
+    await frame.locator('[data-badge="first_win"] button').click();
+    await frame.getByRole('dialog', { name: 'First Win', exact: true }).waitFor();
+    expect(await frame.locator('#badge-detail').textContent()).toBe('Earned 10 Oct 2026');
+    await frame.locator('#badge-close').click();
+    await frame.locator('[data-badge="royal_collection"] button').click();
+    expect(await frame.locator('#badge-detail').textContent()).toBe('Win with all six kings.');
+    expect(await frame.locator('[data-badge="royal_collection"] button').getAttribute('aria-label')).toBe('Royal Collection. Win with all six kings.');
+    await frame.locator('#badge-close').click();
+    expect(await frame.locator('#over').isVisible()).toBe(false);
+  } finally { await page.close(); }
 });

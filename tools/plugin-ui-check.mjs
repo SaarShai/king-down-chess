@@ -117,8 +117,10 @@ try {
   }
   // Ticket 16: profile and collection.
   {
+    const { BADGES } = await import('../src/match/badges.ts');
     if (mode === 'fixture') {
-      const seeded = await page.request.post(new URL('/fixture-seed', base).href, { data: { actor: 'alice', data: { record: { totals: { played: 23, won: 12, drawn: 3, lost: 8 }, rating: { rating: 1500.4, rd: 350, volatility: .06, provisional: true }, badges: [] } } } });
+      const badges = Object.keys(BADGES).slice(0,6).map(badge => ({ badge, earned_at: '2026-10-10T12:00:00Z' }));
+      const seeded = await page.request.post(new URL('/fixture-seed', base).href, { data: { actor: 'alice', data: { record: { totals: { played: 23, won: 12, drawn: 3, lost: 8 }, rating: { rating: 1500.4, rd: 350, volatility: .06, provisional: true }, badges } } } });
       assert.equal(seeded.status(), 200);
     }
     await frame.locator('[data-screen="play"] [data-nav="profile"]').click();
@@ -132,6 +134,10 @@ try {
     await openPlay(); await frame.locator('[data-screen="play"] [data-nav="profile"]').click();
     await frame.locator('#profile-open button').first().waitFor();
     assert.deepEqual(await frame.locator('#profile-open button').evaluateAll(rows => rows.map(row => row.dataset.gameId)), profileGames);
+    assert.equal(await frame.locator('#profile-badges .badge').count(), 10);
+    await frame.locator('[data-badge="royal_collection"] button').click();
+    assert.equal(await frame.locator('#badge-detail').textContent(), 'Win with all six kings.');
+    await frame.locator('#badge-close').click();
     await frame.locator('#profile-open button').first().click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal(await page.evaluate(() => window.harnessView.game_id), profileGames[0]);
     for (const game_id of profileGames) assert(!(await profileTool('kingdown_abort', { game_id })).isError);
