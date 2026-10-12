@@ -75,6 +75,8 @@ try {
   const counts = Object.fromEntries(['webp', 'png', 'svg', 'woff2'].map(type => [type, art.filter(file => file.endsWith(`.${type}`)).length]));
   for (const name of ['badge-architect.webp', 'badge-card-sharp.webp', 'badge-crowned.webp', 'badge-fairy-tale.webp', 'badge-first-win.webp', 'badge-friend-match.webp', 'badge-giant-slayer.webp', 'badge-purist.webp', 'badge-royal-collection.webp', 'badge-stranger-match.webp', 'scroll.webp']) assert(art.some(file => file.includes(`/${name.slice(0,-5)}-`)), `The page names ${name}`);
   assert(counts.webp >= 20); assert.equal(counts.png, 1); assert.equal(counts.svg, 24); assert.equal(counts.woff2, 4);
+  // Ticket 12: each setup art file stays on the plugin origin.
+  for (const name of ['archer-w','paladin-w','guard-w','maester-w','beast-w','ogre-w','rook-w','bishop-w','knight-w','queen-w','frost','flame','stratus','mud','spirit','shadow','shadow-b','freeze','icewall','sacrifice','march','leap','salvation','mimic','vault','skylift','back']) assert(art.some(file => file.includes(`/${name}-`)), `Setup names ${name}.webp`);
   for (const file of art) {
     const response = await fetch(file, { headers: { Origin: 'null' } });
     assert.equal(response.status, 200, file); assert.equal(response.headers.get('content-type'), { webp: 'image/webp', png: 'image/png', svg: 'image/svg+xml', woff2: 'font/woff2' }[file.split('.').at(-1)]); assert.equal(response.headers.get('access-control-allow-origin'), '*');

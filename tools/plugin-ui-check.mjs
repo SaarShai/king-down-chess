@@ -279,6 +279,196 @@ try {
     && !(name === 'kingdown_settings' && Object.keys(a).every(k => k === 'board_id'))).map(c => c.name), navCalls);
   assert.deepEqual(navWrites, [], 'Play rows and Back send no write call');
   assert.equal(await page.evaluate(() => JSON.stringify(window.harnessWidgetState).includes('K7QX2M')), false, 'The join code stays in page memory');
+  // Ticket 12: setup and its three sheets.
+  {
+    const { DEFAULT_OPTIONS, DEAL_CARDS } = await import('../src/match/setup.ts');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { mkdir } = await import('node:fs/promises');
+    const { default: sharp } = await import('sharp');
+    const look = join(tmpdir(), 'kingdown-look', '12'); await mkdir(look, { recursive: true });
+    const setupTool = async (name, args = {}, friend = false) => {
+      const result = await (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', base).href, { data: { name, arguments: args } })).json();
+      assert(!result.isError, `${name}: ${JSON.stringify(result.content)}`); return result;
+    };
+    const baseSetup = { kind: 'solo', options: DEFAULT_OPTIONS, colour: 'white', level: 'club', king: null };
+    async function setupMount(last_setup) {
+      await setupTool('kingdown_settings', { last_setup });
+      const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length);
+      await page.evaluate(() => { window.harnessWidgetState.privateContent.screen = 'setup'; window.harnessWidgetState.privateContent.sheet = undefined; window.harnessWidgetState.privateContent.pending = undefined; });
+      await page.locator('#remount').click();
+      await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length > n, reads);
+      await frame.locator('#setup-start:not(:disabled)').waitFor();
+    }
+    async function setupFits(width, height, state, compare = true) {
+      await page.setViewportSize({ width, height });
+      const root = await frame.locator('body').evaluate(el => ({ overflow: el.scrollWidth > innerWidth, width: innerWidth }));
+      assert(!root.overflow && root.width <= width, `${state} document fits ${width}px`);
+      for (const selector of ['#setup-body', '#menu-sheet .sheet-body']) {
+        const sizes = await frame.locator(selector).evaluateAll(els => els.map(el => ({ width: el.clientWidth, scroll: el.scrollWidth, wide: [...el.querySelectorAll('*')].filter(child => child.getBoundingClientRect().right > el.getBoundingClientRect().right).map(child => ({ tag: child.tagName, id: child.id, cls: child.className, width: child.getBoundingClientRect().width, text: child.textContent.slice(0,60) })) })));
+        assert(sizes.every(size => size.scroll <= size.width + 1), `${state} ${selector} has no sideways scroll: ${JSON.stringify(sizes)}`);
+      }
+      assert(await frame.locator('#new-game label.toggle').evaluateAll(rows => rows.every(row => { const r = row.getBoundingClientRect(), text = row.querySelector('.grow').getBoundingClientRect(); return text.top >= r.top - 1 && text.bottom <= r.bottom + 1; })), `${state} toggle text stays inside its row`);
+      const sheet = await frame.locator('#menu-sheet').count();
+      const controls = frame.locator(sheet ? '#menu-sheet button:visible, #menu-sheet label:visible' : '#new-game button:visible, #new-game label:visible, #page-back');
+      for (let i = 0; i < await controls.count(); i++) {
+        const control = controls.nth(i); await control.scrollIntoViewIfNeeded();
+        assert((await control.evaluate(controlBounds)).accessible, `${state} control fits ${width}px: ${await control.innerText()}`);
+        const target = await control.boundingBox(); assert(target.width >= 44 && target.height >= 44, `${state} keeps a 44 px target at ${width}px: ${await control.innerText()} (${target.width} x ${target.height})`);
+      }
+      const footer = frame.locator(sheet ? '#setup-done' : '#setup-start');
+      assert((await footer.evaluate(controlBounds)).accessible, `${state} footer stays above the composer`);
+      await frame.locator(sheet ? '#menu-sheet .sheet-body' : '#setup-body').evaluate(el => { el.scrollTop = 0; });
+      await frame.locator('#new-game img, #menu-sheet img').evaluateAll(images => Promise.all(images.map(image => image.decode())));
+      await shot(page, `${state}-${width}-${mode}`);
+      if (compare && (width === 390 || width === 1440)) {
+        const size = width === 390 ? 'phone' : 'desktop', reference = await sharp(`docs/specs/chatgpt-mvp/sample/png/${state}-${size}.png`).resize(width, height).toBuffer();
+        const actual = await page.screenshot();
+        await sharp({ create: { width: width * 2, height, channels: 4, background: '#ffffff' } }).composite([{ input: reference, left: 0, top: 0 }, { input: actual, left: width, top: 0 }]).png().toFile(join(look, `${state}-${size}-${mode}.png`));
+      }
+    }
+    await frame.locator('#solo').click();
+    assert.equal(await frame.locator('#setup-start').count(), 1, 'Setup has the game controls and its fixed Start footer');
+    assert(await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).isChecked());
+    assert(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
+    assert(!await frame.getByRole('checkbox', { name: 'Cards', exact: true }).isChecked());
+    assert(!await frame.getByRole('checkbox', { name: 'King powers', exact: true }).isChecked());
+    assert(await frame.locator('input[name="setup-colour"][value="white"]').isChecked());
+    assert(await frame.locator('input[name="setup-level"][value="club"]').isChecked());
+    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); assert(!await frame.locator('#setup-level').isVisible());
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).uncheck();
+    assert(!await frame.locator('#arrangement-row').isVisible()); assert(!await frame.locator('#setup-pieces').isVisible());
+    await frame.getByRole('checkbox', { name: 'Classic chess', exact: true }).check();
+    await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).check();
+    assert(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()); assert(!await frame.locator('#classic-row').isVisible());
+    await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).uncheck(); assert(await frame.getByRole('checkbox', { name: 'Classic chess', exact: true }).isChecked());
+    await setupMount({ ...baseSetup, colour: 'random', options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true } });
+    await frame.locator('#setup-king').click(); await frame.locator('#setup-done').click();
+    await page.evaluate(() => { window.holdNext = 'kingdown_settings'; });
+    await frame.locator('#setup-start').click(); await page.waitForFunction(() => !!window.releaseHeld);
+    await frame.getByRole('checkbox', { name: 'Cards', exact: true }).check(); await frame.locator('#setup-king').click(); await page.evaluate(() => window.releaseHeld());
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    assert.equal(await page.evaluate(() => window.harnessView.options.cards), false, 'Start sends the same choices it saves before the delayed reply');
+    assert.equal(await frame.locator('#menu-sheet').count(), 0, 'A sheet opened during Start closes when the page changes');
+    await frame.locator('#status').filter({ hasText: 'Move 1' }).waitFor({ timeout: 5000 }); await boardBox();
+    assert.equal((await setupTool('kingdown_settings'))._meta.settings.last_setup.king, null, 'Opening the king sheet without a pick keeps the server seat default');
+    await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
+    await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, cards: true } }); await frame.locator('#setup-cards').click();
+    assert((await frame.locator('label.card-face:has(input[value="Freeze"]) small').innerText()).startsWith('as your move, freeze'), 'Card text uses the rules of a game with king powers off');
+    await frame.locator('#setup-done').click();
+    const sampleSetup = { ...baseSetup, options: { ...DEFAULT_OPTIONS, cards: true, kingPowers: true, cardPool: DEAL_CARDS.filter((_, i) => ![9,12,13,16,18].includes(i)) }, king: { king: 'Mud', power: 'March' } };
+    for (const state of ['setup','setup-classic','setup-pieces','setup-cards','setup-king']) {
+      const last = state === 'setup-classic' ? { ...baseSetup, options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } }
+        : state === 'setup-pieces' ? { ...sampleSetup, options: { ...sampleSetup.options, pool: ['N','A','M','S'] } } : sampleSetup;
+      await setupMount(last);
+      if (state === 'setup-pieces') await frame.locator('#setup-pieces').click();
+      if (state === 'setup-cards') await frame.locator('#setup-cards').click();
+      if (state === 'setup-king') await frame.locator('#setup-king').click();
+      for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) await setupFits(width, height, state);
+      if (state === 'setup-king') {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        const frameBox = await frame.locator('#app-frame').boundingBox(), sheetBox = await frame.locator('#menu-sheet').boundingBox();
+        assert(Math.abs(sheetBox.height - (frameBox.height - 48)) < 2, 'The desktop king sheet keeps the sample height');
+      }
+      await page.evaluate(() => window.harnessSetContext({ theme: 'light', deviceCapabilities: { touch: true }, safeAreaInsets: { top: 6, right: 8, bottom: 18, left: 12 } }));
+      await setupFits(390, 844, `${state}-safe`, false);
+      await page.evaluate(() => window.harnessSetContext({ theme: 'light', deviceCapabilities: { touch: true }, safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 } }));
+      if (state !== 'setup' && state !== 'setup-classic') await frame.locator('#setup-done').click();
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await setupMount({ ...sampleSetup, options: { ...sampleSetup.options, pool: ['N','A','M','S'] } });
+    await frame.locator('#setup-pieces').click();
+    assert.equal(await frame.locator('.pick-list input:checked:disabled').count(), 4, 'Four kinds supply exactly seven pieces');
+    await frame.getByRole('checkbox', { name: 'Queen', exact: true }).check();
+    assert(!await frame.getByRole('checkbox', { name: 'Beast', exact: true }).isDisabled(), 'Adding one piece frees the one-piece lock');
+    assert(await frame.getByRole('checkbox', { name: 'Archer', exact: true }).isDisabled(), 'Eight pieces still cannot lose two archers');
+    await frame.locator('#setup-done').click(); await frame.locator('#setup-cards').click();
+    const keep = ['Freeze','IceWall','Strike','Haste'];
+    for (const card of sampleSetup.options.cardPool.filter(c => !keep.includes(c))) await frame.locator(`.card-grid input[value="${card}"]`).uncheck();
+    assert.equal(await frame.locator('.card-grid input:checked:disabled').count(), 4, 'The last four cards lock');
+    await frame.locator('.card-grid input[value="Leap"]').check(); assert(!await frame.locator('.card-grid input[value="Freeze"]').isDisabled());
+    await frame.locator('#setup-done').click(); await frame.locator('#setup-king').click();
+    assert.equal(await frame.locator('.emblem.is-out[aria-disabled="true"]').count(), 3, 'Cards exclude Frost, Flame and Stratus');
+    assert(await frame.locator('[data-power="Leap"]').isDisabled());
+    assert.equal(await frame.getByRole('button', { name: 'No power', exact: true }).count(), 0);
+    await frame.locator('[data-king="Shadow"]').click(); await frame.locator('[data-power="Darkness"]').click(); await frame.locator('#setup-done').click();
+    await frame.getByRole('radio', { name: 'Strong', exact: true }).locator('..').click(); await frame.getByRole('radio', { name: 'Black', exact: true }).locator('..').click();
+    await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).uncheck();
+    await frame.locator('#setup-start').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    assert.equal(await page.evaluate(() => window.harnessView.seat), 1);
+    assert.deepEqual(await page.evaluate(() => window.harnessView.kings[1]), { king: 'Shadow', power: 'Darkness' });
+    const saved = (await setupTool('kingdown_settings'))._meta.settings.last_setup;
+    assert.deepEqual(saved.king, { king: 'Shadow', power: 'Darkness' }); assert.equal(saved.level, 'strong'); assert.equal(saved.colour, 'black');
+    await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
+    await setupMount(saved); assert.equal(await frame.locator('#setup-king-name').innerText(), 'Shadow · Darkness');
+    assert(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked()); assert(await frame.getByRole('radio', { name: 'Black', exact: true }).isChecked());
+    await setupMount(baseSetup);
+    const levels = ['beginner','casual','club','strong']; let mix = 0;
+    for (const fairy of [true,false]) for (const secondary of [false,true]) for (const cards of [false,true]) for (const powers of [false,true]) {
+      const options = { ...DEFAULT_OPTIONS, fairy, arrangement: fairy && secondary, classic: !fairy && secondary, cards, kingPowers: powers };
+      const last = { ...baseSetup, options, colour: ['white','black','random'][mix % 3], level: levels[mix++ % 4] };
+      await openPlay(); await frame.locator('#solo').click();
+      await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).setChecked(fairy);
+      await frame.getByRole('checkbox', { name: fairy ? 'Arrangement' : 'Classic chess', exact: true }).setChecked(secondary);
+      await frame.getByRole('checkbox', { name: 'Cards', exact: true }).setChecked(cards);
+      await frame.getByRole('checkbox', { name: 'King powers', exact: true }).setChecked(powers);
+      await frame.getByRole('radio', { name: last.colour[0].toUpperCase() + last.colour.slice(1), exact: true }).locator('..').click();
+      await frame.getByRole('radio', { name: last.level[0].toUpperCase() + last.level.slice(1), exact: true }).locator('..').click();
+      await frame.locator('#setup-start').click();
+      await page.waitForFunction(() => ['board','seat'].includes(window.harnessWidgetState.privateContent.screen) && !window.harnessWidgetState.privateContent.pending);
+      let view = await page.evaluate(() => window.harnessView);
+      assert.deepEqual(view.options, options, `Toggle mix ${mix} reaches the server`); assert.equal(view.level, last.level);
+      if (last.colour !== 'random') assert.equal(view.seat, last.colour === 'black' ? 1 : 0);
+      if (options.classic) assert.equal(view.draw, 'RNBQKBNR');
+      else { assert.equal(view.draw.length, 8); assert.equal([...view.draw].filter(l => l === 'K').length, 1); if (fairy) assert([...view.draw].filter(l => l !== 'K').every(l => options.pool.includes(l))); else assert.equal([...view.draw].sort().join(''), 'BBKNNQRR'); }
+      assert.equal(view.deal.length, cards ? 4 : 0); assert(view.deal.every(c => options.cardPool.includes(c)));
+      if (view.status === 'setup') view = (await setupTool('kingdown_choose', { game_id: view.game_id, command_id: randomUUID(), expected_revision: view.revision, king: view.choices[view.seat].king, order: view.draw, ready: true }))._meta.view;
+      assert.equal(view.status, 'playing'); assert.deepEqual(view.kings, powers ? [{ king: 'Spirit', power: 'Mercy' }, { king: 'Shadow', power: 'Darkness' }] : [null,null]);
+      await setupTool('kingdown_abort', { game_id: view.game_id });
+    }
+    const waitingLast = { ...sampleSetup, kind: 'friend' };
+    await setupMount(waitingLast); await page.evaluate(() => { window.requireHandleNext = true; }); await frame.locator('#setup-start').click();
+    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor(); assert.deepEqual((await setupTool('kingdown_settings'))._meta.settings.last_setup, waitingLast, 'Settings reach the server before HANDLE_NEEDED');
+    await frame.locator('#handle').fill(testHandle); await frame.locator('#save-handle').click(); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    assert.equal(await page.evaluate(() => window.harnessView.days_per_move), 3);
+    const waiting = await page.evaluate(() => window.harnessView); assert.equal(waiting.choices[waiting.seat].king.king, 'Spirit', 'Waiting keeps the server default; the remembered king goes to the seat screen');
+    await setupTool('kingdown_abort', { game_id: waiting.game_id });
+    // A lost Start reply survives a remount without a second game.
+    await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true } });
+    await page.evaluate(() => { window.dropNextReply = 'kingdown_create'; }); await frame.locator('#setup-start').click(); await frame.locator('#retry').waitFor();
+    const creates = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_create').length);
+    await page.locator('#remount').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
+    assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_create').length), creates, 'Recovered Start sends no second create');
+    assert(await page.evaluate(() => window.harnessCalls.some(c => c.name === 'kingdown_games')), 'Pending Start reads Games before a resend');
+    const privateState = await page.evaluate(() => window.harnessWidgetState.privateContent);
+    assert.deepEqual(Object.keys(privateState).sort(), ['board_id','pending','screen','sheet']);
+    assert.equal(await page.evaluate(() => JSON.stringify(window.harnessWidgetState.modelContent)), '{}', 'Setup puts no choice or draw in model context');
+    await openPlay(); await frame.locator('#solo').click();
+    assert.equal(await frame.locator('#setup-body .modes label').count(), 3, 'Setup still builds after a restored Start');
+    const recovered = await page.evaluate(() => window.harnessView); await setupTool('kingdown_abort', { game_id: recovered.game_id });
+    await setupMount({ ...baseSetup, kind: 'random', options: { ...DEFAULT_OPTIONS, arrangement: false } }); await frame.locator('#setup-start').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
+    const random = await page.evaluate(() => window.harnessView); assert.equal(random.kind, 'random'); await setupTool('kingdown_cancel', { game_id: random.game_id });
+    const offeredOptions = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
+    await setupTool('kingdown_create', { kind: 'random', options: offeredOptions, colour: 'white' }, true);
+    await setupMount({ ...baseSetup, kind: 'random' }); await frame.locator('#setup-start').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    const accepted = await page.evaluate(() => window.harnessView);
+    assert.deepEqual(accepted.options, offeredOptions, 'Find uses the accepted game features instead of the sent choices');
+    await setupTool('kingdown_abort', { game_id: accepted.game_id });
+    // A lost Choose reply keeps its command receipt and still opens the board after remount.
+    await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true } });
+    await page.evaluate(() => { window.dropNextReply = 'kingdown_choose'; }); await frame.locator('#setup-start').click(); await frame.locator('#retry').waitFor();
+    const chooseId = await page.evaluate(() => window.harnessWidgetState.privateContent.pending.args.command_id);
+    await page.locator('#remount').click(); await frame.locator('#retry').waitFor(); await frame.locator('#retry').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
+    assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_choose').at(-1).arguments.command_id), chooseId);
+    await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
+    const newArt = ['archer-w','paladin-w','guard-w','maester-w','beast-w','ogre-w','rook-w','bishop-w','knight-w','queen-w','frost','flame','stratus','mud','spirit','shadow','shadow-b','freeze','icewall','sacrifice','march','leap','salvation','mimic','vault','skylift','back'];
+    const html = await frame.locator('html').innerHTML(); for (const file of newArt) assert(html.includes(`/${file}-`), `Setup names ${file}.webp through art`);
+    await openPlay();
+    console.log(`PASS: setup defaults, 16 toggle mixes, seat kings, four levels, weighted locks, card-safe powers, HANDLE_NEEDED, saved choices and lost Start remount; look checks in ${look}`);
+  }
   await legacyStart('solo');
   const pollBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
   const changedBoard = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_create', arguments: { kind: 'solo', options, colour: 'black', board_id: pollBoard } } })).json();
