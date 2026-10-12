@@ -22,8 +22,9 @@ export function runtimeManifest():Record<string,string>{
  for(const dir of ['src/rules','src/ai','src/workshop'])walk(dir);
  return Object.fromEntries([...new Set(paths)].sort().map(path=>[path,fileHash(path)]));
 }
-export function matchSpec(pilot=false):MatchSpec{
- setEvaluator('residual');let seed=143211;const rng=():number=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};const jobs:MatchJob[]=[];
+export function matchSpec(pilot=false,timeMs=80,initialSeed=143211):MatchSpec{
+ must([80,250,1000].includes(timeMs)&&Number.isSafeInteger(initialSeed)&&initialSeed>0,'Unsupported time or seed');
+ setEvaluator('residual');let seed=initialSeed;const rng=():number=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};const jobs:MatchJob[]=[];
  for(let block=0;block<(pilot?1:24);block++){
   setRules(DEFAULT_RULES);const rank=randomBackRank(rng,'QOLRRBBNNAAGMMS'),fen=toFen(startPosition(rank));
   const power=BUILT[block%BUILT.length],king=Object.keys(KINGS).find(k=>KINGS[k as KingName].includes(power)) as KingName;
@@ -31,12 +32,13 @@ export function matchSpec(pilot=false):MatchSpec{
   const profiles:[string,Rules][]=[['base',{...DEFAULT_RULES}],['kings-default',{...DEFAULT_RULES,kings:[{king,power},{king,power}]}],['kings-balanced',{...DEFAULT_RULES,...POWERS_BALANCED,kings:[{king,power},{king,power}]}],['cards-balanced',{...DEFAULT_RULES,...POWERS_BALANCED,hands:[deal,deal]}]];
   for(const [stratum,rules]of profiles)for(const fairyWhite of [true,false]){fullConfig(rules);jobs.push({id:jobs.length,block,stratum,fairyWhite,fen,rules});}
  }
- const parts=pilot?[{name:'smoke',ids:jobs.map(j=>j.id)}]:[{name:'pilot',ids:[0,1]},...Array.from({length:5},(_,i)=>({name:'wave'+i,ids:jobs.filter(j=>j.id>=2&&Math.floor((j.id-2)/2)%5===i).map(j=>j.id)}))];
- return {id:pilot?'fairy-full-smoke':'fairy-full-match-20261011',approval:"go ahead and port the king powers and cards, verify them against our rules engine, and then compare Fairy-Stockfish against our current AI. don't merge yet.",source:sourceId(),runtime:runtimeManifest(),cardPool:[...MATCH_POOL],seed:143211,timeMs:80,maxActions:400,nnue:false,evaluator:'residual',eval:evalParams(),parts,jobs};
+ const pilotGames=timeMs===80?2:8;
+ const parts=pilot?[{name:'smoke',ids:jobs.map(j=>j.id)}]:[{name:'pilot',ids:jobs.slice(0,pilotGames).map(j=>j.id)},...Array.from({length:5},(_,i)=>({name:'wave'+i,ids:jobs.filter(j=>j.id>=pilotGames&&Math.floor((j.id-pilotGames)/2)%5===i).map(j=>j.id)}))];
+ return {id:pilot?'fairy-full-smoke':timeMs===80?'fairy-full-match-20261011':'fairy-long-match-20261012',approval:timeMs===80?"go ahead and port the king powers and cards, verify them against our rules engine, and then compare Fairy-Stockfish against our current AI. don't merge yet.":"go ahead with the two-hour M1 stress test, then choose and run the longer-time Kaggle comparison based on the current results. only check at expected completion times, and don't merge yet.",source:sourceId(),runtime:runtimeManifest(),cardPool:[...MATCH_POOL],seed:initialSeed,timeMs,maxActions:400,nnue:false,evaluator:'residual',eval:evalParams(),parts,jobs};
 }
 export async function runMatch(binary:string,specPath:string,partName:string,out:string):Promise<void>{
  must(!existsSync(out),'Output exists; preserve partials and investigate before any retry');const spec=JSON.parse(readFileSync(specPath,'utf8')) as MatchSpec;
- const part=spec.parts.find(p=>p.name===partName);must(part&&part.ids.length>0,'Part is absent');must(spec.source===sourceId(),'Reference source differs');must(JSON.stringify(spec.runtime)===JSON.stringify(runtimeManifest()),'Frozen runtime differs');must(spec.timeMs===80&&spec.maxActions===400&&!spec.nnue&&spec.evaluator==='residual','Unexpected limits');
+ const part=spec.parts.find(p=>p.name===partName);must(part&&part.ids.length>0,'Part is absent');must(spec.source===sourceId(),'Reference source differs');must(JSON.stringify(spec.runtime)===JSON.stringify(runtimeManifest()),'Frozen runtime differs');must([80,250,1000].includes(spec.timeMs)&&spec.maxActions===400&&!spec.nnue&&spec.evaluator==='residual','Unexpected limits');
  mkdirSync(out,{recursive:true});setEvaluator('residual');must(JSON.stringify(evalParams())===JSON.stringify(spec.eval),'Evaluation differs');
  const header={part:partName,ids:part!.ids,specSha256:fileHash(specPath),binarySha256:fileHash(binary),source:sourceId(),at:new Date().toISOString(),approval:spec.approval,platform:process.platform,arch:process.arch,node:process.version};writeFileSync(resolve(out,'header.json'),JSON.stringify(header,null,2)+'\n');
  const fs=new Uci(binary,resolve('tools/fairy-stockfish.ini'));fs.stderrPath=resolve(out,'stderr.log');

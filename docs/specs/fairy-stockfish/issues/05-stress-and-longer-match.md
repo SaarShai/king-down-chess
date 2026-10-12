@@ -14,3 +14,5 @@ Keep the frozen 192-game 80 ms match unchanged. Collect and check it at its expe
 ## Progress
 
 The 80 ms match has launched all games. The M1 stress run and longer-time comparison are not yet launched.
+
+M1 stress starts at 00:57:07 Pacific on October 12 from pushed `445e3cc0`. All 424 pinned project/archive/binary hashes and 75 native input hashes pass. The dedicated remote dependency install and short native preflight pass. Startup confirms all four seeds. Each worker has 7,120 seconds; the process-group deadline is 7,200 seconds. The expected finish is 02:57; collection is scheduled for 03:05 with delivery margin. Do not poll early. The result remains pending.
