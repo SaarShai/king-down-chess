@@ -195,3 +195,34 @@ Open item: none for step B. The local integration tip is 0609d839 and is already
 6. Run all required tests, builds and browser checks. Merge the local integration tip, test again and push this branch.
 
 Checks use the spec's app page seam, the real app adapter and the local kingdown_mvp11_test database. Each fix starts with one failing check. Step B already adds the knight example, removes the separate Resume button and uses game rows. It also adds the sample's handle words, Settings end line and spaced Back text. Keep these and check the paths that remain.
+
+## Fix round result
+
+The fix round is complete. Status stays resolved. The Part 2 exports keep their names. The page keeps the four widget fields. The pending call stores its start screen, prior game and failed-send words inside pending. No server or match file changes.
+
+Fix round:
+
+1. Step B already reads the board on mount, also with a saved pending call. The page now restores Retry with the saved failure words. The saved-mount case in `tools/plugin-app.test.ts` checks the read and both controls. The failed-read case keeps mount error words visible.
+2. Before a create or find Retry, the page reads the board. If its game differs from the saved prior game, the page uses that result and clears pending. It sends no second create. The lost-reply case checks Create and Find, with an empty board and a prior game.
+3. An unchanged poll reply updates opponent activity and server time. It keeps the board position. The activity case checks 119 seconds at 3 seconds and 121 seconds at 30 seconds for Daily.
+4. The real app adapter checks HANDLE_NEEDED, Back, Save and Retry. It checks both route choices. Save and Back return to the start screen. The router test keeps the separate close/cancel case; it no longer calls finishStart to stand in for Save.
+5. The bounds check includes shared Retry and error words. It checks parent clipping on both axes. The clipped-Retry case proves the horizontal check. Both plugin browser checks test failed-send layouts at 360 and 400 px.
+6. Step B already copies the sample's painted-knight-to-symbol element and help spacing. No further look change is needed. Both plugin browser checks verify the two images and the -6 px / 6 px help margins.
+7. Step B already removes the separate Resume game button and uses the shared game rows. No further change is needed. Both plugin browser checks verify Play rows, game rows and resume through a row.
+8. The Maester swap fixture draws violet arrows through the engine and PaintedView. The host records App's declared inline and fullscreen modes from the handshake. The swap and modes cases, and both plugin browser checks, verify them.
+9. The home wordmark stays at the sample's 40 px. The 360 px case and both plugin browser checks verify its size.
+10. The plugin import keeps the game's tokens and components and excludes lesson, account and title-lineup rules. The built-style test verifies this. The live game's style files and root HTML stay unchanged.
+
+The merger's look items also pass: HANDLE_NEEDED has no Retry or failed-send words; a failed send has both. Other screens hide them. Back has the spaced Play or Settings text and returns to the start screen. The bad-name case shows the server's character rule beside the Free mark. Step B already uses the sample's name help and Settings end line; both browser checks verify them. Game rows replace the old active-games count.
+
+Checks:
+
+- `npm test`: 2,294 pass in 150 files; 8 skip. The type check and all 50 art tests pass. The new app adapter has 12 cases; the built-style test has 1 case. Each fix starts with a failing check, then passes its focused npm test run.
+- `npm run plugin:build`: pass.
+- `npm run plugin:server:check`: pass on kingdown_mvp11_test. All 101 art files pass: 72 WebP, 1 PNG, 24 SVG and 4 woff2.
+- `npm run check:browser`: 24 of 24 pass. Log folder: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/mvp-11-shell-BbRXvR`.
+- `npm run check:browser plugin-ui plugin-ui-http`: 2 of 2 pass. Log and render folder: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/mvp-11-shell-x1P5qH`. The phone handle, Settings and failure renders also pass a visual check against the sample.
+- CSS size check: before the split, 521,542 HTML bytes and 523,598 build payload bytes; after the split, 516,921 HTML bytes and 518,965 build payload bytes. The split removes 4,621 HTML bytes.
+- Final page: 516,932 HTML bytes. The final mount-error fix adds 11 bytes. The standalone server resource is 518,741 JSON bytes. It stays below the 1 MB build limit.
+
+Open items: none in ticket 11. Tickets 12 to 16 fill the shared screen stubs.
