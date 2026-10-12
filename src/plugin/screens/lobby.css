@@ -1,6 +1,6 @@
 .page-sheet > [data-screen="friend"], .page-sheet > [data-screen="join"], .page-sheet > [data-screen="wait"], .page-sheet > [data-screen="lobby"] { display: flex; flex-direction: column; }
 .game-code { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; max-width: 380px; margin: var(--space-2) auto var(--space-2); width: 100%; user-select: text; }
-.game-code span { display: grid; place-items: center; aspect-ratio: 4 / 5; font-family: var(--font-display); font-weight: 700; font-size: 40px; background: var(--vellum); border: 1px solid var(--stone-700); border-radius: var(--radius); box-shadow: var(--lift); }
+.game-code span { display: grid; place-items: center; aspect-ratio: 4 / 5; font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 8vw, 40px); background: var(--vellum); border: 1px solid var(--stone-700); border-radius: var(--radius); box-shadow: var(--lift); }
 #friend-copy-status:empty, #friend-status:empty { display: none; }
 
 #lobby-list .row-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
