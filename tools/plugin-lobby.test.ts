@@ -217,6 +217,8 @@ it('shows code errors on a chat mount and permits a new code from Play', async (
   } finally { await page.close(); }
 });
 async function clearWait(page: Page) {
+  const games = await buddy(page, 'kingdown_games');
+  for (const game of games._meta.games.filter((g: any) => g.kind === 'random' && g.status === 'waiting')) await buddy(page, 'kingdown_cancel', { game_id: game.game_id });
   await page.frameLocator('iframe').locator('html').evaluate(async () => {
     const app = (window as any).harnessApp, result = await app.client.call('kingdown_games');
     for (const game of result._meta.games.filter((g: any) => g.kind === 'random' && g.status === 'waiting')) await app.call('kingdown_cancel', { game_id: game.game_id }, false, false, false);
@@ -304,5 +306,22 @@ it('shows the lobby name beside Accept without a button over the text', async ()
       const box = el.getBoundingClientRect(), hit = document.elementFromPoint(box.x+box.width/2,box.y+box.height/2);
       return el.contains(hit) || hit?.closest('button')?.classList.contains('menu-row');
     })).toBe(true);
+  } finally { await page.close(); }
+});
+
+it('retries Switch after Abort succeeds and Resume loses its reply', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await clearWait(page); await page.clock.install(); await page.clock.pauseAt(new Date());
+    const waiting = await start(page, 'random');
+    await page.clock.runFor(26000); await frame.locator('#wait-computer').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await buddy(page, 'kingdown_accept', { game_id: waiting.game_id });
+    await page.clock.runFor(5000); await frame.locator('#over.found[open]').waitFor();
+    await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_resume'; });
+    await frame.locator('#found-switch').click(); await frame.locator('#found-error').filter({ hasText: 'lost reply' }).waitFor();
+    await frame.locator('#found-switch').click(); await frame.locator('#over.found[open]').waitFor({ state: 'hidden' });
+    expect(await page.evaluate(() => (window as any).harnessView.game_id)).toBe(waiting.game_id);
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_abort').length)).toBe(1);
   } finally { await page.close(); }
 });

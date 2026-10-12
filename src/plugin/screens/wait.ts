@@ -7,6 +7,7 @@ import { $, features, onStop, portrait, showError } from './friend';
 let open: View | undefined, began = 0, timer: ReturnType<typeof setInterval> | undefined;
 let watch: ReturnType<typeof runPoll> | undefined, watched: string | undefined, offering = false, switching = false, background = false;
 const dismissed = new Set<string>();
+let abortReceipt: View | undefined;
 export function waitScreen() {
   const view = memory.view;
   if (view?.kind === 'random') {
@@ -96,9 +97,10 @@ function found(human: View) {
     if (switching) return; switching = true; $<HTMLButtonElement>('found-switch').disabled = true;
     try {
       const solo = memory.view;
-      if (solo?.kind === 'solo' && solo.status === 'playing') {
+      if (solo?.kind === 'solo' && solo.status === 'playing' && abortReceipt?.game_id !== solo.game_id) {
         const result = await client.call('kingdown_abort', { game_id: solo.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: solo.revision });
         if (result.isError && result._meta?.code !== 'NOT_ALLOWED') throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+        if (!result.isError) abortReceipt = result._meta?.view as View;
       }
       const next = await call('kingdown_resume', { game_id: human.game_id }, false, false, false);
       if (next) { over.close(); routeView(next); await call('kingdown_games', {}); }
