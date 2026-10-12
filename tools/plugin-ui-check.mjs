@@ -258,11 +258,19 @@ try {
     await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
     await setupMount(saved); assert.equal(await frame.locator('#setup-king-name').innerText(), 'Shadow · Darkness');
     assert(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked()); assert(await frame.getByRole('radio', { name: 'Black', exact: true }).isChecked());
+    await setupMount(baseSetup);
     const levels = ['beginner','casual','club','strong']; let mix = 0;
     for (const fairy of [true,false]) for (const secondary of [false,true]) for (const cards of [false,true]) for (const powers of [false,true]) {
       const options = { ...DEFAULT_OPTIONS, fairy, arrangement: fairy && secondary, classic: !fairy && secondary, cards, kingPowers: powers };
       const last = { ...baseSetup, options, colour: ['white','black','random'][mix % 3], level: levels[mix++ % 4] };
-      await setupMount(last); await frame.locator('#setup-start').click();
+      await openPlay(); await frame.locator('#solo').click();
+      await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).setChecked(fairy);
+      await frame.getByRole('checkbox', { name: fairy ? 'Arrangement' : 'Classic chess', exact: true }).setChecked(secondary);
+      await frame.getByRole('checkbox', { name: 'Cards', exact: true }).setChecked(cards);
+      await frame.getByRole('checkbox', { name: 'King powers', exact: true }).setChecked(powers);
+      await frame.getByRole('radio', { name: last.colour[0].toUpperCase() + last.colour.slice(1), exact: true }).locator('..').click();
+      await frame.getByRole('radio', { name: last.level[0].toUpperCase() + last.level.slice(1), exact: true }).locator('..').click();
+      await frame.locator('#setup-start').click();
       await page.waitForFunction(() => ['board','seat'].includes(window.harnessWidgetState.privateContent.screen) && !window.harnessWidgetState.privateContent.pending);
       let view = await page.evaluate(() => window.harnessView);
       assert.deepEqual(view.options, options, `Toggle mix ${mix} reaches the server`); assert.equal(view.level, last.level);

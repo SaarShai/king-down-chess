@@ -56,7 +56,7 @@ The pure model is in src/plugin/screens/setup-model.ts. It exports SetupState, r
 
 The branch merges local integration tip f63606e3. Setup uses its safe pending fields and shared retry path. Page memory tracks its own calls. A restored solo Start completes its choice after the shared mount routes to the seat step. The screen builds its controls even when the restored draft already exists. Sheets close when their page changes. Card words use the new game's rules, with or without king powers.
 
-Checks on the final code:
+Checks before the fix round:
 
 - npm test: 2,306 tests pass in 151 files; 8 skip. All 50 art tests and the type check pass.
 - npm run check:browser: 24 of 24 pass. The earlier Turn and Painted-game timing failures pass on the final run. Website source files stay unchanged.
@@ -83,6 +83,10 @@ Gaps in the shared contract:
 
 - Retry of a lost solo Choose reply calls finish before routing. The full read loads the rules. The app test fails on the old code, then passes with the fix: 20 app tests and 50 art tests pass; the type check passes.
 - A failed solo board read stays pending. Start stays disabled, and Retry opens the same game. The app test fails on the old code, then passes with the fix: 21 app tests and 50 art tests pass; the type check passes. Create runs once.
+- The 16 toggle mixes use the controls. Each returned view matches its choices. The setup block passes in the browser check.
+- Final npm test: 2,308 tests pass in 151 files; 8 skip. All 50 art tests and the type check pass. The run uses kingdown_mvp12_test on 127.0.0.1:55432.
+- plugin:build passes. The page has 546,692 HTML bytes and a 548,974-byte resource payload. Both stay below 1,000,000 bytes.
+- check:browser plugin-ui passes 1 of 1. The first run stops at the existing symbols-board threat assertion after the setup block passes. The same-code rerun passes the full check. The check log is /var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/mvp-12-setup-XVQjxF/plugin-ui.log.
 
 ### Open items
 
