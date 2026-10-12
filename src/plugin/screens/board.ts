@@ -59,7 +59,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   command = async (name, args) => {
     if (!view || networkBlocked()) return;
     const game = view.game_id;
-    const next = await call(name, {game_id:game, command_id:crypto.randomUUID(), expected_revision:view.revision, ...args}, true);
+    const next = await call(name, {game_id:game, command_id:crypto.randomUUID().replaceAll('-', ''), expected_revision:view.revision, ...args}, true);
     if (!next && !client.state.pending && view?.game_id === game) {
       const message = $('error').textContent ?? '';
       if (/Abort is/.test(message) || args.choice==='offer' && /No draw offer/.test(message)) refused.add(name);
@@ -75,7 +75,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (tornDown || !view || client.state.screen !== 'board' || document.hidden || blocked() || computerRunning || computerCalls >= 4 || view.kind !== 'solo' || view.status !== 'playing' || view.turn === view.seat || $<HTMLDialogElement>('over').open) return;
     const game = view.game_id; computerRunning = true;
     if (computerCalls++ === 0) thinkingTimer = setTimeout(() => { if (view?.game_id === game && view.turn !== view.seat) { thinking = true; strips(); } }, 1000);
-    const next = await call('kingdown_computer', {game_id:game, command_id:crypto.randomUUID(), expected_revision:view.revision}, true);
+    const next = await call('kingdown_computer', {game_id:game, command_id:crypto.randomUUID().replaceAll('-', ''), expected_revision:view.revision}, true);
     if (!next && !client.state.pending && view?.game_id === game) await call('kingdown_get', {});
     computerRunning = false;
     if (!view || view.game_id !== game || view.turn === view.seat || view.status !== 'playing' || client.state.pending?.error) { clearTimeout(thinkingTimer); thinking = false; }
@@ -102,7 +102,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     board.skip(); moveLine();
     if (step.move.drop !== undefined) board.sync(step.pos);
     void (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve()).then(() => { if (token === generation) board.sync(step.pos); }).finally(() => { if (token === generation) { animating = false; refresh(); scheduleComputer(); } });
-    const next = await call('kingdown_move', { game_id: before.game_id, command_id: crypto.randomUUID(), expected_revision: before.revision, lan }, true);
+    const next = await call('kingdown_move', { game_id: before.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: before.revision, lan }, true);
     if (!next && !client.state.pending && view?.game_id === before.game_id) {
       const message = $('error').textContent ?? '';
       ++generation; board.skip(); animating = false; optimistic = undefined; lastMove = history.at(-1);

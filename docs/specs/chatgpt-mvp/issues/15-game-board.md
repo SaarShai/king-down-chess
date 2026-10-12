@@ -103,4 +103,13 @@ All seven states fit at 360 x 844, 390 x 844, 400 x 900 and 1440 x 900. The tabl
 
 Kept differences: the host harness has a Remount control and no native host header or composer; those belong to the host. The page has the required ‹ Play control. It uses 34 px card coins at both strips, as this brief requires. Names, ratings and move data come from each view. A cold mount says Move N. The end has the game reason and final known move, and has no replay tiles, as the owner requires. Symbols only has no travel animation; the shared painted scene has no figure to move in that mode.
 
-Open items outside this ticket: the game needs Salvation arrival words in move-text.ts. The fixture computer log has no LAN list; HTTP verifies replay. A fixed-hand fixture case remains with ticket 10; these checks use a real deal. Ticket 14 can import confirmAbort from board-actions.ts; its seat file is a stub on this base. The integration merge and its checks follow this result.
+Open items outside this ticket: the game needs Salvation arrival words in move-text.ts. The fixture computer log has no LAN list; HTTP verifies replay. A fixed-hand fixture case remains with ticket 10; these checks use a real deal. Ticket 14 can import confirmAbort from board-actions.ts; its seat file is a stub on this base. The integration result below records the final merge checks.
+
+
+## Integration result
+
+The branch merges local integration tip da5d4f5a. The four conflicts keep the new shell pending fields, compact command IDs, Profile and Collection, the board and end routes, and the threat-setting remount check. The NOT_ALLOWED final error stays. Ticket 14 remains a stub in this tip, so there is no Abort import to change.
+
+The merge suite passes 2,343 tests and 50 art tests, with 8 skipped, in 155 test files. The merged fixture check passes 1 of 1 in 222.7 s. The merged HTTP check passes 1 of 1 in 201.3 s. A 240 s fixture run times out under the combined screen load; its limit is now 420 s. The shell and lobby tests use the board's words, Menu move choices and reduced motion for the fake-clock schedule. The setup capture blocks old widget writes while it restores the new mount. All assertions keep their purpose.
+
+The merged compiled server check passes with 101 art files. The final build is 628,182 HTML bytes and 630,983 payload bytes. No image is inlined. The phone and desktop look folder is the same. Before this merge, all 24 website browser checks pass; this merge changes only the plugin and its checks. The open source and fixture gaps above remain.

@@ -1,0 +1,18 @@
+.page-sheet > [data-screen="friend"], .page-sheet > [data-screen="join"], .page-sheet > [data-screen="wait"], .page-sheet > [data-screen="lobby"] { display: flex; flex-direction: column; }
+.game-code { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; max-width: 380px; margin: var(--space-2) auto var(--space-2); width: 100%; user-select: text; }
+.game-code span { display: grid; place-items: center; aspect-ratio: 4 / 5; font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 8vw, 40px); background: var(--vellum); border: 1px solid var(--stone-700); border-radius: var(--radius); box-shadow: var(--lift); }
+#friend-copy-status:empty, #friend-status:empty { display: none; }
+
+#lobby-list .row-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#lobby-status:empty, #join-message:empty { display: none; }
+.wait-stage { position: relative; height: 180px; margin: 0 0 var(--space-3); perspective: 900px; }
+.wait-stage .title-floor { position: absolute; left: 50%; bottom: -30%; width: 320px; transform: translateX(-50%) rotateX(64deg); transform-origin: 50% 100%; filter: brightness(.9) sepia(.2); -webkit-mask-image: radial-gradient(closest-side, #000 38%, transparent 72%); mask-image: radial-gradient(closest-side, #000 38%, transparent 72%); }
+.wait-kings { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; gap: 18px; padding-bottom: 14px; }
+.wait-kings img { height: 150px; filter: drop-shadow(0 0 .75px rgba(43, 38, 33, .7)) drop-shadow(0 12px 10px rgba(43, 38, 33, .4)); }
+.wait-kings .face-left { transform: scaleX(-1); }
+.wait-dots { display: flex; gap: 6px; margin-bottom: 70px; }
+.wait-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
+.wait-dots i:nth-child(2) { opacity: .6; } .wait-dots i:nth-child(3) { opacity: .3; }
+.frame dialog#over.found { position: absolute; inset: var(--safe-top, 0px) var(--safe-right, 0px) calc(var(--composer-gap, 96px) + var(--safe-bottom, 0px)) var(--safe-left, 0px); margin: auto; height: fit-content; }
+#over.found .over-art { height: auto; align-items: center; background: none; }
+#found-error:empty, #wait-status:empty { display: none; }

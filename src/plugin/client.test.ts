@@ -3,13 +3,13 @@ import { createClient, BOARD_ID_TOOLS } from './client';
 
 describe('app client', () => {
   it('restores the screen and pending command without putting the command in model context', () => {
-    const pending = { name: 'kingdown_move', args: { game_id: 'g1', lan: 'e2-e4', command_id: 'once' } };
-    const saved = { privateContent: { screen: 'settings' as const, sheet: 'king', game_id: 'g1', board_id: 'b1', pending } };
+    const pending = { name: 'kingdown_move', args: { game_id: 'aabbccdd-1122-4455-8899-aabbccddeeff', lan: 'e2-e4', command_id: 'once' } };
+    const saved = { privateContent: { screen: 'settings' as const, sheet: 'king', game_id: 'aabbccdd-1122-4455-8899-aabbccddeeff', board_id: 'b1', pending } };
     let widgetState: unknown;
     const client = createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: saved, setWidgetState: state => { widgetState = state; } });
     expect(client.state).toEqual({ screen: 'settings', sheet: 'king', board_id: 'b1', pending });
     client.save();
-    expect(widgetState).toEqual({ modelContent: {}, privateContent: { screen: 'settings', sheet: 'king', board_id: 'b1', pending } });
+    expect(widgetState).toEqual({ modelContent: {}, privateContent: { screen: 'settings', sheet: 'king', board_id: 'b1', pending: { name: 'kingdown_move', args: { lan: 'e2-e4', command_id: 'once' }, game_tag: 'aabbccdd' } } });
     expect((widgetState as { modelContent: object }).modelContent).not.toHaveProperty('pending');
   });
   it('reads and writes settings through the account tool without saving them in widget state', async () => {
@@ -47,4 +47,20 @@ it('binds foreground tools and leaves background reads outside the board', async
   client.state.board_id = 'board'; await client.call('kingdown_rematch', { game_id: 'old' });
   expect(requests.at(-1)).toEqual({ name: 'kingdown_rematch', arguments: { game_id: 'old' } });
   expect(client.state.board_id).toBe('board');
+});
+
+it('saves only a short game tag and safe pending args while page memory keeps the full call', () => {
+  let widgetState: any;
+  const game_id = 'aabbccdd-1122-4455-8899-aabbccddeeff';
+  const client = createClient({ callServerTool: async () => ({ content: [] }) }, { setWidgetState: state => { widgetState = state; } });
+  const pending = { name: 'kingdown_join', args: { game_id, code: 'K7QX2M', handle: 'private_name', command_id: 'once', expected_revision: 3 } };
+  Object.assign(pending, { game_id });
+  client.state.board_id = '11223344-5566-4788-99aa-bbccddeeff00'; client.state.pending = pending;
+  client.save();
+  expect(widgetState.privateContent.pending).toEqual({ name: 'kingdown_join', game_tag: 'aabbccdd', args: { command_id: 'once', expected_revision: 3 } });
+  expect(client.state.pending).toBe(pending);
+  expect(client.state.pending.args).toEqual(pending.args);
+  const modelState = JSON.stringify({ ...widgetState, privateContent: { ...widgetState.privateContent, board_id: undefined } });
+  expect(modelState).not.toMatch(/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/i);
+  expect(modelState).not.toContain('K7QX2M'); expect(modelState).not.toContain('private_name');
 });
