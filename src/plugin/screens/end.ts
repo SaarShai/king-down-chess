@@ -18,6 +18,10 @@ function closeEnd() {
   opening = false;
   poll?.stop(); poll = undefined;
 }
+function pollView() {
+  const view = memory.view;
+  if (!stopped && client.state.screen === 'end' && view?.status === 'finished' && view.kind !== 'solo' && !view.rematch_game_id && view.opponent && !view.opponent.deleted) return {...view,status:'playing' as const,turn:(1-view.seat) as 0|1};
+}
 export function updateEnd() {
   if (client.state.screen !== 'end') { closeEnd(); return; }
   endScreen(false);
@@ -91,9 +95,9 @@ export function endScreen(schedule = true) {
     };
     requestAnimationFrame(show);
   }
-  poll ??= runPoll(()=>!stopped && client.state.screen==='end' && boardGame()?.kind!=='solo' && boardGame()?.rematch_offer != null ? {...boardGame()!,status:'playing',turn:(1-boardGame()!.seat) as 0|1} : undefined, async()=>{
+  poll ??= runPoll(pollView, async()=>{
     await Promise.resolve();
-    if (stopped || client.state.screen!=='end' || boardGame()?.kind==='solo' || boardGame()?.rematch_offer == null) return;
+    if (!pollView()) return;
     if (!client.state.pending && !$<HTMLButtonElement>('reload').disabled) await call('kingdown_get',{since_revision:boardGame()?.revision},false,true);
     updateEnd();
   }); poll.update();

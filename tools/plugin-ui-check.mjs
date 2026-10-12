@@ -1168,12 +1168,22 @@ try {
     await frame.locator('#over.end-card[open] h2').filter({hasText:'Draw'}).waitFor(); await idleBoard();
     if (mode==='fixture') { await frame.locator('.end-facts').filter({hasText:'1561?'}).waitFor(); assert.match(await frame.locator('.end-facts').innerText(),/\+61/); assert.match(await frame.locator('.new-badge img').getAttribute('src'),/badge-fairy-tale-/); }
     current=await page.evaluate(()=>window.harnessView);
-    const buddyOffer=await friendTool('kingdown_rematch',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'offer'}); assert(!buddyOffer.isError); const offeredEnd=await readGame();
+    const buddyOffer=await friendTool('kingdown_rematch',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'offer'}); assert(!buddyOffer.isError);
+    await page.clock.fastForward(3100);
+    await frame.locator('#over').getByRole('button',{name:'Accept',exact:true}).waitFor({timeout:3000});
+    const offeredEnd=await page.evaluate(()=>window.harnessView);
+    assert.equal(offeredEnd.rematch_offer,1,'A later Rematch offer arrives without a manual read');
     for(const deleted of [true,false]) {
       await page.evaluate(({view,deleted})=>{window.holdNext='kingdown_get'; window.harnessNextView={...view,rules:undefined,opponent:{...view.opponent,deleted}};},{view:offeredEnd,deleted});
       await page.clock.fastForward(3100); await page.waitForFunction(()=>typeof window.releaseHeld==='function');
       assert(await frame.locator('#page-back').isEnabled(),'An end poll leaves controls enabled'); await page.evaluate(()=>window.releaseHeld());
       await frame.locator('#over').getByRole('button',{name:'Accept',exact:true}).waitFor({state:deleted?'detached':'visible',timeout:3000});
+      if (deleted) {
+        const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
+        await page.clock.fastForward(31000);
+        assert.equal(await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length),reads,'A deleted opponent stops end polling');
+        await readGame();
+      }
     }
     await frame.locator('#over').getByRole('button',{name:'Decline',exact:true}).click(); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.rematch_offer,null);
     await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).click(); await idleBoard(); current=await page.evaluate(()=>window.harnessView);
