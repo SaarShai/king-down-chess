@@ -82,3 +82,5 @@ The end card has no replay tiles. The card uses ending for its reason and descri
 The table returns to the board before an empty-position draw. The end scrim leaves the back control accessible. The page keeps one PaintedView. Symbols only uses Off pace: its scene has no painted figures for a travel animation. The same legal LANs and marks still update. The sample-state check catches that replay error before the pace change.
 
 The look check measures all seven states at 360, 390, 400 and 1440 px. Phone and desktop comparisons go in the system temporary folder, kingdown-look/15. Each capture waits for the move and image reads. A reused Open fixture omits its old settings field, so it cannot reset a saved setting. The final runs remain open.
+
+The full ticket-database suite passes 2,300 tests and 50 art tests, with 8 skipped. The fixture check with all sample states passes 1 of 1 in 115.6 s. The Black-mount HTTP check must wait for the new game's reply, so it cannot read the old game's Your move line. Sample captures advance the fake clock through the game's marker timing before they read the pixels.

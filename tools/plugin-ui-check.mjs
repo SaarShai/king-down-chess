@@ -11,6 +11,7 @@ const { setRules, legalMoves, inCheck } = await import('../src/rules/engine.ts')
 const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
 const { applyLan, cardCoins } = await import('../src/plugin/screens/board-model.ts');
 const { threatsIn } = await import('../src/move-text.ts');
+const { POP_MS, RIPPLE_MS } = await import('../src/render/marks.ts');
 const iconNames = { P:'pawn', N:'knight', B:'bishop', R:'rook', Q:'queen', K:'king', A:'archer', L:'paladin', G:'guard', M:'maester', S:'beast', O:'ogre' };
 const iconSources = Object.fromEntries(await Promise.all(Object.values(iconNames).map(async name => [name, await readFile(`public/ui/icons/${name}.svg`, 'utf8')])));
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
@@ -547,12 +548,12 @@ try {
   await openMoveChoices(); await frame.locator(`#choices button[title="${cardLan}"]`).click();
   await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.lan===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
   assert.equal(await frame.locator('#strip-me .card-coin').nth(cardIndex).getAttribute('data-state'),'used','The played card is spent');
-  const blackBefore=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_computer').length);
   const blackGame=await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_create',arguments:{kind:'solo',options,colour:'black',board_id:cardBoard}}})).json(); assert(!blackGame.isError);
   await page.evaluate(r=>window.harnessShow(r),blackGame);
+  await page.waitForFunction(id=>window.harnessView.game_id===id&&window.harnessView.turn===window.harnessView.seat,blackGame._meta.view.game_id);
   await frame.locator('#status').filter({hasText:'Your move'}).waitFor(); await idleBoard();
   assert.equal(await page.evaluate(()=>window.harnessView.turn),1,'The computer plays first for a Black seat');
-  assert.equal(await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_computer').length),blackBefore+1,'Mount sends one computer turn for Black');
+  assert.equal(await page.evaluate(id=>window.harnessCalls.filter(c=>c.name==='kingdown_computer'&&c.arguments.game_id===id).length,blackGame._meta.view.game_id),1,'Mount sends one computer turn for Black');
   await openPlay(); await legacyStart('solo'); await idleBoard();
   const deleted=await page.evaluate(()=>window.harnessView);
   await page.request.post(new URL('/fixture-delete-match',base).href,{data:{game_id:deleted.game_id}});
@@ -827,7 +828,7 @@ try {
     for (const [index,lan] of state.play.entries()) {const step=applyLan(position,lan,sampleRules); assert(step,`${state.name}: the sample move is legal`); commands.push({seq:101+index,seat:position.turn,at:snapshot.server_now,action:{type:'turn',actions:[lan]}}); position=step.pos;}
     const finished=state.end?{status:'finished',result:{winner:0,reason:'checkmate'},outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:snapshot.server_now}]}}:{};
     await showSnapshot({...snapshot,...finished,revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:state.end?[]:legal(),last_commands:commands,deadline_at:state.claim?new Date(Date.now()-60000).toISOString():null});
-    if (state.select) await clickSquare(...state.select);
+    if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+14*RIPPLE_MS+50);}
     if (state.claim) assert.equal(await frame.locator('#status').innerText(),'mira_k has not moved for 3 days.');
     if (state.end) await frame.locator('#over.end-card[open]').waitFor();
     for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) {
