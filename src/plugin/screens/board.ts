@@ -19,6 +19,7 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 type Choice = { lan: string; move: Move };
 let view: View | undefined, pos: Position | undefined;
 export const boardGame = () => view;
+export let rollbackBoardMove: () => Promise<void>;
 let history: BoardMove[] = [], lastMove: BoardMove | undefined;
 export const boardLastMove = () => lastMove;
 let command: (name: string, args: Record<string, unknown>) => Promise<View | undefined>;
@@ -102,14 +103,15 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     board.skip(); moveLine();
     if (step.move.drop !== undefined) board.sync(step.pos);
     void (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve()).then(() => { if (token === generation) board.sync(step.pos); }).finally(() => { if (token === generation) { animating = false; refresh(); scheduleComputer(); } });
-    const next = await call('kingdown_move', { game_id: before.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: before.revision, lan }, true);
-    if (!next && !client.state.pending && view?.game_id === before.game_id) {
-      const message = $('error').textContent ?? '';
-      ++generation; board.skip(); animating = false; optimistic = undefined; lastMove = history.at(-1);
-      rules(); pos = fromFen(view.fen); board.sync(pos); moveLine(); refresh();
-      await call('kingdown_get', {}); $('error').textContent = message; refresh();
-    }
+    await call('kingdown_move', { game_id: before.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: before.revision, lan }, true);
   }
+  rollbackBoardMove = async () => {
+    if (!view) return;
+    const message = $('error').textContent ?? '';
+    ++generation; board.skip(); animating = false; optimistic = undefined; lastMove = history.at(-1);
+    rules(); pos = fromFen(view.fen); board.sync(pos); moveLine(); refresh();
+    await call('kingdown_get', {}); $('error').textContent = message; refresh();
+  };
   function choices(list: Choice[]) {
     $('move-hint').textContent = !list.length ? '' : list.every(({move}) => needsArming(move)) ? 'Choose a move below.' : 'Tap a marked square to move, or choose a move below.';
     $('choices').replaceChildren(...list.map(({lan, move}) => { const b = button(describeMove(pos!, move), () => choose(lan)); b.title = lan; return b; }));

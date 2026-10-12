@@ -113,3 +113,14 @@ The branch merges local integration tip da5d4f5a. The four conflicts keep the ne
 The merge suite passes 2,343 tests and 50 art tests, with 8 skipped, in 155 test files. The merged fixture check passes 1 of 1 in 222.7 s. The merged HTTP check passes 1 of 1 in 201.3 s. A 240 s fixture run times out under the combined screen load; its limit is now 420 s. The shell and lobby tests use the board's words, Menu move choices and reduced motion for the fake-clock schedule. The setup capture blocks old widget writes while it restores the new mount. All assertions keep their purpose.
 
 The merged compiled server check passes with 101 art files. The final build is 628,182 HTML bytes and 630,983 payload bytes. No image is inlined. The phone and desktop look folder is the same. Before this merge, all 24 website browser checks pass; this merge changes only the plugin and its checks. The open source and fixture gaps above remain.
+
+## Fix round plan
+
+1. Add an app-page check for a lost move refusal after another tab wins. Route final Retry errors through the same rollback and full read.
+2. Add an app-page check for a later Rematch offer. Poll eligible finished human games with the shared presence schedule.
+3. Fail the first full end read. Keep it unread until success and show Retry.
+4. Click Accept on the end card. Check Resume and the new board.
+
+Use one red check, its small fix, and a green check for each item. Run npm test on kingdown_mvp15_fix_test, npm run plugin:build, and both named plugin browser checks. Keep the prior source gaps and the real HTTP rating and badge outcome open.
+
+Fix 1: the race check fails on the refused move line. The shared final move error now rolls back and reads in full. The fixture check passes 1 of 1 in 236.8 s. The held computer reply stays outside the idle-board wait.

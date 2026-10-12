@@ -6,7 +6,7 @@ import type { InboxEntry, JoinPreview, View } from '../match/protocol';
 import { createClient, type WidgetHost, type Screen, type Pending } from './client';
 import { art } from './art';
 import { handleProblem, ICONS, type Icon } from '../account/profile';
-import { boardScreen } from './screens/board';
+import { boardScreen, rollbackBoardMove } from './screens/board';
 import { setSettings } from './board-view';
 import { runPoll } from './poll';
 import { createRouter } from './router';
@@ -130,6 +130,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     if (retain && pending) { pending.error = message; pending.error_screen = state.screen; saveState(); }
     $('error').textContent = message; $('retry').hidden = !pending?.error || pending.error_screen !== state.screen; }
   finally { if (quiet) polling = false; else { busy = false; actions(); } }
+  if (retain && name === 'kingdown_move' && !received && !pending && before?.game_id === view?.game_id) await rollbackBoardMove();
   if (followup) void call(followup.name, followup.args, true, false, undefined, true);
   return received;
 }

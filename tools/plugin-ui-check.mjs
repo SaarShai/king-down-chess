@@ -877,6 +877,20 @@ try {
     await frame.locator('#status').filter({hasText:'Harness definitive rejection'}).waitFor();
     assert.equal(await frame.locator('#last-move').innerText(), 'Move 1.', `${code} restores the last server position and move line`);
   }
+  await haste();
+  const race = await page.evaluate(() => window.harnessView);
+  const winner = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_move',arguments:{game_id:race.game_id,command_id:randomUUID(),expected_revision:race.revision,lan:'d2-d4'}}})).json();
+  assert(!winner.isError,'Another tab wins the move race');
+  await page.evaluate(() => { window.dropNextReply='kingdown_move'; window.holdNext='kingdown_computer'; });
+  await clickSquare(4,1); await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click();
+  await frame.locator('#retry').waitFor();
+  assert.match(await frame.locator('#last-move').innerText(),/White pawn e2 to e4/,'The lost refusal keeps the move until Retry');
+  const raceReads = await page.evaluate(() => window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
+  await frame.locator('#retry').click(); await page.waitForFunction(()=>typeof window.releaseHeld==='function');
+  assert.doesNotMatch(await frame.locator('#last-move').innerText(),/e2 to e4/,'A final Retry refusal removes the refused move');
+  assert(await page.evaluate(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>=n+2,raceReads),'Retry reads in full after the refusal');
+  await page.waitForFunction(()=>typeof window.releaseHeld==='function'); await page.evaluate(()=>window.releaseHeld()); await idleBoard();
+  await haste(); await clickSquare(4,1);
   if (!await frame.locator('#choices button[title="e2-e4"]').count()) await clickSquare(4,1);
   await page.evaluate(() => { window.holdNext = 'kingdown_move'; window.dropNextMoveReply = true; });
   await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click();
