@@ -38,6 +38,11 @@ export const { routeView, start } = router;
 const screens = { setup: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
 export const memory = { kind: 'solo' as 'solo' | 'friend' | 'random', code: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, games: [] as InboxEntry[], preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
 function saveState() { state.pending = pending; client.save(); }
+function retryState() {
+  const message = pending?.error_screen === state.screen ? pending.error : undefined;
+  $('retry').hidden = !message;
+  $('error').textContent = message ?? '';
+}
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
 function show(next: View | undefined) {
@@ -88,8 +93,10 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     if (name === 'kingdown_invite') { const { code } = result.structuredContent as { code: string }; $('invitation').textContent = `Share this code: ${code}`; }
     // A reload preserves the command receipt; retry still uses its original ID.
     if (retain) pending = undefined;
-    saveState(); $('retry').hidden = !pending;
-  } catch (error) { if (quiet && (busy || view !== before)) return; $('error').textContent = error instanceof Error ? error.message : 'Could not update the game.'; $('retry').hidden = !pending; }
+    saveState(); retryState();
+  } catch (error) { if (quiet && (busy || view !== before)) return; const message = error instanceof Error ? error.message : 'Could not update the game.';
+    if (retain && pending) { pending.error = message; pending.error_screen = state.screen; saveState(); }
+    $('error').textContent = message; $('retry').hidden = !pending?.error || pending.error_screen !== state.screen; }
   finally { if (quiet) polling = false; else { busy = false; buttons().forEach(b => b.disabled = false); } }
   if (followup) void call(followup.name, followup.args, true);
   return received;
@@ -158,7 +165,7 @@ async function mountResult(result: ToolResult, initial: boolean) {
     saveState();
   } catch (error) { $('error').textContent = $('home-error').textContent = String(error); }
   finally {
-    mountReading = false;
+    mountReading = false; retryState();
     if (state.screen in screens) screens[state.screen as keyof typeof screens]();
     poll?.update();
     if (initial && connected && memory.settings) $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = false;
@@ -177,7 +184,7 @@ const connection = app.connect().then(() => {
 }).catch(error => { $('error').textContent = $('home-error').textContent = `Could not connect to the game: ${String(error)}`; });
 
 export function navigate(screen: Screen) {
-  state.screen = screen;
+  state.screen = screen; retryState();
   document.body.dataset.page = screen;
   document.querySelectorAll<HTMLElement>('[data-screen]').forEach(el => { el.hidden = el.dataset.screen !== screen; });
   $('app-frame').hidden = screen === 'home';

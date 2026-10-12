@@ -1,0 +1,42 @@
+import { afterAll, beforeAll, expect, it, vi } from 'vitest';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { chromium, type Browser, type Page } from 'playwright';
+import { startHarness } from './plugin-ui-harness';
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
+let folder: string;
+let harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
+beforeAll(async () => { folder = await mkdtemp(join(tmpdir(), 'kingdown-app-test-'));
+  const boardPath = join(folder, 'board.html'); await writeFile(boardPath, await readFile('src/plugin/index.html'));
+  harness = await startHarness({ boardPath, sourcePage: true }); browser = await chromium.launch({ headless: true }); });
+afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
+async function open() {
+  const page = await browser.newPage(); page.setDefaultTimeout(5000); await page.goto(harness.url);
+  await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+  return page;
+}
+async function start(page: Page, route = true) {
+  await page.frameLocator('iframe').locator('html').evaluate((_, route) => {
+    const host = window as any;
+    host.harnessApp.navigate('setup');
+    host.startResult = undefined;
+    host.harnessApp.start('friend', { colour: 'white' }, { route }).then((view: any) => { host.startResult = view; });
+  }, route);
+}
+it('reads a saved board at mount and shows Retry with the saved failure words', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white' }); });
+    await page.evaluate(() => {
+      const host = window as any;
+      host.harnessWidgetState = { modelContent: {}, privateContent: { screen: 'play', board_id: host.harnessWidgetState.privateContent.board_id, pending: { name: 'kingdown_create', args: { kind: 'friend' }, error: 'The reply was lost.', error_screen: 'play' } } };
+    });
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    expect(await frame.locator('#retry').isVisible()).toBe(true);
+    expect(await frame.locator('#error').textContent()).toBe('The reply was lost.');
+  } finally { await page.close(); }
+});

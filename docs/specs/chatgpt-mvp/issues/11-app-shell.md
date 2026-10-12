@@ -184,3 +184,14 @@ Checks on the final code:
 - Page size: 520,734 HTML bytes and 522,555 JSON bytes. The page stays below the 1 MB build limit.
 
 Open item: none for step B. The local integration tip is 0609d839 and is already in the branch. The final sync reports Already up to date. After the sync, npm test passes 2,281 tests in 148 files, with 8 skipped, and all 50 art tests. The type check passes. The separate step A review stays in its next round.
+
+## Fix round plan
+
+1. Check mount reads and Retry words through the real page and host bridge. Keep handle Save separate from a failed send.
+2. Read the board before a create or find Retry. Use the saved game to detect a completed call. Check a lost reply.
+3. Update activity data on each poll reply. Check the 119 to 121 second edge.
+4. Check start through handle Save and Retry, with and without routing. Check all control bounds and swap marks.
+5. Keep the sample's words, spacing and 40 px wordmark. Import only shared styles the page needs. Record page bytes before and after.
+6. Run all required tests, builds and browser checks. Merge the local integration tip, test again and push this branch.
+
+Checks use the spec's app page seam, the real app adapter and the local kingdown_mvp11_test database. Each fix starts with one failing check. Step B already adds the knight example, removes the separate Resume button and uses game rows. It also adds the sample's handle words, Settings end line and spaced Back text. Keep these and check the paths that remain.

@@ -21,7 +21,7 @@ async function board(client: Client) {
   console.log(`Read board resource through MCP: ${Buffer.byteLength(JSON.stringify(result))} JSON bytes`);
   return resource.text;
 }
-export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor, seedPosition, deleteMatch }: { boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string; seedPosition?: (setup: MatchSetup, black: boolean) => Promise<string>; deleteMatch?: (id: string) => Promise<void> } = {}) {
+export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor, seedPosition, deleteMatch, sourcePage = false }: { sourcePage?: boolean; boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string; seedPosition?: (setup: MatchSetup, black: boolean) => Promise<string>; deleteMatch?: (id: string) => Promise<void> } = {}) {
   if (endpoint && (endpoint.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname) || endpoint.username || endpoint.password)) throw new Error('The HTTP harness accepts only a loopback development endpoint');
   let buddy: Client | undefined;
   const client = new Client({ name: 'local-browser-host', version: '1' });
@@ -45,7 +45,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
     resourceHtml = await board(client);
   }
   const body = async (req: AsyncIterable<Buffer>) => { const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(chunk); return JSON.parse(Buffer.concat(chunks).toString()); };
-  vite = await createServer({ configFile: false, cacheDir: resolve(dirname(boardPath), '.harness-cache'), optimizeDeps: { include: ['@modelcontextprotocol/ext-apps/app-bridge'] }, server: { host: '127.0.0.1', port: 0, strictPort: true }, plugins: [{ name: 'mcp-app-harness', configureServer(vite) {
+  vite = await createServer({ configFile: false, logLevel: 'error', cacheDir: resolve(dirname(boardPath), '.harness-cache'), optimizeDeps: { include: ['@modelcontextprotocol/ext-apps/app-bridge'] }, server: { host: '127.0.0.1', port: 0, strictPort: true }, plugins: [{ name: 'mcp-app-harness', configureServer(vite) {
     vite.middlewares.use(async (req, res, next) => {
       if (req.url === '/harness-mode') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ mode: endpoint ? 'http' : 'fixture', friend: !!buddy })); }
       else if (req.url === '/fixture-seed' && service && req.method === 'POST') { const {actor='alice',data} = await body(req); if (!['alice','bob'].includes(actor)) { res.statusCode = 400; res.end('{}'); return; } service.seed(actor,data); res.setHeader('Content-Type','application/json'); res.end('{}'); }
@@ -79,7 +79,8 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
       }
       else if (req.url === '/board-resource') {
         res.setHeader('Content-Type', 'text/html');
-        res.end(resourceHtml.replace('<script type="module">', '<script type="module">await new Promise(r => setTimeout(r, parent.harnessBootDelay ?? 0));').replace('<head>', '<head><script>window.openai = parent.harnessWithoutWidgetState ? undefined : {widgetState: parent.harnessWidgetState, setWidgetState(state) {if (!parent.harnessDropWidgetWrites) parent.harnessWidgetState = structuredClone(state);}};</script>'));
+        const html = sourcePage ? (await readFile('src/plugin/index.html', 'utf8')).replace('<script type="module" src="./app.ts"></script>', '<script type="module">window.harnessApp = await import("/src/plugin/app.ts");</script>') : resourceHtml;
+        res.end(html.replace('<script type="module">', '<script type="module">await new Promise(r => setTimeout(r, parent.harnessBootDelay ?? 0));').replace('<head>', '<head><script>window.openai = parent.harnessWithoutWidgetState ? undefined : {widgetState: parent.harnessWidgetState, setWidgetState(state) {if (!parent.harnessDropWidgetWrites) parent.harnessWidgetState = structuredClone(state);}};</script>'));
       }
       else if (req.url === '/fixture-tool' && req.method === 'POST') {
         try { const params = await body(req); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await client.callTool(params))); }
