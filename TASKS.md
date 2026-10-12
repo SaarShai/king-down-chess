@@ -4,7 +4,7 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 
 ## Open items
 
-- **ChatGPT plugin MVP** · `ready-for-agent` · Spec and sample approved (owner, 2026-10-11). Tickets 02 to 11, 17 and 20, the wood rollers and the owner's answers (2026-10-11) merged on `claude/chatgpt-mvp`. 12, 13, 15 and 16 (the screens) in work; 14 after 12; then 18 and 19. · [spec](https://github.com/SaarShai/king-down-chess/blob/claude/chatgpt-mvp/docs/specs/chatgpt-mvp/spec.md)
+- **ChatGPT plugin MVP** · `ready-for-agent` · Spec and sample approved (owner, 2026-10-11). Tickets 02 to 12, 16, 17 and 20 merged on `claude/chatgpt-mvp`. 13, 14 and 15 in work (one fix round each, owner 2026-10-11); then 18 and 19. · [spec](https://github.com/SaarShai/king-down-chess/blob/claude/chatgpt-mvp/docs/specs/chatgpt-mvp/spec.md)
 - **Accounts and multiplayer** · `needs-info` · Pushed; the ChatGPT MVP builds on it. The 8 [report](docs/research/multiplayer-2026-10-10/README.md) decisions.
 - **After the redesign** · `needs-triage` · Done (#33 to #37, 2026-10-10); follow-ups in tickets 04 and 05. · [spec](docs/specs/after-redesign/spec.md)
 - **Proving Ground, legend, web redesign** · `needs-triage` · Done and live: deployed 2026-10-11 (b661ff0d); #26 to #53. Clay parked. · [spec](docs/specs/workshop-proving-ground/spec.md)
