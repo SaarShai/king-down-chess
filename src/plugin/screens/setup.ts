@@ -1,8 +1,9 @@
 import { call, client, memory, routeView, start } from '../app';
 import { art } from '../art';
+import type { WidgetHost } from '../client';
 import { DEAL_CARDS, POOL_KINDS, type Options } from '../../match/setup';
 import { LETTERS, NAMES } from '../../rules/engine';
-import { KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
+import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
 import { POWER_NAME, cardText, powerText, powerOptions, powersRules } from '../../powers-ui';
 import type { View, InboxEntry } from '../../match/protocol';
 import { availablePowers, cardLocked, cleanKing, createArguments, pieceLocked, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
@@ -16,11 +17,18 @@ const webWords = (words: string) => words.replace(/captured/g, 'taken').replace(
 const cardName = (card: CardName) => POWER_NAME[card as PowerName] ?? card.replace(/([A-Z])/g, ' $1').trim();
 const levelLines = { beginner: 'New to King Down? Start here.', casual: 'Makes some mistakes.', club: 'Plays well. Keep your pieces safe.', strong: 'Thinks longer. Plays stronger.' };
 const pieceLines = { A: 'Shoots without moving.', L: 'Jumps over its own pieces.', G: 'Only a king takes it.', M: 'Swaps with a friend.', S: 'Bites in a chain.', O: 'Shoves a neighbour.', R: 'Moves in straight lines.', B: 'Moves on diagonals.', N: 'Jumps in an L.', Q: 'Moves in any line.' };
+const kingRules = powersRules({ ...DEFAULT_RULES, ...POWERS_BALANCED });
 const faces: readonly CardName[] = ['Freeze','IceWall','Sacrifice','March','Leap','Salvation','Mimic','Vault','SkyLift'];
-const mountedSetup = (window as Window & { openai?: { widgetState?: { privateContent?: { screen?: string } } } }).openai?.widgetState?.privateContent?.screen === 'setup';
-let draft: SetupState | undefined, starting = false, recovering = false, closeSheet: (() => void) | undefined;
-const ownPending = () => (client.state.pending as { setup?: boolean } | undefined)?.setup === true;
-function markPending() { if (client.state.pending) { Object.assign(client.state.pending, { setup: true }); client.save(); } }
+const mounted = (window as Window & { openai?: WidgetHost }).openai?.widgetState?.privateContent;
+const mountedSetup = mounted?.screen === 'setup', restored = mounted?.pending;
+let draft: SetupState | undefined, starting = false, recovering = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
+const restoredSetup = () => !restoreHandled && restored?.screen === 'setup' && !!memory.settings?.last_setup && (restored.name === 'kingdown_choose' || !!restored.args.options);
+const ownPending = () => ownCommand || restoredSetup();
+async function readGames() {
+  const result = await client.call('kingdown_games', {}, { background: true });
+  if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+  memory.games = result._meta?.games as InboxEntry[] ?? [];
+}
 
 function segment(id: string, title: string, values: readonly string[]) {
   return `<fieldset id="${id}" class="seg"><legend>${title}</legend><div class="seg-row">${values.map(value => `<label><input type="radio" name="${id}" value="${value}" aria-label="${name(value)}"><span>${name(value)}</span></label>`).join('')}</div></fieldset>`;
@@ -59,16 +67,16 @@ function render() {
   $('setup-your-king').hidden = !o.kingPowers; $('setup-kings-off').hidden = o.kingPowers;
   const pick = shownKing(draft); $<HTMLImageElement>('setup-king').querySelector('img')!.src = art(`ui/emblems/${pick.king.toLowerCase()}.webp`);
   $('setup-king-name').innerHTML = `<b>${pick.king}</b> · ${POWER_NAME[pick.power]}`;
-  $('setup-power-text').textContent = powerText(pick.power, powersRules(), true);
+  $('setup-power-text').textContent = powerText(pick.power, kingRules, true);
   $<HTMLButtonElement>('setup-start').disabled = starting || recovering || !!client.state.pending;
 }
 function sheet(name: string, title: string, done: () => void) {
   closeSheet?.();
   const frame = $('app-frame'), scrim = document.createElement('div'), dialog = document.createElement('dialog'), page = frame.querySelector<HTMLElement>('.page-sheet')!, focus = document.activeElement as HTMLElement | null;
-  scrim.className = 'scrim'; dialog.id = 'menu-sheet'; dialog.className = 'over-sheet setup-sheet'; dialog.setAttribute('aria-labelledby', 'menu-title');
+  scrim.className = 'scrim'; dialog.id = 'menu-sheet'; dialog.className = 'over-sheet setup-sheet'; dialog.setAttribute('aria-labelledby', 'menu-title'); dialog.setAttribute('aria-modal', 'true');
   dialog.innerHTML = `<header class="sheet-head"><h2 id="menu-title">${title}</h2><button id="menu-close" aria-label="Close">×</button></header><div class="sheet-body"></div><footer class="new-game-foot"><p class="foot-count"></p><button id="setup-done" class="primary">Done</button></footer>`;
   page.inert = true; frame.append(scrim, dialog); dialog.show(); client.state.sheet = name; client.save();
-  const close = () => { dialog.close(); dialog.remove(); scrim.remove(); page.inert = false; closeSheet = undefined; client.state.sheet = undefined; client.save(); document.removeEventListener('keydown', key); done(); focus?.focus(); };
+  const close = () => { dialog.close(); dialog.remove(); scrim.remove(); page.inert = false; closeSheet = undefined; if (client.state.sheet === name) client.state.sheet = undefined; client.save(); document.removeEventListener('keydown', key); done(); focus?.focus(); };
   const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); close(); }
     else if (event.key === 'Tab') { const controls = [...dialog.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)')]; const index = controls.indexOf(document.activeElement as HTMLElement); if (event.shiftKey && index <= 0 || !event.shiftKey && index === controls.length - 1) { event.preventDefault(); controls[event.shiftKey ? controls.length - 1 : 0]?.focus(); } } };
   document.addEventListener('keydown', key); $('menu-close').onclick = $('setup-done').onclick = scrim.onclick = close; closeSheet = close;
@@ -83,7 +91,7 @@ function poolSheet(kind: 'pieces' | 'cards') {
       body.innerHTML = `<p class="sheet-lead">The draw takes 7 pieces from the checked kinds. The king and the pawns are always in.</p><p class="lock-note" ${letters.some(k => pieceLocked(o, k)) ? '' : 'hidden'}>${icon('lock')}<span>Keep at least 7 pieces in the pool. Check another kind to free a lock.</span></p><div class="pick-list">${letters.map(letter => { const n = NAMES[LETTERS.indexOf(letter)], locked = pieceLocked(o, letter); return `<label class="check pick${locked ? ' locked' : ''}"><span class="pick-art">${image(`ui/pieces/${n}-w.webp`)}</span><span class="grow">${image(`ui/icons/${n}.svg`, 'pi')} ${name(n)}<small>${pieceLines[letter]}</small></span>${locked ? `<span class="lock">${icon('lock')}</span>` : ''}<input type="checkbox" value="${letter}" aria-label="${name(n)}" ${o.pool.includes(letter) ? 'checked' : ''} ${locked ? 'disabled' : ''}></label>`; }).join('')}</div>`;
       count.textContent = `${o.pool.length} of ${POOL_KINDS.length} kinds`;
     } else {
-      body.innerHTML = `<p class="sheet-lead">The deal takes 4 cards from the checked cards. Both players get the same 4.</p><p class="lock-note" ${o.cardPool.length === 4 ? '' : 'hidden'}>${icon('lock')}<span>4 cards are checked. Check another card to free a lock.</span></p><div class="card-grid">${DEAL_CARDS.map(card => `<label class="card-face${o.cardPool.includes(card) ? '' : ' out'}"><span class="cf-art">${image(`ui/cards/${faces.includes(card) ? card.toLowerCase() : 'back'}.webp`, faces.includes(card) ? '' : 'back')}</span><span class="cf-text"><b>${cardName(card)}</b><small>${webWords(cardText(card, powersRules()))}</small></span><input type="checkbox" value="${card}" aria-label="${cardName(card)}" ${o.cardPool.includes(card) ? 'checked' : ''} ${cardLocked(o, card) ? 'disabled' : ''}></label>`).join('')}</div>`;
+      body.innerHTML = `<p class="sheet-lead">The deal takes 4 cards from the checked cards. Both players get the same 4.</p><p class="lock-note" ${o.cardPool.length === 4 ? '' : 'hidden'}>${icon('lock')}<span>4 cards are checked. Check another card to free a lock.</span></p><div class="card-grid">${DEAL_CARDS.map(card => `<label class="card-face${o.cardPool.includes(card) ? '' : ' out'}"><span class="cf-art">${image(`ui/cards/${faces.includes(card) ? card.toLowerCase() : 'back'}.webp`, faces.includes(card) ? '' : 'back')}</span><span class="cf-text"><b>${cardName(card)}</b><small>${webWords(cardText(card, o.kingPowers ? kingRules : DEFAULT_RULES))}</small></span><input type="checkbox" value="${card}" aria-label="${cardName(card)}" ${o.cardPool.includes(card) ? 'checked' : ''} ${cardLocked(o, card) ? 'disabled' : ''}></label>`).join('')}</div>`;
       count.textContent = `${o.cardPool.length} of ${DEAL_CARDS.length} · at least 4`;
     }
     body.querySelectorAll<HTMLInputElement>('input').forEach(input => { input.onchange = () => { draft = kind === 'pieces' ? withPiece(draft!, input.value, input.checked) : withCard(draft!, input.value as CardName, input.checked); render(); draw(); }; });
@@ -94,10 +102,10 @@ export function kingSheet(options: Options, pick: KingChoice): Promise<KingChoic
   const cleaned = cleanKing(options, pick) ?? shownKing({ colour: 'white', king: null });
   let chosen = cleaned.king === pick.king && cleaned.power === pick.power ? pick : cleaned;
   return new Promise(resolve => {
-    const dialog = sheet('king', 'Your king', () => resolve(chosen)), body = dialog.querySelector<HTMLElement>('.sheet-body')!, count = dialog.querySelector('.foot-count')!, groups = powerOptions();
+    const dialog = sheet('king', 'Your king', () => resolve(chosen)), body = dialog.querySelector<HTMLElement>('.sheet-body')!, count = dialog.querySelector('.foot-count')!, groups = powerOptions(kingRules);
     const draw = () => {
       const powers = groups.find(group => group.king === chosen.king)!.options, allowed = availablePowers(options, chosen.king);
-      body.innerHTML = `${options.cards ? `<p class="lock-note">${icon('cards')}<span>Cards are on, so only the powers that are always on can play.</span></p>` : ''}<div id="king-picker"><div class="king-pick"><h3>King · <span class="who">${chosen.king}</span></h3><div class="emblems" role="group" aria-label="King">${(Object.keys(KINGS) as KingName[]).map(king => { const out = !availablePowers(options, king).length; return `<button class="emblem${out ? ' is-out' : ''}" data-king="${king}" aria-pressed="${king === chosen.king}" aria-disabled="${out}" ${out ? 'disabled' : ''} title="${king} king: ${KINGS[king].map(p => POWER_NAME[p]).join(' or ')}">${image(`ui/emblems/${king.toLowerCase()}.webp`)}<span class="em-name">${king}</span></button>`; }).join('')}</div><div class="power-choice two">${powers.map(power => { const p = power.value.split(':')[1] as PowerName, out = !allowed.includes(p); return `<button data-power="${p}" title="${webWords(power.title)}" aria-pressed="${chosen.power === p}" aria-disabled="${out}" ${out ? 'disabled' : ''}>${power.label}</button>`; }).join('')}</div><p class="power-text"><b>${POWER_NAME[chosen.power]}:</b> ${powerText(chosen.power, powersRules(), true)}.${options.cards ? ' Always on.' : ''}</p>${powers.filter(power => !allowed.includes(power.value.split(':')[1] as PowerName)).map(power => `<p class="power-text off"><b>${POWER_NAME[power.value.split(':')[1] as PowerName]}</b> has uses, so it cannot play with cards.</p>`).join('')}</div></div>`;
+      body.innerHTML = `${options.cards ? `<p class="lock-note">${icon('cards')}<span>Cards are on, so only the powers that are always on can play.</span></p>` : ''}<div id="king-picker"><div class="king-pick"><h3>King · <span class="who">${chosen.king}</span></h3><div class="emblems" role="group" aria-label="King">${(Object.keys(KINGS) as KingName[]).map(king => { const out = !availablePowers(options, king).length; return `<button class="emblem${out ? ' is-out' : ''}" data-king="${king}" aria-pressed="${king === chosen.king}" aria-disabled="${out}" ${out ? 'disabled' : ''} title="${king} king: ${KINGS[king].map(p => POWER_NAME[p]).join(' or ')}">${image(`ui/emblems/${king.toLowerCase()}.webp`)}<span class="em-name">${king}</span></button>`; }).join('')}</div><div class="power-choice two">${powers.map(power => { const p = power.value.split(':')[1] as PowerName, out = !allowed.includes(p); return `<button data-power="${p}" title="${webWords(power.title)}" aria-pressed="${chosen.power === p}" aria-disabled="${out}" ${out ? 'disabled' : ''}>${power.label}</button>`; }).join('')}</div><p class="power-text"><b>${POWER_NAME[chosen.power]}:</b> ${powerText(chosen.power, kingRules, true)}.${options.cards ? ' Always on.' : ''}</p>${powers.filter(power => !allowed.includes(power.value.split(':')[1] as PowerName)).map(power => `<p class="power-text off"><b>${POWER_NAME[power.value.split(':')[1] as PowerName]}</b> has uses, so it cannot play with cards.</p>`).join('')}</div></div>`;
       count.textContent = `${chosen.king} · ${POWER_NAME[chosen.power]}`;
       body.querySelectorAll<HTMLButtonElement>('[data-king]').forEach(button => { button.onclick = () => { const king = button.dataset.king as KingName, [power] = availablePowers(options, king); if (power) { chosen = { king, power }; draw(); body.querySelector<HTMLButtonElement>(`[data-king="${king}"]`)?.focus(); } }; });
       body.querySelectorAll<HTMLButtonElement>('[data-power]').forEach(button => { button.onclick = () => { const power = button.dataset.power as PowerName; if (allowed.includes(power)) { chosen = { king: chosen.king, power }; draw(); body.querySelector<HTMLButtonElement>(`[data-power="${power}"]`)?.focus(); } }; });
@@ -109,53 +117,61 @@ async function pickKing() {
   if (draft!.king || picked !== shown) draft!.king = picked;
   render();
 }
-async function finish(view: View) {
-  const choice = soloChoice(view, draft!.king);
-  if (choice) { const request = call('kingdown_choose', { ...choice, command_id: crypto.randomUUID() }, true, false, false); markPending(); const next = await request; if (!next) return; view = next; }
-  routeView(view);
+async function finish(view: View, pick = draft!.king) {
+  const choice = soloChoice(view, pick);
+  if (choice) { ownCommand = true; const next = await call('kingdown_choose', { ...choice, command_id: crypto.randomUUID().replaceAll('-', '') }, true, false, false); if (!next) return; view = next; }
+  if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, false, false, false); if (!full) return; view = full; }
+  ownCommand = false; routeView(view);
 }
 async function launch() {
   if (!draft || starting || client.state.pending) return;
-  starting = true; render();
+  starting = true; ownCommand = true; render();
   try {
     const last_setup = { ...draft, options: setupOptions(draft.options) }, saved = await client.call('kingdown_settings', { last_setup });
     if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     memory.settings = saved._meta?.settings as typeof memory.settings;
-    const request = start(draft.kind, createArguments(draft), { route: false }); markPending(); const view = await request; if (view) await finish(view);
+    const view = await start(last_setup.kind, createArguments(last_setup), { route: false }); if (view) await finish(view, last_setup.king);
   } catch (error) { $('error').textContent = String(error); }
-  finally { starting = false; render(); }
+  finally { starting = false; if (!client.state.pending) ownCommand = false; render(); }
 }
 async function recoverStart() {
   const pending = client.state.pending;
   if (!draft || !pending || recovering) return;
-  recovering = true; render();
+  const active = starting; recovering = true; ownCommand = true; render();
   try {
-    const result = await client.call('kingdown_games', {}, { background: true });
-    if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
-    memory.games = result._meta?.games as InboxEntry[] ?? [];
-    if (starting) { await call(pending.name, pending.args, true, false, false, true); return; }
-    starting = true;
-    const completed = memory.view && memory.view.game_id !== pending.game_id && memory.games.some(game => game.game_id === memory.view!.game_id);
-    const view = completed ? await call('kingdown_get', {}, true, false, false) : await start(pending.name === 'kingdown_find' ? 'random' : pending.args.kind as SetupState['kind'], pending.args, { route: false });
-    if (view) await finish(view);
+    await readGames();
+    const view = await call(pending.name, pending.args, true, false, false, true);
+    if (!active && view) await finish(view);
   } catch (error) { $('error').textContent = String(error); }
-  finally { recovering = false; starting = false; render(); }
+  finally { recovering = false; render(); }
 }
+new MutationObserver(() => {
+  if (client.state.screen !== 'setup' && !(client.state.screen === 'seat' && client.state.sheet === 'king')) {
+    if (closeSheet) closeSheet();
+    else if (['pieces','cards','king'].includes(client.state.sheet ?? '')) { client.state.sheet = undefined; client.save(); }
+  }
+  if (!restoredSetup() || client.state.pending || !memory.view) return;
+  if (['board','friend','wait'].includes(client.state.screen)) { restoreHandled = true; return; }
+  if (client.state.screen !== 'seat' || memory.view.kind !== 'solo' || memory.view.status !== 'setup') return;
+  restoreHandled = true; ownCommand = true; draft ??= readSetup(memory.settings!.last_setup);
+  setTimeout(() => { void readGames().then(() => finish(memory.view!)).catch(error => { $('error').textContent = String(error); }); }, 0);
+}).observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
 document.addEventListener('click', event => {
   if (!(event.target as HTMLElement).closest('#retry') || client.state.screen !== 'setup' || !ownPending()) return;
   const pending = client.state.pending;
   if (['kingdown_create','kingdown_find'].includes(pending?.name ?? '')) { event.preventDefault(); event.stopImmediatePropagation(); void recoverStart(); }
-  else if (pending?.name === 'kingdown_choose') { event.preventDefault(); event.stopImmediatePropagation(); void call(pending.name, pending.args, true, false, false).then(view => { if (view) routeView(view); render(); }); }
+  else if (pending?.name === 'kingdown_choose') { event.preventDefault(); event.stopImmediatePropagation(); void call(pending.name, pending.args, true, false, false, true).then(view => { if (view) routeView(view); render(); }); }
 }, true);
 export function setupScreen() {
   if (!memory.settings) return;
   if (!draft) {
     draft = readSetup(memory.settings.last_setup);
     draft.kind = client.state.pending?.name === 'kingdown_find' ? 'random' : client.state.pending?.args.kind as SetupState['kind'] ?? (mountedSetup ? draft.kind : memory.kind);
-    memory.kind = draft.kind; build();
+    memory.kind = draft.kind;
   } else draft.kind = memory.kind;
+  if (!$('setup-body').childElementCount) build();
   render();
   if (client.state.sheet === 'pieces' || client.state.sheet === 'cards') poolSheet(client.state.sheet);
   else if (client.state.sheet === 'king') void pickKing();
-  if (!starting && !recovering && ownPending() && !client.state.pending?.error && ['kingdown_create','kingdown_find'].includes(client.state.pending?.name ?? '')) void recoverStart();
+  if (!starting && !recovering && restoredSetup() && !client.state.pending?.error && ['kingdown_create','kingdown_find'].includes(client.state.pending?.name ?? '')) void recoverStart();
 }

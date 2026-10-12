@@ -1,6 +1,6 @@
 # 12 · The setup screen
 
-Status: claimed
+Status: resolved
 Type: AFK
 Size: M
 Blocked by: 11
@@ -45,3 +45,36 @@ The setup page and its three sheets work. Red checks catch an empty stub, an All
 The unit run passes 2,298 tests, with 8 skipped and all 50 art tests. Both named plugin checks pass. The built server check passes all 101 art files. The first all-browser run passes 23 of 24 checks; the website Turn check times out at the keyboard End-turn case. No website file changes. The latest layout and safe-inset checks follow the integration sync.
 
 The current local integration tip adds a newer pending and mount recovery contract. The next step merges it, removes the old setup recovery path and checks the current page again. Status stays claimed until these checks pass.
+
+## Result
+
+The setup page has the modes, four levels, colour, five toggles and three sheets. It uses the game styles, fonts, sprite and art. Start saves all five last_setup fields, then sends the same choices through the shared Start function. A handle stop keeps these choices. A solo king-only game starts at once. Arrangement keeps the seat step. The initiator of a waiting game keeps the king in last_setup.king; Create and Find take no king, and Choose is refused while waiting.
+
+The pure model is in src/plugin/screens/setup-model.ts. It exports SetupState, readSetup, setupOptions, withToggle, withPiece, withCard, pieceLocked, cardLocked, availablePowers, cleanKing, shownKing, createArguments and soloChoice. Ticket 14 can use cleanKing with the game's options and seat colour. It keeps null as no pick. It moves a power with uses to the same king's always-on power, else the colour default. The DOM module exports kingSheet(options, pick). It returns a promise for the pick. It returns the input object when nothing changes, so a mere inspection does not save a king pick.
+
+The branch merges local integration tip f63606e3. Setup uses its safe pending fields and shared retry path. Page memory tracks its own calls. A restored solo Start completes its choice after the shared mount routes to the seat step. The screen builds its controls even when the restored draft already exists. Sheets close when their page changes. Card words use the new game's rules, with or without king powers.
+
+Checks on the final code:
+
+- npm test: 2,306 tests pass in 151 files; 8 skip. All 50 art tests and the type check pass.
+- npm run check:browser: 24 of 24 pass. The earlier Turn and Painted-game timing failures pass on the final run. Website source files stay unchanged.
+- The final named run passes 3 of 3: Painted-game, plugin-ui and plugin-ui-http. Both plugin hosts pass the setup block. It checks 16 legal toggle mixes, all levels, seat defaults, the real painted board, weighted piece locks, card locks, power limits, remembered choices, handle Save, Find with another game's options, lost Create and Choose replies, remount, the next setup, delayed settings, and sheet cleanup.
+- Both hosts check 360, 390, 400 and 1440 px, safe insets, 44 px targets, text inside each row, scroll access, and Start and Done above the composer.
+- plugin:build and plugin:server:check pass. The compiled HTTP and PostgreSQL flow passes on kingdown_mvp12_test. All 101 art files pass: 72 WebP, 1 PNG, 24 SVG and 4 woff2.
+- node tools/plugin-ui-build.mjs: 546,651 HTML bytes; 548,933 resource payload bytes. The standalone server resource is 548,698 JSON bytes. All stay below 1,000,000 bytes.
+
+Look checks: 20 PNG pairs, sample left and page right, for the five states at 390 x 844 and 1440 x 900 in both hosts. They are outside Git in /var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-look/12.
+
+Kept differences:
+
+- The shared frame has the required spaced Play back control. The local host has a Remount control and reserves the composer area; the reference paints the host header and composer. These belong to the shared frame and host.
+- Rows grow with their text. Buttons and level segments have 44 px targets. The body scrolls, so fewer rows can show at once than in the clipped sample. This follows the brief's phone fix and touch limit.
+- Names, counts and rule words come from the current game helpers. Defaults come from Q26. The pool note says 7 pieces, and the lock sample uses four kinds that supply seven pieces. The reference's seven-kind locks do not follow the rule.
+
+Gaps in the shared contract:
+
+- Create and Find have no command receipt. Recovery reads Games before a resend, then uses the shared board read and retry path. No new tool is added.
+- Choose replies omit the full rules. Setup reads the board before it opens a newly started game. Ticket 14 needs the same full read after Ready starts the game.
+- The shared mount can route a completed Start before the setup caller returns. The setup module handles its restored solo choice in its own file. Shared page files stay unchanged by this ticket.
+
+Open item: none in ticket 12. Ticket 14 owns the seat screen. Deployment and a live ChatGPT host check stay outside this ticket.
