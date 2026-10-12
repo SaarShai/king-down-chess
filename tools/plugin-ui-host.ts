@@ -36,6 +36,7 @@ async function mount() {
   // ChatGPT's standard context write replaces its widget-state snapshot.
   bridge.onupdatemodelcontext = async params => { (window as any).harnessWidgetState = { modelContent: params.structuredContent }; return {}; };
   bridge.oninitialized = async () => {
+    (window as any).harnessDeclaredModes = bridge!.getAppCapabilities()?.availableDisplayModes;
     const result = initialResult ?? (new URLSearchParams(location.search).has('terminal') ? await (await fetch('/fixture-terminal')).json() : await invoke('kingdown_open', matchId ? { game_id: matchId } : {}));
     if (new URLSearchParams(location.search).has('terminal')) result.structuredContent.screen = 'board';
     initialResult = result;

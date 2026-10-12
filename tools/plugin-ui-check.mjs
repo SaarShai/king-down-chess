@@ -69,6 +69,7 @@ try {
   assert(await frame.locator('#home-play').isDisabled(), 'Play waits for the page and the host to connect');
   assert.equal(await frame.locator('#home-card button').count(), 2, 'The inline home card has only Play and Your games');
   await frame.locator('#home-play:not(:disabled)').waitFor();
+  assert.deepEqual(await page.evaluate(() => window.harnessDeclaredModes), ['inline', 'fullscreen'], 'App declares both display modes to the host');
   assert.equal(await frame.locator('.inline-line').innerText(), 'Your move in 0 games.', 'Home uses the server turn count and the sample line');
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), 0, 'An empty home reads no board');
   await frame.locator('[data-art]').evaluateAll(images => Promise.all(images.map(image => image.decode())));

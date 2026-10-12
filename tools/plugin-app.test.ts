@@ -189,3 +189,8 @@ it('draws Maester swap marks through the shared board adapter', async () => {
     await page.frames().find(f => f.url().endsWith('/board-resource'))!.waitForFunction(() => (window as any).swapMarks > 0);
   } finally { await page.close(); }
 });
+it('declares inline and fullscreen modes in the App handshake', async () => {
+  const page = await open();
+  try { expect(await page.evaluate(() => (window as any).harnessDeclaredModes)).toEqual(['inline', 'fullscreen']); }
+  finally { await page.close(); }
+});
