@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { register } from 'tsx/esm/api';
 const unregister = register();
 const { fromFen, toFen, toLan } = await import('../src/rules/setup.ts');
-const { setRules, legalMoves, inCheck } = await import('../src/rules/engine.ts');
+const { setRules, legalMoves, inCheck, typeOf, N, sqName, moveNumber: positionMoveNumber } = await import('../src/rules/engine.ts');
 const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
 const { applyLan, cardCoins } = await import('../src/plugin/screens/board-model.ts');
 const { threatsIn } = await import('../src/move-text.ts');
@@ -548,6 +548,32 @@ try {
   await openMoveChoices(); await frame.locator(`#choices button[title="${cardLan}"]`).click();
   await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.lan===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
   assert.equal(await frame.locator('#strip-me .card-coin').nth(cardIndex).getAttribute('data-state'),'used','The played card is spent');
+  await page.waitForFunction(id=>window.harnessView.game_id===id&&window.harnessView.turn===window.harnessView.seat,cardView.game_id); await idleBoard(); await boardBox();
+  async function arrivalTool(name,args,friend=false) {return (await page.request.post(new URL(friend?'/fixture-friend-tool':'/fixture-tool',base).href,{data:{name,arguments:args}})).json();}
+  const arrival=await arrivalTool('kingdown_create',{kind:'friend',colour:'white',board_id:cardBoard,options:{...DEFAULT_OPTIONS,fairy:false,arrangement:false,kingPowers:false,cards:true,cardPool:['Salvation','Freeze','IceWall','Vault']}}); assert(!arrival.isError);
+  const arrivalInvite=await arrivalTool('kingdown_invite',{game_id:arrival._meta.view.game_id}); assert(!arrivalInvite.isError);
+  const arrivalJoin=await arrivalTool('kingdown_join',{code:arrivalInvite.structuredContent.code},true); assert(!arrivalJoin.isError);
+  async function arrivalRead() {const result=await arrivalTool('kingdown_get',{board_id:cardBoard}); await page.evaluate(r=>window.harnessShow(r),result); await page.waitForFunction(id=>window.harnessView.game_id===id,arrival._meta.view.game_id); await idleBoard(); await boardBox(); return result._meta.view;}
+  let arrivalView=await arrivalRead();
+  const arrivalRules=arrivalView.rules; setRules(arrivalRules);
+  const arrivalPos=fromFen(arrivalView.fen), knight=legalMoves(arrivalPos).find(m=>typeOf(arrivalPos.board[m.from])===N&&m.to>>3===2&&!m.power);
+  assert(knight); const middle=knight.to%8, targetFile=middle+2<8?middle+2:middle-2, pawnFile=targetFile+1<8?targetFile+1:targetFile-1, target=24+targetFile;
+  for(const [source,destination,blackFrom,blackTo] of [[knight.from,knight.to,48+pawnFile,32+pawnFile],[knight.to,target,32+pawnFile,target]]) {
+    setRules(arrivalRules); const pre=fromFen(arrivalView.fen), move=legalMoves(pre).find(m=>m.from===source&&m.to===destination&&!m.power); assert(move); const white=toLan(pre,move);
+    await clickSquare(source%8,source>>3); await openMoveChoices();
+    await frame.locator(`#choices button[title="${white}"]`).click(); await page.waitForFunction(rev=>window.harnessView.revision>rev,arrivalView.revision); await idleBoard();
+    arrivalView=await page.evaluate(()=>window.harnessView);
+    setRules(arrivalRules); const blackPos=fromFen(arrivalView.fen), blackMove=legalMoves(blackPos).find(m=>m.from===blackFrom&&m.to===blackTo&&!m.power); assert(blackMove); const black=toLan(blackPos,blackMove);
+    const moved=await arrivalTool('kingdown_move',{game_id:arrivalView.game_id,command_id:randomUUID(),expected_revision:arrivalView.revision,lan:black},true); assert(!moved.isError); arrivalView=await arrivalRead();
+  }
+  const salvation=arrivalView.rules.hands[arrivalView.seat].indexOf('Salvation'), arrivalLan=arrivalView.legal.find(lan=>lan.startsWith('N@'+sqName(knight.from))); assert(salvation>=0&&arrivalLan,'The dealt Salvation can return the taken knight');
+  await frame.locator('#strip-me .card-coin').nth(salvation).click();
+  assert.match(await frame.locator('#board-sheet .cf-art img').getAttribute('src'),/salvation-/,'salvation.webp loads from the plugin origin');
+  await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click(); await openMoveChoices();
+  await frame.locator(`#choices button[title="${arrivalLan}"]`).click();
+  await page.waitForFunction(rev=>window.harnessView.revision>rev,arrivalView.revision); await idleBoard(); await boardBox();
+  assert.equal(await frame.locator('#strip-me .card-coin').nth(salvation).getAttribute('data-state'),'used','The arrival spends Salvation');
+  assert.match(await frame.locator('#last-move img').getAttribute('src'),/knight-0-/,'The returned knight supplies the move icon');
   const blackGame=await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_create',arguments:{kind:'solo',options,colour:'black',board_id:cardBoard}}})).json(); assert(!blackGame.isError);
   await page.evaluate(r=>window.harnessShow(r),blackGame);
   await page.waitForFunction(id=>window.harnessView.game_id===id&&window.harnessView.turn===window.harnessView.seat,blackGame._meta.view.game_id);
@@ -620,7 +646,13 @@ try {
     await frame.locator('#over.end-card[open] h2').filter({hasText:'Draw'}).waitFor(); await idleBoard();
     if (mode==='fixture') { await frame.locator('.end-facts').filter({hasText:'1561?'}).waitFor(); assert.match(await frame.locator('.end-facts').innerText(),/\+61/); assert.match(await frame.locator('.new-badge img').getAttribute('src'),/badge-fairy-tale-/); }
     current=await page.evaluate(()=>window.harnessView);
-    const buddyOffer=await friendTool('kingdown_rematch',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'offer'}); assert(!buddyOffer.isError); await readGame();
+    const buddyOffer=await friendTool('kingdown_rematch',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'offer'}); assert(!buddyOffer.isError); const offeredEnd=await readGame();
+    for(const deleted of [true,false]) {
+      await page.evaluate(({view,deleted})=>{window.holdNext='kingdown_get'; window.harnessNextView={...view,rules:undefined,opponent:{...view.opponent,deleted}};},{view:offeredEnd,deleted});
+      await page.clock.fastForward(3100); await page.waitForFunction(()=>typeof window.releaseHeld==='function');
+      assert(await frame.locator('#page-back').isEnabled(),'An end poll leaves controls enabled'); await page.evaluate(()=>window.releaseHeld());
+      await frame.locator('#over').getByRole('button',{name:'Accept',exact:true}).waitFor({state:deleted?'detached':'visible',timeout:3000});
+    }
     await frame.locator('#over').getByRole('button',{name:'Decline',exact:true}).click(); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.rematch_offer,null);
     await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).click(); await idleBoard(); current=await page.evaluate(()=>window.harnessView);
     assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).count(),0,'An offer has no second Rematch button');
@@ -817,17 +849,18 @@ try {
     const original=await page.evaluate(()=>window.harnessView), game_id=randomUUID();
     const snapshot={...original,game_id,revision:100,status:'playing',kind:'friend',speed:'daily',days_per_move:3,seat:0,abort_open:!!state.abort,result:undefined,outcome:undefined,draw_offer:null,rematch_offer:null,rematch_game_id:null,rules:sampleRules,kings:sampleRules.kings,hands:sampleRules.hands,opponent:{handle:'mira_k',computer:false,deleted:false,rating:{rating:1540,provisional:false},last_seen_ms:121000},last_commands:[],deadline_at:null,server_now:new Date().toISOString()};
     setRules(sampleRules); let position={...fromFen(state.fen),used:state.used??[3,1]};
-    async function showSnapshot(value) {
+    async function showSnapshot(value, words=`Move ${positionMoveNumber(fromFen(value.fen))}.`) {
       await page.evaluate(value=>{window.harnessNextView=value; return window.harnessShow({content:[],structuredContent:{board_id:window.harnessWidgetState.privateContent.board_id,game_id:value.game_id,screen:'board'},_meta:{view:value}});},value);
       await page.waitForFunction(value=>window.harnessView.game_id===value.game_id&&window.harnessView.fen===value.fen,value);
+      await frame.locator('#last-move').filter({hasText:words}).waitFor();
       await idleBoard(); await boardBox();
     }
     const legal=()=>position.turn===0?legalMoves(position).map(m=>toLan(position,m)):[];
     await showSnapshot({...snapshot,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:legal()});
-    const commands=[];
-    for (const [index,lan] of state.play.entries()) {const step=applyLan(position,lan,sampleRules); assert(step,`${state.name}: the sample move is legal`); commands.push({seq:101+index,seat:position.turn,at:snapshot.server_now,action:{type:'turn',actions:[lan]}}); position=step.pos;}
+    const commands=[]; let story=`Move ${positionMoveNumber(position)}.`;
+    for (const [index,lan] of state.play.entries()) {const step=applyLan(position,lan,sampleRules); assert(step,`${state.name}: the sample move is legal`); commands.push({seq:101+index,seat:position.turn,at:snapshot.server_now,action:{type:'turn',actions:[lan]}}); position=step.pos; story=step.words;}
     const finished=state.end?{status:'finished',result:{winner:0,reason:'checkmate'},outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:snapshot.server_now}]}}:{};
-    await showSnapshot({...snapshot,...finished,revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:state.end?[]:legal(),last_commands:commands,deadline_at:state.claim?new Date(Date.now()-60000).toISOString():null});
+    await showSnapshot({...snapshot,...finished,revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:state.end?[]:legal(),last_commands:commands,deadline_at:state.claim?new Date(Date.now()-60000).toISOString():null},story);
     if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+14*RIPPLE_MS+50);}
     if (state.claim) assert.equal(await frame.locator('#status').innerText(),'mira_k has not moved for 3 days.');
     if (state.end) await frame.locator('#over.end-card[open]').waitFor();

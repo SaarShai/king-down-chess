@@ -19,6 +19,5 @@ body:is([data-page='board'], [data-page='end']) #page-title { display: none; }
 #board-sheet .sheet-body { display: flex; flex-direction: column; gap: 8px; }
 #board-sheet #choices { height: auto; overflow: visible; flex-direction: column; }
 #board-sheet #choices button { min-height: 44px; width: 100%; justify-content: flex-start; text-align: left; }
-#board-sheet .card-read-art { width: 100%; max-height: 200px; object-fit: contain; }
 
 #game-table[data-empty='true'] #board { visibility: hidden; }

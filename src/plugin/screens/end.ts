@@ -9,12 +9,13 @@ import './end.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 let scrim: HTMLElement, poll: ReturnType<typeof runPoll> | undefined, observer: MutationObserver;
 const read = new Set<string>(), resumed = new Set<string>();
-let updating = false, stopped = false;
+let updating = false, stopped = false, opening = false;
 const button = (label: string, click: () => void) => { const b = document.createElement('button'); b.textContent = label; b.onclick = click; return b; };
 function closeEnd() {
   const error = document.querySelector('.page-error'); if (error) document.querySelector('.page-sheet')!.append(error);
   if ($('over').classList.contains('end-card')) { $<HTMLDialogElement>('over').close(); $('over').classList.remove('end-card'); }
   if (scrim) scrim.hidden = true;
+  opening = false;
   poll?.stop(); poll = undefined;
 }
 export function updateEnd() {
@@ -34,11 +35,12 @@ export function updateEnd() {
 }
 export function endScreen(schedule = true) {
   const view = boardGame(); if (!view || client.state.screen !== 'end') return;
+  const fresh=memory.view, opponent=fresh?.game_id===view.game_id?fresh.opponent:view.opponent, rematches=rematchChoices({...view,opponent});
   closeBoardSheet();
   const over = $<HTMLDialogElement>('over');
   const error = document.querySelector('.page-error')!; error.remove();
   if (!scrim) {
-    scrim = document.createElement('div'); scrim.id = 'end-scrim'; scrim.className = 'scrim'; $('app-frame').insertBefore(scrim,over);
+    scrim = document.createElement('div'); scrim.id = 'end-scrim'; scrim.className = 'scrim'; scrim.hidden=true; $('app-frame').insertBefore(scrim,over);
     observer = new MutationObserver(() => { if (client.state.screen === 'end') setTimeout(updateEnd,0); else closeEnd(); });
     observer.observe(document.body,{attributes:true,attributeFilter:['data-page']}); observer.observe($('reload'),{attributes:true,attributeFilter:['disabled']});
     window.addEventListener('message',event=>{ if(event.data?.method==='ui/resource-teardown') {stopped=true; closeEnd(); observer.disconnect();} });
@@ -72,14 +74,23 @@ export function endScreen(schedule = true) {
     }
   }
   const form = over.querySelector('form')!; form.onsubmit=event=>event.preventDefault();
-  for (const choice of rematchChoices(view)) {
+  for (const choice of rematches) {
     const b = button(choice==='offer'?'Rematch':choice==='accept'?'Accept':'Decline',()=>void sendBoardCommand('kingdown_rematch',{choice}));
     if (choice!=='decline') b.className='primary'; form.append(b);
   }
   form.append(button('Your games',()=>{closeEnd(); navigate('profile');}));
   over.append(error);
-  over.querySelector('.quiet-line')!.textContent = view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematchChoices(view).length ? 'A rematch keeps the features and swaps the colours.' : '';
-  if (!over.open) over.show(); scrim.hidden=false;
+  over.querySelector('.quiet-line')!.textContent = opponent?.deleted ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? 'A rematch keeps the features and swaps the colours.' : '';
+  if (over.open) scrim.hidden=false;
+  else if (!opening) {
+    opening=true; const game=view.game_id;
+    const show=()=>{
+      if (stopped || client.state.screen!=='end' || boardGame()?.game_id!==game) {opening=false; return;}
+      if ($('board').dataset.animating==='true') {requestAnimationFrame(show); return;}
+      requestAnimationFrame(()=>{opening=false; if(!stopped&&client.state.screen==='end'&&boardGame()?.game_id===game){if(!over.open) over.show(); scrim.hidden=false;}});
+    };
+    requestAnimationFrame(show);
+  }
   poll ??= runPoll(()=>!stopped && client.state.screen==='end' && boardGame()?.kind!=='solo' && boardGame()?.rematch_offer != null ? {...boardGame()!,status:'playing',turn:(1-boardGame()!.seat) as 0|1} : undefined, async()=>{
     await Promise.resolve();
     if (stopped || client.state.screen!=='end' || boardGame()?.kind==='solo' || boardGame()?.rematch_offer == null) return;

@@ -1,5 +1,5 @@
 import { fromFen, toFen, toLan } from '../../rules/setup';
-import { colorOf, findKing, inCheck, legalMoves, moveNumber, nameOf, PLAIN_KINGS, RULES, setRules, sqName, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
+import { colorOf, findKing, inCheck, legalMoves, moveNumber, nameOf, piece, PLAIN_KINGS, RULES, setRules, sqName, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
 import { cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText } from '../../powers-ui';
 import { checkCause, checkersOf, describeMove, threatsIn } from '../../move-text';
 import { marksModel, railsOf } from '../../marks-model';
@@ -88,7 +88,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (!pos) return;
     const nodes: HTMLElement[] = [];
     if (lastMove) {
-      const code = lastMove.pre.board[lastMove.move.from], icon = pieceIcon(typeOf(code), colorOf(code)), name = /ui\/icons\/([a-z]+)\.svg/.exec(icon)?.[1];
+      const code = lastMove.move.drop === undefined ? lastMove.pre.board[lastMove.move.from] : piece(lastMove.move.drop,lastMove.pre.turn), icon = pieceIcon(typeOf(code), colorOf(code)), name = /ui\/icons\/([a-z]+)\.svg/.exec(icon)?.[1];
       if (name) { const image = document.createElement('img'); image.className = 'pi'; image.alt = ''; image.src = symbols[`../../public/ui/icons/${name}.svg`][colorOf(code)]; nodes.push(image); }
     }
     const words = document.createElement('span'); words.textContent = lastMove?.words ?? `Move ${moveNumber(pos)}.`; nodes.push(words); $('last-move').replaceChildren(...nodes);
@@ -100,7 +100,8 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     closeBoardSheet(); armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]);
     const token = ++generation; optimistic = lastMove = step; pos = step.pos; animating = true;
     board.skip(); moveLine();
-    void board.animateMove(step.pre, step.move).then(() => { if (token === generation) board.sync(step.pos); }).finally(() => { if (token === generation) { animating = false; refresh(); scheduleComputer(); } });
+    if (step.move.drop !== undefined) board.sync(step.pos);
+    void (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve()).then(() => { if (token === generation) board.sync(step.pos); }).finally(() => { if (token === generation) { animating = false; refresh(); scheduleComputer(); } });
     const next = await call('kingdown_move', { game_id: before.game_id, command_id: crypto.randomUUID(), expected_revision: before.revision, lan }, true);
     if (!next && !client.state.pending && view?.game_id === before.game_id) {
       const message = $('error').textContent ?? '';
@@ -218,7 +219,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     $('offer-draw').hidden = view.kind === 'solo' || view.status !== 'playing' || view.draw_offer !== null || refused.has('kingdown_draw');
     $('resign').hidden = view.status !== 'playing';
     $('context-actions').replaceChildren(...actions); strips();
-    board.setFallen(view.result?.reason === 'checkmate' && view.result.winner !== null ? findKing(pos.board,(1-view.result.winner) as Color) : null);
+    board.setFallen(view.result?.reason === 'checkmate' && view.result.winner !== null ? findKing(pos.board,(1-view.result.winner) as Color) : null,false);
   }
   $('resign').onclick = confirmResign; $('offer-draw').onclick = () => confirmDraw('offer');
   $('reload').addEventListener('click', closeBoardSheet);
@@ -238,7 +239,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     readAt = Date.now(); clearTimeout(deadlineTimer);
     if (next.deadline_at && next.turn !== next.seat && next.kind !== 'solo' && next.status === 'playing') deadlineTimer = setTimeout(refresh, Math.max(0,Date.parse(next.deadline_at)-Date.parse(next.server_now))+1);
     if (unchanged && !optimistic) { if (pos) { rules(); refresh(); } scheduleComputer(); return; }
-    const token = ++generation; board.skip(); animating = false;
+    const token = ++generation; board.skip(); animating = false; $('board').dataset.animating='false';
     if (!same) { history = []; lastMove = undefined; optimistic = undefined; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); }
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
     const local = optimistic; optimistic = undefined;
@@ -259,7 +260,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (replay.length) {
       animating = true;
       void (async () => {
-        for (const step of replay) { if (token !== generation) return; rules(); await board.animateMove(step.pre, step.move); if (token !== generation) return; board.sync(step.pos); }
+        for (const step of replay) { if (token !== generation) return; rules(); if (step.move.drop === undefined) await board.animateMove(step.pre, step.move); if (token !== generation) return; board.sync(step.pos); }
         if (token === generation) { rules(); board.sync(authoritative); animating = false; refresh(); scheduleComputer(); }
       })();
     } else board.sync(pos);

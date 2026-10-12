@@ -1,6 +1,6 @@
 # 15 · The game board
 
-Status: in-progress
+Status: resolved
 Type: AFK
 Size: L
 Blocked by: 11
@@ -59,7 +59,7 @@ The final fixture check passes 1 of 1 in 107.1 s. The HTTP and PostgreSQL check 
 
 The system Git shim now asks for an Xcode licence. The installed Command Line Tools Git works. Checks use a command-local PATH to that binary. No licence or system setting changes.
 
-Still open: card Use, actions and confirms, end card, rematch, end polling, look comparisons, the full browser run, final unit suite, integration merge and push. The ticket stays in progress.
+These checks cover moves and the computer. The next phase adds cards and the end card.
 
 ## Check point: cards
 
@@ -84,3 +84,23 @@ The table returns to the board before an empty-position draw. The end scrim leav
 The look check measures all seven states at 360, 390, 400 and 1440 px. Phone and desktop comparisons go in the system temporary folder, kingdown-look/15. Each capture waits for the move and image reads. A reused Open fixture omits its old settings field, so it cannot reset a saved setting. The final runs remain open.
 
 The full ticket-database suite passes 2,300 tests and 50 art tests, with 8 skipped. The fixture check with all sample states passes 1 of 1 in 115.6 s. The Black-mount HTTP check must wait for the new game's reply, so it cannot read the old game's Your move line. Sample captures advance the fake clock through the game's marker timing before they read the pixels.
+
+## Check point: arrivals and end presence
+
+The arrival check deals Salvation through Create. A buddy takes the player's knight. The card returns it to its empty start square. The check fails on the empty-source travel animation. An arrival now syncs at once, and its piece supplies the move icon. Ordinary moves keep their animation. The same check then reaches the end-presence check without a render error.
+
+The end-presence check fails before its fix. A held poll has the same revision and marks the opponent as deleted. Rematch now reads that fresh opponent field. The poll leaves the controls enabled. The check also restores the field and checks the choices again.
+
+GAP: describeMove has no Salvation arrival words. It calls the empty source an empty piece. The page uses the game words, as this brief requires. A repair belongs in move-text.ts, which is outside this ticket. The move icon and the card's read identify the returned piece.
+
+## Result
+
+The board and end routes are complete. The table uses one PaintedView, the game marks, king portraits and handles. Moves show before the reply. A final refusal restores the server position. Retry keeps its command ID. The computer plays after a reply and at mount, with no button. Cards read and arm their legal moves; a returned piece appears at once. Menu actions have confirms. The end card reads the outcome once and resumes a rematch on the same board. The shared poll runner stops on teardown and while the page is hidden.
+
+Checks: npm test on kingdown_mvp15_test passes 2,300 tests and 50 art tests, with 8 skips. All 24 browser checks pass. The final named checks pass 2 of 2: fixture 115.8 s, HTTP and PostgreSQL 94.2 s. They keep the older Haste, Archer and Freeze checks and cover both deadline types, a Black mount, a card arrival, end presence and same-ID rematch retry. The compiled server check passes with 101 art files (72 WebP, 24 SVG, 4 fonts and 1 PNG). The page build is 569,632 bytes; its MCP payload is 571,809 bytes, below 1,000,000.
+
+All seven states fit at 360 x 844, 390 x 844, 400 x 900 and 1440 x 900. The table, bar, context and end card clear the composer and have no sideways scroll. Phone and desktop comparisons are in /var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-look/15. The end scrim opens after the final draw, so its background has the final position and fallen king.
+
+Kept differences: the host harness has a Remount control and no native host header or composer; those belong to the host. The page has the required ‹ Play control. It uses 34 px card coins at both strips, as this brief requires. Names, ratings and move data come from each view. A cold mount says Move N. The end has the game reason and final known move, and has no replay tiles, as the owner requires. Symbols only has no travel animation; the shared painted scene has no figure to move in that mode.
+
+Open items outside this ticket: the game needs Salvation arrival words in move-text.ts. The fixture computer log has no LAN list; HTTP verifies replay. A fixed-hand fixture case remains with ticket 10; these checks use a real deal. Ticket 14 can import confirmAbort from board-actions.ts; its seat file is a stub on this base. The integration merge and its checks follow this result.
