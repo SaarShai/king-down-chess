@@ -80,7 +80,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
       else if (req.url === '/board-resource') {
         res.setHeader('Content-Type', 'text/html');
         const html = sourcePage ? (await readFile('src/plugin/index.html', 'utf8')).replace('<script type="module" src="./app.ts"></script>', '<script type="module">window.harnessApp = await import("/src/plugin/app.ts");</script>') : resourceHtml;
-        res.end(html.replace('<script type="module">', '<script type="module">await new Promise(r => setTimeout(r, parent.harnessBootDelay ?? 0));').replace('<head>', '<head><script>window.openai = parent.harnessWithoutWidgetState ? undefined : {widgetState: parent.harnessWidgetState, setWidgetState(state) {if (!parent.harnessDropWidgetWrites) parent.harnessWidgetState = structuredClone(state);}};</script>'));
+        res.end(html.replace('<script type="module">', '<script type="module">await new Promise(r => setTimeout(r, parent.harnessBootDelay ?? 0));').replace('<head>', '<head><script>window.openai = parent.harnessWithoutWidgetState ? undefined : {widgetState: parent.harnessWidgetState, setWidgetState(state) {if (!parent.harnessDropWidgetWrites) parent.harnessWidgetState = structuredClone(state); (parent.harnessWidgetStates ??= []).push(structuredClone(state));}};</script>'));
       }
       else if (req.url === '/fixture-tool' && req.method === 'POST') {
         try { const params = await body(req); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await client.callTool(params))); }
