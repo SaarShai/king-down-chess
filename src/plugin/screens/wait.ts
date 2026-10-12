@@ -46,8 +46,21 @@ async function computer() {
     let solo = await start('solo', { options, colour: open.seat === 0 ? 'white' : 'black', level: memory.settings?.last_setup?.level ?? 'club' }, { route: false });
     if (solo?.status === 'setup' && solo.draw) {
       const choice = defaultChoice(options, { army: solo.draw, hand: solo.deal ?? [] }, solo.seat, Math.random, false);
-      solo = await call('kingdown_choose', { game_id: solo.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: solo.revision, ...choice, ready: true }, true, false, false);
-      if (solo) solo = await call('kingdown_get', {}, false, false, false);
+      const args = { game_id: solo.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: solo.revision, ...choice, ready: true };
+      const choose = async (resend = false) => {
+        const chosen = await call('kingdown_choose', args, true, false, false, resend);
+        if (!chosen) return;
+        $('retry').removeEventListener('click', retry, true);
+        const next = await call('kingdown_get', {}, false, false, true);
+        if (next) syncWatch();
+      };
+      const retry = (event: Event) => {
+        if (client.state.pending?.args.command_id !== args.command_id) { $('retry').removeEventListener('click', retry, true); return; }
+        event.stopImmediatePropagation(); void choose(true);
+      };
+      $('retry').addEventListener('click', retry, true);
+      onStop(() => $('retry').removeEventListener('click', retry, true));
+      await choose(); return;
     }
     if (solo) { routeView(solo); await call('kingdown_games', {}); syncWatch(); }
   } finally { offering = false; }
