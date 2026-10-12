@@ -35,6 +35,7 @@ let making = false;
 export function friendScreen() {
   const view = memory.view;
   $('page-title').textContent = 'Your game code';
+  if (view?.kind === 'friend' && view.status !== 'waiting') { routeView(view); return; }
   if (!view || view.kind !== 'friend' || view.status !== 'waiting') {
     $('friend-status').textContent = 'Open your friend game from Your games.'; return;
   }
@@ -73,4 +74,3 @@ export function onStop(stop: () => void) { stops.add(stop); return () => stops.d
 function stopAll() { for (const stop of stops) stop(); stops.clear(); }
 addEventListener('pagehide', stopAll);
 addEventListener('message', event => { if (event.source === parent && event.data?.method === 'ui/resource-teardown') stopAll(); });
-export function route(next: View | undefined) { if (next) routeView(next); }

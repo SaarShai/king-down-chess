@@ -52,6 +52,6 @@ async function join() {
   finally { joining = false; $<HTMLButtonElement>('join-confirm').disabled = false; }
 }
 // Join keeps the code in page memory through Save; a remount needs the code again.
-const observer = new MutationObserver(() => { if (client.state.screen !== 'join' && client.state.screen !== 'handle') afterHandle = false; });
+const observer = new MutationObserver(() => { if (client.state.screen !== 'join' && client.state.screen !== 'handle') { afterHandle = false; memory.code = ''; memory.preview = undefined; memory.joinError = undefined; checked = ''; } });
 observer.observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
 onStop(() => observer.disconnect());

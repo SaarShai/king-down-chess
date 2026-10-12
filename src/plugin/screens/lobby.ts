@@ -12,8 +12,8 @@ export function lobbyScreen() {
   $('find-opponent').onclick = async () => {
     if (finding || accepting) return; finding = true;
     try {
-      const own = memory.games.find(game => game.kind === 'random' && game.status === 'waiting');
-      if (own) { const next = await call('kingdown_resume', { game_id: own.game_id }, false, false, false); if (next) routeView(next); }
+      const own = memory.view?.kind === 'random' && memory.view.status === 'waiting' ? memory.view.game_id : memory.games.find(game => game.kind === 'random' && game.status === 'waiting')?.game_id;
+      if (own) { const next = await call('kingdown_resume', { game_id: own }, false, false, false); if (next) routeView(next); }
       else await start('random', { options: setup?.options ?? DEFAULT_OPTIONS, colour: setup?.colour ?? 'white' });
     } finally { finding = false; }
   };

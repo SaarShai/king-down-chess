@@ -5,7 +5,7 @@ import { DEFAULT_OPTIONS, defaultChoice } from '../../match/setup';
 import type { View } from '../../match/protocol';
 import { $, features, onStop, portrait, showError } from './friend';
 let open: View | undefined, began = 0, timer: ReturnType<typeof setInterval> | undefined;
-let watch: ReturnType<typeof runPoll> | undefined, watched: string | undefined, offering = false, switching = false;
+let watch: ReturnType<typeof runPoll> | undefined, watched: string | undefined, offering = false, switching = false, background = false;
 const dismissed = new Set<string>();
 export function waitScreen() {
   const view = memory.view;
@@ -21,6 +21,7 @@ export function waitScreen() {
     return;
   }
   $('wait-status').textContent = '';
+  $('wait-features').hidden = !open.options;
   $('wait-features').replaceChildren('Your game is open with these features: ', features(open.options));
   document.querySelectorAll<HTMLImageElement>('[data-screen="wait"] [data-art]').forEach(img => { img.src = art(img.dataset.art!); });
   $('wait-computer').onclick = () => void computer();
@@ -64,14 +65,23 @@ async function readOpen(game: string) {
   else if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && !dismissed.has(next.game_id)) found(next);
 }
 function syncWatch() {
+  if (open && memory.view?.game_id === open.game_id) open = memory.view;
   const solo = memory.view?.kind === 'solo' && memory.view.status === 'playing';
-  if (!solo || !['board','wait'].includes(client.state.screen)) { stopWatch(); return; }
+  const active = solo && ['board','wait'].includes(client.state.screen);
   const entry = memory.games.find(game => game.kind === 'random' && game.status === 'waiting');
   const id = open?.status === 'waiting' ? open.game_id : entry?.game_id;
-  if (!id || dismissed.has(id)) { stopWatch(); return; }
-  if (watch && watched === id) return;
-  stopWatch(); watched = id;
-  watch = runPoll(() => open?.game_id === id ? open : 'waiting for a join', async () => { if (!client.state.pending) await readOpen(id); });
+  if (!id || solo && id === memory.view?.game_id || dismissed.has(id)) { stopWatch(); return; }
+  if (watch && watched === id) {
+    if (active && !background) { background = true; void readOpen(id); }
+    else if (!active) background = false;
+    return;
+  }
+  if (!active && client.state.screen !== 'wait') return;
+  stopWatch(); watched = id; background = active;
+  // Keep the wait clock on Play too. Only a computer board makes this runner read.
+  watch = runPoll(() => open?.game_id === id ? open : 'waiting for a join', async () => {
+    if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && ['board','wait'].includes(client.state.screen) && !client.state.pending) await readOpen(id);
+  });
 }
 function found(human: View) {
   const over = $<HTMLDialogElement>('over');
@@ -98,7 +108,7 @@ function found(human: View) {
   };
   if (!over.open) over.showModal();
 }
-function stopWatch() { watch?.stop(); watch = undefined; watched = undefined; }
+function stopWatch() { watch?.stop(); watch = undefined; watched = undefined; background = false; }
 const observer = new MutationObserver(() => {
   if (client.state.screen !== 'wait') { clearInterval(timer); timer = undefined; }
   syncWatch();
