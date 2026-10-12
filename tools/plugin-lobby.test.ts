@@ -91,3 +91,25 @@ it('lists another player with features and accepts the open seat', async () => {
     expect((await buddy(page, 'kingdown_get', { game_id: created._meta.view.game_id }))._meta.view.status).toBe('playing');
   } finally { await page.close(); }
 });
+it('offers a computer game after 25 seconds, watches without a board ID and switches', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.clock.install(); await page.clock.pauseAt(new Date());
+    const waiting = await start(page, 'random');
+    await frame.locator('#wait-computer').waitFor({ state: 'attached' });
+    expect(await frame.locator('#wait-computer').isVisible()).toBe(false);
+    await page.clock.runFor(25000); await frame.locator('#wait-computer').waitFor(); await frame.locator('#wait-computer').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    const solo = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
+    await buddy(page, 'kingdown_accept', { game_id: waiting.game_id });
+    await page.clock.runFor(5000); await frame.locator('#over.found[open]').waitFor();
+    const background = await page.evaluate(id => (window as any).harnessCalls.findLast((c: any) => c.name === 'kingdown_get' && c.arguments.game_id === id), waiting.game_id);
+    expect(background.arguments.board_id).toBeUndefined();
+    await frame.locator('#found-switch').click();
+    await frame.locator('#over.found[open]').waitFor({ state: 'hidden' });
+    expect(await page.evaluate(() => (window as any).harnessView.game_id)).toBe(waiting.game_id);
+    expect(await frame.locator('html').evaluate(async (_, id) => {
+      const result = await (window as any).harnessApp.client.call('kingdown_get', { game_id: id }, { background: true }); return result._meta.view.status;
+    }, solo)).toBe('aborted');
+  } finally { await page.close(); }
+});
