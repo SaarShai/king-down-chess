@@ -20,10 +20,16 @@ const testHandle = `mvp_${randomUUID().replaceAll('-', '').slice(0,12)}`;
 const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: true });
 trapErrors(page);
+page.on('pageerror', error => console.error(error.stack));
 try {
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
   await page.addInitScript(() => {
+    window.harnessTableIdConflicts = [];
+    const tableIds = ['game-table','strip-me','strip-them','context-line','context-text','moves-line','last-move','table-bar'];
+    new MutationObserver(() => {
+      for (const id of tableIds) if (document.querySelectorAll(`#${id}`).length > 1 && !window.harnessTableIdConflicts.includes(id)) window.harnessTableIdConflicts.push(id);
+    }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['id'] });
     window.harnessBootDelay = 300;
     window.harnessArrowLines = [];
     window.harnessGhostSymbols = [];
@@ -504,6 +510,7 @@ try {
       await page.evaluate(r => window.harnessShow(r, true), { ...result, structuredContent: summary });
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
       await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+      assert.deepEqual(await frame.locator('body').evaluate(() => window.harnessTableIdConflicts), [], 'Setup and board keep one set of table IDs through seat reads');
       await frame.locator('#seat-menu:not(:disabled)').waitFor(); await boardBox(); await seatRemount();
     }
     async function seatRemount() {
@@ -522,7 +529,7 @@ try {
       for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) {
         await page.setViewportSize({ width, height }); await boardBox();
         assert(!await frame.locator('body').evaluate(el => el.scrollWidth > innerWidth), `${state} document fits ${width}px`);
-        assert(await frame.locator('#game-table').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `${state} table fits ${width}px`);
+        assert(await frame.locator('[data-seat-id="game-table"]').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `${state} table fits ${width}px`);
         for (const id of ['seat-ready','seat-shuffle','seat-menu','seat-king','page-back']) {
           const button = frame.locator(`#${id}`); if (!await button.isVisible()) continue;
           const bounds = await button.evaluate(controlBounds); assert(bounds.accessible, `${state} ${id} stays above the composer at ${width}px: ${JSON.stringify(bounds)}`);
@@ -573,9 +580,9 @@ try {
     assert.equal(await frame.locator('#seat-context').innerText(), 'Tap a marked piece to swap the knight with it.', 'The seat starts with the sample knight selected before a board tap');
     await page.waitForFunction(() => document.querySelector('iframe').contentWindow.harnessSwapMarks > 0);
     await seatFits('seat');
-    await seatTap(r); assert.equal(await frame.locator('#last-move').innerText(), rankLine(swapped(initial,n,r),0));
-    const beforePawn = await frame.locator('#last-move').innerText(); await seatTap(0,true); assert.equal(await frame.locator('#last-move').innerText(), beforePawn, 'Pawns do not react');
-    await seatRemount(); assert.equal(await frame.locator('#last-move').innerText(), rankLine(initial,0), 'A draft remount starts at the server choice');
+    await seatTap(r); assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), rankLine(swapped(initial,n,r),0));
+    const beforePawn = await frame.locator('[data-seat-id="last-move"]').innerText(); await seatTap(0,true); assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), beforePawn, 'Pawns do not react');
+    await seatRemount(); assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), rankLine(initial,0), 'A draft remount starts at the server choice');
     const g = initial.indexOf('G'), k = initial.indexOf('K'), away = [...initial].findIndex((p,i) => p !== 'B' && p !== 'K' && Math.abs(i-k) > 1);
     await seatTap(n); await seatTap(g); await seatTap(away);
     assert.equal(await frame.locator('#seat-context').innerText(), 'The guard must stand next to the king.');
@@ -607,16 +614,17 @@ try {
     assert.equal(hidden.choices[0],null); assert.deepEqual(hidden.last_commands.at(-1).action,{type:'hidden'});
     const started = await buddyReady(v);
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 10000 });
+    assert.deepEqual(await frame.locator('body').evaluate(() => window.harnessTableIdConflicts), [], 'Ready returns to the board with one set of table IDs');
     assert.equal(await page.evaluate(() => window.harnessView.fen), started._meta.view.fen);
     assert.deepEqual(await page.evaluate(() => window.harnessView.kings[0]), { king:'Mud',power:'March' });
     assert(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_get').arguments.since_revision === undefined), 'Start gets the full rules');
     await seatTool('kingdown_abort', { game_id: v.game_id });
     v = await friendSeat(true, { ...features, cards:false,kingPowers:false });
     const blackOrder = v.choices[1].order, br = blackOrder.indexOf('R'), bn = blackOrder.indexOf('N');
-    assert.equal(await frame.locator('#last-move').innerText(), rankLine(blackOrder,1));
+    assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), rankLine(blackOrder,1));
     assert(!await frame.locator('#seat-king').isVisible());
     await seatTap(bn); await seatTap(br); await seatTap(bn);
-    const blackDraft = swapped(blackOrder,br,bn); assert.equal(await frame.locator('#last-move').innerText(), rankLine(blackDraft,1));
+    const blackDraft = swapped(blackOrder,br,bn); assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), rankLine(blackDraft,1));
     // Hide the page so the buddy's first Ready cannot reach it through a poll before this Ready.
     await frame.locator('body').evaluate(() => { Object.defineProperty(document,'hidden',{configurable:true,value:true}); document.dispatchEvent(new Event('visibilitychange')); });
     await buddyReady(v);
@@ -650,18 +658,20 @@ try {
     await frame.locator('#retry').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
     assert(await page.evaluate(() => !!window.harnessView.rules));
     assert.equal(await frame.locator('#board').getAttribute('aria-label'), boardLabel, 'The board hand-off restores its label with its keyboard handler');
+    await frame.locator('#board').press('ArrowRight');
+    assert.equal(await frame.locator('#board').getAttribute('aria-label'), 'Chess board, b1. Enter selects a square.', 'Ready restores a working board keyboard handler after a setup remount');
     await seatTool('kingdown_abort',{game_id:fullRead._meta.view.game_id});
     const legacy = await (await page.request.post(new URL('/fixture-position?case=threats',base).href)).json();
     assert(!legacy.isError); assert.equal(legacy._meta.view.options,undefined);
     let legacyReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     await page.evaluate(result => window.harnessShow(result),legacy);
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n,legacyReads);
-    await frame.locator('#reload:not(:disabled)').waitFor();
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
     await page.evaluate(() => { window.harnessWidgetState.privateContent.screen = 'seat'; });
     legacyReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     await page.locator('#remount').click();
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n,legacyReads);
-    await frame.locator('#reload:not(:disabled)').waitFor(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor({timeout:5000});
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' }); await frame.locator('[data-screen="board"]:not([hidden])').waitFor({timeout:5000});
     await seatTool('kingdown_abort',{game_id:legacy._meta.view.game_id});
     const aborted = await friendSeat(false,{...features,cards:false,kingPowers:true,arrangement:false});
     assert(!await frame.locator('#seat-shuffle').isVisible());
@@ -1430,7 +1440,7 @@ try {
     await menuAction('invite'); await idleBoard();
     const code = /^Share this code: ([A-HJKMNP-Z2-9]{6})$/.exec(await frame.locator('#invitation').innerText())?.[1]; assert(code);
     const joined = await friendTool('kingdown_join',{code});
-    assert(!joined.isError);
+    assert(!joined.isError, JSON.stringify(joined.content));
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     await clickSquare(4, 1); await clickSquare(4, 3);
     await idleBoard();
@@ -1661,10 +1671,12 @@ try {
     assert(!/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/i.test(json), 'Each widget write has no full UUID except board_id');
     assert(!state.privateContent?.pending?.args?.code && !state.privateContent?.pending?.args?.handle, 'Pending state has no code or handle');
   }
+  assert.deepEqual(await frame.locator('body').evaluate(() => window.harnessTableIdConflicts), [], 'The board hand-off keeps one set of table IDs');
   assertNoErrors();
   console.log(`Harness mode: ${mode}`);
   console.log(`PASS: chat join preview and code-error mounts, shared private games rows, home card, fullscreen request, Settings remount, 4 viewport widths, 14 route remounts, four widget fields, background reads, all piece SVGs and threat endpoints in both seats, safe areas, theme, touch, handle gate and 17 pictures, SDK AppBridge initialization, painted board move, iframe remount with identical FEN/revision, Haste ambiguity, lost-reply same-ID retry committed once, bounded computer turn, definitive rejection recovery, match switch recovery, ${capabilities.friend ? 'friend join/reply polling, ' : ''}no fullscreen control, 390px touch moves, no page errors${mode === 'fixture' ? ', terminal fixture' : ', real HTTP MCP and PostgreSQL'}`);
 } catch (error) {
+  console.error(error);
   console.error('Page check state:', await page.evaluate(() => ({ screen: window.harnessWidgetState?.privateContent?.screen, pending: window.harnessWidgetState?.privateContent?.pending?.name, view: window.harnessView && { status: window.harnessView.status, kind: window.harnessView.kind, speed: window.harnessView.speed, revision: window.harnessView.revision, turn: window.harnessView.turn, seat: window.harnessView.seat, opponent: window.harnessView.opponent, server_now: window.harnessView.server_now, commands: window.harnessView.last_commands.map(c => ({ seat: c.seat, at: c.at })) }, calls: (window.harnessCalls ?? []).slice(-6).map(c => c.name) })));
   console.error('Board check state:', await page.frameLocator('iframe').locator('body').evaluate(() => ({ hidden: document.hidden, status: document.querySelector('#status').textContent, error: document.querySelector('#error').textContent, reloadDisabled: document.querySelector('#reload').disabled })));
   assertNoErrors(); throw error;

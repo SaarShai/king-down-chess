@@ -24,7 +24,10 @@ await build({ configFile: false, root: resolve('src/plugin'), base: './', public
   });
   return `export default [${urls.join(',')}];`;
 }, transform(code, id) {
-  if (id === resolve('src/plugin/app.css')) return code.replace("@import '../style.css';", gameStyle).replace("@import '../ui/table.css';", '');
+  if (!id.endsWith('.css')) return;
+  if (id === resolve('src/plugin/app.css')) code = code.replace("@import '../style.css';", gameStyle).replace("@import '../ui/table.css';", '');
+  // Seat hooks share the table look while the board keeps its IDs.
+  return code.replace(/#(game-table|strip-me|strip-them|context-line|context-text|moves-line|last-move|table-bar)\b/g, ':is(#$1,[data-seat-id="$1"])');
 } }], experimental: { renderBuiltUrl: (file, { hostType }) => hostType === 'html' ? { relative: true } : `${ART_ORIGIN}/${file}` },
   build: { outDir: output, emptyOutDir: true, assetsDir: 'plugin-art', assetsInlineLimit: 0, cssCodeSplit: false, rolldownOptions: { output: { codeSplitting: false } } } });
 let html = await readFile(resolve(output, 'index.html'), 'utf8');

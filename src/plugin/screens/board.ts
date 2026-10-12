@@ -227,6 +227,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   $('reload').addEventListener('click', closeBoardSheet);
   $('board-menu').onclick = () => boardSheet('Menu', button('Choose a move', () => boardSheet('Choose a move', $('choices'))), ...view ? actionButtons(view,Date.now()-readAt,refused) : [], button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('computer'), $('invite'), $('invitation'));
   $('moves-line').onclick = () => boardSheet('Moves', ...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No moves shown yet.')]);
+  bindBoard();
   const observer = new MutationObserver(() => { if (active()) refresh(); scheduleComputer(); if (client.state.screen === 'end') updateEnd(); });
   observer.observe($('reload'), {attributes:true, attributeFilter:['disabled']});
   observer.observe(document.body, {attributes:true, attributeFilter:['data-page']});

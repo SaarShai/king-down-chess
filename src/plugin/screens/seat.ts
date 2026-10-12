@@ -13,8 +13,7 @@ import { kingSheet } from './setup';
 import { legalSwaps, seatChoice, seatFen, seatIndex, seatSquare, screenOrder, shuffleOrder, submitReady, swapOrder } from './seat-model';
 import './seat.css';
 
-const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
-const tables = () => document.querySelectorAll<HTMLElement>('#seat-screen [data-seat-id]');
+const $ = <T extends HTMLElement = HTMLElement>(id: string) => (document.querySelector(`#seat-screen [data-seat-id="${id}"]`) ?? document.getElementById(id))! as T;
 const strips = Object.fromEntries(['strip-me','strip-them'].map(id => [id, document.querySelector(`[data-seat-id="${id}"]`)!.innerHTML]));
 let game = '', choice: Choice | null = null, selected: number | null = null, sending = false, picking = false;
 let home: { parent: HTMLElement; next: ChildNode | null; click: typeof board.onSquareClick; drag: typeof board.onDragSelect; hover: typeof board.onSquareHover; key: HTMLElement['onkeydown']; label: string | null } | undefined;
@@ -32,7 +31,6 @@ function release() {
   if (home.label === null) $('board').removeAttribute('aria-label'); else $('board').setAttribute('aria-label', home.label);
   board.setPreview(null);
   $('seat-veil-layer')?.remove(); home = undefined;
-  tables().forEach(node => node.removeAttribute('id'));
 }
 function ownBoard(view: View) {
   if (home) return;
@@ -161,7 +159,6 @@ export function seatScreen() {
     return;
   }
   const own = seatChoice(view, memory.settings?.last_setup?.king ?? null); if (!own) return;
-  tables().forEach(node => { node.id = node.dataset.seatId!; });
   if (game !== view.game_id || !choice) { game = view.game_id; choice = own; selected = view.options.arrangement && !view.ready?.[view.seat] && own.order.includes('N') ? seatSquare(view.seat, own.order.indexOf('N')) : null; }
   else if (view.ready?.[view.seat]) { choice = own; selected = null; }
   if (!$('seat-board-slot') && !home) { const slot = document.createElement('div'); slot.id = 'seat-board-slot'; $('game-table').prepend(slot); }
