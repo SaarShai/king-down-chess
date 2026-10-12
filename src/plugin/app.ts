@@ -253,7 +253,7 @@ function renderIdentity() {
 function scheduleHandleCheck() {
   clearTimeout(handleTimer); const check = ++handleCheck, input = $<HTMLInputElement>('handle'), handle = input.value.trim().toLowerCase();
   input.setCustomValidity(''); $('handle-free').hidden = true; $('handle-check-error').textContent = '';
-  if (handleProblem(handle)) return;
+  if (!handle) return;
   handleTimer = setTimeout(async () => {
     try {
       const result = await client.call('kingdown_handle', { handle, check: true });

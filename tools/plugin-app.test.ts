@@ -152,3 +152,15 @@ it('keeps the approved home wordmark at 40 px on a 360 px screen', async () => {
     expect(await page.frameLocator('iframe').locator('.wordmark').evaluate(el => getComputedStyle(el).fontSize)).toBe('40px');
   } finally { await page.close(); }
 });
+it('shows the server character rule beside the Free mark for a bad name', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; app.navigate('settings'); app.navigate('handle'); });
+    expect(await frame.locator('#page-back').textContent()).toBe('‹ Settings');
+    expect(await frame.locator('[data-screen="handle"]').textContent()).toContain('Each name is unique. You pick it once, at your first game against a person.');
+    await frame.locator('#handle').fill('a?');
+    await frame.locator('#handle-check-error').filter({ hasText: 'Use 3 to 20 characters' }).waitFor();
+    expect(await frame.locator('#handle-free').isVisible()).toBe(false);
+    expect(await page.evaluate(() => (window as any).harnessCalls.findLast((c: any) => c.name === 'kingdown_handle').arguments)).toEqual({ handle: 'a?', check: true });
+  } finally { await page.close(); }
+});
