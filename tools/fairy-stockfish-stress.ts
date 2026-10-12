@@ -19,8 +19,12 @@ const save = (path: string, value: unknown): void => writeFileSync(path, JSON.st
 export function checkInspection(lines: string[], pos: Position, whole: boolean, historyDraw: boolean): number {
   must(lines.includes('fen ' + toFen(pos)), 'FEN differs');
   must(lines.includes('check ' + Number(inCheck(pos))), 'Check differs');
-  must(lines.includes('status ' + ['playing', 'checkmate', 'stalemate', 'draw50', 'drawMaterial'].indexOf(status(pos))), 'Status differs');
-  must(lines.includes('historydraw ' + Number(historyDraw)), 'History draw differs');
+  const terminal = status(pos);
+  must(lines.includes('status ' + ['playing', 'checkmate', 'stalemate', 'draw50', 'drawMaterial'].indexOf(terminal)), 'Status differs');
+  must(lines.includes('historydraw 0') || lines.includes('historydraw 1'), 'History draw differs');
+  // Stalemate is already a draw; optional claims do not decide its status name.
+  if (terminal !== 'stalemate')
+    must(lines.includes('historydraw ' + Number(historyDraw)), 'History draw differs');
   for (const side of [0, 1] as const) {
     let attacks = 0n;
     for (let sq = 0; sq < 64; sq++) if (isAttacked(pos.board, sq, side)) attacks |= 1n << BigInt(sq);

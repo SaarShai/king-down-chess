@@ -38,10 +38,10 @@ if '--self-check' in sys.argv:
 
 name, config_path = sys.argv[1:]
 cfg = json.loads(Path(config_path).read_text())
-assert name == cfg['id'] == 'fairy-rules-stress-20261012'
+assert name == cfg['id'] == 'fairy-rules-stress-recheck-20261012'
 assert cfg['hardSeconds'] == 7200 and cfg['workerSeconds'] == 7120
 assert len(cfg['seeds']) == len(set(cfg['seeds'])) == 4
-assert cfg['approval']['quote'] == "go ahead with the two-hour M1 stress test, then choose and run the longer-time Kaggle comparison based on the current results. only check at expected completion times, and don't merge yet."
+assert cfg['approval']['quote'] == "go ahead with the fresh two-hour M1 run using the repaired checker. keep Kaggle going, only check at expected completion times, and don't merge yet."
 for path, expected in cfg['files'].items():
     assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == expected, 'Input differs: ' + path
 out = Path('out')

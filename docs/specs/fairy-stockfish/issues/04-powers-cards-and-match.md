@@ -1,6 +1,6 @@
 # King powers, cards and controlled AI comparison
 
-Status: claimed
+Status: resolved
 Type: prototype
 
 Owner approval (2026-10-11): "go ahead and port the king powers and cards, verify them against our rules engine, and then compare Fairy-Stockfish against our current AI. don't merge yet."
@@ -56,3 +56,9 @@ The initial cloud backup completes at 00:22 Pacific. Receipt:
 The cloud manifest and required source/settings/check hashes agree. The external
 receipt is `state/fairy-stockfish-full-backup/verified-initial.json`. A new snapshot
 follows pilot collection and launch receipts. This is not the final data backup.
+
+All 192 frozen games now pass. The report and independent seven-summary raw outcome check agree: native 66 wins, current 112 wins, 14 true draws, zero caps; 27,976 actions and 28,168 state/legal-set checks. Native score is 38.02%; the 24-army interval is 28.18% to 47.86%. Native average measured time is 215.5 ms despite the nominal 80 ms request; current average is 72.7 ms. The latency tail reaches 15.69 seconds. This is not an equal actual-time comparison or a release decision. The owner approves a separate one-second test in ticket05. Final data/report backup is pending in the combined snapshot. Pilot and launch snapshot `20261012-003752-60341000` is verified against the cloud manifest and eleven required file hashes; its external proof is `state/fairy-stockfish-full-backup/verified-pilot.json`.
+
+## Answer
+
+All powers, cards and the full 192-game comparison pass the saved checks. The final source, six raw parts, all validations and reports are backed up at `drive:King Down/results-backups/20261012-012419-31208000`. The snapshot completes at 01:34 Pacific. Its cloud manifest checksum and 109 required file hashes agree, including this match, the new pilot settings and the M1 launch. External proof: `state/fairy-stockfish-long-backup/verified-initial.json`. Native score is below 50% in this sample and its latency tail needs more work. Ticket05 holds the approved stress and longer-time tests. No merge or shipped AI change.
