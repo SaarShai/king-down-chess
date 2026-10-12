@@ -106,6 +106,25 @@ Kept differences: the host harness has a Remount control and no native host head
 Open items outside this ticket: the game needs Salvation arrival words in move-text.ts. The fixture computer log has no LAN list; HTTP verifies replay. A fixed-hand fixture case remains with ticket 10; these checks use a real deal. Ticket 14 can import confirmAbort from board-actions.ts; its seat file is a stub on this base. The integration result below records the final merge checks.
 
 
+### Fix round
+
+- A lost move refusal after another tab wins fails the new check before the fix. Final move Retry errors now use the same rollback and full read as the first reply.
+- A later Rematch offer fails to arrive before the fix. Eligible finished human games now poll before an offer and use the shared 2-minute presence schedule. A deleted opponent stops polling.
+- The first failed full end read has no Retry before the fix. The read now completes only after success. Retry restores the fixture rating change and new badge.
+- The end-card check now clicks Accept. It checks the accept command, Resume on the same board, the new playing board, swapped colours and the same features.
+
+Final checks on kingdown_mvp15_fix_test: npm test passes 2,343 tests and 50 art tests, with 8 skips, in 155 test files. npm run plugin:build passes. npm run check:browser plugin-ui plugin-ui-http passes 2 of 2: fixture 252.2 s, HTTP 202.8 s. The older Haste, Archer and Freeze checks pass. The build has 628,265 HTML bytes and 631,066 payload bytes, below 1,000,000. Status stays resolved.
+
+### Open items
+
+- Review item 5: check a real rating change and new badge on the end card in HTTP mode. This round checks the seeded fixture outcome only.
+- Salvation needs arrival words in move-text.ts. The icon and card identify the returned piece.
+- The fixture computer log has no LAN list. HTTP checks replay.
+- A fixed-hand fixture case remains with ticket 10. These checks use a real deal.
+- Ticket 14 can import confirmAbort from board-actions.ts. Its seat file remains a stub on this branch.
+- The route-size check can meet a replaced end-card control. One run stops there; the unchanged repeat and final checks pass.
+- The merger runs the full browser set on another machine.
+
 ## Integration result
 
 The branch merges local integration tip da5d4f5a. The four conflicts keep the new shell pending fields, compact command IDs, Profile and Collection, the board and end routes, and the threat-setting remount check. The NOT_ALLOWED final error stays. Ticket 14 remains a stub in this tip, so there is no Abort import to change.
@@ -128,3 +147,5 @@ Fix 1: the race check fails on the refused move line. The shared final move erro
 Fix 2: the later-offer check fails without a manual read. Eligible finished human games now use the shared poll schedule, also before an offer. A deleted opponent stops polling. The fixture check passes 1 of 1 in 243.2 s. One prior run stops on a detached control in the route-size check; the unchanged repeat passes.
 
 Fix 3: the failed full end read has no Retry before the fix. The read now completes only after success. The existing Retry recovers the fixture rating change and new badge. The fixture check passes 1 of 1 in 225.4 s.
+
+Fix 4: the final fixture and HTTP checks click Accept in the end card and verify Resume and the new board. Both pass. No source change is needed.
