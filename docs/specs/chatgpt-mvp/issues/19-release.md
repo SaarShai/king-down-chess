@@ -41,7 +41,7 @@ Branch: `claude/mvp-19-docs`. Base: `9eea0846`. Preparation is complete. Live re
 
 - The runbook and guides use the one-project deploy contract and the final screens. The owner checklist has 120 lines. It names each private setup, SQL paste, publish command, test-account step and recovery check.
 - `apply-0010-0013.sql` checks the foundation and runtime grants, then applies migrations 0010–0013 and blocks 7–9 in one transaction. It includes the board-delete grant. The source-text test prevents drift.
-- The deletion page now states the seven-day grace, new-sign-in cancel, token-refresh rule, daily deletion and retained records. The privacy page now covers handles, preset pictures, ratings, badges, reports, the OAuth link and the same grace. Page styles stay the same.
+- The deletion page now states the seven-day grace, new-sign-in cancel, token-refresh rule, daily deletion and retained records. The privacy page now covers handles, preset pictures, ratings, badges, reports, the OAuth link and the same grace. It keeps the provider-picture disclosure for the website account menu. Page styles stay the same.
 - The database README names 0002–0004 and points to the MVP cron file. The cron check confirms the source helper, schedules, Vault name and server header. Neither cron SQL copy needs a change.
 
 Checks:
