@@ -62,6 +62,46 @@ it('recovers a completed create or find after its reply is lost', async () => {
     } finally { await page.close(); }
   }
 });
+it('recovers a lost Create or Find reply when Save resumes the pending start', async () => {
+  for (const kind of ['friend', 'random']) {
+    const page = await open(), frame = page.frameLocator('iframe'), name = kind === 'friend' ? 'kingdown_create' : 'kingdown_find';
+    try {
+      await page.evaluate(name => { (window as any).dropNextReply = name; }, name);
+      await frame.locator('html').evaluate((_, kind) => {
+        const host = window as any; host.harnessApp.navigate('setup');
+        host.harnessApp.start(kind, { colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false } }).then((view: any) => { host.startResult = view; });
+      }, kind);
+      await frame.locator('#retry').waitFor();
+      const completed = await page.evaluate(() => (window as any).harnessView.game_id);
+      await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('settings'); });
+      await frame.locator('[data-nav="handle"]').click();
+      await frame.locator('#save-handle').click();
+      await frame.locator(`[data-screen="${kind === 'friend' ? 'friend' : 'wait'}"]:not([hidden])`).waitFor();
+      expect(await frame.locator('html').evaluate(() => (window as any).startResult.game_id)).toBe(completed);
+      expect(await page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name)).toBe(1);
+      expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
+    } finally { await page.close(); }
+  }
+});
+it('recovers a lost Create or Find reply on mount without another send', async () => {
+  for (const kind of ['friend', 'random']) {
+    const page = await open(), frame = page.frameLocator('iframe'), name = kind === 'friend' ? 'kingdown_create' : 'kingdown_find';
+    try {
+      await page.evaluate(name => { (window as any).dropNextReply = name; }, name);
+      await frame.locator('html').evaluate((_, kind) => {
+        const app = (window as any).harnessApp; app.navigate('setup');
+        void app.start(kind, { colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false } });
+      }, kind);
+      await frame.locator('#retry').waitFor();
+      const completed = await page.evaluate(() => (window as any).harnessView.game_id);
+      await page.locator('#remount').click();
+      await frame.locator(`[data-screen="${kind === 'friend' ? 'friend' : 'wait'}"]:not([hidden])`).waitFor();
+      expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(completed);
+      expect(await page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name)).toBe(1);
+      expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
+    } finally { await page.close(); }
+  }
+});
 it('updates activity on unchanged replies across the two-minute poll boundary', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

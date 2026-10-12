@@ -2,7 +2,7 @@ import type { App } from '@modelcontextprotocol/ext-apps';
 export const SCREENS = ['home', 'play', 'setup', 'friend', 'join', 'wait', 'lobby', 'seat', 'board', 'end', 'profile', 'collection', 'settings', 'handle'] as const;
 export type Screen = typeof SCREENS[number];
 export const BOARD_ID_TOOLS = ['kingdown_get', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'] as const;
-export type Pending = { name: string; args: Record<string, unknown>; game_id?: string; screen?: Screen; error?: string; error_screen?: Screen };
+export type Pending = { name: string; args: Record<string, unknown>; game_id?: string; started_at?: number; screen?: Screen; error?: string; error_screen?: Screen };
 export type BoardSettings = { symbols_only: boolean; show_threats: boolean };
 export type PageState = { screen: Screen; sheet?: string; board_id?: string; pending?: Pending };
 export type WidgetHost = { widgetState?: { privateContent?: Partial<PageState> }; setWidgetState?: (state: unknown) => void };

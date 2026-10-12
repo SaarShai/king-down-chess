@@ -62,6 +62,13 @@ function show(next: View | undefined) {
   // Widget state also supplies model context; a second writer would replace it.
   if (!extension?.setWidgetState) void app.updateModelContext({ structuredContent: { revision: view.revision, status: view.status, your_turn: view.turn === view.seat } }).catch(() => {});
 }
+async function resendPending(command: Pending, mountRead?: ToolResult) {
+  const read = mountRead ?? await client.call('kingdown_get');
+  if (read.isError) throw new Error(read.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+  const completed = read._meta?.view as View | undefined;
+  if (['kingdown_create', 'kingdown_find'].includes(command.name) && command.started_at !== undefined && completed && completed.game_id !== command.game_id && (command.name === 'kingdown_find' || Date.parse(completed.created_at) >= command.started_at)) return read;
+  if (!mountRead) return client.call(command.name, command.args);
+}
 export async function call(name: string, args: Record<string, unknown>, retain = false, quiet = false, route: boolean | undefined = undefined, retry = false) {
   if (busy || (quiet && polling)) return;
   const before = view;
@@ -69,18 +76,17 @@ export async function call(name: string, args: Record<string, unknown>, retain =
   if (quiet) polling = true;
   else { busy = true; buttons().forEach(b => b.disabled = true); $('error').textContent = ''; }
   if (retain) {
-    if (pending?.name !== name || pending.args !== args) pending = { name, args, game_id: view?.game_id, screen: state.screen };
+    if (pending?.name !== name || pending.args !== args) pending = { name, args, game_id: view?.game_id, started_at: Date.now(), screen: state.screen };
     pending.error = undefined; pending.error_screen = undefined; saveState();
   }
   try {
     let result: ToolResult | undefined;
-    if (retry && ['kingdown_create', 'kingdown_find'].includes(name)) {
-      const read = await client.call('kingdown_get');
-      if (read.isError) throw new Error(read.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
-      const completed = (read._meta as { view?: View } | undefined)?.view;
-      if (completed && completed.game_id !== pending?.game_id) result = read;
-    }
+    if (retry && pending) result = await resendPending(pending);
     result ??= await client.call(name, args);
+    if (mountReading && name === 'kingdown_get' && pending && ['kingdown_create', 'kingdown_find'].includes(pending.name)) {
+      const recovered = await resendPending(pending, result);
+      if (recovered) { name = pending.name; retain = true; route = undefined; result = recovered; }
+    }
     if (quiet && (busy || view !== before)) return;
     const read = (result._meta as { view?: View } | undefined)?.view;
     if (name === 'kingdown_get' && read?.fen && !read.rules && rules?.game !== read.game_id) {
@@ -88,7 +94,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
       if (quiet && (busy || view !== before)) return;
     }
     if (result.isError) {
-      if (result._meta?.code === 'HANDLE_NEEDED') { pending ??= { name, args, game_id: view?.game_id, screen: state.screen }; pending.error = undefined; pending.error_screen = undefined; saveState(); navigate('handle'); return; }
+      if (result._meta?.code === 'HANDLE_NEEDED') { pending ??= { name, args, game_id: view?.game_id, started_at: Date.now(), screen: state.screen }; pending.error = undefined; pending.error_screen = undefined; saveState(); navigate('handle'); return; }
       const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
       if (definitive.includes(String(result._meta?.code))) { pending = undefined; saveState(); if (retain) router.finishStart(); }
       throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
@@ -111,7 +117,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     if (retain && pending) { pending.error = message; pending.error_screen = state.screen; saveState(); }
     $('error').textContent = message; $('retry').hidden = !pending?.error || pending.error_screen !== state.screen; }
   finally { if (quiet) polling = false; else { busy = false; buttons().forEach(b => b.disabled = false); } }
-  if (followup) void call(followup.name, followup.args, true);
+  if (followup) void call(followup.name, followup.args, true, false, undefined, true);
   return received;
 }
 $('reload').onclick = () => { if (state.board_id) void call('kingdown_get', {}); };

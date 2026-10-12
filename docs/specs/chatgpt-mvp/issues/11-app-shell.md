@@ -226,3 +226,17 @@ Checks:
 - Final page: 516,932 HTML bytes. The final mount-error fix adds 11 bytes. The standalone server resource is 518,741 JSON bytes. It stays below the 1 MB build limit.
 
 Open items: none in ticket 11. Tickets 12 to 16 fill the shared screen stubs.
+
+## Fix round 2 plan
+
+1. Use one board check for every pending resend. Check lost Create and Find replies through Retry, Save and mount.
+2. Block page actions until mount reads end. Check a saved move while the board read waits.
+3. Save a short game tag and safe command args. Check widget state and old-game commands.
+4. Refresh Play rows after game changes. Check Create, Move and Back.
+5. Add app checks for Home to Profile, join memory, turn and setup rows, and Show threats after mount.
+
+Checks: use the approved app seam in tools/plugin-app.test.ts and both plugin browser checks. Run npm test after each red and green change. Use kingdown_mvp11_test on 127.0.0.1:55432. Run the full test suite, plugin build and server check before the final integration merge. Record counts and page size.
+
+## Fix round 2 result
+
+1. Retry, Save and mount use one board recovery check. A lost Create reply does not make a second game. Find also recovers the board it selects. The start keeps its route option and returns the recovered view. The Save and mount tests fail with the old paths. The Save fix passes the full suite: 2,295 tests in 150 files, with 8 skipped; all 50 art tests and the type check pass. All 14 app tests pass after the mount fix. The next test then catches an active Retry during the account read.
