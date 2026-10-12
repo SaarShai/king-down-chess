@@ -8,7 +8,7 @@ import { cp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRuntime } from './plugin-runtime-build.mjs';
-import { ART_HEADERS } from './plugin-art-headers.mjs';
+import { ART_HEADERS, ART_TYPES } from './plugin-art-headers.mjs';
 
 export async function buildPluginServer(outDir = resolve('plugin-server-dist'), { vercel = false, site } = {}) {
   vercel ||= Boolean(site);
@@ -50,7 +50,7 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     await symlink('mcp.func', resolve(output, 'functions/consent.mjs.func'));
     await symlink('../mcp.func', resolve(discovery, 'oauth-protected-resource.func'));
     await symlink('../../mcp.func', resolve(discovery, 'oauth-protected-resource/mcp.func'));
-    const routes = [{ src: '^/plugin-art/[^/]+$', headers: ART_HEADERS, continue: true }];
+    const routes = Object.entries(ART_TYPES).map(([type, contentType]) => ({ src: `^/plugin-art/[\\w-]+\\.${type}$`, headers: { ...ART_HEADERS, 'Content-Type': contentType }, continue: true }));
     if (site) {
       await cp(site, resolve(output, 'static'), { recursive: true });
       // The function entry (tools/plugin-server.mjs) dispatches these paths; Vercel keeps the request path.

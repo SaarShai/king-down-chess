@@ -52,6 +52,7 @@ export class PaintedView implements BoardView {
   private scene: PaintedScene;
   private loaded: Promise<void>;
   private pos: Position | null = null;
+  private symbols?: (piece: number) => HTMLImageElement;
   private marks: Highlights = {};
   private hovered: number | null = null;
   private tap: PointerEvent | null = null;
@@ -113,9 +114,14 @@ export class PaintedView implements BoardView {
     // The design that plays as `T` (ticket 17) stands as its Workshop figure.
     const d = playedDesign(), id = d && selectedFigure(d).id;
     this.scene.setFigure(T, id ? [figureUrl(id, 0), figureUrl(id, 1)] : null);
-    this.scene.setPosition(pos);
+    this.scene.setPosition(this.symbols ? { ...pos, board: new Uint8Array(64) } : pos);
     const sq = this.fallen?.pos === pos ? this.fallen.sq : null;
     this.scene.setFallen(sq, false, this.fallRotation(sq));
+  }
+
+  setSymbols(symbols?: (piece: number) => HTMLImageElement): void {
+    this.symbols = symbols;
+    if (this.pos) this.sync(this.pos);
   }
 
   setFallen(sq: number | null, animate = true): void {
@@ -233,8 +239,21 @@ export class PaintedView implements BoardView {
     const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
     drawMarks(ctx, scene, layer, {
       marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, px: 960 / Math.max(1, this.width), board: this.pos?.board,
+      ghost: !this.symbols ? undefined : (ctx, piece, sq, opacity = 0.4) => {
+        const cell = scene.cell(sq);
+        ctx.save(); ctx.globalAlpha = opacity;
+        ctx.drawImage(this.symbols!(piece), PAD + cell.col * TILE + 14, PAD + cell.row * TILE + 14, TILE - 28, TILE - 28);
+        ctx.restore();
+      },
       motion: this.motion(), since: this.marksSince, ink: this.options.webInk ? boardInk(this.width) : undefined,
     }, row);
+    if (layer === 'under' && this.symbols && this.pos) {
+      this.pos.board.forEach((piece, sq) => {
+        if (!piece) return;
+        const cell = scene.cell(sq);
+        ctx.drawImage(this.symbols!(piece), PAD + cell.col * TILE + 14, PAD + cell.row * TILE + 14, TILE - 28, TILE - 28);
+      });
+    }
     // Row 7 runs after all figures, so the cause stays visible across the board.
     if (layer === 'over' && row === 7 && m.check != null) {
       ctx.save(); ctx.lineCap = 'round';

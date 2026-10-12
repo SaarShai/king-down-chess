@@ -71,17 +71,19 @@ try {
   const resource = await rpc(actors[0], 'resources/read', { uri });
   assert(resource.result.contents[0].text.includes('<html')); assert(resource.bytes < 1_000_000);
   // The page names each art file on this origin; a cross-origin page may read it into a canvas, and a new build gets new names.
-  const art = [...new Set(resource.result.contents[0].text.match(new RegExp(`${origin}/plugin-art/[\\w-]+\\.webp`, 'g')))];
-  assert.equal(art.length, 20, 'The page names 11 pieces, 6 kings, the board and 2 effect masks');
+  const art = [...new Set(resource.result.contents[0].text.match(new RegExp(`${origin}/plugin-art/[\\w-]+\\.(?:webp|png|svg|woff2)`, 'g')))];
+  const counts = Object.fromEntries(['webp', 'png', 'svg', 'woff2'].map(type => [type, art.filter(file => file.endsWith(`.${type}`)).length]));
+  for (const name of ['badge-architect.webp', 'badge-card-sharp.webp', 'badge-crowned.webp', 'badge-fairy-tale.webp', 'badge-first-win.webp', 'badge-friend-match.webp', 'badge-giant-slayer.webp', 'badge-purist.webp', 'badge-royal-collection.webp', 'badge-stranger-match.webp', 'scroll.webp']) assert(art.some(file => file.includes(`/${name.slice(0,-5)}-`)), `The page names ${name}`);
+  assert(counts.webp >= 20); assert.equal(counts.png, 1); assert.equal(counts.svg, 24); assert.equal(counts.woff2, 4);
   for (const file of art) {
     const response = await fetch(file, { headers: { Origin: 'null' } });
-    assert.equal(response.status, 200, file); assert.equal(response.headers.get('content-type'), 'image/webp'); assert.equal(response.headers.get('access-control-allow-origin'), '*');
-    assert.match(response.headers.get('cache-control'), /max-age=31536000.*immutable/); assert((await response.arrayBuffer()).byteLength > 10_000);
+    assert.equal(response.status, 200, file); assert.equal(response.headers.get('content-type'), { webp: 'image/webp', png: 'image/png', svg: 'image/svg+xml', woff2: 'font/woff2' }[file.split('.').at(-1)]); assert.equal(response.headers.get('access-control-allow-origin'), '*');
+    assert.match(response.headers.get('cache-control'), /max-age=31536000.*immutable/); assert((await response.arrayBuffer()).byteLength > 0);
   }
   assert.equal((await fetch(`${origin}/plugin-art/missing.webp`)).status, 404); assert.equal((await fetch(`${origin}/plugin-art/..%2fserver.mjs`)).status, 404);
   await assert.rejects(configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: 'https://plugin.example', KINGDOWN_PLUGIN_DATABASE_URL: connectionString, SUPABASE_URL: 'https://project.supabase.co', KINGDOWN_PLUGIN_OAUTH_READY: '0' }), /Enable Supabase OAuth/);
   await assert.rejects(configurePlugin({ NODE_ENV: 'production', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString }, { localDev: true }), /Local personas/);
-  console.log(`Compiled HTTP + real PostgreSQL: open, move, AI, retry, foreign seat rejection, service restart/resume, friend code/join, board recovery, resource (${resource.bytes} JSON bytes), ${art.length} art files, and production auth gate passed`);
+  console.log(`Compiled HTTP + real PostgreSQL: open, move, AI, retry, foreign seat rejection, service restart/resume, friend code/join, board recovery, resource (${resource.bytes} JSON bytes), ${art.length} art files (${JSON.stringify(counts)}), and production auth gate passed`);
 } finally {
   server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
   await app?.pool.end();

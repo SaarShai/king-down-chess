@@ -18,7 +18,7 @@ import { createApiHandler, createInternalHandler, sessionVerifier } from '../src
 import { AccountService } from '../src/online/accounts.ts';
 import { SafetyService } from '../src/online/safety.ts';
 import { resendSender } from '../src/online/mail.ts';
-import { ART_HEADERS } from './plugin-art-headers.mjs';
+import { ART_HEADERS, artType } from './plugin-art-headers.mjs';
 
 /** `sessionKeys` (a jose key set) lets a local check sign website sessions itself; never in production. */
 export async function configurePlugin(env = process.env, { localDev = false, sessionKeys } = {}) {
@@ -71,9 +71,9 @@ export async function configurePlugin(env = process.env, { localDev = false, ses
 const ART = new URL('./plugin-art/', import.meta.url);
 /** The standalone server's board art; on Vercel the static layer answers first (tools/plugin-server-build.mjs). */
 async function art(name, res) {
-  const file = /^[\w-]+\.webp$/.test(name) ? await readFile(new URL(name, ART)).catch(() => undefined) : undefined;
+  const type = artType(name), file = type ? await readFile(new URL(name, ART)).catch(() => undefined) : undefined;
   if (!file) { res.writeHead(404, { 'Cache-Control': 'no-store' }).end(); return; }
-  res.writeHead(200, { 'Content-Type': 'image/webp', 'Content-Length': file.length, ...ART_HEADERS }).end(file);
+  res.writeHead(200, { 'Content-Type': type, 'Content-Length': file.length, ...ART_HEADERS }).end(file);
 }
 let configured;
 /** The function adapter never enables local personas. */
