@@ -11,6 +11,7 @@ import { createServer, type Server } from 'node:http';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { DEFAULT_OPTIONS } from '../match/setup';
 import type { View } from '../match/protocol';
 import { GameService } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
@@ -22,6 +23,7 @@ import { createApiHandler, createInternalHandler, sessionVerifier } from './http
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 
+const CLASSIC_OPTIONS = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
 const url = process.env.PLUGIN_TEST_DATABASE_URL, supabase = 'https://project.supabase.co', secret = randomUUID() + randomUUID();
 const suite = url ? describe : describe.skip;
 const plain = (view: View) => view.legal.find(lan => !lan.includes('!'))!;
@@ -72,7 +74,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
 
  it('plays a Daily friend game between two website identities, with retries that apply once', async () => {
   const [ann, bob] = [await player('ann'), await player('bob')];
-  const { view: created, invite } = await ann.api.create({ kind: 'friend', speed: 'daily', days_per_move: 1, colour: 'white' });
+  const { view: created, invite } = await ann.api.create({ kind: 'friend', options: CLASSIC_OPTIONS, speed: 'daily', days_per_move: 1, colour: 'white' });
   expect([created.status, created.seat, created.days_per_move, invite!.url]).toEqual(['waiting', 0, 1, `${address}/j/${invite!.token}`]);
   const id = created.game_id;
   const joined = await bob.api.redeem({ code: `${invite!.code.slice(0, 3).toLowerCase()}-${invite!.code.slice(3)}` });
@@ -111,7 +113,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
 
  it('gives a new invitation, joins by link, and allows 10 short-code tries in an hour', async () => {
   const [dan, eve, fay] = [await player('dan'), await player('eve'), await player('fay')];
-  const { view, invite } = await dan.api.create({ kind: 'friend', colour: 'white' });
+  const { view, invite } = await dan.api.create({ kind: 'friend', options: CLASSIC_OPTIONS, colour: 'white' });
   const again = await dan.api.invite(view.game_id);
   await expect(eve.api.redeem({ token: invite!.token })).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
   for (let i = 0; i < 10; i++) await expect(eve.api.redeem({ code: 'ZZZZZZ' })).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
@@ -125,10 +127,10 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   await expect(eve.api.redeem({ code: 'ZZZZZZ' })).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
   expect((await rows('select tries from public.invite_code_tries where user_id=$1', [eve.id]))[0].tries).toBe(1);
   // A block refuses the join both ways.
-  const { invite: next } = await fay.api.create({ kind: 'friend' });
+  const { invite: next } = await fay.api.create({ kind: 'friend', options: CLASSIC_OPTIONS });
   await dan.api.relate('block', { handle: fay.handle });
   await expect(dan.api.redeem({ token: next!.token })).rejects.toMatchObject({ code: 'FORBIDDEN' });
-  await expect(dan.api.create({ kind: 'friend', days_per_move: 3, speed: 'live' })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  await expect(dan.api.create({ kind: 'friend', options: CLASSIC_OPTIONS, days_per_move: 3, speed: 'live' })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
  }, 60_000);
 
  it('serves the account, relation and report routes for the signed-in player only', async () => {
@@ -141,7 +143,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   expect((await gus.api.cancelDeletion()).deletion).toBeNull();
   expect((await gus.api.setNotifications({ turn: { email: false } })).turn).toEqual({ email: false, push: false });
   expect((await gus.api.notifications()).reminder).toEqual({ email: true, push: false });
-  const { view, invite } = await gus.api.create({ kind: 'friend' });
+  const { view, invite } = await gus.api.create({ kind: 'friend', options: CLASSIC_OPTIONS });
   await hal.api.redeem({ token: invite!.token });
   await gus.api.relate('follow', { game_id: view.game_id });
   expect((await gus.api.relations()).map(r => [r.kind, r.handle])).toEqual([['follow', hal.handle]]);
@@ -157,7 +159,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
 
  it('runs the jobs through /internal with the secret only', async () => {
   const [ida, jo] = [await player('ida'), await player('jo')];
-  const { view, invite } = await ida.api.create({ kind: 'friend', colour: 'white' });
+  const { view, invite } = await ida.api.create({ kind: 'friend', options: CLASSIC_OPTIONS, colour: 'white' });
   await jo.api.redeem({ token: invite!.token }); // the turn passes to White: a turn email for Ida
   for (const key of ['', 'wrong', secret.slice(1)]) expect((await internal('tick', key)).status).toBe(403);
   // Ida was here when she made the game; an hour later the 60-second rule lets the email go.

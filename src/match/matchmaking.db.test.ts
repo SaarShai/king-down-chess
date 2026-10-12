@@ -121,21 +121,20 @@ suite('matchmaking through PostgreSQL', () => {
    expect(await service.view(users[0], late.game_id)).toMatchObject({ status: 'waiting', revision: 0, opponent: null });
   } finally { await blocker.query('rollback'); blocker.release(); await found.catch(() => {}); }
  });
- it('retries a candidate that expires during the game row lock wait', async () => {
-  const late = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
+ it('finds the next open game while the oldest game is locked for acceptance', async () => {
+  const oldest = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
   const fresh = await service.create(users[1], { kind: 'random', options: DEFAULT_OPTIONS });
-  await admin.query("update public.games set created_at=now()-interval '1 hour' where id=$1", [late.game_id]);
+  await admin.query("update public.games set created_at=now()-interval '1 hour' where id=$1", [oldest.game_id]);
   const blocker = await admin.connect();
   await blocker.query('begin');
-  await blocker.query('select id from public.games where id=$1 for update', [late.game_id]);
-  const found = plugin.find(users[2], DEFAULT_OPTIONS); void found.catch(() => {});
+  await blocker.query('select id from public.games where id=$1 for update', [oldest.game_id]);
+  let selected: string | undefined;
+  const found = plugin.find(users[2], DEFAULT_OPTIONS).then(view => { selected = view.game_id; return view; }); void found.catch(() => {});
   try {
-   await expect.poll(async () => (await admin.query("select query_start from pg_stat_activity where datname=current_database() and wait_event='transactionid'")).rows.length).toBe(1);
-   await blocker.query("update public.games set created_at=(select query_start from pg_stat_activity where datname=current_database() and wait_event='transactionid')-interval '24 hours'+interval '1 millisecond' where id=$1", [late.game_id]);
-   await blocker.query('commit');
-   await expect(found).resolves.toMatchObject({ game_id: fresh.game_id, status: 'setup' });
-   expect(await service.view(users[0], late.game_id)).toMatchObject({ status: 'waiting', revision: 0, opponent: null });
+   await expect.poll(() => selected, {timeout:1000}).toBe(fresh.game_id);
+   await expect(found).resolves.toMatchObject({status:'setup'});
   } finally { await blocker.query('rollback'); blocker.release(); await found.catch(() => {}); }
+  expect(await service.view(users[0], oldest.game_id)).toMatchObject({status:'waiting',revision:0});
  });
  it('lets only the creator cancel a waiting random game with no result', async () => {
   const game = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
@@ -171,6 +170,20 @@ suite('matchmaking through PostgreSQL', () => {
   expect(ended.last_commands[0].action).toEqual({ type: 'expire' });
   expect(await service.inbox(users[0])).toEqual([]);
   expect(await service.view(users[2], friend.game_id)).toMatchObject({ status: 'waiting', revision: 0 });
+ });
+ it('ends a friend game after seven days with no invitation, once', async () => {
+  const open = await service.create(users[0], { kind: 'friend', options: DEFAULT_OPTIONS });
+  const invited = await service.create(users[1], { kind: 'friend', options: DEFAULT_OPTIONS });
+  const now = new Date();
+  await admin.query("update public.games set created_at=$2::timestamptz-interval '7 days' where id=any($1)", [[open.game_id, invited.game_id], now]);
+  await service.invite(users[1], invited.game_id);
+  expect(await service.sweep(new Date(now.getTime()-1))).toBe(0);
+  expect(await service.view(users[0], open.game_id)).toMatchObject({status:'waiting'});
+  expect(await service.sweep(now)).toBe(1);
+  expect(await service.view(users[0], open.game_id)).toMatchObject({status:'aborted',revision:1,result:{winner:null,reason:'no_start'}});
+  expect(await service.view(users[1], invited.game_id)).toMatchObject({status:'waiting'});
+  expect(await service.sweep(now)).toBe(0);
+  expect(await service.inbox(users[0])).toEqual([]);
  });
  it('saves cancel and expiry with no result or rating change', async () => {
   const cancelled = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });

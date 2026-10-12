@@ -1,8 +1,5 @@
-/** Smoke test of the one-project tree (npm run build:vercel) against a disposable local PostgreSQL DB:
- *  a local server routes requests as Vercel does (config routes, then a static file, then a function
- *  path) and the copied function answers: /mcp with local personas, /api with website sessions signed
- *  by a local key set, /internal with the secret. A website player and a ChatGPT player finish a Daily
- *  game in one database. Deploys nothing and sends no email. */
+/** Check the site build in a local copy with a disposable PostgreSQL database.
+ * The MVP serves MCP, OAuth and internal jobs. It exposes no website API. */
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
@@ -12,7 +9,6 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import pg from 'pg';
-import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { ENGINES } from './plugin-runtime-build.mjs';
 
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
@@ -21,7 +17,7 @@ const url = new URL(connectionString);
 if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || !url.pathname.endsWith('_test')) throw new Error('This check requires a disposable loopback database ending in _test');
 const tree = await mkdtemp(join(tmpdir(), 'kingdown-vercel-'));
 const pool = new pg.Pool({ connectionString });
-const actor = randomUUID(), web = randomUUID(), web2 = randomUUID(), clientId = randomUUID(), secret = randomUUID() + randomUUID();
+const actor = randomUUID(), clientId = randomUUID(), secret = randomUUID() + randomUUID();
 const server = createServer(); let app;
 const exists = path => stat(path).then(s => s, () => undefined);
 try {
@@ -31,7 +27,9 @@ try {
   assert.equal(config.version, 3);
   const fn = join(tree, 'functions/mcp.func');
   assert.equal(JSON.parse(await readFile(join(fn, '.vc-config.json'), 'utf8')).handler, 'server.mjs');
-  for (const path of ['authorize', 'consent.mjs', 'api', 'internal', '.well-known/oauth-protected-resource', '.well-known/oauth-protected-resource/mcp']) assert.equal(await realpath(join(tree, `functions/${path}.func`)), await realpath(fn), `${path} is the one function`);
+  for (const path of ['authorize', 'consent.mjs', 'internal', '.well-known/oauth-protected-resource', '.well-known/oauth-protected-resource/mcp']) assert.equal(await realpath(join(tree, `functions/${path}.func`)), await realpath(fn), `${path} is the one function`);
+  assert.equal(await exists(join(tree, 'functions/api.func')), undefined, 'No website API function');
+  assert(!config.routes.some(route => new RegExp(route.src).test('/api/games')), 'No website API route');
   const archive = (await readdir(ENGINES)).filter(file => file.endsWith('.mjs')).sort();
   assert.deepEqual((await readdir(join(fn, 'runtime/engines'))).sort(), archive);
   // Each archived fixture game continues on its own bundle in the compiled runtime.
@@ -42,17 +40,14 @@ try {
     finally { await old.close(); }
   }
 
-  for (const id of [actor, web, web2]) {
+  for (const id of [actor]) {
     await pool.query('insert into auth.users(id) values($1)', [id]);
     await pool.query('update public.profiles set handle=$2 where id=$1', [id, `vercel-${id.slice(0,8)}`]);
   }
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const origin = `http://127.0.0.1:${server.address().port}`;
   const { configurePlugin } = await import(pathToFileURL(join(fn, 'server.mjs')).href);
-  // Website sessions as Supabase signs them, from a local key set; one claim changes in each refused token.
-  const pair = await generateKeyPair('ES256'), sessionKeys = createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'local', alg: 'ES256' }] });
-  const session = (claims = {}) => { const now = Math.floor(Date.now() / 1000); return new SignJWT({ iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', sub: web, role: 'authenticated', is_anonymous: false, iat: now, exp: now + 600, ...claims }).setProtectedHeader({ alg: 'ES256', kid: 'local' }).sign(pair.privateKey); };
-  app = await configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, SUPABASE_URL: 'https://project.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_vercelcheck', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: clientId, KINGDOWN_INTERNAL_SECRET: secret }, { localDev: true, sessionKeys });
+  app = await configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, SUPABASE_URL: 'https://project.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_vercelcheck', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: clientId, KINGDOWN_INTERNAL_SECRET: secret }, { localDev: true });
   const served = new Set();
   server.on('request', async (req, res) => {
     try {
@@ -99,65 +94,27 @@ try {
   assert.equal(authorize.status, 200); assert.match(authorize.headers.get('content-type'), /^text\/html/);
   assert((await authorize.text()).includes(clientId)); assert.match(authorize.headers.get('content-security-policy'), /frame-ancestors 'none'/);
   const script = await fetch(`${origin}/consent.mjs`); assert.equal(script.status, 200); assert.match(script.headers.get('content-type'), /^text\/javascript/);
-  for (const [path, status] of [['/api', 404], ['/api/games', 405], ['/internal/sweep', 403], ['/.well-known/oauth-protected-resource/mcp', 404]]) {
+  for (const [path, status] of [['/internal/sweep', 403], ['/.well-known/oauth-protected-resource/mcp', 404]]) {
     const response = await fetch(origin + path);
     assert.equal(response.status, status, path); assert.match(response.headers.get('content-type'), /^application\/json/, `${path} reaches the function`);
   }
 
-  // /api takes a website session only: not none, not another audience, not an MCP (OAuth) token, not a guest.
-  const api = async (path, { token, method = 'GET', body } = {}) => {
-    const response = await fetch(origin + path, { method, headers: { ...(token && { Authorization: `Bearer ${token}` }), 'Content-Type': 'application/json' }, ...(body && { body: JSON.stringify(body) }) });
-    assert.equal(response.headers.get('cache-control'), 'no-store', path); assert.equal(response.headers.get('access-control-allow-origin'), null, path);
-    return { status: response.status, value: response.status === 204 ? undefined : await response.json() };
-  };
-  for (const token of [undefined, await session({ aud: `${origin}/mcp` }), await session({ client_id: clientId }), await session({ is_anonymous: true })]) assert.equal((await api('/api/me/games', { token })).status, 401);
-  const token = await session(), token2 = await session({ sub: web2 });
-  assert.deepEqual(await api('/api/me/games', { token }), { status: 200, value: [] });
-  const plain = legal => legal.find(lan => !lan.includes('!'));
-
-  // Two website players finish a Daily friend game: an invitation by short code, a move each, a resignation.
-  const friendly = await api('/api/games', { token, method: 'POST', body: { kind: 'friend', colour: 'white' } });
-  const friendId = friendly.value.view.game_id;
-  assert.equal((await api('/api/invites/redeem', { token: token2, method: 'POST', body: { code: friendly.value.invite.code } })).value.seat, 1);
-  for (const [who, revision] of [[token, 1], [token2, 2]]) {
-    const legal = (await api(`/api/games/${friendId}`, { token: who })).value.legal;
-    assert.equal((await api(`/api/games/${friendId}/commands`, { token: who, method: 'POST', body: { command_id: `friendly-${revision}`, expected_revision: revision, action: { type: 'turn', actions: [plain(legal)] } } })).value.revision, revision + 1);
+  for (const path of ['/api', '/api/games', '/api/me/games']) {
+    assert.equal((await fetch(origin + path)).status, 404, path);
+    assert.equal((await fetch(origin + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'random', speed: 'live', setup: { fen: '7k/8/8/8/8/8/8/K7 w - - 0 1' } }) })).status, 404, path);
   }
-  const over = await api(`/api/games/${friendId}/commands`, { token: token2, method: 'POST', body: { command_id: 'friendly-end', expected_revision: 3, action: { type: 'resign' } } });
-  assert.deepEqual(over.value.view.result, { winner: 0, reason: 'resignation' });
-
-  // Crossplay: a website player (White) and a ChatGPT player (Black) finish a Daily game in one database.
-  const made = await api('/api/games', { token, method: 'POST', body: { kind: 'friend', speed: 'daily', colour: 'white' } });
-  assert.equal(made.status, 201); assert.equal(made.value.invite.url, `${origin}/j/${made.value.invite.token}`);
-  const gameId = made.value.view.game_id;
-  const joined = await tool('kingdown_join', { code: made.value.invite.code }); // the website's code, sent to ChatGPT
-  assert(!joined.isError); assert.equal(joined.structuredContent.game_id, gameId); assert.equal(joined.structuredContent.colour, 'black');
-  let view = (await api(`/api/games/${gameId}`, { token })).value;
-  const turn = { command_id: 'crossplay-1', expected_revision: view.revision, action: { type: 'turn', actions: [plain(view.legal)] } };
-  const first = await api(`/api/games/${gameId}/commands`, { token, method: 'POST', body: turn });
-  assert.equal(first.value.type, 'ack'); assert.equal(first.value.revision, 2);
-  assert.deepEqual((await api(`/api/games/${gameId}/commands`, { token, method: 'POST', body: turn })).value.revision, 2); // a retry applies once
-  const black = await tool('kingdown_get', { game_id: gameId });
-  const reply = await tool('kingdown_move', { game_id: gameId, command_id: 'crossplay-2', expected_revision: 2, lan: plain(black._meta.view.legal) });
-  assert(!reply.isError); assert.equal(reply._meta.view.revision, 3);
-  view = (await api(`/api/games/${gameId}?since=2`, { token })).value;
-  assert.deepEqual(view.last_commands.map(command => [command.seq, command.seat]), [[3, 1]]);
-  const resigned = await api(`/api/games/${gameId}/commands`, { token, method: 'POST', body: { command_id: 'crossplay-3', expected_revision: 3, action: { type: 'resign' } } });
-  assert.deepEqual([resigned.value.view.status, resigned.value.view.result], ['finished', { winner: 1, reason: 'resignation' }]);
-  assert.equal((await tool('kingdown_move', { game_id: gameId, command_id: 'crossplay-4', expected_revision: 4, lan: plain(black._meta.view.legal) }))._meta.code, 'MATCH_TERMINAL');
-  assert.deepEqual((await pool.query('select surface from public.game_commands where game_id=$1 and command_id is not null order by seq', [gameId])).rows.map(row => row.surface), ['web', 'chatgpt', 'web']);
 
   // /internal runs a job only with the secret; email stays off without its settings.
   const job = (path, key) => fetch(origin + path, { method: 'POST', headers: key ? { 'X-Kingdown-Internal': key } : {} });
   assert.equal((await job('/internal/tick')).status, 403); assert.equal((await job('/internal/tick', `${secret}x`)).status, 403);
   const tick = await job('/internal/tick', secret); assert.equal(tick.status, 200); assert.equal(typeof (await tick.json()).ended, 'number');
   assert.equal((await job('/internal/outbox', secret)).status, 503);
-  assert.deepEqual([...served].sort(), ['function /.well-known/oauth-protected-resource/mcp', 'function /api', 'function /api/games', `function /api/games/${friendId}`, `function /api/games/${friendId}/commands`, `function /api/games/${gameId}`, `function /api/games/${gameId}/commands`, 'function /api/invites/redeem', 'function /api/me/games', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /mcp', 'static /', 'static /plugin-art/*', 'static /privacy.html', 'static /sw.js'].sort());
-  console.log(`One-project tree: static site, ${art.length} board art files, /mcp (open, move), /authorize, /consent.mjs, /api (session tokens only; Daily games between two website players and between a website and a ChatGPT player, with a retry), /internal (secret only) and ${archive.length} archived engine(s) passed`);
+  assert.deepEqual([...served].sort(), ['function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /mcp', 'static /', 'static /plugin-art/*', 'static /privacy.html', 'static /sw.js'].sort());
+  console.log(`Site tree: ${art.length} board art files, MCP open and move, OAuth, API refusal, internal jobs and ${archive.length} archived engine(s) passed`);
 } finally {
   server.closeAllConnections(); await new Promise(done => server.close(done));
   await app?.pool.end();
-  await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [[actor, web, web2]]);
-  await pool.query('delete from auth.users where id=any($1::uuid[])', [[actor, web, web2]]); await pool.end();
+  await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [[actor]]);
+  await pool.query('delete from auth.users where id=any($1::uuid[])', [[actor]]); await pool.end();
   await rm(tree, { recursive: true, force: true });
 }

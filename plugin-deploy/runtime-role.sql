@@ -141,9 +141,10 @@ drop policy if exists kingdown_plugin_runtime on public.player_badges;
 create policy kingdown_plugin_runtime on public.player_badges for all to kingdown_plugin_runtime using (true) with check (true);
 commit;
 
--- Apply after migration 0013: home boards and account settings.
+-- Apply after migration 0013: home boards, board cleanup and account settings.
 begin;
 grant insert (game_selected), update (game_selected) on public.plugin_boards to kingdown_plugin_runtime;
+grant delete on public.plugin_boards to kingdown_plugin_runtime;
 grant select (handle) on public.reserved_handles to kingdown_plugin_runtime;
 drop policy if exists kingdown_plugin_runtime on public.reserved_handles;
 create policy kingdown_plugin_runtime on public.reserved_handles for select to kingdown_plugin_runtime using (true);

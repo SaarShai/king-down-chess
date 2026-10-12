@@ -63,7 +63,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
           : {fen:'7k/8/8/2p5/8/2A5/8/K7 w - - 0 1',kings:'none,none'};
         let matchId;
         if (seedPosition) matchId = await seedPosition(setup,black);
-        else { const created = await service!.create(black?'bob':'alice',{kind:black?'friend':'solo',colour:'white',setup}); if (black) await service!.join('alice',(await service!.invite('bob',created.game_id)).token); matchId=created.game_id; }
+        else matchId = await service!.seedPosition(setup,black);
         const result = await client.callTool({name:'kingdown_open',arguments:{game_id:matchId}});
         res.setHeader('Content-Type','application/json'); res.end(JSON.stringify(result));
       }

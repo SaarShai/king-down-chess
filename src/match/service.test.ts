@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_OPTIONS } from './setup';
 import { GameService } from './service';
 import { PostgresMatchStore } from './store';
 import { createMatch, loadMatch, MatchError, type LocalMatch } from './index';
@@ -15,6 +16,14 @@ beforeEach(() => {
  vi.mocked(loadMatch).mockResolvedValue({apply,close,exportSave} as unknown as LocalMatch);
 });
 describe('game service failure boundaries', () => {
+ it('refuses a custom position in a game against a person', async () => {
+  for (const kind of ['random', 'friend'])
+   await expect(service.create(actor,{kind,setup:{fen:'7k/8/8/8/8/8/8/K7 w - - 0 1'}})).rejects.toMatchObject({code:'INVALID_INPUT',status:400});
+ });
+ it('refuses live speed in a game against a person', async () => {
+  for (const kind of ['random', 'friend'])
+   await expect(service.create(actor,{kind,speed:'live',options:DEFAULT_OPTIONS})).rejects.toMatchObject({code:'INVALID_INPUT',status:400});
+ });
  it('keeps worker faults retryable and hides their private details', async () => {
   for (const error of [new Error('Match worker timed out /private/path'),new Error('Match worker exited (1)'),new MatchError('unexpected private data')]) {
    apply.mockRejectedValueOnce(error);

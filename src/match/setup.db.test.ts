@@ -94,7 +94,7 @@ suite('game setup through PostgreSQL', () => {
  });
  it('ends late setup once with no result and refuses a late Ready command', async () => {
   const create = async () => {
-   const game = await service.create(a, { kind: 'friend', speed: 'live', options: DEFAULT_OPTIONS });
+   const game = await service.create(a, { kind: 'friend', options: DEFAULT_OPTIONS });
    await service.join(b, (await service.invite(a, game.game_id)).token);
    return game.game_id;
   };
@@ -153,7 +153,11 @@ suite('game setup through PostgreSQL', () => {
  }, 30_000);
  it('keeps the first-turn deadline of a Daily human rematch with no seat choice', async () => {
   for (const options of [{ ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true }, undefined]) {
-   const game = await service.create(a, { kind: 'friend', ...(options && { options }) });
+   const game = await service.create(a, options ? { kind: 'friend', options } : { kind: 'solo' });
+   if (!options) {
+    await admin.query("update public.games set kind='friend',status='waiting',speed='daily',days_per_move=3,started_at=null where id=$1", [game.game_id]);
+    await admin.query("update public.game_players set computer=false,action='waiting' where game_id=$1", [game.game_id]);
+   }
    await service.join(b, (await service.invite(a, game.game_id)).token);
    await service.command(a, game.game_id, command(1, { type: 'resign' }));
    await service.command(a, game.game_id, command(2, { type: 'rematch', choice: 'offer' }));

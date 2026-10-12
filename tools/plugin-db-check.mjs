@@ -1,6 +1,6 @@
 // One read for each migration and runtime-role block that the server uses, as the runtime role. A missing one stops
 // the start here (the function answers 503 and tries again on the next request), not at a player's first move.
-const PROBES = `select id,actor_id,match_id,game_selected from public.plugin_boards limit 0;
+const PROBES = `select id,actor_id,match_id,game_selected,created_at from public.plugin_boards limit 0;
  select id,state,deadline_at,options,draw,deal,level,setup_deadline_at,rematch_offer,rematch_game_id from public.games limit 0;
  select choice,ready from public.game_players limit 0;
  select kingdown_jobs.user_email(null);
@@ -20,6 +20,7 @@ const PROBES = `select id,actor_id,match_id,game_selected from public.plugin_boa
   and has_table_privilege('public.rating_history','insert') and has_table_privilege('public.player_badges','insert')
   and has_table_privilege('public.player_settings','insert')
   and (select bool_and(has_column_privilege('public.player_settings',name,'update')) from unnest(array['symbols_only','show_threats','last_setup']) as columns(name))
+  and has_table_privilege('public.plugin_boards','delete')
   and has_column_privilege('public.plugin_boards','game_selected','insert') and has_column_privilege('public.plugin_boards','game_selected','update') as allowed`;
 // A missing table, column, function or schema, or a missing grant.
 const SCHEMA = ['42P01', '42703', '42883', '3F000', '42501'];

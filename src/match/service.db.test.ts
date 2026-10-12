@@ -5,11 +5,13 @@ import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { DEFAULT_OPTIONS } from './setup';
 import { GameService } from './service';
 import { PostgresMatchStore } from './store';
 import { PluginService } from '../plugin/service';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
+const CLASSIC_OPTIONS = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
 const url = process.env.PLUGIN_TEST_DATABASE_URL;
 if (url) {
  const target = new URL(url);
@@ -32,7 +34,11 @@ suite('PostgreSQL online games (real connections and processes)', () => {
  }
  /** A started friend game: host White, guest Black, joined by short code (revision 1). */
  async function friend(host: string, guest: string, options: object = {}) {
-  const created = await games[0].create(host,{kind:'friend',colour:'white',...options});
+  const created = await games[0].create(host,'setup' in options ? {kind:'solo',colour:'white',...options} : {kind:'friend',options:CLASSIC_OPTIONS,colour:'white',...options});
+  if ('setup' in options) {
+   await admin.query("update public.games set kind='friend',status='waiting',speed='daily',days_per_move=3,started_at=null,category='daily-3d/powers/no-cards' where id=$1",[created.game_id]);
+   await admin.query("update public.game_players set computer=false,action='waiting' where game_id=$1",[created.game_id]);
+  }
   const invite = await games[0].invite(host,created.game_id);
   await games[1].join(guest,invite.code.toLowerCase().replace(/^(...)/,'$1-'));
   return created.game_id;
@@ -99,23 +105,23 @@ suite('PostgreSQL online games (real connections and processes)', () => {
  },30000);
 
  it('refuses self-play in the service and in the database',async () => {
-  const created = await games[0].create(a,{kind:'friend',colour:'black'});
+  const created = await games[0].create(a,{kind:'friend',options:CLASSIC_OPTIONS,colour:'black'});
   const invite = await games[0].invite(a,created.game_id);
   await expect(games[0].join(a,invite.token)).rejects.toMatchObject({code:'FORBIDDEN'});
   await expect(admin.query('update public.game_players set user_id=$2 where game_id=$1 and seat=0',[created.game_id,a])).rejects.toMatchObject({code:'23505'});
  });
 
  it('keeps a Daily friend code for 7 days',async () => {
-  const created = await games[0].create(a,{kind:'friend',colour:'white'}), before = Date.now();
+  const created = await games[0].create(a,{kind:'friend',options:CLASSIC_OPTIONS,colour:'white'}), before = Date.now();
   const left = Date.parse((await games[0].invite(a,created.game_id)).expires_at) - before;
   expect(left).toBeGreaterThanOrEqual(7 * 86_400_000 - 1000);
   expect(left).toBeLessThanOrEqual(7 * 86_400_000 + 60_000);
  });
 
  it('gives one seat to one of two joiners and lets the winner retry',async () => {
-  const created = await games[0].create(a,{kind:'friend',speed:'live',colour:'white'});
+  const created = await games[0].create(a,{kind:'friend',options:CLASSIC_OPTIONS,colour:'white'});
   const old = await games[0].invite(a,created.game_id), invite = await games[0].invite(a,created.game_id);
-  expect(new Date(invite.expires_at).getTime() - Date.now()).toBeLessThanOrEqual(86_400_000);
+  expect(new Date(invite.expires_at).getTime() - Date.now()).toBeLessThanOrEqual(7 * 86_400_000);
   await expect(games[0].join(b,old.token)).rejects.toMatchObject({code:'INVITE_UNAVAILABLE'});
   const results = await Promise.allSettled([games[0].join(b,invite.token),games[1].join(c,invite.code)]);
   expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
@@ -124,7 +130,7 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   const view = await games[1].join(winner,invite.token);
   expect([view.seat,view.status,view.revision,view.opponent?.handle]).toEqual([1,'playing',1,(await rows('select handle from public.profiles where id=$1',[a]))[0].handle]);
   expect((await rows('select token_hash,code_hash from public.game_invites where game_id=$1',[created.game_id]))[0]).not.toMatchObject({token_hash:invite.token});
-  const expired = await games[0].create(a,{kind:'friend',colour:'white'}), late = await games[0].invite(a,expired.game_id);
+  const expired = await games[0].create(a,{kind:'friend',options:CLASSIC_OPTIONS,colour:'white'}), late = await games[0].invite(a,expired.game_id);
   expect(new Date(late.expires_at).getTime() - Date.now()).toBeGreaterThan(6 * 86_400_000);
   await admin.query("update public.game_invites set expires_at=now()-interval '1 second' where game_id=$1",[expired.game_id]);
   await expect(games[0].join(b,late.token)).rejects.toMatchObject({code:'INVITE_UNAVAILABLE'});
@@ -132,7 +138,7 @@ suite('PostgreSQL online games (real connections and processes)', () => {
  },30000);
 
  it('refuses a join across a block or against the host’s challenge setting',async () => {
-  const tryJoin = async () => { const created = await games[0].create(a,{kind:'friend'}); return games[0].join(b,(await games[0].invite(a,created.game_id)).token); };
+  const tryJoin = async () => { const created = await games[0].create(a,{kind:'friend',options:CLASSIC_OPTIONS}); return games[0].join(b,(await games[0].invite(a,created.game_id)).token); };
   await admin.query("insert into public.relations(user_id,other_id,kind) values($1,$2,'block')",[b,a]);
   await expect(tryJoin()).rejects.toMatchObject({code:'FORBIDDEN'});
   await admin.query('delete from public.relations where user_id=$1',[b]);
@@ -208,7 +214,7 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   await expect(games[0].command(a,id,turn(8,'e2-e4'))).rejects.toMatchObject({code:'MATCH_TERMINAL'});
   const aborted = await friend(a,b);
   expect((await games[1].command(b,aborted,command(1,{type:'abort'}))).status).toBe('aborted');
-  const waiting = await games[0].create(a,{kind:'friend'});
+  const waiting = await games[0].create(a,{kind:'friend',options:CLASSIC_OPTIONS});
   expect((await games[0].command(a,waiting.game_id,command(0,{type:'abort'}))).status).toBe('aborted');
   const resigned = await games[0].create(a,{kind:'solo',colour:'black'});
   expect((await games[0].command(a,resigned.game_id,command(0,{type:'resign'}))).result).toEqual({winner:0,reason:'resignation'});
@@ -234,12 +240,12 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   await games[0].command(f,urgent,turn(1,(await games[0].view(f,urgent)).legal[0]));
   const inbox = await games[0].inbox(d);
   expect(inbox.map(entry => [entry.game_id,entry.action])).toEqual([[urgent,'ready'],[solo.game_id,'ready'],[later,'waiting']]);
-  expect(inbox[0]).toMatchObject({seat:1,kind:'friend',speed:'daily',opponent:{computer:false,deleted:false}});
+  expect(inbox[0]).toMatchObject({seat:1,kind:'friend',options:CLASSIC_OPTIONS,speed:'daily',opponent:{computer:false,deleted:false}});
  },30000);
 
  it('keeps the opponent’s game when an account is deleted',async () => {
   const gone = await user('gone'), id = await friend(gone,b);
-  const open = await games[0].create(gone,{kind:'friend'}); await games[0].invite(gone,open.game_id);
+  const open = await games[0].create(gone,{kind:'friend',options:CLASSIC_OPTIONS}); await games[0].invite(gone,open.game_id);
   await games[0].command(gone,id,turn(1,(await games[0].view(gone,id)).legal[0]));
   await admin.query('delete from auth.users where id=$1',[gone]);
   const view = await games[1].view(b,id);
@@ -307,7 +313,7 @@ suite('PostgreSQL online games (real connections and processes)', () => {
    try { expect((await runtime.query('select client_id::text from kingdown_oauth.client_resources where client_id=any($1::uuid[]) and resource=$2',[[clientId],resource])).rows).toEqual([{client_id:clientId}]); }
    finally { await admin.query('delete from kingdown_oauth.client_resources where client_id=$1',[clientId]); }
    const store = new PostgresMatchStore(runtime), service = new GameService(store), plugin = new PluginService(store);
-   const created = await service.create(a,{kind:'friend',colour:'white'});
+   const created = await service.create(a,{kind:'friend',options:CLASSIC_OPTIONS,colour:'white'});
    const board = await plugin.openBoard(a,created.game_id);
    await plugin.selectBoard(a,board,created.game_id);
    expect(await plugin.board(a,board)).toBe(created.game_id);

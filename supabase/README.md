@@ -60,6 +60,11 @@ in one short window:
    publish step ends, the live check waits, because the server answers 503.
 3. While it waits, apply 0005–0013, then blocks 3–9 of `plugin-deploy/runtime-role.sql`. The next
    request starts the server, and the live check passes.
+4. Before cron starts, confirm that the host in `ops/cron.sql` serves `/internal/*`.
+   The current `--target plugin` build has no route for these paths. The site build has
+   the route, but this release order publishes only the plugin target. Ticket 19 must
+   close this gap before it starts tick and daily jobs. Do not run cron against a host
+   that cannot serve them.
 
 - `0005_accounts_v2.sql`: handles, a preset icon and the privacy settings on `profiles`
   (signed-in players read only `id`, `rating`, `handle` and `icon`: no longer the name and photo
@@ -98,7 +103,8 @@ in one short window:
 
 - `0013_player_settings.sql`: `player_settings` stores the two board switches and the last setup.
   Both switches default off. RLS is on and the browser roles get nothing. `plugin_boards.game_selected`
-  tells an empty home board from a deleted game. Role block 9 grants these reads and writes and a handle check.
+  tells an empty home board from a deleted game. `created_at` lets daily cleanup delete boards older
+  than 7 days. Role block 9 grants these reads and writes, board deletion and a handle check.
 
 `npm run plugin:db:init-test` applies 0001–0013 twice to a disposable loopback database, and
 `src/match/service.db.test.ts`, `src/match/setup.db.test.ts`, `src/match/matchmaking.db.test.ts`,
@@ -111,6 +117,8 @@ Not a migration: the local test database has no pg_cron or pg_net. After the dep
 `/internal/*`, turn on pg_cron and pg_net, store the internal secret in Vault as
 `kingdown_internal_secret`, then paste `ops/cron.sql` into the SQL editor. The server reads the same
 secret from `KINGDOWN_INTERNAL_SECRET` (at least 32 characters; without it, `/internal/*` answers 503). It schedules
-`/internal/tick` (each minute), `/internal/outbox` (each 10 seconds, only when a row is due),
-`/internal/reminders` (each 10 minutes) and `/internal/daily` (03:17 UTC). The file says what to
-change on a Postgres version older than 15.1.1.61.
+`/internal/tick` (each minute), `/internal/daily` (03:17 UTC) and cron history cleanup.
+The MVP sends no email. The file removes `kingdown-outbox` and `kingdown-reminders`
+if an older release made them. Keep `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` unset.
+Outbox rows with no `done_at` stay in the database; cleanup deletes only finished rows.
+Close the host gap in the release order before you paste this file.

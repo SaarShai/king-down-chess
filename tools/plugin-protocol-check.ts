@@ -13,7 +13,7 @@ const TABLE: Record<string, [string, boolean, boolean]> = {
   kingdown_choose: ['app', false, false], kingdown_rematch: ['app', false, false], kingdown_handle: ['app', false, false], kingdown_settings: ['app', false, false],
   kingdown_get: ['app', true, false], kingdown_move: ['app', false, false], kingdown_computer: ['app', false, false], kingdown_say: ['app', false, false],
   kingdown_draw: ['model,app', false, true], kingdown_claim: ['app', false, true], kingdown_resign: ['model,app', false, true], kingdown_abort: ['model,app', false, true],
-  kingdown_invite: ['model,app', false, false], kingdown_join: ['model,app', false, false], kingdown_report: ['model,app', false, false], kingdown_profile: ['model,app', true, false],
+  kingdown_invite: ['model,app', false, false], kingdown_join: ['model,app', false, false], kingdown_report: ['app', false, false], kingdown_profile: ['model,app', true, false],
 };
 const service = fixtureService();
 const server = createPluginServer({ service, actorId: 'alice', resourceHtml: '<html>board</html>', publicOrigin: 'https://kingdown.example' });

@@ -1,5 +1,6 @@
 -- An empty board and a board whose game was deleted have different read results.
 begin;
+alter table public.plugin_boards add column if not exists created_at timestamptz not null default now();
 alter table public.plugin_boards add column if not exists game_selected boolean not null default true;
 create table if not exists public.player_settings (
  user_id uuid primary key references auth.users(id) on delete cascade,

@@ -131,7 +131,7 @@ export class PostgresMatchStore {
    join public.game_players p on p.game_id=g.id and p.user_id is null and not p.computer
    join public.profiles pr on pr.id=g.created_by
    where g.kind='random' and g.status='waiting' and g.created_at>statement_timestamp()-interval '24 hours' and g.created_by<>$1 and pr.handle is not null and ${unblocked('$1', 'g.created_by')}
-   order by g.created_at,g.id limit ${lock ? 1 : 100}${lock ? ' for update of g' : ''}`, [actor]);
+   order by g.created_at,g.id limit ${lock ? 1 : 100}${lock ? ' for update of g skip locked' : ''}`, [actor]);
   return result.rows.map(({ seat, handle, icon, created_at, ...row }) => ({ ...row, colour: seat === 0 ? 'white' : 'black', creator: { handle, icon }, created_at: created_at.toISOString() }));
  }
  async activeCount(): Promise<number> {
@@ -143,11 +143,12 @@ export class PostgresMatchStore {
    coalesce((select ${online('$1', '$2', 'online_visible_to')} from public.profiles where id=$2), false) as online`, [viewer, other]);
   return result.rows[0];
  }
- /** Games past their deadline, expired invitations and open random games after 24 hours. */
+ /** Games past their deadline, expired invitations, friends with no code after 7 days and random games after 24 hours. */
  async due(now: Date, limit = 100): Promise<string[]> {
   return (await this.pool.query(`(select id from public.games where status='playing' and deadline_at<=$1 order by deadline_at limit $2)
    union all (select id from public.games where status='setup' and setup_deadline_at<=$1 order by setup_deadline_at limit $2)
    union all (select i.game_id from public.game_invites i join public.games g on g.id=i.game_id where g.status='waiting' and g.kind<>'random' and i.used_by is null and i.expires_at<=$1 limit $2)
+   union all (select g.id from public.games g where g.kind='friend' and g.status='waiting' and g.created_at<=$1::timestamptz-interval '7 days' and not exists(select from public.game_invites where game_id=g.id) order by g.created_at limit $2)
    union all (select id from public.games where kind='random' and status='waiting' and created_at<=$1::timestamptz-interval '24 hours' order by created_at limit $2)`, [now, limit])).rows.map(r => r.id);
  }
 }

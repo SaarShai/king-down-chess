@@ -1,6 +1,6 @@
 /** In-memory screen fixture. The engine plays moves; the database tests check transactions and access. */
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
-import { createMatch, type LocalMatch } from '../src/match';
+import { createMatch, type LocalMatch, type MatchSetup } from '../src/match';
 import { MatchServiceError } from '../src/match/store';
 import { FRIEND_CODE_DAYS } from '../src/match/service';
 import { createSchema, commandSchema, type CreateOptions, type InboxEntry, type View, type Seat, type LoggedCommand, type HistoryEntry, type PlayerRecord } from '../src/match/protocol';
@@ -14,7 +14,7 @@ const fail = (code: MatchServiceError['code'], status: number, message: string):
 const parse = <T>(schema: {safeParse(input:unknown):{success:boolean;data?:T}}, input:unknown):T => { const value = schema.safeParse(input); return value.success ? value.data! : fail('INVALID_INPUT',400,'Invalid input'); };
 interface Game { id:string; creator:string; input:CreateOptions; match?:LocalMatch; players:(string|null)[]; choices:[Choice|null,Choice|null]; ready:[boolean,boolean]; drawn?:Draw; turns:[number,number]; revision:number; status:View['status']; result?:View['result']; commands:Map<string,string>; log:LoggedCommand[]; invite?:{token:string;code:string;expires_at:string;used_by?:string}; draw_offer:Seat|null; rematch_offer:Seat|null; rematch_game_id:string|null; created:number; updated:number; setup_deadline:string|null; deadline:string|null }
 export interface FixtureSeed { history?:HistoryEntry[]; games?:InboxEntry[]; record?:PlayerRecord; views?:Record<string,Partial<View>> }
-export function fixtureService(): Pick<PluginService,keyof PluginService> & { seed(actor:string,data:FixtureSeed):void; deleteMatch(id:string):Promise<void>; close():Promise<void> } {
+export function fixtureService(): Pick<PluginService,keyof PluginService> & { seedPosition(setup:MatchSetup,black:boolean):Promise<string>; seed(actor:string,data:FixtureSeed):void; deleteMatch(id:string):Promise<void>; close():Promise<void> } {
  const games = new Map<string,Game>(), boards = new Map<string,{actor:string;game:string|null;selected:boolean}>(), profiles = new Map<string,{user_id:string;handle:string|null;icon:Icon|null}>(), settings = new Map<string,PlayerSettings>(), seeds = new Map<string,FixtureSeed>();
  let reports = 0;
  const profile = async (actor:string) => { if (!profiles.has(actor)) profiles.set(actor,{user_id:actor,handle:null,icon:null}); return {...profiles.get(actor)!}; };
@@ -53,6 +53,11 @@ export function fixtureService(): Pick<PluginService,keyof PluginService> & { se
  async function lobby(actor:string) { return {games:await Promise.all([...games.values()].filter(g=>g.input.kind === 'random' && g.status === 'waiting' && !g.players.includes(actor)).map(async g=>({game_id:g.id,options:g.input.options ?? null,colour:g.players[0] === null ? 'white' as const : 'black' as const,creator:{handle:(await profile(g.players.find(Boolean)!)).handle!,icon:(await profile(g.players.find(Boolean)!)).icon},created_at:new Date(g.created).toISOString()})))}; }
  async function invitation(code:unknown,actor?:string) { const key = String(code).trim(), normalized = key.toUpperCase().replace(/[\s-]/g,''); const game = [...games.values()].find(g=>g.invite && (g.invite.token === key || g.invite.code === normalized)) ?? fail('INVITE_UNAVAILABLE',404,'Invitation unavailable'); if (actor && game.invite!.used_by === actor && game.players.includes(actor)) return game; if (game.status !== 'waiting' || game.invite!.expires_at <= new Date().toISOString()) fail('INVITE_UNAVAILABLE',409,'Invitation expired or used'); return game; }
  return {
+  async seedPosition(setup,black) {
+   const created = await create('alice',{kind:'solo',colour:black?'black':'white',setup});
+   if (black) { const game = load(created.game_id); game.input.kind = 'friend'; game.players[0] = 'bob'; }
+   return created.game_id;
+  },
   view,create,profile,lobby,accept,
   async find(actor,options,colour='white') { await requireHandle(actor); const own = [...games.values()].find(g=>g.input.kind === 'random' && g.status === 'waiting' && g.players.includes(actor)); if (own) return view(actor,own.id); const [first] = (await lobby(actor)).games; return first ? accept(actor,first.game_id) : create(actor,{kind:'random',options,colour}); },
   async cancel(actor,id) { const g = load(id); seatOf(g,actor); if (g.status === 'aborted') return view(actor,id); if (g.input.kind !== 'random' || g.status !== 'waiting') fail('NOT_ALLOWED',409,'Only your waiting random game can be cancelled'); g.status = 'aborted'; g.result = {winner:null,reason:'abort'}; g.revision++; return view(actor,id); },

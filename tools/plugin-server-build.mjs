@@ -54,9 +54,8 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     if (site) {
       await cp(site, resolve(output, 'static'), { recursive: true });
       // The function entry (tools/plugin-server.mjs) dispatches these paths; Vercel keeps the request path.
-      await symlink('mcp.func', resolve(output, 'functions/api.func'));
       await symlink('mcp.func', resolve(output, 'functions/internal.func'));
-      routes.push({ src: '^/api/.+$', dest: '/api' }, { src: '^/internal/.+$', dest: '/internal' });
+      routes.push({ src: '^/internal/.+$', dest: '/internal' });
     }
     await writeFile(resolve(output, 'config.json'), JSON.stringify({ version: 3, routes }) + '\n');
   }

@@ -139,11 +139,12 @@ export async function runDeletions(games: GameService): Promise<number> {
  return deleted;
 }
 
-/** Deletes the invitations that ran out (once the sweep has ended their waiting game) and the outbox rows done more than 30 days ago. */
-export async function cleanup(games: GameService, now = new Date()): Promise<{ invites: number; outbox: number }> {
+/** Deletes expired invitations after the sweep, boards older than 7 days and outbox rows done more than 30 days ago. */
+export async function cleanup(games: GameService, now = new Date()): Promise<{ invites: number; outbox: number; boards: number }> {
  const pool = games.store.pool;
  const invites = await pool.query(`delete from public.game_invites i where i.expires_at<=$1
   and not exists(select from public.games g where g.id=i.game_id and g.status='waiting')`, [now]);
  const outbox = await pool.query(`delete from public.outbox where done_at<=$1::timestamptz-interval '30 days'`, [now]);
- return { invites: invites.rowCount ?? 0, outbox: outbox.rowCount ?? 0 };
+ const boards = await pool.query("delete from public.plugin_boards where created_at<$1::timestamptz-interval '7 days'", [now]);
+ return { invites: invites.rowCount ?? 0, outbox: outbox.rowCount ?? 0, boards: boards.rowCount ?? 0 };
 }
