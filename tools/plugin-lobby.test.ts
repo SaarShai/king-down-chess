@@ -17,6 +17,9 @@ async function open() {
   const page = await browser.newPage(); page.setDefaultTimeout(5000); await page.goto(harness.url);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor(); return page;
 }
+async function freeze(page: Page) {
+  const now = new Date(); await page.clock.install({ time: new Date(now.getTime() - 60000) }); await page.clock.pauseAt(now);
+}
 async function start(page: Page, kind: string) {
   return page.frameLocator('iframe').locator('html').evaluate(async (_, input) => {
     const app = (window as any).harnessApp; app.navigate('setup');
@@ -95,7 +98,7 @@ it('reads the visible lobby every fifteen seconds and pauses while hidden', asyn
   const page = await open(), frame = page.frameLocator('iframe');
   let waiting: string | undefined;
   try {
-    await page.clock.install(); await page.clock.pauseAt(new Date());
+    await freeze(page);
     waiting = (await buddy(page, 'kingdown_create', { kind: 'random', options, colour: 'white' }))._meta.view.game_id;
     await frame.locator('#home-play').click(); await frame.locator('#random').click();
     await frame.locator('#lobby-list .accept').first().waitFor();
@@ -116,7 +119,7 @@ it('reads the visible lobby every fifteen seconds and pauses while hidden', asyn
 it('offers a computer game after 25 seconds, watches without a board ID and switches', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await page.clock.install(); await page.clock.pauseAt(new Date());
+    await freeze(page);
     const waiting = await start(page, 'random');
     await frame.locator('#wait-computer').waitFor({ state: 'attached' });
     expect(await frame.locator('#wait-computer').isVisible()).toBe(false);
@@ -138,7 +141,7 @@ it('offers a computer game after 25 seconds, watches without a board ID and swit
 it('keeps the five-second wait budget through the computer handoff, then uses fifteen seconds', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await page.clock.install(); await page.clock.pauseAt(new Date());
+    await freeze(page);
     await frame.locator('html').evaluate(() => {
       const host = parent as any, app = (window as any).harnessApp, send = app.client.call;
       host.ticketReads = [];
@@ -228,7 +231,7 @@ async function clearWait(page: Page) {
 it('starts the computer with default seat choices and keeps it after Not now', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await clearWait(page); await page.clock.install(); await page.clock.pauseAt(new Date());
+    await clearWait(page); await freeze(page);
     const waiting = await frame.locator('html').evaluate(async (_, options) => (window as any).harnessApp.start('random', { options: { ...options, arrangement: true }, colour: 'white' }), options);
     await page.clock.fastForward(25000); await frame.locator('#wait-computer').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.status)).toBe('playing');
@@ -243,7 +246,7 @@ it('starts the computer with default seat choices and keeps it after Not now', a
 it('opens the human game when Abort is closed on the computer game', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await clearWait(page); await page.clock.install(); await page.clock.pauseAt(new Date());
+    await clearWait(page); await freeze(page);
     const solo = await start(page, 'solo');
     const waiting = await frame.locator('html').evaluate(async (_, options) => {
       const app = (window as any).harnessApp;
@@ -312,7 +315,7 @@ it('shows the lobby name beside Accept without a button over the text', async ()
 it('retries Switch after Abort succeeds and Resume loses its reply', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await clearWait(page); await page.clock.install(); await page.clock.pauseAt(new Date());
+    await clearWait(page); await freeze(page);
     const waiting = await start(page, 'random');
     await page.clock.runFor(26000); await frame.locator('#wait-computer').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
@@ -329,7 +332,7 @@ it('retries Switch after Abort succeeds and Resume loses its reply', async () =>
 it('finishes the computer handoff when the automatic Choose needs Retry', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await clearWait(page); await page.clock.install(); await page.clock.pauseAt(new Date());
+    await clearWait(page); await freeze(page);
     await frame.locator('html').evaluate(async (_, options) => (window as any).harnessApp.start('random', { options: { ...options, arrangement: true }, colour: 'white' }), options);
     await page.clock.runFor(26000);
     await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_choose'; });
@@ -368,7 +371,7 @@ it('previews the current code after Decline while the old preview loads', async 
 it('finds a joined random game when the computer page mounts again', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await clearWait(page); await page.clock.install(); await page.clock.pauseAt(new Date());
+    await clearWait(page); await freeze(page);
     const waiting = await frame.locator('html').evaluate(async (_, options) => (window as any).harnessApp.start('random', { options: { ...options, arrangement: true }, colour: 'white' }), options);
     await page.clock.runFor(26000); await frame.locator('#wait-computer').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
