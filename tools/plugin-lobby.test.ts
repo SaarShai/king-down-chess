@@ -364,3 +364,24 @@ it('previews the current code after Decline while the old preview loads', async 
     expect((await buddy(page, 'kingdown_get', { game_id: first._meta.view.game_id }))._meta.view.status).toBe('waiting');
   } finally { await page.close(); }
 });
+
+it('finds a joined random game when the computer page mounts again', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await clearWait(page); await page.clock.install(); await page.clock.pauseAt(new Date());
+    const waiting = await frame.locator('html').evaluate(async (_, options) => (window as any).harnessApp.start('random', { options: { ...options, arrangement: true }, colour: 'white' }), options);
+    await page.clock.runFor(26000); await frame.locator('#wait-computer').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    const solo = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
+    await page.locator('iframe').evaluate(el => { (el as HTMLIFrameElement).src = 'about:blank'; });
+    await page.waitForFunction(() => document.querySelector('iframe')?.contentDocument?.URL === 'about:blank');
+    await buddy(page, 'kingdown_accept', { game_id: waiting.game_id });
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
+    await frame.locator('#over.found[open]').waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(solo);
+    await frame.locator('#found-switch').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessView.game_id)).toBe(waiting.game_id);
+  } finally { await page.close(); }
+});

@@ -82,7 +82,9 @@ function syncWatch() {
   if (open && memory.view?.game_id === open.game_id) open = memory.view;
   const solo = memory.view?.kind === 'solo' && memory.view.status === 'playing';
   const active = solo && ['board','wait'].includes(client.state.screen);
-  const entry = memory.games.find(game => game.kind === 'random' && game.status === 'waiting');
+  const joined = solo ? memory.games.filter(game => game.kind === 'random' && game.status !== 'waiting' && Date.parse(game.created_at) <= Date.parse(memory.view!.created_at))
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] : undefined;
+  const entry = memory.games.find(game => game.kind === 'random' && game.status === 'waiting') ?? joined;
   const id = open?.status === 'waiting' ? open.game_id : entry?.game_id;
   if (!id || solo && id === memory.view?.game_id || dismissed.has(id)) { stopWatch(); return; }
   if (watch && watched === id) {
