@@ -17,7 +17,7 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const tables = () => document.querySelectorAll<HTMLElement>('#seat-screen [data-seat-id]');
 const strips = Object.fromEntries(['strip-me','strip-them'].map(id => [id, document.querySelector(`[data-seat-id="${id}"]`)!.innerHTML]));
 let game = '', choice: Choice | null = null, selected: number | null = null, sending = false, picking = false;
-let home: { parent: HTMLElement; next: ChildNode | null; click: typeof board.onSquareClick; drag: typeof board.onDragSelect; hover: typeof board.onSquareHover; key: HTMLElement['onkeydown'] } | undefined;
+let home: { parent: HTMLElement; next: ChildNode | null; click: typeof board.onSquareClick; drag: typeof board.onDragSelect; hover: typeof board.onSquareHover; key: HTMLElement['onkeydown']; label: string | null } | undefined;
 let closeMenu: (() => void) | undefined, cursor = 0;
 const current = () => client.state.screen === 'seat' && memory.view?.game_id === game ? memory.view : undefined;
 const locked = () => sending || picking || $<HTMLButtonElement>('seat-menu').disabled || !!client.state.pending || !!current()?.ready?.[current()!.seat];
@@ -29,6 +29,7 @@ function release() {
   home.parent.insertBefore($('board'), home.next);
   if (home.parent.id === 'game-table') home.parent.dataset.empty = String(!memory.view?.fen);
   board.onSquareClick = home.click; board.onDragSelect = home.drag; board.onSquareHover = home.hover; $('board').onkeydown = home.key;
+  if (home.label === null) $('board').removeAttribute('aria-label'); else $('board').setAttribute('aria-label', home.label);
   board.setPreview(null);
   $('seat-veil-layer')?.remove(); home = undefined;
   tables().forEach(node => node.removeAttribute('id'));
@@ -36,7 +37,7 @@ function release() {
 function ownBoard(view: View) {
   if (home) return;
   const node = $('board');
-  home = { parent: node.parentElement!, next: node.nextSibling, click: board.onSquareClick, drag: board.onDragSelect, hover: board.onSquareHover, key: node.onkeydown };
+  home = { parent: node.parentElement!, next: node.nextSibling, click: board.onSquareClick, drag: board.onDragSelect, hover: board.onSquareHover, key: node.onkeydown, label: node.getAttribute('aria-label') };
   $('seat-board-slot').replaceWith(node);
   board.onSquareClick = square => tap(square); board.onDragSelect = square => tap(square, false); board.onSquareHover = () => {};
   cursor = seatSquare(view.seat, view.seat === 1 ? 7 : 0);

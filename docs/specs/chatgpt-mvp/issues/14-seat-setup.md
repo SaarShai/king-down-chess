@@ -78,3 +78,13 @@ Open item for ticket 14: none. Ticket 15's shared board work and a live ChatGPT 
 The branch merges local integration tip 1e38e4f6. This tip includes the current local ticket 12 branch, so no second setup merge is needed. The merge has no conflict.
 
 npm test passes 2,322 tests in 153 files, with 8 skipped. All 50 art tests and the type check pass. The merged plugin build and server check pass. All 101 art files keep their types. The merged page has 591,351 HTML bytes and 593,967 payload bytes; the server resource has 593,732 JSON bytes. These stay below the limit. The added profile and setup files come from the integration branch.
+
+## Fix round plan and checks
+
+1. Check the board label after ArrowRight, Ready and the board hand-off. Save the label with the handlers.
+2. Check the Cards king sheet after the other player presses Ready. Keep forbidden buttons disabled.
+3. Check swap rings in a fresh capture. Compare the selected knight with the sample and save shots in the 14b folder.
+4. Check the days left after an unchanged setup read. Refresh the seat text if the change stays small.
+5. Run npm test, the plugin build and both named plugin browser checks. Record the results, commit and push this branch.
+
+Each fix starts with one failing check at the existing page seam. The two review test gaps stay open.
