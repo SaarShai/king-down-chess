@@ -48,6 +48,8 @@ The current local integration tip adds a newer pending and mount recovery contra
 
 ## Result
 
+Fix round plan: Keep the public exports unchanged. Add one failing app-page test for each retry fault, then make it pass. Set the 16 toggle mixes through the controls if the change stays small. Run npm test, plugin:build and check:browser plugin-ui. Check that Retry loads full rules and opens the same game without a second Create. Keep the held Create remount case open. Do not merge the integration branch again.
+
 The setup page has the modes, four levels, colour, five toggles and three sheets. It uses the game styles, fonts, sprite and art. Start saves all five last_setup fields, then sends the same choices through the shared Start function. A handle stop keeps these choices. A solo king-only game starts at once. Arrangement keeps the seat step. The initiator of a waiting game keeps the king in last_setup.king; Create and Find take no king, and Choose is refused while waiting.
 
 The pure model is in src/plugin/screens/setup-model.ts. It exports SetupState, readSetup, setupOptions, withToggle, withPiece, withCard, pieceLocked, cardLocked, availablePowers, cleanKing, shownKing, createArguments and soloChoice. Ticket 14 can use cleanKing with the game's options and seat colour. It keeps null as no pick. It moves a power with uses to the same king's always-on power, else the colour default. The DOM module exports kingSheet(options, pick). It returns a promise for the pick. It returns the input object when nothing changes, so a mere inspection does not save a king pick.
@@ -77,4 +79,11 @@ Gaps in the shared contract:
 - Choose replies omit the full rules. Setup reads the board before it opens a newly started game. Ticket 14 needs the same full read after Ready starts the game.
 - The shared mount can route a completed Start before the setup caller returns. The setup module handles its restored solo choice in its own file. Shared page files stay unchanged by this ticket.
 
-Open item: none in ticket 12. Ticket 14 owns the seat screen. Deployment and a live ChatGPT host check stay outside this ticket.
+### Fix round
+
+- Retry of a lost solo Choose reply calls finish before routing. The full read loads the rules. The app test fails on the old code, then passes with the fix: 20 app tests and 50 art tests pass; the type check passes.
+
+### Open items
+
+- Remount while Create is held stays open for the next review.
+- Ticket 14 owns the seat screen. Deployment and a live ChatGPT host check stay outside this ticket.

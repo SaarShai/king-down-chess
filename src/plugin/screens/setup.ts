@@ -160,7 +160,7 @@ document.addEventListener('click', event => {
   if (!(event.target as HTMLElement).closest('#retry') || client.state.screen !== 'setup' || !ownPending()) return;
   const pending = client.state.pending;
   if (['kingdown_create','kingdown_find'].includes(pending?.name ?? '')) { event.preventDefault(); event.stopImmediatePropagation(); void recoverStart(); }
-  else if (pending?.name === 'kingdown_choose') { event.preventDefault(); event.stopImmediatePropagation(); void call(pending.name, pending.args, true, false, false, true).then(view => { if (view) routeView(view); render(); }); }
+  else if (pending?.name === 'kingdown_choose') { event.preventDefault(); event.stopImmediatePropagation(); void call(pending.name, pending.args, true, false, false, true).then(async view => { if (view) await finish(view); render(); }); }
 }, true);
 export function setupScreen() {
   if (!memory.settings) return;

@@ -102,6 +102,26 @@ it('recovers a lost Create or Find reply on mount without another send', async (
     } finally { await page.close(); }
   }
 });
+it('opens a usable solo board after Retry of a lost Choose reply without a remount', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#home-play').click(); await frame.locator('#solo').click();
+    await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).uncheck();
+    await frame.getByRole('checkbox', { name: 'King powers', exact: true }).check();
+    await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_choose'; });
+    await frame.locator('#setup-start').click(); await frame.locator('#retry').waitFor();
+    const completed = await page.evaluate(() => (window as any).harnessView.game_id);
+    await frame.locator('#retry').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(completed);
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(1);
+    await frame.locator('#board').focus();
+    await page.keyboard.press('ArrowUp'); await page.keyboard.press('Enter');
+    await frame.locator('#choices button').first().waitFor();
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
+  } finally { await page.close(); }
+});
 it('blocks Retry and screen actions until both mount reads finish', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
