@@ -83,7 +83,7 @@ function syncWatch() {
   if (open && memory.view?.game_id === open.game_id) open = memory.view;
   const solo = memory.view?.kind === 'solo' && memory.view.status === 'playing';
   const active = solo && ['board','wait'].includes(client.state.screen);
-  const joined = recoverJoined && solo ? memory.games.filter(game => game.kind === 'random' && game.status !== 'waiting' && Date.parse(game.created_at) <= Date.parse(memory.view!.created_at))
+  const joined = recoverJoined && solo ? memory.games.filter(game => game.kind === 'random' && game.status !== 'waiting' && Date.parse(game.created_at) <= Date.parse(memory.view!.created_at) && Date.parse(game.updated_at) >= Date.parse(memory.view!.created_at))
     .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] : undefined;
   if (memory.view && memory.games.some(game => game.game_id === memory.view?.game_id)) recoverJoined = false;
   const entry = memory.games.find(game => game.kind === 'random' && game.status === 'waiting') ?? joined;
