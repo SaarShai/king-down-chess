@@ -17,7 +17,7 @@ Use [RUNBOOK.md](RUNBOOK.md) for the full checks and rollback.
    Check a fresh test sign-in uses the asymmetric key. If either check fails, stop; keep current keys.
 
 2. **Owner — save the backup.** Open **Database → Backups**, or use your approved private backup path.
-   Save a recovery point and verify the restore procedure. Save the current deployment ID,
+   Save a recovery point and verify the restore procedure. Save the current deployment ID and source commit,
    migration list, role grants, OAuth client rows, redirect URLs and environment names privately.
    Success: a verified recovery point and a compatible prior deployment are ready.
    If you cannot verify them, stop. Do not start the outage.
@@ -57,12 +57,20 @@ Use [RUNBOOK.md](RUNBOOK.md) for the full checks and rollback.
    KINGDOWN_PLUGIN_DATABASE_URL
    KINGDOWN_PLUGIN_OAUTH_READY
    KINGDOWN_INTERNAL_SECRET
-   KINGDOWN_ENGINES_DATABASE_URL
    ```
    Use origin `https://kingdown.dev`, the new client ID and readiness 1 only after the hook check.
-   Use the runtime role for the service URL, with `?sslmode=require`, and a read-only engine URL.
+   Use the runtime role for the service URL, with `?sslmode=require`.
    Use an internal secret of at least 32 characters. Keep `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` unset.
    Keep `PLUGIN_TEST_DATABASE_URL` local; it is not a production setting.
+   Keep `KINGDOWN_ENGINES_DATABASE_URL` out of this file; `--configure` rejects it.
+   Before either deploy check or publication, set it in the local release shell to the private
+   read-only engine connection. Use this hidden prompt, then export the named variable:
+   ```sh
+   read -r -s -p 'Engine-check URL: ' KINGDOWN_ENGINES_DATABASE_URL
+   printf '\n'
+   export KINGDOWN_ENGINES_DATABASE_URL
+   ```
+   Use Bash for this prompt. Keep the value out of shell history, messages and logs.
    Give the command go: `tools/deploy.sh --configure .secrets/kingdown-mvp.env`.
    Success: it names project `kingdown` and sets production names without printing values.
    If it fails, stop; restore saved settings through this private path with your go.
@@ -88,7 +96,11 @@ Use [RUNBOOK.md](RUNBOOK.md) for the full checks and rollback.
    Success: the paste commits, runtime startup probes pass and both live checks pass in the log.
    A missing prerequisite raises an exception and changes nothing. Run `rollback;` if the Editor keeps the failed transaction open.
    Fix that prerequisite and retry the whole file.
-   On another failure, stop play and use RUNBOOK step 7's recovery path with your go. Keep data and tables.
+   On another failure, stop play and remove MVP jobs if present. With your go, revert the release
+   changes on a branch to the saved compatible commit. Review and merge that PR to main, then run
+   the publish command again. It fetches fresh `origin/main`; it takes no deployment ID or commit.
+   Check that the recovery code supports the current schema and keeps engines in use.
+   Use RUNBOOK step 7 for database recovery. Keep data and tables.
 
 8. **Owner — enable the three jobs.** In **Database → Extensions**, enable pg_cron and pg_net.
    In **Vault**, save the same internal secret as `kingdown_internal_secret` through the private form.

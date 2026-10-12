@@ -87,3 +87,25 @@ Checks:
 - Document links and `git diff --check` pass. `plugin-ui` does not read the two legal pages, so no browser check is needed for this text change. The deploy live check compares built page bytes; it pins no text and needs no change.
 
 Open items: the merger integrates the deploy and document branches and reviews the final diff. The owner completes Auth, backup, OAuth, environment, publication, SQL, cron, test-account and web/iPhone live steps. All live result cells stay empty. No live action runs here.
+
+## Release fix plan
+
+Work stays on `claude/mvp-19-release`. No live action runs.
+
+1. Add a failing PostgreSQL engine-check test. Exclude null fingerprints only for waiting and setup games. Keep the check for games in play and for saved fingerprints.
+2. Keep only the seven server keys in the configuration file. Put the engine-check URL in the local release environment. Match both owner documents.
+3. Check the sign-in code. State Google and GitHub for ChatGPT and the website's Facebook limit on both account pages.
+4. Match recovery to the script: revert main through a PR to compatible code, then publish fresh main. Keep database recovery separate.
+
+Pass criteria: the new engine-check test fails before the fix and passes after it. `npm test` passes with deploy tests and the release-packet database test on `kingdown_mvp19fix_test` at `127.0.0.1:55432`. `bash -n tools/deploy.sh` and `git diff --check` pass. Commit and push this branch for the merger.
+
+## Release fix result
+
+- The engine check excludes null fingerprints for waiting and setup games. The PostgreSQL test keeps saved fingerprints and a null fingerprint in play under the archive check.
+- Both owner documents keep only seven server keys in the configuration file. A hidden Bash prompt sets and exports the local engine-check URL without a value in shell history or command arguments.
+- Both public account pages name Google and GitHub. They state that Facebook is absent in ChatGPT and hidden on the website unless `?facebook=1` is set. The consent and account code confirm this limit.
+- Recovery records the prior source commit, reverts the release through a PR to main, then publishes fresh main. The documents require schema compatibility and engines in use; database recovery stays separate.
+
+Checks: red `npm test` fails only the new engine case. Green `npm test` passes 158 files and 2,375 tests; eight skip. All 50 artwork checks pass. The full run includes the deploy tests and all five release-packet cases. `PLUGIN_TEST_DATABASE_URL` names `kingdown_mvp19fix_test` on `127.0.0.1:55432`; the packet uses its own `kingdown_mvp19fix_release19docs_test` copy. `bash -n tools/deploy.sh`, prompt syntax, both seven-key lists, provider text and `git diff --check` pass. Logs: `/tmp/kingdown-mvp19fix/`.
+
+Open items: the merger reviews and integrates this branch. The owner completes the live release steps and checks. No live action runs here.

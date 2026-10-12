@@ -75,6 +75,17 @@ if (url) {
   if (!['localhost', '127.0.0.1', '[::1]'].includes(target.hostname) || !target.pathname.endsWith('_test')) throw new Error('Database tests require a disposable loopback database ending in _test');
 }
 (url ? describe : describe.skip)('engines in use (PostgreSQL)', () => {
+  it('skips null engines only for waiting and setup games', async () => {
+    const client = new pg.Client({ connectionString: url });
+    await client.connect();
+    try {
+      await client.query('begin; set local search_path = pg_temp; create temp table games(engine_fingerprint text, status text) on commit drop');
+      await client.query("insert into games values (null,'waiting'),(null,'setup'),(null,'playing'),('sha256:a','setup'),('sha256:b','waiting')");
+      const rows = await enginesInUse(client);
+      expect(rows).toEqual([{ engine: 'sha256:a', games: 1 }, { engine: 'sha256:b', games: 1 }, { engine: null, games: 1 }]);
+      expect(missingEngines(rows, ENGINES)).toContainEqual({ engine: null, games: 1 });
+    } finally { await client.query('rollback').catch(() => {}); await client.end(); }
+  });
   it('reads unfinished games from games, or from plugin_matches before the games table exists', async () => {
     const client = new pg.Client({ connectionString: url });
     await client.connect();

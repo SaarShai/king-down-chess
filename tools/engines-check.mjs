@@ -11,7 +11,7 @@ import { pluginDatabaseConfig } from './plugin-db-config.mjs';
 export async function enginesInUse(client) {
   const { rows: [{ games }] } = await client.query("select to_regclass('games') is not null as games");
   return (await client.query(games
-    ? "select engine_fingerprint as engine, count(*)::int as games from games where status not in ('finished','aborted','annulled') group by 1 order by 1"
+    ? "select engine_fingerprint as engine, count(*)::int as games from games where status not in ('finished','aborted','annulled') and not (status in ('waiting','setup') and engine_fingerprint is null) group by 1 order by 1"
     : "select save::jsonb->>'engine' as engine, count(*)::int as games from plugin_matches where snapshot->>'status' = 'playing' group by 1 order by 1")).rows;
 }
 /** The rows whose engine has no `<hex>.mjs` bundle in `dir`. */

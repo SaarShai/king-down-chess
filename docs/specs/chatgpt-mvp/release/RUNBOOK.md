@@ -22,7 +22,7 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
 
    Rollback: stop before live work. Correct the branch and repeat each failed check.
 
-2. **Owner word — save recovery state and stop old alerts.** Take a verified database backup through the private admin path. Keep the restore path private. Record the current deployment ID, migration state, grants, OAuth clients, redirect entries and environment names. Keep secret values out of logs.
+2. **Owner word — save recovery state and stop old alerts.** Take a verified database backup through the private admin path. Keep the restore path private. Record the current deployment ID and source commit, migration state, grants, OAuth clients, redirect entries and environment names. Keep secret values out of logs.
 
    If pg_cron exists, run this guarded removal in the SQL Editor. If the extension is absent, there is no old cron job to remove.
 
@@ -49,9 +49,10 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
 
    Rollback: remove only the new client, its row and entries added for it. Preserve shared entries. Restore a changed hook with the owner's word.
 
-5. **Owner word — configure production.** Keep the private environment file outside Git, with mode 600. Run `tools/deploy.sh --configure <private-env-file>`. It sets project `kingdown`'s production environment. Set `KINGDOWN_PLUGIN_ORIGIN` to `https://kingdown.dev`, the allowlist to the new client, and OAuth readiness only after the hook check. Use the restricted runtime database role with TLS certificate and host checks. Use a read-only engine-check connection. Step 13 uses the same internal secret in Vault.
+5. **Owner word — configure production.** Keep the private environment file outside Git, with mode 600. Run `tools/deploy.sh --configure <private-env-file>`. It sets project `kingdown`'s production environment. Set `KINGDOWN_PLUGIN_ORIGIN` to `https://kingdown.dev`, the allowlist to the new client, and OAuth readiness only after the hook check. Use the restricted runtime database role with TLS certificate and host checks. Step 13 uses the same internal secret in Vault.
 
-   Environment names: `KINGDOWN_PLUGIN_ORIGIN`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS`, `KINGDOWN_PLUGIN_DATABASE_URL`, `KINGDOWN_PLUGIN_OAUTH_READY`, `KINGDOWN_INTERNAL_SECRET`, `KINGDOWN_ENGINES_DATABASE_URL`.
+   The file contains only seven server names: `KINGDOWN_PLUGIN_ORIGIN`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS`, `KINGDOWN_PLUGIN_DATABASE_URL`, `KINGDOWN_PLUGIN_OAUTH_READY`, `KINGDOWN_INTERNAL_SECRET`.
+   Keep `KINGDOWN_ENGINES_DATABASE_URL` out of the file; `--configure` rejects it. Before steps 6–7, set it to the private read-only engine connection in the local release shell and export that name. Use the hidden Bash prompt in OWNER-STEPS step 5. The deploy command inherits it; no value belongs in a command argument or log.
    Keep the two mail names unset. `PLUGIN_TEST_DATABASE_URL` stays local. `DEPLOY_LIVE_TIMEOUT_MS` sets the command's live-check wait.
 
    Check: the command names project `kingdown`. The origin, role and TLS mode match the release. No local-persona setting exists in production. No secret value appears in the log.
@@ -68,7 +69,7 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
 
    Check: the log names the approved main commit and project. After step 9, the site and plugin live checks both pass. A build alone does not prove a live pass.
 
-   Rollback: stop play and remove MVP jobs if present. Restore the saved compatible deployment through the approved deploy path with the owner's word. If 0006 changes board links, old code alone cannot restore them; a verified pre-window database restore needs a separate owner's word. Keep the tables and data.
+   Rollback: stop play and remove MVP jobs if present. With the owner's word, revert the release changes on a branch to restore code from the saved compatible commit. Check that it supports the current schema and keeps every engine in use. Review and merge the revert PR to main, then run `DEPLOY_LIVE_TIMEOUT_MS=900000 tools/deploy.sh --publish` with the local release environment from step 5. The script fetches fresh `origin/main`; it takes no deployment ID or commit. After publication, both live checks must pass before play resumes. If 0006 changes board links, old code alone cannot restore them; a verified pre-window database restore needs a separate owner's word. Keep the tables and data.
 
 8. **Owner word — finish the foundation.** Confirm `0001_accounts.sql`, `0002_matches.sql`, `0003_plugin_boards.sql`, `0004_plugin_board_recovery.sql` and the audience hook exist. Apply missing 0005–0009 migrations in order, then runtime-role blocks 3–6. Keep the existing role; do not rerun block 1's `create role`. The public deletion page must show the seven-day grace before 0008 is exposed. 0006 ends use of old plugin test games.
 
