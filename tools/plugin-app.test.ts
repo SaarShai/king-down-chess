@@ -40,3 +40,23 @@ it('reads a saved board at mount and shows Retry with the saved failure words', 
     expect(await frame.locator('#error').textContent()).toBe('The reply was lost.');
   } finally { await page.close(); }
 });
+
+it('recovers a completed create or find after its reply is lost', async () => {
+  for (const kind of ['friend', 'random']) {
+    const page = await open(), frame = page.frameLocator('iframe'), name = kind === 'friend' ? 'kingdown_create' : 'kingdown_find';
+    try {
+      await page.evaluate(name => { (window as any).dropNextReply = name; }, name);
+      await frame.locator('html').evaluate((_, kind) => {
+        const host = window as any; host.harnessApp.navigate('setup');
+        host.harnessApp.start(kind, { colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false } }).then((view: any) => { host.startResult = view; });
+      }, kind);
+      await frame.locator('#retry').waitFor();
+      const completed = await page.evaluate(() => (window as any).harnessView.game_id);
+      await frame.locator('#retry').click();
+      await frame.locator(`[data-screen="${kind === 'friend' ? 'friend' : 'wait'}"]:not([hidden])`).waitFor();
+      expect(await frame.locator('html').evaluate(() => (window as any).startResult.game_id)).toBe(completed);
+      expect(await page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name)).toBe(1);
+      expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
+    } finally { await page.close(); }
+  }
+});

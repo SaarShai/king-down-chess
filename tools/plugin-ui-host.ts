@@ -27,6 +27,7 @@ async function mount() {
     if (params.name === 'kingdown_get' && (window as any).harnessNextView) { result._meta.view = (window as any).harnessNextView; (window as any).harnessView = result._meta?.view; (window as any).harnessNextView = undefined; }
     if ((window as any).holdNext === params.name) { (window as any).holdNext = undefined; await new Promise<void>(resolve => { (window as any).releaseHeld = () => { (window as any).releaseHeld = undefined; resolve(); }; }); }
     if ((window as any).holdNextGet && params.name === 'kingdown_get') { (window as any).holdNextGet = false; await new Promise<void>(resolve => { (window as any).releaseHeldGet = () => { (window as any).releaseHeldGet = undefined; resolve(); }; }); (window as any).heldGetReturned = true; }
+    if ((window as any).dropNextReply === params.name) { (window as any).dropNextReply = undefined; throw new Error('Harness lost reply after commit'); }
     if ((window as any).dropNextMoveReply && params.name === 'kingdown_move') { (window as any).dropNextMoveReply = false; throw new Error('Harness lost reply after commit'); }
     return result;
   };

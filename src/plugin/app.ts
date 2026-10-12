@@ -61,15 +61,25 @@ function show(next: View | undefined) {
   // Widget state also supplies model context; a second writer would replace it.
   if (!extension?.setWidgetState) void app.updateModelContext({ structuredContent: { revision: view.revision, status: view.status, your_turn: view.turn === view.seat } }).catch(() => {});
 }
-export async function call(name: string, args: Record<string, unknown>, retain = false, quiet = false, route: boolean | undefined = undefined) {
+export async function call(name: string, args: Record<string, unknown>, retain = false, quiet = false, route: boolean | undefined = undefined, retry = false) {
   if (busy || (quiet && polling)) return;
   const before = view;
   let followup: Pending | undefined, received: View | undefined;
   if (quiet) polling = true;
   else { busy = true; buttons().forEach(b => b.disabled = true); $('error').textContent = ''; }
-  if (retain) { pending = { name, args }; saveState(); }
+  if (retain) {
+    if (pending?.name !== name || pending.args !== args) pending = { name, args, game_id: view?.game_id, screen: state.screen };
+    pending.error = undefined; pending.error_screen = undefined; saveState();
+  }
   try {
-    let result = await client.call(name, args);
+    let result: ToolResult | undefined;
+    if (retry && ['kingdown_create', 'kingdown_find'].includes(name)) {
+      const read = await client.call('kingdown_get');
+      if (read.isError) throw new Error(read.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+      const completed = (read._meta as { view?: View } | undefined)?.view;
+      if (completed && completed.game_id !== pending?.game_id) result = read;
+    }
+    result ??= await client.call(name, args);
     if (quiet && (busy || view !== before)) return;
     const read = (result._meta as { view?: View } | undefined)?.view;
     if (name === 'kingdown_get' && read?.fen && !read.rules && rules?.game !== read.game_id) {
@@ -102,7 +112,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
   return received;
 }
 $('reload').onclick = () => { if (state.board_id) void call('kingdown_get', {}); };
-$('retry').onclick = () => { if (pending) void call(pending.name, pending.args, true); };
+$('retry').onclick = () => { if (pending) void call(pending.name, pending.args, true, false, undefined, true); };
 $('computer').onclick = () => { if (view) void call('kingdown_computer', { game_id: view.game_id, command_id: crypto.randomUUID(), expected_revision: view.revision }, true); };
 $('invite').onclick = () => { if (view) void call('kingdown_invite', { game_id: view.game_id }); };
 $('solo').onclick = () => { memory.kind = 'solo'; navigate('setup'); };
