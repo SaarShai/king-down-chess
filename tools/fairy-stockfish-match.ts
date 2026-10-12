@@ -12,8 +12,8 @@ import { sourceId } from '../src/sim/identity';
 import { search, resetSearchState, setEvaluator, positionKey } from '../src/ai/search';
 import { evalParams } from '../src/ai/eval';
 export const MATCH_POOL:CardName[]=['Freeze','IceWall','Strike','Haste','Flight','Sacrifice','March','Leap','Mimic','Vault','Curse','SkyLift','Salvation','Firewall','FirewallB','EarthQuake','EarthQuakeB','Burn','FireStarter','Control','Growth','GrowthB','Rally','Spawn2','SpawnK','SpawnK2','MorphP','MirrorB'];
-export type MatchJob={id:number;block:number;stratum:string;fairyWhite:boolean;fen:string;rules:Rules};
-export type MatchSpec={id:string;approval:string;source:string;runtime:Record<string,string>;cardPool:CardName[];seed:number;timeMs:number;maxActions:number;nnue:false;evaluator:'residual';eval:ReturnType<typeof evalParams>;parts:{name:string;ids:number[]}[];jobs:MatchJob[]};
+export type MatchJob={id:number;block:number;stratum:string;fairyWhite:boolean;fen:string;rules:Rules;opponent?:'native-baseline'};
+export type MatchSpec={id:string;approval:string;source:string;runtime:Record<string,string>;cardPool:CardName[];seed:number;timeMs:number;maxActions:number;nnue:false;evaluator:'residual';baselinePatchSha256?:string;eval:ReturnType<typeof evalParams>;parts:{name:string;ids:number[]}[];jobs:MatchJob[]};
 const must=(ok:unknown,msg:string):void=>{if(!ok)throw Error(msg);};
 export const fileHash=(path:string):string=>createHash('sha256').update(readFileSync(path)).digest('hex');
 export function runtimeManifest():Record<string,string>{
@@ -36,27 +36,31 @@ export function matchSpec(pilot=false,timeMs=80,initialSeed=143211):MatchSpec{
  const parts=pilot?[{name:'smoke',ids:jobs.map(j=>j.id)}]:[{name:'pilot',ids:jobs.slice(0,pilotGames).map(j=>j.id)},...Array.from({length:5},(_,i)=>({name:'wave'+i,ids:jobs.filter(j=>j.id>=pilotGames&&Math.floor((j.id-pilotGames)/2)%5===i).map(j=>j.id)}))];
  return {id:pilot?'fairy-full-smoke':timeMs===80?'fairy-full-match-20261011':'fairy-long-match-20261012',approval:timeMs===80?"go ahead and port the king powers and cards, verify them against our rules engine, and then compare Fairy-Stockfish against our current AI. don't merge yet.":"go ahead with the two-hour M1 stress test, then choose and run the longer-time Kaggle comparison based on the current results. only check at expected completion times, and don't merge yet.",source:sourceId(),runtime:runtimeManifest(),cardPool:[...MATCH_POOL],seed:initialSeed,timeMs,maxActions:400,nnue:false,evaluator:'residual',eval:evalParams(),parts,jobs};
 }
-export async function runMatch(binary:string,specPath:string,partName:string,out:string):Promise<void>{
+export async function runMatch(binary:string,specPath:string,partName:string,out:string,baselineBinary?:string):Promise<void>{
  must(!existsSync(out),'Output exists; preserve partials and investigate before any retry');const spec=JSON.parse(readFileSync(specPath,'utf8')) as MatchSpec;
  const part=spec.parts.find(p=>p.name===partName);must(part&&part.ids.length>0,'Part is absent');must(spec.source===sourceId(),'Reference source differs');must(JSON.stringify(spec.runtime)===JSON.stringify(runtimeManifest()),'Frozen runtime differs');must([80,250,1000].includes(spec.timeMs)&&spec.maxActions===400&&!spec.nnue&&spec.evaluator==='residual','Unexpected limits');
  mkdirSync(out,{recursive:true});setEvaluator('residual');must(JSON.stringify(evalParams())===JSON.stringify(spec.eval),'Evaluation differs');
  const header={part:partName,ids:part!.ids,specSha256:fileHash(specPath),binarySha256:fileHash(binary),source:sourceId(),at:new Date().toISOString(),approval:spec.approval,platform:process.platform,arch:process.arch,node:process.version};writeFileSync(resolve(out,'header.json'),JSON.stringify(header,null,2)+'\n');
  const fs=new Uci(binary,resolve('tools/fairy-stockfish.ini'));fs.stderrPath=resolve(out,'stderr.log');
+ const needsBaseline=part!.ids.some(id=>spec.jobs.find(j=>j.id===id)?.opponent==='native-baseline');must(!needsBaseline||!!baselineBinary&&!!spec.baselinePatchSha256,'Pinned baseline required');
+ const baseline=needsBaseline?new Uci(baselineBinary!,resolve('tools/fairy-stockfish.ini')):undefined;if(baseline)baseline.stderrPath=resolve(out,'baseline-stderr.log');
  try{
   const protocol=await fs.query('uci',s=>s==='uciok');must(protocol.some(s=>s.startsWith('id name Fairy-Stockfish')),'Wrong engine');writeFileSync(resolve(out,'uci.json'),JSON.stringify(protocol));
   await fs.ready('setoption name Threads value 1\nsetoption name Hash value 16\nsetoption name Use NNUE value false\nsetoption name Move Overhead value 0');
+  if(baseline){await baseline.query('uci',s=>s==='uciok');await baseline.ready('setoption name Threads value 1\nsetoption name Hash value 16\nsetoption name Use NNUE value false\nsetoption name Move Overhead value 0');writeFileSync(resolve(out,'baseline.json'),JSON.stringify({binarySha256:fileHash(baselineBinary!),patchSha256:spec.baselinePatchSha256}));}
   for(const id of part!.ids){
-   const job=spec.jobs.find(j=>j.id===id);must(job,'Missing job');setRules(job!.rules);await configureFull(fs);resetSearchState();
+   const job=spec.jobs.find(j=>j.id===id);must(job,'Missing job');setRules(job!.rules);await configureFull(fs);if(baseline)await configureFull(baseline);resetSearchState();
    const game=new Game();game.load(fromFen(job!.fen));const history=[positionKey(game.pos)],tokens:string[]=[],trace:unknown[]=[];let plans=0;
    const sync=async():Promise<void>=>{
     writeFileSync(resolve(out,'active-game.json'),JSON.stringify({...job,tokens,trace,fen:toFen(game.pos)},null,2)+'\n');
     await fs.ready('position fen '+job!.fen+(tokens.length?' moves '+tokens.join(' '):''));
+    if(baseline)await baseline.ready('position fen '+job!.fen+(tokens.length?' moves '+tokens.join(' '):''));
     const lines=await fs.query('kdlegal',s=>s==='kdlegalok',60000);must(lines.includes('fen '+toFen(game.pos)),'Native state diverged');sameMoves([...fullActions(game.pos).keys()],lines.filter(s=>s.startsWith('action ')).map(s=>s.slice(7)));
    };
    await sync();
    while(game.status==='playing'&&tokens.length<spec.maxActions){
     const fairy=(game.pos.turn===0)===job!.fairyWhite,begin=performance.now();let token:string,info:unknown,plan:string|undefined;
-    if(fairy){const lines=await fs.query('go movetime '+spec.timeMs,s=>s.startsWith('bestmove '),60000);plan=lines.at(-1)!.split(' ')[1];const reply=resolveFullTurn(game.pos,plan);plans+=reply.moves.length===2?1:0;token=plan.split(',')[0];info=lines.filter(s=>s.startsWith('info depth ')).slice(-1);}
+    if(fairy||job!.opponent==='native-baseline'){const active=fairy?fs:baseline!;const lines=await active.query('go movetime '+spec.timeMs,s=>s.startsWith('bestmove '),60000);plan=lines.at(-1)!.split(' ')[1];const reply=resolveFullTurn(game.pos,plan);plans+=fairy&&reply.moves.length===2?1:0;token=plan.split(',')[0];info=lines.filter(s=>s.startsWith('info depth ')).slice(-1);}
     else{const r=search(game.pos,{timeMs:spec.timeMs,maxDepth:62,history,multiPv:1,temperature:0});must(r.move,'No current-AI move');token=fullAction(game.pos,r.move!);info={depth:r.depth,nodes:r.nodes,score:r.score};}
     const elapsedMs=performance.now()-begin,m=fullActions(game.pos).get(token);must(m,'Illegal proposal');
     trace.push({index:tokens.length,side:game.pos.turn,engine:fairy?'fairy':'current',token,plan,elapsedMs,info});game.play(m!);tokens.push(token);history.push(positionKey(game.pos));await sync();
@@ -66,6 +70,6 @@ export async function runMatch(binary:string,specPath:string,partName:string,out
    appendFileSync(resolve(out,'games.jsonl'),JSON.stringify(result)+'\n');console.log(JSON.stringify({id,stratum:job!.stratum,actions:tokens.length,status:game.status,capped,fairyScore:result.fairyScore}));
   }
   writeFileSync(resolve(out,'complete.json'),JSON.stringify({...header,games:part!.ids.length,finishedAt:new Date().toISOString()},null,2)+'\n');
- }finally{fs.close();setRules(DEFAULT_RULES);}
+ }finally{fs.close();baseline?.close();setRules(DEFAULT_RULES);}
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const [command,...args]=process.argv.slice(2);if(command==='freeze'){const spec=matchSpec(args[1]==='smoke');writeFileSync(resolve(args[0]),JSON.stringify(spec,null,2)+'\n',{flag:'wx'});}else if(command==='run')runMatch(resolve(args[0]),resolve(args[1]),args[2],resolve(args[3])).catch(e=>{console.error(e);process.exitCode=1;});else throw Error('Usage: freeze <new-spec> [smoke] | run <binary> <spec> <part-name> <new-out>');}
+if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const [command,...args]=process.argv.slice(2);if(command==='freeze'){const spec=matchSpec(args[1]==='smoke');writeFileSync(resolve(args[0]),JSON.stringify(spec,null,2)+'\n',{flag:'wx'});}else if(command==='run')runMatch(resolve(args[0]),resolve(args[1]),args[2],resolve(args[3]),args[4]?resolve(args[4]):undefined).catch(e=>{console.error(e);process.exitCode=1;});else throw Error('Usage: freeze <new-spec> [smoke] | run <binary> <spec> <part-name> <new-out>');}

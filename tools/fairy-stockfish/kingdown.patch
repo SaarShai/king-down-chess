@@ -1,16 +1,3 @@
-diff --git a/src/Makefile b/src/Makefile
-index 823649f..745da25 100644
---- a/src/Makefile
-+++ b/src/Makefile
-@@ -39,7 +39,7 @@ endif
- 
- ### Source and object files
- SRCS = benchmark.cpp bitbase.cpp bitboard.cpp endgame.cpp evaluate.cpp main.cpp \
--	material.cpp misc.cpp movegen.cpp movepick.cpp pawns.cpp position.cpp psqt.cpp \
-+	kingdown_full.cpp material.cpp misc.cpp movegen.cpp movepick.cpp pawns.cpp position.cpp psqt.cpp \
- 	search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp syzygy/tbprobe.cpp \
- 	nnue/evaluate_nnue.cpp nnue/features/half_ka_v2.cpp \
- 	partner.cpp parser.cpp piece.cpp variant.cpp xboard.cpp \
 diff --git a/src/kingdown_full.cpp b/src/kingdown_full.cpp
 new file mode 100644
 index 0000000..98271b4
@@ -581,7 +568,7 @@ index 3047bf6..03aec3e 100644
 -#endif // #ifndef MOVEGEN_H_INCLUDED
 +#endif
 diff --git a/src/movepick.cpp b/src/movepick.cpp
-index 712e588..aed5c8f 100644
+index 712e588..8879e68 100644
 --- a/src/movepick.cpp
 +++ b/src/movepick.cpp
 @@ -57,15 +57,17 @@ namespace {
@@ -687,9 +674,12 @@ index 712e588..aed5c8f 100644
  
        score<CAPTURES>();
        ++stage;
-@@ -232,8 +241,7 @@ top:
+@@ -230,10 +239,9 @@ top:
+       [[fallthrough]];
+ 
    case QUIET_INIT:
-       if (!skipQuiets && !(pos.must_capture() && pos.has_capture()))
+-      if (!skipQuiets && !(pos.must_capture() && pos.has_capture()))
++      if ((!skipQuiets || pos.kingdown_actions()) && !(pos.must_capture() && pos.has_capture()))
        {
 -          cur = endBadCaptures;
 -          endMoves = generate<QUIETS>(pos, cur);
@@ -697,7 +687,19 @@ index 712e588..aed5c8f 100644
  
            score<QUIETS>();
            partial_insertion_sort(cur, endMoves, -3000 * depth);
-@@ -260,8 +268,7 @@ top:
+@@ -243,8 +251,9 @@ top:
+       [[fallthrough]];
+ 
+   case QUIET:
+-      if (   !skipQuiets
+-          && select<Next>([&](){return   *cur != refutations[0].move
++      // A quiet card may create pieces or change control; ordinary move-count bounds do not apply.
++      if (select<Next>([&](){return (!skipQuiets || pos.kingdown_card_move(*cur))
++                                      && *cur != refutations[0].move
+                                       && *cur != refutations[1].move
+                                       && *cur != refutations[2].move;}))
+           return *(cur - 1);
+@@ -260,8 +269,7 @@ top:
        return select<Next>([](){ return true; });
  
    case EVASION_INIT:
@@ -707,7 +709,7 @@ index 712e588..aed5c8f 100644
  
        score<EVASIONS>();
        ++stage;
-@@ -275,7 +282,7 @@ top:
+@@ -275,7 +283,7 @@ top:
  
    case QCAPTURE:
        if (select<Best>([&](){ return   depth > DEPTH_QS_RECAPTURES
@@ -716,7 +718,7 @@ index 712e588..aed5c8f 100644
            return *(cur - 1);
  
        // If we did not find any move and we do not try checks, we have finished
-@@ -286,8 +293,7 @@ top:
+@@ -286,8 +294,7 @@ top:
        [[fallthrough]];
  
    case QCHECK_INIT:
@@ -1022,7 +1024,7 @@ index 2b5ae3a..0b66077 100644
    int j;
  
 diff --git a/src/position.h b/src/position.h
-index 685c079..f9c4de6 100644
+index 685c079..ca6495f 100644
 --- a/src/position.h
 +++ b/src/position.h
 @@ -62,6 +62,10 @@ struct StateInfo {
@@ -1036,11 +1038,12 @@ index 685c079..f9c4de6 100644
    Bitboard   promotedBycatch;
    Bitboard   demotedBycatch;
    StateInfo* previous;
-@@ -123,6 +127,19 @@ public:
+@@ -123,6 +127,20 @@ public:
    int ranks() const;
    int files() const;
    bool two_boards() const;
 +  bool kingdown_actions() const { return var->kingDownActions; }
++  bool kingdown_card_move(Move m) const { return is_kingdown_action(m) && (kd_power(first_action(m)) || kd_power(m.follow)); }
 +  const KdPosition& kingdown_state() const { return st->kd; }
 +  const KdConfig& kingdown_rules() const { return var->kdRules; }
 +  Piece capture_victim(Move m) const;
@@ -1056,7 +1059,7 @@ index 685c079..f9c4de6 100644
    Bitboard board_bb() const;
    Bitboard board_bb(Color c, PieceType pt) const;
    PieceSet piece_types() const;
-@@ -593,6 +610,8 @@ inline bool Position::nnue_use_pockets() const {
+@@ -593,6 +611,8 @@ inline bool Position::nnue_use_pockets() const {
  }
  
  inline bool Position::nnue_applicable() const {
@@ -1065,7 +1068,7 @@ index 685c079..f9c4de6 100644
    // Do not use NNUE during setup phases (placement, sittuyin)
    return (!count_in_hand(ALL_PIECES) || nnue_use_pockets() || !must_drop())
           && !virtualPieces
-@@ -1176,6 +1195,8 @@ inline Piece Position::unpromoted_piece_on(Square s) const {
+@@ -1176,6 +1196,8 @@ inline Piece Position::unpromoted_piece_on(Square s) const {
  }
  
  inline Piece Position::moved_piece(Move m) const {
@@ -1074,7 +1077,7 @@ index 685c079..f9c4de6 100644
    if (type_of(m) == DROP)
        return make_piece(sideToMove, dropped_piece_type(m));
    return piece_on(from_sq(m));
-@@ -1372,8 +1393,8 @@ inline int Position::pawns_on_same_color_squares(Color c, Square s) const {
+@@ -1372,8 +1394,8 @@ inline int Position::pawns_on_same_color_squares(Color c, Square s) const {
  }
  
  inline Key Position::key() const {
@@ -1085,7 +1088,7 @@ index 685c079..f9c4de6 100644
  }
  
  inline Key Position::pawn_key() const {
-@@ -1434,15 +1455,25 @@ inline bool Position::is_chess960() const {
+@@ -1434,15 +1456,25 @@ inline bool Position::is_chess960() const {
    return chess960;
  }
  
@@ -1114,7 +1117,7 @@ index 685c079..f9c4de6 100644
  
  inline Square Position::capture_square(Square to) const {
 diff --git a/src/search.cpp b/src/search.cpp
-index 651f6bd..895c081 100644
+index 651f6bd..4a875cb 100644
 --- a/src/search.cpp
 +++ b/src/search.cpp
 @@ -75,7 +75,7 @@ namespace {
@@ -1145,7 +1148,15 @@ index 651f6bd..895c081 100644
          && (ss-1)->currentMove != MOVE_NULL
          && (ss-1)->statScore < 23767
          &&  eval >= beta
-@@ -1160,7 +1161,7 @@ moves_loop: // When in check, search starts from here
+@@ -1141,6 +1142,7 @@ moves_loop: // When in check, search starts from here
+ 
+       // Step 13. Pruning at shallow depth (~200 Elo)
+       if (  !rootNode
++          && !pos.kingdown_card_move(move)
+           && (pos.non_pawn_material(us) || pos.count<ALL_PIECES>(us) == pos.count<PAWN>(us))
+           && bestValue > VALUE_TB_LOSS_IN_MAX_PLY)
+       {
+@@ -1160,7 +1162,7 @@ moves_loop: // When in check, search starts from here
                // Capture history based pruning when the move doesn't give check
                if (   !givesCheck
                    && lmrDepth < 1
@@ -1154,7 +1165,7 @@ index 651f6bd..895c081 100644
                    continue;
  
                // SEE based pruning
-@@ -1651,8 +1652,8 @@ moves_loop: // When in check, search starts from here
+@@ -1651,8 +1653,8 @@ moves_loop: // When in check, search starts from here
        if (    bestValue > VALUE_TB_LOSS_IN_MAX_PLY
            && !givesCheck
            && !(   pos.extinction_value() == -VALUE_MATE
@@ -1165,7 +1176,7 @@ index 651f6bd..895c081 100644
            &&  futilityBase > -VALUE_KNOWN_WIN
            &&  type_of(move) != PROMOTION)
        {
-@@ -1660,7 +1661,7 @@ moves_loop: // When in check, search starts from here
+@@ -1660,7 +1662,7 @@ moves_loop: // When in check, search starts from here
            if (moveCount > 2)
                continue;
  
@@ -1174,7 +1185,7 @@ index 651f6bd..895c081 100644
  
            if (futilityValue <= alpha)
            {
-@@ -1815,7 +1816,7 @@ moves_loop: // When in check, search starts from here
+@@ -1815,7 +1817,7 @@ moves_loop: // When in check, search starts from here
      Thread* thisThread = pos.this_thread();
      CapturePieceToHistory& captureHistory = thisThread->captureHistory;
      Piece moved_piece = pos.moved_piece(bestMove);
@@ -1183,7 +1194,7 @@ index 651f6bd..895c081 100644
  
      bonus1 = stat_bonus(depth + 1);
      bonus2 = bestValue > beta + PawnValueMg ? bonus1                                 // larger bonus
-@@ -1854,7 +1855,7 @@ moves_loop: // When in check, search starts from here
+@@ -1854,7 +1856,7 @@ moves_loop: // When in check, search starts from here
      for (int i = 0; i < captureCount; ++i)
      {
          moved_piece = pos.moved_piece(capturesSearched[i]);
@@ -1348,10 +1359,10 @@ index 844d195..bc85c82 100644
  
  inline int dist(Direction d) {
 diff --git a/src/uci.cpp b/src/uci.cpp
-index 584977a..69c4911 100644
+index 584977a..3f4cb6d 100644
 --- a/src/uci.cpp
 +++ b/src/uci.cpp
-@@ -21,10 +21,12 @@
+@@ -21,13 +21,16 @@
  #include <cmath>
  #include <iostream>
  #include <sstream>
@@ -1364,7 +1375,11 @@ index 584977a..69c4911 100644
  #include "position.h"
  #include "search.h"
  #include "thread.h"
-@@ -385,6 +387,75 @@ void UCI::loop(int argc, char* argv[]) {
++#include "movepick.h"
+ #include "timeman.h"
+ #include "tt.h"
+ #include "uci.h"
+@@ -385,6 +388,87 @@ void UCI::loop(int argc, char* argv[]) {
  
        // Additional custom non-UCI commands, mainly for debugging.
        // Do not use these commands during a search!
@@ -1382,6 +1397,18 @@ index 584977a..69c4911 100644
 +              Search::clear();
 +              sync_cout << "kdconfigok " << std::hex << cfg.hash << std::dec << sync_endl;
 +          }
++      }
++      else if (token == "kdpruneinspect" && pos.kingdown_actions()) {
++          Threads.main()->wait_for_search_finished();
++          auto* t = pos.this_thread();
++          const PieceToHistory* ch[6];
++          for (auto& h : ch) h = &t->continuationHistory[0][0][0][0];
++          Move killers[2] = {MOVE_NONE, MOVE_NONE};
++          MovePicker picker(pos, MOVE_NONE, 1, &t->mainHistory, &t->gateHistory,
++                            &t->lowPlyHistory, &t->captureHistory, ch, MOVE_NONE, killers, 0);
++          for (Move m; (m = picker.next_move(true)) != MOVE_NONE;)
++              sync_cout << "retained " << UCI::move(pos, m) << sync_endl;
++          sync_cout << "kdpruneinspectok" << sync_endl;
 +      }
 +      else if (token == "kdlegal" && pos.kingdown_actions()) {
 +          sync_cout << "fen " << pos.fen() << sync_endl;
@@ -1440,7 +1467,7 @@ index 584977a..69c4911 100644
        else if (token == "flip")     pos.flip();
        else if (token == "bench")    bench(pos, is, states);
        else if (token == "d")        sync_cout << pos << sync_endl;
-@@ -531,6 +602,9 @@ string UCI::move(const Position& pos, Move m) {
+@@ -531,6 +615,9 @@ string UCI::move(const Position& pos, Move m) {
            to = to_sq(m);
    }
  
@@ -1450,7 +1477,7 @@ index 584977a..69c4911 100644
    string move = (type_of(m) == DROP ? UCI::dropped_piece(pos, m) + (CurrentProtocol == USI ? '*' : '@')
                                      : UCI::square(pos, from)) + UCI::square(pos, to);
  
-@@ -563,6 +637,22 @@ string UCI::move(const Position& pos, Move m) {
+@@ -563,6 +650,22 @@ string UCI::move(const Position& pos, Move m) {
  /// (g1f3, a7a8q) to the corresponding legal Move, if any.
  
  Move UCI::to_move(const Position& pos, string& str) {

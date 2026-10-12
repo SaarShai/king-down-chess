@@ -101,3 +101,10 @@ The upstream engine and derived patch use GPLv3 or later. Preserve upstream
 `Copying.txt` and provide the exact source as required when distributing it.
 The plugin assessment is in
 `docs/research/fairy-stockfish-plugin-fit-2026-10-11.md`.
+
+Quiet card turns stay in the move picker when the ordinary quiet-move count
+limit is reached. They also bypass shallow move pruning: a drop, control effect
+or held card turn is not bounded by an ordinary quiet move's material effect.
+`kdpruneinspect` lists the retained turns under that shortcut. The card controls
+compare this list with reference complete turns and check that ordinary quiets
+still separate. This repair does not add card prices or a trained evaluator.
