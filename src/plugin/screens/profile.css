@@ -17,6 +17,17 @@
 .totals { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
 .totals b { display: block; font-family: var(--font-display); font-size: var(--fs-xl); }
 .totals span { font-size: var(--fs-xs); color: var(--ink-soft); text-transform: uppercase; letter-spacing: .1em; }
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows li { display: flex; align-items: center; gap: 4px; min-height: 52px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.rows .when { width: 40px; flex: none; font-size: var(--fs-xs); color: var(--ink-soft); }
+.rows .pi { width: 18px; height: 18px; flex: none; }
+.rows b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-md); line-height: 1.2; }
+.rows small { display: block; font-size: var(--fs-xs); color: var(--ink-soft); }
+.rows .feats { flex: none; gap: 2px; }
+.rows .feats .icon { width: 14px; height: 14px; }
+.res { width: 18px; flex: none; text-align: center; font-family: var(--font-display); font-weight: 700; }
+.res-w { color: #3d6b1f; } .res-l { color: var(--accent); } .res-d { color: var(--ink-soft); }
+#profile-more { display: block; margin: var(--space-2) auto 0; }
 @media (min-width: 900px) {
   body[data-page='profile'] .frame dialog.page-sheet { width: min(980px, calc(100% - 48px)); }
   .split { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }

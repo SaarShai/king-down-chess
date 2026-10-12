@@ -5,13 +5,36 @@ import { join } from 'node:path';
 import { chromium, type Browser } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
+import { randomUUID } from 'node:crypto';
+import type { HistoryEntry } from '../src/match/protocol';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 const record = { totals: { played: 23, won: 12, drawn: 3, lost: 8 }, rating: { rating: 1500.4, rd: 350, volatility: 0.06, provisional: true }, badges: [] };
+const history: HistoryEntry[] = Array.from({ length: 23 }, (_, i) => ({ game_id: randomUUID(), finished_at: new Date(Date.UTC(2026, 9, 10, 12 - i)).toISOString(), kind: 'friend', colour: i % 2 ? 'black' : 'white', result: ['won', 'drawn', 'lost'][i % 3] as HistoryEntry['result'], reason: 'resignation', opponent: { handle: i === 0 ? 'abcdefghijklmnopqrst' : i === 3 ? null : `player_${i}`, icon: 'spirit', computer: i === 1 || i === 4, deleted: i === 2, level: i === 1 ? 'club' : null }, features: { fairy: true, arrangement: true, classic: true, cards: true, powers: true, king: 'Spirit', power: 'Mercy' } }));
 beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-profile-test-'));
   const boardPath = join(folder, 'board.html'); await writeFile(boardPath, await readFile('src/plugin/index.html'));
   harness = await startHarness({ boardPath, sourcePage: true }); browser = await chromium.launch({ headless: true });
+});
+it('shows finished details and adds the second page with the unchanged cursor', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history, record } } });
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await expect.poll(() => frame.locator('#profile-history li').count()).toBe(20);
+    expect(await frame.locator('#profile-history li').first().locator('b').textContent()).toBe('abcdefghijklmnopqrst');
+    expect(await frame.locator('#profile-history li').first().locator('.res').textContent()).toBe('W');
+    expect(await frame.locator('#profile-history li').first().locator('small').textContent()).toBe('Resignation');
+    expect(await frame.locator('#profile-history li').first().locator('.feats use').count()).toBe(5);
+    const first = await tool(page, 'kingdown_profile');
+    await frame.locator('#profile-more').click();
+    await expect.poll(() => frame.locator('#profile-history li').count()).toBe(23);
+    expect(await frame.locator('#profile-more').isVisible()).toBe(false);
+    expect(await page.evaluate(() => (window as any).harnessCalls.findLast((c: any) => c.name === 'kingdown_profile').arguments)).toEqual({ before: first._meta.next_before });
+    const ids = await frame.locator('#profile-history li').evaluateAll(els => els.map(el => (el as HTMLElement).dataset.gameId));
+    expect(new Set(ids).size).toBe(23);
+    expect(await frame.locator('#profile-history b').allTextContents()).toEqual(expect.arrayContaining(['Computer · Club', 'Deleted player', 'A player', 'Computer']));
+  } finally { await page.close(); }
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
 async function open() {
