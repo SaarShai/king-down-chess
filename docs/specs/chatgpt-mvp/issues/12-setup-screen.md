@@ -37,3 +37,11 @@ Ticket 10 keeps the initiator's king only in last_setup.king. Create and Find do
 ## Model check point
 
 Four red-to-green steps cover the defaults, old saved choices, toggle and pool limits, and the card-safe king and solo choice. npm test passes 2,298 tests in 151 files, with 8 skipped. The art tests and type check pass. The app check starts with the empty setup stub.
+
+## App check point
+
+The setup page and its three sheets work. Red checks catch an empty stub, an All button that is too wide, a lost Choose reply that stays on setup, and an unchanged king sheet that saves a pick. The fixes pass. The rows keep their text and the footer stays fixed.
+
+The unit run passes 2,298 tests, with 8 skipped and all 50 art tests. Both named plugin checks pass. The built server check passes all 101 art files. The first all-browser run passes 23 of 24 checks; the website Turn check times out at the keyboard End-turn case. No website file changes. The latest layout and safe-inset checks follow the integration sync.
+
+The current local integration tip adds a newer pending and mount recovery contract. The next step merges it, removes the old setup recovery path and checks the current page again. Status stays claimed until these checks pass.
