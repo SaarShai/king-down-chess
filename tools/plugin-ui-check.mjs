@@ -20,6 +20,7 @@ try {
     window.harnessBootDelay = 300;
     window.harnessArrowLines = [];
     window.harnessGhostSymbols = [];
+    window.harnessSwapMarks = 0;
     const paths = new WeakMap(), proto = CanvasRenderingContext2D.prototype;
     const drawImage = proto.drawImage;
     proto.drawImage = function(image, ...args) {
@@ -32,6 +33,7 @@ try {
         if (name === 'beginPath') paths.set(this, []);
         if (name === 'moveTo' || name === 'lineTo') paths.get(this)?.push(args);
         const path = paths.get(this);
+        if (name === 'stroke' && this.strokeStyle === '#7d5ba6') window.harnessSwapMarks++;
         if (name === 'stroke' && this.strokeStyle === '#d63428' && path?.length === 2) window.harnessArrowStart = path[0];
         if (name === 'fill' && this.fillStyle === '#d63428' && path?.length === 4 && window.harnessArrowStart) window.harnessArrowLines.push([window.harnessArrowStart, path[0]]);
         return original.apply(this, args);
@@ -304,6 +306,12 @@ try {
     await page.mouse.click(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (64 + 32 + (7 - rank + .5) * 112) * box.width / 960);
   }
   async function haste() { const result = await (await page.request.post(new URL('/fixture-position?case=haste',base).href)).json(); assert(!result.isError); await page.evaluate(result=>window.harnessShow(result),result); await frame.locator('#status').filter({hasText:'White to move'}).waitFor(); await frame.locator('#reload:not(:disabled)').waitFor(); }
+  await seedBoard('swap');
+  await frame.locator('canvas').evaluate(() => { window.harnessSwapMarks = 0; });
+  await clickSquare(3, 3);
+  await page.waitForFunction(() => document.querySelector('iframe').contentWindow.harnessSwapMarks > 0);
+  assert(await frame.locator('#choices button').count() > 0, 'The Maester fixture offers a swap and PaintedView draws its violet mark');
+  await shot(page, `shell-swap-${mode}`);
   await haste();
   await clickSquare(4, 1);
   assert(await frame.locator('#choices button').count() > 0);
@@ -472,7 +480,8 @@ try {
       })).filter(item => !Number.isFinite(item.error) || item.error > 3);
     }, { sources: iconSources, names: iconNames });
     assert.deepEqual(symbolErrors, [], 'Every piece on both armies matches its own source SVG');
-    await clickSquare(1,0); await frame.locator('canvas').evaluate(() => { window.harnessGhostSymbols = []; });
+    await clickSquare(1,0); await frame.locator('canvas').evaluate(() => { window.harnessGhostSymbols = [];
+    window.harnessSwapMarks = 0; });
     const box = await boardBox(); await page.mouse.move(box.x+(32+.5*112)*box.width/960, box.y+(96+5.5*112)*box.width/960);
     await frame.locator('canvas').evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
     assert(await frame.locator('canvas').evaluate(() => window.harnessGhostSymbols.some(src => /knight-0-/.test(src))), 'The knight move preview uses the same symbol at half opacity');

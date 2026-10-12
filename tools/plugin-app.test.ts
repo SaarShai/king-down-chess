@@ -164,3 +164,28 @@ it('shows the server character rule beside the Free mark for a bad name', async 
     expect(await page.evaluate(() => (window as any).harnessCalls.findLast((c: any) => c.name === 'kingdown_handle').arguments)).toEqual({ handle: 'a?', check: true });
   } finally { await page.close(); }
 });
+it('draws Maester swap marks through the shared board adapter', async () => {
+  const page = await browser.newPage(); page.setDefaultTimeout(5000);
+  await page.addInitScript(() => {
+    (window as any).swapMarks = 0;
+    const stroke = CanvasRenderingContext2D.prototype.stroke;
+    CanvasRenderingContext2D.prototype.stroke = function(...args: any[]) {
+      if (this.strokeStyle === '#7d5ba6') (window as any).swapMarks++;
+      return stroke.apply(this, args as []);
+    };
+  });
+  try {
+    await page.goto(harness.url); const frame = page.frameLocator('iframe');
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    const seeded = await (await page.request.post(new URL('/fixture-position?case=swap', harness.url).href)).json();
+    await page.evaluate(result => (window as any).harnessShow(result), seeded);
+    await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+    const point = await frame.locator('html').evaluate(async () => {
+      const { board } = await new Function('return import("/src/plugin/board-view.ts")')();
+      await board.ready(); return board.screenOf(27);
+    });
+    const pane = await page.locator('iframe').boundingBox();
+    await page.mouse.click(point.x + pane!.x, point.y + pane!.y);
+    await page.frames().find(f => f.url().endsWith('/board-resource'))!.waitForFunction(() => (window as any).swapMarks > 0);
+  } finally { await page.close(); }
+});
