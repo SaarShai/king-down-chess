@@ -183,4 +183,4 @@ Checks on the final code:
 - npm run plugin:build and npm run plugin:server:check: pass. The compiled HTTP and PostgreSQL checks pass on kingdown_mvp11_test. All 101 art files have the right type: 72 WebP, 1 PNG, 24 SVG and 4 woff2.
 - Page size: 520,734 HTML bytes and 522,555 JSON bytes. The page stays below the 1 MB build limit.
 
-Open item: none for step B. The local integration tip is 0609d839 and is already in the branch. The final sync and test follow this result. The separate step A review stays in its next round.
+Open item: none for step B. The local integration tip is 0609d839 and is already in the branch. The final sync reports Already up to date. After the sync, npm test passes 2,281 tests in 148 files, with 8 skipped, and all 50 art tests. The type check passes. The separate step A review stays in its next round.
