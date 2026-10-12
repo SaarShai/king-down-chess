@@ -472,7 +472,7 @@ try {
   {
     const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
     const { tmpdir } = await import('node:os'), { join } = await import('node:path'), { mkdir } = await import('node:fs/promises'), { default: sharp } = await import('sharp');
-    const look = join(tmpdir(), 'kingdown-look', '14'); await mkdir(look, { recursive: true });
+    const look = join(tmpdir(), 'kingdown-look', '14b'); await mkdir(look, { recursive: true });
     const seatTool = async (name, args = {}, buddy = false) => {
       const result = await (await page.request.post(new URL(buddy ? '/fixture-friend-tool' : '/fixture-tool', base).href, { data: { name, arguments: args } })).json();
       assert(!result.isError, `${name}: ${JSON.stringify(result.content)}`); return result;
@@ -551,13 +551,14 @@ try {
     assert(await frame.locator('[data-power="Leap"]').isDisabled(), 'The restored sheet keeps the Cards power limit');
     await frame.locator('#setup-done').click();
     const initial = v.choices[0].order, r = initial.indexOf('R'), n = initial.indexOf('N');
-    await seatTap(n); await page.waitForFunction(() => document.querySelector('iframe').contentWindow.harnessSwapMarks > 0);
+    assert.equal(await frame.locator('#seat-context').innerText(), 'Tap a marked piece to swap the knight with it.', 'The seat starts with the sample knight selected before a board tap');
+    await page.waitForFunction(() => document.querySelector('iframe').contentWindow.harnessSwapMarks > 0);
     await seatFits('seat');
     await seatTap(r); assert.equal(await frame.locator('#last-move').innerText(), rankLine(swapped(initial,n,r),0));
     const beforePawn = await frame.locator('#last-move').innerText(); await seatTap(0,true); assert.equal(await frame.locator('#last-move').innerText(), beforePawn, 'Pawns do not react');
     await seatRemount(); assert.equal(await frame.locator('#last-move').innerText(), rankLine(initial,0), 'A draft remount starts at the server choice');
     const g = initial.indexOf('G'), k = initial.indexOf('K'), away = [...initial].findIndex((p,i) => p !== 'B' && p !== 'K' && Math.abs(i-k) > 1);
-    await seatTap(g); await seatTap(away);
+    await seatTap(n); await seatTap(g); await seatTap(away);
     assert.equal(await frame.locator('#seat-context').innerText(), 'The guard must stand next to the king.');
     assert.equal(await frame.locator('#seat-ready').getAttribute('aria-disabled'), 'true');
     const sends = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_choose').length);
@@ -589,7 +590,7 @@ try {
     const blackOrder = v.choices[1].order, br = blackOrder.indexOf('R'), bn = blackOrder.indexOf('N');
     assert.equal(await frame.locator('#last-move').innerText(), rankLine(blackOrder,1));
     assert(!await frame.locator('#seat-king').isVisible());
-    await seatTap(br); await seatTap(bn);
+    await seatTap(bn); await seatTap(br); await seatTap(bn);
     const blackDraft = swapped(blackOrder,br,bn); assert.equal(await frame.locator('#last-move').innerText(), rankLine(blackDraft,1));
     // Hide the page so the buddy's first Ready cannot reach it through a poll before this Ready.
     await frame.locator('body').evaluate(() => { Object.defineProperty(document,'hidden',{configurable:true,value:true}); document.dispatchEvent(new Event('visibilitychange')); });

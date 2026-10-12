@@ -162,7 +162,7 @@ export function seatScreen() {
   }
   const own = seatChoice(view, memory.settings?.last_setup?.king ?? null); if (!own) return;
   tables().forEach(node => { node.id = node.dataset.seatId!; });
-  if (game !== view.game_id || !choice) { game = view.game_id; choice = own; selected = null; }
+  if (game !== view.game_id || !choice) { game = view.game_id; choice = own; selected = view.options.arrangement && !view.ready?.[view.seat] && own.order.includes('N') ? seatSquare(view.seat, own.order.indexOf('N')) : null; }
   else if (view.ready?.[view.seat]) { choice = own; selected = null; }
   if (!$('seat-board-slot') && !home) { const slot = document.createElement('div'); slot.id = 'seat-board-slot'; $('game-table').prepend(slot); }
   ownBoard(view); render();
