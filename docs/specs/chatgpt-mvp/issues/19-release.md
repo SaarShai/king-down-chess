@@ -20,3 +20,16 @@ Preparation: The [runbook](../release/RUNBOOK.md), [MVP cron SQL](../release/cro
 ## Open items
 
 - `public/delete-data.html` says deletion is "at once", but migration 0008 adds a 7-day grace. The text change ships with the release after the owner's yes.
+
+## Deploy path plan
+
+Owner word, 2026-10-12: "do ticket 19 and anything else you need to do to get it ready to go live. don't stop to ask me."
+
+1. Test the deploy CLI with the existing fake commands. Make the default path check and publish the one-project tree. Keep the separate plugin path as legacy.
+2. Test the private-file configuration path. Set the server keys for `kingdown`. Refuse mail keys and keep values out of logs.
+3. Test the unsigned live check on a local server. Check the consent query and static art headers. Check the prebuilt routes against the former website configuration.
+4. Run the full tests with `kingdown_mvp19d_test`, the combined build and its local check, and the shell syntax check. Commit and push this branch.
+
+Pass criteria: each changed path first fails its test. All gates run before a fake publish. Only the combined tree can publish to `kingdown`. Both live checks use the release timeout. No live action runs. The docs agent owns the release packet and public pages.
+
+Deploy gates, publication and configuration pass their red/green cycles. `npm test` passes: 2,355 tests, eight skips, and 50 artwork checks. The 35 deploy tests use fake commands and local HTTP only. The art and consent-query checks come next.

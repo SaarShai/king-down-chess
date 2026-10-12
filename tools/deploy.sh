@@ -1,48 +1,50 @@
 #!/bin/bash
 # deploy: the only path to the live site (secrets-and-public-gates/09). Bash 3.2 and BSD tools.
 #
-#   tools/deploy.sh             Test a fresh origin/main. Publish nothing.
-#   tools/deploy.sh --publish   Test, publish the tested build, then confirm the live site.
-#   tools/deploy.sh --target plugin [--publish]   Check or publish the separate plugin.
-#   tools/deploy.sh --setup-plugin   Link the empty plugin project. Publish nothing.
-#   tools/deploy.sh --configure-plugin <private-env-file>   Set its production environment.
+#   tools/deploy.sh             Check the combined tree from a fresh origin/main. Publish nothing.
+#   tools/deploy.sh --publish   Publish that tested tree to kingdown, then run both live checks.
+#   tools/deploy.sh --configure <private-env-file>   Set kingdown's production server keys.
+#   Legacy until the old project retires:
+#   tools/deploy.sh --target plugin [--publish]   Check or publish kingdown-plugin.
+#   tools/deploy.sh --setup-plugin | --configure-plugin <private-env-file>
 #
-# The script takes no ref. It fetches origin and makes a detached worktree of origin/main in a new
-# temp folder, so a local commit that is not on origin has no effect. In that worktree it runs the
-# worktree's own `tools/wt.sh add <path>` (packages), `npm test` and `npm run check:browser` (the
-# browser-check runner, which builds the app into dist/). It stops at the first failure and names
-# the step. It removes the worktree and its folder on every exit: pass, failure or interrupt.
+# No ref is accepted. A detached origin/main worktree runs npm test and the default browser checks,
+# then build:vercel, the engine guards, check:vercel, the MCP protocol and the plugin UI checks.
+# PLUGIN_TEST_DATABASE_URL must name a disposable loopback database ending in _test.
+# A build that adds an uncommitted engine stops. KINGDOWN_ENGINES_DATABASE_URL enables the read-only
+# check of engines in use; without it the script reports that check as skipped.
 #
-# With --publish (secrets-and-public-gates/10), it then copies the tested dist/ into a folder named
-# `kingdown`, links that folder to the Vercel project `kingdown` and deploys it to production with the
-# pinned Vercel CLI. Then the worktree's own tools/deploy-live-check.mjs fetches the live site
-# (DEPLOY_LIVE_URL, default https://kingdown.dev) with no cookie for up to 2 minutes: the bundle name
-# and the privacy, terms and delete-data pages must match the build.
-#
-# The plugin target also guards the engine archive (engines/, G2). The build adds a new engine there, so a
-# release fails while the new bundle is not on origin/main. With KINGDOWN_ENGINES_DATABASE_URL set (the
-# database of the live games; read-only), tools/engines-check.mjs fails when an unfinished game uses an
-# engine that the built artifact lacks. Without it the script skips that check and says so.
+# --publish copies the tested Build Output API tree, links the approved team and project, and uses
+# the pinned CLI with --prebuilt --prod. No website-only tree can publish to kingdown.
+# Both unsigned live checks use DEPLOY_LIVE_TIMEOUT_MS (default 120000; migration window 900000).
+# The site check compares the bundle and legal pages. The plugin check uses https://kingdown.dev.
+# Every exit removes the temporary worktree and artifact copy.
 set -eu
 
 # The pinned Vercel CLI: the last version that deployed the site (2026-10-03). npx gets its own --yes,
 # because the dev-environment spec sets yes=false in .npmrc, and then npx asks before an install.
 vercel=vercel@62.2.0
-plugin_scope=saars-projects-2c777ec5
+scope=saars-projects-2c777ec5
 plugin_project_id=prj_2H4LcrzOXCQbFuKbq0z0G7lCFFC6
 plugin_origin=https://kingdown-plugin.vercel.app
 
 die() { echo "deploy: $*" >&2; exit 2; }
-usage="usage: tools/deploy.sh [--target website|plugin] [--publish] | --setup-plugin | --configure-plugin <private-env-file>"
+usage="usage: tools/deploy.sh [--target website|plugin] [--publish] | --configure <private-env-file> | --setup-plugin | --configure-plugin <private-env-file>"
 
 # Parse the arguments before anything changes on disk.
 publish=no
 target=website
 target_set=no
 setup_plugin=no
-configure_plugin=''
-if [ $# -eq 1 ] && [ "$1" = --setup-plugin ]; then setup_plugin=yes; shift; fi
-if [ $# -eq 2 ] && [ "$1" = --configure-plugin ]; then configure_plugin=$2; [ -n "$configure_plugin" ] || die "$usage"; shift 2; fi
+configure=''
+if [ $# -eq 1 ] && [ "$1" = --setup-plugin ]; then setup_plugin=yes; target=plugin; shift; fi
+if [ $# -eq 2 ]; then
+  case "$1" in
+    --configure|--configure-plugin)
+      [ "$1" != --configure-plugin ] || target=plugin
+      configure=$2; [ -n "$configure" ] || die "$usage"; shift 2 ;;
+  esac
+fi
 while [ $# -gt 0 ]; do
   case "$1" in
     --publish) [ "$publish" = no ] || die "$usage"; publish=yes; shift ;;
@@ -53,14 +55,14 @@ while [ $# -gt 0 ]; do
     *) die "$usage" ;;
   esac
 done
-if [ "$target" = plugin ]; then
+if [ "$setup_plugin" = no ] && [ -z "$configure" ]; then
   [ -n "${PLUGIN_TEST_DATABASE_URL:-}" ] || die 'set PLUGIN_TEST_DATABASE_URL to a disposable loopback database ending in _test'
   node --input-type=module - <<'NODE'
 try {
   const db = new URL(process.env.PLUGIN_TEST_DATABASE_URL);
   if (!['postgres:', 'postgresql:'].includes(db.protocol) || !['localhost', '127.0.0.1', '[::1]'].includes(db.hostname) || !db.pathname.endsWith('_test') || db.search || db.hash) throw new Error();
 } catch {
-  console.error('deploy: plugin tests need a disposable loopback database ending in _test, without URL query options');
+  console.error('deploy: tests need a disposable loopback database ending in _test, without URL query options');
   process.exit(2);
 }
 NODE
@@ -111,41 +113,59 @@ engines_committed() {
   return 1
 }
 
-verify_plugin_project() {
-  node --input-type=module - "$1" <<'NODE'
+verify_project() {
+  node --input-type=module - "$1" "$2" <<'NODE'
 import { readFileSync } from 'node:fs';
 const project = JSON.parse(readFileSync('.vercel/project.json', 'utf8'));
-const expected = process.argv[2];
-if (project.orgId !== 'team_mIlANWWDRbX1NT4jgJn9jAna' || project.projectName !== 'kingdown-plugin' ||
+const [name, expected] = process.argv.slice(2);
+if (project.orgId !== 'team_mIlANWWDRbX1NT4jgJn9jAna' || project.projectName !== name ||
     !/^prj_[A-Za-z0-9]+$/.test(project.projectId) || (expected && project.projectId !== expected)) {
-  console.error('deploy: linked plugin project does not match the approved team and project'); process.exit(1);
+  console.error('deploy: linked project does not match the approved team and project'); process.exit(1);
 }
-console.log(`deploy: plugin project ${project.projectId} in ${project.orgId}`);
+console.log(`deploy: ${name} project ${project.projectId} in ${project.orgId}`);
 NODE
 }
 
-if [ "$setup_plugin" = yes ] || [ -n "$configure_plugin" ]; then
+if [ "$target" = plugin ]; then
+  project=kingdown-plugin
+  artifact=plugin-deploy/.vercel/output
+  expected=$plugin_project_id
+  origin=$plugin_origin
+  kind=plugin
+  publish_step='publish plugin'
+  echo 'deploy: legacy kingdown-plugin path; retire it after the transition week'
+else
+  project=kingdown
+  artifact=kingdown-deploy/.vercel/output
+  expected=''
+  origin=https://kingdown.dev
+  kind=site
+  publish_step=publish
+fi
+
+if [ "$setup_plugin" = yes ] || [ -n "$configure" ]; then
   unset VERCEL_PROJECT_ID VERCEL_ORG_ID
   base=$(mktemp -d "${TMPDIR:-/tmp}/deploy.XXXXXX")
   base=$(cd "$base" && pwd -P)
-  if [ -n "$configure_plugin" ]; then
-    step 'validate plugin environment' node "$script_dir/deploy-plugin-env.mjs" "$configure_plugin" "$base/env"
+  if [ -n "$configure" ]; then
+    step "validate $kind environment" node "$script_dir/deploy-plugin-env.mjs" "$configure" "$base/env" "$target"
   fi
-  mkdir "$base/kingdown-plugin"
-  cd "$base/kingdown-plugin"
-  step 'link plugin project' npx --yes "$vercel" link --project kingdown-plugin --scope "$plugin_scope" --yes </dev/null
-  step 'verify plugin project' verify_plugin_project "$plugin_project_id"
-  if [ -n "$configure_plugin" ]; then
-    for name in KINGDOWN_PLUGIN_ORIGIN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS KINGDOWN_PLUGIN_DATABASE_URL KINGDOWN_PLUGIN_OAUTH_READY; do
+  mkdir "$base/$project"
+  cd "$base/$project"
+  step "link $kind project" npx --yes "$vercel" link --project "$project" --scope "$scope" --yes </dev/null
+  step "verify $kind project" verify_project "$project" "$expected"
+  if [ -n "$configure" ]; then
+    for value in "$base/env/"*; do
+      name=${value##*/}
       echo "deploy: set production $name"
-      if ! npx --yes "$vercel" env add "$name" production --force --sensitive --yes --scope "$plugin_scope" < "$base/env/$name" > "$base/env-result.log" 2>&1; then
+      if ! npx --yes "$vercel" env add "$name" production --force --sensitive --yes --scope "$scope" < "$value" > "$base/env-result.log" 2>&1; then
         die "failed to set production $name; CLI output is withheld to protect values"
       fi
     done
   else
-    step 'inspect plugin project' npx --yes "$vercel" project inspect kingdown-plugin --scope "$plugin_scope" </dev/null
+    step 'inspect plugin project' npx --yes "$vercel" project inspect "$project" --scope "$scope" </dev/null
   fi
-  echo 'deploy: plugin project is linked; published nothing'
+  echo "deploy: $project is linked; published nothing"
   exit 0
 fi
 
@@ -159,10 +179,20 @@ echo "deploy: worktree $dir at $commit"
 step 'make worktree' git worktree add --quiet --detach "$dir" "$commit"
 cd "$dir"
 step 'wt add' ./tools/wt.sh add "$dir"
-if [ "$target" = plugin ]; then step 'plugin test database' npm run plugin:db:init-test; fi
+step 'plugin test database' npm run plugin:db:init-test
 step 'npm test' npm test
 if [ "$target" = website ]; then
   step 'browser checks' npm run check:browser
+  step 'site artifact' npm run build:vercel
+  step 'engine archive' engines_committed
+  if [ -n "${KINGDOWN_ENGINES_DATABASE_URL:-}" ]; then
+    step 'engines in use' node tools/engines-check.mjs kingdown-deploy/.vercel/output/functions/mcp.func/runtime/engines
+  else
+    echo 'deploy: KINGDOWN_ENGINES_DATABASE_URL is not set; skipped the check of engines in use'
+  fi
+  step 'site HTTP check' npm run check:vercel
+  step 'plugin protocol check' npm run plugin:check:protocol
+  step 'plugin browser checks' npm run check:browser plugin-ui plugin-ui-http
 else
   step 'plugin artifact' npm run plugin:build:vercel
   step 'engine archive' engines_committed
@@ -182,26 +212,16 @@ if [ $publish = no ]; then
 fi
 
 echo "deploy: checks passed at $commit; publishing the tested build"
-if [ "$target" = plugin ]; then
-  [ -n "$plugin_project_id" ] && [ -n "$plugin_origin" ] || die 'pin the approved plugin project and origin before publication'
-  site=$base/kingdown-plugin
-  mkdir -p "$site/.vercel"
-  step 'copy plugin artifact' cp -R "$dir/plugin-deploy/.vercel/output" "$site/.vercel/output"
-  cd "$site"
-  unset VERCEL_PROJECT_ID VERCEL_ORG_ID
-  step 'link plugin project' npx --yes "$vercel" link --project kingdown-plugin --scope "$plugin_scope" --yes </dev/null
-  step 'verify plugin project' verify_plugin_project "$plugin_project_id"
-  step 'publish plugin' npx --yes "$vercel" deploy --prebuilt --prod --scope "$plugin_scope" --yes </dev/null
-  step 'plugin live check' node "$dir/tools/deploy-plugin-live-check.mjs" "$site/.vercel/output/functions/mcp.func" "$plugin_origin"
-  echo "deploy: published plugin $commit; unsigned live checks pass"
-  exit 0
-fi
-site=$base/kingdown
-step 'copy build' cp -R "$dir/dist" "$site"
-step 'copy consent route' cp "$dir/vercel.json" "$site/vercel.json"
+site=$base/$project
+mkdir -p "$site/.vercel"
+step 'copy artifact' cp -R "$dir/$artifact" "$site/.vercel/output"
 cd "$site"
-# No input: the CLI never waits for an answer.
-step 'publish' npx --yes "$vercel" link --project kingdown --yes </dev/null
-step 'publish' npx --yes "$vercel" deploy --prod --yes </dev/null
-step 'live check' node "$dir/tools/deploy-live-check.mjs" "$site"
-echo "deploy: published $commit; the live site serves it"
+unset VERCEL_PROJECT_ID VERCEL_ORG_ID
+step "link $kind project" npx --yes "$vercel" link --project "$project" --scope "$scope" --yes </dev/null
+step "verify $kind project" verify_project "$project" "$expected"
+step "$publish_step" npx --yes "$vercel" deploy --prebuilt --prod --scope "$scope" --yes </dev/null
+if [ "$target" = website ]; then
+  step 'live check' node "$dir/tools/deploy-live-check.mjs" "$site/.vercel/output/static"
+fi
+step 'plugin live check' node "$dir/tools/deploy-plugin-live-check.mjs" "$site/.vercel/output/functions/mcp.func" "$origin"
+echo "deploy: published $commit to $project; live checks pass"
