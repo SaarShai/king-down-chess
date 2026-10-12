@@ -1,12 +1,18 @@
 import { build } from 'vite';
+import { parse } from 'postcss';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 const output = resolve(process.argv[2] || 'dist-plugin-ui');
 // Matches ART_ORIGIN in src/plugin/server.ts, which swaps in the server's public origin.
 const ART_ORIGIN = 'https://kingdown-art.invalid';
-const gameStyle = (await readFile(resolve('src/style.css'), 'utf8')).replaceAll("'/fonts/", "'../../public/fonts/").replaceAll("'/ui/", "'../../public/ui/");
-const tableStyle = await readFile(resolve('src/ui/table.css'), 'utf8');
+const shared = parse((await readFile(resolve('src/style.css'), 'utf8')) + '\n' + await readFile(resolve('src/ui/table.css'), 'utf8'));
+shared.walkRules(rule => {
+  const selectors = rule.selectors.filter(selector => !/[#.](?:lesson[\w-]*|account[\w-]*|delete-account|title-lineup)\b/.test(selector));
+  if (selectors.length) rule.selectors = selectors; else rule.remove();
+});
+shared.walkAtRules(rule => { if (rule.nodes?.every(node => node.type === 'comment')) rule.remove(); });
+const gameStyle = shared.toString().replaceAll("'/fonts/", "'../../public/fonts/").replaceAll("'/ui/", "'../../public/ui/");
 // The art leaves the page: hashed files under plugin-art/, loaded by absolute URL. The board scene asks for each
 // image in CORS mode (crossOrigin 'anonymous'), so its getImageData works on art from the plugin origin.
 await build({ configFile: false, root: resolve('src/plugin'), base: './', publicDir: false, plugins: [{ name: 'game-style-assets', enforce: 'pre', async load(id) {
@@ -18,7 +24,7 @@ await build({ configFile: false, root: resolve('src/plugin'), base: './', public
   });
   return `export default [${urls.join(',')}];`;
 }, transform(code, id) {
-  if (id === resolve('src/plugin/app.css')) return code.replace("@import '../style.css';", gameStyle).replace("@import '../ui/table.css';", tableStyle);
+  if (id === resolve('src/plugin/app.css')) return code.replace("@import '../style.css';", gameStyle).replace("@import '../ui/table.css';", '');
 } }], experimental: { renderBuiltUrl: (file, { hostType }) => hostType === 'html' ? { relative: true } : `${ART_ORIGIN}/${file}` },
   build: { outDir: output, emptyOutDir: true, assetsDir: 'plugin-art', assetsInlineLimit: 0, cssCodeSplit: false, rolldownOptions: { output: { codeSplitting: false } } } });
 let html = await readFile(resolve(output, 'index.html'), 'utf8');
