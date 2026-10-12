@@ -235,3 +235,41 @@ it('opens the human game when Abort is closed on the computer game', async () =>
     expect(await frame.locator('html').evaluate(async (_, id) => (await (window as any).harnessApp.client.call('kingdown_get', { game_id: id }, { background: true }))._meta.view.status, solo.game_id)).toBe('playing');
   } finally { await page.close(); }
 });
+it('keeps Accept through handle Save when the board has no game', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await buddy(page, 'kingdown_create', { kind: 'random', options, colour: 'white' });
+    await frame.locator('html').evaluate(() => {
+      const app = (window as any).harnessApp, send = app.client.call; let blocked = false;
+      app.client.call = async (name: string, args: any, opts: any) => {
+        if (name === 'kingdown_accept' && !blocked) { blocked = true; return { isError: true, content: [{ type: 'text', text: 'Choose a handle first' }], _meta: { code: 'HANDLE_NEEDED' } }; }
+        return send(name, args, opts);
+      };
+    });
+    await frame.locator('#home-play').click(); await frame.locator('#random').click(); await frame.locator('#lobby-list .accept').first().waitFor();
+    await frame.locator('#lobby-list .accept').first().click(); await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+    await frame.locator('#save-handle').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+  } finally { await page.close(); }
+});
+it('keeps Join through handle Save and sends nothing when Back cancels it', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const created = await buddy(page, 'kingdown_create', { kind: 'friend', options, colour: 'white' });
+    const invite = await buddy(page, 'kingdown_invite', { game_id: created._meta.view.game_id });
+    await frame.locator('html').evaluate(() => {
+      const app = (window as any).harnessApp, send = app.client.call; let blocked = true; (parent as any).ticketJoins = 0;
+      app.client.call = async (name: string, args: any, opts: any) => {
+        if (name === 'kingdown_handle' && !args?.check) blocked = false;
+        if (name === 'kingdown_join' && !args?.preview) { (parent as any).ticketJoins++; if (blocked) return { isError: true, content: [{ type: 'text', text: 'Choose a handle first' }], _meta: { code: 'HANDLE_NEEDED' } }; }
+        return send(name, args, opts);
+      };
+    });
+    await frame.locator('#home-play').click(); await frame.locator('#token').fill(invite.structuredContent.code); await frame.locator('#join').click(); await frame.locator('#join-confirm').waitFor();
+    await frame.locator('#join-confirm').click(); await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+    expect(await page.evaluate(code => JSON.stringify((window as any).harnessWidgetState).includes(code), invite.structuredContent.code)).toBe(false);
+    await frame.locator('#page-back').click(); await frame.locator('[data-screen="join"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).ticketJoins)).toBe(1);
+    await frame.locator('#join-confirm').click(); await frame.locator('[data-screen="handle"]:not([hidden])').waitFor(); await frame.locator('#save-handle').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+  } finally { await page.close(); }
+});

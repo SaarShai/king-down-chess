@@ -1,12 +1,13 @@
-import { call, client, memory, routeView, start } from '../app';
+import { call, client, memory, navigate, routeView, start } from '../app';
 import { DEFAULT_OPTIONS } from '../../match/setup';
 import type { InboxEntry, Lobby, View } from '../../match/protocol';
 import { runPoll } from '../poll';
 import { $, featureNames, features, icon, onStop, portrait, row, showError } from './friend';
-let poll: ReturnType<typeof runPoll> | undefined, finding = false, accepting = false;
+let poll: ReturnType<typeof runPoll> | undefined, finding = false, accepting = false, afterHandle: string | undefined;
 // The list uses the runner's visible 15-second schedule, with no board position.
 const listClock = { kind: 'random', status: 'playing', speed: 'daily', seat: 0, turn: 0, opponent: null, last_commands: [], server_now: '' } as unknown as View;
 export function lobbyScreen() {
+  if (afterHandle && memory.me?.handle) { const game = afterHandle; afterHandle = undefined; void acceptGame(game); return; }
   const setup = memory.settings?.last_setup;
   $('find-features').replaceChildren(features(setup?.options ?? DEFAULT_OPTIONS));
   $('find-opponent').onclick = async () => {
@@ -34,23 +35,28 @@ async function readLobby() {
       const minutes = Math.max(0, Math.floor((Date.parse(lobby.server_now) - Date.parse(game.created_at)) / 60000));
       const entry = row(game.creator.handle, portrait(game.creator.icon), [features(game.options), `· open ${minutes} min`]); entry.classList.add('game-row');
       const accept = document.createElement('button'); accept.className = 'accept'; accept.textContent = 'Accept';
-      accept.onclick = async () => {
-        if (accepting || finding) return; accepting = true;
-        try {
-          const next = await call('kingdown_accept', { game_id: game.game_id }, false, false, false);
-          if (next) routeView(next);
-          else if (client.state.screen === 'lobby') {
-            const error = $('error');
-            if (/open game|seat cannot|no longer available|cannot be accepted/i.test(error.textContent ?? '')) { error.textContent = 'Someone else took this game'; await readLobby(); }
-          }
-        } finally { accepting = false; }
-      };
+      accept.onclick = () => void acceptGame(game.game_id);
       entry.append(accept); return entry;
     }));
     $('lobby-status').textContent = '';
   } catch (error) { if (client.state.screen === 'lobby') showError(error, $('lobby-status')); }
 }
+async function acceptGame(game: string) {
+  if (accepting || finding) return; accepting = true;
+  try {
+    const result = await client.call('kingdown_accept', { game_id: game });
+    if (result.isError) {
+      if (result._meta?.code === 'HANDLE_NEEDED') { afterHandle = game; navigate('handle'); return; }
+      if (['NOT_ALLOWED','FORBIDDEN'].includes(String(result._meta?.code))) { await readLobby(); $('lobby-status').textContent = 'Someone else took this game'; return; }
+      throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+    }
+    const next = result._meta?.view as View | undefined; if (next) routeView(next);
+  } catch (error) { showError(error, $('lobby-status')); }
+  finally { accepting = false; }
+}
 function stop() { poll?.stop(); poll = undefined; }
-const observer = new MutationObserver(() => { if (client.state.screen !== 'lobby') stop(); });
+const observer = new MutationObserver(() => { if (client.state.screen !== 'lobby') stop(); if (!['lobby','handle'].includes(client.state.screen)) afterHandle = undefined; });
 observer.observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
-onStop(() => { stop(); observer.disconnect(); });
+const back = () => { if (client.state.screen === 'handle') afterHandle = undefined; };
+$('page-back').addEventListener('click', back, true);
+onStop(() => { stop(); observer.disconnect(); $('page-back').removeEventListener('click', back, true); });

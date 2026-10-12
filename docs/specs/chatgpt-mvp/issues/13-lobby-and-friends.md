@@ -31,12 +31,12 @@ The merger resolves the shared navigation GAP in `7a01f5f8`. The check permits s
 
 The required results of tickets 07, 10 and both parts of 11 are present. The client background option, poll runner, four route stubs and clipboard permission are present.
 
-The four screens are built. The source-page checks pass: 11 tests, 50 art tests and the type check. They cover code creation, both copy paths, preview and Decline, Accept, the 25-second offer, default seat choices, Switch, Not now, refused Abort, the 5-to-15-second poll schedule, hidden pages, teardown, the second-Find guard, code errors and remount recovery.
+The four screens are built. The source-page checks pass: 13 tests, 50 art tests and the type check. They cover code creation, both copy paths, preview and Decline, Accept, the 25-second offer, default seat choices, Switch, Not now, refused Abort, the 5-to-15-second poll schedule, hidden pages, teardown, the second-Find guard, code errors and remount recovery.
 
 The wait clock stays in place through Play and the computer handoff. Hidden-clock checks use fastForward: runFor repeats painted frames that the check does not need. The local screen comment records the wait-clock rule.
 
 Delegated choices: Find uses last_setup, else DEFAULT_OPTIONS and White. The computer offer uses the open game's options and colour, the saved level or Club, and default ready seat choices. These are delegated choices, not an owner's yes.
 
-GAP: the current shared client omits the code from saved pending data. Its resend path adds game_id to each pending call other than Create or Find. Join takes no game_id. Join therefore uses the client directly and keeps its retry through handle Save in page memory. A remount needs the code again. No shared client, router or server file changes.
+GAP: the shared resend path checks the board's bound game for each call other than Create or Find. Accept targets another game. The same path adds game_id to Join, which accepts no game_id. Accept and Join therefore use the client directly and keep their retry through handle Save in page memory. Back clears that retry. A remount needs a new tap on Accept or the code again. No shared client, router or server file changes.
 
 The compiled page, browser checks, size record and sample comparisons remain open.
