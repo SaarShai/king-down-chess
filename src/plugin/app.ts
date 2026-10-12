@@ -178,7 +178,7 @@ async function mountResult(result: ToolResult, initial: boolean) {
     saveState();
   } catch (error) { $('error').textContent = $('home-error').textContent = String(error); }
   finally {
-    mountReading = false; retryState();
+    mountReading = false; if (pending?.error) retryState();
     if (state.screen in screens) screens[state.screen as keyof typeof screens]();
     poll?.update();
     if (initial && connected && memory.settings) $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = false;

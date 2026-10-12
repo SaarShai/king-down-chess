@@ -132,6 +132,8 @@ try {
   await openPlay();
   await handleGate();
   assert.equal(await frame.locator('#presets button').count(), 17, 'The name screen has the 17 game pictures');
+  assert.equal(await frame.locator('[data-screen="handle"] .quiet-line').last().innerText(), 'Each name is unique. You pick it once, at your first game against a person.');
+  assert.equal(await frame.locator('#page-back').innerText(), '‹ Play');
 
   async function fits(screen, width) {
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
@@ -164,6 +166,8 @@ try {
         const settings = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_settings', arguments: {} } })).json();
         assert.equal(await frame.locator('#me-handle').innerText(), settings._meta.me.handle, 'Settings shows the server handle');
         assert(await frame.locator('.sym-demo img').evaluateAll(images => images.length === 2 && images.every(image => image.naturalWidth > 0)), 'Settings shows the painted knight and its own symbol');
+        assert.deepEqual(await frame.locator('.set-line').first().evaluate(el => { const css = getComputedStyle(el); return [css.marginTop,css.marginBottom]; }), ['-6px','6px'], 'Settings keeps the sample help spacing');
+        assert.equal(await frame.locator('[data-screen="settings"] .quiet-line').innerText(), 'Your settings and your record go with you to any device and any chat.');
       }
       await shot(page, `shell-${screen}-${width}-${mode}`);
     }

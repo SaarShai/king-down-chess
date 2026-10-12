@@ -46,6 +46,7 @@ it('recovers a completed create or find after its reply is lost', async () => {
   for (const kind of ['friend', 'random']) {
     const page = await open(), frame = page.frameLocator('iframe'), name = kind === 'friend' ? 'kingdown_create' : 'kingdown_find';
     try {
+      if (kind === 'random') await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); });
       await page.evaluate(name => { (window as any).dropNextReply = name; }, name);
       await frame.locator('html').evaluate((_, kind) => {
         const host = window as any; host.harnessApp.navigate('setup');
@@ -193,4 +194,16 @@ it('declares inline and fullscreen modes in the App handshake', async () => {
   const page = await open();
   try { expect(await page.evaluate(() => (window as any).harnessDeclaredModes)).toEqual(['inline', 'fullscreen']); }
   finally { await page.close(); }
+});
+it('keeps a failed mount read visible without a pending send', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp; await app.call('kingdown_create', { kind: 'friend' }); app.navigate('play');
+    });
+    await page.evaluate(() => { (window as any).rejectNextGet = true; });
+    await page.locator('#remount').click();
+    await frame.locator('#error').filter({ hasText: 'Harness saved-game read failed' }).waitFor();
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+  } finally { await page.close(); }
 });
