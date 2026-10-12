@@ -257,3 +257,7 @@ Final checks before the integration merge:
 - Page size: 518,246 HTML bytes; 520,055 JSON bytes in the standalone server check.
 
 All Part 2 exports stay in place. Open items in this fix round: none. The final local integration merge and its test result follow.
+
+### Fix round 2 integration merge
+
+The branch merges local integration tip 7a01f5f8 with no conflict. It keeps the integration check that lets navigation read but rejects write calls. No app or server code changes in this merge. After the merge, npm test passes 2,302 tests in 150 files, with 8 skipped. All 50 art tests and the type check pass. Status stays resolved.
