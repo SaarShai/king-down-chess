@@ -85,3 +85,47 @@ it('updates activity on unchanged replies across the two-minute poll boundary', 
     })).toEqual({ delay: 30000, now: '2026-10-11T12:00:02Z' });
   } finally { await page.close(); }
 });
+it('keeps the start screen through HANDLE_NEEDED, Back, Save and deferred routing', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.evaluate(() => { (window as any).requireHandleNext = true; });
+    await start(page, false);
+    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+    expect(await frame.locator('#error').textContent()).toBe('');
+    expect(await frame.locator('#page-back').textContent()).toBe('‹ Play');
+    await frame.locator('#page-back').click();
+    expect(await frame.locator('[data-screen="setup"]').isVisible()).toBe(true);
+    await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('handle'); });
+    await frame.locator('#save-handle').click();
+    await frame.locator('html').evaluate(() => new Promise<void>(resolve => {
+      const tick = () => (window as any).startResult ? resolve() : setTimeout(tick, 10); tick();
+    }));
+    expect(await frame.locator('html').evaluate(() => (window as any).startResult.status)).toBe('waiting');
+    expect(await frame.locator('[data-screen="setup"]').isVisible()).toBe(true);
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+  } finally { await page.close(); }
+});
+it.each([true, false])('keeps route=%s through Save, a failed send and Retry', async route => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.evaluate(() => { (window as any).requireHandleNext = true; (window as any).failActionAfterHandle = true; });
+    await start(page, route);
+    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+    await frame.locator('#save-handle').click();
+    await frame.locator('#retry').waitFor();
+    expect(await frame.locator('#error').textContent()).toContain('Harness action after Save failed');
+    await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('settings'); });
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+    expect(await frame.locator('#error').textContent()).toBe('');
+    await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('setup'); });
+    await frame.locator('#retry').click();
+    await frame.locator('html').evaluate(() => new Promise<void>(resolve => {
+      const tick = () => (window as any).startResult ? resolve() : setTimeout(tick, 10); tick();
+    }));
+    expect(await frame.locator('html').evaluate(() => (window as any).startResult.status)).toBe('waiting');
+    expect(await frame.locator(`[data-screen="${route ? 'friend' : 'setup'}"]`).isVisible()).toBe(true);
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+  } finally { await page.close(); }
+});

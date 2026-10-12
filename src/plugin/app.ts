@@ -32,6 +32,7 @@ let view: View | undefined, rules: { game: string; value: NonNullable<View['rule
 let busy = false, polling = false, mountReading = true;
 let poll: ReturnType<typeof runPoll> | undefined;
 let pending = state.pending;
+let handleBack: Screen = pending?.screen ?? 'settings';
 const drawBoard = boardScreen(call, () => busy || !!pending);
 const router = createRouter((name, args, retain) => call(name, args, retain, false, false), navigate, show, () => !!pending);
 export const { routeView, start } = router;
@@ -87,7 +88,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
       if (quiet && (busy || view !== before)) return;
     }
     if (result.isError) {
-      if (result._meta?.code === 'HANDLE_NEEDED') { pending = { name, args }; saveState(); navigate('handle'); return; }
+      if (result._meta?.code === 'HANDLE_NEEDED') { pending ??= { name, args, game_id: view?.game_id, screen: state.screen }; pending.error = undefined; pending.error_screen = undefined; saveState(); navigate('handle'); return; }
       const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
       if (definitive.includes(String(result._meta?.code))) { pending = undefined; saveState(); if (retain) router.finishStart(); }
       throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
@@ -99,7 +100,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     }
     show(next); received = next;
     if (name === 'kingdown_get' && !quiet) await games();
-    if (name === 'kingdown_handle') { followup = pending; navigate(followup ? 'play' : 'settings'); }
+    if (name === 'kingdown_handle') { followup = pending; navigate(followup?.screen ?? handleBack); }
     const resumedStart = retain && next ? router.finishStart(next) : false;
     if (next && !resumedStart && (route ?? ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'].includes(name))) routeView(next);
     if (name === 'kingdown_invite') { const { code } = result.structuredContent as { code: string }; $('invitation').textContent = `Share this code: ${code}`; }
@@ -196,12 +197,13 @@ const connection = app.connect().then(() => {
 }).catch(error => { $('error').textContent = $('home-error').textContent = `Could not connect to the game: ${String(error)}`; });
 
 export function navigate(screen: Screen) {
+  if (screen === 'handle' && state.screen !== 'handle') handleBack = state.screen === 'settings' ? 'settings' : pending?.screen ?? state.screen;
   state.screen = screen; retryState();
   document.body.dataset.page = screen;
   document.querySelectorAll<HTMLElement>('[data-screen]').forEach(el => { el.hidden = el.dataset.screen !== screen; });
   $('app-frame').hidden = screen === 'home';
   $('page-head').hidden = screen === 'home' || screen === 'play';
-  $('page-back').textContent = screen === 'handle' && !pending ? '‹ Settings' : screen === 'collection' ? '‹ Profile' : '‹ Play';
+  $('page-back').textContent = screen === 'handle' && handleBack === 'settings' ? '‹ Settings' : screen === 'collection' ? '‹ Profile' : '‹ Play';
   $('page-title').textContent = ({ setup: 'New game', friend: 'A friend', join: 'Join a game', wait: 'Looking for an opponent', lobby: 'Open games', seat: 'Set up your side', end: 'Game over', profile: 'Profile', collection: 'Collection', settings: 'Settings', handle: 'Pick a name and a picture' } as Partial<Record<Screen,string>>)[screen] ?? '';
   if (!mountReading && screen in screens) screens[screen as keyof typeof screens]();
   client.save(); poll?.update();
@@ -270,7 +272,7 @@ $<HTMLInputElement>('handle').oninput = scheduleHandleCheck;
 $('home-play').onclick = () => void fullscreen('play');
 $('home-games').onclick = () => void fullscreen('profile');
 document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => { button.onclick = () => navigate(button.dataset.nav as Screen); });
-$('page-back').onclick = () => navigate(state.screen === 'handle' && !pending ? 'settings' : state.screen === 'collection' ? 'profile' : 'play');
+$('page-back').onclick = () => navigate(state.screen === 'handle' ? handleBack : state.screen === 'collection' ? 'profile' : 'play');
 app.onhostcontextchanged = () => hostContext(app.getHostContext());
 navigate(state.screen);
 

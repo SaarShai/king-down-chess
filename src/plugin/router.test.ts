@@ -27,21 +27,8 @@ it('starts each kind as a pending call and lets a caller defer the route', async
   expect(screens).toEqual(['seat', 'seat']);
 });
 
-it('returns the pending start reply after handle Save or Retry, with the caller’s route choice', async () => {
-  let pending = true;
-  const screens: string[] = [], calls: string[] = [];
-  const next = { kind: 'solo', status: 'setup', options: {} } as View;
-  const router = createRouter(async name => { calls.push(name); return undefined; }, screen => { screens.push(screen); }, () => {}, () => pending);
-  const deferred = router.start('solo', {}, { route: false });
-  await Promise.resolve();
-  expect(router.finishStart(next)).toBe(true);
-  expect(await deferred).toBe(next); expect(screens).toEqual([]);
-  const routed = router.start('friend'); await Promise.resolve();
-  expect(router.finishStart(next)).toBe(true);
-  expect(await routed).toBe(next); expect(screens).toEqual(['seat']);
+it('can cancel a pending start when the page closes', async () => {
+  const router = createRouter(async () => undefined, () => {}, () => {}, () => true);
   const cancelled = router.start('random'); await Promise.resolve();
   router.finishStart(); expect(await cancelled).toBeUndefined();
-  pending = false; expect(await router.start('solo')).toBeUndefined();
-  expect(router.finishStart(next)).toBe(false);
-  expect(calls).toEqual(['kingdown_create', 'kingdown_create', 'kingdown_find', 'kingdown_create']);
 });
