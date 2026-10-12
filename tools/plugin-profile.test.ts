@@ -80,6 +80,7 @@ it('puts open games first with your turn first and resumes the tapped game', asy
     expect(await waiting.locator('b').last().textContent()).toBe('Open game');
     expect(await waiting.locator('small').textContent()).toBe('Waiting for an opponent');
     for (const row of [live, waiting]) {
+      expect(await row.locator('small').evaluate(el => getComputedStyle(el).fontWeight)).toBe('400');
       expect(await row.locator('.pi').getAttribute('alt')).toBe('white king');
       expect(await row.locator('.portrait, .row-ico, i').count()).toBe(0);
       const bounds = await row.evaluate(el => ['.when', '.pi', '.grow'].map(selector => { const r = el.querySelector(selector)!.getBoundingClientRect(); return { left: r.left, right: r.right }; }));
