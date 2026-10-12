@@ -1,6 +1,6 @@
 # 13 · Lobby and friends
 
-Status: needs-info
+Status: in-progress
 Type: AFK
 Size: M
 Blocked by: 11
@@ -27,12 +27,8 @@ Use the screen actions through the tool client and the browser fixture as test b
 
 ## Result
 
-The build stops at the base check. No screen code changes.
+The merger resolves the shared navigation GAP in `7a01f5f8`. The check permits screen entry reads and still refuses writes. This branch merges the local integration tip before the build.
 
-- The worktree is `claude/mvp-13-lobby`. Its base is integration tip `1a2b0eccfd96e52c1a8307606e0b07eaaa33b463`.
-- All 3 required base results are present: ticket 07, ticket 10 and both parts of ticket 11. The shared screen stubs, client background option and poll runner are present. Clipboard write permission and its server test are present.
-- GAP: `tools/plugin-ui-check.mjs:118-123` opens Lobby and Join, then requires the tool-call count to stay the same. This ticket requires a Lobby read on entry and a Join preview from the Play code field. Each required read changes that count. Both plugin checks use this assertion.
-- The brief permits additions only in this ticket's check block. The conflicting assertion is in the shared shell block. A change there needs the shared check owner's action or a scope change. No screen workaround can keep both the required entry reads and the zero-call assertion.
-- Tests, the page build and browser checks do not run. No runtime code changes. Page size and look renders do not apply to this checkpoint.
+The required results of tickets 07, 10 and both parts of 11 are present. The client background option, poll runner, four route stubs and clipboard permission are present.
 
-Open item: change the shared navigation check to allow the Lobby and Join entry reads. Keep its checks that navigation creates no game and that codes stay out of widget state. Then return this ticket to `ready-for-agent`.
+Work starts with the friend screen. The plan and checks above still apply.

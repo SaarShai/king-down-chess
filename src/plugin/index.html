@@ -44,7 +44,11 @@
 </div></section>
 
 <section data-screen="setup" hidden></section>
-<section data-screen="friend" hidden></section>
+<section data-screen="friend" hidden><div class="new-game-body">
+<p>Send this code to your friend.</p><p id="friend-status" role="alert"></p><div id="friend-code" class="game-code"></div>
+<button id="friend-copy" class="primary wide-btn" hidden><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span class="label">Copy the code</span></button><button id="friend-new" class="primary wide-btn">Make a new code</button><p id="friend-copy-status" class="quiet-line" role="status"></p>
+<p id="friend-help" class="quiet-line"></p><h3 class="group-head">This game</h3><div id="friend-game"></div><button id="friend-cancel" class="quiet wide-btn">Cancel the game</button>
+</div></section>
 <section data-screen="join" hidden></section>
 <section data-screen="wait" hidden></section>
 <section data-screen="lobby" hidden></section>
