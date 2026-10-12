@@ -134,6 +134,27 @@ it('blocks Retry and screen actions until both mount reads finish', async () => 
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(switched._meta.view.game_id);
   } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseHeldGet?.(); }); await page.close(); }
 });
+it('refreshes the Play rows after Create and Move from the page', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => {
+      await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false } });
+    });
+    const game_id = await page.evaluate(() => (window as any).harnessView.game_id);
+    await frame.locator('#page-back').click();
+    const row = frame.locator(`#games-list [data-game-id="${game_id}"]`);
+    await row.waitFor();
+    expect(await row.locator('.line').textContent()).toBe('Your turn · move 1');
+    await row.click(); await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    await frame.locator('html').evaluate(async (_, game_id) => {
+      await (window as any).harnessApp.call('kingdown_move', { game_id, command_id: 'play-rows-move', expected_revision: 0, lan: 'e2-e4' }, true);
+    }, game_id);
+    await frame.locator('#page-back').click();
+    await row.locator('.line').filter({ hasText: 'Their turn · move 1' }).waitFor();
+    expect(await row.locator('.turn-mark').count()).toBe(0);
+    expect(await frame.locator('html').evaluate((_, game_id) => (window as any).harnessApp.memory.games.find((entry: any) => entry.game_id === game_id).revision, game_id)).toBe(1);
+  } finally { await page.close(); }
+});
 it('updates activity on unchanged replies across the two-minute poll boundary', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

@@ -205,7 +205,7 @@ try {
 
   const backCalls = await page.evaluate(() => window.harnessCalls.length);
   await openPlay();
-  assert.equal(await page.evaluate(() => window.harnessCalls.length), backCalls, 'Back changes only the page');
+  assert.deepEqual(await page.evaluate(n => window.harnessCalls.slice(n).map(call => call.name), backCalls), ['kingdown_games'], 'Back refreshes the rows after a game change');
   await legacyStart('solo');
   await frame.locator('#reload:not(:disabled)').waitFor();
   await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();

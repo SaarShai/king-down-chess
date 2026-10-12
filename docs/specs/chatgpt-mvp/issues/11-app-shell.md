@@ -244,3 +244,5 @@ Checks: use the approved app seam in tools/plugin-app.test.ts and both plugin br
 2. Page buttons and board actions wait for both mount reads. The test holds the account read and the board read, tries Retry during each wait, and checks that no old move is sent. All 15 app tests pass; the next test fails because Play has no row for the new game.
 
 3. Widget state saves an 8-character game tag and safe pending args. It saves no full game ID, code or handle. Page memory keeps the full call. Retry gets the current game ID from the board and drops a command for another tag. Page move IDs use hex text, so widget state has no UUID other than board_id. The client test fails before the fix, then all 5 client tests, all 50 art tests and the type check pass. The plugin browser check now checks every widget write with a UUID regex.
+
+4. Play refreshes kingdown_games after the view changes. Replies with _meta.games still update the shared rows. The app test creates a game, goes back, moves and goes back again. Its rows show the new game and then Their turn. All 16 app tests, all 50 art tests and the type check pass.

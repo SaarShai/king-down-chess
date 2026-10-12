@@ -29,7 +29,7 @@ const state = client.state;
 let awaitingInitialResult = true;
 let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
-let busy = false, polling = false, mountReading = true;
+let busy = false, polling = false, mountReading = true, gamesDirty = false;
 let poll: ReturnType<typeof runPoll> | undefined;
 let pending = state.pending;
 let handleBack: Screen = pending?.screen ?? 'settings';
@@ -58,6 +58,7 @@ function show(next: View | undefined) {
   if (next.rules) rules = { game: next.game_id, value: next.rules };
   // A full read carries the rules; a reply without them is for a game this board no longer shows.
   if (next.fen && rules?.game !== next.game_id) return;
+  if (view?.game_id !== next.game_id || view.revision !== next.revision || view.status !== next.status || view.action !== next.action) gamesDirty = true;
   if (view?.game_id !== next.game_id) $('invitation').textContent = '';
   view = next;
   if (rules?.game === next.game_id) setRules(rules.value);
@@ -142,7 +143,7 @@ $('random').onclick = () => { memory.kind = 'random'; navigate('lobby'); };
 $('join-form').onsubmit = event => { event.preventDefault(); memory.code = $<HTMLInputElement>('token').value.trim(); navigate('join'); };
 type ToolResult = Awaited<ReturnType<typeof client.call>>;
 function renderGames(entries: InboxEntry[]) {
-  memory.games = entries;
+  memory.games = entries; gamesDirty = false;
   $('games-status').textContent = entries.length ? '' : 'No active games.';
   $('home-line').textContent = `Your move in ${entries.filter(entry => entry.action === 'ready').length} games.`;
   gamesList($('games-list'), entries, (name, args) => call(name, args, false, false, false), routeView); actions();
@@ -225,6 +226,7 @@ export function navigate(screen: Screen) {
   $('page-title').textContent = ({ setup: 'New game', friend: 'A friend', join: 'Join a game', wait: 'Looking for an opponent', lobby: 'Open games', seat: 'Set up your side', end: 'Game over', profile: 'Profile', collection: 'Collection', settings: 'Settings', handle: 'Pick a name and a picture' } as Partial<Record<Screen,string>>)[screen] ?? '';
   if (!mountReading && screen in screens) screens[screen as keyof typeof screens]();
   client.save(); actions(); poll?.update();
+  if (screen === 'play' && gamesDirty && !mountReading) void games();
   if (screen === 'settings') void applySettings();
   if (screen === 'handle') scheduleHandleCheck(); else { clearTimeout(handleTimer); handleCheck++; }
 }
