@@ -23,7 +23,7 @@ This guide uses the repository's private connection notes. The owner checks the 
 
 - **Computer**: choose **Beginner**, **Casual**, **Club**, or **Strong**. Club is the first default. Pick **White**, **Black**, or **Random** under **You play**. Select **Start game**. The computer replies after your move.
 - **A friend**: choose the features, then select **Start game**. On **Your game code**, select **Copy the code**. Send the six-character code to your friend. The friend adds King Down, then says “Join King Down game K7QX2M” with your code. Or the friend types the code under **Join with a code** in **Play** and selects **Join**. Review the features. Select **Join** or **Decline**. A code lasts seven days. Use **Make a new code** if it expires.
-- **A random player**: choose the features, then select **Start game**. In **Open games**, select a game with **Accept**, or select **Find an opponent**. This takes the oldest open game or opens yours. After 25 seconds, **Play the computer while you wait** appears. Your open game stays for 24 hours, also when you close ChatGPT. When **Opponent found** appears, select **Switch now** or **Not now**. Switch now ends the computer game with no result. Use **Cancel my open game** to stop waiting.
+- **A random player**: choose the features, then select **Start game**. In **Open games**, select a game with **Accept**, or select **Find an opponent**. This takes the oldest open game or opens yours. A repeated random-game request keeps one open game. For a friend or random game, use the app to choose features first. If a chat request has no features, open **Play** and set them there. After 25 seconds, **Play the computer while you wait** appears. Your open game stays for 24 hours, also when you close ChatGPT. When **Opponent found** appears, select **Switch now** or **Not now**. Switch now ends the computer game with no result. Use **Cancel my open game** to stop waiting.
 
 At your first game with a person, pick a unique **Name** and a preset **Picture**, then select **Save**. Your opponent sees these. Your real name and provider photo do not show.
 
@@ -39,13 +39,17 @@ The first defaults are Fairy pieces on, Arrangement on, Classic chess off, Cards
 | **Cards** | Both players get the same four cards. Open the button that shows the number of **cards** to choose the deal pool. Keep at least four checked. Both hands show. A card you play leaves only your hand. |
 | **King powers** | Tap your king coin to choose a king and a power. With Cards on, only powers that are always on are available. With powers off, White uses Spirit and Black uses Shadow. |
 
-For a game with a person, each player chooses their own king and order when these controls are on. Each selects **Ready**. The orders stay hidden until both players are ready. Setup lasts up to three days. An unfinished setup ends with no result.
+For a game with a person, each player chooses their own king and order when these controls are on. Each selects **Ready**. The seat then says **Waiting for the other player.** Use **Menu → Abort** to cancel setup while it is available. The orders stay hidden until both players are ready. Setup lasts up to three days. An unfinished setup ends with no result.
 
 ## Play and return
 
-Tap your piece, then its destination or a move choice. Select a card or power when you want to use it. Check that the move stays after you reopen the game. Use **Your games** to return to an open game.
+Tap your piece, then its destination or a move choice. Tap a card or power coin to read its rule. Select **Use** if it shows, then tap a marked square or select **Choose a move**. **Cancel** clears that choice. **Stop here** ends a turn that permits another move. Check that the move stays after you reopen the game. Use **Your games** to return to an open game.
 
-The game controls offer resign, draw, and rematch. A rematch keeps the features and swaps colours. Before each side's first move, either player can abort with no result. After an opponent misses the three-day move limit, you can claim the win. No email or push alert arrives. Open **Your games** to check your turn.
+The board shows **Resign** and **Menu**. In a game with a person, it also shows **Offer draw**. Select **Offer draw** and confirm. Your opponent uses **Accept draw** or **Decline draw**, then **Accept** or **Decline** to confirm. **Resign** opens **Lay your king down?**; confirm **Resign** or select **Keep playing**.
+
+Open **Menu** for **Abort**, **Claim the win** or **End game** when available. Before each side's first move, **Abort** ends the game with no result. After a missed first-move deadline, **End game** ends it with no result. After a later missed three-day deadline, **Claim the win** gives you the win. **Moves** shows the move list. **Reload** reads the current game.
+
+The end card shows **You win**, **You lose** or **Draw**, with the end reason. Human games can show **Rating**, a **?** and a rating change. An earned badge shows **New badge**. **Rematch** keeps the features and swaps colours. Your opponent uses **Accept** or **Decline**. **Your games** opens the profile scroll. No email or push alert arrives. Open **Your games** to check your turn.
 
 ## Profile and settings
 
@@ -57,7 +61,7 @@ Open **Settings** from Play or Profile. **Symbols only** replaces painted pieces
 
 ## Send a test report
 
-Use the private report channel that the owner gives you. The app has no Report or Block control in this build. For a problem, send:
+Use the private report channel that the owner gives you. The app has no Report or Block control in this build. Chat has no report tool. For a problem, send:
 
 - Web or iPhone; app or browser version; date and time.
 - Play mode, colour, computer level, and each feature switch.
