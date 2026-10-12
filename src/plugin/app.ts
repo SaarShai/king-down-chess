@@ -33,7 +33,7 @@ let busy = false, polling = false, mountReading = true;
 let poll: ReturnType<typeof runPoll> | undefined;
 let pending = state.pending;
 let handleBack: Screen = pending?.screen ?? 'settings';
-const drawBoard = boardScreen(call, () => busy || !!pending);
+const drawBoard = boardScreen(call, () => busy || mountReading || !!pending);
 const router = createRouter((name, args, retain) => call(name, args, retain, false, false), navigate, show, () => !!pending);
 export const { routeView, start } = router;
 const screens = { setup: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
@@ -45,6 +45,12 @@ function retryState() {
   $('error').textContent = message ?? '';
 }
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
+function actions() {
+  const blocked = busy || mountReading || !connected;
+  buttons().forEach(button => { button.disabled = blocked; });
+  $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
+  $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = blocked || !memory.settings;
+}
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
 function show(next: View | undefined) {
   if (!next) return;
@@ -74,7 +80,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
   const before = view;
   let followup: Pending | undefined, received: View | undefined;
   if (quiet) polling = true;
-  else { busy = true; buttons().forEach(b => b.disabled = true); $('error').textContent = ''; }
+  else { busy = true; actions(); $('error').textContent = ''; }
   if (retain) {
     if (pending?.name !== name || pending.args !== args) pending = { name, args, game_id: view?.game_id, started_at: Date.now(), screen: state.screen };
     pending.error = undefined; pending.error_screen = undefined; saveState();
@@ -116,7 +122,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
   } catch (error) { if (quiet && (busy || view !== before)) return; const message = error instanceof Error ? error.message : 'Could not update the game.';
     if (retain && pending) { pending.error = message; pending.error_screen = state.screen; saveState(); }
     $('error').textContent = message; $('retry').hidden = !pending?.error || pending.error_screen !== state.screen; }
-  finally { if (quiet) polling = false; else { busy = false; buttons().forEach(b => b.disabled = false); } }
+  finally { if (quiet) polling = false; else { busy = false; actions(); } }
   if (followup) void call(followup.name, followup.args, true, false, undefined, true);
   return received;
 }
@@ -133,7 +139,7 @@ function renderGames(entries: InboxEntry[]) {
   memory.games = entries;
   $('games-status').textContent = entries.length ? '' : 'No active games.';
   $('home-line').textContent = `Your move in ${entries.filter(entry => entry.action === 'ready').length} games.`;
-  gamesList($('games-list'), entries, (name, args) => call(name, args, false, false, false), routeView);
+  gamesList($('games-list'), entries, (name, args) => call(name, args, false, false, false), routeView); actions();
 }
 function remember(result: ToolResult) {
   if (result._meta?.settings) memory.settings = result._meta.settings as PlayerSettings;
@@ -150,7 +156,7 @@ app.ontoolresult = result => {
   void mountResult(result, initial);
 };
 async function mountResult(result: ToolResult, initial: boolean) {
-  mountReading = true;
+  mountReading = true; actions();
   try {
     await connection;
     const value = result.structuredContent as Record<string, unknown> | undefined;
@@ -187,7 +193,7 @@ async function mountResult(result: ToolResult, initial: boolean) {
     mountReading = false; if (pending?.error) retryState();
     if (state.screen in screens) screens[state.screen as keyof typeof screens]();
     poll?.update();
-    if (initial && connected && memory.settings) $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = false;
+    actions();
   }
 }
 app.onclose = () => { connected = false; poll?.stop(); router.finishStart(); };
@@ -212,7 +218,7 @@ export function navigate(screen: Screen) {
   $('page-back').textContent = screen === 'handle' && handleBack === 'settings' ? '‹ Settings' : screen === 'collection' ? '‹ Profile' : '‹ Play';
   $('page-title').textContent = ({ setup: 'New game', friend: 'A friend', join: 'Join a game', wait: 'Looking for an opponent', lobby: 'Open games', seat: 'Set up your side', end: 'Game over', profile: 'Profile', collection: 'Collection', settings: 'Settings', handle: 'Pick a name and a picture' } as Partial<Record<Screen,string>>)[screen] ?? '';
   if (!mountReading && screen in screens) screens[screen as keyof typeof screens]();
-  client.save(); poll?.update();
+  client.save(); actions(); poll?.update();
   if (screen === 'settings') void applySettings();
   if (screen === 'handle') scheduleHandleCheck(); else { clearTimeout(handleTimer); handleCheck++; }
 }
@@ -284,7 +290,7 @@ navigate(state.screen);
 
 async function applySettings() {
   if (!memory.settings) return;
-  $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = false;
+  actions();
   $<HTMLInputElement>('symbols-only').checked = memory.settings.symbols_only;
   $<HTMLInputElement>('show-threats').checked = memory.settings.show_threats;
   await setSettings(memory.settings);

@@ -102,6 +102,38 @@ it('recovers a lost Create or Find reply on mount without another send', async (
     } finally { await page.close(); }
   }
 });
+it('blocks Retry and screen actions until both mount reads finish', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); });
+    await page.evaluate(() => { (window as any).dropNextMoveReply = true; });
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_move', { game_id: app.memory.view.game_id, command_id: 'held-mount-move', expected_revision: 0, lan: 'e2-e4' }, true);
+    });
+    await frame.locator('#retry').waitFor();
+    const board_id = await page.evaluate(() => (window as any).harnessWidgetState.privateContent.board_id);
+    const switched = await (await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name: 'kingdown_create', arguments: { kind: 'solo', colour: 'white', board_id } } })).json();
+    expect(switched.isError).toBeFalsy();
+    const sends = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').length);
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_settings'; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
+    expect(await frame.locator('#retry').isDisabled()).toBe(true);
+    expect(await frame.locator('button:visible').evaluateAll(buttons => buttons.every(button => (button as HTMLButtonElement).disabled))).toBe(true);
+    await frame.locator('#retry').evaluate(button => button.click());
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').length)).toBe(sends);
+    await page.evaluate(() => { (window as any).holdNextGet = true; (window as any).releaseHeld(); });
+    await page.waitForFunction(() => typeof (window as any).releaseHeldGet === 'function');
+    expect(await frame.locator('#retry').isDisabled()).toBe(true);
+    await frame.locator('#retry').evaluate(button => button.click());
+    await page.evaluate(() => { (window as any).releaseHeldGet(); });
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').length)).toBe(sends);
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(switched._meta.view.game_id);
+  } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseHeldGet?.(); }); await page.close(); }
+});
 it('updates activity on unchanged replies across the two-minute poll boundary', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

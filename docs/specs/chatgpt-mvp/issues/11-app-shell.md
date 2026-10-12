@@ -240,3 +240,5 @@ Checks: use the approved app seam in tools/plugin-app.test.ts and both plugin br
 ## Fix round 2 result
 
 1. Retry, Save and mount use one board recovery check. A lost Create reply does not make a second game. Find also recovers the board it selects. The start keeps its route option and returns the recovered view. The Save and mount tests fail with the old paths. The Save fix passes the full suite: 2,295 tests in 150 files, with 8 skipped; all 50 art tests and the type check pass. All 14 app tests pass after the mount fix. The next test then catches an active Retry during the account read.
+
+2. Page buttons and board actions wait for both mount reads. The test holds the account read and the board read, tries Retry during each wait, and checks that no old move is sent. All 15 app tests pass; the next test fails because Play has no row for the new game.
