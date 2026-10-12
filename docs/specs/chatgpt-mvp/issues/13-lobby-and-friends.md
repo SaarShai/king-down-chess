@@ -53,4 +53,38 @@ Kept look differences: the check host has a 24-pixel Remount control and an empt
 
 The old local PostgreSQL cluster lacks its version file and file map. A new disposable cluster runs at `127.0.0.1:55432`, in `/tmp/kingdown-mvp13-pg-8vmlww4u`. It holds `kingdown_mvp13_test`. The full suite and HTTP check pass on that cluster. Other ticket databases need creation there before use.
 
-Open items: the shared handle-retry and phone-frame GAPs above. The four screens need no further change here.
+### Fix round
+
+- Switch keeps the successful Abort receipt. A retry sends only Resume.
+- Automatic Choose keeps its command ID through Retry. Success reads the full game and opens the computer board.
+- When a stale code preview ends, Join reads the current code. Decline takes no seat in the old game.
+- A computer-board mount reads the latest joined random game from the server list. The game must exist before the computer starts and change after that start. This excludes old joins. Recovery runs once at mount.
+
+Each of the four new app-page tests fails before its fix. All 19 lobby tests now pass. The first full run finds a clock pause race; the checks now use one fixed pause time. The compiled checks find an old-game prompt; the recovery filter above fixes it.
+
+Checks on the final code:
+
+- `npm test`: 153 files pass; 2,337 tests pass; 8 tests skip. All 50 art tests and the type check pass. Database tests use `kingdown_mvp13_test` at `127.0.0.1:55432`.
+- `npm run plugin:build`: pass. The page has 597,669 HTML bytes and 600,342 MCP JSON bytes.
+- `npm run check:browser plugin-ui plugin-ui-http`: 2 of 2 pass. The fixture check takes 187.7 seconds. The HTTP database check takes 154.4 seconds.
+
+The merger runs the full browser set on another machine. This branch has no new integration merge.
+
+### Open items
+
+- Tests for rejected Accept paths.
+- Tests for code-error paths through the controls.
+- Tests for friend Cancel.
+- Tests for a replacement code after remount.
+- Tests for feature rows in old saved games.
+- Tests for colours and levels in the wait flow.
+- Tests for the online-count threshold.
+- The shared handle-retry GAP above. Accept and Join keep the retry in page memory.
+- The shared phone-frame GAP above. Ticket 11 owns the frame.
+
+## Fix round plan and checks
+
+1. Add one app-page test for each reported failure. Confirm each failure before the code change.
+2. Keep the Abort receipt, complete Choose through Retry, read a new code after a stale read, and recover a joined game on mount.
+3. Run `npm test`, `npm run plugin:build`, and `npm run check:browser plugin-ui plugin-ui-http`. Record counts, page size, and the seven test gaps.
+4. Commit each fix, then commit the result and push this branch. The merger owns integration.
