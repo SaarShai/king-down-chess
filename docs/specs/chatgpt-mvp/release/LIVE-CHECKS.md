@@ -23,6 +23,9 @@ Each required row must pass before testers start. For the side-panel and sidebar
 | Friend · web | A copies a six-character code. B joins by chat. Repeat with Join with a code. Preview, decline once, join, and finish a game. | |
 | Friend · iPhone | Repeat with A and B on phones. Both pick their own king and order, then Ready. Orders stay hidden until both are ready. | |
 | Random · web | A opens a game. B sees its features and Accept. Repeat with Find an opponent taking the oldest game. | |
+| Random request twice · both devices | A starts a random game, then repeats the request before anyone joins. Your games shows one open random game. Cancel it once; no second open game remains. | |
+| Create options · both devices | Friend and random chat requests with no options ask for game features or return a clear error. Open Play, choose features and Start game; the new game uses those features. No silent fixed setup starts. | |
+| Report boundary · both devices | Chat does not list or call kingdown_report. The app has no Report or Block control. The report tool stays app-only on the server. Use the private test report channel. | |
 | Random · iPhone | Repeat acceptance and Find. With no open opponent, wait 25 seconds, then play the computer. The open game stays. | |
 | Opponent found · both devices | B joins while A plays the computer. Not now keeps the computer. Switch now opens the human game and ends the computer game with no result. | |
 | Waiting game · both devices | Close ChatGPT and reopen Your games. The waiting game stays. Cancel my open game removes it. Confirm the 24-hour expiry with a due test game. | |
@@ -30,7 +33,8 @@ Each required row must pass before testers start. For the side-panel and sidebar
 | Piece pool · both devices | Change the kinds. Locks prevent too small a pool. Arrangement keeps opposite-colour bishops and a guard next to the king. Shuffle gives a legal order. | |
 | Card pool · both devices | Keep four checked; the last boxes lock. Both players get the same four. A played card leaves only that player's hand. | |
 | King picker · both devices | Pick both powers where allowed. With Cards on, powers with uses stay unavailable. With powers off, White is Spirit and Black is Shadow. | |
-| Actions · both devices | Resign; offer, decline, and accept a draw; abort before both first moves; claim a due win; accept and decline a rematch. Results and swapped rematch colours are correct. | |
+| Actions · both devices | Offer draw and confirm; Accept draw or Decline draw and confirm. Resign opens Lay your king down? with Resign and Keep playing. Menu offers Abort before both first moves, End game for a missed first move, and Claim the win for a later missed deadline. Accept and decline a Rematch. Results and swapped colours are correct. | |
+| End card · both devices | You win, You lose or Draw agrees with the result. Check the end reason, human Rating and change, ? while new, New badge where earned, Rematch or Accept/Decline and Your games. Your games opens the profile scroll. | |
 | Resume and retry · both devices | Close a chat after a move. Resume in a new chat on the other device. One accepted move stays one move after Retry. | |
 | Profile · web | Check open games first, turn marks, totals, history date, opponent, colour, result, end reason, feature icons, More, rating, and ten badge goals. Only human games change rating. | |
 | Profile · iPhone | Repeat. Tap an open game to resume. Tap earned and unearned badges. | |

@@ -43,6 +43,16 @@ repository.
 stand-in for Supabase's `auth` schema, and checks the trigger, the policies, the grants, the
 newer-copy rule and the deletion, with the attacks a signed-in player could try on another's data. It needs `npm install --no-save @electric-sql/pglite` first.
 
+## Plugin foundation: 0002 to 0004
+
+Apply these files after `0001_accounts.sql`, in this order:
+
+- `0002_matches.sql`: the old plugin match, command and invitation tables.
+- `0003_plugin_boards.sql`: account-owned board links.
+- `0004_plugin_board_recovery.sql`: a deleted match keeps its board for recovery.
+
+Install the audience hook and runtime-role blocks 1–2 once, through the private admin path.
+
 ## Online games: 0005 to 0013
 
 Not applied yet. Apply them in order, after 0001–0004, with a privileged connection
@@ -55,16 +65,17 @@ new code needs 0005–0013 and the role blocks: its start check (`tools/plugin-d
 serve without them, so every path of the function answers 503 and the next request tries again. Do it
 in one short window:
 
-1. Run `tools/deploy.sh --target plugin` (the checks only; it publishes nothing).
-2. Run `tools/deploy.sh --target plugin --publish` with `DEPLOY_LIVE_TIMEOUT_MS=900000`. When the
-   publish step ends, the live check waits, because the server answers 503.
-3. While it waits, apply 0005–0013, then blocks 3–9 of `plugin-deploy/runtime-role.sql`. The next
-   request starts the server, and the live check passes.
-4. Before cron starts, confirm that the host in `ops/cron.sql` serves `/internal/*`.
-   The current `--target plugin` build has no route for these paths. The site build has
-   the route, but this release order publishes only the plugin target. Ticket 19 must
-   close this gap before it starts tick and daily jobs. Do not run cron against a host
-   that cannot serve them.
+1. Run `tools/deploy.sh` with no flag. It tests the one-project tree and publishes nothing.
+2. Run `DEPLOY_LIVE_TIMEOUT_MS=900000 tools/deploy.sh --publish` with the owner's word. It
+   publishes the `npm run build:vercel` tree to project `kingdown`. The live check waits while
+   the function returns 503.
+3. While it waits, apply 0005–0013, then blocks 3–9 of `plugin-deploy/runtime-role.sql`. For this
+   MVP, first apply only missing 0005–0009 and blocks 3–6. Then paste the whole guarded
+   [apply-0010-0013.sql](../docs/specs/chatgpt-mvp/release/apply-0010-0013.sql). It checks the
+   foundation, then applies 0010, block 7, 0011, 0012, block 8, 0013 and block 9 in one transaction.
+   The next request starts the server, and both live checks pass.
+4. Before cron starts, confirm the one-project function serves `/internal/*` on `kingdown.dev`.
+   Use the [release runbook](../docs/specs/chatgpt-mvp/release/RUNBOOK.md) for checks and recovery.
 
 - `0005_accounts_v2.sql`: handles, a preset icon and the privacy settings on `profiles`
   (signed-in players read only `id`, `rating`, `handle` and `icon`: no longer the name and photo
@@ -87,7 +98,7 @@ in one short window:
   `auth.sessions`; a token refresh keeps its session and cancels nothing). The server asks through
   `kingdown_jobs.request_deletion`, which sets the dates: the server role cannot write them. `reports.content` keeps the
   reported handle or preset, and `mod_actions.handle` the handle that a rename or hide took away.
-  The website text still says that a deletion is at once: change it before you apply 0008.
+  The public deletion text must show the seven-day grace before you expose 0008.
   Staff names that no player may take go in `reserved_handles` with reason `blocked`.
 - `0009_invite_tries.sql`: one row for each player that counts the invitation-code tries in one hour.
   The game service refuses an 11th try (`RATE_LIMITED`) on the website and in ChatGPT; the 43-character
@@ -111,14 +122,16 @@ in one short window:
 `src/match/results.db.test.ts`, `src/online/jobs.db.test.ts`, `src/online/accounts.db.test.ts` and
 `src/api/http.db.test.ts` check them.
 
-## Job schedules: ops/cron.sql
+## Job schedules for the private MVP
 
 Not a migration: the local test database has no pg_cron or pg_net. After the deploy that serves
 `/internal/*`, turn on pg_cron and pg_net, store the internal secret in Vault as
-`kingdown_internal_secret`, then paste `ops/cron.sql` into the SQL editor. The server reads the same
+`kingdown_internal_secret`, then paste only
+[docs/specs/chatgpt-mvp/release/cron-mvp.sql](../docs/specs/chatgpt-mvp/release/cron-mvp.sql) into
+the SQL Editor for this MVP. `ops/cron.sql` is the source copy. The server reads the same
 secret from `KINGDOWN_INTERNAL_SECRET` (at least 32 characters; without it, `/internal/*` answers 503). It schedules
 `/internal/tick` (each minute), `/internal/daily` (03:17 UTC) and cron history cleanup.
 The MVP sends no email. The file removes `kingdown-outbox` and `kingdown-reminders`
 if an older release made them. Keep `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` unset.
 Outbox rows with no `done_at` stay in the database; cleanup deletes only finished rows.
-Close the host gap in the release order before you paste this file.
+Confirm the two internal routes work before you paste the MVP file.
