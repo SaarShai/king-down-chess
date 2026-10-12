@@ -71,7 +71,25 @@ Gaps and hand-off:
 - The shared poll runner reads full setup views while FEN is empty. It does not send since_revision there. This ticket adds no poll helper.
 - Earlier checks hit the shared move-remount read race and a symbols pixel check. They pass on the final run without a shared-file change. One later HTTP start finds the disposable database absent; the local make and bootstrap steps restore it, and the final HTTP run passes.
 
-Open item for ticket 14: none. Ticket 15's shared board work and a live ChatGPT host check stay outside this ticket.
+The fix round's open items follow. Ticket 15's shared board work and a live ChatGPT host check stay outside this ticket.
+
+### Fix round
+
+- Save and restore the board's aria-label with its handlers. The ArrowRight and Ready check fails before the fix and passes after it.
+- Keep forbidden king and power buttons disabled in the shared actions pass. The Cards check waits for the other player's Ready and reads the native disabled flag. The aria-disabled flag alone masks the fault in Playwright. The native check fails before the fix and passes after it.
+- The renderer draws swap rings after a selection. The sample selects its knight in its fixture; the old seat starts with no selection. The seat now selects the first knight when Arrangement is on. The initial selection check fails before the fix. Both hosts now draw the rings before a board tap.
+- Refresh the seat after an unchanged setup read. The check advances server_now by one day with the same revision. Both text lines change from 3 days to 2 days. This check fails before the fix and passes after it.
+- npm test: 2,322 tests pass in 153 files; 8 skip. The type check and all 50 art tests pass. npm run plugin:build passes.
+- npm run check:browser plugin-ui plugin-ui-http: 2 of 2 pass on the final run. The first final HTTP run stops in ticket 12's lost-Choose remount case, before the seat checks. The repeat run passes with no code change.
+- Final page: 591,662 HTML bytes; 594,280 resource payload bytes; 594,010 server resource JSON bytes. All stay below 1,000,000 bytes.
+- Look: 8 PNG pairs in /var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-look/14b. Sample is left; build is right. Both phone captures show the initial swap rings. Both hosts keep the four viewport checks.
+
+### Open items
+
+- Check a changed king pick through the seat picker and Ready.
+- Check a pawn move after the board hand-off.
+
+The merger runs the full browser set on another machine. This round changes no website source file and merges no integration branch.
 
 ## Integration sync
 

@@ -575,6 +575,12 @@ try {
     for (const id of ['seat-ready','seat-shuffle','seat-king']) assert(await frame.locator(`#${id}`).isDisabled(), `${id} locks after Ready`);
     await seatFits('seat-waiting'); await seatRemount();
     assert.equal(await frame.locator('#seat-context').innerText(), 'Waiting for the other player.');
+    assert.match(await frame.locator('#seat-note').innerText(), /3 days to choose/);
+    await page.evaluate(() => { const v = window.harnessView; window.harnessNextView = { ...v, server_now: new Date(Date.parse(v.server_now) + 86400000).toISOString() }; });
+    await frame.locator('body').evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.waitForFunction(() => !window.harnessNextView);
+    await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#seat-note').textContent.includes('2 days to choose'), undefined, { timeout: 3000 });
+    assert.match(await frame.locator('#seat-them-line').innerText(), /2 days left/, 'An unchanged setup read refreshes both days-left lines');
     const state = await page.evaluate(() => window.harnessWidgetState);
     assert.deepEqual(Object.keys(state.privateContent).sort(), ['board_id','pending','screen','sheet']); assert.deepEqual(state.modelContent, {});
     assert(!JSON.stringify(state).includes('order') && !JSON.stringify(state).includes('game_id'), 'Idle widget state has no order or game ID');
