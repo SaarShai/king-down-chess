@@ -532,6 +532,15 @@ try {
       const read = await seatTool('kingdown_get', { game_id: v.game_id }, true), next = read._meta.view;
       return seatTool('kingdown_choose', { game_id: next.game_id, command_id: randomUUID(), expected_revision: next.revision, ...next.choices[next.seat], ready: true }, true);
     }
+    const sheetSeat = await friendSeat();
+    await frame.locator('#seat-king').click();
+    await buddyReady(sheetSeat);
+    await frame.locator('#seat-them-line').filter({ hasText: 'Ready' }).waitFor({ timeout: 10000 });
+    await frame.locator('#setup-done:not(:disabled)').waitFor();
+    assert(await frame.locator('[data-power="Leap"]').evaluate(el => el.disabled), 'A setup poll keeps the forbidden Cards power disabled');
+    assert(await frame.locator('[data-king="Frost"]').evaluate(el => el.disabled), 'A setup poll keeps the forbidden Cards king disabled');
+    await frame.locator('#setup-done').click();
+    await seatTool('kingdown_abort', { game_id: sheetSeat.game_id });
     let v = await friendSeat();
     assert.equal(v.choices[1], null, 'The other choice stays hidden');
     assert.equal(await frame.locator('#seat-me-line').innerText(), 'Mud · March · tap the coin to change', 'Cards clean the remembered power to the same king');
