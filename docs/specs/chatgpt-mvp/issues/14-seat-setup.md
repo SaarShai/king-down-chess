@@ -72,3 +72,9 @@ Gaps and hand-off:
 - Earlier checks hit the shared move-remount read race and a symbols pixel check. They pass on the final run without a shared-file change. One later HTTP start finds the disposable database absent; the local make and bootstrap steps restore it, and the final HTTP run passes.
 
 Open item for ticket 14: none. Ticket 15's shared board work and a live ChatGPT host check stay outside this ticket.
+
+## Integration sync
+
+The branch merges local integration tip 1e38e4f6. This tip includes the current local ticket 12 branch, so no second setup merge is needed. The merge has no conflict.
+
+npm test passes 2,322 tests in 153 files, with 8 skipped. All 50 art tests and the type check pass. The merged plugin build and server check pass. All 101 art files keep their types. The merged page has 591,351 HTML bytes and 593,967 payload bytes; the server resource has 593,732 JSON bytes. These stay below the limit. The added profile and setup files come from the integration branch.
