@@ -305,6 +305,10 @@ try {
     const threats = await pixels(); assert(threats.red > plain.red + 10, `${scenario}: Show threats draws enemy arrows to your pieces`);
     await openScreen('settings'); await frame.locator('#symbols-only').check();
     await page.evaluate(result=>window.harnessShow(result),seeded); await idleBoard(); await boardBox();
+    await frame.locator('canvas').evaluate((c, minimum) => new Promise((resolve,reject) => {
+      const end=performance.now()+5000;
+      const tick=()=>{ const data=c.getContext('2d').getImageData(0,0,c.width,c.height).data; let red=0; for(let i=0;i<data.length;i+=4) if(data[i]>150&&data[i+1]<110&&data[i+2]<110&&data[i+3]>0) red++; if(red>minimum) resolve(); else if(performance.now()>end) reject(new Error('The symbols threats did not paint')); else requestAnimationFrame(tick); }; tick();
+    }),plain.red+10);
     let flat = await pixels(); for(let i=0;i<20&&flat.hash===threats.hash;i++) { await frame.locator('canvas').evaluate(()=>new Promise(r=>requestAnimationFrame(r))); flat=await pixels(); }
     assert.notEqual(flat.hash, threats.hash, 'Symbols only replaces the painted figures'); assert(flat.red > plain.red + 10, 'Threat arrows stay on the symbols board');
     const disc = await frame.locator('canvas').evaluate((c,black) => {
@@ -417,7 +421,7 @@ try {
   await haste(); await tapSquare(4, 1);
   await openMoveChoices(); await frame.locator('#choices button').filter({ hasText: 'e2 to e4, with Haste' }).tap();
   await idleBoard();
-  assert.match(await frame.locator('#status').innerText(), /Your move/, 'Explicit Haste keeps the extra move');
+  assert.equal(await frame.locator('#status').innerText(), 'Move it again, or stop here.', 'Explicit Haste keeps the extra move');
   assert.equal(await page.evaluate(() => window.harnessView.revision), 1);
   await tapSquare(4, 3); await tapSquare(4, 3);
   assert.equal(await page.evaluate(() => window.harnessView.revision), 1, 'Second tap must not pass Haste');
@@ -548,6 +552,10 @@ try {
   assert.equal(await page.evaluate(()=>window.harnessView.game_id),replacement,'Deleted-game recovery survives immediate remount');
   const friendTool = async (name,args={}) => (await page.request.post(new URL('/fixture-friend-tool',base).href,{data:{name,arguments:args}})).json();
   const tool = async (name,args={}) => (await page.request.post(new URL('/fixture-tool',base).href,{data:{name,arguments:args}})).json();
+  await legacyStart('solo'); await frame.locator('#resign').click();
+  await frame.locator('#board-sheet h2').filter({hasText:'Lay your king down?'}).waitFor({timeout:3000});
+  assert.equal(await page.evaluate(()=>window.harnessView.status),'playing','Resign waits for its confirm');
+  await frame.locator('#board-sheet').getByRole('button',{name:'Keep playing',exact:true}).click();
   if (capabilities.friend) {
     await openPlay();
     await openPlay(); await legacyStart('friend'); await idleBoard();

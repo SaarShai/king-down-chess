@@ -66,3 +66,9 @@ Still open: card Use, actions and confirms, end card, rematch, end polling, look
 The card Use check fails before the control. Create deals four cards through the page's tool. Both strips show their hand and spent coins. A card reads its name, rule and art in the game sheet. Use arms only that card's moves. Named targets, drops and an enemy piece's card move use the same legal choices. Mirror B spends its own bit. Widget state has no hand data.
 
 The fixture check passes 1 of 1 in 137.1 s. The HTTP and PostgreSQL check passes 1 of 1 in 81.6 s. The type check passes. The older Haste, Archer, Freeze, move, retry and viewport assertions pass.
+
+## Check point: action confirms
+
+The Resign confirm check fails before its code. It passes in the fixture check, 1 of 1 in 115.8 s. The action sheet has Resign, draw choices, Abort and deadline claims. A first-turn expiry says End game. A later expiry says Claim the win. NOT_ALLOWED clears the pending command. A refused action reads the server view again. Full action flows remain in the next check phase.
+
+Haste has the mid-turn words and a Stop here action. Its check keeps the extra-move assertion. The symbol threat check waits for the real paint before it counts the red pixels. It keeps its arrow and pixel assertions.
