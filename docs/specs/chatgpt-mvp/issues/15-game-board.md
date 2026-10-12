@@ -48,3 +48,15 @@ The table check fails before the build. The table, strips, context words, king c
 The old checks use the visible context, move line and Menu controls. The Haste, Archer and Freeze assertions stay. Freeze reads its coin, presses Use, then selects the named move. A server read blocks input but keeps the shown marks.
 
 The fixture browser check passes 1 of 1 in 103.4 s. The HTTP and PostgreSQL browser check passes 1 of 1 in 75.3 s, on kingdown_mvp15_test. Both cover 360, 390, 400 and 1440 px, remounts, lost-reply retry, each piece and king, symbols, threats and the older assertions. The type check passes.
+
+## Check point: moves and computer
+
+The held-reply check fails before the optimistic move. The move now applies at once, with the game animation and describeMove words. A final refusal restores the server position, clears the command and reads the board again. A lost reply keeps the move and the same command ID. Replays need a complete LAN list that reaches the server FEN. The Moves sheet lists only known moves.
+
+The automatic-computer check fails before the responder. The responder starts at mount and after each reply. It uses the reply's revision, with at most four calls in a row. The Computer move button is gone. The fake clock checks thinking after one second. One normal computer turn sends one command. The retry check keeps its same-ID assertion and checks revision 1 on the next computer command. Touch and Haste still send one and two player commands.
+
+The final fixture check passes 1 of 1 in 107.1 s. The HTTP and PostgreSQL check passes 1 of 1 in 80.1 s. The older checks pass. The type check passes.
+
+The system Git shim now asks for an Xcode licence. The installed Command Line Tools Git works. Checks use a command-local PATH to that binary. No licence or system setting changes.
+
+Still open: card Use, actions and confirms, end card, rematch, end polling, look comparisons, the full browser run, final unit suite, integration merge and push. The ticket stays in progress.

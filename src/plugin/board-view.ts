@@ -5,7 +5,7 @@ import type { BoardSettings } from './client';
 import { symbols } from './art';
 
 export const board = new PaintedView(document.getElementById('board')!, { floor: null, webInk: true });
-board.setPace('off');
+board.setPace('fast');
 void board.ready().then(() => document.getElementById('board')!.setAttribute('aria-busy', 'false'));
 board.onLoadError = () => { document.getElementById('error')!.textContent = 'The board artwork could not load. Reload the board.'; };
 let settings: BoardSettings = { symbols_only: false, show_threats: false }, marks: Highlights = {};
