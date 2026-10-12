@@ -1,0 +1,1106 @@
+diff --git a/src/kingdown.h b/src/kingdown.h
+new file mode 100644
+index 0000000..6ee68d6
+--- /dev/null
++++ b/src/kingdown.h
+@@ -0,0 +1,18 @@
++// Fixed base-piece geometry shared by generation and attack checks.
++#ifndef KINGDOWN_H_INCLUDED
++#define KINGDOWN_H_INCLUDED
++#include "types.h"
++namespace Stockfish {
++inline Square kd_step(Square s, int df, int dr) {
++  int f = int(file_of(s)) + df, r = int(rank_of(s)) + dr;
++  return f >= 0 && f < 8 && r >= 0 && r < 8 ? make_square(File(f), Rank(r)) : SQ_NONE;
++}
++inline bool kd_capital(Square s) {
++  return (file_of(s) == FILE_D || file_of(s) == FILE_E) && (rank_of(s) == RANK_4 || rank_of(s) == RANK_5);
++}
++inline bool kd_can_capture(PieceType attacker, PieceType victim) {
++  return attacker != KD_GUARD && (victim != KD_GUARD || attacker == KING)
++      && (victim != KING || attacker != KD_PALADIN);
++}
++}
++#endif
+diff --git a/src/movegen.cpp b/src/movegen.cpp
+index a7b6a9f..a3ce69b 100644
+--- a/src/movegen.cpp
++++ b/src/movegen.cpp
+@@ -17,8 +17,12 @@
+ */
+ 
+ #include <cassert>
++#include <set>
++#include <cstdio>
++#include <cstdlib>
+ 
+ #include "movegen.h"
++#include "kingdown.h"
+ #include "position.h"
+ 
+ namespace Stockfish {
+@@ -525,4 +529,121 @@ ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList) {
+   return moveList;
+ }
+ 
++namespace {
++void kd_chain(const Position& pos, std::vector<ExtMove>& moves, Square from, Square at,
++              Bitboard victims, std::set<std::pair<uint64_t, int>>& seen) {
++  Bitboard targets = attacks_bb<KING>(at) & pos.pieces(~pos.side_to_move())
++                   & ~pos.pieces(KING) & ~pos.pieces(KD_GUARD) & ~victims;
++  while (targets) {
++    Square to = pop_lsb(targets);
++    Bitboard next = victims | to;
++    if (!seen.emplace(uint64_t(next), int(to)).second) continue;
++    moves.push_back({make_kingdown(KD_CHAIN, from, to, next), 0});
++    kd_chain(pos, moves, from, to, next, seen);
++  }
++}
++void kd_generate(const Position& pos, std::vector<ExtMove>& moves) {
++  Color us = pos.side_to_move();
++  auto add = [&](Move m) { moves.push_back({m, 0}); };
++  for (Bitboard b = pos.pieces(us); b;) {
++    Square from = pop_lsb(b);
++    PieceType pt = type_of(pos.piece_on(from));
++    if (pt == PAWN) {
++      int dr = us == WHITE ? 1 : -1;
++      auto pawn = [&](Square to) {
++        if (rank_of(to) == (us == WHITE ? RANK_8 : RANK_1))
++          for (PieceType promotion : {KNIGHT, BISHOP, ROOK, QUEEN}) add(make<PROMOTION>(from, to, promotion));
++        else add(make_move(from, to));
++      };
++      Square one = kd_step(from, 0, dr);
++      if (is_ok(one) && pos.empty(one)) {
++        pawn(one);
++        Square two = kd_step(one, 0, dr);
++        if (rank_of(from) == (us == WHITE ? RANK_2 : RANK_7) && is_ok(two) && pos.empty(two)) pawn(two);
++      }
++      for (int df : {-1, 1}) {
++        Square to = kd_step(from, df, dr);
++        if (is_ok(to) && !pos.empty(to) && color_of(pos.piece_on(to)) != us
++            && type_of(pos.piece_on(to)) != KING && kd_can_capture(PAWN, type_of(pos.piece_on(to)))) pawn(to);
++      }
++      continue;
++    }
++    for (Square to = SQ_A1; to < SQUARE_NB; ++to) {
++      if (to == from) continue;
++      Piece victim = pos.piece_on(to);
++      int df = int(file_of(to)) - int(file_of(from)), dr = int(rank_of(to)) - int(rank_of(from));
++      bool adjacent = std::max(std::abs(df), std::abs(dr)) == 1;
++      if (pt == KD_ARCHER || pt == KD_BEAST || pt == KD_GUARD) {
++        if (!victim && adjacent) add(make_move(from, to));
++        if (pt == KD_ARCHER && victim && color_of(victim) != us && type_of(victim) != KING
++            && pos.kingdown_attacks(from, to, pos.pieces())) add(make_kingdown(KD_SHOT, from, from, square_bb(to)));
++        continue;
++      }
++      if (pt == KD_CATAPULT) {
++        if (victim && color_of(victim) != us && type_of(victim) != KING
++            && pos.kingdown_attacks(from, to, pos.pieces())) add(make_kingdown(KD_SHOT, from, from, square_bb(to)));
++        if (!victim && (df == 0 || dr == 0)) {
++          int sf = (df > 0) - (df < 0), sr = (dr > 0) - (dr < 0);
++          Square at = kd_step(from, sf, sr);
++          while (at != to && pos.empty(at)) at = kd_step(at, sf, sr);
++          if (at == to) add(make_move(from, to));
++        }
++        continue;
++      }
++      if (pt == KD_MAESTER && victim && color_of(victim) == us
++          && (adjacent || (type_of(victim) == KING && rank_of(from) == (us == WHITE ? RANK_1 : RANK_8) && rank_of(to) == rank_of(from))))
++        add(make_kingdown(KD_SWAP, from, to, 0));
++      if (pt == KD_OGRE && victim && adjacent && type_of(victim) != KING) {
++        Square pushed = kd_step(to, df, dr);
++        if (is_ok(pushed) && pos.empty(pushed)) add(make_gating<KD_PUSH>(from, to, NO_PIECE_TYPE, pushed));
++      }
++      if (victim && (color_of(victim) == us || type_of(victim) == KING)) continue;
++      // Paladin quiet rays skip friends, unlike its target-sensitive attack predicate.
++      bool reachable = pos.kingdown_attacks(from, to, pos.pieces());
++      if (pt == KD_PALADIN && !victim) reachable = pos.kingdown_attacks(from, to, pos.pieces());
++      if (!reachable) continue;
++      if (pt == KD_PALADIN && victim && type_of(victim) != PAWN)
++        add(make_kingdown(KD_REMOVE, from, to, square_bb(to)));
++      else add(make_move(from, to));
++      if (pt == KD_REAVER && victim) for (auto delta : {std::pair<int,int>{1,0}, {-1,0}, {0,1}, {0,-1}}) {
++        Square land = kd_step(to, delta.first, delta.second);
++        if (is_ok(land) && pos.empty(land)) add(make_kingdown(KD_CHAIN, from, land, square_bb(to)));
++      }
++    }
++    if (pt == KD_BEAST) {
++      std::set<std::pair<uint64_t, int>> seen;
++      kd_chain(pos, moves, from, from, 0, seen);
++    }
++  }
++}
++} // namespace
++
++template<GenType T>
++void generate(const Position& pos, std::vector<ExtMove>& moves, size_t offset) {
++  if (!pos.kingdown_actions()) {
++    moves.resize(offset + MAX_MOVES);
++    auto* start = moves.data();
++    auto* end = generate<T>(pos, start + offset);
++    moves.resize(end - start);
++    return;
++  }
++  moves.resize(offset);
++  if (T == LEGAL && pos.is_immediate_game_end()) return;
++  kd_generate(pos, moves);
++  auto first = moves.begin() + offset;
++  moves.erase(std::remove_if(first, moves.end(), [&](const ExtMove& item) {
++    Move m = item;
++    return (T == CAPTURES && !pos.capture_or_promotion(m))
++        || ((T == QUIETS || T == QUIET_CHECKS) && pos.capture_or_promotion(m))
++        || (T == QUIET_CHECKS && !pos.gives_check(m))
++        || (T == LEGAL && !pos.legal(m));
++  }), moves.end());
++}
++template void generate<CAPTURES>(const Position&, std::vector<ExtMove>&, size_t);
++template void generate<QUIETS>(const Position&, std::vector<ExtMove>&, size_t);
++template void generate<QUIET_CHECKS>(const Position&, std::vector<ExtMove>&, size_t);
++template void generate<EVASIONS>(const Position&, std::vector<ExtMove>&, size_t);
++template void generate<NON_EVASIONS>(const Position&, std::vector<ExtMove>&, size_t);
++template void generate<LEGAL>(const Position&, std::vector<ExtMove>&, size_t);
++
+ } // namespace Stockfish
+diff --git a/src/movegen.h b/src/movegen.h
+index 3047bf6..03aec3e 100644
+--- a/src/movegen.h
++++ b/src/movegen.h
+@@ -20,6 +20,7 @@
+ #define MOVEGEN_H_INCLUDED
+ 
+ #include <algorithm>
++#include <vector>
+ 
+ #include "types.h"
+ 
+@@ -55,53 +56,19 @@ inline bool operator<(const ExtMove& f, const ExtMove& s) {
+ template<GenType>
+ ExtMove* generate(const Position& pos, ExtMove* moveList);
+ 
+-constexpr size_t moveListSize = sizeof(ExtMove) * MAX_MOVES;
++template<GenType T>
++void generate(const Position& pos, std::vector<ExtMove>& moves, size_t offset = 0);
+ 
+-/// The MoveList struct is a simple wrapper around generate(). It sometimes comes
+-/// in handy to use this class instead of the low level generate() function.
+ template<GenType T>
+ struct MoveList {
+-
+-  
+-#ifdef USE_HEAP_INSTEAD_OF_STACK_FOR_MOVE_LIST
+-    explicit MoveList(const Position& pos)
+-    {
+-        this->moveList = (ExtMove*)malloc(moveListSize);
+-        if (this->moveList == 0)
+-        {
+-            printf("Error: Failed to allocate memory in heap.");
+-            exit(1);
+-        }
+-        this->last = generate<T>(pos, this->moveList);
+-    }
+-
+-    ~MoveList()
+-    {
+-        free(this->moveList);
+-    }
+-#else
+-    explicit MoveList(const Position& pos) : last(generate<T>(pos, moveList))
+-    {
+-        ;
+-    }
+-#endif
+-  
+-  const ExtMove* begin() const { return moveList; }
+-  const ExtMove* end() const { return last; }
+-  size_t size() const { return last - moveList; }
+-  bool contains(Move move) const {
+-    return std::find(begin(), end(), move) != end();
+-  }
+-
++  explicit MoveList(const Position& pos) { moves.reserve(MAX_MOVES); generate<T>(pos, moves); }
++  const ExtMove* begin() const { return moves.data(); }
++  const ExtMove* end() const { return moves.data() + moves.size(); }
++  size_t size() const { return moves.size(); }
++  bool contains(Move move) const { return std::find(begin(), end(), move) != end(); }
+ private:
+-    ExtMove* last;
+-#ifdef USE_HEAP_INSTEAD_OF_STACK_FOR_MOVE_LIST
+-    ExtMove* moveList = 0;
+-#else
+-    ExtMove moveList[MAX_MOVES];
+-#endif
++  std::vector<ExtMove> moves;
+ };
+ 
+ } // namespace Stockfish
+-
+-#endif // #ifndef MOVEGEN_H_INCLUDED
++#endif
+diff --git a/src/movepick.cpp b/src/movepick.cpp
+index 712e588..aed5c8f 100644
+--- a/src/movepick.cpp
++++ b/src/movepick.cpp
+@@ -57,15 +57,17 @@ namespace {
+ 
+   // Per-thread LIFO pool of move buffers. MovePicker instances have strictly
+   // nested lifetimes within a search thread, so buffers can be handed out and
+-  // returned stack-wise. This keeps the large MAX_MOVES array off the machine
+-  // stack, whose 8MB limit deep searches can otherwise exceed (see issue #957).
+-  thread_local std::vector<std::unique_ptr<ExtMove[]>> moveBuffers;
++  // returned stack-wise. The growable vectors stay off
++  // the machine stack and retain their capacity for the next search node.
++  thread_local std::vector<std::unique_ptr<std::vector<ExtMove>>> moveBuffers;
+   thread_local size_t usedMoveBuffers = 0;
+ 
+-  ExtMove* acquire_move_buffer() {
++  std::vector<ExtMove>& acquire_move_buffer() {
+     if (usedMoveBuffers == moveBuffers.size())
+-        moveBuffers.emplace_back(new ExtMove[MAX_MOVES]);
+-    return moveBuffers[usedMoveBuffers++].get();
++        moveBuffers.emplace_back(new std::vector<ExtMove>);
++    auto& buffer = *moveBuffers[usedMoveBuffers++];
++    buffer.reserve(MAX_MOVES);
++    return buffer;
+   }
+ 
+   void release_move_buffer() {
+@@ -76,6 +78,14 @@ namespace {
+ } // namespace
+ 
+ 
++template<GenType T>
++void MovePicker::generate_moves(size_t offset) {
++  generate<T>(pos, storage, offset);
++  moves = storage.data();
++  cur = endBadCaptures = moves + offset;
++  endMoves = moves + storage.size();
++}
++
+ MovePicker::~MovePicker() {
+   release_move_buffer();
+ }
+@@ -90,7 +100,7 @@ MovePicker::~MovePicker() {
+ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHistory* mh, const GateHistory* dh, const LowPlyHistory* lp,
+                        const CapturePieceToHistory* cph, const PieceToHistory** ch, Move cm, const Move* killers, int pl)
+            : pos(p), mainHistory(mh), gateHistory(dh), lowPlyHistory(lp), captureHistory(cph), continuationHistory(ch),
+-             ttMove(ttm), refutations{{killers[0], 0}, {killers[1], 0}, {cm, 0}}, depth(d), ply(pl), moves(acquire_move_buffer()) {
++             ttMove(ttm), refutations{{killers[0], 0}, {killers[1], 0}, {cm, 0}}, depth(d), ply(pl), storage(acquire_move_buffer()), moves(storage.data()) {
+ 
+   assert(d > 0);
+ 
+@@ -101,20 +111,20 @@ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHist
+ /// MovePicker constructor for quiescence search
+ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHistory* mh, const GateHistory* dh,
+                        const CapturePieceToHistory* cph, const PieceToHistory** ch, Square rs)
+-           : pos(p), mainHistory(mh), gateHistory(dh), captureHistory(cph), continuationHistory(ch), ttMove(ttm), recaptureSquare(rs), depth(d), moves(acquire_move_buffer()) {
++           : pos(p), mainHistory(mh), gateHistory(dh), captureHistory(cph), continuationHistory(ch), ttMove(ttm), recaptureSquare(rs), depth(d), storage(acquire_move_buffer()), moves(storage.data()) {
+ 
+   assert(d <= 0);
+ 
+   stage = (pos.checkers() ? EVASION_TT : QSEARCH_TT) +
+           !(   ttm
+-            && (pos.checkers() || depth > DEPTH_QS_RECAPTURES || to_sq(ttm) == recaptureSquare)
++            && (pos.checkers() || depth > DEPTH_QS_RECAPTURES || pos.captures_square(ttm, recaptureSquare))
+             && pos.pseudo_legal(ttm));
+ }
+ 
+ /// MovePicker constructor for ProbCut: we generate captures with SEE greater
+ /// than or equal to the given threshold.
+ MovePicker::MovePicker(const Position& p, Move ttm, Value th, const GateHistory* dh, const CapturePieceToHistory* cph)
+-           : pos(p), gateHistory(dh), captureHistory(cph), ttMove(ttm), threshold(th), moves(acquire_move_buffer()) {
++           : pos(p), gateHistory(dh), captureHistory(cph), ttMove(ttm), threshold(th), storage(acquire_move_buffer()), moves(storage.data()) {
+ 
+   assert(!pos.checkers());
+ 
+@@ -133,9 +143,9 @@ void MovePicker::score() {
+ 
+   for (auto& m : *this)
+       if constexpr (Type == CAPTURES)
+-          m.value =  int(PieceValue[MG][pos.piece_on(to_sq(m))]) * 6
++          m.value =  int(pos.capture_value(m, MG)) * 6
+                    + (*gateHistory)[pos.side_to_move()][gating_square(m)]
+-                   + (*captureHistory)[pos.moved_piece(m)][to_sq(m)][type_of(pos.piece_on(to_sq(m)))];
++                   + (*captureHistory)[pos.moved_piece(m)][to_sq(m)][type_of(pos.capture_victim(m))];
+ 
+       else if constexpr (Type == QUIETS)
+           m.value =      (*mainHistory)[pos.side_to_move()][from_to(m)]
+@@ -149,7 +159,7 @@ void MovePicker::score() {
+       else // Type == EVASIONS
+       {
+           if (pos.capture(m))
+-              m.value =  PieceValue[MG][pos.piece_on(to_sq(m))]
++              m.value =  pos.capture_value(m, MG)
+                        - Value(type_of(pos.moved_piece(m)));
+           else
+               m.value =      (*mainHistory)[pos.side_to_move()][from_to(m)]
+@@ -195,8 +205,7 @@ top:
+   case CAPTURE_INIT:
+   case PROBCUT_INIT:
+   case QCAPTURE_INIT:
+-      cur = endBadCaptures = moves;
+-      endMoves = generate<CAPTURES>(pos, cur);
++      generate_moves<CAPTURES>();
+ 
+       score<CAPTURES>();
+       ++stage;
+@@ -232,8 +241,7 @@ top:
+   case QUIET_INIT:
+       if (!skipQuiets && !(pos.must_capture() && pos.has_capture()))
+       {
+-          cur = endBadCaptures;
+-          endMoves = generate<QUIETS>(pos, cur);
++          generate_moves<QUIETS>(endBadCaptures - moves);
+ 
+           score<QUIETS>();
+           partial_insertion_sort(cur, endMoves, -3000 * depth);
+@@ -260,8 +268,7 @@ top:
+       return select<Next>([](){ return true; });
+ 
+   case EVASION_INIT:
+-      cur = moves;
+-      endMoves = generate<EVASIONS>(pos, cur);
++      generate_moves<EVASIONS>();
+ 
+       score<EVASIONS>();
+       ++stage;
+@@ -275,7 +282,7 @@ top:
+ 
+   case QCAPTURE:
+       if (select<Best>([&](){ return   depth > DEPTH_QS_RECAPTURES
+-                                    || to_sq(*cur) == recaptureSquare; }))
++                                    || pos.captures_square(*cur, recaptureSquare); }))
+           return *(cur - 1);
+ 
+       // If we did not find any move and we do not try checks, we have finished
+@@ -286,8 +293,7 @@ top:
+       [[fallthrough]];
+ 
+   case QCHECK_INIT:
+-      cur = moves;
+-      endMoves = generate<QUIET_CHECKS>(pos, cur);
++      generate_moves<QUIET_CHECKS>();
+ 
+       ++stage;
+       [[fallthrough]];
+diff --git a/src/movepick.h b/src/movepick.h
+index 3b05314..3d8a6e9 100644
+--- a/src/movepick.h
++++ b/src/movepick.h
+@@ -162,10 +162,11 @@ private:
+   Value threshold;
+   Depth depth;
+   int ply;
+-  // Move buffer taken from a per-thread pool. Keeping it off the stack bounds
+-  // the per-frame stack usage of the recursive search, which would otherwise
+-  // overflow the 8MB thread stack in deep searches when MAX_MOVES is large.
++  // Growable buffer owned by a per-thread LIFO pool. Its allocation survives
++  // recursive calls; generate_moves resets all pointers after vector growth.
++  std::vector<ExtMove>& storage;
+   ExtMove* moves;
++  template<GenType T> void generate_moves(size_t offset = 0);
+ };
+ 
+ } // namespace Stockfish
+diff --git a/src/position.cpp b/src/position.cpp
+index 2b5ae3a..4b58c4d 100644
+--- a/src/position.cpp
++++ b/src/position.cpp
+@@ -27,6 +27,7 @@
+ #include "misc.h"
+ #include "movegen.h"
+ #include "position.h"
++#include "kingdown.h"
+ #include "thread.h"
+ #include "tt.h"
+ #include "uci.h"
+@@ -929,7 +930,41 @@ Bitboard Position::slider_blockers(Bitboard sliders, Square s, Bitboard& pinners
+ /// Position::attackers_to() computes a bitboard of all pieces which attack a
+ /// given square. Slider attacks use the occupied bitboard to indicate occupancy.
+ 
++bool Position::kingdown_attacks(Square from, Square target, Bitboard occupied) const {
++  if (from == target) return false;
++  Piece pc = piece_on(from);
++  PieceType pt = type_of(pc), victim = type_of(piece_on(target));
++  if (pt == KD_GUARD || (victim && !kd_can_capture(pt, victim))) return false;
++  int df = int(file_of(target)) - int(file_of(from)), dr = int(rank_of(target)) - int(rank_of(from));
++  int af = std::abs(df), ar = std::abs(dr);
++  bool diagonal = af == ar, orthogonal = !df || !dr;
++  if (pt == PAWN) return af == 1 && dr == (color_of(pc) == WHITE ? 1 : -1);
++  if (pt == KNIGHT || pt == KD_REAVER) return af * ar == 2;
++  if (pt == KD_ARCHER) return (af == 2 && !dr) || (!df && ar == 2) || (af == 2 && dr == (color_of(pc) == WHITE ? 2 : -2));
++  if (pt == KING || pt == KD_BEAST || pt == KD_MAESTER || pt == KD_OGRE || (pt == KD_TEMPLAR && !kd_capital(from)))
++    return std::max(af, ar) == 1;
++  if ((pt == BISHOP && !diagonal) || ((pt == ROOK || pt == KD_CATAPULT) && !orthogonal)
++      || ((pt == QUEEN || pt == KD_PALADIN || pt == KD_TEMPLAR) && !diagonal && !orthogonal)) return false;
++  int sf = (df > 0) - (df < 0), sr = (dr > 0) - (dr < 0), screens = 0;
++  for (Square at = kd_step(from, sf, sr); at != target; at = kd_step(at, sf, sr)) {
++    if (!is_ok(at)) return false;
++    if (!(occupied & at)) continue;
++    if (pt == KD_PALADIN && color_of(piece_on(at)) == color_of(pc)) continue;
++    if (pt != KD_CATAPULT || ++screens > 1 || color_of(piece_on(at)) == color_of(pc)) return false;
++  }
++  return pt != KD_CATAPULT || screens == 1;
++}
++
+ Bitboard Position::attackers_to(Square s, Bitboard occupied, Color c, Bitboard janggiCannons) const {
++  if (kingdown_actions()) {
++    Bitboard result = 0;
++    for (Bitboard b = pieces(c) & occupied; b;) {
++      Square from = pop_lsb(b);
++      if (kingdown_attacks(from, s, occupied)) result |= from;
++    }
++    return result;
++  }
++
+ 
+   // Use a faster version for variants with moderate rule variations
+   if (var->fastAttacks)
+@@ -1049,6 +1084,7 @@ Bitboard Position::checked_pseudo_royals(Color c) const {
+ bool Position::legal(Move m) const {
+ 
+   assert(is_ok(m));
++  if (kingdown_actions()) return !kingdown_check_after(m, sideToMove);
+   assert(type_of(m) != DROP || piece_drops());
+ 
+   Color us = sideToMove;
+@@ -1303,6 +1339,8 @@ bool Position::legal(Move m) const {
+ /// due to SMP concurrent access or hash position key aliasing.
+ 
+ bool Position::pseudo_legal(const Move m) const {
++  if (kingdown_actions()) return MoveList<NON_EVASIONS>(*this).contains(m);
++
+ 
+   Color us = sideToMove;
+   Square from = from_sq(m);
+@@ -1429,6 +1467,8 @@ bool Position::pseudo_legal(const Move m) const {
+ /// Position::gives_check() tests whether a pseudo-legal move gives a check
+ 
+ bool Position::gives_check(Move m) const {
++  if (kingdown_actions()) return kingdown_check_after(m, ~sideToMove);
++
+ 
+   assert(is_ok(m));
+   assert(color_of(moved_piece(m)) == sideToMove);
+@@ -1540,6 +1580,49 @@ bool Position::gives_check(Move m) const {
+   }
+ }
+ 
++// Compound effects preserve every piece's promotion metadata.
++void Position::kingdown_apply(Move m) {
++  Square from = from_sq(m), to = to_sq(m);
++  Piece mover = piece_on(from), base = unpromotedBoard[from];
++  bool promoted = is_promoted(from);
++  Bitboard victims = is_kingdown_action(m) ? Bitboard(m.victims) : (empty(to) ? Bitboard(0) : square_bb(to));
++  for (Bitboard b = victims; b;) remove_piece(pop_lsb(b));
++  if (type_of(m) == KD_SHOT) return;
++  if (type_of(m) == KD_SWAP || type_of(m) == KD_PUSH) {
++    Piece other = piece_on(to), otherBase = unpromotedBoard[to];
++    bool otherPromoted = is_promoted(to);
++    remove_piece(to);
++    remove_piece(from);
++    put_piece(other, type_of(m) == KD_SWAP ? from : gating_square(m), otherPromoted, otherBase);
++  } else remove_piece(from);
++  if (type_of(m) != KD_REMOVE)
++    put_piece(type_of(m) == PROMOTION ? make_piece(sideToMove, promotion_type(m)) : mover,
++              to, type_of(m) == PROMOTION || promoted, type_of(m) == PROMOTION ? NO_PIECE : base);
++}
++
++void Position::kingdown_restore(const Piece* saved, const Piece* base, Bitboard promoted) {
++  Bitboard changed = 0;
++  for (Square s = SQ_A1; s < SQUARE_NB; ++s)
++    if (board[s] != saved[s] || unpromotedBoard[s] != base[s] || bool(promotedPieces & s) != bool(promoted & s)) changed |= s;
++  for (Bitboard b = changed & pieces(); b;) remove_piece(pop_lsb(b));
++  for (Bitboard b = changed; b;) {
++    Square s = pop_lsb(b);
++    if (saved[s]) put_piece(saved[s], s, bool(promoted & s), base[s]);
++  }
++}
++
++bool Position::kingdown_check_after(Move m, Color king) const {
++  Position& p = const_cast<Position&>(*this);
++  Piece saved[SQUARE_NB], base[SQUARE_NB];
++  std::copy(board, board + SQUARE_NB, saved);
++  std::copy(unpromotedBoard, unpromotedBoard + SQUARE_NB, base);
++  Bitboard promoted = promotedPieces;
++  p.kingdown_apply(m);
++  bool checked = p.count<KING>(king) && p.attackers_to(p.square<KING>(king), ~king);
++  p.kingdown_restore(saved, base, promoted);
++  return checked;
++}
++
+ /// Position::do_move() makes a move, and saves all information necessary
+ /// to a StateInfo object. The move is assumed to be legal. Pseudo-legal
+ /// moves should be filtered out before this function is called.
+@@ -1552,6 +1635,41 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
+ #ifndef NO_THREADS
+   thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
+ #endif
++  if (kingdown_actions()) {
++      newSt = *st;
++      newSt.previous = st;
++      st = &newSt;
++      std::copy(board, board + SQUARE_NB, st->kingdownBoard);
++      std::copy(unpromotedBoard, unpromotedBoard + SQUARE_NB, st->kingdownBase);
++      st->kingdownPromoted = promotedPieces;
++      st->capturedPiece = capture_victim(m);
++      st->captureSquare = m.victims ? lsb(Bitboard(m.victims)) : to_sq(m);
++      st->rule50 = capture(m) || type_of(moved_piece(m)) == PAWN ? 0 : st->rule50 + 1;
++      ++st->pliesFromNull;
++      ++gamePly;
++      st->epSquares = 0;
++      st->pass = false;
++      st->capturedpromoted = false;
++      st->unpromotedCapturedPiece = NO_PIECE;
++      st->accumulator.computed[WHITE] = st->accumulator.computed[BLACK] = false;
++      st->dirtyPiece = {};
++      kingdown_apply(m);
++      sideToMove = ~sideToMove;
++      set_state(st);
++      st->move = m;
++      st->repetition = 0;
++      int end = std::min(st->rule50, st->pliesFromNull);
++      if (end >= 4) {
++          StateInfo* previous = st->previous->previous;
++          for (int i = 4; i <= end; i += 2) {
++              previous = previous->previous->previous;
++              if (previous->key == st->key) { st->repetition = previous->repetition ? -i : i; break; }
++          }
++      }
++      assert(bool(st->checkersBB) == givesCheck);
++      assert(pos_is_ok());
++      return;
++  }
+   Key k = st->key ^ Zobrist::side;
+ 
+   // Copy some fields of the old state to our new StateInfo object except the
+@@ -2145,6 +2263,14 @@ void Position::undo_move(Move m) {
+ 
+   assert(is_ok(m));
+ 
++  if (kingdown_actions()) {
++      kingdown_restore(st->kingdownBoard, st->kingdownBase, st->kingdownPromoted);
++      sideToMove = ~sideToMove;
++      st = st->previous;
++      --gamePly;
++      assert(pos_is_ok());
++      return;
++  }
+   sideToMove = ~sideToMove;
+ 
+   Color us = sideToMove;
+@@ -2362,6 +2488,23 @@ void Position::undo_null_move() {
+ /// en passant and promotions.
+ 
+ Key Position::key_after(Move m) const {
++  if (kingdown_actions()) {
++      Position& p = const_cast<Position&>(*this);
++      Piece saved[SQUARE_NB], base[SQUARE_NB];
++      std::copy(board, board + SQUARE_NB, saved);
++      std::copy(unpromotedBoard, unpromotedBoard + SQUARE_NB, base);
++      Bitboard promoted = promotedPieces;
++      int nextRule50 = capture(m) || type_of(moved_piece(m)) == PAWN ? 0 : st->rule50 + 1;
++      p.kingdown_apply(m);
++      Key k = st->key ^ Zobrist::side;
++      for (Square s = SQ_A1; s < SQUARE_NB; ++s) {
++          if (saved[s]) k ^= Zobrist::psq[saved[s]][s];
++          if (board[s]) k ^= Zobrist::psq[board[s]][s];
++      }
++      p.kingdown_restore(saved, base, promoted);
++      return nextRule50 < 14 ? k : k ^ make_key((nextRule50 - 14) / 8);
++  }
++
+ 
+   Square from = from_sq(m);
+   Square to = to_sq(m);
+@@ -2467,6 +2610,10 @@ Value Position::blast_see(Move m) const {
+ /// algorithm similar to alpha-beta pruning with a null window.
+ 
+ bool Position::see_ge(Move m, Value threshold) const {
++  // Retain these captures: ordinary square-exchange pruning is not valid for them.
++  // Single-square exchange cannot price a stationary shot or a later Beast chain.
++  if (kingdown_actions()) return true;
++
+ 
+   assert(is_ok(m));
+ 
+@@ -2622,8 +2769,21 @@ bool Position::see_ge(Move m, Value threshold) const {
+ /// Position::is_optional_game_end() tests whether the position may end the game by
+ /// 50-move rule, by repetition, or a variant rule that allows a player to claim a game result.
+ 
++bool Position::kingdown_material_draw() const {
++  return !(pieces(PAWN) | pieces(ROOK) | pieces(QUEEN) | pieces(KD_ARCHER) | pieces(KD_BEAST)
++          | pieces(KD_MAESTER) | pieces(KD_OGRE) | pieces(KD_CATAPULT) | pieces(KD_TEMPLAR))
++      && count(WHITE, KNIGHT) + count(WHITE, BISHOP) + count(WHITE, KD_REAVER) <= 1
++      && count(BLACK, KNIGHT) + count(BLACK, BISHOP) + count(BLACK, KD_REAVER) <= 1;
++}
++
+ bool Position::is_optional_game_end(Value& result, int ply, int countStarted) const {
+ 
++  if (kingdown_actions() && kingdown_material_draw() && (!checkers() || MoveList<LEGAL>(*this).size()))
++  {
++      result = VALUE_DRAW;
++      return true;
++  }
++
+   // n-move rule
+   if (n_move_rule() && st->rule50 > (2 * n_move_rule() - 1) && (!checkers() || MoveList<LEGAL>(*this).size()))
+   {
+diff --git a/src/position.h b/src/position.h
+index 685c079..c047771 100644
+--- a/src/position.h
++++ b/src/position.h
+@@ -62,6 +62,9 @@ struct StateInfo {
+   Bitboard   checkersBB;
+   Piece      unpromotedCapturedPiece;
+   Piece      unpromotedBycatch[SQUARE_NB];
++  Piece      kingdownBoard[SQUARE_NB];
++  Piece      kingdownBase[SQUARE_NB];
++  Bitboard   kingdownPromoted;
+   Bitboard   promotedBycatch;
+   Bitboard   demotedBycatch;
+   StateInfo* previous;
+@@ -123,6 +126,17 @@ public:
+   int ranks() const;
+   int files() const;
+   bool two_boards() const;
++  bool kingdown_actions() const { return var->kingDownActions; }
++  Piece capture_victim(Move m) const;
++  bool captures_square(Move m, Square s) const {
++    return is_kingdown_action(m) ? is_ok(s) && (Bitboard(m.victims) & square_bb(s)) : to_sq(m) == s;
++  }
++  Value capture_value(Move m, Phase phase) const;
++  bool kingdown_check_after(Move m, Color king) const;
++  bool kingdown_material_draw() const;
++  bool kingdown_attacks(Square from, Square target, Bitboard occupied) const;
++  void kingdown_apply(Move m);
++  void kingdown_restore(const Piece* saved, const Piece* base, Bitboard promoted);
+   Bitboard board_bb() const;
+   Bitboard board_bb(Color c, PieceType pt) const;
+   PieceSet piece_types() const;
+@@ -593,6 +607,8 @@ inline bool Position::nnue_use_pockets() const {
+ }
+ 
+ inline bool Position::nnue_applicable() const {
++  if (kingdown_actions()) return false; // No trained net is certified for this subset.
++
+   // Do not use NNUE during setup phases (placement, sittuyin)
+   return (!count_in_hand(ALL_PIECES) || nnue_use_pockets() || !must_drop())
+          && !virtualPieces
+@@ -1434,15 +1450,25 @@ inline bool Position::is_chess960() const {
+   return chess960;
+ }
+ 
++inline Piece Position::capture_victim(Move m) const {
++  return is_kingdown_action(m) ? (m.victims ? piece_on(lsb(Bitboard(m.victims))) : NO_PIECE) : piece_on(to_sq(m));
++}
++inline Value Position::capture_value(Move m, Phase phase) const {
++  if (!is_kingdown_action(m)) return PieceValue[phase][piece_on(to_sq(m))];
++  Value value = VALUE_ZERO;
++  for (Bitboard b = Bitboard(m.victims); b;) value += PieceValue[phase][piece_on(pop_lsb(b))];
++  return value;
++}
++
+ inline bool Position::capture_or_promotion(Move m) const {
+   assert(is_ok(m));
+-  return type_of(m) == PROMOTION || type_of(m) == EN_PASSANT || (type_of(m) != CASTLING && !empty(to_sq(m)));
++  return is_kingdown_action(m) ? bool(m.victims) : type_of(m) == PROMOTION || type_of(m) == EN_PASSANT || (type_of(m) != CASTLING && !empty(to_sq(m)));
+ }
+ 
+ inline bool Position::capture(Move m) const {
+   assert(is_ok(m));
+   // Castling is encoded as "king captures rook"
+-  return (!empty(to_sq(m)) && type_of(m) != CASTLING && from_sq(m) != to_sq(m)) || type_of(m) == EN_PASSANT;
++  return is_kingdown_action(m) ? bool(m.victims) : (!empty(to_sq(m)) && type_of(m) != CASTLING && from_sq(m) != to_sq(m)) || type_of(m) == EN_PASSANT;
+ }
+ 
+ inline Square Position::capture_square(Square to) const {
+diff --git a/src/search.cpp b/src/search.cpp
+index 651f6bd..63eedbe 100644
+--- a/src/search.cpp
++++ b/src/search.cpp
+@@ -75,7 +75,7 @@ namespace {
+   int Reductions[MAX_MOVES]; // [depth or moveNumber]
+ 
+   Depth reduction(bool i, Depth d, int mn) {
+-    int r = Reductions[d] * Reductions[mn];
++    int r = Reductions[d] * (mn < MAX_MOVES ? Reductions[mn] : int(21.9 * std::log(mn)));
+     return (r + 534) / 1024 + (!i && r > 904);
+   }
+ 
+@@ -756,7 +756,7 @@ namespace {
+     // search to overwrite a previous full search TT value, so we use a different
+     // position key in case of an excluded move.
+     excludedMove = ss->excludedMove;
+-    posKey = excludedMove == MOVE_NONE ? pos.key() : pos.key() ^ make_key(excludedMove);
++    posKey = excludedMove == MOVE_NONE ? pos.key() : pos.key() ^ move_key(excludedMove);
+     tte = TT.probe(posKey, ss->ttHit);
+     ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
+     ttMove =  rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
+@@ -1160,7 +1160,7 @@ moves_loop: // When in check, search starts from here
+               // Capture history based pruning when the move doesn't give check
+               if (   !givesCheck
+                   && lmrDepth < 1
+-                  && captureHistory[movedPiece][to_sq(move)][type_of(pos.piece_on(to_sq(move)))] < 0)
++                  && captureHistory[movedPiece][to_sq(move)][type_of(pos.capture_victim(move))] < 0)
+                   continue;
+ 
+               // SEE based pruning
+@@ -1651,8 +1651,8 @@ moves_loop: // When in check, search starts from here
+       if (    bestValue > VALUE_TB_LOSS_IN_MAX_PLY
+           && !givesCheck
+           && !(   pos.extinction_value() == -VALUE_MATE
+-               && pos.piece_on(to_sq(move))
+-               && (pos.extinction_piece_types() & type_of(pos.piece_on(to_sq(move)))))
++               && pos.capture_victim(move)
++               && (pos.extinction_piece_types() & type_of(pos.capture_victim(move))))
+           &&  futilityBase > -VALUE_KNOWN_WIN
+           &&  type_of(move) != PROMOTION)
+       {
+@@ -1660,7 +1660,7 @@ moves_loop: // When in check, search starts from here
+           if (moveCount > 2)
+               continue;
+ 
+-          futilityValue = futilityBase + PieceValue[EG][pos.piece_on(to_sq(move))];
++          futilityValue = futilityBase + pos.capture_value(move, EG);
+ 
+           if (futilityValue <= alpha)
+           {
+@@ -1815,7 +1815,7 @@ moves_loop: // When in check, search starts from here
+     Thread* thisThread = pos.this_thread();
+     CapturePieceToHistory& captureHistory = thisThread->captureHistory;
+     Piece moved_piece = pos.moved_piece(bestMove);
+-    PieceType captured = type_of(pos.piece_on(to_sq(bestMove)));
++    PieceType captured = type_of(pos.capture_victim(bestMove));
+ 
+     bonus1 = stat_bonus(depth + 1);
+     bonus2 = bestValue > beta + PawnValueMg ? bonus1                                 // larger bonus
+@@ -1854,7 +1854,7 @@ moves_loop: // When in check, search starts from here
+     for (int i = 0; i < captureCount; ++i)
+     {
+         moved_piece = pos.moved_piece(capturesSearched[i]);
+-        captured = type_of(pos.piece_on(to_sq(capturesSearched[i])));
++        captured = type_of(pos.capture_victim(capturesSearched[i]));
+         if (!(pos.walling() && from_to(capturesSearched[i]) == from_to(bestMove)))
+             captureHistory[moved_piece][to_sq(capturesSearched[i])][captured] << -bonus1;
+         if (pos.walling())
+diff --git a/src/tt.cpp b/src/tt.cpp
+index 5982d93..c9dd1f7 100644
+--- a/src/tt.cpp
++++ b/src/tt.cpp
+@@ -37,7 +37,7 @@ void TTEntry::save(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev)
+ 
+   // Preserve any existing move for the same position
+   if (m || (uint16_t)k != key16)
+-      move32 = (uint32_t)m;
++      storedMove = m;
+ 
+   // Overwrite less valuable entries (cheapest checks first)
+   if (b == BOUND_EXACT
+diff --git a/src/tt.h b/src/tt.h
+index 290ccb1..fdfb1d7 100644
+--- a/src/tt.h
++++ b/src/tt.h
+@@ -37,7 +37,7 @@ namespace Stockfish {
+ 
+ struct TTEntry {
+ 
+-  Move  move()  const { return (Move )move32; }
++  Move  move()  const { return storedMove; }
+   Value value() const { return (Value)value16; }
+   Value eval()  const { return (Value)eval16; }
+   Depth depth() const { return (Depth)depth8 + DEPTH_OFFSET; }
+@@ -51,7 +51,7 @@ private:
+   uint16_t key16;
+   uint8_t  depth8;
+   uint8_t  genBound8;
+-  uint32_t move32;
++  Move storedMove;
+   int16_t  value16;
+   int16_t  eval16;
+ };
+@@ -65,11 +65,11 @@ private:
+ 
+ class TranspositionTable {
+ 
+-  static constexpr int ClusterSize = 5;
++  static constexpr int ClusterSize = 2;
+ 
+   struct Cluster {
+     TTEntry entry[ClusterSize];
+-    char padding[4]; // Pad to 64 bytes
++
+   };
+ 
+   static_assert(sizeof(Cluster) == 64, "Unexpected Cluster size");
+diff --git a/src/types.h b/src/types.h
+index 844d195..b42fed3 100644
+--- a/src/types.h
++++ b/src/types.h
+@@ -231,7 +231,7 @@ constexpr int SQUARE_BITS = 6;
+ #define USE_HEAP_INSTEAD_OF_STACK_FOR_MOVE_LIST
+ 
+ #ifdef ALLVARS
+-constexpr int MAX_MOVES = 8192;
++constexpr int MAX_MOVES = 1024;
+ #ifdef USE_HEAP_INSTEAD_OF_STACK_FOR_MOVE_LIST
+ constexpr int MAX_PLY = 246;
+ #else
+@@ -256,10 +256,18 @@ constexpr int MAX_PLY = 246;
+ /// any normal move destination square is always different from origin square
+ /// while MOVE_NONE and MOVE_NULL have the same origin and destination square.
+ 
+-enum Move : int {
+-  MOVE_NONE,
+-  MOVE_NULL = 1 + (1 << SQUARE_BITS)
++// Keep every victim in the move itself, including TT and PV storage.
++// Two standard integer fields also work on WebAssembly targets.
++struct Move {
++  uint64_t victims;
++  uint32_t data;
++  constexpr Move(uint32_t d = 0, uint64_t v = 0) : victims(v), data(d) {}
++  constexpr operator uint32_t() const { return data; }
+ };
++constexpr bool operator==(Move a, Move b) { return a.data == b.data && a.victims == b.victims; }
++constexpr bool operator!=(Move a, Move b) { return !(a == b); }
++constexpr Move MOVE_NONE(0);
++constexpr Move MOVE_NULL(1 + (1 << SQUARE_BITS));
+ 
+ enum MoveType : int {
+   NORMAL,
+@@ -270,6 +278,11 @@ enum MoveType : int {
+   PIECE_PROMOTION    = 5 << (2 * SQUARE_BITS),
+   PIECE_DEMOTION     = 6 << (2 * SQUARE_BITS),
+   SPECIAL            = 7 << (2 * SQUARE_BITS),
++  KD_SHOT            = 8 << (2 * SQUARE_BITS),
++  KD_CHAIN           = 9 << (2 * SQUARE_BITS),
++  KD_SWAP            = 10 << (2 * SQUARE_BITS),
++  KD_PUSH            = 11 << (2 * SQUARE_BITS),
++  KD_REMOVE          = 12 << (2 * SQUARE_BITS),
+ };
+ 
+ constexpr int MOVE_TYPE_BITS = 4;
+@@ -428,6 +441,11 @@ enum PieceType {
+   FAIRY_PIECES_END = CUSTOM_PIECES - 1,
+   ALL_PIECES = 0,
+ };
++constexpr PieceType KD_ARCHER = CUSTOM_PIECES, KD_BEAST = PieceType(CUSTOM_PIECES + 1),
++  KD_GUARD = PieceType(CUSTOM_PIECES + 2), KD_MAESTER = PieceType(CUSTOM_PIECES + 3),
++  KD_PALADIN = PieceType(CUSTOM_PIECES + 4), KD_OGRE = PieceType(CUSTOM_PIECES + 5),
++  KD_CATAPULT = PieceType(CUSTOM_PIECES + 6), KD_REAVER = PieceType(CUSTOM_PIECES + 7),
++  KD_TEMPLAR = PieceType(CUSTOM_PIECES + 8);
+ static_assert(KING < PIECE_TYPE_NB, "KING exceeds PIECE_TYPE_NB.");
+ static_assert(PIECE_TYPE_BITS <= 6, "PIECE_TYPE uses more than 6 bit");
+ static_assert(!(PIECE_TYPE_NB & (PIECE_TYPE_NB - 1)), "PIECE_TYPE_NB is not a power of 2");
+@@ -573,13 +591,13 @@ struct DirtyPiece {
+   // Max 3 pieces can change in one move. A promotion with capture moves
+   // both the pawn and the captured piece to SQ_NONE and the piece promoted
+   // to from SQ_NONE to the capture square.
+-  Piece piece[12];
+-  Piece handPiece[12];
+-  int handCount[12];
++  Piece piece[SQUARE_NB + 1];
++  Piece handPiece[SQUARE_NB + 1];
++  int handCount[SQUARE_NB + 1];
+ 
+   // From and to squares, which may be SQ_NONE
+-  Square from[12];
+-  Square to[12];
++  Square from[SQUARE_NB + 1];
++  Square to[SQUARE_NB + 1];
+ };
+ 
+ /// Score enum stores a middlegame and an endgame value in a single integer (enum).
+@@ -857,8 +875,14 @@ inline bool is_custom(PieceType pt) {
+   return pt >= CUSTOM_PIECES && pt <= CUSTOM_PIECES_END;
+ }
+ 
++inline bool is_kingdown_action(Move m) { return type_of(m) >= KD_SHOT && type_of(m) <= KD_REMOVE; }
++inline Move make_kingdown(MoveType t, Square from, Square to, Bitboard victims) {
++  return Move(uint32_t(t + (from << SQUARE_BITS) + to), uint64_t(victims));
++}
++inline Key move_key(Move m) { return (m.data * 6364136223846793005ULL + 1442695040888963407ULL) ^ (m.victims ? m.victims * 6364136223846793005ULL + 1442695040888963407ULL : 0); }
++
+ inline bool is_ok(Move m) {
+-  return from_sq(m) != to_sq(m) || type_of(m) == PROMOTION || type_of(m) == SPECIAL; // Catch MOVE_NULL and MOVE_NONE
++  return from_sq(m) != to_sq(m) || type_of(m) == PROMOTION || type_of(m) == SPECIAL || type_of(m) == KD_SHOT; // Catch MOVE_NULL and MOVE_NONE
+ }
+ 
+ inline int dist(Direction d) {
+diff --git a/src/uci.cpp b/src/uci.cpp
+index 584977a..b6437aa 100644
+--- a/src/uci.cpp
++++ b/src/uci.cpp
+@@ -21,10 +21,12 @@
+ #include <cmath>
+ #include <iostream>
+ #include <sstream>
++#include <set>
+ #include <string>
+ 
+ #include "evaluate.h"
+ #include "movegen.h"
++#include "movepick.h"
+ #include "position.h"
+ #include "search.h"
+ #include "thread.h"
+@@ -385,6 +387,97 @@ void UCI::loop(int argc, char* argv[]) {
+ 
+       // Additional custom non-UCI commands, mainly for debugging.
+       // Do not use these commands during a search!
++      else if (token == "kdinspect" && pos.kingdown_actions())
++      {
++          const auto initialFen = pos.fen();
++          const auto initialKey = pos.key();
++          const auto initialPsq = pos.psq_score();
++          const auto initialPawn = pos.pawn_key();
++          const auto initialMaterial = pos.material_key();
++          bool promoted[64]; Piece base[64];
++          for (int i = 0; i < 64; ++i) { promoted[i] = pos.is_promoted(Square(i)); base[i] = pos.unpromoted_piece_on(Square(i)); }
++          auto metadataSame = [&]() {
++              for (int i = 0; i < 64; ++i)
++                  if (promoted[i] != pos.is_promoted(Square(i)) || base[i] != pos.unpromoted_piece_on(Square(i))) std::abort();
++          };
++          const auto moves = MoveList<LEGAL>(pos);
++          metadataSame();
++          int recaptureChecks = 0;
++          std::set<std::pair<int, int>> recaptureKinds;
++          for (const auto& item : moves) {
++              Move m = item;
++              const auto label = UCI::move(pos, m);
++              const auto predicted = pos.key_after(m);
++              if (!pos.see_ge(m, Value(100000))) std::abort();
++              if (is_kingdown_action(m) && !pos.checkers()) {
++                  Bitboard offDestination = Bitboard(m.victims) & ~square_bb(to_sq(m));
++                  if (offDestination && recaptureKinds.emplace(int(pos.moved_piece(m)), int(type_of(m))).second) {
++                      Square victim = lsb(offDestination);
++                      auto* th = Threads.main();
++                      MovePicker ttPicker(pos, m, DEPTH_QS_RECAPTURES, &th->mainHistory, &th->gateHistory, &th->captureHistory, nullptr, victim);
++                      if (ttPicker.next_move() != m) std::abort();
++                      MovePicker picker(pos, MOVE_NONE, DEPTH_QS_RECAPTURES, &th->mainHistory, &th->gateHistory, &th->captureHistory, nullptr, victim);
++                      bool selected = false;
++                      for (Move candidate; (candidate = picker.next_move()) != MOVE_NONE;) if (candidate == m) selected = true;
++                      if (!selected) std::abort();
++                      ++recaptureChecks;
++                  }
++              }
++              metadataSame();
++              StateInfo next;
++              bool found;
++              auto* entry = TT.probe(initialKey, found);
++              entry->save(initialKey, VALUE_ZERO, false, BOUND_EXACT, 1, m, VALUE_ZERO);
++              if (entry->move() != m) { std::cerr << "kd TT mismatch " << label << std::endl; std::abort(); }
++              pos.do_move(m, next);
++              bool childPromoted[64]; Piece childBase[64];
++              std::copy(promoted, promoted + 64, childPromoted);
++              std::copy(base, base + 64, childBase);
++              auto clearMetadata = [&](Square square) { childPromoted[square] = false; childBase[square] = NO_PIECE; };
++              Square from = from_sq(m), to = to_sq(m);
++              for (Bitboard victims = Bitboard(m.victims); victims;) clearMetadata(pop_lsb(victims));
++              if (type_of(m) != KD_SHOT) {
++                  clearMetadata(from); clearMetadata(to);
++                  if (type_of(m) == KD_SWAP || type_of(m) == KD_PUSH) {
++                      Square displaced = type_of(m) == KD_SWAP ? from : gating_square(m);
++                      childPromoted[displaced] = promoted[to]; childBase[displaced] = base[to];
++                  }
++                  if (type_of(m) != KD_REMOVE) {
++                      childPromoted[to] = type_of(m) == PROMOTION || promoted[from];
++                      childBase[to] = type_of(m) == PROMOTION ? NO_PIECE : base[from];
++                  }
++              }
++              for (int i = 0; i < 64; ++i)
++                  if (childPromoted[i] != pos.is_promoted(Square(i)) || childBase[i] != pos.unpromoted_piece_on(Square(i))) {
++                      std::cerr << "kd child metadata mismatch " << label << " " << i << std::endl; std::abort();
++                  }
++              StateInfo rebuiltState;
++              Position rebuilt;
++              rebuilt.set(pos.variant(), pos.fen(), false, &rebuiltState, Threads.main());
++              if (pos.key() != rebuilt.key() || pos.pawn_key() != rebuilt.pawn_key()
++                  || pos.material_key() != rebuilt.material_key() || pos.psq_score() != rebuilt.psq_score()
++                  || (predicted != pos.key()))
++                  { std::cerr << "kd child mismatch " << label << " " << pos.fen() << " key " << pos.key() << " cold " << rebuilt.key() << " predicted " << predicted << " pawn " << pos.pawn_key() << " cold " << rebuilt.pawn_key() << " material " << pos.material_key() << " cold " << rebuilt.material_key() << " psq " << pos.psq_score() << " cold " << rebuilt.psq_score() << std::endl; std::abort(); }
++              sync_cout << "kdstate " << label << "|" << pos.fen() << "|" << bool(pos.checkers()) << sync_endl;
++              pos.undo_move(m);
++              metadataSame();
++              if (pos.fen() != initialFen || pos.key() != initialKey || pos.psq_score() != initialPsq
++                  || pos.pawn_key() != initialPawn || pos.material_key() != initialMaterial)
++                  std::abort();
++          }
++          uint64_t attacks[2] = {};
++          for (Color c : { WHITE, BLACK }) for (int i = 0; i < 64; ++i)
++              if (pos.attackers_to(Square(i), c)) attacks[c] |= uint64_t(1) << i;
++          sync_cout << "kdrecapturechecks " << recaptureChecks << sync_endl;
++          sync_cout << "kdattacks " << std::hex << attacks[0] << " " << attacks[1] << std::dec << sync_endl;
++          Value result;
++          const char* terminal = !moves.size() ? (pos.checkers() ? "checkmate" : "stalemate")
++                               : pos.rule50_count() >= 100 ? "draw50"
++                               : pos.kingdown_material_draw() ? "drawMaterial"
++                               : pos.is_optional_game_end(result) ? "drawRepetition" : "playing";
++          sync_cout << "kdterminal " << terminal << sync_endl;
++          sync_cout << "kdinspectok " << moves.size() << " " << bool(pos.checkers()) << sync_endl;
++      }
+       else if (token == "flip")     pos.flip();
+       else if (token == "bench")    bench(pos, is, states);
+       else if (token == "d")        sync_cout << pos << sync_endl;
+@@ -531,6 +624,14 @@ string UCI::move(const Position& pos, Move m) {
+           to = to_sq(m);
+   }
+ 
++  if (is_kingdown_action(m)) {
++      if (type_of(m) == KD_SWAP) return UCI::square(pos, from) + UCI::square(pos, to) + "^";
++      if (type_of(m) == KD_PUSH) return UCI::square(pos, from) + UCI::square(pos, to) + ">" + UCI::square(pos, gating_square(m));
++      std::ostringstream suffix;
++      suffix << std::hex << m.victims;
++      return UCI::square(pos, from) + UCI::square(pos, to) + (type_of(m) == KD_REMOVE ? "!" : "~") + suffix.str();
++  }
++
+   string move = (type_of(m) == DROP ? UCI::dropped_piece(pos, m) + (CurrentProtocol == USI ? '*' : '@')
+                                     : UCI::square(pos, from)) + UCI::square(pos, to);
+ 
+diff --git a/src/variant.cpp b/src/variant.cpp
+index 9ec8c49..c2027c7 100644
+--- a/src/variant.cpp
++++ b/src/variant.cpp
+@@ -65,6 +65,23 @@ namespace {
+         v->castling = false;
+         return v;
+     }
++    // Fixed King Down base pieces. Cards, powers and workshop designs are not enabled.
++    Variant* kingdown_base_variant() {
++        Variant* v = nocastle_variant()->init();
++        v->kingDownActions = true;
++        v->enPassantTypes[WHITE] = v->enPassantTypes[BLACK] = NO_PIECE_SET;
++        v->enPassantRegion[WHITE] = v->enPassantRegion[BLACK] = 0;
++        v->add_piece(KD_ARCHER, 'a', "mKcDcfA");
++        v->add_piece(KD_BEAST, 's', "K");
++        v->add_piece(KD_GUARD, 'g', "mK");
++        v->add_piece(KD_MAESTER, 'm', "K");
++        v->add_piece(KD_PALADIN, 'l', "Q");
++        v->add_piece(KD_OGRE, 'o', "K");
++        v->add_piece(KD_CATAPULT, 'c', "mRcR");
++        v->add_piece(KD_REAVER, 'v', "N");
++        v->add_piece(KD_TEMPLAR, 't', "K");
++        return v;
++    }
+     // Armageddon Chess
+     // https://en.wikipedia.org/wiki/Fast_chess#Armageddon
+     Variant* armageddon_variant() {
+@@ -1847,6 +1864,7 @@ namespace {
+ void VariantMap::init() {
+     // Add to UCI_Variant option
+     add("chess", chess_variant());
++    add("kingdown-base", kingdown_base_variant());
+     add("normal", chess_variant());
+     add("fischerandom", chess960_variant());
+     add("nocastle", nocastle_variant());
+diff --git a/src/variant.h b/src/variant.h
+index 0e6d44c..dc9f15c 100644
+--- a/src/variant.h
++++ b/src/variant.h
+@@ -42,6 +42,7 @@ struct Variant {
+   Rank maxRank = RANK_8;
+   File maxFile = FILE_H;
+   bool chess960 = false;
++  bool kingDownActions = false;
+   bool twoBoards = false;
+   int pieceValue[PHASE_NB][PIECE_TYPE_NB] = {};
+   std::string customPiece[CUSTOM_PIECES_NB] = {};

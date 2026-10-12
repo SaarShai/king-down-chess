@@ -4,6 +4,8 @@ Researched 2026-09-13. Every version, date and license below was checked live ag
 upstream source (GitHub API, npm registry, PyPI, raw source files) on that date, not from memory.
 Claims I could not verify are marked **[unverified]**.
 
+This is a historical assessment. Use [the current training assessment](fairy-stockfish-training-2026-10-11.md), [the tested comparison](fairy-stockfish-eval-2026-10-11.md), and [the verified base-piece port](fairy-stockfish-base-port-2026-10-11.md) for new decisions. The roster, Beast rules and large-network conclusion below have changed.
+
 ---
 
 ## Recommendation (read this part)
@@ -31,8 +33,9 @@ Three numbers that decide it:
 1. A Fairy-Stockfish HalfKAv2 net *for your variant* would be ≈ **94 MB**
    (`64 squares x 64 king squares x 11 piece types x 2080 B`, per
    [their own formula](https://github.com/fairy-stockfish/variant-nnue-pytorch/wiki/Technical-details#file-size)).
-   Fairy-Stockfish itself cannot load nets over 80 MB in the standard 8x8 build. That path is dead
-   for a web game before you write a line.
+   The standard 8x8 build cannot load nets over 80 MB. The supported large-board build can load
+   them even for an 8x8 variant. This is an asset-size concern, not a hard engine limit. See the
+   [upstream FAQ](https://github.com/fairy-stockfish/variant-nnue-pytorch/wiki/FAQ).
 2. A "768-style" net for your 11 piece types is ≈ **0.72 MB**. [Lozza](https://github.com/op12no2/lozza)
    (MIT, pure JS, active 2026-07-10) ships a complete NNUE engine — search, movegen, embedded net —
    in **291 KB gzipped**, running in a Web Worker with no WASM at all. That is your template.

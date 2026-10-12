@@ -1,0 +1,22 @@
+# Remaining base pieces, chain storage and plugin fit
+
+Status: claimed
+Type: prototype
+
+Owner approval (2026-10-11): "go ahead and port the remaining fairy pieces, verify them against our rules engine, and fix the Beast chain capacity limit. don't merge yet. please also check whether fairy stockfish can be used in a chatgpt plugin (other agents in this project have been working on a chatgpt plugin build)."
+
+Plan: preserve the checked Archer/Beast snapshot. Extend the pinned native patch to Guard, Maester, Paladin and Ogre, plus the existing lab Catapult, Reaver and fixed Templar. Use the current explicit base rules; no cards, powers, custom workshop designs or lab rule toggles. Replace the fixed chain move buffer with growable storage through generation, legal lists and search. Check full legal effects, attack semantics, state, undo, keys, promotion data, search and draws against the TypeScript reference. Check the dense chain that previously fails, without silent truncation or an increased fixed cap. Inspect the actual plugin branches read-only and check the official host documentation. Record a concrete server/browser integration assessment. No merge, deployment, shipped AI/rule change or large game campaign.
+
+Acceptance: directed fixtures for each action and its interactions, both colours, king swaps, immunity, self-removal, pushed pawns, remote captures and capital movement; seeded mixed-piece corpus; exact legal effects and child-state parity; deep capture and TT controls; full dense-chain comparison above the old cap; ordinary regressions and meaningful bounded search; reproducible patch/rebuild, source and output hashes, project tests; plugin architecture and host limits supported by local code and primary documentation. Preserve other agents' edits and keep all raw evidence on the verified card after the existing snapshot finishes.
+
+## Verification
+
+The native build and fresh rebuild pass 241 positions, 16,125 distinct legal effects, every child state/check flag and all attacked squares. All fifteen piece types have effects checked for both colours. The dense fixture has 10,196 legal effects above the former 8,192 cap. Lists grow through legal generation and move picking; search reductions handle large move numbers. A 17-victim path, 51 deep recapture controls and 58 legal bounded search replies pass. Native checks include child and undo promotion metadata, TT storage, board/pawn/material keys and next search keys. Draw, repetition, perft and ten qualified upstream regression cases pass. The full tests pass 1,935 cases plus 50 artwork checks; 74 doc tests pass.
+
+Two confirmed implementation issues are fixed: standard promotions must not use shogi base metadata, and predicted search keys must include the next fifty-move clock adjustment. Intermediate output is kept. The original 16-victim artificial perft preflight exceeds 60 seconds; the complete 13-victim comparison proves parity above the former cap. Physical resource bounds remain.
+
+The separate Python trace crosscheck agrees with all 16,125 effects in both builds. It is not a third legality engine or an independent reviewer. Exact evidence is in card campaign `fairy-stockfish-base-20261011`; only `cert-check` and `cert-rebuild-check` certify the final source. All 112 native files match the clean rebuild and all source archive contents pass hash checks. Final cloud backup is pending.
+
+Plugin assessment: `docs/research/fairy-stockfish-plugin-fit-2026-10-11.md`. The current MVP has a suitable server worker seam. A native server engine can return actions for authoritative TypeScript validation and the existing revision check. Cards and powers are still unsupported. A browser worker needs a patched WebAssembly build and actual ChatGPT host checks; support is not assumed from the iframe documentation. No plugin branch is edited.
+
+Report: `docs/research/fairy-stockfish-base-port-2026-10-11.md`. The Ogre-pushed-pawn clock discrepancy is recorded; no rule changes. Staff review keeps one patch, one compound transition path and the existing reference driver. No merge, deployment, large game campaign, training or shipped AI change.
