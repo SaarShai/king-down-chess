@@ -74,6 +74,7 @@ try {
   for (const [width,height] of [[390,844],[1440,900],[400,900],[360,844]]) {
     await page.setViewportSize({width,height});
     assert.equal(await frame.locator('body').evaluate(el=>el.scrollWidth>innerWidth), false, `Home has no horizontal scroll at ${width}px`);
+    assert.equal(await frame.locator('.wordmark').evaluate(el => getComputedStyle(el).fontSize), '40px', 'Home keeps the sample wordmark size');
     await shot(page, `shell-home-${width}-${mode}`);
   }
   await page.setViewportSize({width:1000,height:1000});

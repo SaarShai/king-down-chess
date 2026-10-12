@@ -145,3 +145,10 @@ it('rejects a Retry control clipped by a parent on the horizontal axis', async (
     expect((await frame.locator('#retry').evaluate(controlBounds)).accessible).toBe(false);
   } finally { await page.close(); }
 });
+it('keeps the approved home wordmark at 40 px on a 360 px screen', async () => {
+  const page = await open();
+  try {
+    await page.setViewportSize({ width: 360, height: 844 });
+    expect(await page.frameLocator('iframe').locator('.wordmark').evaluate(el => getComputedStyle(el).fontSize)).toBe('40px');
+  } finally { await page.close(); }
+});
