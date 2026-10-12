@@ -60,3 +60,28 @@ it('recovers a completed create or find after its reply is lost', async () => {
     } finally { await page.close(); }
   }
 });
+it('updates activity on unchanged replies across the two-minute poll boundary', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_create', { kind: 'friend', colour: 'white' });
+      (parent as any).harnessNextView = { ...app.memory.view, status: 'playing', speed: 'daily', turn: 1, seat: 0, opponent: { last_seen_ms: 119000 }, server_now: '2026-10-11T12:00:00Z' };
+      await app.call('kingdown_get', {});
+    });
+    const before = await frame.locator('html').evaluate(async () => {
+      const { pollDelay } = await new Function('return import("/src/plugin/poll.ts")')();
+      return pollDelay((window as any).harnessApp.memory.view, 0, false);
+    });
+    expect(before).toBe(3000);
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      (parent as any).harnessNextView = { ...app.memory.view, opponent: { last_seen_ms: 121000 }, server_now: '2026-10-11T12:00:02Z' };
+      await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true, false);
+    });
+    expect(await frame.locator('html').evaluate(async () => {
+      const { pollDelay } = await new Function('return import("/src/plugin/poll.ts")')(), view = (window as any).harnessApp.memory.view;
+      return { delay: pollDelay(view, 0, false), now: view.server_now };
+    })).toEqual({ delay: 30000, now: '2026-10-11T12:00:02Z' });
+  } finally { await page.close(); }
+});
