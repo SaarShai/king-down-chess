@@ -48,7 +48,13 @@
 <section data-screen="join" hidden></section>
 <section data-screen="wait" hidden></section>
 <section data-screen="lobby" hidden></section>
-<section data-screen="seat" hidden></section>
+<section id="seat-screen" data-screen="seat" hidden><div data-seat-id="game-table" aria-label="Set up your side"><div id="seat-board-slot"></div><div class="table-side">
+<div data-seat-id="strip-them" class="player-strip"><span class="portrait"><img id="seat-them-picture" alt=""></span><div class="player-name"><b id="seat-them-name"></b><small id="seat-them-line"></small></div></div>
+<div data-seat-id="strip-me" class="player-strip"><span class="portrait"><img id="seat-me-picture" alt=""></span><div class="coin-row"><button id="seat-king" class="coin" data-state="always" aria-label="Choose your king" hidden><img alt=""></button></div><div class="player-name"><b id="seat-me-name"></b><small id="seat-me-line"></small></div></div>
+<div data-seat-id="context-line"><div data-seat-id="context-text" role="status" aria-live="polite"><span id="seat-context"></span><span id="seat-note"></span></div></div>
+<div data-seat-id="moves-line"><span data-seat-id="last-move"></span><span class="moves-label">Moves <span aria-hidden="true">⌄</span></span></div><div class="table-space"></div>
+<div data-seat-id="table-bar" role="group" aria-label="Setup controls"><button id="seat-shuffle"><svg class="icon" aria-hidden="true"><use href="#i-shuffle"/></svg><span>Shuffle</span></button><button id="seat-ready" class="primary"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Ready</span></button><button id="seat-menu"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span>Menu</span></button></div>
+</div></div></section>
 <section data-screen="end" hidden></section>
 <section data-screen="profile" hidden></section>
 <section data-screen="collection" hidden></section>
