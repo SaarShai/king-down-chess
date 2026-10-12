@@ -96,3 +96,36 @@ it('shows all ten badges and opens the earned date or goal on a tap', async () =
     expect(await frame.locator('#over').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
+it('lists all pieces, kings, powers and cards with the game text and Unlocked', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('collection'));
+    await expect.poll(() => frame.locator('#collection-items .piece-card').count()).toBe(11);
+    expect(await frame.locator('#collection-items [data-piece="pawn"]').innerText()).toContain('Moves 1 square forward. Moves 2 from its start rank.');
+    const data = JSON.parse((await readFile('docs/specs/chatgpt-mvp/sample/data.js', 'utf8')).replace(/^window.KD = /, '').replace(/;\s*$/, ''));
+    // RULES.md makes the balanced readings official; the sample keeps the printed readings.
+    const balanced: Record<string, string> = {
+      Freeze: 'Freeze an enemy piece (not the king), then make your move: the frozen piece cannot move on its next turn.',
+      IceWall: 'Wall one of your pieces (not the king), then make your move: the walled piece cannot be captured on the next turn.',
+      Strike: 'Move any piece except a pawn or the king as if it were a queen, to an empty square.',
+      Haste: 'Move one piece twice in one turn (the second move is optional); neither move captures.',
+      March: 'Any pawn may step two squares from any rank.',
+      HolyLight: 'Enemy pawns cannot take your king; your pieces beside, in front of or behind it cannot be taken.',
+      Mercy: 'Your king steps 1–2 squares and jumps your pieces, but takes only a pawn or a guard; your pieces next to it cannot be taken except by pawns.',
+      DeathTouch: 'Your king takes an enemy next to it, or two squares away straight forward or back over an empty square, without moving — it can only take this way.',
+      Darkness: 'Your pawns may also step diagonally, and take only straight ahead; your king may also step two squares in a straight line, over an empty square.',
+      Firewall: 'None of your pieces can be taken on your opponent’s next turn; then make your move.',
+    };
+    for (const [tab, count] of [['Pieces', 11], ['Kings', 6], ['Powers', 12], ['Cards', 21]] as const) {
+      await frame.locator('#collection-tabs label').filter({ hasText: tab }).click();
+      expect(await frame.locator('#collection-items > *').count()).toBe(count);
+      expect(await frame.locator('#collection-items .unlocked').count()).toBe(count);
+      if (tab === 'Cards') for (const [card, line] of Object.entries(data.cards)) expect(await frame.locator(`[data-card="${card}"] .cf-text small`).textContent()).toBe(balanced[card] ?? line);
+      if (tab === 'Powers') for (const [power, line] of Object.entries(data.powers)) expect(await frame.locator(`[data-power="${power}"] dd`).first().textContent()).toBe(balanced[power] ?? line);
+    }
+    await page.locator('#remount').click();
+    await frame.locator('[data-screen="collection"]:not([hidden])').waitFor();
+    await expect.poll(() => frame.locator('#collection-items > *').count()).toBe(21);
+    expect(await frame.getByRole('radio', { name: 'Cards', exact: true }).isChecked()).toBe(true);
+  } finally { await page.close(); }
+});

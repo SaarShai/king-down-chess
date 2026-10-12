@@ -1,0 +1,9 @@
+#collection-sheet { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+#collection-sheet .piece-cards, #collection-sheet .card-grid { margin-top: var(--space-4); }
+#collection-sheet .unlocked { display: flex; align-items: center; gap: 4px; color: #3d6b1f; font-weight: 700; }
+#collection-sheet .unlocked .icon { width: 16px; height: 16px; }
+#collection-sheet .pc-art:has(.coin) { align-items: center; }
+#collection-sheet .coin { cursor: default; }
+#collection-sheet .card-face { cursor: default; }
+#collection-sheet .cf-text b { padding-right: 0; }
+#collection-sheet .cf-text .unlocked { margin-top: var(--space-2); font-size: var(--fs-sm); }
