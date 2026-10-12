@@ -59,6 +59,7 @@ export interface MarkState {
   marks: Highlights;
   /** The selected piece's code (for the preview), or 0. */
   piece: number;
+  ghost?: PaintedScene['ghost'];
   /** Pointer or keyboard square. */
   preview: number | null;
   /** Size factor for small boards (>= 1). */
@@ -183,7 +184,7 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
     for (const sq of new Set([...m.moves ?? [], ...m.captures ?? []])) {
       under(sq, kindOf(sq, m), 1, m.powers?.includes(sq));
       // Preview: the piece, see-through, standing where it would go.
-      if (m.moves?.includes(sq) && hover(sq) && s.piece && appear(sq) > 0) scene.ghost(ctx, s.piece, sq, 0.5);
+      if (m.moves?.includes(sq) && hover(sq) && s.piece && appear(sq) > 0) (s.ghost ?? scene.ghost)(ctx, s.piece, sq, 0.5);
     }
     for (const l of lines) legend(l.to, l.end);
     for (const sq of m.swaps ?? []) {

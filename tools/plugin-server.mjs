@@ -11,8 +11,12 @@ import { pluginDatabaseConfig } from './plugin-db-config.mjs';
 import { createTokenVerifier, isLoopback, pluginOrigin } from '../src/plugin/auth.ts';
 import { consentConfig, renderConsent } from '../src/plugin/consent-config.ts';
 import { createPluginHandler } from '../src/plugin/http.ts';
-import { MatchService } from '../src/match/service.ts';
+import { GameService } from '../src/match/service.ts';
+import { PluginService } from '../src/plugin/service.ts';
 import { PostgresMatchStore } from '../src/match/store.ts';
+import { createInternalHandler } from '../src/api/http.ts';
+import { resendSender } from '../src/online/mail.ts';
+import { ART_HEADERS, artType } from './plugin-art-headers.mjs';
 
 export async function configurePlugin(env = process.env, { localDev = false } = {}) {
   const publicOrigin = pluginOrigin(env.KINGDOWN_PLUGIN_ORIGIN || (localDev ? 'http://127.0.0.1:3100' : ''));
@@ -37,14 +41,32 @@ export async function configurePlugin(env = process.env, { localDev = false } = 
     const metadata = await response.json();
     if (metadata.issuer !== auth.issuer || !Array.isArray(metadata.scopes_supported) || !metadata.scopes_supported.includes('openid')) throw new Error('Supabase OAuth discovery has an incompatible issuer or scopes');
   }
-  if (config) consent = { html: renderConsent(await readFile(new URL('./consent.html', import.meta.url), 'utf8'), config), script: await readFile(new URL('./consent.mjs', import.meta.url), 'utf8'), supabaseOrigin: config.supabaseUrl };
+  // A local run serves the consent page too when it has the public Supabase settings.
+  const page = config ?? (localDev && env.SUPABASE_URL ? consentConfig(env) : undefined);
+  if (page) consent = { html: renderConsent(await readFile(new URL('./consent.html', import.meta.url), 'utf8'), page), script: await readFile(new URL('./consent.mjs', import.meta.url), 'utf8'), supabaseOrigin: page.supabaseUrl };
   const resourceHtml = await readFile(new URL('./board.html', import.meta.url), 'utf8');
   const pool = new Pool({ ...pluginDatabaseConfig(db, { localDev }), max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000 });
   pool.on('error', error => { console.error('King Down database connection failed', diagnostic(error)); });
   try { await checkPluginDatabase(pool, config, auth?.resource); }
   catch (error) { await pool.end(); throw error; }
-  const handler = createPluginHandler({ consent, service: new MatchService(new PostgresMatchStore(pool)), publicOrigin, resourceHtml, auth, localDev });
+  const store = new PostgresMatchStore(pool), games = new GameService(store);
+  const mcp = createPluginHandler({ consent, service: new PluginService(store), publicOrigin, resourceHtml, auth, localDev });
+  const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET, sender: () => resendSender(env) });
+  // The MVP serves internal jobs, MCP and OAuth pages.
+  const handler = async (req, res) => {
+    const path = req.url?.startsWith('/') && URL.canParse(req.url, publicOrigin) ? new URL(req.url, publicOrigin).pathname : '';
+    if (/^\/internal(\/|$)/.test(path)) return internal(req, res);
+    if (path.startsWith('/plugin-art/')) return art(path.slice(12), res);
+    await mcp(req, res);
+  };
   return { handler, pool, publicOrigin };
+}
+const ART = new URL('./plugin-art/', import.meta.url);
+/** The standalone server's board art; on Vercel the static layer answers first (tools/plugin-server-build.mjs). */
+async function art(name, res) {
+  const type = artType(name), file = type ? await readFile(new URL(name, ART)).catch(() => undefined) : undefined;
+  if (!file) { res.writeHead(404, { 'Cache-Control': 'no-store' }).end(); return; }
+  res.writeHead(200, { 'Content-Type': type, 'Content-Length': file.length, ...ART_HEADERS }).end(file);
 }
 let configured;
 /** The function adapter never enables local personas. */

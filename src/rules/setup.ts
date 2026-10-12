@@ -1,5 +1,5 @@
 /** Start positions, FEN-style serialisation and move notation. */
-import { BLACK, CardName, Color, G, LETTERS, Mark, Move, P, PieceType, Position, SPENT, T, V, WHITE, colorOf, moveNumber, parseSq, piece, rank, sq, sqName, typeOf } from './engine';
+import { BLACK, CardName, Color, G, LETTERS, Mark, Move, P, PieceType, Position, SPENT, T, V, WHITE, castleRights, colorOf, epAfter, moveNumber, parseSq, piece, rank, sq, sqName, typeOf } from './engine';
 import { ALL_CARDS, RULES } from './rules';
 
 /** King Down Classic pool: 7 of these join the king on the back rank. */
@@ -71,11 +71,14 @@ export function startPosition(backRank: string = randomBackRank()): Position {
     board[sq(f, 1)] = piece(P, WHITE);
     board[sq(f, 6)] = piece(P, BLACK);
   }
-  return waitGuards({ board, turn: WHITE, halfmove: 0, ply: 0, move: 1 });
+  const pos: Position = { board, turn: WHITE, halfmove: 0, ply: 0, move: 1 };
+  if (RULES.classicChess && castleRights(board)) pos.castle = castleRights(board);
+  return waitGuards(pos);
 }
 
 /**
- * FEN-shaped: `<board> <turn> - - <halfmove> <fullmove> [powers]` (castling/en-passant always "-").
+ * FEN-shaped: `<board> <turn> <castling> <en passant> <halfmove> <fullmove> [powers]`. Castling and
+ * en passant are "-" unless `Rules.classicChess` is on; then they are the chess fields (`KQkq`, `e3`).
  * Uppercase = white. `H`/`h` is a guard that has spent its one capture (`Rules.guardCaptureLimit`).
  *
  * Field 7 is the kings' power state, written only when there is some (docs/RULES.md §4):
@@ -104,7 +107,8 @@ export function toFen(pos: Position): string {
     rows.push(row);
   }
   const powers = powerField(pos);
-  return `${rows.join('/')} ${pos.turn === WHITE ? 'w' : 'b'} - - ${pos.halfmove} ${moveNumber(pos)}${powers ? ' ' + powers : ''}`;
+  const castle = 'KQkq'.split('').filter((_, i) => (pos.castle ?? 0) & (1 << i)).join('') || '-';
+  return `${rows.join('/')} ${pos.turn === WHITE ? 'w' : 'b'} ${castle} ${pos.ep !== undefined ? sqName(pos.ep) : '-'} ${pos.halfmove} ${moveNumber(pos)}${powers ? ' ' + powers : ''}`;
 }
 
 /** FEN field 7, or '' when the position carries no power state. */
@@ -164,8 +168,24 @@ function readPowerField(field: string, pos: Position): void {
   }
 }
 
+/**
+ * FEN fields 3 and 4 under `Rules.classicChess`. A right whose king or rook is not on its square is
+ * dropped, and so is an en-passant square no enemy pawn may take on: the stored form is canonical.
+ */
+function readChessFields(castling: string, passant: string, pos: Position): void {
+  if (!/^(-|K?Q?k?q?)$/.test(castling)) throw new Error(`bad castling field ${castling}`);
+  let r = 0;
+  for (const ch of castling) if (ch !== '-') r |= 1 << 'KQkq'.indexOf(ch);
+  r &= castleRights(pos.board);
+  if (r) pos.castle = r;
+  if (passant === '-') return;
+  if (!/^[a-h][36]$/.test(passant)) throw new Error(`bad en-passant field ${passant}`);
+  const ep = parseSq(passant), by = (pos.turn ^ 1) as Color, d = by === WHITE ? 8 : -8;
+  if (epAfter(pos.board, { from: ep - d, to: ep + d, captures: [] }, by) >= 0 && !pos.board[ep] && !pos.board[ep - d]) pos.ep = ep;
+}
+
 export function fromFen(fen: string): Position {
-  const [boardPart, turn = 'w', , , halfmove = '0', fullmove = '1', powers = ''] = fen.trim().split(/\s+/);
+  const [boardPart, turn = 'w', castling = '-', passant = '-', halfmove = '0', fullmove = '1', powers = ''] = fen.trim().split(/\s+/);
   const board = new Uint8Array(64);
   const rows = boardPart.split('/');
   if (rows.length !== 8) throw new Error(`bad FEN ${fen}`);
@@ -183,6 +203,7 @@ export function fromFen(fen: string): Position {
   const color: Color = turn === 'w' ? WHITE : BLACK;
   const pos: Position = { board, turn: color, halfmove: +halfmove, ply: (+fullmove - 1) * 2 + color, move: +fullmove };
   readPowerField(powers, pos);
+  if (RULES.classicChess) readChessFields(castling, passant, pos);
   return pos;
 }
 
@@ -220,6 +241,8 @@ function lanOf(pos: Position, m: Move): string {
   // Ice Wall (`W`), Sacrifice (`S`, the pawn's square and the returned piece) and Flight (`~`); and
   // the Curse card (`C`, an enemy piece's step) and SkyLift (`K`, before the maester swap it looks like).
   if (m.pass) return '--';
+  // Castling (`Rules.classicChess`) reads apart from a Mercy or Darkness king's two-square step.
+  if (m.castle) return m.castle.from > m.from ? 'O-O' : 'O-O-O';
   if (m.drop) return `${LETTERS[m.drop]}@${sqName(m.to)}${m.drop2 !== undefined ? ',' + sqName(m.drop2) : ''}${DROP_TAG[m.power ?? ''] ?? ''}`;
   if (m.power === 'freeze') return `!F:${sqName(m.to)}`;
   if (m.power === 'ward') return `!W:${sqName(m.to)}`;

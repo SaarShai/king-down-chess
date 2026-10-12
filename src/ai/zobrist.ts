@@ -136,3 +136,6 @@ const [lastLo2, lastHi2] = draw(2 * 32);
 export const Z_LAST_LO = Int32Array.of(...lastLo, ...lastLo2), Z_LAST_HI = Int32Array.of(...lastHi, ...lastHi2);
 /** Slot in `Z_LAST` of "side `c` played card `k` last" (`k`: the card's index in `ALL_CARDS`, below 64). */
 export const lastIndex = (c: number, k: number): number => (k < 32 ? c * 32 + k : 64 + c * 32 + (k - 32));
+/** Classic chess (`Rules.classicChess`, 2026-10-11), appended: one key per castling right (K Q k q) and one per en-passant file. */
+export const [Z_CASTLE_LO, Z_CASTLE_HI] = draw(4);
+export const [Z_EP_LO, Z_EP_HI] = draw(8);

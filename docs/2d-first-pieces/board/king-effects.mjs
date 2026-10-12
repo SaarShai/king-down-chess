@@ -51,7 +51,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  // An effect's own art: null until it has loaded (then the layers built from it are rebuilt).
  function asset(url){
   let entry=assets.get(url);
-  if(!entry){entry={image:null};assets.set(url,entry);const image=new Image();image.onload=()=>{entry.image=image;cache.clear();onLoad();};image.src=url;}
+  if(!entry){entry={image:null};assets.set(url,entry);const image=Object.assign(new Image(),{crossOrigin:'anonymous'});image.onload=()=>{entry.image=image;cache.clear();onLoad();};image.src=url;}
   return entry.image;
  }
  // The figure's silhouette at layer size, registered like the scene's sprite.

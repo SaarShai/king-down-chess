@@ -3,6 +3,7 @@ import { SearchOptions } from './search';
 export type SkillName = 'beginner' | 'casual' | 'club' | 'strong';
 
 export interface SkillPlan extends SearchOptions {
+  timeMs: number;
   /** Chance to ignore the search and play a random legal move. */
   blunder: number;
 }

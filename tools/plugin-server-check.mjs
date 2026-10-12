@@ -36,42 +36,62 @@ try {
   }
   const tool = async (actor, name, args) => (await rpc(actor, 'tools/call', { name, arguments: args })).result;
   const open = await tool(actors[0], 'kingdown_open', {});
-  assert(!open.isError); const initial = open.structuredContent;
-  assert.equal(initial.snapshot.revision, 0); assert(initial.snapshot.legal.length);
-  const command = { matchId: initial.matchId, id: 'http-first', expectedRevision: 0, lan: initial.snapshot.legal.find(lan => !lan.includes('!')) };
-  const moved = await tool(actors[0], 'kingdown_move', command); assert(!moved.isError); assert.equal(moved.structuredContent.snapshot.revision, 1);
-  const computer = { matchId: initial.matchId, id: 'http-ai', expectedRevision: 1 };
-  const ai = await tool(actors[0], 'kingdown_computer', computer); assert(!ai.isError); assert.equal(ai.structuredContent.snapshot.revision, 2);
+  assert(!open.isError); assert.equal(open.structuredContent.screen, 'home'); assert.equal(open._meta.view, undefined);
+  const options = { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false };
+  for (const [i, actor] of actors.entries()) assert(!(await tool(actor, 'kingdown_handle', {handle:`http${i}-${actor.slice(0,8)}`})).isError);
+  const created = await tool(actors[0], 'kingdown_create', {kind:'solo',options,colour:'white',board_id:open.structuredContent.board_id}); assert(!created.isError); const initial = created._meta.view;
+  assert.equal(initial.revision, 0); assert(initial.legal.length); assert.equal(open.structuredContent.legal, undefined);
+  const command = { game_id: initial.game_id, command_id: 'http-first', expected_revision: 0, lan: initial.legal.find(lan => !lan.includes('!')) };
+  const moved = await tool(actors[0], 'kingdown_move', command); assert(!moved.isError); assert.equal(moved._meta.view.revision, 1);
+  const computer = { game_id: initial.game_id, command_id: 'http-ai', expected_revision: 1 };
+  const ai = await tool(actors[0], 'kingdown_computer', computer); assert(!ai.isError); assert.equal(ai._meta.view.revision, 2);
   assert.deepEqual((await tool(actors[0], 'kingdown_computer', computer)).structuredContent, ai.structuredContent);
-  assert((await tool(actors[1], 'kingdown_get', { matchId: initial.matchId })).isError);
-  const persisted = await pool.query('select save,revision,(select count(*)::int from public.plugin_match_commands where match_id=$1) as commands from public.plugin_matches where id=$1', [initial.matchId]);
+  assert((await tool(actors[1], 'kingdown_get', { game_id: initial.game_id })).isError);
+  const persisted = await pool.query('select state as save,revision,(select count(*)::int from public.game_commands where game_id=$1) as commands from public.games where id=$1', [initial.game_id]);
   assert.equal(persisted.rows[0].commands, 2); assert.equal(persisted.rows[0].revision, 2); assert.match(JSON.parse(persisted.rows[0].save).engine, /^sha256:/);
   // New pool/service/handler instances demonstrate reconnect without any in-memory authority.
   const restarted = await configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString }, { localDev: true });
   await app.pool.end(); app = restarted;
-  assert.deepEqual((await tool(actors[0], 'kingdown_resume', {})).structuredContent, ai.structuredContent);
-  const waiting = (await tool(actors[0], 'kingdown_create', { mode: 'friend' })).structuredContent;
-  const invite = (await tool(actors[0], 'kingdown_invite', { matchId: waiting.matchId })).structuredContent;
-  const joined = (await tool(actors[1], 'kingdown_join', { token: invite.token })).structuredContent;
-  assert.equal(joined.playerColor, 1); assert.equal(joined.waiting, false);
-  const recoveryBoard = (await tool(actors[1], 'kingdown_open', {matchId:waiting.matchId})).structuredContent;
-  await pool.query('delete from public.plugin_matches where id=$1',[waiting.matchId]);
-  assert.equal((await tool(actors[1], 'kingdown_get', {matchId:waiting.matchId,boardId:recoveryBoard.boardId}))._meta.code, 'MATCH_REMOVED');
-  const recovered = await tool(actors[1], 'kingdown_create', {mode:'solo',boardId:recoveryBoard.boardId});
-  assert(!recovered.isError); assert.equal(recovered.structuredContent.boardId,recoveryBoard.boardId);
-  assert.equal((await tool(actors[1], 'kingdown_get', {matchId:waiting.matchId,boardId:recoveryBoard.boardId})).structuredContent.matchId,recovered.structuredContent.matchId);
-  assert.equal((await tool(actors[0], 'kingdown_create', {mode:'solo',boardId:recoveryBoard.boardId}))._meta.code,'FORBIDDEN');
+  assert.equal((await tool(actors[0], 'kingdown_resume', {board_id:open.structuredContent.board_id}))._meta.view.fen, ai._meta.view.fen);
+  const waiting = (await tool(actors[0], 'kingdown_create', { kind: 'friend', options, colour: 'white' })).structuredContent;
+  const invite = (await tool(actors[0], 'kingdown_invite', { game_id: waiting.game_id })).structuredContent;
+  assert.match(invite.code, /^[A-HJKMNP-Z2-9]{6}$/); assert.equal(invite.link,undefined);
+  const joined = (await tool(actors[1], 'kingdown_join', { code: invite.code })).structuredContent;
+  assert.equal(joined.colour, 'black'); assert.equal(joined.status, 'playing');
+  const recoveryBoard = (await tool(actors[1], 'kingdown_open', {game_id:waiting.game_id})).structuredContent;
+  await pool.query('delete from public.games where id=$1',[waiting.game_id]);
+  assert.equal((await tool(actors[1], 'kingdown_get', {game_id:waiting.game_id,board_id:recoveryBoard.board_id}))._meta.code, 'MATCH_REMOVED');
+  const recovered = await tool(actors[1], 'kingdown_create', {kind:'solo',options,board_id:recoveryBoard.board_id});
+  assert(!recovered.isError); assert.equal(recovered.structuredContent.board_id,recoveryBoard.board_id);
+  assert.equal((await tool(actors[1], 'kingdown_get', {game_id:waiting.game_id,board_id:recoveryBoard.board_id})).structuredContent.game_id,recovered.structuredContent.game_id);
+  assert.equal((await tool(actors[0], 'kingdown_create', {kind:'solo',options,board_id:recoveryBoard.board_id}))._meta.code,'FORBIDDEN');
   const tools = (await rpc(actors[0], 'tools/list', {})).result.tools;
   const uri = tools.find(tool => tool.name === 'kingdown_open')._meta.ui.resourceUri;
   assert.match(uri, /^ui:\/\/kingdown\/board-[a-f0-9]{64}\.html$/);
   const resource = await rpc(actors[0], 'resources/read', { uri });
-  assert(resource.result.contents[0].text.includes('<html')); assert(resource.bytes < 4_400_000);
+  assert(resource.result.contents[0].text.includes('<html')); assert(resource.bytes < 1_000_000);
+  // The page names each art file on this origin; a cross-origin page may read it into a canvas, and a new build gets new names.
+  const art = [...new Set(resource.result.contents[0].text.match(new RegExp(`${origin}/plugin-art/[\\w-]+\\.(?:webp|png|svg|woff2)`, 'g')))];
+  const counts = Object.fromEntries(['webp', 'png', 'svg', 'woff2'].map(type => [type, art.filter(file => file.endsWith(`.${type}`)).length]));
+  for (const name of ['badge-architect.webp', 'badge-card-sharp.webp', 'badge-crowned.webp', 'badge-fairy-tale.webp', 'badge-first-win.webp', 'badge-friend-match.webp', 'badge-giant-slayer.webp', 'badge-purist.webp', 'badge-royal-collection.webp', 'badge-stranger-match.webp', 'scroll.webp']) assert(art.some(file => file.includes(`/${name.slice(0,-5)}-`)), `The page names ${name}`);
+  assert(counts.webp >= 20); assert.equal(counts.png, 1); assert.equal(counts.svg, 24); assert.equal(counts.woff2, 4);
+  // Ticket 12: each setup art file stays on the plugin origin.
+  for (const name of ['archer-w','paladin-w','guard-w','maester-w','beast-w','ogre-w','rook-w','bishop-w','knight-w','queen-w','frost','flame','stratus','mud','spirit','shadow','shadow-b','freeze','icewall','sacrifice','march','leap','salvation','mimic','vault','skylift','back']) assert(art.some(file => file.includes(`/${name}-`)), `Setup names ${name}.webp`);
+  // Ticket 14: the plain opponent portrait and the remembered king stay on the plugin origin.
+  for (const name of ['spirit','shadow-b','mud']) assert(art.some(file => file.includes(`/${name}-`)), `Seat names ${name}.webp`);
+  for (const file of art) {
+    const response = await fetch(file, { headers: { Origin: 'null' } });
+    assert.equal(response.status, 200, file); assert.equal(response.headers.get('content-type'), { webp: 'image/webp', png: 'image/png', svg: 'image/svg+xml', woff2: 'font/woff2' }[file.split('.').at(-1)]); assert.equal(response.headers.get('access-control-allow-origin'), '*');
+    assert.match(response.headers.get('cache-control'), /max-age=31536000.*immutable/); assert((await response.arrayBuffer()).byteLength > 0);
+  }
+  assert.equal((await fetch(`${origin}/plugin-art/missing.webp`)).status, 404); assert.equal((await fetch(`${origin}/plugin-art/..%2fserver.mjs`)).status, 404);
   await assert.rejects(configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: 'https://plugin.example', KINGDOWN_PLUGIN_DATABASE_URL: connectionString, SUPABASE_URL: 'https://project.supabase.co', KINGDOWN_PLUGIN_OAUTH_READY: '0' }), /Enable Supabase OAuth/);
   await assert.rejects(configurePlugin({ NODE_ENV: 'production', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString }, { localDev: true }), /Local personas/);
-  console.log(`Compiled HTTP + real PostgreSQL: open, move, AI, retry, foreign seat rejection, service restart/resume, friend invitation/join, resource (${resource.bytes} JSON bytes), and production auth gate passed`);
+  console.log(`Compiled HTTP + real PostgreSQL: open, move, AI, retry, foreign seat rejection, service restart/resume, friend code/join, board recovery, resource (${resource.bytes} JSON bytes), ${art.length} art files (${JSON.stringify(counts)}), and production auth gate passed`);
 } finally {
   server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
   await app?.pool.end();
+  await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [actors]);
   for (const actor of actors) await pool.query('delete from auth.users where id=$1', [actor]);
   await pool.end();
   await rm(artifact, { recursive: true, force: true });

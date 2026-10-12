@@ -1,7 +1,7 @@
 /**
  * King Down Chess rules engine (single source of truth).
  * Board: 64 cells, a1 = 0 … h8 = 63; file = sq & 7, rank = sq >> 3. White moves up (+rank).
- * Standard chess + 5 King Down fairy pieces. No castling, no en passant (King Down Classic default).
+ * Standard chess + 5 King Down fairy pieces. No castling, no en passant, except under `Rules.classicChess`.
  *
  * Every rule the balance lab varies lives in `./rules.ts` as one module-level object, `RULES`.
  * Read that file's header for why it is module state and not a field on `Position`. With no call
@@ -83,6 +83,8 @@ export interface Move {
   shove?: { from: number; to: number };
   /** Paladin: the mover leaves the board after capturing. */
   selfRemove?: boolean;
+  /** Castling (`Rules.classicChess`): the king's two-square move, and the rook goes from `castle.from` to `castle.to`. */
+  castle?: { from: number; to: number };
   /**
    * A king power spent by this move (docs/RULES.md §4). Each spends one of the side's uses
    * (`Position.used`):
@@ -196,6 +198,13 @@ export interface Position {
    * enters as a move (`Move.drop`). FEN field 7 `g1.1`; `positionKey` folds it in.
    */
   waiting?: readonly [number, number];
+  /** `Rules.classicChess`: the castling rights left, bits `CASTLE_RIGHTS` order (K Q k q). FEN field 3. Absent = none. */
+  castle?: number;
+  /**
+   * `Rules.classicChess`: the square a pawn passed on its two-square advance, kept only when an enemy
+   * pawn stands beside it and may take en passant. FEN field 4.
+   */
+  ep?: number;
 }
 
 export interface Mark { sq: number; left?: number; ward?: boolean; all?: boolean }
@@ -1025,6 +1034,7 @@ export function makeMove(pos: Position, m: Move): Position {
       board[m.from] = m.swap ? other : 0;
       board[m.to] = m.selfRemove ? 0 : landed(mover, m);
       if (m.drop2 !== undefined) board[m.drop2] = mover;
+      if (m.castle) { board[m.castle.to] = board[m.castle.from]; board[m.castle.from] = 0; }
     }
   }
   // A pushed pawn resets the clock, as a cursed one does (a pawn's step is the clock's measure). A spawn
@@ -1080,6 +1090,8 @@ export function makeMove(pos: Position, m: Move): Position {
   let waiting = pos.waiting;
   if (m.drop && !m.power && waiting) { const w: [number, number] = [waiting[0], waiting[1]]; w[c]--; waiting = w; }
   if (waiting && (waiting[0] || waiting[1])) next.waiting = waiting;
+  if (pos.castle) { const r = rightsAfter(pos.castle, m); if (r) next.castle = r; }
+  if (RULES.classicChess && !still) { const e = epAfter(board, m, c); if (e >= 0) next.ep = e; }
   return next;
 }
 
@@ -1741,7 +1753,7 @@ function unpush(m: Move, s: number): Move | null {
 
 /**
  * Drop the moves a Freeze or Ice Wall mark forbids the side to move `c` (from `out[n0]` on). A
- * frozen piece does not move by any hand: not itself, not by its own maester's swap or ogre's shove
+ * frozen piece does not move by any hand: not itself, not by its own maester's swap or ogre's shove or castling
  * or a SkyLift or MorphS (nor does a frozen piece or pawn morph), nor by its own side's Earth Quake, which leaves it where it stands (it may still be
  * warded); a piece dropped onto an emptied marked square is not it. A warded piece cannot be
  * captured, by a chain either — the chain's shorter prefixes stay — nor moved by a Curse or by a
@@ -1760,7 +1772,7 @@ export function filterMarks(c: Color, mark: number | undefined, markBy: Color | 
     let blocked: boolean;
     if (kind === 'frozen') {
       blocked = (m.from === mark && m.power !== 'ward' && m.power !== 'freeze' && m.power !== 'curse' && !isStill(m) && !m.drop && !m.pushes)
-        || (m.swap === true && m.to === mark && m.power !== 'firewallb') || m.shove?.from === mark;
+        || (m.swap === true && m.to === mark && m.power !== 'firewallb') || m.shove?.from === mark || m.castle?.from === mark;
       if (!blocked && own && m.pushes) { m = unpush(m, mark); blocked = !m; }
     } else if (all) blocked = m.captures.length > 0 || m.power === 'curse' || m.power === 'firewallb';
     else blocked = m.captures.includes(mark) || (m.power === 'curse' && m.from === mark) || (m.power === 'firewallb' && m.to === mark);
@@ -1871,6 +1883,80 @@ export function genGuardDrops(board: Uint8Array, c: Color, out: Move[]): void {
   }
 }
 
+/**
+ * Classic chess castling (`Rules.classicChess`), one entry per right in bit order K Q k q: the king's
+ * square and landing square, the rook's square and landing square, and the squares that must be empty.
+ */
+export const CASTLES: readonly { king: number; to: number; rook: number; rookTo: number; empty: readonly number[] }[] = [
+  { king: 4, to: 6, rook: 7, rookTo: 5, empty: [5, 6] },
+  { king: 4, to: 2, rook: 0, rookTo: 3, empty: [1, 2, 3] },
+  { king: 60, to: 62, rook: 63, rookTo: 61, empty: [61, 62] },
+  { king: 60, to: 58, rook: 56, rookTo: 59, empty: [57, 58, 59] },
+];
+/** The rights a move ends when it touches square `s`: a king or rook square of `CASTLES`. */
+const CASTLE_LOST = ((): Uint8Array => {
+  const t = new Uint8Array(64);
+  CASTLES.forEach((k, i) => { t[k.king] |= 1 << i; t[k.rook] |= 1 << i; });
+  return t;
+})();
+/** The rights the pieces on `board` allow: the king and the rook on their start squares. */
+export function castleRights(board: Uint8Array): number {
+  let r = 0;
+  CASTLES.forEach((k, i) => { const c = (i >> 1) as Color; if (board[k.king] === piece(K, c) && board[k.rook] === piece(R, c)) r |= 1 << i; });
+  return r;
+}
+/**
+ * The rights left after `m`: a move ends every right whose king or rook leaves or changes on its square
+ * (a step, a capture, a swap, a push, a power, a Morph). A piece that comes back gets none. A move in
+ * place (a shot, an Earth Quake's centre) moves nothing from its own square.
+ */
+export function rightsAfter(rights: number, m: Move): number {
+  if (!rights || isStill(m)) return rights;
+  const inPlace = m.pushes || (m.to === m.from && !m.swap && m.promo === undefined);
+  let lost = inPlace ? 0 : CASTLE_LOST[m.from] | CASTLE_LOST[m.to];
+  for (let i = 0; i < m.captures.length; i++) lost |= CASTLE_LOST[m.captures[i]];
+  if (m.shove) lost |= CASTLE_LOST[m.shove.from] | CASTLE_LOST[m.shove.to];
+  if (m.pushes) for (const p of m.pushes) lost |= CASTLE_LOST[p.from] | CASTLE_LOST[p.to];
+  if (m.drop2 !== undefined) lost |= CASTLE_LOST[m.drop2];
+  return rights & ~lost;
+}
+/**
+ * The en-passant square after `m` by `c` on `after` (the board after the move), or -1: an ordinary
+ * pawn's two-square advance from its start rank, with an enemy pawn beside it. A side with Darkness
+ * (its pawns take straight ahead) gives and takes none; a March step from another rank gives none.
+ */
+export function epAfter(after: Uint8Array, m: Move, c: Color): number {
+  if (m.power || m.drop || Math.abs(m.to - m.from) !== 16 || after[m.to] !== piece(P, c) || rank(m.from) !== (c === WHITE ? 1 : 6)) return -1;
+  if (powerOf(c) === 'Darkness' || powerOf((c ^ 1) as Color) === 'Darkness') return -1;
+  const enemy = piece(P, (c ^ 1) as Color), f = file(m.to);
+  return (f > 0 && after[m.to - 1] === enemy) || (f < 7 && after[m.to + 1] === enemy) ? (m.from + m.to) >> 1 : -1;
+}
+/**
+ * Classic chess moves of `c` (`Rules.classicChess`): en passant onto `ep`, and castling by `rights`.
+ * Castling needs the king and rook on their squares, the squares between empty, and the king not in
+ * check and not passing an attacked square; the landing square is the legality test's.
+ */
+export function genClassic(board: Uint8Array, c: Color, rights: number, ep: number, mode: GenMode, out: Move[]): void {
+  if (mode === 'attacks') return;
+  const n0 = out.length;
+  if (ep >= 0 && powerOf(c) !== 'Darkness') {
+    const victim = ep - 8 * fwd(c), own = piece(P, c), f = file(victim);
+    if (!board[ep] && board[victim] === piece(P, (c ^ 1) as Color) && !inLight(board, victim, c ^ 1)) {
+      if (f > 0 && board[victim - 1] === own && canCapture(own, P)) out.push({ from: victim - 1, to: ep, captures: [victim] });
+      if (f < 7 && board[victim + 1] === own && canCapture(own, P)) out.push({ from: victim + 1, to: ep, captures: [victim] });
+    }
+    if (shelters()) dropSheltered(board, out, n0);
+  }
+  if (mode !== 'all' || !(rights & (c === WHITE ? 3 : 12))) return;
+  const them = (c ^ 1) as Color;
+  for (let i = c * 2; i < c * 2 + 2; i++) {
+    const k = CASTLES[i];
+    if (!(rights & (1 << i)) || board[k.king] !== piece(K, c) || board[k.rook] !== piece(R, c) || k.empty.some(s => board[s])) continue;
+    if (isAttacked(board, k.king, them) || isAttacked(board, k.rookTo, them)) continue;
+    out.push({ from: k.king, to: k.to, captures: [], castle: { from: k.rook, to: k.rookTo } });
+  }
+}
+
 /** The `pass` that ends a free-mark turn without an ordinary move, named by the side's king square. */
 export function freePass(board: Uint8Array, c: Color): Move {
   const k = findKing(board, c);
@@ -1883,6 +1969,7 @@ export function pseudoMoves(pos: Position, mode: GenMode = 'all'): Move[] {
   if (pos.haste !== undefined) genHasteFollowUp(pos.board, pos.haste, mode, out, pos.rage);
   else {
     for (let s = 0; s < 64; s++) if (pos.board[s] && colorOf(pos.board[s]) === c) genPiece(pos.board, s, mode, out);
+    if (RULES.classicChess) genClassic(pos.board, c, pos.castle ?? 0, pos.ep ?? -1, mode, out);
     if (mode === 'all' && pos.waiting?.[c]) genGuardDrops(pos.board, c, out);
     // After a free mark (`markFree`) or a GrowthB: the ordinary move, or end the turn; no second power.
     if (pos.free) { filterFree(c, true, out); if (mode === 'all') out.push(freePass(pos.board, c)); }

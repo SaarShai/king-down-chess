@@ -629,6 +629,12 @@ export interface Rules {
   fromMove: Readonly<Partial<Record<CardName, number>>>;
   /** Setup: reject a back rank whose two bishops share a square colour (Chess960 spirit). */
   bishopsOppositeColours: boolean;
+  /**
+   * Classic chess (the plugin's Classic setup, spec Q30, Q31): castling and en passant by the FIDE
+   * rules, with the rights and the en-passant square in the position (FEN fields 3 and 4, the key).
+   * Off: King Down has neither.
+   */
+  classicChess: boolean;
   /** Which pieces a pawn may become on the last rank. */
   promotionSet: PromotionSet;
   /** 100 plies without a capture or a pawn move is a draw. */
@@ -755,6 +761,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   piles: [[], []] as readonly [readonly CardName[], readonly CardName[]],
   fromMove: {} as Readonly<Partial<Record<CardName, number>>>,
   bishopsOppositeColours: true,
+  classicChess: false,
   // Reverted to the chess set on 2026-09-17 (designer guideline: do not keep a rule that adds
   // nothing measurable). Fairy promotions were 1.3% of all promotions and moved no outcome metric;
   // `anyNonKingNoGuard` and `anyNonKing` stay as lab readings.

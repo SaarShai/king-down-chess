@@ -1,0 +1,16 @@
+#over.end-card { z-index: 2; }
+#end-scrim { z-index: 1; }
+body[data-page='end'] #page-head { position: relative; z-index: 3; }
+#over.end-card .over-art { height: 96px; }
+#over.end-card .over-king { height: 92px; }
+.end-card .over-words { text-align: center; color: var(--gold-ink); font-family: var(--font-display); font-size: var(--fs-lg); margin: 0 0 var(--space-2); }
+.end-facts { display: flex; justify-content: center; align-items: center; gap: var(--space-4); margin-bottom: var(--space-3); flex-wrap: wrap; }
+.end-facts small { color: #3d6b1f; font-weight: 700; }
+#over.end-card .q { display: inline-grid; place-items: center; width: 20px; height: 20px; font-family: var(--font-body); font-size: 13px; font-weight: 800; color: var(--vellum); background: var(--gold-ink); border-radius: 50%; vertical-align: 2px; }
+.new-badge { display: inline-flex; align-items: center; gap: 6px; text-align: left; }
+.new-badge img { width: 40px; height: 40px; }
+.new-badge b, .new-badge small { display: block; line-height: 1.15; }
+.new-badge small { color: var(--ink-soft); font-weight: 400; }
+#over.end-card form { margin-top: var(--space-3); }
+#over.end-card .quiet-line { margin-top: var(--space-2) !important; }
+@media (min-width: 900px) { .frame dialog#over.end-card { inset: 0 auto 0 calc(50% - 440px); margin: auto 0; } }

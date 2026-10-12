@@ -4,17 +4,21 @@ import { once } from 'node:events';
 import { createLocalJWKSet, decodeJwt, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { createTokenVerifier, type PluginAuth } from './auth';
 import { MatchServiceError } from '../match/service';
+import type { View } from '../match/protocol';
 import { createPluginHandler, MAX_MCP_BODY, type PluginHttpOptions } from './http';
 const alice = '11111111-1111-4111-8111-111111111111', bob = '22222222-2222-4222-8222-222222222222';
 const matchId = '33333333-3333-4333-8333-333333333333';
-const view = { matchId, playerColor: 0 as const, mode: 'solo' as const, waiting: false, snapshot: {} as any };
+const view: View = { game_id: matchId, revision: 0, created_at: '2030-01-01T00:00:00.000Z', abort_open: true, seat: 0, kind: 'solo', speed: 'live', days_per_move: null, status: 'playing', turn: 0, action: 'ready', fen: '7k/8/8/8/8/8/8/K7 w - - 0 1',
+  in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: null, server_now: '2030-01-01T00:00:00.000Z' };
 const servers: Server[] = [];
 const provider = vi.fn<typeof fetch>();
 let service: PluginHttpOptions['service'], auth: PluginAuth, address: string, privateKey: CryptoKey;
 beforeEach(async () => {
   provider.mockReset();
   provider.mockImplementation(async (_url, options) => Response.json({ id: decodeJwt(new Headers(options?.headers).get('Authorization')!.slice(7)).sub }));
-  service = { openBoard: vi.fn(async () => ({...view,boardId: matchId})), getBoard: vi.fn(async () => ({...view,boardId: matchId})), selectBoard: vi.fn(async () => ({...view,boardId: matchId})), resume: vi.fn(async () => null), create: vi.fn(async () => view), get: vi.fn(async () => view), move: vi.fn(async () => view), computer: vi.fn(async () => view), invite: vi.fn(async () => ({ token: 'test', expiresAt: '2030-01-01' })), join: vi.fn(async () => view) };
+  service = { openBoard: vi.fn(async () => matchId), board: vi.fn(async () => matchId), selectBoard: vi.fn(async () => {}), inbox: vi.fn(async () => [{ ...view, options: null, move: 1, open_until: null, level: 'club' as const, status: 'playing' as const, updated_at: view.server_now }]), create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view),
+    invite: vi.fn(async () => ({ token: 'test', code: 'ABCDEF', expires_at: '2030-01-01' })), join: vi.fn(async () => view), lobby: vi.fn(async () => ({ games: [] })), accept: vi.fn(async () => view), find: vi.fn(async () => view), cancel: vi.fn(async () => view), report: vi.fn(async () => ({ id: 1, created_at: '2030-01-01' })), profile: vi.fn(async () => ({ user_id: alice, handle: null, icon: null })),
+    preview: vi.fn(async () => ({ code: 'ABCDEF', options: null, kind: 'friend' as const, colour: 'black' as const, creator: { handle: null, icon: null }, expires_at: '2030-01-01' })), handle: vi.fn(async () => ({ user_id: alice, handle: null, icon: null })), settings: vi.fn(async () => ({ symbols_only: false, show_threats: false, last_setup: null })), history: vi.fn(async () => ({ games: [], next_before: null })), record: vi.fn(async () => ({ totals: { played: 0, won: 0, drawn: 0, lost: 0 }, rating: { rating: 1500, rd: 350, volatility: 0.06, provisional: true }, badges: [] })) };
   const pair = await generateKeyPair('ES256'); privateKey = pair.privateKey;
   const server = createServer(); servers.push(server); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   address = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
@@ -32,32 +36,32 @@ async function post(body: unknown, bearer?: string, headers: Record<string, stri
   return fetch(`${address}/mcp`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'MCP-Protocol-Version': '2025-11-25', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...headers }, body: typeof body === 'string' ? body : JSON.stringify(body) });
 }
 const list = { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} };
-const get = { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'kingdown_get', arguments: { matchId } } };
+const get = { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'kingdown_get', arguments: { game_id: matchId } } };
 describe('stateless authenticated MCP HTTP', () => {
   it('rejects the same signed token after provider revocation before service access', async () => {
     const bearer = await token();
     const first = await post(get, bearer); expect(first.status).toBe(200); await first.json();
     provider.mockResolvedValue(new Response('{}', { status: 401 }));
     const revoked = await post(get, bearer); expect(revoked.status).toBe(401);
-    expect(service.get).toHaveBeenCalledTimes(1);
+    expect(service.view).toHaveBeenCalledTimes(1);
   });
   it('returns retryable provider failure without an OAuth challenge or service access', async () => {
     provider.mockResolvedValueOnce(new Response('{}', {status:503}));
     const result = await post(get, await token());
     expect(result.status).toBe(503); expect(result.headers.has('WWW-Authenticate')).toBe(false); expect(result.headers.get('Retry-After')).toBe('5');
-    expect(service.get).not.toHaveBeenCalled();
+    expect(service.view).not.toHaveBeenCalled();
     expect((await post(get, await token())).status).toBe(200);
   });
   it.each(['kingdown_create','kingdown_resume','kingdown_join'])('recovers a deleted selection for %s but rejects another actor board', async name => {
-    const args = name === 'kingdown_create' ? {mode:'solo'} : name === 'kingdown_join' ? {token:'invitation'} : {};
-    const request = {...get,params:{name,arguments:{...args,boardId:matchId}}};
-    vi.mocked(service.getBoard).mockRejectedValueOnce(new MatchServiceError('MATCH_REMOVED',404,'Deleted'));
+    const args = name === 'kingdown_create' ? {kind:'solo'} : name === 'kingdown_join' ? {code:'ABCDEF'} : {};
+    const request = {...get,params:{name,arguments:{...args,board_id:matchId}}};
+    vi.mocked(service.board).mockRejectedValueOnce(new MatchServiceError('MATCH_REMOVED',404,'Deleted'));
     expect((await (await post(request,await token())).json()).result.isError).not.toBe(true);
     expect(service.selectBoard).toHaveBeenCalledWith(alice,matchId,matchId);
-    vi.mocked(service.selectBoard).mockClear(); vi.mocked(service.create).mockClear(); vi.mocked(service.join).mockClear(); vi.mocked(service.resume).mockClear();
-    vi.mocked(service.getBoard).mockRejectedValueOnce(new MatchServiceError('FORBIDDEN',403,'Foreign board'));
+    vi.mocked(service.selectBoard).mockClear(); vi.mocked(service.create).mockClear(); vi.mocked(service.join).mockClear(); vi.mocked(service.inbox).mockClear();
+    vi.mocked(service.board).mockRejectedValueOnce(new MatchServiceError('FORBIDDEN',403,'Foreign board'));
     expect((await (await post(request,await token())).json()).result._meta.code).toBe('FORBIDDEN');
-    expect(service.selectBoard).not.toHaveBeenCalled(); expect(service.create).not.toHaveBeenCalled(); expect(service.join).not.toHaveBeenCalled(); expect(service.resume).not.toHaveBeenCalled();
+    expect(service.selectBoard).not.toHaveBeenCalled(); expect(service.create).not.toHaveBeenCalled(); expect(service.join).not.toHaveBeenCalled(); expect(service.inbox).not.toHaveBeenCalled();
   });
   it('serves public consent assets with a restricted CSP before OAuth authentication', async () => {
     const response = await fetch(`${address}/authorize?authorization_id=test`);
@@ -67,7 +71,7 @@ describe('stateless authenticated MCP HTTP', () => {
     expect(response.headers.get('Content-Security-Policy')).toContain('connect-src https://project.supabase.co');
     expect(response.headers.get('Referrer-Policy')).toBe('no-referrer');
     const script = await fetch(`${address}/consent.mjs`); expect(script.status).toBe(200); expect(script.headers.get('Content-Type')).toContain('text/javascript');
-    expect(service.get).not.toHaveBeenCalled();
+    expect(service.view).not.toHaveBeenCalled();
   });
   it('advertises protected resource discovery and challenges missing or broad session tokens', async () => {
     for (const path of ['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp']) {
@@ -77,7 +81,7 @@ describe('stateless authenticated MCP HTTP', () => {
       const response = await post(list, bearer); expect(response.status).toBe(401);
       expect(response.headers.get('WWW-Authenticate')).toContain(`${address}/.well-known/oauth-protected-resource/mcp`);
     }
-    expect(service.get).not.toHaveBeenCalled();
+    expect(service.view).not.toHaveBeenCalled();
   });
   it('serves JSON MCP responses and isolates verified actors across concurrent requests', async () => {
     const listing = await post(list, await token()); expect(listing.status).toBe(200);
@@ -85,10 +89,10 @@ describe('stateless authenticated MCP HTTP', () => {
     expect(listing.headers.has('Mcp-Session-Id')).toBe(false);
     expect((await listing.json()).result.tools.some((t: { name: string }) => t.name === 'kingdown_open')).toBe(true);
     const responses = await Promise.all([post(get, await token(alice)), post(get, await token(bob))]);
-    for (const response of responses) { expect(response.status).toBe(200); expect((await response.json()).result.structuredContent.matchId).toBe(matchId); }
-    expect(service.get).toHaveBeenCalledWith(alice, matchId); expect(service.get).toHaveBeenCalledWith(bob, matchId);
-    const spoof = await post({ ...get, params: { ...get.params, arguments: { matchId, actorId: bob } } }, await token(alice));
-    expect((await spoof.json()).result.isError).toBe(true); expect(service.get).toHaveBeenCalledTimes(2);
+    for (const response of responses) { expect(response.status).toBe(200); expect((await response.json()).result.structuredContent.game_id).toBe(matchId); }
+    expect(service.view).toHaveBeenCalledWith(alice, matchId, undefined); expect(service.view).toHaveBeenCalledWith(bob, matchId, undefined);
+    const spoof = await post({ ...get, params: { ...get.params, arguments: { game_id: matchId, actorId: bob } } }, await token(alice));
+    expect((await spoof.json()).result.isError).toBe(true); expect(service.view).toHaveBeenCalledTimes(2);
   });
   it('rejects untrusted hosts and origins, including null and misleading ChatGPT subdomains', async () => {
     for (const origin of ['https://evil.example', 'null', 'https://chatgpt.com.evil.example']) expect((await post(list, await token(), { Origin: origin })).status).toBe(403);
@@ -97,7 +101,7 @@ describe('stateless authenticated MCP HTTP', () => {
       req.on('error', reject); req.end();
     });
     expect(hostStatus).toBe(403);
-    expect(service.get).not.toHaveBeenCalled();
+    expect(service.view).not.toHaveBeenCalled();
   });
   it('permits only exact allowed browser origins and never sends credentialed wildcard CORS', async () => {
     for (const origin of [address, 'https://chatgpt.com', 'https://chat.openai.com']) {
@@ -117,10 +121,10 @@ describe('stateless authenticated MCP HTTP', () => {
     });
     expect(streamed).toBe(413);
     expect((await post('{broken', bearer)).status).toBe(400);
-    expect(service.get).not.toHaveBeenCalled();
+    expect(service.view).not.toHaveBeenCalled();
   });
   it('rejects JSON-RPC batches before a single request can fan out service work', async () => {
-    const batch = Array.from({ length: 20 }, (_, id) => ({ jsonrpc: '2.0', id, method: 'tools/call', params: { name: 'kingdown_create', arguments: { mode: 'solo' } } }));
+    const batch = Array.from({ length: 20 }, (_, id) => ({ jsonrpc: '2.0', id, method: 'tools/call', params: { name: 'kingdown_create', arguments: { kind: 'solo' } } }));
     expect(Buffer.byteLength(JSON.stringify(batch))).toBeLessThan(MAX_MCP_BODY);
     const response = await post(batch, await token()); expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: 'JSON-RPC batches are not supported' });
@@ -131,7 +135,7 @@ describe('stateless authenticated MCP HTTP', () => {
     let release!: () => void, entered!: () => void, running = 0, peak = 0, count = 0;
     const gate = new Promise<void>(resolve => { release = resolve; });
     const ready = new Promise<void>(resolve => { entered = resolve; });
-    vi.mocked(service.get).mockImplementation(async () => {
+    vi.mocked(service.view).mockImplementation(async () => {
       running++; peak = Math.max(peak, running); if (++count === 4) entered();
       try { await gate; return view; } finally { running--; }
     });
@@ -141,7 +145,7 @@ describe('stateless authenticated MCP HTTP', () => {
       await ready; controllers.forEach(controller => controller.abort()); await Promise.all(abandoned);
       expect(running).toBe(4);
       const busy = await post(get, bearer, {}, AbortSignal.timeout(1000)); expect(busy.status).toBe(503); await busy.json();
-      expect(service.get).toHaveBeenCalledTimes(4);
+      expect(service.view).toHaveBeenCalledTimes(4);
     } finally { release(); }
     await new Promise(resolve => setImmediate(resolve));
     expect(running).toBe(0);
@@ -152,13 +156,13 @@ describe('stateless authenticated MCP HTTP', () => {
     const gate = new Promise<void>(resolve => { release = resolve; });
     const ready = new Promise<void>(resolve => { entered = resolve; });
     let count = 0;
-    vi.mocked(service.get).mockImplementation(async () => { if (++count === 4) entered(); await gate; return view; });
+    vi.mocked(service.view).mockImplementation(async () => { if (++count === 4) entered(); await gate; return view; });
     const bearer = await token();
     const pending = Array.from({ length: 4 }, () => post(get, bearer));
     try {
       await ready;
       const busy = await post(get, bearer); expect(busy.status).toBe(503); expect(busy.headers.get('Retry-After')).toBe('1');
-      expect(service.get).toHaveBeenCalledTimes(4);
+      expect(service.view).toHaveBeenCalledTimes(4);
     } finally { release(); }
     for (const response of await Promise.all(pending)) { expect(response.status).toBe(200); await response.json(); }
     const retry = await post(get, bearer); expect(retry.status).toBe(200); await retry.json();
@@ -178,6 +182,6 @@ describe('stateless authenticated MCP HTTP', () => {
     const handler = createPluginHandler({ service, resourceHtml: '', publicOrigin: local, localDev: true });
     server.on('request', (req, res) => { void handler(req, res); });
     const response = await fetch(`${local}/mcp`, { method: 'POST', headers: { 'x-kingdown-dev-actor': alice, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream' }, body: JSON.stringify(get) });
-    expect(response.status).toBe(200); await response.json(); expect(service.get).toHaveBeenCalledWith(alice, matchId);
+    expect(response.status).toBe(200); await response.json(); expect(service.view).toHaveBeenCalledWith(alice, matchId, undefined);
   });
 });
