@@ -54,6 +54,7 @@ it('saves only a short game tag and safe pending args while page memory keeps th
   const game_id = 'aabbccdd-1122-4455-8899-aabbccddeeff';
   const client = createClient({ callServerTool: async () => ({ content: [] }) }, { setWidgetState: state => { widgetState = state; } });
   const pending = { name: 'kingdown_join', args: { game_id, code: 'K7QX2M', handle: 'private_name', command_id: 'once', expected_revision: 3 } };
+  Object.assign(pending, { game_id });
   client.state.board_id = '11223344-5566-4788-99aa-bbccddeeff00'; client.state.pending = pending;
   client.save();
   expect(widgetState.privateContent.pending).toEqual({ name: 'kingdown_join', game_tag: 'aabbccdd', args: { command_id: 'once', expected_revision: 3 } });

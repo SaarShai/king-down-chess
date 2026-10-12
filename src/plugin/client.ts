@@ -14,7 +14,7 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
     const pending = state.pending;
     const args = pending && Object.fromEntries(Object.entries(pending.args).filter(([key]) => !['game_id', 'code', 'handle'].includes(key)));
     const game_tag = pending?.game_tag ?? (typeof pending?.args.game_id === 'string' ? pending.args.game_id.slice(0, 8) : undefined);
-    host?.setWidgetState?.({ modelContent: {}, privateContent: { ...state, pending: pending && { ...pending, args, game_tag } } });
+    host?.setWidgetState?.({ modelContent: {}, privateContent: { ...state, pending: pending && { name: pending.name, args, game_tag, started_at: pending.started_at, screen: pending.screen, error: pending.error, error_screen: pending.error_screen } } });
   }
   async function call(name: string, args: Record<string, unknown> = {}, options: { background?: boolean } = {}): ReturnType<App['callServerTool']> {
     const sent = options.background ? Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'board_id')) : state.board_id && BOARD_ID_TOOLS.some(tool => tool === name) ? { ...args, board_id: state.board_id } : args;

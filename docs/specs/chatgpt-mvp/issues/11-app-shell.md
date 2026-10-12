@@ -246,3 +246,14 @@ Checks: use the approved app seam in tools/plugin-app.test.ts and both plugin br
 3. Widget state saves an 8-character game tag and safe pending args. It saves no full game ID, code or handle. Page memory keeps the full call. Retry gets the current game ID from the board and drops a command for another tag. Page move IDs use hex text, so widget state has no UUID other than board_id. The client test fails before the fix, then all 5 client tests, all 50 art tests and the type check pass. The plugin browser check now checks every widget write with a UUID regex.
 
 4. Play refreshes kingdown_games after the view changes. Replies with _meta.games still update the shared rows. The app test creates a game, goes back, moves and goes back again. Its rows show the new game and then Their turn. All 16 app tests, all 50 art tests and the type check pass.
+
+5. The app tests check Home to Profile, the exact preview and joinError in page memory on notification and mount, Their turn after a move, and both setup rows. The browser checks assert Home to Profile and the saved Show threats switch, then check every threat arrow after remount. They check every widget write for full UUIDs, codes and handles. A second red client check catches an extra full game ID on pending. Save now writes only the known pending fields. The Back check asserts the new visible row; it does not require a read when the rows are already current.
+
+Final checks before the integration merge:
+
+- npm test: 2,302 tests pass in 150 files; 8 skip. All 50 art tests and the type check pass.
+- npm run plugin:build and npm run plugin:server:check: pass. The compiled HTTP and PostgreSQL flow passes on kingdown_mvp11_test. All 101 art files pass: 72 WebP, 1 PNG, 24 SVG and 4 woff2.
+- npm run check:browser plugin-ui plugin-ui-http: 2 of 2 pass. The page fits the four widths and keeps all existing board, retry, poll and route checks. Other browser checks stay out of this round because only plugin files change.
+- Page size: 518,246 HTML bytes; 520,055 JSON bytes in the standalone server check.
+
+All Part 2 exports stay in place. Open items in this fix round: none. The final local integration merge and its test result follow.

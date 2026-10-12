@@ -155,6 +155,75 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
     expect(await frame.locator('html').evaluate((_, game_id) => (window as any).harnessApp.memory.games.find((entry: any) => entry.game_id === game_id).revision, game_id)).toBe(1);
   } finally { await page.close(); }
 });
+it('opens Profile from the inline Your games action', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#home-games').click();
+    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests)).toEqual(['fullscreen']);
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.screen)).toBe('profile');
+  } finally { await page.close(); }
+});
+it('keeps chat preview and code errors in page memory on notification and mount', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const tool = async (path: string, name: string, args = {}) => (await page.request.post(new URL(path, harness.url).href, { data: { name, arguments: args } })).json();
+  try {
+    const friend = await tool('/fixture-friend-tool', 'kingdown_create', { kind: 'friend', colour: 'white' });
+    const invite = await tool('/fixture-friend-tool', 'kingdown_invite', { game_id: friend._meta.view.game_id });
+    const preview = await tool('/fixture-tool', 'kingdown_open', { code: invite.structuredContent.code });
+    await page.evaluate(result => (window as any).harnessShow(result), preview);
+    for (const remount of [false, true]) {
+      if (remount) {
+        const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length);
+        await page.locator('#remount').click();
+        await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, reads);
+      }
+      await frame.locator('[data-screen="join"]:not([hidden])').waitFor();
+      await frame.locator('#page-back:not(:disabled)').waitFor({ state: 'attached' });
+      expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.preview)).toEqual(preview._meta.preview);
+      expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.joinError)).toBeUndefined();
+    }
+    const error = await tool('/fixture-tool', 'kingdown_open', { code: 'bad?' });
+    expect(error.isError).toBe(true);
+    await page.evaluate(result => (window as any).harnessShow(result, true), error);
+    for (const remount of [false, true]) {
+      if (remount) {
+        const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length);
+        await page.locator('#remount').click();
+        await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, reads);
+      }
+      await frame.locator('[data-screen="join"]:not([hidden])').waitFor();
+      await frame.locator('#page-back:not(:disabled)').waitFor({ state: 'attached' });
+      expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.preview)).toBeUndefined();
+      expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.joinError)).toEqual({ code: error._meta.code, message: error.content.map((c: any) => c.text).join(' ') });
+    }
+  } finally { await page.close(); }
+});
+it('shows both setup states in the app games rows', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => {
+      await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } });
+    });
+    const game_id = await page.evaluate(() => (window as any).harnessView.game_id);
+    const accepted = await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name: 'kingdown_accept', arguments: { game_id } } })).json();
+    expect(accepted.isError).toBeFalsy();
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
+    await frame.locator('#page-back').click();
+    const row = frame.locator(`#games-list [data-game-id="${game_id}"]`);
+    expect(await row.locator('.line').textContent()).toBe('Choose your side');
+    expect(await row.locator('.turn-mark').textContent()).toBe('Your turn');
+    await row.click();
+    await frame.locator('[data-screen="seat"]:not([hidden])').waitFor(); await frame.locator('#page-back:not(:disabled)').waitFor({ state: 'attached' });
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp, view = app.memory.view;
+      await app.call('kingdown_choose', { game_id: view.game_id, command_id: 'setup-rows-ready', expected_revision: view.revision, king: null, order: view.draw, ready: true }, true);
+    });
+    await frame.locator('#page-back').click();
+    await row.locator('.line').filter({ hasText: 'Waiting for the other player' }).waitFor();
+    expect(await row.locator('.turn-mark').count()).toBe(0);
+  } finally { await page.close(); }
+});
 it('updates activity on unchanged replies across the two-minute poll boundary', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

@@ -72,6 +72,13 @@ try {
   assert.deepEqual(await page.evaluate(() => window.harnessDeclaredModes), ['inline', 'fullscreen'], 'App declares both display modes to the host');
   assert.equal(await frame.locator('.inline-line').innerText(), 'Your move in 0 games.', 'Home uses the server turn count and the sample line');
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), 0, 'An empty home reads no board');
+  await frame.locator('#home-games').click();
+  await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
+  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'profile', 'Home Your games opens Profile');
+  const homeAgain = await (await page.request.post(new URL('/fixture-tool',base).href, { data: { name: 'kingdown_open', arguments: { screen: 'home' } } })).json();
+  await page.evaluate(result => window.harnessShow(result), homeAgain);
+  await frame.locator('#home-play:not(:disabled)').waitFor();
+  await page.evaluate(() => { window.harnessDisplayRequests = []; });
   await frame.locator('[data-art]').evaluateAll(images => Promise.all(images.map(image => image.decode())));
 
   for (const [width,height] of [[390,844],[1440,900],[400,900],[360,844]]) {
@@ -203,9 +210,10 @@ try {
   await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
   assert.deepEqual(await page.evaluate(() => window.harnessHandle), { handle: testHandle, icon: 'knight' });
 
-  const backCalls = await page.evaluate(() => window.harnessCalls.length);
   await openPlay();
-  assert.deepEqual(await page.evaluate(n => window.harnessCalls.slice(n).map(call => call.name), backCalls), ['kingdown_games'], 'Back refreshes the rows after a game change');
+  const newFriendId = await page.evaluate(() => window.harnessView.game_id);
+  await frame.locator(`#games-list [data-game-id="${newFriendId}"]`).waitFor();
+  assert.equal(await frame.locator(`#games-list [data-game-id="${newFriendId}"] .row-title`).innerText(), 'Waiting for an opponent', 'Back shows the new game row');
   await legacyStart('solo');
   await frame.locator('#reload:not(:disabled)').waitFor();
   await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
@@ -277,6 +285,11 @@ try {
     const seeded = await seedBoard(scenario), plain = await pixels();
     await openScreen('settings'); await frame.locator('#show-threats').check();
     await page.evaluate(result=>window.harnessShow(result),seeded); await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
+    const threatReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, threatReads);
+    await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
+    assert(await frame.locator('#show-threats').isChecked(), 'Show threats returns from the server after mount');
     await frame.locator('canvas').evaluate(() => { window.harnessArrowLines = []; });
     const arrowBox = await boardBox(); await page.mouse.move(arrowBox.x+arrowBox.width/2, arrowBox.y+arrowBox.height/2);
     await frame.locator('canvas').evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
