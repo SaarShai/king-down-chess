@@ -1,0 +1,23 @@
+body:is([data-page='board'], [data-page='end']) .frame .page-sheet {
+  inset: 0; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent;
+}
+body:is([data-page='board'], [data-page='end']) #page-head { padding-block: 4px; }
+#game-table { min-height: 0; width: 100%; }
+#game-table #board { display: flex; }
+#game-table #table-bar { margin-top: 0; }
+#game-table .player-name b { overflow-wrap: anywhere; }
+#game-table .coin { min-height: 40px; padding: 0; }
+#game-table .coin.card-coin { width: 34px; height: 34px; min-height: 34px; }
+#game-table .coin.card-coin img { width: 26px; height: 26px; }
+#game-table #context-note:empty { display: none; }
+#board-sheet { padding: 0; overflow: hidden; display: none; }
+#board-sheet[open] { display: flex; flex-direction: column; }
+#board-sheet .sheet-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; }
+#board-sheet .sheet-head h2 { flex: 1; margin: 0; }
+#board-sheet .sheet-head button { width: auto; min-width: 44px; padding: 0 8px; }
+#board-sheet .sheet-body { display: flex; flex-direction: column; gap: 8px; }
+#board-sheet #choices { height: auto; overflow: visible; flex-direction: column; }
+#board-sheet #choices button { min-height: 44px; width: 100%; justify-content: flex-start; text-align: left; }
+#board-sheet .card-read-art { width: 100%; max-height: 200px; object-fit: contain; }
+
+#game-table[data-empty='true'] #board { visibility: hidden; }

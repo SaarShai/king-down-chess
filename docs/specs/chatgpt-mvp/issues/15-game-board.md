@@ -40,3 +40,11 @@ The approved sample sets the strips: each portrait shows that side's king; each 
 The Abort and deadline, legal LAN apply, LAN replay and open-hand checks each fail before their code. They pass after it. The first two full database suites pass 2,295 and 2,296 tests. Each also passes 50 art tests. The replay, card and strip cycles use the unit suite. They pass 2,184, 2,185 and 2,186 tests, with 121 skipped. Each passes 50 art tests. The final suite also uses the ticket database.
 
 GAP: the fixture's computer log has no LAN list. The board syncs that reply without a guessed animation. The HTTP check verifies the computer LAN replay. A fixed-hand fixture case stays with ticket 10; the card action check uses create with cards on.
+
+## Check point: table
+
+The table check fails before the build. The table, strips, context words, king coins and marks are in place. The one board stays in board-view.ts. The strips show the side's king and handle. A full read sets the rating; a command or since poll keeps it. Widget state uses a sheet ID, with no card or king name.
+
+The old checks use the visible context, move line and Menu controls. The Haste, Archer and Freeze assertions stay. Freeze reads its coin, presses Use, then selects the named move. A server read blocks input but keeps the shown marks.
+
+The fixture browser check passes 1 of 1 in 103.4 s. The HTTP and PostgreSQL browser check passes 1 of 1 in 75.3 s, on kingdown_mvp15_test. Both cover 360, 390, 400 and 1440 px, remounts, lost-reply retry, each piece and king, symbols, threats and the older assertions. The type check passes.

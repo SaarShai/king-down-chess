@@ -87,17 +87,28 @@ try {
   assert(await frame.locator('[data-screen="play"] h2').evaluate(el => getComputedStyle(el).fontFamily.includes('Cinzel')), 'The page uses the approved Cinzel heading');
   assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests), ['fullscreen'], 'Play asks the host for fullscreen');
   async function openPlay() {
+    if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
     for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) await frame.locator('#page-back').click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor({ timeout: 5000 });
   }
   async function openScreen(screen) { await openPlay(); await frame.locator(`[data-screen="play"] [data-nav="${screen}"]`).click(); }
+  async function idleBoard() { await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#reload')?.disabled === false); }
+  async function openMoveChoices() {
+    if (await frame.locator('#board-sheet[open] h2').count() && await frame.locator('#board-sheet h2').innerText() === 'Choose a move') return;
+    if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
+    await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', {name:'Choose a move', exact:true}).click();
+  }
+  async function menuAction(id) {
+    if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
+    await frame.locator('#board-menu').click(); await frame.locator('#' + id).click();
+  }
   async function legacyStart(kind) {
     const board_id = await page.evaluate(() => window.harnessWidgetState?.privateContent?.board_id);
     const result = await (await page.request.post(new URL('/fixture-tool',base).href, { data: { name: 'kingdown_create', arguments: { kind, options, colour: 'white', board_id } } })).json();
     const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     assert(!result.isError); await page.evaluate(result => window.harnessShow(result), result);
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
-    await frame.locator('#reload:not(:disabled)').waitFor(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await idleBoard(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     return result;
   }
   async function handleGate(fail = false) {
@@ -127,7 +138,7 @@ try {
   const changedBoard = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_create', arguments: { kind: 'solo', options, colour: 'black', board_id: pollBoard } } })).json();
   assert(!changedBoard.isError);
   await frame.locator('body').evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-  await frame.locator('#status').filter({ hasText: 'You play Black' }).waitFor({ timeout: 5000 });
+  await frame.locator('#strip-me .player-name small').filter({ hasText: 'Black' }).waitFor({ timeout: 5000 });
   assert.equal(await page.evaluate(() => window.harnessView.game_id), changedBoard._meta.view.game_id, 'A poll follows the current board and gets the new game rules');
   await openPlay();
   await handleGate();
@@ -207,13 +218,12 @@ try {
   await openPlay();
   assert.equal(await page.evaluate(() => window.harnessCalls.length), backCalls, 'Back changes only the page');
   await legacyStart('solo');
-  await frame.locator('#reload:not(:disabled)').waitFor();
-  await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+  await idleBoard();
+  await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
   // The board leaves its floor clear, as the web game and the approved sample do.
   await boardBox();
   const floorPixel = () => frame.locator('canvas').evaluate(c => [...c.getContext('2d').getImageData(1, 1, 1, 1).data].join(','));
-  let floor = await floorPixel();
-  for (let i = 0; i < 50 && floor !== '0,0,0,0'; i++) { await page.waitForTimeout(200); floor = await floorPixel(); }
+  const floor = await floorPixel();
   assert.equal(floor, '0,0,0,0', 'The plugin board shares the game’s parchment floor');
   // The art is not in the page (ticket 09): each named file loads from the plugin origin and a canvas may read it.
   const art = await frame.locator('html').evaluate(async () => {
@@ -259,7 +269,10 @@ try {
   await frame.locator('#retry').waitFor(); await frame.locator('#retry').click();
   await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
   assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending), undefined);
-  await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor();
+  await openPlay(); await legacyStart('solo'); await idleBoard();
+
+  // Ticket 15: the board and end routes.
+  assert.equal(await frame.locator('#game-table').count(), 1, 'The board uses the approved game table');
 
   const pixels = () => frame.locator('canvas').evaluate(c => {
     const data = c.getContext('2d').getImageData(0,0,c.width,c.height).data; let hash=0, red=0;
@@ -271,12 +284,12 @@ try {
     const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
     await page.evaluate(result=>window.harnessShow(result),seeded);
     await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>n,reads);
-    await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox(); return seeded;
+    await idleBoard(); await boardBox(); return seeded;
   }
   for (const scenario of ['threats','threats-black']) {
     const seeded = await seedBoard(scenario), plain = await pixels();
     await openScreen('settings'); await frame.locator('#show-threats').check();
-    await page.evaluate(result=>window.harnessShow(result),seeded); await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
+    await page.evaluate(result=>window.harnessShow(result),seeded); await idleBoard(); await boardBox();
     await frame.locator('canvas').evaluate(() => { window.harnessArrowLines = []; });
     const arrowBox = await boardBox(); await page.mouse.move(arrowBox.x+arrowBox.width/2, arrowBox.y+arrowBox.height/2);
     await frame.locator('canvas').evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
@@ -288,7 +301,7 @@ try {
     assert.deepEqual(arrows, expectedArrows, `${scenario}: every arrow starts and ends on the threatsIn squares`);
     const threats = await pixels(); assert(threats.red > plain.red + 10, `${scenario}: Show threats draws enemy arrows to your pieces`);
     await openScreen('settings'); await frame.locator('#symbols-only').check();
-    await page.evaluate(result=>window.harnessShow(result),seeded); await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
+    await page.evaluate(result=>window.harnessShow(result),seeded); await idleBoard(); await boardBox();
     let flat = await pixels(); for(let i=0;i<20&&flat.hash===threats.hash;i++) { await frame.locator('canvas').evaluate(()=>new Promise(r=>requestAnimationFrame(r))); flat=await pixels(); }
     assert.notEqual(flat.hash, threats.hash, 'Symbols only replaces the painted figures'); assert(flat.red > plain.red + 10, 'Threat arrows stay on the symbols board');
     const disc = await frame.locator('canvas').evaluate((c,black) => {
@@ -305,12 +318,12 @@ try {
     await openScreen('settings'); await frame.locator('#symbols-only').uncheck(); await frame.locator('#show-threats').uncheck();
   }
   await page.setViewportSize({width:1000,height:1000});
-  await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
+  await openPlay(); await legacyStart('solo'); await idleBoard(); await boardBox();
   async function clickSquare(file, rank) {
     const box = await boardBox(); assert(box);
     await page.mouse.click(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (64 + 32 + (7 - rank + .5) * 112) * box.width / 960);
   }
-  async function haste() { const result = await (await page.request.post(new URL('/fixture-position?case=haste',base).href)).json(); assert(!result.isError); await page.evaluate(result=>window.harnessShow(result),result); await frame.locator('#status').filter({hasText:'White to move'}).waitFor(); await frame.locator('#reload:not(:disabled)').waitFor(); }
+  async function haste() { const result = await (await page.request.post(new URL('/fixture-position?case=haste',base).href)).json(); assert(!result.isError); await page.evaluate(result=>window.harnessShow(result),result); await frame.locator('#status').filter({hasText:'Your move'}).waitFor(); await idleBoard(); }
   await seedBoard('swap');
   await frame.locator('canvas').evaluate(() => { window.harnessSwapMarks = 0; });
   await clickSquare(3, 3);
@@ -323,12 +336,12 @@ try {
   assert(await frame.locator('#choices button').count() > 1, 'Haste and ordinary moves must stay distinct');
   for (const code of ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'COMMAND_CONFLICT', 'MATCH_INCOMPATIBLE']) {
     await page.evaluate(code => { window.rejectNextMove = code; }, code);
-    await frame.locator('#choices button[title="e2-e4"]').click();
-    await frame.locator('#reload:not(:disabled)').waitFor();
+    await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click();
+    await idleBoard();
     assert.equal(await frame.locator('#retry').isVisible(), false, `${code} must release the pending command`);
   }
   await page.evaluate(() => { window.holdNext = 'kingdown_move'; window.dropNextMoveReply = true; });
-  await frame.locator('#choices button[title="e2-e4"]').click();
+  await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click();
   await page.waitForFunction(() => typeof window.releaseHeld === 'function');
   assert(await frame.locator('#reload').isDisabled(), 'The generic hold hook keeps Move pending');
   assert.equal(await frame.locator('#retry').isVisible(), false);
@@ -337,28 +350,28 @@ try {
   await page.locator('#remount').click();
   await frame.locator('#retry').waitFor();
   assert.equal(await page.evaluate(() => window.harnessView.revision), 1, 'Remount must restore the selected game and its pending command');
-  await frame.locator('#reload').click();
-  await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
+  await menuAction('reload');
+  await frame.locator('#status').filter({ hasText: 'Their move' }).waitFor();
   assert(await frame.locator('#retry').isVisible(), 'Reload must preserve the pending command');
   await frame.locator('#retry').click();
   await frame.locator('#retry').waitFor({ state: 'hidden' });
   const commands = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_move').slice(-2));
   assert.equal(commands.length, 2); assert.deepEqual(commands[0].arguments, commands[1].arguments);
   assert.equal(await page.evaluate(() => window.harnessView.revision), 1, 'Lost reply and retry commit exactly once');
-  await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
-  for (let action = 0; action < 4 && await frame.locator('#computer').isVisible(); action++) {
-    await frame.locator('#computer').click();
-    await frame.locator('#reload:not(:disabled)').waitFor();
+  await frame.locator('#status').filter({ hasText: 'Their move' }).waitFor();
+  for (let action = 0; action < 4 && await page.evaluate(() => window.harnessView.turn !== window.harnessView.seat); action++) {
+    await menuAction('computer');
+    await idleBoard();
   }
-  await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+  await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
   const id = await page.evaluate(() => window.harnessMatchId);
   const snapshot = await page.evaluate(() => window.harnessView), moveNumber = Number(snapshot.fen.split(' ')[5]);
   assert(snapshot.revision >= 2 && snapshot.revision <= 5);
   const readsBeforeRemount = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_get').length);
   await page.locator('#remount').click();
   await page.waitForFunction(count => window.harnessCalls.filter(call => call.name === 'kingdown_get').length > count, readsBeforeRemount);
-  await frame.locator('#status').filter({ hasText: `Move ${moveNumber}` }).waitFor();
-  await frame.locator('#reload:not(:disabled)').waitFor();
+  await frame.locator('#last-move').filter({ hasText: `Move ${moveNumber}` }).waitFor();
+  await idleBoard();
   assert.equal(await page.evaluate(() => window.harnessMatchId), id);
   assert.deepEqual(await page.evaluate(() => ({ revision: window.harnessView.revision, fen: window.harnessView.fen })), { revision: snapshot.revision, fen: snapshot.fen });
   assert.equal(await page.evaluate(() => window.harnessCalls.findLast(call => call.name === 'kingdown_get').arguments.board_id), await page.evaluate(() => window.harnessWidgetState.privateContent.board_id), 'A replayed initial result fetches the board current game');
@@ -366,16 +379,15 @@ try {
   await page.locator('#remount').click();
   await frame.locator('#error').filter({ hasText: 'Harness saved-game read failed' }).waitFor();
   assert.equal(await frame.locator('#choices button').count(), 0, 'A failed saved-game read must not expose stale moves');
-  assert(!/to move/.test(await frame.locator('#status').innerText()), 'A failed read must not show the replayed position');
-  await frame.locator('#reload').click();
-  await frame.locator('#status').filter({ hasText: `Move ${moveNumber}` }).waitFor();
-  await frame.locator('#reload:not(:disabled)').waitFor();
+  assert(!/Your move|Their move/.test(await frame.locator('#status').innerText()), 'A failed read must not show the replayed position');
+  await menuAction('reload');
+  await frame.locator('#last-move').filter({ hasText: `Move ${moveNumber}` }).waitFor();
+  await idleBoard();
   assert.equal(await frame.getByRole('button', { name: 'Fullscreen', exact: true }).count(), 0);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.waitForTimeout(100);
   assert.equal(await frame.locator('body').evaluate(el => el.scrollWidth > window.innerWidth), false);
   const canvas = await boardBox(); assert(canvas && canvas.width > 250 && canvas.width <= 390);
-  await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor();
+  await openPlay(); await legacyStart('solo'); await idleBoard();
   async function tapSquare(file, rank) {
     const box = await boardBox(); assert(box);
     await page.touchscreen.tap(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (64 + 32 + (7 - rank + .5) * 112) * box.width / 960);
@@ -383,13 +395,13 @@ try {
   await tapSquare(4, 1);
   assert.equal(await frame.locator('#move-hint').innerText(), 'Tap a marked square to move, or choose a move below.');
   await tapSquare(4, 3);
-  await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
+  await frame.locator('#status').filter({ hasText: 'Their move' }).waitFor();
   assert.equal(await page.evaluate(() => window.harnessView.revision), 1, 'Touch destination commits the ordinary move once');
-  await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor();
+  await openPlay(); await legacyStart('solo'); await idleBoard();
   await haste(); await tapSquare(4, 1);
-  await frame.locator('#choices button').filter({ hasText: 'e2 to e4, with Haste' }).tap();
-  await frame.locator('#reload:not(:disabled)').waitFor();
-  assert.match(await frame.locator('#status').innerText(), /White to move/, 'Explicit Haste keeps the extra move');
+  await openMoveChoices(); await frame.locator('#choices button').filter({ hasText: 'e2 to e4, with Haste' }).tap();
+  await idleBoard();
+  assert.match(await frame.locator('#status').innerText(), /Your move/, 'Explicit Haste keeps the extra move');
   assert.equal(await page.evaluate(() => window.harnessView.revision), 1);
   await tapSquare(4, 3); await tapSquare(4, 3);
   assert.equal(await page.evaluate(() => window.harnessView.revision), 1, 'Second tap must not pass Haste');
@@ -403,7 +415,7 @@ try {
   await tapSquare(4,3); await dragOwnSquare(4,3);
   assert.equal(await page.evaluate(() => window.harnessView.revision),1,'Drag start must not pass Haste');
   await tapSquare(4, 3); await tapSquare(4, 4);
-  await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
+  await frame.locator('#status').filter({ hasText: 'Their move' }).waitFor();
   assert.equal(await page.evaluate(() => window.harnessView.revision), 2, 'Touch finishes the explicit Haste action');
   await openPlay();
   await shot(page, 'mobile');
@@ -414,7 +426,7 @@ try {
     const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
     await page.evaluate(result=>window.harnessShow(result),seeded);
     await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>n,reads);
-    await frame.locator('#reload:not(:disabled)').waitFor();
+    await idleBoard();
     const black=scenario==='freeze';
     async function tap(file,rank) { const box=await boardBox(); await page.touchscreen.tap(box.x+(32+((black?7-file:file)+.5)*112)*box.width/960,box.y+(96+((black?rank:7-rank)+.5)*112)*box.width/960); }
     const file=black?4:2, rank=black?3:2;
@@ -423,9 +435,9 @@ try {
     assert.equal(await page.evaluate(()=>window.harnessView.revision),start);
     await tap(file,rank);
     if (!black) { await dragOwnSquare(file,rank); assert.equal(await page.evaluate(()=>window.harnessView.revision),start,'Drag must not shoot'); await tap(2,2); await tap(2,4); }
-    else { await frame.locator('#choices button').filter({hasText:/freeze/i}).click(); }
+    else { await frame.locator('#power-b').click(); await frame.locator('#board-sheet').getByRole('button', {name:'Use', exact:true}).click(); await openMoveChoices(); await frame.locator('#choices button').filter({hasText:/freeze/i}).click(); }
     await page.waitForFunction(r=>window.harnessView.revision===r,start+1);
-    await frame.locator('#reload:not(:disabled)').waitFor();
+    await idleBoard();
     await frame.locator('#board').focus();
     for (let i=0;i<9;i++) await page.keyboard.press('ArrowRight');
     assert.match(await frame.locator('#board').getAttribute('aria-label'),black?/a[1-8]/:/h[1-8]/);
@@ -440,7 +452,7 @@ try {
     const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
     await page.evaluate(result=>window.harnessShow(result),seeded);
     await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>n,reads);
-    await frame.locator('#reload:not(:disabled)').waitFor();
+    await idleBoard();
   }
   /** The mean colour change of each gallery square's centre (48 board units square) against the stored empty board. */
   const squareChange=(store)=>frame.locator('canvas').evaluate(async (c,{squares,store})=>{
@@ -461,7 +473,7 @@ try {
     await shot(page,`board-gallery-${kings}-${mode}`);
     await openScreen('settings'); await frame.locator('#symbols-only').check();
     await page.evaluate(result => window.harnessShow(result), (await (await page.request.post(new URL(`/fixture-position?case=gallery&kings=${kings}`,base).href)).json()));
-    await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
+    await idleBoard(); await boardBox();
     const symbolErrors = await frame.locator('canvas').evaluate(async (c, { sources, names }) => {
       const images = new Map();
       for (const [name, source] of Object.entries(sources)) for (const side of [0,1]) {
@@ -492,48 +504,48 @@ try {
     assert(await frame.locator('canvas').evaluate(() => window.harnessGhostSymbols.some(src => /knight-0-/.test(src))), 'The knight move preview uses the same symbol at half opacity');
     await openScreen('settings'); await frame.locator('#symbols-only').uncheck();
   }
-  await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor();
+  await openPlay(); await legacyStart('solo'); await idleBoard();
   const deleted=await page.evaluate(()=>window.harnessView);
   await page.request.post(new URL('/fixture-delete-match',base).href,{data:{game_id:deleted.game_id}});
-  await frame.locator('#reload').click(); await frame.locator('#error').filter({hasText:'deleted'}).waitFor();
-  await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor();
+  await menuAction('reload'); await frame.locator('#error').filter({hasText:'deleted'}).waitFor();
+  await openPlay(); await legacyStart('solo'); await idleBoard();
   const replacement=await page.evaluate(()=>window.harnessView.game_id); assert.notEqual(replacement,deleted.game_id);
   const recoveryReads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
   await page.locator('#remount').click();
   await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>n,recoveryReads);
-  await frame.locator('#status').filter({hasText:'White to move'}).waitFor();
+  await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
   assert.equal(await page.evaluate(()=>window.harnessView.game_id),replacement,'Deleted-game recovery survives immediate remount');
   const friendTool = async (name,args={}) => (await page.request.post(new URL('/fixture-friend-tool',base).href,{data:{name,arguments:args}})).json();
   const tool = async (name,args={}) => (await page.request.post(new URL('/fixture-tool',base).href,{data:{name,arguments:args}})).json();
   if (capabilities.friend) {
     await openPlay();
-    await openPlay(); await legacyStart('friend'); await frame.locator('#reload:not(:disabled)').waitFor();
+    await openPlay(); await legacyStart('friend'); await idleBoard();
     await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
     await page.evaluate(() => { window.holdNextGet = true; });
     await page.waitForFunction(() => typeof window.releaseHeldGet === 'function');
     assert(await frame.locator('#page-back').isEnabled(), 'Background polling must not disable game controls');
     await openPlay(); await legacyStart('solo');
-    await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
-    await frame.locator('#reload:not(:disabled)').waitFor();
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    await idleBoard();
     await page.evaluate(() => { window.releaseHeldGet(); });
     await page.waitForFunction(() => window.heldGetReturned);
     await frame.locator('#status').evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    assert.match(await frame.locator('#status').innerText(), /White to move/, 'An old friend read must not replace the newly selected solo game');
-    await openPlay(); await legacyStart('friend'); await frame.locator('#reload:not(:disabled)').waitFor();
+    assert.match(await frame.locator('#status').innerText(), /Your move/, 'An old friend read must not replace the newly selected solo game');
+    await openPlay(); await legacyStart('friend'); await idleBoard();
     await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
-    await frame.locator('#invite').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+    await menuAction('invite'); await idleBoard();
     const code = /^Share this code: ([A-HJKMNP-Z2-9]{6})$/.exec(await frame.locator('#invitation').innerText())?.[1]; assert(code);
     const joined = await friendTool('kingdown_join',{code});
     assert(!joined.isError);
-    await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     await clickSquare(4, 1); await clickSquare(4, 3);
-    await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
+    await frame.locator('#status').filter({ hasText: 'Their move' }).waitFor();
     const friend = await page.evaluate(() => window.harnessView);
     const replied = await friendTool('kingdown_move',{ game_id: friend.game_id, command_id: 'friend-reply', expected_revision: friend.revision, lan: 'e7-e5' });
     assert(!replied.isError);
-    await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor({ timeout: 35000 });
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor({ timeout: 35000 });
     assert.equal(await page.evaluate(() => window.harnessView.revision), friend.revision + 1);
-    await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor();
+    await openPlay(); await legacyStart('solo'); await idleBoard();
     assert.equal(await frame.locator('#invitation').innerText(), '');
     const waiting = await friendTool('kingdown_create',{kind:'friend',colour:'white',options});
     const invitation = await friendTool('kingdown_invite',{game_id:waiting._meta.view.game_id});
@@ -544,17 +556,17 @@ try {
     const board_id = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
     const joinResult = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_join',arguments:{code:`${otherCode.slice(0,3).toLowerCase()}-${otherCode.slice(3)}`,board_id}}})).json();
     assert(!joinResult.isError); await page.evaluate(result=>window.harnessShow(result),joinResult);
-    await frame.locator('#status').filter({ hasText: 'You play Black' }).waitFor({ timeout: 5000 });
+    await frame.locator('#strip-me .player-name small').filter({ hasText: 'Black' }).waitFor({ timeout: 5000 });
     const joinedView = await page.evaluate(() => window.harnessView);
     const readsBeforeJoinRemount = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_get').length);
 
     await page.locator('#remount').click();
     await page.waitForFunction(count => window.harnessCalls.filter(call => call.name === 'kingdown_get').length > count, readsBeforeJoinRemount);
-    await frame.locator('#status').filter({ hasText: 'You play Black' }).waitFor({ timeout: 5000 });
+    await frame.locator('#strip-me .player-name small').filter({ hasText: 'Black' }).waitFor({ timeout: 5000 });
     assert.equal(await page.evaluate(() => window.harnessMatchId), joinedView.game_id, 'Remount must keep the joined game instead of the original solo game');
     await page.evaluate(() => { window.harnessDropWidgetWrites = false; });
     await openPlay();
-    await openPlay(); await legacyStart('solo'); await frame.locator('#reload:not(:disabled)').waitFor();
+    await openPlay(); await legacyStart('solo'); await idleBoard();
   }
   const routeBase = await page.evaluate(() => window.harnessView), routeBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
   for (const [status, kind, options, screen] of [['waiting','friend',undefined,'friend'], ['waiting','random',undefined,'wait'], ['setup','friend',{},'seat'], ['setup','solo',undefined,'board'], ['playing','solo',undefined,'board'], ['finished','friend',undefined,'end'], ['aborted','random',undefined,'end']]) {
@@ -642,13 +654,13 @@ try {
     const lobby = await friendTool('kingdown_lobby'); assert(lobby._meta.lobby.games.some(g=>g.game_id===open._meta.view.game_id));
     const accepted = await friendTool('kingdown_accept',{game_id:open._meta.view.game_id}); assert(!accepted.isError);
     const shown = await tool('kingdown_open',{game_id:open._meta.view.game_id}); await page.evaluate(r=>window.harnessShow(r),shown);
-    await frame.locator('#status').filter({hasText:'White to move'}).waitFor(); await frame.locator('#reload:not(:disabled)').waitFor();
+    await frame.locator('#status').filter({hasText:'Your move'}).waitFor(); await idleBoard();
     const resign = await tool('kingdown_resign',{game_id:open._meta.view.game_id}); assert(!resign.isError);
     const offer = await tool('kingdown_rematch',{game_id:open._meta.view.game_id,command_id:'rematch-offer',expected_revision:resign._meta.view.revision,choice:'offer'}); assert(!offer.isError);
     const rematch = await friendTool('kingdown_rematch',{game_id:open._meta.view.game_id,command_id:'rematch-accept',expected_revision:offer._meta.view.revision,choice:'accept'}); assert(!rematch.isError);
     assert.equal((await tool('kingdown_get',{board_id:shown.structuredContent.board_id}))._meta.view.game_id,open._meta.view.game_id);
     const resumed = await tool('kingdown_resume',{board_id:shown.structuredContent.board_id,game_id:rematch._meta.view.rematch_game_id}); assert(!resumed.isError); await page.evaluate(r=>window.harnessShow(r),resumed);
-    await frame.locator('#status').filter({hasText:'You play Black'}).waitFor(); await frame.locator('#reload:not(:disabled)').waitFor();
+    await frame.locator('#strip-me .player-name small').filter({hasText:'Black'}).waitFor(); await idleBoard();
     assert.equal(await page.evaluate(()=>window.harnessView.game_id),rematch._meta.view.rematch_game_id);
     await legacyStart('solo');
   }
@@ -663,9 +675,9 @@ try {
   }
   for (const [kind,features,status] of [['friend',options,'waiting'],['solo',{...options,arrangement:true},'setup']]) {
     const start = await legacyStart('solo');
-    await frame.locator('#status').filter({hasText:'White to move'}).waitFor();
+    await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
     await clickSquare(4,1); await page.evaluate(()=>{window.dropNextMoveReply=true;});
-    await frame.locator('#choices button[title="e2-e4"]').click(); await frame.locator('#retry').waitFor();
+    await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await frame.locator('#retry').waitFor();
     const switched = await tool('kingdown_create',{kind,options:features,colour:'white'});
     assert.equal(switched._meta.view.status,status); assert.equal(switched._meta.view.fen,'');
     await page.evaluate(result=>window.harnessShow(result),switched);
@@ -673,11 +685,11 @@ try {
     assert.equal(await page.evaluate(()=>window.harnessWidgetState?.privateContent?.pending),undefined,'An empty-FEN host switch clears the old command');
   }
   await legacyStart('solo');
-  await frame.locator('#status').filter({hasText:'White to move'}).waitFor();
+  await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
   // A host notification can switch games independently of a pending submission.
   await clickSquare(4, 1);
   await page.evaluate(() => { window.dropNextMoveReply = true; });
-  await frame.locator('#choices button[title="e2-e4"]').click(); await frame.locator('#retry').waitFor();
+  await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await frame.locator('#retry').waitFor();
   // White, as the board's Solo button sends: with no colour the seat is random, and Black has no move before the computer.
   const switched = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_create', arguments: { kind: 'solo', options, colour: 'white' } } })).json();
   await page.evaluate(async result => { await window.harnessShow(result); }, switched);
@@ -686,11 +698,11 @@ try {
   await page.evaluate(() => { window.harnessWidgetState = { modelContent: { game_id: window.harnessMatchId } }; });
   await page.locator('#remount').click();
   await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
-  await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+  await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
   await page.evaluate(() => { window.harnessWithoutWidgetState = true; window.harnessWidgetState = undefined; });
   await page.locator('#remount').click();
   await page.waitForFunction(() => window.harnessWidgetState?.modelContent?.revision === 0);
-  await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+  await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
   assert.equal(await page.evaluate(() => window.harnessWidgetState.modelContent.revision), 0, 'Hosts without widget state still receive standard model context');
   if (mode === 'fixture') {
   await page.goto(new URL('/?terminal=1', base).href);
