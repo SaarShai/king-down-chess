@@ -126,3 +126,5 @@ Use one red check, its small fix, and a green check for each item. Run npm test 
 Fix 1: the race check fails on the refused move line. The shared final move error now rolls back and reads in full. The fixture check passes 1 of 1 in 236.8 s. The held computer reply stays outside the idle-board wait.
 
 Fix 2: the later-offer check fails without a manual read. Eligible finished human games now use the shared poll schedule, also before an offer. A deleted opponent stops polling. The fixture check passes 1 of 1 in 243.2 s. One prior run stops on a detached control in the route-size check; the unchanged repeat passes.
+
+Fix 3: the failed full end read has no Retry before the fix. The read now completes only after success. The existing Retry recovers the fixture rating change and new badge. The fixture check passes 1 of 1 in 225.4 s.

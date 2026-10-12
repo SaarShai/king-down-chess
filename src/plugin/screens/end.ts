@@ -31,10 +31,9 @@ export function updateEnd() {
     const game = view.rematch_game_id; resumed.add(game); updating = true;
     void call('kingdown_resume', {game_id:game}).then(next => { if (!next) resumed.delete(game); }).finally(() => { updating = false; });
   } else if (!read.has(view.game_id)) {
-    read.add(view.game_id);
-    if (memory.view?.rules) return;
+    if (memory.view?.rules) { read.add(view.game_id); return; }
     updating = true;
-    void call('kingdown_get', {}).finally(() => { updating = false; endScreen(); });
+    void call('kingdown_get', {}, true).then(next => { if (next) read.add(view.game_id); }).finally(() => { updating = false; endScreen(); });
   }
 }
 export function endScreen(schedule = true) {
