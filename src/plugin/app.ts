@@ -29,11 +29,11 @@ const state = client.state;
 let awaitingInitialResult = true;
 let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
-let busy = false, polling = false, mountReading = true;
+let busy = false, polling = false, mountReading = true, gamesDirty = false;
 let poll: ReturnType<typeof runPoll> | undefined;
 let pending = state.pending;
 let handleBack: Screen = pending?.screen ?? 'settings';
-const drawBoard = boardScreen(call, () => busy || !!pending);
+const drawBoard = boardScreen(call, () => busy || mountReading || !!pending);
 const router = createRouter((name, args, retain) => call(name, args, retain, false, false), navigate, show, () => !!pending);
 export const { routeView, start } = router;
 const screens = { setup: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
@@ -45,13 +45,20 @@ function retryState() {
   $('error').textContent = message ?? '';
 }
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
+function actions() {
+  const blocked = busy || mountReading || !connected;
+  buttons().forEach(button => { button.disabled = blocked; });
+  $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
+  $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = blocked || !memory.settings;
+}
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
 function show(next: View | undefined) {
   if (!next) return;
-  if (pending?.args.game_id && pending.args.game_id !== next.game_id) { pending = undefined; $('retry').hidden = true; }
+  if (pending?.game_tag && !['kingdown_create', 'kingdown_find'].includes(pending.name) && !next.game_id.startsWith(pending.game_tag)) { pending = undefined; $('retry').hidden = true; }
   if (next.rules) rules = { game: next.game_id, value: next.rules };
   // A full read carries the rules; a reply without them is for a game this board no longer shows.
   if (next.fen && rules?.game !== next.game_id) return;
+  if (view?.game_id !== next.game_id || view.revision !== next.revision || view.status !== next.status || view.action !== next.action) gamesDirty = true;
   if (view?.game_id !== next.game_id) $('invitation').textContent = '';
   view = next;
   if (rules?.game === next.game_id) setRules(rules.value);
@@ -62,25 +69,37 @@ function show(next: View | undefined) {
   // Widget state also supplies model context; a second writer would replace it.
   if (!extension?.setWidgetState) void app.updateModelContext({ structuredContent: { revision: view.revision, status: view.status, your_turn: view.turn === view.seat } }).catch(() => {});
 }
+async function resendPending(command: Pending, mountRead?: ToolResult) {
+  const read = mountRead ?? await client.call('kingdown_get');
+  if (read.isError) throw new Error(read.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+  const completed = read._meta?.view as View | undefined;
+  if (['kingdown_create', 'kingdown_find'].includes(command.name) && command.started_at !== undefined && completed && (!command.game_tag || !completed.game_id.startsWith(command.game_tag)) && (command.name === 'kingdown_find' || Date.parse(completed.created_at) >= command.started_at)) return read;
+  if (!mountRead) {
+    if (command.game_tag && !['kingdown_create', 'kingdown_find'].includes(command.name)) {
+      if (!completed?.game_id.startsWith(command.game_tag)) { pending = undefined; if (completed) routeView(completed); return read; }
+      command.args.game_id = completed.game_id;
+    }
+    return client.call(command.name, command.args);
+  }
+}
 export async function call(name: string, args: Record<string, unknown>, retain = false, quiet = false, route: boolean | undefined = undefined, retry = false) {
   if (busy || (quiet && polling)) return;
   const before = view;
   let followup: Pending | undefined, received: View | undefined;
   if (quiet) polling = true;
-  else { busy = true; buttons().forEach(b => b.disabled = true); $('error').textContent = ''; }
+  else { busy = true; actions(); $('error').textContent = ''; }
   if (retain) {
-    if (pending?.name !== name || pending.args !== args) pending = { name, args, game_id: view?.game_id, screen: state.screen };
+    if (pending?.name !== name || pending.args !== args) pending = { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen };
     pending.error = undefined; pending.error_screen = undefined; saveState();
   }
   try {
     let result: ToolResult | undefined;
-    if (retry && ['kingdown_create', 'kingdown_find'].includes(name)) {
-      const read = await client.call('kingdown_get');
-      if (read.isError) throw new Error(read.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
-      const completed = (read._meta as { view?: View } | undefined)?.view;
-      if (completed && completed.game_id !== pending?.game_id) result = read;
-    }
+    if (retry && pending) result = await resendPending(pending);
     result ??= await client.call(name, args);
+    if (mountReading && name === 'kingdown_get' && pending && ['kingdown_create', 'kingdown_find'].includes(pending.name)) {
+      const recovered = await resendPending(pending, result);
+      if (recovered) { name = pending.name; retain = true; route = undefined; result = recovered; }
+    }
     if (quiet && (busy || view !== before)) return;
     const read = (result._meta as { view?: View } | undefined)?.view;
     if (name === 'kingdown_get' && read?.fen && !read.rules && rules?.game !== read.game_id) {
@@ -88,7 +107,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
       if (quiet && (busy || view !== before)) return;
     }
     if (result.isError) {
-      if (result._meta?.code === 'HANDLE_NEEDED') { pending ??= { name, args, game_id: view?.game_id, screen: state.screen }; pending.error = undefined; pending.error_screen = undefined; saveState(); navigate('handle'); return; }
+      if (result._meta?.code === 'HANDLE_NEEDED') { pending ??= { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen }; pending.error = undefined; pending.error_screen = undefined; saveState(); navigate('handle'); return; }
       const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
       if (definitive.includes(String(result._meta?.code))) { pending = undefined; saveState(); if (retain) router.finishStart(); }
       throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
@@ -110,13 +129,13 @@ export async function call(name: string, args: Record<string, unknown>, retain =
   } catch (error) { if (quiet && (busy || view !== before)) return; const message = error instanceof Error ? error.message : 'Could not update the game.';
     if (retain && pending) { pending.error = message; pending.error_screen = state.screen; saveState(); }
     $('error').textContent = message; $('retry').hidden = !pending?.error || pending.error_screen !== state.screen; }
-  finally { if (quiet) polling = false; else { busy = false; buttons().forEach(b => b.disabled = false); } }
-  if (followup) void call(followup.name, followup.args, true);
+  finally { if (quiet) polling = false; else { busy = false; actions(); } }
+  if (followup) void call(followup.name, followup.args, true, false, undefined, true);
   return received;
 }
 $('reload').onclick = () => { if (state.board_id) void call('kingdown_get', {}); };
 $('retry').onclick = () => { if (pending) void call(pending.name, pending.args, true, false, undefined, true); };
-$('computer').onclick = () => { if (view) void call('kingdown_computer', { game_id: view.game_id, command_id: crypto.randomUUID(), expected_revision: view.revision }, true); };
+$('computer').onclick = () => { if (view) void call('kingdown_computer', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision }, true); };
 $('invite').onclick = () => { if (view) void call('kingdown_invite', { game_id: view.game_id }); };
 $('solo').onclick = () => { memory.kind = 'solo'; navigate('setup'); };
 $('friend').onclick = () => { memory.kind = 'friend'; navigate('setup'); };
@@ -124,10 +143,10 @@ $('random').onclick = () => { memory.kind = 'random'; navigate('lobby'); };
 $('join-form').onsubmit = event => { event.preventDefault(); memory.code = $<HTMLInputElement>('token').value.trim(); navigate('join'); };
 type ToolResult = Awaited<ReturnType<typeof client.call>>;
 function renderGames(entries: InboxEntry[]) {
-  memory.games = entries;
+  memory.games = entries; gamesDirty = false;
   $('games-status').textContent = entries.length ? '' : 'No active games.';
   $('home-line').textContent = `Your move in ${entries.filter(entry => entry.action === 'ready').length} games.`;
-  gamesList($('games-list'), entries, (name, args) => call(name, args, false, false, false), routeView);
+  gamesList($('games-list'), entries, (name, args) => call(name, args, false, false, false), routeView); actions();
 }
 function remember(result: ToolResult) {
   if (result._meta?.settings) memory.settings = result._meta.settings as PlayerSettings;
@@ -144,7 +163,7 @@ app.ontoolresult = result => {
   void mountResult(result, initial);
 };
 async function mountResult(result: ToolResult, initial: boolean) {
-  mountReading = true;
+  mountReading = true; actions();
   try {
     await connection;
     const value = result.structuredContent as Record<string, unknown> | undefined;
@@ -181,7 +200,7 @@ async function mountResult(result: ToolResult, initial: boolean) {
     mountReading = false; if (pending?.error) retryState();
     if (state.screen in screens) screens[state.screen as keyof typeof screens]();
     poll?.update();
-    if (initial && connected && memory.settings) $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = false;
+    actions();
   }
 }
 app.onclose = () => { connected = false; poll?.stop(); router.finishStart(); };
@@ -206,7 +225,8 @@ export function navigate(screen: Screen) {
   $('page-back').textContent = screen === 'handle' && handleBack === 'settings' ? '‹ Settings' : screen === 'collection' ? '‹ Profile' : '‹ Play';
   $('page-title').textContent = ({ setup: 'New game', friend: 'A friend', join: 'Join a game', wait: 'Looking for an opponent', lobby: 'Open games', seat: 'Set up your side', end: 'Game over', profile: 'Profile', collection: 'Collection', settings: 'Settings', handle: 'Pick a name and a picture' } as Partial<Record<Screen,string>>)[screen] ?? '';
   if (!mountReading && screen in screens) screens[screen as keyof typeof screens]();
-  client.save(); poll?.update();
+  client.save(); actions(); poll?.update();
+  if (screen === 'play' && gamesDirty && !mountReading) void games();
   if (screen === 'settings') void applySettings();
   if (screen === 'handle') scheduleHandleCheck(); else { clearTimeout(handleTimer); handleCheck++; }
 }
@@ -278,7 +298,7 @@ navigate(state.screen);
 
 async function applySettings() {
   if (!memory.settings) return;
-  $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = false;
+  actions();
   $<HTMLInputElement>('symbols-only').checked = memory.settings.symbols_only;
   $<HTMLInputElement>('show-threats').checked = memory.settings.show_threats;
   await setSettings(memory.settings);

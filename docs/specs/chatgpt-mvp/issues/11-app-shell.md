@@ -226,3 +226,38 @@ Checks:
 - Final page: 516,932 HTML bytes. The final mount-error fix adds 11 bytes. The standalone server resource is 518,741 JSON bytes. It stays below the 1 MB build limit.
 
 Open items: none in ticket 11. Tickets 12 to 16 fill the shared screen stubs.
+
+## Fix round 2 plan
+
+1. Use one board check for every pending resend. Check lost Create and Find replies through Retry, Save and mount.
+2. Block page actions until mount reads end. Check a saved move while the board read waits.
+3. Save a short game tag and safe command args. Check widget state and old-game commands.
+4. Refresh Play rows after game changes. Check Create, Move and Back.
+5. Add app checks for Home to Profile, join memory, turn and setup rows, and Show threats after mount.
+
+Checks: use the approved app seam in tools/plugin-app.test.ts and both plugin browser checks. Run npm test after each red and green change. Use kingdown_mvp11_test on 127.0.0.1:55432. Run the full test suite, plugin build and server check before the final integration merge. Record counts and page size.
+
+## Fix round 2 result
+
+1. Retry, Save and mount use one board recovery check. A lost Create reply does not make a second game. Find also recovers the board it selects. The start keeps its route option and returns the recovered view. The Save and mount tests fail with the old paths. The Save fix passes the full suite: 2,295 tests in 150 files, with 8 skipped; all 50 art tests and the type check pass. All 14 app tests pass after the mount fix. The next test then catches an active Retry during the account read.
+
+2. Page buttons and board actions wait for both mount reads. The test holds the account read and the board read, tries Retry during each wait, and checks that no old move is sent. All 15 app tests pass; the next test fails because Play has no row for the new game.
+
+3. Widget state saves an 8-character game tag and safe pending args. It saves no full game ID, code or handle. Page memory keeps the full call. Retry gets the current game ID from the board and drops a command for another tag. Page move IDs use hex text, so widget state has no UUID other than board_id. The client test fails before the fix, then all 5 client tests, all 50 art tests and the type check pass. The plugin browser check now checks every widget write with a UUID regex.
+
+4. Play refreshes kingdown_games after the view changes. Replies with _meta.games still update the shared rows. The app test creates a game, goes back, moves and goes back again. Its rows show the new game and then Their turn. All 16 app tests, all 50 art tests and the type check pass.
+
+5. The app tests check Home to Profile, the exact preview and joinError in page memory on notification and mount, Their turn after a move, and both setup rows. The browser checks assert Home to Profile and the saved Show threats switch, then check every threat arrow after remount. They check every widget write for full UUIDs, codes and handles. A second red client check catches an extra full game ID on pending. Save now writes only the known pending fields. The Back check asserts the new visible row; it does not require a read when the rows are already current.
+
+Final checks before the integration merge:
+
+- npm test: 2,302 tests pass in 150 files; 8 skip. All 50 art tests and the type check pass.
+- npm run plugin:build and npm run plugin:server:check: pass. The compiled HTTP and PostgreSQL flow passes on kingdown_mvp11_test. All 101 art files pass: 72 WebP, 1 PNG, 24 SVG and 4 woff2.
+- npm run check:browser plugin-ui plugin-ui-http: 2 of 2 pass. The page fits the four widths and keeps all existing board, retry, poll and route checks. Other browser checks stay out of this round because only plugin files change.
+- Page size: 518,246 HTML bytes; 520,055 JSON bytes in the standalone server check.
+
+All Part 2 exports stay in place. Open items in this fix round: none. The final local integration merge and its test result follow.
+
+### Fix round 2 integration merge
+
+The branch merges local integration tip 7a01f5f8 with no conflict. It keeps the integration check that lets navigation read but rejects write calls. No app or server code changes in this merge. After the merge, npm test passes 2,302 tests in 150 files, with 8 skipped. All 50 art tests and the type check pass. Status stays resolved.

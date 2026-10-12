@@ -72,6 +72,13 @@ try {
   assert.deepEqual(await page.evaluate(() => window.harnessDeclaredModes), ['inline', 'fullscreen'], 'App declares both display modes to the host');
   assert.equal(await frame.locator('.inline-line').innerText(), 'Your move in 0 games.', 'Home uses the server turn count and the sample line');
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), 0, 'An empty home reads no board');
+  await frame.locator('#home-games').click();
+  await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
+  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'profile', 'Home Your games opens Profile');
+  const homeAgain = await (await page.request.post(new URL('/fixture-tool',base).href, { data: { name: 'kingdown_open', arguments: { screen: 'home' } } })).json();
+  await page.evaluate(result => window.harnessShow(result), homeAgain);
+  await frame.locator('#home-play:not(:disabled)').waitFor();
+  await page.evaluate(() => { window.harnessDisplayRequests = []; });
   await frame.locator('[data-art]').evaluateAll(images => Promise.all(images.map(image => image.decode())));
 
   for (const [width,height] of [[390,844],[1440,900],[400,900],[360,844]]) {
@@ -104,7 +111,7 @@ try {
     const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     await page.evaluate(() => {
       const saved = window.harnessWidgetState.privateContent;
-      window.harnessWidgetState = { modelContent: {}, privateContent: { screen: 'play', sheet: undefined, board_id: saved.board_id, pending: { name: 'kingdown_create', args: { kind: 'friend', colour: 'white' }, game_id: window.harnessView?.game_id, screen: 'play', error: 'Harness saved send failed', error_screen: 'play' } } };
+      window.harnessWidgetState = { modelContent: {}, privateContent: { screen: 'play', sheet: undefined, board_id: saved.board_id, pending: { name: 'kingdown_create', args: { kind: 'friend', colour: 'white' }, game_tag: window.harnessView?.game_id.slice(0, 8), screen: 'play', error: 'Harness saved send failed', error_screen: 'play' } } };
     });
     await page.locator('#remount').click();
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
@@ -208,9 +215,10 @@ try {
   await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
   assert.deepEqual(await page.evaluate(() => window.harnessHandle), { handle: testHandle, icon: 'knight' });
 
-  const backCalls = await page.evaluate(() => window.harnessCalls.length);
   await openPlay();
-  assert.equal(await page.evaluate(() => window.harnessCalls.length), backCalls, 'Back changes only the page');
+  const newFriendId = await page.evaluate(() => window.harnessView.game_id);
+  await frame.locator(`#games-list [data-game-id="${newFriendId}"]`).waitFor();
+  assert.equal(await frame.locator(`#games-list [data-game-id="${newFriendId}"] .row-title`).innerText(), 'Waiting for an opponent', 'Back shows the new game row');
   await legacyStart('solo');
   await frame.locator('#reload:not(:disabled)').waitFor();
   await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
@@ -424,6 +432,11 @@ try {
     const seeded = await seedBoard(scenario), plain = await pixels();
     await openScreen('settings'); await frame.locator('#show-threats').check();
     await page.evaluate(result=>window.harnessShow(result),seeded); await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
+    const threatReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, threatReads);
+    await frame.locator('#reload:not(:disabled)').waitFor(); await boardBox();
+    assert(await frame.locator('#show-threats').isChecked(), 'Show threats returns from the server after mount');
     await frame.locator('canvas').evaluate(() => { window.harnessArrowLines = []; });
     const arrowBox = await boardBox(); await page.mouse.move(arrowBox.x+arrowBox.width/2, arrowBox.y+arrowBox.height/2);
     await frame.locator('canvas').evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
@@ -846,6 +859,11 @@ try {
   assert.equal(await frame.locator('#choices button').count(), 0);
   }
   await page.evaluate(() => window.harnessTeardown());
+  for (const state of await page.evaluate(() => window.harnessWidgetStates ?? [])) {
+    const json = JSON.stringify(state).replace(/"board_id":"[0-9a-f-]+"/gi, '');
+    assert(!/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/i.test(json), 'Each widget write has no full UUID except board_id');
+    assert(!state.privateContent?.pending?.args?.code && !state.privateContent?.pending?.args?.handle, 'Pending state has no code or handle');
+  }
   assertNoErrors();
   console.log(`Harness mode: ${mode}`);
   console.log(`PASS: chat join preview and code-error mounts, shared private games rows, home card, fullscreen request, Settings remount, 4 viewport widths, 14 route remounts, four widget fields, background reads, all piece SVGs and threat endpoints in both seats, safe areas, theme, touch, handle gate and 17 pictures, SDK AppBridge initialization, painted board move, iframe remount with identical FEN/revision, Haste ambiguity, lost-reply same-ID retry committed once, bounded computer turn, definitive rejection recovery, match switch recovery, ${capabilities.friend ? 'friend join/reply polling, ' : ''}no fullscreen control, 390px touch moves, no page errors${mode === 'fixture' ? ', terminal fixture' : ', real HTTP MCP and PostgreSQL'}`);
