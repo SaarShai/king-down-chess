@@ -124,6 +124,17 @@ try {
     await frame.locator('[data-screen="play"] [data-nav="profile"]').click();
     await frame.locator('#profile-rating b').waitFor();
     if (mode === 'fixture') assert.deepEqual(await frame.locator('#profile-totals b').allTextContents(), ['23','12','3','8']);
+    const profileTool = async (name, args = {}) => (await page.request.post(new URL('/fixture-tool', base).href, { data: { name, arguments: args } })).json();
+    const profileGames = [];
+    for (const kind of ['solo','friend']) {
+      const result = await profileTool('kingdown_create', { kind, options, colour: 'white' }); assert(!result.isError); profileGames.push(result._meta.view.game_id);
+    }
+    await openPlay(); await frame.locator('[data-screen="play"] [data-nav="profile"]').click();
+    await frame.locator('#profile-open button').first().waitFor();
+    assert.deepEqual(await frame.locator('#profile-open button').evaluateAll(rows => rows.map(row => row.dataset.gameId)), profileGames);
+    await frame.locator('#profile-open button').first().click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    assert.equal(await page.evaluate(() => window.harnessView.game_id), profileGames[0]);
+    for (const game_id of profileGames) assert(!(await profileTool('kingdown_abort', { game_id })).isError);
     await openPlay();
   }
   const navCalls = await page.evaluate(() => window.harnessCalls.length);

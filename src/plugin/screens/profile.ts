@@ -1,7 +1,8 @@
-import { client } from '../app';
+import { call, client, routeView } from '../app';
 import { art } from '../art';
+import { gamesList } from '../games-list';
 import { ICONS, type Icon } from '../../account/profile';
-import type { HistoryEntry, PlayerRecord } from '../../match/protocol';
+import type { HistoryEntry, InboxEntry, PlayerRecord } from '../../match/protocol';
 import './profile.css';
 type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; history: HistoryEntry[]; next_before: string | null };
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
@@ -11,9 +12,10 @@ async function readProfile() {
   const reading = ++request;
   $('profile-status').textContent = 'Loading profile…';
   try {
-    const result = await client.call('kingdown_profile');
+    const [result, games] = await Promise.all([client.call('kingdown_profile'), client.call('kingdown_games')]);
     if (reading !== request || client.state.screen !== 'profile') return;
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+    if (games.isError) throw new Error(games.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     const profile = result._meta as Profile, { record } = profile;
     $('page-title').textContent = profile.handle ?? 'Profile';
     $<HTMLImageElement>('profile-picture').src = art(ICONS[profile.icon ?? 'spirit']);
@@ -24,6 +26,8 @@ async function readProfile() {
       const cell = document.createElement('div'), number = document.createElement('b'), name = document.createElement('span');
       number.textContent = String(total); name.textContent = label; cell.append(number, name); return cell;
     }));
+    $('profile-sheet').querySelector<HTMLElement>('.scroll')!.style.borderImageSource = `url("${art('assets/scroll.webp')}")`;
+    gamesList($('profile-open'), games._meta!.games as InboxEntry[], (name, args) => call(name, args, false, false, false), routeView);
     $('profile-status').textContent = '';
   } catch (error) { if (reading === request && client.state.screen === 'profile') $('profile-status').textContent = String(error); }
 }
