@@ -1,3 +1,4 @@
+import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -99,7 +100,7 @@ try {
     const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     await page.evaluate(() => {
       const saved = window.harnessWidgetState.privateContent;
-      window.harnessWidgetState = { modelContent: {}, privateContent: { screen: 'play', sheet: undefined, board_id: saved.board_id, pending: { name: 'kingdown_create', args: { kind: 'friend', colour: 'white' } } } };
+      window.harnessWidgetState = { modelContent: {}, privateContent: { screen: 'play', sheet: undefined, board_id: saved.board_id, pending: { name: 'kingdown_create', args: { kind: 'friend', colour: 'white' }, game_id: window.harnessView?.game_id, screen: 'play', error: 'Harness saved send failed', error_screen: 'play' } } };
     });
     await page.locator('#remount').click();
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
@@ -107,6 +108,8 @@ try {
     await frame.locator('#retry').waitFor();
     await page.evaluate(fail => { window.requireHandleNext = true; window.failActionAfterHandle = fail; }, fail);
     await frame.locator('#retry').click(); await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+    assert.equal(await frame.locator('#retry').isVisible(), false, 'HANDLE_NEEDED waits for Save without Retry');
+    assert.equal(await frame.locator('#error').textContent(), '', 'HANDLE_NEEDED has no failed-send words');
   }
   const navCalls = await page.evaluate(() => window.harnessCalls.length);
   for (const [id, route] of [['solo','setup'], ['friend','setup'], ['random','lobby']]) {
@@ -131,19 +134,10 @@ try {
     const layout = await frame.locator('body').evaluate(el => ({ overflow: el.scrollWidth > innerWidth, width: innerWidth, heading: getComputedStyle(document.querySelector(`[data-screen="${el.dataset.page}"] h2`) ?? el).fontFamily }));
     assert.equal(layout.overflow, false, `${screen} has no horizontal scroll at ${width}px`);
     assert(layout.width <= width);
-    const controls = frame.locator(`[data-screen="${screen}"] button:visible, [data-screen="${screen}"] input:visible, #page-head button:visible`);
+    const controls = frame.locator(`[data-screen="${screen}"] button:visible, [data-screen="${screen}"] input:visible, #page-head button:visible, #retry:visible, #error:visible`);
     for (let i = 0; i < await controls.count(); i++) {
       const control = controls.nth(i); await control.scrollIntoViewIfNeeded();
-      const bounds = await control.evaluate(el => {
-        const r = el.getBoundingClientRect(), css = getComputedStyle(document.documentElement);
-        const safe = edge => parseFloat(css.getPropertyValue(`--safe-${edge}`)) || 0;
-        const limit = innerHeight - safe('bottom') - (innerWidth >= 900 ? 128 : 96);
-        let accessible = r.left >= safe('left') - 1 && r.right <= innerWidth - safe('right') + 1 && r.top >= safe('top') - 1 && r.bottom <= limit + 1;
-        for (let p = el.parentElement; p; p = p.parentElement) {
-          if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(p).overflowY)) { const box = p.getBoundingClientRect(); accessible &&= r.top >= box.top - 1 && r.bottom <= box.bottom + 1; }
-        }
-        return { accessible, text: el.textContent || el.getAttribute('aria-label'), rect: [r.x, r.y, r.width, r.height], limit };
-      });
+      const bounds = await control.evaluate(controlBounds);
       assert(bounds.accessible, `${screen} control scrolls into the safe area at ${width}px: ${JSON.stringify(bounds)}`);
     }
     await frame.locator(`[data-screen="${screen}"] .new-game-body`).evaluateAll(els => els.forEach(el => { el.scrollTop = 0; }));
@@ -249,6 +243,9 @@ try {
   await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
   await frame.locator('#handle').fill(testHandle); await frame.locator('#save-handle').click();
   await frame.locator('#error').filter({ hasText: 'Harness action after Save failed' }).waitFor();
+  assert(await frame.locator('#retry').isVisible(), 'A failed send shows Retry with its error words');
+  for (const width of [360,400]) { await page.setViewportSize({width,height:844}); await fits('play',width); await shot(page, `shell-failure-${width}-${mode}`); }
+  await page.setViewportSize({width:1000,height:1000});
   assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending?.name), 'kingdown_create', 'Save keeps the action until it succeeds');
   await page.locator('#remount').click();
   await frame.locator('#retry').waitFor(); await frame.locator('#retry').click();

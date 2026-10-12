@@ -3,6 +3,7 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
+import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { startHarness } from './plugin-ui-harness';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string;
@@ -127,5 +128,20 @@ it.each([true, false])('keeps route=%s through Save, a failed send and Retry', a
     expect(await frame.locator('html').evaluate(() => (window as any).startResult.status)).toBe('waiting');
     expect(await frame.locator(`[data-screen="${route ? 'friend' : 'setup'}"]`).isVisible()).toBe(true);
     expect(await frame.locator('#retry').isVisible()).toBe(false);
+  } finally { await page.close(); }
+});
+
+it('rejects a Retry control clipped by a parent on the horizontal axis', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.evaluate(() => { (window as any).failNextAction = true; });
+    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; app.navigate('play'); await app.call('kingdown_create', { kind: 'friend' }, true); });
+    await frame.locator('#retry').waitFor();
+    expect((await frame.locator('#retry').evaluate(controlBounds)).accessible).toBe(true);
+    await frame.locator('#retry').evaluate(el => {
+      const clip = document.createElement('div'); clip.style.width = '1px'; clip.style.overflowX = 'hidden';
+      el.parentElement!.append(clip); clip.append(el);
+    });
+    expect((await frame.locator('#retry').evaluate(controlBounds)).accessible).toBe(false);
   } finally { await page.close(); }
 });
