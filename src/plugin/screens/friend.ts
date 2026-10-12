@@ -54,7 +54,7 @@ export function friendScreen() {
     else { const range = document.createRange(); range.selectNodeContents(tiles); const selection = getSelection(); selection?.removeAllRanges(); selection?.addRange(range); $('friend-copy-status').textContent = 'Select the code and copy it'; }
   };
   $('friend-new').onclick = () => void makeCode(view);
-  $('friend-cancel').onclick = async () => { const next = await call('kingdown_abort', { game_id: view.game_id, command_id: crypto.randomUUID(), expected_revision: view.revision }, true, false, false); if (next) { codes.delete(view.game_id); navigate('play'); } };
+  $('friend-cancel').onclick = async () => { const next = await call('kingdown_abort', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision }, true, false, false); if (next) { codes.delete(view.game_id); navigate('play'); } };
   // Create routes before the inbox read. A remount reads the inbox first and never renews the invite.
   if (!invite && !attempted.has(view.game_id) && !memory.games.some(game => game.game_id === view.game_id)) void makeCode(view);
 }

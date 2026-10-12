@@ -37,6 +37,6 @@ The wait clock stays in place through Play and the computer handoff. Hidden-cloc
 
 Delegated choices: Find uses last_setup, else DEFAULT_OPTIONS and White. The computer offer uses the open game's options and colour, the saved level or Club, and default ready seat choices. These are delegated choices, not an owner's yes.
 
-GAP: the shared call API puts all Join args in pending. A code must stay out of widget state. Join uses the client directly and keeps its retry through handle Save in page memory. A remount needs the code again. No shared client, router or server file changes.
+GAP: the current shared client omits the code from saved pending data. Its resend path adds game_id to each pending call other than Create or Find. Join takes no game_id. Join therefore uses the client directly and keeps its retry through handle Save in page memory. A remount needs the code again. No shared client, router or server file changes.
 
 The compiled page, browser checks, size record and sample comparisons remain open.

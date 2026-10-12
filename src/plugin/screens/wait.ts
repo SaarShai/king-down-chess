@@ -45,7 +45,7 @@ async function computer() {
     let solo = await start('solo', { options, colour: open.seat === 0 ? 'white' : 'black', level: memory.settings?.last_setup?.level ?? 'club' }, { route: false });
     if (solo?.status === 'setup' && solo.draw) {
       const choice = defaultChoice(options, { army: solo.draw, hand: solo.deal ?? [] }, solo.seat, Math.random, false);
-      solo = await call('kingdown_choose', { game_id: solo.game_id, command_id: crypto.randomUUID(), expected_revision: solo.revision, ...choice, ready: true }, true, false, false);
+      solo = await call('kingdown_choose', { game_id: solo.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: solo.revision, ...choice, ready: true }, true, false, false);
       if (solo) solo = await call('kingdown_get', {}, false, false, false);
     }
     if (solo) { routeView(solo); await call('kingdown_games', {}); syncWatch(); }
@@ -97,7 +97,7 @@ function found(human: View) {
     try {
       const solo = memory.view;
       if (solo?.kind === 'solo' && solo.status === 'playing') {
-        const result = await client.call('kingdown_abort', { game_id: solo.game_id, command_id: crypto.randomUUID(), expected_revision: solo.revision });
+        const result = await client.call('kingdown_abort', { game_id: solo.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: solo.revision });
         if (result.isError && result._meta?.code !== 'NOT_ALLOWED') throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       }
       const next = await call('kingdown_resume', { game_id: human.game_id }, false, false, false);
