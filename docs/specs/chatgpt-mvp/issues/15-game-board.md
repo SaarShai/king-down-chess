@@ -60,3 +60,9 @@ The final fixture check passes 1 of 1 in 107.1 s. The HTTP and PostgreSQL check 
 The system Git shim now asks for an Xcode licence. The installed Command Line Tools Git works. Checks use a command-local PATH to that binary. No licence or system setting changes.
 
 Still open: card Use, actions and confirms, end card, rematch, end polling, look comparisons, the full browser run, final unit suite, integration merge and push. The ticket stays in progress.
+
+## Check point: cards
+
+The card Use check fails before the control. Create deals four cards through the page's tool. Both strips show their hand and spent coins. A card reads its name, rule and art in the game sheet. Use arms only that card's moves. Named targets, drops and an enemy piece's card move use the same legal choices. Mirror B spends its own bit. Widget state has no hand data.
+
+The fixture check passes 1 of 1 in 137.1 s. The HTTP and PostgreSQL check passes 1 of 1 in 81.6 s. The type check passes. The older Haste, Archer, Freeze, move, retry and viewport assertions pass.

@@ -44,14 +44,16 @@ const button = (words: string, click: () => void) => { const b = document.create
 export function boardScreen(call: (name: string, args: Record<string, unknown>, retain?: boolean) => Promise<View | undefined>, networkBlocked: () => boolean) {
   let generation = 0, animating = false, optimistic: BoardMove | undefined;
   const blocked = () => networkBlocked() || animating;
-  let armed: PowerName | undefined;
+  let armed: PowerName | undefined, armedCard: number | undefined;
   let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0;
   let computerCalls = 0, computerRunning = false, thinking = false, tornDown = false, thinkingTimer: ReturnType<typeof setTimeout> | undefined;
   let ownRating: PlayerRecord['rating'] | undefined, profileRead = false;
   const active = () => ['board', 'end'].includes(client.state.screen);
   const rules = () => setRules(view!.rules!);
   const tag = () => armed ? POWER_TAG[armed] ?? null : null;
-  const named = () => moves.filter(({move}) => ['freeze','ward','sacrifice'].includes(move.power ?? '') && move.power === tag());
+  const cardChoices = () => armedCard === undefined || !pos || !view ? [] : moves.filter(c => cardCoins(pos!,view!.seat,RULES.hands[view!.seat],moves.map(c=>c.move))[armedCard!].moves.includes(c.move));
+  const reachable = (move: Move) => armedCard !== undefined ? cardChoices().some(c=>c.move===move) : RULES.hands[view!.seat].length ? !move.power : offered(move,tag());
+  const named = () => armedCard !== undefined ? cardChoices().filter(({move}) => !move.pass && (move.from === move.to || move.drop !== undefined)) : moves.filter(({move}) => ['freeze','ward','sacrifice'].includes(move.power ?? '') && move.power === tag());
   async function computer() {
     if (tornDown || !view || client.state.screen !== 'board' || document.hidden || blocked() || computerRunning || computerCalls >= 4 || view.kind !== 'solo' || view.status !== 'playing' || view.turn === view.seat || $<HTMLDialogElement>('over').open) return;
     const game = view.game_id; computerRunning = true;
@@ -78,7 +80,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (!view || !pos || blocked() || view.action !== 'ready') return;
     const before = view, step = applyLan(pos, lan, view.rules!, view.legal);
     if (!step) return;
-    closeBoardSheet(); armed = undefined; selected = inspected = undefined; choices([]);
+    closeBoardSheet(); armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]);
     const token = ++generation; optimistic = lastMove = step; pos = step.pos; animating = true;
     board.skip(); moveLine();
     void board.animateMove(step.pre, step.move).then(() => { if (token === generation) board.sync(step.pos); }).finally(() => { if (token === generation) { animating = false; refresh(); scheduleComputer(); } });
@@ -101,13 +103,13 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (targets.length === 1) return choose(targets[0].lan);
     if (targets.length > 1) { choices(targets); boardSheet('Choose a move', $('choices')); return; }
     if (submit && selected === square) { selected = inspected = undefined; choices([]); refresh(); return; }
-    const options = !submit || selected === undefined || view.action !== 'ready' ? [] : moves.filter(({move}) => move.from === selected && offered(move, tag()) && ((move.to !== move.from && move.to === square) || move.captures.includes(square) || move.shove?.from === square));
+    const options = !submit || selected === undefined || view.action !== 'ready' ? [] : moves.filter(({move}) => move.from === selected && reachable(move) && ((move.to !== move.from && move.to === square) || move.captures.includes(square) || move.shove?.from === square));
     const ordinary = options.filter(({move}) => !move.power);
     if (ordinary.length === 1) return choose(ordinary[0].lan);
     if (options.length === 1) return choose(options[0].lan);
     if (options.length > 1) { choices(options); boardSheet('Choose a move', $('choices')); return; }
     if (!pos.board[square]) { selected = inspected = undefined; choices(named()); }
-    else if (view.action === 'ready' && colorOf(pos.board[square]) === view.seat) { selected = square; inspected = undefined; choices(moves.filter(({move}) => move.from === square && (!armed || offered(move, tag())))); }
+    else if (view.action === 'ready' && (colorOf(pos.board[square]) === view.seat || armedCard !== undefined && cardChoices().some(c=>c.move.from===square))) { selected = square; inspected = undefined; choices(moves.filter(({move}) => move.from === square && (armed || armedCard !== undefined || RULES.hands[view!.seat].length ? reachable(move) : true))); }
     else { inspected = square; }
     refresh();
   }
@@ -120,7 +122,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
       const delta = ({ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,1], ArrowDown:[0,-1]} as Record<string,number[]>)[event.key];
       if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); board.setPreview(cursor); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
       else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(cursor); }
-      else if (event.key === 'Escape') { armed = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]); refresh(); }
+      else if (event.key === 'Escape') { armed = undefined; armedCard = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]); refresh(); }
     };
   }
   function coinRead(side: Color, index?: number) {
@@ -128,8 +130,14 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     rules(); $('error').textContent = '';
     if (index !== undefined) {
       const card = RULES.hands[side][index], image = document.createElement('img'), face = art(`ui/cards/${card.toLowerCase()}.webp`);
-      image.className = 'card-read-art'; image.src = face ?? art('ui/cards/back.webp'); image.alt = '';
-      boardSheet(cardName(card), image, text(cardText(card)));
+      image.src = face ?? art('ui/cards/back.webp'); image.alt = '';
+      const window = document.createElement('div'); window.className = 'cf-art'; window.append(image);
+      const nodes: HTMLElement[] = [window, text(cardText(card))], coin = cardCoins(pos,side,RULES.hands[side],moves.map(c=>c.move))[index];
+      if (side === view.seat && view.action === 'ready' && !coin.spent && coin.moves.length) nodes.push(button('Use', () => {
+        if (blocked() || view?.action !== 'ready') return;
+        armed = undefined; armedCard = index; selected = inspected = undefined; closeBoardSheet(); choices(cardChoices()); refresh();
+      }));
+      boardSheet(cardName(card), ...nodes);
     } else {
       const coin = coinState(pos, side, RULES, [], side === view.seat && !!armed, moves.map(c => c.move), view.action === 'ready' ? view.seat : null);
       if (!coin) return;
@@ -169,17 +177,18 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   }
   function refresh() {
     if (!view || !pos) return;
-    rules(); const cands = selected === undefined ? [] : moves.filter(({move}) => move.from === selected && offered(move, tag())).map(c => c.move), marks = marksModel(cands);
+    rules(); const cands = selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
     highlight({ ...marks, selected, last: !lastMove ? [] : lastMove.move.shove ? [lastMove.move.shove.from,lastMove.move.shove.to] : lastMove.move.to === lastMove.move.from ? [...lastMove.move.captures] : [lastMove.move.to], read: inspected === undefined ? undefined : reachOf(pos, inspected), powers: [...new Set([...cands.filter(m => m.power && !m.pass).map(m => m.to), ...named().map(c => c.move.to)])], rails: selected === undefined ? [] : railsOf(pos.board, selected, [...marks.moves, ...marks.captures], marks.captures), check: inCheck(pos) ? findKing(pos.board, pos.turn) : null, checkers: checkersOf(pos), threats: view.status === 'playing' && !animating ? threatsIn({...pos, turn:view.seat}) : [] });
     const square = inspected ?? selected, code = square === undefined ? 0 : pos.board[square];
     const [line = '', states = ''] = square === undefined ? [] : readText(pos, square).split('\n');
     const words = code ? `${colorOf(code) ? 'Black' : 'White'} ${nameOf(typeOf(code))}.${states ? ' ' + states + '.' : ''}` : '';
     const context = contextLine({voice:'you', result:view.result ? ending(view) : '', refusal:$('error').textContent ?? '', read:inspected === undefined ? '' : words, selected:words, readNote:line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, undefined, 'link', view.seat), computer:pos.turn !== view.seat, armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
+    if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:'armed',line:cardName(RULES.hands[view.seat][armedCard]),note:'Choose a piece, then a marked square.'});
     $('status').textContent = context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
     const actions: HTMLButtonElement[] = [];
-    if (!armed && square !== undefined && code) actions.push(button('All rules', () => boardSheet('All rules', text(readText(pos!, square)))));
+    if (!armed && armedCard === undefined && square !== undefined && code) actions.push(button('All rules', () => boardSheet('All rules', text(readText(pos!, square)))));
     if (selected !== undefined && moves.some(({move}) => move.from === selected && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
-    if (armed) actions.push(button('Cancel', () => { armed = undefined; choices([]); refresh(); }));
+    if (armed || armedCard !== undefined) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; choices([]); refresh(); }));
     $('context-actions').replaceChildren(...actions); strips();
   }
   $('reload').addEventListener('click', closeBoardSheet);
@@ -200,7 +209,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (!same) { history = []; lastMove = undefined; optimistic = undefined; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
     const local = optimistic; optimistic = undefined;
-    armed = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]);
+    armed = undefined; armedCard = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]);
     $('game-table').dataset.empty = String(!next.fen || next.status === 'setup');
     if (!next.fen || next.status === 'setup') { pos = undefined; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
     rules(); pos = fromFen(next.fen); const legal = new Set(next.legal), here = pos;
