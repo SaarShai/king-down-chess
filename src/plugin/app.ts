@@ -47,7 +47,7 @@ function retryState() {
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 function actions() {
   const blocked = busy || mountReading || !connected;
-  buttons().forEach(button => { button.disabled = blocked; });
+  buttons().forEach(button => { button.disabled = blocked || button.matches('#king-picker [aria-disabled="true"]'); });
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
   $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = blocked || !memory.settings;
 }
@@ -115,7 +115,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     remember(result);
     const next = (result._meta as { view?: View } | undefined)?.view;
     if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision) {
-      view = { ...view, opponent: next.opponent, server_now: next.server_now }; poll?.update(); return;
+      view = { ...view, opponent: next.opponent, server_now: next.server_now }; if (state.screen === 'seat') seatScreen(); poll?.update(); return;
     }
     show(next); received = next;
     if (name === 'kingdown_get' && !quiet) await games();

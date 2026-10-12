@@ -77,6 +77,8 @@ try {
   assert(counts.webp >= 20); assert.equal(counts.png, 1); assert.equal(counts.svg, 24); assert.equal(counts.woff2, 4);
   // Ticket 12: each setup art file stays on the plugin origin.
   for (const name of ['archer-w','paladin-w','guard-w','maester-w','beast-w','ogre-w','rook-w','bishop-w','knight-w','queen-w','frost','flame','stratus','mud','spirit','shadow','shadow-b','freeze','icewall','sacrifice','march','leap','salvation','mimic','vault','skylift','back']) assert(art.some(file => file.includes(`/${name}-`)), `Setup names ${name}.webp`);
+  // Ticket 14: the plain opponent portrait and the remembered king stay on the plugin origin.
+  for (const name of ['spirit','shadow-b','mud']) assert(art.some(file => file.includes(`/${name}-`)), `Seat names ${name}.webp`);
   for (const file of art) {
     const response = await fetch(file, { headers: { Origin: 'null' } });
     assert.equal(response.status, 200, file); assert.equal(response.headers.get('content-type'), { webp: 'image/webp', png: 'image/png', svg: 'image/svg+xml', woff2: 'font/woff2' }[file.split('.').at(-1)]); assert.equal(response.headers.get('access-control-allow-origin'), '*');

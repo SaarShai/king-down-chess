@@ -18,3 +18,7 @@ Blocked by: 11
 ## Acceptance
 
 - `check:browser plugin-ui` and `plugin-ui-http` extended: optimistic move and rollback; the computer reply; a card played; each action; the end card and rematch; the existing Haste, Archer and Freeze checks still pass.
+
+## Seat hand-off
+
+Ticket 14 starts from ticket 12, before this board build. Its Ready path reads the full view, restores the board handlers and calls routeView. Check the automatic computer reply when Ready starts a solo game with the player as Black. The seat has a small Abort confirm until this ticket supplies its shared confirm. Both screens use the table styles; keep one active set of table IDs when the builds join.
