@@ -21,19 +21,19 @@ async function board(client: Client) {
   console.log(`Read board resource through MCP: ${Buffer.byteLength(JSON.stringify(result))} JSON bytes`);
   return resource.text;
 }
-export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor, seedPosition, deleteMatch, sourcePage = false }: { sourcePage?: boolean; boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string; seedPosition?: (setup: MatchSetup, black: boolean) => Promise<string>; deleteMatch?: (id: string) => Promise<void> } = {}) {
+export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor, laterFriendActor, seedPosition, deleteMatch, sourcePage = false }: { sourcePage?: boolean; boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string; laterFriendActor?: string; seedPosition?: (setup: MatchSetup, black: boolean) => Promise<string>; deleteMatch?: (id: string) => Promise<void> } = {}) {
   if (endpoint && (endpoint.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname) || endpoint.username || endpoint.password)) throw new Error('The HTTP harness accepts only a loopback development endpoint');
-  let buddy: Client | undefined;
+  let buddy: Client | undefined, laterBuddy: Client | undefined;
   const client = new Client({ name: 'local-browser-host', version: '1' });
   const service = endpoint ? undefined : fixtureService();
-  let server: ReturnType<typeof createPluginServer> | undefined, buddyServer: ReturnType<typeof createPluginServer> | undefined;
+  let server: ReturnType<typeof createPluginServer> | undefined, buddyServer: ReturnType<typeof createPluginServer> | undefined, laterBuddyServer: ReturnType<typeof createPluginServer> | undefined;
   let resourceHtml: string;
   let vite: Awaited<ReturnType<typeof createServer>> | undefined;
   let closed = false;
   async function close() {
     if (closed) return;
     closed = true;
-    const results = await Promise.allSettled([vite?.close(), client.close(), buddy?.close(), server?.close(), buddyServer?.close(), service?.close()]);
+    const results = await Promise.allSettled([vite?.close(), client.close(), buddy?.close(), laterBuddy?.close(), server?.close(), buddyServer?.close(), laterBuddyServer?.close(), service?.close()]);
     const failures = results.filter(result => result.status === 'rejected');
     if (failures.length) throw new AggregateError(failures.map(result => result.reason), 'Could not close the plugin harness');
   }
@@ -41,6 +41,10 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
   if (endpoint) {
     if (!actor || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actor)) throw new Error('Set PLUGIN_DEV_ACTOR to the disposable development actor UUID');
     if (friendActor) { if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(friendActor) || friendActor === actor) throw new Error('PLUGIN_FRIEND_ACTOR must be a different development actor UUID'); buddy = new Client({ name: 'local-browser-friend', version: '1' }); await buddy.connect(new StreamableHTTPClientTransport(endpoint, { requestInit: { headers: { 'X-Kingdown-Dev-Actor': friendActor }, redirect: 'error' } })); }
+    if (laterFriendActor) {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(laterFriendActor) || [actor,friendActor].includes(laterFriendActor)) throw new Error('The later friend needs a separate development actor UUID');
+      laterBuddy = new Client({ name: 'local-browser-later-friend', version: '1' }); await laterBuddy.connect(new StreamableHTTPClientTransport(endpoint, { requestInit: { headers: { 'X-Kingdown-Dev-Actor': laterFriendActor }, redirect: 'error' } }));
+    }
     await client.connect(new StreamableHTTPClientTransport(endpoint, { requestInit: { headers: { 'X-Kingdown-Dev-Actor': actor }, redirect: 'error' } }));
     resourceHtml = await board(client);
   }
@@ -49,7 +53,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
     vite.middlewares.use(async (req, res, next) => {
       if (req.url === '/harness-mode') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ mode: endpoint ? 'http' : 'fixture', friend: !!buddy })); }
       else if (req.url === '/fixture-seed' && service && req.method === 'POST') { const {actor='alice',data} = await body(req); if (!['alice','bob'].includes(actor)) { res.statusCode = 400; res.end('{}'); return; } service.seed(actor,data); res.setHeader('Content-Type','application/json'); res.end('{}'); }
-      else if (req.url === '/fixture-friend-tool' && req.method === 'POST') { const params = await body(req); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await buddy!.callTool(params))); }
+      else if (req.url === '/fixture-friend-tool' && req.method === 'POST') { const {fresh,...params} = await body(req); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await (fresh ? laterBuddy : buddy)!.callTool(params))); }
       else if (req.url?.startsWith('/fixture-position?') && req.method === 'POST') {
         const params = new URL(req.url,'http://localhost').searchParams, scenario = params.get('case'), black = scenario === 'freeze' || scenario === 'threats-black';
         // The art gallery: every piece type of both colours on the kings' ranks ('gallery'), or only the kings and two pawns
@@ -99,10 +103,12 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
     // The friend plays through the same tools as in HTTP mode.
     buddyServer = createPluginServer({ service: service!, actorId: 'bob', resourceHtml: html, publicOrigin }); buddy = new Client({ name: 'local-browser-friend', version: '1' });
     const [c, d] = InMemoryTransport.createLinkedPair(); await buddyServer.connect(c); await buddy.connect(d);
+    laterBuddyServer = createPluginServer({ service: service!, actorId: 'bob-later', resourceHtml: html, publicOrigin }); laterBuddy = new Client({ name: 'local-browser-later-friend', version: '1' });
+    const [e, f] = InMemoryTransport.createLinkedPair(); await laterBuddyServer.connect(e); await laterBuddy.connect(f);
     resourceHtml = await board(client);
   }
   const tag = randomUUID().slice(0,8);
-  for (const [i, persona] of [client,buddy].entries()) if (persona) { const result = await persona.callTool({name:'kingdown_handle',arguments:{handle:`host${i}-${tag}`}}); if (result.isError) throw new Error('The harness cannot set its disposable handles'); }
+  for (const [i, persona] of [client,buddy,laterBuddy].entries()) if (persona) { const result = await persona.callTool({name:'kingdown_handle',arguments:{handle:`host${i}-${tag}`}}); if (result.isError) throw new Error('The harness cannot set its disposable handles'); }
   return { url, close };
   } catch (error) { await close(); throw error; }
 }

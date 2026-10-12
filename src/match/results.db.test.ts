@@ -117,6 +117,7 @@ suite('finished game results in PostgreSQL', () => {
   await games[0].create(a, { kind: 'solo' });
   const aborted = await games[0].create(a, { kind: 'solo' });
   await games[0].command(a, aborted.game_id, command(0, { type: 'abort' }));
+  await admin.query('update public.games set finished_at=$2 where id=$1', [solo.game_id, '2026-10-12T11:00:00.000Z']);
   await admin.query('update public.games set finished_at=$2 where id=any($1)', [[win.game_id, draw.game_id], '2026-10-12T12:00:00.000Z']);
   const first = await games[0].history(a, undefined, 1), second = await games[1].history(a, first.next_before!, 1), third = await games[0].history(a, second.next_before!, 1);
   expect([...first.games, ...second.games, ...third.games].map(g => g.game_id)).toEqual([win.game_id, draw.game_id].sort().reverse().concat(solo.game_id));

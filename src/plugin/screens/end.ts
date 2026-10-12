@@ -1,4 +1,4 @@
-import { call, client, memory, navigate } from '../app';
+import { call, client, memory, navigate, routeView } from '../app';
 import { art } from '../art';
 import { ending } from '../ending';
 import { runPoll } from '../poll';
@@ -25,7 +25,7 @@ function pollView() {
 export function updateEnd() {
   if (client.state.screen !== 'end') { closeEnd(); return; }
   endScreen(false);
-  if (updating || $<HTMLButtonElement>('reload').disabled || client.state.pending) return;
+  if (client.state.screen !== 'end' || updating || $<HTMLButtonElement>('reload').disabled || client.state.pending) return;
   const view = boardGame(); if (!view) return;
   if (view.rematch_game_id && !resumed.has(view.rematch_game_id)) {
     const game = view.rematch_game_id; resumed.add(game); updating = true;
@@ -38,6 +38,7 @@ export function updateEnd() {
 }
 export function endScreen(schedule = true) {
   const view = boardGame(); if (!view || client.state.screen !== 'end') return;
+  if (!['finished','aborted'].includes(view.status)) { closeEnd(); routeView(view); return; }
   const fresh=memory.view, opponent=fresh?.game_id===view.game_id?fresh.opponent:view.opponent, rematches=rematchChoices({...view,opponent});
   closeBoardSheet();
   const over = $<HTMLDialogElement>('over');

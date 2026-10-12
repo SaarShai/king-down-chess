@@ -412,3 +412,16 @@ it('keeps a failed mount read visible without a pending send', async () => {
     expect(await frame.locator('#retry').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
+
+it('restores a saved End route to the board when the game still plays', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false } }); });
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    await page.evaluate(() => { (window as any).harnessWidgetState.privateContent.screen = 'end'; });
+    await page.locator('#remount').click();
+    await frame.locator('body[data-page="board"]').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessView.status)).toBe('playing');
+    expect(await frame.locator('#over.end-card').isVisible()).toBe(false);
+  } finally { await page.close(); }
+});

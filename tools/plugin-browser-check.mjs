@@ -22,7 +22,7 @@ if (mode !== 'fixture') {
 }
 const work = await mkdtemp(join(tmpdir(), 'kingdown-plugin-check-'));
 const build = join(work, 'server');
-const actors = [randomUUID(), randomUUID()];
+const actors = [randomUUID(), randomUUID(), randomUUID()];
 let child, harness, server, app, pool, cleaning, unregister;
 function cleanup() {
   return cleaning ??= (async () => {
@@ -77,7 +77,7 @@ try {
     }
     unregister = register();
     const { startHarness } = await import('./plugin-ui-harness.ts');
-    harness = await startHarness({ boardPath: join(build, 'board.html'), endpoint, actor: actors[0], friendActor: actors[1], seedPosition, deleteMatch });
+    harness = await startHarness({ boardPath: join(build, 'board.html'), endpoint, actor: actors[0], friendActor: actors[1], laterFriendActor: actors[2], seedPosition, deleteMatch });
   }
   child = spawn(process.execPath, [mode === 'oauth' ? 'tools/plugin-oauth-check.mjs' : 'tools/plugin-ui-check.mjs', build], {
     stdio: 'inherit', env: { ...process.env, ...(harness ? { PLAYABLE_URL: harness.url, PLUGIN_EXPECT_MODE: mode } : {}) },
