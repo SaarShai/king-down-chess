@@ -317,6 +317,174 @@ try {
     console.log(`PASS: setup defaults, 16 toggle mixes, seat kings, four levels, weighted locks, card-safe powers, HANDLE_NEEDED, saved choices and lost Start remount; look checks in ${look}`);
   }
   await legacyStart('solo');
+  // Ticket 14: the hidden seat setup step.
+  {
+    const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
+    const { tmpdir } = await import('node:os'), { join } = await import('node:path'), { mkdir } = await import('node:fs/promises'), { default: sharp } = await import('sharp');
+    const look = join(tmpdir(), 'kingdown-look', '14'); await mkdir(look, { recursive: true });
+    const seatTool = async (name, args = {}, buddy = false) => {
+      const result = await (await page.request.post(new URL(buddy ? '/fixture-friend-tool' : '/fixture-tool', base).href, { data: { name, arguments: args } })).json();
+      assert(!result.isError, `${name}: ${JSON.stringify(result.content)}`); return result;
+    };
+    const features = { ...DEFAULT_OPTIONS, pool: ['R','B','N','G'], cards: true, kingPowers: true };
+    await seatTool('kingdown_settings', { last_setup: { kind: 'friend', colour: 'white', level: 'club', options: { ...features, cards: false }, king: { king: 'Mud', power: 'Leap' } } });
+    async function seatShow(result) {
+      const { screen, ...summary } = result.structuredContent;
+      const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
+      await page.evaluate(r => window.harnessShow(r, true), { ...result, structuredContent: summary });
+      await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
+      await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+      await frame.locator('#seat-menu:not(:disabled)').waitFor(); await boardBox(); await seatRemount();
+    }
+    async function seatRemount() {
+      const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
+      await page.locator('#remount').click();
+      await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
+      await frame.locator('#seat-menu:not(:disabled)').waitFor(); await boardBox();
+    }
+    async function seatTap(index, pawn = false) {
+      const v = await page.evaluate(() => window.harnessView), box = await boardBox(), file = v.seat === 1 ? 7 - index : index;
+      await page.touchscreen.tap(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (96 + ((pawn ? 6 : 7) + .5) * 112) * box.width / 960);
+    }
+    const rankLine = (order, seat) => `Your back rank: ${(seat === 1 ? [...order].reverse() : [...order]).join(' ')}`;
+    const swapped = (order, a, b) => { const row = [...order]; [row[a], row[b]] = [row[b], row[a]]; return row.join(''); };
+    async function seatFits(state) {
+      for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) {
+        await page.setViewportSize({ width, height }); await boardBox();
+        assert(!await frame.locator('body').evaluate(el => el.scrollWidth > innerWidth), `${state} document fits ${width}px`);
+        assert(await frame.locator('#game-table').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `${state} table fits ${width}px`);
+        for (const id of ['seat-ready','seat-shuffle','seat-menu','seat-king','page-back']) {
+          const button = frame.locator(`#${id}`); if (!await button.isVisible()) continue;
+          const bounds = await button.evaluate(controlBounds); assert(bounds.accessible, `${state} ${id} stays above the composer at ${width}px: ${JSON.stringify(bounds)}`);
+          const rect = await button.boundingBox(); assert(rect.width >= 44 && rect.height >= 44, `${id} keeps a 44 px target`);
+        }
+        const veil = await frame.locator('.veil').boundingBox(), box = await boardBox();
+        assert(veil.width > box.width * .9 && veil.height > box.width * .45 && veil.height < box.width * .5, 'The veil covers the top half of the board');
+        assert(veil.x >= box.x && veil.y >= box.y && veil.x + veil.width <= box.x + box.width + 1, 'The veil stays on the board');
+        await frame.locator('#seat-screen img').evaluateAll(images => Promise.all(images.map(image => image.decode())));
+        await shot(page, `${state}-${width}-${mode}`);
+        if (width === 390 || width === 1440) {
+          const size = width === 390 ? 'phone' : 'desktop', reference = await sharp(`docs/specs/chatgpt-mvp/sample/png/${state}-${size}.png`).resize(width,height).toBuffer(), actual = await page.screenshot();
+          await sharp({ create: { width: width * 2, height, channels: 4, background: '#ffffff' } }).composite([{ input: reference, left: 0, top: 0 }, { input: actual, left: width, top: 0 }]).png().toFile(join(look, `${state}-${size}-${mode}.png`));
+        }
+      }
+      await page.setViewportSize({ width: 390, height: 844 });
+    }
+    async function friendSeat(black = false, settings = features) {
+      const created = await seatTool('kingdown_create', { kind: 'friend', options: settings, colour: 'white' }, black);
+      const invite = await seatTool('kingdown_invite', { game_id: created._meta.view.game_id }, black);
+      const joined = await seatTool('kingdown_join', { code: invite.structuredContent.code }, !black);
+      const opened = black ? joined : await seatTool('kingdown_open', { game_id: created._meta.view.game_id });
+      await seatShow(opened); return opened._meta.view;
+    }
+    async function buddyReady(v) {
+      const read = await seatTool('kingdown_get', { game_id: v.game_id }, true), next = read._meta.view;
+      return seatTool('kingdown_choose', { game_id: next.game_id, command_id: randomUUID(), expected_revision: next.revision, ...next.choices[next.seat], ready: true }, true);
+    }
+    let v = await friendSeat();
+    assert.equal(v.choices[1], null, 'The other choice stays hidden');
+    assert.equal(await frame.locator('#seat-me-line').innerText(), 'Mud · March · tap the coin to change', 'Cards clean the remembered power to the same king');
+    assert((await frame.locator('#seat-them-picture').getAttribute('src')).includes('/shadow-b-'), 'The other strip shows the plain Black king');
+    await frame.locator('#seat-king').click();
+    assert(await frame.locator('[data-power="Leap"]').isDisabled()); assert(await frame.locator('[data-king="Frost"]').isDisabled());
+    await seatRemount(); await frame.locator('#menu-sheet').waitFor({ timeout: 5000 });
+    assert(await frame.locator('[data-power="Leap"]').isDisabled(), 'The restored sheet keeps the Cards power limit');
+    await frame.locator('#setup-done').click();
+    const initial = v.choices[0].order, r = initial.indexOf('R'), n = initial.indexOf('N');
+    await seatTap(n); await page.waitForFunction(() => document.querySelector('iframe').contentWindow.harnessSwapMarks > 0);
+    await seatFits('seat');
+    await seatTap(r); assert.equal(await frame.locator('#last-move').innerText(), rankLine(swapped(initial,n,r),0));
+    const beforePawn = await frame.locator('#last-move').innerText(); await seatTap(0,true); assert.equal(await frame.locator('#last-move').innerText(), beforePawn, 'Pawns do not react');
+    await seatRemount(); assert.equal(await frame.locator('#last-move').innerText(), rankLine(initial,0), 'A draft remount starts at the server choice');
+    const g = initial.indexOf('G'), k = initial.indexOf('K'), away = [...initial].findIndex((p,i) => p !== 'B' && p !== 'K' && Math.abs(i-k) > 1);
+    await seatTap(g); await seatTap(away);
+    assert.equal(await frame.locator('#seat-context').innerText(), 'The guard must stand next to the king.');
+    assert.equal(await frame.locator('#seat-ready').getAttribute('aria-disabled'), 'true');
+    const sends = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_choose').length);
+    await frame.locator('#seat-ready').evaluate(el => el.click());
+    assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_choose').length), sends, 'Illegal Ready sends no tool');
+    await frame.locator('#seat-shuffle').click();
+    await page.evaluate(() => { window.dropNextReply = 'kingdown_choose'; }); await frame.locator('#seat-ready').click(); await frame.locator('#retry').waitFor();
+    const pending = await page.evaluate(() => window.harnessWidgetState.privateContent.pending);
+    assert(pending.args.order); assert.equal(pending.name,'kingdown_choose'); assert.equal(pending.args.game_id,undefined);
+    await seatRemount(); await frame.locator('#retry').click();
+    await frame.locator('#retry').waitFor({ state: 'hidden' });
+    assert.equal(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_choose').arguments.command_id), pending.args.command_id, 'Lost Ready retries the same ID');
+    assert.equal(await frame.locator('#seat-context').innerText(), 'Waiting for the other player.');
+    for (const id of ['seat-ready','seat-shuffle','seat-king']) assert(await frame.locator(`#${id}`).isDisabled(), `${id} locks after Ready`);
+    await seatFits('seat-waiting'); await seatRemount();
+    assert.equal(await frame.locator('#seat-context').innerText(), 'Waiting for the other player.');
+    const state = await page.evaluate(() => window.harnessWidgetState);
+    assert.deepEqual(Object.keys(state.privateContent).sort(), ['board_id','pending','screen','sheet']); assert.deepEqual(state.modelContent, {});
+    assert(!JSON.stringify(state).includes('order') && !JSON.stringify(state).includes('game_id'), 'Idle widget state has no order or game ID');
+    const hidden = (await seatTool('kingdown_get', { game_id: v.game_id }, true))._meta.view;
+    assert.equal(hidden.choices[0],null); assert.deepEqual(hidden.last_commands.at(-1).action,{type:'hidden'});
+    const started = await buddyReady(v);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 10000 });
+    assert.equal(await page.evaluate(() => window.harnessView.fen), started._meta.view.fen);
+    assert.deepEqual(await page.evaluate(() => window.harnessView.kings[0]), { king:'Mud',power:'March' });
+    assert(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_get').arguments.since_revision === undefined), 'Start gets the full rules');
+    await seatTool('kingdown_abort', { game_id: v.game_id });
+    v = await friendSeat(true, { ...features, cards:false,kingPowers:false });
+    const blackOrder = v.choices[1].order, br = blackOrder.indexOf('R'), bn = blackOrder.indexOf('N');
+    assert.equal(await frame.locator('#last-move').innerText(), rankLine(blackOrder,1));
+    assert(!await frame.locator('#seat-king').isVisible());
+    await seatTap(br); await seatTap(bn);
+    const blackDraft = swapped(blackOrder,br,bn); assert.equal(await frame.locator('#last-move').innerText(), rankLine(blackDraft,1));
+    // Hide the page so the buddy's first Ready cannot reach it through a poll before this Ready.
+    await frame.locator('body').evaluate(() => { Object.defineProperty(document,'hidden',{configurable:true,value:true}); document.dispatchEvent(new Event('visibilitychange')); });
+    await buddyReady(v);
+    const count = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_choose').length);
+    await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    const retries = await page.evaluate(n => window.harnessCalls.filter(c => c.name === 'kingdown_choose').slice(n), count);
+    assert.equal(retries.length,2, 'Stale Ready reads and resends'); assert.notEqual(retries[0].arguments.command_id,retries[1].arguments.command_id);
+    assert.equal(retries[1].arguments.expected_revision,retries[0].arguments.expected_revision+1);
+    assert.equal(retries[1].arguments.order,blackDraft); assert.equal(retries[1].arguments.king,null);
+    await frame.locator('body').evaluate(() => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); });
+    await seatTool('kingdown_abort', { game_id: v.game_id });
+    const solo = await seatTool('kingdown_create',{kind:'solo',options:{...features,cards:false,kingPowers:false},colour:'black',level:'beginner'});
+    await seatShow(solo); await page.evaluate(() => { window.dropNextReply = 'kingdown_choose'; });
+    await frame.locator('#seat-ready').click(); await frame.locator('#retry').waitFor();
+    const soloId = await page.evaluate(() => window.harnessWidgetState.privateContent.pending.args.command_id);
+    await page.locator('#remount').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
+    assert.equal(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_choose').arguments.command_id),soloId,'A started solo Ready keeps the same command after remount');
+    assert.equal(await page.evaluate(() => window.harnessView.seat),1);
+    // Ticket 15 owns the automatic start reply. This base still has its old Computer move control.
+    if (await frame.locator('#computer').isVisible()) await frame.locator('#computer').click();
+    await page.waitForFunction(() => window.harnessView.turn === window.harnessView.seat);
+    await seatTool('kingdown_abort',{game_id:solo._meta.view.game_id});
+    const fullRead = await seatTool('kingdown_create',{kind:'solo',options:{...features,cards:false,kingPowers:false},colour:'white'});
+    await seatShow(fullRead); await page.evaluate(() => { window.rejectNextGet = true; });
+    await frame.locator('#seat-ready').click(); await frame.locator('#retry').waitFor({ timeout: 5000 });
+    assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending.name),'kingdown_get','A failed start read stays pending');
+    await frame.locator('#retry').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
+    assert(await page.evaluate(() => !!window.harnessView.rules)); await seatTool('kingdown_abort',{game_id:fullRead._meta.view.game_id});
+    const legacy = await (await page.request.post(new URL('/fixture-position?case=threats',base).href)).json();
+    assert(!legacy.isError); assert.equal(legacy._meta.view.options,undefined);
+    let legacyReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
+    await page.evaluate(result => window.harnessShow(result),legacy);
+    await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n,legacyReads);
+    await frame.locator('#reload:not(:disabled)').waitFor();
+    await page.evaluate(() => { window.harnessWidgetState.privateContent.screen = 'seat'; });
+    legacyReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n,legacyReads);
+    await frame.locator('#reload:not(:disabled)').waitFor(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor({timeout:5000});
+    await seatTool('kingdown_abort',{game_id:legacy._meta.view.game_id});
+    const aborted = await friendSeat(false,{...features,cards:false,kingPowers:true,arrangement:false});
+    assert(!await frame.locator('#seat-shuffle').isVisible());
+    await frame.locator('#seat-menu').click(); await frame.locator('#seat-abort').click();
+    assert.equal(await frame.locator('#seat-menu-title').innerText(),'Abort this game?');
+    await frame.locator('#seat-abort-cancel').click(); assert.equal(await page.evaluate(() => window.harnessView.status),'setup');
+    await frame.locator('#seat-menu').click(); await frame.locator('#seat-abort').click(); await frame.locator('#seat-abort-confirm').click();
+    await frame.locator('[data-screen="end"]:not([hidden])').waitFor();
+    assert.equal(await page.evaluate(() => window.harnessView.game_id),aborted.game_id);
+    assert.equal(await page.evaluate(() => window.harnessView.choices[1]),null,'Abort keeps the other choice hidden');
+    const html = await frame.locator('html').innerHTML();
+    for (const file of ['spirit','shadow-b','mud']) assert(html.includes(`/${file}-`), `Seat names ${file}.webp through art`);
+    await legacyStart('solo');
+    console.log(`PASS: both hidden seats, swaps, legality, Cards-safe king, Ready lock, same-ID retry, stale resend, remounts, full-read hand-off, solo Black and Abort; seat look checks in ${look}`);
+  }
   const pollBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
   const changedBoard = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_create', arguments: { kind: 'solo', options, colour: 'black', board_id: pollBoard } } })).json();
   assert(!changedBoard.isError);
