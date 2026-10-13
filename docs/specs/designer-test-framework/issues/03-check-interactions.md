@@ -2,7 +2,7 @@
 
 Status: claimed
 Type: task
-Blocked by: 02 for integration; visual sample approval for new controls
+Blocked by: 02 for integration
 
 ## Outcome
 

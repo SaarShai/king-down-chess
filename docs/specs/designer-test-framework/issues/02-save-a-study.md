@@ -2,7 +2,7 @@
 
 Status: claimed
 Type: task
-Blocked by: rendered sample approval for new visual controls only
+Blocked by: none
 
 ## Outcome
 
@@ -66,7 +66,18 @@ can prove it. The ticket stays open for browser integration.
 
 The [rendered sample](../sample/README.md) contains eight desktop and phone
 states. It uses the real board renderer and marks. Results are labeled
-illustrative. The owner has not yet approved this sample.
+illustrative. The owner approves this layout on 2026-10-13: “Approve the layout”.
+
+## Browser build plan
+
+1. Add the approved study view from the Proving Ground. Reuse PaintedView and
+   the common move marks. Keep the current game and the Try editor separate.
+2. Run studies in a dedicated browser worker. Use the same source fingerprint
+   as the command line. Validate imports before replacing the open study.
+3. Add local save/open and JSON import/export. Keep storage failures visible
+   and preserve unreadable records. Provide play, undo and assertion controls.
+4. Check desktop and phone interaction, reload, bad imports, save failure,
+   keyboard use and live-game isolation. Review independently and run tests.
 
 Independent review finds one import gap: drawn cards can exceed the engine's
 eight-card hand limit. The fix checks dealt plus drawn cards and adds a rejection
