@@ -29,6 +29,7 @@ export const checks = [
   { name: 'ux-defects', script: 'tools/verify-ux-defects.mjs', limit: 300 },
   { name: 'visual-design', script: 'docs/visual-design/verify.mjs', limit: 240 },
   { name: 'workshop', script: 'tools/verify-workshop.mjs', limit: 240 },
+  { name: 'studies', script: 'tools/verify-studies.mjs', limit: 240 },
   { name: 'workshop-cast', script: 'tools/verify-workshop-cast.mjs', limit: 180 },
   { name: 'qa', script: 'tools/qa.mjs', limit: 900, channel: 'chromium', exclusive: true },
   { name: 'selftest', script: 'tools/check-selftest.mjs', limit: 120 },

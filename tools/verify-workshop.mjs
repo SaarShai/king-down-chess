@@ -1533,7 +1533,7 @@ async function designMenu() {
   const p = await open();
   await p.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await door(p);
-  assert.deepEqual(await menuItems(p), ['Look', 'Copy as text', 'Make a copy'], 'the unchanged Pawn: Look (no look row for a pool piece), Copy as text and Make a copy');
+  assert.deepEqual(await menuItems(p), ['Look', 'Copy as text', 'Make a copy', 'Studies'], 'the unchanged Pawn: Look (no look row for a pool piece), Copy as text and Make a copy');
   await pick(p, 'astext');
   await p.locator('.pg-toast', { hasText: 'Copied as text.' }).waitFor({ timeout: 3000 });
   assert.equal(await focusOn(p, '[data-act="more"]'), true, 'the focus goes back to ⋯');
@@ -1545,7 +1545,7 @@ async function designMenu() {
   await pick(p, 'copydesign');
   assert.deepEqual([await name(p), await toast(p), (await stored(p)).map(d => d.name)], ['My Pawn', 'A copy is on your shelf.', ['My Pawn']], 'Make a copy of the Pawn: My Pawn, saved and opened');
   assert.equal(await p.getAttribute('.slot[data-design]', 'aria-current'), 'true', 'the copy is the open slot');
-  assert.deepEqual(await menuItems(p), ['Look', 'Copy as text', 'Make a copy', 'Delete'], 'a design on the shelf adds Delete');
+  assert.deepEqual(await menuItems(p), ['Look', 'Copy as text', 'Make a copy', 'Delete', 'Studies'], 'a design on the shelf adds Delete');
   await pick(p, 'copydesign');
   assert.deepEqual((await stored(p)).map(d => d.name), ['My Pawn 2', 'My Pawn'], 'a copy of My Pawn is My Pawn 2');
   await menuItems(p);
@@ -1584,18 +1584,18 @@ async function designMenu() {
   const l = await open(`?design=${code}`);
   await l.locator(FACE).waitFor();
   await l.click('.pg-sheet [data-board]');
-  assert.deepEqual(await menuItems(l), ['Copy as text', 'Make a copy'], 'a linked design: Copy as text and Make a copy');
+  assert.deepEqual(await menuItems(l), ['Copy as text', 'Make a copy', 'Studies'], 'a linked design: Copy as text and Make a copy');
   await pick(l, 'copydesign');
   assert.deepEqual([await name(l), (await stored(l)).map(d => [d.name, d.letter])], ['Rook Rider', [['Rook Rider', 'D']]], 'Make a copy keeps the linked design on the shelf');
   await l.context().close();
   // The phone: Share and Weigh after the first edit, then Rename, Look and the design menu.
   const q = await open('', { width: 390, height: 844 });
   await door(q);
-  assert.deepEqual(await menuItems(q), ['Rename', 'Look', 'Copy as text', 'Make a copy'], 'the phone\'s ⋯ on the Pawn');
+  assert.deepEqual(await menuItems(q), ['Rename', 'Look', 'Copy as text', 'Make a copy', 'Studies'], 'the phone\'s ⋯ on the Pawn');
   await q.keyboard.press('Escape');
   await arm(q, 'both');
   await tap(q, 'c5');
-  assert.deepEqual(await menuItems(q), ['Share', 'Weigh', 'Rename', 'Look', 'Copy as text', 'Make a copy', 'Delete'], 'the phone\'s ⋯ on My Pawn');
+  assert.deepEqual(await menuItems(q), ['Share', 'Weigh', 'Rename', 'Look', 'Copy as text', 'Make a copy', 'Delete', 'Studies'], 'the phone\'s ⋯ on My Pawn');
   await minTarget(q, '.pg-morepop button', 44);
   await insideViewport(q, '.pg-morepop');
   await shot(q, 'design-menu-390x844');
