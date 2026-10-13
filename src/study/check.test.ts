@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { K, R, T, isAttacked, piece, type Color } from '../rules/engine';
+import { R, T, colorOf, genPiece, isAttacked, type Color, type Move } from '../rules/engine';
 import { RULES } from '../rules/rules';
 import { fromFen } from '../rules/setup';
 import { checkStudy, parseTest } from './check';
@@ -37,13 +37,18 @@ describe('interaction studies', () => {
         const design = { ...test.study, start, actions: [] };
         const base = { ...design, design: undefined, rules: { ...design.rules, design: null }, start: { ...start, board: start.board.map(v => (v & 15) === T ? (v & 16) | R : v) } };
         expect(openStudy(design, source).snapshot().legal.map(l => l.replace(/^T/, 'R')).sort()).toEqual(openStudy(base, source).snapshot().legal.sort());
-        // Both paths must agree on king threats, including a king that steps onto an empty square.
+        // The attack lookup's shared scope is enemy or empty targets; it is not a friendly-defense API.
         const attacks = (s: typeof design) => withRules(s.rules, () => [0, 1].flatMap(c => Array.from({ length: 64 }, (_, sq) => {
           const board = positionOf(s.start).board;
-          board[sq] = piece(K, (c ^ 1) as Color);
-          return isAttacked(board, sq, c as Color);
+          return board[sq] && colorOf(board[sq]) === c ? null : isAttacked(board, sq, c as Color);
         })));
         expect(attacks(design)).toEqual(attacks(base));
+        const targets = (s: typeof design) => withRules(s.rules, () => {
+          const pos = positionOf(s.start), moves: Move[] = [];
+          for (let sq = 0; sq < 64; sq++) if (pos.board[sq] && colorOf(pos.board[sq]) === pos.turn) genPiece(pos.board, sq, 'attacks', moves);
+          return moves.map(m => [m.from, ...m.captures].join(':')).sort();
+        });
+        expect(targets(design)).toEqual(targets(base));
       }
     }
   });
