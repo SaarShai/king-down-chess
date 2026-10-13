@@ -1,8 +1,8 @@
 # Save and replay one design study
 
-Status: needs-info
+Status: claimed
 Type: task
-Blocked by: owner approval of the framework spec and a rendered sample
+Blocked by: rendered sample approval for new visual controls only
 
 ## Outcome
 
@@ -33,4 +33,21 @@ The record format states its version and refuses an unreadable format.
 
 ## Evidence
 
-Pending. No implementation or run is authorized by this ticket alone.
+Owner approval, 2026-10-12: “approved. start building the framework on this
+branch, beginning with saved studies and interaction tests.”
+
+## Build plan
+
+1. Save a versioned study with full rules, explicit Position state, source
+   identity, design references, legal history and assertions. Do not use FEN as
+   the only state: extra actions make its inferred ply count wrong.
+2. Validate the whole import before changing a session. Reuse Game and direct
+   legal-action matching for play, undo and replay, in an isolated context.
+3. Provide local file save/load and a deterministic study check. Build the
+   unchanged Rook control and the boundary/negative cases.
+4. Render a small sample of study controls around the real board. Get the
+   owner's yes before the visual build. Continue nonvisual work meanwhile.
+5. Review independently; run npm test and the affected browser checks. Record
+   concrete results before marking the ticket done.
+
+Verification follows the checks above. No game campaign is part of this build.

@@ -1,8 +1,8 @@
 # Check interactions and save challenge positions
 
-Status: needs-info
+Status: claimed
 Type: task
-Blocked by: 02 and owner approval of the framework spec
+Blocked by: 02 for integration; visual sample approval for new controls
 
 ## Outcome
 
@@ -38,5 +38,21 @@ stays unmeasured until people try it.
 
 ## Evidence
 
-Pending. Add the precise fixtures before implementation. No campaign is part of
-this ticket.
+Owner approval, 2026-10-12: “approved. start building the framework on this
+branch, beginning with saved studies and interaction tests.”
+
+## Build plan
+
+1. Add deterministic assertions for legal/refused actions and complete state at
+   an action index. Results name each assertion, its expected fact and its actual
+   result. Missing support stays separate from a failed fact.
+2. Cover custom-piece plus card, custom-piece plus power, both-side marks, extra
+   actions and expiry. Add a selected three-part sequence with declared order.
+3. Save source-linked challenge goals and legal lines. Preserve complete state
+   and history on export/import and replay; never infer entity identity from a
+   square alone. State unsupported identity attribution honestly.
+4. Reuse the engine for behavior. Validate every recorded move directly. Verify
+   that separate studies do not change the game's rules or one another.
+5. Review the code and fixtures; run npm test and the affected browser checks.
+
+No campaign is part of this ticket.
