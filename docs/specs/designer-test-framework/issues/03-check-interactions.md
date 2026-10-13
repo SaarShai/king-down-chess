@@ -77,3 +77,13 @@ event interpreter, so an authored event cycle cannot run.
 This ticket stays open for browser integration, persistent entity identity and
 causal engine events. Capture, swap, promotion and return identity are not yet
 claimed. No balance campaign or human playtest is part of this checkpoint.
+
+## Verification
+
+All five studies pass their 38 declared facts through the actual command line.
+The new tests also invert a known fact and submit an illegal action: the first
+fails, and the second is invalid. Empty checks, bad coverage, unknown fields,
+wrong source and an illegal challenge line are rejected. Save/reload and
+undo/replay preserve state at each boundary in the five lines. The full suite,
+doc lints and Workshop browser check pass. See [ticket 02](02-save-a-study.md)
+for counts and logs. Independent review has no open should-fix.

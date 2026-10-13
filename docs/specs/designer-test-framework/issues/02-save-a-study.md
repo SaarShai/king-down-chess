@@ -72,3 +72,21 @@ Independent review finds one import gap: drawn cards can exceed the engine's
 eight-card hand limit. The fix checks dealt plus drawn cards and adds a rejection
 test. Further tests cover GrowthB and a held turn that gives check. The reviewer
 checks the fix and finds no remaining should-fix in these changes.
+
+## Verification
+
+- `npm test`: 2,276 pass, 129 existing skips; all 50 art tests pass.
+- `npm run test:docs`: 113 pass in seven files.
+- `npm run check:browser workshop`: passes against the built worktree.
+- All five generated study files pass through the actual command line: 38
+  declared facts across 18 legal actions. Reports retain unsupported identity
+  and untested experience cells.
+- The 22 new tests cover session state, interaction checks, source identity,
+  file limits, safe writes and the extract/play/save/undo path.
+- Comparison with base `ab6e751a`: the build adds study modules and tools. It
+  does not edit the game engine or current browser controls.
+
+The full test log is `/tmp/kingdown-framework-full-test.log`. The browser log is
+`/tmp/kingdown-framework-browser.log`. Generated studies and reports are in
+`/tmp/kingdown-framework-verified`. The commands in the usage guide reproduce
+the study files for the current source.
