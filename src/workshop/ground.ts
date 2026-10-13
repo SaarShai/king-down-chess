@@ -11,6 +11,7 @@
  * Loaded on demand (main.ts `import()`).
  */
 import './ground.css';
+import { studyDialog } from '../study/view';
 import { BLACK, HISTORY_WHENS, K, KINGS, NAMES as PIECE, P, T, USES_RULE, WHITE, colorOf, file, isMarkTag, makeMove, parseSq, piece, rank, sq, sqName, typeOf, type CardName, type KingName, type Move, type PieceType, type Position, type PowerName } from '../rules/engine';
 import { POWER_NAME, cardText, coinState, coinWords, powerText } from '../powers-ui';
 import { coinRow } from '../ui/coin';
@@ -137,6 +138,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     + '<div class="lrow" id="pg-row" role="tabpanel" aria-labelledby="pg-tab-pieces"><div class="inner lip"></div></div><div class="pg-boardtab" id="pg-boardtab" role="tabpanel" aria-labelledby="pg-tab-board" hidden></div></footer>'
     + '<div class="pg-alert" role="alert" hidden></div><p class="pg-toast" role="status" aria-live="polite"></p><div class="pg-reachpop" aria-hidden="true"></div>';
   document.body.append(dlg);
+  let studies: ReturnType<typeof studyDialog> | null = null;
   const q = <T extends Element = HTMLElement>(s: string): T => dlg.querySelector(s) as T;
   const plinthEl = q('.pg-plinth'), fieldEl = q('.pg-field'), boardEl = q<SVGSVGElement>('.pg-board'), hitsEl = q('.pg-hits'), paintEl = q('.pg-paint');
   const actsEl = q('.pg-acts'), moreEl = q('.pg-morepop'), brushesEl = q('.pg-brushes'), toolsEl = q('.pg-tools'), hintEl = q('.pg-hint'), keyEl = q('.pg-keyrow');
@@ -588,6 +590,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (phone || cur.d.from.length) items.push(['looks', 'Look']);
     if (!empty(cur.d)) items.push(['astext', 'Copy as text'], ['copydesign', 'Make a copy']);
     if (shelf.some(x => x.id === cur.d.id)) items.push(['delete', 'Delete']);
+    if (!empty(cur.d)) items.push(['studies', 'Studies']);
     return items;
   }
   function renderTop(): void {
@@ -1635,6 +1638,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     // A choice in the ⋯ menu closes it and gives the focus back to ⋯.
     if (moreEl.contains(t)) { renderTop(); q<HTMLElement>('.pg-more').focus(); }
     if (act === 'undo') return undo();
+    if (act === 'studies') { studies ??= studyDialog(dlg); return void studies.open(cur.d); }
     if (act === 'share') return share();
     if (act === 'rename') return rename();
     if (act === 'looks') return looks();
