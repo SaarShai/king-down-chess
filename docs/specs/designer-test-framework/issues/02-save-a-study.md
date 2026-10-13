@@ -1,6 +1,6 @@
 # Save and replay one design study
 
-Status: claimed
+Status: resolved
 Type: task
 Blocked by: none
 
@@ -62,7 +62,7 @@ scope. Extra actions retain their exact counters; FEN is display only.
 
 The [usage guide](../usage.md) gives commands and limits. The record supports
 constructed positions. It refuses real-game provenance until a start and prefix
-can prove it. The ticket stays open for browser integration.
+can prove it. The browser integration below completes this ticket.
 
 The [rendered sample](../sample/README.md) contains eight desktop and phone
 states. It uses the real board renderer and marks. Results are labeled
@@ -84,7 +84,7 @@ eight-card hand limit. The fix checks dealt plus drawn cards and adds a rejectio
 test. Further tests cover GrowthB and a held turn that gives check. The reviewer
 checks the fix and finds no remaining should-fix in these changes.
 
-## Verification
+## Nonvisual checkpoint verification
 
 - `npm test`: 2,276 pass, 129 existing skips; all 50 art tests pass.
 - `npm run test:docs`: 113 pass in seven files.
@@ -101,3 +101,42 @@ The full test log is `/tmp/kingdown-framework-full-test.log`. The browser log is
 `/tmp/kingdown-framework-browser.log`. Generated studies and reports are in
 `/tmp/kingdown-framework-verified`. The commands in the usage guide reproduce
 the study files for the current source.
+
+## Answer
+
+The approved browser controls are built. Open Workshop → More → Studies. One
+worker owns full legal play, replay and assertions. The current game, Try board,
+rules and game storage remain separate. Local storage keeps immutable versions.
+JSON imports validate before replacement. A failed save preserves the draft and
+keeps Export copy available. Dirty exports get a separate identity.
+
+The screen supports mouse, touch and keyboard input. Legal actions includes
+cards, powers and end turn. Tests can declare legal/refused actions at the current
+position. Imported files can also assert piece, state and status facts. A checked
+action cannot be undone until its checks are removed. Challenges and coverage
+survive check edits; the last check needs a replacement before removal.
+
+Independent review finds and closes two browser issues: assertion edits could
+drop coverage and challenge data, and a corrupt-library alert could sit behind
+the open panel. A regression test keeps this evidence. The registered browser
+check verifies visible panel errors. No should-fix finding remains.
+
+## Final browser verification
+
+- `npm test`: 2,287 pass, 129 existing skips; all 50 art tests pass.
+- `npm run test:docs`: 113 pass in seven files.
+- `npm run check:browser studies`: passes at 1440 × 900, 390 × 844 and 375 × 667.
+- `npm run check:browser workshop`: passes in 113.7 seconds.
+- Browser checks cover keyboard and touch play, capture, Haste and end turn,
+  undo, six passing facts and one deliberate failure, save/reload/versioning,
+  unchanged save, import/export, schema/source/illegal-action refusal, quota
+  failure, corrupt library, focus and Escape. Game and Try state stay unchanged.
+- Visual checks cover the desktop board and small-phone save failure. The board
+  and the sidebar show the same selected Workshop figure.
+- Comparison with base `ab6e751a`: the branch adds the study modules and tools,
+  four Workshop entry lines, and source identification at build time. It does
+  not change game rules or engine behavior.
+
+Logs: `/tmp/kingdown-study-ui-tests.log` and
+`/tmp/kingdown-study-ui-browser.log`. The registered checks keep their own build,
+logs and screenshots under the output folders named in the browser log.

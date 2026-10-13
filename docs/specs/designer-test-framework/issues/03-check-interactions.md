@@ -2,7 +2,7 @@
 
 Status: claimed
 Type: task
-Blocked by: 02 for integration
+Blocked by: none
 
 ## Outcome
 
@@ -74,8 +74,8 @@ The [usage guide](../usage.md) lists the reads and changes used to select these
 cases. Unknown fields and unsupported rule language fail at import. There is no
 event interpreter, so an authored event cycle cannot run.
 
-This ticket stays open for browser integration, persistent entity identity and
-causal engine events. Capture, swap, promotion and return identity are not yet
+The browser integration is built. This ticket stays open for persistent entity
+identity and causal engine events. Capture, swap, promotion and return identity are not yet
 claimed. No balance campaign or human playtest is part of this checkpoint.
 
 ## Verification
@@ -87,3 +87,21 @@ wrong source and an illegal challenge line are rejected. Save/reload and
 undo/replay preserve state at each boundary in the five lines. The full suite,
 doc lints and Workshop browser check pass. See [ticket 02](02-save-a-study.md)
 for counts and logs. Independent review has no open should-fix.
+
+## Browser checkpoint
+
+The owner-approved Study screen runs the interaction tests in a dedicated worker.
+Designers add legal/refused facts, read actual results, and keep state traces and
+coverage with saved versions. The five examples open from the local library.
+Haste and end turn pass as complete browser actions. Piece, state and status
+assertions load through JSON imports. New boards and rules also use JSON imports.
+
+The registered check covers real passing and failing declarations, atomic import
+errors, browser storage failures and isolation from the game and Try board.
+Independent review closes the coverage/challenge retention issue. The full
+suite and both affected browser checks pass; [ticket 02](02-save-a-study.md)
+records the counts and logs.
+
+This completes the first interaction-test layer. It does not add stable entity
+IDs, causal engine events, a visual scenario editor, balance campaigns or human
+playtest evidence. Unsupported and untested coverage stays visible.
