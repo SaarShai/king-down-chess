@@ -34,6 +34,22 @@ describe('saved study session', () => {
     const session = openStudy(s, 'test-source');
     expect(session.snapshot().history).toEqual(['Rd4-d5']); expect(session.undo()).toBe(false);
   });
+  it('opens a constructed boundary after GrowthB or a held turn that gives check', () => {
+    const s = fixture(); s.rules.hands = [['GrowthB'], []]; s.rules.piles = [['Freeze'], []];
+    const growth = openStudy(s, 'test-source'); growth.play('!G+');
+    const start = growth.snapshot().position;
+    expect(start.free).toBe(true); expect(s.rules.markFree).toBe(false);
+    expect(openStudy({ ...s, start }, 'test-source').snapshot().position).toEqual(start);
+    s.rules.hands = [['Haste'], []]; s.rules.piles = [[], []];
+    const haste = openStudy(s, 'test-source'); haste.play('Rd4-h4!H');
+    const checked = haste.snapshot().position;
+    expect(openStudy({ ...s, start: checked }, 'test-source').snapshot().position).toEqual(checked);
+  });
+  it('refuses a drawn card past the engine hand limit', () => {
+    const s = fixture(); s.rules.hands = [Array(8).fill('Freeze'), []]; s.rules.piles = [['Haste'], []];
+    s.start.drawn = [1, 0]; s.start.used = [255, 0];
+    expect(() => openStudy(s, 'test-source')).toThrow('hand limit');
+  });
   it('does not share nested state with input, snapshots, exports or another session', () => {
     const s = fixture(), one = openStudy(s, 'test-source'), two = openStudy(s, 'test-source');
     s.rules.hands = [['Freeze'], []]; s.start.board.fill(0);

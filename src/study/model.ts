@@ -1,5 +1,5 @@
 import { ALL_CARDS, DEFAULT_RULES, KINGS, RULES, parseRule, setRules, type Rules } from '../rules/rules';
-import { G, K, SPENT, T, colorOf, typeOf, inCheck, type Mark, type Position } from '../rules/engine';
+import { G, HAND_MAX, K, SPENT, T, colorOf, typeOf, inCheck, type Mark, type Position } from '../rules/engine';
 import { parseDesign, specOf } from '../workshop/model';
 
 export type PositionData = Omit<Position, 'board' | 'marks' | 'last'> & {
@@ -75,16 +75,21 @@ function validatePosition(input: unknown, rules: Rules): PositionData {
     }
   }
   if (p.last !== undefined) check(Array.isArray(p.last) && p.last.length === 2 && p.last.every((c: any) => c === null || ALL_CARDS.includes(c)), 'Bad last cards');
-  if (p.free !== undefined) check(typeof p.free === 'boolean' && (!p.free || rules.markFree), 'Bad free action');
+  if (p.free !== undefined) check(typeof p.free === 'boolean', 'Bad free action');
   if (p.haste !== undefined) check(integer(p.haste, 63) && p.board[p.haste] && colorOf(p.board[p.haste]) === p.turn, 'Bad extra action');
   if (p.rage !== undefined) check([1, 2, 3].includes(p.rage) && p.haste !== undefined, 'Bad rage');
   if (p.castle !== undefined) check(rules.classicChess && integer(p.castle, 15), 'Bad castling rights');
   if (p.ep !== undefined) check(rules.classicChess && integer(p.ep, 63) && (p.ep >> 3) === (p.turn === 0 ? 5 : 2) && !p.board[p.ep], 'Bad en passant');
-  for (const c of [0, 1]) if (p.drawn) check(p.drawn[c] <= rules.piles[c].length, 'Draw count exceeds pile');
+  for (const c of [0, 1]) if (p.drawn) {
+    check(p.drawn[c] <= rules.piles[c].length, 'Draw count exceeds pile');
+    check(rules.hands[c].length + p.drawn[c] <= HAND_MAX, 'Draw count exceeds hand limit');
+  }
   const data = structuredClone(p) as PositionData;
   withRules(rules, () => {
     const pos = positionOf(data);
-    check(!inCheck({ ...pos, turn: (1 - pos.turn) as 0 | 1 }), 'Side that just moved is in check');
+    // A held turn can give check before its last action. The other side has not moved yet.
+    const held = pos.free || pos.haste !== undefined || rules.secondPlayerDoubleFirstTurn && pos.ply === 2;
+    check(held || !inCheck({ ...pos, turn: (1 - pos.turn) as 0 | 1 }), 'Side that just moved is in check');
   });
   return data;
 }

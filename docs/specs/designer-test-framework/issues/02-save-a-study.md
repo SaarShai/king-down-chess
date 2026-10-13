@@ -51,3 +51,24 @@ branch, beginning with saved studies and interaction tests.”
    concrete results before marking the ticket done.
 
 Verification follows the checks above. No game campaign is part of this build.
+
+## Build checkpoint
+
+The nonvisual layer is built. It has a strict, versioned full-state format,
+source checks, legal replay, play, undo, and local file export. The command line
+refuses output overwrite. Tests compare My Rook with Rook for both sides,
+blockers, pins and check. They check moves and attacks in the shared engine
+scope. Extra actions retain their exact counters; FEN is display only.
+
+The [usage guide](../usage.md) gives commands and limits. The record supports
+constructed positions. It refuses real-game provenance until a start and prefix
+can prove it. The ticket stays open for browser integration.
+
+The [rendered sample](../sample/README.md) contains eight desktop and phone
+states. It uses the real board renderer and marks. Results are labeled
+illustrative. The owner has not yet approved this sample.
+
+Independent review finds one import gap: drawn cards can exceed the engine's
+eight-card hand limit. The fix checks dealt plus drawn cards and adds a rejection
+test. Further tests cover GrowthB and a held turn that gives check. The reviewer
+checks the fix and finds no remaining should-fix in these changes.

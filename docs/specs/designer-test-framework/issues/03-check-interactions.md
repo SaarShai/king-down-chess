@@ -56,3 +56,24 @@ branch, beginning with saved studies and interaction tests.”
 5. Review the code and fixtures; run npm test and the affected browser checks.
 
 No campaign is part of this ticket.
+
+## Build checkpoint
+
+The first runner and five constructed studies are built. Checks name expected
+and actual facts at each action index. A failed assertion, invalid replay,
+unsupported operation, and untested case have separate results. Coverage never
+turns a missing check into a pass.
+
+Cases cover the unchanged Rook, custom piece with Haste, custom piece with Frost,
+two marks with free marks and Haste, and the second-player turn rule. The trace
+stores observed state changes. It does not infer a cause or entity identity.
+Challenge lines retain their goal and horizon. They are legal suggestions;
+goal proof, uniqueness and difficulty remain unmeasured.
+
+The [usage guide](../usage.md) lists the reads and changes used to select these
+cases. Unknown fields and unsupported rule language fail at import. There is no
+event interpreter, so an authored event cycle cannot run.
+
+This ticket stays open for browser integration, persistent entity identity and
+causal engine events. Capture, swap, promotion and return identity are not yet
+claimed. No balance campaign or human playtest is part of this checkpoint.
