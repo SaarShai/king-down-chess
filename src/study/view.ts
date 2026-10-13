@@ -36,8 +36,16 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
   let data: StudyResult | null = null, report: StudyReport | null = null;
   let dirty = false, busy = false, selected: number | null = 27, cursor = 27, currentDesign: PieceDesign;
   let panel: HTMLDialogElement | null = null;
-  const error = (value: unknown): void => { q('.study-alert').textContent = value instanceof Error ? value.message : String(value); q('.study-alert').hidden = false; };
-  const clearError = (): void => { q('.study-alert').hidden = true; };
+  const error = (value: unknown): void => {
+    const message = value instanceof Error ? value.message : String(value);
+    q('.study-alert').textContent = message; q('.study-alert').hidden = false;
+    if (panel?.open) {
+      let alert = panel.querySelector<HTMLElement>('.study-panel-alert');
+      if (!alert) { alert = document.createElement('p'); alert.className = 'study-alert study-panel-alert'; alert.setAttribute('role', 'alert'); panel.querySelector('header')!.after(alert); }
+      alert.textContent = message;
+    }
+  };
+  const clearError = (): void => { q('.study-alert').hidden = true; panel?.querySelector('.study-panel-alert')?.remove(); };
   const notice = (text: string): void => { q('.study-notice').textContent = text; };
   const documentOf = (): StudyDocument => data!.document;
   const study = () => studyOf(documentOf());
@@ -55,6 +63,7 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     wire?.(s.querySelector('.pg-sheet-body')!, close); s.showModal();
   }
   function render(): void {
+    dlg.querySelectorAll<HTMLButtonElement>('.study-strip button:not([data-study="more"]),.study-play button').forEach(b => b.disabled = busy || !data);
     if (!data) return;
     const s = study(), pos = positionOf(data.snapshot.position), d = s.design && parseDesign(s.design.code);
     const art = d && ((!d.look.figure && d.look.body !== 'token' && pieceArt(BODY_TYPE[d.look.body], false)) || figureUrl(selectedFigure(d).id, 0));
@@ -75,7 +84,7 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
   }
   async function run(work: () => Promise<void>): Promise<void> {
     if (busy) return;
-    busy = true; dlg.setAttribute('aria-busy', 'true'); clearError();
+    busy = true; dlg.setAttribute('aria-busy', 'true'); clearError(); render();
     try { await work(); } catch (e) { error(e); }
     finally { busy = false; dlg.removeAttribute('aria-busy'); render(); }
   }
@@ -178,12 +187,12 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
       body.querySelector('form')!.onsubmit = e => {
         e.preventDefault(); const form = new FormData(e.currentTarget as HTMLFormElement), doc = copy(documentOf());
         studyOf(doc).title = String(form.get('title')).trim(); studyOf(doc).question = String(form.get('question')).trim();
-        void run(async () => { data = await client.request({ type: 'inspect', document: doc }); dirty = true; close(); persist(); });
+        void run(async () => { const changed = JSON.stringify(doc) !== JSON.stringify(documentOf()); data = await client.request({ type: 'inspect', document: doc }); dirty ||= changed; close(); persist(); });
       };
     });
   }
   function more(): void {
-    sheet('Study', `<div class="study-options">${button('open', 'Open study')}${button('import', 'Import file')}${button('export', 'Export copy')}${button('new', `New study with ${esc(currentDesign.name)}`)}</div>
+    sheet('Study', `<div class="study-options">${button('open', 'Open study')}${button('import', 'Import file')}${data ? button('export', 'Export copy') : ''}${button('new', `New study with ${esc(currentDesign.name)}`)}</div>
       <details><summary>Support limits</summary><p>One distinct design per study. History conditions are not supported. All positions are constructed. Entity identity and causal events are not yet tracked.</p><p>Import a study file for other boards, cards, powers or rules. A source mismatch is refused.</p></details>`);
   }
   const file = q<HTMLInputElement>('.study-import');
@@ -206,8 +215,11 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     else if (act === 'new') void run(async () => { await load(draft(currentDesign)); panel?.close(); });
     else if (act === 'undo') void run(async () => { data = await client.request({ type: 'undo', document: documentOf() }); dirty = true; report = null; selected = null; notice('Last action undone.'); });
     else if (act === 'export') {
-      const url = URL.createObjectURL(new Blob([JSON.stringify(documentOf(), null, 2)], { type: 'application/json' }));
-      const a = document.createElement('a'); a.href = url; a.download = `${study().id}-v${study().version}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); notice('Copy exported.');
+      const doc = copy(documentOf()), exported = studyOf(doc);
+      // A draft copy has its own identity, so it cannot replace an immutable saved version.
+      if (dirty) { exported.id = crypto.randomUUID(); exported.version = 1; exported.parentVersion = null; }
+      const url = URL.createObjectURL(new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' }));
+      const a = document.createElement('a'); a.href = url; a.download = `${exported.id}-v${exported.version}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); notice('Copy exported.');
     }
   });
   dlg.addEventListener('close', () => { panel?.close(); parent.querySelector<HTMLButtonElement>('.pg-more')?.focus(); });
