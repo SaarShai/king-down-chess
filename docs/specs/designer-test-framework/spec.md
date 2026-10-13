@@ -4,8 +4,9 @@ Status: approved for the first build on this branch.
 
 Owner approval, 2026-10-12: “approved. start building the framework on this
 branch, beginning with saved studies and interaction tests.” Tickets 02 and 03
-are the current build scope. Visual controls still need a rendered sample under
-the project rules. The nonvisual save and test path can proceed.
+are the current build scope. The owner approves the rendered study layout on
+2026-10-13: “Approve the layout”. The saved-study browser and command-line paths
+are built. See the [usage guide](usage.md) for the current controls and limits.
 
 King Down is a game that designers can extend. A designer must be able to make a
 rule, see what it does, try it with other rules, find ways to use and oppose it,

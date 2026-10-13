@@ -3,8 +3,6 @@ import { PaintedView } from '../render/PaintedView';
 import { colorOf, findKing, inCheck, nameOf, sqName, typeOf } from '../rules/engine';
 import { clickPath, marksModel, railsOf } from '../marks-model';
 import { checkersOf } from '../move-text';
-import { pieceArt } from '../ui/guide';
-import { BODY_TYPE } from '../workshop/moves';
 import { figureUrl, selectedFigure } from '../workshop/figures';
 import { designCode, parseDesign, specOf, type PieceDesign } from '../workshop/model';
 import { esc } from '../workshop/text';
@@ -66,7 +64,7 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     dlg.querySelectorAll<HTMLButtonElement>('.study-strip button:not([data-study="more"]),.study-play button').forEach(b => b.disabled = busy || !data);
     if (!data) return;
     const s = study(), pos = positionOf(data.snapshot.position), d = s.design && parseDesign(s.design.code);
-    const art = d && ((!d.look.figure && d.look.body !== 'token' && pieceArt(BODY_TYPE[d.look.body], false)) || figureUrl(selectedFigure(d).id, 0));
+    const art = d && figureUrl(selectedFigure(d).id, 0);
     q('.study-about').innerHTML = `<h3>${esc(d?.name ?? s.title)}</h3><p>Constructed study · version ${s.version}</p>${art ? `<img src="${esc(art)}" alt="">` : ''}<p>${esc(s.question)}</p>`;
     q('.study-state').textContent = `${pos.turn ? 'Black' : 'White'} to act · ${data.snapshot.status} · ${s.actions.length} recorded actions`;
     q('.study-label').textContent = `${s.title}${dirty ? ' · not saved' : ' · saved'}`;
@@ -165,7 +163,8 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     const all = [...saved.documents, ...examples];
     sheet('Open study', `<p>Your current draft is saved before another study opens.</p>${all.map((d, i) => `<button type="button" data-open="${i}">${i < saved.documents.length ? 'Saved' : 'Example'} · ${esc(studyOf(d).title)} · version ${studyOf(d).version}</button>`).join('')}`, (body, close) => {
       body.querySelectorAll<HTMLButtonElement>('[data-open]').forEach(b => b.onclick = () => void run(async () => { const i = Number(b.dataset.open); await load(all[i], i < saved.documents.length); close(); }));
-    });    if (saved.error) error(saved.error);
+    });
+    if (saved.error) error(saved.error);
   }
   function draft(design?: PieceDesign): StudyDocument {
     const doc = exampleStudies(__STUDY_SOURCE__)[0];

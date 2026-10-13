@@ -4,6 +4,34 @@ Use a saved study to inspect and test one position with fixed rules. A construct
 study starts at a stated position. It does not prove that a game can reach that
 position. A test result does not show piece value, balance, or fun.
 
+## Browser controls
+
+Open **Menu → Extra → Workshop → More → Studies**. The first study is the Rook
+control at its starting position. The Study board uses the full game engine.
+It does not change the Workshop Try board or the active game.
+
+- Select a marked square to play. Use **Legal actions** for complete actions,
+  including cards, powers and end turn. Arrow keys and Enter also select squares.
+- **Undo** removes the last action. Remove checks at that action first. A test
+  keeps at least one check; add its replacement before removing the last check.
+- **Test** adds a legal or refused action at the current position. **Run checks**
+  runs all declared facts. **Results** shows pass/fail, coverage and state changes.
+- **Save study** sets the title and question. It saves on this device. An edit
+  creates a new version. Saving unchanged content keeps the current version.
+- **More → Open study** shows saved versions and five worked examples. A current
+  draft is saved before another study opens. A save failure leaves that draft open.
+- **More → New study** puts the selected Workshop piece in a constructed board.
+  Import a file to set a different board, cards, powers or game rules.
+- **More → Import file** validates the full document before it replaces the open
+  study. **Export copy** downloads JSON. A draft export has a new ID; a saved
+  export retains its ID and version. Export still works if local saving fails.
+
+Keep exported copies. Browser storage holds up to 50 versions and can be cleared
+by the browser. Bad stored data is kept and reported. A source mismatch is refused.
+A browser worker keeps study execution separate from the active game's rules.
+
+## Command line
+
 Run each command in a new process. This keeps one study's rules separate from the
 next study's rules.
 
@@ -117,15 +145,16 @@ squares. Friendly-square defense lookup has no shared contract.
 
 | Operation | Support |
 |---|---|
-| Save, inspect, legal play, undo, reload | Local JSON files through the command line |
+| Save, inspect, legal play, undo, reload | Browser controls and local JSON files |
 | Existing piece design | One design slot; the engine's three-rule limit |
 | Existing cards, powers and rule settings | Full rules, within the engine's supported combinations |
 | New behavior | Add engine support and tests first; files cannot define executable effects |
 | Full game origin | Refused in version 1; all current studies are constructed |
 | Event cycles or unknown rule language | Refused as unknown input; no event interpreter is present |
 | Entity IDs and causal events | Unsupported; exact state and legal action traces are present |
-| Browser save controls | Rendered sample awaits owner approval |
+| Browser assertion editing | Legal/refused action checks; import files for piece, state and status checks |
 | Balance, strategy strength, human enjoyment | Untested by this first layer |
 
-Study IDs and version numbers label local files. Keep one version chain per ID;
-use a new ID for a separate design question. There is no shared study registry.
+Study IDs and version numbers label saved records. Keep one version chain per ID;
+use a new ID for a separate design question. The browser library is local to one
+device. There is no shared study registry.

@@ -22,4 +22,7 @@ figure in this sample through the scene's `setFigure` method.
 
 The eight renders pass the checks. The desktop board, phone board, phone
 Results and phone save failure have a visual check. This sample does not run
-a game campaign or the full test suite. Owner approval is still required.
+a game campaign or the full test suite. The owner approves the layout on
+2026-10-13: “Approve the layout”. The connected controls now use the selected
+Workshop figure in both the sidebar and the board. The [usage guide](../usage.md)
+describes the implemented controls.
