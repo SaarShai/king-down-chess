@@ -1,6 +1,6 @@
 import { legalMoves, type Move } from '../rules/engine';
 import { toLan } from '../rules/setup';
-import { checkStudy, parseTest, type StudyReport, type StudyTest } from './check';
+import { checkStudy, parseTest, type Fact, type Coverage, type StudyReport, type StudyTest } from './check';
 import { parseStudy, positionOf, withRules, type Study } from './model';
 import { openStudy, type StudySnapshot } from './session';
 
@@ -12,6 +12,25 @@ export function parseDocument(input: unknown): StudyDocument {
     ? parseTest(input) : parseStudy(input);
 }
 export function studyOf(document: StudyDocument): Study { return document.schema === 'kingdown-test/1' ? document.study : document; }
+/** Edit assertions without discarding challenge or coverage evidence. */
+export function withChecks(document: StudyDocument, checks: Fact[]): StudyTest {
+  if (!checks.length) throw new Error('Add another check before removing the last check.');
+  const previous = document.schema === 'kingdown-test/1' ? document : null;
+  const ids = new Set(checks.map(c => c.id));
+  const coverage: Coverage[] = (previous?.coverage ?? []).map(cell => {
+    const kept = cell.checks.filter(id => ids.has(id));
+    return { ...cell, checks: kept, state: cell.state === 'tested' && !kept.length ? 'untested' : cell.state };
+  });
+  const assigned = new Set(coverage.flatMap(cell => cell.checks));
+  const added = checks.filter(c => !assigned.has(c.id));
+  if (added.length) {
+    let id = 'declared';
+    while (coverage.some(cell => cell.id === id)) id += '-new';
+    coverage.push({ id, items: ['designer assertions'], state: 'tested', reason: 'Declared checks at a saved position.', checks: added.map(c => c.id) });
+  }
+  return parseTest({ schema: 'kingdown-test/1', study: studyOf(document), checks, coverage,
+    ...(previous?.challenge ? { challenge: previous.challenge } : {}) });
+}
 export function service(request: StudyRequest, engine: string): StudyResult {
   const document = parseDocument(request.document), study = studyOf(document);
   const session = openStudy(study, engine);

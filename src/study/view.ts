@@ -9,7 +9,7 @@ import { figureUrl, selectedFigure } from '../workshop/figures';
 import { designCode, parseDesign, specOf, type PieceDesign } from '../workshop/model';
 import { esc } from '../workshop/text';
 import { createStudyClient } from './client';
-import { studyOf, type StudyDocument, type StudyResult } from './browser-service';
+import { studyOf, withChecks, type StudyDocument, type StudyResult } from './browser-service';
 import { loadStudies, saveStudyDocument } from './store';
 import { exampleStudies } from './examples';
 import { positionOf, withRules } from './model';
@@ -140,8 +140,8 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
   }
   function tests(): void {
     const test = testOf();
-    sheet('Test this position', `<p>${test ? `${test.checks.length} declared checks. Index 0 is before the recorded actions.` : 'Add an expected fact before running a test.'}</p>
-      <ul>${test?.checks.map(f => `<li>${esc(f.label)} · action ${f.after} <button type="button" data-remove="${esc(f.id)}" aria-label="Remove ${esc(f.label)}">Remove</button></li>`).join('') ?? ''}</ul>
+    sheet('Test this position', `<p>${test ? `${test.checks.length} declared checks. Index 0 is before the recorded actions. Add another check before removing the last one.` : 'Add an expected fact before running a test.'}</p>
+      <ul>${test?.checks.map(f => `<li>${esc(f.label)} · action ${f.after} <button type="button" data-remove="${esc(f.id)}" ${test.checks.length === 1 ? 'disabled' : ''} aria-label="Remove ${esc(f.label)}">Remove</button></li>`).join('') ?? ''}</ul>
       <form class="study-fact"><label>Action <input name="lan" required maxlength="1024" placeholder="Td4-e4" list="study-legal"></label><datalist id="study-legal">${data!.snapshot.legal.map(l => `<option value="${esc(l)}">`).join('')}</datalist>
       <label>Expected <select name="expected"><option value="yes">Legal</option><option value="no">Refused</option></select></label><button type="submit">Add check at this position</button></form>
       <button type="button" data-run ${test ? '' : 'disabled'}>Run checks</button>`, (body, close) => {
@@ -157,19 +157,15 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     });
   }
   async function changeFacts(checks: Fact[]): Promise<void> {
-    const s = copy(study());
-    const doc: StudyDocument = checks.length ? { schema: 'kingdown-test/1', study: s, checks,
-      coverage: [{ id: 'declared', items: ['designer assertions'], state: 'tested', reason: s.question, checks: checks.map(f => f.id) },
-        ...(testOf()?.coverage.filter(c => c.state !== 'tested') ?? [])], ...(testOf()?.challenge ? { challenge: testOf()!.challenge } : {}) } : s;
+    const doc = withChecks(documentOf(), checks);
     data = await client.request({ type: 'inspect', document: doc }); dirty = true; report = null;
   }
   function library(): void {
     const saved = loadStudies(), examples = exampleStudies(__STUDY_SOURCE__);
-    if (saved.error) error(saved.error);
     const all = [...saved.documents, ...examples];
     sheet('Open study', `<p>Your current draft is saved before another study opens.</p>${all.map((d, i) => `<button type="button" data-open="${i}">${i < saved.documents.length ? 'Saved' : 'Example'} · ${esc(studyOf(d).title)} · version ${studyOf(d).version}</button>`).join('')}`, (body, close) => {
       body.querySelectorAll<HTMLButtonElement>('[data-open]').forEach(b => b.onclick = () => void run(async () => { const i = Number(b.dataset.open); await load(all[i], i < saved.documents.length); close(); }));
-    });
+    });    if (saved.error) error(saved.error);
   }
   function draft(design?: PieceDesign): StudyDocument {
     const doc = exampleStudies(__STUDY_SOURCE__)[0];

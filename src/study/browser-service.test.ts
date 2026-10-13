@@ -3,7 +3,7 @@ import { DEFAULT_RULES, RULES, setRules } from '../rules/rules';
 import { fromFen, toLan } from '../rules/setup';
 import { type StudyTest } from './check';
 import { createStudy, positionData, positionOf } from './model';
-import { service, studyOf } from './browser-service';
+import { service, studyOf, withChecks } from './browser-service';
 import { createStudyClient } from './client';
 function fixture() {
   return createStudy({ id: 'one', version: 1, parentVersion: null, title: 'Rook', question: 'Can it move?', engine: 'test-source', rules: structuredClone(DEFAULT_RULES), start: positionData(fromFen('7k/8/8/8/3R4/8/8/K7 w - - 0 1')), prefix: [], actions: [], origin: 'constructed' });
@@ -13,6 +13,22 @@ function testDoc(): StudyTest {
 }
 afterEach(() => { setRules(); vi.unstubAllGlobals(); });
 describe('browser study service', () => {
+  it('keeps challenge and coverage when assertions change', () => {
+    const document = testDoc();
+    document.coverage.push({ id: 'identity', items: ['entity identity'], state: 'unsupported', reason: 'No entity IDs', checks: [] });
+    document.challenge = { goal: 'Move up', horizon: 1, solutions: [['Rd4-d5']], claim: 'suggested', difficulty: 'unmeasured' };
+    const before = structuredClone(document);
+    const added = { ...document.checks[0], id: 'new', lan: 'Rd4-d6' };
+    const both = withChecks(document, [...document.checks, added]);
+    expect(both.coverage.slice(0, 2)).toEqual(document.coverage);
+    const changed = withChecks(both, [added]);
+    expect(changed.challenge).toEqual(document.challenge);
+    expect(changed.coverage[0]).toEqual({ ...document.coverage[0], state: 'untested', checks: [] });
+    expect(changed.coverage[1]).toEqual(document.coverage[1]);
+    expect(service({ type: 'check', document: changed }, 'test-source').report?.status).toBe('passed');
+    expect(() => withChecks(changed, [])).toThrow('Add another check');
+    expect(document).toEqual(before);
+  });
   it('returns real moves and keeps the ambient rules and input intact', () => {
     setRules({ archerChecks: false }); const before = structuredClone(RULES);
     const document = fixture(); document.rules.hands = [['Haste'], []]; const input = structuredClone(document);
