@@ -30,6 +30,7 @@
     "plugin:db:init-test": "node tools/plugin-db/bootstrap-test.mjs",
     "plugin:db:migrate": "tsx tools/plugin-db/migrate.ts",
     "mod": "tsx tools/mod.ts",
+    "study": "tsx tools/study.ts",
     "plugin:server:check": "node tools/plugin-server-check.mjs",
     "plugin:serve": "node plugin-server-dist/server.mjs",
     "plugin:build:vercel": "node tools/plugin-server-build.mjs --vercel",
