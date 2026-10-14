@@ -22,8 +22,10 @@ export function prepareStudyMeasurements(input: unknown, request: MeasurementReq
     powerHold: r.powerHold, ...(r.powerHoldSides ? { powerHoldSides: r.powerHoldSides } : {}), adjudicate: r.adjudicate,
   };
   let jobs: PlannedGame[];
+  let report: { combo?: ComboSpec; tournament?: TournamentSpec; worth?: RunSpec[] } = {};
   if (r.recipe === 'four-cell') {
     const combo: ComboSpec = { id: 'study-preview', source, approval: { date: 'preview-only', quote: 'Preview only. No run approval.' }, rules: structuredClone(study.rules), pool: r.pool, cardPool: r.cardPool!, depth: r.depth, blocks: r.pairs, seed: r.seed, maxPlies: r.maxPlies, candidates: [{ id: 'declared-factors', factors: r.factors!, reason: study.question }] };
+    report = { combo };
     jobs = withRules(study.rules, () => comboSchedule(combo).map(job => ({ spec: { ...comboGameSpec(combo, job), backRanks: { sample: r.pairs, pool: r.pool } }, job })));
   } else if (r.recipe === 'cross-play' || r.recipe === 'field') {
     if (r.entrants!.some(e => e !== 'none' && !ALL_POWERS.includes(e as typeof ALL_POWERS[number]))) throw new Error('Unsupported entrant: use a named power or none');
@@ -31,6 +33,7 @@ export function prepareStudyMeasurements(input: unknown, request: MeasurementReq
       armies: 'perPair', depth: r.depth, seed: r.seed, pool: r.pool, guardNextToKing: true,
       rules: structuredClone(study.rules), mirror: false, maxPlies: r.maxPlies,
       openingRandomPlies: r.openingRandomPlies, powerHold: r.powerHold, powerPlies: r.powerPlies };
+    report = { tournament: t };
     jobs = withRules(study.rules, () => scheduleJobs(t).map(j => ({
       spec: { ...base, ...gameSpec(t, j), values: r.values, adjudicate: r.adjudicate,
         ...(r.powerHoldSides ? { powerHoldSides: r.powerHoldSides } : {}) },
@@ -39,10 +42,11 @@ export function prepareStudyMeasurements(input: unknown, request: MeasurementReq
     })));
   } else {
     const specs = r.recipe === 'worth' ? valueSpecs(base, r.vs ?? 'N', r.pieces!, true) : [base];
+    if (r.recipe === 'worth') report = { worth: specs };
     jobs = withRules(study.rules, () => specs.flatMap(spec => buildJobs(spec).map(job => ({ spec, job }))));
   }
   const unique = new Map(jobs.map(g => [canonicalMeasurementJSON(g.spec), g.spec]));
-  return { plan, source, evaluation, jobs, specs: [...unique.values()] };
+  return { plan, source, evaluation, jobs, specs: [...unique.values()], report };
 }
 
 export function assembleStudyMeasurements(prepared: ReturnType<typeof prepareStudyMeasurements>, contexts: Stamp[], fingerprint: string) {
