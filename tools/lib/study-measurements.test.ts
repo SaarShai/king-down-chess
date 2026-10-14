@@ -45,6 +45,16 @@ describe('study measurement previews', () => {
     const four = previewStudyMeasurements(plain, { ...request, recipe: 'four-cell', pool: 'ABNNRRQ', cardPool: ['Haste'], factors: [{ kind: 'piece', piece: 'A', replacement: 'N' }, { kind: 'card', card: 'Haste' }] });
     expect(four.preview).toMatchObject({ games: 24, blocks: 2 });
     expect(four.jobs.every(g => !g.job.fen)).toBe(true);
+    expect(four.execution.contexts.every(c => c.pool === 'ABNNRRQ')).toBe(true);
+    expect(four.jobs.every(g => !Array.isArray(g.spec.backRanks) && g.spec.backRanks?.pool === 'ABNNRRQ')).toBe(true);
+  });
+  it('rejects repeated worth pieces and large previews before schedule allocation', () => {
+    expect(() => createMeasurementPlan(input(), { ...request, recipe: 'worth', pieces: 'TT' })).toThrow('Duplicate worth piece');
+    expect(() => createMeasurementPlan(input(), { ...request, recipe: 'worth', pieces: 'T'.repeat(1000) })).toThrow();
+    expect(() => previewStudyMeasurements(input(), { ...request, pairs: 10000, recipe: 'field', entrants: Array.from({ length: 30 }, (_, i) => `entrant-${i}`) })).toThrow('Preview exceeds 10000 games');
+    expect(() => createMeasurementPlan(input(), { ...request, pairs: 5001 })).toThrow('Preview exceeds');
+    expect(() => createMeasurementPlan(input(), { ...request, pairs: 5000 })).not.toThrow();
+    expect(() => createMeasurementPlan(input(), { ...request, recipe: 'worth', pieces: 'T', pairs: 1251 })).toThrow('Preview exceeds');
   });
   it('refuses unsupported starts, recipes, inputs and missing custom design', () => {
     expect(() => createMeasurementPlan(input(), { ...request, start: 'saved-state' })).toThrow('PositionData');

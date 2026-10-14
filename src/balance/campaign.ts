@@ -12,7 +12,8 @@ import { oddsWorth } from './criteria';
 import { stable, unknownContext, type Measurement, type MeasurementContext } from './measurements';
 import type { BalanceDataset } from './dataset';
 import { addGame, newTally, fromTournament, total, reported, summarise, bootstrap } from '../../tools/piece-activity';
-import { DEFAULT_RULES } from '../rules/rules';
+import { withRules } from '../study/model';
+import { RULES, DEFAULT_RULES } from '../rules/rules';
 import { G, LETTERS } from '../rules/engine';
 
 type Json = Record<string, any>;
@@ -41,6 +42,10 @@ export function checkedRaw(path: string, expectedHash: string): Json[] {
 
 /** Import only complete studies with a saved validation record. Partial studies stay pending. */
 export function importCampaign(dir: string, dataset: BalanceDataset): void {
+  return withRules(RULES, () => importCampaignWithRules(dir, dataset));
+}
+
+function importCampaignWithRules(dir: string, dataset: BalanceDataset): void {
   const manifest = json(join(dir, 'campaign.json'));
   const source = join(dir, 'analysis-source');
   requireEqual(sha(readFileSync(join(dir, 'source.tar'))), manifest.sourceArchiveSha256, 'source archive');
@@ -72,7 +77,7 @@ export function importCampaign(dir: string, dataset: BalanceDataset): void {
       requireEqual(status.commit,p.commit,'worth exit source');
       const arms = (p.arms as Json[]).map(a => {
         const check = checks.find(c=>c.id===a.spec.id); if(!check) throw new Error('Missing worth hash');
-        requireEqual(a.jobs,buildJobs(a.spec),'regenerated worth schedule');
+        requireEqual(a.jobs,withRules({...DEFAULT_RULES,...a.spec.rules},()=>buildJobs(a.spec)),'regenerated worth schedule');
         requireEqual(a.stamp,stampOf(a.spec),'regenerated worth stamp');
         requireEqual(a.stamp.src,p.src,'worth source ID');
         requireEqual(a.stamp.pool,p.pool,'worth pool stamp');

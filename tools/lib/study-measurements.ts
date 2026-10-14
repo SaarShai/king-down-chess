@@ -26,7 +26,7 @@ export function previewStudyMeasurements(input: unknown, request: MeasurementReq
   let jobs: PlannedGame[];
   if (r.recipe === 'four-cell') {
     const combo: ComboSpec = { id: 'study-preview', source, approval: { date: 'preview-only', quote: 'Preview only. No run approval.' }, rules: structuredClone(study.rules), pool: r.pool, cardPool: r.cardPool!, depth: r.depth, blocks: r.pairs, seed: r.seed, maxPlies: r.maxPlies, candidates: [{ id: 'declared-factors', factors: r.factors!, reason: study.question }] };
-    jobs = withRules(study.rules, () => comboSchedule(combo).map(job => ({ spec: comboGameSpec(combo, job), job })));
+    jobs = withRules(study.rules, () => comboSchedule(combo).map(job => ({ spec: { ...comboGameSpec(combo, job), backRanks: { sample: r.pairs, pool: r.pool } }, job })));
   } else if (r.recipe === 'cross-play' || r.recipe === 'field') {
     if (r.entrants!.some(e => e !== 'none' && !ALL_POWERS.includes(e as typeof ALL_POWERS[number]))) throw new Error('Unsupported entrant: use a named power or none');
     const t: TournamentSpec = { id: base.id, entrants: r.entrants as Entrant[], pairs: r.pairs,

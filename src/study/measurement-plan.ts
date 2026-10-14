@@ -11,7 +11,7 @@ const requestSchema = z.strictObject({
   seed: z.number().int().min(0).max(0xffffffff), pairs: count,
   depth: z.number().int().min(1).max(20),
   pool: z.string().regex(/^[NBRQALGMSOCVT]{7,100}$/),
-  pieces: z.string().regex(/^[NBRQALGMSOCVT]+$/).optional(),
+  pieces: z.string().max(13).regex(/^[NBRQALGMSOCVT]+$/).optional(),
   vs: z.enum(['N', 'B', 'R', 'Q']).optional(),
   factors: z.tuple([z.discriminatedUnion('kind', [z.strictObject({ kind: z.literal('piece'), piece: z.string().regex(/^[ABRNGMLSO]$/), replacement: z.string().regex(/^[BNR]$/) }), z.strictObject({ kind: z.literal('card'), card: z.enum(ALL_CARDS) })]), z.discriminatedUnion('kind', [z.strictObject({ kind: z.literal('piece'), piece: z.string().regex(/^[ABRNGMLSO]$/), replacement: z.string().regex(/^[BNR]$/) }), z.strictObject({ kind: z.literal('card'), card: z.enum(ALL_CARDS) })])]).optional(),
   cardPool: z.array(z.enum(ALL_CARDS)).min(1).optional(),
@@ -36,6 +36,8 @@ export interface MeasurementPreview {
   games: number; blocks: number; seed: number; depth: number;
   policy: unknown; measures: string[]; limits: string[]; missingResults: number;
 }
+// Keep previews small enough to inspect without allocating a campaign in memory.
+export const MAX_PREVIEW_GAMES = 10000;
 export const MEASUREMENT_RECIPES = {
   worth: 'Piece swaps and pawn calibration with the existing value experiment.',
   activity: 'Fresh armies with the saved full rules.',
@@ -61,6 +63,9 @@ export function createMeasurementPlan(input: unknown, request: MeasurementReques
   if ((r.recipe === 'cross-play' || r.recipe === 'field') ? !r.entrants : !!r.entrants) throw new Error('Cross-play requires entrants only');
   if (r.entrants && new Set(r.entrants).size !== r.entrants.length) throw new Error('Duplicate entrant');
   if (r.recipe === 'four-cell' ? !r.factors || !r.cardPool : !!r.factors || !!r.cardPool) throw new Error('Four-cell requires factors and cardPool only');
+  if (r.pieces && new Set(r.pieces).size !== r.pieces.length) throw new Error('Duplicate worth piece');
+  const games = r.pairs * (r.recipe === 'four-cell' ? 12 : r.recipe === 'worth' ? 2 * (r.pieces!.length + 3) : r.entrants ? r.entrants.length * (r.entrants.length - 1) : 2);
+  if (games > MAX_PREVIEW_GAMES) throw new Error(`Preview exceeds ${MAX_PREVIEW_GAMES} games`);
   const study = 'study' in parsed ? parsed.study : parsed;
   if ((r.pool.includes('T') || r.pieces?.includes('T')) && !study.rules.design) throw new Error('Custom T requires a saved design');
   if (r.recipe === 'four-cell') {
