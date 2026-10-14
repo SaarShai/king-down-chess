@@ -1,6 +1,6 @@
 # King Down designer test framework
 
-Status: approved for saved studies, interaction tests and measurement links.
+Status: approved for saved studies, interaction tests, measurement links and browser runs.
 
 Owner approval, 2026-10-12: “approved. start building the framework on this
 branch, beginning with saved studies and interaction tests.” Tickets 02 and 03
@@ -10,8 +10,11 @@ are the current build scope. The owner approves the rendered study layout on
 and results.” The saved-study browser, command line, measurement plans and
 evidence links are built. Browser plan and result controls are also built and
 verified. See the [usage guide](usage.md) for controls and limits. The next
-[run connection stage](issues/09-browser-runs.md) specifies browser approval,
-M1/Kaggle progress and result return. The owner approves its spec and rendered sample on 2026-10-14: “Approve and build”.
+[run connection stage](issues/09-browser-runs.md) adds browser approval,
+M1/Kaggle progress and result return. The owner approves its spec and rendered
+sample on 2026-10-14: “Approve and build”. This stage is built and verified with
+fixture transports. Real transport remains unverified until an approved live
+run proves it.
 
 King Down is a game that designers can extend. A designer must be able to make a
 rule, see what it does, try it with other rules, find ways to use and oppose it,

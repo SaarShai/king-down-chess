@@ -1,6 +1,6 @@
 # Approve, track and collect measurement runs in the browser
 
-Status: claimed
+Status: resolved
 Type: task
 Blocked by: none
 
@@ -344,3 +344,40 @@ their hashes and byte counts. It still rejects other names. Offline positive
 and corrupt-byte controls pass; an independent reader clears this small fix.
 The earlier campaign's proof runs separately under ticket 04. It starts no new
 browser run. Final regression and Studies checks follow these repairs.
+
+## Answer
+
+The approved browser run workflow is built on this branch. It uses one local
+service, the exact saved plan, one frozen runner for all five recipes, and the
+existing result picker. Preparation checks availability. Explicit approval
+records the exact work before dispatch. Stored progress survives a browser or
+service restart. Terminal parts retain their files, and checked results link to
+a new study version with their original context and source. Backup has a separate
+downloaded-byte proof. The public game has no machine endpoint.
+
+Final evidence at commit `917a34ed`:
+
+- Full `npm test`: 168 files pass, 10 skip; 2,383 tests pass, 129 skip. All 50
+  artwork checks pass. This includes fake transport, preparation race, startup,
+  partial-output, replay, hash, wrong-source and backup failure controls.
+- All 113 documentation checks pass after the final ticket and usage updates.
+- Registered Studies check passes in 45.1 seconds. It checks the full fixture
+  approval-to-result-link flow, original-study recovery, failed saves, keyboard
+  controls and three screen sizes. Workshop also passes in the earlier integrated
+  check; the final fixes change no Workshop behavior.
+- Independent review clears all confirmed findings, including the last
+  preparation, startup and exact backup-sidecar repairs.
+- The existing local tab at `http://127.0.0.1:57321/` connects to the real local
+  service. It refuses preparation without a current saved plan. During card
+  maintenance it gives a waiting message and keeps preparation disabled.
+
+The final test logs are in
+`/tmp/kingdown-browser-run-verification-20261014/final-tests.log` and
+`/tmp/kingdown-browser-run-verification-20261014/final-browser.log`.
+The registered browser evidence is in
+`/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/designer-test-framework-rDXIwA`.
+The [usage guide](../usage.md) explains the controls and limits.
+
+No live campaign starts to test this feature. Real M1/Kaggle transport stays
+marked **unverified** until a separately approved named run passes. Ticket 04
+tracks the earlier authorized campaign and its remaining cloud-byte proof.
