@@ -21,7 +21,8 @@ export const measurementSchema = z.strictObject({
   value: z.number().nullable(), error: z.number().nonnegative().nullable(), errorKind: nullableText,
   sample: z.number().int().nonnegative().nullable(), sampleUnit: z.enum(['games', 'pairs', 'arrangements', 'openings', 'unknown']),
   unit: text, validity: z.enum(['valid', 'pending', 'incomplete', 'void', 'conflict', 'unverified']),
-  reasons: z.array(text).max(100), sources: z.array(text).min(1).max(100), method: text,
+  // A conflict export can retain one audit reason per game. File and store byte limits bound it.
+  reasons: z.array(text), sources: z.array(text).min(1).max(100), method: text,
   bound: z.enum(['lessThan', 'greaterThan']).optional(), reference: text.optional(), denominator: text.optional(), criterion: text.optional(),
   comparison: z.strictObject({ baseRun: text, variantRun: text, kind: z.enum(['paired', 'with-without']) }).optional(),
   calibration: z.strictObject({ eloPerPawn: z.number(), relativeError: z.number().nullable() }).optional(),

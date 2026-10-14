@@ -61,3 +61,27 @@ its own recorded schedule and authorization.
   and checks still compare. Review finds a connected CLI issue: it must rebuild
   the original plan snapshot after a save-only version change. That fix is in
   place. Twelve focused tests and 50 art checks pass.
+- Typed worker methods now prepare and verify plans, open local result files,
+  page through runs and rows, select rows and release the file. The worker keeps
+  large data off the page thread. Independent review finds no issue in hashes,
+  metadata, bounds, failed reads or concurrent file selection.
+- A real 41,194,429-byte export exposes a prior limit: eleven conflict rows have
+  more than 100 audit reasons. The largest has 7,003. The importer keeps all
+  reasons. File and storage byte limits still apply. A regression test and an
+  independent review pass. The real export now opens all 13,886 rows in 852 runs
+  and selects nine Haste rows. Its SHA-256 is
+  `08c63780caf4f8b5db5dd67542840b60c8da9b372b37355bb150465bdf3f032a`.
+- Broad checks before that final reason-limit fix pass: 2,335 tests, 129 skipped,
+  50 art checks and 113 doc checks. Registered Studies and Workshop checks pass
+  in 19.0 and 110.8 seconds. After the fix, twelve focused tests and 50 art checks
+  pass. Browser evidence is in
+  `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/designer-test-framework-2SC1HQ`.
+
+## Next step
+
+The rendered layout is still awaiting the owner's reply. No new production
+controls are connected yet. After approval, add the form, preview and local-file
+selector to Studies. Use the typed client methods; do not duplicate schedules.
+Save through the existing version chain. Verify the complete browser flow,
+including cancel, invalid input, stale preview, file errors and storage errors.
+The existing checks above cover the shared code and current Studies controls.

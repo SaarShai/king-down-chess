@@ -38,6 +38,14 @@ describe('local result file service', () => {
     expect(many.runs).toHaveLength(100);
     expect(service.runs(many.token, { offset: 200 }).runs).toEqual([{ run: '200', count: 1 }]);
   });
+  it('retains thousands of per-game audit reasons without blocking other rows', async () => {
+    const service = createResultImporter();
+    const conflict = { ...row('conflict'), validity: 'conflict', reasons: Array.from({ length: 7003 }, (_, i) => `Game ${i}: source or schedule mismatch`) };
+    const cat = await service.open(file([conflict, row()]));
+    expect(cat.total).toBe(2);
+    expect(service.select(cat.token, ['first']).measurements).toEqual([row()]);
+    expect(service.select(cat.token, ['conflict']).measurements).toEqual([conflict]);
+  });
   it('rejects malformed files and duplicate IDs atomically', async () => {
     const service = createResultImporter(), cat = await service.open(file());
     for (const bad of [new Blob(['{']), file([row(), row()]), file([{ ...row(), unexpected: true }]), new Blob(['{"schemaVersion":2,"measurements":[]}']), new Blob([new Uint8Array([255])])]) {
