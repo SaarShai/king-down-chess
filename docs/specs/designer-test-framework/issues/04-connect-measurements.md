@@ -174,9 +174,8 @@ The detached helper then downloads the snapshot metadata and each required
 cloud object. It checks decoded SHA-256 hashes and byte counts for all 223
 campaign files. The 246 omitted files are operating-system metadata, which the
 project capture tool excludes. The receipt and byte proof belong in external
-`state/balance-confirm-20261014/verified-final.json`. The next bounded check is
-13:45 Pacific after the repairs below. Backup verification remains pending until
-that proof passes.
+`state/balance-confirm-20261014/verified-final.json`. The 13:45 Pacific check
+confirms that the repaired proof passes, as recorded below.
 
 A separate reader checks the byte-proof helper and the required-file list. The
 list covers every campaign payload file. The helper checks downloaded bytes and
@@ -215,3 +214,34 @@ The shared browser-run backup verifier gets this fix and negative controls too.
 receipt. It starts at 13:11 Pacific with supervisor 60227 and a 30-minute limit.
 No upload, worker collection or game repeats. The earlier failure remains in
 `backup-attempt-2-status.json`. The next bounded check is 13:45 Pacific.
+
+## Confirmation campaign complete
+
+The 13:45 Pacific check finds a successful downloaded-byte proof, completed at
+13:12:49 Pacific. It binds the saved receipt to snapshot
+`drive:King Down/results-backups/20261014-125541-301070000`. All four snapshot
+metadata files match their receipt hashes and byte counts. The decoded source
+provenance and full manifest tree hash also match. Both required cloud objects
+pass their compressed-byte checks. All 223 required campaign files pass decoded
+SHA-256 and byte-count checks: 7,456,295 bytes in total.
+
+A local closeout check confirms that every current payload file still matches
+the required inventory and downloaded-byte proof. An independent reader clears
+the proof code, receipt binding, object checks, duplicate checks and complete
+file coverage. The proof SHA-256 is
+`6163498730eb5ea4398447a41810183316388fdb25ef51b249c66fda9439acc6`.
+The saved receipt SHA-256 is
+`8ade9167986c52368a3f8fb31df877c3b9eb414f0e82aa1a3d228bc7c1d30277`.
+`completion.json` records `backup-verified`.
+
+This closes the authorized campaign: six parts, 1,584 unique games, 792 complete
+pairs, all source/spec/schedule checks, 120 legal replays, six illegal controls,
+the separate report, independent review and verified backup. The new seed round
+stays separate from the matching prior round. Its 24 caps and interval limits
+remain in the report. All local and remote sources remain intact. This closeout
+queries no worker, repeats no upload or game, and changes no rule.
+
+Only this ticket and the matching confirmation row on main are updated. All 113
+doc checks pass. The completed heartbeat is removed after the records are saved.
+The earlier rule-document audit gaps keep the broader measurement ticket open;
+they do not leave this campaign incomplete.
