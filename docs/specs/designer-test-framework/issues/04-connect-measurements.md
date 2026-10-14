@@ -175,7 +175,7 @@ cloud object. It checks decoded SHA-256 hashes and byte counts for all 223
 campaign files. The 246 omitted files are operating-system metadata, which the
 project capture tool excludes. The receipt and byte proof belong in external
 `state/balance-confirm-20261014/verified-final.json`. The next bounded check is
-13:10 Pacific after the repair below. Backup verification remains pending until
+13:45 Pacific after the repairs below. Backup verification remains pending until
 that proof passes.
 
 A separate reader checks the byte-proof helper and the required-file list. The
@@ -202,3 +202,16 @@ failure state remain available. This retries backup only, not a game launch or
 worker collection. Its limits remain 90 minutes for backup and 30 minutes for
 downloaded-byte proof. The next bounded check is 13:10 Pacific. The heartbeat
 records that time. The required inventory remains 223 files.
+
+The 13:10 Pacific check finds that backup attempt 2 completes. Its snapshot is
+`drive:King Down/results-backups/20261014-125541-301070000`. The separate byte
+proof stops on `._manifest.json`, an AppleDouble metadata file that the project
+snapshot receipt includes. The receipt also includes `._sources.json.gz`.
+The repair accepts only these two additional names and checks their downloaded
+MD5 hashes and byte counts through the same path. Unknown names still fail.
+The shared browser-run backup verifier gets this fix and negative controls too.
+
+`verify-backup-3.py` repeats only the downloaded-byte proof against the saved
+receipt. It starts at 13:11 Pacific with supervisor 60227 and a 30-minute limit.
+No upload, worker collection or game repeats. The earlier failure remains in
+`backup-attempt-2-status.json`. The next bounded check is 13:45 Pacific.

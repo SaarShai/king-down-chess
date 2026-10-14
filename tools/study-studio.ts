@@ -27,13 +27,14 @@ export function serveStatic(root: string, req: IncomingMessage, res: ServerRespo
 }
 export function startStudio(sourceRoot = process.cwd(), port = 4174) {
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Use a local port from 1024 to 65535.');
-  const studio = localStudio(sourceRoot), handler = createRunHandler(() => studio.getCoordinator());
   const dist = resolve(sourceRoot, 'dist'); realpathSync(resolve(dist, 'index.html'));
+  const studio = localStudio(sourceRoot), handler = createRunHandler(() => studio.getCoordinator());
   const server = createServer((req, res) => {
     if (req.headers.host !== `127.0.0.1:${port}`) { res.writeHead(403); res.end('Use the local studio address.'); return; }
     void handler(req, res, () => serveStatic(dist, req, res));
   });
   server.on('close', () => studio.close());
+  server.on('error', () => studio.close());
   server.listen(port, '127.0.0.1', () => console.log(`Local study studio: http://127.0.0.1:${port}`));
   return server;
 }

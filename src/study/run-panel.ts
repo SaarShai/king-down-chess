@@ -79,7 +79,10 @@ export function mountRunPanel(body: HTMLElement, options: RunPanelOptions): () =
           break;
         case 'prepare':
           if (!canPrepare || !connected || uncertain) return;
-          remember(await client.prepare(options.document, target)); break;
+          selected = '';
+          try { remember(await client.prepare(options.document, target)); }
+          catch (error) { if (active) connected = false; throw error; }
+          break;
         case 'approve':
           if (!current || uncertain) return;
           try { remember(await client.approve(current.id, crypto.randomUUID())); }

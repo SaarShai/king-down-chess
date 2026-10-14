@@ -59,6 +59,7 @@ export/import to move a saved study from a different address.
 In **Results**, choose **Run saved plan**. Choose M1, Kaggle, or both, then
 **Prepare saved plan**. Preparation freezes the source, exact settings and full
 work assignment. It needs a clean source commit and a current saved plan.
+Preparation checks the selected machines before approval becomes available.
 Read the game count, machine split, depth, pool, seed and time limit. Only
 **Approve and start** starts that exact run. A saved file is not run approval.
 Each new run needs this action. Real machine transport remains **unverified**
@@ -69,6 +70,7 @@ not stop it. **Refresh stored status** reads the last saved observation. It does
 not poll a worker or repeat a launch. The page shows each machine's next check
 and deadline. An unknown game count stays unknown. An uncertain launch needs
 inspection; there is no automatic launch retry.
+Restarting the local service resumes due checks without an open browser.
 
 When results return, **Review results** checks the file hash and opens the normal
 measurement picker. Select rows and **Link measurements** to save a new study

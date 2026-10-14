@@ -322,3 +322,25 @@ locks, bracketed process patterns, checked dispatch hashes and a shared approval
 claim. Root review also keeps worth comparison/calibration units on one machine
 and requires a final source check in each execution attestation. Negative
 controls cover these cases. Full browser and regression checks follow.
+
+The first full regression run passes 2,378 tests, with 129 skipped, plus the 50
+artwork checks and all 113 doc checks. Both registered browser checks pass after
+the recovery fix: the original run study now keeps its exact ID and version.
+A failed recovery save keeps the current study intact. Thirty-eight focused
+checks cover recovery, execution and measurement-source paths. The browser check
+uses fixtures and checks 1440 × 900, 390 × 844 and 375 × 667.
+
+The final independent review finds two remaining gaps. Preparation now checks
+each target before it returns a prepared run. A failed or interrupted check
+cannot enable approval. A per-run lock protects this check from a concurrent
+approval. The local service also starts due checks without a browser request,
+retries failed startup no faster than once per minute, and stops new checks on
+close. Nineteen focused tests and the 50 artwork checks pass. The reader clears
+both repairs.
+
+A real project backup receipt exposes two AppleDouble snapshot metadata files.
+The shared verifier now accepts those exact names, downloads them, and checks
+their hashes and byte counts. It still rejects other names. Offline positive
+and corrupt-byte controls pass; an independent reader clears this small fix.
+The earlier campaign's proof runs separately under ticket 04. It starts no new
+browser run. Final regression and Studies checks follow these repairs.

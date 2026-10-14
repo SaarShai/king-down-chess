@@ -35,6 +35,23 @@ async function fixture() {
   return { root, options, transport, service: await createCoordinator(options), advance: (ms = 3600000) => { clock += ms; } };
 }
 describe('persistent study run coordinator', () => {
+  it('requires preparation preflight and keeps a concurrent approval out of a failed recheck', async () => {
+    const f = await fixture(), run = await f.service.prepare(document(), 'both');
+    expect(f.transport.preflight).toHaveBeenCalledTimes(2);
+    let started!: () => void, release!: () => void;
+    const waiting = new Promise<void>(resolve => { started = resolve; });
+    f.transport.preflight.mockImplementationOnce(async () => { started(); await new Promise<void>(resolve => { release = resolve; }); throw new Error('No machine capacity'); });
+    const recheck = f.service.prepare(document(), 'both'); await waiting;
+    expect(f.service.status(run.id).phase).toBe('preparing');
+    const approval = expect(f.service.approve(run.id, randomUUID())).rejects.toThrow('not ready');
+    release(); expect(await recheck).toMatchObject({ phase: 'failed', approvedAt: null, error: 'Preparation: No machine capacity' }); await approval;
+    expect(f.transport.launch).not.toHaveBeenCalled();
+    expect(readFileSync(join(f.root, 'docs/QUEUE.md'), 'utf8')).toBe('Existing edits stay here.\n| unrelated | keep |\n');
+    f.transport.preflight.mockRejectedValueOnce(new Error('Power unavailable'));
+    const failed = await f.service.prepare(document(), 'm1');
+    expect(failed).toMatchObject({ phase: 'failed', approvedAt: null });
+    expect(f.service.document(failed.id)).toEqual(document());
+  });
   it('approves once, preserves queue edits, reads locally, then collects and links checked bytes', async () => {
     const f = await fixture(), prepared = await f.service.prepare(document(), 'both'), key = randomUUID();
     const a = await f.service.approve(prepared.id, key); expect(a.phase).toBe('launching');

@@ -47,7 +47,7 @@ function readResult(path: string): Buffer {
 }
 const sha = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
 
-/** Local reads never query a worker. Only due checks and explicit approval do so. */
+/** Local reads never query a worker. Preparation checks availability; only approval dispatches. */
 export async function createCoordinator(options: CoordinatorOptions) {
   options.assertStorage();
   const store = createRunStore(options.stateRoot), now = options.now ?? Date.now;
@@ -70,6 +70,17 @@ export async function createCoordinator(options: CoordinatorOptions) {
   };
   const start = (promise: Promise<unknown>) => { background.add(promise); void promise.catch(() => {}).finally(() => background.delete(promise)); };
   function writable(): void { options.assertStorage(); }
+  async function preflight(r: RunRecord): Promise<StudyRunSummary> {
+    r.summary.phase = 'preparing'; r.summary.error = null; save(r);
+    try {
+      await options.verify(r.bundle, directory(r.summary.id));
+      for (const p of r.summary.parts) await options.transports[p.machine].preflight(input(r, p.id));
+      r.summary.phase = 'prepared';
+    } catch (error) {
+      r.summary.phase = 'failed'; r.summary.error = `Preparation: ${error instanceof Error ? error.message : String(error)}`;
+    }
+    save(r); return structuredClone(r.summary);
+  }
   async function queue(r: RunRecord): Promise<void> {
     await store.locked('queue', async () => {
       const path = join(options.mainRoot, 'docs/QUEUE.md');
@@ -200,7 +211,12 @@ export async function createCoordinator(options: CoordinatorOptions) {
       return store.locked('prepare', async () => {
         for (const id of store.ids()) {
           const r = read(id);
-          if (r.summary.phase === 'prepared' && r.summary.target === target && JSON.stringify(r.document) === JSON.stringify(document)) { await options.verify(r.bundle, directory(id)); return structuredClone(r.summary); }
+          if (r.summary.phase === 'prepared' && r.summary.target === target && JSON.stringify(r.document) === JSON.stringify(document)) {
+            return store.locked(id, async () => {
+              const current = read(id);
+              return current.summary.phase === 'prepared' ? preflight(current) : structuredClone(current.summary);
+            });
+          }
         }
         writable();
         const id = `study-${time().slice(0, 10).replaceAll('-', '')}-${randomUUID().replaceAll('-', '').slice(0, 12)}`;
@@ -212,10 +228,10 @@ export async function createCoordinator(options: CoordinatorOptions) {
           planFingerprint: document.plan!.fingerprint, bundleHash: bundle.hash, source: bundle.source, commit: bundle.commit,
           recipe: document.plan!.definition.request.recipe, games: bundle.games, blocks: bundle.blocks, target,
           approvalText: `I approve ${id}: ${bundle.games} games (${split}), depth ${document.plan!.definition.request.depth}, pool ${document.plan!.definition.request.pool}, seed ${document.plan!.definition.request.seed}, plan ${document.plan!.fingerprint}, bundle ${bundle.hash}, source ${bundle.commit}, with an eight-hour remote limit including setup and play. First status check after one hour.`,
-          approvedAt: null, phase: 'prepared', parts: bundle.parts.map(p => ({ id: p.id, machine: p.machine, workers: p.workers, games: p.jobIndexes.length, blocks: p.blocks, state: 'pending', completedGames: null, checkedAt: null, nextCheckAt: null, deadline: null, error: null })),
+          approvedAt: null, phase: 'preparing', parts: bundle.parts.map(p => ({ id: p.id, machine: p.machine, workers: p.workers, games: p.jobIndexes.length, blocks: p.blocks, state: 'pending', completedGames: null, checkedAt: null, nextCheckAt: null, deadline: null, error: null })),
           validation: { state: 'pending', games: 0, legalReplays: 0, illegalControls: 0, message: 'No results yet.' }, backup: { state: 'pending', message: 'Backup follows collection and validation.' }, result: null, error: null };
-        save({ summary, document, bundle, key: null, queueWritten: false, receipts: {}, collected: [], lateChecks: {}, resultPath: null, backupAttempted: false, collectionAttempts: {}, validationAttempted: false });
-        return structuredClone(summary);
+        const record: RunRecord = { summary, document, bundle, key: null, queueWritten: false, receipts: {}, collected: [], lateChecks: {}, resultPath: null, backupAttempted: false, collectionAttempts: {}, validationAttempted: false };
+        return store.locked(id, () => preflight(record));
       });
     },
     async approve(id: string, key: string) {
@@ -259,7 +275,10 @@ export async function createCoordinator(options: CoordinatorOptions) {
         checking.add(id);
         await store.locked(id, async () => {
           const r = read(id);
-          if (!r.key) return;
+          if (!r.key) {
+            if (r.summary.phase === 'preparing') { r.summary.phase = 'failed'; r.summary.error = 'Preparation stopped. Prepare the saved plan again.'; save(r); }
+            return;
+          }
           if (!r.queueWritten) { r.summary.phase = 'attention-required'; r.summary.error = 'Approval stopped before the queue receipt. Nothing is dispatched.'; save(r); return; }
           if (r.backupAttempted && ['verified', 'failed'].includes(r.summary.backup.state) && !r.summary.error?.startsWith('Queue status:')) return;
           if (r.summary.phase === 'launching' && !dispatching.has(id)) {

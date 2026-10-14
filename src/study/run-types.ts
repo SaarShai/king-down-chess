@@ -1,7 +1,7 @@
 /** The local studio owns run records. Study documents keep their existing format. */
 export type RunTarget = 'm1' | 'kaggle' | 'both';
 export type RunMachine = Exclude<RunTarget, 'both'>;
-export type RunPhase = 'prepared' | 'launching' | 'running' | 'collecting' | 'validating' | 'complete' | 'partial' | 'failed' | 'launch-unknown' | 'attention-required';
+export type RunPhase = 'preparing' | 'prepared' | 'launching' | 'running' | 'collecting' | 'validating' | 'complete' | 'partial' | 'failed' | 'launch-unknown' | 'attention-required';
 export interface RunPartStatus {
   id: string; machine: RunMachine; workers: number; games: number; blocks: number;
   state: 'pending' | 'attempted' | 'running' | 'complete' | 'failed' | 'unknown';
