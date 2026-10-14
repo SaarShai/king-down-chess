@@ -4,7 +4,7 @@ import { POOL_2BEASTS } from '../rules/setup';
 import { ALL_POWERS } from '../sim/tournament-plan';
 import { baseDocument, studyOf, type StudyDocument } from './browser-service';
 import type { StudyClient } from './client';
-import type { SavedMeasurementPlan } from './evidence';
+import { researchStatus, type SavedMeasurementPlan } from './evidence';
 import type { MeasurementRequest } from './measurement-plan';
 import type { MeasurementPlanResult } from './measurement-service';
 
@@ -155,6 +155,8 @@ export function mountMeasurementForm(body: HTMLElement, options: Options): () =>
   form.addEventListener('submit', event => { event.preventDefault(); void makePreview(); });
   function dispose() { active = false; generation++; body.setAttribute('aria-busy', 'false'); }
   recipeInputs(); pool.parentElement!.hidden = preset.value !== 'custom'; sync();
-  if (existing) void makePreview(true);
+  if (existing && options.document.schema === 'kingdown-research/1' && researchStatus(options.document).plan === 'stale') {
+    status.textContent = 'Study changed. Preview a new plan for this version.';
+  } else if (existing) void makePreview(true);
   return dispose;
 }
