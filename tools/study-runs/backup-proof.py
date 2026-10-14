@@ -36,7 +36,7 @@ def verify():
     with tempfile.TemporaryDirectory(prefix='study-run-verify-',dir=ROOT/'work') as temp:
         stage=Path(temp)
         for name,meta in receipt['snapshot_files'].items():
-            if name not in ('manifest.json','sources.json.gz'):raise RuntimeError('Unknown snapshot metadata file')
+            if name not in ('manifest.json','sources.json.gz','._manifest.json','._sources.json.gz'):raise RuntimeError('Unknown snapshot metadata file')
             cloud_file(receipt['remote']+'/'+name,stage/name)
             if digest(stage/name,'md5')!=(meta['md5'],meta['bytes']):raise RuntimeError('Downloaded snapshot metadata differs: '+name)
         if digest(stage/'manifest.json','md5')[0]!=receipt['manifest_md5']:raise RuntimeError('Manifest receipt differs')

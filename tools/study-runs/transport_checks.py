@@ -61,6 +61,21 @@ with tempfile.TemporaryDirectory() as tmp:
     with patch.object(backup,'cloud_file',fake_cloud):
         for codec in ('plain','gzip','tar-gzip'):
             fixture(codec);backup.verify();assert json.loads((state/'verified-final.json').read_text())['pass']
+        # ExFAT sidecars are snapshot metadata and need the same byte proof.
+        fixture('plain')
+        receipt=json.loads((state/'receipt-at-completion.json').read_text())
+        for name in ('._manifest.json','._sources.json.gz'):
+            data=('sidecar '+name).encode();(cloud/name).write_bytes(data)
+            receipt['snapshot_files'][name]=dict(md5=hashlib.md5(data).hexdigest(),bytes=len(data))
+        (state/'receipt-at-completion.json').write_text(json.dumps(receipt))
+        backup.verify()
+        for name in ('._manifest.json','._sources.json.gz'):
+            saved=(cloud/name).read_bytes();(cloud/name).write_bytes(b'corrupt sidecar')
+            fails(backup.verify);(cloud/name).write_bytes(saved)
+        for name in ('unknown.json','../manifest.json','nested/._manifest.json','._unknown.json'):
+            changed=dict(receipt,snapshot_files=dict(receipt['snapshot_files']))
+            changed['snapshot_files'][name]=dict(md5='0'*32,bytes=0)
+            (state/'receipt-at-completion.json').write_text(json.dumps(changed));fails(backup.verify)
         fixture('gzip');(cloud/'object').write_bytes(b'corrupt');fails(backup.verify)
         original=payload;payload=b'forged games!\n';fixture('gzip');fails(backup.verify);payload=original
         fixture('plain');(cloud/'object').unlink();fails(backup.verify)
