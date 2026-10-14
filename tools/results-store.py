@@ -71,15 +71,28 @@ def merge(root, source, label, old_drive=False):
     return records
 
 def m1_sources(stage):
-    ssh=['ssh','-o','BatchMode=yes','-o','ConnectTimeout=8','M1']
-    identity=run(ssh+['printf "%s\\n" "$USER"; scutil --get LocalHostName; sysctl -n hw.model; ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub']).splitlines()
-    if identity[:3]!=M1_ID[:3] or M1_ID[3] not in identity[3]:raise RuntimeError('M1 identity mismatch')
-    paths=run(ssh+['find ~/projects -name node_modules -prune -o -path "*/sim/out" -type d -print -prune']).splitlines()
+    ssh=['ssh','-o','BatchMode=yes','-o','ConnectTimeout=8','-o','ServerAliveInterval=15','-o','ServerAliveCountMax=3']
+    def retry(args):
+        for attempt in range(3):
+            try:return run(args)
+            except subprocess.CalledProcessError as error:
+                if attempt==2:raise
+                print('Retry M1 transfer after exit '+str(error.returncode),flush=True)
+                time.sleep(2*(attempt+1))
+    identity=retry(ssh+['M1','printf "%s\\n" "$USER"; scutil --get LocalHostName; sysctl -n hw.model; ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub']).splitlines()
+    if len(identity)!=4 or identity[:3]!=M1_ID[:3] or M1_ID[3] not in identity[3]:raise RuntimeError('M1 identity mismatch')
+    paths=retry(ssh+['M1','find ~/projects -name node_modules -prune -o -path "*/sim/out" -type d -print -prune']).splitlines()
+    errors=[]
     for i,path in enumerate(paths):
         if not path.startswith('/Users/new/projects/') or not path.endswith('/sim/out'):raise RuntimeError('Unexpected M1 source')
         local=stage/str(i);local.mkdir()
-        subprocess.run(['rsync','-a','--checksum','-e','ssh -o BatchMode=yes -o ConnectTimeout=8','M1:'+path+'/',str(local)+'/'],check=True)
+        try:
+            retry(['rsync','-a','--checksum','--partial','--timeout=120','--exclude=._*','-e',' '.join(ssh),'M1:'+path+'/',str(local)+'/'])
+        except subprocess.CalledProcessError as error:
+            errors.append(path+' (exit '+str(error.returncode)+')')
+            continue
         yield local,'M1:'+path
+    if errors:raise RuntimeError('M1 spools failed after 3 attempts: '+', '.join(errors))
 
 def collect(root, main, include_drive, include_m1):
     records=[]
@@ -176,11 +189,45 @@ def pack_small(root,rows,path):
             seen.add(member.name)
     if seen!=set(expected):raise RuntimeError('Incomplete small-file pack')
 
+def capture(root, destination):
+    """Capture each file's verified byte prefix; producers can keep appending."""
+    for source in sorted(root.rglob('*')):
+        if source.name=='.DS_Store' or source.name.startswith('._'):continue
+        if source.is_symlink():raise RuntimeError('Result symlink: '+str(source))
+        if not source.is_file():continue
+        if source.name.endswith('.collecting'):raise RuntimeError('Incomplete result: '+str(source))
+        target=destination/source.relative_to(root);target.parent.mkdir(parents=True,exist_ok=True)
+        for attempt in range(3):
+            before=source.stat();remaining=before.st_size;copied=hashlib.sha256()
+            with source.open('rb') as src,target.open('wb') as dst:
+                while remaining:
+                    chunk=src.read(min(8*1024*1024,remaining))
+                    if not chunk:break
+                    dst.write(chunk);copied.update(chunk);remaining-=len(chunk)
+            check=hashlib.sha256();left=before.st_size
+            with source.open('rb') as src:
+                while left:
+                    chunk=src.read(min(8*1024*1024,left))
+                    if not chunk:break
+                    check.update(chunk);left-=len(chunk)
+            after=source.stat()
+            if not remaining and not left and before.st_ino==after.st_ino and after.st_size>=before.st_size and copied.digest()==check.digest():
+                os.utime(target,ns=(before.st_atime_ns,before.st_mtime_ns));break
+        else:raise RuntimeError('Result repeatedly changed while capturing: '+str(source))
+
 def backup(root,provenance=None,seed_old=False):
     state=root.parent/'state';state.mkdir(exist_ok=True)
     if provenance is None:
         manifests=sorted(state.glob('sources-*.json'))
         if manifests:provenance=manifests[-1]
+    with tempfile.TemporaryDirectory(prefix='kingdown-capture-') as temp:
+        snapshot=Path(temp)/'results';snapshot.mkdir()
+        capture(root,snapshot)
+        if provenance:
+            frozen=Path(temp)/'sources.json';shutil.copyfile(provenance,frozen);provenance=frozen
+        return backup_snapshot(snapshot,state,provenance,seed_old)
+
+def backup_snapshot(root,state,provenance=None,seed_old=False):
     files=[p for p in sorted(root.rglob('*')) if p.is_file()];tree=[]
     for p in files:
         if p.is_symlink() or p.name.endswith('.collecting'):raise RuntimeError('Incomplete result: '+str(p))
