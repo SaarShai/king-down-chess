@@ -1,0 +1,19 @@
+.measurement-form{font-family:'Alegreya Sans',sans-serif;font-size:17px;color:var(--ink)}
+.measurement-form p{margin:0 0 14px;line-height:1.4}
+.measurement-form .measurement-note{font-size:15px;color:var(--ink-soft)}
+.measurement-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin:18px 0}
+.measurement-fields label{display:grid;gap:6px;min-width:0}
+.measurement-fields .measurement-wide{grid-column:1/-1}
+.measurement-form input,.measurement-form select,.measurement-form button{font:inherit;min-height:44px;box-sizing:border-box}
+.measurement-form input,.measurement-form select{width:100%;padding:9px;border:1px solid var(--stone-500);border-radius:5px;background:#fffdf8;color:var(--ink)}
+.measurement-form button{padding:9px 16px;border:1px solid var(--stone-500);border-radius:6px;background:var(--parchment);color:var(--ink);cursor:pointer}
+.measurement-form button.primary{background:var(--accent);border-color:var(--accent);color:var(--vellum)}
+.measurement-form button:disabled{opacity:.55;cursor:default}
+.measurement-form details{margin:20px 0}.measurement-form summary{cursor:pointer;min-height:32px}
+.measurement-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+.measurement-cost{padding:18px;border:1px solid var(--stone-300);border-radius:6px;margin:18px 0;background:var(--parchment)}
+.measurement-cost strong{font-size:24px}
+.measurement-preview dl{display:grid;grid-template-columns:1fr 1fr;gap:9px 18px;margin:16px 0}.measurement-preview dt{color:var(--ink-soft)}.measurement-preview dd{margin:0;overflow-wrap:anywhere}
+.measurement-preview pre{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:340px;overflow:auto}
+.measurement-form [hidden]{display:none}
+@media(max-width:600px){.measurement-fields{gap:14px}.measurement-actions button{flex:1}.measurement-cost strong{font-size:22px}.measurement-preview dl{font-size:16px}}
