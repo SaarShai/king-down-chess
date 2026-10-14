@@ -287,6 +287,10 @@ describe('runner (end to end)', () => {
     expect([...checkResume(spec, jobs, file).keys()]).toEqual([0, 1]);
     const deeper: RunSpec = { ...spec, ai: { depth: 2 } };
     expect(() => checkResume(deeper, buildJobs(deeper), file)).toThrow(/seed, arrangements, search settings/);
+    for (const policy of [{ powerHold: { Flight: 0 } }, { powerHoldSides: [{ Flight: 0 }, {}] }]) {
+      const changed = { ...spec, ...policy } as RunSpec;
+      expect(() => checkResume(changed, buildJobs(changed), file)).toThrow(/seed, arrangements, search settings/);
+    }
     writeFileSync(file, jobs.map(j => line(j, { src: 'deadbeef' })).join('\n') + '\n');
     expect(() => checkResume(spec, jobs, file)).toThrow(/played by source/);
 

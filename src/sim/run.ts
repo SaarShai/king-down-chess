@@ -21,7 +21,7 @@ import { sourceId, specKey } from './identity';
  * `rulesKey` stays as the cheap comparison. `specKey` covers seed, pool, search/evaluation settings
  * and the eval-parameter files by content; `src` covers the engine code itself.
  */
-export interface Stamp { rules: Rules; rulesKey: string; pool: string; specKey: string; src: string }
+export interface Stamp { rules: Rules; rulesKey: string; pool: string; specKey: string; specKeyVersion?: number; src: string }
 
 /**
  * The rules and pool a run plays under. `rulesKey` hashes the *whole* rule set, not the diff.
@@ -44,6 +44,7 @@ export function stampOf(spec: RunSpec): Stamp {
     rulesKey: createHash('sha1').update(JSON.stringify(keyed)).digest('hex').slice(0, 8),
     pool: (Array.isArray(spec.backRanks) ? undefined : spec.backRanks?.pool) ?? POOL,
     specKey: specKey(spec),
+    specKeyVersion: 2,
     src: sourceId(),
   };
 }
@@ -101,7 +102,7 @@ export function readRun(file: string): RunScan {
       stamped++;
       const s: Stamp = {
         rules: (rec.rules ?? {}) as Rules, rulesKey: rec.rulesKey, pool: rec.pool ?? '',
-        specKey: rec.specKey ?? '', src: rec.src ?? '',
+        specKey: rec.specKey ?? '', specKeyVersion: rec.specKeyVersion, src: rec.src ?? '',
       };
       if (!stamp) stamp = s;
       keys.add(s.specKey || s.rulesKey);

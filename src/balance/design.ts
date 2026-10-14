@@ -2,6 +2,8 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { ALL_CARDS, BUILT, DEFAULT_RULES, KINGS, POWERS_BALANCED, RULES_2017, RULES_2021 } from '../rules/rules';
+import { POOL } from '../rules/setup';
+import { VALUES } from '../ai/eval';
 import type { Rules } from '../rules/rules';
 import { DIMENSIONS, RULE_DIMENSIONS, validateElement } from './schema';
 import type { Approval, DesignElement, EffectDimensions, PieceDimensions } from './schema';
@@ -37,7 +39,7 @@ export interface RecordedVersion {
 }
 const SHARED = { conditions: [], isCondition: 'no', shackled: 'no', promotion: 'no', fromMove: null } as const;
 const EFFECT: EffectDimensions = { ...SHARED, source: 'card', type: 'specialMove', rarity: 'common', uses: 1, turnCost: 'move', captures: 'never', targets: 'own', excludedTargets: ['king'], duration: 'instant', excludedResults: [], resultTypes: [], secondCapture: 'same', stopOnCapture: 'no', targetKind: 'piece' };
-const PIECE: PieceDimensions = { ...SHARED, movement: 'step1', shotPattern: null, capturePattern: 'same', hop: 'none', shield: 'none', handicap: 'none', control: [], trigger: [], zone: [] };
+const PIECE: PieceDimensions = { ...SHARED, deployment: 'setup', movement: 'step1', shotPattern: null, capturePattern: 'same', hop: 'none', shield: 'none', handicap: 'none', control: [], trigger: [], zone: [] };
 const PIECE_RULE_FLAGS: Readonly<Record<string, readonly (keyof Rules)[]>> = {
   P: ['promotionSet', 'pawnCapitalCapture'], N: [], B: [], R: [], Q: [], K: [],
   A: ['archerChecks', 'archerMove', 'archerShots'],
@@ -62,6 +64,14 @@ function effectRecord(name: string, kind: 'kingPower' | 'card', dimensions: Part
     shipped: kind === 'kingPower', tested: false, sources: ['docs/RULES.md §4–5', 'docs/MATRIX.md C.2'],
     dimensions: { ...EFFECT, ...dimensions, ...(name === 'RageB' ? { secondCapture: 'must' as const } : {}), ...(name.startsWith('Spawn') ? { targetKind: 'emptySquare' as const } : name.startsWith('Growth') ? { targetKind: 'pile' as const } : name === 'Rescue' ? { targetKind: 'mark' as const } : name.startsWith('Mirror') ? { targetKind: 'card' as const } : {}), ...precise, source: kind, uses: kind === 'card' ? 1 : dimensions.uses ?? null }, rules: kind === 'kingPower' ? { ...POWERS_BALANCED } : {} };
 }
+
+/** Original step version from the archived reserve study, not a current engine piece. */
+const ARCHIVED_SQUIRE: DesignElement = {
+  id: 'piece:E:archived-step', name: 'Squire', version: 'Base', kind: 'piece', letter: 'E',
+  approval: 'dropped', shipped: false, tested: true,
+  sources: ['docs/MATRIX.md A.3', 'docs/research/squire-drop-2026-09-24.md', 'docs/research/squire-depth3-2026-09-24.md', 'docs/research/squire-where-2026-09-24.md'],
+  dimensions: { ...PIECE, deployment: 'reserveOnceAnyEmptySquare' }, rules: {},
+};
 
 export const SHIPPED_ELEMENTS: readonly DesignElement[] = [
   pieceRecord('Pawn', 'P', { movement: 'pawn', capturePattern: 'pawn', conditions: ['zone'], promotion: 'yes', trigger: ['promoteLastRank'], zone: ['pawnRank', 'lastRank'] }),
@@ -106,8 +116,8 @@ export const SHIPPED_ELEMENTS: readonly DesignElement[] = [
   effectRecord("Salvation", 'card', {"type":"arrival","conditions":["pieceLost","zone"],"excludedTargets":["king","pawn","guard"]}),
   effectRecord("Rage", 'card', {"type":"extraMove","rarity":"legendary","turnCost":"extraMove","captures":"may","excludedTargets":[]}),
   effectRecord("RageB", 'card', {"type":"extraMove","turnCost":"extraMove","captures":"may","excludedTargets":[],"conditions":["capture"]}),
-  effectRecord("Mirror", 'card', {"type":"copy","turnCost":null,"captures":null,"targets":null,"duration":null,"conditions":["cardPlayed"]}),
-  effectRecord("MirrorB", 'card', {"type":"copy","turnCost":null,"captures":null,"targets":null,"duration":null,"conditions":["cardPlayed"]}),
+  effectRecord("Mirror", 'card', {"type":"copy","turnCost":"inherited","captures":"inherited","targets":"inherited","duration":"inherited","conditions":["cardPlayed"]}),
+  effectRecord("MirrorB", 'card', {"type":"copy","turnCost":"inherited","captures":"inherited","targets":"inherited","duration":"inherited","conditions":["cardPlayed"]}),
   effectRecord("Firewall", 'card', {"type":"mark","turnCost":"freeThenMove","excludedTargets":[],"duration":"opponentNextTurn"}),
   effectRecord("FirewallB", 'card', {"targets":"either","conditions":["tagTeam"]}),
   effectRecord("EarthQuake", 'card', {"targets":"either"}),
@@ -115,7 +125,7 @@ export const SHIPPED_ELEMENTS: readonly DesignElement[] = [
   effectRecord("Burn", 'card', {"captures":"must","excludedTargets":["king","pawn"],"conditions":["zone"]}),
   effectRecord("FireStarter", 'card', {"captures":"must","excludedTargets":["king","pawn"],"conditions":["zone"]}),
   effectRecord("Control", 'card', {"captures":"may","excludedTargets":["king","pawn","ownType"],"conditions":["tagTeam"]}),
-  effectRecord("Rescue", 'card', {"type":"mark","turnCost":"freeThenMove","duration":"opponentNextTurn","conditions":["ownLastMark"]}),
+  effectRecord("Rescue", 'card', {"type":"mark","turnCost":"freeThenMove","duration":"renewOpponentTurn","conditions":["ownLastMark"]}),
   effectRecord("Growth", 'card', {"type":"draw"}),
   effectRecord("GrowthB", 'card', {"type":"draw","turnCost":"freeThenMove"}),
   effectRecord("Rally", 'card', {"type":"extraMove","turnCost":"extraMove","excludedTargets":[]}),
@@ -283,7 +293,6 @@ export function documentSections(text: string): Map<string, string> {
 }
 function sha(text: string): string { return createHash('sha256').update(text).digest('hex'); }
 const equal = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
-/** Drift and misfit codes are errors, so a strict check's exit 1 means a source changed; the recorded source gaps are warnings. */
 export const DRIFT_CODE = /DRIFT|SECTION_(ADDED|REMOVED)|RULE_NOT_IN_SCHEMA|RULE_CHOICE_ADDED|ELEMENT_DOES_NOT_FIT/;
 function issue(code: string, source: string, message: string, approval: Approval = 'unresolved', severity: Finding['severity'] = DRIFT_CODE.test(code) ? 'error' : 'warning'): Finding {
   return { code, source, message, approval, severity };
@@ -415,9 +424,9 @@ function mapVersion(record: RecordedVersion): DesignElement | null {
   let rules: Partial<Rules> = {};
   let unmapped: Record<string, string> | undefined;
   if (sheet === 'Rules') base = GLOBAL_RECORDS[name];
-  else if (name === 'Card mode') base = globalRecord(name, 'handSize', 6);
+  else if (name === 'Card mode') base = globalRecord(name, 'handSize', 4);
   else if (sheet === 'Pieces') {
-    base = SHIPPED_ELEMENTS.find(e => e.kind === 'piece' && e.name === name);
+    base = name === 'Squire' && version === 'Base' ? ARCHIVED_SQUIRE : SHIPPED_ELEMENTS.find(e => e.kind === 'piece' && e.name === name);
     if (name === 'Archer') {
       if (version === 'Far2' || version === 'Over2' || version === 'Over23') {
         const pattern = version.toLowerCase() as 'far2' | 'over2' | 'over23';
@@ -456,30 +465,36 @@ function mapVersion(record: RecordedVersion): DesignElement | null {
   }
   if (!base) return null;
   const approval = statusApproval(status);
-  const tested = /(?:\d(?:[.,]\d+)?\s*(?:%|±|pawns?|Elo)|measured|depth [34])/i.test(notes);
+  const tested = (name === 'Squire' && base.tested) || /(?:\d(?:[.,]\d+)?\s*(?:%|±|pawns?|Elo)|measured|depth [34])/i.test(notes);
   const shipped = sheet === 'Pieces'
     ? (version === 'Base' && base.shipped) || (name === 'Archer' && version === 'Far2') || (name === 'Guard' && ['Starts next to the king', 'Morph questions'].includes(version))
     : name === 'Death Touch' ? version === 'T2 (no sideways reach)' : base.shipped && ['Base', 'As released'].includes(version);
-  const result: DesignElement = { ...base, id, version, approval, shipped, tested, sources: [`workbook:${sheet}!${cell}`, record.source], ...(unmapped ? { unmapped } : {}) };
+  const result: DesignElement = { ...base, id, version, approval, shipped, tested, sources: [`workbook:${sheet}!${cell}`, record.source, ...(name === 'Squire' ? base.sources : [])], ...(unmapped ? { unmapped } : {}) };
   if ('rules' in result) result.rules = { ...('rules' in base ? base.rules : {}), ...rules };
   return result;
 }
+
+const PRICE_PIN = 'a551c975ff29d1ef052c8d0292eda0f9c2720b59ee7fb662984b26c4af035965';
 
 export interface AuditInput {
   matrixDoc: string;
   rulesDoc: string;
   rulesSource: string;
   workbook?: Workbook;
+  pool?: string;
+  prices?: Record<number, number>;
   defaults?: Readonly<Rules>;
   balanced?: Readonly<Partial<Rules>>;
 }
 export function auditDesign(input: AuditInput): Finding[] {
   const findings: Finding[] = [];
+  if ((input.pool ?? POOL) !== 'QOLRRBBNNAAGMMS') findings.push(issue('POOL_DRIFT', 'src/rules/setup.ts', 'Review the pool change before changing the target.', 'approved'));
+  if (sha(JSON.stringify(input.prices ?? VALUES)) !== PRICE_PIN) findings.push(issue('PRICE_DRIFT', 'src/ai/eval.ts VALUES', 'Review the evaluation prices before changing the target.', 'approved'));
   for (const [path, text] of [['docs/MATRIX.md', input.matrixDoc], ['docs/RULES.md', input.rulesDoc]] as const) {
     const actual = documentSections(text), expected = DOCUMENT_PINS[path];
     for (const [heading, pin] of Object.entries(expected)) {
       if (!actual.has(heading)) findings.push(issue('DOCUMENT_SECTION_REMOVED', `${path}: ${heading}`, 'A reviewed section is absent. Review its schema and records.'));
-      else if (sha(actual.get(heading)!) !== pin) findings.push(issue('DOCUMENT_DRIFT', `${path}: ${heading}`, `The recorded section changed; its sha256 is now ${sha(actual.get(heading)!)}. Review its dimensions, readings and approval, then change its pin in src/balance/design.ts.`));
+      else if (sha(actual.get(heading)!) !== pin) findings.push(issue('DOCUMENT_DRIFT', `${path}: ${heading}`, 'The recorded section changes. Review its dimensions, readings and approval before changing its pin.'));
     }
     for (const heading of actual.keys()) if (!(heading in expected)) findings.push(issue('DOCUMENT_SECTION_ADDED', `${path}: ${heading}`, 'A new section has no reviewed schema record.'));
   }
@@ -500,7 +515,7 @@ export function auditDesign(input: AuditInput): Finding[] {
   if (!equal(input.balanced ?? POWERS_BALANCED, BALANCED_READING)) findings.push(issue('BALANCED_READING_DRIFT', 'src/rules/rules.ts: POWERS_BALANCED', 'The official power readings change. Review the typed records and the rule documents.', 'approved'));
   const c1 = matrixTable(input.matrixDoc, '### C.1');
   const properties = c1.slice(1).map(row => row[0]);
-  const expectedProperties = ['Source', 'Type', 'Rarity', 'Uses', 'Turn cost', 'Captures', 'Targets', 'Duration', 'Has a condition', 'Is a condition', 'Shackled', 'Promotion', 'fromMove'];
+  const expectedProperties = ['Source', 'Type', 'Rarity', 'Uses', 'Turn cost', 'Captures', 'Targets', 'Target kind', 'Excluded targets', 'Excluded results', 'Result types', 'Second capture', 'Stop on capture', 'Duration', 'Has a condition', 'Is a condition', 'Shackled', 'Promotion', 'fromMove'];
   if (!equal(properties, expectedProperties)) findings.push(issue('MATRIX_DIMENSIONS_DRIFT', 'docs/MATRIX.md C.1', `Expected ${expectedProperties.join(', ')}; got ${properties.join(', ')}.`));
   const c2 = matrixTable(input.matrixDoc, '### C.2');
   const names = new Set(c2.slice(1).map(row => canonical(row[0])));
@@ -514,30 +529,40 @@ export function auditDesign(input: AuditInput): Finding[] {
       if (!record.element) findings.push(issue('VERSION_NOT_MAPPED', source, `${record.name}, ${record.version}: the workbook has no complete typed mapping. ${record.text}`, statusApproval(record.status)));
       else {
         for (const message of validateElement(record.element)) findings.push(issue('VERSION_DOES_NOT_FIT', source, message, record.element.approval));
-        if (record.element.kind === 'piece' && ['over2', 'over23'].includes(record.element.dimensions.shotPattern ?? '')) findings.push(issue('VERSION_ABSENT_FROM_MATRIX', `${source}; docs/MATRIX.md A.0–1; src/rules/rules.ts ArcherShots`, `${record.version} has no matrix reading. ${record.element.dimensions.shotPattern === 'over23' ? 'It also has no current code rule choice; its source is claude/archer-reach:rules.ts.' : 'It is a current code lab choice.'}`, record.element.approval));
+        if (record.element.kind === 'piece' && ['over2', 'over23'].includes(record.element.dimensions.shotPattern ?? '') && !new RegExp(`\\b${record.element.dimensions.shotPattern}\\b`).test(documentSections(input.matrixDoc).get('### A.0 Basic patterns (context for the grid below)') ?? '')) findings.push(issue('VERSION_ABSENT_FROM_MATRIX', `${source}; docs/MATRIX.md A.0–1; src/rules/rules.ts ArcherShots`, `${record.version} has no matrix reading. ${record.element.dimensions.shotPattern === 'over23' ? 'It also has no current code rule choice; its source is claude/archer-reach:rules.ts.' : 'It is a current code lab choice.'}`, record.element.approval));
       }
     }
     const cellText = (sheet: string, cell: string): string => String(input.workbook!.sheets.find(s => s.name === sheet)?.cells.find(c => c.cell === cell)?.value ?? '');
+    if (!cellText('Rules', 'C2').includes(POOL)) findings.push(issue('WORKBOOK_POOL_CONFLICT', 'workbook:Rules!C2', 'The approved pool must match the current pool, including Paladin.', 'approved'));
     if (/six/i.test(cellText('Rules', 'C18')) || /six/i.test(cellText('Cards', 'E2'))) findings.push(issue('WORKBOOK_HAND_SIZE_CONFLICT', 'owner prompt; workbook:Rules!C18; workbook:Cards!E2', 'The owner selects four cards (docs/QUEUE.md deal-c4k). The workbook still states six. Code hands stays variable; card mode stays in the lab.', 'approved'));
-    if (/never has two beasts/i.test(cellText('Rules', 'C5'))) findings.push(issue('WORKBOOK_BEAST_LIMIT_CONFLICT', 'workbook:Rules!C5; workbook:Pieces!N9; docs/MATRIX.md C.2 Morph', 'Rules says never two Beasts. The later owner note allows a second Beast through Morph and then Salvation or Sacrifice.', 'approved'));
+    if (/never has two beasts/i.test(cellText('Rules', 'C5'))) findings.push(issue('WORKBOOK_BEAST_LIMIT_CONFLICT', 'workbook:Rules!C5; workbook:Pieces!N9; docs/MATRIX.md C.2 Morph', 'The starting army has at most one Beast. Morph cannot create a Beast while that side has one. Salvation or Sacrifice may return a captured Beast even if that gives the side a second Beast.', 'approved'));
   }
   return findings;
 }
 
 function knownSourceGaps(input: AuditInput): Finding[] {
   const findings: Finding[] = [];
-  if (input.matrixDoc.includes('The other six\npowers and every card remain')) findings.push(issue('STALE_MATRIX_STATUS', 'docs/MATRIX.md: Status 2026-09-16; C.2', 'The introduction says six powers and every card are not built. C.2 and the source show they are built.', 'approved'));
-  if (input.rulesDoc.includes("Kings' powers in §4 are optional lab rules")) findings.push(issue('STALE_RULES_STATUS', 'docs/RULES.md: introduction; §4', 'The introduction labels powers as lab rules. Section 4 records the official shipped mode.', 'approved'));
-  if (input.matrixDoc.includes('The random pool is `QORRBBNNAAGMMS`')) findings.push(issue('STALE_MATRIX_POOL', 'docs/MATRIX.md A.3; docs/RULES.md §2; src/rules/setup.ts POOL', 'A.3 lists the old pool without the Paladin. The current pool is QOLRRBBNNAAGMMS.', 'approved'));
-  findings.push(issue('MATRIX_MORPH_READING_GAP', 'docs/MATRIX.md C.2 Morph; docs/RULES.md §6 decisions 23, 25; src/rules/engine.ts MORPH_TYPES', 'The matrix result list omits Paladin and the second-Guard limit. The current code includes both.', 'lab'));
-  findings.push(issue('MATRIX_CONDITION_GAP', 'docs/MATRIX.md C.1 Has a condition; D.1', 'C.1 omits piece lost, material behind and own last mark. D.1 uses them. The typed condition axis retains all three.', 'lab'));
-  findings.push(issue('MATRIX_NULL_TURN_COST_GAP', 'docs/MATRIX.md C.1 Turn cost; C.2 Holy Light, Mercy, Death Touch, Darkness', 'Always-on powers have no turn cost. C.1 does not list this value.', 'approved'));
-  findings.push(issue('MATRIX_COPY_GAP', 'docs/MATRIX.md C.1; C.2 Mirror, MirrorB', 'The copy rows inherit turn cost, captures, targets and duration. The corresponding C.1 axes do not allow inherited values.', 'lab'));
-  findings.push(issue('MATRIX_CAPTURE_STAGE_GAP', 'docs/MATRIX.md C.1 Captures; C.2 RageB', 'One may/must/never value cannot express may on the first move and must on the second.', 'lab'));
-  findings.push(issue('MATRIX_TARGET_DOMAIN_GAP', 'docs/MATRIX.md C.1 Targets; C.2 Growth, Rescue, Spawn', 'The own/enemy/either axis does not state target kinds: pile, prior mark and empty square.', 'lab'));
-  findings.push(issue('MATRIX_DURATION_GAP', 'docs/MATRIX.md C.1 Duration; C.2 Rescue', 'Rescue renews an earlier mark for one more turn. Instant/next-turn/always does not express renewal.', 'lab'));
-  findings.push(issue('FLIGHT_ABILITY_CONFLICT', 'docs/MATRIX.md A.1 1b; C.2 Flight; RULES.md §4 Flight', 'A.1 calls Flight arriving. C.2 correctly says it moves an existing piece. The effect record keeps specialMove.', 'approved'));
-  findings.push(issue('KING_MOVEMENT_RULE_CONFLICT', 'docs/RULES.md §4; docs/MATRIX.md C.2 March, Darkness', 'The rule says no king power changes how other pieces move. March and Darkness change pawn movement. An owner decision must resolve the rule scope.', 'approved'));
+  const properties = new Map(matrixTable(input.matrixDoc, '### C.1').slice(1).map(row => [row[0], row[1] ?? '']));
+  const effects = new Map(matrixTable(input.matrixDoc, '### C.2').slice(1).map(row => [canonical(row[0]), row]));
+  const has = (property: string, words: readonly string[]): boolean => words.every(word => (properties.get(property) ?? '').includes(word));
+  const gap = (missing: boolean, code: string, source: string, message: string, approval: Approval = 'lab'): void => {
+    if (missing) findings.push(issue(code, source, message, approval));
+  };
+  gap(input.matrixDoc.includes('The other six\npowers and every card remain'), 'STALE_MATRIX_STATUS', 'docs/MATRIX.md: introduction; C.2', 'The introduction says six powers and every card are not built. C.2 and the source show they are built.', 'approved');
+  gap(input.rulesDoc.includes("Kings' powers in §4 are optional lab rules"), 'STALE_RULES_STATUS', 'docs/RULES.md: introduction; §4', 'The introduction labels powers as lab rules. Section 4 records the official shipped mode.', 'approved');
+  gap(input.matrixDoc.includes('The random pool is `QORRBBNNAAGMMS`'), 'STALE_MATRIX_POOL', 'docs/MATRIX.md A.3; docs/RULES.md §2; src/rules/setup.ts POOL', 'A.3 lists the old pool without the Paladin. The current pool is QOLRRBBNNAAGMMS.', 'approved');
+  const morph = effects.get('Morph')?.[6] ?? '';
+  gap(!/paladin/i.test(morph) || !/second Guard/.test(morph), 'MATRIX_MORPH_READING_GAP', 'docs/MATRIX.md C.2 Morph; docs/RULES.md §6 decisions 23, 25; src/rules/engine.ts MORPH_TYPES', 'The matrix result list omits Paladin or the second-Guard limit. The current code includes both.');
+  gap(!has('Has a condition', ['a piece lost', 'material behind', 'own last mark']), 'MATRIX_CONDITION_GAP', 'docs/MATRIX.md C.1 Has a condition; D.1', 'The condition axis must include piece lost, material behind and own last mark.');
+  gap(!has('Turn cost', ['none (always-on)']), 'MATRIX_NULL_TURN_COST_GAP', 'docs/MATRIX.md C.1 Turn cost; C.2 Holy Light, Mercy, Death Touch, Darkness', 'Always-on powers have no turn cost. C.1 must list this value.', 'approved');
+  gap(!['Turn cost', 'Captures', 'Targets', 'Duration'].every(property => has(property, ['inherited from the copied card'])), 'MATRIX_COPY_GAP', 'docs/MATRIX.md C.1; C.2 Mirror, MirrorB', 'The copy rows inherit turn cost, captures, targets and duration. Each axis must allow inherited values.');
+  gap(!has('Second capture', ['same as Captures', 'may', 'must', 'never']), 'MATRIX_CAPTURE_STAGE_GAP', 'docs/MATRIX.md C.1 Second capture; C.2 RageB', 'A separate second-capture axis must express may on the first move and must on the second.');
+  gap(!has('Target kind', ['pile', 'prior mark', 'empty square']), 'MATRIX_TARGET_DOMAIN_GAP', 'docs/MATRIX.md C.1 Target kind; C.2 Growth, Rescue, Spawn', 'Target kinds must include pile, prior mark and empty square.');
+  gap(!has('Duration', ['renew an earlier mark for one more opponent turn']), 'MATRIX_DURATION_GAP', 'docs/MATRIX.md C.1 Duration; C.2 Rescue', 'Rescue renews an earlier mark for one more turn. The duration axis must state renewal.');
+  const flight = matrixTable(input.matrixDoc, '### A.1').find(row => row.some(cell => /Flight/.test(cell)));
+  gap(!!flight && /Arriving|Arrival/i.test(flight[0]), 'FLIGHT_ABILITY_CONFLICT', 'docs/MATRIX.md A.1 1b; C.2 Flight; docs/RULES.md §4 Flight', 'Flight moves an existing piece. Its ability row must say special move, not arrival.', 'approved');
+  gap(/No king-power reading changes how other pieces move/.test(input.rulesDoc)
+    && ['March', 'Darkness'].some(name => /pawn/i.test(effects.get(name)?.[2] ?? '')), 'KING_MOVEMENT_RULE_CONFLICT', 'docs/RULES.md §4; docs/MATRIX.md C.2 March, Darkness', 'The blanket rule conflicts with approved March and Darkness effects. The approved limit applies to new movement changes when adjusting a king power for balance. Keep existing approved effects.', 'approved');
   return findings;
 }
 

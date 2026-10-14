@@ -37,6 +37,17 @@ describe('design schema', () => {
     expect(morph.dimensions.resultTypes).toContain('L');
     expect(morph.dimensions.excludedResults).toContain('secondGuard');
   });
+  it('records copied values and mark renewal without null placeholders', () => {
+    for (const name of ['Mirror', 'MirrorB']) {
+      const e = SHIPPED_ELEMENTS.find(e => e.kind === 'card' && e.name === name)!;
+      expect(e.dimensions).toMatchObject({ turnCost: 'inherited', captures: 'inherited', targets: 'inherited', duration: 'inherited', targetKind: 'card' });
+      const wrong = structuredClone(e);
+      if (wrong.kind !== 'card') throw new Error('missing copy card');
+      wrong.dimensions.duration = 'instant';
+      expect(validateElement(wrong)).toContain(`${wrong.id}: duration inherits only for a copy effect`);
+    }
+    expect(SHIPPED_ELEMENTS.find(e => e.kind === 'card' && e.name === 'Rescue')?.dimensions).toMatchObject({ duration: 'renewOpponentTurn', targetKind: 'mark' });
+  });
   it('rejects unknown values, dimensions and incomplete records', () => {
     const e = piece();
     const d = e.dimensions as unknown as Record<string, unknown>;
@@ -174,7 +185,7 @@ describe('recorded versions', () => {
     }
   });
   it('reports a missing mapping and leaves unknown status unresolved', () => {
-    const w = workbook('Pieces', { A17: 'Squire', C17: 'Base', D17: 'Unknown', E17: 'No source movement text' });
+    const w = workbook('Pieces', { A17: 'Unknown piece', C17: 'Base', D17: 'Unknown', E17: 'No source movement text' });
     expect(mapWorkbookVersions(w)[0].element).toBeNull();
     const finding = auditDesign({ ...baseline, workbook: w }).find(f => f.code === 'VERSION_NOT_MAPPED')!;
     expect(finding.source).toBe('workbook:Pieces!C17');

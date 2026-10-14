@@ -62,6 +62,8 @@ export function specKey(spec: RunSpec): string {
     values: spec.values ?? null,
     baseValues: spec.baseValues ?? null,
     evalParams: pinnedEval(spec),
+    powerHold: spec.powerHold ?? null,
+    powerHoldSides: spec.powerHoldSides ?? null,
     multiPv: !!spec.multiPv,
     openingRandomPlies: spec.openingRandomPlies ?? 0,
     maxPlies: spec.maxPlies ?? 300,
