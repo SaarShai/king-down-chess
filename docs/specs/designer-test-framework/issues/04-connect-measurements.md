@@ -140,6 +140,45 @@ illegal-move controls pass. Each collected part has `validation.json`. The recei
 is `state/balance-confirm-20261014/m1-collection.json` on the card, with phase
 `m1-validated`. Remote sources remain intact.
 
-The next heartbeat is 11:45 Pacific for Kaggle. It skips the completed M1 work.
-Kaggle is not queried early. The full 1,584-game validation, separate report and
-verified backup remain pending. No balance decision is claimed yet.
+The 11:45 Pacific Kaggle check finds all three parts complete. Each downloaded
+part has exit code zero and passes the same frozen validator. The full campaign
+has 1,584 unique games, 792 complete pairs, 120 legal replays and six illegal-move
+controls. All 149 frozen source files, the archive hash, exact spec and full
+schedule pass. The M1 evidence remains valid and needs no further remote query.
+All remote sources remain intact.
+
+The separate report is `results/balance-confirm-20261014/REPORT.md` on the card.
+Its SHA-256 is
+`0fba8fbfa87c09b423c967003d4d593b9da9999e183b003eabdbe08772f4cfe6`.
+The frozen detailed report, six input hashes and raw-count cross-check sit beside
+it. A reader who did not write the report checks the raw counts, paired IDs,
+source and report hashes, intervals and matching prior context. The review finds
+no fault that needs a fix.
+
+Haste scores 61.0%, Sacrifice 59.3%, and Mercy 41.1%. Their joint 95% army
+intervals are ±8.5, ±7.6 and ±7.3 points. The joint screen flags the first two
+high and Mercy low. Haste and Sacrifice also score high in the prior round.
+Spirit minus Shadow is −4.6 points, with a pointwise army interval of
+[−9.9, +0.7]. This does not establish equality or a clear difference.
+
+The 24 capped games count as draws in those intervals. The report also gives
+separate deterministic bounds for the capped outcomes. Those bounds do not
+include sampling error. Both rounds have the same source and all spec fields
+except run ID and seed; their opening seeds do not overlap. The rounds stay
+separate. The results approve no rule change and do not measure human fun.
+
+The final backup runs through the main checkout's `tools/results-store.py backup`
+command. This uses the project backup tool without repeating M1 collection,
+which the owner excludes. It preserves the maintenance lock and all sources.
+The detached helper then downloads the snapshot metadata and each required
+cloud object. It checks decoded SHA-256 hashes and byte counts for all 223
+campaign files. The 246 omitted files are operating-system metadata, which the
+project capture tool excludes. The receipt and byte proof belong in external
+`state/balance-confirm-20261014/verified-final.json`. The next bounded check is
+12:30 Pacific. Backup verification remains pending until that proof passes.
+
+A separate reader checks the byte-proof helper and the required-file list. The
+list covers every campaign payload file. The helper checks downloaded bytes and
+cannot mark a missing or changed file as verified. It supports this new snapshot
+only; an unchanged-snapshot retry needs separate receipt handling. No retry is
+planned. The report and backup checkpoint pass all 113 documentation tests.
