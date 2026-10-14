@@ -33,4 +33,18 @@ Add `--measurements` to render the test form, plan preview and result-file
 selection at both sizes. These six renders pass the layout and resource checks.
 Images go to `/tmp/king-down-measurement-sample`. Add `--serve` to open the
 interactive sample. The numbers are examples. No control saves or runs games.
-Approval of these new controls is pending.
+The owner approves this layout. The measurement controls are built.
+
+## Browser run sample
+
+Use `--runs` to render nine run states at 1440 × 900, 390 × 844 and
+375 × 667. Images go to `/tmp/king-down-run-sample`. Add `--serve` for
+an interactive preview. This sample uses the existing board and game style.
+All counts and check evidence are examples. Controls do not launch or save.
+The renderer checks resources, errors, page overflow, sheet bounds, target
+allocations, state navigation and the approval-to-link flow. The run layout
+waits for the owner's approval.
+
+All 27 renders pass. The desktop ready view and small-phone approval view
+have a visual check. The small-phone sheet scrolls to the approval statement
+and control. The sample does not run remote commands or games.
