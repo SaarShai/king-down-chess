@@ -87,7 +87,7 @@ function makeMeasurements(bundle: FrozenRunBundle, rows: ExecutedGame[], complet
     const row = { id: `${bundle.id}:${output.length}`, run: bundle.id, element, version: bundle.commit,
       context: { ...unknownContext(), flags: stamp.rules, flagsKind: 'full', commit: bundle.commit, commitSource: 'spec', stampSource: 'row', sourceArchiveSha256: bundle.sourceArchiveSha256, sourceHash: stamp.src, specKey: stamp.specKey, specKeyVersion: 2, pool: stamp.pool, depth: spec.ai.depth, machine: bundle.target, settings: { recipe }, population: recipe === 'field' ? 'field' : 'run' },
       measure, value: complete && Number.isFinite(value) ? value : null, error: complete && Number.isFinite(error) ? error : null, errorKind: error === null ? null : method, sample, sampleUnit, unit,
-      validity: complete ? Number.isFinite(value) ? 'valid' : 'unverified' : 'incomplete', reasons: [complete ? 'Frozen jobs and replay controls pass. No rule adoption.' : 'Some frozen jobs are missing.', `Ply caps: ${rows.filter(r => r.record.reason === 'plyCap').length}.`], sources: ['games.jsonl'], method, ...extras };
+      validity: complete ? Number.isFinite(value) ? 'valid' : 'unverified' : 'incomplete', reasons: [complete ? 'Frozen jobs and replay controls pass. No rule adoption.' : 'Some frozen jobs are missing.', `Ply caps: ${rows.filter(r => r.record.reason === 'plyCap').length}.`], sources: rows.length ? [...new Set(rows.map(r => `parts/${r.partId}/games.jsonl`))] : ['validation.json'], method, ...extras };
     output.push(measurementSchema.parse(row) as Measurement);
   };
   if (!complete) { add('run', 'score', null, null, rows.length, 'games', 'fraction', 'Incomplete frozen schedule'); return output; }

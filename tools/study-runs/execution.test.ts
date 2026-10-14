@@ -51,7 +51,9 @@ describe('frozen study execution and report', () => {
     const result = await validateAndReport(bundle,[part(bundle,records(bundle))],temp());
     expect(result, result.message).toMatchObject({state:'passed',games:bundle.games,illegalControls:1,legalReplays:Math.min(20,bundle.games)});
     const bytes = readFileSync(result.result!.path); expect(result.result!.sha256).toBe(sha256(bytes));
-    expect(JSON.parse(bytes.toString()).measurements.length).toBeGreaterThan(0);
+    const exported = JSON.parse(bytes.toString()).measurements;
+    expect(exported.length).toBeGreaterThan(0);
+    expect(exported.every((m: {sources: string[]}) => m.sources.includes('parts/part-m1/games.jsonl'))).toBe(true);
   });
   it('keeps partial work incomplete and refuses changed source, jobs, stamps and raw bytes', async () => {
     const bundle=await fixture(), rows=records(bundle);
