@@ -1,0 +1,8 @@
+.study-run-panel { display: grid; gap: 14px; }
+.study-run-panel p { margin: 0; overflow-wrap: anywhere; }
+.study-run-panel label { display: grid; gap: 6px; }
+.study-run-panel button, .study-run-panel select, .study-run-panel summary { min-height: 44px; }
+.study-run-panel select { width: 100%; min-width: 0; }
+.study-run-machine, .study-run-approval { padding: 14px; border: 1px solid var(--border, #ccc); border-radius: 8px; }
+.study-run-machine p { margin-top: 8px; }
+.study-run-panel pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow: auto; }

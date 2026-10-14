@@ -7,6 +7,7 @@ import { MAX_RESULT_BYTES, type ResultCatalogue, type ResultRowPage, type Result
 
 interface PickerOptions {
   client: StudyClient;
+  initialFile?: { file: Blob; filename: string };
   document: StudyDocument;
   save: (evidence: MeasurementEvidence) => Promise<boolean>;
   close: () => void;
@@ -115,21 +116,22 @@ export function mountResultPicker(body: HTMLElement, options: PickerOptions): ()
       }
     });
   }
+  async function openFile(file: Blob, filename: string): Promise<void> {
+    if (file.size > MAX_RESULT_BYTES) throw new Error('Result file must be at most 64 MiB.');
+    const opened = await options.client.openResults(file, filename);
+    if (!active) return;
+    catalogue = opened; selected.clear(); element = ''; run = opened.runs[0]?.run ?? '';
+    runs = { total: opened.runCount, offset: 0, runs: opened.runs };
+    rows = { total: 0, offset: 0, rows: [] };
+    if (run) await loadRows(run, '');
+  }
   function change(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (!active || busy) return;
     if (input.matches('.study-result-file')) {
       const file = input.files?.[0];
       if (!file) return;
-      void perform(async () => {
-        if (file.size > MAX_RESULT_BYTES) throw new Error('Result file must be at most 64 MiB.');
-        const opened = await options.client.openResults(file, file.name);
-        if (!active) return;
-        catalogue = opened; selected.clear(); element = ''; run = opened.runs[0]?.run ?? '';
-        runs = { total: opened.runCount, offset: 0, runs: opened.runs };
-        rows = { total: 0, offset: 0, rows: [] };
-        if (run) await loadRows(run, '');
-      });
+      void perform(() => openFile(file, file.name));
     } else if (input.name === 'run' || input.name === 'element') {
       void perform(() => loadRows(input.name === 'run' ? input.value : run, input.name === 'element' ? input.value : element));
     } else if (input.dataset.resultId) {
@@ -143,5 +145,6 @@ export function mountResultPicker(body: HTMLElement, options: PickerOptions): ()
   body.addEventListener('click', click);
   body.addEventListener('change', change);
   render();
+  if (options.initialFile) void perform(() => openFile(options.initialFile!.file, options.initialFile!.filename));
   return cleanup;
 }

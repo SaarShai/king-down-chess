@@ -53,3 +53,11 @@ it('keeps the last valid catalogue when the next file fails', async () => {
   expect(p.body.innerHTML).toContain('&#60;valid&#62;.json');
   cleanup();
 });
+it('opens a verified service export without a file chooser', async () => {
+  const p = panel(), file = new Blob(['{}']);
+  const client = { openResults: vi.fn(async () => ({ token: 'valid', source: { path: 'export.json', sha256: 'a'.repeat(64) }, total: 0, runCount: 0, runs: [] })), clearResults: vi.fn(async () => {}) } as unknown as StudyClient;
+  const cleanup = mountResultPicker(p.body, { client, document: exampleStudies('test')[0], initialFile: { file, filename: 'export.json' }, save: vi.fn(), error: vi.fn(), clearError: vi.fn(), close: vi.fn() });
+  await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+  expect(client.openResults).toHaveBeenCalledWith(file, 'export.json');
+  expect(p.body.innerHTML).toContain('export.json'); cleanup();
+});
