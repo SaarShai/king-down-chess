@@ -132,6 +132,14 @@ self-check and runbook. External card state holds the deadlines. M1 starts at
 parts 3–5 once at 09:03 Pacific, with four workers each. Each part has 264 games.
 All parts use new seeds and frozen source `7035b5e` from the earlier campaign.
 
-The first checks are 10:05 Pacific for M1 and 11:45 for Kaggle. The completion
-heartbeat follows those deadlines. Collection, raw validation, reports and
-verified backup remain pending. No result or balance decision is claimed yet.
+The M1 check passes identity checks and finds all three parts complete. Collection
+finishes at 10:12 Pacific. All 15 files match the remote SHA-256 hashes and byte
+counts. The frozen validator passes source, spec, schedule, IDs, seeds and armies:
+792 unique games and 396 complete pairs. All 60 sampled legal replays and three
+illegal-move controls pass. Each collected part has `validation.json`. The receipt
+is `state/balance-confirm-20261014/m1-collection.json` on the card, with phase
+`m1-validated`. Remote sources remain intact.
+
+The next heartbeat is 11:45 Pacific for Kaggle. It skips the completed M1 work.
+Kaggle is not queried early. The full 1,584-game validation, separate report and
+verified backup remain pending. No balance decision is claimed yet.
