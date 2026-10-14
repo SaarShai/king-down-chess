@@ -18,6 +18,11 @@ def configured():
     cfg=json.loads(CONFIG.read_text());root=Path(cfg['root'])
     info=plistlib.loads(subprocess.check_output(['diskutil','info','-plist',cfg['volume']]))
     if info.get('VolumeUUID')!=cfg['uuid'] or not root.is_dir():raise RuntimeError('Connect the configured card disk; no local fallback')
+    work=root.parent/'work';work.mkdir(exist_ok=True)
+    if work.is_symlink() or work.resolve().parent!=root.parent.resolve():raise RuntimeError('Backup work must remain on the configured card')
+    tempfile.tempdir=str(work)
+    os.environ['TMPDIR']=str(work)
+    os.environ['COPYFILE_DISABLE']='1'
     return root
 
 def merge(root, source, label, old_drive=False):
