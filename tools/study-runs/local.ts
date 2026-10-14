@@ -41,7 +41,8 @@ source=pathlib.Path(sys.argv[4]);m.unpack(pathlib.Path(sys.argv[5]),source)
 print(node)
 `;
 export function localStudio(sourceRoot = process.cwd()) {
-  let service: ReturnType<typeof createCoordinator> | undefined, timer: ReturnType<typeof setInterval> | undefined;
+  let service: ReturnType<typeof createCoordinator> | undefined;
+  let closed = false, failed = false, retryAt = 0;
   async function start() {
     const mainRoot = mainCheckout(sourceRoot), storage = await studioStorage(mainRoot);
     storage.assertStorage(); mkdirSync(storage.work, { recursive: true });
@@ -69,11 +70,25 @@ export function localStudio(sourceRoot = process.cwd()) {
         } finally { rmSync(work, { recursive: true, force: true }); }
       },
     });
-    timer = setInterval(() => { void coordinator.tick().catch(() => { console.warn('Local studio check stopped. Check the card and saved run state.'); }); }, 60000);
-    timer.unref(); return coordinator;
+    return coordinator;
   }
+  function getCoordinator() {
+    if (closed) return Promise.reject(new Error('Local studio is closed.'));
+    if (!service || failed && Date.now() >= retryAt) {
+      failed = false;
+      service = start().catch(error => { failed = true; retryAt = Date.now() + 60000; throw error; });
+    }
+    return service;
+  }
+  async function check(): Promise<void> {
+    if (closed) return;
+    try { const coordinator = await getCoordinator(); if (!closed) await coordinator.tick(); }
+    catch { if (!closed) console.warn('Local studio check stopped. Check the card and saved run state.'); }
+  }
+  const timer = setInterval(() => { void check(); }, 60000);
+  timer.unref(); void check();
   return {
-    getCoordinator() { if (!service) { service = start().catch(error => { service = undefined; throw error; }); } return service; },
-    close() { if (timer) clearInterval(timer); },
+    getCoordinator,
+    close() { closed = true; clearInterval(timer); },
   };
 }
