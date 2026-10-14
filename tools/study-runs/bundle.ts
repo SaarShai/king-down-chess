@@ -24,10 +24,17 @@ function sourceIdentity(root: string): string {
   for (const path of files) h.update(path.slice(1)).update('\0').update(readFileSync(join(root, path))).update('\0');
   return h.digest('hex').slice(0, 12);
 }
+function blockKey(prepared: ReturnType<typeof prepareStudyMeasurements>, index: number): string {
+  const { spec, job } = prepared.jobs[index], request = prepared.plan.request;
+  if (request.recipe === 'four-cell') return `${job.configId}|${(job as { block?: number }).block}`;
+  // Keep each comparison pair and its three calibration pairs on one machine.
+  if (request.recipe === 'worth') return `worth|${job.pairId % request.pairs}`;
+  return `${spec.id}|${job.pairId}`;
+}
 export function assignParts(prepared: ReturnType<typeof prepareStudyMeasurements>, target: RunTarget) {
   const groups = new Map<string, number[]>();
-  prepared.jobs.forEach(({ spec, job }, index) => {
-    const key = prepared.plan.request.recipe === 'four-cell' ? `${job.configId}|${(job as { block?: number }).block}` : `${spec.id}|${job.pairId}`;
+  prepared.jobs.forEach((_game, index) => {
+    const key = blockKey(prepared, index);
     groups.set(key, [...groups.get(key) ?? [], index]);
   });
   if (target === 'both' && groups.size < 2) throw new Error('Both machines need at least two complete blocks');
@@ -98,7 +105,7 @@ export function verifyBundle(bundle: FrozenRunBundle, sourceRoot?: string): void
   const ownership = new Map<string,string>();
   for (const part of bundle.parts) for (const i of part.jobIndexes) {
     const g = bundle.prepared.jobs[i]; if (!g) throw new Error('Unknown job index');
-    const key = bundle.prepared.plan.request.recipe === 'four-cell' ? `${g.job.configId}|${(g.job as {block?:number}).block}` : `${g.spec.id}|${g.job.pairId}`;
+    const key = blockKey(bundle.prepared, i);
     if (ownership.has(key) && ownership.get(key) !== part.id) throw new Error('Split block'); ownership.set(key,part.id);
   }
   for (const part of bundle.parts) if ([...ownership.values()].filter(id => id === part.id).length !== part.blocks) throw new Error('Part block count mismatch');

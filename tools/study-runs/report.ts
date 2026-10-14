@@ -45,7 +45,7 @@ export async function validateAndReport(bundle: FrozenRunBundle, directories: st
       if (raw.length && raw[raw.length - 1] !== 10) throw new Error('Torn game record');
       const attestation = JSON.parse(bounded(join(dir, 'attestation.json'), 65536).toString());
       const part = bundle.parts.find(p => p.id === attestation.partId);
-      if (!part || partSeen.has(part.id) || attestation.bundleHash !== bundle.hash || attestation.gamesSha256 !== sha256(raw) || attestation.nodeVersion !== bundle.nodeVersion || attestation.sourceManifestHash !== sha256(canonicalMeasurementJSON(bundle.sourceManifest))) throw new Error('Part attestation mismatch');
+      if (!part || attestation.sourceVerified !== true || partSeen.has(part.id) || attestation.bundleHash !== bundle.hash || attestation.gamesSha256 !== sha256(raw) || attestation.nodeVersion !== bundle.nodeVersion || attestation.sourceManifestHash !== sha256(canonicalMeasurementJSON(bundle.sourceManifest))) throw new Error('Part attestation mismatch');
       partSeen.add(part.id);
       const partRows = new TextDecoder('utf-8', {fatal:true}).decode(raw).split('\n').filter(Boolean).map(line => JSON.parse(line) as ExecutedGame);
       for (const row of partRows) {

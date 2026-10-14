@@ -33,6 +33,7 @@ export async function studioStorage(mainRoot: string) {
   return { root, work, assertStorage };
 }
 const runtimeSetup = `import importlib.util,pathlib,sys,time
+sys.dont_write_bytecode=True
 spec=importlib.util.spec_from_file_location('supervisor',sys.argv[1]);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 root=pathlib.Path(sys.argv[2]);root.mkdir(parents=True,exist_ok=True)
 node=m.ensure_runtime(root,sys.argv[3],time.monotonic()+600)
@@ -41,7 +42,6 @@ print(node)
 `;
 export function localStudio(sourceRoot = process.cwd()) {
   let service: ReturnType<typeof createCoordinator> | undefined, timer: ReturnType<typeof setInterval> | undefined;
-  let ticking = false;
   async function start() {
     const mainRoot = mainCheckout(sourceRoot), storage = await studioStorage(mainRoot);
     storage.assertStorage(); mkdirSync(storage.work, { recursive: true });
@@ -69,7 +69,7 @@ export function localStudio(sourceRoot = process.cwd()) {
         } finally { rmSync(work, { recursive: true, force: true }); }
       },
     });
-    timer = setInterval(() => { if (ticking) return; ticking = true; void coordinator.tick().catch(() => { console.warn('Local studio check stopped. Check the card and saved run state.'); }).finally(() => { ticking = false; }); }, 60000);
+    timer = setInterval(() => { void coordinator.tick().catch(() => { console.warn('Local studio check stopped. Check the card and saved run state.'); }); }, 60000);
     timer.unref(); return coordinator;
   }
   return {

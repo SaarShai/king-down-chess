@@ -48,6 +48,35 @@ Keep exported copies. Browser storage holds up to 50 versions and can be cleared
 by the browser. Bad stored data is kept and reported. A source mismatch is refused.
 A browser worker keeps study execution separate from the active game's rules.
 
+## Run a saved plan
+
+The local studio connects the browser to M1 and Kaggle. The existing development
+server includes it. For the built app, start it once with `npm run build`, then
+`npm run study:serve`. Open `http://127.0.0.1:4174`. Keep the service and results
+card available while runs finish. Browser storage belongs to its address; use
+export/import to move a saved study from a different address.
+
+In **Results**, choose **Run saved plan**. Choose M1, Kaggle, or both, then
+**Prepare saved plan**. Preparation freezes the source, exact settings and full
+work assignment. It needs a clean source commit and a current saved plan.
+Read the game count, machine split, depth, pool, seed and time limit. Only
+**Approve and start** starts that exact run. A saved file is not run approval.
+Each new run needs this action. Real machine transport remains **unverified**
+until a separately approved live proof passes.
+
+The service records the approval before it sends work. Closing the page does
+not stop it. **Refresh stored status** reads the last saved observation. It does
+not poll a worker or repeat a launch. The page shows each machine's next check
+and deadline. An unknown game count stays unknown. An uncertain launch needs
+inspection; there is no automatic launch retry.
+
+When results return, **Review results** checks the file hash and opens the normal
+measurement picker. Select rows and **Link measurements** to save a new study
+version. **Open run's original study** recovers the exact study the run measured.
+Old results do not become evidence for changed rules. Collection, validation and
+backup have separate states. A backup error keeps checked local results intact.
+A complete measurement run does not approve a rule or establish that it is fun.
+
 ## Command line
 
 Run each command in a new process. This keeps one study's rules separate from the

@@ -17,7 +17,11 @@ export async function executePart(bundle: FrozenRunBundle, partId: string, outpu
   let cursor = 0, completedGames = 0, failed = false;
   const atomic = (name: string, value: unknown) => { const path = join(output, name); writeFileSync(`${path}.tmp`, JSON.stringify(value)); renameSync(`${path}.tmp`,path); };
   const status = (state: string, message = '') => atomic('status.json', { state, completedGames, message });
-  const attest = () => atomic('attestation.json', { bundleHash: bundle.hash, partId, sourceManifestHash: sha256(canonicalMeasurementJSON(bundle.sourceManifest)), nodeVersion: process.version, gamesSha256: sha256(readFileSync(raw)) });
+  const attest = () => {
+    let sourceVerified = true;
+    try { verifyBundle(bundle, sourceRoot); } catch { sourceVerified = false; }
+    atomic('attestation.json', { sourceVerified, bundleHash: bundle.hash, partId, sourceManifestHash: sha256(canonicalMeasurementJSON(bundle.sourceManifest)), nodeVersion: process.version, gamesSha256: sha256(readFileSync(raw)) });
+  };
   const signal = () => { status('failed', 'Worker receives a stop signal'); attest(); process.exit(143); };
   process.once('SIGTERM',signal); process.once('SIGINT',signal);
   status('running');

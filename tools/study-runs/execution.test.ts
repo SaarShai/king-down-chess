@@ -28,8 +28,8 @@ async function fixture(recipe: MeasurementRequest['recipe'] = 'activity', custom
   const prepared = prepareStudyMeasurements(input, request, 'fixture-source');
   const value = { schema: 'kingdown-frozen-run/1' as const, id: 'fixture-run', source: 'fixture-source', commit: 'fixture-commit', nodeVersion: process.version,
     study: { id: input.id, title: input.title, version: input.version, engine: input.engine },
-    planFingerprint: preview.fingerprint, games: prepared.jobs.length, blocks: preview.preview.blocks, target: 'm1' as const,
-    parts: [{ id: 'part-m1', machine: 'm1' as const, workers: 2, jobIndexes: prepared.jobs.map((_,i) => i), blocks: preview.preview.blocks }],
+    planFingerprint: preview.fingerprint, games: prepared.jobs.length, blocks: assignParts(prepared,'m1').blocks, target: 'm1' as const,
+    parts: [{ id: 'part-m1', machine: 'm1' as const, workers: 2, jobIndexes: prepared.jobs.map((_,i) => i), blocks: assignParts(prepared,'m1').blocks }],
     originalDocument: { schema: 'kingdown-research/1' as const, document: input, plan: savedPlanOf(preview), evidence: [] }, prepared, sourceManifest: [], sourceArchiveSha256: sha256('fixture') };
   const bundle = { ...value, hash: sha256(canonicalMeasurementJSON(value)) } as FrozenRunBundle;
   return bundle;
@@ -40,7 +40,7 @@ function records(bundle: FrozenRunBundle): ExecutedGame[] {
 }
 function part(bundle: FrozenRunBundle, rows: ExecutedGame[]) {
   const dir = temp(), raw = rows.map(r=>JSON.stringify(r)+'\n').join(''); writeFileSync(join(dir,'games.jsonl'),raw);
-  writeFileSync(join(dir,'attestation.json'), JSON.stringify({ bundleHash: bundle.hash, partId:'part-m1', sourceManifestHash:sha256(canonicalMeasurementJSON(bundle.sourceManifest)), nodeVersion:process.version, gamesSha256:sha256(raw) }));
+  writeFileSync(join(dir,'attestation.json'), JSON.stringify({ sourceVerified: true, bundleHash: bundle.hash, partId:'part-m1', sourceManifestHash:sha256(canonicalMeasurementJSON(bundle.sourceManifest)), nodeVersion:process.version, gamesSha256:sha256(raw) }));
   return dir;
 }
 describe('frozen study execution and report', () => {
@@ -64,6 +64,9 @@ describe('frozen study execution and report', () => {
     }
     const dir=part(bundle,rows); writeFileSync(join(dir,'games.jsonl'),'{}');
     expect((await validateAndReport(bundle,[dir],temp())).state).toBe('failed');
+    const invalid=part(bundle,rows), attest=JSON.parse(readFileSync(join(invalid,'attestation.json'),'utf8'));
+    writeFileSync(join(invalid,'attestation.json'),JSON.stringify({...attest,sourceVerified:false}));
+    expect(await validateAndReport(bundle,[invalid],temp())).toMatchObject({state:'failed',result:null});
     const changed=structuredClone(bundle); changed.prepared.jobs[0].job.seed++;
     expect(()=>verifyBundle(changed)).toThrow('hash');
   });
@@ -85,6 +88,11 @@ describe('frozen study execution and report', () => {
     expect(split.parts.map(p=>p.machine)).toEqual(['m1','kaggle']);
     expect(split.parts.flatMap(p=>p.jobIndexes).sort((a,b)=>a-b)).toEqual(prepared.jobs.map((_,i)=>i));
     expect(split.parts.every(p=>p.blocks>0)).toBe(true);
+    if (recipe === 'worth') {
+      expect(split.blocks).toBe(2);
+      for (const p of split.parts) expect(new Set(p.jobIndexes.map(i=>prepared.jobs[i].job.pairId%2)).size).toBe(1);
+      expect(()=>assignParts(bundle.prepared,'both')).toThrow('two complete blocks');
+    }
   });
   it('executes only assigned frozen jobs and keeps an attested complete prefix', async () => {
     const bundle = await fixture(), out=temp();

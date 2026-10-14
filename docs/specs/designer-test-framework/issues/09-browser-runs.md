@@ -308,3 +308,17 @@ The approved build separates frozen execution/reporting, machine transport and
 browser controls. The local coordinator owns durable approval, queue writes,
 status and collection. Each writer uses an isolated worktree. Fixture transports
 verify the full flow; no live campaign is authorized by this build approval.
+
+The first integrated build provides the five-recipe frozen runner, machine
+adapters, local service and browser handoff. Thirty-two focused service,
+execution, transport and storage tests pass, with the 50 standard artwork checks.
+The browser client and panel have nine additional focused checks. A clean-source
+archive check verifies 562 files (5,751,790 bytes), without a game campaign.
+
+Independent review finds four changes: release process locks after a hard stop;
+exclude the checking shell from M1 availability; bind setup to the exact approved
+bundle; and reject approval-key reuse for different work. The build uses kernel
+locks, bracketed process patterns, checked dispatch hashes and a shared approval
+claim. Root review also keeps worth comparison/calibration units on one machine
+and requires a final source check in each execution attestation. Negative
+controls cover these cases. Full browser and regression checks follow.
