@@ -175,10 +175,30 @@ cloud object. It checks decoded SHA-256 hashes and byte counts for all 223
 campaign files. The 246 omitted files are operating-system metadata, which the
 project capture tool excludes. The receipt and byte proof belong in external
 `state/balance-confirm-20261014/verified-final.json`. The next bounded check is
-12:30 Pacific. Backup verification remains pending until that proof passes.
+13:10 Pacific after the repair below. Backup verification remains pending until
+that proof passes.
 
 A separate reader checks the byte-proof helper and the required-file list. The
 list covers every campaign payload file. The helper checks downloaded bytes and
 cannot mark a missing or changed file as verified. It supports this new snapshot
-only; an unchanged-snapshot retry needs separate receipt handling. No retry is
-planned. The report and backup checkpoint pass all 113 documentation tests.
+only; an unchanged-snapshot retry needs separate receipt handling. The report
+and backup checkpoint pass all 113 documentation tests.
+
+At the 12:30 Pacific check, the first backup is terminal with a capture error:
+`analysis-source/node_modules` is a local dependency symlink. The project backup
+correctly refuses it before upload. This link is not one of the 223 required
+payload files. All 223 hashes and byte counts still match. A complete read of
+the result tree finds no other symlink. No maintenance lock is active.
+
+The link moves intact to external
+`state/balance-confirm-20261014/analysis-source-node_modules.link`. The move record
+keeps its original path and target. Frozen source bytes, raw games and remote
+sources stay unchanged. Runtime dependencies belong in a separate work folder,
+not inside the result archive; future replay must stage its runtime there.
+
+The second backup/proof attempt starts through `finish-backup-2.py`, supervisor
+51509, with separate `backup-2.log` and `finish-backup-2.log`. The first logs and
+failure state remain available. This retries backup only, not a game launch or
+worker collection. Its limits remain 90 minutes for backup and 30 minutes for
+downloaded-byte proof. The next bounded check is 13:10 Pacific. The heartbeat
+records that time. The required inventory remains 223 files.
