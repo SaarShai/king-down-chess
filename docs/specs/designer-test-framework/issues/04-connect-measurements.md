@@ -97,8 +97,31 @@ Negative tests cover partial writes and changed seed, count and context keys.
 The design audit returns two errors and 101 warnings. The two errors are the
 existing RULES base-section pin drift and missing MATRIX C.1 dimensions. This
 build keeps those documents and rule approvals intact. The strict audit stays
-red; do not record it as a pass. Closure of this ticket still needs the final
-integration checks and a disposition for these document gaps.
+red; do not record it as a pass. Closure of this ticket still needs a disposition
+for these document gaps.
+
+## Integration evidence
+
+- Full `npm test`: 2,326 pass, 129 skip; 159 test files pass. The 50 art checks pass.
+- `npm run test:docs`: 113 pass.
+- `npm run check:browser studies workshop`: both pass. Studies takes 23.0 seconds;
+  Workshop takes 113.5 seconds. The study check covers 1440×900, 390×844 and
+  375×667, real CLI plans, three existing balance rows, import, export, save,
+  stale plans and failed evidence imports. Phone and desktop renders are checked.
+- Independent review clears all six confirmed findings after the fixes. A final
+  count check also corrects two-card four-cell plans to 14 games per block.
+- The existing 41 MB power export requires a 64 MiB dataset input bound. This
+  does not change the 1 MiB study or 32 MiB job-preview limits.
+- The real power export supplies nine Haste measurements. Their `valid` and
+  `unverified` labels, source hash and contexts survive import and save. The
+  browser runs all eight Haste interaction checks successfully. The related
+  40-game activity plan launches nothing. After the input-bound change, the
+  seven CLI tests, typecheck and 50 art checks pass again.
+
+The simpler implementation uses one versioned research document, existing
+simulation jobs and the approved Results panel. It adds no service, launch
+control or new game rule. Strategy proofs, human playtests and general effect
+authoring remain outside this stage.
 
 ## Fresh remote confirmation
 

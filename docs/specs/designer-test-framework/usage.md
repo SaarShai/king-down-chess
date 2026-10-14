@@ -195,7 +195,7 @@ The plan stays separate from the declared checks. A measurement retains its
 value, interval or error, sample unit, validity, reasons, method and full context.
 The export records a SHA-256 hash of the exact dataset bytes. No match, duplicate
 measurement ID, malformed row or oversize file produces an output. Input datasets
-can be at most 32 MiB; select at most 500 rows per link and 20 links per document.
+can be at most 64 MiB; select at most 500 rows per link and 20 links per document.
 
 Plan status in the browser compares the saved study and checks only. Imported
 plan counts and contexts stay unverified until the command-line preview checks

@@ -85,7 +85,7 @@ export function runStudy(args: string[]): number {
       return 0;
     }
     if (command === 'evidence') {
-      const bytes = readBounded(lan, 32 * MAX_STUDY_BYTES), dataset = JSON.parse(bytes.toString('utf8'));
+      const bytes = readBounded(lan, 64 * MAX_STUDY_BYTES), dataset = JSON.parse(bytes.toString('utf8'));
       if (dataset?.schemaVersion !== 1 || !Array.isArray(dataset.measurements)) throw new Error('Expected a balance measurements dataset.');
       const measurements = dataset.measurements.filter((m: { run?: unknown; element?: unknown } | null) => m?.run === values.run && (values.element === undefined || m.element === values.element));
       const evidence = parseEvidence({ schema: 'kingdown-evidence/1', source: { path: resolve(lan), sha256: createHash('sha256').update(bytes).digest('hex') },
