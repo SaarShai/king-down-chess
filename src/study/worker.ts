@@ -1,6 +1,12 @@
 import { service, type StudyRequest } from './browser-service';
-const host = self as unknown as { onmessage: (event: MessageEvent<{ id: number; request: StudyRequest }>) => void; postMessage(value: unknown): void };
-host.onmessage = ({ data }) => {
-  try { host.postMessage({ id: data.id, result: service(data.request, __STUDY_SOURCE__) }); }
-  catch (error) { host.postMessage({ id: data.id, error: error instanceof Error ? error.message : String(error) }); }
+import { createMeasurementService, type MeasurementWorkerRequest } from './measurement-service';
+const measurements = createMeasurementService(__SIM_SOURCE__);
+const host = self as unknown as { onmessage: (event: MessageEvent<{ id: number; request: StudyRequest | MeasurementWorkerRequest }>) => void; postMessage(value: unknown): void };
+host.onmessage = async ({ data }) => {
+  try {
+    const request = data.request;
+    const result = 'document' in request
+      ? service(request, __STUDY_SOURCE__) : await measurements(request);
+    host.postMessage({ id: data.id, result });
+  } catch (error) { host.postMessage({ id: data.id, error: error instanceof Error ? error.message : String(error) }); }
 };

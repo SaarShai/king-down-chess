@@ -8,7 +8,7 @@ const text = z.string().min(1).max(10000);
 export const MAX_STUDY_BYTES = 1024 * 1024;
 const nullableText = text.nullable();
 const jsonObject = z.record(z.string(), z.json());
-const measurementSchema = z.strictObject({
+export const measurementSchema = z.strictObject({
   id: text, run: text, element: text, version: nullableText,
   context: z.strictObject({
     flags: jsonObject.nullable(), flagsKind: z.enum(['full', 'diff', 'unknown']), commit: nullableText,
