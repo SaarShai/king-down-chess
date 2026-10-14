@@ -19,6 +19,15 @@
 #study .study-alert { margin:4px 16px; padding:8px 12px; border:1px solid #a75135; background:#fff3e6; color:var(--ink); border-radius:6px; flex-shrink:0; }
 #study .study-notice { text-align:center; margin:0 16px 5px; flex-shrink:0; }
 #study .study-panel { max-height:calc(100dvh - 28px); overflow:auto; background:var(--vellum); }
+#workshop.pg .study-measurement-panel { width:min(760px,calc(100% - 28px)); max-width:none; }
+#workshop.pg .study-measurement-panel button { min-height:44px; padding:9px 16px; border:1px solid var(--stone-500); border-radius:6px; background:var(--parchment); }
+#workshop.pg .study-measurement-panel button.primary { background:var(--accent); border-color:var(--accent); color:var(--vellum); }
+#workshop.pg .study-measurement-panel header button { width:44px; padding:0; border:0; background:transparent; font-size:23px; justify-content:center; }
+#study .study-measurement-panel .pg-sheet-body { padding:22px; }
+#study .study-measurement-panel label { margin:0; justify-content:normal; }
+#study .measurement-fields label,#study .study-result-fields label { grid-template-columns:minmax(0,1fr); }
+#study .measurement-form form:not([hidden]) { display:block; margin-top:18px; }
+#study .study-panel .study-result-rows input { width:20px; min-height:22px; padding:0; }
 #study .study-panel header { position:sticky; top:0; background:var(--vellum); z-index:1; }
 #study .study-panel label { display:grid; gap:4px; margin:10px 0; }
 #study .study-panel input,#study .study-panel select,#study .study-panel textarea { box-sizing:border-box; width:100%; min-height:44px; padding:8px; font:inherit; }
@@ -31,6 +40,7 @@
 #study .study-options,#study .study-actions { display:flex; flex-wrap:wrap; gap:8px; }
 #study .study-actions { max-height:55dvh; overflow:auto; }
 @media(max-width:700px) {
+  #study .study-measurement-panel .pg-sheet-body { padding:18px; }
   #study .study-main { display:flex; flex-direction:column; gap:2px; padding:8px 12px 4px; }
   #study .study-about { padding:0; }
   #study .study-about img { display:none; }

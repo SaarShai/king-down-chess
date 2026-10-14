@@ -8,7 +8,9 @@ import { designCode, parseDesign, specOf, type PieceDesign } from '../workshop/m
 import { esc } from '../workshop/text';
 import { createStudyClient } from './client';
 import { studyOf, testOf as documentTest, withChecks, type StudyDocument, type StudyResult } from './browser-service';
-import { evidenceRelation, MAX_STUDY_BYTES, measurementSummary, researchStatus } from './evidence';
+import { evidenceRelation, MAX_STUDY_BYTES, measurementSummary, researchStatus, type ResearchDocument } from './evidence';
+import { mountMeasurementForm } from './measurement-form';
+import { mountResultPicker } from './result-picker';
 import { loadStudies, saveStudyDocument } from './store';
 import { exampleStudies } from './examples';
 import { positionOf, withRules } from './model';
@@ -35,6 +37,7 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
   let data: StudyResult | null = null, report: StudyReport | null = null;
   let dirty = false, busy = false, selected: number | null = 27, cursor = 27, currentDesign: PieceDesign;
   let panel: HTMLDialogElement | null = null;
+  let dismissPanel = (): void => {};
   const error = (value: unknown): void => {
     const message = value instanceof Error ? value.message : String(value);
     q('.study-alert').textContent = message; q('.study-alert').hidden = false;
@@ -50,16 +53,20 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
   const study = () => studyOf(documentOf());
   const testOf = (): StudyTest | null => data ? documentTest(data.document) : null;
 
-  function sheet(title: string, html: string, wire?: (body: HTMLElement, close: () => void) => void): void {
-    panel?.close();
+  function sheet(title: string, html: string, wire?: (body: HTMLElement, close: () => void) => (() => void) | void): void {
+    dismissPanel();
     const s = document.createElement('dialog'), opener = document.activeElement as HTMLElement | null;
     s.className = 'pg-sheet study-panel'; s.setAttribute('aria-labelledby', 'study-panel-heading');
     s.innerHTML = `<header><h2 id="study-panel-heading" tabindex="-1" autofocus>${esc(title)}</h2><button type="button" aria-label="Close">×</button></header><div class="pg-sheet-body">${html}</div>`;
     dlg.append(s); panel = s;
-    const close = (): void => s.close();
+    let cleanup: (() => void) | void, disposed = false;
+    const dispose = (): void => { if (!disposed) { disposed = true; cleanup?.(); } };
+    const close = (): void => { dispose(); s.close(); };
+    dismissPanel = close;
     s.querySelector('header button')!.addEventListener('click', close);
-    s.addEventListener('close', () => { s.remove(); if (panel === s) panel = null; if (opener?.isConnected) opener.focus(); });
-    wire?.(s.querySelector('.pg-sheet-body')!, close); s.showModal();
+    s.addEventListener('cancel', dispose);
+    s.addEventListener('close', () => { dispose(); s.remove(); if (panel === s) { panel = null; dismissPanel = () => {}; if (opener?.isConnected) opener.focus(); } });
+    cleanup = wire?.(s.querySelector('.pg-sheet-body')!, close); s.showModal();
   }
   function render(): void {
     dlg.querySelectorAll<HTMLButtonElement>('.study-strip button:not([data-study="more"]),.study-play button').forEach(b => b.disabled = busy || !data);
@@ -87,15 +94,15 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     try { await work(); } catch (e) { error(e); }
     finally { busy = false; dlg.removeAttribute('aria-busy'); render(); }
   }
-  function persist(): boolean {
-    if (!data) return false;
+  function persist(next = data, changed = dirty): boolean {
+    if (!next) return false;
     const records = loadStudies();
     if (records.error) { error(`Study not saved. ${records.error} Export a copy from More.`); return false; }
-    const doc = copy(documentOf()), s = studyOf(doc), versions = records.documents.map(studyOf).filter(x => x.id === s.id);
-    if (dirty && versions.length) { s.parentVersion = s.version; s.version = Math.max(s.version, ...versions.map(x => x.version)) + 1; }
+    const doc = copy(next.document), s = studyOf(doc), versions = records.documents.map(studyOf).filter(x => x.id === s.id);
+    if (changed && versions.length) { s.parentVersion = s.version; s.version = Math.max(s.version, ...versions.map(x => x.version)) + 1; }
     const saved = saveStudyDocument(doc);
     if (!saved.ok) { error(`Study not saved. ${saved.error} Export a copy from More.`); return false; }
-    data.document = doc; dirty = false; notice('Saved on this device.'); render(); return true;
+    data = { ...next, document: doc }; dirty = false; notice('Saved on this device.'); render(); return true;
   }
   async function load(input: unknown, saved = false): Promise<void> {
     const next = await client.request({ type: 'inspect', document: input });
@@ -133,7 +140,7 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     const doc = documentOf(), research = doc.schema === 'kingdown-research/1' ? doc : null;
     const status = research && researchStatus(research), plan = research?.plan;
     const measurements = research ? `<h3>Balance evidence</h3><p>${status!.measurements} linked measurements · approval not reviewed.</p>
-      <p>Measurement plan: <strong>${status!.plan}</strong>${plan ? ` for this saved study · ${esc(plan.definition.request.recipe)} · ${plan.games} games · ${plan.blocks} blocks. Imported plan metadata is unverified here. Preview only; no games launched.` : '.'}</p>
+      <p>Measurement plan: <strong>${status!.plan}</strong>${plan ? ` for this saved study · ${esc(plan.definition.request.recipe)} · ${plan.games} games · ${plan.blocks} blocks. Preview the plan to check its source and full settings. No games launched.` : '.'}</p>
       ${plan ? `<details><summary>Plan settings and limits</summary><p>${esc(plan.measures.join('; '))}</p><ul>${plan.limits.map(l => `<li>${esc(l)}</li>`).join('')}</ul><p>Fingerprint: ${esc(plan.fingerprint)}</p><pre>${esc(JSON.stringify(plan.definition.request, null, 2))}</pre></details>` : ''}
       ${research.evidence.flatMap(e => e.measurements.map(m => `<details><summary>${esc(measurementSummary(m))}</summary><p>${esc(evidenceRelation(research, m))}</p><p>Run: ${esc(m.run)} · ${esc(m.method)}</p><ul>${m.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul><p>Sources: ${esc(m.sources.join(', '))}</p><p>Export: ${esc(e.source.path)} · SHA-256 ${esc(e.source.sha256)}</p><pre>${esc(JSON.stringify(m.context, null, 2))}</pre></details>`)).join('')}
       <ul>${status!.limits.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '';
@@ -142,7 +149,39 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
       <details><summary>Coverage and support limits</summary><ul>${report.coverage.map(c => `<li>${esc(c.items.join(' + '))}: ${c.state}. ${esc(c.reason)}</li>`).join('')}</ul></details>
       <details><summary>Observed state changes · ${report.trace.length} actions</summary><ol>${report.trace.map(t => `<li>${esc(t.action)}: ${esc(t.changes.map(c => c.field).join(', '))}</li>`).join('')}</ol><p>These are state changes, not proof of which rule causes them.</p></details>
       <p>These checks do not measure balance or enjoyment.</p>` : '<p>No result for this version yet. Open Test to run the declared checks.</p>';
-    sheet('Results', checks + measurements);
+    sheet('Results', `<div class="study-options">${button('plan', 'Plan a measurement')}${button('link-results', 'Link results')}</div>` + checks + measurements);
+  }
+  function researchDocument(): ResearchDocument {
+    const doc = copy(documentOf());
+    return doc.schema === 'kingdown-research/1' ? doc : { schema: 'kingdown-research/1', document: doc, plan: null, evidence: [] };
+  }
+  async function saveResearch(doc: ResearchDocument, active: () => boolean): Promise<boolean> {
+    clearError();
+    const next = await client.request({ type: 'inspect', document: doc });
+    // A closed sheet must not publish a late worker reply or change the open study.
+    return active() && persist(next, JSON.stringify(doc) !== JSON.stringify(documentOf()) || dirty);
+  }
+  function measurements(): void {
+    clearError();
+    sheet('Plan a measurement', '', (body, close) => {
+      body.closest('dialog')!.classList.add('study-measurement-panel');
+      let active = true;
+      const dispose = mountMeasurementForm(body, { client, document: copy(documentOf()), close, error, clearError, link: linkResults,
+        save: async plan => { const doc = researchDocument(); doc.plan = plan; return saveResearch(doc, () => active); },
+      });
+      return () => { active = false; dispose(); };
+    });
+  }
+  function linkResults(): void {
+    clearError();
+    sheet('Link results', '', (body, close) => {
+      body.closest('dialog')!.classList.add('study-measurement-panel');
+      let active = true;
+      const dispose = mountResultPicker(body, { client, document: copy(documentOf()), close, error, clearError,
+        save: async evidence => { const doc = researchDocument(); doc.evidence.push(evidence); return saveResearch(doc, () => active); },
+      });
+      return () => { active = false; dispose(); };
+    });
   }
   function tests(): void {
     const test = testOf();
@@ -211,6 +250,8 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     else if (act === 'save') saveSheet();
     else if (act === 'test') tests();
     else if (act === 'results') results();
+    else if (act === 'plan') measurements();
+    else if (act === 'link-results') linkResults();
     else if (act === 'more') more();
     else if (act === 'actions') actions();
     else if (act === 'open') library();
@@ -225,7 +266,7 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
       const a = document.createElement('a'); a.href = url; a.download = `${exported.id}-v${exported.version}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); notice('Copy exported.');
     }
   });
-  dlg.addEventListener('close', () => { panel?.close(); parent.querySelector<HTMLButtonElement>('.pg-more')?.focus(); });
+  dlg.addEventListener('close', () => { dismissPanel(); parent.querySelector<HTMLButtonElement>('.pg-more')?.focus(); });
   return { async open(design) {
     currentDesign = copy(design); if (!dlg.open) dlg.showModal();
     if (!data) await run(() => load(draft())); else render();

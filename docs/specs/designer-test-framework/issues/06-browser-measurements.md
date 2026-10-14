@@ -1,6 +1,6 @@
 # Plan measurements and link results in the browser
 
-Status: claimed
+Status: resolved
 Type: task
 Blocked by: none
 
@@ -9,7 +9,8 @@ Blocked by: none
 Owner request, 2026-10-14: “continue on this branch and bring measurement plans
 into the browser, so designers can choose a test, preview its settings and cost,
 and link results without using the command line.” This approves the functional
-scope below. The new visual controls wait for approval of the rendered sample.
+scope below. Owner approval, 2026-10-14: “Approve the layout” for choosing
+measurement tests, previewing cost and settings, and linking results.
 
 ## Plan
 
@@ -53,9 +54,8 @@ its own recorded schedule and authorization.
 - The shared planner is in commit `c21042b0`. All five recipes match the CLI.
   Four schedule hashes from before extraction still match. Independent review
   finds no regression in schedules, source identity or rule-state restoration.
-- The six new sample renders pass at desktop and phone sizes. The form, preview
-  and result selector are open for the owner's layout approval. No production
-  controls are built before that approval.
+- The six sample renders pass at desktop and phone sizes. The owner approves
+  the rendered layout before the controls are built.
 - Save version numbers alone no longer mark a plan stale. The original plan
   snapshot and fingerprint stay fixed. Identity, rules, design version, actions
   and checks still compare. Review finds a connected CLI issue: it must rebuild
@@ -77,11 +77,45 @@ its own recorded schedule and authorization.
   pass. Browser evidence is in
   `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/designer-test-framework-2SC1HQ`.
 
-## Next step
+- The approved controls now use the shared worker planner and result importer.
+  All five recipes expose their settings. The preview shows exact games and
+  paired blocks. Saved plans and selected results use the study version chain.
+  A failed save or canceled panel leaves the saved study intact. A late worker
+  reply cannot save or reopen a canceled panel. A stale plan needs a fresh
+  preview for the current study.
+- The result picker pages through runs and rows. It keeps selections across
+  pages and filters. A failed replacement file keeps the current selection.
+  Keyboard focus stays on a usable page control. All measurement fields and
+  the exact file hash remain attached.
+- Render checks find inherited Workshop styles that narrow the panel, inputs
+  and buttons. Scoped styles fix these controls. Desktop and phone checks now
+  enforce panel fit, full field width and 44-pixel buttons. The live game and
+  Workshop Try board stay unchanged.
+- The tracked balance export has two queue-only pending rows with no raw
+  source. They now retain their pending state without blocking the file.
+  All other validity states still require a raw source. The regression test
+  also checks that a bad replacement file preserves the previous catalogue.
+- The full browser flow opens the real 31,424,635-byte tracked export: 11,991
+  measurements in 681 runs. It pages to a run, filters and links a measured row,
+  then compares every original field and the exact file SHA-256:
+  `378df8237a0dac09bd88788749b364530290de6b676c6cb34a6e16828baa1ec6`.
+- Final `npm test` passes: 2,339 tests, 129 skipped, and 50 art checks. All 113
+  doc checks pass. The final registered Studies browser check passes in 27.9 seconds at 1440 × 900,
+  390 × 844 and 375 × 667. It covers all recipes, stale plans, late replies,
+  save errors, file errors, paging, selection and the real export. The Workshop
+  browser check passes in 115.3 seconds before the last panel-scoped style and
+  pending-row fixes. Those fixes do not change Workshop behavior.
+- Independent review finds no remaining issue in plan identity, canceled work,
+  save failure, metadata, paging or support limits. A second review clears the
+  pending-row fix and scoped styles. A final read finds no misleading claim in
+  this ticket or the usage guide. The reviewer writes none of these changes.
+- Final renders and check logs are saved at
+  `/Users/za/.codex/visualizations/2026/10/13/01a1338c-36c7-71e1-9c8a-05503302ca75/browser-measurements-built-20261014`.
 
-The rendered layout is still awaiting the owner's reply. No new production
-controls are connected yet. After approval, add the form, preview and local-file
-selector to Studies. Use the typed client methods; do not duplicate schedules.
-Save through the existing version chain. Verify the complete browser flow,
-including cancel, invalid input, stale preview, file errors and storage errors.
-The existing checks above cover the shared code and current Studies controls.
+## Result
+
+Open Studies, then Results. Choose **Plan a measurement** to prepare and save a
+checked plan. Choose **Link results** to retain selected measurements from a local
+balance export. Planning and linking need no command line. Game counts describe
+the work; time and money have no measured estimate. A saved plan starts no games.
+Raw-game audit, run launch and design approval remain separate steps.

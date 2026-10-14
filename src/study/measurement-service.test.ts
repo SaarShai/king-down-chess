@@ -46,6 +46,15 @@ describe('local result file service', () => {
     expect(service.select(cat.token, ['first']).measurements).toEqual([row()]);
     expect(service.select(cat.token, ['conflict']).measurements).toEqual([conflict]);
   });
+  it('keeps source-free queue rows pending without blocking measured rows', async () => {
+    const service = createResultImporter();
+    const pending = { ...row('queued'), validity: 'pending', value: null, error: null, sample: null, sources: [], reasons: ['QUEUE: no complete authorized source.'], method: 'queue index' };
+    const catalogue = await service.open(file([pending, row()]));
+    expect(service.select(catalogue.token, ['queued']).measurements).toEqual([pending]);
+    expect(service.select(catalogue.token, ['first']).measurements).toEqual([row()]);
+    await expect(service.open(file([{ ...pending, validity: 'valid' }]))).rejects.toThrow('Only pending measurements');
+    expect(service.select(catalogue.token, ['first']).measurements).toEqual([row()]);
+  });
   it('rejects malformed files and duplicate IDs atomically', async () => {
     const service = createResultImporter(), cat = await service.open(file());
     for (const bad of [new Blob(['{']), file([row(), row()]), file([{ ...row(), unexpected: true }]), new Blob(['{"schemaVersion":2,"measurements":[]}']), new Blob([new Uint8Array([255])])]) {

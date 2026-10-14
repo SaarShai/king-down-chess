@@ -28,7 +28,19 @@ It does not change the Workshop Try board or the active game.
 - **More → Import file** validates the full document before it replaces the open
   study. **Export copy** downloads JSON. A draft export has a new ID; a saved
   export retains its ID and version. Export still works if local saving fails.
-- **Results** also shows an imported measurement plan and balance evidence.
+- **Results → Plan a measurement** chooses worth, activity, a power field,
+  two-factor interaction or power cross-play. Set the army pool, pairs and search
+  depth. **More settings** sets the seed, game cap and opening settings.
+  **Preview plan** shows the exact game count, settings and support limits.
+  **Save plan** adds it to the saved study. It starts no games. Time and money
+  have no measured estimate. A changed setting needs a new preview.
+- **Results → Link results** opens a local balance JSON export of up to 64 MiB.
+  Choose a run, optionally filter by exact element name, and select measurements.
+  Use the page buttons to reach other runs and rows. Selections stay across pages;
+  the limit is 500. **Link measurements** saves them with the study. Original
+  context, validity, intervals and file hashes stay attached. The file stays on
+  this device. Cancel or a failed import changes no saved record.
+- **Results** shows the saved measurement plan and linked balance evidence.
   Open a measurement to read its run, method, original rules and source hash.
   A changed study or check makes its plan stale. Old measurements remain visible.
 
@@ -197,10 +209,11 @@ The export records a SHA-256 hash of the exact dataset bytes. No match, duplicat
 measurement ID, malformed row or oversize file produces an output. Input datasets
 can be at most 64 MiB; select at most 500 rows per link and 20 links per document.
 
-Plan status in the browser compares the saved study and checks only. Imported
-plan counts and contexts stay unverified until the command-line preview checks
-them. The browser can compare imported context keys, but cannot certify that a
-result answers this plan. An old source or different settings makes evidence
+Plan status in Results compares the saved study and checks. Open **Plan a
+measurement** to verify an imported plan against the shared planner and current
+source. Its counts and contexts stay unverified until that preview or the
+command-line preview passes. The browser can compare imported context keys, but
+cannot certify that a result answers this plan. An old source or different settings makes evidence
 historical. Even matching context keys still need result review.
 
 The browser does not audit raw games, certify complete coverage or adopt a

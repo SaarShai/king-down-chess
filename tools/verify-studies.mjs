@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { pressMenu } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 
@@ -67,6 +68,191 @@ function linkedRecord(control) {
     }
     return JSON.parse(readFileSync(linked, 'utf8'));
   } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+async function measurementIdle(p) {
+  await p.waitForFunction(() => document.querySelector('.study-panel[open] .pg-sheet-body')?.getAttribute('aria-busy') !== 'true');
+}
+async function openMeasurement(p, action = 'plan') {
+  await p.click('#study [data-study="results"]');
+  await p.click(`${panel} [data-study="${action}"]`);
+  await measurementIdle(p);
+}
+async function measurementLayout(p, width) {
+  const bounds = await p.locator(panel).boundingBox();
+  assert(bounds.width <= width - 20 && (width < 760 || bounds.width >= 740), 'measurement sheet keeps the approved width');
+  for (const button of await p.locator(`${panel} button:visible`).all()) {
+    assert((await button.boundingBox()).height >= 43.5, `measurement button keeps a 44-pixel target: ${await button.textContent()}`);
+  }
+  for (const field of await p.locator(`${panel} label > input[name]:visible,${panel} label > select:visible`).all()) {
+    const sizes = await field.evaluate(el => [el.getBoundingClientRect().width, el.parentElement.getBoundingClientRect().width]);
+    assert(Math.abs(sizes[0] - sizes[1]) < 2, 'measurement fields fill their grid column');
+  }
+}
+async function measurementControls(p, control, linked, width, height) {
+  await importDoc(p, control);
+  const initialStore = await saved(p);
+  await openMeasurement(p);
+  await p.locator(`${panel} [name="pairs"]`).fill('2');
+  await p.locator(`${panel} [name="depth"]`).fill('1');
+  await p.locator(`${panel} summary`).filter({ hasText: 'More settings' }).click();
+  await p.locator(`${panel} [name="seed"]`).fill('17');
+  await measurementLayout(p, width);
+  await noSidewaysScroll(p); await shot(p, `measurements-form-${width}x${height}`);
+  await p.click(`${panel} [data-measurement="preview"]`); await measurementIdle(p);
+  assert.match(await p.locator('.measurement-cost').textContent(), /4 games.*2 paired blocks/);
+  assert.match(await p.locator('.measurement-preview').textContent(), /No measured estimate/);
+  if (width === 1440) {
+    for (const [recipe, games] of [['worth', 16], ['field', 4], ['cross-play', 4]]) {
+      await p.click(`${panel} [data-measurement="edit"]`);
+      await p.locator(`${panel} [name="recipe"]`).selectOption(recipe);
+      await p.click(`${panel} [data-measurement="preview"]`); await measurementIdle(p);
+      assert.match(await p.locator('.measurement-cost').textContent(), new RegExp(`${games} games`), `${recipe} uses the shared planner`);
+    }
+    await p.click(`${panel} [data-measurement="edit"]`);
+    await p.locator(`${panel} [name="recipe"]`).selectOption('four-cell');
+    await p.locator(`${panel} [name="poolPreset"]`).selectOption('QORRBBNNAAGMMSS');
+    await p.click(`${panel} [data-measurement="preview"]`); await measurementIdle(p);
+    assert.match(await p.locator(`${panel} .study-panel-alert`).textContent(), /custom T/);
+    assert.equal(await p.locator(`${panel} [data-measurement="save"]`).isVisible(), false, 'unsupported study cannot save a plan');
+    await p.locator(`${panel} [name="recipe"]`).selectOption('activity');
+    await p.locator(`${panel} [name="poolPreset"]`).selectOption('TTTTTTT');
+    await p.click(`${panel} [data-measurement="preview"]`); await measurementIdle(p);
+  }
+  await p.click(`${panel} [data-measurement="edit"]`);
+  assert.equal(await p.locator(`${panel} [data-measurement="save"]`).isVisible(), false, 'editing invalidates the checked preview');
+  await p.locator(`${panel} [name="pairs"]`).fill('3');
+  await p.click(`${panel} [data-measurement="preview"]`); await measurementIdle(p);
+  assert.match(await p.locator('.measurement-cost').textContent(), /6 games.*3 paired blocks/);
+  await measurementLayout(p, width);
+  await noSidewaysScroll(p); await shot(p, `measurements-preview-${width}x${height}`);
+  if (width === 1440) {
+    await p.evaluate(() => {
+      const original = Storage.prototype.setItem;
+      window.restoreMeasurementStorage = () => { Storage.prototype.setItem = original; };
+      Storage.prototype.setItem = function(key, value) { if (key === 'kingdown.studies') throw new DOMException('Quota exceeded', 'QuotaExceededError'); return original.call(this, key, value); };
+    });
+    await p.click(`${panel} [data-measurement="save"]`); await measurementIdle(p);
+    assert(await p.locator(`${panel} .study-panel-alert`).isVisible());
+    assert.equal(await saved(p), initialStore, 'failed plan save preserves all stored versions');
+    assert(await p.locator('.measurement-cost').isVisible(), 'failed save keeps the checked preview');
+    await p.evaluate(() => window.restoreMeasurementStorage());
+  }
+  await p.click(`${panel} [data-measurement="save"]`);
+  await p.waitForSelector(panel, { state: 'detached' });
+  const planned = await exportDoc(p);
+  assert.equal(planned.schema, 'kingdown-research/1');
+  assert.equal(planned.plan.games, 6); assert.equal(planned.plan.definition.request.seed, 17);
+  assert.equal(planned.plan.definition.request.pool, 'TTTTTTT');
+  const plannedStore = await saved(p);
+  await openMeasurement(p); // Saved plans regenerate through the worker before display.
+  assert.match(await p.locator('.measurement-cost').textContent(), /6 games/);
+  await p.click(`${panel} [data-measurement="cancel"]`);
+  assert.equal(await saved(p), plannedStore, 'Cancel does not add a version');
+  await p.click('#study [data-study="actions"]');
+  await p.locator(`${panel} [data-move]`).filter({ hasText: /^Td4-e4$/ }).click(); await idle(p);
+  await openMeasurement(p);
+  assert.match(await p.locator(panel).textContent(), /Study changed.*Preview a new plan/);
+  assert.equal(await p.locator(`${panel} [data-measurement="save"]`).isVisible(), false, 'stale plan is not presented as a checked current preview');
+  await p.click(`${panel} [data-measurement="preview"]`); await measurementIdle(p);
+  await p.click(`${panel} [data-measurement="save"]`); await p.waitForSelector(panel, { state: 'detached' });
+  assert.deepEqual(studyOf((await exportDoc(p)).plan.definition.input).actions, ['Td4-e4'], 'new preview binds the current study actions');
+  await p.click('#study [data-study="undo"]'); await idle(p);
+
+  if (width === 1440) {
+    await openMeasurement(p);
+    await p.evaluate(() => {
+      const original = Worker.prototype.postMessage;
+      Worker.prototype.postMessage = function(message, ...rest) {
+        if (message.request?.type !== 'plan') return original.call(this, message, ...rest);
+        Worker.prototype.postMessage = original;
+        this.addEventListener('message', event => { if (event.data.id === message.id) window.cancelledMeasurementFinished = true; });
+        window.releaseMeasurement = () => original.call(this, message, ...rest);
+      };
+    });
+    await p.click(`${panel} [data-measurement="preview"]`);
+    await p.waitForFunction(() => typeof window.releaseMeasurement === 'function');
+    const beforeCancel = await saved(p);
+    await p.keyboard.press('Escape'); await p.waitForSelector(panel, { state: 'detached' });
+    await p.evaluate(() => window.releaseMeasurement());
+    await p.waitForFunction(() => window.cancelledMeasurementFinished);
+    assert.equal(await p.locator(panel).count(), 0, 'late preview does not reopen its closed sheet');
+    assert.equal(await saved(p), beforeCancel, 'late preview does not save');
+  }
+
+  const rows = linked.evidence[0].measurements.map((m, i) => ({ ...m, id: `browser-${width}-${i}` }));
+  const raw = JSON.stringify({ schemaVersion: 1, measurements: rows });
+  const file = { name: 'browser-results.json', mimeType: 'application/json', buffer: Buffer.from(raw) };
+  await openMeasurement(p, 'link-results');
+  const beforeLink = await saved(p);
+  await p.locator(`${panel} .study-result-file`).setInputFiles(file); await measurementIdle(p);
+  assert.equal(await p.locator(`${panel} [data-result-id]`).count(), rows.length);
+  await p.locator(`${panel} [data-result-id]`).first().check();
+  await measurementLayout(p, width);
+  await p.locator(`${panel} .study-result-file`).setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{bad') }); await measurementIdle(p);
+  assert(await p.locator(`${panel} .study-panel-alert`).isVisible());
+  assert(await p.locator(`${panel} [data-result-id]`).first().isChecked(), 'bad replacement file preserves selection');
+  assert.equal(await saved(p), beforeLink);
+  await p.click(`${panel} [data-results="cancel"]`);
+  assert.equal(await saved(p), beforeLink, 'cancelled linking saves nothing');
+  await openMeasurement(p, 'link-results');
+  await p.locator(`${panel} .study-result-file`).setInputFiles(file); await measurementIdle(p);
+  await p.locator(`${panel} [data-result-id]`).first().check();
+  await noSidewaysScroll(p); await shot(p, `measurements-link-${width}x${height}`);
+  await p.click(`${panel} [data-results="link"]`); await p.waitForSelector(panel, { state: 'detached' });
+  const imported = await exportDoc(p), evidence = imported.evidence.at(-1);
+  assert.deepEqual(evidence.measurements, [rows[0]], 'browser linking preserves all selected measurement fields');
+  assert.equal(evidence.source.sha256, createHash('sha256').update(raw).digest('hex'), 'source hash covers exact uploaded bytes');
+  assert.equal(evidence.approval, 'not-reviewed');
+  assert.equal(studyOf(imported).version, studyOf(JSON.parse(beforeLink).documents.at(-1)).version + 1, 'linking adds a saved version');
+  await openMeasurement(p, 'link-results');
+  await p.locator(`${panel} .study-result-file`).setInputFiles(file); await measurementIdle(p);
+  assert(await p.locator(`${panel} [data-result-id]`).first().isDisabled(), 'already linked rows cannot be linked twice');
+  await p.click(`${panel} [data-results="cancel"]`);
+  if (width === 1440) {
+    const paged = [
+      ...Array.from({ length: 101 }, (_, i) => ({ ...rows[0], id: `page-row-${i}`, run: 'page-run-0' })),
+      ...Array.from({ length: 100 }, (_, i) => ({ ...rows[0], id: `page-run-row-${i + 1}`, run: `page-run-${i + 1}` })),
+    ];
+    const beforePages = await saved(p);
+    await openMeasurement(p, 'link-results');
+    await p.locator(`${panel} .study-result-file`).setInputFiles({ name: 'paged.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ schemaVersion: 1, measurements: paged })) }); await measurementIdle(p);
+    assert.equal(await p.locator(`${panel} [data-result-id]`).count(), 100);
+    await p.locator(`${panel} [data-result-id]`).first().check();
+    await p.click(`${panel} [data-results="next-rows"]`); await measurementIdle(p);
+    assert.equal(await p.locator(`${panel} [data-result-id]`).count(), 1);
+    assert.equal(await p.evaluate(() => document.activeElement?.getAttribute('data-results')), 'previous-rows', 'page navigation preserves keyboard focus');
+    await p.locator(`${panel} [data-result-id]`).first().check();
+    await p.click(`${panel} [data-results="next-runs"]`); await measurementIdle(p);
+    assert.equal(await p.locator(`${panel} [name="run"]`).inputValue(), 'page-run-100');
+    await p.locator(`${panel} [data-result-id]`).first().check();
+    assert.match(await p.locator(`${panel} [role="status"]`).textContent(), /3 selected/);
+    await p.click(`${panel} [data-results="previous-runs"]`); await measurementIdle(p);
+    assert(await p.locator(`${panel} [data-result-id]`).first().isChecked(), 'selection remains across run and row pages');
+    await p.locator(`${panel} [name="element"]`).fill('missing-element'); await p.locator(`${panel} [name="element"]`).press('Tab'); await measurementIdle(p);
+    assert.equal(await p.locator(`${panel} [data-result-id]`).count(), 0);
+    assert.match(await p.locator(`${panel} [role="status"]`).textContent(), /3 selected/);
+    await p.click(`${panel} [data-results="cancel"]`);
+    assert.equal(await saved(p), beforePages, 'paging and filtering do not save a record');
+
+    const realPath = join(process.cwd(), 'docs/balance/measurements.json');
+    const realBytes = readFileSync(realPath), realRows = JSON.parse(realBytes).measurements;
+    const realRuns = [...new Set(realRows.map(m => m.run))];
+    const wantedRun = linked.evidence[0].measurements[0].run;
+    const wantedPage = Math.floor(realRuns.indexOf(wantedRun) / 100);
+    assert(wantedPage >= 0);
+    await openMeasurement(p, 'link-results');
+    await p.locator(`${panel} .study-result-file`).setInputFiles(realPath); await measurementIdle(p);
+    assert.match(await p.locator(`${panel} .study-result-note`).first().textContent(), new RegExp(`${realRows.length} measurements.*${realRuns.length} runs`));
+    for (let i = 0; i < wantedPage; i++) { await p.click(`${panel} [data-results="next-runs"]`); await measurementIdle(p); }
+    await p.locator(`${panel} [name="run"]`).selectOption(wantedRun); await measurementIdle(p);
+    await p.locator(`${panel} [name="element"]`).fill('run'); await p.locator(`${panel} [name="element"]`).press('Tab'); await measurementIdle(p);
+    const expectedRow = realRows.find(m => m.run === wantedRun && m.element === 'run');
+    await p.locator(`${panel} [data-result-id]`).first().check();
+    await p.click(`${panel} [data-results="link"]`); await p.waitForSelector(panel, { state: 'detached' });
+    const realEvidence = (await exportDoc(p)).evidence.at(-1);
+    assert.deepEqual(realEvidence.measurements, [expectedRow], 'full real export links its original row through the browser');
+    assert.equal(realEvidence.source.sha256, createHash('sha256').update(realBytes).digest('hex'));
+  }
 }
 try {
   for (const [width, height] of [[1440, 900], [390, 844], [375, 667]]) {
@@ -196,6 +382,7 @@ try {
     await importDoc(p, badEvidence);
     assert(await p.locator('#study > .study-alert').isVisible());
     assert.deepEqual(comparable(await exportDoc(p)), comparable(beforeEvidence), 'malformed evidence import preserves the document');
+    await measurementControls(p, control, linked, width, height);
     await p.keyboard.press('Escape');
     assert.equal(await p.locator('#study').getAttribute('open'), null, 'Escape closes only the study');
     assert.notEqual(await p.locator('#workshop').getAttribute('open'), null, 'Workshop remains open');

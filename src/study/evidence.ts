@@ -22,12 +22,12 @@ export const measurementSchema = z.strictObject({
   sample: z.number().int().nonnegative().nullable(), sampleUnit: z.enum(['games', 'pairs', 'arrangements', 'openings', 'unknown']),
   unit: text, validity: z.enum(['valid', 'pending', 'incomplete', 'void', 'conflict', 'unverified']),
   // A conflict export can retain one audit reason per game. File and store byte limits bound it.
-  reasons: z.array(text), sources: z.array(text).min(1).max(100), method: text,
+  reasons: z.array(text), sources: z.array(text).max(100), method: text,
   bound: z.enum(['lessThan', 'greaterThan']).optional(), reference: text.optional(), denominator: text.optional(), criterion: text.optional(),
   comparison: z.strictObject({ baseRun: text, variantRun: text, kind: z.enum(['paired', 'with-without']) }).optional(),
   calibration: z.strictObject({ eloPerPawn: z.number(), relativeError: z.number().nullable() }).optional(),
   interval: z.strictObject({ low: z.number(), high: z.number(), kind: text }).refine(v => v.low <= v.high, 'Interval bounds are reversed.').optional(),
-});
+}).refine(m => m.sources.length > 0 || m.validity === 'pending', 'Only pending measurements may have no raw source.');
 const evidenceSchema = z.strictObject({
   schema: z.literal('kingdown-evidence/1'),
   source: z.strictObject({ path: text, sha256: z.string().regex(/^[a-f0-9]{64}$/) }),
