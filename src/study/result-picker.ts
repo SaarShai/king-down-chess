@@ -1,4 +1,5 @@
 import './result-picker.css';
+import { esc } from '../workshop/text';
 import type { StudyClient } from './client';
 import type { StudyDocument } from './browser-service';
 import { evidenceRelation, measurementSummary, type MeasurementEvidence, type ResearchDocument } from './evidence';
@@ -12,7 +13,6 @@ interface PickerOptions {
   error: (error: unknown) => void;
   clearError: () => void;
 }
-const esc = (value: unknown): string => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 /** Keep only the visible pages and selected IDs. The worker holds the file. */
 export function mountResultPicker(body: HTMLElement, options: PickerOptions): () => void {
@@ -41,10 +41,30 @@ export function mountResultPicker(body: HTMLElement, options: PickerOptions): ()
   function close(): void { cleanup(); options.close(); }
   async function perform(action: () => Promise<void>): Promise<void> {
     if (!active || busy) return;
+    const focused = body.ownerDocument.activeElement as HTMLElement | null;
+    const focusName = focused && body.contains(focused) ? focused.getAttribute('name') : null;
+    const focusAction = focused && body.contains(focused) ? focused.dataset.results : undefined;
+    let focusMoved = false;
+    const onFocus = (): void => { focusMoved = true; };
     options.clearError();
     busy = true; render();
+    body.ownerDocument.addEventListener('focusin', onFocus);
     try { await action(); } catch (error) { if (active) options.error(error); }
-    finally { if (active) { busy = false; render(); } }
+    finally {
+      body.ownerDocument.removeEventListener('focusin', onFocus);
+      if (active) {
+        busy = false; render();
+        if (body.isConnected && !focusMoved) {
+          const controls = body.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('[name],button[data-results]');
+          const target = Array.from(controls).find(control => focusName ? control.getAttribute('name') === focusName : focusAction && control.dataset.results === focusAction);
+          if (target && !target.disabled) target.focus();
+          else if (target?.dataset.results) {
+            const other = target.dataset.results.startsWith('next-') ? target.dataset.results.replace('next-', 'previous-') : target.dataset.results.replace('previous-', 'next-');
+            Array.from(controls).find(control => control.dataset.results === other && !control.disabled)?.focus();
+          }
+        }
+      }
+    }
   }
   function pageLabel(offset: number, count: number, total: number): string {
     return total ? `${offset + 1}–${offset + count} of ${total}` : '0';

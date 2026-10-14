@@ -6,7 +6,7 @@ import type { ResultCatalogue } from './measurement-service';
 
 function panel() {
   const listeners = new Map<string, (event: Event) => void>();
-  const body = { innerHTML: '', classList: { add() {} }, setAttribute() {}, removeAttribute() {},
+  const body = { ownerDocument: { activeElement: null, addEventListener() {}, removeEventListener() {} }, innerHTML: '', classList: { add() {} }, setAttribute() {}, removeAttribute() {},
     addEventListener: (type: string, callback: (event: Event) => void) => listeners.set(type, callback),
     removeEventListener: (type: string) => listeners.delete(type),
   };
@@ -46,10 +46,10 @@ it('keeps the last valid catalogue when the next file fails', async () => {
   const cleanup = mountResultPicker(p.body, { client, document: exampleStudies('test')[0], save: vi.fn(), error, clearError: vi.fn(), close: vi.fn() });
   p.change(new Blob(['{}']));
   await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
-  expect(p.body.innerHTML).toContain('&lt;valid&gt;.json');
+  expect(p.body.innerHTML).toContain('&#60;valid&#62;.json');
   p.change(new Blob(['bad']));
   await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
   expect(error).toHaveBeenCalledOnce();
-  expect(p.body.innerHTML).toContain('&lt;valid&gt;.json');
+  expect(p.body.innerHTML).toContain('&#60;valid&#62;.json');
   cleanup();
 });
