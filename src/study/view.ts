@@ -7,7 +7,8 @@ import { figureUrl, selectedFigure } from '../workshop/figures';
 import { designCode, parseDesign, specOf, type PieceDesign } from '../workshop/model';
 import { esc } from '../workshop/text';
 import { createStudyClient } from './client';
-import { studyOf, withChecks, type StudyDocument, type StudyResult } from './browser-service';
+import { studyOf, testOf as documentTest, withChecks, type StudyDocument, type StudyResult } from './browser-service';
+import { evidenceRelation, MAX_STUDY_BYTES, measurementSummary, researchStatus } from './evidence';
 import { loadStudies, saveStudyDocument } from './store';
 import { exampleStudies } from './examples';
 import { positionOf, withRules } from './model';
@@ -47,7 +48,7 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
   const notice = (text: string): void => { q('.study-notice').textContent = text; };
   const documentOf = (): StudyDocument => data!.document;
   const study = () => studyOf(documentOf());
-  const testOf = (): StudyTest | null => data?.document.schema === 'kingdown-test/1' ? data.document : null;
+  const testOf = (): StudyTest | null => data ? documentTest(data.document) : null;
 
   function sheet(title: string, html: string, wire?: (body: HTMLElement, close: () => void) => void): void {
     panel?.close();
@@ -129,12 +130,19 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     });
   }
   function results(): void {
-    if (!report) { sheet('Results', '<p>No result for this version yet. Open Test to run the declared checks.</p>'); return; }
-    sheet('Results', `<p><strong>${esc(report.status)} · ${report.facts.filter(f => f.passed).length} of ${report.facts.length} checks pass</strong></p>${report.error ? `<p>${esc(report.error)}</p>` : ''}
+    const doc = documentOf(), research = doc.schema === 'kingdown-research/1' ? doc : null;
+    const status = research && researchStatus(research), plan = research?.plan;
+    const measurements = research ? `<h3>Balance evidence</h3><p>${status!.measurements} linked measurements · approval not reviewed.</p>
+      <p>Measurement plan: <strong>${status!.plan}</strong>${plan ? ` for this saved study · ${esc(plan.definition.request.recipe)} · ${plan.games} games · ${plan.blocks} blocks. Imported plan metadata is unverified here. Preview only; no games launched.` : '.'}</p>
+      ${plan ? `<details><summary>Plan settings and limits</summary><p>${esc(plan.measures.join('; '))}</p><ul>${plan.limits.map(l => `<li>${esc(l)}</li>`).join('')}</ul><p>Fingerprint: ${esc(plan.fingerprint)}</p><pre>${esc(JSON.stringify(plan.definition.request, null, 2))}</pre></details>` : ''}
+      ${research.evidence.flatMap(e => e.measurements.map(m => `<details><summary>${esc(measurementSummary(m))}</summary><p>${esc(evidenceRelation(research, m))}</p><p>Run: ${esc(m.run)} · ${esc(m.method)}</p><ul>${m.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul><p>Sources: ${esc(m.sources.join(', '))}</p><p>Export: ${esc(e.source.path)} · SHA-256 ${esc(e.source.sha256)}</p><pre>${esc(JSON.stringify(m.context, null, 2))}</pre></details>`)).join('')}
+      <ul>${status!.limits.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '';
+    const checks = report ? `<p><strong>${esc(report.status)} · ${report.facts.filter(f => f.passed).length} of ${report.facts.length} checks pass</strong></p>${report.error ? `<p>${esc(report.error)}</p>` : ''}
       <ul>${report.facts.map(f => `<li>${esc(f.label)} · after action ${f.after} · ${f.passed ? 'as expected' : `expected ${esc(JSON.stringify(f.expected))}; got ${esc(JSON.stringify(f.actual))}`}</li>`).join('')}</ul>
       <details><summary>Coverage and support limits</summary><ul>${report.coverage.map(c => `<li>${esc(c.items.join(' + '))}: ${c.state}. ${esc(c.reason)}</li>`).join('')}</ul></details>
       <details><summary>Observed state changes · ${report.trace.length} actions</summary><ol>${report.trace.map(t => `<li>${esc(t.action)}: ${esc(t.changes.map(c => c.field).join(', '))}</li>`).join('')}</ol><p>These are state changes, not proof of which rule causes them.</p></details>
-      <p>These checks do not measure balance or enjoyment.</p>`);
+      <p>These checks do not measure balance or enjoyment.</p>` : '<p>No result for this version yet. Open Test to run the declared checks.</p>';
+    sheet('Results', checks + measurements);
   }
   function tests(): void {
     const test = testOf();
@@ -193,7 +201,7 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
   const file = q<HTMLInputElement>('.study-import');
   file.onchange = () => void run(async () => {
     const selectedFile = file.files?.[0]; file.value = ''; if (!selectedFile) return;
-    if (selectedFile.size > 1_000_000) throw new Error('Study file exceeds 1 MB.');
+    if (selectedFile.size > MAX_STUDY_BYTES) throw new Error('Study file exceeds 1 MiB.');
     await load(JSON.parse(await selectedFile.text())); panel?.close();
   });
   dlg.addEventListener('click', e => {

@@ -1,8 +1,11 @@
-# Saved studies
+# Studies, plans and evidence
 
 Use a saved study to inspect and test one position with fixed rules. A constructed
 study starts at a stated position. It does not prove that a game can reach that
-position. A test result does not show piece value, balance, or fun.
+position. An interaction test checks the declared behavior at that position.
+A measurement plan fixes the population and search settings before games run.
+Linked evidence retains the original measurement, uncertainty and source.
+These are separate answers. A passing interaction test does not show balance or fun.
 
 ## Browser controls
 
@@ -25,6 +28,9 @@ It does not change the Workshop Try board or the active game.
 - **More → Import file** validates the full document before it replaces the open
   study. **Export copy** downloads JSON. A draft export has a new ID; a saved
   export retains its ID and version. Export still works if local saving fails.
+- **Results** also shows an imported measurement plan and balance evidence.
+  Open a measurement to read its run, method, original rules and source hash.
+  A changed study or check makes its plan stale. Old measurements remain visible.
 
 Keep exported copies. Browser storage holds up to 50 versions and can be cleared
 by the browser. Bad stored data is kept and reported. A source mismatch is refused.
@@ -141,6 +147,70 @@ case and a boundary case beside a positive case. The attack parity control
 compares legal moves, generated attacks, and attack lookup on enemy or empty
 squares. Friendly-square defense lookup has no shared contract.
 
+## Connect balance measurements
+
+Prepare plans from an exported study or interaction test. The command preserves
+all checks and the saved study. It writes a `kingdown-research/1` file that the
+browser can import through **More → Import file**.
+
+For the Rook example, use the included activity request:
+
+```sh
+npm run study -- plan /tmp/kingdown-studies/rook-control.json docs/specs/designer-test-framework/sample/activity-request.json --out /tmp/rook-plan.json
+npm run study -- preview /tmp/rook-plan.json --out /tmp/rook-jobs.json
+```
+
+Plan reports game and block counts, seed, depth, policy and limits. Preview writes
+the exact jobs for review. Both commands launch zero games. Preview regenerates
+the plan and refuses changed source, settings, metadata or study content. A run
+still needs the owner's go and the existing launcher checks. A preview file is
+not a launch authorization.
+
+| Recipe | Comparison | Current limit |
+|---|---|---|
+| `worth` | Piece swaps with pawn calibration | Set distinct `pieces`; optional `vs` is N, B, R or Q |
+| `activity` | Participation under the saved rules | Uses new armies from `pool` |
+| `field` | Named king powers against each other | Set distinct `entrants`, including `none` if needed |
+| `cross-play` | The same power schedule with both colors | Named powers only; no arbitrary strategy plug-in |
+| `four-cell` | Two named piece or card factors, alone and together | No custom T, plain kings, fixed supported search policy |
+
+Every request states `start: "population"`, `seed`, `pairs`, `depth` and `pool`.
+The pool has at least seven piece letters. T needs the study's saved design.
+Recipes refuse unknown fields, missing inputs, duplicate entrants or pieces and
+more than 10,000 preview games. A saved-state population start is unsupported:
+existing jobs cannot preserve all board history. Use interaction tests for that
+exact position. Plan files stay within the study's 1 MiB limit. Large job previews
+have a separate 32 MiB limit.
+
+Link rows from the existing balance dataset by exact run and optional element:
+
+```sh
+npm run study -- evidence /tmp/rook-plan.json docs/balance/measurements.json --run ab-2021.var --element run --out /tmp/rook-evidence.json
+npm run study -- check /tmp/rook-evidence.json
+```
+
+This example links three historical run measurements. It does not measure the
+new Rook. Import `/tmp/rook-evidence.json` in Studies, save it, then open Results.
+The plan stays separate from the declared checks. A measurement retains its
+value, interval or error, sample unit, validity, reasons, method and full context.
+The export records a SHA-256 hash of the exact dataset bytes. No match, duplicate
+measurement ID, malformed row or oversize file produces an output. Input datasets
+can be at most 32 MiB; select at most 500 rows per link and 20 links per document.
+
+Plan status in the browser compares the saved study and checks only. Imported
+plan counts and contexts stay unverified until the command-line preview checks
+them. The browser can compare imported context keys, but cannot certify that a
+result answers this plan. An old source or different settings makes evidence
+historical. Even matching context keys still need result review.
+
+The browser does not audit raw games, certify complete coverage or adopt a
+design. Use the balance campaign validator for raw hashes, schedules and legal
+replay. Missing data stays missing. After a study or check changes, create a new
+plan. The old plan and evidence stay attached for inspection. Save versions
+before planning; a new version also makes the previous version's plan stale.
+Plain study edits preserve attached evidence. Command-line edits to a test still
+require `extract` to protect its indexed checks.
+
 ## Current support
 
 | Operation | Support |
@@ -153,7 +223,9 @@ squares. Friendly-square defense lookup has no shared contract.
 | Event cycles or unknown rule language | Refused as unknown input; no event interpreter is present |
 | Entity IDs and causal events | Unsupported; exact state and legal action traces are present |
 | Browser assertion editing | Legal/refused action checks; import files for piece, state and status checks |
-| Balance, strategy strength, human enjoyment | Untested by this first layer |
+| Balance measurements | Plan five supported recipes; link existing measurements with their original context |
+| Strategy strength | Named power comparisons; arbitrary policies and proof of best play are unsupported |
+| Human enjoyment | Unmeasured; requires observed playtests |
 
 Study IDs and version numbers label saved records. Keep one version chain per ID;
 use a new ID for a separate design question. The browser library is local to one

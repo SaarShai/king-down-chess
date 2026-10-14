@@ -5,6 +5,15 @@ import { resolve } from 'node:path';
 import { MAX_STUDY_BYTES, readStudyFile, saveStudyFile, runStudy } from './study';
 import { studySource } from './lib/study-source';
 import { openStudy } from '../src/study/session';
+import { exampleStudies } from '../src/study/examples';
+import { parseResearch, researchStatus } from '../src/study/evidence';
+import { unknownContext } from '../src/balance/measurements';
+import { createHash } from 'node:crypto';
+import * as fs from 'node:fs';
+vi.mock('node:fs', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return { ...actual, writeFileSync: vi.fn(actual.writeFileSync) };
+});
 
 const dirs: string[] = [];
 function temp(): string { const dir = mkdtempSync(resolve(tmpdir(), 'study-test-')); dirs.push(dir); return dir; }
@@ -20,6 +29,16 @@ describe('study file boundary', () => {
     writeFileSync(path, 'keep');
     expect(() => saveStudyFile(path, { replacement: true })).toThrow();
     expect(readFileSync(path, 'utf8')).toBe('keep');
+    expect(readdirSync(resolve(path, '..'))).toEqual(['saved.json']);
+  });
+  it('does not publish a partial file when a write fails', async () => {
+    const dir = temp(), path = resolve(dir, 'failed.json');
+    const { writeFileSync: write } = await vi.importActual<typeof import('node:fs')>('node:fs');
+    vi.mocked(fs.writeFileSync).mockImplementationOnce((target) => { write(target, '{partial'); throw new Error('Disk full'); });
+    expect(() => saveStudyFile(path, { result: 'complete' })).toThrow('Disk full');
+    expect(readdirSync(dir)).toEqual([]);
+    saveStudyFile(path, { result: 'complete' });
+    expect(readStudyFile(path)).toEqual({ result: 'complete' });
   });
   it('reports malformed commands as failure', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -60,4 +79,37 @@ it('keeps test checks safe and saves each study change to a new version', () => 
   expect(runStudy(['undo', next, '--out', undone])).toBe(0);
   expect(readStudyFile(undone)).toMatchObject({ version: wrapper.study.version + 2, parentVersion: wrapper.study.version + 1, actions: wrapper.study.actions });
   expect(readStudyFile(input)).toEqual(wrapper);
+});
+
+it('prepares a plan, previews jobs and links exact exported evidence without launching games', () => {
+  vi.spyOn(console, 'log').mockImplementation(() => {}); vi.spyOn(console, 'error').mockImplementation(() => {});
+  const dir = temp(), input = resolve(dir, 'study.json'), request = resolve(dir, 'request.json'), plan = resolve(dir, 'plan.json');
+  const jobs = resolve(dir, 'jobs.json'), dataset = resolve(dir, 'measurements.json'), linked = resolve(dir, 'linked.json');
+  saveStudyFile(input, exampleStudies(studySource())[0]);
+  saveStudyFile(request, { recipe: 'activity', start: 'population', seed: 10, pairs: 2, depth: 1, pool: 'TTTTTTT' });
+  expect(runStudy(['plan', input, request, '--out', plan])).toBe(0);
+  expect(researchStatus(parseResearch(readStudyFile(plan))).plan).toBe('current');
+  expect(runStudy(['preview', plan, '--out', jobs])).toBe(0);
+  expect((readStudyFile(jobs) as { jobs: unknown[] }).jobs).toHaveLength(4);
+  const row = { id: 'historic', run: 'old-run', element: 'R', version: null, context: unknownContext(), measure: 'pawnWorth', value: 5,
+    error: null, errorKind: null, sample: 10, sampleUnit: 'pairs', unit: 'pawns', validity: 'incomplete', reasons: ['One part is missing'], sources: ['report.md'], method: 'Paired estimate' };
+  saveStudyFile(dataset, { schemaVersion: 1, measurements: [row] });
+  expect(runStudy(['evidence', plan, dataset, '--run', 'absent', '--out', linked])).toBe(1);
+  expect(runStudy(['evidence', plan, dataset, '--run', 'old-run', '--element', 'R', '--out', linked])).toBe(0);
+  const saved = parseResearch(readStudyFile(linked));
+  expect(saved.evidence[0].measurements).toEqual([row]);
+  expect(saved.evidence[0].source.sha256).toBe(createHash('sha256').update(readFileSync(dataset)).digest('hex'));
+  expect(runStudy(['check', linked])).toBe(0);
+  expect(runStudy(['evidence', linked, dataset, '--run', 'old-run', '--out', resolve(dir, 'duplicate.json')])).toBe(1);
+  const stale = structuredClone(saved); stale.document = { ...exampleStudies(studySource())[0], study: { ...exampleStudies(studySource())[0].study, version: 2 } };
+  saveStudyFile(resolve(dir, 'stale.json'), stale);
+  expect(runStudy(['preview', resolve(dir, 'stale.json'), '--out', resolve(dir, 'stale-jobs.json')])).toBe(1);
+  for (const field of ['seed', 'games', 'context'] as const) {
+    const changed = structuredClone(saved);
+    if (field === 'seed') changed.plan!.definition.request.seed++;
+    else if (field === 'games') changed.plan!.games++;
+    else changed.plan!.contexts[0].specKey = 'wrong';
+    const bad = resolve(dir, `bad-${field}.json`); saveStudyFile(bad, changed);
+    expect(runStudy(['preview', bad, '--out', resolve(dir, `bad-${field}-jobs.json`)])).toBe(1);
+  }
 });

@@ -1,7 +1,8 @@
 import { parseDocument, studyOf, type StudyDocument } from './browser-service';
+import { MAX_STUDY_BYTES } from './evidence';
 
 type StudyStorage = Pick<Storage, 'getItem' | 'setItem'>;
-const KEY = 'kingdown.studies', MAX_DOCUMENT = 1024 * 1024, MAX_BOX = 8 * MAX_DOCUMENT;
+const KEY = 'kingdown.studies', MAX_DOCUMENT = MAX_STUDY_BYTES, MAX_BOX = 8 * MAX_DOCUMENT;
 function message(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 function storageOf(storage?: StudyStorage): StudyStorage {
   const found = storage ?? globalThis.localStorage;

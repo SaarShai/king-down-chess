@@ -24,6 +24,8 @@
 #study .study-panel input,#study .study-panel select,#study .study-panel textarea { box-sizing:border-box; width:100%; min-height:44px; padding:8px; font:inherit; }
 #study .study-panel li { margin:8px 0; overflow-wrap:anywhere; }
 #study .study-panel details { margin:16px 0; }
+#study .study-panel p,#study .study-panel summary { overflow-wrap:anywhere; }
+#study .study-panel pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; }
 #study .study-panel summary { cursor:pointer; min-height:32px; }
 #study .study-panel [data-open] { display:block; width:100%; margin:8px 0; text-align:left; }
 #study .study-options,#study .study-actions { display:flex; flex-wrap:wrap; gap:8px; }

@@ -64,7 +64,8 @@ export function createMeasurementPlan(input: unknown, request: MeasurementReques
   if (r.entrants && new Set(r.entrants).size !== r.entrants.length) throw new Error('Duplicate entrant');
   if (r.recipe === 'four-cell' ? !r.factors || !r.cardPool : !!r.factors || !!r.cardPool) throw new Error('Four-cell requires factors and cardPool only');
   if (r.pieces && new Set(r.pieces).size !== r.pieces.length) throw new Error('Duplicate worth piece');
-  const games = r.pairs * (r.recipe === 'four-cell' ? 12 : r.recipe === 'worth' ? 2 * (r.pieces!.length + 3) : r.entrants ? r.entrants.length * (r.entrants.length - 1) : 2);
+  const cardFactors = r.factors?.filter(f => f.kind === 'card').length ?? 0;
+  const games = r.pairs * (r.recipe === 'four-cell' ? [8, 12, 14][cardFactors] : r.recipe === 'worth' ? 2 * (r.pieces!.length + 3) : r.entrants ? r.entrants.length * (r.entrants.length - 1) : 2);
   if (games > MAX_PREVIEW_GAMES) throw new Error(`Preview exceeds ${MAX_PREVIEW_GAMES} games`);
   const study = 'study' in parsed ? parsed.study : parsed;
   if ((r.pool.includes('T') || r.pieces?.includes('T')) && !study.rules.design) throw new Error('Custom T requires a saved design');

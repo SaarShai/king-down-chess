@@ -53,7 +53,7 @@ export function previewStudyMeasurements(input: unknown, request: MeasurementReq
     policy: { evaluation, contexts: [...unique.values()].map(spec => ({ ai: spec.ai, values: spec.values ?? {}, adjudicate: spec.adjudicate, powerHold: spec.powerHold ?? {}, powerHoldSides: spec.powerHoldSides ?? null, openingRandomPlies: spec.openingRandomPlies, maxPlies: spec.maxPlies })) },
     measures: r.recipe === 'four-cell' ? ['four-cell score interaction', 'strategy sensitivity', 'block variation'] : r.recipe === 'worth' ? ['paired score', 'pawn-calibrated worth'] : r.recipe === 'activity'
       ? ['piece activity', 'conditions', 'interactions'] : ['paired score by power', 'army variation'],
-    limits: ['Population games do not replay the saved board or history.', 'No results exist. No balance, strategy, or fun claim is approved.'],
+    limits: ['Population games do not replay the saved board or history.', ...(r.recipe === 'worth' ? ['Worth uses classic piece-swap armies and pawn-odds calibration, not random armies from the requested pool.'] : []), 'No results exist. No balance, strategy, or fun claim is approved.'],
     missingResults: jobs.length,
   } });
 }

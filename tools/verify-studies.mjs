@@ -1,13 +1,16 @@
 // Real study actions, declared results, local versions and atomic imports at desktop and phone sizes.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { pressMenu } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 
 const browser = await launch();
 const panel = '.study-panel[open]';
 const comparable = doc => { const copy = structuredClone(doc), s = studyOf(copy); delete s.id; delete s.version; delete s.parentVersion; return copy; };
-const studyOf = doc => doc.schema === 'kingdown-test/1' ? doc.study : doc;
+const studyOf = doc => doc.schema === 'kingdown-research/1' ? studyOf(doc.document) : doc.schema === 'kingdown-test/1' ? doc.study : doc;
 const state = p => p.locator('#study .study-state').textContent();
 const saved = p => p.evaluate(() => localStorage.getItem('kingdown.studies'));
 async function idle(p) { await p.waitForFunction(() => !document.querySelector('#study').hasAttribute('aria-busy')); }
@@ -51,6 +54,19 @@ async function runChecks(p) {
   await p.click('#study [data-study="test"]');
   await p.click(`${panel} [data-run]`);
   await idle(p);
+}
+function linkedRecord(control) {
+  const dir = mkdtempSync(join(tmpdir(), 'study-evidence-check-'));
+  try {
+    const input = join(dir, 'input.json'), request = join(dir, 'request.json'), plan = join(dir, 'plan.json'), linked = join(dir, 'linked.json');
+    writeFileSync(input, JSON.stringify(control));
+    writeFileSync(request, JSON.stringify({ recipe: 'activity', start: 'population', seed: 17, pairs: 2, depth: 1, pool: 'TTTTTTT' }));
+    for (const args of [['plan', input, request, '--out', plan], ['evidence', plan, 'docs/balance/measurements.json', '--run', 'ab-2021.var', '--element', 'run', '--out', linked]]) {
+      const run = spawnSync(process.execPath, ['--import', 'tsx', 'tools/study.ts', ...args], { encoding: 'utf8', timeout: 30000 });
+      assert.equal(run.status, 0, run.stderr || 'Study CLI failed');
+    }
+    return JSON.parse(readFileSync(linked, 'utf8'));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 try {
   for (const [width, height] of [[1440, 900], [390, 844], [375, 667]]) {
@@ -155,6 +171,31 @@ try {
     assert(await p.locator(`${panel} .study-panel-alert`).isVisible(), 'corrupt library reports its error inside the library');
     await closePanel(p);
     await p.evaluate(raw => localStorage.setItem('kingdown.studies', raw), healthyStore);
+    const linked = linkedRecord(control);
+    await importDoc(p, linked);
+    await save(p, studyOf(linked).title);
+    await p.click('#study [data-study="results"]');
+    assert.match(await p.locator(panel).textContent(), /Measurement plan: current.*activity.*4 games.*2 blocks/s);
+    assert.match(await p.locator(panel).textContent(), /Balance evidence.*approval not reviewed/s);
+    assert.match(await p.locator(panel).textContent(), /Historical evidence.*source or settings do not match/s);
+    await p.locator(`${panel} details summary`).first().click();
+    await noSidewaysScroll(p); await shot(p, `studies-evidence-${width}x${height}`);
+    await closePanel(p);
+    assert.deepEqual((await exportDoc(p)).evidence, linked.evidence, 'export keeps the original context, validity and source hash');
+    await runChecks(p);
+    assert.match(await p.locator(panel).textContent(), /passed · 6 of 6 checks pass.*Balance evidence/s, 'interaction checks and balance evidence stay separate');
+    await closePanel(p);
+    await p.click('#study [data-study="actions"]');
+    await p.locator(`${panel} [data-move]`).filter({ hasText: /^Td4-e4$/ }).click(); await idle(p);
+    await p.click('#study [data-study="results"]');
+    assert.match(await p.locator(panel).textContent(), /Measurement plan: stale/, 'a changed study does not retain a current plan');
+    await closePanel(p);
+    await p.click('#study [data-study="undo"]'); await idle(p);
+    const badEvidence = structuredClone(linked); badEvidence.evidence[0].source.sha256 = 'bad';
+    const beforeEvidence = await exportDoc(p);
+    await importDoc(p, badEvidence);
+    assert(await p.locator('#study > .study-alert').isVisible());
+    assert.deepEqual(comparable(await exportDoc(p)), comparable(beforeEvidence), 'malformed evidence import preserves the document');
     await p.keyboard.press('Escape');
     assert.equal(await p.locator('#study').getAttribute('open'), null, 'Escape closes only the study');
     assert.notEqual(await p.locator('#workshop').getAttribute('open'), null, 'Workshop remains open');
@@ -166,5 +207,5 @@ try {
     await context.close();
   }
   assertNoErrors();
-  console.log('studies: desktop, phone, actions, results, saved versions and atomic failures pass');
+  console.log('studies: desktop, phone, actions, results, saved versions, measurement plans, historical evidence and atomic failures pass');
 } finally { await browser.close(); }

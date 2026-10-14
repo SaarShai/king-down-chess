@@ -1,0 +1,8 @@
+{
+  "recipe": "activity",
+  "start": "population",
+  "seed": 214211,
+  "pairs": 20,
+  "depth": 2,
+  "pool": "TTTTTTT"
+}

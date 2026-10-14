@@ -44,6 +44,7 @@ describe('study measurement previews', () => {
     const plain = input().study; delete plain.design; plain.rules.design = null; plain.start = positionData(fromFen('7k/8/8/8/8/8/8/K7 w - - 0 1'));
     const four = previewStudyMeasurements(plain, { ...request, recipe: 'four-cell', pool: 'ABNNRRQ', cardPool: ['Haste'], factors: [{ kind: 'piece', piece: 'A', replacement: 'N' }, { kind: 'card', card: 'Haste' }] });
     expect(four.preview).toMatchObject({ games: 24, blocks: 2 });
+    expect(() => createMeasurementPlan(plain, { ...request, recipe: 'four-cell', pairs: 715, pool: 'ABNNRRQ', cardPool: ['Haste', 'Rage'], factors: [{ kind: 'card', card: 'Haste' }, { kind: 'card', card: 'Rage' }] })).toThrow('Preview exceeds 10000 games');
     expect(four.jobs.every(g => !g.job.fen)).toBe(true);
     expect(four.execution.contexts.every(c => c.pool === 'ABNNRRQ')).toBe(true);
     expect(four.jobs.every(g => !Array.isArray(g.spec.backRanks) && g.spec.backRanks?.pool === 'ABNNRRQ')).toBe(true);

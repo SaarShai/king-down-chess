@@ -1,12 +1,14 @@
 # King Down designer test framework
 
-Status: approved for the first build on this branch.
+Status: approved for saved studies, interaction tests and measurement links.
 
 Owner approval, 2026-10-12: “approved. start building the framework on this
 branch, beginning with saved studies and interaction tests.” Tickets 02 and 03
 are the current build scope. The owner approves the rendered study layout on
-2026-10-13: “Approve the layout”. The saved-study browser and command-line paths
-are built. See the [usage guide](usage.md) for the current controls and limits.
+2026-10-13: “Approve the layout”. On 2026-10-14 the owner approves the next stage:
+“connect saved studies and interaction tests to the existing balance measurements
+and results.” The saved-study browser, command line, measurement plans and
+evidence links are built. See the [usage guide](usage.md) for controls and limits.
 
 King Down is a game that designers can extend. A designer must be able to make a
 rule, see what it does, try it with other rules, find ways to use and oppose it,
@@ -29,8 +31,9 @@ Start with the [study template](study-template.md). Use the
 The [source review](source-review.md) records what the three chats built, what is
 on main, and what still needs work.
 
-The documents are usable now for a manual study. The connected workflow below
-is the proposed software. A study cannot pass a stage whose tool support is
+The documents support a manual study. The first software layers save positions,
+check interactions, prepare population measurements and show related evidence.
+The full workflow below remains the design target. A study cannot pass a stage whose tool support is
 missing. It can still save its idea and list the missing check.
 
 ```mermaid
