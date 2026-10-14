@@ -11,7 +11,7 @@ and results.” The saved-study browser, command line, measurement plans and
 evidence links are built. Browser plan and result controls are also built and
 verified. See the [usage guide](usage.md) for controls and limits. The next
 [run connection stage](issues/09-browser-runs.md) specifies browser approval,
-M1/Kaggle progress and result return. Its spec and rendered sample await approval.
+M1/Kaggle progress and result return. The owner approves its spec and rendered sample on 2026-10-14: “Approve and build”.
 
 King Down is a game that designers can extend. A designer must be able to make a
 rule, see what it does, try it with other rules, find ways to use and oppose it,

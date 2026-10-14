@@ -10,9 +10,9 @@ Owner request, 2026-10-14: “continue on this branch and connect saved measurem
 plans to m1 and kaggle, so designers can approve a run, track its progress, and
 bring results back into the study from the browser.”
 
-This ticket defines that next stage. The spec and rendered sample wait for the
-owner's approval before the production build. Approval of this feature does not
-approve a measurement campaign. Each campaign still needs its own visible run go.
+Owner approval, 2026-10-14: “Approve and build”, for this spec and rendered layout.
+The production build is authorized. Approval of this feature does not approve a
+measurement campaign. Each campaign still needs its own visible run go.
 
 ## Outcome
 
@@ -301,3 +301,10 @@ the corrected design. The sample and spec add no production run path.
 
 Rendered evidence is at
 `/Users/za/.codex/visualizations/2026/10/13/01a1338c-36c7-71e1-9c8a-05503302ca75/browser-run-approval-20261014`.
+
+## Build checkpoint
+
+The approved build separates frozen execution/reporting, machine transport and
+browser controls. The local coordinator owns durable approval, queue writes,
+status and collection. Each writer uses an isolated worktree. Fixture transports
+verify the full flow; no live campaign is authorized by this build approval.
