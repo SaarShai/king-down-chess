@@ -11,6 +11,7 @@ import { studyOf, testOf as documentTest, withChecks, type StudyDocument, type S
 import { evidenceRelation, MAX_STUDY_BYTES, measurementSummary, researchStatus, type ResearchDocument } from './evidence';
 import { mountMeasurementForm } from './measurement-form';
 import { mountResultPicker } from './result-picker';
+import { mountRunPanel } from './run-panel';
 import { loadStudies, saveStudyDocument } from './store';
 import { exampleStudies } from './examples';
 import { positionOf, withRules } from './model';
@@ -88,7 +89,7 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     });
     view.setPreview(cursor);
   }
-  async function run(work: () => Promise<void>): Promise<void> {
+  async function run(work: () => Promise<unknown>): Promise<void> {
     if (busy) return;
     busy = true; dlg.setAttribute('aria-busy', 'true'); clearError(); render();
     try { await work(); } catch (e) { error(e); }
@@ -104,12 +105,12 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     if (!saved.ok) { error(`Study not saved. ${saved.error} Export a copy from More.`); return false; }
     data = { ...next, document: doc }; dirty = false; notice('Saved on this device.'); render(); return true;
   }
-  async function load(input: unknown, saved = false): Promise<void> {
+  async function load(input: unknown, saved = false, active = (): boolean => true): Promise<boolean> {
     const next = await client.request({ type: 'inspect', document: input });
     // Validate first, then preserve the current draft before changing the screen.
-    if (dirty && !persist()) return;
+    if (!active() || dirty && !persist()) return false;
     data = next; dirty = !saved; report = null; selected = 27; cursor = 27; notice(''); render();
-    await view.ready(); dlg.dataset.ready = 'true';
+    await view.ready(); dlg.dataset.ready = 'true'; return true;
   }
   async function play(lan: string): Promise<void> {
     await run(async () => {
@@ -149,7 +150,7 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
       <details><summary>Coverage and support limits</summary><ul>${report.coverage.map(c => `<li>${esc(c.items.join(' + '))}: ${c.state}. ${esc(c.reason)}</li>`).join('')}</ul></details>
       <details><summary>Observed state changes · ${report.trace.length} actions</summary><ol>${report.trace.map(t => `<li>${esc(t.action)}: ${esc(t.changes.map(c => c.field).join(', '))}</li>`).join('')}</ol><p>These are state changes, not proof of which rule causes them.</p></details>
       <p>These checks do not measure balance or enjoyment.</p>` : '<p>No result for this version yet. Open Test to run the declared checks.</p>';
-    sheet('Results', `<div class="study-options">${button('plan', 'Plan a measurement')}${button('link-results', 'Link results')}</div>` + checks + measurements);
+    sheet('Results', `<div class="study-options">${button('plan', 'Plan a measurement')}${button('link-results', 'Link results')}${button('runs', 'Run saved plan')}</div>` + checks + measurements);
   }
   function researchDocument(): ResearchDocument {
     const doc = copy(documentOf());
@@ -172,13 +173,25 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
       return () => { active = false; dispose(); };
     });
   }
-  function linkResults(): void {
+  function linkResults(file?: Blob, filename?: string): void {
     clearError();
     sheet('Link results', '', (body, close) => {
       body.closest('dialog')!.classList.add('study-measurement-panel');
       let active = true;
-      const dispose = mountResultPicker(body, { client, document: copy(documentOf()), close, error, clearError,
+      const dispose = mountResultPicker(body, { client, ...(file ? { initialFile: { file, filename: filename ?? 'results.json' } } : {}), document: copy(documentOf()), close, error, clearError,
         save: async evidence => { const doc = researchDocument(); doc.evidence.push(evidence); return saveResearch(doc, () => active); },
+      });
+      return () => { active = false; dispose(); };
+    });
+  }
+  function runs(): void {
+    clearError();
+    sheet('Run a saved plan', '', (body, close) => {
+      body.closest('dialog')!.classList.add('study-measurement-panel');
+      let active = true;
+      const dispose = mountRunPanel(body, { document: researchDocument(), saved: !dirty, studyClient: client,
+        close, error, clearError, link: linkResults,
+        openDocument: doc => load(doc, false, () => active),
       });
       return () => { active = false; dispose(); };
     });
@@ -252,6 +265,7 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     else if (act === 'results') results();
     else if (act === 'plan') measurements();
     else if (act === 'link-results') linkResults();
+    else if (act === 'runs') runs();
     else if (act === 'more') more();
     else if (act === 'actions') actions();
     else if (act === 'open') library();

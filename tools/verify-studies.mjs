@@ -254,6 +254,71 @@ async function measurementControls(p, control, linked, width, height) {
     assert.equal(realEvidence.source.sha256, createHash('sha256').update(realBytes).digest('hex'));
   }
 }
+async function runControls(p, linked, width, height) {
+  await importDoc(p, linked); await save(p, studyOf(linked).title);
+  const original = await exportDoc(p), actions = [];
+  const measurements = linked.evidence[0].measurements.map((row, i) => ({ ...row, id: `service-${width}-${i}` }));
+  const raw = JSON.stringify({ schemaVersion: 1, measurements });
+  const summary = {
+    id: 'fixture-run', studioId: 'fixture-studio', createdAt: '2026-10-14T10:00:00Z',
+    study: { id: studyOf(original).id, title: studyOf(original).title, version: studyOf(original).version, engine: 'fixture' },
+    planFingerprint: 'fixture-plan', bundleHash: 'fixture-bundle', source: 'fixture-source', commit: 'fixture-commit',
+    recipe: 'activity', games: 4, blocks: 2, target: 'both', approvalText: 'I approve exactly 4 fixture games on M1 and Kaggle.',
+    approvedAt: null, phase: 'prepared', parts: [
+      { id: 'm1-part', machine: 'm1', workers: 2, games: 2, blocks: 1, state: 'pending', completedGames: 0, checkedAt: null, nextCheckAt: null, deadline: null, error: null },
+      { id: 'kaggle-part', machine: 'kaggle', workers: 2, games: 2, blocks: 1, state: 'pending', completedGames: null, checkedAt: null, nextCheckAt: null, deadline: null, error: null },
+    ],
+    validation: { state: 'pending', games: 0, legalReplays: 0, illegalControls: 0, message: 'Not checked' },
+    backup: { state: 'pending', message: 'Not copied' }, result: null, error: null,
+  };
+  let exists = false;
+  await p.route('**/api/study-runs', async route => {
+    const request = route.request().postDataJSON(); actions.push(request.action);
+    assert.equal(route.request().method(), 'POST');
+    if (request.action !== 'connect') assert.equal(route.request().headers()['x-king-down-studio'], 'fixture-token');
+    let body;
+    switch (request.action) {
+      case 'connect': body = { studioId: 'fixture-studio', token: 'fixture-token', transportVerification: 'unverified' }; break;
+      case 'list': body = exists ? [summary] : []; break;
+      case 'prepare': assert.deepEqual(request.document, original); assert.equal(request.target, 'both'); exists = true; body = summary; break;
+      case 'approve': assert.equal(summary.phase, 'prepared'); assert.match(request.key, /^[0-9a-f-]{36}$/); summary.phase = 'running'; summary.approvedAt = '2026-10-14T10:01:00Z'; body = summary; break;
+      case 'status': body = summary; break;
+      case 'result': await route.fulfill({ contentType: 'application/json', body: raw }); return;
+      case 'document': body = original; break;
+      default: throw new Error(`Unexpected run action ${request.action}`);
+    }
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  await openMeasurement(p, 'runs');
+  assert(await p.locator(`${panel} [data-runs="prepare"]`).isEnabled());
+  await p.locator(`${panel} [name="run-target"]`).selectOption('both');
+  await p.click(`${panel} [data-runs="prepare"]`); await measurementIdle(p);
+  assert.match(await p.locator(panel).textContent(), /I approve exactly 4 fixture games/);
+  await measurementLayout(p, width); await noSidewaysScroll(p); await shot(p, `runs-approve-${width}x${height}`);
+  await p.click(`${panel} [data-runs="approve"]`); await measurementIdle(p);
+  assert.equal(actions.filter(action => action === 'approve').length, 1);
+  assert.match(await p.locator(panel).textContent(), /Game count unknown/);
+  await p.click(`${panel} [data-runs="refresh"]`); await measurementIdle(p);
+  assert.equal(actions.filter(action => action === 'approve').length, 1, 'refresh never approves or dispatches');
+  summary.phase = 'complete'; summary.validation = { state: 'passed', games: 4, legalReplays: 1, illegalControls: 1, message: 'Fixture checks pass' };
+  summary.backup = { state: 'verified', message: 'Fixture copy checked' };
+  summary.result = { bytes: Buffer.byteLength(raw), sha256: createHash('sha256').update(raw).digest('hex'), filename: 'fixture-results.json' };
+  await p.click(`${panel} [data-runs="refresh"]`); await measurementIdle(p);
+  await p.click(`${panel} [data-runs="review"]`); await measurementIdle(p);
+  await p.waitForSelector(`${panel} [data-result-id]`);
+  await p.locator(`${panel} [data-result-id]`).first().check();
+  await p.click(`${panel} [data-results="link"]`); await p.waitForSelector(panel, { state: 'detached' });
+  assert.deepEqual((await exportDoc(p)).evidence.at(-1).measurements, [measurements[0]], 'service export uses the normal evidence save');
+  await openMeasurement(p, 'runs');
+  assert.match(await p.locator(panel).textContent(), new RegExp(`plan v${summary.study.version}`), 'old plan run remains in the list');
+  await p.click(`${panel} [data-runs="open"]`); await p.waitForSelector(panel, { state: 'detached' });
+  assert.deepEqual(await exportDoc(p), original, 'recovery opens the original saved run document');
+  await openMeasurement(p, 'runs');
+  assert(await p.locator(`${panel} [data-runs="prepare"]`).isDisabled(), 'an unsaved recovered draft cannot prepare a run');
+  await closePanel(p);
+  await p.unroute('**/api/study-runs');
+}
+
 try {
   for (const [width, height] of [[1440, 900], [390, 844], [375, 667]]) {
     const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 721 });
@@ -383,6 +448,7 @@ try {
     assert(await p.locator('#study > .study-alert').isVisible());
     assert.deepEqual(comparable(await exportDoc(p)), comparable(beforeEvidence), 'malformed evidence import preserves the document');
     await measurementControls(p, control, linked, width, height);
+    await runControls(p, linked, width, height);
     await p.keyboard.press('Escape');
     assert.equal(await p.locator('#study').getAttribute('open'), null, 'Escape closes only the study');
     assert.notEqual(await p.locator('#workshop').getAttribute('open'), null, 'Workshop remains open');
