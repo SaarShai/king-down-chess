@@ -73,7 +73,7 @@ export function runStudy(args: string[]): number {
     }
     if (command === 'preview') {
       if (input.schema !== 'kingdown-research/1' || researchStatus(input).plan !== 'current') throw new Error('Create a current plan first.');
-      const p = previewStudyMeasurements(baseDocument(input), input.plan!.definition.request);
+      const p = previewStudyMeasurements(input.plan!.definition.input, input.plan!.definition.request);
       if (canonicalMeasurementJSON(savedPlanOf(p)) !== canonicalMeasurementJSON(input.plan)) throw new Error('Plan source, settings or metadata changed. Create a new plan.');
       saveStudyFile(values.out!, p, 32 * MAX_STUDY_BYTES);
       console.log(JSON.stringify({ out: values.out, games: p.jobs.length, launched: false }));

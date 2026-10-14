@@ -66,10 +66,16 @@ export function parseResearch(input: unknown): ResearchDocument {
   return { ...record, document: parseStudyInput(record.document), plan: record.plan === null ? null : parseSavedPlan(record.plan), evidence };
 }
 export function researchStatus(record: ResearchDocument): { plan: 'missing' | 'current' | 'stale'; measurements: number; limits: string[] } {
+  const content = (input: StudyInput): string => {
+    const copy = structuredClone(input), study = copy.schema === 'kingdown-test/1' ? copy.study : copy;
+    // A save adds a version. Keep the plan's original snapshot and fingerprint intact.
+    study.version = 1; study.parentVersion = null;
+    return stable(copy);
+  };
   return {
-    plan: !record.plan ? 'missing' : stable(record.document) === stable(record.plan.definition.input) ? 'current' : 'stale',
+    plan: !record.plan ? 'missing' : content(record.document) === content(record.plan.definition.input) ? 'current' : 'stale',
     measurements: record.evidence.reduce((n, e) => n + e.measurements.length, 0),
-    limits: ['Measurements retain their original rules, source, policy and population.', 'Plan status compares the saved study and checks only. Imported plan metadata is unverified here; the preview command checks it.', 'An imported result is related evidence, not proof for this design or position.', 'No raw games are audited in the browser. No rule adoption or balance pass is implied.'],
+    limits: ['Measurements retain their original rules, source, policy and population.', 'Plan status compares study content and checks. Save version numbers do not change that content. Source and full settings require regenerated plan verification.', 'An imported result is related evidence, not proof for this design or position.', 'No raw games are audited in the browser. No rule adoption or balance pass is implied.'],
   };
 }
 export function evidenceRelation(record: ResearchDocument, measurement: Measurement): string {

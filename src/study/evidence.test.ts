@@ -35,11 +35,20 @@ describe('linked study evidence', () => {
     expect(evidenceRelation(record, m)).toContain('unverified against the plan');
     delete m.context.specKeyVersion;
     expect(evidenceRelation(record, m)).toContain('Historical');
-    for (const change of [(r: typeof record) => studyOf(r).version++, (r: typeof record) => studyOf(r).rules.archerChecks = false,
+    for (const change of [(r: typeof record) => studyOf(r).rules.archerChecks = false,
       (r: typeof record) => { testOf(r)!.checks[0].label += ' changed'; }, (r: typeof record) => { studyOf(r).actions.push('Td4-e4'); }]) {
       const edited = structuredClone(record); change(edited);
       expect(researchStatus(edited).plan).toBe('stale');
     }
+  });
+  it('keeps the plan snapshot and fingerprint through save-only version changes', () => {
+    const record = fixture(), original = structuredClone(record.plan);
+    studyOf(record).parentVersion = studyOf(record).version;
+    studyOf(record).version++;
+    expect(researchStatus(record).plan).toBe('current');
+    expect(record.plan).toEqual(original);
+    studyOf(record).id += '-another-study';
+    expect(researchStatus(record).plan).toBe('stale');
   });
   it('retains evidence through real play, undo, checks, save and reload', () => {
     const record = fixture(), played = service({ type: 'play', document: record, lan: 'Td4-e4' }, 'source').document;

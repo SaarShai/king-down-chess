@@ -206,8 +206,9 @@ historical. Even matching context keys still need result review.
 The browser does not audit raw games, certify complete coverage or adopt a
 design. Use the balance campaign validator for raw hashes, schedules and legal
 replay. Missing data stays missing. After a study or check changes, create a new
-plan. The old plan and evidence stay attached for inspection. Save versions
-before planning; a new version also makes the previous version's plan stale.
+plan. The old plan and evidence stay attached for inspection. Save version
+numbers alone do not make a plan stale. The original plan snapshot and
+fingerprint stay intact when only the save version changes.
 Plain study edits preserve attached evidence. Command-line edits to a test still
 require `extract` to protect its indexed checks.
 

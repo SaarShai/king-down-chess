@@ -7,6 +7,7 @@ import { studySource } from './lib/study-source';
 import { openStudy } from '../src/study/session';
 import { exampleStudies } from '../src/study/examples';
 import { parseResearch, researchStatus } from '../src/study/evidence';
+import { studyOf } from '../src/study/browser-service';
 import { unknownContext } from '../src/balance/measurements';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
@@ -101,7 +102,11 @@ it('prepares a plan, previews jobs and links exact exported evidence without lau
   expect(saved.evidence[0].source.sha256).toBe(createHash('sha256').update(readFileSync(dataset)).digest('hex'));
   expect(runStudy(['check', linked])).toBe(0);
   expect(runStudy(['evidence', linked, dataset, '--run', 'old-run', '--out', resolve(dir, 'duplicate.json')])).toBe(1);
-  const stale = structuredClone(saved); stale.document = { ...exampleStudies(studySource())[0], study: { ...exampleStudies(studySource())[0].study, version: 2 } };
+  const resaved = structuredClone(saved); resaved.document = { ...exampleStudies(studySource())[0], study: { ...exampleStudies(studySource())[0].study, version: 2, parentVersion: 1 } };
+  saveStudyFile(resolve(dir, 'resaved.json'), resaved);
+  expect(runStudy(['preview', resolve(dir, 'resaved.json'), '--out', resolve(dir, 'resaved-jobs.json')])).toBe(0);
+  expect(JSON.parse(readFileSync(resolve(dir, 'resaved-jobs.json'), 'utf8')).fingerprint).toBe(saved.plan!.fingerprint);
+  const stale = structuredClone(resaved); studyOf(stale).question += ' changed';
   saveStudyFile(resolve(dir, 'stale.json'), stale);
   expect(runStudy(['preview', resolve(dir, 'stale.json'), '--out', resolve(dir, 'stale-jobs.json')])).toBe(1);
   for (const field of ['seed', 'games', 'context'] as const) {
