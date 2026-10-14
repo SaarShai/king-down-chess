@@ -8,7 +8,10 @@ are the current build scope. The owner approves the rendered study layout on
 2026-10-13: “Approve the layout”. On 2026-10-14 the owner approves the next stage:
 “connect saved studies and interaction tests to the existing balance measurements
 and results.” The saved-study browser, command line, measurement plans and
-evidence links are built. See the [usage guide](usage.md) for controls and limits.
+evidence links are built. Browser plan and result controls are also built and
+verified. See the [usage guide](usage.md) for controls and limits. The next
+[run connection stage](issues/09-browser-runs.md) specifies browser approval,
+M1/Kaggle progress and result return. Its spec and rendered sample await approval.
 
 King Down is a game that designers can extend. A designer must be able to make a
 rule, see what it does, try it with other rules, find ways to use and oppose it,
@@ -192,6 +195,7 @@ need the full ruleset and policy identity or a reset between cases.
 | [02 Save a design study](issues/02-save-a-study.md) | Copy one supported piece, save an exact scenario, play, undo and replay it, compare with its parent | Same behavior in board, game and sim; unsupported operations give reasons |
 | [03 Check interactions](issues/03-check-interactions.md) | Test an existing card, power or rule with that design; save a regression or challenge | Stable traces, direct legal replays, coverage gaps and risk-based multi-rule checks |
 | [04 Connect measurements](issues/04-connect-measurements.md) | Prepare and inspect a repeatable balance or strategy study | Complete context, valid controls, correct uncertainty, no automatic launch or adoption |
+| [09 Run from the browser](issues/09-browser-runs.md) | Approve one frozen plan on M1 or Kaggle, track progress, validate and link returned results | Exact approval, no duplicate launch, retained partial evidence, verified provenance and backup |
 | [05 Extend authoring and playtests](issues/05-author-and-playtest.md) | Define a new supported effect/card/power, collect human play evidence and submit a decision packet | Each added behavior works end to end; clarity and play tests recorded; unsupported compositions refused |
 
 Build each step against this base and review it independently. Reconcile the

@@ -18,7 +18,7 @@ const actions=(label,state)=>`<div class="actions"><button class="primary" data-
 const details=`<details><summary>Plan and source details</summary><dl><dt>Study</dt><dd>My Rook · version 1</dd><dt>Test</dt><dd>Piece activity</dd><dt>Search depth</dt><dd>2</dd><dt>Seed</dt><dd>214211</dd><dt>Source</dt><dd>7c91e2a4</dd><dt>Bundle</dt><dd>b83f12cd</dd></dl><p>20 paired blocks. Each block keeps both colors together. No blocks overlap.</p></details>`;
 function progress(terminal=false){
  const m1=target==='m1'?12:8, assigned=target==='m1'?40:20;
- const headline=terminal?'12 / 40 games':target==='m1'?'12 confirmed / 40 assigned':target==='kaggle'?'40 assigned · progress unknown':'8 confirmed / 40 assigned';
+ const headline=terminal?'12 / 40 games':target==='m1'?'12 confirmed / 40 assigned':target==='kaggle'?'40 assigned · progress unknown':'8 reported / 40 assigned';
  return `<div class="cost"><strong>${headline}</strong><p>${terminal?'Terminal collected results':target==='both'?'Kaggle progress unknown':'Last observed completion'}</p></div>${target!=='kaggle'?`<div class="machine"><strong>M1 · ${m1} / ${assigned} games</strong><progress value="${m1}" max="${assigned}"></progress></div>`:''}${target!=='m1'?`<div class="machine"><strong>Kaggle · ${terminal?(target==='kaggle'?'12 / 40':'4 / 20')+' games':'Running · '+(target==='kaggle'?40:20)+' assigned'}</strong>${terminal?'':'<p>Game count is not available until output arrives.</p>'}</div>`:''}<p class="note" style="margin-top:14px">Last checked: 14 October, 10:32.<br>${terminal?'Run ended. No next check.':'Next bounded check: 11:32 (one-hour example).<br>Stored counts. Progress can change between checks.'}</p>`}
 
 function view(state){return ({
