@@ -311,10 +311,30 @@ async function runControls(p, linked, width, height) {
   assert.deepEqual((await exportDoc(p)).evidence.at(-1).measurements, [measurements[0]], 'service export uses the normal evidence save');
   await openMeasurement(p, 'runs');
   assert.match(await p.locator(panel).textContent(), new RegExp(`plan v${summary.study.version}`), 'old plan run remains in the list');
+  const current = await p.locator('#study > .study-strip .study-label').textContent();
+  const beforeRecovery = await saved(p);
+  await p.evaluate(identity => {
+    const box = JSON.parse(localStorage.getItem('kingdown.studies'));
+    const study = doc => doc.schema === 'kingdown-research/1' ? study(doc.document) : doc.schema === 'kingdown-test/1' ? doc.study : doc;
+    box.documents = box.documents.filter(doc => study(doc).id !== identity.id || study(doc).version !== identity.version);
+    localStorage.setItem('kingdown.studies', JSON.stringify(box));
+    const original = Storage.prototype.setItem;
+    window.restoreStudyStorage = () => { Storage.prototype.setItem = original; };
+    Storage.prototype.setItem = function(key, value) { if (key === 'kingdown.studies') throw new DOMException('Quota exceeded', 'QuotaExceededError'); return original.call(this, key, value); };
+  }, studyOf(original));
+  const withoutOriginal = await saved(p);
+  await p.click(`${panel} [data-runs="open"]`); await measurementIdle(p);
+  assert(await p.locator(panel).isVisible(), 'failed recovery keeps the run panel open');
+  assert.match(await p.locator(`${panel} .study-panel-alert`).textContent(), /Original study not restored/);
+  assert.equal(await saved(p), withoutOriginal, 'failed recovery preserves the library');
+  assert.equal(await p.locator('#study > .study-strip .study-label').textContent(), current, 'failed recovery preserves the current study');
+  await p.evaluate(() => window.restoreStudyStorage());
   await p.click(`${panel} [data-runs="open"]`); await p.waitForSelector(panel, { state: 'detached' });
-  assert.deepEqual(await exportDoc(p), original, 'recovery opens the original saved run document');
+  assert.deepEqual(await exportDoc(p), original, 'recovery restores exact original identity and saved version');
+  assert.deepEqual(JSON.parse(await saved(p)).documents.find(doc => studyOf(doc).id === studyOf(original).id && studyOf(doc).version === studyOf(original).version), original, 'recovery saves the exact missing original');
+  assert.equal(JSON.parse(await saved(p)).documents.length, JSON.parse(beforeRecovery).documents.length, 'recovery restores one missing version');
   await openMeasurement(p, 'runs');
-  assert(await p.locator(`${panel} [data-runs="prepare"]`).isDisabled(), 'an unsaved recovered draft cannot prepare a run');
+  assert(await p.locator(`${panel} [data-runs="prepare"]`).isEnabled(), 'the recovered saved original has its current plan');
   await closePanel(p);
   await p.unroute('**/api/study-runs');
 }

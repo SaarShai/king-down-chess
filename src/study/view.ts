@@ -89,7 +89,7 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     });
     view.setPreview(cursor);
   }
-  async function run(work: () => Promise<unknown>): Promise<void> {
+  async function run(work: () => Promise<void>): Promise<void> {
     if (busy) return;
     busy = true; dlg.setAttribute('aria-busy', 'true'); clearError(); render();
     try { await work(); } catch (e) { error(e); }
@@ -105,12 +105,12 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     if (!saved.ok) { error(`Study not saved. ${saved.error} Export a copy from More.`); return false; }
     data = { ...next, document: doc }; dirty = false; notice('Saved on this device.'); render(); return true;
   }
-  async function load(input: unknown, saved = false, active = (): boolean => true): Promise<boolean> {
+  async function load(input: unknown, saved = false): Promise<void> {
     const next = await client.request({ type: 'inspect', document: input });
     // Validate first, then preserve the current draft before changing the screen.
-    if (!active() || dirty && !persist()) return false;
+    if (dirty && !persist()) return;
     data = next; dirty = !saved; report = null; selected = 27; cursor = 27; notice(''); render();
-    await view.ready(); dlg.dataset.ready = 'true'; return true;
+    await view.ready(); dlg.dataset.ready = 'true';
   }
   async function play(lan: string): Promise<void> {
     await run(async () => {
@@ -191,7 +191,15 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
       let active = true;
       const dispose = mountRunPanel(body, { document: researchDocument(), saved: !dirty, studyClient: client,
         close, error, clearError, link: linkResults,
-        openDocument: doc => load(doc, false, () => active),
+        openDocument: async doc => {
+          const next = await client.request({ type: 'inspect', document: doc });
+          if (!active || dirty && !persist()) return false;
+          const saved = saveStudyDocument(next.document);
+          if (!saved.ok) { error(`Original study not restored. ${saved.error}`); return false; }
+          data = next; dirty = false; report = null; selected = 27; cursor = 27;
+          notice('Original study restored and saved on this device.'); render();
+          await view.ready(); return true;
+        },
       });
       return () => { active = false; dispose(); };
     });
