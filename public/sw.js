@@ -60,7 +60,7 @@ async function asset(request) {
 
 self.addEventListener('fetch', event => {
   const { request } = event, url = new URL(request.url);
-  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+  if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
   if (request.mode !== 'navigate') return event.respondWith(asset(request));
   // Only the game's own page is kept for offline play. Another page of the site (Privacy, Terms)
   // goes straight to the network, so opening it can never put it in the game's place.

@@ -13,6 +13,19 @@ const walk = (dir: string): string[] => readdirSync(dir).flatMap(name => {
 /** Code a player may never need: the Supabase client (only for an account). */
 const onDemand = /\/src\/account\/client\.ts$/;
 
+/** API requests stay on the loopback development origin. */
+function studyStudio(): Plugin {
+  return {
+    name: 'king-down-study-studio',
+    async configureServer(server) {
+      const [{ createRunHandler }, { localStudio }] = await Promise.all([import('./tools/study-runs/http.ts'), import('./tools/study-runs/local.ts')]);
+      const studio = localStudio(server.config.root);
+      server.middlewares.use(createRunHandler(() => studio.getCoordinator()));
+      server.httpServer?.on('close', () => studio.close());
+    },
+  };
+}
+
 /** Copies the public files and writes dist/sw.js with a content version and its precache list. */
 function offlineBuild(): Plugin {
   let publicDir = '', outDir = '';
@@ -71,7 +84,7 @@ export default defineConfig({
   preview: { host: '127.0.0.1' },
   worker: { format: 'es' },
   build: { copyPublicDir: false },
-  plugins: [offlineBuild()],
+  plugins: [offlineBuild(), studyStudio()],
   // Vitest collects the source, tools and Claude hook tests. docs/2d-first-pieces uses node:test (npm test).
   test: { environment: 'node', include: process.env.KINGDOWN_TEST_FILE ? [process.env.KINGDOWN_TEST_FILE] : ['src/**/*.test.ts', 'tools/**/*.test.ts', '.claude/hooks/**/*.test.ts'] },
 });
