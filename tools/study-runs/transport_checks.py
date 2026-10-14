@@ -1,4 +1,6 @@
 """Offline transport tests. No SSH, Kaggle, cloud download or game calls."""
+import sys
+sys.dont_write_bytecode=True
 import gzip, hashlib, importlib.util, io, json, shutil, tarfile, tempfile
 from pathlib import Path
 from types import SimpleNamespace as NS
@@ -11,6 +13,15 @@ def fails(fn):
     try:fn()
     except Exception:return
     raise AssertionError('negative control passed')
+
+def run_config(directory,part='part-one'):
+    directory.mkdir(exist_ok=True)
+    archive=b'archive';(directory/'source.tar.gz').write_bytes(archive)
+    source_sha=hashlib.sha256(archive).hexdigest()
+    bundle=dict(id='run-one',nodeVersion='26.0.0',parts=[dict(id=part,machine='m1',workers=8)],sourceArchiveSha256=source_sha)
+    bundle['hash']=hashlib.sha256(json.dumps(bundle,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    raw=json.dumps(bundle).encode();(directory/'bundle.json').write_bytes(raw)
+    return dict(directory=str(directory),limitSeconds=1,nodeVersion='26.0.0',partId=part,machine='m1',workers=8,runId='run-one',bundleHash=bundle['hash'],bundleBytesSha256=hashlib.sha256(raw).hexdigest(),sourceArchiveSha256=source_sha)
 
 class API:
     def __init__(self,n):self.n=n
@@ -64,8 +75,16 @@ with tempfile.TemporaryDirectory() as tmp:
     with patch.object(supervisor,'download',bad_checksum):fails(lambda:supervisor.ensure_runtime(root/'bad-node','26.0.0',supervisor.time.monotonic()+1))
     runroot=root/'run';runroot.mkdir()
     with patch.object(supervisor,'download',side_effect=TimeoutError()):
-        assert supervisor.run(dict(directory=str(runroot),limitSeconds=1,nodeVersion='26.0.0',partId='part-one'))==1
+        assert supervisor.run(run_config(runroot))==1
     receipt=json.loads((runroot/'out/supervisor.json').read_text());assert receipt['state']=='failed' and receipt['timeout']
+    # A different valid bundle or assignment never reaches setup or workers.
+    for n,(key,value) in enumerate([('bundleHash','f'*64),('runId','another-run'),('partId','other-part'),('machine','kaggle'),('workers',4),('nodeVersion','24.0.0'),('bundleBytesSha256','f'*64)]):
+        cfg=run_config(root/('wrong-'+str(n)));cfg[key]=value
+        with patch.object(supervisor,'ensure_runtime') as setup:
+            assert supervisor.run(cfg)==1;setup.assert_not_called()
+    cfg=run_config(root/'wrong-archive');(root/'wrong-archive'/'source.tar.gz').write_bytes(b'wrong')
+    with patch.object(supervisor,'ensure_runtime') as setup:
+        assert supervisor.run(cfg)==1;setup.assert_not_called()
     # Timeout kills only the supervisor's owned group and retains prior output.
     second=root/'run-two';second.mkdir();(second/'out').mkdir();(second/'out'/'games.jsonl').write_bytes(payload)
     killed=[]
@@ -79,7 +98,7 @@ with tempfile.TemporaryDirectory() as tmp:
         else:target.write_bytes(b'archive')
     ticks=iter([0,.1,.2,2,3])
     with patch.object(supervisor,'download',download_fake), patch.object(supervisor,'unpack'), patch.object(supervisor.platform,'system',return_value='Darwin'), patch.object(supervisor.platform,'machine',return_value='arm64'), patch.object(supervisor.time,'monotonic',side_effect=lambda:next(ticks)), patch.object(supervisor.subprocess,'Popen',return_value=Child()), patch.object(supervisor.os,'killpg',side_effect=lambda pid,sig:killed.append(pid)), patch('selectors.DefaultSelector',return_value=NS(register=lambda *args:None,get_map=lambda:True)):
-        assert supervisor.run(dict(directory=str(second),limitSeconds=1,nodeVersion='26.0.0',partId='part-two'))==1
+        assert supervisor.run(run_config(second,'part-two'))==1
     assert killed and set(killed)=={123456}
     assert (second/'out'/'games.jsonl').read_bytes()==payload
     assert json.loads((second/'out'/'supervisor.json').read_text())['timeout']

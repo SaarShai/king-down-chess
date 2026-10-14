@@ -2,12 +2,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { createTransports } from '../../tools/study-runs/transports';
 import type { DispatchInput } from '../../tools/study-runs/transport-types';
 const temps:string[]=[];
 afterEach(async()=>{await Promise.all(temps.splice(0).map(p=>rm(p,{recursive:true,force:true})));});
-async function fixture():Promise<DispatchInput>{const directory=await mkdtemp(join(tmpdir(),'kd-transport-'));temps.push(directory);const sourceArchive=join(directory,'source.tar.gz'),bundlePath=join(directory,'bundle.json');await writeFile(sourceArchive,'frozen source');await writeFile(bundlePath,'{}');return {runId:'run-one',bundleHash:'a'.repeat(64),partId:'part-one',machine:'m1',workers:8,directory,sourceArchive,bundlePath,nodeVersion:'26.0.0',limitSeconds:28800};}
+async function fixture():Promise<DispatchInput>{const directory=await mkdtemp(join(tmpdir(),'kd-transport-'));temps.push(directory);const sourceArchive=join(directory,'source.tar.gz'),bundlePath=join(directory,'bundle.json');await writeFile(sourceArchive,'frozen source');await writeFile(bundlePath,JSON.stringify({hash:'a'.repeat(64),id:'run-one',nodeVersion:'26.0.0',parts:[{id:'part-one',machine:'m1',workers:8}],sourceArchiveSha256:createHash('sha256').update('frozen source').digest('hex')}));return {runId:'run-one',bundleHash:'a'.repeat(64),partId:'part-one',machine:'m1',workers:8,directory,sourceArchive,bundlePath,nodeVersion:'26.0.0',limitSeconds:28800};}
 describe('study transport boundaries',()=>{
   it('checks all identity facts and availability before each mutation',async()=>{
     const calls:string[]=[];const input=await fixture();const {m1}=createTransports('/not-read',async(command,args)=>{expect(command).toBe('ssh');calls.push(args.at(-1)!);return '';});

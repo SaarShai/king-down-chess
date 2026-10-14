@@ -48,6 +48,20 @@ def ensure_runtime(root, version, deadline):
     unpack(archive, root, links=True)
     return root/name/'bin'/'node'
 
+def verify_dispatch(config, root):
+    bundle_path=root/'bundle.json';archive=root/'source.tar.gz'
+    if bundle_path.is_symlink() or archive.is_symlink() or bundle_path.stat().st_size>64*1024*1024 or archive.stat().st_size>64*1024*1024:raise RuntimeError('Invalid payload file')
+    raw=bundle_path.read_bytes();bundle=json.loads(raw)
+    if bundle['hash']!=config['bundleHash'] or bundle['id']!=config['runId'] or bundle['nodeVersion']!=config['nodeVersion']:raise RuntimeError('Dispatch bundle identity differs')
+    parts=[p for p in bundle['parts'] if p['id']==config['partId']]
+    if len(parts)!=1 or parts[0]['machine']!=config['machine'] or parts[0]['workers']!=config['workers']:raise RuntimeError('Dispatch part differs')
+    if hashlib.sha256(raw).hexdigest()!=config['bundleBytesSha256']:raise RuntimeError('Dispatch bundle bytes differ')
+    sha=hashlib.sha256()
+    with archive.open('rb') as src:
+        for block in iter(lambda:src.read(1024*1024),b''):sha.update(block)
+    if sha.hexdigest()!=bundle['sourceArchiveSha256'] or sha.hexdigest()!=config['sourceArchiveSha256']:raise RuntimeError('Dispatch source archive differs')
+    return bundle
+
 def run(config):
     started = config.get('_startedMonotonic', time.monotonic())
     deadline = started + min(28800, config['limitSeconds'])
@@ -94,6 +108,7 @@ def run(config):
             if code: raise RuntimeError('child exit '+str(code))
     try:
         save('running')
+        verify_dispatch(config,root)
         node=ensure_runtime(root,config['nodeVersion'],deadline)
         env = dict(os.environ, PATH=str(node.parent)+os.pathsep+os.environ.get('PATH',''))
         source = root/'source'; source.mkdir()

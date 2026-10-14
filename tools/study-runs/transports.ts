@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile, stat, rename, readdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -38,11 +39,19 @@ export function createTransports(mainRoot:string, exec:Execute=execute):Record<'
     check(i);
     for(const file of [i.sourceArchive,i.bundlePath]) {const s=await stat(file);if(!s.isFile()||s.size>64*1024*1024)throw new Error('Bundle file limit');}
   }
+  async function binding(i:DispatchInput){
+    const raw=await readFile(i.bundlePath),bundle=JSON.parse(raw.toString('utf8'));
+    const parts=Array.isArray(bundle.parts)?bundle.parts.filter((p:{id:string})=>p.id===i.partId):[];
+    if(bundle.hash!==i.bundleHash||bundle.id!==i.runId||bundle.nodeVersion!==i.nodeVersion||parts.length!==1||parts[0].machine!==i.machine||parts[0].workers!==i.workers)throw new Error('Dispatch bundle identity differs');
+    const sourceArchiveSha256=createHash('sha256').update(await readFile(i.sourceArchive)).digest('hex');
+    if(sourceArchiveSha256!==bundle.sourceArchiveSha256)throw new Error('Dispatch source archive differs');
+    return {bundleBytesSha256:createHash('sha256').update(raw).digest('hex'),sourceArchiveSha256};
+  }
   const m1:RunTransport={
     async preflight(i){await payload(i);await identity();},
     async launch(i){
       await payload(i);const root=remoteDirectory(i);
-      const config={...i,directory:root,activeLock:ACTIVE_LOCK};
+      const config={...i,...await binding(i),directory:root,activeLock:ACTIVE_LOCK};
       // Each mutation verifies all four identity facts on the same connection.
       await exec('ssh',[...SSH,IDENTITY+' && '+AVAILABLE+' && mkdir -p /Users/new/projects/king-down-study-runs && mkdir '+quote(root)+' && mkdir '+quote(ACTIVE_LOCK)+' && printf %s '+quote(root)+' > '+quote(ACTIVE_LOCK+'/owner')]);
       for(const [file,name] of [[i.sourceArchive,'source.tar.gz'],[i.bundlePath,'bundle.json'],[join(HERE,'supervisor.py'),'supervisor.py']]) {
@@ -79,8 +88,8 @@ export function createTransports(mainRoot:string, exec:Execute=execute):Record<'
   const kaggle:RunTransport={
     async preflight(i){await payload(i);await kaggleCall('preflight',i);},
     async launch(i){
-      await payload(i);const folder=join(i.directory,'kaggle-'+i.partId);await mkdir(folder,{recursive:false});
-      const encoded=JSON.stringify({archive:(await readFile(i.sourceArchive)).toString('base64'),bundle:(await readFile(i.bundlePath)).toString('base64'),supervisor:(await readFile(join(HERE,'supervisor.py'))).toString('base64'),config:{...i,directory:'/tmp/king-down-study',outputDirectory:'/kaggle/working/out'}});
+      await payload(i);const bound=await binding(i);const folder=join(i.directory,'kaggle-'+i.partId);await mkdir(folder,{recursive:false});
+      const encoded=JSON.stringify({archive:(await readFile(i.sourceArchive)).toString('base64'),bundle:(await readFile(i.bundlePath)).toString('base64'),supervisor:(await readFile(join(HERE,'supervisor.py'))).toString('base64'),config:{...i,...bound,directory:'/tmp/king-down-study',outputDirectory:'/kaggle/working/out'}});
       await writeFile(join(folder,'run.py'),'import base64,json,pathlib,sys,time\nstarted=time.monotonic()\np=json.loads('+JSON.stringify(encoded)+')\nr=pathlib.Path("/tmp/king-down-study")\nr.mkdir(exist_ok=False)\np["config"]["_startedMonotonic"]=started\nfor k,n in [("archive","source.tar.gz"),("bundle","bundle.json"),("supervisor","supervisor.py")]: (r/n).write_bytes(base64.b64decode(p[k]))\n(r/"config.json").write_text(json.dumps(p["config"]))\nsys.path.insert(0,str(r))\nfrom supervisor import run\nraise SystemExit(run(p["config"]))\n');
       const reply=await kaggleCall('launch',i,{folder});return {remoteId:reply.remoteId,acceptedAt:new Date().toISOString()};
     },
