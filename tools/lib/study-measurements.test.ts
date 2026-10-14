@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { previewStudyMeasurements as browserPreview, savedPlanOf } from '../../src/study/measurement-preview';
 import { fromFen } from '../../src/rules/setup';
 import { positionData } from '../../src/study/model';
 import { describe, it, expect } from 'vitest';
@@ -8,6 +10,35 @@ import { createMeasurementPlan, canonicalMeasurementJSON, type MeasurementReques
 const input = () => exampleStudies('test-engine')[0];
 const request: MeasurementRequest = { recipe: 'activity', start: 'population', seed: 19, pairs: 2, depth: 1, pool: 'TTTTTTT' };
 describe('study measurement previews', () => {
+  it('keeps the saved schedules from before the pure-core extraction', () => {
+    const cases = [
+      [{ recipe: 'activity' }, '39488001d3bedd116825171be11691cb3ea33f308f8258a7742835b9fa26f27a'],
+      [{ recipe: 'worth', pieces: 'T' }, 'baca109c356233155df53f03d28dfff6959ff69797f4bb281f5b554a3d144cae'],
+      [{ recipe: 'field', entrants: ['none', 'Haste'] }, '475eafa956207123fb8946ecb73bab2ed1905b9ea6d426ff316e8deba8ad8818'],
+      [{ recipe: 'cross-play', entrants: ['none', 'Haste', 'Flight'] }, '1ea0e940b46b52f64e9c746a39e48752bd84f0f9763e272b70f03240ddd016a4'],
+    ] as const;
+    for (const [overrides, hash] of cases) {
+      const p = previewStudyMeasurements(input(), { ...request, ...overrides, ...('entrants' in overrides ? { entrants: [...overrides.entrants] } : {}) });
+      expect(createHash('sha256').update(JSON.stringify(p.jobs)).digest('hex')).toBe(hash);
+    }
+  });
+  it('matches the browser hashes, jobs and saved plans for all recipes', async () => {
+    const policy = { powerPlies: 3, powerHold: { Haste: 17 }, powerHoldSides: [{ Haste: 9 }, {}] as [Record<string, number>, Record<string, number>], values: { T: 450 }, maxPlies: 30, openingRandomPlies: 0, adjudicate: false as const };
+    const recipes: MeasurementRequest[] = [
+      { ...request, ...policy }, { ...request, ...policy, recipe: 'worth', pieces: 'T' },
+      { ...request, ...policy, recipe: 'cross-play', entrants: ['none', 'Haste', 'Flight'] },
+      { ...request, ...policy, recipe: 'field', entrants: ['none', 'Haste'] },
+    ];
+    for (const r of recipes) {
+      const cli = previewStudyMeasurements(input(), r), browser = await browserPreview(input(), r, cli.source);
+      expect(browser).toEqual(cli); expect(savedPlanOf(browser)).toEqual(savedPlanOf(cli));
+    }
+    const plain = input().study; delete plain.design; plain.rules.design = null;
+    plain.start = positionData(fromFen('7k/8/8/8/8/8/8/K7 w - - 0 1'));
+    const r: MeasurementRequest = { ...request, recipe: 'four-cell', pool: 'ABNNRRQ', cardPool: ['Haste'], factors: [{ kind: 'piece', piece: 'A', replacement: 'N' }, { kind: 'card', card: 'Haste' }] };
+    const cli = previewStudyMeasurements(plain, r);
+    expect(await browserPreview(plain, r, cli.source)).toEqual(cli);
+  });
   it('builds frozen deterministic custom jobs without playing a game', () => {
     const a = previewStudyMeasurements(input(), request), b = previewStudyMeasurements(input(), request);
     expect(a).toEqual(b); expect(a.preview).toMatchObject({ games: 4, blocks: 2, missingResults: 4 });

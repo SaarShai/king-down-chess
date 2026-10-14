@@ -1,3 +1,4 @@
+import { sourceId } from './src/sim/source-id.ts';
 import { defineConfig, type Plugin } from 'vitest/config';
 import { studySource } from './tools/lib/study-source.ts';
 import { createHash } from 'node:crypto';
@@ -64,7 +65,7 @@ export default defineConfig({
   // Relative URLs: the same build works at a site root, on a sub-path such as GitHub Pages'
   // /king-down-chess/, and in `vite preview`.
   base: './',
-  define: { __STUDY_SOURCE__: JSON.stringify(studySource()) },
+  define: { __STUDY_SOURCE__: JSON.stringify(studySource()), __SIM_SOURCE__: JSON.stringify(sourceId()) },
   // Both servers listen on 127.0.0.1, the address that the checks call; a `--host` flag overrides it.
   server: { host: '127.0.0.1', port: +(process.env.PORT || 5173), strictPort: true },
   preview: { host: '127.0.0.1' },

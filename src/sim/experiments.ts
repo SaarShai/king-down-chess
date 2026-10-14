@@ -23,7 +23,8 @@ const VS_V: Record<string, number> = { N: KNIGHT_V, B: BISHOP_V, R: ROOK_V, Q: Q
  * The shipped fairy set. `--pieces O` / `--pieces C` reaches the two lab pieces below, and
  * `--pieces RB` the standard pieces (the piece-balance criteria measure every pool piece).
  */
-const FAIRY = 'ALGMS';
+import { FAIRY, valueSpecs } from './value-plan';
+export { valueSpecs, swapRank } from './value-plan';
 /** Engine seed values today (`src/ai/eval.ts`, centipawns) and the research priors (pawns). */
 const SEEDED: Record<string, number> = { ...VS_V, A: ARCHER_V, L: PALADIN_V, G: GUARD_V, M: MAESTER_V, S: BEAST_V, O: OGRE_V, C: CATAPULT_V, V: REAVER_V, T: TEMPLAR_V };
 // O and C: `docs/PIECES-PROPOSED.md` guesses "about 3 pawns" and "3.5-4.5 while the board is full".
@@ -70,44 +71,6 @@ const ARM_HEAD = ['arm', 'games', 'pairs', 'pentanomial', 'score', 'Elo ±95%', 
 
 // -----------------------------------------------------------------------------------------------
 // 1. Piece values (Muller's asymmetric-material method, docs/SIM-PLAN.md §7).
-
-/** `RNBQKBNR` with the first `vs` piece replaced by the fairy letter. */
-export const swapRank = (fairy: string, vs = 'N'): string => CLASSIC_CHESS.replace(vs, fairy);
-
-/**
- * Pawn odds on file `f` (0 = a). One config per file, because a single file is not "a pawn": the
- * h-pawn measured only -17 Elo at depth 3 in the first run, since taking it off opens the rook's
- * file and pays most of the material back. The calibration cycles over all eight files and the
- * arm pools them, which is the average pawn we actually want.
- */
-function pawnOdds(f: number): { white: string; black: string; fen: string; fenSwapped: string } {
-  const gapped = `${'P'.repeat(f)}1${'P'.repeat(7 - f)}`;
-  return {
-    white: CLASSIC_CHESS, black: CLASSIC_CHESS,
-    fen: `${CLASSIC_CHESS.toLowerCase()}/pppppppp/8/8/8/8/${gapped}/${CLASSIC_CHESS} w - - 0 1`,
-    fenSwapped: `${CLASSIC_CHESS.toLowerCase()}/${gapped.toLowerCase()}/8/8/8/8/PPPPPPPP/${CLASSIC_CHESS} w - - 0 1`,
-  };
-}
-
-/**
- * One arm per fairy piece (it replaces a knight on one side only) plus a pawn-odds calibration
- * arm. The calibration turns Elo into pawns, which is the only way to state an implied value
- * without a guessed conversion constant.
- */
-export function valueSpecs(base: RunSpec, vs = 'N', pieces = FAIRY, calibrate = true): RunSpec[] {
-  const arms = [...pieces].map(letter => ({
-    id: `${base.id}.${letter}`,
-    asymmetric: [{ white: swapRank(letter, vs), black: CLASSIC_CHESS }],
-  }));
-  return [
-    ...arms,
-    ...(calibrate ? [{ id: `${base.id}.pawn`, asymmetric: Array.from({ length: 8 }, (_, f) => pawnOdds(f)) }] : []),
-  ].map(a => ({
-    ...base, ...a, pairs: true,
-    // The calibration is the denominator of every implied value, so it gets three times the games.
-    games: a.id.endsWith('.pawn') ? base.games * 3 : base.games,
-  }));
-}
 
 /**
  * `pawnElo` reuses a calibration measured earlier (`--eloPerPawn 64`) instead of playing one. The

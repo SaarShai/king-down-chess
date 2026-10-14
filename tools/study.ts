@@ -8,7 +8,7 @@ import { openStudy } from '../src/study/session';
 import { checkStudy } from '../src/study/check';
 import { baseDocument, parseDocument, studyOf, testOf } from '../src/study/browser-service';
 import { MAX_STUDY_BYTES, parseEvidence, parseResearch, researchStatus } from '../src/study/evidence';
-import { previewStudyMeasurements } from './lib/study-measurements';
+import { previewStudyMeasurements, savedPlanOf } from './lib/study-measurements';
 import { canonicalMeasurementJSON, type MeasurementRequest } from '../src/study/measurement-plan';
 import { exampleStudies } from '../src/study/examples';
 import { studySource } from './lib/study-source';
@@ -44,11 +44,6 @@ export function saveStudyFile(path: string, value: unknown, limit = MAX_STUDY_BY
     try { writeFileSync(fd, encoded); fsyncSync(fd); } finally { closeSync(fd); }
     linkSync(temporary, path); // Publish only complete bytes, without replacing an existing file.
   } finally { rmSync(temporary, { force: true }); }
-}
-function savedPlanOf(p: ReturnType<typeof previewStudyMeasurements>) {
-  return { definition: p.plan, fingerprint: p.fingerprint, source: p.source, games: p.preview.games, blocks: p.preview.blocks,
-    measures: p.preview.measures, limits: p.preview.limits,
-    contexts: p.execution.contexts.map(c => ({ sourceHash: c.src, specKey: c.specKey, specKeyVersion: c.specKeyVersion, rules: c.rules, pool: c.pool })) };
 }
 export function runStudy(args: string[]): number {
   try {

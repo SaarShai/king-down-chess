@@ -1,3 +1,4 @@
+import { stampParts, type Stamp } from './stamp-plan';
 /** Monte Carlo runner: a worker per core, one JSON line per game, resumable. */
 import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -7,8 +8,7 @@ import { availableParallelism } from 'node:os';
 import type { Worker } from 'node:worker_threads';
 import { GameRecord } from './game';
 import { tsWorker } from './ts-worker';
-import { DEFAULT_RULES, Rules, ruleDiff, setRules } from '../rules/rules';
-import { POOL } from '../rules/setup';
+import { Rules, ruleDiff, setRules } from '../rules/rules';
 import { Job, OUT_DIR, RunSpec, buildJobs, loadSpec, parseFlags, paths, usePairs } from './spec';
 import { sourceId, specKey } from './identity';
 
@@ -21,32 +21,10 @@ import { sourceId, specKey } from './identity';
  * `rulesKey` stays as the cheap comparison. `specKey` covers seed, pool, search/evaluation settings
  * and the eval-parameter files by content; `src` covers the engine code itself.
  */
-export interface Stamp { rules: Rules; rulesKey: string; pool: string; specKey: string; specKeyVersion?: number; src: string }
-
-/**
- * The rules and pool a run plays under. `rulesKey` hashes the *whole* rule set, not the diff.
- * A new rule field re-keys *every* stored run and blocks its resume, so `kings` is left out of the
- * key for a run that plays none — the same "append, never move a historic key" discipline
- * `src/ai/zobrist.ts` follows. A run that does play a king hashes it, which is the whole point of
- * putting the choice in `Rules` (LESSONS.md 2026-09-14: a resumed control silently mixes pools).
- */
-export function stampOf(spec: RunSpec): Stamp {
-  const rules = { ...DEFAULT_RULES, ...spec.rules }; // exactly what run() puts in RULES
-  // Keys added later (kings, hands, piles, fromMove, design) count only when set, so stamps of older runs still match.
-  const keyed: Partial<Rules> = { ...rules };
-  if (!rules.hands[0].length && !rules.hands[1].length) delete keyed.hands;
-  if (!rules.piles[0].length && !rules.piles[1].length) delete keyed.piles;
-  if (!rules.kings[0] && !rules.kings[1]) delete keyed.kings;
-  if (!Object.keys(rules.fromMove).length) delete keyed.fromMove;
-  if (!rules.design) delete keyed.design;
-  return {
-    rules,
-    rulesKey: createHash('sha1').update(JSON.stringify(keyed)).digest('hex').slice(0, 8),
-    pool: (Array.isArray(spec.backRanks) ? undefined : spec.backRanks?.pool) ?? POOL,
-    specKey: specKey(spec),
-    specKeyVersion: 2,
-    src: sourceId(),
-  };
+export { type Stamp } from './stamp-plan';
+export function stampOf(spec: RunSpec, source = sourceId()): Stamp {
+  const { rules, keyed, pool } = stampParts(spec);
+  return { rules, rulesKey: createHash('sha1').update(JSON.stringify(keyed)).digest('hex').slice(0, 8), pool, specKey: specKey(spec), specKeyVersion: 2, src: source };
 }
 
 /** Line-per-line read of a possibly huge JSONL file. The last call has `complete = false` on a torn line. */
