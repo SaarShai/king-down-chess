@@ -26,3 +26,11 @@ a game campaign or the full test suite. The owner approves the layout on
 2026-10-13: “Approve the layout”. The connected controls now use the selected
 Workshop figure in both the sidebar and the board. The [usage guide](../usage.md)
 describes the implemented controls.
+
+## Measurement controls sample
+
+Add `--measurements` to render the test form, plan preview and result-file
+selection at both sizes. These six renders pass the layout and resource checks.
+Images go to `/tmp/king-down-measurement-sample`. Add `--serve` to open the
+interactive sample. The numbers are examples. No control saves or runs games.
+Approval of these new controls is pending.
