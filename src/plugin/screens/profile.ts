@@ -11,8 +11,8 @@ type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord;
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 let request = 0;
 let before: string | null = null;
-const date = (at: string) => formatDate(at, { day: 'numeric', month: 'short', timeZone: 'UTC' });
-const fullDate = (at: string) => formatDate(at, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+const date = (at: string) => formatDate(at, { day: 'numeric', month: 'short' });
+const fullDate = (at: string) => formatDate(at, { day: 'numeric', month: 'short', year: 'numeric' });
 const GOALS: Record<Badge, string> = { first_win: 'Win a game.', friend_match: 'Finish a game with a friend.', stranger_match: 'Finish a game with a random player.', purist: 'Win a Classic game.', fairy_tale: 'Win with fairy pieces.', architect: 'Win with your own arrangement.', card_sharp: 'Win a game with cards.', crowned: 'Win with a king power.', royal_collection: 'Win with all six kings.', giant_slayer: 'Beat the Strong computer.' };
 const badgeArt = (badge: Badge) => art(`assets/badge-${badge.replaceAll('_', '-')}.webp`);
 export function profileScreen() { $('profile-name').onclick = () => navigate('handle'); $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }

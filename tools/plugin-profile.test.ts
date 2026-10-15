@@ -341,8 +341,8 @@ it('gives games with the same opponent a colour and start time in both lists', a
 // Fault round 4 (device matrix M1, M3, M7, M8, M9, M13).
 const waitingGames = (['friend', 'random'] as const).map(kind => ({ game_id: `waiting-${kind}`, kind, speed: 'daily', status: 'waiting', seat: 0, action: 'waiting', turn: 0, revision: 0, deadline_at: null, opponent: null, updated_at: '2026-10-15T16:32:00Z', created_at: '2026-10-15T16:32:00Z', options: { ...DEFAULT_OPTIONS, fairy: true, cards: true, kingPowers: true }, move: null, open_until: null, level: 'club' }));
 const bigRecord = { ...record, totals: { played: 1234, won: 700, drawn: 34, lost: 500 } };
-async function openAt(width: number, height: number, locale = 'en-US') {
-  const context = await browser.newContext({ viewport: { width, height }, locale, timezoneId: 'UTC' }), page = await context.newPage(); page.setDefaultTimeout(5000);
+async function openAt(width: number, height: number, locale = 'en-US', timezoneId = 'UTC') {
+  const context = await browser.newContext({ viewport: { width, height }, locale, timezoneId }), page = await context.newPage(); page.setDefaultTimeout(5000);
   await page.goto(harness.url); await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history, record: bigRecord, games: waitingGames } } });
   return { page, frame: page.frameLocator('iframe'), close: () => context.close() };
@@ -414,6 +414,18 @@ it.each(['de-DE', 'ja-JP', 'en-US'])('uses one English date style in Play, Profi
     await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
     await frame.locator('#profile-history li').first().waitFor();
     expect(await frame.locator('#profile-history .when').first().textContent()).toBe('Oct 10');
+  } finally { await close(); }
+});
+it('dates Profile history and badges by the device clock, as its open games do', async () => {
+  const { page, frame, close } = await openAt(393, 852, 'en-US', 'Pacific/Kiritimati');
+  try {
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history, record: { ...bigRecord, badges: [{ badge: 'first_win', earned_at: '2026-10-10T12:00:00Z' }] }, games: waitingGames } } });
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await frame.locator('#profile-history li').first().waitFor(); await frame.locator('#profile-open button').first().waitFor();
+    // UTC+14: 12:00 UTC on 10 October is 02:00 on 11 October on the device.
+    expect(await frame.locator('#profile-history .when').first().textContent()).toBe('Oct 11');
+    expect(await frame.locator('[data-badge="first_win"] time').textContent()).toBe('Oct 11, 2026');
+    expect(await frame.locator('#profile-open [data-game-id="waiting-friend"]').textContent()).toContain('Oct 16, 6:32\u00a0AM');
   } finally { await close(); }
 });
 it('reflows Profile at 200% zoom (197 CSS px) with no sideways scroll', async () => {
