@@ -103,7 +103,7 @@ try {
   await page.setViewportSize({width:1000,height:1000});
   await frame.getByRole('button', { name: 'Play', exact: true }).click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-  assert.deepEqual(await frame.locator('[data-screen="play"] .row-title').allTextContents(), ['Computer', 'A friend', 'A random player', 'Profile', 'Settings']);
+  assert.deepEqual(await frame.locator('[data-screen="play"] .row-title').allTextContents(), ['New game', 'Open games', 'Profile', 'Settings']);
   assert(await frame.locator('[data-screen="play"] h2').evaluate(el => getComputedStyle(el).fontFamily.includes('Cinzel')), 'The page uses the approved Cinzel heading');
   assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests), ['fullscreen'], 'Play asks the host for fullscreen');
   async function openPlay() {
