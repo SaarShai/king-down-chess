@@ -32,7 +32,7 @@ let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
 let readError = false;
 let busy = false, polling = false, mountReading = true, gamesDirty = false;
-let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0;
+let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0, pollFailures = 0;
 let pending = state.pending;
 let handleBack: Screen = pending?.screen ?? 'settings';
 const drawBoard = boardScreen(call, () => busy || mountReading || !!pending);
@@ -122,9 +122,10 @@ export async function call(name: string, args: Record<string, unknown>, retain =
       throw new Error(text);
     }
     remember(result);
+    const outage = pollFailures >= 3; pollFailures = 0;
     const next = (result._meta as { view?: View } | undefined)?.view;
     if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision) {
-      view = { ...view, opponent: next.opponent, server_now: next.server_now }; if (state.screen === 'seat') seatScreen(); poll?.update(); return;
+      view = { ...view, opponent: next.opponent, server_now: next.server_now }; if (state.screen === 'seat') seatScreen(); poll?.update(); if (outage) retryState(); return;
     }
     if (name === 'kingdown_get') readError = false;
     show(next); received = next;
@@ -137,8 +138,10 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     if (retain) pending = undefined;
     saveState(); retryState();
   } catch (error) { const message = error instanceof Error ? error.message : 'Could not update the game.';
-    // A quiet read that cannot connect says nothing; the next poll tries again.
-    if (quiet && (busy || view !== before || message === CANNOT_CONNECT)) return;
+    if (quiet && (busy || view !== before)) return;
+    // One slow poll is no outage, so a quiet read that cannot connect says nothing. A run of three shows the sentence
+    // with no Retry: the next poll tries again, and a good read clears it.
+    if (quiet && message === CANNOT_CONNECT) { if (++pollFailures >= 3) $('error').textContent = message; return; }
     if (retain && pending) failPending(message);
     if (!quiet && name === 'kingdown_get' && state.board_id) readError = true;
     retryState(); if (!retain || !pending) $('error').textContent = message; }

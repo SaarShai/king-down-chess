@@ -959,3 +959,21 @@ it('keeps a move in flight free of errors when a chat result arrives during it',
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
+it('shows the connection sentence after three failed polls and clears it on the next good read', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    // White, this player, moves next: the timed poll waits 30 s, so only the reads below run.
+    await friendGame(page);
+    const poll = () => frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true); });
+    await page.context().setOffline(true);
+    await poll(); await poll();
+    expect(await frame.locator('#error').textContent()).toBe('');
+    await poll();
+    expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
+    expect(await frame.locator('#retry').isHidden()).toBe(true);
+    await page.context().setOffline(false);
+    await poll();
+    expect(await frame.locator('#error').textContent()).toBe('');
+  } finally { await page.context().setOffline(false); await page.close(); }
+});
+
