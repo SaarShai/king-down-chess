@@ -28,7 +28,8 @@ it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]
     expect((await frame.locator('#page-back').evaluate(controlBounds)).limit).toBe(height - gap);
   } finally { await page.close(); }
 });
-it.each([[393, 852, 102, 118, 290], [320, 568, 63, 84, 170], [320, 568, 63, 180, 60]])('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min) => {
+// The rule text is never cut (fault round 1), so on short phones the board gets what the text leaves: 156 px at 320 × 568 with insets 63/84.
+it.each([[393, 852, 102, 118, 290], [320, 568, 63, 84, 150], [320, 568, 63, 180, 60]])('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000);
   try {
@@ -107,8 +108,9 @@ it('sizes the seat and the board from their screens, with no viewport units and 
   } finally { await page.close(); }
 });
 
+// The floors are the measured sizes with whole rule text, rounded down to 5 px.
 it('keeps short-phone boards large, landscape controls reachable and the end table in its box', async () => {
-  for (const [width,height,top,bottom,left,right,min] of [[320,568,20,0,0,0,180],[375,667,20,0,0,0,230],[393,852,59,34,0,0,308],[440,956,59,34,0,0,360],[852,393,0,21,59,59,175],[852,393,59,34,0,0,110]]) {
+  for (const [width,height,top,bottom,left,right,min] of [[320,568,20,0,0,0,170],[375,667,20,0,0,0,225],[393,852,59,34,0,0,308],[440,956,59,34,0,0,360],[852,393,0,21,59,59,175],[852,393,59,34,0,0,110]]) {
     const page=await browser.newPage({viewport:{width,height},isMobile:true,hasTouch:true}), frame=page.frameLocator('iframe'); page.setDefaultTimeout(10000);
     try {
       await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').click();

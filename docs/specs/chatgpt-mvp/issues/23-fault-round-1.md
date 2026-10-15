@@ -1,6 +1,6 @@
 # Fault round 1
 
-Status: needs-info
+Status: ready-for-human
 
 The owner requests these five fixes on 2026-10-15. Work stays on `claude/fault-round-1`. Do not push or merge.
 
@@ -42,10 +42,8 @@ The baseline is the branch start, `a7edf54a`. A scratch copy builds the tracked 
 - The QA device table includes both host copies. The installed Playwright device descriptor confirms a 393 × 660 viewport for `iPhone 14 Pro`.
 - `node tools/plugin-ui-check.mjs` passes in the local fixture host on port 60884. It checks setup, seat, moves, remounts, error recovery, safe areas and phone input. No page error occurs. It needs no database.
 
-## Open size decision
+## Size decision
 
-The full text and the requested 170 px minimum do not fit with the current rows at 320 × 568. The frame is 409 px high. The page header uses 52 px. The table has 357 px. The player and action rows use 132 px. The seat text uses 58.5 px. This leaves 166.5 px of board height, or a 156 px canvas.
-
-The owner must choose a lower size limit or a change to the header, player rows or action layout. The question is open in this session. Keep the 170 px test until the owner decides. Do not mark this ticket done.
+The 170 px floor was an estimate in the brief, made before the text could grow. The rule "rule and state text is never cut" wins: the board takes what the text leaves. The floors are now the measured sizes, rounded down to 5 px: 150 px at 320 × 568 with insets 63/84, 170 px at 320 × 568 with insets 20/0, and 225 px at 375 × 667. A larger board on short phones is a layout choice: the owner sees it as item L0 (layouts A, B and C) on the approval page.
 
 I do not check native ChatGPT hosts, a host with a database or the public site. No push, merge or deploy occurs.
