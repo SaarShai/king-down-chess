@@ -18,7 +18,7 @@ test('each strip names its rating and colour, or the computer level', () => {
   expect(stripLine(0, { rating: 1499.6, provisional: true })).toBe('1500? · White');
   expect(stripLine(1, { rating: 1540, provisional: false })).toBe('1540 · Black');
   expect(stripLine(1)).toBe('Black');
-  expect(stripLine(1, undefined, 'club')).toBe('Computer · Club');
+  expect(stripLine(1, undefined, 'club')).toBe('Club');
 });
 
 test('the open hand spends Mirror B itself and keeps the copied card', () => {

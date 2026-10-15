@@ -602,7 +602,7 @@ function vortex(out,foot,phase,strength) {
  }
  function render(time=performance.now()) {
  frames++;frameTime=time;shadowsFading=false;drawnBefore=fxDrawn.length;fxDrawn=[];nextSince=new Map();
- const a0=animation,since=a0?.shakeAt!=null?(time-a0.start)/a0.speed-a0.shakeAt:-1,shake=since>=0&&since<240?7*(1-since/240):0;
+ const a0=animation,since=a0?.shakeAt!=null?(time-a0.start)/a0.speed-a0.shakeAt:-1,shake=!reducedMotion&&since>=0&&since<240?7*(1-since/240):0;
  ctx.save();ctx.translate(0,headroom);if(shake)ctx.translate(Math.sin(since*.09)*shake,Math.cos(since*.13)*shake*.6);
  boardBackground();
  if(lifted!==null&&!animation&&position.board[lifted]){
@@ -720,7 +720,16 @@ function vortex(out,foot,phase,strength) {
    }
    effects.push(()=>gears(ctx,a.target,(t-s.apart[0])/700));
   }
-  else if(a.type==='move')actor.pose={...a.from,foot:mix(a.from.foot,a.to.foot,ease(t/420))};
+  else if(a.type==='move'){
+   const slide=a.move.from===a.move.to?0:420,k=ease(t/(slide||1));
+   actor.pose={...a.from,foot:mix(a.from.foot,a.to.foot,k)};
+   if(a.move.swap&&victim)victim.pose={...victim.pose,foot:mix(a.to.foot,a.from.foot,k)};
+   if(a.move.shove&&victim)victim.pose={...victim.pose,foot:mix(foot(a.move.shove.from),foot(a.move.shove.to),k)};
+   // The fade is 150 ms in real time, at each playback speed.
+   const fade=1-clamp((t-slide)*a.speed/150,0,1);
+   for(const sq of a.move.captures){const v=poses.get(sq);if(v)v.opacity=fade;}
+   if(a.move.selfRemove)actor.opacity=fade;
+  }
   else if(a.type==='gait'){
    // Quiet move with character (gait.mjs): feet travel along the ground line; lift, squash and lean on top.
    const m=GAITS[a.gait].at(t/a.duration,a.squares),ground=mix(a.from.foot,a.to.foot,m.travel);
@@ -871,7 +880,8 @@ function drawEncounter(a,t) {
  function plan(move,speed,gait=null) {
  const value=position.board[move.from],from=poseFor(value,move.from),to=poseFor(value,move.to),victimSquare=move.swap?move.to:move.shove?.from??move.captures[0],victim=position.board[victimSquare];
  const base={move,value,from,to,victim,start:performance.now(),speed,contacted:false};
- if(move.swap){base.type='swap';base.duration=1100;base.partner=poseFor(victim,move.to);}
+ if(reducedMotion){base.type='move';base.duration=(move.from===move.to?0:420)+(move.captures.length?150/speed:0);}
+ else if(move.swap){base.type='swap';base.duration=1100;base.partner=poseFor(victim,move.to);}
  else if(typeOf(value)===N){base.type='knight';base.duration=knight.DURATION;from.facing=Math.sign(to.foot.x-from.foot.x);}
  else if(typeOf(value)===L&&victim){
   const target=world(specs[typeOf(victim)].hit,poseFor(victim,victimSquare),typeOf(victim)),dx=target.x-from.foot.x;
