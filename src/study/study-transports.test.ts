@@ -25,8 +25,12 @@ describe('study transport boundaries',()=>{
     await expect(m1.preflight({...input,runId:'../other'})).rejects.toThrow('identity');expect(calls).toBe(0);
     expect((await m1.status(input,null)).state).toBe('unknown');
   });
-  it('does not match its own availability command',()=>{
-    expect(execFileSync('sh',['-c','! pgrep -f "[k]d-study-availability-test-never-running" >/dev/null'],{encoding:'utf8'})).toBe('');
+  it('checks real work without matching its own availability command',async()=>{
+    let command='';const {m1}=createTransports('/not-read',async(_command,args)=>{command=args.at(-1)!;return '';});
+    await m1.preflight(await fixture());
+    const pattern=command.match(/! pgrep -f "([^"]+)"/);expect(pattern).not.toBeNull();
+    const matcher=new RegExp(pattern![1]);expect(matcher.test(command)).toBe(false);
+    for(const actual of ['node src/sim/study-runner.ts','node src/sim/tournament.ts','Adobe Illustrator','Adobe Photoshop','ollama runner'])expect(matcher.test(actual)).toBe(true);
   });
   it('checks Python supervisor, capacity and decoded backup proof with fakes',()=>{
     expect(execFileSync('python3',['tools/study-runs/transport_checks.py'],{encoding:'utf8'})).toContain('PASS');

@@ -9,7 +9,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SSH = ['-o','BatchMode=yes','-o','ConnectTimeout=10','-o','ServerAliveInterval=10','-o','ServerAliveCountMax=2','M1'];
 const IDENTITY = 'test "$(id -un)" = new && test "$(scutil --get LocalHostName)" = MacBook-Pro-2 && test "$(sysctl -n hw.model)" = MacBookPro18,2 && ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | /usr/bin/awk \'{print $2}\' | /usr/bin/grep -qx SHA256:e2GtnqVZpq4rDNvFsAayCsdu1iSqkFoX8CJCkxazwcM';
 const ACTIVE_LOCK='/Users/new/projects/king-down-study-runs/.active';
-const AVAILABLE = 'test ! -e '+ACTIVE_LOCK+' && pmset -g batt | /usr/bin/grep -q "AC Power" && ! pgrep -f "study-runner.ts|src/sim/tournament.ts|Illustrator|Adobe Photoshop|ollama runner" >/dev/null';
+const AVAILABLE = 'test ! -e '+ACTIVE_LOCK+' && pmset -g batt | /usr/bin/grep -q "AC Power" && ! pgrep -f "[s]tudy-runner.ts|[s]rc/sim/tournament.ts|[I]llustrator|[A]dobe Photoshop|[o]llama runner" >/dev/null';
 const FILES = ['games.jsonl','status.json','attestation.json','supervisor.json','supervisor.log'];
 type Execute = (command:string,args:string[],options?:{cwd?:string;input?:string;env?:NodeJS.ProcessEnv;timeout?:number;maxBytes?:number})=>Promise<string>;
 export const execute: Execute = (command,args,options={}) => new Promise((done,fail)=>{
