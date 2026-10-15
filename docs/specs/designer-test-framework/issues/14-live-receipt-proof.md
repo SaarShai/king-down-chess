@@ -76,3 +76,22 @@ driver stops before notebook submission. No mutation is repeated. Evidence is
 `dataset-unknown-checkpoint.json` in the run results. The first scheduled check
 is 21:33:20.555 UTC; the next bounded follow-up is 21:35 UTC. Results, backup
 and browser linking remain pending. No competing backup starts.
+
+## Read-only resolution and blocked proof
+
+At 21:37 UTC the exact private dataset is READY, version 1, ID 12616509.
+Notebook metadata returns HTTP 403. The local driver has no notebook attempt
+and stops before submission. The original conflicting response ref is not
+retained, so the cause of that mismatch remains unknown. No payload bytes are
+re-downloaded and no dataset is reused. No mutation is repeated.
+
+The automatic browser proof is blocked before games: zero of two verified,
+with no full export to link. `blocked-report.json`, `dataset-read-only.json`
+and a saved studio-state copy preserve the evidence. The studio state itself
+stays unchanged. The prior eight-game proof remains complete.
+
+A single new evidence backup starts at 21:38:13 UTC, PID 1758, in card state
+`study-backups/receipt-proof-blocked-20261015`. It includes this proof, the M1
+baseline failure and passed patched validation. It allows 90 minutes for backup
+and 30 for downloaded-byte proof. Next bounded local check: 22:15 UTC.
+No competing upload or further worker query is needed.
