@@ -229,7 +229,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (available.abort && ['your-move','computer'].includes(context.rank)) context.note='Abort ends the game with no result, until each side moves once.';
     if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:'armed',line:cardName(RULES.hands[view.seat][armedCard]),note:'Choose a piece, then a marked square.'});
     if (view.draw_offer != null && !['result','refusal','link'].includes(context.rank)) context.note = view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.';
-    $('status').textContent = context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
+    $('status').textContent = context.rank === 'refusal' ? '' : context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
     const actions: HTMLButtonElement[] = [];
     if (!armed && armedCard === undefined && square !== undefined && code) actions.push(button('All rules', () => boardSheet('All rules', text(readText(pos!, square)))));
     if (selected !== undefined && moves.some(({move}) => move.from === selected && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));

@@ -1,7 +1,7 @@
 export function controlBounds(el) {
   const r = el.getBoundingClientRect(), css = getComputedStyle(document.documentElement);
   const safe = edge => parseFloat(css.getPropertyValue(`--safe-${edge}`)) || 0;
-  const limit = innerHeight - safe('bottom') - (innerWidth >= 900 ? 128 : 96);
+  const limit = innerHeight - Math.max(safe('bottom'), innerWidth >= 900 ? 128 : 96);
   let accessible = r.left >= safe('left') - 1 && r.right <= innerWidth - safe('right') + 1 && r.top >= safe('top') - 1 && r.bottom <= limit + 1;
   for (let p = el.parentElement; p; p = p.parentElement) {
     const style = getComputedStyle(p), box = p.getBoundingClientRect();

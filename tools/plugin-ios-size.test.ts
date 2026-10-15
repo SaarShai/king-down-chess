@@ -5,9 +5,10 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { chromium, type Browser } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
+import { controlBounds } from './lib/plugin-control-bounds.mjs';
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
-// Ticket 21: the seat and the board size from their screens, not from viewport units. This guards that rule; it does
-// not reproduce the ChatGPT iOS host (no test browser does). The built page, because the build gives the seat its table look.
+// Test the built page. The build gives the seat its table styles.
+// Host copies test sizes and insets. They do not replace a native ChatGPT iOS check.
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-ios-size-'));
@@ -15,6 +16,66 @@ beforeAll(async () => {
   harness = await startHarness({ boardPath: join(folder, 'board.html') }); browser = await chromium.launch({ headless: true });
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
+it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]])('reserves one bottom gap at %i × %i with insets %i/%i', async (width, height, top, bottom, gap) => {
+  const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
+  try {
+    await page.goto(harness.url);
+    await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
+    await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
+    await frame.locator('#home-play:not(:disabled)').click();
+    await page.evaluate(async safe => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe, deviceCapabilities: { touch: true } }); }, { top, bottom, left: 0, right: 0 });
+    await expect.poll(() => frame.locator('#app-frame').evaluate(e => innerHeight - e.getBoundingClientRect().bottom)).toBe(gap);
+    expect((await frame.locator('#page-back').evaluate(controlBounds)).limit).toBe(height - gap);
+  } finally { await page.close(); }
+});
+it.each([[393, 852, 102, 118, 290], [320, 568, 63, 84, 170], [320, 568, 63, 180, 60]])('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min) => {
+  const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
+  page.setDefaultTimeout(10_000);
+  try {
+    await page.goto(harness.url);
+    await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
+    await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
+    await frame.locator('#home-play:not(:disabled)').click();
+    await page.evaluate(async safe => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe, deviceCapabilities: { touch: true } }); }, { top, bottom, left: 0, right: 0 });
+    await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).check();
+    await frame.locator('#setup-pieces').click();
+    for (const name of ['Rook', 'Bishop', 'Knight', 'Maester']) await frame.getByRole('checkbox', { name, exact: true }).uncheck();
+    await frame.getByRole('button', { name: 'Done', exact: true }).click();
+    await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('#seat-shuffle').click();
+    expect(await frame.locator('#seat-context').textContent()).toBe('Select one back-rank piece, then another, to swap them.');
+    expect(await frame.locator('#seat-note').textContent()).toBe('The guard stays next to the king.');
+    const canvasWidth = () => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
+    const textFits = () => frame.locator(':is(#context-text, [data-seat-id="context-text"]):visible').evaluate(e => {
+      const row = e.parentElement!.getBoundingClientRect(), problems: string[] = [];
+      for (const node of [e, ...e.querySelectorAll<HTMLElement>('*')]) {
+        if (!node.textContent?.trim()) continue;
+        const box = node.getBoundingClientRect();
+        if (box.height < 1 || node.scrollHeight > node.clientHeight + 1 || box.top < row.top - 1 || box.bottom > row.bottom + 1 || /(?:…|\.{3})$/.test(node.textContent.trim())) problems.push(node.id || node.getAttribute('data-seat-id') || node.tagName);
+      }
+      return problems;
+    });
+    expect(await frame.locator('#app-frame').evaluate(e => innerHeight - e.getBoundingClientRect().bottom)).toBe(Math.max(96, bottom));
+    expect(await textFits()).toEqual([]);
+    expect.soft(await canvasWidth()).toBeGreaterThanOrEqual(min);
+    await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await frame.locator('#app-frame').evaluate(e => innerHeight - e.getBoundingClientRect().bottom)).toBe(Math.max(96, bottom));
+    expect.soft(await canvasWidth()).toBeGreaterThanOrEqual(min);
+    expect(await frame.locator('#context-note').textContent()).toBe('Abort ends the game with no result, until each side moves once.');
+    expect(await textFits()).toEqual([]);
+    await page.evaluate(async () => {
+      const host = window as any;
+      host.harnessNextView = { ...host.harnessView, kind: 'friend', opponent: { ...host.harnessView.opponent, computer: false }, draw_offer: 1 };
+    });
+    await frame.locator('#board-menu').click(); await frame.locator('#reload').click();
+    await frame.locator('#context-note').filter({ hasText: 'Your opponent offers a draw.' }).waitFor();
+    await frame.locator('#accept-draw').waitFor(); await frame.locator('#decline-draw').waitFor();
+    expect(await textFits()).toEqual([]);
+  } finally { await page.close(); }
+});
 it('sizes the seat and the board from their screens, with no viewport units and the short-phone rows', async () => {
   const page = await browser.newPage({ viewport: { width: 393, height: 760 }, hasTouch: true }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000);
@@ -56,7 +117,9 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
       await frame.getByRole('checkbox',{name:'Arrangement',exact:true}).check();
       await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
       const canvasWidth=()=>frame.locator('#board canvas').evaluate(e=>e.getBoundingClientRect().width);
-      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
+      await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
+      await expect.poll(canvasWidth).toBeGreaterThan(0);
+      expect.soft(await canvasWidth()).toBeGreaterThanOrEqual(min);
       expect(await frame.locator('#seat-context').textContent()).not.toMatch(/Tap/);
       const veil=await frame.locator('#seat-veil-layer .veil').evaluate(e=>{const r=e.getBoundingClientRect(),b=document.querySelector('#board')!.getBoundingClientRect(); return r.top>=b.top-1 && r.bottom<=b.bottom+1 && getComputedStyle(e).overflow==='hidden';});
       expect(veil).toBe(true);
@@ -65,7 +128,8 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
         expect(await frame.locator(`#${id}`).evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
       }
       await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
-      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
+      await expect.poll(canvasWidth).toBeGreaterThan(0);
+      expect.soft(await canvasWidth()).toBeGreaterThanOrEqual(min);
       expect(await frame.locator('.page-sheet').evaluate(e=>e.scrollTop)).toBe(0);
       const bar=await frame.locator('#table-bar').evaluate(e=>{const buttons=[...e.querySelectorAll('button')].filter(b=>!b.hidden),r=e.getBoundingClientRect(),b=buttons[0].getBoundingClientRect();return {count:buttons.length,empty:b.left-r.left};});
       expect(bar.count).toBe(2); expect(bar.empty).toBeLessThanOrEqual(8);

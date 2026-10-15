@@ -583,6 +583,25 @@ it('keeps Tab inside the visible controls of the board Menu', async () => {
   } finally { await page.close(); }
 });
 
+it('shows a failed board read once beside Try again and restores the same game', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } }); });
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    await page.evaluate(() => { (window as any).rejectNextGet = true; });
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
+    const message = 'Harness saved-game read failed';
+    expect(await frame.locator('#error').textContent()).toContain(message);
+    expect(await frame.getByText(message, { exact: true }).count()).toBe(1);
+    expect(await frame.locator('#status').textContent()).toBe('');
+    expect(await frame.locator('#error').evaluate(e => e.parentElement!.contains(document.getElementById('retry')))).toBe(true);
+    await frame.getByRole('button', { name: 'Try again', exact: true }).click();
+    await frame.locator('#retry').waitFor({ state: 'hidden' });
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    expect(await frame.locator('#error').textContent()).toBe('');
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+  } finally { await page.close(); }
+});
 it('offers Try again after a failed mount read and restores the same game', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

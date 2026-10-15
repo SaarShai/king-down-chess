@@ -1075,7 +1075,8 @@ try {
     await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click();
     await idleBoard();
     assert.equal(await frame.locator('#retry').isVisible(), false, `${code} must release the pending command`);
-    await frame.locator('#status').filter({hasText:'Harness definitive rejection'}).waitFor();
+    await frame.locator('#error').filter({hasText:'Harness definitive rejection'}).waitFor();
+    assert.equal(await frame.locator('#status').innerText(), '', 'The error appears once in the error row');
     assert.equal(await frame.locator('#last-move').innerText(), 'Move 1.', `${code} restores the last server position and move line`);
   }
   await haste();

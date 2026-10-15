@@ -33,12 +33,12 @@
 #profile-sheet .badge time { display: block; color: var(--ink-soft); font-weight: 400; margin-top: 2px; }
 #profile-sheet .badge.no img { filter: grayscale(1) opacity(.45); }
 #profile-sheet .badge.no figcaption { color: var(--ink-soft); font-weight: 400; }
-body[data-page='profile'] .frame dialog#over.badge-sheet { position: fixed; inset: auto 0 calc(96px + var(--safe-bottom, 0px)); width: 100%; max-height: calc(100% - 136px); padding: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+body[data-page='profile'] .frame dialog#over.badge-sheet { position: fixed; inset: auto 0 max(96px, var(--safe-bottom, 0px)); width: 100%; max-height: calc(100% - 136px); padding: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 .badge-sheet::backdrop { background: transparent; backdrop-filter: none; }
 #badge-art { width: 176px; max-width: 100%; margin: 0 auto var(--space-3); }
 #badge-detail { text-align: center; }
 @media (min-width: 900px) {
   body[data-page='profile'] .frame dialog.page-sheet { width: min(980px, calc(100% - 48px)); }
   #profile-sheet .split { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }
-  body[data-page='profile'] .frame dialog#over.badge-sheet { inset: 24px 0 calc(152px + var(--safe-bottom, 0px)); width: min(560px, calc(100% - 48px)); max-height: calc(100% - 176px); border-radius: var(--radius-lg); margin: auto; }
+  body[data-page='profile'] .frame dialog#over.badge-sheet { inset: 24px 0 max(152px, var(--safe-bottom, 0px)); width: min(560px, calc(100% - 48px)); max-height: calc(100% - 176px); border-radius: var(--radius-lg); margin: auto; }
 }

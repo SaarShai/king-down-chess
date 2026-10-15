@@ -3,7 +3,7 @@ import { ICONS } from '../account/profile';
 import { art } from './art';
 
 export function gameDetail(entry: InboxEntry): string {
-  return `${entry.seat === 0 ? 'White' : 'Black'} · ${new Intl.DateTimeFormat(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit',second:'2-digit'}).format(new Date(entry.created_at))}`;
+  return `${entry.seat === 0 ? 'White' : 'Black'} · ${new Intl.DateTimeFormat(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(entry.created_at))}`;
 }
 
 export function gamesList(target: HTMLElement, entries: InboxEntry[], call: (name: string, args: Record<string, unknown>) => Promise<View | undefined>, routeView: (view: View) => unknown, now = Date.now()) {
@@ -24,8 +24,8 @@ export function gamesList(target: HTMLElement, entries: InboxEntry[], call: (nam
       if (entry.options?.[field]) { const feat = document.createElement('span'); feat.title = label; feat.innerHTML = icon(name); feats.append(feat); }
     }
     const detail = document.createElement('span');
-    detail.textContent = gameDetail(entry);
-    line.append(' · ', detail, feats); button.append(lead, title, line);
+    detail.textContent = `· ${gameDetail(entry)}`;
+    line.append(' ', detail, feats); button.append(lead, title, line);
     if (yours) { const mark = document.createElement('b'); mark.className = 'turn-mark'; mark.textContent = 'Your turn'; button.append(mark); }
     else { const end = document.createElement('i'); end.setAttribute('aria-hidden', 'true'); end.textContent = '›'; button.append(end); }
     button.onclick = async () => { const view = await call('kingdown_resume', { game_id: entry.game_id }); if (view) routeView(view); };

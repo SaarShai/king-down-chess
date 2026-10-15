@@ -13,7 +13,7 @@
 .wait-dots { display: flex; gap: 6px; margin-bottom: 70px; }
 .wait-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
 .wait-dots i:nth-child(2) { opacity: .6; } .wait-dots i:nth-child(3) { opacity: .3; }
-.frame dialog#over.found { position: absolute; inset: var(--safe-top, 0px) var(--safe-right, 0px) calc(var(--composer-gap, 96px) + var(--safe-bottom, 0px)) var(--safe-left, 0px); margin: auto; height: fit-content; }
+.frame dialog#over.found { position: absolute; inset: var(--safe-top, 0px) var(--safe-right, 0px) max(var(--composer-gap, 96px), var(--safe-bottom, 0px)) var(--safe-left, 0px); margin: auto; height: fit-content; }
 #over.found .over-art { height: auto; align-items: center; background: none; }
 #found-error:empty, #wait-status:empty { display: none; }
 

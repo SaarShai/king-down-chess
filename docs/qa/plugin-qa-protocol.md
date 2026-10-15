@@ -77,6 +77,7 @@ The server tools: `kingdown_open`, `create`, `find`, `lobby`, `accept`, `cancel`
 | Surface | Sizes (CSS px) | How |
 |---|---|---|
 | Phone | 320 × 568, 375 × 667, 393 × 852, 440 × 956; landscape 852 × 393 | Playwright WebKit (an iOS stand-in) and Chromium (Android), `isMobile`, `hasTouch`, `deviceScaleFactor` 3 (Android 2.625); `deviceCapabilities.touch` and the safe areas by `harnessSetContext` |
+| Owner's ChatGPT iOS host copy | 393 × 852; safe-area insets top 102, bottom 118, left/right 0. Small copy: 320 × 568; top 63, bottom 84, left/right 0. | Set the viewport size. These insets include the host header and composer. Hide the harness Remount bar and set the iframe height to the full viewport. Playwright's `devices['iPhone 14 Pro']` viewport is 393 × 660. |
 | Tablet | 820 × 1180, 1180 × 820 | WebKit, `hasTouch` |
 | Desktop | 1024 × 768, 1280 × 800, 1440 × 900, 1920 × 1080 | Chromium and WebKit, `deviceScaleFactor` 1 and 2; Firefox one time |
 | ChatGPT inline | the iframe at the chat column width (about 760 px on desktop, the screen width on a phone) | The harness does not resize the iframe. Listen on the host page for `ui/notifications/size-changed`, set the iframe height to the last height that the widget sent, and do this 3 times: the height must stay the same, and the home card must show in full with no inner scroll. |
