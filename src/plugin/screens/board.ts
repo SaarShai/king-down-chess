@@ -10,6 +10,8 @@ import { ending } from '../ending';
 import { board, highlight } from '../board-view';
 import { art, symbols } from '../art';
 import { pieceIcon } from '../../piece-icons';
+import { snd } from '../../render/sfx';
+import '../../ceremony.css';
 import { client, memory, navigate } from '../app';
 import { nextGame } from '../games-list';
 import { actionButtons, confirmDraw, confirmResign } from './board-actions';
@@ -67,6 +69,16 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   let computerCalls = 0, computerRunning = false, thinking = false, tornDown = false, thinkingTimer: ReturnType<typeof setTimeout> | undefined;
   let ownRating: PlayerRecord['rating'] | undefined, profileRead = false;
   let readAt = Date.now(), deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+  // The topple plays only when the end arrives live, not on a reload.
+  let toppling = false;
+  // Each card coin's last spent state, and when a live use spent it (for the gold pulse).
+  const cardSpent = new Map<string, boolean>(), spentAt = new Map<string, number>();
+  // When the four cards dealt (a live game start), and when a check last began.
+  let dealtAt = -Infinity, dealing = false, opening = false, checkAt = -Infinity, checked: number | null = null;
+  // strips() rebuilds the coins; a negative delay keeps a running moment in its place.
+  const moment = (el: HTMLElement, name: string, start: number, ms: number) => { const age = performance.now() - start; if (age >= ms) return false; el.classList.add(name); el.style.setProperty('--age', `${-age}ms`); return true; };
+  // Sound is off unless the player turns it on in Settings (render/sfx.ts).
+  const sound = (step: BoardMove) => { if (step.move.captures.length) snd.capture(); else snd.move(); if (inCheck(step.pos)) snd.check(); };
   const refused = new Set<string>();
   const active = () => ['board', 'end'].includes(client.state.screen);
   const rules = () => setRules(view!.rules!);
@@ -118,9 +130,9 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (!step) return;
     closeBoardSheet(); armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]);
     const token = ++generation; optimistic = lastMove = step; pos = step.pos; animating = true;
-    board.skip(); moveLine();
+    board.skip(); board.setLifted(null); moveLine();
     if (step.move.drop !== undefined) board.sync(step.pos);
-    void (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve()).then(() => { if (token === generation) board.sync(step.pos); }).finally(() => { if (token === generation) { animating = false; refresh(); scheduleComputer(); } });
+    void (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve()).then(() => { if (token === generation) { board.sync(step.pos); sound(step); } }).finally(() => { if (token === generation) { animating = false; refresh(); scheduleComputer(); } });
     await call('kingdown_move', { game_id: before.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: before.revision, lan }, true);
   }
   rollbackBoardMove = async () => {
@@ -191,11 +203,15 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   function strips() {
     if (!view || !pos) return;
     rules();
+    // The deal starts when the board shows, not when the view arrives.
+    if (dealing && client.state.screen === 'board') { dealing = false; dealtAt = performance.now(); }
+    if (opening && client.state.screen === 'board') { opening = false; $('board').animate([{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 320, easing: 'cubic-bezier(.05,.7,.1,1)' }); }
     for (const side of [0,1] as const) {
       const mine = side === view.seat, strip = $(mine ? 'strip-me' : 'strip-them');
       strip.classList.toggle('is-turn', view.status === 'playing' && view.turn === side);
       strip.innerHTML = '<div class="coin-row"><span class="portrait"><img alt=""></span></div><span class="player-name"><b></b><small></small></span>';
       strip.querySelector('img')!.src = art(portraitPath(side));
+      if (checked !== null && pos.turn === side) moment(strip.querySelector<HTMLElement>('.portrait')!, 'is-checked', checkAt, 600);
       strip.querySelector('b')!.textContent = mine ? memory.me?.handle ?? 'You' : view.opponent?.computer ? 'Computer' : view.opponent?.deleted ? 'Deleted player' : view.opponent?.handle ?? 'Opponent';
       strip.querySelector('b')!.title = strip.querySelector('b')!.textContent;
       strip.querySelector('small')!.textContent = stripLine(side, mine ? ownRating : view.opponent?.rating, !mine && view.opponent?.computer ? view.level : undefined) + (!mine && thinking ? ' · thinking…' : '');
@@ -208,7 +224,13 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
       }
       for (const [index, card] of cardCoins(pos, side, RULES.hands[side], []).entries()) {
         const b = button('', () => coinRead(side, index)), image = document.createElement('img'), face = art(`ui/cards/${card.card.toLowerCase()}.webp`);
-        b.className = 'coin card-coin'; b.id = `card-${side ? 'b' : 'w'}-${index}`; b.dataset.state = card.spent ? 'used' : 'always'; b.setAttribute('aria-label', (mine ? 'Your ' : "Opponent's ") + cardName(card.card) + (card.spent ? ', spent' : ''));
+        const key = `${view.game_id}:${side}:${index}`;
+        if (card.spent && cardSpent.get(key) === false && !matchMedia('(prefers-reduced-motion: reduce)').matches) { spentAt.set(key, performance.now()); setTimeout(strips, 300); }
+        cardSpent.set(key, card.spent);
+        b.className = 'coin card-coin'; b.id = `card-${side ? 'b' : 'w'}-${index}`;
+        const spending = card.spent && moment(b, 'is-spending', spentAt.get(key) ?? -Infinity, 300);
+        b.dataset.state = card.spent && !spending ? 'used' : 'always';
+        if (!spending) { b.style.setProperty('--i', String(index)); moment(b, 'is-dealt', dealtAt, 560); } b.setAttribute('aria-label', (mine ? 'Your ' : "Opponent's ") + cardName(card.card) + (card.spent ? ', spent' : ''));
         image.src = face ?? art('ui/cards/back.webp'); image.alt = ''; b.append(image);
         if (!face) { const word = document.createElement('span'); word.className = 'cc-word'; word.textContent = cardName(card.card).slice(0,2); b.append(word); }
         row.append(b);
@@ -218,6 +240,8 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   function refresh() {
     if (!view || !pos) return;
     $('board').dataset.animating = String(animating);
+    const check = inCheck(pos) ? findKing(pos.board, pos.turn) : null;
+    if (check !== checked) { checked = check; if (check !== null && board.motion()) checkAt = performance.now(); }
     rules(); const cands = selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
     // Mark every step of the last turn (Haste, free marks); a pass step has no square.
     let start = history.length;
@@ -250,7 +274,22 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     $('offer-draw').hidden = view.kind === 'solo' || view.status !== 'playing' || view.draw_offer !== null || refused.has('kingdown_draw');
     $('resign').hidden = view.status !== 'playing';
     $('context-actions').replaceChildren(...actions); strips();
-    board.setFallen(view.result?.reason === 'checkmate' && view.result.winner !== null ? findKing(pos.board,(1-view.result.winner) as Color) : null,false);
+    board.setLifted(selected ?? null);
+    // Never lay the king down on the position before the final move.
+    const fallen = !animating && view.result?.reason === 'checkmate' && view.result.winner !== null ? findKing(pos.board,(1-view.result.winner) as Color) : null;
+    board.setFallen(fallen, toppling && fallen !== null);
+    // The end card waits for the 650 ms topple (screens/end.ts), so the fall shows.
+    if (toppling && fallen !== null && board.motion()) kingDown();
+    if (fallen !== null) toppling = false;
+  }
+  // The web end ceremony (ceremony.ts), at most 1.5 s: the topple (650 ms), the words settle (480 ms), then the end
+  // card rises (320 ms, end.css). Any tap skips to the card.
+  function kingDown() {
+    const words = document.createElement('div'); words.className = 'kd-words is-in'; words.textContent = 'King Down'; words.hidden = true; words.setAttribute('aria-hidden', 'true');
+    $('board').append(words); $('board').dataset.toppling = 'true';
+    const show = setTimeout(() => { words.hidden = false; }, 650), done = setTimeout(skip, 1130);
+    function skip() { clearTimeout(show); clearTimeout(done); words.remove(); delete $('board').dataset.toppling; removeEventListener('pointerdown', skip, true); }
+    addEventListener('pointerdown', skip, true);
   }
   $('resign').onclick = confirmResign; $('offer-draw').onclick = () => confirmDraw('offer');
   $('reload').addEventListener('click', closeBoardSheet);
@@ -266,6 +305,11 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   return (next: View) => {
     if (view?.game_id === next.game_id && next.revision < view.revision) return;
     const before = view, same = view?.game_id === next.game_id;
+    if (same && before?.status === 'playing' && next.status === 'finished') toppling = true;
+    // A live game start: the cards deal once, and after the seat both Ready open the board.
+    const started = next.status === 'playing' && next.history?.actions.length === 0 && (!same || before?.status === 'setup') && board.motion();
+    if (started && next.options?.cards) dealing = true;
+    if (started && (next.options?.arrangement || next.options?.kingPowers)) opening = true;
     const unchanged = same && before?.revision === next.revision && before.fen === next.fen && before.status === next.status;
     view = {...next, rules:next.rules ?? (same ? view?.rules : undefined), outcome:next.outcome ?? (same ? view?.outcome : undefined), opponent:next.opponent && {...next.opponent, rating:next.rules ? next.opponent.rating : next.opponent.rating ?? (same ? view?.opponent?.rating : undefined)}};
     if (['finished','aborted'].includes(next.status)) setTimeout(()=>{ if (active()) { if(client.state.screen==='board') navigate('end'); updateEnd(); } },0);
@@ -295,7 +339,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (replay.length) {
       animating = true;
       void (async () => {
-        for (const step of replay) { if (token !== generation) return; rules(); if (step.move.drop === undefined) await board.animateMove(step.pre, step.move); if (token !== generation) return; board.sync(step.pos); }
+        for (const step of replay) { if (token !== generation) return; rules(); if (step.move.drop === undefined) await board.animateMove(step.pre, step.move); if (token !== generation) return; board.sync(step.pos); sound(step); }
         if (token === generation) { rules(); board.sync(authoritative); animating = false; refresh(); scheduleComputer(); }
       })();
     } else board.sync(pos);

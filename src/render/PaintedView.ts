@@ -192,7 +192,7 @@ export class PaintedView implements BoardView {
   }
 
   /** Markers animate only while animations are on and the system allows motion. */
-  private motion(): boolean { return this.pace !== 'off' && !this.motionQuery.matches; }
+  motion(): boolean { return this.pace !== 'off' && !this.motionQuery.matches; }
 
   flip(black: boolean): void { this.scene.setFlipped(black); }
   setLabels(on: boolean): void { this.scene.setLabels(on); }

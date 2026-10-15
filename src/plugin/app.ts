@@ -8,6 +8,7 @@ import { art } from './art';
 import { handleProblem, ICONS, type Icon } from '../account/profile';
 import { boardScreen, rollbackBoardMove } from './screens/board';
 import { setSettings } from './board-view';
+import { setSound, snd } from '../render/sfx';
 import { runPoll } from './poll';
 import { createRouter } from './router';
 import { playNow, setupScreen } from './screens/setup';
@@ -368,6 +369,15 @@ $('page-back').onclick = () => navigate(state.screen === 'handle' ? handleBack :
 app.onhostcontextchanged = () => hostContext(app.getHostContext());
 navigate(state.screen);
 
+// Sound is per device and off by default. The tap that turns it on unlocks audio with one knock.
+const soundOn = () => { try { return localStorage.getItem('kingdown-sound') === 'on'; } catch { return false; } };
+setSound(soundOn()); $<HTMLInputElement>('sound').checked = soundOn();
+$<HTMLInputElement>('sound').onchange = event => {
+  const on = (event.target as HTMLInputElement).checked; setSound(on);
+  try { localStorage.setItem('kingdown-sound', on ? 'on' : 'off'); } catch { /* a sandboxed frame may refuse storage; the switch still works for this visit */ }
+  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession; if (session) session.type = 'ambient';
+  if (on) snd.move();
+};
 async function applySettings() {
   if (!memory.settings) return;
   actions();

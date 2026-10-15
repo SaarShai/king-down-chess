@@ -90,7 +90,7 @@ export function endScreen(schedule = true) {
     opening=true; const game=view.game_id;
     const show=()=>{
       if (stopped || client.state.screen!=='end' || boardGame()?.game_id!==game) {opening=false; return;}
-      if ($('board').dataset.animating==='true') {requestAnimationFrame(show); return;}
+      if ($('board').dataset.animating==='true' || $('board').dataset.toppling) {requestAnimationFrame(show); return;}
       requestAnimationFrame(()=>{opening=false; if(!stopped&&client.state.screen==='end'&&boardGame()?.game_id===game){if(!over.open) over.show(); scrim.hidden=false;}});
     };
     requestAnimationFrame(show);
