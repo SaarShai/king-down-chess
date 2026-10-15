@@ -613,3 +613,21 @@ audit runs before creation. No accepted notebook receipt is claimed at this
 checkpoint. Never repeat the wrapper. A worker status read waits until one
 hour after acceptance. The original four-game browser link stays incomplete
 until all eight games, validation, backup and browser persistence pass.
+
+## Corrected dataset request has no confirmed response
+
+The bounded 14:05 UTC local check finds recovery 4 stopped with an unknown
+outcome. The dataset creation record remains `attempted`. No accepted
+dataset receipt or kernel metadata exists. The exact `c17b4001` driver stops
+before notebook submission in this state. No accepted notebook receipt or
+Kaggle game is claimed. The safe error says the operation failed; it does
+not establish whether the dataset was created. No request is repeated.
+
+`recovery-kaggle-4/uncertain-creation-checkpoint.json` binds this conclusion
+to the driver hash and local files. The original unknown state stays intact.
+The first permitted remote read remains 14:45:55 UTC; the next bounded check
+is 14:47 UTC. Read exact dataset metadata and notebook identity then. Do not
+create, version, delete or upload a dataset, or submit a notebook, while the
+outcome remains uncertain. The browser study stays incomplete at four of
+eight games. The prior 182-file verified backup remains valid; new recovery
+evidence still needs its own backup after the read-only investigation.
