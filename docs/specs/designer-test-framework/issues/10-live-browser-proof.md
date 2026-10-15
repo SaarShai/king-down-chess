@@ -117,3 +117,33 @@ the owner's renewed instruction to approve and finish this test. The browser
 shows preparation in progress; no approval or dispatch occurs yet. The next
 bounded preparation check is 21:37 Pacific. Preserve all prior failed records.
 No subagents are used for this live proof.
+
+## Renewed preparation repair
+
+The owner asks to fix Kaggle preparation and finish the same eight-game browser
+proof. The fourth preparation has HTTP 404, no approval and no remote receipts.
+A read-only probe lists 391 account entries. A bounded status probe examines
+entries after the earlier verified prefix. It records only state, reference and
+HTTP code in `/tmp/kingdown-kaggle-status-404.log`; it prints no service body or
+credential. No run starts during diagnosis. The repair must retain a conservative
+capacity check, pass an offline negative control, and commit before a fresh
+browser preparation freezes the source. Keep the same study, plan and game limit.
+
+The probe finds ten status-404 entries. Full notebook reads identify all ten
+as saved drafts with version zero. A completed control has version 8 and a
+valid status. The account list omits version fields even for that control, so
+its zero value cannot prove that a notebook is a draft. The adapter now reads
+full notebook metadata only after status 404. It requires a positive notebook
+ID, the same reference and version zero before it excludes that draft from
+batch capacity. Missing metadata, a different reference, a published version
+or another HTTP failure still stops the audit. Kaggle's notebook guide states
+that a saved batch version runs in a separate session from the draft editor:
+<https://www.kaggle.com/docs/notebooks>.
+
+The offline draft regression fails before this repair and passes after it.
+Typecheck, five transport tests and the 50 art checks pass. Controls reject
+missing metadata, zero IDs, changed references, published notebooks with no
+status, a second 404 and HTTP 500. The actual bounded browser preparation is
+next; it makes no game launch until approval. No prior preparation has a launch
+receipt. Evidence logs: `/tmp/kd-draft-red.log`, `/tmp/kd-draft-green.log` and
+`/tmp/kd-kaggle-resolve-rest.log`.

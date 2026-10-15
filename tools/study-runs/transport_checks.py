@@ -47,6 +47,24 @@ with patch('time.sleep') as sleep:
     pages.kernels_list=lambda **kw:[NS(id=42,ref='',author='',slug='',current_version_number=0)]
     fails(lambda:kaggle.audit(pages))
 
+    # Status 404 is safe only for a verified notebook with no saved version.
+    class MissingStatus(Exception):
+        response=NS(status_code=404,headers={})
+    missing=API(1)
+    missing.kernels_status=lambda kernel:(_ for _ in ()).throw(MissingStatus())
+    with patch.object(kaggle,'notebook_metadata',create=True) as metadata:
+        metadata.return_value=NS(id=42,ref='0',current_version_number=0)
+        assert kaggle.audit(missing)==0
+        for bad in [None,NS(id=0,ref='0',current_version_number=0),NS(id=42,ref='wrong',current_version_number=0),NS(id=42,ref='0',current_version_number=1)]:
+            metadata.return_value=bad
+            fails(lambda:kaggle.audit(missing))
+        metadata.side_effect=MissingStatus()
+        fails(lambda:kaggle.audit(missing))
+    class ServerFailure(Exception):
+        response=NS(status_code=500,headers={})
+    missing.kernels_status=lambda kernel:(_ for _ in ()).throw(ServerFailure())
+    fails(lambda:kaggle.audit(missing))
+
     fails(lambda:kaggle.execute(NS(config_values={'username':'test'},kernels_list=API(5).kernels_list,kernels_status=API(5).kernels_status),{'action':'preflight','name':'fake'}))
     with patch.object(API,'kernels_status',side_effect=RateLimit()) as blocked:
         fails(lambda:kaggle.audit(API(1)))

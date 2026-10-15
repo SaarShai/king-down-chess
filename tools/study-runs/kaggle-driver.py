@@ -6,6 +6,16 @@ from pathlib import Path
 ACTIVE = {'QUEUED','RUNNING','CANCEL_REQUESTED','NEW_SCRIPT'}
 TERMINAL = {'COMPLETE','ERROR','CANCEL_ACKNOWLEDGED'}
 
+def notebook_metadata(api, kernel):
+    from kagglesdk.kernels.types.kernels_api_service import ApiGetKernelRequest
+    owner, slug, version = api.parse_kernel_string(kernel)
+    if version: raise RuntimeError('notebook identity unavailable')
+    request = ApiGetKernelRequest()
+    request.user_name = owner
+    request.kernel_slug = slug
+    with api.build_kaggle_client() as client:
+        return client.kernels.kernels_api_client.get_kernel(request).metadata
+
 def audit(api):
     active = 0
     deadline = time.monotonic() + 900
@@ -32,7 +42,17 @@ def audit(api):
                 # The API includes empty placeholder records in full pages.
                 if kernel.id == 0 and not kernel.author and not kernel.slug and kernel.current_version_number == 0: continue
                 raise RuntimeError('notebook identity unavailable')
-            state = read(api.kernels_status, kernel=kernel.ref).status.name
+            try:
+                state = read(api.kernels_status, kernel=kernel.ref).status.name
+            except Exception as error:
+                if getattr(getattr(error, 'response', None), 'status_code', None) != 404: raise
+                # Draft-only notebooks have no batch session to query. The list
+                # omits version fields, so verify the full notebook on a 404.
+                time.sleep(2)
+                metadata = read(notebook_metadata, api=api, kernel=kernel.ref)
+                if metadata is None or metadata.id <= 0 or metadata.ref != kernel.ref or metadata.current_version_number != 0:
+                    raise RuntimeError('notebook status unavailable') from None
+                continue
             if state not in ACTIVE | TERMINAL: raise RuntimeError('unknown account state')
             active += state in ACTIVE
         if len(kernels)<100: return active
@@ -85,6 +105,6 @@ if __name__ == '__main__':
     except BaseException as error:
         # Return only known local failures or an HTTP code, never a service body.
         http = getattr(getattr(error, 'response', None), 'status_code', None)
-        known = {'account audit time limit', 'account audit rate limit', 'account audit unavailable', 'unknown account state', 'account audit exceeds limit', 'notebook identity unavailable', 'no account capacity', 'submission not confirmed'}
+        known = {'account audit time limit', 'account audit rate limit', 'account audit unavailable', 'unknown account state', 'account audit exceeds limit', 'notebook identity unavailable', 'notebook status unavailable', 'no account capacity', 'submission not confirmed'}
         message = f'HTTP {http}' if isinstance(http, int) and 400 <= http <= 599 else str(error) if type(error) is RuntimeError and str(error) in known else 'operation failed; outcome may be unknown'
         print(json.dumps({'error': message}))
