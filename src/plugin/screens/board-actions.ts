@@ -4,8 +4,9 @@ import { boardActions } from './board-model';
 const words = (value: string) => { const p = document.createElement('p'); p.textContent = value; return p; };
 const button = (label: string, click: () => void, id?: string) => { const b = document.createElement('button'); b.textContent = label; b.onclick = click; if (id) b.id = id; return b; };
 export function confirmBoardAction(title: string, detail: string, label: string, send: () => void) {
-  const yes = button(label, () => { closeBoardSheet(); send(); }); yes.className = 'primary';
-  boardSheet(title, words(detail), yes, button('Keep playing', closeBoardSheet));
+  const yes = button(label, () => { closeBoardSheet(); send(); });
+  const keep = button('Keep playing', closeBoardSheet); keep.className = 'primary';
+  boardSheet(title, words(detail), yes, keep);
 }
 export function confirmAbort(view: View, send = () => void sendBoardCommand('kingdown_abort')) {
   if (!view.abort_open) return;

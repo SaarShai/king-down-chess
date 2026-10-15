@@ -196,3 +196,40 @@ body[data-touch='true'] #game-table .coin, body[data-touch='true'] #game-table .
 @media (pointer: coarse) {
   #game-table .coin, #game-table .coin.card-coin { width: 44px; height: 44px; min-height: 44px; }
 }
+
+/* Stone sample: the texture is a 72 px crop of the first light board tile. */
+#app-root :is(button, select, input:not([type='radio'], [type='checkbox']), label:has(> input)) {
+  min-width: var(--tap); min-height: var(--tap);
+}
+#app-root :is(button.primary, #new-game label.mode, #new-game .seg-row label, #new-game label.check.toggle) {
+  --brick-face: var(--stone-100);
+  --brick-edge: var(--stone-700);
+  --brick-ring: transparent;
+  color: var(--ink);
+  background: var(--brick-face) url('./assets/stone-control.webp') center / 100% 100% no-repeat;
+  background-blend-mode: soft-light;
+  border-color: var(--brick-edge); border-radius: var(--radius-sm);
+  box-shadow: 0 4px 0 var(--brick-edge), inset 0 2px 0 var(--vellum), inset 0 -2px 0 var(--stone-300), inset 0 0 0 2px var(--brick-ring);
+  transition: transform 80ms ease-out;
+}
+#app-root :is(button.primary, #new-game label.mode, #new-game .seg-row label, #new-game label.check.toggle):is(:has(> input:checked), [aria-pressed='true']) {
+  --brick-ring: var(--stone-700);
+  box-shadow: 0 4px 0 var(--brick-edge), inset 0 0 0 2px var(--brick-ring), inset 0 4px 0 var(--gold-bright);
+}
+#app-root :is(button.primary, #new-game label.mode, #new-game .seg-row label, #new-game label.check.toggle).primary {
+  --brick-face: var(--accent); --brick-edge: var(--accent-deep);
+  color: var(--vellum); background-blend-mode: multiply;
+  box-shadow: 0 4px 0 var(--brick-edge), inset 0 2px 0 var(--accent-bright), inset 0 -2px 0 var(--accent-deep);
+}
+#app-root button.primary :is(.line, small) { color: inherit; }
+#app-root :is(button.primary, #new-game label.mode, #new-game .seg-row label, #new-game label.check.toggle):not(:disabled, [aria-disabled='true'], :has(button:active)):active {
+  transform: translateY(4px);
+  box-shadow: inset 0 2px 0 var(--brick-edge), inset 0 0 0 2px var(--brick-ring);
+}
+#app-root :is(button.primary, #new-game label.mode, #new-game .seg-row label, #new-game label.check.toggle):is(:disabled, [aria-disabled='true'], :has(> input:disabled)) {
+  color: var(--ink-soft); background: var(--stone-100); border-color: var(--stone-300);
+  box-shadow: none; transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  #app-root :is(button, label):active { transform: none !important; }
+}
