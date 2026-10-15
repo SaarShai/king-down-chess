@@ -28,8 +28,8 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
       console.error('King Down connection failed', error);
       throw new Error(CANNOT_CONNECT, { cause: error });
     }
-    const value = result.structuredContent;
-    if (!options.background && ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'].includes(name) && value && typeof value === 'object' && 'board_id' in value && typeof value.board_id === 'string') state.board_id = value.board_id;
+    const board = result._meta?.board_id;
+    if (!options.background && ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'].includes(name) && typeof board === 'string') state.board_id = board;
     return result;
   }
   return { state, save, call };

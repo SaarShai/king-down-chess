@@ -17,6 +17,22 @@ async function open() {
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   return page;
 }
+it('keeps a board open without a game on home and stores its ID only in private state', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const result = await (await page.request.post(new URL('/fixture-tool',harness.url).href,{data:{name:'kingdown_open',arguments:{screen:'board'}}})).json();
+    expect(result.structuredContent).not.toHaveProperty('board_id');
+    expect(result._meta.board_id).toEqual(expect.any(String));
+    await page.evaluate(result => (window as any).harnessShow(result,true),result);
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
+    expect(await page.evaluate(()=>(window as any).harnessWidgetState.privateContent.board_id)).toBe(result._meta.board_id);
+    await page.locator('#remount').click();
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
+  } finally {await page.close();}
+});
+
 // Each screen but home shows only in fullscreen (spec Q25). A test that opens a screen directly puts the host there first.
 const expand = (page: Page) => page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'] }));
 async function start(page: Page, route = true) {
@@ -610,6 +626,7 @@ it('offers Try again after a failed mount read and restores the same game', asyn
     await page.evaluate(() => { (window as any).rejectNextGet = true; }); await page.locator('#remount').click();
     await frame.getByRole('button',{name:'Try again',exact:true}).waitFor();
     await frame.getByRole('button',{name:'Try again',exact:true}).click();
+    await frame.locator('#retry').waitFor({state:'hidden'});
     await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
     expect(await page.evaluate(() => (window as any).harnessView.game_id)).toBe(game);
     expect(await frame.locator('#retry').isVisible()).toBe(false);

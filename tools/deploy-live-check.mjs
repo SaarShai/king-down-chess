@@ -14,7 +14,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const legalPages = ['privacy.html', 'terms.html', 'delete-data.html'];
+const legalPages = ['privacy.html', 'terms.html', 'delete-data.html', 'support.html'];
 const fault = message => { console.error(`live-check: ${message}`); process.exit(2); };
 
 /** The bundle name: the src of the first module script in a page, or null. */

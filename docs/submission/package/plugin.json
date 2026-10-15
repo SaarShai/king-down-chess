@@ -43,13 +43,13 @@
               "description": "Open King Down with no game selected. The home screen shows Play and Your games.",
               "prompt": "Play King Down.",
               "tools_triggered": "kingdown_open",
-              "expected_behavior": "The King Down home screen opens in the chat with two actions: Play and Your games. The text reply gives the number of games that wait for the player's move, for example \"Your move in 1 games.\" No new game starts."
+              "expected_behavior": "The King Down home screen opens in the chat with two actions: Play and Your games. The text reply gives the number of games that wait for the player's move, for example \"Your move in 1 game.\" No new game starts."
             },
             {
-              "description": "Start a new game against the computer at the beginner level, as White.",
-              "prompt": "Start a new King Down game against the computer at beginner level. I want to play White.",
-              "tools_triggered": "kingdown_create, kingdown_open",
-              "expected_behavior": "kingdown_create starts a solo game (kind solo, level beginner, colour white). The reply says \"Your move, move 1.\" kingdown_open with the new game_id shows the board with White at the bottom. The player can make a move on the board, and the computer replies on the board."
+              "description": "Start a beginner computer game as White, with king powers and arrangement. Choose the king and order, then Ready.",
+              "prompt": "Start a new King Down game against the computer at beginner level, as White, with king powers and arrangement on.",
+              "tools_triggered": "kingdown_create, kingdown_open, kingdown_choose, kingdown_move, kingdown_computer",
+              "expected_behavior": "kingdown_create starts a solo game with level beginner, colour white, king powers on and arrangement on. It returns \"Choose your king and arrangement.\" kingdown_open with the new game_id shows the setup screen. On the board, choose a king and its power, set the arrangement, then select Ready. The board sends kingdown_choose with ready true. The reply then says \"Your move, move 1.\" The board shows White at the bottom. A move on the board sends kingdown_move; kingdown_computer returns the computer reply on the board. The player, not ChatGPT, makes the setup and move choices."
             },
             {
               "description": "List the active games and say where it is the player's turn.",

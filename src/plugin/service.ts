@@ -47,7 +47,7 @@ export class PluginService {
       if (taken) fail('HANDLE_TAKEN', 409, 'This handle is taken');
     } else {
       if (handle !== undefined) await this.accounts.setHandle(actor, { handle });
-      if (icon !== undefined) await this.accounts.updateSettings(actor, { icon });
+      if (icon !== undefined && (await this.profile(actor)).icon !== icon) await this.accounts.updateSettings(actor, { icon });
     }
     return this.profile(actor);
   }
