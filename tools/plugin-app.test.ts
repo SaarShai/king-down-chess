@@ -899,6 +899,62 @@ it('keeps a timed-out start and its Retry on New game when the player leaves at 
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
+// A failed command locks Start, the board, the seat and the poll on every game screen, so each of them says why.
+it('shows a timed-out start and its Retry on the board of another game, and Retry finishes the start', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    const friend = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('play'));
+    await frame.locator('#play-new:not(:disabled)').click();
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await page.clock.install();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
+    await frame.locator('#setup-start').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await page.clock.fastForward(5_001);
+    await frame.locator('#page-back').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await page.clock.fastForward(5_000);
+    await frame.locator(`#games-list [data-game-id="${friend}"]:not(:disabled)`).click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#retry').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
+    await frame.locator('#retry').click();
+    await frame.locator('#retry').waitFor({ state: 'hidden' });
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).not.toBe(friend);
+    // The friend game's own Create (sent by the test) has no command ID.
+    const ids = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create' && c.arguments.command_id).map((c: any) => c.arguments.command_id));
+    expect(ids).toHaveLength(2); expect(ids[1]).toBe(ids[0]);
+    await expect.poll(() => frame.locator('#error').textContent()).toBe('');
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
+it('shows a waiting move and its Retry on New game after an inline remount, and Retry frees Start', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_move'; });
+    await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; void app.call('kingdown_move', { game_id: app.memory.view.game_id, command_id: 'setup-move', expected_revision: app.memory.view.revision, lan: 'e2-e4' }, true); });
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await page.evaluate(() => { const host = window as any; host.harnessHostContext = { displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }; host.harnessDisplayMode = 'inline'; host.denyDisplayNext = true; });
+    const settings = await sent(page, 'kingdown_settings');
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, settings);
+    await frame.locator('#home-play:not(:disabled)').click();
+    await frame.locator('#play-new:not(:disabled)').click();
+    await frame.locator('[data-screen="setup"]:not([hidden])').waitFor();
+    await frame.locator('#retry').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
+    expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
+    await frame.locator('#retry').click();
+    await frame.locator('#retry').waitFor({ state: 'hidden' });
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('#setup-start:not(:disabled)').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.command_id))).toEqual(['setup-move', 'setup-move']);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
 it('shows the name reason and Retry on New game after Back from the name page, and sends nothing', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

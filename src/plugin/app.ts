@@ -43,8 +43,10 @@ export const memory = { kind: 'solo' as 'solo' | 'friend' | 'random', code: '', 
 function saveState() { state.pending = pending; client.save(); }
 /** A command's error stays on the screen where the command started, so its Retry shows there, also after the player leaves. */
 function failPending(message: string) { pending!.error = message; pending!.error_screen = pending!.screen ?? state.screen; saveState(); }
+// A pending command locks Start, the board, the seat and the poll, so these screens also show its error and Retry.
+const LOCKED: Screen[] = ['setup', 'seat', 'board', 'wait', 'friend', 'end'];
 function retryState() {
-  const message = pending?.error_screen === state.screen ? pending.error : undefined;
+  const message = pending?.error_screen === state.screen || LOCKED.includes(state.screen) ? pending?.error : undefined;
   $('retry').hidden = !message && !readError;
   $('retry').textContent = readError && !pending ? 'Try again' : 'Retry';
   $('error').textContent = message ?? '';
