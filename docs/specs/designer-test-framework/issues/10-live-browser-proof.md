@@ -500,3 +500,26 @@ checkpoint. The next local check is 12:45 UTC. The script uses the existing
 storage guard and refuses a live maintenance lock. It reserves 30 minutes
 for dispatch and requires at least ten minutes for workers within the
 original deadline. A lock or insufficient time prevents launch.
+
+## Recovery dispatch and backup authentication failure
+
+At the 12:45 UTC check, the evidence backup has failed before cloud upload.
+Google Drive rejects the stored credential with `invalid_grant`. No fresh
+receipt or downloaded-byte proof exists. The project tool releases its own
+maintenance lock. Its logs and failure record remain; no upload is repeated.
+
+The prepared continuation passes its script hash and source checks. One
+detached supervisor starts at 12:46:40 UTC, PID 44324. Its log is
+`/tmp/kd-kaggle-recover-3.log`. Dispatch evidence is
+`state/study-runs/dataset-investigation-20261015/dispatch-3.json` on the card.
+The next local launch check is 13:04 UTC. The new payload ID leaves the old
+dataset untouched. The account audit runs before mutation. No accepted
+notebook receipt is claimed at dispatch. Never start another copy.
+
+The existing Drive client reconnects with its current account and unchanged
+Drive scope. The reconnect command exits zero. A read-only download of the
+existing cloud `latest.json` then succeeds. Its decoded byte hash and size
+are saved in `drive-auth-recovery.json` under the investigation state folder.
+The browser success screenshot is saved. This restores backup access; no
+backup upload is repeated. The prior verified partial snapshot remains valid.
+All 113 doc checks pass for this dispatch checkpoint.
