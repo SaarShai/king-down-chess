@@ -201,3 +201,25 @@ HTTP 400 with a source limit below one megabyte:
 This is a likely cause, not a recovered server error body. The adapter retained
 only HTTP 400. No submission is repeated to obtain its response. The scheduled
 read-only status checks and preserved payload remain the evidence boundary.
+
+Repair commit `6ce3b2eb` passes eight tuner/replay tests, typecheck, 50 art
+checks and the doc checks. The corrected verifier first validates the original
+bundle against its untouched extracted source. It then proves that the only
+changed source files are `src/sim/tune.ts` and its test, and that the runtime
+change is exactly the piece-prefix repair. It records both commits and file
+hashes in `corrected-m1-validation/verifier-provenance.json`.
+
+All four collected games pass legal replay. One illegal-action control passes.
+All four games reach the 80-ply cap. The report stays incomplete (4 of 8 games)
+and exports a missing score with no interval, not activity or balance claims.
+The export SHA-256 is
+`76bca0a3461675a5030c8032c9d4a7d668cbb65373814dde2180798d2ba14084`.
+No remote files or frozen source files change, and no games run again.
+
+A partial-evidence backup starts with PID 84274. Its log is
+`/tmp/kd-partial-backup.log`; receipt and downloaded-byte proof belong under
+`state/study-backups/study-20261015-32c624f2d6ae-partial-m1` on the card.
+It covers the collected files, both reports and verifier provenance. Preserve
+its live lock and inspect this attempt before any further backup. The browser
+previews the one incomplete result row in the original saved study. Linking
+and persistence checks remain open until the backup proof completes.
