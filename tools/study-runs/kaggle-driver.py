@@ -6,7 +6,7 @@ from pathlib import Path
 ACTIVE = {'QUEUED','RUNNING','CANCEL_REQUESTED','NEW_SCRIPT'}
 TERMINAL = {'COMPLETE','ERROR','CANCEL_ACKNOWLEDGED'}
 
-def notebook_metadata(api, kernel):
+def notebook_detail(api, kernel):
     from kagglesdk.kernels.types.kernels_api_service import ApiGetKernelRequest
     owner, slug, version = api.parse_kernel_string(kernel)
     if version: raise RuntimeError('notebook identity unavailable')
@@ -14,7 +14,76 @@ def notebook_metadata(api, kernel):
     request.user_name = owner
     request.kernel_slug = slug
     with api.build_kaggle_client() as client:
-        return client.kernels.kernels_api_client.get_kernel(request).metadata
+        return client.kernels.kernels_api_client.get_kernel(request)
+
+def notebook_metadata(api, kernel):
+    return notebook_detail(api, kernel).metadata
+
+def save_record(path, value):
+    # Replace atomically; an interrupted response write leaves the attempt intact.
+    temporary = path.with_suffix('.tmp')
+    temporary.write_text(json.dumps(value))
+    temporary.replace(path)
+
+def submit_notebook(api, folder, ref):
+    attempt_path = folder/'notebook-attempt.json'
+    if attempt_path.exists(): raise RuntimeError('notebook already attempted')
+    try:
+        metadata = notebook_metadata(api, ref)
+    except Exception as error:
+        if getattr(getattr(error, 'response', None), 'status_code', None) != 404: raise
+        metadata = None
+    if metadata is not None and (metadata.ref != ref or metadata.id <= 0 or metadata.current_version_number != 0 or metadata.is_private is not True):
+        raise RuntimeError('notebook identity unavailable')
+    attempt = dict(ref=ref, kernelId=metadata.id if metadata else None, version=1,
+        sourceSha256=hashlib.sha256((folder/'run.py').read_bytes()).hexdigest(),
+        attemptedAt=time.time(), state='attempted')
+    with attempt_path.open('x') as output: json.dump(attempt, output)
+    retry = api.with_retry
+    api.with_retry = lambda call, *args, **kwargs: call
+    try:
+        reply = api.kernels_push(str(folder), timeout='28800')
+        error = getattr(reply, 'error', None)
+        reply_ref, url = getattr(reply, 'ref', ''), getattr(reply, 'url', '')
+        kernel_id, version = getattr(reply, 'kernel_id', 0), getattr(reply, 'version_number', None)
+        identity = reply_ref in ('', ref) and url in ('', 'https://www.kaggle.com/code/'+ref) and bool(reply_ref or url)
+        invalid = any(getattr(reply, name, []) for name in ('invalid_tags', 'invalid_dataset_sources', 'invalid_competition_sources', 'invalid_kernel_sources', 'invalid_model_sources'))
+        accepted = identity and not error and not invalid and version == 1 and kernel_id > 0 and attempt['kernelId'] in (None, kernel_id)
+        record = dict(state='accepted' if accepted else 'rejected' if error or invalid else 'unknown',
+            refMatches=reply_ref == ref, urlMatches=url == 'https://www.kaggle.com/code/'+ref,
+            kernelId=kernel_id, version=version, hasError=bool(error), invalidSources=invalid,
+            errorSha256=hashlib.sha256(error.encode()).hexdigest() if error else None)
+        save_record(folder/'notebook-response.json', record)
+        if not accepted: raise RuntimeError('submission not confirmed')
+        return {'remoteId':ref}
+    except BaseException:
+        if not (folder/'notebook-response.json').exists():
+            save_record(folder/'notebook-response.json', dict(state='unknown', responseReceived=False))
+        raise
+    finally:
+        api.with_retry = retry
+
+def observed_notebook(api, folder, ref):
+    attempt = json.loads((folder/'notebook-attempt.json').read_text())
+    if attempt['ref'] != ref or attempt['version'] != 1 or attempt['sourceSha256'] != hashlib.sha256((folder/'run.py').read_bytes()).hexdigest():
+        raise RuntimeError('notebook identity unavailable')
+    detail = notebook_detail(api, ref)
+    metadata = detail.metadata
+    source = getattr(getattr(detail, 'blob', None), 'source', None)
+    source_hash = hashlib.sha256(source.encode()).hexdigest() if isinstance(source, str) else None
+    if metadata.ref != ref or metadata.id <= 0 or attempt['kernelId'] not in (None, metadata.id) or metadata.current_version_number != 1 or metadata.is_private is not True or source_hash != attempt['sourceSha256']:
+        raise RuntimeError('notebook identity unavailable')
+    response_path = folder/'notebook-response.json'
+    if response_path.exists():
+        response = json.loads(response_path.read_text())
+        if response['state'] == 'accepted' and response['kernelId'] != metadata.id:
+            raise RuntimeError('notebook identity unavailable')
+    observation = dict(ref=ref, kernelId=metadata.id, version=1, sourceSha256=source_hash, observedAt=time.time())
+    previous = folder/'notebook-observation.json'
+    if previous.exists() and json.loads(previous.read_text())['kernelId'] != metadata.id:
+        raise RuntimeError('notebook identity unavailable')
+    save_record(previous, observation)
+    return observation
 
 def audit(api):
     active = 0
@@ -123,9 +192,9 @@ def execute(api, request):
         (folder/'dataset-receipt.json').write_text(json.dumps({'ref':dataset_ref,'state':'ready','version':1}))
         metadata = dict(id=ref,title=request['name'],code_file='run.py',language='python',kernel_type='script',is_private=True,enable_gpu=False,enable_tpu=False,enable_internet=True,dataset_sources=[dataset_ref],kernel_sources=[],competition_sources=[],model_sources=[])
         (folder/'kernel-metadata.json').write_text(json.dumps(metadata))
-        reply = api.kernels_push(str(folder), timeout='28800')
-        if reply.error or reply.ref != ref: raise RuntimeError('submission not confirmed')
-        return {'remoteId':ref}
+        return submit_notebook(api, folder, ref)
+    if action in ('status', 'collect'):
+        observed_notebook(api, Path(request['folder']), ref)
     if action == 'status':
         state = api.kernels_status(ref).status.name
         return {'remoteId':ref,'state': 'complete' if state=='COMPLETE' else 'failed' if state in ('ERROR','CANCEL_ACKNOWLEDGED') else 'running' if state in ACTIVE else 'unknown'}

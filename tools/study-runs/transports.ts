@@ -110,8 +110,8 @@ export function createTransports(mainRoot:string, exec:Execute=execute):Record<'
       await writeFile(join(folder,'run.py'),script);
       const reply=await kaggleCall('launch',i,{folder,datasetName:dataset});return {remoteId:reply.remoteId,acceptedAt:new Date().toISOString()};
     },
-    async status(i,receipt):Promise<RemoteStatus>{try {const value=await kaggleCall('status',i);if(receipt&&receipt.remoteId!==value.remoteId)throw new Error('Wrong remote receipt');return {...value,completedGames:null,message:''};}catch{return {remoteId:receipt?.remoteId??notebookName(i),state:'unknown',completedGames:null,message:'Remote state is unavailable'};}},
-    async collect(i,receipt,destination){await mkdir(destination,{recursive:true});const reply=await kaggleCall('collect',i,{destination});if(receipt&&receipt.remoteId!==reply.remoteId)throw new Error('Wrong remote receipt');const out=join(destination,'out');try {for(const name of await readdir(out)){if(FILES.includes(name))await rename(join(out,name),join(destination,name));}}catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}}
+    async status(i,receipt):Promise<RemoteStatus>{try {const value=await kaggleCall('status',i,{folder:join(i.directory,`kaggle-${i.partId}`)});if(receipt&&receipt.remoteId!==value.remoteId)throw new Error('Wrong remote receipt');return {...value,completedGames:null,message:''};}catch{return {remoteId:receipt?.remoteId??notebookName(i),state:'unknown',completedGames:null,message:'Remote state is unavailable'};}},
+    async collect(i,receipt,destination){await mkdir(destination,{recursive:true});const reply=await kaggleCall('collect',i,{destination,folder:join(i.directory,`kaggle-${i.partId}`)});if(receipt&&receipt.remoteId!==reply.remoteId)throw new Error('Wrong remote receipt');const out=join(destination,'out');try {for(const name of await readdir(out)){if(FILES.includes(name))await rename(join(out,name),join(destination,name));}}catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}}
   };
   return {m1,kaggle};
 }

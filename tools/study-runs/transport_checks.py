@@ -99,7 +99,7 @@ with tempfile.TemporaryDirectory() as temp:
     (mount/'source.bin').unlink();(root/'outside').write_bytes(b'archive');(mount/'source.bin').symlink_to(root/'outside')
     fails(lambda:loader.stage(bound,root/'input',root/'bad'))
 
-with tempfile.TemporaryDirectory() as temp, patch('time.sleep'):
+with tempfile.TemporaryDirectory() as temp, patch('time.sleep'), patch.object(kaggle, 'notebook_metadata', return_value=NS(id=42,ref='test/frozen-run',current_version_number=0,is_private=True)):
     root=Path(temp);(root/'run.py').write_text('small loader');data=root/'payload';data.mkdir()
     for name in ('source.bin','bundle.bin','supervisor.bin','config.bin'):(data/name).write_bytes(b'payload')
     calls=[]
@@ -122,7 +122,7 @@ with tempfile.TemporaryDirectory() as temp, patch('time.sleep'):
         def kernels_push(self,folder,**kw):
             calls.append('push');meta=json.loads((Path(folder)/'kernel-metadata.json').read_text())
             assert meta['is_private'] and meta['dataset_sources']==['test/frozen-data']
-            return NS(error=None,ref='test/frozen-run')
+            return NS(error=None,ref='test/frozen-run',url='',kernel_id=42,version_number=1)
     for name in ('source.bin','bundle.bin','supervisor.bin','config.bin','dataset-metadata.json'):
         (data/('._'+name)).write_bytes(b'mac metadata')
     api=DatasetAPI(0);request=dict(action='launch',folder=str(root),name='frozen-run',datasetName='frozen-data')
@@ -135,27 +135,27 @@ with tempfile.TemporaryDirectory() as temp, patch('time.sleep'):
     fails(lambda:kaggle.execute(api,request));(data/'._source.bin').unlink()
     (data/'._source.bin').write_bytes(b'mac metadata')
     assert kaggle.execute(api,request)['remoteId']=='test/frozen-run' and calls==['create','push']
-    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();calls.clear()
+    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();(root/'notebook-attempt.json').unlink(missing_ok=True);(root/'notebook-response.json').unlink(missing_ok=True);calls.clear()
     # The SDK CLI accepts status/url; a successful response may omit ref.
     create=api.dataset_create_new
     def url_only(*args,**kw):
         reply=create(*args,**kw);reply.ref='';return reply
     api.dataset_create_new=url_only
     assert kaggle.execute(api,request)['remoteId']=='test/frozen-run' and calls==['create','push']
-    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();calls.clear()
+    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();(root/'notebook-attempt.json').unlink(missing_ok=True);(root/'notebook-response.json').unlink(missing_ok=True);calls.clear()
     def uncertain_create(*args,**kw):
         calls.append('create');raise TimeoutError()
     api.dataset_create_new=uncertain_create
     fails(lambda:kaggle.execute(api,request));assert calls==['create']
-    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();calls.clear();api=DatasetAPI(0)
+    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();(root/'notebook-attempt.json').unlink(missing_ok=True);(root/'notebook-response.json').unlink(missing_ok=True);calls.clear();api=DatasetAPI(0)
     def uncertain_push(*args,**kw):
         calls.append('push');raise TimeoutError()
     api.kernels_push=uncertain_push
     fails(lambda:kaggle.execute(api,request));assert calls==['create','push']
-    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();calls.clear();api=DatasetAPI(0)
+    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();(root/'notebook-attempt.json').unlink(missing_ok=True);(root/'notebook-response.json').unlink(missing_ok=True);calls.clear();api=DatasetAPI(0)
     api.dataset_status=lambda ref,format=None:'{"current_version_number":2}' if format else 'ready'
     fails(lambda:kaggle.execute(api,request));assert calls==['create']
-    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();calls.clear()
+    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();(root/'notebook-attempt.json').unlink(missing_ok=True);(root/'notebook-response.json').unlink(missing_ok=True);calls.clear()
     for reply,state in [
         (NS(status='Error',error='Please select a valid license',ref='',url='https://www.kaggle.com/'),'rejected'),
         (NS(status='error',error='sensitive service body',ref='',url=''),'rejected'),
@@ -173,10 +173,51 @@ with tempfile.TemporaryDirectory() as temp, patch('time.sleep'):
         (data/'dataset-metadata.json').unlink()
         # A repeat cannot reach dataset creation, even after a response was lost.
         fails(lambda:kaggle.execute(api,request));assert calls==['create']
-        (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();calls.clear()
+        (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();(root/'notebook-attempt.json').unlink(missing_ok=True);(root/'notebook-response.json').unlink(missing_ok=True);calls.clear()
     (root/'run.py').write_bytes(b'x'*1_000_000)
     with patch.object(kaggle,'audit') as audit:
         fails(lambda:kaggle.execute(api,request));audit.assert_not_called()
+
+# An uncertain push can only recover through read-only, exact source/version proof.
+with tempfile.TemporaryDirectory() as temp:
+    folder=Path(temp);(folder/'run.py').write_text('frozen loader')
+    ref='test/frozen-run'; calls=[]
+    api=NS(with_retry=lambda call:call)
+    def push(*args,**kwargs):
+        calls.append('push')
+        return NS(error=None,ref='',url='https://www.kaggle.com/code/'+ref,kernel_id=42,version_number=1)
+    api.kernels_push=push
+    draft=NS(ref=ref,id=42,current_version_number=0,is_private=True)
+    with patch.object(kaggle,'notebook_metadata',return_value=draft):
+        assert kaggle.submit_notebook(api,folder,ref)=={'remoteId':ref}
+        assert json.loads((folder/'notebook-response.json').read_text())['state']=='accepted'
+        fails(lambda:kaggle.submit_notebook(api,folder,ref));assert calls==['push']
+        for field,value in [('ref','test/other'),('url','https://example.com/'+ref),('version_number',2),('kernel_id',43),('error','private service message')]:
+            (folder/'notebook-attempt.json').unlink()
+            def bad_push(*args,**kwargs):
+                reply=push();setattr(reply,field,value);return reply
+            api.kernels_push=bad_push
+            fails(lambda:kaggle.submit_notebook(api,folder,ref))
+            saved=(folder/'notebook-response.json').read_text()
+            assert json.loads(saved)['state']!='accepted' and 'private service' not in saved
+        (folder/'notebook-attempt.json').unlink();(folder/'notebook-response.json').unlink()
+        def lost(*args,**kwargs):calls.append('push');raise TimeoutError('lost response')
+        api.kernels_push=lost
+        fails(lambda:kaggle.submit_notebook(api,folder,ref))
+        count=len(calls);fails(lambda:kaggle.submit_notebook(api,folder,ref));assert len(calls)==count
+    detail=NS(metadata=NS(ref=ref,id=42,current_version_number=1,is_private=True),blob=NS(source='frozen loader'))
+    api.config_values={'username':'test'};api.kernels_status=lambda ref:NS(status=NS(name='COMPLETE'))
+    with patch.object(kaggle,'notebook_detail',return_value=detail):
+        assert kaggle.execute(api,dict(action='status',name='frozen-run',folder=str(folder)))['state']=='complete'
+        assert len(calls)==count
+        assert json.loads((folder/'notebook-attempt.json').read_text())['state']=='attempted'
+        for field,value in [('id',43),('ref','test/other'),('current_version_number',0),('current_version_number',2),('is_private',False)]:
+            old=getattr(detail.metadata,field);setattr(detail.metadata,field,value)
+            fails(lambda:kaggle.observed_notebook(api,folder,ref));setattr(detail.metadata,field,old)
+        detail.blob.source='changed loader';fails(lambda:kaggle.observed_notebook(api,folder,ref))
+        detail.blob.source='frozen loader'
+        (folder/'run.py').write_text('local tamper');fails(lambda:kaggle.observed_notebook(api,folder,ref))
+        assert len(calls)==count
 
 fails(lambda:backup.fresh_receipt([],10))
 fails(lambda:backup.fresh_receipt([{'verified_epoch':9}],10))

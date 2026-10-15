@@ -281,7 +281,7 @@ async function runControls(p, linked, width, height) {
       case 'connect': body = { studioId: 'fixture-studio', token: 'fixture-token', transportVerification: 'unverified' }; break;
       case 'list': body = exists ? [summary] : []; break;
       case 'prepare': assert.deepEqual(request.document, original); assert.equal(request.target, 'both'); exists = true; body = summary; break;
-      case 'approve': assert.equal(summary.phase, 'prepared'); assert.match(request.key, /^[0-9a-f-]{36}$/); summary.phase = 'running'; summary.approvedAt = '2026-10-14T10:01:00Z'; body = summary; break;
+      case 'approve': assert.equal(summary.phase, 'prepared'); assert.match(request.key, /^[0-9a-f-]{36}$/); summary.phase = 'launch-unknown'; summary.parts[1].state = 'unknown'; summary.approvedAt = '2026-10-14T10:01:00Z'; body = summary; break;
       case 'status': body = summary; break;
       case 'result': await route.fulfill({ contentType: 'application/json', body: raw }); return;
       case 'document': body = original; break;
@@ -300,6 +300,9 @@ async function runControls(p, linked, width, height) {
   assert.match(await p.locator(panel).textContent(), /Game count unknown/);
   await p.click(`${panel} [data-runs="refresh"]`); await measurementIdle(p);
   assert.equal(actions.filter(action => action === 'approve').length, 1, 'refresh never approves or dispatches');
+  assert.equal(await p.locator(`${panel} [data-runs="approve"]`).count(), 0, 'unknown launch cannot be approved again');
+  assert.equal(await p.locator(`${panel} [data-runs="review"]`).count(), 0, 'unknown launch has no results to link');
+  summary.parts.forEach(part => { part.state = 'complete'; });
   summary.phase = 'complete'; summary.validation = { state: 'passed', games: 4, legalReplays: 1, illegalControls: 1, message: 'Fixture checks pass' };
   summary.backup = { state: 'verified', message: 'Fixture copy checked' };
   summary.result = { bytes: Buffer.byteLength(raw), sha256: createHash('sha256').update(raw).digest('hex'), filename: 'fixture-results.json' };

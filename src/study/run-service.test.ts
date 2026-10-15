@@ -125,6 +125,18 @@ describe('persistent study run coordinator', () => {
     expect(recovered.studioId).toBe(f.service.studioId); expect(f.transport.launch).toHaveBeenCalledTimes(2);
     expect(recovered.status(run.id).parts[1]).toMatchObject({ state: 'failed', error: 'No dispatch receipt.' });
   });
+  it('recovers a lost final launch response after restart without a second submission', async () => {
+    const f = await fixture(), run = await f.service.prepare(document(), 'both');
+    f.transport.launch.mockReset().mockResolvedValueOnce({ remoteId: 'remote', acceptedAt: new Date().toISOString() }).mockRejectedValueOnce(new Error('Response lost'));
+    await f.service.approve(run.id, randomUUID()); await f.service.settle();
+    const recovered = await createCoordinator(f.options);
+    await recovered.tick(); expect(f.transport.status).not.toHaveBeenCalled();
+    f.advance(); await recovered.tick();
+    expect(f.transport.launch).toHaveBeenCalledTimes(2);
+    expect(f.transport.collect).toHaveBeenCalledTimes(2);
+    expect(recovered.status(run.id)).toMatchObject({ phase: 'complete', validation: { state: 'passed' }, backup: { state: 'verified' } });
+    expect(recovered.result(run.id)).toBeDefined();
+  });
   it('does not repeat failed validation or collect a failed part more than twice', async () => {
     const f = await fixture(); f.transport.collect.mockRejectedValue(new Error('Unavailable'));
     const run = await f.service.prepare(document(), 'both'); await f.service.approve(run.id, randomUUID()); await f.service.settle(); f.advance(); await f.service.tick();
