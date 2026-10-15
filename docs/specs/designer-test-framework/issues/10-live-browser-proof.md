@@ -147,3 +147,37 @@ status, a second 404 and HTTP 500. The actual bounded browser preparation is
 next; it makes no game launch until approval. No prior preparation has a launch
 receipt. Evidence logs: `/tmp/kd-draft-red.log`, `/tmp/kd-draft-green.log` and
 `/tmp/kd-kaggle-resolve-rest.log`.
+
+## Approved run and first collection
+
+Preparation passes for `study-20261015-32c624f2d6ae`. The browser records one
+approval at 2026-10-15 05:22:18 UTC. Source is
+`d6eafe9db2c3a698f50a89adfa5d9cbfb7443793`; bundle is
+`ae1a54e84406fc6096b6d5ccf033b5bd18f0654388d18b858d6caa53aafcf586`.
+The study and eight-game plan above stay the same.
+
+M1 accepts its part at 05:36:38 UTC. The first scheduled check at 06:37 UTC
+finds four complete games. Collection retains games, status, attestation,
+supervisor receipt and log under `parts/part-m1`. The supervisor records
+15.432 seconds. Remote sources remain in place.
+
+Kaggle launch returns HTTP 400 and has no accepted receipt. Its state is
+unknown, not failed or complete. The first scheduled status check cannot read
+a remote state. The next bounded check is 2026-10-15 07:07:03 UTC. Never repeat
+the launch. No Kaggle results exist in the local collection at this check.
+
+A separate frozen-source report checks the four collected M1 games as partial
+evidence. The detached script is `/tmp/kd-verify-m1-partial.py`, PID 79274,
+with a 20-minute limit and log `/tmp/kd-verify-m1-partial.log`. It checks the
+archive hash and exact runtime, installs the frozen dependencies, and invokes
+only the report path. It launches no games. Its output belongs in
+`partial-m1-validation`; do not present it as an eight-game pass. Validation,
+backup and browser linking for the full proof remain open.
+
+The partial report finishes with `state: failed`, four collected games, zero
+legal replays and zero illegal controls. It stops at game 0, ply 12: the frozen
+replay reader parses `Ta1-a2` as an invalid move. The result is not verified
+measurement evidence. `partial-m1-validation/report-reply.json` preserves the
+failure. Do not link it as valid evidence or change the frozen report to pass.
+The source archive and all remote files remain unchanged. A later repair must
+cover custom-piece notation and retain an illegal-action negative control.
