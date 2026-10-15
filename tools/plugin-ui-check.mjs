@@ -86,8 +86,8 @@ try {
   assert.equal(await frame.locator('.inline-line').innerText(), 'Your move in 0 games.', 'Home uses the server turn count and the sample line');
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), 0, 'An empty home reads no board');
   await frame.locator('#home-games').click();
-  await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
-  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'profile', 'Home Your games opens Profile');
+  await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Your games opens the Your games list on Play');
   const homeAgain = await (await page.request.post(new URL('/fixture-tool',base).href, { data: { name: 'kingdown_open', arguments: { screen: 'home' } } })).json();
   await page.evaluate(result => window.harnessShow(result), homeAgain);
   await frame.locator('#home-play:not(:disabled)').waitFor();
@@ -1339,7 +1339,7 @@ try {
   await legacyStart('solo'); await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
   await frame.locator('#over.end-card[open]').waitFor(); await idleBoard();
   await frame.locator('#over').getByRole('button',{name:'Your games',exact:true}).click();
-  await frame.locator('[data-screen="profile"]:not([hidden])').waitFor(); assert.equal(await frame.locator('#over').isVisible(),false);
+  await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); assert.equal(await frame.locator('#over').isVisible(),false);
   await openPlay(); await legacyStart('solo'); await frame.locator('#context-actions #abort').click();
   await frame.locator('#board-sheet').getByRole('button',{name:'Abort',exact:true}).click();
   await frame.locator('#over.end-card[open] h2').filter({hasText:'Game aborted'}).waitFor(); await idleBoard();

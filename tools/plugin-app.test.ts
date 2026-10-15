@@ -198,13 +198,40 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
     expect(await frame.locator('html').evaluate((_, game_id) => (window as any).harnessApp.memory.games.find((entry: any) => entry.game_id === game_id).revision, game_id)).toBe(1);
   } finally { await page.close(); }
 });
-it('opens Profile from the inline Your games action', async () => {
+it('opens the Your games list from the inline Your games action', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await page.setViewportSize({ width: 393, height: 600 });
     await frame.locator('#home-games').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests)).toEqual(['fullscreen']);
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.screen)).toBe('play');
+    const [head, body] = await Promise.all([frame.locator('#games-head').boundingBox(), frame.locator('[data-screen="play"] .new-game-body').boundingBox()]);
+    expect(Math.abs(head!.y - body!.y)).toBeLessThan(24);
+  } finally { await page.close(); }
+});
+it('opens a screen from a chat tool call in fullscreen, not inline', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
+    await page.evaluate(result => (window as any).harnessShow(result, true), result);
     await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
     expect(await page.evaluate(() => (window as any).harnessDisplayRequests)).toEqual(['fullscreen']);
-    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.screen)).toBe('profile');
+  } finally { await page.close(); }
+});
+it('shows the home card when the player leaves fullscreen, and Play returns to the game', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    // The saved setup decides whether a computer game opens on the seat or on the board.
+    const game = frame.locator('[data-screen="seat"]:not([hidden]), [data-screen="board"]:not([hidden])');
+    await frame.locator('#setup-start').click(); await game.waitFor(); const screen = await game.getAttribute('data-screen');
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }));
+    await frame.locator('#home-card:not([hidden])').waitFor();
+    expect(await frame.locator('#app-frame').isHidden()).toBe(true);
+    expect((await frame.locator('#home-card').boundingBox())!.height).toBeGreaterThan(100);
+    await frame.locator('#home-play').click();
+    await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
   } finally { await page.close(); }
 });
 it('keeps the opponent picked on New game for the session', async () => {

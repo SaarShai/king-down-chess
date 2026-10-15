@@ -1,4 +1,4 @@
-import { call, client, memory, navigate, routeView } from '../app';
+import { call, client, memory, routeView, showGames } from '../app';
 import { art } from '../art';
 import { ending } from '../ending';
 import { runPoll } from '../poll';
@@ -82,7 +82,7 @@ export function endScreen(schedule = true) {
     const b = button(choice==='offer'?'Rematch':choice==='accept'?'Accept':'Decline',()=>void sendBoardCommand('kingdown_rematch',{choice}));
     if (choice!=='decline') b.className='primary'; form.append(b);
   }
-  form.append(button('Your games',()=>{closeEnd(); navigate('profile');}));
+  form.append(button('Your games',()=>{closeEnd(); showGames();}));
   over.append(error);
   over.querySelector('.quiet-line')!.textContent = opponent?.deleted ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? 'A rematch keeps the features and swaps the colours.' : '';
   if (over.open) scrim.hidden=false;
