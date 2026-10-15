@@ -135,7 +135,7 @@ async function launch() {
     if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     memory.settings = saved._meta?.settings as typeof memory.settings;
     const view = await start(last_setup.kind, createArguments(last_setup), { route: false }); if (view) await finish(view, last_setup.king);
-  } catch (error) { $('error').textContent = String(error); }
+  } catch (error) { $('error').textContent = error instanceof Error ? error.message : String(error); }
   finally { clearTimeout(wait); starting = slow = false; if (!client.state.pending) ownCommand = false; render(); }
 }
 async function recoverStart() {

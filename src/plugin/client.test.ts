@@ -1,7 +1,32 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createClient, BOARD_ID_TOOLS } from './client';
 
 describe('app client', () => {
+  it('limits server requests to 10 seconds', async () => {
+    const callServerTool = vi.fn(async () => ({ content: [] }));
+    await createClient({ callServerTool }).call('kingdown_move', { command_id: 'once' });
+    expect(callServerTool).toHaveBeenCalledWith({ name: 'kingdown_move', arguments: { command_id: 'once' } }, { timeout: 10_000 });
+  });
+  it.each([
+    ['kingdown_settings', { last_setup: {} }, 'Start game'],
+    ['kingdown_create', {}, 'Start game'],
+    ['kingdown_find', {}, 'Start game'],
+    ['kingdown_join', { preview: true }, 'Join'],
+    ['kingdown_join', {}, 'Join'],
+  ])('maps a connection failure for %s and keeps its diagnostic', async (name, args, action) => {
+    const error = new Error('ProtocolError: Failed to fetch');
+    const diagnostic = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const client = createClient({ callServerTool: async () => { throw error; } });
+      await expect(client.call(name as string, args as Record<string, unknown>)).rejects.toThrow(`Cannot connect. Check your connection, then select ${action} again.`);
+      expect(diagnostic).toHaveBeenCalledWith('King Down connection failed', error);
+    } finally { diagnostic.mockRestore(); }
+  });
+  it('keeps other tool errors intact', async () => {
+    const error = new Error('The game is not available.');
+    const client = createClient({ callServerTool: async () => { throw error; } });
+    await expect(client.call('kingdown_join')).rejects.toBe(error);
+  });
   it('restores the screen and pending command without putting the command in model context', () => {
     const pending = { name: 'kingdown_move', args: { game_id: 'aabbccdd-1122-4455-8899-aabbccddeeff', lan: 'e2-e4', command_id: 'once' } };
     const saved = { privateContent: { screen: 'settings' as const, sheet: 'king', game_id: 'aabbccdd-1122-4455-8899-aabbccddeeff', board_id: 'b1', pending } };

@@ -185,3 +185,38 @@ it('contains the Open games art and the wait art on a short phone', async () => 
     await frame.locator('#wait-cancel').click();
   } finally {await page.close();}
 });
+
+it.each([
+  [820, 600, 59, 34, 0, 0, true, 300],
+  [1024, 768, 24, 20, 0, 0, true, 475],
+  [1280, 800, 0, 0, 0, 0, true, 530],
+  [852, 393, 0, 21, 59, 59, true, 215],
+  [400, 900, 0, 0, 0, 0, false, 385],
+] as const)('fits the table at %i × %i', async (width, height, top, bottom, left, right, side, floor) => {
+  const page = await browser.newPage({ viewport: { width, height } }), frame = page.frameLocator('iframe');
+  try {
+    await page.goto(harness.url);
+    await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
+    await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
+    await frame.locator('#home-play:not(:disabled)').click();
+    await page.evaluate(safe => (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe }), { top, bottom, left, right });
+    await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.locator('#setup-start').click(); await frame.locator('#seat-ready').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    const measure = () => frame.locator('#game-table').evaluate(e => ({ width: e.querySelector('canvas')!.getBoundingClientRect().width, side: getComputedStyle(e.querySelector('.table-side')!).display === 'grid' }));
+    await expect.poll(async () => (await measure()).width).toBeGreaterThanOrEqual(floor);
+    expect((await measure()).side).toBe(side);
+    await page.evaluate(() => { (window as any).rejectNextGet = true; });
+    await frame.locator('html').evaluate(() => { const reload = document.querySelector<HTMLButtonElement>('#reload')!; reload.click(); });
+    await frame.locator('#retry').waitFor();
+    await expect.poll(() => frame.locator('#board').evaluate(e => { const r = e.getBoundingClientRect(); return Math.abs(e.querySelector('canvas')!.getBoundingClientRect().width - Math.min(r.width, r.height * 960 / 1024)); })).toBeLessThan(2);
+    // The error and Retry rows use up to 85 px. The board must still fit beside the controls.
+    expect((await measure()).width).toBeGreaterThanOrEqual(floor - 85);
+    for (const id of ['board-menu', 'resign']) {
+      await frame.locator('#' + id).scrollIntoViewIfNeeded();
+      expect((await frame.locator('#' + id).evaluate(controlBounds)).accessible).toBe(true);
+      expect(await frame.locator('#' + id).evaluate(e => { const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
+    }
+  } finally { await page.close(); }
+});

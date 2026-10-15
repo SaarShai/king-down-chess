@@ -193,6 +193,11 @@ body[data-touch='true'] button { min-height: var(--tap); }
 @media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
   #game-table .table-side { overflow-y: auto; overscroll-behavior: contain; }
 }
+@media (orientation: landscape) {
+@container table-screen (orientation: landscape) and (max-height: 640px) and (max-width: 899px) {
+  #game-table .table-side { overflow-y: auto; overscroll-behavior: contain; }
+}
+}
 @media (pointer: coarse) {
   button { min-height: 44px; }
 }

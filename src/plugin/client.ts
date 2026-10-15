@@ -18,7 +18,14 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
   }
   async function call(name: string, args: Record<string, unknown> = {}, options: { background?: boolean } = {}): ReturnType<App['callServerTool']> {
     const sent = options.background ? Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'board_id')) : state.board_id && BOARD_ID_TOOLS.some(tool => tool === name) ? { ...args, board_id: state.board_id } : args;
-    const result = await app.callServerTool({ name, arguments: sent });
+    let result: Awaited<ReturnType<App['callServerTool']>>;
+    try { result = await app.callServerTool({ name, arguments: sent }, { timeout: 10_000 }); }
+    catch (error) {
+      const action = name === 'kingdown_join' ? 'Join' : ['kingdown_create', 'kingdown_find'].includes(name) || (name === 'kingdown_settings' && 'last_setup' in args) ? 'Start game' : undefined;
+      if (!action || !/failed to fetch|networkerror|load failed|network request failed/i.test(error instanceof Error ? error.message : String(error))) throw error;
+      console.error('King Down connection failed', error);
+      throw new Error(`Cannot connect. Check your connection, then select ${action} again.`, { cause: error });
+    }
     const value = result.structuredContent;
     if (!options.background && ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'].includes(name) && value && typeof value === 'object' && 'board_id' in value && typeof value.board_id === 'string') state.board_id = value.board_id;
     return result;
