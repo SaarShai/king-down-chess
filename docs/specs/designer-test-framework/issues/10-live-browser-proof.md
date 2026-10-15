@@ -303,3 +303,37 @@ that a submission never ran. The read-only findings are saved in
 Six transport tests (including the Python negative controls), typecheck, 50
 art checks and doc checks pass. No new campaign or replacement run is approved
 or sent by this repair. The full proof stays blocked.
+
+## Signed-in browser recovery
+
+The owner asks to check Kaggle in the browser and finish the live test if safe,
+without retrying an uncertain launch. The owner supplies a signed-in Chrome
+tab. The account is Saar shai. The exact notebook opens as a draft. The
+private work list also marks it as draft. Show Versions reports zero and an
+empty Version History with “Starting Fresh”. No committed batch version exists.
+This resolves the earlier HTTP 400 as a failed batch submission that left a
+draft, rather than an accepted batch run. The browser editor itself stays in
+Loading; no session start or Run control is used.
+
+Recovery plan: preserve the old state and payload. Use the repaired transport
+once for only the original Kaggle part, with the exact frozen archive, bundle
+and job indexes 2, 3, 6 and 7. Keep the original hard deadline. Record attempt
+and receipt separately. Stop on any uncertain outcome. Do not run M1 again.
+After the bounded check, collect terminal files, apply the corrected replay
+verifier to all eight games, verify cloud backup bytes, then link the full
+result through the browser and confirm it after reload. The existing partial
+link remains until a full verified export is ready.
+
+Browser evidence: `kaggle-draft-zero-versions.png` in the task visualization
+folder. No new rule or balance conclusion follows from this workflow proof.
+
+The one-shot recovery wrapper starts detached at 08:29:19 UTC. Its PID is
+5425 and its log is `/tmp/kd-kaggle-recover.log`. It verifies the frozen archive,
+bundle, exact four jobs and unchanged supervisor before preflight. Its state
+is `recovery-kaggle/recovery-state.json` under the original result folder.
+The original studio record stays unchanged. The wrapper creates its attempt
+folder exclusively and records an attempted launch before any submission.
+Its time budget reserves 30 minutes for dispatch within the original deadline
+13:36:38 UTC. The first worker check is one hour after an accepted receipt.
+A stopped shell wrapper created no attempt folder and sent no request; the
+separate detached process above is the first recovery preflight.
