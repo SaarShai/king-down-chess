@@ -199,7 +199,8 @@ async function mountResult(result: ToolResult, initial: boolean) {
       if (selected.isError) throw new Error(selected.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(selected);
     }
-    const route = value?.screen === undefined && (!initial || !savedScreen);
+    // The server names the board for every game; the read routes by the game status (a game in setup opens the seat).
+    const route = (value?.screen === undefined || value.screen === 'board') && (!initial || !savedScreen);
     const readBoard = state.board_id && (typeof value?.game_id === 'string' || initial && savedScreen);
     if (readBoard) await call('kingdown_get', {}, false, false, route);
     else if (!result._meta?.view) view = undefined;
