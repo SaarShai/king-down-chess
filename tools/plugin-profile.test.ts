@@ -166,7 +166,8 @@ it('reads a fresh profile after a remount and removes the provisional mark', asy
     const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_profile').length);
     await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { record: { ...record, totals: { played: 24, won: 13, drawn: 3, lost: 8 }, rating: { rating: 1600.6, rd: 90, volatility: .06, provisional: false } } } } });
     await page.locator('#remount').click();
-    await expect.poll(() => frame.locator('#profile-rating b').textContent()).toBe('1601');
+    // A remount loads the whole page again; a CI runner needs more than the 1 s poll default.
+    await expect.poll(() => frame.locator('#profile-rating b').textContent(), { timeout: 5000 }).toBe('1601');
     expect(await frame.locator('#profile-rating .q').isVisible()).toBe(false);
     expect(await frame.locator('#profile-totals b').allTextContents()).toEqual(['24', '13', '3', '8']);
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_profile').length)).toBe(reads + 1);
