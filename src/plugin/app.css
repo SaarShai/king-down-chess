@@ -141,6 +141,9 @@ button.preset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 
 .inline-card .title-actions { width: 100%; flex-direction: row; flex-wrap: nowrap; margin-top: var(--space-1); }
 .inline-card .title-actions button { flex: 1; min-width: 0; min-height: 48px; font-size: var(--fs-md); white-space: nowrap; padding: 8px 10px; }
 .inline-card .title-actions button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 339px) {
+  .inline-card .title-actions { flex-direction: column; }
+}
 .board-layout { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 8px 12px; }
 #board { display: flex; justify-content: center; position: relative; flex: 1; min-height: 0; width: 100%; touch-action: none; }
 #board canvas { flex: none; }
@@ -181,7 +184,7 @@ body[data-touch='true'] button { min-height: var(--tap); }
 #game-table #context-text { display: block; max-height: none; overflow: visible; }
 .table-back { display: none; }
 @media (max-width: 899px) and (orientation: portrait) {
-  #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 44px; grid-template-rows: 44px minmax(0, max-content) 44px minmax(44px, max-content) 44px minmax(0, 1fr) var(--bar-height); }
+  #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 44px; grid-template-rows: minmax(44px, max-content) minmax(0, max-content) minmax(44px, max-content) minmax(44px, max-content) 44px minmax(0, 1fr) var(--bar-height); }
   #game-table .player-strip { padding-block: 0; min-height: 44px; }
   #game-table .portrait { width: 36px; height: 36px; }
   #game-table .player-name { display: flex; align-items: baseline; }
@@ -196,11 +199,30 @@ body[data-touch='true'] button { min-height: var(--tap); }
   #game-table #table-bar > button { min-height: 44px; flex-direction: row; }
   body:is([data-page='board'], [data-page='seat'], [data-page='end']) #page-head { display: none; }
   body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table #strip-them { padding-left: 60px; }
-  body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table .table-back { display: grid; grid-area: them; justify-self: start; align-self: center; place-items: center; margin-left: 8px; width: 44px; height: 44px; min-height: 44px; padding: 0; z-index: 2; font-size: 26px; line-height: 1; }
+  body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table .table-back { display: grid; grid-area: them; justify-self: start; align-self: start; place-items: center; margin-left: 8px; width: 44px; height: 44px; min-height: 44px; padding: 0; z-index: 2; font-size: 26px; line-height: 1; }
   #game-table .table-back::after, #game-table #strip-them button::after { top: 0; transform: translate(-50%, 0); }
 @container table-screen (max-height: 480px) {
-  #game-table { grid-template-rows: 44px minmax(0, max-content) 44px minmax(44px, max-content) 0 minmax(0, 1fr) var(--bar-height); }
+  #game-table { grid-template-rows: minmax(44px, max-content) minmax(0, max-content) minmax(44px, max-content) minmax(44px, max-content) 0 minmax(0, 1fr) var(--bar-height); }
   #game-table #moves-line { display: none; }
+}
+/* The back button takes 48 px from the opponent row. A power adds one 48 px coin slot. */
+@container table-screen (max-width: 440px) {
+  #game-table #strip-them:has(.card-coin):has(.coin:not(.card-coin)) { display: grid; grid-template-columns: repeat(5, 44px); grid-template-rows: 44px 44px; gap: 0 4px; }
+  #game-table #strip-them:has(.card-coin):has(.coin:not(.card-coin)) .coin-row { display: contents; }
+  #game-table #strip-them:has(.card-coin):has(.coin:not(.card-coin)) .player-name { grid-row: 1; grid-column: 2 / -1; }
+  #game-table #strip-them:has(.card-coin):has(.coin:not(.card-coin)) .coin { grid-row: 2; }
+}
+@container table-screen (max-width: 392px) {
+  #game-table #strip-them:has(.card-coin) { display: grid; grid-template-columns: repeat(5, 44px); grid-template-rows: 44px 44px; gap: 0 4px; }
+  #game-table #strip-them:has(.card-coin) .coin-row { display: contents; }
+  #game-table #strip-them:has(.card-coin) .player-name { grid-row: 1; grid-column: 2 / -1; }
+  #game-table #strip-them:has(.card-coin) .coin { grid-row: 2; }
+}
+@container table-screen (max-width: 350px) {
+  #game-table #strip-me:has(.card-coin) { display: grid; grid-template-columns: repeat(5, 44px); grid-template-rows: 44px 44px; gap: 0 4px; }
+  #game-table #strip-me:has(.card-coin) .coin-row { display: contents; }
+  #game-table #strip-me:has(.card-coin) .player-name { grid-row: 1; grid-column: 2 / -1; }
+  #game-table #strip-me:has(.card-coin) .coin { grid-row: 2; }
 }
 }
 @media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
