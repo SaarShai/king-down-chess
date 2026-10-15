@@ -120,6 +120,8 @@ export class PaintedView implements BoardView {
   }
 
   setSymbols(symbols?: (piece: number) => HTMLImageElement): void {
+    // A resync ends the running move; the plugin sets the same symbols after every view.
+    if (symbols === this.symbols) return;
     this.symbols = symbols;
     if (this.pos) this.sync(this.pos);
   }
