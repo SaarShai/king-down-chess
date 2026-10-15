@@ -591,3 +591,25 @@ on 2026-10-15, at most 25 minutes of worker time and 30 minutes of dispatch.
 It waits for the existing backup lock, checks exact notebook version zero
 and unchanged frozen source, and submits once. Any uncertain outcome stops
 the recovery. It does not change the original studio record or M1 results.
+
+Repair commit `c17b4001` is ready. A read-only check at 13:41 UTC confirms
+notebook ID 138796673, exact reference, version zero. The prepared one-shot
+recovery script is `/tmp/kd-kaggle-recover-4.mts`. Its SHA-256 is
+`f52ca776f779bc3b70e3765bf677f2cdfdffe98c944e89ac49d908b9f5d98fa6`.
+It has not launched. Its checkpoint is `continuation-4.json` in the rejection
+cause state folder. An accepted receipt is saved separately before the run
+state update, so a later backup lock cannot erase launch evidence.
+
+At the permitted 13:45 UTC check, the existing evidence backup is verified.
+Snapshot `drive:King Down/results-backups/20261015-062733-883499000` binds
+182 required files and 11,517,293 bytes to the saved receipt, downloaded
+metadata and decoded object bytes. The local manifest still matches every
+verified file. The maintenance lock is released. No backup is repeated.
+
+The corrected one-shot recovery starts at 13:45:54 UTC, PID 51380. Its log is
+`/tmp/kd-kaggle-recover-4.log`; dispatch is `dispatch-4.json` in the rejection
+cause state folder. The next local launch check is 14:05 UTC. An account
+audit runs before creation. No accepted notebook receipt is claimed at this
+checkpoint. Never repeat the wrapper. A worker status read waits until one
+hour after acceptance. The original four-game browser link stays incomplete
+until all eight games, validation, backup and browser persistence pass.
