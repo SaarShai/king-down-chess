@@ -178,15 +178,27 @@ body[data-touch='true'] button { min-height: var(--tap); }
 #end-table { position: absolute; inset: 0; }
 #game-table .player-name :is(b, small), #seat-screen .player-name :is(b, small) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #game-table #context-text { display: block; max-height: none; overflow: visible; }
+.table-back { display: none; }
 @media (max-width: 899px) and (orientation: portrait) {
-@container table-screen (max-height: 520px) {
-  #game-table { --context-height: 44px; grid-template-rows: 44px minmax(0, 1fr) 44px minmax(44px, max-content) 44px 0 44px; }
-  #game-table #context-line { min-height: 44px; padding-block: 0; flex-wrap: nowrap; }
+  #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 44px; grid-template-rows: 44px minmax(0, max-content) 44px minmax(44px, max-content) 44px minmax(0, 1fr) var(--bar-height); }
+  #game-table .player-strip { padding-block: 0; min-height: 44px; }
+  #game-table .portrait { width: 36px; height: 36px; }
+  #game-table .player-name { display: flex; align-items: baseline; }
+  #game-table .player-name :is(b, small) { min-width: 0; font-size: 14px; }
+  #game-table .player-name small { margin-left: 4px; }
+  #game-table #context-line { min-height: 44px; padding-block: 0; flex-wrap: nowrap; border-top: 0; box-shadow: 0 -1px 0 var(--line); }
+  #game-table #context-text > span { display: inline; }
+  #game-table #context-text > span + span::before { content: ' '; }
+  #game-table #context-text:has(+ #context-actions #accept-draw) > span { display: block; }
+  #game-table #moves-line { height: 44px; min-height: 44px; }
   #game-table #table-bar { padding-block: 0; }
   #game-table #table-bar > button { min-height: 44px; flex-direction: row; }
-}
-@container table-screen (max-height: 420px) {
-  #game-table { grid-template-rows: 44px minmax(0, 1fr) 44px minmax(44px, max-content) 0 0 44px; }
+  body:is([data-page='board'], [data-page='seat']) #page-head { display: none; }
+  body:is([data-page='board'], [data-page='seat']) #game-table #strip-them { padding-left: 60px; }
+  body:is([data-page='board'], [data-page='seat']) #game-table .table-back { display: grid; grid-area: them; justify-self: start; align-self: center; place-items: center; margin-left: 8px; width: 44px; height: 44px; min-height: 44px; padding: 0; z-index: 2; font-size: 26px; line-height: 1; }
+  #game-table .table-back::after { top: 0; transform: translate(-50%, 0); }
+@container table-screen (max-height: 480px) {
+  #game-table { grid-template-rows: 44px minmax(0, max-content) 44px minmax(44px, max-content) 0 minmax(0, 1fr) var(--bar-height); }
   #game-table #moves-line { display: none; }
 }
 }
