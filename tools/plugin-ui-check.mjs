@@ -371,10 +371,10 @@ try {
       assert((await footer.evaluate(controlBounds)).accessible, `${state} footer stays above the composer`);
       await frame.locator(sheet ? '#menu-sheet .sheet-body' : '#setup-body').evaluate(el => { el.scrollTop = 0; });
       await frame.locator('#new-game img, #menu-sheet img').evaluateAll(images => Promise.all(images.map(image => image.decode())));
-      await shot(page, `${state}-${width}-${mode}`);
+      const shotPath = await shot(page, `${state}-${width}-${mode}`);
       if (compare && (width === 390 || width === 1440)) {
         const size = width === 390 ? 'phone' : 'desktop', reference = await sharp(`docs/specs/chatgpt-mvp/sample/png/${state}-${size}.png`).resize(width, height).toBuffer();
-        const actual = await page.screenshot();
+        const actual = await readFile(shotPath);
         await sharp({ create: { width: width * 2, height, channels: 4, background: '#ffffff' } }).composite([{ input: reference, left: 0, top: 0 }, { input: actual, left: width, top: 0 }]).png().toFile(join(look, `${state}-${size}-${mode}.png`));
       }
     }
@@ -567,9 +567,9 @@ try {
         assert(veil.width > box.width * .9 && veil.height > box.width * .45 && veil.height < box.width * .5, 'The veil covers the top half of the board');
         assert(veil.x >= box.x && veil.y >= box.y && veil.x + veil.width <= box.x + box.width + 1, 'The veil stays on the board');
         await frame.locator('#seat-screen img').evaluateAll(images => Promise.all(images.map(image => image.decode())));
-        await shot(page, `${state}-${width}-${mode}`);
+        const shotPath = await shot(page, `${state}-${width}-${mode}`);
         if (width === 390 || width === 1440) {
-          const size = width === 390 ? 'phone' : 'desktop', reference = await sharp(`docs/specs/chatgpt-mvp/sample/png/${state}-${size}.png`).resize(width,height).toBuffer(), actual = await page.screenshot();
+          const size = width === 390 ? 'phone' : 'desktop', reference = await sharp(`docs/specs/chatgpt-mvp/sample/png/${state}-${size}.png`).resize(width,height).toBuffer(), actual = await readFile(shotPath);
           await sharp({ create: { width: width * 2, height, channels: 4, background: '#ffffff' } }).composite([{ input: reference, left: 0, top: 0 }, { input: actual, left: width, top: 0 }]).png().toFile(join(look, `${state}-${size}-${mode}.png`));
         }
       }
@@ -991,8 +991,11 @@ try {
     assert(watchCall && !('board_id' in watchCall.arguments), 'The background watch sends no board ID');
     for (let i=5;i<24;i++) await advance(5000);
     const gets = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get' && c.arguments.game_id === window.harnessView.game_id).length);
-    const readsAtTwo = await page.evaluate(() => window.ticket13Reads.length);
-    await page.clock.fastForward(14999); assert.equal(await page.evaluate(() => window.ticket13Reads.length), readsAtTwo, 'No five-second poll remains after two minutes');
+    // This counts the watch calls, not the replies: the host records a call when the poll sends it, during the step,
+    // but a reply comes back after fastForward returns.
+    const watchGets = () => page.evaluate(id => window.harnessCalls.filter(c => c.name === 'kingdown_get' && c.arguments.game_id === id).length, waiting.game_id);
+    const getsAtTwo = await watchGets();
+    await page.clock.fastForward(14999); assert.equal(await watchGets(), getsAtTwo, 'No five-second poll remains after two minutes');
     await advance(1);
     const times = await page.evaluate(id => window.harnessCalls.filter(c => c.name === 'kingdown_get' && c.arguments.game_id === id).map(c => c.at), waiting.game_id);
     assert.equal(times.at(-1)-times.at(-2), 15000, 'The later wait uses a fifteen-second gap');
@@ -1654,9 +1657,9 @@ try {
       assert(!bounds.overflow&&!bounds.body&&bounds.left>=-1&&bounds.right<=bounds.width+1,`${state.name} fits at ${width}px`);
       const ids=state.end?['#over','#context-line']:['#table-bar','#context-line'];
       for(const id of ids) { const box=await frame.locator(id).evaluate(el=>{const r=el.getBoundingClientRect(),frame=document.querySelector('#app-frame').getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,frameBottom:frame.bottom,width:innerWidth};}); assert(box.top>=0&&box.bottom<=box.frameBottom+1&&box.left>=-1&&box.right<=box.width+1,`${state.name} ${id} stays inside the frame at ${width}px`); }
-      await shot(page,`ticket15-${state.name}-${width}-${mode}`);
+      const shotPath=await shot(page,`ticket15-${state.name}-${width}-${mode}`);
       if (width===390||width===1440) {
-        const size=width===390?'phone':'desktop', actual=await page.screenshot(), golden=await readFile(`docs/specs/chatgpt-mvp/sample/png/${state.name}-${size}.png`);
+        const size=width===390?'phone':'desktop', actual=await readFile(shotPath), golden=await readFile(`docs/specs/chatgpt-mvp/sample/png/${state.name}-${size}.png`);
         const left=await sharp(golden).resize(width,height).toBuffer();
         await sharp({create:{width:width*2,height,channels:3,background:'#fff'}}).composite([{input:left,left:0,top:0},{input:actual,left:width,top:0}]).png().toFile(join(look,`${state.name}-${size}-${mode}.png`));
       }
