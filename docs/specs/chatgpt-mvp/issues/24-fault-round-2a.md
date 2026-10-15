@@ -67,3 +67,4 @@ Note 5 (the website hit sound comes after the slide under reduced motion) stays 
 - `npx vitest run tools/plugin-board.test.ts src/plugin/screens/board-model.test.ts`: 33 pass. No time limit changes.
 - The reduced-motion tests pass in 6 of 6 runs, after the final change (and 6 of 6 in an earlier run with the same wait).
 - `npm run typecheck` passes.
+- `npm run check:browser plugin-ui` (the build, then `tools/plugin-ui-check.mjs` in the fixture host on a free port) passes in 281 s on the committed fixes. It needs no database.
