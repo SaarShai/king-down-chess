@@ -40,6 +40,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run plugin:db:init-test
+      - run: npx playwright install --with-deps chromium
       - run: npm test
       - run: npm run plugin:build
       - run: npm run plugin:server:check
@@ -47,5 +48,4 @@ jobs:
       - run: npm run plugin:check:protocol
       - run: npm run build:vercel
       - run: npm run check:vercel
-      - run: npx playwright install --with-deps chromium
       - run: npm run check:browser plugin-oauth plugin-ui plugin-ui-http

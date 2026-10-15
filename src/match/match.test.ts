@@ -83,7 +83,7 @@ describe('isolated local matches', () => {
       expect((await m.snapshot()).fen).toBe(fen);
       expect(await (await restart(m)).snapshot()).toEqual(await m.snapshot());
     }
-  });
+  }, 20_000); // Nine matches and nine restarts start eighteen workers; a CI runner needs more than 5 s.
   it.each([
     ['u1.2', { used: [1, 2] }],
     ['ma1wi/ma8ba2', { marks: [{ sq: 0, ward: true }, { sq: 56, all: true, left: 2 }] }],

@@ -47,6 +47,12 @@ describe('.github/workflows/test.yml', () => {
     expect(install).toContain("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'");
   });
 
+  it('installs Chromium for the browser tests before npm test', () => {
+    const at = (pattern: RegExp) => steps().findIndex(step => step.some(line => pattern.test(line)));
+    expect(at(/run: npx playwright install --with-deps chromium$/), 'no Chromium install step').toBeGreaterThan(at(/run: npm ci\b/));
+    expect(at(/run: npx playwright install/)).toBeLessThan(at(/run: npm test$/));
+  });
+
   it('runs npm test as its last step', () => {
     expect(steps().at(-1)).toContain('- run: npm test');
   });

@@ -1,6 +1,7 @@
 # Runs `npm test` on each pull request into main, because a merge on GitHub runs no local hook.
 # It has no push trigger: the pre-push hook (.githooks/pre-push) runs `npm test` on each push.
-# tools/workflow.lint.test.ts checks the triggers, the Node version, the install and the last step.
+# The browser tests in `npm test` (tools/plugin-*.test.ts) need Chromium, so a step installs it after `npm ci`.
+# tools/workflow.lint.test.ts checks the triggers, the Node version, the install, the browser and the last step.
 name: Test
 
 on:
@@ -22,4 +23,5 @@ jobs:
       - run: npm ci
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - run: npx playwright install --with-deps chromium
       - run: npm test
