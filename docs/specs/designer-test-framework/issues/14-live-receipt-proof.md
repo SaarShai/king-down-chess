@@ -46,3 +46,10 @@ The schedule contains only Kaggle jobs 0 and 1. The exact owner quote and
 bundle are in the matching main queue row. Approval remains pending the M1
 check. Local scope is in `state/study-runs/receipt-live-20261015/scope.json`.
 The existing follow-up now owns both validations and this browser proof.
+
+## Validation checkpoint
+
+Kaggle preparation passes and the browser shows the exact two-game approval.
+Approval waits for the patched M1 validation because the baseline wrapper fails
+before tests. The corrected job is due for a check at 20:25:41 UTC. No Kaggle
+submission, new preparation or approval occurs in this checkpoint.

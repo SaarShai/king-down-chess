@@ -66,3 +66,16 @@ ticket. It does not query Kaggle or start games.
 Final local checks pass: 18 focused tests, 50 artwork checks, 113 document
 checks, production build and the Studies browser check. The ticket stays
 claimed until the M1 evidence and backup are complete.
+
+## Validation checkpoint
+
+The baseline fails before tests: the copied supervisor retains an old root.
+Clone exits 128 because that old checkout exists. It overwrites only the old
+status, clone log and hash list; earlier collected and verified cloud copies
+remain intact. New failure files are kept separately and status/clone hashes
+match. Old mixed logs are not current validation evidence.
+
+The patched job starts once at 20:05:41 UTC, PID 1853, with its own root derived
+from the supervisor file. Its first check is 20:25:41 UTC, with a one-hour bound.
+The stale lock has an exact known owner and no live supervisor before transfer.
+The main machine guide now records the root check. No baseline retry occurs.
