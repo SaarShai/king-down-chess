@@ -977,3 +977,19 @@ it('shows the connection sentence after three failed polls and clears it on the 
   } finally { await page.context().setOffline(false); await page.close(); }
 });
 
+it.each(['a join error', 'a game'])('lets the reads for a chat result with %s wait past 10 seconds', async shown => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    const game_id = shown === 'a game' ? await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_create', { kind: 'solo', colour: 'white' }); return app.memory.view.game_id; }) : undefined;
+    await page.clock.install();
+    await page.evaluate(name => { (window as any).holdNext = name; }, game_id ? 'kingdown_resume' : 'kingdown_open');
+    await page.evaluate(game_id => (window as any).harnessShow(game_id ? { content: [], structuredContent: { screen: 'board', game_id } } : { isError: true, content: [{ type: 'text', text: 'Invitation expired or used' }], _meta: { code: 'INVITE_UNAVAILABLE' } }), game_id);
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await page.clock.fastForward(20_000);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('#page-back:not(:disabled)').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe('');
+    expect(await frame.locator('#home-error').textContent()).toBe('');
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});

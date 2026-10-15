@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createClient, BOARD_ID_TOOLS, CANNOT_CONNECT } from './client';
+import { createClient, BOARD_ID_TOOLS } from './client';
 
 describe('app client', () => {
   it('limits commands to 10 seconds and leaves mount reads to the SDK limit', async () => {
@@ -21,7 +21,8 @@ describe('app client', () => {
     const diagnostic = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       const client = createClient({ callServerTool: async () => { throw error; } });
-      await expect(client.call(name as string, args as Record<string, unknown>)).rejects.toThrow(CANNOT_CONNECT);
+      // The exact words: toThrow with a missing or empty sentence would pass any error.
+      await expect(client.call(name as string, args as Record<string, unknown>)).rejects.toThrow(new Error('Cannot connect. Check your connection, then try again.'));
       expect(diagnostic).toHaveBeenCalledWith('King Down connection failed', error);
     } finally { diagnostic.mockRestore(); }
   });
