@@ -300,3 +300,27 @@ it('reflows New game at 200% zoom (197 CSS px): no sideways scroll, every row ta
     expect(await title.evaluate(h => { const t = h.getBoundingClientRect(), x = h.parentElement!.querySelector('button')!.getBoundingClientRect(); return h.scrollWidth <= h.clientWidth && t.right <= x.left; })).toBe(true);
   } finally { await page.close(); }
 });
+it('keeps page-title words whole and the seat title on one line at 200% zoom (197 CSS px)', async () => {
+  const { page, frame } = await hostPage(197, 426, 51, 59);
+  // The lines of the page title, and the words that a line break cuts.
+  const title = () => frame.locator('#page-title').evaluate(async h => {
+    await document.fonts.ready;
+    const text = h.firstChild!, cut: string[] = [], tops = new Set<number>(); let i = 0;
+    for (const word of h.textContent!.split(' ')) {
+      const range = document.createRange(); range.setStart(text, i); range.setEnd(text, i + word.length); i += word.length + 1;
+      const rects = [...range.getClientRects()]; if (rects.length > 1) cut.push(word); for (const r of rects) tops.add(Math.round(r.top));
+    }
+    return { text: h.textContent, lines: tops.size, cut };
+  });
+  try {
+    await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-nav="handle"]').click(); await frame.locator('#handle').waitFor();
+    expect(await title()).toMatchObject({ text: 'Pick a name and a picture', cut: [] });
+    await frame.locator('#page-back').click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
+    await frame.locator('#page-back').click(); await frame.locator('#play-new').click();
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click({ timeout: 3000 });
+    await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).check({ timeout: 3000 });
+    await frame.locator('#setup-start').click({ timeout: 3000 }); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    // A wrapped seat title took the board's height (fault L2).
+    expect(await title()).toEqual({ text: 'Set up your side', lines: 1, cut: [] });
+  } finally { await page.close(); }
+});
