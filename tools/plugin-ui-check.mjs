@@ -83,7 +83,7 @@ try {
   assert.equal(await frame.locator('#home-card button').count(), 2, 'The inline home card has only Play now and Choose a game');
   await frame.locator('#home-play:not(:disabled)').waitFor();
   assert.deepEqual(await page.evaluate(() => window.harnessDeclaredModes), ['inline', 'fullscreen'], 'App declares both display modes to the host');
-  assert.equal(await frame.locator('.inline-line').innerText(), 'Your move in 0 games.', 'Home uses the server turn count and the sample line');
+  assert.equal(await frame.locator('.inline-line').innerText(), 'No games need your move.', 'Home uses the server turn count and the sample line');
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), 0, 'An empty home reads no board');
   await frame.locator('#home-games').click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
@@ -108,7 +108,7 @@ try {
   assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests), ['fullscreen'], 'Choose a game asks the host for fullscreen');
   async function openPlay() {
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
-    for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) await frame.locator('#page-back').click();
+    for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) await frame.locator('#page-back:visible, .table-back:visible').click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor({ timeout: 5000 });
   }
   async function openScreen(screen) { await openPlay(); await frame.locator(`[data-screen="play"] [data-nav="${screen}"]`).click(); }
@@ -532,8 +532,8 @@ try {
         await page.setViewportSize({ width, height }); await boardBox();
         assert(!await frame.locator('body').evaluate(el => el.scrollWidth > innerWidth), `${state} document fits ${width}px`);
         assert(await frame.locator('[data-seat-id="game-table"]').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `${state} table fits ${width}px`);
-        for (const id of ['seat-ready','seat-shuffle','seat-menu','seat-king','page-back']) {
-          const button = frame.locator(`#${id}`); if (!await button.isVisible()) continue;
+        for (const id of ['#seat-ready','#seat-shuffle','#seat-menu','#seat-king','#page-back','#seat-screen .table-back']) {
+          const button = frame.locator(id); if (!await button.isVisible()) continue;
           const bounds = await button.evaluate(controlBounds); assert(bounds.accessible, `${state} ${id} stays above the composer at ${width}px: ${JSON.stringify(bounds)}`);
           const rect = await button.boundingBox(); assert(rect.width >= 44 && rect.height >= 44, `${id} keeps a 44 px target`);
         }
@@ -1273,6 +1273,7 @@ try {
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
   await openMoveChoices(); await frame.locator(`#choices button[title="${cardLan}"]`).click();
   await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.lan===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
+  await frame.locator('#strip-me .card-coin').nth(cardIndex).and(frame.locator('[data-state="used"]')).waitFor();
   assert.equal(await frame.locator('#strip-me .card-coin').nth(cardIndex).getAttribute('data-state'),'used','The played card is spent');
   await page.waitForFunction(id=>window.harnessView.game_id===id&&window.harnessView.turn===window.harnessView.seat,cardView.game_id); await idleBoard(); await boardBox();
   async function arrivalTool(name,args,friend=false) {return (await page.request.post(new URL(friend?'/fixture-friend-tool':'/fixture-tool',base).href,{data:{name,arguments:args}})).json();}
@@ -1298,6 +1299,7 @@ try {
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click(); await openMoveChoices();
   await frame.locator(`#choices button[title="${arrivalLan}"]`).click();
   await page.waitForFunction(rev=>window.harnessView.revision>rev,arrivalView.revision); await idleBoard(); await boardBox();
+  await frame.locator('#strip-me .card-coin').nth(salvation).and(frame.locator('[data-state="used"]')).waitFor();
   assert.equal(await frame.locator('#strip-me .card-coin').nth(salvation).getAttribute('data-state'),'used','The arrival spends Salvation');
   assert.match(await frame.locator('#last-move img').getAttribute('src'),/knight-0-/,'The returned knight supplies the move icon');
   const blackGame=await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_create',arguments:{kind:'solo',options,colour:'black',board_id:cardBoard}}})).json(); assert(!blackGame.isError);
@@ -1553,7 +1555,7 @@ try {
     reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     await page.evaluate(result => window.harnessShow(result), home);
     await frame.locator('#home-card').waitFor();
-    assert.equal(await frame.locator('#home-line').innerText(), `Your move in ${home.structuredContent.your_turn_count} games.`);
+    assert.equal(await frame.locator('#home-line').innerText(), home.structuredContent.your_turn_count === 0 ? 'No games need your move.' : `Your move in ${home.structuredContent.your_turn_count} game${home.structuredContent.your_turn_count === 1 ? '' : 's'}.`);
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), reads, 'Empty Open shows home with no board read');
     await legacyStart('solo');
   }

@@ -62,10 +62,10 @@ it.each([[393, 852, 102, 118, 380], [320, 568, 63, 84, 215], [320, 568, 63, 180,
     });
     expect(await frame.locator('#app-frame').evaluate(e => innerHeight - e.getBoundingClientRect().bottom)).toBe(Math.max(96, bottom));
     expect(await textFits()).toEqual([]);
-    expect.soft(await canvasWidth()).toBeGreaterThanOrEqual(min);
+    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
     await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await frame.locator('#app-frame').evaluate(e => innerHeight - e.getBoundingClientRect().bottom)).toBe(Math.max(96, bottom));
-    expect.soft(await canvasWidth()).toBeGreaterThanOrEqual(min);
+    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
     expect(await frame.locator('#context-note').textContent()).toBe('Abort ends the game with no result, until each side moves once.');
     expect(await textFits()).toEqual([]);
     await page.evaluate(async () => {
@@ -128,7 +128,7 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
       const canvasWidth=()=>frame.locator('#board canvas').evaluate(e=>e.getBoundingClientRect().width);
       await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
       await expect.poll(canvasWidth).toBeGreaterThan(0);
-      expect.soft(await canvasWidth()).toBeGreaterThanOrEqual(min);
+      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
       expect(await frame.locator('#seat-context').textContent()).not.toMatch(/Tap/);
       const veil=await frame.locator('#seat-veil-layer .veil').evaluate(e=>{const r=e.getBoundingClientRect(),b=document.querySelector('#board')!.getBoundingClientRect(); return r.top>=b.top-1 && r.bottom<=b.bottom+1 && getComputedStyle(e).overflow==='hidden';});
       expect(veil).toBe(true);
@@ -138,7 +138,7 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
       }
       await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       await expect.poll(canvasWidth).toBeGreaterThan(0);
-      expect.soft(await canvasWidth()).toBeGreaterThanOrEqual(min);
+      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
       expect(await frame.locator('.page-sheet').evaluate(e=>e.scrollTop)).toBe(0);
       const bar=await frame.locator('#table-bar').evaluate(e=>{const buttons=[...e.querySelectorAll('button')].filter(b=>!b.hidden),r=e.getBoundingClientRect(),b=buttons[0].getBoundingClientRect();return {count:buttons.length,empty:b.left-r.left};});
       expect(bar.count).toBe(2); expect(bar.empty).toBeLessThanOrEqual(8);
@@ -207,7 +207,7 @@ it.each([
     await page.goto(harness.url);
     await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
     await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
-    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('play'));
+    await hall(page);
     await page.evaluate(safe => (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe }), { top, bottom, left, right });
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.locator('#setup-start').click(); await frame.locator('#seat-ready').click();

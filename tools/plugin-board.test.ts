@@ -133,7 +133,7 @@ it.each([{ width: 393, height: 852, cards: true }, { width: 320, height: 568, ca
       expect(await frame.locator('#game-table button:visible').evaluateAll(edgeMisses)).toEqual([]);
     }
     expect.soft(await frame.locator('#strip-me .coin img').first().evaluate(e => [e.getBoundingClientRect().width, e.getBoundingClientRect().height])).toEqual(cards ? [26, 26] : [30, 30]);
-    expect(await frame.locator('#strip-me').evaluate(e => e.getBoundingClientRect().height)).toBe(width === 320 ? 44 : 56);
+    expect(await frame.locator('#strip-me').evaluate(e => e.getBoundingClientRect().height)).toBe(44);
   } finally { await page.close(); }
 });
 
@@ -191,6 +191,7 @@ it.each([[393, 852], [320, 568]])('keeps the board box still behind the end card
   try {
     await frame.locator('#board[aria-busy="false"]').waitFor();
     await expect.poll(() => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width)).toBeGreaterThan(0);
+    await frame.locator('#game-table').evaluate(async e => { await Promise.all(e.getAnimations().map(a => a.finished)); });
     const before = await frame.locator('#board canvas').boundingBox();
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), { ...next, revision: 1, status: 'finished', action: 'finished', result: { reason: 'resign', winner: 0 } });
     await frame.locator('#over[open]').waitFor();
@@ -234,6 +235,7 @@ it.each([[393, 852], [360, 740], [320, 568]])('serves 48 px targets on Seat and 
         if (screen === 'board' && !cards) { await frame.locator('#seat-ready:not(:disabled)').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); }
         const coin = `#${cards ? 'card-w-0' : screen === 'seat' ? 'seat-king' : 'power-w'}`;
         await frame.locator(`${coin}:visible`).waitFor();
+        await frame.locator('#game-table').evaluate(async e => { await Promise.all(e.getAnimations({ subtree: true }).map(a => a.finished)); });
         const missed = await frame.locator(`[data-screen="${screen}"] button:visible`).evaluateAll(buttons => buttons.flatMap(button => {
           const r = button.getBoundingClientRect(), s = getComputedStyle(button, '::after'), m = new DOMMatrix(s.transform);
           if (Math.max(r.width, parseFloat(s.width) || 0) < 48 || Math.max(r.height, parseFloat(s.height) || 0) < 48) return [button.id + ': size'];

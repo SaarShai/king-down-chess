@@ -11,7 +11,7 @@ import { setSettings } from './board-view';
 import { setSound, snd } from '../render/sfx';
 import { runPoll } from './poll';
 import { createRouter } from './router';
-import { playNow, setupScreen } from './screens/setup';
+import { playNow, setupBusy, setupScreen } from './screens/setup';
 import { friendScreen } from './screens/friend';
 import { joinScreen } from './screens/join';
 import { waitScreen } from './screens/wait';
@@ -33,6 +33,7 @@ let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
 let readError = false;
 let busy = false, polling = false, mountReading = true, gamesDirty = false;
+let foregroundDone = Promise.resolve();
 let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0;
 let pending = state.pending;
 let handleBack: Screen = pending?.screen ?? 'settings';
@@ -48,13 +49,14 @@ function retryState() {
   $('retry').textContent = readError && !pending ? 'Try again' : 'Retry';
   $('error').textContent = message ?? '';
 }
-const turnLine = (count: number) => `Your move in ${count} game${count === 1 ? '' : 's'}.`;
+const turnLine = (count: number) => count === 0 ? 'No games need your move.' : `Your move in ${count} game${count === 1 ? '' : 's'}.`;
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 function actions() {
   const blocked = busy || mountReading || !connected;
   // A slow start marks ‹ Play data-free (setup.ts): it stays a way out while later calls run.
   buttons().forEach(button => { button.disabled = (blocked && !button.hasAttribute('data-free')) || button.matches('#king-picker [aria-disabled="true"]'); });
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
+  $<HTMLButtonElement>('setup-start').disabled ||= setupBusy();
   homeActions();
   $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = blocked || !memory.settings;
 }
@@ -92,9 +94,9 @@ async function resendPending(command: Pending, mountRead?: ToolResult) {
 export async function call(name: string, args: Record<string, unknown>, retain = false, quiet = false, route: boolean | undefined = undefined, retry = false) {
   if (busy || (quiet && polling)) return;
   const before = view;
-  let followup: Pending | undefined, received: View | undefined;
+  let followup: Pending | undefined, received: View | undefined, finishCall: (() => void) | undefined;
   if (quiet) polling = true;
-  else { busy = true; actions(); $('error').textContent = ''; }
+  else { busy = true; foregroundDone = new Promise(resolve => { finishCall = resolve; }); actions(); $('error').textContent = ''; }
   if (retain) {
     if (pending?.name !== name || pending.args !== args) pending = { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen };
     pending.error = undefined; pending.error_screen = undefined; saveState();
@@ -135,10 +137,15 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     if (retain) pending = undefined;
     saveState(); retryState();
   } catch (error) { if (quiet && (busy || view !== before)) return; const message = error instanceof Error ? error.message : 'Could not update the game.';
-    if (retain && pending) { pending.error = message; pending.error_screen = state.screen; saveState(); }
+    if (retain && pending) {
+      pending.error = message;
+      if (name === 'kingdown_create' && state.screen === 'home') { pending.screen = 'play'; pending.error_screen = 'play'; navigate('play'); }
+      else pending.error_screen = state.screen;
+      saveState();
+    }
     if (!quiet && name === 'kingdown_get' && state.board_id) readError = true;
     retryState(); $('error').textContent = message; }
-  finally { if (quiet) polling = false; else { busy = false; actions(); } }
+  finally { if (quiet) polling = false; else { busy = false; finishCall?.(); actions(); } }
   if (retain && name === 'kingdown_move' && !received && !pending && before?.game_id === view?.game_id) await rollbackBoardMove();
   if (followup) void call(followup.name, followup.args, true, false, undefined, true);
   return received;
@@ -173,6 +180,8 @@ async function mountResult(result: ToolResult, initial: boolean) {
   mountReading = true; actions();
   try {
     await connection;
+    // A new chat result must read its board after the old foreground call ends.
+    while (busy) await foregroundDone;
     const value = result.structuredContent as Record<string, unknown> | undefined;
     if (!initial || !state.board_id) state.board_id = typeof value?.board_id === 'string' ? value.board_id : typeof value?.game_id === 'string' ? state.board_id : undefined;
     remember(result);

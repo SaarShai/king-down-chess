@@ -194,10 +194,10 @@ body[data-touch='true'] button { min-height: var(--tap); }
   #game-table #moves-line { height: 44px; min-height: 44px; }
   #game-table #table-bar { padding-block: 0; }
   #game-table #table-bar > button { min-height: 44px; flex-direction: row; }
-  body:is([data-page='board'], [data-page='seat']) #page-head { display: none; }
-  body:is([data-page='board'], [data-page='seat']) #game-table #strip-them { padding-left: 60px; }
-  body:is([data-page='board'], [data-page='seat']) #game-table .table-back { display: grid; grid-area: them; justify-self: start; align-self: center; place-items: center; margin-left: 8px; width: 44px; height: 44px; min-height: 44px; padding: 0; z-index: 2; font-size: 26px; line-height: 1; }
-  #game-table .table-back::after { top: 0; transform: translate(-50%, 0); }
+  body:is([data-page='board'], [data-page='seat'], [data-page='end']) #page-head { display: none; }
+  body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table #strip-them { padding-left: 60px; }
+  body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table .table-back { display: grid; grid-area: them; justify-self: start; align-self: center; place-items: center; margin-left: 8px; width: 44px; height: 44px; min-height: 44px; padding: 0; z-index: 2; font-size: 26px; line-height: 1; }
+  #game-table .table-back::after, #game-table #strip-them button::after { top: 0; transform: translate(-50%, 0); }
 @container table-screen (max-height: 480px) {
   #game-table { grid-template-rows: 44px minmax(0, max-content) 44px minmax(44px, max-content) 0 minmax(0, 1fr) var(--bar-height); }
   #game-table #moves-line { display: none; }

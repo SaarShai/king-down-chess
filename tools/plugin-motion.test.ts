@@ -20,8 +20,7 @@ async function open(reduced: boolean) {
   await page.goto(harness.url);
   await frame.locator('#home-play:not(:disabled)').waitFor();
   await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen' }));
-  await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('play'));
-  await page.evaluate(async () => { await (window as any).harnessSetContext({ displayMode: 'fullscreen' }); });
+  await page.evaluate(async () => { const host = window as any; await host.harnessShow(await host.harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }), true); });
   return { page, frame };
 }
 const tapSquare = async (frame: FrameLocator, name: string) => {
@@ -112,8 +111,9 @@ it.each([false, true])('opens the board after both Ready (reduced motion %s)', a
   try {
     await newGame(frame, only(['Fairy pieces', 'Arrangement'])); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     await frame.locator('#board[aria-busy="false"]').waitFor(); await frame.locator('#seat-ready:not(:disabled)').waitFor();
+    await frame.locator('#board').evaluate(e => { const animate = e.animate.bind(e); (window as any).boardOpening = []; e.animate = (...args) => { (window as any).boardOpening.push(args[1]); return animate(...args); }; });
     await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
-    expect(await frame.locator('#board').evaluate(e => e.getAnimations().length)).toBe(reduced ? 0 : 1);
+    expect(await frame.locator('#board').evaluate(() => (window as any).boardOpening)).toEqual(reduced ? [] : [{ duration: 320, easing: 'cubic-bezier(.05,.7,.1,1)' }]);
     await expect.poll(() => animations(frame, '#board'), { timeout: 1000 }).toBe(0);
   } finally { await page.close(); }
 });

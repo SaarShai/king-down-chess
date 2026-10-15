@@ -24,6 +24,7 @@ const restored = mounted?.pending;
 let draft: SetupState | undefined, starting = false, slow = false, recovering = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
 const restoredSetup = () => !restoreHandled && restored?.screen === 'play' && !!memory.settings?.last_setup && (restored.name === 'kingdown_choose' || !!restored.args.options);
 const ownPending = () => ownCommand || restoredSetup();
+export const setupBusy = () => starting || recovering || !!client.state.pending;
 async function readGames() {
   const result = await client.call('kingdown_games', {}, { background: true });
   if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
@@ -72,7 +73,7 @@ function render() {
   const pick = shownKing(draft); $<HTMLImageElement>('setup-king').querySelector('img')!.src = art(`ui/emblems/${pick.king.toLowerCase()}.webp`);
   $('setup-king-name').innerHTML = `<b>${pick.king}</b> · ${POWER_NAME[pick.power]}`;
   $('setup-power-text').textContent = ruleLine(powerText(pick.power, kingRules));
-  $<HTMLButtonElement>('setup-start').disabled = starting || recovering || !!client.state.pending;
+  $<HTMLButtonElement>('setup-start').disabled = setupBusy();
   // Words wait for the owner (item W3, option a).
   $('setup-start').textContent = !starting && !recovering ? 'Start game' : slow ? 'Still starting. Keep this page open.' : 'Starting your game…';
 }
@@ -133,14 +134,15 @@ async function launch(setup = draft) {
   if (!setup || starting || client.state.pending) return;
   starting = true; ownCommand = true; render();
   // After a long wait, Back is a safe way out: the start stays pending, and Start sends no second Create.
-  const wait = setTimeout(() => { slow = true; render(); const back = $<HTMLButtonElement>('page-back'); back.dataset.free = ''; back.disabled = false; }, 10_000);
+  const exits = document.querySelectorAll<HTMLButtonElement>('#page-back, [data-screen="play"] [data-nav]');
+  const wait = setTimeout(() => { slow = true; render(); exits.forEach(button => { button.dataset.free = ''; button.disabled = false; }); }, 10_000);
   try {
     const last_setup = { ...setup, options: setupOptions(setup.options) }, saved = await client.call('kingdown_settings', { last_setup });
     if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     memory.settings = saved._meta?.settings as typeof memory.settings;
     const view = await start(last_setup.kind, createArguments(last_setup), { route: false }); if (view) await finish(view, last_setup.king);
   } catch (error) { $('error').textContent = $('home-error').textContent = error instanceof Error ? error.message : String(error); }
-  finally { clearTimeout(wait); starting = slow = false; delete $('page-back').dataset.free; if (!client.state.pending) ownCommand = false; render(); }
+  finally { clearTimeout(wait); starting = slow = false; exits.forEach(button => { delete button.dataset.free; }); if (!client.state.pending) ownCommand = false; render(); }
 }
 /** The home card's Play now: a computer game from the last setup, with no hall. */
 export function playNow() { if (memory.settings) void launch(quickSetup(memory.settings.last_setup)); }

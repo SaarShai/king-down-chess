@@ -750,3 +750,47 @@ it('starts a friend game from the Play hall in three taps, with each list under 
     expect(await frame.locator('#games-head').isVisible()).toBe(true);
   } finally { await page.close(); }
 });
+
+it('opens a new chat game after an older foreground read ends', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } });
+      await app.call('kingdown_resign', { game_id: app.memory.view.game_id }, true, false, true);
+    });
+    await frame.locator('#over.end-card[open]').waitFor();
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_get'; });
+    await frame.locator('html').evaluate(() => { void (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
+    await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
+    const result = await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_create', arguments: { kind: 'solo', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } } } })).json();
+    expect(result.isError).toBeFalsy();
+    await page.evaluate(result => (window as any).harnessShow(result, true), result);
+    await frame.locator('html').evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await page.evaluate(() => (window as any).releaseHeld());
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(result._meta.view.game_id);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await frame.locator('#over.end-card[open]').count()).toBe(0);
+  } finally { await page.close(); }
+});
+
+it('shows Retry in the hall when Play now loses its create reply', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_settings', { last_setup: { kind: 'solo', colour: 'white', level: 'beginner', king: null, options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } } });
+    });
+    await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_create'; });
+    await frame.getByRole('button', { name: 'Play now', exact: true }).click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator('#retry').waitFor();
+    expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
+    await frame.locator('#retry').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(1);
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+  } finally { await page.close(); }
+});
