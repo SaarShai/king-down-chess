@@ -82,7 +82,7 @@ export function createTransports(mainRoot:string, exec:Execute=execute):Record<'
   };
   async function kaggleCall(action:string,i:DispatchInput,extra:Record<string,string>={}) {
     check(i);const env={...process.env,KAGGLE_API_TOKEN:(await readFile(join(mainRoot,'.secrets/kaggle_api_token'),'utf8')).trim()};
-    const reply=JSON.parse(await exec('/Users/za/.local/share/uv/tools/kaggle/bin/python',[join(HERE,'kaggle.py')],{input:JSON.stringify({action,name:notebookName(i),...extra}),env,timeout:action==='collect'?180000:120000}));
+    const reply=JSON.parse(await exec('/Users/za/.local/share/uv/tools/kaggle/bin/python',[join(HERE,'kaggle-driver.py')],{input:JSON.stringify({action,name:notebookName(i),...extra}),env,timeout:action==='collect'?180000:120000}));
     if(reply.error)throw new Error('Kaggle operation failed; outcome may be unknown');return reply;
   }
   const kaggle:RunTransport={

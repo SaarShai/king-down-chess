@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded Kaggle adapter. Never return service errors or credentials."""
+"""Bounded Kaggle adapter. Keep this filename distinct from the SDK package."""
 import contextlib, json, os, sys, socket, resource
 from pathlib import Path
 

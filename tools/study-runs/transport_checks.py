@@ -1,14 +1,14 @@
 """Offline transport tests. No SSH, Kaggle, cloud download or game calls."""
 import sys
 sys.dont_write_bytecode=True
-import gzip, hashlib, importlib.util, io, json, shutil, tarfile, tempfile
+import gzip, hashlib, importlib.util, io, json, os, shutil, subprocess, tarfile, tempfile
 from pathlib import Path
 from types import SimpleNamespace as NS
 from unittest.mock import patch
 
 def load(name):
     spec=importlib.util.spec_from_file_location(name,Path(__file__).parent/(name+'.py'));module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
-backup=load('backup-proof');supervisor=load('supervisor');kaggle=load('kaggle')
+backup=load('backup-proof');supervisor=load('supervisor');kaggle=load('kaggle-driver')
 def fails(fn):
     try:fn()
     except Exception:return
@@ -35,6 +35,12 @@ assert backup.fresh_receipt([{'verified_epoch':10}],10)['verified_epoch']==10
 
 with tempfile.TemporaryDirectory() as tmp:
     root=Path(tmp);(root/'results').mkdir();(root/'work').mkdir();state=root/'state';state.mkdir();cloud=root/'cloud';cloud.mkdir()
+    # Run the actual script entry point: its filename must not hide the SDK.
+    sdk=root/'sdk'/'kaggle';(sdk/'api').mkdir(parents=True)
+    (sdk/'__init__.py').write_text('');(sdk/'api/__init__.py').write_text('')
+    (sdk/'api/kaggle_api_extended.py').write_text("class KaggleApi:\n config_values={'username':'test'}\n def authenticate(self): pass\n def kernels_list(self,**kw): return []\n")
+    reply=subprocess.run([sys.executable,str(Path(kaggle.__file__))],input=json.dumps({'action':'preflight','name':'fixture'}),text=True,capture_output=True,check=True,timeout=10,env={**os.environ,'PYTHONPATH':str(root/'sdk'),'PYTHONDONTWRITEBYTECODE':'1'})
+    assert json.loads(reply.stdout)=={'remoteId':'test/fixture'}
     backup.ROOT=root;backup.STATE=state
     lock=root/'.maintenance.lock';lock.mkdir()
     with patch.object(backup.subprocess,'run',return_value=NS(stdout=str(root/'results').encode())):

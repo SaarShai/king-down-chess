@@ -39,3 +39,11 @@ earlier test checks a separate safe pattern, so it misses this fault. The comman
 now uses bracketed initial letters. The test extracts the actual command's
 pattern, rejects self-matching and confirms that real worker and busy-app
 commands still match. No machine is changed by this repair.
+
+The first browser preparation freezes `study-20261015-3187d94a2d12` but fails
+before approval. Its key is null, its queue flag is false and it has no launch
+receipts. M1 passes all four identity facts, AC power and availability. The
+Kaggle script is named `kaggle.py`, so Python imports that file instead of the
+installed SDK package. Rename it to `kaggle-driver.py`. A test now runs the real
+script entry point against a fake SDK package; it makes no network call. Keep
+the failed preparation record. No launch retry or extra games occur.
