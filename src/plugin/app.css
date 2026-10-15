@@ -197,7 +197,7 @@ body[data-touch='true'] #game-table .coin, body[data-touch='true'] #game-table .
   #game-table .coin, #game-table .coin.card-coin { width: 44px; height: 44px; min-height: 44px; }
 }
 
-/* Keep the grain at a fixed scale; a wash or a stretched tile looks like parchment. */
+/* One large grain image fills each face, so no tile repeats inside a control. */
 #app-root :is(button, select, input:not([type='radio'], [type='checkbox']), label:has(> input)) {
   min-width: var(--tap); min-height: var(--tap);
 }
@@ -209,15 +209,23 @@ body[data-touch='true'] #game-table .coin, body[data-touch='true'] #game-table .
   --brick-side: var(--stone-500);
   --ink-soft: var(--ink); --fg-soft: var(--ink);
   color: var(--ink);
-  background: var(--brick-face) url('./assets/stone-control.webp') center / 96px 96px repeat;
+  background: var(--brick-face) url('./assets/stone-control.webp') var(--grain-position, 50% 25%) / max(100%, 384px) auto no-repeat;
   background-blend-mode: normal;
   border-color: var(--brick-edge); border-radius: var(--radius-sm);
   box-shadow: 0 4px 0 var(--brick-edge), inset 0 0 0 1px var(--brick-edge), inset 0 3px 0 var(--brick-top), inset 2px 0 0 var(--brick-top), inset -2px 0 0 var(--brick-side), inset 0 -3px 0 var(--brick-side), inset 0 0 0 2px var(--brick-ring);
   transition: transform 80ms ease-out;
 }
-#app-root :is(button.primary, #new-game label.mode, #new-game .seg-row label, #new-game label.check.toggle):is(:has(> input:checked), [aria-pressed='true']) {
+#app-root :is(button.primary, #new-game label.mode, #new-game .seg-row label, #new-game label.check.toggle)[aria-pressed='true'] {
   --brick-ring: var(--stone-700);
   --brick-top: var(--gold-bright);
+}
+#app-root :is(button.primary, #new-game label.mode, #new-game .seg-row label, #new-game label.check.toggle):nth-of-type(3n + 1) { --grain-position: 20% 60%; }
+#app-root :is(button.primary, #new-game label.mode, #new-game .seg-row label, #new-game label.check.toggle):nth-of-type(3n + 2) { --grain-position: 80% 85%; }
+#app-root :is(button.primary, #new-game label.mode, #new-game .seg-row label, #new-game label.check.toggle):is(:has(> input:checked), [aria-checked='true']) {
+  --brick-face: var(--stone-700); --brick-ring: var(--gold-bright);
+  --ink-soft: var(--vellum); --fg-soft: var(--vellum);
+  color: var(--vellum); background-blend-mode: multiply;
+  box-shadow: inset 0 0 0 3px var(--brick-ring), inset 0 5px 6px var(--stone-900);
 }
 #app-root :is(button.primary, #new-game label.mode, #new-game .seg-row label, #new-game label.check.toggle).primary {
   --brick-face: var(--accent); --brick-edge: var(--accent-deep);
