@@ -107,3 +107,13 @@ with a missing reference still fails closed. The regression includes a full
 page of placeholders followed by a real next-page item. It fails before the
 repair and passes after it. Typecheck, five transport tests and 50 art tests
 pass. No approval or launch exists for the failed preparations.
+
+The corrected browser preparation starts at 2026-10-15 04:19:24 UTC:
+`study-20261015-133d971aa3e7`, source
+`6dc87838af63e2971574831719f96738ce6eacdc`, bundle
+`25e314f88b61d872def5d6e3c48b89600f5da082637494189039491abea2c15c`.
+It uses the same saved study, plan and eight-game limit. The main queue holds
+the owner's renewed instruction to approve and finish this test. The browser
+shows preparation in progress; no approval or dispatch occurs yet. The next
+bounded preparation check is 21:37 Pacific. Preserve all prior failed records.
+No subagents are used for this live proof.
