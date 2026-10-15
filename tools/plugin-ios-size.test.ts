@@ -15,7 +15,7 @@ beforeAll(async () => {
   harness = await startHarness({ boardPath: join(folder, 'board.html') }); browser = await chromium.launch({ headless: true });
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
-it('sizes the seat and the board from their screens, with no viewport units', async () => {
+it('sizes the seat and the board from their screens, with no viewport units and the short-phone rows', async () => {
   const page = await browser.newPage({ viewport: { width: 393, height: 760 }, hasTouch: true }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000);
   try {
@@ -31,7 +31,8 @@ it('sizes the seat and the board from their screens, with no viewport units', as
       } };
       for (const sheet of document.styleSheets) stale(sheet.cssRules);
     });
-    // The table fills its screen, and the board is as large as its row allows (on a 393 × 760 page about 265 px).
+    // The table fills its screen, and the board is as large as its row allows. The screen is under 640 px tall in a
+    // 760 px window, so the short-phone rows apply and the board is about 313 px (265 px with the full rows).
     const fill = () => frame.locator('html').evaluate(() => {
       const table = [...document.querySelectorAll<HTMLElement>('#game-table, [data-seat-id="game-table"]')].find(e => e.offsetParent)!, rect = (e: Element) => e.getBoundingClientRect();
       const canvas = table.querySelector('canvas')!, board = rect(table.querySelector('#board')!), screen = rect(table.parentElement!);
@@ -39,8 +40,8 @@ it('sizes the seat and the board from their screens, with no viewport units', as
     });
     await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
-    await expect.poll(fill).toBeGreaterThan(0.6);
+    await expect.poll(fill).toBeGreaterThan(0.75);
     await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
-    await expect.poll(fill).toBeGreaterThan(0.6);
+    await expect.poll(fill).toBeGreaterThan(0.75);
   } finally { await page.close(); }
 });

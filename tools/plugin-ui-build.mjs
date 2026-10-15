@@ -12,6 +12,11 @@ shared.walkRules(rule => {
   if (selectors.length) rule.selectors = selectors; else rule.remove();
 });
 shared.walkAtRules(rule => { if (rule.nodes?.every(node => node.type === 'comment')) rule.remove(); });
+// On the website the table is the window's height. In the plugin it is shorter (the page head, the composer room), so
+// the short-phone table rows read the height of the table's screen (app.css names it table-screen), not the window's.
+shared.walkAtRules('media', rule => {
+  if (/max-height: 640px/.test(rule.params) && rule.some(node => node.type === 'rule' && node.selector === '#game-table')) Object.assign(rule, { name: 'container', params: `table-screen ${rule.params}` });
+});
 const gameStyle = shared.toString().replaceAll("'/fonts/", "'../../public/fonts/").replaceAll("'/ui/", "'../../public/ui/");
 // The art leaves the page: hashed files under plugin-art/, loaded by absolute URL. The board scene asks for each
 // image in CORS mode (crossOrigin 'anonymous'), so its getImageData works on art from the plugin origin.
