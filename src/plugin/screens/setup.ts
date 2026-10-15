@@ -20,7 +20,7 @@ const pieceLines = { A: 'Shoots without moving.', L: 'Jumps over its own pieces.
 const kingRules = powersRules({ ...DEFAULT_RULES, ...POWERS_BALANCED });
 const faces: readonly CardName[] = ['Freeze','IceWall','Sacrifice','March','Leap','Salvation','Mimic','Vault','SkyLift'];
 const mounted = (window as Window & { openai?: WidgetHost }).openai?.widgetState?.privateContent;
-const mountedSetup = mounted?.screen === 'setup', restored = mounted?.pending;
+const restored = mounted?.pending;
 let draft: SetupState | undefined, starting = false, recovering = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
 const restoredSetup = () => !restoreHandled && restored?.screen === 'setup' && !!memory.settings?.last_setup && (restored.name === 'kingdown_choose' || !!restored.args.options);
 const ownPending = () => ownCommand || restoredSetup();
@@ -166,7 +166,7 @@ export function setupScreen() {
   if (!memory.settings) return;
   if (!draft) {
     draft = readSetup(memory.settings.last_setup);
-    draft.kind = client.state.pending?.name === 'kingdown_find' ? 'random' : client.state.pending?.args.kind as SetupState['kind'] ?? (mountedSetup ? draft.kind : memory.kind);
+    draft.kind = client.state.pending?.name === 'kingdown_find' ? 'random' : client.state.pending?.args.kind as SetupState['kind'] ?? draft.kind;
     memory.kind = draft.kind;
   } else draft.kind = memory.kind;
   if (!$('setup-body').childElementCount) build();
