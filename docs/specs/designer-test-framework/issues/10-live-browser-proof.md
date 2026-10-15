@@ -661,3 +661,25 @@ in the rejection cause state folder. The next local check is 15:12 UTC.
 The first worker read waits until one hour after acceptance. No accepted
 notebook receipt is claimed at this checkpoint. Full result linking still
 requires all eight games, replay validation and new verified backup.
+
+## Notebook preflight stops before submission
+
+The bounded 15:14 UTC check finds `preflight-failed`, zero submission
+attempts and no accepted receipt. The notebook attempt marker and kernel
+metadata are absent. The process ends at 15:05:51 UTC, before submission.
+Its saved RuntimeError does not retain the exact cause. The 901-second
+elapsed time is consistent with the account audit limit; that cause is not
+proved. Do not repeat the process or claim a running notebook.
+
+The private version-1 dataset and its four verified files remain valid.
+No new games are available. The saved study stays at version 3 with its
+incomplete four-of-eight link. There is no full export to link.
+
+`recovery-kaggle-4/final-preflight-evidence/report.json` records the blocker
+and copies the diagnostic proof without changing the original records.
+One new evidence backup starts with PID 70307. Its state folder is
+`state/study-backups/framework-machine-work-20261015-preflight-final` on
+the card. It uses the main results-store tool, then verifies downloaded
+cloud bytes. The existing backups stay intact. Do not repeat the upload.
+The next local backup check is 15:50 UTC. Preserve its live lock. Complete
+the final backup evidence and tracker update before removing the heartbeat.
