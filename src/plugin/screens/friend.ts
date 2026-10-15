@@ -6,6 +6,7 @@ import { ICONS, type Icon } from '../../account/profile';
 import type { Options } from '../../match/setup';
 import type { View } from '../../match/protocol';
 import './lobby.css';
+import { errorText } from '../client';
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 export const icon = (name: string) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 export const featureNames = [['fairy', 'fairy', 'Fairy pieces'], ['arrangement', 'arrange', 'Arrangement'], ['classic', 'classic', 'Classic chess'], ['cards', 'cards', 'Cards'], ['kingPowers', 'powers', 'King powers']] as const;
@@ -31,7 +32,7 @@ export function row(title: string, lead: HTMLElement | string, line: (string | N
 export function toolError(code: string, fallback: string) {
   return ({ INVITE_UNAVAILABLE: /expired|used/i.test(fallback) ? 'This code has expired or was used. Ask your friend for a new code.' : 'No game has this code. Check the code with your friend.', NOT_FOUND: 'No game has this code. Check the code with your friend.', FORBIDDEN: 'You cannot join this game.', INVALID_INPUT: 'Check the code: 6 letters and digits.', RATE_LIMITED: 'Too many code tries. Wait one hour.' } as Record<string, string>)[code] ?? fallback;
 }
-export function showError(error: unknown, target = $('error')) { target.textContent = error instanceof Error ? error.message : String(error); }
+export function showError(error: unknown, target = $('error')) { target.textContent = errorText(error); }
 const codes = new Map<string, { code: string; expires_at: string }>();
 const attempted = new Set<string>();
 let making = false;

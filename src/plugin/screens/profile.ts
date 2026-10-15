@@ -6,6 +6,7 @@ import { BADGES, type Badge } from '../../match/badges';
 import { ICONS, type Icon } from '../../account/profile';
 import type { HistoryEntry, InboxEntry, PlayerRecord } from '../../match/protocol';
 import './profile.css';
+import { errorText } from '../client';
 type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; history: HistoryEntry[]; next_before: string | null };
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 let request = 0;
@@ -44,7 +45,7 @@ async function readProfile(cursor?: string) {
     before = profile.next_before; $('profile-more').hidden = before === null;
     renderBadges(record);
     $('profile-status').textContent = '';
-  } catch (error) { if (reading === request && client.state.screen === 'profile') $('profile-status').textContent = String(error); }
+  } catch (error) { if (reading === request && client.state.screen === 'profile') $('profile-status').textContent = errorText(error); }
   finally { if (reading === request) $('profile-more').removeAttribute('disabled'); }
 }
 function renderBadges(record: PlayerRecord) {

@@ -3,7 +3,7 @@ import type { PlayerSettings } from './settings';
 import { setRules } from '../rules/engine';
 import { gamesList } from './games-list';
 import type { InboxEntry, JoinPreview, View } from '../match/protocol';
-import { CANNOT_CONNECT, createClient, type WidgetHost, type Screen, type Pending } from './client';
+import { CANNOT_CONNECT, createClient, errorText, type WidgetHost, type Screen, type Pending } from './client';
 import { art } from './art';
 import { handleProblem, ICONS, type Icon } from '../account/profile';
 import { boardScreen, rollbackBoardMove } from './screens/board';
@@ -205,7 +205,7 @@ async function mountResult(result: ToolResult, initial: boolean) {
     else if (!result._meta?.view) view = undefined;
     if (!readBoard) await games();
     saveState();
-  } catch (error) { $('error').textContent = $('home-error').textContent = String(error); }
+  } catch (error) { $('error').textContent = $('home-error').textContent = errorText(error); }
   finally {
     mountReading = false;
     // A command that was in flight when the host remounted the widget has no reply here; Retry reads, then resends its ID.
@@ -231,7 +231,7 @@ const connection = app.connect().then(() => {
     // kingdown_get is read-only; this write lets the opponent see the player online.
     if (view && Date.now() - seenAt >= 30_000) { seenAt = Date.now(); void client.call('kingdown_seen', { game_id: view.game_id }).catch(() => {}); }
   });
-}).catch(error => { $('error').textContent = $('home-error').textContent = `Could not connect to the game: ${String(error)}`; });
+}).catch(error => { $('error').textContent = $('home-error').textContent = `Could not connect to the game: ${errorText(error)}`; });
 
 // Ticket 21: the ChatGPT iOS app showed a 45 px board that no test browser shows. Settings shows the sizes of the last
 // seat or board screen, so a screenshot from the device names the cause. Remove when ticket 21 closes.
@@ -265,7 +265,7 @@ async function fullscreen(screen: Screen) {
     displayMode = 'fullscreen';
     const next = target; unqueue();
     if (next && !collapsed) navigate(next); else client.save();
-  } catch (error) { unqueue(); client.save(); if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = String(error); }
+  } catch (error) { unqueue(); client.save(); if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = errorText(error); }
   finally { asking = false; }
 }
 /** Opens the Play screen at the Your games list. */
@@ -316,7 +316,7 @@ async function games() {
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     const entries = (result._meta as { games?: InboxEntry[] } | undefined)?.games ?? [];
     renderGames(entries);
-  } catch (error) { $('games-status').textContent = String(error); }
+  } catch (error) { $('games-status').textContent = errorText(error); }
 }
 let picture: Icon = 'spirit';
 document.querySelectorAll<HTMLImageElement>('[data-art]').forEach(img => { img.src = art(img.dataset.art!); });
@@ -344,7 +344,7 @@ function scheduleHandleCheck() {
       if (check !== handleCheck) return;
       if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       $('handle-free').hidden = (result.structuredContent as { available?: boolean } | undefined)?.available !== true;
-    } catch (error) { if (check === handleCheck) $('handle-check-error').textContent = String(error); }
+    } catch (error) { if (check === handleCheck) $('handle-check-error').textContent = errorText(error); }
   }, 250);
 }
 $('handle-form').onsubmit = event => {
@@ -374,7 +374,7 @@ for (const [id, key] of [['symbols-only', 'symbols_only'], ['show-threats', 'sho
       const result = await client.call('kingdown_settings', { [key]: $<HTMLInputElement>(id).checked });
       if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(result);
-    } catch (error) { $('error').textContent = String(error); }
+    } catch (error) { $('error').textContent = errorText(error); }
     await applySettings();
   };
 }

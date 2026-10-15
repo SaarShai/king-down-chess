@@ -7,6 +7,8 @@ export type BoardSettings = { symbols_only: boolean; show_threats: boolean };
 export type PageState = { screen: Screen; settings_back?: Screen; queued?: Screen; sheet?: string; board_id?: string; pending?: Pending };
 // Words wait for the owner's approval; every failed connection and time-out shows this one sentence.
 export const CANNOT_CONNECT = 'Cannot connect. Check your connection, then try again.';
+// An Error shows its message only; String(error) would add its name ("Error: …").
+export const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
 export type WidgetHost = { widgetState?: { privateContent?: Partial<PageState> }; setWidgetState?: (state: unknown) => void };
 
 export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost) {
@@ -24,7 +26,7 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
     // Mount reads pass limit: false and keep the SDK's own limit; a slow first load is not a failed command.
     try { result = await app.callServerTool({ name, arguments: sent }, options.limit === false ? undefined : { timeout: 10_000 }); }
     catch (error) {
-      if (!/failed to fetch|networkerror|load failed|network request failed|timed out/i.test(error instanceof Error ? error.message : String(error))) throw error;
+      if (!/failed to fetch|networkerror|load failed|network request failed|timed out/i.test(errorText(error))) throw error;
       console.error('King Down connection failed', error);
       throw new Error(CANNOT_CONNECT, { cause: error });
     }

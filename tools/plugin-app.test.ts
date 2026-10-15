@@ -780,6 +780,20 @@ it('drops the wait line when a slow start times out', async () => {
   } finally { await page.close(); }
 });
 
+it('shows the connection sentence with no error name on Settings', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page); await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('settings'); });
+    await page.clock.install();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_settings'; });
+    await frame.locator('#symbols-only').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await page.clock.fastForward(10_001);
+    await expect.poll(() => frame.locator('#error').textContent()).toBe('Cannot connect. Check your connection, then try again.');
+    await page.evaluate(() => (window as any).releaseHeld());
+  } finally { await page.close(); }
+});
+
 it('lets the mount reads wait past 10 seconds', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
