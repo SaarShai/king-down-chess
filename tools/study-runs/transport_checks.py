@@ -92,7 +92,10 @@ with tempfile.TemporaryDirectory() as temp, patch('time.sleep'):
     class DatasetAPI(API):
         config_values={'username':'test'}
         def with_retry(self,call,*args,**kwargs):raise AssertionError('mutation retry wrapper used')
+        def _upload_file_or_folder(self,parent,name,*args,**kw):return name
         def dataset_create_new(self,folder,**kw):
+            files={self._upload_file_or_folder(folder,p.name) for p in Path(folder).iterdir() if p.name!='dataset-metadata.json'}
+            assert files - {None} == {'source.bin','bundle.bin','supervisor.bin','config.bin'}
             calls.append('create');assert kw==dict(public=False,quiet=True,convert_to_csv=False)
             assert json.loads((Path(folder)/'dataset-metadata.json').read_text())['licenses']==[{'name':'copyright-authors'}]
             return self.with_retry(lambda:NS(error=None,ref='test/frozen-run'))()
@@ -101,7 +104,17 @@ with tempfile.TemporaryDirectory() as temp, patch('time.sleep'):
             calls.append('push');meta=json.loads((Path(folder)/'kernel-metadata.json').read_text())
             assert meta['is_private'] and meta['dataset_sources']==['test/frozen-run']
             return NS(error=None,ref='test/frozen-run')
+    for name in ('source.bin','bundle.bin','supervisor.bin','config.bin','dataset-metadata.json'):
+        (data/('._'+name)).write_bytes(b'mac metadata')
     api=DatasetAPI(0);request=dict(action='launch',folder=str(root),name='frozen-run')
+    for name in ('unexpected.bin','._unexpected.bin'):
+        (data/name).write_bytes(b'unknown')
+        with patch.object(kaggle,'audit') as audit:
+            fails(lambda:kaggle.execute(api,request));audit.assert_not_called()
+        (data/name).unlink()
+    (data/'._source.bin').unlink();(data/'._source.bin').symlink_to(data/'source.bin')
+    fails(lambda:kaggle.execute(api,request));(data/'._source.bin').unlink()
+    (data/'._source.bin').write_bytes(b'mac metadata')
     assert kaggle.execute(api,request)['remoteId']=='test/frozen-run' and calls==['create','push']
     (data/'dataset-metadata.json').unlink();calls.clear()
     def uncertain_create(*args,**kw):

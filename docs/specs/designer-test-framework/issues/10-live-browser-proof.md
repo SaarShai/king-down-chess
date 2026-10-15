@@ -357,3 +357,24 @@ upload and test AppleDouble sidecars without admitting other unexpected files.
 The verified partial backup and browser study version 3 still hold the four
 M1 games as incomplete. The recovery follow-up is removed because this is a
 confirmed local blocker, not a running job. No full-result link is claimed.
+
+## Metadata repair and idle-machine work
+
+The owner asks on 2026-10-15: “what's next? in the meantime - give m1 and
+kaggle productive work to do, if they are idle”. M1 identity matches all four
+facts, uses mains power, and has no listed run, test, art or model process or
+active study lock. Plan: fix the common Kaggle upload boundary, run the
+transport regression and negative controls, then send the frozen branch to
+M1 for its test suite. Use Kaggle only for the four original missing jobs
+after its bounded account audit confirms capacity. Keep prior failed attempts.
+Require exact payload bytes, exclude only matching AppleDouble sidecars from
+the SDK upload enumeration, reject unknown files and symlinks, and make no
+second submission on an uncertain outcome. Keep original execution source and
+schedule. Check worker completion only at its recorded expected time.
+
+The metadata repair checks the payload before the account audit. Only the
+four required file names and their exact sidecar names are accepted. The SDK
+upload callback excludes those sidecars; unknown names, directories and
+symlinks fail. The SDK method and no-retry wrapper are restored after success
+or failure. Six transport tests, typecheck, 50 art checks and doc checks pass.
+The source archive, game bundle and supervisor do not change.

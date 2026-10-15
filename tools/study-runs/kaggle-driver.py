@@ -62,25 +62,39 @@ def execute(api, request):
     action = request['action']
     user = api.config_values['username']
     ref = user+'/'+request['name']
-    if action == 'launch' and (Path(request['folder'])/'run.py').stat().st_size >= 1_000_000:
-        raise RuntimeError('notebook source size limit')
+    if action == 'launch':
+        folder = Path(request['folder'])
+        if (folder/'run.py').stat().st_size >= 1_000_000: raise RuntimeError('notebook source size limit')
+        payload = folder/'payload'
+        names = {'source.bin','bundle.bin','supervisor.bin','config.bin'}
+        sidecars = {'._'+name for name in names | {'dataset-metadata.json'}}
+        files = list(payload.iterdir())
+        present = {p.name for p in files}
+        if not names <= present or not present <= names | sidecars or any(p.is_symlink() or not p.is_file() or p.stat().st_size > 64*1024*1024 for p in files):
+            raise RuntimeError('invalid dataset payload')
     if action in ('preflight','launch'):
         if audit(api)>=5: raise RuntimeError('no account capacity')
     if action == 'preflight': return {'remoteId':ref}
     if action == 'launch':
-        folder = Path(request['folder'])
-        payload = folder/'payload'
-        names = {'source.bin','bundle.bin','supervisor.bin','config.bin'}
-        files = list(payload.iterdir())
-        if {p.name for p in files} != names or any(p.is_symlink() or not p.is_file() or p.stat().st_size > 64*1024*1024 for p in files):
-            raise RuntimeError('invalid dataset payload')
         (payload/'dataset-metadata.json').write_text(json.dumps(dict(id=ref,title=request['name'],licenses=[{'name':'copyright-authors'}],description='Private frozen run input. Existing author rights are retained.')))
         # The SDK retries dataset creation by default. Do not repeat a mutation.
         retry = api.with_retry
+        upload = api._upload_file_or_folder
+        def upload_payload(parent, name, *args, **kwargs):
+            path = Path(parent)/name
+            if Path(parent) != payload or path.is_symlink() or not path.is_file() or path.stat().st_size > 64*1024*1024:
+                raise RuntimeError('invalid dataset payload')
+            if name in sidecars: return None
+            if name not in names: raise RuntimeError('invalid dataset payload')
+            return upload(parent, name, *args, **kwargs)
+        # The SDK enumerates hidden files too; upload only the frozen payload.
+        api._upload_file_or_folder = upload_payload
         api.with_retry = lambda call, *args, **kwargs: call
         try:
             created = api.dataset_create_new(str(payload), public=False, quiet=True, convert_to_csv=False)
-        finally: api.with_retry = retry
+        finally:
+            api.with_retry = retry
+            api._upload_file_or_folder = upload
         if created.error or created.ref != ref: raise RuntimeError('dataset creation not confirmed')
         (folder/'dataset-receipt.json').write_text(json.dumps({'ref':ref,'state':'created'}))
         for attempt in range(6):
