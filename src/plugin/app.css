@@ -182,6 +182,7 @@ body[data-touch='true'] button { min-height: var(--tap); }
 @container table-screen (max-height: 520px) {
   #game-table { --context-height: 44px; grid-template-rows: 44px minmax(0, 1fr) 44px minmax(44px, max-content) 44px 0 44px; }
   #game-table #context-line { min-height: 44px; padding-block: 0; flex-wrap: nowrap; }
+  #game-table #moves-line { height: 44px; min-height: 44px; }
   #game-table #table-bar { padding-block: 0; }
   #game-table #table-bar > button { min-height: 44px; flex-direction: row; }
 }
@@ -204,8 +205,13 @@ body[data-touch='true'] #game-table .coin, body[data-touch='true'] #game-table .
 body[data-touch='true'] button { position: relative; }
 body[data-touch='true'] button::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
 body[data-touch='true'] #game-table .coin.card-coin { overflow: visible; }
+/* A hit layer extends up; each control keeps its own lower edge against the control below. */
+body[data-touch='true'] button#moves-line { z-index: 1; }
+body[data-touch='true'] #context-actions button { z-index: 2; }
 @media (pointer: coarse) {
   button { position: relative; }
   button::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
   #game-table .coin.card-coin { overflow: visible; }
+  button#moves-line { z-index: 1; }
+  #context-actions button { z-index: 2; }
 }

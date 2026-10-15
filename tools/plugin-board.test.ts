@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
-import { legalMoves, makeMove, RULES, setRules, type Rules } from '../src/rules/engine';
+import { legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import type { View } from '../src/match/protocol';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 
@@ -23,15 +23,24 @@ function view(fen: string, rules: Partial<Rules> = {}, fields: Partial<View> = {
   setRules(rules); const pos = fromFen(fen || '7k/8/8/8/8/8/P7/K7 w - - 0 1');
   return { game_id: crypto.randomUUID(), revision: 0, created_at: '2026-10-15T00:00:00Z', abort_open: false, seat: pos.turn, kind: 'solo', speed: 'daily', days_per_move: 3, status: 'playing', turn: pos.turn, action: 'ready', fen, in_check: false, legal: legalMoves(pos).map(m => toLan(pos, m)), last_commands: [], opponent: { handle: null, icon: null, computer: true, deleted: false, last_seen_ms: null }, draw_offer: null, deadline_at: null, server_now: '2026-10-15T00:00:00Z', rules: structuredClone(RULES), ...fields };
 }
+const insets = (width: number) => ({ top: width === 320 ? 63 : width === 360 ? 80 : 102, bottom: width === 320 ? 84 : width === 360 ? 100 : 118, left: 0, right: 0 });
+// Taps 1 px inside each edge of each visible control (clear of round corners); each must hit that control, not a neighbour's hit layer.
+const edgeMisses = (buttons: Element[]) => buttons.flatMap(button => {
+  const r = button.getBoundingClientRect(), xs = [r.left + r.width / 4, r.left + r.width / 2, r.right - r.width / 4], ys = [r.top + 1, r.bottom - 1];
+  return [...xs.flatMap(x => ys.map(y => [x, y])), [r.left + 1, r.top + r.height / 2], [r.right - 1, r.top + r.height / 2]].flatMap(([x, y]) => {
+    const hit = document.elementFromPoint(x, y)?.closest('button');
+    return !hit || hit === button ? [] : [`${button.id || button.textContent}: ${Math.round(x)},${Math.round(y)} → ${hit.id || hit.textContent}`];
+  });
+});
 async function open(next: View, width = 393, height = 852) {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true });
   page.setDefaultTimeout(3000); await page.goto(harness.url);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
   await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
-  await page.evaluate(async width => {
-    await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top: width === 320 ? 63 : 102, bottom: width === 320 ? 84 : 118, left: 0, right: 0 }, deviceCapabilities: { touch: true } });
-  }, width);
+  await page.evaluate(async safeAreaInsets => {
+    await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets, deviceCapabilities: { touch: true } });
+  }, insets(width));
   await page.frameLocator('iframe').locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
   await page.frameLocator('iframe').locator('html').evaluate('(async () => { window.testBoard = (await import("/src/plugin/board-view.ts")).board; })()');
   return page;
@@ -51,6 +60,19 @@ it.each(['move', 'vault', 'freeze', 'power'] as const)('marks the opponent %s on
   finally { await page.close(); }
 });
 
+it.each([['a stop', 'pass'], ['a second move', 'move']] as const)('marks each opponent Haste step when the turn ends with %s', async (_, end) => {
+  const rules: Partial<Rules> = { kings: [null, { king: 'Flame', power: 'Haste' }] }, fen = '4k3/p7/8/8/8/8/4P3/K7 b - - 0 1';
+  setRules(rules); let pos = fromFen(fen); const lans: string[] = [], squares: number[] = [];
+  for (const pick of [(m: Move) => m.power === 'haste' && m.from === 48 && m.to === 40, (m: Move) => end === 'pass' ? !!m.pass : !m.pass && m.from === 40 && m.to === 32]) {
+    const move = legalMoves(pos).find(pick)!; expect(move).toBeDefined();
+    lans.push(toLan(pos, move)); if (!move.pass) squares.push(move.from, move.to); pos = makeMove(pos, move);
+  }
+  expect(pos.turn).toBe(0);
+  const page = await open(view(toFen(pos), rules, { revision: 2, seat: 0, history: { initial_fen: fen, actions: lans } }));
+  try { expect((await marks(page)).last).toEqual([...new Set(squares)]); }
+  finally { await page.close(); }
+});
+
 it('marks the pieces that can use Vault with the power target mark', async () => {
   const rules: Partial<Rules> = { hands: [['Vault'], []] }, next = view('7k/8/8/8/8/8/P7/R6K w - - 0 1', rules);
   const page = await open(next), frame = page.frameLocator('iframe');
@@ -66,6 +88,14 @@ it('names the card owner, feature icons and the computer once', async () => {
   try {
     expect.soft(await frame.locator('#card-w-0').getAttribute('aria-label')).toBe('Your Freeze');
     expect.soft(await frame.locator('#card-b-0').getAttribute('aria-label')).toBe("Opponent's Freeze");
+  } finally { await page.close(); }
+});
+
+it('names the power coin owner when both kings have the same power', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'Freeze' }] })), frame = page.frameLocator('iframe');
+  try {
+    expect.soft(await frame.locator('#power-w').getAttribute('aria-label')).toMatch(/^Your Freeze, /);
+    expect.soft(await frame.locator('#power-b').getAttribute('aria-label')).toMatch(/^Opponent's Freeze, /);
     expect.soft((await frame.locator('#strip-them').innerText()).match(/Computer/g)).toHaveLength(1);
     const names = await frame.locator('html').evaluate('(async () => { const { features } = await import("/src/plugin/screens/friend.ts"); return [...features({ fairy: true, arrangement: true, cards: true, kingPowers: true }).children].map(e => [e.getAttribute("role"), e.getAttribute("aria-label")]); })()');
     expect.soft(names).toEqual(['Fairy pieces', 'Arrangement', 'Cards', 'King powers'].map(name => ['img', name]));
@@ -80,22 +110,28 @@ it.each([[true, 393, 852], [true, 320, 568], [false, 393, 852]] as const)('uses 
   finally { await page.close(); }
 });
 
-it.each([{ width: 393, height: 852, cards: true }, { width: 320, height: 568, cards: true }, { width: 393, height: 852, cards: false }, { width: 320, height: 568, cards: false }])('keeps 48 px control targets, art and rows at $width × $height with cards=$cards', async ({ width, height, cards }) => {
+it.each([{ width: 393, height: 852, cards: true }, { width: 320, height: 568, cards: true }, { width: 360, height: 740, cards: true }, { width: 393, height: 852, cards: false }, { width: 320, height: 568, cards: false }, { width: 360, height: 740, cards: false }])('keeps 48 px control targets, art and rows at $width × $height with cards=$cards', async ({ width, height, cards }) => {
   const rules: Partial<Rules> = cards ? { hands: [['Freeze', 'Vault', 'March', 'IceWall'], ['Freeze']] } : { kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Flame', power: 'Haste' }] };
-  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', rules), width, height), frame = page.frameLocator('iframe');
+  const page = await open(view(cards ? '7k/8/8/8/8/8/P7/R6K w - - 0 1' : '7k/8/8/8/8/8/P7/K7 w - - 0 1', rules), width, height), frame = page.frameLocator('iframe');
   try {
     expect(await frame.locator('html').evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
     const targets = await frame.locator('#game-table button:visible').evaluateAll(buttons => buttons.map(button => {
       const r = button.getBoundingClientRect(), style = getComputedStyle(button, '::after'), active = style.content !== 'none' && style.content !== 'normal';
-      return { id: button.id, width: Math.max(r.width, active ? parseFloat(style.width) : 0), height: Math.max(r.height, active ? parseFloat(style.height) : 0) };
+      return { id: button.id, width: Math.max(r.width, active ? parseFloat(style.width) || 0 : 0), height: Math.max(r.height, active ? parseFloat(style.height) || 0 : 0) };
     }));
     expect(targets.filter(t => t.width < 48 || t.height < 48)).toEqual([]);
     const missed = await frame.locator('#game-table button:visible').evaluateAll(buttons => buttons.flatMap(button => {
       const r = button.getBoundingClientRect(), s = getComputedStyle(button, '::after'), m = new DOMMatrix(s.transform);
       const x = r.x + button.clientLeft + parseFloat(s.left) + m.e + parseFloat(s.width) / 2, y = r.y + button.clientTop + parseFloat(s.top) + m.f + parseFloat(s.height) / 2;
-      return [-23, 23].flatMap(dx => [-23, 23].flatMap(dy => document.elementFromPoint(x + dx, y + dy)?.closest('button') === button ? [] : [`${button.id}: ${dx},${dy}`]));
+      return [-23, 23].flatMap(dx => [-23, 23].flatMap(dy => { const hit = document.elementFromPoint(x + dx, y + dy)?.closest('button'), box = hit?.getBoundingClientRect(); return hit === button || box && x + dx >= box.left && x + dx < box.right && y + dy >= box.top && y + dy < box.bottom ? [] : [`${button.id}: ${dx},${dy} → ${hit?.id}`]; }));
     }));
     expect(missed).toEqual([]);
+    expect(await frame.locator('#game-table button:visible').evaluateAll(edgeMisses)).toEqual([]);
+    if (cards) {
+      await frame.locator('#card-w-1').click(); await frame.getByRole('button', { name: 'Use', exact: true }).click();
+      await frame.getByRole('button', { name: 'Cancel', exact: true }).waitFor();
+      expect(await frame.locator('#game-table button:visible').evaluateAll(edgeMisses)).toEqual([]);
+    }
     expect.soft(await frame.locator('#strip-me .coin img').first().evaluate(e => [e.getBoundingClientRect().width, e.getBoundingClientRect().height])).toEqual(cards ? [26, 26] : [30, 30]);
     expect(await frame.locator('#strip-me').evaluate(e => e.getBoundingClientRect().height)).toBe(width === 320 ? 44 : 56);
   } finally { await page.close(); }
@@ -105,9 +141,11 @@ it.each(['normal', 'fast'])('uses a slide, a 150 ms fade and no shake under redu
   const page = await open(view('7k/8/8/8/8/8/p7/R6K w - - 0 1')), frame = page.frameLocator('iframe');
   try {
     await frame.locator('#board[aria-busy="false"]').waitFor();
-    await frame.locator('html').evaluate(() => { const query = (window as any).testBoard.motionQuery; (window as any).motionChanged = query.matches ? Promise.resolve() : new Promise(resolve => query.addEventListener('change', resolve, { once: true })); });
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await frame.locator('html').evaluate(() => (window as any).motionChanged);
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).testBoard.motionQuery.matches)).toBe(true);
+    await frame.locator('html').evaluate((_, pace) => (window as any).testBoard.setPace(pace), pace);
+    // A frame requested before the fake clock runs on real time; wait until the scene draws no more frames.
+    await expect.poll(() => frame.locator('html').evaluate(async () => { const scene = (window as any).testBoard.scene, before = scene.frames; await new Promise(resolve => setTimeout(resolve, 100)); return scene.frames === before; })).toBe(true);
     await page.clock.install({ time: new Date('2026-10-15T12:00:00Z') }); await page.clock.pauseAt(new Date('2026-10-15T12:00:01Z'));
     const result = await frame.locator('html').evaluate(async () => {
       const board = (window as any).testBoard, scene = board.scene, pre = board.pos;
@@ -178,13 +216,13 @@ it('draws no fallback board before the stone loads', async () => {
   } finally { release(); await page.close(); }
 });
 
-it.each([[393, 852], [320, 568]])('serves 48 px targets on Seat and Board at %i × %i', async (width, height) => {
+it.each([[393, 852], [360, 740], [320, 568]])('serves 48 px targets on Seat and Board at %i × %i', async (width, height) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe'); page.setDefaultTimeout(2000);
   try {
     await page.goto(served.url); await frame.locator('#home-play:not(:disabled)').waitFor();
     await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
     await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
-    await page.evaluate(async ({ width }) => (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top: width === 320 ? 63 : 102, bottom: width === 320 ? 84 : 118, left: 0, right: 0 }, deviceCapabilities: { touch: true } }), { width });
+    await page.evaluate(async safeAreaInsets => (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets, deviceCapabilities: { touch: true } }), insets(width));
     for (const cards of [false, true]) {
       await page.evaluate(async options => {
         const result = await (await fetch('/fixture-tool', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'kingdown_create', arguments: { kind: 'solo', colour: 'white', options } }) })).json();
@@ -198,11 +236,12 @@ it.each([[393, 852], [320, 568]])('serves 48 px targets on Seat and Board at %i 
         await frame.locator(`${coin}:visible`).waitFor();
         const missed = await frame.locator(`[data-screen="${screen}"] button:visible`).evaluateAll(buttons => buttons.flatMap(button => {
           const r = button.getBoundingClientRect(), s = getComputedStyle(button, '::after'), m = new DOMMatrix(s.transform);
-          if (Math.max(r.width, parseFloat(s.width)) < 48 || Math.max(r.height, parseFloat(s.height)) < 48) return [button.id + ': size'];
+          if (Math.max(r.width, parseFloat(s.width) || 0) < 48 || Math.max(r.height, parseFloat(s.height) || 0) < 48) return [button.id + ': size'];
           const x = r.x + button.clientLeft + parseFloat(s.left) + m.e + parseFloat(s.width) / 2, y = r.y + button.clientTop + parseFloat(s.top) + m.f + parseFloat(s.height) / 2;
-          return [-23, 23].flatMap(dx => [-23, 23].flatMap(dy => document.elementFromPoint(x + dx, y + dy)?.closest('button') === button ? [] : [`${button.id}: ${dx},${dy}`]));
+          return [-23, 23].flatMap(dx => [-23, 23].flatMap(dy => { const hit = document.elementFromPoint(x + dx, y + dy)?.closest('button'), box = hit?.getBoundingClientRect(); return hit === button || box && x + dx >= box.left && x + dx < box.right && y + dy >= box.top && y + dy < box.bottom ? [] : [`${button.id}: ${dx},${dy} → ${hit?.id}`]; }));
         }));
         expect(missed).toEqual([]);
+        expect(await frame.locator(`[data-screen="${screen}"] button:visible`).evaluateAll(edgeMisses)).toEqual([]);
         expect(await frame.locator(`${coin} img`).evaluate(e => [e.getBoundingClientRect().width, e.getBoundingClientRect().height])).toEqual(cards ? [26, 26] : [30, 30]);
       }
     }

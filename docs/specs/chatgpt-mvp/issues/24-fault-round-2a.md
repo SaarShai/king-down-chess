@@ -46,3 +46,24 @@ The phone copies use 393 × 852 with insets 102/118 and 320 × 568 with insets 6
 The full suite runs later on the M1. I do not check native ChatGPT, physical Android or iPhone devices, VoiceOver, TalkBack, WebKit, a database or the website page. The browser checks use Chromium with touch and coarse-pointer emulation. No public site, push, merge or deploy occurs.
 
 The commit hook normally reads the owner's credential files. The owner's no-read rule prevents that check here. The gate uses an empty folder and `/dev/null` through its two source overrides. Its type, path and size checks still run. The value scan does not run.
+
+## Review fixes
+
+A second reader reviews commit `9bf584d9`. The fixes are on `claude/fault-round-2`, after `539a74c4`. Each fix has a test that fails on the old code.
+
+| Finding | Files | Fix |
+| --- | --- | --- |
+| Should-fix 1 (F9): at 320 and 360 wide, a hit layer covers the control above it. With a card armed at 320, a tap on the lower edge of Cancel opens Menu. At 360, a tap on the lower edge of the Moves line opens Resign or Menu. | `app.css`, `plugin-board.test.ts` | Under touch, the Moves line button is above the table bar (`z-index: 1`), and the context buttons are above the Moves line (`z-index: 2`). The rule names `button#moves-line`, because the build maps `#moves-line` to a Seat `div` too. At 360 the Moves line was 48 px in a 44 px row, so its box went 4 px into the bar. In the short-table layout it is now 44 px, the same as its row. The tests add 360 × 740 (insets 80/100). A new edge check taps 1 px inside each edge of each visible control, with a card armed and not armed, in the source page and the served build. Each tap must hit that control. The 48 px corner check accepts a point that is in the visible box of a neighbour control. |
+| Should-fix 2 (F1): no last-move mark when the opponent's turn ends with a pass. | `screens/board.ts`, `plugin-board.test.ts` | The marks come from all steps of the last turn (the same side to move), not only the last step. A pass step adds no square. Haste then stop marks a7 and a6 (it marked nothing). Two Haste moves mark a7, a6 and a5 (a7 had no mark). |
+| Should-fix 3: the fast-pace reduced-motion test is flaky. | `plugin-board.test.ts` | The test polls `motionQuery.matches`, then calls `setPace`, which applies reduced motion to the scene. A second cause also makes the test flaky: a frame that the scene requests before `clock.install` runs on real time, so the fade starts at a random time. The test now waits until the scene draws no frame for 100 ms before it installs the clock. |
+| Note 4 (F8): power coins do not name the owner. | `screens/board.ts`, `plugin-board.test.ts` | The power coin label starts with "Your" or "Opponent's", as the card coins do: "Your Freeze, 2 left" and "Opponent's Freeze, 2 left". |
+| Note 6: the served 48 px check passes when the width is `NaN`. | `plugin-board.test.ts` | Both size checks use `parseFloat(...) \|\| 0`, so `NaN` counts as 0 and fails. |
+
+Note 5 (the website hit sound comes after the slide under reduced motion) stays as it is.
+
+### Review fix checks
+
+- Red: on the old code, the new tests fail. The two Haste tests give `[]` and `[40, 32]`. The power label test fails. With the old `app.css`, the 48 px tests fail at 320 (cards, armed: Cancel → `board-menu`) and at 360 (Moves line → `resign`, `board-menu`).
+- `npx vitest run tools/plugin-board.test.ts src/plugin/screens/board-model.test.ts`: 33 pass. No time limit changes.
+- The reduced-motion tests pass in 6 of 6 runs, after the final change (and 6 of 6 in an earlier run with the same wait).
+- `npm run typecheck` passes.
