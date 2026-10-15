@@ -378,3 +378,21 @@ upload callback excludes those sidecars; unknown names, directories and
 symlinks fail. The SDK method and no-retry wrapper are restored after success
 or failure. Six transport tests, typecheck, 50 art checks and doc checks pass.
 The source archive, game bundle and supervisor do not change.
+
+Repair commit `0215cca3` starts productive work after the idle checks. M1 runs
+`npm test` and `npm run build` in its own checkout at that commit, using the
+existing Node 26 runtime and its own dependency install. Source transfer uses a
+verified Git bundle. PID 11243 has a one-hour limit and releases only its own
+study lock. First bounded check: 11:10 UTC. Its local dispatch record is in
+`results/framework-check-m1-20261015/dispatch.json`; remote output is under
+`/Users/new/projects/kd-framework-check-20261015/sim/out`. No extra simulation
+games are assigned to M1.
+
+Kaggle recovery attempt 2 starts at 10:47:10 UTC with local supervisor 27979.
+Its launch audit checks account capacity before upload. State is preserved in
+`recovery-kaggle-2/recovery-state.json`; log `/tmp/kd-kaggle-recover-2.log`.
+No accepted receipt exists at 10:48:38 UTC. The loader and original four jobs
+are unchanged. The original deadline remains 13:36:38 UTC. The wrapper reserves
+30 minutes for dispatch and records the first worker check one hour after
+acceptance. No worker status query occurs before that check. Any uncertain
+outcome stops further submissions. A bounded follow-up covers both jobs.
