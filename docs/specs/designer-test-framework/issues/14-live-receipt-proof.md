@@ -35,3 +35,14 @@ This is workflow proof. It is not balance evidence or a rule decision.
 The browser saves the new study and plan at version 2. Preview shows two games,
 one pair, depth 1, cap 80 and seed 214315. No games are approved yet. The M1
 baseline first check remains 20:00:34 UTC; do not query it early.
+
+## Saved run checkpoint
+
+Preparation starts at 19:42 UTC for `study-20261015-32dd60188ebc`.
+Study ID: `c8128289-3574-4095-9ae5-b45cb9116270`, version 2.
+Frozen commit: `897e54999e9161bd3ffadbe8c0373bfd901e8a15`.
+Bundle: `0352a496eb585080a34f772386d633edd1b591147e4450b09abe4c4363e7c2d9`.
+The schedule contains only Kaggle jobs 0 and 1. The exact owner quote and
+bundle are in the matching main queue row. Approval remains pending the M1
+check. Local scope is in `state/study-runs/receipt-live-20261015/scope.json`.
+The existing follow-up now owns both validations and this browser proof.
