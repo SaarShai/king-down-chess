@@ -83,7 +83,7 @@ export function createTransports(mainRoot:string, exec:Execute=execute):Record<'
   async function kaggleCall(action:string,i:DispatchInput,extra:Record<string,string>={}) {
     check(i);const env={...process.env,KAGGLE_API_TOKEN:(await readFile(join(mainRoot,'.secrets/kaggle_api_token'),'utf8')).trim()};
     const reply=JSON.parse(await exec('/Users/za/.local/share/uv/tools/kaggle/bin/python',[join(HERE,'kaggle-driver.py')],{input:JSON.stringify({action,name:notebookName(i),...extra}),env,timeout:action==='collect'?180000:(action==='preflight'||action==='launch')?1020000:120000}));
-    if(reply.error)throw new Error('Kaggle operation failed; outcome may be unknown');return reply;
+    if(reply.error)throw new Error(`Kaggle ${action}: ${String(reply.error).slice(0,160)}`);return reply;
   }
   const kaggle:RunTransport={
     async preflight(i){await payload(i);await kaggleCall('preflight',i);},

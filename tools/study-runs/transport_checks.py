@@ -56,6 +56,10 @@ with tempfile.TemporaryDirectory() as tmp:
     (sdk/'api/kaggle_api_extended.py').write_text("class KaggleApi:\n config_values={'username':'test'}\n def authenticate(self): pass\n def kernels_list(self,**kw): return []\n")
     reply=subprocess.run([sys.executable,str(Path(kaggle.__file__))],input=json.dumps({'action':'preflight','name':'fixture'}),text=True,capture_output=True,check=True,timeout=10,env={**os.environ,'PYTHONPATH':str(root/'sdk'),'PYTHONDONTWRITEBYTECODE':'1'})
     assert json.loads(reply.stdout)=={'remoteId':'test/fixture'}
+    (sdk/'api/kaggle_api_extended.py').write_text("class Failure(Exception):\n response=type('Reply',(),{'status_code':403})()\nclass KaggleApi:\n config_values={'username':'test'}\n def authenticate(self): raise Failure('sensitive service body')\n")
+    reply=subprocess.run([sys.executable,str(Path(kaggle.__file__))],input=json.dumps({'action':'preflight','name':'fixture'}),text=True,capture_output=True,check=True,timeout=10,env={**os.environ,'PYTHONPATH':str(root/'sdk'),'PYTHONDONTWRITEBYTECODE':'1'})
+    assert json.loads(reply.stdout)=={'error':'HTTP 403'} and 'sensitive' not in reply.stdout+reply.stderr
+
     backup.ROOT=root;backup.STATE=state
     lock=root/'.maintenance.lock';lock.mkdir()
     with patch.object(backup.subprocess,'run',return_value=NS(stdout=str(root/'results').encode())):

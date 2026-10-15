@@ -78,3 +78,17 @@ for this named run, with browser approval pending.
 Next: read the bounded preparation result. If prepared, approve these eight
 games once through the browser. Then use each recorded next-check time. Finish
 collection, validation, backup and browser linking before marking this task done.
+
+The third preparation fails before approval. Its key remains null and no launch
+receipt exists. The owner asks again to finish the same live proof. A bounded
+read-only audit trace now records status counts and HTTP codes. It starts at
+about 2026-10-15 04:06 UTC, with a 17-minute hard limit. Its logs are
+`/tmp/kingdown-kaggle-audit-trace.log` and
+`/tmp/kingdown-kaggle-audit-trace-result.log`. Do not run a second trace while it
+is active. The follow-up is set to 21:24 Pacific.
+
+The adapter now returns known local failure names or an HTTP status code to the
+browser. It never returns a raw service body. An entry-point test supplies a
+secret-bearing HTTP error and confirms that only HTTP 403 reaches stdout.
+Typecheck, five transport tests and 50 art tests pass. This change improves the
+failure evidence; it does not make a failed preparation ready for approval.

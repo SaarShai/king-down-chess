@@ -78,5 +78,9 @@ if __name__ == '__main__':
             api=KaggleApi();api.authenticate()
             result=execute(api,request)
         print(json.dumps(result))
-    except BaseException:
-        print(json.dumps({'error':'Kaggle operation failed; outcome may be unknown'}));sys.exit(1)
+    except BaseException as error:
+        # Return only known local failures or an HTTP code, never a service body.
+        http = getattr(getattr(error, 'response', None), 'status_code', None)
+        known = {'account audit time limit', 'account audit rate limit', 'account audit unavailable', 'unknown account state', 'account audit exceeds limit', 'no account capacity', 'submission not confirmed'}
+        message = f'HTTP {http}' if isinstance(http, int) and 400 <= http <= 599 else str(error) if type(error) is RuntimeError and str(error) in known else 'operation failed; outcome may be unknown'
+        print(json.dumps({'error': message}))
