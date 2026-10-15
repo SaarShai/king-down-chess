@@ -6,6 +6,9 @@ export function gameDetail(entry: InboxEntry): string {
   return `${entry.seat === 0 ? 'White' : 'Black'} ·\u00a0${new Intl.DateTimeFormat(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(entry.created_at))}`;
 }
 
+export const gameTitle = (entry: InboxEntry) => entry.opponent?.computer ? `Computer · ${entry.level[0].toUpperCase() + entry.level.slice(1)}` : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
+/** The first game that waits for your move, other than `except`. */
+export const nextGame = (entries: InboxEntry[], except?: string) => entries.find(entry => entry.status !== 'waiting' && entry.action === 'ready' && entry.game_id !== except);
 export function gamesList(target: HTMLElement, entries: InboxEntry[], call: (name: string, args: Record<string, unknown>) => Promise<View | undefined>, routeView: (view: View) => unknown, now = Date.now()) {
   const icon = (name: string) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
   target.replaceChildren(...entries.map(entry => {
@@ -15,7 +18,7 @@ export function gamesList(target: HTMLElement, entries: InboxEntry[], call: (nam
     if (waiting) lead.innerHTML = icon('clock');
     else { const image = document.createElement('img'); image.alt = ''; image.src = art(ICONS[entry.opponent?.icon ?? 'spirit']); lead.append(image); }
     const title = document.createElement('span'); title.className = 'row-title';
-    title.textContent = waiting ? 'Waiting for an opponent' : entry.opponent?.computer ? `Computer · ${entry.level[0].toUpperCase() + entry.level.slice(1)}` : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
+    title.textContent = waiting ? 'Waiting for an opponent' : gameTitle(entry);
     const line = document.createElement('span'); line.className = 'line';
     const hours = Math.max(0, Math.floor((now - Date.parse(entry.created_at)) / 3600000));
     line.textContent = waiting ? hours === 0 ? 'Just opened' : `Open for ${hours} ${hours === 1 ? 'hour' : 'hours'}` : entry.status === 'setup' ? yours ? 'Choose your side' : 'Waiting for the other player' : yours ? `Move ${entry.move}` : `Their turn ·\u00a0move ${entry.move}`;

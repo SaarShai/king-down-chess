@@ -1,4 +1,4 @@
-import { call, client, memory, routeView, start } from '../app';
+import { call, client, memory, navigate, routeView, start } from '../app';
 import { art } from '../art';
 import type { WidgetHost } from '../client';
 import { DEAL_CARDS, POOL_KINDS, type Options } from '../../match/setup';
@@ -6,7 +6,7 @@ import { LETTERS, NAMES } from '../../rules/engine';
 import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
 import { POWER_NAME, cardText, powerText, powerOptions, powersRules, ruleLine } from '../../powers-ui';
 import type { View, InboxEntry } from '../../match/protocol';
-import { availablePowers, cardLocked, cleanKing, createArguments, pieceLocked, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
+import { availablePowers, cardLocked, cleanKing, createArguments, pieceLocked, quickSetup, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
 import './setup.css';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
@@ -22,7 +22,7 @@ const faces: readonly CardName[] = ['Freeze','IceWall','Sacrifice','March','Leap
 const mounted = (window as Window & { openai?: WidgetHost }).openai?.widgetState?.privateContent;
 const restored = mounted?.pending;
 let draft: SetupState | undefined, starting = false, slow = false, recovering = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
-const restoredSetup = () => !restoreHandled && restored?.screen === 'setup' && !!memory.settings?.last_setup && (restored.name === 'kingdown_choose' || !!restored.args.options);
+const restoredSetup = () => !restoreHandled && restored?.screen === 'play' && !!memory.settings?.last_setup && (restored.name === 'kingdown_choose' || !!restored.args.options);
 const ownPending = () => ownCommand || restoredSetup();
 async function readGames() {
   const result = await client.call('kingdown_games', {}, { background: true });
@@ -38,6 +38,8 @@ function toggle(key: string, symbol: string, title: string, line: string, sheet 
 }
 function build() {
   $('setup-body').innerHTML = `<fieldset class="modes"><legend class="sr-only">Who you play</legend>${(['solo','friend','random'] as const).map(kind => `<label class="mode"><input type="radio" name="setup-mode" value="${kind}" aria-label="${{ solo: 'Computer', friend: 'A friend', random: 'A random player' }[kind]}"><span class="mode-art${kind === 'random' ? ' emblem-fan' : ''}">${kind === 'random' ? ['frost','flame','stratus'].map(k => image(`ui/emblems/${k}.webp`)).join('') : image('ui/kings/spirit.webp') + (kind === 'friend' ? image('ui/kings/shadow-b.webp', 'face-left') : '')}</span><span class="mode-text"><b>${{ solo: 'Computer', friend: 'A friend', random: 'A random player' }[kind]}</b></span></label>`).join('')}</fieldset>
+    <button id="play-open" class="menu-row has-lead"><span class="row-art fan">${['frost','flame','stratus'].map(k => image(`ui/emblems/${k}.webp`)).join('')}</span><span class="row-title">Open games</span><span class="line">Join a game that another player opened.</span><i aria-hidden="true">›</i></button>
+    <div id="play-join"><h3 class="group-head">Join with a code</h3><form id="join-form" class="code-row"><input id="token" class="field" aria-label="Game code" placeholder="K7QX2M" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" required maxlength="300"><button id="join" type="submit">Join</button></form></div>
     ${segment('setup-level', 'Computer level', ['beginner','casual','club','strong'])}<p id="level-line" class="seg-line"></p>
     ${segment('setup-colour', 'You play', ['white','black','random'])}<h3 class="group-head">The game</h3>
     ${toggle('fairy', 'fairy', 'Fairy pieces', '', 'pieces')}
@@ -53,12 +55,14 @@ function build() {
   for (const sheet of ['pieces','cards'] as const) $(`setup-${sheet}`).onclick = event => { event.preventDefault(); event.stopPropagation(); poolSheet(sheet); };
   $('setup-king').onclick = () => void pickKing();
   $('setup-start').onclick = () => void launch();
+  $('play-open').onclick = () => navigate('lobby');
+  $('join-form').onsubmit = event => { event.preventDefault(); memory.code = $<HTMLInputElement>('token').value.trim(); navigate('join'); };
 }
 function render() {
   if (!draft) return;
   const o = draft.options;
   for (const key of ['mode','level','colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.checked = input.value === (key === 'mode' ? draft!.kind : draft![key]); });
-  $('setup-level').hidden = $('level-line').hidden = draft.kind !== 'solo'; $('level-line').textContent = levelLines[draft.level];
+  $('setup-level').hidden = $('level-line').hidden = draft.kind !== 'solo'; $('play-open').hidden = draft.kind !== 'random'; $('play-join').hidden = draft.kind !== 'friend'; $('level-line').textContent = levelLines[draft.level];
   for (const key of ['fairy','arrangement','classic','cards','kingPowers'] as const) $<HTMLInputElement>(`setup-toggle-${key}`).checked = o[key];
   $('arrangement-row').hidden = !o.fairy; $('classic-row').hidden = o.fairy; $('setup-pieces').hidden = !o.fairy; $('setup-cards').hidden = !o.cards;
   $('fairy-line').textContent = o.fairy ? 'Draw 7 pieces from the King Down pool.' : 'Only the chess pieces.';
@@ -125,19 +129,21 @@ async function finish(view: View, pick = draft!.king) {
   if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, true, false, false); if (!full) return; view = full; }
   ownCommand = false; routeView(view);
 }
-async function launch() {
-  if (!draft || starting || client.state.pending) return;
+async function launch(setup = draft) {
+  if (!setup || starting || client.state.pending) return;
   starting = true; ownCommand = true; render();
   // After a long wait, Back is a safe way out: the start stays pending, and Start sends no second Create.
   const wait = setTimeout(() => { slow = true; render(); const back = $<HTMLButtonElement>('page-back'); back.dataset.free = ''; back.disabled = false; }, 10_000);
   try {
-    const last_setup = { ...draft, options: setupOptions(draft.options) }, saved = await client.call('kingdown_settings', { last_setup });
+    const last_setup = { ...setup, options: setupOptions(setup.options) }, saved = await client.call('kingdown_settings', { last_setup });
     if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     memory.settings = saved._meta?.settings as typeof memory.settings;
     const view = await start(last_setup.kind, createArguments(last_setup), { route: false }); if (view) await finish(view, last_setup.king);
-  } catch (error) { $('error').textContent = error instanceof Error ? error.message : String(error); }
+  } catch (error) { $('error').textContent = $('home-error').textContent = error instanceof Error ? error.message : String(error); }
   finally { clearTimeout(wait); starting = slow = false; delete $('page-back').dataset.free; if (!client.state.pending) ownCommand = false; render(); }
 }
+/** The home card's Play now: a computer game from the last setup, with no hall. */
+export function playNow() { if (memory.settings) void launch(quickSetup(memory.settings.last_setup)); }
 async function recoverStart() {
   const pending = client.state.pending;
   if (!draft || !pending || recovering) return;
@@ -150,7 +156,7 @@ async function recoverStart() {
   finally { recovering = false; render(); }
 }
 new MutationObserver(() => {
-  if (client.state.screen !== 'setup' && !(client.state.screen === 'seat' && client.state.sheet === 'king')) {
+  if (client.state.screen !== 'play' && !(client.state.screen === 'seat' && client.state.sheet === 'king')) {
     if (closeSheet) closeSheet();
     else if (['pieces','cards','king'].includes(client.state.sheet ?? '')) { client.state.sheet = undefined; client.save(); }
   }
@@ -161,7 +167,7 @@ new MutationObserver(() => {
   setTimeout(() => { void readGames().then(() => finish(memory.view!)).catch(error => { $('error').textContent = String(error); }); }, 0);
 }).observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
 document.addEventListener('click', event => {
-  if (!(event.target as HTMLElement).closest('#retry') || client.state.screen !== 'setup' || !ownPending()) return;
+  if (!(event.target as HTMLElement).closest('#retry') || client.state.screen !== 'play' || !ownPending()) return;
   const pending = client.state.pending;
   if (['kingdown_create','kingdown_find'].includes(pending?.name ?? '')) { event.preventDefault(); event.stopImmediatePropagation(); void recoverStart(); }
   else if (['kingdown_choose','kingdown_get'].includes(pending?.name ?? '')) { event.preventDefault(); event.stopImmediatePropagation(); void call(pending!.name, pending!.args, true, false, false, true).then(async view => { if (view) await finish(view); render(); }); }

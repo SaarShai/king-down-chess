@@ -11,6 +11,7 @@ import { board, highlight } from '../board-view';
 import { art, symbols } from '../art';
 import { pieceIcon } from '../../piece-icons';
 import { client, memory, navigate } from '../app';
+import { nextGame } from '../games-list';
 import { actionButtons, confirmDraw, confirmResign } from './board-actions';
 import { updateEnd } from './end';
 import { applyLan, boardActions, cardCoins, replayHistory, replayLans, stripLine, type BoardMove } from './board-model';
@@ -243,6 +244,9 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (view.legal.includes('--')) actions.push(button('Stop here', () => choose('--')));
     const gameActions = actionButtons(view,Date.now()-readAt,refused);
     if (!actions.length && !view.result) actions.push(...gameActions.filter(b=>['abort','claim','accept-draw','decline-draw'].includes(b.id)));
+    // Spec J3: after your move in a game the opponent answers later, go on to the next game that waits for you.
+    const next = view.kind !== 'solo' && view.status === 'playing' && view.turn !== view.seat ? nextGame(memory.games, view.game_id) : undefined;
+    if (next) { const b = button('Next game ›', () => void call('kingdown_resume', { game_id: next.game_id })); b.id = 'next-game'; actions.push(b); }
     $('offer-draw').hidden = view.kind === 'solo' || view.status !== 'playing' || view.draw_offer !== null || refused.has('kingdown_draw');
     $('resign').hidden = view.status !== 'playing';
     $('context-actions').replaceChildren(...actions); strips();

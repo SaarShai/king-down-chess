@@ -1,7 +1,7 @@
 import { App, type McpUiHostContext } from '@modelcontextprotocol/ext-apps';
 import type { PlayerSettings } from './settings';
 import { setRules } from '../rules/engine';
-import { gamesList } from './games-list';
+import { gameTitle, gamesList, nextGame } from './games-list';
 import type { InboxEntry, JoinPreview, View } from '../match/protocol';
 import { createClient, type WidgetHost, type Screen, type Pending } from './client';
 import { art } from './art';
@@ -10,7 +10,7 @@ import { boardScreen, rollbackBoardMove } from './screens/board';
 import { setSettings } from './board-view';
 import { runPoll } from './poll';
 import { createRouter } from './router';
-import { setupScreen } from './screens/setup';
+import { playNow, setupScreen } from './screens/setup';
 import { friendScreen } from './screens/friend';
 import { joinScreen } from './screens/join';
 import { waitScreen } from './screens/wait';
@@ -38,7 +38,7 @@ let handleBack: Screen = pending?.screen ?? 'settings';
 const drawBoard = boardScreen(call, () => busy || mountReading || !!pending);
 const router = createRouter((name, args, retain) => call(name, args, retain, false, false), navigate, show, () => !!pending);
 export const { routeView, start } = router;
-const screens = { setup: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
+const screens = { play: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
 export const memory = { kind: 'solo' as 'solo' | 'friend' | 'random', code: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, games: [] as InboxEntry[], preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
 function saveState() { state.pending = pending; client.save(); }
 function retryState() {
@@ -54,6 +54,7 @@ function actions() {
   // A slow start marks ‹ Play data-free (setup.ts): it stays a way out while later calls run.
   buttons().forEach(button => { button.disabled = (blocked && !button.hasAttribute('data-free')) || button.matches('#king-picker [aria-disabled="true"]'); });
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
+  homeActions();
   $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = blocked || !memory.settings;
 }
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
@@ -145,14 +146,11 @@ $('reload').onclick = () => { if (state.board_id) void call('kingdown_get', {});
 $('retry').onclick = () => { if (pending) void call(pending.name, pending.args, true, false, undefined, true); else if (readError) void call('kingdown_get', {}, false, false, true); };
 $('computer').onclick = () => { if (view) void call('kingdown_computer', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision }, true); };
 $('invite').onclick = () => { if (view) void call('kingdown_invite', { game_id: view.game_id }); };
-// New game opens the setup (it keeps the session's choice of opponent); Open games lists other players' open games.
-$('play-new').onclick = () => navigate('setup');
-$('play-open').onclick = () => navigate('lobby');
-$('join-form').onsubmit = event => { event.preventDefault(); memory.code = $<HTMLInputElement>('token').value.trim(); navigate('join'); };
 type ToolResult = Awaited<ReturnType<typeof client.call>>;
 function renderGames(entries: InboxEntry[]) {
   memory.games = entries; gamesDirty = false;
-  $('games-status').textContent = entries.length ? '' : 'No active games.';
+  // The hall lists your games first, only when you have some.
+  $('games-status').textContent = ''; $('games-head').hidden = !entries.length;
   $('home-line').textContent = turnLine(entries.filter(entry => entry.action === 'ready').length);
   gamesList($('games-list'), entries, (name, args) => call(name, args, false, false, false), routeView); actions();
 }
@@ -263,7 +261,7 @@ async function fullscreen(screen: Screen) {
   } catch (error) { unqueue(); client.save(); if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = String(error); }
   finally { asking = false; }
 }
-/** Opens the Play screen at the Your games list. */
+/** Opens the Play hall at its top, where Your games are. */
 export function showGames() { gamesFirst = true; navigate('play'); }
 export function navigate(screen: Screen) {
   if (screen !== 'home' && displayMode === 'inline' && canFullscreen()) {
@@ -280,15 +278,15 @@ export function navigate(screen: Screen) {
   document.body.dataset.page = screen;
   document.querySelectorAll<HTMLElement>('[data-screen]').forEach(el => { el.hidden = el.dataset.screen !== screen; });
   // New game opens at its top (F12); other pages keep their place when the player comes back.
-  if (screen === 'setup') document.querySelectorAll<HTMLElement>('[data-screen="setup"] .new-game-body, [data-screen="setup"].page-sheet').forEach(el => { el.scrollTop = 0; });
+  if (screen === 'play') document.querySelectorAll<HTMLElement>('[data-screen="play"] .new-game-body').forEach(el => { el.scrollTop = 0; });
   $('app-frame').hidden = screen === 'home';
   $('page-head').hidden = screen === 'home' || screen === 'play';
   $('page-back').textContent = screen === 'handle' && handleBack === 'settings' ? '‹ Settings' : screen === 'collection' ? '‹ Profile' : screen === 'settings' && ['board','seat'].includes(state.settings_back ?? '') ? '‹ Game' : '‹ Play';
-  $('page-title').textContent = ({ setup: 'New game', friend: 'A friend', join: 'Join a game', wait: 'Looking for an opponent', lobby: 'Open games', seat: 'Set up your side', end: 'Game over', profile: 'Profile', collection: 'Collection', settings: 'Settings', handle: 'Pick a name and a picture' } as Partial<Record<Screen,string>>)[screen] ?? '';
+  $('page-title').textContent = ({ friend: 'A friend', join: 'Join a game', wait: 'Looking for an opponent', lobby: 'Open games', seat: 'Set up your side', end: 'Game over', profile: 'Profile', collection: 'Collection', settings: 'Settings', handle: 'Pick a name and a picture' } as Partial<Record<Screen,string>>)[screen] ?? '';
   if (!mountReading && screen in screens) screens[screen as keyof typeof screens]();
   client.save(); actions(); poll?.update();
   if (screen === 'play' && gamesDirty && !mountReading) void games();
-  if (screen === 'play' && gamesFirst) { gamesFirst = false; const head = $('games-head'), body = head.closest('.new-game-body')!; body.scrollTop += head.getBoundingClientRect().top - body.getBoundingClientRect().top; }
+  if (screen === 'play' && gamesFirst) { gamesFirst = false; $('games-list').closest<HTMLElement>('.new-game-body')!.scrollTop = 0; }
   if (screen === 'settings') void applySettings();
   if (screen === 'seat' || screen === 'board') setTimeout(() => { if (state.screen === screen) measureLayout(); }, 1500);
   if (screen === 'handle') scheduleHandleCheck(); else { clearTimeout(handleTimer); handleCheck++; }
@@ -348,8 +346,23 @@ $('handle-form').onsubmit = event => {
   if (input.reportValidity()) void call('kingdown_handle', { handle, icon: picture });
 };
 $<HTMLInputElement>('handle').oninput = scheduleHandleCheck;
-$('home-play').onclick = () => { const next = resume ?? 'play'; collapsed = false; resume = undefined; void fullscreen(next); };
-$('home-games').onclick = () => { collapsed = false; resume = undefined; gamesFirst = true; void fullscreen('play'); };
+/** Spec J3: while a game waits for you, the main action resumes it by name and Play now moves to second place. */
+const homeGame = () => resume ? memory.games.find(entry => entry.game_id === view?.game_id) : nextGame(memory.games);
+function homeActions() {
+  const game = homeGame(), back = !!resume || !!game;
+  const label = (id: string, symbol: string, text: string) => { const html = `<svg class="icon" aria-hidden="true"><use href="#i-${symbol}"/></svg><span>${text}</span>`; if ($(id).innerHTML !== html) { $(id).innerHTML = html; $(id).querySelector('span')!.textContent = text; } };
+  label('home-play', back ? 'continue' : 'play', back ? game ? `Resume · ${game.opponent?.computer ? 'Computer' : gameTitle(game)}` : 'Resume' : 'Play now');
+  label('home-games', back ? 'play' : 'guide', back ? 'Play now' : 'Choose a game');
+}
+// Spec J2, D2: Play now asks for fullscreen on the tap and opens the board when the game exists.
+function homePlayNow() { collapsed = false; resume = undefined; void fullscreen('home'); playNow(); }
+$('home-play').onclick = () => {
+  const game = homeGame();
+  if (resume) { const next = resume; collapsed = false; resume = undefined; void fullscreen(next); }
+  else if (game) { collapsed = false; void fullscreen('home'); void call('kingdown_resume', { game_id: game.game_id }); }
+  else homePlayNow();
+};
+$('home-games').onclick = () => { if (resume || homeGame()) return homePlayNow(); collapsed = false; gamesFirst = true; void fullscreen('play'); };
 document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => { button.onclick = () => navigate(button.dataset.nav as Screen); });
 $('page-back').onclick = () => navigate(state.screen === 'handle' ? handleBack : state.screen === 'collection' ? 'profile' : state.screen === 'settings' ? state.settings_back ?? 'play' : 'play');
 app.onhostcontextchanged = () => hostContext(app.getHostContext());

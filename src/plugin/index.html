@@ -29,20 +29,16 @@
 <img class="tk-outer" data-art="ui/kings/mud.webp" alt=""><img class="tk-inner" data-art="ui/kings/flame.webp" alt=""><img class="tk-centre" data-art="ui/kings/spirit.webp" alt=""><img class="tk-centre tk-right" data-art="ui/kings/shadow.webp" alt=""><img class="tk-inner tk-right" data-art="ui/kings/frost.webp" alt=""><img class="tk-outer tk-right" data-art="ui/kings/stratus.webp" alt="">
 </div></div>
 <div class="title-copy"><h1 class="wordmark"><svg class="wordmark-crown" aria-hidden="true"><use href="#i-crown"/></svg><span class="wm-king">King</span> <span class="wm-down">Down</span></h1>
-<p id="home-line" class="inline-line">Your move in 0 games.</p><div class="title-actions"><button id="home-play" disabled class="primary"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg>Play</button><button id="home-games" disabled><svg class="icon" aria-hidden="true"><use href="#i-guide"/></svg>Your games</button></div><p id="home-error" role="alert"></p></div>
+<p id="home-line" class="inline-line">Your move in 0 games.</p><div class="title-actions"><button id="home-play" disabled class="primary"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span>Play now</span></button><button id="home-games" disabled><svg class="icon" aria-hidden="true"><use href="#i-guide"/></svg><span>Choose a game</span></button></div><p id="home-error" role="alert"></p></div>
 </section>
 <div id="app-frame" class="frame" hidden>
 <dialog open class="page-sheet" aria-label="King Down"><header id="page-head" class="sheet-head" hidden><button id="page-back">‹ Play</button><h2 id="page-title"></h2></header>
-<section data-screen="play" hidden><header class="new-game-head"><h2>Play</h2></header><div class="new-game-body">
-<button id="play-new" class="menu-row has-lead"><span class="row-art pair"><img data-art="ui/kings/spirit.webp" alt=""><img class="face-left" data-art="ui/kings/shadow-b.webp" alt=""></span><span class="row-title">New game</span><span class="line">The computer, a friend or a random player.</span><i aria-hidden="true">›</i></button>
-<button id="play-open" class="menu-row has-lead"><span class="row-art fan"><img data-art="ui/emblems/frost.webp" alt=""><img data-art="ui/emblems/flame.webp" alt=""><img data-art="ui/emblems/stratus.webp" alt=""></span><span class="row-title">Open games</span><span class="line">Join a game that another player opened.</span><i aria-hidden="true">›</i></button>
-<h3 class="group-head">Join with a code</h3><form id="join-form" class="code-row"><input id="token" class="field" aria-label="Game code" placeholder="K7QX2M" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" required maxlength="300"><button id="join" type="submit">Join</button></form>
+<section id="new-game" data-screen="play" hidden><header class="new-game-head"><h2>Play</h2></header><div class="new-game-body">
 <h3 id="games-head" class="group-head">Your games</h3><p id="games-status" role="status"></p><div id="games-list"></div>
+<h3 class="group-head">New game</h3><div id="setup-body"></div>
 <button class="menu-row" data-nav="profile"><span class="row-title">Profile</span><span class="line">Your scroll, rating and badges.</span><i aria-hidden="true">›</i></button>
 <button class="menu-row" data-nav="settings"><span class="row-title">Settings</span><span class="line">Symbols only, Show threats.</span><i aria-hidden="true">›</i></button>
-</div></section>
-
-<section id="new-game" data-screen="setup" hidden><div id="setup-body" class="new-game-body"></div><footer class="new-game-foot"><button id="setup-start" class="primary">Start game</button></footer></section>
+</div><footer class="new-game-foot"><button id="setup-start" class="primary">Start game</button></footer></section>
 <section data-screen="friend" hidden><div class="new-game-body">
 <p>Send this code to your friend.</p><p id="friend-status" role="alert"></p><div id="friend-code" class="game-code"></div>
 <button id="friend-copy" class="primary wide-btn" hidden><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span class="label">Copy the code</span></button><button id="friend-new" class="primary wide-btn">Make a new code</button><p id="friend-copy-status" class="quiet-line" role="status"></p>

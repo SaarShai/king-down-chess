@@ -17,13 +17,62 @@ async function open() {
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   return page;
 }
+// Spec J2, D2: the first test, while the shared player has no saved setup and no game.
+it('takes a new player from the home card to a first move in three taps', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    expect(await frame.locator('#home-card button').allInnerTexts()).toEqual(['Play now', 'Choose a game']);
+    await frame.locator('#home-play').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests)).toEqual(['fullscreen']);
+    expect(await page.evaluate(() => (window as any).harnessCalls.find((c: any) => c.name === 'kingdown_create').arguments)).toMatchObject({ kind: 'solo', level: 'beginner', options: { arrangement: false } });
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    const box = (await frame.locator('#board canvas').boundingBox())!;
+    const tap = (file: number, rank: number) => page.mouse.click(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (96 + (7 - rank + .5) * 112) * box.width / 960);
+    await tap(4, 1); await tap(4, 2);
+    await expect.poll(() => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.lan))).toEqual(['e2-e3']);
+    const game_id = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
+    await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } });
+  } finally { await page.close(); }
+});
+// These two run before any game waits for the player: spec J3 then makes the second home action Play now.
+it('opens the Play hall from the inline Choose a game action', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.setViewportSize({ width: 393, height: 600 });
+    await frame.locator('#home-games').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests)).toEqual(['fullscreen']);
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.screen)).toBe('play');
+    // Your games come first in the hall.
+    expect(await frame.locator('[data-screen="play"] .new-game-body').evaluate(e => e.scrollTop)).toBe(0);
+  } finally { await page.close(); }
+});
+it('keeps the home card when a chat tool result arrives after the player leaves fullscreen', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#home-games').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }));
+    await frame.locator('#home-card:not([hidden])').waitFor();
+    const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length);
+    await page.evaluate(result => (window as any).harnessShow(result, true), result);
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length > n, reads);
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests)).toEqual(['fullscreen']);
+    expect(await frame.locator('#home-card').isVisible()).toBe(true);
+    await frame.locator('#home-games').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  } finally { await page.close(); }
+});
 // Each screen but home shows only in fullscreen (spec Q25). A test that opens a screen directly puts the host there first.
 const expand = (page: Page) => page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'] }));
+// Tests of the hall itself open it directly: with a game that waits, the home card offers Resume and Play now (spec J3).
+async function hall(page: Page) { await expand(page); await page.frameLocator('iframe').locator('html').evaluate(() => (window as any).harnessApp.navigate('play')); }
 async function start(page: Page, route = true) {
   await expand(page);
   await page.frameLocator('iframe').locator('html').evaluate((_, route) => {
     const host = window as any;
-    host.harnessApp.navigate('setup');
+    host.harnessApp.navigate('play');
     host.startResult = undefined;
     host.harnessApp.start('friend', { colour: 'white' }, { route }).then((view: any) => { host.startResult = view; });
   }, route);
@@ -52,7 +101,7 @@ it('recovers a completed create or find after its reply is lost', async () => {
       if (kind === 'random') await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); });
       await page.evaluate(name => { (window as any).dropNextReply = name; }, name);
       await frame.locator('html').evaluate((_, kind) => {
-        const host = window as any; host.harnessApp.navigate('setup');
+        const host = window as any; host.harnessApp.navigate('play');
         host.harnessApp.start(kind, { colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false } }).then((view: any) => { host.startResult = view; });
       }, kind);
       await frame.locator('#retry').waitFor();
@@ -71,7 +120,7 @@ it('recovers a lost Create or Find reply when Save resumes the pending start', a
     try {
       await page.evaluate(name => { (window as any).dropNextReply = name; }, name);
       await frame.locator('html').evaluate((_, kind) => {
-        const host = window as any; host.harnessApp.navigate('setup');
+        const host = window as any; host.harnessApp.navigate('play');
         host.harnessApp.start(kind, { colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false } }).then((view: any) => { host.startResult = view; });
       }, kind);
       await frame.locator('#retry').waitFor();
@@ -92,7 +141,7 @@ it('recovers a lost Create or Find reply on mount without another send', async (
     try {
       await page.evaluate(name => { (window as any).dropNextReply = name; }, name);
       await frame.locator('html').evaluate((_, kind) => {
-        const app = (window as any).harnessApp; app.navigate('setup');
+        const app = (window as any).harnessApp; app.navigate('play');
         void app.start(kind, { colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false } });
       }, kind);
       await frame.locator('#retry').waitFor();
@@ -108,7 +157,7 @@ it('recovers a lost Create or Find reply on mount without another send', async (
 it('opens a usable solo board after Retry of a lost Choose reply without a remount', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await hall(page); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).uncheck();
     await frame.getByRole('checkbox', { name: 'King powers', exact: true }).check();
     await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_choose'; });
@@ -129,7 +178,7 @@ it('opens a usable solo board after Retry of a lost Choose reply without a remou
 it('keeps Start blocked and retries the same solo game after its board read fails', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await hall(page); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).uncheck();
     await frame.getByRole('checkbox', { name: 'King powers', exact: true }).check();
     await page.evaluate(() => { (window as any).rejectNextGet = true; });
@@ -201,18 +250,6 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
     expect(await frame.locator('html').evaluate((_, game_id) => (window as any).harnessApp.memory.games.find((entry: any) => entry.game_id === game_id).revision, game_id)).toBe(1);
   } finally { await page.close(); }
 });
-it('opens the Your games list from the inline Your games action', async () => {
-  const page = await open(), frame = page.frameLocator('iframe');
-  try {
-    await page.setViewportSize({ width: 393, height: 600 });
-    await frame.locator('#home-games').click();
-    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-    expect(await page.evaluate(() => (window as any).harnessDisplayRequests)).toEqual(['fullscreen']);
-    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.screen)).toBe('play');
-    const [head, body] = await Promise.all([frame.locator('#games-head').boundingBox(), frame.locator('[data-screen="play"] .new-game-body').boundingBox()]);
-    expect(Math.abs(head!.y - body!.y)).toBeLessThan(24);
-  } finally { await page.close(); }
-});
 it('opens a screen from a chat tool call in fullscreen, not inline', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -260,26 +297,10 @@ it('never shows a screen inline when the host refuses fullscreen', async () => {
     expect(await frame.locator('#home-card').isVisible()).toBe(true);
   } finally { await page.close(); }
 });
-it('keeps the home card when a chat tool result arrives after the player leaves fullscreen', async () => {
+it('shows the home card when the player leaves fullscreen, and Resume returns to the game', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await frame.locator('#home-play').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }));
-    await frame.locator('#home-card:not([hidden])').waitFor();
-    const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
-    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length);
-    await page.evaluate(result => (window as any).harnessShow(result, true), result);
-    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length > n, reads);
-    expect(await page.evaluate(() => (window as any).harnessDisplayRequests)).toEqual(['fullscreen']);
-    expect(await frame.locator('#home-card').isVisible()).toBe(true);
-    await frame.locator('#home-play').click();
-    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-  } finally { await page.close(); }
-});
-it('shows the home card when the player leaves fullscreen, and Play returns to the game', async () => {
-  const page = await open(), frame = page.frameLocator('iframe');
-  try {
-    await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await hall(page); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     // The saved setup decides whether a computer game opens on the seat or on the board.
     const game = frame.locator('[data-screen="seat"]:not([hidden]), [data-screen="board"]:not([hidden])');
     await frame.locator('#setup-start').click(); await game.waitFor(); const screen = await game.getAttribute('data-screen');
@@ -291,21 +312,21 @@ it('shows the home card when the player leaves fullscreen, and Play returns to t
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
   } finally { await page.close(); }
 });
-it('keeps the opponent picked on New game for the session', async () => {
+it('keeps the opponent picked in the Play hall for the session', async () => {
   const page = await open(), frame = page.frameLocator('iframe'), friend = frame.getByRole('radio', { name: 'A friend', exact: true });
   try {
-    await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await friend.locator('..').click();
-    await frame.locator('#page-back').click(); await frame.locator('#play-open').click(); await frame.locator('[data-screen="lobby"]:not([hidden])').waitFor();
-    await frame.locator('#page-back').click(); await frame.locator('#play-new').click();
+    await hall(page); await friend.locator('..').click();
+    await frame.locator('[data-screen="play"] [data-nav="settings"]').click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
+    await frame.locator('#page-back').click();
     expect(await friend.isChecked()).toBe(true);
   } finally { await page.close(); }
 });
-it('keeps the opponent picked after a remount on the New game screen', async () => {
+it('keeps the opponent picked after a remount in the Play hall', async () => {
   const page = await open(), frame = page.frameLocator('iframe'), friend = frame.getByRole('radio', { name: 'A friend', exact: true });
   try {
-    await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await frame.locator('[data-screen="setup"]:not([hidden])').waitFor();
-    await page.locator('#remount').click(); await frame.locator('[data-screen="setup"]:not([hidden])').waitFor(); await friend.locator('..').click();
-    await frame.locator('#page-back').click(); await frame.locator('#play-new').click();
+    await hall(page); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await page.locator('#remount').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); await friend.locator('..').click();
+    await frame.locator('[data-screen="play"] [data-nav="settings"]').click(); await frame.locator('#page-back').click();
     expect(await friend.isChecked()).toBe(true);
   } finally { await page.close(); }
 });
@@ -404,14 +425,14 @@ it('keeps the start screen through HANDLE_NEEDED, Back, Save and deferred routin
     expect(await frame.locator('#error').textContent()).toBe('');
     expect(await frame.locator('#page-back').textContent()).toBe('‹ Play');
     await frame.locator('#page-back').click();
-    expect(await frame.locator('[data-screen="setup"]').isVisible()).toBe(true);
+    expect(await frame.locator('[data-screen="play"]').isVisible()).toBe(true);
     await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('handle'); });
     await frame.locator('#save-handle').click();
     await frame.locator('html').evaluate(() => new Promise<void>(resolve => {
       const tick = () => (window as any).startResult ? resolve() : setTimeout(tick, 10); tick();
     }));
     expect(await frame.locator('html').evaluate(() => (window as any).startResult.status)).toBe('waiting');
-    expect(await frame.locator('[data-screen="setup"]').isVisible()).toBe(true);
+    expect(await frame.locator('[data-screen="play"]').isVisible()).toBe(true);
     expect(await frame.locator('#retry').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
@@ -428,13 +449,13 @@ it.each([true, false])('keeps route=%s through Save, a failed send and Retry', a
     await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('settings'); });
     expect(await frame.locator('#retry').isVisible()).toBe(false);
     expect(await frame.locator('#error').textContent()).toBe('');
-    await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('setup'); });
+    await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('play'); });
     await frame.locator('#retry').click();
     await frame.locator('html').evaluate(() => new Promise<void>(resolve => {
       const tick = () => (window as any).startResult ? resolve() : setTimeout(tick, 10); tick();
     }));
     expect(await frame.locator('html').evaluate(() => (window as any).startResult.status)).toBe('waiting');
-    expect(await frame.locator(`[data-screen="${route ? 'friend' : 'setup'}"]`).isVisible()).toBe(true);
+    expect(await frame.locator(`[data-screen="${route ? 'friend' : 'play'}"]`).isVisible()).toBe(true);
     expect(await frame.locator('#retry').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
@@ -705,7 +726,7 @@ it('recovers a held move at 10 seconds and ignores its late reply', async () => 
 it('gives offline Start and Join recovery words', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await expand(page); await frame.locator('#home-play').click(); await frame.locator('#play-new').click();
+    await hall(page);
     await page.context().setOffline(true); await frame.locator('#setup-start').click();
     await expect.poll(() => frame.locator('#error').textContent()).toBe('Cannot connect. Check your connection, then select Start game again.');
     await page.context().setOffline(false);
@@ -713,5 +734,19 @@ it('gives offline Start and Join recovery words', async () => {
     await frame.locator('#join-code').fill('ABC123');
     await page.context().setOffline(true); await frame.locator('#join-entry button').click();
     await expect.poll(() => frame.locator('#join-message').textContent()).toBe('Cannot connect. Check your connection, then select Join again.');
+  } finally { await page.close(); }
+});
+
+it('starts a friend game from the Play hall in three taps, with each list under its opponent', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await hall(page); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
+    expect([await frame.locator('#play-open').isVisible(), await frame.locator('#join-form').isVisible()]).toEqual([true, false]);
+    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
+    expect([await frame.locator('#play-open').isVisible(), await frame.locator('#join-form').isVisible()]).toEqual([false, true]);
+    await frame.locator('#setup-start').click(); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    await frame.locator('#page-back').click(); await frame.locator('#games-list .menu-row').first().waitFor();
+    expect(await frame.locator('#games-head').isVisible()).toBe(true);
   } finally { await page.close(); }
 });

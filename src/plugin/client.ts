@@ -1,5 +1,5 @@
 import type { App } from '@modelcontextprotocol/ext-apps';
-export const SCREENS = ['home', 'play', 'setup', 'friend', 'join', 'wait', 'lobby', 'seat', 'board', 'end', 'profile', 'collection', 'settings', 'handle'] as const;
+export const SCREENS = ['home', 'play', 'friend', 'join', 'wait', 'lobby', 'seat', 'board', 'end', 'profile', 'collection', 'settings', 'handle'] as const;
 export type Screen = typeof SCREENS[number];
 export const BOARD_ID_TOOLS = ['kingdown_get', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'] as const;
 export type Pending = { name: string; args: Record<string, unknown>; game_tag?: string; started_at?: number; screen?: Screen; error?: string; error_screen?: Screen };
