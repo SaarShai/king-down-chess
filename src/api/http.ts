@@ -74,7 +74,7 @@ export function createApiHandler({ games, accounts, safety, publicOrigin, verify
    const since = query.get('since');
    if (since !== null && !/^\d{1,4}$/.test(since)) throw failure('INVALID_INPUT', 400, 'Invalid revision');
    // The website's read also records seat activity; the plugin uses kingdown_seen.
-   return games.view(actor, id, since === null ? undefined : Number(since)).then(async view => { await games.seen(actor, id); return view; });
+   return games.view(actor, id, since === null ? undefined : Number(since)).then(async view => { try { await games.seen(actor, id); } catch { /* a failed activity write never fails the read */ } return view; });
   },
   'POST /api/games/:id/commands': async (actor, id, body) => { const view = await games.command(actor, id, body, 'web'); return { type: 'ack', command_id: (body as { command_id: string }).command_id, revision: view.revision, view }; },
   'POST /api/games/:id/invite': (actor, id) => link(actor, id),

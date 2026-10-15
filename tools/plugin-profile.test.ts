@@ -78,7 +78,7 @@ it('puts open games first with your turn first and resumes the tapped game', asy
     expect(await live.locator('.when .turn-mark').textContent()).toBe('Turn');
     expect(await waiting.locator('.when .open-mark').textContent()).toBe('Open');
     expect(await live.locator('b').last().textContent()).toBe('Computer · Club');
-    expect(await live.locator('small').first().textContent()).toBe('Your turn ·\u00a0move 1');
+    expect(await live.locator('small').first().textContent()).toBe('Move 1');
     expect(await waiting.locator('b').last().textContent()).toBe('Open game');
     expect(await waiting.locator('small').first().textContent()).toBe('Waiting for an opponent');
     for (const row of [live, waiting]) {

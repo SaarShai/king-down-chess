@@ -129,14 +129,14 @@ async function launch() {
   if (!draft || starting || client.state.pending) return;
   starting = true; ownCommand = true; render();
   // After a long wait, Back is a safe way out: the start stays pending, and Start sends no second Create.
-  const wait = setTimeout(() => { slow = true; render(); $<HTMLButtonElement>('page-back').disabled = false; }, 10_000);
+  const wait = setTimeout(() => { slow = true; render(); const back = $<HTMLButtonElement>('page-back'); back.dataset.free = ''; back.disabled = false; }, 10_000);
   try {
     const last_setup = { ...draft, options: setupOptions(draft.options) }, saved = await client.call('kingdown_settings', { last_setup });
     if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     memory.settings = saved._meta?.settings as typeof memory.settings;
     const view = await start(last_setup.kind, createArguments(last_setup), { route: false }); if (view) await finish(view, last_setup.king);
   } catch (error) { $('error').textContent = String(error); }
-  finally { clearTimeout(wait); starting = slow = false; if (!client.state.pending) ownCommand = false; render(); }
+  finally { clearTimeout(wait); starting = slow = false; delete $('page-back').dataset.free; if (!client.state.pending) ownCommand = false; render(); }
 }
 async function recoverStart() {
   const pending = client.state.pending;

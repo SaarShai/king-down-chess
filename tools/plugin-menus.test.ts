@@ -156,6 +156,25 @@ it('shows Starting at once, then a wait line and a safe way back, with one Creat
   } finally { await page.close(); }
 });
 
+it('keeps ‹ Play free after a slow settings save, while Create still waits', async () => {
+  const page = await open(OWNER, true), frame = page.frameLocator('iframe');
+  try {
+    await go(page, 'setup');
+    await frame.locator('.mode').filter({ hasText: 'A friend' }).click();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_settings'; });
+    await frame.locator('#setup-start').click();
+    await expect.poll(() => page.evaluate(() => typeof (window as any).releaseHeld)).toBe('function');
+    await page.clock.fastForward(10_000);
+    await expect.poll(() => frame.locator('#setup-start').textContent()).toBe('Still starting. Keep this page open.');
+    await page.evaluate(() => { const host = window as any, release = host.releaseHeld; host.releaseHeld = undefined; host.holdNext = 'kingdown_create'; release(); });
+    await expect.poll(() => page.evaluate(() => typeof (window as any).releaseHeld)).toBe('function');
+    expect(await frame.locator('#page-back').isDisabled()).toBe(false);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    expect(await frame.locator('#page-back').getAttribute('data-free')).toBeNull();
+  } finally { await page.close(); }
+});
+
 it('records seat activity from the poll at most once each 30 seconds', async () => {
   const page = await open(OWNER, true), frame = page.frameLocator('iframe');
   const count = (name: string) => page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name);

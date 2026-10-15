@@ -51,7 +51,8 @@ const turnLine = (count: number) => `Your move in ${count} game${count === 1 ? '
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 function actions() {
   const blocked = busy || mountReading || !connected;
-  buttons().forEach(button => { button.disabled = blocked || button.matches('#king-picker [aria-disabled="true"]'); });
+  // A slow start marks ‹ Play data-free (setup.ts): it stays a way out while later calls run.
+  buttons().forEach(button => { button.disabled = (blocked && !button.hasAttribute('data-free')) || button.matches('#king-picker [aria-disabled="true"]'); });
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
   $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = blocked || !memory.settings;
 }
@@ -278,8 +279,8 @@ export function navigate(screen: Screen) {
   $('page-title').removeAttribute('title');
   document.body.dataset.page = screen;
   document.querySelectorAll<HTMLElement>('[data-screen]').forEach(el => { el.hidden = el.dataset.screen !== screen; });
-  // Each page opens at its top: the page body scrolls, not the sheet.
-  document.querySelectorAll<HTMLElement>('.page-sheet, .page-sheet .new-game-body').forEach(el => { el.scrollTop = 0; });
+  // New game opens at its top (F12); other pages keep their place when the player comes back.
+  if (screen === 'setup') document.querySelectorAll<HTMLElement>('[data-screen="setup"] .new-game-body, [data-screen="setup"].page-sheet').forEach(el => { el.scrollTop = 0; });
   $('app-frame').hidden = screen === 'home';
   $('page-head').hidden = screen === 'home' || screen === 'play';
   $('page-back').textContent = screen === 'handle' && handleBack === 'settings' ? '‹ Settings' : screen === 'collection' ? '‹ Profile' : screen === 'settings' && ['board','seat'].includes(state.settings_back ?? '') ? '‹ Game' : '‹ Play';
