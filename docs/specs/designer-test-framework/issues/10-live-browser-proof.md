@@ -707,3 +707,22 @@ export to link. All four M1 games reach the 80-ply cap; these results prove
 part of the workflow, not game balance. Remove the heartbeat after the
 tracker update and doc checks. A future repair must preserve these records
 and establish a safe launch path before any submission.
+
+## Preflight repair plan
+
+Owner asks to find and fix preflight, then finish the four missing games
+if safe. Capture a bounded read-only audit trace with safe error codes.
+Reproduce its failure in the transport checks and fix the shared audit.
+Verify focused tests, types, art and docs. Before a first submission,
+prove exact notebook version zero and private dataset identity and hashes.
+Record the owner quote on main. Submit only the original four jobs once;
+stop on uncertainty. Collect, replay, back up and link only verified data.
+
+The read-only account list contains 357 notebooks on four pages. The audit
+adds two seconds after each successful request and another two before a
+draft metadata check. A 357-notebook regression with one-second replies
+fails with `account audit time limit`. Removing those fixed pauses makes
+it pass. HTTP 429 backoff, unknown-state rejection and the 900-second limit
+remain. Six transport tests, 50 art checks, types and 113 doc checks pass.
+A bounded live read-only audit must pass before submission. Its trace is
+`state/study-runs/preflight-diagnosis-20261015/audit-proof.json` on the card.

@@ -24,9 +24,7 @@ def audit(api):
         for attempt in range(3):
             if time.monotonic() >= deadline: raise RuntimeError('account audit time limit')
             try:
-                result = call(**kwargs)
-                time.sleep(2)
-                return result
+                return call(**kwargs)
             except Exception as error:
                 response = getattr(error, 'response', None)
                 if getattr(response, 'status_code', None) != 429 or attempt == 2: raise
@@ -48,7 +46,6 @@ def audit(api):
                 if getattr(getattr(error, 'response', None), 'status_code', None) != 404: raise
                 # Draft-only notebooks have no batch session to query. The list
                 # omits version fields, so verify the full notebook on a 404.
-                time.sleep(2)
                 metadata = read(notebook_metadata, api=api, kernel=kernel.ref)
                 if metadata is None or metadata.id <= 0 or metadata.ref != kernel.ref or metadata.current_version_number != 0:
                     raise RuntimeError('notebook status unavailable') from None

@@ -69,6 +69,20 @@ with patch('time.sleep') as sleep:
     with patch.object(API,'kernels_status',side_effect=RateLimit()) as blocked:
         fails(lambda:kaggle.audit(API(1)))
         assert blocked.call_count==3
+# A large account must fit the audit bound without fixed per-request delays.
+clock=[0.0]
+class LargeAccount(API):
+    def kernels_list(self,**kw):
+        clock[0]+=1
+        start=(kw['page']-1)*100
+        return [NS(ref=str(i)) for i in range(start,min(start+100,357))]
+    def kernels_status(self,kernel):
+        clock[0]+=1
+        return NS(status=NS(name='COMPLETE'))
+with patch('time.monotonic',side_effect=lambda:clock[0]), patch('time.sleep',side_effect=lambda n:clock.__setitem__(0,clock[0]+n)):
+    assert kaggle.audit(LargeAccount(357))==0
+    assert clock[0]<900
+
 # The dataset loader verifies every mounted byte before executable payload is staged.
 loader=load('kaggle-loader')
 with tempfile.TemporaryDirectory() as temp:
