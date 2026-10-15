@@ -244,3 +244,27 @@ it('opens Play from the seat and board Back buttons on a portrait phone', async 
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });
+
+it('shows each checked stone choice in light and dark mode', async () => {
+  const page = await browser.newPage({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
+  try {
+    await page.goto(harness.url); await hall(page);
+    const face = (name: string) => frame.getByRole('radio', { name, exact: true }).locator('..').evaluate(e => {
+      const s = getComputedStyle(e); return { colour: s.color, fill: s.backgroundColor, shadow: s.boxShadow, repeat: s.backgroundRepeat };
+    });
+    for (const theme of ['light', 'dark'] as const) {
+      await page.emulateMedia({ colorScheme: theme });
+      await page.evaluate(theme => (window as any).harnessSetContext({ theme }), theme);
+      for (const [first, second] of [['A friend', 'Computer'], ['Strong', 'Club'], ['Black', 'White']]) {
+        await frame.getByRole('radio', { name: first, exact: true }).locator('..').click();
+        const selected = await face(first), clear = await face(second);
+        expect(selected.fill).not.toBe(clear.fill); expect(selected.colour).not.toBe(clear.colour);
+        expect(selected.shadow.split(/,(?![^()]*\))/).every(shadow => shadow.includes('inset'))).toBe(true);
+        expect(selected.repeat).toBe('no-repeat');
+        await frame.getByRole('radio', { name: second, exact: true }).locator('..').click();
+        expect(await frame.getByRole('radio', { name: second, exact: true }).isChecked()).toBe(true);
+        expect(await face(second)).toEqual(selected); expect(await face(first)).toEqual(clear);
+      }
+    }
+  } finally { await page.close(); }
+});
