@@ -48,3 +48,11 @@ waits for the owner's approval.
 All 27 renders pass. The desktop ready view and small-phone approval view
 have a visual check. The small-phone sheet scrolls to the approval statement
 and control. The sample does not run remote commands or games.
+
+## Interaction discovery sample
+
+`discovery.html` shows proposals, coverage, sequence review and a saved failing
+regression. It reuses the run sheet's game styles. Every count and replay fact
+is illustrative. The existing Rook board remains a background study; the sample
+explicitly says it is not the nominated replay. No game, scan or save occurs.
+The spec is [interaction discovery](../interaction-discovery.md).

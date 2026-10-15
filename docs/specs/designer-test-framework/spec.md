@@ -218,3 +218,11 @@ The owner can approve steps 02–03 as the first software build. This adopts no 
 game rule and authorizes no simulation campaign. Keep the current piece criteria,
 show criterion 4b separately, and set practical effect margins for each later
 study before its run. No universal fun score or automatic rebalance is proposed.
+
+## Proposed interaction discovery layer
+
+The [interaction discovery design](interaction-discovery.md) proposes bounded
+rule combinations, scenario coverage, replay nominations and reviewed regression
+promotion. [Ticket 11](issues/11-interaction-discovery.md) records design checks.
+It is a proposed next layer, not part of the implemented framework. Its sample
+and spec need the owner's approval before the product build.
