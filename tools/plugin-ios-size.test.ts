@@ -38,7 +38,7 @@ it.each([[393, 852, 102, 118, 290], [320, 568, 63, 84, 150], [320, 568, 63, 180,
     await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
     await frame.locator('#home-play:not(:disabled)').click();
     await page.evaluate(async safe => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe, deviceCapabilities: { touch: true } }); }, { top, bottom, left: 0, right: 0 });
-    await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).check();
     await frame.locator('#setup-pieces').click();
     for (const name of ['Rook', 'Bishop', 'Knight', 'Maester']) await frame.getByRole('checkbox', { name, exact: true }).uncheck();
@@ -100,7 +100,7 @@ it('sizes the seat and the board from their screens, with no viewport units and 
       const canvas = table.querySelector('canvas')!, board = rect(table.querySelector('#board')!), screen = rect(table.parentElement!);
       return Math.abs(rect(table).height - screen.height) < 1 && Math.abs(rect(canvas).width - Math.min(board.width, board.height * 960 / 1024)) < 2 && rect(canvas).width / rect(document.getElementById('app-frame')!).width;
     });
-    await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.locator('#home-play').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     await expect.poll(fill).toBeGreaterThan(0.75);
     await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
@@ -115,7 +115,7 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
     try {
       await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').click();
       await page.evaluate(async safe => { await (window as any).harnessSetContext({displayMode:'fullscreen',safeAreaInsets:safe,deviceCapabilities:{touch:true}}); },{top,bottom,left,right});
-      await frame.locator('#play-new').click(); await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
+      await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
       await frame.getByRole('checkbox',{name:'Arrangement',exact:true}).check();
       await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
       const canvasWidth=()=>frame.locator('#board canvas').evaluate(e=>e.getBoundingClientRect().width);
@@ -153,7 +153,7 @@ it('keeps card and power targets at 44 px without increasing the player rows', a
     await page.evaluate(async()=>{await (window as any).harnessSetContext({deviceCapabilities:{touch:true},displayMode:'fullscreen',safeAreaInsets:{top:20,bottom:0,left:0,right:0}});});
     await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-nav="handle"]').click();
     await frame.locator('#handle').fill('wwwwwwwwwwwwwwwwwwww'); await frame.locator('#save-handle').click(); await frame.locator('#page-back').click();
-    await frame.locator('#play-new').click(); await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
+    await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
     await frame.getByRole('checkbox',{name:'Arrangement',exact:true}).check();
     await frame.getByRole('checkbox',{name:'Cards',exact:true}).check(); await frame.getByRole('checkbox',{name:'King powers',exact:true}).check();
     await frame.locator('#setup-start').click(); await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
@@ -175,8 +175,8 @@ it('contains the Open games art and the wait art on a short phone', async () => 
   const page=await browser.newPage({viewport:{width:320,height:568},hasTouch:true}),frame=page.frameLocator('iframe');
   try {
     await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').click();
+    await frame.getByRole('radio',{name:'A random player',exact:true}).locator('..').click();
     expect(await frame.locator('#play-open .row-art').evaluate(e=>{const r=e.getBoundingClientRect();return [...e.querySelectorAll('img')].every(i=>{const b=i.getBoundingClientRect();return b.left>=r.left-1 && b.right<=r.right+1;});})).toBe(true);
-    await frame.locator('#play-new').click(); await frame.getByRole('radio',{name:'A random player',exact:true}).locator('..').click();
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     expect(await frame.locator('.wait-stage').evaluate(e=>({height:e.getBoundingClientRect().height,overflow:getComputedStyle(e).overflow}))).toEqual({height:180,overflow:'hidden'});
     expect(await frame.locator('#page-title').evaluate(e=>getComputedStyle(e).whiteSpace)).toBe('nowrap');

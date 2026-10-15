@@ -1,4 +1,5 @@
 #new-game { width: 100%; max-height: none; }
+#setup-body { display: contents; }
 #setup-body > * { flex-shrink: 0; }
 #new-game .seg-row label { min-height: var(--tap); }
 label.check.toggle { margin-top: var(--space-2); align-items: center; height: auto; min-height: var(--tap); }
