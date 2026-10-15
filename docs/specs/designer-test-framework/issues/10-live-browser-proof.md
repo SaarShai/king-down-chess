@@ -455,3 +455,39 @@ has a further 30-minute limit. Preserve its maintenance lock and do not start
 another upload. The next local check is 12:45 UTC. No further worker query is
 scheduled. Record the receipt and exact decoded SHA-256 counts after proof
 passes, then remove the follow-up. Backup is pending at this checkpoint.
+
+## Dataset failure investigation
+
+Owner, 2026-10-15: “resolve the Kaggle dataset creation failure, then finish
+the remaining four games and link verified results if it's safe. don't retry
+an uncertain launch.”
+
+Plan: reproduce the response boundary with the installed SDK contract, retain
+a safe structured creation receipt, and test rejection and uncertain replies.
+Use read-only account evidence to establish the old dataset and notebook
+state before any continuation. Keep all old attempts and the frozen four-job
+assignment. Do not retry an uncertain mutation. Do not extend the original
+hard deadline. New diagnostic files stay outside the active backup manifest.
+Require exact payload and source hashes, all eight legal replays, both illegal
+controls, verified cloud bytes and a saved browser link for full completion.
+
+The offline response test reproduces `dataset creation not confirmed` when
+the SDK returns status `ok`, the exact dataset URL and an empty `ref`. The
+installed SDK's own CLI uses status and URL. The adapter now requires status
+`ok`, no service error and an exact identity match. A conflicting identity
+fails. It saves an attempt record before creation, then records accepted,
+rejected or unknown status without a raw service message. A second invocation
+cannot repeat the same attempt. The response test, rejection and uncertainty
+controls pass. Typecheck, six transport tests and all 50 art checks pass.
+
+This proves a response defect, not the cause of the old service reply, which
+was not retained. The 12:21 UTC read confirms exact notebook ID 138796673 with
+version 0. The account lists 12 datasets, with no matching old payload. No
+game batch exists. The old dataset remains untouched. A new private dataset
+uses an ID derived from the frozen bundle and part. The loader binds that ID
+and all four payload hashes. This prevents reuse of the uncertain dataset.
+Only the same original notebook and four assigned games may be submitted.
+The one-shot recovery uses a separate state folder while backup runs. It
+keeps the original hard deadline and a 25-minute worker limit. Its bounded
+account audit runs before creation. A rejected or uncertain response stops
+the recovery. No full-result or backup pass is claimed yet.

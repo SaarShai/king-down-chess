@@ -16,7 +16,11 @@ describe('study transport boundaries',()=>{
     const bundle=JSON.parse(await readFile(input.bundlePath,'utf8'));bundle.parts[0].machine='kaggle';bundle.parts[0].workers=4;
     bundle.sourceArchiveSha256=createHash('sha256').update(archive).digest('hex');await writeFile(input.bundlePath,JSON.stringify(bundle));
     await mkdir(join(input.directory,'.secrets'));await writeFile(join(input.directory,'.secrets/kaggle_api_token'),'fixture');
-    const {kaggle}=createTransports(input.directory,async()=>JSON.stringify({remoteId:'test/run-one'}));
+    const {kaggle}=createTransports(input.directory,async(_command,_args,options)=>{
+      const call=JSON.parse(options!.input!);
+      if(call.action==='launch')expect(call.datasetName).toBe('kd-input-'+createHash('sha256').update(input.bundleHash+'|'+input.partId).digest('hex').slice(0,32));
+      return JSON.stringify({remoteId:'test/run-one'});
+    });
     await kaggle.preflight(input);await kaggle.launch(input);
     const folder=join(input.directory,'kaggle-part-one');
     expect((await readFile(join(folder,'run.py'))).length).toBeLessThan(1_000_000);

@@ -92,23 +92,23 @@ export function createTransports(mainRoot:string, exec:Execute=execute):Record<'
       'source.bin':await readFile(i.sourceArchive), 'bundle.bin':await readFile(i.bundlePath),
       'supervisor.bin':await readFile(join(HERE,'supervisor.py')), 'config.bin':Buffer.from(JSON.stringify(config)),
     };
-    const dataset=notebookName(i);
+    const dataset='kd-input-'+createHash('sha256').update(i.bundleHash+'|'+i.partId).digest('hex').slice(0,32);
     if(dataset.length>50)throw new Error('Kaggle dataset name limit');
     const manifest=Object.fromEntries(Object.entries(files).map(([name,data])=>[name,{bytes:data.length,sha256:createHash('sha256').update(data).digest('hex')}]));
     const template=await readFile(join(HERE,'kaggle-loader.py'),'utf8');
     const script=template.replace('# RUN_BINDING','BOUND = json.loads('+JSON.stringify(JSON.stringify({dataset,files:manifest}))+')');
     if(Buffer.byteLength(script)>=1_000_000)throw new Error('Kaggle notebook source size limit');
-    return {files,script};
+    return {files,script,dataset};
   }
   const kaggle:RunTransport={
     async preflight(i){await kagglePayload(i);await kaggleCall('preflight',i);},
     async launch(i){
-      const {files,script}=await kagglePayload(i);
+      const {files,script,dataset}=await kagglePayload(i);
       const folder=join(i.directory,'kaggle-'+i.partId);await mkdir(folder,{recursive:false});
       const data=join(folder,'payload');await mkdir(data);
       for(const [name,bytes] of Object.entries(files))await writeFile(join(data,name),bytes);
       await writeFile(join(folder,'run.py'),script);
-      const reply=await kaggleCall('launch',i,{folder});return {remoteId:reply.remoteId,acceptedAt:new Date().toISOString()};
+      const reply=await kaggleCall('launch',i,{folder,datasetName:dataset});return {remoteId:reply.remoteId,acceptedAt:new Date().toISOString()};
     },
     async status(i,receipt):Promise<RemoteStatus>{try {const value=await kaggleCall('status',i);if(receipt&&receipt.remoteId!==value.remoteId)throw new Error('Wrong remote receipt');return {...value,completedGames:null,message:''};}catch{return {remoteId:receipt?.remoteId??notebookName(i),state:'unknown',completedGames:null,message:'Remote state is unavailable'};}},
     async collect(i,receipt,destination){await mkdir(destination,{recursive:true});const reply=await kaggleCall('collect',i,{destination});if(receipt&&receipt.remoteId!==reply.remoteId)throw new Error('Wrong remote receipt');const out=join(destination,'out');try {for(const name of await readdir(out)){if(FILES.includes(name))await rename(join(out,name),join(destination,name));}}catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}}

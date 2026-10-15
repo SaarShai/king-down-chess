@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Bounded Kaggle adapter. Keep this filename distinct from the SDK package."""
-import contextlib, json, os, sys, socket, resource, time
+import contextlib, hashlib, json, os, sys, socket, resource, time, re
 from pathlib import Path
 
 ACTIVE = {'QUEUED','RUNNING','CANCEL_REQUESTED','NEW_SCRIPT'}
@@ -63,6 +63,9 @@ def execute(api, request):
     user = api.config_values['username']
     ref = user+'/'+request['name']
     if action == 'launch':
+        dataset_name = request['datasetName']
+        if not isinstance(dataset_name,str) or not re.fullmatch(r'[a-z0-9][a-z0-9-]{5,49}',dataset_name): raise RuntimeError('invalid dataset identity')
+        dataset_ref = user+'/'+dataset_name
         folder = Path(request['folder'])
         if (folder/'run.py').stat().st_size >= 1_000_000: raise RuntimeError('notebook source size limit')
         payload = folder/'payload'
@@ -76,7 +79,10 @@ def execute(api, request):
         if audit(api)>=5: raise RuntimeError('no account capacity')
     if action == 'preflight': return {'remoteId':ref}
     if action == 'launch':
-        (payload/'dataset-metadata.json').write_text(json.dumps(dict(id=ref,title=request['name'],licenses=[{'name':'copyright-authors'}],description='Private frozen run input. Existing author rights are retained.')))
+        (payload/'dataset-metadata.json').write_text(json.dumps(dict(id=dataset_ref,title=dataset_name,licenses=[{'name':'copyright-authors'}],description='Private frozen run input. Existing author rights are retained.')))
+        receipt = folder/'dataset-create.json'
+        with receipt.open('x') as output:
+            json.dump({'ref':dataset_ref,'state':'attempted'}, output)
         # The SDK retries dataset creation by default. Do not repeat a mutation.
         retry = api.with_retry
         upload = api._upload_file_or_folder
@@ -95,19 +101,29 @@ def execute(api, request):
         finally:
             api.with_retry = retry
             api._upload_file_or_folder = upload
-        if created.error or created.ref != ref: raise RuntimeError('dataset creation not confirmed')
-        (folder/'dataset-receipt.json').write_text(json.dumps({'ref':ref,'state':'created'}))
+        # The SDK CLI uses status/url. A valid reply can omit ref.
+        status = getattr(created, 'status', '').lower()
+        reply_ref, url, error = created.ref, created.url, created.error
+        identity = reply_ref in ('',dataset_ref) and url in ('','https://www.kaggle.com/datasets/'+dataset_ref) and bool(reply_ref or url)
+        accepted = status == 'ok' and not error and identity
+        rejected = status == 'error' and bool(error)
+        receipt.write_text(json.dumps({'ref':dataset_ref,'state':'created' if accepted else 'rejected' if rejected else 'unknown',
+            'status':status if status in ('ok','error') else 'unknown','refMatches':reply_ref==dataset_ref,
+            'urlMatches':url=='https://www.kaggle.com/datasets/'+dataset_ref,'hasError':bool(error),
+            'errorSha256':hashlib.sha256(error.encode()).hexdigest() if error else None}))
+        if not accepted: raise RuntimeError('dataset creation rejected' if rejected else 'dataset creation not confirmed')
+        (folder/'dataset-receipt.json').write_text(json.dumps({'ref':dataset_ref,'state':'created'}))
         for attempt in range(6):
-            status = api.dataset_status(ref)
+            status = api.dataset_status(dataset_ref)
             if status == 'ready':
-                detail = json.loads(api.dataset_status(ref, format='json(current_version_number)'))
+                detail = json.loads(api.dataset_status(dataset_ref, format='json(current_version_number)'))
                 if detail['current_version_number'] != 1: raise RuntimeError('dataset not ready')
                 break
             if status not in ('not_yet_persisted','blobs_received','blobs_decompressed','blobs_copied_to_sds','individual_blobs_compressed','reprocessing') or attempt == 5:
                 raise RuntimeError('dataset not ready')
             time.sleep(30)
-        (folder/'dataset-receipt.json').write_text(json.dumps({'ref':ref,'state':'ready','version':1}))
-        metadata = dict(id=ref,title=request['name'],code_file='run.py',language='python',kernel_type='script',is_private=True,enable_gpu=False,enable_tpu=False,enable_internet=True,dataset_sources=[ref],kernel_sources=[],competition_sources=[],model_sources=[])
+        (folder/'dataset-receipt.json').write_text(json.dumps({'ref':dataset_ref,'state':'ready','version':1}))
+        metadata = dict(id=ref,title=request['name'],code_file='run.py',language='python',kernel_type='script',is_private=True,enable_gpu=False,enable_tpu=False,enable_internet=True,dataset_sources=[dataset_ref],kernel_sources=[],competition_sources=[],model_sources=[])
         (folder/'kernel-metadata.json').write_text(json.dumps(metadata))
         reply = api.kernels_push(str(folder), timeout='28800')
         if reply.error or reply.ref != ref: raise RuntimeError('submission not confirmed')
@@ -145,6 +161,6 @@ if __name__ == '__main__':
     except BaseException as error:
         # Return only known local failures or an HTTP code, never a service body.
         http = getattr(getattr(error, 'response', None), 'status_code', None)
-        known = {'account audit time limit', 'account audit rate limit', 'account audit unavailable', 'unknown account state', 'account audit exceeds limit', 'notebook identity unavailable', 'notebook status unavailable', 'no account capacity', 'submission not confirmed', 'notebook source size limit', 'invalid dataset payload', 'dataset creation not confirmed', 'dataset not ready'}
+        known = {'account audit time limit', 'account audit rate limit', 'account audit unavailable', 'unknown account state', 'account audit exceeds limit', 'notebook identity unavailable', 'notebook status unavailable', 'no account capacity', 'submission not confirmed', 'notebook source size limit', 'invalid dataset payload', 'invalid dataset identity', 'dataset creation not confirmed', 'dataset creation rejected', 'dataset not ready'}
         message = f'HTTP {http}' if isinstance(http, int) and 400 <= http <= 599 else str(error) if type(error) is RuntimeError and str(error) in known else 'operation failed; outcome may be unknown'
         print(json.dumps({'error': message}))

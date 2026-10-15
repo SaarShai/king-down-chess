@@ -98,15 +98,17 @@ with tempfile.TemporaryDirectory() as temp, patch('time.sleep'):
             assert files - {None} == {'source.bin','bundle.bin','supervisor.bin','config.bin'}
             calls.append('create');assert kw==dict(public=False,quiet=True,convert_to_csv=False)
             assert json.loads((Path(folder)/'dataset-metadata.json').read_text())['licenses']==[{'name':'copyright-authors'}]
-            return self.with_retry(lambda:NS(error=None,ref='test/frozen-run'))()
-        def dataset_status(self,ref,format=None):return '{"current_version_number":1}' if format else 'ready'
+            return self.with_retry(lambda:NS(error=None,ref='test/frozen-data',status='ok',url='https://www.kaggle.com/datasets/test/frozen-data'))()
+        def dataset_status(self,ref,format=None):
+            assert ref=='test/frozen-data'
+            return '{"current_version_number":1}' if format else 'ready'
         def kernels_push(self,folder,**kw):
             calls.append('push');meta=json.loads((Path(folder)/'kernel-metadata.json').read_text())
-            assert meta['is_private'] and meta['dataset_sources']==['test/frozen-run']
+            assert meta['is_private'] and meta['dataset_sources']==['test/frozen-data']
             return NS(error=None,ref='test/frozen-run')
     for name in ('source.bin','bundle.bin','supervisor.bin','config.bin','dataset-metadata.json'):
         (data/('._'+name)).write_bytes(b'mac metadata')
-    api=DatasetAPI(0);request=dict(action='launch',folder=str(root),name='frozen-run')
+    api=DatasetAPI(0);request=dict(action='launch',folder=str(root),name='frozen-run',datasetName='frozen-data')
     for name in ('unexpected.bin','._unexpected.bin'):
         (data/name).write_bytes(b'unknown')
         with patch.object(kaggle,'audit') as audit:
@@ -116,19 +118,43 @@ with tempfile.TemporaryDirectory() as temp, patch('time.sleep'):
     fails(lambda:kaggle.execute(api,request));(data/'._source.bin').unlink()
     (data/'._source.bin').write_bytes(b'mac metadata')
     assert kaggle.execute(api,request)['remoteId']=='test/frozen-run' and calls==['create','push']
-    (data/'dataset-metadata.json').unlink();calls.clear()
+    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();calls.clear()
+    # The SDK CLI accepts status/url; a successful response may omit ref.
+    create=api.dataset_create_new
+    def url_only(*args,**kw):
+        reply=create(*args,**kw);reply.ref='';return reply
+    api.dataset_create_new=url_only
+    assert kaggle.execute(api,request)['remoteId']=='test/frozen-run' and calls==['create','push']
+    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();calls.clear()
     def uncertain_create(*args,**kw):
         calls.append('create');raise TimeoutError()
     api.dataset_create_new=uncertain_create
     fails(lambda:kaggle.execute(api,request));assert calls==['create']
-    (data/'dataset-metadata.json').unlink();calls.clear();api=DatasetAPI(0)
+    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();calls.clear();api=DatasetAPI(0)
     def uncertain_push(*args,**kw):
         calls.append('push');raise TimeoutError()
     api.kernels_push=uncertain_push
     fails(lambda:kaggle.execute(api,request));assert calls==['create','push']
-    (data/'dataset-metadata.json').unlink();calls.clear();api=DatasetAPI(0)
+    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();calls.clear();api=DatasetAPI(0)
     api.dataset_status=lambda ref,format=None:'{"current_version_number":2}' if format else 'ready'
     fails(lambda:kaggle.execute(api,request));assert calls==['create']
+    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();calls.clear()
+    for reply,state in [
+        (NS(status='error',error='sensitive service body',ref='',url=''),'rejected'),
+        (NS(status='',error='',ref='test/frozen-data',url=''),'unknown'),
+        (NS(status='ok',error='',ref='test/other',url='https://www.kaggle.com/datasets/test/frozen-data'),'unknown'),
+        (NS(status='ok',error='',ref='',url='https://example.com/test/frozen-run'),'unknown'),
+    ]:
+        api=DatasetAPI(0)
+        api.dataset_create_new=lambda *args,**kw: (calls.append('create') or reply)
+        fails(lambda:kaggle.execute(api,request))
+        saved=(root/'dataset-create.json').read_text()
+        assert json.loads(saved)['state']==state and 'sensitive' not in saved
+        assert calls==['create']
+        (data/'dataset-metadata.json').unlink()
+        # A repeat cannot reach dataset creation, even after a response was lost.
+        fails(lambda:kaggle.execute(api,request));assert calls==['create']
+        (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();calls.clear()
     (root/'run.py').write_bytes(b'x'*1_000_000)
     with patch.object(kaggle,'audit') as audit:
         fails(lambda:kaggle.execute(api,request));audit.assert_not_called()
