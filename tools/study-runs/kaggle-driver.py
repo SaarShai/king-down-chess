@@ -79,7 +79,7 @@ def execute(api, request):
         if audit(api)>=5: raise RuntimeError('no account capacity')
     if action == 'preflight': return {'remoteId':ref}
     if action == 'launch':
-        (payload/'dataset-metadata.json').write_text(json.dumps(dict(id=dataset_ref,title=dataset_name,licenses=[{'name':'copyright-authors'}],description='Private frozen run input. Existing author rights are retained.')))
+        (payload/'dataset-metadata.json').write_text(json.dumps(dict(id=dataset_ref,title=dataset_name,licenses=[{'name':'other'}],description='All rights reserved by the original authors. Private frozen run input; no permission to redistribute is granted.')))
         receipt = folder/'dataset-create.json'
         with receipt.open('x') as output:
             json.dump({'ref':dataset_ref,'state':'attempted'}, output)
@@ -110,7 +110,8 @@ def execute(api, request):
         receipt.write_text(json.dumps({'ref':dataset_ref,'state':'created' if accepted else 'rejected' if rejected else 'unknown',
             'status':status if status in ('ok','error') else 'unknown','refMatches':reply_ref==dataset_ref,
             'urlMatches':url=='https://www.kaggle.com/datasets/'+dataset_ref,'hasError':bool(error),
-            'errorSha256':hashlib.sha256(error.encode()).hexdigest() if error else None}))
+            'errorSha256':hashlib.sha256(error.encode()).hexdigest() if error else None,
+            'errorCode':'invalid-license' if error == 'Please select a valid license' else None}))
         if not accepted: raise RuntimeError('dataset creation rejected' if rejected else 'dataset creation not confirmed')
         (folder/'dataset-receipt.json').write_text(json.dumps({'ref':dataset_ref,'state':'created'}))
         for attempt in range(6):

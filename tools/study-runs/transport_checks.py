@@ -97,7 +97,10 @@ with tempfile.TemporaryDirectory() as temp, patch('time.sleep'):
             files={self._upload_file_or_folder(folder,p.name) for p in Path(folder).iterdir() if p.name!='dataset-metadata.json'}
             assert files - {None} == {'source.bin','bundle.bin','supervisor.bin','config.bin'}
             calls.append('create');assert kw==dict(public=False,quiet=True,convert_to_csv=False)
-            assert json.loads((Path(folder)/'dataset-metadata.json').read_text())['licenses']==[{'name':'copyright-authors'}]
+            metadata=json.loads((Path(folder)/'dataset-metadata.json').read_text())
+            if metadata['licenses'] != [{'name':'other'}]:
+                return NS(status='Error',error='Please select a valid license',ref='',url='https://www.kaggle.com/')
+            assert 'All rights reserved' in metadata['description']
             return self.with_retry(lambda:NS(error=None,ref='test/frozen-data',status='ok',url='https://www.kaggle.com/datasets/test/frozen-data'))()
         def dataset_status(self,ref,format=None):
             assert ref=='test/frozen-data'
@@ -140,6 +143,7 @@ with tempfile.TemporaryDirectory() as temp, patch('time.sleep'):
     fails(lambda:kaggle.execute(api,request));assert calls==['create']
     (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();calls.clear()
     for reply,state in [
+        (NS(status='Error',error='Please select a valid license',ref='',url='https://www.kaggle.com/'),'rejected'),
         (NS(status='error',error='sensitive service body',ref='',url=''),'rejected'),
         (NS(status='',error='',ref='test/frozen-data',url=''),'unknown'),
         (NS(status='ok',error='',ref='test/other',url='https://www.kaggle.com/datasets/test/frozen-data'),'unknown'),
@@ -150,6 +154,7 @@ with tempfile.TemporaryDirectory() as temp, patch('time.sleep'):
         fails(lambda:kaggle.execute(api,request))
         saved=(root/'dataset-create.json').read_text()
         assert json.loads(saved)['state']==state and 'sensitive' not in saved
+        assert json.loads(saved)['errorCode']==('invalid-license' if reply.error=='Please select a valid license' else None)
         assert calls==['create']
         (data/'dataset-metadata.json').unlink()
         # A repeat cannot reach dataset creation, even after a response was lost.

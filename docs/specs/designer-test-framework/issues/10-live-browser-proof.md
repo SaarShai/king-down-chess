@@ -552,3 +552,42 @@ collection. It allows 90 minutes for backup and 30 for downloaded-byte proof.
 Preserve its lock and do not repeat its upload. The next local check is
 13:45 UTC. Backup is pending at this checkpoint. Final closure requires the
 saved receipt and downloaded decoded hashes to pass for every required file.
+
+## Rejection cause follow-up
+
+Owner, 2026-10-15: “find out why Kaggle rejected the dataset, fix the cause,
+then finish the remaining four games and link verified results if safe.
+don't retry an uncertain launch.”
+
+Plan: compare the saved error hash against known SDK and service messages;
+read exact dataset metadata and account limits without mutation. Build a
+regression for the confirmed cause and keep safe diagnostic reason codes.
+Do not alter files in the active backup manifest. Check the backup only at
+13:45 UTC. Preserve both uncertain and rejected attempts. Any continuation
+requires proof that no prior notebook batch exists, a passed repair check,
+and a recorded bounded schedule. The old deadline is not silently changed.
+Acceptance remains eight exact scheduled games, legal and illegal replay
+controls, downloaded-byte backup proof and a saved browser result link.
+
+A dataset-only diagnostic request returns `Please select a valid license`.
+Its SHA-256 exactly matches the saved recovery 3 error. The probe disables
+notebook submission and stops after the same explicit rejection. It uses
+only the rejected payload identity and leaves the earlier uncertain dataset
+untouched. The license `copyright-authors` is listed in Kaggle's documents,
+but this service rejects it. The repair uses `other` with explicit original
+author rights, no redistribution permission, and private visibility.
+
+The regression reaches the real adapter metadata boundary and reproduces
+`dataset creation rejected` before the fix. The adapter also saves the safe
+`invalid-license` reason code for this exact message; other service text
+stays out of exported receipts. Diagnostic evidence is separate from the
+active backup in `state/study-runs/dataset-rejection-cause-20261015`.
+
+The repaired adapter passes six transport tests, typecheck, all 50 art checks
+and 113 doc checks. The old hard deadline remains in the original attempt.
+The owner's renewed request authorizes a separate recovery for only original
+Kaggle jobs 2, 3, 6 and 7. It uses a new bounded window ending at 21:45 UTC
+on 2026-10-15, at most 25 minutes of worker time and 30 minutes of dispatch.
+It waits for the existing backup lock, checks exact notebook version zero
+and unchanged frozen source, and submits once. Any uncertain outcome stops
+the recovery. It does not change the original studio record or M1 results.
