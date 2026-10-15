@@ -157,6 +157,8 @@ it('keeps card and power targets at 44 px without increasing the player rows', a
     await frame.getByRole('checkbox',{name:'Arrangement',exact:true}).check();
     await frame.getByRole('checkbox',{name:'Cards',exact:true}).check(); await frame.getByRole('checkbox',{name:'King powers',exact:true}).check();
     await frame.locator('#setup-start').click(); await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    // Measure the coins at rest, after the start deal (Lively motion).
+    await frame.locator('#game-table').evaluate(e=>Promise.all(e.getAnimations({subtree:true}).map(a=>a.finished)));
     const bounds=await frame.locator('#game-table .coin').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return [r.width,r.height];}));
     expect(bounds.length).toBeGreaterThanOrEqual(8); for(const [w,h] of bounds){expect(w).toBeGreaterThanOrEqual(44);expect(h).toBeGreaterThanOrEqual(44);}
     expect(await frame.locator('#strip-me b').getAttribute('title')).toBe('wwwwwwwwwwwwwwwwwwww');

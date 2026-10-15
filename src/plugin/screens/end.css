@@ -14,3 +14,7 @@ body[data-page='end'] #page-head { position: relative; z-index: 3; }
 #over.end-card form { margin-top: var(--space-3); }
 #over.end-card .quiet-line { margin-top: var(--space-2) !important; }
 @media (min-width: 900px) { .frame dialog#over.end-card { inset: 0 auto 0 calc(50% - 440px); margin: auto 0; } }
+
+/* Lively: the end card rises (320 ms) after the board ceremony (screens/board.ts). */
+#over.end-card[open] { animation: end-rise 320ms cubic-bezier(.05,.7,.1,1) both; }
+@keyframes end-rise { from { opacity: 0; transform: translateY(24px); } }
