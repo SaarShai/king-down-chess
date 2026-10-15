@@ -1,6 +1,6 @@
 # Recover Kaggle notebook receipts
 
-Status: claimed
+Status: resolved
 Type: task
 Blocked by: none
 
@@ -87,3 +87,21 @@ checks and the production build. All eight terminal file hashes match.
 Evidence is in card results `receipt-patch-m1-20261015/terminal` and
 `collection.json`. Remote sources stay in place. No further M1 query is needed.
 Backup waits for the live browser proof to avoid a competing maintenance lock.
+
+## Final evidence backup
+
+The evidence backup passes at 22:21 UTC on 2026-10-15. It verifies 72 files
+and 479,878,969 bytes against downloaded, decoded cloud objects. The saved
+receipt matches the proof. A final local check confirms every required hash
+and byte count still matches.
+
+Snapshot: `drive:King Down/results-backups/20261015-150101-41120000`.
+Proof and local check: card state
+`study-backups/receipt-proof-blocked-20261015/verified-final.json` and
+`completion-check.json`. The snapshot includes the baseline failure, patched
+M1 validation and blocked browser proof. Remote sources remain in place.
+No upload, launch or approval is repeated.
+
+Implementation and M1 validation are complete. The live browser proof stops
+at the dataset receipt gate before it can test the notebook receipt path.
+Issue 14 records that limit; this ticket does not claim a live pass.

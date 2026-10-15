@@ -1,8 +1,8 @@
 # Live browser proof of Kaggle receipts
 
-Status: claimed
+Status: needs-info
 Type: task
-Blocked by: none
+Blocked by: dataset response identity cannot be confirmed
 
 ## Request and scope
 
@@ -95,3 +95,22 @@ A single new evidence backup starts at 21:38:13 UTC, PID 1758, in card state
 baseline failure and passed patched validation. It allows 90 minutes for backup
 and 30 for downloaded-byte proof. Next bounded local check: 22:15 UTC.
 No competing upload or further worker query is needed.
+
+## Final evidence backup
+
+The evidence backup passes at 22:21 UTC on 2026-10-15. It verifies 72 files
+and 479,878,969 bytes against downloaded, decoded cloud objects. The saved
+receipt matches the proof. A final local check confirms every required hash
+and byte count still matches.
+
+Snapshot: `drive:King Down/results-backups/20261015-150101-41120000`.
+Proof and local check: card state
+`study-backups/receipt-proof-blocked-20261015/verified-final.json` and
+`completion-check.json`. The snapshot includes the baseline failure, patched
+M1 validation and blocked browser proof. Remote sources remain in place.
+No upload, launch or approval is repeated.
+
+The live test is not complete. The exact conflicting response ref was not
+saved, so its cause remains unknown. There are zero verified games and no
+result export to link. No manual recovery or further remote query occurs.
+The follow-up closes with this blocker and the evidence preserved.
