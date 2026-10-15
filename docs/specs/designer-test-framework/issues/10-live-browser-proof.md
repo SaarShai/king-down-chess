@@ -223,3 +223,29 @@ It covers the collected files, both reports and verifier provenance. Preserve
 its live lock and inspect this attempt before any further backup. The browser
 previews the one incomplete result row in the original saved study. Linking
 and persistence checks remain open until the backup proof completes.
+
+## Partial proof saved; full test blocked
+
+The partial backup passes at 2026-10-15 07:18:07 UTC. Snapshot:
+`drive:King Down/results-backups/20261015-000727-390625000`.
+The downloaded-byte proof covers 34 required files and 4,734,200 bytes. Its
+saved receipt matches `verified-final.json`. A final local check confirms that
+all 34 files still match the exact SHA-256 and byte counts in that proof.
+The backup releases its maintenance lock. No duplicate upload occurs.
+
+Kaggle's second and final status attempt occurs at 07:16:53 UTC, after the
+backup releases the lock. It still cannot read a remote state. The local record
+retains two bounded checks and no accepted launch receipt. No Kaggle games
+are collected or verified. The launch is never retried. The full eight-game
+proof remains blocked; this ticket is not resolved.
+
+The browser links the corrected report's one incomplete evidence row into the
+original study and saves version 3. After a full page reload, reopening that
+saved version shows one linked measurement: missing score, no interval, four
+games, incomplete. This does not claim a complete run or useful balance values.
+The four games all hit the ply cap. The UI retains the original source context.
+Screenshot: `live-partial-linked.png` in this chat's visualization folder.
+
+The owner is told that M1 replay, evidence backup and partial browser linking
+finish, but Kaggle blocks the full proof. The follow-up is removed after this
+checkpoint. No additional games, adoption, deploy or merge occurs.
