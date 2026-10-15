@@ -77,16 +77,16 @@ function render() {
   $('game-table').dataset.empty = 'false'; $('seat-ready').classList.toggle('primary', !ready);
   const days = view.setup_deadline_at ? Math.max(0, Math.ceil((Date.parse(view.setup_deadline_at) - Date.parse(view.server_now)) / 86400000)) : null;
   const them = view.opponent?.computer ? `Computer · ${view.level ? view.level[0].toUpperCase() + view.level.slice(1) : 'Club'}` : view.opponent?.handle ?? 'Opponent';
-  $('seat-them-name').textContent = them; $('seat-them-line').textContent = `${view.ready?.[other] ? 'Ready' : 'Choosing'}${ready && days !== null ? ` · ${days} ${days === 1 ? 'day' : 'days'} left` : ''}`;
+  $('seat-them-name').textContent = them; $('seat-them-name').title = them; $('seat-them-line').textContent = `${view.ready?.[other] ? 'Ready' : 'Choosing'}${ready && days !== null ? ` · ${days} ${days === 1 ? 'day' : 'days'} left` : ''}`;
   $<HTMLImageElement>('seat-them-picture').src = art(`ui/kings/${PLAIN_KINGS[other].toLowerCase()}${other ? '-b' : ''}.webp`);
-  $('seat-me-name').textContent = memory.me?.handle ?? 'You';
+  $('seat-me-name').textContent = memory.me?.handle ?? 'You'; $('seat-me-name').title = $('seat-me-name').textContent;
   $<HTMLImageElement>('seat-me-picture').src = art(ICONS[memory.me?.icon ?? (view.seat === 0 ? 'spirit' : 'shadow')]);
-  $('seat-me-line').textContent = choice.king ? `${choice.king.king} · ${POWER_NAME[choice.king.power]}${ready ? '' : ' · tap the coin to change'}` : view.seat === 0 ? 'White · Spirit King' : 'Black · Shadow King';
+  $('seat-me-line').textContent = choice.king ? `${choice.king.king} · ${POWER_NAME[choice.king.power]}${ready ? '' : ' · select the coin to change'}` : view.seat === 0 ? 'White · Spirit King' : 'Black · Shadow King';
   $('strip-me').classList.toggle('is-turn', !ready); $('seat-king').hidden = !needs.king; $('seat-shuffle').hidden = !needs.order;
   if (choice.king) $<HTMLImageElement>('seat-king').querySelector('img')!.src = art(`ui/emblems/${choice.king.king.toLowerCase()}.webp`);
   const error = validateChoice(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice);
   const piece = selected === null ? '' : NAMES[LETTERS.indexOf(choice.order[selected % 8])];
-  $('seat-context').textContent = ready ? 'Waiting for the other player.' : error ?? (selected === null ? needs.order ? 'Tap one back-rank piece, then another, to swap them.' : 'Choose your king, then press Ready.' : `Tap a marked piece to swap the ${piece} with it.`);
+  $('seat-context').textContent = ready ? 'Waiting for the other player.' : error ?? (selected === null ? needs.order ? 'Select one back-rank piece, then another, to swap them.' : 'Choose your king, then press Ready.' : `Select a marked piece to swap the ${piece} with it.`);
   $('seat-note').textContent = ready ? days === null ? '' : `${them} has ${days} ${days === 1 ? 'day' : 'days'} to choose.` : choice.order.includes('G') && needs.order ? 'The guard stays next to the king.' : '';
   $('last-move').textContent = `Your back rank: ${screenOrder(choice.order, view.seat)}`;
   const kings: [KingChoice | null, KingChoice | null] = [null,null]; kings[view.seat] = choice.king; setRules({ kings });
@@ -124,7 +124,7 @@ function menu(confirm = false) {
   dialog.id = 'seat-menu-sheet'; dialog.className = 'over-sheet'; dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', 'seat-menu-title'); scrim.className = 'scrim';
   dialog.innerHTML = `<header class="sheet-head"><h2 id="seat-menu-title">${confirm ? 'Abort this game?' : 'Menu'}</h2><button id="seat-menu-close" aria-label="Close">×</button></header><div class="sheet-body">${confirm ? '<p>The game ends with no result.</p><button id="seat-abort-confirm" class="primary">Abort</button><button id="seat-abort-cancel">Cancel</button>' : `${view.abort_open ? '<button id="seat-abort" class="menu-row">Abort</button>' : ''}<button id="seat-settings" class="menu-row">Settings</button>`}</div>`;
   page.inert = true; $('app-frame').append(scrim, dialog); dialog.show(); client.state.sheet = confirm ? 'seat-abort' : 'seat-menu'; client.save();
-  const close = () => { dialog.remove(); scrim.remove(); page.inert = false; closeMenu = undefined; client.state.sheet = undefined; client.save(); document.removeEventListener('keydown', key); focus?.focus(); };
+  const close = () => { dialog.remove(); scrim.remove(); page.inert = false; closeMenu = undefined; client.state.sheet = undefined; client.save(); document.removeEventListener('keydown', key); focus?.focus({preventScroll:true}); };
   const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); close(); }
     else if (event.key === 'Tab') { const buttons = [...dialog.querySelectorAll<HTMLButtonElement>('button')], i = buttons.indexOf(document.activeElement as HTMLButtonElement); if (event.shiftKey && i <= 0 || !event.shiftKey && i === buttons.length - 1) { event.preventDefault(); buttons[event.shiftKey ? buttons.length - 1 : 0].focus(); } } };
   document.addEventListener('keydown', key); closeMenu = close; $('seat-menu-close').onclick = scrim.onclick = close;

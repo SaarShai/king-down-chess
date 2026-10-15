@@ -209,7 +209,7 @@ it('opens the human game when the friend joins before a saved wait remounts', as
 it('shows code errors on a chat mount and permits a new code from Play', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    for (const [code, words] of [['INVITE_UNAVAILABLE','This code has expired or was used'],['FORBIDDEN','You cannot join this game'],['INVALID_INPUT','Check the code: 6 letters and digits'],['RATE_LIMITED','Too many code tries. Wait one hour.']]) {
+    for (const [code, words] of [['INVITE_UNAVAILABLE','No game has this code. Check the code with your friend.'],['FORBIDDEN','You cannot join this game.'],['INVALID_INPUT','Check the code: 6 letters and digits.'],['RATE_LIMITED','Too many code tries. Wait one hour.']]) {
       await page.evaluate(({ code }) => (window as any).harnessShow({ isError: true, content: [{ type: 'text', text: 'Server code error with an invitation link.' }], _meta: { code } }, true), { code });
       await frame.locator('#join-message').filter({ hasText: words }).waitFor();
       expect(await frame.locator('#join-message').textContent()).toBe(words);
@@ -349,7 +349,7 @@ it('finishes the computer handoff when the automatic Choose needs Retry', async 
   } finally { await page.close(); }
 });
 
-it('previews the current code after Decline while the old preview loads', async () => {
+it('previews the current code after Back while the old preview loads', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     const first = await buddy(page, 'kingdown_create', { kind: 'friend', options, colour: 'white' });
@@ -359,7 +359,7 @@ it('previews the current code after Decline while the old preview loads', async 
     await frame.locator('#home-play').click(); await page.evaluate(() => { (window as any).holdNext = 'kingdown_join'; });
     await frame.locator('#token').fill(a.structuredContent.code); await frame.locator('#join').click();
     await page.waitForFunction(() => !!(window as any).releaseHeld);
-    await frame.locator('#join-decline').click(); await frame.locator('#token').fill(b.structuredContent.code); await frame.locator('#join').click();
+    await frame.locator('#page-back').click(); await frame.locator('#token').fill(b.structuredContent.code); await frame.locator('#join').click();
     await page.evaluate(() => (window as any).releaseHeld());
     await frame.locator('#join-confirm').waitFor();
     expect(await frame.locator('#join-preview .line').last().textContent()).toContain('You play White.');
@@ -388,4 +388,47 @@ it('finds a joined random game when the computer page mounts again', async () =>
     await frame.locator('#found-switch').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     expect(await page.evaluate(() => (window as any).harnessView.game_id)).toBe(waiting.game_id);
   } finally { await page.close(); }
+});
+
+it('keeps a bad code, hides the review and gives words for each code error', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#home-play').click(); await frame.locator('#token').fill('ZZZZZZ'); await frame.locator('#join').click();
+    await frame.locator('#join-message').filter({hasText:'No game has this code.'}).waitFor();
+    expect(await frame.locator('#join-code').inputValue()).toBe('ZZZZZZ');
+    for (const id of ['join-game-head','join-preview','join-decline','join-confirm']) expect(await frame.locator(`#${id}`).isVisible()).toBe(false);
+    expect(await frame.locator('#join-help').textContent()).toBe('Enter the game code.');
+    for (const [name,value] of [['autocapitalize','characters'],['autocomplete','off'],['spellcheck','false'],['enterkeyhint','go']]) expect(await frame.locator('#join-code').getAttribute(name)).toBe(value);
+    await frame.locator('#join-code').fill('X'); expect(await frame.locator('#join-message').textContent()).toBe('');
+    await frame.locator('#join-entry button').click(); await frame.locator('#join-message').filter({hasText:'6 letters and digits.'}).waitFor();
+    expect(await frame.locator('#join-code').inputValue()).toBe('X');
+    for (const [code,message,words] of [['INVITE_UNAVAILABLE','Invitation expired or used','This code has expired or was used. Ask your friend for a new code.'],['FORBIDDEN','You already have a seat','You cannot join this game.']]) {
+      await page.evaluate(({code,message})=>(window as any).harnessShow({isError:true,content:[{type:'text',text:message}],_meta:{code}},true),{code,message});
+      await frame.locator('#join-message').filter({hasText:words}).waitFor();
+    }
+  } finally { await page.close(); }
+});
+
+it('shows feature words and a fallback portrait in the join review', async () => {
+  const page=await open(), frame=page.frameLocator('iframe');
+  try {
+    const made=await buddy(page,'kingdown_create',{kind:'friend',options:{...options,fairy:false,pool:[],classic:true},colour:'white'});
+    const invite=await buddy(page,'kingdown_invite',{game_id:made._meta.view.game_id});
+    await frame.locator('#home-play').click(); await frame.locator('#token').fill(invite.structuredContent.code); await frame.locator('#join').click();
+    await frame.locator('#join-confirm').waitFor();
+    expect(await frame.locator('#join-preview .feats').textContent()).toBe('Classic chess');
+    expect(await frame.locator('#join-preview .portrait img').getAttribute('src')).toContain('spirit');
+    expect(await frame.locator('#join-help').textContent()).toBe('Review this game before you join.');
+  } finally {await page.close();}
+});
+
+it('calls a newly opened game just opened and gives an opponent a fallback portrait', async () => {
+  const page=await open(), frame=page.frameLocator('iframe');
+  let game: string | undefined;
+  try {
+    const made=await buddy(page,'kingdown_create',{kind:'random',options,colour:'white'}); game=made._meta.view.game_id;
+    await frame.locator('#home-play').click(); await frame.locator('#play-open').click();
+    await frame.locator('#lobby-list .menu-row').filter({hasText:'just opened'}).first().waitFor();
+    expect(await frame.locator('#lobby-list .portrait img').first().getAttribute('src')).toContain('spirit');
+  } finally { if(game) await buddy(page,'kingdown_cancel',{game_id:game}); await page.close(); }
 });

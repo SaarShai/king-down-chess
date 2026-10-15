@@ -7,15 +7,17 @@ import type { View } from '../../match/protocol';
 import './lobby.css';
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 export const icon = (name: string) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
-export const featureNames = [['fairy', 'fairy', 'Fairy pieces'], ['arrangement', 'arrange', 'Arrangement'], ['classic', 'classic', 'Classic'], ['cards', 'cards', 'Cards'], ['kingPowers', 'powers', 'King powers']] as const;
-export function features(options: Options | null | undefined) {
+export const featureNames = [['fairy', 'fairy', 'Fairy pieces'], ['arrangement', 'arrange', 'Arrangement'], ['classic', 'classic', 'Classic chess'], ['cards', 'cards', 'Cards'], ['kingPowers', 'powers', 'King powers']] as const;
+export function features(options: Options | null | undefined, words = false) {
   const span = document.createElement('span'); span.className = 'feats';
+  if (words) { span.textContent = featureNames.filter(([field]) => options?.[field]).map(([, , label]) => label).join(', ') || 'Standard pieces'; return span; }
   for (const [field, name, label] of featureNames) if (options?.[field]) { const mark = document.createElement('span'); mark.title = label; mark.innerHTML = icon(name); span.append(mark); }
   return span;
 }
 export function portrait(key: Icon | null | undefined, big = false) {
   const span = document.createElement('span'); span.className = `portrait${big ? ' big' : ''}`;
-  if (key && Object.hasOwn(ICONS, key)) { const img = document.createElement('img'); img.src = art(ICONS[key]); img.alt = ''; span.append(img); }
+  key = key && Object.hasOwn(ICONS, key) ? key : 'spirit';
+  const img = document.createElement('img'); img.src = art(ICONS[key]); img.alt = ''; span.append(img);
   return span;
 }
 export function row(title: string, lead: HTMLElement | string, line: (string | Node)[], tag: 'div' | 'button' = 'div') {
@@ -26,7 +28,7 @@ export function row(title: string, lead: HTMLElement | string, line: (string | N
   el.append(head, sub); return el;
 }
 export function toolError(code: string, fallback: string) {
-  return ({ INVITE_UNAVAILABLE: 'This code has expired or was used', FORBIDDEN: 'You cannot join this game', INVALID_INPUT: 'Check the code: 6 letters and digits', RATE_LIMITED: 'Too many code tries. Wait one hour.' } as Record<string, string>)[code] ?? fallback;
+  return ({ INVITE_UNAVAILABLE: /expired|used/i.test(fallback) ? 'This code has expired or was used. Ask your friend for a new code.' : 'No game has this code. Check the code with your friend.', NOT_FOUND: 'No game has this code. Check the code with your friend.', FORBIDDEN: 'You cannot join this game.', INVALID_INPUT: 'Check the code: 6 letters and digits.', RATE_LIMITED: 'Too many code tries. Wait one hour.' } as Record<string, string>)[code] ?? fallback;
 }
 export function showError(error: unknown, target = $('error')) { target.textContent = error instanceof Error ? error.message : String(error); }
 const codes = new Map<string, { code: string; expires_at: string }>();

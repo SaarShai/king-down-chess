@@ -45,3 +45,77 @@ it('sizes the seat and the board from their screens, with no viewport units and 
     await expect.poll(fill).toBeGreaterThan(0.75);
   } finally { await page.close(); }
 });
+
+it('keeps short-phone boards large, landscape controls reachable and the end table in its box', async () => {
+  for (const [width,height,top,bottom,left,right,min] of [[320,568,20,0,0,0,180],[375,667,20,0,0,0,230],[393,852,59,34,0,0,308],[440,956,59,34,0,0,360],[852,393,0,21,59,59,175],[852,393,59,34,0,0,110]]) {
+    const page=await browser.newPage({viewport:{width,height},isMobile:true,hasTouch:true}), frame=page.frameLocator('iframe'); page.setDefaultTimeout(10000);
+    try {
+      await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').click();
+      await page.evaluate(async safe => { await (window as any).harnessSetContext({displayMode:'fullscreen',safeAreaInsets:safe,deviceCapabilities:{touch:true}}); },{top,bottom,left,right});
+      await frame.locator('#play-new').click(); await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
+      await frame.getByRole('checkbox',{name:'Arrangement',exact:true}).check();
+      await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+      const canvasWidth=()=>frame.locator('#board canvas').evaluate(e=>e.getBoundingClientRect().width);
+      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
+      expect(await frame.locator('#seat-context').textContent()).not.toMatch(/Tap/);
+      const veil=await frame.locator('#seat-veil-layer .veil').evaluate(e=>{const r=e.getBoundingClientRect(),b=document.querySelector('#board')!.getBoundingClientRect(); return r.top>=b.top-1 && r.bottom<=b.bottom+1 && getComputedStyle(e).overflow==='hidden';});
+      expect(veil).toBe(true);
+      for(const id of ['seat-menu','seat-ready']) {
+        await frame.locator(`#${id}`).scrollIntoViewIfNeeded();
+        expect(await frame.locator(`#${id}`).evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
+      }
+      await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
+      expect(await frame.locator('.page-sheet').evaluate(e=>e.scrollTop)).toBe(0);
+      const bar=await frame.locator('#table-bar').evaluate(e=>{const buttons=[...e.querySelectorAll('button')].filter(b=>!b.hidden),r=e.getBoundingClientRect(),b=buttons[0].getBoundingClientRect();return {count:buttons.length,empty:b.left-r.left};});
+      expect(bar.count).toBe(2); expect(bar.empty).toBeLessThanOrEqual(8);
+      for(const id of ['board-menu','resign']) {
+        await frame.locator(`#${id}`).scrollIntoViewIfNeeded();
+        expect(await frame.locator(`#${id}`).evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
+      }
+      await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
+      await frame.locator('#over.end-card[open]').waitFor();
+      expect(await frame.locator('#end-table').evaluate(e=>Math.abs(e.getBoundingClientRect().height-e.querySelector('#game-table')!.getBoundingClientRect().height))).toBeLessThan(1);
+    } finally {await page.close();}
+  }
+});
+
+it('keeps card and power targets at 44 px without increasing the player rows', async () => {
+  const page=await browser.newPage({viewport:{width:375,height:667},hasTouch:true}), frame=page.frameLocator('iframe');
+  try {
+    await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').click();
+    await page.evaluate(async()=>{await (window as any).harnessSetContext({deviceCapabilities:{touch:true},displayMode:'fullscreen',safeAreaInsets:{top:20,bottom:0,left:0,right:0}});});
+    await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-nav="handle"]').click();
+    await frame.locator('#handle').fill('wwwwwwwwwwwwwwwwwwww'); await frame.locator('#save-handle').click(); await frame.locator('#page-back').click();
+    await frame.locator('#play-new').click(); await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
+    await frame.getByRole('checkbox',{name:'Arrangement',exact:true}).check();
+    await frame.getByRole('checkbox',{name:'Cards',exact:true}).check(); await frame.getByRole('checkbox',{name:'King powers',exact:true}).check();
+    await frame.locator('#setup-start').click(); await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    const bounds=await frame.locator('#game-table .coin').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return [r.width,r.height];}));
+    expect(bounds.length).toBeGreaterThanOrEqual(8); for(const [w,h] of bounds){expect(w).toBeGreaterThanOrEqual(44);expect(h).toBeGreaterThanOrEqual(44);}
+    expect(await frame.locator('#strip-me b').getAttribute('title')).toBe('wwwwwwwwwwwwwwwwwwww');
+    expect(await frame.locator('#strip-me b').evaluate(e=>{const r=e.getBoundingClientRect(),p=e.closest('.player-strip')!.getBoundingClientRect();return r.top>=p.top && r.bottom<=p.bottom && getComputedStyle(e).textOverflow==='ellipsis';})).toBe(true);
+    expect(await frame.locator('#strip-me').evaluate(e=>e.getBoundingClientRect().height)).toBe(44);
+    for (const id of ['power-w','card-w-0']) {
+      await frame.locator(`#${id}`).click();
+      await frame.locator('#reload').evaluate(e=>{e.setAttribute('disabled','');e.removeAttribute('disabled');});
+      await page.keyboard.press('Escape');
+      expect(await frame.locator(`#${id}`).evaluate(e=>document.activeElement===e)).toBe(true);
+    }
+  } finally {await page.close();}
+});
+
+it('contains the Open games art and the wait art on a short phone', async () => {
+  const page=await browser.newPage({viewport:{width:320,height:568},hasTouch:true}),frame=page.frameLocator('iframe');
+  try {
+    await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').click();
+    expect(await frame.locator('#play-open .row-art').evaluate(e=>{const r=e.getBoundingClientRect();return [...e.querySelectorAll('img')].every(i=>{const b=i.getBoundingClientRect();return b.left>=r.left-1 && b.right<=r.right+1;});})).toBe(true);
+    await frame.locator('#play-new').click(); await frame.getByRole('radio',{name:'A random player',exact:true}).locator('..').click();
+    await frame.locator('#setup-start').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
+    expect(await frame.locator('.wait-stage').evaluate(e=>({height:e.getBoundingClientRect().height,overflow:getComputedStyle(e).overflow}))).toEqual({height:180,overflow:'hidden'});
+    expect(await frame.locator('#page-title').evaluate(e=>getComputedStyle(e).whiteSpace)).toBe('nowrap');
+    expect(await frame.locator('#wait-time').textContent()).toMatch(/Waiting \d+:\d{2}\./);
+    expect(await frame.locator('#wait-status').textContent()).toBe('');
+    await frame.locator('#wait-cancel').click();
+  } finally {await page.close();}
+});

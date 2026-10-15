@@ -1,3 +1,4 @@
+import { gameDetail } from '../games-list';
 import { call, client, navigate, routeView } from '../app';
 import { art, symbols } from '../art';
 import { WHY } from '../ending';
@@ -26,7 +27,7 @@ async function readProfile(cursor?: string) {
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     if (games?.isError) throw new Error(games.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     const profile = result._meta as Profile, { record } = profile;
-    $('page-title').textContent = profile.handle ?? 'Profile';
+    $('page-title').textContent = profile.handle ?? 'Profile'; $('page-title').title = profile.handle ?? 'Profile';
     $('profile-name').hidden = profile.handle !== null;
     $<HTMLImageElement>('profile-picture').src = art(ICONS[profile.icon ?? 'spirit']);
     $('profile-rating').querySelector('b')!.textContent = String(Math.round(record.rating.rating));
@@ -79,7 +80,7 @@ function openRow(entry: InboxEntry) {
   const colour = document.createElement('img'); colour.className = 'pi'; colour.alt = `${entry.seat === 0 ? 'white' : 'black'} king`; colour.src = entry.seat === 0 ? art('ui/icons/king.svg') : symbols['../../public/ui/icons/king.svg'][1];
   const player = document.createElement('span'); player.className = 'grow';
   const name = document.createElement('b'); name.textContent = waiting ? 'Open game' : entry.opponent?.computer ? `Computer · ${entry.level[0].toUpperCase()}${entry.level.slice(1)}` : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
-  const line = document.createElement('small'); line.textContent = waiting ? 'Waiting for an opponent' : entry.status === 'setup' ? yours ? 'Choose your side' : 'Waiting for the other player' : `${yours ? 'Your turn' : 'Their turn'} · move ${entry.move}`; player.append(name, line);
+  const line = document.createElement('small'); line.textContent = waiting ? 'Waiting for an opponent' : entry.status === 'setup' ? yours ? 'Choose your side' : 'Waiting for the other player' : `${yours ? 'Your turn' : 'Their turn'} · move ${entry.move}`; const detail = document.createElement('small'); detail.textContent = gameDetail(entry); player.append(name, line, detail);
   const feats = document.createElement('span'); feats.className = 'feats';
   for (const [field, icon, label] of [['fairy', 'fairy', 'Fairy pieces'], ['arrangement', 'arrange', 'Arrangement'], ['classic', 'classic', 'Classic'], ['cards', 'cards', 'Cards'], ['kingPowers', 'powers', 'King powers']] as const) {
     if (entry.options?.[field]) { const feat = document.createElement('span'); feat.title = label; feat.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-${icon}"/></svg>`; feats.append(feat); }

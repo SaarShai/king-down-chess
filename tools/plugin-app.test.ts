@@ -187,7 +187,7 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
     await frame.locator('#page-back').click();
     const row = frame.locator(`#games-list [data-game-id="${game_id}"]`);
     await row.waitFor();
-    expect(await row.locator('.line').textContent()).toBe('Your turn · move 1');
+    expect(await row.locator('.line').textContent()).toContain('Your turn · move 1 · White');
     await row.click(); await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
     await frame.locator('html').evaluate(async (_, game_id) => {
       await (window as any).harnessApp.call('kingdown_move', { game_id, command_id: 'play-rows-move', expected_revision: 0, lan: 'e2-e4' }, true);
@@ -299,7 +299,7 @@ it('shows both setup states in the app games rows', async () => {
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
     await frame.locator('#page-back').click();
     const row = frame.locator(`#games-list [data-game-id="${game_id}"]`);
-    expect(await row.locator('.line').textContent()).toBe('Choose your side');
+    expect(await row.locator('.line').textContent()).toContain('Choose your side · White');
     expect(await row.locator('.turn-mark').textContent()).toBe('Your turn');
     await row.click();
     await frame.locator('[data-screen="seat"]:not([hidden])').waitFor(); await frame.locator('#page-back:not(:disabled)').waitFor({ state: 'attached' });
@@ -454,7 +454,8 @@ it('keeps a failed mount read visible without a pending send', async () => {
     await page.evaluate(() => { (window as any).rejectNextGet = true; });
     await page.locator('#remount').click();
     await frame.locator('#error').filter({ hasText: 'Harness saved-game read failed' }).waitFor();
-    expect(await frame.locator('#retry').isVisible()).toBe(false);
+    expect(await frame.locator('#retry').isVisible()).toBe(true);
+    expect(await frame.locator('#retry').textContent()).toBe('Try again');
   } finally { await page.close(); }
 });
 
@@ -468,5 +469,94 @@ it('restores a saved End route to the board when the game still plays', async ()
     await frame.locator('body[data-page="board"]').waitFor();
     expect(await page.evaluate(() => (window as any).harnessView.status)).toBe('playing');
     expect(await frame.locator('#over.end-card').isVisible()).toBe(false);
+  } finally { await page.close(); }
+});
+
+it('keeps both sides in Moves and restores them after Remount', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_create', { kind:'solo', colour:'white', level:'beginner', options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false} });
+      const view = app.memory.view;
+      await app.call('kingdown_move', {game_id:view.game_id,command_id:'history-move',expected_revision:view.revision,lan:'e2-e4'}, true);
+    });
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.turn)).toBe(0);
+    await frame.locator('#moves-line').click();
+    const lines = await frame.locator('#board-sheet .sheet-body p').allTextContents();
+    expect(lines).toHaveLength(2); expect(lines[0]).toContain('White pawn e2 to e4.'); expect(lines[1]).toContain('Black');
+    await page.keyboard.press('Escape');
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
+    await frame.locator('#moves-line:not(:disabled)').click();
+    expect(await frame.locator('#board-sheet .sheet-body p').allTextContents()).toEqual(lines);
+    expect(await frame.locator('#last-move').textContent()).toContain(lines[1].replace(/^Move \d+\. /, ''));
+  } finally { await page.close(); }
+});
+
+it('closes board sheets with Escape, returns focus and returns from Settings to the game', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', {kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
+    for (const id of ['board-menu','moves-line','resign']) {
+      await frame.locator(`#${id}:not(:disabled)`).click(); await frame.locator('#board-sheet[open]').waitFor();
+      await page.keyboard.press('Escape'); expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
+      expect(await frame.locator(`#${id}`).evaluate(e => document.activeElement === e)).toBe(true);
+    }
+    await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Settings',exact:true}).click();
+    expect(await frame.locator('#page-back').textContent()).toBe('‹ Game');
+    await frame.locator('#page-back').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await frame.locator('.page-sheet').evaluate(e => e.scrollTop)).toBe(0);
+  } finally { await page.close(); }
+});
+
+it('offers Try again after a failed mount read and restores the same game', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', {kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
+    const game = await page.evaluate(() => (window as any).harnessView.game_id);
+    await page.evaluate(() => { (window as any).rejectNextGet = true; }); await page.locator('#remount').click();
+    await frame.getByRole('button',{name:'Try again',exact:true}).waitFor();
+    await frame.getByRole('button',{name:'Try again',exact:true}).click();
+    await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
+    expect(await page.evaluate(() => (window as any).harnessView.game_id)).toBe(game);
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+  } finally { await page.close(); }
+});
+
+it.each([false,true])('shows a draw offer and handles a decline before Resign (immediate: %s)', async immediate => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const buddy = async (name: string, args: Record<string, unknown>) => (await page.request.post(new URL('/fixture-friend-tool',harness.url).href,{data:{name,arguments:args}})).json();
+  try {
+    await frame.locator('html').evaluate(async () => { const app=(window as any).harnessApp; await app.start('friend',{colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
+    await frame.locator('#friend-code span').first().waitFor();
+    const code = (await frame.locator('#friend-code span').allTextContents()).join('');
+    const joined = await buddy('kingdown_join',{code});
+    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_get',{},false,false,true); });
+    await frame.locator('#offer-draw:not(:disabled)').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Offer draw',exact:true}).click();
+    await frame.locator('#context-note').filter({hasText:'Draw offered. Waiting for your opponent.'}).waitFor();
+    await page.request.post(new URL('/fixture-seed',harness.url).href,{data:{actor:'alice',data:{views:{[joined._meta.view.game_id]:{outcome:{rating_before:1500,rating:1561,provisional:true,badges:[]}}}}}});
+    const full=await frame.locator('html').evaluate(async()=>{return (window as any).harnessApp.client.call('kingdown_get');});
+    expect(full._meta.view.outcome).toBeUndefined();
+    const view = (await buddy('kingdown_get',{game_id:joined._meta.view.game_id}))._meta.view;
+    await buddy('kingdown_draw',{game_id:view.game_id,command_id:'decline-offer',expected_revision:view.revision,choice:'decline'});
+    if (!immediate) await frame.locator('#offer-draw:not([hidden])').waitFor({timeout:7000});
+    await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
+    await frame.locator('[data-screen="end"]:not([hidden])').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe('');
+  } finally { await page.close(); }
+});
+
+it('does not repeat the abort title in the end reason', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => {
+      const app=(window as any).harnessApp; await app.call('kingdown_create',{kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}});
+      const v=app.memory.view; await app.call('kingdown_abort',{game_id:v.game_id,command_id:'words-abort',expected_revision:v.revision},true);
+    });
+    await frame.locator('#over.end-card[open]').waitFor();
+    expect(await frame.locator('#over-title').textContent()).toBe('Game aborted');
+    expect(await frame.locator('#end-reason').textContent()).toBe('');
   } finally { await page.close(); }
 });

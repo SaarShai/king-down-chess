@@ -47,3 +47,10 @@ it('reads at mount and visibility, and stops on hide and teardown', async () => 
     page.dispatchEvent(new Event('visibilitychange')); await vi.advanceTimersByTimeAsync(60000); expect(read).toHaveBeenCalledTimes(3);
   } finally { runner.stop(); vi.useRealTimers(); }
 });
+
+
+it('reads a pending draw offer every three seconds, also on your turn', () => {
+  expect(pollDelay(view({turn:0,draw_offer:0}), 0, false)).toBe(3000);
+  expect(pollDelay(view({turn:0,draw_offer:1}), 0, false)).toBe(3000);
+  expect(pollDelay(view({turn:0,draw_offer:null}), 0, false)).toBe(30000);
+});

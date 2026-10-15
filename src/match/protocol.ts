@@ -68,7 +68,7 @@ export interface LoggedCommand { seq: number; seat: Seat | null; action: LoggedA
  * hide the time of each move in a shared game (`last_commands[].at`, `deadline_at`): the safety page says so. */
 export interface Opponent { handle: string | null; icon: Icon | null; rating?: { rating: number; provisional: boolean }; computer: boolean; deleted: boolean; last_seen_ms: number | null }
 
-/** One seat's view: small (under about 3 KB) and never the full save. */
+/** One seat's public view, never the full save. Full reads include rules and move history. */
 export interface View {
   game_id: string;
   revision: number;
@@ -88,6 +88,8 @@ export interface View {
   legal: string[];
   /** The commands after `since` (at most 50), or the last 10. */
   last_commands: LoggedCommand[];
+  /** Public move history on a full read, from the game's initial position. */
+  history?: { initial_fen: string; actions: string[] };
   /** Null while the seat is open. */
   opponent: Opponent | null;
   draw_offer: Seat | null;

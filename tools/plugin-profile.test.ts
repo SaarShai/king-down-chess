@@ -76,11 +76,11 @@ it('puts open games first with your turn first and resumes the tapped game', asy
     expect(await live.locator('.when .turn-mark').textContent()).toBe('Turn');
     expect(await waiting.locator('.when .open-mark').textContent()).toBe('Open');
     expect(await live.locator('b').last().textContent()).toBe('Computer · Club');
-    expect(await live.locator('small').textContent()).toBe('Your turn · move 1');
+    expect(await live.locator('small').first().textContent()).toBe('Your turn · move 1');
     expect(await waiting.locator('b').last().textContent()).toBe('Open game');
-    expect(await waiting.locator('small').textContent()).toBe('Waiting for an opponent');
+    expect(await waiting.locator('small').first().textContent()).toBe('Waiting for an opponent');
     for (const row of [live, waiting]) {
-      expect(await row.locator('small').evaluate(el => getComputedStyle(el).fontWeight)).toBe('400');
+      expect(await row.locator('small').first().evaluate(el => getComputedStyle(el).fontWeight)).toBe('400');
       expect(await row.locator('.pi').getAttribute('alt')).toBe('white king');
       expect(await row.locator('.portrait, .row-ico, i').count()).toBe(0);
       const bounds = await row.evaluate(el => ['.when', '.pi', '.grow'].map(selector => { const r = el.querySelector(selector)!.getBoundingClientRect(); return { left: r.left, right: r.right }; }));
@@ -286,4 +286,31 @@ it('updates a badge sheet in place when More returns and clears its scrim on Clo
     expect(await frame.locator('[data-badge="first_win"] button').evaluate(el => el === document.activeElement)).toBe(true);
     expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.sheet)).toBeUndefined();
   } finally { release?.(); await page.close(); }
+});
+
+it('shortens a long name in the Profile title and keeps its full title text', async () => {
+  const page=await open(), frame=page.frameLocator('iframe'), name='wwwwwwwwwwwwwwwwwwww';
+  try {
+    await page.setViewportSize({width:320,height:568});
+    await frame.locator('html').evaluate(async (_,name)=>{
+      const app=(window as any).harnessApp; await app.call('kingdown_handle',{handle:name,icon:'spirit'}); app.navigate('profile');
+    },name);
+    await frame.locator('#page-title').filter({hasText:name}).waitFor();
+    expect(await frame.locator('#page-title').getAttribute('title')).toBe(name);
+    expect(await frame.locator('#page-title').evaluate(e=>({overflow:getComputedStyle(e).overflow,ellipsis:getComputedStyle(e).textOverflow,space:getComputedStyle(e).whiteSpace}))).toEqual({overflow:'hidden',ellipsis:'ellipsis',space:'nowrap'});
+  } finally {await page.close();}
+});
+
+it('gives games with the same opponent a colour and start time in both lists', async () => {
+  const page=await open(),frame=page.frameLocator('iframe');
+  try {
+    const entries=[0,1].map(n=>({game_id:`same-opponent-${n}`,kind:'friend',speed:'daily',status:'setup',seat:0,action:'ready',turn:0,revision:0,deadline_at:null,opponent:{handle:'same player',icon:null,computer:false,deleted:false,last_seen_ms:null},updated_at:'2026-10-15T12:00:00Z',created_at:`2026-10-15T12:0${n}:00Z`,options:null,move:null,open_until:null,level:'club'}));
+    await page.request.post(new URL('/fixture-seed',harness.url).href,{data:{actor:'alice',data:{games:entries}}});
+    await frame.locator('html').evaluate(async()=>{const app=(window as any).harnessApp; await app.call('kingdown_games',{}); app.navigate('play');});
+    const rows=await frame.locator('#games-list [data-game-id^="same-opponent-"] .line').allTextContents();
+    expect(rows).toHaveLength(2); expect(rows[0]).toContain('White'); expect(rows[0]).not.toBe(rows[1]);
+    await frame.locator('html').evaluate(()=>{(window as any).harnessApp.navigate('profile');});
+    const first=frame.locator('#profile-open [data-game-id="same-opponent-0"] small').last(), second=frame.locator('#profile-open [data-game-id="same-opponent-1"] small').last();
+    await first.waitFor(); expect(await first.textContent()).toContain('White'); expect(await first.textContent()).not.toBe(await second.textContent());
+  } finally {await page.close();}
 });

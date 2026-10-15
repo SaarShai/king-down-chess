@@ -33,7 +33,7 @@ async function readLobby() {
     $('lobby-online').textContent = `${lobby.active_count ?? 0} players online`;
     $('lobby-list').replaceChildren(...lobby.games.map(game => {
       const minutes = Math.max(0, Math.floor((Date.parse(lobby.server_now) - Date.parse(game.created_at)) / 60000));
-      const entry = row(game.creator.handle, portrait(game.creator.icon), [features(game.options), `· open ${minutes} min`], 'button'); entry.classList.add('game-row');
+      const entry = row(game.creator.handle, portrait(game.creator.icon), [features(game.options), minutes === 0 ? '· just opened' : `· open ${minutes} min`], 'button'); entry.classList.add('game-row');
       const accept = document.createElement('span'); accept.className = 'accept'; accept.textContent = 'Accept';
       entry.onclick = () => void acceptGame(game.game_id);
       entry.append(accept); return entry;

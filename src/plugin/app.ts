@@ -29,6 +29,7 @@ const state = client.state;
 let awaitingInitialResult = true;
 let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
+let readError = false;
 let busy = false, polling = false, mountReading = true, gamesDirty = false;
 let poll: ReturnType<typeof runPoll> | undefined;
 let pending = state.pending;
@@ -41,7 +42,8 @@ export const memory = { kind: 'solo' as 'solo' | 'friend' | 'random', code: '', 
 function saveState() { state.pending = pending; client.save(); }
 function retryState() {
   const message = pending?.error_screen === state.screen ? pending.error : undefined;
-  $('retry').hidden = !message;
+  $('retry').hidden = !message && !readError;
+  $('retry').textContent = readError && !pending ? 'Try again' : 'Retry';
   $('error').textContent = message ?? '';
 }
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
@@ -117,6 +119,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision) {
       view = { ...view, opponent: next.opponent, server_now: next.server_now }; if (state.screen === 'seat') seatScreen(); poll?.update(); return;
     }
+    if (name === 'kingdown_get') readError = false;
     show(next); received = next;
     if (name === 'kingdown_get' && !quiet) await games();
     if (name === 'kingdown_handle') { followup = pending; navigate(followup?.screen ?? handleBack); }
@@ -128,14 +131,15 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     saveState(); retryState();
   } catch (error) { if (quiet && (busy || view !== before)) return; const message = error instanceof Error ? error.message : 'Could not update the game.';
     if (retain && pending) { pending.error = message; pending.error_screen = state.screen; saveState(); }
-    $('error').textContent = message; $('retry').hidden = !pending?.error || pending.error_screen !== state.screen; }
+    if (!quiet && name === 'kingdown_get' && state.board_id) readError = true;
+    retryState(); $('error').textContent = message; }
   finally { if (quiet) polling = false; else { busy = false; actions(); } }
   if (retain && name === 'kingdown_move' && !received && !pending && before?.game_id === view?.game_id) await rollbackBoardMove();
   if (followup) void call(followup.name, followup.args, true, false, undefined, true);
   return received;
 }
 $('reload').onclick = () => { if (state.board_id) void call('kingdown_get', {}); };
-$('retry').onclick = () => { if (pending) void call(pending.name, pending.args, true, false, undefined, true); };
+$('retry').onclick = () => { if (pending) void call(pending.name, pending.args, true, false, undefined, true); else if (readError) void call('kingdown_get', {}, false, false, true); };
 $('computer').onclick = () => { if (view) void call('kingdown_computer', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision }, true); };
 $('invite').onclick = () => { if (view) void call('kingdown_invite', { game_id: view.game_id }); };
 // New game opens the setup (it keeps the session's choice of opponent); Open games lists other players' open games.
@@ -252,12 +256,17 @@ export function navigate(screen: Screen) {
     if (!asking) { asking = true; void fullscreen(screen).finally(() => { asking = false; }); }
   }
   if (screen === 'handle' && state.screen !== 'handle') handleBack = state.screen === 'settings' ? 'settings' : pending?.screen ?? state.screen;
+  if (screen === 'settings' && !['settings','handle'].includes(state.screen)) {
+    if (['board','seat'].includes(state.screen)) state.settings_back = state.screen; else delete state.settings_back;
+  }
   state.screen = screen; retryState();
+  document.querySelector('.page-sheet')!.scrollTop = 0;
+  $('page-title').removeAttribute('title');
   document.body.dataset.page = screen;
   document.querySelectorAll<HTMLElement>('[data-screen]').forEach(el => { el.hidden = el.dataset.screen !== screen; });
   $('app-frame').hidden = screen === 'home';
   $('page-head').hidden = screen === 'home' || screen === 'play';
-  $('page-back').textContent = screen === 'handle' && handleBack === 'settings' ? '‹ Settings' : screen === 'collection' ? '‹ Profile' : '‹ Play';
+  $('page-back').textContent = screen === 'handle' && handleBack === 'settings' ? '‹ Settings' : screen === 'collection' ? '‹ Profile' : screen === 'settings' && ['board','seat'].includes(state.settings_back ?? '') ? '‹ Game' : '‹ Play';
   $('page-title').textContent = ({ setup: 'New game', friend: 'A friend', join: 'Join a game', wait: 'Looking for an opponent', lobby: 'Open games', seat: 'Set up your side', end: 'Game over', profile: 'Profile', collection: 'Collection', settings: 'Settings', handle: 'Pick a name and a picture' } as Partial<Record<Screen,string>>)[screen] ?? '';
   if (!mountReading && screen in screens) screens[screen as keyof typeof screens]();
   client.save(); actions(); poll?.update();
@@ -325,7 +334,7 @@ $<HTMLInputElement>('handle').oninput = scheduleHandleCheck;
 $('home-play').onclick = () => { const next = resume ?? 'play'; collapsed = false; resume = undefined; void fullscreen(next); };
 $('home-games').onclick = () => { collapsed = false; resume = undefined; gamesFirst = true; void fullscreen('play'); };
 document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => { button.onclick = () => navigate(button.dataset.nav as Screen); });
-$('page-back').onclick = () => navigate(state.screen === 'handle' ? handleBack : state.screen === 'collection' ? 'profile' : 'play');
+$('page-back').onclick = () => navigate(state.screen === 'handle' ? handleBack : state.screen === 'collection' ? 'profile' : state.screen === 'settings' ? state.settings_back ?? 'play' : 'play');
 app.onhostcontextchanged = () => hostContext(app.getHostContext());
 navigate(state.screen);
 

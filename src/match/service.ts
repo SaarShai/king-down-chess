@@ -392,6 +392,7 @@ export class GameService {
    ...(game.end_reason && { result: { winner: game.result === 'white' ? 0 : game.result === 'black' ? 1 : null, reason: game.end_reason } }),
    deadline_at: game.deadline_at?.toISOString() ?? null, server_now: now.toISOString(),
    ...(rules && game.rules && { rules: game.rules }),
+   ...(rules && game.state && game.snapshot && { history: { initial_fen: JSON.parse(game.state).initialFen, actions: game.snapshot.history } }),
   };
  }
 }

@@ -569,7 +569,7 @@ try {
     await seatTool('kingdown_abort', { game_id: sheetSeat.game_id });
     let v = await friendSeat();
     assert.equal(v.choices[1], null, 'The other choice stays hidden');
-    assert.equal(await frame.locator('#seat-me-line').innerText(), 'Mud · March · tap the coin to change', 'Cards clean the remembered power to the same king');
+    assert.equal(await frame.locator('#seat-me-line').innerText(), 'Mud · March · select the coin to change', 'Cards clean the remembered power to the same king');
     assert((await frame.locator('#seat-them-picture').getAttribute('src')).includes('/shadow-b-'), 'The other strip shows the plain Black king');
     await frame.locator('#seat-king').click();
     assert(await frame.locator('[data-power="Leap"]').isDisabled()); assert(await frame.locator('[data-king="Frost"]').isDisabled());
@@ -577,7 +577,7 @@ try {
     assert(await frame.locator('[data-power="Leap"]').isDisabled(), 'The restored sheet keeps the Cards power limit');
     await frame.locator('#setup-done').click();
     const initial = v.choices[0].order, r = initial.indexOf('R'), n = initial.indexOf('N');
-    assert.equal(await frame.locator('#seat-context').innerText(), 'Tap a marked piece to swap the knight with it.', 'The seat starts with the sample knight selected before a board tap');
+    assert.equal(await frame.locator('#seat-context').innerText(), 'Select a marked piece to swap the knight with it.', 'The seat starts with the sample knight selected before a board tap');
     await page.waitForFunction(() => document.querySelector('iframe').contentWindow.harnessSwapMarks > 0);
     await seatFits('seat');
     await seatTap(r); assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), rankLine(swapped(initial,n,r),0));
@@ -1117,12 +1117,12 @@ try {
   await idleBoard();
   await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
   const id = await page.evaluate(() => window.harnessMatchId);
-  const snapshot = await page.evaluate(() => window.harnessView), moveNumber = Number(snapshot.fen.split(' ')[5]);
+  const snapshot = await page.evaluate(() => window.harnessView), lastMove = await frame.locator('#last-move').innerText();
   assert(snapshot.revision >= 2 && snapshot.revision <= 5);
   const readsBeforeRemount = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_get').length);
   await page.locator('#remount').click();
   await page.waitForFunction(count => window.harnessCalls.filter(call => call.name === 'kingdown_get').length > count, readsBeforeRemount);
-  await frame.locator('#last-move').filter({ hasText: `Move ${moveNumber}` }).waitFor();
+  await frame.locator('#last-move').filter({ hasText: lastMove }).waitFor();
   await idleBoard();
   assert.equal(await page.evaluate(() => window.harnessMatchId), id);
   assert.deepEqual(await page.evaluate(() => ({ revision: window.harnessView.revision, fen: window.harnessView.fen })), { revision: snapshot.revision, fen: snapshot.fen });
@@ -1133,7 +1133,7 @@ try {
   assert.equal(await frame.locator('#choices button').count(), 0, 'A failed saved-game read must not expose stale moves');
   assert(!/Your move|Their move/.test(await frame.locator('#status').innerText()), 'A failed read must not show the replayed position');
   await menuAction('reload');
-  await frame.locator('#last-move').filter({ hasText: `Move ${moveNumber}` }).waitFor();
+  await frame.locator('#last-move').filter({ hasText: lastMove }).waitFor();
   await idleBoard();
   assert.equal(await frame.getByRole('button', { name: 'Fullscreen', exact: true }).count(), 0);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -1544,7 +1544,7 @@ try {
     }
     const waitingRow = frame.locator(`#games-list [data-game-id="${own._meta.view.game_id}"]`);
     assert.equal(await waitingRow.locator('.row-title').textContent(), 'Waiting for an opponent');
-    assert.match(await waitingRow.locator('.line').textContent(), /Open for 0 hours/);
+    assert.match(await waitingRow.locator('.line').textContent(), /Just opened/);
     assert.equal(await waitingRow.locator('.row-ico use[href="#i-clock"]').count(), 1);
     const home = await tool('kingdown_open');
     reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);

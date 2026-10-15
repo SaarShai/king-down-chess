@@ -41,6 +41,18 @@ export function replayLans(before: Pick<View, 'game_id' | 'revision' | 'fen'>, n
   return revision === next.revision && toFen(pos) === next.fen ? steps : undefined;
 }
 
+export function replayHistory(next: View, rules: Partial<Rules>): BoardMove[] | undefined {
+  if (!next.history) return;
+  let pos = fromFen(next.history.initial_fen);
+  const steps: BoardMove[] = [];
+  for (const lan of next.history.actions) {
+    const step = applyLan(pos, lan, rules);
+    if (!step) return;
+    steps.push(step); pos = step.pos;
+  }
+  return toFen(pos) === next.fen ? steps : undefined;
+}
+
 export function boardActions(view: View, elapsed = 0): { abort: boolean; claim: 'win' | 'end' | null } {
   const playing = view.status === 'playing';
   const missed = playing && view.kind !== 'solo' && view.turn !== view.seat && view.deadline_at !== null

@@ -56,7 +56,7 @@ html, body { height: 100%; overflow: hidden; }
 .row-art { width: 52px; height: 52px; object-fit: contain; display: flex; align-items: flex-end; justify-content: center; }
 .row-art.pair img { height: 48px; width: auto; }
 .row-art.pair .face-left { transform: scaleX(-1); margin-left: -12px; }
-.row-art.fan img { width: 26px; margin: 0 -4px; }
+.row-art.fan img { width: 20px; flex: none; margin: 0 -2px; }
 .row-ico { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--vellum); box-shadow: 0 0 0 1px var(--stone-300); color: var(--ink); }
 .portrait { position: relative; flex: none; width: 44px; height: 44px; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 50% 30%, #fffaf0, #e2d2b1); box-shadow: 0 0 0 1px var(--stone-300); }
 .portrait img { position: absolute; left: -32%; top: -4%; width: 164%; max-width: none; }
@@ -99,10 +99,11 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 #board.painted { position: relative; }
 .board-layer { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; }
 .board-layer .pi { position: absolute; }
-.board-layer .veil { position: absolute; display: grid; place-items: center; padding: 12px; text-align: center; background: rgba(243, 234, 215, .82); backdrop-filter: blur(3px); border-bottom: 2px dashed var(--stone-500); }
+.board-layer .veil { position: absolute; display: grid; place-items: center; padding: 6px; overflow: hidden; text-align: center; background: rgba(243, 234, 215, .82); backdrop-filter: blur(3px); border-bottom: 2px dashed var(--stone-500); }
 .board-layer .veil span { max-width: 22ch; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-md); color: var(--ink-soft); }
 /* No End turn in the plugin game: Offer draw, Resign and Menu fill the game's bar. */
-#table-bar > button:nth-child(1) { grid-column: 1; } #table-bar > button:nth-child(2) { grid-column: 2; } #table-bar > button:nth-child(3) { grid-column: 3; }
+#table-bar { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); grid-auto-flow: column; }
+#table-bar > button { grid-column: auto; }
 #table-bar > button.primary { background: var(--accent); color: var(--vellum); }
 #table-bar > button[aria-disabled='true'] { color: rgb(91 80 69 / 60%); }
 /* Card coins (card mode C): smaller than the power coin, so a full hand fits the strip at 360 px. */
@@ -153,8 +154,8 @@ button.preset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 
 /* Ticket 21: in the ChatGPT iOS app the table took its content height (a 45 px board). Its box comes from the screen
    by position, with no percentage or viewport unit; the setup sheet keeps the over-sheet limits, not the website's dvh.
    The screen is the size container for the short-phone table rows (tools/plugin-ui-build.mjs). */
-.page-sheet > :is([data-screen='seat'], [data-screen='board']) { position: relative; container: table-screen / size; }
-.page-sheet > :is([data-screen='seat'], [data-screen='board']) > #game-table { position: absolute; inset: 0; height: auto; margin: 0 auto; }
+.page-sheet > :is([data-screen='seat'], [data-screen='board'], [data-screen='end']) { position: relative; container: table-screen / size; }
+.page-sheet > :is([data-screen='seat'], [data-screen='board']) > #game-table, #end-table > #game-table { position: absolute; inset: 0; height: auto; margin: 0 auto; }
 .frame #menu-sheet { max-height: calc(100% - 40px); }
 @media (min-width: 900px) { .frame #menu-sheet { max-height: calc(100% - 48px); } }
 .page-sheet form.new-game-body { display: block; margin: 0; }
@@ -164,9 +165,33 @@ button.preset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 
 .code-row button { width: auto; min-width: 96px; justify-content: center; }
 .preset .portrait { display: block; width: 100%; height: 100%; }
 .page-sheet .sheet-head { display: flex; gap: 8px; align-items: center; padding: 12px 16px; flex: none; }
-.page-sheet .sheet-head h2 { flex: 1; min-width: 0; margin: 0; }
+.page-sheet .sheet-head h2 { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .page-sheet .sheet-head button { flex: none; width: auto; min-width: 44px; min-height: 44px; padding: 0 8px; justify-content: center; font-size: 14px; }
 .page-error { flex: none; }
 .page-error > button { margin: 0 16px 8px; width: auto; }
 body[data-touch='true'] button { min-height: var(--tap); }
 @media (min-width: 900px) { .frame { --composer-gap: 128px; } body[data-page='board'] .page-sheet { width: min(900px, calc(100% - 48px)); } }
+
+#end-table { position: absolute; inset: 0; }
+#game-table .player-name :is(b, small), #seat-screen .player-name :is(b, small) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@container table-screen (max-width: 899px) and (orientation: portrait) and (max-height: 520px) {
+  #game-table { --context-height: 44px; grid-template-rows: 44px minmax(0, 1fr) 44px 44px 44px 0 44px; }
+  #game-table #context-line { height: 44px; padding-block: 0; flex-wrap: nowrap; }
+  #game-table #context-text { max-height: 40px; overflow: hidden; -webkit-line-clamp: 2; }
+  #game-table #table-bar { padding-block: 0; }
+  #game-table #table-bar > button { min-height: 44px; flex-direction: row; }
+}
+@container table-screen (max-width: 899px) and (orientation: portrait) and (max-height: 420px) {
+  #game-table { grid-template-rows: 44px minmax(0, 1fr) 44px 44px 0 0 44px; }
+  #game-table #moves-line { display: none; }
+}
+@media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
+  #game-table .table-side { overflow-y: auto; overscroll-behavior: contain; }
+}
+@media (pointer: coarse) {
+  button { min-height: 44px; }
+}
+body[data-touch='true'] #game-table .coin, body[data-touch='true'] #game-table .coin.card-coin { width: 44px; height: 44px; min-height: 44px; }
+@media (pointer: coarse) {
+  #game-table .coin, #game-table .coin.card-coin { width: 44px; height: 44px; min-height: 44px; }
+}
