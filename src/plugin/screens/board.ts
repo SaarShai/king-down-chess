@@ -1,6 +1,6 @@
 import { fromFen, toFen, toLan } from '../../rules/setup';
 import { colorOf, findKing, inCheck, legalMoves, moveNumber, nameOf, piece, PLAIN_KINGS, RULES, setRules, sqName, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
-import { cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText } from '../../powers-ui';
+import { cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
 import { checkCause, checkersOf, describeMove, threatsIn } from '../../move-text';
 import { marksModel, railsOf } from '../../marks-model';
 import { readText, reachOf } from '../../read';
@@ -170,7 +170,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
       const card = RULES.hands[side][index], image = document.createElement('img'), face = art(`ui/cards/${card.toLowerCase()}.webp`);
       image.src = face ?? art('ui/cards/back.webp'); image.alt = '';
       const window = document.createElement('div'); window.className = 'cf-art'; window.append(image);
-      const nodes: HTMLElement[] = [window, text(cardText(card))], coin = cardCoins(pos,side,RULES.hands[side],moves.map(c=>c.move))[index];
+      const nodes: HTMLElement[] = [window, text(ruleLine(cardText(card)))], coin = cardCoins(pos,side,RULES.hands[side],moves.map(c=>c.move))[index];
       if (side === view.seat && view.action === 'ready' && !coin.spent && coin.moves.length) nodes.push(button('Use', () => {
         if (blocked() || view?.action !== 'ready') return;
         armed = undefined; armedCard = index; selected = inspected = undefined; closeBoardSheet(); choices(cardChoices()); refresh();
@@ -179,7 +179,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     } else {
       const coin = coinState(pos, side, RULES, [], side === view.seat && !!armed, moves.map(c => c.move), view.action === 'ready' ? view.seat : null);
       if (!coin) return;
-      const nodes: HTMLElement[] = [text(coinWords(coin, pos)), text(powerText(coin.power, RULES, true))];
+      const nodes: HTMLElement[] = [text(coinWords(coin, pos)), text(ruleLine(powerText(coin.power, RULES)))];
       if (side === view.seat && ['ready','armed'].includes(coin.state) && POWER_TAG[coin.power]) nodes.push(button('Use', () => {
         if (blocked() || view?.action !== 'ready') return;
         armed = coin.power; selected = inspected = undefined; closeBoardSheet(); choices(named()); refresh();

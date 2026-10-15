@@ -11,7 +11,9 @@ import { BADGES } from '../src/match/badges';
 import { LETTERS, NAMES, type PieceType } from '../src/rules/engine';
 import { POOL_KINDS } from '../src/match/setup';
 import { pieceGuide } from '../src/read';
-import { powerOptions } from '../src/powers-ui';
+import { cardText, powerOptions, ruleLine, webWords } from '../src/powers-ui';
+import { DEFAULT_RULES, POWERS_BALANCED } from '../src/rules/rules';
+import { DEAL_CARDS } from '../src/match/setup';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 const record = { totals: { played: 23, won: 12, drawn: 3, lost: 8 }, rating: { rating: 1500.4, rd: 350, volatility: 0.06, provisional: true }, badges: [] };
@@ -143,13 +145,15 @@ it('lists all pieces, kings, powers and cards with the game text and Unlocked', 
         expect(await card.locator('dt').allTextContents()).toEqual(['Moves', 'Takes', ...(guide.special ? ['Special'] : []), 'Status']);
         expect(await card.locator('dd').allTextContents()).toEqual([guide.moves, guide.captures, ...(guide.special ? [guide.special] : []), 'Unlocked']);
       }
-      if (tab === 'Kings') for (const group of powerOptions()) {
+      // One "Powers" label for each king (fault F15); the web's words on every rule line (fault F2).
+      if (tab === 'Kings') for (const group of powerOptions({ ...DEFAULT_RULES, ...POWERS_BALANCED })) {
         const card = frame.locator(`[data-king="${group.king}"]`);
-        expect(await card.locator('dt').allTextContents()).toEqual([...group.options.map(() => 'Powers'), 'Status']);
-        expect(await card.locator('dd').allTextContents()).toEqual([...group.options.map(option => `${option.label}: ${option.title[0].toUpperCase()}${option.title.slice(1)}.`), 'Unlocked']);
+        expect(await card.locator('dt').allTextContents()).toEqual(['Powers', 'Status']);
+        expect(await card.locator('dd').first().innerText()).toBe(group.options.map(option => `${option.label}: ${ruleLine(option.title)}`).join('\n'));
       }
-      if (tab === 'Cards') for (const [card, line] of Object.entries(data.cards)) expect(await frame.locator(`[data-card="${card}"] .cf-text small`).textContent()).toBe(balanced[card] ?? line);
-      if (tab === 'Powers') for (const [power, line] of Object.entries(data.powers)) expect(await frame.locator(`[data-power="${power}"] dd`).first().textContent()).toBe(balanced[power] ?? line);
+      // The Collection's cards read as in a game with the default options: King powers off (fault F2).
+      if (tab === 'Cards') for (const card of DEAL_CARDS) expect(await frame.locator(`[data-card="${card}"] .cf-text small`).textContent()).toBe(ruleLine(cardText(card, DEFAULT_RULES)));
+      if (tab === 'Powers') for (const [power, line] of Object.entries(data.powers)) expect(await frame.locator(`[data-power="${power}"] dd`).first().textContent()).toBe(webWords(balanced[power] ?? line));
     }
     await page.locator('#remount').click();
     await frame.locator('[data-screen="collection"]:not([hidden])').waitFor();
@@ -194,7 +198,7 @@ it('uses the private profile handle and offers the name screen when it is absent
     await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });
-it('keeps both rollers in view while More waits for the next page', async () => {
+it('keeps the bottom roller in view at the page end while More waits for the next page', async () => {
   const page = await open(), frame = page.frameLocator('iframe'); let release: (() => void) | undefined;
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -208,6 +212,8 @@ it('keeps both rollers in view while More waits for the next page', async () => 
     });
     await frame.locator('#profile-more').click();
     await expect.poll(() => !!release).toBe(true);
+    // The scroll is part of the page scroll (fault F15): at the page end, its bottom roller shows.
+    await frame.locator('#profile-sheet .new-game-body').evaluate(el => { el.scrollTop = el.scrollHeight; });
     const bounds = await frame.locator('#profile-sheet .scroll').evaluate(el => ({ roller: el.getBoundingClientRect().bottom, body: el.closest('.new-game-body')!.getBoundingClientRect().bottom }));
     expect(bounds.roller).toBeLessThanOrEqual(bounds.body + 1);
     release!(); release = undefined;

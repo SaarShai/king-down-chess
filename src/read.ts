@@ -200,6 +200,7 @@ export function readText(pos: Position, sq: number): string {
     [C]: 'Takes beyond an enemy piece.',
     [V]: 'Can step after a take.',
     ...(!playedDesign() && { [T]: 'Moves like a queen on capital squares.' }),
+    [P]: pieceGuide(P).moves,
   };
   const first = special[t] ?? pieceGuide(t).moves.split(/(?<=[.!?])\s/)[0];
   const states = pieceStates(pos, sq);

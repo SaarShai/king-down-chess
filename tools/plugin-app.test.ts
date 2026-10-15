@@ -190,7 +190,7 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
     await frame.locator('#page-back').click();
     const row = frame.locator(`#games-list [data-game-id="${game_id}"]`);
     await row.waitFor();
-    expect(await row.locator('.line').textContent()).toMatch(/Your turn ·\smove 1 ·\sWhite/);
+    expect(await row.locator('.line').textContent()).toMatch(/Move 1 ·\sWhite/);
     await row.click(); await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
     await frame.locator('html').evaluate(async (_, game_id) => {
       await (window as any).harnessApp.call('kingdown_move', { game_id, command_id: 'play-rows-move', expected_revision: 0, lan: 'e2-e4' }, true);
@@ -465,7 +465,7 @@ it('shows the server character rule beside the Free mark for a bad name', async 
   try {
     await expand(page); await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; app.navigate('settings'); app.navigate('handle'); });
     expect(await frame.locator('#page-back').textContent()).toBe('‹ Settings');
-    expect(await frame.locator('[data-screen="handle"]').textContent()).toContain('Each name is unique. You pick it once, at your first game against a person.');
+    expect(await frame.locator('[data-screen="handle"]').textContent()).toContain('Each name is unique.');
     await frame.locator('#handle').fill('a?');
     await frame.locator('#handle-check-error').filter({ hasText: 'Use 3 to 20 characters' }).waitFor();
     expect(await frame.locator('#handle-free').isVisible()).toBe(false);

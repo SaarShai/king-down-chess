@@ -91,3 +91,44 @@ it('bounds report notes at 1000 characters apart from game revisions', async () 
   expect(tools.find(t=>t.name === 'kingdown_move')!.inputSchema.properties!.expected_revision).toMatchObject({maximum:1100});
  } finally {await client.close();await server.close();}
 });
+
+it('serves the current board page for a board URI from an earlier build', async () => {
+ const server = createPluginServer({service:{} as Parameters<typeof createPluginServer>[0]['service'],actorId:'alice',resourceHtml:'<html>current board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'stale-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const current = ((await client.listTools()).tools.find(tool=>tool.name==='kingdown_open')!._meta?.ui as {resourceUri:string}).resourceUri;
+  const old = `ui://kingdown/board-${'0'.repeat(64)}.html`;
+  expect(old).not.toBe(current);
+  const resource = (await client.readResource({uri:old})).contents[0];
+  expect(resource).toMatchObject({uri:old,mimeType:'text/html;profile=mcp-app',text:'<html>current board</html>'});
+  expect((await client.listResources()).resources.map(r=>r.uri)).toEqual([current]);
+ } finally {await client.close(); await server.close();}
+});
+
+it('reads the board without a write, and records seat activity only through kingdown_seen', async () => {
+ const game_id = '00000000-0000-4000-8000-000000000001', seen: string[] = [];
+ const service = {view:async()=>({game_id,seat:0,status:'waiting',action:'waiting',fen:null}),profile:async()=>({handle:null,icon:null}),seen:async(_:string,id:string)=>{seen.push(id);}} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'seen-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const tools = (await client.listTools()).tools;
+  expect(tools.find(t=>t.name === 'kingdown_get')!.annotations).toMatchObject({readOnlyHint:true});
+  expect(tools.find(t=>t.name === 'kingdown_get')!.description).not.toMatch(/record/i);
+  expect(tools.find(t=>t.name === 'kingdown_seen')).toMatchObject({annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true},_meta:{ui:{visibility:['app']}}});
+  expect((await client.callTool({name:'kingdown_get',arguments:{game_id}})).isError).toBeFalsy();
+  expect(seen).toEqual([]);
+  expect((await client.callTool({name:'kingdown_seen',arguments:{game_id}})).isError).toBeFalsy();
+  expect(seen).toEqual([game_id]);
+ } finally {await client.close(); await server.close();}
+});
+
+it('says "1 game" for one game on the home summary', async () => {
+ const service = {openBoard:async()=>'00000000-0000-4000-8000-000000000002',inbox:async()=>[{action:'ready'}],profile:async()=>({handle:null,icon:null}),settings:async()=>({})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'count-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try { expect((await client.callTool({name:'kingdown_open',arguments:{}})).content).toEqual([{type:'text',text:'Your move in 1 game.'}]); }
+ finally {await client.close(); await server.close();}
+});

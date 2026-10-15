@@ -16,8 +16,10 @@ export class PluginService {
   private games: GameService; private safety: SafetyService; private accounts: AccountService; private playerSettings: SettingsService;
   constructor(private store: PostgresMatchStore) { this.games = new GameService(store); this.safety = new SafetyService(store); this.accounts = new AccountService(store); this.playerSettings = new SettingsService(store.pool); }
   create(actor: string, input: unknown) { return this.games.create(actor, input); }
-  /** A seat read also records activity at most once each 30 seconds. */
+  /** Read-only. */
   view(actor: string, gameId: string, since?: number) { return this.games.view(actor, gameId, since); }
+  /** Records seat activity at most once each 30 seconds. */
+  seen(actor: string, gameId: string) { return this.games.seen(actor, gameId); }
   /** Read-only. */
   inbox(actor: string) { return this.games.inbox(actor); }
   /** Read-only: finished games and the actor's record. */

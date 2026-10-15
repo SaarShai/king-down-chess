@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { diagnostic } from './diagnostics';
 import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import { z } from 'zod';
 import { MatchServiceError } from '../match/service';
 import { MAX_REVISION, PRESETS, type Action, type View } from '../match/protocol';
@@ -36,7 +36,9 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   const server = new McpServer({ name: 'kingdown', version: '1.0.0' });
   const origin = new URL(publicOrigin).origin;
   const { html, uri: boardResource } = boardPage(resourceHtml, origin);
-  registerAppResource(server, 'King Down board', boardResource, {}, async () => ({ contents: [{ uri: boardResource, mimeType: RESOURCE_MIME_TYPE, text: html, _meta: { ui: { domain: origin, permissions: { clipboardWrite: {} }, csp: { resourceDomains: [origin], connectDomains: [] } }, 'openai/widgetCSP': { resource_domains: [origin], connect_domains: [] }, 'openai/ui': { availableDisplayModes: ['inline', 'fullscreen'], preferredDisplayMode: 'inline' } } }] }));
+  // A template, not one URI: a host may keep a tool definition that names an earlier build's hash, so every board URI
+  // gets the current page (the ext-apps helper takes one URI only). kingdown_open names the current hash.
+  server.registerResource('King Down board', new ResourceTemplate('ui://kingdown/board-{hash}.html', { list: async () => ({ resources: [{ uri: boardResource, name: 'King Down board', mimeType: RESOURCE_MIME_TYPE }] }) }), { mimeType: RESOURCE_MIME_TYPE }, async uri => ({ contents: [{ uri: uri.href, mimeType: RESOURCE_MIME_TYPE, text: html, _meta: { ui: { domain: origin, permissions: { clipboardWrite: {} }, csp: { resourceDomains: [origin], connectDomains: [] } }, 'openai/widgetCSP': { resource_domains: [origin], connect_domains: [] }, 'openai/ui': { availableDisplayModes: ['inline', 'fullscreen'], preferredDisplayMode: 'inline' } } }] }));
   const gameId = z.string().uuid();
   const boardId = z.string().uuid().optional();
   const inputs = new Map<string, z.ZodType>();
@@ -100,7 +102,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const games = await service.inbox(actorId), count = games.filter(game => game.action === 'ready').length;
       const result = view ? await reply(view, board) : await home(board);
       result.structuredContent = { ...result.structuredContent, screen: preview ? 'join' : args.screen ?? (view ? 'board' : 'home'), your_turn_count: count };
-      if (!view) result.content = text(`Your move in ${count} games.`);
+      if (!view) result.content = text(`Your move in ${count} game${count === 1 ? '' : 's'}.`);
       const settings = await service.settings(actorId);
       result._meta = { ...result._meta, games, settings, ...(preview && { preview }) };
       if (preview) result.content = text('Review the game features before you join.');
@@ -128,7 +130,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const ready = games.filter(game => game.your_turn).length;
       return { content: text(games.length ? `${games.length} active game${games.length === 1 ? '' : 's'}; your turn in ${ready}.` : 'No active games. Start one with kingdown_create.'), structuredContent: { games }, _meta: { games: rows } };
     });
-  register('kingdown_get', 'Reload the authoritative board. With since_revision, only the commands after that revision. Records seat activity at most once each 30 seconds.',
+  register('kingdown_get', 'Reload the authoritative board. With since_revision, only the commands after that revision. Read-only.',
     { game_id: gameId.optional(), since_revision: z.number().int().min(0).max(MAX_REVISION).optional(), board_id: boardId }, { visibility: ['app'], readOnly: true }, async args => {
       const id = args.board_id ? await service.board(actorId, args.board_id) : args.game_id;
       if (!id && args.board_id) return home(args.board_id);
@@ -136,6 +138,8 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       // The board may show another game since it last read: then a full view.
       return reply(await service.view(actorId, id, !args.game_id || id === args.game_id ? args.since_revision : undefined), args.board_id);
     });
+  register('kingdown_seen', 'Record that the player is at this board, so the opponent sees them online. Records at most once each 30 seconds.',
+    { game_id: gameId }, { visibility: ['app'] }, async args => { await service.seen(actorId, args.game_id); return { content: text('Seen.') }; });
   register('kingdown_lobby', 'List open games, oldest first.', {}, { visibility: ['app'], readOnly: true }, async () => {
     const lobby = await service.lobby(actorId);
     return { content: text(`${lobby.games.length} open games.`), structuredContent: { count: lobby.games.length }, _meta: { lobby: { ...lobby, server_now: new Date().toISOString() } } };

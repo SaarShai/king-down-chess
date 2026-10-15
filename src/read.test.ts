@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from 'vitest';
-import { A, DEFAULT_RULES, T, legalMoves, nameOf, parseRule, parseSq, setRules } from './rules/engine';
+import { A, DEFAULT_RULES, P, T, legalMoves, nameOf, parseRule, parseSq, setRules } from './rules/engine';
 import { describeMove } from './move-text';
 import { PRESETS, designCode, fromPreset } from './workshop/model';
 import { fromFen } from './rules/setup';
@@ -31,10 +31,15 @@ it('reads Frozen and Ice Wall from both live mark slots', () => {
 
 it('keeps every short read sentence within eight words', () => {
   for (let t = 1; t <= 15; t++) {
+    if (t === P) continue; // The pawn tip shows its full guide (fault F2).
     const pos = fromFen('7k/8/8/8/8/8/8/K7 w - - 0 1');
     pos.board[at('d4')] = t;
     expect(readText(pos, at('d4')).split(' · ')[1].split(/\s+/).length, String(t)).toBeLessThanOrEqual(8);
   }
+});
+
+it('shows the full pawn guide in the tip, with the double step', () => {
+  expect(readText(fromFen('7k/8/8/8/8/8/4P3/K7 w - - 0 1'), at('e2'))).toBe('pawn · Moves 1 square forward. Moves 2 from its start rank.');
 });
 
 it('names the Guard refusal in eight words', () => {
