@@ -46,7 +46,7 @@ function ownBoard(view: View) {
     else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); tap(cursor); }
   };
   const layer = document.createElement('div'); layer.id = 'seat-veil-layer'; layer.className = 'board-layer';
-  layer.innerHTML = '<div class="veil"><span>Their side stays hidden until both players are ready.</span></div>'; node.append(layer);
+  layer.innerHTML = `<div class="veil"><span>Their side stays hidden until ${view.opponent?.computer ? 'you are' : 'both players are'} ready.</span></div>`; node.append(layer);
   void board.ready().then(placeVeil);
 }
 function placeVeil() {

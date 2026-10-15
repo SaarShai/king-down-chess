@@ -11,7 +11,7 @@ export const featureNames = [['fairy', 'fairy', 'Fairy pieces'], ['arrangement',
 export function features(options: Options | null | undefined, words = false) {
   const span = document.createElement('span'); span.className = 'feats';
   if (words) { span.textContent = featureNames.filter(([field]) => options?.[field]).map(([, , label]) => label).join(', ') || 'Standard pieces'; return span; }
-  for (const [field, name, label] of featureNames) if (options?.[field]) { const mark = document.createElement('span'); mark.title = label; mark.innerHTML = icon(name); span.append(mark); }
+  for (const [field, name, label] of featureNames) if (options?.[field]) { const mark = document.createElement('span'); mark.title = label; mark.setAttribute('role', 'img'); mark.setAttribute('aria-label', label); mark.innerHTML = icon(name); span.append(mark); }
   return span;
 }
 export function portrait(key: Icon | null | undefined, big = false) {

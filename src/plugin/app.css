@@ -196,3 +196,12 @@ body[data-touch='true'] #game-table .coin, body[data-touch='true'] #game-table .
 @media (pointer: coarse) {
   #game-table .coin, #game-table .coin.card-coin { width: 44px; height: 44px; min-height: 44px; }
 }
+/* Extend touch targets up, inside the frame, without changing art or rows. */
+body[data-touch='true'] button { position: relative; }
+body[data-touch='true'] button::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
+body[data-touch='true'] #game-table .coin.card-coin { overflow: visible; }
+@media (pointer: coarse) {
+  button { position: relative; }
+  button::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
+  #game-table .coin.card-coin { overflow: visible; }
+}
