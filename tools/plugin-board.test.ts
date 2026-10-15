@@ -247,3 +247,35 @@ it.each([[393, 852], [360, 740], [320, 568]])('serves 48 px targets on Seat and 
     }
   } finally { await page.close(); }
 });
+
+it('stops passive drawing five seconds after changes and keeps move motion', async () => {
+  const page = await open(view('7k/8/8/8/8/3p4/4P3/K7 w - - 0 1')), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
+    await page.clock.install();
+    await frame.locator('html').evaluate(() => (window as any).testBoard.scene.redraw());
+    const frames = () => frame.locator('html').evaluate(() => (window as any).testBoard.scene.frames);
+    const settle = async () => { await page.clock.fastForward(5_100); await page.clock.runFor(100); const count = await frames(); await page.clock.runFor(200); expect(await frames()).toBe(count); };
+    await settle();
+    const stopped = await frames();
+    await frame.locator('html').evaluate(() => (window as any).testBoard.highlight({ selected: 12, moves: [20] }));
+    await page.clock.runFor(100); expect(await frames()).toBeGreaterThan(stopped);
+    await settle();
+    const selected = await frames();
+    const width = await frame.locator('#board canvas').evaluate(e => (e as HTMLElement).style.width);
+    await page.setViewportSize({ width: 400, height: 900 });
+    await expect.poll(() => frame.locator('#board canvas').evaluate(e => (e as HTMLElement).style.width)).not.toBe(width);
+    await page.clock.runFor(100); expect(await frames()).toBeGreaterThan(selected);
+    await settle();
+    // A capture still draws to its contact and end after the passive window ends.
+    await frame.locator('html').evaluate(() => {
+      const host = window as any;
+      host.testBoard.animateMove(host.testBoard.pos, { from: 12, to: 19, captures: [19] }, () => { host.contact = true; }).then(() => { host.motionDone = true; });
+    });
+    await page.clock.fastForward(100); const moving = await frames();
+    await page.clock.fastForward(3_000);
+    expect(await frames()).toBeGreaterThan(moving);
+    expect(await frame.locator('html').evaluate(() => ({ done: (window as any).motionDone, contact: (window as any).contact }))).toEqual({ done: true, contact: true });
+    await settle();
+  } finally { await page.close(); }
+});

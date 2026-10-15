@@ -15,6 +15,11 @@ shared.walkAtRules(rule => { if (rule.nodes?.every(node => node.type === 'commen
 // On the website the table is the window's height. In the plugin it is shorter (the page head, the composer room), so
 // the short-phone table rows read the height of the table's screen (app.css names it table-screen), not the window's.
 shared.walkAtRules('media', rule => {
+  if (/\(orientation: landscape\) and \(max-height: 500px\)/.test(rule.params)) {
+    const landscape = atRule({ name: 'media', params: '(orientation: landscape)' });
+    landscape.append(rule.clone({ name: 'container', params: 'table-screen (orientation: landscape) and (max-height: 640px) and (max-width: 899px)' }));
+    rule.after(landscape);
+  }
   if (/max-height: 640px/.test(rule.params) && rule.some(node => node.type === 'rule' && node.selector === '#game-table')) {
     const media = atRule({ name: 'media', params: '(orientation: portrait)' });
     rule.replaceWith(media);
