@@ -234,8 +234,9 @@ const connection = app.connect().then(() => {
   });
 }).catch(error => { $('error').textContent = $('home-error').textContent = `Could not connect to the game: ${errorText(error)}`; });
 
-// Ticket 21: the ChatGPT iOS app showed a 45 px board that no test browser shows. Settings shows the sizes of the last
-// seat or board screen, so a screenshot from the device names the cause. Remove when ticket 21 closes.
+// Ticket 21: the ChatGPT iOS app showed a 45 px board that no test browser shows. Settings keeps the sizes of the last
+// seat or board screen; a long press on its title shows them, so a screenshot from the device names the cause.
+// Remove when ticket 21 closes.
 const sentSizes: string[] = [], sendSize = app.sendSizeChanged.bind(app);
 app.sendSizeChanged = params => { sentSizes.push(`${params.width}x${params.height}`); sentSizes.splice(0, sentSizes.length - 3); return sendSize(params); };
 function measureLayout() {
@@ -243,8 +244,10 @@ function measureLayout() {
   const probe = (height: string) => { const d = document.createElement('div'); d.style.cssText = `position:absolute;visibility:hidden;width:1px;height:${height}`; document.body.append(d); const h = Math.round(d.getBoundingClientRect().height); d.remove(); return h; };
   const context = app.getHostContext(), line = $('layout-check');
   line.textContent = `Display check: ${state.screen} · window ${innerWidth}x${innerHeight} · vv ${Math.round(visualViewport?.width ?? 0)}x${Math.round(visualViewport?.height ?? 0)} · vh ${probe('100vh')} dvh ${probe('100dvh')} · frame ${box('#app-frame')} · section ${box(`[data-screen="${state.screen}"]`)} · table ${box('#game-table, [data-seat-id="game-table"]')} · board ${box('#board')} · canvas ${box('#board canvas')} · safe ${JSON.stringify(context?.safeAreaInsets ?? {})} · ${context?.displayMode} ${JSON.stringify(context?.containerDimensions ?? {})} · sent ${sentSizes.join(' ')}`;
-  line.hidden = false;
 }
+let press: ReturnType<typeof setTimeout> | undefined;
+$('page-title').onpointerdown = () => { clearTimeout(press); if (state.screen === 'settings') press = setTimeout(() => { $('layout-check').hidden = false; }, 600); };
+$('page-title').onpointerup = $('page-title').onpointerleave = $('page-title').onpointercancel = () => clearTimeout(press);
 // Spec Q25: inline, the widget shows only the home card; each other screen shows in fullscreen. A screen that opens
 // while inline (a chat tool call, a route) waits behind the home card until the host grants fullscreen. When the
 // player leaves fullscreen, the home card comes back with its own height; a late route or tool result waits for Play,

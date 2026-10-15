@@ -22,7 +22,7 @@ No test browser shows this. The same build fills the screen in Chromium, in Play
 
 - The seat and the board screens place the table by position (`inset: 0` in the screen), with no percentage and no viewport unit.
 - The setup sheet (`#menu-sheet`) keeps the plugin's over-sheet height limits, not the website's `dvh` limit.
-- A "Display check" line in Settings shows the sizes of the last seat or board screen (window, viewport units, frame, screen, table, board, safe area, display mode, the sizes the app sent to the host). Remove it when this ticket closes.
+- A "Display check" line in Settings keeps the sizes of the last seat or board screen (window, viewport units, frame, screen, table, board, safe area, display mode, the sizes the app sent to the host). The line stays hidden, because players read it as debug text (UX review U4). To show it on a phone with no developer tools, open a game, then Menu → Settings, and press the "Settings" title for about 600 ms. Remove the line and the long press when this ticket closes.
 - The Play menu: one "New game" row opens the New game screen with the last choice of opponent. One "Open games" row opens the list of other players' open games. "A random player" appears only on the New game screen.
 - New game keeps the player's pick of opponent for the session. The saved choice sets it only at the first New game.
 - QA move history: a full read adds the public initial position and all moves. Storage and rules stay the same.
@@ -41,7 +41,7 @@ No test browser shows this. The same build fills the screen in Chromium, in Play
 2. [x] Place the table by position; keep the over-sheet limits; add the Display check line.
 3. [x] Change the Play menu; update the spec (Q4, the Play line, story 4) and the browser checks.
 4. [ ] Run `npm test` and the M1 checks. Open a PR to main.
-5. [ ] After the release, the owner checks the iPhone. If the board is still small, read the Display check line and fix the cause.
+5. [ ] After the release, the owner checks the iPhone. If the board is still small, show the Display check line (a long press on the Settings title), take a screenshot, and fix the cause.
 
 ## Checks
 
