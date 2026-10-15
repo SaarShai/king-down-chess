@@ -754,3 +754,31 @@ Read the exact notebook metadata and status then. If a batch exists,
 collect and verify it against the frozen inputs before any result link.
 Do not infer acceptance from the audit pass. The saved study stays at
 four of eight games. New diagnostics require a final verified backup.
+
+## All eight games validated; final backup starts
+
+The permitted 18:27 UTC read proves exact notebook ID 138796673, version
+1, complete. This resolves the submission outcome without a retry. The
+original unknown response stays intact. The worker completes its four jobs
+in 43 seconds. All five terminal files and the notebook log are collected
+and hashed; remote sources stay intact.
+
+The full verifier uses an isolated copy of the frozen source with only the
+exact parser repair and its test from `6ce3b2eb`. The full source manifest,
+execution stamps, eight scheduled jobs and replay controls pass: eight
+legal replays and two rejected illegal controls. There are four color pairs.
+All eight games reach the 80-ply cap. This is a workflow proof, not evidence
+for balance or rule adoption; interval estimates have only four pairs.
+
+`full-kaggle-validation/report.json` and `verifier-provenance.json` retain
+the report and source proof. The measurement export has 65,509 bytes and
+SHA-256 `798952e4fd5d92c89aa2f4377c721a87b029f5a3b5557fec84ea1b1f9dcff412`.
+Collection evidence is in `recovery-kaggle-4/notebook-after-audit-fix`.
+
+One fresh evidence backup starts with PID 36538. Its state folder on the
+card is `state/study-backups/framework-live-full-20261015`. It uses current
+main project tools and verifies downloaded decoded cloud bytes. Do not
+repeat the upload or collect either worker again. The next local check is
+19:15 UTC. After the backup proof passes, link the full export in the actual
+browser app, save, reload and capture the persisted study. The study remains
+at its saved incomplete version until then.
