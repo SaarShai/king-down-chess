@@ -28,8 +28,8 @@ it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]
     expect((await frame.locator('#page-back').evaluate(controlBounds)).limit).toBe(height - gap);
   } finally { await page.close(); }
 });
-// The rule text is never cut (fault round 1), so on short phones the board gets what the text leaves: 156 px at 320 × 568 with insets 63/84.
-it.each([[393, 852, 102, 118, 290], [320, 568, 63, 84, 150], [320, 568, 63, 180, 60]])('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min) => {
+// Rule and state text stay whole. Each floor uses the smaller seat or board width, rounded down to 5 px.
+it.each([[393, 852, 102, 118, 380], [320, 568, 63, 84, 215], [320, 568, 63, 180, 135]])('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000);
   try {
@@ -52,10 +52,11 @@ it.each([[393, 852, 102, 118, 290], [320, 568, 63, 84, 150], [320, 568, 63, 180,
     const canvasWidth = () => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
     const textFits = () => frame.locator(':is(#context-text, [data-seat-id="context-text"]):visible').evaluate(e => {
       const row = e.parentElement!.getBoundingClientRect(), problems: string[] = [];
+      const actions = [...e.parentElement!.querySelectorAll('button')].map(b => b.getBoundingClientRect());
       for (const node of [e, ...e.querySelectorAll<HTMLElement>('*')]) {
         if (!node.textContent?.trim()) continue;
         const box = node.getBoundingClientRect();
-        if (box.height < 1 || node.scrollHeight > node.clientHeight + 1 || box.top < row.top - 1 || box.bottom > row.bottom + 1 || /(?:…|\.{3})$/.test(node.textContent.trim())) problems.push(node.id || node.getAttribute('data-seat-id') || node.tagName);
+        if (actions.some(b => box.left < b.right - 1 && box.right > b.left + 1 && box.top < b.bottom - 1 && box.bottom > b.top + 1) || box.left < row.left - 1 || box.right > row.right + 1 || box.height < 1 || node.scrollHeight > node.clientHeight + 1 || box.top < row.top - 1 || box.bottom > row.bottom + 1 || /(?:…|\.{3})$/.test(node.textContent.trim())) problems.push(node.id || node.getAttribute('data-seat-id') || node.tagName);
       }
       return problems;
     });
@@ -100,8 +101,7 @@ it('sizes the seat and the board from their screens, with no viewport units and 
       } };
       for (const sheet of document.styleSheets) stale(sheet.cssRules);
     });
-    // The table fills its screen, and the board is as large as its row allows. The screen is under 640 px tall in a
-    // 760 px window, so the short-phone rows apply and the board is about 313 px (265 px with the full rows).
+    // The table fills its screen. The portrait rows leave room for the board even when viewport units stay at an old height.
     const fill = () => frame.locator('html').evaluate(() => {
       const table = [...document.querySelectorAll<HTMLElement>('#game-table, [data-seat-id="game-table"]')].find(e => e.offsetParent)!, rect = (e: Element) => e.getBoundingClientRect();
       const canvas = table.querySelector('canvas')!, board = rect(table.querySelector('#board')!), screen = rect(table.parentElement!);
@@ -117,7 +117,7 @@ it('sizes the seat and the board from their screens, with no viewport units and 
 
 // The floors are the measured sizes with whole rule text, rounded down to 5 px.
 it('keeps short-phone boards large, landscape controls reachable and the end table in its box', async () => {
-  for (const [width,height,top,bottom,left,right,min] of [[320,568,20,0,0,0,170],[375,667,20,0,0,0,225],[393,852,59,34,0,0,308],[440,956,59,34,0,0,360],[852,393,0,21,59,59,175],[852,393,59,34,0,0,110]]) {
+  for (const [width,height,top,bottom,left,right,min] of [[320,568,20,0,0,0,235],[375,667,20,0,0,0,285],[393,852,59,34,0,0,380],[440,956,59,34,0,0,430],[852,393,0,21,59,59,195],[852,393,59,34,0,0,140]]) {
     const page=await browser.newPage({viewport:{width,height},isMobile:true,hasTouch:true}), frame=page.frameLocator('iframe'); page.setDefaultTimeout(10000);
     try {
       await page.goto(harness.url); await hall(page);
@@ -194,11 +194,11 @@ it('contains the Open games art and the wait art on a short phone', async () => 
 });
 
 it.each([
-  [820, 600, 59, 34, 0, 0, true, 300],
-  [1024, 768, 24, 20, 0, 0, true, 475],
-  [1280, 800, 0, 0, 0, 0, true, 530],
-  [852, 393, 0, 21, 59, 59, true, 215],
-  [400, 900, 0, 0, 0, 0, false, 385],
+  [820, 600, 59, 34, 0, 0, true, 360],
+  [1024, 768, 24, 20, 0, 0, true, 480],
+  [1280, 800, 0, 0, 0, 0, true, 535],
+  [852, 393, 0, 21, 59, 59, true, 220],
+  [400, 900, 0, 0, 0, 0, false, 390],
 ] as const)('fits the table at %i × %i', async (width, height, top, bottom, left, right, side, floor) => {
   const page = await browser.newPage({ viewport: { width, height } }), frame = page.frameLocator('iframe');
   try {
@@ -225,5 +225,22 @@ it.each([
       expect((await frame.locator('#' + id).evaluate(controlBounds)).accessible).toBe(true);
       expect(await frame.locator('#' + id).evaluate(e => { const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
     }
+  } finally { await page.close(); }
+});
+
+it('opens Play from the seat and board Back buttons on a portrait phone', async () => {
+  const page = await browser.newPage({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
+  try {
+    await page.goto(harness.url); await hall(page); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    const gameId = await page.evaluate(() => (window as any).harnessView.game_id);
+    expect(await frame.locator('#page-head').isVisible()).toBe(false);
+    await frame.getByRole('button', { name: 'Back to Play', exact: true }).click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator(`#games-list [data-game-id="${gameId}"]`).click();
+    await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await frame.locator('#page-head').isVisible()).toBe(false);
+    await frame.getByRole('button', { name: 'Back to Play', exact: true }).click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });
