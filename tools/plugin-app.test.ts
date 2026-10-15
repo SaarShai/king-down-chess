@@ -190,13 +190,13 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
     await frame.locator('#page-back').click();
     const row = frame.locator(`#games-list [data-game-id="${game_id}"]`);
     await row.waitFor();
-    expect(await row.locator('.line').textContent()).toContain('Your turn · move 1 · White');
+    expect(await row.locator('.line').textContent()).toMatch(/Your turn ·\smove 1 ·\sWhite/);
     await row.click(); await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
     await frame.locator('html').evaluate(async (_, game_id) => {
       await (window as any).harnessApp.call('kingdown_move', { game_id, command_id: 'play-rows-move', expected_revision: 0, lan: 'e2-e4' }, true);
       (window as any).harnessApp.navigate('play');
     }, game_id);
-    await row.locator('.line').filter({ hasText: 'Their turn · move 1' }).waitFor();
+    await row.locator('.line').filter({ hasText: /Their turn ·\smove 1/ }).waitFor();
     expect(await row.locator('.turn-mark').count()).toBe(0);
     expect(await frame.locator('html').evaluate((_, game_id) => (window as any).harnessApp.memory.games.find((entry: any) => entry.game_id === game_id).revision, game_id)).toBe(1);
   } finally { await page.close(); }
@@ -356,7 +356,7 @@ it('shows both setup states in the app games rows', async () => {
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
     await frame.locator('#page-back').click();
     const row = frame.locator(`#games-list [data-game-id="${game_id}"]`);
-    expect(await row.locator('.line').textContent()).toContain('Choose your side · White');
+    expect(await row.locator('.line').textContent()).toMatch(/Choose your side ·\sWhite/);
     expect(await row.locator('.turn-mark').textContent()).toBe('Your turn');
     await row.click();
     await frame.locator('[data-screen="seat"]:not([hidden])').waitFor(); await frame.locator('#page-back:not(:disabled)').waitFor({ state: 'attached' });

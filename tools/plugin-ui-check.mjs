@@ -748,7 +748,7 @@ try {
   assert.deepEqual(await frame.locator('#games-list button').evaluateAll(rows => rows.map(row => row.dataset.gameId)), inbox._meta.games.map(row => row.game_id), 'The shared rows keep the private server order');
   assert.equal(await savedGame.locator('.row-title').innerText(), 'Computer · Club');
   assert.equal(await savedGame.locator('.turn-mark').innerText(), 'Your turn');
-  assert.match(await savedGame.locator('.line').innerText(), /Your turn · move 1/);
+  assert.match(await savedGame.locator('.line').innerText(), /Your turn ·\smove 1/);
   assert.equal(await savedGame.locator('.feats use[href="#i-fairy"]').count(), 1);
   const savedId = await savedGame.getAttribute('data-game-id');
   await savedGame.click();

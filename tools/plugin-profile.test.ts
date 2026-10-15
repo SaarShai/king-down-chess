@@ -76,7 +76,7 @@ it('puts open games first with your turn first and resumes the tapped game', asy
     expect(await live.locator('.when .turn-mark').textContent()).toBe('Turn');
     expect(await waiting.locator('.when .open-mark').textContent()).toBe('Open');
     expect(await live.locator('b').last().textContent()).toBe('Computer · Club');
-    expect(await live.locator('small').first().textContent()).toBe('Your turn · move 1');
+    expect(await live.locator('small').first().textContent()).toBe('Your turn ·\u00a0move 1');
     expect(await waiting.locator('b').last().textContent()).toBe('Open game');
     expect(await waiting.locator('small').first().textContent()).toBe('Waiting for an opponent');
     for (const row of [live, waiting]) {
@@ -306,12 +306,14 @@ it('gives games with the same opponent a colour and start time in both lists', a
   try {
     await page.setViewportSize({ width: 320, height: 568 });
     const entries=[0,1].map(n=>({game_id:`same-opponent-${n}`,kind:'friend',speed:'daily',status:'setup',seat:0,action:'ready',turn:0,revision:0,deadline_at:null,opponent:{handle:'same player',icon:null,computer:false,deleted:false,last_seen_ms:null},updated_at:'2026-10-15T12:00:00Z',created_at:`2026-10-15T12:0${n}:34Z`,options:null,move:null,open_until:null,level:'club'}));
-    await page.request.post(new URL('/fixture-seed',harness.url).href,{data:{actor:'alice',data:{games:entries}}});
+    const wrap={...entries[0],game_id:'wrap-0',status:'playing',move:12,created_at:'2026-05-15T12:00:00Z',options:{fairy:true,arrangement:true,cards:true,kingPowers:true}};
+    await page.request.post(new URL('/fixture-seed',harness.url).href,{data:{actor:'alice',data:{games:[...entries,wrap]}}});
     await frame.locator('html').evaluate(async()=>{const app=(window as any).harnessApp; await app.call('kingdown_games',{}); app.navigate('play');});
     const rows=await frame.locator('#games-list [data-game-id^="same-opponent-"] .line').allTextContents();
     expect(rows).toHaveLength(2); expect(rows[0]).toContain('White'); expect(rows[0]).not.toBe(rows[1]);
     for (const row of rows) { expect(row).toMatch(/\d{1,2}:\d{2}/); expect(row).not.toMatch(/\d{1,2}:\d{2}:\d{2}/); }
-    const lines = await frame.locator('#games-list [data-game-id^="same-opponent-"] .line').evaluateAll(elements => elements.flatMap(e => {
+    // A '·' never ends a wrapped line: it stays with the next part (a long friend game wraps three times at 320 px).
+    const lineEnds = (selector: string) => frame.locator(selector).evaluateAll(elements => elements.flatMap(e => {
       const lines = new Map<number, string>(), walker = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
       while (walker.nextNode()) for (let i = 0; i < walker.currentNode.textContent!.length; i++) {
         const range = document.createRange(); range.setStart(walker.currentNode, i); range.setEnd(walker.currentNode, i + 1);
@@ -320,10 +322,11 @@ it('gives games with the same opponent a colour and start time in both lists', a
       }
       return [...lines.values()].map(line => line.trim());
     }));
-    for (const line of lines) expect(line).not.toMatch(/·$/);
+    for (const line of await lineEnds('#games-list [data-game-id^="same-opponent-"] .line, #games-list [data-game-id="wrap-0"] .line')) expect(line).not.toMatch(/·$/);
     await frame.locator('html').evaluate(()=>{(window as any).harnessApp.navigate('profile');});
     const first=frame.locator('#profile-open [data-game-id="same-opponent-0"] small').last(), second=frame.locator('#profile-open [data-game-id="same-opponent-1"] small').last();
     await first.waitFor(); expect(await first.textContent()).toContain('White'); expect(await first.textContent()).not.toBe(await second.textContent());
     for (const row of await frame.locator('#profile-open small').allTextContents()) expect(row).not.toMatch(/\d{1,2}:\d{2}:\d{2}/);
+    for (const line of await lineEnds('#profile-open small')) expect(line).not.toMatch(/·$/);
   } finally {await page.close();}
 });
