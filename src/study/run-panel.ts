@@ -14,7 +14,7 @@ interface RunPanelOptions {
 export function mountRunPanel(body: HTMLElement, options: RunPanelOptions): () => void {
   const client = createRunClient();
   const study = options.document.document.schema === 'kingdown-test/1' ? options.document.document.study : options.document.document;
-  let active = true, busy = false, connected = false, uncertain = false;
+  let active = true, busy = false, connected = false, uncertain = false, preparing = false;
   let runs: StudyRunSummary[] = [], selected = '', target: RunTarget = 'm1';
   const canPrepare = options.saved && researchStatus(options.document).plan === 'current';
   const run = (): StudyRunSummary | undefined => runs.find(item => item.id === selected);
@@ -23,7 +23,7 @@ export function mountRunPanel(body: HTMLElement, options: RunPanelOptions): () =
     const current = run(), disabled = busy ? 'disabled' : '';
     body.setAttribute('aria-busy', String(busy));
     body.innerHTML = `<p>Run a saved measurement plan in the local studio.</p>
-      <p role="status">${connected ? 'Local studio connected · transport is unverified.' : 'Local studio unavailable. Your study stays saved. Start the local studio, then connect again.'}${uncertain ? ' The approval reply was lost. Launch state is unknown. Refresh status before taking more action.' : ''}</p>
+      <p role="status">${connected ? 'Local studio connected · transport is unverified.' : 'Local studio unavailable. Your study stays saved. Start the local studio, then connect again.'}${preparing ? ' Preparing source and machine checks. No games have started.' : ''}${uncertain ? ' The approval reply was lost. Launch state is unknown. Refresh status before taking more action.' : ''}</p>
       <button data-runs="refresh" ${disabled}>${connected ? 'Refresh stored status' : 'Connect to local studio'}</button>
       <label>Run on<select name="run-target" ${disabled}><option value="m1" ${target === 'm1' ? 'selected' : ''}>M1</option><option value="kaggle" ${target === 'kaggle' ? 'selected' : ''}>Kaggle</option><option value="both" ${target === 'both' ? 'selected' : ''}>M1 and Kaggle</option></select></label>
       <button data-runs="prepare" ${busy || !connected || !canPrepare || uncertain ? 'disabled' : ''}>Prepare saved plan</button>
@@ -79,9 +79,10 @@ export function mountRunPanel(body: HTMLElement, options: RunPanelOptions): () =
           break;
         case 'prepare':
           if (!canPrepare || !connected || uncertain) return;
-          selected = '';
+          selected = ''; preparing = true; render();
           try { remember(await client.prepare(options.document, target)); }
           catch (error) { if (active) connected = false; throw error; }
+          finally { preparing = false; }
           break;
         case 'approve':
           if (!current || uncertain) return;

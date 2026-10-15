@@ -92,3 +92,8 @@ browser. It never returns a raw service body. An entry-point test supplies a
 secret-bearing HTTP error and confirms that only HTTP 403 reaches stdout.
 Typecheck, five transport tests and 50 art tests pass. This change improves the
 failure evidence; it does not make a failed preparation ready for approval.
+
+During preparation, the panel kept the previous failed run on screen. It now
+clears that selection and shows a preparation message in its status text. This
+changes no approval or dispatch rule. `npm run check:browser studies` passes
+with output in `/tmp/kingdown-live-proof-browser.log`.
