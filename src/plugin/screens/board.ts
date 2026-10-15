@@ -66,6 +66,10 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   let computerCalls = 0, computerRunning = false, thinking = false, tornDown = false, thinkingTimer: ReturnType<typeof setTimeout> | undefined;
   let ownRating: PlayerRecord['rating'] | undefined, profileRead = false;
   let readAt = Date.now(), deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+  // The topple plays only when the end arrives live, not on a reload.
+  let toppling = false;
+  // Each card coin's last spent state, and when a live use spent it (for the gold pulse).
+  const cardSpent = new Map<string, boolean>(), spentAt = new Map<string, number>();
   const refused = new Set<string>();
   const active = () => ['board', 'end'].includes(client.state.screen);
   const rules = () => setRules(view!.rules!);
@@ -117,7 +121,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (!step) return;
     closeBoardSheet(); armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]);
     const token = ++generation; optimistic = lastMove = step; pos = step.pos; animating = true;
-    board.skip(); moveLine();
+    board.skip(); board.setLifted(null); moveLine();
     if (step.move.drop !== undefined) board.sync(step.pos);
     void (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve()).then(() => { if (token === generation) board.sync(step.pos); }).finally(() => { if (token === generation) { animating = false; refresh(); scheduleComputer(); } });
     await call('kingdown_move', { game_id: before.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: before.revision, lan }, true);
@@ -207,7 +211,12 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
       }
       for (const [index, card] of cardCoins(pos, side, RULES.hands[side], []).entries()) {
         const b = button('', () => coinRead(side, index)), image = document.createElement('img'), face = art(`ui/cards/${card.card.toLowerCase()}.webp`);
-        b.className = 'coin card-coin'; b.id = `card-${side ? 'b' : 'w'}-${index}`; b.dataset.state = card.spent ? 'used' : 'always'; b.setAttribute('aria-label', cardName(card.card) + (card.spent ? ', spent' : ''));
+        const key = `${view.game_id}:${side}:${index}`;
+        if (card.spent && cardSpent.get(key) === false && !matchMedia('(prefers-reduced-motion: reduce)').matches) { spentAt.set(key, performance.now()); setTimeout(strips, 300); }
+        cardSpent.set(key, card.spent);
+        const age = performance.now() - (spentAt.get(key) ?? -Infinity), spending = card.spent && age < 300;
+        b.className = 'coin card-coin'; b.id = `card-${side ? 'b' : 'w'}-${index}`; b.dataset.state = card.spent && !spending ? 'used' : 'always';
+        if (spending) { b.classList.add('is-spending'); b.style.setProperty('--spent-age', `${-Math.min(age, 300)}ms`); } b.setAttribute('aria-label', cardName(card.card) + (card.spent ? ', spent' : ''));
         image.src = face ?? art('ui/cards/back.webp'); image.alt = ''; b.append(image);
         if (!face) { const word = document.createElement('span'); word.className = 'cc-word'; word.textContent = cardName(card.card).slice(0,2); b.append(word); }
         row.append(b);
@@ -240,7 +249,13 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     $('offer-draw').hidden = view.kind === 'solo' || view.status !== 'playing' || view.draw_offer !== null || refused.has('kingdown_draw');
     $('resign').hidden = view.status !== 'playing';
     $('context-actions').replaceChildren(...actions); strips();
-    board.setFallen(view.result?.reason === 'checkmate' && view.result.winner !== null ? findKing(pos.board,(1-view.result.winner) as Color) : null,false);
+    board.setLifted(selected ?? null);
+    // Never lay the king down on the position before the final move.
+    const fallen = !animating && view.result?.reason === 'checkmate' && view.result.winner !== null ? findKing(pos.board,(1-view.result.winner) as Color) : null;
+    board.setFallen(fallen, toppling && fallen !== null);
+    // The end card waits for the 650 ms topple (screens/end.ts), so the fall shows.
+    if (toppling && fallen !== null && board.motion()) { $('board').dataset.toppling = 'true'; setTimeout(() => delete $('board').dataset.toppling, 650); }
+    if (fallen !== null) toppling = false;
   }
   $('resign').onclick = confirmResign; $('offer-draw').onclick = () => confirmDraw('offer');
   $('reload').addEventListener('click', closeBoardSheet);
@@ -256,6 +271,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   return (next: View) => {
     if (view?.game_id === next.game_id && next.revision < view.revision) return;
     const before = view, same = view?.game_id === next.game_id;
+    if (same && before?.status === 'playing' && next.status === 'finished') toppling = true;
     const unchanged = same && before?.revision === next.revision && before.fen === next.fen && before.status === next.status;
     view = {...next, rules:next.rules ?? (same ? view?.rules : undefined), outcome:next.outcome ?? (same ? view?.outcome : undefined), opponent:next.opponent && {...next.opponent, rating:next.rules ? next.opponent.rating : next.opponent.rating ?? (same ? view?.opponent?.rating : undefined)}};
     if (['finished','aborted'].includes(next.status)) setTimeout(()=>{ if (active()) { if(client.state.screen==='board') navigate('end'); updateEnd(); } },0);

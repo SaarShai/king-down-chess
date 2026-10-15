@@ -55,11 +55,12 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
       else if (req.url === '/fixture-seed' && service && req.method === 'POST') { const {actor='alice',data} = await body(req); if (!['alice','bob'].includes(actor)) { res.statusCode = 400; res.end('{}'); return; } service.seed(actor,data); res.setHeader('Content-Type','application/json'); res.end('{}'); }
       else if (req.url === '/fixture-friend-tool' && req.method === 'POST') { const {fresh,...params} = await body(req); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await (fresh ? laterBuddy : buddy)!.callTool(params))); }
       else if (req.url?.startsWith('/fixture-position?') && req.method === 'POST') {
-        const params = new URL(req.url,'http://localhost').searchParams, scenario = params.get('case'), black = scenario === 'freeze' || scenario === 'threats-black';
+        const params = new URL(req.url,'http://localhost').searchParams, scenario = params.get('case'), fen = params.get('fen'), black = fen ? params.get('black') === '1' : scenario === 'freeze' || scenario === 'threats-black';
         // The art gallery: every piece type of both colours on the kings' ranks ('gallery'), or only the kings and two pawns
         // on other squares ('apart'), with one of three king pairs, so the six kings show in three games.
         const kings = ['Spirit:Mercy,Shadow:Darkness', 'Frost:Freeze,Flame:Haste', 'Stratus:Flight,Mud:March'][Number(params.get('kings') ?? 0)];
-        const setup = scenario === 'swap' ? {fen:'7k/8/8/8/2RM4/8/8/K7 w - - 0 1',kings:'none,none'} : scenario === 'threats-black' ? {fen:'7k/4p3/8/4R3/8/8/8/K7 w - - 0 1',kings:'none,none'} : black ? {fen:'7k/8/8/8/4P3/8/8/K7 b - - 0 1',kings:'none,Frost:Freeze'}
+        // `fen` (with `black=1` for a game as Black against bob) sets any classic position, for motion checks.
+        const setup = fen ? {fen,kings:'none,none'} : scenario === 'swap' ? {fen:'7k/8/8/8/2RM4/8/8/K7 w - - 0 1',kings:'none,none'} : scenario === 'threats-black' ? {fen:'7k/4p3/8/4R3/8/8/8/K7 w - - 0 1',kings:'none,none'} : black ? {fen:'7k/8/8/8/4P3/8/8/K7 b - - 0 1',kings:'none,Frost:Freeze'}
           : scenario === 'threats' ? {fen:'7k/8/8/8/4r3/8/4P3/K7 w - - 0 1',kings:'none,none'}
           : scenario === 'haste' ? {backRank:'RAGQKMSO',kings:'Flame:Haste,Frost:Freeze'}
           : scenario === 'gallery' ? {fen:'rnbqkalg/msoppppp/8/8/8/8/MSOPPPPP/RNBQKALG w - - 0 1',kings}
