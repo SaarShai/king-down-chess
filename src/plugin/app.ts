@@ -11,6 +11,7 @@ import { setSettings } from './board-view';
 import { runPoll } from './poll';
 import { createRouter } from './router';
 import { setupScreen } from './screens/setup';
+import { readSetup } from './screens/setup-model';
 import { friendScreen } from './screens/friend';
 import { joinScreen } from './screens/join';
 import { waitScreen } from './screens/wait';
@@ -138,9 +139,9 @@ $('reload').onclick = () => { if (state.board_id) void call('kingdown_get', {});
 $('retry').onclick = () => { if (pending) void call(pending.name, pending.args, true, false, undefined, true); };
 $('computer').onclick = () => { if (view) void call('kingdown_computer', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision }, true); };
 $('invite').onclick = () => { if (view) void call('kingdown_invite', { game_id: view.game_id }); };
-$('solo').onclick = () => { memory.kind = 'solo'; navigate('setup'); };
-$('friend').onclick = () => { memory.kind = 'friend'; navigate('setup'); };
-$('random').onclick = () => { memory.kind = 'random'; navigate('lobby'); };
+// New game opens the setup at the last choice of opponent; Open games lists the games that other players opened.
+$('play-new').onclick = () => { memory.kind = readSetup(memory.settings?.last_setup).kind; navigate('setup'); };
+$('play-open').onclick = () => { memory.kind = 'random'; navigate('lobby'); };
 $('join-form').onsubmit = event => { event.preventDefault(); memory.code = $<HTMLInputElement>('token').value.trim(); navigate('join'); };
 type ToolResult = Awaited<ReturnType<typeof client.call>>;
 function renderGames(entries: InboxEntry[]) {
@@ -216,6 +217,17 @@ const connection = app.connect().then(() => {
   });
 }).catch(error => { $('error').textContent = $('home-error').textContent = `Could not connect to the game: ${String(error)}`; });
 
+// Ticket 21: the ChatGPT iOS app showed a 45 px board that no test browser shows. Settings shows the sizes of the last
+// seat or board screen, so a screenshot from the device names the cause. Remove when ticket 21 closes.
+const sentSizes: string[] = [], sendSize = app.sendSizeChanged.bind(app);
+app.sendSizeChanged = params => { sentSizes.push(`${params.width}x${params.height}`); sentSizes.splice(0, sentSizes.length - 3); return sendSize(params); };
+function measureLayout() {
+  const box = (selector: string) => { const el = [...document.querySelectorAll<HTMLElement>(selector)].find(e => e.offsetParent || e.id === 'app-frame'); if (!el) return '-'; const r = el.getBoundingClientRect(); return `${Math.round(r.width)}x${Math.round(r.height)}@${Math.round(r.top)}`; };
+  const probe = (height: string) => { const d = document.createElement('div'); d.style.cssText = `position:absolute;visibility:hidden;width:1px;height:${height}`; document.body.append(d); const h = Math.round(d.getBoundingClientRect().height); d.remove(); return h; };
+  const context = app.getHostContext(), line = $('layout-check');
+  line.textContent = `Display check: ${state.screen} · window ${innerWidth}x${innerHeight} · vv ${Math.round(visualViewport?.width ?? 0)}x${Math.round(visualViewport?.height ?? 0)} · vh ${probe('100vh')} dvh ${probe('100dvh')} · frame ${box('#app-frame')} · section ${box(`[data-screen="${state.screen}"]`)} · table ${box('#game-table, [data-seat-id="game-table"]')} · board ${box('#board')} · canvas ${box('#board canvas')} · safe ${JSON.stringify(context?.safeAreaInsets ?? {})} · ${context?.displayMode} ${JSON.stringify(context?.containerDimensions ?? {})} · sent ${sentSizes.join(' ')}`;
+  line.hidden = false;
+}
 export function navigate(screen: Screen) {
   if (screen === 'handle' && state.screen !== 'handle') handleBack = state.screen === 'settings' ? 'settings' : pending?.screen ?? state.screen;
   state.screen = screen; retryState();
@@ -229,6 +241,7 @@ export function navigate(screen: Screen) {
   client.save(); actions(); poll?.update();
   if (screen === 'play' && gamesDirty && !mountReading) void games();
   if (screen === 'settings') void applySettings();
+  if (screen === 'seat' || screen === 'board') setTimeout(() => { if (state.screen === screen) measureLayout(); }, 1500);
   if (screen === 'handle') scheduleHandleCheck(); else { clearTimeout(handleTimer); handleCheck++; }
 }
 async function fullscreen(screen: Screen) {

@@ -85,7 +85,7 @@ it('lists another player with features and accepts the open seat', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     const created = await buddy(page, 'kingdown_create', { kind: 'random', options, colour: 'white' });
-    await frame.locator('#home-play').click(); await frame.locator('#random').click();
+    await frame.locator('#home-play').click(); await frame.locator('#play-open').click();
     await frame.locator('#lobby-list .accept').first().waitFor();
     expect(await frame.locator('#lobby-list .feats [title="Fairy pieces"]').count()).toBe(1);
     await frame.locator('#lobby-list .accept').first().click();
@@ -100,7 +100,7 @@ it('reads the visible lobby every fifteen seconds and pauses while hidden', asyn
   try {
     await freeze(page);
     waiting = (await buddy(page, 'kingdown_create', { kind: 'random', options, colour: 'white' }))._meta.view.game_id;
-    await frame.locator('#home-play').click(); await frame.locator('#random').click();
+    await frame.locator('#home-play').click(); await frame.locator('#play-open').click();
     await frame.locator('#lobby-list .accept').first().waitFor();
     const reads = () => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_lobby').length);
     const initial = await reads();
@@ -112,7 +112,7 @@ it('reads the visible lobby every fifteen seconds and pauses while hidden', asyn
     await expect.poll(reads).toBe(initial + 2);
     await frame.locator('#page-back').click();
     await page.clock.fastForward(30000); expect(await reads()).toBe(initial + 2);
-    await frame.locator('#random').click(); await expect.poll(reads).toBe(initial + 3);
+    await frame.locator('#play-open').click(); await expect.poll(reads).toBe(initial + 3);
     await page.clock.resume();
   } finally { if (waiting) await buddy(page, 'kingdown_cancel', { game_id: waiting }); await page.close(); }
 });
@@ -158,7 +158,7 @@ it('keeps the five-second wait budget through the computer handoff, then uses fi
       await page.clock.runFor(ms); await expect.poll(() => page.evaluate(() => (window as any).ticketReads.length)).toBe(n+1);
     };
     for (let i=0;i<5;i++) await advance(5000);
-    await frame.locator('#page-back').click(); await frame.locator('#random').click(); await frame.locator('#find-opponent').click();
+    await frame.locator('#page-back').click(); await frame.locator('#play-open').click(); await frame.locator('#find-opponent').click();
     await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     const reads = await page.evaluate(() => (window as any).ticketReads.length);
     await frame.locator('#wait-computer').click();
@@ -191,7 +191,7 @@ it('reuses a new open game after returning through Play without a second Find', 
     });
     await start(page, 'random');
     await frame.locator('#page-back').click(); await page.evaluate(() => { (window as any).holdNext = 'kingdown_games'; });
-    await frame.locator('#random').click(); await frame.locator('#find-opponent').click();
+    await frame.locator('#play-open').click(); await frame.locator('#find-opponent').click();
     await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     await page.evaluate(() => (window as any).releaseHeld?.());
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_find').length)).toBe(1);
@@ -274,7 +274,7 @@ it('keeps Accept through handle Save when the board has no game', async () => {
         return send(name, args, opts);
       };
     });
-    await frame.locator('#home-play').click(); await frame.locator('#random').click(); await frame.locator('#lobby-list .accept').first().waitFor();
+    await frame.locator('#home-play').click(); await frame.locator('#play-open').click(); await frame.locator('#lobby-list .accept').first().waitFor();
     await frame.locator('#lobby-list .accept').first().click(); await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
     await frame.locator('#save-handle').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
   } finally { await page.close(); }
@@ -305,7 +305,7 @@ it('shows the lobby name beside Accept without a button over the text', async ()
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await buddy(page, 'kingdown_create', { kind: 'random', options, colour: 'white' });
-    await frame.locator('#home-play').click(); await frame.locator('#random').click(); await frame.locator('#lobby-list .row-title').first().waitFor();
+    await frame.locator('#home-play').click(); await frame.locator('#play-open').click(); await frame.locator('#lobby-list .row-title').first().waitFor();
     expect(await frame.locator('#lobby-list .row-title').first().evaluate(el => {
       const box = el.getBoundingClientRect(), hit = document.elementFromPoint(box.x+box.width/2,box.y+box.height/2);
       return el.contains(hit) || hit?.closest('button')?.classList.contains('menu-row');

@@ -149,6 +149,12 @@ button.preset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 
 #error { flex: none; padding: 8px 16px; color: var(--danger); }
 
 .page-sheet > section { flex: 1; min-height: 0; gap: 0; }
+/* Ticket 21: in the ChatGPT iOS app the table took its content height (a 45 px board). Its box comes from the screen
+   by position, with no percentage or viewport unit; the setup sheet keeps the over-sheet limits, not the website's dvh. */
+.page-sheet > :is([data-screen='seat'], [data-screen='board']) { position: relative; }
+.page-sheet > :is([data-screen='seat'], [data-screen='board']) > #game-table { position: absolute; inset: 0; height: auto; margin: 0 auto; }
+.frame #menu-sheet { max-height: calc(100% - 40px); }
+@media (min-width: 900px) { .frame #menu-sheet { max-height: calc(100% - 48px); } }
 .page-sheet form.new-game-body { display: block; margin: 0; }
 .page-sheet .code-row { margin: 0; flex-wrap: nowrap; }
 .page-sheet .new-game-foot { flex: none; padding: 12px 16px; }

@@ -17,7 +17,7 @@ King Down has a private ChatGPT plugin. It plays one fixed army: the same back r
 
 A King Down app inside ChatGPT where the game is the main feature:
 
-- **Play** against the computer (four levels), a friend (a 6-character code) or a random player (a list of open games and a "Find an opponent" button).
+- **Play** against the computer (four levels), a friend (a 6-character code) or a random player. The Play menu has one **New game** row for all three, and an **Open games** row: a list of the open games of other players and a "Find an opponent" button.
 - **Choose the game.** The player who starts the game (the initiator) sets five toggles: fairy pieces (with an "all" sub-menu of piece kinds), arrangement, classic chess, cards (with an "all" sub-menu of cards) and king powers. The player who joins (the joiner) picks their own king and power and arranges their own pieces, when those toggles are on.
 - **Profile:** a games registry on a scroll, a rating, 10 badges, and a Collection page with every piece, king, power and card, all unlocked.
 - **Settings:** a symbols-only piece look, and Show threats.
@@ -31,7 +31,7 @@ The app runs as one page. A chat request shows a small inline card. Setup, the b
 | Q1 | Audience | Private testers only, through a custom connection. No public listing and no OpenAI review in this build. |
 | Q2 | Website | ChatGPT only. The server keeps one account and one game pool, so kingdown.dev can join later. |
 | Q3 | Pace | No clocks. Up to 3 days for each move; after that, the other player may claim the win. Before each side's first move, either player may abort with no result. No email or push alerts. |
-| Q4 | Random opponent | "Find an opponent" shows the open games of other players, each with its features and **Accept**; one button takes the oldest. With no open game, it opens your game with your features. After 25 s it offers "Play the computer while you wait"; the open game stays. When a player joins: "Opponent found. Switch now?"; the computer game then ends with no result. An open game stays open for 24 hours, also after ChatGPT closes, and shows in Your games as "Waiting for an opponent". "N players online" shows only when N is 10 or more. (Research part 01, §3.2 and §3.4.) |
+| Q4 | Random opponent | New game with "A random player", then Start, finds an opponent: it takes the oldest open game, or opens your game with your features. **Open games** in the Play menu shows the open games of other players, each with its features and **Accept**, and a "Find an opponent" button that does the same as Start with your last features. (Ticket 21, 2026-10-15: the Play menu had a second "A random player" row that opened the list, so the same words opened two screens; delegated UX choice.) After 25 s it offers "Play the computer while you wait"; the open game stays. When a player joins: "Opponent found. Switch now?"; the computer game then ends with no result. An open game stays open for 24 hours, also after ChatGPT closes, and shows in Your games as "Waiting for an opponent". "N players online" shows only when N is 10 or more. (Research part 01, §3.2 and §3.4.) |
 | Q5 | Colours | The initiator is White by default and may pick White, Black or Random. In a random-opponent game, the player who opened the game is the initiator. Against the computer, the player is the initiator. |
 | Q6 | Joiner | When those toggles are on, the joiner picks a king and power and arranges their pieces. The joiner sees the features first and may decline. Both players press Ready. |
 | Q7 | Toggle logic | Fairy on: the Arrangement toggle shows, on by default. The "all" sub-menu has one box for each piece kind: archer, paladin, guard, maester, beast, ogre, rook, bishop, knight, queen. The king and the pawns are always in. The pool keeps at least 7 pieces, so the last boxes lock. Fairy off and Classic off: the chess pieces in a random order, the same for both sides. Fairy off and Classic on: real chess (below). |
@@ -66,7 +66,7 @@ Play menu and the computer
 1. As a player, I want to say "play King Down" in ChatGPT and see a small card with Play and Your games, so that I can start in one tap.
 2. As a player, I want the app to open in fullscreen when I tap Play, so that the board and the menus have room.
 3. As a player, I want to open King Down from the ChatGPT side panel or sidebar, so that I can play beside a conversation.
-4. As a player, I want to choose the computer, a friend or a random player, so that I can play the way I like.
+4. As a player, I want to choose the computer, a friend or a random player on one New game screen, so that I can play the way I like.
 5. As a player, I want to pick the computer's level (Beginner, Casual, Club, Strong), so that the game fits my skill.
 6. As a player, I want the computer to reply on its own after my move, so that I need no extra button.
 7. As a player, I want my move to show at once, so that the board does not feel slow.

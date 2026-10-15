@@ -105,7 +105,7 @@ it('recovers a lost Create or Find reply on mount without another send', async (
 it('opens a usable solo board after Retry of a lost Choose reply without a remount', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await frame.locator('#home-play').click(); await frame.locator('#solo').click();
+    await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).uncheck();
     await frame.getByRole('checkbox', { name: 'King powers', exact: true }).check();
     await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_choose'; });
@@ -126,7 +126,7 @@ it('opens a usable solo board after Retry of a lost Choose reply without a remou
 it('keeps Start blocked and retries the same solo game after its board read fails', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await frame.locator('#home-play').click(); await frame.locator('#solo').click();
+    await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).uncheck();
     await frame.getByRole('checkbox', { name: 'King powers', exact: true }).check();
     await page.evaluate(() => { (window as any).rejectNextGet = true; });
