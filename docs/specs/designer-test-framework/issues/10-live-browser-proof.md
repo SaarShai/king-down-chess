@@ -57,3 +57,24 @@ seconds, with a 60-second minimum and a 15-minute total audit limit. Other
 errors fail closed. The transport allows that bounded audit to finish. This
 retry applies only to audit reads; submission is still attempted once. An
 offline rate-limit fixture fails before the fix and passes after it.
+
+## Live checkpoint
+
+The browser starts the paced preparation at 2026-10-15 03:54 UTC. No approval
+or launch exists at this checkpoint. The main queue holds the owner's exact go
+for this named run, with browser approval pending.
+
+- Run: `study-20261015-01dfffbcc6f5`.
+- Study: `77e3d7e0-e42b-4aef-b0c6-085f1dc1460a`, version 2.
+- Source: `a04ecaa4b16f8b23447d4096354be16c16df2296`.
+- Bundle: `6eac04d4d5c3a4ecbd0c2f7939f02635a0c12534538c920c47302f68317ee7e4`.
+- Plan: `7f4de04358c28f976dda6cc7a66a75210d67502fc80f7e3f7ac9937708249009`.
+- Local state: `state/study-runs/study-20261015-01dfffbcc6f5.json` on the card.
+- Browser: `http://127.0.0.1:57321/`, saved study's Run saved plan panel.
+- Checks: typecheck, five transport tests and 50 art tests pass. The earlier
+  documentation check passes all 113 assertions. The rate-limit regression
+  fails before the repair and passes after it. No remote launch is retried.
+
+Next: read the bounded preparation result. If prepared, approve these eight
+games once through the browser. Then use each recorded next-check time. Finish
+collection, validation, backup and browser linking before marking this task done.
