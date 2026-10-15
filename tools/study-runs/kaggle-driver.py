@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Bounded Kaggle adapter. Keep this filename distinct from the SDK package."""
-import contextlib, json, os, sys, socket, resource
+import contextlib, json, os, sys, socket, resource, time
 from pathlib import Path
 
 ACTIVE = {'QUEUED','RUNNING','CANCEL_REQUESTED','NEW_SCRIPT'}
@@ -8,11 +8,27 @@ TERMINAL = {'COMPLETE','ERROR','CANCEL_ACKNOWLEDGED'}
 
 def audit(api):
     active = 0
+    deadline = time.monotonic() + 900
+    def read(call, **kwargs):
+        # Retry only read requests. A submission is never retried.
+        for attempt in range(3):
+            if time.monotonic() >= deadline: raise RuntimeError('account audit time limit')
+            try:
+                result = call(**kwargs)
+                time.sleep(2)
+                return result
+            except Exception as error:
+                response = getattr(error, 'response', None)
+                if getattr(response, 'status_code', None) != 429 or attempt == 2: raise
+                retry = response.headers.get('Retry-After', '60')
+                delay = max(60, int(retry)) if retry.isdigit() else 60
+                if delay > 120 or time.monotonic() + delay >= deadline: raise RuntimeError('account audit rate limit') from None
+                time.sleep(delay)
     for page in range(1, 101):
-        kernels = api.kernels_list(mine=True, page=page, page_size=100)
+        kernels = read(api.kernels_list, mine=True, page=page, page_size=100)
         if kernels is None: raise RuntimeError('account audit unavailable')
         for kernel in kernels:
-            state = api.kernels_status(kernel.ref).status.name
+            state = read(api.kernels_status, kernel=kernel.ref).status.name
             if state not in ACTIVE | TERMINAL: raise RuntimeError('unknown account state')
             active += state in ACTIVE
         if len(kernels)<100: return active

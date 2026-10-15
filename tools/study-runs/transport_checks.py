@@ -26,9 +26,24 @@ def run_config(directory,part='part-one'):
 class API:
     def __init__(self,n):self.n=n
     def kernels_list(self,**kw):return [NS(ref=str(i)) for i in range(self.n)]
-    def kernels_status(self,ref):return NS(status=NS(name='RUNNING'))
-assert kaggle.audit(API(4))==4
-fails(lambda:kaggle.execute(NS(config_values={'username':'test'},kernels_list=API(5).kernels_list,kernels_status=API(5).kernels_status),{'action':'preflight','name':'fake'}))
+    def kernels_status(self,kernel):return NS(status=NS(name='RUNNING'))
+class RateLimit(Exception):
+    response=NS(status_code=429,headers={'Retry-After':'60'})
+class Limited(API):
+    def __init__(self):super().__init__(2);self.calls=0
+    def kernels_status(self,kernel):
+        self.calls+=1
+        if self.calls==1:raise RateLimit()
+        return super().kernels_status(kernel)
+with patch('time.sleep') as sleep:
+    limited=Limited()
+    assert kaggle.audit(limited)==2 and limited.calls==3
+    assert any(call.args==(60,) for call in sleep.call_args_list)
+    assert kaggle.audit(API(4))==4
+    fails(lambda:kaggle.execute(NS(config_values={'username':'test'},kernels_list=API(5).kernels_list,kernels_status=API(5).kernels_status),{'action':'preflight','name':'fake'}))
+    with patch.object(API,'kernels_status',side_effect=RateLimit()) as blocked:
+        fails(lambda:kaggle.audit(API(1)))
+        assert blocked.call_count==3
 fails(lambda:backup.fresh_receipt([],10))
 fails(lambda:backup.fresh_receipt([{'verified_epoch':9}],10))
 assert backup.fresh_receipt([{'verified_epoch':10}],10)['verified_epoch']==10

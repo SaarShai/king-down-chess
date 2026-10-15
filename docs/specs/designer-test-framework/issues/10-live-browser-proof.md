@@ -47,3 +47,13 @@ Kaggle script is named `kaggle.py`, so Python imports that file instead of the
 installed SDK package. Rename it to `kaggle-driver.py`. A test now runs the real
 script entry point against a fake SDK package; it makes no network call. Keep
 the failed preparation record. No launch retry or extra games occur.
+
+The second preparation, `study-20261015-ab76cd7e1b63`, also stops before
+approval. A direct read-only probe reproduces HTTP 429 at account status read
+12. The same reference returns COMPLETE alone. The list contains at least 100
+notebooks. The audit now spaces its reads by two seconds and handles HTTP 429
+with at most two waits per read. It honors numeric Retry-After values up to 120
+seconds, with a 60-second minimum and a 15-minute total audit limit. Other
+errors fail closed. The transport allows that bounded audit to finish. This
+retry applies only to audit reads; submission is still attempted once. An
+offline rate-limit fixture fails before the fix and passes after it.
