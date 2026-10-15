@@ -17,7 +17,10 @@ async function open() {
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   return page;
 }
+// Each screen but home shows only in fullscreen (spec Q25). A test that opens a screen directly puts the host there first.
+const expand = (page: Page) => page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'] }));
 async function start(page: Page, route = true) {
+  await expand(page);
   await page.frameLocator('iframe').locator('html').evaluate((_, route) => {
     const host = window as any;
     host.harnessApp.navigate('setup');
@@ -219,6 +222,48 @@ it('opens a screen from a chat tool call in fullscreen, not inline', async () =>
     expect(await page.evaluate(() => (window as any).harnessDisplayRequests)).toEqual(['fullscreen']);
   } finally { await page.close(); }
 });
+it('keeps a screen from a chat tool call behind the home card until the host grants fullscreen', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
+    await page.evaluate(() => { (window as any).holdDisplayNext = true; });
+    await page.evaluate(result => (window as any).harnessShow(result, true), result);
+    await page.waitForFunction(() => typeof (window as any).releaseDisplay === 'function');
+    expect(await frame.locator('[data-screen="profile"]').isHidden()).toBe(true);
+    expect(await frame.locator('#home-card').isVisible()).toBe(true);
+    await page.evaluate(() => (window as any).releaseDisplay());
+    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
+  } finally { await page.close(); }
+});
+it('never shows a screen inline when the host refuses fullscreen', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const widget = page.frames().find(f => f !== page.mainFrame())!;
+    await widget.evaluate(() => { const host = window as any; host.shownInline = false; new MutationObserver(() => { if (!document.querySelector<HTMLElement>('[data-screen="profile"]')!.hidden) host.shownInline = true; }).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['hidden'] }); });
+    const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
+    await page.evaluate(() => { (window as any).denyDisplayNext = true; });
+    await page.evaluate(result => (window as any).harnessShow(result, true), result);
+    await frame.locator('#home-error', { hasText: 'expand control' }).waitFor();
+    expect(await widget.evaluate(() => (window as any).shownInline)).toBe(false);
+    expect(await frame.locator('#home-card').isVisible()).toBe(true);
+  } finally { await page.close(); }
+});
+it('keeps the home card when a chat tool result arrives after the player leaves fullscreen', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#home-play').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }));
+    await frame.locator('#home-card:not([hidden])').waitFor();
+    const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length);
+    await page.evaluate(result => (window as any).harnessShow(result, true), result);
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length > n, reads);
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests)).toEqual(['fullscreen']);
+    expect(await frame.locator('#home-card').isVisible()).toBe(true);
+    await frame.locator('#home-play').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  } finally { await page.close(); }
+});
 it('shows the home card when the player leaves fullscreen, and Play returns to the game', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -385,7 +430,7 @@ it.each([true, false])('keeps route=%s through Save, a failed send and Retry', a
 it('rejects a Retry control clipped by a parent on the horizontal axis', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await page.evaluate(() => { (window as any).failNextAction = true; });
+    await page.evaluate(() => { (window as any).failNextAction = true; }); await expand(page);
     await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; app.navigate('play'); await app.call('kingdown_create', { kind: 'friend' }, true); });
     await frame.locator('#retry').waitFor();
     expect((await frame.locator('#retry').evaluate(controlBounds)).accessible).toBe(true);
@@ -406,7 +451,7 @@ it('keeps the approved home wordmark at 40 px on a 360 px screen', async () => {
 it('shows the server character rule beside the Free mark for a bad name', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; app.navigate('settings'); app.navigate('handle'); });
+    await expand(page); await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; app.navigate('settings'); app.navigate('handle'); });
     expect(await frame.locator('#page-back').textContent()).toBe('‹ Settings');
     expect(await frame.locator('[data-screen="handle"]').textContent()).toContain('Each name is unique. You pick it once, at your first game against a person.');
     await frame.locator('#handle').fill('a?');

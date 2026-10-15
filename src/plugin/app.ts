@@ -168,7 +168,7 @@ app.ontoolresult = result => {
   void mountResult(result, initial);
 };
 async function mountResult(result: ToolResult, initial: boolean) {
-  mountReading = true; collapsed = false; resume = undefined; actions();
+  mountReading = true; actions();
   try {
     await connection;
     const value = result.structuredContent as Record<string, unknown> | undefined;
@@ -214,7 +214,7 @@ const connection = app.connect().then(() => {
   connected = true;
   const context = app.getHostContext(); hostContext(context);
   if (context?.displayMode === 'fullscreen' && state.screen === 'home' && !savedScreen) navigate('play');
-  if (state.screen !== 'home') void fullscreen(state.screen);
+  if (state.screen !== 'home') { const screen = state.screen; if (displayMode === 'inline' && canFullscreen()) navigate('home'); void fullscreen(screen); }
   poll = runPoll(() => ['friend', 'wait', 'seat', 'board'].includes(state.screen) ? view : undefined, async () => {
     if (connected && !awaitingInitialResult && !mountReading && state.board_id && !busy && !pending) await call('kingdown_get', { ...(view?.fen ? { since_revision: view.revision } : {}) }, false, true, !savedScreen || !!view && ['friend', 'wait', 'seat', 'board'].includes(state.screen));
   });
@@ -232,29 +232,35 @@ function measureLayout() {
   line.hidden = false;
 }
 // Spec Q25: inline, the widget shows only the home card; each other screen shows in fullscreen. A screen that opens
-// while inline (a chat tool call, a route) also asks the host for fullscreen. When the player leaves fullscreen, the
-// home card comes back with its own height; a late route waits for Play, which returns to the game screen.
+// while inline (a chat tool call, a route) waits behind the home card until the host grants fullscreen. When the
+// player leaves fullscreen, the home card comes back with its own height; a late route or tool result waits for Play,
+// which returns to the game screen.
 const GAME_SCREENS: Screen[] = ['seat', 'board', 'wait', 'friend', 'end'];
-let displayMode: string | undefined, asking = false, collapsed = false, resume: Screen | undefined, gamesFirst = false;
+let displayMode: string | undefined, asking = false, collapsed = false, resume: Screen | undefined, target: Screen | undefined, gamesFirst = false;
 const canFullscreen = () => app.getHostContext()?.availableDisplayModes?.includes('fullscreen') ?? true;
-/** Asks for fullscreen, then shows the screen (the home card stays until the host answers). */
+/** Asks for fullscreen, then shows the last screen asked for (the home card stays until the host answers). */
 async function fullscreen(screen: Screen) {
-  const before = state.screen;
+  target = screen;
+  if (asking) return;
+  asking = true;
   try {
     await connection;
     const result = await app.requestDisplayMode({ mode: 'fullscreen' });
     if (result.mode !== 'fullscreen') throw new Error('Open the app with the host’s expand control.');
     displayMode = 'fullscreen';
-    if (state.screen === before) navigate(screen);
-  } catch (error) { if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = String(error); }
+    const next = target; target = undefined;
+    if (next && !collapsed) navigate(next);
+  } catch (error) { target = undefined; if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = String(error); }
+  finally { asking = false; }
 }
 /** Opens the Play screen at the Your games list. */
 export function showGames() { gamesFirst = true; navigate('play'); }
 export function navigate(screen: Screen) {
   if (screen !== 'home' && displayMode === 'inline' && canFullscreen()) {
     if (collapsed) { if (GAME_SCREENS.includes(screen)) resume = screen; return; }
-    if (!asking) { asking = true; void fullscreen(screen).finally(() => { asking = false; }); }
+    void fullscreen(screen); return;
   }
+  target = undefined;
   if (screen === 'handle' && state.screen !== 'handle') handleBack = state.screen === 'settings' ? 'settings' : pending?.screen ?? state.screen;
   if (screen === 'settings' && !['settings','handle'].includes(state.screen)) {
     if (['board','seat'].includes(state.screen)) state.settings_back = state.screen; else delete state.settings_back;

@@ -15,7 +15,7 @@ async function mount() {
   await bridge?.close();
   bridge = new AppBridge(null, { name: 'King Down local harness', version: '1' }, { serverTools: {}, updateModelContext: {} }, { hostContext: { displayMode: (window as any).harnessDisplayMode ?? 'inline', availableDisplayModes: ['inline', 'fullscreen'], ...(window as any).harnessHostContext } });
   (window as any).harnessSetContext = async (context: any) => { (window as any).harnessHostContext = context; await bridge!.setHostContext(context); };
-  bridge.onrequestdisplaymode = async ({ mode }) => { (window as any).harnessDisplayRequests ??= []; (window as any).harnessDisplayRequests.push(mode); (window as any).harnessDisplayMode = mode; await bridge!.setHostContext({ displayMode: mode }); return { mode }; };
+  bridge.onrequestdisplaymode = async ({ mode }) => { (window as any).harnessDisplayRequests ??= []; (window as any).harnessDisplayRequests.push(mode); if ((window as any).denyDisplayNext) { (window as any).denyDisplayNext = false; return { mode: (window as any).harnessDisplayMode ?? 'inline' }; } if ((window as any).holdDisplayNext) { (window as any).holdDisplayNext = false; await new Promise(resolve => { (window as any).releaseDisplay = resolve; }); } (window as any).harnessDisplayMode = mode; await bridge!.setHostContext({ displayMode: mode }); return { mode }; };
   bridge.oncalltool = async params => {
     (window as any).harnessCalls ??= []; (window as any).harnessCalls.push(params);
     if ((window as any).rejectNextGet && params.name === 'kingdown_get') { (window as any).rejectNextGet = false; throw new Error('Harness saved-game read failed'); }
