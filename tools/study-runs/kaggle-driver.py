@@ -28,6 +28,10 @@ def audit(api):
         kernels = read(api.kernels_list, mine=True, page=page, page_size=100)
         if kernels is None: raise RuntimeError('account audit unavailable')
         for kernel in kernels:
+            if not kernel.ref:
+                # The API includes empty placeholder records in full pages.
+                if kernel.id == 0 and not kernel.author and not kernel.slug and kernel.current_version_number == 0: continue
+                raise RuntimeError('notebook identity unavailable')
             state = read(api.kernels_status, kernel=kernel.ref).status.name
             if state not in ACTIVE | TERMINAL: raise RuntimeError('unknown account state')
             active += state in ACTIVE
@@ -81,6 +85,6 @@ if __name__ == '__main__':
     except BaseException as error:
         # Return only known local failures or an HTTP code, never a service body.
         http = getattr(getattr(error, 'response', None), 'status_code', None)
-        known = {'account audit time limit', 'account audit rate limit', 'account audit unavailable', 'unknown account state', 'account audit exceeds limit', 'no account capacity', 'submission not confirmed'}
+        known = {'account audit time limit', 'account audit rate limit', 'account audit unavailable', 'unknown account state', 'account audit exceeds limit', 'notebook identity unavailable', 'no account capacity', 'submission not confirmed'}
         message = f'HTTP {http}' if isinstance(http, int) and 400 <= http <= 599 else str(error) if type(error) is RuntimeError and str(error) in known else 'operation failed; outcome may be unknown'
         print(json.dumps({'error': message}))

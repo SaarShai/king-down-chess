@@ -40,6 +40,13 @@ with patch('time.sleep') as sleep:
     assert kaggle.audit(limited)==2 and limited.calls==3
     assert any(call.args==(60,) for call in sleep.call_args_list)
     assert kaggle.audit(API(4))==4
+    empty=NS(id=0,ref='',author='',slug='',current_version_number=0)
+    calls=[]
+    pages=NS(kernels_list=lambda **kw: [NS(ref='one'),*([empty]*99)] if kw['page']==1 else [empty,NS(ref='two')],kernels_status=lambda kernel:(calls.append(kernel) or NS(status=NS(name='COMPLETE'))))
+    assert kaggle.audit(pages)==0 and calls==['one','two']
+    pages.kernels_list=lambda **kw:[NS(id=42,ref='',author='',slug='',current_version_number=0)]
+    fails(lambda:kaggle.audit(pages))
+
     fails(lambda:kaggle.execute(NS(config_values={'username':'test'},kernels_list=API(5).kernels_list,kernels_status=API(5).kernels_status),{'action':'preflight','name':'fake'}))
     with patch.object(API,'kernels_status',side_effect=RateLimit()) as blocked:
         fails(lambda:kaggle.audit(API(1)))

@@ -97,3 +97,13 @@ During preparation, the panel kept the previous failed run on screen. It now
 clears that selection and shows a preparation message in its status text. This
 changes no approval or dispatch rule. `npm run check:browser studies` passes
 with output in `/tmp/kingdown-live-proof-browser.log`.
+
+The trace stops at status call 262 with an empty notebook reference. This is
+not a rate-limit failure. Page 3 includes empty placeholder entries with ID 0,
+empty reference/author/slug and version 0. Page 4 still has real notebooks:
+91 entries, four empty placeholders. The audit skips only that exact empty
+identity and continues pagination from the original page length. A nonzero ID
+with a missing reference still fails closed. The regression includes a full
+page of placeholders followed by a real next-page item. It fails before the
+repair and passes after it. Typecheck, five transport tests and 50 art tests
+pass. No approval or launch exists for the failed preparations.
