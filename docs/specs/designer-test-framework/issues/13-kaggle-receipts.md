@@ -79,3 +79,11 @@ The patched job starts once at 20:05:41 UTC, PID 1853, with its own root derived
 from the supervisor file. Its first check is 20:25:41 UTC, with a one-hour bound.
 The stale lock has an exact known owner and no live supervisor before transfer.
 The main machine guide now records the root check. No baseline retry occurs.
+
+## Passed validation and browser approval
+
+The patched M1 run passes at 434deb48: 2,396 tests, 129 skipped, 50 artwork
+checks and the production build. All eight terminal file hashes match.
+Evidence is in card results `receipt-patch-m1-20261015/terminal` and
+`collection.json`. Remote sources stay in place. No further M1 query is needed.
+Backup waits for the live browser proof to avoid a competing maintenance lock.

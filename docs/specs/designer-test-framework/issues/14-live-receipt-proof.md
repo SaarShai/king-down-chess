@@ -53,3 +53,12 @@ Kaggle preparation passes and the browser shows the exact two-game approval.
 Approval waits for the patched M1 validation because the baseline wrapper fails
 before tests. The corrected job is due for a check at 20:25:41 UTC. No Kaggle
 submission, new preparation or approval occurs in this checkpoint.
+
+## Passed validation and browser approval
+
+The patched M1 validation passes. The browser approval is clicked once and
+saved at 20:26:22.544 UTC. The local run is launching, with the Kaggle part
+pending its account audit. No accepted remote receipt is claimed yet.
+Screenshot: `receipt-live-approved.jpg` in this chat's visualization folder.
+The next bounded local launch check is 20:46 UTC. No worker query occurs before
+its recorded check time. No second approval or preparation is permitted.
