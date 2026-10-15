@@ -3,7 +3,7 @@ import type { PlayerSettings } from './settings';
 import { setRules } from '../rules/engine';
 import { gamesList } from './games-list';
 import type { InboxEntry, JoinPreview, View } from '../match/protocol';
-import { createClient, type WidgetHost, type Screen, type Pending } from './client';
+import { CANNOT_CONNECT, createClient, type WidgetHost, type Screen, type Pending } from './client';
 import { art } from './art';
 import { handleProblem, ICONS, type Icon } from '../account/profile';
 import { boardScreen, rollbackBoardMove } from './screens/board';
@@ -132,7 +132,9 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     // A reload preserves the command receipt; retry still uses its original ID.
     if (retain) pending = undefined;
     saveState(); retryState();
-  } catch (error) { if (quiet && (busy || view !== before)) return; const message = error instanceof Error ? error.message : 'Could not update the game.';
+  } catch (error) { const message = error instanceof Error ? error.message : 'Could not update the game.';
+    // A quiet read that cannot connect says nothing; the next poll tries again.
+    if (quiet && (busy || view !== before || message === CANNOT_CONNECT)) return;
     if (retain && pending) { pending.error = message; pending.error_screen = state.screen; saveState(); }
     if (!quiet && name === 'kingdown_get' && state.board_id) readError = true;
     retryState(); $('error').textContent = message; }
@@ -178,7 +180,7 @@ async function mountResult(result: ToolResult, initial: boolean) {
     if (!initial || !state.board_id) state.board_id = typeof value?.board_id === 'string' ? value.board_id : typeof value?.game_id === 'string' ? state.board_id : undefined;
     remember(result);
     if (initial) {
-      const settings = await client.call('kingdown_settings');
+      const settings = await client.call('kingdown_settings', {}, { limit: false });
       if (settings.isError) throw new Error(settings.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(settings); await applySettings();
     }
@@ -186,14 +188,14 @@ async function mountResult(result: ToolResult, initial: boolean) {
       memory.preview = undefined;
       memory.joinError = { code: String(result._meta?.code ?? ''), message: result.content.filter(c => c.type === 'text').map(c => c.text).join(' ') };
       view = undefined; navigate('join');
-      const home = await client.call('kingdown_open');
+      const home = await client.call('kingdown_open', {}, { limit: false });
       if (home.isError) throw new Error(home.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(home); saveState(); return;
     }
     if (value?.screen === 'join') { memory.preview = result._meta?.preview as JoinPreview | undefined; memory.code = memory.preview?.code ?? ''; memory.joinError = undefined; }
     if (value && ['home', 'play', 'board', 'profile', 'join'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen as Screen);
     if (typeof value?.game_id === 'string' && !value.board_id && (!initial || !state.board_id)) {
-      const selected = await client.call(state.board_id ? 'kingdown_resume' : 'kingdown_open', { game_id: value.game_id });
+      const selected = await client.call(state.board_id ? 'kingdown_resume' : 'kingdown_open', { game_id: value.game_id }, { limit: false });
       if (selected.isError) throw new Error(selected.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(selected);
     }
@@ -205,7 +207,10 @@ async function mountResult(result: ToolResult, initial: boolean) {
     saveState();
   } catch (error) { $('error').textContent = $('home-error').textContent = String(error); }
   finally {
-    mountReading = false; if (pending?.error) retryState();
+    mountReading = false;
+    // A command that was in flight when the host remounted the widget has no reply here; Retry reads, then resends its ID.
+    if (pending && !pending.error && !busy && state.screen !== 'handle' && !['kingdown_create', 'kingdown_find'].includes(pending.name)) { pending.error = CANNOT_CONNECT; pending.error_screen = state.screen; saveState(); }
+    if (pending?.error) retryState();
     if (state.screen in screens) screens[state.screen as keyof typeof screens]();
     poll?.update();
     actions();

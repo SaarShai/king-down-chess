@@ -70,7 +70,7 @@ function render() {
   $('setup-power-text').textContent = ruleLine(powerText(pick.power, kingRules));
   $<HTMLButtonElement>('setup-start').disabled = starting || recovering || !!client.state.pending;
   // Words wait for the owner (item W3, option a).
-  $('setup-start').textContent = !starting && !recovering ? 'Start game' : slow ? 'Still starting. Keep this page open.' : 'Starting your game…';
+  $('setup-start').textContent = !starting && !recovering ? 'Start game' : slow && !client.state.pending?.error ? 'Still starting. Keep this page open.' : 'Starting your game…';
 }
 function sheet(name: string, title: string, done: () => void) {
   closeSheet?.();
@@ -160,6 +160,8 @@ new MutationObserver(() => {
   restoreHandled = true; ownCommand = true; draft ??= readSetup(memory.settings!.last_setup);
   setTimeout(() => { void readGames().then(() => finish(memory.view!)).catch(error => { $('error').textContent = String(error); }); }, 0);
 }).observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
+// A failed start shows Retry; the start line then stops asking the player to wait.
+new MutationObserver(() => { if ($('setup-body').childElementCount) render(); }).observe($('retry'), { attributes: true, attributeFilter: ['hidden'] });
 document.addEventListener('click', event => {
   if (!(event.target as HTMLElement).closest('#retry') || client.state.screen !== 'setup' || !ownPending()) return;
   const pending = client.state.pending;

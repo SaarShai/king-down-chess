@@ -679,7 +679,7 @@ it('recovers a held move at 10 seconds and ignores its late reply', async () => 
     await page.clock.fastForward(10_001);
     expect(await frame.locator('#retry').isVisible()).toBe(true);
     expect(await frame.locator('#retry').isEnabled()).toBe(true);
-    expect(await frame.locator('#error').textContent()).toMatch(/timed out/i);
+    expect(await frame.locator('#error').textContent()).toBe('Cannot connect. Check your connection, then try again.');
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending.args.command_id)).toBe(command);
     await frame.locator('#retry').click();
     await frame.locator('#retry').waitFor({ state: 'hidden' });
@@ -702,16 +702,94 @@ it('recovers a held move at 10 seconds and ignores its late reply', async () => 
   } finally { await page.close(); }
 });
 
-it('gives offline Start and Join recovery words', async () => {
+it('gives one offline sentence on Start and Join', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await expand(page); await frame.locator('#home-play').click(); await frame.locator('#play-new').click();
     await page.context().setOffline(true); await frame.locator('#setup-start').click();
-    await expect.poll(() => frame.locator('#error').textContent()).toBe('Cannot connect. Check your connection, then select Start game again.');
+    await expect.poll(() => frame.locator('#error').textContent()).toBe('Cannot connect. Check your connection, then try again.');
     await page.context().setOffline(false);
     await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('join'); });
     await frame.locator('#join-code').fill('ABC123');
     await page.context().setOffline(true); await frame.locator('#join-entry button').click();
-    await expect.poll(() => frame.locator('#join-message').textContent()).toBe('Cannot connect. Check your connection, then select Join again.');
+    await expect.poll(() => frame.locator('#join-message').textContent()).toBe('Cannot connect. Check your connection, then try again.');
+  } finally { await page.close(); }
+});
+
+async function friendGame(page: Page) {
+  const frame = page.frameLocator('iframe');
+  await expand(page);
+  const code = await frame.locator('html').evaluate(async () => {
+    const app = (window as any).harnessApp;
+    await app.call('kingdown_create', { kind: 'friend', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } });
+    return (await app.client.call('kingdown_invite', { game_id: app.memory.view.game_id })).structuredContent.code;
+  });
+  await page.request.post(harness.url + 'fixture-friend-tool', { data: { name: 'kingdown_join', arguments: { code } } });
+  await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
+}
+
+it('keeps the board quiet when a poll times out', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    await page.clock.install();
+    await page.evaluate(() => { (window as any).holdNextGet = true; });
+    await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; void app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true); });
+    await page.waitForFunction(() => !!(window as any).releaseHeldGet);
+    await page.clock.fastForward(10_001);
+    await page.evaluate(() => (window as any).releaseHeldGet());
+    await page.clock.runFor(100);
+    expect(await frame.locator('#error').textContent()).toBe('');
+    expect(await frame.locator('#retry').isHidden()).toBe(true);
+  } finally { await page.close(); }
+});
+
+it('shows Retry after a remount while a move waits, and Retry saves one move', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_move'; });
+    await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; void app.call('kingdown_move', { game_id: app.memory.view.game_id, command_id: 'remount-move', expected_revision: app.memory.view.revision, lan: 'e2-e4' }, true); });
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await page.locator('#remount').click();
+    await frame.locator('#retry:not(:disabled)').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe('Cannot connect. Check your connection, then try again.');
+    await frame.locator('#retry').click();
+    await frame.locator('#retry').waitFor({ state: 'hidden' });
+    await page.evaluate(() => (window as any).releaseHeld());
+    const game_id = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
+    const bob = await (await page.request.post(harness.url + 'fixture-friend-tool', { data: { name: 'kingdown_get', arguments: { game_id } } })).json();
+    expect(bob._meta.view.history.actions).toEqual(['e2-e4']);
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.command_id))).toEqual(['remount-move', 'remount-move']);
+  } finally { await page.close(); }
+});
+
+it('drops the wait line when a slow start times out', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page); await frame.locator('#home-play').click(); await frame.locator('#play-new').click();
+    await page.clock.install();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
+    await frame.locator('#setup-start').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await page.clock.fastForward(10_001);
+    await frame.locator('#retry').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe('Cannot connect. Check your connection, then try again.');
+    expect(await frame.locator('#setup-start').textContent()).toBe('Starting your game…');
+    await page.evaluate(() => (window as any).releaseHeld());
+  } finally { await page.close(); }
+});
+
+it('lets the mount reads wait past 10 seconds', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.clock.install();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_settings'; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await page.clock.fastForward(20_000);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    expect(await frame.locator('#home-error').textContent()).toBe('');
   } finally { await page.close(); }
 });
