@@ -491,3 +491,12 @@ The one-shot recovery uses a separate state folder while backup runs. It
 keeps the original hard deadline and a 25-minute worker limit. Its bounded
 account audit runs before creation. A rejected or uncertain response stops
 the recovery. No full-result or backup pass is claimed yet.
+
+Repair commit `c9e61596` also passes all 113 doc checks. The continuation is
+prepared, not launched. Its script is `/tmp/kd-kaggle-recover-3.mts`; SHA-256
+is `25d0bc0bc7c31f617f65d4944abc1f205390ea51a8447bebdd0758dafcec0ae4`.
+`state/study-runs/dataset-investigation-20261015/continuation.json` holds its
+checkpoint. The next local check is 12:45 UTC. The script uses the existing
+storage guard and refuses a live maintenance lock. It reserves 30 minutes
+for dispatch and requires at least ten minutes for workers within the
+original deadline. A lock or insufficient time prevents launch.
