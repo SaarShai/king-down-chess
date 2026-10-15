@@ -53,3 +53,16 @@ Kaggle submission. The exact cause of its lost response remains unproved.
 M1 baseline work uses a separate checkout of 29c681a3, its own installation and
 a one-hour limit. Dispatch and terminal evidence use the card results folder
 `receipt-baseline-m1-20261015`. No simulation games are added.
+
+## M1 handoff
+
+The baseline starts once at 19:35:34 UTC with PID 47321. Its first check is at
+20:00:34 UTC. The patched revision 434deb48 is queued next, with an exclusive
+checkout and a one-hour test and build limit. Its thin bundle and checksum are
+in card state `study-runs/receipt-validation-20261015`. The scheduled follow-up
+collects both jobs, checks hashes, verifies the cloud backup and closes this
+ticket. It does not query Kaggle or start games.
+
+Final local checks pass: 18 focused tests, 50 artwork checks, 113 document
+checks, production build and the Studies browser check. The ticket stays
+claimed until the M1 evidence and backup are complete.
