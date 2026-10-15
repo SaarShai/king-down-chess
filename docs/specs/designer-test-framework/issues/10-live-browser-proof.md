@@ -1,6 +1,6 @@
 # Live browser run proof
 
-Status: claimed
+Status: resolved
 Type: task
 Blocked by: none
 
@@ -782,3 +782,39 @@ repeat the upload or collect either worker again. The next local check is
 19:15 UTC. After the backup proof passes, link the full export in the actual
 browser app, save, reload and capture the persisted study. The study remains
 at its saved incomplete version until then.
+
+## Answer
+
+The eight-game live proof is complete. Both machines return the original
+four jobs each. All eight frozen jobs, eight legal replays and two illegal
+controls pass. No uncertain launch is repeated. Remote sources and earlier
+failure records remain intact. The original studio unknown-state record is
+not changed to claim an automatic success.
+
+Final backup verification passes at 19:08:06 UTC. Snapshot
+`drive:King Down/results-backups/20261015-115119-138150000` binds all 294
+required files and 17,834,868 bytes to downloaded decoded cloud data. The
+proof receipt equals the saved receipt; every required local hash and byte
+count still matches at the 19:18 UTC check. Its tree hash is
+`ac4ceda290bbf15d6a9f35fc14cc37e6cf36afb63e569ddaeca14887651c8b38`.
+Proof: `state/study-backups/framework-live-full-20261015/verified-final.json`.
+
+The actual browser app is restored at port 57321. Through its file picker,
+the verified full export is linked to the original plan version 2 and saved
+as version 4 of study `77e3d7e0-e42b-4aef-b0c6-085f1dc1460a`.
+Version 3 keeps the incomplete evidence. This avoids the importer's existing
+ID collision between the old partial row and the first full row without
+changing either result file or deleting history.
+
+After reload, version 4 retains all 12 measurements. A browser-exported copy
+matches every measurement in the verified export exactly: nine valid rows
+and three unavailable comparison metrics still marked unverified. Its
+SHA-256 is `6b9698db31e5cd841d611f28f7cf5dde142da0a907fb9b92d9806021273bdf4e`.
+Persistence evidence is in `state/study-runs/full-browser-link-20261015`.
+Screenshot: `/Users/za/.codex/visualizations/2026/10/13/01a1338c-36c7-71e1-9c8a-05503302ca75/live-full-results-linked.jpg`.
+
+All eight games reach the 80-ply cap. Four color pairs at depth 1 prove the
+workflow only. The browser keeps its original validity and interval labels;
+no balance conclusion or rule adoption follows. The recovery uses separate
+observed-state evidence and browser import; it does not prove that the
+original coordinator recovers every uncertain receipt automatically.
