@@ -207,6 +207,15 @@ it('opens Profile from the inline Your games action', async () => {
     expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.screen)).toBe('profile');
   } finally { await page.close(); }
 });
+it('keeps the opponent picked on New game for the session', async () => {
+  const page = await open(), frame = page.frameLocator('iframe'), friend = frame.getByRole('radio', { name: 'A friend', exact: true });
+  try {
+    await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await friend.locator('..').click();
+    await frame.locator('#page-back').click(); await frame.locator('#play-open').click(); await frame.locator('[data-screen="lobby"]:not([hidden])').waitFor();
+    await frame.locator('#page-back').click(); await frame.locator('#play-new').click();
+    expect(await friend.isChecked()).toBe(true);
+  } finally { await page.close(); }
+});
 it('keeps chat preview and code errors in page memory on notification and mount', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   const tool = async (path: string, name: string, args = {}) => (await page.request.post(new URL(path, harness.url).href, { data: { name, arguments: args } })).json();

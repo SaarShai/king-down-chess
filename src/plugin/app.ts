@@ -139,9 +139,11 @@ $('reload').onclick = () => { if (state.board_id) void call('kingdown_get', {});
 $('retry').onclick = () => { if (pending) void call(pending.name, pending.args, true, false, undefined, true); };
 $('computer').onclick = () => { if (view) void call('kingdown_computer', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision }, true); };
 $('invite').onclick = () => { if (view) void call('kingdown_invite', { game_id: view.game_id }); };
-// New game opens the setup at the last choice of opponent; Open games lists the games that other players opened.
-$('play-new').onclick = () => { memory.kind = readSetup(memory.settings?.last_setup).kind; navigate('setup'); };
-$('play-open').onclick = () => { memory.kind = 'random'; navigate('lobby'); };
+// New game opens the setup at the saved choice of opponent once a session, then keeps the player's pick.
+// Open games lists the games that other players opened.
+let kindRead = false;
+$('play-new').onclick = () => { if (!kindRead && memory.settings) { memory.kind = readSetup(memory.settings.last_setup).kind; kindRead = true; } navigate('setup'); };
+$('play-open').onclick = () => navigate('lobby');
 $('join-form').onsubmit = event => { event.preventDefault(); memory.code = $<HTMLInputElement>('token').value.trim(); navigate('join'); };
 type ToolResult = Awaited<ReturnType<typeof client.call>>;
 function renderGames(entries: InboxEntry[]) {

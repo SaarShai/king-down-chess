@@ -11,7 +11,8 @@ The owner's first iPhone test in the ChatGPT iOS app (2026-10-15) found these is
 
 1. The Play menu has three rows (Computer, A friend, A random player). The New game screen has the same three choices, so the rows are not necessary.
 2. "A random player" in the Play menu opens the open-games list. "A random player" on the New game screen, then Start, finds an opponent at once. The same words open two different screens.
-3. In the seat setup and on the board, the board is very small (about 45 pt).
+3. "Join with a code: is that temporary? Can the published game work with no code?" Answer: the code stays; it is the decided friend invite (spec Q28, owner 2026-10-11). ChatGPT has no link that opens a game in a plugin, so the code names the game. The friend does not have to type it: they can say "Join King Down game K7QX2M" in ChatGPT. An invite with no code (by player name, or a rematch with a past opponent, with invites shown in Your games) is a possible later feature; it is not in this ticket.
+4. In the seat setup and on the board, the board is very small (about 45 pt).
 
 Measurements from the owner's screenshot (393 × 852 pt): the table is 349 pt tall and centred in a screen of about 570 pt. Its rows use 305 pt (56 + 56 + 77 + 48 + 68), which leaves 45 pt for the board. So the table took its content height, not the height of its screen.
 
@@ -23,12 +24,14 @@ No test browser shows this. The same build fills the screen in Chromium, in Play
 - The setup sheet (`#menu-sheet`) keeps the plugin's over-sheet height limits, not the website's `dvh` limit.
 - A "Display check" line in Settings shows the sizes of the last seat or board screen (window, viewport units, frame, screen, table, board, safe area, display mode, the sizes the app sent to the host). Remove it when this ticket closes.
 - The Play menu: one "New game" row opens the New game screen with the last choice of opponent. One "Open games" row opens the list of other players' open games. "A random player" appears only on the New game screen.
+- New game keeps the player's pick of opponent for the session. The saved choice sets it only at the first New game.
 - No server change.
 
 ## Acceptance
 
 - With viewport units at a wrong height (350 px), the seat and the board tables fill their screen, and the board fills its row (`tools/plugin-ios-size.test.ts`).
 - The Play menu shows New game, Open games, Join with a code, Your games, Profile and Settings.
+- A pick of "A friend" on New game stays after Back, Open games and New game (`tools/plugin-app.test.ts`).
 - On the owner's iPhone, the seat and the board fill the screen, or the Display check line names the cause.
 - `npm test` passes; the plugin-ui browser check passes on the M1.
 

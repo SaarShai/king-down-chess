@@ -27,6 +27,7 @@ html, body { height: 100%; overflow: hidden; }
 .group-head { margin: var(--space-5) 0 var(--space-2) !important; }
 .group-head small { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; font-size: var(--fs-xs); }
 .quiet-line { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0 !important; }
+#layout-check { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0; overflow-wrap: anywhere; user-select: text; }
 .wide-btn { justify-content: center; min-height: 48px; margin-top: var(--space-3); font-size: var(--fs-lg); }
 .seg-line { margin: 8px 0 0; color: var(--ink-soft); }
 /* A second sheet over the first (the game's Menu sheet: a bottom sheet on a phone, centred on a wide screen). */

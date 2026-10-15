@@ -6,7 +6,8 @@ import { execFileSync } from 'node:child_process';
 import { chromium, type Browser } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
-// Ticket 21 (the iPhone's 45 px board): the built page, because the build gives the seat its table look.
+// Ticket 21: the seat and the board size from their screens, not from viewport units. This guards that rule; it does
+// not reproduce the ChatGPT iOS host (no test browser does). The built page, because the build gives the seat its table look.
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-ios-size-'));
