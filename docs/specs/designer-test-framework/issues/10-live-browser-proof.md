@@ -523,3 +523,32 @@ are saved in `drive-auth-recovery.json` under the investigation state folder.
 The browser success screenshot is saved. This restores backup access; no
 backup upload is repeated. The prior verified partial snapshot remains valid.
 All 113 doc checks pass for this dispatch checkpoint.
+
+## Dataset rejection and final evidence backup
+
+The bounded 13:04 UTC local check finds an explicit dataset rejection.
+The saved creation receipt has status `error`, state `rejected`, and an error
+hash. No accepted dataset identity, notebook receipt or kernel metadata
+exists. The exact driver from `c9e61596` raises before dataset readiness and
+`kernels_push`. The wrapper's `unknown` label stays unchanged. A separate
+`recovery-kaggle-3/terminal-evidence.json` records this narrower conclusion.
+The raw reason is not saved, so the cause of the service rejection is unknown.
+No worker query, upload, submission or game is repeated. The uncertain old
+dataset stays intact. No further compute work is scheduled for this proof.
+
+`recovery-kaggle-3/REPORT.md` records the terminal result. Only four of eight
+expected games exist. Four legal replays and one illegal control pass with
+the corrected verifier. All four M1 games reach the 80-ply cap. The browser
+study stays at version 3 with its verified incomplete link. The full proof
+cannot pass, and no full export is linked. This is no balance conclusion.
+
+A new final evidence backup starts once at 13:06:06 UTC, PID 46666. It includes
+the recovery report, structured rejection, prior investigation, failed backup,
+restored Drive access, original proof and M1 validation. Its required manifest
+contains 182 files and 11,517,293 bytes. State is
+`state/study-backups/framework-machine-work-20261015-recovery-final` on the
+card. The wrapper uses the current main project backup tool without M1
+collection. It allows 90 minutes for backup and 30 for downloaded-byte proof.
+Preserve its lock and do not repeat its upload. The next local check is
+13:45 UTC. Backup is pending at this checkpoint. Final closure requires the
+saved receipt and downloaded decoded hashes to pass for every required file.
