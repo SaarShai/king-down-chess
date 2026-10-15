@@ -412,3 +412,11 @@ notebook receipt. The driver stops before notebook submission, but dataset
 creation is uncertain. No upload or launch is repeated. The next permitted
 read remains 11:47:10 UTC. Inspect dataset metadata and notebook state then,
 without creating or changing either.
+
+Portable fixture repair `6489c08f` passes all three focused tests, typecheck,
+50 art checks and doc checks. M1 recheck starts at 11:18:23 UTC, PID 69064,
+in `/Users/new/projects/kd-framework-check-20261015-recheck`. It repeats the
+full suite and build with a one-hour limit. Source bundle SHA-256 is
+`93c455ec16c9cd772d4b9de1be8203e1a734399687217c17e0213c1f7d8b1de3`.
+The first recheck is 11:50 UTC, combined with the permitted Kaggle read.
+No new Kaggle request is made at this checkpoint.
