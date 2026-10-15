@@ -250,7 +250,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   }
   $('resign').onclick = confirmResign; $('offer-draw').onclick = () => confirmDraw('offer');
   $('reload').addEventListener('click', closeBoardSheet);
-  $('board-menu').onclick = () => boardSheet('Menu', button('Choose a move', () => boardSheet('Choose a move', $('choices'))), button('Moves', showMoves), ...view ? actionButtons(view,Date.now()-readAt,refused) : [], button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('computer'), $('invite'), $('invitation'));
+  $('board-menu').onclick = () => boardSheet('Menu', button('Choose a move', () => boardSheet('Choose a move', $('choices'))), button('Moves', showMoves), ...view ? actionButtons(view,Date.now()-readAt,refused,true) : [], button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('computer'), $('invite'), $('invitation'));
   function showMoves() { boardSheet('Moves', ...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No moves shown yet.')]); }
   $('moves-line').onclick = showMoves;
   bindBoard();
