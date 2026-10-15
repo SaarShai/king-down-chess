@@ -52,7 +52,8 @@ html { font-variant-numeric: lining-nums; }
 .lock-note { display: flex; gap: var(--space-2); align-items: flex-start; margin: 0 0 var(--space-3); padding: 8px 12px; font-size: var(--fs-sm); color: var(--gold-ink); background: rgba(201, 154, 62, .12); border: 1px solid rgba(122, 87, 18, .3); border-radius: var(--radius); }
 /* The menu's index rows (src/ui/table.css #menu-sheet .menu-row), with an art, a portrait or an icon at the start. */
 .page-sheet .menu-row, .over-sheet .menu-row {
-  position: relative; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 12px; align-items: center;
+  /* No shrink in a scrolling column: a shrunk row drew its divider through its second line. */
+  flex-shrink: 0; position: relative; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 12px; align-items: center;
   width: 100%; min-height: 60px; padding: 8px 32px 8px 0; text-align: left; font-size: 18px;
   background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none;
 }
@@ -130,6 +131,8 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .set-line { margin: -6px 0 6px !important; color: var(--ink-soft); font-size: var(--fs-sm); }
 .sym-demo { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; vertical-align: middle; }
 .sym-demo img { height: 36px; }
+/* The arrow between the samples is the rows' arrow icon (.menu-row > i): upright, 18 px, bold, in ink. */
+.sym-demo > i { font-style: normal; font-size: 18px; font-weight: 700; color: var(--ink); }
 .sym-demo .pi { width: 30px; height: 30px; }
 #handle-check-error:empty { display: none; }
 .presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: var(--space-2); margin-bottom: 16px; }

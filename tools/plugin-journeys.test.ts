@@ -134,6 +134,8 @@ it('keeps the Name and picture row at its content height and the sample arrow as
     // The arrow between the painted knight and its symbol is the rows' arrow icon, not loose text.
     expect(await frame.locator('.sym-demo').evaluate(demo => [...demo.childNodes].filter(node => node.nodeType === Node.TEXT_NODE && node.textContent!.trim()).length)).toBe(0);
     expect(await frame.locator('.sym-demo > i').getAttribute('aria-hidden')).toBe('true');
+    const look = (selector: string) => frame.locator(selector).evaluate(el => { const s = getComputedStyle(el); return [s.fontStyle, s.fontSize, s.fontWeight, s.color]; });
+    expect(await look('.sym-demo > i')).toEqual(await look('[data-screen="settings"] [data-nav="handle"] > i'));
   } finally { await page.close(); }
 });
 
