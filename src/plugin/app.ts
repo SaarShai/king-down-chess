@@ -41,6 +41,8 @@ export const { routeView, start } = router;
 const screens = { setup: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
 export const memory = { kind: 'solo' as 'solo' | 'friend' | 'random', code: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, games: [] as InboxEntry[], preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
 function saveState() { state.pending = pending; client.save(); }
+/** A command's error stays on the screen where the command started, so its Retry shows there, also after the player leaves. */
+function failPending(message: string) { pending!.error = message; pending!.error_screen = pending!.screen ?? state.screen; saveState(); }
 function retryState() {
   const message = pending?.error_screen === state.screen ? pending.error : undefined;
   $('retry').hidden = !message && !readError;
@@ -112,10 +114,12 @@ export async function call(name: string, args: Record<string, unknown>, retain =
       if (quiet && (busy || view !== before)) return;
     }
     if (result.isError) {
-      if (result._meta?.code === 'HANDLE_NEEDED') { pending ??= { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen }; pending.error = undefined; pending.error_screen = undefined; saveState(); navigate('handle'); return; }
+      const text = result.content.filter(c => c.type === 'text').map(c => c.text).join(' ');
+      // The command waits for a name. Save sends it again; Back shows the server's reason and Retry on the start screen.
+      if (result._meta?.code === 'HANDLE_NEEDED') { pending ??= { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen }; failPending(text); navigate('handle'); return; }
       const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'NOT_ALLOWED', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
       if (definitive.includes(String(result._meta?.code))) { pending = undefined; saveState(); if (retain) router.finishStart(); }
-      throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+      throw new Error(text);
     }
     remember(result);
     const next = (result._meta as { view?: View } | undefined)?.view;
@@ -135,9 +139,9 @@ export async function call(name: string, args: Record<string, unknown>, retain =
   } catch (error) { const message = error instanceof Error ? error.message : 'Could not update the game.';
     // A quiet read that cannot connect says nothing; the next poll tries again.
     if (quiet && (busy || view !== before || message === CANNOT_CONNECT)) return;
-    if (retain && pending) { pending.error = message; pending.error_screen = state.screen; saveState(); }
+    if (retain && pending) failPending(message);
     if (!quiet && name === 'kingdown_get' && state.board_id) readError = true;
-    retryState(); $('error').textContent = message; }
+    retryState(); if (!retain || !pending) $('error').textContent = message; }
   finally { if (quiet) polling = false; else { busy = false; actions(); } }
   if (retain && name === 'kingdown_move' && !received && !pending && before?.game_id === view?.game_id) await rollbackBoardMove();
   if (followup) void call(followup.name, followup.args, true, false, undefined, true);
@@ -209,7 +213,8 @@ async function mountResult(result: ToolResult, initial: boolean) {
   finally {
     mountReading = false;
     // A command that was in flight when the host remounted the widget has no reply here; Retry reads, then resends its ID.
-    if (pending && !pending.error && !busy && state.screen !== 'handle' && !['kingdown_create', 'kingdown_find'].includes(pending.name)) { pending.error = CANNOT_CONNECT; pending.error_screen = state.screen; saveState(); }
+    // A command still in flight on this page (a chat result came during it) gets its own reply.
+    if (pending && !pending.error && !busy) failPending(CANNOT_CONNECT);
     if (pending?.error) retryState();
     if (state.screen in screens) screens[state.screen as keyof typeof screens]();
     poll?.update();

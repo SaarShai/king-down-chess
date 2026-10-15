@@ -180,5 +180,4 @@ export function setupScreen() {
   render();
   if (client.state.sheet === 'pieces' || client.state.sheet === 'cards') poolSheet(client.state.sheet);
   else if (client.state.sheet === 'king') void pickKing();
-  if (!starting && !recovering && restoredSetup() && !client.state.pending?.error && ['kingdown_create','kingdown_find'].includes(client.state.pending?.name ?? '')) void recoverStart();
 }

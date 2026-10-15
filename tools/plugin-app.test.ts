@@ -49,6 +49,8 @@ it('recovers a completed create or find after its reply is lost', async () => {
   for (const kind of ['friend', 'random']) {
     const page = await open(), frame = page.frameLocator('iframe'), name = kind === 'friend' ? 'kingdown_create' : 'kingdown_find';
     try {
+      // A player starts on New game, which shows only in fullscreen (spec Q25).
+      await expand(page);
       if (kind === 'random') await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); });
       await page.evaluate(name => { (window as any).dropNextReply = name; }, name);
       await frame.locator('html').evaluate((_, kind) => {
@@ -69,6 +71,8 @@ it('recovers a lost Create or Find reply when Save resumes the pending start', a
   for (const kind of ['friend', 'random']) {
     const page = await open(), frame = page.frameLocator('iframe'), name = kind === 'friend' ? 'kingdown_create' : 'kingdown_find';
     try {
+      // A player starts on New game, which shows only in fullscreen (spec Q25).
+      await expand(page);
       await page.evaluate(name => { (window as any).dropNextReply = name; }, name);
       await frame.locator('html').evaluate((_, kind) => {
         const host = window as any; host.harnessApp.navigate('setup');
@@ -90,6 +94,8 @@ it('recovers a lost Create or Find reply on mount without another send', async (
   for (const kind of ['friend', 'random']) {
     const page = await open(), frame = page.frameLocator('iframe'), name = kind === 'friend' ? 'kingdown_create' : 'kingdown_find';
     try {
+      // A player starts on New game, which shows only in fullscreen (spec Q25).
+      await expand(page);
       await page.evaluate(name => { (window as any).dropNextReply = name; }, name);
       await frame.locator('html').evaluate((_, kind) => {
         const app = (window as any).harnessApp; app.navigate('setup');
@@ -836,5 +842,120 @@ it('makes one game when Retry resends a Create that the server has not run yet',
     const games = (await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_games', arguments: {} } })).json())._meta.games;
     expect(games.filter((game: any) => game.kind === 'friend' && Date.parse(game.created_at) >= since)).toHaveLength(1);
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+});
+
+// Round 5: each failed command keeps its error and Retry on the screen where it started.
+const CANNOT_CONNECT = 'Cannot connect. Check your connection, then try again.';
+
+it('shows Retry on the board after an inline remount while a move waits', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_move'; });
+    await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; void app.call('kingdown_move', { game_id: app.memory.view.game_id, command_id: 'inline-move', expected_revision: app.memory.view.revision, lan: 'e2-e4' }, true); });
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    // The host remounts the widget inline and refuses the automatic fullscreen request, so the board waits behind the home card.
+    await page.evaluate(() => { const host = window as any; host.harnessHostContext = { displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }; host.harnessDisplayMode = 'inline'; host.denyDisplayNext = true; });
+    const settings = await sent(page, 'kingdown_settings');
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, settings);
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    expect(await frame.locator('[data-screen="board"]').isHidden()).toBe(true);
+    // Later the player opens the board in fullscreen.
+    await expand(page); await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('board'); });
+    await frame.locator('#retry').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
+    await frame.locator('#retry').click();
+    await frame.locator('#retry').waitFor({ state: 'hidden' });
+    await page.evaluate(() => (window as any).releaseHeld());
+    const game_id = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
+    const bob = await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_get', arguments: { game_id } } })).json();
+    expect(bob._meta.view.history.actions).toEqual(['e2-e4']);
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.command_id))).toEqual(['inline-move', 'inline-move']);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
+it('keeps a timed-out start and its Retry on New game when the player leaves at the wait line', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await newGame(page);
+    await page.clock.install();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
+    await frame.locator('#setup-start').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await page.clock.fastForward(5_001);
+    await frame.locator('#page-back').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    // The 10 s command limit ends the Create while the player is on Play.
+    await page.clock.fastForward(5_000);
+    expect(await frame.locator('#retry').isHidden()).toBe(true);
+    await frame.locator('#play-new:not(:disabled)').click();
+    await frame.locator('#retry').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
+    expect(await frame.locator('#setup-start').textContent()).toBe('Starting your game…');
+    await frame.locator('#retry').click();
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    expect(await sent(page, 'kingdown_create')).toBe(1);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
+it('shows the name reason and Retry on New game after Back from the name page, and sends nothing', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await newGame(page);
+    await page.clock.install();
+    await page.evaluate(() => { (window as any).requireHandleNext = true; });
+    await frame.locator('#setup-start').click();
+    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+    await frame.locator('#page-back').click();
+    await page.clock.fastForward(6_000);
+    await frame.locator('#retry').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe('Pick a name and picture first.');
+    expect(await frame.locator('#setup-start').textContent()).toBe('Starting your game…');
+    expect(await sent(page, 'kingdown_create')).toBe(1);
+    // Retry sends the start again; here the player has a name now.
+    await frame.locator('#retry').click();
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    expect(await sent(page, 'kingdown_create')).toBe(2);
+  } finally { await page.close(); }
+});
+
+it('sends no start by itself after a remount on the name page and Back', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await newGame(page);
+    await page.evaluate(() => { (window as any).requireHandleNext = true; });
+    await frame.locator('#setup-start').click();
+    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+    const settings = await sent(page, 'kingdown_settings');
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, settings);
+    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+    await frame.locator('#page-back:not(:disabled)').click();
+    await frame.locator('[data-screen="setup"]:not([hidden])').waitFor();
+    await frame.locator('#retry').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe('Pick a name and picture first.');
+    expect(await sent(page, 'kingdown_create')).toBe(1);
+  } finally { await page.close(); }
+});
+
+it('keeps a move in flight free of errors when a chat result arrives during it', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_move'; });
+    await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; void app.call('kingdown_move', { game_id: app.memory.view.game_id, command_id: 'busy-move', expected_revision: app.memory.view.revision, lan: 'e2-e4' }, true); });
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    // The chat result for this game reads no board while the move runs; its last widget write ends the mount.
+    const writes = await page.evaluate(() => (window as any).harnessWidgetStates.length);
+    await page.evaluate(() => { const host = window as any; return host.harnessShow({ content: [], structuredContent: { game_id: host.harnessView.game_id, board_id: host.harnessWidgetState.privateContent.board_id } }, true); });
+    await page.waitForFunction(n => (window as any).harnessWidgetStates.length > n, writes);
+    expect(await frame.locator('#retry').isHidden()).toBe(true);
+    expect(await frame.locator('#error').textContent()).toBe('');
+    await page.evaluate(() => (window as any).releaseHeld());
+    await expect.poll(() => page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
+    expect(await frame.locator('#retry').isHidden()).toBe(true);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
