@@ -374,6 +374,7 @@ it('keeps 4-digit totals apart and Profile rows readable at 320 × 568', async (
       return [...tops.values()].map(line => line.trim());
     }));
     expect(lines.filter(line => /^[AP]M$/.test(line))).toEqual([]);
+    expect(await frame.locator('#profile-open [data-game-id="waiting-friend"]').textContent()).toContain('4:32\u00a0PM');
     expect(await frame.locator('#profile-open [data-game-id="waiting-friend"] small').first().textContent()).toBe('Waiting for a friend');
     expect(await frame.locator('#profile-open [data-game-id="waiting-random"] small').first().textContent()).toBe('Waiting for an opponent');
     // The darkest parchment behind the result mark (QA sample): the green W needs 4.5:1.
@@ -414,6 +415,9 @@ it.each(['de-DE', 'ja-JP', 'en-US'])('uses one English date style in Play, Profi
     await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
     await frame.locator('#profile-history li').first().waitFor();
     expect(await frame.locator('#profile-history .when').first().textContent()).toBe('Oct 10');
+    await frame.locator('html').evaluate(async (_, options) => { const app = (window as any).harnessApp; app.navigate('setup'); await app.start('friend', { options, colour: 'white' }); }, DEFAULT_OPTIONS);
+    await frame.locator('.game-code span').first().waitFor();
+    expect(await frame.locator('#friend-expiry').textContent()).toMatch(/^Ends [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2}\u00a0[AP]M\.$/);
   } finally { await close(); }
 });
 it('dates Profile history and badges by the device clock, as its open games do', async () => {
