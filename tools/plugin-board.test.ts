@@ -301,3 +301,16 @@ it('lays the mated king down only after the mating move ends', async () => {
     expect(calls.find((c: any) => c.sq !== null).moving).toBeGreaterThan(0);
   } finally { await page.close(); }
 });
+
+it('hides the edge labels on a small board and keeps them in the frame on a phone board (fault M10)', async () => {
+  const page = await open(view('')), frame = page.frameLocator('iframe');
+  try {
+    const coords = await frame.locator('html').evaluate(() => {
+      const board = (window as any).testBoard, calls: [boolean, number, number][] = [];
+      board.scene.setCoords = (...args: [boolean, number, number]) => { calls.push(args); };
+      return [158, 302].map(width => { board.width = width; board.setCoords(true); return calls.at(-1)!; });
+    });
+    expect(coords[0][0]).toBe(false);
+    expect(coords[1][0]).toBe(true); expect(coords[1][1]).toBeLessThanOrEqual(40); expect(coords[1][2]).toBeLessThanOrEqual(16);
+  } finally { await page.close(); }
+});
