@@ -36,6 +36,8 @@ html { font-variant-numeric: lining-nums; }
 .seg-line { margin: 8px 0 0; color: var(--ink-soft); }
 /* A second sheet over the first (the game's Menu sheet: a bottom sheet on a phone, centred on a wide screen). */
 .scrim { position: absolute; inset: 0; background: rgba(29, 25, 21, 0.55); backdrop-filter: blur(2px); }
+/* Above the page's raised controls (the Moves line, the status-row actions, the end header: z-index 1 to 3). */
+.frame :is(.scrim, .over-sheet) { z-index: 10; }
 .frame .over-sheet {
   position: absolute; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: calc(100% - 40px); height: auto;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
