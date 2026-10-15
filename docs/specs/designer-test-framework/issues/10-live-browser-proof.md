@@ -396,3 +396,19 @@ are unchanged. The original deadline remains 13:36:38 UTC. The wrapper reserves
 30 minutes for dispatch and records the first worker check one hour after
 acceptance. No worker status query occurs before that check. Any uncertain
 outcome stops further submissions. A bounded follow-up covers both jobs.
+
+## First machine validation result
+
+M1 completes its test command with 2,394 tests passed, 129 skipped and one
+failed. Build does not start after the test failure. Six collected terminal
+files match the remote SHA-256 manifest. The failed test assumes the checkout
+name contains `king down chess`; M1 uses an isolated path with another name.
+Repair the test with a temporary Git main checkout and linked worktree under
+arbitrary names, then repeat the test suite and build on M1. This changes no
+production rule or run source. Preserve the failed logs.
+
+Kaggle recovery 2 ends with `dataset creation not confirmed` and no accepted
+notebook receipt. The driver stops before notebook submission, but dataset
+creation is uncertain. No upload or launch is repeated. The next permitted
+read remains 11:47:10 UTC. Inspect dataset metadata and notebook state then,
+without creating or changing either.
