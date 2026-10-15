@@ -241,6 +241,8 @@ function measureLayout() {
 const GAME_SCREENS: Screen[] = ['seat', 'board', 'wait', 'friend', 'end'];
 let displayMode: string | undefined, asking = false, collapsed = false, resume: Screen | undefined, target: Screen | undefined, gamesFirst = false;
 const canFullscreen = () => app.getHostContext()?.availableDisplayModes?.includes('fullscreen') ?? true;
+/** The widget state keeps the waiting screen only while it waits. */
+function unqueue() { target = undefined; delete state.queued; }
 /** Asks for fullscreen, then shows the last screen asked for (the home card stays until the host answers). */
 async function fullscreen(screen: Screen) {
   target = state.queued = screen; client.save();
@@ -251,9 +253,9 @@ async function fullscreen(screen: Screen) {
     const result = await app.requestDisplayMode({ mode: 'fullscreen' });
     if (result.mode !== 'fullscreen') throw new Error('Open the app with the host’s expand control.');
     displayMode = 'fullscreen';
-    const next = target; target = state.queued = undefined;
+    const next = target; unqueue();
     if (next && !collapsed) navigate(next); else client.save();
-  } catch (error) { target = state.queued = undefined; client.save(); if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = String(error); }
+  } catch (error) { unqueue(); client.save(); if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = String(error); }
   finally { asking = false; }
 }
 /** Opens the Play screen at the Your games list. */
@@ -263,7 +265,7 @@ export function navigate(screen: Screen) {
     if (collapsed) { if (GAME_SCREENS.includes(screen)) resume = screen; return; }
     void fullscreen(screen); return;
   }
-  target = state.queued = undefined;
+  unqueue();
   if (screen === 'handle' && state.screen !== 'handle') handleBack = state.screen === 'settings' ? 'settings' : pending?.screen ?? state.screen;
   if (screen === 'settings' && !['settings','handle'].includes(state.screen)) {
     if (['board','seat'].includes(state.screen)) state.settings_back = state.screen; else delete state.settings_back;
