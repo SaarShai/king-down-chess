@@ -228,7 +228,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
 
  it('keeps the retry hints for each tool', async () => {
   const player = await connect(await user('retry-hints')), tools = (await player.client.listTools()).tools;
-  expect(tools).toHaveLength(24);
+  expect(tools).toHaveLength(25);
   expect(tools.filter(tool => tool.annotations?.idempotentHint === false).map(tool => tool.name).sort()).toEqual(['kingdown_create', 'kingdown_find', 'kingdown_invite', 'kingdown_open', 'kingdown_report', 'kingdown_resume']);
   for (const tool of tools) expect(typeof tool.annotations?.idempotentHint).toBe('boolean');
  });
