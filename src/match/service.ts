@@ -150,7 +150,8 @@ export class GameService {
  async view(actor: string, gameId: string, since?: number): Promise<View> {
   actor = id(actor); gameId = id(gameId);
   if (since !== undefined && !(Number.isInteger(since) && since >= 0 && since <= MAX_REVISION)) fail('INVALID_INPUT', 400, 'Invalid revision');
-  const game = await this.store.load(gameId);
+  // A full read also loads the engine save: its initial position starts the move history.
+  const game = await this.store.load(gameId, { state: since === undefined });
   const seat = seatOf(game, actor), age = game.players[seat].last_seen_ms;
   if (age === null || age >= 30_000) await this.store.seen(gameId, seat);
   return this.render(game, seat, { since, rules: since === undefined });

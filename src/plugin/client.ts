@@ -4,12 +4,12 @@ export type Screen = typeof SCREENS[number];
 export const BOARD_ID_TOOLS = ['kingdown_get', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'] as const;
 export type Pending = { name: string; args: Record<string, unknown>; game_tag?: string; started_at?: number; screen?: Screen; error?: string; error_screen?: Screen };
 export type BoardSettings = { symbols_only: boolean; show_threats: boolean };
-export type PageState = { screen: Screen; settings_back?: Screen; sheet?: string; board_id?: string; pending?: Pending };
+export type PageState = { screen: Screen; settings_back?: Screen; queued?: Screen; sheet?: string; board_id?: string; pending?: Pending };
 export type WidgetHost = { widgetState?: { privateContent?: Partial<PageState> }; setWidgetState?: (state: unknown) => void };
 
 export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost) {
   const saved = host?.widgetState?.privateContent;
-  const state: PageState = { screen: saved?.screen ?? 'home', ...(saved?.settings_back && {settings_back:saved.settings_back}), sheet: saved?.sheet, board_id: saved?.board_id, pending: saved?.pending };
+  const state: PageState = { screen: saved?.screen ?? 'home', ...(saved?.settings_back && {settings_back:saved.settings_back}), ...(saved?.queued && {queued:saved.queued}), sheet: saved?.sheet, board_id: saved?.board_id, pending: saved?.pending };
   function save() {
     const pending = state.pending;
     const args = pending && Object.fromEntries(Object.entries(pending.args).filter(([key]) => !['game_id', 'code', 'handle'].includes(key)));

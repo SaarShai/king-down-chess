@@ -44,7 +44,7 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
     sheet.onkeydown = event => {
       if (event.key === 'Escape') { event.preventDefault(); closeBoardSheet(); }
       else if (event.key === 'Tab') {
-        const buttons = [...sheet.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, select, [tabindex="0"]')], i = buttons.indexOf(document.activeElement as HTMLElement);
+        const buttons = [...sheet.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, select, [tabindex="0"]')].filter(el => el.getClientRects().length), i = buttons.indexOf(document.activeElement as HTMLElement);
         if (event.shiftKey && i <= 0 || !event.shiftKey && i === buttons.length - 1) { event.preventDefault(); buttons[event.shiftKey ? buttons.length - 1 : 0]?.focus({preventScroll:true}); }
       }
     };

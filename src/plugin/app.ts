@@ -26,6 +26,7 @@ const savedScreen = extension?.widgetState?.privateContent?.screen;
 const app = new App({ name: 'King Down', version: '1.0.0' }, { availableDisplayModes: ['inline', 'fullscreen'] });
 export const client = createClient(app, extension);
 const state = client.state;
+const queuedAtStart = state.queued;
 let awaitingInitialResult = true;
 let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
@@ -213,6 +214,8 @@ app.onteardown = async () => { connected = false; poll?.stop(); router.finishSta
 const connection = app.connect().then(() => {
   connected = true;
   const context = app.getHostContext(); hostContext(context);
+  // A screen that waited for fullscreen when the host remounted the widget opens now, or asks again inline.
+  if (queuedAtStart && state.screen === 'home') { if (displayMode === 'inline' && canFullscreen()) void fullscreen(queuedAtStart); else navigate(queuedAtStart); }
   if (context?.displayMode === 'fullscreen' && state.screen === 'home' && !savedScreen) navigate('play');
   if (state.screen !== 'home') { const screen = state.screen; if (displayMode === 'inline' && canFullscreen()) navigate('home'); void fullscreen(screen); }
   poll = runPoll(() => ['friend', 'wait', 'seat', 'board'].includes(state.screen) ? view : undefined, async () => {
@@ -240,7 +243,7 @@ let displayMode: string | undefined, asking = false, collapsed = false, resume: 
 const canFullscreen = () => app.getHostContext()?.availableDisplayModes?.includes('fullscreen') ?? true;
 /** Asks for fullscreen, then shows the last screen asked for (the home card stays until the host answers). */
 async function fullscreen(screen: Screen) {
-  target = screen;
+  target = state.queued = screen; client.save();
   if (asking) return;
   asking = true;
   try {
@@ -248,9 +251,9 @@ async function fullscreen(screen: Screen) {
     const result = await app.requestDisplayMode({ mode: 'fullscreen' });
     if (result.mode !== 'fullscreen') throw new Error('Open the app with the host’s expand control.');
     displayMode = 'fullscreen';
-    const next = target; target = undefined;
-    if (next && !collapsed) navigate(next);
-  } catch (error) { target = undefined; if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = String(error); }
+    const next = target; target = state.queued = undefined;
+    if (next && !collapsed) navigate(next); else client.save();
+  } catch (error) { target = state.queued = undefined; client.save(); if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = String(error); }
   finally { asking = false; }
 }
 /** Opens the Play screen at the Your games list. */
@@ -260,7 +263,7 @@ export function navigate(screen: Screen) {
     if (collapsed) { if (GAME_SCREENS.includes(screen)) resume = screen; return; }
     void fullscreen(screen); return;
   }
-  target = undefined;
+  target = state.queued = undefined;
   if (screen === 'handle' && state.screen !== 'handle') handleBack = state.screen === 'settings' ? 'settings' : pending?.screen ?? state.screen;
   if (screen === 'settings' && !['settings','handle'].includes(state.screen)) {
     if (['board','seat'].includes(state.screen)) state.settings_back = state.screen; else delete state.settings_back;

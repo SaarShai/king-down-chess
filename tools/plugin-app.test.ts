@@ -235,6 +235,18 @@ it('keeps a screen from a chat tool call behind the home card until the host gra
     await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });
+it('opens the screen that waited for fullscreen when the host remounts the widget', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
+    await page.evaluate(() => { (window as any).holdDisplayNext = true; });
+    await page.evaluate(result => (window as any).harnessShow(result, true), result);
+    await page.waitForFunction(() => typeof (window as any).releaseDisplay === 'function');
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'] }));
+    await page.locator('#remount').click();
+    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
+  } finally { await page.close(); }
+});
 it('never shows a screen inline when the host refuses fullscreen', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -553,6 +565,19 @@ it('closes board sheets with Escape, returns focus and returns from Settings to 
     expect(await frame.locator('#page-back').textContent()).toBe('‹ Game');
     await frame.locator('#page-back').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await frame.locator('.page-sheet').evaluate(e => e.scrollTop)).toBe(0);
+  } finally { await page.close(); }
+});
+
+it('keeps Tab inside the visible controls of the board Menu', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', {kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
+    await frame.locator('#board-menu:not(:disabled)').click(); await frame.locator('#board-sheet[open]').waitFor();
+    const controls = frame.locator('#board-sheet button:not(:disabled):visible'), first = controls.first(), last = controls.last();
+    await first.focus(); await page.keyboard.press('Shift+Tab');
+    expect(await last.evaluate(e => document.activeElement === e)).toBe(true);
+    await page.keyboard.press('Tab');
+    expect(await first.evaluate(e => document.activeElement === e)).toBe(true);
   } finally { await page.close(); }
 });
 

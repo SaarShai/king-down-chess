@@ -227,6 +227,7 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   const view = await games[0].command(d,later,turn(1,(await games[0].view(d,later)).legal[0]));
   expect(Buffer.byteLength(JSON.stringify(view))).toBeLessThan(3000);
   expect(view.rules).toBeUndefined(); expect((await games[0].view(d,later)).rules).toBeDefined();
+  expect((await games[0].view(d,later)).history?.actions).toHaveLength(1); expect((await games[0].view(d,later,1)).history).toBeUndefined();
   expect((await games[0].view(d,later,1)).last_commands.map(entry => entry.seq)).toEqual([2]);
   // Only these players' games: other test files write to the same database at the same time.
   const mine = [urgent,later], state = async () => (await rows(`select (select sum(revision)::int from public.games where id=any($1)) as revisions,(select max(updated_at) from public.games where id=any($1)) as updated,
