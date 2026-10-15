@@ -337,3 +337,23 @@ Its time budget reserves 30 minutes for dispatch within the original deadline
 13:36:38 UTC. The first worker check is one hour after an accepted receipt.
 A stopped shell wrapper created no attempt folder and sent no request; the
 separate detached process above is the first recovery preflight.
+
+## Recovery local rejection
+
+At the 09:16 UTC local check, the recovery has no accepted receipt. Its error
+is `Kaggle launch: invalid dataset payload`. The saved wrapper state says
+unknown because it groups all launch-method errors together. Inspection of
+the exact error branch establishes a local rejection before any upload or
+notebook submission. The four required payload files each have an AppleDouble
+`._` sidecar on the card. The driver rejects that file set before it writes
+dataset metadata or calls dataset creation. Neither dataset metadata nor a
+dataset receipt exists. The notebook source is 2,115 bytes.
+
+Evidence is saved in `recovery-kaggle/local-rejection-evidence.json`. All old
+files and states remain. No worker query, upload, submission or retry occurs
+in this check. The full proof remains blocked by card metadata handling in
+the dataset transport. A repair must stage only the four declared files for
+upload and test AppleDouble sidecars without admitting other unexpected files.
+The verified partial backup and browser study version 3 still hold the four
+M1 games as incomplete. The recovery follow-up is removed because this is a
+confirmed local blocker, not a running job. No full-result link is claimed.
