@@ -179,7 +179,7 @@ it('contains the Open games art and the wait art on a short phone', async () => 
     await frame.locator('#play-new').click(); await frame.getByRole('radio',{name:'A random player',exact:true}).locator('..').click();
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     expect(await frame.locator('.wait-stage').evaluate(e=>({height:e.getBoundingClientRect().height,overflow:getComputedStyle(e).overflow}))).toEqual({height:180,overflow:'hidden'});
-    expect(await frame.locator('#page-title').evaluate(e=>getComputedStyle(e).whiteSpace)).toBe('nowrap');
+    expect(await frame.locator('#page-title').evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
     expect(await frame.locator('#wait-time').textContent()).toMatch(/Waiting \d+:\d{2}\./);
     expect(await frame.locator('#wait-status').textContent()).toBe('');
     await frame.locator('#wait-cancel').click();
@@ -218,5 +218,75 @@ it.each([
       expect((await frame.locator('#' + id).evaluate(controlBounds)).accessible).toBe(true);
       expect(await frame.locator('#' + id).evaluate(e => { const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
     }
+  } finally { await page.close(); }
+});
+
+// Fault round 4 (device matrix M1, M4, M5, M11).
+async function hostPage(width: number, height: number, top: number, bottom: number) {
+  const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
+  page.setDefaultTimeout(10_000);
+  await page.goto(harness.url);
+  await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
+  await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
+  await frame.locator('#home-play:not(:disabled)').click();
+  await page.evaluate(async safe => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe, deviceCapabilities: { touch: true } }); }, { top, bottom, left: 0, right: 0 });
+  return { page, frame };
+}
+// The tap height and width at the centre lines of each visible control: the run of points that reach the control.
+const hitSizes = (root: Element) => [...root.querySelectorAll('button, label, input:not([type=radio]):not([type=checkbox])')].filter(e => (e as HTMLElement).offsetParent && !e.closest('dialog:not([open])')).map(e => {
+  e.scrollIntoView({ block: 'center' });
+  const own = (p: Element | null) => p?.closest('button, label, input'), r = e.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, target = own(e);
+  const run = (dx: number, dy: number) => { let n = 0; while (n < 40 && own(document.elementFromPoint(x + dx * (n + 1), y + dy * (n + 1))) === target) n++; return n; };
+  return { name: e.id || e.textContent!.trim().slice(0, 20), height: run(0, -1) + run(0, 1) + 1, width: run(-1, 0) + run(1, 0) + 1 };
+});
+it.each([[768, 1024], [1024, 768]])('gives Settings toggles the 44 px floor with touch at %i × %i', async (width, height) => {
+  const { page, frame } = await hostPage(width, height, 24, 20);
+  try {
+    await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
+    const heights = await frame.locator('[data-screen="settings"] .fields > label').evaluateAll(labels => labels.map(l => l.getBoundingClientRect().height));
+    expect(heights).toHaveLength(2); for (const h of heights) expect(h).toBeGreaterThanOrEqual(44);
+  } finally { await page.close(); }
+});
+it('wraps the page title at 320 px and never cuts it', async () => {
+  const { page, frame } = await hostPage(320, 568, 63, 84);
+  try {
+    await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-nav="handle"]').click(); await frame.locator('#handle').waitFor();
+    expect(await frame.locator('#page-title').evaluate(e => ({ text: e.textContent, cut: e.scrollWidth > e.clientWidth || getComputedStyle(e).textOverflow === 'ellipsis' }))).toEqual({ text: 'Pick a name and a picture', cut: false });
+  } finally { await page.close(); }
+});
+it('gives each Android control a 48 px tap area at 360 × 800', async () => {
+  const { page, frame } = await hostPage(360, 800, 24, 80), small: unknown[] = [];
+  const check = async () => small.push(...(await frame.locator('[data-screen]:not([hidden])').first().evaluate(hitSizes)).filter(c => c.height < 48 || c.width < 48));
+  try {
+    await check();
+    await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).check(); await frame.getByRole('checkbox', { name: 'Cards', exact: true }).check();
+    await check();
+    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#setup-start').click(); await frame.locator('#friend-copy:not([hidden])').waitFor();
+    await check();
+    await frame.locator('#page-back').click(); await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
+    await check();
+    await frame.locator('[data-nav="handle"]').click(); await frame.locator('#handle').waitFor();
+    await check();
+    expect(small).toEqual([]);
+  } finally { await page.close(); }
+});
+it('reflows New game at 200% zoom (197 CSS px): no sideways scroll, every row tappable', async () => {
+  const { page, frame } = await hostPage(197, 426, 51, 59);
+  try {
+    await frame.locator('#play-new').click();
+    for (const name of ['Computer', 'A friend', 'Computer']) await frame.getByRole('radio', { name, exact: true }).locator('..').click({ timeout: 3000 });
+    for (const name of ['Fairy pieces', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).check({ timeout: 3000 });
+    await frame.getByRole('radio', { name: 'Strong', exact: true }).locator('..').click({ timeout: 3000 });
+    expect(await frame.locator('#setup-body').evaluate(e => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(1);
+    // The "kinds" button sits clear of the row text.
+    const clear = await frame.locator('#setup-pieces').evaluate(button => {
+      const b = button.getBoundingClientRect(), range = document.createRange(); range.selectNodeContents(button.closest('label')!.querySelector('.grow')!); const t = range.getBoundingClientRect();
+      return b.top >= t.bottom - 1 || b.left >= t.right - 1;
+    });
+    expect(clear).toBe(true);
+    await frame.locator('#setup-pieces').click({ timeout: 3000 });
+    const title = frame.getByRole('dialog', { name: 'Fairy pieces' }).locator('h2');
+    expect(await title.evaluate(h => { const t = h.getBoundingClientRect(), x = h.parentElement!.querySelector('button')!.getBoundingClientRect(); return h.scrollWidth <= h.clientWidth && t.right <= x.left; })).toBe(true);
   } finally { await page.close(); }
 });

@@ -279,3 +279,22 @@ it('stops passive drawing five seconds after changes and keeps move motion', asy
     await settle();
   } finally { await page.close(); }
 });
+
+it('lays the mated king down only after the mating move ends', async () => {
+  const fen = 'k7/8/1K6/8/8/8/8/7R w - - 0 1'; setRules({}); const pre = fromFen(fen);
+  const move = legalMoves(pre).find(m => m.from === 7 && m.to === 63)!; expect(move).toBeDefined();
+  const lan = toLan(pre, move), post = toFen(makeMove(pre, move)), first = view(fen, {}, { seat: 1, action: 'waiting', legal: [] });
+  const page = await open(first), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('html').evaluate((_, next) => {
+      const board = (window as any).testBoard, setFallen = board.setFallen.bind(board); (window as any).fallen = [];
+      board.setFallen = (sq: number | null, animate?: boolean) => { (window as any).fallen.push({ sq, animating: document.getElementById('board')!.dataset.animating }); setFallen(sq, animate); };
+      (window as any).harnessApp.routeView(next);
+    }, { ...first, revision: 1, fen: post, turn: 1, status: 'finished', action: 'finished', result: { reason: 'checkmate', winner: 0 }, last_commands: [{ seq: 1, seat: 0, action: { type: 'turn', actions: [lan] }, at: '2026-10-15T00:00:01Z' }] });
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).fallen.some((c: any) => c.sq !== null && c.animating === 'false')), { timeout: 3000 }).toBe(true);
+    const calls = await frame.locator('html').evaluate(() => (window as any).fallen);
+    expect(calls.filter((c: any) => c.sq !== null && c.animating === 'true')).toEqual([]);
+    expect(calls.some((c: any) => c.animating === 'true')).toBe(true);
+  } finally { await page.close(); }
+});

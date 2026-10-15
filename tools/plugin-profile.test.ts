@@ -80,7 +80,7 @@ it('puts open games first with your turn first and resumes the tapped game', asy
     expect(await live.locator('b').last().textContent()).toBe('Computer · Club');
     expect(await live.locator('small').first().textContent()).toBe('Move 1');
     expect(await waiting.locator('b').last().textContent()).toBe('Open game');
-    expect(await waiting.locator('small').first().textContent()).toBe('Waiting for an opponent');
+    expect(await waiting.locator('small').first().textContent()).toBe('Waiting for a friend');
     for (const row of [live, waiting]) {
       expect(await row.locator('small').first().evaluate(el => getComputedStyle(el).fontWeight)).toBe('400');
       expect(await row.locator('.pi').getAttribute('alt')).toBe('white king');
@@ -107,7 +107,7 @@ it('shows all ten badges and opens the earned date or goal on a tap', async () =
     expect(await frame.locator('#profile-badges .badge.no').count()).toBe(4);
     await frame.locator('[data-badge="first_win"] button').click();
     await frame.getByRole('dialog', { name: 'First Win', exact: true }).waitFor();
-    expect(await frame.locator('#badge-detail').textContent()).toBe('Earned 10 Oct 2026');
+    expect(await frame.locator('#badge-detail').textContent()).toBe('Earned Oct 10, 2026');
     await frame.locator('#badge-close').click();
     await frame.locator('[data-badge="royal_collection"] button').click();
     expect(await frame.locator('#badge-detail').textContent()).toBe('Win with all six kings.');
@@ -283,7 +283,7 @@ it('updates a badge sheet in place when More returns and clears its scrim on Clo
     await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history, record: { ...record, badges: [{ badge: 'first_win', earned_at: '2026-10-10T12:00:00Z' }] } } } });
     release!(); release = undefined;
     await expect.poll(() => frame.locator('#profile-history li').count()).toBe(23);
-    expect(await frame.locator('#badge-detail').textContent()).toBe('Earned 10 Oct 2026');
+    expect(await frame.locator('#badge-detail').textContent()).toBe('Earned Oct 10, 2026');
     expect(await frame.locator('.scrim').count()).toBe(1);
     expect(await frame.locator('#badge-close').evaluate(el => el === document.activeElement)).toBe(true);
     await frame.locator('#badge-close').click();
@@ -294,7 +294,7 @@ it('updates a badge sheet in place when More returns and clears its scrim on Clo
   } finally { release?.(); await page.close(); }
 });
 
-it('shortens a long name in the Profile title and keeps its full title text', async () => {
+it('wraps a long name in the Profile title and keeps its full title text', async () => {
   const page=await open(), frame=page.frameLocator('iframe'), name='wwwwwwwwwwwwwwwwwwww';
   try {
     await page.setViewportSize({width:320,height:568});
@@ -303,7 +303,7 @@ it('shortens a long name in the Profile title and keeps its full title text', as
     },name);
     await frame.locator('#page-title').filter({hasText:name}).waitFor();
     expect(await frame.locator('#page-title').getAttribute('title')).toBe(name);
-    expect(await frame.locator('#page-title').evaluate(e=>({overflow:getComputedStyle(e).overflow,ellipsis:getComputedStyle(e).textOverflow,space:getComputedStyle(e).whiteSpace}))).toEqual({overflow:'hidden',ellipsis:'ellipsis',space:'nowrap'});
+    expect(await frame.locator('#page-title').evaluate(e=>({cut:e.scrollWidth>e.clientWidth,ellipsis:getComputedStyle(e).textOverflow}))).toEqual({cut:false,ellipsis:'clip'});
   } finally {await page.close();}
 });
 
@@ -335,4 +335,74 @@ it('gives games with the same opponent a colour and start time in both lists', a
     for (const row of await frame.locator('#profile-open small').allTextContents()) expect(row).not.toMatch(/\d{1,2}:\d{2}:\d{2}/);
     for (const line of await lineEnds('#profile-open small')) expect(line).not.toMatch(/·$/);
   } finally {await page.close();}
+});
+
+// Fault round 4 (device matrix M1, M3, M7, M8, M9, M13).
+const waitingGames = (['friend', 'random'] as const).map(kind => ({ game_id: `waiting-${kind}`, kind, speed: 'daily', status: 'waiting', seat: 0, action: 'waiting', turn: 0, revision: 0, deadline_at: null, opponent: null, updated_at: '2026-10-15T16:32:00Z', created_at: '2026-10-15T16:32:00Z', options: { ...DEFAULT_OPTIONS, fairy: true, cards: true, kingPowers: true }, move: null, open_until: null, level: 'club' }));
+const bigRecord = { ...record, totals: { played: 1234, won: 700, drawn: 34, lost: 500 } };
+async function openAt(width: number, height: number, locale = 'en-US') {
+  const context = await browser.newContext({ viewport: { width, height }, locale, timezoneId: 'UTC' }), page = await context.newPage(); page.setDefaultTimeout(5000);
+  await page.goto(harness.url); await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+  await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history, record: bigRecord, games: waitingGames } } });
+  return { page, frame: page.frameLocator('iframe'), close: () => context.close() };
+}
+it('keeps 4-digit totals apart and Profile rows readable at 320 × 568', async () => {
+  const { frame, close } = await openAt(320, 568);
+  try {
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await frame.locator('#profile-history li').first().waitFor(); await frame.locator('#profile-open button').first().waitFor();
+    const layout = await frame.locator('#profile-sheet').evaluate(sheet => {
+      const textBox = (e: Element) => { const range = document.createRange(); range.selectNodeContents(e); return range.getBoundingClientRect(); };
+      const hits = (a: DOMRect, b: DOMRect) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      const totals = [...sheet.querySelectorAll('#profile-totals b')].map(textBox), gaps = totals.slice(1).map((box, i) => box.left - totals[i].right);
+      const rows = [...sheet.querySelectorAll('#profile-history li, #profile-open button')].map(row => {
+        const name = row.querySelector('.grow b') as HTMLElement, feats = row.querySelector('.feats')!.getBoundingClientRect();
+        return { overlap: [...row.querySelectorAll('.grow small')].some(s => hits(textBox(s), feats)), name: name.getBoundingClientRect().width, cut: name.textContent!.length <= 9 && name.scrollWidth > name.clientWidth };
+      });
+      return { gaps, rows };
+    });
+    for (const gap of layout.gaps) expect(gap).toBeGreaterThanOrEqual(4);
+    for (const row of layout.rows) { expect(row.overlap).toBe(false); expect(row.cut).toBe(false); expect(row.name).toBeGreaterThanOrEqual(60); }
+    // AM or PM never stands alone on a line.
+    const lines = await frame.locator('#profile-open small').evaluateAll(elements => elements.flatMap(e => {
+      const tops = new Map<number, string>(), walker = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) for (let i = 0; i < walker.currentNode.textContent!.length; i++) {
+        const range = document.createRange(); range.setStart(walker.currentNode, i); range.setEnd(walker.currentNode, i + 1);
+        const top = Math.round(range.getBoundingClientRect().top); tops.set(top, (tops.get(top) ?? '') + walker.currentNode.textContent![i]);
+      }
+      return [...tops.values()].map(line => line.trim());
+    }));
+    expect(lines.filter(line => /^[AP]M$/.test(line))).toEqual([]);
+    expect(await frame.locator('#profile-open [data-game-id="waiting-friend"] small').first().textContent()).toBe('Waiting for a friend');
+    expect(await frame.locator('#profile-open [data-game-id="waiting-random"] small').first().textContent()).toBe('Waiting for an opponent');
+    // The darkest parchment behind the result mark (QA sample): the green W needs 4.5:1.
+    const contrast = await frame.locator('#profile-history .res-w').first().evaluate(e => {
+      const lum = (rgb: number[]) => { const [r, g, b] = rgb.map(c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+      return (lum([229, 214, 188]) + 0.05) / (lum(getComputedStyle(e).color.match(/\d+/g)!.slice(0, 3).map(Number)) + 0.05);
+    });
+    expect(contrast).toBeGreaterThanOrEqual(4.5);
+  } finally { await close(); }
+});
+it.each(['de-DE', 'ja-JP', 'en-US'])('uses one English date style in Play, Profile and friend codes under %s', async locale => {
+  const { frame, close } = await openAt(393, 852, locale);
+  try {
+    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_games', {}); app.navigate('play'); });
+    expect(await frame.locator('#games-list [data-game-id="waiting-friend"] .line').textContent()).toContain('Oct 15, 4:32 PM');
+    expect(await frame.locator('#games-list [data-game-id="waiting-friend"] .row-title').textContent()).toBe('Waiting for a friend');
+    expect(await frame.locator('#games-list [data-game-id="waiting-random"] .row-title').textContent()).toBe('Waiting for an opponent');
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await frame.locator('#profile-history li').first().waitFor();
+    expect(await frame.locator('#profile-history .when').first().textContent()).toBe('Oct 10');
+  } finally { await close(); }
+});
+it('reflows Profile at 200% zoom (197 CSS px) with no sideways scroll', async () => {
+  const { frame, close } = await openAt(197, 426);
+  try {
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await frame.locator('#profile-history li').first().waitFor();
+    const wide = await frame.locator('#profile-sheet').evaluate(sheet => [sheet, ...sheet.querySelectorAll('.new-game-body, .registry, .totals, li, #profile-open button')].filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.className || e.tagName));
+    expect(wide).toEqual([]);
+    const outside = await frame.locator('.registry').evaluate(registry => { const r = registry.getBoundingClientRect(); return [...registry.querySelectorAll('b, small, .res, .feats, .when')].filter(e => { const b = e.getBoundingClientRect(); return b.width && (b.left < r.left - 1 || b.right > r.right + 1); }).length; });
+    expect(outside).toBe(0);
+  } finally { await close(); }
 });

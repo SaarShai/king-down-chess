@@ -11,3 +11,9 @@ export function boardInk(width: number) {
     causeHalo: Math.max(5.5, 3.5 * scale),
   };
 }
+
+/** Edge labels (board units) stay inside the 32-unit frame, so they never cover a piece; under 8 CSS px they are not drawn. */
+export function coordInk(width: number) {
+  const size = Math.min(boardInk(width).coord, 40);
+  return { size, inset: Math.min(Math.max(14, size / 2 + 4), 16), shown: size * width / 960 >= 8 };
+}

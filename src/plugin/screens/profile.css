@@ -6,9 +6,10 @@
 #profile-sheet .rating b { font-size: var(--fs-2xl); }
 #profile-sheet .q { display: inline-grid; place-items: center; width: 20px; height: 20px; font-family: var(--font-body); font-size: 13px; font-weight: 800; color: var(--vellum); background: var(--gold-ink); border-radius: 50%; vertical-align: 2px; }
 #profile-sheet .split { display: grid; gap: var(--space-4); margin-top: var(--space-3); }
-#profile-sheet .scroll { min-height: 240px; min-width: 0; border: solid transparent; border-width: 60px 44px 64px; border-image-slice: 96 68 100 68 fill; border-image-repeat: stretch; padding: 0 4px; }
-#profile-sheet .totals { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-#profile-sheet .totals b { display: block; font-family: var(--font-display); font-size: var(--fs-xl); }
+#profile-sheet .scroll { container-type: inline-size; min-height: 240px; min-width: 0; border: solid transparent; border-width: 60px 44px 64px; border-image-slice: 96 68 100 68 fill; border-image-repeat: stretch; padding: 0 4px; }
+#profile-sheet .totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 4px; text-align: center; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+/* Four-digit totals keep a gap in a narrow scroll. */
+#profile-sheet .totals b { display: block; font-family: var(--font-display); font-size: min(var(--fs-xl), 11cqi); }
 #profile-sheet .totals span { font-size: var(--fs-xs); color: var(--ink-soft); text-transform: uppercase; letter-spacing: .1em; }
 #profile-sheet .rows { list-style: none; margin: 0; padding: 0; }
 #profile-sheet .rows li, #profile-open button { display: flex; align-items: center; gap: 4px; min-height: 52px; padding: 4px 0; border-bottom: 1px solid var(--line); }
@@ -21,7 +22,20 @@
 #profile-sheet .rows .feats { flex: none; gap: 2px; }
 #profile-sheet .rows .feats .icon { width: 14px; height: 14px; }
 #profile-sheet .res { width: 18px; flex: none; text-align: center; font-family: var(--font-display); font-weight: 700; }
-#profile-sheet .res-w { color: #3d6b1f; } #profile-sheet .res-l { color: var(--accent); } #profile-sheet .res-d { color: var(--ink-soft); }
+#profile-sheet .res-w { color: #3b671e; } #profile-sheet .res-l { color: var(--accent); } #profile-sheet .res-d { color: var(--ink-soft); }
+/* A narrow scroll moves the feature icons under the name, so the name and reason keep their width. */
+@container (max-width: 240px) {
+  #profile-sheet .rows li, #profile-open button { flex-wrap: wrap; }
+  #profile-sheet .rows .feats { order: 1; flex-basis: 100%; padding-left: 74px; }
+}
+/* 200% zoom: a thinner scroll edge, totals in two rows, the date on its own line. */
+@media (max-width: 260px) { #profile-sheet .scroll { border-width: 30px 16px 32px; } }
+@container (max-width: 160px) {
+  #profile-sheet .totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #profile-sheet .totals span { letter-spacing: 0; }
+  #profile-sheet .rows .when { flex-basis: 100%; }
+  #profile-sheet .rows .feats { padding-left: 22px; }
+}
 #profile-more { display: block; margin: var(--space-2) auto 0; }
 #profile-sheet .side-col .group-head { margin-top: 0 !important; }
 #profile-sheet .badges { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px 4px; margin-bottom: var(--space-3); }
