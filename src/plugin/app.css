@@ -168,11 +168,13 @@ button.preset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 
 .code-row button { width: auto; min-width: 96px; justify-content: center; }
 .preset .portrait { display: block; width: 100%; height: 100%; }
 .page-sheet .sheet-head { display: flex; gap: 8px; align-items: center; padding: 12px 16px; flex: none; }
-.page-sheet .sheet-head h2 { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-sheet .sheet-head h2 { flex: 1; margin: 0; }
+/* Titles wrap; they are never cut. */
+.sheet-head h2, .frame #menu-sheet .sheet-head h2 { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .page-sheet .sheet-head button { flex: none; width: auto; min-width: 44px; min-height: 44px; padding: 0 8px; justify-content: center; font-size: 14px; }
 .page-error { flex: none; }
 .page-error > button { margin: 0 16px 8px; width: auto; }
-body[data-touch='true'] button { min-height: var(--tap); }
+body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 @media (min-width: 900px) { .frame { --composer-gap: 128px; } body[data-page='board'] .page-sheet { width: min(900px, calc(100% - 48px)); } }
 
 #end-table { position: absolute; inset: 0; }
@@ -200,22 +202,26 @@ body[data-touch='true'] button { min-height: var(--tap); }
 }
 }
 @media (pointer: coarse) {
-  button { min-height: 44px; }
+  button, label { min-height: 44px; }
 }
 body[data-touch='true'] #game-table .coin, body[data-touch='true'] #game-table .coin.card-coin { width: 44px; height: 44px; min-height: 44px; }
 @media (pointer: coarse) {
   #game-table .coin, #game-table .coin.card-coin { width: 44px; height: 44px; min-height: 44px; }
 }
 /* Extend touch targets up, inside the frame, without changing art or rows. */
-body[data-touch='true'] button { position: relative; }
-body[data-touch='true'] button::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
+body[data-touch='true'] :is(button, .seg-row label, .fields > label) { position: relative; }
+body[data-touch='true'] .field { min-height: 48px; }
+body[data-touch='true'] .fields > label input { position: relative; z-index: 1; }
+body[data-touch='true'] :is(button, .seg-row label, .fields > label)::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
 body[data-touch='true'] #game-table .coin.card-coin { overflow: visible; }
 /* A hit layer extends up; each control keeps its own lower edge against the control below. */
 body[data-touch='true'] button#moves-line { z-index: 1; }
 body[data-touch='true'] #context-actions button { z-index: 2; }
 @media (pointer: coarse) {
-  button { position: relative; }
-  button::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
+  button, .seg-row label, .fields > label { position: relative; }
+  .field { min-height: 48px; }
+  .fields > label input { position: relative; z-index: 1; }
+  :is(button, .seg-row label, .fields > label)::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
   #game-table .coin.card-coin { overflow: visible; }
   button#moves-line { z-index: 1; }
   #context-actions button { z-index: 2; }

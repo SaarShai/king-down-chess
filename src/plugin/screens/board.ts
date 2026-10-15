@@ -246,7 +246,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     $('offer-draw').hidden = view.kind === 'solo' || view.status !== 'playing' || view.draw_offer !== null || refused.has('kingdown_draw');
     $('resign').hidden = view.status !== 'playing';
     $('context-actions').replaceChildren(...actions); strips();
-    board.setFallen(view.result?.reason === 'checkmate' && view.result.winner !== null ? findKing(pos.board,(1-view.result.winner) as Color) : null,false);
+    board.setFallen(!animating && view.result?.reason === 'checkmate' && view.result.winner !== null ? findKing(pos.board,(1-view.result.winner) as Color) : null,false);
   }
   $('resign').onclick = confirmResign; $('offer-draw').onclick = () => confirmDraw('offer');
   $('reload').addEventListener('click', closeBoardSheet);

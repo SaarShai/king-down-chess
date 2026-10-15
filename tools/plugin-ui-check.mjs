@@ -777,7 +777,7 @@ try {
   await openPlay();
   const newFriendId = await page.evaluate(() => window.harnessView.game_id);
   await frame.locator(`#games-list [data-game-id="${newFriendId}"]`).waitFor();
-  assert.equal(await frame.locator(`#games-list [data-game-id="${newFriendId}"] .row-title`).innerText(), 'Waiting for an opponent', 'Back shows the new game row');
+  assert.equal(await frame.locator(`#games-list [data-game-id="${newFriendId}"] .row-title`).innerText(), 'Waiting for a friend', 'Back shows the new game row');
   await legacyStart('solo');
   await idleBoard();
   await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
@@ -1548,7 +1548,7 @@ try {
       }
     }
     const waitingRow = frame.locator(`#games-list [data-game-id="${own._meta.view.game_id}"]`);
-    assert.equal(await waitingRow.locator('.row-title').textContent(), 'Waiting for an opponent');
+    assert.equal(await waitingRow.locator('.row-title').textContent(), 'Waiting for a friend');
     assert.match(await waitingRow.locator('.line').textContent(), /Just opened/);
     assert.equal(await waitingRow.locator('.row-ico use[href="#i-clock"]').count(), 1);
     const home = await tool('kingdown_open');

@@ -1,5 +1,6 @@
 import { call, client, memory, navigate, routeView } from '../app';
 import { art } from '../art';
+import { formatDate } from '../games-list';
 import { copyText } from '../../clipboard';
 import { ICONS, type Icon } from '../../account/profile';
 import type { Options } from '../../match/setup';
@@ -47,7 +48,7 @@ export function friendScreen() {
   tiles.setAttribute('aria-label', invite ? [...invite.code].join(' ') : ''); tiles.hidden = !invite;
   $('friend-copy').hidden = !invite; $('friend-new').hidden = !!invite;
   $('friend-help').textContent = invite ? `Your friend says “Join King Down game ${invite.code}” in ChatGPT, or types the code in Play. They need the King Down connection.` : 'The saved game has no code on this page. A new code ends the old code.';
-  $('friend-game').replaceChildren(row('Waiting for your friend', 'clock', [invite ? `Ends ${new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(invite.expires_at))}.` : 'Make a new code to share this game.']));
+  $('friend-game').replaceChildren(row('Waiting for your friend', 'clock', [invite ? `Ends ${formatDate(invite.expires_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.` : 'Make a new code to share this game.']));
   $('friend-game').querySelector('.line')!.id = 'friend-expiry';
   if (view.options) $('friend-game').append(row('Features', 'fairy', [features(view.options), `You play ${view.seat === 0 ? 'White' : 'Black'}.`]));
   $('friend-copy').onclick = async () => {
