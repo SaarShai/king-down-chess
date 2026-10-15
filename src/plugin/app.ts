@@ -1,7 +1,7 @@
 import { App, type McpUiHostContext } from '@modelcontextprotocol/ext-apps';
 import type { PlayerSettings } from './settings';
 import { setRules } from '../rules/engine';
-import { gamesList } from './games-list';
+import { gameTitle, gamesList, nextGame } from './games-list';
 import type { InboxEntry, JoinPreview, View } from '../match/protocol';
 import { createClient, type WidgetHost, type Screen, type Pending } from './client';
 import { art } from './art';
@@ -10,7 +10,7 @@ import { boardScreen, rollbackBoardMove } from './screens/board';
 import { setSettings } from './board-view';
 import { runPoll } from './poll';
 import { createRouter } from './router';
-import { setupScreen } from './screens/setup';
+import { playNow, setupScreen } from './screens/setup';
 import { friendScreen } from './screens/friend';
 import { joinScreen } from './screens/join';
 import { waitScreen } from './screens/wait';
@@ -52,6 +52,7 @@ function actions() {
   const blocked = busy || mountReading || !connected;
   buttons().forEach(button => { button.disabled = blocked || button.matches('#king-picker [aria-disabled="true"]'); });
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
+  homeActions();
   $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = blocked || !memory.settings;
 }
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
@@ -339,8 +340,23 @@ $('handle-form').onsubmit = event => {
   if (input.reportValidity()) void call('kingdown_handle', { handle, icon: picture });
 };
 $<HTMLInputElement>('handle').oninput = scheduleHandleCheck;
-$('home-play').onclick = () => { const next = resume ?? 'play'; collapsed = false; resume = undefined; void fullscreen(next); };
-$('home-games').onclick = () => { collapsed = false; resume = undefined; gamesFirst = true; void fullscreen('play'); };
+/** Spec J3: while a game waits for you, the main action resumes it by name and Play now moves to second place. */
+const homeGame = () => resume ? memory.games.find(entry => entry.game_id === view?.game_id) : nextGame(memory.games);
+function homeActions() {
+  const game = homeGame(), back = !!resume || !!game;
+  const label = (id: string, symbol: string, text: string) => { const html = `<svg class="icon" aria-hidden="true"><use href="#i-${symbol}"/></svg><span>${text}</span>`; if ($(id).innerHTML !== html) { $(id).innerHTML = html; $(id).querySelector('span')!.textContent = text; } };
+  label('home-play', back ? 'continue' : 'play', back ? game ? `Resume · ${game.opponent?.computer ? 'Computer' : gameTitle(game)}` : 'Resume' : 'Play now');
+  label('home-games', back ? 'play' : 'guide', back ? 'Play now' : 'Choose a game');
+}
+// Spec J2, D2: Play now asks for fullscreen on the tap and opens the board when the game exists.
+function homePlayNow() { collapsed = false; resume = undefined; void fullscreen('home'); playNow(); }
+$('home-play').onclick = () => {
+  const game = homeGame();
+  if (resume) { const next = resume; collapsed = false; resume = undefined; void fullscreen(next); }
+  else if (game) { collapsed = false; void fullscreen('home'); void call('kingdown_resume', { game_id: game.game_id }); }
+  else homePlayNow();
+};
+$('home-games').onclick = () => { if (resume || homeGame()) return homePlayNow(); collapsed = false; gamesFirst = true; void fullscreen('play'); };
 document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => { button.onclick = () => navigate(button.dataset.nav as Screen); });
 $('page-back').onclick = () => navigate(state.screen === 'handle' ? handleBack : state.screen === 'collection' ? 'profile' : state.screen === 'settings' ? state.settings_back ?? 'play' : 'play');
 app.onhostcontextchanged = () => hostContext(app.getHostContext());

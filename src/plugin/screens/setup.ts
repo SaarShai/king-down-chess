@@ -6,7 +6,7 @@ import { LETTERS, NAMES } from '../../rules/engine';
 import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
 import { POWER_NAME, cardText, powerText, powerOptions, powersRules } from '../../powers-ui';
 import type { View, InboxEntry } from '../../match/protocol';
-import { availablePowers, cardLocked, cleanKing, createArguments, pieceLocked, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
+import { availablePowers, cardLocked, cleanKing, createArguments, pieceLocked, quickSetup, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
 import './setup.css';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
@@ -127,17 +127,19 @@ async function finish(view: View, pick = draft!.king) {
   if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, true, false, false); if (!full) return; view = full; }
   ownCommand = false; routeView(view);
 }
-async function launch() {
-  if (!draft || starting || client.state.pending) return;
+async function launch(setup = draft) {
+  if (!setup || starting || client.state.pending) return;
   starting = true; ownCommand = true; render();
   try {
-    const last_setup = { ...draft, options: setupOptions(draft.options) }, saved = await client.call('kingdown_settings', { last_setup });
+    const last_setup = { ...setup, options: setupOptions(setup.options) }, saved = await client.call('kingdown_settings', { last_setup });
     if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     memory.settings = saved._meta?.settings as typeof memory.settings;
     const view = await start(last_setup.kind, createArguments(last_setup), { route: false }); if (view) await finish(view, last_setup.king);
-  } catch (error) { $('error').textContent = String(error); }
+  } catch (error) { $('error').textContent = $('home-error').textContent = String(error); }
   finally { starting = false; if (!client.state.pending) ownCommand = false; render(); }
 }
+/** The home card's Play now: a computer game from the last setup, with no hall. */
+export function playNow() { if (memory.settings) void launch(quickSetup(memory.settings.last_setup)); }
 async function recoverStart() {
   const pending = client.state.pending;
   if (!draft || !pending || recovering) return;

@@ -80,14 +80,14 @@ try {
   assert.equal(await frame.locator('#over').count(), 1, 'The frame has one shared overlay');
   assert.equal(await frame.locator('#i-back, #i-close, #i-plus, #i-mic').count(), 0, 'Host icons stay with the host');
   assert(await frame.locator('#home-play').isDisabled(), 'Play waits for the page and the host to connect');
-  assert.equal(await frame.locator('#home-card button').count(), 2, 'The inline home card has only Play and Your games');
+  assert.equal(await frame.locator('#home-card button').count(), 2, 'The inline home card has only Play now and Choose a game');
   await frame.locator('#home-play:not(:disabled)').waitFor();
   assert.deepEqual(await page.evaluate(() => window.harnessDeclaredModes), ['inline', 'fullscreen'], 'App declares both display modes to the host');
   assert.equal(await frame.locator('.inline-line').innerText(), 'Your move in 0 games.', 'Home uses the server turn count and the sample line');
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), 0, 'An empty home reads no board');
   await frame.locator('#home-games').click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Your games opens the Your games list on Play');
+  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Choose a game opens the Play hall');
   const homeAgain = await (await page.request.post(new URL('/fixture-tool',base).href, { data: { name: 'kingdown_open', arguments: { screen: 'home' } } })).json();
   await page.evaluate(result => window.harnessShow(result), homeAgain);
   await frame.locator('#home-play:not(:disabled)').waitFor();
@@ -101,11 +101,11 @@ try {
     await shot(page, `shell-home-${width}-${mode}`);
   }
   await page.setViewportSize({width:1000,height:1000});
-  await frame.getByRole('button', { name: 'Play', exact: true }).click();
+  await frame.getByRole('button', { name: 'Choose a game', exact: true }).click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
   assert.deepEqual(await frame.locator('[data-screen="play"] .row-title:visible').allTextContents(), ['Profile', 'Settings']);
   assert(await frame.locator('[data-screen="play"] h2').evaluate(el => getComputedStyle(el).fontFamily.includes('Cinzel')), 'The page uses the approved Cinzel heading');
-  assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests), ['fullscreen'], 'Play asks the host for fullscreen');
+  assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests), ['fullscreen'], 'Choose a game asks the host for fullscreen');
   async function openPlay() {
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
     for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) await frame.locator('#page-back').click();

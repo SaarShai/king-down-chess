@@ -20,6 +20,12 @@ export function readSetup(value: unknown): SetupState {
   return state;
 }
 
+/** Play now: the last setup as a computer game, or for a new player Beginner with an automatic army (no seat screen). */
+export function quickSetup(saved: unknown): SetupState {
+  if (saved) return { ...readSetup(saved), kind: 'solo' };
+  const state = readSetup(undefined);
+  return { ...state, level: 'beginner', options: { ...state.options, arrangement: false } };
+}
 export const setupOptions = (o: Options): Options => ({ ...o, arrangement: o.fairy && o.arrangement, classic: !o.fairy && o.classic });
 export function withToggle(state: SetupState, key: 'fairy' | 'arrangement' | 'classic' | 'cards' | 'kingPowers', on: boolean): SetupState {
   const options = { ...state.options, [key]: on };

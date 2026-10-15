@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { chromium, type Browser } from 'playwright';
+import { chromium, type Browser, type Page } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
@@ -22,7 +22,7 @@ it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]
     await page.goto(harness.url);
     await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
     await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
-    await frame.locator('#home-play:not(:disabled)').click();
+    await hall(page);
     await page.evaluate(async safe => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe, deviceCapabilities: { touch: true } }); }, { top, bottom, left: 0, right: 0 });
     await expect.poll(() => frame.locator('#app-frame').evaluate(e => innerHeight - e.getBoundingClientRect().bottom)).toBe(gap);
     expect((await frame.locator('#page-back').evaluate(controlBounds)).limit).toBe(height - gap);
@@ -36,7 +36,7 @@ it.each([[393, 852, 102, 118, 290], [320, 568, 63, 84, 150], [320, 568, 63, 180,
     await page.goto(harness.url);
     await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
     await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
-    await frame.locator('#home-play:not(:disabled)').click();
+    await hall(page);
     await page.evaluate(async safe => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe, deviceCapabilities: { touch: true } }); }, { top, bottom, left: 0, right: 0 });
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).check();
@@ -77,6 +77,13 @@ it.each([[393, 852, 102, 118, 290], [320, 568, 63, 84, 150], [320, 568, 63, 180,
     expect(await textFits()).toEqual([]);
   } finally { await page.close(); }
 });
+// With a game that waits, the home card offers Resume and Play now (spec J3), so a test of the hall opens it from the chat.
+async function hall(page: Page) {
+  await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+  const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }));
+  await page.evaluate(result => (window as any).harnessShow(result), result);
+  await page.frameLocator('iframe').locator('[data-screen="play"]:not([hidden])').waitFor();
+}
 it('sizes the seat and the board from their screens, with no viewport units and the short-phone rows', async () => {
   const page = await browser.newPage({ viewport: { width: 393, height: 760 }, hasTouch: true }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000);
@@ -100,7 +107,7 @@ it('sizes the seat and the board from their screens, with no viewport units and 
       const canvas = table.querySelector('canvas')!, board = rect(table.querySelector('#board')!), screen = rect(table.parentElement!);
       return Math.abs(rect(table).height - screen.height) < 1 && Math.abs(rect(canvas).width - Math.min(board.width, board.height * 960 / 1024)) < 2 && rect(canvas).width / rect(document.getElementById('app-frame')!).width;
     });
-    await frame.locator('#home-play').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await hall(page); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     await expect.poll(fill).toBeGreaterThan(0.75);
     await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
@@ -113,7 +120,7 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
   for (const [width,height,top,bottom,left,right,min] of [[320,568,20,0,0,0,170],[375,667,20,0,0,0,225],[393,852,59,34,0,0,308],[440,956,59,34,0,0,360],[852,393,0,21,59,59,175],[852,393,59,34,0,0,110]]) {
     const page=await browser.newPage({viewport:{width,height},isMobile:true,hasTouch:true}), frame=page.frameLocator('iframe'); page.setDefaultTimeout(10000);
     try {
-      await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').click();
+      await page.goto(harness.url); await hall(page);
       await page.evaluate(async safe => { await (window as any).harnessSetContext({displayMode:'fullscreen',safeAreaInsets:safe,deviceCapabilities:{touch:true}}); },{top,bottom,left,right});
       await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
       await frame.getByRole('checkbox',{name:'Arrangement',exact:true}).check();
@@ -149,7 +156,7 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
 it('keeps card and power targets at 44 px without increasing the player rows', async () => {
   const page=await browser.newPage({viewport:{width:375,height:667},hasTouch:true}), frame=page.frameLocator('iframe');
   try {
-    await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').click();
+    await page.goto(harness.url); await hall(page);
     await page.evaluate(async()=>{await (window as any).harnessSetContext({deviceCapabilities:{touch:true},displayMode:'fullscreen',safeAreaInsets:{top:20,bottom:0,left:0,right:0}});});
     await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-nav="handle"]').click();
     await frame.locator('#handle').fill('wwwwwwwwwwwwwwwwwwww'); await frame.locator('#save-handle').click(); await frame.locator('#page-back').click();
@@ -174,7 +181,7 @@ it('keeps card and power targets at 44 px without increasing the player rows', a
 it('contains the Open games art and the wait art on a short phone', async () => {
   const page=await browser.newPage({viewport:{width:320,height:568},hasTouch:true}),frame=page.frameLocator('iframe');
   try {
-    await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').click();
+    await page.goto(harness.url); await hall(page);
     await frame.getByRole('radio',{name:'A random player',exact:true}).locator('..').click();
     expect(await frame.locator('#play-open .row-art').evaluate(e=>{const r=e.getBoundingClientRect();return [...e.querySelectorAll('img')].every(i=>{const b=i.getBoundingClientRect();return b.left>=r.left-1 && b.right<=r.right+1;});})).toBe(true);
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
