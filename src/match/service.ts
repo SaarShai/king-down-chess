@@ -146,15 +146,15 @@ export class GameService {
   if (game.players.every(p => p.ready)) await this.start(game, at);
   else game.setup_deadline_at = new Date(at.getTime() + FIRST_TURN_DAYS * DAY);
  }
- /** One seat's view. Reads record activity at most once each 30 seconds. */
+ /** Records the actor's seat activity at most once each 30 seconds. A read (view) never writes. */
+ async seen(actor: string, gameId: string): Promise<void> { await this.store.seen(id(gameId), id(actor)); }
+ /** One seat's view. Read-only. */
  async view(actor: string, gameId: string, since?: number): Promise<View> {
   actor = id(actor); gameId = id(gameId);
   if (since !== undefined && !(Number.isInteger(since) && since >= 0 && since <= MAX_REVISION)) fail('INVALID_INPUT', 400, 'Invalid revision');
   // A full read also loads the engine save: its initial position starts the move history.
   const game = await this.store.load(gameId, { state: since === undefined });
-  const seat = seatOf(game, actor), age = game.players[seat].last_seen_ms;
-  if (age === null || age >= 30_000) await this.store.seen(gameId, seat);
-  return this.render(game, seat, { since, rules: since === undefined });
+  return this.render(game, seatOf(game, actor), { since, rules: since === undefined });
  }
  /** The actor's active games: your turn first, then the nearest deadline. */
  async inbox(actor: string): Promise<InboxEntry[]> { return this.store.inbox(id(actor)); }

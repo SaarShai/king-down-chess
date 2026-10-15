@@ -39,7 +39,7 @@ async function readProfile(cursor?: string) {
     }));
     $('profile-sheet').querySelector<HTMLElement>('.scroll')!.style.borderImageSource = `url("${art('assets/scroll.webp')}")`;
     if (games) $('profile-open').replaceChildren(...(games._meta!.games as InboxEntry[]).map(openRow));
-    if (!cursor) { $('profile-history').replaceChildren(); $('profile-sheet').querySelector('.registry')!.scrollTop = 0; }
+    if (!cursor) $('profile-history').replaceChildren();
     $('profile-history').append(...profile.history.map(historyRow));
     before = profile.next_before; $('profile-more').hidden = before === null;
     renderBadges(record);

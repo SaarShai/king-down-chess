@@ -32,7 +32,7 @@ let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
 let readError = false;
 let busy = false, polling = false, mountReading = true, gamesDirty = false;
-let poll: ReturnType<typeof runPoll> | undefined;
+let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0;
 let pending = state.pending;
 let handleBack: Screen = pending?.screen ?? 'settings';
 const drawBoard = boardScreen(call, () => busy || mountReading || !!pending);
@@ -47,6 +47,7 @@ function retryState() {
   $('retry').textContent = readError && !pending ? 'Try again' : 'Retry';
   $('error').textContent = message ?? '';
 }
+const turnLine = (count: number) => `Your move in ${count} game${count === 1 ? '' : 's'}.`;
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 function actions() {
   const blocked = busy || mountReading || !connected;
@@ -151,7 +152,7 @@ type ToolResult = Awaited<ReturnType<typeof client.call>>;
 function renderGames(entries: InboxEntry[]) {
   memory.games = entries; gamesDirty = false;
   $('games-status').textContent = entries.length ? '' : 'No active games.';
-  $('home-line').textContent = `Your move in ${entries.filter(entry => entry.action === 'ready').length} games.`;
+  $('home-line').textContent = turnLine(entries.filter(entry => entry.action === 'ready').length);
   gamesList($('games-list'), entries, (name, args) => call(name, args, false, false, false), routeView); actions();
 }
 function remember(result: ToolResult) {
@@ -162,7 +163,7 @@ function remember(result: ToolResult) {
   }
   if (Array.isArray(result._meta?.games)) renderGames(result._meta.games as InboxEntry[]);
   const value = result.structuredContent as Record<string, unknown> | undefined;
-  if (value && typeof value.your_turn_count === 'number') $('home-line').textContent = `Your move in ${value.your_turn_count} games.`;
+  if (value && typeof value.your_turn_count === 'number') $('home-line').textContent = turnLine(value.your_turn_count);
 }
 app.ontoolresult = result => {
   const initial = awaitingInitialResult; awaitingInitialResult = false;
@@ -219,7 +220,10 @@ const connection = app.connect().then(() => {
   if (context?.displayMode === 'fullscreen' && state.screen === 'home' && !savedScreen) navigate('play');
   if (state.screen !== 'home') { const screen = state.screen; if (displayMode === 'inline' && canFullscreen()) navigate('home'); void fullscreen(screen); }
   poll = runPoll(() => ['friend', 'wait', 'seat', 'board'].includes(state.screen) ? view : undefined, async () => {
-    if (connected && !awaitingInitialResult && !mountReading && state.board_id && !busy && !pending) await call('kingdown_get', { ...(view?.fen ? { since_revision: view.revision } : {}) }, false, true, !savedScreen || !!view && ['friend', 'wait', 'seat', 'board'].includes(state.screen));
+    if (!connected || awaitingInitialResult || mountReading || !state.board_id || busy || pending) return;
+    await call('kingdown_get', { ...(view?.fen ? { since_revision: view.revision } : {}) }, false, true, !savedScreen || !!view && ['friend', 'wait', 'seat', 'board'].includes(state.screen));
+    // kingdown_get is read-only; this write lets the opponent see the player online.
+    if (view && Date.now() - seenAt >= 30_000) { seenAt = Date.now(); void client.call('kingdown_seen', { game_id: view.game_id }).catch(() => {}); }
   });
 }).catch(error => { $('error').textContent = $('home-error').textContent = `Could not connect to the game: ${String(error)}`; });
 
@@ -271,10 +275,11 @@ export function navigate(screen: Screen) {
     if (['board','seat'].includes(state.screen)) state.settings_back = state.screen; else delete state.settings_back;
   }
   state.screen = screen; retryState();
-  document.querySelector('.page-sheet')!.scrollTop = 0;
   $('page-title').removeAttribute('title');
   document.body.dataset.page = screen;
   document.querySelectorAll<HTMLElement>('[data-screen]').forEach(el => { el.hidden = el.dataset.screen !== screen; });
+  // Each page opens at its top: the page body scrolls, not the sheet.
+  document.querySelectorAll<HTMLElement>('.page-sheet, .page-sheet .new-game-body').forEach(el => { el.scrollTop = 0; });
   $('app-frame').hidden = screen === 'home';
   $('page-head').hidden = screen === 'home' || screen === 'play';
   $('page-back').textContent = screen === 'handle' && handleBack === 'settings' ? '‹ Settings' : screen === 'collection' ? '‹ Profile' : screen === 'settings' && ['board','seat'].includes(state.settings_back ?? '') ? '‹ Game' : '‹ Play';
@@ -291,7 +296,7 @@ function hostContext(context: McpUiHostContext | undefined) {
   if (!context) return;
   document.body.dataset.theme = context.theme ?? 'light';
   document.body.dataset.touch = String(context.deviceCapabilities?.touch ?? false);
-  for (const edge of ['top', 'right', 'bottom', 'left'] as const) document.documentElement.style.setProperty(`--safe-${edge}`, `${context.safeAreaInsets?.[edge] ?? 0}px`);
+  for (const edge of ['top', 'right', 'bottom', 'left'] as const) document.documentElement.style.setProperty(`--safe-${edge}`, `${Math.max(0, context.safeAreaInsets?.[edge] ?? 0)}px`);
   if (context.displayMode === 'inline' && displayMode === 'fullscreen' && state.screen !== 'home' && canFullscreen()) {
     resume = GAME_SCREENS.includes(state.screen) ? state.screen : undefined;
     displayMode = 'inline'; navigate('home'); collapsed = true;

@@ -1,4 +1,5 @@
-#new-game { width: 100%; max-height: none; }
+/* The id and class outrank the website's #new-game dialog size, which loads after this file. */
+.page-sheet > #new-game { width: 100%; max-height: none; }
 #setup-body > * { flex-shrink: 0; }
 #new-game .seg-row label { min-height: var(--tap); }
 label.check.toggle { margin-top: var(--space-2); align-items: center; height: auto; min-height: var(--tap); }

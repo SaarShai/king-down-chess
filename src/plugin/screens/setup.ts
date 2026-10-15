@@ -4,7 +4,7 @@ import type { WidgetHost } from '../client';
 import { DEAL_CARDS, POOL_KINDS, type Options } from '../../match/setup';
 import { LETTERS, NAMES } from '../../rules/engine';
 import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
-import { POWER_NAME, cardText, powerText, powerOptions, powersRules } from '../../powers-ui';
+import { POWER_NAME, cardText, powerText, powerOptions, powersRules, ruleLine } from '../../powers-ui';
 import type { View, InboxEntry } from '../../match/protocol';
 import { availablePowers, cardLocked, cleanKing, createArguments, pieceLocked, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
 import './setup.css';
@@ -13,15 +13,15 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const icon = (name: string) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const image = (path: string, cls = '') => `<img class="${cls}" src="${art(path)}" alt="">`;
 const name = (word: string) => word[0].toUpperCase() + word.slice(1);
-const webWords = (words: string) => words.replace(/captured/g, 'taken').replace(/captures/g, 'takes').replace(/capture/g, 'take');
 const cardName = (card: CardName) => POWER_NAME[card as PowerName] ?? card.replace(/([A-Z])/g, ' $1').trim();
 const levelLines = { beginner: 'New to King Down? Start here.', casual: 'Makes some mistakes.', club: 'Plays well. Keep your pieces safe.', strong: 'Thinks longer. Plays stronger.' };
 const pieceLines = { A: 'Shoots without moving.', L: 'Jumps over its own pieces.', G: 'Only a king takes it.', M: 'Swaps with a friend.', S: 'Bites in a chain.', O: 'Shoves a neighbour.', R: 'Moves in straight lines.', B: 'Moves on diagonals.', N: 'Jumps in an L.', Q: 'Moves in any line.' };
-const kingRules = powersRules({ ...DEFAULT_RULES, ...POWERS_BALANCED });
+/** The rules of a game with king powers; a game without them plays DEFAULT_RULES (src/match/worker.ts). */
+export const kingRules = powersRules({ ...DEFAULT_RULES, ...POWERS_BALANCED });
 const faces: readonly CardName[] = ['Freeze','IceWall','Sacrifice','March','Leap','Salvation','Mimic','Vault','SkyLift'];
 const mounted = (window as Window & { openai?: WidgetHost }).openai?.widgetState?.privateContent;
 const restored = mounted?.pending;
-let draft: SetupState | undefined, starting = false, recovering = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
+let draft: SetupState | undefined, starting = false, slow = false, recovering = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
 const restoredSetup = () => !restoreHandled && restored?.screen === 'setup' && !!memory.settings?.last_setup && (restored.name === 'kingdown_choose' || !!restored.args.options);
 const ownPending = () => ownCommand || restoredSetup();
 async function readGames() {
@@ -67,8 +67,10 @@ function render() {
   $('setup-your-king').hidden = !o.kingPowers; $('setup-kings-off').hidden = o.kingPowers;
   const pick = shownKing(draft); $<HTMLImageElement>('setup-king').querySelector('img')!.src = art(`ui/emblems/${pick.king.toLowerCase()}.webp`);
   $('setup-king-name').innerHTML = `<b>${pick.king}</b> · ${POWER_NAME[pick.power]}`;
-  $('setup-power-text').textContent = powerText(pick.power, kingRules, true);
+  $('setup-power-text').textContent = ruleLine(powerText(pick.power, kingRules));
   $<HTMLButtonElement>('setup-start').disabled = starting || recovering || !!client.state.pending;
+  // Words wait for the owner (item W3, option a).
+  $('setup-start').textContent = !starting && !recovering ? 'Start game' : slow ? 'Still starting. Keep this page open.' : 'Starting your game…';
 }
 function sheet(name: string, title: string, done: () => void) {
   closeSheet?.();
@@ -91,7 +93,7 @@ function poolSheet(kind: 'pieces' | 'cards') {
       body.innerHTML = `<p class="sheet-lead">The draw takes 7 pieces from the checked kinds. The king and the pawns are always in.</p><p class="lock-note" ${letters.some(k => pieceLocked(o, k)) ? '' : 'hidden'}>${icon('lock')}<span>Keep at least 7 pieces in the pool. Check another kind to free a lock.</span></p><div class="pick-list">${letters.map(letter => { const n = NAMES[LETTERS.indexOf(letter)], locked = pieceLocked(o, letter); return `<label class="check pick${locked ? ' locked' : ''}"><span class="pick-art">${image(`ui/pieces/${n}-w.webp`)}</span><span class="grow">${image(`ui/icons/${n}.svg`, 'pi')} ${name(n)}<small>${pieceLines[letter]}</small></span>${locked ? `<span class="lock">${icon('lock')}</span>` : ''}<input type="checkbox" value="${letter}" aria-label="${name(n)}" ${o.pool.includes(letter) ? 'checked' : ''} ${locked ? 'disabled' : ''}></label>`; }).join('')}</div>`;
       count.textContent = `${o.pool.length} of ${POOL_KINDS.length} kinds`;
     } else {
-      body.innerHTML = `<p class="sheet-lead">The deal takes 4 cards from the checked cards. Both players get the same 4.</p><p class="lock-note" ${o.cardPool.length === 4 ? '' : 'hidden'}>${icon('lock')}<span>4 cards are checked. Check another card to free a lock.</span></p><div class="card-grid">${DEAL_CARDS.map(card => `<label class="card-face${o.cardPool.includes(card) ? '' : ' out'}"><span class="cf-art">${image(`ui/cards/${faces.includes(card) ? card.toLowerCase() : 'back'}.webp`, faces.includes(card) ? '' : 'back')}</span><span class="cf-text"><b>${cardName(card)}</b><small>${webWords(cardText(card, o.kingPowers ? kingRules : DEFAULT_RULES))}</small></span><input type="checkbox" value="${card}" aria-label="${cardName(card)}" ${o.cardPool.includes(card) ? 'checked' : ''} ${cardLocked(o, card) ? 'disabled' : ''}></label>`).join('')}</div>`;
+      body.innerHTML = `<p class="sheet-lead">The deal takes 4 cards from the checked cards. Both players get the same 4.</p><p class="lock-note" ${o.cardPool.length === 4 ? '' : 'hidden'}>${icon('lock')}<span>4 cards are checked. Check another card to free a lock.</span></p><div class="card-grid">${DEAL_CARDS.map(card => `<label class="card-face${o.cardPool.includes(card) ? '' : ' out'}"><span class="cf-art">${image(`ui/cards/${faces.includes(card) ? card.toLowerCase() : 'back'}.webp`, faces.includes(card) ? '' : 'back')}</span><span class="cf-text"><b>${cardName(card)}</b><small>${ruleLine(cardText(card, o.kingPowers ? kingRules : DEFAULT_RULES))}</small></span><input type="checkbox" value="${card}" aria-label="${cardName(card)}" ${o.cardPool.includes(card) ? 'checked' : ''} ${cardLocked(o, card) ? 'disabled' : ''}></label>`).join('')}</div>`;
       count.textContent = `${o.cardPool.length} of ${DEAL_CARDS.length} · at least 4`;
     }
     body.querySelectorAll<HTMLInputElement>('input').forEach(input => { input.onchange = () => { draft = kind === 'pieces' ? withPiece(draft!, input.value, input.checked) : withCard(draft!, input.value as CardName, input.checked); render(); draw(); }; });
@@ -105,7 +107,7 @@ export function kingSheet(options: Options, pick: KingChoice): Promise<KingChoic
     const dialog = sheet('king', 'Your king', () => resolve(chosen)), body = dialog.querySelector<HTMLElement>('.sheet-body')!, count = dialog.querySelector('.foot-count')!, groups = powerOptions(kingRules);
     const draw = () => {
       const powers = groups.find(group => group.king === chosen.king)!.options, allowed = availablePowers(options, chosen.king);
-      body.innerHTML = `${options.cards ? `<p class="lock-note">${icon('cards')}<span>Cards are on, so only the powers that are always on can play.</span></p>` : ''}<div id="king-picker"><div class="king-pick"><h3>King · <span class="who">${chosen.king}</span></h3><div class="emblems" role="group" aria-label="King">${(Object.keys(KINGS) as KingName[]).map(king => { const out = !availablePowers(options, king).length; return `<button class="emblem${out ? ' is-out' : ''}" data-king="${king}" aria-pressed="${king === chosen.king}" aria-disabled="${out}" ${out ? 'disabled' : ''} title="${king} king: ${KINGS[king].map(p => POWER_NAME[p]).join(' or ')}">${image(`ui/emblems/${king.toLowerCase()}.webp`)}<span class="em-name">${king}</span></button>`; }).join('')}</div><div class="power-choice two">${powers.map(power => { const p = power.value.split(':')[1] as PowerName, out = !allowed.includes(p); return `<button data-power="${p}" title="${webWords(power.title)}" aria-pressed="${chosen.power === p}" aria-disabled="${out}" ${out ? 'disabled' : ''}>${power.label}</button>`; }).join('')}</div><p class="power-text"><b>${POWER_NAME[chosen.power]}:</b> ${powerText(chosen.power, kingRules, true)}.${options.cards ? ' Always on.' : ''}</p>${powers.filter(power => !allowed.includes(power.value.split(':')[1] as PowerName)).map(power => `<p class="power-text off"><b>${POWER_NAME[power.value.split(':')[1] as PowerName]}</b> has uses, so it cannot play with cards.</p>`).join('')}</div></div>`;
+      body.innerHTML = `${options.cards ? `<p class="lock-note">${icon('cards')}<span>Cards are on, so only the powers that are always on can play.</span></p>` : ''}<div id="king-picker"><div class="king-pick"><h3>King · <span class="who">${chosen.king}</span></h3><div class="emblems" role="group" aria-label="King">${(Object.keys(KINGS) as KingName[]).map(king => { const out = !availablePowers(options, king).length; return `<button class="emblem${out ? ' is-out' : ''}" data-king="${king}" aria-pressed="${king === chosen.king}" aria-disabled="${out}" ${out ? 'disabled' : ''} title="${king} king: ${KINGS[king].map(p => POWER_NAME[p]).join(' or ')}">${image(`ui/emblems/${king.toLowerCase()}.webp`)}<span class="em-name">${king}</span></button>`; }).join('')}</div><div class="power-choice two">${powers.map(power => { const p = power.value.split(':')[1] as PowerName, out = !allowed.includes(p); return `<button data-power="${p}" title="${ruleLine(power.title)}" aria-pressed="${chosen.power === p}" aria-disabled="${out}" ${out ? 'disabled' : ''}>${power.label}</button>`; }).join('')}</div><p class="power-text"><b>${POWER_NAME[chosen.power]}:</b> ${ruleLine(powerText(chosen.power, kingRules))}${options.cards ? ' Always on.' : ''}</p>${powers.filter(power => !allowed.includes(power.value.split(':')[1] as PowerName)).map(power => `<p class="power-text off"><b>${POWER_NAME[power.value.split(':')[1] as PowerName]}</b> has uses, so it cannot play with cards.</p>`).join('')}</div></div>`;
       count.textContent = `${chosen.king} · ${POWER_NAME[chosen.power]}`;
       body.querySelectorAll<HTMLButtonElement>('[data-king]').forEach(button => { button.onclick = () => { const king = button.dataset.king as KingName, [power] = availablePowers(options, king); if (power) { chosen = { king, power }; draw(); body.querySelector<HTMLButtonElement>(`[data-king="${king}"]`)?.focus(); } }; });
       body.querySelectorAll<HTMLButtonElement>('[data-power]').forEach(button => { button.onclick = () => { const power = button.dataset.power as PowerName; if (allowed.includes(power)) { chosen = { king: chosen.king, power }; draw(); body.querySelector<HTMLButtonElement>(`[data-power="${power}"]`)?.focus(); } }; });
@@ -126,13 +128,15 @@ async function finish(view: View, pick = draft!.king) {
 async function launch() {
   if (!draft || starting || client.state.pending) return;
   starting = true; ownCommand = true; render();
+  // After a long wait, Back is a safe way out: the start stays pending, and Start sends no second Create.
+  const wait = setTimeout(() => { slow = true; render(); $<HTMLButtonElement>('page-back').disabled = false; }, 10_000);
   try {
     const last_setup = { ...draft, options: setupOptions(draft.options) }, saved = await client.call('kingdown_settings', { last_setup });
     if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     memory.settings = saved._meta?.settings as typeof memory.settings;
     const view = await start(last_setup.kind, createArguments(last_setup), { route: false }); if (view) await finish(view, last_setup.king);
   } catch (error) { $('error').textContent = String(error); }
-  finally { starting = false; if (!client.state.pending) ownCommand = false; render(); }
+  finally { clearTimeout(wait); starting = slow = false; if (!client.state.pending) ownCommand = false; render(); }
 }
 async function recoverStart() {
   const pending = client.state.pending;

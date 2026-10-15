@@ -18,7 +18,7 @@ export function gamesList(target: HTMLElement, entries: InboxEntry[], call: (nam
     title.textContent = waiting ? 'Waiting for an opponent' : entry.opponent?.computer ? `Computer · ${entry.level[0].toUpperCase() + entry.level.slice(1)}` : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
     const line = document.createElement('span'); line.className = 'line';
     const hours = Math.max(0, Math.floor((now - Date.parse(entry.created_at)) / 3600000));
-    line.textContent = waiting ? hours === 0 ? 'Just opened' : `Open for ${hours} ${hours === 1 ? 'hour' : 'hours'}` : entry.status === 'setup' ? yours ? 'Choose your side' : 'Waiting for the other player' : `${yours ? 'Your turn' : 'Their turn'} · move ${entry.move}`;
+    line.textContent = waiting ? hours === 0 ? 'Just opened' : `Open for ${hours} ${hours === 1 ? 'hour' : 'hours'}` : entry.status === 'setup' ? yours ? 'Choose your side' : 'Waiting for the other player' : yours ? `Move ${entry.move}` : `Their turn · move ${entry.move}`;
     const feats = document.createElement('span'); feats.className = 'feats';
     for (const [field, name, label] of [['fairy', 'fairy', 'Fairy pieces'], ['arrangement', 'arrange', 'Arrangement'], ['classic', 'classic', 'Classic'], ['cards', 'cards', 'Cards'], ['kingPowers', 'powers', 'King powers']] as const) {
       if (entry.options?.[field]) { const feat = document.createElement('span'); feat.title = label; feat.innerHTML = icon(name); feats.append(feat); }

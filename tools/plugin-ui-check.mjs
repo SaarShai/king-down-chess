@@ -204,11 +204,15 @@ try {
       assert.deepEqual(found,[],`${screen}: ${found.join(', ')}`);
     }
     async function rollers() {
+      // The scroll is part of the page scroll (fault F15): the top roller shows at the page top, the bottom roller at the page end.
       const bounds = await frame.locator('#profile-sheet .scroll').evaluate(el => {
-        const r=el.getBoundingClientRect(), body=el.closest('.new-game-body').getBoundingClientRect(), css=getComputedStyle(el);
-        return {top:r.top,bottom:r.bottom,bodyTop:body.top,bodyBottom:body.bottom,slice:css.borderImageSlice,source:css.borderImageSource};
+        const page=el.closest('.new-game-body'), registry=el.querySelector('.registry'), css=getComputedStyle(el);
+        page.scrollTop=0; const top=el.getBoundingClientRect().top, bodyTop=page.getBoundingClientRect().top;
+        page.scrollTop=page.scrollHeight; const bottom=el.getBoundingClientRect().bottom, bodyBottom=page.getBoundingClientRect().bottom; page.scrollTop=0;
+        return {top,bottom,bodyTop,bodyBottom,inner:registry.scrollHeight-registry.clientHeight,slice:css.borderImageSlice,source:css.borderImageSource};
       });
-      assert(bounds.top>=bounds.bodyTop && bounds.bottom<=bounds.bodyBottom+1,'Both scroll rollers show in full');
+      assert(bounds.top>=bounds.bodyTop && bounds.bottom<=bounds.bodyBottom+1,'Each scroll roller shows in full at its end of the page');
+      assert(bounds.inner<=1,'The scroll has no scroll area of its own');
       assert.equal(bounds.slice,'96 68 100 fill','One rule keeps the two complete rollers and the side edges');
       assert(bounds.source.includes('/scroll-'),'scroll.webp loads through the art helper');
     }
@@ -246,7 +250,7 @@ try {
         await frame.locator('#profile-history li').last().scrollIntoViewIfNeeded(); assert((await frame.locator('#profile-history li').last().evaluate(controlBounds)).accessible,'The last row clears the composer');
       }
       assert.equal(await frame.locator('#profile-more').isVisible(),false);
-      await frame.locator('#profile-sheet .registry').evaluate(el=>{el.scrollTop=0;}); await rollers();
+      await rollers();
       await frame.locator('html').evaluate(()=>document.fonts.ready); await capture('profile',size,width,height);
       assert.equal(await frame.locator('#profile-badges .badge').count(),10);
       for(const [badge,name] of Object.entries(BADGES)) {
@@ -378,7 +382,7 @@ try {
     assert.equal((await setupTool('kingdown_settings'))._meta.settings.last_setup.king, null, 'Opening the king sheet without a pick keeps the server seat default');
     await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
     await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, cards: true } }); await frame.locator('#setup-cards').click();
-    assert((await frame.locator('label.card-face:has(input[value="Freeze"]) small').innerText()).startsWith('as your move, freeze'), 'Card text uses the rules of a game with king powers off');
+    assert((await frame.locator('label.card-face:has(input[value="Freeze"]) small').innerText()).startsWith('As your move, freeze'), 'Card text uses the rules of a game with king powers off');
     await frame.locator('#setup-done').click();
     const sampleSetup = { ...baseSetup, options: { ...DEFAULT_OPTIONS, cards: true, kingPowers: true, cardPool: DEAL_CARDS.filter((_, i) => ![9,12,13,16,18].includes(i)) }, king: { king: 'Mud', power: 'March' } };
     for (const state of ['setup','setup-classic','setup-pieces','setup-cards','setup-king']) {
@@ -696,7 +700,7 @@ try {
   await openPlay();
   await handleGate();
   assert.equal(await frame.locator('#presets button').count(), 17, 'The name screen has the 17 game pictures');
-  assert.equal(await frame.locator('[data-screen="handle"] .quiet-line').last().innerText(), 'Each name is unique. You pick it once, at your first game against a person.');
+  assert.equal(await frame.locator('[data-screen="handle"] .quiet-line').last().innerText(), 'Each name is unique.');
   assert.equal(await frame.locator('#page-back').innerText(), '‹ Play');
 
   async function fits(screen, width) {
@@ -748,7 +752,7 @@ try {
   assert.deepEqual(await frame.locator('#games-list button').evaluateAll(rows => rows.map(row => row.dataset.gameId)), inbox._meta.games.map(row => row.game_id), 'The shared rows keep the private server order');
   assert.equal(await savedGame.locator('.row-title').innerText(), 'Computer · Club');
   assert.equal(await savedGame.locator('.turn-mark').innerText(), 'Your turn');
-  assert.match(await savedGame.locator('.line').innerText(), /Your turn · move 1/);
+  assert.match(await savedGame.locator('.line').innerText(), /^Move 1\b/);
   assert.equal(await savedGame.locator('.feats use[href="#i-fairy"]').count(), 1);
   const savedId = await savedGame.getAttribute('data-game-id');
   await savedGame.click();

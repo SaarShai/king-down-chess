@@ -53,8 +53,9 @@ export class PostgresMatchStore {
   for (const p of game.players) await client.query(`insert into public.game_players(game_id,seat,user_id,computer,handle_at_start,power,action,last_seen_at,choice,ready)
    values($1,$2,$3,$4,(select handle from public.profiles where id=$3),$5,$6,$7,$8,$9)`, [game.id, p.seat, p.user_id, p.computer, p.power, p.action, p.last_seen_at, p.choice, p.ready]);
  }
- async seen(game: string, seat: Seat): Promise<void> {
-  await this.pool.query("update public.game_players set last_seen_at=statement_timestamp() where game_id=$1 and seat=$2 and (last_seen_at is null or last_seen_at<=statement_timestamp()-interval '30 seconds')", [game, seat]);
+ /** The user's seat activity, at most once each 30 seconds; a user with no seat changes nothing. */
+ async seen(game: string, user: string): Promise<void> {
+  await this.pool.query("update public.game_players set last_seen_at=statement_timestamp() where game_id=$1 and user_id=$2 and (last_seen_at is null or last_seen_at<=statement_timestamp()-interval '30 seconds')", [game, user]);
  }
  /** Writes `next` (revision = before + 1), its log row and its alerts. State and snapshot are written only when they changed. */
  async save(client: PoolClient, before: Game, next: Game, log: Log, out: Outgoing): Promise<void> {
