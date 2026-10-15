@@ -103,6 +103,16 @@ describe('the tuner evaluation', () => {
 });
 
 describe('the game replay', () => {
+  it('round-trips custom-piece quiet moves and captures', () => {
+    setRules();
+    const pos = fromFen('7k/8/8/8/8/8/8/Tp5K w - - 0 1');
+    for (const lan of ['Ta1-a2', 'Ta1xb1']) {
+      const move = parseLan(pos.board, lan);
+      expect(move.from).toBe(0);
+      expect(move.to).toBe(lan.includes('x') ? 1 : 8);
+      expect(toLan(pos, move)).toBe(lan);
+    }
+  });
   it('parses every notation the recorder writes back into the same move', () => {
     setRules();
     const rng = mulberry32(99);

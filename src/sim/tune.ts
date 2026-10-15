@@ -263,7 +263,7 @@ export function parseLan(board: Uint8Array, lan: string): Move {
   let promo: PieceType | undefined;
   const eq = text.indexOf('=');
   if (eq >= 0) { promo = LETTERS.indexOf(text.slice(eq + 1)) as PieceType; text = text.slice(0, eq); }
-  if (/^[PNBRQKALGMSOCV]/.test(text)) text = text.slice(1);
+  if (text[0] !== ' ' && LETTERS.includes(text[0])) text = text.slice(1);
   // Strike (Flame A): a trailing `!` marks the one queen-like action, so replay spends the flag.
   let strike = false;
   if (text.endsWith('!')) { strike = true; text = text.slice(0, -1); }

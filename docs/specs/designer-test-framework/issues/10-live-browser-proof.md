@@ -181,3 +181,23 @@ measurement evidence. `partial-m1-validation/report-reply.json` preserves the
 failure. Do not link it as valid evidence or change the frozen report to pass.
 The source archive and all remote files remain unchanged. A later repair must
 cover custom-piece notation and retain an illegal-action negative control.
+
+## Replay repair and launch diagnosis
+
+The owner asks to repair replay validation, diagnose Kaggle and finish without
+an uncertain launch retry. The shared `parseLan` reader omits the custom-piece
+letter from its fixed list. Use the engine's piece letters instead. Add quiet
+move and capture round-trip tests. The new test fails on the old reader and
+passes after the change. Recheck the stored M1 games with a separately recorded
+corrected verifier; retain the original frozen report failure and source.
+Check all source differences before that report and record verifier provenance.
+Do not describe a partial schedule as complete or launch missing games again
+while Kaggle's state is uncertain.
+
+The submitted Kaggle script is 2,640,994 bytes. Its embedded archive is
+1,851,007 compressed bytes before base64. A first-hand Kaggle report associates
+HTTP 400 with a source limit below one megabyte:
+<https://www.kaggle.com/product-feedback/236663>.
+This is a likely cause, not a recovered server error body. The adapter retained
+only HTTP 400. No submission is repeated to obtain its response. The scheduled
+read-only status checks and preserved payload remain the evidence boundary.
