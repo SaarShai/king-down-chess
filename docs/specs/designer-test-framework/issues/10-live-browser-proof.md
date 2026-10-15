@@ -726,3 +726,31 @@ it pass. HTTP 429 backoff, unknown-state rejection and the 900-second limit
 remain. Six transport tests, 50 art checks, types and 113 doc checks pass.
 A bounded live read-only audit must pass before submission. Its trace is
 `state/study-runs/preflight-diagnosis-20261015/audit-proof.json` on the card.
+
+The repaired live audit passes at 17:23:41 UTC in 434.38 seconds. It checks
+all 357 notebooks across four pages, handles five HTTP 429 waits and
+verifies eleven draft-only 404 responses. It finds zero active notebooks.
+The exact target remains ID 138796673, version zero. No mutation occurs
+during this audit. The old fixed pauses alone add at least 744 seconds
+for the same successful reads and draft checks, before network time.
+
+The owner quote and narrow scope are recorded in the main queue. A new
+one-shot notebook-only process starts at 17:24:13 UTC, PID 67650, with
+`/tmp/kd-submit-after-audit-fix.py`. It rechecks the notebook and existing
+private dataset after the fresh audit. It does not upload or create a
+dataset. It uses only jobs 2, 3, 6 and 7 with the original frozen payload.
+The 25-minute worker limit and 21:45 UTC recovery deadline remain.
+A fresh accepted receipt is required; any uncertainty stops without retry.
+
+At 17:24:29 UTC the fresh process records its single notebook submission.
+It stops at 17:24:31 UTC with an unconfirmed response and no accepted
+receipt. The launch outcome is unknown. No submission is repeated. The
+safe error retains RuntimeError but no service response, so rejection is
+not proved. The original records stay unchanged.
+
+`recovery-kaggle-4/notebook-after-audit-fix/uncertain-checkpoint.json`
+records the next read-only check at 18:26 UTC, after the first-hour bound.
+Read the exact notebook metadata and status then. If a batch exists,
+collect and verify it against the frozen inputs before any result link.
+Do not infer acceptance from the audit pass. The saved study stays at
+four of eight games. New diagnostics require a final verified backup.
