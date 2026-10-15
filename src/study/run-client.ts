@@ -28,6 +28,7 @@ export function createRunClient(fetcher: typeof fetch = fetch) {
     prepare: (document: ResearchDocument, target: RunTarget) => json<StudyRunSummary>('prepare', { document, target }),
     approve: (id: string, key: string) => json<StudyRunSummary>('approve', { id, key }),
     list: (studyId: string) => json<StudyRunSummary[]>('list', { studyId }),
+    replays: (id: string) => json<import('./discovery-scan').ReplayBatch>('replays', { id }),
     status: (id: string) => json<StudyRunSummary>('status', { id }),
     document: (id: string) => json<ResearchDocument>('document', { id }),
     async result(run: StudyRunSummary): Promise<Blob> {

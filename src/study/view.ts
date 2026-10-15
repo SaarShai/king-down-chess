@@ -11,6 +11,7 @@ import { studyOf, testOf as documentTest, withChecks, type StudyDocument, type S
 import { evidenceRelation, MAX_STUDY_BYTES, measurementSummary, researchStatus, type ResearchDocument } from './evidence';
 import { mountMeasurementForm } from './measurement-form';
 import { mountResultPicker } from './result-picker';
+import { mountDiscovery } from './discovery-view';
 import { mountRunPanel } from './run-panel';
 import { loadStudies, saveStudyDocument } from './store';
 import { exampleStudies } from './examples';
@@ -255,7 +256,7 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     });
   }
   function more(): void {
-    sheet('Study', `<div class="study-options">${button('open', 'Open study')}${button('import', 'Import file')}${data ? button('export', 'Export copy') : ''}${button('new', `New study with ${esc(currentDesign.name)}`)}</div>
+    sheet('Study', `<div class="study-options">${button('open', 'Open study')}${button('import', 'Import file')}${data ? button('export', 'Export copy') + button('discovery', 'Explore interactions') : ''}${button('new', `New study with ${esc(currentDesign.name)}`)}</div>
       <details><summary>Support limits</summary><p>One distinct design per study. History conditions are not supported. All positions are constructed. Entity identity and causal events are not yet tracked.</p><p>Import a study file for other boards, cards, powers or rules. A source mismatch is refused.</p></details>`);
   }
   const file = q<HTMLInputElement>('.study-import');
@@ -275,6 +276,10 @@ export function studyDialog(parent: HTMLElement): { open(design: PieceDesign): P
     else if (act === 'link-results') linkResults();
     else if (act === 'runs') runs();
     else if (act === 'more') more();
+    else if (act === 'discovery') {
+      if (!persist()) return;
+      sheet('Explore interactions', '', (body, close) => mountDiscovery(body, copy(documentOf()), client, async doc => { await load(doc, true); close(); }));
+    }
     else if (act === 'actions') actions();
     else if (act === 'open') library();
     else if (act === 'import') file.click();

@@ -339,6 +339,54 @@ async function runControls(p, linked, width, height) {
   await p.unroute('**/api/study-runs');
 }
 
+async function discoveryControls(p, control, width, height) {
+  const doc=structuredClone(control);studyOf(doc).id=`browser-discovery-${width}`;
+  await importDoc(p,doc);
+  await more(p,'discovery');
+  const discoveryIdle=()=>p.waitForFunction(()=>!document.querySelector('.discovery-panel')?.hasAttribute('aria-busy'));
+  await discoveryIdle();
+  assert.match(await p.locator('[data-discovery-counts]').textContent(),/22 obligations.*19 unsupported.*3 missing/);
+  await p.locator('[data-review]').first().click();await discoveryIdle();
+  assert.equal(await p.locator('[data-discovery="save-regression"]').isEnabled(),false);
+  await p.locator('[data-expected="1"]').fill('1');
+  await p.locator('[data-fact="0"]').uncheck();
+  await p.locator('[data-add-fact] [name="expected"]').fill('1');
+  await p.locator('[data-add-fact] button').click();await discoveryIdle();
+  assert.equal(await p.locator('[data-expected="1"]').inputValue(),'1','adding a fact retains edited expectations');
+  assert.equal(await p.locator('[data-fact="0"]').isChecked(),false,'adding a fact retains deselection');
+  await p.locator('[data-basis]').fill('Browser negative control. Require the opposite actor to verify a saved failure; not an adopted rule.');
+  await p.locator('[data-confirm]').check();
+  const before=await saved(p);
+  await p.evaluate(()=>{const original=Storage.prototype.setItem;window.restoreDiscoveryStorage=()=>Storage.prototype.setItem=original;Storage.prototype.setItem=function(k,v){if(k==='kingdown.studies')throw new Error('Quota');return original.call(this,k,v);};});
+  await p.locator('[data-discovery="save-regression"]').click();await discoveryIdle();
+  assert.equal(await saved(p),before,'quota failure saves neither regression nor provenance');
+  await p.evaluate(()=>window.restoreDiscoveryStorage());
+  await p.locator('[data-discovery="save-regression"]').click();await discoveryIdle();
+  assert.match(await p.locator('.discovery-content').textContent(),/1 reviewed regressions.*failed/s);
+  const download=p.waitForEvent('download');await p.locator('[data-discovery="export"]').click();
+  const exported=JSON.parse(readFileSync(await(await download).path(),'utf8'));
+  assert.equal(exported.entries.length,1);assert.equal(exported.entries[0].confirmed,true);
+  await p.locator('[data-discovery-import]').setInputFiles({name:'discovery.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(exported))});await discoveryIdle();
+  assert.equal(JSON.parse(await saved(p)).discoveries.flatMap(d=>d.entries).length,1,'repeat import is idempotent');
+  await p.locator('[data-discovery="coverage"]').click();await discoveryIdle();
+  assert.match(await p.locator('[data-discovery-counts]').textContent(),/22 obligations/);
+  assert.match(await p.locator('[data-discovery-counts]').textContent(),/1 failed/);
+  await p.locator('[data-filter]').selectOption('failed');
+  assert.equal(await p.locator('.discovery-content article').count(),1);
+  await noSidewaysScroll(p);await shot(p,`studies-discovery-${width}x${height}`);
+  await closePanel(p);await more(p,'discovery');await discoveryIdle();
+  await p.locator('[data-discovery="saved"]').click();await discoveryIdle();
+  await p.locator('[data-open-regression]').click();await idle(p);
+  await runChecks(p);assert.match(await p.locator(panel).textContent(),/failed/);await closePanel(p);
+  await more(p,'discovery');await discoveryIdle();
+  await p.locator('[data-discovery="sequences"]').click();await discoveryIdle();
+  await p.locator('[data-discovery="scan-study"]').click();await discoveryIdle();
+  assert((await p.locator('[data-candidate]').count())>0,'full replay yields extra-action candidates');
+  await p.locator('[data-candidate]').first().click();await discoveryIdle();
+  assert.match(await p.locator('.discovery-content').textContent(),/Extra action/);
+  await closePanel(p);
+}
+
 try {
   for (const [width, height] of [[1440, 900], [390, 844], [375, 667]]) {
     const context = await browser.newContext({ viewport: { width, height }, hasTouch: width < 721 });
@@ -469,6 +517,7 @@ try {
     assert.deepEqual(comparable(await exportDoc(p)), comparable(beforeEvidence), 'malformed evidence import preserves the document');
     await measurementControls(p, control, linked, width, height);
     await runControls(p, linked, width, height);
+    await discoveryControls(p, control, width, height);
     await p.keyboard.press('Escape');
     assert.equal(await p.locator('#study').getAttribute('open'), null, 'Escape closes only the study');
     assert.notEqual(await p.locator('#workshop').getAttribute('open'), null, 'Workshop remains open');

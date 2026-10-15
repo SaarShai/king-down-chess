@@ -62,3 +62,14 @@
   #study .study-about { padding:0; }
   #study .study-label { width:auto; }
 }
+
+/* Discovery stays inside the existing study sheet, including narrow screens. */
+.discovery-panel nav, .discovery-panel footer { display:flex; flex-wrap:wrap; gap:.5rem; }
+.discovery-panel article { border-top:1px solid var(--line, #ccc); padding:1rem 0; }
+.discovery-panel fieldset { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:.5rem; }
+.discovery-panel label { display:block; margin:.5rem 0; }
+.discovery-panel input:not([type=checkbox]), .discovery-panel textarea, .discovery-panel select { max-width:100%; box-sizing:border-box; }
+.discovery-panel [data-facts] label { display:flex; align-items:center; flex-wrap:wrap; gap:.5rem; }
+.discovery-panel [data-expected] { width:7rem; }
+.discovery-panel pre, .discovery-panel p { overflow-wrap:anywhere; white-space:pre-wrap; }
+.discovery-board { position:relative; }

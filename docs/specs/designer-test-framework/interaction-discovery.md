@@ -1,6 +1,6 @@
 # Interaction discovery
 
-Status: proposed; owner approval required before build.
+Status: approved. The owner approves the first two implementation slices.
 
 This layer helps a designer find what to test next. It proposes combinations,
 shows missing tests, and turns a reviewed game moment into a saved check. It

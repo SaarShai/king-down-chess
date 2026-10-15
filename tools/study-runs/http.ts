@@ -9,7 +9,7 @@ const request = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('prepare'), document: z.unknown(), target: z.enum(['m1', 'kaggle', 'both']) }),
   z.strictObject({ action: z.literal('approve'), id, key: z.uuidv4() }),
   z.strictObject({ action: z.literal('list'), studyId: z.string().min(1).max(200) }),
-  ...(['status', 'result', 'document'] as const).map(action => z.strictObject({ action: z.literal(action), id })),
+  ...(['status', 'result', 'document', 'replays'] as const).map(action => z.strictObject({ action: z.literal(action), id })),
 ]);
 const json = (res: ServerResponse, status: number, value: unknown) => {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(value));
@@ -46,6 +46,7 @@ export function createRunHandler(getCoordinator: () => Promise<RunCoordinator>) 
         case 'approve': json(res, 200, await service.approve(value.id, value.key)); break;
         case 'list': json(res, 200, service.list(value.studyId)); break;
         case 'status': json(res, 200, service.status(value.id)); break;
+        case 'replays': json(res, 200, service.replays(value.id)); break;
         case 'document': json(res, 200, service.document(value.id)); break;
         case 'result': res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }); res.end(service.result(value.id)); break;
       }

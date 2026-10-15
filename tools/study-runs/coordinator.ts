@@ -1,3 +1,4 @@
+import { exportReplays } from './replays';
 import { mkdirSync, existsSync, readFileSync, openSync, closeSync, readSync, fstatSync, constants } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -261,6 +262,11 @@ export async function createCoordinator(options: CoordinatorOptions) {
     status(id: string) { return structuredClone(read(id).summary); },
     list(studyId: string) { return store.ids().map(read).filter(r => r.summary.study.id === studyId).map(r => structuredClone(r.summary)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)); },
     document(id: string) { return structuredClone(read(id).document); },
+    replays(id: string) {
+      const r = read(id);
+      if (!['passed','incomplete'].includes(r.summary.validation.state)) throw new Error('Run validation is not ready.');
+      return exportReplays(directory(id));
+    },
     result(id: string) {
       const r = read(id), meta = r.summary.result;
       if (!meta || !r.resultPath) throw new Error('No checked result export is ready.');

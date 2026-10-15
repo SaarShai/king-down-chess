@@ -1,5 +1,8 @@
+import { exportReplays } from './replays';
+import { scanBatch } from '../../src/study/discovery-scan';
+import { studySource } from '../lib/study-source';
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { exampleStudies } from '../../src/study/examples';
@@ -54,6 +57,18 @@ describe('frozen study execution and report', () => {
     const exported = JSON.parse(bytes.toString()).measurements;
     expect(exported.length).toBeGreaterThan(0);
     expect(exported.every((m: {sources: string[]}) => m.sources.includes('parts/part-m1/games.jsonl'))).toBe(true);
+  });
+  it('exports only attested local games and replays every selected action', async () => {
+    const bundle=await fixture(), source=part(bundle,records(bundle)), out=temp();
+    await validateAndReport(bundle,[source],out);
+    writeFileSync(join(out,'bundle.json'),JSON.stringify(bundle));
+    mkdirSync(join(out,'parts')); cpSync(source,join(out,'parts','part-m1'),{recursive:true});
+    const batch=exportReplays(out);
+    expect(batch.games).toHaveLength(bundle.games);
+    expect(batch.games[0].provenance).toMatchObject({run:bundle.id,part:'part-m1',source:bundle.source});
+    await expect(scanBatch(batch,bundle.source,studySource(),1)).resolves.toBeInstanceOf(Array);
+    const raw=join(out,'parts','part-m1','games.jsonl');writeFileSync(raw,readFileSync(raw,'utf8')+'{}\n');
+    expect(()=>exportReplays(out)).toThrow('attestation');
   });
   it('keeps partial work incomplete and refuses changed source, jobs, stamps and raw bytes', async () => {
     const bundle=await fixture(), rows=records(bundle);
