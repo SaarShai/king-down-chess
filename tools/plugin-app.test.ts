@@ -807,3 +807,34 @@ it('lets the mount reads wait past 10 seconds', async () => {
     expect(await frame.locator('#home-error').textContent()).toBe('');
   } finally { await page.close(); }
 });
+
+// Round 5 helpers: a player opens New game against a friend; the count of calls sent with one name.
+async function newGame(page: Page, opponent = 'A friend') {
+  const frame = page.frameLocator('iframe');
+  await expand(page); await frame.locator('#home-play').click(); await frame.locator('#play-new').click();
+  await frame.getByRole('radio', { name: opponent, exact: true }).locator('..').click();
+}
+const sent = (page: Page, name: string) => page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name);
+
+it('makes one game when Retry resends a Create that the server has not run yet', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await newGame(page);
+    const since = Date.now();
+    await page.clock.install();
+    await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_create'; });
+    await frame.locator('#setup-start').click();
+    await page.waitForFunction(() => !!(window as any).releaseBefore);
+    await page.clock.fastForward(10_001);
+    await frame.locator('#retry').click();
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    const first = page.waitForResponse(response => response.url().endsWith('/fixture-tool') && response.request().postDataJSON()?.name === 'kingdown_create');
+    await page.evaluate(() => (window as any).releaseBefore());
+    await first;
+    const ids = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').map((c: any) => c.arguments.command_id));
+    expect(ids).toHaveLength(2); expect(ids[1]).toBe(ids[0]);
+    const games = (await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_games', arguments: {} } })).json())._meta.games;
+    expect(games.filter((game: any) => game.kind === 'friend' && Date.parse(game.created_at) >= since)).toHaveLength(1);
+  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+});
+

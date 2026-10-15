@@ -14,7 +14,9 @@ export function createRouter(call: (name: string, args: Record<string, unknown>,
   }
   async function start(kind: View['kind'], args: Record<string, unknown> = {}, options: { route?: boolean } = {}) {
     finishStart();
-    let next = await call(kind === 'random' ? 'kingdown_find' : 'kingdown_create', kind === 'random' ? args : { ...args, kind }, true);
+    // Retry, also after a remount, sends the same command ID, so the server gives back the first game, never a second one.
+    const command_id = crypto.randomUUID().replaceAll('-', '');
+    let next = await call(kind === 'random' ? 'kingdown_find' : 'kingdown_create', kind === 'random' ? { ...args, command_id } : { ...args, kind, command_id }, true);
     if (!next && pending()) next = await new Promise<View | undefined>(resolve => { waitingStart = resolve; });
     if (next && options.route !== false) routeView(next);
     return next;

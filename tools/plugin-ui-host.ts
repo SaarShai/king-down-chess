@@ -23,6 +23,8 @@ async function mount() {
     if ((window as any).requireHandleNext && params.name === 'kingdown_create') { (window as any).requireHandleNext = false; return { isError: true, content: [{ type: 'text', text: 'Pick a name and picture first.' }], _meta: { code: 'HANDLE_NEEDED' } }; }
     if ((window as any).failNextAction && params.name !== 'kingdown_handle') { (window as any).failNextAction = false; throw new Error('Harness action after Save failed'); }
     if (params.name === 'kingdown_handle' && params.arguments?.check !== true) { if ((window as any).failActionAfterHandle) { (window as any).failActionAfterHandle = false; (window as any).failNextAction = true; } (window as any).harnessHandle = params.arguments; }
+    // holdBeforeNext holds a call before the server runs it; holdNext (below) holds the reply after the server commits.
+    if ((window as any).holdBeforeNext === params.name) { (window as any).holdBeforeNext = undefined; await new Promise<void>(resolve => { (window as any).releaseBefore = () => { (window as any).releaseBefore = undefined; resolve(); }; }); }
     const result = await invoke(params.name, params.arguments ?? {});
     if (params.name === 'kingdown_get' && (window as any).harnessNextView) { result._meta.view = (window as any).harnessNextView; (window as any).harnessView = result._meta?.view; (window as any).harnessNextView = undefined; }
     if ((window as any).holdNext === params.name) { (window as any).holdNext = undefined; await new Promise<void>(resolve => { (window as any).releaseHeld = () => { (window as any).releaseHeld = undefined; resolve(); }; }); }
