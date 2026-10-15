@@ -683,3 +683,27 @@ the card. It uses the main results-store tool, then verifies downloaded
 cloud bytes. The existing backups stay intact. Do not repeat the upload.
 The next local backup check is 15:50 UTC. Preserve its live lock. Complete
 the final backup evidence and tracker update before removing the heartbeat.
+
+## Final evidence backup verified; live proof remains blocked
+
+At 15:51:56 UTC the final evidence backup passes. Snapshot
+`drive:King Down/results-backups/20261015-083717-229645000` contains all
+253 required files and 17,618,170 bytes. The saved receipt matches the
+proof receipt. Downloaded metadata and three decoded cloud objects bind
+every required file to its SHA-256 and byte count. All local required
+files still match at the 15:53 UTC check. The maintenance lock is released.
+Remote sources and all earlier failure records remain intact.
+
+Proof: `state/study-backups/framework-machine-work-20261015-preflight-final/verified-final.json`
+on the card. The receipt tree hash is
+`4e73170ebe5f2b62d0b1aca5112d5bcb33a134de48ec087aae7ab014790f8038`.
+No upload, worker query, game or submission is repeated in this check.
+
+Evidence preservation is complete. The eight-game live proof is not
+complete: notebook preflight stops before submission, with zero attempts.
+The exact preflight cause remains unconfirmed. The original study version
+3 keeps the verified incomplete four-of-eight link. There is no full result
+export to link. All four M1 games reach the 80-ply cap; these results prove
+part of the workflow, not game balance. Remove the heartbeat after the
+tracker update and doc checks. A future repair must preserve these records
+and establish a safe launch path before any submission.
