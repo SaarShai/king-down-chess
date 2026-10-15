@@ -30,7 +30,9 @@ try {
     new MutationObserver(() => {
       for (const id of tableIds) if (document.querySelectorAll(`#${id}`).length > 1 && !window.harnessTableIdConflicts.includes(id)) window.harnessTableIdConflicts.push(id);
     }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['id'] });
-    window.harnessBootDelay = 300;
+    // The harness holds each frame boot for this delay on the page clock; the count of boots lets remountFrame() see
+    // when a new frame has set its boot timer.
+    let boots = 0; Object.defineProperty(window, 'harnessBootDelay', { configurable: true, get: () => { window.harnessBoots = ++boots; return 300; } });
     window.harnessArrowLines = [];
     window.harnessGhostSymbols = [];
     window.harnessSwapMarks = 0;
@@ -72,6 +74,32 @@ try {
       }; requestAnimationFrame(tick);
     }));
     return frame.locator('canvas').boundingBox();
+  }
+  // A remount boots a new frame, and the check only waits while the frame boots. So when the new frame has set its
+  // 300 ms boot timer, this steps the page clock over that timer and does not wait in real time. Then it sets the
+  // page date back by the step, because the lost Start check fails when the page date is after the server date.
+  // Each frame clock adds real time when a script reads the date; fastForward drops the real time since the last
+  // read, and setSystemTime keeps it to add later. So pageDate() reads the date in both frames directly before each
+  // step. Thus the page date stays on the server clock, or falls a few ms behind it (about 2 ms a remount here).
+  async function remountFrame() {
+    const before = await page.evaluate(() => window.harnessBoots);
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => window.harnessBoots > n, before);
+    const pageDate = () => page.evaluate(() => { document.querySelector('iframe').contentWindow.Date.now(); return Date.now(); });
+    await pageDate(); await page.clock.fastForward(300);
+    await page.clock.setSystemTime(await pageDate() - 300);
+  }
+  // The per-control scroll and measure in one page call. Playwright's scrollIntoViewIfNeeded first waits until the
+  // control keeps its box from one frame to the next; here the whole list does (two equal reads 20 ms apart). Then
+  // controlBounds scrolls each control as scrollIntoViewIfNeeded does and measures it, in list order.
+  async function controlsInView(controls) {
+    const boxes = () => controls.evaluateAll(els => JSON.stringify(els.map(el => { const r = el.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; })));
+    for (let last = await boxes(), end = Date.now() + 30000; ;) {
+      await new Promise(resolve => setTimeout(resolve, 20));
+      const next = await boxes(); if (next === last) break;
+      assert(Date.now() < end, `The controls keep moving: ${next}`); last = next;
+    }
+    return controls.evaluateAll(controlBounds, true);
   }
 
   await frame.locator('#home-card').waitFor();
@@ -137,7 +165,7 @@ try {
       const saved = window.harnessWidgetState.privateContent;
       window.harnessWidgetState = { modelContent: {}, privateContent: { screen: 'play', sheet: undefined, board_id: saved.board_id, pending: { name: 'kingdown_create', args: { kind: 'friend', colour: 'white' }, game_tag: window.harnessView?.game_id.slice(0, 8), screen: 'play', error: 'Harness saved send failed', error_screen: 'play' } } };
     });
-    await page.locator('#remount').click();
+    await remountFrame();
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
     await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#reload').disabled === false);
     await frame.locator('#retry').waitFor();
@@ -269,7 +297,7 @@ try {
         await frame.locator('#collection-sheet .new-game-body').evaluate(el=>{el.scrollTop=0;});
         if(tab==='Pieces') await capture('collection',size,width,height);
       }
-      const settingsReads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length); await page.locator('#remount').click();
+      const settingsReads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length); await remountFrame();
       await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length>n,settingsReads);
       await frame.locator('#collection-items [data-card="SkyLift"]').waitFor({state:'attached'});
       assert.equal(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen),'collection'); assert.equal(await frame.getByRole('radio',{name:'Cards',exact:true}).isChecked(),true);
@@ -281,7 +309,7 @@ try {
     if(mode==='fixture') await seed({history,record:{...record,rating:{rating:1600.6,rd:90,volatility:.06,provisional:false}}});
     await openScreen('profile'); await frame.locator('#profile-status').filter({hasText:'Loading profile…'}).waitFor({state:'hidden'});
     if(mode==='fixture') { assert.equal(await frame.locator('#profile-rating .q').isVisible(),false); assert.equal(await frame.locator('#profile-rating b').textContent(),'1601'); }
-    const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_profile').length); await page.locator('#remount').click();
+    const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_profile').length); await remountFrame();
     await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_profile').length>n,reads); await frame.locator('#profile-open button').first().waitFor();
     assert.equal(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen),'profile');
     for(const basename of ['pawn-w','archer-w','paladin-w','guard-w','maester-w','beast-w','ogre-w','rook-w','bishop-w','knight-w','queen-w','flame','frost','stratus','mud','spirit','shadow','freeze','icewall','leap','march','mimic','sacrifice','salvation','skylift','vault']) assert([...seenImages].some(src=>src.includes('/'+basename+'-')&&src.endsWith('.webp')),`${basename}.webp loads on the page`);
@@ -318,7 +346,7 @@ try {
       await setupTool('kingdown_settings', { last_setup });
       const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length);
       await page.evaluate(() => { window.harnessDropWidgetWrites=true; window.harnessWidgetState.privateContent.screen = 'setup'; window.harnessWidgetState.privateContent.sheet = undefined; window.harnessWidgetState.privateContent.pending = undefined; });
-      await page.locator('#remount').click();
+      await remountFrame();
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length > n, reads);
       await frame.locator('#setup-start:not(:disabled)').waitFor();
       await page.evaluate(()=>{window.harnessDropWidgetWrites=false;});
@@ -334,10 +362,10 @@ try {
       assert(await frame.locator('#new-game label.toggle').evaluateAll(rows => rows.every(row => { const r = row.getBoundingClientRect(), text = row.querySelector('.grow').getBoundingClientRect(); return text.top >= r.top - 1 && text.bottom <= r.bottom + 1; })), `${state} toggle text stays inside its row`);
       const sheet = await frame.locator('#menu-sheet').count();
       const controls = frame.locator(sheet ? '#menu-sheet button:visible, #menu-sheet label:visible' : '#new-game button:visible, #new-game label:visible, #page-back');
-      for (let i = 0; i < await controls.count(); i++) {
-        const control = controls.nth(i); await control.scrollIntoViewIfNeeded();
-        assert((await control.evaluate(controlBounds)).accessible, `${state} control fits ${width}px: ${await control.innerText()}`);
-        const target = await control.boundingBox(); assert(target.width >= 44 && target.height >= 44, `${state} keeps a 44 px target at ${width}px: ${await control.innerText()} (${target.width} x ${target.height})`);
+      const bounds = await controlsInView(controls), labels = await controls.allInnerTexts();
+      for (const [i, control] of bounds.entries()) {
+        assert(control.accessible, `${state} control fits ${width}px: ${labels[i]}`);
+        const target = await controls.nth(i).boundingBox(); assert(target.width >= 44 && target.height >= 44, `${state} keeps a 44 px target at ${width}px: ${labels[i]} (${target.width} x ${target.height})`);
       }
       const footer = frame.locator(sheet ? '#setup-done' : '#setup-start');
       assert((await footer.evaluate(controlBounds)).accessible, `${state} footer stays above the composer`);
@@ -461,7 +489,7 @@ try {
     await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true } });
     await page.evaluate(() => { window.dropNextReply = 'kingdown_create'; }); await frame.locator('#setup-start').click(); await frame.locator('#retry').waitFor();
     const creates = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_create').length);
-    await page.locator('#remount').click();
+    await remountFrame();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_create').length), creates, 'Recovered Start sends no second create');
     assert(await page.evaluate(() => window.harnessCalls.some(c => c.name === 'kingdown_games')), 'Pending Start reads Games before a resend');
@@ -483,7 +511,7 @@ try {
     await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true } });
     await page.evaluate(() => { window.dropNextReply = 'kingdown_choose'; }); await frame.locator('#setup-start').click(); await frame.locator('#retry').waitFor();
     const chooseId = await page.evaluate(() => window.harnessWidgetState.privateContent.pending.args.command_id);
-    await page.locator('#remount').click(); await frame.locator('#retry').waitFor(); await frame.locator('#retry').click();
+    await remountFrame(); await frame.locator('#retry').waitFor(); await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_choose').at(-1).arguments.command_id), chooseId);
     await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
@@ -515,7 +543,7 @@ try {
     }
     async function seatRemount() {
       const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
-      await page.locator('#remount').click();
+      await remountFrame();
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
       await frame.locator('#seat-menu:not(:disabled)').waitFor(); await boardBox();
     }
@@ -561,6 +589,9 @@ try {
     const sheetSeat = await friendSeat();
     await frame.locator('#seat-king').click();
     await buddyReady(sheetSeat);
+    // A setup game polls every 5 seconds. Each poll wait below steps the page clock over the poll timer instead of
+    // waiting for it in real time; fastForward fires each due timer once.
+    await page.clock.fastForward(5000);
     await frame.locator('#seat-them-line').filter({ hasText: 'Ready' }).waitFor({ timeout: 10000 });
     await frame.locator('#setup-done:not(:disabled)').waitFor();
     assert(await frame.locator('[data-power="Leap"]').evaluate(el => el.disabled), 'A setup poll keeps the forbidden Cards power disabled');
@@ -613,6 +644,7 @@ try {
     const hidden = (await seatTool('kingdown_get', { game_id: v.game_id }, true))._meta.view;
     assert.equal(hidden.choices[0],null); assert.deepEqual(hidden.last_commands.at(-1).action,{type:'hidden'});
     const started = await buddyReady(v);
+    await page.clock.fastForward(5000);
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 10000 });
     assert.deepEqual(await frame.locator('body').evaluate(() => window.harnessTableIdConflicts), [], 'Ready returns to the board with one set of table IDs');
     assert.equal(await page.evaluate(() => window.harnessView.fen), started._meta.view.fen);
@@ -640,7 +672,7 @@ try {
     await seatShow(solo); await page.evaluate(() => { window.dropNextReply = 'kingdown_choose'; });
     await frame.locator('#seat-ready').click(); await frame.locator('#retry').waitFor();
     const soloId = await page.evaluate(() => window.harnessWidgetState.privateContent.pending.args.command_id);
-    await page.locator('#remount').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
+    await remountFrame(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
     assert.equal(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_choose').arguments.command_id),soloId,'A started solo Ready keeps the same command after remount');
     assert.equal(await page.evaluate(() => window.harnessView.seat),1);
     // Ticket 15 owns the automatic start reply. This base still has its old Computer move control.
@@ -669,7 +701,7 @@ try {
     await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
     await page.evaluate(() => { window.harnessWidgetState.privateContent.screen = 'seat'; });
     legacyReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
-    await page.locator('#remount').click();
+    await remountFrame();
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n,legacyReads);
     await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' }); await frame.locator('[data-screen="board"]:not([hidden])').waitFor({timeout:5000});
     await seatTool('kingdown_abort',{game_id:legacy._meta.view.game_id});
@@ -708,11 +740,7 @@ try {
     assert.equal(layout.overflow, false, `${screen} has no horizontal scroll at ${width}px`);
     assert(layout.width <= width);
     const controls = frame.locator(`[data-screen="${screen}"] button:visible, [data-screen="${screen}"] input:visible, #page-head button:visible, #retry:visible, #error:visible`);
-    for (let i = 0; i < await controls.count(); i++) {
-      const control = controls.nth(i); await control.scrollIntoViewIfNeeded();
-      const bounds = await control.evaluate(controlBounds);
-      assert(bounds.accessible, `${screen} control scrolls into the safe area at ${width}px: ${JSON.stringify(bounds)}`);
-    }
+    for (const bounds of await controlsInView(controls)) assert(bounds.accessible, `${screen} control scrolls into the safe area at ${width}px: ${JSON.stringify(bounds)}`);
     await frame.locator(`[data-screen="${screen}"] .new-game-body`).evaluateAll(els => els.forEach(el => { el.scrollTop = 0; }));
     if (screen === 'handle') {
       await frame.locator('#handle-free:not([hidden])').waitFor();
@@ -808,7 +836,7 @@ try {
   assert.equal(await page.evaluate(() => window.harnessWidgetState.modelContent.game_id), undefined);
   assert.deepEqual(await page.evaluate(() => Object.keys(window.harnessWidgetState.privateContent).sort()), ['board_id', 'pending', 'screen', 'sheet']);
   const settingsReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
-  await page.locator('#remount').click();
+  await remountFrame();
   await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, settingsReads);
   await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
   assert(await frame.locator('#symbols-only').isChecked(), 'Settings return from the server on each mount');
@@ -822,7 +850,7 @@ try {
   for (const width of [360,400]) { await page.setViewportSize({width,height:844}); await fits('play',width); await shot(page, `shell-failure-${width}-${mode}`); }
   await page.setViewportSize({width:1000,height:1000});
   assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending?.name), 'kingdown_create', 'Save keeps the action until it succeeds');
-  await page.locator('#remount').click();
+  await remountFrame();
   await frame.locator('#retry').waitFor(); await frame.locator('#retry').click();
   await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
   assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending), undefined);
@@ -843,7 +871,7 @@ try {
     }
     async function remount(screen) {
       const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
-      await page.locator('#remount').click();
+      await remountFrame();
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
       await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
     }
@@ -939,9 +967,11 @@ try {
     const receipt = n => page.evaluate(n => new Promise(resolve => {
       if (window.ticket13Reads.length > n) resolve(); else addEventListener('ticket13-read', resolve, { once: true });
     }), n);
+    // The clock stays paused in this block, so each step lands exactly on the poll timer: fastForward fires the
+    // timers that are due, and it does not paint every frame of the skipped time as runFor does.
     async function advance(ms) {
       const n = await page.evaluate(() => window.ticket13Reads.length), read = receipt(n); let limit;
-      await page.clock.runFor(ms);
+      await page.clock.fastForward(ms);
       try { await Promise.race([read, new Promise((_, reject) => { limit = setTimeout(() => reject(new Error('The game read does not finish')), 10000); })]); }
       finally { clearTimeout(limit); }
     }
@@ -962,7 +992,7 @@ try {
     for (let i=5;i<24;i++) await advance(5000);
     const gets = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get' && c.arguments.game_id === window.harnessView.game_id).length);
     const readsAtTwo = await page.evaluate(() => window.ticket13Reads.length);
-    await page.clock.runFor(14999); assert.equal(await page.evaluate(() => window.ticket13Reads.length), readsAtTwo, 'No five-second poll remains after two minutes');
+    await page.clock.fastForward(14999); assert.equal(await page.evaluate(() => window.ticket13Reads.length), readsAtTwo, 'No five-second poll remains after two minutes');
     await advance(1);
     const times = await page.evaluate(id => window.harnessCalls.filter(c => c.name === 'kingdown_get' && c.arguments.game_id === id).map(c => c.at), waiting.game_id);
     assert.equal(times.at(-1)-times.at(-2), 15000, 'The later wait uses a fifteen-second gap');
@@ -1005,7 +1035,7 @@ try {
     await openScreen('settings'); await boardSetting('show-threats',true);
     await page.evaluate(result=>window.harnessShow(result),seeded); await idleBoard(); await boardBox();
     const threatReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
-    await page.locator('#remount').click();
+    await remountFrame();
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, threatReads);
     await idleBoard(); await boardBox();
     assert(await frame.locator('#show-threats').isChecked(), 'Show threats returns from the server after mount');
@@ -1102,7 +1132,7 @@ try {
   assert.equal(await frame.locator('#retry').isVisible(), false);
   await page.evaluate(() => window.releaseHeld());
   await frame.locator('#retry').waitFor();
-  await page.locator('#remount').click();
+  await remountFrame();
   await frame.locator('#retry').waitFor();
   await page.waitForFunction(()=>window.harnessView.revision===1);
   assert.equal(await page.evaluate(() => window.harnessView.revision), 1, 'Remount must restore the selected game and its pending command');
@@ -1121,7 +1151,7 @@ try {
   const snapshot = await page.evaluate(() => window.harnessView), lastMove = await frame.locator('#last-move').innerText();
   assert(snapshot.revision >= 2 && snapshot.revision <= 5);
   const readsBeforeRemount = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_get').length);
-  await page.locator('#remount').click();
+  await remountFrame();
   await page.waitForFunction(count => window.harnessCalls.filter(call => call.name === 'kingdown_get').length > count, readsBeforeRemount);
   await frame.locator('#last-move').filter({ hasText: lastMove }).waitFor();
   await idleBoard();
@@ -1129,7 +1159,7 @@ try {
   assert.deepEqual(await page.evaluate(() => ({ revision: window.harnessView.revision, fen: window.harnessView.fen })), { revision: snapshot.revision, fen: snapshot.fen });
   assert.equal(await page.evaluate(() => window.harnessCalls.findLast(call => call.name === 'kingdown_get').arguments.board_id), await page.evaluate(() => window.harnessWidgetState.privateContent.board_id), 'A replayed initial result fetches the board current game');
   await page.evaluate(() => { window.rejectNextGet = true; });
-  await page.locator('#remount').click();
+  await remountFrame();
   await frame.locator('#error').filter({ hasText: 'Harness saved-game read failed' }).waitFor();
   assert.equal(await frame.locator('#choices button').count(), 0, 'A failed saved-game read must not expose stale moves');
   assert(!/Your move|Their move/.test(await frame.locator('#status').innerText()), 'A failed read must not show the replayed position');
@@ -1311,7 +1341,7 @@ try {
   await openPlay(); await legacyStart('solo'); await idleBoard();
   const replacement=await page.evaluate(()=>window.harnessView.game_id); assert.notEqual(replacement,deleted.game_id);
   const recoveryReads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
-  await page.locator('#remount').click();
+  await remountFrame();
   await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>n,recoveryReads);
   await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
   assert.equal(await page.evaluate(()=>window.harnessView.game_id),replacement,'Deleted-game recovery survives immediate remount');
@@ -1398,7 +1428,8 @@ try {
     assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).count(),0,'An offer has no second Rematch button');
     const buddyDecline=await friendTool('kingdown_rematch',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'decline'}); assert(!buddyDecline.isError);
     const buddyOfferAgain=await friendTool('kingdown_rematch',{game_id:human.game_id,command_id:randomUUID(),expected_revision:buddyDecline._meta.view.revision,choice:'offer'}); assert(!buddyOfferAgain.isError);
-    await page.clock.fastForward(3100); await frame.locator('#over').getByRole('button',{name:'Accept',exact:true}).waitFor();
+    // Here the next end poll is due in up to 30 seconds (the daily-game step of pollDelay), not in 3.
+    await page.clock.fastForward(30000); await frame.locator('#over').getByRole('button',{name:'Accept',exact:true}).waitFor();
     const acceptCalls=await page.evaluate(()=>window.harnessCalls.length), acceptBoard=await page.evaluate(()=>window.harnessWidgetState.privateContent.board_id);
     await frame.locator('#over').getByRole('button',{name:'Accept',exact:true}).click();
     await page.waitForFunction(id=>window.harnessView.game_id!==id,human.game_id); await idleBoard();
@@ -1428,6 +1459,7 @@ try {
     await openPlay(); await legacyStart('friend'); await idleBoard();
     await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
     await page.evaluate(() => { window.holdNextGet = true; });
+    await page.clock.fastForward(5000);
     await page.waitForFunction(() => typeof window.releaseHeldGet === 'function');
     assert(await frame.locator('#page-back').isEnabled(), 'Background polling must not disable game controls');
     await openPlay(); await legacyStart('solo');
@@ -1443,12 +1475,14 @@ try {
     const code = /^Share this code: ([A-HJKMNP-Z2-9]{6})$/.exec(await frame.locator('#invitation').innerText())?.[1]; assert(code);
     const joined = await friendTool('kingdown_join',{code});
     assert(!joined.isError, JSON.stringify(joined.content));
+    await page.clock.fastForward(5000);
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     await clickSquare(4, 1); await clickSquare(4, 3);
     await idleBoard();
     const friend = await page.evaluate(() => window.harnessView);
     const replied = await friendTool('kingdown_move',{ game_id: friend.game_id, command_id: 'friend-reply', expected_revision: friend.revision, lan: 'e7-e5' });
     assert(!replied.isError);
+    await page.clock.fastForward(30000);
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor({ timeout: 35000 });
     assert.equal(await page.evaluate(() => window.harnessView.revision), friend.revision + 1);
     await openPlay(); await legacyStart('solo'); await idleBoard();
@@ -1466,7 +1500,7 @@ try {
     const joinedView = await page.evaluate(() => window.harnessView);
     const readsBeforeJoinRemount = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_get').length);
 
-    await page.locator('#remount').click();
+    await remountFrame();
     await page.waitForFunction(count => window.harnessCalls.filter(call => call.name === 'kingdown_get').length > count, readsBeforeJoinRemount);
     await frame.locator('#strip-me .player-name small').filter({ hasText: 'Black' }).waitFor({ timeout: 5000 });
     assert.equal(await page.evaluate(() => window.harnessMatchId), joinedView.game_id, 'Remount must keep the joined game instead of the original solo game');
@@ -1493,7 +1527,7 @@ try {
       const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
       const settingsReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length);
       await page.evaluate(({screen,base}) => { window.harnessNextView = screen === 'end' ? { ...base, status: 'finished', result: { winner: 0, reason: 'resign' } } : undefined; window.harnessWidgetState = { modelContent: {}, privateContent: { screen, sheet: undefined, board_id: window.harnessWidgetState.privateContent.board_id, pending: undefined } }; }, {screen,base:routeBase});
-      await page.locator('#remount').click();
+      await remountFrame();
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
       await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor(); await fits(screen,width);
       assert.deepEqual(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_get').arguments), { board_id: routeBoard }, 'A mount reads with the board ID alone');
@@ -1523,7 +1557,7 @@ try {
     await frame.locator('[data-screen="join"]:not([hidden])').waitFor();
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), reads, 'A chat join preview reads no board');
     assert(!await page.evaluate(code => JSON.stringify(window.harnessWidgetState).includes(code), invite.structuredContent.code), 'The preview code stays out of widget state');
-    await page.locator('#remount').click();
+    await remountFrame();
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
     await frame.locator('[data-screen="join"]:not([hidden])').waitFor();
     const own = await tool('kingdown_create', { kind: 'friend', options, colour: 'white' });
@@ -1535,7 +1569,7 @@ try {
         const opens = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_open').length);
         const oldBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
         reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
-        if (remount) await page.locator('#remount').click(); else await page.evaluate(result => window.harnessShow(result, true), error);
+        if (remount) await remountFrame(); else await page.evaluate(result => window.harnessShow(result, true), error);
         await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_open').length > n, opens);
         await frame.locator('[data-screen="join"]:not([hidden])').waitFor();
         await page.waitForFunction(old => !!window.harnessWidgetState.privateContent.board_id && window.harnessWidgetState.privateContent.board_id !== old, oldBoard);
@@ -1653,11 +1687,11 @@ try {
   await frame.locator('#retry').waitFor({ state: 'hidden' });
   await clickSquare(4, 1); assert(await frame.locator('#choices button').count() > 0);
   await page.evaluate(() => { window.harnessWidgetState = { modelContent: { game_id: window.harnessMatchId } }; });
-  await page.locator('#remount').click();
+  await remountFrame();
   await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
   await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
   await page.evaluate(() => { window.harnessWithoutWidgetState = true; window.harnessWidgetState = undefined; });
-  await page.locator('#remount').click();
+  await remountFrame();
   await page.waitForFunction(() => window.harnessWidgetState?.modelContent?.revision === 0);
   await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
   assert.equal(await page.evaluate(() => window.harnessWidgetState.modelContent.revision), 0, 'Hosts without widget state still receive standard model context');
