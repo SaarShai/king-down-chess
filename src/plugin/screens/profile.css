@@ -22,7 +22,7 @@
 #profile-sheet .rows .feats { flex: none; gap: 2px; }
 #profile-sheet .rows .feats .icon { width: 14px; height: 14px; }
 #profile-sheet .res { width: 18px; flex: none; text-align: center; font-family: var(--font-display); font-weight: 700; }
-#profile-sheet .res-w { color: #3b671e; } #profile-sheet .res-l { color: var(--accent); } #profile-sheet .res-d { color: var(--ink-soft); }
+#profile-sheet .res-w { color: #33591a; } #profile-sheet .res-l { color: var(--accent); } #profile-sheet .res-d { color: var(--ink-soft); }
 /* A narrow scroll moves the feature icons under the name, so the name and reason keep their width. */
 @container (max-width: 240px) {
   #profile-sheet .rows li, #profile-open button { flex-wrap: wrap; }

@@ -3,6 +3,7 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser } from 'playwright';
+import sharp from 'sharp';
 import { startHarness } from './plugin-ui-harness';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { randomUUID } from 'node:crypto';
@@ -381,6 +382,26 @@ it('keeps 4-digit totals apart and Profile rows readable at 320 × 568', async (
       return (lum([229, 214, 188]) + 0.05) / (lum(getComputedStyle(e).color.match(/\d+/g)!.slice(0, 3).map(Number)) + 0.05);
     });
     expect(contrast).toBeGreaterThanOrEqual(4.5);
+  } finally { await close(); }
+});
+// One column (600 to 790 px scrolls) stretches the darker right edge of the parchment under the W column (M13, iPad portrait).
+it.each([[768, 1024], [820, 600]])('keeps each W mark at 4.5:1 on the real parchment at %i × %i', async (width, height) => {
+  const { frame, close } = await openAt(width, height);
+  const lum = ([r, g, b]: number[]) => { const [lr, lg, lb] = [r, g, b].map(c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }); return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb; };
+  try {
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await frame.locator('#profile-history li').first().waitFor(); await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
+    const ink = lum(await frame.locator('#profile-history .res-w').first().evaluate(e => getComputedStyle(e).color.match(/\d+/g)!.slice(0, 3).map(Number)));
+    // The parchment under each mark: the median pixel of its box with the ink hidden.
+    await frame.locator('#profile-history').evaluate(list => list.querySelectorAll<HTMLElement>('.res').forEach(e => { e.style.color = 'transparent'; }));
+    const marks = frame.locator('#profile-history .res-w'), ratios: number[] = [];
+    for (let i = 0; i < await marks.count(); i++) {
+      const { data, info } = await sharp(await marks.nth(i).screenshot()).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+      const paper = Array.from({ length: info.width * info.height }, (_, p) => lum([data[p * 3], data[p * 3 + 1], data[p * 3 + 2]])).sort((a, b) => a - b)[info.width * info.height >> 1];
+      ratios.push((paper + 0.05) / (ink + 0.05));
+    }
+    expect(ratios.length).toBeGreaterThanOrEqual(6);
+    expect(Math.min(...ratios)).toBeGreaterThanOrEqual(4.5);
   } finally { await close(); }
 });
 it.each(['de-DE', 'ja-JP', 'en-US'])('uses one English date style in Play, Profile and friend codes under %s', async locale => {
