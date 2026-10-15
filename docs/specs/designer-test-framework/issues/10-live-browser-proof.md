@@ -420,3 +420,38 @@ full suite and build with a one-hour limit. Source bundle SHA-256 is
 `93c455ec16c9cd772d4b9de1be8203e1a734399687217c17e0213c1f7d8b1de3`.
 The first recheck is 11:50 UTC, combined with the permitted Kaggle read.
 No new Kaggle request is made at this checkpoint.
+
+## Final machine check and evidence backup
+
+The permitted 11:54 UTC check finds the M1 recheck complete. At commit
+`6489c08f`, the full suite passes 2,395 tests and skips 129. All 50 art checks
+and the production build pass. Seven terminal files match the remote SHA-256
+manifest. The collection receipt is
+`results/framework-check-m1-20261015/recheck/collection.json` on the card.
+The first failed run and both remote source folders remain. No additional
+simulation games run on M1. No further M1 query is needed.
+
+The scheduled Kaggle read returns HTTP 403 for the exact dataset and HTTP 404
+for notebook status. The signed-in account is `saarshai`. Its private dataset
+search shows no result for the exact reference. The notebook editor shows zero
+saved versions and an empty history. The home page's generic “Commit complete”
+label does not establish a saved batch. The history is the direct evidence.
+Screenshots and the read-only SDK result are saved in `recovery-kaggle-2/`.
+`final-read-evidence.json` records the observations and limits.
+
+Recovery 2 stops before notebook submission. Its dataset creation outcome
+remains unconfirmed; no accepted receipt or Kaggle game result exists. No
+upload, dataset mutation, notebook submission or approval is repeated. This
+is a clear blocker for the full proof. The browser study stays at version 3
+with the verified, explicitly incomplete four-game link. There is no full
+eight-game pass, balance claim or rule change.
+
+One evidence backup starts detached at 12:02:24 UTC, PID 37781. Its state is
+`state/study-backups/framework-machine-work-20261015-final` on the card.
+It uses the main results-store backup command without remote collection.
+Its manifest covers the full original proof folder and both M1 validation
+runs. The project tool has a 90-minute limit; downloaded-byte verification
+has a further 30-minute limit. Preserve its maintenance lock and do not start
+another upload. The next local check is 12:45 UTC. No further worker query is
+scheduled. Record the receipt and exact decoded SHA-256 counts after proof
+passes, then remove the follow-up. Backup is pending at this checkpoint.
