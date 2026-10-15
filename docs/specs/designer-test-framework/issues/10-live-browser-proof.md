@@ -631,3 +631,33 @@ create, version, delete or upload a dataset, or submit a notebook, while the
 outcome remains uncertain. The browser study stays incomplete at four of
 eight games. The prior 182-file verified backup remains valid; new recovery
 evidence still needs its own backup after the read-only investigation.
+
+## Existing dataset verified for first notebook submission
+
+The permitted 14:47 UTC read resolves dataset creation. Dataset ID 12608110
+has the exact reference, private visibility, ready status and version 1.
+Its license is Other. The exact notebook remains ID 138796673 at version
+zero. No earlier game batch exists. No dataset mutation is repeated.
+
+All four version-1 files are downloaded and checked against the frozen
+payload: source, bundle, supervisor and config. Their decoded hashes and
+1,980,476 total bytes match. The notebook loader binds the same hashes.
+`verified-dataset-v1.json` and `recovery4-read-only.json` in the rejection
+cause state folder retain the proof. The original unknown launch state stays
+unchanged; the new evidence resolves it without a false accepted receipt.
+
+A separate one-shot process prepares the first notebook submission at
+14:50:48 UTC, PID 66625. It does not create, version or upload a dataset.
+It checks account capacity, exact notebook version zero and private dataset
+version 1 again before one submission. The frozen four original jobs and
+25-minute limit stay fixed; the notebook also has a 1,500-second limit.
+Any uncertain submission stops without a retry. The hard deadline stays
+21:45 UTC. A fresh receipt is required before a worker check is scheduled.
+
+Script `/tmp/kd-submit-verified-dataset.py` has SHA-256
+`597f09f501afe4aacda8389eeb5d1a4574119245d6ae1d886f803bdbb723d632`.
+Log: `/tmp/kd-submit-verified-dataset.log`. Dispatch: `notebook-dispatch.json`
+in the rejection cause state folder. The next local check is 15:12 UTC.
+The first worker read waits until one hour after acceptance. No accepted
+notebook receipt is claimed at this checkpoint. Full result linking still
+requires all eight games, replay validation and new verified backup.
