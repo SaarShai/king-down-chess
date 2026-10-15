@@ -538,7 +538,9 @@ it('keeps both sides in Moves and restores them after Remount', async () => {
       const view = app.memory.view;
       await app.call('kingdown_move', {game_id:view.game_id,command_id:'history-move',expected_revision:view.revision,lan:'e2-e4'}, true);
     });
-    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.turn)).toBe(0);
+    // Wait for the computer's reply on the board, as the other tests do, not for a bare 1 s poll.
+    await frame.locator('#last-move').filter({ hasText: 'Black' }).waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.turn)).toBe(0);
     await frame.locator('#moves-line').click();
     const lines = await frame.locator('#board-sheet .sheet-body p').allTextContents();
     expect(lines).toHaveLength(2); expect(lines[0]).toContain('White pawn e2 to e4.'); expect(lines[1]).toContain('Black');
