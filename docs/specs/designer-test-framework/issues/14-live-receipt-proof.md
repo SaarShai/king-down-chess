@@ -62,3 +62,17 @@ pending its account audit. No accepted remote receipt is claimed yet.
 Screenshot: `receipt-live-approved.jpg` in this chat's visualization folder.
 The next bounded local launch check is 20:46 UTC. No worker query occurs before
 its recorded check time. No second approval or preparation is permitted.
+
+## Unconfirmed dataset response
+
+At 20:46 UTC the studio reports launch-unknown. Dataset creation returns status
+ok, the exact requested URL and no error, but its ref does not pass identity
+validation. The saved record does not contain that ref, so its exact value and
+cause remain unknown. The installed SDK returns an empty string for an absent
+ref; absence alone does not explain this result.
+
+There is no dataset receipt, notebook attempt or accepted run receipt. The
+driver stops before notebook submission. No mutation is repeated. Evidence is
+`dataset-unknown-checkpoint.json` in the run results. The first scheduled check
+is 21:33:20.555 UTC; the next bounded follow-up is 21:35 UTC. Results, backup
+and browser linking remain pending. No competing backup starts.
