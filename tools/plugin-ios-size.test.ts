@@ -279,6 +279,16 @@ it('reflows New game at 200% zoom (197 CSS px): no sideways scroll, every row ta
     for (const name of ['Fairy pieces', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).check({ timeout: 3000 });
     await frame.getByRole('radio', { name: 'Strong', exact: true }).locator('..').click({ timeout: 3000 });
     expect(await frame.locator('#setup-body').evaluate(e => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(1);
+    // The segments wrap two to a line; a tap 1 px inside each edge selects that segment, not the one below.
+    const misses = await frame.locator('#setup-body .seg-row label').evaluateAll(labels => labels.filter(l => (l as HTMLElement).offsetParent).flatMap(label => {
+      label.scrollIntoView({ block: 'center' });
+      const r = label.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      return [[x, r.top + 1], [x, r.bottom - 1], [r.left + 1, y], [r.right - 1, y]].flatMap(([px, py]) => {
+        const hit = document.elementFromPoint(px, py)?.closest('label');
+        return hit === label ? [] : [`${label.textContent}: ${Math.round(px)},${Math.round(py)} → ${hit?.textContent}`];
+      });
+    }));
+    expect(misses).toEqual([]);
     // The "kinds" button sits clear of the row text.
     const clear = await frame.locator('#setup-pieces').evaluate(button => {
       const b = button.getBoundingClientRect(), range = document.createRange(); range.selectNodeContents(button.closest('label')!.querySelector('.grow')!); const t = range.getBoundingClientRect();

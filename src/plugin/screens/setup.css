@@ -7,6 +7,8 @@
   #setup-body .modes { grid-template-columns: minmax(0, 1fr); }
   #setup-body .seg-row { flex-wrap: wrap; }
   #setup-body .seg-row label { flex-basis: 50%; }
+  /* The first line keeps its lower edge against the hit layers of the second line. */
+  #setup-body .seg-row label:nth-child(-n+2) { z-index: 1; }
   #setup-body label.check.toggle { flex-wrap: wrap; }
   #setup-body label.check.toggle .grow { flex: 1 1 8em; min-width: 0; overflow-wrap: anywhere; }
   #setup-body label.check.toggle.sub { margin-left: 12px; }
