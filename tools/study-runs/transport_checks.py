@@ -69,6 +69,57 @@ with patch('time.sleep') as sleep:
     with patch.object(API,'kernels_status',side_effect=RateLimit()) as blocked:
         fails(lambda:kaggle.audit(API(1)))
         assert blocked.call_count==3
+# The dataset loader verifies every mounted byte before executable payload is staged.
+loader=load('kaggle-loader')
+with tempfile.TemporaryDirectory() as temp:
+    root=Path(temp); mount=root/'input'/'frozen-run';mount.mkdir(parents=True)
+    blobs={'source.bin':b'archive','bundle.bin':b'{}','supervisor.bin':b'raise RuntimeError("must not execute")','config.bin':b'{"runId":"test"}'}
+    for name,data in blobs.items():(mount/name).write_bytes(data)
+    bound={'dataset':'frozen-run','files':{name:{'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()} for name,data in blobs.items()}}
+    assert loader.stage(bound,root/'input',root/'stage')['runId']=='test'
+    for name,data in blobs.items():
+        (mount/name).write_bytes(b'!'*len(data))
+        fails(lambda:loader.stage(bound,root/'input',root/'bad'))
+        assert not (root/'bad').exists()
+        (mount/name).write_bytes(data)
+    (mount/'source.bin').unlink();(root/'outside').write_bytes(b'archive');(mount/'source.bin').symlink_to(root/'outside')
+    fails(lambda:loader.stage(bound,root/'input',root/'bad'))
+
+with tempfile.TemporaryDirectory() as temp, patch('time.sleep'):
+    root=Path(temp);(root/'run.py').write_text('small loader');data=root/'payload';data.mkdir()
+    for name in ('source.bin','bundle.bin','supervisor.bin','config.bin'):(data/name).write_bytes(b'payload')
+    calls=[]
+    class DatasetAPI(API):
+        config_values={'username':'test'}
+        def with_retry(self,call,*args,**kwargs):raise AssertionError('mutation retry wrapper used')
+        def dataset_create_new(self,folder,**kw):
+            calls.append('create');assert kw==dict(public=False,quiet=True,convert_to_csv=False)
+            assert json.loads((Path(folder)/'dataset-metadata.json').read_text())['licenses']==[{'name':'copyright-authors'}]
+            return self.with_retry(lambda:NS(error=None,ref='test/frozen-run'))()
+        def dataset_status(self,ref,format=None):return '{"current_version_number":1}' if format else 'ready'
+        def kernels_push(self,folder,**kw):
+            calls.append('push');meta=json.loads((Path(folder)/'kernel-metadata.json').read_text())
+            assert meta['is_private'] and meta['dataset_sources']==['test/frozen-run']
+            return NS(error=None,ref='test/frozen-run')
+    api=DatasetAPI(0);request=dict(action='launch',folder=str(root),name='frozen-run')
+    assert kaggle.execute(api,request)['remoteId']=='test/frozen-run' and calls==['create','push']
+    (data/'dataset-metadata.json').unlink();calls.clear()
+    def uncertain_create(*args,**kw):
+        calls.append('create');raise TimeoutError()
+    api.dataset_create_new=uncertain_create
+    fails(lambda:kaggle.execute(api,request));assert calls==['create']
+    (data/'dataset-metadata.json').unlink();calls.clear();api=DatasetAPI(0)
+    def uncertain_push(*args,**kw):
+        calls.append('push');raise TimeoutError()
+    api.kernels_push=uncertain_push
+    fails(lambda:kaggle.execute(api,request));assert calls==['create','push']
+    (data/'dataset-metadata.json').unlink();calls.clear();api=DatasetAPI(0)
+    api.dataset_status=lambda ref,format=None:'{"current_version_number":2}' if format else 'ready'
+    fails(lambda:kaggle.execute(api,request));assert calls==['create']
+    (root/'run.py').write_bytes(b'x'*1_000_000)
+    with patch.object(kaggle,'audit') as audit:
+        fails(lambda:kaggle.execute(api,request));audit.assert_not_called()
+
 fails(lambda:backup.fresh_receipt([],10))
 fails(lambda:backup.fresh_receipt([{'verified_epoch':9}],10))
 assert backup.fresh_receipt([{'verified_epoch':10}],10)['verified_epoch']==10

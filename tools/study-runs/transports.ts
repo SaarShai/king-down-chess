@@ -82,15 +82,32 @@ export function createTransports(mainRoot:string, exec:Execute=execute):Record<'
   };
   async function kaggleCall(action:string,i:DispatchInput,extra:Record<string,string>={}) {
     check(i);const env={...process.env,KAGGLE_API_TOKEN:(await readFile(join(mainRoot,'.secrets/kaggle_api_token'),'utf8')).trim()};
-    const reply=JSON.parse(await exec('/Users/za/.local/share/uv/tools/kaggle/bin/python',[join(HERE,'kaggle-driver.py')],{input:JSON.stringify({action,name:notebookName(i),...extra}),env,timeout:action==='collect'?180000:(action==='preflight'||action==='launch')?1020000:120000}));
+    const reply=JSON.parse(await exec('/Users/za/.local/share/uv/tools/kaggle/bin/python',[join(HERE,'kaggle-driver.py')],{input:JSON.stringify({action,name:notebookName(i),...extra}),env,timeout:action==='collect'?180000:action==='launch'?1800000:action==='preflight'?1020000:120000}));
     if(reply.error)throw new Error(`Kaggle ${action}: ${String(reply.error).slice(0,160)}`);return reply;
   }
+  async function kagglePayload(i:DispatchInput) {
+    await payload(i);
+    const config={...i,...await binding(i),directory:'/tmp/king-down-study',outputDirectory:'/kaggle/working/out'};
+    const files:Record<string,Buffer>={
+      'source.bin':await readFile(i.sourceArchive), 'bundle.bin':await readFile(i.bundlePath),
+      'supervisor.bin':await readFile(join(HERE,'supervisor.py')), 'config.bin':Buffer.from(JSON.stringify(config)),
+    };
+    const dataset=notebookName(i);
+    if(dataset.length>50)throw new Error('Kaggle dataset name limit');
+    const manifest=Object.fromEntries(Object.entries(files).map(([name,data])=>[name,{bytes:data.length,sha256:createHash('sha256').update(data).digest('hex')}]));
+    const template=await readFile(join(HERE,'kaggle-loader.py'),'utf8');
+    const script=template.replace('# RUN_BINDING','BOUND = json.loads('+JSON.stringify(JSON.stringify({dataset,files:manifest}))+')');
+    if(Buffer.byteLength(script)>=1_000_000)throw new Error('Kaggle notebook source size limit');
+    return {files,script};
+  }
   const kaggle:RunTransport={
-    async preflight(i){await payload(i);await kaggleCall('preflight',i);},
+    async preflight(i){await kagglePayload(i);await kaggleCall('preflight',i);},
     async launch(i){
-      await payload(i);const bound=await binding(i);const folder=join(i.directory,'kaggle-'+i.partId);await mkdir(folder,{recursive:false});
-      const encoded=JSON.stringify({archive:(await readFile(i.sourceArchive)).toString('base64'),bundle:(await readFile(i.bundlePath)).toString('base64'),supervisor:(await readFile(join(HERE,'supervisor.py'))).toString('base64'),config:{...i,...bound,directory:'/tmp/king-down-study',outputDirectory:'/kaggle/working/out'}});
-      await writeFile(join(folder,'run.py'),'import base64,json,pathlib,sys,time\nstarted=time.monotonic()\np=json.loads('+JSON.stringify(encoded)+')\nr=pathlib.Path("/tmp/king-down-study")\nr.mkdir(exist_ok=False)\np["config"]["_startedMonotonic"]=started\nfor k,n in [("archive","source.tar.gz"),("bundle","bundle.json"),("supervisor","supervisor.py")]: (r/n).write_bytes(base64.b64decode(p[k]))\n(r/"config.json").write_text(json.dumps(p["config"]))\nsys.path.insert(0,str(r))\nfrom supervisor import run\nraise SystemExit(run(p["config"]))\n');
+      const {files,script}=await kagglePayload(i);
+      const folder=join(i.directory,'kaggle-'+i.partId);await mkdir(folder,{recursive:false});
+      const data=join(folder,'payload');await mkdir(data);
+      for(const [name,bytes] of Object.entries(files))await writeFile(join(data,name),bytes);
+      await writeFile(join(folder,'run.py'),script);
       const reply=await kaggleCall('launch',i,{folder});return {remoteId:reply.remoteId,acceptedAt:new Date().toISOString()};
     },
     async status(i,receipt):Promise<RemoteStatus>{try {const value=await kaggleCall('status',i);if(receipt&&receipt.remoteId!==value.remoteId)throw new Error('Wrong remote receipt');return {...value,completedGames:null,message:''};}catch{return {remoteId:receipt?.remoteId??notebookName(i),state:'unknown',completedGames:null,message:'Remote state is unavailable'};}},

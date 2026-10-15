@@ -62,12 +62,38 @@ def execute(api, request):
     action = request['action']
     user = api.config_values['username']
     ref = user+'/'+request['name']
+    if action == 'launch' and (Path(request['folder'])/'run.py').stat().st_size >= 1_000_000:
+        raise RuntimeError('notebook source size limit')
     if action in ('preflight','launch'):
         if audit(api)>=5: raise RuntimeError('no account capacity')
     if action == 'preflight': return {'remoteId':ref}
     if action == 'launch':
         folder = Path(request['folder'])
-        metadata = dict(id=ref,title=request['name'],code_file='run.py',language='python',kernel_type='script',is_private=True,enable_gpu=False,enable_tpu=False,enable_internet=True,dataset_sources=[],kernel_sources=[],competition_sources=[],model_sources=[])
+        payload = folder/'payload'
+        names = {'source.bin','bundle.bin','supervisor.bin','config.bin'}
+        files = list(payload.iterdir())
+        if {p.name for p in files} != names or any(p.is_symlink() or not p.is_file() or p.stat().st_size > 64*1024*1024 for p in files):
+            raise RuntimeError('invalid dataset payload')
+        (payload/'dataset-metadata.json').write_text(json.dumps(dict(id=ref,title=request['name'],licenses=[{'name':'copyright-authors'}],description='Private frozen run input. Existing author rights are retained.')))
+        # The SDK retries dataset creation by default. Do not repeat a mutation.
+        retry = api.with_retry
+        api.with_retry = lambda call, *args, **kwargs: call
+        try:
+            created = api.dataset_create_new(str(payload), public=False, quiet=True, convert_to_csv=False)
+        finally: api.with_retry = retry
+        if created.error or created.ref != ref: raise RuntimeError('dataset creation not confirmed')
+        (folder/'dataset-receipt.json').write_text(json.dumps({'ref':ref,'state':'created'}))
+        for attempt in range(6):
+            status = api.dataset_status(ref)
+            if status == 'ready':
+                detail = json.loads(api.dataset_status(ref, format='json(current_version_number)'))
+                if detail['current_version_number'] != 1: raise RuntimeError('dataset not ready')
+                break
+            if status not in ('not_yet_persisted','blobs_received','blobs_decompressed','blobs_copied_to_sds','individual_blobs_compressed','reprocessing') or attempt == 5:
+                raise RuntimeError('dataset not ready')
+            time.sleep(30)
+        (folder/'dataset-receipt.json').write_text(json.dumps({'ref':ref,'state':'ready','version':1}))
+        metadata = dict(id=ref,title=request['name'],code_file='run.py',language='python',kernel_type='script',is_private=True,enable_gpu=False,enable_tpu=False,enable_internet=True,dataset_sources=[ref],kernel_sources=[],competition_sources=[],model_sources=[])
         (folder/'kernel-metadata.json').write_text(json.dumps(metadata))
         reply = api.kernels_push(str(folder), timeout='28800')
         if reply.error or reply.ref != ref: raise RuntimeError('submission not confirmed')
@@ -105,6 +131,6 @@ if __name__ == '__main__':
     except BaseException as error:
         # Return only known local failures or an HTTP code, never a service body.
         http = getattr(getattr(error, 'response', None), 'status_code', None)
-        known = {'account audit time limit', 'account audit rate limit', 'account audit unavailable', 'unknown account state', 'account audit exceeds limit', 'notebook identity unavailable', 'notebook status unavailable', 'no account capacity', 'submission not confirmed'}
+        known = {'account audit time limit', 'account audit rate limit', 'account audit unavailable', 'unknown account state', 'account audit exceeds limit', 'notebook identity unavailable', 'notebook status unavailable', 'no account capacity', 'submission not confirmed', 'notebook source size limit', 'invalid dataset payload', 'dataset creation not confirmed', 'dataset not ready'}
         message = f'HTTP {http}' if isinstance(http, int) and 400 <= http <= 599 else str(error) if type(error) is RuntimeError and str(error) in known else 'operation failed; outcome may be unknown'
         print(json.dumps({'error': message}))

@@ -249,3 +249,57 @@ Screenshot: `live-partial-linked.png` in this chat's visualization folder.
 The owner is told that M1 replay, evidence backup and partial browser linking
 finish, but Kaggle blocks the full proof. The follow-up is removed after this
 checkpoint. No additional games, adoption, deploy or merge occurs.
+
+## Payload repair plan
+
+The owner asks to remove the Kaggle source-size failure and determine whether
+the prior launch was rejected, without retrying an uncertain launch. Keep the
+old run immutable. Check the exact notebook with an authenticated known-present
+control. A missing or forbidden read alone does not prove rejection.
+
+Move the frozen archive and bundle into a private, run-specific Kaggle dataset.
+The notebook carries only a small loader and exact hashes. Check loader size
+before account calls and before submission. Create the dataset and submit the
+notebook once; preserve uncertain outcomes. Test large payloads, corrupted
+mounted bytes, unsafe paths, private metadata and no submission retry. Preserve
+the original archive, source manifest and supervisor checks. Launch no work
+unless the previous submission is conclusively resolved within the owner's go.
+
+The repaired transport keeps the full frozen archive and bundle in a private,
+run-specific dataset. Binary filenames avoid archive extensions in the uploaded input.
+A small loader verifies all four file sizes and SHA-256 hashes before it stages
+or imports the supervisor. It rejects missing or ambiguous mounts and paths
+outside the input root. Existing supervisor and source-manifest checks remain.
+The dataset retains original-author copyright. It is never public or versioned
+by this adapter. Dataset creation disables the SDK's default mutation retry;
+notebook submission also remains a single call. A bounded readiness check
+requires dataset version 1. Both preflight and the submission path enforce the
+notebook source-size limit before account or mutation calls.
+
+Offline checks cover a two-megabyte source payload, unchanged binary files,
+private metadata, exact hashes, corrupted bytes, path escape, wrong dataset
+version, uncertain dataset creation, uncertain notebook submission and source
+size rejection before the account audit. No dataset or notebook is created by
+these checks. The production dataset upload remains untested because the
+previous submission has not been conclusively resolved.
+
+A new authenticated read of the exact old notebook returns HTTP 403. A known
+notebook owned by the same account reads successfully with version 8. An
+account search for the exact old notebook name returns one private-notebook
+placeholder with no reference or ID, not an identifiable run. This does not
+prove rejection or acceptance. Evidence is in `/tmp/kd-earlier-launch-read.log`
+and `/tmp/kd-earlier-launch-list.py`. No old or replacement launch is sent.
+The owner is told that the payload repair can be verified offline, but the full
+live test remains blocked by the unresolved prior submission. Saved study
+version 3 still retains the backed-up, explicitly incomplete M1 evidence.
+
+SDK and metadata contracts checked against the installed SDK and
+<https://github.com/Kaggle/kaggle-cli/blob/main/docs/datasets_metadata.md>.
+
+The browser also opens the exact notebook URL and shows “We can't find that
+page.” A browser missing-page result does not resolve private access or prove
+that a submission never ran. The read-only findings are saved in
+`state/study-runs/launch-investigation-32c624f2d6ae.json` on the card.
+Six transport tests (including the Python negative controls), typecheck, 50
+art checks and doc checks pass. No new campaign or replacement run is approved
+or sent by this repair. The full proof stays blocked.

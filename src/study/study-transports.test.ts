@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, readFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -10,6 +10,20 @@ const temps:string[]=[];
 afterEach(async()=>{await Promise.all(temps.splice(0).map(p=>rm(p,{recursive:true,force:true})));});
 async function fixture():Promise<DispatchInput>{const directory=await mkdtemp(join(tmpdir(),'kd-transport-'));temps.push(directory);const sourceArchive=join(directory,'source.tar.gz'),bundlePath=join(directory,'bundle.json');await writeFile(sourceArchive,'frozen source');await writeFile(bundlePath,JSON.stringify({hash:'a'.repeat(64),id:'run-one',nodeVersion:'26.0.0',parts:[{id:'part-one',machine:'m1',workers:8}],sourceArchiveSha256:createHash('sha256').update('frozen source').digest('hex')}));return {runId:'run-one',bundleHash:'a'.repeat(64),partId:'part-one',machine:'m1',workers:8,directory,sourceArchive,bundlePath,nodeVersion:'26.0.0',limitSeconds:28800};}
 describe('study transport boundaries',()=>{
+  it('keeps large frozen inputs out of notebook source',async()=>{
+    const input=await fixture();input.machine='kaggle';input.workers=4;
+    const archive=Buffer.alloc(2_000_000,123);await writeFile(input.sourceArchive,archive);
+    const bundle=JSON.parse(await readFile(input.bundlePath,'utf8'));bundle.parts[0].machine='kaggle';bundle.parts[0].workers=4;
+    bundle.sourceArchiveSha256=createHash('sha256').update(archive).digest('hex');await writeFile(input.bundlePath,JSON.stringify(bundle));
+    await mkdir(join(input.directory,'.secrets'));await writeFile(join(input.directory,'.secrets/kaggle_api_token'),'fixture');
+    const {kaggle}=createTransports(input.directory,async()=>JSON.stringify({remoteId:'test/run-one'}));
+    await kaggle.preflight(input);await kaggle.launch(input);
+    const folder=join(input.directory,'kaggle-part-one');
+    expect((await readFile(join(folder,'run.py'))).length).toBeLessThan(1_000_000);
+    expect(await readFile(join(folder,'payload/source.bin'))).toEqual(archive);
+    expect(await readFile(join(folder,'payload/bundle.bin'))).toEqual(await readFile(input.bundlePath));
+    expect(await readFile(join(folder,'run.py'),'utf8')).toContain(bundle.sourceArchiveSha256);
+  });
   it('checks all identity facts and availability before each mutation',async()=>{
     const calls:string[]=[];const input=await fixture();const {m1}=createTransports('/not-read',async(command,args)=>{expect(command).toBe('ssh');calls.push(args.at(-1)!);return '';});
     await m1.preflight(input);const receipt=await m1.launch(input);expect(receipt.remoteId).toContain('run-one-part-one');
