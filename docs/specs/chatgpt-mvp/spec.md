@@ -40,7 +40,7 @@ The app runs as one page. A chat request shows a small inline card. Setup, the b
 | Q9 | Kings and powers | Six kings, two powers each. Tap the coin: pick a king, then one of its two powers. Both players may pick the same king. With the toggle on, there is no "No power". Defaults: White Spirit with Mercy, Black Shadow with Darkness. The computer takes the default for its colour. With the toggle off: White shows the Spirit King and Black the Shadow King, with no powers. |
 | Q19 | Cards and powers | With Cards on, the king picker offers only the powers that are always on: Holy Light, Mercy, Death Touch, Darkness and March. (The engine refuses a hand together with a power that has uses.) |
 | Q20 | Cards in "all" | 21 cards: Freeze, Ice Wall, Strike, Haste, Flight, Sacrifice, March, Leap, Salvation, Mirror B, Firewall, Earth Quake, Burn, Fire Starter, Control, Rally, Morph P, Mimic, Vault, Curse, Sky Lift. Out: Rage, Mirror, Rescue, the lab cards and the Spawn cards. |
-| Q20 | The deal | 4 cards, random from the checked cards, the same 4 for both players. The "all" sub-menu keeps at least 4 cards checked. |
+| Q20 | The deal | Both players get the same 4 cards. Use all cards accepts a pool of 4 or more cards and deals a random 4. Pick four starts empty and deals exactly those 4. The pool check runs at Done only. |
 | Q21 | Open cards | Both players see both hands. A played card is gone only for the player who played it. |
 | Q22 | Card look | A simple face: the name, one line of rule, and the art where art exists (10 of the 21). |
 | Q10 | Score | A Glicko-2 rating (start 1500, "?" while the rating deviation is 110 or more). Only games against people change it; every such game counts. |

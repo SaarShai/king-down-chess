@@ -19,7 +19,6 @@ const pieceLines = { A: 'Shoots without moving.', L: 'Jumps over its own pieces.
 /** The rules of a game with king powers; a game without them plays DEFAULT_RULES (src/match/worker.ts). */
 export const kingRules = powersRules({ ...DEFAULT_RULES, ...POWERS_BALANCED });
 let cardMode: 'all' | 'four' = 'all';
-let selectedCard: CardName | undefined;
 const mounted = (window as Window & { openai?: WidgetHost }).openai?.widgetState?.privateContent;
 const restored = mounted?.pending;
 let draft: SetupState | undefined, starting = false, slow = false, recovering = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
@@ -74,8 +73,8 @@ function render() {
   $('setup-deal').hidden = !o.cards;
   $('setup-deal-note').textContent = cardMode === 'four' ? 'Pick four. Both players get these cards.' : 'Use all cards. These are examples. The deal takes 4 at random from your pool.';
   const cards = o.cardPool.slice(0, 4), rules = o.kingPowers ? kingRules : DEFAULT_RULES;
-  $('setup-card-grid').innerHTML = cards.map(card => `<button type="button" class="card-face" data-card="${card}" aria-pressed="${card === selectedCard}"><span class="cf-art">${cardArt(card)}</span><span class="cf-text"><b>${cardName(card)}</b><small>${ruleLine(cardText(card, rules))}</small><span class="cf-cost">${cardCost(card, rules)}</span></span></button>`).join('');
-  $('setup-card-grid').querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.onclick = () => { selectedCard = button.dataset.card as CardName; $('setup-card-grid').querySelectorAll('button').forEach(face => face.setAttribute('aria-pressed', String(face === button))); }; });
+  $('setup-card-grid').innerHTML = cards.map(card => `<button type="button" class="card-face" data-card="${card}" aria-haspopup="dialog" aria-label="Choose cards: ${cardName(card)}"><span class="cf-art">${cardArt(card)}</span><span class="cf-text"><b>${cardName(card)}</b><small>${ruleLine(cardText(card, rules))}</small><span class="cf-cost">${cardCost(card, rules)}</span></span></button>`).join('');
+  $('setup-card-grid').querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.onclick = () => cardsSheet(button.dataset.card as CardName); });
   $('setup-your-king').hidden = !o.kingPowers; $('setup-kings-off').hidden = o.kingPowers;
   const pick = shownKing(draft); $<HTMLImageElement>('setup-king').querySelector('img')!.src = art(`ui/emblems/${pick.king.toLowerCase()}.webp`);
   $('setup-king-name').innerHTML = `<b>${pick.king}</b> · ${POWER_NAME[pick.power]}`;
@@ -108,14 +107,18 @@ function poolSheet(kind: 'pieces' | 'cards') {
     body.scrollTop = scroll; body.querySelector<HTMLInputElement>(`input[value="${focus}"]`)?.focus({ preventScroll: true });
   }; draw();
 }
-function cardsSheet() {
+function cardsSheet(card?: CardName) {
   let edited = draft!, mode = cardMode;
-  const dialog = sheet('cards', 'Cards', render), body = dialog.querySelector<HTMLElement>('.sheet-body')!, count = dialog.querySelector('.foot-count')!;
+  const allPool = cardMode === 'all' ? draft!.options.cardPool : [...DEAL_CARDS];
+  const dialog = sheet('cards', 'Cards', () => {
+    render();
+    if (card) ($('setup-card-grid').querySelector<HTMLButtonElement>(`[data-card="${card}"]`) ?? $('setup-cards')).focus();
+  }), body = dialog.querySelector<HTMLElement>('.sheet-body')!, count = dialog.querySelector('.foot-count')!;
   const draw = () => {
     const scroll = body.scrollTop, focus = (document.activeElement as HTMLInputElement)?.value, o = edited.options;
     body.innerHTML = `${segment('card-mode', 'Choose cards', ['Use all cards', 'Pick four'])}<p class="sheet-lead">${mode === 'four' ? 'Choose exactly 4 cards. Both players get those cards.' : 'Keep at least 4 cards checked. Both players get the same random 4.'}</p><div class="card-grid">${DEAL_CARDS.map(card => `<label class="card-face${o.cardPool.includes(card) ? '' : ' out'}"><span class="cf-art">${cardArt(card)}</span><span class="cf-text"><b>${cardName(card)}</b><small>${ruleLine(cardText(card, o.kingPowers ? kingRules : DEFAULT_RULES))}</small><span class="cf-cost">${cardCost(card, o.kingPowers ? kingRules : DEFAULT_RULES)}</span></span><input type="checkbox" value="${card}" aria-label="${cardName(card)}" ${o.cardPool.includes(card) ? 'checked' : ''} ${mode === 'four' && o.cardPool.length >= 4 && !o.cardPool.includes(card) ? 'disabled' : ''}></label>`).join('')}</div>`;
     count.textContent = mode === 'four' ? `${o.cardPool.length} of 4 cards` : `${o.cardPool.length} of ${DEAL_CARDS.length} cards`;
-    body.querySelectorAll<HTMLInputElement>('[name="card-mode"]').forEach(input => { input.checked = input.value === (mode === 'four' ? 'Pick four' : 'Use all cards'); input.onchange = () => { mode = input.value === 'Pick four' ? 'four' : 'all'; edited = { ...edited, options: { ...edited.options, cardPool: mode === 'four' ? [] : [...DEAL_CARDS] } }; draw(); }; });
+    body.querySelectorAll<HTMLInputElement>('[name="card-mode"]').forEach(input => { input.checked = input.value === (mode === 'four' ? 'Pick four' : 'Use all cards'); input.onchange = () => { mode = input.value === 'Pick four' ? 'four' : 'all'; edited = { ...edited, options: { ...edited.options, cardPool: mode === 'four' ? [] : allPool } }; draw(); }; });
     body.querySelectorAll<HTMLInputElement>('.card-grid input').forEach(input => { input.onchange = () => {
       edited = withCard(edited, input.value as CardName, input.checked, mode === 'four');
       body.querySelectorAll<HTMLInputElement>('.card-grid input').forEach(box => { box.checked = edited.options.cardPool.includes(box.value as CardName); box.disabled = mode === 'four' && edited.options.cardPool.length >= 4 && !box.checked; box.closest('label')!.classList.toggle('out', !box.checked); });
@@ -129,6 +132,7 @@ function cardsSheet() {
     draft = { ...draft!, options: { ...draft!.options, cardPool: edited.options.cardPool } }; cardMode = mode; closeSheet?.();
   };
   draw();
+  if (card) body.querySelector<HTMLInputElement>(`input[value="${card}"]`)!.focus();
 }
 export function kingSheet(options: Options, pick: KingChoice): Promise<KingChoice> {
   const cleaned = cleanKing(options, pick) ?? shownKing({ colour: 'white', king: null });
@@ -212,6 +216,8 @@ export function setupScreen() {
   } else draft.kind = memory.kind;
   if (!$('setup-body').childElementCount) build();
   render();
-  if (client.state.sheet === 'pieces' || client.state.sheet === 'cards') poolSheet(client.state.sheet);
-  else if (client.state.sheet === 'king') void pickKing();
+  if (!closeSheet) {
+    if (client.state.sheet === 'pieces' || client.state.sheet === 'cards') poolSheet(client.state.sheet);
+    else if (client.state.sheet === 'king') void pickKing();
+  }
 }

@@ -1,6 +1,6 @@
 # Cards and powers: tap then target, 2x2 grid, art, names, pick four, 197 px coins
 
-Status: done (od-cards scope; board work stays open)
+Status: in progress (review fixes; board work stays open)
 
 Lane: od-cards (outside the board screen). Track: ui. Depends on: 12.
 
@@ -127,3 +127,12 @@ M1 `npm run -s check:browser plugin-ui` passes on `49e84afd` in 242.1 s. Run fol
 - J6, including Collection cost words, the board coin faces, the board's name-helper caller, and OPEN-coins197 stay with the board lane. F38 remains open there: the old coin text measures 1.38:1 to 1.40:1. The board lane must replace it and measure the final faces.
 
 The source and tests are committed. This final ticket update records the checks and handoff only.
+
+### Review repair plan
+
+1. Check A1 to A5 and B1 to B2 against the source and the owner's picks.
+2. Stop card scene loops. Keep the saved pool through a mode round trip. Keep an open sheet and its draft through a host refresh.
+3. Give the New game card tap a useful action. Check the 3 px lift after its transition. Measure the rings against the coin face and each other. Update Q20.
+4. Add a test for each confirmed fault. Run `npm test` on this Mac and `plugin-ui` on the M1 with the current limits. Run `plugin-ui-http` if server code changes. Record each result and commit.
+
+Checks: no infinite card animation in New game, Cards or Collection; the same six-card pool after a mode round trip; the same sheet, focus and draft after a host refresh; a useful card action; a measured 3 px lift; measured ring contrast; Q20 states both modes and checks the pool at Done only.
