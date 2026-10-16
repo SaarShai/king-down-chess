@@ -5,7 +5,7 @@ export const BOARD_ID_TOOLS = ['kingdown_get', 'kingdown_create', 'kingdown_join
 export type Pending = { name: string; args: Record<string, unknown>; game_tag?: string; started_at?: number; screen?: Screen; error?: string; error_screen?: Screen };
 export type BoardSettings = { symbols_only: boolean; show_threats: boolean };
 export type PageState = { screen: Screen; settings_back?: Screen; queued?: Screen; sheet?: string; board_id?: string; pending?: Pending };
-// Words wait for the owner's approval; every failed connection and time-out shows this one sentence.
+// Every failed connection and time-out shows this one sentence.
 export const CANNOT_CONNECT = 'Cannot connect. Check your connection, then try again.';
 // An Error shows its message only; String(error) would add its name ("Error: …").
 export const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
