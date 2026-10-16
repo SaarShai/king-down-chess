@@ -479,9 +479,10 @@ try {
     const recovered = await page.evaluate(() => window.harnessView); await setupTool('kingdown_abort', { game_id: recovered.game_id });
     await setupMount({ ...baseSetup, kind: 'random', options: { ...DEFAULT_OPTIONS, arrangement: false } }); await frame.locator('#setup-start').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     const random = await page.evaluate(() => window.harnessView); assert.equal(random.kind, 'random'); await setupTool('kingdown_cancel', { game_id: random.game_id });
-    const offeredOptions = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
+    // Find takes an open game with the same five switches (approval D1 a); its piece pool may differ from the sent one.
+    const offeredOptions = { ...DEFAULT_OPTIONS, arrangement: false, pool: ['Q', 'R', 'B', 'N'] };
     await setupTool('kingdown_create', { kind: 'random', options: offeredOptions, colour: 'white' }, true);
-    await setupMount({ ...baseSetup, kind: 'random' }); await frame.locator('#setup-start').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await setupMount({ ...baseSetup, kind: 'random', options: { ...DEFAULT_OPTIONS, arrangement: false } }); await frame.locator('#setup-start').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     const accepted = await page.evaluate(() => window.harnessView);
     assert.deepEqual(accepted.options, offeredOptions, 'Find uses the accepted game features instead of the sent choices');
     await setupTool('kingdown_abort', { game_id: accepted.game_id });
