@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { chromium, type Browser, type Page } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
+import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import type { HistoryEntry } from '../src/match/protocol';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -97,6 +98,26 @@ it('opens New game at the top', async () => {
     await go(page, 'settings'); await go(page, 'play');
     expect(await frame.locator('#new-game .new-game-body').evaluate(el => el.scrollTop)).toBe(0);
   } finally { await page.close(); }
+});
+
+it('keeps every game row within reach after a saved Play mount', async () => {
+  const page = await open({ width: 390, height: 844, top: 24, bottom: 120 }), frame = page.frameLocator('iframe');
+  const savedGames = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.games);
+  try {
+    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.start('solo', {}); app.navigate('play'); });
+    await seedGames(page, Array.from({ length: 50 }, (_, n) => entry(n, 'ready')));
+    await page.evaluate(() => { (window as any).holdNextGet = true; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeldGet);
+    expect(await frame.locator('#reload').isDisabled()).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeldGet());
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    expect(await frame.locator('#games-list [data-game-id^="menus-"]').count()).toBe(50);
+    for (const row of await frame.locator('#games-list button').all()) {
+      await row.scrollIntoViewIfNeeded();
+      expect((await row.evaluate(controlBounds)).accessible).toBe(true);
+    }
+  } finally { await page.evaluate(() => (window as any).releaseHeldGet?.()); await seedGames(page, savedGames); await page.close(); }
 });
 
 it('scrolls the Profile scroll with the page, with its bottom roller at the page end', async () => {
