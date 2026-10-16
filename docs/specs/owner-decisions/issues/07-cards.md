@@ -1,6 +1,6 @@
 # Cards and powers: tap then target, 2x2 grid, art, names, pick four, 197 px coins
 
-Status: in progress (review fixes; board work stays open)
+Status: done (review fixes checked; board work stays open)
 
 Lane: od-cards (outside the board screen). Track: ui. Depends on: 12.
 
@@ -136,3 +136,31 @@ The source and tests are committed. This final ticket update records the checks 
 4. Add a test for each confirmed fault. Run `npm test` on this Mac and `plugin-ui` on the M1 with the current limits. Run `plugin-ui-http` if server code changes. Record each result and commit.
 
 Checks: no infinite card animation in New game, Cards or Collection; the same six-card pool after a mode round trip; the same sheet, focus and draft after a host refresh; a useful card action; a measured 3 px lift; measured ring contrast; Q20 states both modes and checks the pool at Done only.
+
+### Review findings and repairs
+
+| Finding | Source check and repair | Check |
+| --- | --- | --- |
+| A1 | Confirmed. Card faces use the shared scenes, which loop. A rule under `.cf-art` stops their animations. | Check New game, Cards and Collection for running infinite animations. |
+| A2 | Confirmed. A switch to Use all cards replaces a saved pool with all 21 cards. The sheet now keeps its opening pool for that switch. A sheet that opens in Pick four still switches to all 21. | Save six cards, switch to Pick four and back, then save the same six. Keep the existing four-to-all check. |
+| A3 | Confirmed. `selectedCard` changes no setup or deal. Remove that state and `aria-pressed`. A tap now opens Cards at that card. Close returns focus to the card. | Tap Haste, check the dialog and focus, then close and check focus again. |
+| A4 | Confirmed. The old checks read only a duration, different colour strings and vellum. The lift check now reads the final transform. Your ring uses gold on a dark stone face. The other hand keeps a dark ring on a pale face. | Check a 3 px lift, no lift on other cards, and the return after an uncheck. Require 3:1 between rings and against the face under each ring. Read the face pixels with the ring and art hidden. |
+| A5 | Confirmed. Q20 still gives the old tap lock. It now gives both modes and the check at Done only. | `tools/plugin-cards.docs.test.ts` checks the deal row. The browser check still tests an invalid pool at Done in both modes. |
+| B1 | Confirmed. `setupScreen()` opens a saved sheet again on each host read. It now restores a saved sheet only when no sheet is open. | Uncheck Haste, send another `kingdown_open({screen: 'play'})` result, then check the same dialog, focus and five-card draft. Done saves that draft. |
+| B2 | Confirmed. This is the lift-test fault in A4. | The same transform check covers it. |
+
+The repair uses the proposed picks: a card tap opens Cards, and your hand has a gold ring on a dark stone face. No card rule, engine code or server code changes. The type check and commit checks pass on repair head `60202605`.
+
+### Repair check checkpoint
+
+- The full Mac `npm test` run finishes in 180.49 s. It passes 165 of 167 files: 2,561 tests pass, 8 skip and 2 fail. The new Q20 test passes.
+- `src/rules/power-fixes.test.ts:470` exceeds its 5 s limit at 5.945 s. Both the test and `engine.ts` have no diff from `fc45bd6f`. The earlier card build has the same full-suite fault. The single-file `npm test` rerun passes all 35 tests in 6.84 s with the same limit. Its type check and all 50 drawing tests also pass.
+- `tools/plugin-motion.test.ts:79` exceeds its 15 s wait for `.is-spending`. The pulse code and this test have no diff from the starting head. The single-file `npm test` rerun passes all 14 tests in 26.31 s with the same limits. Its type check and all 50 drawing tests also pass.
+- Full-suite log: `/tmp/kd-od-cards-review-tests.log`. Single-file logs: `/tmp/kd-od-cards-review-power-tests.log` and `/tmp/kd-od-cards-review-motion-tests.log`.
+- M1 `npm run -s check:browser plugin-ui` passes in 229.0 s on `602026057430e635985944a3450c23f7a3c95270`. It uses `~/projects/kd-od-cards` and releases `~/projects/.check.lock` on exit. Run folder: `/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/kingdown-check-runs/kd-od-cards-a5417H`.
+- All new card checks pass: the six-card mode round trip, the host refresh with an open draft, the card action and focus return, the 3 px lift and its return, and no running scene loop in New game, Cards or Collection.
+- The ring report measures 3.66:1 between the rings. Your gold ring measures 3.66:1 against its dark coin face. The other ring measures 5.24:1 against its pale coin face. Each check requires at least 3:1. The old board letters measure 1.40:1 in both hands. F38 stays with the board lane.
+- The phone capture shows all four names, rules and costs inside their faces. It is saved with the ring report and all logs in `/tmp/kd-od-cards-review-evidence/` on this Mac.
+- The full Mac suite has two timing failures; both files pass separately. No test or check time limit changes. `plugin-ui-http` is not required because no server code changes.
+
+All findings in A1 to A5 and B1 to B2 are confirmed and fixed. B2 repeats the lift-test fault in A4. This final ticket change records the check results only; the checked source stays at `60202605`.
