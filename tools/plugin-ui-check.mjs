@@ -108,7 +108,17 @@ try {
   assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests), ['fullscreen'], 'Choose a game asks the host for fullscreen');
   async function openPlay() {
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
-    for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) await frame.locator('#page-back:visible, .table-back:visible').click();
+    for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) {
+      await page.waitForFunction(() => {
+        const d=document.querySelector('iframe').contentDocument;
+        return !d.querySelector('[data-screen="play"]').hidden || [...d.querySelectorAll('#page-back, .table-back')].some(b=>!b.disabled&&b.getClientRects().length);
+      });
+      // A computer abort can open Play while Back waits for a call. Check and act in the same frame.
+      await frame.locator('html').evaluate(() => {
+        if (!document.querySelector('[data-screen="play"]').hidden) return;
+        [...document.querySelectorAll('#page-back, .table-back')].find(b=>!b.disabled&&b.getClientRects().length)?.click();
+      });
+    }
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor({ timeout: 5000 });
   }
   async function openScreen(screen) { await openPlay(); await frame.locator(`[data-screen="play"] [data-nav="${screen}"]`).click(); }

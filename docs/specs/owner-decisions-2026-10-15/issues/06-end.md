@@ -71,3 +71,6 @@ Work starts from a clean worktree.
   Keep the direct end navigation for finished games. Route only a
   computer abort through the draft router. A test fails the fresh end
   read and checks Retry, then checks the successful read.
+- The HTTP check finds a navigation-test race. A computer abort opens
+  Play while the test's Back click waits for a call. The check now waits
+  for Play or an active Back button, then checks and acts in one frame.
