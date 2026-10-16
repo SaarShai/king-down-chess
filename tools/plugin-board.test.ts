@@ -507,6 +507,31 @@ it.each(['power','card'] as const)('W7: Escape on the board and sheet clears %s 
   } finally { await page.close(); }
 });
 
+it.each([[320,568],[360,640],[852,393]])('keeps draw offer board and row size with all four pawn actions at %d×%d', async (width,height) => {
+  const rules: Partial<Rules> = {kings:[{king:'Mud',power:'March'},{king:'Shadow',power:'Darkness'}],hands:[['Haste'],['Haste']],marchUses:0};
+  const page = await open(view('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',rules,{kind:'friend',draw_offer:1}),width,height), frame = page.frameLocator('iframe');
+  const sizes = () => frame.locator('#context-line').evaluate(async row => {
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    return {
+      board: document.querySelector('#board canvas')!.getBoundingClientRect().width,
+      row: row.getBoundingClientRect().height,
+      text: document.getElementById('context-text')!.getBoundingClientRect().height,
+      actions: document.getElementById('context-actions')!.getBoundingClientRect().height,
+    };
+  });
+  try {
+    await page.evaluate(safeAreaInsets => (window as any).harnessSetContext({safeAreaInsets}),{top:height>width?63:0,right:0,bottom:height>width?84:0,left:0});
+    await frame.locator('#board').evaluate(() => document.fonts.ready.then(() => {}));
+    const before = await sizes();
+    await squareTap(page,12);
+    expect(await frame.locator('#context-actions button').allTextContents()).toEqual(['All rules','Choose a move','Accept draw','Decline draw']);
+    const after = await sizes();
+    expect(Math.abs(before.board-after.board), JSON.stringify({before,after})).toBeLessThan(1);
+    expect(Math.abs(before.row-after.row), JSON.stringify({before,after})).toBeLessThan(1);
+    expect(await frame.locator('#context-actions button').evaluateAll(edgeMisses)).toEqual([]);
+  } finally { await page.close(); }
+});
+
 it('W7: a draw offer keeps piece rules readable at 320 px before and during Send', async () => {
   const base = view('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1',{}, {kind:'friend',draw_offer:1});
   const page = await open(base,320,568), frame = page.frameLocator('iframe');

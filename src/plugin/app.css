@@ -200,8 +200,11 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 #game-table #context-text { display: block; max-height: none; overflow: visible; }
 #game-table #context-line:has(#accept-draw) { flex-wrap: wrap; }
 #game-table #context-line:has(#accept-draw) #context-text { flex-basis: 100%; min-height: 40px; }
+#game-table #context-line:has(#accept-draw) #context-text > span { display: inline; }
+#game-table #context-line:has(#accept-draw) #context-text > span + span::before { content: ' '; }
 #game-table #context-actions:has(#accept-draw) { flex-basis: 100%; flex-wrap: wrap; }
-#game-table #context-actions:has(#accept-draw) button { padding-inline: 4px; }
+/* Two label lines fit the existing row. */
+#game-table #context-actions:has(#accept-draw) button { flex: 1; padding: 3px 4px; white-space: normal; }
 .table-back { display: none; }
 @media (max-width: 899px) and (orientation: portrait) {
   #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 44px; grid-template-rows: minmax(44px, max-content) minmax(var(--board-floor, 0px), max-content) minmax(44px, max-content) minmax(var(--context-floor, 44px), max-content) 44px minmax(0, 1fr) var(--bar-height); }
@@ -213,7 +216,6 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table #context-line { min-height: 44px; padding-block: 0; flex-wrap: nowrap; border-top: 0; box-shadow: 0 -1px 0 var(--line); }
   #game-table #context-text > span { display: inline; }
   #game-table #context-text > span + span::before { content: ' '; }
-  #game-table #context-text:has(+ #context-actions #accept-draw) > span { display: block; }
   #game-table #moves-line { height: 44px; min-height: 44px; }
   #game-table #table-bar { padding-block: 0; }
   #game-table #table-bar > button { min-height: 44px; flex-direction: row; }

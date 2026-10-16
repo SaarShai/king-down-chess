@@ -2,7 +2,7 @@
 
 Status: in-progress
 
-All ticket 03 build items exist. All six review findings have fixes and tests. The local checks pass. The new M1 checks wait for the shared lock. The ticket stays open.
+All ticket 03 build items exist. All six review findings have fixes and tests. The earlier local checks pass. The new M1 fixture check finds a draw-row size fault. The follow-up below stays open.
 
 Source: owner ticket 12-submit-turn. Scope: design section 8, ticket 03.
 
@@ -80,7 +80,22 @@ Results:
 
 M1 blocker and resume:
 
-- The new plugin-ui and plugin-ui-http checks have not started at the checkpoint. The shared lock stays in use by other lanes for about 105 minutes after the first launch. The detached job stays queued. Do not start a second job.
-- M1 job: PID 82165, script /tmp/kd-od-board-review-m1-named.sh, folder ~/projects/kd-od-board. It uses source commit cb5f0dd2. The later local commit adds test assertions and result notes only; the production source is the same.
-- Read /tmp/kd-od-board-review-m1.results on the M1 when the job ends. The check logs are /tmp/kd-od-board-review-ui.log and /tmp/kd-od-board-review-http.log. The launcher log is /tmp/kd-od-board-review-m1.log. The script releases ~/projects/.check.lock through its exit trap, also after a failed check.
-- Check each new failure against the source and the prior HTTP join-preview fault above. Record the two results here. Browser acceptance stays unverified until those checks finish.
+- The first detached job waits for the shared lock for about 105 minutes. The recovery review then stops that waiting job by PID 82165, before any browser check starts.
+- The [recovery review](04-recovery.md) replaces that job with one check job at eba18a62 in the same lane folder. It records the new job, logs and results. Do not resume the old job.
+- Check each new failure against the source and the prior HTTP join-preview fault above. Browser acceptance stays unverified until those checks finish.
+
+## Browser check follow-up
+
+1. The M1 fixture check at eba18a62 fails at the draw-offer size check for the start position at 320 px.
+2. Add the same position and all four pawn actions to the local board tests. Check the board, text and action row sizes.
+3. Fix the confirmed layout fault. Keep All rules, the short piece rule and the draw note.
+4. Run the local checks and both M1 checks again. The HTTP launch must set the supplied test database through its own loopback tunnel.
+
+- The new start-position test fails before the fix. The board width changes from 68 to 56 px. The context row grows from 92 to 155 px. The other 56 board tests pass.
+- Two draw-only CSS rules cause the growth. The text stacks on a separate line. Four labels force the action buttons onto two rows.
+- Keep inline text for a draw offer in all three viewports. Give draw-row buttons equal room and let their labels wrap. Reduce their vertical padding so two label lines fit the existing row. Keep All rules, the short rule and both draw replies. No fixed height is added.
+- The regression test covers 320×568, 360×640 and 852×393. It checks the board and row sizes and the button hit areas.
+- Two label lines need 45 px with the old padding. The new padding keeps the existing 44 px row. The inline text rule also applies in landscape.
+- The corrected board file passes all 59 tests in 141.54 seconds. It also passes the type check and all 50 figure checks. Log: /tmp/kd-od-board-draw-green2.log.
+- The full unit suite then passes 156 files and 2,400 tests, with 8 skips, in 228.12 seconds. It uses the supplied test database and two workers. The type check and all 50 figure checks pass. Log: /tmp/kd-od-board-draw-unit2.log.
+- Local job 14964 ends with both results at zero. The corrected M1 checks wait for the source commit and bundle.
