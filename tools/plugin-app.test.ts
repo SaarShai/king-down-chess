@@ -17,6 +17,20 @@ async function open(url = harness.url) {
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   return page;
 }
+/** Waits until the frame's transport calls match the host's held calls, then one frame: each released reply is drawn. */
+async function settled(page: Page) {
+  const end = Date.now() + 5000;
+  for (;;) {
+    const done = await page.evaluate(() => {
+      const frame = document.querySelector('iframe')?.contentWindow as any;
+      return frame?.harnessApp?.client?.inflight === ((window as any).harnessHeld ?? 0);
+    });
+    if (done) break;
+    if (Date.now() > end) throw new Error('settled: the frame still waits for a call');
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  await page.frameLocator('iframe').locator('html').evaluate(() => {});
+}
 // Spec J2, D2: the first test, while the shared player has no saved setup and no game.
 it('takes a new player from the home card to a draft move and the turn press', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
@@ -1101,7 +1115,7 @@ it('recovers a held move at 10 seconds and ignores its late reply', async () => 
     await page.request.post(harness.url + 'fixture-friend-tool', { data: { name: 'kingdown_move', arguments: { game_id, command_id: 'bob-once', expected_revision: revision + 1, lan: 'e7-e5' } } });
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
     await page.evaluate(() => (window as any).releaseHeld());
-    await page.clock.runFor(100);
+    await settled(page);
     expect(await frame.locator('html').evaluate(() => ({ revision: (window as any).harnessApp.memory.view.revision, pending: (window as any).harnessApp.client.state.pending }))).toEqual({ revision: revision + 2, pending: undefined });
     expect(await frame.locator('#board-menu').isEnabled()).toBe(true);
   } finally { await page.close(); }
@@ -1251,7 +1265,7 @@ it('keeps the board current when one poll times out', async () => {
     await page.waitForFunction(() => !!(window as any).releaseHeldGet);
     await page.clock.fastForward(10_001);
     await page.evaluate(() => (window as any).releaseHeldGet());
-    await page.clock.runFor(100);
+    await settled(page);
     expect(await frame.locator('#error').textContent()).toBe('');
     expect(await frame.locator('#status').textContent()).toBe('Your move.');
     expect(await frame.locator('#retry').isVisible()).toBe(false);
@@ -1934,7 +1948,7 @@ it.each([true, false])('keeps a saved setting when the first settings reply come
     await frame.locator('#symbols-only:not(:disabled)').waitFor();
     expect((await tool('kingdown_settings'))._meta.settings.symbols_only).toBe(true);
     await page.evaluate(() => (window as any).releaseHeld());
-    await page.waitForTimeout(300);
+    await settled(page);
     expect(await frame.locator('#symbols-only').isChecked()).toBe(true);
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.settings.symbols_only)).toBe(true);
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.me)).toMatchObject({ handle: expect.any(String) });

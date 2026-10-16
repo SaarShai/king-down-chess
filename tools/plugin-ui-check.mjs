@@ -61,6 +61,18 @@ try {
   if (process.env.PLUGIN_EXPECT_MODE) assert.equal(mode, process.env.PLUGIN_EXPECT_MODE, 'Connected to the expected harness backend');
   const frame = page.frameLocator('iframe');
   const options = {fairy:true,pool:['R','A','G','Q','M','S','O'],arrangement:false,classic:false,cards:false,cardPool:[],kingPowers:false};
+  // Waits until every tool call at the host has returned, then one frame in the frame. A released reply reaches the
+  // frame before the check reads the DOM. The built page hides its client, so the host's own count stands in.
+  async function settled() {
+    const end = Date.now() + 10000;
+    for (;;) {
+      const done = await page.evaluate(() => (window.harnessInflight ?? 0) === (window.harnessHeld ?? 0));
+      if (done) break;
+      if (Date.now() > end) throw new Error('settled: a tool call still waits');
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    await frame.locator('html').evaluate(() => {});
+  }
 
   async function boardBox() {
     await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
@@ -1153,7 +1165,13 @@ try {
     await frame.locator('#find-opponent').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     await remount('wait'); await frame.locator('#wait-cancel').click(); await frame.locator('[data-screen="lobby"]:not([hidden])').waitFor();
     await frame.locator('#lobby-status').filter({ hasText: /^$/ }).waitFor({ state: 'attached' });
-    await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 1000));
+    // Pause the page clock one second from its own now. A slow runner can pass the pause point between the read and
+    // the call, so read the time again and retry: pauseAt never receives a time in the past.
+    for (let tries = 0; ; tries++) {
+      const now = await page.evaluate(() => Date.now());
+      try { await page.clock.pauseAt(new Date(now + 1000)); break; }
+      catch (error) { if (tries >= 100) throw error; await new Promise(resolve => setTimeout(resolve, 5)); }
+    }
     await page.evaluate(() => { const push = window.harnessCalls.push; window.harnessCalls.push = function(call) { call.at = Date.now(); return push.call(this, call); }; window.ticket13Reads = []; window.ticket13Ids = new Set(); addEventListener('message', event => { if (event.data?.method === 'tools/call' && event.data.params?.name === 'kingdown_get') window.ticket13Ids.add(event.data.id); }); });
     await frame.locator('html').evaluate(() => addEventListener('message', event => {
       if (parent.ticket13Ids.delete(event.data?.id) && event.data.result?._meta?.view?.game_id === parent.ticket13WaitingId) { parent.ticket13Reads.push(Date.now()); parent.dispatchEvent(new Event('ticket13-read')); }
@@ -1770,7 +1788,8 @@ try {
     const replied = await friendTool('kingdown_move',{ game_id: friend.game_id, command_id: 'friend-reply', expected_revision: friend.revision, lan: 'e7-e5' });
     assert(!replied.isError);
     await page.clock.fastForward(30000);
-    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor({ timeout: 35000 });
+    await settled();
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     assert.equal(await page.evaluate(() => window.harnessView.revision), friend.revision + 1);
     await openPlay(); await legacyStart('solo'); await idleBoard();
     assert.equal(await frame.locator('#invitation').innerText(), '');

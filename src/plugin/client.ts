@@ -20,6 +20,7 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
   const saved = host?.widgetState?.privateContent, settings_back = knownScreen(saved?.settings_back), queued = knownScreen(saved?.queued);
   const pending = saved?.pending && { ...saved.pending, screen: knownScreen(saved.pending.screen), error_screen: knownScreen(saved.pending.error_screen) };
   const state: PageState = { screen: knownScreen(saved?.screen) ?? 'home', ...(settings_back && {settings_back}), ...(queued && {queued}), sheet: saved?.sheet, board_id: saved?.board_id, pending };
+  let inflight = 0;
   function save() {
     const pending = state.pending;
     const args = pending && Object.fromEntries(Object.entries(pending.args).filter(([key]) => !['game_id', 'code', 'handle'].includes(key)));
@@ -32,16 +33,18 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
     let result: Awaited<ReturnType<App['callServerTool']>>;
     // Mount reads pass limit: false and keep the SDK's own limit; a slow first load is not a failed command.
     // A newer chat result aborts the calls of an older mount (signal).
+    inflight++;
     try { result = await app.callServerTool({ name, arguments: sent }, { ...(options.limit !== false && { timeout: 10_000 }), signal: options.signal }); }
     catch (error) {
       if (!/failed to fetch|networkerror|load failed|network request failed|timed out/i.test(errorText(error))) throw error;
       console.error('King Down connection failed', error);
       throw new Error(CANNOT_CONNECT, { cause: error });
     }
+    finally { inflight--; }
     const board = result._meta?.board_id;
     // A newer chat result or selection that changed the board while the call ran wins over this reply.
     if (!options.background && SELECTION_TOOLS.includes(name) && typeof board === 'string' && state.board_id === before) state.board_id = board;
     return result;
   }
-  return { state, save, call };
+  return { state, save, call, get inflight() { return inflight; } };
 }

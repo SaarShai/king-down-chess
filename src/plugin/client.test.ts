@@ -42,6 +42,21 @@ describe('app client', () => {
     expect(widgetState).toEqual({ modelContent: {}, privateContent: { screen: 'settings', sheet: 'king', board_id: 'b1', pending: { name: 'kingdown_move', args: { lan: 'e2-e4', command_id: 'once' }, game_tag: 'aabbccdd' } } });
     expect((widgetState as { modelContent: object }).modelContent).not.toHaveProperty('pending');
   });
+  it('counts the transport calls that have not returned', async () => {
+    const releases: Array<(value: { content: [] }) => void> = [];
+    const client = createClient({ callServerTool: async () => new Promise(resolve => { releases.push(resolve); }) });
+    expect(client.inflight).toBe(0);
+    const first = client.call('kingdown_get', {}), second = client.call('kingdown_open', {});
+    expect(client.inflight).toBe(2);
+    releases[0]({ content: [] }); await first;
+    expect(client.inflight).toBe(1);
+    releases[1]({ content: [] }); await second;
+    expect(client.inflight).toBe(0);
+    // A failed call also leaves the count: the caller must not wait forever.
+    const failing = createClient({ callServerTool: async () => { throw new Error('The game is not available.'); } });
+    await expect(failing.call('kingdown_get', {})).rejects.toThrow('The game is not available.');
+    expect(failing.inflight).toBe(0);
+  });
   it('reads a saved screen name that this build does not have as no screen', () => {
     // PR 57 widget state: its New game screen was 'setup'.
     const pending = { name: 'kingdown_create', args: { kind: 'solo', command_id: 'once' }, screen: 'setup', error: 'The reply was lost.', error_screen: 'setup' };
