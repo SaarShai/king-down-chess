@@ -20,6 +20,12 @@ describe('public consent configuration', () => {
     expect(html).not.toMatch(/id="scopes"|Requested information|access tokens|data permissions/);
     for (const id of ['client-name', 'account', 'redirect', 'approve', 'deny', 'password-form', 'password-email', 'password-value']) expect(html).toContain(`id="${id}"`);
   });
+  it('keeps the privacy policy link before the decision buttons and opens it in a new tab', () => {
+    const html = renderConsent(readFileSync(new URL('./consent.html', import.meta.url), 'utf8'), consentConfig(env));
+    const link = '<a href="https://kingdown.dev/privacy.html" target="_blank" rel="noopener">Privacy policy</a>';
+    expect(html).toContain(link);
+    expect(html.indexOf(link)).toBeLessThan(html.indexOf('id="approve"'));
+  });
   it('offers only the approved Google and GitHub providers', () => {
     const html=readFileSync(new URL('./consent.html',import.meta.url),'utf8');
     expect([...html.matchAll(/data-provider="([^"]+)"/g)].map(m=>m[1])).toEqual(['google','github']);

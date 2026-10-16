@@ -11,7 +11,7 @@ The source tickets are in the owner's scratch ticket folder.
 ## Plan
 
 1. Use the approved consent heading and six permission lines. Remove the token text and raw scope row. Keep the providers, account details and D8 password form.
-2. Let each tool set `openWorldHint`. Set it true on find, say, invite, join and handle. Set it false on all other tools. Update the protocol check and checklist rows 28, 30 and 44, with the A6 result.
+2. Let each tool set `openWorldHint`. Set it true on accept, create, find, say, invite, join and handle. Set it false on all other tools. Update the protocol check and checklist rows 28, 30 and 44, with the A6 result.
 3. Add consent and tool-hint tests. Run `npx tsc --noEmit` and `npm test` with the specified local test database. Run `plugin-ui`, `plugin-ui-http` and the consent check on the M1, with the shared browser lock.
 4. Check the diff and commit with both required trailers. Record results here.
 
@@ -19,7 +19,7 @@ The source tickets are in the owner's scratch ticket folder.
 
 - The consent page uses the owner's exact words. It shows no raw scope code or token text.
 - The D8 form stays closed at first. Its mock password failure and success paths pass.
-- Every tool has a boolean open-world hint. Only the five named tools that exist have a true value.
+- Every tool has a boolean open-world hint. The seven named tools have a true value, including create because its random path can join another player's game.
 - Typecheck, unit tests and both required browser checks pass with the existing limits.
 
 ## Limits
@@ -48,3 +48,26 @@ The source tickets are in the owner's scratch ticket folder.
 - Local: `/tmp/kd-r9-server-typecheck.log`, `/tmp/kd-r9-server-tests.log` and their `.exit` files.
 - Focused tests: `/tmp/kd-r9-server-consent-test.log`, `/tmp/kd-r9-server-server-test.log` and `/tmp/kd-r9-server-targeted.exit` (`0 0`).
 - M1: `/tmp/kd-r9-server-plugin-ui.log`, `/tmp/kd-r9-server-plugin-ui-http.log`, `/tmp/kd-r9-server-plugin-oauth.log`, `/tmp/kd-r9-server-protocol.log`, `/tmp/kd-r9-server-http-base.log` and `/tmp/kd-r9-server-http-repeat.log`. Each browser summary names its full check log.
+
+## Review fix plan
+
+1. Check A1–A5 and B1 against the source and the approved choices. Ask the owner to replace the exact closing consent sentence. Keep the heading and six permission lines.
+2. Restore the approved privacy link. Replace the old consent quote in the privacy evidence. Base case N2 on input schemas. Set the hints on accept and create to true: both can join another player's random game, under the owner's rule, "True on tools that reach others".
+3. Add tests for each confirmed fault. Check the OAuth issue and refresh claims in the local test database. Keep all test limits.
+4. Run `npm test` here with the specified test database. Run `plugin-ui`, `plugin-ui-http`, `plugin-oauth` and the protocol check on the M1 in this lane, with the browser lock. Record each result, check the diff and commit with both trailers.
+
+### Review verification criteria
+
+- The consent text states the true chat and email limits, with the owner's approval. The privacy link opens a new tab and keeps the consent page open.
+- Tests check the email and provider metadata that the token hook keeps for the client on issue and refresh.
+- The privacy evidence cites tool inputs. N2 does not use open-world hints to claim that tools can open other sites.
+- All 25 tools have a boolean open-world hint. The seven true values include accept and create.
+- Each changed test passes. Full tests and required M1 checks have recorded results. Any old failure has evidence from the base.
+
+### Finding checks
+
+- A1 and B1: confirmed. The access token hook keeps the email claim and provider metadata. The consent sentence also names the wrong reader of the chat. The owner must choose the new exact closing words. [Supabase's token hook contract](https://supabase.com/docs/guides/auth/auth-hooks/custom-access-token-hook) requires the email claim; [its OAuth flow](https://supabase.com/docs/guides/auth/oauth-server/oauth-flows) gives the tokens to the client. The new database test checks the claims on issue and refresh for Google and GitHub metadata. It uses test data and does not sign in.
+- A2: confirmed. The option file includes the privacy link in all three footers. The owner removes only the stop line. The source restores the link before the buttons, with a new tab and `noopener`. Unit and mock browser assertions check it.
+- A3: confirmed. The privacy evidence quotes words that the page no longer has. It now cites the strict tool input schemas, which have no chat transcript. A document test checks this evidence.
+- A4: confirmed. N2 uses a false all-tools hint claim. It now cites the tool input schemas for the other-site refusal. A document test checks that basis.
+- A5: confirmed. Accept joins another player's game. Create can call the same find path as Find when kind is random. Both hints now use true under the owner's rule. The tool unit test and protocol check cover all seven true values and all 18 false values. Checklist rows 28 and 30 give the reason.

@@ -145,13 +145,13 @@ it('says "1 game" for one game on the home summary', async () => {
  finally {await client.close(); await server.close();}
 });
 
-it('sets an open-world hint on each tool and marks the five tools that reach other players', async () => {
+it('sets an open-world hint on each tool, including both ways to join a random game', async () => {
  const server = createPluginServer({service:{} as Parameters<typeof createPluginServer>[0]['service'],actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
  const client = new Client({name:'open-world-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
  await server.connect(a); await client.connect(b);
  try {
   const tools = (await client.listTools()).tools;
-  expect(tools.filter(tool => tool.annotations?.openWorldHint).map(tool => tool.name).sort()).toEqual(['kingdown_find','kingdown_handle','kingdown_invite','kingdown_join','kingdown_say']);
+  expect(tools.filter(tool => tool.annotations?.openWorldHint).map(tool => tool.name).sort()).toEqual(['kingdown_accept','kingdown_create','kingdown_find','kingdown_handle','kingdown_invite','kingdown_join','kingdown_say']);
   for (const tool of tools) expect(typeof tool.annotations?.openWorldHint, tool.name).toBe('boolean');
  } finally {await client.close(); await server.close();}
 });

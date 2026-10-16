@@ -36,3 +36,16 @@ test('the last owner answer of 2026-10-16 on the online setting is recorded', ()
  expect(question).toMatch(/^\d+\. Closed: keep the friends-only default .*Ticket 18 builds it.*\(owner, 2026-10-16, after the review; .*\)\.$/);
  expect(readFileSync('docs/submission/privacy-additions.md', 'utf8')).not.toContain('Choice for the owner');
 });
+
+test('the chat privacy evidence cites tool inputs without a stale consent quote', () => {
+ const evidence = readFileSync('docs/submission/privacy-additions.md', 'utf8').split('## 3. OpenAI as a recipient')[1].split('## 4.')[0];
+ expect(evidence).toContain('The MCP server receives only tool arguments.');
+ expect(evidence).toContain('`createPluginServer()` in `src/plugin/server.ts`');
+ expect(evidence).not.toContain('cannot read the surrounding chat');
+});
+
+test('case N2 bases the other-site refusal on tool inputs', () => {
+ const row = readFileSync('docs/submission/test-cases.md', 'utf8').split('\n').find(line => line.startsWith('| N2 |'))!;
+ expect(row).toContain('`src/plugin/server.ts` input schemas');
+ expect(row).not.toContain('openWorldHint');
+});

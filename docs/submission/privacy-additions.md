@@ -46,7 +46,7 @@ Where: in "Where it is kept", after the new logs paragraph.
 <p>When you play King Down in ChatGPT, OpenAI receives what the app sends to ChatGPT. That is a short summary for the chat (for example, whose move it is, or your rating), and the board data that ChatGPT shows in the King Down board (the position, the moves, and your and your opponent's handles and pictures). OpenAI handles this data under its own privacy policy. We do not receive your ChatGPT conversation.</p>
 ```
 
-Evidence: `content` and `structuredContent` reach the model and the transcript; `_meta` reaches only the component [O8]. `reply()` puts the summary in `content` and `structuredContent`, and the view and handles in `_meta` (`src/plugin/server.ts:61–75`). Both pass through ChatGPT. The MCP server receives only tool arguments; the consent page says the connection "cannot read the surrounding chat" (`src/plugin/consent.html`).
+Evidence: `content` and `structuredContent` reach the model and the transcript; `_meta` reaches only the component [O8]. `reply()` puts the summary in `content` and `structuredContent`, and the view and handles in `_meta` (`src/plugin/server.ts`). Both pass through ChatGPT. The MCP server receives only tool arguments. Its strict input schemas accept game actions and account settings, with no chat transcript (`createPluginServer()` in `src/plugin/server.ts`).
 
 ## 4. Retention times
 
