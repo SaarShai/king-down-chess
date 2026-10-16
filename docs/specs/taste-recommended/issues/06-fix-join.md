@@ -1,6 +1,6 @@
 # Base: repair Join after a remount
 
-Status: in-progress
+Status: claimed
 Type: task
 
 ## Scope
@@ -31,7 +31,10 @@ Keep the approved hall, layout B, stone a and Lively motion.
 
 ## Result
 
-Work is in progress.
+The code repairs pass the type check, full unit suite and plugin-ui.
+plugin-ui-http passes Join and the board remount, then finds a check
+race. Its repair needs approval under the owner's check-change rule.
+Ticket 01 also stays open for the parts in the later tickets below.
 
 ## Base parts
 
@@ -52,6 +55,16 @@ Work is in progress.
 - J8 keeps the Beginner notes and their read tests.
 - Ticket 02-home owns J10. Ticket 06-end owns the full C4 actions and
   Skip. These parts stay in their named lanes.
+
+## Remaining parts
+
+- J10: ticket 02-home depends on 01. It changes the home actions and
+  adds Play now to the hall. This lane keeps the approved base route.
+- C1 chest: ticket 03-hall depends on 02. The chest needs the D3 preset
+  row, which is not built in this base. Build both in ticket 03-hall.
+- L3 and C4: ticket 06-end owns the final action words, Skip and the
+  ceremony controls. It depends on 04. This lane keeps the Lively
+  subset and repairs card restore and the Sound device words.
 
 ## Reviews
 
@@ -140,3 +153,47 @@ view on mount. A new chat result still replaces both through harnessShow.
 The browser check file stays unchanged. Tests hold the read before the
 server call, then check the app's view after release. They cover an empty
 seed and an older-game seed.
+
+Both readers check the two-line host repair and both new tests. Neither
+finds an open fault. The seed result still passes unchanged. The tests
+also check enabled Reload after the read. The queued local focused test
+does not run before cancellation; the final M1 suite includes both cases.
+
+## M1 checks at 63fc58d9
+
+- npx tsc --noEmit: pass.
+- npm test: pass. All 165 files pass; 2,578 tests pass and 8 skip.
+  The suite takes 263.78 s. All 74 app cases and 15 motion cases pass.
+  All 50 scene checks pass.
+- plugin-ui: pass in 222.6 s.
+- plugin-ui-http: fails in 225.2 s at fits(play, 390), line 771,
+  called from the route remount loop at line 1556. Join and the human
+  board remount pass before this point.
+- Check logs: /tmp/kd-od-fixjoin-final2-checks.log on this Mac and
+  /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/kingdown-check-runs/kd-od-fixjoin-MDhUM4
+  on the M1.
+
+## Hall check follow-up
+
+Both readers find a check race. fits uses a live nth control for two
+separate actions: scroll and bounds. The mount can add game rows between
+those actions. The bounds read then names a different button above the
+visible area. Actions stay disabled until the mount read ends.
+Neither reader finds a product layout fault in this trace.
+
+The proposed repair waits for enabled Reload before the Play control
+loop. It changes no assertion or time limit. End already uses that wait.
+The owner permits a check change only for a screen removed on purpose.
+The hall remains, so this repair waits for the owner's narrow approval.
+A focused M1 test queues behind another lane. It does not run before
+cancellation. Its temporary file is removed. No check assertion changes.
+
+Proposed line in fits, after the visible-screen wait:
+
+```js
+if (screen === 'play') await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+```
+
+The draft patch is /tmp/kd-od-fixjoin-check-ready.patch on this Mac.
+The approval request names this exact wait and keeps all bounds checks.
+No new taste choice is necessary.
