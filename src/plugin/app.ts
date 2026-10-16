@@ -124,7 +124,9 @@ export async function call(name: string, args: Record<string, unknown>, retain =
       const text = result.content.filter(c => c.type === 'text').map(c => c.text).join(' ');
       // The command waits for a name. Save sends it again; Back shows the server's reason and Retry on the start screen.
       if (result._meta?.code === 'HANDLE_NEEDED') { pending ??= { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen }; failPending(text); navigate('handle'); return; }
-      const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'NOT_ALLOWED', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
+      // A refusal that the same send cannot change ends the command, so it does not lock Start, the board or the poll.
+      // RATE_LIMITED: a Find on your own open game after its last start receipt (src/match/service.ts START_RECEIPTS).
+      const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'NOT_ALLOWED', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE', 'RATE_LIMITED'];
       if (definitive.includes(String(result._meta?.code))) { pending = undefined; saveState(); if (retain) router.finishStart(); }
       throw new Error(text);
     }

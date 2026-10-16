@@ -826,6 +826,18 @@ it('shows the line and Retry after a remount only when the second send of a wait
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
+// The server refuses a Find on your own open game after its last start receipt with RATE_LIMITED; Retry cannot change that.
+it('ends a command that the server refuses as RATE_LIMITED, with its words and no Retry', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    await page.evaluate(() => { (window as any).rejectNextMove = 'RATE_LIMITED'; });
+    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_move', { game_id: app.memory.view.game_id, command_id: 'limited-move', expected_revision: app.memory.view.revision, lan: 'e2-e4' }, true); });
+    expect([await frame.locator('#error').textContent(), await frame.locator('#retry').isHidden()]).toEqual(['Harness definitive rejection', true]);
+    expect(await page.evaluate(() => (window as any).harnessWidgetState?.privateContent?.pending ?? null)).toBeNull();
+  } finally { await page.close(); }
+});
+
 it('shows a neutral Start game beside the connection line when a slow start times out', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
