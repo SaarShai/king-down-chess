@@ -50,7 +50,8 @@ test('the policy says that a deletion keeps the handle in stored games and in re
  expect(text).not.toContain('no link to your account');
 });
 
-test('the policy names the block control, its effects and the undo path', () => {
+test('the policy names stored relations, the block control, its effects and the undo path', () => {
+ expect(text).toContain('the players you follow and block');
  expect(text).toContain('open Menu and select Block player');
  expect(text).toContain('Confirm to end follows both ways, stop matches through Find and joins to open games, and hide their messages');
  expect(text).toContain('Your current game continues');

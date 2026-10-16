@@ -84,6 +84,6 @@ Pasted into "What the game stores for your account" as list items: the ChatGPT s
 
 ## Block control (part 18-b)
 
-The policy names Menu → Block player and its confirmation. A block ends follows both ways, stops Find and open-game joins between the players, and hides the opponent's messages. The current game continues. The same Menu offers Unblock player, which does not restore follows. Profile also lists blocked players, with Unblock for each player, after the game ends.
+The stored-data list names the players you follow and block. The policy names Menu → Block player and its confirmation. A block ends follows both ways, stops Find and open-game joins between the players, and hides the opponent's messages. The current game continues. The same Menu offers Unblock player, which does not restore follows. Profile also lists blocked players, with Unblock for each player, after the game ends.
 
 Evidence: `kingdown_block` uses `AccountService.relate()` and `unrelate()`, as the website's `/api/relations` routes do. The game store checks blocks both ways for Find, accept, invitation joins and message privacy. `src/plugin/server.db.test.ts` checks the tool through the database, including reads, repeat blocks, saved status, unblock and refused targets.
