@@ -115,3 +115,13 @@ Parts 18-a and 18-b, with A-F4, are approved by the owner's task. Parts 18-d and
 - Full `npm test` at `4b968359`: 2,556 pass, 8 skip and 7 fail in 167 files (147.84 seconds). Both new block tests and the three-state online test pass.
 - Five failures need changes in this step: two old toggle-count checks still expect three checkboxes; the tool count still expects 25; the owner-answer document test still expects the old ticket words; and the Find test leaves an open table that a later expiry test joins. Update the counts and text checks. Abort the Find test's table after its assertion.
 - The other two failures match the earlier ticket: the card and Abort target sizes, and the report-delete permission test. Neither path changes in this step. Keep the limits and record the repeat result.
+
+### Local results for 18-a and 18-b
+
+- Code: `62adc425`. The online control, both Settings menu rows (A-F4), Block player, Unblock player and the Profile undo path are built. The controls use the existing styles. Long names wrap in the Profile list.
+- `npx tsc --noEmit`, the commit gates and the 26-tool protocol check pass. All tool hints have explicit boolean values. Block has destructive and open-world hints set to true.
+- The full repeat of `npm test` passes 2,561 tests, skips 8 and fails 2 in 167 files (141.18 seconds). Every changed test file passes. The failures are the unchanged report-delete permission test and a five-second timeout in `src/rules/power-fixes.test.ts:470`. The engine and that test have no diff from the task base `26f3c3a2`.
+- The focused server, migration and privacy run passes all 34 tests, then all 50 document and artwork tests. It includes all three online values, the default and mutual follows; block status, repeated blocks, Find, open-game and code joins, hidden messages, ended-game undo, private lists and bad targets.
+- The engine file passes all 35 tests on its own, then all 50 document and artwork tests. Its limit stays at five seconds. The old board-target failure from the first full run passes in the repeat. No unrelated source or test changes are made.
+- Local logs: `/tmp/kd-r9-18-typecheck.log`, `/tmp/kd-r9-18-local-protocol.log`, `/tmp/kd-r9-18-repeat-tests.log`, `/tmp/kd-r9-18a-tests.log` and `/tmp/kd-r9-18-rules-test.log`. Each has its exit file.
+- The M1 job is still in the shared browser queue. It will test the code at `62adc425` in this lane's folder. Its log is `/tmp/kd-r9-18-browser.log`. The check logs and exit files use `/tmp/kd-r9-18-plugin-ui`, `/tmp/kd-r9-18-plugin-ui-http` and `/tmp/kd-r9-18-protocol`.
