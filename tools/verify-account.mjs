@@ -204,14 +204,17 @@ try {
     const dlg = page.locator('#delete-account');
     await dlg.waitFor();
     assert.match(await dlg.innerText(), /name, picture and rating, and the settings, lessons\s+and game saved with it/);
+    // The words match the server: 0008 deletes after a seven-day grace, and a new sign-in cancels it.
+    assert.match(await dlg.innerText(), /We delete your account after seven days/);
+    assert.match(await dlg.innerText(), /To keep it, sign in again before then/);
     await dlg.locator('button[value=cancel]').click();
     assert.equal(server.requests.some(r => r.path.includes('delete_my_account')), false, 'Keep my account deletes nothing');
     await settings(page);
     await page.click('#account-body >> text=Delete my account');
     await dlg.locator('button[value=delete]').click();
-    await page.waitForFunction(() => document.getElementById('account-note').textContent.startsWith('Your account is deleted.'));
+    await page.waitForFunction(() => document.getElementById('account-note').textContent.startsWith('We delete your account in seven days.'));
     await settings(page);
-    assert.equal(await page.locator('#account-note').innerText(), 'Your account is deleted. Your games stay on this device.');
+    assert.equal(await page.locator('#account-note').innerText(), 'We delete your account in seven days. To keep it, sign in again before then. Your games stay on this device.');
     assert.ok(server.requests.some(r => r.method === 'POST' && r.path === '/rest/v1/rpc/delete_my_account'));
     assert.ok(server.requests.some(r => r.path === '/auth/v1/logout' && r.url.searchParams.get('scope') === 'local'));
     assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.auth')), null);
