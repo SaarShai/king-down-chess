@@ -288,7 +288,7 @@ const connection = app.connect().then(() => {
   // A screen that waited for fullscreen when the host remounted the widget opens now, or asks again inline.
   if (queuedAtStart && state.screen === 'home') { if (displayMode === 'inline' && canFullscreen()) void fullscreen(queuedAtStart); else navigate(queuedAtStart); }
   if (context?.displayMode === 'fullscreen' && state.screen === 'home' && !savedScreen) navigate('play');
-  if (state.screen !== 'home') { const screen = state.screen; if (displayMode === 'inline' && canFullscreen()) navigate('home'); void fullscreen(screen); }
+  if (state.screen !== 'home') { const screen = state.screen; if (displayMode === 'inline' && canFullscreen()) navigate('home'); void fullscreen(screen, GAME_SCREENS.includes(screen) ? screen : undefined); }
   poll = runPoll(() => ['friend', 'wait', 'seat', 'board'].includes(state.screen) ? view : undefined, async () => {
     if (!connected || awaitingInitialResult || mountReading || !state.board_id || busy || pending) return;
     await call('kingdown_get', { ...(view?.fen ? { since_revision: view.revision } : {}) }, false, true, !savedScreen || !!view && ['friend', 'wait', 'seat', 'board'].includes(state.screen));

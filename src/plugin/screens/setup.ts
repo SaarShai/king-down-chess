@@ -140,14 +140,18 @@ async function launch() {
   // pending, and Start sends no second Create. The 10 s command limit (client.ts) ends the call with Retry.
   const words = setTimeout(() => { late = true; render(); }, 1_000);
   const wait = setTimeout(() => { const back = $<HTMLButtonElement>('page-back'); back.dataset.free = ''; back.disabled = false; }, 5_000);
+  // Back before the Create (a slow settings save) ends the start, because no game exists yet.
+  let left = false; const leave = () => { left = true; };
+  $('page-back').addEventListener('click', leave);
   try {
     const last_setup = { ...draft, options: setupOptions(draft.options) }, saved = await client.call('kingdown_settings', { last_setup });
     if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     memory.settings = saved._meta?.settings as typeof memory.settings;
+    if (left) return;
     const args = { ...createArguments(last_setup), ...(last_setup.kind === 'random' && anyRules && { any_rules: true }) };
     const view = await start(last_setup.kind, args, { route: false }); if (view) await finish(view, last_setup.king);
   } catch (error) { $('error').textContent = errorText(error); }
-  finally { clearTimeout(words); clearTimeout(wait); starting = late = false; delete $('page-back').dataset.free; if (!client.state.pending) ownCommand = false; render(); }
+  finally { $('page-back').removeEventListener('click', leave); clearTimeout(words); clearTimeout(wait); starting = late = false; delete $('page-back').dataset.free; if (!client.state.pending) ownCommand = false; render(); }
 }
 async function recoverStart() {
   const pending = client.state.pending;

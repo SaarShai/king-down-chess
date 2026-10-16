@@ -369,6 +369,21 @@ it('opens the Play screen, not an empty game screen, when a chat result drops th
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });
+it('keeps the restored game screen for Play when the host refuses fullscreen after an inline remount', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    const game = frame.locator('[data-screen="seat"]:not([hidden]), [data-screen="board"]:not([hidden])');
+    await frame.locator('#setup-start').click(); await game.waitFor(); const screen = await game.getAttribute('data-screen');
+    // The host remounts the widget inline on its saved game screen and refuses the automatic fullscreen request.
+    await page.evaluate(() => { const host = window as any; host.harnessHostContext = { displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }; host.harnessDisplayMode = 'inline'; host.denyDisplayNext = true; });
+    await page.locator('#remount').click();
+    await frame.locator('#home-error', { hasText: 'expand control' }).waitFor();
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.resume)).toBe(screen);
+    await frame.locator('#home-play:not(:disabled)').click();
+    await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
+  } finally { await page.close(); }
+});
 it('keeps the opponent picked on New game for the session', async () => {
   const page = await open(), frame = page.frameLocator('iframe'), friend = frame.getByRole('radio', { name: 'A friend', exact: true });
   try {
@@ -937,6 +952,25 @@ it('shows a neutral Start game beside the connection line when a slow start time
     expect([await frame.locator('#setup-start').textContent(), await frame.locator('#setup-start').getAttribute('aria-busy')]).toEqual(['Start game', 'false']);
     await page.evaluate(() => (window as any).releaseHeld());
   } finally { await page.close(); }
+});
+
+it('starts no game when the player goes Back while a slow start still saves the setup', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page); await frame.locator('#home-play').click(); await frame.locator('#play-new').click();
+    await page.clock.install();
+    await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_settings'; });
+    await frame.locator('#setup-start').click();
+    await page.waitForFunction(() => !!(window as any).releaseBefore);
+    // After 5 s Back is free, and no Create has gone out yet.
+    await page.clock.fastForward(5_001);
+    await frame.locator('#page-back:not(:disabled)').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await page.evaluate(() => (window as any).releaseBefore());
+    await frame.locator('#page-back:not([data-free])').waitFor({ state: 'attached' });
+    expect(await sent(page, 'kingdown_create')).toBe(0);
+    expect(await frame.locator('body').getAttribute('data-page')).toBe('play');
+  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
 
 it('shows the connection sentence with no error name on Settings', async () => {
