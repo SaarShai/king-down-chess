@@ -67,6 +67,9 @@ it('names game features and each history result for screen readers', async () =>
     }
     await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
     await expect.poll(() => frame.locator('#profile-history li').count()).toBe(3);
+    for (const [i, game] of games.entries()) {
+      expect(await frame.locator(`#profile-open [data-game-id="${game.game_id}"] .feats`).ariaSnapshot()).toBe(featureNames[i]);
+    }
     for (const [i, entry] of entries.entries()) {
       const row = frame.locator(`#profile-history [data-game-id="${entry.game_id}"]`);
       expect(await row.locator('.feats').ariaSnapshot()).toBe(featureNames[i]);

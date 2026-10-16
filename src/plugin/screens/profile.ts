@@ -84,10 +84,7 @@ function openRow(entry: InboxEntry) {
   const player = document.createElement('span'); player.className = 'grow';
   const name = document.createElement('b'); name.textContent = waiting ? 'Open game' : entry.opponent?.computer ? `Computer · ${entry.level[0].toUpperCase()}${entry.level.slice(1)}` : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
   const line = document.createElement('small'); line.textContent = waiting ? waitingLine(entry) : entry.status === 'setup' ? yours ? 'Choose your side' : 'Waiting for the other player' : yours ? `Move ${entry.move}` : `Their turn ·\u00a0move ${entry.move}`; const detail = document.createElement('small'); detail.textContent = gameDetail(entry); player.append(name, line, detail);
-  const feats = document.createElement('span'); feats.className = 'feats';
-  for (const [field, icon, label] of [['fairy', 'fairy', 'Fairy pieces'], ['arrangement', 'arrange', 'Arrangement'], ['classic', 'classic', 'Classic'], ['cards', 'cards', 'Cards'], ['kingPowers', 'powers', 'King powers']] as const) {
-    if (entry.options?.[field]) { const feat = document.createElement('span'); feat.title = label; feat.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-${icon}"/></svg>`; feats.append(feat); }
-  }
+  const feats = features(entry.options);
   row.append(when, colour, player, feats);
   row.onclick = async () => { const view = await call('kingdown_resume', { game_id: entry.game_id }, false, false, false); if (view) routeView(view); };
   return row;
