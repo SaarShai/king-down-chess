@@ -76,18 +76,17 @@ try {
     return frame.locator('canvas').boundingBox();
   }
   // A remount boots a new frame, and the check only waits while the frame boots. So when the new frame has set its
-  // 300 ms boot timer, this steps the page clock over that timer and does not wait in real time. Then it sets the
-  // page date back by the step, because the lost Start check fails when the page date is after the server date.
-  // Each frame clock adds real time when a script reads the date; fastForward drops the real time since the last
-  // read, and setSystemTime keeps it to add later. So pageDate() reads the date in both frames directly before each
-  // step. Thus the page date stays on the server clock, or falls a few ms behind it (about 2 ms a remount here).
+  // 300 ms boot timer, this steps the page clock over that timer and does not wait in real time. The step stays, as a
+  // real wait would: the lost Start check measures the time since the start on the page clock (Retry by the server
+  // clock), so a page date set back below the real time makes the new game look older than the start.
+  // Each frame clock adds real time when a script reads the date, and fastForward drops the real time since the last
+  // read. So the step reads the date in both frames directly before it.
   async function remountFrame() {
     const before = await page.evaluate(() => window.harnessBoots);
     await page.locator('#remount').click();
     await page.waitForFunction(n => window.harnessBoots > n, before);
-    const pageDate = () => page.evaluate(() => { document.querySelector('iframe').contentWindow.Date.now(); return Date.now(); });
-    await pageDate(); await page.clock.fastForward(300);
-    await page.clock.setSystemTime(await pageDate() - 300);
+    await page.evaluate(() => { document.querySelector('iframe').contentWindow.Date.now(); Date.now(); });
+    await page.clock.fastForward(300);
   }
   // The per-control scroll and measure in one page call. Playwright's scrollIntoViewIfNeeded first waits until the
   // control keeps its box from one frame to the next; here the whole list does (two equal reads 20 ms apart). Then

@@ -932,6 +932,41 @@ it('makes one game when Retry reads a timed-out Create and the device clock is a
   }
 });
 
+// A lost Start reply, then a remount. The mount read takes the board's game when it began after the start: the device
+// clock gives only the time since the start. A clock that steps forward over the remount (as the plugin-ui check steps
+// over the boot timer) finds the game with no send. A clock that steps back below the real time cannot; the start keeps
+// its error and Retry, as a start that failed before a remount does (W6 a), and Retry sends the same command ID: the
+// start receipt gives back the first game.
+it('makes one game after a lost Start reply and a remount, when the device clock steps forward or back over the remount', async () => {
+  for (const step of [300, -60_000]) {
+    const page = await open(), frame = page.frameLocator('iframe');
+    try {
+      await newGame(page);
+      const since = Date.now();
+      await page.clock.install();
+      await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_create'; });
+      await frame.locator('#setup-start').click(); await frame.locator('#retry').waitFor();
+      const made = await page.evaluate(() => (window as any).harnessView.game_id);
+      if (step > 0) await page.clock.fastForward(step); else await page.clock.setSystemTime(await page.evaluate(() => Date.now()) + step);
+      const reads = await sent(page, 'kingdown_get');
+      await page.locator('#remount').click();
+      if (step < 0) {
+        await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
+        await frame.locator('#retry:not([hidden])').waitFor();
+        expect([await frame.locator('#error').textContent(), await sent(page, 'kingdown_create')], `step ${step}`).toEqual(['Harness lost reply after commit', 1]);
+        await frame.locator('#retry').click();
+      }
+      await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+      const ids = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').map((c: any) => c.arguments.command_id));
+      expect(ids, `step ${step}`).toEqual(step > 0 ? [ids[0]] : [ids[0], ids[0]]);
+      expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(made);
+      expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
+      const games = (await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_games', arguments: {} } })).json())._meta.games;
+      expect(games.filter((game: any) => game.kind === 'friend' && Date.parse(game.created_at) >= since)).toHaveLength(1);
+    } finally { await page.close(); }
+  }
+});
+
 // Round 5: each failed command keeps its error and Retry on the screen where it started.
 const CANNOT_CONNECT = 'Cannot connect. Check your connection, then try again.';
 
