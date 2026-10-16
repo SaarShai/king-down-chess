@@ -301,9 +301,17 @@ it('keeps an inline route through an inline remount with no display request', as
     const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
     await page.evaluate(result => (window as any).harnessShow(result, true), result);
     await frame.locator('#home-play:not(:disabled)').filter({ hasText: 'Resume' }).waitFor();
+    await page.addInitScript(() => {
+      const host = window as any; host.profileShownInline = false;
+      new MutationObserver(() => {
+        const profile = document.querySelector<HTMLElement>('[data-screen="profile"]');
+        if (profile && !profile.hidden && !document.getElementById('app-frame')?.hidden) host.profileShownInline = true;
+      }).observe(document, { subtree: true, attributes: true, attributeFilter: ['hidden'] });
+    });
     await page.locator('#remount').click();
     await frame.locator('#home-play:not(:disabled)').filter({ hasText: 'Resume' }).waitFor();
     expect(await page.evaluate(() => (window as any).harnessDisplayRequests ?? [])).toEqual([]);
+    expect(await frame.locator('html').evaluate(() => (window as any).profileShownInline)).toBe(false);
     await expand(page);
     await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
   } finally { await page.close(); }
@@ -1329,7 +1337,7 @@ it('keeps the game route when Play now finishes before fullscreen is granted', a
     await page.evaluate(() => { (window as any).holdDisplayNext = true; });
     await frame.locator('#home-play').click();
     await page.waitForFunction(() => !!(window as any).releaseDisplay);
-    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view?.status)).toBe('playing');
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.queued)).toBe('board');
     expect(await frame.locator('#home-card').isVisible()).toBe(true);
     await page.evaluate(() => (window as any).releaseDisplay());
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();

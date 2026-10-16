@@ -282,7 +282,7 @@ $('page-title').onpointerdown = () => { clearTimeout(press); if (state.screen ==
 $('page-title').onpointerup = $('page-title').onpointerleave = $('page-title').onpointercancel = () => clearTimeout(press);
 // Inline routes wait behind the home card. Only a button requests fullscreen.
 const GAME_SCREENS: Screen[] = ['seat', 'board', 'wait', 'friend', 'end'];
-let displayMode: string | undefined, asking = false, collapsed = false, resume: Screen | undefined, target: Screen | undefined, gamesFirst = false;
+let displayMode: string = 'inline', asking = false, collapsed = false, resume: Screen | undefined, target: Screen | undefined, gamesFirst = false;
 const canFullscreen = () => app.getHostContext()?.availableDisplayModes?.includes('fullscreen') ?? true;
 /** The widget state keeps the waiting screen only while it waits. */
 function unqueue() { target = undefined; delete state.queued; }
