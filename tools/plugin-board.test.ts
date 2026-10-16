@@ -76,6 +76,16 @@ it.each([['a stop', 'pass'], ['a second move', 'move']] as const)('marks each op
   finally { await page.close(); }
 });
 
+it('keeps Their move through the opponent Haste turn', async () => {
+  const rules: Partial<Rules> = { kings: [null, { king: 'Flame', power: 'Haste' }] }, fen = '4k3/p7/8/8/8/8/4P3/K7 b - - 0 1';
+  setRules(rules); const pre = fromFen(fen), move = legalMoves(pre).find(m => m.power === 'haste' && m.from === 48 && m.to === 40)!;
+  const page = await open(view(toFen(makeMove(pre, move)), rules, { revision: 1, seat: 0, history: { initial_fen: fen, actions: [toLan(pre, move)] } })), frame = page.frameLocator('iframe');
+  try {
+    expect(await frame.locator('#status').textContent()).toBe('Their move.');
+    expect(await frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('true');
+  } finally { await page.close(); }
+});
+
 it('marks the pieces that can use Vault with the power target mark', async () => {
   const rules: Partial<Rules> = { hands: [['Vault'], []] }, next = view('7k/8/8/8/8/8/P7/R6K w - - 0 1', rules);
   const page = await open(next), frame = page.frameLocator('iframe');

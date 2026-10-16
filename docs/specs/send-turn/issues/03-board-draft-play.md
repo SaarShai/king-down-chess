@@ -35,3 +35,4 @@ Source: owner ticket 12-submit-turn. Scope: design section 8, ticket 03.
 - The M1 board test waits for the shared browser lock. The detached check job is `/tmp/kd-od-board-verify.sh`; its log is `/tmp/kd-od-board-verify.log`.
 - The merged server fixture unit test passes 8 tests and 50 figure checks. It takes 2.56 seconds after the lock wait. The log is `/tmp/kd-od-board-fixture-unit.log`.
 - Both readers accept the final source. The code keeps the move-lock cleanup, draws the draft after failed motion, and keeps a pending connection error during piece and coin reads. The new UI checks cover these states. Their M1 run remains pending.
+- A final read finds that an opponent Haste step can show the player's mid-way prompt. The prompt now checks whose turn it is. A board test checks the line and the off turn button in this state.
