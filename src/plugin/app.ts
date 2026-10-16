@@ -1,7 +1,8 @@
 import { App, type McpUiHostContext } from '@modelcontextprotocol/ext-apps';
 import type { PlayerSettings } from './settings';
 import { setRules } from '../rules/engine';
-import { gameTitle, gamesList, nextGame } from './games-list';
+import { nextGame } from './next-game';
+import { gameTitle, gamesList } from './games-list';
 import type { InboxEntry, JoinPreview, View } from '../match/protocol';
 import { CANNOT_CONNECT, createClient, errorText, type WidgetHost, type Screen, type Pending } from './client';
 import { art } from './art';
@@ -62,12 +63,12 @@ function turnLine(count: number) {
   $('home-line').textContent = `Your move in ${count} game${count === 1 ? '' : 's'}.`;
 }
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
-function actions() {
+export function actions() {
   const blocked = busy || mountReading || !connected;
   // A slow start marks ‹ Play data-free (setup.ts): it stays a way out while later calls run.
   buttons().forEach(button => { button.disabled = (blocked && !button.hasAttribute('data-free')) || button.matches('#king-picker [aria-disabled="true"]'); });
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
-  $<HTMLButtonElement>('setup-start').disabled ||= setupBusy();
+  for (const id of ['setup-start', 'hall-play', 'games-start']) $<HTMLButtonElement>(id).disabled ||= setupBusy();
   homeActions();
   $<HTMLInputElement>('handle').disabled = $<HTMLInputElement>('join-code').disabled = blocked;
   $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = blocked || !memory.settings;
@@ -219,6 +220,7 @@ async function mountResult(result: ToolResult, initial: boolean, stale: () => bo
       if (home.isError) throw new Error(home.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(home); saveState(); return;
     }
+    if (!initial && value?.screen === 'home') openHallOnExpand = false;
     if (value?.screen === 'join') { memory.preview = result._meta?.preview as JoinPreview | undefined; memory.code = memory.preview?.code ?? ''; memory.joinError = undefined; }
     if (value && ['home', 'play', 'board', 'profile', 'join'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen === 'home' && initial && !savedScreen && displayMode === 'fullscreen' ? 'play' : value.screen as Screen);
     if (typeof value?.game_id === 'string' && !board && (!initial || !state.board_id)) {
@@ -227,14 +229,18 @@ async function mountResult(result: ToolResult, initial: boolean, stale: () => bo
       if (selected.isError) throw new Error(selected.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(selected);
     }
-    // The server names the board for every game; the read routes by the game status (a game in setup opens the seat).
-    const route = (value?.screen === undefined || value.screen === 'board') && (!initial || !savedScreen);
+    // A saved game follows its status. Keep its pending command on its screen unless the game ends.
+    const savedGame = !!(initial && savedScreen && GAME_SCREENS.includes(queuedAtStart ?? savedScreen));
+    const route = initial && savedScreen ? savedGame && !pending : value?.screen === undefined || value.screen === 'board';
     const readBoard = state.board_id && (typeof value?.game_id === 'string' || initial && savedScreen);
     // A command in flight for the game shown before would skip this read, and its reply would keep the old game on the screen.
     // A result for another game waits for that command, so its own read shows last.
     if (readBoard && typeof value?.game_id === 'string' && value.game_id !== shown) while (busy) await commandDone;
     if (stale()) return;
-    if (readBoard) await call('kingdown_get', {}, false, false, route);
+    if (readBoard) {
+      const next = await call('kingdown_get', {}, false, false, route);
+      if (savedGame && !route && next && (next.status === 'finished' || next.status === 'aborted')) routeView(next);
+    }
     else if (!result._meta?.view) view = undefined;
     if (!readBoard) await games();
     saveState();
@@ -257,7 +263,6 @@ const connection = app.connect().then(() => {
   const context = app.getHostContext(); hostContext(context);
   // A saved route waits behind the home card while the host stays inline.
   if (queuedAtStart && state.screen === 'home') navigate(queuedAtStart);
-  if (context?.displayMode === 'fullscreen' && state.screen === 'home' && !savedScreen) navigate('play');
   if (state.screen !== 'home' && displayMode === 'inline') { const screen = state.screen; if (canFullscreen()) navigate('home'); navigate(screen); }
   poll = runPoll(() => ['friend', 'wait', 'seat', 'board'].includes(state.screen) ? view : undefined, async () => {
     if (!connected || awaitingInitialResult || mountReading || !state.board_id || busy || pending) return;
@@ -283,7 +288,7 @@ $('page-title').onpointerdown = () => { clearTimeout(press); if (state.screen ==
 $('page-title').onpointerup = $('page-title').onpointerleave = $('page-title').onpointercancel = () => clearTimeout(press);
 // Inline routes wait behind the home card. Only a button requests fullscreen.
 const GAME_SCREENS: Screen[] = ['seat', 'board', 'wait', 'friend', 'end'];
-let displayMode: string = 'inline', asking = false, collapsed = false, resume: Screen | undefined, target: Screen | undefined, gamesFirst = false;
+let displayMode: string = 'inline', asking = false, collapsed = false, resume: Screen | undefined, target: Screen | undefined, gamesFirst = false, openHallOnExpand = !savedScreen;
 const canFullscreen = () => app.getHostContext()?.availableDisplayModes?.includes('fullscreen') ?? true;
 /** The widget state keeps the waiting screen only while it waits. */
 function unqueue() { target = undefined; delete state.queued; }
@@ -309,7 +314,8 @@ export function navigate(screen: Screen) {
     resume = state.queued = screen; if (asking) target = screen; client.save(); return;
   }
   unqueue();
-  if (screen !== 'home') resume = undefined;
+  resume = undefined;
+  if (screen === 'home' && !mountReading) openHallOnExpand = false;
   if (screen === 'handle' && state.screen !== 'handle') handleBack = state.screen === 'settings' ? 'settings' : pending?.screen ?? state.screen;
   if (screen === 'settings' && !['settings','handle'].includes(state.screen)) {
     if (['board','seat'].includes(state.screen)) state.settings_back = state.screen; else delete state.settings_back;
@@ -326,7 +332,7 @@ export function navigate(screen: Screen) {
   $('page-title').textContent = ({ friend: 'A friend', join: 'Join a game', wait: 'Looking for an opponent', lobby: 'Open games', seat: 'Set up your side', end: 'Game over', profile: 'Profile', collection: 'Collection', settings: 'Settings', handle: 'Pick a name and a picture' } as Partial<Record<Screen,string>>)[screen] ?? '';
   if (!mountReading && screen in screens) screens[screen as keyof typeof screens]();
   client.save(); actions(); poll?.update();
-  if (screen === 'play' && gamesDirty && !mountReading) void games();
+  if (['home', 'play'].includes(screen) && gamesDirty && !mountReading) void games();
   if (screen === 'play' && gamesFirst) { gamesFirst = false; $('games-list').closest<HTMLElement>('.new-game-body')!.scrollTop = 0; }
   if (screen === 'settings') void applySettings();
   if (screen === 'seat' || screen === 'board') setTimeout(() => { if (state.screen === screen) measureLayout(); }, 1500);
@@ -341,8 +347,11 @@ function hostContext(context: McpUiHostContext | undefined) {
     const screen = state.screen;
     displayMode = 'inline'; navigate('home'); resume = state.queued = screen; client.save(); collapsed = true; actions();
   }
+  const showHall = context.displayMode === 'fullscreen' && openHallOnExpand;
   if (context.displayMode) displayMode = context.displayMode;
+  if (displayMode === 'fullscreen') openHallOnExpand = false;
   if (displayMode === 'fullscreen' && resume && !asking) { const screen = resume; resume = undefined; collapsed = false; navigate(screen); }
+  else if (showHall && state.screen === 'home' && !asking) navigate('play');
 }
 async function games() {
   $('games-status').textContent = 'Loading games…';
@@ -389,9 +398,10 @@ $('handle-form').onsubmit = event => {
 };
 $<HTMLInputElement>('handle').oninput = scheduleHandleCheck;
 /** Resume prefers a person; Your games opens the list. */
-const homeGame = () => resume ? GAME_SCREENS.includes(resume) ? memory.games.find(entry => entry.game_id === view?.game_id) : undefined : nextGame(memory.games);
+const homeGame = () => resume && resume !== 'play' ? GAME_SCREENS.includes(resume) ? memory.games.find(entry => entry.game_id === view?.game_id) : undefined : nextGame(memory.games);
 function homeActions() {
-  const game = homeGame(), back = !!resume || !!game;
+  const game = homeGame(), back = !!resume && resume !== 'play' || !!game;
+  $<HTMLButtonElement>('home-play').disabled ||= !back && setupBusy();
   const label = (id: string, symbol: string, text: string) => { const html = `<svg class="icon" aria-hidden="true"><use href="#i-${symbol}"/></svg><span>${text}</span>`; if ($(id).innerHTML !== html) { $(id).innerHTML = html; $(id).querySelector('span')!.textContent = text; } };
   label('home-play', back ? 'continue' : 'play', back ? game ? `Resume · ${game.opponent?.computer ? 'Computer' : gameTitle(game)}` : 'Resume' : 'Play now');
   label('home-games', 'guide', memory.games.length ? `Your games (${memory.games.length})` : 'Choose a game');
@@ -400,7 +410,7 @@ function homeActions() {
 function homePlayNow() { collapsed = false; resume = undefined; void fullscreen('home'); playNow(); }
 $('home-play').onclick = () => {
   const game = homeGame();
-  if (resume) { const next = resume; collapsed = false; resume = undefined; void fullscreen(next); }
+  if (resume && resume !== 'play') { const next = resume; collapsed = false; resume = undefined; void fullscreen(next); }
   else if (game) { collapsed = false; void fullscreen('home'); void call('kingdown_resume', { game_id: game.game_id }); }
   else homePlayNow();
 };

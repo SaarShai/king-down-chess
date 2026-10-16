@@ -358,3 +358,28 @@ it('keeps the normal piece rule for a player above beginner level', async () => 
     expect(await frame.locator('#context-note').innerText()).toBe('Only a king can take it.');
   } finally { await page.close(); }
 });
+
+
+it.each([[320, 568], [393, 852]])('keeps the board size after a beginner selects a long lesson at %i px', async (width, height) => {
+  const page = await open(view('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBOR w - - 0 1', {}, { level: 'beginner' }), width, height), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    const size = () => frame.locator('#board canvas').boundingBox();
+    const settle = () => frame.locator('#board canvas').evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await settle();
+    await expect.poll(async () => (await size())?.width ?? 0).toBeGreaterThanOrEqual(192);
+    const before = (await size())!;
+    await frame.locator('html').evaluate(() => (window as any).testBoard.onSquareClick(6));
+    const lesson = LESSONS.find(lesson => lesson.name === 'Ogre')!.done;
+    expect(await frame.locator('#context-note').textContent()).toBe(lesson);
+    // Wait for layout and the board's resize observer before the size comparison.
+    await settle();
+    const after = (await size())!;
+    expect(after.width).toBeCloseTo(before.width, 0);
+    expect(after.height).toBeCloseTo(before.height, 0);
+    expect(after.y).toBeCloseTo(before.y, 0);
+    expect(after.width).toBeGreaterThanOrEqual(192);
+    await frame.getByRole('button', { name: 'All rules', exact: true }).click();
+    expect(await frame.locator('#board-sheet').innerText()).toContain(lesson);
+  } finally { await page.close(); }
+});

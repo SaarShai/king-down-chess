@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import type { InboxEntry } from '../match/protocol';
-import { nextGame } from './games-list';
+import { nextGame } from './next-game';
 const entry = (game_id: string, computer = false, fields: Partial<InboxEntry> = {}) => ({ game_id, status: 'playing', action: 'ready', opponent: { computer }, ...fields }) as InboxEntry;
 
 it('prefers the first ready person to a computer and keeps inbox order within each group', () => {

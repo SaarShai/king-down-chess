@@ -170,3 +170,18 @@ it('uses singular and plural words for badge and lobby counts', async () => {
   }
  } finally {await client.close(); await server.close();}
 });
+
+
+it.each(['kingdown_open', 'kingdown_resume'])('%s prefers a ready person to a computer', async name => {
+ const computer = '00000000-0000-4000-8000-000000000001', person = '00000000-0000-4000-8000-000000000002', board_id = '00000000-0000-4000-8000-000000000003';
+ const entry = (game_id: string, computer: boolean) => ({game_id,status:'playing',action:'ready',opponent:{computer}});
+ const service = {inbox:async()=>[entry(computer,true),entry(person,false)],view:async(_:string,game_id:string)=>({game_id,seat:0,status:'playing',action:'ready',fen:null,draw_offer:null}),profile:async()=>({handle:null,icon:null}),settings:async()=>({}),openBoard:async()=>board_id,board:async()=>computer,selectBoard:async()=>{}} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'next-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const result = await client.callTool({name,arguments:name === 'kingdown_open' ? {game_id:'next'} : {board_id}});
+  expect(result.isError).toBeFalsy();
+  expect(result.structuredContent).toMatchObject({game_id:person});
+ } finally {await client.close(); await server.close();}
+});

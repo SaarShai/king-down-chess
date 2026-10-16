@@ -204,6 +204,7 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table .player-name { display: flex; align-items: baseline; }
   #game-table .player-name :is(b, small) { min-width: 0; font-size: 14px; }
   #game-table .player-name small { margin-left: 4px; }
+  #game-table #context-text { display: -webkit-box; height: 40px; overflow: hidden; -webkit-line-clamp: 2; }
   #game-table #context-line { min-height: 44px; padding-block: 0; flex-wrap: nowrap; border-top: 0; box-shadow: 0 -1px 0 var(--line); }
   #game-table #context-text > span { display: inline; }
   #game-table #context-text > span + span::before { content: ' '; }

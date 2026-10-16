@@ -1,3 +1,4 @@
+import { nextGame } from './next-game';
 import { createHash, randomUUID } from 'node:crypto';
 import { diagnostic } from './diagnostics';
 import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -95,7 +96,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   const home = async (board?: string): Promise<Reply> => { const { handle, icon } = await service.profile(actorId); return { content: text('King Down. Start a game from Play.'), structuredContent: { screen: 'home' }, _meta: { ...(board && { board_id: board }), me: { handle, icon } } }; };
   /** The most urgent game, or home when no game is open. */
   async function next(): Promise<View | null> {
-    const urgent = (await service.inbox(actorId))[0];
+    const inbox = await service.inbox(actorId), urgent = nextGame(inbox) ?? inbox[0];
     return urgent ? service.view(actorId, urgent.game_id) : null;
   }
   const play = async (args: { game_id: string; command_id: string; expected_revision: number }, action: Action) => reply(await service.command(actorId, args.game_id, { command_id: args.command_id, expected_revision: args.expected_revision, action }));

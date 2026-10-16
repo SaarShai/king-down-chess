@@ -50,7 +50,6 @@ The owner approves the picks and asks for this build in the task message.
 
 ## Comments
 
-
 ### Build
 
 - J10: Your games shows the open-game count and opens the hall at the list. The hall has Play now. Resume and Next game prefer a person within the ready games.
@@ -81,6 +80,90 @@ The full test run also finds an early size read in the 200% zoom test. Board rea
 - The earlier source run passes on this Mac with the local test database: 113 files, 1,584 tests and 8 skipped tests, plus 50 drawing tests. The Join and lobby file passes 23 tests. The final menu file passes 11 tests. Each focused run also passes all 50 drawing tests.
 - The Name test fails at its lock assertion before the fix and passes after the fix. The full run first reads a zero-width canvas in the zoom test. The same size and move checks pass after they wait for the resize callback. Both readers report no open fault in these fixes.
 - An early full run reaches three existing timing limits. The repeat uses two workers and keeps each limit. A later run loses its shared SSH database link. The lane now owns a link with keepalive and no shared control socket: M1 port 55438 reaches the same Mac test database at port 55432. A database probe fails before that link starts and passes after it starts.
-- M1 checks hold this Mac's test lock and the M1 check lock. This keeps concurrent runs out of the shared test database. A local parent holds the test lock while it waits for SSH; SSH alone closes that lock handle.
+- Earlier M1 groups also use this Mac's test lock. That extra lock is not needed: all database test files use their own databases. The named browser checks use the M1 lock. Their HTTP check uses test actors in the base test database.
 - The phone sample at 390 px shows the full pitch and hides the zero count. The live ChatGPT host is not checked because the owner bars sign-in.
 - The final `npm run test:docs` passes: 8 files and 114 tests. Log: `/tmp/kd-od-home-doc-check.log`.
+
+### Review repair plan
+
+1. Check each Review A and Review B finding against the code. Record each result here.
+2. Add tests for fixed board size, Home routes, game counts, start locks, server game choice and Select text. Check the spec against D7.
+3. Fix each confirmed fault at its source. Keep the saved hall route for host expansion.
+4. Run `npm test` on this Mac with the local test database. Run focused browser test files and `plugin-ui` and `plugin-ui-http` on the M1. Keep all time limits.
+5. Check the final diff and commit on this branch.
+
+Pass criteria: each confirmed fault has a regression test. Tests and both browser checks pass. Each review finding has a result and evidence. The live host stays unchecked because sign-in is barred.
+
+### Review repair results
+
+The code confirms each finding. A4 and B5 name the same word fault.
+
+- A1: The long lesson grows the context row. The phone context text now uses a fixed two-line slot. All rules shows the full lesson. Tests compare canvas width, height and position at 320 and 393 px.
+- A2: A saved Play route makes both Home actions open the hall. Home now uses Play now or the next ready person game for its first action. The saved hall route still serves host expansion. Tests cover collapse, an inline chat route, empty games and a ready person game.
+- A3: The hall and empty-list start actions stay on while Retry waits. Both start controls now use the setup lock in both render paths. The lost-Create test checks all three controls.
+- A4 and B5: The website supplies turn text and move help that still say Tap. Both use Select. Turn tests check all modes and the real context function. The website browser checks read the rendered turn text.
+- A5: The server takes the first inbox game. The server and browser now share the person-first choice. Tests cover both kingdown_open with next and kingdown_resume without a game ID. The server keeps the first inbox game when no game needs the player.
+- A6: The overview and Q25 still require an inline card first. Both now record D7 a. The two related user stories match it. A doc test checks both spec sections.
+- B1: A saved game route suppresses routing from the new status. Mount now routes saved game screens from the fresh server read. A test ends the game between collapse and inline remount, then checks that Resume opens the result.
+- B2: A new Home result clears the queue but keeps Resume. Home now clears both. A test sends Profile then Home and checks that Play now starts a game.
+- B3: Create marks the list dirty, but Home does not read it. Home now refreshes a dirty list. A test creates a game, collapses and checks Your games (1) and its row.
+- B4: Only the initial connection opens the hall on first fullscreen entry. Host context now handles the first fullscreen notice too. A test delays that notice until mount ends, then checks that a later explicit Home return stays on Home.
+
+### Review repair checks
+
+- First repair code: `9063d72f`. The final check record also covers the linked Home start case below.
+- This Mac: `KINGDOWN_TEST_FILE='src/**/*.test.ts' npm test` passes with the required local test database. All 113 files pass: 1,586 tests pass and 8 skip. All 50 drawing tests pass. The run takes 101.70 s.
+- The source probes use the new tests with the old code. Both server-choice tests fail. Six turn-text tests fail. The display-spec test fails. The full source run and the doc run pass with the fixes.
+- M1: the new Home tests with the old product code fail in all eight fault cases. The old board code fails both size tests: 218 to 184 px at 320 px, and 384 to 371 px at 393 px. No other test in either file fails.
+- M1 with the fixes: all 81 app tests pass in 151.82 s. All 39 board tests pass in 70.76 s. Each file also passes all 50 drawing tests. The remount test waits for a fresh server read. The size test waits for the resize callback before each comparison.
+- The doc check passes: 8 files and 115 tests.
+- Logs on this Mac: `/tmp/kd-od-home-repair/`. M1 log prefix: `/tmp/kd-od-home-repair-`.
+- The fixture and website browser checks use the M1 check lock. The lane has its own database link through M1 port 55438. Its database probe passes. The first groups also use the Mac test lock. The final group uses only the M1 lock; the database test files use separate databases.
+- No test or check time limit changes. The live ChatGPT host stays unchecked because sign-in is barred.
+
+### Linked Home start case
+
+A final code check finds that A2 and A3 need one more joint check. After a lost hall start, collapse saves Play. Home then offers Play now, but the old action lock leaves that button on. The start guard sends no second Create, so that action has no result.
+
+The app now owns one action update. Setup render calls that update. The update locks Home Play now while a start waits for Retry. Resume and Choose a game keep their normal rules.
+
+The new test fails at the disabled-button check with the first repair code. With the fix, this Mac passes all 113 source files: 1,586 tests pass and 8 skip in 97.82 s. The single app file passes all 82 tests in 138.24 s. Both runs also pass all 50 drawing tests. Logs: `unit-final.log`, `app-final.log` and `red-home-start.log` in `/tmp/kd-od-home-repair/`.
+
+The first four named browser checks use one M1 group. That group takes both locks and waits for other browser checks to end. The final group needs only the M1 lock. Earlier queued attempts end before any named check starts.
+
+### Route recovery checks
+
+The first named M1 group uses `507e3c49`. Both website checks pass: turn takes 12.695 s, and their-turn takes 6.473 s. No website source changes after that run. The two plugin checks stop at `tools/plugin-ui-check.mjs:661`. A remount opens the board before the saved seat recovers a lost Ready reply. The pending Choose command then blocks the computer.
+
+The read now keeps a pending command with its saved screen. A terminal result still opens its result card. A new test checks a lost seat Ready as Black. It checks the same command ID after remount and the computer's first move. The result test also checks a lost resign reply.
+
+A second route check covers Profile to Home before the first fullscreen notice. The hall flag now tracks that Home request. Both a route and a chat result cancel the default hall entry. The original late first notice still opens the hall when Home has no explicit request.
+
+All three new route probes fail with `507e3c49`. With the fixes, this Mac passes all 113 source files: 1,586 tests pass and 8 skip in 98.37 s. The single app file passes all 86 tests in 145.32 s. Both runs also pass all 50 drawing tests. Logs: `red-routes.log`, `unit-routes.log` and `app-routes.log` in `/tmp/kd-od-home-repair/`. The first named check logs are in `browser-first/` there.
+
+The next M1 group runs plugin-ui and plugin-ui-http. The two website checks already pass. The group keeps every time limit.
+
+### Viewport check states
+
+The second named M1 group uses `7dbd9dbd`. Both plugin checks pass the lost seat Ready case. Both then stop in the viewport loop at the saved Friend page. The sample has a playing solo game, so the new fresh-status rule opens its board. This is a check fixture fault, not a new product fault.
+
+The viewport loop now shares the valid status cases with the route loop. A saved Friend sample reads a waiting friend game. The other game pages also read a matching state. No size or control check changes. The app test also checks that a saved Friend route opens the board when the game is already in play.
+
+The second group logs are in `/tmp/kd-od-home-repair/browser-second/`. No runtime code changes after `7dbd9dbd` for this check repair.
+
+The updated app file passes all 87 cases in 150.50 s. The same `npm test` run passes the type check and all 50 drawing tests. Log: `/tmp/kd-od-home-repair/app-viewport.log`. The final named group uses `e730396d`.
+
+The final queue uses only the M1 lock. All 11 database test files use `ownTestDatabase`, which adds a suffix to the base test database name. The extra Mac lock delays other lanes and gives this browser run no database isolation. The queued shell ends by its verified PID before any named check starts. The new shell keeps the owner's exact M1 lock loop and the active-check guard.
+
+The final `npm run test:docs` passes all 8 files and 115 tests in 1.79 s. Log: `/tmp/kd-od-home-repair/docs-final.log`.
+
+### Final review repair evidence
+
+- Checked code and tests: `e730396d40c2fb4e7dc271d27fc9fc60f4d8a69f`. The final commit changes only this ticket after that head.
+- M1 `plugin-ui` passes in 220.474 s. M1 `plugin-ui-http` passes in 284.637 s. Both pass the lost Ready and saved-screen viewport cases. The named group and SSH return 0. No test or check limit changes.
+- The website `turn` and `their-turn` checks pass in the first group. No website source changes after those passes. The later diff changes only the plugin app, its tests, its check helper and this ticket.
+- Local `npm test` passes all 113 source files: 1,586 tests pass and 8 skip. The app file passes all 87 cases. The M1 board file passes all 39 cases. Each run also passes all 50 drawing tests. The type check passes.
+- The doc check after the final result record passes all 8 files and 115 tests in 1.99 s. Log: `/tmp/kd-od-home-repair/docs-record.log`.
+- The own database link closes after the HTTP check returns 0.
+- Final browser logs and `run.json`: `/tmp/kd-od-home-repair/browser-final/`. The checked M1 output folder is `kd-od-home-s2lc6U`.
+- The live ChatGPT host stays unchecked because sign-in is barred.

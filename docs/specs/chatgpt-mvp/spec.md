@@ -22,7 +22,7 @@ A King Down app inside ChatGPT where the game is the main feature:
 - **Profile:** a games registry on a scroll, a rating, 10 badges, and a Collection page with every piece, king, power and card, all unlocked.
 - **Settings:** a symbols-only piece look, and Show threats.
 
-The app runs as one page. A chat request shows a small inline card. Setup, the board, the profile and the settings open in fullscreen. The player can also open King Down in the ChatGPT side panel or from the sidebar.
+The app runs as one page. D7 a (owner, 2026-10-15): ChatGPT opens the game in fullscreen at once. The app requests fullscreen only after a player selects an action. The inline home card has at most two actions. Setup, the board, the profile and the settings use fullscreen. The player can also open King Down in the ChatGPT side panel or from the sidebar.
 
 ## Decisions
 
@@ -54,7 +54,7 @@ The app runs as one page. A chat request shows a small inline card. Setup, the b
 | Q18 | Look | The game's own design: the tokens, fonts and components of the web game (`src/style.css`, the web-redesign screens), with the painted pieces and board. OpenAI's style advice (system fonts, plain cards) does not set the look; the host rules stay only as limits (at most 2 actions in the inline card, room for the composer). The owner, on the first sample: "the GUI look doesn't seem like it is based on our design for the game." New art (scroll, king coins, badges) from Codex image_gen. The owner approves one rendered sample of the home, setup and profile screens before the visual build. The logic is built at the same time. |
 | Q23 | Base | Build on `claude/multiplayer-foundation` (accounts, handles, invites, 3-day turns, game list, rating maths). The release ends the old plugin test games. |
 | Q24 | Address | The plugin moves to `https://kingdown.dev/mcp` at this release. Testers add the new connection. |
-| Q25, Q25b | Display | As OpenAI recommends: a small inline card in the chat (at most 2 actions); setup, board, profile and settings in fullscreen. No picture-in-picture (ChatGPT does not support it). Q25b (the owner delegated the choice, then agreed: "Q25b - agreed."): the page also declares a side-panel entry and a sidebar entry, which open the same fullscreen home. Only the chat path must work for the release; if the two entries do not show for the private plugin, the release goes without them. One layout serves fullscreen, the side panel and a phone. |
+| Q25, Q25b | Display | D7 a (owner, 2026-10-15): ChatGPT opens the game in fullscreen at once. The app requests fullscreen only after a player selects an action. The inline home card has at most 2 actions; setup, board, profile and settings use fullscreen. No picture-in-picture (ChatGPT does not support it). Q25b (the owner delegated the choice, then agreed: "Q25b - agreed."): the page also declares a side-panel entry and a sidebar entry, which open the same fullscreen home. Only the chat path must work for the release; if the two entries do not show for the private plugin, the release goes without them. One layout serves fullscreen, the side panel and a phone. |
 | Q26 | Defaults | A new game starts with Fairy on (all pieces), Arrangement on, Classic off, Cards off, King powers off. The setup screen then remembers the player's last choices. |
 | Q27 | Setup time | In a game against a person, each player has 3 days to pick a king and arrange; a player who does not finish ends the game with no result. |
 | Q28 | Friend invite | A 6-character code with a Copy button. The friend says "Join King Down game K7QX2M" in ChatGPT, or types it in Play → Join. The friend needs the plugin connection. The code works for 7 days (owner, 2026-10-11). |
@@ -63,8 +63,8 @@ The app runs as one page. A chat request shows a small inline card. Setup, the b
 ## User Stories
 
 Play menu and the computer
-1. As a player, I want to say "play King Down" in ChatGPT and see a small card with Play and Your games, so that I can start in one tap.
-2. As a player, I want the app to open in fullscreen when I tap Play, so that the board and the menus have room.
+1. As a player, I want to say "play King Down" in ChatGPT and see the Play hall in fullscreen, so that I can choose a game at once.
+2. As a player, I want the app to request fullscreen only after I select an action on the inline home card, so that I control when it opens.
 3. As a player, I want to open King Down from the ChatGPT side panel or sidebar, so that I can play beside a conversation.
 4. As a player, I want to choose the computer, a friend or a random player on one New game screen, so that I can play the way I like.
 5. As a player, I want to pick the computer's level (Beginner, Casual, Club, Strong), so that the game fits my skill.

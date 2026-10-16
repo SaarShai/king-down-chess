@@ -1,4 +1,4 @@
-import { call, client, memory, navigate, routeView, start } from '../app';
+import { actions, call, client, memory, navigate, routeView, start } from '../app';
 import { art } from '../art';
 import { errorText, type WidgetHost } from '../client';
 import { DEAL_CARDS, POOL_KINDS, type Options } from '../../match/setup';
@@ -73,7 +73,7 @@ function render() {
   const pick = shownKing(draft); $<HTMLImageElement>('setup-king').querySelector('img')!.src = art(`ui/emblems/${pick.king.toLowerCase()}.webp`);
   $('setup-king-name').innerHTML = `<b>${pick.king}</b> · ${POWER_NAME[pick.power]}`;
   $('setup-power-text').textContent = ruleLine(powerText(pick.power, kingRules));
-  $<HTMLButtonElement>('setup-start').disabled = setupBusy();
+  actions();
   // Words wait for the owner (item W3, option a).
   $('setup-start').textContent = !starting && !recovering ? 'Start game' : slow && !client.state.pending?.error ? 'Still starting. Keep this page open.' : 'Starting your game…';
 }

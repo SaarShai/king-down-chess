@@ -55,8 +55,8 @@ export const turnEnded = (game: TurnGame, start: number, resigned: Color | null 
 export const modeOf = (sides: readonly [string, string], linkSide: Color | null): Mode =>
   linkSide != null ? 'link' : sides[0] === 'human' && sides[1] === 'human' ? 'device' : 'computer';
 
-/** The words of the turn button's press in a line: "tap End turn", or "tap Send your turn" in a link game. */
-const tap = (mode: Mode): string => (mode === 'link' ? 'tap Send your turn' : 'tap End turn');
+/** The words of the turn button's press in a line: "select End turn", or "select Send your turn" in a link game. */
+const select = (mode: Mode): string => (mode === 'link' ? 'select Send your turn' : 'select End turn');
 
 /**
  * The line beside the board for the turn in progress (spec §4.9, ranks 9, 11 and 13): a mid-way
@@ -66,22 +66,22 @@ export function turnLine(game: TurnGame, turn: Turn, mode: Mode): string {
   if (!turn.staged) return '';
   if (turn.waits && game.status !== 'playing') {
     const end = game.status === 'checkmate' ? 'Checkmate.' : game.status === 'stalemate' ? 'Stalemate.' : 'Draw.';
-    return mode === 'link' ? `${end} Tap Send your turn.` : `${end} Tap End turn to finish.`;
+    return mode === 'link' ? `${end} Select Send your turn.` : `${end} Select End turn to finish.`;
   }
   if (turn.waits) {
     const ready = mode === 'device' ? `${SIDE[turn.activeSide]}'s turn is ready.` : 'Your turn is ready.';
-    if (mode === 'link') return game.inCheck ? 'Check. Tap Send your turn.' : `${ready} Tap Send your turn.`;
-    return `${game.inCheck ? 'Check. ' : ''}${ready} Tap End turn.`;
+    if (mode === 'link') return game.inCheck ? 'Check. Select Send your turn.' : `${ready} Select Send your turn.`;
+    return `${game.inCheck ? 'Check. ' : ''}${ready} Select End turn.`;
   }
   if (!turn.midWay) return '';
   const next = game.pos.haste === undefined ? (mode === 'link' ? 'Make your move' : 'Now make your move')
     : game.pos.rage === 3 ? 'Move another piece' : 'Move it again';
-  return turn.ready ? `${next}, or ${tap(mode)}.` : `${next}.`;
+  return turn.ready ? `${next}, or ${select(mode)}.` : `${next}.`;
 }
 
-/** The refusal of a tap while the turn waits. On one device the next person can reach Undo, so the line names the side and does not offer it. */
+/** The refusal of an action while the turn waits. On one device the next person can reach Undo, so the line names the side and does not offer it. */
 export const waitNotice = (mode: Mode, activeSide: Color): string =>
-  mode === 'device' ? `${SIDE[activeSide]}: tap End turn.` : `${tap(mode)[0].toUpperCase()}${tap(mode).slice(1)}, or Undo.`;
+  mode === 'device' ? `${SIDE[activeSide]}: select End turn.` : `${select(mode)[0].toUpperCase()}${select(mode).slice(1)}, or Undo.`;
 
 /** Keep the move in the spoken notice, then say how to hand it over. */
 export function turnAnnouncement(game: TurnGame, turn: Turn, mode: Mode, moveLine: string): string {

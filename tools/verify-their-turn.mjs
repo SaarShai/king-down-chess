@@ -41,7 +41,7 @@ try {
     console.log(`ok their-turn ${width}×${height}: ring and line at landing; cause after the press`);
 
     await open(); await tap(15); await tap(7); await land();
-    assert.equal(await contextText(page), "Check. Black's turn is ready. Tap End turn.");
+    assert.equal(await contextText(page), "Check. Black's turn is ready. Select End turn.");
     assert.equal(await page.locator('#context-text').getAttribute('data-rank'), 'waiting');
     assert.equal(await page.locator('#end-turn').getAttribute('aria-disabled'), 'false');
     console.log(`ok their-turn ${width}×${height}: staged check keeps the turn words`);

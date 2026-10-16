@@ -1483,7 +1483,8 @@ try {
     await openPlay(); await legacyStart('solo'); await idleBoard();
   }
   const routeBase = await page.evaluate(() => window.harnessView), routeBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
-  for (const [status, kind, options, screen] of [['waiting','friend',undefined,'friend'], ['waiting','random',undefined,'wait'], ['setup','friend',{},'seat'], ['setup','solo',undefined,'board'], ['playing','solo',undefined,'board'], ['finished','friend',undefined,'end'], ['aborted','random',undefined,'end']]) {
+  const routeCases = [['waiting','friend',undefined,'friend'], ['waiting','random',undefined,'wait'], ['setup','friend',{},'seat'], ['setup','solo',undefined,'board'], ['playing','solo',undefined,'board'], ['finished','friend',undefined,'end'], ['aborted','random',undefined,'end']];
+  for (const [status, kind, options, screen] of routeCases) {
     const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     await page.evaluate(({base, board_id, status, kind, options}) => {
       window.harnessNextView = { ...base, status, kind, options };
@@ -1499,7 +1500,12 @@ try {
     await page.setViewportSize({width,height});
     for (const screen of routes) {
       const settingsReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length);
-      await page.evaluate(({screen,base}) => { window.harnessNextView = screen === 'end' ? { ...base, status: 'finished', result: { winner: 0, reason: 'resign' } } : undefined; window.harnessWidgetState = { modelContent: {}, privateContent: { screen, sheet: undefined, board_id: window.harnessWidgetState.privateContent.board_id, pending: undefined } }; }, {screen,base:routeBase});
+      const route = routeCases.find(route => route[3] === screen);
+      await page.evaluate(({screen,base,route}) => {
+        // A saved game screen follows the fresh status, so its viewport sample needs a matching game.
+        window.harnessNextView = route ? { ...base, status: route[0], kind: route[1], options: route[2], ...(screen === 'end' ? { result: { winner: 0, reason: 'resign' } } : {}) } : undefined;
+        window.harnessWidgetState = { modelContent: {}, privateContent: { screen, sheet: undefined, board_id: window.harnessWidgetState.privateContent.board_id, pending: undefined } };
+      }, {screen,base:routeBase,route});
       await remount(screen); await fits(screen,width);
       assert.deepEqual(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_get').arguments), { board_id: routeBoard }, 'A mount reads with the board ID alone');
       assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length), settingsReads + 1, 'Each mount reads server settings and me');

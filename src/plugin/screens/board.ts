@@ -14,7 +14,7 @@ import { pieceIcon } from '../../piece-icons';
 import { snd } from '../../render/sfx';
 import '../../ceremony.css';
 import { client, memory, navigate } from '../app';
-import { nextGame } from '../games-list';
+import { nextGame } from '../next-game';
 import { actionButtons, confirmDraw, confirmResign } from './board-actions';
 import { updateEnd } from './end';
 import { applyLan, boardActions, cardCoins, replayHistory, replayLans, stripLine, type BoardMove } from './board-model';
@@ -269,7 +269,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (view.draw_offer != null && !['result','refusal','link'].includes(context.rank)) context.note = view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.';
     $('status').textContent = context.rank === 'refusal' ? '' : context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
     const actions: HTMLButtonElement[] = [];
-    if (!armed && armedCard === undefined && square !== undefined && code) actions.push(button('All rules', () => boardSheet('All rules', text(readText(pos!, square)))));
+    if (!armed && armedCard === undefined && square !== undefined && code) actions.push(button('All rules', () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(pos!, square)}` : readText(pos!, square)))));
     if (selected !== undefined && moves.some(({move}) => move.from === selected && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
     if (armed || armedCard !== undefined) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; choices([]); refresh(); }));
     if (view.legal.includes('--')) actions.push(button('Stop here', () => choose('--')));
