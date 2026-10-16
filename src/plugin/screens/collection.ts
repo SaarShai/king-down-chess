@@ -4,7 +4,7 @@ import { DEAL_CARDS, POOL_KINDS } from '../../match/setup';
 import { LETTERS, NAMES, type PieceType } from '../../rules/engine';
 import { pieceGuide } from '../../read';
 import { DEFAULT_RULES } from '../../rules/rules';
-import { cardName, cardCost, cardText, powerOptions, ruleLine } from '../../powers-ui';
+import { cardName, cardText, powerOptions, ruleLine } from '../../powers-ui';
 import { cardArt } from '../card-face';
 import { kingRules } from './setup';
 import './collection.css';
@@ -38,7 +38,7 @@ function draw(tab: string) {
   }
   else if (tab === 'Cards') for (const card of DEAL_CARDS) {
     const face = document.createElement('label'); face.className = 'card-face'; face.dataset.card = card;
-    face.innerHTML = `<span class="cf-art">${cardArt(card)}</span><span class="cf-text"><b>${cardName(card)}</b><small>${ruleLine(cardText(card, DEFAULT_RULES))}</small><span class="cf-cost">${cardCost(card, DEFAULT_RULES)}</span>${unlocked}</span>`; target.append(face);
+    face.innerHTML = `<span class="cf-art">${cardArt(card)}</span><span class="cf-text"><b>${cardName(card)}</b><small>${ruleLine(cardText(card, DEFAULT_RULES))}</small>${unlocked}</span>`; target.append(face);
   }
   document.querySelector<HTMLElement>('#collection-sheet .new-game-body')!.scrollTop = 0;
 }
