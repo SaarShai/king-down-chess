@@ -11,6 +11,8 @@ import { gameHistory, gameOutcome, opponentRating, playerRecord, recordResult } 
 export { MatchServiceError } from './store';
 
 const DAY = 86_400_000, FIRST_TURN_DAYS = 3, DRAW_OFFERS = 3, LIMIT = 1000; // the last revision in play
+// Each start receipt on an open game takes one of its revisions: Find with new command IDs on your own open game stops here, so play keeps its revisions.
+const START_RECEIPTS = 20;
 export const FRIEND_CODE_DAYS = 7; // a Daily friend code (owner, 2026-10-11)
 const ENGINE_REJECTS = ['Illegal or ambiguous move', 'Match terminal', 'Match history limit reached', 'Stale revision', 'Command ID conflict', 'Malformed command'];
 const CODE = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no I, L, O, 0 or 1
@@ -21,6 +23,10 @@ const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 function startId(actor: string, commandId: string): string {
  const h = hash(`start:${actor}:${commandId}`);
  return `${h.slice(0, 8)}-${h.slice(8, 12)}-8${h.slice(13, 16)}-${'89ab'[parseInt(h[16], 16) & 3]}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+/** Serializes the starts with one command ID: a Create and a Find with that ID cannot both write a receipt. */
+async function startLock(client: Parameters<PostgresMatchStore['save']>[0], actor: string, commandId: string): Promise<void> {
+ await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [`start:${actor}:${commandId}`]);
 }
 /** A start's input with its defaults. The start receipt keeps it; a resend with other input is COMMAND_CONFLICT. */
 export function startKey(input: CreateOptions, anyRules = false) {
@@ -119,23 +125,28 @@ export class GameService {
   const game = await this.newGame(actor, options, commandId === undefined ? randomUUID() : startId(actor, commandId));
   settle(game, game.created_at);
   if (commandId === undefined) { await this.store.insert(game); return this.render(game, seatOf(game, actor), { rules: true }); }
-  // A resend that comes while the first send runs waits here for its commit, then reads its receipt.
-  // A game from before start receipts has none: the resend gets it, as before.
-  return this.store.transaction(async client => await this.store.insert(game, client) ? this.receipt(client, game, actor, commandId, key)
-   : await this.started(client, actor, commandId, key) ?? this.view(actor, game.id));
+  // A resend, or a Find with the same command ID, that comes while this send runs waits for the start lock, then reads the receipt.
+  return this.store.transaction(async client => {
+   await startLock(client, actor, commandId);
+   return await this.started(client, actor, commandId, key) ?? (await this.store.insert(game, client) ? this.receipt(client, game, actor, commandId, key) : this.view(actor, game.id));
+  });
  }
- /** The game that this start command ID already made, joined or reused, or undefined. Other input is COMMAND_CONFLICT. */
+ /** The game that this start command ID already made, joined or reused, or undefined. Other input is COMMAND_CONFLICT.
+  * A start from before start receipts has no input to compare: a Find's join row keeps {}, and a made game has no row but has the derived ID. */
  private async started(client: Parameters<PostgresMatchStore['save']>[0] | undefined, actor: string, commandId: string, key: StartKey): Promise<View | undefined> {
-  const row = (await (client ?? this.store.pool).query(`select c.game_id,c.payload=$3::jsonb as same from public.game_players p join public.game_commands c
-   on c.game_id=p.game_id and c.seat=p.seat and c.command_id=$2 and c.kind in ('start','join') where p.user_id=$1 limit 1`, [actor, commandId, JSON.stringify(key)])).rows[0];
+  const db = client ?? this.store.pool;
+  const row = (await db.query(`select c.game_id,(c.payload=$3::jsonb or c.kind='join' and c.payload='{}'::jsonb and $3::jsonb->>'kind'='random') as same from public.game_players p join public.game_commands c
+   on c.game_id=p.game_id and c.seat=p.seat and c.command_id=$2 and c.kind in ('start','join') where p.user_id=$1 limit 1`, [actor, commandId, JSON.stringify(key)])).rows[0]
+   ?? (await db.query('select id as game_id,true as same from public.games where id=$1', [startId(actor, commandId)])).rows[0];
   if (!row) return;
   if (!row.same) fail('COMMAND_CONFLICT', 409, 'Command ID was used with different input');
-  const game = await this.store.load(row.game_id, client && { client });
+  // The full read, as view() gives: the reply keeps the move history.
+  const game = await this.store.load(row.game_id, { client, state: true });
   return this.render(game, seatOf(game, actor), { client, rules: true });
  }
  /** Writes the start receipt on a game that a start made or reused: a 'start' row with the command ID and the input. */
  private async receipt(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, commandId: string, key: StartKey): Promise<View> {
-  // shortcut: each Find with a new command ID on your own open game adds one revision; about 1000 would end its play (MATCH_LIMIT), so cap it if a client ever repeats Find.
+  if (game.revision >= START_RECEIPTS) fail('RATE_LIMITED', 429, 'Too many starts on this open game. Wait for an opponent, or cancel the game.');
   const next = step(game), seat = seatOf(game, actor);
   await this.write(client, game, next, { seat, actor_id: actor, command_id: commandId, kind: 'start', payload: key, actions: null, surface: null, received_at: new Date() }, { notify: [], outbox: [] });
   return this.render(next, seat, { client, rules: true });
@@ -218,6 +229,7 @@ export class GameService {
    await this.requireHandle(actor, client);
    // An empty lobby has no row to lock; serialize the search and create as one step.
    await client.query('select pg_advisory_xact_lock(7007008)');
+   if (commandId !== undefined) await startLock(client, actor, commandId);
    const done = commandId === undefined ? undefined : await this.started(client, actor, commandId, key);
    if (done) return done;
    const own = (await client.query(`select id from public.games where created_by=$1 and kind='random' and status='waiting' and created_at>statement_timestamp()-interval '24 hours'
@@ -231,7 +243,7 @@ export class GameService {
     return this.acceptSeat(client, game, actor, at, commandId, key);
    }
    const game = await this.newGame(actor, input, gameId); settle(game, game.created_at);
-   // A Find from before start receipts may hold this game ID: the resend gets that game, as before.
+   // started() found no game with this ID, and the start lock keeps it so.
    if (!await this.store.insert(game, client)) return this.view(actor, game.id);
    return commandId === undefined ? this.render(game, seatOf(game, actor), { client, rules: true }) : this.receipt(client, game, actor, commandId, key);
   });

@@ -96,6 +96,56 @@ suite('matchmaking through PostgreSQL', () => {
   expect(second).toMatchObject({ status: 'waiting', options: DEFAULT_OPTIONS }); expect(second.game_id).not.toBe(own.game_id);
   expect((await plugin.find(users[3], DEFAULT_OPTIONS, 'white', undefined, true)).game_id).toBe(own.game_id);
  });
+ it('gives a resent Find from before start receipts its first game: the old join row, and the old table after another player took the seat', async () => {
+  // Before start receipts, a Find's join row kept {} as its payload.
+  const table = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
+  const joined = await plugin.find(users[1], DEFAULT_OPTIONS, 'white', 'old-join');
+  expect(joined.game_id).toBe(table.game_id);
+  await admin.query("update public.game_commands set payload='{}' where game_id=$1 and kind='join'", [table.game_id]);
+  expect(await plugin.find(users[1], DEFAULT_OPTIONS, 'white', 'old-join')).toMatchObject({ game_id: table.game_id, seat: joined.seat });
+  // Before start receipts, a Find that opened a table wrote no row; the table has the derived ID. Another player takes the seat, and a third opens a table with the same switches.
+  const made = await plugin.find(users[2], DEFAULT_OPTIONS, 'white', 'old-table');
+  expect(made.status).toBe('waiting');
+  await admin.query("delete from public.game_commands where game_id=$1 and kind='start'", [made.game_id]);
+  expect((await plugin.find(users[3], DEFAULT_OPTIONS)).game_id).toBe(made.game_id);
+  const other = await service.create(users[4], { kind: 'random', options: DEFAULT_OPTIONS });
+  expect(await plugin.find(users[2], DEFAULT_OPTIONS, 'white', 'old-table')).toMatchObject({ game_id: made.game_id, status: 'setup' });
+  expect((await admin.query('select game_id from public.game_players where user_id=$1', [users[2]])).rows).toEqual([{ game_id: made.game_id }]);
+  expect(await service.view(users[4], other.game_id)).toMatchObject({ status: 'waiting', opponent: null });
+ });
+ it('caps the start receipts on your own open game, so its play keeps its revisions', async () => {
+  const table = await plugin.find(users[0], DEFAULT_OPTIONS, 'white', 'cap-0');
+  for (let n = 1; n < 20; n++) await plugin.find(users[0], DEFAULT_OPTIONS, 'white', `cap-${n}`);
+  await expect(plugin.find(users[0], DEFAULT_OPTIONS, 'white', 'cap-20')).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429 });
+  // A sent command ID still gets its game, and a Find with no command ID still shows it.
+  expect(await plugin.find(users[0], DEFAULT_OPTIONS, 'white', 'cap-19')).toMatchObject({ game_id: table.game_id, revision: 20 });
+  expect(await plugin.find(users[0], DEFAULT_OPTIONS)).toMatchObject({ game_id: table.game_id, revision: 20 });
+  expect(await plugin.find(users[1], DEFAULT_OPTIONS)).toMatchObject({ game_id: table.game_id, status: 'setup', revision: 21 });
+ });
+ it('gives a resent Create the move history of the first reply', async () => {
+  const first = await service.create(users[0], { kind: 'solo' }, 'history');
+  expect(first.history?.initial_fen).toEqual(expect.any(String));
+  expect(await service.create(users[0], { kind: 'solo' }, 'history')).toMatchObject({ game_id: first.game_id, revision: first.revision, history: first.history });
+ });
+ it('gives one start to one command ID when a Create and a Find with that ID run at once', async () => {
+  const table = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
+  const insert = service.store.insert.bind(service.store);
+  let reached!: () => void, open!: () => void, ended = false;
+  const atInsert = new Promise<void>(resolve => { reached = resolve; }), gate = new Promise<void>(resolve => { open = resolve; });
+  const held = vi.spyOn(service.store, 'insert').mockImplementation(async (game, client) => { reached(); await gate; return insert(game, client); });
+  try {
+   // The Create stops before its insert. The Find then waits for the start lock; before the fix, it took the open table at once.
+   const made = service.create(users[1], { kind: 'friend', options: DEFAULT_OPTIONS }, 'both'); void made.catch(() => {});
+   await atInsert;
+   const found = plugin.find(users[1], DEFAULT_OPTIONS, 'white', 'both'); void found.then(() => { ended = true; }, () => { ended = true; });
+   await expect.poll(async () => ended || !!(await admin.query("select 1 from pg_stat_activity where datname=current_database() and wait_event='advisory'")).rowCount).toBe(true);
+   open();
+   const [create, find] = await Promise.allSettled([made, found]);
+   expect(create).toMatchObject({ status: 'fulfilled', value: { kind: 'friend', status: 'waiting' } });
+   expect(find).toMatchObject({ status: 'rejected', reason: { code: 'COMMAND_CONFLICT' } });
+   expect(await service.view(users[0], table.game_id)).toMatchObject({ status: 'waiting', opponent: null });
+  } finally { open(); held.mockRestore(); }
+ });
  it('uses the database clock when the server clock is ahead', async () => {
   const open = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
   const realLobby = service.store.lobby.bind(service.store);
