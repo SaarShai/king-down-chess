@@ -187,7 +187,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     const { handle, icon } = await service.handle(actorId, args);
     return { content: text(args.check ? 'This handle is free.' : 'Your name and picture are ready.'), ...(args.check && { structuredContent: { available: true } }), _meta: { me: { handle, icon } } };
   });
-  register('kingdown_settings', 'Read or change your board settings and last setup choices.', settingsSchema.shape, { visibility: ['app'], destructive: true }, async args => {
+  register('kingdown_settings', 'Read or change your board settings, whether your opponents get the time you were last in a game (show_online), and your last setup choices.', settingsSchema.shape, { visibility: ['app'], destructive: true }, async args => {
     const [settings, { handle, icon }] = await Promise.all([service.settings(actorId, args), service.profile(actorId)]);
     return { content: text('Your settings are ready.'), _meta: { settings, me: { handle, icon } } };
   });
