@@ -170,16 +170,28 @@ current checks must pass on the new host. No product code changes.
   stayed on "Connecting". The boot timer now ends with a MessageChannel
   message, so the widget code starts in its own task. A real host has no such
   call. A new check fails before this change and passes after it.
+- The browser checks found a second harness fault. A frame write that the
+  frame sent before a check replaced the saved state could land after it. The
+  remounted widget then lost the check's state. When a check sets the state,
+  the host now sends the frame a fence. Until the frame answers, frame writes
+  go only to the write list. A new page clears the fence at boot. Two checks
+  that edited the state in place now use the setter. A new check fails without
+  the fence.
+- The art check compared each art origin with the frame's origin. It now
+  compares with the host page's origin. The rule stays the same: the fixture
+  art comes from the harness, the HTTP art from the plugin server.
 - Chrome stops animation frames in a cross-origin frame out of view, as an
   older chat widget is. The new waits on such frames poll on a timer. The
   widget's own polls use timers and keep their pace.
 - New tests in `tools/plugin-real-host.test.ts`: the second origin and its CSP;
-  a clock step over the boot delay; two live widgets on one game; sleep and
-  wake; offline and online. A new unit test checks `framePolicy()` against the
-  spec.
-- `npx tsc --noEmit` passes. The full `npm test` passes: 164 files, 2,572
-  tests, 8 skipped tests and 50 document tests. After the boot fix, the eight
-  harness test files pass again: 209 tests.
+  a clock step over the boot delay; a frame write in flight; two live widgets
+  on one game; sleep and wake; offline and online. A new unit test checks
+  `framePolicy()` against the spec.
+- `npx tsc --noEmit` passes. At `9b87c31d`, the full `npm test` passes: 164
+  files, 2,574 tests, 8 skipped tests and 50 document tests (128.75 s).
+- At `9b87c31d`, plugin-ui passes on the M1 (98.6 s). plugin-ui-http passes
+  on this Mac (113.2 s), because it needs the test database. Both use the
+  shared check runner. No time limit changes.
 
 ### Taste choices
 
