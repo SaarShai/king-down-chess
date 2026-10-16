@@ -37,4 +37,4 @@ Lane: board. Branch: `claude/od-board`. Source: owner ticket 12-submit-turn, par
 
 ## Taste choices
 
-- The service refusal words: "This turn is not finished. Send the whole turn in one command." Only direct service callers see them. The plugin shows "This move is not available. Choose another move."
+- The service refusal words: "This turn is not finished. Send the whole turn in one command." Direct service callers and website `/api` clients see them (`src/api/http.ts` returns the code and the words). The plugin shows "This move is not available. Choose another move."
