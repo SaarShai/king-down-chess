@@ -21,6 +21,7 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
     host?.setWidgetState?.({ modelContent: {}, privateContent: { ...state, pending: pending && { name: pending.name, args, game_tag, started_at: pending.started_at, screen: pending.screen, error: pending.error, error_screen: pending.error_screen } } });
   }
   async function call(name: string, args: Record<string, unknown> = {}, options: { background?: boolean; limit?: boolean } = {}): ReturnType<App['callServerTool']> {
+    const before = state.board_id;
     const sent = options.background ? Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'board_id')) : state.board_id && BOARD_ID_TOOLS.some(tool => tool === name) ? { ...args, board_id: state.board_id } : args;
     let result: Awaited<ReturnType<App['callServerTool']>>;
     // Mount reads pass limit: false and keep the SDK's own limit; a slow first load is not a failed command.
@@ -31,7 +32,8 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
       throw new Error(CANNOT_CONNECT, { cause: error });
     }
     const board = result._meta?.board_id;
-    if (!options.background && ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'].includes(name) && typeof board === 'string') state.board_id = board;
+    // A newer chat result or selection that changed the board while the call ran wins over this reply.
+    if (!options.background && ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'].includes(name) && typeof board === 'string' && state.board_id === before) state.board_id = board;
     return result;
   }
   return { state, save, call };

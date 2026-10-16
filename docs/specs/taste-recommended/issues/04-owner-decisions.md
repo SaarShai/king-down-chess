@@ -38,6 +38,12 @@ Commit locally. Do not push. Do not merge to main.
   - `index.html`: Settings keeps Sound and gets the U18 arrow icon.
   - `plugin-app.test.ts` and `plugin-ios-size.test.ts`: both sides stay.
 - Teach-notes merge, two conflicts (imports and board state): both sides stay.
+- Review fix: the fault merge took `ec044593`, but `claude/fault-round-2`
+  ends at `f5f05879`. Without it, a late page reply put the old board back
+  after a chat result chose its board (LIVE-2), and a newer chat result
+  waited for each older mount (LIVE-1). Merged `f5f05879`. One conflict, at
+  the start of `call()` in `app.ts`: both lines stay (`commandScreen` and
+  `late`).
 - Test changes for the taste layout: the zoom and width tests start in the
   hall. The New game Retry test checks the hall. The width test uses the
   layout B widths and sets Cards and King powers itself. The 320 px cards

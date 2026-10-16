@@ -99,10 +99,12 @@ async function resendPending(command: Pending, mountRead?: ToolResult) {
     return client.call(command.name, command.args);
   }
 }
-export async function call(name: string, args: Record<string, unknown>, retain = false, quiet = false, route: boolean | undefined = undefined, retry = false) {
+export async function call(name: string, args: Record<string, unknown>, retain = false, quiet = false, route: boolean | undefined = undefined, retry = false, stale?: () => boolean) {
   if (busy || (quiet && polling)) return;
   const before = view;
   const commandScreen = state.screen === 'home' && ['kingdown_create', 'kingdown_find'].includes(name) ? 'play' : state.screen;
+  // A poll gives way to a command or a newer view; a mount's read gives way to a newer chat result.
+  const late = () => quiet && (busy || view !== before) || !!stale?.();
   let followup: Pending | undefined, received: View | undefined;
   if (quiet) polling = true;
   else { busy = true; commandDone = new Promise(resolve => { endCommand = resolve; }); actions(); $('error').textContent = ''; }
@@ -118,11 +120,11 @@ export async function call(name: string, args: Record<string, unknown>, retain =
       const recovered = await resendPending(pending, result);
       if (recovered) { name = pending.name; retain = true; route = undefined; result = recovered; }
     }
-    if (quiet && (busy || view !== before)) return;
+    if (late()) return;
     const read = (result._meta as { view?: View } | undefined)?.view;
     if (name === 'kingdown_get' && read?.fen && !read.rules && rules?.game !== read.game_id) {
       result = await client.call('kingdown_get');
-      if (quiet && (busy || view !== before)) return;
+      if (late()) return;
     }
     if (result.isError) {
       const text = result.content.filter(c => c.type === 'text').map(c => c.text).join(' ');
@@ -151,7 +153,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     if (retain) pending = undefined;
     saveState(); retryState();
   } catch (error) { const message = error instanceof Error ? error.message : 'Could not update the game.';
-    if (quiet && (busy || view !== before)) return;
+    if (late()) return;
     // One slow poll is no outage, so a quiet read that cannot connect says nothing. A run of three shows the sentence
     // with no Retry: the next poll tries again, and a good read clears it.
     if (quiet && message === CANNOT_CONNECT) { if (++pollFailures >= 3) $('error').textContent = message; return; }
@@ -185,14 +187,12 @@ function remember(result: ToolResult) {
   const value = result.structuredContent as Record<string, unknown> | undefined;
   if (value && typeof value.your_turn_count === 'number') $('home-line').textContent = turnLine(value.your_turn_count);
 }
-// Chat results mount one at a time, and a newer result stops an older mount at its next wait. So only the newest
-// result reads and routes, and each board selection (kingdown_resume) reaches the server in order.
-let mounts = Promise.resolve(), mountCount = 0;
+// A newer chat result stops an older mount after its next wait, so only the newest reads and routes; it never waits for the older one.
+let mountCount = 0;
 app.ontoolresult = result => {
   const initial = awaitingInitialResult; awaitingInitialResult = false;
   const count = ++mountCount;
-  const mount = () => mountResult(result, initial, () => count !== mountCount);
-  mounts = mounts.then(mount, mount);
+  void mountResult(result, initial, () => count !== mountCount);
 };
 async function mountResult(result: ToolResult, initial: boolean, stale: () => boolean) {
   mountReading = true; actions();
@@ -213,16 +213,18 @@ async function mountResult(result: ToolResult, initial: boolean, stale: () => bo
       memory.joinError = { code: String(result._meta?.code ?? ''), message: result.content.filter(c => c.type === 'text').map(c => c.text).join(' ') };
       view = undefined; navigate('join');
       const home = await client.call('kingdown_open', {}, { limit: false });
+      if (stale()) return;
       if (home.isError) throw new Error(home.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(home); saveState(); return;
     }
     if (value?.screen === 'join') { memory.preview = result._meta?.preview as JoinPreview | undefined; memory.code = memory.preview?.code ?? ''; memory.joinError = undefined; }
     if (value && ['home', 'play', 'board', 'profile', 'join'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen as Screen);
+    // A game with no board gets its own new board, so mounts never race on one server board; only a current mount takes it.
     if (typeof value?.game_id === 'string' && !board && (!initial || !state.board_id)) {
-      const selected = await client.call(state.board_id ? 'kingdown_resume' : 'kingdown_open', { game_id: value.game_id }, { limit: false });
+      const selected = await client.call('kingdown_open', { game_id: value.game_id }, { limit: false, background: true });
       if (stale()) return;
       if (selected.isError) throw new Error(selected.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
-      remember(selected);
+      state.board_id = selected._meta?.board_id as string | undefined; remember(selected);
     }
     // The server names the board for every game; the read routes by the game status (a game in setup opens the seat).
     const route = (value?.screen === undefined || value.screen === 'board') && (!initial || !savedScreen);
@@ -231,20 +233,24 @@ async function mountResult(result: ToolResult, initial: boolean, stale: () => bo
     // A result for another game waits for that command, so its own read shows last.
     if (readBoard && typeof value?.game_id === 'string' && value.game_id !== shown) while (busy) await commandDone;
     if (stale()) return;
-    if (readBoard) await call('kingdown_get', {}, false, false, route);
+    if (readBoard) await call('kingdown_get', {}, false, false, route, false, stale);
     else if (!result._meta?.view) view = undefined;
     if (!readBoard) await games();
+    if (stale()) return;
     saveState();
-  } catch (error) { $('error').textContent = $('home-error').textContent = errorText(error); }
+  } catch (error) { if (!stale()) $('error').textContent = $('home-error').textContent = errorText(error); }
   finally {
-    mountReading = false;
-    // A command that was in flight when the host remounted the widget has no reply here; Retry reads, then resends its ID.
-    // A command still in flight on this page (a chat result came during it) gets its own reply.
-    if (pending && !pending.error && !busy) failPending(CANNOT_CONNECT);
-    if (pending?.error) retryState();
-    if (state.screen in screens) screens[state.screen as keyof typeof screens]();
-    poll?.update();
-    actions();
+    // A stale mount leaves the page to the newer mount, which still reads or has finished.
+    if (!stale()) {
+      mountReading = false;
+      // A command that was in flight when the host remounted the widget has no reply here; Retry reads, then resends its ID.
+      // A command still in flight on this page (a chat result came during it) gets its own reply.
+      if (pending && !pending.error && !busy) failPending(CANNOT_CONNECT);
+      if (pending?.error) retryState();
+      if (state.screen in screens) screens[state.screen as keyof typeof screens]();
+      poll?.update();
+      actions();
+    }
   }
 }
 app.onclose = () => { connected = false; poll?.stop(); router.finishStart(); };
