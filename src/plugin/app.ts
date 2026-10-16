@@ -311,9 +311,9 @@ $('page-title').onpointerup = $('page-title').onpointerleave = $('page-title').o
 // Spec Q25: inline, the widget shows only the home card; each other screen shows in fullscreen. A screen that opens
 // while inline (a chat tool call, a route) waits behind the home card until the host grants fullscreen. When the
 // player leaves fullscreen, the home card comes back with its own height; a late route or tool result waits for Play,
-// which returns to the game screen.
+// which returns to the game screen. The widget state keeps that screen (state.resume), so an inline remount keeps it.
 const GAME_SCREENS: Screen[] = ['seat', 'board', 'wait', 'friend', 'end'];
-let displayMode: string | undefined, asking = false, collapsed = false, resume: Screen | undefined, target: Screen | undefined, gamesFirst = false;
+let displayMode: string | undefined, asking = false, target: Screen | undefined, gamesFirst = false;
 const canFullscreen = () => app.getHostContext()?.availableDisplayModes?.includes('fullscreen') ?? true;
 /** The widget state keeps the waiting screen only while it waits. */
 function unqueue() { target = undefined; delete state.queued; }
@@ -328,7 +328,7 @@ async function fullscreen(screen: Screen) {
     if (result.mode !== 'fullscreen') throw new Error('Open the app with the host’s expand control.');
     displayMode = 'fullscreen';
     const next = target; unqueue();
-    if (next && !collapsed) navigate(next); else client.save();
+    if (next && !state.resume) navigate(next); else client.save();
   } catch (error) { unqueue(); client.save(); if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = errorText(error); }
   finally { asking = false; }
 }
@@ -336,10 +336,12 @@ async function fullscreen(screen: Screen) {
 export function showGames() { gamesFirst = true; navigate('play'); }
 export function navigate(screen: Screen) {
   if (screen !== 'home' && displayMode === 'inline' && canFullscreen()) {
-    if (collapsed) { if (GAME_SCREENS.includes(screen)) resume = screen; return; }
+    if (state.resume) { if (GAME_SCREENS.includes(screen)) { state.resume = screen; client.save(); } return; }
     void fullscreen(screen); return;
   }
   unqueue();
+  // A screen other than home shows, so Play has nothing to return to.
+  if (screen !== 'home') delete state.resume;
   if (screen === 'handle' && state.screen !== 'handle') handleBack = state.screen === 'settings' ? 'settings' : pending?.screen ?? state.screen;
   if (screen === 'settings' && !['settings','handle'].includes(state.screen)) {
     if (['board','seat'].includes(state.screen)) state.settings_back = state.screen; else delete state.settings_back;
@@ -368,8 +370,8 @@ function hostContext(context: McpUiHostContext | undefined) {
   document.body.dataset.touch = String(context.deviceCapabilities?.touch ?? false);
   for (const edge of ['top', 'right', 'bottom', 'left'] as const) document.documentElement.style.setProperty(`--safe-${edge}`, `${Math.max(0, context.safeAreaInsets?.[edge] ?? 0)}px`);
   if (context.displayMode === 'inline' && displayMode === 'fullscreen' && state.screen !== 'home' && canFullscreen()) {
-    resume = GAME_SCREENS.includes(state.screen) ? state.screen : undefined;
-    displayMode = 'inline'; navigate('home'); collapsed = true;
+    state.resume = GAME_SCREENS.includes(state.screen) ? state.screen : 'play';
+    displayMode = 'inline'; navigate('home');
   }
   if (context.displayMode) displayMode = context.displayMode;
 }
@@ -418,8 +420,8 @@ $('handle-form').onsubmit = event => {
   if (input.reportValidity()) void call('kingdown_handle', { handle, icon: picture });
 };
 $<HTMLInputElement>('handle').oninput = scheduleHandleCheck;
-$('home-play').onclick = () => { const next = resume ?? 'play'; collapsed = false; resume = undefined; void fullscreen(next); };
-$('home-games').onclick = () => { collapsed = false; resume = undefined; gamesFirst = true; void fullscreen('play'); };
+$('home-play').onclick = () => { const next = state.resume ?? 'play'; delete state.resume; void fullscreen(next); };
+$('home-games').onclick = () => { delete state.resume; gamesFirst = true; void fullscreen('play'); };
 document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => { button.onclick = () => navigate(button.dataset.nav as Screen); });
 $('page-back').onclick = () => navigate(state.screen === 'handle' ? handleBack : state.screen === 'collection' ? 'profile' : state.screen === 'settings' ? state.settings_back ?? 'play' : 'play');
 app.onhostcontextchanged = () => hostContext(app.getHostContext());

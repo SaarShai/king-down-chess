@@ -313,6 +313,27 @@ it('shows the home card when the player leaves fullscreen, and Play returns to t
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
   } finally { await page.close(); }
 });
+it('keeps the game screen for Play when the host remounts the widget inline after fullscreen', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    const game = frame.locator('[data-screen="seat"]:not([hidden]), [data-screen="board"]:not([hidden])');
+    await frame.locator('#setup-start').click(); await game.waitFor(); const screen = await game.getAttribute('data-screen');
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }));
+    await frame.locator('#home-card:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.resume)).toBe(screen);
+    // The host remounts the widget inline; the saved screen is home, and module memory starts again.
+    await page.evaluate(() => { const host = window as any; host.harnessHostContext = { displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }; host.harnessDisplayMode = 'inline'; });
+    const settings = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length);
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, settings);
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
+    await frame.locator('#home-play').click();
+    await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
+    expect(await page.evaluate(() => Object.keys((window as any).harnessWidgetState.privateContent))).not.toContain('resume');
+  } finally { await page.close(); }
+});
 it('keeps the opponent picked on New game for the session', async () => {
   const page = await open(), frame = page.frameLocator('iframe'), friend = frame.getByRole('radio', { name: 'A friend', exact: true });
   try {
