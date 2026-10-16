@@ -6,6 +6,7 @@ import { createPluginServer } from './server';
 
 export const MAX_MCP_BODY = 128 * 1024;
 export const MAX_ACTIVE_MCP = 4;
+export const MAX_ACTIVE_MCP_PER_USER = 2;
 export interface PluginHttpOptions {
   service: Parameters<typeof createPluginServer>[0]['service'];
   resourceHtml: string;
@@ -42,6 +43,7 @@ export function createPluginHandler(options: PluginHttpOptions): (req: IncomingM
   const allowedOrigins = new Set([origin, 'https://chatgpt.com', 'https://chat.openai.com']);
   const metadataUrl = `${origin}/.well-known/oauth-protected-resource/mcp`;
   let active = 0;
+  const activeUsers = new Map<string, number>();
   return async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -73,6 +75,7 @@ export function createPluginHandler(options: PluginHttpOptions): (req: IncomingM
     if (req.method !== 'POST') { res.setHeader('Allow', 'POST, OPTIONS'); respond(res, 405, { error: 'Stateless MCP accepts POST requests' }); return; }
     if (active >= MAX_ACTIVE_MCP) { res.setHeader('Retry-After', '1'); respond(res, 503, { error: 'This server instance is busy; retry shortly' }); return; }
     active++;
+    let admittedActor: string | undefined;
     try {
       let actorId: string;
       try {
@@ -91,6 +94,12 @@ export function createPluginHandler(options: PluginHttpOptions): (req: IncomingM
         if (options.auth) res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${metadataUrl}", scope="openid"`);
         respond(res, 401, { error: 'Authentication required' }); return;
       }
+      const userActive = activeUsers.get(actorId) ?? 0;
+      if (userActive >= MAX_ACTIVE_MCP_PER_USER) {
+        res.setHeader('Retry-After', '1');
+        respond(res, 429, { code: 'RATE_LIMITED', error: 'Too many active requests for your account. Wait for a request to finish, then try again.' }); return;
+      }
+      activeUsers.set(actorId, userActive + 1); admittedActor = actorId;
       const body = await requestBody(req, res); if (!body || res.destroyed) return;
       const work = new Set<Promise<unknown>>();
       // Keep the admission slot until service work settles, even after the client disconnects.
@@ -116,6 +125,12 @@ export function createPluginHandler(options: PluginHttpOptions): (req: IncomingM
           while (work.size) await Promise.allSettled([...work]);
         }
       }
-    } finally { active--; }
+    } finally {
+      active--;
+      if (admittedActor) {
+        const left = activeUsers.get(admittedActor)! - 1;
+        if (left) activeUsers.set(admittedActor, left); else activeUsers.delete(admittedActor);
+      }
+    }
   };
 }

@@ -12,9 +12,24 @@ import { SafetyService } from '../online/safety';
 
 export const handleSchema = z.strictObject({ handle: z.string().max(40).optional(), icon: z.enum(Object.keys(ICONS) as [keyof typeof ICONS, ...(keyof typeof ICONS)[]]).optional(), check: z.boolean().optional() });
 const seated = 'exists(select from public.game_players where game_id=$3 and user_id=$2)';
+export const TOOL_LIMITS = {
+  kingdown_computer: { count: 120, seconds: 60, message: 'Too many computer turns. Wait one minute, then try again.' },
+  kingdown_create: { count: 30, seconds: 60, message: 'Too many new games. Wait one minute, then try again.' },
+  kingdown_open: { count: 60, seconds: 60, message: 'Too many new boards. Wait one minute, then try again.' },
+  kingdown_report: { count: 30, seconds: 3600, message: 'Too many reports. Wait one hour, then try again.' },
+};
 export class PluginService {
   private games: GameService; private safety: SafetyService; private accounts: AccountService; private playerSettings: SettingsService;
-  constructor(private store: PostgresMatchStore) { this.games = new GameService(store); this.safety = new SafetyService(store); this.accounts = new AccountService(store); this.playerSettings = new SettingsService(store.pool); }
+  constructor(private store: PostgresMatchStore, inviteSecret = process.env.KINGDOWN_INTERNAL_SECRET) { this.games = new GameService(store, inviteSecret); this.safety = new SafetyService(store); this.accounts = new AccountService(store); this.playerSettings = new SettingsService(store.pool); }
+  /** Count before the tool runs, in a separate commit, so a refused call still counts. The upsert locks the row. */
+  async toolTry(actor: string, tool: keyof typeof TOOL_LIMITS): Promise<void> {
+    const { count, seconds, message } = TOOL_LIMITS[tool];
+    const fresh = "t.window_start>now()-$3*interval '1 second'";
+    const { tries } = (await this.store.pool.query(`insert into public.plugin_tool_tries as t (user_id,tool) values($1,$2)
+      on conflict (user_id,tool) do update set tries=case when ${fresh} then least(t.tries+1,$4) else 1 end,
+      window_start=case when ${fresh} then t.window_start else now() end returning tries`, [id(actor), tool, seconds, count + 1])).rows[0];
+    if (tries > count) fail('RATE_LIMITED', 429, message);
+  }
   create(actor: string, input: unknown, commandId?: string) { return this.games.create(actor, input, commandId); }
   /** Read-only. */
   view(actor: string, gameId: string, since?: number) { return this.games.view(actor, gameId, since); }

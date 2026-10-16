@@ -16,7 +16,7 @@ let service: PluginHttpOptions['service'], auth: PluginAuth, address: string, pr
 beforeEach(async () => {
   provider.mockReset();
   provider.mockImplementation(async (_url, options) => Response.json({ id: decodeJwt(new Headers(options?.headers).get('Authorization')!.slice(7)).sub }));
-  service = { openBoard: vi.fn(async () => matchId), board: vi.fn(async () => matchId), selectBoard: vi.fn(async () => {}), seen: vi.fn(async () => {}), inbox: vi.fn(async () => [{ ...view, options: null, move: 1, open_until: null, level: 'club' as const, status: 'playing' as const, updated_at: view.server_now }]), create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view),
+  service = { toolTry: vi.fn(async () => {}), openBoard: vi.fn(async () => matchId), board: vi.fn(async () => matchId), selectBoard: vi.fn(async () => {}), seen: vi.fn(async () => {}), inbox: vi.fn(async () => [{ ...view, options: null, move: 1, open_until: null, level: 'club' as const, status: 'playing' as const, updated_at: view.server_now }]), create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view),
     invite: vi.fn(async () => ({ token: 'test', code: 'ABCDEF', expires_at: '2030-01-01' })), join: vi.fn(async () => view), lobby: vi.fn(async () => ({ games: [] })), accept: vi.fn(async () => view), find: vi.fn(async () => view), cancel: vi.fn(async () => view), report: vi.fn(async () => ({ id: 1, created_at: '2030-01-01' })), profile: vi.fn(async () => ({ user_id: alice, handle: null, icon: null })),
     preview: vi.fn(async () => ({ code: 'ABCDEF', options: null, kind: 'friend' as const, colour: 'black' as const, creator: { handle: null, icon: null }, expires_at: '2030-01-01' })), handle: vi.fn(async () => ({ user_id: alice, handle: null, icon: null })), settings: vi.fn(async () => ({ symbols_only: false, show_threats: false, show_online: false, last_setup: null })), history: vi.fn(async () => ({ games: [], next_before: null })), record: vi.fn(async () => ({ totals: { played: 0, won: 0, drawn: 0, lost: 0 }, rating: { rating: 1500, rd: 350, volatility: 0.06, provisional: true }, badges: [] })) };
   const pair = await generateKeyPair('ES256'); privateKey = pair.privateKey;
@@ -139,17 +139,17 @@ describe('stateless authenticated MCP HTTP', () => {
       running++; peak = Math.max(peak, running); if (++count === 4) entered();
       try { await gate; return view; } finally { running--; }
     });
-    const bearer = await token(), controllers = Array.from({ length: 4 }, () => new AbortController());
-    const abandoned = controllers.map(controller => post(get, bearer, {}, controller.signal).catch(() => undefined));
+    const bearers = [await token(alice), await token(bob)], controllers = Array.from({ length: 4 }, () => new AbortController());
+    const abandoned = controllers.map((controller, i) => post(get, bearers[i % 2], {}, controller.signal).catch(() => undefined));
     try {
       await ready; controllers.forEach(controller => controller.abort()); await Promise.all(abandoned);
       expect(running).toBe(4);
-      const busy = await post(get, bearer, {}, AbortSignal.timeout(1000)); expect(busy.status).toBe(503); await busy.json();
+      const busy = await post(get, bearers[0], {}, AbortSignal.timeout(1000)); expect(busy.status).toBe(503); await busy.json();
       expect(service.view).toHaveBeenCalledTimes(4);
     } finally { release(); }
     await new Promise(resolve => setImmediate(resolve));
     expect(running).toBe(0);
-    const fresh = await post(get, bearer); expect(fresh.status).toBe(200); await fresh.json(); expect(peak).toBe(4);
+    const fresh = await post(get, bearers[0]); expect(fresh.status).toBe(200); await fresh.json(); expect(peak).toBe(4);
   });
   it('bounds active MCP requests per handler and admits retries after completion', async () => {
     let release!: () => void, entered!: () => void;
@@ -157,14 +157,35 @@ describe('stateless authenticated MCP HTTP', () => {
     const ready = new Promise<void>(resolve => { entered = resolve; });
     let count = 0;
     vi.mocked(service.view).mockImplementation(async () => { if (++count === 4) entered(); await gate; return view; });
-    const bearer = await token();
-    const pending = Array.from({ length: 4 }, () => post(get, bearer));
+    const bearers = [await token(alice), await token(bob)];
+    const pending = Array.from({ length: 4 }, (_, i) => post(get, bearers[i % 2]));
     try {
       await ready;
-      const busy = await post(get, bearer); expect(busy.status).toBe(503); expect(busy.headers.get('Retry-After')).toBe('1');
+      const busy = await post(get, bearers[0]); expect(busy.status).toBe(503); expect(busy.headers.get('Retry-After')).toBe('1');
       expect(service.view).toHaveBeenCalledTimes(4);
     } finally { release(); }
     for (const response of await Promise.all(pending)) { expect(response.status).toBe(200); await response.json(); }
+    const retry = await post(get, bearers[0]); expect(retry.status).toBe(200); await retry.json();
+  });
+  it('keeps two slots for other users after one user disconnects', async () => {
+    let release!: () => void, entered!: () => void, count = 0;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const ready = new Promise<void>(resolve => { entered = resolve; });
+    vi.mocked(service.view).mockImplementation(async actor => {
+      if (actor === alice) { if (++count === 2) entered(); await gate; }
+      return view;
+    });
+    const bearer = await token(alice), other = await token(bob), controllers = [new AbortController(), new AbortController()];
+    const pending = controllers.map(controller => post(get, bearer, {}, controller.signal).catch(() => undefined));
+    try {
+      await ready; controllers.forEach(controller => controller.abort()); await Promise.all(pending);
+      const limited = await post(get, bearer);
+      expect(limited.status).toBe(429); expect(limited.headers.get('Retry-After')).toBe('1');
+      expect(await limited.json()).toMatchObject({ code: 'RATE_LIMITED' });
+      const free = await post(get, other); expect(free.status).toBe(200); await free.json();
+      expect(service.view).toHaveBeenCalledTimes(3);
+    } finally { release(); }
+    await new Promise(resolve => setImmediate(resolve));
     const retry = await post(get, bearer); expect(retry.status).toBe(200); await retry.json();
   });
   it('rejects local persona headers in OAuth mode and fails closed without production auth', async () => {

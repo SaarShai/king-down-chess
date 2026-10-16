@@ -1,7 +1,7 @@
 /** Opt-in: the ChatGPT tools over in-memory MCP against a disposable real PostgreSQL database (PLUGIN_TEST_DATABASE_URL).
  * The tests use their own copy of it (the name with "_chatgpt" before "_test"): a claim needs a deadline in the past,
  * and a sweep of src/match/service.db.test.ts, which runs at the same time, would end that game first. */
-import { randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -71,6 +71,86 @@ suite('ChatGPT tools on PostgreSQL', () => {
   await admin.query('delete from public.games g where created_by=any($1) or exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1))', [users]);
   await admin.query('delete from auth.users where id=any($1)', [users]);
   await admin.end();
+ });
+
+ it.each([
+  ['kingdown_computer', 120, 60], ['kingdown_create', 30, 60], ['kingdown_open', 60, 60], ['kingdown_report', 30, 3600],
+ ] as const)('limits %s for each user and resets its window', async (tool, count, seconds) => {
+  const actor = await user(`limit-${tool.slice(9)}`), player = await connect(actor);
+  const made = await player.ok('kingdown_create', { kind: 'solo', colour: 'black', level: 'beginner', options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } });
+  let reportGame: string | undefined;
+  if (tool === 'kingdown_report') {
+   const games = new GameService(new PostgresMatchStore(admin));
+   reportGame = (await games.create(actor, { kind: 'friend', options: DEFAULT_OPTIONS })).game_id;
+   await games.join(bob, (await games.invite(actor, reportGame)).token);
+  }
+  const args = tool === 'kingdown_computer' ? move(made) : tool === 'kingdown_create' ? { kind: 'solo' }
+   : tool === 'kingdown_report' ? { game_id: reportGame, target: 'player', category: 'harassment' } : {};
+  await admin.query(`insert into public.plugin_tool_tries(user_id,tool,tries) values($1,$2,$3)
+   on conflict (user_id,tool) do update set tries=$3`, [actor, tool, count - 1]);
+  await player.ok(tool, args);
+  const before = (await rows(`select (select count(*) from public.games where created_by=$1) as games,
+   (select count(*) from public.plugin_boards where actor_id=$1) as boards,
+   (select count(*) from public.reports where reporter_id=$1) as reports,
+   (select sum(revision) from public.games where created_by=$1) as revisions`, [actor]))[0];
+  const limited = await (await connect(actor)).call(tool, args);
+  expect(limited).toMatchObject({ isError: true, _meta: { code: 'RATE_LIMITED' } });
+  expect(limited.content[0].text).toMatch(tool === 'kingdown_report' ? /Wait one hour/ : /Wait one minute/);
+  expect((await rows(`select (select count(*) from public.games where created_by=$1) as games,
+   (select count(*) from public.plugin_boards where actor_id=$1) as boards,
+   (select count(*) from public.reports where reporter_id=$1) as reports,
+   (select sum(revision) from public.games where created_by=$1) as revisions`, [actor]))[0]).toEqual(before);
+  const other = await user('limit-other');
+  await new PluginService(new PostgresMatchStore(admin)).toolTry(other, tool);
+  expect((await rows('select tries from public.plugin_tool_tries where user_id=$1 and tool=$2', [other, tool]))[0].tries).toBe(1);
+  await player.ok('kingdown_games');
+  await new PluginService(new PostgresMatchStore(admin)).toolTry(actor, tool === 'kingdown_open' ? 'kingdown_create' : 'kingdown_open');
+  await admin.query("update public.plugin_tool_tries set window_start=now()-$3*interval '1 second' where user_id=$1 and tool=$2", [actor, tool, seconds + 1]);
+  const reset = await player.call(tool, args);
+  expect(reset._meta?.code).not.toBe('RATE_LIMITED');
+  expect((await rows('select tries from public.plugin_tool_tries where user_id=$1 and tool=$2', [actor, tool]))[0].tries).toBe(1);
+ });
+
+ it('counts refused tools and admits only one of two calls at the last slot', async () => {
+  const actor = await user('limit-race'), player = await connect(actor);
+  const args = { game_id: randomUUID(), command_id: randomUUID(), expected_revision: 0 };
+  expect((await player.call('kingdown_computer', args)).isError).toBe(true);
+  expect((await rows('select tries from public.plugin_tool_tries where user_id=$1', [actor]))[0].tries).toBe(1);
+  await admin.query("insert into public.plugin_tool_tries(user_id,tool,tries) values($1,'kingdown_open',59)", [actor]);
+  const other = await connect(actor);
+  const results = await Promise.all([player.call('kingdown_open'), other.call('kingdown_open')]);
+  expect(results.filter(result => result.isError)).toHaveLength(1);
+  expect(results.find(result => result.isError)?._meta.code).toBe('RATE_LIMITED');
+  expect((await rows('select count(*)::int as n from public.plugin_boards where actor_id=$1', [actor]))[0].n).toBe(1);
+ });
+
+ it('stores an HMAC for short codes and joins with the same code after a server restart', async () => {
+  const actor = await user('hmac-host'), guestId = await user('hmac-guest'), host = await connect(actor), guest = await connect(guestId);
+  const game = view(await host.ok('kingdown_create', { kind: 'friend', options: DEFAULT_OPTIONS })).game_id;
+  const { code, token } = await new PluginService(new PostgresMatchStore(admin)).invite(actor, game);
+  const stored = (await rows('select code_hash,token_hash from public.game_invites where game_id=$1', [game]))[0];
+  expect(stored.code_hash).not.toBe(createHash('sha256').update(code).digest('hex'));
+  expect(stored.code_hash).toBe(createHmac('sha256', process.env.KINGDOWN_INTERNAL_SECRET!).update('kingdown:invite-code:').update(code).digest('hex'));
+  expect(stored.token_hash).toBe(createHash('sha256').update(token).digest('hex'));
+  const changed = new GameService(new PostgresMatchStore(admin), 'another-test-secret-for-invite-codes');
+  await expect(changed.preview(guestId, code)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
+  expect((await guest.ok('kingdown_join', { code: code.toLowerCase().replace(/^(...)/, '$1-'), preview: true }))._meta.preview.code).toBe(code);
+  expect(view(await (await connect(guestId)).ok('kingdown_join', { code })).game_id).toBe(game);
+ });
+
+ it('refuses short codes without a valid secret and keeps old long links usable', async () => {
+  const actor = await user('hmac-old'), guest = await user('hmac-old-guest'), store = new PostgresMatchStore(admin), games = new GameService(store);
+  const game = (await games.create(actor, { kind: 'friend', options: DEFAULT_OPTIONS })).game_id;
+  const { code, token } = await games.invite(actor, game);
+  await admin.query('update public.game_invites set code_hash=$2 where game_id=$1', [game, createHash('sha256').update(code).digest('hex')]);
+  await expect(games.preview(guest, code)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
+  for (const secret of ['', 'too-short']) {
+   const missing = new GameService(store, secret);
+   await expect(missing.invite(actor, game)).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 });
+   await expect(missing.preview(guest, code)).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 });
+   await expect(missing.join(guest, code)).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 });
+  }
+  expect((await new GameService(store, '').join(guest, token)).game_id).toBe(game);
  });
 
  it('reuses one open random game for two create calls', async () => {

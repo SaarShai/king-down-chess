@@ -365,7 +365,7 @@ suite('PostgreSQL online games (real connections and processes)', () => {
  },60000);
 
  it('grants the browser roles nothing on the game tables and only public profile columns',async () => {
-  const tables = ['games','game_players','game_commands','game_invites','relations','reports','mod_actions','notifications','notification_prefs','alert_state','outbox','reserved_handles','account_deletions','plugin_boards'];
+  const tables = ['games','game_players','game_commands','game_invites','relations','reports','mod_actions','notifications','notification_prefs','alert_state','outbox','reserved_handles','account_deletions','plugin_boards','plugin_tool_tries'];
   for (const role of ['anon','authenticated']) for (const table of tables)
    expect((await rows('select has_table_privilege($1,$2,$3) as allowed',[role,`public.${table}`,'SELECT,INSERT,UPDATE,DELETE']))[0].allowed,`${role} ${table}`).toBe(false);
   const readable = await rows("select column_name from information_schema.column_privileges where grantee='authenticated' and table_name='profiles' and privilege_type='SELECT' order by column_name");

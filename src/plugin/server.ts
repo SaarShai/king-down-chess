@@ -11,7 +11,7 @@ import { choiceSchema, optionsSchema } from '../match/setup-schema';
 import { REPORT_CATEGORIES } from '../account/profile';
 import { settingsSchema } from './settings';
 import { ending } from './ending';
-import { handleSchema } from './service';
+import { handleSchema, TOOL_LIMITS } from './service';
 import type { PluginService } from './service';
 
 /** The plugin build writes this origin before each art file (tools/plugin-ui-build.mjs); the server swaps in its own. */
@@ -66,7 +66,10 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     // Only kingdown_open carries the board: a template on every tool makes ChatGPT redraw the board too often.
     registerAppTool(server, name, { description, inputSchema, ...(output && { outputSchema: z.object(output).strict() }), annotations: { readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: idempotent, openWorldHint: false },
       _meta: { ...meta, ui: { ...(name === 'kingdown_open' && { resourceUri: boardResource }), visibility } } }, async (args: z.infer<z.ZodObject<T>>) => {
-      try { return await run(args); }
+      try {
+        if (Object.hasOwn(TOOL_LIMITS, name)) await service.toolTry(actorId, name as keyof typeof TOOL_LIMITS);
+        return await run(args);
+      }
       catch (error) { const known = error instanceof MatchServiceError; if (!known || error.status >= 500) console.error('King Down tool failed', { tool: name, requestId: randomUUID(), ...diagnostic(error) }); return { isError: true, content: text(!known ? 'Could not update the game. Retry or reload.' : REFUSED[error.code] ?? error.message), _meta: { code: known ? error.code : 'INTERNAL_ERROR' } }; }
     });
   }

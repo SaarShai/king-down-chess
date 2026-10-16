@@ -1,5 +1,5 @@
 /** The one write path for online games (report part 03, section 5.2). Actor IDs come from verified identity, never from input. */
-import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { createMatch, loadMatch, MatchError, type MatchSnapshot } from './index';
 import { commandSchema, createSchema, MAX_REVISION, type Command, type CreateOptions, type EndReason, type InboxEntry, type Invite, type JoinPreview, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
@@ -114,7 +114,12 @@ async function play(game: Game, mover: Seat, lans: string[] | 'computer', engine
 }
 
 export class GameService {
- constructor(readonly store: PostgresMatchStore) {}
+ constructor(readonly store: PostgresMatchStore, private readonly inviteSecret = process.env.KINGDOWN_INTERNAL_SECRET) {}
+ private codeHash(code: string): string {
+  const secret = this.inviteSecret;
+  if (!secret || secret.length < 32) return fail('UNAVAILABLE', 503, 'Invitation codes are unavailable. Try again later.');
+  return createHmac('sha256', secret).update('kingdown:invite-code:').update(code).digest('hex');
+ }
  /** With a command ID, a resent Create (the reply was lost or late) gets the first game; other input is COMMAND_CONFLICT. */
  async create(actor: string, input: unknown, commandId?: string): Promise<View> {
   actor = id(actor); const options = parse(createSchema, input), key = startKey(options);
@@ -353,7 +358,7 @@ export class GameService {
    const expires = new Date(Date.now() + (game.speed === 'daily' ? FRIEND_CODE_DAYS : 1) * DAY);
    for (let attempt = 0; attempt < 5; attempt++) {
     const token = randomBytes(32).toString('base64url'), code = Array.from({ length: 6 }, () => CODE[randomInt(CODE.length)]).join('');
-    if (await this.store.addInvite(client, { token_hash: hash(token), code_hash: hash(code), game_id: game.id, seat: other(seat), created_by: actor, expires_at: expires })) return { token, code, expires_at: expires.toISOString() };
+    if (await this.store.addInvite(client, { token_hash: hash(token), code_hash: this.codeHash(code), game_id: game.id, seat: other(seat), created_by: actor, expires_at: expires })) return { token, code, expires_at: expires.toISOString() };
    }
    return fail('UNAVAILABLE', 503, 'Could not make an invitation. Retry.');
   });
@@ -362,7 +367,7 @@ export class GameService {
   const key = typeof tokenOrCode === 'string' ? tokenOrCode.trim() : '', token = /^[A-Za-z0-9_-]{43}$/.test(key), code = key.toUpperCase().replace(/[\s-]/g, '');
   if (!token && !/^[A-HJKMNP-Z2-9]{6}$/.test(code)) fail('INVALID_INPUT', 400, 'Invalid invitation');
   if (!token) await this.store.codeTry(actor); // a 6-character code can be guessed; a 43-character token cannot
-  return { column: token ? 'token_hash' : 'code_hash', value: hash(token ? key : code), code };
+  return { column: token ? 'token_hash' : 'code_hash', value: token ? hash(key) : this.codeHash(code), code };
  }
  async preview(actor: string, tokenOrCode: unknown): Promise<JoinPreview> {
   actor = id(actor); const { column, value, code } = await this.invitation(actor, tokenOrCode);

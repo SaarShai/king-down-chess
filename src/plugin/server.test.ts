@@ -80,7 +80,7 @@ it('returns a safe field name for schema errors without echoing input', async ()
 });
 
 it('bounds report notes at 1000 characters apart from game revisions', async () => {
- const service = {report:async()=>({id:1,created_at:'2026-10-11T00:00:00.000Z'})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const service = {toolTry:async()=>{},report:async()=>({id:1,created_at:'2026-10-11T00:00:00.000Z'})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
  const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
  const client = new Client({name:'report-bound-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
  await server.connect(a); await client.connect(b);
@@ -130,7 +130,7 @@ it('reads the board without a write, and records seat activity only through king
 });
 
 it('says "1 game" for one game on the home summary', async () => {
- const service = {openBoard:async()=>'00000000-0000-4000-8000-000000000002',inbox:async()=>[{action:'ready'}],profile:async()=>({handle:null,icon:null}),settings:async()=>({})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const service = {toolTry:async()=>{},openBoard:async()=>'00000000-0000-4000-8000-000000000002',inbox:async()=>[{action:'ready'}],profile:async()=>({handle:null,icon:null}),settings:async()=>({})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
  const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
  const client = new Client({name:'count-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
  await server.connect(a); await client.connect(b);
@@ -175,7 +175,7 @@ it('uses singular and plural words for badge and lobby counts', async () => {
 
 it('sends any rules from Create and Find to matchmaking, and says that the colour applies only to a new table (D1 a)', async () => {
  const view = {game_id:'00000000-0000-4000-8000-000000000001',status:'waiting',kind:'random',speed:'daily',days_per_move:3,seat:0,action:'waiting',fen:'',deadline_at:null,draw_offer:null};
- const find = vi.fn().mockResolvedValue(view), service = {find,profile:async () => ({handle:'ann',icon:null})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const find = vi.fn().mockResolvedValue(view), service = {toolTry:async()=>{},find,profile:async () => ({handle:'ann',icon:null})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
  const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
  const client = new Client({name:'any-rules-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
  await server.connect(a); await client.connect(b);
