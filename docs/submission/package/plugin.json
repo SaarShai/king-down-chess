@@ -40,10 +40,10 @@
         "test_cases": {
           "positive": [
             {
-              "description": "Open King Down with no game selected. The home screen shows Play and Your games.",
+              "description": "Open King Down fullscreen with no game selected.",
               "prompt": "Play King Down.",
               "tools_triggered": "kingdown_open",
-              "expected_behavior": "The King Down home screen opens in the chat with two actions: Play and Your games. The text reply gives the number of games that wait for the player's move, for example \"Your move in 1 game.\" No new game starts."
+              "expected_behavior": "ChatGPT opens King Down fullscreen at the Play hall. The app sends no fullscreen request on mount. If the host stays inline, the home card waits for a button action. The text reply gives the number of games that wait for the player's move, for example \"Your move in 1 game.\" No new game starts."
             },
             {
               "description": "Start a beginner computer game as White, with king powers and arrangement. Choose the king and order, then Ready.",

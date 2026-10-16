@@ -1,3 +1,4 @@
+import { nextGame } from './next-game';
 import { createHash, randomUUID } from 'node:crypto';
 import { diagnostic } from './diagnostics';
 import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -42,7 +43,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   const { html, uri: boardResource } = boardPage(resourceHtml, origin);
   // A template, not one URI: a host may keep a tool definition that names an earlier build's hash, so every board URI
   // gets the current page (the ext-apps helper takes one URI only). kingdown_open names the current hash.
-  server.registerResource('King Down board', new ResourceTemplate('ui://kingdown/board-{hash}.html', { list: async () => ({ resources: [{ uri: boardResource, name: 'King Down board', mimeType: RESOURCE_MIME_TYPE }] }) }), { mimeType: RESOURCE_MIME_TYPE }, async uri => ({ contents: [{ uri: uri.href, mimeType: RESOURCE_MIME_TYPE, text: html, _meta: { ui: { domain: origin, permissions: { clipboardWrite: {} }, csp: { resourceDomains: [origin], connectDomains: [] } }, 'openai/widgetCSP': { resource_domains: [origin], connect_domains: [] }, 'openai/ui': { availableDisplayModes: ['inline', 'fullscreen'], preferredDisplayMode: 'inline' } } }] }));
+  server.registerResource('King Down board', new ResourceTemplate('ui://kingdown/board-{hash}.html', { list: async () => ({ resources: [{ uri: boardResource, name: 'King Down board', mimeType: RESOURCE_MIME_TYPE }] }) }), { mimeType: RESOURCE_MIME_TYPE }, async uri => ({ contents: [{ uri: uri.href, mimeType: RESOURCE_MIME_TYPE, text: html, _meta: { ui: { domain: origin, permissions: { clipboardWrite: {} }, csp: { resourceDomains: [origin], connectDomains: [] } }, 'openai/widgetCSP': { resource_domains: [origin], connect_domains: [] }, 'openai/ui': { availableDisplayModes: ['inline', 'fullscreen'], preferredDisplayMode: 'fullscreen' } } }] }));
   const gameId = z.string().uuid();
   const boardId = z.string().uuid().optional();
   const inputs = new Map<string, z.ZodType>();
@@ -95,7 +96,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   const home = async (board?: string): Promise<Reply> => { const { handle, icon } = await service.profile(actorId); return { content: text('King Down. Start a game from Play.'), structuredContent: { screen: 'home' }, _meta: { ...(board && { board_id: board }), me: { handle, icon } } }; };
   /** The most urgent game, or home when no game is open. */
   async function next(): Promise<View | null> {
-    const urgent = (await service.inbox(actorId))[0];
+    const inbox = await service.inbox(actorId), urgent = nextGame(inbox) ?? inbox[0];
     return urgent ? service.view(actorId, urgent.game_id) : null;
   }
   const play = async (args: { game_id: string; command_id: string; expected_revision: number }, action: Action) => reply(await service.command(actorId, args.game_id, { command_id: args.command_id, expected_revision: args.expected_revision, action }));

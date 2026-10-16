@@ -9,6 +9,7 @@ import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import type { View } from '../src/match/protocol';
 import { applyLan } from '../src/plugin/screens/board-model';
+import { LESSONS } from '../src/lessons';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
@@ -393,5 +394,49 @@ it.each([[320,568],[852,393]] as const)('keeps a short last move and its deadlin
     await frame.locator('#board-menu').click();
     await frame.locator('#board-sheet').getByRole('button', {name:'Moves',exact:true}).click();
     expect(await frame.locator('#board-sheet').innerText()).toContain('Black pawn h7 to h5.');
+  } finally { await page.close(); }
+});
+
+it.each(['A', 'S', 'M', 'O', 'G', 'L'])('shows the %s lesson rule when a beginner selects the piece', async letter => {
+  const names: Record<string, string> = { A: 'Archer', S: 'Beast', M: 'Maester', O: 'Ogre', G: 'Guard', L: 'Paladin' };
+  const page = await open(view(`7k/8/8/8/3${letter}4/8/8/K7 w - - 0 1`, {}, { level: 'beginner' })), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('html').evaluate(() => (window as any).testBoard.onSquareClick(27));
+    expect(await frame.locator('#context-note').innerText()).toBe(LESSONS.find(lesson => lesson.name === names[letter])!.done);
+    expect(await frame.locator('#move-hint').textContent()).not.toMatch(/\bTap\b/);
+  } finally { await page.close(); }
+});
+it('keeps the normal piece rule for a player above beginner level', async () => {
+  const page = await open(view('7k/8/8/8/3G4/8/8/K7 w - - 0 1', {}, { level: 'club' })), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('html').evaluate(() => (window as any).testBoard.onSquareClick(27));
+    expect(await frame.locator('#context-note').innerText()).toBe('Only a king can take it.');
+  } finally { await page.close(); }
+});
+
+
+it.each([[320, 568], [393, 852]])('keeps the board size after a beginner selects a long lesson at %i px', async (width, height) => {
+  const page = await open(view('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBOR w - - 0 1', {}, { level: 'beginner' }), width, height), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    const size = () => frame.locator('#board canvas').boundingBox();
+    const settle = () => frame.locator('#board canvas').evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await settle();
+    await expect.poll(async () => (await size())?.width ?? 0).toBeGreaterThanOrEqual(192);
+    const before = (await size())!;
+    await frame.locator('html').evaluate(() => (window as any).testBoard.onSquareClick(6));
+    const lesson = LESSONS.find(lesson => lesson.name === 'Ogre')!.done;
+    expect(await frame.locator('#context-note').textContent()).toBe(lesson);
+    // Wait for layout and the board's resize observer before the size comparison.
+    await settle();
+    const after = (await size())!;
+    expect(after.width).toBeCloseTo(before.width, 0);
+    expect(after.height).toBeCloseTo(before.height, 0);
+    expect(after.y).toBeCloseTo(before.y, 0);
+    expect(after.width).toBeGreaterThanOrEqual(192);
+    await frame.getByRole('button', { name: 'All rules', exact: true }).click();
+    expect(await frame.locator('#board-sheet').innerText()).toContain(lesson);
   } finally { await page.close(); }
 });

@@ -110,7 +110,9 @@ try {
   assert.equal(await frame.locator('#home-card button').count(), 2, 'The inline home card has only Play now and Choose a game');
   await frame.locator('#home-play:not(:disabled)').waitFor();
   assert.deepEqual(await page.evaluate(() => window.harnessDeclaredModes), ['inline', 'fullscreen'], 'App declares both display modes to the host');
-  assert.equal(await frame.locator('.inline-line').innerText(), 'No games need your move.', 'Home uses the server turn count and the sample line');
+  assert.equal(await frame.locator('.inline-line').first().innerText(), 'Chess, the way it was never meant to be played.', 'Home uses the owner pitch line');
+  assert(await frame.locator('#home-line').isHidden(), 'Home hides the zero turn count');
+  assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests ?? []), [], 'Mount sends no fullscreen request');
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), 0, 'An empty home reads no board');
   await frame.locator('#home-games').click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
@@ -140,6 +142,13 @@ try {
   }
   async function openScreen(screen) { await openPlay(); await frame.locator(`[data-screen="play"] [data-nav="${screen}"]`).click(); }
   async function idleBoard() { await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#reload')?.disabled === false); }
+  async function remount(screen) {
+    const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
+    await remountFrame();
+    await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
+    await idleBoard();
+    await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
+  }
   async function openMoveChoices() {
     if (await frame.locator('#board-sheet[open] h2').count() && await frame.locator('#board-sheet h2').innerText() === 'Choose a move') return;
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
@@ -992,12 +1001,6 @@ try {
       const result = await tool('kingdown_create', { kind, options: choices, colour: 'white', board_id: await binding() }); assert(!result.isError);
       await page.evaluate(result => window.harnessShow({ ...result, structuredContent: { ...result.structuredContent, screen: undefined } }, true), result); return result._meta.view;
     }
-    async function remount(screen) {
-      const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
-      await remountFrame();
-      await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
-      await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
-    }
     async function lookAt(state, screen) {
       for (const [width, height, suffix] of [[390,844,'phone'],[1440,900,'desktop'],[400,900,'side']]) {
         await page.setViewportSize({ width, height }); await fits(screen, width);
@@ -1359,7 +1362,7 @@ try {
     await page.touchscreen.tap(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (64 + 32 + (7 - rank + .5) * 112) * box.width / 960);
   }
   await tapSquare(4, 1);
-  assert.equal(await frame.locator('#move-hint').innerText(), 'Tap a marked square to move, or choose a move below.');
+  assert.equal(await frame.locator('#move-hint').innerText(), 'Select a marked square to move, or choose a move below.');
   await tapSquare(4, 3);
   await idleBoard();
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_move' && c.arguments.game_id === window.harnessMatchId && c.arguments.lan === 'e2-e4').length), 1, 'Touch destination commits the ordinary move once');
@@ -1742,7 +1745,8 @@ try {
     await openPlay(); await legacyStart('solo'); await idleBoard();
   }
   const routeBase = await page.evaluate(() => window.harnessView), routeBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
-  for (const [status, kind, options, screen] of [['waiting','friend',undefined,'friend'], ['waiting','random',undefined,'wait'], ['setup','friend',{},'seat'], ['setup','solo',undefined,'board'], ['playing','solo',undefined,'board'], ['finished','friend',undefined,'end'], ['aborted','random',undefined,'end']]) {
+  const routeCases = [['waiting','friend',undefined,'friend'], ['waiting','random',undefined,'wait'], ['setup','friend',{},'seat'], ['setup','solo',undefined,'board'], ['playing','solo',undefined,'board'], ['finished','friend',undefined,'end'], ['aborted','random',undefined,'end']];
+  for (const [status, kind, options, screen] of routeCases) {
     const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     await page.evaluate(({base, board_id, status, kind, options}) => {
       window.harnessNextView = { ...base, status, kind, options };
@@ -1757,14 +1761,14 @@ try {
   for (const [width,height] of [[390,844],[400,900],[1440,900]]) {
     await page.setViewportSize({width,height});
     for (const screen of routes) {
-      const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
       const settingsReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length);
-      await page.evaluate(({screen,base}) => { window.harnessNextView = screen === 'end' ? { ...base, status: 'finished', result: { winner: 0, reason: 'resign' } } : undefined; window.harnessWidgetState = { modelContent: {}, privateContent: { screen, sheet: undefined, board_id: window.harnessWidgetState.privateContent.board_id, pending: undefined } }; }, {screen,base:routeBase});
-      await remountFrame();
-      await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
-      // The mount's read ends with the games read, which replaces the Your games rows. An enabled #reload shows that the
-      // mount has ended, so fits() measures the final rows (the real server of plugin-ui-http replies later than the fixture).
-      await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor(); await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' }); await fits(screen,width);
+      const route = routeCases.find(route => route[3] === screen);
+      await page.evaluate(({screen,base,route}) => {
+        // A saved game screen follows the fresh status, so its viewport sample needs a matching game.
+        window.harnessNextView = route ? { ...base, status: route[0], kind: route[1], options: route[2], ...(screen === 'end' ? { result: { winner: 0, reason: 'resign' } } : {}) } : undefined;
+        window.harnessWidgetState = { modelContent: {}, privateContent: { screen, sheet: undefined, board_id: window.harnessWidgetState.privateContent.board_id, pending: undefined } };
+      }, {screen,base:routeBase,route});
+      await remount(screen); await fits(screen,width);
       assert.deepEqual(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_get').arguments), { board_id: routeBoard }, 'A mount reads with the board ID alone');
       assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length), settingsReads + 1, 'Each mount reads server settings and me');
       assert.deepEqual(await page.evaluate(() => Object.keys(window.harnessWidgetState.privateContent).sort()), ['board_id','pending','screen','sheet']);
@@ -1820,7 +1824,8 @@ try {
     reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     await page.evaluate(result => window.harnessShow(result), home);
     await frame.locator('#home-card').waitFor();
-    assert.equal(await frame.locator('#home-line').innerText(), home.structuredContent.your_turn_count === 0 ? 'No games need your move.' : `Your move in ${home.structuredContent.your_turn_count} game${home.structuredContent.your_turn_count === 1 ? '' : 's'}.`);
+    assert.equal(await frame.locator('#home-line').isHidden(), home.structuredContent.your_turn_count === 0);
+    if (home.structuredContent.your_turn_count) assert.equal(await frame.locator('#home-line').innerText(), `Your move in ${home.structuredContent.your_turn_count} game${home.structuredContent.your_turn_count === 1 ? '' : 's'}.`);
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), reads, 'Empty Open shows home with no board read');
     await legacyStart('solo');
   }
@@ -2027,6 +2032,7 @@ try {
   assert.deepEqual(await page.evaluate(() => window.harnessWidgetState.modelContent), {status:'playing',your_turn:true}, 'Hosts without widget state receive useful model context without an internal revision');
   if (mode === 'fixture') {
   await page.goto(new URL('/?terminal=1', base).href);
+    await page.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen' }));
   await frame.locator('#status').filter({ hasText: 'Checkmate' }).waitFor();
   assert.equal(await frame.locator('#computer').isVisible(), false);
   assert.equal(await frame.locator('#choices button').count(), 0);

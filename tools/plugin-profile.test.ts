@@ -49,6 +49,7 @@ afterAll(async () => { await browser?.close(); await harness?.close(); await rm(
 async function open() {
   const page = await browser.newPage({ timezoneId: 'UTC' }); page.setDefaultTimeout(5000); await page.goto(harness.url);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+  await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen' }));
   return page;
 }
 const tool = async (page: Awaited<ReturnType<typeof open>>, name: string, args = {}) => (await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name, arguments: args } })).json();
@@ -154,7 +155,7 @@ it('lists all pieces, kings, powers and cards with the game text and Unlocked', 
         expect(await card.locator('dd').first().innerText()).toBe(group.options.map(option => `${option.label}: ${ruleLine(option.title)}`).join('\n'));
       }
       // The Collection's cards read as in a game with the default options: King powers off (fault F2).
-      if (tab === 'Cards') for (const card of DEAL_CARDS) expect(await frame.locator(`[data-card="${card}"] .cf-text small`).textContent()).toBe(ruleLine(cardText(card, DEFAULT_RULES)));
+      if (tab === 'Cards') for (const card of DEAL_CARDS) expect(await frame.locator(`#collection-items [data-card="${card}"] .cf-text small`).textContent()).toBe(ruleLine(cardText(card, DEFAULT_RULES)));
       if (tab === 'Powers') for (const [power, line] of Object.entries(data.powers)) expect(await frame.locator(`[data-power="${power}"] dd`).first().textContent()).toBe(webWords(balanced[power] ?? line));
     }
     await page.locator('#remount').click();
@@ -345,6 +346,7 @@ const bigRecord = { ...record, totals: { played: 1234, won: 700, drawn: 34, lost
 async function openAt(width: number, height: number, locale = 'en-US', timezoneId = 'UTC') {
   const context = await browser.newContext({ viewport: { width, height }, locale, timezoneId }), page = await context.newPage(); page.setDefaultTimeout(5000);
   await page.goto(harness.url); await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+  await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen' }));
   await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history, record: bigRecord, games: waitingGames } } });
   return { page, frame: page.frameLocator('iframe'), close: () => context.close() };
 }

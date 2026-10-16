@@ -40,7 +40,7 @@ async function readLobby() {
       entry.onclick = () => void acceptGame(game.game_id);
       entry.append(accept); return entry;
     }));
-    $('lobby-status').textContent = '';
+    $('lobby-status').textContent = ''; $('lobby-empty').hidden = !!lobby.games.length;
   } catch (error) { if (client.state.screen === 'lobby') showError(error, $('lobby-status')); }
 }
 async function acceptGame(game: string) {

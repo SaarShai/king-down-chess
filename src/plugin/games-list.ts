@@ -14,8 +14,6 @@ export function gameDetail(entry: InboxEntry): string {
 }
 
 export const gameTitle = (entry: Pick<View, 'opponent' | 'level'>) => entry.opponent?.computer ? entry.level ? `Computer · ${entry.level[0].toUpperCase() + entry.level.slice(1)}` : 'Computer' : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
-/** The first game that waits for your move, other than `except`. */
-export const nextGame = (entries: InboxEntry[], except?: string) => entries.find(entry => entry.status !== 'waiting' && entry.action === 'ready' && entry.game_id !== except);
 export function gamesList(target: HTMLElement, entries: InboxEntry[], call: (name: string, args: Record<string, unknown>) => Promise<View | undefined>, routeView: (view: View) => unknown, now = Date.now()) {
   const icon = (name: string) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
   target.replaceChildren(...entries.map(entry => {

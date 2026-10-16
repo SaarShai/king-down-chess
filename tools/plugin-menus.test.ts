@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { chromium, type Browser, type Page } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
+import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import type { HistoryEntry } from '../src/match/protocol';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -59,7 +60,7 @@ it('says 1 game, shows Your turn once, and gives the name page, code fields and 
   try {
     // F18 and F16.
     await seedGames(page, []); await readGames(page);
-    expect(await frame.locator('#home-line').textContent()).toBe('No games need your move.');
+    expect(await frame.locator('#home-line').isHidden()).toBe(true);
     await seedGames(page, [entry(1, 'ready'), entry(2, 'waiting')]); await readGames(page);
     expect(await frame.locator('#home-line').textContent()).toBe('Your move in 1 game.');
     await go(page, 'play');
@@ -97,6 +98,44 @@ it('opens New game at the top', async () => {
     await go(page, 'settings'); await go(page, 'play');
     expect(await frame.locator('#new-game .new-game-body').evaluate(el => el.scrollTop)).toBe(0);
   } finally { await page.close(); }
+});
+
+it('keeps every game row within reach after a saved Play mount', async () => {
+  const page = await open({ width: 390, height: 844, top: 24, bottom: 120 }), frame = page.frameLocator('iframe');
+  const savedGames = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.games);
+  try {
+    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.start('solo', {}); app.navigate('play'); });
+    await seedGames(page, Array.from({ length: 50 }, (_, n) => entry(n, 'ready')));
+    await page.evaluate(() => { (window as any).holdNextGet = true; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeldGet);
+    expect(await frame.locator('#reload').isDisabled()).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeldGet());
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    expect(await frame.locator('#games-list [data-game-id^="menus-"]').count()).toBe(50);
+    for (const row of await frame.locator('#games-list button').all()) {
+      await row.scrollIntoViewIfNeeded();
+      expect((await row.evaluate(controlBounds)).accessible).toBe(true);
+    }
+  } finally { await page.evaluate(() => (window as any).releaseHeldGet?.()); await seedGames(page, savedGames); await page.close(); }
+});
+
+it('locks Name until settings finish on a saved screen', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const current = `mount_${randomUUID().slice(0, 8)}`, draft = `draft_${randomUUID().slice(0, 8)}`;
+  try {
+    await frame.locator('html').evaluate(async (_, handle) => { const app = (window as any).harnessApp; await app.call('kingdown_handle', { handle, icon: 'spirit' }); app.navigate('handle'); }, current);
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_settings'; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    expect(await frame.locator('#handle').isDisabled()).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('#handle:not(:disabled)').waitFor();
+    expect(await frame.locator('#handle').inputValue()).toBe(current);
+    await frame.locator('#handle').fill(draft);
+    await frame.locator('#handle-free:not([hidden])').waitFor();
+    expect(await frame.locator('#handle').inputValue()).toBe(draft);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
 it('scrolls the Profile scroll with the page, with its bottom roller at the page end', async () => {

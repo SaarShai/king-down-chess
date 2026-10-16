@@ -4,6 +4,7 @@ import { cardName, cardText, coinState, coinWords, needsArming, offered, POWER_T
 import { checkCause, checkersOf, describeMove, shortMove, threatsIn } from '../../move-text';
 import { marksModel, railsOf } from '../../marks-model';
 import { readText, reachOf, teachNote } from '../../read';
+import { LESSONS } from '../../lessons';
 import { contextLine } from '../../context-line';
 import type { PlayerRecord, View } from '../../match/protocol';
 import { ending } from '../ending';
@@ -13,7 +14,7 @@ import { pieceIcon } from '../../piece-icons';
 import { snd } from '../../render/sfx';
 import '../../ceremony.css';
 import { client, memory, navigate } from '../app';
-import { nextGame } from '../games-list';
+import { nextGame } from '../next-game';
 import { actionButtons } from './board-actions';
 import { updateEnd } from './end';
 import { applyLan, boardActions, cardCoins, replayHistory, replayLans, stripLine, timeLeft, type BoardMove } from './board-model';
@@ -151,7 +152,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     await call('kingdown_get', {}); $('error').textContent = message; refresh();
   };
   function choices(list: Choice[]) {
-    $('move-hint').textContent = !list.length ? '' : list.every(({move}) => needsArming(move)) ? 'Choose a move below.' : 'Tap a marked square to move, or choose a move below.';
+    $('move-hint').textContent = !list.length ? '' : list.every(({move}) => needsArming(move)) ? 'Choose a move below.' : 'Select a marked square to move, or choose a move below.';
     $('choices').replaceChildren(...list.map(({lan, move}) => { const b = button(describeMove(pos!, move), () => choose(lan)); b.title = lan; return b; }));
   }
   function select(square: number, submit = true) {
@@ -269,8 +270,9 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     // Option A: Beginner notes; each enemy fairy action kind shows once a game, at the history length it first shows.
     const beginner = view.level === 'beginner', teach = beginner && lastMove && lastMove.pre.turn !== view.seat ? teachNote(lastMove.pre, lastMove.move) : undefined;
     const fresh = teach && (taught.get(teach[0]) ?? history.length) === history.length;
-    const first = beginner && pos.ply < 2 && pos.board.some(c => c && typeOf(c) > K) ? 'New pieces in this game. Tap any piece to read its rule.' : '';
-    const context = contextLine({voice:'you', teach:first || (fresh ? teach[1] : ''), result:view.result ? ending(view) : '', refusal:$('error').textContent ?? '', link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:pos.turn !== view.seat, midWay:pos.haste !== undefined || !!pos.free, free:!!pos.free, turnLine:pos.free ? 'Make your move, or stop here.' : 'Move it again, or stop here.', armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
+    const first = beginner && pos.ply < 2 && pos.board.some(c => c && typeOf(c) > K) ? 'New pieces in this game. Select any piece to read its rule.' : '';
+    const lesson = beginner && code ? LESSONS.find(lesson => lesson.name.toLowerCase() === nameOf(typeOf(code)))?.done : undefined;
+    const context = contextLine({voice:'you', teach:first || (fresh ? teach[1] : ''), result:view.result ? ending(view) : '', refusal:$('error').textContent ?? '', link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:lesson ?? line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:pos.turn !== view.seat, midWay:pos.haste !== undefined || !!pos.free, free:!!pos.free, turnLine:pos.free ? 'Make your move, or stop here.' : 'Move it again, or stop here.', armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
     if (context.rank==='link' && deadline) context.note=available.claim==='end'?'You may end the game with no result.':'You may claim the win.';
     if (fresh && context.rank === 'your-move') taught.set(teach[0], history.length);
     if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:'armed',line:cardName(RULES.hands[view.seat][armedCard]),note:'Choose a piece, then a marked square.'});
@@ -280,7 +282,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     const actions: HTMLButtonElement[] = [];
     const drawReply = !view.result && view.draw_offer != null && view.draw_offer !== view.seat && view.kind !== 'solo';
     const unarmed = !armed && armedCard === undefined;
-    if (!drawReply && unarmed && square !== undefined && code) actions.push(button('All rules', () => boardSheet('All rules', text(readText(pos!, square)))));
+    if (!drawReply && unarmed && square !== undefined && code) actions.push(button('All rules', () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(pos!, square)}` : readText(pos!, square)))));
     if ((!drawReply || unarmed) && selected !== undefined && moves.some(({move}) => move.from === selected && !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
     if (!unarmed) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; choices([]); refresh(); }));
     if (view.legal.includes('--')) actions.push(button('Stop here', () => choose('--')));

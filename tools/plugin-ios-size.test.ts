@@ -78,9 +78,10 @@ it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568
     expect(await textFits()).toEqual([]);
   } finally { await page.close(); }
 });
-// With a game that waits, the home card offers Resume and Play now (spec J3), so a test of the hall opens it from the chat.
+// The host opens the chat route fullscreen.
 async function hall(page: Page) {
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+  await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen' }));
   const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }));
   await page.evaluate(result => (window as any).harnessShow(result), result);
   await page.frameLocator('iframe').locator('[data-screen="play"]:not([hidden])').waitFor();
@@ -413,7 +414,7 @@ it('keeps page-title words whole, the seat title short and the title at body siz
 // Device matrix round 2, M1: at 200% zoom the board got only the height that the other rows left (3 px), and WebKit sent
 // no move. Under 320 px the board keeps the full width, and the screen scrolls to the rows below it.
 it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)', async () => {
-  // Measure at rest: the board opens with a short scale-in (Lively motion), and a measure during it reads a few px short.
+  // Wait for the visible size and rest: ResizeObserver sets the canvas size after the screen opens.
   const canvasWidth = (frame: FrameLocator) => frame.locator('#board canvas').evaluate(async e => {
     const board = e.closest('#board')!;
     for (let run: Animation[]; (run = board.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
@@ -430,16 +431,16 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
       for (const name of ['Fairy pieces', 'Arrangement', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).setChecked(features.includes(name));
       await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
       await frame.locator('#board[aria-busy="false"]').waitFor();
-      expect(await canvasWidth(frame), all ? 'all-features seat' : 'seat').toBeGreaterThanOrEqual(192);
+      await expect.poll(() => canvasWidth(frame), all ? 'all-features seat' : 'seat').toBeGreaterThanOrEqual(192);
       if (!all) {
         await frame.locator('#seat-shuffle').click();
         await frame.locator('#seat-context').filter({ hasText: 'Select one back-rank piece' }).waitFor();
-        expect(await canvasWidth(frame), 'seat after Shuffle').toBeGreaterThanOrEqual(192);
+        await expect.poll(() => canvasWidth(frame), 'seat after Shuffle').toBeGreaterThanOrEqual(192);
       }
       for (const id of ['seat-shuffle', 'seat-menu', 'seat-ready']) expect(await reachable(frame, id), id).toBe(true);
       await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       await frame.locator('#board[aria-busy="false"]').waitFor();
-      expect(await canvasWidth(frame), all ? 'all-features board' : 'board').toBeGreaterThanOrEqual(192);
+      await expect.poll(() => canvasWidth(frame), all ? 'all-features board' : 'board').toBeGreaterThanOrEqual(192);
       if (!all) {
         // White moves e2-e4 with two taps on the board.
         await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();

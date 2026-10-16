@@ -12,8 +12,8 @@ beforeAll(async () => { folder = await mkdtemp(join(tmpdir(), 'kingdown-app-test
   const boardPath = join(folder, 'board.html'); await writeFile(boardPath, await readFile('src/plugin/index.html'));
   harness = await startHarness({ boardPath, sourcePage: true }); browser = await chromium.launch({ headless: true }); });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
-async function open() {
-  const page = await browser.newPage(); page.setDefaultTimeout(5000); await page.goto(harness.url);
+async function open(url = harness.url) {
+  const page = await browser.newPage(); page.setDefaultTimeout(5000); await page.goto(url);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   return page;
 }
@@ -35,7 +35,7 @@ it('takes a new player from the home card to a first move in three taps', async 
     await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } });
   } finally { await page.close(); }
 });
-// These two run before any game waits for the player: spec J3 then makes the second home action Play now.
+// These two run before any game waits for the player.
 it('opens the Play hall from the inline Choose a game action', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -82,7 +82,7 @@ it('keeps a board open without a game on home and stores its ID only in private 
 
 // Each screen but home shows only in fullscreen (spec Q25). A test that opens a screen directly puts the host there first.
 const expand = (page: Page) => page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'] }));
-// Tests of the hall itself open it directly: with a game that waits, the home card offers Resume and Play now (spec J3).
+// Tests of the hall itself open it directly.
 async function hall(page: Page) { await expand(page); await page.frameLocator('iframe').locator('html').evaluate(() => (window as any).harnessApp.navigate('play')); }
 async function start(page: Page, route = true) {
   await expand(page);
@@ -96,6 +96,7 @@ async function start(page: Page, route = true) {
 it('reads a saved board at mount and shows Retry with the saved failure words', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white' }); });
     await page.evaluate(() => {
       const host = window as any;
@@ -222,6 +223,7 @@ it('keeps Start blocked and retries the same solo game after its board read fail
 it('blocks Retry and screen actions until both mount reads finish', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); });
     await page.evaluate(() => { (window as any).dropNextMoveReply = true; });
     await frame.locator('html').evaluate(async () => {
@@ -254,6 +256,7 @@ it('blocks Retry and screen actions until both mount reads finish', async () => 
 it('refreshes the Play rows after Create and Move from the page', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => {
       await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false } });
     });
@@ -272,51 +275,63 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
     expect(await frame.locator('html').evaluate((_, game_id) => (window as any).harnessApp.memory.games.find((entry: any) => entry.game_id === game_id).revision, game_id)).toBe(1);
   } finally { await page.close(); }
 });
-it('opens a screen from a chat tool call in fullscreen, not inline', async () => {
+it('opens a chat route in host fullscreen with no display request', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
+    await page.evaluate(result => (window as any).harnessShow(result, true), result);
+    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests ?? [])).toEqual([]);
+  } finally { await page.close(); }
+});
+it('keeps an inline chat route behind home until Resume requests fullscreen', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
     await page.evaluate(result => (window as any).harnessShow(result, true), result);
+    await frame.locator('#home-play:not(:disabled)').filter({ hasText: 'Resume' }).waitFor();
+    expect(await frame.locator('[data-screen="profile"]').isHidden()).toBe(true);
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests ?? [])).toEqual([]);
+    await frame.locator('#home-play').click();
     await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
     expect(await page.evaluate(() => (window as any).harnessDisplayRequests)).toEqual(['fullscreen']);
   } finally { await page.close(); }
 });
-it('keeps a screen from a chat tool call behind the home card until the host grants fullscreen', async () => {
+it('keeps an inline route through an inline remount with no display request', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
-    await page.evaluate(() => { (window as any).holdDisplayNext = true; });
     await page.evaluate(result => (window as any).harnessShow(result, true), result);
-    await page.waitForFunction(() => typeof (window as any).releaseDisplay === 'function');
+    await frame.locator('#home-play:not(:disabled)').filter({ hasText: 'Resume' }).waitFor();
+    await page.addInitScript(() => {
+      const host = window as any; host.profileShownInline = false;
+      new MutationObserver(() => {
+        const profile = document.querySelector<HTMLElement>('[data-screen="profile"]');
+        if (profile && !profile.hidden && !document.getElementById('app-frame')?.hidden) host.profileShownInline = true;
+      }).observe(document, { subtree: true, attributes: true, attributeFilter: ['hidden'] });
+    });
+    await page.locator('#remount').click();
+    await frame.locator('#home-play:not(:disabled)').filter({ hasText: 'Resume' }).waitFor();
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests ?? [])).toEqual([]);
+    expect(await frame.locator('html').evaluate(() => (window as any).profileShownInline)).toBe(false);
+    await expand(page);
+    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
+  } finally { await page.close(); }
+});
+it('keeps the inline route when the host refuses a button request', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
+    await page.evaluate(result => (window as any).harnessShow(result, true), result);
+    await frame.locator('#home-play:not(:disabled)').filter({ hasText: 'Resume' }).waitFor();
+    await page.evaluate(() => { (window as any).denyDisplayNext = true; });
+    await frame.locator('#home-play').click();
+    await frame.locator('#home-error', { hasText: 'expand control' }).waitFor();
     expect(await frame.locator('[data-screen="profile"]').isHidden()).toBe(true);
     expect(await frame.locator('#home-card').isVisible()).toBe(true);
-    await page.evaluate(() => (window as any).releaseDisplay());
+    await frame.locator('#home-play').filter({ hasText: 'Resume' }).click();
     await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
-  } finally { await page.close(); }
-});
-it('opens the screen that waited for fullscreen when the host remounts the widget', async () => {
-  const page = await open(), frame = page.frameLocator('iframe');
-  try {
-    const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
-    await page.evaluate(() => { (window as any).holdDisplayNext = true; });
-    await page.evaluate(result => (window as any).harnessShow(result, true), result);
-    await page.waitForFunction(() => typeof (window as any).releaseDisplay === 'function');
-    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'] }));
-    await page.locator('#remount').click();
-    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
-  } finally { await page.close(); }
-});
-it('never shows a screen inline when the host refuses fullscreen', async () => {
-  const page = await open(), frame = page.frameLocator('iframe');
-  try {
-    const widget = page.frames().find(f => f !== page.mainFrame())!;
-    await widget.evaluate(() => { const host = window as any; host.shownInline = false; new MutationObserver(() => { if (!document.querySelector<HTMLElement>('[data-screen="profile"]')!.hidden) host.shownInline = true; }).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['hidden'] }); });
-    const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
-    await page.evaluate(() => { (window as any).denyDisplayNext = true; });
-    await page.evaluate(result => (window as any).harnessShow(result, true), result);
-    await frame.locator('#home-error', { hasText: 'expand control' }).waitFor();
-    expect(await widget.evaluate(() => (window as any).shownInline)).toBe(false);
-    expect(await frame.locator('#home-card').isVisible()).toBe(true);
   } finally { await page.close(); }
 });
 it('shows the home card when the player leaves fullscreen, and Resume returns to the game', async () => {
@@ -492,6 +507,7 @@ it('keeps chat preview and code errors in page memory on notification and mount'
   const page = await open(), frame = page.frameLocator('iframe');
   const tool = async (path: string, name: string, args = {}) => (await page.request.post(new URL(path, harness.url).href, { data: { name, arguments: args } })).json();
   try {
+    await expand(page);
     const friend = await tool('/fixture-friend-tool', 'kingdown_create', { kind: 'friend', colour: 'white' });
     const invite = await tool('/fixture-friend-tool', 'kingdown_invite', { game_id: friend._meta.view.game_id });
     const preview = await tool('/fixture-tool', 'kingdown_open', { code: invite.structuredContent.code });
@@ -551,6 +567,7 @@ it('reads a friend code again after the join preview remounts', async () => {
 it('shows both setup states in the app games rows', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => {
       await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } });
     });
@@ -576,6 +593,7 @@ it('shows both setup states in the app games rows', async () => {
 it('updates activity on unchanged replies across the two-minute poll boundary', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
       await app.call('kingdown_create', { kind: 'friend', colour: 'white' });
@@ -708,6 +726,7 @@ it('draws Maester swap marks through the shared board adapter', async () => {
   try {
     await page.goto(harness.url); const frame = page.frameLocator('iframe');
     await frame.locator('#home-play:not(:disabled)').waitFor();
+    await expand(page);
     const seeded = await (await page.request.post(new URL('/fixture-position?case=swap', harness.url).href)).json();
     await page.evaluate(result => (window as any).harnessShow(result), seeded);
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
@@ -728,6 +747,7 @@ it('declares inline and fullscreen modes in the App handshake', async () => {
 it('keeps a failed mount read visible without a pending send', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp; await app.call('kingdown_create', { kind: 'friend' }); app.navigate('play');
     });
@@ -739,12 +759,13 @@ it('keeps a failed mount read visible without a pending send', async () => {
   } finally { await page.close(); }
 });
 
-it('restores a saved End route to the board when the game still plays', async () => {
+it.each(['end', 'friend'])('restores a saved %s route to the board when the game still plays', async screen => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false } }); });
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
-    await page.evaluate(() => { (window as any).harnessWidgetState.privateContent.screen = 'end'; });
+    await page.evaluate(screen => { (window as any).harnessWidgetState.privateContent.screen = screen; }, screen);
     await page.locator('#remount').click();
     await frame.locator('body[data-page="board"]').waitFor();
     expect(await page.evaluate(() => (window as any).harnessView.status)).toBe('playing');
@@ -755,6 +776,7 @@ it('restores a saved End route to the board when the game still plays', async ()
 it('keeps both sides in Moves and restores them after Remount', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
       await app.call('kingdown_create', { kind:'solo', colour:'white', level:'beginner', options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false} });
@@ -780,6 +802,7 @@ it('keeps both sides in Moves and restores them after Remount', async () => {
 it('closes board sheets with Escape, returns focus and returns from Settings to the game', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', {kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
     for (const id of ['board-menu','moves-line']) {
       await frame.locator(`#${id}:not(:disabled)`).click(); await frame.locator('#board-sheet[open]').waitFor();
@@ -796,6 +819,7 @@ it('closes board sheets with Escape, returns focus and returns from Settings to 
 it('keeps Tab inside the visible controls of the board Menu', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', {kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
     await frame.locator('#board-menu:not(:disabled)').click(); await frame.locator('#board-sheet[open]').waitFor();
     const controls = frame.locator('#board-sheet button:not(:disabled):visible'), first = controls.first(), last = controls.last();
@@ -809,6 +833,7 @@ it('keeps Tab inside the visible controls of the board Menu', async () => {
 it('shows a failed board read once beside Try again and restores the same game', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } }); });
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     await page.evaluate(() => { (window as any).rejectNextGet = true; });
@@ -828,6 +853,7 @@ it('shows a failed board read once beside Try again and restores the same game',
 it('offers Try again after a failed mount read and restores the same game', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', {kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
     const game = await page.evaluate(() => (window as any).harnessView.game_id);
     await page.evaluate(() => { (window as any).rejectNextGet = true; }); await page.locator('#remount').click();
@@ -844,6 +870,7 @@ it.each([false,true])('shows a draw offer and handles a decline before Resign (i
   const page = await open(), frame = page.frameLocator('iframe');
   const buddy = async (name: string, args: Record<string, unknown>) => (await page.request.post(new URL('/fixture-friend-tool',harness.url).href,{data:{name,arguments:args}})).json();
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { const app=(window as any).harnessApp; await app.start('friend',{colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
     await frame.locator('#friend-code span').first().waitFor();
     const code = (await frame.locator('#friend-code span').allTextContents()).join('');
@@ -866,6 +893,7 @@ it.each([false,true])('shows a draw offer and handles a decline before Resign (i
 it('does not repeat the abort title in the end reason', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => {
       const app=(window as any).harnessApp; await app.call('kingdown_create',{kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}});
       const v=app.memory.view; await app.call('kingdown_abort',{game_id:v.game_id,command_id:'words-abort',expected_revision:v.revision},true);
@@ -987,10 +1015,13 @@ it.each(['retry', 'remount'])('keeps the saved New game choices after a lost Pla
       await app.call('kingdown_settings', { last_setup: { kind: 'friend', colour: 'white', level: 'strong', king: null, options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: true } } });
     });
     await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_create'; });
-    await frame.getByRole('button', { name: 'Play now', exact: true }).click();
+    await hall(page);
+    await frame.locator('#hall-play').click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await frame.locator('#retry').waitFor();
     expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
+    expect(await frame.locator('#hall-play').isDisabled()).toBe(true);
+    expect(await frame.locator('#games-start').isDisabled()).toBe(true);
     expect(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked()).toBe(true);
     expect(await frame.getByRole('radio', { name: 'Beginner', exact: true }).isChecked()).toBe(true);
     expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(false);
@@ -1017,9 +1048,11 @@ it.each(['kingdown_choose', 'kingdown_get'])('shows Retry when Play now times ou
     await frame.locator('html').evaluate(async () => {
       await (window as any).harnessApp.call('kingdown_settings', { last_setup: { kind: 'friend', colour: 'white', level: 'strong', king: null, options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: true } } });
     });
+    // Spec J10 a: with games, the home card offers Resume and Your games (N); Play now is in the hall.
+    await hall(page);
     await page.clock.install();
     await page.evaluate(name => { (window as any).holdBeforeNext = name; }, name);
-    await frame.getByRole('button', { name: 'Play now', exact: true }).click();
+    await frame.locator('#hall-play').click();
     await page.waitForFunction(() => !!(window as any).releaseBefore);
     await page.clock.fastForward(10_001);
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
@@ -1265,8 +1298,8 @@ it('sends a waiting move again after an inline remount, so the board shows no er
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_move'; });
     await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; void app.call('kingdown_move', { game_id: app.memory.view.game_id, command_id: 'inline-move', expected_revision: app.memory.view.revision, lan: 'e2-e4' }, true); });
     await page.waitForFunction(() => !!(window as any).releaseHeld);
-    // The host remounts the widget inline and refuses the automatic fullscreen request, so the board waits behind the home card.
-    await page.evaluate(() => { const host = window as any; host.harnessHostContext = { displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }; host.harnessDisplayMode = 'inline'; host.denyDisplayNext = true; });
+    // An inline remount keeps the board behind the home card without a request.
+    await page.evaluate(() => { const host = window as any; host.harnessHostContext = { displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }; host.harnessDisplayMode = 'inline'; });
     const settings = await sent(page, 'kingdown_settings');
     await page.locator('#remount').click();
     await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, settings);
@@ -1349,7 +1382,7 @@ it('frees Start on New game after an inline remount sends the waiting move again
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_move'; });
     await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; void app.call('kingdown_move', { game_id: app.memory.view.game_id, command_id: 'setup-move', expected_revision: app.memory.view.revision, lan: 'e2-e4' }, true); });
     await page.waitForFunction(() => !!(window as any).releaseHeld);
-    await page.evaluate(() => { const host = window as any; host.harnessHostContext = { displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }; host.harnessDisplayMode = 'inline'; host.denyDisplayNext = true; });
+    await page.evaluate(() => { const host = window as any; host.harnessHostContext = { displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }; host.harnessDisplayMode = 'inline'; });
     const settings = await sent(page, 'kingdown_settings');
     await page.locator('#remount').click();
     await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, settings);
@@ -1536,11 +1569,12 @@ it('opens the Your games list at the top from the chat Play action', async () =>
   try {
     await page.setViewportSize({ width: 393, height: 600 });
     await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_create', arguments: { kind: 'solo', colour: 'white' } } });
-    // The preview puts Resume and Play now on the home card; the chat Play action opens the hall.
+    // The host opens the chat Play route fullscreen.
+    await expand(page);
     const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }));
     await page.evaluate(result => (window as any).harnessShow(result, true), result);
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-    expect(await page.evaluate(() => (window as any).harnessDisplayRequests)).toEqual(['fullscreen']);
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests ?? [])).toEqual([]);
     expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.screen)).toBe('play');
     const [head, body] = await Promise.all([frame.locator('#games-head').boundingBox(), frame.locator('[data-screen="play"] .new-game-body').boundingBox()]);
     expect(Math.abs(head!.y - body!.y)).toBeLessThan(24);
@@ -1555,7 +1589,8 @@ it.each(['timeout', 'remount'])('retries Play now with the same command ID after
     });
     await page.clock.install();
     await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_create'; });
-    await frame.getByRole('button', { name: 'Play now', exact: true }).click();
+    await hall(page);
+    await frame.locator('#hall-play').click();
     await page.waitForFunction(() => !!(window as any).releaseBefore);
     if (failure === 'timeout') {
       await page.clock.fastForward(10_001);
@@ -1749,4 +1784,275 @@ it.each([true, false])('keeps a saved setting when the first settings reply come
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.me)).toMatchObject({ handle: expect.any(String) });
     expect((await tool('kingdown_settings'))._meta.settings.symbols_only).toBe(true);
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await tool('kingdown_settings', { symbols_only: false }); await page.close(); }
+});
+
+it('shows the pitch, hides the zero count, and starts from the empty games list', async () => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    expect(await frame.getByText('Chess, the way it was never meant to be played.', { exact: true }).isVisible()).toBe(true);
+    expect(await frame.locator('#home-line').isHidden()).toBe(true);
+    await hall(page);
+    await frame.locator('#games-empty:not([hidden])').waitFor();
+    expect(await frame.locator('#games-empty p').innerText()).toBe('No games yet.');
+    expect(await frame.locator('#games-empty button').allTextContents()).toEqual(['Start']);
+    await frame.locator('#games-start:not(:disabled)').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+  } finally { await page.close(); await isolated.close(); }
+});
+it('shows one action in an empty open-games list and starts the search', async () => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('lobby'));
+    await frame.locator('#lobby-empty:not([hidden])').waitFor();
+    expect(await frame.locator('#lobby-empty').innerText()).toBe('No open games yet.');
+    expect(await frame.locator('[data-screen="lobby"] button:visible').allInnerTexts()).toEqual(['Find an opponent']);
+    await frame.locator('#find-opponent:not(:disabled)').click();
+    await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
+  } finally { await page.close(); await isolated.close(); }
+});
+it('shows the game count, resumes a person first, and opens the hall without a new game', async () => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    const person = crypto.randomUUID();
+    const make = (game_id: string, computer: boolean, action = 'ready') => ({ game_id, created_at: '2026-10-15T00:00:00Z', updated_at: '2026-10-15T00:00:00Z', kind: computer ? 'solo' : 'friend', status: 'playing', action, level: 'beginner', seat: 0, move: 1, opponent: { computer, handle: computer ? null : 'friend' } });
+    await page.request.post(isolated.url + 'fixture-seed', { data: { data: { games: [make(crypto.randomUUID(), true), make(person, false), make(crypto.randomUUID(), false, 'waiting')] } } });
+    const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open' }));
+    await page.evaluate(result => (window as any).harnessShow(result, true), result);
+    await frame.locator('#home-games:not(:disabled)').filter({ hasText: 'Your games (3)' }).waitFor();
+    expect(await frame.locator('#home-play').innerText()).toBe('Resume · friend · Your move');
+    await frame.locator('#home-play').click();
+    await expect.poll(() => page.evaluate(() => (window as any).harnessCalls.findLast((c: any) => c.name === 'kingdown_resume')?.arguments.game_id)).toBe(person);
+    await frame.locator('#home-games:not(:disabled)').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    expect(await frame.locator('[data-screen="play"] .new-game-body').evaluate(e => e.scrollTop)).toBe(0);
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(0);
+    await frame.locator('#hall-play:not(:disabled)').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+  } finally { await page.close(); await isolated.close(); }
+});
+it('opens the hall on a first host fullscreen mount without a display request or a new game', async () => {
+  const page = await browser.newPage(), frame = page.frameLocator('iframe');
+  page.setDefaultTimeout(5000);
+  try {
+    await page.addInitScript(() => { (window as any).harnessDisplayMode = 'fullscreen'; });
+    await page.goto(harness.url);
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator('#setup-start:not(:disabled)').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests ?? [])).toEqual([]);
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(0);
+  } finally { await page.close(); }
+});
+
+it('keeps the game route when Play now finishes before fullscreen is granted', async () => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    await page.evaluate(() => { (window as any).holdDisplayNext = true; });
+    await frame.locator('#home-play').click();
+    await page.waitForFunction(() => !!(window as any).releaseDisplay);
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.queued)).toBe('board');
+    expect(await frame.locator('#home-card').isVisible()).toBe(true);
+    await page.evaluate(() => (window as any).releaseDisplay());
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests)).toEqual(['fullscreen']);
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await expand(page);
+    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
+  } finally { await page.evaluate(() => (window as any).releaseDisplay?.()); await page.close(); await isolated.close(); }
+});
+
+it('offers Play now after the empty hall collapses', async () => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    await hall(page);
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    await frame.locator('#home-play').filter({ hasText: 'Play now' }).waitFor();
+    expect(await frame.locator('#home-games').innerText()).toBe('Choose a game');
+    await expand(page);
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  } finally { await page.close(); await isolated.close(); }
+});
+
+it.each([true, false])('remounts a saved screen with an inline host, fullscreen support %s', async supported => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
+    await page.addInitScript(() => {
+      const host = window as any; host.profileShownInline = false;
+      new MutationObserver(() => {
+        const profile = document.querySelector<HTMLElement>('[data-screen="profile"]');
+        if (profile && !profile.hidden && !document.getElementById('app-frame')?.hidden) host.profileShownInline = true;
+      }).observe(document, { subtree: true, attributes: true, attributeFilter: ['hidden'] });
+    });
+    await page.evaluate(supported => { const host = window as any; host.harnessHostContext = { displayMode: 'inline', availableDisplayModes: supported ? ['inline', 'fullscreen'] : ['inline'] }; host.harnessDisplayMode = 'inline'; }, supported);
+    const reads = await sent(page, 'kingdown_settings');
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, reads);
+    if (supported) {
+      await frame.locator('#home-play:not(:disabled)').filter({ hasText: 'Resume' }).waitFor();
+      expect(await frame.locator('html').evaluate(() => (window as any).profileShownInline)).toBe(false);
+      await frame.locator('#home-play').click();
+    }
+    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
+  } finally { await page.close(); }
+});
+
+
+it.each(['collapse', 'chat'])('uses the person-first Home action for a saved hall from %s', async source => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    const person = crypto.randomUUID();
+    const make = (game_id: string, computer: boolean) => ({ game_id, created_at: '2026-10-15T00:00:00Z', updated_at: '2026-10-15T00:00:00Z', kind: computer ? 'solo' : 'friend', status: 'playing', action: 'ready', level: 'beginner', seat: 0, move: 1, opponent: { computer, handle: computer ? null : 'friend' } });
+    await page.request.post(isolated.url + 'fixture-seed', { data: { data: { games: [make(crypto.randomUUID(), true), make(person, false)] } } });
+    const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }));
+    await page.evaluate(result => (window as any).harnessShow(result, true), result);
+    await frame.locator('#home-games:not(:disabled)').filter({ hasText: 'Your games (2)' }).waitFor();
+    if (source === 'collapse') {
+      await expand(page);
+      await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+      await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    }
+    expect(await frame.locator('#home-play').innerText()).toBe('Resume · friend · Your move');
+    await frame.locator('#home-play').click();
+    await expect.poll(() => page.evaluate(() => (window as any).harnessCalls.findLast((c: any) => c.name === 'kingdown_resume')?.arguments.game_id)).toBe(person);
+  } finally { await page.close(); await isolated.close(); }
+});
+
+it('clears the saved Profile route when a new Home result arrives', async () => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    for (const screen of ['profile', 'home']) {
+      const result = await page.evaluate(screen => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen } }), screen);
+      await page.evaluate(result => (window as any).harnessShow(result, true), result);
+      await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.queued ?? null)).toBe(screen === 'profile' ? 'profile' : null);
+    }
+    await frame.locator('#home-play:not(:disabled)').filter({ hasText: 'Play now' }).waitFor();
+    await frame.locator('#home-play').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+  } finally { await page.close(); await isolated.close(); }
+});
+
+it('refreshes Your games when a new board collapses to Home', async () => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    expect(await frame.locator('#home-games').innerText()).toBe('Choose a game');
+    await frame.locator('#home-play').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    await frame.locator('#home-games:not(:disabled)').filter({ hasText: 'Your games (1)' }).waitFor();
+    await frame.locator('#home-games').click();
+    await frame.locator('#games-list button').waitFor();
+    expect(await frame.locator('#games-list button').count()).toBe(1);
+  } finally { await page.close(); await isolated.close(); }
+});
+
+it('opens the hall on a late first fullscreen notice and keeps an explicit Home return', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    expect(await frame.locator('#home-card').isVisible()).toBe(true);
+    await expand(page);
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('home'));
+    await expand(page);
+    expect(await frame.locator('#home-card').isVisible()).toBe(true);
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests ?? [])).toEqual([]);
+  } finally { await page.close(); }
+});
+
+it.each([false, true])('resumes at the result after the saved board ends before an inline remount, pending reply %s', async pendingReply => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#home-play').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    const game_id = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
+    if (pendingReply) {
+      await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_resign'; });
+      await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_resign', { game_id: app.memory.view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: app.memory.view.revision }, true); });
+    }
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    if (!pendingReply) {
+      const ended = await page.evaluate(game_id => (window as any).harnessTool({ name: 'kingdown_resign', arguments: { game_id } }), game_id);
+      expect(ended.isError).toBeFalsy();
+    }
+    const reads = await sent(page, 'kingdown_get');
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
+    await frame.locator('#home-play:not(:disabled)').filter({ hasText: 'Resume' }).waitFor();
+    await frame.locator('#home-play').click();
+    await frame.locator('[data-screen="end"]:not([hidden])').waitFor();
+    expect(await frame.locator('[data-screen="board"]').isHidden()).toBe(true);
+  } finally { await page.close(); await isolated.close(); }
+});
+
+
+it('locks Home Play now while a lost hall start waits for Retry', async () => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    await hall(page);
+    await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_create'; });
+    await frame.locator('#hall-play:not(:disabled)').click();
+    await frame.locator('#retry:not(:disabled)').waitFor();
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    await frame.locator('#home-card:not([hidden])').waitFor();
+    expect(await frame.locator('#home-play').innerText()).toBe('Play now');
+    expect(await frame.locator('#home-play').isDisabled()).toBe(true);
+    expect(await frame.locator('#home-games').isDisabled()).toBe(false);
+    await frame.locator('#home-games').click();
+    await frame.locator('#retry:not(:disabled)').waitFor();
+    await frame.locator('#retry').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(1);
+  } finally { await page.close(); await isolated.close(); }
+});
+
+
+it.each(['route', 'chat'])('keeps an explicit Home request on the first fullscreen notice from %s', async source => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    if (source === 'route') await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; app.navigate('profile'); app.navigate('home'); });
+    else for (const screen of ['profile', 'home']) {
+      const result = await page.evaluate(screen => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen } }), screen);
+      await page.evaluate(result => (window as any).harnessShow(result, true), result);
+      await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.queued ?? null)).toBe(screen === 'profile' ? 'profile' : null);
+    }
+    await frame.locator('#home-games:not(:disabled)').waitFor();
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', theme: 'dark', availableDisplayModes: ['inline', 'fullscreen'] }));
+    await frame.locator('body[data-theme="dark"]').waitFor();
+    expect(await frame.locator('#home-card').isVisible()).toBe(true);
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests ?? [])).toEqual([]);
+  } finally { await page.close(); await isolated.close(); }
+});
+
+it('recovers a lost seat Ready before the computer makes the first move after remount', async () => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'black', level: 'beginner', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } }); });
+    await frame.locator('#seat-ready:not(:disabled)').waitFor();
+    await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_choose'; });
+    await frame.locator('#seat-ready').click();
+    await frame.locator('#retry:not(:disabled)').waitFor();
+    const command = await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending.args.command_id);
+    const reads = await sent(page, 'kingdown_settings');
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, reads);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending?.name ?? null)).toBeNull();
+    await page.waitForFunction(() => (window as any).harnessView.turn === (window as any).harnessView.seat);
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_choose').map((c: any) => c.arguments.command_id))).toEqual([command, command]);
+  } finally { await page.close(); await isolated.close(); }
 });

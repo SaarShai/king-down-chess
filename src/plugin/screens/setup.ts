@@ -1,4 +1,4 @@
-import { call, client, memory, navigate, routeView, start } from '../app';
+import { actions, call, client, memory, navigate, routeView, start } from '../app';
 import { art } from '../art';
 import { cardArt } from '../card-face';
 import { errorText, type WidgetHost } from '../client';
@@ -88,7 +88,8 @@ function render() {
   // The button is disabled and busy at once (F5). Its words are the owner's items W3 b ('Starting…' after 1 s) and W6 a
   // ('Start game' again while the error and Retry show).
   const button = $<HTMLButtonElement>('setup-start'), busy = (starting || recovering) && !client.state.pending?.error;
-  button.disabled = setupBusy();
+  // The app's one action update locks every start control (setup-start, hall-play, games-start) while a start waits.
+  actions();
   button.setAttribute('aria-busy', String(busy));
   button.textContent = busy && (late || recovering) ? 'Starting…' : 'Start game';
 }

@@ -146,7 +146,7 @@ export function pieceGuide(t: PieceType): GuideRow {
       return {
         moves: step,
         captures: take,
-        special: r.beastChains ? 'After a bite, it can bite again from its new square. A chain cannot continue onto a king. Tap each piece to bite. Tap "Stop here" to end the chain.' : 'One bite per turn.',
+        special: r.beastChains ? 'After a bite, it can bite again from its new square. A chain cannot continue onto a king. Select each piece to bite. Select "Stop here" to end the chain.' : 'One bite per turn.',
       };
     }
     case O: {
@@ -169,7 +169,7 @@ export function pieceGuide(t: PieceType): GuideRow {
       return {
         moves: 'Moves like a knight. After a take it can step one square onto an empty square as part of the same move.',
         captures: 'Takes like a knight; the step after never takes.',
-        special: 'Tap the enemy piece, then the landing square.',
+        special: 'Select the enemy piece, then the landing square.',
       };
     case T: {
       // A design in the slot (ticket 17): the Workshop's own sentences for it.
@@ -276,7 +276,7 @@ export function readTap(pos: Position, sq: number, selected: number | null, insp
 
 /** Refusals keep the move role; a bite chain waits for its next marked tap. */
 export function unmarkedTap(pos: Position, sq: number, selected: number | null, inspected: number | null, pending: number[], tag: string | null = null) {
-  if (pending.length) return { selected, inspected, pending, notice: 'Tap a marked piece, or stop here.' };
+  if (pending.length) return { selected, inspected, pending, notice: 'Select a marked piece, or stop here.' };
   const next = readTap(pos, sq, selected, inspected, true);
   const enemy = pos.board[sq] && colorOf(pos.board[sq]) !== pos.turn;
   let notice = selected != null && (!pos.board[sq] || enemy) ? whyNot(pos, selected, sq, tag) : '';
