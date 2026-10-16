@@ -822,7 +822,7 @@ try {
   // The art is not in the page (ticket 09): each named file loads from the plugin origin and a canvas may read it.
   const art = await frame.locator('html').evaluate(async () => {
     const urls = [...new Set(document.documentElement.innerHTML.match(/https?:\/\/[^"'`\s]+\/plugin-art\/[\w-]+\.webp/g))];
-    return Promise.all(urls.map(async src => { const image = Object.assign(new Image(), { crossOrigin: 'anonymous', src }); await image.decode(); const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d'); g.drawImage(image, 0, 0, 8, 8); g.getImageData(0, 0, 8, 8); return { src, page: new URL(src).origin === location.origin, width: image.naturalWidth }; }));
+    return Promise.all(urls.map(async src => { const image = Object.assign(new Image(), { crossOrigin: 'anonymous', src }); await image.decode(); const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d'); g.drawImage(image, 0, 0, 8, 8); g.getImageData(0, 0, 8, 8); return { src, width: image.naturalWidth }; }));
   });
   assert(art.length >= 20, 'The page names the board art and menu art');
   assert(art.some(file => file.src.includes('/scroll-')), 'scroll.webp loads from the plugin origin');
@@ -836,7 +836,8 @@ try {
   assert(art.some(file => file.src.includes('/badge-crowned-')), 'badge-crowned.webp loads from the plugin origin');
   assert(art.some(file => file.src.includes('/badge-card-sharp-')), 'badge-card-sharp.webp loads from the plugin origin');
   assert(art.some(file => file.src.includes('/badge-architect-')), 'badge-architect.webp loads from the plugin origin'); assert(art.every(file => file.width > 0), 'Every art file decodes');
-  assert.equal(art.every(file => file.page), mode === 'fixture', 'The HTTP board loads its art from the plugin origin, not the page origin');
+  // The host page's origin: the widget page has its own origin, as in ChatGPT.
+  assert.equal(art.every(file => new URL(file.src).origin === new URL(base).origin), mode === 'fixture', 'The HTTP board loads its art from the plugin origin, not the page origin');
   assert.equal(await page.content().then(html => html.includes('data:image/webp')), false);
   await shot(page, `board-art-${mode}`);
   await openScreen('settings');
