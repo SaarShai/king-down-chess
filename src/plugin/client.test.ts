@@ -2,23 +2,27 @@ import { describe, expect, it, vi } from 'vitest';
 import { createClient, BOARD_ID_TOOLS } from './client';
 
 describe('app client', () => {
-  it('limits server requests to 10 seconds', async () => {
+  it('limits commands to 10 seconds and leaves mount reads to the SDK limit', async () => {
     const callServerTool = vi.fn(async () => ({ content: [] }));
-    await createClient({ callServerTool }).call('kingdown_move', { command_id: 'once' });
-    expect(callServerTool).toHaveBeenCalledWith({ name: 'kingdown_move', arguments: { command_id: 'once' } }, { timeout: 10_000 });
+    const client = createClient({ callServerTool });
+    await client.call('kingdown_move', { command_id: 'once' });
+    await client.call('kingdown_settings', {}, { limit: false });
+    expect(callServerTool.mock.calls).toEqual([[{ name: 'kingdown_move', arguments: { command_id: 'once' } }, { timeout: 10_000 }], [{ name: 'kingdown_settings', arguments: {} }, undefined]]);
   });
   it.each([
-    ['kingdown_settings', { last_setup: {} }, 'Start game'],
-    ['kingdown_create', {}, 'Start game'],
-    ['kingdown_find', {}, 'Start game'],
-    ['kingdown_join', { preview: true }, 'Join'],
-    ['kingdown_join', {}, 'Join'],
-  ])('maps a connection failure for %s and keeps its diagnostic', async (name, args, action) => {
-    const error = new Error('ProtocolError: Failed to fetch');
+    ['kingdown_settings', { last_setup: {} }, 'ProtocolError: Failed to fetch'],
+    ['kingdown_find', {}, 'TypeError: NetworkError when attempting to fetch resource.'],
+    ['kingdown_join', { preview: true }, 'Load failed'],
+    ['kingdown_move', { command_id: 'once' }, 'MCP error -32001: Request timed out'],
+    ['kingdown_accept', { game_id: 'g' }, 'Failed to fetch'],
+    ['kingdown_get', {}, 'McpError: MCP error -32001: Request timed out'],
+  ])('maps a connection failure for %s to one sentence and keeps its diagnostic', async (name, args, message) => {
+    const error = new Error(message);
     const diagnostic = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       const client = createClient({ callServerTool: async () => { throw error; } });
-      await expect(client.call(name as string, args as Record<string, unknown>)).rejects.toThrow(`Cannot connect. Check your connection, then select ${action} again.`);
+      // The exact words: toThrow with a missing or empty sentence would pass any error.
+      await expect(client.call(name as string, args as Record<string, unknown>)).rejects.toThrow(new Error('Cannot connect. Check your connection, then try again.'));
       expect(diagnostic).toHaveBeenCalledWith('King Down connection failed', error);
     } finally { diagnostic.mockRestore(); }
   });

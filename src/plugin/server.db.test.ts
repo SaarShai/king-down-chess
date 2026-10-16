@@ -81,6 +81,24 @@ suite('ChatGPT tools on PostgreSQL', () => {
   await player.ok('kingdown_cancel',{game_id:view(first).game_id});
  });
 
+ it('gives a resent Create or Find with the same command ID its first game', async () => {
+  const [a, b] = [await user('resend-a'), await user('resend-b')], host = await connect(a), guest = await connect(b);
+  const options = { ...DEFAULT_OPTIONS, arrangement: false };
+  for (const kind of ['solo', 'friend'] as const) {
+   const args = { kind, options, command_id: `resend-${kind}-${tag}` };
+   // The resend can come while the first send still runs.
+   const [first, second] = await Promise.all([host.ok('kingdown_create', args), host.ok('kingdown_create', args)]);
+   expect(view(second).game_id).toBe(view(first).game_id);
+   expect(view(await host.ok('kingdown_create', args)).game_id).toBe(view(first).game_id);
+  }
+  expect((await rows('select kind from public.games where created_by=$1 order by kind', [a])).map(row => row.kind)).toEqual(['friend', 'solo']);
+  // A Find that took an open seat gets that game again: no second seat and no new open game.
+  await host.ok('kingdown_create', { kind: 'random', options });
+  const args = { options, command_id: `resend-find-${tag}` }, joined = await guest.ok('kingdown_find', args);
+  expect(view(await guest.ok('kingdown_find', args)).game_id).toBe(view(joined).game_id);
+  expect((await rows('select game_id from public.game_players where user_id=$1', [b])).map(row => row.game_id)).toEqual([view(joined).game_id]);
+ });
+
  it('keeps old games working through open, board reads, moves, inbox and history', async () => {
   const actor = await user('legacy'), player = await connect(actor);
   const legacy = await new GameService(new PostgresMatchStore(admin)).create(actor,{kind:'solo',colour:'white',setup:{backRank:'RNBQKBNR',kings:'none,none'}});

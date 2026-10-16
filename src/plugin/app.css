@@ -29,6 +29,7 @@ html { font-variant-numeric: lining-nums; }
 .page-sheet .new-game-foot { display: flex; align-items: center; gap: var(--space-3); }
 .page-sheet .new-game-foot button { flex: 1; }
 .group-head { margin: var(--space-5) 0 var(--space-2) !important; }
+#games-head { margin-top: 0 !important; }
 .group-head small { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; font-size: var(--fs-xs); }
 .quiet-line { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0 !important; }
 #layout-check { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0; overflow-wrap: anywhere; user-select: text; }
@@ -172,11 +173,17 @@ button.preset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 
 .code-row button { width: auto; min-width: 96px; justify-content: center; }
 .preset .portrait { display: block; width: 100%; height: 100%; }
 .page-sheet .sheet-head { display: flex; gap: 8px; align-items: center; padding: 12px 16px; flex: none; }
-.page-sheet .sheet-head h2 { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-sheet .sheet-head h2 { flex: 1; margin: 0; }
+/* Titles wrap; they are never cut. */
+.sheet-head h2, .frame #menu-sheet .sheet-head h2 { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+/* 200% zoom: the page title scales with its head, so words stay whole and the seat title keeps two lines at most.
+   It is never smaller than the body text, so it still grows with zoom (WCAG 1.4.4). */
+#page-head { container-type: inline-size; }
+@container (max-width: 285px) { #page-title { font-size: max(var(--fs-md), 7cqi); } }
 .page-sheet .sheet-head button { flex: none; width: auto; min-width: 44px; min-height: 44px; padding: 0 8px; justify-content: center; font-size: 14px; }
 .page-error { flex: none; }
 .page-error > button { margin: 0 16px 8px; width: auto; }
-body[data-touch='true'] button { min-height: var(--tap); }
+body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 @media (min-width: 900px) { .frame { --composer-gap: 128px; } body[data-page='board'] .page-sheet { width: min(900px, calc(100% - 48px)); } }
 
 #end-table { position: absolute; inset: 0; }
@@ -234,22 +241,26 @@ body[data-touch='true'] button { min-height: var(--tap); }
 }
 }
 @media (pointer: coarse) {
-  button { min-height: 44px; }
+  button, label { min-height: 44px; }
 }
 body[data-touch='true'] #game-table .coin, body[data-touch='true'] #game-table .coin.card-coin { width: 44px; height: 44px; min-height: 44px; }
 @media (pointer: coarse) {
   #game-table .coin, #game-table .coin.card-coin { width: 44px; height: 44px; min-height: 44px; }
 }
 /* Extend touch targets up, inside the frame, without changing art or rows. */
-body[data-touch='true'] button { position: relative; }
-body[data-touch='true'] button::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
+body[data-touch='true'] :is(button, .seg-row label, .fields > label) { position: relative; }
+body[data-touch='true'] .field { min-height: 48px; }
+body[data-touch='true'] .fields > label input { position: relative; z-index: 1; }
+body[data-touch='true'] :is(button, .seg-row label, .fields > label)::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
 body[data-touch='true'] #game-table .coin.card-coin { overflow: visible; }
 /* A hit layer extends up; each control keeps its own lower edge against the control below. */
 body[data-touch='true'] button#moves-line { z-index: 1; }
 body[data-touch='true'] #context-actions button { z-index: 2; }
 @media (pointer: coarse) {
-  button { position: relative; }
-  button::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
+  button, .seg-row label, .fields > label { position: relative; }
+  .field { min-height: 48px; }
+  .fields > label input { position: relative; z-index: 1; }
+  :is(button, .seg-row label, .fields > label)::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
   #game-table .coin.card-coin { overflow: visible; }
   button#moves-line { z-index: 1; }
   #context-actions button { z-index: 2; }
@@ -257,7 +268,7 @@ body[data-touch='true'] #context-actions button { z-index: 2; }
 
 
 /* One large grain image fills each face, so no tile repeats inside a control. */
-#app-root :is(button, select, input:not([type='radio'], [type='checkbox']), label:has(> input)) {
+:where(#app-root) :is(button, select, input:not([type='radio'], [type='checkbox']), label:has(> input)) {
   min-width: var(--tap); min-height: var(--tap);
 }
 #app-root :is(button.primary, #new-game label.mode, #new-game .seg-row label, #new-game label.check.toggle) {

@@ -145,12 +145,13 @@ it('shows Starting at once, then a wait line and a safe way back, with one Creat
     await expect.poll(() => frame.locator('#setup-start').textContent()).toBe('Starting your game…');
     await expect.poll(() => page.evaluate(() => typeof (window as any).releaseHeld)).toBe('function');
     expect(await frame.locator('#page-back').isDisabled()).toBe(true);
-    await page.clock.fastForward(10_000);
+    await page.clock.fastForward(5_000);
     await expect.poll(() => frame.locator('#setup-start').textContent()).toBe('Still starting. Keep this page open.');
     await frame.locator('[data-screen="play"] [data-nav="settings"]').click();
     await frame.locator('#page-back:not(:disabled)').click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
+    await page.clock.fastForward(5_001);
     await page.evaluate(() => (window as any).releaseHeld());
     // The 10-second limit rejects the late reply. Retry finds the same game.
     await frame.locator('#retry').click();
@@ -169,8 +170,8 @@ it('keeps ‹ Play free after a slow settings save, while Create still waits', a
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_settings'; });
     await frame.locator('#setup-start').click();
     await expect.poll(() => page.evaluate(() => typeof (window as any).releaseHeld)).toBe('function');
-    await page.clock.fastForward(9_000);
-    expect(await frame.locator('#setup-start').textContent()).toBe('Starting your game…');
+    await page.clock.fastForward(5_000);
+    await expect.poll(() => frame.locator('#setup-start').textContent()).toBe('Still starting. Keep this page open.');
     await page.evaluate(() => { const host = window as any, release = host.releaseHeld; host.releaseHeld = undefined; host.holdNext = 'kingdown_create'; release(); });
     await expect.poll(() => page.evaluate(() => typeof (window as any).releaseHeld)).toBe('function');
     await page.clock.fastForward(1_001);

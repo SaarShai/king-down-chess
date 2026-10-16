@@ -188,7 +188,7 @@ it('contains the Open games art and the wait art on a short phone', async () => 
     expect(await frame.locator('#play-open .row-art').evaluate(e=>{const r=e.getBoundingClientRect();return [...e.querySelectorAll('img')].every(i=>{const b=i.getBoundingClientRect();return b.left>=r.left-1 && b.right<=r.right+1;});})).toBe(true);
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     expect(await frame.locator('.wait-stage').evaluate(e=>({height:e.getBoundingClientRect().height,overflow:getComputedStyle(e).overflow}))).toEqual({height:180,overflow:'hidden'});
-    expect(await frame.locator('#page-title').evaluate(e=>getComputedStyle(e).whiteSpace)).toBe('nowrap');
+    expect(await frame.locator('#page-title').evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
     expect(await frame.locator('#wait-time').textContent()).toMatch(/Waiting \d+:\d{2}\./);
     expect(await frame.locator('#wait-status').textContent()).toBe('');
     await frame.locator('#wait-cancel').click();
@@ -268,5 +268,116 @@ it('shows each checked stone choice in light and dark mode', async () => {
         expect(await face(second)).toEqual(selected); expect(await face(first)).toEqual(clear);
       }
     }
+  } finally { await page.close(); }
+});
+
+// Fault round 4 (device matrix M1, M4, M5, M11).
+async function hostPage(width: number, height: number, top: number, bottom: number) {
+  const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
+  page.setDefaultTimeout(10_000);
+  await page.goto(harness.url);
+  await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
+  await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
+  await hall(page);
+  await page.evaluate(async safe => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe, deviceCapabilities: { touch: true } }); }, { top, bottom, left: 0, right: 0 });
+  return { page, frame };
+}
+// The tap height and width at the centre lines of each visible control: the run of points that reach the control.
+const hitSizes = (root: Element) => [...root.querySelectorAll('button, label, input:not([type=radio]):not([type=checkbox])')].filter(e => (e as HTMLElement).offsetParent && !e.closest('dialog:not([open])')).map(e => {
+  e.scrollIntoView({ block: 'center' });
+  const own = (p: Element | null) => p?.closest('button, label, input'), r = e.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, target = own(e);
+  const run = (dx: number, dy: number) => { let n = 0; while (n < 40 && own(document.elementFromPoint(x + dx * (n + 1), y + dy * (n + 1))) === target) n++; return n; };
+  return { name: e.id || e.textContent!.trim().slice(0, 20), height: run(0, -1) + run(0, 1) + 1, width: run(-1, 0) + run(1, 0) + 1 };
+});
+it.each([[768, 1024], [1024, 768]])('gives Settings toggles the 44 px floor with touch at %i × %i', async (width, height) => {
+  const { page, frame } = await hostPage(width, height, 24, 20);
+  try {
+    await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
+    const heights = await frame.locator('[data-screen="settings"] .fields > label:has(#symbols-only, #show-threats)').evaluateAll(labels => labels.map(l => l.getBoundingClientRect().height));
+    expect(heights).toHaveLength(2); for (const h of heights) expect(h).toBeGreaterThanOrEqual(44);
+  } finally { await page.close(); }
+});
+it('wraps the page title at 320 px and never cuts it', async () => {
+  const { page, frame } = await hostPage(320, 568, 63, 84);
+  try {
+    await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-nav="handle"]').click(); await frame.locator('#handle').waitFor();
+    expect(await frame.locator('#page-title').evaluate(e => ({ text: e.textContent, cut: e.scrollWidth > e.clientWidth || getComputedStyle(e).textOverflow === 'ellipsis' }))).toEqual({ text: 'Pick a name and a picture', cut: false });
+  } finally { await page.close(); }
+});
+it('gives each Android control a 48 px tap area at 360 × 800', async () => {
+  const { page, frame } = await hostPage(360, 800, 24, 80), small: unknown[] = [];
+  const check = async () => small.push(...(await frame.locator('[data-screen]:not([hidden])').first().evaluate(hitSizes)).filter(c => c.height < 48 || c.width < 48));
+  try {
+    await check();
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).check(); await frame.getByRole('checkbox', { name: 'Cards', exact: true }).check();
+    await check();
+    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#setup-start').click(); await frame.locator('#friend-copy:not([hidden])').waitFor();
+    await check();
+    await frame.locator('#page-back').click(); await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
+    await check();
+    await frame.locator('[data-nav="handle"]').click(); await frame.locator('#handle').waitFor();
+    await check();
+    expect(small).toEqual([]);
+  } finally { await page.close(); }
+});
+it('reflows New game at 200% zoom (197 CSS px): no sideways scroll, every row tappable', async () => {
+  const { page, frame } = await hostPage(197, 426, 51, 59);
+  try {
+    for (const name of ['Computer', 'A friend', 'Computer']) await frame.getByRole('radio', { name, exact: true }).locator('..').click({ timeout: 3000 });
+    for (const name of ['Fairy pieces', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).check({ timeout: 3000 });
+    await frame.getByRole('radio', { name: 'Strong', exact: true }).locator('..').click({ timeout: 3000 });
+    expect(await frame.locator('#setup-body').evaluate(e => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(1);
+    // The segments wrap two to a line; a tap 1 px inside each edge selects that segment, not the one below.
+    const misses = await frame.locator('#setup-body .seg-row label').evaluateAll(labels => labels.filter(l => (l as HTMLElement).offsetParent).flatMap(label => {
+      label.scrollIntoView({ block: 'center' });
+      const r = label.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      return [[x, r.top + 1], [x, r.bottom - 1], [r.left + 1, y], [r.right - 1, y]].flatMap(([px, py]) => {
+        const hit = document.elementFromPoint(px, py)?.closest('label');
+        return hit === label ? [] : [`${label.textContent}: ${Math.round(px)},${Math.round(py)} → ${hit?.textContent}`];
+      });
+    }));
+    expect(misses).toEqual([]);
+    // The "kinds" button sits clear of the row text.
+    const clear = await frame.locator('#setup-pieces').evaluate(button => {
+      const b = button.getBoundingClientRect(), range = document.createRange(); range.selectNodeContents(button.closest('label')!.querySelector('.grow')!); const t = range.getBoundingClientRect();
+      return b.top >= t.bottom - 1 || b.left >= t.right - 1;
+    });
+    expect(clear).toBe(true);
+    await frame.locator('#setup-pieces').click({ timeout: 3000 });
+    const title = frame.getByRole('dialog', { name: 'Fairy pieces' }).locator('h2');
+    expect(await title.evaluate(h => { const t = h.getBoundingClientRect(), x = h.parentElement!.querySelector('button')!.getBoundingClientRect(); return h.scrollWidth <= h.clientWidth && t.right <= x.left; })).toBe(true);
+  } finally { await page.close(); }
+});
+it('keeps page-title words whole, the seat title short and the title at body size at 200% zoom (197 CSS px)', async () => {
+  const { page, frame } = await hostPage(197, 426, 51, 59);
+  // The lines of the page title, and the words that a line break cuts.
+  const title = () => frame.locator('#page-title').evaluate(async h => {
+    await document.fonts.ready;
+    const text = h.firstChild!, cut: string[] = [], tops = new Set<number>(); let i = 0;
+    for (const word of h.textContent!.split(' ')) {
+      const range = document.createRange(); range.setStart(text, i); range.setEnd(text, i + word.length); i += word.length + 1;
+      const rects = [...range.getClientRects()]; if (rects.length > 1) cut.push(word); for (const r of rects) tops.add(Math.round(r.top));
+    }
+    // A title sized by the frame alone stopped growing with zoom (WCAG 1.4.4, F94).
+    const style = getComputedStyle(h), belowBody = parseFloat(style.fontSize) < parseFloat(style.getPropertyValue('--fs-md'));
+    return { text: h.textContent, lines: tops.size, cut, belowBody };
+  });
+  try {
+    await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-nav="handle"]').click(); await frame.locator('#handle').waitFor();
+    expect(await title()).toMatchObject({ text: 'Pick a name and a picture', cut: [], belowBody: false });
+    await frame.locator('#page-back').click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
+    await frame.locator('#page-back').click();
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click({ timeout: 3000 });
+    await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).check({ timeout: 3000 });
+     await frame.locator('#setup-start').click({ timeout: 3000 }); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+     // Layout B hides this title in portrait. Keep the 197 px width and check it in landscape, where it shows.
+     await page.setViewportSize({ width: 197, height: 196 });
+     await page.evaluate(() => (window as any).harnessSetContext({ safeAreaInsets: { top: 0, bottom: 0, left: 0, right: 0 } }));
+     await frame.locator('#page-title').waitFor();
+    // A seat title of three lines took the board's height (fault L2).
+    const seat = await title();
+    expect(seat).toMatchObject({ text: 'Set up your side', cut: [], belowBody: false });
+    expect(seat.lines).toBeLessThanOrEqual(2);
   } finally { await page.close(); }
 });

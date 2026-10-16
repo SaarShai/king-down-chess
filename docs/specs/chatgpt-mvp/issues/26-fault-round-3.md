@@ -73,3 +73,27 @@ Evidence and check logs: `/tmp/kingdown-fault-round-3/`. The folder holds the te
 ## Not checked
 
 The full test suite runs later on the M1. Native ChatGPT hosts, real devices, a database, the public site and a separate website browser check are outside this local check. No push, merge or deploy occurs. No test limit changes.
+
+## Review fixes
+
+A second reader reviewed commit `7adaac11`. This section records the fixes for its five should-fix findings and note N1. Product files: `client.ts`, `app.ts`, `screens/setup.ts`. Tests: `client.test.ts`, `plugin-app.test.ts`.
+
+| Finding | Fix | Test |
+| --- | --- | --- |
+| 1. A slow poll puts "Request timed out" on a healthy board | A quiet call that cannot connect writes nothing to `#error`. The next poll tries again. | Hold one quiet `kingdown_get` past 10 s, then release: `#error` is empty and Retry is hidden. |
+| N1. The 10 s limit covers the mount reads | `kingdown_settings`, `kingdown_open` and `kingdown_resume` in `mountResult` pass `limit: false` and keep the SDK limit. | Hold the mount `kingdown_settings` for 20 s: Home shows no error. A client test checks both limits. |
+| 2. A time-out shows raw words; Setup says "Still starting" | The connection pattern also finds `timed out`. The Setup line does not say "Still starting" while the pending command has an error. A change of the Retry row draws Setup again. | Hold `kingdown_create` past 10 s: Retry, the connection sentence, and "Starting your game…". |
+| 3 and 4. The words name absent buttons; other commands show "Failed to fetch" | Every failed connection and time-out gives one sentence, `CANNOT_CONNECT` in `client.ts`: "Cannot connect. Check your connection, then try again." The console diagnostic stays. The words wait for the owner's approval; a change is one line. | Client test: settings, find, join preview, move, accept and get. The offline Start and Join test now expects the one sentence. |
+| 5. A remount while a command waits locks the board | At the end of the mount, a saved command other than create or find with no error gets the connection sentence and Retry on the current screen. The handle screen and a command that this page still sends are excluded. Retry reads first and sends the same command ID. | Hold a move, Remount: Retry shows. Retry, then release: the server has one move, from two sends of one command ID. |
+
+### Checks
+
+- Each new or changed test fails on `f1017eea`: 6 of 6 in `plugin-app.test.ts`. The Setup line test also fails with only the old `setup.ts` ("Still starting. Keep this page open.").
+- `npx vitest run src/plugin/client.test.ts tools/plugin-app.test.ts --no-file-parallelism`: 57 pass.
+- `npm run typecheck`: pass.
+- `npm run check:browser plugin-ui`: pass. The first run found a Setup draw before the Setup body existed; a guard fixed it.
+- No test limit changes. The full suite runs later on the M1.
+
+## Integration note
+
+The 10 s command limit (F31) ends a held Create at the same moment as the old 10 s wait line (F5), so the wait line never showed and two tests in `tools/plugin-menus.test.ts` failed. The wait line now shows after 5 s (`screens/setup.ts`); at 10 s the connection line and Retry follow. Both tests pass (9 of 9).

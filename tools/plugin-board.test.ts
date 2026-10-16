@@ -266,6 +266,8 @@ it('stops passive drawing five seconds after changes and keeps move motion', asy
     const selected = await frames();
     const width = await frame.locator('#board canvas').evaluate(e => (e as HTMLElement).style.width);
     await page.setViewportSize({ width: 400, height: 900 });
+    // The board's ResizeObserver needs a frame on the test clock before the width check.
+    await page.clock.runFor(100);
     await expect.poll(() => frame.locator('#board canvas').evaluate(e => (e as HTMLElement).style.width)).not.toBe(width);
     await page.clock.runFor(100); expect(await frames()).toBeGreaterThan(selected);
     await settle();
@@ -279,5 +281,40 @@ it('stops passive drawing five seconds after changes and keeps move motion', asy
     expect(await frames()).toBeGreaterThan(moving);
     expect(await frame.locator('html').evaluate(() => ({ done: (window as any).motionDone, contact: (window as any).contact }))).toEqual({ done: true, contact: true });
     await settle();
+  } finally { await page.close(); }
+});
+
+it('lays the mated king down only after the mating move ends', async () => {
+  const fen = 'k7/8/1K6/8/8/8/8/7R w - - 0 1'; setRules({}); const pre = fromFen(fen);
+  const move = legalMoves(pre).find(m => m.from === 7 && m.to === 63)!; expect(move).toBeDefined();
+  const lan = toLan(pre, move), post = toFen(makeMove(pre, move)), first = view(fen, {}, { seat: 1, action: 'waiting', legal: [] });
+  const page = await open(first), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('html').evaluate((_, next) => {
+      const host = window as any, board = host.testBoard, setFallen = board.setFallen.bind(board); host.fallen = []; host.moving = 0;
+      // Count the painted frames that show the move in motion (fault F35-1: a settings resync ended it at once).
+      const sample = () => { if (board.scene.animating) host.moving++; requestAnimationFrame(sample); }; requestAnimationFrame(sample);
+      board.setFallen = (sq: number | null, animate?: boolean) => { host.fallen.push({ sq, animating: document.getElementById('board')!.dataset.animating, moving: host.moving }); setFallen(sq, animate); };
+      host.harnessApp.routeView(next);
+    }, { ...first, revision: 1, fen: post, turn: 1, status: 'finished', action: 'finished', result: { reason: 'checkmate', winner: 0 }, last_commands: [{ seq: 1, seat: 0, action: { type: 'turn', actions: [lan] }, at: '2026-10-15T00:00:01Z' }] });
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).fallen.some((c: any) => c.sq !== null && c.animating === 'false')), { timeout: 3000 }).toBe(true);
+    const calls = await frame.locator('html').evaluate(() => (window as any).fallen);
+    expect(calls.filter((c: any) => c.sq !== null && c.animating === 'true')).toEqual([]);
+    expect(calls.some((c: any) => c.animating === 'true')).toBe(true);
+    expect(calls.find((c: any) => c.sq !== null).moving).toBeGreaterThan(0);
+  } finally { await page.close(); }
+});
+
+it('hides the edge labels on a small board and keeps them in the frame on a phone board (fault M10)', async () => {
+  const page = await open(view('')), frame = page.frameLocator('iframe');
+  try {
+    const coords = await frame.locator('html').evaluate(() => {
+      const board = (window as any).testBoard, calls: [boolean, number, number][] = [];
+      board.scene.setCoords = (...args: [boolean, number, number]) => { calls.push(args); };
+      return [158, 302].map(width => { board.width = width; board.setCoords(true); return calls.at(-1)!; });
+    });
+    expect(coords[0][0]).toBe(false);
+    expect(coords[1][0]).toBe(true); expect(coords[1][1]).toBeLessThanOrEqual(40); expect(coords[1][2]).toBeLessThanOrEqual(16);
   } finally { await page.close(); }
 });
