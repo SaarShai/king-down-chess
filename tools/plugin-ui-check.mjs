@@ -1326,7 +1326,7 @@ try {
   async function tapEndAtZoom(name) {
     const viewport = page.viewportSize();
     await page.setViewportSize({width:197,height:426});
-    await page.evaluate(() => window.harnessSetContext({safeAreaInsets:{top:51,right:0,bottom:59,left:0}}));
+    await page.evaluate(() => window.harnessSetContext({deviceCapabilities:{touch:true},safeAreaInsets:{top:51,right:0,bottom:59,left:0}}));
     const card = frame.locator('#over.end-card[open]'), button = card.getByRole('button',{name,exact:true});
     const layout = await card.evaluate(el => ({top:el.getBoundingClientRect().top,head:document.querySelector('#page-head').getBoundingClientRect().bottom,scrolls:el.scrollHeight>el.clientHeight}));
     assert(layout.top >= layout.head, 'At 197 px the end card leaves the page head clear');
@@ -1338,7 +1338,7 @@ try {
     await shot(page,`zoom-end-${name.replaceAll(' ','-')}-${mode}`);
     await button.tap();
     await page.setViewportSize(viewport);
-    await page.evaluate(() => window.harnessSetContext({safeAreaInsets:{top:0,right:0,bottom:0,left:0}}));
+    await page.evaluate(() => window.harnessSetContext({deviceCapabilities:{touch:true},safeAreaInsets:{top:0,right:0,bottom:0,left:0}}));
   }
   await legacyStart('solo'); await frame.locator('#resign').click();
   await frame.locator('#board-sheet h2').filter({hasText:'Lay your king down?'}).waitFor({timeout:3000});
@@ -1638,7 +1638,7 @@ try {
     if (state.name === 'board-abort') {
       const viewport = page.viewportSize();
       await page.setViewportSize({width:197,height:426});
-      await page.evaluate(() => window.harnessSetContext({safeAreaInsets:{top:51,right:0,bottom:59,left:0}}));
+      await page.evaluate(() => window.harnessSetContext({deviceCapabilities:{touch:true},safeAreaInsets:{top:51,right:0,bottom:59,left:0}}));
       for (const side of ['me','them']) {
         const coins = frame.locator(`#strip-${side} .coin`);
         assert.equal(await coins.count(),5, 'Both strips have a power coin and four cards');
@@ -1655,7 +1655,7 @@ try {
         await frame.locator('#board-sheet [aria-label="Close"]').tap();
       }
       await page.setViewportSize(viewport);
-      await page.evaluate(() => window.harnessSetContext({safeAreaInsets:{top:0,right:0,bottom:0,left:0}}));
+      await page.evaluate(() => window.harnessSetContext({deviceCapabilities:{touch:true},safeAreaInsets:{top:0,right:0,bottom:0,left:0}}));
     }
     for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) {
       await page.setViewportSize({width,height}); await boardBox();
