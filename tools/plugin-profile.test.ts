@@ -53,6 +53,43 @@ async function open() {
   return page;
 }
 const tool = async (page: Awaited<ReturnType<typeof open>>, name: string, args = {}) => (await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name, arguments: args } })).json();
+it('names game features and each history result for screen readers', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const games = waitingGames.map((entry, i) => ({ ...entry, options: i ? { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } : entry.options }));
+    const entries = history.slice(0, 3).map((entry, i) => ({ ...entry, features: { ...entry.features, fairy: i === 0, arrangement: i === 0, classic: i === 1, cards: i === 0, powers: i === 0 } }));
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { games, history: entries, record } } });
+    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_games', {}); app.navigate('play'); });
+    const featureNames = ['- img "Fairy pieces"\n- img "Arrangement"\n- img "Cards"\n- img "King powers"', '- img "Classic chess"', ''];
+    for (const [i, game] of games.entries()) {
+      const row = frame.locator(`#games-list [data-game-id="${game.game_id}"]`);
+      expect(await row.locator('.feats').ariaSnapshot()).toBe(featureNames[i]);
+      expect(await row.ariaSnapshot()).toContain(i ? 'Classic chess' : 'Fairy pieces Arrangement Cards King powers');
+    }
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await expect.poll(() => frame.locator('#profile-history li').count()).toBe(3);
+    for (const [i, game] of games.entries()) {
+      expect(await frame.locator(`#profile-open [data-game-id="${game.game_id}"] .feats`).ariaSnapshot()).toBe(featureNames[i]);
+    }
+    for (const [i, entry] of entries.entries()) {
+      const row = frame.locator(`#profile-history [data-game-id="${entry.game_id}"]`);
+      expect(await row.locator('.feats').ariaSnapshot()).toBe(featureNames[i]);
+      expect(await row.ariaSnapshot()).toContain(`- img "${entry.result}"`);
+      const bounds = await row.evaluate(el => {
+        const plain = el.cloneNode(true) as HTMLElement;
+        plain.querySelectorAll('.feats > span').forEach(mark => mark.replaceWith(...mark.childNodes));
+        el.after(plain);
+        const measure = (row: Element) => {
+          const base = row.getBoundingClientRect();
+          return [row, ...row.querySelectorAll('.feats svg')].map(mark => { const box = mark.getBoundingClientRect(); return [box.x - base.x, box.y - base.y, box.width, box.height]; });
+        };
+        const result = { named: measure(el), plain: measure(plain) }; plain.remove(); return result;
+      });
+      expect(bounds.named).toEqual(bounds.plain);
+    }
+    expect(await frame.locator('#profile-history .res').allTextContents()).toEqual(['W', 'D', 'L']);
+  } finally { await page.close(); }
+});
 it('reads the profile name, picture, rounded rating and totals from the server', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

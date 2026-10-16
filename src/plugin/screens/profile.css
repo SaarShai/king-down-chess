@@ -22,6 +22,7 @@
 #profile-sheet .rows b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-md); line-height: 1.2; }
 #profile-sheet .rows small { display: block; font-size: var(--fs-xs); color: var(--ink-soft); }
 #profile-sheet .rows .feats { flex: none; gap: 2px; }
+#profile-history .feats > span { display: inline-flex; }
 #profile-sheet .rows .feats .icon { width: 14px; height: 14px; }
 #profile-sheet .res { width: 18px; flex: none; text-align: center; font-family: var(--font-display); font-weight: 700; }
 #profile-sheet .res-w { color: #315519; } #profile-sheet .res-l { color: var(--accent); } #profile-sheet .res-d { color: var(--ink-soft); }
