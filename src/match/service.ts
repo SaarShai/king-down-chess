@@ -14,6 +14,7 @@ const DAY = 86_400_000, FIRST_TURN_DAYS = 3, DRAW_OFFERS = 3, LIMIT = 1000; // t
 // Each start receipt on an open game takes one of its revisions: Find with new command IDs on your own open game stops here, so play keeps its revisions.
 const START_RECEIPTS = 20;
 export const FRIEND_CODE_DAYS = 7; // a Daily friend code (owner, 2026-10-11)
+export const UNFINISHED = 'This turn is not finished. Send the whole turn in one command.';
 const ENGINE_REJECTS = ['Illegal or ambiguous move', 'Match terminal', 'Match history limit reached', 'Stale revision', 'Command ID conflict', 'Malformed command'];
 const CODE = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no I, L, O, 0 or 1
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -103,6 +104,8 @@ async function play(game: Game, mover: Seat, lans: string[] | 'computer', engine
    if (snapshot.status !== 'playing' || snapshot.turn !== mover) fail('INVALID_MOVE', 400, 'This move is no longer available. Reload and choose a move.');
    snapshot = await match.apply({ id: engineId(index), expectedRevision: snapshot.revision, lan });
   }
+  // A player's command is a whole turn (W7 ticket 06). The computer still plays one action for each call.
+  if (lans !== 'computer' && snapshot.status === 'playing' && snapshot.turn === mover) fail('INVALID_MOVE', 400, UNFINISHED);
   return { actions, state: await match.exportSave(), snapshot };
  } catch (error) {
   if (error instanceof MatchServiceError) throw error;

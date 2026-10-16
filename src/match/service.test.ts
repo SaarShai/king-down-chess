@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from './setup';
-import { GameService } from './service';
+import { GameService, UNFINISHED } from './service';
 import { PostgresMatchStore } from './store';
 import { createMatch, loadMatch, MatchError, type LocalMatch } from './index';
 vi.mock('./index', async original => ({...await original<typeof import('./index')>(), createMatch: vi.fn(), loadMatch: vi.fn()}));
@@ -52,6 +52,25 @@ describe('game service failure boundaries', () => {
   apply.mockResolvedValueOnce({turn:1,status:'playing',revision:1});
   await expect(service.command(actor,id,{command_id:'two',expected_revision:0,action:{type:'turn',actions:['e2-e4','e4-e5']}})).rejects.toMatchObject({code:'INVALID_MOVE'});
   expect(apply).toHaveBeenCalledTimes(1); expect(transaction).not.toHaveBeenCalled();
+ });
+ it('refuses a player turn that leaves the same side to move, before any write (W7 ticket 06)', async () => {
+  apply.mockResolvedValueOnce({turn:0,status:'playing',revision:1});
+  await expect(move('Ra1-a2!H')).rejects.toMatchObject({code:'INVALID_MOVE',status:400,message:UNFINISHED});
+  expect(transaction).not.toHaveBeenCalled(); expect(exportSave).not.toHaveBeenCalled(); expect(close).toHaveBeenCalledOnce();
+  // A turn that passes the move or ends the game goes on to the write.
+  for (const [index,after] of [{turn:1,status:'playing',revision:1},{turn:0,status:'checkmate',revision:1}].entries()) {
+   apply.mockResolvedValueOnce(after);
+   await move('e2-e4',`whole-${index}`);
+  }
+  expect(transaction).toHaveBeenCalledTimes(2);
+ });
+ it('keeps the computer to one action for each call, also when its turn goes on', async () => {
+  const chooseMove = vi.fn().mockResolvedValue('Ra8-a7!H');
+  vi.mocked(loadMatch).mockResolvedValueOnce({apply,close,exportSave,chooseMove} as unknown as LocalMatch);
+  load.mockResolvedValue({id,kind:'solo',status:'playing',turn:1,revision:1,deadline_at:null,draw_offer:null,state:'saved',snapshot:{turn:1,status:'playing',revision:1},players:[seat(0,actor),seat(1,null)]});
+  apply.mockResolvedValueOnce({turn:1,status:'playing',revision:2});
+  await service.command(actor,id,{command_id:'computer',expected_revision:1,action:{type:'computer'}});
+  expect(chooseMove).toHaveBeenCalledOnce(); expect(apply).toHaveBeenCalledOnce(); expect(transaction).toHaveBeenCalledOnce();
  });
  it('separates invalid setup from worker startup failure', async () => {
   vi.mocked(createMatch).mockRejectedValueOnce(new MatchError('Malformed FEN'));

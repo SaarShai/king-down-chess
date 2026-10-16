@@ -4,9 +4,10 @@ import { randomUUID } from 'node:crypto';
 import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from './setup';
-import { GameService } from './service';
+import { GameService, UNFINISHED } from './service';
+import { LocalMatch, loadMatch } from './index';
 import { PostgresMatchStore } from './store';
 import { PluginService } from '../plugin/service';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
@@ -88,20 +89,49 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   const id = await friend(a,b,{setup:HASTE});
   expect(await seats(id)).toEqual({turn:0,status:'playing',actions:['ready','waiting']});
   const notices = async () => (await rows('select count(*)::int as n from public.notifications where user_id=$1 and payload->>\'game_id\'=$2',[b,id]))[0].n;
-  await games[0].command(a,id,turn(1,'Ra1-a2!H'));
-  expect(await seats(id)).toEqual({turn:0,status:'playing',actions:['ready','waiting']}); // Haste keeps the same side
+  await expect(games[0].command(a,id,turn(1,'Ra1-a2!H'))).rejects.toMatchObject({code:'INVALID_MOVE'}); // Haste keeps the same side: the turn is not finished
+  expect(await seats(id)).toEqual({turn:0,status:'playing',actions:['ready','waiting']});
   expect(await notices()).toBe(0);
-  const passed = await games[0].command(a,id,turn(2,'Ra2-a3'));
+  const passed = await games[0].command(a,id,turn(1,'Ra1-a2!H','Ra2-a3'));
   expect(await seats(id)).toEqual({turn:1,status:'playing',actions:['waiting','ready']});
   expect(await notices()).toBe(1);
   expect((await rows(`select count(*)::int as n from public.outbox where kind='turn' and payload->>'game_id'=$1 and payload->>'user_id'=$2`,[id,b]))[0].n).toBe(1);
   const reply = await games[1].view(b,id);
   expect(reply.deadline_at).toBe(passed.deadline_at);
-  await games[1].command(b,id,turn(3,reply.legal[0]));
+  await games[1].command(b,id,turn(2,reply.legal[0]));
   expect(await seats(id)).toEqual({turn:0,status:'playing',actions:['ready','waiting']});
-  await games[0].command(a,id,command(4,{type:'resign'}));
+  await games[0].command(a,id,command(3,{type:'resign'}));
   expect(await seats(id)).toEqual({turn:0,status:'finished',actions:['done','done']});
   expect((await rows('select bool_or(active) as active from public.game_players where game_id=$1',[id]))[0].active).toBe(false);
+ },30000);
+
+ it('refuses an unfinished player turn and keeps the computer to one action for each call (W7 ticket 06)',async () => {
+  // Solo games: player b's ten code joins in this file reach the code limit.
+  const solo = async (colour: string) => (await games[0].create(a,{kind:'solo',colour,setup:HASTE})).game_id;
+  const id = await solo('white'), saved = 'select state,snapshot,revision from public.games where id=$1';
+  const before = (await rows(saved,[id]))[0];
+  await expect(games[0].command(a,id,turn(0,'Ra1-a2!H'))).rejects.toMatchObject({code:'INVALID_MOVE',message:UNFINISHED});
+  expect((await rows(saved,[id]))[0]).toEqual(before);
+  expect((await rows("select count(*)::int as n from public.game_commands where game_id=$1 and kind='turn'",[id]))[0].n).toBe(0);
+  expect(await games[0].command(a,id,turn(0,'Ra1-a2!H','--'))).toMatchObject({revision:1,turn:1,action:'waiting'});
+  // A half turn saved before this check (an old board): a pass or the second move alone ends it.
+  for (const end of ['--','Ra2-a3']) {
+   const old = await solo('white'), match = await loadMatch((await rows('select state from public.games where id=$1',[old]))[0].state);
+   try {
+    const half = await match.apply({id:'old-board',expectedRevision:(await match.snapshot()).revision,lan:'Ra1-a2!H'});
+    await admin.query('update public.games set state=$2,snapshot=$3 where id=$1',[old,await match.exportSave(),half]);
+   } finally { await match.close(); }
+   expect(await games[0].command(a,old,turn(0,end))).toMatchObject({revision:1,turn:1,action:'waiting'});
+  }
+  // The computer: a Haste first move is one call, and the next call ends its turn.
+  const computer = await solo('black'), choose = vi.spyOn(LocalMatch.prototype,'chooseMove');
+  try {
+   choose.mockResolvedValueOnce('Ra1-a2!H');
+   const first = await games[0].command(a,computer,command(0,{type:'computer'}));
+   expect(first).toMatchObject({revision:1,turn:0,action:'waiting'});
+   expect(first.last_commands.at(-1)!.action).toEqual({type:'computer',actions:['Ra1-a2!H']});
+   expect(await games[0].command(a,computer,command(1,{type:'computer'}))).toMatchObject({revision:2,turn:1,action:'ready'});
+  } finally { choose.mockRestore(); }
  },30000);
 
  it('refuses self-play in the service and in the database',async () => {

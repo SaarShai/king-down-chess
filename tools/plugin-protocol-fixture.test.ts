@@ -2,6 +2,7 @@ import { expect, it, vi } from 'vitest';
 import { fixtureService } from './plugin-protocol-fixture';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 import * as matchEngine from '../src/match';
+import { UNFINISHED } from '../src/match/service';
 
 it('keeps full reads and polls open while a refused turn restores the fixture', async () => {
  const s = fixtureService(), loadMatch = matchEngine.loadMatch;
@@ -30,6 +31,26 @@ it('keeps full reads and polls open while a refused turn restores the fixture', 
   expect(results.map(result=>result.status)).toEqual(Array(4).fill('fulfilled'));
   expect(await s.view('alice',game.game_id)).toMatchObject({fen:before.fen,revision:before.revision,last_commands:before.last_commands});
  } finally {restore.mockRestore();await s.close();}
+});
+
+it('refuses an unfinished player turn and keeps the computer to one action for each call (W7 ticket 06)', async () => {
+ const s = fixtureService(), setup = {kings:'Flame:Haste,none',fen:'7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1'};
+ const choose = vi.spyOn(matchEngine.LocalMatch.prototype,'chooseMove');
+ try {
+  const game = await s.create('alice',{kind:'solo',colour:'white',setup});
+  const send = (actions:string[]) => s.command('alice',game.game_id,{command_id:'turn',expected_revision:game.revision,action:{type:'turn',actions}});
+  await expect(send(['Ra1-a2!H'])).rejects.toMatchObject({code:'INVALID_MOVE',message:UNFINISHED});
+  expect(await s.view('alice',game.game_id)).toMatchObject({revision:game.revision,fen:game.fen,turn:0,legal:game.legal,last_commands:[]});
+  // The refusal leaves no receipt, so the same command ID sends the whole turn.
+  expect(await send(['Ra1-a2!H','--'])).toMatchObject({revision:game.revision+1,turn:1});
+  const computer = await s.create('alice',{kind:'solo',colour:'black',setup});
+  const think = (command_id:string, expected_revision:number) => s.command('alice',computer.game_id,{command_id,expected_revision,action:{type:'computer'}});
+  choose.mockResolvedValueOnce('Ra1-a2!H');
+  const half = await think('first',computer.revision);
+  expect(half).toMatchObject({revision:computer.revision+1,turn:0,action:'waiting'});
+  expect(half.last_commands.at(-1)!.action).toEqual({type:'computer',actions:['Ra1-a2!H']});
+  expect(await think('second',half.revision)).toMatchObject({revision:half.revision+1,turn:1,action:'ready'});
+ } finally {choose.mockRestore();await s.close();}
 });
 
 it('supports the screen tools, hidden setup choices, board selection and rematch in the fixture', async () => {

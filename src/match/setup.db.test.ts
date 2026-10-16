@@ -234,12 +234,13 @@ suite('game setup through PostgreSQL', () => {
   const full = await service.view(a, game.game_id);
   expect(full.choices?.map(c => c?.order)).toEqual(['RNBQKBNR', 'RNBKQBNR']);
   expect(full.legal).toContain('e2-e4!H');
-  const card = await service.command(a, game.game_id, command(4, { type: 'turn', actions: ['e2-e4!H'] }));
+  // A Haste card is one turn of two actions: alone, its first move is refused (W7 ticket 06).
+  await expect(service.command(a, game.game_id, command(4, { type: 'turn', actions: ['e2-e4!H'] }))).rejects.toMatchObject({ code: 'INVALID_MOVE' });
+  const moved = await service.command(a, game.game_id, command(4, { type: 'turn', actions: ['e2-e4!H', 'e4-e5'] }));
   const hasteBit = 1 << full.deal!.indexOf('Haste');
-  expect(card.fen.split(' ')[6].split('/')).toContain(`u${hasteBit}.0`);
-  expect(card.hands).toEqual(full.hands); expect(card.deal).toEqual(full.deal);
-  const moved = await service.command(a, game.game_id, command(5, { type: 'turn', actions: ['e4-e5'] }));
-  expect(moved).toMatchObject({ revision: 6, turn: 1 });
+  expect(moved.fen.split(' ')[6].split('/')).toContain(`u${hasteBit}.0`);
+  expect(moved.hands).toEqual(full.hands); expect(moved.deal).toEqual(full.deal);
+  expect(moved).toMatchObject({ revision: 5, turn: 1 });
   const retried = await service.command(a, game.game_id, draft);
   expect(retried).toMatchObject({ status: 'playing', revision: moved.revision, fen: moved.fen, choices: moved.choices, ready: [true, true] });
   expect(retried.last_commands.filter(entry => entry.action.type === 'choose' && !entry.action.ready)).toHaveLength(1);

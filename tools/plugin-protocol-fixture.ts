@@ -2,7 +2,7 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { createMatch, loadMatch, type LocalMatch, type MatchSetup } from '../src/match';
 import { MatchServiceError } from '../src/match/store';
-import { FRIEND_CODE_DAYS, startKey } from '../src/match/service';
+import { FRIEND_CODE_DAYS, startKey, UNFINISHED } from '../src/match/service';
 import { createSchema, commandSchema, type CreateOptions, type InboxEntry, type View, type Seat, type LoggedCommand, type HistoryEntry, type PlayerRecord } from '../src/match/protocol';
 import { buildSetup, defaultChoice, draw, seatChoicesNeeded, switches, validateChoice, type Draw, type Choice } from '../src/match/setup';
 import { handleSchema, type PluginService } from '../src/plugin/service';
@@ -97,10 +97,13 @@ export function fixtureService(): Pick<PluginService,keyof PluginService> & { se
       if (snapshot.status !== 'playing' || snapshot.turn !== turn) fail('INVALID_MOVE',400,'This move is no longer available. Reload and choose a move.');
       await g.match!.apply({id:randomUUID(),expectedRevision:snapshot.revision,lan});
      }
-    } catch {
+     // A player's command is a whole turn, as in the service (W7 ticket 06).
+     if (action.type === 'turn') { const after = await g.match!.snapshot(); if (after.status === 'playing' && after.turn === turn) fail('INVALID_MOVE',400,UNFINISHED); }
+    } catch (error) {
      const old = g.match!; g.match = await loadMatch(save);
      // shortcut: reads can see draft moves during reload, use a copy if read isolation is required.
      await old.snapshot().catch(() => {}); await old.close();
+     if (error instanceof MatchServiceError) throw error;
      fail('INVALID_MOVE',400,'This move is no longer available. Reload and choose a move.');
     }
     if ((await g.match!.snapshot()).turn !== turn) g.turns[turn]++; if (g.draw_offer !== turn) g.draw_offer = null; await end(g);

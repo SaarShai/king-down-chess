@@ -36,17 +36,20 @@ try {
   assert.equal((await client.readResource({ uri: boardResource })).contents[0].mimeType, 'text/html;profile=mcp-app');
   const home = await call('kingdown_open'); assert.equal(home.structuredContent.screen, 'home'); assert.equal(home._meta.view, undefined);
   // A refusal restores the engine, history and receipt state, also after a legal first action.
-  for (const [setup, actions] of [
-    [{kings:'Flame:Haste,none',fen:'7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1'}, ['Ra1-a2!H','zzzz']],
-    [{backRank:'RNBQKBNR'}, ['e2-e4','e7-e5']],
-    [{fen:'7k/5Q2/6K1/8/8/8/8/8 w - - 0 1'}, ['Qf7-g7','Kh8-h7']],
+  // An unfinished turn (a lone Haste first move) is refused too (W7 ticket 06).
+  const hasteSetup = {kings:'Flame:Haste,none',fen:'7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1'};
+  for (const [setup, actions, fixed] of [
+    [hasteSetup, ['Ra1-a2!H','zzzz'], ['Ra1-a2!H','Ra2-a3']],
+    [hasteSetup, ['Ra1-a2!H'], ['Ra1-a2!H','--']],
+    [{backRank:'RNBQKBNR'}, ['e2-e4','e7-e5'], ['e2-e4']],
+    [{fen:'7k/5Q2/6K1/8/8/8/8/8 w - - 0 1'}, ['Qf7-g7','Kh8-h7'], ['Qf7-g7']],
   ] as const) {
     const before = await service.create('alice',{kind:'solo',colour:'white',setup});
     const input = {command_id:'refused-turn',expected_revision:before.revision,action:{type:'turn',actions}};
     await assert.rejects(service.command('alice',before.game_id,input),{code:'INVALID_MOVE'});
     const after = await service.view('alice',before.game_id);
     for (const field of ['revision','fen','turn','status','action','legal','history','last_commands'] as const) assert.deepEqual(after[field],before[field],`Refusal changes ${field}: ${actions}`);
-    const corrected = await service.command('alice',before.game_id,{...input,action:{type:'turn',actions:[actions[0]]}});
+    const corrected = await service.command('alice',before.game_id,{...input,action:{type:'turn',actions:fixed}});
     assert.equal(corrected.revision,before.revision+1,'A refused command leaves no receipt');
     await service.deleteMatch(before.game_id);
   }
