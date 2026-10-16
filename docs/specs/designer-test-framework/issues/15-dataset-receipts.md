@@ -97,3 +97,14 @@ notebook receipt is claimed. The control disappears. The original deadline
 stays 04:33:20 UTC. The next local launch check is 04:14 UTC. Worker checks
 wait for the saved next-check time after dispatch. No upload is repeated.
 Screenshot: `/Users/za/.codex/visualizations/dataset-receipt-continuation-20261015.png`.
+
+## Bounded launch observation
+
+At 04:14 UTC, the saved state shows one notebook attempt at 04:00:50 UTC.
+The dataset proof passes for the exact private version and all four frozen
+files. The response has the exact URL, notebook ID 138958863 and version 1,
+with no error or invalid sources, but its ref does not match. Acceptance
+remains unknown. The attempt and response files remain intact. No retry occurs.
+The studio records its first worker check at 05:00:51 UTC. The next bounded
+check is 05:01 UTC. The compute deadline stays 04:33:20 UTC; later observation
+does not extend worker time. Validation, backup and linking remain pending.
