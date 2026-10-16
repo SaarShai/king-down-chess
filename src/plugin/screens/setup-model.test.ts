@@ -17,12 +17,14 @@ it('starts Play now at Beginner with an automatic army when no setup is saved', 
   });
 });
 
-it.each(['friend', 'random'] as const)('uses saved %s choices for Play now without changing the saved setup', kind => {
+it.each(['friend', 'random'] as const)('uses Beginner and an automatic army for a saved %s setup without changing it', kind => {
   const saved = { ...readSetup(null), kind, level: 'strong' as const, colour: 'black' as const,
     options: { ...DEFAULT_OPTIONS, kingPowers: true }, king: { king: 'Shadow', power: 'Darkness' } as const };
   const before = structuredClone(saved);
-  expect(quickSetup(saved)).toEqual({ ...saved, kind: 'solo' });
+  expect(quickSetup(saved)).toEqual({ ...saved, kind: 'solo', level: 'beginner', options: { ...saved.options, arrangement: false } });
+  expect(createArguments(quickSetup(saved))).toMatchObject({ level: 'beginner', options: { arrangement: false } });
   expect(saved).toEqual(before);
+  expect(readSetup(saved)).toEqual(before);
 });
 
 it('keeps hidden toggles, sends only visible choices and locks the last pool entries', () => {

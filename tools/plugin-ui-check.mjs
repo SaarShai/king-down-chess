@@ -395,7 +395,23 @@ try {
       await setupMount(last);
       if (state === 'setup-pieces') await frame.locator('#setup-pieces').click();
       if (state === 'setup-cards') await frame.locator('#setup-cards').click();
-      if (state === 'setup-king') await frame.locator('#setup-king').click();
+      if (state === 'setup-king') {
+        await frame.locator('#setup-king').click();
+        assert.equal(await frame.locator('#king-picker .emblem').count(), 6);
+        assert(await frame.locator('#king-picker .emblem').evaluateAll(buttons => buttons.every(button => {
+          const style = getComputedStyle(button), box = button.getBoundingClientRect();
+          return style.backgroundImage === 'none' && !style.boxShadow.includes('inset') && box.width >= 44 && box.height >= 44;
+        })), 'King pictures keep their own face, including selected and disabled pictures');
+        assert.equal(await frame.locator('#king-picker .emblem:disabled').count(), 3);
+        assert(await frame.locator('#king-picker .emblem:disabled').evaluateAll(buttons => buttons.every(button => {
+          const style = getComputedStyle(button);
+          return style.backgroundColor === 'rgba(0, 0, 0, 0)' && style.borderColor === 'rgba(0, 0, 0, 0)';
+        })), 'Disabled king pictures keep their transparent face and border');
+        assert(await frame.locator('#king-picker .emblem[aria-pressed="true"]').evaluate(button => {
+          const selected = getComputedStyle(button), clear = getComputedStyle(button.parentElement.querySelector('[aria-pressed="false"]'));
+          return selected.borderColor !== clear.borderColor && selected.backgroundColor !== clear.backgroundColor;
+        }), 'The selected king picture keeps its selection mark');
+      }
       for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) await setupFits(width, height, state);
       if (state === 'setup-king') {
         await page.setViewportSize({ width: 1440, height: 900 });
@@ -464,7 +480,7 @@ try {
     await setupMount(saved); assert.equal(await frame.locator('#setup-king-name').innerText(), 'Shadow · Darkness');
     assert(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked()); assert(await frame.getByRole('radio', { name: 'Black', exact: true }).isChecked());
     for (const kind of ['friend', 'random']) {
-      const remembered = { ...saved, kind };
+      const remembered = { ...saved, kind, options: { ...saved.options, arrangement: true } };
       await setupMount(remembered);
       const home = await setupTool('kingdown_open', { screen: 'home' });
       await page.evaluate(result => window.harnessShow(result), home);
@@ -472,9 +488,15 @@ try {
       await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       const quick = await page.evaluate(() => window.harnessView);
       assert.equal(quick.kind, 'solo', `Play now starts a computer game from a saved ${kind} setup`);
-      assert.equal(quick.level, remembered.level);
-      assert.deepEqual(quick.options, remembered.options);
+      assert.equal(quick.level, 'beginner');
+      assert.deepEqual(quick.options, { ...remembered.options, arrangement: false });
+      assert(await frame.locator('[data-screen="seat"]').isHidden(), 'Play now skips the seat screen with saved Arrangement on');
       assert.deepEqual((await setupTool('kingdown_settings'))._meta.settings.last_setup, remembered, `Play now keeps the saved ${kind} setup`);
+      await openPlay();
+      assert(await frame.getByRole('radio', { name: kind === 'friend' ? 'A friend' : 'A random player', exact: true }).isChecked());
+      assert(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
+      await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+      assert(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked(), 'New game keeps the saved level');
       await setupTool('kingdown_abort', { game_id: quick.game_id });
     }
     await setupMount(baseSetup);
@@ -753,6 +775,14 @@ try {
     const style = getComputedStyle(button);
     return style.borderRadius === '50%' && style.backgroundImage === 'none' && style.backgroundColor === 'rgba(0, 0, 0, 0)';
   })), 'Name pictures keep their round transparent face');
+  assert(await frame.locator('#setup-body').evaluate(body => {
+    const button = document.createElement('button');
+    button.className = 'preset'; button.textContent = 'King Down'; body.append(button);
+    try {
+      const style = getComputedStyle(button);
+      return style.backgroundImage.includes('stone-control') && style.borderRadius !== '50%' && style.aspectRatio === 'auto';
+    } finally { button.remove(); }
+  }), 'A preset button outside the name pictures keeps its stone face and control shape');
   assert.equal(await frame.locator('[data-screen="handle"] .quiet-line').last().innerText(), 'Each name is unique.');
   assert.equal(await frame.locator('#page-back').innerText(), '‹ Play');
 
