@@ -702,6 +702,24 @@ it.each([false,true])('shows a draw offer and handles a decline before Resign (i
   } finally { await page.close(); }
 });
 
+it.each([false, true])('keeps one rematch during a held end read and cancels it on leaving %s', async leave => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind:'solo', colour:'white', options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false} }); });
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    const old = await page.evaluate(() => (window as any).harnessView.game_id);
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_get'; });
+    await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button', { name:'Resign', exact:true }).click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await frame.locator('#over').getByRole('button', { name:'Play again', exact:true }).evaluate((b: HTMLButtonElement) => { b.click(); b.click(); });
+    expect(await sent(page, 'kingdown_rematch')).toBe(0);
+    if (leave) await frame.locator('#over').getByRole('button', { name:'New game', exact:true }).click();
+    await page.evaluate(() => (window as any).releaseHeld());
+    if (leave) { await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); await frame.locator('#setup-start:not(:disabled)').waitFor(); expect(await sent(page, 'kingdown_rematch')).toBe(0); }
+    else { await page.waitForFunction(old => (window as any).harnessView.game_id !== old, old); expect(await sent(page, 'kingdown_rematch')).toBe(1); }
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
 it('keeps Retry on the end card when its fresh result read fails', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

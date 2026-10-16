@@ -12,12 +12,13 @@ let scrim: HTMLElement, poll: ReturnType<typeof runPoll> | undefined, observer: 
 const read = new Set<string>(), resumed = new Set<string>();
 let updating = false, stopped = false, opening = false;
 let endGame: string | undefined, looking = false;
+let queuedRematch: { game: string; choice: 'offer' | 'accept' | 'decline' } | undefined;
 const button = (label: string, click: () => void) => { const b = document.createElement('button'); b.textContent = label; b.onclick = click; return b; };
 function closeEnd() {
   const error = document.querySelector('.page-error'); if (error) document.querySelector('.page-sheet')!.append(error);
   if ($('over').classList.contains('end-card')) { $<HTMLDialogElement>('over').close(); $('over').classList.remove('end-card'); }
   if (scrim) scrim.hidden = true;
-  skipBoardCeremony(); looking = false; $('end-result').hidden = true;
+  skipBoardCeremony(); looking = false; queuedRematch = undefined; $('end-result').hidden = true;
   opening = false;
   poll?.stop(); poll = undefined;
 }
@@ -30,6 +31,10 @@ export function updateEnd() {
   endScreen(false);
   if (client.state.screen !== 'end' || updating || $<HTMLButtonElement>('reload').disabled || client.state.pending) return;
   const view = boardGame(); if (!view) return;
+  if (queuedRematch) {
+    const queued = queuedRematch; queuedRematch = undefined;
+    if (queued.game === view.game_id && rematchChoices(view).includes(queued.choice)) { void sendBoardCommand('kingdown_rematch',{choice:queued.choice}); return; }
+  }
   if (view.rematch_game_id && !resumed.has(view.rematch_game_id)) {
     const game = view.rematch_game_id; resumed.add(game); updating = true;
     void call('kingdown_resume', {game_id:game}).then(next => { if (!next) resumed.delete(game); }).finally(() => { updating = false; });
@@ -85,7 +90,10 @@ export function endScreen(schedule = true) {
   }
   const form = over.querySelector('form')!; form.onsubmit=event=>event.preventDefault();
   for (const choice of rematches) {
-    const b = button(choice==='offer'?view.kind==='solo'?'Play again':'Rematch':choice==='accept'?'Accept':'Decline',()=>{skipBoardCeremony(); void sendBoardCommand('kingdown_rematch',{choice});});
+    const b = button(choice==='offer'?view.kind==='solo'?'Play again':'Rematch':choice==='accept'?'Accept':'Decline',()=>{
+      skipBoardCeremony(); queuedRematch ??= {game:view.game_id,choice}; updateEnd();
+    });
+    b.disabled = !!queuedRematch;
     if (choice!=='decline') b.className='primary'; form.append(b);
   }
   form.append(button('New game',()=>{draftFromGame(view); closeEnd(); navigate('play');}));

@@ -74,3 +74,8 @@ Work starts from a clean worktree.
 - The HTTP check finds a navigation-test race. A computer abort opens
   Play while the test's Back click waits for a call. The check now waits
   for Play or an active Back button, then checks and acts in one frame.
+- Review finds that a rematch tap can arrive during the fresh read.
+  Keep one request until that read ends. Send it only on the same end
+  screen for the same game, and only while that choice stays valid.
+  Leaving the end screen clears it. Tests hold the read, press twice,
+  and check one request after release or none after New game.
