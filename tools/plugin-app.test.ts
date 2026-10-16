@@ -334,6 +334,41 @@ it('keeps the game screen for Play when the host remounts the widget inline afte
     expect(await page.evaluate(() => Object.keys((window as any).harnessWidgetState.privateContent))).not.toContain('resume');
   } finally { await page.close(); }
 });
+it('gives Play its game screen back when the host refuses fullscreen once', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    const game = frame.locator('[data-screen="seat"]:not([hidden]), [data-screen="board"]:not([hidden])');
+    await frame.locator('#setup-start').click(); await game.waitFor(); const screen = await game.getAttribute('data-screen');
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }));
+    await frame.locator('#home-card:not([hidden])').waitFor();
+    // The harness answers a refusal with its own display mode, so it is inline now too.
+    await page.evaluate(() => { const host = window as any; host.harnessDisplayMode = 'inline'; host.denyDisplayNext = true; });
+    await frame.locator('#home-play').click();
+    await frame.locator('#home-error', { hasText: 'expand control' }).waitFor();
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.resume)).toBe(screen);
+    await frame.locator('#home-play').click();
+    await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
+  } finally { await page.close(); }
+});
+it('opens the Play screen, not an empty game screen, when a chat result drops the game behind the home card', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#home-play').click(); await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    const game = frame.locator('[data-screen="seat"]:not([hidden]), [data-screen="board"]:not([hidden])');
+    await frame.locator('#setup-start').click(); await game.waitFor();
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }));
+    await frame.locator('#home-card:not([hidden])').waitFor();
+    const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'profile' } }));
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length);
+    await page.evaluate(result => (window as any).harnessShow(result, true), result);
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length > n, reads);
+    // The widget saves its state after the games read ends.
+    await page.waitForFunction(() => (window as any).harnessWidgetState.privateContent.resume === 'play');
+    await frame.locator('#home-play').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  } finally { await page.close(); }
+});
 it('keeps the opponent picked on New game for the session', async () => {
   const page = await open(), frame = page.frameLocator('iframe'), friend = frame.getByRole('radio', { name: 'A friend', exact: true });
   try {

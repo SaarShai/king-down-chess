@@ -228,7 +228,8 @@ async function mountResult(result: ToolResult, initial: boolean, signal: AbortSi
     if (result.isError) {
       memory.preview = undefined;
       memory.joinError = { code: String(result._meta?.code ?? ''), message: result.content.filter(c => c.type === 'text').map(c => c.text).join(' ') };
-      view = undefined; navigate('join');
+      // The game is gone, so Play has no game screen to return to.
+      view = undefined; if (state.resume) state.resume = 'play'; navigate('join');
       const home = await client.call('kingdown_open', {}, { limit: false, signal });
       if (stale()) return;
       if (home.isError) throw new Error(home.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
@@ -253,7 +254,7 @@ async function mountResult(result: ToolResult, initial: boolean, signal: AbortSi
     if (readBoard) {
       await call('kingdown_get', {}, false, false, route, false, signal);
       if (!stale() && shownError.count > errors && shownError.game === view?.game_id && !pending?.error && !$('error').textContent) $('error').textContent = shownError.text;
-    } else if (!result._meta?.view) view = undefined;
+    } else if (!result._meta?.view) { view = undefined; if (state.resume) state.resume = 'play'; }
     if (!readBoard) await games(signal);
     if (stale()) return;
     saveState();
@@ -317,8 +318,8 @@ let displayMode: string | undefined, asking = false, target: Screen | undefined,
 const canFullscreen = () => app.getHostContext()?.availableDisplayModes?.includes('fullscreen') ?? true;
 /** The widget state keeps the waiting screen only while it waits. */
 function unqueue() { target = undefined; delete state.queued; }
-/** Asks for fullscreen, then shows the last screen asked for (the home card stays until the host answers). */
-async function fullscreen(screen: Screen) {
+/** Asks for fullscreen, then shows the last screen asked for (the home card stays until the host answers). A refusal gives back the screen that Play returns to. */
+async function fullscreen(screen: Screen, back?: Screen) {
   target = state.queued = screen; client.save();
   if (asking) return;
   asking = true;
@@ -329,7 +330,7 @@ async function fullscreen(screen: Screen) {
     displayMode = 'fullscreen';
     const next = target; unqueue();
     if (next && !state.resume) navigate(next); else client.save();
-  } catch (error) { unqueue(); client.save(); if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = errorText(error); }
+  } catch (error) { unqueue(); if (back) state.resume = back; client.save(); if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = errorText(error); }
   finally { asking = false; }
 }
 /** Opens the Play screen at the Your games list. */
@@ -420,8 +421,8 @@ $('handle-form').onsubmit = event => {
   if (input.reportValidity()) void call('kingdown_handle', { handle, icon: picture });
 };
 $<HTMLInputElement>('handle').oninput = scheduleHandleCheck;
-$('home-play').onclick = () => { const next = state.resume ?? 'play'; delete state.resume; void fullscreen(next); };
-$('home-games').onclick = () => { delete state.resume; gamesFirst = true; void fullscreen('play'); };
+$('home-play').onclick = () => { const back = state.resume; delete state.resume; void fullscreen(back ?? 'play', back); };
+$('home-games').onclick = () => { const back = state.resume; delete state.resume; gamesFirst = true; void fullscreen('play', back); };
 document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => { button.onclick = () => navigate(button.dataset.nav as Screen); });
 $('page-back').onclick = () => navigate(state.screen === 'handle' ? handleBack : state.screen === 'collection' ? 'profile' : state.screen === 'settings' ? state.settings_back ?? 'play' : 'play');
 app.onhostcontextchanged = () => hostContext(app.getHostContext());
