@@ -66,6 +66,21 @@ try {
   await review.getByText('review@example.test', { exact: true }).waitFor();
   await review.getByRole('button', { name: 'Continue', exact: true }).click();
   await review.getByRole('button', { name: 'Allow connection' }).waitFor();
+  await review.getByRole('heading', { name: 'Let ChatGPT use your King Down account?', exact: true }).waitFor();
+  assert.deepEqual(await review.locator('#consent li').allTextContents(), [
+    'play and continue games against the computer or people',
+    'make and join friend games, and find a random player',
+    'send game messages, offer draws, resign and ask for rematches',
+    'show your rating, badges and past games',
+    'change your player name, online status, sounds and other settings',
+    'report a player',
+  ]);
+  assert(await review.getByText('ChatGPT cannot read the chat around the game or see your email address.', { exact: true }).isVisible());
+  assert.equal(await review.locator('#scopes').count(), 0);
+  assert(!/access tokens|data permissions/.test(await review.locator('#consent').innerText()));
+  assert.equal(await review.locator('#client-name').innerText(), 'King Down browser check');
+  assert.equal(await review.locator('#account').innerText(), 'review@example.test');
+  assert.equal(await review.locator('#redirect').innerText(), 'https://client.example/callback');
   assert.deepEqual(grants, [['password', 'review@example.test'], ['password', 'review@example.test']]);
   assert.equal(new URL(review.url()).searchParams.get('authorization_id'), authorizationId);
   await review.close();

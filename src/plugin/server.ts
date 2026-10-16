@@ -20,7 +20,7 @@ export const ART_ORIGIN = 'https://kingdown-art.invalid';
 type Service = Pick<PluginService, keyof PluginService>;
 type Reply = { content: { type: 'text'; text: string }[]; structuredContent?: Record<string, unknown>; _meta?: Record<string, unknown> };
 /** Who may call a tool (MCP Apps visibility) and its hints, which ChatGPT's review requires on every tool (report part 03, section 4.5). */
-interface Hints { visibility: ('model' | 'app')[]; readOnly?: boolean; destructive?: boolean; idempotent?: boolean; meta?: Record<string, unknown>; output?: z.ZodRawShape }
+interface Hints { visibility: ('model' | 'app')[]; readOnly?: boolean; openWorld?: boolean; destructive?: boolean; idempotent?: boolean; meta?: Record<string, unknown>; output?: z.ZodRawShape }
 const text = (value: string) => [{ type: 'text' as const, text: value }];
 /** Plugin words for two refusals. The board reads the game again at once after each, so neither says "Reload".
  *  STALE_REVISION: the view is old (the owner's pick, approval W7, option a). INVALID_MOVE: the service checks the
@@ -61,10 +61,10 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     return handler(request, extra);
   });
   const command = { game_id: gameId, command_id: z.string().min(1).max(200), expected_revision: z.number().int().min(0).max(MAX_REVISION) };
-  function register<T extends z.ZodRawShape>(name: string, description: string, shape: T, { visibility, readOnly = false, destructive = false, idempotent = true, meta, output }: Hints, run: (args: z.infer<z.ZodObject<T>>) => Promise<Reply>) {
+  function register<T extends z.ZodRawShape>(name: string, description: string, shape: T, { visibility, readOnly = false, openWorld = false, destructive = false, idempotent = true, meta, output }: Hints, run: (args: z.infer<z.ZodObject<T>>) => Promise<Reply>) {
     const inputSchema = z.object(shape).strict(); inputs.set(name, inputSchema);
     // Only kingdown_open carries the board: a template on every tool makes ChatGPT redraw the board too often.
-    registerAppTool(server, name, { description, inputSchema, ...(output && { outputSchema: z.object(output).strict() }), annotations: { readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: idempotent, openWorldHint: false },
+    registerAppTool(server, name, { description, inputSchema, ...(output && { outputSchema: z.object(output).strict() }), annotations: { readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: idempotent, openWorldHint: openWorld },
       _meta: { ...meta, ui: { ...(name === 'kingdown_open' && { resourceUri: boardResource }), visibility } } }, async (args: z.infer<z.ZodObject<T>>) => {
       try { return await run(args); }
       catch (error) { const known = error instanceof MatchServiceError; if (!known || error.status >= 500) console.error('King Down tool failed', { tool: name, requestId: randomUUID(), ...diagnostic(error) }); return { isError: true, content: text(!known ? 'Could not update the game. Retry or reload.' : REFUSED[error.code] ?? error.message), _meta: { code: known ? error.code : 'INTERNAL_ERROR' } }; }
@@ -157,25 +157,25 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     return { content: text(`${lobby.games.length} open game${lobby.games.length === 1 ? '' : 's'}.`), structuredContent: { count: lobby.games.length }, _meta: { lobby: { ...lobby, server_now: new Date().toISOString() } } };
   });
   register('kingdown_accept', 'Take the open seat in a random game.', { game_id: gameId, board_id: boardId }, { visibility: ['app'] }, args => select(args.board_id, () => service.accept(actorId, args.game_id)));
-  register('kingdown_find', 'Take the oldest open game with the same five feature switches (any_rules: any open game), or open your own.', { options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), any_rules: z.boolean().optional(), command_id: command.command_id.optional(), board_id: boardId }, { visibility: ['app'], idempotent: false }, args => select(args.board_id, () => service.find(actorId, args.options, args.colour, args.command_id, args.any_rules)));
+  register('kingdown_find', 'Take the oldest open game with the same five feature switches (any_rules: any open game), or open your own.', { options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), any_rules: z.boolean().optional(), command_id: command.command_id.optional(), board_id: boardId }, { openWorld: true, visibility: ['app'], idempotent: false }, args => select(args.board_id, () => service.find(actorId, args.options, args.colour, args.command_id, args.any_rules)));
   register('kingdown_cancel', 'Cancel your waiting random game with no result.', { game_id: gameId }, { visibility: ['app'], destructive: true }, async args => reply(await service.cancel(actorId, args.game_id)));
   register('kingdown_choose', 'Choose your king and back-rank order, then mark your seat Ready.', { ...command, king: choiceSchema.shape.king, order: choiceSchema.shape.order, ready: z.boolean() }, { visibility: ['app'] }, ({ king, order, ready, ...args }) => play(args, { type: 'choose', choice: { king, order }, ready }));
   register('kingdown_rematch', 'Offer, accept or decline a rematch. The reply stays on this game; resume the rematch to move the board.', { ...command, choice: z.enum(['offer', 'accept', 'decline']) }, { visibility: ['app'], destructive: true }, ({ choice, ...args }) => play(args, { type: 'rematch', choice }));
   register('kingdown_move', 'Play one exact legal move; retry with the same command ID.', { ...command, lan: z.string().min(1).max(120) }, { visibility: ['app'] }, ({ lan, ...args }) => play(args, { type: 'turn', actions: [lan] }));
   register('kingdown_computer', 'Ask the computer opponent to play its turn.', command, { visibility: ['app'] }, args => play(args, { type: 'computer' }));
-  register('kingdown_say', 'Send one preset message to the opponent; each preset goes once in each game.', { ...command, preset: z.enum(PRESETS) }, { visibility: ['app'], destructive: true }, ({ preset, ...args }) => play(args, { type: 'say', preset }));
+  register('kingdown_say', 'Send one preset message to the opponent; each preset goes once in each game.', { ...command, preset: z.enum(PRESETS) }, { openWorld: true, visibility: ['app'], destructive: true }, ({ preset, ...args }) => play(args, { type: 'say', preset }));
   register('kingdown_draw', 'Use this when the player wants to offer a draw in a King Down game, or to accept or decline the other side’s offer (draw_offer "opponent"). Accept ends the game.',
     { ...optional, choice: z.enum(['offer', 'accept', 'decline']) }, { visibility: ['model', 'app'], destructive: true }, ({ choice, ...args }) => decide(args, { type: 'draw', choice }));
   register('kingdown_claim', 'Claim the game when the opponent missed the Daily deadline.', command, { visibility: ['app'], destructive: true }, args => play(args, { type: 'claim', reason: 'timeout' }));
   register('kingdown_resign', 'Use this when the player wants to resign a King Down game. The opponent wins.', optional, { visibility: ['model', 'app'], destructive: true }, args => decide(args, { type: 'resign' }));
   register('kingdown_abort', 'Use this when the player wants to cancel a King Down game before each side has played a turn. Nobody wins.', optional, { visibility: ['model', 'app'], destructive: true }, args => decide(args, { type: 'abort' }));
   register('kingdown_invite', 'Use this when the player wants to invite a friend to their waiting friend game. Gives a short code; a new invitation ends the old one.',
-    { game_id: gameId }, { visibility: ['model', 'app'], idempotent: false, destructive: true }, async args => {
+    { game_id: gameId }, { openWorld: true, visibility: ['model', 'app'], idempotent: false, destructive: true }, async args => {
       const { code, expires_at } = await service.invite(actorId, args.game_id);
       return { content: text(`Send your friend the code ${code}. It works until ${expires_at}.`), structuredContent: { code, expires_at } };
     });
   register('kingdown_join', 'Use this when the player has a King Down invitation: a 6-character code. Each short-code preview or join, a retry included, counts one attempt toward the hourly limit of 10. Join takes the open seat and uses the invitation. Then show the game with kingdown_open.',
-    { code: z.string().min(1).max(300), preview: z.boolean().optional(), board_id: boardId }, { visibility: ['model', 'app'], idempotent: false },
+    { code: z.string().min(1).max(300), preview: z.boolean().optional(), board_id: boardId }, { openWorld: true, visibility: ['model', 'app'], idempotent: false },
     async args => args.preview ? { content: text('Review the game features before you join.'), structuredContent: { screen: 'join' }, _meta: { ...(args.board_id && { board_id: args.board_id }), preview: await service.preview(actorId, args.code) } } : select(args.board_id, () => service.join(actorId, args.code)));
   register('kingdown_report', 'Use this when the player wants to report the opponent in a King Down game: the player, their handle, or a preset message (name it). The King Down team reviews each report.',
     { game_id: gameId, target: z.enum(['player', 'handle', 'message']), category: z.enum(REPORT_CATEGORIES), intimate_image: z.boolean().optional(), preset: z.enum(PRESETS).optional(), note: z.string().max(1000).optional() },
@@ -183,7 +183,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const { id, created_at } = await service.report(actorId, args);
       return { content: text('Report sent. The King Down team reviews it.'), _meta: { id, created_at } };
     });
-  register('kingdown_handle', 'Pick a handle and a preset picture, or check that a handle is free without a write. A changed handle stays reserved; another change waits 90 days.', handleSchema.shape, { visibility: ['app'], destructive: true }, async args => {
+  register('kingdown_handle', 'Pick a handle and a preset picture, or check that a handle is free without a write. A changed handle stays reserved; another change waits 90 days.', handleSchema.shape, { openWorld: true, visibility: ['app'], destructive: true }, async args => {
     const { handle, icon } = await service.handle(actorId, args);
     return { content: text(args.check ? 'This handle is free.' : 'Your name and picture are ready.'), ...(args.check && { structuredContent: { available: true } }), _meta: { me: { handle, icon } } };
   });

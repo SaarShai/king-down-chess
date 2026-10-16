@@ -4,6 +4,22 @@ import { consentConfig, renderConsent } from './consent-config';
 const env = { SUPABASE_URL: 'https://project.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_example', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: '11111111-1111-4111-8111-111111111111' };
 const jwt = (role: string) => `header.${Buffer.from(JSON.stringify({ role })).toString('base64url')}.signature`;
 describe('public consent configuration', () => {
+  it('shows the approved permissions without raw scopes or token text (B4)', () => {
+    const html = renderConsent(readFileSync(new URL('./consent.html', import.meta.url), 'utf8'), consentConfig(env));
+    expect(html).toContain('<h2>Let ChatGPT use your King Down account?</h2>');
+    expect(html).toContain('<p>ChatGPT can:</p>');
+    expect([...html.matchAll(/<li>([^<]+)<\/li>/g)].map(match => match[1])).toEqual([
+      'play and continue games against the computer or people',
+      'make and join friend games, and find a random player',
+      'send game messages, offer draws, resign and ask for rematches',
+      'show your rating, badges and past games',
+      'change your player name, online status, sounds and other settings',
+      'report a player',
+    ]);
+    expect(html).toContain('<p>ChatGPT cannot read the chat around the game or see your email address.</p>');
+    expect(html).not.toMatch(/id="scopes"|Requested information|access tokens|data permissions/);
+    for (const id of ['client-name', 'account', 'redirect', 'approve', 'deny', 'password-form', 'password-email', 'password-value']) expect(html).toContain(`id="${id}"`);
+  });
   it('offers only the approved Google and GitHub providers', () => {
     const html=readFileSync(new URL('./consent.html',import.meta.url),'utf8');
     expect([...html.matchAll(/data-provider="([^"]+)"/g)].map(m=>m[1])).toEqual(['google','github']);

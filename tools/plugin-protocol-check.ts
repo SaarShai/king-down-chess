@@ -26,7 +26,7 @@ try {
   console.log(`${'tool'.padEnd(18)} ${'visible to'.padEnd(10)} read-only  destructive  idempotent  open-world`);
   for (const tool of tools) console.log(`${tool.name.padEnd(18)} ${ui(tool).visibility.join(',').padEnd(10)} ${String(tool.annotations?.readOnlyHint).padEnd(10)} ${String(tool.annotations?.destructiveHint).padEnd(12)} ${String(tool.annotations?.idempotentHint).padEnd(11)} ${tool.annotations?.openWorldHint}`);
   assert.deepEqual(Object.fromEntries(tools.map(tool => [tool.name, [ui(tool).visibility.join(','), tool.annotations?.readOnlyHint, tool.annotations?.destructiveHint]])), TABLE);
-  for (const tool of tools) { for (const hint of ['readOnlyHint', 'destructiveHint', 'idempotentHint'] as const) assert.equal(typeof tool.annotations?.[hint], 'boolean', `${tool.name} ${hint}`); assert.equal(tool.annotations?.openWorldHint, false); }
+  for (const tool of tools) { for (const hint of ['readOnlyHint', 'destructiveHint', 'idempotentHint'] as const) assert.equal(typeof tool.annotations?.[hint], 'boolean', `${tool.name} ${hint}`); assert.equal(tool.annotations?.openWorldHint, ['kingdown_find', 'kingdown_say', 'kingdown_invite', 'kingdown_join', 'kingdown_handle'].includes(tool.name), `${tool.name} openWorldHint`); }
   for (const name of ['kingdown_join','kingdown_seen']) assert.equal(tools.find(tool=>tool.name===name)?.annotations?.idempotentHint,false);
   const boardResource = ui(tools.find(tool => tool.name === 'kingdown_open')!).resourceUri!;
   assert.match(boardResource, /^ui:\/\/kingdown\/board-[a-f0-9]{64}\.html$/);
