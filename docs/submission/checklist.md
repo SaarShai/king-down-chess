@@ -160,4 +160,4 @@ For the owner (answered on 2026-10-15 and 2026-10-16):
 6. Closed: D8 a, one review account (row 45).
 7. Closed: D10 approved, b (row 30).
 8. Closed: D11 b, later (row 40).
-9. Closed: 'Show when I am online' on writes `everyone`, off writes `nobody`. A player whose value is `mutual` (the website default) sees off and keeps `mutual` until the toggle changes (owner, 2026-10-16).
+9. Closed: keep the friends-only default (`mutual`). 'Show when I am online' becomes three choices: Everyone, Friends only (the default) and Nobody. It never shows off while friends can see the player. Ticket 18 builds it and changes the policy words (owner, 2026-10-16, after the review; this replaces the first answer of that day: on is `everyone`, off is `nobody`).
