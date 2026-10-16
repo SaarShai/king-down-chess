@@ -30,3 +30,22 @@ test('the QA hall step names the current home actions, setup and menu rows', () 
   expect(hall).toContain('The saved setup stays after Play now, including the opponent, level and Arrangement choices.');
   expect(hall).toContain('Open New game to check these saved choices.');
 });
+
+test.each([
+  'docs/qa/plugin-qa-protocol.md',
+  'docs/specs/chatgpt-mvp/release/TESTER-GUIDE.md',
+  'docs/specs/chatgpt-mvp/release/LIVE-CHECKS.md',
+  'docs/specs/chatgpt-mvp/spec.md',
+])('%s gives the full invite and side on Join', path => {
+  const text = readFileSync(path, 'utf8');
+  expect(text).toMatch(/Share.*Copy/);
+  expect(text).toMatch(/full invite/);
+  expect(text).toMatch(/Your games.*Share/);
+  expect(text).toContain('Join and take White');
+  expect(text).toContain('Join and take Black');
+  expect(text).not.toContain('Copy the code');
+  if (path === 'docs/qa/plugin-qa-protocol.md') {
+    expect(text).toContain('Select the invite and copy it');
+    expect(text).not.toContain('compare it with the code');
+  }
+});

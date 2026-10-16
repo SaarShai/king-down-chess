@@ -39,7 +39,9 @@ it('makes a friend code after create and offers a new code after remount', async
     await start(page, 'friend'); await frame.locator('.game-code span').first().waitFor();
     expect(await frame.locator('.game-code span').count()).toBe(6);
     expect(await frame.locator('#friend-expiry').textContent()).toContain('Ends ');
-    expect(await frame.locator('#friend-copy').textContent()).toContain('Copy the code');
+    expect(await frame.locator('#friend-actions button').allTextContents()).toEqual(['Share', 'Copy']);
+    expect(await frame.locator('#friend-share').getAttribute('class')).toContain('primary');
+    expect(await frame.locator('#friend-copy').getAttribute('class')).not.toContain('primary');
     const invites = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_invite').length);
     const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
     await page.locator('#remount').click();
@@ -48,28 +50,106 @@ it('makes a friend code after create and offers a new code after remount', async
     expect(await frame.locator('.game-code span').count()).toBe(0);
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_invite').length)).toBe(invites);
     expect(JSON.stringify(await page.evaluate(() => (window as any).harnessWidgetState))).not.toContain('expires_at');
+    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    const code = (await frame.locator('.game-code span').allTextContents()).join('');
+    await frame.locator('#page-back').click();
+    const row = frame.locator('.friend-invite-row').filter({ hasText: code }); await row.waitFor();
+    expect(await row.getByRole('button', { name: `Share game ${code}`, exact: true }).isVisible()).toBe(true);
   } finally { await page.close(); }
 });
-it('reports a true copy and selects the code when both copy paths refuse', async () => {
+it('copies the full invite without Share and selects it when both copy paths refuse', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await start(page, 'friend'); await frame.locator('#friend-copy').waitFor();
+    const code = (await frame.locator('.game-code span').allTextContents()).join('');
+    const text = `Join King Down game ${code}. Rules: Fairy pieces.`;
     await frame.locator('html').evaluate(() => {
-      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => {} } });
+      (window as any).inviteShareCalls = 0;
+      Object.defineProperty(navigator, 'share', { configurable: true, value: async () => { (window as any).inviteShareCalls++; } });
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => { (window as any).copiedInvite = text; } } });
     });
     await frame.locator('#friend-copy').click(); expect(await frame.locator('#friend-copy-status').textContent()).toBe('Copied');
+    expect(await frame.locator('html').evaluate(() => (window as any).copiedInvite)).toBe(text);
+    expect(await frame.locator('html').evaluate(() => (window as any).inviteShareCalls)).toBe(0);
     await frame.locator('html').evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Denied'); } } });
       document.execCommand = () => false;
     });
     await frame.locator('#friend-copy').click();
-    expect(await frame.locator('#friend-copy-status').textContent()).toBe('Select the code and copy it');
-    expect(await frame.locator('html').evaluate(() => getSelection()?.toString().replace(/\s/g, '').length)).toBe(6);
+    expect(await frame.locator('#friend-copy-status').textContent()).toBe(`Select the invite and copy it: ${text}`);
+    expect(await frame.locator('html').evaluate(() => getSelection()?.toString())).toBe(text);
+    expect(await frame.locator('html').evaluate(() => (window as any).inviteShareCalls)).toBe(0);
   } finally { await page.close(); }
 });
 async function buddy(page: Page, name: string, args: Record<string, unknown> = {}) {
   return (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name, arguments: args } })).json();
 }
+it('shares the known code from Your games without a new code or a resume', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const view = await start(page, 'friend'); await frame.locator('.game-code span').first().waitFor();
+    const code = (await frame.locator('.game-code span').allTextContents()).join('');
+    await frame.locator('html').evaluate(() => {
+      Object.defineProperty(navigator, 'share', { configurable: true, value: async (data: ShareData) => { (window as any).sharedInvite = data.text; } });
+    });
+    await frame.locator('#friend-share').click();
+    expect(await frame.locator('#friend-copy-status').textContent()).toBe('Shared');
+    await frame.locator('#page-back').click();
+    const row = frame.locator('.friend-invite-row').filter({ hasText: code }); await row.waitFor();
+    expect(await row.locator('[data-game-id]').getAttribute('data-game-id')).toBe(view.game_id);
+    const calls = () => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => ['kingdown_invite', 'kingdown_resume'].includes(c.name)).length);
+    const before = await calls();
+    await row.getByRole('button', { name: `Share game ${code}`, exact: true }).click();
+    expect(await row.getByRole('status').textContent()).toBe('Shared');
+    expect(await frame.locator('html').evaluate(() => (window as any).sharedInvite)).toBe(`Join King Down game ${code}. Rules: Fairy pieces.`);
+    expect(await calls()).toBe(before);
+    expect(await frame.locator('button button').count()).toBe(0);
+    await row.locator('[data-game-id]').click();
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    expect((await frame.locator('.game-code span').allTextContents()).join('')).toBe(code);
+  } finally { await page.close(); }
+});
+it('names Black on a preview from a code in chat', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const created = await buddy(page, 'kingdown_create', { kind: 'friend', options, colour: 'white' });
+    const invite = await buddy(page, 'kingdown_invite', { game_id: created._meta.view.game_id });
+    const opened = await page.evaluate(code => (window as any).harnessTool({ name: 'kingdown_open', arguments: { code } }), invite.structuredContent.code);
+    await page.evaluate(result => (window as any).harnessShow(result), opened);
+    await frame.locator('#join-confirm').waitFor();
+    expect(await frame.locator('#join-confirm').textContent()).toBe('Join and take Black');
+    expect(await frame.locator('#join-entry').isVisible()).toBe(false);
+  } finally { await page.close(); }
+});
+it('updates Your games after Back and keeps rows locked during Resume', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const view = await start(page, 'friend'); await frame.locator('.game-code span').first().waitFor();
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
+    await frame.locator('#friend-new').waitFor();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_invite'; });
+    await frame.locator('#friend-new').click();
+    await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
+    await frame.locator('#page-back').click();
+    await frame.locator(`[data-screen="play"]:not([hidden]) [data-game-id="${view.game_id}"]`).waitFor();
+    await page.evaluate(() => {
+      const host = window as any; host.releaseInvite = host.releaseHeld; host.releaseHeld = undefined; host.holdNext = 'kingdown_resume';
+    });
+    await frame.locator(`[data-game-id="${view.game_id}"]`).click();
+    await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
+    await page.evaluate(() => { const host = window as any; host.releaseResume = host.releaseHeld; host.releaseInvite(); });
+    const row = frame.locator('.friend-invite-row').filter({ has: frame.locator(`[data-game-id="${view.game_id}"]`) });
+    await row.waitFor();
+    expect(await row.getByRole('button', { name: /^Share game / }).isVisible()).toBe(true);
+    expect(await row.getByRole('button', { name: /^Share game / }).isDisabled()).toBe(true);
+    expect(await row.locator('[data-game-id]').isDisabled()).toBe(true);
+    expect(await frame.locator('[data-screen="play"]').isVisible()).toBe(true);
+    await page.evaluate(() => (window as any).releaseResume());
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+  } finally { await page.close(); }
+});
 it('previews a lower-case code, declines without taking a seat and then joins', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -80,6 +160,7 @@ it('previews a lower-case code, declines without taking a seat and then joins', 
     await frame.locator('#join-confirm').waitFor();
     expect(await frame.locator('#join-preview .row-title').allTextContents()).toEqual(['Your opponent', 'Features']);
     expect(await frame.locator('#join-preview .line').last().textContent()).toContain('You play White.');
+    expect(await frame.locator('#join-confirm').textContent()).toBe('Join and take White');
     await frame.locator('#join-decline').click();
     expect((await buddy(page, 'kingdown_get', { game_id: created._meta.view.game_id }))._meta.view.status).toBe('waiting');
     await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(code); await frame.locator('#join').click(); await frame.locator('#join-confirm').waitFor(); await frame.locator('#join-confirm').click();

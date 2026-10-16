@@ -863,7 +863,7 @@ try {
   const savedGame = frame.locator('#games-list button').first();
   await savedGame.waitFor();
   const inbox = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_games', arguments: {} } })).json();
-  assert.deepEqual(await frame.locator('#games-list button').evaluateAll(rows => rows.map(row => row.dataset.gameId)), inbox._meta.games.map(row => row.game_id), 'The shared rows keep the private server order');
+  assert.deepEqual(await frame.locator('#games-list button[data-game-id]').evaluateAll(rows => rows.map(row => row.dataset.gameId)), inbox._meta.games.map(row => row.game_id), 'The shared rows keep the private server order');
   assert.equal(await savedGame.locator('.row-title').innerText(), 'Computer · Club');
   assert.equal(await savedGame.locator('.turn-mark').innerText(), 'Your turn');
   assert.match(await savedGame.locator('.line').innerText(), /^Move 1\b/);
@@ -983,18 +983,64 @@ try {
     const friend = await showCreated('friend'); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join(''); assert(code.length === 6, 'Create gives six code tiles');
+    const fullInvite = `Join King Down game ${code}. Rules: Fairy pieces.`;
+    assert.deepEqual(await frame.locator('#friend-actions button').allTextContents(), ['Share', 'Copy']);
+    assert(await frame.locator('#friend-share').evaluate(button => button.classList.contains('primary')), 'Share is the main action');
+    assert((await frame.locator('#friend-expiry').innerText()).startsWith('Ends '), 'The Ends line stays');
     await lookAt('friend-code', 'friend');
+    await frame.locator('html').evaluate(() => {
+      window.inviteShareCalls = 0;
+      Object.defineProperty(navigator, 'share', { configurable: true, value: async () => { window.inviteShareCalls++; } });
+    });
     await page.context().grantPermissions(['clipboard-read','clipboard-write']); await frame.locator('#friend-copy').click();
     await frame.locator('#friend-copy-status').filter({ hasText: /^Copied$/ }).waitFor();
-    assert(await page.evaluate(code => navigator.clipboard.readText().then(text => text === code), code), 'The granted clipboard contains the code');
+    assert(await page.evaluate(invite => navigator.clipboard.readText().then(text => text === invite), fullInvite), 'The granted clipboard contains the full invite');
+    assert.equal(await frame.locator('html').evaluate(() => window.inviteShareCalls), 0, 'Copy does not open the share sheet');
     await frame.locator('html').evaluate(() => {
       window.ticket13Clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard'); window.ticket13Copy = document.execCommand;
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Denied'); } } }); document.execCommand = () => false;
     });
-    await frame.locator('#friend-copy').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Select the code and copy it' }).waitFor();
-    assert(await frame.locator('html').evaluate(() => getSelection().toString().replace(/\s/g, '').length === 6), 'The refused clipboard leaves selectable code text');
+    await frame.locator('#friend-copy').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Select the invite and copy it' }).waitFor();
+    assert.equal(await frame.locator('html').evaluate(() => getSelection().toString()), fullInvite, 'The refused clipboard leaves the full invite selected');
+    assert.equal(await frame.locator('html').evaluate(() => window.inviteShareCalls), 0, 'A refused Copy does not open the share sheet');
     await frame.locator('html').evaluate(() => { if (window.ticket13Clipboard) Object.defineProperty(navigator, 'clipboard', window.ticket13Clipboard); else delete navigator.clipboard; document.execCommand = window.ticket13Copy; getSelection().removeAllRanges(); });
+    await frame.locator('html').evaluate(() => {
+      Object.defineProperty(navigator, 'share', { configurable: true, value: async data => { window.sharedInvite = data.text; } });
+    });
+    await frame.locator('#friend-share').click();
+    await frame.locator('#friend-copy-status').filter({ hasText: /^Shared$/ }).waitFor();
+    assert.equal(await frame.locator('html').evaluate(() => window.sharedInvite), fullInvite, 'Share sends the same full invite');
     const invites = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length);
+    await openPlay();
+    const inviteRow = frame.locator('.friend-invite-row').filter({ hasText: code });
+    await inviteRow.waitFor();
+    for (const [width, height] of [[197,426], [320,568], [390,844]]) {
+      await page.setViewportSize({ width, height });
+      assert(await inviteRow.evaluate(async row => {
+        await document.fonts.ready;
+        const bounds = row.querySelector('button[data-game-id]').getBoundingClientRect();
+        const share = row.querySelector('button[aria-label]').getBoundingClientRect();
+        const texts = document.createTreeWalker(row.querySelector('button[data-game-id]'), NodeFilter.SHOW_TEXT);
+        while (texts.nextNode()) {
+          if (!texts.currentNode.textContent.trim()) continue;
+          const range = document.createRange(); range.selectNodeContents(texts.currentNode);
+          for (const box of range.getClientRects()) {
+            if (box.left < bounds.left - 1 || box.right > bounds.right + 1 || box.top < bounds.top - 1 || box.bottom > bounds.bottom + 1) return false;
+            if (box.left < share.right && box.right > share.left && box.top < share.bottom && box.bottom > share.top) return false;
+          }
+        }
+        return row.scrollWidth <= row.clientWidth + 1;
+      }), `The friend row text fits and stays clear of Share at ${width} px`);
+      await inviteRow.screenshot({ path: join(look, `friend-row-${width}-${mode}.png`) });
+    }
+    const resumes = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_resume').length);
+    await inviteRow.getByRole('button', { name: `Share game ${code}`, exact: true }).click();
+    await inviteRow.getByRole('status').filter({ hasText: /^Shared$/ }).waitFor();
+    assert.equal(await frame.locator('html').evaluate(() => window.sharedInvite), fullInvite, 'Your games shares the code and rule names');
+    assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_resume').length), resumes, 'Share does not open the game');
+    assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites, 'Share keeps the same code');
+    await inviteRow.locator('button[data-game-id]').click();
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     await remount('friend'); await frame.locator('#friend-new').waitFor();
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites, 'Remount makes no new code');
     assert.equal(await frame.locator('.game-code span').count(), 0, 'The saved game shows Make a new code');
@@ -1011,7 +1057,9 @@ try {
     }
     const offered = await buddyCode(); await openPlay();
     const lower = offered.code.toLowerCase(); await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(`${lower.slice(0,3)}-${lower.slice(3)}`); await frame.locator('#join').click();
-    await frame.locator('#join-confirm').waitFor(); await lookAt('join', 'join');
+    await frame.locator('#join-confirm').waitFor();
+    assert.equal(await frame.locator('#join-confirm').innerText(), 'Join and take Black');
+    await lookAt('join', 'join');
     await remount('join'); await frame.locator('#join-entry').waitFor();
     await frame.locator('#join-code').fill(lower); await frame.locator('#join-entry button').click(); await frame.locator('#join-confirm').waitFor();
     const joins = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_join' && !c.arguments.preview).length);

@@ -1,7 +1,7 @@
-import { call, client, memory, navigate, routeView } from '../app';
+import { call, client, memory, navigate, renderGameRows, routeView } from '../app';
 import { art } from '../art';
 import { formatDate } from '../games-list';
-import { copyText } from '../../clipboard';
+import { featureNames, friendInvites as codes, inviteText, ruleNames, sendInvite } from '../invite';
 import { ICONS, type Icon } from '../../account/profile';
 import type { Options } from '../../match/setup';
 import type { View } from '../../match/protocol';
@@ -9,10 +9,10 @@ import './lobby.css';
 import { errorText } from '../client';
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 export const icon = (name: string) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
-export const featureNames = [['fairy', 'fairy', 'Fairy pieces'], ['arrangement', 'arrange', 'Arrangement'], ['classic', 'classic', 'Classic chess'], ['cards', 'cards', 'Cards'], ['kingPowers', 'powers', 'King powers']] as const;
+export { featureNames };
 export function features(options: Options | null | undefined, words = false) {
   const span = document.createElement('span'); span.className = 'feats';
-  if (words) { span.textContent = featureNames.filter(([field]) => options?.[field]).map(([, , label]) => label).join(', ') || 'Standard pieces'; return span; }
+  if (words) { span.textContent = ruleNames(options); return span; }
   for (const [field, name, label] of featureNames) if (options?.[field]) { const mark = document.createElement('span'); mark.title = label; mark.setAttribute('role', 'img'); mark.setAttribute('aria-label', label); mark.innerHTML = icon(name); span.append(mark); }
   return span;
 }
@@ -33,7 +33,6 @@ export function toolError(code: string, fallback: string) {
   return ({ INVITE_UNAVAILABLE: /expired|used/i.test(fallback) ? 'This code has expired or was used. Ask your friend for a new code.' : 'No game has this code. Check the code with your friend.', NOT_FOUND: 'No game has this code. Check the code with your friend.', FORBIDDEN: 'You cannot join this game.', INVALID_INPUT: 'Check the code: 6 letters and digits.', RATE_LIMITED: 'Too many code tries. Wait one hour.' } as Record<string, string>)[code] ?? fallback;
 }
 export function showError(error: unknown, target = $('error')) { target.textContent = errorText(error); }
-const codes = new Map<string, { code: string; expires_at: string }>();
 const attempted = new Set<string>();
 let making = false;
 export function friendScreen() {
@@ -47,16 +46,14 @@ export function friendScreen() {
   const invite = codes.get(view.game_id), tiles = $('friend-code');
   tiles.replaceChildren(...[...invite?.code ?? ''].map(c => { const span = document.createElement('span'); span.textContent = c; return span; }));
   tiles.setAttribute('aria-label', invite ? [...invite.code].join(' ') : ''); tiles.hidden = !invite;
-  $('friend-copy').hidden = !invite; $('friend-new').hidden = !!invite;
+  $('friend-actions').hidden = !invite; $('friend-new').hidden = !!invite;
+  $('friend-copy-status').textContent = '';
   $('friend-help').textContent = invite ? `Your friend says “Join King Down game ${invite.code}” in ChatGPT, or types the code in Play. They need the King Down connection.` : 'The saved game has no code on this page. A new code ends the old code.';
   $('friend-game').replaceChildren(row('Waiting for your friend', 'clock', [invite ? `Ends ${formatDate(invite.expires_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.` : 'Make a new code to share this game.']));
   $('friend-game').querySelector('.line')!.id = 'friend-expiry';
   if (view.options) $('friend-game').append(row('Features', 'fairy', [features(view.options), `You play ${view.seat === 0 ? 'White' : 'Black'}.`]));
-  $('friend-copy').onclick = async () => {
-    if (!invite) return;
-    if (await copyText(invite.code)) $('friend-copy-status').textContent = 'Copied';
-    else { const range = document.createRange(); range.selectNodeContents(tiles); const selection = getSelection(); selection?.removeAllRanges(); selection?.addRange(range); $('friend-copy-status').textContent = 'Select the code and copy it'; }
-  };
+  $('friend-share').onclick = () => { if (invite) void sendInvite(inviteText(invite.code, view.options), $('friend-copy-status')); };
+  $('friend-copy').onclick = () => { if (invite) void sendInvite(inviteText(invite.code, view.options), $('friend-copy-status'), false); };
   $('friend-new').onclick = () => void makeCode(view);
   $('friend-cancel').onclick = async () => { const next = await call('kingdown_abort', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision }, true, false, false); if (next) { codes.delete(view.game_id); navigate('play'); } };
   // Create routes before the inbox read. A remount reads the inbox first and never renews the invite.
@@ -68,6 +65,7 @@ async function makeCode(view: View) {
     const result = await client.call('kingdown_invite', { game_id: view.game_id });
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     codes.set(view.game_id, result.structuredContent as { code: string; expires_at: string });
+    renderGameRows();
     if (client.state.screen === 'friend' && memory.view?.game_id === view.game_id) friendScreen();
   } catch (error) { showError(error, $('friend-status')); }
   finally { making = false; $('friend-new').removeAttribute('disabled'); }

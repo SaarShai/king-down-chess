@@ -1,6 +1,7 @@
 import type { InboxEntry, View } from '../match/protocol';
 import { ICONS } from '../account/profile';
 import { art } from './art';
+import { friendInvites, inviteText, sendInvite } from './invite';
 
 // Every date in the English UI: the device locale when it is English, else en-US.
 export const DATE_LOCALE = /^en(-|$)/i.test(navigator.language) ? navigator.language : 'en-US';
@@ -38,6 +39,16 @@ export function gamesList(target: HTMLElement, entries: InboxEntry[], call: (nam
     if (yours) { const mark = document.createElement('b'); mark.className = 'turn-mark'; mark.textContent = 'Your turn'; button.append(mark); }
     else { const end = document.createElement('i'); end.setAttribute('aria-hidden', 'true'); end.textContent = '›'; button.append(end); }
     button.onclick = async () => { const view = await call('kingdown_resume', { game_id: entry.game_id }); if (view) routeView(view); };
+    const invite = waiting && entry.kind === 'friend' ? friendInvites.get(entry.game_id) : undefined;
+    if (invite && Date.parse(invite.expires_at) > now) {
+      line.prepend(`${invite.code} · `);
+      const group = document.createElement('div'); group.className = 'friend-invite-row';
+      const share = document.createElement('button'); share.type = 'button'; share.textContent = 'Share';
+      share.setAttribute('aria-label', `Share game ${invite.code}`);
+      const status = document.createElement('p'); status.className = 'quiet-line'; status.setAttribute('role', 'status');
+      share.onclick = () => void sendInvite(inviteText(invite.code, entry.options), status);
+      group.append(button, share, status); return group;
+    }
     return button;
   }));
 }
