@@ -21,6 +21,13 @@ test('at the upload, only the review address can sign in with a password', () =>
  expect(step(2)).toContain("delete from kingdown_auth.password_accounts where email = '<opponent address>';");
  expect(step(7)).toContain("delete from kingdown_auth.password_accounts where email = '<test address>';");
  expect(readFileSync('plugin-deploy/review-signup-hook.sql', 'utf8')).toContain("delete from kingdown_auth.password_accounts where email <> 'YOUR-REVIEW-ADDRESS';");
+ // Each removed address is signed out on every device at once (its refresh tokens go with its sessions).
+ const signOut = (address: string) => `delete from auth.sessions where user_id in (select id from auth.users where lower(email) = '${address}');`;
+ expect(step(2)).toContain(signOut('<opponent address>'));
+ expect(step(7)).toContain(signOut('<test address>'));
+ expect(readFileSync('plugin-deploy/review-signup-hook.sql', 'utf8')).toContain("delete from auth.sessions where user_id in (select id from auth.users where lower(email) in ('OPPONENT', 'TEST'));");
+ // A refresh of a password session gets the same check (the amr claim keeps the sign-in method).
+ expect(readFileSync('plugin-deploy/oauth-audience-hook.sql', 'utf8')).toContain(`claims -> 'amr' @> '[{"method": "password"}]'`);
  // The list limits password sessions too, not only new accounts (tools/plugin-db/review-signup-hook.db.test.ts).
  expect(readFileSync('plugin-deploy/oauth-audience-hook.sql', 'utf8')).toMatch(/authentication_method' = 'password'[\s\S]*kingdown_auth\.password_accounts/);
  expect(step(2)).toContain('plugin-deploy/oauth-audience-hook.sql');

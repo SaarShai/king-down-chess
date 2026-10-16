@@ -30,7 +30,9 @@ begin
   -- Approval D8 a: a password session only for an address in kingdown_auth.password_accounts (review-signup-hook.sql).
   -- The Before User Created hook sees only new accounts, and a Google or GitHub player can add a password to an
   -- existing account (auth.updateUser). So Auth refuses the session here. With no list installed, it refuses them all.
-  if event ->> 'authentication_method' = 'password' then
+  -- A refresh comes as 'token_refresh', and the amr claim keeps the session's sign-in method. So each new token of a
+  -- password session gets the same check, and a session ends when its address leaves the list.
+  if event ->> 'authentication_method' = 'password' or coalesce(claims -> 'amr' @> '[{"method": "password"}]', false) then
     if to_regclass('kingdown_auth.password_accounts') is not null then
       listed := exists (select from kingdown_auth.password_accounts a where a.email = lower(claims ->> 'email'));
     end if;
