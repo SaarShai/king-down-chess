@@ -1039,7 +1039,8 @@ it('keeps a timed-out start and its Retry on New game when the player leaves at 
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await newGame(page);
-    await page.clock.install();
+    // Recovery compares start dates. Keep virtual time behind the fixture server's real clock.
+    await page.clock.install({ time: new Date(0) });
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
     await frame.locator('#setup-start').click();
     await page.waitForFunction(() => !!(window as any).releaseHeld);
