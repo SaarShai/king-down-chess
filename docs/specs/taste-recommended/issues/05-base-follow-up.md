@@ -1,6 +1,6 @@
 # Base follow-up: token shapes, chat result and Play checks
 
-Status: claimed
+Status: resolved
 Type: task
 
 ## Scope
@@ -47,7 +47,7 @@ keep their own shape. Controls, menu rows and toggles keep stone a.
   keep 34 × 34 px; power coins keep 40 × 40 px. Touch coins keep 44 × 44 px.
 - Browser assertions cover the ten phone coins at 393 × 852, the ten
   desktop coins with touch off, transparent badge and picture faces,
-  the painted canvas, and the stone Menu button. Size checks wait for
+  the board and parent faces, and the stone Menu button. Size checks wait for
   the card deal motion to end.
 - The move-in-flight test uses a real `kingdown_open` result. Open creates
   a new board. The test checks its private ID and the widget's adoption
@@ -66,6 +66,29 @@ keep their own shape. Controls, menu rows and toggles keep stone a.
 - Reader 2 checks the chat result and QA changes. The reader finds that
   Open creates a new board ID. The fix passes the second read. The reader
   also checks the doc test's section fix. No confirmed fault stays open.
+- Review A finds four faults. Each fault is confirmed against the code.
+  The repairs and their checks follow below. Review B finds no fault.
+
+## Review repairs
+
+1. Saved setup: confirmed. quickSetup makes a solo copy, and launch saves
+   that copy over last_setup. Play now starts without saving the copy.
+   Start game still saves the selected setup. Unit tests cover a new
+   player and saved friend and random choices, including Arrangement.
+   Browser checks read the whole saved setup after Play now for friend
+   and random, and check the new computer game's level and options.
+2. Phone checks: confirmed. The coin check sets the page to 1000 × 1000
+   and leaves it there. It now restores 390 × 844. Assertions check this
+   size before the 16 setup mixes and before the first seat and king sheet
+   checks. The desktop coin check keeps its separate page.
+3. QA words: confirmed. Step 2 treats all Play now starts as new-player
+   starts and does not say how to show Join with a code. It now states
+   both saved and new-player cases, the saved Arrangement route, and the
+   friend selection. The doc test checks each statement.
+4. Board assertions: confirmed. A canvas count and a button count do not
+   check the board's face. A computed background-image check now excludes
+   stone-control from the board and its parent. The Menu assertion checks
+   that the stone face is present on a control.
 
 ## Taste choices
 
@@ -94,7 +117,22 @@ existing coin sizes stay.
   Log: `/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/kingdown-check-runs/kd-od-base-sInQew/plugin-ui.log`
 - `plugin-ui-http` does not apply: no server code changes.
 
+## Review repair checks
+
+- `npm test`, with four workers and the given local test database: pass.
+  All 165 files pass; 2,566 tests pass and 8 skip. All 50 scene checks pass.
+  The suite takes 214.13 s. No time limit changes.
+  Log: `/tmp/kd-od-base-review-tests.log`.
+- `node --check tools/plugin-ui-check.mjs`: pass.
+- The commit's type check and staged repo gate: pass.
+- M1 `npm run -s check:browser plugin-ui` at `f9311cdc`: pass, 226.1 s.
+  The saved friend and random setup checks, phone size assertions and
+  computed board face check pass. The job releases the shared lock.
+  Log: `/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/kingdown-check-runs/kd-od-base-0C5VG8/plugin-ui.log`.
+- `plugin-ui-http` does not apply: no server code changes.
+
 ## Result
 
-All parts of this follow-up are complete. No new taste choice is necessary.
-All commits stay local. No push, merge or deploy takes place.
+All four review findings are fixed and pass their checks. No new taste
+choice is necessary. All commits stay local. No push, merge or deploy
+takes place.
