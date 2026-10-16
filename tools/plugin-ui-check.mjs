@@ -838,6 +838,7 @@ try {
   await shot(page, `board-art-${mode}`);
   await openScreen('settings');
   await frame.locator('#symbols-only').check();
+  await frame.locator('#symbols-only:not(:disabled)').waitFor();
   assert(await frame.locator('#symbols-only').isChecked());
   assert.equal(await page.evaluate(() => window.harnessWidgetState.modelContent.game_id), undefined);
   assert.deepEqual(await page.evaluate(() => Object.keys(window.harnessWidgetState.privateContent).sort()), ['board_id', 'pending', 'screen', 'sheet']);
@@ -845,6 +846,7 @@ try {
   await remountFrame();
   await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, settingsReads);
   await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
+  await frame.locator('#symbols-only:not(:disabled)').waitFor();
   assert(await frame.locator('#symbols-only').isChecked(), 'Settings return from the server on each mount');
   await frame.locator('#symbols-only').uncheck();
   await openPlay();
@@ -928,7 +930,8 @@ try {
     const offered = await buddyCode(); await openPlay();
     const lower = offered.code.toLowerCase(); await frame.locator('#token').fill(`${lower.slice(0,3)}-${lower.slice(3)}`); await frame.locator('#join').click();
     await frame.locator('#join-confirm').waitFor(); await lookAt('join', 'join');
-    await remount('join'); await frame.locator('#join-entry').waitFor();
+    // joinScreen() writes the saved code at the end of the mount. Wait before typing.
+    await remount('join'); await frame.locator('#join-entry button:not(:disabled)').waitFor();
     await frame.locator('#join-code').fill(lower); await frame.locator('#join-entry button').click(); await frame.locator('#join-confirm').waitFor();
     const joins = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_join' && !c.arguments.preview).length);
     await frame.locator('#join-decline').click();
@@ -1017,7 +1020,9 @@ try {
     await frame.locator('#found-switch').click(); await frame.locator('#over.found[open]').waitFor({ state: 'hidden' });
     assert.equal(await page.evaluate(() => window.harnessView.game_id), waiting.game_id, 'Switch selects the human game');
     const ended = await tool('kingdown_get', { game_id: solo.game_id }); assert(!ended.isError && ended._meta.view.status === 'aborted' && !ended._meta.view.outcome, 'Switch ends the computer game with no result');
-    await remount('board'); assert.equal(await page.evaluate(() => window.harnessView.game_id), waiting.game_id, 'The human board survives remount');
+    // The mount starts a board read. Wait for its reply before checking the shown game.
+    await remount('board'); await frame.locator('#board-menu:not(:disabled)').waitFor();
+    assert.equal(await page.evaluate(() => window.harnessView?.game_id), waiting.game_id, 'The human board survives remount');
     console.log(`Ticket 13 look comparisons: ${look}`);
     await openPlay(); await legacyStart('solo');
   }
@@ -1542,6 +1547,7 @@ try {
       await page.evaluate(({screen,base}) => { window.harnessNextView = screen === 'end' ? { ...base, status: 'finished', result: { winner: 0, reason: 'resign' } } : undefined; window.harnessWidgetState = { modelContent: {}, privateContent: { screen, sheet: undefined, board_id: window.harnessWidgetState.privateContent.board_id, pending: undefined } }; }, {screen,base:routeBase});
       await remountFrame();
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
+      await idleBoard();
       await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor(); await fits(screen,width);
       assert.deepEqual(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_get').arguments), { board_id: routeBoard }, 'A mount reads with the board ID alone');
       assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length), settingsReads + 1, 'Each mount reads server settings and me');

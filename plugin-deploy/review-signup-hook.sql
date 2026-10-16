@@ -5,8 +5,8 @@
 -- in only through Google, GitHub or Facebook, or with an email address in kingdown_auth.password_accounts. It refuses
 -- every other sign-up: email, phone, anonymous and unknown. The same list limits password sign-ins:
 -- public.kingdown_access_token_hook (oauth-audience-hook.sql) refuses a password session for every other address,
--- also for an existing Google or GitHub account that adds a password, and each new token (a refresh) of a password
--- session whose address left the list. This hook sees only new accounts.
+-- also for an existing Google or GitHub account that adds a password. An account with no social sign-in gets no new
+-- token after its address leaves the list, also for an app code exchange or refresh. This hook sees only new accounts.
 -- Order: apply oauth-audience-hook.sql and this file as the admin role; enable public.kingdown_before_user_created in
 -- Authentication > Hooks > Before User Created; add the addresses (below); only then turn the Email provider on and
 -- make the accounts (docs/submission/checklist.md, owner step 2).

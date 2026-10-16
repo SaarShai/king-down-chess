@@ -44,7 +44,7 @@ suite('the review password sign-up hook', () => {
   } finally { await client.query('rollback'); await client.end(); }
  });
 
- it('gives a password session only to a listed address, also when a Google or GitHub account adds a password or the session refreshes', async () => {
+ it('requires a listed address for password sessions and app tokens of accounts with no social sign-in', async () => {
   const client = await connect();
   try {
    await client.query('begin');
@@ -53,9 +53,9 @@ suite('the review password sign-up hook', () => {
    const now = Math.floor(Date.now() / 1000);
    // The documented payload; Auth puts the account's email address in the claims.
    // signIn: the session's first sign-in method, which Auth keeps in the amr claim, also on each refresh.
-   const token = async (method: string, email?: string, signIn?: string) => (await client.query('select public.kingdown_access_token_hook($1::jsonb) as result', [{
+   const token = async (method: string, email?: string, signIn?: string, providers = ['email', 'google']) => (await client.query('select public.kingdown_access_token_hook($1::jsonb) as result', [{
     user_id: randomUUID(), authentication_method: method,
-    claims: { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', exp: now + 3600, iat: now, sub: randomUUID(), role: 'authenticated', aal: 'aal1', session_id: randomUUID(), is_anonymous: false, ...(email === undefined ? {} : { email }), ...(signIn === undefined ? {} : { amr: [{ method: signIn, timestamp: now - 60 }] }) },
+    claims: { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', exp: now + 3600, iat: now, sub: randomUUID(), role: 'authenticated', aal: 'aal1', session_id: randomUUID(), is_anonymous: false, app_metadata: { provider: providers[0], providers }, ...(email === undefined ? {} : { email }), ...(signIn === undefined ? {} : { amr: [{ method: signIn, timestamp: now - 60 }] }) },
    }])).rows[0].result;
    const passwordRefused = { error: { http_code: 403, message: 'Sign in with Google or GitHub.' } };
    await client.query('set local role supabase_auth_admin');
@@ -68,19 +68,24 @@ suite('the review password sign-up hook', () => {
    expect((await token('password', 'Review@Example.test')).claims).toMatchObject({ email: 'Review@Example.test', aud: 'authenticated' });
    // A Google player who added a password with auth.updateUser, the opponent after step 2.8, and no address at all.
    for (const email of ['player@example.test', 'opponent@example.test', '', undefined]) expect(await token('password', email), String(email)).toEqual(passwordRefused);
-   // Every other way in is unchanged.
+   // A social account can still sign in without a password.
    for (const method of ['oauth', 'token_refresh', 'oauth_provider/authorization_code']) expect((await token(method, 'player@example.test')).claims, method).toMatchObject({ email: 'player@example.test' });
-   // The opponent and the test account sign in while listed. When the owner removes an address, its password session
-   // gets no new token (a refresh, or a code for the ChatGPT app); a Google session of the same address keeps its own.
+   // Auth makes a new app session with only oauth_provider/authorization_code in amr.
+   // Check both app token paths before and after the owner removes the address.
    await client.query('reset role');
    await client.query("insert into kingdown_auth.password_accounts(email) values('opponent@example.test')");
    await client.query('set local role supabase_auth_admin');
    expect((await token('token_refresh', 'opponent@example.test', 'password')).claims).toMatchObject({ email: 'opponent@example.test' });
+   for (const method of ['oauth_provider/authorization_code', 'token_refresh']) expect((await token(method, 'opponent@example.test', 'oauth_provider/authorization_code', ['email'])).claims, method).toMatchObject({ email: 'opponent@example.test' });
    await client.query('reset role');
    await client.query("delete from kingdown_auth.password_accounts where email = 'opponent@example.test'");
    await client.query('set local role supabase_auth_admin');
-   for (const method of ['token_refresh', 'oauth_provider/authorization_code']) expect(await token(method, 'Opponent@Example.test', 'password'), method).toEqual(passwordRefused);
+   expect(await token('token_refresh', 'Opponent@Example.test', 'password')).toEqual(passwordRefused);
+   for (const method of ['oauth_provider/authorization_code', 'token_refresh']) expect.soft(await token(method, 'Opponent@Example.test', 'oauth_provider/authorization_code', ['email']), method).toEqual(passwordRefused);
+   // An empty provider list has no social sign-in.
+   expect.soft(await token('token_refresh', 'opponent@example.test', 'oauth_provider/authorization_code', []), 'no providers').toEqual(passwordRefused);
    for (const signIn of ['oauth', undefined]) expect((await token('token_refresh', 'opponent@example.test', signIn)).claims, String(signIn)).toMatchObject({ email: 'opponent@example.test' });
+   for (const provider of ['google', 'github', 'facebook']) for (const method of ['oauth_provider/authorization_code', 'token_refresh']) expect((await token(method, 'opponent@example.test', 'oauth_provider/authorization_code', ['email', provider])).claims, `${provider}: ${method}`).toMatchObject({ email: 'opponent@example.test' });
    expect((await token('token_refresh', 'review@example.test', 'password')).claims).toMatchObject({ email: 'review@example.test' });
   } finally { await client.query('rollback'); await client.end(); }
  });

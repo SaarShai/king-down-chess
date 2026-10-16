@@ -148,7 +148,7 @@ try {
   await client.query(sql);
   await client.query('insert into kingdown_oauth.client_resources(client_id,resource) values($1,$2) on conflict(client_id) do update set resource=excluded.resource', [clientId, 'https://plugin.example/mcp']);
   const now = Math.floor(Date.now() / 1000);
-  const claims = { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', exp: now + 3600, iat: now, sub: actor, role: 'authenticated', aal: 'aal1', session_id: randomUUID(), email: 'player@example.test', phone: '', is_anonymous: false, client_id: clientId, scope: 'openid email' };
+  const claims = { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', exp: now + 3600, iat: now, sub: actor, role: 'authenticated', aal: 'aal1', session_id: randomUUID(), email: 'player@example.test', phone: '', is_anonymous: false, app_metadata: { provider: 'google', providers: ['google'] }, client_id: clientId, scope: 'openid email' };
   await client.query('set local role supabase_auth_admin');
   async function hook(event) { return (await client.query('select public.kingdown_access_token_hook($1::jsonb) as result', [event])).rows[0].result.claims; }
   const oauth = await hook({ user_id: actor, authentication_method: 'oauth_provider/authorization_code', claims }); assert.deepEqual(oauth, { ...claims, aud: 'https://plugin.example/mcp' });
