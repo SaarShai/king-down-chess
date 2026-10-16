@@ -269,15 +269,20 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
       }
     }
   }
-  function refresh() {
+  function turnControls(draft?: ReturnType<typeof draftTurn>) {
     if (!view || !pos) return;
-    rules(); moves = draftChoices(view, pos, steps);
-    const draft = turn();
+    rules(); draft ??= turn();
     const open = blocked() || !!sheet?.open || client.state.screen !== 'board';
     const ready = !open && view.action === 'ready' && view.status === 'playing' && draft.ready;
     $('undo').setAttribute('aria-disabled', String(open || !steps.length));
     const end = $('end-turn'), label = mode() === 'computer' ? 'End turn' : 'Send your turn';
     end.setAttribute('aria-disabled', String(!ready)); end.setAttribute('aria-label', label); end.title = label; end.classList.toggle('primary', ready);
+  }
+  function refresh() {
+    if (!view || !pos) return;
+    rules(); moves = draftChoices(view, pos, steps);
+    const draft = turn();
+    turnControls(draft);
     $('board').dataset.animating = String(animating);
     if (readFailed()) { armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]); }
     moveLine();
@@ -354,7 +359,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   observer.observe($('reload'), {attributes:true, attributeFilter:['disabled']});
   observer.observe(document.body, {attributes:true, attributeFilter:['data-page']});
   observer.observe($('over'), {attributes:true, attributeFilter:['open']});
-  observer.observe($('app-frame'), {attributes:true, attributeFilter:['open'], subtree:true});
+  new MutationObserver(() => turnControls()).observe($('app-frame'), {attributes:true, attributeFilter:['open'], subtree:true});
   observer.observe($('error'), {childList:true, characterData:true, subtree:true});
   return (next: View) => {
     if (view?.game_id === next.game_id && next.revision < view.revision) return;

@@ -345,6 +345,8 @@ it.each([[320, 568, 84], [320, 568, 180], [393, 852, 118], [820, 600, 34], [852,
   const page = await open(next, width, height), frame = page.frameLocator('iframe');
   try {
     expect(await frame.locator('#table-bar button').allTextContents()).toEqual(['Undo','','Menu']);
+    expect(await frame.locator('#end-turn').getAttribute('aria-label')).toBe('Send your turn');
+    expect(await frame.locator('#end-turn').getAttribute('title')).toBe('Send your turn');
     expect(await frame.locator('#context-actions #abort').count()).toBe(0);
     expect(await frame.locator('#context-note').textContent()).toBe('');
     expect(await frame.locator('#strip-them small').textContent()).toBe('New player · Black');
@@ -434,6 +436,9 @@ it('W7: stages a move, sends once, and starts the computer only after the press'
     expect((await moveCalls(page)).map((c: any) => c.arguments.actions)).toEqual([['e2-e4']]);
     expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
     expect(await frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('true');
+    expect(await frame.locator('#undo').isDisabled()).toBe(false); expect(await frame.locator('#end-turn').isDisabled()).toBe(false);
+    await frame.locator('#undo').focus(); await page.keyboard.press('Tab');
+    expect(await frame.locator('#end-turn').evaluate(e => e===document.activeElement)).toBe(true);
     await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_computer'; (window as any).releaseBefore(); });
     await page.waitForFunction(() => (window as any).harnessCalls.some((c: any) => c.name==='kingdown_computer'));
     expect(await frame.locator('#status').textContent()).toBe('Their move.');
@@ -482,9 +487,11 @@ it('W7: keeps piece and coin reads while the draft waits and while a send waits'
       expect(await frame.locator('#context-note').textContent()).toBe('Tap End turn, or Undo.');
       await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).click();
       await frame.locator('#board-sheet[open]').waitFor(); await page.keyboard.press('Escape');
+      expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).evaluate(e => e===document.activeElement)).toBe(true);
       await frame.locator('#power-w').click();
       expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);
       await page.keyboard.press('Escape');
+      expect(await frame.locator('#power-w').evaluate(e => e===document.activeElement)).toBe(true);
       await squareTap(page,36); await frame.locator('#board').press('Enter');
       const box=(await frame.locator('#board canvas').boundingBox())!;
       await page.mouse.move(box.x+box.width/2,box.y+box.height/2); await page.mouse.down(); await page.mouse.move(box.x+box.width/2+10,box.y+box.height/2); await page.mouse.up();
@@ -493,6 +500,15 @@ it('W7: keeps piece and coin reads while the draft waits and while a send waits'
       expect(await frame.locator('#last-move').innerText()).toContain('White pawn e2 to e4.');
       expect((await moveCalls(page)).length).toBe(sending?1:0);
     }
+    await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_computer'; (window as any).releaseBefore(); });
+    await page.waitForFunction(() => (window as any).harnessCalls.some((c: any) => c.name==='kingdown_computer'));
+    await squareTap(page,28);
+    expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
+    await frame.locator('#power-w').click();
+    expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);
+    await page.keyboard.press('Escape'); await squareTap(page,36); await frame.locator('#board').press('Enter');
+    expect(await frame.locator('#last-move').innerText()).toContain('White pawn e2 to e4.');
+    expect((await moveCalls(page)).length).toBe(1);
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
 

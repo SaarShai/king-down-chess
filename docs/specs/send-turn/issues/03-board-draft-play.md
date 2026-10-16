@@ -29,3 +29,5 @@ Source: owner ticket 12-submit-turn. Scope: design section 8, ticket 03.
 ## Evidence
 
 - The server merge has no conflict. The model merge has one test conflict. Both draft tests and time-left tests stay.
+- Two independent readers find and check three fixes: the off controls keep their Tab place during Send; a read sheet keeps the opener focus; all saved-turn browser flows press the turn button. The saved-turn read check also covers the state after the server saves the turn. Both readers report no open fault after the fixes.
+- `npx tsc --noEmit` passes on the first build and after the review fixes. The local model test waits for the shared test lock. The M1 board test waits for another lane's browser lock.
