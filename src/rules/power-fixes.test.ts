@@ -10,7 +10,7 @@
  * `darknessAuraPawns`, `darknessKingStep2`), and round 17 two more versions of the king step
  * (`darknessKingStepSafe`, `darknessKingStepTakes`). The king step is official since 2026-10-04.
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   B, BLACK, Color, K, Move, N, P, PieceType, Position, Q, R, WHITE, colorOf, file, genPiece, inCheck, isAttacked, legalMoves, makeMove, parseSq, piece, powerOf, rank,
   sqName, status, typeOf,
@@ -467,76 +467,88 @@ describe('Darkness readings, round 16: one sentence each (owner, 2026-10-03)', (
     expect(inCheck(fromFen('8/8/3k4/8/3K4/8/8/8 w - - 0 1'))).toBe(true);
   });
 
-  // One case per reading keeps all 4,000 boards within the existing time limit.
-  it.each(['darknessPawnArmor', 'darknessAuraPawns', 'darknessKingStep2', 'darknessKingStepSafe', 'darknessKingStepTakes'] as const)('on random boards %s changes exactly what its sentence says, no more and no less', key => {
+  describe('on random boards each reading changes exactly what its sentence says, no more and no less', () => {
     // From the moves with the reading off: the armour and the aura drop the pawn captures they name,
     // and the step adds every straight two-square king step over and onto an empty square that does
     // not end in check; the safe step only those over a square the enemy does not attack, and the
     // take also those onto an enemy piece that no shelter covers (and the enemy's take may drop our
     // moves). `obeys` (below) checks only the moves offered; this also finds a missing one.
-    let seed = 1604;
-    const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
-    const dark: KingChoice = { king: 'Shadow', power: 'Darkness' };
-    const types: PieceType[] = [P, P, P, N, B, R, Q];
+    // The boards are built once, and each reading is its own test: as one test, the five readings made
+    // 15,697 move generations and went past the 5 s limit under load (checks-and-hooks ticket 13).
+    const READINGS = ['darknessPawnArmor', 'darknessAuraPawns', 'darknessKingStep2', 'darknessKingStepSafe', 'darknessKingStepTakes'] as const;
+    const STEPS: readonly string[] = ['darknessKingStep2', 'darknessKingStepSafe', 'darknessKingStepTakes'];
     const near = (a: number, b: number): boolean => a !== b && Math.max(Math.abs(file(a) - file(b)), Math.abs(rank(a) - rank(b))) === 1;
     const diag = (a: number, b: number): boolean => Math.abs(file(a) - file(b)) === 1 && Math.abs(rank(a) - rank(b)) === 1;
-    let changed = 0;
-    const STEPS: readonly string[] = ['darknessKingStep2', 'darknessKingStepSafe', 'darknessKingStepTakes'];
-    const seen = { refused: 0, taken: 0, dropped: 0 }; // safe steps refused, takes offered, our moves the enemy's take drops
-    for (let trial = 0; trial < 4000; trial++) {
-      const board = new Uint8Array(64);
-      const kw = Math.floor(rng() * 64);
-      let kb = kw;
-      while (Math.max(Math.abs(file(kb) - file(kw)), Math.abs(rank(kb) - rank(kw))) < 2) kb = Math.floor(rng() * 64);
-      board[kw] = piece(K, WHITE); board[kb] = piece(K, BLACK);
-      for (let s = 0; s < 64; s++) {
-        if (board[s] || rng() < 0.6) continue;
-        const t = types[Math.floor(rng() * types.length)];
-        if (t !== P || (s >= 8 && s < 56)) board[s] = piece(t, rng() < 0.5 ? WHITE : BLACK);
-      }
-      const pos: Position = { board, turn: (rng() < 0.5 ? WHITE : BLACK) as Color, halfmove: 0, ply: 0 };
-      const c = pos.turn, o = (c ^ 1) as Color;
-      const kings: Rules['kings'] = rng() < 0.3 ? [dark, dark] : rng() < 0.5 ? [dark, null] : [null, dark];
-      const base: Partial<Rules> = { kings, darknessMoves: rng() < 0.7, darknessShelter: rng() < 0.2 };
-      // The side not to move may not be in check, under the take too (it only adds attacks).
-      setRules({ ...base, darknessKingStep2: true, darknessKingStepTakes: true });
-      if (inCheck(pos, o)) continue;
-      setRules(base);
-      const offMoves = legalMoves(pos), off = lans(pos, offMoves);
-      const ko = board.indexOf(piece(K, o));
-      setRules({ ...base, darknessKingStep2: STEPS.includes(key), [key]: true });
-      let expected = off;
-      if (STEPS.includes(key)) {
-        const takes = key === 'darknessKingStepTakes';
-        const kept = takes ? offMoves.filter(m => !inCheck(makeMove(pos, m), c)) : offMoves;
-        seen.dropped += offMoves.length - kept.length;
-        const k = board.indexOf(piece(K, c)), steps: Move[] = [];
-        if (powerOf(c) === 'Darkness') for (const [df, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
-          const f = file(k) + 2 * df, r = rank(k) + 2 * dr, mid = k + df + 8 * dr, to = k + 2 * (df + 8 * dr);
-          if (f < 0 || f > 7 || r < 0 || r > 7 || board[mid]) continue;
-          const v = board[to];
-          // `base` holds one shelter: the enemy's Darkness shelter, the diagonal neighbours of its king.
-          if (v && (!takes || colorOf(v) === c || (powerOf(o) === 'Darkness' && base.darknessShelter && diag(to, ko)))) continue;
-          if (!v && key === 'darknessKingStepSafe' && isAttacked(board, mid, o)) { seen.refused++; continue; }
-          const m: Move = { from: k, to, captures: v ? [to] : [] };
-          if (!inCheck(makeMove(pos, m), c)) { steps.push(m); if (v) seen.taken++; }
+    const boards: { pos: Position; base: Partial<Rules>; offMoves: Move[]; off: string[] }[] = [];
+    beforeAll(() => {
+      let seed = 1604;
+      const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+      const dark: KingChoice = { king: 'Shadow', power: 'Darkness' };
+      const types: PieceType[] = [P, P, P, N, B, R, Q];
+      for (let trial = 0; trial < 4000; trial++) {
+        const board = new Uint8Array(64);
+        const kw = Math.floor(rng() * 64);
+        let kb = kw;
+        while (Math.max(Math.abs(file(kb) - file(kw)), Math.abs(rank(kb) - rank(kw))) < 2) kb = Math.floor(rng() * 64);
+        board[kw] = piece(K, WHITE); board[kb] = piece(K, BLACK);
+        for (let s = 0; s < 64; s++) {
+          if (board[s] || rng() < 0.6) continue;
+          const t = types[Math.floor(rng() * types.length)];
+          if (t !== P || (s >= 8 && s < 56)) board[s] = piece(t, rng() < 0.5 ? WHITE : BLACK);
         }
-        expected = [...lans(pos, kept), ...lans(pos, steps)].sort();
-      } else if (powerOf(o) === 'Darkness' && !(key === 'darknessAuraPawns' && base.darknessShelter)) {
-        const named = (s: number): boolean => colorOf(board[s]) === o
-          && (key === 'darknessPawnArmor' ? typeOf(board[s]) === P : typeOf(board[s]) !== K && near(s, ko));
-        expected = lans(pos, offMoves.filter(m => !(typeOf(board[m.from]) === P && m.captures.some(named))));
+        const pos: Position = { board, turn: (rng() < 0.5 ? WHITE : BLACK) as Color, halfmove: 0, ply: 0 };
+        const kings: Rules['kings'] = rng() < 0.3 ? [dark, dark] : rng() < 0.5 ? [dark, null] : [null, dark];
+        const base: Partial<Rules> = { kings, darknessMoves: rng() < 0.7, darknessShelter: rng() < 0.2 };
+        // The side not to move may not be in check, under the take too (it only adds attacks).
+        setRules({ ...base, darknessKingStep2: true, darknessKingStepTakes: true });
+        if (inCheck(pos, (pos.turn ^ 1) as Color)) continue;
+        setRules(base);
+        const offMoves = legalMoves(pos);
+        boards.push({ pos, base, offMoves, off: lans(pos, offMoves) });
       }
-      const where = `${toFen(pos)} ${key} ${JSON.stringify(base)}`;
-      expect(lans(pos), where).toEqual(expected);
-      expect(lans(pos, searchLegal(pos)), where).toEqual(expected);
-      if (expected.join() !== off.join()) changed++;
-    }
-    // Not vacuous (2026-10-04: 113, 25, 431, 252 and 594 boards; 1,114 safe steps refused, 158 takes,
-    // 622 moves dropped by the enemy's take).
-    expect(changed).toBeGreaterThan(15);
-    if (key === 'darknessKingStepSafe') expect(seen.refused).toBeGreaterThan(15);
-    if (key === 'darknessKingStepTakes') expect(Math.min(seen.taken, seen.dropped)).toBeGreaterThan(15);
+      setRules();
+    });
+
+    it.each(READINGS)('%s', key => {
+      const step = STEPS.includes(key), takes = key === 'darknessKingStepTakes';
+      let changed = 0;
+      const seen = { refused: 0, taken: 0, dropped: 0 }; // safe steps refused, takes offered, our moves the enemy's take drops
+      for (const { pos, base, offMoves, off } of boards) {
+        const { board } = pos, c = pos.turn, o = (c ^ 1) as Color;
+        const ko = board.indexOf(piece(K, o));
+        setRules({ ...base, darknessKingStep2: step, [key]: true });
+        let expected = off;
+        if (step) {
+          const kept = takes ? offMoves.filter(m => !inCheck(makeMove(pos, m), c)) : offMoves;
+          seen.dropped += offMoves.length - kept.length;
+          const k = board.indexOf(piece(K, c)), steps: Move[] = [];
+          if (powerOf(c) === 'Darkness') for (const [df, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+            const f = file(k) + 2 * df, r = rank(k) + 2 * dr, mid = k + df + 8 * dr, to = k + 2 * (df + 8 * dr);
+            if (f < 0 || f > 7 || r < 0 || r > 7 || board[mid]) continue;
+            const v = board[to];
+            // `base` holds one shelter: the enemy's Darkness shelter, the diagonal neighbours of its king.
+            if (v && (!takes || colorOf(v) === c || (powerOf(o) === 'Darkness' && base.darknessShelter && diag(to, ko)))) continue;
+            if (!v && key === 'darknessKingStepSafe' && isAttacked(board, mid, o)) { seen.refused++; continue; }
+            const m: Move = { from: k, to, captures: v ? [to] : [] };
+            if (!inCheck(makeMove(pos, m), c)) { steps.push(m); if (v) seen.taken++; }
+          }
+          expected = [...lans(pos, kept), ...lans(pos, steps)].sort();
+        } else if (powerOf(o) === 'Darkness' && !(key === 'darknessAuraPawns' && base.darknessShelter)) {
+          const named = (s: number): boolean => colorOf(board[s]) === o
+            && (key === 'darknessPawnArmor' ? typeOf(board[s]) === P : typeOf(board[s]) !== K && near(s, ko));
+          expected = lans(pos, offMoves.filter(m => !(typeOf(board[m.from]) === P && m.captures.some(named))));
+        }
+        const where = `${toFen(pos)} ${key} ${JSON.stringify(base)}`;
+        expect(lans(pos), where).toEqual(expected);
+        expect(lans(pos, searchLegal(pos)), where).toEqual(expected);
+        if (expected.join() !== off.join()) changed++;
+      }
+      // Not vacuous (2026-10-04: the readings in order changed 113, 25, 431, 252 and 594 of the 1,427 boards;
+      // 1,114 safe steps refused, 158 takes, 622 moves dropped by the enemy's take).
+      expect(changed).toBeGreaterThan(15);
+      if (key === 'darknessKingStepSafe') expect(seen.refused).toBeGreaterThan(15);
+      if (takes) expect(Math.min(seen.taken, seen.dropped)).toBeGreaterThan(15);
+    });
   });
 
   it('the rule text names each reading', () => {
