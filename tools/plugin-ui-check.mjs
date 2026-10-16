@@ -1222,7 +1222,8 @@ try {
     await tap(file,rank);
     if (!black) { await dragOwnSquare(file,rank); assert.equal(await page.evaluate(()=>window.harnessView.revision),start,'Drag must not shoot'); await tap(2,2); await tap(2,4); }
     else { await frame.locator('#power-b').click(); await frame.locator('#board-sheet').getByRole('button', {name:'Use', exact:true}).click(); await openMoveChoices(); await frame.locator('#choices button').filter({hasText:/freeze/i}).click(); }
-    await page.waitForFunction(r=>window.harnessView.revision>=r,start+1);
+    // The board takes no key while the computer reply runs (blocked()): wait for the player's turn again.
+    await page.waitForFunction(r=>window.harnessView.revision>=r&&window.harnessView.turn===window.harnessView.seat,start+1);
     await idleBoard();
     await frame.locator('#board').focus();
     for (let i=0;i<9;i++) await page.keyboard.press('ArrowRight');
