@@ -26,7 +26,7 @@ try {
   assert.deepEqual(await lanMoves(page), [], 'chosen bites do not write a ply');
   await tap(8);
   assert.deepEqual((await marks()).bites, [26, 35], 'off-mark taps keep the chain');
-  assert.match(await contextText(page), /Tap a marked piece, or stop here/);
+  assert.match(await contextText(page), /Select a marked piece, or stop here/);
   await page.locator('#stop-chain').click();
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length === 1);
   assert.match((await lanMoves(page)).join(' '), /Sd4xc4xd5/);

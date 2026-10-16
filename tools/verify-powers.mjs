@@ -64,7 +64,7 @@ try {
   await open(page);
   await usePower(page);
   assert.equal(await powerCoin(page, 'w').getAttribute('aria-pressed'), 'true');
-  assert.equal(await contextText(page), 'Freeze · 1 left\nTap an enemy piece.');
+  assert.equal(await contextText(page), 'Freeze · 1 left\nSelect an enemy piece.');
   assert.equal(await page.isHidden('#power-use'), true);
   await page.click('#power-cancel');
   assert.equal(await powerCoin(page, 'w').getAttribute('aria-pressed'), 'false');
