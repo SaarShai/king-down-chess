@@ -10,7 +10,7 @@ it('uses the nine paintings, three power scenes and nine plain names', () => {
     const face = cardArt(card);
     if (painted.includes(card)) expect(face).toContain(`<img src="ui/cards/${card.toLowerCase()}.webp" alt="">`);
     else if (['Strike','Haste','Flight'].includes(card)) expect(face).toContain(`pm-${card}`);
-    else expect(face).toMatch(/^<span class="cf-word">[^<]+<\/span>$/);
+    else expect(face).toMatch(/^<span class="cf-word" aria-hidden="true">[^<]+<\/span>$/);
     expect(face).not.toContain('back.webp');
   }
   expect(cardArt('MirrorB')).toContain('>Mirror<');

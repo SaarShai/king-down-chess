@@ -8,5 +8,5 @@ export function cardArt(card: CardName): string {
   const face = art(`ui/cards/${card.toLowerCase()}.webp`);
   if (face) return `<img src="${face}" alt="">`;
   if (card === 'Strike' || card === 'Haste' || card === 'Flight') return powerArt(card);
-  return `<span class="cf-word">${cardName(card)}</span>`;
+  return `<span class="cf-word" aria-hidden="true">${cardName(card)}</span>`;
 }
