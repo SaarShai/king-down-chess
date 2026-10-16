@@ -45,8 +45,9 @@ it('shows finished details and adds the second page with the unchanged cursor', 
   } finally { await page.close(); }
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
+// The badge dates show the player's own day: a fixed time zone keeps the expected dates the same on every machine.
 async function open() {
-  const page = await browser.newPage(); page.setDefaultTimeout(5000); await page.goto(harness.url);
+  const page = await browser.newPage({ timezoneId: 'UTC' }); page.setDefaultTimeout(5000); await page.goto(harness.url);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   return page;
 }
