@@ -181,11 +181,16 @@ function remember(result: ToolResult) {
   const value = result.structuredContent as Record<string, unknown> | undefined;
   if (value && typeof value.your_turn_count === 'number') $('home-line').textContent = turnLine(value.your_turn_count);
 }
+// Chat results mount one at a time, and a newer result stops an older mount at its next wait. So only the newest
+// result reads and routes, and each board selection (kingdown_resume) reaches the server in order.
+let mounts = Promise.resolve(), mountCount = 0;
 app.ontoolresult = result => {
   const initial = awaitingInitialResult; awaitingInitialResult = false;
-  void mountResult(result, initial);
+  const count = ++mountCount;
+  const mount = () => mountResult(result, initial, () => count !== mountCount);
+  mounts = mounts.then(mount, mount);
 };
-async function mountResult(result: ToolResult, initial: boolean) {
+async function mountResult(result: ToolResult, initial: boolean, stale: () => boolean) {
   mountReading = true; actions();
   const shown = view?.game_id;
   try {
@@ -198,6 +203,7 @@ async function mountResult(result: ToolResult, initial: boolean) {
       if (settings.isError) throw new Error(settings.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(settings); await applySettings();
     }
+    if (stale()) return;
     if (result.isError) {
       memory.preview = undefined;
       memory.joinError = { code: String(result._meta?.code ?? ''), message: result.content.filter(c => c.type === 'text').map(c => c.text).join(' ') };
@@ -210,6 +216,7 @@ async function mountResult(result: ToolResult, initial: boolean) {
     if (value && ['home', 'play', 'board', 'profile', 'join'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen as Screen);
     if (typeof value?.game_id === 'string' && !value.board_id && (!initial || !state.board_id)) {
       const selected = await client.call(state.board_id ? 'kingdown_resume' : 'kingdown_open', { game_id: value.game_id }, { limit: false });
+      if (stale()) return;
       if (selected.isError) throw new Error(selected.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(selected);
     }
@@ -219,6 +226,7 @@ async function mountResult(result: ToolResult, initial: boolean) {
     // A command in flight for the game shown before would skip this read, and its reply would keep the old game on the screen.
     // A result for another game waits for that command, so its own read shows last.
     if (readBoard && typeof value?.game_id === 'string' && value.game_id !== shown) while (busy) await commandDone;
+    if (stale()) return;
     if (readBoard) await call('kingdown_get', {}, false, false, route);
     else if (!result._meta?.view) view = undefined;
     if (!readBoard) await games();
