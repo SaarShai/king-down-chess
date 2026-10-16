@@ -36,6 +36,34 @@ it.each([
  } finally { await client.close(); await server.close(); }
 });
 
+it('accepts exactly one move input form and keeps the whole-turn tool contract', async () => {
+ const game_id = '00000000-0000-4000-8000-000000000001';
+ const command = vi.fn(async () => ({game_id,seat:0,status:'playing',action:'waiting',fen:'',draw_offer:null}));
+ const service = {command,profile:async()=>({handle:null,icon:null})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'turn-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const args = {game_id,command_id:'turn',expected_revision:0};
+  const call = (input:Record<string,unknown>) => client.callTool({name:'kingdown_move',arguments:{...args,...input}});
+  for (const input of [{actions:['e2-e4']},{actions:['Ra1-a2!H','Ra2-a3']},{actions:['a','b','c']},{actions:['a','b','c','d']},{lan:'e2-e4'},{lan:'x'.repeat(120)}]) {
+   expect((await call(input)).isError).not.toBe(true);
+   expect(command.mock.lastCall).toEqual(['alice',game_id,{command_id:'turn',expected_revision:0,action:{type:'turn',actions:input.actions ?? [input.lan]}}]);
+  }
+  command.mockClear();
+  for (const input of [{lan:'e2-e4',actions:['e2-e4']},{},{actions:[]},{actions:['a','b','c','d','e']},{actions:['']},{actions:['x'.repeat(121)]},{actions:[1]},{actions:'e2-e4'},{actions:null},{lan:''},{lan:'x'.repeat(121)}]) {
+   expect(await call(input)).toMatchObject({isError:true,_meta:{code:'INVALID_INPUT'}});
+  }
+  expect(command).not.toHaveBeenCalled();
+  const tool = (await client.listTools()).tools.find(tool=>tool.name==='kingdown_move')!;
+  expect(tool.description).toBe("Play the player's whole turn: one to four exact legal moves, in order, all or nothing. Retry with the same command ID and the same input.");
+  expect(tool._meta?.ui).toEqual({visibility:['app']});
+  expect(tool.annotations).toEqual({readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false});
+  expect(tool.inputSchema.required).toEqual(['game_id','command_id','expected_revision']);
+  expect(tool.inputSchema.properties?.actions).toMatchObject({type:'array',minItems:1,maxItems:4,items:{type:'string',minLength:1,maxLength:120}});
+ } finally {await client.close(); await server.close();}
+});
+
 it('loads changed board HTML through a resource cache while reusing identical builds across actors', async () => {
  const cache = new Map<string,string>();
  async function render(resourceHtml: string, actorId = 'alice') {

@@ -18,7 +18,7 @@ async function open(url = harness.url) {
   return page;
 }
 // Spec J2, D2: the first test, while the shared player has no saved setup and no game.
-it('takes a new player from the home card to a first move in three taps', async () => {
+it('takes a new player from the home card to a draft move and the turn press', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     expect(await frame.locator('#home-card button').allInnerTexts()).toEqual(['Play now', 'Choose a game']);
@@ -30,7 +30,9 @@ it('takes a new player from the home card to a first move in three taps', async 
     const box = (await frame.locator('#board canvas').boundingBox())!;
     const tap = (file: number, rank: number) => page.mouse.click(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (96 + (7 - rank + .5) * 112) * box.width / 960);
     await tap(4, 1); await tap(4, 2);
-    await expect.poll(() => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.lan))).toEqual(['e2-e3']);
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move'))).toEqual([]);
+    await frame.locator('#end-turn[aria-disabled="false"]').click();
+    await expect.poll(() => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.actions))).toEqual([['e2-e3']]);
     const game_id = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
     await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } });
   } finally { await page.close(); }
@@ -926,6 +928,7 @@ it('recovers a held move at 10 seconds and ignores its late reply', async () => 
       }, square);
       await page.mouse.click(point.x + pane!.x, point.y + pane!.y);
     }
+    await frame.locator('#end-turn[aria-disabled="false"]').click();
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     const command = await page.evaluate(() => (window as any).harnessCalls.find((c: any) => c.name === 'kingdown_move').arguments.command_id);
     await page.clock.fastForward(10_001);
@@ -1745,6 +1748,7 @@ it('keeps a failed read board locked until a good read, and offers Try again aft
     expect(await frame.locator('#choices button').count()).toBe(2);
     await frame.locator('#board').press('ArrowUp'); await frame.locator('#board').press('ArrowUp');
     await frame.locator('#board').press('Enter');
+    await frame.locator('#end-turn[aria-disabled="false"]').click();
     await expect.poll(() => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').length)).toBeGreaterThan(moves);
     await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
     await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();

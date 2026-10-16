@@ -1,0 +1,106 @@
+# Board: draft play, Undo and the turn button
+
+Status: in-progress
+
+All ticket 03 build items exist. All six review findings have fixes and tests. The draw-row follow-up also has a fix and tests. The local checks and M1 fixture check pass. The existing HTTP join-preview fault keeps full HTTP acceptance open.
+
+Source: owner ticket 12-submit-turn. Scope: design section 8, ticket 03.
+
+## Plan
+
+1. Merge the whole-turn server and the pure draft model. Keep both test groups.
+2. Stage moves on the board. Add Undo and the sword turn button. Keep piece and coin reads available while play waits.
+3. Change the browser checks and add the six board journeys. Check the types and all unit tests. Run the browser checks on the M1.
+4. Get two independent reviews. Fix confirmed faults. Commit the result.
+
+## Checks
+
+- Journeys 1 to 4, 9 and 10 pass through the UI.
+- Each new control has a 48 px target. The bar fits at 320 px. Reduce Motion stops the ready pulse.
+- A press sends one actions list. Sent moves do not animate twice. The computer waits for the press.
+- Type check, unit tests, plugin-ui and plugin-ui-http pass.
+
+## Scope and taste
+
+- T1a: End turn against the computer; Send your turn against a person. The sword is the only visible button content. Its name and title use these words.
+- T2a: Undo, turn button, Menu. J7 already puts Resign and Offer draw in Menu.
+- T3a: show the off button on their turn. T4a: one ready pulse; colour only with Reduce Motion.
+- T5a: no extra unsent mark. T7a: no leave prompt.
+- Ticket 04 owns private state restore, refusal codes and draft recovery. Ticket 05 owns submission copy. Ticket 06 owns the unfinished-turn server check. T6 belongs to ticket 04.
+
+## Evidence
+
+- Merge commits `2a845f90` and `ceea1011` bring in the server and model first. The server merge has no conflict. The model merge has one test conflict. Both draft tests and time-left tests stay.
+- Two independent readers check the final source. The confirmed fixes keep the off controls in the Tab order during Send, keep read-sheet opener focus, add the turn press to old saved-turn test flows, draw the draft after failed motion, keep the pending connection error during reads, and show Their move during the opponent's Haste turn. Both readers report no open fault.
+- `npx tsc --noEmit` passes. The final single-file board run also runs the type check. It passes all 47 board tests and 50 figure checks in 126.85 seconds. Journeys 1 to 4, 9 and 10 pass. The log is `/tmp/kd-od-board-final-board.log`.
+- The local source unit suite uses the supplied test database and two workers. It passes 112 files and 1,619 tests; 8 tests skip. All 50 figure checks pass. It takes 113.58 seconds after the lock wait. The log is `/tmp/kd-od-board-unit.log`.
+- The local model file passes 46 tests. The merged server fixture file passes 8 tests. The local motion file passes all 14 tests. The three tooling database files pass all 10 tests with the supplied database URL. Their logs are `/tmp/kd-od-board-fixture-unit.log` and `/tmp/kd-od-board-followup.log`.
+- The M1 full `npm test` run at `059b138a` passes 155 files and 2,501 tests in 451.02 seconds. It has 131 skips without the database URL. The local database runs cover the 121 database skips; 10 optional tests stay skipped. All 50 figure checks pass. The final Haste prompt guard and its new test then pass in the 47-test board run. The full log is `/tmp/kd-od-board-full-final.log`.
+- The full run finds three old motion tests that wait for an immediate save. Their shared helper now presses the turn button and checks that the end card stays closed before the press. The repeated motion file and full suite pass. The busy-control test now reads the native disabled property and checks Tab access; Playwright treats `aria-disabled` as disabled in its role check.
+- The M1 protocol check passes on `42c91498`. The first named fixture check stops at the old sprite count. Undo and the sword add two symbols, so the check now expects 23.
+- The final M1 `plugin-ui` check passes in 231.4 seconds at `42c91498`. It includes the final Haste guard. The rendered 390 px board shows the right-pointing sword and all three bar controls. The page payload is 690,029 bytes, below its 1 MB limit. The local log is `/tmp/kd-od-board-ui-final.log`; the sample is `/tmp/kd-od-board-sample.png`.
+- The M1 `plugin-ui-http` check fails in 157.6 seconds at `tools/plugin-ui-check.mjs:902`. After the join screen remounts, `#join-confirm` stays hidden for the existing 30-second limit. Profile, setup and seat flows pass. This join block agrees with the server input. Ticket 01 records the same fault on base `d748b1b6` with the same limits. Ticket 03 changes no join code. The local log is `/tmp/kd-od-board-http-final.log`. This existing fault prevents full HTTP acceptance; no ticket 03 build part is missing.
+- The M1 job uses the lane folder and the shared check lock. It releases the lock after the failed HTTP check. The local summary log is `/tmp/kd-od-board-browser-final.log`.
+- The final doc check passes 8 files and 114 tests in 1.84 seconds. No test or check time limit changes. No dependency changes.
+
+## Review fixes
+
+Plan:
+
+1. Check all six findings against the source and the approved design.
+2. Fix each confirmed fault. Add a test for each fault. Test real drag and keyboard paths against legal moves.
+3. Run the local unit tests with the supplied test database. Run the board tests as one local test file. Run plugin-ui and plugin-ui-http on the M1 in the lane folder, with the shared lock.
+4. Record the results and commit on claude/od-board.
+
+Checks:
+
+- A dropped draft leaves only saved move text and marks. Resign and Abort show no draft move in the end card.
+- A saved half turn names the correct turn button in both game modes.
+- A send shows no instruction to press an off control. Piece and coin rules stay available.
+- Escape clears selection, power and card arming, choices and the sheet. It keeps the draft.
+- A draw offer keeps the short rule text and All rules. The controls fit at 320 px.
+- Journey 4 uses occupied sources and legal destinations. The draft position and move calls stay fixed before the press and while Send waits.
+
+Findings:
+
+- A1 confirmed. A reply with no history and no move keeps the draft's lastMove. Reset it to the last saved move when the draft drops. Tests cover Menu Resign, Menu Abort, and an incremental draw reply with and without saved history.
+- A2 confirmed. turnLine returns no words at zero staged steps. Use the ready half turn for its words. Model tests check Haste and Freeze in both game modes.
+- A3 confirmed. The turn line and waitNotice name off controls during a send. Show Sending while the turn waits for its reply. Keep piece rule text during sends. Journey 4 checks the words before and during Send.
+- B1 confirmed. The sheet Escape handler only closes the sheet. One handler now clears selection, power and card arming, and choices. It keeps the draft. Tests cover the Haste draft and both arming paths on the board and in a sheet. Stable rule-button IDs keep focus after the refresh.
+- B2 confirmed. drawReply hides All rules, and the draw note replaces the short rule text. Keep All rules and add the draw note after the rule text. The 320 px test checks reads, control bounds and the text bounds before and during Send.
+- B3 confirmed. The old drag starts on empty e5, and Enter reads a1. Journey 4 now attempts e7-e5 by tap, keyboard and drag. A second test attempts the player's legal Haste follow-up e4-e5 while Send waits. The engine confirms both moves are legal in their draft positions. Probes check that the real drag handler runs. Each path checks the full board FEN, the saved FEN and move calls.
+
+Results:
+
+- The local source suite passes on 805cc3b8. It uses npm test, the source test filter and the supplied test database. All 112 files and 1,619 tests pass; 8 tests skip. All 50 figure checks pass. The suite takes 95.53 seconds after the lock wait. Log: /tmp/kd-od-board-review-unit.log.
+- The type check and commit hooks pass. The document checks pass all 114 tests in 8 files.
+- The three tooling database files pass with the supplied database URL. All 10 tests and 50 figure checks pass. Log: /tmp/kd-od-board-review-db.log.
+- The final board file passes all 56 tests with npm test and the single-file filter on this Mac. The type check and all 50 figure checks pass. The board file takes 132.30 seconds after the lock wait. This covers all six findings, the player's legal Haste follow-up during Send, Escape before the next tap, no blocked-move animation, and the draw layout at 320 px. Log: /tmp/kd-od-board-review-board-local.log.
+- The document check passes all 114 tests in 8 files. No dependency, test limit or check limit changes.
+
+M1 check record:
+
+- The first detached job waits for the shared lock for about 105 minutes. The recovery review then stops that waiting job by PID 82165, before any browser check starts.
+- The [recovery review](04-recovery.md) records the first check at eba18a62 and the corrected check at f91d63dd. Both use the same lane folder. All check jobs have ended.
+
+## Browser check follow-up
+
+1. The M1 fixture check at eba18a62 fails at the draw-offer size check for the start position at 320 px.
+2. Add the same position and all four pawn actions to the local board tests. Check the board, text and action row sizes.
+3. Fix the confirmed layout fault. Keep All rules, the short piece rule and the draw note.
+4. Run the local checks and both M1 checks again. The HTTP launch must set the supplied test database through its own loopback tunnel.
+
+- The new start-position test fails before the fix. The board width changes from 68 to 56 px. The context row grows from 92 to 155 px. The other 56 board tests pass.
+- Two draw-only CSS rules cause the growth. The text stacks on a separate line. Four labels force the action buttons onto two rows.
+- Keep inline text for a draw offer in all three viewports. Give draw-row buttons equal room and let their labels wrap. Reduce their vertical padding so two label lines fit the existing row. Keep All rules, the short rule and both draw replies. No fixed height is added.
+- The regression test covers 320×568, 360×640 and 852×393. It checks the board and row sizes and the button hit areas.
+- Two label lines need 45 px with the old padding. The new padding keeps the existing 44 px row. The inline text rule also applies in landscape.
+- The corrected board file passes all 59 tests in 141.54 seconds. It also passes the type check and all 50 figure checks. Log: /tmp/kd-od-board-draw-green2.log.
+- The full unit suite then passes 156 files and 2,400 tests, with 8 skips, in 228.12 seconds. It uses the supplied test database and two workers. The type check and all 50 figure checks pass. Log: /tmp/kd-od-board-draw-unit2.log.
+- Local job 14964 ends with both results at zero. Source commit f91d63dd holds the fix and tests. The M1 has a clean checkout at this head.
+- Corrected M1 job 29133 uses a clean f91d63dd checkout. It takes the shared lock after about 15 minutes. The test database check passes.
+- M1 plugin-ui passes in 233.6 seconds. This includes the start, half-turn and armed draw rows at all three viewport sizes.
+- M1 plugin-ui-http fails in 157.4 seconds at tools/plugin-ui-check.mjs:902. After the join remount, #join-confirm stays hidden for the existing 30-second wait. Profile, setup and seat checks pass first.
+- [Ticket 01](01-server-whole-turn.md) records the same HTTP fault on base d748b1b6. Join, client, app, server and named-check code match the starting head. This fault remains outside the draw-row fix.
+- The M1 worktree stays clean at f91d63dd after both checks. The job ends and releases the lock after the HTTP failure. The test tunnel then closes.
+- Results: /tmp/kd-od-board-final-m1.results. Local logs: /tmp/kd-od-board-final-ui.log and /tmp/kd-od-board-final-http.log. The saved 320 px and landscape renders show the short rule and all four controls. Samples: /tmp/kd-od-board-draw-fixed-320.png and /tmp/kd-od-board-draw-fixed-landscape.png.

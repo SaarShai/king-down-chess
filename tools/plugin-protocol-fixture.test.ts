@@ -1,6 +1,36 @@
 import { expect, it, vi } from 'vitest';
 import { fixtureService } from './plugin-protocol-fixture';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
+import * as matchEngine from '../src/match';
+
+it('keeps full reads and polls open while a refused turn restores the fixture', async () => {
+ const s = fixtureService(), loadMatch = matchEngine.loadMatch;
+ const reads:Promise<PromiseSettledResult<unknown>[]>[] = [];
+ const restore = vi.spyOn(matchEngine,'loadMatch');
+ try {
+  await s.handle('alice',{handle:'alice'}); await s.handle('bob',{handle:'bob'});
+  const game = await s.create('alice',{kind:'friend',colour:'white',options:{...DEFAULT_OPTIONS,fairy:false,arrangement:false,classic:true}});
+  await s.accept('bob',game.game_id);
+  const before = await s.view('alice',game.game_id);
+  const read = () => reads.push(Promise.allSettled([
+   s.view('alice',game.game_id),s.view('bob',game.game_id,before.revision),
+  ]));
+  restore.mockImplementationOnce(async save => {
+   read();
+   const next = await loadMatch(save);
+   read();
+   return next;
+  });
+  await expect(s.command('alice',game.game_id,{
+   command_id:'refused',expected_revision:before.revision,action:{type:'turn',actions:['e2-e4','zzzz']},
+  })).rejects.toMatchObject({code:'INVALID_MOVE'});
+  expect(restore).toHaveBeenCalledOnce();
+  const results = (await Promise.all(reads)).flat();
+  expect(results).toHaveLength(4);
+  expect(results.map(result=>result.status)).toEqual(Array(4).fill('fulfilled'));
+  expect(await s.view('alice',game.game_id)).toMatchObject({fen:before.fen,revision:before.revision,last_commands:before.last_commands});
+ } finally {restore.mockRestore();await s.close();}
+});
 
 it('supports the screen tools, hidden setup choices, board selection and rematch in the fixture', async () => {
  const s = fixtureService();

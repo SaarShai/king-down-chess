@@ -151,6 +151,18 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect((await player.ok('kingdown_profile'))._meta.history[0].game_id).toBe(legacy.game_id);
  });
 
+ it('saves Haste and its second move in one revision and one command row', async () => {
+  const actor = await user('whole-turn'), player = await connect(actor);
+  const created = await new GameService(new PostgresMatchStore(admin)).create(actor,{kind:'solo',colour:'white',setup:{kings:'Flame:Haste,none',fen:'7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1'}});
+  const args = {game_id:created.game_id,command_id:randomUUID(),expected_revision:created.revision,actions:['Ra1-a2!H','Ra2-a3']};
+  const moved = await player.ok('kingdown_move',args);
+  expect(view(moved)).toMatchObject({revision:1,turn:1,action:'waiting',status:'playing'});
+  expect(view(moved).last_commands).toMatchObject([{seq:1,seat:0,action:{type:'turn',actions:args.actions}}]);
+  expect(view(await player.ok('kingdown_move',args)).revision).toBe(1);
+  expect(await rows('select revision from public.games where id=$1',[created.game_id])).toEqual([{revision:1}]);
+  expect(await rows('select seq,command_id,actions from public.game_commands where game_id=$1',[created.game_id])).toEqual([{seq:1,command_id:args.command_id,actions:args.actions}]);
+ });
+
  it('accepts revision 1100 and refuses 1101 without changing a game', async () => {
   const actor = await user('bounds'), player = await connect(actor);
   const created = await player.ok('kingdown_create',{kind:'solo',options:{...DEFAULT_OPTIONS,arrangement:false}});

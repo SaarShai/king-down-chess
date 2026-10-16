@@ -103,7 +103,7 @@ try {
 
   await frame.locator('#home-card').waitFor();
   assert.equal(await frame.locator('#app-head').count(), 0, 'The approved sample has no page title or tabs');
-  assert.equal(await frame.locator('symbol').count(), 21, 'The page has the full game sprite');
+  assert.equal(await frame.locator('symbol').count(), 23, 'The page has the full game sprite');
   assert.equal(await frame.locator('#over').count(), 1, 'The frame has one shared overlay');
   assert.equal(await frame.locator('#i-back, #i-close, #i-plus, #i-mic').count(), 0, 'Host icons stay with the host');
   assert(await frame.locator('#home-play').isDisabled(), 'Play waits for the page and the host to connect');
@@ -1266,7 +1266,7 @@ try {
   await page.clock.install();
   const computerBefore = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_computer').length);
   await page.evaluate(() => { window.holdNext = 'kingdown_computer'; });
-  await clickSquare(4,1); await clickSquare(4,3);
+  await clickSquare(4,1); await clickSquare(4,3); await sendTurn();
   await page.waitForFunction(() => typeof window.releaseHeld === 'function', undefined, {timeout:5000});
   await page.clock.fastForward(1100);
   await frame.locator('#strip-them .player-name small').filter({hasText:'thinking…'}).waitFor();
@@ -1274,6 +1274,7 @@ try {
   await page.evaluate(() => window.releaseHeld());
   await frame.locator('#status').filter({hasText:'Your move'}).waitFor(); await idleBoard();
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_computer').length), computerBefore + 1, 'One normal computer turn sends one command');
+  async function sendTurn() { await idleBoard(); await frame.locator('#end-turn[aria-disabled="false"]').click(); }
   async function haste() { const result = await (await page.request.post(new URL('/fixture-position?case=haste',base).href)).json(); assert(!result.isError); await page.evaluate(result=>window.harnessShow(result),result); await frame.locator('#status').filter({hasText:'Your move'}).waitFor(); await idleBoard(); }
   await seedBoard('swap');
   await frame.locator('canvas').evaluate(() => { window.harnessSwapMarks = 0; });
@@ -1288,7 +1289,7 @@ try {
   for (const code of ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'COMMAND_CONFLICT', 'MATCH_INCOMPATIBLE']) {
     if (!await frame.locator('#choices button[title="e2-e4"]').count()) await clickSquare(4,1);
     await page.evaluate(code => { window.rejectNextMove = code; }, code);
-    await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click();
+    await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await sendTurn();
     await idleBoard();
     assert.equal(await frame.locator('#retry').isVisible(), false, `${code} must release the pending command`);
     await frame.locator('#error').filter({hasText:'Harness definitive rejection'}).waitFor();
@@ -1300,7 +1301,7 @@ try {
   const winner = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_move',arguments:{game_id:race.game_id,command_id:randomUUID(),expected_revision:race.revision,lan:'d2-d4'}}})).json();
   assert(!winner.isError,'Another tab wins the move race');
   await page.evaluate(() => { window.dropNextReply='kingdown_move'; window.holdNext='kingdown_computer'; });
-  await clickSquare(4,1); await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click();
+  await clickSquare(4,1); await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await sendTurn();
   await frame.locator('#retry').waitFor();
   assert.match(await frame.locator('#last-move').innerText(),/White pawn e2 to e4/,'The lost refusal keeps the move until Retry');
   const raceReads = await page.evaluate(() => window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
@@ -1311,7 +1312,7 @@ try {
   await haste(); await clickSquare(4,1);
   if (!await frame.locator('#choices button[title="e2-e4"]').count()) await clickSquare(4,1);
   await page.evaluate(() => { window.holdNext = 'kingdown_move'; window.dropNextMoveReply = true; });
-  await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click();
+  await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await sendTurn();
   await page.waitForFunction(() => typeof window.releaseHeld === 'function');
   assert(await frame.locator('#reload').isDisabled(), 'The generic hold hook keeps Move pending');
   assert.match(await frame.locator('#last-move').innerText(), /White pawn e2 to e4/, 'The move shows before the held reply');
@@ -1364,16 +1365,16 @@ try {
   await tapSquare(4, 1);
   assert.equal(await frame.locator('#move-hint').innerText(), 'Select a marked square to move, or choose a move below.');
   await tapSquare(4, 3);
-  await idleBoard();
-  assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_move' && c.arguments.game_id === window.harnessMatchId && c.arguments.lan === 'e2-e4').length), 1, 'Touch destination commits the ordinary move once');
+  await sendTurn(); await idleBoard();
+  assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_move' && c.arguments.game_id === window.harnessMatchId && c.arguments.actions?.[0] === 'e2-e4').length), 1, 'Touch destination commits the ordinary move once');
   await openPlay(); await legacyStart('solo'); await idleBoard();
   await haste(); await tapSquare(4, 1);
   await openMoveChoices(); await frame.locator('#choices button').filter({ hasText: 'e2 to e4, with Haste' }).tap();
   await idleBoard();
-  assert.equal(await frame.locator('#status').innerText(), 'Move it again, or stop here.', 'Explicit Haste keeps the extra move');
-  assert.equal(await page.evaluate(() => window.harnessView.revision), 1);
+  assert.equal(await frame.locator('#status').innerText(), 'Move it again, or select End turn.', 'Explicit Haste keeps the extra move');
+  assert.equal(await page.evaluate(() => window.harnessView.revision), 0);
   await tapSquare(4, 3); await tapSquare(4, 3);
-  assert.equal(await page.evaluate(() => window.harnessView.revision), 1, 'Second tap must not pass Haste');
+  assert.equal(await page.evaluate(() => window.harnessView.revision), 0, 'Second tap must not pass Haste');
   assert.equal(await frame.locator('#choices button').count(),0,'Second tap deselects');
   async function dragOwnSquare(file,rank,black=false) {
     const box=await boardBox(); assert(box);
@@ -1382,10 +1383,10 @@ try {
     await page.mouse.move(x,y); await page.mouse.down(); await page.mouse.move(x+10,y); await page.mouse.up();
   }
   await tapSquare(4,3); await dragOwnSquare(4,3);
-  assert.equal(await page.evaluate(() => window.harnessView.revision),1,'Drag start must not pass Haste');
+  assert.equal(await page.evaluate(() => window.harnessView.revision),0,'Drag start must not pass Haste');
   await tapSquare(4, 3); await tapSquare(4, 4);
-  await idleBoard();
-  assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_move' && c.arguments.game_id === window.harnessMatchId).length), 2, 'Touch finishes the explicit Haste action');
+  await sendTurn(); await idleBoard();
+  assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_move' && c.arguments.game_id === window.harnessMatchId).length), 1, 'One press sends both Haste actions');
   await openPlay();
   await shot(page, 'mobile');
   for (const scenario of ['archer','freeze']) {
@@ -1406,7 +1407,7 @@ try {
     if (!black) { await dragOwnSquare(file,rank); assert.equal(await page.evaluate(()=>window.harnessView.revision),start,'Drag must not shoot'); await tap(2,2); await tap(2,4); }
     else { await frame.locator('#power-b').click(); await frame.locator('#board-sheet').getByRole('button', {name:'Use', exact:true}).click(); await openMoveChoices(); await frame.locator('#choices button').filter({hasText:/freeze/i}).click(); }
     // The board takes no key while the computer reply runs (blocked()): wait for the player's turn again.
-    await page.waitForFunction(r=>window.harnessView.revision>=r&&window.harnessView.turn===window.harnessView.seat,start+1);
+    await sendTurn(); await page.waitForFunction(r=>window.harnessView.revision>=r&&window.harnessView.turn===window.harnessView.seat,start+1);
     await idleBoard();
     await frame.locator('#board').focus();
     for (let i=0;i<9;i++) await page.keyboard.press('ArrowRight');
@@ -1488,8 +1489,8 @@ try {
   await frame.locator('#strip-me .card-coin').nth(cardIndex).click();
   assert(!(await page.evaluate(()=>JSON.stringify(window.harnessWidgetState))).includes(cardWords),'A card read stores no hand data in widget state');
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
-  await openMoveChoices(); await frame.locator(`#choices button[title="${cardLan}"]`).click();
-  await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.lan===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
+  await openMoveChoices(); await frame.locator(`#choices button[title="${cardLan}"]`).click(); await sendTurn();
+  await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.actions?.[0]===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
   await frame.locator('#strip-me .card-coin').nth(cardIndex).and(frame.locator('[data-state="used"]')).waitFor();
   assert.equal(await frame.locator('#strip-me .card-coin').nth(cardIndex).getAttribute('data-state'),'used','The played card is spent');
   await page.waitForFunction(id=>window.harnessView.game_id===id&&window.harnessView.turn===window.harnessView.seat,cardView.game_id); await idleBoard(); await boardBox();
@@ -1505,7 +1506,7 @@ try {
   for(const [source,destination,blackFrom,blackTo] of [[knight.from,knight.to,48+pawnFile,32+pawnFile],[knight.to,target,32+pawnFile,target]]) {
     setRules(arrivalRules); const pre=fromFen(arrivalView.fen), move=legalMoves(pre).find(m=>m.from===source&&m.to===destination&&!m.power); assert(move); const white=toLan(pre,move);
     await clickSquare(source%8,source>>3); await openMoveChoices();
-    await frame.locator(`#choices button[title="${white}"]`).click(); await page.waitForFunction(rev=>window.harnessView.revision>rev,arrivalView.revision); await idleBoard();
+    await frame.locator(`#choices button[title="${white}"]`).click(); await sendTurn(); await page.waitForFunction(rev=>window.harnessView.revision>rev,arrivalView.revision); await idleBoard();
     arrivalView=await page.evaluate(()=>window.harnessView);
     setRules(arrivalRules); const blackPos=fromFen(arrivalView.fen), blackMove=legalMoves(blackPos).find(m=>m.from===blackFrom&&m.to===blackTo&&!m.power); assert(blackMove); const black=toLan(blackPos,blackMove);
     const moved=await arrivalTool('kingdown_move',{game_id:arrivalView.game_id,command_id:randomUUID(),expected_revision:arrivalView.revision,lan:black},true); assert(!moved.isError); arrivalView=await arrivalRead();
@@ -1514,7 +1515,7 @@ try {
   await frame.locator('#strip-me .card-coin').nth(salvation).click();
   assert.match(await frame.locator('#board-sheet .cf-art img').getAttribute('src'),/salvation-/,'salvation.webp loads from the plugin origin');
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click(); await openMoveChoices();
-  await frame.locator(`#choices button[title="${arrivalLan}"]`).click();
+  await frame.locator(`#choices button[title="${arrivalLan}"]`).click(); await sendTurn();
   await page.waitForFunction(rev=>window.harnessView.revision>rev,arrivalView.revision); await idleBoard(); await boardBox();
   await frame.locator('#strip-me .card-coin').nth(salvation).and(frame.locator('[data-state="used"]')).waitFor();
   assert.equal(await frame.locator('#strip-me .card-coin').nth(salvation).getAttribute('data-state'),'used','The arrival spends Salvation');
@@ -1676,14 +1677,14 @@ try {
     assert(acceptedCalls.some(c=>c.name==='kingdown_resume'&&c.arguments.game_id===accepted.game_id&&c.arguments.board_id===acceptBoard),'Accept resumes the new game on the same board');
     assert.equal(accepted.status,'playing'); assert.equal(accepted.seat,1,'The accepted rematch swaps colours'); assert.deepEqual(accepted.options,human.options,'The accepted rematch keeps its features');
     human=await joinedGame();
-    await clickSquare(4,1); await clickSquare(4,3); await idleBoard(); current=await page.evaluate(()=>window.harnessView);
+    await clickSquare(4,1); await clickSquare(4,3); await sendTurn(); await idleBoard(); current=await page.evaluate(()=>window.harnessView);
     const blackMove=await friendTool('kingdown_move',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,lan:'e7-e5'}); assert(!blackMove.isError); await readGame();
-    await clickSquare(3,1); await clickSquare(3,3); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.abort_open,false);
+    await clickSquare(3,1); await clickSquare(3,3); await sendTurn(); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.abort_open,false);
     if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{deadline_at:new Date(Date.now()-60000).toISOString()}}}}});
     else { const {Client}=await import('pg'); const db=new Client({connectionString:process.env.PLUGIN_TEST_DATABASE_URL}); await db.connect(); try {await db.query("update public.games set deadline_at=now()-interval '1 minute', deadline_kind='move' where id=$1",[human.game_id]);} finally {await db.end();} }
     await readGame(); await frame.locator('#context-actions #claim').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Claim the win',exact:true}).click();
     await frame.locator('#over.end-card[open] h2').filter({hasText:'You win'}).waitFor(); await idleBoard(); assert.match(await frame.locator('#end-reason').innerText(),/Time/);
-    human=await joinedGame(); await clickSquare(4,1); await clickSquare(4,3); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.abort_open,true);
+    human=await joinedGame(); await clickSquare(4,1); await clickSquare(4,3); await sendTurn(); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.abort_open,true);
     if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{deadline_at:new Date(Date.now()-60000).toISOString()}}}}});
     else {const {Client}=await import('pg'); const db=new Client({connectionString:process.env.PLUGIN_TEST_DATABASE_URL}); await db.connect(); try {await db.query("update public.games set deadline_at=now()-interval '1 minute', deadline_kind='first_turn' where id=$1",[human.game_id]);} finally {await db.end();}}
     await readGame(); assert.equal(await frame.locator('#context-actions #claim').innerText(),'End game');
@@ -1714,7 +1715,7 @@ try {
     await page.clock.fastForward(5000);
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     await clickSquare(4, 1); await clickSquare(4, 3);
-    await idleBoard();
+    await sendTurn(); await idleBoard();
     const friend = await page.evaluate(() => window.harnessView);
     const replied = await friendTool('kingdown_move',{ game_id: friend.game_id, command_id: 'friend-reply', expected_revision: friend.revision, lan: 'e7-e5' });
     assert(!replied.isError);
@@ -1970,8 +1971,9 @@ try {
       await frame.locator('#board').press('Enter');
       if(stage==='start') assert(await frame.locator('#context-actions').getByRole('button',{name:'Choose a move',exact:true}).count(),'The pawn offers an ordinary move and Haste');
       else {
-        assert(await frame.locator('#context-actions').getByRole('button',{name:'Stop here',exact:true}).count(),'The Haste turn offers Stop here');
-        assert.equal(await frame.locator('#context-actions').getByRole('button',{name:'Choose a move',exact:true}).count(),0,'A pass has its own Stop here action');
+        assert.equal(await frame.locator('#end-turn').getAttribute('aria-disabled'),'false','The Haste turn permits the press');
+        assert.equal(await frame.locator('#context-actions').getByRole('button',{name:'Stop here',exact:true}).count(),0,'The turn button replaces Stop here');
+        assert.equal(await frame.locator('#context-actions').getByRole('button',{name:'Choose a move',exact:true}).count(),0,'The turn button ends the mid-way turn');
       }
       const after=await frame.locator('#board canvas').boundingBox(), selectedRow=await frame.locator('#context-line').boundingBox();
       assert(Math.abs(before.width-after.width)<1 && Math.abs(row.height-selectedRow.height)<1,`The draw offer keeps the board and row size at ${width}×${height} (${stage})`);
@@ -2002,7 +2004,7 @@ try {
     const start = await legacyStart('solo');
     await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
     await clickSquare(4,1); await page.evaluate(()=>{window.dropNextMoveReply=true;});
-    await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await frame.locator('#retry').waitFor();
+    await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await sendTurn(); await frame.locator('#retry').waitFor();
     const switched = await tool('kingdown_create',{kind,options:features,colour:'white'});
     assert.equal(switched._meta.view.status,status); assert.equal(switched._meta.view.fen,'');
     await page.evaluate(result=>window.harnessShow(result),switched);
@@ -2014,7 +2016,7 @@ try {
   // A host notification can switch games independently of a pending submission.
   await clickSquare(4, 1);
   await page.evaluate(() => { window.dropNextMoveReply = true; });
-  await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await frame.locator('#retry').waitFor();
+  await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await sendTurn(); await frame.locator('#retry').waitFor();
   // White, as the board's Solo button sends: with no colour the seat is random, and Black has no move before the computer.
   const switched = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_create', arguments: { kind: 'solo', options, colour: 'white' } } })).json();
   await page.evaluate(async result => { await window.harnessShow(result); }, switched);

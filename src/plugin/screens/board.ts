@@ -1,11 +1,12 @@
-import { fromFen, toFen, toLan } from '../../rules/setup';
-import { colorOf, findKing, K, inCheck, legalMoves, moveNumber, nameOf, piece, PLAIN_KINGS, RULES, setRules, sqName, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
+import { fromFen, toFen } from '../../rules/setup';
+import { colorOf, findKing, K, inCheck, status, moveNumber, nameOf, piece, PLAIN_KINGS, RULES, setRules, sqName, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
 import { cardName, cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
 import { checkCause, checkersOf, describeMove, shortMove, threatsIn } from '../../move-text';
 import { marksModel, railsOf } from '../../marks-model';
 import { readText, reachOf, teachNote } from '../../read';
 import { LESSONS } from '../../lessons';
 import { contextLine } from '../../context-line';
+import { waitNotice } from '../../turn';
 import type { PlayerRecord, View } from '../../match/protocol';
 import { ending } from '../ending';
 import { board, highlight } from '../board-view';
@@ -17,7 +18,7 @@ import { client, memory, navigate } from '../app';
 import { nextGame } from '../next-game';
 import { actionButtons } from './board-actions';
 import { updateEnd } from './end';
-import { applyLan, boardActions, cardCoins, replayHistory, replayLans, stripLine, timeLeft, type BoardMove } from './board-model';
+import { applyLan, boardActions, cardCoins, draftChoices, draftTurn, replayHistory, replayLans, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 import './board.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 type Choice = { lan: string; move: Move };
@@ -37,7 +38,7 @@ export function closeBoardSheet() {
   if (sheet.open) document.querySelector<HTMLElement>('.page-sheet')!.inert = false;
   sheet.close(); scrim.hidden = true;
   const focus = sheetFocus?.id ? document.getElementById(sheetFocus.id) : sheetFocus;
-  if (restore && focus?.isConnected) focus.focus({preventScroll:true}); client.state.sheet = undefined; client.save();
+  if (restore) (focus?.isConnected ? focus : $('board')).focus({preventScroll:true}); client.state.sheet = undefined; client.save();
 }
 export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   if (!sheet) {
@@ -45,8 +46,7 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
     sheet = document.createElement('dialog'); sheet.id = 'board-sheet'; sheet.setAttribute('aria-labelledby', 'board-sheet-title'); sheet.className = 'over-sheet'; sheet.setAttribute('aria-modal', 'true');
     $('app-frame').append(scrim, sheet); scrim.onclick = closeBoardSheet;
     sheet.onkeydown = event => {
-      if (event.key === 'Escape') { event.preventDefault(); closeBoardSheet(); }
-      else if (event.key === 'Tab') {
+      if (event.key === 'Tab') {
         const buttons = [...sheet.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, select, [tabindex="0"]')].filter(el => el.getClientRects().length), i = buttons.indexOf(document.activeElement as HTMLElement);
         if (event.shiftKey && i <= 0 || !event.shiftKey && i === buttons.length - 1) { event.preventDefault(); buttons[event.shiftKey ? buttons.length - 1 : 0]?.focus({preventScroll:true}); }
       }
@@ -63,8 +63,12 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
 const text = (words: string) => { const p = document.createElement('p'); p.textContent = words; return p; };
 const button = (words: string, click: () => void) => { const b = document.createElement('button'); b.textContent = words; b.onclick = click; return b; };
 export function boardScreen(call: (name: string, args: Record<string, unknown>, retain?: boolean) => Promise<View | undefined>, networkBlocked: () => boolean, readFailed: () => boolean) {
-  let generation = 0, animating = false, optimistic: BoardMove | undefined;
+  let generation = 0, animating = false, steps: BoardMove[] = [];
   const blocked = () => networkBlocked() || animating;
+  const mode = () => view!.kind === 'solo' ? 'computer' : 'link';
+  const turn = () => draftTurn(steps, pos!, mode(), view!.seat);
+  const canPlay = () => !!view && !!pos && !blocked() && view.action === 'ready' && view.status === 'playing' && !turn().waits;
+  const canRead = () => !animating;
   let armed: PowerName | undefined, armedCard: number | undefined;
   let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0;
   let computerCalls = 0, computerRunning = false, thinking = false, tornDown = false, thinkingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -133,21 +137,39 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     const remaining = remainingTime();
     if (!tornDown && view?.status === 'playing' && remaining > 0) deadlineTimer = setTimeout(() => remainingTime() > 0 ? updateTime() : refresh(), Math.min(60000, remaining + 1));
   }
-  async function choose(lan: string) {
-    if (!view || !pos || blocked() || view.action !== 'ready') return;
-    const before = view, step = applyLan(pos, lan, view.rules!, view.legal);
+  function choose(lan: string) {
+    if (!canPlay()) return;
+    rules(); const step = applyLan(pos!, lan, view!.rules!, moves.map(choice => choice.lan));
     if (!step) return;
+    const keyboard = document.activeElement === $('board') || !!sheet?.contains(document.activeElement);
     closeBoardSheet(); armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]);
-    const token = ++generation; optimistic = lastMove = step; pos = step.pos; animating = true;
-    board.skip(); board.setLifted(null); moveLine();
+    const token = ++generation; steps.push(step); lastMove = step; pos = step.pos; animating = true;
+    board.skip(); board.setLifted(null); moveLine(); refresh();
     if (step.move.drop !== undefined) board.sync(step.pos);
-    void (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve()).then(() => { if (token === generation) { board.sync(step.pos); sound(step); } }).finally(() => { if (token === generation) { animating = false; refresh(); scheduleComputer(); } });
-    await call('kingdown_move', { game_id: before.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: before.revision, lan }, true);
+    void (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve()).then(() => { if (token === generation) sound(step); }).finally(() => {
+      if (token !== generation) return;
+      board.sync(step.pos); animating = false; refresh();
+      if (keyboard) $(turn().waits ? 'end-turn' : 'board').focus({preventScroll:true});
+    });
   }
+  function undo() {
+    if (blocked() || !steps.length || sheet?.open) return;
+    const step = steps.pop()!; ++generation; board.skip(); pos = step.pre; lastMove = steps.at(-1) ?? history.at(-1);
+    armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]);
+    board.sync(pos); refresh();
+  }
+  $('undo').onclick = undo;
+  $('end-turn').onclick = () => {
+    if (!view || !pos || blocked() || sheet?.open || view.action !== 'ready' || view.status !== 'playing' || !turn().ready) return;
+    rules(); const actions = sendActions(steps, pos, view.seat);
+    $('board').focus({preventScroll:true});
+    void call('kingdown_move', {game_id:view.game_id, command_id:crypto.randomUUID().replaceAll('-', ''), expected_revision:view.revision, actions}, true);
+  };
+  $('table-bar').onkeydown = event => { if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undo(); } };
   rollbackBoardMove = async () => {
     if (!view) return;
     const message = $('error').textContent ?? '';
-    ++generation; board.skip(); animating = false; optimistic = undefined; lastMove = history.at(-1);
+    ++generation; board.skip(); animating = false; steps = []; lastMove = history.at(-1);
     rules(); pos = fromFen(view.fen); board.sync(pos); moveLine(); refresh();
     await call('kingdown_get', {}); $('error').textContent = message; refresh();
   };
@@ -155,20 +177,24 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     $('move-hint').textContent = !list.length ? '' : list.every(({move}) => needsArming(move)) ? 'Choose a move below.' : 'Select a marked square to move, or choose a move below.';
     $('choices').replaceChildren(...list.map(({lan, move}) => { const b = button(describeMove(pos!, move), () => choose(lan)); b.title = lan; return b; }));
   }
+  $('app-frame').addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || client.state.screen !== 'board' && !sheet?.contains(event.target as Node)) return;
+    event.preventDefault(); armed = undefined; armedCard = undefined; selected = undefined; choices([]); refresh(); closeBoardSheet();
+  });
   function select(square: number, submit = true) {
-    if (!view || !pos || blocked()) return;
-    rules(); $('error').textContent = '';
-    const targets = submit && view.action === 'ready' ? named().filter(({move}) => move.to === square || move.from === square) : [];
+    if (!view || !pos || !canRead()) return;
+    rules(); if (!networkBlocked()) $('error').textContent = '';
+    const targets = submit && canPlay() ? named().filter(({move}) => move.to === square || move.from === square) : [];
     if (targets.length === 1) return choose(targets[0].lan);
     if (targets.length > 1) { choices(targets); boardSheet('Choose a move', $('choices')); return; }
     if (submit && selected === square) { selected = inspected = undefined; choices([]); refresh(); return; }
-    const options = !submit || selected === undefined || view.action !== 'ready' ? [] : moves.filter(({move}) => move.from === selected && reachable(move) && ((move.to !== move.from && move.to === square) || move.captures.includes(square) || move.shove?.from === square));
+    const options = !submit || selected === undefined || !canPlay() ? [] : moves.filter(({move}) => move.from === selected && reachable(move) && ((move.to !== move.from && move.to === square) || move.captures.includes(square) || move.shove?.from === square));
     const ordinary = options.filter(({move}) => !move.power);
     if (ordinary.length === 1) return choose(ordinary[0].lan);
     if (options.length === 1) return choose(options[0].lan);
     if (options.length > 1) { choices(options); boardSheet('Choose a move', $('choices')); return; }
     if (!pos.board[square]) { selected = inspected = undefined; choices(named()); }
-    else if (view.action === 'ready' && (colorOf(pos.board[square]) === view.seat || armedCard !== undefined && cardChoices().some(c=>c.move.from===square))) { selected = square; inspected = undefined; choices(moves.filter(({move}) => move.from === square && (armed || armedCard !== undefined || RULES.hands[view!.seat].length ? reachable(move) : true))); }
+    else if (canPlay() && (colorOf(pos.board[square]) === view.seat || armedCard !== undefined && cardChoices().some(c=>c.move.from===square))) { selected = square; inspected = undefined; choices(moves.filter(({move}) => move.from === square && (armed || armedCard !== undefined || RULES.hands[view!.seat].length ? reachable(move) : true))); }
     else { inspected = square; }
     refresh();
   }
@@ -178,32 +204,32 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     board.onSquareClick = square => select(square); board.onDragSelect = square => select(square, false);
     $('board').tabIndex = 0;
     $('board').onkeydown = event => {
-      // The cursor moves during a move animation or a send; only Enter waits, as a tap does.
+      // The cursor moves while play waits. Enter reads a square when motion stops.
       const delta = ({ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,1], ArrowDown:[0,-1]} as Record<string,number[]>)[event.key];
       if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); board.setPreview(cursor); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
-      else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (!blocked()) select(cursor); }
-      else if (event.key === 'Escape') { armed = undefined; armedCard = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]); refresh(); }
+      else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(cursor); }
+      else if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undo(); }
     };
   }
   function coinRead(side: Color, index?: number) {
-    if (!view || !pos || blocked()) return;
-    rules(); $('error').textContent = '';
+    if (!view || !pos || !canRead()) return;
+    rules(); if (!networkBlocked()) $('error').textContent = '';
     if (index !== undefined) {
       const card = RULES.hands[side][index], image = document.createElement('img'), face = art(`ui/cards/${card.toLowerCase()}.webp`);
       image.src = face ?? art('ui/cards/back.webp'); image.alt = '';
       const window = document.createElement('div'); window.className = 'cf-art'; window.append(image);
       const nodes: HTMLElement[] = [window, text(ruleLine(cardText(card)))], coin = cardCoins(pos,side,RULES.hands[side],moves.map(c=>c.move))[index];
-      if (side === view.seat && view.action === 'ready' && !coin.spent && coin.moves.length) nodes.push(button('Use', () => {
-        if (blocked() || view?.action !== 'ready') return;
+      if (side === view.seat && canPlay() && !coin.spent && coin.moves.length) nodes.push(button('Use', () => {
+        if (!canPlay()) return;
         armed = undefined; armedCard = index; selected = inspected = undefined; closeBoardSheet(); choices(cardChoices()); refresh();
       }));
       boardSheet(cardName(card), ...nodes);
     } else {
-      const coin = coinState(pos, side, RULES, [], side === view.seat && !!armed, moves.map(c => c.move), view.action === 'ready' ? view.seat : null);
+      const coin = coinState(pos, side, RULES, [], side === view.seat && !!armed, moves.map(c => c.move), canPlay() ? view.seat : null);
       if (!coin) return;
       const nodes: HTMLElement[] = [text(coinWords(coin, pos)), text(ruleLine(powerText(coin.power, RULES)))];
-      if (side === view.seat && ['ready','armed'].includes(coin.state) && POWER_TAG[coin.power]) nodes.push(button('Use', () => {
-        if (blocked() || view?.action !== 'ready') return;
+      if (canPlay() && side === view.seat && ['ready','armed'].includes(coin.state) && POWER_TAG[coin.power]) nodes.push(button('Use', () => {
+        if (!canPlay()) return;
         armed = coin.power; selected = inspected = undefined; closeBoardSheet(); choices(named()); refresh();
       }));
       boardSheet(coin.king + ' King', ...nodes);
@@ -224,7 +250,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
       strip.querySelector('b')!.textContent = mine ? memory.me?.handle ?? 'You' : view.opponent?.computer ? 'Computer' : view.opponent?.deleted ? 'Deleted player' : view.opponent?.handle ?? 'Opponent';
       strip.querySelector('b')!.title = strip.querySelector('b')!.textContent;
       strip.querySelector('small')!.textContent = stripLine(side, mine ? ownRating : view.opponent?.rating, !mine && view.opponent?.computer ? view.level : undefined) + (!mine && thinking ? ' · thinking…' : '');
-      const row = strip.querySelector('.coin-row')!, coin = coinState(pos, side, RULES, [], mine && !!armed, mine ? moves.map(c => c.move) : undefined, !blocked() && view.action === 'ready' ? view.seat : null);
+      const row = strip.querySelector('.coin-row')!, coin = coinState(pos, side, RULES, [], mine && !!armed, mine ? moves.map(c => c.move) : undefined, canPlay() ? view.seat : null);
       if (coin) {
         const b = button('', () => coinRead(side)); b.className = 'coin'; b.id = `power-${side ? 'b' : 'w'}`; b.dataset.state = coin.state; if (coin.state !== 'always') b.setAttribute('aria-pressed', String(coin.state === 'armed')); b.setAttribute('aria-label', (mine ? 'Your ' : "Opponent's ") + coinWords(coin, pos).replace(' · ', ', '));
         const image = document.createElement('img'); image.src = art(`ui/emblems/${coin.king.toLowerCase()}.webp`); image.alt = ''; b.append(image);
@@ -246,8 +272,20 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
       }
     }
   }
+  function turnControls(draft?: ReturnType<typeof draftTurn>) {
+    if (!view || !pos) return;
+    rules(); draft ??= turn();
+    const open = blocked() || !!sheet?.open || client.state.screen !== 'board';
+    const ready = !open && view.action === 'ready' && view.status === 'playing' && draft.ready;
+    $('undo').setAttribute('aria-disabled', String(open || !steps.length));
+    const end = $('end-turn'), label = mode() === 'computer' ? 'End turn' : 'Send your turn';
+    end.setAttribute('aria-disabled', String(!ready)); end.setAttribute('aria-label', label); end.title = label; end.classList.toggle('primary', ready);
+  }
   function refresh() {
     if (!view || !pos) return;
+    rules(); moves = draftChoices(view, pos, steps);
+    const draft = turn();
+    turnControls(draft);
     $('board').dataset.animating = String(animating);
     if (readFailed()) { armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]); }
     moveLine();
@@ -258,8 +296,8 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     // Mark every step of the last turn (Haste, free marks); a pass step has no square.
     let start = history.length;
     if (lastMove && history.at(-1) === lastMove) while (start > 0 && history[start - 1].pre.turn === lastMove.pre.turn) start--;
-    const turn = start < history.length ? history.slice(start) : lastMove ? [lastMove] : [];
-    const trail = turn.flatMap(({move: last}) => last.pass ? [] : [...(last.drop === undefined ? [last.from] : []), last.to, ...last.captures, ...(last.shove ? [last.shove.from, last.shove.to] : [])]);
+    const trailSteps = steps.length ? steps : start < history.length ? history.slice(start) : lastMove ? [lastMove] : [];
+    const trail = trailSteps.flatMap(({move: last}) => last.pass ? [] : [...(last.drop === undefined ? [last.from] : []), last.to, ...last.captures, ...(last.shove ? [last.shove.from, last.shove.to] : [])]);
     const users = selected === undefined ? cardChoices().filter(c => !c.move.pass && c.move.drop === undefined).map(c => c.move.from) : [];
     highlight({ ...marks, selected, last: [...new Set(trail)], read: inspected === undefined ? undefined : reachOf(pos, inspected), powers: [...new Set([...cands.filter(m => m.power && !m.pass).map(m => m.to), ...named().map(c => c.move.to), ...users])], rails: selected === undefined ? [] : railsOf(pos.board, selected, [...marks.moves, ...marks.captures], marks.captures), check: inCheck(pos) ? findKing(pos.board, pos.turn) : null, checkers: checkersOf(pos), threats: view.status === 'playing' && !animating ? threatsIn({...pos, turn:view.seat}) : [] });
     const square = inspected ?? selected, code = square === undefined ? 0 : pos.board[square];
@@ -272,26 +310,27 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     const fresh = teach && (taught.get(teach[0]) ?? history.length) === history.length;
     const first = beginner && pos.ply < 2 && pos.board.some(c => c && typeOf(c) > K) ? 'New pieces in this game. Select any piece to read its rule.' : '';
     const lesson = beginner && code ? LESSONS.find(lesson => lesson.name.toLowerCase() === nameOf(typeOf(code)))?.done : undefined;
-    const context = contextLine({voice:'you', teach:first || (fresh ? teach[1] : ''), result:view.result ? ending(view) : '', refusal:$('error').textContent ?? '', link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:lesson ?? line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:pos.turn !== view.seat, midWay:pos.haste !== undefined || !!pos.free, free:!!pos.free, turnLine:pos.free ? 'Make your move, or stop here.' : 'Move it again, or stop here.', armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
+    const context = contextLine({voice:'you', teach:first || (fresh ? teach[1] : ''), result:view.result ? ending(view) : '', refusal:$('error').textContent ?? '', link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:lesson ?? line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:view.turn !== view.seat, midWay:view.turn === view.seat && draft.midWay && !draft.waits, stagedEnd:draft.waits && status(pos) !== 'playing' ? draft.line : '', waiting:draft.waits, free:!!pos.free, turnLine:draft.line, armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
+    if (networkBlocked() && ['mid-way','waiting','staged-end'].includes(context.rank)) Object.assign(context, {rank:'sending', line:'Sending…', note:''});
+    if (inspected !== undefined && draft.waits && !networkBlocked() && view.draw_offer == null && !['result','refusal','link'].includes(context.rank)) context.note = waitNotice(mode(), view.seat);
     if (context.rank==='link' && deadline) context.note=available.claim==='end'?'You may end the game with no result.':'You may claim the win.';
     if (fresh && context.rank === 'your-move') taught.set(teach[0], history.length);
     if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:'armed',line:cardName(RULES.hands[view.seat][armedCard]),note:'Choose a piece, then a marked square.'});
-    if (view.draw_offer != null && !['result','refusal','link'].includes(context.rank)) context.note = view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.';
+    if (view.draw_offer != null && !['result','refusal','link'].includes(context.rank)) context.note = [context.note, view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.'].filter(Boolean).join(' ');
     if (readFailed()) Object.assign(context, {rank:'link', line:'Not current', note:''});
     $('status').textContent = context.rank === 'refusal' ? '' : context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
     const actions: HTMLButtonElement[] = [];
     const drawReply = !view.result && view.draw_offer != null && view.draw_offer !== view.seat && view.kind !== 'solo';
     const unarmed = !armed && armedCard === undefined;
-    if (!drawReply && unarmed && square !== undefined && code) actions.push(button('All rules', () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(pos!, square)}` : readText(pos!, square)))));
+    if (unarmed && square !== undefined && code) { const all = button('All rules', () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(pos!, square)}` : readText(pos!, square)))); all.id = 'all-rules'; all.setAttribute('aria-label', 'All rules'); actions.push(all); }
     if ((!drawReply || unarmed) && selected !== undefined && moves.some(({move}) => move.from === selected && !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
     if (!unarmed) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; choices([]); refresh(); }));
-    if (view.legal.includes('--')) actions.push(button('Stop here', () => choose('--')));
     const gameActions = actionButtons(view,Date.now()-readAt,refused);
     if (!view.result) actions.push(...gameActions);
     // Spec J3: after your move in a game the opponent answers later, go on to the next game that waits for you.
     const next = view.kind !== 'solo' && view.status === 'playing' && view.turn !== view.seat ? nextGame(memory.games, view.game_id) : undefined;
     if (next) { const b = button('Next game ›', () => void call('kingdown_resume', { game_id: next.game_id })); b.id = 'next-game'; actions.push(b); }
-    for (const action of actions) action.disabled = networkBlocked();
+    for (const action of actions) action.disabled = networkBlocked() && action.textContent !== 'All rules';
     $('context-actions').replaceChildren(...actions); strips();
     board.setLifted(selected ?? null);
     // Never lay the king down on the position before the final move.
@@ -325,6 +364,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   observer.observe($('reload'), {attributes:true, attributeFilter:['disabled']});
   observer.observe(document.body, {attributes:true, attributeFilter:['data-page']});
   observer.observe($('over'), {attributes:true, attributeFilter:['open']});
+  new MutationObserver(() => turnControls()).observe($('app-frame'), {attributes:true, attributeFilter:['open'], subtree:true});
   observer.observe($('error'), {childList:true, characterData:true, subtree:true});
   return (next: View, restoring = false) => {
     if (view?.game_id === next.game_id && next.revision < view.revision) return;
@@ -338,26 +378,25 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     view = {...next, rules:next.rules ?? (same ? view?.rules : undefined), outcome:next.outcome ?? (same ? view?.outcome : undefined), opponent:next.opponent && {...next.opponent, rating:next.rules ? next.opponent.rating : next.opponent.rating ?? (same ? view?.opponent?.rating : undefined)}};
     if (['finished','aborted'].includes(next.status)) setTimeout(()=>{ if (active()) { if(client.state.screen==='board') navigate('end'); updateEnd(); } },0);
     readAt = Date.now(); clearTimeout(deadlineTimer);
-    if (unchanged && !optimistic) { if (pos) { rules(); refresh(); } scheduleComputer(); return; }
+    if (unchanged) { if (pos) { rules(); refresh(); } scheduleComputer(); return; }
     const token = ++generation; board.skip(); animating = false; $('board').dataset.animating='false';
-    if (!same) { history = []; lastMove = undefined; optimistic = undefined; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
+    if (!same) { history = []; lastMove = undefined; steps = []; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
-    const local = optimistic; optimistic = undefined;
+    const local = steps; steps = []; if (local.length) lastMove = history.at(-1);
     armed = undefined; armedCard = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]);
     document.querySelector('[data-screen="board"]')!.prepend($('game-table')); $('table-bar').hidden = false;
     $('game-table').dataset.empty = String(!next.fen || next.status === 'setup');
     if (!next.fen || next.status === 'setup') { pos = undefined; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('short-move-words').textContent = ''; $('move-time-left').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
-    rules(); pos = fromFen(next.fen); const legal = new Set(next.legal), here = pos;
-    moves = legal.size ? legalMoves(pos).map(move => ({lan:toLan(here,move),move})).filter(({lan}) => legal.has(lan)) : [];
-    const steps = before && same ? replayLans(before, next, view.rules!) : undefined;
+    rules(); pos = fromFen(next.fen); moves = draftChoices(view, pos, steps);
+    const replayed = before && same ? replayLans(before, next, view.rules!) : undefined;
     const restored = replayHistory(next, view.rules!);
     if (restored) { history = restored; lastMove = restored.at(-1); }
-    else if (steps) { history.push(...steps); if (steps.length) lastMove = steps.at(-1); }
+    else if (replayed) { history.push(...replayed); if (replayed.length) lastMove = replayed.at(-1); }
     else if (same && before?.revision !== next.revision) {
-      if (local && toFen(local.pos) === next.fen) { history.push(local); lastMove = local; } else lastMove = undefined;
+      if (local.length && toFen(local.at(-1)!.pos) === next.fen) { history.push(...local); lastMove = local.at(-1); } else lastMove = undefined;
     }
     bindBoard(); board.flip(next.seat === 1); moveLine();
-    const replay = steps?.filter((step, index) => !(index === 0 && local && toFen(local.pos) === toFen(step.pos))) ?? [];
+    const replay = replayed?.filter((step, index) => !step.move.pass && !(local[index] && toFen(local[index].pos) === toFen(step.pos))) ?? [];
     const authoritative = pos;
     if (replay.length) {
       animating = true;

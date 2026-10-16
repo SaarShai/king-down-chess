@@ -169,7 +169,11 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   register('kingdown_cancel', 'Cancel your waiting random game with no result.', { game_id: gameId }, { visibility: ['app'], destructive: true }, async args => reply(await service.cancel(actorId, args.game_id)));
   register('kingdown_choose', 'Choose your king and back-rank order, then mark your seat Ready.', { ...command, king: choiceSchema.shape.king, order: choiceSchema.shape.order, ready: z.boolean() }, { visibility: ['app'] }, ({ king, order, ready, ...args }) => play(args, { type: 'choose', choice: { king, order }, ready }));
   register('kingdown_rematch', 'Offer, accept or decline a rematch. The reply stays on this game; resume the rematch to move the board.', { ...command, choice: z.enum(['offer', 'accept', 'decline']) }, { visibility: ['app'], destructive: true }, ({ choice, ...args }) => play(args, { type: 'rematch', choice }));
-  register('kingdown_move', 'Play one exact legal move; retry with the same command ID.', { ...command, lan: z.string().min(1).max(120) }, { visibility: ['app'] }, ({ lan, ...args }) => play(args, { type: 'turn', actions: [lan] }));
+  register('kingdown_move', "Play the player's whole turn: one to four exact legal moves, in order, all or nothing. Retry with the same command ID and the same input.",
+    { ...command, lan: z.string().min(1).max(120).optional(), actions: z.array(z.string().min(1).max(120)).min(1).max(4).optional() }, { visibility: ['app'] }, async ({ lan, actions, ...args }) => {
+      if ((lan === undefined) === (actions === undefined)) throw new MatchServiceError('INVALID_INPUT', 400, 'Send lan or actions');
+      return play(args, { type: 'turn', actions: actions ?? [lan!] });
+    });
   register('kingdown_computer', 'Ask the computer opponent to play its turn.', command, { visibility: ['app'] }, args => play(args, { type: 'computer' }));
   register('kingdown_say', 'Send one preset message to the opponent; each preset goes once in each game.', { ...command, preset: z.enum(PRESETS) }, { visibility: ['app'], destructive: true }, ({ preset, ...args }) => play(args, { type: 'say', preset }));
   register('kingdown_draw', 'Use this when the player wants to offer a draw in a King Down game, or to accept or decline the other side’s offer (draw_offer "opponent"). Accept ends the game.',

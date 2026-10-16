@@ -11,6 +11,7 @@ import type { View } from '../src/match/protocol';
 import { applyLan } from '../src/plugin/screens/board-model';
 import { LESSONS } from '../src/lessons';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
+import { readText } from '../src/read';
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -86,6 +87,16 @@ it.each([['a stop', 'pass'], ['a second move', 'move']] as const)('marks each op
   const page = await open(view(toFen(pos), rules, { revision: 2, seat: 0, history: { initial_fen: fen, actions: lans } }));
   try { expect((await marks(page)).last).toEqual([...new Set(squares)]); }
   finally { await page.close(); }
+});
+
+it('keeps Their move through the opponent Haste turn', async () => {
+  const rules: Partial<Rules> = { kings: [null, { king: 'Flame', power: 'Haste' }] }, fen = '4k3/p7/8/8/8/8/4P3/K7 b - - 0 1';
+  setRules(rules); const pre = fromFen(fen), move = legalMoves(pre).find(m => m.power === 'haste' && m.from === 48 && m.to === 40)!;
+  const page = await open(view(toFen(makeMove(pre, move)), rules, { revision: 1, seat: 0, history: { initial_fen: fen, actions: [toLan(pre, move)] } })), frame = page.frameLocator('iframe');
+  try {
+    expect(await frame.locator('#status').textContent()).toBe('Their move.');
+    expect(await frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('true');
+  } finally { await page.close(); }
 });
 
 it('marks the pieces that can use Vault with the power target mark', async () => {
@@ -355,7 +366,9 @@ it.each([[320, 568, 84], [320, 568, 180], [393, 852, 118], [820, 600, 34], [852,
   const next = view('4k3/7p/8/8/8/8/P7/K7 w - - 0 1', {}, {kind:'friend',abort_open:true,opponent:{handle:'Bob',icon:null,computer:false,deleted:false,last_seen_ms:null,rating:{rating:1500,provisional:true}}});
   const page = await open(next, width, height), frame = page.frameLocator('iframe');
   try {
-    expect(await frame.locator('#table-bar button').allTextContents()).toEqual(['Menu']);
+    expect(await frame.locator('#table-bar button').allTextContents()).toEqual(['Undo','','Menu']);
+    expect(await frame.locator('#end-turn').getAttribute('aria-label')).toBe('Send your turn');
+    expect(await frame.locator('#end-turn').getAttribute('title')).toBe('Send your turn');
     expect(await frame.locator('#context-actions #abort').count()).toBe(0);
     expect(await frame.locator('#context-note').textContent()).toBe('');
     expect(await frame.locator('#strip-them small').textContent()).toBe('New player · Black');
@@ -438,5 +451,390 @@ it.each([[320, 568], [393, 852]])('keeps the board size after a beginner selects
     expect(after.width).toBeGreaterThanOrEqual(192);
     await frame.getByRole('button', { name: 'All rules', exact: true }).click();
     expect(await frame.locator('#board-sheet').innerText()).toContain(lesson);
+  } finally { await page.close(); }
+});
+
+// W7 journeys use board input. The endpoint only sets the starting position.
+async function turnBoard(fen?: string) {
+  const page = await open(view('')), frame = page.frameLocator('iframe');
+  const result = await (await page.request.post(new URL(fen ? `/fixture-position?fen=${encodeURIComponent(fen)}` : '/fixture-position?case=haste', harness.url).href)).json();
+  expect(result.isError).not.toBe(true);
+  await page.evaluate(result => (window as any).harnessShow(result), result);
+  await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
+  await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
+  return {page, frame, base:result._meta.view as View};
+}
+async function squarePoint(page: Page, square: number) {
+  const frame = page.frameLocator('iframe'), pane = (await page.locator('iframe').boundingBox())!;
+  const point = await frame.locator('#board canvas').evaluate((canvas, sq) => {
+    const r = canvas.getBoundingClientRect(), k = r.width / 960;
+    return {x:r.x+(32+((sq&7)+.5)*112)*k, y:r.y+(96+(7-(sq>>3)+.5)*112)*k};
+  }, square);
+  return {x:pane.x+point.x, y:pane.y+point.y};
+}
+async function squareTap(page: Page, square: number) {
+  const point = await squarePoint(page, square);
+  await page.mouse.click(point.x, point.y);
+}
+async function chooseTurnMove(page: Page, lan: string, from: number) {
+  const frame = page.frameLocator('iframe');
+  await squareTap(page, from); await frame.locator('#board-menu').click();
+  await frame.locator('#board-sheet').getByRole('button',{name:'Choose a move',exact:true}).click();
+  await frame.locator(`#choices button[title="${lan}"]`).click();
+  await frame.locator('#board[data-animating="false"]').waitFor();
+}
+const moveCalls = (page: Page) => page.evaluate(() => ((window as any).harnessCalls ?? []).filter((c: any) => c.name === 'kingdown_move'));
+const boardFen = (page: Page) => page.frameLocator('iframe').locator('html').evaluate<string>('(async () => { const { toFen } = await import("/src/rules/setup.ts"); return toFen(window.testBoard.pos); })()');
+
+it.each(['Resign', 'Abort'])('W7: Menu %s drops the draft move from the end card and trail', async action => {
+  const {page,frame,base} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1');
+  try {
+    await chooseTurnMove(page,'e2-e4',12);
+    await frame.locator('#board-menu').click();
+    await frame.locator('#board-sheet').getByRole('button',{name:action,exact:action === 'Resign'}).click();
+    await frame.locator('#board-sheet').getByRole('button',{name:action,exact:true}).click();
+    await frame.locator('#over[open]').waitFor();
+    expect(await moveCalls(page)).toEqual([]);
+    expect(await page.evaluate(() => (window as any).harnessView.fen)).toBe(base.fen);
+    expect(await frame.locator('#end-reason').innerText()).toBe(action === 'Resign' ? 'Resignation' : '');
+    expect(await frame.locator('#last-move').innerText()).toBe('Move 1.');
+    expect((await marks(page)).last).toEqual([]);
+  } finally { await page.close(); }
+});
+
+it.each([false,true])('W7: an incremental draw reply drops draft text and keeps saved history=%s', async saved => {
+  const initial_fen = '4k3/7p/8/8/8/8/4P3/4K3 b - - 0 1';
+  const prior = applyLan(fromFen(initial_fen),'h7-h5',{})!;
+  const base = view(toFen(prior.pos), {}, {kind:'friend', revision:1, ...(saved ? {history:{initial_fen,actions:['h7-h5']}} : {})});
+  const page = await open(base), frame = page.frameLocator('iframe');
+  try {
+    await chooseTurnMove(page,'e2-e4',12);
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {...base, revision:2, history:undefined, draw_offer:1, last_commands:[{seq:2, seat:1, at:base.server_now, action:{type:'draw',choice:'offer'}}]});
+    expect(await boardFen(page)).toBe(base.fen);
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
+    expect(await frame.locator('#last-move').innerText()).toBe(saved ? 'Black pawn h7 to h5.' : 'Move 2.');
+    expect((await marks(page)).last).toEqual(saved ? [55,39] : []);
+    expect(await moveCalls(page)).toEqual([]);
+  } finally { await page.close(); }
+});
+
+it('W7: Escape from the move sheet clears selection and keeps the Haste draft', async () => {
+  const {page,frame,base} = await turnBoard();
+  try {
+    await chooseTurnMove(page,'e2-e4!H',12);
+    const staged = applyLan(fromFen(base.fen),'e2-e4!H',base.rules!)!;
+    await squareTap(page,28); await frame.locator('#board-menu').click();
+    await frame.locator('#board-sheet').getByRole('button',{name:'Choose a move',exact:true}).click();
+    expect(await frame.locator('#choices button[title="e4-e5"]').count()).toBe(1);
+    await page.keyboard.press('Escape');
+    expect(await frame.locator('#board-sheet[open]').count()).toBe(0);
+    expect((await marks(page)).selected).toBeUndefined();
+    expect(await frame.locator('#choices button').count()).toBe(0);
+    await squareTap(page,36);
+    expect(await frame.locator('#board').getAttribute('data-animating')).toBe('false');
+    expect(await boardFen(page)).toBe(toFen(staged.pos));
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
+    expect(await moveCalls(page)).toEqual([]);
+  } finally { await page.close(); }
+});
+
+it.each(['power','card'] as const)('W7: Escape on the board and sheet clears %s arming', async kind => {
+  const rules: Partial<Rules> = kind === 'power' ? {kings:[{king:'Flame',power:'Haste'},null]} : {hands:[['Haste'],[]]};
+  const base = view('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1',rules), page = await open(base), frame = page.frameLocator('iframe');
+  try {
+    for (const sheet of [false,true]) {
+      await frame.locator(kind === 'power' ? '#power-w' : '#card-w-0').click();
+      await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
+      await squareTap(page,12);
+      if (sheet) { await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Choose a move',exact:true}).click(); }
+      else await frame.locator('#board').focus();
+      await page.keyboard.press('Escape');
+      expect(await frame.locator('#board-sheet[open]').count()).toBe(0);
+      expect((await marks(page)).selected).toBeUndefined();
+      expect((await marks(page)).powers).toEqual([]);
+      expect(await frame.locator('#choices button').count()).toBe(0);
+      await squareTap(page,28);
+      expect(await boardFen(page)).toBe(base.fen);
+    }
+    await squareTap(page,12); await squareTap(page,28); await frame.locator('#board[data-animating="false"]').waitFor();
+    expect(await boardFen(page)).toBe(toFen(applyLan(fromFen(base.fen),'e2-e4',rules)!.pos));
+    expect(await moveCalls(page)).toEqual([]);
+  } finally { await page.close(); }
+});
+
+it.each([[320,568],[360,640],[852,393]])('keeps draw offer board and row size with all four pawn actions at %d×%d', async (width,height) => {
+  const rules: Partial<Rules> = {kings:[{king:'Mud',power:'March'},{king:'Shadow',power:'Darkness'}],hands:[['Haste'],['Haste']],marchUses:0};
+  const page = await open(view('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',rules,{kind:'friend',draw_offer:1}),width,height), frame = page.frameLocator('iframe');
+  const sizes = () => frame.locator('#context-line').evaluate(async row => {
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    return {
+      board: document.querySelector('#board canvas')!.getBoundingClientRect().width,
+      row: row.getBoundingClientRect().height,
+      text: document.getElementById('context-text')!.getBoundingClientRect().height,
+      actions: document.getElementById('context-actions')!.getBoundingClientRect().height,
+    };
+  });
+  try {
+    await page.evaluate(safeAreaInsets => (window as any).harnessSetContext({safeAreaInsets}),{top:height>width?63:0,right:0,bottom:height>width?84:0,left:0});
+    await frame.locator('#board').evaluate(() => document.fonts.ready.then(() => {}));
+    const before = await sizes();
+    await squareTap(page,12);
+    expect(await frame.locator('#context-actions button').allTextContents()).toEqual(['All rules','Choose a move','Accept draw','Decline draw']);
+    const after = await sizes();
+    expect(Math.abs(before.board-after.board), JSON.stringify({before,after})).toBeLessThan(1);
+    expect(Math.abs(before.row-after.row), JSON.stringify({before,after})).toBeLessThan(1);
+    expect(await frame.locator('#context-actions').evaluate(edgeMisses)).toEqual([]);
+  } finally { await page.close(); }
+});
+
+it('W7: a draw offer keeps piece rules readable at 320 px before and during Send', async () => {
+  const base = view('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1',{}, {kind:'friend',draw_offer:1});
+  const page = await open(base,320,568), frame = page.frameLocator('iframe');
+  try {
+    await chooseTurnMove(page,'e2-e4',12);
+    const staged = applyLan(fromFen(base.fen),'e2-e4',base.rules!)!;
+    const rule = readText(staged.pos,28).split('\n')[0].split(' · ')[1];
+    expect(rule).toBeTruthy();
+    for (const sending of [false,true]) {
+      if (sending) { await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_move'; }); await frame.locator('#end-turn').click(); await page.waitForFunction(() => typeof (window as any).releaseBefore==='function'); }
+      await squareTap(page,28);
+      expect(await frame.locator('#context-note').innerText()).toContain(rule);
+      expect(await frame.locator('#context-note').innerText()).toContain('Your opponent offers a draw.');
+      expect(await frame.locator('#all-rules').isEnabled()).toBe(true);
+      expect(await frame.locator('#context-actions').evaluate(e => [...e.children].every(child => { const r=child.getBoundingClientRect(); return r.left>=0 && r.right<=innerWidth && r.bottom<=document.getElementById('table-bar')!.getBoundingClientRect().top; }))).toBe(true);
+      expect(await frame.locator('#context-text').evaluate(e => e.getBoundingClientRect().bottom<=document.getElementById('context-actions')!.getBoundingClientRect().top)).toBe(true);
+      await frame.locator('#all-rules').click();
+      expect(await frame.locator('#board-sheet').innerText()).toContain(rule);
+      await page.keyboard.press('Escape');
+      expect(await boardFen(page)).toBe(toFen(staged.pos));
+      expect((await moveCalls(page)).length).toBe(sending ? 1 : 0);
+    }
+  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+});
+
+it('W7: stages a move, sends once, and starts the computer only after the press', async () => {
+  const {page,frame,base} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1');
+  try {
+    await squareTap(page,12); await squareTap(page,28); await frame.locator('#board[data-animating="false"]').waitFor();
+    expect(await moveCalls(page)).toEqual([]);
+    expect(await page.evaluate(() => (window as any).harnessView.revision)).toBe(base.revision);
+    expect(await page.evaluate(() => (window as any).harnessCalls.some((c: any) => c.name==='kingdown_computer'))).toBe(false);
+    expect(await frame.locator('#status').textContent()).toBe('Your turn is ready. Select End turn.');
+    expect(await frame.locator('#end-turn').getAttribute('aria-label')).toBe('End turn');
+    expect(await frame.locator('#end-turn').getAttribute('title')).toBe('End turn');
+    expect(await frame.locator('#end-turn').innerText()).toBe('');
+    expect(await frame.locator('#end-turn use').getAttribute('href')).toBe('#i-sword');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    expect(await frame.locator('#end-turn').evaluate(e => getComputedStyle(e).animationName)).toBe('none');
+    await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_move'; });
+    await frame.locator('#end-turn').click();
+    await page.waitForFunction(() => typeof (window as any).releaseBefore==='function');
+    await frame.locator('#end-turn').evaluate(e => { (e as HTMLButtonElement).click(); });
+    expect((await moveCalls(page)).map((c: any) => c.arguments.actions)).toEqual([['e2-e4']]);
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
+    expect(await frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('true');
+    expect(await frame.locator('#undo').evaluate(e => (e as HTMLButtonElement).disabled)).toBe(false); expect(await frame.locator('#end-turn').evaluate(e => (e as HTMLButtonElement).disabled)).toBe(false);
+    await frame.locator('#undo').focus(); await page.keyboard.press('Tab');
+    expect(await frame.locator('#end-turn').evaluate(e => e===document.activeElement)).toBe(true);
+    await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_computer'; (window as any).releaseBefore(); });
+    await page.waitForFunction(() => (window as any).harnessCalls.some((c: any) => c.name==='kingdown_computer'));
+    expect(await frame.locator('#status').textContent()).toBe('Their move.');
+    expect((await moveCalls(page)).length).toBe(1);
+  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+});
+
+it('W7: undoes both Haste steps and restores the power coin and trail', async () => {
+  const {page,frame} = await turnBoard();
+  try {
+    await chooseTurnMove(page,'e2-e4!H',12);
+    expect(await frame.locator('#status').textContent()).toBe('Move it again, or select End turn.');
+    expect(await frame.locator('#board').evaluate(e => e===document.activeElement)).toBe(true);
+    await chooseTurnMove(page,'e4-e5',28);
+    expect((await marks(page)).last).toEqual([12,28,36]);
+    await frame.locator('#undo').click();
+    expect((await marks(page)).last).toEqual([12,28]);
+    await frame.locator('#undo').click();
+    expect(await frame.locator('#power-w').getAttribute('data-state')).toBe('ready');
+    expect(await frame.locator('#last-move').innerText()).toBe('Move 1.');
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
+    expect(await frame.locator('#undo').evaluate(e => e===document.activeElement)).toBe(true);
+    expect(await moveCalls(page)).toEqual([]);
+  } finally { await page.close(); }
+});
+
+it('W7: sends a mid-way Haste turn with a pass in the same command', async () => {
+  const {page,frame} = await turnBoard();
+  try {
+    await chooseTurnMove(page,'e2-e4!H',12);
+    expect(await frame.getByRole('button',{name:'Stop here',exact:true}).count()).toBe(0);
+    await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_computer'; });
+    await frame.locator('#end-turn').click();
+    await expect.poll(async () => (await moveCalls(page)).length).toBe(1);
+    expect((await moveCalls(page))[0].arguments.actions).toEqual(['e2-e4!H','--']);
+  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+});
+
+it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and during Send', async () => {
+  const {page,frame,base} = await turnBoard();
+  try {
+    await chooseTurnMove(page,'e2-e4',12);
+    const staged = applyLan(fromFen(base.fen),'e2-e4',base.rules!)!;
+    expect(applyLan(staged.pos,'e7-e5',base.rules!)).toBeDefined();
+    await frame.locator('html').evaluate(() => {
+      const host=window as any, drag=host.testBoard.onDragSelect;
+      host.dragAttempts=[]; host.testBoard.onDragSelect=(square: number) => { host.dragAttempts.push(square); drag(square); };
+    });
+    for (const sending of [false,true]) {
+      if (sending) { await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_move'; }); await frame.locator('#end-turn').click(); await page.waitForFunction(() => typeof (window as any).releaseBefore==='function'); }
+      expect(await frame.locator('#status').textContent()).toBe(sending ? 'Sending…' : 'Your turn is ready. Select End turn.');
+      const unchanged = async () => {
+        expect(await frame.locator('#board').getAttribute('data-animating')).toBe('false');
+        expect(await boardFen(page)).toBe(toFen(staged.pos));
+        expect(await page.evaluate(() => (window as any).harnessView.fen)).toBe(base.fen);
+        expect((await moveCalls(page)).length).toBe(sending ? 1 : 0);
+      };
+      await squareTap(page,28);
+      expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
+      if (sending) expect(await frame.locator('#context-text').innerText()).not.toMatch(/End turn|Undo/);
+      else expect(await frame.locator('#context-note').textContent()).toContain('Select End turn, or Undo.');
+      await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).click();
+      await frame.locator('#board-sheet[open]').waitFor(); await page.keyboard.press('Escape');
+      expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).evaluate(e => e===document.activeElement)).toBe(true);
+      await frame.locator('#power-w').click();
+      expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);
+      await page.keyboard.press('Escape');
+      expect(await frame.locator('#power-w').evaluate(e => e===document.activeElement)).toBe(true);
+      await squareTap(page,52); await squareTap(page,36); await unchanged();
+      const board=frame.locator('#board'); await board.focus();
+      for (let n=0;n<7;n++) { await board.press('ArrowLeft'); await board.press('ArrowDown'); }
+      for (let n=0;n<4;n++) await board.press('ArrowRight');
+      for (let n=0;n<6;n++) await board.press('ArrowUp');
+      expect(await board.getAttribute('aria-label')).toContain('e7.'); await board.press('Enter');
+      await board.press('ArrowDown'); await board.press('ArrowDown');
+      expect(await board.getAttribute('aria-label')).toContain('e5.'); await board.press('Enter'); await unchanged();
+      const source=await squarePoint(page,52), target=await squarePoint(page,36);
+      await page.mouse.move(source.x,source.y); await page.mouse.down(); await page.mouse.move(target.x,target.y,{steps:5}); await page.mouse.up();
+      expect(await frame.locator('html').evaluate(() => (window as any).dragAttempts)).toEqual(sending ? [52,52] : [52]);
+      await unchanged();
+      if (!sending) { await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Choose a move',exact:true}).click(); }
+      expect(await frame.locator('#choices button').count()).toBe(0); await page.keyboard.press('Escape');
+      expect(await frame.locator('#last-move').innerText()).toContain('White pawn e2 to e4.');
+      expect((await moveCalls(page)).length).toBe(sending?1:0);
+    }
+    await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_computer'; (window as any).releaseBefore(); });
+    await page.waitForFunction(() => (window as any).harnessCalls.some((c: any) => c.name==='kingdown_computer'));
+    await squareTap(page,28);
+    expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
+    await frame.locator('#power-w').click();
+    expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);
+    await page.keyboard.press('Escape'); await squareTap(page,36); await frame.locator('#board').press('Enter');
+    expect(await frame.locator('#last-move').innerText()).toContain('White pawn e2 to e4.');
+    expect((await moveCalls(page)).length).toBe(1);
+  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+});
+
+it('W7: blocks a legal Haste follow-up while Send waits', async () => {
+  const {page,frame,base} = await turnBoard();
+  try {
+    await chooseTurnMove(page,'e2-e4!H',12);
+    const staged = applyLan(fromFen(base.fen),'e2-e4!H',base.rules!)!;
+    expect(staged.pos.turn).toBe(base.seat);
+    expect(applyLan(staged.pos,'e4-e5',base.rules!)).toBeDefined();
+    await frame.locator('html').evaluate(() => {
+      const host=window as any, drag=host.testBoard.onDragSelect;
+      host.dragAttempts=[]; host.testBoard.onDragSelect=(square: number) => { host.dragAttempts.push(square); drag(square); };
+    });
+    await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_move'; });
+    await frame.locator('#end-turn').click(); await page.waitForFunction(() => typeof (window as any).releaseBefore==='function');
+    expect(await frame.locator('#status').innerText()).toBe('Sending…');
+    const unchanged = async () => {
+      expect(await frame.locator('#board').getAttribute('data-animating')).toBe('false');
+      expect(await boardFen(page)).toBe(toFen(staged.pos));
+      expect(await page.evaluate(() => (window as any).harnessView.fen)).toBe(base.fen);
+      expect((await moveCalls(page)).map((call: any) => call.arguments.actions)).toEqual([['e2-e4!H','--']]);
+    };
+    await squareTap(page,28); await squareTap(page,36); await unchanged();
+    const board=frame.locator('#board'); await board.focus();
+    for (let n=0;n<4;n++) await board.press('ArrowRight');
+    for (let n=0;n<3;n++) await board.press('ArrowUp');
+    expect(await board.getAttribute('aria-label')).toContain('e4.'); await board.press('Enter');
+    await board.press('ArrowUp'); expect(await board.getAttribute('aria-label')).toContain('e5.'); await board.press('Enter'); await unchanged();
+    const source=await squarePoint(page,28), target=await squarePoint(page,36);
+    await page.mouse.move(source.x,source.y); await page.mouse.down(); await page.mouse.move(target.x,target.y,{steps:5}); await page.mouse.up();
+    expect(await frame.locator('html').evaluate(() => (window as any).dragAttempts)).toEqual([28]);
+    await unchanged();
+  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+});
+
+it('W7: stages mate, permits Undo, and ends only on the press with no second move animation', async () => {
+  const {page,frame} = await turnBoard('k7/8/1K6/8/8/8/8/7R w - - 0 1');
+  try {
+    await frame.locator('html').evaluate(() => { const host=window as any, animate=host.testBoard.animateMove.bind(host.testBoard); host.turnAnimations=0; host.testBoard.animateMove=(...args: any[]) => { host.turnAnimations++; return animate(...args); }; });
+    await squareTap(page,7); await squareTap(page,63); await frame.locator('#board[data-animating="false"]').waitFor();
+    expect(await frame.locator('#status').textContent()).toBe('Checkmate. Select End turn to finish.');
+    expect(await frame.locator('#over[open]').count()).toBe(0); expect(await moveCalls(page)).toEqual([]);
+    await frame.locator('#undo').click(); expect(await frame.locator('#status').textContent()).toBe('Your move.');
+    await squareTap(page,7); await squareTap(page,63); await frame.locator('#board[data-animating="false"]').waitFor();
+    await frame.locator('#end-turn').click(); await frame.locator('#over[open]').waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).turnAnimations)).toBe(2);
+    expect((await moveCalls(page))[0].arguments.actions).toEqual(['Rh1-h8']);
+  } finally { await page.close(); }
+});
+
+it('W7: moves keyboard focus to the turn button, sends with Enter, and undoes with Z', async () => {
+  const {page,frame} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1');
+  try {
+    const board=frame.locator('#board'); await board.focus();
+    for(let n=0;n<4;n++) await board.press('ArrowRight'); await board.press('ArrowUp'); await board.press('Enter');
+    await board.press('ArrowUp'); await board.press('ArrowUp'); await board.press('Enter');
+    await expect.poll(() => frame.locator('#end-turn').evaluate(e => e===document.activeElement)).toBe(true);
+    await frame.locator('#end-turn').press('z');
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
+    await board.press('ArrowDown'); await board.press('ArrowDown'); await board.press('Enter');
+    await board.press('ArrowUp'); await board.press('ArrowUp'); await board.press('Enter');
+    await frame.locator('#board[data-animating="false"]').waitFor(); await board.press('z');
+    expect(await moveCalls(page)).toEqual([]);
+    await board.press('ArrowDown'); await board.press('ArrowDown'); await board.press('Enter');
+    await board.press('ArrowUp'); await board.press('ArrowUp'); await board.press('Enter');
+    await expect.poll(() => frame.locator('#end-turn').evaluate(e => e===document.activeElement)).toBe(true);
+    await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_move'; });
+    await frame.locator('#end-turn').press('Enter');
+    expect(await board.evaluate(e => e===document.activeElement)).toBe(true);
+    expect((await moveCalls(page)).length).toBe(1);
+  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+});
+
+
+it('W7: snaps to the draft if motion fails and keeps Undo available', async () => {
+  const {page,frame,base} = await turnBoard();
+  try {
+    const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+    await frame.locator('html').evaluate(() => { (window as any).testBoard.animateMove=() => Promise.reject(new Error('Move motion test failure')); });
+    await chooseTurnMove(page,'e2-e4',12);
+    await expect.poll(() => errors).toEqual(['Move motion test failure']);
+    expect(await frame.locator('html').evaluate(() => Array.from((window as any).testBoard.pos.board))).toEqual([...applyLan(fromFen(base.fen),'e2-e4',base.rules!)!.pos.board]);
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
+    await frame.locator('#undo').click();
+    expect(await frame.locator('#last-move').innerText()).toBe('Move 1.');
+    expect(await moveCalls(page)).toEqual([]);
+  } finally { await page.close(); }
+});
+
+
+it('W7: keeps a lost-send error while pieces and coins remain readable', async () => {
+  const {page,frame} = await turnBoard();
+  try {
+    await chooseTurnMove(page,'e2-e4',12);
+    await page.evaluate(() => { (window as any).dropNextMoveReply=true; });
+    await frame.locator('#end-turn').click(); await frame.locator('#retry').waitFor();
+    const message=await frame.locator('#error').innerText(); expect(message).not.toBe('');
+    await squareTap(page,28);
+    expect(await frame.locator('#error').innerText()).toBe(message);
+    expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
+    await frame.locator('#power-w').click();
+    expect(await frame.locator('#error').innerText()).toBe(message);
+    expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
+    expect((await moveCalls(page)).length).toBe(1);
   } finally { await page.close(); }
 });
