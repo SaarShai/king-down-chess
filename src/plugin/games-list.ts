@@ -7,13 +7,13 @@ import { friendInvites, inviteText, sendInvite } from './invite';
 export const DATE_LOCALE = /^en(-|$)/i.test(navigator.language) ? navigator.language : 'en-US';
 /** A date in DATE_LOCALE; a non-breaking space keeps AM or PM with its time. */
 export const formatDate = (at: string, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(DATE_LOCALE, options).format(new Date(at)).replace(/\s(?=[ap]\.?m\b)/i, '\u00a0');
-export const waitingLine = (entry: InboxEntry) => entry.kind === 'friend' ? 'Waiting for a friend' : 'Waiting for an opponent';
+export const waitingLine = (entry: Pick<InboxEntry, 'kind'>) => entry.kind === 'friend' ? 'Waiting for a friend' : 'Waiting for an opponent';
 
 export function gameDetail(entry: InboxEntry): string {
   return `${entry.seat === 0 ? 'White' : 'Black'} ·\u00a0${formatDate(entry.created_at, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`;
 }
 
-export const gameTitle = (entry: InboxEntry) => entry.opponent?.computer ? `Computer · ${entry.level[0].toUpperCase() + entry.level.slice(1)}` : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
+export const gameTitle = (entry: Pick<View, 'opponent' | 'level'>) => entry.opponent?.computer ? entry.level ? `Computer · ${entry.level[0].toUpperCase() + entry.level.slice(1)}` : 'Computer' : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
 /** The first game that waits for your move, other than `except`. */
 export const nextGame = (entries: InboxEntry[], except?: string) => entries.find(entry => entry.status !== 'waiting' && entry.action === 'ready' && entry.game_id !== except);
 export function gamesList(target: HTMLElement, entries: InboxEntry[], call: (name: string, args: Record<string, unknown>) => Promise<View | undefined>, routeView: (view: View) => unknown, now = Date.now()) {

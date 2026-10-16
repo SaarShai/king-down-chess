@@ -100,8 +100,15 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   }
   const play = async (args: { game_id: string; command_id: string; expected_revision: number }, action: Action) => reply(await service.command(actorId, args.game_id, { command_id: args.command_id, expected_revision: args.expected_revision, action }));
   // ponytail: a model call has no command ID, so a host retry after a lost reply gets MATCH_TERMINAL, not the first reply.
-  const decide = async (args: { game_id: string; command_id?: string; expected_revision?: number }, action: Action) =>
-    play({ game_id: args.game_id, command_id: args.command_id ?? randomUUID(), expected_revision: args.expected_revision ?? (await service.view(actorId, args.game_id)).revision }, action);
+  const decide = async (args: { game_id: string; command_id?: string; expected_revision?: number }, action: Action) => {
+    const command = { game_id: args.game_id, command_id: args.command_id ?? randomUUID(), expected_revision: args.expected_revision ?? (await service.view(actorId, args.game_id)).revision };
+    try { return await play(command, action); }
+    catch (error) {
+      if (args.expected_revision !== undefined || !(error instanceof MatchServiceError) || error.code !== 'STALE_REVISION') throw error;
+      // The server picks this revision. One computer turn can change it before the write.
+      return play({ ...command, expected_revision: (await service.view(actorId, args.game_id)).revision }, action);
+    }
+  };
   const optional = { game_id: gameId, command_id: command.command_id.optional(), expected_revision: command.expected_revision.optional() };
 
   register('kingdown_open', 'Use this when the player says "play King Down", wants to open a game, says "join King Down game K7QX2M", or says "show my King Down profile". Use code to preview a join; a short-code preview counts toward the hourly limit. Use screen "profile" for the profile page. Each open stores a new board record. Opens home with no new game; game_id or "next" selects a game.',

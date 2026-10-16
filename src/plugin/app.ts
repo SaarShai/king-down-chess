@@ -1,7 +1,7 @@
 import { App, type McpUiHostContext } from '@modelcontextprotocol/ext-apps';
 import type { PlayerSettings } from './settings';
 import { setRules } from '../rules/engine';
-import { gameTitle, gamesList, nextGame } from './games-list';
+import { gameTitle, gamesList, nextGame, waitingLine } from './games-list';
 import type { InboxEntry, JoinPreview, View } from '../match/protocol';
 import { CANNOT_CONNECT, createClient, errorText, SELECTION_TOOLS, type WidgetHost, type Screen, type Pending } from './client';
 import { art } from './art';
@@ -32,7 +32,7 @@ let awaitingInitialResult = true;
 let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
 let readError = false, pollFailures = 0;
-let busy = false, polling = false, mountReading = true, gamesDirty = false;
+let busy = false, polling = false, mountReading = true, restoringMount = false, gamesDirty = false;
 // Ends when the command in flight (busy) ends; call skips a read while busy.
 let commandDone = Promise.resolve(), endCommand = () => {};
 // A mount read must keep a command refusal for the game that it shows.
@@ -70,6 +70,8 @@ function actions() {
   buttons().forEach(button => { button.disabled = (blocked && !button.hasAttribute('data-free')) || button.matches('#king-picker [aria-disabled="true"]') || readError && button.matches('.game-action, #choices button, #context-actions button'); });
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
   $<HTMLButtonElement>('setup-start').disabled ||= setupBusy();
+  $<HTMLInputElement>('join-code').disabled = blocked;
+  $<HTMLInputElement>('handle').disabled = blocked;
   homeActions();
   for (const [id] of TOGGLES) $<HTMLInputElement>(id).disabled = blocked || !memory.settings;
 }
@@ -86,7 +88,7 @@ function show(next: View | undefined) {
   if (view?.game_id !== next.game_id && readError) { readError = false; pollFailures = 0; retryState(); }
   view = next;
   if (rules?.game === next.game_id) setRules(rules.value);
-  drawBoard(next);
+  drawBoard(next, mountReading && restoringMount);
   void applySettings(); poll?.update();
   // The identifier is presentation state; every board reload still reads server authority.
   saveState();
@@ -180,6 +182,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     }
   }
   finally { if (quiet) polling = false; else { busy = false; endCommand(); } actions(); }
+  if (name === 'kingdown_move' && received && received.kind !== 'solo') void games().then(() => { if (view) drawBoard(view); });
   if (retain && name === 'kingdown_move' && !received && !pending && before?.game_id === view?.game_id) await rollbackBoardMove();
   if (followup) void call(followup.name, followup.args, true, false, undefined, true);
   return received;
@@ -218,7 +221,7 @@ app.ontoolresult = result => {
   void mountResult(result, initial, mountAbort.signal);
 };
 async function mountResult(result: ToolResult, initial: boolean, signal: AbortSignal) {
-  mountReading = true; actions();
+  mountReading = true; restoringMount = initial && !!savedScreen; actions();
   const stale = () => signal.aborted;
   try {
     await connection;
@@ -321,7 +324,7 @@ $('page-title').onpointerup = $('page-title').onpointerleave = $('page-title').o
 // player leaves fullscreen, the home card comes back with its own height; a late route or tool result waits for Play,
 // which returns to the game screen.
 const GAME_SCREENS: Screen[] = ['seat', 'board', 'wait', 'friend', 'end'];
-let displayMode: string | undefined, asking = false, collapsed = false, resume: Screen | undefined, target: Screen | undefined, gamesFirst = false;
+let displayMode: string | undefined, asking = false, collapsed = false, target: Screen | undefined, gamesFirst = false;
 const canFullscreen = () => app.getHostContext()?.availableDisplayModes?.includes('fullscreen') ?? true;
 /** The widget state keeps the waiting screen only while it waits. */
 function unqueue() { target = undefined; delete state.queued; }
@@ -344,7 +347,7 @@ async function fullscreen(screen: Screen) {
 export function showGames() { gamesFirst = true; navigate('play'); }
 export function navigate(screen: Screen) {
   if (screen !== 'home' && displayMode === 'inline' && canFullscreen()) {
-    if (collapsed) { if (GAME_SCREENS.includes(screen)) resume = screen; return; }
+    if (collapsed) { if (GAME_SCREENS.includes(screen)) { state.resume = screen; client.save(); } return; }
     void fullscreen(screen); return;
   }
   unqueue();
@@ -378,7 +381,7 @@ function hostContext(context: McpUiHostContext | undefined) {
   document.body.dataset.touch = String(context.deviceCapabilities?.touch ?? false);
   for (const edge of ['top', 'right', 'bottom', 'left'] as const) document.documentElement.style.setProperty(`--safe-${edge}`, `${Math.max(0, context.safeAreaInsets?.[edge] ?? 0)}px`);
   if (context.displayMode === 'inline' && displayMode === 'fullscreen' && state.screen !== 'home' && canFullscreen()) {
-    resume = GAME_SCREENS.includes(state.screen) ? state.screen : undefined;
+    state.resume = GAME_SCREENS.includes(state.screen) ? state.screen : undefined;
     displayMode = 'inline'; navigate('home'); collapsed = true;
   }
   if (context.displayMode) displayMode = context.displayMode;
@@ -429,22 +432,23 @@ $('handle-form').onsubmit = event => {
 };
 $<HTMLInputElement>('handle').oninput = scheduleHandleCheck;
 /** Spec J3: while a game waits for you, the main action resumes it by name and Play now moves to second place. */
-const homeGame = () => resume ? memory.games.find(entry => entry.game_id === view?.game_id) : nextGame(memory.games);
+const homeGame = () => view && ['waiting', 'setup', 'playing'].includes(view.status) ? view : state.resume ? undefined : nextGame(memory.games);
 function homeActions() {
-  const game = homeGame(), back = !!resume || !!game;
+  const game = homeGame(), back = !!state.resume || !!game;
+  const turn = game?.status === 'playing' ? game.action === 'ready' ? ' · Your move' : ' · Their turn' : '';
   const label = (id: string, symbol: string, text: string) => { const html = `<svg class="icon" aria-hidden="true"><use href="#i-${symbol}"/></svg><span>${text}</span>`; if ($(id).innerHTML !== html) { $(id).innerHTML = html; $(id).querySelector('span')!.textContent = text; } };
-  label('home-play', back ? 'continue' : 'play', back ? game ? `Resume · ${game.opponent?.computer ? 'Computer' : gameTitle(game)}` : 'Resume' : 'Play now');
+  label('home-play', back ? 'continue' : 'play', back ? game ? `Resume · ${game.status === 'waiting' ? waitingLine(game) : game.opponent?.computer ? 'Computer' : gameTitle(game)}${turn}` : 'Resume' : 'Play now');
   label('home-games', back ? 'play' : 'guide', back ? 'Play now' : 'Choose a game');
 }
 // Spec J2, D2: Play now asks for fullscreen on the tap and opens the board when the game exists.
-function homePlayNow() { collapsed = false; resume = undefined; void fullscreen('home'); playNow(); }
+function homePlayNow() { collapsed = false; delete state.resume; void fullscreen('home'); playNow(); }
 $('home-play').onclick = () => {
   const game = homeGame();
-  if (resume) { const next = resume; collapsed = false; resume = undefined; void fullscreen(next); }
+  if (state.resume) { const next = state.resume; collapsed = false; delete state.resume; void fullscreen(next); }
   else if (game) { collapsed = false; void fullscreen('home'); void call('kingdown_resume', { game_id: game.game_id }); }
   else homePlayNow();
 };
-$('home-games').onclick = () => { if (resume || homeGame()) return homePlayNow(); collapsed = false; gamesFirst = true; void fullscreen('play'); };
+$('home-games').onclick = () => { if (state.resume || homeGame()) return homePlayNow(); collapsed = false; gamesFirst = true; void fullscreen('play'); };
 document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => { button.onclick = () => navigate(button.dataset.nav as Screen); });
 $('page-back').onclick = () => navigate(state.screen === 'handle' ? handleBack : state.screen === 'collection' ? 'profile' : state.screen === 'settings' ? state.settings_back ?? 'play' : 'play');
 app.onhostcontextchanged = () => hostContext(app.getHostContext());

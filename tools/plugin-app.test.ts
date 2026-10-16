@@ -343,6 +343,142 @@ it('keeps the opponent picked in the Play hall for the session', async () => {
     expect(await friend.isChecked()).toBe(true);
   } finally { await page.close(); }
 });
+it('uses the approved flat face on a disabled control', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    expect(await frame.locator('#board-menu').evaluate(button => {
+      (button as HTMLButtonElement).disabled = true;
+      return getComputedStyle(button).backgroundImage;
+    })).toBe('none');
+  } finally { await page.close(); }
+});
+it('names the turn on Resume and keeps the open game after a home remount', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    const game = await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      const options = { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false };
+      for (let n = 0; n < 2; n++) await app.call('kingdown_create', { kind: 'solo', colour: 'white', options });
+      return app.memory.view.game_id;
+    });
+    await page.route('**/fixture-tool', async route => {
+      if (route.request().postDataJSON().name !== 'kingdown_games') return route.continue();
+      const response = await route.fetch(), result = await response.json();
+      result._meta.games.sort((a: any, b: any) => Number(a.game_id === game) - Number(b.game_id === game));
+      await route.fulfill({ json: result });
+    });
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    expect(await frame.locator('#home-play').textContent()).toContain('Your move');
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    await frame.locator('#home-play').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(game);
+  } finally { await page.close(); }
+});
+it.each([false, true])('reads the selected board after remount with an older game seed: %s', async olderGameSeed => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    const create = () => frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } });
+      return app.memory.view.game_id;
+    });
+    if (olderGameSeed) {
+      const game_id = await create();
+      const seed = await page.evaluate(game_id => (window as any).harnessTool({ name: 'kingdown_open', arguments: { game_id } }), game_id);
+      const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
+      await page.evaluate(result => (window as any).harnessShow(result, true), seed);
+      await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
+      await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    }
+    const selected = await create();
+    await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_get'; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => Boolean((window as any).releaseBefore));
+    expect(await page.evaluate(() => (window as any).harnessView?.game_id)).not.toBe(selected);
+    await page.evaluate(() => (window as any).releaseBefore());
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(selected);
+    expect(await page.evaluate(() => (window as any).harnessView?.game_id)).toBe(selected);
+  } finally {
+    await page.evaluate(() => (window as any).releaseBefore?.());
+    await page.close();
+  }
+});
+it('keeps the Resume label with the end screen while another game waits', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    const game = await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      const options = { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false };
+      for (let n = 0; n < 2; n++) await app.call('kingdown_create', { kind: 'solo', colour: 'white', options });
+      const game = app.memory.view.game_id;
+      await app.call('kingdown_resign', { game_id: game }, true, false, true);
+      await app.call('kingdown_get', {});
+      return game;
+    });
+    await frame.locator('[data-screen="end"]:not([hidden])').waitFor();
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    expect(await frame.locator('#home-play').textContent()).toBe('Resume');
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    expect(await frame.locator('#home-play').textContent()).toBe('Resume');
+    await frame.locator('#home-play').click();
+    await frame.locator('[data-screen="end"]:not([hidden])').waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(game);
+  } finally { await page.close(); }
+});
+it('reads the games list after a move before it offers Next game', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const tool = async (friend: boolean, name: string, args = {}) => (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', harness.url).href, { data: { name, arguments: args } })).json();
+  const options = { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false };
+  let current = '', next = '';
+  try {
+    await expand(page);
+    await page.route('**/fixture-tool', async route => {
+      if (route.request().postDataJSON().name !== 'kingdown_games') return route.continue();
+      const response = await route.fetch(), result = await response.json();
+      result._meta.games = result._meta.games.filter((entry: any) => [current, next].includes(entry.game_id));
+      await route.fulfill({ json: result });
+    });
+    const created = await tool(false, 'kingdown_create', { kind: 'friend', colour: 'white', options });
+    current = created._meta.view.game_id;
+    const invite = await tool(false, 'kingdown_invite', { game_id: current });
+    await tool(true, 'kingdown_join', { code: invite.structuredContent.code });
+    await page.evaluate(result => (window as any).harnessShow(result, true), created);
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    const offered = await tool(true, 'kingdown_create', { kind: 'friend', colour: 'black', options });
+    const code = await tool(true, 'kingdown_invite', { game_id: offered._meta.view.game_id });
+    next = (await tool(false, 'kingdown_join', { code: code.structuredContent.code }))._meta.view.game_id;
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length);
+    await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_games'; });
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp, view = app.memory.view;
+      await app.call('kingdown_move', { game_id: view.game_id, command_id: crypto.randomUUID(), expected_revision: view.revision, lan: 'e2-e4' }, true);
+    });
+    await page.waitForFunction(() => Boolean((window as any).releaseBefore));
+    expect(await frame.locator('#reload').isDisabled()).toBe(false);
+    expect(await frame.locator('#next-game').count()).toBe(0);
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length)).toBeGreaterThan(reads);
+    await page.evaluate(() => (window as any).releaseBefore());
+    await frame.locator('#next-game').waitFor();
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    expect(await frame.locator('#home-play').textContent()).toContain('Their turn');
+    await frame.locator('#home-play').click();
+    await frame.locator('#next-game').click();
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(next);
+  } finally { await page.close(); }
+});
 it('keeps the opponent picked after a remount in the Play hall', async () => {
   const page = await open(), frame = page.frameLocator('iframe'), friend = frame.getByRole('radio', { name: 'A friend', exact: true });
   try {
@@ -385,6 +521,31 @@ it('keeps chat preview and code errors in page memory on notification and mount'
       expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.preview)).toBeUndefined();
       expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.joinError)).toEqual({ code: error._meta.code, message: error.content.map((c: any) => c.text).join(' ') });
     }
+  } finally { await page.close(); }
+});
+it('reads a friend code again after the join preview remounts', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const tool = async (path: string, name: string, args = {}) => (await page.request.post(new URL(path, harness.url).href, { data: { name, arguments: args } })).json();
+  try {
+    await expand(page);
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); });
+    const friend = await tool('/fixture-friend-tool', 'kingdown_create', { kind: 'friend', colour: 'white' });
+    const invite = await tool('/fixture-friend-tool', 'kingdown_invite', { game_id: friend._meta.view.game_id });
+    const code = invite.structuredContent.code.toLowerCase();
+    await hall(page);
+    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
+    await frame.locator('#token').fill(code); await frame.locator('#join').click();
+    await frame.locator('#join-confirm').waitFor();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_get'; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await frame.locator('#join-entry').waitFor();
+    const input = frame.locator('#join-code'), filled = input.fill(code);
+    await expect.poll(async () => await input.isDisabled() || await input.inputValue() === code).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await filled; await frame.locator('#join-entry button').click();
+    await frame.locator('#join-confirm').waitFor();
+    expect(await frame.locator('#join-help').textContent()).toBe('Review this game before you join.');
   } finally { await page.close(); }
 });
 it('shows both setup states in the app games rows', async () => {

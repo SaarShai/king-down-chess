@@ -2014,6 +2014,7 @@ try {
   const switched = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_create', arguments: { kind: 'solo', options, colour: 'white' } } })).json();
   await page.evaluate(async result => { await window.harnessShow(result); }, switched);
   await frame.locator('#retry').waitFor({ state: 'hidden' });
+  await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
   await clickSquare(4, 1); assert(await frame.locator('#choices button').count() > 0);
   await page.evaluate(() => { window.harnessWidgetState = { modelContent: { game_id: window.harnessMatchId } }; });
   await remountFrame();
