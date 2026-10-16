@@ -23,21 +23,21 @@ export function applyLan(pre: Position, lan: string, rules: Partial<Rules>, lega
   return move && { pre, pos: makeMove(pre, move), move, lan, words: describeMove(pre, move, true) };
 }
 
-export function draftTurn(steps: readonly BoardMove[], pos: Position, mode: Exclude<Mode, 'device'>) {
+export function draftTurn(steps: readonly BoardMove[], pos: Position, mode: Exclude<Mode, 'device'>, seat: Color) {
   const game = { history: steps.map(step => ({ pos: step.pre })), pos, status: status(pos), legal: legalMoves(pos), inCheck: inCheck(pos) };
   const turn = turnOf(game, 0);
-  if (!turn.staged && turn.midWay && game.legal.some(move => move.pass)) turn.ready = true;
+  if (!turn.staged && pos.turn === seat && turn.midWay && game.legal.some(move => move.pass)) turn.ready = true;
   const { staged, midWay, waits, ready } = turn;
   return { staged, midWay, waits, ready, line: turnLine(game, turn, mode) };
 }
 
-export function sendActions(steps: readonly BoardMove[], pos: Position): string[] {
-  const turn = draftTurn(steps, pos, 'computer'), lans = steps.map(step => step.lan);
+export function sendActions(steps: readonly BoardMove[], pos: Position, seat: Color): string[] {
+  const turn = draftTurn(steps, pos, 'computer', seat), lans = steps.map(step => step.lan);
   return turn.ready && turn.midWay && !turn.waits ? [...lans, '--'] : lans;
 }
 
 export function draftChoices(view: View, pos: Position, steps: readonly BoardMove[]): { lan: string; move: Move }[] {
-  if (draftTurn(steps, pos, 'computer').waits) return [];
+  if (draftTurn(steps, pos, 'computer', view.seat).waits) return [];
   return legalMoves(pos).map(move => ({ lan: toLan(pos, move), move })).filter(({ lan }) => steps.length > 0 || view.legal.includes(lan));
 }
 

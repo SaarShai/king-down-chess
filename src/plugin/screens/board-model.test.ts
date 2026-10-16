@@ -97,65 +97,72 @@ test('Firewall names the card action on the shared move text path', () => {
 
 test('an empty draft has no turn to send', () => {
   const { pos, steps } = stage(START, []);
-  expect(draftTurn(steps, pos, 'computer')).toEqual({ staged: 0, midWay: false, waits: false, ready: false, line: '' });
-  expect(sendActions(steps, pos)).toEqual([]);
+  expect(draftTurn(steps, pos, 'computer', 0)).toEqual({ staged: 0, midWay: false, waits: false, ready: false, line: '' });
+  expect(sendActions(steps, pos, 0)).toEqual([]);
 });
 
 test('one move waits for the press and uses the words for each game mode', () => {
   const { pos, steps } = stage(START, ['e2-e4']);
   const before = structuredClone({ pos, steps });
-  expect(draftTurn(steps, pos, 'computer')).toEqual({ staged: 1, midWay: false, waits: true, ready: true, line: 'Your turn is ready. Tap End turn.' });
-  expect(draftTurn(steps, pos, 'link').line).toBe('Your turn is ready. Tap Send your turn.');
-  expect(sendActions(steps, pos)).toEqual(['e2-e4']);
+  expect(draftTurn(steps, pos, 'computer', 0)).toEqual({ staged: 1, midWay: false, waits: true, ready: true, line: 'Your turn is ready. Tap End turn.' });
+  expect(draftTurn(steps, pos, 'link', 0).line).toBe('Your turn is ready. Tap Send your turn.');
+  expect(sendActions(steps, pos, 0)).toEqual(['e2-e4']);
   expect({ pos, steps }).toEqual(before);
+});
+
+test('a staged check uses the check line in each game mode', () => {
+  const { pos, steps } = stage('7k/8/8/8/8/8/8/K5R1 w - - 0 1', ['Rg1-h1']);
+  expect(status(pos)).toBe('playing');
+  expect(draftTurn(steps, pos, 'computer', 0).line).toBe('Check. Your turn is ready. Tap End turn.');
+  expect(draftTurn(steps, pos, 'link', 0).line).toBe('Check. Tap Send your turn.');
 });
 
 test('the first Haste move permits a second move or a pass', () => {
   const { pos, steps } = stage(HASTE, ['Ra1-a4!H'], hasteRules);
-  expect(draftTurn(steps, pos, 'link')).toEqual({ staged: 1, midWay: true, waits: false, ready: true, line: 'Move it again, or tap Send your turn.' });
-  expect(sendActions(steps, pos)).toEqual(['Ra1-a4!H', '--']);
+  expect(draftTurn(steps, pos, 'link', 0)).toEqual({ staged: 1, midWay: true, waits: false, ready: true, line: 'Move it again, or tap Send your turn.' });
+  expect(sendActions(steps, pos, 0)).toEqual(['Ra1-a4!H', '--']);
 });
 
 test.each(['Ra4-e4', '--'])('Haste ends with %s and adds no extra pass', lan => {
   const { pos, steps } = stage(HASTE, ['Ra1-a4!H', lan], hasteRules);
-  expect(draftTurn(steps, pos, 'computer')).toMatchObject({ staged: 2, midWay: false, waits: true, ready: true });
-  expect(sendActions(steps, pos)).toEqual(['Ra1-a4!H', lan]);
+  expect(draftTurn(steps, pos, 'computer', 0)).toMatchObject({ staged: 2, midWay: false, waits: true, ready: true });
+  expect(sendActions(steps, pos, 0)).toEqual(['Ra1-a4!H', lan]);
 });
 
 test('a Haste move at the draw limit waits and adds no pass', () => {
   const { pos, steps } = stage(HASTE.replace(' 0 1', ' 99 1'), ['Ra1-a4!H'], hasteRules);
   expect(status(pos)).toBe('draw50');
-  expect(draftTurn(steps, pos, 'computer')).toMatchObject({ staged: 1, midWay: true, waits: true, ready: true });
-  expect(sendActions(steps, pos)).toEqual(['Ra1-a4!H']);
+  expect(draftTurn(steps, pos, 'computer', 0)).toMatchObject({ staged: 1, midWay: true, waits: true, ready: true });
+  expect(sendActions(steps, pos, 0)).toEqual(['Ra1-a4!H']);
   expect(draftChoices(view(), pos, steps)).toEqual([]);
 });
 
 test('a free Freeze permits a move or the press', () => {
   const { pos, steps } = stage(FREEZE, ['!F:d5'], freezeRules);
-  expect(draftTurn(steps, pos, 'computer')).toEqual({ staged: 1, midWay: true, waits: false, ready: true, line: 'Now make your move, or tap End turn.' });
-  const actions = sendActions(steps, pos);
+  expect(draftTurn(steps, pos, 'computer', 0)).toEqual({ staged: 1, midWay: true, waits: false, ready: true, line: 'Now make your move, or tap End turn.' });
+  const actions = sendActions(steps, pos, 0);
   expect(actions).toEqual(['!F:d5', '--']);
   const sent = stage(FREEZE, actions, freezeRules);
-  expect(draftTurn(sent.steps, sent.pos, 'computer')).toMatchObject({ staged: 2, midWay: false, waits: true, ready: true });
+  expect(draftTurn(sent.steps, sent.pos, 'computer', 0)).toMatchObject({ staged: 2, midWay: false, waits: true, ready: true });
 });
 
 test('a move after Freeze makes the turn wait', () => {
   const { pos, steps } = stage(FREEZE, ['!F:d5', 'a2-a3'], freezeRules);
-  expect(draftTurn(steps, pos, 'computer')).toMatchObject({ staged: 2, midWay: false, waits: true, ready: true });
-  expect(sendActions(steps, pos)).toEqual(['!F:d5', 'a2-a3']);
+  expect(draftTurn(steps, pos, 'computer', 0)).toMatchObject({ staged: 2, midWay: false, waits: true, ready: true });
+  expect(sendActions(steps, pos, 0)).toEqual(['!F:d5', 'a2-a3']);
 });
 
 test('Rally permits only another piece to make a quiet move', () => {
   const rules: Partial<Rules> = { hands: [['Rally'], []] };
   const { pos, steps } = stage('4k3/8/p7/8/8/2p5/8/RN2K3 w - - 0 1', ['Ra1-a5!J'], rules);
-  expect(draftTurn(steps, pos, 'computer').line).toBe('Move another piece, or tap End turn.');
-  expect(sendActions(steps, pos)).toEqual(['Ra1-a5!J', '--']);
+  expect(draftTurn(steps, pos, 'computer', 0).line).toBe('Move another piece, or tap End turn.');
+  expect(sendActions(steps, pos, 0)).toEqual(['Ra1-a5!J', '--']);
   const choices = draftChoices(view(), pos, steps).map(choice => choice.lan);
   expect(choices).toContain('Nb1-d2');
   expect(choices).not.toContain('Nb1xc3');
   expect(choices.some(lan => lan.startsWith('Ra5'))).toBe(false);
   const second = applyLan(pos, 'Nb1-d2', rules)!;
-  expect(draftTurn([...steps, second], second.pos, 'computer')).toMatchObject({ staged: 2, waits: true, ready: true });
+  expect(draftTurn([...steps, second], second.pos, 'computer', 0)).toMatchObject({ staged: 2, waits: true, ready: true });
 });
 
 test.each([
@@ -167,9 +174,9 @@ test.each([
 ])('a staged %s waits for the press', (_name, fen, lan, end) => {
   const { pos, steps } = stage(fen, [lan]);
   expect(status(pos)).toBe(end);
-  expect(draftTurn(steps, pos, 'computer')).toMatchObject({ staged: 1, waits: true, ready: true });
-  expect(draftTurn(steps, pos, 'link').line).toBe(`${end === 'checkmate' ? 'Checkmate.' : end === 'stalemate' ? 'Stalemate.' : 'Draw.'} Tap Send your turn.`);
-  expect(sendActions(steps, pos)).toEqual([lan]);
+  expect(draftTurn(steps, pos, 'computer', 0)).toMatchObject({ staged: 1, waits: true, ready: true });
+  expect(draftTurn(steps, pos, 'link', 0).line).toBe(`${end === 'checkmate' ? 'Checkmate.' : end === 'stalemate' ? 'Stalemate.' : 'Draw.'} Tap Send your turn.`);
+  expect(sendActions(steps, pos, 0)).toEqual([lan]);
   expect(draftChoices(view(), pos, steps)).toEqual([]);
 });
 
@@ -178,24 +185,38 @@ test.each([
   [FREEZE, '!F:d5', freezeRules],
 ] as const)('a saved half turn with no draft steps can send a pass (%s)', (fen, lan, rules) => {
   const { pos } = stage(fen, [lan], rules);
-  expect(draftTurn([], pos, 'computer')).toEqual({ staged: 0, midWay: true, waits: false, ready: true, line: '' });
-  expect(sendActions([], pos)).toEqual(['--']);
+  expect(draftTurn([], pos, 'computer', 0)).toEqual({ staged: 0, midWay: true, waits: false, ready: true, line: '' });
+  expect(sendActions([], pos, 0)).toEqual(['--']);
+});
+
+test.each([
+  [0, 'computer'], [0, 'link'], [1, 'computer'], [1, 'link'],
+] as const)('only seat %s can send its saved half turn in %s mode', (seat, mode) => {
+  const fen = seat === 0 ? HASTE : 'r5k1/8/8/8/8/8/P7/7K b - - 0 1';
+  const lan = seat === 0 ? 'Ra1-a4!H' : 'Ra8-b8!H';
+  const { pos } = stage(fen, [lan], { hands: [['Haste'], ['Haste']], hasteCaptures: false });
+  expect(pos.turn).toBe(seat);
+  expect(draftTurn([], pos, mode, seat)).toMatchObject({ staged: 0, midWay: true, ready: true });
+  expect(sendActions([], pos, seat)).toEqual(['--']);
+  const opponent = seat === 0 ? 1 : 0;
+  expect(draftTurn([], pos, mode, opponent)).toMatchObject({ staged: 0, midWay: true, ready: false });
+  expect(sendActions([], pos, opponent)).toEqual([]);
 });
 
 test('a half turn cannot send a pass that leaves its king in check', () => {
   const { pos, steps } = stage('7k/8/8/8/8/8/r7/K6R w - - 0 1 u1.0/f', [], freezeRules);
-  expect(draftTurn(steps, pos, 'computer').ready).toBe(false);
-  expect(sendActions(steps, pos)).toEqual([]);
+  expect(draftTurn(steps, pos, 'computer', 0).ready).toBe(false);
+  expect(sendActions(steps, pos, 0)).toEqual([]);
 });
 
 test('the lab double first turn has no pass and needs the second move', () => {
   const rules = { secondPlayerDoubleFirstTurn: true };
   const { pos, steps } = stage(START.replace(' w ', ' b '), ['e7-e5'], rules);
-  expect(draftTurn(steps, pos, 'computer')).toMatchObject({ staged: 1, midWay: false, waits: false, ready: false });
-  expect(sendActions(steps, pos)).toEqual(['e7-e5']);
+  expect(draftTurn(steps, pos, 'computer', 1)).toMatchObject({ staged: 1, midWay: false, waits: false, ready: false });
+  expect(sendActions(steps, pos, 1)).toEqual(['e7-e5']);
   const second = applyLan(pos, 'd7-d6', rules)!;
-  expect(draftTurn([...steps, second], second.pos, 'computer')).toMatchObject({ staged: 2, waits: true, ready: true });
-  expect(sendActions([...steps, second], second.pos)).toEqual(['e7-e5', 'd7-d6']);
+  expect(draftTurn([...steps, second], second.pos, 'computer', 1)).toMatchObject({ staged: 2, waits: true, ready: true });
+  expect(sendActions([...steps, second], second.pos, 1)).toEqual(['e7-e5', 'd7-d6']);
 });
 
 test('Undo restores the mark, spent card and coin state from the prior position', () => {
@@ -208,14 +229,14 @@ test('Undo restores the mark, spent card and coin state from the prior position'
   expect(pos).toEqual(before);
   expect(pos.marks).toBeUndefined();
   expect(cardCoins(pos, 0, hand, legalMoves(pos))[0]).toMatchObject({ spent: false, moves: expect.arrayContaining([expect.objectContaining({ power: 'freeze' })]) });
-  expect(draftTurn(steps, pos, 'computer').staged).toBe(0);
+  expect(draftTurn(steps, pos, 'computer', 0).staged).toBe(0);
 });
 
 test('a Beast chain is one draft step', () => {
   const { pre, pos, steps } = stage('k7/8/8/4r3/3p4/4S3/8/4K3 w - - 0 1', ['Se3xd4xe5']);
   expect(steps[0].move.captures).toHaveLength(2);
-  expect(draftTurn(steps, pos, 'computer')).toMatchObject({ staged: 1, waits: true, ready: true });
-  expect(sendActions(steps, pos)).toEqual(['Se3xd4xe5']);
+  expect(draftTurn(steps, pos, 'computer', 0)).toMatchObject({ staged: 1, waits: true, ready: true });
+  expect(sendActions(steps, pos, 0)).toEqual(['Se3xd4xe5']);
   expect(steps.pop()!.pre).toBe(pre);
 });
 
@@ -254,6 +275,7 @@ test('restore sets the rules before it reads a FEN with castling rights', () => 
 test.each([
   { game_id: 'another-game' },
   { fen: START },
+  { fen: '7k/8/p7/8/8/8/8/R5K1 w - - 0 1' },
   { status: 'finished' as const },
   { action: 'waiting' as const },
   { action: 'done' as const },
