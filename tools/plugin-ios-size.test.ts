@@ -165,7 +165,8 @@ it('keeps card and power targets at 44 px without increasing the player rows', a
     await frame.getByRole('checkbox',{name:'Cards',exact:true}).check(); await frame.getByRole('checkbox',{name:'King powers',exact:true}).check();
     await frame.locator('#setup-start').click(); await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     // Measure the coins at rest, after the start deal (Lively motion).
-    await frame.locator('#game-table').evaluate(e=>Promise.all(e.getAnimations({subtree:true}).map(a=>a.finished)));
+    // A strip rebuild can cancel a running coin animation and start it again, so wait until no motion runs.
+    await frame.locator('#game-table').evaluate(async e => { for (let run: Animation[]; (run = e.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {}))); });
     const bounds=await frame.locator('#game-table .coin').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return [r.width,r.height];}));
     expect(bounds.length).toBeGreaterThanOrEqual(8); for(const [w,h] of bounds){expect(w).toBeGreaterThanOrEqual(44);expect(h).toBeGreaterThanOrEqual(44);}
     expect(await frame.locator('#strip-me b').getAttribute('title')).toBe('wwwwwwwwwwwwwwwwwwww');
@@ -386,7 +387,9 @@ it('keeps page-title words whole, the seat title short and the title at body siz
 it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)', async () => {
   // Measure at rest: the board opens with a short scale-in (Lively motion), and a measure during it reads a few px short.
   const canvasWidth = (frame: FrameLocator) => frame.locator('#board canvas').evaluate(async e => {
-    await Promise.all(e.closest('#board')!.getAnimations({ subtree: true }).map(a => a.finished)); return e.getBoundingClientRect().width;
+    const board = e.closest('#board')!;
+    for (let run: Animation[]; (run = board.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
+    return e.getBoundingClientRect().width;
   });
   const reachable = async (frame: FrameLocator, id: string) => {
     await frame.locator(`#${id}`).scrollIntoViewIfNeeded();

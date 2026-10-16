@@ -238,7 +238,9 @@ it.each([[393, 852], [360, 740], [320, 568]])('serves 48 px targets on Seat and 
         if (screen === 'board' && !cards) { await frame.locator('#seat-ready:not(:disabled)').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); }
         const coin = `#${cards ? 'card-w-0' : screen === 'seat' ? 'seat-king' : 'power-w'}`;
         await frame.locator(`${coin}:visible`).waitFor();
-        await frame.locator('#game-table').evaluate(async e => { await Promise.all(e.getAnimations({ subtree: true }).map(a => a.finished)); });
+        // Wait until no motion runs. A strip rebuild during the deal can cancel the old coin's animation (its finished
+        // promise rejects) and starts it again on the new coin, so a single wait can reject or end too soon.
+        await frame.locator('#game-table').evaluate(async e => { for (let run: Animation[]; (run = e.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {}))); });
         const missed = await frame.locator(`[data-screen="${screen}"] button:visible`).evaluateAll(buttons => buttons.flatMap(button => {
           const r = button.getBoundingClientRect(), s = getComputedStyle(button, '::after'), m = new DOMMatrix(s.transform);
           if (Math.max(r.width, parseFloat(s.width) || 0) < 48 || Math.max(r.height, parseFloat(s.height) || 0) < 48) return [button.id + ': size'];
