@@ -370,6 +370,27 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
     } finally { await page.close(); }
   }
 });
+// Review R1: under 320 px the screen scrolls only when the board would get less than its floor. At 314 × 681 (a 393 px
+// phone at 125% zoom) the rows fit, so Resign and Menu stay on the screen with no scroll.
+it('keeps the board screen unscrolled where the rows fit under 320 px (314 × 681, insets 82/94)', async () => {
+  const { page, frame } = await hostPage(314, 681, 82, 94);
+  try {
+    await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).check();
+    await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    const screen = frame.locator('[data-screen="board"]');
+    expect(await screen.evaluate(e => e.scrollHeight - e.clientHeight)).toBe(0);
+    expect(await frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width)).toBeGreaterThanOrEqual(192);
+    for (const id of ['resign', 'board-menu']) {
+      expect(await screen.evaluate((s, id) => {
+        const box = s.getBoundingClientRect(), r = document.getElementById(id)!.getBoundingClientRect();
+        return r.height > 0 && r.top >= box.top - 1 && r.bottom <= box.bottom + 1;
+      }, id), id).toBe(true);
+    }
+  } finally { await page.close(); }
+});
 // The zoom rule leaves normal sizes alone: the board widths measured in device matrix round 2.
 it.each([[320, 568, 63, 84, true, 169, 158], [393, 852, 102, 118, true, 302, 302], [820, 600, 59, 34, false, 360, 360]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: touch, hasTouch: touch }), frame = page.frameLocator('iframe');
