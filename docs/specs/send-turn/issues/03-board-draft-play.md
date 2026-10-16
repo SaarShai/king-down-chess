@@ -2,7 +2,7 @@
 
 Status: in-progress
 
-All ticket 03 build items exist. All six review findings have fixes and tests. The earlier local checks pass. The new M1 fixture check finds a draw-row size fault. The follow-up below stays open.
+All ticket 03 build items exist. All six review findings have fixes and tests. The draw-row follow-up also has a fix and tests. The local checks and M1 fixture check pass. The existing HTTP join-preview fault keeps full HTTP acceptance open.
 
 Source: owner ticket 12-submit-turn. Scope: design section 8, ticket 03.
 
@@ -78,11 +78,10 @@ Results:
 - The final board file passes all 56 tests with npm test and the single-file filter on this Mac. The type check and all 50 figure checks pass. The board file takes 132.30 seconds after the lock wait. This covers all six findings, the player's legal Haste follow-up during Send, Escape before the next tap, no blocked-move animation, and the draw layout at 320 px. Log: /tmp/kd-od-board-review-board-local.log.
 - The document check passes all 114 tests in 8 files. No dependency, test limit or check limit changes.
 
-M1 blocker and resume:
+M1 check record:
 
 - The first detached job waits for the shared lock for about 105 minutes. The recovery review then stops that waiting job by PID 82165, before any browser check starts.
-- The [recovery review](04-recovery.md) replaces that job with one check job at eba18a62 in the same lane folder. It records the new job, logs and results. Do not resume the old job.
-- Check each new failure against the source and the prior HTTP join-preview fault above. Browser acceptance stays unverified until those checks finish.
+- The [recovery review](04-recovery.md) records the first check at eba18a62 and the corrected check at f91d63dd. Both use the same lane folder. All check jobs have ended.
 
 ## Browser check follow-up
 
@@ -98,4 +97,10 @@ M1 blocker and resume:
 - Two label lines need 45 px with the old padding. The new padding keeps the existing 44 px row. The inline text rule also applies in landscape.
 - The corrected board file passes all 59 tests in 141.54 seconds. It also passes the type check and all 50 figure checks. Log: /tmp/kd-od-board-draw-green2.log.
 - The full unit suite then passes 156 files and 2,400 tests, with 8 skips, in 228.12 seconds. It uses the supplied test database and two workers. The type check and all 50 figure checks pass. Log: /tmp/kd-od-board-draw-unit2.log.
-- Local job 14964 ends with both results at zero. The corrected M1 checks wait for the source commit and bundle.
+- Local job 14964 ends with both results at zero. Source commit f91d63dd holds the fix and tests. The M1 has a clean checkout at this head.
+- Corrected M1 job 29133 uses a clean f91d63dd checkout. It takes the shared lock after about 15 minutes. The test database check passes.
+- M1 plugin-ui passes in 233.6 seconds. This includes the start, half-turn and armed draw rows at all three viewport sizes.
+- M1 plugin-ui-http fails in 157.4 seconds at tools/plugin-ui-check.mjs:902. After the join remount, #join-confirm stays hidden for the existing 30-second wait. Profile, setup and seat checks pass first.
+- [Ticket 01](01-server-whole-turn.md) records the same HTTP fault on base d748b1b6. Join, client, app, server and named-check code match the starting head. This fault remains outside the draw-row fix.
+- The M1 worktree stays clean at f91d63dd after both checks. The job ends and releases the lock after the HTTP failure. The test tunnel then closes.
+- Results: /tmp/kd-od-board-final-m1.results. Local logs: /tmp/kd-od-board-final-ui.log and /tmp/kd-od-board-final-http.log. The saved 320 px and landscape renders show the short rule and all four controls. Samples: /tmp/kd-od-board-draw-fixed-320.png and /tmp/kd-od-board-draw-fixed-landscape.png.

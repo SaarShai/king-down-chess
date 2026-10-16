@@ -1,10 +1,10 @@
 # Board: recovery handoff and review
 
-Status: in-progress
+Status: resolved
 
 Source: owner ticket 12-submit-turn, part w7-04-recovery.
 
-Recovery moves to ticket 19 S5. This ticket records the handoff and the review checks. It does not build recovery in this lane.
+Recovery moves to ticket 19 S5. This ticket records the completed handoff review and its checks. It does not build recovery in this lane.
 
 ## Plan
 
@@ -21,7 +21,7 @@ Recovery moves to ticket 19 S5. This ticket records the handoff and the review c
 
 ## Review results
 
-- Review A reports no findings. The clean worktree and starting head agree. The latest commit belongs to ticket 03. The scratch ticket moves recovery to ticket 19 S5.
+- Review A reports no findings. The starting worktree is clean at eba18a62. The builder's last commit belongs to ticket 03. The scratch ticket moves recovery to ticket 19 S5.
 - Review B reports no findings. The same checks confirm its scope and result.
 - The code has no private draft field in PageState. rollbackBoardMove takes no refusal code and clears the draft. Recovery is still unbuilt.
 - Design section 5.1 covers private state with a game tag, restore at mount and the keep-or-drop rule. It covers refusal outcomes, the T6 line and Undo off while a command waits. D9 to D12 cover journeys 5 to 8. D13 covers draft retention across navigation. S5 lists D1 to D13 and the client draft tests.
@@ -29,13 +29,15 @@ Recovery moves to ticket 19 S5. This ticket records the handoff and the review c
 
 ## Check results
 
-- The local unit suite passes with npm test, the supplied test database and two workers. It passes 156 files and 2,400 tests, with 8 skips. All 50 figure checks and the type check pass. It takes 218.79 seconds after the lock wait. Log: /tmp/kd-od-board-recovery-unit.log.
-- The unit selector leaves the nine browser test files out of that suite. The single board test file passes with npm test on this Mac. All 56 board tests, all 50 figure checks and the type check pass. It takes 138.26 seconds after the lock wait. Log: /tmp/kd-od-board-recovery-board.log.
-- The document checks pass: 8 files and 114 tests in 1.93 seconds. No test limit, check limit or dependency changes.
+- The first local unit suite passes with npm test, the supplied test database and two workers. It passes 156 files and 2,400 tests, with 8 skips. All 50 figure checks and the type check pass. It takes 218.79 seconds after the lock wait. Log: /tmp/kd-od-board-recovery-unit.log.
+- The unit selector leaves the nine browser test files out of that suite. The first single board file run passes with npm test on this Mac. All 56 board tests, all 50 figure checks and the type check pass. It takes 138.26 seconds after the lock wait. Log: /tmp/kd-od-board-recovery-board.log.
+- The document checks pass: 8 files and 114 tests. No test limit, check limit or dependency changes.
 - The prior M1 job, PID 82165, waits for the shared lock. It stops before any browser check starts. A new bundle sets the lane folder to eba18a62. The package lock is the same, so no package install runs.
 - M1 job PID 99495 takes the shared lock after about 65 minutes. The M1 worktree is clean at eba18a62 when plugin-ui starts. Results: /tmp/kd-od-board-recovery-m1.results. Logs: /tmp/kd-od-board-recovery-ui.log and /tmp/kd-od-board-recovery-http.log. Its exit trap releases the lock after success or failure.
 - The first plugin-ui check fails in 228.3 seconds at tools/plugin-ui-check.mjs:1669. A draw offer changes the board or row size at 320 px in the start position. The [ticket 03 follow-up](03-board-draft-play.md) records this case and the fix plan.
 - The first HTTP attempt stops in 0.1 seconds because the launcher omits PLUGIN_TEST_DATABASE_URL. It runs no HTTP tests. A separate loopback tunnel now reaches the supplied test database. The corrected run uses that tunnel.
-- The local test tunnel is PID 50644 and uses M1 loopback port 57096. Stop this PID after the HTTP check ends. The layout retest stays in the ticket 03 follow-up.
+- The local test tunnel uses PID 50644 and M1 loopback port 57096. It ends after the HTTP check. Its process has ended and its port is closed.
 - The ticket 03 layout fix passes all 59 board tests at three viewport sizes. Its full unit retest passes 156 files and 2,400 tests, with 8 skips. The type and figure checks pass. Ticket 03 records both logs and run times.
-- Checks are in progress.
+- Corrected M1 job 29133 uses source commit f91d63dd. The database check passes. Plugin-ui passes in 233.6 seconds. Plugin-ui-http fails in 157.4 seconds at the known join-preview fault. #join-confirm stays hidden after remount for the existing 30-second wait at tools/plugin-ui-check.mjs:902.
+- Both checks finish and the job releases the shared lock. Results: /tmp/kd-od-board-final-m1.results. Ticket 03 records the logs and the base comparison for the HTTP fault.
+- The HTTP join fault prevents full HTTP acceptance. The recovery handoff review has no open finding. The recovery build stays in ticket 19 S5.
