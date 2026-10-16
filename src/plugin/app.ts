@@ -298,16 +298,17 @@ async function fullscreen(screen: Screen) {
     displayMode = 'fullscreen';
     const next = target; unqueue();
     if (next && !collapsed) navigate(next); else client.save();
-  } catch (error) { unqueue(); client.save(); if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = errorText(error); }
+  } catch (error) { const next = target; unqueue(); if (state.screen !== 'home') navigate('home'); if (next && next !== 'home') resume = state.queued = next; client.save(); actions(); $('error').textContent = $('home-error').textContent = errorText(error); }
   finally { asking = false; }
 }
 /** Opens the Play hall at its top, where Your games are. */
 export function showGames() { gamesFirst = true; navigate('play'); }
 export function navigate(screen: Screen) {
   if (screen !== 'home' && displayMode === 'inline' && canFullscreen()) {
-    resume = state.queued = screen; client.save(); return;
+    resume = state.queued = screen; if (asking) target = screen; client.save(); return;
   }
   unqueue();
+  if (screen !== 'home') resume = undefined;
   if (screen === 'handle' && state.screen !== 'handle') handleBack = state.screen === 'settings' ? 'settings' : pending?.screen ?? state.screen;
   if (screen === 'settings' && !['settings','handle'].includes(state.screen)) {
     if (['board','seat'].includes(state.screen)) state.settings_back = state.screen; else delete state.settings_back;
@@ -337,7 +338,7 @@ function hostContext(context: McpUiHostContext | undefined) {
   for (const edge of ['top', 'right', 'bottom', 'left'] as const) document.documentElement.style.setProperty(`--safe-${edge}`, `${Math.max(0, context.safeAreaInsets?.[edge] ?? 0)}px`);
   if (context.displayMode === 'inline' && displayMode === 'fullscreen' && state.screen !== 'home' && canFullscreen()) {
     const screen = state.screen;
-    displayMode = 'inline'; navigate('home'); resume = state.queued = screen; client.save(); collapsed = true;
+    displayMode = 'inline'; navigate('home'); resume = state.queued = screen; client.save(); collapsed = true; actions();
   }
   if (context.displayMode) displayMode = context.displayMode;
   if (displayMode === 'fullscreen' && resume && !asking) { const screen = resume; resume = undefined; collapsed = false; navigate(screen); }

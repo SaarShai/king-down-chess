@@ -319,6 +319,8 @@ it('keeps the inline route when the host refuses a button request', async () => 
     await frame.locator('#home-error', { hasText: 'expand control' }).waitFor();
     expect(await frame.locator('[data-screen="profile"]').isHidden()).toBe(true);
     expect(await frame.locator('#home-card').isVisible()).toBe(true);
+    await frame.locator('#home-play').filter({ hasText: 'Resume' }).click();
+    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });
 it('shows the home card when the player leaves fullscreen, and Resume returns to the game', async () => {
@@ -1318,4 +1320,34 @@ it('opens the hall on a first host fullscreen mount without a display request or
     expect(await page.evaluate(() => (window as any).harnessDisplayRequests ?? [])).toEqual([]);
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(0);
   } finally { await page.close(); }
+});
+
+it('keeps the game route when Play now finishes before fullscreen is granted', async () => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    await page.evaluate(() => { (window as any).holdDisplayNext = true; });
+    await frame.locator('#home-play').click();
+    await page.waitForFunction(() => !!(window as any).releaseDisplay);
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view?.status)).toBe('playing');
+    expect(await frame.locator('#home-card').isVisible()).toBe(true);
+    await page.evaluate(() => (window as any).releaseDisplay());
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessDisplayRequests)).toEqual(['fullscreen']);
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await expand(page);
+    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
+  } finally { await page.evaluate(() => (window as any).releaseDisplay?.()); await page.close(); await isolated.close(); }
+});
+
+it('labels the saved screen Resume after collapse with no ready game', async () => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    await hall(page);
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    await frame.locator('#home-play').filter({ hasText: 'Resume' }).waitFor();
+    await frame.locator('#home-play').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  } finally { await page.close(); await isolated.close(); }
 });
