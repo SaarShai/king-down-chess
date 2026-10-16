@@ -217,13 +217,15 @@ it.each([
     const measure = () => frame.locator('#game-table').evaluate(e => ({ width: e.querySelector('canvas')!.getBoundingClientRect().width, side: getComputedStyle(e.querySelector('.table-side')!).display === 'grid' }));
     await expect.poll(async () => (await measure()).width).toBeGreaterThanOrEqual(floor);
     expect((await measure()).side).toBe(side);
+    const wasShort = await frame.locator('#short-last-move').isVisible();
     await page.evaluate(() => { (window as any).rejectNextGet = true; });
     await frame.locator('html').evaluate(() => { const reload = document.querySelector<HTMLButtonElement>('#reload')!; reload.click(); });
     await frame.locator('#retry').waitFor();
     await expect.poll(() => frame.locator('#board').evaluate(e => { const r = e.getBoundingClientRect(); return Math.abs(e.querySelector('canvas')!.getBoundingClientRect().width - Math.min(r.width, r.height * 960 / 1024)); })).toBeLessThan(2);
-    // Only the error and Retry rows take height from the last board.
+    // The error can also make a tall table need the short last-move row.
     const errorHeight = await frame.locator('.page-error').evaluate(e => e.getBoundingClientRect().height);
-    expect((await measure()).width).toBeGreaterThanOrEqual(floor - Math.ceil(errorHeight * 960 / 1024));
+    const moveHeight = !wasShort && await frame.locator('#short-last-move').isVisible() ? (await frame.locator('#short-last-move').boundingBox())!.height + 4 : 0;
+    expect((await measure()).width).toBeGreaterThanOrEqual(floor - Math.ceil((errorHeight + moveHeight) * 960 / 1024));
     for (const id of ['board-menu']) {
       await frame.locator('#' + id).scrollIntoViewIfNeeded();
       expect((await frame.locator('#' + id).evaluate(controlBounds)).accessible).toBe(true);
@@ -453,8 +455,8 @@ it('keeps the board screen unscrolled where the rows fit under 320 px (314 × 68
 });
 // The zoom rule leaves normal sizes alone. Device matrix round 2 measured 169/158 and 302/302 on the old phone rows;
 // layout B (short portrait rows, Back in the opponent row) gives the seat more height, and with Cards and King powers
-// its narrow opponent and player rows take two 44 px rows on the board. The short last-move row takes 44 px from the board at short heights.
-it.each([[320, 568, 63, 84, true, 218, 94], [393, 852, 102, 118, true, 384, 345], [820, 600, 59, 34, false, 360, 319]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
+// its narrow opponent and player rows take two 44 px rows on the board. The short last-move row takes 24 px from the board at short heights.
+it.each([[320, 568, 63, 84, true, 218, 113], [393, 852, 102, 118, true, 384, 345], [820, 600, 59, 34, false, 360, 337]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: touch, hasTouch: touch }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000);
   try {

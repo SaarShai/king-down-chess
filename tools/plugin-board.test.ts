@@ -376,10 +376,12 @@ it.each([[320,568],[852,393]] as const)('keeps a short last move and its deadlin
     if (width > height) await page.evaluate(() => (window as any).harnessSetContext({safeAreaInsets:{top:59,bottom:34,left:0,right:0}}));
     expect(await frame.locator('#short-move-words').innerText()).toBe('Black pawn h7 → h5');
     expect(await frame.locator('#move-time-left').innerText()).toBe('18 h left');
-    const line = (await frame.locator('#moves-line').boundingBox())!, board = (await frame.locator('#board').boundingBox())!;
+    const line = (await frame.locator('#short-last-move').boundingBox())!, board = (await frame.locator('#board').boundingBox())!;
     expect(line.y + line.height).toBeLessThanOrEqual(board.y + 1);
     expect(await frame.locator('#move-time-left').evaluate(e => e.getBoundingClientRect().right <= e.parentElement!.getBoundingClientRect().right + 1)).toBe(true);
-    await frame.locator('#moves-line').click();
+    expect(await frame.locator('#moves-line').isVisible()).toBe(false);
+    await frame.locator('#board-menu').click();
+    await frame.locator('#board-sheet').getByRole('button', {name:'Moves',exact:true}).click();
     expect(await frame.locator('#board-sheet').innerText()).toContain('Black pawn h7 to h5.');
   } finally { await page.close(); }
 });

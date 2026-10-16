@@ -220,8 +220,8 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 @container table-screen (max-height: 480px) {
   #game-table { grid-template-rows: minmax(44px, max-content) minmax(var(--board-floor, 0px), max-content) minmax(44px, max-content) minmax(var(--context-floor, 44px), max-content) 0 minmax(0, 1fr) var(--bar-height); }
   #game-table #moves-line { display: none; }
-  body:is([data-page='board'], [data-page='end']) #game-table #moves-line { display: flex; }
-  body:is([data-page='board'], [data-page='end']) #game-table { grid-template-areas: 'them' 'moves' 'board' 'me' 'context' 'space' 'bar'; grid-template-rows: minmax(44px, max-content) 44px minmax(var(--board-floor, 0px), max-content) minmax(44px, max-content) minmax(var(--context-floor, 44px), max-content) minmax(0, 1fr) var(--bar-height); }
+  body:is([data-page='board'], [data-page='end']) #game-table #moves-line { display: none; }
+  body:is([data-page='board'], [data-page='end']) #game-table { grid-template-areas: 'them' 'moves' 'board' 'me' 'context' 'space' 'bar'; grid-template-rows: minmax(44px, max-content) 24px minmax(var(--board-floor, 0px), max-content) minmax(44px, max-content) minmax(var(--context-floor, 44px), max-content) minmax(0, 1fr) var(--bar-height); }
 }
 /* The back button takes 48 px from the opponent row. A power adds one 48 px coin slot. */
 @container table-screen (max-width: 440px) {
@@ -342,9 +342,8 @@ body[data-touch='true'] #context-actions button { z-index: 2; }
 #app-root :is(#moves-line, .fields label:has(input[type='checkbox'])) { padding-inline: 12px; }
 
 @container table-screen (max-height: 480px) {
-  #game-table #moves-line :is(#last-move, .moves-label) { display: none; }
-  #game-table #short-last-move { display: flex; min-width: 0; width: 100%; white-space: nowrap; font-size: 12px; }
-  #app-root #game-table #moves-line::after { top: 0; transform: translate(-50%, 0); }
+  #game-table #moves-line { display: none; }
+  #game-table #short-last-move { grid-area: moves; display: flex; align-items: center; min-width: 0; height: 24px; margin: 0 12px; white-space: nowrap; font-size: 12px; }
   #short-move-words { overflow: hidden; text-overflow: ellipsis; }
   #move-time-left { flex-shrink: 0; }
   #move-time-left:not(:empty)::before { content: ' · '; }
@@ -352,8 +351,8 @@ body[data-touch='true'] #context-actions button { z-index: 2; }
 
 @media (orientation: landscape) {
 @container table-screen (max-height: 480px) {
-  body:is([data-page='board'], [data-page='end']) #game-table { position: relative; padding-top: 48px; }
-  #game-table #moves-line { position: absolute; top: 0; left: 8px; width: calc(100% - 16px); height: 44px; min-height: 44px; margin: 0; }
+  body:is([data-page='board'], [data-page='end']) #game-table { position: relative; padding-top: 28px; }
+  #game-table #short-last-move { position: absolute; top: 0; left: 8px; width: calc(100% - 16px); margin: 0; }
   #game-table .table-side { grid-template-rows: var(--strip-height) var(--strip-height) minmax(var(--context-height), max-content) 0 minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom))); }
 }
 }
