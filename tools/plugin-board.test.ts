@@ -451,6 +451,7 @@ it('W7: undoes both Haste steps and restores the power coin and trail', async ()
   try {
     await chooseTurnMove(page,'e2-e4!H',12);
     expect(await frame.locator('#status').textContent()).toBe('Move it again, or tap End turn.');
+    expect(await frame.locator('#board').evaluate(e => e===document.activeElement)).toBe(true);
     await chooseTurnMove(page,'e4-e5',28);
     expect((await marks(page)).last).toEqual([12,28,36]);
     await frame.locator('#undo').click();

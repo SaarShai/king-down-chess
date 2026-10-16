@@ -150,7 +150,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     await (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve());
     if (token !== generation) return;
     board.sync(step.pos); sound(step); animating = false; refresh();
-    if (keyboard && turn().waits) $('end-turn').focus({preventScroll:true});
+    if (keyboard) $(turn().waits ? 'end-turn' : 'board').focus({preventScroll:true});
   }
   function undo() {
     if (blocked() || !steps.length || sheet?.open) return;
