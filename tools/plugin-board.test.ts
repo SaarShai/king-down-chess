@@ -302,6 +302,21 @@ it('lays the mated king down only after the mating move ends', async () => {
   } finally { await page.close(); }
 });
 
+it('moves the keyboard cursor while the opponent move animates', async () => {
+  const fen = 'k7/8/1K6/8/8/8/8/7R w - - 0 1'; setRules({}); const pre = fromFen(fen);
+  const move = legalMoves(pre).find(m => m.from === 7 && m.to === 15)!; expect(move).toBeDefined();
+  const first = view(fen, {}, { seat: 1, action: 'waiting', legal: [] });
+  const page = await open(first), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('html').evaluate((_, next) => { (window as any).harnessApp.routeView(next); },
+      { ...first, revision: 1, fen: toFen(makeMove(pre, move)), turn: 1, last_commands: [{ seq: 1, seat: 0, action: { type: 'turn', actions: [toLan(pre, move)] }, at: '2026-10-15T00:00:01Z' }] });
+    await frame.locator('#board[data-animating="true"]').waitFor();
+    await frame.locator('#board').focus(); await page.keyboard.press('ArrowRight');
+    expect(await frame.locator('#board').getAttribute('aria-label')).toMatch(/^Chess board, [a-h][1-8]\./);
+  } finally { await page.close(); }
+});
+
 it('hides the edge labels on a small board and keeps them in the frame on a phone board (fault M10)', async () => {
   const page = await open(view('')), frame = page.frameLocator('iframe');
   try {

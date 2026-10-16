@@ -156,10 +156,10 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     board.onSquareClick = square => select(square); board.onDragSelect = square => select(square, false);
     $('board').tabIndex = 0;
     $('board').onkeydown = event => {
-      if (blocked()) return;
+      // The cursor moves during a move animation or a send; only Enter waits, as a tap does.
       const delta = ({ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,1], ArrowDown:[0,-1]} as Record<string,number[]>)[event.key];
       if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); board.setPreview(cursor); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
-      else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(cursor); }
+      else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (!blocked()) select(cursor); }
       else if (event.key === 'Escape') { armed = undefined; armedCard = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]); refresh(); }
     };
   }
