@@ -108,3 +108,11 @@ remains unknown. The attempt and response files remain intact. No retry occurs.
 The studio records its first worker check at 05:00:51 UTC. The next bounded
 check is 05:01 UTC. The compute deadline stays 04:33:20 UTC; later observation
 does not extend worker time. Validation, backup and linking remain pending.
+
+## Automatic collection
+
+The scheduled studio check at 05:01:36 UTC confirms notebook 138958863,
+version 1, complete, with the exact submitted source hash. The studio collects
+all five terminal files and the notebook log. It then starts validation.
+The unknown submission response remains preserved; no submission is repeated.
+The next bounded local validation and backup check is 05:35 UTC.
