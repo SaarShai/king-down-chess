@@ -443,6 +443,22 @@ try {
     assert((await frame.locator('#board-menu').evaluate(button => getComputedStyle(button).backgroundImage)).includes('stone-control'), 'Menu keeps the stone face');
     await shot(page, `base-round-coins-393-${mode}`);
     await page.setViewportSize({ width: 1000, height: 1000 });
+    const desktop = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: false, reducedMotion: 'reduce' });
+    trapErrors(desktop);
+    try {
+      await desktop.goto(base);
+      const desktopFrame = desktop.frameLocator('iframe');
+      await desktopFrame.locator('#home-play:not(:disabled)').waitFor();
+      await desktop.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen', deviceCapabilities: { touch: false } }));
+      const opened = await setupTool('kingdown_open', { game_id: await page.evaluate(() => window.harnessView.game_id) });
+      await desktop.evaluate(result => window.harnessShow(result, true), opened);
+      await desktopFrame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+      assert.equal(await desktopFrame.locator('#game-table .coin').count(), 10);
+      assert(await desktopFrame.locator('#game-table .coin').evaluateAll(coins => coins.every(coin => {
+        const style = getComputedStyle(coin), box = coin.getBoundingClientRect();
+        return style.borderRadius === '50%' && Math.abs(box.width - box.height) < .5 && box.width === (coin.classList.contains('card-coin') ? 34 : 40);
+      })), 'Card and power coins stay round on a desktop without touch');
+    } finally { await desktop.close(); }
     const saved = (await setupTool('kingdown_settings'))._meta.settings.last_setup;
     assert.deepEqual(saved.king, { king: 'Shadow', power: 'Darkness' }); assert.equal(saved.level, 'strong'); assert.equal(saved.colour, 'black');
     await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });

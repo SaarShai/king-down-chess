@@ -284,7 +284,7 @@ body[data-touch='true'] #context-actions button { z-index: 2; }
 
 
 /* One large grain image fills each face, so no tile repeats inside a control. */
-:where(#app-root) :is(button, select, input:not([type='radio'], [type='checkbox']), label:has(> input)) {
+:where(#app-root) :is(button:not(:where(.coin)), select, input:not([type='radio'], [type='checkbox']), label:has(> input)) {
   min-width: var(--tap); min-height: var(--tap);
 }
 #app-root :is(button:not(:where(.coin, .preset, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])) {
