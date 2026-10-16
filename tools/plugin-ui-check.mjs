@@ -1332,6 +1332,7 @@ try {
     assert(layout.top >= layout.head, 'At 197 px the end card leaves the page head clear');
     assert(layout.scrolls, 'At 197 px the end card scrolls inside');
     assert((await frame.locator('#page-back').evaluate(controlBounds)).accessible, 'At 197 px Back stays in view');
+    assert(await frame.locator('#page-back').evaluate(el => { const r=el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)); }), 'At 197 px the end card leaves Back clear for a tap');
     await button.scrollIntoViewIfNeeded();
     assert((await button.evaluate(controlBounds)).accessible, `At 197 px ${name} scrolls into view`);
     await shot(page,`zoom-end-${name.replaceAll(' ','-')}-${mode}`);
@@ -1351,7 +1352,7 @@ try {
   await tapEndAtZoom('Rematch');
   await frame.locator('#over #retry').waitFor();
   const pendingRematch=await page.evaluate(()=>window.harnessWidgetState.privateContent.pending);
-  await frame.locator('#over #retry').click();
+  await tapEndAtZoom('Retry');
   await page.waitForFunction(id=>window.harnessView.game_id!==id,ended.game_id); await idleBoard();
   const rematchSent = await page.evaluate(n=>window.harnessCalls.slice(n),rematchCalls);
   assert.equal(rematchSent.find(c=>c.name==='kingdown_rematch').arguments.choice,'offer','Solo rematch offers, never accepts');
@@ -1647,6 +1648,7 @@ try {
           assert(bounds.accessible && bounds.rect[2] >= 44 && bounds.rect[3] >= 44, `At 197 px each ${side} coin fits with a 44 px target: ${JSON.stringify(bounds)}`);
         }
         const last = frame.locator(`#strip-${side} .card-coin`).last();
+        await shot(page,`zoom-coins-${side}-${mode}`);
         await last.tap();
         await frame.locator('#board-sheet[open] h2').filter({hasText:'Curse'}).waitFor();
         await shot(page,`zoom-last-card-${side}-${mode}`);
