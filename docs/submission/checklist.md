@@ -130,7 +130,7 @@ Do these in order. Each step names its rows below.
 | # | Requirement | Ref | Status | Step or evidence |
 |---|---|---|---|---|
 | 51 | Production HTTPS MCP endpoint [O4]. | E4 | deploy | Final HTTPS URL and production release are absent from this rehearsal evidence. |
-| 52 | **Domain verification**: the exact token as plain text at `https://kingdown.dev/.well-known/openai-apps-challenge` [O1]. | E5 | deploy | The portal domain-challenge token and its public route are unproved. No token is read here. |
+| 52 | **Domain verification**: the exact token as plain text at `https://kingdown.dev/.well-known/openai-apps-challenge` [O1]. | E5 | deploy | Paste the token (only the token, no final newline) into `public/.well-known/openai-apps-challenge` on a branch. Merge the pull request into main, then run `tools/deploy.sh --publish`. Its live-check pass line must name `.well-known/openai-apps-challenge`. |
 | 53 | **Production scan**: a successful, current tool scan [O1][O4]. | E4 | deploy | No current successful production scan is supplied. Local tools/list is not a portal scan. |
 | 54 | The request-origin rule lets the scanner and reviewer clients in. | E6 | owner | `http.ts:42–48` refuses an unknown `Origin`. Watch the first scan; widen the list only on evidence, then deploy. Rehearsal: Known ChatGPT Origin passes and an unknown Origin fails. Test the real scanner before any allowlist change. |
 | 55 | Keep live tool schemas and UI URIs working until held updates pass [O2]. | C5 | owner | No UI deploy from the scan to the review result, unless row 37 is fixed. Rehearsal: Keep old tool contracts and UI entry URIs usable while review holds an update. The current URI alias reduces the old risk. |

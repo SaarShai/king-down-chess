@@ -66,6 +66,15 @@ try {
 
   for (const path of ['/', '/sw.js', '/privacy.html']) assert.equal((await fetch(origin + path)).status, 200, path);
   assert((await (await fetch(origin)).text()).includes('<html'));
+  const challenge = '/.well-known/openai-apps-challenge';
+  const challengeFile = join(tree, 'static', challenge);
+  const hasChallenge = (await exists(challengeFile))?.isFile();
+  if (hasChallenge) {
+    const response = await fetch(origin + challenge, { redirect: 'manual' });
+    assert.equal(response.status, 200, challenge);
+    assert.match(response.headers.get('content-type') ?? '', /^text\/plain(?:\s*;|$)/i, challenge);
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), await readFile(challengeFile), challenge);
+  }
   let requestId = 0;
   const tool = async (name, args) => {
     const response = await fetch(`${origin}/mcp`, { method: 'POST', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method: 'tools/call', params: { name, arguments: args } }) });
@@ -109,7 +118,7 @@ try {
   assert.equal((await job('/internal/tick')).status, 403); assert.equal((await job('/internal/tick', `${secret}x`)).status, 403);
   const tick = await job('/internal/tick', secret); assert.equal(tick.status, 200); assert.equal(typeof (await tick.json()).ended, 'number');
   assert.equal((await job('/internal/outbox', secret)).status, 503);
-  assert.deepEqual([...served].sort(), ['function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /mcp', 'static /', 'static /plugin-art/*', 'static /privacy.html', 'static /sw.js'].sort());
+  assert.deepEqual([...served].sort(), ['function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /mcp', 'static /', 'static /plugin-art/*', 'static /privacy.html', 'static /sw.js', ...(hasChallenge ? [`static ${challenge}`] : [])].sort());
   console.log(`Site tree: ${art.length} board art files, MCP open and move, OAuth, API refusal, internal jobs and ${archive.length} archived engine(s) passed`);
 } finally {
   server.closeAllConnections(); await new Promise(done => server.close(done));

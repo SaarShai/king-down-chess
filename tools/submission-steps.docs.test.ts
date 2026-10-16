@@ -43,3 +43,18 @@ test('the last owner answer of 2026-10-16 on the online setting is recorded', ()
  expect(question).toMatch(/^\d+\. Closed: keep the friends-only default .*Ticket 18 builds it.*\(owner, 2026-10-16, after the review; .*\)\.$/);
  expect(readFileSync('docs/submission/privacy-additions.md', 'utf8')).not.toContain('Choice for the owner');
 });
+
+test('row 52 puts the exact token through a pull request before publish and checks the live result', () => {
+ const row = checklist.split('\n').find(line => line.startsWith('| 52 |'))!;
+ expect(row).toContain('only the token, no final newline');
+ expect(row).toMatch(/public\/\.well-known\/openai-apps-challenge.*on a branch.*pull request into main.*tools\/deploy\.sh --publish.*live-check pass line.*\.well-known\/openai-apps-challenge/);
+});
+
+
+test('the checklist keeps the completed checks and its counts match the rows', () => {
+ const rows = checklist.split('\n').filter(line => /^\| \d+ \|/.test(line) && /\| (met|drafted|owner|deploy) \|/.test(line));
+ expect(rows).toHaveLength(60);
+ for (const n of [29, 31, 32, 37, 56]) expect(rows.find(line => line.startsWith(`| ${n} |`))).toContain('| met |');
+ const counts = ['met', 'drafted', 'owner', 'deploy'].map(status => rows.filter(line => line.includes(`| ${status} |`)).length);
+ expect(checklist).toContain(`| ${counts.join(' | ')} | ${rows.length} |`);
+});
