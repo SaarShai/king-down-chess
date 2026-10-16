@@ -326,7 +326,9 @@ export function navigate(screen: Screen) {
   $('page-title').textContent = ({ friend: 'A friend', join: 'Join a game', wait: 'Looking for an opponent', lobby: 'Open games', seat: 'Set up your side', end: 'Game over', profile: 'Profile', collection: 'Collection', settings: 'Settings', handle: 'Pick a name and a picture' } as Partial<Record<Screen,string>>)[screen] ?? '';
   if (!mountReading && screen in screens) screens[screen as keyof typeof screens]();
   client.save(); actions(); poll?.update();
-  if (screen === 'play' && gamesDirty && !mountReading) void games();
+  if (screen === 'play' && !mountReading) {
+    if (gamesDirty) void games(); else renderGames(memory.games);
+  }
   if (screen === 'play' && gamesFirst) { gamesFirst = false; $('games-list').closest<HTMLElement>('.new-game-body')!.scrollTop = 0; }
   if (screen === 'settings') void applySettings();
   if (screen === 'seat' || screen === 'board') setTimeout(() => { if (state.screen === screen) measureLayout(); }, 1500);

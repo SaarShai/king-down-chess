@@ -28,3 +28,6 @@ Keep the Ends line. Name the open side on the Join button.
 - The server keeps code hashes only. This change uses the code that the
   page receives when it makes an invite. A remount keeps the existing
   Make a new code path. It does not end a code by itself.
+- Review 2 finds that Back can keep an old list after Make a new code.
+  Play now renders the saved list again when it needs no server read.
+  A regression test covers Make a new code after a remount, then Back.

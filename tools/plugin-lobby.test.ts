@@ -50,6 +50,11 @@ it('makes a friend code after create and offers a new code after remount', async
     expect(await frame.locator('.game-code span').count()).toBe(0);
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_invite').length)).toBe(invites);
     expect(JSON.stringify(await page.evaluate(() => (window as any).harnessWidgetState))).not.toContain('expires_at');
+    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    const code = (await frame.locator('.game-code span').allTextContents()).join('');
+    await frame.locator('#page-back').click();
+    const row = frame.locator('.friend-invite-row').filter({ hasText: code }); await row.waitFor();
+    expect(await row.getByRole('button', { name: `Share game ${code}`, exact: true }).isVisible()).toBe(true);
   } finally { await page.close(); }
 });
 it('copies the full invite and selects it when both copy paths refuse', async () => {
