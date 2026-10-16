@@ -818,23 +818,67 @@ it('opens a new chat game after an older foreground read ends', async () => {
   } finally { await page.close(); }
 });
 
-it('shows Retry in the hall when Play now loses its create reply', async () => {
+it('keeps the saved New game choices when Play now loses its create reply', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
-      await app.call('kingdown_settings', { last_setup: { kind: 'solo', colour: 'white', level: 'beginner', king: null, options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } } });
+      await app.call('kingdown_settings', { last_setup: { kind: 'friend', colour: 'white', level: 'strong', king: null, options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } } });
     });
     await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_create'; });
     await frame.getByRole('button', { name: 'Play now', exact: true }).click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await frame.locator('#retry').waitFor();
     expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
+    expect(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked()).toBe(true);
+    expect(await frame.getByRole('radio', { name: 'Beginner', exact: true }).isChecked()).toBe(true);
+    expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(false);
+    expect(await frame.locator('#setup-start').textContent()).not.toMatch(/Strong|Arrangement/);
     await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(1);
     expect(await frame.locator('#retry').isVisible()).toBe(false);
+    expect(await page.evaluate(() => (window as any).harnessView)).toMatchObject({ kind: 'solo', level: 'beginner', options: { arrangement: false } });
+    await hall(page);
+    expect(await frame.getByRole('radio', { name: 'A friend', exact: true }).isChecked()).toBe(true);
+    expect(await frame.locator('input[name="setup-level"][value="strong"]').isChecked()).toBe(true);
+    expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(true);
+    await frame.locator('#setup-start').click();
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    expect(await frame.locator('html').evaluate(async () => (await (window as any).harnessApp.client.call('kingdown_settings'))._meta.settings.last_setup.kind)).toBe('friend');
   } finally { await page.close(); }
+});
+
+it.each(['kingdown_choose', 'kingdown_get'])('shows Retry when Play now times out on %s', async name => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => {
+      await (window as any).harnessApp.call('kingdown_settings', { last_setup: { kind: 'friend', colour: 'white', level: 'strong', king: null, options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: true } } });
+    });
+    await page.clock.install();
+    await page.evaluate(name => { (window as any).holdBeforeNext = name; }, name);
+    await frame.getByRole('button', { name: 'Play now', exact: true }).click();
+    await page.waitForFunction(() => !!(window as any).releaseBefore);
+    await page.clock.fastForward(10_001);
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator('#retry:not(:disabled)').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
+    const pending = await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending);
+    expect(pending).toMatchObject({ name, screen: 'play', quick: true });
+    if (name === 'kingdown_get') {
+      await page.locator('#remount').click();
+      await frame.locator('#retry:not(:disabled)').waitFor();
+    }
+    await frame.locator('#retry').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await frame.locator('[data-screen="seat"]').isHidden()).toBe(true);
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(1);
+    if (name === 'kingdown_choose') expect(await page.evaluate(() => (window as any).harnessCalls.findLast((c: any) => c.name === 'kingdown_choose').arguments.command_id)).toBe(pending.args.command_id);
+    await hall(page);
+    expect(await frame.getByRole('radio', { name: 'A friend', exact: true }).isChecked()).toBe(true);
+    expect(await frame.locator('input[name="setup-level"][value="strong"]').isChecked()).toBe(true);
+    expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(true);
+  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
 
 async function friendGame(page: Page) {
@@ -1238,7 +1282,7 @@ it.each(['timeout', 'remount'])('retries Play now with the same command ID after
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await frame.locator('html').evaluate(async () => {
-      await (window as any).harnessApp.call('kingdown_settings', { last_setup: { kind: 'solo', colour: 'white', level: 'beginner', king: null, options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: true } } });
+      await (window as any).harnessApp.call('kingdown_settings', { last_setup: { kind: 'friend', colour: 'white', level: 'strong', king: null, options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: true } } });
     });
     await page.clock.install();
     await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_create'; });
@@ -1250,6 +1294,8 @@ it.each(['timeout', 'remount'])('retries Play now with the same command ID after
     await frame.locator('#retry:not(:disabled)').waitFor();
     expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
     expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
+    expect(await frame.getByRole('radio', { name: 'Beginner', exact: true }).isChecked()).toBe(true);
+    expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(false);
     await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await frame.locator('[data-screen="seat"]').isHidden()).toBe(true);
@@ -1261,5 +1307,9 @@ it.each(['timeout', 'remount'])('retries Play now with the same command ID after
     expect(await page.evaluate(() => (window as any).harnessView.game_id)).toBe(game);
     const games = (await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_games', arguments: {} } })).json())._meta.games;
     expect(games.filter((entry: any) => entry.game_id === game)).toHaveLength(1);
+    await hall(page);
+    expect(await frame.getByRole('radio', { name: 'A friend', exact: true }).isChecked()).toBe(true);
+    expect(await frame.locator('input[name="setup-level"][value="strong"]').isChecked()).toBe(true);
+    expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(true);
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });

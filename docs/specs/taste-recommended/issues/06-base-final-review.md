@@ -1,6 +1,6 @@
 # Base: the last three review fixes
 
-Status: resolved
+Status: claimed
 Type: task
 Lane: od-base
 
@@ -41,12 +41,32 @@ Pictures and game tokens keep their own shape. Controls use stone.
 
 ## Reviews
 
-- Reader A finds no fault in the setup, saved choices or QA changes.
+- Reader A finds no fault in the setup, saved choices or QA changes
+  on the first pass.
 - Reader B finds a test gap: the disabled stone rule has no image or
   inset shadow, so the first assertion can miss it. The repair checks
   that three disabled king pictures have transparent faces and borders.
   Reader B checks the repair and closes the finding. Both reviews have
   no open fault.
+
+### Part 01-followup-2: failed Play now starts
+
+The next two reviews find faults at `b28f4caa`. Both faults match the code.
+Reader A finds that a failed Create changes the New game draft to Computer.
+The hall then shows Strong and Arrangement, although Retry starts Beginner
+without Arrangement. Reader B finds that a failed king choice keeps Retry
+inside the hidden frame. The final read has the same route fault.
+
+Plan and checks:
+
+1. Mark pending Play now commands in private widget state. Keep the saved
+   New game draft. Show the quick game's choices while its start waits.
+2. Send choice and read failures to the same visible hall as Create.
+   Test lost replies, time-outs, remounts, and Retry with the same command.
+3. Run `npm test` here with the given local test database. Run `plugin-ui`
+   on the M1 in `~/projects/kd-od-base` with the shared lock. Change no
+   time limit. No server code needs a change.
+4. Record the results and commit the fix on `claude/owner-decisions`.
 
 ## Verification
 

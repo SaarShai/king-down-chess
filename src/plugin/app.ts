@@ -11,7 +11,7 @@ import { setSettings } from './board-view';
 import { setSound, snd } from '../render/sfx';
 import { runPoll } from './poll';
 import { createRouter } from './router';
-import { playNow, setupBusy, setupScreen } from './screens/setup';
+import { playNow, quickStart, setupBusy, setupScreen } from './screens/setup';
 import { friendScreen } from './screens/friend';
 import { joinScreen } from './screens/join';
 import { waitScreen } from './screens/wait';
@@ -47,7 +47,7 @@ function saveState() { state.pending = pending; client.save(); }
 /** A command's error stays on the screen where the command started, so its Retry shows there, also after the player leaves. */
 function failPending(message: string) {
   pending!.error = message; pending!.error_screen = pending!.screen ?? state.screen; saveState();
-  if (state.screen === 'home' && pending!.screen === 'play' && ['kingdown_create', 'kingdown_find'].includes(pending!.name)) navigate('play');
+  if (state.screen === 'home' && pending!.screen === 'play') navigate('play');
 }
 // A pending command locks Start, the board, the seat and the poll, so these screens also show its error and Retry.
 const LOCKED: Screen[] = ['play', 'seat', 'board', 'wait', 'friend', 'end'];
@@ -102,14 +102,14 @@ async function resendPending(command: Pending, mountRead?: ToolResult) {
 export async function call(name: string, args: Record<string, unknown>, retain = false, quiet = false, route: boolean | undefined = undefined, retry = false, stale?: () => boolean) {
   if (busy || (quiet && polling)) return;
   const before = view;
-  const commandScreen = state.screen === 'home' && ['kingdown_create', 'kingdown_find'].includes(name) ? 'play' : state.screen;
+  const commandScreen = state.screen === 'home' && (quickStart() || ['kingdown_create', 'kingdown_find'].includes(name)) ? 'play' : state.screen;
   // A poll gives way to a command or a newer view; a mount's read gives way to a newer chat result.
   const late = () => quiet && (busy || view !== before) || !!stale?.();
   let followup: Pending | undefined, received: View | undefined;
   if (quiet) polling = true;
   else { busy = true; commandDone = new Promise(resolve => { endCommand = resolve; }); actions(); $('error').textContent = ''; }
   if (retain) {
-    if (pending?.name !== name || pending.args !== args) pending = { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: commandScreen };
+    if (pending?.name !== name || pending.args !== args) pending = { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: commandScreen, ...(quickStart() && { quick: true }) };
     pending.error = undefined; pending.error_screen = undefined; saveState();
   }
   try {

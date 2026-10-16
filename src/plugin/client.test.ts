@@ -51,6 +51,15 @@ describe('app client', () => {
     expect(requests).toEqual([{ name: 'kingdown_settings', arguments: {} }, { name: 'kingdown_settings', arguments: { symbols_only: false } }]);
     expect(client.state).not.toHaveProperty('settings');
   });
+  it('keeps the Play now marker when a pending start mounts again', () => {
+    let widgetState: any;
+    const app = { callServerTool: async () => ({ content: [] }) };
+    const pending = { name: 'kingdown_create', args: { kind: 'solo', level: 'beginner', command_id: 'once' }, screen: 'play' as const, quick: true };
+    const client = createClient(app, { widgetState: { privateContent: { screen: 'play', pending } }, setWidgetState: state => { widgetState = state; } });
+    client.save();
+    expect(createClient(app, { widgetState }).state.pending).toEqual(pending);
+    expect(widgetState.modelContent).toEqual({});
+  });
   it('keeps the new board binding when an old read returns after opening a game', async () => {
     let release!: (value: { content: []; _meta: { board_id: string } }) => void;
     const client = createClient({ callServerTool: async ({ name }) => name === 'kingdown_get' ? new Promise(resolve => { release = resolve; }) : { content: [], _meta: { board_id: 'new' } } });

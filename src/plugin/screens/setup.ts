@@ -21,9 +21,10 @@ export const kingRules = powersRules({ ...DEFAULT_RULES, ...POWERS_BALANCED });
 const faces: readonly CardName[] = ['Freeze','IceWall','Sacrifice','March','Leap','Salvation','Mimic','Vault','SkyLift'];
 const mounted = (window as Window & { openai?: WidgetHost }).openai?.widgetState?.privateContent;
 const restored = mounted?.pending;
-let draft: SetupState | undefined, starting = false, slow = false, recovering = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
-const restoredSetup = () => !restoreHandled && restored?.screen === 'play' && !!memory.settings?.last_setup && (restored.name === 'kingdown_choose' || !!restored.args.options);
+let draft: SetupState | undefined, quick = !!restored?.quick, starting = false, slow = false, recovering = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
+const restoredSetup = () => !restoreHandled && restored?.screen === 'play' && !!memory.settings && (restored.quick || !!memory.settings.last_setup) && (['kingdown_choose', 'kingdown_get'].includes(restored.name) || !!restored.args.options);
 const ownPending = () => ownCommand || restoredSetup();
+export const quickStart = () => quick && ownPending();
 export const setupBusy = () => starting || recovering || !!client.state.pending;
 async function readGames() {
   const result = await client.call('kingdown_games', {}, { background: true });
@@ -61,16 +62,16 @@ function build() {
 }
 function render() {
   if (!draft) return;
-  const o = draft.options;
-  for (const key of ['mode','level','colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.checked = input.value === (key === 'mode' ? draft!.kind : draft![key]); });
-  $('setup-level').hidden = $('level-line').hidden = draft.kind !== 'solo'; $('play-open').hidden = draft.kind !== 'random'; $('play-join').hidden = draft.kind !== 'friend'; $('level-line').textContent = levelLines[draft.level];
+  const setup = quickStart() ? quickSetup(memory.settings?.last_setup) : draft, o = setup.options;
+  for (const key of ['mode','level','colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.checked = input.value === (key === 'mode' ? setup.kind : setup[key]); });
+  $('setup-level').hidden = $('level-line').hidden = setup.kind !== 'solo'; $('play-open').hidden = setup.kind !== 'random'; $('play-join').hidden = setup.kind !== 'friend'; $('level-line').textContent = levelLines[setup.level];
   for (const key of ['fairy','arrangement','classic','cards','kingPowers'] as const) $<HTMLInputElement>(`setup-toggle-${key}`).checked = o[key];
   $('arrangement-row').hidden = !o.fairy; $('classic-row').hidden = o.fairy; $('setup-pieces').hidden = !o.fairy; $('setup-cards').hidden = !o.cards;
   $('fairy-line').textContent = o.fairy ? 'Draw 7 pieces from the King Down pool.' : 'Only the chess pieces.';
   $('classic-line').textContent = o.classic ? 'The normal start, castling, en passant.' : 'The chess pieces in a random order.';
   $('setup-pieces').textContent = `${o.pool.length} kinds ›`; $('setup-cards').textContent = `${o.cardPool.length} cards ›`;
   $('setup-your-king').hidden = !o.kingPowers; $('setup-kings-off').hidden = o.kingPowers;
-  const pick = shownKing(draft); $<HTMLImageElement>('setup-king').querySelector('img')!.src = art(`ui/emblems/${pick.king.toLowerCase()}.webp`);
+  const pick = shownKing(setup); $<HTMLImageElement>('setup-king').querySelector('img')!.src = art(`ui/emblems/${pick.king.toLowerCase()}.webp`);
   $('setup-king-name').innerHTML = `<b>${pick.king}</b> · ${POWER_NAME[pick.power]}`;
   $('setup-power-text').textContent = ruleLine(powerText(pick.power, kingRules));
   $<HTMLButtonElement>('setup-start').disabled = setupBusy();
@@ -132,7 +133,7 @@ async function finish(view: View, pick = draft!.king) {
 }
 async function launch(setup = draft, saveSetup = true) {
   if (!setup || starting || client.state.pending) return;
-  starting = true; ownCommand = true; render();
+  starting = true; ownCommand = true; quick = !saveSetup; render();
   // After a long wait, Back is a safe way out: the start stays pending, and Start sends no second Create.
   // The wait line comes before the 10 s command limit (client.ts), which ends the call with Retry.
   const exits = document.querySelectorAll<HTMLButtonElement>('#page-back, [data-screen="play"] [data-nav]');
@@ -184,7 +185,7 @@ export function setupScreen() {
   if (!memory.settings) return;
   if (!draft) {
     draft = readSetup(memory.settings.last_setup);
-    draft.kind = client.state.pending?.name === 'kingdown_find' ? 'random' : client.state.pending?.args.kind as SetupState['kind'] ?? draft.kind;
+    if (!client.state.pending?.quick) draft.kind = client.state.pending?.name === 'kingdown_find' ? 'random' : client.state.pending?.args.kind as SetupState['kind'] ?? draft.kind;
     memory.kind = draft.kind;
   } else draft.kind = memory.kind;
   if (!$('setup-body').childElementCount) build();

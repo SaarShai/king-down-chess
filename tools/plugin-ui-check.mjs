@@ -499,6 +499,34 @@ try {
       assert(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked(), 'New game keeps the saved level');
       await setupTool('kingdown_abort', { game_id: quick.game_id });
     }
+    for (const name of ['kingdown_create', 'kingdown_choose', 'kingdown_get']) {
+      const remembered = { ...baseSetup, kind: 'friend', level: 'strong', options: { ...DEFAULT_OPTIONS, arrangement: true, kingPowers: true } };
+      await setupMount(remembered);
+      const home = await setupTool('kingdown_open', { screen: 'home' });
+      await page.evaluate(result => window.harnessShow(result), home);
+      await page.evaluate(name => { window.dropNextReply = name; }, name);
+      await frame.getByRole('button', { name: 'Play now', exact: true }).click();
+      await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+      await frame.locator('#retry:not(:disabled)').waitFor();
+      const pending = await page.evaluate(() => window.harnessWidgetState.privateContent.pending);
+      assert.equal(pending.name, name);
+      assert.equal(pending.quick, true, `${name} keeps the Play now marker`);
+      assert(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked());
+      assert(await frame.getByRole('radio', { name: 'Beginner', exact: true }).isChecked());
+      assert(!await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
+      assert.doesNotMatch(await frame.locator('#setup-start').innerText(), /Strong|Arrangement/);
+      await frame.locator('#retry').click();
+      await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+      const quick = await page.evaluate(() => window.harnessView);
+      assert.equal(quick.kind, 'solo'); assert.equal(quick.level, 'beginner'); assert.equal(quick.options.arrangement, false);
+      assert.deepEqual((await setupTool('kingdown_settings'))._meta.settings.last_setup, remembered);
+      if (name === 'kingdown_choose') assert.equal(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_choose').arguments.command_id), pending.args.command_id, 'Retry keeps the king choice command ID');
+      await openPlay();
+      assert(await frame.getByRole('radio', { name: 'A friend', exact: true }).isChecked());
+      assert(await frame.locator('input[name="setup-level"][value="strong"]').isChecked());
+      assert(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
+      await setupTool('kingdown_abort', { game_id: quick.game_id });
+    }
     await setupMount(baseSetup);
     assert.deepEqual(page.viewportSize(), { width: 390, height: 844 }, 'The setup mixes and recovery checks use the phone size');
     const levels = ['beginner','casual','club','strong']; let mix = 0;

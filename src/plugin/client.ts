@@ -2,7 +2,7 @@ import type { App } from '@modelcontextprotocol/ext-apps';
 export const SCREENS = ['home', 'play', 'friend', 'join', 'wait', 'lobby', 'seat', 'board', 'end', 'profile', 'collection', 'settings', 'handle'] as const;
 export type Screen = typeof SCREENS[number];
 export const BOARD_ID_TOOLS = ['kingdown_get', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'] as const;
-export type Pending = { name: string; args: Record<string, unknown>; game_tag?: string; started_at?: number; screen?: Screen; error?: string; error_screen?: Screen };
+export type Pending = { name: string; args: Record<string, unknown>; game_tag?: string; started_at?: number; screen?: Screen; quick?: boolean; error?: string; error_screen?: Screen };
 export type BoardSettings = { symbols_only: boolean; show_threats: boolean };
 export type PageState = { screen: Screen; settings_back?: Screen; queued?: Screen; sheet?: string; board_id?: string; pending?: Pending };
 // Words wait for the owner's approval; every failed connection and time-out shows this one sentence.
@@ -18,7 +18,7 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
     const pending = state.pending;
     const args = pending && Object.fromEntries(Object.entries(pending.args).filter(([key]) => !['game_id', 'code', 'handle'].includes(key)));
     const game_tag = pending?.game_tag ?? (typeof pending?.args.game_id === 'string' ? pending.args.game_id.slice(0, 8) : undefined);
-    host?.setWidgetState?.({ modelContent: {}, privateContent: { ...state, pending: pending && { name: pending.name, args, game_tag, started_at: pending.started_at, screen: pending.screen, error: pending.error, error_screen: pending.error_screen } } });
+    host?.setWidgetState?.({ modelContent: {}, privateContent: { ...state, pending: pending && { name: pending.name, args, game_tag, started_at: pending.started_at, screen: pending.screen, ...(pending.quick && { quick: true }), error: pending.error, error_screen: pending.error_screen } } });
   }
   async function call(name: string, args: Record<string, unknown> = {}, options: { background?: boolean; limit?: boolean } = {}): ReturnType<App['callServerTool']> {
     const before = state.board_id;
