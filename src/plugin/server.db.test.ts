@@ -291,7 +291,9 @@ suite('ChatGPT tools on PostgreSQL', () => {
   const waiting = (await new GameService(new PostgresMatchStore(admin)).create(a, { kind: 'random', options })).game_id;
   expect((await guest.ok('kingdown_lobby'))._meta.lobby.games.some((g:any)=>g.game_id===waiting)).toBe(false);
   expect((await guest.call('kingdown_accept', { game_id: waiting }))._meta.code).toBe('FORBIDDEN');
-  expect(view(await guest.ok('kingdown_find', { options })).game_id).not.toBe(waiting);
+  const found = view(await guest.ok('kingdown_find', { options }));
+  expect(found.game_id).not.toBe(waiting);
+  await guest.ok('kingdown_abort', { game_id: found.game_id });
   const friend = view(await host.ok('kingdown_create', { kind: 'friend', options })).game_id;
   const code = (await host.ok('kingdown_invite', { game_id: friend })).structuredContent.code;
   expect((await guest.call('kingdown_join', { code })).isError).toBe(true);
@@ -361,7 +363,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
 
  it('keeps the retry hints for each tool', async () => {
   const player = await connect(await user('retry-hints')), tools = (await player.client.listTools()).tools;
-  expect(tools).toHaveLength(25);
+  expect(tools).toHaveLength(26);
   expect(tools.filter(tool => tool.annotations?.idempotentHint === false).map(tool => tool.name).sort()).toEqual(['kingdown_create', 'kingdown_find', 'kingdown_invite', 'kingdown_join', 'kingdown_open', 'kingdown_report', 'kingdown_resume', 'kingdown_seen']);
   for (const tool of tools) expect(typeof tool.annotations?.idempotentHint).toBe('boolean');
  });

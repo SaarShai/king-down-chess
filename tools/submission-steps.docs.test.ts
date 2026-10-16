@@ -33,7 +33,7 @@ test('the owner deletes the sign-in audit rows that Auth wrote before the switch
 
 test('the last owner answer of 2026-10-16 on the online setting is recorded', () => {
  const question = checklist.slice(checklist.indexOf('For the owner')).split('\n').find(line => line.includes('Friends only'))!;
- expect(question).toMatch(/^\d+\. Closed: keep the friends-only default .*Ticket 18 builds it.*\(owner, 2026-10-16, after the review; .*\)\.$/);
+ expect(question).toMatch(/^\d+\. Closed: keep the friends-only default .*Part 18-a builds it.*\(owner, 2026-10-16, after the review; .*\)\.$/);
  expect(readFileSync('docs/submission/privacy-additions.md', 'utf8')).not.toContain('Choice for the owner');
 });
 

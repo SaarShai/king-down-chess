@@ -109,3 +109,9 @@ Parts 18-a and 18-b, with A-F4, are approved by the owner's task. Parts 18-d and
 - Part 18-a code commit: `c9e7a8ed`. Typecheck and the commit gates pass.
 - The focused local test run waits for the clone's shared test lock. The lock has another test process. This step does not bypass the lock or stop that process.
 - The M1 identity matches the project record. Browser checks will use this lane's folder and the shared browser lock.
+
+### First full test result
+
+- Full `npm test` at `4b968359`: 2,556 pass, 8 skip and 7 fail in 167 files (147.84 seconds). Both new block tests and the three-state online test pass.
+- Five failures need changes in this step: two old toggle-count checks still expect three checkboxes; the tool count still expects 25; the owner-answer document test still expects the old ticket words; and the Find test leaves an open table that a later expiry test joins. Update the counts and text checks. Abort the Find test's table after its assertion.
+- The other two failures match the earlier ticket: the card and Abort target sizes, and the report-delete permission test. Neither path changes in this step. Keep the limits and record the repeat result.
