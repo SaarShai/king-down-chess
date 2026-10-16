@@ -94,6 +94,19 @@ it('names the card owner, feature icons and the computer once', async () => {
   } finally { await page.close(); }
 });
 
+// Spec W10 a: the board uses the card names of setup, the Cards sheet and the Collection.
+it('names Mirror B and Morph P with the shared card names on the coins, the sheet and the armed line', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [['MorphP'], ['MirrorB']] })), frame = page.frameLocator('iframe');
+  try {
+    expect.soft(await frame.locator('#card-w-0').getAttribute('aria-label')).toBe('Your Morph');
+    expect.soft(await frame.locator('#card-b-0').getAttribute('aria-label')).toBe("Opponent's Mirror");
+    await frame.locator('#card-w-0').click();
+    expect(await frame.locator('#board-sheet[open] h2').textContent()).toBe('Morph');
+    await frame.getByRole('button', { name: 'Use', exact: true }).click();
+    expect(await frame.locator('#status').textContent()).toBe('Morph');
+  } finally { await page.close(); }
+});
+
 it('names the power coin owner when both kings have the same power', async () => {
   const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'Freeze' }] })), frame = page.frameLocator('iframe');
   try {

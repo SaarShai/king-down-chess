@@ -520,3 +520,31 @@ it('calls a newly opened game just opened and gives an opponent a fallback portr
     expect(await frame.locator('#lobby-list .portrait img').first().getAttribute('src')).toContain('spirit');
   } finally { if(game) await buddy(page,'kingdown_cancel',{game_id:game}); await page.close(); }
 });
+// A failed read marks only the game it read. Join and Accept show a new game without a read, so the new board is current.
+it.each(['join', 'accept'])('clears a failed read of the shown game when %s opens a new game', async path => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const shown = await start(page, 'solo'); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await page.evaluate(() => { (window as any).rejectNextGet = true; });
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
+    await frame.locator('#status').filter({ hasText: 'Not current' }).waitFor();
+    const created = await buddy(page, 'kingdown_create', { kind: path === 'join' ? 'friend' : 'random', options, colour: 'black' });
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('play'));
+    if (path === 'join') {
+      const { code } = (await buddy(page, 'kingdown_invite', { game_id: created._meta.view.game_id })).structuredContent;
+      await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(code); await frame.locator('#join').click();
+      await frame.locator('#join-confirm').waitFor(); await frame.locator('#join-confirm').click();
+    } else {
+      await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click();
+      await frame.locator('#lobby-list .accept').first().waitFor(); await frame.locator('#lobby-list .accept').first().click();
+    }
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    const game = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
+    expect(game).not.toBe(shown.game_id);
+    if (path === 'join') expect(game).toBe(created._meta.view.game_id);
+    expect(await frame.locator('#status').textContent()).not.toBe('Not current');
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+    expect(await frame.locator('#error').textContent()).toBe('');
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.gameActionsBlocked())).toBe(false);
+  } finally { await page.close(); }
+});

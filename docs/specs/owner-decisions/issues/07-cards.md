@@ -164,3 +164,7 @@ The repair uses the proposed picks: a card tap opens Cards, and your hand has a 
 - The full Mac suite has two timing failures; both files pass separately. No test or check time limit changes. `plugin-ui-http` is not required because no server code changes.
 
 All findings in A1 to A5 and B1 to B2 are confirmed and fixed. B2 repeats the lift-test fault in A4. This final ticket change records the check results only; the checked source stays at `60202605`.
+
+### Integration review (claude/owner-decisions, 2026-10-16)
+
+The merged build showed two names for one card: Setup said "Morph", but the board sheet, coin label, armed line and short last-move line said "Morph P". `board.ts` and `move-text.ts` now use the shared `cardName()`, so W10 a holds on every screen of the submission build. Step 07-board does not repeat this change. F38 (letters over the card back) stays with step 07-board.

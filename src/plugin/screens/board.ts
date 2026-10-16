@@ -1,6 +1,6 @@
 import { fromFen, toFen, toLan } from '../../rules/setup';
 import { colorOf, findKing, K, inCheck, legalMoves, moveNumber, nameOf, piece, PLAIN_KINGS, RULES, setRules, sqName, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
-import { cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
+import { cardName, cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
 import { checkCause, checkersOf, describeMove, shortMove, threatsIn } from '../../move-text';
 import { marksModel, railsOf } from '../../marks-model';
 import { readText, reachOf, teachNote } from '../../read';
@@ -27,7 +27,6 @@ let history: BoardMove[] = [], lastMove: BoardMove | undefined;
 export const boardLastMove = () => lastMove;
 let command: (name: string, args: Record<string, unknown>) => Promise<View | undefined>;
 export const sendBoardCommand = (name: string, args: Record<string, unknown> = {}) => command(name, args);
-const cardName = (name: string) => name.replace(/([a-z])([A-Z])/g, '$1 $2');
 const portraitPath = (side: Color) => `ui/kings/${(RULES.kings[side]?.king ?? PLAIN_KINGS[side]).toLowerCase()}${side ? '-b' : ''}.webp`;
 let sheet: HTMLDialogElement, scrim: HTMLDivElement, sheetFocus: HTMLElement | undefined;
 export function closeBoardSheet() {

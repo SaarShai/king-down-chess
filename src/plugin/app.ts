@@ -79,6 +79,8 @@ function show(next: View | undefined) {
   if (next.fen && rules?.game !== next.game_id) return;
   if (view?.game_id !== next.game_id || view.revision !== next.revision || view.status !== next.status || view.action !== next.action) gamesDirty = true;
   if (view?.game_id !== next.game_id) $('invitation').textContent = '';
+  // A failed read marks only the game it read: Join and Accept show a new game without a read, so they clear it here.
+  if (view?.game_id !== next.game_id && readError) { readError = false; pollFailures = 0; retryState(); }
   view = next;
   if (rules?.game === next.game_id) setRules(rules.value);
   drawBoard(next);

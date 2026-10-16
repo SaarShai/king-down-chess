@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { Move, Position, POWERS_BALANCED, inCheck, legalMoves, makeMove, parseSq, setRules } from './rules/engine';
+import { Move, N, Position, POWERS_BALANCED, inCheck, legalMoves, makeMove, parseSq, setRules } from './rules/engine';
 import { KingChoice, PowerName } from './rules/rules';
 import { fromFen, randomBackRank, startPosition, toLan } from './rules/setup';
 import { checkCause, checkersOf, describeMove, shortMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
@@ -238,7 +238,9 @@ it('keeps a short move and names the card or power use', () => {
   expect(shortMove(pos, find(pos, 'h7-h5'))).toBe('Black pawn h7 → h5');
   expect(shortMove(pos, {from:55,to:47,captures:[],power:'haste'})).toBe('Black Haste · pawn h7 → h6');
   expect(shortMove(pos, {from:60,to:60,captures:[],power:'firewall'})).toBe('Black Firewall · king e8');
-  expect(shortMove(pos, {from:60,to:60,captures:[],power:'firewall',via:'mirrorb'})).toBe('Black Mirror B · Firewall · king e8');
+  // Spec W10 a: the shared card names, as setup, the Cards sheet and the board coins show them.
+  expect(shortMove(pos, {from:60,to:60,captures:[],power:'firewall',via:'mirrorb'})).toBe('Black Mirror · Firewall · king e8');
+  expect(shortMove(fromFen('4k3/8/8/8/8/8/P7/K7 w - - 0 1'), {from:8,to:8,captures:[],power:'morphp',promo:N})).toBe('White Morph · pawn a2 = knight');
   expect(shortMove(pos, {from:60,to:47,captures:[],drop:1,power:'spawn'})).toBe('Black Spawn · adds pawn h6');
   expect(shortMove(pos, {from:60,to:60,captures:[],pass:true})).toBe('Black ends turn · Haste');
 });

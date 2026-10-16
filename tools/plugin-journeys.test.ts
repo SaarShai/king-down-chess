@@ -43,8 +43,13 @@ it('opens the screen of the game status when a chat result names the board, with
       await page.evaluate(result => (window as any).harnessShow(result), shown);
       await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, before);
       await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
-      // A board that draws a game in setup or waiting offers no draw and no resignation.
-      if (screen === 'seat') expect(await frame.locator('#offer-draw, #resign').count()).toBe(0);
+      // A game in setup offers no draw and no resignation: not on the screen, not in its Menu (spec J7 a moved both into Menu).
+      if (screen === 'seat') {
+        await frame.locator('#seat-menu:not(:disabled)').click(); await frame.locator('#seat-menu-sheet[open]').waitFor();
+        expect(await frame.locator('#seat-settings').count()).toBe(1);
+        expect(await frame.getByRole('button', { name: /^(Resign|Offer draw)$/ }).count()).toBe(0);
+        await frame.locator('#seat-menu-close').click();
+      }
     }
   } finally { await page.close(); }
 });

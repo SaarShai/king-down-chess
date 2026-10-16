@@ -45,11 +45,11 @@ For a game with a person, each player chooses their own king and order when thes
 
 Tap your piece, then its destination or a move choice. Tap a card or power coin to read its rule. Select **Use** if it shows, then tap a marked square or select **Choose a move**. **Cancel** clears that choice. **Stop here** ends a turn that permits another move. Check that the move stays after you reopen the game. Use **Your games** to return to an open game.
 
-The board shows **Resign** and **Menu**. In a game with a person, it also shows **Offer draw**. Select **Offer draw** and confirm. Your opponent uses **Accept draw** or **Decline draw**, then **Accept** or **Decline** to confirm. **Resign** opens **Lay your king down?**; confirm **Resign** or select **Keep playing**.
+The bar shows only **Menu**. **Menu** holds **Resign** and, in a game with a person, **Offer draw**. Select **Offer draw** and confirm. Your opponent uses **Accept draw** or **Decline draw** on the board, then **Accept** or **Decline** to confirm. **Resign** opens **Lay your king down?**; confirm **Resign** or select **Keep playing**.
 
-Open **Menu** for **Abort**, **Claim the win** or **End game** when available. Before each side's first move, **Abort** ends the game with no result. After a missed first-move deadline, **End game** ends it with no result. After a later missed three-day deadline, **Claim the win** gives you the win. **Moves** shows the move list. **Reload** reads the current game.
+**Menu** also holds **Abort** while it is available. Before each side's first move, **Abort** ends the game with no result. When your opponent misses a deadline, the board shows **End game** or **Claim the win**. After a missed first-move deadline, **End game** ends it with no result. After a later missed three-day deadline, **Claim the win** gives you the win. **Moves** in **Menu** shows the move list. **Refresh the board** in **Menu** reads the current game. If a read fails, the board stays and shows **Not current**. Moves and game actions stay off until **Try again** or the next good read.
 
-The end card shows **You win**, **You lose** or **Draw**, with the end reason. Human games can show **Rating**, a **?** and a rating change. An earned badge shows **New badge**. **Rematch** keeps the features and swaps colours. Your opponent uses **Accept** or **Decline**. **Your games** opens the profile scroll. No email or push alert arrives. Open **Your games** to check your turn.
+The end card shows **You win**, **You lose** or **Draw**, with the end reason. Human games can show **Rating** and a rating change. While the rating is new, the card shows **New player** and no change. An earned badge shows **New badge**. **Rematch** keeps the features and swaps colours. Your opponent uses **Accept** or **Decline**. **Your games** opens the profile scroll. No email or push alert arrives. Open **Your games** to check your turn.
 
 ## Profile and settings
 

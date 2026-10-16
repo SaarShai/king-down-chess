@@ -49,3 +49,23 @@ test.each([
     expect(text).not.toContain('compare it with the code');
   }
 });
+
+// Spec J7 a and B3 b: the bar holds only Menu, a deadline action shows on the board, and the read button keeps its built name.
+test.each([
+  'docs/qa/plugin-qa-protocol.md',
+  'docs/specs/chatgpt-mvp/release/TESTER-GUIDE.md',
+  'docs/specs/chatgpt-mvp/release/LIVE-CHECKS.md',
+])('%s names the board actions of the build', path => {
+  const text = readFileSync(path, 'utf8'), reload = /<button id="reload">([^<]+)</.exec(readFileSync('src/plugin/index.html', 'utf8'))![1];
+  // The live checks name no read button; the other two list the Menu items.
+  if (!path.endsWith('LIVE-CHECKS.md')) expect(text).toContain(reload);
+  expect(text).not.toMatch(/\bReload\b/);
+  expect(text).toMatch(/bar shows only \**Menu/);
+  expect(text).not.toMatch(/Menu[^.|]*Claim/);
+});
+
+// Spec W8 a: the end card shows New player, not "?", while the rating is new.
+test.each(['docs/specs/chatgpt-mvp/release/TESTER-GUIDE.md', 'docs/specs/chatgpt-mvp/release/LIVE-CHECKS.md'])('%s gives New player for a new rating on the end card', path => {
+  expect(readFileSync('src/plugin/screens/end.ts', 'utf8')).toContain("'New player'");
+  expect(readFileSync(path, 'utf8')).toContain('New player');
+});
