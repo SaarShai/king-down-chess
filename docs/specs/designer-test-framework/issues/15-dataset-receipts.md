@@ -1,6 +1,6 @@
 # Confirm dataset receipts without repeat creation
 
-Status: claimed
+Status: resolved
 Type: task
 Blocked by: none
 
@@ -148,3 +148,50 @@ One backup starts with PID 79441. Its state folder is
 main backup tools and decoded cloud-byte proof, with no worker collection.
 Do not repeat it. Next bounded local check: 06:40 UTC. After proof passes,
 link the verified export through the browser and save/reload it.
+
+## Answer
+
+The dataset receipt repair is committed as `c10741e3`. It verifies the existing
+private version and downloaded payload bytes before a one-time first notebook
+submission. The studio then resolves the unknown notebook response by exact
+identity and source hash, and collects the terminal results without a retry.
+
+The recovered frozen verifier passes all two scheduled games, two legal replays
+and one illegal control. Both games end in checkmate at 77 plies; neither hits
+the 80-ply cap. The report contains 12 activity rows. Nine retain game percentile
+intervals and three differential rows retain missing values and unverified
+status. The sample is one color pair at depth 1. These intervals do not establish
+piece balance or independent army coverage. No rule is adopted.
+
+Backup snapshot:
+`drive:King Down/results-backups/20261015-232154-616292000`.
+The upload completes once. Its first proof incorrectly requires AppleDouble
+metadata that the main backup tool excludes. That failure and the original
+required list remain intact. A proof-only check applies the main tool's rule:
+45 excluded sidecars each have AppleDouble magic, an existing paired file or
+directory, and the recorded local hash. It verifies all 50 payload files,
+7,965,184 bytes, against downloaded decoded cloud bytes. The saved receipt,
+proof receipt and final local hashes match at 06:45 UTC. No upload is repeated.
+
+Proof state on the card:
+`state/study-backups/dataset-receipt-final-20261015/payload-proof/`.
+Files `verified-final.json`, `completion-check.json` and
+`excluded-appledouble.json` preserve the exact proof and exclusions.
+
+The actual browser imports `verified-local-report/measurements.json` and links
+all 12 original rows into study `c8128289-3574-4095-9ae5-b45cb9116270`, version 3.
+The study is saved, reloaded, reopened and exported. All 12 exported rows equal
+the verified export exactly, including original validity, missing values,
+intervals and source hashes. `browser-persistence.json` records this comparison;
+`browser-study-v3.json` retains the browser export in the proof state folder.
+Screenshot: `/Users/za/.codex/visualizations/dataset-receipt-study-linked-20261015.png`.
+
+Automatic local validation is still blocked in issue 14. The studio's original
+failure message does not retain its precise failing stage. Isolated checks
+reproduce a Python certificate-trust failure, then AppleDouble source metadata
+rejection. System Python and a clean disposable source copy permit the strict
+frozen verifier to pass. The original run state still reports attention
+required; it is not rewritten as automatic success. A later repair must retain
+safe validation diagnostics and support the card's metadata without weakening
+the frozen source check. This follow-up closes after verified recovery and
+browser persistence. The automatic path does not yet pass end to end.

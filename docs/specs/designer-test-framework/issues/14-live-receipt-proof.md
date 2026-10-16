@@ -2,7 +2,7 @@
 
 Status: claimed
 Type: task
-Blocked by: dataset response identity cannot be confirmed
+Blocked by: local validator runtime trust and card metadata handling
 
 ## Request and scope
 
@@ -120,3 +120,32 @@ The follow-up closes with this blocker and the evidence preserved.
 The owner requests dataset receipt repair and safe completion of this same
 two-game proof. Issue 15 records the repair and byte-verified existing dataset.
 The original blocked report stays intact. No dataset creation is repeated.
+
+## Recovered two-game evidence and remaining automatic blocker
+
+Issue 15 repairs dataset verification and continues the original run once. The
+studio confirms notebook 138958863, version 1, with the submitted source hash,
+then collects all terminal files automatically. No dataset or uncertain notebook
+mutation repeats. Both games pass the unmodified frozen verifier in an isolated
+copy: two legal replays, one illegal control, exact source, bundle, plan and
+schedule. Both games end in checkmate at 77 plies, with zero caps.
+
+The evidence backup snapshot `20261015-232154-616292000` passes downloaded-byte
+proof for all 50 payload files and 7,965,184 bytes. AppleDouble metadata is
+excluded under the main backup tool's existing rule, with exact exclusion
+records. Original proof failures stay intact. No upload repeats.
+
+The browser links the verified 12-row export into the original study at version
+3. Save, reload, reopen and export preserve all rows exactly. Proof is in card
+state `study-backups/dataset-receipt-final-20261015/payload-proof/`, including
+`browser-persistence.json`. Screenshot:
+`/Users/za/.codex/visualizations/dataset-receipt-study-linked-20261015.png`.
+
+This closes collection, verified recovery, backup and browser linking for the
+two games. It does not pass the automatic validation requirement. The original
+studio state remains attention-required with validation pending. Isolated
+checks expose Python certificate trust and AppleDouble metadata failures;
+original-stage diagnostics are absent. The next repair must support these local
+conditions and retain safe failure diagnostics. No new game is authorized here.
+This remains workflow evidence from one color pair, with limited intervals and
+no rule adoption.
