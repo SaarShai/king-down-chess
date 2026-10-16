@@ -1,6 +1,6 @@
 /** In-memory screen fixture. The engine plays moves; the database tests check transactions and access. */
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
-import { createMatch, type LocalMatch, type MatchSetup } from '../src/match';
+import { createMatch, loadMatch, type LocalMatch, type MatchSetup } from '../src/match';
 import { MatchServiceError } from '../src/match/store';
 import { FRIEND_CODE_DAYS } from '../src/match/service';
 import { createSchema, commandSchema, type CreateOptions, type InboxEntry, type View, type Seat, type LoggedCommand, type HistoryEntry, type PlayerRecord } from '../src/match/protocol';
@@ -82,7 +82,17 @@ export function fixtureService(): Pick<PluginService,keyof PluginService> & { se
     const turn = (await g.match!.snapshot()).turn; if (action.type === 'turn' ? turn !== seat : g.input.kind !== 'solo' || turn === seat) fail('WRONG_TURN',403,'This operation is not permitted on the current turn');
     const actions = action.type === 'turn' ? action.actions : [await g.match!.chooseMove({level:g.input.level,maxTimeMs:250,maxDepth:6})];
     if (action.type === 'computer') Object.assign(action, {actions});
-    for (const lan of actions) try { await g.match!.apply({id:randomUUID(),expectedRevision:(await g.match!.snapshot()).revision,lan}); } catch {fail('INVALID_MOVE',400,'This move is no longer available. Reload and choose a move.');}
+    const save = await g.match!.exportSave();
+    try {
+     for (const lan of actions) {
+      const snapshot = await g.match!.snapshot();
+      if (snapshot.status !== 'playing' || snapshot.turn !== turn) fail('INVALID_MOVE',400,'This move is no longer available. Reload and choose a move.');
+      await g.match!.apply({id:randomUUID(),expectedRevision:snapshot.revision,lan});
+     }
+    } catch {
+     await g.match!.close(); g.match = await loadMatch(save);
+     fail('INVALID_MOVE',400,'This move is no longer available. Reload and choose a move.');
+    }
     if ((await g.match!.snapshot()).turn !== turn) g.turns[turn]++; if (g.draw_offer !== turn) g.draw_offer = null; await end(g);
    } else if (action.type === 'resign') Object.assign(g,{status:'finished',result:{winner:1-seat,reason:'resignation'}});
    else if (action.type === 'abort') { if (!(await view(actor,id)).abort_open) fail('NOT_ALLOWED',409,'Abort is closed'); Object.assign(g,{status:'aborted',setup_deadline:null,deadline:null,result:{winner:null,reason:'abort'}}); }
