@@ -457,6 +457,9 @@ try {
         && Math.abs(box.width - box.height) < .5 && box.width >= 44 && style.backgroundImage.includes('radial-gradient') && !style.backgroundImage.includes('stone-control');
     })), 'Card and power coins stay round with 44 px targets at 393 × 852');
     assert(await frame.locator('#board').evaluate(board => [board, board.parentElement].every(surface => !getComputedStyle(surface).backgroundImage.includes('stone-control'))), 'The board and its parent keep the stone control face off the board');
+    // The Black seat waits for the computer's first move. Until its reply the Menu is off and shows the disabled face;
+    // the real server (plugin-ui-http) replies later than the fixture.
+    await frame.locator('#board-menu:not(:disabled)').waitFor();
     assert((await frame.locator('#board-menu').evaluate(button => getComputedStyle(button).backgroundImage)).includes('stone-control'), 'Menu keeps the stone face');
     await shot(page, `base-round-coins-393-${mode}`);
     await page.setViewportSize({ width: 390, height: 844 });
