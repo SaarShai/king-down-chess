@@ -77,9 +77,9 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
 
    Rollback: a failed migration transaction changes nothing. Stop and review the failure. After commit, keep its data. Use the saved recovery plan with the owner's word.
 
-9. **Owner word — paste [apply-0010-0013.sql](apply-0010-0013.sql) once.** Use a new SQL Editor query as the admin role. Paste the whole file. It first checks the 0005–0009 foundation and runtime-role blocks 3–6. It then applies 0010, block 7, 0011, 0012, block 8, 0013 and block 9 in one transaction. The source statements stay the same; only their outer transaction pairs become one pair.
+9. **Owner word — paste [apply-0010-0013.sql](apply-0010-0013.sql) once.** Use a new SQL Editor query as the admin role. Paste the whole file. It first checks the 0005–0009 foundation and runtime-role blocks 3–6. It then applies 0010, block 7, 0011, 0012, block 8, 0013, block 9 and block 10 in one transaction. The source statements stay the same; only their outer transaction pairs become one pair.
 
-   This adds game and hidden seat choices, setup deadlines, rematches, lobby indexes, ratings, history, badges, settings and home-board state. Block 9 also permits old-board deletion for daily cleanup. Both board switches default off. Result history and badges have no runtime UPDATE grant.
+   This adds game and hidden seat choices, setup deadlines, rematches, lobby indexes, ratings, history, badges, settings and home-board state. Block 9 also permits old-board deletion for daily cleanup. Block 10 permits only the deletion of reports older than 12 months that no hold covers. Both board switches default off. Result history and badges have no runtime UPDATE grant.
 
    Check: a missing prerequisite gives a clear exception and changes nothing. After success, run [plugin-db-check.mjs](../../../../tools/plugin-db-check.mjs) as the runtime role through the approved private connection. Its startup probes and required privilege result pass. The publish log ends with both live checks passed; 503 ends.
 

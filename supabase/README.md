@@ -56,7 +56,7 @@ Install the audience hook and runtime-role blocks 1–2 once, through the privat
 ## Online games: 0005 to 0013
 
 Not applied yet. Apply them in order, after 0001–0004, with a privileged connection
-(`npm run plugin:db:migrate` applies 0002–0013). Then apply the third to the ninth blocks of
+(`npm run plugin:db:migrate` applies 0002–0013). Then apply the third to the tenth blocks of
 `plugin-deploy/runtime-role.sql` to the existing runtime role. The migrations are safe to run again.
 
 **Release order (a short outage).** The old and the new server code each need their own schema. The
@@ -69,10 +69,11 @@ in one short window:
 2. Run `DEPLOY_LIVE_TIMEOUT_MS=900000 tools/deploy.sh --publish` with the owner's word. It
    publishes the `npm run build:vercel` tree to project `kingdown`. The live check waits while
    the function returns 503.
-3. While it waits, apply 0005–0013, then blocks 3–9 of `plugin-deploy/runtime-role.sql`. For this
+3. While it waits, apply 0005–0013, then blocks 3–10 of `plugin-deploy/runtime-role.sql`. For this
    MVP, first apply only missing 0005–0009 and blocks 3–6. Then paste the whole guarded
    [apply-0010-0013.sql](../docs/specs/chatgpt-mvp/release/apply-0010-0013.sql). It checks the
-   foundation, then applies 0010, block 7, 0011, 0012, block 8, 0013 and block 9 in one transaction.
+   foundation, then applies 0010, block 7, 0011, 0012, block 8, 0013, block 9 and block 10 in one
+   transaction.
    The next request starts the server, and both live checks pass.
 4. Before cron starts, confirm the one-project function serves `/internal/*` on `kingdown.dev`.
    Use the [release runbook](../docs/specs/chatgpt-mvp/release/RUNBOOK.md) for checks and recovery.
@@ -116,6 +117,8 @@ in one short window:
   Both switches default off. RLS is on and the browser roles get nothing. `plugin_boards.game_selected`
   tells an empty home board from a deleted game. `created_at` lets daily cleanup delete boards older
   than 7 days. Role block 9 grants these reads and writes, board deletion and a handle check.
+  Role block 10 lets daily cleanup delete a report older than 12 months that no hold covers, and no
+  other report (a restrictive policy on the database clock).
 
 `npm run plugin:db:init-test` applies 0001–0013 twice to a disposable loopback database, and
 `src/match/service.db.test.ts`, `src/match/setup.db.test.ts`, `src/match/matchmaking.db.test.ts`,

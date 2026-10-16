@@ -92,9 +92,10 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
   expect(await game(open.game_id)).toEqual({ status: 'aborted', result: null, end_reason: 'no_start' });
   for (const id of [late, open.game_id]) expect((await rows(`select (select count(*)::int from public.game_commands where game_id=$1 and kind='expire') as expired,
    (select count(*)::int from public.outbox where kind='game_finished' and payload->>'game_id'=$1::text) as finished`, [id]))[0]).toEqual({ expired: 1, finished: 1 });
-  // The cleanup deletes the invitation of the ended game and the outbox rows done more than 30 days ago.
-  const old = (await rows(`insert into public.outbox(kind,payload,done_at) values('test','{}',$1),('test','{}',$2) returning id`, [new Date(after.getTime() - 31 * DAY), new Date(after.getTime() - 29 * DAY)])).map(row => row.id);
-  expect(await cleanup(games[0], after)).toMatchObject({ outbox: 1 });
+  // The cleanup deletes the invitation of the ended game and the outbox rows done or made more than 30 days ago:
+  // the MVP sends no email, so a row that nobody sends must not stay for ever.
+  const old = (await rows(`insert into public.outbox(kind,payload,done_at,created_at) values('test','{}',$1,$1),('test','{}',$2,$2),('test','{}',null,$1) returning id`, [new Date(after.getTime() - 31 * DAY), new Date(after.getTime() - 29 * DAY)])).map(row => row.id);
+  expect(await cleanup(games[0], after)).toMatchObject({ outbox: 2 });
   expect((await rows('select id from public.outbox where id=any($1)', [old])).map(row => row.id)).toEqual([old[1]]);
   expect((await rows('select game_id from public.game_invites where game_id=any($1)', [[late, open.game_id]])).map(row => row.game_id)).toEqual([late]);
  }, 60_000);
@@ -241,6 +242,30 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
    error.mockRestore();
    await admin.query('delete from public.games where id=$1', [stuck]);
    await admin.query('update public.account_deletions set cancelled_at=now() where user_id=$1', [q]);
+  }
+ }, 60_000);
+
+ it('deletes a report 12 months after it was made unless a hold covers it; the runtime role can delete no other report', async () => {
+  const role = `jobs_reports_${randomUUID().replaceAll('-', '')}`, password = randomUUID();
+  const runtimeUrl = new URL(own.href); runtimeUrl.username = role; runtimeUrl.password = password;
+  await withRoleLock(own.href, async () => admin.query(`${(await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8')).replaceAll('kingdown_plugin_runtime', role)}; alter role ${role} password '${password}'`));
+  const runtime = new pg.Pool({ connectionString: runtimeUrl.href, max: 1 });
+  try {
+   const [a, b] = [await user('reporter'), await user('reported')];
+   // Ages and holds on the database clock, which the cleanup and the role's delete policy use.
+   const report = async (age: string, hold: string | null) => (await rows(`insert into public.reports(reporter_id,reported_id,target,category,created_at,hold_until)
+    values($1,$2,'player','other',now()-$3::interval,now()+$4::interval) returning id`, [a, b, age, hold]))[0].id;
+   const [old, expired, held, recent] = [await report('12 months 1 day', null), await report('13 months', '-1 day'), await report('13 months', '30 days'), await report('11 months', null)];
+   const action = (await rows(`insert into public.mod_actions(user_id,action,statement,by,report_id) values($1,'warning','test','test',$2) returning id`, [b, old]))[0].id;
+   expect((await cleanup(new GameService(new PostgresMatchStore(runtime)), at())).reports).toBe(2);
+   expect((await rows('select id from public.reports where id=any($1) order by id', [[old, expired, held, recent]])).map(row => row.id)).toEqual([held, recent]);
+   expect((await rows('select report_id from public.mod_actions where id=$1', [action]))[0].report_id).toBeNull();
+   expect((await runtime.query('delete from public.reports where id=any($1)', [[held, recent]])).rowCount).toBe(0);
+   await admin.query('delete from public.reports where id=any($1)', [[held, recent]]);
+   await admin.query('delete from public.mod_actions where id=$1', [action]);
+  } finally {
+   await runtime.end();
+   await withRoleLock(own.href, () => admin.query(`drop owned by ${role}; drop role ${role}`));
   }
  }, 60_000);
 

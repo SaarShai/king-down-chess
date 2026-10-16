@@ -55,7 +55,7 @@ suite('migrations run again on a database in use', () => {
   const admin = new pg.Pool({ connectionString: own.href, max: 1 });
   const grants = await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8'), password = randomUUID();
   // The old role, the role without setup grants, and the full role.
-  const roles = { old: grants.split(/^commit;$/m).slice(0, 2).join('commit;') + 'commit;', withoutsetup: grants.split(/^commit;$/m).slice(0, 6).join('commit;') + 'commit;', withoutsettings: grants.split(/^commit;$/m).slice(0, 8).join('commit;') + 'commit;', full: grants };
+  const roles = { old: grants.split(/^commit;$/m).slice(0, 2).join('commit;') + 'commit;', withoutsetup: grants.split(/^commit;$/m).slice(0, 6).join('commit;') + 'commit;', withoutsettings: grants.split(/^commit;$/m).slice(0, 8).join('commit;') + 'commit;', withoutreportcleanup: grants.split(/^commit;$/m).slice(0, 9).join('commit;') + 'commit;', full: grants };
   const made: string[] = [];
   try {
    for (const [name, sql] of Object.entries(roles)) {
