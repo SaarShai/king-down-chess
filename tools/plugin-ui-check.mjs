@@ -907,7 +907,9 @@ try {
       assert(await frame.locator(`#online-visibility input[value="${value}"]`).isChecked(), 'Online choice persists');
     }
     await shot(page, `online-visibility-${mode}`);
-    await openScreen('board'); await idleBoard();
+    await openPlay();
+    await frame.locator(`#games-list [data-game-id="${friend.game_id}"]`).click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); await idleBoard();
     // Part 18-b: a failed status read keeps the other Menu controls and can retry.
     let failBlockRead = true;
     const blockRoute = async route => {

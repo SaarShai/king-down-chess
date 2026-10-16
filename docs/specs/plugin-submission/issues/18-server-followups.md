@@ -123,5 +123,11 @@ Parts 18-a and 18-b, with A-F4, are approved by the owner's task. Parts 18-d and
 - The full repeat of `npm test` passes 2,561 tests, skips 8 and fails 2 in 167 files (141.18 seconds). Every changed test file passes. The failures are the unchanged report-delete permission test and a five-second timeout in `src/rules/power-fixes.test.ts:470`. The engine and that test have no diff from the task base `26f3c3a2`.
 - The focused server, migration and privacy run passes all 34 tests, then all 50 document and artwork tests. It includes all three online values, the default and mutual follows; block status, repeated blocks, Find, open-game and code joins, hidden messages, ended-game undo, private lists and bad targets.
 - The engine file passes all 35 tests on its own, then all 50 document and artwork tests. Its limit stays at five seconds. The old board-target failure from the first full run passes in the repeat. No unrelated source or test changes are made.
+- The privacy category repeat at `be163c2f` passes all 6 policy tests, then all 50 document and artwork tests. Its log is `/tmp/kd-r9-18-privacy-repeat.log`, with exit code 0.
 - Local logs: `/tmp/kd-r9-18-typecheck.log`, `/tmp/kd-r9-18-local-protocol.log`, `/tmp/kd-r9-18-repeat-tests.log`, `/tmp/kd-r9-18a-tests.log` and `/tmp/kd-r9-18-rules-test.log`. Each has its exit file.
 - The M1 job is still in the shared browser queue. It will test the code at `62adc425` in this lane's folder. Its log is `/tmp/kd-r9-18-browser.log`. The check logs and exit files use `/tmp/kd-r9-18-plugin-ui`, `/tmp/kd-r9-18-plugin-ui-http` and `/tmp/kd-r9-18-protocol`.
+
+### M1 first check and repair
+
+- The M1 job gets the shared lock and checks `be163c2f`. All three online values pass their save, target-size and remount assertions in the fixture run. The next test step fails because the check helper tries to open a Board menu row from Play; Play has no such row. Resume the same game through its actual list row instead. This changes the check, not the product code.
+- Keep this lane's lock while the original HTTP child ends at its existing limit. Pause only the parent shell by PID. Then repeat both named browser checks, one at a time, before the parent releases the lock. The named checks keep their limits.
