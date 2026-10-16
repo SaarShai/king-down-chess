@@ -385,24 +385,40 @@ it('keeps 4-digit totals apart and Profile rows readable at 320 × 568', async (
     expect(contrast).toBeGreaterThanOrEqual(4.5);
   } finally { await close(); }
 });
-// One column (600 to 790 px scrolls) stretches the darker right edge of the parchment under the W column (M13, iPad portrait).
-it.each([[768, 1024], [820, 600]])('keeps each W mark at 4.5:1 on the real parchment at %i × %i', async (width, height) => {
-  const { frame, close } = await openAt(width, height);
+// One column (600 to 899 px) puts the W column on the darker right edge of the parchment (M13, iPad portrait).
+// The shadow under each roller grew with the list, so More put the first and last rows on it (M13 after More).
+const longHistory: HistoryEntry[] = Array.from({ length: 120 }, (_, i) => ({ ...history[0], game_id: randomUUID(), finished_at: new Date(Date.UTC(2026, 9, 10, 12) - i * 3_600_000).toISOString() }));
+it.each([[768, 1024], [820, 600], [899, 900]])('keeps each W mark and date of 120 games at 4.5:1 on the real parchment at %i × %i', async (width, height) => {
+  const { page, frame, close } = await openAt(width, height);
   const lum = ([r, g, b]: number[]) => { const [lr, lg, lb] = [r, g, b].map(c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }); return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb; };
   try {
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history: longHistory, record: bigRecord, games: waitingGames } } });
     await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
     await frame.locator('#profile-history li').first().waitFor(); await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
-    const ink = lum(await frame.locator('#profile-history .res-w').first().evaluate(e => getComputedStyle(e).color.match(/\d+/g)!.slice(0, 3).map(Number)));
-    // The parchment under each mark: the median pixel of its box with the ink hidden.
-    await frame.locator('#profile-history').evaluate(list => list.querySelectorAll<HTMLElement>('.res').forEach(e => { e.style.color = 'transparent'; }));
-    const marks = frame.locator('#profile-history .res-w'), ratios: number[] = [];
-    for (let i = 0; i < await marks.count(); i++) {
-      const { data, info } = await sharp(await marks.nth(i).screenshot()).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-      const paper = Array.from({ length: info.width * info.height }, (_, p) => lum([data[p * 3], data[p * 3 + 1], data[p * 3 + 2]])).sort((a, b) => a - b)[info.width * info.height >> 1];
-      ratios.push((paper + 0.05) / (ink + 0.05));
+    for (let shown = 20; shown < 120; shown += 20) { await frame.locator('#profile-more').click(); await frame.locator(`#profile-history li:nth-child(${shown + 1})`).waitFor(); }
+    const inkOf = async (selector: string) => lum(await frame.locator(`#profile-history ${selector}`).first().evaluate(e => getComputedStyle(e).color.match(/\d+/g)!.slice(0, 3).map(Number)));
+    const marks = ['.res-w', '.when'], inks = [await inkOf('.res-w'), await inkOf('.when')], ratios: number[][] = [[], []];
+    // The parchment under each mark and date: the median pixel of its box with the ink hidden, one screenshot for each screen of rows.
+    await frame.locator('#profile-history').evaluate(list => list.querySelectorAll<HTMLElement>('.res, .when').forEach(e => { e.style.color = 'transparent'; }));
+    const origin = await page.locator('iframe').evaluate(f => { const r = f.getBoundingClientRect(); return { x: r.left + f.clientLeft, y: r.top + f.clientTop }; });
+    while (ratios[0].length < 120) {
+      const boxes = await frame.locator('#profile-history').evaluate((list, { from, marks }) => {
+        const rows = [...list.children].slice(from); rows[0].scrollIntoView({ block: 'start' });
+        const shown = (e: Element) => { const r = e.getBoundingClientRect(); return [[r.left + 1, r.top + 1], [r.right - 1, r.bottom - 1]].every(([x, y]) => document.elementFromPoint(x, y) === e); };
+        const out: number[][][] = [];
+        for (const row of rows) { const own = marks.map(m => row.querySelector(m)!); if (!own.every(shown)) break; out.push(own.map(e => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom].map(Math.round); })); }
+        return out;
+      }, { from: ratios[0].length, marks });
+      expect(boxes.length).toBeGreaterThan(0);
+      const { data, info } = await sharp(await page.screenshot()).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+      for (const row of boxes) row.forEach(([left, top, right, bottom], k) => {
+        const paper: number[] = [];
+        for (let y = top + origin.y; y < bottom + origin.y; y++) for (let x = left + origin.x; x < right + origin.x; x++) { const p = (y * info.width + x) * 3; paper.push(lum([data[p], data[p + 1], data[p + 2]])); }
+        ratios[k].push((paper.sort((a, b) => a - b)[paper.length >> 1] + 0.05) / (inks[k] + 0.05));
+      });
     }
-    expect(ratios.length).toBeGreaterThanOrEqual(6);
-    expect(Math.min(...ratios)).toBeGreaterThanOrEqual(4.5);
+    expect(ratios.map(r => r.length)).toEqual([120, 120]);
+    marks.forEach((mark, k) => expect(Math.min(...ratios[k]), mark).toBeGreaterThanOrEqual(4.5));
   } finally { await close(); }
 });
 it.each(['de-DE', 'ja-JP', 'en-US'])('uses one English date style in Play, Profile and friend codes under %s', async locale => {

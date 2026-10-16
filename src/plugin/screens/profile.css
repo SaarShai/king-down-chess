@@ -6,7 +6,9 @@
 #profile-sheet .rating b { font-size: var(--fs-2xl); }
 #profile-sheet .q { display: inline-grid; place-items: center; width: 20px; height: 20px; font-family: var(--font-body); font-size: 13px; font-weight: 800; color: var(--vellum); background: var(--gold-ink); border-radius: 50%; vertical-align: 2px; }
 #profile-sheet .split { display: grid; gap: var(--space-4); margin-top: var(--space-3); }
-#profile-sheet .scroll { container-type: inline-size; min-height: 240px; min-width: 0; border: solid transparent; border-width: 60px 44px 64px; border-image-slice: 96 68 100 68 fill; border-image-repeat: stretch; padding: 0 4px; }
+/* The slices hold the rollers and the shadow under each roller at the scale of the art. Only the flat parchment stretches
+   with the list, so the rows of a long list stay on light parchment (M13 after More). */
+#profile-sheet .scroll { container-type: inline-size; min-height: 240px; min-width: 0; border: solid transparent; border-width: 60px 44px 64px; border-image-slice: 126 68 120 68 fill; border-image-width: 1.3125 1 1.2 1; border-image-repeat: stretch; padding: 0 4px; }
 #profile-sheet .totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 4px; text-align: center; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
 /* Four-digit totals keep a gap in a narrow scroll. */
 #profile-sheet .totals b { display: block; font-family: var(--font-display); font-size: min(var(--fs-xl), 11cqi); }
@@ -22,7 +24,7 @@
 #profile-sheet .rows .feats { flex: none; gap: 2px; }
 #profile-sheet .rows .feats .icon { width: 14px; height: 14px; }
 #profile-sheet .res { width: 18px; flex: none; text-align: center; font-family: var(--font-display); font-weight: 700; }
-#profile-sheet .res-w { color: #33591a; } #profile-sheet .res-l { color: var(--accent); } #profile-sheet .res-d { color: var(--ink-soft); }
+#profile-sheet .res-w { color: #315519; } #profile-sheet .res-l { color: var(--accent); } #profile-sheet .res-d { color: var(--ink-soft); }
 /* A narrow scroll moves the feature icons under the name, so the name and reason keep their width. */
 @container (max-width: 240px) {
   #profile-sheet .rows li, #profile-open button { flex-wrap: wrap; }
