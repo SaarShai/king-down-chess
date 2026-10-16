@@ -91,7 +91,9 @@ and by a test that fails before the fix.
 - **Use on a coin (both engines).** The refresh after **Use** rebuilt the coins
   and removed the focus. `strips()` now gives the focus to the new coin.
 - **Clipboard check.** Chromium reads the real clipboard back again. Only
-  WebKit captures the widget's clipboard call.
+  WebKit captures the widget's clipboard call. The first try read the engine
+  flag from the wrong `evaluate` argument, so Chromium still used the stub and
+  the real read failed. The flag now comes from the second argument.
 - **Help text.** Both help texts now say that `webkit` is for the plugin widget
   only. Some other checks use CDP or open Chromium directly.
 - **Tests.** A new phone-size test opens 14 sheets by pointer and checks the
@@ -103,3 +105,7 @@ and by a test that fails before the fix.
 - **Results.** `npx tsc --noEmit` passes. The full `npm test` passes: 163 files,
   2,567 tests, 8 skipped tests and 50 document tests. On WebKit, the board file
   passes 32 tests and the phone-size file passes 27 tests.
+- **Widget check.** At `4d1462a1`, plugin-ui passes on Chromium on the M1
+  (97.6 s) and on WebKit on this Mac (118.9 s). Both runs use the shared check
+  runner. The runner does not send `PLAYABLE_BROWSER` to the M1, so the WebKit
+  run uses this Mac. No time limit changes.
