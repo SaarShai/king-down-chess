@@ -1,6 +1,6 @@
 # Board model: the pure draft
 
-Status: claimed
+Status: resolved
 Type: task
 
 ## Scope
@@ -31,10 +31,10 @@ half turn can still send it, and restore drops a draft from the other FEN.
 
 ## Verification
 
-- [x] `npx tsc --noEmit` passes.
-- [ ] `npm test` passes with the local test database.
-- [ ] `npm run -s check:browser plugin-ui` passes on the M1 in `kd-w7-model`.
-- [x] Both supplied reviews are checked. Each confirmed finding has a fix and test.
+- [x] The type check in `npm test` passes.
+- [x] `npm test` passes with the local test database.
+- [x] `npm run -s check:browser plugin-ui` passes on the M1 in `kd-w7-model`.
+- [x] Check both supplied reviews. Fix each confirmed finding and add a test.
 - [x] The diff changes only the two board model files and this ticket.
 
 ## Results before this review
@@ -66,6 +66,7 @@ half turn can still send it, and restore drops a draft from the other FEN.
 
 - Review A, finding 1: confirmed. The zero-step half-turn rule does not read
   the player's seat. `draftTurn` and `sendActions` now require that seat.
+  Callers pass `view.seat` as the last input to both functions.
   Only the player whose turn continues can send the zero-step pass. Tests
   cover both seats in computer and link games. The other side gets
   `ready: false` and an empty action list.
@@ -74,6 +75,25 @@ half turn can still send it, and restore drops a draft from the other FEN.
   It checks the FEN guard itself.
 - Review A, check-line gap: confirmed. A new staged-check test checks the
   words in both game modes.
-- Review B: no findings. No change is needed from this report.
-- Checks for this fix are pending. The local suite waits for the shared test
-  lock. The M1 browser lock is in use.
+- Review B: no findings. This report calls for no change.
+
+## Review check results
+
+- The source fix is commit `90a8538e`. The source and test files stay unchanged
+  through all checks below.
+- The final full `npm test` passes: 165 files, 2,596 tests and 8 skips.
+  The 50 figure tests also pass. The check uses the owner's local test database.
+- The first full check reports 163 passing files, 2 failing files, 2,575 passing
+  tests and 29 skips. PostgreSQL reports deadlocks (`40P01`) in accounts cleanup
+  (`src/online/accounts.db.test.ts:64`) and plugin server setup
+  (`tools/plugin-db/bootstrap-test.mjs:29`). Both files pass alone: 10 and
+  21 tests. The full retry then passes. No database code or time limit changes.
+- The board file passes alone: 45 tests. Each single-file check uses
+  `KINGDOWN_TEST_FILE` with `npm test` and also passes the 50 figure tests.
+- The M1 `plugin-ui` check passes on `90a8538e` in `~/projects/kd-w7-model`.
+  It takes 220.7 seconds. Its output folder is `kd-w7-model-C87q4t`.
+  The job releases the shared browser lock. The M1 checkout stays clean.
+- The server files do not change. This fix needs no `plugin-ui-http` check.
+- Logs are in `/tmp/kd-w7-model-review.6hUS3h/`: `tests.log` for the first full
+  check, `retry.log` for the final full check, `board.log`, `accounts.log`,
+  `server.log` and the M1 log copy, `browser.log`.
