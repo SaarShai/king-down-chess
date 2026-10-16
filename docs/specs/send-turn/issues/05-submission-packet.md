@@ -39,3 +39,15 @@ Lane: board. Branch: `claude/od-board`. Source: owner ticket 12-submit-turn, par
 
 - The skill names both T1 a words, because the skill covers each game kind. The design sentence names only "End turn".
 - The P2 description and prompt do not change. Only the expected result and the source column change, as the design table says.
+
+## Review
+
+- Two independent reviews (at `496dc7f0`) found no faults. Each one ran the copy check alone in a scratch copy: it passes 6 tests at HEAD, and 3 tests fail on the old packet.
+- Both reviews noted one wrong comment: the check header said that a new T1 pick fails the check only until the packet changes. The first test also pins the words, so it must change too. Commit `0dd4277e` corrects the header and the Limits above. This is a comment change only, so it has no new test.
+- Notes that need no change here:
+  - The sword is the only visible content of the turn button. A P2 text such as "End turn (the sword button)" is a wording choice for the owner.
+  - The `description` field differs between the two copies in 6 of 8 rows. This is older than this ticket, and the check does not cover it.
+  - Checklist row 47 keeps its list. The design table does not name row 47.
+  - `docs/specs/chatgpt-mvp/release/TESTER-GUIDE.md:46` still names **Stop here**, which the plugin board no longer shows. The design packet table does not name this file. It belongs to the chatgpt-mvp release lane.
+- After the fix: `npm test` with the local test database passes 167 files and 2,648 tests; 8 tests skip. All 50 figure checks pass. The type check passes. The run takes 161.78 seconds.
+- The check runner runs `plugin-ui` on the M1 at `0dd4277e`. It passes in 232.4 seconds.
