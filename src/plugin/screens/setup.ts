@@ -62,7 +62,7 @@ function build() {
 }
 function render() {
   if (!draft) return;
-  const setup = quickStart() ? quickSetup(memory.settings?.last_setup) : draft, o = setup.options;
+  const setup = client.state.pending?.quick ? quickSetup(memory.settings?.last_setup) : draft, o = setup.options;
   for (const key of ['mode','level','colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.checked = input.value === (key === 'mode' ? setup.kind : setup[key]); });
   $('setup-level').hidden = $('level-line').hidden = setup.kind !== 'solo'; $('play-open').hidden = setup.kind !== 'random'; $('play-join').hidden = setup.kind !== 'friend'; $('level-line').textContent = levelLines[setup.level];
   for (const key of ['fairy','arrangement','classic','cards','kingPowers'] as const) $<HTMLInputElement>(`setup-toggle-${key}`).checked = o[key];
