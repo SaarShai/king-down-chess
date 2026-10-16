@@ -1,4 +1,4 @@
-# 17 · WebKit checks
+# 17 · WebKit checks and a host like ChatGPT
 
 Type: task
 Status: closed
@@ -6,7 +6,7 @@ Status: closed
 ## Scope
 
 Build part 17-a on `claude/real-host`. The owner asks for WebKit support and
-checks on both engines. Part 17-b is outside this task.
+checks on both engines. Part 17-b has its own section below.
 
 Source: the owner's scratch ticket `tickets/issues/17-real-host.md`.
 
@@ -109,3 +109,99 @@ and by a test that fails before the fix.
   (97.6 s) and on WebKit on this Mac (118.9 s). Both runs use the shared check
   runner. The runner does not send `PLAYABLE_BROWSER` to the M1, so the WebKit
   run uses this Mac. No time limit changes.
+
+## Part 17-b · A host like ChatGPT
+
+### Scope
+
+The local harness must act more like ChatGPT. The widget page comes from a
+second origin, in a sandboxed frame, with the CSP of its resource. Each chat
+result can mount a new frame while the old frames stay live. New checks cover
+two live widgets, a page that sleeps, and a page that goes offline. All
+current checks must pass on the new host. No product code changes.
+
+### Plan
+
+1. Serve the widget page from a second loopback port. Build the sandbox, the
+   `allow` list and the CSP header from the resource's `_meta.ui`, as the MCP
+   Apps spec says. Quote the spec in a comment.
+2. Move `window.openai`, the boot delay and the check hooks to postMessage.
+   Change each check that reads the frame from the host page.
+3. Add `?frame-per-result`: each `harnessShow` mounts a new frame with its own
+   bridge and widget state.
+4. Add checks for the origin and CSP, two live widgets on one game, sleep and
+   wake, and offline and online.
+5. Run `npx tsc --noEmit`, `npm test`, plugin-ui and plugin-ui-http.
+
+### Verification criteria
+
+- The frame origin differs from the host origin. The frame cannot read the
+  host page. The browser applies the CSP.
+- Two live widgets on one game both show each move. The older widget writes
+  only its own state and selects only its own board.
+- A page that sleeps reads nothing. When it wakes, it reads the board once and
+  shows no error.
+- Offline, three failed polls show "Cannot connect" with no Retry. Online, the
+  next poll shows the current board and clears the error.
+- All current tests and browser checks pass. No time limit changes.
+
+### Results
+
+- `tools/plugin-ui-harness.ts` serves the widget page from a second port on
+  127.0.0.1. `framePolicy()` builds the CSP from `_meta.ui.csp` (or the spec's
+  restrictive default) and the `allow` list from `_meta.ui.permissions`. The
+  frame has `sandbox="allow-scripts allow-same-origin allow-forms"`. Each
+  origin returns 404 for the routes of the other.
+- `FRAME_SHIM` gives the frame its `window.openai` by postMessage. The host
+  keeps each widget's state. The hooks `harnessWidgetState` and
+  `harnessWidgetStates` are the newest widget's. Frame code sets host hooks
+  with a `harness: 'set'` message.
+- With `?frame-per-result`, each chat result appends a new frame and scrolls
+  to it. Each frame has its own bridge, calls and widget state.
+- The checks that read the frame from the host page now read it in the frame:
+  `plugin-ui-check.mjs`, `plugin-app`, `plugin-journeys` and `plugin-lobby`.
+- One app test passed only by a sub-millisecond race. It replaced the saved
+  state just after the friend screen wrote it. With postMessage, the write
+  comes about 35 ms later. The test now waits for that write first.
+- The browser checks found a harness fault. A check's clock step runs the
+  boot timer inside a DevTools call, and that call may evaluate strings in
+  spite of the CSP. The built widget started in that call, so zod's eval probe
+  passed and its first parse of a host message failed. The remounted widget
+  stayed on "Connecting". The boot timer now ends with a MessageChannel
+  message, so the widget code starts in its own task. A real host has no such
+  call. A new check fails before this change and passes after it.
+- Chrome stops animation frames in a cross-origin frame out of view, as an
+  older chat widget is. The new waits on such frames poll on a timer. The
+  widget's own polls use timers and keep their pace.
+- New tests in `tools/plugin-real-host.test.ts`: the second origin and its CSP;
+  a clock step over the boot delay; two live widgets on one game; sleep and
+  wake; offline and online. A new unit test checks `framePolicy()` against the
+  spec.
+- `npx tsc --noEmit` passes. The full `npm test` passes: 164 files, 2,572
+  tests, 8 skipped tests and 50 document tests. After the boot fix, the eight
+  harness test files pass again: 209 tests.
+
+### Taste choices
+
+- The second origin is a second loopback port, not a second host name. A port
+  needs no DNS or hosts file on this Mac or the M1.
+- The sandbox adds `allow-forms` to the spec's two tokens, because the widget
+  submits forms.
+- `clipboardWrite` becomes the `clipboard-write` feature, as the spec permits.
+- One frame stays the default, so each current check keeps its flow. The
+  per-result mode is a query flag.
+- A new frame starts with the host context of the page (fullscreen when it is
+  set) and an empty widget state.
+- Sleep is a simulation: `document.hidden`, `pagehide` and `pageshow` with
+  `persisted: true`, and `visibilitychange`. It is not a real back-forward
+  cache restore.
+- Offline uses the browser context. The friend moves through Node's fetch.
+- The widget gets no `online` listener. Its next poll finds the board.
+
+### Not built
+
+- A real back-forward cache restore. The friend, wait, lobby and join screens
+  stop their runners on `pagehide`. Nothing starts them again on a `pageshow`
+  with `persisted: true`. The board screen recovers, because its poll uses
+  `visibilitychange`. This is a possible product fault, outside this task. It
+  needs the owner's decision.
