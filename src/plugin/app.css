@@ -126,7 +126,8 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .coin-row { gap: 4px; }
 #game-table .player-strip { gap: 8px; }
 .coin.card-coin { width: 34px; height: 34px; overflow: hidden; }
-#app-root #strip-me .coin.card-coin { background: var(--stone-700); border-color: var(--gold); --card-ring: var(--gold); }
+/* Your card coins: a dark coin face (a coin keeps its radial face, never the stone control face) under a gold ring. */
+#app-root #strip-me .coin.card-coin { background: radial-gradient(circle at 40% 30%, var(--stone-700) 70%, var(--stone-900)); border-color: var(--gold); --card-ring: var(--gold); }
 #app-root #strip-them .coin.card-coin { border-color: var(--stone-700); --card-ring: var(--stone-700); }
 #game-table .coin.card-coin:not([data-state='armed']) { box-shadow: var(--lift), inset 0 0 0 2px var(--card-ring); }
 .coin.card-coin img { inset: 3px; width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
