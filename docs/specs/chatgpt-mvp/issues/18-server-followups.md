@@ -56,3 +56,9 @@ Two reviewers check `fabcde5b`. Each finding is checked against the code.
 6. Fixed. The review seed makes a random secret of its own. Owner step 2.6 no longer asks for the live secret. The seed database test runs with no secret in the environment; it fails on the old code.
 7. Fixed. This record says `in-progress` and names the open parts.
 
+
+Results on `ed2563f7`:
+
+- `npm test` with the local test database passes 167 files and 2,566 tests. Eight tests skip. Exit 0. An earlier run on `5b77bf3a` had one 5-second time-out in `src/rules/power-fixes.test.ts` (load average 20); that file passes alone, and the next full run passes.
+- M1 `plugin-ui` passes in 215.2 seconds. Output folder: `kd-server-limits-i7Rx2u`.
+- `plugin-ui-http` passes on this Mac in 212.9 seconds, all steps, also the Join remount. Output folder: `server-limits-pbWQNL`. The check runner does not send `PLUGIN_TEST_DATABASE_URL` to the M1, so the M1 run stops at its database assertion. This Mac has the loopback test database.
