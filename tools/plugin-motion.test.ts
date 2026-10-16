@@ -40,6 +40,9 @@ async function mate(page: Page, frame: FrameLocator) {
   await frame.locator('#board[aria-busy="false"]').waitFor(); await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
   await tapSquare(frame, 'a1'); await page.waitForTimeout(300);
   await tapSquare(frame, 'a8');
+  const send = frame.locator('#end-turn[aria-disabled="false"]'); await send.waitFor();
+  expect(await frame.locator('#over').evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
+  await send.click();
 }
 it.each([false, true])('topples the king on a live win before the end card (reduced motion %s)', async reduced => {
   const { page, frame } = await open(reduced);
