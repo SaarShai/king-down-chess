@@ -71,3 +71,11 @@ The source tickets are in the owner's scratch ticket folder.
 - A3: confirmed. The privacy evidence quotes words that the page no longer has. It now cites the strict tool input schemas, which have no chat transcript. A document test checks this evidence.
 - A4: confirmed. N2 uses a false all-tools hint claim. It now cites the tool input schemas for the other-site refusal. A document test checks that basis.
 - A5: confirmed. Accept joins another player's game. Create can call the same find path as Find when kind is random. Both hints now use true under the owner's rule. The tool unit test and protocol check cover all seven true values and all 18 false values. Checklist rows 28 and 30 give the reason.
+
+### Review check results
+
+- Code commit: `9cdb1e2c`. Typecheck and both commit gates pass. The consent closing sentence still needs the owner's new choice; row 44 records this limit.
+- Full local `npm test`, with the specified test database: 2,558 passed, 8 skipped, 2 failed in 167 files (130.76 seconds). All changed test files pass. The unit stage failure stops the later document stage.
+- The accounts failure is the same report-delete expectation at `src/online/accounts.db.test.ts:266` as before. The other failure is `tools/plugin-app.test.ts:32`: after remount, `body[data-page]` is null when the test expects home. Both files, the app code and the browser check have no diff from `dbf79f54`. A focused repeat includes the changed tests and this app test. No test limit changes.
+- Local logs: `/tmp/kd-r9-review-tests.log` and `.exit`; the focused repeat uses `/tmp/kd-r9-review-focused.log` and `.exit`.
+- M1 identity and local test database checks pass. The lane is clean at the code commit. Its detached job waits for the shared browser lock. It will run `plugin-ui`, `plugin-ui-http`, `plugin-oauth` and the protocol check, then release the lock. Logs use `/tmp/kd-r9-review-<check>.log` and `.exit`; the job log is `/tmp/kd-r9-review-browser.log`.
