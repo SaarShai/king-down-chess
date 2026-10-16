@@ -64,6 +64,22 @@ it('keeps the home card when a chat tool result arrives after the player leaves 
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });
+it('keeps a board open without a game on home and stores its ID only in private state', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const result = await (await page.request.post(new URL('/fixture-tool',harness.url).href,{data:{name:'kingdown_open',arguments:{screen:'board'}}})).json();
+    expect(result.structuredContent).not.toHaveProperty('board_id');
+    expect(result._meta.board_id).toEqual(expect.any(String));
+    await page.evaluate(result => (window as any).harnessShow(result,true),result);
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
+    expect(await page.evaluate(()=>(window as any).harnessWidgetState.privateContent.board_id)).toBe(result._meta.board_id);
+    await page.locator('#remount').click();
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
+  } finally {await page.close();}
+});
+
 // Each screen but home shows only in fullscreen (spec Q25). A test that opens a screen directly puts the host there first.
 const expand = (page: Page) => page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'] }));
 // Tests of the hall itself open it directly: with a game that waits, the home card offers Resume and Play now (spec J3).
@@ -442,6 +458,25 @@ it('keeps the start screen through HANDLE_NEEDED, Back, Save and deferred routin
     expect(await frame.locator('#retry').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
+it('shows no Retry on New game while Save sends the waiting start again', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.evaluate(() => { (window as any).requireHandleNext = true; });
+    await start(page, false);
+    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
+    await frame.locator('#save-handle').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    expect(await frame.locator('[data-screen="play"]').isVisible()).toBe(true);
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+    expect(await frame.locator('#error').textContent()).toBe('');
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('html').evaluate(() => new Promise<void>(resolve => {
+      const tick = () => (window as any).startResult ? resolve() : setTimeout(tick, 10); tick();
+    }));
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
 it.each([true, false])('keeps route=%s through Save, a failed send and Retry', async route => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -637,6 +672,7 @@ it('offers Try again after a failed mount read and restores the same game', asyn
     await page.evaluate(() => { (window as any).rejectNextGet = true; }); await page.locator('#remount').click();
     await frame.getByRole('button',{name:'Try again',exact:true}).waitFor();
     await frame.getByRole('button',{name:'Try again',exact:true}).click();
+    await frame.locator('#retry').waitFor({state:'hidden'});
     await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
     expect(await page.evaluate(() => (window as any).harnessView.game_id)).toBe(game);
     expect(await frame.locator('#retry').isVisible()).toBe(false);
@@ -1093,6 +1129,34 @@ it('keeps a move in flight free of errors when a chat result arrives during it',
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
+it('opens the game of a chat result while the end screen of the last game still reads', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    const old = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
+    await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_abort', arguments: { game_id: old } } });
+    // A poll reads the abort and opens the end screen; the end screen then reads the full game, and the host holds that reply.
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true, true);
+      (window.parent as any).holdNext = 'kingdown_get';
+    });
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await frame.locator('[data-screen="end"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessCalls.at(-1))).toMatchObject({ name: 'kingdown_get', arguments: { board_id: expect.any(String) } });
+    const solo = await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_create', arguments: { kind: 'solo', colour: 'black', level: 'beginner', options: { fairy: true, pool: ['R','B','N','G'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } } } })).json();
+    expect(solo.isError).toBeFalsy();
+    // The chat result for the new game selects it and reads it while the old game's read still waits.
+    await frame.locator('html').evaluate(() => { const client = (window as any).harnessApp.client, call = client.call; client.call = async (...args: any[]) => { const result = await call(...args); if (args[0] === 'kingdown_resume') (window as any).resumed = true; return result; }; });
+    const { screen, ...summary } = solo.structuredContent;
+    await page.evaluate(result => (window as any).harnessShow(result, true), { ...solo, structuredContent: summary });
+    await frame.locator('html').evaluate(() => new Promise<void>(resolve => { const check = () => setTimeout((window as any).resumed ? resolve : check, 10); check(); }));
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(solo._meta.view.game_id);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
 it('shows the connection sentence after three failed polls and clears it on the next good read', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -1107,6 +1171,24 @@ it('shows the connection sentence after three failed polls and clears it on the 
     expect(await frame.locator('#retry').isHidden()).toBe(true);
     await page.context().setOffline(false);
     await poll();
+    expect(await frame.locator('#error').textContent()).toBe('');
+  } finally { await page.context().setOffline(false); await page.close(); }
+});
+
+it('clears Try again and its sentence on the first good poll after a failed read and failed polls', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    const poll = () => frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true); });
+    await page.context().setOffline(true);
+    // Menu > Reload fails: Try again shows with the sentence. Three polls fail; then the connection comes back.
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
+    expect(await frame.locator('#retry').textContent()).toBe('Try again');
+    expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
+    await poll(); await poll(); await poll();
+    await page.context().setOffline(false);
+    await poll();
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
     expect(await frame.locator('#error').textContent()).toBe('');
   } finally { await page.context().setOffline(false); await page.close(); }
 });

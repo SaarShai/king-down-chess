@@ -122,13 +122,14 @@ try {
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
     await frame.locator('#board-menu').click(); await frame.locator('#' + id).click();
   }
-  async function legacyStart(kind) {
+  // A chat-made game opens the screen of its status (U1): a waiting friend game opens its code screen.
+  async function legacyStart(kind, screen = 'board') {
     const board_id = await page.evaluate(() => window.harnessWidgetState?.privateContent?.board_id);
     const result = await (await page.request.post(new URL('/fixture-tool',base).href, { data: { name: 'kingdown_create', arguments: { kind, options, colour: 'white', board_id } } })).json();
     const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     assert(!result.isError); await page.evaluate(result => window.harnessShow(result), result);
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
-    await idleBoard(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await idleBoard(); await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
     return result;
   }
   async function handleGate(fail = false) {
@@ -1430,8 +1431,8 @@ try {
   }
   if (capabilities.friend) {
     await openPlay();
-    await openPlay(); await legacyStart('friend'); await idleBoard();
-    await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
+    await openPlay(); await legacyStart('friend', 'friend'); await idleBoard();
+    await frame.locator('#friend-new').waitFor();
     await page.evaluate(() => { window.holdNextGet = true; });
     await page.waitForFunction(() => typeof window.releaseHeldGet === 'function');
     assert(await frame.locator('#page-back').isEnabled(), 'Background polling must not disable game controls');
@@ -1442,10 +1443,9 @@ try {
     await page.waitForFunction(() => window.heldGetReturned);
     await frame.locator('#status').evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     assert.match(await frame.locator('#status').innerText(), /Your move/, 'An old friend read must not replace the newly selected solo game');
-    await openPlay(); await legacyStart('friend'); await idleBoard();
-    await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
-    await menuAction('invite'); await idleBoard();
-    const code = /^Share this code: ([A-HJKMNP-Z2-9]{6})$/.exec(await frame.locator('#invitation').innerText())?.[1]; assert(code);
+    await openPlay(); await legacyStart('friend', 'friend'); await idleBoard();
+    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    const code = (await frame.locator('.game-code span').allTextContents()).join(''); assert.match(code, /^[A-HJKMNP-Z2-9]{6}$/);
     const joined = await friendTool('kingdown_join',{code});
     assert(!joined.isError, JSON.stringify(joined.content));
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
@@ -1484,7 +1484,7 @@ try {
     const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     await page.evaluate(({base, board_id, status, kind, options}) => {
       window.harnessNextView = { ...base, status, kind, options };
-      return window.harnessShow({ content: [], structuredContent: { game_id: base.game_id, board_id }, _meta: { view: base } }, true);
+      return window.harnessShow({ content: [], structuredContent: {game_id:base.game_id}, _meta: {board_id,view:base} }, true);
     }, { base: routeBase, board_id: routeBoard, status, kind, options });
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
@@ -1535,7 +1535,7 @@ try {
     const ownInvite = await tool('kingdown_invite', { game_id: own._meta.view.game_id });
     for (const code of ['bad?', ownInvite.structuredContent.code]) {
       const error = await tool('kingdown_open', { code });
-      assert(error.isError && !error.structuredContent?.board_id && !error._meta?.preview);
+      assert(error.isError && !error._meta?.board_id && !error._meta?.preview);
       for (const remount of [false, true]) {
         const opens = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_open').length);
         const oldBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
@@ -1569,8 +1569,8 @@ try {
     const resign = await tool('kingdown_resign',{game_id:open._meta.view.game_id}); assert(!resign.isError);
     const offer = await tool('kingdown_rematch',{game_id:open._meta.view.game_id,command_id:'rematch-offer',expected_revision:resign._meta.view.revision,choice:'offer'}); assert(!offer.isError);
     const rematch = await friendTool('kingdown_rematch',{game_id:open._meta.view.game_id,command_id:'rematch-accept',expected_revision:offer._meta.view.revision,choice:'accept'}); assert(!rematch.isError);
-    assert.equal((await tool('kingdown_get',{board_id:shown.structuredContent.board_id}))._meta.view.game_id,open._meta.view.game_id);
-    const resumed = await tool('kingdown_resume',{board_id:shown.structuredContent.board_id,game_id:rematch._meta.view.rematch_game_id}); assert(!resumed.isError); await page.evaluate(r=>window.harnessShow(r),resumed);
+    assert.equal((await tool('kingdown_get',{board_id:shown._meta.board_id}))._meta.view.game_id,open._meta.view.game_id);
+    const resumed = await tool('kingdown_resume',{board_id:shown._meta.board_id,game_id:rematch._meta.view.rematch_game_id}); assert(!resumed.isError); await page.evaluate(r=>window.harnessShow(r),resumed);
     await frame.locator('#strip-me .player-name small').filter({hasText:'Black'}).waitFor(); await idleBoard();
     assert.equal(await page.evaluate(()=>window.harnessView.game_id),rematch._meta.view.rematch_game_id);
     await legacyStart('solo');
@@ -1604,7 +1604,7 @@ try {
     const snapshot={...original,game_id,revision:100,status:'playing',kind:'friend',speed:'daily',days_per_move:3,seat:0,abort_open:!!state.abort,result:undefined,outcome:undefined,draw_offer:null,rematch_offer:null,rematch_game_id:null,rules:sampleRules,kings:sampleRules.kings,hands:sampleRules.hands,opponent:{handle:'mira_k',computer:false,deleted:false,rating:{rating:1540,provisional:false},last_seen_ms:121000},last_commands:[],deadline_at:null,server_now:new Date().toISOString()};
     setRules(sampleRules); let position={...fromFen(state.fen),used:state.used??[3,1]};
     async function showSnapshot(value, words=`Move ${positionMoveNumber(fromFen(value.fen))}.`) {
-      await page.evaluate(value=>{window.harnessNextView=value; return window.harnessShow({content:[],structuredContent:{board_id:window.harnessWidgetState.privateContent.board_id,game_id:value.game_id,screen:'board'},_meta:{view:value}});},value);
+      await page.evaluate(value=>{window.harnessNextView=value; return window.harnessShow({content:[],structuredContent:{game_id:value.game_id,screen:'board'},_meta:{board_id:window.harnessWidgetState.privateContent.board_id,view:value}});},value);
       await page.waitForFunction(value=>window.harnessView.game_id===value.game_id&&window.harnessView.fen===value.fen,value);
       await frame.locator('#last-move').filter({hasText:words}).waitFor();
       await idleBoard(); await boardBox();
@@ -1663,9 +1663,9 @@ try {
   await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
   await page.evaluate(() => { window.harnessWithoutWidgetState = true; window.harnessWidgetState = undefined; });
   await page.locator('#remount').click();
-  await page.waitForFunction(() => window.harnessWidgetState?.modelContent?.revision === 0);
+  await page.waitForFunction(() => window.harnessWidgetState?.modelContent?.status === 'playing' && window.harnessWidgetState?.modelContent?.your_turn === true);
   await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
-  assert.equal(await page.evaluate(() => window.harnessWidgetState.modelContent.revision), 0, 'Hosts without widget state still receive standard model context');
+  assert.deepEqual(await page.evaluate(() => window.harnessWidgetState.modelContent), {status:'playing',your_turn:true}, 'Hosts without widget state receive useful model context without an internal revision');
   if (mode === 'fixture') {
   await page.goto(new URL('/?terminal=1', base).href);
   await frame.locator('#status').filter({ hasText: 'Checkmate' }).waitFor();

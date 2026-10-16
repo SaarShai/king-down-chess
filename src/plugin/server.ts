@@ -22,6 +22,10 @@ type Reply = { content: { type: 'text'; text: string }[]; structuredContent?: Re
 /** Who may call a tool (MCP Apps visibility) and its hints, which ChatGPT's review requires on every tool (report part 03, section 4.5). */
 interface Hints { visibility: ('model' | 'app')[]; readOnly?: boolean; destructive?: boolean; idempotent?: boolean; meta?: Record<string, unknown>; output?: z.ZodRawShape }
 const text = (value: string) => [{ type: 'text' as const, text: value }];
+/** Plugin words for two refusals. The board reads the game again at once after each, so neither says "Reload".
+ *  STALE_REVISION: the view is old (the owner's pick, approval W7, option a). INVALID_MOVE: the service checks the
+ *  revision first, so the view is current and only the move is wrong. Change the words here only. */
+const REFUSED: Partial<Record<string, string>> = { STALE_REVISION: 'Your opponent moved. Check the board.', INVALID_MOVE: 'This move is not available. Choose another move.' };
 let page = { source: '', origin: '', html: '', uri: '' };
 /** The page with its art origin, and its URI. Hosts cache resources by URI, so a changed board must not reuse old
  *  controls. The HTTP handler makes a server for each request: the swap and the hash run once for each page and origin. */
@@ -46,7 +50,13 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   server.server.setRequestHandler = (schema, handler) => setHandler(schema, (request, extra) => {
     if (Object.is(schema, CallToolRequestSchema)) {
       const { name, arguments: args } = CallToolRequestSchema.parse(request).params;
-      if (inputs.get(name)?.safeParse(args ?? {}).success === false) return { isError: true, content: text('Invalid input'), _meta: { code: 'INVALID_INPUT' } };
+      const parsed = inputs.get(name)?.safeParse(args ?? {});
+      if (parsed?.success === false) {
+        const issue = parsed.error.issues[0], field = issue?.path.join('.');
+        // Our own refine messages are fixed text (setup.ts), so they never echo input.
+        const reason = issue?.code === 'custom' ? ` ${issue.message}` : '';
+        return { isError: true, content: text(field ? `Invalid input: check ${field}.${reason}` : 'Invalid input: check the tool fields.'), _meta: { code: 'INVALID_INPUT' } };
+      }
     }
     return handler(request, extra);
   });
@@ -57,7 +67,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     registerAppTool(server, name, { description, inputSchema, ...(output && { outputSchema: z.object(output).strict() }), annotations: { readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: idempotent, openWorldHint: false },
       _meta: { ...meta, ui: { ...(name === 'kingdown_open' && { resourceUri: boardResource }), visibility } } }, async (args: z.infer<z.ZodObject<T>>) => {
       try { return await run(args); }
-      catch (error) { const known = error instanceof MatchServiceError; if (!known || error.status >= 500) console.error('King Down tool failed', { tool: name, requestId: randomUUID(), ...diagnostic(error) }); return { isError: true, content: text(known ? error.message : 'Could not update the game. Retry or reload.'), _meta: { code: known ? error.code : 'INTERNAL_ERROR' } }; }
+      catch (error) { const known = error instanceof MatchServiceError; if (!known || error.status >= 500) console.error('King Down tool failed', { tool: name, requestId: randomUUID(), ...diagnostic(error) }); return { isError: true, content: text(!known ? 'Could not update the game. Retry or reload.' : REFUSED[error.code] ?? error.message), _meta: { code: known ? error.code : 'INTERNAL_ERROR' } }; }
     });
   }
   /** The position, the legal moves, the opponent's handle and presets go in `_meta`, which only the board reads.
@@ -70,9 +80,9 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     return {
       content: text(view.status === 'waiting' ? 'Waiting for the other player to join.' : view.status === 'setup' ? view.ready?.[view.seat] ? 'Waiting for the other player to choose.' : 'Choose your king and arrangement.' : result ? `Game over: ${result}${result.endsWith('.') ? '' : '.'}`
         : `${view.action === 'ready' ? 'Your move' : 'The other side moves'}, move ${move}.${offer === 'opponent' ? ' The other side offers a draw.' : ''}`),
-      structuredContent: { screen: 'board', game_id: view.game_id, ...(board && { board_id: board }), kind: view.kind, speed: view.speed, days_per_move: view.days_per_move, status: view.status,
+      structuredContent: { screen: 'board', game_id: view.game_id, kind: view.kind, speed: view.speed, days_per_move: view.days_per_move, status: view.status,
         colour: view.seat === 0 ? 'white' : 'black', your_turn: view.action === 'ready', ...(move !== undefined && { move }), deadline_at: view.deadline_at, draw_offer: offer, ...(result && { result }) },
-      _meta: { view, me: { handle, icon } },
+      _meta: { ...(board && { board_id: board }), view, me: { handle, icon } },
     };
   }
   /** A board that switches games keeps its ID, so a remount finds the new game. A board whose game was deleted may pick another; another player's board may not. */
@@ -82,7 +92,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     if (board) await service.selectBoard(actorId, board, view.game_id);
     return reply(view, board);
   }
-  const home = async (board?: string): Promise<Reply> => { const { handle, icon } = await service.profile(actorId); return { content: text('King Down. Start a game from Play.'), structuredContent: { screen: 'home', ...(board && { board_id: board }), your_turn_count: 0 }, _meta: { me: { handle, icon } } }; };
+  const home = async (board?: string): Promise<Reply> => { const { handle, icon } = await service.profile(actorId); return { content: text('King Down. Start a game from Play.'), structuredContent: { screen: 'home' }, _meta: { ...(board && { board_id: board }), me: { handle, icon } } }; };
   /** The most urgent game, or home when no game is open. */
   async function next(): Promise<View | null> {
     const urgent = (await service.inbox(actorId))[0];
@@ -94,21 +104,21 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     play({ game_id: args.game_id, command_id: args.command_id ?? randomUUID(), expected_revision: args.expected_revision ?? (await service.view(actorId, args.game_id)).revision }, action);
   const optional = { game_id: gameId, command_id: command.command_id.optional(), expected_revision: command.expected_revision.optional() };
 
-  register('kingdown_open', 'Use this when the player says "play King Down", wants to open a game, says "join King Down game K7QX2M", or says "show my King Down profile". Use code to preview a join; use screen "profile" for the profile page. Opens home with no new game; game_id or "next" selects a game.',
+  register('kingdown_open', 'Use this when the player says "play King Down", wants to open a game, says "join King Down game K7QX2M", or says "show my King Down profile". Use code to preview a join; a short-code preview counts toward the hourly limit. Use screen "profile" for the profile page. Each open stores a new board record. Opens home with no new game; game_id or "next" selects a game.',
     { screen: z.enum(['home', 'play', 'board', 'profile']).optional(), game_id: z.union([gameId, z.literal('next')]).optional(), code: z.string().min(1).max(300).optional() }, { visibility: ['model', 'app'], idempotent: false, meta: { 'openai/ui': { entrypoints: [{ type: 'thread' }, { type: 'global' }] } } }, async args => {
       const preview = args.code ? await service.preview(actorId, args.code) : undefined;
       const view = preview ? null : args.game_id === 'next' ? await next() : args.game_id ? await service.view(actorId, args.game_id) : null;
       const board = await service.openBoard(actorId, view?.game_id);
       const games = await service.inbox(actorId), count = games.filter(game => game.action === 'ready').length;
       const result = view ? await reply(view, board) : await home(board);
-      result.structuredContent = { ...result.structuredContent, screen: preview ? 'join' : args.screen ?? (view ? 'board' : 'home'), your_turn_count: count };
+      result.structuredContent = { ...result.structuredContent, screen: preview ? 'join' : args.screen === 'board' && !view ? 'home' : args.screen ?? (view ? 'board' : 'home'), your_turn_count: count };
       if (!view) result.content = text(`Your move in ${count} game${count === 1 ? '' : 's'}.`);
       const settings = await service.settings(actorId);
       result._meta = { ...result._meta, games, settings, ...(preview && { preview }) };
       if (preview) result.content = text('Review the game features before you join.');
       return result;
     });
-  register('kingdown_create', 'Use this when the player wants a new King Down game against the computer, a friend or a random player. Choose the features, colour and computer level.',
+  register('kingdown_create', 'Use this when the player wants a new King Down game against the computer, a friend or a random player. Choose the features, colour and computer level. Without options, uses the last setup options, then the default options. A board_id also changes that board’s selected game.',
     { kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(), command_id: command.command_id.optional(), board_id: boardId },
     { visibility: ['model', 'app'], idempotent: false }, ({ board_id, command_id, ...input }) => select(board_id, async () => {
       const options = input.options ?? (await service.settings(actorId)).last_setup?.options ?? DEFAULT_OPTIONS;
@@ -125,7 +135,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   register('kingdown_games', 'Use this when the player asks about their King Down games, or "is it my turn?". Lists the active games, your turn first, then the nearest deadline. Open one with kingdown_open.',
     {}, { visibility: ['model', 'app'], readOnly: true }, async () => {
       const rows = await service.inbox(actorId), games = rows.map(entry => ({ game_id: entry.game_id, kind: entry.kind, speed: entry.speed, status: entry.status,
-        revision: entry.revision, deadline_at: entry.deadline_at, colour: entry.seat === 0 ? 'white' : 'black', your_turn: entry.action === 'ready',
+        deadline_at: entry.deadline_at, colour: entry.seat === 0 ? 'white' : 'black', your_turn: entry.action === 'ready',
         opponent: !entry.opponent ? 'none yet' : entry.opponent.computer ? 'computer' : entry.opponent.deleted ? 'deleted player' : 'player' }));
       const ready = games.filter(game => game.your_turn).length;
       return { content: text(games.length ? `${games.length} active game${games.length === 1 ? '' : 's'}; your turn in ${ready}.` : 'No active games. Start one with kingdown_create.'), structuredContent: { games }, _meta: { games: rows } };
@@ -139,43 +149,43 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       return reply(await service.view(actorId, id, !args.game_id || id === args.game_id ? args.since_revision : undefined), args.board_id);
     });
   register('kingdown_seen', 'Record that the player is at this board, so the opponent sees them online. Records at most once each 30 seconds.',
-    { game_id: gameId }, { visibility: ['app'] }, async args => { await service.seen(actorId, args.game_id); return { content: text('Seen.') }; });
+    { game_id: gameId }, { visibility: ['app'], idempotent: false }, async args => { await service.seen(actorId, args.game_id); return { content: text('Seen.') }; });
   register('kingdown_lobby', 'List open games, oldest first.', {}, { visibility: ['app'], readOnly: true }, async () => {
     const lobby = await service.lobby(actorId);
-    return { content: text(`${lobby.games.length} open games.`), structuredContent: { count: lobby.games.length }, _meta: { lobby: { ...lobby, server_now: new Date().toISOString() } } };
+    return { content: text(`${lobby.games.length} open game${lobby.games.length === 1 ? '' : 's'}.`), structuredContent: { count: lobby.games.length }, _meta: { lobby: { ...lobby, server_now: new Date().toISOString() } } };
   });
   register('kingdown_accept', 'Take the open seat in a random game.', { game_id: gameId, board_id: boardId }, { visibility: ['app'] }, args => select(args.board_id, () => service.accept(actorId, args.game_id)));
   register('kingdown_find', 'Take the oldest open game, or open your own.', { options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), command_id: command.command_id.optional(), board_id: boardId }, { visibility: ['app'], idempotent: false }, args => select(args.board_id, () => service.find(actorId, args.options, args.colour, args.command_id)));
   register('kingdown_cancel', 'Cancel your waiting random game with no result.', { game_id: gameId }, { visibility: ['app'], destructive: true }, async args => reply(await service.cancel(actorId, args.game_id)));
   register('kingdown_choose', 'Choose your king and back-rank order, then mark your seat Ready.', { ...command, king: choiceSchema.shape.king, order: choiceSchema.shape.order, ready: z.boolean() }, { visibility: ['app'] }, ({ king, order, ready, ...args }) => play(args, { type: 'choose', choice: { king, order }, ready }));
-  register('kingdown_rematch', 'Offer, accept or decline a rematch. The reply stays on this game; resume the rematch to move the board.', { ...command, choice: z.enum(['offer', 'accept', 'decline']) }, { visibility: ['app'] }, ({ choice, ...args }) => play(args, { type: 'rematch', choice }));
+  register('kingdown_rematch', 'Offer, accept or decline a rematch. The reply stays on this game; resume the rematch to move the board.', { ...command, choice: z.enum(['offer', 'accept', 'decline']) }, { visibility: ['app'], destructive: true }, ({ choice, ...args }) => play(args, { type: 'rematch', choice }));
   register('kingdown_move', 'Play one exact legal move; retry with the same command ID.', { ...command, lan: z.string().min(1).max(120) }, { visibility: ['app'] }, ({ lan, ...args }) => play(args, { type: 'turn', actions: [lan] }));
   register('kingdown_computer', 'Ask the computer opponent to play its turn.', command, { visibility: ['app'] }, args => play(args, { type: 'computer' }));
-  register('kingdown_say', 'Send one preset message to the opponent; each preset goes once in each game.', { ...command, preset: z.enum(PRESETS) }, { visibility: ['app'] }, ({ preset, ...args }) => play(args, { type: 'say', preset }));
+  register('kingdown_say', 'Send one preset message to the opponent; each preset goes once in each game.', { ...command, preset: z.enum(PRESETS) }, { visibility: ['app'], destructive: true }, ({ preset, ...args }) => play(args, { type: 'say', preset }));
   register('kingdown_draw', 'Use this when the player wants to offer a draw in a King Down game, or to accept or decline the other side’s offer (draw_offer "opponent"). Accept ends the game.',
     { ...optional, choice: z.enum(['offer', 'accept', 'decline']) }, { visibility: ['model', 'app'], destructive: true }, ({ choice, ...args }) => decide(args, { type: 'draw', choice }));
   register('kingdown_claim', 'Claim the game when the opponent missed the Daily deadline.', command, { visibility: ['app'], destructive: true }, args => play(args, { type: 'claim', reason: 'timeout' }));
   register('kingdown_resign', 'Use this when the player wants to resign a King Down game. The opponent wins.', optional, { visibility: ['model', 'app'], destructive: true }, args => decide(args, { type: 'resign' }));
   register('kingdown_abort', 'Use this when the player wants to cancel a King Down game before each side has played a turn. Nobody wins.', optional, { visibility: ['model', 'app'], destructive: true }, args => decide(args, { type: 'abort' }));
   register('kingdown_invite', 'Use this when the player wants to invite a friend to their waiting friend game. Gives a short code; a new invitation ends the old one.',
-    { game_id: gameId }, { visibility: ['model', 'app'], idempotent: false }, async args => {
+    { game_id: gameId }, { visibility: ['model', 'app'], idempotent: false, destructive: true }, async args => {
       const { code, expires_at } = await service.invite(actorId, args.game_id);
       return { content: text(`Send your friend the code ${code}. It works until ${expires_at}.`), structuredContent: { code, expires_at } };
     });
-  register('kingdown_join', 'Use this when the player has a King Down invitation: a 6-character code. Then show the game with kingdown_open.',
-    { code: z.string().min(1).max(300), preview: z.boolean().optional(), board_id: boardId }, { visibility: ['model', 'app'] },
-    async args => args.preview ? { content: text('Review the game features before you join.'), structuredContent: { screen: 'join', ...(args.board_id && { board_id: args.board_id }) }, _meta: { preview: await service.preview(actorId, args.code) } } : select(args.board_id, () => service.join(actorId, args.code)));
+  register('kingdown_join', 'Use this when the player has a King Down invitation: a 6-character code. Each short-code preview or join, a retry included, counts one attempt toward the hourly limit of 10. Join takes the open seat and uses the invitation. Then show the game with kingdown_open.',
+    { code: z.string().min(1).max(300), preview: z.boolean().optional(), board_id: boardId }, { visibility: ['model', 'app'], idempotent: false },
+    async args => args.preview ? { content: text('Review the game features before you join.'), structuredContent: { screen: 'join' }, _meta: { ...(args.board_id && { board_id: args.board_id }), preview: await service.preview(actorId, args.code) } } : select(args.board_id, () => service.join(actorId, args.code)));
   register('kingdown_report', 'Use this when the player wants to report the opponent in a King Down game: the player, their handle, or a preset message (name it). The King Down team reviews each report.',
     { game_id: gameId, target: z.enum(['player', 'handle', 'message']), category: z.enum(REPORT_CATEGORIES), intimate_image: z.boolean().optional(), preset: z.enum(PRESETS).optional(), note: z.string().max(1000).optional() },
-    { visibility: ['app'], idempotent: false }, async args => {
+    { visibility: ['app'], idempotent: false, destructive: true }, async args => {
       const { id, created_at } = await service.report(actorId, args);
-      return { content: text('Report sent. The King Down team reviews it.'), structuredContent: { id, created_at } };
+      return { content: text('Report sent. The King Down team reviews it.'), _meta: { id, created_at } };
     });
-  register('kingdown_handle', 'Pick a handle and a preset picture, or check that a handle is free without a write.', handleSchema.shape, { visibility: ['app'] }, async args => {
+  register('kingdown_handle', 'Pick a handle and a preset picture, or check that a handle is free without a write. A changed handle stays reserved; another change waits 90 days.', handleSchema.shape, { visibility: ['app'], destructive: true }, async args => {
     const { handle, icon } = await service.handle(actorId, args);
     return { content: text(args.check ? 'This handle is free.' : 'Your name and picture are ready.'), ...(args.check && { structuredContent: { available: true } }), _meta: { me: { handle, icon } } };
   });
-  register('kingdown_settings', 'Read or change your board settings and last setup choices.', settingsSchema.shape, { visibility: ['app'] }, async args => {
+  register('kingdown_settings', 'Read or change your board settings and last setup choices.', settingsSchema.shape, { visibility: ['app'], destructive: true }, async args => {
     const [settings, { handle, icon }] = await Promise.all([service.settings(actorId, args), service.profile(actorId)]);
     return { content: text('Your settings are ready.'), _meta: { settings, me: { handle, icon } } };
   });
@@ -183,7 +193,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   register('kingdown_profile', 'Use this when the player asks for their King Down rating, totals or badges in text. For "show my King Down profile", open kingdown_open with screen "profile".', { before: z.string().max(100).optional() }, { visibility: ['model', 'app'], readOnly: true, meta: { 'openai/profile': true }, output: { id: z.string(), name: z.string().optional() } }, async args => {
     const [{ user_id, handle, icon }, record, history] = await Promise.all([service.profile(actorId), service.record(actorId), service.history(actorId, args.before)]);
     const { played, won, drawn, lost } = record.totals;
-    return { content: text(`Rating ${Math.round(record.rating.rating)}${record.rating.provisional ? '?' : ''}; ${played} played, ${won} won, ${drawn} drawn, ${lost} lost; ${record.badges.length} badges.`), structuredContent: { id: user_id, ...(handle && { name: handle }) }, _meta: { handle, icon, record, history: history.games, next_before: history.next_before } };
+    return { content: text(`Rating ${Math.round(record.rating.rating)}${record.rating.provisional ? '?' : ''}; ${played} played, ${won} won, ${drawn} drawn, ${lost} lost; ${record.badges.length} badge${record.badges.length === 1 ? '' : 's'}.`), structuredContent: { id: user_id, ...(handle && { name: handle }) }, _meta: { handle, icon, record, history: history.games, next_before: history.next_before } };
   });
   return server;
 }

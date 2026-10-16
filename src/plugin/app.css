@@ -33,10 +33,14 @@ html { font-variant-numeric: lining-nums; }
 .group-head small { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; font-size: var(--fs-xs); }
 .quiet-line { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0 !important; }
 #layout-check { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0; overflow-wrap: anywhere; user-select: text; }
+/* A long press on the Settings title shows #layout-check (ticket 21): no text selection or callout takes the press. */
+#page-title { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .wide-btn { justify-content: center; min-height: 48px; margin-top: var(--space-3); font-size: var(--fs-lg); }
 .seg-line { margin: 8px 0 0; color: var(--ink-soft); }
 /* A second sheet over the first (the game's Menu sheet: a bottom sheet on a phone, centred on a wide screen). */
 .scrim { position: absolute; inset: 0; background: rgba(29, 25, 21, 0.55); backdrop-filter: blur(2px); }
+/* Above the page's raised controls (the Moves line, the status-row actions, the end header: z-index 1 to 3). */
+.frame :is(.scrim, .over-sheet) { z-index: 10; }
 .frame .over-sheet {
   position: absolute; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: calc(100% - 40px); height: auto;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -49,7 +53,8 @@ html { font-variant-numeric: lining-nums; }
 .lock-note { display: flex; gap: var(--space-2); align-items: flex-start; margin: 0 0 var(--space-3); padding: 8px 12px; font-size: var(--fs-sm); color: var(--gold-ink); background: rgba(201, 154, 62, .12); border: 1px solid rgba(122, 87, 18, .3); border-radius: var(--radius); }
 /* The menu's index rows (src/ui/table.css #menu-sheet .menu-row), with an art, a portrait or an icon at the start. */
 .page-sheet .menu-row, .over-sheet .menu-row {
-  position: relative; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 12px; align-items: center;
+  /* No shrink in a scrolling column: a shrunk row drew its divider through its second line. */
+  flex-shrink: 0; position: relative; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 12px; align-items: center;
   width: 100%; min-height: 60px; padding: 8px 32px 8px 0; text-align: left; font-size: 18px;
   background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none;
 }
@@ -127,6 +132,8 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .set-line { margin: -6px 0 6px !important; color: var(--ink-soft); font-size: var(--fs-sm); }
 .sym-demo { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; vertical-align: middle; }
 .sym-demo img { height: 36px; }
+/* The arrow between the samples is the rows' arrow icon (.menu-row > i): upright, 18 px, bold, in ink. */
+.sym-demo > i { font-style: normal; font-size: 18px; font-weight: 700; color: var(--ink); }
 .sym-demo .pi { width: 30px; height: 30px; }
 #handle-check-error:empty { display: none; }
 .presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: var(--space-2); margin-bottom: 16px; }
@@ -191,7 +198,7 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 #game-table #context-text { display: block; max-height: none; overflow: visible; }
 .table-back { display: none; }
 @media (max-width: 899px) and (orientation: portrait) {
-  #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 44px; grid-template-rows: minmax(44px, max-content) minmax(0, max-content) minmax(44px, max-content) minmax(44px, max-content) 44px minmax(0, 1fr) var(--bar-height); }
+  #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 44px; grid-template-rows: minmax(44px, max-content) minmax(var(--board-floor, 0px), max-content) minmax(44px, max-content) minmax(var(--context-floor, 44px), max-content) 44px minmax(0, 1fr) var(--bar-height); }
   #game-table .player-strip { padding-block: 0; min-height: 44px; }
   #game-table .portrait { width: 36px; height: 36px; }
   #game-table .player-name { display: flex; align-items: baseline; }
@@ -209,7 +216,7 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table .table-back { display: grid; grid-area: them; justify-self: start; align-self: start; place-items: center; margin-left: 8px; width: 44px; height: 44px; min-height: 44px; padding: 0; z-index: 2; font-size: 26px; line-height: 1; }
   #game-table .table-back::after, #game-table #strip-them button::after { top: 0; transform: translate(-50%, 0); }
 @container table-screen (max-height: 480px) {
-  #game-table { grid-template-rows: minmax(44px, max-content) minmax(0, max-content) minmax(44px, max-content) minmax(44px, max-content) 0 minmax(0, 1fr) var(--bar-height); }
+  #game-table { grid-template-rows: minmax(44px, max-content) minmax(var(--board-floor, 0px), max-content) minmax(44px, max-content) minmax(var(--context-floor, 44px), max-content) 0 minmax(0, 1fr) var(--bar-height); }
   #game-table #moves-line { display: none; }
 }
 /* The back button takes 48 px from the opponent row. A power adds one 48 px coin slot. */
@@ -231,6 +238,15 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table #strip-me:has(.card-coin) .player-name { grid-row: 1; grid-column: 2 / -1; }
   #game-table #strip-me:has(.card-coin) .coin { grid-row: 2; }
 }
+}
+/* 200% zoom (under 320 px): the board keeps the full width and a 210 px floor in the short table rows (a 197 px canvas
+   at 960/1024). The table keeps the screen height; only when the other rows leave less than the floor does it overflow,
+   and the screen scrolls (M1, review R1).
+   The context row then keeps its content height, so its buttons do not spill over the bar. */
+@media (max-width: 319px) and (orientation: portrait) {
+  .page-sheet > :is([data-screen='seat'], [data-screen='board'], [data-screen='end']) { overflow: hidden auto; }
+  #game-table { --board-floor: 210px; --context-floor: max-content; }
+  #game-table #board { width: 100%; }
 }
 @media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
   #game-table .table-side { overflow-y: auto; overscroll-behavior: contain; }

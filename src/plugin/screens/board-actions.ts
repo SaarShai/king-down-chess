@@ -17,20 +17,22 @@ export function confirmDraw(choice: 'offer' | 'accept' | 'decline') {
   const title = choice === 'offer' ? 'Offer a draw?' : choice === 'accept' ? 'Accept the draw?' : 'Decline the draw?';
   confirmBoardAction(title, choice === 'accept' ? 'The game ends in a draw.' : choice === 'decline' ? 'The game continues.' : 'Your opponent can accept or decline.', choice === 'offer' ? 'Offer draw' : choice === 'accept' ? 'Accept' : 'Decline', () => void sendBoardCommand('kingdown_draw', {choice}));
 }
-export function actionButtons(view: View, elapsed: number, hidden: Set<string>) {
+export function actionButtons(view: View, elapsed: number, hidden: Set<string>, menu = false) {
+  // The status row shows some of these too; the Menu's copies take their own ids.
+  const id = (name: string) => menu ? `menu-${name}` : name;
   if (view.status !== 'playing' && view.status !== 'setup' && view.status !== 'waiting') return [];
   const actions = boardActions(view, elapsed), result: HTMLButtonElement[] = [];
   if (view.status === 'playing') {
     result.push(button('Resign', confirmResign, 'menu-resign'));
     if (view.kind !== 'solo') {
       if (view.draw_offer === null && !hidden.has('kingdown_draw')) result.push(button('Offer draw', () => confirmDraw('offer'), 'menu-draw'));
-      else if (view.draw_offer !== null && view.draw_offer !== view.seat) result.push(button('Accept draw', () => confirmDraw('accept'), 'accept-draw'), button('Decline draw', () => confirmDraw('decline'), 'decline-draw'));
+      else if (view.draw_offer !== null && view.draw_offer !== view.seat) result.push(button('Accept draw', () => confirmDraw('accept'), id('accept-draw')), button('Decline draw', () => confirmDraw('decline'), id('decline-draw')));
     }
   }
-  if (actions.abort && !hidden.has('kingdown_abort')) result.push(button('Abort', () => confirmAbort(view), 'abort'));
+  if (actions.abort && !hidden.has('kingdown_abort')) result.push(button('Abort', () => confirmAbort(view), id('abort')));
   if (actions.claim && !hidden.has('kingdown_claim')) {
     const label = actions.claim === 'win' ? 'Claim the win' : 'End game';
-    const b = button(label, () => confirmBoardAction(label + '?', actions.claim === 'win' ? 'Your opponent misses the move deadline. You win.' : 'Your opponent makes no first move. The game ends with no result.', label, () => void sendBoardCommand('kingdown_claim')), 'claim'); b.className='primary'; result.push(b);
+    const b = button(label, () => confirmBoardAction(label + '?', actions.claim === 'win' ? 'Your opponent misses the move deadline. You win.' : 'Your opponent makes no first move. The game ends with no result.', label, () => void sendBoardCommand('kingdown_claim')), id('claim')); b.className='primary'; result.push(b);
   }
   return result;
 }

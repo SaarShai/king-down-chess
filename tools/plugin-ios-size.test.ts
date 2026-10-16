@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { chromium, type Browser, type Page } from 'playwright';
+import { chromium, type Browser, type FrameLocator, type Page } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
@@ -379,5 +379,95 @@ it('keeps page-title words whole, the seat title short and the title at body siz
     const seat = await title();
     expect(seat).toMatchObject({ text: 'Set up your side', cut: [], belowBody: false });
     expect(seat.lines).toBeLessThanOrEqual(2);
+  } finally { await page.close(); }
+});
+// Device matrix round 2, M1: at 200% zoom the board got only the height that the other rows left (3 px), and WebKit sent
+// no move. Under 320 px the board keeps the full width, and the screen scrolls to the rows below it.
+it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)', async () => {
+  const canvasWidth = (frame: FrameLocator) => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
+  const reachable = async (frame: FrameLocator, id: string) => {
+    await frame.locator(`#${id}`).scrollIntoViewIfNeeded();
+    return frame.locator(`#${id}`).evaluate(e => { const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); });
+  };
+  for (const features of [['Arrangement'], ['Fairy pieces', 'Arrangement', 'Cards', 'King powers']]) {
+    const { page, frame } = await hostPage(197, 426, 51, 59), all = features.length > 1;
+    try {
+      await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+      for (const name of features) await frame.getByRole('checkbox', { name, exact: true }).check();
+      await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+      await frame.locator('#board[aria-busy="false"]').waitFor();
+      expect(await canvasWidth(frame), all ? 'all-features seat' : 'seat').toBeGreaterThanOrEqual(192);
+      if (!all) {
+        await frame.locator('#seat-shuffle').click();
+        await frame.locator('#seat-context').filter({ hasText: 'Select one back-rank piece' }).waitFor();
+        expect(await canvasWidth(frame), 'seat after Shuffle').toBeGreaterThanOrEqual(192);
+      }
+      for (const id of ['seat-shuffle', 'seat-menu', 'seat-ready']) expect(await reachable(frame, id), id).toBe(true);
+      await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+      await frame.locator('#board[aria-busy="false"]').waitFor();
+      expect(await canvasWidth(frame), all ? 'all-features board' : 'board').toBeGreaterThanOrEqual(192);
+      if (!all) {
+        // White moves e2-e4 with two taps on the board.
+        await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+        const pane = (await page.locator('iframe').boundingBox())!;
+        for (const square of [12, 28]) {
+          const point = await frame.locator('#board canvas').evaluate((c, sq) => {
+            const r = c.getBoundingClientRect(), k = r.width / 960;
+            return { x: r.left + (32 + ((sq & 7) + 0.5) * 112) * k, y: r.top + (64 + 32 + (7 - (sq >> 3) + 0.5) * 112) * k };
+          }, square);
+          await page.mouse.click(pane.x + point.x, pane.y + point.y);
+        }
+        await expect.poll(() => page.evaluate(() => { const host = window as any; return { sent: host.harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.lan), moved: host.harnessView.revision > 0 }; })).toEqual({ sent: ['e2-e4'], moved: true });
+      }
+      for (const id of ['resign', 'board-menu']) expect(await reachable(frame, id), id).toBe(true);
+    } finally { await page.close(); }
+  }
+});
+// Review R1: under 320 px the screen scrolls only when the board would get less than its floor. At 314 × 681 (a 393 px
+// phone at 125% zoom) the rows fit, so Resign and Menu stay on the screen with no scroll.
+it('keeps the board screen unscrolled where the rows fit under 320 px (314 × 681, insets 82/94)', async () => {
+  const { page, frame } = await hostPage(314, 681, 82, 94);
+  try {
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).check();
+    await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    const screen = frame.locator('[data-screen="board"]');
+    expect(await screen.evaluate(e => e.scrollHeight - e.clientHeight)).toBe(0);
+    expect(await frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width)).toBeGreaterThanOrEqual(192);
+    for (const id of ['resign', 'board-menu']) {
+      expect(await screen.evaluate((s, id) => {
+        const box = s.getBoundingClientRect(), r = document.getElementById(id)!.getBoundingClientRect();
+        return r.height > 0 && r.top >= box.top - 1 && r.bottom <= box.bottom + 1;
+      }, id), id).toBe(true);
+    }
+  } finally { await page.close(); }
+});
+// The zoom rule leaves normal sizes alone: the board widths measured in device matrix round 2.
+it.each([[320, 568, 63, 84, true, 169, 158], [393, 852, 102, 118, true, 302, 302], [820, 600, 59, 34, false, 360, 360]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
+  const page = await browser.newPage({ viewport: { width, height }, isMobile: touch, hasTouch: touch }), frame = page.frameLocator('iframe');
+  page.setDefaultTimeout(10_000);
+  try {
+    await page.goto(harness.url);
+    await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
+    await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
+    await hall(page);
+    await page.evaluate(async ({ touch, ...safe }) => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe, ...(touch ? { deviceCapabilities: { touch: true } } : {}) }); }, { top, bottom, left: 0, right: 0, touch });
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    // Every kind but the guard (an earlier test keeps a smaller pool), so no guard note takes a row from the seat board.
+    await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).check(); await frame.locator('#setup-pieces').click();
+    const pieces = frame.getByRole('dialog', { name: 'Fairy pieces' });
+    for (const kind of await pieces.getByRole('checkbox').all()) await kind.check();
+    await pieces.getByRole('checkbox', { name: 'Guard', exact: true }).uncheck(); await pieces.getByRole('button', { name: 'Done', exact: true }).click();
+    await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('#seat-context').filter({ hasText: /\S/ }).waitFor();
+    const canvasWidth = () => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
+    await expect.poll(canvasWidth).toBe(seat);
+    await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#context-note').filter({ hasText: 'Abort ends the game' }).waitFor();
+    await expect.poll(canvasWidth).toBe(board);
   } finally { await page.close(); }
 });

@@ -169,10 +169,10 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     board.onSquareClick = square => select(square); board.onDragSelect = square => select(square, false);
     $('board').tabIndex = 0;
     $('board').onkeydown = event => {
-      if (blocked()) return;
+      // The cursor moves during a move animation or a send; only Enter waits, as a tap does.
       const delta = ({ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,1], ArrowDown:[0,-1]} as Record<string,number[]>)[event.key];
       if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); board.setPreview(cursor); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
-      else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(cursor); }
+      else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (!blocked()) select(cursor); }
       else if (event.key === 'Escape') { armed = undefined; armedCard = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]); refresh(); }
     };
   }
@@ -293,7 +293,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   }
   $('resign').onclick = confirmResign; $('offer-draw').onclick = () => confirmDraw('offer');
   $('reload').addEventListener('click', closeBoardSheet);
-  $('board-menu').onclick = () => boardSheet('Menu', button('Choose a move', () => boardSheet('Choose a move', $('choices'))), button('Moves', showMoves), ...view ? actionButtons(view,Date.now()-readAt,refused) : [], button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('computer'), $('invite'), $('invitation'));
+  $('board-menu').onclick = () => boardSheet('Menu', button('Choose a move', () => boardSheet('Choose a move', $('choices'))), button('Moves', showMoves), ...view ? actionButtons(view,Date.now()-readAt,refused,true) : [], button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('computer'), $('invite'), $('invitation'));
   function showMoves() { boardSheet('Moves', ...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No moves shown yet.')]); }
   $('moves-line').onclick = showMoves;
   bindBoard();
@@ -323,7 +323,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     armed = undefined; armedCard = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]);
     document.querySelector('[data-screen="board"]')!.prepend($('game-table')); $('table-bar').hidden = false;
     $('game-table').dataset.empty = String(!next.fen || next.status === 'setup');
-    if (!next.fen || next.status === 'setup') { pos = undefined; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
+    if (!next.fen || next.status === 'setup') { pos = undefined; $('offer-draw').hidden = $('resign').hidden = true; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
     rules(); pos = fromFen(next.fen); const legal = new Set(next.legal), here = pos;
     moves = legal.size ? legalMoves(pos).map(move => ({lan:toLan(here,move),move})).filter(({lan}) => legal.has(lan)) : [];
     const steps = before && same ? replayLans(before, next, view.rules!) : undefined;

@@ -33,7 +33,8 @@ let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
 let readError = false;
 let busy = false, polling = false, mountReading = true, gamesDirty = false;
-let foregroundDone = Promise.resolve();
+// Ends when the command in flight (busy) ends; call skips a read while busy.
+let commandDone = Promise.resolve(), endCommand = () => {};
 let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0, pollFailures = 0;
 let pending = state.pending;
 let handleBack: Screen = pending?.screen ?? 'settings';
@@ -83,7 +84,7 @@ function show(next: View | undefined) {
   // The identifier is presentation state; every board reload still reads server authority.
   saveState();
   // Widget state also supplies model context; a second writer would replace it.
-  if (!extension?.setWidgetState) void app.updateModelContext({ structuredContent: { revision: view.revision, status: view.status, your_turn: view.turn === view.seat } }).catch(() => {});
+  if (!extension?.setWidgetState) void app.updateModelContext({ structuredContent: { status: view.status, your_turn: view.turn === view.seat } }).catch(() => {});
 }
 async function resendPending(command: Pending, mountRead?: ToolResult) {
   const read = mountRead ?? await client.call('kingdown_get');
@@ -102,9 +103,9 @@ export async function call(name: string, args: Record<string, unknown>, retain =
   if (busy || (quiet && polling)) return;
   const before = view;
   const commandScreen = state.screen === 'home' && ['kingdown_create', 'kingdown_find'].includes(name) ? 'play' : state.screen;
-  let followup: Pending | undefined, received: View | undefined, finishCall: (() => void) | undefined;
+  let followup: Pending | undefined, received: View | undefined;
   if (quiet) polling = true;
-  else { busy = true; foregroundDone = new Promise(resolve => { finishCall = resolve; }); actions(); $('error').textContent = ''; }
+  else { busy = true; commandDone = new Promise(resolve => { endCommand = resolve; }); actions(); $('error').textContent = ''; }
   if (retain) {
     if (pending?.name !== name || pending.args !== args) pending = { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: commandScreen };
     pending.error = undefined; pending.error_screen = undefined; saveState();
@@ -132,15 +133,17 @@ export async function call(name: string, args: Record<string, unknown>, retain =
       throw new Error(text);
     }
     remember(result);
-    const outage = pollFailures >= 3; pollFailures = 0;
+    // A good read ends an outage (three failed polls or a failed read): its sentence and Try again go together.
+    const outage = pollFailures >= 3 || name === 'kingdown_get' && readError; pollFailures = 0;
+    if (name === 'kingdown_get') readError = false;
     const next = (result._meta as { view?: View } | undefined)?.view;
     if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision) {
       view = { ...view, opponent: next.opponent, server_now: next.server_now }; if (state.screen === 'seat') seatScreen(); poll?.update(); if (outage) retryState(); return;
     }
-    if (name === 'kingdown_get') readError = false;
     show(next); received = next;
     if (name === 'kingdown_get' && !quiet) await games();
-    if (name === 'kingdown_handle') { followup = pending; navigate(followup?.screen ?? handleBack); }
+    // Save sends the waiting command again at once, so its old error and Retry go now.
+    if (name === 'kingdown_handle') { followup = pending; if (followup) followup.error = followup.error_screen = undefined; navigate(followup?.screen ?? handleBack); }
     const resumedStart = retain && next ? router.finishStart(next) : false;
     if (next && !resumedStart && (route ?? ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'].includes(name))) routeView(next);
     if (name === 'kingdown_invite') { const { code } = result.structuredContent as { code: string }; $('invitation').textContent = `Share this code: ${code}`; }
@@ -155,7 +158,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     if (retain && pending) failPending(message);
     if (!quiet && name === 'kingdown_get' && state.board_id) readError = true;
     retryState(); if (!retain || !pending) $('error').textContent = message; }
-  finally { if (quiet) polling = false; else { busy = false; finishCall?.(); actions(); } }
+  finally { if (quiet) polling = false; else { busy = false; endCommand(); actions(); } }
   if (retain && name === 'kingdown_move' && !received && !pending && before?.game_id === view?.game_id) await rollbackBoardMove();
   if (followup) void call(followup.name, followup.args, true, false, undefined, true);
   return received;
@@ -182,24 +185,29 @@ function remember(result: ToolResult) {
   const value = result.structuredContent as Record<string, unknown> | undefined;
   if (value && typeof value.your_turn_count === 'number') $('home-line').textContent = turnLine(value.your_turn_count);
 }
+// Chat results mount one at a time, and a newer result stops an older mount at its next wait. So only the newest
+// result reads and routes, and each board selection (kingdown_resume) reaches the server in order.
+let mounts = Promise.resolve(), mountCount = 0;
 app.ontoolresult = result => {
   const initial = awaitingInitialResult; awaitingInitialResult = false;
-  void mountResult(result, initial);
+  const count = ++mountCount;
+  const mount = () => mountResult(result, initial, () => count !== mountCount);
+  mounts = mounts.then(mount, mount);
 };
-async function mountResult(result: ToolResult, initial: boolean) {
+async function mountResult(result: ToolResult, initial: boolean, stale: () => boolean) {
   mountReading = true; actions();
+  const shown = view?.game_id;
   try {
     await connection;
-    const value = result.structuredContent as Record<string, unknown> | undefined;
-    // A new board waits for the old call. A same-game notice leaves its live command in flight.
-    while (busy && !(pending && view && value?.game_id === view.game_id && !result._meta?.view)) await foregroundDone;
-    if (!initial || !state.board_id) state.board_id = typeof value?.board_id === 'string' ? value.board_id : typeof value?.game_id === 'string' ? state.board_id : undefined;
+    const value = result.structuredContent as Record<string, unknown> | undefined, board = result._meta?.board_id;
+    if (!initial || !state.board_id) state.board_id = typeof board === 'string' ? board : typeof value?.game_id === 'string' ? state.board_id : undefined;
     remember(result);
     if (initial) {
       const settings = await client.call('kingdown_settings', {}, { limit: false });
       if (settings.isError) throw new Error(settings.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(settings); await applySettings();
     }
+    if (stale()) return;
     if (result.isError) {
       memory.preview = undefined;
       memory.joinError = { code: String(result._meta?.code ?? ''), message: result.content.filter(c => c.type === 'text').map(c => c.text).join(' ') };
@@ -210,13 +218,19 @@ async function mountResult(result: ToolResult, initial: boolean) {
     }
     if (value?.screen === 'join') { memory.preview = result._meta?.preview as JoinPreview | undefined; memory.code = memory.preview?.code ?? ''; memory.joinError = undefined; }
     if (value && ['home', 'play', 'board', 'profile', 'join'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen as Screen);
-    if (typeof value?.game_id === 'string' && !value.board_id && (!initial || !state.board_id)) {
+    if (typeof value?.game_id === 'string' && !board && (!initial || !state.board_id)) {
       const selected = await client.call(state.board_id ? 'kingdown_resume' : 'kingdown_open', { game_id: value.game_id }, { limit: false });
+      if (stale()) return;
       if (selected.isError) throw new Error(selected.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(selected);
     }
-    const route = value?.screen === undefined && (!initial || !savedScreen);
+    // The server names the board for every game; the read routes by the game status (a game in setup opens the seat).
+    const route = (value?.screen === undefined || value.screen === 'board') && (!initial || !savedScreen);
     const readBoard = state.board_id && (typeof value?.game_id === 'string' || initial && savedScreen);
+    // A command in flight for the game shown before would skip this read, and its reply would keep the old game on the screen.
+    // A result for another game waits for that command, so its own read shows last.
+    if (readBoard && typeof value?.game_id === 'string' && value.game_id !== shown) while (busy) await commandDone;
+    if (stale()) return;
     if (readBoard) await call('kingdown_get', {}, false, false, route);
     else if (!result._meta?.view) view = undefined;
     if (!readBoard) await games();
@@ -250,8 +264,9 @@ const connection = app.connect().then(() => {
   });
 }).catch(error => { $('error').textContent = $('home-error').textContent = `Could not connect to the game: ${errorText(error)}`; });
 
-// Ticket 21: the ChatGPT iOS app showed a 45 px board that no test browser shows. Settings shows the sizes of the last
-// seat or board screen, so a screenshot from the device names the cause. Remove when ticket 21 closes.
+// Ticket 21: the ChatGPT iOS app showed a 45 px board that no test browser shows. Settings keeps the sizes of the last
+// seat or board screen; a long press on its title shows them, so a screenshot from the device names the cause.
+// Remove when ticket 21 closes.
 const sentSizes: string[] = [], sendSize = app.sendSizeChanged.bind(app);
 app.sendSizeChanged = params => { sentSizes.push(`${params.width}x${params.height}`); sentSizes.splice(0, sentSizes.length - 3); return sendSize(params); };
 function measureLayout() {
@@ -259,8 +274,10 @@ function measureLayout() {
   const probe = (height: string) => { const d = document.createElement('div'); d.style.cssText = `position:absolute;visibility:hidden;width:1px;height:${height}`; document.body.append(d); const h = Math.round(d.getBoundingClientRect().height); d.remove(); return h; };
   const context = app.getHostContext(), line = $('layout-check');
   line.textContent = `Display check: ${state.screen} · window ${innerWidth}x${innerHeight} · vv ${Math.round(visualViewport?.width ?? 0)}x${Math.round(visualViewport?.height ?? 0)} · vh ${probe('100vh')} dvh ${probe('100dvh')} · frame ${box('#app-frame')} · section ${box(`[data-screen="${state.screen}"]`)} · table ${box('#game-table, [data-seat-id="game-table"]')} · board ${box('#board')} · canvas ${box('#board canvas')} · safe ${JSON.stringify(context?.safeAreaInsets ?? {})} · ${context?.displayMode} ${JSON.stringify(context?.containerDimensions ?? {})} · sent ${sentSizes.join(' ')}`;
-  line.hidden = false;
 }
+let press: ReturnType<typeof setTimeout> | undefined;
+$('page-title').onpointerdown = () => { clearTimeout(press); if (state.screen === 'settings') press = setTimeout(() => { $('layout-check').hidden = false; }, 600); };
+$('page-title').onpointerup = $('page-title').onpointerleave = $('page-title').onpointercancel = () => clearTimeout(press);
 // Spec Q25: inline, the widget shows only the home card; each other screen shows in fullscreen. A screen that opens
 // while inline (a chat tool call, a route) waits behind the home card until the host grants fullscreen. When the
 // player leaves fullscreen, the home card comes back with its own height; a late route or tool result waits for Play,
