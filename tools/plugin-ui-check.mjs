@@ -906,6 +906,7 @@ try {
       await openScreen('settings');
       assert(await frame.locator(`#online-visibility input[value="${value}"]`).isChecked(), 'Online choice persists');
     }
+    assert(await frame.locator('#online-visibility').evaluate(control => control.nextElementSibling.getBoundingClientRect().top >= control.getBoundingClientRect().bottom), 'The online help text does not overlap the choices');
     await shot(page, `online-visibility-${mode}`);
     await openPlay();
     await frame.locator(`#games-list [data-game-id="${friend.game_id}"]`).click();

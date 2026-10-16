@@ -131,3 +131,5 @@ Parts 18-a and 18-b, with A-F4, are approved by the owner's task. Parts 18-d and
 
 - The M1 job gets the shared lock and checks `be163c2f`. All three online values pass their save, target-size and remount assertions in the fixture run. The next test step fails because the check helper tries to open a Board menu row from Play; Play has no such row. Resume the same game through its actual list row instead. This changes the check, not the product code.
 - Keep this lane's lock while the original HTTP child ends at its existing limit. Pause only the parent shell by PID. Then repeat both named browser checks, one at a time, before the parent releases the lock. The named checks keep their limits.
+
+- Visual check: the saved Settings render shows the online help line against the choice border. Use the existing `quiet-line` style, which has a positive top margin. Add a browser assertion that the help line does not overlap the control. Repeat the fixture check after this repair, then let the HTTP check use the same code.
