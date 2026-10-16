@@ -99,3 +99,9 @@ Work starts from a clean worktree.
   keeps room for its Remount row. A separate HTTP cleanup abort races
   the computer's first move. Wait for that move to end before the
   setup checks send a cleanup abort. Keep the existing time limits.
+- The full fixture check passes at `ff6545b4` in 223 seconds. The
+  HTTP check then finds a remount test race in the friend-code step.
+  A short test holds the first read and fails in 3.35 seconds: the
+  page clears text entered before that read ends. The check helper
+  now waits for the new mount's settings read and its ready state
+  before it returns. The short tests and full checks verify this fix.

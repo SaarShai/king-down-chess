@@ -863,10 +863,12 @@ try {
       await page.evaluate(result => window.harnessShow({ ...result, structuredContent: { ...result.structuredContent, screen: undefined } }, true), result); return result._meta.view;
     }
     async function remount(screen) {
-      const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
+      const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length);
       await page.locator('#remount').click();
-      await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
+      await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length > n, reads);
       await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
+      // The new page can show its inputs before its first read binds them.
+      await idleBoard();
     }
     async function lookAt(state, screen) {
       for (const [width, height, suffix] of [[390,844,'phone'],[1440,900,'desktop'],[400,900,'side']]) {
