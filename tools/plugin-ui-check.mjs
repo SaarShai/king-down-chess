@@ -891,6 +891,23 @@ try {
     await frame.locator('body').evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal((await tool('kingdown_get', { game_id: friend.game_id }, true))._meta.view.status, 'playing');
+    // Part 18-a: each choice sends only its own field and persists on remount.
+    await openScreen('settings');
+    for (const value of ['everyone', 'nobody', 'mutual']) {
+      const choice = frame.locator(`#online-visibility input[value="${value}"]`);
+      await choice.locator('..').click();
+      await frame.locator(`#online-visibility input[value="${value}"]:not(:disabled)`).waitFor({ state: 'attached' });
+      assert(await choice.isChecked());
+      assert.deepEqual(await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').at(-1).arguments), {online_visible_to:value});
+      assert((await choice.locator('..').boundingBox()).height >= 44, 'Online choices have 44 px targets');
+      const reads = await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length);
+      await page.locator('#remount').click();
+      await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length>n, reads);
+      await openScreen('settings');
+      assert(await frame.locator(`#online-visibility input[value="${value}"]`).isChecked(), 'Online choice persists');
+    }
+    await shot(page, `online-visibility-${mode}`);
+    await openScreen('board'); await idleBoard();
     // Part 18-b: a failed status read keeps the other Menu controls and can retry.
     let failBlockRead = true;
     const blockRoute = async route => {
@@ -1098,22 +1115,6 @@ try {
     await openScreen('settings'); await boardSetting('symbols-only',false); await boardSetting('show-threats',false);
   }
   await page.setViewportSize({width:1000,height:1000});
-  // Part 18-a: each choice sends only its own field and persists on remount.
-  await openScreen('settings');
-  for (const value of ['everyone', 'nobody', 'mutual']) {
-    const choice = frame.locator(`#online-visibility input[value="${value}"]`);
-    await choice.locator('..').click();
-    await frame.locator(`#online-visibility input[value="${value}"]:not(:disabled)`).waitFor({ state: 'attached' });
-    assert(await choice.isChecked());
-    assert.deepEqual(await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').at(-1).arguments), {online_visible_to:value});
-    assert((await choice.locator('..').boundingBox()).height >= 44, 'Online choices have 44 px targets');
-    const reads = await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length);
-    await page.locator('#remount').click();
-    await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length>n, reads);
-    await openScreen('settings');
-    assert(await frame.locator(`#online-visibility input[value="${value}"]`).isChecked(), 'Online choice persists');
-  }
-  await shot(page, `online-visibility-${mode}`);
   await openPlay(); await legacyStart('solo'); await idleBoard(); await boardBox();
   async function clickSquare(file, rank) {
     const box = await boardBox(); assert(box);
