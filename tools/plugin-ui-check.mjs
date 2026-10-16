@@ -327,6 +327,13 @@ try {
       const result = await (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', base).href, { data: { name, arguments: args } })).json();
       assert(!result.isError, `${name}: ${JSON.stringify(result.content)}`); return result;
     };
+    async function abortSetup(game) {
+      // The computer can still make its first move. Let that command end before cleanup reads and aborts.
+      if (await page.evaluate(id=>window.harnessWidgetState.privateContent.screen==='board'&&window.harnessView.game_id===id&&window.harnessView.kind==='solo',game)) {
+        await frame.locator('#status').filter({hasText:'Your move'}).waitFor({timeout:5000}); await idleBoard();
+      }
+      await setupTool('kingdown_abort',{game_id:game});
+    }
     const baseSetup = { kind: 'solo', options: DEFAULT_OPTIONS, colour: 'white', level: 'club', king: null };
     async function setupMount(last_setup) {
       await setupTool('kingdown_settings', { last_setup });
@@ -390,7 +397,7 @@ try {
     assert.equal(await frame.locator('#menu-sheet').count(), 0, 'A sheet opened during Start closes when the page changes');
     await frame.locator('#status').filter({ hasText: /Your move|Their move/ }).waitFor({ timeout: 5000 }); await boardBox();
     assert.equal((await setupTool('kingdown_settings'))._meta.settings.last_setup.king, null, 'Opening the king sheet without a pick keeps the server seat default');
-    await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
+    await abortSetup(await page.evaluate(() => window.harnessView.game_id));
     await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, cards: true } }); await frame.locator('#setup-cards').click();
     assert((await frame.locator('label.card-face:has(input[value="Freeze"]) small').innerText()).startsWith('As your move, freeze'), 'Card text uses the rules of a game with king powers off');
     await frame.locator('#setup-done').click();
@@ -437,7 +444,7 @@ try {
     assert.deepEqual(await page.evaluate(() => window.harnessView.kings[1]), { king: 'Shadow', power: 'Darkness' });
     const saved = (await setupTool('kingdown_settings'))._meta.settings.last_setup;
     assert.deepEqual(saved.king, { king: 'Shadow', power: 'Darkness' }); assert.equal(saved.level, 'strong'); assert.equal(saved.colour, 'black');
-    await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
+    await abortSetup(await page.evaluate(() => window.harnessView.game_id));
     await setupMount(saved); assert.equal(await frame.locator('#setup-king-name').innerText(), 'Shadow · Darkness');
     assert(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked()); assert(await frame.getByRole('radio', { name: 'Black', exact: true }).isChecked());
     const levels = ['beginner','casual','club','strong']; let mix = 0;
@@ -462,7 +469,7 @@ try {
       assert.equal(view.deal.length, cards ? 4 : 0); assert(view.deal.every(c => options.cardPool.includes(c)));
       if (view.status === 'setup') view = (await setupTool('kingdown_choose', { game_id: view.game_id, command_id: randomUUID(), expected_revision: view.revision, king: view.choices[view.seat].king, order: view.draw, ready: true }))._meta.view;
       assert.equal(view.status, 'playing'); assert.deepEqual(view.kings, powers ? [{ king: 'Spirit', power: 'Mercy' }, { king: 'Shadow', power: 'Darkness' }] : [null,null]);
-      await setupTool('kingdown_abort', { game_id: view.game_id });
+      await abortSetup(view.game_id);
     }
     const waitingLast = { ...sampleSetup, kind: 'friend' };
     await setupMount(waitingLast); await page.evaluate(() => { window.requireHandleNext = true; }); await frame.locator('#setup-start').click();
@@ -470,7 +477,7 @@ try {
     await frame.locator('#handle').fill(testHandle); await frame.locator('#save-handle').click(); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     assert.equal(await page.evaluate(() => window.harnessView.days_per_move), 3);
     const waiting = await page.evaluate(() => window.harnessView); assert.equal(waiting.choices[waiting.seat].king.king, 'Spirit', 'Waiting keeps the server default; the remembered king goes to the seat screen');
-    await setupTool('kingdown_abort', { game_id: waiting.game_id });
+    await abortSetup(waiting.game_id);
     // A lost Start reply survives a remount without a second game.
     await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true } });
     await page.evaluate(() => { window.dropNextReply = 'kingdown_create'; }); await frame.locator('#setup-start').click(); await frame.locator('#retry').waitFor();
@@ -484,7 +491,7 @@ try {
     assert.equal(await page.evaluate(() => JSON.stringify(window.harnessWidgetState.modelContent)), '{}', 'Setup puts no choice or draw in model context');
     await openPlay(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     assert.equal(await frame.locator('#setup-body .modes label').count(), 3, 'Setup still builds after a restored Start');
-    const recovered = await page.evaluate(() => window.harnessView); await setupTool('kingdown_abort', { game_id: recovered.game_id });
+    const recovered = await page.evaluate(() => window.harnessView); await abortSetup(recovered.game_id);
     await setupMount({ ...baseSetup, kind: 'random', options: { ...DEFAULT_OPTIONS, arrangement: false } }); await frame.locator('#setup-start').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     const random = await page.evaluate(() => window.harnessView); assert.equal(random.kind, 'random'); await setupTool('kingdown_cancel', { game_id: random.game_id });
     const offeredOptions = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
@@ -492,7 +499,7 @@ try {
     await setupMount({ ...baseSetup, kind: 'random' }); await frame.locator('#setup-start').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     const accepted = await page.evaluate(() => window.harnessView);
     assert.deepEqual(accepted.options, offeredOptions, 'Find uses the accepted game features instead of the sent choices');
-    await setupTool('kingdown_abort', { game_id: accepted.game_id });
+    await abortSetup(accepted.game_id);
     // A lost Choose reply keeps its command receipt and still opens the board after remount.
     await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true } });
     await page.evaluate(() => { window.dropNextReply = 'kingdown_choose'; }); await frame.locator('#setup-start').click(); await frame.locator('#retry').waitFor();
@@ -500,7 +507,7 @@ try {
     await page.locator('#remount').click(); await frame.locator('#retry').waitFor(); await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_choose').at(-1).arguments.command_id), chooseId);
-    await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
+    await abortSetup(await page.evaluate(() => window.harnessView.game_id));
     const newArt = ['archer-w','paladin-w','guard-w','maester-w','beast-w','ogre-w','rook-w','bishop-w','knight-w','queen-w','frost','flame','stratus','mud','spirit','shadow','shadow-b','freeze','icewall','sacrifice','march','leap','salvation','mimic','vault','skylift','back'];
     const html = await frame.locator('html').innerHTML(); for (const file of newArt) assert(html.includes(`/${file}-`), `Setup names ${file}.webp through art`);
     await openPlay();
@@ -1465,6 +1472,7 @@ try {
     }
     assert.equal(await frame.locator('#over[open]').count(),0,'A poll keeps the end card closed');
     await frame.locator('#end-result').click(); await frame.locator('#over[open]').waitFor();
+    await page.locator('iframe').evaluate(e=>e.style.removeProperty('height'));
     await page.setViewportSize({width:1000,height:1000});
     await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen',safeAreaInsets:{top:0,bottom:0,left:0,right:0},deviceCapabilities:{touch:true}}));
     console.log('PASS: plain draw reason, calm result, See the board and end actions at 197 by 426');

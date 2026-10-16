@@ -51,8 +51,15 @@ Work starts from a clean worktree.
 - Taste: keep the short ceremony, with no extra replay or move tiles.
   Use explicit buttons with no tap delay. Only a checkmate win uses
   the fall and card rise. Use Game result to return from the board.
-- `npx tsc --noEmit`: pass. The full local test run waits for the
-  shared test lock. M1 checks are next.
+- `npx tsc --noEmit`: pass. The full local `npm test` run passes:
+  167 files, 2,592 tests and 50 doc checks. Eight tests are skipped.
+  Log: `/tmp/kd-06-end-final2-local-tests.log`.
+  The M1 browser checks wait for the shared lock.
+- The 197 by 426 image check passes. Back stays above the card.
+  The card scrolls, and each end action fits. The image is
+  `/tmp/kd-06-end-197-fixture.png`.
+- Both final readers report no confirmed open fault in the code.
+  The follow-up reads also accept the two browser test fixes.
 
 ## Check fixes
 
@@ -87,3 +94,8 @@ Work starts from a clean worktree.
   cannot assume that the prior draft still has a default king. Check
   See the board with the real end poll. A new chat result takes the
   user to a new screen; it does not act as a background poll.
+- The 197 px check passes, then its host height causes a later phone
+  check to fail. Clear the inline height after that case, so the host
+  keeps room for its Remount row. A separate HTTP cleanup abort races
+  the computer's first move. Wait for that move to end before the
+  setup checks send a cleanup abort. Keep the existing time limits.
