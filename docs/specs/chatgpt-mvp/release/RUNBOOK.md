@@ -93,7 +93,7 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
 
 11. **Check the final screens.** Use the board, end, seat, lobby and profile words in [TESTER-GUIDE.md](TESTER-GUIDE.md). Friend and random creates include options. A repeated random request keeps one open game. Chat has no report tool; the app has no Report button.
 
-    Check: the guide matches the release. The end card shows the result, rating and new badges where earned, plus Rematch or Accept/Decline and Your games.
+    Check: the guide matches the release. The end card shows the result, rating and new badges where earned, plus Play again against the computer, or Rematch and Accept/Decline against a person. Play again keeps your colour against the computer. New game opens the draft with the same setup. See the board hides the card; Game result opens it again. Skip stops the win motion. Skip and See the board work at once. Game actions ignore taps for 1 s after a live result opens. A computer abort returns to Play with the same setup.
 
     Rollback: stop test access. Correct the guide or build, then repeat the failed check.
 

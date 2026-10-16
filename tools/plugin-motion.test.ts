@@ -61,24 +61,36 @@ it.each([false, true])('opens end actions during a live win (reduced motion %s)'
     expect(await frame.locator('#end-skip').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
-it('skips the end ceremony with its visible button', async () => {
+it('skips the end ceremony at 200 ms while game actions are guarded', async () => {
   const { page, frame } = await open(false);
   try {
+    await page.clock.install();
     await mate(page, frame); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
-    await frame.locator('#end-skip').click();
+    await frame.locator('#over[open]').waitFor(); await page.clock.pauseAt(new Date()); await page.clock.runFor(200);
+    await frame.locator('#end-skip').evaluate((b: HTMLButtonElement) => b.click());
     expect(await frame.locator('#board .kd-words').count()).toBe(0);
     expect(await frame.locator('#over[open]').count()).toBe(1);
   } finally { await page.close(); }
 });
-it.each(['Play again', 'New game', 'See the board'])('uses %s during the ceremony without a tap delay', async action => {
+it.each(['Play again', 'New game', 'See the board'])('uses %s at its allowed time after a live end opens', async action => {
   const { page, frame } = await open(false);
   try {
+    await page.clock.install();
     await mate(page, frame); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
     const old = await page.evaluate(() => (window as any).harnessView.game_id);
     await frame.locator('#over[open]').waitFor();
     expect(await frame.locator('#over').getByRole('button', { name: action, exact: true }).isEnabled()).toBe(true);
-    // Use the handler before a CSS rise can delay a pointer click.
-    await frame.locator('#over').getByRole('button', { name: action, exact: true }).evaluate((b: HTMLButtonElement) => b.click());
+    await page.clock.pauseAt(new Date()); await page.clock.runFor(200);
+    const press = () => frame.locator('#over').getByRole('button', { name: action, exact: true }).evaluate((b: HTMLButtonElement) => b.click());
+    await press();
+    if (action !== 'See the board') {
+      expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_rematch').length)).toBe(0);
+      expect(await frame.locator('#over[open]').count()).toBe(1);
+      expect(await frame.locator('body').getAttribute('data-page')).toBe('end');
+      expect(await frame.locator('#board[data-toppling]').count()).toBe(1);
+      await page.clock.runFor(1000); await press();
+    }
+    await page.clock.resume();
     expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
     if (action === 'New game') await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     else if (action === 'Play again') await page.waitForFunction(old => (window as any).harnessView.game_id !== old, old);

@@ -1401,6 +1401,7 @@ try {
   assert.equal(await frame.locator('#end-reason').innerText(),'You resigned.');
   assert.equal(await frame.locator('#over.is-win, #board[data-toppling]').count(),0,'A loss stays calm');
   const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);
+  await page.clock.fastForward(1100);
   await page.evaluate(()=>{window.dropNextReply='kingdown_rematch';});
   await frame.locator('#over').getByRole('button',{name:'Play again',exact:true}).click();
   await frame.locator('#over #retry').waitFor();
@@ -1416,6 +1417,7 @@ try {
   assert(['board','seat'].includes(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen)));
   await legacyStart('solo'); await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
   await frame.locator('#over.end-card[open]').waitFor(); await idleBoard();
+  await page.clock.fastForward(1100);
   await frame.locator('#over').getByRole('button',{name:'New game',exact:true}).click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); assert.equal(await frame.locator('#over').isVisible(),false);
   await openPlay(); await legacyStart('solo'); await frame.locator('#context-actions #abort').click();

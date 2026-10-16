@@ -1,6 +1,6 @@
 # End of game (J4 c, W9 a, C4 c, OPEN-endcard197)
 
-Status: resolved
+Status: claimed
 
 Lane: od-end. Branch: `claude/od-end`.
 
@@ -9,7 +9,7 @@ Lane: od-end. Branch: `claude/od-end`.
 The owner asks to build ticket 06-end on 2026-10-16.
 The approved picks are J4 c, W9 a, C4 c and OPEN-endcard197.
 Keep the short web ceremony that Lively uses. Let all end actions work
-at once. Keep a draw and a loss calm. Give an abort no ceremony.
+at once, with a 1 s guard on game actions. Keep a draw and a loss calm. Give an abort no ceremony.
 
 ## Plan and checks
 
@@ -18,7 +18,8 @@ at once. Keep a draw and a loss calm. Give an abort no ceremony.
 2. Use plain end reasons without the last move. Use New game and
    Play again. Keep the player's side in a computer rematch.
 3. Open the end actions during the ceremony. Add Skip and See the
-   board. Stop the motion on an explicit action. Use no tap delay.
+   board. Stop the motion on an explicit action. Guard game actions
+   for 1 s after a live result opens. Keep Skip and See the board active.
 4. Keep Back clear at 197 by 426. Limit the end card and let it scroll.
 5. Add tests for each path. Run `npx tsc --noEmit` and `npm test` here.
    Run plugin-ui and plugin-ui-http on the M1 with the shared lock.
@@ -49,7 +50,7 @@ Work starts from a clean worktree.
   rematch offer changes the revision. The board update now keeps that
   sheet too. The test covers both an unchanged poll and a new offer.
 - Taste: keep the short ceremony, with no extra replay or move tiles.
-  Use explicit buttons with no tap delay. Only a checkmate win uses
+  Use explicit buttons with a 1 s guard on live game actions. Only a checkmate win uses
   the fall and card rise. Use Game result to return from the board.
 - `npx tsc --noEmit`: pass. The full local `npm test` run passes:
   167 files, 2,592 tests and 50 checks for piece scenes. Eight tests
@@ -130,7 +131,7 @@ All four parts are complete. No part is omitted.
   the last move on the board. New game uses the game setup. Play again
   keeps the player's colour. Reason tests cover both seats. Database
   tests cover computer rematches from White and Black.
-- C4 c: actions work at once. Skip stops a live or pending ceremony.
+- C4 c: actions show at once. Live game actions have a 1 s tap guard. Skip stops a live or pending ceremony.
   See the board hides the card; Game result returns to it. Draws and
   losses stay calm. Aborts have no ceremony. App, board and motion
   tests cover these paths, a held end read and later end polls.
@@ -154,7 +155,25 @@ lock. No check time limit changes. Two independent readers report
 no confirmed open fault. Their follow-up reads cover the final fixes.
 
 Taste choices: keep the short Lively ceremony. Add no extra replay
-or move tiles. Use explicit buttons with no tap delay. Animate only
+or move tiles. Use explicit buttons with a 1 s guard on live game actions. Animate only
 a checkmate win. Use Game result as the board's return label. Keep
 the current game setup for New game. Reserve 80 px in the card height
 limit so Back stays clear; let the card scroll.
+
+## Review fixes
+
+Plan and checks:
+
+1. Check each finding against the code and approved picks. Treat the
+   two draft scroll reports as one fault.
+2. Guard game actions for 1 s after a live end opens. Keep Skip and
+   See the board active. Test taps at 200 ms and after 1 s.
+3. Keep the error and Retry visible after See the board, also after
+   a poll and after Game result. Test a failed held read.
+4. Keep a late rematch resume reply from leaving Play. Test both
+   a held result read and a held resume reply.
+5. Open the New game heading after Abort and New game. Test a phone
+   with enough games to fill its screen and a held games read.
+6. Correct the three release documents. Add a check for their words.
+7. Run the local tests and both M1 browser checks. Keep all time limits.
+   Record the results and commit. Do not push, merge or deploy.

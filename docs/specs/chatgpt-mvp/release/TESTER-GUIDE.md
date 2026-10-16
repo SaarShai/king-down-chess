@@ -49,7 +49,7 @@ The board shows **Resign** and **Menu**. In a game with a person, it also shows 
 
 Open **Menu** for **Abort**, **Claim the win** or **End game** when available. Before each side's first move, **Abort** ends the game with no result. After a missed first-move deadline, **End game** ends it with no result. After a later missed three-day deadline, **Claim the win** gives you the win. **Moves** shows the move list. **Reload** reads the current game.
 
-The end card shows **You win**, **You lose** or **Draw**, with the end reason. Human games can show **Rating**, a **?** and a rating change. An earned badge shows **New badge**. **Rematch** keeps the features and swaps colours. Your opponent uses **Accept** or **Decline**. **Your games** opens the profile scroll. No email or push alert arrives. Open **Your games** to check your turn.
+The end card shows **You win**, **You lose** or **Draw**, with the end reason. Human games can show **Rating**, a **?** and a rating change. An earned badge shows **New badge**. **Play again** keeps your colour against the computer. **Rematch** keeps the features and swaps colours against a person. Your opponent uses **Accept** or **Decline**. **New game** opens the draft with the same setup. **See the board** hides the card. **Game result** opens it again. **Skip** stops the win motion. **Skip** and **See the board** work at once; game actions ignore taps for 1 s after a live result opens. A computer abort returns to Play with the same setup. No email or push alert arrives. Open **Your games** to check your turn.
 
 ## Profile and settings
 

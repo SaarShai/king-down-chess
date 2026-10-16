@@ -15,7 +15,7 @@ import '../../ceremony.css';
 import { client, memory, navigate, routeView } from '../app';
 import { nextGame } from '../games-list';
 import { actionButtons, confirmDraw, confirmResign } from './board-actions';
-import { updateEnd } from './end';
+import { guardEndTaps, updateEnd } from './end';
 import { applyLan, boardActions, cardCoins, replayHistory, replayLans, stripLine, type BoardMove } from './board-model';
 import './board.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
@@ -290,7 +290,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (toppling && win && fallen !== null && board.motion()) kingDown(fallen);
     if (fallen !== null) toppling = false;
   }
-  // Keep the short web ceremony. Explicit end actions work during it, with no tap delay.
+  // Keep the short web ceremony. Skip and See the board work at once.
   function kingDown(fallen: number) {
     const words = document.createElement('div'); words.className = 'kd-words is-in'; words.textContent = 'King Down'; words.hidden = true; words.setAttribute('aria-hidden', 'true');
     $('board').append(words); $('board').dataset.toppling = 'true';
@@ -313,7 +313,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (view?.game_id === next.game_id && next.revision < view.revision) return;
     const before = view, same = view?.game_id === next.game_id;
     if (!same || next.status !== 'finished') skipBoardCeremony();
-    if (same && before?.status === 'playing' && next.status === 'finished') toppling = true;
+    if (same && before?.status === 'playing' && next.status === 'finished') { toppling = true; guardEndTaps(next.game_id); }
     // A live game start: the cards deal once, and after the seat both Ready open the board.
     const started = next.status === 'playing' && next.history?.actions.length === 0 && (!same || before?.status === 'setup') && board.motion();
     if (started && next.options?.cards) dealing = true;
