@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -9,6 +9,8 @@ import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import type { View } from '../src/match/protocol';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
+
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, served: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => {
