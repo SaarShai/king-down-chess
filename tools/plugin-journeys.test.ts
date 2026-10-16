@@ -89,10 +89,10 @@ it('hides the display check line until a long press on the Settings title', asyn
   } finally { await page.close(); }
 });
 
-it('reads the game again after a conflict and says that the opponent moved, with no Reload', async () => {
+it('reads the game again after a conflict and says that the opponent moved, and says that a refused move is not available, with no Reload', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   const bob = (name: string, args: Record<string, unknown>) => tool(page, '/fixture-friend-tool', name, args);
-  const moved = 'Your opponent moved. Check the board.';
+  const moved = 'Your opponent moved. Check the board.', refused = 'This move is not available. Choose another move.';
   try {
     // Poll reads fail, so Alice's board keeps its old view until she acts.
     await page.route('**/fixture-tool', route => route.request().postDataJSON()?.arguments?.since_revision !== undefined ? route.abort() : route.continue());
@@ -113,10 +113,12 @@ it('reads the game again after a conflict and says that the opponent moved, with
     await frame.locator('#error').filter({ hasText: moved }).waitFor();
     await frame.locator('#last-move').filter({ hasText: 'Black pawn e7 to e5' }).waitFor();
     expect(await html(page).evaluate(() => (window as any).harnessApp.memory.view.revision)).toBe(seen.revision + 1);
-    // A move that the board no longer allows (e2 to e4 again) says the same, with no Reload.
+    // INVALID_MOVE comes only on a current view, because the service checks the revision first: e2 to e4 again on the
+    // new view. Nobody moved, so the words say that the move is not available, with no Reload.
     await html(page).evaluate(async () => { const app = (window as any).harnessApp, v = app.memory.view; await app.call('kingdown_move', { game_id: v.game_id, command_id: 'alice-again', expected_revision: v.revision, lan: 'e2-e4' }, true); });
     await frame.locator('#retry').waitFor({ state: 'hidden' });
-    expect(await frame.locator('#error').textContent()).toBe(moved);
+    await frame.locator('#error').filter({ hasText: refused }).waitFor();
+    expect(await frame.locator('#error').textContent()).toBe(refused);
   } finally { await page.close(); }
 });
 
