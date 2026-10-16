@@ -1,6 +1,6 @@
 # End of game (J4 c, W9 a, C4 c, OPEN-endcard197)
 
-Status: claimed
+Status: resolved
 
 Lane: od-end. Branch: `claude/od-end`.
 
@@ -8,8 +8,9 @@ Lane: od-end. Branch: `claude/od-end`.
 
 The owner asks to build ticket 06-end on 2026-10-16.
 The approved picks are J4 c, W9 a, C4 c and OPEN-endcard197.
-Keep the short web ceremony that Lively uses. Let all end actions work
-at once, with a 1 s guard on game actions. Keep a draw and a loss calm. Give an abort no ceremony.
+Keep the short web ceremony that Lively uses. Show all end actions
+at once. Guard game actions for 1 s. Keep a draw and a loss calm.
+Give an abort no ceremony.
 
 ## Plan and checks
 
@@ -155,8 +156,8 @@ lock. No check time limit changes. Two independent readers report
 no confirmed open fault. Their follow-up reads cover the final fixes.
 
 Taste choices: keep the short Lively ceremony. Add no extra replay
-or move tiles. Use explicit buttons with a 1 s guard on live game actions. Animate only
-a checkmate win. Use Game result as the board's return label. Keep
+or move tiles. Use explicit buttons with a 1 s guard on live game
+actions. Animate only a checkmate win. Use Game result as the board's return label. Keep
 the current game setup for New game. Reserve 80 px in the card height
 limit so Back stays clear; let the card scroll.
 
@@ -177,3 +178,50 @@ Plan and checks:
 6. Correct the three release documents. Add a check for their words.
 7. Run the local tests and both M1 browser checks. Keep all time limits.
    Record the results and commit. Do not push, merge or deploy.
+
+Findings and fixes:
+
+- A1, confirmed: the live end has no tap guard. The board now marks
+  a live result. The card records its first open time. Play again,
+  Rematch, Accept, Decline and New game ignore taps for 1 s. Skip and
+  See the board stay active. The motion tests cover both times.
+- A2, confirmed: all three release files use the old end actions.
+  The guide, live checks and runbook now use the current words. A
+  document test checks each file and rejects the old profile route.
+- A3, confirmed: See the board closes the dialog that holds Retry.
+  The error row now stays on the page while the card is closed, also
+  across an end update. Game result moves it into the card again.
+  A test holds and fails the read, then uses Retry from the board.
+- A4 and B2, confirmed: both draft routes open at the game list.
+  Both now scroll to the New game heading after the rows load. Phone
+  tests cover six open games, a held list read and cached rows.
+- B1, confirmed: the resume call routes its reply after New game.
+  That call now has no automatic route. Its result opens only while
+  the same game's end screen stays active. Tests hold that reply
+  and cover both a stay and a return to Play.
+
+Check results:
+
+- The type check and 77 app tests pass. The app log is
+  `/tmp/kd-06-review-app.log`.
+- The first full run has 2,598 passed tests, eight skipped tests and
+  two failures. Both failures are in tests: an old New game assertion
+  acts during the new guard, and the motion clock can pause in the
+  past. The tests now wait for the guard or freeze the clock first.
+  No product change follows this run.
+- The focused motion run passes all guard and clock checks. It has
+  17 passed tests and one failed loss test. That test sends the last
+  move before the first board read is ready. It now waits for that
+  read. The final full run verifies this fix.
+- Both M1 checks pass at `02e06e6d`. `plugin-ui` takes 224.1 seconds.
+  `plugin-ui-http` takes 303.9 seconds. Both use the shared browser
+  lock and keep their time limits. These logs are also on this Mac:
+  `/tmp/kd-06-review-m1-ui.log` and `/tmp/kd-06-review-m1-http.log`.
+  Later changes touch only tests and this ticket.
+
+The final local `npm test` passes: 167 files, 2,600 passed tests, eight
+skipped tests and 50 piece scene checks. The run includes the type
+check. It takes 172.76 seconds, after it gets the shared test lock.
+Log: `/tmp/kd-06-review-full2.log`. All five faults have fixes and
+tests. No finding is refuted. A4 and B2 describe the same fault.
+No test or check time limit changes.

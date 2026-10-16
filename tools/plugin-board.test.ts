@@ -65,6 +65,7 @@ it.each(['See the board', 'New game'])('cancels a pending ceremony with %s durin
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
     await frame.locator('#over[open]').waitFor();
     expect(await frame.locator('#board[data-toppling]').count()).toBe(0);
+    if (action === 'New game') await page.waitForTimeout(1100);
     await frame.locator('#over').getByRole('button', { name: action, exact: true }).click();
     await frame.locator('html').evaluate(() => (window as any).endReplay());
     await frame.locator('#board[data-animating="false"]').waitFor({ state: 'attached' });

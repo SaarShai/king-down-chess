@@ -66,7 +66,7 @@ it('skips the end ceremony at 200 ms while game actions are guarded', async () =
   try {
     await page.clock.install();
     await mate(page, frame); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
-    await frame.locator('#over[open]').waitFor(); await page.clock.pauseAt(new Date()); await page.clock.runFor(200);
+    await frame.locator('#over[open]').waitFor(); await page.clock.setFixedTime(new Date()); await page.clock.pauseAt(await page.evaluate(() => Date.now())); await page.clock.runFor(200);
     await frame.locator('#end-skip').evaluate((b: HTMLButtonElement) => b.click());
     expect(await frame.locator('#board .kd-words').count()).toBe(0);
     expect(await frame.locator('#over[open]').count()).toBe(1);
@@ -80,7 +80,7 @@ it.each(['Play again', 'New game', 'See the board'])('uses %s at its allowed tim
     const old = await page.evaluate(() => (window as any).harnessView.game_id);
     await frame.locator('#over[open]').waitFor();
     expect(await frame.locator('#over').getByRole('button', { name: action, exact: true }).isEnabled()).toBe(true);
-    await page.clock.pauseAt(new Date()); await page.clock.runFor(200);
+    await page.clock.setFixedTime(new Date()); await page.clock.pauseAt(await page.evaluate(() => Date.now())); await page.clock.runFor(200);
     const press = () => frame.locator('#over').getByRole('button', { name: action, exact: true }).evaluate((b: HTMLButtonElement) => b.click());
     await press();
     if (action !== 'See the board') {
@@ -90,7 +90,7 @@ it.each(['Play again', 'New game', 'See the board'])('uses %s at its allowed tim
       expect(await frame.locator('#board[data-toppling]').count()).toBe(1);
       await page.clock.runFor(1000); await press();
     }
-    await page.clock.resume();
+    await page.clock.resume(); await page.clock.setSystemTime(new Date());
     expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
     if (action === 'New game') await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     else if (action === 'Play again') await page.waitForFunction(old => (window as any).harnessView.game_id !== old, old);
@@ -107,6 +107,8 @@ it('keeps a live checkmate loss calm and leaves the last move on the board', asy
   try {
     const result = await (await page.request.post(new URL(`/fixture-position?fen=${encodeURIComponent('7k/8/6K1/8/8/8/8/Q7 w - - 0 1')}&black=1`, harness.url).href)).json();
     await page.evaluate(r => (window as any).harnessShow(r), result);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#board[aria-busy="false"]').waitFor();
     const reply = await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name: 'kingdown_move', arguments: { game_id: result._meta.view.game_id, command_id: crypto.randomUUID(), expected_revision: result._meta.view.revision, lan: 'Qa1-a8' } } })).json();
     expect(reply.isError).not.toBe(true);
     await page.evaluate(async () => { const h=window as any; await h.harnessShow(await h.harnessTool({ name:'kingdown_get', arguments:{board_id:h.harnessWidgetState.privateContent.board_id} })); });
