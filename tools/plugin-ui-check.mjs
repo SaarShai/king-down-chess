@@ -1375,6 +1375,8 @@ try {
       const css = getComputedStyle(document.querySelector('iframe').contentDocument.documentElement);
       return Object.entries(expected).every(([edge,value]) => parseFloat(css.getPropertyValue(`--safe-${edge}`)) === value);
     }, safeAreaInsets);
+    // The board canvas takes its size from a ResizeObserver one frame later; a read before then sees the old canvas.
+    await frame.locator('body').evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
   }
   async function scrollVertically(control) {
     await control.evaluate(el => {
