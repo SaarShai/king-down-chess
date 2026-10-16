@@ -2,12 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { createClient, BOARD_ID_TOOLS } from './client';
 
 describe('app client', () => {
-  it('limits commands to 10 seconds and leaves mount reads to the SDK limit', async () => {
+  it('limits commands to 10 seconds, leaves mount reads to the SDK limit and passes a mount\'s abort signal', async () => {
     const callServerTool = vi.fn(async () => ({ content: [] }));
-    const client = createClient({ callServerTool });
+    const client = createClient({ callServerTool }), { signal } = new AbortController();
     await client.call('kingdown_move', { command_id: 'once' });
     await client.call('kingdown_settings', {}, { limit: false });
-    expect(callServerTool.mock.calls).toEqual([[{ name: 'kingdown_move', arguments: { command_id: 'once' } }, { timeout: 10_000 }], [{ name: 'kingdown_settings', arguments: {} }, undefined]]);
+    await client.call('kingdown_open', {}, { limit: false, signal });
+    expect(callServerTool.mock.calls).toEqual([[{ name: 'kingdown_move', arguments: { command_id: 'once' } }, { timeout: 10_000 }], [{ name: 'kingdown_settings', arguments: {} }, {}], [{ name: 'kingdown_open', arguments: {} }, { signal }]]);
   });
   it.each([
     ['kingdown_settings', { last_setup: {} }, 'ProtocolError: Failed to fetch'],
@@ -52,20 +53,33 @@ describe('app client', () => {
     expect(client.state).not.toHaveProperty('settings');
   });
   it('keeps the new board binding when an old read returns after opening a game', async () => {
-    let release!: (value: { content: []; structuredContent: { board_id: string } }) => void;
-    const client = createClient({ callServerTool: async ({ name }) => name === 'kingdown_get' ? new Promise(resolve => { release = resolve; }) : { content: [], structuredContent: { board_id: 'new' } } });
+    let release!: (value: { content: []; _meta: { board_id: string } }) => void;
+    const client = createClient({ callServerTool: async ({ name }) => name === 'kingdown_get' ? new Promise(resolve => { release = resolve; }) : { content: [], _meta: { board_id: 'new' } } });
     client.state.board_id = 'old';
     const read = client.call('kingdown_get', { game_id: 'old-game' });
     await client.call('kingdown_open', { screen: 'board', game_id: 'new-game' });
-    release({ content: [], structuredContent: { board_id: 'old' } });
+    release({ content: [], _meta: { board_id: 'old' } });
     await read;
+    expect(client.state.board_id).toBe('new');
+  });
+  it('keeps a board that a newer chat result set while a selection reply was late', async () => {
+    let release!: (value: { content: []; _meta: { board_id: string } }) => void;
+    const client = createClient({ callServerTool: async () => new Promise(resolve => { release = resolve; }) });
+    client.state.board_id = 'page';
+    const resumed = client.call('kingdown_resume', { game_id: 'tapped' });
+    client.state.board_id = 'chat';
+    release({ content: [], _meta: { board_id: 'page' } }); await resumed;
+    expect(client.state.board_id).toBe('chat');
+    // With no newer board, the reply sets its board.
+    const opened = client.call('kingdown_open', { game_id: 'game' });
+    release({ content: [], _meta: { board_id: 'new' } }); await opened;
     expect(client.state.board_id).toBe('new');
   });
 });
 
 it('binds foreground tools and leaves background reads outside the board', async () => {
   const requests: unknown[] = [];
-  const client = createClient({ callServerTool: async request => { requests.push(request); return { content: [], structuredContent: { board_id: 'reply' }, _meta: { view: { game_id: 'other' } } }; } });
+  const client = createClient({ callServerTool: async request => { requests.push(request); return { content: [], _meta: { board_id: 'reply', view: { game_id: 'other' } } }; } });
   client.state.board_id = 'board';
   client.state.pending = { name: 'kingdown_create', args: { kind: 'solo' } };
   await client.call('kingdown_get', { game_id: 'other', board_id: 'unwanted' }, { background: true });

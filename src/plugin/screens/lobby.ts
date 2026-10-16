@@ -43,8 +43,12 @@ async function readLobby() {
 }
 async function acceptGame(game: string) {
   if (accepting || finding) return; accepting = true;
+  const board = client.state.board_id;
   try {
     const result = await client.call('kingdown_accept', { game_id: game });
+    // A newer chat selection keeps its board and screen, even if this reply is an error.
+    const selected = result._meta?.board_id;
+    if ((typeof selected === 'string' ? selected : board) !== client.state.board_id) return;
     if (result.isError) {
       if (result._meta?.code === 'HANDLE_NEEDED') { afterHandle = game; navigate('handle'); return; }
       if (['NOT_ALLOWED','FORBIDDEN'].includes(String(result._meta?.code))) { await readLobby(); $('lobby-status').textContent = 'Someone else took this game'; return; }

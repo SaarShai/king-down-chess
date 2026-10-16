@@ -17,6 +17,22 @@ async function open() {
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   return page;
 }
+it('keeps a board open without a game on home and stores its ID only in private state', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const result = await (await page.request.post(new URL('/fixture-tool',harness.url).href,{data:{name:'kingdown_open',arguments:{screen:'board'}}})).json();
+    expect(result.structuredContent).not.toHaveProperty('board_id');
+    expect(result._meta.board_id).toEqual(expect.any(String));
+    await page.evaluate(result => (window as any).harnessShow(result,true),result);
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
+    expect(await page.evaluate(()=>(window as any).harnessWidgetState.privateContent.board_id)).toBe(result._meta.board_id);
+    await page.locator('#remount').click();
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
+  } finally {await page.close();}
+});
+
 // Each screen but home shows only in fullscreen (spec Q25). A test that opens a screen directly puts the host there first.
 const expand = (page: Page) => page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'] }));
 async function start(page: Page, route = true) {
@@ -635,6 +651,7 @@ it('offers Try again after a failed mount read and restores the same game', asyn
     await page.evaluate(() => { (window as any).rejectNextGet = true; }); await page.locator('#remount').click();
     await frame.getByRole('button',{name:'Try again',exact:true}).waitFor();
     await frame.getByRole('button',{name:'Try again',exact:true}).click();
+    await frame.locator('#retry').waitFor({state:'hidden'});
     await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
     expect(await page.evaluate(() => (window as any).harnessView.game_id)).toBe(game);
     expect(await frame.locator('#retry').isVisible()).toBe(false);
@@ -1022,14 +1039,18 @@ it('keeps a move in flight free of errors when a chat result arrives during it',
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_move'; });
     await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; void app.call('kingdown_move', { game_id: app.memory.view.game_id, command_id: 'busy-move', expected_revision: app.memory.view.revision, lan: 'e2-e4' }, true); });
     await page.waitForFunction(() => !!(window as any).releaseHeld);
-    // The chat result for this game reads no board while the move runs; its last widget write ends the mount.
+    // The chat result opens Board, then waits for the move before it reads. It shows no error or Retry during that wait.
+    const before = await sent(page, 'kingdown_get');
     const writes = await page.evaluate(() => (window as any).harnessWidgetStates.length);
-    await page.evaluate(() => { const host = window as any; return host.harnessShow({ content: [], structuredContent: { game_id: host.harnessView.game_id, board_id: host.harnessWidgetState.privateContent.board_id } }, true); });
+    await page.evaluate(() => { const host = window as any; return host.harnessShow({ content: [], structuredContent: { game_id: host.harnessView.game_id, screen: 'board' }, _meta: { board_id: host.harnessWidgetState.privateContent.board_id } }, true); });
     await page.waitForFunction(n => (window as any).harnessWidgetStates.length > n, writes);
     expect(await frame.locator('#retry').isHidden()).toBe(true);
     expect(await frame.locator('#error').textContent()).toBe('');
     await page.evaluate(() => (window as any).releaseHeld());
     await expect.poll(() => page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    expect(await sent(page, 'kingdown_get')).toBeGreaterThan(before);
+    expect(await frame.locator('#error').textContent()).toBe('');
     expect(await frame.locator('#retry').isHidden()).toBe(true);
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
@@ -1052,7 +1073,7 @@ it('opens the game of a chat result while the end screen of the last game still 
     const solo = await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_create', arguments: { kind: 'solo', colour: 'black', level: 'beginner', options: { fairy: true, pool: ['R','B','N','G'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } } } })).json();
     expect(solo.isError).toBeFalsy();
     // The chat result for the new game selects it and reads it while the old game's read still waits.
-    await frame.locator('html').evaluate(() => { const client = (window as any).harnessApp.client, call = client.call; client.call = async (...args: any[]) => { const result = await call(...args); if (args[0] === 'kingdown_resume') (window as any).resumed = true; return result; }; });
+    await frame.locator('html').evaluate(() => { const client = (window as any).harnessApp.client, call = client.call; client.call = async (...args: any[]) => { const result = await call(...args); if (args[0] === 'kingdown_open') (window as any).resumed = true; return result; }; });
     const { screen, ...summary } = solo.structuredContent;
     await page.evaluate(result => (window as any).harnessShow(result, true), { ...solo, structuredContent: summary });
     await frame.locator('html').evaluate(() => new Promise<void>(resolve => { const check = () => setTimeout((window as any).resumed ? resolve : check, 10); check(); }));
@@ -1104,7 +1125,7 @@ it.each(['a join error', 'a game'])('lets the reads for a chat result with %s wa
     await expand(page);
     const game_id = shown === 'a game' ? await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_create', { kind: 'solo', colour: 'white' }); return app.memory.view.game_id; }) : undefined;
     await page.clock.install();
-    await page.evaluate(name => { (window as any).holdNext = name; }, game_id ? 'kingdown_resume' : 'kingdown_open');
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_open'; });
     await page.evaluate(game_id => (window as any).harnessShow(game_id ? { content: [], structuredContent: { screen: 'board', game_id } } : { isError: true, content: [{ type: 'text', text: 'Invitation expired or used' }], _meta: { code: 'INVITE_UNAVAILABLE' } }), game_id);
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     await page.clock.fastForward(20_000);
@@ -1113,4 +1134,31 @@ it.each(['a join error', 'a game'])('lets the reads for a chat result with %s wa
     expect(await frame.locator('#error').textContent()).toBe('');
     expect(await frame.locator('#home-error').textContent()).toBe('');
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
+
+it.each([true, false])('keeps a saved setting when the first settings reply comes late (new result has settings: %s)', async carriesSettings => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const tool = async (name: string, args: Record<string, unknown> = {}) => (await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name, arguments: args } })).json();
+  try {
+    await tool('kingdown_settings', { symbols_only: false });
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_settings'; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    const chat = await tool('kingdown_open', { screen: 'play' });
+    if (!carriesSettings) delete chat._meta.settings;
+    await page.evaluate(result => (window as any).harnessShow(result), chat);
+    await frame.locator('#home-play:not(:disabled)').waitFor({ state: 'attached' });
+    await expand(page);
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('settings'));
+    await frame.locator('#symbols-only:not(:disabled)').check();
+    await frame.locator('#symbols-only:not(:disabled)').waitFor();
+    expect((await tool('kingdown_settings'))._meta.settings.symbols_only).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await page.waitForTimeout(300);
+    expect(await frame.locator('#symbols-only').isChecked()).toBe(true);
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.settings.symbols_only)).toBe(true);
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.me)).toMatchObject({ handle: expect.any(String) });
+    expect((await tool('kingdown_settings'))._meta.settings.symbols_only).toBe(true);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await tool('kingdown_settings', { symbols_only: false }); await page.close(); }
 });
