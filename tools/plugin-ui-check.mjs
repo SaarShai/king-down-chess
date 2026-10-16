@@ -707,7 +707,8 @@ try {
     await page.evaluate(result => window.harnessShow(result),legacy);
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n,legacyReads);
     await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
-    await page.evaluate(() => { window.harnessWidgetState.privateContent.screen = 'seat'; });
+    // The setter, not an edit in place, so a frame write still in flight does not replace it.
+    await page.evaluate(() => { const saved = window.harnessWidgetState; window.harnessWidgetState = { ...saved, privateContent: { ...saved.privateContent, screen: 'seat' } }; });
     legacyReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     await remountFrame();
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n,legacyReads);

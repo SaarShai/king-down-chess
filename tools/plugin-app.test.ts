@@ -566,7 +566,8 @@ it('restores a saved End route to the board when the game still plays', async ()
   try {
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false } }); });
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
-    await page.evaluate(() => { (window as any).harnessWidgetState.privateContent.screen = 'end'; });
+    // The setter, not an edit in place, so a frame write still in flight does not replace it.
+    await page.evaluate(() => { const host = window as any, saved = host.harnessWidgetState; host.harnessWidgetState = { ...saved, privateContent: { ...saved.privateContent, screen: 'end' } }; });
     await page.locator('#remount').click();
     await frame.locator('body[data-page="board"]').waitFor();
     expect(await page.evaluate(() => (window as any).harnessView.status)).toBe('playing');

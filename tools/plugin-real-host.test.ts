@@ -105,6 +105,20 @@ it('starts the widget under its CSP when a clock step ends the boot delay', asyn
   } finally { await page.close(); }
 });
 
+it('keeps the state a check saves over a frame write that was still in flight', async () => {
+  const page = await open();
+  try {
+    const frame = await frameAt(page);
+    // The host gets the check's state first, then a write that the frame sent before it saw that state.
+    await frame.evaluate(() => { parent.postMessage({ harness: 'set', values: { harnessWidgetState: { check: true } } }, '*'); (window as any).openai.setWidgetState({ late: 1 }); });
+    await page.waitForFunction(() => (window as any).harnessWidgetStates.some((state: any) => state.late === 1) && (window as any).harnessWidgets[0].fence === undefined, undefined, POLL);
+    expect(await page.evaluate(() => (window as any).harnessWidgetState)).toEqual({ check: true });
+    // After the frame answers the fence, its writes replace the state again.
+    await frame.evaluate(() => (window as any).openai.setWidgetState({ late: 2 }));
+    await expect.poll(() => page.evaluate(() => (window as any).harnessWidgetState)).toEqual({ late: 2 });
+  } finally { await page.close(); }
+});
+
 it('keeps two live widgets on one game current, and the older widget writes only its own state', async () => {
   const page = await open('?frame-per-result');
   try {

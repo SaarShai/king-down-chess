@@ -5,11 +5,17 @@ const first = document.querySelector<HTMLIFrameElement>('iframe')!;
 const query = new URLSearchParams(location.search);
 // ChatGPT mounts a new widget for each tool result, and the old widgets stay live. ?frame-per-result does the same here.
 const perResult = query.has('frame-per-result');
-type Widget = { frame: HTMLIFrameElement; bridge?: AppBridge; initialResult?: any; calls: any[]; widgetState?: any; widgetStates: any[] };
+type Widget = { frame: HTMLIFrameElement; bridge?: AppBridge; initialResult?: any; calls: any[]; widgetState?: any; widgetStates: any[]; fence?: number };
 // Each widget has its own state, as in ChatGPT. The harnessWidgetState and harnessWidgetStates hooks are the newest widget's.
 const widgets: Widget[] = host.harnessWidgets = [{ frame: first, calls: [], widgetStates: [] }];
 const newest = () => widgets.at(-1)!;
-Object.defineProperty(host, 'harnessWidgetState', { configurable: true, get: () => newest().widgetState, set: value => { newest().widgetState = value; } });
+// A check that replaces the state must win over each write the frame sent before it, as when the frame wrote this page
+// directly. So the host sends the frame a fence, and keeps the check's state until the frame answers it.
+let fences = 0;
+Object.defineProperty(host, 'harnessWidgetState', { configurable: true, get: () => newest().widgetState, set: value => {
+  const widget = newest(); widget.widgetState = value; widget.fence = ++fences;
+  widget.frame.contentWindow?.postMessage({ harness: 'fence', id: widget.fence }, '*');
+} });
 Object.defineProperty(host, 'harnessWidgetStates', { configurable: true, get: () => newest().widgetStates, set: value => { newest().widgetStates = value ?? []; } });
 host.harnessBoots = 0;
 let matchId: string | undefined;
@@ -44,10 +50,12 @@ addEventListener('message', ({ source, data }) => {
   const widget = widgets.find(item => item.frame.contentWindow === source);
   if (!widget || typeof data?.harness !== 'string') return;
   const post = (message: object) => (source as Window).postMessage(message, '*');
-  if (data.harness === 'boot') post({ harness: 'boot', bootDelay: host.harnessBootDelay ?? 0, openai: !host.harnessWithoutWidgetState, widgetState: widget.widgetState });
+  if (data.harness === 'fence') { if (widget.fence === data.id) widget.fence = undefined; }
+  // A new page reads the check's state at boot, so its writes come after it.
+  else if (data.harness === 'boot') { widget.fence = undefined; post({ harness: 'boot', bootDelay: host.harnessBootDelay ?? 0, openai: !host.harnessWithoutWidgetState, widgetState: widget.widgetState }); }
   // The frame has set its boot timer, so a check may now step the page clock over it.
   else if (data.harness === 'booted') host.harnessBoots++;
-  else if (data.harness === 'widget-state') { if (!host.harnessDropWidgetWrites) widget.widgetState = data.state; widget.widgetStates.push(data.state); }
+  else if (data.harness === 'widget-state') { if (!host.harnessDropWidgetWrites && widget.fence === undefined) widget.widgetState = data.state; widget.widgetStates.push(data.state); }
   // A check's frame code sets host hooks (holdNext and the others) in order with the frame's next tool call.
   else if (data.harness === 'set') Object.assign(host, data.values);
   else if (data.harness === 'tool') callTool(widget, data.params).then(result => post({ harness: 'tool', id: data.id, result }), error => post({ harness: 'tool', id: data.id, error: String(error) }));

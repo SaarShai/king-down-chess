@@ -37,7 +37,8 @@ export function framePolicy(meta: UiMeta = {}) {
 // The widget page's window.openai. The page is on another origin, so the boot delay and the widget state come from the
 // host page by postMessage before the app code runs, and each write goes back the same way. ChatGPT also keeps the
 // state outside the frame: "Widget state belongs to one rendered UI instance" (developers.openai.com/apps-sdk/build/state-management).
-const FRAME_SHIM = `<script>window.harnessBoot = new Promise(resolve => {
+const FRAME_SHIM = `<script>addEventListener('message', event => { if (event.source === parent && event.data?.harness === 'fence') parent.postMessage(event.data, '*'); });
+window.harnessBoot = new Promise(resolve => {
   addEventListener('message', function boot(event) {
     const data = event.data;
     if (event.source !== parent || data?.harness !== 'boot') return;
