@@ -167,15 +167,30 @@ describe('stateless authenticated MCP HTTP', () => {
     for (const response of await Promise.all(pending)) { expect(response.status).toBe(200); await response.json(); }
     const retry = await post(get, bearers[0]); expect(retry.status).toBe(200); await retry.json();
   });
-  it('keeps two slots for other users after one user disconnects', async () => {
+  it('admits three overlapping board reads from one user', async () => {
+    let release!: () => void, entered!: () => void, count = 0;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const ready = new Promise<void>(resolve => { entered = resolve; });
+    const wait = async () => { if (++count === 2) entered(); await gate; };
+    vi.mocked(service.view).mockImplementation(async () => { await wait(); return view; });
+    vi.mocked(service.profile).mockImplementation(async () => { await wait(); return { user_id: alice, handle: null, icon: null }; });
+    const bearer = await token();
+    const pending = [post(get, bearer), post({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'kingdown_profile', arguments: {} } }, bearer)];
+    try {
+      await ready;
+      const games = await post({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'kingdown_games', arguments: {} } }, bearer);
+      const result = await games.json(); expect(games.status).toBe(200); expect(result.result.isError).not.toBe(true);
+    } finally { release(); for (const response of await Promise.all(pending)) await response.json(); }
+  });
+  it('keeps one slot for another user after a user disconnects', async () => {
     let release!: () => void, entered!: () => void, count = 0;
     const gate = new Promise<void>(resolve => { release = resolve; });
     const ready = new Promise<void>(resolve => { entered = resolve; });
     vi.mocked(service.view).mockImplementation(async actor => {
-      if (actor === alice) { if (++count === 2) entered(); await gate; }
+      if (actor === alice) { if (++count === 3) entered(); await gate; }
       return view;
     });
-    const bearer = await token(alice), other = await token(bob), controllers = [new AbortController(), new AbortController()];
+    const bearer = await token(alice), other = await token(bob), controllers = Array.from({ length: 3 }, () => new AbortController());
     const pending = controllers.map(controller => post(get, bearer, {}, controller.signal).catch(() => undefined));
     try {
       await ready; controllers.forEach(controller => controller.abort()); await Promise.all(pending);
@@ -183,7 +198,7 @@ describe('stateless authenticated MCP HTTP', () => {
       expect(limited.status).toBe(429); expect(limited.headers.get('Retry-After')).toBe('1');
       expect(await limited.json()).toMatchObject({ code: 'RATE_LIMITED' });
       const free = await post(get, other); expect(free.status).toBe(200); await free.json();
-      expect(service.view).toHaveBeenCalledTimes(3);
+      expect(service.view).toHaveBeenCalledTimes(4);
     } finally { release(); }
     await new Promise(resolve => setImmediate(resolve));
     const retry = await post(get, bearer); expect(retry.status).toBe(200); await retry.json();

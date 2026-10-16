@@ -4,7 +4,7 @@
 
 Each user has these limits: 120 Computer calls per minute, 30 Create calls per minute,
 60 Open calls per minute and 30 reports per hour. A refused call counts. The server returns
-`RATE_LIMITED` with the wait time. Each user can hold two of the four active HTTP slots.
+`RATE_LIMITED` with the wait time. Each user can hold three of the four active HTTP slots. The fourth stays available to another user.
 
 Short invite codes use HMAC-SHA-256 with `KINGDOWN_INTERNAL_SECRET`. Keep the same secret
 on every server instance and across restarts. An absent secret, or one shorter than 32

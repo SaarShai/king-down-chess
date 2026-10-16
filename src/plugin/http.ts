@@ -6,7 +6,8 @@ import { createPluginServer } from './server';
 
 export const MAX_MCP_BODY = 128 * 1024;
 export const MAX_ACTIVE_MCP = 4;
-export const MAX_ACTIVE_MCP_PER_USER = 2;
+// The board can overlap three reads; keep the fourth slot for another user.
+export const MAX_ACTIVE_MCP_PER_USER = 3;
 export interface PluginHttpOptions {
   service: Parameters<typeof createPluginServer>[0]['service'];
   resourceHtml: string;
