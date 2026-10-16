@@ -787,7 +787,9 @@ it('keeps the board quiet when a poll times out', async () => {
 });
 
 // The owner's item W6 a: after a remount, the page sends a waiting command again by itself and shows no error.
-const resent = (page: Page) => expect.poll(() => page.evaluate(() => (window as any).harnessWidgetState?.privateContent?.pending ?? null)).toBeNull();
+// These waits use the page's set wait (5 s), as each waitForFunction here does; a 1 s poll failed on the slower CI runner.
+const resent = (page: Page) => page.waitForFunction(() => ((window as any).harnessWidgetState?.privateContent?.pending ?? null) === null);
+const sentTimes = (page: Page, name: string, times: number) => page.waitForFunction(([name, times]) => (window as any).harnessCalls.filter((c: any) => c.name === name).length === times, [name, times] as const);
 it('sends a waiting move again by itself after a remount, with no error, and saves one move', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -796,7 +798,7 @@ it('sends a waiting move again by itself after a remount, with no error, and sav
     await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; void app.call('kingdown_move', { game_id: app.memory.view.game_id, command_id: 'remount-move', expected_revision: app.memory.view.revision, lan: 'e2-e4' }, true); });
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     await page.locator('#remount').click();
-    await expect.poll(() => sent(page, 'kingdown_move')).toBe(2);
+    await sentTimes(page, 'kingdown_move', 2);
     await resent(page);
     expect([await frame.locator('#error').textContent(), await frame.locator('#retry').isHidden()]).toEqual(['', true]);
     await page.evaluate(() => (window as any).releaseHeld());
@@ -947,7 +949,7 @@ it('sends a waiting move again after an inline remount, so the board shows no er
     await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, settings);
     await frame.locator('#home-play:not(:disabled)').waitFor();
     expect(await frame.locator('[data-screen="board"]').isHidden()).toBe(true);
-    await expect.poll(() => sent(page, 'kingdown_move')).toBe(2);
+    await sentTimes(page, 'kingdown_move', 2);
     await resent(page);
     // Later the player opens the board in fullscreen.
     await expand(page); await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('board'); });
@@ -1027,7 +1029,7 @@ it('frees Start on New game after an inline remount sends the waiting move again
     const settings = await sent(page, 'kingdown_settings');
     await page.locator('#remount').click();
     await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, settings);
-    await expect.poll(() => sent(page, 'kingdown_move')).toBe(2);
+    await sentTimes(page, 'kingdown_move', 2);
     await resent(page);
     await frame.locator('#home-play:not(:disabled)').click();
     await frame.locator('#play-new:not(:disabled)').click();
