@@ -240,4 +240,5 @@ it('keeps a short move and names the card or power use', () => {
   expect(shortMove(pos, {from:60,to:60,captures:[],power:'firewall'})).toBe('Black Firewall · king e8');
   expect(shortMove(pos, {from:60,to:60,captures:[],power:'firewall',via:'mirrorb'})).toBe('Black Mirror B · Firewall · king e8');
   expect(shortMove(pos, {from:60,to:47,captures:[],drop:1,power:'spawn'})).toBe('Black Spawn · adds pawn h6');
+  expect(shortMove(pos, {from:60,to:60,captures:[],pass:true})).toBe('Black ends turn · Haste');
 });

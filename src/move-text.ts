@@ -61,17 +61,18 @@ function checkPath(board: Uint8Array, from: number, king: number): Checker['path
   return 'straight';
 }
 
-/** One sentence for a screen reader: who moved what, and what it did. */
+/** A short line for the last move, with the card or power name. */
 export function shortMove(pre: Position, m: Move): string {
   const side = SIDE[pre.turn], name = nameOf(typeOf(pre.board[m.from]));
   const power = m.power ? `${m.via === 'mirrorb' ? 'Mirror B · ' : m.via ? 'Mirror · ' : ''}${TAG_POWER[m.power].replace(/([a-z])([A-Z])/g, '$1 $2')} · ` : '';
-  const action = m.pass ? 'ends turn'
+  const action = m.pass ? `ends turn · ${pre.free ? pre.marks?.[pre.turn] ? 'mark' : 'draw' : pre.rage === 3 ? 'Rally' : 'Haste'}`
     : m.drop !== undefined ? `adds ${nameOf(m.drop)} ${sqName(m.to)}${m.drop2 === undefined ? '' : `, ${sqName(m.drop2)}`}`
     : m.castle ? `castles ${file(m.to) === 6 ? 'short' : 'long'}`
     : `${name} ${sqName(m.from)}${m.from === m.to ? '' : ` ${m.swap ? '↔' : '→'} ${sqName(m.to)}`}${m.promo ? ` = ${nameOf(m.promo)}` : ''}${m.from === m.to && m.captures.length ? ` × ${m.captures.map(sqName).join(', ')}` : ''}`;
   return `${side} ${power}${action}`;
 }
 
+/** One sentence for a screen reader: who moved what, and what it did. */
 export function describeMove(pre: Position, m: Move, freePass = false, final = false): string {
   // The side is the one to move, not the piece on `from`: a Freeze names an enemy piece.
   const side = SIDE[pre.turn], piece = pre.board[m.from], name = nameOf(typeOf(piece));

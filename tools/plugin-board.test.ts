@@ -373,6 +373,7 @@ it.each([[320,568],[852,393]] as const)('keeps a short last move and its deadlin
   const next = view(toFen(step.pos), {}, {kind:'friend',history:{initial_fen,actions:['h7-h5']},deadline_at:'2026-10-15T18:00:00Z'});
   const page = await open(next, width, height), frame = page.frameLocator('iframe');
   try {
+    if (width > height) await page.evaluate(() => (window as any).harnessSetContext({safeAreaInsets:{top:59,bottom:34,left:0,right:0}}));
     expect(await frame.locator('#short-move-words').innerText()).toBe('Black pawn h7 → h5');
     expect(await frame.locator('#move-time-left').innerText()).toBe('18 h left');
     const line = (await frame.locator('#moves-line').boundingBox())!, board = (await frame.locator('#board').boundingBox())!;

@@ -344,6 +344,7 @@ body[data-touch='true'] #context-actions button { z-index: 2; }
 @container table-screen (max-height: 480px) {
   #game-table #moves-line :is(#last-move, .moves-label) { display: none; }
   #game-table #short-last-move { display: flex; min-width: 0; width: 100%; white-space: nowrap; font-size: 12px; }
+  #app-root #game-table #moves-line::after { top: 0; transform: translate(-50%, 0); }
   #short-move-words { overflow: hidden; text-overflow: ellipsis; }
   #move-time-left { flex-shrink: 0; }
   #move-time-left:not(:empty)::before { content: ' · '; }

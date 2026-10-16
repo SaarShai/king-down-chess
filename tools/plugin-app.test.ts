@@ -655,7 +655,7 @@ it('shows a failed board read once beside Try again and restores the same game',
     const message = 'Harness saved-game read failed';
     expect(await frame.locator('#error').textContent()).toContain(message);
     expect(await frame.getByText(message, { exact: true }).count()).toBe(1);
-    expect(await frame.locator('#status').textContent()).toBe('');
+    expect(await frame.locator('#status').textContent()).toBe('Not current');
     expect(await frame.locator('#error').evaluate(e => e.parentElement!.contains(document.getElementById('retry')))).toBe(true);
     await frame.getByRole('button', { name: 'Try again', exact: true }).click();
     await frame.locator('#retry').waitFor({ state: 'hidden' });
@@ -849,7 +849,7 @@ async function friendGame(page: Page) {
   await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
 }
 
-it('keeps the board quiet when a poll times out', async () => {
+it('marks the board Not current when a poll times out', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await friendGame(page);
@@ -860,8 +860,11 @@ it('keeps the board quiet when a poll times out', async () => {
     await page.clock.fastForward(10_001);
     await page.evaluate(() => (window as any).releaseHeldGet());
     await page.clock.runFor(100);
-    expect(await frame.locator('#error').textContent()).toBe('');
-    expect(await frame.locator('#retry').isHidden()).toBe(true);
+    expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
+    expect(await frame.locator('#status').textContent()).toBe('Not current');
+    expect(await frame.locator('#retry').isVisible()).toBe(true);
+    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_get', {since_revision:app.memory.view.revision}, false, true); });
+    await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
   } finally { await page.close(); }
 });
 
