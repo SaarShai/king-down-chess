@@ -91,18 +91,21 @@ html { font-variant-numeric: lining-nums; }
 .free { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: #3d6b1f; }
 /* The cards sheet: a card face in the Guide's piece-card look (vellum, stone edge, the art in a stone window). */
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: var(--space-2); }
-label.card-face {
+.card-face {
   position: relative; display: grid; grid-template-rows: auto 1fr; align-items: start; gap: 6px; min-height: 0; padding: 6px; cursor: pointer;
   background: linear-gradient(var(--vellum), #f4ead4); border: 1px solid var(--stone-300); border-radius: 12px; box-shadow: var(--shadow-card);
 }
-label.card-face:has(input:checked) { border-color: var(--stone-700); }
+.card-face:has(input:checked), .card-face[aria-pressed='true'] { border-color: var(--stone-700); transform: translateY(-3px); }
+.card-face { transition: transform 140ms; }
 label.card-face.out { opacity: .62; }
 .cf-art { display: grid; place-items: center; aspect-ratio: 16 / 9; overflow: hidden; border-radius: var(--radius); background: linear-gradient(#ddd6c6, #c9c0ae); box-shadow: inset 0 0 0 1px rgba(77, 69, 60, .35); }
 .cf-art img { width: 100%; height: 100%; object-fit: cover; }
+.cf-art .pm { width: 100%; height: 100%; opacity: 1; }
 .cf-art img.back { object-position: center 30%; opacity: .85; }
 .cf-word { font-family: var(--font-display); font-weight: 700; font-size: var(--fs-md); color: var(--stone-700); letter-spacing: .04em; text-align: center; padding: 0 6px; }
 .cf-text b { display: block; font-family: var(--font-display); font-size: var(--fs-md); letter-spacing: .03em; padding-right: 26px; }
 .cf-text small { display: block; font-size: var(--fs-xs); line-height: 1.35; color: var(--ink-soft); }
+.cf-cost { display: block; margin-top: 4px; font-size: var(--fs-xs); color: var(--ink); }
 label.card-face input { position: absolute; right: 10px; top: 10px; }
 /* ---- the table in the frame ---- */
 .frame #game-table { height: 100%; }
@@ -120,6 +123,9 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .coin-row { gap: 4px; }
 #game-table .player-strip { gap: 8px; }
 .coin.card-coin { width: 34px; height: 34px; overflow: hidden; }
+#strip-me .coin.card-coin { border-color: var(--gold-ink); --card-ring: var(--gold-ink); }
+#strip-them .coin.card-coin { border-color: var(--stone-700); --card-ring: var(--stone-700); }
+#game-table .coin.card-coin:not([data-state='armed']) { box-shadow: var(--lift), inset 0 0 0 2px var(--card-ring); }
 .coin.card-coin img { inset: 3px; width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
 .cc-word { position: absolute; inset: 0; color: var(--vellum) !important; text-shadow: 0 1px 2px rgba(0,0,0,.6); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--ink); }
 #game-table .coin:not(.card-coin) { width: 40px; height: 40px; }

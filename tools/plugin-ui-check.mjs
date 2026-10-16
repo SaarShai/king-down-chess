@@ -381,6 +381,8 @@ try {
     await frame.locator('#status').filter({ hasText: /Your move|Their move/ }).waitFor({ timeout: 5000 }); await boardBox();
     assert.equal((await setupTool('kingdown_settings'))._meta.settings.last_setup.king, null, 'Opening the king sheet without a pick keeps the server seat default');
     await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
+    const { checkCardChoices } = await import('./lib/plugin-cards-check.mjs');
+    await checkCardChoices(page, frame, setupMount, { ...baseSetup, options: { ...DEFAULT_OPTIONS, cards: true } }, DEAL_CARDS);
     await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, cards: true } }); await frame.locator('#setup-cards').click();
     assert((await frame.locator('label.card-face:has(input[value="Freeze"]) small').innerText()).startsWith('As your move, freeze'), 'Card text uses the rules of a game with king powers off');
     await frame.locator('#setup-done').click();
@@ -413,7 +415,7 @@ try {
     await frame.locator('#setup-done').click(); await frame.locator('#setup-cards').click();
     const keep = ['Freeze','IceWall','Strike','Haste'];
     for (const card of sampleSetup.options.cardPool.filter(c => !keep.includes(c))) await frame.locator(`.card-grid input[value="${card}"]`).uncheck();
-    assert.equal(await frame.locator('.card-grid input:checked:disabled').count(), 4, 'The last four cards lock');
+    assert.equal(await frame.locator('.card-grid input:checked:disabled').count(), 0, 'Cards do not lock at four');
     await frame.locator('.card-grid input[value="Leap"]').check(); assert(!await frame.locator('.card-grid input[value="Freeze"]').isDisabled());
     await frame.locator('#setup-done').click(); await frame.locator('#setup-king').click();
     assert.equal(await frame.locator('.emblem.is-out[aria-disabled="true"]').count(), 3, 'Cards exclude Frost, Flame and Stratus');
@@ -1265,6 +1267,8 @@ try {
   const cardBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
   const cardGame = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_create',arguments:{kind:'solo',colour:'white',board_id:cardBoard,options:{...DEFAULT_OPTIONS,arrangement:false,kingPowers:false,cards:true,cardPool:['Freeze','IceWall','MorphP','Vault']}}}})).json();
   assert(!cardGame.isError); await page.evaluate(r=>window.harnessShow(r),cardGame); await idleBoard(); await boardBox();
+  const { measureCardCoins } = await import('./lib/plugin-cards-check.mjs');
+  await measureCardCoins(frame, env('PLAYABLE_OUT'));
   const cardView = cardGame._meta.view; setRules(cardView.rules);
   const cardPos = fromFen(cardView.fen), cardLegal = legalMoves(cardPos).filter(m => cardView.legal.includes(toLan(cardPos,m))), hand = cardCoins(cardPos,cardView.seat,cardView.rules.hands[cardView.seat],cardLegal);
   const cardIndex = hand.findIndex(c=>c.moves.length); assert(cardIndex>=0,'The dealt hand has a card to play');

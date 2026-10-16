@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { readSetup, withToggle, createArguments, pieceLocked, cardLocked, withPiece, withCard, cleanKing, availablePowers, shownKing, soloChoice } from './setup-model';
+import { readSetup, withToggle, createArguments, pieceLocked, withPiece, withCard, cleanKing, availablePowers, shownKing, soloChoice } from './setup-model';
 import { DEFAULT_OPTIONS } from '../../match/setup';
 import type { View } from '../../match/protocol';
 
@@ -25,11 +25,21 @@ it('keeps hidden toggles, sends only visible choices and locks the last pool ent
   state = withPiece(state, 'Q', true);
   expect(pieceLocked(state.options, 'Q')).toBe(false);
   expect(pieceLocked(state.options, 'A')).toBe(true);
-  expect(cardLocked(state.options, 'Freeze')).toBe(true);
-  expect(withCard(state, 'Freeze', false).options.cardPool).toEqual(['Freeze','IceWall','Strike','Haste']);
+  expect(withCard(state, 'Freeze', false).options.cardPool).toEqual(['IceWall','Strike','Haste']);
   expect(withCard(state, 'Leap', true).options.cardPool).toEqual(['Freeze','IceWall','Strike','Haste','Leap']);
   expect(createArguments(state)).not.toHaveProperty('level');
   expect(createArguments(state)).not.toHaveProperty('king');
+});
+
+it('lets a card draft go below four and stops Pick four at four', () => {
+  let state: ReturnType<typeof readSetup> = { ...readSetup(null), options: { ...DEFAULT_OPTIONS, cards: true, cardPool: [] } };
+  for (const card of ['Freeze','IceWall','Strike','Haste'] as const) state = withCard(state, card, true, true);
+  expect(withCard(state, 'Leap', true, true)).toBe(state);
+  expect(withCard(state, 'Haste', true, true)).toBe(state);
+  state = withCard(state, 'Freeze', false, true);
+  expect(state.options.cardPool).toEqual(['IceWall','Strike','Haste']);
+  expect(withCard(state, 'Leap', true, true).options.cardPool).toEqual(['IceWall','Strike','Haste','Leap']);
+  expect(withCard(state, 'Leap', true).options.cardPool).toHaveLength(4);
 });
 
 it('restores saved choices and removes old lab pieces and Rescue from the pools', () => {
