@@ -81,6 +81,32 @@ describe('persistent study run coordinator', () => {
     expect(f.transport.status).toHaveBeenCalledTimes(2); expect(f.service.status(run.id).phase).toBe('attention-required');
     f.advance(36000000); await f.service.tick(); expect(f.transport.status).toHaveBeenCalledTimes(2); expect(f.transport.launch).toHaveBeenCalledTimes(1);
   });
+  it.each([false,true])('continues a dataset once and keeps the deadline when response loss is %s', async lost => {
+    const f = await fixture();
+    const freeze = f.options.freeze;
+    f.options.freeze = async (...args) => {const b=await freeze(...args); return {...b,parts:b.parts.filter(p=>p.machine==='kaggle')};};
+    f.transport.launch.mockRejectedValue(new Error('Dataset reply lost'));
+    const resume=vi.fn(async()=>{if(lost)throw new Error('Lost notebook response');return {remoteId:'remote',acceptedAt:new Date().toISOString()};});
+    f.options.transports.kaggle.continueDataset=resume;
+    const service=await createCoordinator(f.options), run=await service.prepare(document(),'kaggle');
+    await service.approve(run.id,randomUUID());await service.settle();
+    const folder=join(f.root,'results',run.id,'kaggle-part-kaggle');mkdirSync(folder);
+    writeFileSync(join(folder,'dataset-create.json'),JSON.stringify({state:'unknown'}));
+    const deadline=service.status(run.id).parts[0].deadline;
+    writeFileSync(join(folder,'notebook-attempt.json'),'{}');
+    expect(service.status(run.id).canContinueDataset).toBe(false);
+    await expect(service.continueDataset(run.id)).rejects.toThrow('unavailable');
+    rmSync(join(folder,'notebook-attempt.json'));
+    expect(service.status(run.id).canContinueDataset).toBe(true);
+    await service.continueDataset(run.id);await service.settle();
+    const restarted=await createCoordinator(f.options);
+    await expect(restarted.continueDataset(run.id)).rejects.toThrow('unavailable');
+    expect(resume).toHaveBeenCalledTimes(1);expect(f.transport.launch).toHaveBeenCalledTimes(1);
+    expect(service.status(run.id).parts[0].deadline).toBe(deadline);
+    await service.tick();expect(f.transport.status).not.toHaveBeenCalled();
+    f.advance();await service.tick();
+    expect(service.status(run.id)).toMatchObject({phase:'complete',backup:{state:'verified'}});
+  });
   it('collects a terminal part even while another part is running; backs up only after validation', async () => {
     const f = await fixture(), run = await f.service.prepare(document(), 'both');
     f.transport.status.mockResolvedValueOnce({ state: 'complete', completedGames: 2, remoteId: 'remote', message: '' }).mockResolvedValue({ state: 'running', completedGames: 1, remoteId: 'remote', message: '' });

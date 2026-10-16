@@ -38,6 +38,7 @@ export function mountRunPanel(body: HTMLElement, options: RunPanelOptions): () =
       ${current.phase === 'prepared' ? `<p class="study-run-approval">${esc(current.approvalText)}</p><button class="primary" data-runs="approve" ${busy || uncertain || !connected ? 'disabled' : ''}>Approve and start ${current.games} games</button>` : ''}
       ${current.phase === 'partial' ? '<p>The run is incomplete. These results do not meet the plan.</p>' : ''}
       ${['launch-unknown', 'attention-required'].includes(current.phase) ? '<p>This run needs attention. Refresh reads stored status. It does not launch work.</p>' : ''}
+      ${current.canContinueDataset ? `<p>Check the existing dataset and submit these ${current.games} games only if no notebook submission was attempted. Dataset creation is never repeated.</p><button data-runs="continue-dataset" ${disabled}>Verify dataset and continue ${current.games} games</button>` : ''}
       ${current.result ? `<button data-runs="review" ${disabled}>Review results</button>` : ''}
       <button data-runs="open" ${disabled}>Open run's original study</button>` : ''}
       <p>Time and cost estimates are not measured. Refresh reads stored observations.</p><button data-runs="close">Close</button>`;
@@ -88,6 +89,9 @@ export function mountRunPanel(body: HTMLElement, options: RunPanelOptions): () =
           if (!current || uncertain) return;
           try { remember(await client.approve(current.id, crypto.randomUUID())); }
           catch (error) { if (active) uncertain = true; throw error; }
+          break;
+        case 'continue-dataset':
+          if (current?.canContinueDataset) remember(await client.continueDataset(current.id));
           break;
         case 'review':
           if (current?.result) { const file = await client.result(current); if (active) options.link(file, current.result.filename); }

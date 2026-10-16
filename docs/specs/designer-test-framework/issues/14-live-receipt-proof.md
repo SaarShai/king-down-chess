@@ -1,6 +1,6 @@
 # Live browser proof of Kaggle receipts
 
-Status: needs-info
+Status: claimed
 Type: task
 Blocked by: dataset response identity cannot be confirmed
 
@@ -114,3 +114,9 @@ The live test is not complete. The exact conflicting response ref was not
 saved, so its cause remains unknown. There are zero verified games and no
 result export to link. No manual recovery or further remote query occurs.
 The follow-up closes with this blocker and the evidence preserved.
+
+## Renewed repair
+
+The owner requests dataset receipt repair and safe completion of this same
+two-game proof. Issue 15 records the repair and byte-verified existing dataset.
+The original blocked report stays intact. No dataset creation is repeated.

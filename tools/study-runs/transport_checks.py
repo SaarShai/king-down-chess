@@ -99,7 +99,7 @@ with tempfile.TemporaryDirectory() as temp:
     (mount/'source.bin').unlink();(root/'outside').write_bytes(b'archive');(mount/'source.bin').symlink_to(root/'outside')
     fails(lambda:loader.stage(bound,root/'input',root/'bad'))
 
-with tempfile.TemporaryDirectory() as temp, patch('time.sleep'), patch.object(kaggle, 'notebook_metadata', return_value=NS(id=42,ref='test/frozen-run',current_version_number=0,is_private=True)):
+with tempfile.TemporaryDirectory() as temp, patch('time.sleep'), patch.object(kaggle, 'dataset_metadata', return_value=NS(id=12616509,ref='test/frozen-data',is_private=True,current_version_number=1)), patch.object(kaggle, 'notebook_metadata', return_value=NS(id=42,ref='test/frozen-run',current_version_number=0,is_private=True)):
     root=Path(temp);(root/'run.py').write_text('small loader');data=root/'payload';data.mkdir()
     for name in ('source.bin','bundle.bin','supervisor.bin','config.bin'):(data/name).write_bytes(b'payload')
     calls=[]
@@ -119,6 +119,12 @@ with tempfile.TemporaryDirectory() as temp, patch('time.sleep'), patch.object(ka
         def dataset_status(self,ref,format=None):
             assert ref=='test/frozen-data'
             return '{"current_version_number":1}' if format else 'ready'
+        def dataset_list_files(self,ref,**kw):
+            assert ref=='test/frozen-data/1'
+            return NS(files=[NS(name=n,total_bytes=7) for n in ('source.bin','bundle.bin','supervisor.bin','config.bin')])
+        def dataset_download_file(self,ref,name,path,**kw):
+            assert ref=='test/frozen-data/1'
+            (Path(path)/name).write_bytes(b'payload')
         def kernels_push(self,folder,**kw):
             calls.append('push');meta=json.loads((Path(folder)/'kernel-metadata.json').read_text())
             assert meta['is_private'] and meta['dataset_sources']==['test/frozen-data']
@@ -143,6 +149,12 @@ with tempfile.TemporaryDirectory() as temp, patch('time.sleep'), patch.object(ka
     api.dataset_create_new=url_only
     assert kaggle.execute(api,request)['remoteId']=='test/frozen-run' and calls==['create','push']
     (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();(root/'notebook-attempt.json').unlink(missing_ok=True);(root/'notebook-response.json').unlink(missing_ok=True);calls.clear()
+    # A numeric dataset response identity must be bound by read-back, not rejected as a slug.
+    def numeric_ref(*args,**kw):
+        reply=create(*args,**kw);reply.ref='12616509';return reply
+    api.dataset_create_new=numeric_ref
+    assert kaggle.execute(api,request)['remoteId']=='test/frozen-run' and calls==['create','push']
+    (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();(root/'notebook-attempt.json').unlink(missing_ok=True);(root/'notebook-response.json').unlink(missing_ok=True);calls.clear()
     def uncertain_create(*args,**kw):
         calls.append('create');raise TimeoutError()
     api.dataset_create_new=uncertain_create
@@ -160,6 +172,7 @@ with tempfile.TemporaryDirectory() as temp, patch('time.sleep'), patch.object(ka
         (NS(status='Error',error='Please select a valid license',ref='',url='https://www.kaggle.com/'),'rejected'),
         (NS(status='error',error='sensitive service body',ref='',url=''),'rejected'),
         (NS(status='',error='',ref='test/frozen-data',url=''),'unknown'),
+        (NS(status='ok',error='',ref='999',url='https://www.kaggle.com/datasets/test/frozen-data'),'created'),
         (NS(status='ok',error='',ref='test/other',url='https://www.kaggle.com/datasets/test/frozen-data'),'unknown'),
         (NS(status='ok',error='',ref='',url='https://example.com/test/frozen-run'),'unknown'),
     ]:
@@ -174,6 +187,23 @@ with tempfile.TemporaryDirectory() as temp, patch('time.sleep'), patch.object(ka
         # A repeat cannot reach dataset creation, even after a response was lost.
         fails(lambda:kaggle.execute(api,request));assert calls==['create']
         (data/'dataset-metadata.json').unlink();(root/'dataset-create.json').unlink();(root/'notebook-attempt.json').unlink(missing_ok=True);(root/'notebook-response.json').unlink(missing_ok=True);calls.clear()
+    # Read-back must reject privacy/version/identity changes and corrupt bytes.
+    api=DatasetAPI(0)
+    for values in [dict(id=12616509,ref='test/other',is_private=True,current_version_number=1),dict(id=12616509,ref='test/frozen-data',is_private=False,current_version_number=1),dict(id=12616509,ref='test/frozen-data',is_private=True,current_version_number=2)]:
+        with patch.object(kaggle,'dataset_metadata',return_value=NS(**values)):
+            fails(lambda:kaggle.verify_dataset(api,root,'test/frozen-data'))
+    good_download=api.dataset_download_file
+    def corrupt(ref,name,path,**kw):(Path(path)/name).write_bytes(b'changed')
+    api.dataset_download_file=corrupt
+    fails(lambda:kaggle.verify_dataset(api,root,'test/frozen-data'))
+    api.dataset_download_file=good_download
+    (root/'dataset-create.json').write_text(json.dumps(dict(ref='test/frozen-data',state='unknown')))
+    calls.clear()
+    api.dataset_create_new=lambda *a,**kw: (_ for _ in ()).throw(AssertionError('creation repeated'))
+    continuation={**request,'action':'continue-dataset','deadline':kaggle.time.time()+3600}
+    assert kaggle.execute(api,continuation)['remoteId']=='test/frozen-run' and calls==['push']
+    fails(lambda:kaggle.execute(api,continuation));assert calls==['push']
+    assert json.loads((root/'dataset-create.json').read_text())['state']=='unknown'
     (root/'run.py').write_bytes(b'x'*1_000_000)
     with patch.object(kaggle,'audit') as audit:
         fails(lambda:kaggle.execute(api,request));audit.assert_not_called()

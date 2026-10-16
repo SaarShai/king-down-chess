@@ -13,6 +13,7 @@ export interface RemoteStatus {
 export interface RunTransport {
   preflight(input: DispatchInput): Promise<void>;
   launch(input: DispatchInput): Promise<RemoteReceipt>;
+  continueDataset?(input: DispatchInput, deadline: string): Promise<RemoteReceipt>;
   status(input: DispatchInput, receipt: RemoteReceipt | null): Promise<RemoteStatus>;
   collect(input: DispatchInput, receipt: RemoteReceipt | null, destination: string): Promise<void>;
 }

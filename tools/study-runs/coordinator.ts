@@ -19,6 +19,7 @@ export interface RunValidation {
 }
 interface RunRecord {
   summary: StudyRunSummary; document: ResearchDocument; bundle: CoordinatorBundle;
+  datasetContinuation?: string;
   key: string | null; queueWritten: boolean; receipts: Record<string, RemoteReceipt>;
   collected: string[]; lateChecks: Record<string, number>; resultPath: string | null;
   backupAttempted: boolean; collectionAttempts: Record<string, { count: number; next: number }>; validationAttempted: boolean;
@@ -71,6 +72,27 @@ export async function createCoordinator(options: CoordinatorOptions) {
   };
   const start = (promise: Promise<unknown>) => { background.add(promise); void promise.catch(() => {}).finally(() => background.delete(promise)); };
   function writable(): void { options.assertStorage(); }
+  function canContinueDataset(r: RunRecord): boolean {
+    if (!r.key || !r.queueWritten || r.datasetContinuation || r.backupAttempted || r.validationAttempted || r.summary.parts.length !== 1 || !['attention-required','launch-unknown'].includes(r.summary.phase)) return false;
+    const p = r.summary.parts[0], folder = join(directory(r.summary.id), 'kaggle-' + p.id);
+    if (p.machine !== 'kaggle' || p.state !== 'unknown' || !p.deadline || Date.parse(p.deadline) - now() < HOUR / 2 || r.receipts[p.id] || existsSync(join(folder, 'notebook-attempt.json')) || existsSync(join(folder, 'dataset-continuation.json'))) return false;
+    try { return ['attempted','unknown','created'].includes(readJSON<{state:string}>(join(folder,'dataset-create.json')).state); } catch { return false; }
+  }
+  function summary(r: RunRecord): StudyRunSummary { return {...structuredClone(r.summary), canContinueDataset:canContinueDataset(r)}; }
+  async function continueDataset(id: string): Promise<void> {
+    dispatching.add(id);
+    try { await store.locked(id, async () => {
+      const r = read(id), p = r.summary.parts[0];
+      try {
+        writable(); await options.verify(r.bundle, directory(id));
+        const receipt = await options.transports.kaggle.continueDataset!(input(r,p.id),p.deadline!);
+        r.receipts[p.id] = receipt; p.state = 'running'; p.error = null; r.summary.phase = 'running';
+      } catch (error) { p.state = 'unknown'; p.error = String(error); r.summary.phase = 'launch-unknown'; }
+      // A slow audit must not cause an early worker query.
+      p.nextCheckAt = new Date(now() + HOUR).toISOString(); r.lateChecks[p.id] = 0;
+      save(r); await updateQueue(r);
+    }); } finally { dispatching.delete(id); }
+  }
   async function preflight(r: RunRecord): Promise<StudyRunSummary> {
     r.summary.phase = 'preparing'; r.summary.error = null; save(r);
     try {
@@ -137,6 +159,7 @@ export async function createCoordinator(options: CoordinatorOptions) {
             const receipt = await options.transports[p.machine].launch(input(r, p.id));
             r.receipts[p.id] = receipt; p.state = 'running';
           } catch (error) { p.state = 'unknown'; p.error = String(error instanceof Error ? error.message : error); }
+          p.nextCheckAt = new Date(now() + HOUR).toISOString();
           save(r);
           // An uncertain submission must not trigger more submissions in this approval.
           if (p.state === 'unknown') {
@@ -259,8 +282,20 @@ export async function createCoordinator(options: CoordinatorOptions) {
       if (launch) start(dispatch(id));
       return summary;
     },
-    status(id: string) { return structuredClone(read(id).summary); },
-    list(studyId: string) { return store.ids().map(read).filter(r => r.summary.study.id === studyId).map(r => structuredClone(r.summary)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)); },
+    async continueDataset(id: string) {
+      const value = await store.locked(id, async () => {
+        const r = read(id);
+        if (!canContinueDataset(r) || !options.transports.kaggle.continueDataset) throw new Error('Dataset continuation is unavailable. No work is submitted.');
+        writable();
+        atomicJSON(join(directory(id),'dataset-continuation-before.json'),r);
+        r.datasetContinuation = time(); r.summary.phase = 'launching'; r.summary.error = null;
+        r.summary.parts[0].nextCheckAt = new Date(now() + HOUR * 1.5).toISOString();
+        save(r); return summary(r);
+      });
+      start(continueDataset(id)); return value;
+    },
+    status(id: string) { return summary(read(id)); },
+    list(studyId: string) { return store.ids().map(read).filter(r => r.summary.study.id === studyId).map(r => summary(r)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)); },
     document(id: string) { return structuredClone(read(id).document); },
     replays(id: string) {
       const r = read(id);

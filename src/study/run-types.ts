@@ -18,6 +18,7 @@ export interface StudyRunSummary {
   backup: { state: 'pending' | 'running' | 'verified' | 'failed'; message: string };
   result: { bytes: number; sha256: string; filename: string } | null;
   error: string | null;
+  canContinueDataset?: boolean;
 }
 export interface StudioSession {
   studioId: string; token: string; transportVerification: 'unverified';

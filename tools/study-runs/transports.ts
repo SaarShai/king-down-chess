@@ -80,9 +80,9 @@ export function createTransports(mainRoot:string, exec:Execute=execute):Record<'
       }
     }
   };
-  async function kaggleCall(action:string,i:DispatchInput,extra:Record<string,string>={}) {
+  async function kaggleCall(action:string,i:DispatchInput,extra:Record<string,string|number>={}) {
     check(i);const env={...process.env,KAGGLE_API_TOKEN:(await readFile(join(mainRoot,'.secrets/kaggle_api_token'),'utf8')).trim()};
-    const reply=JSON.parse(await exec('/Users/za/.local/share/uv/tools/kaggle/bin/python',[join(HERE,'kaggle-driver.py')],{input:JSON.stringify({action,name:notebookName(i),...extra}),env,timeout:action==='collect'?180000:action==='launch'?1800000:action==='preflight'?1020000:120000}));
+    const reply=JSON.parse(await exec('/Users/za/.local/share/uv/tools/kaggle/bin/python',[join(HERE,'kaggle-driver.py')],{input:JSON.stringify({action,name:notebookName(i),...extra}),env,timeout:action==='collect'?180000:['launch','continue-dataset'].includes(action)?1800000:action==='preflight'?1020000:120000}));
     if(reply.error)throw new Error(`Kaggle ${action}: ${String(reply.error).slice(0,160)}`);return reply;
   }
   async function kagglePayload(i:DispatchInput) {
@@ -109,6 +109,13 @@ export function createTransports(mainRoot:string, exec:Execute=execute):Record<'
       for(const [name,bytes] of Object.entries(files))await writeFile(join(data,name),bytes);
       await writeFile(join(folder,'run.py'),script);
       const reply=await kaggleCall('launch',i,{folder,datasetName:dataset});return {remoteId:reply.remoteId,acceptedAt:new Date().toISOString()};
+    },
+    async continueDataset(i,deadline){
+      const {files,script,dataset}=await kagglePayload(i), folder=join(i.directory,'kaggle-'+i.partId);
+      if((await readFile(join(folder,'run.py'),'utf8'))!==script)throw new Error('Frozen notebook differs');
+      for(const [name,bytes] of Object.entries(files))if(!(await readFile(join(folder,'payload',name))).equals(bytes))throw new Error('Frozen dataset differs');
+      const reply=await kaggleCall('continue-dataset',i,{folder,datasetName:dataset,deadline:Date.parse(deadline)/1000});
+      return {remoteId:reply.remoteId,acceptedAt:new Date().toISOString()};
     },
     async status(i,receipt):Promise<RemoteStatus>{try {const value=await kaggleCall('status',i,{folder:join(i.directory,`kaggle-${i.partId}`)});if(receipt&&receipt.remoteId!==value.remoteId)throw new Error('Wrong remote receipt');return {...value,completedGames:null,message:''};}catch{return {remoteId:receipt?.remoteId??notebookName(i),state:'unknown',completedGames:null,message:'Remote state is unavailable'};}},
     async collect(i,receipt,destination){await mkdir(destination,{recursive:true});const reply=await kaggleCall('collect',i,{destination,folder:join(i.directory,`kaggle-${i.partId}`)});if(receipt&&receipt.remoteId!==reply.remoteId)throw new Error('Wrong remote receipt');const out=join(destination,'out');try {for(const name of await readdir(out)){if(FILES.includes(name))await rename(join(out,name),join(destination,name));}}catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}}
