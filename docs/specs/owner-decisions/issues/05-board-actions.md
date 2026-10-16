@@ -1,6 +1,6 @@
 # Board actions and read failures
 
-Status: in-progress
+Status: resolved
 Type: task
 
 ## Scope
@@ -18,8 +18,8 @@ The owner asks for this build on 2026-10-15.
    the card or power name and time left.
 4. Keep the last board after a failed read. Show Not current and lock game
    actions until a good read. With no board after a remount, show Try again.
-5. Add tests for each part. Run the type check, unit tests and the browser
-   checks on the M1. Get two independent reviews. Fix each confirmed fault.
+5. Add tests for each part. Run the type check and unit tests. Run the
+   browser check on the M1. Get two independent reviews. Fix each fault.
 
 ## Choices
 
@@ -65,5 +65,12 @@ player controls beside it.
   tests pass.
 - First full test run: 159 files pass; 6 files fail. The failures include
   old status and size checks, the touch fault above, two 5 s timeouts and
-  a database test. The changed checks and the three other files run again.
-- Final UI tests and M1 browser check: pending.
+  a database test. The database file passes alone. The final full run
+  covers all three other files.
+- Final `npm test`: pass. Use `VITEST_MAX_WORKERS=1` and the local test
+  database. All 165 files pass: 2,569 tests pass, 8 skip. The 50 document
+  tests also pass. The test phase takes 852.88 s. No time limit changes.
+- M1 `npm run -s check:browser plugin-ui`: pass at `abd93a28`, 278.7 s.
+  The check keeps its 420 s limit. No server code changes, so this ticket
+  needs no `plugin-ui-http` check.
+- All four parts are built. No part is left open.
