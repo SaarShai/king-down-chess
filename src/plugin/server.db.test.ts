@@ -76,13 +76,13 @@ suite('ChatGPT tools on PostgreSQL', () => {
  it.each([
   ['kingdown_computer', 120, 60], ['kingdown_create', 30, 60], ['kingdown_open', 60, 60], ['kingdown_report', 30, 3600],
  ] as const)('limits %s for each user and resets its window', async (tool, count, seconds) => {
-  const actor = await user(`limit-${tool.slice(9)}`), player = await connect(actor);
+  const actor = await user(`cap-${tool.slice(9)}`), player = await connect(actor);
   const made = await player.ok('kingdown_create', { kind: 'solo', colour: 'black', level: 'beginner', options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } });
   let reportGame: string | undefined;
   if (tool === 'kingdown_report') {
    const games = new GameService(new PostgresMatchStore(admin));
    reportGame = (await games.create(actor, { kind: 'friend', options: DEFAULT_OPTIONS })).game_id;
-   await games.join(bob, (await games.invite(actor, reportGame)).token);
+   await games.join(await user('cap-peer'), (await games.invite(actor, reportGame)).token);
   }
   const args = tool === 'kingdown_computer' ? move(made) : tool === 'kingdown_create' ? { kind: 'solo' }
    : tool === 'kingdown_report' ? { game_id: reportGame, target: 'player', category: 'harassment' } : {};
@@ -100,7 +100,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
    (select count(*) from public.plugin_boards where actor_id=$1) as boards,
    (select count(*) from public.reports where reporter_id=$1) as reports,
    (select sum(revision) from public.games where created_by=$1) as revisions`, [actor]))[0]).toEqual(before);
-  const other = await user('limit-other');
+  const other = await user(`peer-${tool.slice(9)}`);
   await new PluginService(new PostgresMatchStore(admin)).toolTry(other, tool);
   expect((await rows('select tries from public.plugin_tool_tries where user_id=$1 and tool=$2', [other, tool]))[0].tries).toBe(1);
   await player.ok('kingdown_games');
@@ -139,7 +139,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
  });
 
  it('refuses short codes without a valid secret and keeps old long links usable', async () => {
-  const actor = await user('hmac-old'), guest = await user('hmac-old-guest'), store = new PostgresMatchStore(admin), games = new GameService(store);
+  const actor = await user('hmac-old'), guest = await user('old-guest'), store = new PostgresMatchStore(admin), games = new GameService(store);
   const game = (await games.create(actor, { kind: 'friend', options: DEFAULT_OPTIONS })).game_id;
   const { code, token } = await games.invite(actor, game);
   await admin.query('update public.game_invites set code_hash=$2 where game_id=$1', [game, createHash('sha256').update(code).digest('hex')]);

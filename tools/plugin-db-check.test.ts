@@ -18,7 +18,7 @@ describe('plugin startup checks and safe diagnostics', () => {
   expect(diagnostic({name:'private token',code:'private token',message:'private token'})).toEqual({name:'Error',code:'UNKNOWN'});
  });
  it('rejects an old schema, a missing grant and missing configured clients', async () => {
-  for (const code of ['42P01','42501']) await expect(checkPluginDatabase({query:vi.fn().mockRejectedValue(Object.assign(new Error('relation "public.games" does not exist'),{code}))},undefined,undefined)).rejects.toMatchObject({code:'SCHEMA_REQUIRED',message:expect.stringContaining('0005-0013')});
+  for (const code of ['42P01','42501']) await expect(checkPluginDatabase({query:vi.fn().mockRejectedValue(Object.assign(new Error('relation "public.games" does not exist'),{code}))},undefined,undefined)).rejects.toMatchObject({code:'SCHEMA_REQUIRED',message:expect.stringContaining('0005-0014')});
   await expect(checkPluginDatabase({query:vi.fn().mockResolvedValueOnce(probes(false))},undefined,undefined)).rejects.toMatchObject({code:'SCHEMA_REQUIRED'});
   for (const row of [{confdeltype:'c',games:true},{confdeltype:'n',games:false}]) await expect(checkPluginDatabase({query:vi.fn().mockResolvedValueOnce(probes()).mockResolvedValueOnce({rows:[row]})},undefined,undefined)).rejects.toThrow('0006');
   const query=vi.fn().mockResolvedValueOnce(probes()).mockResolvedValueOnce({rows:[{confdeltype:'n',games:true}]}).mockResolvedValueOnce({rows:[]});

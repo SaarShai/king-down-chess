@@ -24,4 +24,10 @@ Build ticket 18-d and 18-e only, on `claude/server-limits`. The owner gives the 
 
 ## Results
 
-Checks are pending. Parts 18-a, 18-b and 18-c belong to other lanes.
+- Code commit: `7d4cc85a`. The server diff is complete. No UI file changes.
+- `npx tsc --noEmit` passes.
+- The first full `npm test` run has 163 passing files, four failing files, 2,556 passing tests, six failing tests and eight skipped tests. The failures come from repeated test handles, an out-of-scope test helper, old schema error text, and an old account test that expects report deletion to have no grant. Role block 10 already permits deletion under the retention policy. The test now checks that recent reports stay.
+- The test fixes are complete. A full recheck waits for the shared test lock. Logs: `/tmp/kd-server-limits-recheck.log` and `.exit`.
+- M1 checks wait for the browser lock in `~/projects/kd-server-limits`. They use server code commit `7d4cc85a`. Logs on M1: `/tmp/kd-server-limits-m1.log` and `.exit`.
+
+Parts 18-a, 18-b and 18-c belong to other lanes.

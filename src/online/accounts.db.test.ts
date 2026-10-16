@@ -255,7 +255,7 @@ async function friend(host: string, guest: string) {
 
  it('gives the runtime role what the services need and no more', async () => {
   for (const statement of [
-   'select * from public.mod_actions', 'select note from public.reports', 'update public.reports set hold_until=null', 'delete from public.reports',
+   'select * from public.mod_actions', 'select note from public.reports', 'update public.reports set hold_until=null',
    "insert into public.reports(source,target,category) values('automatic','player','other')",
    "insert into public.reserved_handles(handle,reason) values('free-me','old')", 'delete from public.reserved_handles',
    'update public.account_deletions set done_at=now()', 'delete from public.account_deletions', 'update public.profiles set rating=1',
@@ -264,6 +264,8 @@ async function friend(host: string, guest: string) {
    'update public.account_deletions set requested_at=now() where false',
    'select avatar_url from public.profiles', 'select * from auth.sessions', 'update auth.users set banned_until=null',
   ]) await expect(runtime.query(statement), statement).rejects.toMatchObject({ code: '42501' });
+  // Role block 10 permits deletion, but its policy keeps every recent report.
+  expect((await runtime.query('delete from public.reports')).rowCount).toBe(0);
  });
 
  it('runs the owner command line over the same functions', async () => {

@@ -71,7 +71,7 @@ suite('migrations run again on a database in use', () => {
       try {
        const service = new PluginService(new PostgresMatchStore(pool));
        await service.toolTry(actor, 'kingdown_open');
-       expect((await rows('select tries from public.plugin_tool_tries where user_id=$1', [actor]))[0].tries).toBe(1);
+       expect((await admin.query('select tries from public.plugin_tool_tries where user_id=$1', [actor])).rows[0].tries).toBe(1);
        expect(await service.settings(actor)).toEqual({symbols_only:false,show_threats:false,show_online:false,last_setup:null});
        expect(await service.settings(actor,{show_online:true})).toMatchObject({show_online:true,symbols_only:false});
        expect(await service.settings(actor,{symbols_only:true})).toMatchObject({symbols_only:true,show_threats:false});
