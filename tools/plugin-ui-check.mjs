@@ -30,9 +30,9 @@ try {
     new MutationObserver(() => {
       for (const id of tableIds) if (document.querySelectorAll(`#${id}`).length > 1 && !window.harnessTableIdConflicts.includes(id)) window.harnessTableIdConflicts.push(id);
     }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['id'] });
-    // The harness holds each frame boot for this delay on the page clock; the count of boots lets remountFrame() see
-    // when a new frame has set its boot timer.
-    let boots = 0; Object.defineProperty(window, 'harnessBootDelay', { configurable: true, get: () => { window.harnessBoots = ++boots; return 300; } });
+    // The harness holds each frame boot for this delay on the page clock. The host counts each frame that has set its
+    // boot timer (harnessBoots), so remountFrame() sees when a new frame is ready for the clock step.
+    window.harnessBootDelay = 300;
     window.harnessArrowLines = [];
     window.harnessGhostSymbols = [];
     window.harnessSwapMarks = 0;
@@ -60,6 +60,8 @@ try {
   const mode = capabilities.mode;
   if (process.env.PLUGIN_EXPECT_MODE) assert.equal(mode, process.env.PLUGIN_EXPECT_MODE, 'Connected to the expected harness backend');
   const frame = page.frameLocator('iframe');
+  // The widget frame is on another origin, so the host page cannot read it: code that waits on the frame runs in it.
+  const widget = () => page.mainFrame().childFrames()[0];
   const options = {fairy:true,pool:['R','A','G','Q','M','S','O'],arrangement:false,classic:false,cards:false,cardPool:[],kingPowers:false};
 
   async function boardBox() {
@@ -85,7 +87,7 @@ try {
     const before = await page.evaluate(() => window.harnessBoots);
     await page.locator('#remount').click();
     await page.waitForFunction(n => window.harnessBoots > n, before);
-    const pageDate = () => page.evaluate(() => { document.querySelector('iframe').contentWindow.Date.now(); return Date.now(); });
+    const pageDate = async () => { await widget().evaluate(() => Date.now()); return page.evaluate(() => Date.now()); };
     await pageDate(); await page.clock.fastForward(300);
     await page.clock.setSystemTime(await pageDate() - 300);
   }
@@ -140,7 +142,7 @@ try {
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor({ timeout: 5000 });
   }
   async function openScreen(screen) { await openPlay(); await frame.locator(`[data-screen="play"] [data-nav="${screen}"]`).click(); }
-  async function idleBoard() { await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#reload')?.disabled === false); }
+  async function idleBoard() { await widget().waitForFunction(() => document.querySelector('#reload')?.disabled === false); }
   async function openMoveChoices() {
     if (await frame.locator('#board-sheet[open] h2').count() && await frame.locator('#board-sheet h2').innerText() === 'Choose a move') return;
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
@@ -168,7 +170,7 @@ try {
     });
     await remountFrame();
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
-    await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#reload').disabled === false);
+    await widget().waitForFunction(() => document.querySelector('#reload').disabled === false);
     await frame.locator('#retry').waitFor();
     await page.evaluate(fail => { window.requireHandleNext = true; window.failActionAfterHandle = fail; }, fail);
     await frame.locator('#retry').click(); await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
@@ -274,7 +276,7 @@ try {
       if(mode==='fixture') {
         assert.equal(await frame.locator('#profile-history li').first().locator('.feats use').count(),5);
         await frame.locator('#profile-more').click();
-        await page.waitForFunction(()=>document.querySelector('iframe').contentDocument.querySelectorAll('#profile-history li').length===23);
+        await widget().waitForFunction(()=>document.querySelectorAll('#profile-history li').length===23);
         assert.deepEqual(await page.evaluate(()=>window.harnessCalls.findLast(c=>c.name==='kingdown_profile').arguments),{before:data.next_before},'More sends the unchanged cursor');
         const ids=await frame.locator('#profile-history li').evaluateAll(rows=>rows.map(row=>row.dataset.gameId)); assert.equal(new Set(ids).size,23);
         await frame.locator('#profile-history li').last().scrollIntoViewIfNeeded(); assert((await frame.locator('#profile-history li').last().evaluate(controlBounds)).accessible,'The last row clears the composer');
@@ -615,7 +617,7 @@ try {
     await frame.locator('#setup-done').click();
     const initial = v.choices[0].order, r = initial.indexOf('R'), n = initial.indexOf('N');
     assert.equal(await frame.locator('#seat-context').innerText(), 'Select a marked piece to swap the knight with it.', 'The seat starts with the sample knight selected before a board tap');
-    await page.waitForFunction(() => document.querySelector('iframe').contentWindow.harnessSwapMarks > 0);
+    await widget().waitForFunction(() => window.harnessSwapMarks > 0);
     await seatFits('seat');
     await seatTap(r); assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), rankLine(swapped(initial,n,r),0));
     const beforePawn = await frame.locator('[data-seat-id="last-move"]').innerText(); await seatTap(0,true); assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), beforePawn, 'Pawns do not react');
@@ -642,7 +644,7 @@ try {
     await page.evaluate(() => { const v = window.harnessView; window.harnessNextView = { ...v, server_now: new Date(Date.parse(v.server_now) + 86400000).toISOString() }; });
     await frame.locator('body').evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await page.waitForFunction(() => !window.harnessNextView);
-    await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#seat-note').textContent.includes('2 days to choose'), undefined, { timeout: 3000 });
+    await widget().waitForFunction(() => document.querySelector('#seat-note').textContent.includes('2 days to choose'), undefined, { timeout: 3000 });
     assert.match(await frame.locator('#seat-them-line').innerText(), /2 days left/, 'An unchanged setup read refreshes both days-left lines');
     const state = await page.evaluate(() => window.harnessWidgetState);
     assert.deepEqual(Object.keys(state.privateContent).sort(), ['board_id','pending','screen','sheet']); assert.deepEqual(state.modelContent, {});
@@ -973,9 +975,13 @@ try {
     await remount('wait'); await frame.locator('#wait-cancel').click(); await frame.locator('[data-screen="lobby"]:not([hidden])').waitFor();
     await frame.locator('#lobby-status').filter({ hasText: /^$/ }).waitFor({ state: 'attached' });
     await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 1000));
-    await page.evaluate(() => { const push = window.harnessCalls.push; window.harnessCalls.push = function(call) { call.at = Date.now(); return push.call(this, call); }; window.ticket13Reads = []; window.ticket13Ids = new Set(); addEventListener('message', event => { if (event.data?.method === 'tools/call' && event.data.params?.name === 'kingdown_get') window.ticket13Ids.add(event.data.id); }); });
+    // The frame tells the host page of each reply it has handled; the host page counts the kingdown_get replies for the waiting game.
+    await page.evaluate(() => { const push = window.harnessCalls.push; window.harnessCalls.push = function(call) { call.at = Date.now(); return push.call(this, call); }; window.ticket13Reads = []; window.ticket13Ids = new Set(); addEventListener('message', event => {
+      if (event.data?.method === 'tools/call' && event.data.params?.name === 'kingdown_get') window.ticket13Ids.add(event.data.id);
+      if (event.data?.ticket13Reply !== undefined && window.ticket13Ids.delete(event.data.ticket13Reply) && event.data.game === window.ticket13WaitingId) { window.ticket13Reads.push(Date.now()); dispatchEvent(new Event('ticket13-read')); }
+    }); });
     await frame.locator('html').evaluate(() => addEventListener('message', event => {
-      if (parent.ticket13Ids.delete(event.data?.id) && event.data.result?._meta?.view?.game_id === parent.ticket13WaitingId) { parent.ticket13Reads.push(Date.now()); parent.dispatchEvent(new Event('ticket13-read')); }
+      if (event.source === parent && event.data?.result) parent.postMessage({ ticket13Reply: event.data.id, game: event.data.result._meta?.view?.game_id }, '*');
     }));
     const receipt = n => page.evaluate(n => new Promise(resolve => {
       if (window.ticket13Reads.length > n) resolve(); else addEventListener('ticket13-read', resolve, { once: true });
@@ -1044,7 +1050,7 @@ try {
   }
   async function boardSetting(id, checked) {
     await frame.locator('#'+id).setChecked(checked);
-    await page.waitForFunction(({id,checked})=>{const input=document.querySelector('iframe').contentDocument.getElementById(id); return !input.disabled && input.checked===checked;},{id,checked});
+    await widget().waitForFunction(({id,checked})=>{const input=document.getElementById(id); return !input.disabled && input.checked===checked;},{id,checked});
   }
   for (const scenario of ['threats','threats-black']) {
     const seeded = await seedBoard(scenario), plain = await pixels();
@@ -1058,7 +1064,7 @@ try {
     await frame.locator('canvas').evaluate(() => { window.harnessArrowLines = []; });
     const arrowBox = await boardBox(); await page.mouse.move(arrowBox.x+arrowBox.width/2, arrowBox.y+arrowBox.height/2);
     await frame.locator('canvas').evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
-    await page.waitForFunction(() => document.querySelector('iframe').contentWindow.harnessArrowLines.length > 0);
+    await widget().waitForFunction(() => window.harnessArrowLines.length > 0);
     const arrows = await frame.locator('canvas').evaluate((c, black) => {
       const square = ([x,y]) => { const col = Math.floor((x-32)/112), row = Math.floor((y-32)/112); return black ? 7-col+8*row : col+8*(7-row); };
       return [...new Set(window.harnessArrowLines.map(path => path.map(square).join(':')))].sort();
@@ -1108,7 +1114,7 @@ try {
   await seedBoard('swap');
   await frame.locator('canvas').evaluate(() => { window.harnessSwapMarks = 0; });
   await clickSquare(3, 3);
-  await page.waitForFunction(() => document.querySelector('iframe').contentWindow.harnessSwapMarks > 0);
+  await widget().waitForFunction(() => window.harnessSwapMarks > 0);
   assert(await frame.locator('#choices button').count() > 0, 'The Maester fixture offers a swap and PaintedView draws its violet mark');
   await shot(page, `shell-swap-${mode}`);
   await haste();
@@ -1533,7 +1539,7 @@ try {
     }, { base: routeBase, board_id: routeBoard, status, kind, options });
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
-    await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#reload').disabled === false);
+    await widget().waitForFunction(() => document.querySelector('#reload').disabled === false);
   }
   const routes = ['home','play','setup','friend','join','wait','lobby','seat','board','end','profile','collection','settings','handle'];
   assert.deepEqual(await frame.locator('[data-screen]').evaluateAll(els => els.map(el => el.dataset.screen).sort()), [...routes].sort());
@@ -1557,7 +1563,12 @@ try {
   const backgroundBefore = await frame.locator('#status').innerText(), binding = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
   const afterBinding = await frame.locator('html').evaluate(async (_, game_id) => {
     const { createClient } = await import('/src/plugin/client.ts');
-    const client = createClient({ callServerTool: request => parent.harnessTool(request) }, window.openai);
+    // The host page's harnessTool, through the harness postMessage hook (tools/plugin-ui-host.ts).
+    const callServerTool = params => new Promise((resolve, reject) => {
+      const id = Math.random(); addEventListener('message', function reply(event) { if (event.source !== parent || event.data?.harness !== 'tool' || event.data.id !== id) return; removeEventListener('message', reply); if (event.data.error) reject(new Error(event.data.error)); else resolve(event.data.result); });
+      parent.postMessage({ harness: 'tool', id, params }, '*');
+    });
+    const client = createClient({ callServerTool }, window.openai);
     await client.call('kingdown_get', { game_id, board_id: 'discard' }, { background: true }); return client.state.board_id;
   }, other._meta.view.game_id);
   assert.equal(afterBinding, binding);

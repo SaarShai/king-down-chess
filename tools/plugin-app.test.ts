@@ -48,6 +48,9 @@ it('reads a saved board at mount and shows Retry with the saved failure words', 
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white' }); });
+    // The friend screen opens after the host grants fullscreen. Its state write reaches the host page by postMessage,
+    // so the check waits for it before it replaces the saved state.
+    await page.waitForFunction(() => (window as any).harnessWidgetState?.privateContent?.screen === 'friend');
     await page.evaluate(() => {
       const host = window as any;
       host.harnessWidgetState = { modelContent: {}, privateContent: { screen: 'play', board_id: host.harnessWidgetState.privateContent.board_id, pending: { name: 'kingdown_create', args: { kind: 'friend' }, error: 'The reply was lost.', error_screen: 'play' } } };
@@ -397,7 +400,8 @@ it('updates activity on unchanged replies across the two-minute poll boundary', 
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
       await app.call('kingdown_create', { kind: 'friend', colour: 'white' });
-      (parent as any).harnessNextView = { ...app.memory.view, status: 'playing', speed: 'daily', turn: 1, seat: 0, opponent: { last_seen_ms: 119000 }, server_now: '2026-10-11T12:00:00Z' };
+      // The harness postMessage hook sets a host flag in order with the frame's next tool call.
+      parent.postMessage({ harness: 'set', values: { harnessNextView: { ...app.memory.view, status: 'playing', speed: 'daily', turn: 1, seat: 0, opponent: { last_seen_ms: 119000 }, server_now: '2026-10-11T12:00:00Z' } } }, '*');
       await app.call('kingdown_get', {});
     });
     const before = await frame.locator('html').evaluate(async () => {
@@ -407,7 +411,7 @@ it('updates activity on unchanged replies across the two-minute poll boundary', 
     expect(before).toBe(3000);
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
-      (parent as any).harnessNextView = { ...app.memory.view, opponent: { last_seen_ms: 121000 }, server_now: '2026-10-11T12:00:02Z' };
+      parent.postMessage({ harness: 'set', values: { harnessNextView: { ...app.memory.view, opponent: { last_seen_ms: 121000 }, server_now: '2026-10-11T12:00:02Z' } } }, '*');
       await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true, false);
     });
     expect(await frame.locator('html').evaluate(async () => {
@@ -1065,7 +1069,7 @@ it('opens the game of a chat result while the end screen of the last game still 
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
       await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true, true);
-      (window.parent as any).holdNext = 'kingdown_get';
+      parent.postMessage({ harness: 'set', values: { holdNext: 'kingdown_get' } }, '*');
     });
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     await frame.locator('[data-screen="end"]:not([hidden])').waitFor();
