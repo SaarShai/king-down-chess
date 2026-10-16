@@ -249,6 +249,36 @@ async function waitingFriendGame(page: Page) {
 const locks = (page: Page) => html(page).evaluate(() => ({ locked: (document.getElementById('home-play') as HTMLButtonElement).disabled, error: document.getElementById('error')!.textContent, home: document.getElementById('home-error')!.textContent }));
 
 it.each([
+  ['its reply comes late', 'holdNext'],
+  ['it reaches the server late', 'holdBeforeNext'],
+] as const)('reads and opens Seat after a chat result opens Board while Choose for the same game waits, and %s', async (_, hold) => {
+  const page = await open();
+  try {
+    await html(page).evaluate(async () => {
+      await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } });
+    });
+    const game = (await shownGame(page)).game as string;
+    expect((await tool(page, '/fixture-friend-tool', 'kingdown_accept', { game_id: game })).isError).toBeFalsy();
+    await html(page).evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
+    await page.frameLocator('iframe').locator('[data-screen="seat"]:not([hidden])').waitFor();
+    await page.evaluate(name => { (window as any)[name] = 'kingdown_choose'; }, hold);
+    await html(page).evaluate(() => {
+      const app = (window as any).harnessApp, view = app.memory.view;
+      void app.call('kingdown_choose', { game_id: view.game_id, command_id: 'mount-choose', expected_revision: view.revision, king: null, order: view.draw, ready: true }, true, false, false);
+    });
+    await page.waitForFunction(name => !!(window as any)[name === 'holdNext' ? 'releaseHeld' : 'releaseBefore'], hold);
+    const before = await reads(page);
+    const result = await tool(page, '/fixture-tool', 'kingdown_open', { game_id: game });
+    await nextWrite(page, () => page.evaluate(result => (window as any).harnessShow(result), result));
+    expect(await reads(page)).toBe(before);
+    await page.evaluate(release, hold);
+    await expect.poll(async () => ({ ...await shownGame(page), ...await locks(page) })).toEqual({ game, board: result._meta.board_id, screen: 'seat', locked: false, error: '', home: '' });
+    expect(await reads(page)).toBeGreaterThan(before);
+    expect(await html(page).evaluate(() => { const app = (window as any).harnessApp; return { status: app.memory.view.status, ready: app.memory.view.ready[app.memory.view.seat], pending: app.client.state.pending }; })).toEqual({ status: 'setup', ready: true, pending: undefined });
+  } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseBefore?.(); }); await page.close(); }
+});
+
+it.each([
   ['the shown game', 'shown', 'board'],
   ['the shown game, which waits for a friend', 'waiting', 'friend'],
   ['another game', 'other', 'board'],

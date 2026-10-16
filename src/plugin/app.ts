@@ -32,8 +32,8 @@ let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
 let readError = false;
 let busy = false, polling = false, mountReading = true, gamesDirty = false;
-// Ends when the command in flight (busy) ends; call skips a read while busy. busyGame is the game that command names.
-let commandDone = Promise.resolve(), endCommand = () => {}, busyGame: string | undefined;
+// Ends when the command in flight (busy) ends; call skips a read while busy.
+let commandDone = Promise.resolve(), endCommand = () => {};
 let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0, pollFailures = 0;
 let pending = state.pending;
 let handleBack: Screen = pending?.screen ?? 'settings';
@@ -100,7 +100,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
   const late = () => quiet && (busy || view !== before) || !!signal?.aborted;
   let followup: Pending | undefined, received: View | undefined;
   if (quiet) polling = true;
-  else { busy = true; busyGame = typeof args.game_id === 'string' ? args.game_id : undefined; commandDone = new Promise(resolve => { endCommand = resolve; }); actions(); $('error').textContent = ''; }
+  else { busy = true; commandDone = new Promise(resolve => { endCommand = resolve; }); actions(); $('error').textContent = ''; }
   if (retain) {
     if (pending?.name !== name || pending.args !== args) pending = { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen };
     pending.error = undefined; pending.error_screen = undefined; saveState();
@@ -228,9 +228,8 @@ async function mountResult(result: ToolResult, initial: boolean, signal: AbortSi
     // The server names the board for every game; the read routes by the game status (a game in setup opens the seat).
     const route = (value?.screen === undefined || value.screen === 'board') && (!initial || !savedScreen);
     const readBoard = state.board_id && (typeof value?.game_id === 'string' || initial && savedScreen);
-    // A command in flight would skip this read. The read waits for it (an aborted older read ends at once), so it shows last;
-    // only a command for the result's own game (a move) does not hold the mount, as its reply shows that game.
-    if (readBoard) while (busy && (!busyGame || busyGame !== value?.game_id)) await commandDone;
+    // A command in flight would skip this read, even for the same game. Wait, then read and route by the game status.
+    if (readBoard) while (busy) await commandDone;
     if (stale()) return;
     if (readBoard) await call('kingdown_get', {}, false, false, route, false, signal);
     else if (!result._meta?.view) view = undefined;
