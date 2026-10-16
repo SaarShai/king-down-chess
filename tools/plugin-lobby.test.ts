@@ -156,13 +156,14 @@ it('keeps the five-second wait budget through the computer handoff, then uses fi
         return result;
       };
     });
-    await start(page, 'random', true);
+    await start(page, 'random');
     const advance = async (ms: number) => {
       const n = await page.evaluate(() => (window as any).ticketReads.length);
       await page.clock.runFor(ms); await expect.poll(() => page.evaluate(() => (window as any).ticketReads.length)).toBe(n+1);
     };
     for (let i=0;i<5;i++) await advance(5000);
-    await frame.locator('#page-back').click(); await frame.locator('#play-open').click(); await frame.locator('#find-opponent').click();
+    // Any rules lets Find take back this open game, whose switches differ from the saved setup (D1 a).
+    await frame.locator('#page-back').click(); await frame.locator('#play-open').click(); await frame.locator('#find-any-row').click(); await frame.locator('#find-opponent').click();
     await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     const reads = await page.evaluate(() => (window as any).ticketReads.length);
     await frame.locator('#wait-computer').click();
