@@ -46,7 +46,9 @@ Work is in progress.
 - L3 adds the Sound device words. A mount restores the final card state;
   a live start can still deal. Tests cover both paths and Reduce Motion.
 - C1 keeps stone a and round coins. The prior base ticket records the
-  face and size checks. Ticket 03-hall owns the chest with the D3 presets.
+  face and size checks. Disabled controls now keep their stone image;
+  they keep the same disabled colours and flat edge. A unit test covers
+  this state. Ticket 03-hall owns the chest with the D3 presets.
 - J8 keeps the Beginner notes and their read tests.
 - Ticket 02-home owns J10. Ticket 06-end owns the full C4 actions and
   Skip. These parts stay in their named lanes.
@@ -82,6 +84,9 @@ The temporary test file is removed before the base HTTP check starts.
 
 - npx tsc --noEmit: pass.
 - The local single-file test waits for the shared test lock.
-- The M1 reproduction fails on the base. The base HTTP check runs next.
-  The M1 uses a loopback SSH tunnel to the given test database.
+- The M1 reproduction fails on the base. The base HTTP check fails at
+  the earlier Menu face assertion in 42.0 s. A computer turn disables
+  Menu. The disabled background shorthand removes the stone image.
+  The repair sets background-color and keeps that image. The check stays
+  unchanged. The M1 uses a loopback tunnel to the given test database.
 - No check time limit changes. No new taste choice.

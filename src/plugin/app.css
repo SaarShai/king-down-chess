@@ -324,7 +324,7 @@ body[data-touch='true'] #context-actions button { z-index: 2; }
   box-shadow: inset 0 2px 0 var(--brick-edge), inset 0 0 0 2px var(--brick-ring);
 }
 #app-root :is(button:not(:where(.coin, .preset, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):is(:disabled, [aria-disabled='true'], :has(> input:disabled)) {
-  color: var(--ink-soft); background: var(--stone-100); border-color: var(--stone-300);
+  color: var(--ink-soft); background-color: var(--stone-100); border-color: var(--stone-300);
   box-shadow: none; transform: none; opacity: 1;
 }
 @media (prefers-reduced-motion: reduce) {

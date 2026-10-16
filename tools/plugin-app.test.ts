@@ -343,6 +343,15 @@ it('keeps the opponent picked in the Play hall for the session', async () => {
     expect(await friend.isChecked()).toBe(true);
   } finally { await page.close(); }
 });
+it('keeps the stone face on a disabled control', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    expect(await frame.locator('#board-menu').evaluate(button => {
+      (button as HTMLButtonElement).disabled = true;
+      return getComputedStyle(button).backgroundImage;
+    })).toContain('stone-control');
+  } finally { await page.close(); }
+});
 it('names the turn on Resume and keeps the open game after a home remount', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
