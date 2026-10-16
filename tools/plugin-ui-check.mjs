@@ -722,9 +722,11 @@ try {
 
   async function fits(screen, width) {
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
-    if (screen === 'end') { await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' }); await page.clock.runFor(34); }
+    await idleBoard();
+    if (screen === 'end') await page.clock.runFor(34);
     // The full read replaces old rows and resets the registry scroll.
     if (screen === 'profile') await frame.locator('#profile-status').waitFor({ state: 'hidden' });
+    if (screen === 'play') await frame.locator('#games-status').filter({hasText:'Loading games…'}).waitFor({state:'hidden'});
     const layout = await frame.locator('body').evaluate(el => ({ overflow: el.scrollWidth > innerWidth, width: innerWidth, heading: getComputedStyle(document.querySelector(`[data-screen="${el.dataset.page}"] h2`) ?? el).fontFamily }));
     assert.equal(layout.overflow, false, `${screen} has no horizontal scroll at ${width}px`);
     assert(layout.width <= width);

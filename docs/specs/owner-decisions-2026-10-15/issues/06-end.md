@@ -105,3 +105,10 @@ Work starts from a clean worktree.
   page clears text entered before that read ends. The check helper
   now waits for the new mount's settings read and its ready state
   before it returns. The short tests and full checks verify this fix.
+- The remount probe fails twice, in 3.35 and 3.29 seconds. It passes
+  in 3.65 seconds with the ready-state wait. Remove the test probes.
+- The next fixture check passes in 221.2 seconds. The HTTP check
+  passes the friend-code step and all end checks, then fails a later
+  Play layout check. That remount path also measures before its read
+  ends. The layout probe now waits for the app and the Play games list
+  before it measures a control. Keep each bounds assertion.
