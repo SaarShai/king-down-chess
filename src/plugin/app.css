@@ -32,10 +32,14 @@ html { font-variant-numeric: lining-nums; }
 .group-head small { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; font-size: var(--fs-xs); }
 .quiet-line { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0 !important; }
 #layout-check { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0; overflow-wrap: anywhere; user-select: text; }
+/* A long press on the Settings title shows #layout-check (ticket 21): no text selection or callout takes the press. */
+#page-title { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .wide-btn { justify-content: center; min-height: 48px; margin-top: var(--space-3); font-size: var(--fs-lg); }
 .seg-line { margin: 8px 0 0; color: var(--ink-soft); }
 /* A second sheet over the first (the game's Menu sheet: a bottom sheet on a phone, centred on a wide screen). */
 .scrim { position: absolute; inset: 0; background: rgba(29, 25, 21, 0.55); backdrop-filter: blur(2px); }
+/* Above the page's raised controls (the Moves line, the status-row actions, the end header: z-index 1 to 3). */
+.frame :is(.scrim, .over-sheet) { z-index: 10; }
 .frame .over-sheet {
   position: absolute; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: calc(100% - 40px); height: auto;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -48,7 +52,8 @@ html { font-variant-numeric: lining-nums; }
 .lock-note { display: flex; gap: var(--space-2); align-items: flex-start; margin: 0 0 var(--space-3); padding: 8px 12px; font-size: var(--fs-sm); color: var(--gold-ink); background: rgba(201, 154, 62, .12); border: 1px solid rgba(122, 87, 18, .3); border-radius: var(--radius); }
 /* The menu's index rows (src/ui/table.css #menu-sheet .menu-row), with an art, a portrait or an icon at the start. */
 .page-sheet .menu-row, .over-sheet .menu-row {
-  position: relative; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 12px; align-items: center;
+  /* No shrink in a scrolling column: a shrunk row drew its divider through its second line. */
+  flex-shrink: 0; position: relative; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 12px; align-items: center;
   width: 100%; min-height: 60px; padding: 8px 32px 8px 0; text-align: left; font-size: 18px;
   background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none;
 }
@@ -126,6 +131,8 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .set-line { margin: -6px 0 6px !important; color: var(--ink-soft); font-size: var(--fs-sm); }
 .sym-demo { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; vertical-align: middle; }
 .sym-demo img { height: 36px; }
+/* The arrow between the samples is the rows' arrow icon (.menu-row > i): upright, 18 px, bold, in ink. */
+.sym-demo > i { font-style: normal; font-size: 18px; font-weight: 700; color: var(--ink); }
 .sym-demo .pi { width: 30px; height: 30px; }
 #handle-check-error:empty { display: none; }
 .presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: var(--space-2); margin-bottom: 16px; }
@@ -168,11 +175,17 @@ button.preset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 
 .code-row button { width: auto; min-width: 96px; justify-content: center; }
 .preset .portrait { display: block; width: 100%; height: 100%; }
 .page-sheet .sheet-head { display: flex; gap: 8px; align-items: center; padding: 12px 16px; flex: none; }
-.page-sheet .sheet-head h2 { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-sheet .sheet-head h2 { flex: 1; margin: 0; }
+/* Titles wrap; they are never cut. */
+.sheet-head h2, .frame #menu-sheet .sheet-head h2 { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+/* 200% zoom: the page title scales with its head, so words stay whole and the seat title keeps two lines at most.
+   It is never smaller than the body text, so it still grows with zoom (WCAG 1.4.4). */
+#page-head { container-type: inline-size; }
+@container (max-width: 285px) { #page-title { font-size: max(var(--fs-md), 7cqi); } }
 .page-sheet .sheet-head button { flex: none; width: auto; min-width: 44px; min-height: 44px; padding: 0 8px; justify-content: center; font-size: 14px; }
 .page-error { flex: none; }
 .page-error > button { margin: 0 16px 8px; width: auto; }
-body[data-touch='true'] button { min-height: var(--tap); }
+body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 @media (min-width: 900px) { .frame { --composer-gap: 128px; } body[data-page='board'] .page-sheet { width: min(900px, calc(100% - 48px)); } }
 
 #end-table { position: absolute; inset: 0; }
@@ -180,16 +193,25 @@ body[data-touch='true'] button { min-height: var(--tap); }
 #game-table #context-text { display: block; max-height: none; overflow: visible; }
 @media (max-width: 899px) and (orientation: portrait) {
 @container table-screen (max-height: 520px) {
-  #game-table { --context-height: 44px; grid-template-rows: 44px minmax(0, 1fr) 44px minmax(44px, max-content) 44px 0 44px; }
+  #game-table { --context-height: 44px; grid-template-rows: 44px minmax(var(--board-floor, 0px), 1fr) 44px minmax(var(--context-floor, 44px), max-content) 44px 0 44px; }
   #game-table #context-line { min-height: 44px; padding-block: 0; flex-wrap: nowrap; }
   #game-table #moves-line { height: 44px; min-height: 44px; }
   #game-table #table-bar { padding-block: 0; }
   #game-table #table-bar > button { min-height: 44px; flex-direction: row; }
 }
 @container table-screen (max-height: 420px) {
-  #game-table { grid-template-rows: 44px minmax(0, 1fr) 44px minmax(44px, max-content) 0 0 44px; }
+  #game-table { grid-template-rows: 44px minmax(var(--board-floor, 0px), 1fr) 44px minmax(var(--context-floor, 44px), max-content) 0 0 44px; }
   #game-table #moves-line { display: none; }
 }
+}
+/* 200% zoom (under 320 px): the board keeps the full width and a 210 px floor in the short table rows (a 197 px canvas
+   at 960/1024). The table keeps the screen height; only when the other rows leave less than the floor does it overflow,
+   and the screen scrolls (M1, review R1).
+   The context row then keeps its content height, so its buttons do not spill over the bar. */
+@media (max-width: 319px) and (orientation: portrait) {
+  .page-sheet > :is([data-screen='seat'], [data-screen='board'], [data-screen='end']) { overflow: hidden auto; }
+  #game-table { --board-floor: 210px; --context-floor: max-content; }
+  #game-table #board { width: 100%; }
 }
 @media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
   #game-table .table-side { overflow-y: auto; overscroll-behavior: contain; }
@@ -200,22 +222,26 @@ body[data-touch='true'] button { min-height: var(--tap); }
 }
 }
 @media (pointer: coarse) {
-  button { min-height: 44px; }
+  button, label { min-height: 44px; }
 }
 body[data-touch='true'] #game-table .coin, body[data-touch='true'] #game-table .coin.card-coin { width: 44px; height: 44px; min-height: 44px; }
 @media (pointer: coarse) {
   #game-table .coin, #game-table .coin.card-coin { width: 44px; height: 44px; min-height: 44px; }
 }
 /* Extend touch targets up, inside the frame, without changing art or rows. */
-body[data-touch='true'] button { position: relative; }
-body[data-touch='true'] button::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
+body[data-touch='true'] :is(button, .seg-row label, .fields > label) { position: relative; }
+body[data-touch='true'] .field { min-height: 48px; }
+body[data-touch='true'] .fields > label input { position: relative; z-index: 1; }
+body[data-touch='true'] :is(button, .seg-row label, .fields > label)::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
 body[data-touch='true'] #game-table .coin.card-coin { overflow: visible; }
 /* A hit layer extends up; each control keeps its own lower edge against the control below. */
 body[data-touch='true'] button#moves-line { z-index: 1; }
 body[data-touch='true'] #context-actions button { z-index: 2; }
 @media (pointer: coarse) {
-  button { position: relative; }
-  button::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
+  button, .seg-row label, .fields > label { position: relative; }
+  .field { min-height: 48px; }
+  .fields > label input { position: relative; z-index: 1; }
+  :is(button, .seg-row label, .fields > label)::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
   #game-table .coin.card-coin { overflow: visible; }
   button#moves-line { z-index: 1; }
   #context-actions button { z-index: 2; }

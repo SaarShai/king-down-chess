@@ -1,6 +1,6 @@
 import { call, client, memory, routeView, start } from '../app';
 import { art } from '../art';
-import type { WidgetHost } from '../client';
+import { errorText, type WidgetHost } from '../client';
 import { DEAL_CARDS, POOL_KINDS, type Options } from '../../match/setup';
 import { LETTERS, NAMES } from '../../rules/engine';
 import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
@@ -129,13 +129,14 @@ async function launch() {
   if (!draft || starting || client.state.pending) return;
   starting = true; ownCommand = true; render();
   // After a long wait, Back is a safe way out: the start stays pending, and Start sends no second Create.
-  const wait = setTimeout(() => { slow = true; render(); const back = $<HTMLButtonElement>('page-back'); back.dataset.free = ''; back.disabled = false; }, 10_000);
+  // The wait line comes before the 10 s command limit (client.ts), which ends the call with Retry.
+  const wait = setTimeout(() => { slow = true; render(); const back = $<HTMLButtonElement>('page-back'); back.dataset.free = ''; back.disabled = false; }, 5_000);
   try {
     const last_setup = { ...draft, options: setupOptions(draft.options) }, saved = await client.call('kingdown_settings', { last_setup });
     if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     memory.settings = saved._meta?.settings as typeof memory.settings;
     const view = await start(last_setup.kind, createArguments(last_setup), { route: false }); if (view) await finish(view, last_setup.king);
-  } catch (error) { $('error').textContent = error instanceof Error ? error.message : String(error); }
+  } catch (error) { $('error').textContent = errorText(error); }
   finally { clearTimeout(wait); starting = slow = false; delete $('page-back').dataset.free; if (!client.state.pending) ownCommand = false; render(); }
 }
 async function recoverStart() {
@@ -146,7 +147,7 @@ async function recoverStart() {
     await readGames();
     const view = await call(pending.name, pending.args, true, false, false, true);
     if (!active && view) await finish(view);
-  } catch (error) { $('error').textContent = String(error); }
+  } catch (error) { $('error').textContent = errorText(error); }
   finally { recovering = false; render(); }
 }
 new MutationObserver(() => {
@@ -158,7 +159,7 @@ new MutationObserver(() => {
   if (['board','friend','wait'].includes(client.state.screen)) { restoreHandled = true; return; }
   if (client.state.screen !== 'seat' || memory.view.kind !== 'solo' || memory.view.status !== 'setup') return;
   restoreHandled = true; ownCommand = true; draft ??= readSetup(memory.settings!.last_setup);
-  setTimeout(() => { void readGames().then(() => finish(memory.view!)).catch(error => { $('error').textContent = String(error); }); }, 0);
+  setTimeout(() => { void readGames().then(() => finish(memory.view!)).catch(error => { $('error').textContent = errorText(error); }); }, 0);
 }).observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
 // A failed start shows Retry; the start line then stops asking the player to wait.
 new MutationObserver(() => { if ($('setup-body').childElementCount) render(); }).observe($('retry'), { attributes: true, attributeFilter: ['hidden'] });
@@ -179,5 +180,4 @@ export function setupScreen() {
   render();
   if (client.state.sheet === 'pieces' || client.state.sheet === 'cards') poolSheet(client.state.sheet);
   else if (client.state.sheet === 'king') void pickKing();
-  if (!starting && !recovering && restoredSetup() && !client.state.pending?.error && ['kingdown_create','kingdown_find'].includes(client.state.pending?.name ?? '')) void recoverStart();
 }

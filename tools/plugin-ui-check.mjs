@@ -122,13 +122,14 @@ try {
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
     await frame.locator('#board-menu').click(); await frame.locator('#' + id).click();
   }
-  async function legacyStart(kind) {
+  // A chat-made game opens the screen of its status (U1): a waiting friend game opens its code screen.
+  async function legacyStart(kind, screen = 'board') {
     const board_id = await page.evaluate(() => window.harnessWidgetState?.privateContent?.board_id);
     const result = await (await page.request.post(new URL('/fixture-tool',base).href, { data: { name: 'kingdown_create', arguments: { kind, options, colour: 'white', board_id } } })).json();
     const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     assert(!result.isError); await page.evaluate(result => window.harnessShow(result), result);
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
-    await idleBoard(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await idleBoard(); await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
     return result;
   }
   async function handleGate(fail = false) {
@@ -209,11 +210,12 @@ try {
         const page=el.closest('.new-game-body'), registry=el.querySelector('.registry'), css=getComputedStyle(el);
         page.scrollTop=0; const top=el.getBoundingClientRect().top, bodyTop=page.getBoundingClientRect().top;
         page.scrollTop=page.scrollHeight; const bottom=el.getBoundingClientRect().bottom, bodyBottom=page.getBoundingClientRect().bottom; page.scrollTop=0;
-        return {top,bottom,bodyTop,bodyBottom,inner:registry.scrollHeight-registry.clientHeight,slice:css.borderImageSlice,source:css.borderImageSource};
+        return {top,bottom,bodyTop,bodyBottom,inner:registry.scrollHeight-registry.clientHeight,slice:css.borderImageSlice,width:css.borderImageWidth,source:css.borderImageSource};
       });
       assert(bounds.top>=bounds.bodyTop && bounds.bottom<=bounds.bodyBottom+1,'Each scroll roller shows in full at its end of the page');
       assert(bounds.inner<=1,'The scroll has no scroll area of its own');
-      assert.equal(bounds.slice,'96 68 100 fill','One rule keeps the two complete rollers and the side edges');
+      assert.equal(bounds.slice,'126 68 120 fill','One rule keeps the two complete rollers and the side edges');
+      assert.equal(bounds.width,'1.3125 1 1.2','The rollers and their shadows keep the art scale; only the flat parchment stretches');
       assert(bounds.source.includes('/scroll-'),'scroll.webp loads through the art helper');
     }
     async function capture(state,size,width,height) {
@@ -777,7 +779,7 @@ try {
   await openPlay();
   const newFriendId = await page.evaluate(() => window.harnessView.game_id);
   await frame.locator(`#games-list [data-game-id="${newFriendId}"]`).waitFor();
-  assert.equal(await frame.locator(`#games-list [data-game-id="${newFriendId}"] .row-title`).innerText(), 'Waiting for an opponent', 'Back shows the new game row');
+  assert.equal(await frame.locator(`#games-list [data-game-id="${newFriendId}"] .row-title`).innerText(), 'Waiting for a friend', 'Back shows the new game row');
   await legacyStart('solo');
   await idleBoard();
   await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
@@ -1429,8 +1431,8 @@ try {
   }
   if (capabilities.friend) {
     await openPlay();
-    await openPlay(); await legacyStart('friend'); await idleBoard();
-    await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
+    await openPlay(); await legacyStart('friend', 'friend'); await idleBoard();
+    await frame.locator('#friend-new').waitFor();
     await page.evaluate(() => { window.holdNextGet = true; });
     await page.waitForFunction(() => typeof window.releaseHeldGet === 'function');
     assert(await frame.locator('#page-back').isEnabled(), 'Background polling must not disable game controls');
@@ -1441,10 +1443,9 @@ try {
     await page.waitForFunction(() => window.heldGetReturned);
     await frame.locator('#status').evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     assert.match(await frame.locator('#status').innerText(), /Your move/, 'An old friend read must not replace the newly selected solo game');
-    await openPlay(); await legacyStart('friend'); await idleBoard();
-    await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
-    await menuAction('invite'); await idleBoard();
-    const code = /^Share this code: ([A-HJKMNP-Z2-9]{6})$/.exec(await frame.locator('#invitation').innerText())?.[1]; assert(code);
+    await openPlay(); await legacyStart('friend', 'friend'); await idleBoard();
+    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    const code = (await frame.locator('.game-code span').allTextContents()).join(''); assert.match(code, /^[A-HJKMNP-Z2-9]{6}$/);
     const joined = await friendTool('kingdown_join',{code});
     assert(!joined.isError, JSON.stringify(joined.content));
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
@@ -1548,7 +1549,7 @@ try {
       }
     }
     const waitingRow = frame.locator(`#games-list [data-game-id="${own._meta.view.game_id}"]`);
-    assert.equal(await waitingRow.locator('.row-title').textContent(), 'Waiting for an opponent');
+    assert.equal(await waitingRow.locator('.row-title').textContent(), 'Waiting for a friend');
     assert.match(await waitingRow.locator('.line').textContent(), /Just opened/);
     assert.equal(await waitingRow.locator('.row-ico use[href="#i-clock"]').count(), 1);
     const home = await tool('kingdown_open');

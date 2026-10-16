@@ -93,3 +93,7 @@ A second reader reviewed commit `7adaac11`. This section records the fixes for i
 - `npm run typecheck`: pass.
 - `npm run check:browser plugin-ui`: pass. The first run found a Setup draw before the Setup body existed; a guard fixed it.
 - No test limit changes. The full suite runs later on the M1.
+
+## Integration note
+
+The 10 s command limit (F31) ends a held Create at the same moment as the old 10 s wait line (F5), so the wait line never showed and two tests in `tools/plugin-menus.test.ts` failed. The wait line now shows after 5 s (`screens/setup.ts`); at 10 s the connection line and Retry follow. Both tests pass (9 of 9).

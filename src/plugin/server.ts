@@ -22,6 +22,9 @@ type Reply = { content: { type: 'text'; text: string }[]; structuredContent?: Re
 /** Who may call a tool (MCP Apps visibility) and its hints, which ChatGPT's review requires on every tool (report part 03, section 4.5). */
 interface Hints { visibility: ('model' | 'app')[]; readOnly?: boolean; destructive?: boolean; idempotent?: boolean; meta?: Record<string, unknown>; output?: z.ZodRawShape }
 const text = (value: string) => [{ type: 'text' as const, text: value }];
+/** A command on an old view (STALE_REVISION, or INVALID_MOVE after it): the board reads the game again at once, so the
+ *  words say what happened, not "Reload". The owner's pick (approval W7, option a); change the words here only. */
+const OPPONENT_MOVED = 'Your opponent moved. Check the board.';
 let page = { source: '', origin: '', html: '', uri: '' };
 /** The page with its art origin, and its URI. Hosts cache resources by URI, so a changed board must not reuse old
  *  controls. The HTTP handler makes a server for each request: the swap and the hash run once for each page and origin. */
@@ -63,7 +66,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     registerAppTool(server, name, { description, inputSchema, ...(output && { outputSchema: z.object(output).strict() }), annotations: { readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: idempotent, openWorldHint: false },
       _meta: { ...meta, ui: { ...(name === 'kingdown_open' && { resourceUri: boardResource }), visibility } } }, async (args: z.infer<z.ZodObject<T>>) => {
       try { return await run(args); }
-      catch (error) { const known = error instanceof MatchServiceError; if (!known || error.status >= 500) console.error('King Down tool failed', { tool: name, requestId: randomUUID(), ...diagnostic(error) }); return { isError: true, content: text(known ? error.message : 'Could not update the game. Retry or reload.'), _meta: { code: known ? error.code : 'INTERNAL_ERROR' } }; }
+      catch (error) { const known = error instanceof MatchServiceError; if (!known || error.status >= 500) console.error('King Down tool failed', { tool: name, requestId: randomUUID(), ...diagnostic(error) }); return { isError: true, content: text(!known ? 'Could not update the game. Retry or reload.' : ['STALE_REVISION', 'INVALID_MOVE'].includes(error.code) ? OPPONENT_MOVED : error.message), _meta: { code: known ? error.code : 'INTERNAL_ERROR' } }; }
     });
   }
   /** The position, the legal moves, the opponent's handle and presets go in `_meta`, which only the board reads.
@@ -115,10 +118,10 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       return result;
     });
   register('kingdown_create', 'Use this when the player wants a new King Down game against the computer, a friend or a random player. Choose the features, colour and computer level. Without options, uses the last setup options, then the default options. A board_id also changes that board’s selected game.',
-    { kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(), board_id: boardId },
-    { visibility: ['model', 'app'], idempotent: false }, ({ board_id, ...input }) => select(board_id, async () => {
+    { kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(), command_id: command.command_id.optional(), board_id: boardId },
+    { visibility: ['model', 'app'], idempotent: false }, ({ board_id, command_id, ...input }) => select(board_id, async () => {
       const options = input.options ?? (await service.settings(actorId)).last_setup?.options ?? DEFAULT_OPTIONS;
-      return input.kind === 'random' ? service.find(actorId, options, input.colour) : service.create(actorId, { ...input, options });
+      return input.kind === 'random' ? service.find(actorId, options, input.colour, command_id) : service.create(actorId, { ...input, options }, command_id);
     }));
   register('kingdown_resume', 'Show a selected game, or your most urgent game, on this board.', { board_id: z.string().uuid(), game_id: gameId.optional() }, { visibility: ['app'], idempotent: false }, async args => {
     if (args.game_id) return select(args.board_id, () => service.view(actorId, args.game_id!));
@@ -151,7 +154,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     return { content: text(`${lobby.games.length} open game${lobby.games.length === 1 ? '' : 's'}.`), structuredContent: { count: lobby.games.length }, _meta: { lobby: { ...lobby, server_now: new Date().toISOString() } } };
   });
   register('kingdown_accept', 'Take the open seat in a random game.', { game_id: gameId, board_id: boardId }, { visibility: ['app'] }, args => select(args.board_id, () => service.accept(actorId, args.game_id)));
-  register('kingdown_find', 'Take the oldest open game, or open your own.', { options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), board_id: boardId }, { visibility: ['app'], idempotent: false }, args => select(args.board_id, () => service.find(actorId, args.options, args.colour)));
+  register('kingdown_find', 'Take the oldest open game, or open your own.', { options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), command_id: command.command_id.optional(), board_id: boardId }, { visibility: ['app'], idempotent: false }, args => select(args.board_id, () => service.find(actorId, args.options, args.colour, args.command_id)));
   register('kingdown_cancel', 'Cancel your waiting random game with no result.', { game_id: gameId }, { visibility: ['app'], destructive: true }, async args => reply(await service.cancel(actorId, args.game_id)));
   register('kingdown_choose', 'Choose your king and back-rank order, then mark your seat Ready.', { ...command, king: choiceSchema.shape.king, order: choiceSchema.shape.order, ready: z.boolean() }, { visibility: ['app'] }, ({ king, order, ready, ...args }) => play(args, { type: 'choose', choice: { king, order }, ready }));
   register('kingdown_rematch', 'Offer, accept or decline a rematch. The reply stays on this game; resume the rematch to move the board.', { ...command, choice: z.enum(['offer', 'accept', 'decline']) }, { visibility: ['app'], destructive: true }, ({ choice, ...args }) => play(args, { type: 'rematch', choice }));
