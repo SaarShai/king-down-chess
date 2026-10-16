@@ -122,13 +122,14 @@ try {
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
     await frame.locator('#board-menu').click(); await frame.locator('#' + id).click();
   }
-  async function legacyStart(kind) {
+  // A chat-made game opens the screen of its status (U1): a waiting friend game opens its code screen.
+  async function legacyStart(kind, screen = 'board') {
     const board_id = await page.evaluate(() => window.harnessWidgetState?.privateContent?.board_id);
     const result = await (await page.request.post(new URL('/fixture-tool',base).href, { data: { name: 'kingdown_create', arguments: { kind, options, colour: 'white', board_id } } })).json();
     const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     assert(!result.isError); await page.evaluate(result => window.harnessShow(result), result);
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
-    await idleBoard(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await idleBoard(); await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
     return result;
   }
   async function handleGate(fail = false) {
@@ -1430,8 +1431,8 @@ try {
   }
   if (capabilities.friend) {
     await openPlay();
-    await openPlay(); await legacyStart('friend'); await idleBoard();
-    await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
+    await openPlay(); await legacyStart('friend', 'friend'); await idleBoard();
+    await frame.locator('#friend-new').waitFor();
     await page.evaluate(() => { window.holdNextGet = true; });
     await page.waitForFunction(() => typeof window.releaseHeldGet === 'function');
     assert(await frame.locator('#page-back').isEnabled(), 'Background polling must not disable game controls');
@@ -1442,10 +1443,9 @@ try {
     await page.waitForFunction(() => window.heldGetReturned);
     await frame.locator('#status').evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     assert.match(await frame.locator('#status').innerText(), /Your move/, 'An old friend read must not replace the newly selected solo game');
-    await openPlay(); await legacyStart('friend'); await idleBoard();
-    await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
-    await menuAction('invite'); await idleBoard();
-    const code = /^Share this code: ([A-HJKMNP-Z2-9]{6})$/.exec(await frame.locator('#invitation').innerText())?.[1]; assert(code);
+    await openPlay(); await legacyStart('friend', 'friend'); await idleBoard();
+    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    const code = (await frame.locator('.game-code span').allTextContents()).join(''); assert.match(code, /^[A-HJKMNP-Z2-9]{6}$/);
     const joined = await friendTool('kingdown_join',{code});
     assert(!joined.isError, JSON.stringify(joined.content));
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
