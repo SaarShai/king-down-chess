@@ -61,6 +61,19 @@ describe('app client', () => {
     await read;
     expect(client.state.board_id).toBe('new');
   });
+  it('keeps a board that a newer chat result set while a selection reply was late', async () => {
+    let release!: (value: { content: []; _meta: { board_id: string } }) => void;
+    const client = createClient({ callServerTool: async () => new Promise(resolve => { release = resolve; }) });
+    client.state.board_id = 'page';
+    const resumed = client.call('kingdown_resume', { game_id: 'tapped' });
+    client.state.board_id = 'chat';
+    release({ content: [], _meta: { board_id: 'page' } }); await resumed;
+    expect(client.state.board_id).toBe('chat');
+    // With no newer board, the reply sets its board.
+    const opened = client.call('kingdown_open', { game_id: 'game' });
+    release({ content: [], _meta: { board_id: 'new' } }); await opened;
+    expect(client.state.board_id).toBe('new');
+  });
 });
 
 it('binds foreground tools and leaves background reads outside the board', async () => {

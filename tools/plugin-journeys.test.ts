@@ -162,34 +162,99 @@ async function friendGame(page: Page) {
 }
 const shownGame = (page: Page) => html(page).evaluate(() => { const app = (window as any).harnessApp; return { game: app.memory.view?.game_id, screen: document.body.dataset.page, board: app.client.state.board_id }; });
 const SOLO = { kind: 'solo', colour: 'white', options: CLASSIC };
+const soloGame = async (page: Page) => (await tool(page, '/fixture-tool', 'kingdown_create', SOLO))._meta.view.game_id as string;
+// A mount selects the game of a result with no board; the host holds the first call to either selection tool.
+const SELECT = ['kingdown_open', 'kingdown_resume'];
+const release = (hold: string) => (window as any)[hold === 'holdNext' ? 'releaseHeld' : 'releaseBefore']();
+/** Runs in the host page: the frame shows this game on the board screen. */
+const shows = (game: string) => { const frame = document.querySelector('iframe')!.contentWindow as any; return frame.harnessApp.memory.view?.game_id === game && frame.document.body.dataset.page === 'board'; };
+/** From now on, records each page the frame shows and the board of each board read (a background read names none). */
+async function watch(page: Page) {
+  await html(page).evaluate(() => { const frame = window as any; frame.pages = []; new MutationObserver(() => frame.pages.push(document.body.dataset.page)).observe(document.body, { attributes: true, attributeFilter: ['data-page'] }); });
+  const mark = await page.evaluate(() => (window as any).harnessCalls.length);
+  return async () => ({ pages: await html(page).evaluate(() => (window as any).pages as string[]), reads: await page.evaluate(mark => (window as any).harnessCalls.slice(mark).filter((c: any) => c.name === 'kingdown_get' && c.arguments.board_id).map((c: any) => c.arguments.board_id) as string[], mark) });
+}
+/** Waits for the next widget write: a mount writes when it opens the screen of its result. */
+async function nextWrite(page: Page, show: () => Promise<unknown>) {
+  const writes = await page.evaluate(() => (window as any).harnessWidgetStates.length);
+  await show(); await page.waitForFunction(n => (window as any).harnessWidgetStates.length > n, writes);
+}
 
 it.each([
   ['a slow board selection reply, and the newer result opens a new board', 'holdNext', true],
-  ['a board selection that reaches the server late, and the newer result uses the same board', 'holdBeforeNext', false],
-] as const)('shows the newest chat result after %s', async (_, hold, newBoard) => {
+  ['a board selection that reaches the server late, and the newer result names no board', 'holdBeforeNext', false],
+] as const)('shows the newest chat result at once after %s, and the older result never reads', async (_, hold, newBoard) => {
+  const page = await open();
+  try {
+    const old = await friendGame(page), newer = await soloGame(page);
+    // The model aborts the shown game. Its result names the game but no board, so the page selects it; the host holds that.
+    const aborted = await tool(page, '/fixture-tool', 'kingdown_abort', { game_id: old.game });
+    expect(aborted._meta.board_id).toBeUndefined();
+    await page.evaluate(([name, tools]) => { (window as any)[name] = tools; }, [hold, SELECT] as const);
+    await page.evaluate(result => (window as any).harnessShow(result), aborted);
+    await page.waitForFunction(name => !!(window as any)[name === 'holdNext' ? 'releaseHeld' : 'releaseBefore'], hold);
+    // Then the model shows the new game: kingdown_open names a new board; a game summary names none.
+    const next = newBoard ? await tool(page, '/fixture-tool', 'kingdown_open', { game_id: newer }) : { content: [], structuredContent: { game_id: newer } };
+    const seen = await watch(page);
+    await page.evaluate(result => (window as any).harnessShow(result), next);
+    // The newer result does not wait for the older mount's call, which has no client time limit.
+    await page.waitForFunction(shows, newer, { timeout: 1500 });
+    await page.evaluate(release, hold);
+    await page.waitForTimeout(300);
+    const shown = await shownGame(page);
+    expect(shown).toMatchObject({ game: newer, screen: 'board' });
+    if (newBoard) expect(shown.board).toBe(next._meta.board_id);
+    // The older mount stops: it reads no board, so the aborted game's end screen never shows.
+    const { pages, reads } = await seen();
+    expect(pages).not.toContain('end');
+    expect(new Set(reads)).toEqual(new Set([shown.board]));
+    // The server agrees: the page's board selects the newer game, so the next read keeps it.
+    expect((await tool(page, '/fixture-tool', 'kingdown_get', { board_id: shown.board }))._meta.view.game_id).toBe(newer);
+  } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseBefore?.(); }); await page.close(); }
+});
+
+it.each([
+  ['its reply comes late', 'holdNext'],
+  ['it reaches the server late', 'holdBeforeNext'],
+] as const)('shows a chat result that comes while a game the player tapped selects, and %s', async (_, hold) => {
+  const page = await open();
+  try {
+    const { board } = await friendGame(page), tapped = await soloGame(page), chat = await soloGame(page);
+    // The player taps another game in Your games: the page selects it on its board.
+    await page.evaluate(name => { (window as any)[name] = 'kingdown_resume'; }, hold);
+    await html(page).evaluate((_, game_id) => { void (window as any).harnessApp.call('kingdown_resume', { game_id }); }, tapped);
+    await page.waitForFunction(name => !!(window as any)[name === 'holdNext' ? 'releaseHeld' : 'releaseBefore'], hold);
+    // Then a chat result for another game comes: a slow reply with kingdown_open's new board, or a late call with a game summary.
+    const result = hold === 'holdNext' ? await tool(page, '/fixture-tool', 'kingdown_open', { game_id: chat }) : { content: [], structuredContent: { game_id: chat } };
+    await nextWrite(page, () => page.evaluate(result => (window as any).harnessShow(result), result));
+    if (hold === 'holdBeforeNext') await page.waitForFunction(game => (window as any).harnessCalls.some((c: any) => c.name !== 'kingdown_get' && c.arguments?.game_id === game), chat);
+    await page.waitForTimeout(300);
+    await page.evaluate(release, hold);
+    await page.waitForFunction(shows, chat).catch(() => {});
+    await page.waitForTimeout(300);
+    const shown = await shownGame(page);
+    expect(shown).toMatchObject({ game: chat, screen: 'board' });
+    if (hold === 'holdNext') expect(shown.board).toBe(result._meta.board_id);
+    expect(shown.board).not.toBe(board);
+    // The server agrees: the page's board selects the chat game, so the next read keeps it.
+    expect((await tool(page, '/fixture-tool', 'kingdown_get', { board_id: shown.board }))._meta.view.game_id).toBe(chat);
+  } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseBefore?.(); }); await page.close(); }
+});
+
+it('keeps the shown game when a chat result for it comes while an older chat result reads', async () => {
   const page = await open();
   try {
     const old = await friendGame(page);
-    const made = await tool(page, '/fixture-tool', 'kingdown_create', SOLO), newer = made._meta.view.game_id as string;
-    // The model aborts the shown game. Its result names the game but no board, so the page selects it on its board.
-    const aborted = await tool(page, '/fixture-tool', 'kingdown_abort', { game_id: old.game });
-    expect(aborted._meta.board_id).toBeUndefined();
-    await page.evaluate(name => { (window as any)[name] = 'kingdown_resume'; }, hold);
-    await page.evaluate(result => (window as any).harnessShow(result), aborted);
-    await page.waitForFunction(name => !!(window as any)[name === 'holdNext' ? 'releaseHeld' : 'releaseBefore'], hold);
-    // Then the model shows the new game: kingdown_open makes a new board; a create result keeps the page's board.
-    const { screen, ...summary } = made.structuredContent;
-    const next = newBoard ? await tool(page, '/fixture-tool', 'kingdown_open', { game_id: newer }) : { ...made, structuredContent: summary };
-    await page.evaluate(result => (window as any).harnessShow(result), next);
-    const board = newBoard ? next._meta.board_id : old.board;
-    // The held call ends late: after the newer result shows its game, or after 1.5 s if the newer result waits for it.
-    const newerShown = ([game, board]: string[]) => { const app = (document.querySelector('iframe')!.contentWindow as any).harnessApp; return app.memory.view?.game_id === game && app.client.state.board_id === board; };
-    await page.waitForFunction(newerShown, [newer, board], { timeout: 1500 }).catch(() => {});
-    await page.evaluate(name => (window as any)[name === 'holdNext' ? 'releaseHeld' : 'releaseBefore'](), hold);
-    await page.waitForFunction(([game, board]) => { const app = document.querySelector('iframe')!.contentWindow as any; return app.harnessApp.memory.view?.game_id === game && app.harnessApp.client.state.board_id === board && app.document.querySelector('[data-screen="board"]:not([hidden])'); }, [newer, board]);
+    const other = await tool(page, '/fixture-tool', 'kingdown_open', { game_id: await soloGame(page) }), again = await tool(page, '/fixture-tool', 'kingdown_open', { game_id: old.game });
+    // The model opens another game, and the host holds the reply to its read. Then the model opens the shown game again.
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_get'; });
+    await page.evaluate(result => (window as any).harnessShow(result), other);
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await nextWrite(page, () => page.evaluate(result => (window as any).harnessShow(result), again));
     await page.waitForTimeout(300);
-    expect(await shownGame(page)).toEqual({ game: newer, screen: 'board', board });
-    // The server agrees: the page's board selects the newer game, so the next read keeps it.
-    expect((await tool(page, '/fixture-tool', 'kingdown_get', { board_id: board }))._meta.view.game_id).toBe(newer);
-  } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseBefore?.(); }); await page.close(); }
+    // The older read ends after the newer result; it does not show its game.
+    await page.evaluate(() => (window as any).releaseHeld());
+    await page.waitForTimeout(300);
+    expect(await shownGame(page)).toEqual({ game: old.game, screen: 'board', board: again._meta.board_id });
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });

@@ -24,10 +24,12 @@ async function mount() {
     if ((window as any).failNextAction && params.name !== 'kingdown_handle') { (window as any).failNextAction = false; throw new Error('Harness action after Save failed'); }
     if (params.name === 'kingdown_handle' && params.arguments?.check !== true) { if ((window as any).failActionAfterHandle) { (window as any).failActionAfterHandle = false; (window as any).failNextAction = true; } (window as any).harnessHandle = params.arguments; }
     // holdBeforeNext holds a call before the server runs it; holdNext (below) holds the reply after the server commits.
-    if ((window as any).holdBeforeNext === params.name) { (window as any).holdBeforeNext = undefined; await new Promise<void>(resolve => { (window as any).releaseBefore = () => { (window as any).releaseBefore = undefined; resolve(); }; }); }
+    // Each names one tool, or a list of tools for the first call to any of them.
+    const holds = (hold: unknown) => hold === params.name || (Array.isArray(hold) && hold.includes(params.name));
+    if (holds((window as any).holdBeforeNext)) { (window as any).holdBeforeNext = undefined; await new Promise<void>(resolve => { (window as any).releaseBefore = () => { (window as any).releaseBefore = undefined; resolve(); }; }); }
     const result = await invoke(params.name, params.arguments ?? {});
     if (params.name === 'kingdown_get' && (window as any).harnessNextView) { result._meta.view = (window as any).harnessNextView; (window as any).harnessView = result._meta?.view; (window as any).harnessNextView = undefined; }
-    if ((window as any).holdNext === params.name) { (window as any).holdNext = undefined; await new Promise<void>(resolve => { (window as any).releaseHeld = () => { (window as any).releaseHeld = undefined; resolve(); }; }); }
+    if (holds((window as any).holdNext)) { (window as any).holdNext = undefined; await new Promise<void>(resolve => { (window as any).releaseHeld = () => { (window as any).releaseHeld = undefined; resolve(); }; }); }
     if ((window as any).holdNextGet && params.name === 'kingdown_get') { (window as any).holdNextGet = false; await new Promise<void>(resolve => { (window as any).releaseHeldGet = () => { (window as any).releaseHeldGet = undefined; resolve(); }; }); (window as any).heldGetReturned = true; }
     if ((window as any).dropNextReply === params.name) { (window as any).dropNextReply = undefined; throw new Error('Harness lost reply after commit'); }
     if ((window as any).dropNextMoveReply && params.name === 'kingdown_move') { (window as any).dropNextMoveReply = false; throw new Error('Harness lost reply after commit'); }

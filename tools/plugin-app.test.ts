@@ -1069,7 +1069,7 @@ it('opens the game of a chat result while the end screen of the last game still 
     const solo = await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_create', arguments: { kind: 'solo', colour: 'black', level: 'beginner', options: { fairy: true, pool: ['R','B','N','G'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } } } })).json();
     expect(solo.isError).toBeFalsy();
     // The chat result for the new game selects it and reads it while the old game's read still waits.
-    await frame.locator('html').evaluate(() => { const client = (window as any).harnessApp.client, call = client.call; client.call = async (...args: any[]) => { const result = await call(...args); if (args[0] === 'kingdown_resume') (window as any).resumed = true; return result; }; });
+    await frame.locator('html').evaluate(() => { const client = (window as any).harnessApp.client, call = client.call; client.call = async (...args: any[]) => { const result = await call(...args); if (args[0] === 'kingdown_open') (window as any).resumed = true; return result; }; });
     const { screen, ...summary } = solo.structuredContent;
     await page.evaluate(result => (window as any).harnessShow(result, true), { ...solo, structuredContent: summary });
     await frame.locator('html').evaluate(() => new Promise<void>(resolve => { const check = () => setTimeout((window as any).resumed ? resolve : check, 10); check(); }));
@@ -1121,7 +1121,7 @@ it.each(['a join error', 'a game'])('lets the reads for a chat result with %s wa
     await expand(page);
     const game_id = shown === 'a game' ? await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_create', { kind: 'solo', colour: 'white' }); return app.memory.view.game_id; }) : undefined;
     await page.clock.install();
-    await page.evaluate(name => { (window as any).holdNext = name; }, game_id ? 'kingdown_resume' : 'kingdown_open');
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_open'; });
     await page.evaluate(game_id => (window as any).harnessShow(game_id ? { content: [], structuredContent: { screen: 'board', game_id } } : { isError: true, content: [{ type: 'text', text: 'Invitation expired or used' }], _meta: { code: 'INVITE_UNAVAILABLE' } }), game_id);
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     await page.clock.fastForward(20_000);
