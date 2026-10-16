@@ -13,7 +13,8 @@ test('each QA protocol line that reads the Display check line says how to show i
 
 test('the QA hall step names the current home actions, setup and menu rows', () => {
   const html = readFileSync('src/plugin/index.html', 'utf8');
-  const hall = readFileSync('docs/qa/plugin-qa-protocol.md', 'utf8').split('\n').find(line => line.startsWith('2. '))!;
+  const sequence = readFileSync('docs/qa/plugin-qa-protocol.md', 'utf8').split('## 3. Test sequence\n')[1];
+  const hall = sequence.split('\n').find(line => line.startsWith('2. '))!;
   expect(hall).toContain('**Quick-start hall.**');
   for (const id of ['home-play', 'home-games', 'games-head', 'setup-start']) {
     const control = new RegExp(`<[^>]+id="${id}"[^>]*>(.*?)</(?:button|h3)>`, 's').exec(html)![1];
