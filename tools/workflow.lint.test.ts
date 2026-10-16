@@ -57,3 +57,26 @@ describe('.github/workflows/test.yml', () => {
     expect(steps().at(-1)).toContain('- run: npm test');
   });
 });
+
+describe('.github/workflows/plugin-checks.yml', () => {
+  const workflow = readFileSync(join(import.meta.dirname, '..', '.github', 'workflows', 'plugin-checks.yml'), 'utf8');
+  const job = (name: string) => workflow.split(`\n  ${name}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0] ?? '';
+
+  it('runs WebKit in a separate job with its own install and the current time limit', () => {
+    const webkit = job('browser-webkit');
+    expect(webkit).toContain('timeout-minutes: 15');
+    expect(webkit).toContain('PLAYABLE_BROWSER: webkit');
+    expect(webkit).toContain('npx playwright install --with-deps webkit');
+    expect(webkit).not.toContain('needs:');
+    expect(job('browser')).toContain('npx playwright install --with-deps chromium');
+    expect(job('browser')).not.toContain('webkit');
+  });
+
+  it('runs the board, phone-size and widget checks on WebKit', () => {
+    const webkit = job('browser-webkit');
+    expect(webkit).toContain('- run: npm test');
+    expect(webkit).toContain("KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size}.test.ts'");
+    expect(webkit).toContain('- run: npm run check:browser plugin-ui');
+    expect(webkit).toContain('name: webkit-check-logs');
+  });
+});

@@ -5,14 +5,15 @@
 //   env(name)                 One of the three settings. A set environment variable wins; else the default:
 //                               PLAYABLE_URL      http://127.0.0.1:5189/
 //                               PLAYABLE_OUT      <outRoot>/by-hand/<check>, <check> is the script name without "verify-"
-//                               PLAYABLE_BROWSER  chromium when CLAUDE_CODE_REMOTE is "true", else chrome
+//                               PLAYABLE_BROWSER  webkit, or a Chromium channel; default chromium when
+//                                                 CLAUDE_CODE_REMOTE is "true", else chrome
 //                             An unknown name throws.
 //   outRoot                   The parent of the runner's output folders: <system temp folder>/kingdown-check-runs, never
 //                             in a checkout. The runner makes one folder a run under it (after-redesign/01).
 //   isInside(folder, path)    True when `path` is `folder` or a path inside it, after symbolic links resolve. A part
 //                             of `path` that does not exist yet stays as it is. The runner and the sample tool
 //                             (docs/specs/web-ux/capture.mjs) refuse an output folder inside the checkout with it.
-//   launch(options = {})      Opens the PLAYABLE_BROWSER channel; `options` go to Playwright's chromium.launch.
+//   launch(options = {})      Opens PLAYABLE_BROWSER; `options` go to that engine's launch method.
 //
 // Errors
 //   trapErrors(page, allow = [])
@@ -38,7 +39,7 @@
 //   shot(page, name, options = {})
 //                             Writes a screenshot to PLAYABLE_OUT/<name>.png (or the .jpg or .png name you give) and
 //                             returns the path. A name that goes outside PLAYABLE_OUT throws. `options` go to page.screenshot.
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
 import { tmpdir } from 'node:os';
 import { mkdirSync, realpathSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -68,8 +69,10 @@ export function env(name) {
   return process.env[name] || defaults[name]();
 }
 
-/** Opens the browser channel that PLAYABLE_BROWSER names. */
-export const launch = (options = {}) => chromium.launch({ channel: env('PLAYABLE_BROWSER'), ...options });
+/** Opens WebKit or the Chromium channel that PLAYABLE_BROWSER names. */
+export const launch = ({ channel = env('PLAYABLE_BROWSER'), ...options } = {}) => channel === 'webkit'
+  ? webkit.launch(options)
+  : chromium.launch({ channel, ...options });
 
 /** Measures the viewport and each element that matches the selector. */
 const measure = (page, selector) => page.evaluate(sel => {

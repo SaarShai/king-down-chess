@@ -3,7 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { chromium, type Browser, type Page } from 'playwright';
+import type { Browser, Page } from 'playwright';
+import { launch } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
@@ -17,7 +18,7 @@ beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-board-faults-'));
   execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe' });
   const boardPath = join(folder, 'board.html');
-  harness = await startHarness({ boardPath, sourcePage: true }); served = await startHarness({ boardPath }); browser = await chromium.launch({ headless: true });
+  harness = await startHarness({ boardPath, sourcePage: true }); served = await startHarness({ boardPath }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await served?.close(); await rm(folder, { recursive: true, force: true }); });
 

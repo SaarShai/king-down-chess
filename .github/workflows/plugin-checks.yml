@@ -84,3 +84,27 @@ jobs:
           name: check-logs
           path: /tmp/kingdown-check-runs/
           retention-days: 7
+
+  browser-webkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PLAYABLE_BROWSER: webkit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps webkit
+      - run: npm test
+        env:
+          KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size}.test.ts'
+      - run: npm run check:browser plugin-ui
+      - if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-check-logs
+          path: /tmp/kingdown-check-runs/
+          retention-days: 7

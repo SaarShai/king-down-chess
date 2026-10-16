@@ -29,7 +29,7 @@ ${rows.join('\n')}
 Each check gets three settings:
   PLAYABLE_URL      the address of the preview server
   PLAYABLE_OUT      <run folder>/<name>
-  PLAYABLE_BROWSER  your PLAYABLE_BROWSER if set, else the check's channel, else chromium when
+  PLAYABLE_BROWSER  webkit, or a Chromium channel; your value wins, else the check's channel, else chromium when
                     CLAUDE_CODE_REMOTE is "true", else chrome
 
 Output: one new folder for each run under ${outRoot}, printed at the start, with run.json and one
