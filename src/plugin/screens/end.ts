@@ -13,7 +13,7 @@ const read = new Set<string>(), resumed = new Set<string>();
 let updating = false, stopped = false, opening = false;
 let endGame: string | undefined, looking = false;
 let queuedRematch: { game: string; choice: 'offer' | 'accept' | 'decline' } | undefined;
-const button = (label: string, click: () => void) => { const b = document.createElement('button'); b.textContent = label; b.onclick = click; return b; };
+const button = (label: string, click: () => void) => { const b = document.createElement('button'); b.textContent = label; b.setAttribute('data-free',''); b.onclick = click; return b; };
 function closeEnd() {
   const error = document.querySelector('.page-error'); if (error) document.querySelector('.page-sheet')!.append(error);
   if ($('over').classList.contains('end-card')) { $<HTMLDialogElement>('over').close(); $('over').classList.remove('end-card'); }

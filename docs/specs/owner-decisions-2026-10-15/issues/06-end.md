@@ -79,3 +79,6 @@ Work starts from a clean worktree.
   screen for the same game, and only while that choice stays valid.
   Leaving the end screen clears it. Tests hold the read, press twice,
   and check one request after release or none after New game.
+- The fast-action test catches a short disabled state during the read.
+  End buttons now use the app's existing `data-free` flag. The queue
+  still sends one rematch. The test also checks that each action is on.

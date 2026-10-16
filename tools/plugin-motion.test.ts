@@ -76,6 +76,7 @@ it.each(['Play again', 'New game', 'See the board'])('uses %s during the ceremon
     await mate(page, frame); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
     const old = await page.evaluate(() => (window as any).harnessView.game_id);
     await frame.locator('#over[open]').waitFor();
+    expect(await frame.locator('#over').getByRole('button', { name: action, exact: true }).isEnabled()).toBe(true);
     // Use the handler before a CSS rise can delay a pointer click.
     await frame.locator('#over').getByRole('button', { name: action, exact: true }).evaluate((b: HTMLButtonElement) => b.click());
     expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
