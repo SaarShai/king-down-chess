@@ -117,7 +117,8 @@ export async function call(name: string, args: Record<string, unknown>, retain =
   try {
     let result: ToolResult | undefined;
     if (retry && pending) result = await resendPending(pending);
-    result ??= await client.call(name, args, { signal });
+    // A mount read (signal) keeps the SDK's own limit, as the mount's other reads do.
+    result ??= await client.call(name, args, { signal, limit: !signal });
     if (mountReading && name === 'kingdown_get' && pending && ['kingdown_create', 'kingdown_find'].includes(pending.name)) {
       const recovered = await resendPending(pending, result);
       if (recovered) { name = pending.name; retain = true; route = undefined; result = recovered; }
@@ -128,7 +129,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     if (!quiet && SELECTION_TOOLS.includes(name) && typeof selected === 'string' && selected !== state.board_id) { if (retain) { pending = undefined; saveState(); router.finishStart(); } return; }
     const read = (result._meta as { view?: View } | undefined)?.view;
     if (name === 'kingdown_get' && read?.fen && !read.rules && rules?.game !== read.game_id) {
-      result = await client.call('kingdown_get', {}, { signal });
+      result = await client.call('kingdown_get', {}, { signal, limit: !signal });
       if (late()) return;
     }
     if (result.isError) {
@@ -212,6 +213,8 @@ app.ontoolresult = result => {
 async function mountResult(result: ToolResult, initial: boolean, signal: AbortSignal) {
   mountReading = true; actions();
   const stale = () => signal.aborted;
+  // A command refusal from here on stays visible after the board read clears the error line.
+  const errors = shownError.count;
   try {
     await connection;
     if (stale()) return;
@@ -248,7 +251,6 @@ async function mountResult(result: ToolResult, initial: boolean, signal: AbortSi
     const route = (value?.screen === undefined || value.screen === 'board') && (!initial || !savedScreen);
     const readBoard = state.board_id && (typeof value?.game_id === 'string' || initial && savedScreen);
     // A command in flight would skip this read, even for the same game. Wait, then read and route by the game status.
-    const errors = shownError.count;
     if (readBoard) while (busy) await commandDone;
     if (stale()) return;
     if (readBoard) {

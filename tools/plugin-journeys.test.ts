@@ -444,6 +444,29 @@ it.each(['same game', 'other game', 'failed read'] as const)('keeps a command re
     expect((await shownGame(page)).board).toBe(chat._meta.board_id);
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
+it('keeps a command refusal that arrives while a chat result with no board selects one', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await soloBoard(page);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    const game = (await shownGame(page)).game!;
+    await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_move'; });
+    await html(page).evaluate(() => {
+      const app = (window as any).harnessApp, v = app.memory.view;
+      void app.call('kingdown_move', { game_id: v.game_id, command_id: 'refused-during-select', expected_revision: v.revision, lan: 'e2-e5' }, true);
+    });
+    await page.waitForFunction(() => !!(window as any).releaseBefore);
+    // The result names no board, so the mount selects one for its game; the reply of that selection waits.
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_open'; });
+    await page.evaluate(game_id => (window as any).harnessShow({ content: [], structuredContent: { game_id } }), game);
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await page.evaluate(() => (window as any).releaseBefore());
+    await frame.locator('#error').filter({ hasText: 'This move is not available.' }).waitFor();
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('#home-play:not(:disabled)').waitFor({ state: 'attached' });
+    expect(await frame.locator('#error').textContent()).toBe('This move is not available. Choose another move.');
+  } finally { await page.evaluate(() => { (window as any).releaseBefore?.(); (window as any).releaseHeld?.(); }); await page.close(); }
+});
 
 it.each([
   ['Join', 'profile', false], ['Join', 'game', false], ['Accept', 'profile', false], ['Accept', 'game', false],

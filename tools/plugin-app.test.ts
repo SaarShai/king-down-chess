@@ -1304,6 +1304,22 @@ it.each(['a join error', 'a game'])('lets the reads for a chat result with %s wa
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
+it('lets the board read for a chat result with a game wait past 10 seconds', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    const game_id = await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_create', { kind: 'solo', colour: 'white' }); return app.memory.view.game_id; });
+    await page.clock.install();
+    // holdBeforeNext takes the next call that starts, so a poll read that is already on its way is not held.
+    await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_get'; });
+    await page.evaluate(game_id => (window as any).harnessShow({ content: [], structuredContent: { screen: 'board', game_id } }), game_id);
+    await page.waitForFunction(() => !!(window as any).releaseBefore);
+    await page.clock.fastForward(20_000);
+    await page.evaluate(() => (window as any).releaseBefore());
+    await frame.locator('#page-back:not(:disabled)').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe('');
+  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+});
 
 it.each([true, false])('keeps a saved setting when the first settings reply comes late (new result has settings: %s)', async carriesSettings => {
   const page = await open(), frame = page.frameLocator('iframe');
