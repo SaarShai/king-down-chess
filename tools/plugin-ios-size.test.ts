@@ -340,7 +340,7 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
     const { page, frame } = await hostPage(197, 426, 51, 59), all = features.length > 1;
     try {
       await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
-      for (const name of features) await frame.getByRole('checkbox', { name, exact: true }).check();
+      for (const name of ['Fairy pieces', 'Arrangement', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).setChecked(features.includes(name));
       await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
       await frame.locator('#board[aria-busy="false"]').waitFor();
       expect(await canvasWidth(frame), all ? 'all-features seat' : 'seat').toBeGreaterThanOrEqual(192);
