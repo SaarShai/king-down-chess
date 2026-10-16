@@ -398,6 +398,26 @@ it('finds a joined random game when the computer page mounts again', async () =>
   } finally { await page.close(); }
 });
 
+it('locks the Join input until a saved screen finishes its mount read', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const made = await buddy(page, 'kingdown_create', { kind: 'friend', options, colour: 'black' });
+    const invite = await buddy(page, 'kingdown_invite', { game_id: made._meta.view.game_id });
+    await start(page, 'solo');
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('join'));
+    await page.evaluate(() => { (window as any).holdNextGet = true; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeldGet);
+    expect(await frame.locator('#join-code').isDisabled()).toBe(true);
+    expect(await frame.locator('#join-entry button').isDisabled()).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeldGet());
+    await frame.locator('#join-code:not(:disabled)').waitFor();
+    await frame.locator('#join-code').fill(invite.structuredContent.code);
+    await frame.locator('#join-entry button').click();
+    await frame.locator('#join-confirm').waitFor();
+  } finally { await page.evaluate(() => (window as any).releaseHeldGet?.()); await page.close(); }
+});
+
 it('keeps a bad code, hides the review and gives words for each code error', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

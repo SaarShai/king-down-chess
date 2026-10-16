@@ -69,6 +69,7 @@ function actions() {
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
   $<HTMLButtonElement>('setup-start').disabled ||= setupBusy();
   homeActions();
+  $<HTMLInputElement>('join-code').disabled = blocked;
   $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = blocked || !memory.settings;
 }
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
