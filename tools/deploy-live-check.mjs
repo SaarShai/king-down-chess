@@ -2,7 +2,7 @@
 // (secrets-and-public-gates/10). tools/deploy.sh runs it after the publish step.
 //
 // It passes when the live home page loads the same bundle (the module entry script of index.html) as
-// the build, and the privacy, terms and delete-data pages are byte-identical to the build's copies.
+// the build, and the privacy, terms, delete-data and support pages are byte-identical to the build's copies.
 // When the build has a domain challenge, it also checks its status, type and exact bytes.
 // It sends no cookie. It tries again every 5 s until all match or the time limit ends; then it fails
 // and names each difference.
@@ -15,7 +15,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const legalPages = ['privacy.html', 'terms.html', 'delete-data.html'];
+const legalPages = ['privacy.html', 'terms.html', 'delete-data.html', 'support.html'];
 const challenge = '.well-known/openai-apps-challenge';
 const fault = message => { console.error(`live-check: ${message}`); process.exit(2); };
 

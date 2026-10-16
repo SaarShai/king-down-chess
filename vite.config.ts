@@ -45,7 +45,7 @@ function offlineBuild(): Plugin {
     },
     writeBundle() {
       cpSync(publicDir, outDir, { recursive: true });
-      const files = walk(outDir).map(path => relative(outDir, path).split(sep).join('/')).filter(f => f !== 'sw.js').sort();
+      const files = walk(outDir).map(path => relative(outDir, path).split(sep).join('/')).filter(f => f !== 'sw.js' && !f.startsWith('.well-known/')).sort();
       const template = readFileSync(join(publicDir, 'sw.js'), 'utf8');
       const hash = createHash('sha256').update(template); // a change to the worker itself is a new version too
       for (const f of files) hash.update(f).update(readFileSync(join(outDir, f)));

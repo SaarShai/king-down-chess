@@ -20,7 +20,7 @@ const PROBES = `select id,actor_id,match_id,game_selected,created_at from public
   and has_table_privilege('public.rating_history','insert') and has_table_privilege('public.player_badges','insert')
   and has_table_privilege('public.player_settings','insert')
   and (select bool_and(has_column_privilege('public.player_settings',name,'update')) from unnest(array['symbols_only','show_threats','last_setup']) as columns(name))
-  and has_table_privilege('public.plugin_boards','delete')
+  and has_table_privilege('public.plugin_boards','delete') and has_table_privilege('public.reports','delete')
   and has_column_privilege('public.plugin_boards','game_selected','insert') and has_column_privilege('public.plugin_boards','game_selected','update') as allowed`;
 // A missing table, column, function or schema, or a missing grant.
 const SCHEMA = ['42P01', '42703', '42883', '3F000', '42501'];

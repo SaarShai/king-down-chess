@@ -27,11 +27,11 @@ The owner's 7-hour run on 2026-10-15. Each round fixes the confirmed findings of
 
 - Save on the name page hides Retry while the start goes again, and a good poll clears Try again (RV5-1, RV5-2). Two Profile tests open in UTC (DATE-1 tests).
 - The 200% zoom board (device matrix M1) is on `claude/r7-zoom`, with a refix so the screen scrolls only when the board would be under about 200 px.
+- A chat result for another game now waits for the command in flight, so a late read of an aborted game cannot move the page to its end card after the new game opens. This failed one plugin-ui check run in three (`claude/r8-race`, merged as `c3de844a`).
 
 ## Open, not merged
 
-- `claude/r7-conn` commits 81a2c529, 863a5823 and cae29aa8 make a reused start command ID with other input give COMMAND_CONFLICT (RV5-3) and keep a receipt when Find reuses the player's own open game (RV5-4). The review found two faults in them: the conflict check misses the join and reuse paths (RV7-1), and the Find rows show the creator's times to the opponent even when the creator hides online status (RV7-2). These edge cases need a model that reuses an ID, or an opponent who joins in the seconds between a lost reply and Retry. They stay out until a simpler design exists.
+- RV5-3 and RV5-4, with the review faults RV7-1 and RV7-2 of the first attempt (`claude/r7-conn`), are built again on `claude/r9-server` with a simpler design (ticket 09 of the owner's decisions): each start with a command ID keeps one receipt with its input (a `start` row on a made or reused game, the `join` row on a joined game), a resend with other input gives COMMAND_CONFLICT on each path, views never show `start` rows, and the model reads that `command_id` is for the board only.
 - At 197 px with all features, two of the four card coins in each strip are off screen (seen in round 7). Wrap or smaller coins is a layout choice.
 - At 197 px the end card covers the page head.
 - The Collection tab hit layers overlap by about 3.5 px at 200% zoom (L4).
-- plugin-ui check: one run in three failed when a late read of an aborted game moved the page to its end card after a chat result had opened a new game. A fix is in work on `claude/r8-race`.

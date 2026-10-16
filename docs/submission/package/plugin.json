@@ -1,0 +1,97 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "king-down",
+  "version": "1.0.0",
+  "description": "Play King Down, chess with king powers, against the computer, a friend or a random player.",
+  "author": {
+    "name": "Saar Shai",
+    "email": "hello@kingdown.dev",
+    "url": "https://kingdown.dev"
+  },
+  "homepage": "https://kingdown.dev",
+  "keywords": ["chess", "game", "board game"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "King Down",
+        "shortDescription": "Chess with king powers",
+        "longDescription": "King Down is a chess variant by Saar Shai. Before each game you choose the features: kings with powers, new pieces such as the archer, the ogre and the paladin, cards, and your own back-rank arrangement. Classic gives normal chess.\n\nWith King Down in ChatGPT you can:\n- play against the computer at four levels, from beginner to strong;\n- start a friend game and send your friend a 6-character invitation code;\n- join a friend's game with a code;\n- play a random King Down player in Daily games, with days for each move;\n- see your active games and which ones wait for your move;\n- see your rating, totals and badges;\n- offer or accept a draw, resign, or cancel a game before it starts.\n\nYou play the moves on the King Down board in the chat. ChatGPT can start, open and end games for you, but it does not see the board position and does not choose moves for you. Every piece, king power and setup is unlocked; there is nothing to buy and there are no ads. Games against people use five preset messages only, with no free text chat.\n\nYou sign in with a King Down account. Limitations: moves need the board, so the full game works where ChatGPT shows app screens.",
+        "developerName": "Saar Shai",
+        "category": "Entertainment",
+        "capabilities": [
+          "Play against the computer",
+          "Play friends with an invitation code",
+          "Play random opponents in Daily games",
+          "Show ratings, totals and badges"
+        ],
+        "websiteURL": "https://kingdown.dev",
+        "supportURL": "https://kingdown.dev/support.html",
+        "privacyPolicyURL": "https://kingdown.dev/privacy.html",
+        "termsOfServiceURL": "https://kingdown.dev/terms.html",
+        "defaultPrompt": [
+          "Play King Down against the computer.",
+          "Is it my turn in any King Down game?",
+          "Show my King Down rating and badges."
+        ],
+        "composerIcon": "./assets/logo.png",
+        "logo": "./assets/logo.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Open King Down with no game selected. The home screen shows Play and Your games.",
+              "prompt": "Play King Down.",
+              "tools_triggered": "kingdown_open",
+              "expected_behavior": "The King Down home screen opens in the chat with two actions: Play and Your games. The text reply gives the number of games that wait for the player's move, for example \"Your move in 1 game.\" No new game starts."
+            },
+            {
+              "description": "Start a beginner computer game as White, with king powers and arrangement. Choose the king and order, then Ready.",
+              "prompt": "Start a new King Down game against the computer at beginner level, as White, with king powers and arrangement on.",
+              "tools_triggered": "kingdown_create, kingdown_open, kingdown_choose, kingdown_move, kingdown_computer",
+              "expected_behavior": "kingdown_create starts a solo game with level beginner, colour white, king powers on and arrangement on. It returns \"Choose your king and arrangement.\" kingdown_open with the new game_id shows the setup screen. On the board, choose a king and its power, set the arrangement, then select Ready. The board sends kingdown_choose with ready true. The reply then says \"Your move, move 1.\" The board shows White at the bottom. A move on the board sends kingdown_move; kingdown_computer returns the computer reply on the board. The player, not ChatGPT, makes the setup and move choices."
+            },
+            {
+              "description": "List the active games and say where it is the player's turn.",
+              "prompt": "Is it my turn in any King Down game?",
+              "tools_triggered": "kingdown_games",
+              "expected_behavior": "The reply gives the number of active games and the number that wait for the player, for example \"2 active games; your turn in 1.\" The count includes setup choices. Each game shows its kind (solo, friend or random), colour and whose turn it is. No board position and no opponent name is in the text."
+            },
+            {
+              "description": "Show the rating, the game totals and the badge count in text.",
+              "prompt": "What is my King Down rating?",
+              "tools_triggered": "kingdown_profile",
+              "expected_behavior": "The reply gives the rating, the games played, won, drawn and lost, and the number of badges, for example \"Rating 1662?; 1 played, 1 won, 0 drawn, 0 lost; 3 badges.\" A question mark after the rating means it is provisional."
+            },
+            {
+              "description": "Resign an active game against the computer. ChatGPT asks for confirmation first, because the action ends the game.",
+              "prompt": "Resign my King Down game against the computer.",
+              "tools_triggered": "kingdown_games, kingdown_resign",
+              "expected_behavior": "ChatGPT finds the solo game with kingdown_games and asks the player to confirm. After the confirmation, kingdown_resign ends the game and the reply says who won, for example \"Game over: Black wins · Resignation.\" The game no longer shows in the active games."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Real-money stake. King Down has no betting, payments or prizes. The app must not start a game for a stake; ChatGPT says that King Down does not support bets.",
+              "prompt": "Bet $20 with a random player on my next King Down game."
+            },
+            {
+              "description": "Another chess site. The request is about Chess.com, not King Down. No King Down tool may run.",
+              "prompt": "Open my Chess.com game and play e4 for me."
+            },
+            {
+              "description": "Another player's private data. King Down never shares an email address with other players, and no tool returns one. ChatGPT says that it cannot get this information.",
+              "prompt": "What is the email address of my King Down opponent?"
+            }
+          ]
+        },
+        "demo_recording_url": "<DEMO_VIDEO_URL>",
+        "commerce": false,
+        "commerce_description": "King Down sells nothing. Every piece, king power and setup is unlocked, and the app shows no ads."
+      },
+      "publication": {
+        "release_notes": "First release of King Down in ChatGPT. Play King Down chess against the computer at four levels, against a friend with an invitation code, or against a random player in Daily games. See your active games, your rating, totals and badges. Offer a draw, resign or cancel a game from the chat."
+      }
+    }
+  }
+}

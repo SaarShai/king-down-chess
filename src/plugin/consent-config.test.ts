@@ -8,6 +8,12 @@ describe('public consent configuration', () => {
     const html=readFileSync(new URL('./consent.html',import.meta.url),'utf8');
     expect([...html.matchAll(/data-provider="([^"]+)"/g)].map(m=>m[1])).toEqual(['google','github']);
   });
+  it('keeps the review password form closed under the two providers (approval D8 a)', () => {
+    const html=readFileSync(new URL('./consent.html',import.meta.url),'utf8');
+    expect(html.indexOf('<details id="password-signin">')).toBeGreaterThan(html.indexOf('data-provider="github"'));
+    expect(html).toContain('<input id="password-value" type="password" autocomplete="current-password" required>');
+    expect(html).not.toContain('<details id="password-signin" open');
+  });
   it('exports only the public project key and approved client IDs', () => {
     expect(consentConfig({ ...env, DATABASE_URL: 'private' })).toEqual({ supabaseUrl: env.SUPABASE_URL, publishableKey: env.SUPABASE_PUBLISHABLE_KEY, clientIds: [env.KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS] });
     expect(consentConfig({ ...env, SUPABASE_PUBLISHABLE_KEY: jwt('anon') }).publishableKey).toBe(jwt('anon'));

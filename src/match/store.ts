@@ -85,7 +85,8 @@ export class PostgresMatchStore {
  }
  /** The commands after `since` (at most 50, the newest), or the last 10. */
  async commands(game: string, since?: number, client: Client = this.pool): Promise<LoggedCommand[]> {
-  const result = await client.query(`select seq,seat,kind,payload,actions,created_at from public.game_commands where game_id=$1 and seq>$2 order by seq desc limit $3`, [game, since ?? 0, since === undefined ? 10 : 50]);
+  // A start receipt is no move: its time would show when a player who hides online status chose Find (RV7-2).
+  const result = await client.query(`select seq,seat,kind,payload,actions,created_at from public.game_commands where game_id=$1 and seq>$2 and kind<>'start' order by seq desc limit $3`, [game, since ?? 0, since === undefined ? 10 : 50]);
   return result.rows.reverse().map(r => ({ seq: r.seq, seat: r.seat, at: r.created_at.toISOString(),
    action: r.kind === 'join' || r.kind === 'expire' ? { type: r.kind } : r.kind === 'computer' ? { type: 'computer', actions: r.actions } : r.payload.action }));
  }
@@ -130,12 +131,13 @@ export class PostgresMatchStore {
   return result.rows.map(({ op_user, op_computer, op_seen, op_handle, op_icon, ...r }) => ({ ...r, created_at: r.created_at.toISOString(), open_until: r.open_until?.toISOString() ?? null, deadline_at: r.deadline_at?.toISOString() ?? null, updated_at: r.updated_at.toISOString(),
    opponent: r.status === 'waiting' && !op_user ? null : { handle: op_handle ?? null, icon: op_icon ?? null, computer: op_computer, deleted: !op_user && !op_computer, last_seen_ms: op_seen } }));
  }
- async lobby(actor: string, { client = this.pool as Client, lock = false } = {}): Promise<LobbyEntry[]> {
+ /** Open random games, oldest first. `switches` (JSON) keeps only games whose options contain those values. */
+ async lobby(actor: string, { client = this.pool as Client, lock = false, switches }: { client?: Client; lock?: boolean; switches?: string } = {}): Promise<LobbyEntry[]> {
   const result = await client.query(`select g.id as game_id,g.options,p.seat,pr.handle,pr.icon,g.created_at from public.games g
    join public.game_players p on p.game_id=g.id and p.user_id is null and not p.computer
    join public.profiles pr on pr.id=g.created_by
    where g.kind='random' and g.status='waiting' and g.created_at>statement_timestamp()-interval '24 hours' and g.created_by<>$1 and pr.handle is not null and ${unblocked('$1', 'g.created_by')}
-   order by g.created_at,g.id limit ${lock ? 1 : 100}${lock ? ' for update of g skip locked' : ''}`, [actor]);
+   and ($2::jsonb is null or g.options @> $2::jsonb) order by g.created_at,g.id limit ${lock ? 1 : 100}${lock ? ' for update of g skip locked' : ''}`, [actor, switches ?? null]);
   return result.rows.map(({ seat, handle, icon, created_at, ...row }) => ({ ...row, colour: seat === 0 ? 'white' : 'black', creator: { handle, icon }, created_at: created_at.toISOString() }));
  }
  async activeCount(): Promise<number> {

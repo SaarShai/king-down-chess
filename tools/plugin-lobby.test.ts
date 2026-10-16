@@ -181,6 +181,35 @@ it('keeps the five-second wait budget through the computer handoff, then uses fi
     expect(await page.evaluate(() => (window as any).ticketReads.length)).toBe(closed);
   } finally { await page.close(); }
 });
+// The owner's item D1 a: 'Any rules' under A random player and in Open games. Find sends any_rules only when it is on.
+it('shows Any rules only for a random player and sends it with Find from New game and Open games', async () => {
+  const page = await open(), frame = page.frameLocator('iframe'), html = frame.locator('html'), line = 'Join the oldest open game, whatever its rules.';
+  // One Find, then its game ends, so the next Find has no open game of its own.
+  async function find(click: () => Promise<void>) {
+    const before = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_find').length);
+    await click();
+    await expect.poll(() => html.evaluate(() => { const view = (window as any).harnessApp.memory.view; return view?.kind === 'random' && view.status !== 'aborted'; })).toBe(true);
+    await html.evaluate(async () => { const app = (window as any).harnessApp, view = app.memory.view; await app.call(view.status === 'waiting' ? 'kingdown_cancel' : 'kingdown_abort', { game_id: view.game_id }, false, false, false); await app.call('kingdown_games', {}); });
+    return page.evaluate(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_find')[n].arguments.any_rules, before);
+  }
+  try {
+    await frame.locator('#home-play').click(); await frame.locator('#play-new').click();
+    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
+    expect(await frame.locator('#anyRules-row').isHidden()).toBe(true);
+    await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
+    expect([await frame.locator('#anyRules-row').isVisible(), await frame.locator('#anyRules-line').textContent()]).toEqual([true, line]);
+    expect(await find(() => frame.locator('#setup-start').click())).toBeUndefined();
+    await html.evaluate(() => (window as any).harnessApp.navigate('setup'));
+    await frame.locator('#anyRules-row').click();
+    expect(await find(() => frame.locator('#setup-start').click())).toBe(true);
+    await html.evaluate(() => (window as any).harnessApp.navigate('lobby'));
+    expect(await frame.locator('#find-any-line').textContent()).toBe(line);
+    expect(await find(() => frame.locator('#find-opponent').click())).toBeUndefined();
+    await html.evaluate(() => (window as any).harnessApp.navigate('lobby'));
+    await frame.locator('#find-any-row').click();
+    expect(await find(() => frame.locator('#find-opponent').click())).toBe(true);
+  } finally { await page.close(); }
+});
 it('reuses a new open game after returning through Play without a second Find', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
