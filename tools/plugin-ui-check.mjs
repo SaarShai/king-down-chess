@@ -1323,6 +1323,22 @@ try {
   assert.equal(await page.evaluate(()=>window.harnessView.game_id),replacement,'Deleted-game recovery survives immediate remount');
   const friendTool = async (name,args={}) => (await page.request.post(new URL('/fixture-friend-tool',base).href,{data:{name,arguments:args,fresh:true}})).json();
   const tool = async (name,args={}) => (await page.request.post(new URL('/fixture-tool',base).href,{data:{name,arguments:args}})).json();
+  async function tapEndAtZoom(name) {
+    const viewport = page.viewportSize();
+    await page.setViewportSize({width:197,height:426});
+    await page.evaluate(() => window.harnessSetContext({safeAreaInsets:{top:51,right:0,bottom:59,left:0}}));
+    const card = frame.locator('#over.end-card[open]'), button = card.getByRole('button',{name,exact:true});
+    const layout = await card.evaluate(el => ({top:el.getBoundingClientRect().top,head:document.querySelector('#page-head').getBoundingClientRect().bottom,scrolls:el.scrollHeight>el.clientHeight}));
+    assert(layout.top >= layout.head, 'At 197 px the end card leaves the page head clear');
+    assert(layout.scrolls, 'At 197 px the end card scrolls inside');
+    assert((await frame.locator('#page-back').evaluate(controlBounds)).accessible, 'At 197 px Back stays in view');
+    await button.scrollIntoViewIfNeeded();
+    assert((await button.evaluate(controlBounds)).accessible, `At 197 px ${name} scrolls into view`);
+    await shot(page,`zoom-end-${name.replaceAll(' ','-')}-${mode}`);
+    await button.tap();
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => window.harnessSetContext({safeAreaInsets:{top:0,right:0,bottom:0,left:0}}));
+  }
   await legacyStart('solo'); await frame.locator('#resign').click();
   await frame.locator('#board-sheet h2').filter({hasText:'Lay your king down?'}).waitFor({timeout:3000});
   assert.equal(await page.evaluate(()=>window.harnessView.status),'playing','Resign waits for its confirm');
@@ -1332,7 +1348,7 @@ try {
   assert.match(await frame.locator('#end-reason').innerText(),/Resignation/);
   const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);
   await page.evaluate(()=>{window.dropNextReply='kingdown_rematch';});
-  await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).click();
+  await tapEndAtZoom('Rematch');
   await frame.locator('#over #retry').waitFor();
   const pendingRematch=await page.evaluate(()=>window.harnessWidgetState.privateContent.pending);
   await frame.locator('#over #retry').click();
@@ -1345,7 +1361,7 @@ try {
   assert(['board','seat'].includes(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen)));
   await legacyStart('solo'); await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
   await frame.locator('#over.end-card[open]').waitFor(); await idleBoard();
-  await frame.locator('#over').getByRole('button',{name:'Your games',exact:true}).click();
+  await tapEndAtZoom('Your games');
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); assert.equal(await frame.locator('#over').isVisible(),false);
   await openPlay(); await legacyStart('solo'); await frame.locator('#context-actions #abort').click();
   await frame.locator('#board-sheet').getByRole('button',{name:'Abort',exact:true}).click();
@@ -1399,14 +1415,14 @@ try {
         await readGame();
       }
     }
-    await frame.locator('#over').getByRole('button',{name:'Decline',exact:true}).click(); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.rematch_offer,null);
+    await tapEndAtZoom('Decline'); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.rematch_offer,null);
     await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).click(); await idleBoard(); current=await page.evaluate(()=>window.harnessView);
     assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).count(),0,'An offer has no second Rematch button');
     const buddyDecline=await friendTool('kingdown_rematch',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'decline'}); assert(!buddyDecline.isError);
     const buddyOfferAgain=await friendTool('kingdown_rematch',{game_id:human.game_id,command_id:randomUUID(),expected_revision:buddyDecline._meta.view.revision,choice:'offer'}); assert(!buddyOfferAgain.isError);
     await page.clock.fastForward(3100); await frame.locator('#over').getByRole('button',{name:'Accept',exact:true}).waitFor();
     const acceptCalls=await page.evaluate(()=>window.harnessCalls.length), acceptBoard=await page.evaluate(()=>window.harnessWidgetState.privateContent.board_id);
-    await frame.locator('#over').getByRole('button',{name:'Accept',exact:true}).click();
+    await tapEndAtZoom('Accept');
     await page.waitForFunction(id=>window.harnessView.game_id!==id,human.game_id); await idleBoard();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); await boardBox();
     const accepted=await page.evaluate(()=>window.harnessView), acceptedCalls=await page.evaluate(n=>window.harnessCalls.slice(n),acceptCalls);
@@ -1618,6 +1634,27 @@ try {
     if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+14*RIPPLE_MS+50);}
     if (state.claim) assert.equal(await frame.locator('#status').innerText(),'mira_k has not moved for 3 days.');
     if (state.end) await frame.locator('#over.end-card[open]').waitFor();
+    if (state.name === 'board-abort') {
+      const viewport = page.viewportSize();
+      await page.setViewportSize({width:197,height:426});
+      await page.evaluate(() => window.harnessSetContext({safeAreaInsets:{top:51,right:0,bottom:59,left:0}}));
+      for (const side of ['me','them']) {
+        const coins = frame.locator(`#strip-${side} .coin`);
+        assert.equal(await coins.count(),5, 'Both strips have a power coin and four cards');
+        for (const coin of await coins.all()) {
+          await coin.scrollIntoViewIfNeeded();
+          const bounds = await coin.evaluate(controlBounds);
+          assert(bounds.accessible && bounds.rect[2] >= 44 && bounds.rect[3] >= 44, `At 197 px each ${side} coin fits with a 44 px target: ${JSON.stringify(bounds)}`);
+        }
+        const last = frame.locator(`#strip-${side} .card-coin`).last();
+        await last.tap();
+        await frame.locator('#board-sheet[open] h2').filter({hasText:'Curse'}).waitFor();
+        await shot(page,`zoom-last-card-${side}-${mode}`);
+        await frame.locator('#board-sheet [aria-label="Close"]').tap();
+      }
+      await page.setViewportSize(viewport);
+      await page.evaluate(() => window.harnessSetContext({safeAreaInsets:{top:0,right:0,bottom:0,left:0}}));
+    }
     for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) {
       await page.setViewportSize({width,height}); await boardBox();
       await frame.locator('#game-table img,#over.end-card img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));

@@ -213,6 +213,11 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table { --board-floor: 210px; --context-floor: max-content; }
   #game-table #board { width: 100%; }
 }
+@container table-screen (max-width: 249px) {
+  #game-table { grid-template-rows: max-content minmax(var(--board-floor, 0px), 1fr) max-content minmax(var(--context-floor, 44px), max-content) 0 0 44px; }
+  #game-table .player-strip { flex-direction: column; align-items: stretch; }
+  #game-table .coin-row { flex-wrap: wrap; }
+}
 @media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
   #game-table .table-side { overflow-y: auto; overscroll-behavior: contain; }
 }
