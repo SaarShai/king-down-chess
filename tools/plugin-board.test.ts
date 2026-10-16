@@ -566,3 +566,22 @@ it('W7: snaps to the draft if motion fails and keeps Undo available', async () =
     expect(await moveCalls(page)).toEqual([]);
   } finally { await page.close(); }
 });
+
+
+it('W7: keeps a lost-send error while pieces and coins remain readable', async () => {
+  const {page,frame} = await turnBoard();
+  try {
+    await chooseTurnMove(page,'e2-e4',12);
+    await page.evaluate(() => { (window as any).dropNextMoveReply=true; });
+    await frame.locator('#end-turn').click(); await frame.locator('#retry').waitFor();
+    const message=await frame.locator('#error').innerText(); expect(message).not.toBe('');
+    await squareTap(page,28);
+    expect(await frame.locator('#error').innerText()).toBe(message);
+    expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
+    await frame.locator('#power-w').click();
+    expect(await frame.locator('#error').innerText()).toBe(message);
+    expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
+    expect((await moveCalls(page)).length).toBe(1);
+  } finally { await page.close(); }
+});

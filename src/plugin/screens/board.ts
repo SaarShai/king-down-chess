@@ -180,7 +180,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   }
   function select(square: number, submit = true) {
     if (!view || !pos || !canRead()) return;
-    rules(); $('error').textContent = '';
+    rules(); if (!networkBlocked()) $('error').textContent = '';
     const targets = submit && canPlay() ? named().filter(({move}) => move.to === square || move.from === square) : [];
     if (targets.length === 1) return choose(targets[0].lan);
     if (targets.length > 1) { choices(targets); boardSheet('Choose a move', $('choices')); return; }
@@ -211,7 +211,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   }
   function coinRead(side: Color, index?: number) {
     if (!view || !pos || !canRead()) return;
-    rules(); $('error').textContent = '';
+    rules(); if (!networkBlocked()) $('error').textContent = '';
     if (index !== undefined) {
       const card = RULES.hands[side][index], image = document.createElement('img'), face = art(`ui/cards/${card.toLowerCase()}.webp`);
       image.src = face ?? art('ui/cards/back.webp'); image.alt = '';
