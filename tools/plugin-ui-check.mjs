@@ -891,8 +891,24 @@ try {
     await frame.locator('body').evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal((await tool('kingdown_get', { game_id: friend.game_id }, true))._meta.view.status, 'playing');
-    // Part 18-b: Cancel writes nothing. Block and Unblock survive a remount.
+    // Part 18-b: a failed status read keeps the other Menu controls and can retry.
+    let failBlockRead = true;
+    const blockRoute = async route => {
+      const request = route.request().postDataJSON();
+      if (failBlockRead && request.name === 'kingdown_block') {
+        failBlockRead = false;
+        return route.fulfill({ json: { isError: true, content: [{ type: 'text', text: 'Cannot read block setting.' }] } });
+      }
+      return route.continue();
+    };
+    await page.route('**/fixture-tool', blockRoute);
     await frame.locator('#board-menu').click();
+    await frame.locator('#menu-block-player').filter({ hasText: 'Cannot read block setting. Retry' }).waitFor();
+    assert(await frame.locator('#board-sheet').getByRole('button', { name: 'Settings', exact: true }).isEnabled());
+    await frame.locator('#menu-block-player').click();
+    await frame.locator('#menu-block-player').filter({ hasText: 'Block player' }).waitFor();
+    await page.unroute('**/fixture-tool', blockRoute);
+    // Cancel writes nothing. Block and Unblock survive a remount.
     await frame.locator('#menu-block-player').filter({ hasText: 'Block player' }).click();
     await frame.locator('#board-sheet-title').filter({ hasText: 'Block player?' }).waitFor();
     await shot(page, `block-confirm-${mode}`);
