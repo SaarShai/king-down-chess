@@ -440,12 +440,12 @@ try {
     await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
     await setupMount(saved); assert.equal(await frame.locator('#setup-king-name').innerText(), 'Shadow · Darkness');
     assert(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked()); assert(await frame.getByRole('radio', { name: 'Black', exact: true }).isChecked());
-    await setupMount(baseSetup);
     const levels = ['beginner','casual','club','strong']; let mix = 0;
     for (const fairy of [true,false]) for (const secondary of [false,true]) for (const cards of [false,true]) for (const powers of [false,true]) {
       const options = { ...DEFAULT_OPTIONS, fairy, arrangement: fairy && secondary, classic: !fairy && secondary, cards, kingPowers: powers };
       const last = { ...baseSetup, options, colour: ['white','black','random'][mix % 3], level: levels[mix++ % 4] };
-      await openPlay(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+      // Abort keeps the last game's king. Give each toggle case the same starting draft.
+      await setupMount(baseSetup); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
       await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).setChecked(fairy);
       await frame.getByRole('checkbox', { name: fairy ? 'Arrangement' : 'Classic chess', exact: true }).setChecked(secondary);
       await frame.getByRole('checkbox', { name: 'Cards', exact: true }).setChecked(cards);
@@ -1457,7 +1457,13 @@ try {
     assert.equal(await frame.locator('#over').evaluate(e=>e.scrollWidth-e.clientWidth),0,'The end card has no horizontal scroll');
     await shot(page,'end-197x426-'+mode);
     await frame.locator('#over').getByRole('button',{name:'See the board',exact:true}).click();
-    await readGame(); assert.equal(await frame.locator('#over[open]').count(),0,'A refresh keeps the end card closed');
+    const endReads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get'&&c.arguments.since_revision!==undefined).length);
+    // A second poll proves the first reply has reached End. A new chat result routes to the board again.
+    for (let n=1;n<=2;n++) {
+      await page.clock.fastForward(3100);
+      await page.waitForFunction(count=>window.harnessCalls.filter(c=>c.name==='kingdown_get'&&c.arguments.since_revision!==undefined).length>=count,endReads+n);
+    }
+    assert.equal(await frame.locator('#over[open]').count(),0,'A poll keeps the end card closed');
     await frame.locator('#end-result').click(); await frame.locator('#over[open]').waitFor();
     await page.setViewportSize({width:1000,height:1000});
     await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen',safeAreaInsets:{top:0,bottom:0,left:0,right:0},deviceCapabilities:{touch:true}}));

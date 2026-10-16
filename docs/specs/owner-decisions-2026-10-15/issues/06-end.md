@@ -82,3 +82,8 @@ Work starts from a clean worktree.
 - The fast-action test catches a short disabled state during the read.
   End buttons now use the app's existing `data-free` flag. The queue
   still sends one rematch. The test also checks that each action is on.
+- The next browser run finds two test faults. Give each toggle case
+  its own base draft. Abort now keeps the prior king, so a later case
+  cannot assume that the prior draft still has a default king. Check
+  See the board with the real end poll. A new chat result takes the
+  user to a new screen; it does not act as a background poll.
