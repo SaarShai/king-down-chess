@@ -128,3 +128,23 @@ only to `work/study-runs/receipt-validation-system-python`. Its PID is 96787;
 log `/tmp/kd-validation-system-python.log`. The original failed reproduction
 stays in `work/study-runs/receipt-validation-diagnosis`. No game or submission
 is repeated, and no live run state is changed. Next local check: 05:55 UTC.
+
+## Verified local report
+
+System Python passes TLS and runtime setup. The report then rejects AppleDouble
+metadata added by the card: `src/._account`. The disposable source copy removes
+only sidecars with AppleDouble magic and an existing paired file. No frozen
+source file changes. The unmodified frozen runner then verifies the full source
+manifest and passes two games, two legal replays and one illegal control.
+The archive hash also matches the frozen bundle. Results and failure evidence
+are saved under `verified-local-report` in the original run folder. Export:
+65,031 bytes, SHA-256
+`f457cd844ddd21bebc3b0d5916aef8d374179ba776d5fb0ae2cb3647d73dc66e`.
+The studio failure state remains unchanged. This is a verified local recovery,
+not a pass of automatic browser validation.
+
+One backup starts with PID 79441. Its state folder is
+`state/study-backups/dataset-receipt-final-20261015` on the card. It uses current
+main backup tools and decoded cloud-byte proof, with no worker collection.
+Do not repeat it. Next bounded local check: 06:40 UTC. After proof passes,
+link the verified export through the browser and save/reload it.
