@@ -43,7 +43,9 @@ export class PluginService {
     if (blocked === false) await this.accounts.unrelate(actor, relation);
     return (await this.store.pool.query("select exists(select from public.relations where user_id=$1 and other_id=$2 and kind='block') as blocked", [actor, other])).rows[0].blocked;
   }
-  async blocks(actor: string) { return (await this.accounts.relations(actor)).filter(row => row.kind === 'block').map(({ user_id, handle }) => ({ user_id, handle })); }
+  async blocks(actor: string, after?: string): Promise<{ user_id: string; handle: string | null }[]> {
+    return (await this.store.pool.query("select r.other_id as user_id,p.handle from public.relations r left join public.profiles p on p.id=r.other_id where r.user_id=$1 and r.kind='block' and ($2::uuid is null or r.other_id>$2) order by r.other_id limit 51", [id(actor), after === undefined ? null : id(after)])).rows;
+  }
   /** Read-only. The ID and the handle; never the email. */
   async profile(actor: string) { const { user_id, handle, icon } = await this.accounts.profile(actor); return { user_id, handle, icon }; }
   /** Board settings and last setup, with the account's online visibility. */

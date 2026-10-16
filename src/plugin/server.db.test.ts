@@ -279,6 +279,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   for (let n=0;n<2;n++) {
    const blocked = await host.ok('kingdown_block', { game_id, blocked: true });
    expect(blocked._meta.blocked).toBe(true);
+   expect(blocked.content[0].text).toBe('Player blocked. Your current game continues.');
    expect(view(blocked).status).toBe('playing');
    expect(view(blocked).last_commands.at(-1)!.action.type).toBe('hidden');
   }
@@ -317,11 +318,51 @@ suite('ChatGPT tools on PostgreSQL', () => {
   for (const input of [{ blocked:true },{ game_id,blocked:'yes' },{game_id,user_id:b},{game_id,actorId:c},{game_id:'bad',blocked:true}]) expect((await host.call('kingdown_block',input))._meta.code).toBe('INVALID_INPUT');
   await host.ok('kingdown_block',{game_id,blocked:true});
   await host.ok('kingdown_resign',{game_id});
+  expect((await host.ok('kingdown_block',{game_id,blocked:true})).content[0].text).toBe('Player blocked.');
   expect((await host.ok('kingdown_profile'))._meta.blocks).toEqual([{user_id:b,handle:`target-b-${tag}`}]);
   expect((await stranger.ok('kingdown_profile'))._meta.blocks).toEqual([]);
   expect((await host.ok('kingdown_block',{user_id:b,blocked:false}))._meta.blocked).toBe(false);
   expect((await host.ok('kingdown_profile'))._meta.blocks).toEqual([]);
   expect(await rows("select from public.relations where kind='block' and user_id=$1",[a])).toEqual([]);
+ });
+
+ it('refuses rematch offers and accepts across a block in either direction', async () => {
+  const [a,b] = [await user('rematch-a'), await user('rematch-b')], host = await connect(a), guest = await connect(b);
+  for (const blocker of [host, guest]) {
+   const game_id = view(await host.ok('kingdown_create', { kind:'friend', options:{...DEFAULT_OPTIONS,arrangement:false,kingPowers:false,cards:false} })).game_id;
+   await guest.ok('kingdown_join', { code:(await host.ok('kingdown_invite',{game_id})).structuredContent.code });
+   const ended = await host.ok('kingdown_resign', { game_id });
+   const offered = await host.ok('kingdown_rematch', { ...move(ended), choice:'offer' });
+   await blocker.ok('kingdown_block', { game_id, blocked:true });
+   for (const player of [host, guest]) expect(view(await player.ok('kingdown_get',{game_id})).rematch_allowed).toBe(false);
+   expect((await guest.call('kingdown_rematch',{...move(offered),choice:'accept'}))._meta.code).toBe('NOT_ALLOWED');
+   const declined = await guest.ok('kingdown_rematch',{...move(offered),choice:'decline'});
+   for (const player of [host, guest]) expect((await player.call('kingdown_rematch',{...move(declined),choice:'offer'}))._meta.code).toBe('NOT_ALLOWED');
+   expect((await rows('select rematch_game_id from public.games where id=$1',[game_id]))[0].rematch_game_id).toBeNull();
+   await blocker.ok('kingdown_block',{game_id,blocked:false});
+   expect(view(await host.ok('kingdown_get',{game_id})).rematch_allowed).toBe(true);
+   const nextOffer = await host.ok('kingdown_rematch',{...move(declined),choice:'offer'});
+   expect(view(await guest.ok('kingdown_rematch',{...move(nextOffer),choice:'accept'})).rematch_game_id).toEqual(expect.any(String));
+  }
+ });
+
+ it('keeps old blocks reachable after 1000 newer follows and pages every block', async () => {
+  const a = await user('paged-blocks'), host = await connect(a), targets = Array.from({length:1052},()=>randomUUID()).sort();
+  users.push(...targets);
+  await admin.query('insert into auth.users(id) select unnest($1::uuid[])',[targets]);
+  await admin.query("insert into public.relations(user_id,other_id,kind,created_at) select $1,id,'block',now()-interval '1 day' from unnest($2::uuid[]) id",[a,targets.slice(0,52)]);
+  await admin.query("insert into public.relations(user_id,other_id,kind) select $1,id,'follow' from unnest($2::uuid[]) id",[a,targets.slice(52)]);
+  const first = (await host.ok('kingdown_profile'))._meta;
+  expect(first.blocks.map((row:any)=>row.user_id)).toEqual(targets.slice(0,50));
+  expect(first.next_blocks_after).toBe(targets[49]);
+  // Removing the cursor's row must not hide the next page.
+  await host.ok('kingdown_block',{user_id:targets[49],blocked:false});
+  const last = (await host.ok('kingdown_profile',{blocks_after:first.next_blocks_after}))._meta;
+  expect(last.blocks.map((row:any)=>row.user_id)).toEqual(targets.slice(50,52));
+  expect(last.next_blocks_after).toBeNull();
+  for (const {user_id} of last.blocks) await host.ok('kingdown_block',{user_id,blocked:false});
+  expect((await host.ok('kingdown_profile',{blocks_after:first.next_blocks_after}))._meta.blocks).toEqual([]);
+  expect((await host.call('kingdown_profile',{blocks_after:'bad'}))._meta.code).toBe('INVALID_INPUT');
  });
 
  it('keeps an active reader recent when the server clock is two days ahead', async () => {

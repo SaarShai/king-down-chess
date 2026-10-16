@@ -158,3 +158,46 @@ Parts 18-a and 18-b, with A-F4, are approved by the owner's task. Parts 18-d and
 - Local M1 summaries: `/tmp/kd-r9-18-m1-plugin-ui.log`, `/tmp/kd-r9-18-m1-plugin-ui-http.log` and `/tmp/kd-r9-18-m1-protocol.log`.
 - Full HTTP failure: `/tmp/kd-r9-18-verified-http-detail.log`.
 - M1 final summaries and exit files: `/tmp/kd-r9-18-verified-plugin-ui` (`0`), `/tmp/kd-r9-18-verified-plugin-ui-http` (`1`) and `/tmp/kd-r9-18-protocol` (`0`). Each named check summary gives its full log folder.
+
+## Block review repair
+
+Status: complete
+
+### Plan and checks
+
+1. Check A1–A5 and B1–B2 against the code. Fix each confirmed fault with a test.
+2. Seed an active friend game. Add Block to the end card. Show the saved action in a polite status region. Name Profile as the undo path.
+3. Refuse rematch offers and accepts across a block in either direction. Hide those actions on the end card. Keep the current game in play.
+4. Select blocks before the page limit. Give Profile a separate block cursor and More control. Keep keyboard focus after an online setting save. State the current follow limit in the help and policy.
+5. Keep the source fixed while a check serves this worktree. Run `npm test` with the required local database. Run `plugin-ui` and `plugin-ui-http` on the M1 with the shared lock and existing limits. Check the diff, record results, and commit with both trailers.
+
+Each fault needs a passing test. Record each full check result, including any old failure. Use the existing controls and styles. The owner's request to fix the confirmed findings includes the rematch guard in A4.
+
+### Finding checks and repairs
+
+- A1: confirmed. The seed has no active game against a person. It now adds a friend game with the opponent to move. The seed database test checks both active games and the turn count. The review notes, owner steps, P1 and P3 examples now use those counts.
+- A2: confirmed. The end card hides Menu. It now uses the same Block control, with Profile as the undo path. The browser check blocks a person from the end card and unblocks from Profile. It also checks that a deleted opponent has no Block control. The end-card confirmation and server reply do not say that an ended game continues.
+- A3: confirmed. A good Block reply has no visible status. The app now puts the server text in the board's polite status region and in the end card's status region. The text stays through board refreshes until the game changes. Browser assertions check Block and Unblock text. Database assertions check the active and ended replies.
+- A4: confirmed. Rematch does not check blocks. The shared game service now refuses offers and accepts across a block in either direction. Decline and the current game stay available. A database test checks both block directions, a pending offer, refused offers and accepts, no new game, and an accepted rematch after undo. The end-card test and browser poll test check that blocked rematch controls stay hidden.
+- A5: confirmed. No screen can create a follow. Settings, the policy and the review notes now state that Friends only shows the time to nobody for now. The policy test checks all three texts.
+- B1: confirmed. The old query limits all relations before it selects blocks. The new query selects only blocks and uses a separate UUID cursor. Profile has More blocked players. A database test uses 1,000 newer follows and 52 older blocks. It checks each page, removal of the cursor row, and undo on the last page. The browser check appends the last page and uses its Unblock control.
+- B2: confirmed. The save disables the focused radio. It now restores focus if the player has not moved to another control. The browser check uses Right Arrow, then Left Arrow, and checks that a slow save does not take focus from Back.
+
+### Final repair results
+
+- All seven findings are confirmed and fixed. Checked code: `c948b499`. The final results commit changes this ticket only. Typecheck and both commit gates pass. No dependency changes or test limit changes.
+- Final local `npm test`, with the required test database: **2,564 pass, 8 skip, 1 fail in 167 files**, 123.14 seconds. Every changed test file passes. The only failure is the old report-delete permission expectation at `src/online/accounts.db.test.ts:266`. The test expects DELETE to fail, but runtime SQL permits the operation for cleanup, with a row policy. This test and the SQL have no change in this repair; earlier results in this ticket record the same fault.
+- The fresh app file passes all **63 tests**, then all **50 document and artwork tests**. The final full run also passes the app file and every board target-size test. An earlier full run reports 20 app start errors after a source edit during the run. The fresh file and final full run clear those errors with fixed source. The plan now requires fixed source while a check serves the worktree.
+- Final M1 `plugin-ui`: **pass, 222.9 seconds**. It checks keyboard arrows, focus after save, focus moved to Back during a slow save, Block and Unblock status text, end-card Block, Profile undo, block pages, deleted players, and rematch controls after a same-revision poll.
+- Final M1 `plugin-ui-http`: **fail, 161.5 seconds**. All new assertions before Join pass. The later Join remount still hides `#join-confirm` at `tools/plugin-ui-check.mjs:1027`. It is the same statement and fault recorded at line 974 before this repair and at line 905 at the task base. The Join screen, router and client have no diff from `e991f917`. The fixture check covers the later end-poll cases that the HTTP check cannot reach.
+- The first HTTP run at `c51d7972` also reports 19 request errors. The end card now keeps its Block control between polls. Its read-count assertion passes, and the final HTTP log has no extra request errors. The end-card control has its own ID, separate from the hidden Menu row.
+- Visual check: the Settings help has a clear gap below the choices. The end card fits the phone screen and says only "Player blocked." after an ended game. Local renders: `/tmp/kd-r9-block-final-online.png` and `/tmp/kd-r9-block-final-end.png`.
+- The local and M1 jobs end. The M1 lane is clean at the checked code. Its job releases the shared browser lock. No job is paused or left running for this repair.
+
+### Repair evidence
+
+- Final full suite: `/tmp/kd-r9-block-final-tests.log` and `.exit` (`1`).
+- Fresh app and document checks: `/tmp/kd-r9-block-app-focused.log` and `.exit` (`0`).
+- Final M1 summaries: `/tmp/kd-r9-block-final-plugin-ui.log` and `/tmp/kd-r9-block-final-plugin-ui-http.log`. The M1 has their `.exit` files (`0` and `1`) and `/tmp/kd-r9-block-final-browser.log`.
+- Final HTTP details: `/tmp/kd-r9-block-final-http-detail.log`. The summaries give the full M1 check folders.
+- First diagnostic runs: `/tmp/kd-r9-block-review-tests.log`, M1 `/tmp/kd-r9-block-review-plugin-ui.log` and M1 `/tmp/kd-r9-block-review-plugin-ui-http.log`.

@@ -20,6 +20,8 @@ test('the policy names the online control as Settings shows it, says the default
  expect(text).toContain(`${label} has three choices: Everyone, Friends only and Nobody`);
  expect(text).toContain('Friends only is the default: only a player who follows you and whom you follow gets your time');
  expect(text).toContain('Nobody hides it from all opponents');
+ const limit = 'King Down has no way to follow a player yet, so Friends only shows your time to nobody for now.';
+ for (const source of [text, html, readFileSync('docs/submission/review-notes.md', 'utf8')]) expect(source).toContain(limit);
  expect(text).not.toContain('off by default');
  expect(text).toContain('the default applies, and no setting stops it');
  expect(text).toContain('OpenAI receives what the app sends to ChatGPT');
@@ -55,6 +57,8 @@ test('the policy names stored relations, the block control, its effects and the 
  expect(text).toContain('open Menu and select Block player');
  expect(text).toContain('Confirm to end follows both ways, stop matches through Find and joins to open games, and hide their messages');
  expect(text).toContain('Your current game continues');
+ expect(text).toContain('A block also stops new rematch offers and accepts');
+ expect(text).toContain('The end card has Block player after a game ends');
  expect(text).toContain('The same Menu has Unblock player');
  expect(text).toContain('Unblock does not restore follows');
  expect(text).toContain('Profile also lists blocked players, with Unblock for each player');

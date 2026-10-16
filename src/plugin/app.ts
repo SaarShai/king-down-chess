@@ -41,7 +41,7 @@ const drawBoard = boardScreen(call, () => busy || mountReading || !!pending);
 const router = createRouter((name, args, retain) => call(name, args, retain, false, false), navigate, show, () => !!pending);
 export const { routeView, start } = router;
 const screens = { setup: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
-export const memory = { kind: 'solo' as 'solo' | 'friend' | 'random', code: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, games: [] as InboxEntry[], preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
+export const memory = { kind: 'solo' as 'solo' | 'friend' | 'random', code: '', blockNotice: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, games: [] as InboxEntry[], preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
 function saveState() { state.pending = pending; client.save(); }
 /** A command's error stays on the screen where the command started, so its Retry shows there, also after the player leaves. */
 function failPending(message: string) { pending!.error = message; pending!.error_screen = pending!.screen ?? state.screen; saveState(); }
@@ -73,6 +73,7 @@ function show(next: View | undefined) {
   // A full read carries the rules; a reply without them is for a game this board no longer shows.
   if (next.fen && rules?.game !== next.game_id) return;
   if (view?.game_id !== next.game_id || view.revision !== next.revision || view.status !== next.status || view.action !== next.action) gamesDirty = true;
+  if (view?.game_id !== next.game_id || view.revision !== next.revision) memory.blockNotice = '';
   if (view?.game_id !== next.game_id) $('invitation').textContent = '';
   view = next;
   if (rules?.game === next.game_id) setRules(rules.value);
@@ -139,9 +140,13 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     if (name === 'kingdown_get') readError = false;
     const next = (result._meta as { view?: View } | undefined)?.view;
     if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision) {
-      view = { ...view, opponent: next.opponent, server_now: next.server_now }; if (state.screen === 'seat') seatScreen(); poll?.update(); if (outage) retryState(); return;
+      view = { ...view, opponent: next.opponent, rematch_allowed: next.rematch_allowed, server_now: next.server_now }; if (state.screen === 'seat') seatScreen(); poll?.update(); if (outage) retryState(); return;
     }
     show(next); received = next;
+    if (name === 'kingdown_block') {
+      memory.blockNotice = result.content.filter(c => c.type === 'text').map(c => c.text).join(' ');
+      $('context-note').textContent = memory.blockNotice;
+    }
     if (name === 'kingdown_get' && !quiet) await games();
     // Save sends the waiting command again at once, so its old error and Retry go now.
     if (name === 'kingdown_handle') { followup = pending; if (followup) followup.error = followup.error_screen = undefined; navigate(followup?.screen ?? handleBack); }
@@ -411,6 +416,11 @@ async function applySettings() {
   await setSettings(memory.settings);
 }
 async function saveSetting(change: Record<string, unknown>) {
+  const focused = document.activeElement as HTMLElement | null;
+  let moved = false;
+  const changedFocus = () => { moved = true; };
+  document.addEventListener('focusin', changedFocus);
+  document.addEventListener('pointerdown', changedFocus);
   for (const [id] of TOGGLES) $<HTMLInputElement>(id).disabled = true;
   onlineChoices().forEach(input => { input.disabled = true; });
   try {
@@ -419,6 +429,9 @@ async function saveSetting(change: Record<string, unknown>) {
     remember(result);
   } catch (error) { $('error').textContent = errorText(error); }
   await applySettings();
+  document.removeEventListener('focusin', changedFocus);
+  document.removeEventListener('pointerdown', changedFocus);
+  if (!moved && state.screen === 'settings' && document.activeElement === document.body) focused?.focus({ preventScroll: true });
 }
 for (const [id, key] of TOGGLES) $<HTMLInputElement>(id).onchange = () => void saveSetting({ [key]: $<HTMLInputElement>(id).checked });
 onlineChoices().forEach(input => { input.onchange = () => void saveSetting({ online_visible_to: input.value }); });

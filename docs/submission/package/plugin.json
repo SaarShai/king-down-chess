@@ -40,7 +40,7 @@
         "test_cases": {
           "positive": [
             {
-              "description": "Open King Down with no game selected. The home screen shows Play and Your games.",
+              "description": "Open King Down with no game selected. The seeded account has two active games, with one on your move. The home screen shows Play and Your games.",
               "prompt": "Play King Down.",
               "tools_triggered": "kingdown_open",
               "expected_behavior": "The King Down home screen opens in the chat with two actions: Play and Your games. The text reply gives the number of games that wait for the player's move, for example \"Your move in 1 game.\" No new game starts."
@@ -55,7 +55,7 @@
               "description": "List the active games and say where it is the player's turn.",
               "prompt": "Is it my turn in any King Down game?",
               "tools_triggered": "kingdown_games",
-              "expected_behavior": "The reply gives the number of active games and the number that wait for the player, for example \"2 active games; your turn in 1.\" The count includes setup choices. Each game shows its kind (solo, friend or random), colour and whose turn it is. No board position and no opponent name is in the text."
+              "expected_behavior": "The reply gives the number of active games and the number that wait for the player, for example \"3 active games; your turn in 1.\" The count includes setup choices. Each game shows its kind (solo, friend or random), colour and whose turn it is. No board position and no opponent name is in the text."
             },
             {
               "description": "Show the rating, the game totals and the badge count in text.",

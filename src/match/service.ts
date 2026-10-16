@@ -297,6 +297,7 @@ export class GameService {
   const outcome = await this.store.transaction(async client => {
    const game = await this.store.load(gameId, { client, lock: true });
    if (await this.store.receipt(client, gameId, seat, command.command_id, payload)) return this.render(game, seat, { client });
+   if (action.type === 'rematch' && action.choice !== 'decline' && game.kind !== 'solo' && game.players.every(p => p.user_id) && !await this.store.unblocked(client, actor, game.players[other(seat)].user_id!)) fail('NOT_ALLOWED', 409, 'No rematch is available with this player');
    const next = step(game), out: Outgoing = { notify: [], outbox: [] };
    const log: Log = { seat, actor_id: actor, command_id: command.command_id, kind: action.type, payload, actions: null, surface, received_at: at };
    if (check(game, seat, command, at, action.type === 'abort' && game.kind === 'solo' && await this.store.canSwitch(actor, game.created_at, client))) {
@@ -427,7 +428,7 @@ export class GameService {
  private async render(game: Game, seat: Seat, { since, client, rules = false }: { since?: number; client?: Parameters<PostgresMatchStore['save']>[0]; rules?: boolean } = {}): Promise<View> {
   const now = new Date(), opponent = game.players[other(seat)], playing = game.status === 'playing';
   // A block or my quiet mode hides the opponent's presets; their own setting decides if I see when they were last here.
-  const sees = opponent.user_id ? await this.store.privacy(client ?? this.store.pool, game.players[seat].user_id!, opponent.user_id) : { presets: true, online: true };
+  const sees = opponent.user_id ? await this.store.privacy(client ?? this.store.pool, game.players[seat].user_id!, opponent.user_id) : { presets: true, online: true, unblocked: true };
   const commands = await this.store.commands(game.id, since, client);
   const db = client ?? this.store.pool;
   const vacant = !opponent.user_id && !opponent.computer && !opponent.handle_at_start && !await this.store.hasJoined(game.id, db);
@@ -440,7 +441,7 @@ export class GameService {
    fen: game.snapshot?.fen ?? '', in_check: game.snapshot?.inCheck ?? false, legal: playing && game.turn === seat ? game.snapshot!.legal : [],
    last_commands: commands.map(entry => entry.seat === opponent.seat && (entry.action.type === 'choose' && !game.players.every(p => p.ready) || entry.action.type === 'say' && !sees.presets) ? { ...entry, action: { type: 'hidden' as const } } : entry),
    opponent: vacant ? null : { handle: opponent.handle, icon: opponent.icon ?? null, ...(rating && { rating }), computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online ? opponent.last_seen_ms : null },
-   draw_offer: game.draw_offer, rematch_offer: game.rematch_offer, rematch_game_id: game.rematch_game_id,
+   rematch_allowed: sees.unblocked, draw_offer: game.draw_offer, rematch_offer: game.rematch_offer, rematch_game_id: game.rematch_game_id,
    ...(game.options && { options: game.options, draw: game.draw!, deal: game.deal!, level: game.level,
     choices: game.players.map(p => p.seat === seat || game.players.every(s => s.ready) ? p.choice : null) as View['choices'],
     ready: game.players.map(p => p.ready) as [boolean, boolean], setup_deadline_at: game.setup_deadline_at?.toISOString() ?? null }),

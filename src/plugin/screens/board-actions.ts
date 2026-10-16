@@ -47,9 +47,9 @@ export function playerBlockButton(view: View, close = () => {}): HTMLButtonEleme
     if (blocked === undefined) { void read(); return; }
     const next = !blocked, label = blocked ? 'Unblock player' : 'Block player';
     close();
-    confirmBoardAction(`${label}?`, blocked ? 'Your block no longer stops Find or joins to open games. Follows stay off.' : 'Find does not match you again. This player cannot join your open games. Their messages are hidden. Follows end both ways. This game continues. You can unblock them in this Menu.', label, () => {
+    confirmBoardAction(`${label}?`, blocked ? 'Your block no longer stops Find or joins to open games. Follows stay off.' : `Find does not match you again. This player cannot join your open games. Their messages are hidden. Follows end both ways. ${['finished', 'aborted'].includes(view.status) ? '' : 'This game continues. '}You can unblock them in Profile.`, label, () => {
       if (memory.view?.game_id === view.game_id) void call('kingdown_block', { game_id: view.game_id, blocked: next });
-    });
+    }, ['finished', 'aborted'].includes(view.status) ? 'Cancel' : 'Keep playing');
   }, 'menu-block-player');
   async function read() {
     reading = true; row.disabled = true; row.setAttribute('aria-busy', 'true');
