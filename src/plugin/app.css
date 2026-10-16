@@ -215,7 +215,7 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 #game-table #context-actions:has(#accept-draw) button { flex: 1; padding: 3px 4px; white-space: normal; }
 .table-back { display: none; }
 @media (max-width: 899px) and (orientation: portrait) {
-  #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 44px; grid-template-rows: minmax(44px, max-content) minmax(var(--board-floor, 0px), max-content) minmax(44px, max-content) minmax(var(--context-floor, 44px), max-content) 44px minmax(0, 1fr) var(--bar-height); }
+  #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 44px; grid-template-rows: minmax(var(--strip-row, 44px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) 44px minmax(0, 1fr) var(--bar-height); }
   #game-table .player-strip { padding-block: 0; min-height: 44px; }
   #game-table .portrait { width: 36px; height: 36px; }
   #game-table .player-name { display: flex; align-items: baseline; }
@@ -233,10 +233,10 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table .table-back { display: grid; grid-area: them; justify-self: start; align-self: start; place-items: center; margin-left: 8px; width: 44px; height: 44px; min-height: 44px; padding: 0; z-index: 2; font-size: 26px; line-height: 1; }
   #game-table .table-back::after, #game-table #strip-them button::after { top: 0; transform: translate(-50%, 0); }
 @container table-screen (max-height: 480px) {
-  #game-table { grid-template-rows: minmax(44px, max-content) minmax(var(--board-floor, 0px), max-content) minmax(44px, max-content) minmax(var(--context-floor, 44px), max-content) 0 minmax(0, 1fr) var(--bar-height); }
+  #game-table { grid-template-rows: minmax(var(--strip-row, 44px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) 0 minmax(0, 1fr) var(--bar-height); }
   #game-table #moves-line { display: none; }
   body:is([data-page='board'], [data-page='end']) #game-table #moves-line { display: none; }
-  body:is([data-page='board'], [data-page='end']) #game-table { grid-template-areas: 'them' 'moves' 'board' 'me' 'context' 'space' 'bar'; grid-template-rows: minmax(44px, max-content) 24px minmax(var(--board-floor, 0px), max-content) minmax(44px, max-content) minmax(var(--context-floor, 44px), max-content) minmax(0, 1fr) var(--bar-height); }
+  body:is([data-page='board'], [data-page='end']) #game-table { grid-template-areas: 'them' 'moves' 'board' 'me' 'context' 'space' 'bar'; grid-template-rows: minmax(var(--strip-row, 44px), max-content) 24px minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) minmax(0, 1fr) var(--bar-height); }
 }
 /* The back button takes 48 px from the opponent row. A power adds one 48 px coin slot. Under 320 px the coins wrap
    instead (ticket 16, below). */
@@ -269,6 +269,7 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table #board { width: 100%; }
 }
 @container table-screen (max-width: 319px) {
+  /* The strip rows take the wrapped coins' full height, also when the screen is short (minmax keeps 44 px there). */
   #game-table:has(.card-coin) { --strip-row: max-content; }
   #game-table .player-strip:has(.card-coin) { flex-direction: column; align-items: stretch; }
   #game-table .coin-row { flex-wrap: wrap; }
