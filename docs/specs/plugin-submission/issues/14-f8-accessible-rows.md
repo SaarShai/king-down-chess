@@ -1,7 +1,7 @@
 # 14-f8 · Submission gaps: accessible game rows
 
 Type: task
-Status: in-progress
+Status: closed
 
 ## Scope
 
@@ -41,9 +41,13 @@ This file records F8 only. It does not close ticket 14 or its E5 and B4 parts.
 
 ## Review findings and checks
 
-- Review A, finding 1: confirmed. `openRow()` has its own icon loop. Each SVG is hidden from assistive technology, and its span has only a title. The loop also uses Classic instead of Classic chess.
-- Review A, finding 2: confirmed. Both branches add `14-submission-gaps.md`; `git merge-tree` reports an add/add conflict. The old title and closed status also cover more than F8. This file now records F8 alone.
+- Review A, finding 1: confirmed. The old `openRow()` has its own icon loop. Each SVG has `aria-hidden`, and each span has only a title. The loop also uses Classic instead of Classic chess.
+- Review A, finding 2: confirmed. On `5a198544`, F8 and E5 add `14-submission-gaps.md`. `git merge-tree` reports an add/add conflict. The old title and closed status also cover more than F8. This file now records F8 alone.
 - Review B has no findings.
 - `openRow()` now uses `features()`. The F8 test reads both Profile open rows, with the full feature set and Classic chess.
-- The ticket path and scope checks pass. The F8 file has its own name and states that it does not close E5 or B4. A merge check against the committed fix is pending.
-- The local test waits for the shared lock. The old-code test, fixed-code test and browser check will run on the M1.
+- The ticket path and scope checks pass. The F8 file has its own name and states that it does not close E5 or B4. `git merge-tree` against `claude/sub-e5` at `1dbe05dc` has no conflict on either ticket path. Four other conflicts remain outside F8.
+- The full local `npm test` run passes on `758dacad`: 165 files, 2,571 tests, 8 skips, and 50 artwork tests. Typecheck passes. The prior random-board timeout does not recur. No test or check time limit changes.
+- On the M1, the new open-row check fails on the old loop at `tools/plugin-profile.test.ts:71`. The row exposes no feature names. The other 21 Profile tests pass.
+- With the fix, all 22 Profile tests and 50 artwork tests pass on the M1. `plugin-ui` passes on `758dacad` in 230.3 seconds. The job ends with exit 0 and releases the shared browser lock.
+- The final diff changes the check record only after `758dacad`. Server code has no change, so `plugin-ui-http` is not required. F8 alone is closed.
+- Check logs: `/tmp/kd-sub-gaps-tests.log` holds the passing local suite. `/tmp/kd-sub-gaps-m1.log` records the detached M1 job. The M1 script is `/tmp/kd-sub-gaps-checks.sh`. It releases the lock on exit.
