@@ -138,7 +138,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     const remaining = remainingTime();
     if (!tornDown && view?.status === 'playing' && remaining > 0) deadlineTimer = setTimeout(() => remainingTime() > 0 ? updateTime() : refresh(), Math.min(60000, remaining + 1));
   }
-  async function choose(lan: string) {
+  function choose(lan: string) {
     if (!canPlay()) return;
     rules(); const step = applyLan(pos!, lan, view!.rules!, moves.map(choice => choice.lan));
     if (!step) return;
@@ -147,9 +147,9 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     const token = ++generation; steps.push(step); lastMove = step; pos = step.pos; animating = true;
     board.skip(); board.setLifted(null); moveLine(); refresh();
     if (step.move.drop !== undefined) board.sync(step.pos);
-    void (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve()).then(() => { if (token === generation) { board.sync(step.pos); sound(step); } }).finally(() => {
+    void (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve()).then(() => { if (token === generation) sound(step); }).finally(() => {
       if (token !== generation) return;
-      animating = false; refresh();
+      board.sync(step.pos); animating = false; refresh();
       if (keyboard) $(turn().waits ? 'end-turn' : 'board').focus({preventScroll:true});
     });
   }
