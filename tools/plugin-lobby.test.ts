@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
+import { DEFAULT_OPTIONS, switches } from '../src/match/setup';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 const options = { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false };
@@ -20,11 +21,14 @@ async function open() {
 async function freeze(page: Page) {
   const now = new Date(); await page.clock.install({ time: new Date(now.getTime() - 60000) }); await page.clock.pauseAt(now);
 }
-async function start(page: Page, kind: string) {
+// lobby: the game takes the options that Find in Open games sends, so that Find takes it back later (D1 a).
+const lobbyOptions = async (page: Page) => await page.frameLocator('iframe').locator('html').evaluate(() => (window as any).harnessApp.memory.settings?.last_setup?.options) ?? DEFAULT_OPTIONS;
+async function start(page: Page, kind: string, lobby = false) {
+  const used = lobby ? await lobbyOptions(page) : options;
   return page.frameLocator('iframe').locator('html').evaluate(async (_, input) => {
     const app = (window as any).harnessApp; app.navigate('setup');
     return app.start(input.kind, { options: input.options, colour: 'white' });
-  }, { kind, options });
+  }, { kind, options: used });
 }
 it('makes a friend code after create and offers a new code after remount', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
@@ -152,7 +156,7 @@ it('keeps the five-second wait budget through the computer handoff, then uses fi
         return result;
       };
     });
-    await start(page, 'random');
+    await start(page, 'random', true);
     const advance = async (ms: number) => {
       const n = await page.evaluate(() => (window as any).ticketReads.length);
       await page.clock.runFor(ms); await expect.poll(() => page.evaluate(() => (window as any).ticketReads.length)).toBe(n+1);
@@ -218,12 +222,29 @@ it('reuses a new open game after returning through Play without a second Find', 
       for (const game of app.memory.games.filter((g: any) => g.kind === 'random' && g.status === 'waiting')) await app.call('kingdown_cancel', { game_id: game.game_id }, false, false, false);
       await app.call('kingdown_games', {});
     });
-    await start(page, 'random');
+    await start(page, 'random', true);
     await frame.locator('#page-back').click(); await page.evaluate(() => { (window as any).holdNext = 'kingdown_games'; });
     await frame.locator('#play-open').click(); await frame.locator('#find-opponent').click();
     await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     await page.evaluate(() => (window as any).releaseHeld?.());
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_find').length)).toBe(1);
+  } finally { await page.close(); }
+});
+// D1 a: Find in Open games takes your own open game only when it has the same five switches (or with Any rules).
+it('sends a new Find from Open games when your own open game has other switches', async () => {
+  const page = await open(), frame = page.frameLocator('iframe'), html = frame.locator('html');
+  const finds = () => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_find').length);
+  try {
+    await clearWait(page);
+    const own = await start(page, 'random');
+    await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
+    expect(switches(await lobbyOptions(page))).not.toBe(switches(options));
+    const before = await finds();
+    await html.evaluate(() => (window as any).harnessApp.navigate('lobby'));
+    await frame.locator('#find-opponent').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_find').length > n, before);
+    await frame.locator('[data-screen="lobby"]').waitFor({ state: 'hidden' });
+    expect(await html.evaluate(() => (window as any).harnessApp.memory.view.game_id)).not.toBe(own.game_id);
   } finally { await page.close(); }
 });
 it('opens the human game when the friend joins before a saved wait remounts', async () => {

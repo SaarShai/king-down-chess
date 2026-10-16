@@ -5,7 +5,7 @@ import { createMatch, loadMatch, MatchError, type MatchSnapshot } from './index'
 import { commandSchema, createSchema, MAX_REVISION, type Command, type CreateOptions, type EndReason, type InboxEntry, type Invite, type JoinPreview, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
 import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
 import { diagnostic } from '../plugin/diagnostics';
-import { buildSetup, defaultChoice, draw, seatChoicesNeeded, validateChoice, type Options } from './setup';
+import { buildSetup, defaultChoice, draw, seatChoicesNeeded, switches, validateChoice } from './setup';
 import type { HistoryPage, PlayerRecord } from './protocol';
 import { gameHistory, gameOutcome, opponentRating, playerRecord, recordResult } from './results';
 export { MatchServiceError } from './store';
@@ -34,8 +34,6 @@ export function startKey(input: CreateOptions, anyRules = false) {
  return { kind: input.kind, speed, days_per_move: speed === 'daily' ? input.days_per_move ?? 3 : null, colour: input.colour ?? 'white', level: input.level ?? 'club', options: input.options ?? null, setup: input.setup ?? null, any_rules: anyRules };
 }
 type StartKey = ReturnType<typeof startKey>;
-/** The five feature switches that a random game must share with a Find (owner, D1 a). The piece and card pools may differ. */
-export const switches = ({ fairy, arrangement, classic, cards, kingPowers }: Options) => JSON.stringify({ fairy, arrangement, classic, cards, kingPowers });
 export function id(value: unknown): string { return typeof value === 'string' && uuid.test(value) ? value.toLowerCase() : fail('INVALID_INPUT', 400, 'Expected a UUID'); }
 export function parse<T>(schema: z.ZodType<T>, input: unknown): T { const result = schema.safeParse(input); return result.success ? result.data : fail('INVALID_INPUT', 400, 'Invalid input'); }
 function seatOf(game: Game, actor: string): Seat { return game.players.find(p => p.user_id === actor)?.seat ?? fail('FORBIDDEN', 403, 'You do not have a seat in this game'); }

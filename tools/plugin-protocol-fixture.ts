@@ -2,9 +2,9 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { createMatch, type LocalMatch, type MatchSetup } from '../src/match';
 import { MatchServiceError } from '../src/match/store';
-import { FRIEND_CODE_DAYS, startKey, switches } from '../src/match/service';
+import { FRIEND_CODE_DAYS, startKey } from '../src/match/service';
 import { createSchema, commandSchema, type CreateOptions, type InboxEntry, type View, type Seat, type LoggedCommand, type HistoryEntry, type PlayerRecord } from '../src/match/protocol';
-import { buildSetup, defaultChoice, draw, seatChoicesNeeded, validateChoice, type Draw, type Choice } from '../src/match/setup';
+import { buildSetup, defaultChoice, draw, seatChoicesNeeded, switches, validateChoice, type Draw, type Choice } from '../src/match/setup';
 import { handleSchema, type PluginService } from '../src/plugin/service';
 import { settingsSchema, type PlayerSettings } from '../src/plugin/settings';
 import { handleProblem, type Icon } from '../src/account/profile';

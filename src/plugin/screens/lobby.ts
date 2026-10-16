@@ -1,5 +1,5 @@
 import { call, client, memory, navigate, routeView, start } from '../app';
-import { DEFAULT_OPTIONS } from '../../match/setup';
+import { DEFAULT_OPTIONS, switches } from '../../match/setup';
 import type { InboxEntry, Lobby, View } from '../../match/protocol';
 import { runPoll } from '../poll';
 import { ANY_RULES } from './setup';
@@ -15,9 +15,11 @@ export function lobbyScreen() {
   $('find-opponent').onclick = async () => {
     if (finding || accepting) return; finding = true;
     try {
-      const own = memory.view?.kind === 'random' && memory.view.status === 'waiting' ? memory.view.game_id : memory.games.find(game => game.kind === 'random' && game.status === 'waiting')?.game_id;
+      // Your own open game comes back with no new Find only when Find would take it: the same five switches, or Any rules (D1 a).
+      const options = setup?.options ?? DEFAULT_OPTIONS, anyRules = $<HTMLInputElement>('find-any-rules').checked;
+      const own = [memory.view, ...memory.games].find(game => game?.kind === 'random' && game.status === 'waiting' && (anyRules || !!game.options && switches(game.options) === switches(options)))?.game_id;
       if (own) { const next = await call('kingdown_resume', { game_id: own }, false, false, false); if (next) routeView(next); }
-      else await start('random', { options: setup?.options ?? DEFAULT_OPTIONS, colour: setup?.colour ?? 'white', ...($<HTMLInputElement>('find-any-rules').checked && { any_rules: true }) });
+      else await start('random', { options, colour: setup?.colour ?? 'white', ...(anyRules && { any_rules: true }) });
     } finally { finding = false; }
   };
   $('lobby-key').innerHTML = featureNames.map(([, name, label]) => `${icon(name)} ${label}`).join(' · ');
