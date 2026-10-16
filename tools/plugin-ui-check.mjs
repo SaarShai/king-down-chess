@@ -900,14 +900,17 @@ try {
     await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join(''); assert(code.length === 6, 'Create gives six code tiles');
     await lookAt('friend-code', 'friend');
-    // The clipboard permission names differ by engine. Capture the widget's platform call.
-    await frame.locator('html').evaluate(() => {
+    // Chromium reads the real clipboard back. WebKit has no clipboard-read permission, so it captures the widget's platform call.
+    const webkit = browser.browserType().name() === 'webkit';
+    if (!webkit) await page.context().grantPermissions(['clipboard-read','clipboard-write']);
+    await frame.locator('html').evaluate(webkit => {
       window.ticket13Clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard'); window.ticket13Copy = document.execCommand;
-      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.ticket13CopiedText = text; } } });
-    });
+      if (webkit) Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.ticket13CopiedText = text; } } });
+    }, webkit);
     await frame.locator('#friend-copy').click();
     await frame.locator('#friend-copy-status').filter({ hasText: /^Copied$/ }).waitFor();
-    assert.equal(await frame.locator('html').evaluate(() => window.ticket13CopiedText), code, 'Copy sends the full code to the clipboard');
+    if (webkit) assert.equal(await frame.locator('html').evaluate(() => window.ticket13CopiedText), code, 'Copy sends the full code to the clipboard');
+    else assert.equal(await page.evaluate(() => navigator.clipboard.readText()), code, 'The granted clipboard contains the code');
     await frame.locator('html').evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Denied'); } } }); document.execCommand = () => false;
     });

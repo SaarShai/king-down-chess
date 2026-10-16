@@ -21,6 +21,11 @@ import { profileScreen } from './screens/profile';
 import { collectionScreen } from './screens/collection';
 import './app.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
+// WebKit does not focus a button on a pointer click. Focus it before its handler runs, so a sheet returns focus to its opener.
+window.addEventListener('click', event => {
+  const button = event.isTrusted && (event.target as Element | null)?.closest?.('button');
+  if (button && document.activeElement !== button) button.focus({ preventScroll: true });
+}, true);
 const extension = (window as Window & { openai?: WidgetHost }).openai;
 const savedScreen = extension?.widgetState?.privateContent?.screen;
 const app = new App({ name: 'King Down', version: '1.0.0' }, { availableDisplayModes: ['inline', 'fullscreen'] });

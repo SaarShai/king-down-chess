@@ -1,6 +1,7 @@
 // Unit test for the shared browser-check settings (checks-and-hooks/05) and isInside.
 // The assertions and shot() have a browser self-test: tools/check-selftest.mjs.
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
@@ -61,6 +62,13 @@ describe('launch', () => {
     const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue({} as any);
     await launch({ channel: 'webkit', headless: true });
     expect(webkitLaunch).toHaveBeenCalledWith({ headless: true });
+  });
+
+  // Some checks use CDP or open Chromium directly, so the runner help must not offer WebKit for every check.
+  it('limits WebKit to plugin-ui in the runner help', () => {
+    const help = spawnSync(process.execPath, ['tools/check.mjs', '--help'], { cwd: checkout, encoding: 'utf8' });
+    expect(help.status).toBe(0);
+    expect(help.stdout.replace(/\s+/g, ' ')).toContain('Use webkit for plugin-ui only');
   });
 });
 

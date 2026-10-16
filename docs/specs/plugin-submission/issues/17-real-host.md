@@ -74,3 +74,32 @@ Source: the owner's scratch ticket `tickets/issues/17-real-host.md`.
   The final board logs on the M1 are `/tmp/kd-real-host-board-final-chromium.log`
   and `/tmp/kd-real-host-board-final-webkit.log`.
 - No visual or game design choice is needed. Part 17-b stays outside this task.
+
+## Review fixes
+
+Two reviewers checked `d02a24d6`. Each finding below is confirmed in the code
+and by a test that fails before the fix.
+
+- **Sheet focus on WebKit.** WebKit does not focus a clicked button, so eight
+  sheet openers gave focus to the page dialog when their sheet closed. One
+  capture-phase click listener in `src/plugin/app.ts` now focuses a clicked
+  button before its handler runs. It skips script clicks. The coin-only line
+  in `board.ts` is gone.
+- **King coin on the seat (both engines).** The King sheet gave focus back while
+  its coin was still disabled. `pickKing` now focuses the coin again after it
+  unlocks, when the focus is on the page body.
+- **Use on a coin (both engines).** The refresh after **Use** rebuilt the coins
+  and removed the focus. `strips()` now gives the focus to the new coin.
+- **Clipboard check.** Chromium reads the real clipboard back again. Only
+  WebKit captures the widget's clipboard call.
+- **Help text.** Both help texts now say that `webkit` is for the plugin widget
+  only. Some other checks use CDP or open Chromium directly.
+- **Tests.** A new phone-size test opens 14 sheets by pointer and checks the
+  focus after Escape or ×. It also checks that a click shows no focus ring.
+  Two new board tests check the focus after **Use** on a card coin and a power
+  coin. One launcher test reads the runner help. Before the fix, the phone-size
+  test failed on Chromium (King coin) and on WebKit (eight openers). The board
+  tests failed on both engines.
+- **Results.** `npx tsc --noEmit` passes. The full `npm test` passes: 163 files,
+  2,567 tests, 8 skipped tests and 50 document tests. On WebKit, the board file
+  passes 32 tests and the phone-size file passes 27 tests.

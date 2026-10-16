@@ -88,6 +88,19 @@ it('marks the pieces that can use Vault with the power target mark', async () =>
   } finally { await page.close(); }
 });
 
+// Use refreshes the board, and the refresh rebuilds the coins.
+it.each([
+  ['card-w-0', '7k/8/8/8/8/8/P7/R6K w - - 0 1', { hands: [['Vault'], []] }],
+  ['power-w', '7k/8/8/8/8/8/p7/K7 w - - 0 1', { kings: [{ king: 'Frost', power: 'Freeze' }, null] }],
+] as [string, string, Partial<Rules>][])('keeps focus on %s after its Use button', async (id, fen, rules) => {
+  const page = await open(view(fen, rules)), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator(`#${id}`).click(); await frame.getByRole('button', { name: 'Use', exact: true }).click();
+    await frame.locator('#board-sheet:not([open])').waitFor({ state: 'attached' });
+    expect(await frame.locator('html').evaluate(() => document.activeElement?.id || document.activeElement?.tagName)).toBe(id);
+  } finally { await page.close(); }
+});
+
 it('names the card owner, feature icons and the computer once', async () => {
   const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [['Freeze'], ['Freeze']] }, { level: 'beginner' })), frame = page.frameLocator('iframe');
   try {

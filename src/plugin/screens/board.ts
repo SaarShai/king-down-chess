@@ -165,8 +165,6 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   }
   function coinRead(side: Color, index?: number) {
     if (!view || !pos || blocked()) return;
-    // WebKit does not focus buttons on a click. Keep this coin as the sheet's return target.
-    $(index === undefined ? `power-${side ? 'b' : 'w'}` : `card-${side ? 'b' : 'w'}-${index}`).focus({preventScroll:true});
     rules(); $('error').textContent = '';
     if (index !== undefined) {
       const card = RULES.hands[side][index], image = document.createElement('img'), face = art(`ui/cards/${card.toLowerCase()}.webp`);
@@ -192,6 +190,8 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   function strips() {
     if (!view || !pos) return;
     rules();
+    // The rebuild replaces the coins. A focused coin gives its focus to its replacement.
+    const focused = document.activeElement?.closest('#strip-me, #strip-them') ? document.activeElement.id : '';
     for (const side of [0,1] as const) {
       const mine = side === view.seat, strip = $(mine ? 'strip-me' : 'strip-them');
       strip.classList.toggle('is-turn', view.status === 'playing' && view.turn === side);
@@ -215,6 +215,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
         row.append(b);
       }
     }
+    if (focused) document.getElementById(focused)?.focus({preventScroll:true});
   }
   function refresh() {
     if (!view || !pos) return;

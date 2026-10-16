@@ -116,7 +116,8 @@ async function pickKing() {
   const view = current(); if (!view?.options || !choice?.king || locked()) return;
   picking = true; locks();
   try { const pick = await kingSheet(view.options, choice.king); if (current()?.game_id === view.game_id && choice && !current()?.ready?.[view.seat]) choice.king = pick; }
-  finally { picking = false; render(); }
+  // The sheet gives focus back while the coin is still locked, and a disabled coin cannot take it.
+  finally { picking = false; render(); if (!document.activeElement || document.activeElement === document.body) $('seat-king').focus({ preventScroll: true }); }
 }
 function menu(confirm = false) {
   closeMenu?.(); const view = current(); if (!view) return;

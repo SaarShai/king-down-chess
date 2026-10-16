@@ -6,7 +6,9 @@
 //                               PLAYABLE_URL      http://127.0.0.1:5189/
 //                               PLAYABLE_OUT      <outRoot>/by-hand/<check>, <check> is the script name without "verify-"
 //                               PLAYABLE_BROWSER  webkit, or a Chromium channel; default chromium when
-//                                                 CLAUDE_CODE_REMOTE is "true", else chrome
+//                                                 CLAUDE_CODE_REMOTE is "true", else chrome. Use webkit for
+//                                                 the plugin widget only: other checks can use CDP or open
+//                                                 Chromium directly, and they stop on WebKit.
 //                             An unknown name throws.
 //   outRoot                   The parent of the runner's output folders: <system temp folder>/kingdown-check-runs, never
 //                             in a checkout. The runner makes one folder a run under it (after-redesign/01).
