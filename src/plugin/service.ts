@@ -36,13 +36,12 @@ export class PluginService {
   report(actor: string, input: unknown) { return this.safety.report(actor, input); }
   /** Read-only. The ID and the handle; never the email. */
   async profile(actor: string) { const { user_id, handle, icon } = await this.accounts.profile(actor); return { user_id, handle, icon }; }
-  /** Board settings and last setup, plus 'Show when I am online': on is 'everyone', off is 'nobody'. The default
-   * 'mutual' shows as off: no King Down screen can make a follow yet, so it acts like 'nobody'. */
+  /** Board settings and last setup, with the account's online visibility. */
   async settings(actor: string, input: unknown = {}): Promise<PlayerSettings> {
-    const { show_online, ...board } = parse(settingsSchema, input);
-    if (show_online !== undefined) await this.accounts.updateSettings(actor, { online_visible_to: show_online ? 'everyone' : 'nobody' });
-    const [settings, { online_visible_to }] = await Promise.all([this.playerSettings.settings(actor, board), this.accounts.profile(actor)]);
-    return { ...settings, show_online: online_visible_to === 'everyone' };
+    const { online_visible_to, ...board } = parse(settingsSchema, input);
+    if (online_visible_to !== undefined) await this.accounts.updateSettings(actor, { online_visible_to });
+    const [settings, profile] = await Promise.all([this.playerSettings.settings(actor, board), this.accounts.profile(actor)]);
+    return { ...settings, online_visible_to: profile.online_visible_to };
   }
   async handle(actor: string, input: unknown) {
     actor = id(actor); const { handle, icon, check } = parse(handleSchema, input);

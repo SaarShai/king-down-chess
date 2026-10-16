@@ -15,6 +15,8 @@ The text for the portal's **Review details** (Metadata & Skills → Review infor
 >
 > **Sample data.** The account has one finished game against a friend (won), a rating, three badges, and one game against the computer where it is your move. Test case P5 resigns that game.
 >
+> **Online status.** In Settings, **Who sees when you are online** has three choices: Everyone, Friends only and Nobody. Friends only is the default. Friends are players who follow each other. The website and the app use the same value.
+>
 > **Surfaces.** King Down needs its board in the chat to play a move: the chat model does not see the position and does not choose moves. Please test King Down on the ChatGPT surfaces that show app screens: the website, the iOS app, the Android app and the desktop app. King Down does not claim Codex, because Codex shows no board. If the app can be limited to these surfaces, please limit it.
 
 ## Sources

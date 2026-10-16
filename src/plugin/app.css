@@ -246,3 +246,5 @@ body[data-touch='true'] #context-actions button { z-index: 2; }
   button#moves-line { z-index: 1; }
   #context-actions button { z-index: 2; }
 }
+
+#online-visibility .seg-row label { min-height: 44px; }

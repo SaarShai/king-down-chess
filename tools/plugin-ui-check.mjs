@@ -1049,10 +1049,21 @@ try {
     await openScreen('settings'); await boardSetting('symbols-only',false); await boardSetting('show-threats',false);
   }
   await page.setViewportSize({width:1000,height:1000});
-  // Approval D14 a: the toggle sends only its own field, and the server's answer sets the box.
-  await openScreen('settings'); await boardSetting('show-online',true);
-  assert.deepEqual(await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').at(-1).arguments), {show_online:true}, 'Show when I am online sends only its own setting');
-  await boardSetting('show-online',false);
+  // Part 18-a: each choice sends only its own field and persists on remount.
+  await openScreen('settings');
+  for (const value of ['everyone', 'nobody', 'mutual']) {
+    const choice = frame.locator(`#online-visibility input[value="${value}"]`);
+    await choice.locator('..').click();
+    await frame.locator(`#online-visibility input[value="${value}"]:not(:disabled)`).waitFor({ state: 'attached' });
+    assert(await choice.isChecked());
+    assert.deepEqual(await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').at(-1).arguments), {online_visible_to:value});
+    assert((await choice.locator('..').boundingBox()).height >= 44, 'Online choices have 44 px targets');
+    const reads = await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length);
+    await page.locator('#remount').click();
+    await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length>n, reads);
+    await openScreen('settings');
+    assert(await frame.locator(`#online-visibility input[value="${value}"]`).isChecked(), 'Online choice persists');
+  }
   await openPlay(); await legacyStart('solo'); await idleBoard(); await boardBox();
   async function clickSquare(file, rank) {
     const box = await boardBox(); assert(box);

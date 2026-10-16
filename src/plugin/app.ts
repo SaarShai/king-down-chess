@@ -53,7 +53,8 @@ function retryState() {
   $('retry').textContent = readError && !pending ? 'Try again' : 'Retry';
   $('error').textContent = message ?? '';
 }
-const TOGGLES = [['symbols-only', 'symbols_only'], ['show-threats', 'show_threats'], ['show-online', 'show_online']] as const;
+const TOGGLES = [['symbols-only', 'symbols_only'], ['show-threats', 'show_threats']] as const;
+const onlineChoices = () => document.querySelectorAll<HTMLInputElement>('#online-visibility input');
 const turnLine = (count: number) => `Your move in ${count} game${count === 1 ? '' : 's'}.`;
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 function actions() {
@@ -62,6 +63,7 @@ function actions() {
   buttons().forEach(button => { button.disabled = (blocked && !button.hasAttribute('data-free')) || button.matches('#king-picker [aria-disabled="true"]'); });
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
   for (const [id] of TOGGLES) $<HTMLInputElement>(id).disabled = blocked || !memory.settings;
+  onlineChoices().forEach(input => { input.disabled = blocked || !memory.settings; });
 }
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
 function show(next: View | undefined) {
@@ -405,16 +407,18 @@ async function applySettings() {
   if (!memory.settings) return;
   actions();
   for (const [id, key] of TOGGLES) $<HTMLInputElement>(id).checked = memory.settings[key];
+  onlineChoices().forEach(input => { input.checked = input.value === memory.settings!.online_visible_to; });
   await setSettings(memory.settings);
 }
-for (const [id, key] of TOGGLES) {
-  $<HTMLInputElement>(id).onchange = async () => {
-    for (const [other] of TOGGLES) $<HTMLInputElement>(other).disabled = true;
-    try {
-      const result = await client.call('kingdown_settings', { [key]: $<HTMLInputElement>(id).checked });
-      if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
-      remember(result);
-    } catch (error) { $('error').textContent = errorText(error); }
-    await applySettings();
-  };
+async function saveSetting(change: Record<string, unknown>) {
+  for (const [id] of TOGGLES) $<HTMLInputElement>(id).disabled = true;
+  onlineChoices().forEach(input => { input.disabled = true; });
+  try {
+    const result = await client.call('kingdown_settings', change);
+    if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+    remember(result);
+  } catch (error) { $('error').textContent = errorText(error); }
+  await applySettings();
 }
+for (const [id, key] of TOGGLES) $<HTMLInputElement>(id).onchange = () => void saveSetting({ [key]: $<HTMLInputElement>(id).checked });
+onlineChoices().forEach(input => { input.onchange = () => void saveSetting({ online_visible_to: input.value }); });

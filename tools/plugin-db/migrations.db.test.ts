@@ -70,8 +70,8 @@ suite('migrations run again on a database in use', () => {
       const actor = randomUUID(); await admin.query('insert into auth.users(id) values($1)',[actor]);
       try {
        const service = new PluginService(new PostgresMatchStore(pool));
-       expect(await service.settings(actor)).toEqual({symbols_only:false,show_threats:false,show_online:false,last_setup:null});
-       expect(await service.settings(actor,{show_online:true})).toMatchObject({show_online:true,symbols_only:false});
+       expect(await service.settings(actor)).toEqual({symbols_only:false,show_threats:false,online_visible_to:'mutual',last_setup:null});
+       expect(await service.settings(actor,{online_visible_to:'everyone'})).toMatchObject({online_visible_to:'everyone',symbols_only:false});
        expect(await service.settings(actor,{symbols_only:true})).toMatchObject({symbols_only:true,show_threats:false});
        expect(await service.settings(actor,{show_threats:true})).toMatchObject({symbols_only:true,show_threats:true});
       } finally {await admin.query('delete from auth.users where id=$1',[actor]);}

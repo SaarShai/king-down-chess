@@ -1,6 +1,6 @@
 # 18 · Server follow-ups, lane server-2
 
-Status: needs-triage
+Status: in-progress
 
 ## Scope
 
@@ -79,3 +79,20 @@ The source tickets are in the owner's scratch ticket folder.
 - The accounts failure is the same report-delete expectation at `src/online/accounts.db.test.ts:266` as before. The other failure is `tools/plugin-app.test.ts:32`: after remount, `body[data-page]` is null when the test expects home. Both files, the app code and the browser check have no diff from `dbf79f54`. A focused repeat includes the changed tests and this app test. No test limit changes.
 - Local logs: `/tmp/kd-r9-review-tests.log` and `.exit`; the focused repeat uses `/tmp/kd-r9-review-focused.log` and `.exit`.
 - M1 identity and local test database checks pass. The lane is clean at the code commit. Its detached job waits for the shared browser lock. It will run `plugin-ui`, `plugin-ui-http`, `plugin-oauth` and the protocol check, then release the lock. Logs use `/tmp/kd-r9-review-<check>.log` and `.exit`; the job log is `/tmp/kd-r9-review-browser.log`.
+
+## Parts 18-a and 18-b: plan
+
+1. Replace `show_online` with `online_visible_to`: everyone, mutual and nobody. Use three Settings choices. Change both Settings menu rows (A-F4), privacy text and review notes.
+2. Add `kingdown_block` through the account service. Read the current block, block and unblock by a shared game. Add a confirmed action and an undo path to the game Menu. Use the existing Find, join and message rules.
+3. Test all three online values through MCP and the database. Test block, unblock, input checks, Find, joins and hidden messages. Check the controls in both M1 browser checks.
+4. Run `npx tsc --noEmit` and `npm test` with the local test database. Keep all limits. Check the diff and commit each part with both trailers. Record each result here.
+
+### Acceptance checks
+
+- The default shows Friends only. Each choice persists and controls who gets the activity time. Each target is at least 44 px high.
+- Block and unblock use the same account relations as the website. Each tool hint is explicit. A block prevents contact through new games and hides messages. The Menu shows the saved block after a reload.
+- Each new test passes. Record all required check results and any old failure with its evidence.
+
+### Scope for this step
+
+Parts 18-a and 18-b, with A-F4, are approved by the owner's task. Parts 18-d and 18-e stay outside this step. Part 18-c and B4 are in the earlier commits above.

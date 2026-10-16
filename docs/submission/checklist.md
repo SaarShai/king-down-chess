@@ -74,7 +74,7 @@ Do these in order. Each step names its rows below.
 | 18 | Website URL, HTTPS [O1][O4][O5]. | D5 | owner | https://kingdown.dev Rehearsal: An HTTPS website URL is set. Public reachability is not checked in this local-only review. |
 | 19 | Terms of service URL [O1][O4][O5]. | D7 | owner | https://kingdown.dev/terms.html (3 October 2026). Rehearsal: The terms URL is set and the local page loads. Public bytes/access remain unproved. |
 | 20 | Privacy policy URL [O1][O4][O5]. | D6 | deploy | The URL exists in metadata. The policy source has the fixes for R10–R12 (16 October 2026, approval D9 a). The next release publishes it. |
-| 21 | Privacy policy names categories, purposes, recipients, retention times and controls [O3]; no undisclosed user data [O2]. | D6 | deploy | `public/privacy.html` now names the R10 data, OpenAI as a recipient, the 7-day, 30-day and 12-month cleanups, and the 'Show when I am online' control (D9 a, D12 a, D14 a). `cleanup()` deletes reports after 12 months, so the period is true. `tools/privacy-policy.docs.test.ts` keeps the page and the code the same. Owner step 6 confirms the log periods. |
+| 21 | Privacy policy names categories, purposes, recipients, retention times and controls [O3]; no undisclosed user data [O2]. | D6 | deploy | `public/privacy.html` now names the R10 data, OpenAI as a recipient, the 7-day, 30-day and 12-month cleanups, and the 'Who sees when you are online' control (Everyone, Friends only by default, Nobody) (D9 a, D12 a, D14 a). `cleanup()` deletes reports after 12 months, so the period is true. `tools/privacy-policy.docs.test.ts` keeps the page and the code the same. Owner step 6 confirms the log periods. |
 | 22 | Support page (HTTPS) with contact details [O3][O5]. | D8 | deploy | Support source exists and local GET passes. Release and public access remain. |
 | 23 | The pages and the verified identity name the same publisher [O1]. | D9 | owner | Verify as an individual named "Saar Shai" (row 2). Rehearsal: File identity matches. Verified upload identity remains an owner fact. |
 | 24 | Suitable for ages 13–17; no targeting of under-13s; no mature content [O3]. | D10 | met | No explicit under-13 targeting or mature feature is found. Presets and handle checks exist. Safety controls remain a separate gap. |
@@ -155,9 +155,9 @@ For OpenAI support (send with the plugin ID after the first upload):
 
 For the owner (answered on 2026-10-15 and 2026-10-16):
 
-4. Closed: D14 a adds 'Show when I am online' to Settings, and D12 a: the policy says that the default applies to the activity time.
+4. Closed: D14 a and 18-a add 'Who sees when you are online' to Settings, and D12 a: the policy says that the default applies to the activity time.
 5. Closed: D9 a. Games stay for the account life, reports 12 months, logs as the hosts keep them (owner step 6 confirms the log periods).
 6. Closed: D8 a, one review account (row 45).
 7. Closed: D10 approved, b (row 30).
 8. Closed: D11 b, later (row 40).
-9. Closed: keep the friends-only default (`mutual`). 'Show when I am online' becomes three choices: Everyone, Friends only (the default) and Nobody. It never shows off while friends can see the player. Ticket 18 builds it and changes the policy words (owner, 2026-10-16, after the review; this replaces the first answer of that day: on is `everyone`, off is `nobody`).
+9. Closed: keep the friends-only default (`mutual`). 'Who sees when you are online' has three choices: Everyone, Friends only (the default) and Nobody. It never shows off while friends can see the player. Part 18-a builds it and changes the policy words (owner, 2026-10-16, after the review; this replaces the first answer of that day: on is `everyone`, off is `nobody`).

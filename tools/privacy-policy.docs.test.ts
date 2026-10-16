@@ -14,8 +14,13 @@ test('the policy gives each cleanup period of the daily job', () => {
 });
 
 test('the policy names the online control as Settings shows it, says the default applies, and names OpenAI', () => {
- const label = readFileSync('src/plugin/index.html', 'utf8').match(/<label>(Show when I am online) <input id="show-online"/)![1];
- expect(text).toContain(`only when ${label} is on in the app's Settings`);
+ const label = readFileSync('src/plugin/index.html', 'utf8').match(/<legend>(Who sees when you are online)<\/legend>/)![1];
+ const html = readFileSync('src/plugin/index.html', 'utf8');
+ expect(html.match(new RegExp(`Symbols only, Show threats, ${label}\\.`, 'g'))).toHaveLength(2);
+ expect(text).toContain(`${label} has three choices: Everyone, Friends only and Nobody`);
+ expect(text).toContain('Friends only is the default: only a player who follows you and whom you follow gets your time');
+ expect(text).toContain('Nobody hides it from all opponents');
+ expect(text).not.toContain('off by default');
  expect(text).toContain('the default applies, and no setting stops it');
  expect(text).toContain('OpenAI receives what the app sends to ChatGPT');
 });
