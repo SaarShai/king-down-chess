@@ -90,7 +90,7 @@ The source tickets are in the owner's scratch ticket folder.
 ### Acceptance checks
 
 - The default shows Friends only. Each choice persists and controls who gets the activity time. Each target is at least 44 px high.
-- Block and unblock use the same account relations as the website. Each tool hint is explicit. A block prevents contact through new games and hides messages. The Menu shows the saved block after a reload.
+- Block and unblock use the same account relations as the website. Each tool hint is explicit. A block prevents matches through Find and joins to open games, and hides messages. The Menu shows the saved block after a reload.
 - Each new test passes. Record all required check results and any old failure with its evidence.
 
 ### Scope for this step

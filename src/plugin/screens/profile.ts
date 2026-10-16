@@ -48,7 +48,7 @@ async function readProfile(cursor?: string) {
     $('profile-blocks').replaceChildren(...profile.blocks.map(player => {
       const row = document.createElement('button'); row.className = 'menu-row'; row.type = 'button';
       row.textContent = `Unblock ${player.handle ?? 'player'}`;
-      row.onclick = () => confirmBoardAction('Unblock player?', 'This player can join your new games again. Follows stay off.', 'Unblock player', () => void unblock(player.user_id), 'Cancel');
+      row.onclick = () => confirmBoardAction('Unblock player?', 'Your block no longer stops Find or joins to open games. Follows stay off.', 'Unblock player', () => void unblock(player.user_id), 'Cancel');
       return row;
     }));
     $('profile-blocks-empty').hidden = profile.blocks.length > 0;

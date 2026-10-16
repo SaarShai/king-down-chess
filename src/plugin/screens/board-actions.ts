@@ -47,7 +47,7 @@ export function playerBlockButton(view: View, close = () => {}): HTMLButtonEleme
     if (blocked === undefined) { void read(); return; }
     const next = !blocked, label = blocked ? 'Unblock player' : 'Block player';
     close();
-    confirmBoardAction(`${label}?`, blocked ? 'This player can join your new games again. Follows stay off.' : 'You do not meet in new games. Their messages are hidden. Follows end both ways. This game continues. You can unblock them in this Menu.', label, () => {
+    confirmBoardAction(`${label}?`, blocked ? 'Your block no longer stops Find or joins to open games. Follows stay off.' : 'Find does not match you again. This player cannot join your open games. Their messages are hidden. Follows end both ways. This game continues. You can unblock them in this Menu.', label, () => {
       if (memory.view?.game_id === view.game_id) void call('kingdown_block', { game_id: view.game_id, blocked: next });
     });
   }, 'menu-block-player');
