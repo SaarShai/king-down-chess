@@ -395,7 +395,7 @@ async function turnBoard(fen?: string) {
   expect(result.isError).not.toBe(true);
   await page.evaluate(result => (window as any).harnessShow(result), result);
   await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
-  await frame.locator('#board[data-animating="false"]').waitFor();
+  await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
   return {page, frame, base:result._meta.view as View};
 }
 async function squareTap(page: Page, square: number) {
