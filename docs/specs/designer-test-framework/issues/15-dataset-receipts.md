@@ -86,3 +86,14 @@ The shared test lock clears without intervention. The focused suite passes
 20 transport and coordinator tests and 50 artwork checks. The Studies browser
 check passes at three viewports. Type checks pass. The original deadline and
 one-time submission guards remain in force.
+
+## Browser continuation
+
+Repair commit `c10741e3` passes 20 focused tests, 50 artwork checks,
+113 document checks, type checks and the three-viewport browser check.
+The browser continuation is clicked once at 2026-10-16 03:53:33 UTC.
+The saved run records `datasetContinuation` and shows launching. No accepted
+notebook receipt is claimed. The control disappears. The original deadline
+stays 04:33:20 UTC. The next local launch check is 04:14 UTC. Worker checks
+wait for the saved next-check time after dispatch. No upload is repeated.
+Screenshot: `/Users/za/.codex/visualizations/dataset-receipt-continuation-20261015.png`.
