@@ -344,16 +344,16 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
       for (const name of features) await frame.getByRole('checkbox', { name, exact: true }).check();
       await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
       await frame.locator('#board[aria-busy="false"]').waitFor();
-      expect(await canvasWidth(frame), all ? 'all-features seat' : 'seat').toBeGreaterThanOrEqual(192);
+      await expect.poll(() => canvasWidth(frame), all ? 'all-features seat' : 'seat').toBeGreaterThanOrEqual(192);
       if (!all) {
         await frame.locator('#seat-shuffle').click();
         await frame.locator('#seat-context').filter({ hasText: 'Select one back-rank piece' }).waitFor();
-        expect(await canvasWidth(frame), 'seat after Shuffle').toBeGreaterThanOrEqual(192);
+        await expect.poll(() => canvasWidth(frame), 'seat after Shuffle').toBeGreaterThanOrEqual(192);
       }
       for (const id of ['seat-shuffle', 'seat-menu', 'seat-ready']) expect(await reachable(frame, id), id).toBe(true);
       await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       await frame.locator('#board[aria-busy="false"]').waitFor();
-      expect(await canvasWidth(frame), all ? 'all-features board' : 'board').toBeGreaterThanOrEqual(192);
+      await expect.poll(() => canvasWidth(frame), all ? 'all-features board' : 'board').toBeGreaterThanOrEqual(192);
       if (!all) {
         // White moves e2-e4 with two taps on the board.
         await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();

@@ -900,11 +900,15 @@ try {
     await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join(''); assert(code.length === 6, 'Create gives six code tiles');
     await lookAt('friend-code', 'friend');
-    await page.context().grantPermissions(['clipboard-read','clipboard-write']); await frame.locator('#friend-copy').click();
-    await frame.locator('#friend-copy-status').filter({ hasText: /^Copied$/ }).waitFor();
-    assert(await page.evaluate(code => navigator.clipboard.readText().then(text => text === code), code), 'The granted clipboard contains the code');
+    // The clipboard permission names differ by engine. Capture the widget's platform call.
     await frame.locator('html').evaluate(() => {
       window.ticket13Clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard'); window.ticket13Copy = document.execCommand;
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.ticket13CopiedText = text; } } });
+    });
+    await frame.locator('#friend-copy').click();
+    await frame.locator('#friend-copy-status').filter({ hasText: /^Copied$/ }).waitFor();
+    assert.equal(await frame.locator('html').evaluate(() => window.ticket13CopiedText), code, 'Copy sends the full code to the clipboard');
+    await frame.locator('html').evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Denied'); } } }); document.execCommand = () => false;
     });
     await frame.locator('#friend-copy').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Select the code and copy it' }).waitFor();

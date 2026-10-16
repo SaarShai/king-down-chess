@@ -165,6 +165,8 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   }
   function coinRead(side: Color, index?: number) {
     if (!view || !pos || blocked()) return;
+    // WebKit does not focus buttons on a click. Keep this coin as the sheet's return target.
+    $(index === undefined ? `power-${side ? 'b' : 'w'}` : `card-${side ? 'b' : 'w'}-${index}`).focus({preventScroll:true});
     rules(); $('error').textContent = '';
     if (index !== undefined) {
       const card = RULES.hands[side][index], image = document.createElement('img'), face = art(`ui/cards/${card.toLowerCase()}.webp`);
