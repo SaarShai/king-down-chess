@@ -56,4 +56,5 @@ test('the policy names the block control, its effects and the undo path', () => 
  expect(text).toContain('Your current game continues');
  expect(text).toContain('The same Menu has Unblock player');
  expect(text).toContain('Unblock does not restore follows');
+ expect(text).toContain('Profile also lists blocked players, with Unblock for each player');
 });

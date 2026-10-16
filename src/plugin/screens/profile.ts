@@ -6,8 +6,9 @@ import { BADGES, type Badge } from '../../match/badges';
 import { ICONS, type Icon } from '../../account/profile';
 import type { HistoryEntry, InboxEntry, PlayerRecord } from '../../match/protocol';
 import './profile.css';
+import { confirmBoardAction } from './board-actions';
 import { errorText } from '../client';
-type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; history: HistoryEntry[]; next_before: string | null };
+type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null };
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 let request = 0;
 let before: string | null = null;
@@ -44,6 +45,13 @@ async function readProfile(cursor?: string) {
     $('profile-history').append(...profile.history.map(historyRow));
     before = profile.next_before; $('profile-more').hidden = before === null;
     renderBadges(record);
+    $('profile-blocks').replaceChildren(...profile.blocks.map(player => {
+      const row = document.createElement('button'); row.className = 'menu-row'; row.type = 'button';
+      row.textContent = `Unblock ${player.handle ?? 'player'}`;
+      row.onclick = () => confirmBoardAction('Unblock player?', 'This player can join your new games again. Follows stay off.', 'Unblock player', () => void unblock(player.user_id), 'Cancel');
+      return row;
+    }));
+    $('profile-blocks-empty').hidden = profile.blocks.length > 0;
     $('profile-status').textContent = '';
   } catch (error) { if (reading === request && client.state.screen === 'profile') $('profile-status').textContent = errorText(error); }
   finally { if (reading === request) $('profile-more').removeAttribute('disabled'); }
@@ -105,4 +113,12 @@ function historyRow(entry: HistoryEntry) {
   feats.setAttribute('aria-label', labels.join(', '));
   const res = document.createElement('span'), letter = { won: 'W', drawn: 'D', lost: 'L' }[entry.result]; res.className = `res res-${letter.toLowerCase()}`; res.textContent = letter; res.setAttribute('aria-label', entry.result);
   row.append(when, colour, player, feats, res); return row;
+}
+
+async function unblock(user_id: string) {
+  try {
+    const result = await client.call('kingdown_block', { user_id, blocked: false });
+    if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+    if (client.state.screen === 'profile') await readProfile();
+  } catch (error) { if (client.state.screen === 'profile') $('profile-status').textContent = errorText(error); }
 }

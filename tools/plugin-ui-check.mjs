@@ -927,6 +927,18 @@ try {
     await frame.locator('#board-sheet').getByRole('button', { name: 'Unblock player', exact: true }).click();
     await frame.locator('#board-menu:not(:disabled)').waitFor();
     assert.equal((await tool('kingdown_block', { game_id: friend.game_id }))._meta.blocked, false);
+    // The Profile keeps the undo path after the game ends.
+    await tool('kingdown_block', { game_id: friend.game_id, blocked: true });
+    await tool('kingdown_resign', { game_id: friend.game_id });
+    await openScreen('profile');
+    await frame.locator('#profile-blocks button').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Cancel', exact: true }).click();
+    assert.equal((await tool('kingdown_profile'))._meta.blocks.length, 1, 'Cancel keeps the block');
+    await frame.locator('#profile-blocks button').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Unblock player', exact: true }).click();
+    await frame.locator('#profile-blocks-empty:not([hidden])').waitFor();
+    assert.equal((await tool('kingdown_profile'))._meta.blocks.length, 0, 'Profile can unblock after a finished game');
+
 
 
     async function buddyCode(choices = options) {

@@ -15,7 +15,7 @@ The text for the portal's **Review details** (Metadata & Skills → Review infor
 >
 > **Sample data.** The account has one finished game against a friend (won), a rating, three badges, and one game against the computer where it is your move. Test case P5 resigns that game.
 >
-> **Block a player.** In a game against a person, open Menu, select **Block player** and confirm. The same Menu offers **Unblock player**. A block ends follows, stops new games together and hides messages. The current game continues. Unblock does not restore follows.
+> **Block a player.** In a game against a person, open Menu, select **Block player** and confirm. The same Menu offers **Unblock player**. A block ends follows, stops new games together and hides messages. The current game continues. Unblock does not restore follows. Profile also lists blocked players, with Unblock for each player. You can use it after the game ends.
 >
 > **Online status.** In Settings, **Who sees when you are online** has three choices: Everyone, Friends only and Nobody. Friends only is the default. Friends are players who follow each other. The website and the app use the same value.
 >

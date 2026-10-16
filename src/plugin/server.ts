@@ -177,11 +177,11 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   register('kingdown_join', 'Use this when the player has a King Down invitation: a 6-character code. Each short-code preview or join, a retry included, counts one attempt toward the hourly limit of 10. Join takes the open seat and uses the invitation. Then show the game with kingdown_open.',
     { code: z.string().min(1).max(300), preview: z.boolean().optional(), board_id: boardId }, { openWorld: true, visibility: ['model', 'app'], idempotent: false },
     async args => args.preview ? { content: text('Review the game features before you join.'), structuredContent: { screen: 'join' }, _meta: { ...(args.board_id && { board_id: args.board_id }), preview: await service.preview(actorId, args.code) } } : select(args.board_id, () => service.join(actorId, args.code)));
-  register('kingdown_block', 'Read whether you block the opponent in a shared game, or set blocked to true to block them or false to unblock them. A block ends follows both ways, prevents new games together and hides their messages. Your current game continues. Unblock does not restore follows.',
-    { game_id: gameId, blocked: z.boolean().optional() }, { visibility: ['app'], destructive: true, openWorld: true }, async args => {
-      const blocked = await service.block(actorId, args.game_id, args.blocked);
+  register('kingdown_block', 'Read whether you block a player (by a shared game or user ID), or set blocked to true to block them or false to unblock them. A block ends follows both ways, prevents new games together and hides their messages. Your current game continues. Unblock does not restore follows.',
+    { game_id: gameId.optional(), user_id: gameId.optional(), blocked: z.boolean().optional() }, { visibility: ['app'], destructive: true, openWorld: true }, async args => {
+      const blocked = await service.block(actorId, { game_id: args.game_id, user_id: args.user_id }, args.blocked);
       if (args.blocked === undefined) return { content: text('Your block setting is ready.'), _meta: { blocked } };
-      const result = await reply(await service.view(actorId, args.game_id));
+      const result = args.game_id ? await reply(await service.view(actorId, args.game_id)) : { _meta: {} };
       return { ...result, content: text(blocked ? 'Player blocked. Your current game continues.' : 'Player unblocked. Follows stay off.'), _meta: { ...result._meta, blocked } };
     });
   register('kingdown_report', 'Use this when the player wants to report the opponent in a King Down game: the player, their handle, or a preset message (name it). The King Down team reviews each report.',
@@ -200,9 +200,9 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   });
   // ChatGPT tells connected accounts apart by this ID; an invalid reply can stop the account from connecting.
   register('kingdown_profile', 'Use this when the player asks for their King Down rating, totals or badges in text. For "show my King Down profile", open kingdown_open with screen "profile".', { before: z.string().max(100).optional() }, { visibility: ['model', 'app'], readOnly: true, meta: { 'openai/profile': true }, output: { id: z.string(), name: z.string().optional() } }, async args => {
-    const [{ user_id, handle, icon }, record, history] = await Promise.all([service.profile(actorId), service.record(actorId), service.history(actorId, args.before)]);
+    const [{ user_id, handle, icon }, record, history, blocks] = await Promise.all([service.profile(actorId), service.record(actorId), service.history(actorId, args.before), service.blocks(actorId)]);
     const { played, won, drawn, lost } = record.totals;
-    return { content: text(`Rating ${Math.round(record.rating.rating)}${record.rating.provisional ? '?' : ''}; ${played} played, ${won} won, ${drawn} drawn, ${lost} lost; ${record.badges.length} badge${record.badges.length === 1 ? '' : 's'}.`), structuredContent: { id: user_id, ...(handle && { name: handle }) }, _meta: { handle, icon, record, history: history.games, next_before: history.next_before } };
+    return { content: text(`Rating ${Math.round(record.rating.rating)}${record.rating.provisional ? '?' : ''}; ${played} played, ${won} won, ${drawn} drawn, ${lost} lost; ${record.badges.length} badge${record.badges.length === 1 ? '' : 's'}.`), structuredContent: { id: user_id, ...(handle && { name: handle }) }, _meta: { handle, icon, record, blocks, history: history.games, next_before: history.next_before } };
   });
   return server;
 }

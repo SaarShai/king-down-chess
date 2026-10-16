@@ -100,7 +100,7 @@ Parts 18-a and 18-b, with A-F4, are approved by the owner's task. Parts 18-d and
 ### Build choices for 18-a and 18-b
 
 - Use the existing three-choice control and the stored `online_visible_to` values. No database change is needed. Both Settings menu rows name the control.
-- Put Unblock player in the same Menu. Use the same control during setup and play. Confirm both actions. Keep the current game in progress, as the website's block rules do. Unblock does not restore follows.
+- Put Unblock player in the same Menu and in a blocked-player list in Profile. The Profile path stays available after the game ends. Use the same control during setup and play. Confirm both actions. Keep the current game in progress, as the website's block rules do. Unblock does not restore follows.
 - Read block status through the same tool with no `blocked` input. This read does not write. The Menu's other controls open at once while this read runs. A failed read has Retry on its row.
 - Keep Report for later, as the owner asks. Add no new rule for the current game and no new account store.
 

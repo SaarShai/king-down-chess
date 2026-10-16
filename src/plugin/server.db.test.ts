@@ -311,7 +311,13 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect((await stranger.call('kingdown_block',{game_id,blocked:true}))._meta.code).toBe('NOT_FOUND');
   const solo = view(await host.ok('kingdown_create',{kind:'solo'})).game_id;
   expect((await host.call('kingdown_block',{game_id:solo,blocked:true}))._meta.code).toBe('NOT_FOUND');
-  for (const input of [{ game_id,blocked:'yes' },{game_id,user_id:b},{game_id,actorId:c},{game_id:'bad',blocked:true}]) expect((await host.call('kingdown_block',input))._meta.code).toBe('INVALID_INPUT');
+  for (const input of [{ blocked:true },{ game_id,blocked:'yes' },{game_id,user_id:b},{game_id,actorId:c},{game_id:'bad',blocked:true}]) expect((await host.call('kingdown_block',input))._meta.code).toBe('INVALID_INPUT');
+  await host.ok('kingdown_block',{game_id,blocked:true});
+  await host.ok('kingdown_resign',{game_id});
+  expect((await host.ok('kingdown_profile'))._meta.blocks).toEqual([{user_id:b,handle:`target-b-${tag}`}]);
+  expect((await stranger.ok('kingdown_profile'))._meta.blocks).toEqual([]);
+  expect((await host.ok('kingdown_block',{user_id:b,blocked:false}))._meta.blocked).toBe(false);
+  expect((await host.ok('kingdown_profile'))._meta.blocks).toEqual([]);
   expect(await rows("select from public.relations where kind='block' and user_id=$1",[a])).toEqual([]);
  });
 

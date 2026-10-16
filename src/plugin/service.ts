@@ -35,14 +35,15 @@ export class PluginService {
   cancel(actor: string, gameId: string) { return this.games.cancel(actor, gameId); }
   report(actor: string, input: unknown) { return this.safety.report(actor, input); }
   /** Read or change the actor's block of the opponent in a shared game. */
-  async block(actor: string, gameId: string, blocked?: boolean): Promise<boolean> {
+  async block(actor: string, target: { game_id?: string; user_id?: string }, blocked?: boolean): Promise<boolean> {
     actor = id(actor);
-    const other = await who(this.store.pool, actor, { game_id: id(gameId) });
+    const other = await who(this.store.pool, actor, target);
     const relation = { kind: 'block', user_id: other };
     if (blocked === true) await this.accounts.relate(actor, relation);
     if (blocked === false) await this.accounts.unrelate(actor, relation);
     return (await this.store.pool.query("select exists(select from public.relations where user_id=$1 and other_id=$2 and kind='block') as blocked", [actor, other])).rows[0].blocked;
   }
+  async blocks(actor: string) { return (await this.accounts.relations(actor)).filter(row => row.kind === 'block').map(({ user_id, handle }) => ({ user_id, handle })); }
   /** Read-only. The ID and the handle; never the email. */
   async profile(actor: string) { const { user_id, handle, icon } = await this.accounts.profile(actor); return { user_id, handle, icon }; }
   /** Board settings and last setup, with the account's online visibility. */
