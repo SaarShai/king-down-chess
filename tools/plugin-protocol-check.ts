@@ -34,6 +34,30 @@ try {
   assert.equal(tools.find(tool => tool.name === 'kingdown_profile')!._meta?.['openai/profile'], true);
   assert.equal((await client.readResource({ uri: boardResource })).contents[0].mimeType, 'text/html;profile=mcp-app');
   const home = await call('kingdown_open'); assert.equal(home.structuredContent.screen, 'home'); assert.equal(home._meta.view, undefined);
+  // A refusal restores the engine, history and receipt state, also after a legal first action.
+  for (const [setup, actions] of [
+    [{kings:'Flame:Haste,none',fen:'7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1'}, ['Ra1-a2!H','zzzz']],
+    [{backRank:'RNBQKBNR'}, ['e2-e4','e7-e5']],
+    [{fen:'7k/5Q2/6K1/8/8/8/8/8 w - - 0 1'}, ['Qf7-g7','Kh8-h7']],
+  ] as const) {
+    const before = await service.create('alice',{kind:'solo',colour:'white',setup});
+    const input = {command_id:'refused-turn',expected_revision:before.revision,action:{type:'turn',actions}};
+    await assert.rejects(service.command('alice',before.game_id,input),{code:'INVALID_MOVE'});
+    const after = await service.view('alice',before.game_id);
+    for (const field of ['revision','fen','turn','status','action','legal','history','last_commands'] as const) assert.deepEqual(after[field],before[field],`Refusal changes ${field}: ${actions}`);
+    const corrected = await service.command('alice',before.game_id,{...input,action:{type:'turn',actions:[actions[0]]}});
+    assert.equal(corrected.revision,before.revision+1,'A refused command leaves no receipt');
+    await service.deleteMatch(before.game_id);
+  }
+  const haste = await service.create('alice',{kind:'solo',colour:'white',setup:{kings:'Flame:Haste,none',fen:'7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1'}});
+  const wholeTurn = {game_id:haste.game_id,command_id:'whole-turn',expected_revision:haste.revision,actions:['Ra1-a2!H','Ra2-a3']};
+  const sent = await call('kingdown_move',wholeTurn);
+  assert.equal(sent.isError,undefined); assert.equal(sent._meta.view.revision,haste.revision+1); assert.equal(sent._meta.view.turn,1);
+  const retried = await call('kingdown_move',wholeTurn);
+  assert.deepEqual(retried.structuredContent,sent.structuredContent);
+  assert.equal(retried._meta.view.revision,sent._meta.view.revision); assert.equal(retried._meta.view.fen,sent._meta.view.fen);
+  assert.equal((await call('kingdown_move',{...wholeTurn,actions:['Ra1-a2!H','--']}))._meta.code,'COMMAND_CONFLICT');
+  await service.deleteMatch(haste.game_id);
   await call('kingdown_handle', { handle: 'alice', icon: 'rook' });
   const options = { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: false };
   const created = await call('kingdown_create', { kind: 'solo', options, colour: 'white', board_id: home._meta.board_id });
@@ -68,5 +92,5 @@ try {
   service.view = async () => { throw new Error('database password=never-share'); };
   const failed = await call('kingdown_get', { game_id: view.game_id });
   assert.equal(failed.isError, true); assert(!JSON.stringify(failed).includes('never-share'));
-  console.log('PASS: 25 tools and their hints, the board resource on kingdown_open only, the profile tool, board data in _meta only, empty home, explicit solo game, next game, real engine move, duplicate command, stale revision, since_revision, board selection, invitation code and expiry, inbox, model resign, actor injection rejection, sanitized internal errors');
+  console.log('PASS: 25 tools and their hints, whole-turn retry, refused-turn rollback, the board resource on kingdown_open only, the profile tool, board data in _meta only, empty home, explicit solo game, next game, real engine move, duplicate command, stale revision, since_revision, board selection, invitation code and expiry, inbox, model resign, actor injection rejection, sanitized internal errors');
 } finally { await client.close(); await server.close(); await service.close(); }
