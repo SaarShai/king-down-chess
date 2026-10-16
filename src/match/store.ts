@@ -45,16 +45,20 @@ export class PostgresMatchStore {
   const players = await client.query(`select ${PLAYER} from public.game_players p left join public.profiles pr on pr.id=p.user_id where p.game_id=$1 order by p.seat`, [id]);
   return { ...game.rows[0], players: players.rows as [Player, Player] };
  }
- async insert(game: Game, client?: PoolClient): Promise<void> {
+ /** False when a game with this ID exists already: a resent start keeps the first game. */
+ async insert(game: Game, client?: PoolClient): Promise<boolean> {
   if (!client) return this.transaction(c => this.insert(game, c));
-  await client.query(`insert into public.games(id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,turn,revision,state,snapshot,created_by,created_at,started_at,updated_at,options,draw,deal,level,setup_deadline_at,deadline_at,deadline_kind)
-   values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$17,$19,$20,$21,$22,$23,$24,$25)`,
+  const added = await client.query(`insert into public.games(id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,turn,revision,state,snapshot,created_by,created_at,started_at,updated_at,options,draw,deal,level,setup_deadline_at,deadline_at,deadline_kind)
+   values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$17,$19,$20,$21,$22,$23,$24,$25) on conflict (id) do nothing`,
    [game.id, game.kind, game.speed, game.days_per_move, game.category, game.readings, game.colour_rule, game.engine_fingerprint, game.setup, game.rules, game.status, game.turn, game.revision, game.state, game.snapshot, game.created_by, game.created_at, game.started_at, game.options, game.draw, game.deal === null ? null : JSON.stringify(game.deal), game.level, game.setup_deadline_at, game.deadline_at, game.deadline_kind]);
+  if (!added.rowCount) return false;
   for (const p of game.players) await client.query(`insert into public.game_players(game_id,seat,user_id,computer,handle_at_start,power,action,last_seen_at,choice,ready)
    values($1,$2,$3,$4,(select handle from public.profiles where id=$3),$5,$6,$7,$8,$9)`, [game.id, p.seat, p.user_id, p.computer, p.power, p.action, p.last_seen_at, p.choice, p.ready]);
+  return true;
  }
- async seen(game: string, seat: Seat): Promise<void> {
-  await this.pool.query("update public.game_players set last_seen_at=statement_timestamp() where game_id=$1 and seat=$2 and (last_seen_at is null or last_seen_at<=statement_timestamp()-interval '30 seconds')", [game, seat]);
+ /** The user's seat activity, at most once each 30 seconds; a user with no seat changes nothing. */
+ async seen(game: string, user: string): Promise<void> {
+  await this.pool.query("update public.game_players set last_seen_at=statement_timestamp() where game_id=$1 and user_id=$2 and (last_seen_at is null or last_seen_at<=statement_timestamp()-interval '30 seconds')", [game, user]);
  }
  /** Writes `next` (revision = before + 1), its log row and its alerts. State and snapshot are written only when they changed. */
  async save(client: PoolClient, before: Game, next: Game, log: Log, out: Outgoing): Promise<void> {

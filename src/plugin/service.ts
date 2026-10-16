@@ -15,9 +15,11 @@ const seated = 'exists(select from public.game_players where game_id=$3 and user
 export class PluginService {
   private games: GameService; private safety: SafetyService; private accounts: AccountService; private playerSettings: SettingsService;
   constructor(private store: PostgresMatchStore) { this.games = new GameService(store); this.safety = new SafetyService(store); this.accounts = new AccountService(store); this.playerSettings = new SettingsService(store.pool); }
-  create(actor: string, input: unknown) { return this.games.create(actor, input); }
-  /** A seat read also records activity at most once each 30 seconds. */
+  create(actor: string, input: unknown, commandId?: string) { return this.games.create(actor, input, commandId); }
+  /** Read-only. */
   view(actor: string, gameId: string, since?: number) { return this.games.view(actor, gameId, since); }
+  /** Records seat activity at most once each 30 seconds. */
+  seen(actor: string, gameId: string) { return this.games.seen(actor, gameId); }
   /** Read-only. */
   inbox(actor: string) { return this.games.inbox(actor); }
   /** Read-only: finished games and the actor's record. */
@@ -29,7 +31,7 @@ export class PluginService {
   preview(actor: string, code: unknown) { return this.games.preview(actor, code); }
   lobby(actor: string) { return this.games.lobby(actor); }
   accept(actor: string, gameId: string) { return this.games.accept(actor, gameId); }
-  find(actor: string, options: unknown, colour: unknown = 'white') { return this.games.find(actor, options, colour); }
+  find(actor: string, options: unknown, colour: unknown = 'white', commandId?: string) { return this.games.find(actor, options, colour, commandId); }
   cancel(actor: string, gameId: string) { return this.games.cancel(actor, gameId); }
   report(actor: string, input: unknown) { return this.safety.report(actor, input); }
   /** Read-only. The ID and the handle; never the email. */

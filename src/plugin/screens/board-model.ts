@@ -5,7 +5,7 @@ import { describeMove } from '../../move-text';
 
 export type BoardMove = { pre: Position; pos: Position; move: Move; lan: string; words: string };
 export function stripLine(side: Color, rating?: NonNullable<View['opponent']>['rating'], level?: View['level']): string {
-  if (level) return 'Computer · ' + level[0].toUpperCase() + level.slice(1);
+  if (level) return level[0].toUpperCase() + level.slice(1);
   const colour = side === 0 ? 'White' : 'Black';
   return rating ? `${Math.round(rating.rating)}${rating.provisional ? '?' : ''} · ${colour}` : colour;
 }

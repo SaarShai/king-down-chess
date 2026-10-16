@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { diagnostic } from './diagnostics';
 import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import { z } from 'zod';
 import { MatchServiceError } from '../match/service';
 import { MAX_REVISION, PRESETS, type Action, type View } from '../match/protocol';
@@ -22,6 +22,9 @@ type Reply = { content: { type: 'text'; text: string }[]; structuredContent?: Re
 /** Who may call a tool (MCP Apps visibility) and its hints, which ChatGPT's review requires on every tool (report part 03, section 4.5). */
 interface Hints { visibility: ('model' | 'app')[]; readOnly?: boolean; destructive?: boolean; idempotent?: boolean; meta?: Record<string, unknown>; output?: z.ZodRawShape }
 const text = (value: string) => [{ type: 'text' as const, text: value }];
+/** A command on an old view (STALE_REVISION, or INVALID_MOVE after it): the board reads the game again at once, so the
+ *  words say what happened, not "Reload". The owner's pick (approval W7, option a); change the words here only. */
+const OPPONENT_MOVED = 'Your opponent moved. Check the board.';
 let page = { source: '', origin: '', html: '', uri: '' };
 /** The page with its art origin, and its URI. Hosts cache resources by URI, so a changed board must not reuse old
  *  controls. The HTTP handler makes a server for each request: the swap and the hash run once for each page and origin. */
@@ -36,7 +39,9 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   const server = new McpServer({ name: 'kingdown', version: '1.0.0' });
   const origin = new URL(publicOrigin).origin;
   const { html, uri: boardResource } = boardPage(resourceHtml, origin);
-  registerAppResource(server, 'King Down board', boardResource, {}, async () => ({ contents: [{ uri: boardResource, mimeType: RESOURCE_MIME_TYPE, text: html, _meta: { ui: { domain: origin, permissions: { clipboardWrite: {} }, csp: { resourceDomains: [origin], connectDomains: [] } }, 'openai/widgetCSP': { resource_domains: [origin], connect_domains: [] }, 'openai/ui': { availableDisplayModes: ['inline', 'fullscreen'], preferredDisplayMode: 'inline' } } }] }));
+  // A template, not one URI: a host may keep a tool definition that names an earlier build's hash, so every board URI
+  // gets the current page (the ext-apps helper takes one URI only). kingdown_open names the current hash.
+  server.registerResource('King Down board', new ResourceTemplate('ui://kingdown/board-{hash}.html', { list: async () => ({ resources: [{ uri: boardResource, name: 'King Down board', mimeType: RESOURCE_MIME_TYPE }] }) }), { mimeType: RESOURCE_MIME_TYPE }, async uri => ({ contents: [{ uri: uri.href, mimeType: RESOURCE_MIME_TYPE, text: html, _meta: { ui: { domain: origin, permissions: { clipboardWrite: {} }, csp: { resourceDomains: [origin], connectDomains: [] } }, 'openai/widgetCSP': { resource_domains: [origin], connect_domains: [] }, 'openai/ui': { availableDisplayModes: ['inline', 'fullscreen'], preferredDisplayMode: 'inline' } } }] }));
   const gameId = z.string().uuid();
   const boardId = z.string().uuid().optional();
   const inputs = new Map<string, z.ZodType>();
@@ -55,7 +60,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     registerAppTool(server, name, { description, inputSchema, ...(output && { outputSchema: z.object(output).strict() }), annotations: { readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: idempotent, openWorldHint: false },
       _meta: { ...meta, ui: { ...(name === 'kingdown_open' && { resourceUri: boardResource }), visibility } } }, async (args: z.infer<z.ZodObject<T>>) => {
       try { return await run(args); }
-      catch (error) { const known = error instanceof MatchServiceError; if (!known || error.status >= 500) console.error('King Down tool failed', { tool: name, requestId: randomUUID(), ...diagnostic(error) }); return { isError: true, content: text(known ? error.message : 'Could not update the game. Retry or reload.'), _meta: { code: known ? error.code : 'INTERNAL_ERROR' } }; }
+      catch (error) { const known = error instanceof MatchServiceError; if (!known || error.status >= 500) console.error('King Down tool failed', { tool: name, requestId: randomUUID(), ...diagnostic(error) }); return { isError: true, content: text(!known ? 'Could not update the game. Retry or reload.' : ['STALE_REVISION', 'INVALID_MOVE'].includes(error.code) ? OPPONENT_MOVED : error.message), _meta: { code: known ? error.code : 'INTERNAL_ERROR' } }; }
     });
   }
   /** The position, the legal moves, the opponent's handle and presets go in `_meta`, which only the board reads.
@@ -100,17 +105,17 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const games = await service.inbox(actorId), count = games.filter(game => game.action === 'ready').length;
       const result = view ? await reply(view, board) : await home(board);
       result.structuredContent = { ...result.structuredContent, screen: preview ? 'join' : args.screen ?? (view ? 'board' : 'home'), your_turn_count: count };
-      if (!view) result.content = text(`Your move in ${count} games.`);
+      if (!view) result.content = text(`Your move in ${count} game${count === 1 ? '' : 's'}.`);
       const settings = await service.settings(actorId);
       result._meta = { ...result._meta, games, settings, ...(preview && { preview }) };
       if (preview) result.content = text('Review the game features before you join.');
       return result;
     });
   register('kingdown_create', 'Use this when the player wants a new King Down game against the computer, a friend or a random player. Choose the features, colour and computer level.',
-    { kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(), board_id: boardId },
-    { visibility: ['model', 'app'], idempotent: false }, ({ board_id, ...input }) => select(board_id, async () => {
+    { kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(), command_id: command.command_id.optional(), board_id: boardId },
+    { visibility: ['model', 'app'], idempotent: false }, ({ board_id, command_id, ...input }) => select(board_id, async () => {
       const options = input.options ?? (await service.settings(actorId)).last_setup?.options ?? DEFAULT_OPTIONS;
-      return input.kind === 'random' ? service.find(actorId, options, input.colour) : service.create(actorId, { ...input, options });
+      return input.kind === 'random' ? service.find(actorId, options, input.colour, command_id) : service.create(actorId, { ...input, options }, command_id);
     }));
   register('kingdown_resume', 'Show a selected game, or your most urgent game, on this board.', { board_id: z.string().uuid(), game_id: gameId.optional() }, { visibility: ['app'], idempotent: false }, async args => {
     if (args.game_id) return select(args.board_id, () => service.view(actorId, args.game_id!));
@@ -128,7 +133,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const ready = games.filter(game => game.your_turn).length;
       return { content: text(games.length ? `${games.length} active game${games.length === 1 ? '' : 's'}; your turn in ${ready}.` : 'No active games. Start one with kingdown_create.'), structuredContent: { games }, _meta: { games: rows } };
     });
-  register('kingdown_get', 'Reload the authoritative board. With since_revision, only the commands after that revision. Records seat activity at most once each 30 seconds.',
+  register('kingdown_get', 'Reload the authoritative board. With since_revision, only the commands after that revision. Read-only.',
     { game_id: gameId.optional(), since_revision: z.number().int().min(0).max(MAX_REVISION).optional(), board_id: boardId }, { visibility: ['app'], readOnly: true }, async args => {
       const id = args.board_id ? await service.board(actorId, args.board_id) : args.game_id;
       if (!id && args.board_id) return home(args.board_id);
@@ -136,12 +141,14 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       // The board may show another game since it last read: then a full view.
       return reply(await service.view(actorId, id, !args.game_id || id === args.game_id ? args.since_revision : undefined), args.board_id);
     });
+  register('kingdown_seen', 'Record that the player is at this board, so the opponent sees them online. Records at most once each 30 seconds.',
+    { game_id: gameId }, { visibility: ['app'] }, async args => { await service.seen(actorId, args.game_id); return { content: text('Seen.') }; });
   register('kingdown_lobby', 'List open games, oldest first.', {}, { visibility: ['app'], readOnly: true }, async () => {
     const lobby = await service.lobby(actorId);
     return { content: text(`${lobby.games.length} open games.`), structuredContent: { count: lobby.games.length }, _meta: { lobby: { ...lobby, server_now: new Date().toISOString() } } };
   });
   register('kingdown_accept', 'Take the open seat in a random game.', { game_id: gameId, board_id: boardId }, { visibility: ['app'] }, args => select(args.board_id, () => service.accept(actorId, args.game_id)));
-  register('kingdown_find', 'Take the oldest open game, or open your own.', { options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), board_id: boardId }, { visibility: ['app'], idempotent: false }, args => select(args.board_id, () => service.find(actorId, args.options, args.colour)));
+  register('kingdown_find', 'Take the oldest open game, or open your own.', { options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), command_id: command.command_id.optional(), board_id: boardId }, { visibility: ['app'], idempotent: false }, args => select(args.board_id, () => service.find(actorId, args.options, args.colour, args.command_id)));
   register('kingdown_cancel', 'Cancel your waiting random game with no result.', { game_id: gameId }, { visibility: ['app'], destructive: true }, async args => reply(await service.cancel(actorId, args.game_id)));
   register('kingdown_choose', 'Choose your king and back-rank order, then mark your seat Ready.', { ...command, king: choiceSchema.shape.king, order: choiceSchema.shape.order, ready: z.boolean() }, { visibility: ['app'] }, ({ king, order, ready, ...args }) => play(args, { type: 'choose', choice: { king, order }, ready }));
   register('kingdown_rematch', 'Offer, accept or decline a rematch. The reply stays on this game; resume the rematch to move the board.', { ...command, choice: z.enum(['offer', 'accept', 'decline']) }, { visibility: ['app'] }, ({ choice, ...args }) => play(args, { type: 'rematch', choice }));

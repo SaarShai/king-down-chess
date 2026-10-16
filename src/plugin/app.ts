@@ -3,7 +3,7 @@ import type { PlayerSettings } from './settings';
 import { setRules } from '../rules/engine';
 import { gamesList } from './games-list';
 import type { InboxEntry, JoinPreview, View } from '../match/protocol';
-import { createClient, type WidgetHost, type Screen, type Pending } from './client';
+import { CANNOT_CONNECT, createClient, errorText, type WidgetHost, type Screen, type Pending } from './client';
 import { art } from './art';
 import { handleProblem, ICONS, type Icon } from '../account/profile';
 import { boardScreen, rollbackBoardMove } from './screens/board';
@@ -32,7 +32,9 @@ let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
 let readError = false;
 let busy = false, polling = false, mountReading = true, gamesDirty = false;
-let poll: ReturnType<typeof runPoll> | undefined;
+// Ends when the command in flight (busy) ends; call skips a read while busy.
+let commandDone = Promise.resolve(), endCommand = () => {};
+let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0, pollFailures = 0;
 let pending = state.pending;
 let handleBack: Screen = pending?.screen ?? 'settings';
 const drawBoard = boardScreen(call, () => busy || mountReading || !!pending);
@@ -41,16 +43,22 @@ export const { routeView, start } = router;
 const screens = { setup: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
 export const memory = { kind: 'solo' as 'solo' | 'friend' | 'random', code: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, games: [] as InboxEntry[], preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
 function saveState() { state.pending = pending; client.save(); }
+/** A command's error stays on the screen where the command started, so its Retry shows there, also after the player leaves. */
+function failPending(message: string) { pending!.error = message; pending!.error_screen = pending!.screen ?? state.screen; saveState(); }
+// A pending command locks Start, the board, the seat and the poll, so these screens also show its error and Retry.
+const LOCKED: Screen[] = ['setup', 'seat', 'board', 'wait', 'friend', 'end'];
 function retryState() {
-  const message = pending?.error_screen === state.screen ? pending.error : undefined;
+  const message = pending?.error_screen === state.screen || LOCKED.includes(state.screen) ? pending?.error : undefined;
   $('retry').hidden = !message && !readError;
   $('retry').textContent = readError && !pending ? 'Try again' : 'Retry';
   $('error').textContent = message ?? '';
 }
+const turnLine = (count: number) => `Your move in ${count} game${count === 1 ? '' : 's'}.`;
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 function actions() {
   const blocked = busy || mountReading || !connected;
-  buttons().forEach(button => { button.disabled = blocked || button.matches('#king-picker [aria-disabled="true"]'); });
+  // A slow start marks ‹ Play data-free (setup.ts): it stays a way out while later calls run.
+  buttons().forEach(button => { button.disabled = (blocked && !button.hasAttribute('data-free')) || button.matches('#king-picker [aria-disabled="true"]'); });
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
   $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = blocked || !memory.settings;
 }
@@ -90,7 +98,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
   const before = view;
   let followup: Pending | undefined, received: View | undefined;
   if (quiet) polling = true;
-  else { busy = true; actions(); $('error').textContent = ''; }
+  else { busy = true; commandDone = new Promise(resolve => { endCommand = resolve; }); actions(); $('error').textContent = ''; }
   if (retain) {
     if (pending?.name !== name || pending.args !== args) pending = { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen };
     pending.error = undefined; pending.error_screen = undefined; saveState();
@@ -110,31 +118,40 @@ export async function call(name: string, args: Record<string, unknown>, retain =
       if (quiet && (busy || view !== before)) return;
     }
     if (result.isError) {
-      if (result._meta?.code === 'HANDLE_NEEDED') { pending ??= { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen }; pending.error = undefined; pending.error_screen = undefined; saveState(); navigate('handle'); return; }
+      const text = result.content.filter(c => c.type === 'text').map(c => c.text).join(' ');
+      // The command waits for a name. Save sends it again; Back shows the server's reason and Retry on the start screen.
+      if (result._meta?.code === 'HANDLE_NEEDED') { pending ??= { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen }; failPending(text); navigate('handle'); return; }
       const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'NOT_ALLOWED', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
       if (definitive.includes(String(result._meta?.code))) { pending = undefined; saveState(); if (retain) router.finishStart(); }
-      throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+      throw new Error(text);
     }
     remember(result);
+    // A good read ends an outage (three failed polls or a failed read): its sentence and Try again go together.
+    const outage = pollFailures >= 3 || name === 'kingdown_get' && readError; pollFailures = 0;
+    if (name === 'kingdown_get') readError = false;
     const next = (result._meta as { view?: View } | undefined)?.view;
     if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision) {
-      view = { ...view, opponent: next.opponent, server_now: next.server_now }; if (state.screen === 'seat') seatScreen(); poll?.update(); return;
+      view = { ...view, opponent: next.opponent, server_now: next.server_now }; if (state.screen === 'seat') seatScreen(); poll?.update(); if (outage) retryState(); return;
     }
-    if (name === 'kingdown_get') readError = false;
     show(next); received = next;
     if (name === 'kingdown_get' && !quiet) await games();
-    if (name === 'kingdown_handle') { followup = pending; navigate(followup?.screen ?? handleBack); }
+    // Save sends the waiting command again at once, so its old error and Retry go now.
+    if (name === 'kingdown_handle') { followup = pending; if (followup) followup.error = followup.error_screen = undefined; navigate(followup?.screen ?? handleBack); }
     const resumedStart = retain && next ? router.finishStart(next) : false;
     if (next && !resumedStart && (route ?? ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'].includes(name))) routeView(next);
     if (name === 'kingdown_invite') { const { code } = result.structuredContent as { code: string }; $('invitation').textContent = `Share this code: ${code}`; }
     // A reload preserves the command receipt; retry still uses its original ID.
     if (retain) pending = undefined;
     saveState(); retryState();
-  } catch (error) { if (quiet && (busy || view !== before)) return; const message = error instanceof Error ? error.message : 'Could not update the game.';
-    if (retain && pending) { pending.error = message; pending.error_screen = state.screen; saveState(); }
+  } catch (error) { const message = error instanceof Error ? error.message : 'Could not update the game.';
+    if (quiet && (busy || view !== before)) return;
+    // One slow poll is no outage, so a quiet read that cannot connect says nothing. A run of three shows the sentence
+    // with no Retry: the next poll tries again, and a good read clears it.
+    if (quiet && message === CANNOT_CONNECT) { if (++pollFailures >= 3) $('error').textContent = message; return; }
+    if (retain && pending) failPending(message);
     if (!quiet && name === 'kingdown_get' && state.board_id) readError = true;
-    retryState(); $('error').textContent = message; }
-  finally { if (quiet) polling = false; else { busy = false; actions(); } }
+    retryState(); if (!retain || !pending) $('error').textContent = message; }
+  finally { if (quiet) polling = false; else { busy = false; endCommand(); actions(); } }
   if (retain && name === 'kingdown_move' && !received && !pending && before?.game_id === view?.game_id) await rollbackBoardMove();
   if (followup) void call(followup.name, followup.args, true, false, undefined, true);
   return received;
@@ -151,7 +168,7 @@ type ToolResult = Awaited<ReturnType<typeof client.call>>;
 function renderGames(entries: InboxEntry[]) {
   memory.games = entries; gamesDirty = false;
   $('games-status').textContent = entries.length ? '' : 'No active games.';
-  $('home-line').textContent = `Your move in ${entries.filter(entry => entry.action === 'ready').length} games.`;
+  $('home-line').textContent = turnLine(entries.filter(entry => entry.action === 'ready').length);
   gamesList($('games-list'), entries, (name, args) => call(name, args, false, false, false), routeView); actions();
 }
 function remember(result: ToolResult) {
@@ -162,7 +179,7 @@ function remember(result: ToolResult) {
   }
   if (Array.isArray(result._meta?.games)) renderGames(result._meta.games as InboxEntry[]);
   const value = result.structuredContent as Record<string, unknown> | undefined;
-  if (value && typeof value.your_turn_count === 'number') $('home-line').textContent = `Your move in ${value.your_turn_count} games.`;
+  if (value && typeof value.your_turn_count === 'number') $('home-line').textContent = turnLine(value.your_turn_count);
 }
 app.ontoolresult = result => {
   const initial = awaitingInitialResult; awaitingInitialResult = false;
@@ -170,13 +187,14 @@ app.ontoolresult = result => {
 };
 async function mountResult(result: ToolResult, initial: boolean) {
   mountReading = true; actions();
+  const shown = view?.game_id;
   try {
     await connection;
     const value = result.structuredContent as Record<string, unknown> | undefined;
     if (!initial || !state.board_id) state.board_id = typeof value?.board_id === 'string' ? value.board_id : typeof value?.game_id === 'string' ? state.board_id : undefined;
     remember(result);
     if (initial) {
-      const settings = await client.call('kingdown_settings');
+      const settings = await client.call('kingdown_settings', {}, { limit: false });
       if (settings.isError) throw new Error(settings.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(settings); await applySettings();
     }
@@ -184,26 +202,34 @@ async function mountResult(result: ToolResult, initial: boolean) {
       memory.preview = undefined;
       memory.joinError = { code: String(result._meta?.code ?? ''), message: result.content.filter(c => c.type === 'text').map(c => c.text).join(' ') };
       view = undefined; navigate('join');
-      const home = await client.call('kingdown_open');
+      const home = await client.call('kingdown_open', {}, { limit: false });
       if (home.isError) throw new Error(home.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(home); saveState(); return;
     }
     if (value?.screen === 'join') { memory.preview = result._meta?.preview as JoinPreview | undefined; memory.code = memory.preview?.code ?? ''; memory.joinError = undefined; }
     if (value && ['home', 'play', 'board', 'profile', 'join'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen as Screen);
     if (typeof value?.game_id === 'string' && !value.board_id && (!initial || !state.board_id)) {
-      const selected = await client.call(state.board_id ? 'kingdown_resume' : 'kingdown_open', { game_id: value.game_id });
+      const selected = await client.call(state.board_id ? 'kingdown_resume' : 'kingdown_open', { game_id: value.game_id }, { limit: false });
       if (selected.isError) throw new Error(selected.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(selected);
     }
-    const route = value?.screen === undefined && (!initial || !savedScreen);
+    // The server names the board for every game; the read routes by the game status (a game in setup opens the seat).
+    const route = (value?.screen === undefined || value.screen === 'board') && (!initial || !savedScreen);
     const readBoard = state.board_id && (typeof value?.game_id === 'string' || initial && savedScreen);
+    // A command in flight for the game shown before would skip this read, and its reply would keep the old game on the screen.
+    // A result for another game waits for that command, so its own read shows last.
+    if (readBoard && typeof value?.game_id === 'string' && value.game_id !== shown) while (busy) await commandDone;
     if (readBoard) await call('kingdown_get', {}, false, false, route);
     else if (!result._meta?.view) view = undefined;
     if (!readBoard) await games();
     saveState();
-  } catch (error) { $('error').textContent = $('home-error').textContent = String(error); }
+  } catch (error) { $('error').textContent = $('home-error').textContent = errorText(error); }
   finally {
-    mountReading = false; if (pending?.error) retryState();
+    mountReading = false;
+    // A command that was in flight when the host remounted the widget has no reply here; Retry reads, then resends its ID.
+    // A command still in flight on this page (a chat result came during it) gets its own reply.
+    if (pending && !pending.error && !busy) failPending(CANNOT_CONNECT);
+    if (pending?.error) retryState();
     if (state.screen in screens) screens[state.screen as keyof typeof screens]();
     poll?.update();
     actions();
@@ -219,12 +245,16 @@ const connection = app.connect().then(() => {
   if (context?.displayMode === 'fullscreen' && state.screen === 'home' && !savedScreen) navigate('play');
   if (state.screen !== 'home') { const screen = state.screen; if (displayMode === 'inline' && canFullscreen()) navigate('home'); void fullscreen(screen); }
   poll = runPoll(() => ['friend', 'wait', 'seat', 'board'].includes(state.screen) ? view : undefined, async () => {
-    if (connected && !awaitingInitialResult && !mountReading && state.board_id && !busy && !pending) await call('kingdown_get', { ...(view?.fen ? { since_revision: view.revision } : {}) }, false, true, !savedScreen || !!view && ['friend', 'wait', 'seat', 'board'].includes(state.screen));
+    if (!connected || awaitingInitialResult || mountReading || !state.board_id || busy || pending) return;
+    await call('kingdown_get', { ...(view?.fen ? { since_revision: view.revision } : {}) }, false, true, !savedScreen || !!view && ['friend', 'wait', 'seat', 'board'].includes(state.screen));
+    // kingdown_get is read-only; this write lets the opponent see the player online.
+    if (view && Date.now() - seenAt >= 30_000) { seenAt = Date.now(); void client.call('kingdown_seen', { game_id: view.game_id }).catch(() => {}); }
   });
-}).catch(error => { $('error').textContent = $('home-error').textContent = `Could not connect to the game: ${String(error)}`; });
+}).catch(error => { $('error').textContent = $('home-error').textContent = `Could not connect to the game: ${errorText(error)}`; });
 
-// Ticket 21: the ChatGPT iOS app showed a 45 px board that no test browser shows. Settings shows the sizes of the last
-// seat or board screen, so a screenshot from the device names the cause. Remove when ticket 21 closes.
+// Ticket 21: the ChatGPT iOS app showed a 45 px board that no test browser shows. Settings keeps the sizes of the last
+// seat or board screen; a long press on its title shows them, so a screenshot from the device names the cause.
+// Remove when ticket 21 closes.
 const sentSizes: string[] = [], sendSize = app.sendSizeChanged.bind(app);
 app.sendSizeChanged = params => { sentSizes.push(`${params.width}x${params.height}`); sentSizes.splice(0, sentSizes.length - 3); return sendSize(params); };
 function measureLayout() {
@@ -232,8 +262,10 @@ function measureLayout() {
   const probe = (height: string) => { const d = document.createElement('div'); d.style.cssText = `position:absolute;visibility:hidden;width:1px;height:${height}`; document.body.append(d); const h = Math.round(d.getBoundingClientRect().height); d.remove(); return h; };
   const context = app.getHostContext(), line = $('layout-check');
   line.textContent = `Display check: ${state.screen} · window ${innerWidth}x${innerHeight} · vv ${Math.round(visualViewport?.width ?? 0)}x${Math.round(visualViewport?.height ?? 0)} · vh ${probe('100vh')} dvh ${probe('100dvh')} · frame ${box('#app-frame')} · section ${box(`[data-screen="${state.screen}"]`)} · table ${box('#game-table, [data-seat-id="game-table"]')} · board ${box('#board')} · canvas ${box('#board canvas')} · safe ${JSON.stringify(context?.safeAreaInsets ?? {})} · ${context?.displayMode} ${JSON.stringify(context?.containerDimensions ?? {})} · sent ${sentSizes.join(' ')}`;
-  line.hidden = false;
 }
+let press: ReturnType<typeof setTimeout> | undefined;
+$('page-title').onpointerdown = () => { clearTimeout(press); if (state.screen === 'settings') press = setTimeout(() => { $('layout-check').hidden = false; }, 600); };
+$('page-title').onpointerup = $('page-title').onpointerleave = $('page-title').onpointercancel = () => clearTimeout(press);
 // Spec Q25: inline, the widget shows only the home card; each other screen shows in fullscreen. A screen that opens
 // while inline (a chat tool call, a route) waits behind the home card until the host grants fullscreen. When the
 // player leaves fullscreen, the home card comes back with its own height; a late route or tool result waits for Play,
@@ -255,7 +287,7 @@ async function fullscreen(screen: Screen) {
     displayMode = 'fullscreen';
     const next = target; unqueue();
     if (next && !collapsed) navigate(next); else client.save();
-  } catch (error) { unqueue(); client.save(); if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = String(error); }
+  } catch (error) { unqueue(); client.save(); if (state.screen !== 'home') navigate('home'); $('error').textContent = $('home-error').textContent = errorText(error); }
   finally { asking = false; }
 }
 /** Opens the Play screen at the Your games list. */
@@ -271,10 +303,11 @@ export function navigate(screen: Screen) {
     if (['board','seat'].includes(state.screen)) state.settings_back = state.screen; else delete state.settings_back;
   }
   state.screen = screen; retryState();
-  document.querySelector('.page-sheet')!.scrollTop = 0;
   $('page-title').removeAttribute('title');
   document.body.dataset.page = screen;
   document.querySelectorAll<HTMLElement>('[data-screen]').forEach(el => { el.hidden = el.dataset.screen !== screen; });
+  // New game opens at its top (F12); other pages keep their place when the player comes back.
+  if (screen === 'setup') document.querySelectorAll<HTMLElement>('[data-screen="setup"] .new-game-body, [data-screen="setup"].page-sheet').forEach(el => { el.scrollTop = 0; });
   $('app-frame').hidden = screen === 'home';
   $('page-head').hidden = screen === 'home' || screen === 'play';
   $('page-back').textContent = screen === 'handle' && handleBack === 'settings' ? '‹ Settings' : screen === 'collection' ? '‹ Profile' : screen === 'settings' && ['board','seat'].includes(state.settings_back ?? '') ? '‹ Game' : '‹ Play';
@@ -291,7 +324,7 @@ function hostContext(context: McpUiHostContext | undefined) {
   if (!context) return;
   document.body.dataset.theme = context.theme ?? 'light';
   document.body.dataset.touch = String(context.deviceCapabilities?.touch ?? false);
-  for (const edge of ['top', 'right', 'bottom', 'left'] as const) document.documentElement.style.setProperty(`--safe-${edge}`, `${context.safeAreaInsets?.[edge] ?? 0}px`);
+  for (const edge of ['top', 'right', 'bottom', 'left'] as const) document.documentElement.style.setProperty(`--safe-${edge}`, `${Math.max(0, context.safeAreaInsets?.[edge] ?? 0)}px`);
   if (context.displayMode === 'inline' && displayMode === 'fullscreen' && state.screen !== 'home' && canFullscreen()) {
     resume = GAME_SCREENS.includes(state.screen) ? state.screen : undefined;
     displayMode = 'inline'; navigate('home'); collapsed = true;
@@ -305,7 +338,7 @@ async function games() {
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     const entries = (result._meta as { games?: InboxEntry[] } | undefined)?.games ?? [];
     renderGames(entries);
-  } catch (error) { $('games-status').textContent = String(error); }
+  } catch (error) { $('games-status').textContent = errorText(error); }
 }
 let picture: Icon = 'spirit';
 document.querySelectorAll<HTMLImageElement>('[data-art]').forEach(img => { img.src = art(img.dataset.art!); });
@@ -333,7 +366,7 @@ function scheduleHandleCheck() {
       if (check !== handleCheck) return;
       if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       $('handle-free').hidden = (result.structuredContent as { available?: boolean } | undefined)?.available !== true;
-    } catch (error) { if (check === handleCheck) $('handle-check-error').textContent = String(error); }
+    } catch (error) { if (check === handleCheck) $('handle-check-error').textContent = errorText(error); }
   }, 250);
 }
 $('handle-form').onsubmit = event => {
@@ -363,7 +396,7 @@ for (const [id, key] of [['symbols-only', 'symbols_only'], ['show-threats', 'sho
       const result = await client.call('kingdown_settings', { [key]: $<HTMLInputElement>(id).checked });
       if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(result);
-    } catch (error) { $('error').textContent = String(error); }
+    } catch (error) { $('error').textContent = errorText(error); }
     await applySettings();
   };
 }

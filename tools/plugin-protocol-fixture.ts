@@ -15,7 +15,8 @@ const parse = <T>(schema: {safeParse(input:unknown):{success:boolean;data?:T}}, 
 interface Game { id:string; creator:string; input:CreateOptions; match?:LocalMatch; players:(string|null)[]; choices:[Choice|null,Choice|null]; ready:[boolean,boolean]; drawn?:Draw; turns:[number,number]; revision:number; status:View['status']; result?:View['result']; commands:Map<string,string>; log:LoggedCommand[]; invite?:{token:string;code:string;expires_at:string;used_by?:string}; draw_offer:Seat|null; rematch_offer:Seat|null; rematch_game_id:string|null; created:number; updated:number; setup_deadline:string|null; deadline:string|null }
 export interface FixtureSeed { history?:HistoryEntry[]; games?:InboxEntry[]; record?:PlayerRecord; views?:Record<string,Partial<View>> }
 export function fixtureService(): Pick<PluginService,keyof PluginService> & { seedPosition(setup:MatchSetup,black:boolean):Promise<string>; seed(actor:string,data:FixtureSeed):void; deleteMatch(id:string):Promise<void>; close():Promise<void> } {
- const games = new Map<string,Game>(), boards = new Map<string,{actor:string;game:string|null;selected:boolean}>(), profiles = new Map<string,{user_id:string;handle:string|null;icon:Icon|null}>(), settings = new Map<string,PlayerSettings>(), seeds = new Map<string,FixtureSeed>();
+ // A start command ID names the game it made or joined, as the database's start receipt does.
+ const games = new Map<string,Game>(), starts = new Map<string,string>(), boards = new Map<string,{actor:string;game:string|null;selected:boolean}>(), profiles = new Map<string,{user_id:string;handle:string|null;icon:Icon|null}>(), settings = new Map<string,PlayerSettings>(), seeds = new Map<string,FixtureSeed>();
  let reports = 0;
  const profile = async (actor:string) => { if (!profiles.has(actor)) profiles.set(actor,{user_id:actor,handle:null,icon:null}); return {...profiles.get(actor)!}; };
  const load = (id:string) => games.get(id) ?? fail('NOT_FOUND',404,'Game not found');
@@ -24,14 +25,15 @@ export function fixtureService(): Pick<PluginService,keyof PluginService> & { se
  async function start(game:Game) { game.match = await createMatch(game.input.options ? buildSetup(game.input.options,game.drawn!,game.choices as [Choice,Choice]) : game.input.setup ?? {}); game.status = 'playing'; game.setup_deadline = null; await end(game); }
  async function end(game:Game) { const after = await game.match!.snapshot(); if (after.status !== 'playing') Object.assign(game,{status:'finished',result:{winner:after.status === 'checkmate' ? 1-after.turn : null,reason:after.status}}); }
  async function enter(game:Game) { if (game.ready.every(Boolean) || !game.input.options) { if (!game.match) await start(game); else game.status = 'playing'; } else {game.status = 'setup'; if (game.input.kind !== 'solo') game.setup_deadline ??= new Date(Date.now()+3*DAY).toISOString();} }
- async function create(actor:string,input:unknown):Promise<View> {
+ async function create(actor:string,input:unknown,commandId?:string):Promise<View> {
   const options = parse<CreateOptions>(createSchema,input); if (options.kind !== 'solo') await requireHandle(actor);
+  const started = starts.get(`${actor}:${commandId}`); if (commandId !== undefined && started) return view(actor,started);
   const seat:Seat = options.colour === 'black' ? 1 : options.colour === 'random' ? randomInt(2) as Seat : 0, solo = options.kind === 'solo', drawn = options.options ? draw(options.options,Math.random) : undefined;
   const needs = !!options.options && Object.values(seatChoicesNeeded(options.options)).some(Boolean);
   const game:Game = {id:randomUUID(),creator:actor,input:options,players:[null,null],choices:[null,null],ready:[!needs,!needs],drawn,turns:[0,0],revision:0,status:solo ? 'setup' : 'waiting',commands:new Map(),log:[],draw_offer:null,rematch_offer:null,rematch_game_id:null,created:Date.now(),updated:Date.now(),setup_deadline:null,deadline:null};
   game.players[seat] = actor;
   if (drawn) for (const s of [0,1] as const) { game.choices[s] = defaultChoice(options.options!,drawn,s,Math.random,solo && s !== seat); if (solo && s !== seat) game.ready[s] = true; }
-  games.set(game.id,game);
+  games.set(game.id,game); if (commandId !== undefined) starts.set(`${actor}:${commandId}`,game.id);
   if (solo) await enter(game); else if (!options.options) { await start(game); game.status = 'waiting'; }
   return view(actor,game.id);
  }
@@ -59,7 +61,13 @@ export function fixtureService(): Pick<PluginService,keyof PluginService> & { se
    return created.game_id;
   },
   view,create,profile,lobby,accept,
-  async find(actor,options,colour='white') { await requireHandle(actor); const own = [...games.values()].find(g=>g.input.kind === 'random' && g.status === 'waiting' && g.players.includes(actor)); if (own) return view(actor,own.id); const [first] = (await lobby(actor)).games; return first ? accept(actor,first.game_id) : create(actor,{kind:'random',options,colour}); },
+  async seen() {},
+  async find(actor,options,colour='white',commandId?) {
+   await requireHandle(actor); const key = `${actor}:${commandId}`, started = starts.get(key); if (commandId !== undefined && started) return view(actor,started);
+   const own = [...games.values()].find(g=>g.input.kind === 'random' && g.status === 'waiting' && g.players.includes(actor)); if (own) return view(actor,own.id);
+   const [first] = (await lobby(actor)).games; if (!first) return create(actor,{kind:'random',options,colour},commandId);
+   if (commandId !== undefined) starts.set(key,first.game_id); return accept(actor,first.game_id);
+  },
   async cancel(actor,id) { const g = load(id); seatOf(g,actor); if (g.status === 'aborted') return view(actor,id); if (g.input.kind !== 'random' || g.status !== 'waiting') fail('NOT_ALLOWED',409,'Only your waiting random game can be cancelled'); g.status = 'aborted'; g.result = {winner:null,reason:'abort'}; g.revision++; return view(actor,id); },
   async inbox(actor) { const rows = await Promise.all([...games.values()].filter(g=>g.players.includes(actor) && ['playing','waiting','setup'].includes(g.status)).map(async g=>{const v = await view(actor,g.id); return {game_id:g.id,kind:v.kind,speed:v.speed,status:v.status as InboxEntry['status'],seat:v.seat,action:v.action,turn:v.turn,revision:v.revision,deadline_at:v.deadline_at,opponent:v.opponent,updated_at:new Date(g.updated).toISOString(),created_at:v.created_at,options:g.input.options ?? null,move:v.fen ? Number(v.fen.split(' ')[5]) : null,open_until:g.status === 'waiting' ? g.invite?.expires_at ?? (g.input.kind === 'random' ? new Date(g.created+DAY).toISOString() : null) : null,level:g.input.level ?? 'club'};})); return [...rows,...seeds.get(actor)?.games ?? []].sort((a,b)=>Number(b.action === 'ready')-Number(a.action === 'ready') || b.updated_at.localeCompare(a.updated_at)); },
   async command(actor,id,input) {

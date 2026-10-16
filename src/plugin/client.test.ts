@@ -1,7 +1,36 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createClient, BOARD_ID_TOOLS } from './client';
 
 describe('app client', () => {
+  it('limits commands to 10 seconds and leaves mount reads to the SDK limit', async () => {
+    const callServerTool = vi.fn(async () => ({ content: [] }));
+    const client = createClient({ callServerTool });
+    await client.call('kingdown_move', { command_id: 'once' });
+    await client.call('kingdown_settings', {}, { limit: false });
+    expect(callServerTool.mock.calls).toEqual([[{ name: 'kingdown_move', arguments: { command_id: 'once' } }, { timeout: 10_000 }], [{ name: 'kingdown_settings', arguments: {} }, undefined]]);
+  });
+  it.each([
+    ['kingdown_settings', { last_setup: {} }, 'ProtocolError: Failed to fetch'],
+    ['kingdown_find', {}, 'TypeError: NetworkError when attempting to fetch resource.'],
+    ['kingdown_join', { preview: true }, 'Load failed'],
+    ['kingdown_move', { command_id: 'once' }, 'MCP error -32001: Request timed out'],
+    ['kingdown_accept', { game_id: 'g' }, 'Failed to fetch'],
+    ['kingdown_get', {}, 'McpError: MCP error -32001: Request timed out'],
+  ])('maps a connection failure for %s to one sentence and keeps its diagnostic', async (name, args, message) => {
+    const error = new Error(message);
+    const diagnostic = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const client = createClient({ callServerTool: async () => { throw error; } });
+      // The exact words: toThrow with a missing or empty sentence would pass any error.
+      await expect(client.call(name as string, args as Record<string, unknown>)).rejects.toThrow(new Error('Cannot connect. Check your connection, then try again.'));
+      expect(diagnostic).toHaveBeenCalledWith('King Down connection failed', error);
+    } finally { diagnostic.mockRestore(); }
+  });
+  it('keeps other tool errors intact', async () => {
+    const error = new Error('The game is not available.');
+    const client = createClient({ callServerTool: async () => { throw error; } });
+    await expect(client.call('kingdown_join')).rejects.toBe(error);
+  });
   it('restores the screen and pending command without putting the command in model context', () => {
     const pending = { name: 'kingdown_move', args: { game_id: 'aabbccdd-1122-4455-8899-aabbccddeeff', lan: 'e2-e4', command_id: 'once' } };
     const saved = { privateContent: { screen: 'settings' as const, sheet: 'king', game_id: 'aabbccdd-1122-4455-8899-aabbccddeeff', board_id: 'b1', pending } };

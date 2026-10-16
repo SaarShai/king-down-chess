@@ -1,4 +1,4 @@
-import { gameDetail } from '../games-list';
+import { formatDate, gameDetail, waitingLine } from '../games-list';
 import { call, client, navigate, routeView } from '../app';
 import { art, symbols } from '../art';
 import { WHY } from '../ending';
@@ -6,12 +6,13 @@ import { BADGES, type Badge } from '../../match/badges';
 import { ICONS, type Icon } from '../../account/profile';
 import type { HistoryEntry, InboxEntry, PlayerRecord } from '../../match/protocol';
 import './profile.css';
+import { errorText } from '../client';
 type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; history: HistoryEntry[]; next_before: string | null };
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 let request = 0;
 let before: string | null = null;
-const date = (at: string) => new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-const fullDate = (at: string) => new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+const date = (at: string) => formatDate(at, { day: 'numeric', month: 'short' });
+const fullDate = (at: string) => formatDate(at, { day: 'numeric', month: 'short', year: 'numeric' });
 const GOALS: Record<Badge, string> = { first_win: 'Win a game.', friend_match: 'Finish a game with a friend.', stranger_match: 'Finish a game with a random player.', purist: 'Win a Classic game.', fairy_tale: 'Win with fairy pieces.', architect: 'Win with your own arrangement.', card_sharp: 'Win a game with cards.', crowned: 'Win with a king power.', royal_collection: 'Win with all six kings.', giant_slayer: 'Beat the Strong computer.' };
 const badgeArt = (badge: Badge) => art(`assets/badge-${badge.replaceAll('_', '-')}.webp`);
 export function profileScreen() { $('profile-name').onclick = () => navigate('handle'); $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }
@@ -39,12 +40,12 @@ async function readProfile(cursor?: string) {
     }));
     $('profile-sheet').querySelector<HTMLElement>('.scroll')!.style.borderImageSource = `url("${art('assets/scroll.webp')}")`;
     if (games) $('profile-open').replaceChildren(...(games._meta!.games as InboxEntry[]).map(openRow));
-    if (!cursor) { $('profile-history').replaceChildren(); $('profile-sheet').querySelector('.registry')!.scrollTop = 0; }
+    if (!cursor) $('profile-history').replaceChildren();
     $('profile-history').append(...profile.history.map(historyRow));
     before = profile.next_before; $('profile-more').hidden = before === null;
     renderBadges(record);
     $('profile-status').textContent = '';
-  } catch (error) { if (reading === request && client.state.screen === 'profile') $('profile-status').textContent = String(error); }
+  } catch (error) { if (reading === request && client.state.screen === 'profile') $('profile-status').textContent = errorText(error); }
   finally { if (reading === request) $('profile-more').removeAttribute('disabled'); }
 }
 function renderBadges(record: PlayerRecord) {
@@ -80,7 +81,7 @@ function openRow(entry: InboxEntry) {
   const colour = document.createElement('img'); colour.className = 'pi'; colour.alt = `${entry.seat === 0 ? 'white' : 'black'} king`; colour.src = entry.seat === 0 ? art('ui/icons/king.svg') : symbols['../../public/ui/icons/king.svg'][1];
   const player = document.createElement('span'); player.className = 'grow';
   const name = document.createElement('b'); name.textContent = waiting ? 'Open game' : entry.opponent?.computer ? `Computer · ${entry.level[0].toUpperCase()}${entry.level.slice(1)}` : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
-  const line = document.createElement('small'); line.textContent = waiting ? 'Waiting for an opponent' : entry.status === 'setup' ? yours ? 'Choose your side' : 'Waiting for the other player' : `${yours ? 'Your turn' : 'Their turn'} ·\u00a0move ${entry.move}`; const detail = document.createElement('small'); detail.textContent = gameDetail(entry); player.append(name, line, detail);
+  const line = document.createElement('small'); line.textContent = waiting ? waitingLine(entry) : entry.status === 'setup' ? yours ? 'Choose your side' : 'Waiting for the other player' : yours ? `Move ${entry.move}` : `Their turn ·\u00a0move ${entry.move}`; const detail = document.createElement('small'); detail.textContent = gameDetail(entry); player.append(name, line, detail);
   const feats = document.createElement('span'); feats.className = 'feats';
   for (const [field, icon, label] of [['fairy', 'fairy', 'Fairy pieces'], ['arrangement', 'arrange', 'Arrangement'], ['classic', 'classic', 'Classic'], ['cards', 'cards', 'Cards'], ['kingPowers', 'powers', 'King powers']] as const) {
     if (entry.options?.[field]) { const feat = document.createElement('span'); feat.title = label; feat.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-${icon}"/></svg>`; feats.append(feat); }

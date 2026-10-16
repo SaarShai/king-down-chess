@@ -17,6 +17,11 @@ const CODE = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no I, L, O, 0 or 1
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const fail = (code: MatchServiceError['code'], status: number, message: string): never => { throw new MatchServiceError(code, status, message); };
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
+/** The game ID of a player's start command (a version 8 UUID): a resent Create or Find makes no second game. */
+function startId(actor: string, commandId: string): string {
+ const h = hash(`start:${actor}:${commandId}`);
+ return `${h.slice(0, 8)}-${h.slice(8, 12)}-8${h.slice(13, 16)}-${'89ab'[parseInt(h[16], 16) & 3]}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
 export function id(value: unknown): string { return typeof value === 'string' && uuid.test(value) ? value.toLowerCase() : fail('INVALID_INPUT', 400, 'Expected a UUID'); }
 export function parse<T>(schema: z.ZodType<T>, input: unknown): T { const result = schema.safeParse(input); return result.success ? result.data : fail('INVALID_INPUT', 400, 'Invalid input'); }
 function seatOf(game: Game, actor: string): Seat { return game.players.find(p => p.user_id === actor)?.seat ?? fail('FORBIDDEN', 403, 'You do not have a seat in this game'); }
@@ -96,16 +101,17 @@ async function play(game: Game, mover: Seat, lans: string[] | 'computer', engine
 
 export class GameService {
  constructor(readonly store: PostgresMatchStore) {}
- async create(actor: string, input: unknown): Promise<View> {
+ /** With a command ID, a resent Create (the reply was lost or late) gets the first game. */
+ async create(actor: string, input: unknown, commandId?: string): Promise<View> {
   actor = id(actor); const options = parse(createSchema, input);
   if (options.level && !options.options) fail('INVALID_INPUT', 400, 'A computer level needs game options');
   if (options.kind !== 'solo') await this.requireHandle(actor);
-  const game = await this.newGame(actor, options);
+  const game = await this.newGame(actor, options, commandId === undefined ? randomUUID() : startId(actor, commandId));
   settle(game, game.created_at);
-  await this.store.insert(game);
+  if (!await this.store.insert(game)) return this.view(actor, game.id);
   return this.render(game, seatOf(game, actor), { rules: true });
  }
- private async newGame(actor: string, input: CreateOptions): Promise<Game> {
+ private async newGame(actor: string, input: CreateOptions, gameId: string = randomUUID()): Promise<Game> {
   const speed = input.speed ?? (input.kind === 'solo' ? 'live' : 'daily'), options = input.options ?? null;
   const seat: Seat = input.colour === 'black' ? 1 : input.colour === 'random' ? randomInt(2) as Seat : 0;
   const at = new Date(), solo = input.kind === 'solo', days = speed === 'daily' ? input.days_per_move ?? 3 : null;
@@ -115,7 +121,7 @@ export class GameService {
    action: 'waiting', turns_played: 0, draw_offers: 0, said: [], last_seen_at: s === seat ? at : null, last_seen_ms: s === seat ? 0 : null, last_surface: null, active: true, ended_at: null });
   const powers = options?.kingPowers ?? false;
   const game: Game = {
-   id: randomUUID(), kind: input.kind, speed, days_per_move: days, category: `${speed}${days ? `-${days}d` : ''}/${powers ? 'powers' : 'no-powers'}/${options?.cards ? 'cards' : 'no-cards'}`,
+   id: gameId, kind: input.kind, speed, days_per_move: days, category: `${speed}${days ? `-${days}d` : ''}/${powers ? 'powers' : 'no-powers'}/${options?.cards ? 'cards' : 'no-cards'}`,
    readings: powers ? 'POWERS_BALANCED' : null, colour_rule: input.colour ?? 'white', engine_fingerprint: null, setup: input.setup ?? {}, rules: null,
    options, draw: drawn?.army ?? null, deal: drawn?.hand ?? null, level: input.level ?? 'club', setup_deadline_at: null, rematch_offer: null, rematch_game_id: null,
    status: solo ? needs ? 'setup' : 'playing' : 'waiting', result: null, end_reason: null, turn: 0, revision: 0, draw_offer: null, state: null, snapshot: null,
@@ -146,15 +152,15 @@ export class GameService {
   if (game.players.every(p => p.ready)) await this.start(game, at);
   else game.setup_deadline_at = new Date(at.getTime() + FIRST_TURN_DAYS * DAY);
  }
- /** One seat's view. Reads record activity at most once each 30 seconds. */
+ /** Records the actor's seat activity at most once each 30 seconds. A read (view) never writes. */
+ async seen(actor: string, gameId: string): Promise<void> { await this.store.seen(id(gameId), id(actor)); }
+ /** One seat's view. Read-only. */
  async view(actor: string, gameId: string, since?: number): Promise<View> {
   actor = id(actor); gameId = id(gameId);
   if (since !== undefined && !(Number.isInteger(since) && since >= 0 && since <= MAX_REVISION)) fail('INVALID_INPUT', 400, 'Invalid revision');
   // A full read also loads the engine save: its initial position starts the move history.
   const game = await this.store.load(gameId, { state: since === undefined });
-  const seat = seatOf(game, actor), age = game.players[seat].last_seen_ms;
-  if (age === null || age >= 30_000) await this.store.seen(gameId, seat);
-  return this.render(game, seat, { since, rules: since === undefined });
+  return this.render(game, seatOf(game, actor), { since, rules: since === undefined });
  }
  /** The actor's active games: your turn first, then the nearest deadline. */
  async inbox(actor: string): Promise<InboxEntry[]> { return this.store.inbox(id(actor)); }
@@ -174,22 +180,27 @@ export class GameService {
    return this.acceptSeat(client, game, actor);
   });
  }
- async find(actor: string, options: unknown, colour: unknown = 'white'): Promise<View> {
+ /** With a command ID, a resent Find gets the game that the first send opened or joined. */
+ async find(actor: string, options: unknown, colour: unknown = 'white', commandId?: string): Promise<View> {
   actor = id(actor); const input = parse(createSchema, { kind: 'random', options, colour });
+  const gameId = commandId === undefined ? randomUUID() : startId(actor, commandId);
   return this.store.transaction(async client => {
    await this.requireHandle(actor, client);
    // An empty lobby has no row to lock; serialize the search and create as one step.
    await client.query('select pg_advisory_xact_lock(7007008)');
-   const own = (await client.query("select id from public.games where created_by=$1 and kind='random' and status='waiting' and created_at>statement_timestamp()-interval '24 hours' order by created_at,id limit 1 for update", [actor])).rows[0];
+   const done = commandId === undefined ? undefined : (await client.query(`select id from public.games where id=$3 union all select p.game_id from public.game_players p
+    join public.game_commands c on c.game_id=p.game_id and c.seat=p.seat and c.command_id=$2 and c.kind='join' where p.user_id=$1 limit 1`, [actor, commandId, gameId])).rows[0];
+   if (done) { const game = await this.store.load(done.id, { client }); return this.render(game, seatOf(game, actor), { client, rules: true }); }
+   const own =(await client.query("select id from public.games where created_by=$1 and kind='random' and status='waiting' and created_at>statement_timestamp()-interval '24 hours' order by created_at,id limit 1 for update", [actor])).rows[0];
    if (own) { const game = await this.store.load(own.id, { client }); return this.render(game, seatOf(game, actor), { client, rules: true }); }
    for (;;) {
     const [open] = await this.store.lobby(actor, { client, lock: true });
     if (!open) break;
     const game = await this.store.load(open.game_id, { client, lock: true }), at = (await client.query('select statement_timestamp() as at')).rows[0].at;
     if (game.created_at.getTime() + DAY <= at.getTime()) continue;
-    return this.acceptSeat(client, game, actor, at);
+    return this.acceptSeat(client, game, actor, at, commandId);
    }
-   const game = await this.newGame(actor, input); settle(game, game.created_at);
+   const game = await this.newGame(actor, input, gameId); settle(game, game.created_at);
    await this.store.insert(game, client);
    return this.render(game, seatOf(game, actor), { client, rules: true });
   });
@@ -209,7 +220,8 @@ export class GameService {
    return this.render(next, seat, { client });
   });
  }
- private async acceptSeat(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, at?: Date): Promise<View> {
+ /** A Find's command ID goes on its join row, the receipt that a resent Find reads. */
+ private async acceptSeat(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, at?: Date, commandId?: string): Promise<View> {
   at ??= (await client.query('select statement_timestamp() as at')).rows[0].at as Date;
   if (game.kind !== 'random' || game.created_by === actor) fail('NOT_ALLOWED', 409, 'This open game cannot be accepted');
   const seated = game.players.find(p => p.user_id === actor);
@@ -220,7 +232,7 @@ export class GameService {
   const next = step(game), out: Outgoing = { notify: [], outbox: [] };
   Object.assign(next.players[seat], { user_id: actor, last_seen_at: at });
   await this.enterSetup(next, at); turnTo(next, out, at, actor);
-  await this.write(client, game, next, { seat, actor_id: actor, command_id: null, kind: 'join', payload: {}, actions: null, surface: null, received_at: at }, out);
+  await this.write(client, game, next, { seat, actor_id: actor, command_id: commandId ?? null, kind: 'join', payload: {}, actions: null, surface: null, received_at: at }, out);
   return this.render(next, seat, { client, rules: true });
  }
  async record(actor: string): Promise<PlayerRecord> { return playerRecord(this.store.pool, id(actor)); }

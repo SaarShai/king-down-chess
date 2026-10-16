@@ -62,12 +62,12 @@ A game reply has a short, handle-free summary in `content` and `structuredConten
 | Tool | Caller and hints | Input | Reply data in `_meta` |
 |---|---|---|---|
 | `kingdown_open` | model + app; write; no retry guarantee | `{ screen?: 'home'|'play'|'board'|'profile', game_id?: uuid|'next', code? }` | `view` when a game is selected; `settings`, `me`, full `games`; with code, `preview` and screen `join` |
-| `kingdown_create` | model + app; write; no retry guarantee | `{ kind: 'solo'|'friend'|'random', options?, colour?, level?, board_id? }` | `view`, `me` |
+| `kingdown_create` | model + app; write; safe retry with the same `command_id` only | `{ kind: 'solo'|'friend'|'random', options?, colour?, level?, command_id?, board_id? }` | `view`, `me` |
 | `kingdown_join` | model + app; write | `{ code, preview?, board_id? }` | with preview, `preview`; else `view`, `me` |
 | `kingdown_invite` | model + app; write; no retry guarantee | `{ game_id }` | none; summary gives only `code`, `expires_at` |
 | `kingdown_lobby` | app; read only | `{}` | `lobby: { games, active_count?, server_now }`; summary gives only count |
 | `kingdown_accept` | app; write; safe retry | `{ game_id, board_id? }` | `view`, `me` |
-| `kingdown_find` | app; write; no retry guarantee | `{ options, colour?, board_id? }` | `view`, `me`; a waiting game of your own is reused |
+| `kingdown_find` | app; write; safe retry with the same `command_id` only | `{ options, colour?, command_id?, board_id? }` | `view`, `me`; a waiting game of your own is reused |
 | `kingdown_cancel` | app; write; destructive; safe retry | `{ game_id }` | `view`, `me` |
 | `kingdown_resume` | app; write | `{ board_id, game_id? }` | `view`, `me`; select the named game, else the most urgent game |
 | `kingdown_get` | app; read only | `{ game_id?, board_id?, since_revision? }` | `view`, `me`; a board with no game gives home and no view |

@@ -81,6 +81,24 @@ suite('ChatGPT tools on PostgreSQL', () => {
   await player.ok('kingdown_cancel',{game_id:view(first).game_id});
  });
 
+ it('gives a resent Create or Find with the same command ID its first game', async () => {
+  const [a, b] = [await user('resend-a'), await user('resend-b')], host = await connect(a), guest = await connect(b);
+  const options = { ...DEFAULT_OPTIONS, arrangement: false };
+  for (const kind of ['solo', 'friend'] as const) {
+   const args = { kind, options, command_id: `resend-${kind}-${tag}` };
+   // The resend can come while the first send still runs.
+   const [first, second] = await Promise.all([host.ok('kingdown_create', args), host.ok('kingdown_create', args)]);
+   expect(view(second).game_id).toBe(view(first).game_id);
+   expect(view(await host.ok('kingdown_create', args)).game_id).toBe(view(first).game_id);
+  }
+  expect((await rows('select kind from public.games where created_by=$1 order by kind', [a])).map(row => row.kind)).toEqual(['friend', 'solo']);
+  // A Find that took an open seat gets that game again: no second seat and no new open game.
+  await host.ok('kingdown_create', { kind: 'random', options });
+  const args = { options, command_id: `resend-find-${tag}` }, joined = await guest.ok('kingdown_find', args);
+  expect(view(await guest.ok('kingdown_find', args)).game_id).toBe(view(joined).game_id);
+  expect((await rows('select game_id from public.game_players where user_id=$1', [b])).map(row => row.game_id)).toEqual([view(joined).game_id]);
+ });
+
  it('keeps old games working through open, board reads, moves, inbox and history', async () => {
   const actor = await user('legacy'), player = await connect(actor);
   const legacy = await new GameService(new PostgresMatchStore(admin)).create(actor,{kind:'solo',colour:'white',setup:{backRank:'RNBQKBNR',kings:'none,none'}});
@@ -166,7 +184,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(view(await host.ok('kingdown_get', { board_id })).game_id).toBe(view(resumed).game_id);
  });
 
- it('counts full, poll, open, resume and background game reads as seat activity', async () => {
+ it('reads no seat activity, and records it through kingdown_seen at most once each 30 seconds', async () => {
   const [a, b] = [await user('seen-a'), await user('seen-b')], host = await connect(a), guest = await connect(b);
   const created = await host.ok('kingdown_create', { kind: 'friend', options: { ...DEFAULT_OPTIONS, arrangement: false } });
   const game_id = view(created).game_id;
@@ -174,19 +192,17 @@ suite('ChatGPT tools on PostgreSQL', () => {
   const board_id = (await host.ok('kingdown_open', { game_id })).structuredContent.board_id;
   await admin.query("update public.profiles set online_visible_to='everyone' where id=$1", [a]);
   const seen = async () => (await rows('select last_seen_at from public.game_players where game_id=$1 and user_id=$2', [game_id, a]))[0].last_seen_at;
+  await admin.query("update public.game_players set last_seen_at=now()-interval '3 minutes' where game_id=$1 and user_id=$2", [game_id, a]);
+  const old = await seen();
+  // kingdown_get has readOnlyHint: no read writes, also not the open and resume reads.
   for (const [name, args] of [
    ['kingdown_get', { board_id }], ['kingdown_get', { board_id, since_revision: 1 }],
    ['kingdown_open', { game_id }], ['kingdown_resume', { board_id, game_id }], ['kingdown_get', { game_id }],
-  ] as const) {
-   await admin.query("update public.game_players set last_seen_at=now()-interval '3 minutes' where game_id=$1 and user_id=$2", [game_id, a]);
-   await host.ok(name, args);
-   const other = view(await guest.ok('kingdown_get', { game_id }));
-   expect(other.opponent!.last_seen_ms).toBeLessThan(120000);
-  }
+  ] as const) { await host.ok(name, args); expect(await seen()).toEqual(old); }
+  await host.ok('kingdown_seen', { game_id });
+  expect(view(await guest.ok('kingdown_get', { game_id })).opponent!.last_seen_ms).toBeLessThan(120000);
   const first = await seen();
-  vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(Date.now() + 3000);
-  try { await host.ok('kingdown_get', { board_id, since_revision: 1 }); expect(await seen()).toEqual(first); }
-  finally { vi.useRealTimers(); }
+  await host.ok('kingdown_seen', { game_id }); expect(await seen()).toEqual(first);
   await admin.query("update public.profiles set online_visible_to='nobody' where id=$1", [a]);
   expect(view(await guest.ok('kingdown_get', { game_id })).opponent!.last_seen_ms).toBeNull();
  });
@@ -200,7 +216,8 @@ suite('ChatGPT tools on PostgreSQL', () => {
   vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(Date.now() + 2 * 86_400_000);
   try {
    for (const since_revision of [undefined, 1]) {
-    await host.ok('kingdown_get', { game_id, ...(since_revision !== undefined && { since_revision }) });
+    await admin.query("update public.game_players set last_seen_at=now()-interval '3 minutes' where game_id=$1 and user_id=$2", [game_id, a]);
+    await host.ok('kingdown_seen', { game_id });
     const age = view(await guest.ok('kingdown_get', { game_id, ...(since_revision !== undefined && { since_revision }) })).opponent!.last_seen_ms;
     expect.soft(age).toBeGreaterThanOrEqual(0); expect.soft(age).toBeLessThan(120000);
    }
@@ -229,7 +246,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
 
  it('keeps the retry hints for each tool', async () => {
   const player = await connect(await user('retry-hints')), tools = (await player.client.listTools()).tools;
-  expect(tools).toHaveLength(24);
+  expect(tools).toHaveLength(25);
   expect(tools.filter(tool => tool.annotations?.idempotentHint === false).map(tool => tool.name).sort()).toEqual(['kingdown_create', 'kingdown_find', 'kingdown_invite', 'kingdown_open', 'kingdown_report', 'kingdown_resume']);
   for (const tool of tools) expect(typeof tool.annotations?.idempotentHint).toBe('boolean');
  });

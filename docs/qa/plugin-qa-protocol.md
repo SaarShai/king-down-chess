@@ -70,7 +70,7 @@ HTTP endpoints of the harness:
 | `POST /fixture-delete-match` `{ game_id }` | Deletes a game, as when the service removes it. |
 | `?terminal` on the host URL | Opens a computer game that is already in checkmate. It tests the end screen, not the move that ends a game. |
 
-The server tools: `kingdown_open`, `create`, `find`, `lobby`, `accept`, `cancel`, `join`, `invite`, `choose`, `move`, `get`, `games`, `resume`, `computer`, `draw`, `claim`, `resign`, `abort`, `rematch`, `say`, `report`, `profile`, `settings`, `handle` (each with the `kingdown_` prefix).
+The server tools: `kingdown_open`, `create`, `find`, `lobby`, `accept`, `cancel`, `join`, `invite`, `choose`, `move`, `get`, `seen`, `games`, `resume`, `computer`, `draw`, `claim`, `resign`, `abort`, `rematch`, `say`, `report`, `profile`, `settings`, `handle` (each with the `kingdown_` prefix).
 
 ### 2.3 Surfaces
 
