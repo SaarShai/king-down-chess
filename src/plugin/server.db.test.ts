@@ -99,6 +99,45 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect((await rows('select game_id from public.game_players where user_id=$1', [b])).map(row => row.game_id)).toEqual([view(joined).game_id]);
  });
 
+ it('refuses a start command ID that comes again with other input, on each start path (RV5-3, RV7-1)', async () => {
+  const [a, b] = [await user('conflict-a'), await user('conflict-b')], host = await connect(a), guest = await connect(b);
+  // Classic switches, which no other test here opens, so the guest's Find takes the host's table.
+  const options = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true }, cards = { ...options, cards: true };
+  const starts = [
+   { kind: 'friend', options, command_id: `made-${tag}` }, // a new game
+   { kind: 'random', options, command_id: `joined-${tag}` }, // the host's open table
+   { kind: 'random', options: cards, command_id: `reused-${tag}` }, // the guest's own open table
+  ];
+  const table = await host.ok('kingdown_create', { kind: 'random', options }), games = [];
+  for (const args of starts.slice(0, 2)) games.push(view(await guest.ok('kingdown_create', args)).game_id);
+  const mine = await guest.ok('kingdown_create', { kind: 'random', options: cards });
+  games.push(view(await guest.ok('kingdown_create', starts[2])).game_id);
+  expect(games.slice(1)).toEqual([view(table).game_id, view(mine).game_id]);
+  await guest.ok('kingdown_abort', { game_id: games[1] });
+  for (const [n, args] of starts.entries()) {
+   for (const other of [{ kind: 'solo' }, { colour: 'black' }, { options: { ...args.options, kingPowers: true } }])
+    expect((await guest.call('kingdown_create', { ...args, ...other }))._meta.code).toBe('COMMAND_CONFLICT');
+   expect(view(await guest.ok('kingdown_create', args)).game_id).toBe(games[n]);
+  }
+  expect((await guest.call('kingdown_find', { options, command_id: `made-${tag}` }))._meta.code).toBe('COMMAND_CONFLICT');
+  expect((await rows('select count(*)::int as n from public.games where created_by=$1', [b]))[0].n).toBe(2);
+  await guest.ok('kingdown_cancel', { game_id: view(mine).game_id });
+ });
+
+ it('gives a resent Find its own open game after another player takes the seat, and shows no Find times (RV5-4, RV7-2)', async () => {
+  const [a, b] = [await user('own-find-a'), await user('own-find-b')], host = await connect(a), guest = await connect(b);
+  const options = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true, kingPowers: true }, args = { options, command_id: `own-find-${tag}` };
+  const open = await host.ok('kingdown_create', { kind: 'random', options });
+  // The first Find reuses the host's open game, and its reply is lost. A second Find reuses it again. Then the guest takes the seat.
+  expect(view(await host.ok('kingdown_find', args)).game_id).toBe(view(open).game_id);
+  await host.ok('kingdown_find', { options, command_id: `own-find-2-${tag}` });
+  const accepted = view(await guest.ok('kingdown_accept', { game_id: view(open).game_id }));
+  // The Find receipts are not moves: the guest sees only the join, so no time shows when the host chose Find.
+  expect(accepted).toMatchObject({ revision: 3, last_commands: [{ seq: 3, seat: accepted.seat, action: { type: 'join' } }] });
+  expect(view(await host.ok('kingdown_find', args)).game_id).toBe(view(open).game_id);
+  expect((await rows('select id from public.games where created_by=$1', [a])).map(row => row.id)).toEqual([view(open).game_id]);
+ });
+
  it('keeps old games working through open, board reads, moves, inbox and history', async () => {
   const actor = await user('legacy'), player = await connect(actor);
   const legacy = await new GameService(new PostgresMatchStore(admin)).create(actor,{kind:'solo',colour:'white',setup:{backRank:'RNBQKBNR',kings:'none,none'}});

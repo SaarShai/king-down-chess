@@ -69,6 +69,8 @@ it('returns a safe field name for schema errors without echoing input', async ()
   expect(tools.find(t=>t.name === 'kingdown_create')!.inputSchema.properties!.kind).toMatchObject({enum:['solo','friend','random']});
   expect(tools.find(t=>t.name === 'kingdown_create')!.inputSchema.properties!.options).toMatchObject({type:'object',properties:{fairy:{type:'boolean'}}});
   expect(tools.find(t=>t.name === 'kingdown_get')!.inputSchema.properties!.since_revision).toMatchObject({maximum:1100});
+  // RV5-3: the model sees command_id, so it must know that the field is for the board.
+  expect(tools.find(t=>t.name === 'kingdown_create')!.inputSchema.properties!.command_id).toMatchObject({description:expect.stringContaining('leave it out')});
   for (const [name,args,field] of [
    ['kingdown_create',{kind:'solo',options:{...DEFAULT_OPTIONS,pool:[]}},'options. Keep at least 7 pieces in the pool'], ['kingdown_handle',{icon:'photo'},'icon'],
    ['kingdown_get',{game_id,since_revision:1101},'since_revision'], ['kingdown_get',{game_id,actorId:'private-value'},undefined], ['kingdown_move',{game_id,command_id:'bad',expected_revision:1101,lan:'e2-e4'},'expected_revision'],

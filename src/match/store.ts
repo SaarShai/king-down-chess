@@ -85,7 +85,8 @@ export class PostgresMatchStore {
  }
  /** The commands after `since` (at most 50, the newest), or the last 10. */
  async commands(game: string, since?: number, client: Client = this.pool): Promise<LoggedCommand[]> {
-  const result = await client.query(`select seq,seat,kind,payload,actions,created_at from public.game_commands where game_id=$1 and seq>$2 order by seq desc limit $3`, [game, since ?? 0, since === undefined ? 10 : 50]);
+  // A start receipt is no move: its time would show when a player who hides online status chose Find (RV7-2).
+  const result = await client.query(`select seq,seat,kind,payload,actions,created_at from public.game_commands where game_id=$1 and seq>$2 and kind<>'start' order by seq desc limit $3`, [game, since ?? 0, since === undefined ? 10 : 50]);
   return result.rows.reverse().map(r => ({ seq: r.seq, seat: r.seat, at: r.created_at.toISOString(),
    action: r.kind === 'join' || r.kind === 'expire' ? { type: r.kind } : r.kind === 'computer' ? { type: 'computer', actions: r.actions } : r.payload.action }));
  }

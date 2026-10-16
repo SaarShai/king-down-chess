@@ -119,7 +119,9 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       return result;
     });
   register('kingdown_create', 'Use this when the player wants a new King Down game against the computer, a friend or a random player. Choose the features, colour and computer level. Without options, uses the last setup options, then the default options. A board_id also changes that board’s selected game.',
-    { kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(), command_id: command.command_id.optional(), board_id: boardId },
+    { kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(),
+      // RV5-3: the model sees this field, so it must know that one ID names one request.
+      command_id: command.command_id.optional().describe('For the King Down board only: leave it out. The same value with other input gives COMMAND_CONFLICT.'), board_id: boardId },
     { visibility: ['model', 'app'], idempotent: false }, ({ board_id, command_id, ...input }) => select(board_id, async () => {
       const options = input.options ?? (await service.settings(actorId)).last_setup?.options ?? DEFAULT_OPTIONS;
       return input.kind === 'random' ? service.find(actorId, options, input.colour, command_id) : service.create(actorId, { ...input, options }, command_id);
