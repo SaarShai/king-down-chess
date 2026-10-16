@@ -1,6 +1,6 @@
 # Base: the last three review fixes
 
-Status: claimed
+Status: resolved
 Type: task
 Lane: od-base
 
@@ -68,7 +68,42 @@ Plan and checks:
    time limit. No server code needs a change.
 4. Record the results and commit the fix on `claude/owner-decisions`.
 
-## Verification
+Repair at `45a38657`:
+
+- Review A: fixed. Pending Play now commands carry `quick: true` in
+  private widget state. The hall shows the quick game's choices while
+  the command waits. The saved draft and opponent stay separate. After
+  a completed Create remounts, the restore path sets the saved opponent
+  with the draft. The default Computer choice cannot replace it.
+- Review B: fixed. A failed choice or final read opens the hall, with
+  the error and Retry in view. Retry keeps the command ID. A remount
+  also keeps the quick marker and the saved New game choices.
+- The unit test checks marker storage. The app tests check lost Create
+  with Retry and remount, Create time-out and remount before completion,
+  choice time-out, and read time-out and remount. The browser check fails
+  Create, choice and read, then retries each one. It also remounts a
+  completed Create. Each path checks the saved A friend, Strong and
+  Arrangement choices after the quick game starts.
+
+Checks for this repair:
+
+- The M1 app tests with the old source fail five recovery cases. The
+  other 64 tests pass. The job then restores the fix.
+  Log: `/tmp/kd-od-base-followup2-red.log` on the M1.
+- `npm run typecheck`, the browser script syntax check, and the code
+  commit's hooks pass. The gate uses empty secret sources, as the owner's
+  file rule requires. It does not check current secret values.
+- M1 `npm run -s check:browser plugin-ui` at `45a38657`: pass, 229.5 s.
+  The lane's worktree is clean after the check. The job releases its lock.
+  Log: `/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/kingdown-check-runs/kd-od-base-JrXmML/plugin-ui.log`.
+- Local `npm test` at `45a38657`, with four workers and the given local
+  test database: pass. All 165 files pass; 2,570 tests pass and 8 skip.
+  All 50 scene checks pass. The suite takes 282.65 s. The run waits for
+  the shared test lock before it starts. No time limit changes.
+  Log: `/tmp/kd-od-base-followup2-tests.log`.
+- `plugin-ui-http` does not apply: no server code changes.
+
+## Checks before the recovery fixes
 
 - `npx tsc --noEmit`: pass.
 - `node --check tools/plugin-ui-check.mjs`: pass.
@@ -92,6 +127,6 @@ No new taste choice is necessary. The owner's picks set the result.
 
 ## Result
 
-All three review items are complete. Both readers have no open finding.
-All required checks pass. All commits stay local on
+The three initial review items and both Play now recovery findings are
+fixed. Each finding has a test. All required checks pass. All commits stay local on
 `claude/owner-decisions`.
