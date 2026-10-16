@@ -1671,6 +1671,7 @@ try {
   assert.deepEqual(await page.evaluate(() => window.harnessWidgetState.modelContent), {status:'playing',your_turn:true}, 'Hosts without widget state receive useful model context without an internal revision');
   if (mode === 'fixture') {
   await page.goto(new URL('/?terminal=1', base).href);
+    await page.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen' }));
   await frame.locator('#status').filter({ hasText: 'Checkmate' }).waitFor();
   assert.equal(await frame.locator('#computer').isVisible(), false);
   assert.equal(await frame.locator('#choices button').count(), 0);

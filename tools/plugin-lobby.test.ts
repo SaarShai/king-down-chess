@@ -15,7 +15,8 @@ beforeAll(async () => {
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
 async function open() {
   const page = await browser.newPage(); page.setDefaultTimeout(5000); await page.goto(harness.url);
-  await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor(); return page;
+  await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+  await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen' })); return page;
 }
 async function freeze(page: Page) {
   const now = new Date(); await page.clock.install({ time: new Date(now.getTime() - 60000) }); await page.clock.pauseAt(now);
@@ -26,7 +27,7 @@ async function start(page: Page, kind: string) {
     return app.start(input.kind, { options: input.options, colour: 'white' });
   }, { kind, options });
 }
-// With a game that waits, the home card offers Resume and Play now (spec J3), so a test of the hall opens it from the chat.
+// The host opens the chat route fullscreen.
 async function hall(page: Page) {
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }));

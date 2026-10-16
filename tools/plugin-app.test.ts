@@ -96,6 +96,7 @@ async function start(page: Page, route = true) {
 it('reads a saved board at mount and shows Retry with the saved failure words', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white' }); });
     await page.evaluate(() => {
       const host = window as any;
@@ -222,6 +223,7 @@ it('keeps Start blocked and retries the same solo game after its board read fail
 it('blocks Retry and screen actions until both mount reads finish', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); });
     await page.evaluate(() => { (window as any).dropNextMoveReply = true; });
     await frame.locator('html').evaluate(async () => {
@@ -254,6 +256,7 @@ it('blocks Retry and screen actions until both mount reads finish', async () => 
 it('refreshes the Play rows after Create and Move from the page', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => {
       await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false } });
     });
@@ -368,6 +371,7 @@ it('keeps chat preview and code errors in page memory on notification and mount'
   const page = await open(), frame = page.frameLocator('iframe');
   const tool = async (path: string, name: string, args = {}) => (await page.request.post(new URL(path, harness.url).href, { data: { name, arguments: args } })).json();
   try {
+    await expand(page);
     const friend = await tool('/fixture-friend-tool', 'kingdown_create', { kind: 'friend', colour: 'white' });
     const invite = await tool('/fixture-friend-tool', 'kingdown_invite', { game_id: friend._meta.view.game_id });
     const preview = await tool('/fixture-tool', 'kingdown_open', { code: invite.structuredContent.code });
@@ -402,6 +406,7 @@ it('keeps chat preview and code errors in page memory on notification and mount'
 it('shows both setup states in the app games rows', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => {
       await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } });
     });
@@ -427,6 +432,7 @@ it('shows both setup states in the app games rows', async () => {
 it('updates activity on unchanged replies across the two-minute poll boundary', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
       await app.call('kingdown_create', { kind: 'friend', colour: 'white' });
@@ -559,6 +565,7 @@ it('draws Maester swap marks through the shared board adapter', async () => {
   try {
     await page.goto(harness.url); const frame = page.frameLocator('iframe');
     await frame.locator('#home-play:not(:disabled)').waitFor();
+    await expand(page);
     const seeded = await (await page.request.post(new URL('/fixture-position?case=swap', harness.url).href)).json();
     await page.evaluate(result => (window as any).harnessShow(result), seeded);
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
@@ -579,6 +586,7 @@ it('declares inline and fullscreen modes in the App handshake', async () => {
 it('keeps a failed mount read visible without a pending send', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp; await app.call('kingdown_create', { kind: 'friend' }); app.navigate('play');
     });
@@ -593,6 +601,7 @@ it('keeps a failed mount read visible without a pending send', async () => {
 it('restores a saved End route to the board when the game still plays', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false } }); });
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     await page.evaluate(() => { (window as any).harnessWidgetState.privateContent.screen = 'end'; });
@@ -606,6 +615,7 @@ it('restores a saved End route to the board when the game still plays', async ()
 it('keeps both sides in Moves and restores them after Remount', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
       await app.call('kingdown_create', { kind:'solo', colour:'white', level:'beginner', options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false} });
@@ -631,6 +641,7 @@ it('keeps both sides in Moves and restores them after Remount', async () => {
 it('closes board sheets with Escape, returns focus and returns from Settings to the game', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', {kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
     for (const id of ['board-menu','moves-line','resign']) {
       await frame.locator(`#${id}:not(:disabled)`).click(); await frame.locator('#board-sheet[open]').waitFor();
@@ -647,6 +658,7 @@ it('closes board sheets with Escape, returns focus and returns from Settings to 
 it('keeps Tab inside the visible controls of the board Menu', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', {kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
     await frame.locator('#board-menu:not(:disabled)').click(); await frame.locator('#board-sheet[open]').waitFor();
     const controls = frame.locator('#board-sheet button:not(:disabled):visible'), first = controls.first(), last = controls.last();
@@ -660,6 +672,7 @@ it('keeps Tab inside the visible controls of the board Menu', async () => {
 it('shows a failed board read once beside Try again and restores the same game', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } }); });
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     await page.evaluate(() => { (window as any).rejectNextGet = true; });
@@ -679,6 +692,7 @@ it('shows a failed board read once beside Try again and restores the same game',
 it('offers Try again after a failed mount read and restores the same game', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', {kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
     const game = await page.evaluate(() => (window as any).harnessView.game_id);
     await page.evaluate(() => { (window as any).rejectNextGet = true; }); await page.locator('#remount').click();
@@ -695,6 +709,7 @@ it.each([false,true])('shows a draw offer and handles a decline before Resign (i
   const page = await open(), frame = page.frameLocator('iframe');
   const buddy = async (name: string, args: Record<string, unknown>) => (await page.request.post(new URL('/fixture-friend-tool',harness.url).href,{data:{name,arguments:args}})).json();
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => { const app=(window as any).harnessApp; await app.start('friend',{colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
     await frame.locator('#friend-code span').first().waitFor();
     const code = (await frame.locator('#friend-code span').allTextContents()).join('');
@@ -717,6 +732,7 @@ it.each([false,true])('shows a draw offer and handles a decline before Resign (i
 it('does not repeat the abort title in the end reason', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await expand(page);
     await frame.locator('html').evaluate(async () => {
       const app=(window as any).harnessApp; await app.call('kingdown_create',{kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}});
       const v=app.memory.view; await app.call('kingdown_abort',{game_id:v.game_id,command_id:'words-abort',expected_revision:v.revision},true);

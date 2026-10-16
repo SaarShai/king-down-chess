@@ -78,9 +78,10 @@ it.each([[393, 852, 102, 118, 380], [320, 568, 63, 84, 215], [320, 568, 63, 180,
     expect(await textFits()).toEqual([]);
   } finally { await page.close(); }
 });
-// With a game that waits, the home card offers Resume and Play now (spec J3), so a test of the hall opens it from the chat.
+// The host opens the chat route fullscreen.
 async function hall(page: Page) {
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+  await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen' }));
   const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }));
   await page.evaluate(result => (window as any).harnessShow(result), result);
   await page.frameLocator('iframe').locator('[data-screen="play"]:not([hidden])').waitFor();

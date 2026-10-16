@@ -49,6 +49,7 @@ afterAll(async () => { await browser?.close(); await harness?.close(); await rm(
 async function open() {
   const page = await browser.newPage({ timezoneId: 'UTC' }); page.setDefaultTimeout(5000); await page.goto(harness.url);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+  await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen' }));
   return page;
 }
 const tool = async (page: Awaited<ReturnType<typeof open>>, name: string, args = {}) => (await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name, arguments: args } })).json();
