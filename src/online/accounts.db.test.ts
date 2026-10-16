@@ -11,6 +11,7 @@ import { GameService } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
 import { DEFAULT_OPTIONS } from '../match/setup';
 import { AccountService } from './accounts';
+import { cleanup } from './jobs';
 import { APPEAL, SafetyService } from './safety';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
@@ -255,7 +256,7 @@ async function friend(host: string, guest: string) {
 
  it('gives the runtime role what the services need and no more', async () => {
   for (const statement of [
-   'select * from public.mod_actions', 'select note from public.reports', 'update public.reports set hold_until=null', 'delete from public.reports',
+   'select * from public.mod_actions', 'select note from public.reports', 'update public.reports set hold_until=null',
    "insert into public.reports(source,target,category) values('automatic','player','other')",
    "insert into public.reserved_handles(handle,reason) values('free-me','old')", 'delete from public.reserved_handles',
    'update public.account_deletions set done_at=now()', 'delete from public.account_deletions', 'update public.profiles set rating=1',
@@ -264,6 +265,14 @@ async function friend(host: string, guest: string) {
    'update public.account_deletions set requested_at=now() where false',
    'select avatar_url from public.profiles', 'select * from auth.sessions', 'update auth.users set banned_until=null',
   ]) await expect(runtime.query(statement), statement).rejects.toMatchObject({ code: '42501' });
+  // The report delete is for the daily cleanup only (runtime-role.sql, tenth block): a fresh or held report stays.
+  const [a, b] = [await user(), await user()];
+  const report = async (age: string, hold: string | null) => Number((await rows(`insert into public.reports(reporter_id,reported_id,target,category,created_at,hold_until)
+   values($1,$2,'player','other',now()-$3::interval,now()+$4::interval) returning id`, [a, b, age, hold]))[0].id);
+  const [fresh, held, expired] = [await report('1 day', null), await report('13 months', '30 days'), await report('13 months', null)];
+  expect((await runtime.query('delete from public.reports where id=any($1)', [[fresh, held]])).rowCount).toBe(0);
+  await cleanup(games);
+  expect((await rows('select id::int from public.reports where id=any($1) order by id', [[fresh, held, expired]])).map(row => row.id)).toEqual([fresh, held]);
  });
 
  it('runs the owner command line over the same functions', async () => {
