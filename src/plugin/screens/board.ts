@@ -320,7 +320,14 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (started && (next.options?.arrangement || next.options?.kingPowers)) opening = true;
     const unchanged = same && before?.revision === next.revision && before.fen === next.fen && before.status === next.status;
     view = {...next, rules:next.rules ?? (same ? view?.rules : undefined), outcome:next.outcome ?? (same ? view?.outcome : undefined), opponent:next.opponent && {...next.opponent, rating:next.rules ? next.opponent.rating : next.opponent.rating ?? (same ? view?.opponent?.rating : undefined)}};
-    if (['finished','aborted'].includes(next.status)) setTimeout(()=>{ if (active()) { if(client.state.screen==='board') routeView(view!); updateEnd(); } },0);
+    if (['finished','aborted'].includes(next.status)) setTimeout(()=>{
+      if (!active() || view?.game_id !== next.game_id) return;
+      if (client.state.screen === 'board') {
+        if (next.kind === 'solo' && next.result?.reason === 'abort') routeView(next);
+        else navigate('end');
+      }
+      updateEnd();
+    },0);
     readAt = Date.now(); clearTimeout(deadlineTimer);
     if (next.deadline_at && next.turn !== next.seat && next.kind !== 'solo' && next.status === 'playing') deadlineTimer = setTimeout(refresh, Math.max(0,Date.parse(next.deadline_at)-Date.parse(next.server_now))+1);
     if (unchanged && !optimistic) { if (pos) { rules(); refresh(); } scheduleComputer(); return; }

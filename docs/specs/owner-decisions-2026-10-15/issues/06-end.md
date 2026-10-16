@@ -65,3 +65,9 @@ Work starts from a clean worktree.
   from later tests. Set Fairy pieces before clearing Arrangement.
 - Read the loss through the host result in the motion test. The poll
   can reach the end before a test opens Menu, so Menu can already hide.
+- The browser check finds a code fault: the end route passes the
+  board's cached rules back into page memory. The end screen treats
+  them as a fresh read, so it can skip rating and badge data and Retry.
+  Keep the direct end navigation for finished games. Route only a
+  computer abort through the draft router. A test fails the fresh end
+  read and checks Retry, then checks the successful read.

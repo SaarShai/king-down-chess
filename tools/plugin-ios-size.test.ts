@@ -507,6 +507,7 @@ it.each([[320, 568, 63, 84, true, 218, 135], [393, 852, 102, 118, true, 384, 345
   } finally { await page.close(); }
 });
 
+// The fixture shares saved setup. Keep this chess-only case after the fairy-piece size checks.
 it('keeps Back clear and end actions reachable at 197 by 426', async () => {
   const { page, frame } = await hostPage(197, 426, 51, 59);
   try {

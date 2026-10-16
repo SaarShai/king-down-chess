@@ -702,6 +702,21 @@ it.each([false,true])('shows a draw offer and handles a decline before Resign (i
   } finally { await page.close(); }
 });
 
+it('keeps Retry on the end card when its fresh result read fails', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind:'solo', colour:'white', options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false} }); });
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    await page.evaluate(() => { (window as any).rejectNextGet = true; });
+    await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button', { name:'Resign', exact:true }).click();
+    await frame.locator('#over[open] #retry').waitFor();
+    expect(await frame.locator('#over #error').textContent()).toBe('Harness saved-game read failed');
+    await frame.locator('#over #retry').click(); await frame.locator('#over #retry').waitFor({state:'hidden'});
+    expect(await frame.locator('#over #error').textContent()).toBe('');
+    expect(await frame.locator('html').evaluate(() => !!(window as any).harnessApp.memory.view.rules)).toBe(true);
+  } finally { await page.close(); }
+});
+
 it('does not repeat a friend abort title or play a ceremony', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
