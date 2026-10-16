@@ -1,6 +1,6 @@
 # Chat result mount: wait for a page command
 
-Status: ready-for-human
+Status: claimed
 
 Lane: mount-r3. Branch: `claude/fault-round-2`.
 
@@ -75,3 +75,53 @@ This step fixes the skipped read and uses the simpler wait rule.
 The other guards stay for the reasons above. This step needs no
 new words, layout or taste choice. The other parts of ticket 09 stay
 outside this step, as the owner asks.
+
+## Review repair plan
+
+1. Check each report against the full call path. Add tests that fail
+   before each fix: command errors during a mount wait, late Join and
+   Accept replies from their buttons, and a late first settings reply.
+2. Keep a command error for the game now shown through the mount read.
+   Drop old Join and Accept replies before they change the screen.
+   Abort old settings reads and check freshness before use. The current
+   mount must obtain the settings and player data that it needs.
+3. Run the new tests before and after the fixes. Run `npm test` with the
+   local test database. Run plugin-ui on the M1 in `~/projects/kd-mount`
+   under the shared lock. Run plugin-ui-http if server code changes.
+4. Check the diff for simpler code and faults. Record each finding and
+   its evidence here. Commit with both required tool trailers.
+
+The checks must keep old errors off a different game, keep a newer read
+error or Retry, and keep the current board and screen in agreement.
+No server or game rule change is in scope.
+
+## Review findings
+
+- **A1, confirmed:** `call()` clears the page error at the start of a read.
+  Its success path also clears errors with no pending Retry. The mount
+  now waits for a command, then reads, so that read can erase a command
+  refusal. Count each command error with no Retry and keep its game and
+  text. After the read, restore a new error only for the game now shown,
+  with no newer read error or pending error.
+- **A2 and B1, confirmed:** Join and Accept call the client directly.
+  The client drops an old board selection, but each button still opens
+  the old game. Both callers now check the selected board before they
+  use the reply. For an error with no board, they check the board that
+  the call starts on. An old name request cannot open the name screen.
+- **B2, confirmed:** the first settings read has no abort signal and
+  calls `remember()` before the stale check. It can replace a setting
+  that the player saves after a newer mount unlocks the controls. Pass
+  the mount signal and check freshness before use. A current mount also
+  reads settings if settings or player data are missing.
+
+The tests use the real Join and Accept buttons. They cover Profile,
+another game, and a name request with no board in its reply. The error
+tests cover the same game, a different game, and a failed mount read.
+The settings tests cover newer results with and without settings.
+
+The existing board guard, abort signal, command wait and `late()` still
+have the separate uses in the Design check above. Each fix stays at the
+point that owns the affected state. No shared request layer is needed.
+
+Checks are pending. The shared unit-test lock is in use by another
+worktree. This branch does not change a test or check time limit.

@@ -34,6 +34,8 @@ let readError = false;
 let busy = false, polling = false, mountReading = true, gamesDirty = false;
 // Ends when the command in flight (busy) ends; call skips a read while busy.
 let commandDone = Promise.resolve(), endCommand = () => {};
+// A mount read must keep a command refusal for the game that it shows.
+let shownError = { count: 0, game: undefined as string | undefined, text: '' };
 let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0, pollFailures = 0;
 let pending = state.pending;
 let handleBack: Screen = pending?.screen ?? 'settings';
@@ -155,7 +157,12 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     if (quiet && message === CANNOT_CONNECT) { if (++pollFailures >= 3) $('error').textContent = message; return; }
     if (retain && pending) failPending(message);
     if (!quiet && name === 'kingdown_get' && state.board_id) readError = true;
-    retryState(); if (!retain || !pending) $('error').textContent = message; }
+    retryState();
+    if (!retain || !pending) {
+      $('error').textContent = message;
+      if (!quiet && !signal && !readError) shownError = { count: shownError.count + 1, game: before?.game_id, text: message };
+    }
+  }
   finally { if (quiet) polling = false; else { busy = false; endCommand(); actions(); } }
   if (retain && name === 'kingdown_move' && !received && !pending && before?.game_id === view?.game_id) await rollbackBoardMove();
   if (followup) void call(followup.name, followup.args, true, false, undefined, true);
@@ -198,11 +205,13 @@ async function mountResult(result: ToolResult, initial: boolean, signal: AbortSi
   const stale = () => signal.aborted;
   try {
     await connection;
+    if (stale()) return;
     const value = result.structuredContent as Record<string, unknown> | undefined, board = result._meta?.board_id;
     if (!initial || !state.board_id) state.board_id = typeof board === 'string' ? board : typeof value?.game_id === 'string' ? state.board_id : undefined;
     remember(result);
-    if (initial) {
-      const settings = await client.call('kingdown_settings', {}, { limit: false });
+    if (initial || !memory.settings || !memory.me) {
+      const settings = await client.call('kingdown_settings', {}, { limit: false, signal });
+      if (stale()) return;
       if (settings.isError) throw new Error(settings.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       remember(settings); await applySettings();
     }
@@ -229,10 +238,13 @@ async function mountResult(result: ToolResult, initial: boolean, signal: AbortSi
     const route = (value?.screen === undefined || value.screen === 'board') && (!initial || !savedScreen);
     const readBoard = state.board_id && (typeof value?.game_id === 'string' || initial && savedScreen);
     // A command in flight would skip this read, even for the same game. Wait, then read and route by the game status.
+    const errors = shownError.count;
     if (readBoard) while (busy) await commandDone;
     if (stale()) return;
-    if (readBoard) await call('kingdown_get', {}, false, false, route, false, signal);
-    else if (!result._meta?.view) view = undefined;
+    if (readBoard) {
+      await call('kingdown_get', {}, false, false, route, false, signal);
+      if (!stale() && shownError.count > errors && shownError.game === view?.game_id && !pending?.error && !$('error').textContent) $('error').textContent = shownError.text;
+    } else if (!result._meta?.view) view = undefined;
     if (!readBoard) await games(signal);
     if (stale()) return;
     saveState();

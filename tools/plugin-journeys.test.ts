@@ -417,3 +417,69 @@ it('keeps the controls locked, with no error, when a newer chat result stops an 
     await expect.poll(() => locks(page)).toEqual({ locked: false, error: '', home: '' });
   } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseBefore?.(); }); await page.close(); }
 });
+
+
+it.each(['same game', 'other game', 'failed read'] as const)('keeps a command refusal only for its game after a chat result reads: %s', async kind => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await soloBoard(page);
+    const game = (await shownGame(page)).game!;
+    const chat = await tool(page, '/fixture-tool', 'kingdown_open', { game_id: kind === 'other game' ? await soloGame(page) : game });
+    await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_move'; });
+    await html(page).evaluate(() => {
+      const app = (window as any).harnessApp, v = app.memory.view;
+      void app.call('kingdown_move', { game_id: v.game_id, command_id: 'refused-during-mount', expected_revision: v.revision, lan: 'e2-e5' }, true);
+    });
+    await page.waitForFunction(() => !!(window as any).releaseBefore);
+    await nextWrite(page, () => page.evaluate(result => (window as any).harnessShow(result), chat));
+    if (kind === 'failed read') await page.evaluate(() => { (window as any).rejectNextGet = true; });
+    await page.evaluate(() => (window as any).releaseBefore());
+    await frame.locator('#home-play:not(:disabled)').waitFor({ state: 'attached' });
+    expect(await frame.locator('#error').textContent()).toBe(kind === 'other game' ? '' : kind === 'failed read' ? 'Harness saved-game read failed' : 'This move is not available. Choose another move.');
+    expect(await frame.locator('#retry').isVisible()).toBe(kind === 'failed read');
+    expect((await shownGame(page)).board).toBe(chat._meta.board_id);
+  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+});
+
+it.each([
+  ['Join', 'profile', false], ['Join', 'game', false], ['Accept', 'profile', false], ['Accept', 'game', false],
+  ['Join', 'profile', true], ['Accept', 'profile', true],
+] as const)('keeps the %s button reply off a newer chat %s result (name needed: %s)', async (button, destination, needsHandle) => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await soloBoard(page);
+    const made = await tool(page, '/fixture-friend-tool', 'kingdown_create', { kind: button === 'Join' ? 'friend' : 'random', colour: 'white', options: CLASSIC });
+    const joined = made._meta.view.game_id as string;
+    if (button === 'Join') {
+      const invite = await tool(page, '/fixture-friend-tool', 'kingdown_invite', { game_id: joined });
+      await html(page).evaluate((_, code) => { const app = (window as any).harnessApp; app.memory.code = code; app.navigate('join'); }, invite.structuredContent.code);
+      await frame.locator('#join-confirm:not([hidden]):not(:disabled)').waitFor();
+    } else {
+      await html(page).evaluate(() => (window as any).harnessApp.navigate('lobby'));
+      await frame.locator('#lobby-list button').first().waitFor();
+    }
+    if (needsHandle) await page.route('**/fixture-tool', route => {
+      const name = route.request().postDataJSON()?.name;
+      return name === (button === 'Join' ? 'kingdown_join' : 'kingdown_accept')
+        ? route.fulfill({ json: { isError: true, content: [{ type: 'text', text: 'Pick a name and picture first.' }], _meta: { code: 'HANDLE_NEEDED' } } })
+        : route.continue();
+    });
+    await page.evaluate(name => { (window as any).holdNext = name; }, button === 'Join' ? 'kingdown_join' : 'kingdown_accept');
+    await frame.locator(button === 'Join' ? '#join-confirm' : '#lobby-list button').first().click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    const game = destination === 'game' ? await soloGame(page) : undefined;
+    const chat = await tool(page, '/fixture-tool', 'kingdown_open', game ? { game_id: game } : { screen: 'profile' });
+    await page.evaluate(result => (window as any).harnessShow(result), chat);
+    await frame.locator('#home-play:not(:disabled)').waitFor({ state: 'attached' });
+    const expected = { game, screen: game ? 'board' : 'profile', board: chat._meta.board_id };
+    await expect.poll(() => shownGame(page)).toEqual(expected);
+    const seen = await watch(page);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await page.waitForTimeout(300);
+    expect(await shownGame(page)).toEqual(expected);
+    expect((await seen()).pages.filter(screen => screen !== expected.screen)).toEqual([]);
+    expect((await tool(page, '/fixture-tool', 'kingdown_get', { board_id: expected.board }))._meta?.view?.game_id).toBe(game);
+    // The command takes the seat, but its old reply cannot replace the newer page.
+    expect((await tool(page, '/fixture-tool', 'kingdown_get', { game_id: joined }))._meta.view.status).toBe(needsHandle ? 'waiting' : 'playing');
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});

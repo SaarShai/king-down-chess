@@ -1135,3 +1135,30 @@ it.each(['a join error', 'a game'])('lets the reads for a chat result with %s wa
     expect(await frame.locator('#home-error').textContent()).toBe('');
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
+
+
+it.each([true, false])('keeps a saved setting when the first settings reply comes late (new result has settings: %s)', async carriesSettings => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const tool = async (name: string, args: Record<string, unknown> = {}) => (await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name, arguments: args } })).json();
+  try {
+    await tool('kingdown_settings', { symbols_only: false });
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_settings'; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    const chat = await tool('kingdown_open', { screen: 'play' });
+    if (!carriesSettings) delete chat._meta.settings;
+    await page.evaluate(result => (window as any).harnessShow(result), chat);
+    await frame.locator('#home-play:not(:disabled)').waitFor({ state: 'attached' });
+    await expand(page);
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('settings'));
+    await frame.locator('#symbols-only:not(:disabled)').check();
+    await frame.locator('#symbols-only:not(:disabled)').waitFor();
+    expect((await tool('kingdown_settings'))._meta.settings.symbols_only).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await page.waitForTimeout(300);
+    expect(await frame.locator('#symbols-only').isChecked()).toBe(true);
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.settings.symbols_only)).toBe(true);
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.me)).toMatchObject({ handle: expect.any(String) });
+    expect((await tool('kingdown_settings'))._meta.settings.symbols_only).toBe(true);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await tool('kingdown_settings', { symbols_only: false }); await page.close(); }
+});
