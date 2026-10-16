@@ -255,6 +255,10 @@ try {
       await rollers();
       await frame.locator('html').evaluate(()=>document.fonts.ready); await capture('profile',size,width,height);
       assert.equal(await frame.locator('#profile-badges .badge').count(),10);
+      assert(await frame.locator('#profile-badges .badge button').evaluateAll(buttons => buttons.every(button => {
+        const style = getComputedStyle(button);
+        return style.backgroundImage === 'none' && style.backgroundColor === 'rgba(0, 0, 0, 0)' && style.boxShadow === 'none';
+      })), 'Profile badges keep their transparent face');
       for(const [badge,name] of Object.entries(BADGES)) {
         const cell=frame.locator(`[data-badge="${badge}"]`), earned=data.record.badges.find(item=>item.badge===badge);
         assert.equal(await cell.evaluate(el=>el.classList.contains('no')),!earned);
@@ -425,6 +429,20 @@ try {
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal(await page.evaluate(() => window.harnessView.seat), 1);
     assert.deepEqual(await page.evaluate(() => window.harnessView.kings[1]), { king: 'Shadow', power: 'Darkness' });
+    await page.setViewportSize({ width: 393, height: 852 });
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#game-table').getAnimations({ subtree: true }).every(animation => animation.playState === 'finished'));
+    assert.equal(await frame.locator('#game-table .coin').count(), 10, 'Both strips show four cards and one power');
+    assert(await frame.locator('#game-table .coin').evaluateAll(coins => coins.every(coin => {
+      const style = getComputedStyle(coin), box = coin.getBoundingClientRect();
+      return [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomLeftRadius, style.borderBottomRightRadius].every(radius => radius === '50%')
+        && Math.abs(box.width - box.height) < .5 && box.width >= 44 && style.backgroundImage.includes('radial-gradient') && !style.backgroundImage.includes('stone-control');
+    })), 'Card and power coins stay round with 44 px targets at 393 × 852');
+    assert.equal(await frame.locator('#board canvas').count(), 1, 'The board uses the painted canvas');
+    assert.equal(await frame.locator('#board button').count(), 0, 'Board squares do not use button faces');
+    assert((await frame.locator('#board-menu').evaluate(button => getComputedStyle(button).backgroundImage)).includes('stone-control'), 'Menu keeps the stone face');
+    await shot(page, `base-round-coins-393-${mode}`);
+    await page.setViewportSize({ width: 1000, height: 1000 });
     const saved = (await setupTool('kingdown_settings'))._meta.settings.last_setup;
     assert.deepEqual(saved.king, { king: 'Shadow', power: 'Darkness' }); assert.equal(saved.level, 'strong'); assert.equal(saved.colour, 'black');
     await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
@@ -700,6 +718,10 @@ try {
   await openPlay();
   await handleGate();
   assert.equal(await frame.locator('#presets button').count(), 17, 'The name screen has the 17 game pictures');
+  assert(await frame.locator('#presets button').evaluateAll(buttons => buttons.every(button => {
+    const style = getComputedStyle(button);
+    return style.borderRadius === '50%' && style.backgroundImage === 'none' && style.backgroundColor === 'rgba(0, 0, 0, 0)';
+  })), 'Name pictures keep their round transparent face');
   assert.equal(await frame.locator('[data-screen="handle"] .quiet-line').last().innerText(), 'Each name is unique.');
   assert.equal(await frame.locator('#page-back').innerText(), '‹ Play');
 

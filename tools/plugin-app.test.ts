@@ -1114,13 +1114,21 @@ it('keeps a move in flight free of errors when a chat result arrives during it',
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await friendGame(page);
+    const current = await page.evaluate(() => ({ game_id: (window as any).harnessView.game_id, board_id: (window as any).harnessWidgetState.privateContent.board_id }));
+    const result = await (await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name: 'kingdown_open', arguments: { game_id: current.game_id } } })).json();
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent.game_id).toBe(current.game_id);
+    expect(result.structuredContent).not.toHaveProperty('board_id');
+    expect(result._meta.board_id).toEqual(expect.any(String));
+    expect(result._meta.board_id).not.toBe(current.board_id);
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_move'; });
     await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; void app.call('kingdown_move', { game_id: app.memory.view.game_id, command_id: 'busy-move', expected_revision: app.memory.view.revision, lan: 'e2-e4' }, true); });
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     // The chat result for this game reads no board while the move runs; its last widget write ends the mount.
     const writes = await page.evaluate(() => (window as any).harnessWidgetStates.length);
-    await page.evaluate(() => { const host = window as any; return host.harnessShow({ content: [], structuredContent: { game_id: host.harnessView.game_id, board_id: host.harnessWidgetState.privateContent.board_id } }, true); });
+    await page.evaluate(result => (window as any).harnessShow(result, true), result);
     await page.waitForFunction(n => (window as any).harnessWidgetStates.length > n, writes);
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.board_id)).toBe(result._meta.board_id);
     expect(await frame.locator('#retry').isHidden()).toBe(true);
     expect(await frame.locator('#error').textContent()).toBe('');
     await page.evaluate(() => (window as any).releaseHeld());

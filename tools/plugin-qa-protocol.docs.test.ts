@@ -10,3 +10,19 @@ test('each QA protocol line that reads the Display check line says how to show i
   expect(lines.length).toBeGreaterThan(0);
   for (const line of lines) expect(line).toContain(`press the "Settings" title for about ${press} ms`);
 });
+
+test('the QA hall step names the current home actions, setup and menu rows', () => {
+  const html = readFileSync('src/plugin/index.html', 'utf8');
+  const hall = readFileSync('docs/qa/plugin-qa-protocol.md', 'utf8').split('\n').find(line => line.startsWith('2. '))!;
+  expect(hall).toContain('**Quick-start hall.**');
+  for (const id of ['home-play', 'home-games', 'games-head', 'setup-start']) {
+    const control = new RegExp(`<[^>]+id="${id}"[^>]*>(.*?)</(?:button|h3)>`, 's').exec(html)![1];
+    expect(hall).toContain(`"${control.replace(/<[^>]+>/g, '')}"`);
+  }
+  const play = html.split('data-screen="play"')[1].split('</section>')[0];
+  const rows = [...play.matchAll(/class="row-title">([^<]+)</g)].map(match => match[1]);
+  expect(rows).toEqual(['Profile', 'Settings']);
+  for (const row of rows) expect(hall).toContain(row);
+  expect(hall).toContain('Beginner');
+  expect(hall).toContain('Saved custom options stay');
+});
