@@ -173,7 +173,10 @@ function renderGames(entries: InboxEntry[]) {
   // The hall lists your games first, only when you have some.
   $('games-status').textContent = ''; $('games-head').hidden = !entries.length;
   $('home-line').textContent = turnLine(entries.filter(entry => entry.action === 'ready').length);
-  gamesList($('games-list'), entries, (name, args) => call(name, args, false, false, false), routeView); actions();
+  renderGameRows(); actions();
+}
+export function renderGameRows() {
+  gamesList($('games-list'), memory.games, (name, args) => call(name, args, false, false, false), routeView);
 }
 function remember(result: ToolResult) {
   if (result._meta?.settings) memory.settings = result._meta.settings as PlayerSettings;
@@ -327,7 +330,7 @@ export function navigate(screen: Screen) {
   if (!mountReading && screen in screens) screens[screen as keyof typeof screens]();
   client.save(); actions(); poll?.update();
   if (screen === 'play' && !mountReading) {
-    if (gamesDirty) void games(); else renderGames(memory.games);
+    if (gamesDirty) void games(); else renderGameRows();
   }
   if (screen === 'play' && gamesFirst) { gamesFirst = false; $('games-list').closest<HTMLElement>('.new-game-body')!.scrollTop = 0; }
   if (screen === 'settings') void applySettings();

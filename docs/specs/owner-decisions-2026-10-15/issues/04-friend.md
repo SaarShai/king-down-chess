@@ -31,3 +31,5 @@ Keep the Ends line. Name the open side on the Join button.
 - Review 2 finds that Back can keep an old list after Make a new code.
   Play now renders the saved list again when it needs no server read.
   A regression test covers Make a new code after a remount, then Back.
+- Review 2 also finds that a code can arrive after Back. Code receipt
+  now renders the saved rows. A held-reply test covers this path.

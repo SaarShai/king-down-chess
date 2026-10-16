@@ -1,4 +1,4 @@
-import { call, client, memory, navigate, routeView } from '../app';
+import { call, client, memory, navigate, renderGameRows, routeView } from '../app';
 import { art } from '../art';
 import { formatDate } from '../games-list';
 import { featureNames, friendInvites as codes, inviteText, ruleNames, sendInvite } from '../invite';
@@ -65,6 +65,7 @@ async function makeCode(view: View) {
     const result = await client.call('kingdown_invite', { game_id: view.game_id });
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     codes.set(view.game_id, result.structuredContent as { code: string; expires_at: string });
+    renderGameRows();
     if (client.state.screen === 'friend' && memory.view?.game_id === view.game_id) friendScreen();
   } catch (error) { showError(error, $('friend-status')); }
   finally { making = false; $('friend-new').removeAttribute('disabled'); }

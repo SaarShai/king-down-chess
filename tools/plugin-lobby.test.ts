@@ -117,6 +117,26 @@ it('names Black on a preview from a code in chat', async () => {
     expect(await frame.locator('#join-entry').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
+it('updates Your games when a new code arrives after Back', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const view = await start(page, 'friend'); await frame.locator('.game-code span').first().waitFor();
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
+    await frame.locator('#friend-new').waitFor();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_invite'; });
+    await frame.locator('#friend-new').click();
+    await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
+    await frame.locator('#page-back').click();
+    await frame.locator(`[data-screen="play"]:not([hidden]) [data-game-id="${view.game_id}"]`).waitFor();
+    await page.evaluate(() => (window as any).releaseHeld());
+    const row = frame.locator('.friend-invite-row').filter({ has: frame.locator(`[data-game-id="${view.game_id}"]`) });
+    await row.waitFor();
+    expect(await row.getByRole('button', { name: /^Share game / }).isVisible()).toBe(true);
+    expect(await frame.locator('[data-screen="play"]').isVisible()).toBe(true);
+  } finally { await page.close(); }
+});
 it('previews a lower-case code, declines without taking a seat and then joins', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
