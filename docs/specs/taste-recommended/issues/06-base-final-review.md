@@ -1,6 +1,6 @@
 # Base: the last three review fixes
 
-Status: claimed
+Status: resolved
 Type: task
 Lane: od-base
 
@@ -52,9 +52,26 @@ Pictures and game tokens keep their own shape. Controls use stone.
 
 - `npx tsc --noEmit`: pass.
 - `node --check tools/plugin-ui-check.mjs`: pass.
-- `npm test` waits for the shared test lock. The test uses four workers
-  and the given local test database. Browser checks are pending.
+- `npm test`, with four workers and the given local test database: pass.
+  All 165 files pass; 2,566 tests pass and 8 skip. All 50 scene checks
+  pass. The suite takes 213.06 s. The run waits for the shared test lock
+  before it starts.
+  No time limit changes.
+  Log: `/tmp/kd-od-base-final-tests-20261016a.log`.
+- M1 `npm run -s check:browser plugin-ui` at `ecc91fc6`: pass, 225.5 s.
+  All new assertions pass. The job releases the shared lock.
+  Log: `/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/kingdown-check-runs/kd-od-base-LkZwXz/plugin-ui.log`.
+- Phone and desktop king sheet captures: pass. The pictures keep their
+  shape and selected border. The power buttons, Close and Done keep stone.
+- `plugin-ui-http` does not apply: no server code changes.
+- The code commit's type check and staged repo gate: pass.
 
 ## Taste choices
 
 No new taste choice is necessary. The owner's picks set the result.
+
+## Result
+
+All three review items are complete. Both readers have no open finding.
+All required checks pass. All commits stay local on
+`claude/owner-decisions`.
