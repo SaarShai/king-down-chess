@@ -62,12 +62,20 @@ try {
   const invite = await call('kingdown_invite', { game_id: friend.structuredContent.game_id });
   assert.equal(invite.structuredContent.link, undefined); assert.match(invite.structuredContent.code, /^[A-HJKMNP-Z2-9]{6}$/);
   assert.equal((await call('kingdown_games')).structuredContent.games.length, 2);
+  await service.handle('bob', { handle: 'bob' });
+  await service.join('bob', invite.structuredContent.code);
+  assert.equal((await call('kingdown_block', { game_id: friend.structuredContent.game_id, blocked: true }))._meta.blocked, true);
+  const blocks = (await call('kingdown_profile'))._meta.blocks;
+  assert.equal(blocks.length, 1); assert.match(blocks[0].user_id, /^[0-9a-f-]{36}$/);
+  assert.equal((await call('kingdown_block', { user_id: blocks[0].user_id, blocked: false }))._meta.blocked, false);
+  assert.deepEqual((await call('kingdown_profile'))._meta.blocks, []);
+
   const resigned = await call('kingdown_resign', { game_id: view.game_id });
   assert.equal(resigned.structuredContent.result, 'Black wins · Resignation'); assert.equal(resigned.content[0].text, 'Game over: Black wins · Resignation.');
-  assert.deepEqual((await call('kingdown_profile')).structuredContent, { id: 'alice', name: 'alice' });
+  assert.deepEqual((await call('kingdown_profile')).structuredContent, { id: (await service.profile('alice')).user_id, name: 'alice' });
   assert.equal((await call('kingdown_get', { game_id: view.game_id, actorId: 'mallory' })).isError, true);
   service.view = async () => { throw new Error('database password=never-share'); };
   const failed = await call('kingdown_get', { game_id: view.game_id });
   assert.equal(failed.isError, true); assert(!JSON.stringify(failed).includes('never-share'));
-  console.log('PASS: 26 tools and their hints, the board resource on kingdown_open only, the profile tool, board data in _meta only, empty home, explicit solo game, next game, real engine move, duplicate command, stale revision, since_revision, board selection, invitation code and expiry, inbox, model resign, actor injection rejection, sanitized internal errors');
+  console.log('PASS: 26 tools and their hints, the board resource on kingdown_open only, the profile tool and UUID block undo, board data in _meta only, empty home, explicit solo game, next game, real engine move, duplicate command, stale revision, since_revision, board selection, invitation code and expiry, inbox, model resign, actor injection rejection, sanitized internal errors');
 } finally { await client.close(); await server.close(); await service.close(); }

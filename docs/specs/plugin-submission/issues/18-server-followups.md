@@ -133,3 +133,5 @@ Parts 18-a and 18-b, with A-F4, are approved by the owner's task. Parts 18-d and
 - Keep this lane's lock while the original HTTP child ends at its existing limit. Pause only the parent shell by PID. Then repeat both named browser checks, one at a time, before the parent releases the lock. The named checks keep their limits.
 
 - Visual check: the saved Settings render shows the online help line against the choice border. Use the existing `quiet-line` style, which has a positive top margin. Add a browser assertion that the help line does not overlap the control. Repeat the fixture check after this repair, then let the HTTP check use the same code.
+
+- The second fixture run reaches the Profile undo. It refuses the fixture's `bob` target because the tool requires a UUID. Give fixture profiles public UUIDs while their internal actor names stay short. Use those UUIDs in the block list and resolve them on undo. Check this path through MCP in the protocol check and in the fixture unit test. The real account code and its UUID input check stay in place.
