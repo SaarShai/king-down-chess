@@ -336,8 +336,8 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
     await frame.locator(`#${id}`).scrollIntoViewIfNeeded();
     return frame.locator(`#${id}`).evaluate(e => { const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); });
   };
-  for (const features of [['Arrangement'], ['Fairy pieces', 'Arrangement', 'Cards', 'King powers']]) {
-    const { page, frame } = await hostPage(197, 426, 51, 59), all = features.length > 1;
+  for (const features of [['Fairy pieces', 'Arrangement'], ['Fairy pieces', 'Arrangement', 'Cards', 'King powers']]) {
+    const { page, frame } = await hostPage(197, 426, 51, 59), all = features.includes('Cards');
     try {
       await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
       for (const name of ['Fairy pieces', 'Arrangement', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).setChecked(features.includes(name));
