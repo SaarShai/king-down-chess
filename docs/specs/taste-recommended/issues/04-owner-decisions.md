@@ -62,8 +62,6 @@ Commit locally. Do not push. Do not merge to main.
 
 - At 320 × 568 with Cards and King powers, the board is 135 px wide
   (the old phone rows gave 158 px). Both player rows take two rows (U6).
-- Stone a puts the stone face on every button, as the sample did. This
-  includes the power and card coins: a computed-style probe on the M1
-  (393 × 852) shows them as stone squares with 5 px corners, not round
-  coins. The Back button, Moves, Resign and Menu are stone too. Keep the
-  coins round, or keep them stone? This is a taste call for Saar.
+- The owner says that coins stay round. Profile badges and name pictures
+  also keep their own shape. The [base follow-up](05-base-follow-up.md)
+  covers these shapes and the painted board check at 393 × 852.
