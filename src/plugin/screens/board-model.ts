@@ -7,7 +7,14 @@ export type BoardMove = { pre: Position; pos: Position; move: Move; lan: string;
 export function stripLine(side: Color, rating?: NonNullable<View['opponent']>['rating'], level?: View['level']): string {
   if (level) return level[0].toUpperCase() + level.slice(1);
   const colour = side === 0 ? 'White' : 'Black';
-  return rating ? `${Math.round(rating.rating)}${rating.provisional ? '?' : ''} · ${colour}` : colour;
+  return rating ? `${rating.provisional ? 'New player' : Math.round(rating.rating)} · ${colour}` : colour;
+}
+export function timeLeft(view: View, elapsed = 0): string {
+  if (view.status !== 'playing' || !view.deadline_at) return '';
+  const ms = Date.parse(view.deadline_at) - Date.parse(view.server_now) - elapsed;
+  if (!Number.isFinite(ms)) return '';
+  if (ms <= 0) return 'Time is up';
+  return ms >= 3600000 ? `${Math.ceil(ms / 3600000)} h left` : `${Math.ceil(ms / 60000)} min left`;
 }
 export function cardCoins(pos: Position, side: Color, hand: readonly CardName[], moves: readonly Move[]): { card: CardName; spent: boolean; moves: Move[] }[] {
   return hand.map((card, index) => {

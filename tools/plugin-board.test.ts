@@ -8,6 +8,7 @@ import { startHarness } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import type { View } from '../src/match/protocol';
+import { applyLan } from '../src/plugin/screens/board-model';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
@@ -336,5 +337,51 @@ it('hides the edge labels on a small board and keeps them in the frame on a phon
     });
     expect(coords[0][0]).toBe(false);
     expect(coords[1][0]).toBe(true); expect(coords[1][1]).toBeLessThanOrEqual(40); expect(coords[1][2]).toBeLessThanOrEqual(16);
+  } finally { await page.close(); }
+});
+
+it.each([[320, 568, 84], [320, 568, 180], [393, 852, 118], [820, 600, 34], [852, 393, 34], [667, 375, 34]] as const)('keeps Menu actions visible at %i × %i, with draw replies only on the board', async (width, height, bottom) => {
+  const next = view('4k3/7p/8/8/8/8/P7/K7 w - - 0 1', {}, {kind:'friend',abort_open:true,opponent:{handle:'Bob',icon:null,computer:false,deleted:false,last_seen_ms:null,rating:{rating:1500,provisional:true}}});
+  const page = await open(next, width, height), frame = page.frameLocator('iframe');
+  try {
+    expect(await frame.locator('#table-bar button').allTextContents()).toEqual(['Menu']);
+    expect(await frame.locator('#context-actions #abort').count()).toBe(0);
+    expect(await frame.locator('#context-note').textContent()).toBe('');
+    expect(await frame.locator('#strip-them small').textContent()).toBe('New player · Black');
+    await page.evaluate(({width,height,bottom}) => (window as any).harnessSetContext({safeAreaInsets:{top:width>height?59:width===320?63:102,bottom,left:0,right:0}}), {width,height,bottom});
+    await frame.locator('#board-menu').click();
+    expect(await frame.locator('#menu-resign').isVisible()).toBe(true);
+    expect(await frame.locator('#menu-draw').isVisible()).toBe(true);
+    expect(await frame.locator('#menu-abort small').textContent()).toBe('No result, until each side moves once.');
+    expect(await frame.locator('#reload').textContent()).toBe('Refresh the board');
+    expect(await frame.locator('#board-sheet').evaluate(sheet => {
+      const body = sheet.querySelector('.sheet-body')!, box = sheet.getBoundingClientRect();
+      return body.scrollHeight <= body.clientHeight + 1 && [...sheet.querySelectorAll<HTMLElement>('button')].filter(b => b.getClientRects().length).every(b => {const r=b.getBoundingClientRect();return r.top>=box.top && r.bottom<=box.bottom+1;});
+    })).toBe(true);
+    await page.keyboard.press('Escape');
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView({...next,draw_offer:1}), next);
+    expect(await frame.locator('#context-actions #accept-draw').isVisible()).toBe(true);
+    expect(await frame.locator('#context-actions #decline-draw').isVisible()).toBe(true);
+    await frame.locator('#board-menu').click();
+    expect(await frame.locator('#board-sheet #accept-draw, #board-sheet #decline-draw, #menu-accept-draw, #menu-decline-draw').count()).toBe(0);
+  } finally { await page.close(); }
+});
+
+it.each([[320,568],[852,393]] as const)('keeps a short last move and its deadline above a short board at %i × %i', async (width,height) => {
+  const initial_fen = '4k3/7p/8/8/8/8/P7/K7 b - - 0 1';
+  const step = applyLan(fromFen(initial_fen), 'h7-h5', {})!;
+  const next = view(toFen(step.pos), {}, {kind:'friend',history:{initial_fen,actions:['h7-h5']},deadline_at:'2026-10-15T18:00:00Z'});
+  const page = await open(next, width, height), frame = page.frameLocator('iframe');
+  try {
+    if (width > height) await page.evaluate(() => (window as any).harnessSetContext({safeAreaInsets:{top:59,bottom:34,left:0,right:0}}));
+    expect(await frame.locator('#short-move-words').innerText()).toBe('Black pawn h7 → h5');
+    expect(await frame.locator('#move-time-left').innerText()).toBe('18 h left');
+    const line = (await frame.locator('#short-last-move').boundingBox())!, board = (await frame.locator('#board').boundingBox())!;
+    expect(line.y + line.height).toBeLessThanOrEqual(board.y + 1);
+    expect(await frame.locator('#move-time-left').evaluate(e => e.getBoundingClientRect().right <= e.parentElement!.getBoundingClientRect().right + 1)).toBe(true);
+    expect(await frame.locator('#moves-line').isVisible()).toBe(false);
+    await frame.locator('#board-menu').click();
+    await frame.locator('#board-sheet').getByRole('button', {name:'Moves',exact:true}).click();
+    expect(await frame.locator('#board-sheet').innerText()).toContain('Black pawn h7 to h5.');
   } finally { await page.close(); }
 });

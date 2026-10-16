@@ -29,7 +29,7 @@ it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]
   } finally { await page.close(); }
 });
 // Rule and state text stay whole. Each floor uses the smaller seat or board width, rounded down to 5 px.
-it.each([[393, 852, 102, 118, 380], [320, 568, 63, 84, 215], [320, 568, 63, 180, 135]])('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min) => {
+it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568, 63, 180, 135, 95]])('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min, boardMin) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000);
   try {
@@ -65,8 +65,8 @@ it.each([[393, 852, 102, 118, 380], [320, 568, 63, 84, 215], [320, 568, 63, 180,
     await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
     await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await frame.locator('#app-frame').evaluate(e => innerHeight - e.getBoundingClientRect().bottom)).toBe(Math.max(96, bottom));
-    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
-    expect(await frame.locator('#context-note').textContent()).toBe('Abort ends the game with no result, until each side moves once.');
+    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin);
+    expect(await frame.locator('#context-note').textContent()).toBe('');
     expect(await textFits()).toEqual([]);
     await page.evaluate(async () => {
       const host = window as any;
@@ -117,7 +117,7 @@ it('sizes the seat and the board from their screens, with no viewport units and 
 
 // The floors are the measured sizes with whole rule text, rounded down to 5 px.
 it('keeps short-phone boards large, landscape controls reachable and the end table in its box', async () => {
-  for (const [width,height,top,bottom,left,right,min] of [[320,568,20,0,0,0,235],[375,667,20,0,0,0,285],[393,852,59,34,0,0,380],[440,956,59,34,0,0,430],[852,393,0,21,59,59,195],[852,393,59,34,0,0,140]]) {
+  for (const [width,height,top,bottom,left,right,min,boardMin] of [[320,568,20,0,0,0,235,190],[375,667,20,0,0,0,285,285],[393,852,59,34,0,0,380,380],[440,956,59,34,0,0,430,430],[852,393,0,21,59,59,195,150],[852,393,59,34,0,0,140,95]]) {
     const page=await browser.newPage({viewport:{width,height},isMobile:true,hasTouch:true}), frame=page.frameLocator('iframe'); page.setDefaultTimeout(10000);
     try {
       await page.goto(harness.url); await hall(page);
@@ -138,15 +138,15 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
       }
       await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       await expect.poll(canvasWidth).toBeGreaterThan(0);
-      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
+      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin);
       expect(await frame.locator('.page-sheet').evaluate(e=>e.scrollTop)).toBe(0);
       const bar=await frame.locator('#table-bar').evaluate(e=>{const buttons=[...e.querySelectorAll('button')].filter(b=>!b.hidden),r=e.getBoundingClientRect(),b=buttons[0].getBoundingClientRect();return {count:buttons.length,empty:b.left-r.left};});
-      expect(bar.count).toBe(2); expect(bar.empty).toBeLessThanOrEqual(8);
-      for(const id of ['board-menu','resign']) {
+      expect(bar.count).toBe(1); expect(bar.empty).toBeGreaterThan(8);
+      for(const id of ['board-menu']) {
         await frame.locator(`#${id}`).scrollIntoViewIfNeeded();
         expect(await frame.locator(`#${id}`).evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
       }
-      await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
+      await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
       await frame.locator('#over.end-card[open]').waitFor();
       expect(await frame.locator('#end-table').evaluate(e=>Math.abs(e.getBoundingClientRect().height-e.querySelector('#game-table')!.getBoundingClientRect().height))).toBeLessThan(1);
     } finally {await page.close();}
@@ -197,10 +197,10 @@ it('contains the Open games art and the wait art on a short phone', async () => 
 });
 
 it.each([
-  [820, 600, 59, 34, 0, 0, true, 360],
+  [820, 600, 59, 34, 0, 0, true, 315],
   [1024, 768, 24, 20, 0, 0, true, 480],
   [1280, 800, 0, 0, 0, 0, true, 535],
-  [852, 393, 0, 21, 59, 59, true, 220],
+  [852, 393, 0, 21, 59, 59, true, 175],
   [400, 900, 0, 0, 0, 0, false, 390],
 ] as const)('fits the table at %i × %i', async (width, height, top, bottom, left, right, side, floor) => {
   const page = await browser.newPage({ viewport: { width, height } }), frame = page.frameLocator('iframe');
@@ -217,13 +217,16 @@ it.each([
     const measure = () => frame.locator('#game-table').evaluate(e => ({ width: e.querySelector('canvas')!.getBoundingClientRect().width, side: getComputedStyle(e.querySelector('.table-side')!).display === 'grid' }));
     await expect.poll(async () => (await measure()).width).toBeGreaterThanOrEqual(floor);
     expect((await measure()).side).toBe(side);
+    const wasShort = await frame.locator('#short-last-move').isVisible();
     await page.evaluate(() => { (window as any).rejectNextGet = true; });
     await frame.locator('html').evaluate(() => { const reload = document.querySelector<HTMLButtonElement>('#reload')!; reload.click(); });
     await frame.locator('#retry').waitFor();
     await expect.poll(() => frame.locator('#board').evaluate(e => { const r = e.getBoundingClientRect(); return Math.abs(e.querySelector('canvas')!.getBoundingClientRect().width - Math.min(r.width, r.height * 960 / 1024)); })).toBeLessThan(2);
-    // The error and Retry rows use up to 85 px. The board must still fit beside the controls.
-    expect((await measure()).width).toBeGreaterThanOrEqual(floor - 85);
-    for (const id of ['board-menu', 'resign']) {
+    // The error can also make a tall table need the short last-move row.
+    const errorHeight = await frame.locator('.page-error').evaluate(e => e.getBoundingClientRect().height);
+    const moveHeight = !wasShort && await frame.locator('#short-last-move').isVisible() ? (await frame.locator('#short-last-move').boundingBox())!.height + 4 : 0;
+    expect((await measure()).width).toBeGreaterThanOrEqual(floor - Math.ceil((errorHeight + moveHeight) * 960 / 1024));
+    for (const id of ['board-menu']) {
       await frame.locator('#' + id).scrollIntoViewIfNeeded();
       expect((await frame.locator('#' + id).evaluate(controlBounds)).accessible).toBe(true);
       expect(await frame.locator('#' + id).evaluate(e => { const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
@@ -425,12 +428,12 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
         }
         await expect.poll(() => page.evaluate(() => { const host = window as any; return { sent: host.harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.lan), moved: host.harnessView.revision > 0 }; })).toEqual({ sent: ['e2-e4'], moved: true });
       }
-      for (const id of ['resign', 'board-menu']) expect(await reachable(frame, id), id).toBe(true);
+      for (const id of ['board-menu']) expect(await reachable(frame, id), id).toBe(true);
     } finally { await page.close(); }
   }
 });
 // Review R1: under 320 px the screen scrolls only when the board would get less than its floor. At 314 × 681 (a 393 px
-// phone at 125% zoom) the rows fit, so Resign and Menu stay on the screen with no scroll.
+// phone at 125% zoom) the rows fit, so Menu stays on the screen with no scroll.
 it('keeps the board screen unscrolled where the rows fit under 320 px (314 × 681, insets 82/94)', async () => {
   const { page, frame } = await hostPage(314, 681, 82, 94);
   try {
@@ -442,7 +445,7 @@ it('keeps the board screen unscrolled where the rows fit under 320 px (314 × 68
     const screen = frame.locator('[data-screen="board"]');
     expect(await screen.evaluate(e => e.scrollHeight - e.clientHeight)).toBe(0);
     expect(await frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width)).toBeGreaterThanOrEqual(192);
-    for (const id of ['resign', 'board-menu']) {
+    for (const id of ['board-menu']) {
       expect(await screen.evaluate((s, id) => {
         const box = s.getBoundingClientRect(), r = document.getElementById(id)!.getBoundingClientRect();
         return r.height > 0 && r.top >= box.top - 1 && r.bottom <= box.bottom + 1;
@@ -452,8 +455,8 @@ it('keeps the board screen unscrolled where the rows fit under 320 px (314 × 68
 });
 // The zoom rule leaves normal sizes alone. Device matrix round 2 measured 169/158 and 302/302 on the old phone rows;
 // layout B (short portrait rows, Back in the opponent row) gives the seat more height, and with Cards and King powers
-// its narrow opponent and player rows take two 44 px rows on the board. The 820 × 600 widths do not change.
-it.each([[320, 568, 63, 84, true, 218, 135], [393, 852, 102, 118, true, 384, 345], [820, 600, 59, 34, false, 360, 360]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
+// its narrow opponent and player rows take two 44 px rows on the board. The short last-move row takes 24 px from the board at short heights.
+it.each([[320, 568, 63, 84, true, 218, 113], [393, 852, 102, 118, true, 384, 345], [820, 600, 59, 34, false, 360, 338]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: touch, hasTouch: touch }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000);
   try {
@@ -477,7 +480,7 @@ it.each([[320, 568, 63, 84, true, 218, 135], [393, 852, 102, 118, true, 384, 345
     const canvasWidth = () => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
     await expect.poll(canvasWidth).toBe(seat);
     await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
-    await frame.locator('#context-note').filter({ hasText: 'Abort ends the game' }).waitFor();
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     await expect.poll(canvasWidth).toBe(board);
   } finally { await page.close(); }
 });

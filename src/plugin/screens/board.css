@@ -17,6 +17,12 @@ body:is([data-page='board'], [data-page='end']) #page-title { display: none; }
 #board-sheet .sheet-head h2 { flex: 1; margin: 0; }
 #board-sheet .sheet-head button { width: auto; min-width: 44px; padding: 0 8px; }
 #board-sheet .sheet-body { display: flex; flex-direction: column; gap: 8px; }
+.frame #board-sheet.board-menu { max-height: 100%; }
+#board-sheet.board-menu .sheet-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#board-sheet.board-menu .sheet-body > button { min-width: 0; flex-direction: column; padding: 6px; }
+#board-sheet.board-menu small { font-size: 12px; line-height: 1.2; font-weight: 400; }
+#board-sheet.board-menu #invitation:empty { display: none; }
+#board-sheet.board-menu #invitation { grid-column: 1 / -1; margin: 0; }
 #board-sheet #choices { height: auto; overflow: visible; flex-direction: column; }
 #board-sheet #choices button { min-height: 44px; width: 100%; justify-content: flex-start; text-align: left; }
 
@@ -33,3 +39,9 @@ body:is([data-page='board'], [data-page='end']) #page-title { display: none; }
 @keyframes card-deal { from { opacity: 0; transform: translateY(-14px) scale(.85) rotate(-6deg); } 30% { opacity: 1; } }
 #game-table .portrait.is-checked::after { content: ''; position: absolute; inset: 0; z-index: 1; border-radius: 50%; box-shadow: inset 0 0 0 4px #b3261e, inset 0 0 14px 2px rgb(179 38 30 / 60%); animation: check-pulse 600ms var(--ease-out) var(--age, 0ms) both; pointer-events: none; }
 @keyframes check-pulse { 0% { opacity: 0; transform: scale(1.25); } 30% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
+
+
+@media (orientation: landscape) and (max-height: 500px) {
+  #board-sheet.board-menu .sheet-head { padding: 4px 8px; }
+  #board-sheet.board-menu .sheet-body { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px 8px 8px; }
+}

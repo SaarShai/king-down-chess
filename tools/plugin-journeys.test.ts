@@ -44,7 +44,7 @@ it('opens the screen of the game status when a chat result names the board, with
       await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, before);
       await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
       // A board that draws a game in setup or waiting offers no draw and no resignation.
-      if (screen === 'seat') expect(await html(page).evaluate(() => [document.getElementById('offer-draw')!.hidden, document.getElementById('resign')!.hidden])).toEqual([true, true]);
+      if (screen === 'seat') expect(await frame.locator('#offer-draw, #resign').count()).toBe(0);
     }
   } finally { await page.close(); }
 });
@@ -52,9 +52,10 @@ it('opens the screen of the game status when a chat result names the board, with
 it('keeps every board control under an open sheet and its scrim', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await soloBoard(page); await frame.locator('#context-actions #abort').waitFor();
-    for (const opener of ['#board-menu', '#resign']) {
-      await frame.locator(`${opener}:not(:disabled)`).click(); await frame.locator('#board-sheet[open]').waitFor();
+    await soloBoard(page); await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
+    for (const opener of ['#board-menu', '#menu-resign']) {
+      await frame.locator('#board-menu:not(:disabled)').click();
+      if (opener === '#menu-resign') await frame.locator(opener).click(); await frame.locator('#board-sheet[open]').waitFor();
       // The page is inert under a sheet, and inert hides it from hit tests; lift it to test what paints on top.
       const above = await html(page).evaluate(() => {
         const page = document.querySelector<HTMLElement>('.page-sheet')!, sheet = document.getElementById('board-sheet')!, scrim = sheet.previousElementSibling;
@@ -109,7 +110,7 @@ it('reads the game again after a conflict and says that the opponent moved, and 
     // Bob answers before Alice's board reads again; then Alice offers a draw on the old view.
     const seen = (await bob('kingdown_get', { game_id }))._meta.view;
     await bob('kingdown_move', { game_id, command_id: 'bob-e5', expected_revision: seen.revision, lan: 'e7-e5' });
-    await frame.locator('#offer-draw:not(:disabled)').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Offer draw', exact: true }).click();
+    await frame.locator('#board-menu:not(:disabled)').click(); await frame.locator('#menu-draw').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Offer draw', exact: true }).click();
     await frame.locator('#error').filter({ hasText: moved }).waitFor();
     await frame.locator('#last-move').filter({ hasText: 'Black pawn e7 to e5' }).waitFor();
     expect(await html(page).evaluate(() => (window as any).harnessApp.memory.view.revision)).toBe(seen.revision + 1);
@@ -144,7 +145,7 @@ it('keeps the Name and picture row at its content height and the sample arrow as
 it('gives each control one id while the board Menu is open', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await soloBoard(page); await frame.locator('#context-actions #abort').waitFor();
+    await soloBoard(page); await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
     await frame.locator('#board-menu:not(:disabled)').click(); await frame.locator('#board-sheet[open]').waitFor();
     expect(await html(page).evaluate(() => { const ids = [...document.querySelectorAll('[id]')].map(el => el.id); return ids.filter((id, i) => ids.indexOf(id) !== i); })).toEqual([]);
     await frame.locator('#board-sheet #menu-abort').click();

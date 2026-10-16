@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import type { View } from '../../match/protocol';
 import { fromFen, toFen, toLan } from '../../rules/setup';
 import { legalMoves, setRules, type CardName } from '../../rules/engine';
-import { applyLan, boardActions, cardCoins, replayHistory, replayLans, stripLine } from './board-model';
+import { applyLan, boardActions, cardCoins, replayHistory, replayLans, stripLine, timeLeft } from './board-model';
 
 const view = (fields: Partial<View> = {}): View => ({ game_id: 'game', revision: 2, created_at: '2026-10-11T00:00:00Z', abort_open: false, seat: 0, kind: 'friend', speed: 'daily', days_per_move: 3, status: 'playing', turn: 1, action: 'waiting', fen: '7k/8/8/8/8/8/P7/K7 b - - 0 1', in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: '2026-10-11T00:00:01Z', server_now: '2026-10-11T00:00:00Z', ...fields });
 
@@ -15,7 +15,7 @@ test('a missed first turn ends with no result; a later turn permits a win claim'
 });
 
 test('each strip names its rating and colour, or the computer level', () => {
-  expect(stripLine(0, { rating: 1499.6, provisional: true })).toBe('1500? · White');
+  expect(stripLine(0, { rating: 1499.6, provisional: true })).toBe('New player · White');
   expect(stripLine(1, { rating: 1540, provisional: false })).toBe('1540 · Black');
   expect(stripLine(1)).toBe('Black');
   expect(stripLine(1, undefined, 'club')).toBe('Club');
@@ -74,4 +74,15 @@ test('Firewall names the card action on the shared move text path', () => {
   setRules(rules);
   const pre = fromFen('7k/8/8/8/8/8/P7/K7 w - - 0 1');
   expect(applyLan(pre, '!P', rules)?.words).toBe('White uses Firewall to protect all its pieces until its next turn.');
+});
+
+
+test('time left uses server time and elapsed time, with no deadline after the game ends', () => {
+  const daily = view({deadline_at:'2026-10-11T18:00:00Z'});
+  expect(timeLeft(daily)).toBe('18 h left');
+  expect(timeLeft(daily, 17 * 3600000 + 30 * 60000)).toBe('30 min left');
+  expect(timeLeft(daily, 18 * 3600000)).toBe('Time is up');
+  expect(timeLeft({...daily, status:'finished'})).toBe('');
+  expect(timeLeft({...daily, deadline_at:null})).toBe('');
+  expect(timeLeft({...daily, deadline_at:'bad'})).toBe('');
 });

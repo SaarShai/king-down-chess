@@ -115,9 +115,11 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .board-layer .pi { position: absolute; }
 .board-layer .veil { position: absolute; display: grid; place-items: center; padding: 6px; overflow: hidden; text-align: center; background: rgba(243, 234, 215, .82); backdrop-filter: blur(3px); border-bottom: 2px dashed var(--stone-500); }
 .board-layer .veil span { max-width: 22ch; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-md); color: var(--ink-soft); }
-/* No End turn in the plugin game: Offer draw, Resign and Menu fill the game's bar. */
-#table-bar { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); grid-auto-flow: column; }
+/* The two free cells leave room for Undo and the turn button. */
+#table-bar { grid-template-columns: 1fr 2fr 1fr; }
 #table-bar > button { grid-column: auto; }
+#table-bar > #board-menu { grid-column: 3; }
+#short-last-move { display: none; }
 #table-bar > button.primary { background: var(--accent); color: var(--vellum); }
 #table-bar > button[aria-disabled='true'] { color: rgb(91 80 69 / 60%); }
 /* Card coins (card mode C): smaller than the power coin, so a full hand fits the strip at 360 px. */
@@ -203,6 +205,10 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 #end-table { position: absolute; inset: 0; }
 #game-table .player-name :is(b, small), #seat-screen .player-name :is(b, small) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #game-table #context-text { display: block; max-height: none; overflow: visible; }
+#game-table #context-line:has(#accept-draw) { flex-wrap: wrap; }
+#game-table #context-line:has(#accept-draw) #context-text { flex-basis: 100%; min-height: 40px; }
+#game-table #context-actions:has(#accept-draw) { flex-basis: 100%; flex-wrap: wrap; }
+#game-table #context-actions:has(#accept-draw) button { padding-inline: 4px; }
 .table-back { display: none; }
 @media (max-width: 899px) and (orientation: portrait) {
   #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 44px; grid-template-rows: minmax(44px, max-content) minmax(var(--board-floor, 0px), max-content) minmax(44px, max-content) minmax(var(--context-floor, 44px), max-content) 44px minmax(0, 1fr) var(--bar-height); }
@@ -225,6 +231,8 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 @container table-screen (max-height: 480px) {
   #game-table { grid-template-rows: minmax(44px, max-content) minmax(var(--board-floor, 0px), max-content) minmax(44px, max-content) minmax(var(--context-floor, 44px), max-content) 0 minmax(0, 1fr) var(--bar-height); }
   #game-table #moves-line { display: none; }
+  body:is([data-page='board'], [data-page='end']) #game-table #moves-line { display: none; }
+  body:is([data-page='board'], [data-page='end']) #game-table { grid-template-areas: 'them' 'moves' 'board' 'me' 'context' 'space' 'bar'; grid-template-rows: minmax(44px, max-content) 24px minmax(var(--board-floor, 0px), max-content) minmax(44px, max-content) minmax(var(--context-floor, 44px), max-content) minmax(0, 1fr) var(--bar-height); }
 }
 /* The back button takes 48 px from the opponent row. A power adds one 48 px coin slot. */
 @container table-screen (max-width: 440px) {
@@ -343,3 +351,19 @@ body[data-touch='true'] #context-actions button { z-index: 2; }
 #app-root button.menu-row > i { right: 12px; }
 #app-root #profile-open button { padding: 8px 12px; }
 #app-root :is(#moves-line, .fields label:has(input[type='checkbox'])) { padding-inline: 12px; }
+
+@container table-screen (max-height: 480px) {
+  #game-table #moves-line { display: none; }
+  #game-table #short-last-move { grid-area: moves; display: flex; align-items: center; min-width: 0; height: 24px; margin: 0 12px; white-space: nowrap; font-size: 12px; }
+  #short-move-words { overflow: hidden; text-overflow: ellipsis; }
+  #move-time-left { flex-shrink: 0; }
+  #move-time-left:not(:empty)::before { content: ' · '; }
+}
+
+@media (orientation: landscape) {
+@container table-screen (max-height: 480px) {
+  body:is([data-page='board'], [data-page='end']) #game-table { position: relative; padding-top: 28px; }
+  #game-table #short-last-move { position: absolute; top: 0; left: 8px; width: calc(100% - 16px); margin: 0; }
+  #game-table .table-side { grid-template-rows: var(--strip-height) var(--strip-height) minmax(var(--context-height), max-content) 0 minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom))); }
+}
+}

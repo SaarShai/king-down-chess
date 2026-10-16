@@ -1,4 +1,4 @@
-import { call, client, memory, routeView, showGames } from '../app';
+import { call, client, gameActionsBlocked, memory, routeView, showGames } from '../app';
 import { art } from '../art';
 import { ending } from '../ending';
 import { runPoll } from '../poll';
@@ -65,10 +65,9 @@ export function endScreen(schedule = true) {
   if (outcome) {
     const facts = over.querySelector('.end-facts')!;
     if (outcome.rating !== null) {
-      const line = document.createElement('span'); line.textContent = 'Rating ';
-      const rating = document.createElement('b'); rating.textContent = String(Math.round(outcome.rating)); line.append(rating);
-      if (outcome.provisional) {const q=document.createElement('span'); q.className='q'; q.textContent='?'; line.append(q);}
-      if (outcome.rating_before !== null) { const delta=Math.round(outcome.rating-outcome.rating_before), change=document.createElement('small'); change.textContent=' '+(delta>=0?'+':'')+delta; line.append(change); }
+      const line = document.createElement('span'); line.textContent = outcome.provisional ? '' : 'Rating ';
+      const rating = document.createElement('b'); rating.textContent = outcome.provisional ? 'New player' : String(Math.round(outcome.rating)); line.append(rating);
+      if (!outcome.provisional && outcome.rating_before !== null) { const delta=Math.round(outcome.rating-outcome.rating_before), change=document.createElement('small'); change.textContent=' '+(delta>=0?'+':'')+delta; line.append(change); }
       facts.append(line);
     }
     const badge = outcome.badges[0]?.badge;
@@ -80,7 +79,8 @@ export function endScreen(schedule = true) {
   const form = over.querySelector('form')!; form.onsubmit=event=>event.preventDefault();
   for (const choice of rematches) {
     const b = button(choice==='offer'?'Rematch':choice==='accept'?'Accept':'Decline',()=>void sendBoardCommand('kingdown_rematch',{choice}));
-    if (choice!=='decline') b.className='primary'; form.append(b);
+    b.className = 'game-action'; b.disabled = gameActionsBlocked();
+    if (choice!=='decline') b.classList.add('primary'); form.append(b);
   }
   form.append(button('Your games',()=>{closeEnd(); showGames();}));
   over.append(error);
