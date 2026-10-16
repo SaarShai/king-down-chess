@@ -9,7 +9,8 @@ Drafts for the King Down ChatGPT plugin review. The owner reviews and submits; a
 | [test-cases.md](test-cases.md) | The 5 positive and 3 negative review cases, with their source in the code. |
 | [listing.md](listing.md) | The listing text, with each field's limit and length. |
 | [release-notes.md](release-notes.md) | The release notes for version 1.0.0. |
-| [privacy-additions.md](privacy-additions.md) | Paragraphs to add to `public/privacy.html` after the owner's approval. |
+| [privacy-additions.md](privacy-additions.md) | The privacy text now in `public/privacy.html`, with the evidence for each block. |
+| [review-notes.md](review-notes.md) | The text for the portal's Review details: the review sign-in steps, the sample data and the surface claim. |
 | `public/support.html` | The support page for `supportURL`; live after the next deploy. |
 
 The text in `plugin.json` is the copy that OpenAI imports. When you change a test case, the listing or the release notes, change both copies.
