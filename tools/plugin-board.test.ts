@@ -65,6 +65,46 @@ async function marks(page: Page) {
   return page.frameLocator('iframe').locator('html').evaluate(() => structuredClone((window as any).testBoard.marks));
 }
 
+it.each(['See the board', 'New game'])('cancels a pending ceremony with %s during the final move', async action => {
+  const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), pre = fromFen(before.fen);
+  const move = legalMoves(pre).find(m => toLan(pre,m) === 'Qa1-a8')!, post = makeMove(pre,move);
+  const page = await open(before), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(() => {
+      const w = window as any; w.falls = []; const set = w.testBoard.setFallen.bind(w.testBoard);
+      w.testBoard.setFallen = (sq: number|null, animate: boolean) => { if (sq !== null) w.falls.push(animate); set(sq,animate); };
+      w.testBoard.animateMove = () => new Promise<void>(resolve => { w.endReplay = resolve; });
+    });
+    const next = { ...before, fen: toFen(post), revision: 1, status: 'finished', action: 'finished', turn: 1, legal: [], result: { winner: 0, reason: 'checkmate' }, last_commands: [{ seq: 1, seat: 0, at: before.server_now, action: { type: 'turn', actions: ['Qa1-a8'] } }] };
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
+    await frame.locator('#over[open]').waitFor();
+    expect(await frame.locator('#board[data-toppling]').count()).toBe(0);
+    if (action === 'New game') await page.waitForTimeout(1100);
+    await frame.locator('#over').getByRole('button', { name: action, exact: true }).click();
+    await frame.locator('html').evaluate(() => (window as any).endReplay());
+    await frame.locator('#board[data-animating="false"]').waitFor({ state: 'attached' });
+    expect(await frame.locator('html').evaluate(() => (window as any).falls.includes(true))).toBe(false);
+    expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
+  } finally { await page.close(); }
+});
+
+it('keeps the king fall running when the result card opens', async () => {
+  const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), pre = fromFen(before.fen);
+  const move = legalMoves(pre).find(m => toLan(pre,m) === 'Qa1-a8')!, post = makeMove(pre,move);
+  const page = await open(before), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(() => {
+      const w = window as any; w.falls = []; const set = w.testBoard.setFallen.bind(w.testBoard);
+      w.testBoard.setFallen = (sq: number|null, animate: boolean) => { if (sq !== null) w.falls.push(animate); set(sq,animate); };
+    });
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), { ...before, fen: toFen(post), revision: 1, status: 'finished', action: 'finished', turn: 1, legal: [], result: { winner: 0, reason: 'checkmate' }, last_commands: [] });
+    await frame.locator('#over[open]').waitFor(); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
+    expect(await frame.locator('html').evaluate(() => (window as any).falls)).toEqual([true]);
+    await frame.locator('#end-skip').evaluate((b: HTMLButtonElement) => b.click());
+    expect(await frame.locator('html').evaluate(() => (window as any).falls.at(-1))).toBe(false);
+  } finally { await page.close(); }
+});
+
 it.each(['move', 'vault', 'freeze', 'power'] as const)('marks the opponent %s on its source and targets after first-move entry', async kind => {
   const rules: Partial<Rules> = kind === 'power' ? { kings: [null, { king: 'Frost', power: 'Freeze' }] } : kind === 'move' ? {} : { hands: [[], [kind === 'vault' ? 'Vault' : 'Freeze']] };
   const fen = 'r6k/p7/8/8/8/8/4P3/K7 b - - 0 1'; setRules(rules); const pre = fromFen(fen);
@@ -493,11 +533,14 @@ it.each(['Resign', 'Abort'])('W7: Menu %s drops the draft move from the end card
     await frame.locator('#board-menu').click();
     await frame.locator('#board-sheet').getByRole('button',{name:action,exact:action === 'Resign'}).click();
     await frame.locator('#board-sheet').getByRole('button',{name:action,exact:true}).click();
-    await frame.locator('#over[open]').waitFor();
+    // od-end ticket 06: a computer abort opens the Play hall with its setup; a resign opens the end card.
+    await frame.locator(action === 'Resign' ? '#over[open]' : '[data-screen="play"]:not([hidden])').waitFor();
     expect(await moveCalls(page)).toEqual([]);
     expect(await page.evaluate(() => (window as any).harnessView.fen)).toBe(base.fen);
-    expect(await frame.locator('#end-reason').innerText()).toBe(action === 'Resign' ? 'Resignation' : '');
-    expect(await frame.locator('#last-move').innerText()).toBe('Move 1.');
+    if (action === 'Resign') {
+      expect(await frame.locator('#end-reason').innerText()).toBe('You resigned.');
+      expect(await frame.locator('#last-move').innerText()).toBe('Move 1.');
+    }
     expect((await marks(page)).last).toEqual([]);
   } finally { await page.close(); }
 });

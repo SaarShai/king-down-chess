@@ -1,20 +1,27 @@
-import { call, client, gameActionsBlocked, memory, routeView, showGames } from '../app';
+import { call, client, memory, readFailed, routeView, showNewGame } from '../app';
 import { art } from '../art';
-import { ending } from '../ending';
+import { ending, endReason } from '../ending';
 import { runPoll } from '../poll';
 import { PLAIN_KINGS } from '../../rules/engine';
-import { boardGame, boardLastMove, closeBoardSheet, sendBoardCommand } from './board';
+import { boardGame, closeBoardSheet, sendBoardCommand, skipBoardCeremony } from './board';
 import { rematchChoices } from './end-model';
+import { draftFromGame } from './setup';
 import './end.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 let scrim: HTMLElement, poll: ReturnType<typeof runPoll> | undefined, observer: MutationObserver;
 const read = new Set<string>(), resumed = new Set<string>();
 let updating = false, stopped = false, opening = false;
-const button = (label: string, click: () => void) => { const b = document.createElement('button'); b.textContent = label; b.onclick = click; return b; };
+let endGame: string | undefined, looking = false;
+let guardedGame: string | undefined, tapReadyAt = 0;
+// Ignore a late board tap. Skip and See the board stay active.
+export function guardEndTaps(game: string) { guardedGame = game; tapReadyAt = Infinity; }
+let queuedRematch: { game: string; choice: 'offer' | 'accept' | 'decline' } | undefined;
+const button = (label: string, click: () => void) => { const b = document.createElement('button'); b.textContent = label; b.setAttribute('data-free',''); b.onclick = click; return b; };
 function closeEnd() {
   const error = document.querySelector('.page-error'); if (error) document.querySelector('.page-sheet')!.append(error);
   if ($('over').classList.contains('end-card')) { $<HTMLDialogElement>('over').close(); $('over').classList.remove('end-card'); }
   if (scrim) scrim.hidden = true;
+  skipBoardCeremony(); looking = false; queuedRematch = undefined; $('end-result').hidden = true;
   opening = false;
   poll?.stop(); poll = undefined;
 }
@@ -27,9 +34,16 @@ export function updateEnd() {
   endScreen(false);
   if (client.state.screen !== 'end' || updating || $<HTMLButtonElement>('reload').disabled || client.state.pending) return;
   const view = boardGame(); if (!view) return;
+  if (queuedRematch) {
+    const queued = queuedRematch; queuedRematch = undefined;
+    if (queued.game === view.game_id && rematchChoices(view).includes(queued.choice)) { void sendBoardCommand('kingdown_rematch',{choice:queued.choice}); return; }
+  }
   if (view.rematch_game_id && !resumed.has(view.rematch_game_id)) {
-    const game = view.rematch_game_id; resumed.add(game); updating = true;
-    void call('kingdown_resume', {game_id:game}).then(next => { if (!next) resumed.delete(game); }).finally(() => { updating = false; });
+    const game = view.rematch_game_id, ended = view.game_id; resumed.add(game); updating = true;
+    void call('kingdown_resume', {game_id:game}, false, false, false).then(next => {
+      if (!next) resumed.delete(game);
+      else if (client.state.screen === 'end' && endGame === ended) routeView(next);
+    }).finally(() => { updating = false; });
   } else if (!read.has(view.game_id)) {
     if (memory.view?.rules) { read.add(view.game_id); return; }
     updating = true;
@@ -39,18 +53,21 @@ export function updateEnd() {
 export function endScreen(schedule = true) {
   const view = boardGame(); if (!view || client.state.screen !== 'end') return;
   if (!['finished','aborted'].includes(view.status)) { closeEnd(); routeView(view); return; }
+  if (endGame !== view.game_id) { endGame = view.game_id; looking = false; if (guardedGame !== endGame) tapReadyAt = 0; }
   const fresh=memory.view, opponent=fresh?.game_id===view.game_id?fresh.opponent:view.opponent, rematches=rematchChoices({...view,opponent});
-  closeBoardSheet();
+  if (!looking) closeBoardSheet();
   const over = $<HTMLDialogElement>('over');
   const error = document.querySelector('.page-error')!; error.remove();
   if (!scrim) {
     scrim = document.createElement('div'); scrim.id = 'end-scrim'; scrim.className = 'scrim'; scrim.hidden=true; $('app-frame').insertBefore(scrim,over);
     observer = new MutationObserver(() => { if (client.state.screen === 'end') setTimeout(updateEnd,0); else closeEnd(); });
     observer.observe(document.body,{attributes:true,attributeFilter:['data-page']}); observer.observe($('reload'),{attributes:true,attributeFilter:['disabled']});
+    new MutationObserver(() => { const skip = document.getElementById('end-skip'); if (skip) skip.hidden = !$('board').dataset.toppling; }).observe($('board'),{attributes:true,attributeFilter:['data-toppling']});
     window.addEventListener('message',event=>{ if(event.data?.method==='ui/resource-teardown') {stopped=true; closeEnd(); observer.disconnect();} });
   }
   $('end-table').append($('game-table')); $('table-bar').hidden = true;
-  over.className = 'end-card'; over.setAttribute('aria-labelledby','over-title');
+  const win = view.result?.reason === 'checkmate' && view.result.winner === view.seat;
+  over.className = 'end-card' + (win ? ' is-win' : ''); over.setAttribute('aria-labelledby','over-title');
   over.innerHTML = '<div class="over-art" aria-hidden="true"></div><p class="over-words"></p><h2 id="over-title"></h2><p id="end-reason"></p><div class="end-facts"></div><form method="dialog"></form><p class="quiet-line"></p>';
   const kings = view.rules?.kings;
   for (const side of [0,1] as const) {
@@ -58,9 +75,9 @@ export function endScreen(schedule = true) {
     img.src = art(`ui/kings/${(kings?.[side]?.king ?? PLAIN_KINGS[side]).toLowerCase()}${side ? '-b':''}.webp`); over.querySelector('.over-art')!.append(img);
   }
   const result = view.result;
-  over.querySelector('.over-words')!.textContent = result?.reason === 'checkmate' ? 'King Down' : '';
+  over.querySelector('.over-words')!.textContent = win ? 'King Down' : '';
   $('over-title').textContent = !result || ['abort','no_start'].includes(result.reason) ? ending(view) : result.winner === null ? 'Draw' : result.winner === view.seat ? 'You win' : 'You lose';
-  $('end-reason').textContent = [result && !['abort','no_start'].includes(result.reason) ? ending(view).split(' · ').at(-1) : '',boardLastMove()?.words].filter(Boolean).join('. ');
+  $('end-reason').textContent = endReason(view);
   const outcome = view.kind !== 'solo' && view.outcome;
   if (outcome) {
     const facts = over.querySelector('.end-facts')!;
@@ -78,20 +95,26 @@ export function endScreen(schedule = true) {
   }
   const form = over.querySelector('form')!; form.onsubmit=event=>event.preventDefault();
   for (const choice of rematches) {
-    const b = button(choice==='offer'?'Rematch':choice==='accept'?'Accept':'Decline',()=>void sendBoardCommand('kingdown_rematch',{choice}));
-    b.className = 'game-action'; b.disabled = gameActionsBlocked();
+    const b = button(choice==='offer'?view.kind==='solo'?'Play again':'Rematch':choice==='accept'?'Accept':'Decline',()=>{
+      if (performance.now() < tapReadyAt) return;
+      skipBoardCeremony(); queuedRematch ??= {game:view.game_id,choice}; updateEnd();
+    });
+    // C4 c: the choice stays active while the result data loads (data-free, queued); a stale board locks it.
+    b.className = 'game-action'; b.disabled = !!queuedRematch || readFailed();
     if (choice!=='decline') b.classList.add('primary'); form.append(b);
   }
-  form.append(button('Your games',()=>{closeEnd(); showGames();}));
-  over.append(error);
-  over.querySelector('.quiet-line')!.textContent = opponent?.deleted ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? 'A rematch keeps the features and swaps the colours.' : '';
+  form.append(button('New game',()=>{if (performance.now() < tapReadyAt) return; draftFromGame(view); closeEnd(); showNewGame();}));
+  const see = button('See the board',()=>{skipBoardCeremony(); looking=true; document.querySelector('.page-sheet')!.append(error); over.close(); scrim.hidden=true; $('end-result').hidden=false; $('end-result').focus();}); form.append(see);
+  const skip = button('Skip',()=>{skipBoardCeremony(); see.focus();}); skip.id='end-skip'; skip.hidden=!$('board').dataset.toppling; form.append(skip);
+  $('end-result').onclick = () => { looking=false; $('end-result').hidden=true; endScreen(); };
+  (looking ? document.querySelector('.page-sheet')! : over).append(error);
+  over.querySelector('.quiet-line')!.textContent = opponent?.deleted ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? view.kind==='solo' ? 'Play again with the same rules and colour.' : 'A rematch keeps the features and swaps the colours.' : '';
   if (over.open) scrim.hidden=false;
-  else if (!opening) {
+  else if (!opening && !looking) {
     opening=true; const game=view.game_id;
     const show=()=>{
       if (stopped || client.state.screen!=='end' || boardGame()?.game_id!==game) {opening=false; return;}
-      if ($('board').dataset.animating==='true' || $('board').dataset.toppling) {requestAnimationFrame(show); return;}
-      requestAnimationFrame(()=>{opening=false; if(!stopped&&client.state.screen==='end'&&boardGame()?.game_id===game){if(!over.open) over.show(); scrim.hidden=false;}});
+      opening=false; if(!looking){if(!over.open) { over.show(); if (tapReadyAt === Infinity) tapReadyAt = performance.now() + 1000; } scrim.hidden=false;}
     };
     requestAnimationFrame(show);
   }

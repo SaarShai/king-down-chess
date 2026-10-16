@@ -20,6 +20,10 @@ export function readSetup(value: unknown): SetupState {
   return state;
 }
 
+export function gameSetup(view: View): SetupState {
+  return readSetup({ kind: view.kind, options: view.options, colour: view.seat === 1 ? 'black' : 'white', level: view.level, king: view.choices?.[view.seat]?.king ?? view.kings?.[view.seat] ?? view.rules?.kings[view.seat] });
+}
+
 /** Play now uses Beginner and an automatic army, and keeps the saved setup. */
 export function quickSetup(saved: unknown): SetupState {
   const state = readSetup(saved);

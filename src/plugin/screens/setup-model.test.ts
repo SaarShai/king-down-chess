@@ -1,7 +1,17 @@
 import { expect, it } from 'vitest';
-import { readSetup, quickSetup, withToggle, createArguments, pieceLocked, withPiece, withCard, cleanKing, availablePowers, shownKing, soloChoice } from './setup-model';
+import { gameSetup, readSetup, quickSetup, withToggle, createArguments, pieceLocked, withPiece, withCard, cleanKing, availablePowers, shownKing, soloChoice } from './setup-model';
 import { DEFAULT_OPTIONS } from '../../match/setup';
 import type { View } from '../../match/protocol';
+
+it('reads the aborted game draft from its view, without saved settings', () => {
+  const options = { ...DEFAULT_OPTIONS, cards: true, kingPowers: true };
+  const king = { king: 'Shadow', power: 'Darkness' } as const;
+  const view = { kind: 'solo', seat: 1, level: 'strong', options, choices: [null, { king }] } as View;
+  const draft = gameSetup(view);
+  expect(draft).toEqual({ kind: 'solo', colour: 'black', level: 'strong', options, king });
+  expect(draft.options).not.toBe(options);
+  expect(gameSetup({ ...view, choices: undefined, kings: [null, king] }).king).toEqual(king);
+});
 
 it('starts a new account with the approved defaults and no king pick', () => {
   expect(readSetup(null)).toEqual({

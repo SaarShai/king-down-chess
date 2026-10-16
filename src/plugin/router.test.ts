@@ -12,6 +12,14 @@ it('routes each server game phase to its one screen', () => {
   expect(screens).toEqual(['friend', 'wait', 'seat', 'board', 'board', 'end', 'end']);
 });
 
+it('returns only an explicit computer abort to the draft', () => {
+  const router = createRouter(async () => undefined, () => {}, () => {});
+  const view = { status: 'aborted', kind: 'solo', result: { winner: null, reason: 'abort' } } as View;
+  expect(router.routeView(view)).toBe('play');
+  expect(router.routeView({ ...view, kind: 'friend' })).toBe('end');
+  expect(router.routeView({ ...view, result: { winner: null, reason: 'no_start' } })).toBe('end');
+});
+
 it('starts each kind as a pending call and lets a caller defer the route', async () => {
   const calls: unknown[] = [], screens: string[] = [];
   const view = { status: 'setup', kind: 'solo', options: {} } as View;

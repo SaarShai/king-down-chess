@@ -234,7 +234,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(view(offered).game_id).toBe(old); expect(view(offered).rematch_game_id).toEqual(expect.any(String));
   expect(view(await host.ok('kingdown_get', { board_id })).game_id).toBe(old);
   const resumed = await host.ok('kingdown_resume', { board_id, game_id: view(offered).rematch_game_id });
-  expect(view(resumed)).toMatchObject({ game_id: view(offered).rematch_game_id, seat: 1 });
+  expect(view(resumed)).toMatchObject({ game_id: view(offered).rematch_game_id, seat: 0 });
   expect(view(await host.ok('kingdown_get', { board_id })).game_id).toBe(view(resumed).game_id);
  });
 

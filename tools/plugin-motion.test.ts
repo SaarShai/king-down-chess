@@ -44,25 +44,90 @@ async function mate(page: Page, frame: FrameLocator) {
   expect(await frame.locator('#over').evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
   await send.click();
 }
-it.each([false, true])('topples the king on a live win before the end card (reduced motion %s)', async reduced => {
+it.each([false, true])('opens end actions during a live win (reduced motion %s)', async reduced => {
   const { page, frame } = await open(reduced);
   try {
     await mate(page, frame);
     if (!reduced) {
-      await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' }); expect(await frame.locator('#over').evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
-      await frame.locator('#board .kd-words:not([hidden])').waitFor();
+      await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
     }
     const start = Date.now(); await frame.locator('#over.end-card[open]').waitFor();
     expect(Date.now() - start).toBeLessThan(1500);
-    expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
+    expect(await frame.locator('#over').getByRole('button', { name: 'Play again', exact: true }).isVisible()).toBe(true);
+    expect(await frame.locator('#over').getByRole('button', { name: 'New game', exact: true }).isVisible()).toBe(true);
+    if (!reduced) {
+      expect(await frame.locator('#board[data-toppling]').count()).toBe(1);
+      expect(await frame.locator('#end-skip').isVisible()).toBe(true);
+      await frame.locator('#board .kd-words:not([hidden])').waitFor();
+    }
+    await frame.locator('#board[data-toppling]').waitFor({ state: 'detached' });
+    expect(await frame.locator('#end-skip').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
-it('skips the end ceremony on a tap', async () => {
+it('skips the end ceremony at 200 ms while game actions are guarded', async () => {
   const { page, frame } = await open(false);
   try {
+    await page.clock.install();
     await mate(page, frame); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
-    await frame.locator('#status').click(); await frame.locator('#over.end-card[open]').waitFor({ timeout: 300 });
+    await frame.locator('#over[open]').waitFor(); await page.clock.setFixedTime(new Date()); await page.clock.pauseAt(await page.evaluate(() => Date.now())); await page.clock.runFor(200);
+    await frame.locator('#end-skip').evaluate((b: HTMLButtonElement) => b.click());
     expect(await frame.locator('#board .kd-words').count()).toBe(0);
+    expect(await frame.locator('#over[open]').count()).toBe(1);
+  } finally { await page.close(); }
+});
+it.each(['Play again', 'New game', 'See the board'])('uses %s at its allowed time after a live end opens', async action => {
+  const { page, frame } = await open(false);
+  try {
+    await page.clock.install();
+    await mate(page, frame); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
+    const old = await page.evaluate(() => (window as any).harnessView.game_id);
+    await frame.locator('#over[open]').waitFor();
+    expect(await frame.locator('#over').getByRole('button', { name: action, exact: true }).isEnabled()).toBe(true);
+    await page.clock.setFixedTime(new Date()); await page.clock.pauseAt(await page.evaluate(() => Date.now())); await page.clock.runFor(200);
+    const press = () => frame.locator('#over').getByRole('button', { name: action, exact: true }).evaluate((b: HTMLButtonElement) => b.click());
+    await press();
+    if (action !== 'See the board') {
+      expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_rematch').length)).toBe(0);
+      expect(await frame.locator('#over[open]').count()).toBe(1);
+      expect(await frame.locator('body').getAttribute('data-page')).toBe('end');
+      expect(await frame.locator('#board[data-toppling]').count()).toBe(1);
+      await page.clock.runFor(1000); await press();
+    }
+    await page.clock.resume(); await page.clock.setSystemTime(new Date());
+    expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
+    if (action === 'New game') await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    else if (action === 'Play again') await page.waitForFunction(old => (window as any).harnessView.game_id !== old, old);
+    else {
+      expect(await frame.locator('#over[open]').count()).toBe(0);
+      await page.waitForTimeout(1200);
+      expect(await frame.locator('#over[open]').count()).toBe(0);
+      await frame.locator('#end-result').click(); await frame.locator('#over[open]').waitFor();
+    }
+  } finally { await page.close(); }
+});
+it('keeps a live checkmate loss calm and leaves the last move on the board', async () => {
+  const { page, frame } = await open(false);
+  try {
+    const result = await (await page.request.post(new URL(`/fixture-position?fen=${encodeURIComponent('7k/8/6K1/8/8/8/8/Q7 w - - 0 1')}&black=1`, harness.url).href)).json();
+    await page.evaluate(r => (window as any).harnessShow(r), result);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    const reply = await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name: 'kingdown_move', arguments: { game_id: result._meta.view.game_id, command_id: crypto.randomUUID(), expected_revision: result._meta.view.revision, lan: 'Qa1-a8' } } })).json();
+    expect(reply.isError).not.toBe(true);
+    await page.evaluate(async () => { const h=window as any; await h.harnessShow(await h.harnessTool({ name:'kingdown_get', arguments:{board_id:h.harnessWidgetState.privateContent.board_id} })); });
+    await frame.locator('#over-title').filter({ hasText: 'You lose' }).waitFor();
+    expect(await frame.locator('#end-reason').textContent()).toBe('Your opponent gave checkmate.');
+    expect(await frame.locator('#last-move').textContent()).toContain('a8');
+    expect(await frame.locator('#board[data-toppling], #board .kd-words, #over.is-win').count()).toBe(0);
+    expect(await animations(frame, '#over')).toBe(0);
+    await frame.locator('#over').getByRole('button', { name: 'See the board', exact: true }).click();
+    await frame.locator('#moves-line').click(); await frame.locator('#board-sheet[open]').waitFor();
+    await page.waitForTimeout(3300);
+    expect(await frame.locator('#board-sheet[open]').count()).toBe(1);
+    const offer = await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name: 'kingdown_rematch', arguments: { game_id: result._meta.view.game_id, command_id: crypto.randomUUID(), expected_revision: reply._meta.view.revision, choice: 'offer' } } })).json();
+    expect(offer.isError).not.toBe(true);
+    await page.waitForFunction(() => (window as any).harnessView.rematch_offer === 0);
+    expect(await frame.locator('#board-sheet[open]').count()).toBe(1);
   } finally { await page.close(); }
 });
 it.each([false, true])('gives a spent card a short gold pulse (reduced motion %s)', async reduced => {

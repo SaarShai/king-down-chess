@@ -12,7 +12,7 @@ import { setSettings } from './board-view';
 import { setSound, snd } from '../render/sfx';
 import { runPoll } from './poll';
 import { createRouter } from './router';
-import { playNow, quickStart, setupBusy, setupScreen } from './screens/setup';
+import { draftFromGame, playNow, quickStart, setupBusy, setupScreen } from './screens/setup';
 import { friendScreen } from './screens/friend';
 import { joinScreen } from './screens/join';
 import { waitScreen } from './screens/wait';
@@ -33,7 +33,7 @@ let awaitingInitialResult = true;
 let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
 let readError = false, pollFailures = 0;
-let busy = false, polling = false, mountReading = true, restoringMount = false, gamesDirty = false;
+let busy = false, polling = false, mountReading = true, restoringMount = false, gamesDirty = false, newGameFirst = false;
 // Ends when the command in flight (busy) ends; call skips a read while busy.
 let commandDone = Promise.resolve(), endCommand = () => {};
 // A mount read must keep a command refusal for the game that it shows.
@@ -41,9 +41,14 @@ let shownError = { count: 0, game: undefined as string | undefined, text: '' };
 let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0;
 let pending = state.pending;
 let handleBack: Screen = pending?.screen ?? 'settings';
+// A stale board (a failed read: "Not current") locks its game actions until a read succeeds.
+export const readFailed = () => readError;
 export const gameActionsBlocked = () => busy || mountReading || !!pending || readError;
-const drawBoard = boardScreen(call, gameActionsBlocked, () => readError);
-const router = createRouter((name, args, retain) => call(name, args, retain, false, false), navigate, show, () => !!pending);
+const drawBoard = boardScreen(call, gameActionsBlocked, readFailed);
+const router = createRouter((name, args, retain) => call(name, args, retain, false, false), navigate, next => {
+  show(next);
+  if (next.status === 'aborted' && next.kind === 'solo' && next.result?.reason === 'abort') { draftFromGame(next); newGameFirst = true; }
+}, () => !!pending);
 export const { routeView, start } = router;
 const screens = { play: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
 export const memory = { kind: 'solo' as 'solo' | 'friend' | 'random', code: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, games: [] as InboxEntry[], preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
@@ -204,7 +209,7 @@ function renderGames(entries: InboxEntry[]) {
 }
 export function renderGameRows() {
   gamesList($('games-list'), memory.games, (name, args) => call(name, args, false, false, false), routeView);
-  actions();
+  actions(); scrollNewGame();
 }
 function remember(result: ToolResult) {
   if (result._meta?.settings) memory.settings = result._meta.settings as PlayerSettings;
@@ -346,7 +351,14 @@ async function fullscreen(screen: Screen) {
   finally { asking = false; }
 }
 /** Opens the Play hall at its top, where Your games are. */
-export function showGames() { gamesFirst = true; navigate('play'); }
+export function showGames() { newGameFirst = false; gamesFirst = true; navigate('play'); }
+export function showNewGame() { newGameFirst = true; navigate('play'); }
+function scrollNewGame() {
+  if (!newGameFirst || state.screen !== 'play' || gamesDirty || mountReading) return;
+  const heading = $('new-game-head'), body = heading.closest<HTMLElement>('.new-game-body')!;
+  body.scrollTop += heading.getBoundingClientRect().top - body.getBoundingClientRect().top;
+  newGameFirst = false;
+}
 export function navigate(screen: Screen) {
   if (screen !== 'home' && displayMode === 'inline' && canFullscreen()) {
     resume = state.queued = screen; if (asking) target = screen; client.save(); return;
@@ -358,6 +370,7 @@ export function navigate(screen: Screen) {
   if (screen === 'settings' && !['settings','handle'].includes(state.screen)) {
     if (['board','seat'].includes(state.screen)) state.settings_back = state.screen; else delete state.settings_back;
   }
+  if (screen !== 'play') newGameFirst = false;
   state.screen = screen; retryState();
   $('page-title').removeAttribute('title');
   document.body.dataset.page = screen;
@@ -373,6 +386,7 @@ export function navigate(screen: Screen) {
   if (['home', 'play'].includes(screen) && !mountReading) {
     if (gamesDirty) void games(); else if (screen === 'play') renderGameRows();
   }
+  if (screen === 'play') scrollNewGame();
   if (screen === 'play' && gamesFirst) { gamesFirst = false; $('games-list').closest<HTMLElement>('.new-game-body')!.scrollTop = 0; }
   if (screen === 'settings') void applySettings();
   if (screen === 'seat' || screen === 'board') setTimeout(() => { if (state.screen === screen) measureLayout(); }, 1500);

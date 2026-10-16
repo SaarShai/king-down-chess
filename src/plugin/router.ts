@@ -8,6 +8,7 @@ export function createRouter(call: (name: string, args: Record<string, unknown>,
   }
   function routeView(view: View) {
     const screen: Screen = view.status === 'waiting' ? view.kind === 'friend' ? 'friend' : 'wait'
+      : view.status === 'aborted' && view.kind === 'solo' && view.result?.reason === 'abort' ? 'play'
       : view.status === 'finished' || view.status === 'aborted' ? 'end'
       : view.status === 'setup' && view.options ? 'seat' : 'board';
     show(view); navigate(screen); return screen;

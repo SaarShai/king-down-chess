@@ -137,15 +137,27 @@ try {
   assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests), ['fullscreen'], 'Choose a game asks the host for fullscreen');
   async function openPlay() {
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
-    for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) await frame.locator('#page-back:visible, .table-back:visible').click();
+    for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) {
+      await page.waitForFunction(() => {
+        const d=document.querySelector('iframe').contentDocument;
+        return !d.querySelector('[data-screen="play"]').hidden || [...d.querySelectorAll('#page-back, .table-back')].some(b=>!b.disabled&&b.getClientRects().length);
+      });
+      // A computer abort can open Play while Back waits for a call. Check and act in the same frame.
+      await frame.locator('html').evaluate(() => {
+        if (!document.querySelector('[data-screen="play"]').hidden) return;
+        [...document.querySelectorAll('#page-back, .table-back')].find(b=>!b.disabled&&b.getClientRects().length)?.click();
+      });
+    }
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor({ timeout: 5000 });
   }
   async function openScreen(screen) { await openPlay(); await frame.locator(`[data-screen="play"] [data-nav="${screen}"]`).click(); }
   async function idleBoard() { await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#reload')?.disabled === false); }
   async function remount(screen) {
-    const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
+    // Each mount reads the settings; a mount with no board makes no board read.
+    const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length);
     await remountFrame();
-    await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
+    await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length > n, reads);
+    // The new page can show its inputs before its first read binds them.
     await idleBoard();
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
   }
@@ -357,6 +369,13 @@ try {
       const result = await (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', base).href, { data: { name, arguments: args } })).json();
       assert(!result.isError, `${name}: ${JSON.stringify(result.content)}`); return result;
     };
+    async function abortSetup(game) {
+      // The computer can still make its first move. Let that command end before cleanup reads and aborts.
+      if (await page.evaluate(id=>window.harnessWidgetState.privateContent.screen==='board'&&window.harnessView.game_id===id&&window.harnessView.kind==='solo',game)) {
+        await frame.locator('#status').filter({hasText:'Your move'}).waitFor({timeout:5000}); await idleBoard();
+      }
+      await setupTool('kingdown_abort',{game_id:game});
+    }
     const baseSetup = { kind: 'solo', options: DEFAULT_OPTIONS, colour: 'white', level: 'club', king: null };
     async function setupMount(last_setup) {
       await setupTool('kingdown_settings', { last_setup });
@@ -420,7 +439,7 @@ try {
     assert.equal(await frame.locator('#menu-sheet').count(), 0, 'A sheet opened during Start closes when the page changes');
     await frame.locator('#status').filter({ hasText: /Your move|Their move/ }).waitFor({ timeout: 5000 }); await boardBox();
     assert.equal((await setupTool('kingdown_settings'))._meta.settings.last_setup.king, null, 'Opening the king sheet without a pick keeps the server seat default');
-    await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
+    await abortSetup(await page.evaluate(() => window.harnessView.game_id));
     const { checkCardChoices } = await import('./lib/plugin-cards-check.mjs');
     await checkCardChoices(page, frame, setupMount, { ...baseSetup, options: { ...DEFAULT_OPTIONS, cards: true } }, DEAL_CARDS);
     await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, cards: true } }); await frame.locator('#setup-cards').click();
@@ -517,15 +536,14 @@ try {
     } finally { await desktop.close(); }
     const saved = (await setupTool('kingdown_settings'))._meta.settings.last_setup;
     assert.deepEqual(saved.king, { king: 'Shadow', power: 'Darkness' }); assert.equal(saved.level, 'strong'); assert.equal(saved.colour, 'black');
-    await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
+    await abortSetup(await page.evaluate(() => window.harnessView.game_id));
     await setupMount(saved); assert.equal(await frame.locator('#setup-king-name').innerText(), 'Shadow · Darkness');
     assert(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked()); assert(await frame.getByRole('radio', { name: 'Black', exact: true }).isChecked());
     for (const kind of ['friend', 'random']) {
       const remembered = { ...saved, kind, options: { ...saved.options, arrangement: true } };
       await setupMount(remembered);
-      const home = await setupTool('kingdown_open', { screen: 'home' });
-      await page.evaluate(result => window.harnessShow(result), home);
-      await frame.getByRole('button', { name: 'Play now', exact: true }).click();
+      // Spec J10 a: the hall has Play now (the home card shows it only while you have no games).
+      await frame.locator('#hall-play').click();
       await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       const quick = await page.evaluate(() => window.harnessView);
       assert.equal(quick.kind, 'solo', `Play now starts a computer game from a saved ${kind} setup`);
@@ -538,15 +556,13 @@ try {
       assert(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
       await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
       assert(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked(), 'New game keeps the saved level');
-      await setupTool('kingdown_abort', { game_id: quick.game_id });
+      await abortSetup(quick.game_id);
     }
     for (const [name, recovery] of [['kingdown_create', 'retry'], ['kingdown_create', 'remount'], ['kingdown_choose', 'retry'], ['kingdown_get', 'retry']]) {
       const remembered = { ...baseSetup, kind: 'friend', level: 'strong', options: { ...DEFAULT_OPTIONS, arrangement: true, kingPowers: true } };
       await setupMount(remembered);
-      const home = await setupTool('kingdown_open', { screen: 'home' });
-      await page.evaluate(result => window.harnessShow(result), home);
       await page.evaluate(name => { window.dropNextReply = name; }, name);
-      await frame.getByRole('button', { name: 'Play now', exact: true }).click();
+      await frame.locator('#hall-play').click();
       await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
       await frame.locator('#retry:not(:disabled)').waitFor();
       const pending = await page.evaluate(() => window.harnessWidgetState.privateContent.pending);
@@ -567,15 +583,15 @@ try {
       assert(await frame.getByRole('radio', { name: 'A friend', exact: true }).isChecked());
       assert(await frame.locator('input[name="setup-level"][value="strong"]').isChecked());
       assert(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
-      await setupTool('kingdown_abort', { game_id: quick.game_id });
+      await abortSetup(quick.game_id);
     }
-    await setupMount(baseSetup);
     assert.deepEqual(page.viewportSize(), { width: 390, height: 844 }, 'The setup mixes and recovery checks use the phone size');
     const levels = ['beginner','casual','club','strong']; let mix = 0;
     for (const fairy of [true,false]) for (const secondary of [false,true]) for (const cards of [false,true]) for (const powers of [false,true]) {
       const options = { ...DEFAULT_OPTIONS, fairy, arrangement: fairy && secondary, classic: !fairy && secondary, cards, kingPowers: powers };
       const last = { ...baseSetup, options, colour: ['white','black','random'][mix % 3], level: levels[mix++ % 4] };
-      await openPlay(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+      // Abort keeps the last game's king. Give each toggle case the same starting draft.
+      await setupMount(baseSetup); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
       await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).setChecked(fairy);
       await frame.getByRole('checkbox', { name: fairy ? 'Arrangement' : 'Classic chess', exact: true }).setChecked(secondary);
       await frame.getByRole('checkbox', { name: 'Cards', exact: true }).setChecked(cards);
@@ -592,7 +608,7 @@ try {
       assert.equal(view.deal.length, cards ? 4 : 0); assert(view.deal.every(c => options.cardPool.includes(c)));
       if (view.status === 'setup') view = (await setupTool('kingdown_choose', { game_id: view.game_id, command_id: randomUUID(), expected_revision: view.revision, king: view.choices[view.seat].king, order: view.draw, ready: true }))._meta.view;
       assert.equal(view.status, 'playing'); assert.deepEqual(view.kings, powers ? [{ king: 'Spirit', power: 'Mercy' }, { king: 'Shadow', power: 'Darkness' }] : [null,null]);
-      await setupTool('kingdown_abort', { game_id: view.game_id });
+      await abortSetup(view.game_id);
     }
     const waitingLast = { ...sampleSetup, kind: 'friend' };
     await setupMount(waitingLast); await page.evaluate(() => { window.requireHandleNext = true; }); await frame.locator('#setup-start').click();
@@ -600,7 +616,7 @@ try {
     await frame.locator('#handle').fill(testHandle); await frame.locator('#save-handle').click(); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     assert.equal(await page.evaluate(() => window.harnessView.days_per_move), 3);
     const waiting = await page.evaluate(() => window.harnessView); assert.equal(waiting.choices[waiting.seat].king.king, 'Spirit', 'Waiting keeps the server default; the remembered king goes to the seat screen');
-    await setupTool('kingdown_abort', { game_id: waiting.game_id });
+    await abortSetup(waiting.game_id);
     // A lost Start reply survives a remount without a second game.
     await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true } });
     await page.evaluate(() => { window.dropNextReply = 'kingdown_create'; }); await frame.locator('#setup-start').click(); await frame.locator('#retry').waitFor();
@@ -614,7 +630,7 @@ try {
     assert.equal(await page.evaluate(() => JSON.stringify(window.harnessWidgetState.modelContent)), '{}', 'Setup puts no choice or draw in model context');
     await openPlay(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     assert.equal(await frame.locator('#setup-body .modes label').count(), 3, 'Setup still builds after a restored Start');
-    const recovered = await page.evaluate(() => window.harnessView); await setupTool('kingdown_abort', { game_id: recovered.game_id });
+    const recovered = await page.evaluate(() => window.harnessView); await abortSetup(recovered.game_id);
     await setupMount({ ...baseSetup, kind: 'random', options: { ...DEFAULT_OPTIONS, arrangement: false } }); await frame.locator('#setup-start').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     const random = await page.evaluate(() => window.harnessView); assert.equal(random.kind, 'random'); await setupTool('kingdown_cancel', { game_id: random.game_id });
     // Find takes an open game with the same five switches (approval D1 a); its piece pool may differ from the sent one.
@@ -623,7 +639,7 @@ try {
     await setupMount({ ...baseSetup, kind: 'random', options: { ...DEFAULT_OPTIONS, arrangement: false } }); await frame.locator('#setup-start').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     const accepted = await page.evaluate(() => window.harnessView);
     assert.deepEqual(accepted.options, offeredOptions, 'Find uses the accepted game features instead of the sent choices');
-    await setupTool('kingdown_abort', { game_id: accepted.game_id });
+    await abortSetup(accepted.game_id);
     // A lost Choose reply keeps its command receipt and still opens the board after remount.
     await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true } });
     await page.evaluate(() => { window.dropNextReply = 'kingdown_choose'; }); await frame.locator('#setup-start').click(); await frame.locator('#retry').waitFor();
@@ -631,7 +647,7 @@ try {
     await remountFrame(); await frame.locator('#retry').waitFor(); await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_choose').at(-1).arguments.command_id), chooseId);
-    await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
+    await abortSetup(await page.evaluate(() => window.harnessView.game_id));
     const newArt = ['archer-w','paladin-w','guard-w','maester-w','beast-w','ogre-w','rook-w','bishop-w','knight-w','queen-w','frost','flame','stratus','mud','spirit','shadow','shadow-b','freeze','icewall','sacrifice','march','leap','salvation','mimic','vault','skylift','back'];
     const html = await frame.locator('html').innerHTML(); for (const file of newArt) assert(html.includes(`/${file}-`), `Setup names ${file}.webp through art`);
     await openPlay();
@@ -863,9 +879,11 @@ try {
 
   async function fits(screen, width) {
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
-    if (screen === 'end') { await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' }); await page.clock.runFor(34); }
+    await idleBoard();
+    if (screen === 'end') await page.clock.runFor(34);
     // The full read replaces old rows and resets the registry scroll.
     if (screen === 'profile') await frame.locator('#profile-status').waitFor({ state: 'hidden' });
+    if (screen === 'play') await frame.locator('#games-status').filter({hasText:'Loading games…'}).waitFor({state:'hidden'});
     const layout = await frame.locator('body').evaluate(el => ({ overflow: el.scrollWidth > innerWidth, width: innerWidth, heading: getComputedStyle(document.querySelector(`[data-screen="${el.dataset.page}"] h2`) ?? el).fontFamily }));
     assert.equal(layout.overflow, false, `${screen} has no horizontal scroll at ${width}px`);
     assert(layout.width <= width);
@@ -1591,14 +1609,17 @@ try {
   await frame.locator('#board-sheet').getByRole('button',{name:'Keep playing',exact:true}).click();
   await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
   await frame.locator('#over.end-card[open] h2').filter({hasText:'You lose'}).waitFor(); await idleBoard();
-  assert.match(await frame.locator('#end-reason').innerText(),/Resignation/);
+  assert.equal(await frame.locator('#end-reason').innerText(),'You resigned.');
+  assert.equal(await frame.locator('#over.is-win, #board[data-toppling]').count(),0,'A loss stays calm');
   const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);
+  await page.clock.fastForward(1100);
   await page.evaluate(()=>{window.dropNextReply='kingdown_rematch';});
-  await tapEndAtZoom('Rematch');
+  await tapEndAtZoom('Play again');
   await frame.locator('#over #retry').waitFor();
   const pendingRematch=await page.evaluate(()=>window.harnessWidgetState.privateContent.pending);
   await tapEndAtZoom('Retry');
   await page.waitForFunction(id=>window.harnessView.game_id!==id,ended.game_id); await idleBoard();
+  assert.equal(await page.evaluate(()=>window.harnessView.seat),ended.seat,'Play again keeps the player colour');
   const rematchSent = await page.evaluate(n=>window.harnessCalls.slice(n),rematchCalls);
   assert.equal(rematchSent.find(c=>c.name==='kingdown_rematch').arguments.choice,'offer','Solo rematch offers, never accepts');
   assert.deepEqual(rematchSent.filter(c=>c.name==='kingdown_rematch').map(c=>c.arguments.command_id),[pendingRematch.args.command_id,pendingRematch.args.command_id],'A lost rematch reply retries the same command');
@@ -1607,12 +1628,15 @@ try {
   assert(['board','seat'].includes(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen)));
   await legacyStart('solo'); await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
   await frame.locator('#over.end-card[open]').waitFor(); await idleBoard();
-  await tapEndAtZoom('Your games');
+  await page.clock.fastForward(1100);
+  await tapEndAtZoom('New game');
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); assert.equal(await frame.locator('#over').isVisible(),false);
   await openPlay(); await legacyStart('solo'); await frame.locator('#board-menu').click(); await frame.locator('#menu-abort').click();
   await frame.locator('#board-sheet').getByRole('button',{name:'Abort',exact:true}).click();
-  await frame.locator('#over.end-card[open] h2').filter({hasText:'Game aborted'}).waitFor(); await idleBoard();
-  assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).count(),0,'An abort has no rematch');
+  await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); await idleBoard();
+  assert.equal(await frame.locator('#over[open], #board[data-toppling]').count(),0,'A computer abort returns to the draft with no ceremony');
+  assert(await frame.getByRole('radio',{name:'Computer',exact:true}).isChecked());
+  assert(await frame.getByRole('radio',{name:'White',exact:true}).isChecked());
   if (capabilities.friend) {
     async function joinedGame() {
       const board_id=await page.evaluate(()=>window.harnessWidgetState.privateContent.board_id);
@@ -1639,10 +1663,36 @@ try {
     await page.waitForFunction(()=>typeof window.releaseHeld==='function');
     await page.evaluate(()=>{window.rejectNextGet=true; window.releaseHeld();});
     await frame.locator('#over.end-card[open] h2').filter({hasText:'Draw'}).waitFor(); await idleBoard();
+    assert.equal(await frame.locator('#end-reason').innerText(),'Draw by agreement.');
+    assert.equal(await frame.locator('#over.is-win, #board[data-toppling]').count(),0,'A draw stays calm');
     await frame.locator('#over #retry').waitFor({timeout:3000});
     assert.equal(await frame.locator('#over .end-facts').innerText(),'','A failed full end read shows no guessed rating or badge');
     await frame.locator('#over #retry').click(); await frame.locator('#over #retry').waitFor({state:'hidden'}); await idleBoard();
     if (mode==='fixture') { await frame.locator('.end-facts').filter({hasText:'New player'}).waitFor(); assert(!/1561|\+61|\?/.test(await frame.locator('.end-facts').innerText()), 'A new player sees no provisional number'); assert.match(await frame.locator('.new-badge img').getAttribute('src'),/badge-fairy-tale-/); }
+    await page.setViewportSize({width:197,height:426});
+    await page.locator('iframe').evaluate(e=>e.style.setProperty('height','100dvh','important'));
+    await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen',safeAreaInsets:{top:51,bottom:59,left:0,right:0},deviceCapabilities:{touch:true}}));
+    assert(await frame.locator('#over').evaluate(e=>e.scrollHeight>e.clientHeight),'The 197 px end card scrolls');
+    assert(await frame.locator('#game-table .table-back').evaluate(e=>{const r=e.getBoundingClientRect(),card=document.getElementById('over').getBoundingClientRect();return r.height>=44&&r.bottom<=card.top&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'Back stays clear of the end card');
+    for (const name of ['Rematch','New game','See the board']) {
+      const b=frame.locator('#over').getByRole('button',{name,exact:true}); await b.scrollIntoViewIfNeeded();
+      assert(await b.evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),name+' stays reachable at 197 px');
+    }
+    assert.equal(await frame.locator('#over').evaluate(e=>e.scrollWidth-e.clientWidth),0,'The end card has no horizontal scroll');
+    await shot(page,'end-197x426-'+mode);
+    await frame.locator('#over').getByRole('button',{name:'See the board',exact:true}).click();
+    const endReads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get'&&c.arguments.since_revision!==undefined).length);
+    // A second poll proves the first reply has reached End. A new chat result routes to the board again.
+    for (let n=1;n<=2;n++) {
+      await page.clock.fastForward(3100);
+      await page.waitForFunction(count=>window.harnessCalls.filter(c=>c.name==='kingdown_get'&&c.arguments.since_revision!==undefined).length>=count,endReads+n);
+    }
+    assert.equal(await frame.locator('#over[open]').count(),0,'A poll keeps the end card closed');
+    await frame.locator('#end-result').click(); await frame.locator('#over[open]').waitFor();
+    await page.locator('iframe').evaluate(e=>e.style.removeProperty('height'));
+    await page.setViewportSize({width:1000,height:1000});
+    await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen',safeAreaInsets:{top:0,bottom:0,left:0,right:0},deviceCapabilities:{touch:true}}));
+    console.log('PASS: plain draw reason, calm result, See the board and end actions at 197 by 426');
     current=await page.evaluate(()=>window.harnessView);
     const buddyOffer=await friendTool('kingdown_rematch',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'offer'}); assert(!buddyOffer.isError);
     await page.clock.fastForward(3100);
@@ -1683,7 +1733,7 @@ try {
     if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{deadline_at:new Date(Date.now()-60000).toISOString()}}}}});
     else { const {Client}=await import('pg'); const db=new Client({connectionString:process.env.PLUGIN_TEST_DATABASE_URL}); await db.connect(); try {await db.query("update public.games set deadline_at=now()-interval '1 minute', deadline_kind='move' where id=$1",[human.game_id]);} finally {await db.end();} }
     await readGame(); await frame.locator('#context-actions #claim').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Claim the win',exact:true}).click();
-    await frame.locator('#over.end-card[open] h2').filter({hasText:'You win'}).waitFor(); await idleBoard(); assert.match(await frame.locator('#end-reason').innerText(),/Time/);
+    await frame.locator('#over.end-card[open] h2').filter({hasText:'You win'}).waitFor(); await idleBoard(); assert.equal(await frame.locator('#end-reason').innerText(),'Your opponent ran out of time.');
     human=await joinedGame(); await clickSquare(4,1); await clickSquare(4,3); await sendTurn(); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.abort_open,true);
     if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{deadline_at:new Date(Date.now()-60000).toISOString()}}}}});
     else {const {Client}=await import('pg'); const db=new Client({connectionString:process.env.PLUGIN_TEST_DATABASE_URL}); await db.connect(); try {await db.query("update public.games set deadline_at=now()-interval '1 minute', deadline_kind='first_turn' where id=$1",[human.game_id]);} finally {await db.end();}}
