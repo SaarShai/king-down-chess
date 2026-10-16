@@ -1366,6 +1366,50 @@ try {
   assert.equal(await page.evaluate(()=>window.harnessView.game_id),replacement,'Deleted-game recovery survives immediate remount');
   const friendTool = async (name,args={}) => (await page.request.post(new URL('/fixture-friend-tool',base).href,{data:{name,arguments:args,fresh:true}})).json();
   const tool = async (name,args={}) => (await page.request.post(new URL('/fixture-tool',base).href,{data:{name,arguments:args}})).json();
+  async function zoomViewport(width,height,top,bottom) {
+    const safeAreaInsets = {top,right:0,bottom,left:0};
+    await page.setViewportSize({width,height});
+    await page.evaluate(safeAreaInsets => window.harnessSetContext({deviceCapabilities:{touch:true},safeAreaInsets}), safeAreaInsets);
+    // The widget applies host insets after the host sends them.
+    await page.waitForFunction(expected => {
+      const css = getComputedStyle(document.querySelector('iframe').contentDocument.documentElement);
+      return Object.entries(expected).every(([edge,value]) => parseFloat(css.getPropertyValue(`--safe-${edge}`)) === value);
+    }, safeAreaInsets);
+  }
+  async function scrollVertically(control) {
+    await control.evaluate(el => {
+      for (let parent = el.parentElement; parent; parent = parent.parentElement) {
+        parent.scrollLeft = 0;
+        if (/(auto|scroll)/.test(getComputedStyle(parent).overflowY) && parent.scrollHeight > parent.clientHeight) {
+          const rect = el.getBoundingClientRect(), box = parent.getBoundingClientRect();
+          parent.scrollTop += rect.top + rect.height / 2 - box.top - parent.clientHeight / 2;
+        }
+      }
+    });
+  }
+  async function tapCentre(control) {
+    await scrollVertically(control);
+    assert((await control.evaluate(controlBounds)).accessible, 'The full control fits after vertical scroll');
+    const box = await control.boundingBox(); assert(box);
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+  }
+  async function tapEndAtZoom(name) {
+    const viewport = page.viewportSize();
+    const card = frame.locator('#over.end-card[open]'), button = card.getByRole('button',{name,exact:true});
+    for (const [width,height,top,bottom] of [[262,568,68,79],[197,426,51,59]]) {
+      await zoomViewport(width,height,top,bottom);
+      const layout = await card.evaluate(el => ({top:el.getBoundingClientRect().top,head:document.querySelector('#page-head').getBoundingClientRect().bottom,scrolls:el.scrollHeight>el.clientHeight}));
+      assert(layout.top >= layout.head, `At ${width} px the end card leaves the page head clear`);
+      assert(layout.scrolls, `At ${width} px the end card scrolls inside`);
+      assert((await frame.locator('#page-back').evaluate(controlBounds)).accessible, `At ${width} px Back stays in view`);
+      assert(await frame.locator('#page-back').evaluate(el => { const r=el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)); }), `At ${width} px the end card leaves Back clear for a tap`);
+      await scrollVertically(button);
+      assert((await button.evaluate(controlBounds)).accessible, `At ${width} px ${name} scrolls into view`);
+      await shot(page,`zoom-end-${width}-${name.replaceAll(' ','-')}-${mode}`);
+    }
+    await tapCentre(button);
+    await zoomViewport(viewport.width,viewport.height,0,0);
+  }
   await legacyStart('solo'); await frame.locator('#resign').click();
   await frame.locator('#board-sheet h2').filter({hasText:'Lay your king down?'}).waitFor({timeout:3000});
   assert.equal(await page.evaluate(()=>window.harnessView.status),'playing','Resign waits for its confirm');
@@ -1375,10 +1419,10 @@ try {
   assert.match(await frame.locator('#end-reason').innerText(),/Resignation/);
   const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);
   await page.evaluate(()=>{window.dropNextReply='kingdown_rematch';});
-  await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).click();
+  await tapEndAtZoom('Rematch');
   await frame.locator('#over #retry').waitFor();
   const pendingRematch=await page.evaluate(()=>window.harnessWidgetState.privateContent.pending);
-  await frame.locator('#over #retry').click();
+  await tapEndAtZoom('Retry');
   await page.waitForFunction(id=>window.harnessView.game_id!==id,ended.game_id); await idleBoard();
   const rematchSent = await page.evaluate(n=>window.harnessCalls.slice(n),rematchCalls);
   assert.equal(rematchSent.find(c=>c.name==='kingdown_rematch').arguments.choice,'offer','Solo rematch offers, never accepts');
@@ -1388,7 +1432,7 @@ try {
   assert(['board','seat'].includes(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen)));
   await legacyStart('solo'); await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
   await frame.locator('#over.end-card[open]').waitFor(); await idleBoard();
-  await frame.locator('#over').getByRole('button',{name:'Your games',exact:true}).click();
+  await tapEndAtZoom('Your games');
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); assert.equal(await frame.locator('#over').isVisible(),false);
   await openPlay(); await legacyStart('solo'); await frame.locator('#context-actions #abort').click();
   await frame.locator('#board-sheet').getByRole('button',{name:'Abort',exact:true}).click();
@@ -1442,7 +1486,7 @@ try {
         await readGame();
       }
     }
-    await frame.locator('#over').getByRole('button',{name:'Decline',exact:true}).click(); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.rematch_offer,null);
+    await tapEndAtZoom('Decline'); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.rematch_offer,null);
     await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).click(); await idleBoard(); current=await page.evaluate(()=>window.harnessView);
     assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).count(),0,'An offer has no second Rematch button');
     const buddyDecline=await friendTool('kingdown_rematch',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'decline'}); assert(!buddyDecline.isError);
@@ -1450,7 +1494,7 @@ try {
     // Here the next end poll is due in up to 30 seconds (the daily-game step of pollDelay), not in 3.
     await page.clock.fastForward(30000); await frame.locator('#over').getByRole('button',{name:'Accept',exact:true}).waitFor();
     const acceptCalls=await page.evaluate(()=>window.harnessCalls.length), acceptBoard=await page.evaluate(()=>window.harnessWidgetState.privateContent.board_id);
-    await frame.locator('#over').getByRole('button',{name:'Accept',exact:true}).click();
+    await tapEndAtZoom('Accept');
     await page.waitForFunction(id=>window.harnessView.game_id!==id,human.game_id); await idleBoard();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); await boardBox();
     const accepted=await page.evaluate(()=>window.harnessView), acceptedCalls=await page.evaluate(n=>window.harnessCalls.slice(n),acceptCalls);
@@ -1666,6 +1710,46 @@ try {
     if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+14*RIPPLE_MS+50);}
     if (state.claim) assert.equal(await frame.locator('#status').innerText(),'mira_k has not moved for 3 days.');
     if (state.end) await frame.locator('#over.end-card[open]').waitFor();
+    if (state.name === 'board-abort') {
+      const viewport = page.viewportSize();
+      const screen = frame.locator('[data-screen="board"]');
+      const noSidewaysScroll = async () => {
+        const bounds = await screen.evaluate(el => ({width:el.clientWidth,scrollWidth:el.scrollWidth,left:el.scrollLeft}));
+        assert(bounds.scrollWidth <= bounds.width && bounds.left === 0, `The board screen has no sideways overflow or scroll: ${JSON.stringify(bounds)}`);
+      };
+      for (const [width,height,top,bottom] of [[197,426,51,59],[250,542,0,0],[262,568,68,79],[280,606,0,0],[287,621,0,0],[319,691,0,0]]) {
+        await zoomViewport(width,height,top,bottom);
+        await screen.evaluate(el => { el.scrollLeft = 0; });
+        await noSidewaysScroll();
+        for (const side of ['me','them']) {
+          const coins = frame.locator(`#strip-${side} .coin`);
+          assert.equal(await coins.count(),5, 'Both strips have a power coin and four cards');
+          for (const coin of await coins.all()) {
+            await scrollVertically(coin);
+            const bounds = await coin.evaluate(controlBounds);
+            assert(bounds.accessible && bounds.rect[2] >= 44 && bounds.rect[3] >= 44, `At ${width} px each ${side} coin fits with a 44 px target: ${JSON.stringify(bounds)}`);
+            await noSidewaysScroll();
+          }
+          const last = frame.locator(`#strip-${side} .card-coin`).last();
+          await shot(page,`zoom-coins-${width}-${side}-${mode}`);
+          await tapCentre(last);
+          await frame.locator('#board-sheet[open] h2').filter({hasText:'Curse'}).waitFor();
+          await noSidewaysScroll();
+          await shot(page,`zoom-last-card-${width}-${side}-${mode}`);
+          await tapCentre(frame.locator('#board-sheet [aria-label="Close"]'));
+        }
+      }
+      for (const [width,height,top,bottom] of [[240,640,0,0],[240,800,20,20],[197,760,0,0],[314,681,0,0],[314,681,82,94],[280,653,0,0]]) {
+        await zoomViewport(width,height,top,bottom);
+        for (const [id,title] of [['resign','Lay your king down?'],['board-menu','Menu']]) {
+          await tapCentre(frame.locator(`#${id}`));
+          await frame.locator('#board-sheet[open] h2').filter({hasText:title}).waitFor();
+          await noSidewaysScroll();
+          await tapCentre(frame.locator('#board-sheet [aria-label="Close"]'));
+        }
+      }
+      await zoomViewport(viewport.width,viewport.height,0,0);
+    }
     for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) {
       await page.setViewportSize({width,height}); await boardBox();
       await frame.locator('#game-table img,#over.end-card img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));

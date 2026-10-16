@@ -4,7 +4,7 @@
   --context-height: 77px; /* Three 20 px lines, padding and the top border. */
   height: 100vh; height: 100dvh;
   display: grid; grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: var(--strip-height) minmax(0, max-content) var(--strip-height) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
+  grid-template-rows: var(--strip-row, var(--strip-height)) minmax(0, max-content) var(--strip-row, var(--strip-height)) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
   grid-template-areas: 'them' 'board' 'me' 'context' 'moves' 'space' 'bar';
   max-width: 760px; margin: auto; padding-top: env(safe-area-inset-top);
 }
@@ -106,7 +106,7 @@
 @media (max-height: 640px) and (max-width: 899px) and (orientation: portrait) {
   #game-table {
     --strip-height: 44px; --context-height: 57px;
-    grid-template-rows: 44px minmax(0, max-content) 44px minmax(var(--context-height), max-content) 44px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
+    grid-template-rows: var(--strip-row, 44px) minmax(0, max-content) var(--strip-row, 44px) minmax(var(--context-height), max-content) 44px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
   }
   #game-table .player-strip { padding-block: 0; }
   #game-table .portrait { width: 36px; height: 36px; }
