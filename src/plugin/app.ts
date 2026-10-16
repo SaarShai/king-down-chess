@@ -84,7 +84,10 @@ async function resendPending(command: Pending, mountRead?: ToolResult) {
   const read = mountRead ?? await client.call('kingdown_get');
   if (read.isError) throw new Error(read.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
   const completed = read._meta?.view as View | undefined;
-  if (['kingdown_create', 'kingdown_find'].includes(command.name) && command.started_at !== undefined && completed && (!command.game_tag || !completed.game_id.startsWith(command.game_tag)) && (command.name === 'kingdown_find' || Date.parse(completed.created_at) >= command.started_at)) return read;
+  // started_at is device time and created_at is server time. The device clock only measures the time since the start;
+  // the read's server_now puts the start on the server clock, so a device clock ahead of the server cannot hide the new game.
+  const startedOnServer = completed && command.started_at !== undefined ? Date.parse(completed.server_now) - (Date.now() - command.started_at) : NaN;
+  if (['kingdown_create', 'kingdown_find'].includes(command.name) && command.started_at !== undefined && completed && (!command.game_tag || !completed.game_id.startsWith(command.game_tag)) && (command.name === 'kingdown_find' || Date.parse(completed.created_at) >= startedOnServer)) return read;
   if (!mountRead) {
     if (command.game_tag && !['kingdown_create', 'kingdown_find'].includes(command.name)) {
       if (!completed?.game_id.startsWith(command.game_tag)) { pending = undefined; if (completed) routeView(completed); return read; }
