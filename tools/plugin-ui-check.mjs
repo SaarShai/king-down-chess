@@ -1063,7 +1063,9 @@ try {
     await frame.locator('#join-confirm').waitFor();
     assert.equal(await frame.locator('#join-confirm').innerText(), 'Join and take Black');
     await lookAt('join', 'join');
-    await remount('join'); await frame.locator('#join-entry').waitFor();
+    // The mount ends with joinScreen(), which writes the saved code into the field. Type after it: an enabled Preview
+    // button shows that the mount has ended (the real server of plugin-ui-http reads slower than the fixture).
+    await remount('join'); await frame.locator('#join-entry button:not(:disabled)').waitFor();
     await frame.locator('#join-code').fill(lower); await frame.locator('#join-entry button').click(); await frame.locator('#join-confirm').waitFor();
     const joins = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_join' && !c.arguments.preview).length);
     await frame.locator('#join-decline').click();
