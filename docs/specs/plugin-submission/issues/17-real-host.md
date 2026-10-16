@@ -118,7 +118,8 @@ The local harness must act more like ChatGPT. The widget page comes from a
 second origin, in a sandboxed frame, with the CSP of its resource. Each chat
 result can mount a new frame while the old frames stay live. New checks cover
 two live widgets, a page that sleeps, and a page that goes offline. All
-current checks must pass on the new host. No product code changes.
+current checks must pass on the new host. No product code changes, except the
+fix of a confirmed product fault (see Review fixes).
 
 ### Plan
 
@@ -212,8 +213,35 @@ current checks must pass on the new host. No product code changes.
 
 ### Not built
 
-- A real back-forward cache restore. The friend, wait, lobby and join screens
-  stop their runners on `pagehide`. Nothing starts them again on a `pageshow`
-  with `persisted: true`. The board screen recovers, because its poll uses
-  `visibilitychange`. This is a possible product fault, outside this task. It
-  needs the owner's decision.
+- A real back-forward cache restore. The checks simulate it with events.
+
+### Review fixes
+
+Two reviewers checked `ac990d37`. Each finding below is confirmed in the code
+and by a test that fails before the fix.
+
+- **Screens stopped after a back-forward cache restore (product fault).** The
+  friend, wait, lobby and join screens stopped their runners on each
+  `pagehide`, also on a `pagehide` with `persisted: true`. Nothing started them
+  again on the `pageshow`. After a restore, the wait clock stayed still and the
+  computer offer did not show, the open-games list did not read again, and Join
+  kept the entered code after the player left it. `src/plugin/screens/friend.ts`
+  now stops the runners only on a `pagehide` that is not persisted. A page in
+  the cache is frozen, so its timers do not run. The host teardown and a real
+  close still stop everything. This one line is the only product change of
+  17-b. The fault has one correct fix and no design choice.
+- **Tests.** Three new checks in `tools/plugin-real-host.test.ts` hide and show
+  the page with `persisted: true`: the open-games list reads again and keeps
+  its 15 s schedule, the wait clock moves and shows the computer offer, and
+  Join clears the code when the player leaves it. All three fail before the
+  fix. The board's sleep check sends the same events, but the board does not
+  listen to `pagehide` or `pageshow`, so it did not find this fault.
+- **QA protocol.** `docs/qa/plugin-qa-protocol.md` said that the harness has no
+  CSP and no sandbox, and told the QA agent to add the CSP by hand. It now
+  describes the second origin, the sandbox, the CSP from `_meta.ui.csp`,
+  `?frame-per-result`, and that frame code runs in the frame. A new document
+  test ties the sandbox words to `framePolicy()` and fails on the old text.
+- **Coverage note.** The sleep and offline checks also pass on the harness
+  before 17-b. They are journey checks of the widget's poll on the new host,
+  not regression checks of the 17-b host. The checks of the second origin, the
+  CSP, the boot task, the fence and the per-widget state guard the 17-b host.

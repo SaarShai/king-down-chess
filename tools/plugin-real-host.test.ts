@@ -209,3 +209,53 @@ it('says it cannot connect after three failed polls offline, and shows the curre
     await widget.locator('#status').filter({ hasText: 'Your move' }).waitFor();
   } finally { await page.close(); }
 });
+
+// The lobby, wait and join screens own no App instance; their runners stop on a real page close. A back-forward cache
+// restore (pagehide and pageshow with persisted: true) must leave them running, as the board's poll does.
+const sleepAndWake = async (frame: Frame) => { await visible(frame, false); await visible(frame, true); };
+const lobbyReads = (page: Page) => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_lobby').length);
+
+it('keeps the open-games list polling after the page comes back from the back-forward cache', async () => {
+  const page = await open();
+  try {
+    const frame = await frameAt(page);
+    await frame.evaluate(() => (window as any).harnessApp.navigate('lobby'));
+    await page.frameLocator('iframe').locator('[data-screen="lobby"]:not([hidden])').waitFor();
+    await expect.poll(() => lobbyReads(page)).toBe(1);
+    await pause(page);
+    await sleepAndWake(frame);
+    // The page shows again: one read at once, then the 15 s schedule. A read sets its next timer when its reply comes,
+    // so the clock steps until a step finds that timer.
+    await expect.poll(() => lobbyReads(page)).toBe(2);
+    await expect.poll(async () => { await page.clock.fastForward(15_000); return lobbyReads(page); }).toBe(3);
+  } finally { await page.close(); }
+});
+
+it('keeps the wait clock running after the page comes back from the back-forward cache', async () => {
+  const page = await open(), widget = page.frameLocator('iframe');
+  let game: string | undefined;
+  try {
+    const frame = await frameAt(page);
+    game = await frame.evaluate(async options => { const app = (window as any).harnessApp; app.navigate('setup'); await app.start('random', { options, colour: 'white' }); return app.memory.view?.game_id as string; }, CLASSIC);
+    await widget.locator('[data-screen="wait"]:not([hidden])').waitFor();
+    await pause(page);
+    await sleepAndWake(frame);
+    // After 25 s the screen offers a computer game while the player waits.
+    await page.clock.fastForward(30_000);
+    await widget.locator('#wait-computer').waitFor();
+    expect(await widget.locator('#wait-time').textContent()).toMatch(/^Waiting 0:3\d\.$/);
+  } finally { if (game) await tool('/fixture-tool', 'kingdown_cancel', { game_id: game }); await page.close(); }
+});
+
+it('clears the entered join code on leaving Join after the page comes back from the back-forward cache', async () => {
+  const page = await open();
+  try {
+    const frame = await frameAt(page);
+    await frame.evaluate(() => (window as any).harnessApp.navigate('join'));
+    await page.frameLocator('iframe').locator('#join-code').fill('ABC123');
+    expect(await frame.evaluate(() => (window as any).harnessApp.memory.code)).toBe('ABC123');
+    await sleepAndWake(frame);
+    await frame.evaluate(() => (window as any).harnessApp.navigate('play'));
+    await frame.waitForFunction(() => (window as any).harnessApp.memory.code === '', undefined, POLL);
+  } finally { await page.close(); }
+});
