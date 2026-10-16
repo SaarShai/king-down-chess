@@ -150,7 +150,7 @@ it('keeps Sound off until the player turns it on', async () => {
   const { page, frame } = await open(false);
   try {
     await frame.locator('#play-settings, [data-nav="settings"]').first().click();
-    expect(await frame.locator('#settings-sheet .quiet-line').textContent()).toContain('Sound stays on this device.');
+    expect(await frame.locator('#sound-help').textContent()).toContain('Sound stays on this device.');
     const sound = frame.getByRole('checkbox', { name: 'Sound', exact: true });
     expect(await sound.isChecked()).toBe(false);
     await sound.check(); expect(await sound.isChecked()).toBe(true);

@@ -83,10 +83,46 @@ The temporary test file is removed before the base HTTP check starts.
 ## Checks in progress
 
 - npx tsc --noEmit: pass.
-- The local single-file test waits for the shared test lock.
+- The local app file runs 72 tests. Seventy pass, including the Join,
+  Next game and disabled stone tests. Two new Resume tests fail because
+  their games still need Arrangement. The test-only repair in afb2db39
+  starts Classic games with Arrangement off. Both readers check it.
 - The M1 reproduction fails on the base. The base HTTP check fails at
   the earlier Menu face assertion in 42.0 s. A computer turn disables
   Menu. The disabled background shorthand removes the stone image.
   The repair sets background-color and keeps that image. The check stays
   unchanged. The M1 uses a loopback tunnel to the given test database.
 - No check time limit changes. No new taste choice.
+- The two corrected Resume tests pass in a temporary local single file:
+  2 tests and 50 scene checks pass; the test file takes 6.95 s. The
+  temporary file is removed. Log: /tmp/kd-od-fixjoin-resume.log.
+- The M1 final batch at afb2db39 holds the shared lock. It runs
+  npx tsc --noEmit, npm test with four workers, plugin-ui and
+  plugin-ui-http. Its job log is /tmp/kd-od-fixjoin-final-checks.log on
+  this Mac. Its test log is /tmp/kd-od-fixjoin-tests.log on the M1.
+- The M1 type check passes.
+- M1 npm test: pass. All 165 files pass; 2,572 tests pass and 8 skip.
+  All 50 scene checks pass. The test suite takes 277.95 s. The given
+  local test database applies through the loopback tunnel. No time
+  limit changes.
+
+## Browser follow-up repairs
+
+The first final batch at afb2db39 finds two more faults before Join.
+The browser check file stays unchanged.
+
+- plugin-ui fails in 76.8 s at the Settings footer assertion. The Sound
+  note now sits beside Sound, with aria-describedby. The account footer
+  keeps its words. The unit test reads the note beside its control.
+- plugin-ui-http fails in 43.9 s at Abort. The tool caller sends no
+  revision. The server reads one, then the computer moves before the
+  write. The server-selected revision is stale. The optional command
+  path now reads again and retries once with the same command ID.
+  An explicit revision, another refusal and a second race do not retry.
+
+The new server unit cases fail before the repair: 2 fail and 12 pass,
+in 405 ms. After the repair all 14 pass in 371 ms. All 50 scene checks
+also pass. The tests cover an automatic revision, an explicit revision,
+a definite refusal and a second race. Logs stay on the M1 at
+/tmp/kd-od-fixjoin-server-red.log and /tmp/kd-od-fixjoin-server-green.log.
+Both readers check these changes and find no open fault.

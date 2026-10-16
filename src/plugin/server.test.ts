@@ -4,6 +4,37 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { REPORT_CATEGORIES } from '../account/profile';
 import { DEFAULT_OPTIONS } from '../match/setup';
 import { ART_ORIGIN, createPluginServer } from './server';
+import { MatchServiceError } from '../match/service';
+
+it.each([
+ { name: 'automatic revision', expected: undefined, code: 'STALE_REVISION', always: false, calls: 2, error: false },
+ { name: 'explicit revision', expected: 1, code: 'STALE_REVISION', always: false, calls: 1, error: true },
+ { name: 'definitive refusal', expected: undefined, code: 'NOT_ALLOWED', always: false, calls: 1, error: true },
+ { name: 'second race', expected: undefined, code: 'STALE_REVISION', always: true, calls: 2, error: true },
+] as const)('handles Abort with $name when the computer moves during the read', async test => {
+ const game_id = '00000000-0000-4000-8000-000000000001';
+ const commands: { command_id: string; expected_revision: number }[] = [];
+ let reads = 0;
+ const service = {
+  view: async () => ({ revision: ++reads }),
+  command: async (_actor: string, _game: string, command: { command_id: string; expected_revision: number }) => {
+   commands.push(command);
+   if (commands.length === 1 || test.always) throw new MatchServiceError(test.code, 409, 'The game changed.');
+   return { game_id, status: 'aborted', seat: 0, action: 'done', fen: null, draw_offer: null, result: { winner: null, reason: 'abort' } };
+  },
+  profile: async () => ({ handle: null, icon: null }),
+ } as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({ service, actorId: 'alice', resourceHtml: '<html>board</html>', publicOrigin: 'https://kingdown.example' });
+ const client = new Client({ name: 'abort-race-host', version: '1' }), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const result = await client.callTool({ name: 'kingdown_abort', arguments: { game_id, ...(test.expected !== undefined && { expected_revision: test.expected }) } });
+  expect(!!result.isError).toBe(test.error);
+  expect(commands.map(command => command.expected_revision)).toEqual(test.calls === 2 ? [1,2] : [1]);
+  expect(new Set(commands.map(command => command.command_id)).size).toBe(1);
+  expect(commands[0].command_id).toEqual(expect.any(String));
+ } finally { await client.close(); await server.close(); }
+});
 
 it('loads changed board HTML through a resource cache while reusing identical builds across actors', async () => {
  const cache = new Map<string,string>();
