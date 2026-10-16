@@ -21,7 +21,7 @@ it('keeps Back clear and end actions reachable at 197 by 426', async () => {
   try {
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.getByRole('radio', { name: 'White', exact: true }).locator('..').click();
-    for (const name of ['Fairy pieces', 'Arrangement', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).uncheck();
+    for (const name of ['Arrangement', 'Fairy pieces', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).uncheck();
     await frame.locator('#setup-start').click(); await frame.locator('#board[aria-busy="false"]').waitFor();
     await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Resign', exact: true }).click();
     await frame.locator('#over[open]').waitFor();
