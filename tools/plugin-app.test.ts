@@ -366,6 +366,33 @@ it('keeps chat preview and code errors in page memory on notification and mount'
     }
   } finally { await page.close(); }
 });
+// A static field takes text before the mount read ends. The mount then draws its screen from the new page's memory and
+// would clear what the player typed, so the code field stays blocked until the Join handlers are ready.
+it('reads a friend code again after the join preview remounts', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const tool = async (path: string, name: string, args = {}) => (await page.request.post(new URL(path, harness.url).href, { data: { name, arguments: args } })).json();
+  try {
+    await expand(page);
+    // A saved board makes the mount read it; the test holds that read.
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); });
+    const friend = await tool('/fixture-friend-tool', 'kingdown_create', { kind: 'friend', colour: 'white' });
+    const invite = await tool('/fixture-friend-tool', 'kingdown_invite', { game_id: friend._meta.view.game_id });
+    const code = invite.structuredContent.code.toLowerCase();
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('play'));
+    await frame.locator('#token').fill(code); await frame.locator('#join').click();
+    await frame.locator('#join-confirm').waitFor();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_get'; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await frame.locator('#join-entry').waitFor();
+    const input = frame.locator('#join-code'), filled = input.fill(code);
+    await expect.poll(async () => await input.isDisabled() || await input.inputValue() === code).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await filled; await frame.locator('#join-entry button').click();
+    await frame.locator('#join-confirm').waitFor();
+    expect(await frame.locator('#join-help').textContent()).toBe('Review this game before you join.');
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
 it('shows both setup states in the app games rows', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

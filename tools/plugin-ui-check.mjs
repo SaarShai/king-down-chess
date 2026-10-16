@@ -930,8 +930,8 @@ try {
     const offered = await buddyCode(); await openPlay();
     const lower = offered.code.toLowerCase(); await frame.locator('#token').fill(`${lower.slice(0,3)}-${lower.slice(3)}`); await frame.locator('#join').click();
     await frame.locator('#join-confirm').waitFor(); await lookAt('join', 'join');
-    // joinScreen() writes the saved code at the end of the mount. Wait before typing.
-    await remount('join'); await frame.locator('#join-entry button:not(:disabled)').waitFor();
+    // Type as soon as the code field shows, as a player does: the app keeps the field blocked until the mount ends.
+    await remount('join'); await frame.locator('#join-entry').waitFor();
     await frame.locator('#join-code').fill(lower); await frame.locator('#join-entry button').click(); await frame.locator('#join-confirm').waitFor();
     const joins = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_join' && !c.arguments.preview).length);
     await frame.locator('#join-decline').click();

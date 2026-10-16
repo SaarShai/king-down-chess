@@ -63,6 +63,9 @@ function actions() {
   // A slow start marks ‹ Play data-free (setup.ts): it stays a way out while later calls run.
   buttons().forEach(button => { button.disabled = (blocked && !button.hasAttribute('data-free')) || button.matches('#king-picker [aria-disabled="true"]'); });
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
+  // The static code field takes text before the mount ends; joinScreen() then writes the code from page memory. The field
+  // waits with the buttons, so a slow mount cannot clear what the player typed.
+  $<HTMLInputElement>('join-code').disabled = blocked;
   for (const [id] of TOGGLES) $<HTMLInputElement>(id).disabled = blocked || !memory.settings;
 }
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
