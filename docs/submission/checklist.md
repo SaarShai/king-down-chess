@@ -33,7 +33,7 @@ Nothing here is submitted, deployed or signed in.
 | 5 | Root `plugin.json` in the Agent Plugins format, with `extensions.com.openai` [O1][O5]. | D1 | drafted | Root Agent Plugins manifest exists and parses. No portal import is performed. |
 | 6 | `name` (≤ 64, lowercase, hyphens) and semantic `version` [O1][O4]. | D1 | drafted | king-down and 1.0.0 have valid shape. Final upload/version remain. |
 | 7 | `displayName` ≤ 30, `shortDescription` ≤ 30 [O1][O4]. | D3 | drafted | Lengths are 9 and 22. Both fit their limits. |
-| 8 | `longDescription` ≤ 4,000: tasks, users, limits [O1][O5]. | D3 | drafted | Length is 1,162. Text matches listing.md. Correct the random-game promise. |
+| 8 | `longDescription` ≤ 4,000: tasks, users, limits [O1][O5]. | D3 | drafted | Length is 1,162. Text matches listing.md. The random-game promise is true on `claude/r9-server` (approval D1 a): a random game keeps the five chosen switches or opens a new table; the piece and card pools can differ. |
 | 9 | `developerName` ≤ 80 [O1][O4]. | D3 | drafted | Saar Shai has 9 characters. Verification still belongs to row 2. |
 | 10 | `category` from the allowed list [O4]. | D3 | drafted | Entertainment is set. Final portal validation remains. |
 | 11 | Up to three starter prompts, ≤ 128, no `@` [O1][O4]. | D3 | drafted | Three unique starter prompts have 36 characters each. |
@@ -57,7 +57,7 @@ Nothing here is submitted, deployed or signed in.
 | 24 | Suitable for ages 13–17; no targeting of under-13s; no mature content [O3]. | D10 | met | No explicit under-13 targeting or mature feature is found. Presets and handle checks exist. Safety controls remain a separate gap. |
 | 25 | No commerce except physical goods; no ads [O3]. `review.commerce` set. | D12 | met | commerce=false. No sales, payment, stake or advertising code is exposed. |
 | 26 | Not a trial or demo; no lesser version than the website [O3]. | D13 | met | The local app is complete enough to play. No trial gate or locked collection is found. Host scope remains row 39. |
-| 27 | Name and text rules: no "Plugin"/"MCP", no comparisons, no pricing words [O3]. | — | drafted | Name/text format is sound. R9 still needs an accurate random-game limit. |
+| 27 | Name and text rules: no "Plugin"/"MCP", no comparisons, no pricing words [O3]. | — | drafted | Name/text format is sound. R9: the `kingdown_create` text now gives the random-game limit (same five switches, or any open game with `any_rules`; the colour applies only to a new table). |
 
 ## 4. Tools
 

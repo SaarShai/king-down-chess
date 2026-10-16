@@ -75,10 +75,26 @@ suite('matchmaking through PostgreSQL', () => {
   const blocked = await service.create(users[3], { kind: 'random', options: DEFAULT_OPTIONS });
   await admin.query("update public.games set created_at=now()-interval '1 hour' where id=$1", [blocked.game_id]);
   await admin.query("insert into public.relations(user_id,other_id,kind) values($1,$2,'block')", [users[1], users[3]]);
-  const found = await plugin.find(users[1], DEFAULT_OPTIONS, 'white');
+  // Any rules: the oldest game, whatever its switches.
+  const found = await plugin.find(users[1], DEFAULT_OPTIONS, 'white', undefined, true);
   expect(found).toMatchObject({ game_id: created.game_id, status: 'setup', seat: 0, revision: 1, options });
   expect((await plugin.lobby(users[1])).games.map(g => g.game_id)).toEqual([newer.game_id]);
   await expect(plugin.find(users[4], { ...DEFAULT_OPTIONS, pool: [] }, 'white')).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+ });
+ it('takes an open game with the same five switches, else opens a table; any rules takes the oldest (D1 a)', async () => {
+  const powers = await service.create(users[0], { kind: 'random', options: { ...DEFAULT_OPTIONS, kingPowers: true } });
+  const fewer = { ...DEFAULT_OPTIONS, pool: ['Q', 'R', 'B', 'N'] }, plain = await service.create(users[2], { kind: 'random', options: fewer });
+  // The same switches with another piece pool: the newer game. The older powers game stays open.
+  expect(await plugin.find(users[1], DEFAULT_OPTIONS, 'black')).toMatchObject({ game_id: plain.game_id, seat: 1, options: fewer });
+  // No open game with Cards on: a new table, where the asked colour applies.
+  const cards = { ...DEFAULT_OPTIONS, cards: true }, own = await plugin.find(users[3], cards, 'black');
+  expect(own).toMatchObject({ status: 'waiting', seat: 1, options: cards });
+  expect(await plugin.find(users[4], DEFAULT_OPTIONS, 'white', undefined, true)).toMatchObject({ game_id: powers.game_id, seat: 1 });
+  // Your own open game comes back only for the same switches, or with any rules.
+  expect((await plugin.find(users[3], cards, 'black')).game_id).toBe(own.game_id);
+  const second = await plugin.find(users[3], DEFAULT_OPTIONS);
+  expect(second).toMatchObject({ status: 'waiting', options: DEFAULT_OPTIONS }); expect(second.game_id).not.toBe(own.game_id);
+  expect((await plugin.find(users[3], DEFAULT_OPTIONS, 'white', undefined, true)).game_id).toBe(own.game_id);
  });
  it('uses the database clock when the server clock is ahead', async () => {
   const open = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
@@ -209,7 +225,7 @@ suite('matchmaking through PostgreSQL', () => {
  it.each(['accept', 'find'] as const)('%s starts play with no seat choice and saves the first move and deadline', async method => {
   const options = { ...DEFAULT_OPTIONS, arrangement: false };
   const created = await service.create(users[0], { kind: 'random', options, colour: method === 'accept' ? 'black' : 'white' });
-  const joined = method === 'accept' ? await plugin.accept(users[1], created.game_id) : await plugin.find(users[1], DEFAULT_OPTIONS, 'black');
+  const joined = method === 'accept' ? await plugin.accept(users[1], created.game_id) : await plugin.find(users[1], options, 'black');
   expect(joined).toMatchObject({ game_id: created.game_id, status: 'playing', revision: 1, ready: [true, true], setup_deadline_at: null, options });
   const start = (await runtime.query('select started_at,deadline_kind from public.games where id=$1', [created.game_id])).rows[0];
   expect(start.deadline_kind).toBe('first_turn');

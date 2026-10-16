@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { REPORT_CATEGORIES } from '../account/profile';
@@ -170,5 +170,21 @@ it('uses singular and plural words for badge and lobby counts', async () => {
    expect((await client.callTool({name:'kingdown_profile',arguments:{}})).content).toEqual([{type:'text',text:`Rating 1500?; 0 played, 0 won, 0 drawn, 0 lost; ${count} badge${count===1?'':'s'}.`}]);
    expect((await client.callTool({name:'kingdown_lobby',arguments:{}})).content).toEqual([{type:'text',text:`${count} open game${count===1?'':'s'}.`}]);
   }
+ } finally {await client.close(); await server.close();}
+});
+
+it('sends any rules from Create and Find to matchmaking, and says that the colour applies only to a new table (D1 a)', async () => {
+ const view = {game_id:'00000000-0000-4000-8000-000000000001',status:'waiting',kind:'random',speed:'daily',days_per_move:3,seat:0,action:'waiting',fen:'',deadline_at:null,draw_offer:null};
+ const find = vi.fn().mockResolvedValue(view), service = {find,profile:async () => ({handle:'ann',icon:null})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'any-rules-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const tools = (await client.listTools()).tools, create = tools.find(t=>t.name === 'kingdown_create')!;
+  expect(create.description).toContain('the colour applies only to a new table');
+  for (const name of ['kingdown_create','kingdown_find']) expect(tools.find(t=>t.name === name)!.inputSchema.properties!.any_rules).toMatchObject({type:'boolean'});
+  await client.callTool({name:'kingdown_create',arguments:{kind:'random',options:DEFAULT_OPTIONS,any_rules:true,command_id:'c1'}});
+  await client.callTool({name:'kingdown_find',arguments:{options:DEFAULT_OPTIONS,colour:'black'}});
+  expect(find.mock.calls).toEqual([['alice',DEFAULT_OPTIONS,undefined,'c1',true],['alice',DEFAULT_OPTIONS,'black',undefined,undefined]]);
  } finally {await client.close(); await server.close();}
 });

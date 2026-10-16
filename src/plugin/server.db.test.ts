@@ -115,7 +115,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(games.slice(1)).toEqual([view(table).game_id, view(mine).game_id]);
   await guest.ok('kingdown_abort', { game_id: games[1] });
   for (const [n, args] of starts.entries()) {
-   for (const other of [{ kind: 'solo' }, { colour: 'black' }, { options: { ...args.options, kingPowers: true } }])
+   for (const other of [{ kind: 'solo' }, { colour: 'black' }, { options: { ...args.options, kingPowers: true } }, ...args.kind === 'random' ? [{ any_rules: true }] : []])
     expect((await guest.call('kingdown_create', { ...args, ...other }))._meta.code).toBe('COMMAND_CONFLICT');
    expect(view(await guest.ok('kingdown_create', args)).game_id).toBe(games[n]);
   }

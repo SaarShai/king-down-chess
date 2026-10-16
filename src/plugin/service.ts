@@ -31,7 +31,7 @@ export class PluginService {
   preview(actor: string, code: unknown) { return this.games.preview(actor, code); }
   lobby(actor: string) { return this.games.lobby(actor); }
   accept(actor: string, gameId: string) { return this.games.accept(actor, gameId); }
-  find(actor: string, options: unknown, colour: unknown = 'white', commandId?: string) { return this.games.find(actor, options, colour, commandId); }
+  find(actor: string, options: unknown, colour: unknown = 'white', commandId?: string, anyRules = false) { return this.games.find(actor, options, colour, commandId, anyRules); }
   cancel(actor: string, gameId: string) { return this.games.cancel(actor, gameId); }
   report(actor: string, input: unknown) { return this.safety.report(actor, input); }
   /** Read-only. The ID and the handle; never the email. */

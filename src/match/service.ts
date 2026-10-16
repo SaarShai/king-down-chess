@@ -5,7 +5,7 @@ import { createMatch, loadMatch, MatchError, type MatchSnapshot } from './index'
 import { commandSchema, createSchema, MAX_REVISION, type Command, type CreateOptions, type EndReason, type InboxEntry, type Invite, type JoinPreview, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
 import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
 import { diagnostic } from '../plugin/diagnostics';
-import { buildSetup, defaultChoice, draw, seatChoicesNeeded, validateChoice } from './setup';
+import { buildSetup, defaultChoice, draw, seatChoicesNeeded, validateChoice, type Options } from './setup';
 import type { HistoryPage, PlayerRecord } from './protocol';
 import { gameHistory, gameOutcome, opponentRating, playerRecord, recordResult } from './results';
 export { MatchServiceError } from './store';
@@ -23,11 +23,13 @@ function startId(actor: string, commandId: string): string {
  return `${h.slice(0, 8)}-${h.slice(8, 12)}-8${h.slice(13, 16)}-${'89ab'[parseInt(h[16], 16) & 3]}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 /** A start's input with its defaults. The start receipt keeps it; a resend with other input is COMMAND_CONFLICT. */
-export function startKey(input: CreateOptions) {
+export function startKey(input: CreateOptions, anyRules = false) {
  const speed = input.speed ?? (input.kind === 'solo' ? 'live' : 'daily');
- return { kind: input.kind, speed, days_per_move: speed === 'daily' ? input.days_per_move ?? 3 : null, colour: input.colour ?? 'white', level: input.level ?? 'club', options: input.options ?? null, setup: input.setup ?? null };
+ return { kind: input.kind, speed, days_per_move: speed === 'daily' ? input.days_per_move ?? 3 : null, colour: input.colour ?? 'white', level: input.level ?? 'club', options: input.options ?? null, setup: input.setup ?? null, any_rules: anyRules };
 }
 type StartKey = ReturnType<typeof startKey>;
+/** The five feature switches that a random game must share with a Find (owner, D1 a). The piece and card pools may differ. */
+export const switches = ({ fairy, arrangement, classic, cards, kingPowers }: Options) => JSON.stringify({ fairy, arrangement, classic, cards, kingPowers });
 export function id(value: unknown): string { return typeof value === 'string' && uuid.test(value) ? value.toLowerCase() : fail('INVALID_INPUT', 400, 'Expected a UUID'); }
 export function parse<T>(schema: z.ZodType<T>, input: unknown): T { const result = schema.safeParse(input); return result.success ? result.data : fail('INVALID_INPUT', 400, 'Invalid input'); }
 function seatOf(game: Game, actor: string): Seat { return game.players.find(p => p.user_id === actor)?.seat ?? fail('FORBIDDEN', 403, 'You do not have a seat in this game'); }
@@ -207,20 +209,22 @@ export class GameService {
    return this.acceptSeat(client, game, actor);
   });
  }
- /** With a command ID, a resent Find gets the game that the first send opened, joined or reused; other input is COMMAND_CONFLICT. */
- async find(actor: string, options: unknown, colour: unknown = 'white', commandId?: string): Promise<View> {
-  actor = id(actor); const input = parse(createSchema, { kind: 'random', options, colour }), key = startKey(input);
-  const gameId = commandId === undefined ? randomUUID() : startId(actor, commandId);
+ /** Takes the oldest open game with the same five switches (with `anyRules`, any open game), else opens a new table.
+  * With a command ID, a resent Find gets the game that the first send opened, joined or reused; other input is COMMAND_CONFLICT. */
+ async find(actor: string, options: unknown, colour: unknown = 'white', commandId?: string, anyRules = false): Promise<View> {
+  actor = id(actor); const input = parse(createSchema, { kind: 'random', options, colour }), key = startKey(input, anyRules === true);
+  const gameId = commandId === undefined ? randomUUID() : startId(actor, commandId), wanted = key.any_rules ? undefined : switches(input.options!);
   return this.store.transaction(async client => {
    await this.requireHandle(actor, client);
    // An empty lobby has no row to lock; serialize the search and create as one step.
    await client.query('select pg_advisory_xact_lock(7007008)');
    const done = commandId === undefined ? undefined : await this.started(client, actor, commandId, key);
    if (done) return done;
-   const own = (await client.query("select id from public.games where created_by=$1 and kind='random' and status='waiting' and created_at>statement_timestamp()-interval '24 hours' order by created_at,id limit 1 for update", [actor])).rows[0];
+   const own = (await client.query(`select id from public.games where created_by=$1 and kind='random' and status='waiting' and created_at>statement_timestamp()-interval '24 hours'
+    and ($2::jsonb is null or options @> $2::jsonb) order by created_at,id limit 1 for update`, [actor, wanted ?? null])).rows[0];
    if (own) { const game = await this.store.load(own.id, { client }); return commandId === undefined ? this.render(game, seatOf(game, actor), { client, rules: true }) : this.receipt(client, game, actor, commandId, key); }
    for (;;) {
-    const [open] = await this.store.lobby(actor, { client, lock: true });
+    const [open] = await this.store.lobby(actor, { client, lock: true, switches: wanted });
     if (!open) break;
     const game = await this.store.load(open.game_id, { client, lock: true }), at = (await client.query('select statement_timestamp() as at')).rows[0].at;
     if (game.created_at.getTime() + DAY <= at.getTime()) continue;

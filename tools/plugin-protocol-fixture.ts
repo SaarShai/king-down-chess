@@ -2,7 +2,7 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { createMatch, type LocalMatch, type MatchSetup } from '../src/match';
 import { MatchServiceError } from '../src/match/store';
-import { FRIEND_CODE_DAYS, startKey } from '../src/match/service';
+import { FRIEND_CODE_DAYS, startKey, switches } from '../src/match/service';
 import { createSchema, commandSchema, type CreateOptions, type InboxEntry, type View, type Seat, type LoggedCommand, type HistoryEntry, type PlayerRecord } from '../src/match/protocol';
 import { buildSetup, defaultChoice, draw, seatChoicesNeeded, validateChoice, type Draw, type Choice } from '../src/match/setup';
 import { handleSchema, type PluginService } from '../src/plugin/service';
@@ -63,10 +63,11 @@ export function fixtureService(): Pick<PluginService,keyof PluginService> & { se
   },
   view,create,profile,lobby,accept,
   async seen() {},
-  async find(actor,options,colour='white',commandId?) {
-   await requireHandle(actor); const input = parse<CreateOptions>(createSchema,{kind:'random',options,colour}), asked = startKey(input), done = resent(actor,commandId,asked); if (done) return done;
-   const own = [...games.values()].find(g=>g.input.kind === 'random' && g.status === 'waiting' && g.players.includes(actor));
-   const open = own ? undefined : (await lobby(actor)).games[0];
+  async find(actor,options,colour='white',commandId?,anyRules=false) {
+   await requireHandle(actor); const input = parse<CreateOptions>(createSchema,{kind:'random',options,colour}), asked = startKey(input,anyRules === true), done = resent(actor,commandId,asked); if (done) return done;
+   const fits = (g:Game) => asked.any_rules || switches(g.input.options!) === switches(input.options!);
+   const own = [...games.values()].find(g=>g.input.kind === 'random' && g.status === 'waiting' && g.players.includes(actor) && fits(g));
+   const open = own ? undefined : (await lobby(actor)).games.find(entry=>fits(load(entry.game_id)));
    const game = own?.id ?? open?.game_id ?? (await create(actor,{kind:'random',options,colour})).game_id;
    if (commandId !== undefined) starts.set(`${actor}:${commandId}`,{game,input:JSON.stringify(asked)});
    return open ? accept(actor,game) : view(actor,game);
