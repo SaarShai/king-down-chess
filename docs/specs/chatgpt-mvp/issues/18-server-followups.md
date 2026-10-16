@@ -20,14 +20,14 @@ Build ticket 18-d and 18-e only, on `claude/server-limits`. The owner gives the 
 - Open: 60 calls per minute. This permits one new board each second.
 - Report: 30 calls per hour. This permits many reports without an open path to fill the table.
 - HTTP: two active calls per user. One user cannot hold all four server slots.
-- The existing internal secret also protects short codes. HMAC uses a fixed invite-code prefix. No new setting is needed. Old short codes stop working; long links still work.
+- The existing internal secret also protects short codes. HMAC uses a fixed invite-code prefix. No new setting is needed. The review-data tool also needs this secret; its command notes and owner steps state this. Old short codes stop working; long links still work.
 
 ## Results
 
 - Code commit: `7d4cc85a`. The server diff is complete. No UI file changes.
 - `npx tsc --noEmit` passes.
 - The first full `npm test` run has 163 passing files, four failing files, 2,556 passing tests, six failing tests and eight skipped tests. The failures come from repeated test handles, an out-of-scope test helper, old schema error text, and an old account test that expects report deletion to have no grant. Role block 10 already permits deletion under the retention policy. The test now checks that recent reports stay.
-- The test fixes are complete. A full recheck waits for the shared test lock. Logs: `/tmp/kd-server-limits-recheck.log` and `.exit`.
+- The full recheck passes: 167 files, 2,562 tests pass, eight tests skip, and all 50 artwork tests pass. Exit 0. It uses the local test database at port 55432. Logs: `/tmp/kd-server-limits-recheck.log` and `.exit`.
 - M1 checks wait for the browser lock in `~/projects/kd-server-limits`. They use server code commit `7d4cc85a`. Logs on M1: `/tmp/kd-server-limits-m1.log` and `.exit`.
 
 Parts 18-a, 18-b and 18-c belong to other lanes.
