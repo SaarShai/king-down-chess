@@ -903,7 +903,7 @@ try {
     // Chromium reads the real clipboard back. WebKit has no clipboard-read permission, so it captures the widget's platform call.
     const webkit = browser.browserType().name() === 'webkit';
     if (!webkit) await page.context().grantPermissions(['clipboard-read','clipboard-write']);
-    await frame.locator('html').evaluate(webkit => {
+    await frame.locator('html').evaluate((_, webkit) => {
       window.ticket13Clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard'); window.ticket13Copy = document.execCommand;
       if (webkit) Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.ticket13CopiedText = text; } } });
     }, webkit);
