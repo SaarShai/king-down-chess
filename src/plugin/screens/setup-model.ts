@@ -20,6 +20,10 @@ export function readSetup(value: unknown): SetupState {
   return state;
 }
 
+export function gameSetup(view: View): SetupState {
+  return readSetup({ kind: view.kind, options: view.options, colour: view.seat === 1 ? 'black' : 'white', level: view.level, king: view.choices?.[view.seat]?.king ?? view.kings?.[view.seat] ?? view.rules?.kings[view.seat] });
+}
+
 /** Play now: the last setup as a computer game, or for a new player Beginner with an automatic army (no seat screen). */
 export function quickSetup(saved: unknown): SetupState {
   if (saved) return { ...readSetup(saved), kind: 'solo' };

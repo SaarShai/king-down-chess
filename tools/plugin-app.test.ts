@@ -702,16 +702,40 @@ it.each([false,true])('shows a draw offer and handles a decline before Resign (i
   } finally { await page.close(); }
 });
 
-it('does not repeat the abort title in the end reason', async () => {
+it('does not repeat a friend abort title or play a ceremony', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await frame.locator('html').evaluate(async () => {
-      const app=(window as any).harnessApp; await app.call('kingdown_create',{kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}});
+      const app=(window as any).harnessApp; await app.call('kingdown_create',{kind:'friend',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}});
       const v=app.memory.view; await app.call('kingdown_abort',{game_id:v.game_id,command_id:'words-abort',expected_revision:v.revision},true);
     });
     await frame.locator('#over.end-card[open]').waitFor();
     expect(await frame.locator('#over-title').textContent()).toBe('Game aborted');
     expect(await frame.locator('#end-reason').textContent()).toBe('');
+    expect(await frame.locator('#board[data-toppling], #board .kd-words, #over.is-win').count()).toBe(0);
+  } finally { await page.close(); }
+});
+
+it.each([false, true])('keeps Abort confirmation and returns its game draft from seat %s', async seat => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    await frame.locator('html').evaluate(async (_, seat) => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_create', { kind: 'solo', colour: seat ? 'black' : 'white', level: 'strong', options: { fairy: true, pool: ['Q','O','L','R','B','N','A','G','M','S'], arrangement: seat, classic: false, cards: false, cardPool: ['Freeze','Haste','March','Leap'], kingPowers: seat } });
+    }, seat);
+    if (seat) { await frame.locator('#seat-menu').click(); await frame.locator('#seat-abort').click(); await frame.locator('#seat-abort-cancel').click(); }
+    else { await frame.locator('#context-actions #abort').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Keep playing', exact: true }).click(); }
+    expect(await frame.locator('[data-screen="play"]').isVisible()).toBe(false);
+    if (seat) { await frame.locator('#seat-menu').click(); await frame.locator('#seat-abort').click(); await frame.locator('#seat-abort-confirm').click(); }
+    else { await frame.locator('#context-actions #abort').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Abort', exact: true }).click(); }
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    expect(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked()).toBe(true);
+    expect(await frame.getByRole('radio', { name: seat ? 'Black' : 'White', exact: true }).isChecked()).toBe(true);
+    expect(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked()).toBe(true);
+    expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(seat);
+    expect(await frame.getByRole('checkbox', { name: 'King powers', exact: true }).isChecked()).toBe(seat);
+    expect(await frame.locator('#over[open], #board[data-toppling], #board .kd-words').count()).toBe(0);
   } finally { await page.close(); }
 });
 

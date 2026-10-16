@@ -6,7 +6,7 @@ import { LETTERS, NAMES } from '../../rules/engine';
 import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
 import { POWER_NAME, cardText, powerText, powerOptions, powersRules, ruleLine } from '../../powers-ui';
 import type { View, InboxEntry } from '../../match/protocol';
-import { availablePowers, cardLocked, cleanKing, createArguments, pieceLocked, quickSetup, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
+import { availablePowers, cardLocked, cleanKing, createArguments, gameSetup, pieceLocked, quickSetup, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
 import './setup.css';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
@@ -177,6 +177,9 @@ document.addEventListener('click', event => {
   if (['kingdown_create','kingdown_find'].includes(pending?.name ?? '')) { event.preventDefault(); event.stopImmediatePropagation(); void recoverStart(); }
   else if (['kingdown_choose','kingdown_get'].includes(pending?.name ?? '')) { event.preventDefault(); event.stopImmediatePropagation(); void call(pending!.name, pending!.args, true, false, false, true).then(async view => { if (view) await finish(view); render(); }); }
 }, true);
+export function draftFromGame(view: View) {
+  draft = gameSetup(view); memory.kind = draft.kind;
+}
 export function setupScreen() {
   if (!memory.settings) return;
   if (!draft) {

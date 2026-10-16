@@ -91,7 +91,7 @@ export function fixtureService(): Pick<PluginService,keyof PluginService> & { se
    else if (action.type === 'rematch') {
     if (g.status !== 'finished' || g.rematch_game_id || (g.input.kind === 'solo' ? action.choice !== 'offer' : action.choice === 'offer' ? g.rematch_offer !== null : g.rematch_offer !== 1-seat)) fail('NOT_ALLOWED',409,'No rematch is available now');
     if (action.choice === 'decline') g.rematch_offer = null; else if (action.choice === 'offer' && g.input.kind !== 'solo') g.rematch_offer = seat;
-    else {const creator = g.players.find(Boolean)!, rematch = await create(creator,{...g.input,colour:g.players[0] === creator ? 'black' : 'white'}), next = load(rematch.game_id); next.players = [g.players[1],g.players[0]]; if (g.input.kind !== 'solo') await enter(next); g.rematch_game_id = next.id; g.rematch_offer = null;}
+    else {const creator = g.players.find(Boolean)!, same = g.input.kind === 'solo', rematch = await create(creator,{...g.input,colour:(g.players[0] === creator) === same ? 'white' : 'black'}), next = load(rematch.game_id); if (!same) { next.players = [g.players[1],g.players[0]]; await enter(next); } g.rematch_game_id = next.id; g.rematch_offer = null;}
    }
    g.revision++; g.updated = Date.now(); g.commands.set(key,payload); g.log.push({seq:g.revision,seat,action,at:new Date(g.updated).toISOString()}); return view(actor,id,g.revision-1);
   },

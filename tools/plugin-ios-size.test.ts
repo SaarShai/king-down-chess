@@ -16,6 +16,30 @@ beforeAll(async () => {
   harness = await startHarness({ boardPath: join(folder, 'board.html') }); browser = await chromium.launch({ headless: true });
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
+it('keeps Back clear and end actions reachable at 197 by 426', async () => {
+  const { page, frame } = await hostPage(197, 426, 51, 59);
+  try {
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.getByRole('radio', { name: 'White', exact: true }).locator('..').click();
+    for (const name of ['Fairy pieces', 'Arrangement', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).uncheck();
+    await frame.locator('#setup-start').click(); await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Resign', exact: true }).click();
+    await frame.locator('#over[open]').waitFor();
+    expect(await frame.locator('#over').evaluate(e => e.scrollHeight > e.clientHeight)).toBe(true);
+    expect(await frame.locator('#game-table .table-back').evaluate(e => {
+      const r = e.getBoundingClientRect(), card = document.getElementById('over')!.getBoundingClientRect();
+      return r.height >= 44 && r.bottom <= card.top && e.contains(document.elementFromPoint(r.x+r.width/2, r.y+r.height/2));
+    })).toBe(true);
+    for (const name of ['Play again', 'New game', 'See the board']) {
+      const button = frame.locator('#over').getByRole('button', { name, exact: true }); await button.scrollIntoViewIfNeeded();
+      expect(await button.evaluate(e => { const r=e.getBoundingClientRect(); return r.width>0 && e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)); }), name).toBe(true);
+    }
+    expect(await frame.locator('#over').evaluate(e => e.scrollWidth-e.clientWidth)).toBe(0);
+    await frame.locator('#over').getByRole('button', { name: 'See the board', exact: true }).click();
+    await frame.locator('#end-result').click(); await frame.locator('#over[open]').waitFor();
+    await frame.locator('#game-table .table-back').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  } finally { await page.close(); }
+});
 it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]])('reserves one bottom gap at %i × %i with insets %i/%i', async (width, height, top, bottom, gap) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
   try {

@@ -41,25 +41,71 @@ async function mate(page: Page, frame: FrameLocator) {
   await tapSquare(frame, 'a1'); await page.waitForTimeout(300);
   await tapSquare(frame, 'a8');
 }
-it.each([false, true])('topples the king on a live win before the end card (reduced motion %s)', async reduced => {
+it.each([false, true])('opens end actions during a live win (reduced motion %s)', async reduced => {
   const { page, frame } = await open(reduced);
   try {
     await mate(page, frame);
     if (!reduced) {
-      await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' }); expect(await frame.locator('#over').evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
-      await frame.locator('#board .kd-words:not([hidden])').waitFor();
+      await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
     }
     const start = Date.now(); await frame.locator('#over.end-card[open]').waitFor();
     expect(Date.now() - start).toBeLessThan(1500);
-    expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
+    expect(await frame.locator('#over').getByRole('button', { name: 'Play again', exact: true }).isVisible()).toBe(true);
+    expect(await frame.locator('#over').getByRole('button', { name: 'New game', exact: true }).isVisible()).toBe(true);
+    if (!reduced) {
+      expect(await frame.locator('#board[data-toppling]').count()).toBe(1);
+      expect(await frame.locator('#end-skip').isVisible()).toBe(true);
+      await frame.locator('#board .kd-words:not([hidden])').waitFor();
+    }
+    await frame.locator('#board[data-toppling]').waitFor({ state: 'detached' });
+    expect(await frame.locator('#end-skip').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
-it('skips the end ceremony on a tap', async () => {
+it('skips the end ceremony with its visible button', async () => {
   const { page, frame } = await open(false);
   try {
     await mate(page, frame); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
-    await frame.locator('#status').click(); await frame.locator('#over.end-card[open]').waitFor({ timeout: 300 });
+    await frame.locator('#end-skip').click();
     expect(await frame.locator('#board .kd-words').count()).toBe(0);
+    expect(await frame.locator('#over[open]').count()).toBe(1);
+  } finally { await page.close(); }
+});
+it.each(['Play again', 'New game', 'See the board'])('uses %s during the ceremony without a tap delay', async action => {
+  const { page, frame } = await open(false);
+  try {
+    await mate(page, frame); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
+    const old = await page.evaluate(() => (window as any).harnessView.game_id);
+    await frame.locator('#over[open]').waitFor();
+    // Use the handler before a CSS rise can delay a pointer click.
+    await frame.locator('#over').getByRole('button', { name: action, exact: true }).evaluate((b: HTMLButtonElement) => b.click());
+    expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
+    if (action === 'New game') await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    else if (action === 'Play again') await page.waitForFunction(old => (window as any).harnessView.game_id !== old, old);
+    else {
+      expect(await frame.locator('#over[open]').count()).toBe(0);
+      await page.waitForTimeout(1200);
+      expect(await frame.locator('#over[open]').count()).toBe(0);
+      await frame.locator('#end-result').click(); await frame.locator('#over[open]').waitFor();
+    }
+  } finally { await page.close(); }
+});
+it('keeps a live checkmate loss calm and leaves the last move on the board', async () => {
+  const { page, frame } = await open(false);
+  try {
+    const result = await (await page.request.post(new URL(`/fixture-position?fen=${encodeURIComponent('7k/8/6K1/8/8/8/8/Q7 w - - 0 1')}&black=1`, harness.url).href)).json();
+    await page.evaluate(r => (window as any).harnessShow(r), result);
+    const reply = await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name: 'kingdown_move', arguments: { game_id: result._meta.view.game_id, command_id: crypto.randomUUID(), expected_revision: result._meta.view.revision, lan: 'Qa1-a8' } } })).json();
+    expect(reply.isError).not.toBe(true);
+    await frame.locator('#board-menu').click(); await frame.locator('#reload').click();
+    await frame.locator('#over-title').filter({ hasText: 'You lose' }).waitFor();
+    expect(await frame.locator('#end-reason').textContent()).toBe('Your opponent gave checkmate.');
+    expect(await frame.locator('#last-move').textContent()).toContain('a8');
+    expect(await frame.locator('#board[data-toppling], #board .kd-words, #over.is-win').count()).toBe(0);
+    expect(await animations(frame, '#over')).toBe(0);
+    await frame.locator('#over').getByRole('button', { name: 'See the board', exact: true }).click();
+    await frame.locator('#moves-line').click(); await frame.locator('#board-sheet[open]').waitFor();
+    await page.waitForTimeout(3300);
+    expect(await frame.locator('#board-sheet[open]').count()).toBe(1);
   } finally { await page.close(); }
 });
 it.each([false, true])('gives a spent card a short gold pulse (reduced motion %s)', async reduced => {

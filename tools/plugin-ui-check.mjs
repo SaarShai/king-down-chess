@@ -1377,14 +1377,16 @@ try {
   await frame.locator('#board-sheet').getByRole('button',{name:'Keep playing',exact:true}).click();
   await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
   await frame.locator('#over.end-card[open] h2').filter({hasText:'You lose'}).waitFor(); await idleBoard();
-  assert.match(await frame.locator('#end-reason').innerText(),/Resignation/);
+  assert.equal(await frame.locator('#end-reason').innerText(),'You resigned.');
+  assert.equal(await frame.locator('#over.is-win, #board[data-toppling]').count(),0,'A loss stays calm');
   const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);
   await page.evaluate(()=>{window.dropNextReply='kingdown_rematch';});
-  await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).click();
+  await frame.locator('#over').getByRole('button',{name:'Play again',exact:true}).click();
   await frame.locator('#over #retry').waitFor();
   const pendingRematch=await page.evaluate(()=>window.harnessWidgetState.privateContent.pending);
   await frame.locator('#over #retry').click();
   await page.waitForFunction(id=>window.harnessView.game_id!==id,ended.game_id); await idleBoard();
+  assert.equal(await page.evaluate(()=>window.harnessView.seat),ended.seat,'Play again keeps the player colour');
   const rematchSent = await page.evaluate(n=>window.harnessCalls.slice(n),rematchCalls);
   assert.equal(rematchSent.find(c=>c.name==='kingdown_rematch').arguments.choice,'offer','Solo rematch offers, never accepts');
   assert.deepEqual(rematchSent.filter(c=>c.name==='kingdown_rematch').map(c=>c.arguments.command_id),[pendingRematch.args.command_id,pendingRematch.args.command_id],'A lost rematch reply retries the same command');
@@ -1393,12 +1395,14 @@ try {
   assert(['board','seat'].includes(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen)));
   await legacyStart('solo'); await frame.locator('#resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
   await frame.locator('#over.end-card[open]').waitFor(); await idleBoard();
-  await frame.locator('#over').getByRole('button',{name:'Your games',exact:true}).click();
+  await frame.locator('#over').getByRole('button',{name:'New game',exact:true}).click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); assert.equal(await frame.locator('#over').isVisible(),false);
   await openPlay(); await legacyStart('solo'); await frame.locator('#context-actions #abort').click();
   await frame.locator('#board-sheet').getByRole('button',{name:'Abort',exact:true}).click();
-  await frame.locator('#over.end-card[open] h2').filter({hasText:'Game aborted'}).waitFor(); await idleBoard();
-  assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).count(),0,'An abort has no rematch');
+  await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); await idleBoard();
+  assert.equal(await frame.locator('#over[open], #board[data-toppling]').count(),0,'A computer abort returns to the draft with no ceremony');
+  assert(await frame.getByRole('radio',{name:'Computer',exact:true}).isChecked());
+  assert(await frame.getByRole('radio',{name:'White',exact:true}).isChecked());
   if (capabilities.friend) {
     async function joinedGame() {
       const board_id=await page.evaluate(()=>window.harnessWidgetState.privateContent.board_id);
@@ -1425,10 +1429,29 @@ try {
     await page.waitForFunction(()=>typeof window.releaseHeld==='function');
     await page.evaluate(()=>{window.rejectNextGet=true; window.releaseHeld();});
     await frame.locator('#over.end-card[open] h2').filter({hasText:'Draw'}).waitFor(); await idleBoard();
+    assert.equal(await frame.locator('#end-reason').innerText(),'Draw by agreement.');
+    assert.equal(await frame.locator('#over.is-win, #board[data-toppling]').count(),0,'A draw stays calm');
     await frame.locator('#over #retry').waitFor({timeout:3000});
     assert.equal(await frame.locator('#over .end-facts').innerText(),'','A failed full end read shows no guessed rating or badge');
     await frame.locator('#over #retry').click(); await frame.locator('#over #retry').waitFor({state:'hidden'}); await idleBoard();
     if (mode==='fixture') { await frame.locator('.end-facts').filter({hasText:'1561?'}).waitFor(); assert.match(await frame.locator('.end-facts').innerText(),/\+61/); assert.match(await frame.locator('.new-badge img').getAttribute('src'),/badge-fairy-tale-/); }
+    await page.setViewportSize({width:197,height:426});
+    await page.locator('iframe').evaluate(e=>e.style.setProperty('height','100dvh','important'));
+    await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen',safeAreaInsets:{top:51,bottom:59,left:0,right:0},deviceCapabilities:{touch:true}}));
+    assert(await frame.locator('#over').evaluate(e=>e.scrollHeight>e.clientHeight),'The 197 px end card scrolls');
+    assert(await frame.locator('#game-table .table-back').evaluate(e=>{const r=e.getBoundingClientRect(),card=document.getElementById('over').getBoundingClientRect();return r.height>=44&&r.bottom<=card.top&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'Back stays clear of the end card');
+    for (const name of ['Rematch','New game','See the board']) {
+      const b=frame.locator('#over').getByRole('button',{name,exact:true}); await b.scrollIntoViewIfNeeded();
+      assert(await b.evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),name+' stays reachable at 197 px');
+    }
+    assert.equal(await frame.locator('#over').evaluate(e=>e.scrollWidth-e.clientWidth),0,'The end card has no horizontal scroll');
+    await shot(page,'end-197x426-'+mode);
+    await frame.locator('#over').getByRole('button',{name:'See the board',exact:true}).click();
+    await readGame(); assert.equal(await frame.locator('#over[open]').count(),0,'A refresh keeps the end card closed');
+    await frame.locator('#end-result').click(); await frame.locator('#over[open]').waitFor();
+    await page.setViewportSize({width:1000,height:1000});
+    await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen',safeAreaInsets:{top:0,bottom:0,left:0,right:0},deviceCapabilities:{touch:true}}));
+    console.log('PASS: plain draw reason, calm result, See the board and end actions at 197 by 426');
     current=await page.evaluate(()=>window.harnessView);
     const buddyOffer=await friendTool('kingdown_rematch',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'offer'}); assert(!buddyOffer.isError);
     await page.clock.fastForward(3100);
@@ -1468,7 +1491,7 @@ try {
     if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{deadline_at:new Date(Date.now()-60000).toISOString()}}}}});
     else { const {Client}=await import('pg'); const db=new Client({connectionString:process.env.PLUGIN_TEST_DATABASE_URL}); await db.connect(); try {await db.query("update public.games set deadline_at=now()-interval '1 minute', deadline_kind='move' where id=$1",[human.game_id]);} finally {await db.end();} }
     await readGame(); await frame.locator('#context-actions #claim').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Claim the win',exact:true}).click();
-    await frame.locator('#over.end-card[open] h2').filter({hasText:'You win'}).waitFor(); await idleBoard(); assert.match(await frame.locator('#end-reason').innerText(),/Time/);
+    await frame.locator('#over.end-card[open] h2').filter({hasText:'You win'}).waitFor(); await idleBoard(); assert.equal(await frame.locator('#end-reason').innerText(),'Your opponent ran out of time.');
     human=await joinedGame(); await clickSquare(4,1); await clickSquare(4,3); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.abort_open,true);
     if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{deadline_at:new Date(Date.now()-60000).toISOString()}}}}});
     else {const {Client}=await import('pg'); const db=new Client({connectionString:process.env.PLUGIN_TEST_DATABASE_URL}); await db.connect(); try {await db.query("update public.games set deadline_at=now()-interval '1 minute', deadline_kind='first_turn' where id=$1",[human.game_id]);} finally {await db.end();}}

@@ -12,7 +12,7 @@ import { art, symbols } from '../art';
 import { pieceIcon } from '../../piece-icons';
 import { snd } from '../../render/sfx';
 import '../../ceremony.css';
-import { client, memory, navigate } from '../app';
+import { client, memory, navigate, routeView } from '../app';
 import { nextGame } from '../games-list';
 import { actionButtons, confirmDraw, confirmResign } from './board-actions';
 import { updateEnd } from './end';
@@ -25,6 +25,7 @@ export const boardGame = () => view;
 export let rollbackBoardMove: () => Promise<void>;
 let history: BoardMove[] = [], lastMove: BoardMove | undefined;
 export const boardLastMove = () => lastMove;
+export let skipBoardCeremony = () => {};
 let command: (name: string, args: Record<string, unknown>) => Promise<View | undefined>;
 export const sendBoardCommand = (name: string, args: Record<string, unknown> = {}) => command(name, args);
 const cardName = (name: string) => name.replace(/([a-z])([A-Z])/g, '$1 $2');
@@ -71,6 +72,8 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   let readAt = Date.now(), deadlineTimer: ReturnType<typeof setTimeout> | undefined;
   // The topple plays only when the end arrives live, not on a reload.
   let toppling = false;
+  let stopCeremony = () => {};
+  skipBoardCeremony = () => { toppling = false; stopCeremony(); };
   // Each card coin's last spent state, and when a live use spent it (for the gold pulse).
   const cardSpent = new Map<string, boolean>(), spentAt = new Map<string, number>();
   // When the four cards dealt (a live game start), and when a check last began.
@@ -113,7 +116,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (view?.game_id === game) { strips(); void computer(); }
   }
   const scheduleComputer = () => { if (!tornDown) setTimeout(() => void computer(), 0); };
-  window.addEventListener('message', event => { if (event.data?.method === 'ui/resource-teardown') { tornDown = true; clearTimeout(thinkingTimer); clearTimeout(deadlineTimer); } });
+  window.addEventListener('message', event => { if (event.data?.method === 'ui/resource-teardown') { tornDown = true; skipBoardCeremony(); clearTimeout(thinkingTimer); clearTimeout(deadlineTimer); } });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleComputer(); });
   function moveLine() {
     if (!pos) return;
@@ -282,19 +285,18 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     board.setLifted(selected ?? null);
     // Never lay the king down on the position before the final move.
     const fallen = !animating && view.result?.reason === 'checkmate' && view.result.winner !== null ? findKing(pos.board,(1-view.result.winner) as Color) : null;
-    board.setFallen(fallen, toppling && fallen !== null);
-    // The end card waits for the 650 ms topple (screens/end.ts), so the fall shows.
-    if (toppling && fallen !== null && board.motion()) kingDown();
+    const win = view.result?.winner === view.seat;
+    if (!$('board').dataset.toppling) board.setFallen(fallen, toppling && win && fallen !== null);
+    if (toppling && win && fallen !== null && board.motion()) kingDown(fallen);
     if (fallen !== null) toppling = false;
   }
-  // The web end ceremony (ceremony.ts), at most 1.5 s: the topple (650 ms), the words settle (480 ms), then the end
-  // card rises (320 ms, end.css). Any tap skips to the card.
-  function kingDown() {
+  // Keep the short web ceremony. Explicit end actions work during it, with no tap delay.
+  function kingDown(fallen: number) {
     const words = document.createElement('div'); words.className = 'kd-words is-in'; words.textContent = 'King Down'; words.hidden = true; words.setAttribute('aria-hidden', 'true');
     $('board').append(words); $('board').dataset.toppling = 'true';
     const show = setTimeout(() => { words.hidden = false; }, 650), done = setTimeout(skip, 1130);
-    function skip() { clearTimeout(show); clearTimeout(done); words.remove(); delete $('board').dataset.toppling; removeEventListener('pointerdown', skip, true); }
-    addEventListener('pointerdown', skip, true);
+    function skip() { clearTimeout(show); clearTimeout(done); words.remove(); delete $('board').dataset.toppling; board.setFallen(fallen, false); stopCeremony = () => {}; }
+    stopCeremony = skip;
   }
   $('resign').onclick = confirmResign; $('offer-draw').onclick = () => confirmDraw('offer');
   $('reload').addEventListener('click', closeBoardSheet);
@@ -302,7 +304,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   function showMoves() { boardSheet('Moves', ...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No moves shown yet.')]); }
   $('moves-line').onclick = showMoves;
   bindBoard();
-  const observer = new MutationObserver(() => { if (active()) refresh(); scheduleComputer(); if (client.state.screen === 'end') updateEnd(); });
+  const observer = new MutationObserver(() => { if (active()) refresh(); else skipBoardCeremony(); scheduleComputer(); if (client.state.screen === 'end') updateEnd(); });
   observer.observe($('reload'), {attributes:true, attributeFilter:['disabled']});
   observer.observe(document.body, {attributes:true, attributeFilter:['data-page']});
   observer.observe($('over'), {attributes:true, attributeFilter:['open']});
@@ -310,6 +312,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   return (next: View) => {
     if (view?.game_id === next.game_id && next.revision < view.revision) return;
     const before = view, same = view?.game_id === next.game_id;
+    if (!same || next.status !== 'finished') skipBoardCeremony();
     if (same && before?.status === 'playing' && next.status === 'finished') toppling = true;
     // A live game start: the cards deal once, and after the seat both Ready open the board.
     const started = next.status === 'playing' && next.history?.actions.length === 0 && (!same || before?.status === 'setup') && board.motion();
@@ -317,7 +320,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (started && (next.options?.arrangement || next.options?.kingPowers)) opening = true;
     const unchanged = same && before?.revision === next.revision && before.fen === next.fen && before.status === next.status;
     view = {...next, rules:next.rules ?? (same ? view?.rules : undefined), outcome:next.outcome ?? (same ? view?.outcome : undefined), opponent:next.opponent && {...next.opponent, rating:next.rules ? next.opponent.rating : next.opponent.rating ?? (same ? view?.opponent?.rating : undefined)}};
-    if (['finished','aborted'].includes(next.status)) setTimeout(()=>{ if (active()) { if(client.state.screen==='board') navigate('end'); updateEnd(); } },0);
+    if (['finished','aborted'].includes(next.status)) setTimeout(()=>{ if (active()) { if(client.state.screen==='board') routeView(view!); updateEnd(); } },0);
     readAt = Date.now(); clearTimeout(deadlineTimer);
     if (next.deadline_at && next.turn !== next.seat && next.kind !== 'solo' && next.status === 'playing') deadlineTimer = setTimeout(refresh, Math.max(0,Date.parse(next.deadline_at)-Date.parse(next.server_now))+1);
     if (unchanged && !optimistic) { if (pos) { rules(); refresh(); } scheduleComputer(); return; }

@@ -1,0 +1,52 @@
+# End of game (J4 c, W9 a, C4 c, OPEN-endcard197)
+
+Status: claimed
+
+Lane: od-end. Branch: `claude/od-end`.
+
+## Scope and approval
+
+The owner asks to build ticket 06-end on 2026-10-16.
+The approved picks are J4 c, W9 a, C4 c and OPEN-endcard197.
+Keep the short web ceremony that Lively uses. Let all end actions work
+at once. Keep a draw and a loss calm. Give an abort no ceremony.
+
+## Plan and checks
+
+1. Return a computer abort to the hall draft. Read its options, side,
+   king and level from the game. Keep the Abort confirmation.
+2. Use plain end reasons without the last move. Use New game and
+   Play again. Keep the player's side in a computer rematch.
+3. Open the end actions during the ceremony. Add Skip and See the
+   board. Stop the motion on an explicit action. Use no tap delay.
+4. Keep Back clear at 197 by 426. Limit the end card and let it scroll.
+5. Add tests for each path. Run `npx tsc --noEmit` and `npm test` here.
+   Run plugin-ui and plugin-ui-http on the M1 with the shared lock.
+   Keep all time limits. Get two independent reviews and fix each
+   confirmed fault. Record the results and commit on this branch.
+
+## Comments
+
+Work starts from a clean worktree.
+
+## Build and review
+
+- J4: the router sends an explicit computer abort to Play. The draft
+  reads the game view. Board and seat keep their Abort confirmation.
+- W9: the card gives one plain reason for the player's seat. The last
+  move stays on the board. New game keeps the game rules. Play again
+  keeps the player's colour in the service and the test fixture.
+- C4: keep the short Lively ceremony. Show end actions at once. Skip
+  stops the ceremony. See the board hides the card; Game result opens
+  it again. A draw and a loss have no result motion. An abort has none.
+- OPEN-endcard197: leave 80 px above the card's height limit. The card
+  scrolls. The 197 by 426 tests check Back and each end action.
+- Two independent readers find three faults. All three have fixes and
+  regression tests: keep a live king fall on card open; cancel a
+  pending ceremony during the final move; keep Moves open across an
+  end poll after See the board.
+- Taste: keep the short ceremony, with no extra replay or move tiles.
+  Use explicit buttons with no tap delay. Only a checkmate win uses
+  the fall and card rise. Use Game result to return from the board.
+- `npx tsc --noEmit`: pass. The full local test run waits for the
+  shared test lock. M1 checks are next.
