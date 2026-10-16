@@ -4,6 +4,7 @@ import { build } from 'vite';
 import { builtinModules } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { existsSync } from 'node:fs';
 import { cp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -53,6 +54,7 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     const routes = Object.entries(ART_TYPES).map(([type, contentType]) => ({ src: `^/plugin-art/[\\w-]+\\.${type}$`, headers: { ...ART_HEADERS, 'Content-Type': contentType }, continue: true }));
     if (site) {
       await cp(site, resolve(output, 'static'), { recursive: true });
+      if (existsSync(resolve(site, '.well-known/openai-apps-challenge'))) routes.push({ src: '^/\\.well-known/openai-apps-challenge$', headers: { 'Content-Type': 'text/plain' }, continue: true });
       // The function entry (tools/plugin-server.mjs) dispatches these paths; Vercel keeps the request path.
       await symlink('mcp.func', resolve(output, 'functions/internal.func'));
       routes.push({ src: '^/internal/.+$', dest: '/internal' });

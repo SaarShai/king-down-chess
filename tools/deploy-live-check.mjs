@@ -3,6 +3,7 @@
 //
 // It passes when the live home page loads the same bundle (the module entry script of index.html) as
 // the build, and the privacy, terms and delete-data pages are byte-identical to the build's copies.
+// When the build has a domain challenge, it also checks its status, type and exact bytes.
 // It sends no cookie. It tries again every 5 s until all match or the time limit ends; then it fails
 // and names each difference.
 //
@@ -15,6 +16,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const legalPages = ['privacy.html', 'terms.html', 'delete-data.html'];
+const challenge = '.well-known/openai-apps-challenge';
 const fault = message => { console.error(`live-check: ${message}`); process.exit(2); };
 
 /** The bundle name: the src of the first module script in a page, or null. */
@@ -31,7 +33,8 @@ if (!folder || extra.length) fault('usage: node tools/deploy-live-check.mjs <bui
 for (const name of ['index.html', ...legalPages]) if (!existsSync(join(folder, name))) fault(`the build has no ${name} in ${folder}`);
 const bundle = bundleOf(readFileSync(join(folder, 'index.html'), 'utf8'));
 if (!bundle) fault(`the build's index.html has no module script in ${folder}`);
-const built = Object.fromEntries(legalPages.map(name => [name, readFileSync(join(folder, name))]));
+const checkedPages = [...legalPages, ...(existsSync(join(folder, challenge)) ? [challenge] : [])];
+const built = Object.fromEntries(checkedPages.map(name => [name, readFileSync(join(folder, name))]));
 const base = (process.env.DEPLOY_LIVE_URL || 'https://kingdown.dev').replace(/\/+$/, '');
 const limit = Number(process.env.DEPLOY_LIVE_TIMEOUT_MS || 120_000);
 if (!(limit >= 0)) fault('DEPLOY_LIVE_TIMEOUT_MS must be a number of milliseconds');
@@ -39,9 +42,11 @@ if (!(limit >= 0)) fault('DEPLOY_LIVE_TIMEOUT_MS must be a number of millisecond
 /** Fetches one path with no cookie and no cache. Gives the bytes, or a fault line. */
 async function get(path) {
   try {
+    const isChallenge = path === `/${challenge}`;
     // Node's fetch keeps no cookie jar, and `credentials: 'omit'` sends no cookie header.
-    const res = await fetch(base + path, { credentials: 'omit', redirect: 'follow', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15_000) });
-    if (!res.ok) return { error: `${path}: HTTP ${res.status}` };
+    const res = await fetch(base + path, { credentials: 'omit', redirect: isChallenge ? 'manual' : 'follow', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15_000) });
+    if (isChallenge ? res.status !== 200 : !res.ok) return { error: `${path}: HTTP ${res.status}` };
+    if (isChallenge && !/^text\/plain(?:\s*;|$)/i.test(res.headers.get('content-type') ?? '')) return { error: `${path}: expected text/plain` };
     return { bytes: Buffer.from(await res.arrayBuffer()) };
   } catch (error) {
     return { error: `${path}: fetch failed (${error.cause?.code ?? error.message})` };
@@ -50,15 +55,15 @@ async function get(path) {
 
 /** One look at the live site. Gives the list of differences (empty: a match). */
 async function differences() {
-  const [home, ...legal] = await Promise.all(['/', ...legalPages.map(name => `/${name}`)].map(get));
+  const [home, ...pages] = await Promise.all(['/', ...checkedPages.map(name => `/${name}`)].map(get));
   const found = [];
   if (home.error) found.push(home.error);
   else {
     const live = bundleOf(home.bytes.toString('utf8'));
     if (live !== bundle) found.push(`bundle: the live site loads ${live ?? 'no module script'}, the build ${bundle}`);
   }
-  legalPages.forEach((name, i) => {
-    const { error, bytes } = legal[i];
+  checkedPages.forEach((name, i) => {
+    const { error, bytes } = pages[i];
     if (error) found.push(error);
     else if (!bytes.equals(built[name])) found.push(`${name}: the live page differs from the build (live ${bytes.length} bytes, build ${built[name].length} bytes)`);
   });
@@ -71,7 +76,7 @@ console.log(`live-check: ${base} against ${folder} (bundle ${bundle}, time limit
 for (;;) {
   const found = await differences();
   if (!found.length) {
-    console.log(`live-check: pass: ${base} loads ${bundle}; ${legalPages.join(', ')} are identical to the build`);
+    console.log(`live-check: pass: ${base} loads ${bundle}; ${checkedPages.join(', ')} are identical to the build`);
     process.exit(0);
   }
   const left = deadline - Date.now();
