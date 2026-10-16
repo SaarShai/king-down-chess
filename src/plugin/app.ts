@@ -55,6 +55,7 @@ function retryState() {
   $('retry').textContent = readError && !pending ? 'Try again' : 'Retry';
   $('error').textContent = message ?? '';
 }
+const TOGGLES = [['symbols-only', 'symbols_only'], ['show-threats', 'show_threats'], ['show-online', 'show_online']] as const;
 const turnLine = (count: number) => `Your move in ${count} game${count === 1 ? '' : 's'}.`;
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 function actions() {
@@ -62,7 +63,7 @@ function actions() {
   // A slow start marks ‹ Play data-free (setup.ts): it stays a way out while later calls run.
   buttons().forEach(button => { button.disabled = (blocked && !button.hasAttribute('data-free')) || button.matches('#king-picker [aria-disabled="true"]'); });
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
-  $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = blocked || !memory.settings;
+  for (const [id] of TOGGLES) $<HTMLInputElement>(id).disabled = blocked || !memory.settings;
 }
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
 function show(next: View | undefined) {
@@ -86,7 +87,10 @@ async function resendPending(command: Pending, mountRead?: ToolResult) {
   const read = mountRead ?? await client.call('kingdown_get');
   if (read.isError) throw new Error(read.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
   const completed = read._meta?.view as View | undefined;
-  if (['kingdown_create', 'kingdown_find'].includes(command.name) && command.started_at !== undefined && completed && (!command.game_tag || !completed.game_id.startsWith(command.game_tag)) && (command.name === 'kingdown_find' || Date.parse(completed.created_at) >= command.started_at)) return read;
+  // started_at is device time and created_at is server time. The device clock only measures the time since the start;
+  // the read's server_now puts the start on the server clock, so a device clock ahead of the server cannot hide the new game.
+  const startedOnServer = completed && command.started_at !== undefined ? Date.parse(completed.server_now) - (Date.now() - command.started_at) : NaN;
+  if (['kingdown_create', 'kingdown_find'].includes(command.name) && command.started_at !== undefined && completed && (!command.game_tag || !completed.game_id.startsWith(command.game_tag)) && (command.name === 'kingdown_find' || Date.parse(completed.created_at) >= startedOnServer)) return read;
   if (!mountRead) {
     if (command.game_tag && !['kingdown_create', 'kingdown_find'].includes(command.name)) {
       if (!completed?.game_id.startsWith(command.game_tag)) { pending = undefined; if (completed) routeView(completed); return read; }
@@ -128,7 +132,9 @@ export async function call(name: string, args: Record<string, unknown>, retain =
       const text = result.content.filter(c => c.type === 'text').map(c => c.text).join(' ');
       // The command waits for a name. Save sends it again; Back shows the server's reason and Retry on the start screen.
       if (result._meta?.code === 'HANDLE_NEEDED') { pending ??= { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen }; failPending(text); navigate('handle'); return; }
-      const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'NOT_ALLOWED', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
+      // A refusal that the same send cannot change ends the command, so it does not lock Start, the board or the poll.
+      // RATE_LIMITED: a Find on your own open game after its last start receipt (src/match/service.ts START_RECEIPTS).
+      const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'NOT_ALLOWED', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE', 'RATE_LIMITED'];
       if (definitive.includes(String(result._meta?.code))) { pending = undefined; saveState(); if (retain) router.finishStart(); }
       throw new Error(text);
     }
@@ -253,13 +259,18 @@ async function mountResult(result: ToolResult, initial: boolean, signal: AbortSi
     // A stale mount leaves the page to the newer mount, which still reads or has finished.
     if (!stale()) {
       mountReading = false;
-      // A command that was in flight when the host remounted the widget has no reply here; Retry reads, then resends its ID.
-      // A command still in flight on this page (a chat result came during it) gets its own reply.
-      if (pending && !pending.error && !busy) failPending(CANNOT_CONNECT);
+      // A command that was in flight when the host remounted the widget has no reply here. The page selects Retry for the
+      // player: Retry reads first, then sends the same command ID, and each screen keeps its own Retry steps (New game
+      // finishes a start). The error and Retry show only if that send fails (owner item W6 a). A start that waits for a
+      // name keeps its error and is not sent (R4C-3). A command still in flight on this page (a chat result came during
+      // it) gets its own reply.
+      const resend = !!pending && !pending.error && !busy;
+      if (resend && !connected) failPending(CANNOT_CONNECT);
       if (pending?.error) retryState();
       if (state.screen in screens) screens[state.screen as keyof typeof screens]();
       poll?.update();
       actions();
+      if (resend && connected) $('retry').click();
     }
   }
 }
@@ -414,13 +425,12 @@ navigate(state.screen);
 async function applySettings() {
   if (!memory.settings) return;
   actions();
-  $<HTMLInputElement>('symbols-only').checked = memory.settings.symbols_only;
-  $<HTMLInputElement>('show-threats').checked = memory.settings.show_threats;
+  for (const [id, key] of TOGGLES) $<HTMLInputElement>(id).checked = memory.settings[key];
   await setSettings(memory.settings);
 }
-for (const [id, key] of [['symbols-only', 'symbols_only'], ['show-threats', 'show_threats']] as const) {
+for (const [id, key] of TOGGLES) {
   $<HTMLInputElement>(id).onchange = async () => {
-    $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = true;
+    for (const [other] of TOGGLES) $<HTMLInputElement>(other).disabled = true;
     try {
       const result = await client.call('kingdown_settings', { [key]: $<HTMLInputElement>(id).checked });
       if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));

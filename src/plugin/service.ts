@@ -7,7 +7,7 @@ import { handleProblem, ICONS } from '../account/profile';
 import { fail, GameService, id, parse } from '../match/service';
 import type { PostgresMatchStore } from '../match/store';
 import { AccountService } from '../online/accounts';
-import { SettingsService } from './settings';
+import { SettingsService, settingsSchema, type PlayerSettings } from './settings';
 import { SafetyService } from '../online/safety';
 
 export const handleSchema = z.strictObject({ handle: z.string().max(40).optional(), icon: z.enum(Object.keys(ICONS) as [keyof typeof ICONS, ...(keyof typeof ICONS)[]]).optional(), check: z.boolean().optional() });
@@ -31,12 +31,19 @@ export class PluginService {
   preview(actor: string, code: unknown) { return this.games.preview(actor, code); }
   lobby(actor: string) { return this.games.lobby(actor); }
   accept(actor: string, gameId: string) { return this.games.accept(actor, gameId); }
-  find(actor: string, options: unknown, colour: unknown = 'white', commandId?: string) { return this.games.find(actor, options, colour, commandId); }
+  find(actor: string, options: unknown, colour: unknown = 'white', commandId?: string, anyRules = false) { return this.games.find(actor, options, colour, commandId, anyRules); }
   cancel(actor: string, gameId: string) { return this.games.cancel(actor, gameId); }
   report(actor: string, input: unknown) { return this.safety.report(actor, input); }
   /** Read-only. The ID and the handle; never the email. */
   async profile(actor: string) { const { user_id, handle, icon } = await this.accounts.profile(actor); return { user_id, handle, icon }; }
-  settings(actor: string, input: unknown = {}) { return this.playerSettings.settings(actor, input); }
+  /** Board settings and last setup, plus 'Show when I am online': on is 'everyone', off is 'nobody'. The default
+   * 'mutual' shows as off: no King Down screen can make a follow yet, so it acts like 'nobody'. */
+  async settings(actor: string, input: unknown = {}): Promise<PlayerSettings> {
+    const { show_online, ...board } = parse(settingsSchema, input);
+    if (show_online !== undefined) await this.accounts.updateSettings(actor, { online_visible_to: show_online ? 'everyone' : 'nobody' });
+    const [settings, { online_visible_to }] = await Promise.all([this.playerSettings.settings(actor, board), this.accounts.profile(actor)]);
+    return { ...settings, show_online: online_visible_to === 'everyone' };
+  }
   async handle(actor: string, input: unknown) {
     actor = id(actor); const { handle, icon, check } = parse(handleSchema, input);
     if (check) {

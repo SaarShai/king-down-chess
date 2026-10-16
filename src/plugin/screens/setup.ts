@@ -14,6 +14,7 @@ const icon = (name: string) => `<svg class="icon" aria-hidden="true"><use href="
 const image = (path: string, cls = '') => `<img class="${cls}" src="${art(path)}" alt="">`;
 const name = (word: string) => word[0].toUpperCase() + word.slice(1);
 const cardName = (card: CardName) => POWER_NAME[card as PowerName] ?? card.replace(/([A-Z])/g, ' $1').trim();
+export const ANY_RULES = 'Join the oldest open game, whatever its rules.';
 const levelLines = { beginner: 'New to King Down? Start here.', casual: 'Makes some mistakes.', club: 'Plays well. Keep your pieces safe.', strong: 'Thinks longer. Plays stronger.' };
 const pieceLines = { A: 'Shoots without moving.', L: 'Jumps over its own pieces.', G: 'Only a king takes it.', M: 'Swaps with a friend.', S: 'Bites in a chain.', O: 'Shoves a neighbour.', R: 'Moves in straight lines.', B: 'Moves on diagonals.', N: 'Jumps in an L.', Q: 'Moves in any line.' };
 /** The rules of a game with king powers; a game without them plays DEFAULT_RULES (src/match/worker.ts). */
@@ -21,7 +22,8 @@ export const kingRules = powersRules({ ...DEFAULT_RULES, ...POWERS_BALANCED });
 const faces: readonly CardName[] = ['Freeze','IceWall','Sacrifice','March','Leap','Salvation','Mimic','Vault','SkyLift'];
 const mounted = (window as Window & { openai?: WidgetHost }).openai?.widgetState?.privateContent;
 const restored = mounted?.pending;
-let draft: SetupState | undefined, starting = false, slow = false, recovering = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
+// anyRules: 'Any rules' under A random player (owner item D1 a). It applies to this start only and is not saved.
+let draft: SetupState | undefined, anyRules = false, starting = false, late = false, recovering = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
 const restoredSetup = () => !restoreHandled && restored?.screen === 'setup' && !!memory.settings?.last_setup && (restored.name === 'kingdown_choose' || !!restored.args.options);
 const ownPending = () => ownCommand || restoredSetup();
 async function readGames() {
@@ -38,6 +40,7 @@ function toggle(key: string, symbol: string, title: string, line: string, sheet 
 }
 function build() {
   $('setup-body').innerHTML = `<fieldset class="modes"><legend class="sr-only">Who you play</legend>${(['solo','friend','random'] as const).map(kind => `<label class="mode"><input type="radio" name="setup-mode" value="${kind}" aria-label="${{ solo: 'Computer', friend: 'A friend', random: 'A random player' }[kind]}"><span class="mode-art${kind === 'random' ? ' emblem-fan' : ''}">${kind === 'random' ? ['frost','flame','stratus'].map(k => image(`ui/emblems/${k}.webp`)).join('') : image('ui/kings/spirit.webp') + (kind === 'friend' ? image('ui/kings/shadow-b.webp', 'face-left') : '')}</span><span class="mode-text"><b>${{ solo: 'Computer', friend: 'A friend', random: 'A random player' }[kind]}</b></span></label>`).join('')}</fieldset>
+    ${toggle('anyRules', 'globe', 'Any rules', ANY_RULES)}
     ${segment('setup-level', 'Computer level', ['beginner','casual','club','strong'])}<p id="level-line" class="seg-line"></p>
     ${segment('setup-colour', 'You play', ['white','black','random'])}<h3 class="group-head">The game</h3>
     ${toggle('fairy', 'fairy', 'Fairy pieces', '', 'pieces')}
@@ -50,6 +53,7 @@ function build() {
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-mode"]').forEach(input => { input.onchange = () => { draft!.kind = memory.kind = input.value as SetupState['kind']; render(); }; });
   for (const key of ['level', 'colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.onchange = () => { draft = { ...draft!, [key]: input.value }; render(); }; });
   for (const key of ['fairy','arrangement','classic','cards','kingPowers'] as const) $<HTMLInputElement>(`setup-toggle-${key}`).onchange = event => { draft = withToggle(draft!, key, (event.target as HTMLInputElement).checked); render(); };
+  $<HTMLInputElement>('setup-toggle-anyRules').onchange = event => { anyRules = (event.target as HTMLInputElement).checked; render(); };
   for (const sheet of ['pieces','cards'] as const) $(`setup-${sheet}`).onclick = event => { event.preventDefault(); event.stopPropagation(); poolSheet(sheet); };
   $('setup-king').onclick = () => void pickKing();
   $('setup-start').onclick = () => void launch();
@@ -59,6 +63,7 @@ function render() {
   const o = draft.options;
   for (const key of ['mode','level','colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.checked = input.value === (key === 'mode' ? draft!.kind : draft![key]); });
   $('setup-level').hidden = $('level-line').hidden = draft.kind !== 'solo'; $('level-line').textContent = levelLines[draft.level];
+  $('anyRules-row').hidden = draft.kind !== 'random'; $<HTMLInputElement>('setup-toggle-anyRules').checked = anyRules;
   for (const key of ['fairy','arrangement','classic','cards','kingPowers'] as const) $<HTMLInputElement>(`setup-toggle-${key}`).checked = o[key];
   $('arrangement-row').hidden = !o.fairy; $('classic-row').hidden = o.fairy; $('setup-pieces').hidden = !o.fairy; $('setup-cards').hidden = !o.cards;
   $('fairy-line').textContent = o.fairy ? 'Draw 7 pieces from the King Down pool.' : 'Only the chess pieces.';
@@ -68,9 +73,12 @@ function render() {
   const pick = shownKing(draft); $<HTMLImageElement>('setup-king').querySelector('img')!.src = art(`ui/emblems/${pick.king.toLowerCase()}.webp`);
   $('setup-king-name').innerHTML = `<b>${pick.king}</b> · ${POWER_NAME[pick.power]}`;
   $('setup-power-text').textContent = ruleLine(powerText(pick.power, kingRules));
-  $<HTMLButtonElement>('setup-start').disabled = starting || recovering || !!client.state.pending;
-  // Words wait for the owner (item W3, option a).
-  $('setup-start').textContent = !starting && !recovering ? 'Start game' : slow && !client.state.pending?.error ? 'Still starting. Keep this page open.' : 'Starting your game…';
+  // The button is disabled and busy at once (F5). Its words are the owner's items W3 b ('Starting…' after 1 s) and W6 a
+  // ('Start game' again while the error and Retry show).
+  const button = $<HTMLButtonElement>('setup-start'), busy = (starting || recovering) && !client.state.pending?.error;
+  button.disabled = starting || recovering || !!client.state.pending;
+  button.setAttribute('aria-busy', String(busy));
+  button.textContent = busy && (late || recovering) ? 'Starting…' : 'Start game';
 }
 function sheet(name: string, title: string, done: () => void) {
   closeSheet?.();
@@ -128,16 +136,18 @@ async function finish(view: View, pick = draft!.king) {
 async function launch() {
   if (!draft || starting || client.state.pending) return;
   starting = true; ownCommand = true; render();
-  // After a long wait, Back is a safe way out: the start stays pending, and Start sends no second Create.
-  // The wait line comes before the 10 s command limit (client.ts), which ends the call with Retry.
-  const wait = setTimeout(() => { slow = true; render(); const back = $<HTMLButtonElement>('page-back'); back.dataset.free = ''; back.disabled = false; }, 5_000);
+  // A quick start shows no words; after 1 s the button says 'Starting…'. After 5 s, Back is a safe way out: the start stays
+  // pending, and Start sends no second Create. The 10 s command limit (client.ts) ends the call with Retry.
+  const words = setTimeout(() => { late = true; render(); }, 1_000);
+  const wait = setTimeout(() => { const back = $<HTMLButtonElement>('page-back'); back.dataset.free = ''; back.disabled = false; }, 5_000);
   try {
     const last_setup = { ...draft, options: setupOptions(draft.options) }, saved = await client.call('kingdown_settings', { last_setup });
     if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     memory.settings = saved._meta?.settings as typeof memory.settings;
-    const view = await start(last_setup.kind, createArguments(last_setup), { route: false }); if (view) await finish(view, last_setup.king);
+    const args = { ...createArguments(last_setup), ...(last_setup.kind === 'random' && anyRules && { any_rules: true }) };
+    const view = await start(last_setup.kind, args, { route: false }); if (view) await finish(view, last_setup.king);
   } catch (error) { $('error').textContent = errorText(error); }
-  finally { clearTimeout(wait); starting = slow = false; delete $('page-back').dataset.free; if (!client.state.pending) ownCommand = false; render(); }
+  finally { clearTimeout(words); clearTimeout(wait); starting = late = false; delete $('page-back').dataset.free; if (!client.state.pending) ownCommand = false; render(); }
 }
 async function recoverStart() {
   const pending = client.state.pending;
@@ -174,6 +184,7 @@ export function setupScreen() {
   if (!draft) {
     draft = readSetup(memory.settings.last_setup);
     draft.kind = client.state.pending?.name === 'kingdown_find' ? 'random' : client.state.pending?.args.kind as SetupState['kind'] ?? draft.kind;
+    anyRules = client.state.pending?.name === 'kingdown_find' && client.state.pending.args.any_rules === true;
     memory.kind = draft.kind;
   } else draft.kind = memory.kind;
   if (!$('setup-body').childElementCount) build();

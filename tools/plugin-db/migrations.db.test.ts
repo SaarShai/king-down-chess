@@ -55,7 +55,7 @@ suite('migrations run again on a database in use', () => {
   const admin = new pg.Pool({ connectionString: own.href, max: 1 });
   const grants = await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8'), password = randomUUID();
   // The old role, the role without setup grants, and the full role.
-  const roles = { old: grants.split(/^commit;$/m).slice(0, 2).join('commit;') + 'commit;', withoutsetup: grants.split(/^commit;$/m).slice(0, 6).join('commit;') + 'commit;', withoutsettings: grants.split(/^commit;$/m).slice(0, 8).join('commit;') + 'commit;', full: grants };
+  const roles = { old: grants.split(/^commit;$/m).slice(0, 2).join('commit;') + 'commit;', withoutsetup: grants.split(/^commit;$/m).slice(0, 6).join('commit;') + 'commit;', withoutsettings: grants.split(/^commit;$/m).slice(0, 8).join('commit;') + 'commit;', withoutreportcleanup: grants.split(/^commit;$/m).slice(0, 9).join('commit;') + 'commit;', full: grants };
   const made: string[] = [];
   try {
    for (const [name, sql] of Object.entries(roles)) {
@@ -70,7 +70,8 @@ suite('migrations run again on a database in use', () => {
       const actor = randomUUID(); await admin.query('insert into auth.users(id) values($1)',[actor]);
       try {
        const service = new PluginService(new PostgresMatchStore(pool));
-       expect(await service.settings(actor)).toEqual({symbols_only:false,show_threats:false,last_setup:null});
+       expect(await service.settings(actor)).toEqual({symbols_only:false,show_threats:false,show_online:false,last_setup:null});
+       expect(await service.settings(actor,{show_online:true})).toMatchObject({show_online:true,symbols_only:false});
        expect(await service.settings(actor,{symbols_only:true})).toMatchObject({symbols_only:true,show_threats:false});
        expect(await service.settings(actor,{show_threats:true})).toMatchObject({symbols_only:true,show_threats:true});
       } finally {await admin.query('delete from auth.users where id=$1',[actor]);}

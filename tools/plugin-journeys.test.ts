@@ -372,7 +372,8 @@ it('keeps the newer games list when an older chat result reads its list late', a
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
-it('shows Retry for a move that waited over a remount when a chat result for its game comes during the first read', async () => {
+// The owner's item W6 a: the page sends the waiting move again by itself, so no error and no Retry show.
+it('sends a move that waited over a remount again by itself when a chat result for its game comes during the first read', async () => {
   const page = await open();
   try {
     const { game } = await friendGame(page);
@@ -386,10 +387,10 @@ it('shows Retry for a move that waited over a remount when a chat result for its
     // The first read after the remount holds its games list; then the model opens the game again.
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     await page.evaluate(result => (window as any).harnessShow(result), again);
-    await page.frameLocator('iframe').locator('#retry:not([hidden])').waitFor();
     await page.evaluate(() => (window as any).releaseHeld());
-    await page.waitForTimeout(300);
-    expect(await html(page).evaluate(() => ({ retry: document.getElementById('retry')!.hidden, error: document.getElementById('error')!.textContent, game: (window as any).harnessApp.memory.view?.game_id }))).toEqual({ retry: false, error: 'Cannot connect. Check your connection, then try again.', game });
+    await expect.poll(() => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.command_id))).toEqual(['remount-move', 'remount-move']);
+    await expect.poll(() => page.evaluate(() => (window as any).harnessWidgetState?.privateContent?.pending ?? null)).toBeNull();
+    expect(await html(page).evaluate(() => ({ retry: document.getElementById('retry')!.hidden, error: document.getElementById('error')!.textContent, game: (window as any).harnessApp.memory.view?.game_id }))).toEqual({ retry: true, error: '', game });
   } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseMove?.(); }); await page.close(); }
 });
 

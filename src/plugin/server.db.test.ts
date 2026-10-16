@@ -99,6 +99,45 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect((await rows('select game_id from public.game_players where user_id=$1', [b])).map(row => row.game_id)).toEqual([view(joined).game_id]);
  });
 
+ it('refuses a start command ID that comes again with other input, on each start path (RV5-3, RV7-1)', async () => {
+  const [a, b] = [await user('conflict-a'), await user('conflict-b')], host = await connect(a), guest = await connect(b);
+  // Classic switches, which no other test here opens, so the guest's Find takes the host's table.
+  const options = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true }, cards = { ...options, cards: true };
+  const starts = [
+   { kind: 'friend', options, command_id: `made-${tag}` }, // a new game
+   { kind: 'random', options, command_id: `joined-${tag}` }, // the host's open table
+   { kind: 'random', options: cards, command_id: `reused-${tag}` }, // the guest's own open table
+  ];
+  const table = await host.ok('kingdown_create', { kind: 'random', options }), games = [];
+  for (const args of starts.slice(0, 2)) games.push(view(await guest.ok('kingdown_create', args)).game_id);
+  const mine = await guest.ok('kingdown_create', { kind: 'random', options: cards });
+  games.push(view(await guest.ok('kingdown_create', starts[2])).game_id);
+  expect(games.slice(1)).toEqual([view(table).game_id, view(mine).game_id]);
+  await guest.ok('kingdown_abort', { game_id: games[1] });
+  for (const [n, args] of starts.entries()) {
+   for (const other of [{ kind: 'solo' }, { colour: 'black' }, { options: { ...args.options, kingPowers: true } }, ...args.kind === 'random' ? [{ any_rules: true }] : []])
+    expect((await guest.call('kingdown_create', { ...args, ...other }))._meta.code).toBe('COMMAND_CONFLICT');
+   expect(view(await guest.ok('kingdown_create', args)).game_id).toBe(games[n]);
+  }
+  expect((await guest.call('kingdown_find', { options, command_id: `made-${tag}` }))._meta.code).toBe('COMMAND_CONFLICT');
+  expect((await rows('select count(*)::int as n from public.games where created_by=$1', [b]))[0].n).toBe(2);
+  await guest.ok('kingdown_cancel', { game_id: view(mine).game_id });
+ });
+
+ it('gives a resent Find its own open game after another player takes the seat, and shows no Find times (RV5-4, RV7-2)', async () => {
+  const [a, b] = [await user('own-find-a'), await user('own-find-b')], host = await connect(a), guest = await connect(b);
+  const options = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true, kingPowers: true }, args = { options, command_id: `own-find-${tag}` };
+  const open = await host.ok('kingdown_create', { kind: 'random', options });
+  // The first Find reuses the host's open game, and its reply is lost. A second Find reuses it again. Then the guest takes the seat.
+  expect(view(await host.ok('kingdown_find', args)).game_id).toBe(view(open).game_id);
+  await host.ok('kingdown_find', { options, command_id: `own-find-2-${tag}` });
+  const accepted = view(await guest.ok('kingdown_accept', { game_id: view(open).game_id }));
+  // The Find receipts are not moves: the guest sees only the join, so no time shows when the host chose Find.
+  expect(accepted).toMatchObject({ revision: 3, last_commands: [{ seq: 3, seat: accepted.seat, action: { type: 'join' } }] });
+  expect(view(await host.ok('kingdown_find', args)).game_id).toBe(view(open).game_id);
+  expect((await rows('select id from public.games where created_by=$1', [a])).map(row => row.id)).toEqual([view(open).game_id]);
+ });
+
  it('keeps old games working through open, board reads, moves, inbox and history', async () => {
   const actor = await user('legacy'), player = await connect(actor);
   const legacy = await new GameService(new PostgresMatchStore(admin)).create(actor,{kind:'solo',colour:'white',setup:{backRank:'RNBQKBNR',kings:'none,none'}});
@@ -210,6 +249,22 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(view(await guest.ok('kingdown_get', { game_id })).opponent!.last_seen_ms).toBeNull();
  });
 
+ it("sets who gets the seat activity with 'Show when I am online': on is everyone, off is nobody", async () => {
+  const [a, b] = [await user('online-a'), await user('online-b')], host = await connect(a), guest = await connect(b);
+  const game_id = view(await host.ok('kingdown_create', { kind: 'friend', options: { ...DEFAULT_OPTIONS, arrangement: false } })).game_id;
+  await guest.ok('kingdown_join', { code: (await host.ok('kingdown_invite', { game_id })).structuredContent.code });
+  const state = async () => [(await rows('select online_visible_to from public.profiles where id=$1', [a]))[0].online_visible_to, view(await guest.ok('kingdown_get', { game_id })).opponent!.last_seen_ms];
+  // The default 'mutual' shows as off: nobody can follow yet, so nobody gets the time.
+  expect((await host.ok('kingdown_settings'))._meta.settings.show_online).toBe(false);
+  expect(await state()).toEqual(['mutual', null]);
+  expect((await host.ok('kingdown_settings', { show_online: true }))._meta.settings).toMatchObject({ show_online: true, symbols_only: false });
+  expect(await state()).toEqual(['everyone', expect.any(Number)]);
+  expect((await host.ok('kingdown_open'))._meta.settings.show_online).toBe(true);
+  expect((await host.ok('kingdown_settings', { show_online: false }))._meta.settings.show_online).toBe(false);
+  expect(await state()).toEqual(['nobody', null]);
+  expect((await host.call('kingdown_settings', { show_online: 'everyone' })).isError).toBe(true);
+ });
+
  it('keeps an active reader recent when the server clock is two days ahead', async () => {
   const [a, b] = [await user('clock-a'), await user('clock-b')], host = await connect(a), guest = await connect(b);
   const game_id = view(await host.ok('kingdown_create', { kind: 'friend', options: { ...DEFAULT_OPTIONS, arrangement: false } })).game_id;
@@ -231,7 +286,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
 
  it('starts a fresh account with the approved game defaults', async () => {
   const actor = await user('defaults'), player = await connect(actor);
-  expect((await player.ok('kingdown_settings'))._meta.settings).toEqual({ symbols_only: false, show_threats: false, last_setup: null });
+  expect((await player.ok('kingdown_settings'))._meta.settings).toEqual({ symbols_only: false, show_threats: false, show_online: false, last_setup: null });
   expect(view(await player.ok('kingdown_create', { kind: 'solo' }))).toMatchObject({ status: 'setup', level: 'club', options: { fairy: true, arrangement: true, classic: false, cards: false, kingPowers: false } });
  });
 
@@ -262,7 +317,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   await player.ok('kingdown_settings', { symbols_only: true, last_setup });
   await player.ok('kingdown_settings', { show_threats: true });
   const reopened = await player.ok('kingdown_open');
-  expect(reopened._meta.settings).toEqual({ symbols_only: true, show_threats: true, last_setup });
+  expect(reopened._meta.settings).toEqual({ symbols_only: true, show_threats: true, show_online: false, last_setup });
   expect(view(await player.ok('kingdown_create', { kind: 'solo' })).options).toEqual(last_setup.options);
   for (const input of [{ last_setup: { ...last_setup, options: { ...DEFAULT_OPTIONS, pool: [] } } }, { last_setup: { ...last_setup, king: { king: 'Flame', power: 'Mercy' } } }]) expect((await player.call('kingdown_settings', input)).isError).toBe(true);
   expect((await reader.ok('kingdown_settings'))._meta.settings).toEqual(reopened._meta.settings);

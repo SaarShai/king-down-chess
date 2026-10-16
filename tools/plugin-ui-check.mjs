@@ -507,9 +507,10 @@ try {
     const recovered = await page.evaluate(() => window.harnessView); await setupTool('kingdown_abort', { game_id: recovered.game_id });
     await setupMount({ ...baseSetup, kind: 'random', options: { ...DEFAULT_OPTIONS, arrangement: false } }); await frame.locator('#setup-start').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     const random = await page.evaluate(() => window.harnessView); assert.equal(random.kind, 'random'); await setupTool('kingdown_cancel', { game_id: random.game_id });
-    const offeredOptions = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
+    // Find takes an open game with the same five switches (approval D1 a); its piece pool may differ from the sent one.
+    const offeredOptions = { ...DEFAULT_OPTIONS, arrangement: false, pool: ['Q', 'R', 'B', 'N'] };
     await setupTool('kingdown_create', { kind: 'random', options: offeredOptions, colour: 'white' }, true);
-    await setupMount({ ...baseSetup, kind: 'random' }); await frame.locator('#setup-start').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await setupMount({ ...baseSetup, kind: 'random', options: { ...DEFAULT_OPTIONS, arrangement: false } }); await frame.locator('#setup-start').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     const accepted = await page.evaluate(() => window.harnessView);
     assert.deepEqual(accepted.options, offeredOptions, 'Find uses the accepted game features instead of the sent choices');
     await setupTool('kingdown_abort', { game_id: accepted.game_id });
@@ -1081,6 +1082,10 @@ try {
     await openScreen('settings'); await boardSetting('symbols-only',false); await boardSetting('show-threats',false);
   }
   await page.setViewportSize({width:1000,height:1000});
+  // Approval D14 a: the toggle sends only its own field, and the server's answer sets the box.
+  await openScreen('settings'); await boardSetting('show-online',true);
+  assert.deepEqual(await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').at(-1).arguments), {show_online:true}, 'Show when I am online sends only its own setting');
+  await boardSetting('show-online',false);
   await openPlay(); await legacyStart('solo'); await idleBoard(); await boardBox();
   async function clickSquare(file, rank) {
     const box = await boardBox(); assert(box);

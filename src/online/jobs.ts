@@ -139,12 +139,18 @@ export async function runDeletions(games: GameService): Promise<number> {
  return deleted;
 }
 
-/** Deletes expired invitations after the sweep, boards older than 7 days and outbox rows done more than 30 days ago. */
-export async function cleanup(games: GameService, now = new Date()): Promise<{ invites: number; outbox: number; boards: number }> {
+/**
+ * The periods in public/privacy.html: deletes expired invitations after the sweep, boards older than 7 days, outbox rows
+ * made or done more than 30 days ago (the MVP sends no email, so most rows are never done), and reports older than
+ * 12 months that no hold covers. The report delete uses the database clock: runtime-role.sql (tenth block) lets this
+ * role delete no newer or held report.
+ */
+export async function cleanup(games: GameService, now = new Date()): Promise<{ invites: number; outbox: number; boards: number; reports: number }> {
  const pool = games.store.pool;
  const invites = await pool.query(`delete from public.game_invites i where i.expires_at<=$1
   and not exists(select from public.games g where g.id=i.game_id and g.status='waiting')`, [now]);
- const outbox = await pool.query(`delete from public.outbox where done_at<=$1::timestamptz-interval '30 days'`, [now]);
+ const outbox = await pool.query(`delete from public.outbox where done_at<=$1::timestamptz-interval '30 days' or created_at<=$1::timestamptz-interval '30 days'`, [now]);
  const boards = await pool.query("delete from public.plugin_boards where created_at<$1::timestamptz-interval '7 days'", [now]);
- return { invites: invites.rowCount ?? 0, outbox: outbox.rowCount ?? 0, boards: boards.rowCount ?? 0 };
+ const reports = await pool.query("delete from public.reports where created_at<now()-interval '12 months' and (hold_until is null or hold_until<=now())");
+ return { invites: invites.rowCount ?? 0, outbox: outbox.rowCount ?? 0, boards: boards.rowCount ?? 0, reports: reports.rowCount ?? 0 };
 }

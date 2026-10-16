@@ -118,11 +118,13 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       if (preview) result.content = text('Review the game features before you join.');
       return result;
     });
-  register('kingdown_create', 'Use this when the player wants a new King Down game against the computer, a friend or a random player. Choose the features, colour and computer level. Without options, uses the last setup options, then the default options. A board_id also changes that board’s selected game.',
-    { kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(), command_id: command.command_id.optional(), board_id: boardId },
-    { visibility: ['model', 'app'], idempotent: false }, ({ board_id, command_id, ...input }) => select(board_id, async () => {
+  register('kingdown_create', 'Use this when the player wants a new King Down game against the computer, a friend or a random player. Choose the features, colour and computer level. Without options, uses the last setup options, then the default options. A random game joins the oldest open game with the same Fairy pieces, Arrangement, Classic, Cards and King powers switches (any_rules: any open game), else opens a new table; the colour applies only to a new table. A board_id also changes that board’s selected game.',
+    { kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(), any_rules: z.boolean().optional(),
+      // RV5-3: the model sees this field, so it must know that one ID names one request.
+      command_id: command.command_id.optional().describe('For the King Down board only: leave it out. The same value with other input gives COMMAND_CONFLICT.'), board_id: boardId },
+    { visibility: ['model', 'app'], idempotent: false }, ({ board_id, command_id, any_rules, ...input }) => select(board_id, async () => {
       const options = input.options ?? (await service.settings(actorId)).last_setup?.options ?? DEFAULT_OPTIONS;
-      return input.kind === 'random' ? service.find(actorId, options, input.colour, command_id) : service.create(actorId, { ...input, options }, command_id);
+      return input.kind === 'random' ? service.find(actorId, options, input.colour, command_id, any_rules) : service.create(actorId, { ...input, options }, command_id);
     }));
   register('kingdown_resume', 'Show a selected game, or your most urgent game, on this board.', { board_id: z.string().uuid(), game_id: gameId.optional() }, { visibility: ['app'], idempotent: false }, async args => {
     if (args.game_id) return select(args.board_id, () => service.view(actorId, args.game_id!));
@@ -155,7 +157,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     return { content: text(`${lobby.games.length} open game${lobby.games.length === 1 ? '' : 's'}.`), structuredContent: { count: lobby.games.length }, _meta: { lobby: { ...lobby, server_now: new Date().toISOString() } } };
   });
   register('kingdown_accept', 'Take the open seat in a random game.', { game_id: gameId, board_id: boardId }, { visibility: ['app'] }, args => select(args.board_id, () => service.accept(actorId, args.game_id)));
-  register('kingdown_find', 'Take the oldest open game, or open your own.', { options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), command_id: command.command_id.optional(), board_id: boardId }, { visibility: ['app'], idempotent: false }, args => select(args.board_id, () => service.find(actorId, args.options, args.colour, args.command_id)));
+  register('kingdown_find', 'Take the oldest open game with the same five feature switches (any_rules: any open game), or open your own.', { options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), any_rules: z.boolean().optional(), command_id: command.command_id.optional(), board_id: boardId }, { visibility: ['app'], idempotent: false }, args => select(args.board_id, () => service.find(actorId, args.options, args.colour, args.command_id, args.any_rules)));
   register('kingdown_cancel', 'Cancel your waiting random game with no result.', { game_id: gameId }, { visibility: ['app'], destructive: true }, async args => reply(await service.cancel(actorId, args.game_id)));
   register('kingdown_choose', 'Choose your king and back-rank order, then mark your seat Ready.', { ...command, king: choiceSchema.shape.king, order: choiceSchema.shape.order, ready: z.boolean() }, { visibility: ['app'] }, ({ king, order, ready, ...args }) => play(args, { type: 'choose', choice: { king, order }, ready }));
   register('kingdown_rematch', 'Offer, accept or decline a rematch. The reply stays on this game; resume the rematch to move the board.', { ...command, choice: z.enum(['offer', 'accept', 'decline']) }, { visibility: ['app'], destructive: true }, ({ choice, ...args }) => play(args, { type: 'rematch', choice }));
@@ -185,7 +187,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     const { handle, icon } = await service.handle(actorId, args);
     return { content: text(args.check ? 'This handle is free.' : 'Your name and picture are ready.'), ...(args.check && { structuredContent: { available: true } }), _meta: { me: { handle, icon } } };
   });
-  register('kingdown_settings', 'Read or change your board settings and last setup choices.', settingsSchema.shape, { visibility: ['app'], destructive: true }, async args => {
+  register('kingdown_settings', 'Read or change your board settings, whether your opponents get the time you were last in a game (show_online), and your last setup choices.', settingsSchema.shape, { visibility: ['app'], destructive: true }, async args => {
     const [settings, { handle, icon }] = await Promise.all([service.settings(actorId, args), service.profile(actorId)]);
     return { content: text('Your settings are ready.'), _meta: { settings, me: { handle, icon } } };
   });

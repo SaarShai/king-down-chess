@@ -2,6 +2,7 @@ import { call, client, memory, navigate, routeView, start } from '../app';
 import { DEFAULT_OPTIONS } from '../../match/setup';
 import type { InboxEntry, Lobby, View } from '../../match/protocol';
 import { runPoll } from '../poll';
+import { ANY_RULES } from './setup';
 import { $, featureNames, features, icon, onStop, portrait, row, showError } from './friend';
 let poll: ReturnType<typeof runPoll> | undefined, finding = false, accepting = false, afterHandle: string | undefined;
 // The list uses the runner's visible 15-second schedule, with no board position.
@@ -10,12 +11,13 @@ export function lobbyScreen() {
   if (afterHandle && memory.me?.handle) { const game = afterHandle; afterHandle = undefined; void acceptGame(game); return; }
   const setup = memory.settings?.last_setup;
   $('find-features').replaceChildren(features(setup?.options ?? DEFAULT_OPTIONS));
+  $('find-any-line').textContent = ANY_RULES;
   $('find-opponent').onclick = async () => {
     if (finding || accepting) return; finding = true;
     try {
       const own = memory.view?.kind === 'random' && memory.view.status === 'waiting' ? memory.view.game_id : memory.games.find(game => game.kind === 'random' && game.status === 'waiting')?.game_id;
       if (own) { const next = await call('kingdown_resume', { game_id: own }, false, false, false); if (next) routeView(next); }
-      else await start('random', { options: setup?.options ?? DEFAULT_OPTIONS, colour: setup?.colour ?? 'white' });
+      else await start('random', { options: setup?.options ?? DEFAULT_OPTIONS, colour: setup?.colour ?? 'white', ...($<HTMLInputElement>('find-any-rules').checked && { any_rules: true }) });
     } finally { finding = false; }
   };
   $('lobby-key').innerHTML = featureNames.map(([, name, label]) => `${icon(name)} ${label}`).join(' · ');

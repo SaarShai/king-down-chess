@@ -244,7 +244,7 @@ it.each([[768, 1024], [1024, 768]])('gives Settings toggles the 44 px floor with
   try {
     await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
     const heights = await frame.locator('[data-screen="settings"] .fields > label').evaluateAll(labels => labels.map(l => l.getBoundingClientRect().height));
-    expect(heights).toHaveLength(2); for (const h of heights) expect(h).toBeGreaterThanOrEqual(44);
+    expect(heights).toHaveLength(3); for (const h of heights) expect(h).toBeGreaterThanOrEqual(44);
   } finally { await page.close(); }
 });
 it('wraps the page title at 320 px and never cuts it', async () => {

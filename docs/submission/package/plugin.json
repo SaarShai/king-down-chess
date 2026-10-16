@@ -61,7 +61,7 @@
               "description": "Show the rating, the game totals and the badge count in text.",
               "prompt": "What is my King Down rating?",
               "tools_triggered": "kingdown_profile",
-              "expected_behavior": "The reply gives the rating, the games played, won, drawn and lost, and the number of badges, for example \"Rating 1500?; 3 played, 1 won, 1 drawn, 1 lost; 2 badges.\" A question mark after the rating means it is provisional."
+              "expected_behavior": "The reply gives the rating, the games played, won, drawn and lost, and the number of badges, for example \"Rating 1662?; 1 played, 1 won, 0 drawn, 0 lost; 3 badges.\" A question mark after the rating means it is provisional."
             },
             {
               "description": "Resign an active game against the computer. ChatGPT asks for confirmation first, because the action ends the game.",
