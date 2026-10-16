@@ -76,7 +76,7 @@ try {
 
   await frame.locator('#home-card').waitFor();
   assert.equal(await frame.locator('#app-head').count(), 0, 'The approved sample has no page title or tabs');
-  assert.equal(await frame.locator('symbol').count(), 21, 'The page has the full game sprite');
+  assert.equal(await frame.locator('symbol').count(), 23, 'The page has the full game sprite');
   assert.equal(await frame.locator('#over').count(), 1, 'The frame has one shared overlay');
   assert.equal(await frame.locator('#i-back, #i-close, #i-plus, #i-mic').count(), 0, 'Host icons stay with the host');
   assert(await frame.locator('#home-play').isDisabled(), 'Play waits for the page and the host to connect');
