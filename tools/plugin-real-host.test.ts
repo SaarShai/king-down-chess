@@ -2,18 +2,22 @@
 // resource's sandbox, allow list and CSP. With ?frame-per-result, each chat result mounts a new frame and the old
 // frames stay live, as in ChatGPT.
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Browser, Frame, Page } from 'playwright';
 import { launch } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
-let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
+// harness serves the source page, which shows the app to the test as window.harnessApp; built serves the build.
+let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, built: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => { folder = await mkdtemp(join(tmpdir(), 'kingdown-real-host-test-'));
-  const boardPath = join(folder, 'board.html'); await writeFile(boardPath, await readFile('src/plugin/index.html'));
-  harness = await startHarness({ boardPath, sourcePage: true }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' }); });
-afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
+  execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe' });
+  const boardPath = join(folder, 'board.html');
+  harness = await startHarness({ boardPath, sourcePage: true }); built = await startHarness({ boardPath });
+  browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' }); });
+afterAll(async () => { await browser?.close(); await harness?.close(); await built?.close(); await rm(folder, { recursive: true, force: true }); });
 const CLASSIC = { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false };
 // Node's fetch, not page.request: the offline test takes the browser offline, not the friend.
 const tool = async (path: string, name: string, args: Record<string, unknown> = {}) => (await fetch(new URL(path, harness.url), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, arguments: args }) })).json();
@@ -80,6 +84,24 @@ it('serves the widget from a sandboxed second origin with the CSP of its resourc
     // Each origin serves only its own pages.
     expect((await fetch(new URL('/board-resource', host))).status).toBe(404);
     expect((await fetch(new URL('/fixture-tool', origin), { method: 'POST', body: '{}' })).status).toBe(404);
+  } finally { await page.close(); }
+});
+
+it('starts the widget under its CSP when a clock step ends the boot delay', async () => {
+  // A clock step runs the boot timer in a DevTools call, where the CSP lets code evaluate strings. If the built widget
+  // code starts in that call, zod finds that it may compile parsers, and its first parse of a host message then fails.
+  const page = await browser.newPage({ viewport: { width: 400, height: 900 } }); page.setDefaultTimeout(5000);
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  try {
+    await page.addInitScript(() => { (window as any).harnessBootDelay = 300; });
+    await page.clock.install(); await page.goto(built.url);
+    await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+    await pause(page);
+    const booted = await boots(page);
+    await page.locator('#remount').click(); await page.waitForFunction(n => (window as any).harnessBoots > n, booted, POLL);
+    await page.clock.fastForward(300);
+    await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+    expect(errors).toEqual([]);
   } finally { await page.close(); }
 });
 

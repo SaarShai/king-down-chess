@@ -43,7 +43,9 @@ const FRAME_SHIM = `<script>window.harnessBoot = new Promise(resolve => {
     if (event.source !== parent || data?.harness !== 'boot') return;
     removeEventListener('message', boot);
     if (data.openai) window.openai = { widgetState: data.widgetState, setWidgetState(state) { parent.postMessage({ harness: 'widget-state', state }, '*'); } };
-    setTimeout(resolve, data.bootDelay);
+    // A check's clock step runs this timer inside a DevTools call, which may evaluate strings in spite of the CSP. The
+    // widget code starts in a task of its own, as on a real page load, so zod's eval probe meets the CSP.
+    setTimeout(() => { const channel = new MessageChannel(); channel.port1.onmessage = resolve; channel.port2.postMessage(0); }, data.bootDelay);
     parent.postMessage({ harness: 'booted' }, '*');
   });
   parent.postMessage({ harness: 'boot' }, '*');
