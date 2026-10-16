@@ -436,7 +436,7 @@ it('W7: stages a move, sends once, and starts the computer only after the press'
     expect((await moveCalls(page)).map((c: any) => c.arguments.actions)).toEqual([['e2-e4']]);
     expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
     expect(await frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('true');
-    expect(await frame.locator('#undo').isDisabled()).toBe(false); expect(await frame.locator('#end-turn').isDisabled()).toBe(false);
+    expect(await frame.locator('#undo').evaluate(e => (e as HTMLButtonElement).disabled)).toBe(false); expect(await frame.locator('#end-turn').evaluate(e => (e as HTMLButtonElement).disabled)).toBe(false);
     await frame.locator('#undo').focus(); await page.keyboard.press('Tab');
     expect(await frame.locator('#end-turn').evaluate(e => e===document.activeElement)).toBe(true);
     await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_computer'; (window as any).releaseBefore(); });
