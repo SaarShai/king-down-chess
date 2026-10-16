@@ -358,7 +358,8 @@ it('names the turn on Resume and keeps the open game after a home remount', asyn
     await expand(page);
     const game = await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
-      for (let n = 0; n < 2; n++) await app.call('kingdown_create', { kind: 'solo', colour: 'white' });
+      const options = { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false };
+      for (let n = 0; n < 2; n++) await app.call('kingdown_create', { kind: 'solo', colour: 'white', options });
       return app.memory.view.game_id;
     });
     await page.route('**/fixture-tool', async route => {
@@ -385,7 +386,8 @@ it('keeps the Resume label with the end screen while another game waits', async 
     await expand(page);
     const game = await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
-      for (let n = 0; n < 2; n++) await app.call('kingdown_create', { kind: 'solo', colour: 'white' });
+      const options = { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false };
+      for (let n = 0; n < 2; n++) await app.call('kingdown_create', { kind: 'solo', colour: 'white', options });
       const game = app.memory.view.game_id;
       await app.call('kingdown_resign', { game_id: game }, true, false, true);
       await app.call('kingdown_get', {});
