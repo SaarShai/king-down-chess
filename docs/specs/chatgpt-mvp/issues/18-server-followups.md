@@ -17,7 +17,7 @@ Build ticket 18-d and 18-e only, on `claude/server-limits`. The owner gives the 
 ## Limits and choices
 
 - Computer: 120 calls per minute. A human needs time for a move before each computer turn.
-- Create: 30 calls per minute. This permits a burst of new games beyond normal play. Find shares this count, because Find can open a new table.
+- Create: 60 calls per minute. Find shares this count, because Find can open a new table. This permits one new game each second. The browser check `plugin-ui-http`, which starts games faster than a person, makes 31 Create and Find calls in its busiest minute.
 - Open: 60 calls per minute. This permits one new board each second.
 - Report: 30 calls per hour. This permits many reports without an open path to fill the table.
 - HTTP: three active calls per user. The board can overlap three reads. One user cannot hold all four server slots. A call takes its slots after the local token check and before the sign-in provider check, so a sign-in wait counts.
@@ -49,7 +49,7 @@ The first two-request user cap also refuses a normal third board read. A tempora
 Two reviewers check `fabcde5b`. Each finding is checked against the code.
 
 1. Fixed. One user can hold all four slots: a call takes the server slot before the sign-in provider check, and the user check comes after it. Now `verify` calls `admit` after the local token check and before the provider call. `admit` checks the user cap, then the server cap, and takes both slots. A call with no valid token takes no slot. New test: three calls from one user wait in the provider check; a fourth gets 429 and does not reach the provider; another user gets 200. It fails on the old code.
-2. Fixed. `kingdown_find` counts on the Create counter, so Find and Cancel cannot make games past the limit. New database test; it fails on the old code (the count stays 29).
+2. Fixed. `kingdown_find` counts on the Create counter, so Find and Cancel cannot make games past the limit. New database test; it fails on the old code (the count does not change). With the shared count, `plugin-ui-http` gets `RATE_LIMITED` at its friend seat step: a count probe shows 31 Create and Find calls in its first minute. The Create limit goes from 30 to 60 a minute, which is still far above a person's speed.
 3. Fixed. The Join screen shows the code-try text only for a code-try refusal. Another `RATE_LIMITED` text, such as the Open limit, shows as the server sends it. This is a one-line change in `src/plugin/screens/friend.ts`. New check in `tools/plugin-lobby.test.ts`; it fails on the old code.
 4. Fixed. The plugin deploy target requires `KINGDOWN_INTERNAL_SECRET` with at least 32 characters, as the site target does. The runbook says that an absent secret stops all new invitations and short-code joins. `tools/deploy.test.ts` checks seven plugin values, a short secret and an absent secret.
 5. Fixed. The privacy page and the privacy additions name the tool counters. A docs test lists each try counter in the migrations.

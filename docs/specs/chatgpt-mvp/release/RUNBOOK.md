@@ -2,7 +2,7 @@
 
 ## Release notes: server limits and codes
 
-Each user has these limits: 120 Computer calls per minute, 30 Create calls per minute,
+Each user has these limits: 120 Computer calls per minute, 60 Create calls per minute,
 60 Open calls per minute and 30 reports per hour. Find shares the Create count. A refused call counts. The server returns
 `RATE_LIMITED` with the wait time. Each user can hold three of the four active HTTP slots. The fourth stays available to another user.
 

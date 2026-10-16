@@ -74,7 +74,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
  });
 
  it.each([
-  ['kingdown_computer', 120, 60], ['kingdown_create', 30, 60], ['kingdown_open', 60, 60], ['kingdown_report', 30, 3600],
+  ['kingdown_computer', 120, 60], ['kingdown_create', 60, 60], ['kingdown_open', 60, 60], ['kingdown_report', 30, 3600],
  ] as const)('limits %s for each user and resets its window', async (tool, count, seconds) => {
   const actor = await user(`cap-${tool.slice(9)}`), player = await connect(actor);
   const made = await player.ok('kingdown_create', { kind: 'solo', colour: 'black', level: 'beginner', options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } });
@@ -126,10 +126,10 @@ suite('ChatGPT tools on PostgreSQL', () => {
 
  it('counts kingdown_find on the Create limit, so Find and Cancel cannot make games past it', async () => {
   const actor = await user('cap-find'), player = await connect(actor), options = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
-  await admin.query("insert into public.plugin_tool_tries(user_id,tool,tries) values($1,'kingdown_create',29)", [actor]);
+  await admin.query("insert into public.plugin_tool_tries(user_id,tool,tries) values($1,'kingdown_create',59)", [actor]);
   const found = view(await player.ok('kingdown_find', { options }));
   if (found.status === 'waiting') await player.ok('kingdown_cancel', { game_id: found.game_id });
-  expect((await rows("select tries from public.plugin_tool_tries where user_id=$1 and tool='kingdown_create'", [actor]))[0].tries).toBe(30);
+  expect((await rows("select tries from public.plugin_tool_tries where user_id=$1 and tool='kingdown_create'", [actor]))[0].tries).toBe(60);
   const games = async () => (await rows('select count(*)::int as n from public.games where created_by=$1', [actor]))[0].n;
   const before = await games(), limited = await player.call('kingdown_find', { options, any_rules: true });
   expect(limited).toMatchObject({ isError: true, _meta: { code: 'RATE_LIMITED' } }); expect(limited.content[0].text).toMatch(/Too many new games/);

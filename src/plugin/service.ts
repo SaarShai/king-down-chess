@@ -14,7 +14,7 @@ export const handleSchema = z.strictObject({ handle: z.string().max(40).optional
 const seated = 'exists(select from public.game_players where game_id=$3 and user_id=$2)';
 export const TOOL_LIMITS = {
   kingdown_computer: { count: 120, seconds: 60, message: 'Too many computer turns. Wait one minute, then try again.' },
-  kingdown_create: { count: 30, seconds: 60, message: 'Too many new games. Wait one minute, then try again.' },
+  kingdown_create: { count: 60, seconds: 60, message: 'Too many new games. Wait one minute, then try again.' },
   kingdown_open: { count: 60, seconds: 60, message: 'Too many new boards. Wait one minute, then try again.' },
   kingdown_report: { count: 30, seconds: 3600, message: 'Too many reports. Wait one hour, then try again.' },
 };
