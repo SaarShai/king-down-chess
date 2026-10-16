@@ -1,10 +1,10 @@
 # 18 · Server follow-ups, lane server-2
 
-Status: in-progress
+Status: needs-triage
 
 ## Scope
 
-Build ticket 14 B4 and ticket 18-c on `claude/r9-server`.
+Build ticket 14 B4 and parts 18-a, 18-b and 18-c on `claude/r9-server`. Part 18-a also covers A-F4 from ticket 11.
 The owner approves this scope and the exact B4 words on 2026-10-16.
 The source tickets are in the owner's scratch ticket folder.
 
@@ -24,8 +24,9 @@ The source tickets are in the owner's scratch ticket folder.
 
 ## Limits
 
-- `kingdown_block` does not exist on this branch. Ticket 18-b adds it and must set its open-world hint true. This step does not build 18-b.
-- Tickets 18-a, 18-d and 18-e are outside this step.
+- The current step covers 18-a, 18-b and A-F4. Earlier commits cover B4 and 18-c.
+- Report has no app control. The owner keeps it for later: Block only.
+- Parts 18-d and 18-e stay outside this step.
 
 ## Choices
 
@@ -125,7 +126,7 @@ Parts 18-a and 18-b, with A-F4, are approved by the owner's task. Parts 18-d and
 - The engine file passes all 35 tests on its own, then all 50 document and artwork tests. Its limit stays at five seconds. The old board-target failure from the first full run passes in the repeat. No unrelated source or test changes are made.
 - The privacy category repeat at `be163c2f` passes all 6 policy tests, then all 50 document and artwork tests. Its log is `/tmp/kd-r9-18-privacy-repeat.log`, with exit code 0.
 - Local logs: `/tmp/kd-r9-18-typecheck.log`, `/tmp/kd-r9-18-local-protocol.log`, `/tmp/kd-r9-18-repeat-tests.log`, `/tmp/kd-r9-18a-tests.log` and `/tmp/kd-r9-18-rules-test.log`. Each has its exit file.
-- The M1 job is still in the shared browser queue. It will test the code at `62adc425` in this lane's folder. Its log is `/tmp/kd-r9-18-browser.log`. The check logs and exit files use `/tmp/kd-r9-18-plugin-ui`, `/tmp/kd-r9-18-plugin-ui-http` and `/tmp/kd-r9-18-protocol`.
+- The M1 job first waits for the shared browser lock. The repair and final results below cover that run. The initial job log is `/tmp/kd-r9-18-browser.log`.
 
 ### M1 first check and repair
 
@@ -137,3 +138,23 @@ Parts 18-a and 18-b, with A-F4, are approved by the owner's task. Parts 18-d and
 - The second fixture run reaches the Profile undo. It refuses the fixture's `bob` target because the tool requires a UUID. Give fixture profiles public UUIDs while their internal actor names stay short. Use those UUIDs in the block list and resolve them on undo. Check this path through MCP in the protocol check and in the fixture unit test. The real account code and its UUID input check stay in place.
 
 - The spacing repair adds a second `quiet-line` to Settings. The old account-sync text assertion now has two matches. Select its final help line. Keep both help lines and keep the new overlap assertion.
+
+## Final results for 18-a and 18-b
+
+- Both requested parts and A-F4 are built. Settings takes and returns `everyone`, `mutual` or `nobody`. Friends only stays the default. Both Settings menu rows, the privacy page and the review notes use the new words. The policy also names stored follows and blocks.
+- `kingdown_block` reads, blocks and unblocks through the existing account relations. Its destructive and open-world hints are true. The game Menu has confirmation and saved Block or Unblock status. Profile has a lasting undo path after the game ends. A block ends follows, stops Find and open-game joins, and hides messages. The current game continues.
+- Latest checked code: `22c6a20b`. `npx tsc --noEmit` and the commit gates pass. The 26-tool protocol check passes locally and on the M1. It includes Profile → Unblock with the public UUID.
+- Latest full `npm test`, with the specified local database: **2,561 pass, 8 skip, 2 fail in 167 files** (145.50 seconds). All changed test files pass. The failures are the unchanged report-delete permission expectation (`src/online/accounts.db.test.ts:266`) and the old card/Abort target-size check (`tools/plugin-board.test.ts:245`). The earlier results above record both faults before this step. No limit changes.
+- Focused checks pass: 34 server/migration/privacy tests, 9 fixture tests, the 6 policy tests after the final data item, and the 35-test engine file after its one full-run timeout. Each focused command also passes all 50 document and artwork tests. Counts belong to each command; they are not a combined total.
+- M1 `plugin-ui`: **pass, 225.7 seconds**. It covers all three online values, 44 px targets, help spacing, remounts, block-read failure and retry, Cancel, Block, saved status, Menu undo and Profile undo after a finished game.
+- M1 `plugin-ui-http`: **fail, 164.1 seconds**. All 18-a and 18-b assertions pass first. The later Join check stops at a hidden `#join-confirm` after a remount (`tools/plugin-ui-check.mjs:974`). This is the same check statement as line 905 at the task base. The earlier B4 results reproduce that fault on `dbf79f54`. The Join screen, router and client have no diff from task base `26f3c3a2`. This step keeps the case and its limit.
+- Visual QA: the corrected Settings help text has a clear gap below the choices. The Block confirmation and Unblock menu fit the phone screen. Local renders: `/tmp/kd-r9-18-online-final.png`, `/tmp/kd-r9-18-block-confirm.png` and `/tmp/kd-r9-18-block-undo.png`.
+- All jobs for this step end. The M1 lane is clean at the checked code. The original lock owner resumes, passes the protocol check and releases its lock. The current step has no missing build part. The old full-check failures and the rest of ticket 18 still need triage.
+
+### Final evidence
+
+- Latest full suite: `/tmp/kd-r9-18-postfix-tests.log` and `.exit` (`1`).
+- Fixture UUID repair: `/tmp/kd-r9-18-uuid-fixture.log` and `.exit` (`0`); `/tmp/kd-r9-18-uuid-protocol.log` and `.exit` (`0`).
+- Local M1 summaries: `/tmp/kd-r9-18-m1-plugin-ui.log`, `/tmp/kd-r9-18-m1-plugin-ui-http.log` and `/tmp/kd-r9-18-m1-protocol.log`.
+- Full HTTP failure: `/tmp/kd-r9-18-verified-http-detail.log`.
+- M1 final summaries and exit files: `/tmp/kd-r9-18-verified-plugin-ui` (`0`), `/tmp/kd-r9-18-verified-plugin-ui-http` (`1`) and `/tmp/kd-r9-18-protocol` (`0`). Each named check summary gives its full log folder.
