@@ -37,7 +37,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
    const model = JSON.stringify([result.content,result.structuredContent]);
    expect(model).not.toMatch(/"(?:fen|legal|handle|icon|choices|draw|deal|board_id|revision|created_at)"\s*:/);
    const meta = result._meta;
-   for (const opponent of [meta?.view?.opponent,meta?.preview?.creator,...(meta?.games ?? []).map((g:any)=>g.opponent),...(meta?.lobby?.games ?? []).map((g:any)=>g.creator),...(meta?.history ?? []).map((g:any)=>g.opponent)])
+   for (const opponent of [meta?.view?.opponent,meta?.preview?.creator,...(meta?.games ?? []).map((g:any)=>g.opponent),...(meta?.lobby?.games ?? []).map((g:any)=>g.creator),...(meta?.history ?? []).map((g:any)=>g.opponent),...(meta?.blocks ?? [])])
     if (opponent?.handle) expect(model).not.toContain(opponent.handle);
    if (meta?.view?.fen) expect(model).not.toContain(meta.view.fen.split(' ')[0]);
    for (const lan of meta?.view?.legal ?? []) expect(model).not.toContain(JSON.stringify(lan));
@@ -287,7 +287,8 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect((await guest.ok('kingdown_block', { game_id }))._meta.blocked).toBe(false);
   await guest.ok('kingdown_say', { ...move(said), preset: 'thanks' });
   expect(view(await host.ok('kingdown_get', { game_id })).last_commands.slice(-2).map(c=>c.action.type)).toEqual(['hidden','hidden']);
-  const waiting = view(await host.ok('kingdown_create', { kind: 'random', options })).game_id;
+  // Seed an open table: the Create tool may join a table from an earlier test.
+  const waiting = (await new GameService(new PostgresMatchStore(admin)).create(a, { kind: 'random', options })).game_id;
   expect((await guest.ok('kingdown_lobby'))._meta.lobby.games.some((g:any)=>g.game_id===waiting)).toBe(false);
   expect((await guest.call('kingdown_accept', { game_id: waiting }))._meta.code).toBe('FORBIDDEN');
   expect(view(await guest.ok('kingdown_find', { options })).game_id).not.toBe(waiting);
