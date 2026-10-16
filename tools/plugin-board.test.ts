@@ -27,8 +27,19 @@ function view(fen: string, rules: Partial<Rules> = {}, fields: Partial<View> = {
   return { game_id: crypto.randomUUID(), revision: 0, created_at: '2026-10-15T00:00:00Z', abort_open: false, seat: pos.turn, kind: 'solo', speed: 'daily', days_per_move: 3, status: 'playing', turn: pos.turn, action: 'ready', fen, in_check: false, legal: legalMoves(pos).map(m => toLan(pos, m)), last_commands: [], opponent: { handle: null, icon: null, computer: true, deleted: false, last_seen_ms: null }, draw_offer: null, deadline_at: null, server_now: '2026-10-15T00:00:00Z', rules: structuredClone(RULES), ...fields };
 }
 const insets = (width: number) => ({ top: width === 320 ? 63 : width === 360 ? 80 : 102, bottom: width === 320 ? 84 : width === 360 ? 100 : 118, left: 0, right: 0 });
+// The target checks get a root that a redraw keeps, and find its visible buttons in the same page call as they measure.
+// evaluateAll finds the buttons in one call and measures them in the next. A redraw between the two calls (the strips draw
+// again as a game opens) detaches the buttons it found, and each then measures 0 × 0 (fault: 'card-b-0: size' under load).
+// Each visible button must give a 48 px target (its box or its touch ::after); each corner of that target must hit it.
+const targetMisses = (root: Element) => [...root.querySelectorAll('button')].filter(b => b.checkVisibility({ checkVisibilityCSS: true }) && b.getBoundingClientRect().width > 0 && b.getBoundingClientRect().height > 0).flatMap(button => {
+  const r = button.getBoundingClientRect(), s = getComputedStyle(button, '::after'), active = s.content !== 'none' && s.content !== 'normal', m = new DOMMatrix(s.transform);
+  const width = Math.max(r.width, active ? parseFloat(s.width) || 0 : 0), height = Math.max(r.height, active ? parseFloat(s.height) || 0 : 0);
+  if (width < 48 || height < 48) return [`${button.id}: size ${Math.round(width)} × ${Math.round(height)}`];
+  const x = r.x + button.clientLeft + parseFloat(s.left) + m.e + parseFloat(s.width) / 2, y = r.y + button.clientTop + parseFloat(s.top) + m.f + parseFloat(s.height) / 2;
+  return [-23, 23].flatMap(dx => [-23, 23].flatMap(dy => { const hit = document.elementFromPoint(x + dx, y + dy)?.closest('button'), box = hit?.getBoundingClientRect(); return hit === button || box && x + dx >= box.left && x + dx < box.right && y + dy >= box.top && y + dy < box.bottom ? [] : [`${button.id}: ${dx},${dy} → ${hit?.id}`]; }));
+});
 // Taps 1 px inside each edge of each visible control (clear of round corners); each must hit that control, not a neighbour's hit layer.
-const edgeMisses = (buttons: Element[]) => buttons.flatMap(button => {
+const edgeMisses = (root: Element) => [...root.querySelectorAll('button')].filter(b => b.checkVisibility({ checkVisibilityCSS: true }) && b.getBoundingClientRect().width > 0 && b.getBoundingClientRect().height > 0).flatMap(button => {
   const r = button.getBoundingClientRect(), xs = [r.left + r.width / 4, r.left + r.width / 2, r.right - r.width / 4], ys = [r.top + 1, r.bottom - 1];
   return [...xs.flatMap(x => ys.map(y => [x, y])), [r.left + 1, r.top + r.height / 2], [r.right - 1, r.top + r.height / 2]].flatMap(([x, y]) => {
     const hit = document.elementFromPoint(x, y)?.closest('button');
@@ -131,24 +142,14 @@ it.each([{ width: 393, height: 852, cards: true }, { width: 320, height: 568, ca
   const page = await open(view(cards ? '7k/8/8/8/8/8/P7/R6K w - - 0 1' : '7k/8/8/8/8/8/P7/K7 w - - 0 1', rules), width, height), frame = page.frameLocator('iframe');
   try {
     expect(await frame.locator('html').evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
-    const targets = await frame.locator('#game-table button:visible').evaluateAll(buttons => buttons.map(button => {
-      const r = button.getBoundingClientRect(), style = getComputedStyle(button, '::after'), active = style.content !== 'none' && style.content !== 'normal';
-      return { id: button.id, width: Math.max(r.width, active ? parseFloat(style.width) || 0 : 0), height: Math.max(r.height, active ? parseFloat(style.height) || 0 : 0) };
-    }));
-    expect(targets.filter(t => t.width < 48 || t.height < 48)).toEqual([]);
-    const missed = await frame.locator('#game-table button:visible').evaluateAll(buttons => buttons.flatMap(button => {
-      const r = button.getBoundingClientRect(), s = getComputedStyle(button, '::after'), m = new DOMMatrix(s.transform);
-      const x = r.x + button.clientLeft + parseFloat(s.left) + m.e + parseFloat(s.width) / 2, y = r.y + button.clientTop + parseFloat(s.top) + m.f + parseFloat(s.height) / 2;
-      return [-23, 23].flatMap(dx => [-23, 23].flatMap(dy => { const hit = document.elementFromPoint(x + dx, y + dy)?.closest('button'), box = hit?.getBoundingClientRect(); return hit === button || box && x + dx >= box.left && x + dx < box.right && y + dy >= box.top && y + dy < box.bottom ? [] : [`${button.id}: ${dx},${dy} → ${hit?.id}`]; }));
-    }));
-    expect(missed).toEqual([]);
-    expect(await frame.locator('#game-table button:visible').evaluateAll(edgeMisses)).toEqual([]);
+    expect(await frame.locator('#game-table').evaluate(targetMisses)).toEqual([]);
+    expect(await frame.locator('#game-table').evaluate(edgeMisses)).toEqual([]);
     if (cards) {
       await frame.locator('#card-w-1').click(); await frame.getByRole('button', { name: 'Use', exact: true }).click();
       await frame.getByRole('button', { name: 'Cancel', exact: true }).waitFor();
-      expect(await frame.locator('#game-table button:visible').evaluateAll(edgeMisses)).toEqual([]);
+      expect(await frame.locator('#game-table').evaluate(edgeMisses)).toEqual([]);
     }
-    expect.soft(await frame.locator('#strip-me .coin img').first().evaluate(e => [e.getBoundingClientRect().width, e.getBoundingClientRect().height])).toEqual(cards ? [26, 26] : [30, 30]);
+    expect.soft(await frame.locator('#strip-me').evaluate(e => { const r = e.querySelector('.coin img')!.getBoundingClientRect(); return [r.width, r.height]; })).toEqual(cards ? [26, 26] : [30, 30]);
     // U6 (taste preview): under 350 px the four cards go below the player name, so that row has two 44 px rows.
     expect(await frame.locator('#strip-me').evaluate(e => e.getBoundingClientRect().height)).toBe(cards && width === 320 ? 88 : 44);
   } finally { await page.close(); }
@@ -255,15 +256,11 @@ it.each([[393, 852], [360, 740], [320, 568]])('serves 48 px targets on Seat and 
         // Wait until no motion runs. A strip rebuild during the deal can cancel the old coin's animation (its finished
         // promise rejects) and starts it again on the new coin, so a single wait can reject or end too soon.
         await frame.locator('#game-table').evaluate(async e => { for (let run: Animation[]; (run = e.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {}))); });
-        const missed = await frame.locator(`[data-screen="${screen}"] button:visible`).evaluateAll(buttons => buttons.flatMap(button => {
-          const r = button.getBoundingClientRect(), s = getComputedStyle(button, '::after'), m = new DOMMatrix(s.transform);
-          if (Math.max(r.width, parseFloat(s.width) || 0) < 48 || Math.max(r.height, parseFloat(s.height) || 0) < 48) return [button.id + ': size'];
-          const x = r.x + button.clientLeft + parseFloat(s.left) + m.e + parseFloat(s.width) / 2, y = r.y + button.clientTop + parseFloat(s.top) + m.f + parseFloat(s.height) / 2;
-          return [-23, 23].flatMap(dx => [-23, 23].flatMap(dy => { const hit = document.elementFromPoint(x + dx, y + dy)?.closest('button'), box = hit?.getBoundingClientRect(); return hit === button || box && x + dx >= box.left && x + dx < box.right && y + dy >= box.top && y + dy < box.bottom ? [] : [`${button.id}: ${dx},${dy} → ${hit?.id}`]; }));
-        }));
-        expect(missed).toEqual([]);
-        expect(await frame.locator(`[data-screen="${screen}"] button:visible`).evaluateAll(edgeMisses)).toEqual([]);
-        expect(await frame.locator(`${coin} img`).evaluate(e => [e.getBoundingClientRect().width, e.getBoundingClientRect().height])).toEqual(cards ? [26, 26] : [30, 30]);
+        // The coin shows at the first draw of the game; the screen draws again after the games-list read.
+        const section = frame.locator(`[data-screen="${screen}"]`);
+        expect(await section.evaluate(targetMisses)).toEqual([]);
+        expect(await section.evaluate(edgeMisses)).toEqual([]);
+        expect(await section.evaluate((e, coin) => { const r = e.querySelector(`${coin} img`)!.getBoundingClientRect(); return [r.width, r.height]; }, coin)).toEqual(cards ? [26, 26] : [30, 30]);
       }
     }
   } finally { await page.close(); }

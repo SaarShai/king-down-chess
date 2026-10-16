@@ -2,6 +2,9 @@
 
 The lessons on browser checks, screenshots and the game interface. [LESSONS.md](../../LESSONS.md) holds the Always rules and the index of all topic files.
 
+## 2026-10-15 — a size check measured buttons that a redraw had removed
+- `serves 48 px targets` failed once under CPU load with `card-b-0: size` and 8 more. The targets were never small. `locator.evaluateAll` finds the elements in one page call and runs the function in a second call. Between the two calls the board drew again (after the `kingdown_games` read), and `strips()` put new coins and a new Abort button in place of the 9 found buttons. A detached button measures 0 × 0 and has no computed style. → A check that measures elements gets a root that a redraw keeps (a `[data-screen]` section, `#game-table`, `#strip-me`) and finds the elements inside the same `evaluate` call (`targetMisses`, `edgeMisses` in `tools/plugin-board.test.ts`). Do not use `evaluateAll` or `locator.evaluate` to measure elements that the screen draws again. To prove such a race, stall the Node test process for 200 ms between the two calls (10 of 10 fail); a CPU load alone gave 0 of 40. (2026-10-15)
+
 ## 2026-10-11 — a UI for another host took the host's look
 - Round 1 of the ChatGPT plugin sample followed OpenAI's app style advice: the system font, white cards, iOS switches. The owner: "the GUI look doesn't seem like it is based on our design for the game." → A King Down screen on another host reuses the game's tokens, fonts and components (`src/style.css`, the web-redesign screens). Capture the current game first and build each screen from the game part that matches it. The host's rules stay only as limits (actions in an inline card, room for the composer). (2026-10-11)
 
