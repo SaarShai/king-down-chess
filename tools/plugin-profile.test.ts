@@ -458,5 +458,11 @@ it('reflows Profile at 200% zoom (197 CSS px) with no sideways scroll', async ()
     expect(wide).toEqual([]);
     const outside = await frame.locator('.registry').evaluate(registry => { const r = registry.getBoundingClientRect(); return [...registry.querySelectorAll('b, small, .res, .feats, .when')].filter(e => { const b = e.getBoundingClientRect(); return b.width && (b.left < r.left - 1 || b.right > r.right + 1); }).length; });
     expect(outside).toBe(0);
+    // Each badge name stays under its own badge (M1: five 30 px columns ran the names into each other).
+    const spill = await frame.locator('#profile-badges').evaluate(root => [...root.querySelectorAll<HTMLElement>('.badge')].filter(figure => {
+      const box = figure.getBoundingClientRect(), range = document.createRange(); range.selectNodeContents(figure.querySelector('figcaption')!); const ink = range.getBoundingClientRect();
+      return ink.left < box.left - 1 || ink.right > box.right + 1 || figure.querySelector('button')!.getBoundingClientRect().width < 44;
+    }).map(figure => figure.dataset.badge));
+    expect(spill).toEqual([]);
   } finally { await close(); }
 });
