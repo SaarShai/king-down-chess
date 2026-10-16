@@ -1359,3 +1359,29 @@ it('labels the saved screen Resume after collapse with no ready game', async () 
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
   } finally { await page.close(); await isolated.close(); }
 });
+
+it.each([true, false])('remounts a saved screen with an inline host, fullscreen support %s', async supported => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
+    await page.addInitScript(() => {
+      const host = window as any; host.profileShownInline = false;
+      new MutationObserver(() => {
+        const profile = document.querySelector<HTMLElement>('[data-screen="profile"]');
+        if (profile && !profile.hidden && !document.getElementById('app-frame')?.hidden) host.profileShownInline = true;
+      }).observe(document, { subtree: true, attributes: true, attributeFilter: ['hidden'] });
+    });
+    await page.evaluate(supported => { const host = window as any; host.harnessHostContext = { displayMode: 'inline', availableDisplayModes: supported ? ['inline', 'fullscreen'] : ['inline'] }; host.harnessDisplayMode = 'inline'; }, supported);
+    const reads = await sent(page, 'kingdown_settings');
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, reads);
+    if (supported) {
+      await frame.locator('#home-play:not(:disabled)').filter({ hasText: 'Resume' }).waitFor();
+      expect(await frame.locator('html').evaluate(() => (window as any).profileShownInline)).toBe(false);
+      await frame.locator('#home-play').click();
+    }
+    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
+  } finally { await page.close(); }
+});

@@ -257,7 +257,7 @@ const connection = app.connect().then(() => {
   // A saved route waits behind the home card while the host stays inline.
   if (queuedAtStart && state.screen === 'home') navigate(queuedAtStart);
   if (context?.displayMode === 'fullscreen' && state.screen === 'home' && !savedScreen) navigate('play');
-  if (state.screen !== 'home' && displayMode === 'inline' && canFullscreen()) { const screen = state.screen; navigate('home'); navigate(screen); }
+  if (state.screen !== 'home' && displayMode === 'inline') { const screen = state.screen; if (canFullscreen()) navigate('home'); navigate(screen); }
   poll = runPoll(() => ['friend', 'wait', 'seat', 'board'].includes(state.screen) ? view : undefined, async () => {
     if (!connected || awaitingInitialResult || mountReading || !state.board_id || busy || pending) return;
     await call('kingdown_get', { ...(view?.fen ? { since_revision: view.revision } : {}) }, false, true, !savedScreen || !!view && ['friend', 'wait', 'seat', 'board'].includes(state.screen));
