@@ -2,12 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { createClient, BOARD_ID_TOOLS } from './client';
 
 describe('app client', () => {
-  it('limits commands to 10 seconds and leaves mount reads to the SDK limit', async () => {
+  it('limits commands to 10 seconds, leaves mount reads to the SDK limit and passes a mount\'s abort signal', async () => {
     const callServerTool = vi.fn(async () => ({ content: [] }));
-    const client = createClient({ callServerTool });
+    const client = createClient({ callServerTool }), { signal } = new AbortController();
     await client.call('kingdown_move', { command_id: 'once' });
     await client.call('kingdown_settings', {}, { limit: false });
-    expect(callServerTool.mock.calls).toEqual([[{ name: 'kingdown_move', arguments: { command_id: 'once' } }, { timeout: 10_000 }], [{ name: 'kingdown_settings', arguments: {} }, undefined]]);
+    await client.call('kingdown_open', {}, { limit: false, signal });
+    expect(callServerTool.mock.calls).toEqual([[{ name: 'kingdown_move', arguments: { command_id: 'once' } }, { timeout: 10_000 }], [{ name: 'kingdown_settings', arguments: {} }, {}], [{ name: 'kingdown_open', arguments: {} }, { signal }]]);
   });
   it.each([
     ['kingdown_settings', { last_setup: {} }, 'ProtocolError: Failed to fetch'],
