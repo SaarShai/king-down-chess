@@ -2,7 +2,7 @@
 // (secrets-and-public-gates/10). tools/deploy.sh runs it after the publish step.
 //
 // It passes when the live home page loads the same bundle (the module entry script of index.html) as
-// the build, and the privacy, terms and delete-data pages are byte-identical to the build's copies.
+// the build, and the privacy, terms, delete-data and support pages are byte-identical to the build's copies.
 // It sends no cookie. It tries again every 5 s until all match or the time limit ends; then it fails
 // and names each difference.
 //

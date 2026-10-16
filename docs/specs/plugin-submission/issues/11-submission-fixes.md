@@ -30,7 +30,7 @@ D10 stays open. This branch sets the six destructive hints for review. It waits 
 - The six destructive hints are true. Join and seen are not idempotent. An unchanged icon causes no profile update. D10 still gates merge.
 - Empty board opens return home. Internal board IDs, revisions and report receipts stay in widget metadata. The widget and check readers use that metadata.
 - Descriptions state the board write, preview limit and setup defaults. Singular count text is correct. Both P1 and P2 packet copies match. All 60 checklist rows use the new grades. The deploy check covers support.html. The shared input guard returns safe field errors.
-- The new server/client checks fail on the old code: 7 failures in 23 tests. On this branch, the 7 touched test files pass all 146 tests. The 50 drawing tests also pass. Typecheck, the compiled server check and the protocol check pass.
+- The new server/client checks fail on the old code: 7 failures in 23 tests. On this branch, the 7 touched test files pass all 146 tests. The 50 deploy tests also pass. Typecheck, the compiled server check and the protocol check pass.
 - The HTTP browser check passes with the existing limits. Its old fallback assertion now checks status and turn data without an internal revision. A mount-retry test waits for the existing Retry panel to close before it reads status. No test limit changes.
 - The local MCP repeat covers P1–P5, N1–N3, all 25 tool descriptors, safe invalid-field replies, the widget resource and phone renders. It records 58 protocol calls. Host routing, refusal words and confirmation still need the final owner account.
 - Logs, transcripts, samples and the After the fixes section are in the scratch rehearsal folder. The report marks 10 findings fixed, 14 owner and 1 optional item open.
@@ -42,3 +42,8 @@ D10 stays open. This branch sets the six destructive hints for review. It waits 
 - F2: the shared input guard adds the rule text of our own option checks, for example "Invalid input: check options. Keep at least 7 pieces in the pool." These texts are fixed and never echo input.
 - F3: `home()` no longer sends `your_turn_count: 0`. `kingdown_open` still sends the real count, so a remount keeps the current line until the games list refreshes it.
 - Typecheck passes. `server.test.ts`, `server.db.test.ts` and `plugin-app.test.ts` pass (75 tests).
+- T1: the plugin.json copy of P3 now also says that the count includes setup choices, as test-cases.md does.
+- T2: each owner row of the checklist keeps its exact step again, and the rehearsal evidence follows it.
+- T4: the checklist writes "approval item D10", so it does not mix with research item D10 (ages 13–17). T7: the results name the deploy tests.
+- T6: the support-page tests check the time bound, and the bundle and terms tests also refuse a support.html message. The 50 deploy tests pass.
+- T3 was refuted by the verifier. T5 (the model must write all 7 option fields in P2) stays open for the live test.

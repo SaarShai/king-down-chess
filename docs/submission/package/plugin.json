@@ -55,7 +55,7 @@
               "description": "List the active games and say where it is the player's turn.",
               "prompt": "Is it my turn in any King Down game?",
               "tools_triggered": "kingdown_games",
-              "expected_behavior": "The reply gives the number of active games and the number that wait for the player, for example \"2 active games; your turn in 1.\" Each game shows its kind (solo, friend or random), colour and whose turn it is. No board position and no opponent name is in the text."
+              "expected_behavior": "The reply gives the number of active games and the number that wait for the player, for example \"2 active games; your turn in 1.\" The count includes setup choices. Each game shows its kind (solo, friend or random), colour and whose turn it is. No board position and no opponent name is in the text."
             },
             {
               "description": "Show the rating, the game totals and the badge count in text.",

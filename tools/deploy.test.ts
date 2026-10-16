@@ -435,7 +435,7 @@ describe('deploy-live-check.mjs', () => {
     expect(result.status).toBe(1);
     expect(result.seconds).toBeLessThan(1.5 + 5);
     expect(result.stderr).toMatch(/bundle: .*index-Old999\.js.*index-Abc123_x\.js/);
-    expect(result.stderr).not.toMatch(/terms\.html|privacy\.html|delete-data\.html/);
+    expect(result.stderr).not.toMatch(/terms\.html|privacy\.html|delete-data\.html|support\.html/);
     expect(live.requests.filter(r => r.cookie !== undefined)).toEqual([]);
   });
 
@@ -445,16 +445,17 @@ describe('deploy-live-check.mjs', () => {
     expect(result.status).toBe(1);
     expect(result.seconds).toBeLessThan(1.5 + 5);
     expect(result.stderr).toMatch(/terms\.html: the live page differs/);
-    expect(result.stderr).not.toMatch(/bundle:|privacy\.html|delete-data\.html/);
+    expect(result.stderr).not.toMatch(/bundle:|privacy\.html|delete-data\.html|support\.html/);
     expect(live.requests.filter(r => r.cookie !== undefined)).toEqual([]);
   });
 
-  it.each(['missing', 'stale'])('refuses a %s support page', async fault => {
+  it.each(['missing', 'stale'])('refuses a %s support page within the time limit', async fault => {
     const files = pages(), served: Record<string,string> = {...files};
     if (fault === 'missing') delete served['support.html']; else served['support.html'] = 'Old support';
     const live = await site(() => served);
-    const result = await check(buildFolder(files), live.url);
+    const result = await check(buildFolder(files), live.url, 1500);
     expect(result.status).toBe(1);
+    expect(result.seconds).toBeLessThan(1.5 + 5);
     expect(result.stderr).toContain('support.html');
   });
 
