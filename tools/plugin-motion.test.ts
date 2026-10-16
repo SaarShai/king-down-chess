@@ -96,7 +96,7 @@ it('keeps a live checkmate loss calm and leaves the last move on the board', asy
     await page.evaluate(r => (window as any).harnessShow(r), result);
     const reply = await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name: 'kingdown_move', arguments: { game_id: result._meta.view.game_id, command_id: crypto.randomUUID(), expected_revision: result._meta.view.revision, lan: 'Qa1-a8' } } })).json();
     expect(reply.isError).not.toBe(true);
-    await frame.locator('#board-menu').click(); await frame.locator('#reload').click();
+    await page.evaluate(async () => { const h=window as any; await h.harnessShow(await h.harnessTool({ name:'kingdown_get', arguments:{board_id:h.harnessWidgetState.privateContent.board_id} })); });
     await frame.locator('#over-title').filter({ hasText: 'You lose' }).waitFor();
     expect(await frame.locator('#end-reason').textContent()).toBe('Your opponent gave checkmate.');
     expect(await frame.locator('#last-move').textContent()).toContain('a8');

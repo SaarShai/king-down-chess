@@ -707,7 +707,7 @@ it('does not repeat a friend abort title or play a ceremony', async () => {
   try {
     await frame.locator('html').evaluate(async () => {
       const app=(window as any).harnessApp; await app.call('kingdown_create',{kind:'friend',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}});
-      const v=app.memory.view; await app.call('kingdown_abort',{game_id:v.game_id,command_id:'words-abort',expected_revision:v.revision},true);
+      const v=app.memory.view, next=await app.call('kingdown_abort',{game_id:v.game_id,command_id:'words-abort',expected_revision:v.revision},true); app.routeView(next);
     });
     await frame.locator('#over.end-card[open]').waitFor();
     expect(await frame.locator('#over-title').textContent()).toBe('Game aborted');

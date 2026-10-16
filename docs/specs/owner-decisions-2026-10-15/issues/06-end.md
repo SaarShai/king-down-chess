@@ -53,3 +53,15 @@ Work starts from a clean worktree.
   the fall and card rise. Use Game result to return from the board.
 - `npx tsc --noEmit`: pass. The full local test run waits for the
   shared test lock. M1 checks are next.
+
+## Check fixes
+
+- The first full M1 run has 164 passing files and 3 failing files.
+  The new tests cause all 14 failures. No time limit changes.
+- Route the friend abort result in the test. A direct call from the
+  waiting friend page does not use the board's end route.
+- Put the new narrow end test after the size matrix. The fixture
+  shares saved options. The new test's chess-only setup hid Arrangement
+  from later tests. Set Fairy pieces before clearing Arrangement.
+- Read the loss through the host result in the motion test. The poll
+  can reach the end before a test opens Menu, so Menu can already hide.
