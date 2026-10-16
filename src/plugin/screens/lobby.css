@@ -2,6 +2,12 @@
 .game-code { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; max-width: 380px; margin: var(--space-2) auto var(--space-2); width: 100%; user-select: text; }
 .game-code span { display: grid; place-items: center; aspect-ratio: 4 / 5; font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 8vw, 40px); background: var(--vellum); border: 1px solid var(--stone-700); border-radius: var(--radius); box-shadow: var(--lift); }
 #friend-copy-status:empty, #friend-status:empty { display: none; }
+.friend-actions { display: flex; gap: var(--space-2); }
+.friend-actions > button { flex: 1; }
+.friend-invite-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 var(--space-2); }
+.friend-invite-row > [role="status"] { grid-column: 1 / -1; user-select: text; }
+.friend-invite-row > [role="status"]:empty { display: none; }
+#friend-copy-status { user-select: text; }
 
 #lobby-list .row-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #lobby-status:empty, #join-message:empty { display: none; }

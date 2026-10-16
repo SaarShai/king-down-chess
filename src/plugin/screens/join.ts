@@ -30,6 +30,7 @@ function render(value: JoinPreview) {
   if (value.options) $('join-preview').append(row('Features', 'fairy', [features(value.options, true), `You play ${value.colour === 'white' ? 'White' : 'Black'}.`]));
   else $('join-preview').append(row('Your colour', 'clock', [`You play ${value.colour === 'white' ? 'White' : 'Black'}.`]));
   $('join-confirm').hidden = false;
+  $('join-confirm').textContent = `Join and take ${value.colour === 'white' ? 'White' : 'Black'}`;
 }
 async function preview() {
   if (reading || !memory.code) return;
