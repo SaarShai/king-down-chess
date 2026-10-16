@@ -1,4 +1,5 @@
-/** The review sign-up hook (approval D8 a) as Supabase Auth calls it, in one transaction that rolls back. */
+/** The review sign-up hook and the password check of the access token hook (approval D8 a) as Supabase Auth calls
+ * them, in one transaction that rolls back. */
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import pg from 'pg';
@@ -7,15 +8,19 @@ import { describe, expect, it } from 'vitest';
 const url = process.env.PLUGIN_TEST_DATABASE_URL;
 const suite = url ? describe : describe.skip;
 const refused = { error: { http_code: 403, message: 'Sign up with Google or GitHub.' } };
+const sql = (file: string) => readFileSync(file, 'utf8').replace(/^begin;$/m, '').replace(/^commit;$/m, '');
+async function connect() {
+ const db = new URL(url!);
+ if (!['127.0.0.1', 'localhost', '[::1]'].includes(db.hostname) || !db.pathname.endsWith('_test')) throw new Error('Hook tests require a disposable loopback database ending in _test');
+ const client = new pg.Client({ connectionString: url }); await client.connect(); return client;
+}
 
 suite('the review password sign-up hook', () => {
  it('lets in Google, GitHub, Facebook and the listed review address, and refuses every other sign-up', async () => {
-  const db = new URL(url!);
-  if (!['127.0.0.1', 'localhost', '[::1]'].includes(db.hostname) || !db.pathname.endsWith('_test')) throw new Error('Hook tests require a disposable loopback database ending in _test');
-  const client = new pg.Client({ connectionString: url }); await client.connect();
+  const client = await connect();
   try {
    await client.query('begin');
-   await client.query(readFileSync('plugin-deploy/review-signup-hook.sql', 'utf8').replace(/^begin;$/m, '').replace(/^commit;$/m, ''));
+   await client.query(sql('plugin-deploy/review-signup-hook.sql'));
    await client.query("insert into kingdown_auth.password_accounts(email) values('review@example.test')");
    await expect(client.query("savepoint upper; insert into kingdown_auth.password_accounts(email) values('Other@example.test')")).rejects.toMatchObject({ code: '23514' });
    await client.query('rollback to savepoint upper');
@@ -36,6 +41,34 @@ suite('the review password sign-up hook', () => {
    expect((await client.query(`select has_function_privilege('anon','public.kingdown_before_user_created(jsonb)','EXECUTE') as anon,
     has_function_privilege('authenticated','public.kingdown_before_user_created(jsonb)','EXECUTE') as authenticated,
     has_table_privilege('authenticated','kingdown_auth.password_accounts','SELECT') as list`)).rows[0]).toEqual({ anon: false, authenticated: false, list: false });
+  } finally { await client.query('rollback'); await client.end(); }
+ });
+
+ it('gives a password session only to a listed address, also when a Google or GitHub account adds a password', async () => {
+  const client = await connect();
+  try {
+   await client.query('begin');
+   await client.query('drop schema if exists kingdown_auth cascade');
+   await client.query(sql('plugin-deploy/oauth-audience-hook.sql'));
+   const now = Math.floor(Date.now() / 1000);
+   // The documented payload; Auth puts the account's email address in the claims.
+   const token = async (method: string, email?: string) => (await client.query('select public.kingdown_access_token_hook($1::jsonb) as result', [{
+    user_id: randomUUID(), authentication_method: method,
+    claims: { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', exp: now + 3600, iat: now, sub: randomUUID(), role: 'authenticated', aal: 'aal1', session_id: randomUUID(), is_anonymous: false, ...(email === undefined ? {} : { email }) },
+   }])).rows[0].result;
+   const passwordRefused = { error: { http_code: 403, message: 'Sign in with Google or GitHub.' } };
+   await client.query('set local role supabase_auth_admin');
+   // Before the list exists, no address gets a password session.
+   expect(await token('password', 'review@example.test')).toEqual(passwordRefused);
+   await client.query('reset role');
+   await client.query(sql('plugin-deploy/review-signup-hook.sql'));
+   await client.query("insert into kingdown_auth.password_accounts(email) values('review@example.test')");
+   await client.query('set local role supabase_auth_admin');
+   expect((await token('password', 'Review@Example.test')).claims).toMatchObject({ email: 'Review@Example.test', aud: 'authenticated' });
+   // A Google player who added a password with auth.updateUser, the opponent after step 2.8, and no address at all.
+   for (const email of ['player@example.test', 'opponent@example.test', '', undefined]) expect(await token('password', email), String(email)).toEqual(passwordRefused);
+   // Every other way in is unchanged.
+   for (const method of ['oauth', 'token_refresh', 'oauth_provider/authorization_code']) expect((await token(method, 'player@example.test')).claims, method).toMatchObject({ email: 'player@example.test' });
   } finally { await client.query('rollback'); await client.end(); }
  });
 });

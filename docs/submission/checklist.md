@@ -23,20 +23,22 @@ Do these in order. Each step names its rows below.
 
 0. **Account (done, 2026-10-15).** The Personal organization has you as Owner. Its Default project has Global data residency. Your identity is approved. You selected **Start** to verify the organization. Use the Personal organization for every step below. If the portal opens another organization, switch with the organization menu; do not upload from it. Remaining: when OpenAI confirms the organization check, make sure that Settings → Organization shows it as verified. At upload, choose the verified **Developer identity** "Saar Shai" (rows 1–4, 23).
 1. **MCP URL and client ID (rows 14, 16, 43, 51).** After the release, put the production MCP URL in `<PRODUCTION_MCP_URL>` and the Supabase OAuth client ID in `<OAUTH_CLIENT_ID>` (`package/mcp.json`). After the first upload, copy the callback URL that the portal shows into the redirect URLs of that Supabase OAuth client.
-2. **Review account (approval D8 a; rows 45, 46).**
-   1. In the Supabase SQL Editor, as the admin role, paste and run `plugin-deploy/review-signup-hook.sql`.
-   2. Authentication → Hooks → **Before User Created**: choose Postgres and `public.kingdown_before_user_created`.
-   3. In the SQL Editor, add two new addresses in lower case: `insert into kingdown_auth.password_accounts(email) values ('<review address>'), ('<opponent address>');`
-   4. Authentication → Sign In / Providers: turn **Email** on. The hook refuses every other email sign-up.
-   5. Authentication → Users → **Add user** → **Create new user**, twice: the review account (a long new password that you keep in your password manager; select **Auto Confirm User**), then the opponent account.
-   6. Run `PLUGIN_DATABASE_URL=… KINGDOWN_REVIEW_EMAIL=… KINGDOWN_REVIEW_OPPONENT_EMAIL=… npm run plugin:db:seed-review` with the admin connection. It prints the record: "Rating 1662?; 1 played, 1 won, 0 drawn, 0 lost; 3 badges.", the P4 example in `test-cases.md` and `package/plugin.json`.
-   7. In a new browser profile, on another network (for example, your phone's), connect King Down and sign in with the review account.
-   8. Paste the text of [review-notes.md](review-notes.md) into Review details, with the email and the password.
-3. **Demo video (row 49).** Record the eight test cases on the ChatGPT website and the iPhone app with the review account. Upload it as unlisted and put the link in `<DEMO_VIDEO_URL>`.
+2. **Review account and test account (approval D8 a; rows 45, 46).** You make three accounts: the review account for OpenAI, its opponent, and a test account for your own runs in steps 3 and 5. Do not use the review account for a test case: each run changes its games and its record, and the seed refuses an account that has games.
+   1. In the Supabase SQL Editor, as the admin role, paste and run `plugin-deploy/oauth-audience-hook.sql` again (it also checks password sign-ins), then `plugin-deploy/review-signup-hook.sql`.
+   2. Authentication → Hooks → **Before User Created**: choose Postgres and `public.kingdown_before_user_created`. Make sure that **Custom Access Token** still uses `public.kingdown_access_token_hook`.
+   3. In the SQL Editor, add the three new addresses in lower case: `insert into kingdown_auth.password_accounts(email) values ('<review address>'), ('<opponent address>'), ('<test address>');`
+   4. Authentication → Sign In / Providers: turn **Email** on. The sign-up hook refuses every other email sign-up. The access token hook refuses a password sign-in for every address that is not in the list, also for a Google or GitHub account that adds a password.
+   5. Authentication → Users → **Add user** → **Create new user**, three times, each with **Auto Confirm User**: the review account (a long new password that you keep in your password manager), the opponent account (a long random password that you do not keep), and the test account (a password that you keep).
+   6. Run `PLUGIN_DATABASE_URL=… KINGDOWN_REVIEW_EMAIL=<review address> KINGDOWN_REVIEW_OPPONENT_EMAIL=<opponent address> npm run plugin:db:seed-review` with the admin connection. It prints the record: "Rating 1662?; 1 played, 1 won, 0 drawn, 0 lost; 3 badges.", the P4 example in `test-cases.md` and `package/plugin.json`.
+   7. Seed the test account against the same opponent, with its own handle: `PLUGIN_DATABASE_URL=… KINGDOWN_REVIEW_EMAIL=<test address> KINGDOWN_REVIEW_OPPONENT_EMAIL=<opponent address> KINGDOWN_REVIEW_HANDLE=test-player npm run plugin:db:seed-review`. The totals and the badges are the same as for the review account. The rating is not 1662, because the opponent lost a game before.
+   8. Remove the opponent from the list, so that it cannot sign in: `delete from kingdown_auth.password_accounts where email = '<opponent address>';`
+   9. In a new browser profile, on another network (for example, your phone's), connect King Down and sign in with the review account. Only sign in: do not run a test case. Then disconnect King Down, and connect it again with the test account for steps 3 and 5.
+   10. Paste the text of [review-notes.md](review-notes.md) into Review details, with the email and the password of the review account.
+3. **Demo video (row 49).** Record the eight test cases on the ChatGPT website and the iPhone app with the test account (step 2.7), not the review account. Upload it as unlisted and put the link in `<DEMO_VIDEO_URL>`.
 4. **Portal proofs (rehearsal R4; rows 18–23, 43, 51–54).** Keep a dated screenshot of each: the identity, the callback, the domain challenge at `https://kingdown.dev/.well-known/openai-apps-challenge`, a successful scan, and each public page (website, privacy, terms, support) opened while signed out.
-5. **Eight tests on four surfaces (approval D15 a; rows 38, 39, 48).** Run P1–P5 and N1–N3 with the review account on the ChatGPT website, the iPhone app, an Android phone and the desktop app. Record each result in row 48.
-6. **Privacy and terms words (rehearsal R22; rows 20, 21).** Approve "a public app" in place of "the private ChatGPT app" in `public/privacy.html`, and terms that name the ChatGPT app. In the Supabase dashboard, read the log period of the plan, and switch off Authentication → Audit Logs → "Write audit logs to the database" ([privacy-additions.md](privacy-additions.md), section 2).
-7. **Upload and submit (rows 57, 58).**
+5. **Eight tests on four surfaces (approval D15 a; rows 38, 39, 48).** Run P1–P5 and N1–N3 with the test account on the ChatGPT website, the iPhone app, an Android phone and the desktop app. Record each result in row 48. The review account stays as the seed left it.
+6. **Privacy and terms words (rehearsal R22; rows 20, 21).** Approve "a public app" in place of "the private ChatGPT app" in `public/privacy.html`, and terms that name the ChatGPT app. In the Supabase dashboard, read the log period of the plan, and switch off Authentication → Audit Logs → "Write audit logs to the database". The switch stops new rows only, so then run `delete from auth.audit_log_entries;` once in the SQL Editor as the admin role: the old rows keep each email address and IP address with no end, also after an account deletion ([privacy-additions.md](privacy-additions.md), section 2).
+7. **Upload and submit (rows 57, 58).** First remove the test account from the list: `delete from kingdown_auth.password_accounts where email = '<test address>';`. Then only the review account can sign in with a password. Do not use the review account before the review.
 
 ## 1. OpenAI account
 
@@ -111,7 +113,7 @@ Do these in order. Each step names its rows below.
 | 42 | Token audience equals the MCP URL [O9]. | B2 | deploy | Source enforces the exact resource audience. The hook exists. Its production install and token claim remain unproved. |
 | 43 | The portal's callback URL is registered with the OAuth server [O1][O16]. | B3 | owner | After the first upload, copy the callback the portal shows (`https://chatgpt.com/connector_platform_oauth_redirect` or `https://chatgpt.com/connector/oauth/{callback_id}`) into the Supabase OAuth client's redirect URLs. Open question 3. Rehearsal: Register and test the exact portal callback for the chosen public client. |
 | 44 | Consent names all requested permissions [O3]. | B4 | deploy | Consent source is unchanged and incomplete. Approve and release the corrected words. |
-| 45 | **Reviewer login (approval item D8):** login and password, sample data, no MFA, no email or SMS codes, no magic links [O1][O2][O3]. | B5 | owner | Approval D8 a, built: the consent page has a closed "Sign in with email and password" form under Google and GitHub; `plugin-deploy/review-signup-hook.sql` refuses every other password sign-up; `npm run plugin:db:seed-review` gives one won friend game (a rating and three badges) and one computer game on your move. You install the hook, make the account, seed it and test it (owner step 2). |
+| 45 | **Reviewer login (approval item D8):** login and password, sample data, no MFA, no email or SMS codes, no magic links [O1][O2][O3]. | B5 | owner | Approval D8 a, built: the consent page has a closed "Sign in with email and password" form under Google and GitHub; `plugin-deploy/review-signup-hook.sql` refuses every other password sign-up; `plugin-deploy/oauth-audience-hook.sql` refuses a password sign-in for every address that is not in the list; `npm run plugin:db:seed-review` gives one won friend game (a rating and three badges) and one computer game on your move. You install the hooks, make the review account and a test account, and seed both (owner step 2). Your tests use the test account, so the review account stays as the seed left it. |
 | 46 | Reviewer credentials go in the portal's **Review details**, never in the ZIP [O1]. | — | owner | Metadata & Skills → Review information → Review details: enter the login URL, the email, the password and the sign-in steps. Save details. Rehearsal: Enter private credentials only in Review details. This review does not open that form. |
 
 ## 7. Review materials
@@ -119,8 +121,8 @@ Do these in order. Each step names its rows below.
 | # | Requirement | Ref | Status | Step or evidence |
 |---|---|---|---|---|
 | 47 | Exactly five positive and three negative test cases [O1]. | E1 | drafted | Both copies have five positive and three negative cases. P1 uses “1 game”. P2 includes king/power, arrangement, Ready and then Your move. Final host tests remain. |
-| 48 | Each test case passes with the reviewer account before submission [O1][O2]. | E1 | owner | Run P1–P5 and N1–N3 on the ChatGPT website and a phone with the D8 account; replace the example numbers with the real ones. Rehearsal: Local protocol evidence is supplied. Final host routing, confirmation and refusals remain. |
-| 49 | **Demo video** URL, reviewer-accessible [O1]. | E2 | owner | Record the eight test cases on the ChatGPT website and the iPhone app: sign-in, home, a computer game with one move, the games list, the profile, resign, the three refusals. Upload as unlisted; put the link in `<DEMO_VIDEO_URL>`. Keep other chats and the account email out of the frame. Rehearsal: The video field is still a placeholder. |
+| 48 | Each test case passes with the reviewer account before submission [O1][O2]. | E1 | owner | Run P1–P5 and N1–N3 on the ChatGPT website and a phone with the test account (owner step 2.7), which the seed makes like the review account. Do not use the review account: its P4 record is the one that owner step 2.6 prints. Rehearsal: Local protocol evidence is supplied. Final host routing, confirmation and refusals remain. |
+| 49 | **Demo video** URL, reviewer-accessible [O1]. | E2 | owner | Record the eight test cases on the ChatGPT website and the iPhone app with the test account (owner step 3): sign-in, home, a computer game with one move, the games list, the profile, resign, the three refusals. Upload as unlisted; put the link in `<DEMO_VIDEO_URL>`. Keep other chats and the account email out of the frame. Rehearsal: The video field is still a placeholder. |
 | 50 | Release notes [O1]. | E3 | drafted | Release notes match the package string. Recheck claims after the final fixes. |
 
 ## 8. Server, domain and scan
@@ -151,11 +153,11 @@ For OpenAI support (send with the plugin ID after the first upload):
 2. Please limit King Down to the ChatGPT surfaces that show app screens (the website, iOS, Android and desktop), and not Codex, because a move needs the board (row 39). Can the portal set this, or does support set it?
 3. Which callback URL does the portal use for a `provided` public client when the OAuth server does not return `iss` (row 43)?
 
-For the owner (answered on 2026-10-15):
+For the owner (answered on 2026-10-15 and 2026-10-16):
 
 4. Closed: D14 a adds 'Show when I am online' to Settings, and D12 a: the policy says that the default applies to the activity time.
 5. Closed: D9 a. Games stay for the account life, reports 12 months, logs as the hosts keep them (owner step 6 confirms the log periods).
 6. Closed: D8 a, one review account (row 45).
 7. Closed: D10 approved, b (row 30).
 8. Closed: D11 b, later (row 40).
-9. Open: 'Show when I am online' on writes `everyone`. Off writes `nobody`; the default `mutual` reads as off, because King Down has no follow screen. Keep on as `everyone`?
+9. Closed: 'Show when I am online' on writes `everyone`, off writes `nobody`. A player whose value is `mutual` (the website default) sees off and keeps `mutual` until the toggle changes (owner, 2026-10-16).

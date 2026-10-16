@@ -6,9 +6,9 @@ Source keys ([O1] and others) refer to the [research report](../research/plugin-
 
 ## Before submission
 
-- Run each case with the reviewer account (approval item D8) in ChatGPT on the web and on a phone. Record the result in [checklist.md](checklist.md).
+- Run each case with the test account ([checklist.md](checklist.md), owner step 2.7) in ChatGPT on the web and on a phone, and record the result there. Do not use the reviewer account (approval item D8): each run changes its games and its record, and OpenAI must get it as the seed left it.
 - The reviewer account needs sample data: at least one active game against the computer where it is the player's turn, one finished game, a rating and at least one badge. Cases P3, P4 and P5 depend on this data.
-- The example numbers in the expected results come from the reply format in `src/plugin/server.ts`. P4 shows the record that `npm run plugin:db:seed-review` makes (approval D8 a). P3 counts the game that P2 starts, so run the cases in order. Keep one eligible solo game for P5, or ask which game to resign.
+- The example numbers in the expected results come from the reply format in `src/plugin/server.ts`. P4 shows the record that `npm run plugin:db:seed-review` makes for the review account (approval D8 a); the test account has the same totals and badges, with a different rating. P3 counts the game that P2 starts, so run the cases in order. Keep one eligible solo game for P5, or ask which game to resign.
 
 ## Positive cases
 

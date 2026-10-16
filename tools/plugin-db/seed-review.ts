@@ -2,9 +2,11 @@
  * Sample data for the OpenAI review account (approval D8 a; docs/submission/test-cases.md "Before submission"):
  * one finished friend game that the review account won (a rating, and the First Win, Friend Match and Purist
  * badges), then one Classic beginner game against the computer where it is the review account's move.
- * The owner makes both accounts first (docs/submission/review-notes.md). This script reads no password.
+ * The owner makes both accounts first (docs/submission/checklist.md, owner step 2). This script reads no password.
+ * The owner's test account gets the same data against the same opponent, with its own handle (KINGDOWN_REVIEW_HANDLE),
+ * so that the owner's test runs leave the review account as the seed left it.
  *
- *   PLUGIN_DATABASE_URL=… KINGDOWN_REVIEW_EMAIL=… KINGDOWN_REVIEW_OPPONENT_EMAIL=… npm run plugin:db:seed-review
+ *   PLUGIN_DATABASE_URL=… KINGDOWN_REVIEW_EMAIL=… KINGDOWN_REVIEW_OPPONENT_EMAIL=… [KINGDOWN_REVIEW_HANDLE=…] npm run plugin:db:seed-review
  */
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
@@ -43,11 +45,11 @@ export async function seedReview(pool: pg.Pool, reviewEmail: string, opponentEma
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
- const { PLUGIN_DATABASE_URL: connectionString, KINGDOWN_REVIEW_EMAIL: reviewEmail, KINGDOWN_REVIEW_OPPONENT_EMAIL: opponentEmail } = process.env;
+ const { PLUGIN_DATABASE_URL: connectionString, KINGDOWN_REVIEW_EMAIL: reviewEmail, KINGDOWN_REVIEW_OPPONENT_EMAIL: opponentEmail, KINGDOWN_REVIEW_HANDLE: handle = 'review-player' } = process.env;
  if (!connectionString || !reviewEmail || !opponentEmail) throw new Error('Set PLUGIN_DATABASE_URL, KINGDOWN_REVIEW_EMAIL and KINGDOWN_REVIEW_OPPONENT_EMAIL');
  const pool = new pg.Pool({ connectionString, max: 1 });
  try {
-  const { finished, active, record } = await seedReview(pool, reviewEmail, opponentEmail);
+  const { finished, active, record } = await seedReview(pool, reviewEmail, opponentEmail, { review: handle, opponent: 'review-friend' });
   const { played, won, drawn, lost } = record.totals;
   console.log(`Review account seeded: finished game ${finished}, active game ${active}; rating ${Math.round(record.rating.rating)}${record.rating.provisional ? '?' : ''}; ${played} played, ${won} won, ${drawn} drawn, ${lost} lost; ${record.badges.length} badges.`);
  } finally { await pool.end(); }

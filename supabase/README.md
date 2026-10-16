@@ -21,7 +21,9 @@ repository.
    accounts through the API with any name, and every account gets a profile. The one exception is the
    OpenAI review account (approval D8 a): turn Email on only after
    `plugin-deploy/review-signup-hook.sql` is applied and enabled as the **Before User Created** hook.
-   That hook refuses every email sign-up whose address is not in `kingdown_auth.password_accounts`.
+   That hook refuses every email sign-up whose address is not in `kingdown_auth.password_accounts`, and
+   `public.kingdown_access_token_hook` refuses a password sign-in for every such address, also when a
+   Google or GitHub account adds a password.
 
 ## What 0001 makes
 

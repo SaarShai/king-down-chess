@@ -3,6 +3,7 @@
 -- Enable public.kingdown_access_token_hook in Authentication > Hooks after review.
 -- Add only registered/approved OAuth client UUIDs and their exact HTTPS /mcp resource.
 -- An existing Custom Access Token hook must retain its behavior when this is integrated.
+-- Safe to run again: paste it again after a change (docs/submission/checklist.md, owner step 2).
 begin;
 create schema if not exists kingdown_oauth;
 revoke all on schema kingdown_oauth from public, anon, authenticated;
@@ -21,9 +22,21 @@ returns jsonb language plpgsql stable security invoker set search_path = '' as $
 declare
   claims jsonb := event -> 'claims';
   target text;
+  listed boolean := false;
 begin
   if claims is null or jsonb_typeof(claims) <> 'object' then
     raise exception 'Missing token claims' using errcode = '22023';
+  end if;
+  -- Approval D8 a: a password session only for an address in kingdown_auth.password_accounts (review-signup-hook.sql).
+  -- The Before User Created hook sees only new accounts, and a Google or GitHub player can add a password to an
+  -- existing account (auth.updateUser). So Auth refuses the session here. With no list installed, it refuses them all.
+  if event ->> 'authentication_method' = 'password' then
+    if to_regclass('kingdown_auth.password_accounts') is not null then
+      listed := exists (select from kingdown_auth.password_accounts a where a.email = lower(claims ->> 'email'));
+    end if;
+    if not listed then
+      return jsonb_build_object('error', jsonb_build_object('http_code', 403, 'message', 'Sign in with Google or GitHub.'));
+    end if;
   end if;
   -- client_id is an Auth-issued claim, never user_metadata or a caller-supplied URL.
   if claims ->> 'role' = 'authenticated' and claims ->> 'is_anonymous' = 'false' then

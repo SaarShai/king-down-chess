@@ -19,5 +19,5 @@ The text for the portal's **Review details** (Metadata & Skills → Review infor
 
 ## Sources
 
-- Sign-in: approval D8 a. The form is in `src/plugin/consent.html`; `plugin-deploy/review-signup-hook.sql` refuses every other password sign-up; `npm run plugin:db:seed-review` adds the sample data (`tools/plugin-db/seed-review.ts`).
+- Sign-in: approval D8 a. The form is in `src/plugin/consent.html`; `plugin-deploy/review-signup-hook.sql` refuses every other password sign-up, and `plugin-deploy/oauth-audience-hook.sql` refuses a password sign-in for every other address; `npm run plugin:db:seed-review` adds the sample data (`tools/plugin-db/seed-review.ts`). The owner tests with a separate test account, so the review account keeps this data ([checklist.md](checklist.md), owner step 2).
 - Surfaces: approval D15 a; checklist row 39 and open question 2. 16 of the 25 tools are for the board only (rehearsal R16).

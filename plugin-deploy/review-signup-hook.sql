@@ -3,9 +3,12 @@
 -- Approval D8 a: one review account signs in with an email and a password; every player uses Google or GitHub.
 -- With the Email provider on, anyone can make a password account through the Auth API. This hook lets a new account
 -- in only through Google, GitHub or Facebook, or with an email address in kingdown_auth.password_accounts. It refuses
--- every other sign-up: email, phone, anonymous and unknown.
--- Order: apply this file as the admin role; enable public.kingdown_before_user_created in Authentication > Hooks >
--- Before User Created; add the review address (below); only then turn the Email provider on and make the account.
+-- every other sign-up: email, phone, anonymous and unknown. The same list limits password sign-ins:
+-- public.kingdown_access_token_hook (oauth-audience-hook.sql) refuses a password session for every other address,
+-- also for an existing Google or GitHub account that adds a password. This hook sees only new accounts.
+-- Order: apply oauth-audience-hook.sql and this file as the admin role; enable public.kingdown_before_user_created in
+-- Authentication > Hooks > Before User Created; add the addresses (below); only then turn the Email provider on and
+-- make the accounts (docs/submission/checklist.md, owner step 2).
 begin;
 create schema if not exists kingdown_auth;
 revoke all on schema kingdown_auth from public, anon, authenticated;
@@ -33,6 +36,9 @@ end;
 $$;
 revoke execute on function public.kingdown_before_user_created(jsonb) from public, anon, authenticated;
 grant execute on function public.kingdown_before_user_created(jsonb) to supabase_auth_admin;
--- The review address only (lower case), never a password:
--- insert into kingdown_auth.password_accounts(email) values ('YOUR-REVIEW-ADDRESS');
+-- Addresses in lower case, never a password. While you make and seed the accounts: the review address, its opponent
+-- and your test address. Then delete the opponent (step 2.8) and, before the upload, the test address (step 7), so
+-- that only the review address can sign in with a password:
+-- insert into kingdown_auth.password_accounts(email) values ('YOUR-REVIEW-ADDRESS'), ('OPPONENT'), ('TEST');
+-- delete from kingdown_auth.password_accounts where email <> 'YOUR-REVIEW-ADDRESS';
 commit;

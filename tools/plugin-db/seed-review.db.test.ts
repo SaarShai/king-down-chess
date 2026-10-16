@@ -32,6 +32,14 @@ suite('the review account seed', () => {
   expect(await games.view(seeded.review, seeded.active)).toMatchObject({ status: 'playing', kind: 'solo', level: 'beginner', seat: 0, turn: 0 });
   expect((await games.inbox(seeded.review)).filter(game => game.action === 'ready').map(game => game.game_id)).toEqual([seeded.active]);
   expect((await pool.query('select handle from public.profiles where id=$1', [seeded.review])).rows[0].handle).toBe(handles.review);
+  // Owner step 2.7: the test account gets the same data against the same opponent, with its own handle, and the
+  // review account keeps its record. Only the rating differs, because the opponent lost a game before.
+  const tester = await account('tester'), copy = await seedReview(pool, tester, opponent, { review: `tp-${tag}`, opponent: handles.opponent });
+  expect(copy.record.totals).toEqual(seeded.record.totals);
+  expect(copy.record.badges.map(b => b.badge).sort()).toEqual(['first_win', 'friend_match', 'purist']);
+  expect(Math.round(copy.record.rating.rating)).not.toBe(Math.round(seeded.record.rating.rating));
+  expect((await games.record(seeded.review)).totals).toEqual(seeded.record.totals);
+  expect(Math.round((await games.record(seeded.review)).rating.rating)).toBe(Math.round(seeded.record.rating.rating));
   // A second run, or an address with no account, changes nothing.
   await expect(seedReview(pool, review, opponent, handles)).rejects.toThrow('has games already');
   await expect(seedReview(pool, `nobody-${tag}@example.test`, opponent, handles)).rejects.toThrow('No account');
