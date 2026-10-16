@@ -1183,7 +1183,10 @@ it('frees Start on New game after an inline remount sends the waiting move again
     await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, settings);
     await sentTimes(page, 'kingdown_move', 2);
     await resent(page);
+    // Play returns to the saved board; Back from there opens Play.
     await frame.locator('#home-play:not(:disabled)').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#page-back:not(:disabled)').click();
     await frame.locator('#play-new:not(:disabled)').click();
     await frame.locator('[data-screen="setup"]:not([hidden])').waitFor();
     await frame.locator('#setup-start:not(:disabled)').waitFor();
