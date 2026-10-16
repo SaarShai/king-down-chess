@@ -126,3 +126,17 @@ also pass. The tests cover an automatic revision, an explicit revision,
 a definite refusal and a second race. Logs stay on the M1 at
 /tmp/kd-od-fixjoin-server-red.log and /tmp/kd-od-fixjoin-server-green.log.
 Both readers check these changes and find no open fault.
+
+The next M1 batch at dcac9496 passes the type check and all 165 test
+files: 2,576 tests pass and 8 skip. All 50 scene checks pass. The suite
+takes 258.23 s. plugin-ui passes in 223.2 s. plugin-ui-http passes Join,
+then fails in 155.9 s at the human-board remount assertion, line 1038.
+
+The host harness replaces its last view with the original mount result.
+That result can have no game, or an older game. The app still reads its
+saved board, but the host clears its snapshot before that read returns.
+Both readers confirm this host fault. The repair keeps a known game and
+view on mount. A new chat result still replaces both through harnessShow.
+The browser check file stays unchanged. Tests hold the read before the
+server call, then check the app's view after release. They cover an empty
+seed and an older-game seed.

@@ -380,6 +380,38 @@ it('names the turn on Resume and keeps the open game after a home remount', asyn
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(game);
   } finally { await page.close(); }
 });
+it.each([false, true])('keeps the selected host view on remount with an older game seed: %s', async olderGameSeed => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    const create = () => frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } });
+      return app.memory.view.game_id;
+    });
+    if (olderGameSeed) {
+      const game_id = await create();
+      const seed = await page.evaluate(game_id => (window as any).harnessTool({ name: 'kingdown_open', arguments: { game_id } }), game_id);
+      const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
+      await page.evaluate(result => (window as any).harnessShow(result, true), seed);
+      await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
+      await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    }
+    const selected = await create();
+    await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_get'; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => Boolean((window as any).releaseBefore));
+    expect(await page.evaluate(() => (window as any).harnessMatchId)).toBe(selected);
+    expect(await page.evaluate(() => (window as any).harnessView?.game_id)).toBe(selected);
+    await page.evaluate(() => (window as any).releaseBefore());
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(selected);
+    expect(await page.evaluate(() => (window as any).harnessView?.game_id)).toBe(selected);
+  } finally {
+    await page.evaluate(() => (window as any).releaseBefore?.());
+    await page.close();
+  }
+});
 it('keeps the Resume label with the end screen while another game waits', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
