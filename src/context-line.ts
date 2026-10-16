@@ -10,7 +10,7 @@ export interface ContextState {
   powerUse?: boolean;
   selected?: string; stagedEnd?: string; waiting?: boolean; check?: boolean; checkCause?: string;
   computer?: boolean; lesson?: string; lessonNote?: string; lessonLearned?: string; asset?: string;
-  turnLine?: string;
+  turnLine?: string; teach?: string;
   previously?: string; previouslyDetail?: string; previouslyBefore?: string; seeAgain?: boolean;
 }
 export interface ContextLine { rank: string; line: string; note: string; actions: string[]; before?: string }
@@ -46,5 +46,5 @@ export function contextLine(s: ContextState): ContextLine {
     return line('lesson', end < 0 ? task : task.slice(0, end + 1), end < 0 ? '' : task.slice(end + 2));
   }
   if (s.asset) return line('asset', s.asset);
-  return line('your-move', s.voice === 'you' ? 'Your move.' : `${s.voice} to move.`);
+  return line('your-move', s.voice === 'you' ? 'Your move.' : `${s.voice} to move.`, s.teach);
 }

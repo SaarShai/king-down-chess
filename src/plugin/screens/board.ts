@@ -1,9 +1,9 @@
 import { fromFen, toFen, toLan } from '../../rules/setup';
-import { colorOf, findKing, inCheck, legalMoves, moveNumber, nameOf, piece, PLAIN_KINGS, RULES, setRules, sqName, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
+import { colorOf, findKing, K, inCheck, legalMoves, moveNumber, nameOf, piece, PLAIN_KINGS, RULES, setRules, sqName, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
 import { cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
 import { checkCause, checkersOf, describeMove, threatsIn } from '../../move-text';
 import { marksModel, railsOf } from '../../marks-model';
-import { readText, reachOf } from '../../read';
+import { readText, reachOf, teachNote } from '../../read';
 import { contextLine } from '../../context-line';
 import type { PlayerRecord, View } from '../../match/protocol';
 import { ending } from '../ending';
@@ -79,7 +79,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   const moment = (el: HTMLElement, name: string, start: number, ms: number) => { const age = performance.now() - start; if (age >= ms) return false; el.classList.add(name); el.style.setProperty('--age', `${-age}ms`); return true; };
   // Sound is off unless the player turns it on in Settings (render/sfx.ts).
   const sound = (step: BoardMove) => { if (step.move.captures.length) snd.capture(); else snd.move(); if (inCheck(step.pos)) snd.check(); };
-  const refused = new Set<string>();
+  const refused = new Set<string>(), taught = new Map<string, number>();
   const active = () => ['board', 'end'].includes(client.state.screen);
   const rules = () => setRules(view!.rules!);
   command = async (name, args) => {
@@ -255,9 +255,14 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     const words = code ? `${colorOf(code) ? 'Black' : 'White'} ${nameOf(typeOf(code))}.${states ? ' ' + states + '.' : ''}` : '';
     const available = boardActions(view,Date.now()-readAt), opponent = view.opponent?.handle ?? 'Your opponent';
     const deadline = available.claim === 'end' ? 'The first-turn deadline passes.' : available.claim ? view.days_per_move ? `${opponent} has not moved for ${view.days_per_move} day${view.days_per_move===1?'':'s'}.` : `${opponent} misses the move deadline.` : '';
-    const context = contextLine({voice:'you', result:view.result ? ending(view) : '', refusal:$('error').textContent ?? '', link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:pos.turn !== view.seat, midWay:pos.haste !== undefined || !!pos.free, free:!!pos.free, turnLine:pos.free ? 'Make your move, or stop here.' : 'Move it again, or stop here.', armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
+    // Option A: Beginner notes; each enemy fairy action kind shows once a game, at the history length it first shows.
+    const beginner = view.level === 'beginner', teach = beginner && lastMove && lastMove.pre.turn !== view.seat ? teachNote(lastMove.pre, lastMove.move) : undefined;
+    const fresh = teach && (taught.get(teach[0]) ?? history.length) === history.length;
+    const first = beginner && pos.ply < 2 && pos.board.some(c => c && typeOf(c) > K) ? 'New pieces in this game. Tap any piece to read its rule.' : '';
+    const context = contextLine({voice:'you', teach:first || (fresh ? teach[1] : ''), result:view.result ? ending(view) : '', refusal:$('error').textContent ?? '', link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:pos.turn !== view.seat, midWay:pos.haste !== undefined || !!pos.free, free:!!pos.free, turnLine:pos.free ? 'Make your move, or stop here.' : 'Move it again, or stop here.', armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
     if (context.rank==='link' && deadline) context.note=available.claim==='end'?'You may end the game with no result.':'You may claim the win.';
-    if (available.abort && ['your-move','computer'].includes(context.rank)) context.note='Abort ends the game with no result, until each side moves once.';
+    if (fresh && context.rank === 'your-move') taught.set(teach[0], history.length);
+    if (available.abort && ['your-move','computer'].includes(context.rank) && !(context.rank === 'your-move' && context.note)) context.note='Abort ends the game with no result, until each side moves once.';
     if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:'armed',line:cardName(RULES.hands[view.seat][armedCard]),note:'Choose a piece, then a marked square.'});
     if (view.draw_offer != null && !['result','refusal','link'].includes(context.rank)) context.note = view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.';
     $('status').textContent = context.rank === 'refusal' ? '' : context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
@@ -317,7 +322,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (next.deadline_at && next.turn !== next.seat && next.kind !== 'solo' && next.status === 'playing') deadlineTimer = setTimeout(refresh, Math.max(0,Date.parse(next.deadline_at)-Date.parse(next.server_now))+1);
     if (unchanged && !optimistic) { if (pos) { rules(); refresh(); } scheduleComputer(); return; }
     const token = ++generation; board.skip(); animating = false; $('board').dataset.animating='false';
-    if (!same) { history = []; lastMove = undefined; optimistic = undefined; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); }
+    if (!same) { history = []; lastMove = undefined; optimistic = undefined; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
     const local = optimistic; optimistic = undefined;
     armed = undefined; armedCard = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]);

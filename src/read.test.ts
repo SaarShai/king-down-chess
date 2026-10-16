@@ -1,9 +1,10 @@
 import { afterEach, expect, it } from 'vitest';
-import { A, DEFAULT_RULES, P, T, legalMoves, nameOf, parseRule, parseSq, setRules } from './rules/engine';
+import { A, DEFAULT_RULES, type Move, P, type Rules, T, legalMoves, nameOf, parseRule, parseSq, setRules } from './rules/engine';
 import { describeMove } from './move-text';
 import { PRESETS, designCode, fromPreset } from './workshop/model';
 import { fromFen } from './rules/setup';
-import { pieceGuide, guideTypes, reachOf, readText, readTap, unmarkedTap, whyNot } from './read';
+import { pieceGuide, guideTypes, reachOf, readText, readTap, teachNote, unmarkedTap, whyNot } from './read';
+import { contextLine } from './context-line';
 
 const at = parseSq;
 afterEach(() => setRules(DEFAULT_RULES));
@@ -263,4 +264,22 @@ it('names and describes the design that plays as T (ticket 17), and the Templar 
   // A sentence starts with a capital, also for a name typed in lower case (review 17b, item 3).
   setRules(parseRule(`design=${designCode({ ...fromPreset(PRESETS.find(p => p.key === 'rook')!), name: 'old ward', letter: 'Y' })}`));
   expect(whyNot(pos, at('d4'), at('e5'))).toBe('Old ward cannot reach e5.');
+});
+
+it.each([
+  ['3a4/8/3P4', (m: Move) => m.from === m.to, {}, 'shot', 'Their archer took without moving; it shoots 2 squares straight or diagonally forward.'],
+  ['3a4/8/3P4', (m: Move) => m.from === m.to, { archerShots: 'classic' }, 'shot', 'Their archer took without moving; it shoots near diagonals or 2 squares straight.'],
+  ['3o4/3P4/8', (m: Move) => !!m.shove, {}, 'shove', 'Their ogre shoved a piece 1 square and stepped into its place.'],
+  ['3o4/3P4/8', (m: Move) => !!m.shove, { ogreMode: 'repel' }, 'shove', 'Their ogre shoved a piece 1 square and stayed in place.'],
+  ['3s4/3P4/3P4', (m: Move) => m.captures.length === 2, {}, 'chain', 'Their beast took 2 pieces; it can bite again after a bite.'],
+  ['3l4/8/3N4', (m: Move) => m.captures.length === 1, {}, 'leave', 'Their paladin is gone; it leaves the board after a take, except a pawn.'],
+  ['3l4/8/3N4', (m: Move) => m.captures.length === 1, { paladinKamikaze: 'always' }, 'leave', 'Their paladin is gone; it leaves the board after each take.'],
+  ['3m4/3n4/8', (m: Move) => !!m.swap, {}, 'swap', 'Their maester swapped places with one of their pieces.'],
+] as const)('teaches the enemy %s move once in the rule words (option A)', (ranks, pick, rules, kind, words) => {
+  setRules(rules as Partial<Rules>);
+  const pos = fromFen(`4k3/8/8/${ranks}/8/K7 b - - 0 1`), move = legalMoves(pos).find(pick)!;
+  expect(teachNote(pos, move)).toEqual([kind, words]);
+  expect(teachNote(pos, legalMoves(pos).find(m => m.from === at('e8'))!)).toBeUndefined();
+  expect(contextLine({ voice: 'you', teach: words })).toMatchObject({ rank: 'your-move', note: words });
+  expect(contextLine({ voice: 'you', teach: words, check: true, checkCause: 'Their archer attacks your king.' }).note).toBe('Their archer attacks your king.');
 });
