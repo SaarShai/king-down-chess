@@ -1,0 +1,54 @@
+/**
+ * Sample data for the OpenAI review account (approval D8 a; docs/submission/test-cases.md "Before submission"):
+ * one finished friend game that the review account won (a rating, and the First Win, Friend Match and Purist
+ * badges), then one Classic beginner game against the computer where it is the review account's move.
+ * The owner makes both accounts first (docs/submission/review-notes.md). This script reads no password.
+ *
+ *   PLUGIN_DATABASE_URL=… KINGDOWN_REVIEW_EMAIL=… KINGDOWN_REVIEW_OPPONENT_EMAIL=… npm run plugin:db:seed-review
+ */
+import { randomUUID } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
+import pg from 'pg';
+import { DEFAULT_OPTIONS } from '../../src/match/setup';
+import { GameService } from '../../src/match/service';
+import { PostgresMatchStore } from '../../src/match/store';
+import { AccountService } from '../../src/online/accounts';
+
+const CLASSIC = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
+
+export async function seedReview(pool: pg.Pool, reviewEmail: string, opponentEmail: string, handles = { review: 'review-player', opponent: 'review-friend' }) {
+ const store = new PostgresMatchStore(pool), games = new GameService(store), accounts = new AccountService(store);
+ const account = async (email: string): Promise<string> => {
+  const id = (await pool.query('select id from auth.users where lower(email)=lower($1)', [email.trim()])).rows[0]?.id;
+  if (!id) throw new Error(`No account has the address ${email}. Make it first.`);
+  return id;
+ };
+ const [review, opponent] = [await account(reviewEmail), await account(opponentEmail)];
+ if (review === opponent) throw new Error('The review account and its opponent must be two accounts');
+ // Two runs would make a second set of games and change the counts in the test cases.
+ if ((await pool.query('select from public.game_players where user_id=$1 limit 1', [review])).rowCount) throw new Error('The review account has games already. Use a new account.');
+ for (const [user, handle] of [[review, handles.review], [opponent, handles.opponent]] as const)
+  if (!(await accounts.profile(user)).handle) await accounts.setHandle(user, { handle });
+ const turn = async (actor: string, gameId: string) => {
+  const view = await games.view(actor, gameId);
+  return games.command(actor, gameId, { command_id: randomUUID(), expected_revision: view.revision, action: { type: 'turn', actions: [view.legal[0]] } });
+ };
+ const friend = await games.create(review, { kind: 'friend', options: CLASSIC, colour: 'white' });
+ await games.join(opponent, (await games.invite(review, friend.game_id)).code);
+ await turn(review, friend.game_id); await turn(opponent, friend.game_id);
+ const ended = await games.view(opponent, friend.game_id);
+ await games.command(opponent, friend.game_id, { command_id: randomUUID(), expected_revision: ended.revision, action: { type: 'resign' } });
+ const solo = await games.create(review, { kind: 'solo', options: CLASSIC, colour: 'white', level: 'beginner' });
+ return { review, finished: friend.game_id, active: solo.game_id, record: await games.record(review) };
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+ const { PLUGIN_DATABASE_URL: connectionString, KINGDOWN_REVIEW_EMAIL: reviewEmail, KINGDOWN_REVIEW_OPPONENT_EMAIL: opponentEmail } = process.env;
+ if (!connectionString || !reviewEmail || !opponentEmail) throw new Error('Set PLUGIN_DATABASE_URL, KINGDOWN_REVIEW_EMAIL and KINGDOWN_REVIEW_OPPONENT_EMAIL');
+ const pool = new pg.Pool({ connectionString, max: 1 });
+ try {
+  const { finished, active, record } = await seedReview(pool, reviewEmail, opponentEmail);
+  const { played, won, drawn, lost } = record.totals;
+  console.log(`Review account seeded: finished game ${finished}, active game ${active}; rating ${Math.round(record.rating.rating)}${record.rating.provisional ? '?' : ''}; ${played} played, ${won} won, ${drawn} drawn, ${lost} lost; ${record.badges.length} badges.`);
+ } finally { await pool.end(); }
+}

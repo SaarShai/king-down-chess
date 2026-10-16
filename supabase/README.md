@@ -18,7 +18,10 @@ repository.
    7 days later; the deletions job deletes the account then.
 5. **Authentication → Sign In / Providers**: turn **Email** off, and keep **Allow anonymous sign-ins**
    off. The game signs in only with Google, GitHub and Facebook. With Email on, anyone can make
-   accounts through the API with any name, and every account gets a profile.
+   accounts through the API with any name, and every account gets a profile. The one exception is the
+   OpenAI review account (approval D8 a): turn Email on only after
+   `plugin-deploy/review-signup-hook.sql` is applied and enabled as the **Before User Created** hook.
+   That hook refuses every email sign-up whose address is not in `kingdown_auth.password_accounts`.
 
 ## What 0001 makes
 
