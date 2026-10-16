@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { readSetup, withToggle, createArguments, pieceLocked, cardLocked, withPiece, withCard, cleanKing, availablePowers, shownKing, soloChoice } from './setup-model';
+import { readSetup, quickSetup, withToggle, createArguments, pieceLocked, cardLocked, withPiece, withCard, cleanKing, availablePowers, shownKing, soloChoice } from './setup-model';
 import { DEFAULT_OPTIONS } from '../../match/setup';
 import type { View } from '../../match/protocol';
 
@@ -9,6 +9,20 @@ it('starts a new account with the approved defaults and no king pick', () => {
     options: { fairy: true, pool: ['Q','O','L','R','B','N','A','G','M','S'], arrangement: true, classic: false, cards: false,
       cardPool: ['Freeze','IceWall','Strike','Haste','Flight','Sacrifice','March','Leap','Salvation','MirrorB','Firewall','EarthQuake','Burn','FireStarter','Control','Rally','MorphP','Mimic','Vault','Curse','SkyLift'], kingPowers: false },
   });
+});
+
+it('starts Play now at Beginner with an automatic army when no setup is saved', () => {
+  expect(quickSetup(undefined)).toEqual({
+    ...readSetup(null), level: 'beginner', options: { ...DEFAULT_OPTIONS, arrangement: false },
+  });
+});
+
+it.each(['friend', 'random'] as const)('uses saved %s choices for Play now without changing the saved setup', kind => {
+  const saved = { ...readSetup(null), kind, level: 'strong' as const, colour: 'black' as const,
+    options: { ...DEFAULT_OPTIONS, kingPowers: true }, king: { king: 'Shadow', power: 'Darkness' } as const };
+  const before = structuredClone(saved);
+  expect(quickSetup(saved)).toEqual({ ...saved, kind: 'solo' });
+  expect(saved).toEqual(before);
 });
 
 it('keeps hidden toggles, sends only visible choices and locks the last pool entries', () => {

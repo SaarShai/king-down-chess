@@ -438,11 +438,10 @@ try {
       return [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomLeftRadius, style.borderBottomRightRadius].every(radius => radius === '50%')
         && Math.abs(box.width - box.height) < .5 && box.width >= 44 && style.backgroundImage.includes('radial-gradient') && !style.backgroundImage.includes('stone-control');
     })), 'Card and power coins stay round with 44 px targets at 393 × 852');
-    assert.equal(await frame.locator('#board canvas').count(), 1, 'The board uses the painted canvas');
-    assert.equal(await frame.locator('#board button').count(), 0, 'Board squares do not use button faces');
+    assert(await frame.locator('#board').evaluate(board => [board, board.parentElement].every(surface => !getComputedStyle(surface).backgroundImage.includes('stone-control'))), 'The board and its parent keep the stone control face off the board');
     assert((await frame.locator('#board-menu').evaluate(button => getComputedStyle(button).backgroundImage)).includes('stone-control'), 'Menu keeps the stone face');
     await shot(page, `base-round-coins-393-${mode}`);
-    await page.setViewportSize({ width: 1000, height: 1000 });
+    await page.setViewportSize({ width: 390, height: 844 });
     const desktop = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: false, reducedMotion: 'reduce' });
     trapErrors(desktop);
     try {
@@ -464,7 +463,22 @@ try {
     await setupTool('kingdown_abort', { game_id: await page.evaluate(() => window.harnessView.game_id) });
     await setupMount(saved); assert.equal(await frame.locator('#setup-king-name').innerText(), 'Shadow · Darkness');
     assert(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked()); assert(await frame.getByRole('radio', { name: 'Black', exact: true }).isChecked());
+    for (const kind of ['friend', 'random']) {
+      const remembered = { ...saved, kind };
+      await setupMount(remembered);
+      const home = await setupTool('kingdown_open', { screen: 'home' });
+      await page.evaluate(result => window.harnessShow(result), home);
+      await frame.getByRole('button', { name: 'Play now', exact: true }).click();
+      await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+      const quick = await page.evaluate(() => window.harnessView);
+      assert.equal(quick.kind, 'solo', `Play now starts a computer game from a saved ${kind} setup`);
+      assert.equal(quick.level, remembered.level);
+      assert.deepEqual(quick.options, remembered.options);
+      assert.deepEqual((await setupTool('kingdown_settings'))._meta.settings.last_setup, remembered, `Play now keeps the saved ${kind} setup`);
+      await setupTool('kingdown_abort', { game_id: quick.game_id });
+    }
     await setupMount(baseSetup);
+    assert.deepEqual(page.viewportSize(), { width: 390, height: 844 }, 'The setup mixes and recovery checks use the phone size');
     const levels = ['beginner','casual','club','strong']; let mix = 0;
     for (const fairy of [true,false]) for (const secondary of [false,true]) for (const cards of [false,true]) for (const powers of [false,true]) {
       const options = { ...DEFAULT_OPTIONS, fairy, arrangement: fairy && secondary, classic: !fairy && secondary, cards, kingPowers: powers };
@@ -596,6 +610,7 @@ try {
       const read = await seatTool('kingdown_get', { game_id: v.game_id }, true), next = read._meta.view;
       return seatTool('kingdown_choose', { game_id: next.game_id, command_id: randomUUID(), expected_revision: next.revision, ...next.choices[next.seat], ready: true }, true);
     }
+    assert.deepEqual(page.viewportSize(), { width: 390, height: 844 }, 'The first seat and king sheet checks use the phone size');
     const sheetSeat = await friendSeat();
     await frame.locator('#seat-king').click();
     await buddyReady(sheetSeat);

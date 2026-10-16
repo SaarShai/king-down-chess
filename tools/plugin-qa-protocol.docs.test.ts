@@ -24,6 +24,9 @@ test('the QA hall step names the current home actions, setup and menu rows', () 
   const rows = [...play.matchAll(/class="row-title">([^<]+)</g)].map(match => match[1]);
   expect(rows).toEqual(['Profile', 'Settings']);
   for (const row of rows) expect(hall).toContain(row);
-  expect(hall).toContain('Beginner');
-  expect(hall).toContain('Saved custom options stay');
+  expect(hall).toContain('With no saved setup, "Play now" starts a Beginner computer game with an automatic army.');
+  expect(hall).toContain('With a saved setup, it starts a computer game with the saved level and options.');
+  expect(hall).toContain('Saved Arrangement opens the seat screen.');
+  expect(hall).toContain('Select A friend to see "Join with a code"');
+  expect(hall).toContain('The saved setup stays after Play now, including the opponent choice.');
 });

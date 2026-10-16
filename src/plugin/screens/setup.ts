@@ -130,7 +130,7 @@ async function finish(view: View, pick = draft!.king) {
   if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, true, false, false); if (!full) return; view = full; }
   ownCommand = false; routeView(view);
 }
-async function launch(setup = draft) {
+async function launch(setup = draft, saveSetup = true) {
   if (!setup || starting || client.state.pending) return;
   starting = true; ownCommand = true; render();
   // After a long wait, Back is a safe way out: the start stays pending, and Start sends no second Create.
@@ -138,15 +138,18 @@ async function launch(setup = draft) {
   const exits = document.querySelectorAll<HTMLButtonElement>('#page-back, [data-screen="play"] [data-nav]');
   const wait = setTimeout(() => { slow = true; render(); exits.forEach(button => { button.dataset.free = ''; button.disabled = false; }); }, 5_000);
   try {
-    const last_setup = { ...setup, options: setupOptions(setup.options) }, saved = await client.call('kingdown_settings', { last_setup });
-    if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
-    memory.settings = saved._meta?.settings as typeof memory.settings;
+    const last_setup = { ...setup, options: setupOptions(setup.options) };
+    if (saveSetup) {
+      const saved = await client.call('kingdown_settings', { last_setup });
+      if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+      memory.settings = saved._meta?.settings as typeof memory.settings;
+    }
     const view = await start(last_setup.kind, createArguments(last_setup), { route: false }); if (view) await finish(view, last_setup.king);
   } catch (error) { $('error').textContent = $('home-error').textContent = errorText(error); }
   finally { clearTimeout(wait); starting = slow = false; exits.forEach(button => { delete button.dataset.free; }); if (!client.state.pending) ownCommand = false; render(); }
 }
-/** The home card's Play now: a computer game from the last setup, with no hall. */
-export function playNow() { if (memory.settings) void launch(quickSetup(memory.settings.last_setup)); }
+/** Play now starts a computer game and keeps the saved setup. */
+export function playNow() { if (memory.settings) void launch(quickSetup(memory.settings.last_setup), false); }
 async function recoverStart() {
   const pending = client.state.pending;
   if (!draft || !pending || recovering) return;

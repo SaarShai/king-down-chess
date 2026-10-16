@@ -1,6 +1,6 @@
 # Base follow-up: token shapes, chat result and Play checks
 
-Status: resolved
+Status: claimed
 Type: task
 
 ## Scope
@@ -23,6 +23,21 @@ keep their own shape. Controls, menu rows and toggles keep stone a.
    No server code changes: `plugin-ui-http` is not required.
 5. Get two independent reviews. Fix each confirmed fault. Commit locally
    on `claude/owner-decisions`. Do not push.
+
+## Review repair plan and checks
+
+1. Check each finding from Review A against the code and ticket 01-base.
+   Play now must keep the saved friend or random setup. Add unit tests
+   for quickSetup and a browser check that reads the saved setup.
+2. Restore 390 × 844 after the coin checks. Check the phone size before
+   the setup mixes and first seat checks.
+3. Correct QA step 2 for a new player, saved options and the friend code
+   field. Change the doc test to check these cases.
+4. Replace the board structure assertions with computed face checks.
+   Keep the Menu face check as a control.
+5. Run npm test here with the given test database. Run plugin-ui on the
+   M1 with the shared lock. Run plugin-ui-http if server code changes.
+   Record the results and commit on this branch.
 
 ## Build
 
