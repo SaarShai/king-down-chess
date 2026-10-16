@@ -65,10 +65,9 @@ export function endScreen(schedule = true) {
   if (outcome) {
     const facts = over.querySelector('.end-facts')!;
     if (outcome.rating !== null) {
-      const line = document.createElement('span'); line.textContent = 'Rating ';
-      const rating = document.createElement('b'); rating.textContent = String(Math.round(outcome.rating)); line.append(rating);
-      if (outcome.provisional) {const q=document.createElement('span'); q.className='q'; q.textContent='?'; line.append(q);}
-      if (outcome.rating_before !== null) { const delta=Math.round(outcome.rating-outcome.rating_before), change=document.createElement('small'); change.textContent=' '+(delta>=0?'+':'')+delta; line.append(change); }
+      const line = document.createElement('span'); line.textContent = outcome.provisional ? '' : 'Rating ';
+      const rating = document.createElement('b'); rating.textContent = outcome.provisional ? 'New player' : String(Math.round(outcome.rating)); line.append(rating);
+      if (!outcome.provisional && outcome.rating_before !== null) { const delta=Math.round(outcome.rating-outcome.rating_before), change=document.createElement('small'); change.textContent=' '+(delta>=0?'+':'')+delta; line.append(change); }
       facts.append(line);
     }
     const badge = outcome.badges[0]?.badge;

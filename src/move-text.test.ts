@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Move, Position, POWERS_BALANCED, inCheck, legalMoves, makeMove, parseSq, setRules } from './rules/engine';
 import { KingChoice, PowerName } from './rules/rules';
 import { fromFen, randomBackRank, startPosition, toLan } from './rules/setup';
-import { checkCause, checkersOf, describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
+import { checkCause, checkersOf, describeMove, shortMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
 import { offered } from './powers-ui';
 import { mulberry32 } from './sim/rng';
 
@@ -229,4 +229,15 @@ it.each(['computer', 'link'] as const)('speaks from either viewer when either ki
 it.each(['haste', 'rally'] as const)('describes the final %s ply without another move', power => {
   const pos = fromFen('7k/8/8/8/8/R7/8/7K w - - 0 1');
   expect(describeMove(pos, { from: 16, to: 56, captures: [], power }, true, true)).toBe('White rook a3 to a8.');
+});
+
+
+it('keeps a short move and names the card or power use', () => {
+  setRules({});
+  const pos = fromFen('4k3/7p/8/8/8/8/P7/K7 b - - 0 1');
+  expect(shortMove(pos, find(pos, 'h7-h5'))).toBe('Black pawn h7 → h5');
+  expect(shortMove(pos, {from:55,to:47,captures:[],power:'haste'})).toBe('Black Haste · pawn h7 → h6');
+  expect(shortMove(pos, {from:60,to:60,captures:[],power:'firewall'})).toBe('Black Firewall · king e8');
+  expect(shortMove(pos, {from:60,to:60,captures:[],power:'firewall',via:'mirrorb'})).toBe('Black Mirror B · Firewall · king e8');
+  expect(shortMove(pos, {from:60,to:47,captures:[],drop:1,power:'spawn'})).toBe('Black Spawn · adds pawn h6');
 });

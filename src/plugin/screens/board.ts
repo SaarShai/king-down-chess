@@ -1,7 +1,7 @@
 import { fromFen, toFen, toLan } from '../../rules/setup';
 import { colorOf, findKing, K, inCheck, legalMoves, moveNumber, nameOf, piece, PLAIN_KINGS, RULES, setRules, sqName, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
 import { cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
-import { checkCause, checkersOf, describeMove, threatsIn } from '../../move-text';
+import { checkCause, checkersOf, describeMove, shortMove, threatsIn } from '../../move-text';
 import { marksModel, railsOf } from '../../marks-model';
 import { readText, reachOf, teachNote } from '../../read';
 import { contextLine } from '../../context-line';
@@ -14,9 +14,9 @@ import { snd } from '../../render/sfx';
 import '../../ceremony.css';
 import { client, memory, navigate } from '../app';
 import { nextGame } from '../games-list';
-import { actionButtons, confirmDraw, confirmResign } from './board-actions';
+import { actionButtons } from './board-actions';
 import { updateEnd } from './end';
-import { applyLan, boardActions, cardCoins, replayHistory, replayLans, stripLine, type BoardMove } from './board-model';
+import { applyLan, boardActions, cardCoins, replayHistory, replayLans, stripLine, timeLeft, type BoardMove } from './board-model';
 import './board.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 type Choice = { lan: string; move: Move };
@@ -54,6 +54,7 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   }
   const opener = sheet.contains(document.activeElement) ? sheetFocus : document.activeElement as HTMLElement;
   closeBoardSheet(); sheetFocus = opener;
+  sheet.classList.remove('board-menu');
   sheet.innerHTML = '<header class="sheet-head"><h2 id="board-sheet-title"></h2><button aria-label="Close">×</button></header><div class="sheet-body"></div>';
   sheet.querySelector('h2')!.textContent = title; sheet.querySelector('button')!.onclick = closeBoardSheet;
   sheet.querySelector('.sheet-body')!.append(...nodes); scrim.hidden = false; document.querySelector<HTMLElement>('.page-sheet')!.inert = true; sheet.show(); sheet.querySelector('button')!.focus({preventScroll:true});
@@ -61,7 +62,7 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
 }
 const text = (words: string) => { const p = document.createElement('p'); p.textContent = words; return p; };
 const button = (words: string, click: () => void) => { const b = document.createElement('button'); b.textContent = words; b.onclick = click; return b; };
-export function boardScreen(call: (name: string, args: Record<string, unknown>, retain?: boolean) => Promise<View | undefined>, networkBlocked: () => boolean) {
+export function boardScreen(call: (name: string, args: Record<string, unknown>, retain?: boolean) => Promise<View | undefined>, networkBlocked: () => boolean, readFailed: () => boolean) {
   let generation = 0, animating = false, optimistic: BoardMove | undefined;
   const blocked = () => networkBlocked() || animating;
   let armed: PowerName | undefined, armedCard: number | undefined;
@@ -123,6 +124,8 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
       if (name) { const image = document.createElement('img'); image.className = 'pi'; image.alt = ''; image.src = symbols[`../../public/ui/icons/${name}.svg`][colorOf(code)]; nodes.push(image); }
     }
     const words = document.createElement('span'); words.textContent = lastMove?.words ?? `Move ${moveNumber(pos)}.`; nodes.push(words); $('last-move').replaceChildren(...nodes);
+    $('short-move-words').textContent = lastMove ? shortMove(lastMove.pre, lastMove.move) : `Move ${moveNumber(pos)}.`;
+    $('move-time-left').textContent = view ? timeLeft(view, Date.now() - readAt) : '';
   }
   async function choose(lan: string) {
     if (!view || !pos || blocked() || view.action !== 'ready') return;
@@ -240,6 +243,11 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   function refresh() {
     if (!view || !pos) return;
     $('board').dataset.animating = String(animating);
+    if (readFailed()) { armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]); }
+    moveLine();
+    clearTimeout(deadlineTimer);
+    const remaining = view.deadline_at ? Date.parse(view.deadline_at) - Date.parse(view.server_now) - (Date.now() - readAt) : 0;
+    if (!tornDown && view.status === 'playing' && remaining > 0) deadlineTimer = setTimeout(refresh, Math.min(60000, remaining + 1));
     const check = inCheck(pos) ? findKing(pos.board, pos.turn) : null;
     if (check !== checked) { checked = check; if (check !== null && board.motion()) checkAt = performance.now(); }
     rules(); const cands = selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
@@ -262,9 +270,9 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     const context = contextLine({voice:'you', teach:first || (fresh ? teach[1] : ''), result:view.result ? ending(view) : '', refusal:$('error').textContent ?? '', link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:pos.turn !== view.seat, midWay:pos.haste !== undefined || !!pos.free, free:!!pos.free, turnLine:pos.free ? 'Make your move, or stop here.' : 'Move it again, or stop here.', armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
     if (context.rank==='link' && deadline) context.note=available.claim==='end'?'You may end the game with no result.':'You may claim the win.';
     if (fresh && context.rank === 'your-move') taught.set(teach[0], history.length);
-    if (available.abort && ['your-move','computer'].includes(context.rank) && !(context.rank === 'your-move' && context.note)) context.note='Abort ends the game with no result, until each side moves once.';
     if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:'armed',line:cardName(RULES.hands[view.seat][armedCard]),note:'Choose a piece, then a marked square.'});
     if (view.draw_offer != null && !['result','refusal','link'].includes(context.rank)) context.note = view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.';
+    if (readFailed()) Object.assign(context, {rank:'link', line:'Not current', note:''});
     $('status').textContent = context.rank === 'refusal' ? '' : context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
     const actions: HTMLButtonElement[] = [];
     if (!armed && armedCard === undefined && square !== undefined && code) actions.push(button('All rules', () => boardSheet('All rules', text(readText(pos!, square)))));
@@ -272,12 +280,11 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (armed || armedCard !== undefined) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; choices([]); refresh(); }));
     if (view.legal.includes('--')) actions.push(button('Stop here', () => choose('--')));
     const gameActions = actionButtons(view,Date.now()-readAt,refused);
-    if (!actions.length && !view.result) actions.push(...gameActions.filter(b=>['abort','claim','accept-draw','decline-draw'].includes(b.id)));
+    if (!view.result) actions.push(...gameActions);
     // Spec J3: after your move in a game the opponent answers later, go on to the next game that waits for you.
     const next = view.kind !== 'solo' && view.status === 'playing' && view.turn !== view.seat ? nextGame(memory.games, view.game_id) : undefined;
     if (next) { const b = button('Next game ›', () => void call('kingdown_resume', { game_id: next.game_id })); b.id = 'next-game'; actions.push(b); }
-    $('offer-draw').hidden = view.kind === 'solo' || view.status !== 'playing' || view.draw_offer !== null || refused.has('kingdown_draw');
-    $('resign').hidden = view.status !== 'playing';
+    for (const action of actions) action.disabled = networkBlocked();
     $('context-actions').replaceChildren(...actions); strips();
     board.setLifted(selected ?? null);
     // Never lay the king down on the position before the final move.
@@ -296,9 +303,14 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     function skip() { clearTimeout(show); clearTimeout(done); words.remove(); delete $('board').dataset.toppling; removeEventListener('pointerdown', skip, true); }
     addEventListener('pointerdown', skip, true);
   }
-  $('resign').onclick = confirmResign; $('offer-draw').onclick = () => confirmDraw('offer');
   $('reload').addEventListener('click', closeBoardSheet);
-  $('board-menu').onclick = () => boardSheet('Menu', button('Choose a move', () => boardSheet('Choose a move', $('choices'))), button('Moves', showMoves), ...view ? actionButtons(view,Date.now()-readAt,refused,true) : [], button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('computer'), $('invite'), $('invitation'));
+  $('board-menu').onclick = () => {
+    const chooseMove = button('Choose a move', () => boardSheet('Choose a move', $('choices'))); chooseMove.className = 'game-action';
+    const actions = [chooseMove, ...view ? actionButtons(view, Date.now() - readAt, refused, true) : []];
+    for (const action of actions) action.disabled = networkBlocked();
+    boardSheet('Menu', button('Moves', showMoves), ...actions, button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('invite'), $('invitation'));
+    sheet.classList.add('board-menu');
+  };
   function showMoves() { boardSheet('Moves', ...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No moves shown yet.')]); }
   $('moves-line').onclick = showMoves;
   bindBoard();
@@ -319,7 +331,6 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     view = {...next, rules:next.rules ?? (same ? view?.rules : undefined), outcome:next.outcome ?? (same ? view?.outcome : undefined), opponent:next.opponent && {...next.opponent, rating:next.rules ? next.opponent.rating : next.opponent.rating ?? (same ? view?.opponent?.rating : undefined)}};
     if (['finished','aborted'].includes(next.status)) setTimeout(()=>{ if (active()) { if(client.state.screen==='board') navigate('end'); updateEnd(); } },0);
     readAt = Date.now(); clearTimeout(deadlineTimer);
-    if (next.deadline_at && next.turn !== next.seat && next.kind !== 'solo' && next.status === 'playing') deadlineTimer = setTimeout(refresh, Math.max(0,Date.parse(next.deadline_at)-Date.parse(next.server_now))+1);
     if (unchanged && !optimistic) { if (pos) { rules(); refresh(); } scheduleComputer(); return; }
     const token = ++generation; board.skip(); animating = false; $('board').dataset.animating='false';
     if (!same) { history = []; lastMove = undefined; optimistic = undefined; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
@@ -328,7 +339,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     armed = undefined; armedCard = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]);
     document.querySelector('[data-screen="board"]')!.prepend($('game-table')); $('table-bar').hidden = false;
     $('game-table').dataset.empty = String(!next.fen || next.status === 'setup');
-    if (!next.fen || next.status === 'setup') { pos = undefined; $('offer-draw').hidden = $('resign').hidden = true; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
+    if (!next.fen || next.status === 'setup') { pos = undefined; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('short-move-words').textContent = ''; $('move-time-left').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
     rules(); pos = fromFen(next.fen); const legal = new Set(next.legal), here = pos;
     moves = legal.size ? legalMoves(pos).map(move => ({lan:toLan(here,move),move})).filter(({lan}) => legal.has(lan)) : [];
     const steps = before && same ? replayLans(before, next, view.rules!) : undefined;

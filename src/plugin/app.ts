@@ -35,10 +35,10 @@ let readError = false;
 let busy = false, polling = false, mountReading = true, gamesDirty = false;
 // Ends when the command in flight (busy) ends; call skips a read while busy.
 let commandDone = Promise.resolve(), endCommand = () => {};
-let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0, pollFailures = 0;
+let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0;
 let pending = state.pending;
 let handleBack: Screen = pending?.screen ?? 'settings';
-const drawBoard = boardScreen(call, () => busy || mountReading || !!pending);
+const drawBoard = boardScreen(call, () => busy || mountReading || !!pending || readError, () => readError);
 const router = createRouter((name, args, retain) => call(name, args, retain, false, false), navigate, show, () => !!pending);
 export const { routeView, start } = router;
 const screens = { play: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
@@ -56,13 +56,14 @@ function retryState() {
   $('retry').hidden = !message && !readError;
   $('retry').textContent = readError && !pending ? 'Try again' : 'Retry';
   $('error').textContent = message ?? '';
+  if (readError && !view) $('status').textContent = 'Not current';
 }
 const turnLine = (count: number) => count === 0 ? 'No games need your move.' : `Your move in ${count} game${count === 1 ? '' : 's'}.`;
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 function actions() {
   const blocked = busy || mountReading || !connected;
   // A slow start marks ‹ Play data-free (setup.ts): it stays a way out while later calls run.
-  buttons().forEach(button => { button.disabled = (blocked && !button.hasAttribute('data-free')) || button.matches('#king-picker [aria-disabled="true"]'); });
+  buttons().forEach(button => { button.disabled = (blocked && !button.hasAttribute('data-free')) || button.matches('#king-picker [aria-disabled="true"]') || readError && button.matches('.game-action, #choices button, #context-actions button'); });
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
   $<HTMLButtonElement>('setup-start').disabled ||= setupBusy();
   homeActions();
@@ -133,12 +134,12 @@ export async function call(name: string, args: Record<string, unknown>, retain =
       throw new Error(text);
     }
     remember(result);
-    // A good read ends an outage (three failed polls or a failed read): its sentence and Try again go together.
-    const outage = pollFailures >= 3 || name === 'kingdown_get' && readError; pollFailures = 0;
+    // A good read clears the stale board, its error and Try again together.
+    const outage = name === 'kingdown_get' && readError;
     if (name === 'kingdown_get') readError = false;
     const next = (result._meta as { view?: View } | undefined)?.view;
     if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision) {
-      view = { ...view, opponent: next.opponent, server_now: next.server_now }; if (state.screen === 'seat') seatScreen(); poll?.update(); if (outage) retryState(); return;
+      view = { ...view, opponent: next.opponent, server_now: next.server_now }; if (outage) drawBoard(view); if (state.screen === 'seat') seatScreen(); poll?.update(); if (outage) retryState(); return;
     }
     show(next); received = next;
     if (name === 'kingdown_get' && !quiet) await games();
@@ -152,13 +153,10 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     saveState(); retryState();
   } catch (error) { const message = error instanceof Error ? error.message : 'Could not update the game.';
     if (quiet && (busy || view !== before)) return;
-    // One slow poll is no outage, so a quiet read that cannot connect says nothing. A run of three shows the sentence
-    // with no Retry: the next poll tries again, and a good read clears it.
-    if (quiet && message === CANNOT_CONNECT) { if (++pollFailures >= 3) $('error').textContent = message; return; }
     if (retain && pending) failPending(message);
-    if (!quiet && name === 'kingdown_get' && state.board_id) readError = true;
+    if (name === 'kingdown_get' && state.board_id) readError = true;
     retryState(); if (!retain || !pending) $('error').textContent = message; }
-  finally { if (quiet) polling = false; else { busy = false; endCommand(); actions(); } }
+  finally { if (quiet) polling = false; else { busy = false; endCommand(); } actions(); }
   if (retain && name === 'kingdown_move' && !received && !pending && before?.game_id === view?.game_id) await rollbackBoardMove();
   if (followup) void call(followup.name, followup.args, true, false, undefined, true);
   return received;
