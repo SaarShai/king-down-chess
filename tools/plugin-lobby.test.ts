@@ -57,17 +57,20 @@ it('makes a friend code after create and offers a new code after remount', async
     expect(await row.getByRole('button', { name: `Share game ${code}`, exact: true }).isVisible()).toBe(true);
   } finally { await page.close(); }
 });
-it('copies the full invite and selects it when both copy paths refuse', async () => {
+it('copies the full invite without Share and selects it when both copy paths refuse', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await start(page, 'friend'); await frame.locator('#friend-copy').waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join('');
     const text = `Join King Down game ${code}. Rules: Fairy pieces.`;
     await frame.locator('html').evaluate(() => {
+      (window as any).inviteShareCalls = 0;
+      Object.defineProperty(navigator, 'share', { configurable: true, value: async () => { (window as any).inviteShareCalls++; } });
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => { (window as any).copiedInvite = text; } } });
     });
     await frame.locator('#friend-copy').click(); expect(await frame.locator('#friend-copy-status').textContent()).toBe('Copied');
     expect(await frame.locator('html').evaluate(() => (window as any).copiedInvite)).toBe(text);
+    expect(await frame.locator('html').evaluate(() => (window as any).inviteShareCalls)).toBe(0);
     await frame.locator('html').evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Denied'); } } });
       document.execCommand = () => false;
@@ -75,6 +78,7 @@ it('copies the full invite and selects it when both copy paths refuse', async ()
     await frame.locator('#friend-copy').click();
     expect(await frame.locator('#friend-copy-status').textContent()).toBe(`Select the invite and copy it: ${text}`);
     expect(await frame.locator('html').evaluate(() => getSelection()?.toString())).toBe(text);
+    expect(await frame.locator('html').evaluate(() => (window as any).inviteShareCalls)).toBe(0);
   } finally { await page.close(); }
 });
 async function buddy(page: Page, name: string, args: Record<string, unknown> = {}) {

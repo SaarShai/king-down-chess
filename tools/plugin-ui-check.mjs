@@ -874,15 +874,21 @@ try {
     assert(await frame.locator('#friend-share').evaluate(button => button.classList.contains('primary')), 'Share is the main action');
     assert((await frame.locator('#friend-expiry').innerText()).startsWith('Ends '), 'The Ends line stays');
     await lookAt('friend-code', 'friend');
+    await frame.locator('html').evaluate(() => {
+      window.inviteShareCalls = 0;
+      Object.defineProperty(navigator, 'share', { configurable: true, value: async () => { window.inviteShareCalls++; } });
+    });
     await page.context().grantPermissions(['clipboard-read','clipboard-write']); await frame.locator('#friend-copy').click();
     await frame.locator('#friend-copy-status').filter({ hasText: /^Copied$/ }).waitFor();
     assert(await page.evaluate(invite => navigator.clipboard.readText().then(text => text === invite), fullInvite), 'The granted clipboard contains the full invite');
+    assert.equal(await frame.locator('html').evaluate(() => window.inviteShareCalls), 0, 'Copy does not open the share sheet');
     await frame.locator('html').evaluate(() => {
       window.ticket13Clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard'); window.ticket13Copy = document.execCommand;
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Denied'); } } }); document.execCommand = () => false;
     });
     await frame.locator('#friend-copy').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Select the invite and copy it' }).waitFor();
     assert.equal(await frame.locator('html').evaluate(() => getSelection().toString()), fullInvite, 'The refused clipboard leaves the full invite selected');
+    assert.equal(await frame.locator('html').evaluate(() => window.inviteShareCalls), 0, 'A refused Copy does not open the share sheet');
     await frame.locator('html').evaluate(() => { if (window.ticket13Clipboard) Object.defineProperty(navigator, 'clipboard', window.ticket13Clipboard); else delete navigator.clipboard; document.execCommand = window.ticket13Copy; getSelection().removeAllRanges(); });
     await frame.locator('html').evaluate(() => {
       Object.defineProperty(navigator, 'share', { configurable: true, value: async data => { window.sharedInvite = data.text; } });
@@ -894,6 +900,25 @@ try {
     await openPlay();
     const inviteRow = frame.locator('.friend-invite-row').filter({ hasText: code });
     await inviteRow.waitFor();
+    for (const [width, height] of [[197,426], [320,568], [390,844]]) {
+      await page.setViewportSize({ width, height });
+      assert(await inviteRow.evaluate(async row => {
+        await document.fonts.ready;
+        const bounds = row.querySelector('button[data-game-id]').getBoundingClientRect();
+        const share = row.querySelector('button[aria-label]').getBoundingClientRect();
+        const texts = document.createTreeWalker(row.querySelector('button[data-game-id]'), NodeFilter.SHOW_TEXT);
+        while (texts.nextNode()) {
+          if (!texts.currentNode.textContent.trim()) continue;
+          const range = document.createRange(); range.selectNodeContents(texts.currentNode);
+          for (const box of range.getClientRects()) {
+            if (box.left < bounds.left - 1 || box.right > bounds.right + 1 || box.top < bounds.top - 1 || box.bottom > bounds.bottom + 1) return false;
+            if (box.left < share.right && box.right > share.left && box.top < share.bottom && box.bottom > share.top) return false;
+          }
+        }
+        return row.scrollWidth <= row.clientWidth + 1;
+      }), `The friend row text fits and stays clear of Share at ${width} px`);
+      await inviteRow.screenshot({ path: join(look, `friend-row-${width}-${mode}.png`) });
+    }
     const resumes = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_resume').length);
     await inviteRow.getByRole('button', { name: `Share game ${code}`, exact: true }).click();
     await inviteRow.getByRole('status').filter({ hasText: /^Shared$/ }).waitFor();

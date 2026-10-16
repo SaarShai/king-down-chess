@@ -322,7 +322,7 @@ it('gives each Android control a 48 px tap area at 360 × 800', async () => {
     expect(small).toEqual([]);
   } finally { await page.close(); }
 });
-it('reflows New game at 200% zoom (197 CSS px): no sideways scroll, every row tappable', async () => {
+it('reflows New game and a waiting friend invite at 200% zoom (197 CSS px)', async () => {
   const { page, frame } = await hostPage(197, 426, 51, 59);
   try {
     for (const name of ['Computer', 'A friend', 'Computer']) await frame.getByRole('radio', { name, exact: true }).locator('..').click({ timeout: 3000 });
@@ -348,6 +348,31 @@ it('reflows New game at 200% zoom (197 CSS px): no sideways scroll, every row ta
     await frame.locator('#setup-pieces').click({ timeout: 3000 });
     const title = frame.getByRole('dialog', { name: 'Fairy pieces' }).locator('h2');
     expect(await title.evaluate(h => { const t = h.getBoundingClientRect(), x = h.parentElement!.querySelector('button')!.getBoundingClientRect(); return h.scrollWidth <= h.clientWidth && t.right <= x.left; })).toBe(true);
+    await frame.getByRole('button', { name: 'Done', exact: true }).click();
+    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
+    await frame.locator('#setup-start').click(); await frame.locator('.game-code span').first().waitFor();
+    const code = (await frame.locator('.game-code span').allTextContents()).join('');
+    await frame.locator('#page-back').click();
+    const invite = frame.locator('.friend-invite-row').filter({ hasText: code }); await invite.waitFor();
+    expect(await invite.evaluate(async row => {
+      await document.fonts.ready;
+      const button = row.querySelector('button[data-game-id]')!, bounds = button.getBoundingClientRect();
+      const share = row.querySelector('button[aria-label]')!.getBoundingClientRect(), faults: string[] = [];
+      const texts = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+      while (texts.nextNode()) {
+        const node = texts.currentNode; if (!node.textContent?.trim()) continue;
+        const range = document.createRange(); range.selectNodeContents(node);
+        for (const box of range.getClientRects()) {
+          if (box.left < bounds.left - 1 || box.right > bounds.right + 1 || box.top < bounds.top - 1 || box.bottom > bounds.bottom + 1) faults.push(`Outside row: ${node.textContent}`);
+          if (box.left < share.right && box.right > share.left && box.top < share.bottom && box.bottom > share.top) faults.push(`Under Share: ${node.textContent}`);
+        }
+      }
+      if (row.scrollWidth > row.clientWidth + 1) faults.push('Sideways scroll');
+      return faults;
+    })).toEqual([]);
+    const share = invite.getByRole('button', { name: `Share game ${code}`, exact: true });
+    await share.scrollIntoViewIfNeeded();
+    expect((await share.evaluate(controlBounds)).accessible).toBe(true);
   } finally { await page.close(); }
 });
 it('keeps page-title words whole, the seat title short and the title at body size at 200% zoom (197 CSS px)', async () => {

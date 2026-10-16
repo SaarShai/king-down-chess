@@ -55,8 +55,9 @@ Keep the Ends line. Name the open side on the Join button.
 - The phone captures show both buttons, the Ends line and the full
   Join and take Black label. No text is cut.
 - No server code changes. The HTTP browser check does not apply.
-- Two independent readers report no open fault after the fixes below.
-  Both also check the rule-test split and find no lost coverage.
+- Follow-up review A reports three faults. Review B reports none.
+  See Review fixes below. Review A finds no lost coverage in the rule-test
+  split and no fault in the hidden action row.
 
 ## Choices and limits
 
@@ -66,6 +67,47 @@ Keep the Ends line. Name the open side on the Join button.
 - No ticket part is omitted.
 
 ## Comments
+
+### Review fixes
+
+1. Check each reported fault against the code and the J5 a pick.
+2. Add a waiting invite to the 197 px reflow test. Check the text bounds
+   and the Share bounds. Put Share below the row at narrow widths.
+3. Give the Copy button tests a share function that counts calls.
+   Check zero calls and the full invite on the clipboard.
+4. Update the QA steps, tester guide, live checks and Q28. Add a document
+   check for the current invite and join steps.
+5. Run `npm test` here and `npm run -s check:browser plugin-ui` on the M1.
+   Run plugin-ui-http if server code changes. Keep all time limits.
+   Record the results, then commit.
+
+- A1, confirmed: the two-column invite row has no narrow-width rule.
+  Share now sits below the row under 300 CSS px. The 197 px test creates
+  a waiting friend game and checks all text bounds against the row and
+  Share. It also scrolls Share into view and checks access above the
+  composer gap. The browser check checks text at 197, 320 and 390 px.
+- A2, confirmed test gap: the Copy handler already passes `false`.
+  The button tests now give the device a share function that counts
+  calls. They check zero calls and the full invite on the clipboard,
+  then check the full selected text when Copy fails.
+- A3, confirmed: the four listed documents give old Copy and Join steps.
+  They now describe Share first, Copy with the full invite, the fallback
+  words, Share in Your games and the open side on Join. A document test
+  checks each file. Q28 and user story 30 now use the J5 a pick.
+- Review B has no finding to fix.
+- M1 `npm run -s check:browser plugin-ui` at `8eac6257`: pass,
+  222.2 s. Run folder: `kd-od-end-4MQxQK`. The real clipboard contains
+  the full invite. Both Copy paths make zero share calls. Row text
+  stays inside its button and clear of Share at 197, 320 and 390 px.
+  The check saves a row image at each width. The images show the code;
+  the 197 px row uses vertical scroll. The check releases its lock.
+- No server code changes. The HTTP browser check does not apply.
+- `npm test` at `a827ff68`: pass. All 166 files pass; 2,574 tests pass
+  and 8 skip. Vitest ends in 145.74 s. All 50 document tests also pass.
+  The command returns 0. The run uses the local test database from the
+  house rules and keeps each time limit. The new reflow, Copy and
+  document checks pass. No confirmed finding stays open.
+- The final commit hooks pass the type check and the staged checks.
 
 - The server keeps code hashes only. This change uses the code that the
   page receives when it makes an invite. A remount keeps the existing

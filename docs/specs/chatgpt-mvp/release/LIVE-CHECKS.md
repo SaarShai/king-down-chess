@@ -20,7 +20,7 @@ Each required row must pass before testers start. For the side-panel and sidebar
 | Sidebar · iPhone | Repeat, or record not shown. | |
 | Computer · web | Play each of Beginner, Casual, Club, Strong. Check White, Black, and Random across these games. The reply runs on its own. | |
 | Computer · iPhone | Repeat all four levels. Tap a piece and destination; reopen and confirm the saved move. | |
-| Friend · web | A copies a six-character code. B joins by chat. Repeat with Join with a code. Preview, decline once, join, and finish a game. | |
+| Friend · web | A uses Share first, then Copy. Both send the full invite with the code and rule names. Check the Ends line. Your games shows the code with Share. If Share is absent or refuses, it copies the invite. If Copy fails, the page says "Select the invite and copy it" and selects the full text. B joins by chat. Repeat with Join with a code. Check the preview rules and "Join and take White" or "Join and take Black" for the open side. Decline once, join, and finish a game. | |
 | Friend · iPhone | Repeat with A and B on phones. Both pick their own king and order, then Ready. Orders stay hidden until both are ready. | |
 | Random · web | A opens a game. B sees its features and Accept. Repeat with Find an opponent taking the oldest game. | |
 | Random request twice · both devices | A starts a random game, then repeats the request before anyone joins. Your games shows one open random game. Cancel it once; no second open game remains. | |
