@@ -423,13 +423,16 @@ it.each(['same game', 'other game', 'failed read'] as const)('keeps a command re
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await soloBoard(page);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     const game = (await shownGame(page)).game!;
     const chat = await tool(page, '/fixture-tool', 'kingdown_open', { game_id: kind === 'other game' ? await soloGame(page) : game });
-    await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_move'; });
-    await html(page).evaluate(() => {
+    const name = kind === 'failed read' ? 'kingdown_invite' : 'kingdown_move';
+    await page.evaluate(name => { (window as any).holdBeforeNext = name; }, name);
+    await html(page).evaluate((_, name) => {
       const app = (window as any).harnessApp, v = app.memory.view;
-      void app.call('kingdown_move', { game_id: v.game_id, command_id: 'refused-during-mount', expected_revision: v.revision, lan: 'e2-e5' }, true);
-    });
+      // Invite has no rollback read, so the next read belongs to the mount.
+      void app.call(name, name === 'kingdown_invite' ? { game_id: v.game_id } : { game_id: v.game_id, command_id: 'refused-during-mount', expected_revision: v.revision, lan: 'e2-e5' }, name === 'kingdown_move');
+    }, name);
     await page.waitForFunction(() => !!(window as any).releaseBefore);
     await nextWrite(page, () => page.evaluate(result => (window as any).harnessShow(result), chat));
     if (kind === 'failed read') await page.evaluate(() => { (window as any).rejectNextGet = true; });
@@ -448,6 +451,12 @@ it.each([
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await soloBoard(page);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    if (button === 'Accept') {
+      // Find would join Alice's open table from an earlier test instead of opening Bob's table.
+      const inbox = await tool(page, '/fixture-tool', 'kingdown_games');
+      for (const game of inbox._meta.games) if (game.kind === 'random' && game.status === 'waiting') await tool(page, '/fixture-tool', 'kingdown_cancel', { game_id: game.game_id });
+    }
     const made = await tool(page, '/fixture-friend-tool', 'kingdown_create', { kind: button === 'Join' ? 'friend' : 'random', colour: 'white', options: CLASSIC });
     const joined = made._meta.view.game_id as string;
     if (button === 'Join') {
@@ -479,7 +488,7 @@ it.each([
     expect(await shownGame(page)).toEqual(expected);
     expect((await seen()).pages.filter(screen => screen !== expected.screen)).toEqual([]);
     expect((await tool(page, '/fixture-tool', 'kingdown_get', { board_id: expected.board }))._meta?.view?.game_id).toBe(game);
-    // The command takes the seat, but its old reply cannot replace the newer page.
-    expect((await tool(page, '/fixture-tool', 'kingdown_get', { game_id: joined }))._meta.view.status).toBe(needsHandle ? 'waiting' : 'playing');
+    // The creator can read the game even when the name request prevents Join or Accept.
+    expect((await tool(page, '/fixture-friend-tool', 'kingdown_get', { game_id: joined }))._meta.view.status).toBe(needsHandle ? 'waiting' : 'playing');
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });

@@ -1,6 +1,6 @@
 # Chat result mount: wait for a page command
 
-Status: claimed
+Status: ready-for-human
 
 Lane: mount-r3. Branch: `claude/fault-round-2`.
 
@@ -123,5 +123,34 @@ The existing board guard, abort signal, command wait and `late()` still
 have the separate uses in the Design check above. Each fix stays at the
 point that owns the affected state. No shared request layer is needed.
 
-Checks are pending. The shared unit-test lock is in use by another
-worktree. This branch does not change a test or check time limit.
+## Review check results
+
+- The fixes pass the type check. Local commit: `2ede4e8e`.
+- On the old source, 7 journey cases fail at the expected assertions;
+  the other 27 pass. Both new settings cases fail; the other 60 app
+  tests pass. Logs: `/tmp/kd-mount-r3-review-red-journeys-final.log`
+  and `/tmp/kd-mount-r3-review-red-app.log`.
+- On the fixed source, all 34 journey tests and all 62 app tests pass.
+  Logs: `/tmp/kd-mount-r3-review-green-journeys-final.log` and
+  `/tmp/kd-mount-r3-review-green-app.log`.
+- Both full runs with the default worker count pass all app and journey
+  tests. Each has one failure: the 5-second limit in
+  `src/rules/power-fixes.test.ts:470`. The other 2,553 tests pass; 8 skip.
+  All 35 tests in that file pass alone. Logs:
+  `/tmp/kd-mount-r3-review-full.log`,
+  `/tmp/kd-mount-r3-review-full-retry.log`, and
+  `/tmp/kd-mount-r3-review-power.log`.
+- `VITEST_MAX_WORKERS=2 npm test` passes with the owner's local test
+  database: 163 files pass; 2,554 tests pass and 8 skip. The 50 document
+  tests also pass. The run takes 408.94 s. Log:
+  `/tmp/kd-mount-r3-review-full-two-workers.log`; exit status: 0.
+  The installed test runner supports this worker setting. It reduces
+  CPU load; no test or check time limit changes.
+- The M1 plugin-ui check passes in 213.4 s at `2ede4e8e` in
+  `~/projects/kd-mount`. It takes the shared browser lock and releases
+  it on exit. Log: `/tmp/kd-mount-r3-review-m1.log`; exit status: 0.
+  Run folder:
+  `/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/kingdown-check-runs/kd-mount-dwgl8U`.
+- The source code has no change after the M1 check. The later edits
+  correct the journey test setup and record these results in this ticket.
+- No server code changes. The house rule does not require plugin-ui-http.
