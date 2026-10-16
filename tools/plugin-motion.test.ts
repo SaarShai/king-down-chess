@@ -90,6 +90,24 @@ it.each([false, true])('deals the four cards once at a live start (reduced motio
     await frame.locator('#card-w-3').waitFor();
     expect(await frame.locator('#game-table .card-coin.is-dealt').count()).toBe(reduced ? 0 : 8);
     await expect.poll(() => animations(frame, '#game-table'), { timeout: 1500 }).toBe(0);
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    expect(await frame.locator('#game-table .card-coin.is-dealt').count()).toBe(0);
+    expect(await animations(frame, '#game-table')).toBe(0);
+  } finally { await page.close(); }
+});
+it('deals a new card game after the empty hall remounts', async () => {
+  const { page, frame } = await open(false);
+  try {
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length);
+    await page.locator('#remount').click();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, reads);
+    await frame.locator('#setup-start:not(:disabled)').waitFor();
+    await newGame(frame, only(['Cards']));
+    await frame.locator('#card-w-3.is-dealt').waitFor({ state: 'attached' });
+    expect(await frame.locator('#game-table .card-coin.is-dealt').count()).toBe(8);
   } finally { await page.close(); }
 });
 it.each([false, true])('pulses the checked side once (reduced motion %s)', async reduced => {
@@ -132,6 +150,7 @@ it('keeps Sound off until the player turns it on', async () => {
   const { page, frame } = await open(false);
   try {
     await frame.locator('#play-settings, [data-nav="settings"]').first().click();
+    expect(await frame.locator('#settings-sheet .quiet-line').textContent()).toContain('Sound stays on this device.');
     const sound = frame.getByRole('checkbox', { name: 'Sound', exact: true });
     expect(await sound.isChecked()).toBe(false);
     await sound.check(); expect(await sound.isChecked()).toBe(true);

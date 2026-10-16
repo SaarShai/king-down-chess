@@ -65,6 +65,7 @@ function actions() {
   buttons().forEach(button => { button.disabled = (blocked && !button.hasAttribute('data-free')) || button.matches('#king-picker [aria-disabled="true"]'); });
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = blocked || !memory.settings;
   $<HTMLButtonElement>('setup-start').disabled ||= setupBusy();
+  $<HTMLInputElement>('join-code').disabled = blocked;
   homeActions();
   $<HTMLInputElement>('symbols-only').disabled = $<HTMLInputElement>('show-threats').disabled = blocked || !memory.settings;
 }
@@ -79,7 +80,7 @@ function show(next: View | undefined) {
   if (view?.game_id !== next.game_id) $('invitation').textContent = '';
   view = next;
   if (rules?.game === next.game_id) setRules(rules.value);
-  drawBoard(next);
+  drawBoard(next, mountReading);
   void applySettings(); poll?.update();
   // The identifier is presentation state; every board reload still reads server authority.
   saveState();
@@ -144,6 +145,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     }
     show(next); received = next;
     if (name === 'kingdown_get' && !quiet) await games();
+    if (name === 'kingdown_move') { await games(); if (view) drawBoard(view); }
     // Save sends the waiting command again at once, so its old error and Retry go now.
     if (name === 'kingdown_handle') { followup = pending; if (followup) followup.error = followup.error_screen = undefined; navigate(followup?.screen ?? handleBack); }
     const resumedStart = retain && next ? router.finishStart(next) : false;
@@ -237,6 +239,7 @@ async function mountResult(result: ToolResult, initial: boolean, stale: () => bo
     else if (!result._meta?.view) view = undefined;
     if (!readBoard) await games();
     if (stale()) return;
+    if (initial && savedScreen === 'home' && view && ['finished', 'aborted'].includes(view.status)) resume = 'end';
     saveState();
   } catch (error) { if (!stale()) $('error').textContent = $('home-error').textContent = errorText(error); }
   finally {
@@ -394,11 +397,12 @@ $('handle-form').onsubmit = event => {
 };
 $<HTMLInputElement>('handle').oninput = scheduleHandleCheck;
 /** Spec J3: while a game waits for you, the main action resumes it by name and Play now moves to second place. */
-const homeGame = () => resume ? memory.games.find(entry => entry.game_id === view?.game_id) : nextGame(memory.games);
+const homeGame = () => memory.games.find(entry => entry.game_id === view?.game_id) ?? (resume ? undefined : nextGame(memory.games));
 function homeActions() {
   const game = homeGame(), back = !!resume || !!game;
+  const turn = game?.status === 'playing' ? game.action === 'ready' ? ' · Your move' : ' · Their turn' : '';
   const label = (id: string, symbol: string, text: string) => { const html = `<svg class="icon" aria-hidden="true"><use href="#i-${symbol}"/></svg><span>${text}</span>`; if ($(id).innerHTML !== html) { $(id).innerHTML = html; $(id).querySelector('span')!.textContent = text; } };
-  label('home-play', back ? 'continue' : 'play', back ? game ? `Resume · ${game.opponent?.computer ? 'Computer' : gameTitle(game)}` : 'Resume' : 'Play now');
+  label('home-play', back ? 'continue' : 'play', back ? game ? `Resume · ${game.opponent?.computer ? 'Computer' : gameTitle(game)}${turn}` : 'Resume' : 'Play now');
   label('home-games', back ? 'play' : 'guide', back ? 'Play now' : 'Choose a game');
 }
 // Spec J2, D2: Play now asks for fullscreen on the tap and opens the board when the game exists.

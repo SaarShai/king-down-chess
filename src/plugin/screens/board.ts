@@ -307,12 +307,12 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   observer.observe(document.body, {attributes:true, attributeFilter:['data-page']});
   observer.observe($('over'), {attributes:true, attributeFilter:['open']});
   observer.observe($('error'), {childList:true, characterData:true, subtree:true});
-  return (next: View) => {
+  return (next: View, restoring = false) => {
     if (view?.game_id === next.game_id && next.revision < view.revision) return;
     const before = view, same = view?.game_id === next.game_id;
     if (same && before?.status === 'playing' && next.status === 'finished') toppling = true;
     // A live game start: the cards deal once, and after the seat both Ready open the board.
-    const started = next.status === 'playing' && next.history?.actions.length === 0 && (!same || before?.status === 'setup') && board.motion();
+    const started = !restoring && next.status === 'playing' && next.history?.actions.length === 0 && (!same || before?.status === 'setup') && board.motion();
     if (started && next.options?.cards) dealing = true;
     if (started && (next.options?.arrangement || next.options?.kingPowers)) opening = true;
     const unchanged = same && before?.revision === next.revision && before.fen === next.fen && before.status === next.status;
