@@ -741,7 +741,7 @@ try {
         assert.equal(await frame.locator('#me-handle').innerText(), settings._meta.me.handle, 'Settings shows the server handle');
         assert(await frame.locator('.sym-demo img').evaluateAll(images => images.length === 2 && images.every(image => image.naturalWidth > 0)), 'Settings shows the painted knight and its own symbol');
         assert.deepEqual(await frame.locator('.set-line').first().evaluate(el => { const css = getComputedStyle(el); return [css.marginTop,css.marginBottom]; }), ['-6px','6px'], 'Settings keeps the sample help spacing');
-        assert.equal(await frame.locator('[data-screen="settings"] .quiet-line').innerText(), 'Your settings and your record go with you to any device and any chat.');
+        assert.equal(await frame.locator('[data-screen="settings"] .quiet-line').last().innerText(), 'Your settings and your record go with you to any device and any chat.');
       }
       await shot(page, `shell-${screen}-${width}-${mode}`);
     }
