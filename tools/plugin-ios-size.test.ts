@@ -141,8 +141,8 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
       await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin);
       expect(await frame.locator('.page-sheet').evaluate(e=>e.scrollTop)).toBe(0);
       const bar=await frame.locator('#table-bar').evaluate(e=>{const buttons=[...e.querySelectorAll('button')].filter(b=>!b.hidden),r=e.getBoundingClientRect(),b=buttons[0].getBoundingClientRect();return {count:buttons.length,empty:b.left-r.left};});
-      expect(bar.count).toBe(1); expect(bar.empty).toBeGreaterThan(8);
-      for(const id of ['board-menu']) {
+      expect(bar.count).toBe(3); expect(bar.empty).toBeGreaterThanOrEqual(0);
+      for(const id of ['undo','end-turn','board-menu']) {
         await frame.locator(`#${id}`).scrollIntoViewIfNeeded();
         expect(await frame.locator(`#${id}`).evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
       }
@@ -226,7 +226,7 @@ it.each([
     const errorHeight = await frame.locator('.page-error').evaluate(e => e.getBoundingClientRect().height);
     const moveHeight = !wasShort && await frame.locator('#short-last-move').isVisible() ? (await frame.locator('#short-last-move').boundingBox())!.height + 4 : 0;
     expect((await measure()).width).toBeGreaterThanOrEqual(floor - Math.ceil((errorHeight + moveHeight) * 960 / 1024));
-    for (const id of ['board-menu']) {
+    for (const id of ['undo','end-turn','board-menu']) {
       await frame.locator('#' + id).scrollIntoViewIfNeeded();
       expect((await frame.locator('#' + id).evaluate(controlBounds)).accessible).toBe(true);
       expect(await frame.locator('#' + id).evaluate(e => { const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
@@ -426,9 +426,10 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
           }, square);
           await page.mouse.click(pane.x + point.x, pane.y + point.y);
         }
-        await expect.poll(() => page.evaluate(() => { const host = window as any; return { sent: host.harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.lan), moved: host.harnessView.revision > 0 }; })).toEqual({ sent: ['e2-e4'], moved: true });
+        await frame.locator('#board[data-animating="false"]').waitFor(); await frame.locator('#end-turn').click();
+        await expect.poll(() => page.evaluate(() => { const host = window as any; return { sent: host.harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.actions), moved: host.harnessView.revision > 0 }; })).toEqual({ sent: [['e2-e4']], moved: true });
       }
-      for (const id of ['board-menu']) expect(await reachable(frame, id), id).toBe(true);
+      for (const id of ['undo','end-turn','board-menu']) expect(await reachable(frame, id), id).toBe(true);
     } finally { await page.close(); }
   }
 });
@@ -445,7 +446,7 @@ it('keeps the board screen unscrolled where the rows fit under 320 px (314 × 68
     const screen = frame.locator('[data-screen="board"]');
     expect(await screen.evaluate(e => e.scrollHeight - e.clientHeight)).toBe(0);
     expect(await frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width)).toBeGreaterThanOrEqual(192);
-    for (const id of ['board-menu']) {
+    for (const id of ['undo','end-turn','board-menu']) {
       expect(await screen.evaluate((s, id) => {
         const box = s.getBoundingClientRect(), r = document.getElementById(id)!.getBoundingClientRect();
         return r.height > 0 && r.top >= box.top - 1 && r.bottom <= box.bottom + 1;
