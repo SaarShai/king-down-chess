@@ -279,6 +279,16 @@ it('reflows New game at 200% zoom (197 CSS px): no sideways scroll, every row ta
     for (const name of ['Fairy pieces', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).check({ timeout: 3000 });
     await frame.getByRole('radio', { name: 'Strong', exact: true }).locator('..').click({ timeout: 3000 });
     expect(await frame.locator('#setup-body').evaluate(e => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(1);
+    // The segments wrap two to a line; a tap 1 px inside each edge selects that segment, not the one below.
+    const misses = await frame.locator('#setup-body .seg-row label').evaluateAll(labels => labels.filter(l => (l as HTMLElement).offsetParent).flatMap(label => {
+      label.scrollIntoView({ block: 'center' });
+      const r = label.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      return [[x, r.top + 1], [x, r.bottom - 1], [r.left + 1, y], [r.right - 1, y]].flatMap(([px, py]) => {
+        const hit = document.elementFromPoint(px, py)?.closest('label');
+        return hit === label ? [] : [`${label.textContent}: ${Math.round(px)},${Math.round(py)} → ${hit?.textContent}`];
+      });
+    }));
+    expect(misses).toEqual([]);
     // The "kinds" button sits clear of the row text.
     const clear = await frame.locator('#setup-pieces').evaluate(button => {
       const b = button.getBoundingClientRect(), range = document.createRange(); range.selectNodeContents(button.closest('label')!.querySelector('.grow')!); const t = range.getBoundingClientRect();
@@ -288,5 +298,33 @@ it('reflows New game at 200% zoom (197 CSS px): no sideways scroll, every row ta
     await frame.locator('#setup-pieces').click({ timeout: 3000 });
     const title = frame.getByRole('dialog', { name: 'Fairy pieces' }).locator('h2');
     expect(await title.evaluate(h => { const t = h.getBoundingClientRect(), x = h.parentElement!.querySelector('button')!.getBoundingClientRect(); return h.scrollWidth <= h.clientWidth && t.right <= x.left; })).toBe(true);
+  } finally { await page.close(); }
+});
+it('keeps page-title words whole, the seat title short and the title at body size at 200% zoom (197 CSS px)', async () => {
+  const { page, frame } = await hostPage(197, 426, 51, 59);
+  // The lines of the page title, and the words that a line break cuts.
+  const title = () => frame.locator('#page-title').evaluate(async h => {
+    await document.fonts.ready;
+    const text = h.firstChild!, cut: string[] = [], tops = new Set<number>(); let i = 0;
+    for (const word of h.textContent!.split(' ')) {
+      const range = document.createRange(); range.setStart(text, i); range.setEnd(text, i + word.length); i += word.length + 1;
+      const rects = [...range.getClientRects()]; if (rects.length > 1) cut.push(word); for (const r of rects) tops.add(Math.round(r.top));
+    }
+    // A title sized by the frame alone stopped growing with zoom (WCAG 1.4.4, F94).
+    const style = getComputedStyle(h), belowBody = parseFloat(style.fontSize) < parseFloat(style.getPropertyValue('--fs-md'));
+    return { text: h.textContent, lines: tops.size, cut, belowBody };
+  });
+  try {
+    await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-nav="handle"]').click(); await frame.locator('#handle').waitFor();
+    expect(await title()).toMatchObject({ text: 'Pick a name and a picture', cut: [], belowBody: false });
+    await frame.locator('#page-back').click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
+    await frame.locator('#page-back').click(); await frame.locator('#play-new').click();
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click({ timeout: 3000 });
+    await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).check({ timeout: 3000 });
+    await frame.locator('#setup-start').click({ timeout: 3000 }); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    // A seat title of three lines took the board's height (fault L2).
+    const seat = await title();
+    expect(seat).toMatchObject({ text: 'Set up your side', cut: [], belowBody: false });
+    expect(seat.lines).toBeLessThanOrEqual(2);
   } finally { await page.close(); }
 });

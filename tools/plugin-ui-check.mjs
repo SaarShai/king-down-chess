@@ -209,11 +209,12 @@ try {
         const page=el.closest('.new-game-body'), registry=el.querySelector('.registry'), css=getComputedStyle(el);
         page.scrollTop=0; const top=el.getBoundingClientRect().top, bodyTop=page.getBoundingClientRect().top;
         page.scrollTop=page.scrollHeight; const bottom=el.getBoundingClientRect().bottom, bodyBottom=page.getBoundingClientRect().bottom; page.scrollTop=0;
-        return {top,bottom,bodyTop,bodyBottom,inner:registry.scrollHeight-registry.clientHeight,slice:css.borderImageSlice,source:css.borderImageSource};
+        return {top,bottom,bodyTop,bodyBottom,inner:registry.scrollHeight-registry.clientHeight,slice:css.borderImageSlice,width:css.borderImageWidth,source:css.borderImageSource};
       });
       assert(bounds.top>=bounds.bodyTop && bounds.bottom<=bounds.bodyBottom+1,'Each scroll roller shows in full at its end of the page');
       assert(bounds.inner<=1,'The scroll has no scroll area of its own');
-      assert.equal(bounds.slice,'96 68 100 fill','One rule keeps the two complete rollers and the side edges');
+      assert.equal(bounds.slice,'126 68 120 fill','One rule keeps the two complete rollers and the side edges');
+      assert.equal(bounds.width,'1.3125 1 1.2','The rollers and their shadows keep the art scale; only the flat parchment stretches');
       assert(bounds.source.includes('/scroll-'),'scroll.webp loads through the art helper');
     }
     async function capture(state,size,width,height) {

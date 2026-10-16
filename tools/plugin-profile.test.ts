@@ -3,6 +3,7 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser } from 'playwright';
+import sharp from 'sharp';
 import { startHarness } from './plugin-ui-harness';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { randomUUID } from 'node:crypto';
@@ -340,8 +341,8 @@ it('gives games with the same opponent a colour and start time in both lists', a
 // Fault round 4 (device matrix M1, M3, M7, M8, M9, M13).
 const waitingGames = (['friend', 'random'] as const).map(kind => ({ game_id: `waiting-${kind}`, kind, speed: 'daily', status: 'waiting', seat: 0, action: 'waiting', turn: 0, revision: 0, deadline_at: null, opponent: null, updated_at: '2026-10-15T16:32:00Z', created_at: '2026-10-15T16:32:00Z', options: { ...DEFAULT_OPTIONS, fairy: true, cards: true, kingPowers: true }, move: null, open_until: null, level: 'club' }));
 const bigRecord = { ...record, totals: { played: 1234, won: 700, drawn: 34, lost: 500 } };
-async function openAt(width: number, height: number, locale = 'en-US') {
-  const context = await browser.newContext({ viewport: { width, height }, locale, timezoneId: 'UTC' }), page = await context.newPage(); page.setDefaultTimeout(5000);
+async function openAt(width: number, height: number, locale = 'en-US', timezoneId = 'UTC') {
+  const context = await browser.newContext({ viewport: { width, height }, locale, timezoneId }), page = await context.newPage(); page.setDefaultTimeout(5000);
   await page.goto(harness.url); await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history, record: bigRecord, games: waitingGames } } });
   return { page, frame: page.frameLocator('iframe'), close: () => context.close() };
@@ -373,6 +374,7 @@ it('keeps 4-digit totals apart and Profile rows readable at 320 × 568', async (
       return [...tops.values()].map(line => line.trim());
     }));
     expect(lines.filter(line => /^[AP]M$/.test(line))).toEqual([]);
+    expect(await frame.locator('#profile-open [data-game-id="waiting-friend"]').textContent()).toContain('4:32\u00a0PM');
     expect(await frame.locator('#profile-open [data-game-id="waiting-friend"] small').first().textContent()).toBe('Waiting for a friend');
     expect(await frame.locator('#profile-open [data-game-id="waiting-random"] small').first().textContent()).toBe('Waiting for an opponent');
     // The darkest parchment behind the result mark (QA sample): the green W needs 4.5:1.
@@ -381,6 +383,42 @@ it('keeps 4-digit totals apart and Profile rows readable at 320 × 568', async (
       return (lum([229, 214, 188]) + 0.05) / (lum(getComputedStyle(e).color.match(/\d+/g)!.slice(0, 3).map(Number)) + 0.05);
     });
     expect(contrast).toBeGreaterThanOrEqual(4.5);
+  } finally { await close(); }
+});
+// One column (600 to 899 px) puts the W column on the darker right edge of the parchment (M13, iPad portrait).
+// The shadow under each roller grew with the list, so More put the first and last rows on it (M13 after More).
+const longHistory: HistoryEntry[] = Array.from({ length: 120 }, (_, i) => ({ ...history[0], game_id: randomUUID(), finished_at: new Date(Date.UTC(2026, 9, 10, 12) - i * 3_600_000).toISOString() }));
+it.each([[768, 1024], [820, 600], [899, 900]])('keeps each W mark and date of 120 games at 4.5:1 on the real parchment at %i × %i', async (width, height) => {
+  const { page, frame, close } = await openAt(width, height);
+  const lum = ([r, g, b]: number[]) => { const [lr, lg, lb] = [r, g, b].map(c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }); return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb; };
+  try {
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history: longHistory, record: bigRecord, games: waitingGames } } });
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await frame.locator('#profile-history li').first().waitFor(); await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
+    for (let shown = 20; shown < 120; shown += 20) { await frame.locator('#profile-more').click(); await frame.locator(`#profile-history li:nth-child(${shown + 1})`).waitFor(); }
+    const inkOf = async (selector: string) => lum(await frame.locator(`#profile-history ${selector}`).first().evaluate(e => getComputedStyle(e).color.match(/\d+/g)!.slice(0, 3).map(Number)));
+    const marks = ['.res-w', '.when'], inks = [await inkOf('.res-w'), await inkOf('.when')], ratios: number[][] = [[], []];
+    // The parchment under each mark and date: the median pixel of its box with the ink hidden, one screenshot for each screen of rows.
+    await frame.locator('#profile-history').evaluate(list => list.querySelectorAll<HTMLElement>('.res, .when').forEach(e => { e.style.color = 'transparent'; }));
+    const origin = await page.locator('iframe').evaluate(f => { const r = f.getBoundingClientRect(); return { x: r.left + f.clientLeft, y: r.top + f.clientTop }; });
+    while (ratios[0].length < 120) {
+      const boxes = await frame.locator('#profile-history').evaluate((list, { from, marks }) => {
+        const rows = [...list.children].slice(from); rows[0].scrollIntoView({ block: 'start' });
+        const shown = (e: Element) => { const r = e.getBoundingClientRect(); return [[r.left + 1, r.top + 1], [r.right - 1, r.bottom - 1]].every(([x, y]) => document.elementFromPoint(x, y) === e); };
+        const out: number[][][] = [];
+        for (const row of rows) { const own = marks.map(m => row.querySelector(m)!); if (!own.every(shown)) break; out.push(own.map(e => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom].map(Math.round); })); }
+        return out;
+      }, { from: ratios[0].length, marks });
+      expect(boxes.length).toBeGreaterThan(0);
+      const { data, info } = await sharp(await page.screenshot()).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+      for (const row of boxes) row.forEach(([left, top, right, bottom], k) => {
+        const paper: number[] = [];
+        for (let y = top + origin.y; y < bottom + origin.y; y++) for (let x = left + origin.x; x < right + origin.x; x++) { const p = (y * info.width + x) * 3; paper.push(lum([data[p], data[p + 1], data[p + 2]])); }
+        ratios[k].push((paper.sort((a, b) => a - b)[paper.length >> 1] + 0.05) / (inks[k] + 0.05));
+      });
+    }
+    expect(ratios.map(r => r.length)).toEqual([120, 120]);
+    marks.forEach((mark, k) => expect(Math.min(...ratios[k]), mark).toBeGreaterThanOrEqual(4.5));
   } finally { await close(); }
 });
 it.each(['de-DE', 'ja-JP', 'en-US'])('uses one English date style in Play, Profile and friend codes under %s', async locale => {
@@ -393,6 +431,21 @@ it.each(['de-DE', 'ja-JP', 'en-US'])('uses one English date style in Play, Profi
     await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
     await frame.locator('#profile-history li').first().waitFor();
     expect(await frame.locator('#profile-history .when').first().textContent()).toBe('Oct 10');
+    await frame.locator('html').evaluate(async (_, options) => { const app = (window as any).harnessApp; app.navigate('setup'); await app.start('friend', { options, colour: 'white' }); }, DEFAULT_OPTIONS);
+    await frame.locator('.game-code span').first().waitFor();
+    expect(await frame.locator('#friend-expiry').textContent()).toMatch(/^Ends [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2}\u00a0[AP]M\.$/);
+  } finally { await close(); }
+});
+it('dates Profile history and badges by the device clock, as its open games do', async () => {
+  const { page, frame, close } = await openAt(393, 852, 'en-US', 'Pacific/Kiritimati');
+  try {
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history, record: { ...bigRecord, badges: [{ badge: 'first_win', earned_at: '2026-10-10T12:00:00Z' }] }, games: waitingGames } } });
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await frame.locator('#profile-history li').first().waitFor(); await frame.locator('#profile-open button').first().waitFor();
+    // UTC+14: 12:00 UTC on 10 October is 02:00 on 11 October on the device.
+    expect(await frame.locator('#profile-history .when').first().textContent()).toBe('Oct 11');
+    expect(await frame.locator('[data-badge="first_win"] time').textContent()).toBe('Oct 11, 2026');
+    expect(await frame.locator('#profile-open [data-game-id="waiting-friend"]').textContent()).toContain('Oct 16, 6:32\u00a0AM');
   } finally { await close(); }
 });
 it('reflows Profile at 200% zoom (197 CSS px) with no sideways scroll', async () => {
