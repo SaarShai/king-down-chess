@@ -27,6 +27,7 @@ The owner's 7-hour run on 2026-10-15. Each round fixes the confirmed findings of
 
 - Save on the name page hides Retry while the start goes again, and a good poll clears Try again (RV5-1, RV5-2). Two Profile tests open in UTC (DATE-1 tests).
 - The 200% zoom board (device matrix M1) is on `claude/r7-zoom`, with a refix so the screen scrolls only when the board would be under about 200 px.
+- A chat result for another game now waits for the command in flight, so a late read of an aborted game cannot move the page to its end card after the new game opens. This failed one plugin-ui check run in three (`claude/r8-race`, merged as `c3de844a`).
 
 ## Open, not merged
 
@@ -34,4 +35,3 @@ The owner's 7-hour run on 2026-10-15. Each round fixes the confirmed findings of
 - At 197 px with all features, two of the four card coins in each strip are off screen (seen in round 7). Wrap or smaller coins is a layout choice.
 - At 197 px the end card covers the page head.
 - The Collection tab hit layers overlap by about 3.5 px at 200% zoom (L4).
-- plugin-ui check: one run in three failed when a late read of an aborted game moved the page to its end card after a chat result had opened a new game. A fix is in work on `claude/r8-race`.
