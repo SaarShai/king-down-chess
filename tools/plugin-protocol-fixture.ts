@@ -90,7 +90,9 @@ export function fixtureService(): Pick<PluginService,keyof PluginService> & { se
       await g.match!.apply({id:randomUUID(),expectedRevision:snapshot.revision,lan});
      }
     } catch {
-     await g.match!.close(); g.match = await loadMatch(save);
+     const old = g.match!; g.match = await loadMatch(save);
+     // shortcut: reads can see draft moves during reload, use a copy if read isolation is required.
+     await old.snapshot().catch(() => {}); await old.close();
      fail('INVALID_MOVE',400,'This move is no longer available. Reload and choose a move.');
     }
     if ((await g.match!.snapshot()).turn !== turn) g.turns[turn]++; if (g.draw_offer !== turn) g.draw_offer = null; await end(g);

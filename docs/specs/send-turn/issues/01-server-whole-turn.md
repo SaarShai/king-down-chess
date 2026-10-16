@@ -1,6 +1,6 @@
 # Server: whole-turn input for kingdown_move
 
-Status: done
+Status: in progress
 
 Lane: w7-server. Branch: `claude/w7-server`. Base: `d748b1b6`.
 
@@ -28,6 +28,21 @@ The owner approves this build on 2026-10-15. The board UI stays outside this tic
 - Keep the old `lan` input. Do not add the ticket 06 unfinished-turn check.
 - No taste choice is required for this server ticket.
 
+## Review fix plan and checks
+
+1. Check Review A's read fault against the fixture and engine code. Add a test
+   for full reads and polls during save loading and at the engine switch.
+   Require the test to fail on the reviewed code and without the queue drain.
+2. Load the save before the engine switch. Wait for queued reads before the
+   old engine closes. Keep the service and tool contract.
+3. Run `npm test` here with the supplied local test database. Run the protocol
+   check, `plugin-ui` and `plugin-ui-http` on the M1 in this lane's folder.
+   Keep the check limits. Record each result, check the diff and commit.
+
+The local regression test waits for the shared test lock. Check the two
+failure controls on the M1 in the lane folder before the browser checks.
+Run the fixed regression test and full suite here through `npm test`.
+
 ## Results
 
 - Base checks use the unchanged source at `d748b1b6` with the new tests.
@@ -38,8 +53,9 @@ The owner approves this build on 2026-10-15. The board UI stays outside this tic
 - The source change adds `actions` and the exact-one check. The description
   names the whole turn and its retry rule. The hints table stays unchanged.
 - The fixture saves the engine before the list. It checks the game state and
-  mover before each action. It closes the changed engine and loads the save
-  on refusal. No command receipt or history entry remains after refusal.
+  mover before each action. On refusal, it loads the save, switches engines,
+  waits for queued reads, then closes the old engine. No command receipt or
+  history entry remains after refusal.
 - `npx tsc --noEmit` passes. The focused `npm test` passes 33 tests in 2 files
   and all 50 art checks. The local database tests are active.
 - `npm run plugin:check:protocol` passes. It checks a two-action Haste turn,
@@ -73,3 +89,17 @@ The owner approves this build on 2026-10-15. The board UI stays outside this tic
   each build item. No taste choice is required. No server part remains.
   The HTTP check stays red because of the join fault in the base. The board
   UI and the ticket 06 turn-end check stay outside this ticket.
+
+## Reviews
+
+- Review A, finding 1: confirmed. The old restore closes the live engine
+  before the save loads. `LocalMatch.close()` rejects each queued read.
+  The fix loads first, switches engines, waits for queued reads, then closes
+  the old engine. A test queues full reads and polls for both players at the
+  start and end of the load. It also checks the FEN, revision and history.
+  Check results are pending.
+- Review B: no findings. Its test run waits for the shared lock and stops
+  before it starts. It supplies no new check result.
+- Fixture limit: during reload, a read can see the first refused action with
+  the old revision. The board ignores a redraw at the same revision. The
+  service applies each list on a separate copy and has no such read window.
