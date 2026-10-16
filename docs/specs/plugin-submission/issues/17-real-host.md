@@ -245,3 +245,11 @@ and by a test that fails before the fix.
   before 17-b. They are journey checks of the widget's poll on the new host,
   not regression checks of the 17-b host. The checks of the second origin, the
   CSP, the boot task, the fence and the per-widget state guard the 17-b host.
+- **Results.** `npx tsc --noEmit` passes. At `dd977596`, the full `npm test`
+  passes: 164 files, 2,578 tests, 8 skipped tests and 50 document tests
+  (131.18 s). Two earlier runs at the same commit failed one rules test
+  (`src/rules/power-fixes.test.ts`) at its 5 s limit while the load average of
+  this Mac was above 30. That test takes 0.9 s alone, and this change does not
+  touch it. `tools/plugin-real-host.test.ts` passes 9 of 9 in three runs.
+  plugin-ui passes on the M1 (98.0 s), and plugin-ui-http passes on this Mac
+  (100.5 s). Both use the shared check runner. No time limit changes.
