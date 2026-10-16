@@ -1,6 +1,6 @@
 # 14 · Submission gaps: E5
 
-Status: needs-triage
+Status: resolved
 
 ## Scope
 
@@ -147,3 +147,21 @@ The five review repairs are complete. Each has a test. The check gate stays
 failed because of the full-suite timeout and the two browser results above.
 Keep this ticket open for those results. The final commit changes this check
 record only; all code checks use `eeeffc30`.
+
+## Gate result after the PR 57 batch
+
+- The three failed results above have fixes on `claude/plugin-ui-iphone`:
+  - The Darkness timeout: each reading is its own test, and the boards are
+    built once (`7d9cccf8`, from `claude/darkness-test-speed`).
+  - `plugin-ui` at line 499: Retry finds the timed-out Create on the server
+    clock (`a1cc8a29`, from `claude/retry-held-create`).
+  - `plugin-ui-http` at line 933: the Join code field waits for the mount
+    (`a268add2`).
+- At `a268add2`, `npm test` and the browser checks `plugin-oauth`,
+  `plugin-ui`, `plugin-ui-http` and `account` pass. Ticket 20
+  (`docs/specs/chatgpt-mvp/issues/20-pr57-ci.md`) records the counts and times.
+  The check gate is clear. No time limit changes.
+- The batch does not run `npm run build:vercel` and `npm run check:vercel`
+  after `21e1dbbb`. GitHub CI runs both. With no token file, `vercelRoutes`
+  gives the same routes, in the same order, as the code before E5.
+- The owner step stays open: paste the token, then deploy (checklist row 52).
