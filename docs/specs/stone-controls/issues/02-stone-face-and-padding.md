@@ -1,4 +1,4 @@
-# Stone sample: round 2, option b
+# Stone sample: round 2, option a
 
 Status: resolved
 Type: prototype
@@ -37,9 +37,9 @@ The lower edge is dark. The press stays at 4 px.
 Text uses dark ink on pale stone and light ink on crimson.
 Disabled controls keep full opacity for contrast.
 
-Only the main menu action gets the new 12 px left gap.
-Stone stays on the main action, opponent, level, side and feature rows.
-Other menus, lists and Settings keep their current surfaces.
+All stone menu rows have a 12 px left gap and 8 px top and bottom gaps.
+Profile game rows use the same gaps. The move row and Settings labels
+also have a 12 px inner gap.
 
 Only `src/plugin/app.css` and the existing texture crop change.
 The words and menu structure stay the same. The owner choice stays open.
@@ -62,8 +62,8 @@ The words and menu structure stay the same. The owner choice stays open.
   WebKit face pixels give 4.90:1 and 9.09:1. The disabled face gives 12.03:1.
 - Press motion is 4 px. Reduced motion gives no press movement.
   The keyboard press works. A nested button does not move its parent.
-- The built page uses 654,942 bytes. Its MCP resource uses
-  657,628 bytes. Both stay below 1,000,000 bytes.
+- The built page uses 655,102 bytes. Its MCP resource uses
+  657,788 bytes. Both stay below 1,000,000 bytes.
 - A source and image review finds no further change necessary for this sample.
 
 The commit gate uses an empty source for secret-value matching.

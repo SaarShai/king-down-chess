@@ -1,4 +1,4 @@
-# Stone controls: option b
+# Stone controls: option a
 
 Status: resolved
 Type: prototype
@@ -7,7 +7,7 @@ Type: prototype
 
 The owner asks for two working samples from `2e7f6295`.
 Saar chooses the option after he sees the samples.
-This ticket covers option b. The sample has no chest.
+This ticket covers option a. The sample has no chest.
 Keep the words, layout and menus. Use the board art and colour tokens.
 
 ## Plan and checks
@@ -33,7 +33,7 @@ The README shows the review risk and the comparison paths.
 
 The working sample is ready. The owner choice stays open.
 The change uses 37 CSS lines, three small class changes, and one texture crop.
-Option b uses stone on main actions and the game choices.
+Option a uses stone on all buttons and the choice controls.
 The crop is 72 × 72 px from the first pale tile in `public/ui/stone-board.webp`.
 The words and menu structure stay the same.
 

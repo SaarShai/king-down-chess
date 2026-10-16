@@ -1,4 +1,4 @@
-# Stone sample: round 3, option b
+# Stone sample: round 3, option a
 
 Status: resolved
 Type: prototype
@@ -58,9 +58,9 @@ The owner choice stays open.
 - Press motion is 4 px. Reduced motion gives no press movement.
   The keyboard press works. A nested button does not move its parent.
 - The texture uses 22,384 bytes. It grows by 18,992 bytes from round 2.
-- The built page uses 655,641 bytes. It grows by 699 bytes.
-  Its MCP resource uses 658,327 bytes. All pages stay below 1,000,000 bytes.
-  Page and asset growth together are 19,691 bytes, below 40,000 bytes.
+- The built page uses 655,807 bytes. It grows by 705 bytes.
+  Its MCP resource uses 658,493 bytes. All pages stay below 1,000,000 bytes.
+  Page and asset growth together are 19,697 bytes, below 40,000 bytes.
 - The set has 54 screen PNGs and ten phone comparisons.
   `compare/selected-phone.png` shows the three segment rows at phone size.
   The light and dark New game PNGs match on both branches.
