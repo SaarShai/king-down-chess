@@ -67,7 +67,9 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     registerAppTool(server, name, { description, inputSchema, ...(output && { outputSchema: z.object(output).strict() }), annotations: { readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: idempotent, openWorldHint: false },
       _meta: { ...meta, ui: { ...(name === 'kingdown_open' && { resourceUri: boardResource }), visibility } } }, async (args: z.infer<z.ZodObject<T>>) => {
       try {
-        if (Object.hasOwn(TOOL_LIMITS, name)) await service.toolTry(actorId, name as keyof typeof TOOL_LIMITS);
+        // Find can open a new table, so it shares the Create counter.
+        const limit = name === 'kingdown_find' ? 'kingdown_create' : name;
+        if (Object.hasOwn(TOOL_LIMITS, limit)) await service.toolTry(actorId, limit as keyof typeof TOOL_LIMITS);
         return await run(args);
       }
       catch (error) { const known = error instanceof MatchServiceError; if (!known || error.status >= 500) console.error('King Down tool failed', { tool: name, requestId: randomUUID(), ...diagnostic(error) }); return { isError: true, content: text(!known ? 'Could not update the game. Retry or reload.' : REFUSED[error.code] ?? error.message), _meta: { code: known ? error.code : 'INTERNAL_ERROR' } }; }

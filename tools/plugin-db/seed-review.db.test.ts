@@ -1,7 +1,7 @@
 /** The review account seed (approval D8 a) gives the data that test cases P3, P4 and P5 need. */
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GameService } from '../../src/match/service';
 import { PostgresMatchStore } from '../../src/match/store';
 import { seedReview } from './seed-review';
@@ -23,7 +23,9 @@ suite('the review account seed', () => {
  it('makes one won friend game with a rating and badges, then one computer game on the review account\'s move', async () => {
   const [review, opponent] = [await account('Review'), await account('friend')];
   const handles = { review: `rv-${tag}`, opponent: `rf-${tag}` };
-  const seeded = await seedReview(pool, ` ${review.toUpperCase()} `, opponent, handles);
+  // The owner runs the seed without the live invite secret (docs/submission/checklist.md, owner step 2.6).
+  vi.stubEnv('KINGDOWN_INTERNAL_SECRET', '');
+  const seeded = await seedReview(pool, ` ${review.toUpperCase()} `, opponent, handles).finally(() => vi.unstubAllEnvs());
   expect(seeded.record.totals).toEqual({ played: 1, won: 1, drawn: 0, lost: 0 });
   expect(seeded.record.rating.rating).toBeGreaterThan(1500);
   expect(seeded.record.badges.map(b => b.badge).sort()).toEqual(['first_win', 'friend_match', 'purist']);

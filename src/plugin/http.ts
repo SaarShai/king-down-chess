@@ -17,6 +17,7 @@ export interface PluginHttpOptions {
   /** Explicit local process mode; never a production authentication fallback. */
   localDev?: boolean;
 }
+class SlotRefused extends Error { constructor(readonly status: 429 | 503, readonly body: object) { super('Request slot refused'); } }
 function respond(res: ServerResponse, status: number, value: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(value));
@@ -74,33 +75,33 @@ export function createPluginHandler(options: PluginHttpOptions): (req: IncomingM
       res.writeHead(204, { 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type, MCP-Protocol-Version', 'Access-Control-Max-Age': '600' }); res.end(); return;
     }
     if (req.method !== 'POST') { res.setHeader('Allow', 'POST, OPTIONS'); respond(res, 405, { error: 'Stateless MCP accepts POST requests' }); return; }
-    if (active >= MAX_ACTIVE_MCP) { res.setHeader('Retry-After', '1'); respond(res, 503, { error: 'This server instance is busy; retry shortly' }); return; }
-    active++;
     let admittedActor: string | undefined;
+    // Take both slots once the token names its user, before the slow provider check, so sign-in waits count too.
+    const admit = (actorId: string) => {
+      const userActive = activeUsers.get(actorId) ?? 0;
+      if (userActive >= MAX_ACTIVE_MCP_PER_USER) throw new SlotRefused(429, { code: 'RATE_LIMITED', error: 'Too many active requests for your account. Wait for a request to finish, then try again.' });
+      if (active >= MAX_ACTIVE_MCP) throw new SlotRefused(503, { error: 'This server instance is busy; retry shortly' });
+      active++; activeUsers.set(actorId, userActive + 1); admittedActor = actorId;
+    };
     try {
       let actorId: string;
       try {
         if (options.localDev) {
           const actor = req.headers['x-kingdown-dev-actor'];
           if (typeof actor !== 'string' || !ACTOR_UUID.test(actor) || req.headers.authorization) throw new AuthenticationError();
-          actorId = actor.toLowerCase();
+          actorId = actor.toLowerCase(); admit(actorId);
         } else {
           const authorization = req.headers.authorization;
           const match = typeof authorization === 'string' && /^Bearer ([A-Za-z0-9._~-]+)$/i.exec(authorization);
           if (!match) throw new AuthenticationError();
-          actorId = await options.auth!.verify(match[1]);
+          actorId = await options.auth!.verify(match[1], admit);
         }
       } catch (error) {
+        if (error instanceof SlotRefused) { res.setHeader('Retry-After', '1'); respond(res, error.status, error.body); return; }
         if (error instanceof AuthenticationUnavailable) { res.setHeader('Retry-After', '5'); respond(res, 503, { error: error.message }); return; }
         if (options.auth) res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${metadataUrl}", scope="openid"`);
         respond(res, 401, { error: 'Authentication required' }); return;
       }
-      const userActive = activeUsers.get(actorId) ?? 0;
-      if (userActive >= MAX_ACTIVE_MCP_PER_USER) {
-        res.setHeader('Retry-After', '1');
-        respond(res, 429, { code: 'RATE_LIMITED', error: 'Too many active requests for your account. Wait for a request to finish, then try again.' }); return;
-      }
-      activeUsers.set(actorId, userActive + 1); admittedActor = actorId;
       const body = await requestBody(req, res); if (!body || res.destroyed) return;
       const work = new Set<Promise<unknown>>();
       // Keep the admission slot until service work settles, even after the client disconnects.
@@ -127,8 +128,8 @@ export function createPluginHandler(options: PluginHttpOptions): (req: IncomingM
         }
       }
     } finally {
-      active--;
       if (admittedActor) {
+        active--;
         const left = activeUsers.get(admittedActor)! - 1;
         if (left) activeUsers.set(admittedActor, left); else activeUsers.delete(admittedActor);
       }

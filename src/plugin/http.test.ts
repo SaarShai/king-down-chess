@@ -203,6 +203,26 @@ describe('stateless authenticated MCP HTTP', () => {
     await new Promise(resolve => setImmediate(resolve));
     const retry = await post(get, bearer); expect(retry.status).toBe(200); await retry.json();
   });
+  it('counts sign-in waits against the user cap, so one user cannot hold the last server slot', async () => {
+    let release!: () => void, entered!: () => void, waiting = 0;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const ready = new Promise<void>(resolve => { entered = resolve; });
+    provider.mockImplementation(async (_url, options) => {
+      const sub = decodeJwt(new Headers(options?.headers).get('Authorization')!.slice(7)).sub;
+      if (sub === alice) { if (++waiting === 3) entered(); await gate; }
+      return Response.json({ id: sub });
+    });
+    const bearer = await token(alice);
+    const pending = Array.from({ length: 3 }, () => post(get, bearer));
+    try {
+      await ready;
+      const limited = await post(get, bearer, {}, AbortSignal.timeout(1000));
+      expect(limited.status).toBe(429); expect(await limited.json()).toMatchObject({ code: 'RATE_LIMITED' });
+      expect(waiting).toBe(3);
+      const other = await post(get, await token(bob), {}, AbortSignal.timeout(1000)); expect(other.status).toBe(200); await other.json();
+    } finally { release(); }
+    for (const response of await Promise.all(pending)) { expect(response.status).toBe(200); await response.json(); }
+  });
   it('rejects local persona headers in OAuth mode and fails closed without production auth', async () => {
     expect((await post(list, undefined, { 'x-kingdown-dev-actor': alice })).status).toBe(401);
     expect(() => createPluginHandler({ service, resourceHtml: '', publicOrigin: address })).toThrow('OAuth');

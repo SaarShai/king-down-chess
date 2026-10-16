@@ -14,7 +14,8 @@ export interface PluginAuth {
   issuer: string;
   resource: string;
   metadata: { resource: string; authorization_servers: string[]; scopes_supported: string[]; bearer_methods_supported: string[]; resource_name: string };
-  verify(token: string): Promise<string>;
+  /** `admit` runs after the local token checks and before the provider call; its error passes through unchanged. */
+  verify(token: string, admit?: (actorId: string) => void): Promise<string>;
 }
 export function createTokenVerifier({ supabaseUrl, publicOrigin, clientIds, publishableKey }: { supabaseUrl: string; publicOrigin: string; clientIds?: string[]; publishableKey: string }, keys?: JWTVerifyGetKey, request: typeof fetch = fetch): PluginAuth {
   if (!publishableKey) throw new Error('Supabase publishable key is required');
@@ -25,7 +26,8 @@ export function createTokenVerifier({ supabaseUrl, publicOrigin, clientIds, publ
   return {
     issuer, resource,
     metadata: { resource, authorization_servers: [issuer], scopes_supported: ['openid'], bearer_methods_supported: ['header'], resource_name: 'King Down Chess' },
-    async verify(token) {
+    async verify(token, admit) {
+      let actorId: string;
       try {
         if (typeof token !== 'string' || token.length > 16384) throw new AuthenticationError();
         const { payload } = await jwtVerify(token, jwks, { issuer, audience: resource, algorithms: ['ES256', 'RS256'], requiredClaims: ['iss', 'aud', 'sub', 'exp', 'role', 'client_id'] });
@@ -35,18 +37,20 @@ export function createTokenVerifier({ supabaseUrl, publicOrigin, clientIds, publ
         if (clientIds && !clientIds.includes(payload.client_id)) throw new AuthenticationError();
         // Supabase supports standard scopes only; older token examples omit the scope claim.
         if (payload.scope !== undefined && (typeof payload.scope !== 'string' || !payload.scope.split(/\s+/).includes('openid'))) throw new AuthenticationError();
-        // A valid signature does not prove that the provider session still exists.
-        let response: Response;
-        try { response = await request(`${issuer}/user`, {
-          headers: { apikey: publishableKey, Authorization: `Bearer ${token}` },
-          signal: AbortSignal.timeout(5000), redirect: 'error',
-        }); } catch { throw new AuthenticationUnavailable(); }
-        if (response.status === 401 || response.status === 403) throw new AuthenticationError();
-        if (!response.ok) throw new AuthenticationUnavailable();
-        let user; try { user = await response.json(); } catch { throw new AuthenticationUnavailable(); }
-        if (typeof user?.id !== 'string' || user.id.toLowerCase() !== payload.sub.toLowerCase()) throw new AuthenticationError();
-        return payload.sub.toLowerCase();
-      } catch (error) { if (error instanceof AuthenticationUnavailable) throw error; throw new AuthenticationError(); }
+        actorId = payload.sub.toLowerCase();
+      } catch { throw new AuthenticationError(); }
+      admit?.(actorId);
+      // A valid signature does not prove that the provider session still exists.
+      let response: Response;
+      try { response = await request(`${issuer}/user`, {
+        headers: { apikey: publishableKey, Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(5000), redirect: 'error',
+      }); } catch { throw new AuthenticationUnavailable(); }
+      if (response.status === 401 || response.status === 403) throw new AuthenticationError();
+      if (!response.ok) throw new AuthenticationUnavailable();
+      let user; try { user = await response.json(); } catch { throw new AuthenticationUnavailable(); }
+      if (typeof user?.id !== 'string' || user.id.toLowerCase() !== actorId) throw new AuthenticationError();
+      return actorId;
     },
   };
 }

@@ -20,6 +20,14 @@ test('the policy names the online control as Settings shows it, says the default
  expect(text).toContain('OpenAI receives what the app sends to ChatGPT');
 });
 
+test('the policy names each try counter that the server keeps for an account', () => {
+ const migrations = readdirSync('supabase/migrations').map(file => readFileSync(`supabase/migrations/${file}`, 'utf8')).join('\n');
+ // A new counter fails here: add it to the list in public/privacy.html, then here.
+ expect([...migrations.matchAll(/create table if not exists public\.(\w+_tries)/g)].map(match => match[1]).sort()).toEqual(['invite_code_tries', 'plugin_tool_tries']);
+ expect(text).toContain('how many invitation codes you tried in the last hour');
+ expect(text).toContain('how many new games, new boards, computer turns and reports you asked for in the ChatGPT app');
+});
+
 test('the policy has no placeholder left from the draft', () => {
  expect(policy).not.toMatch(/<[A-Z][A-Z ,."_-]{3,}>/);
  expect(text).not.toContain('can stay after deletion');

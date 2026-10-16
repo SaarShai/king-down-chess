@@ -124,6 +124,18 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect((await rows('select count(*)::int as n from public.plugin_boards where actor_id=$1', [actor]))[0].n).toBe(1);
  });
 
+ it('counts kingdown_find on the Create limit, so Find and Cancel cannot make games past it', async () => {
+  const actor = await user('cap-find'), player = await connect(actor), options = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
+  await admin.query("insert into public.plugin_tool_tries(user_id,tool,tries) values($1,'kingdown_create',29)", [actor]);
+  const found = view(await player.ok('kingdown_find', { options }));
+  if (found.status === 'waiting') await player.ok('kingdown_cancel', { game_id: found.game_id });
+  expect((await rows("select tries from public.plugin_tool_tries where user_id=$1 and tool='kingdown_create'", [actor]))[0].tries).toBe(30);
+  const games = async () => (await rows('select count(*)::int as n from public.games where created_by=$1', [actor]))[0].n;
+  const before = await games(), limited = await player.call('kingdown_find', { options, any_rules: true });
+  expect(limited).toMatchObject({ isError: true, _meta: { code: 'RATE_LIMITED' } }); expect(limited.content[0].text).toMatch(/Too many new games/);
+  expect(await games()).toBe(before);
+ });
+
  it('stores an HMAC for short codes and joins with the same code after a server restart', async () => {
   const actor = await user('hmac-host'), guestId = await user('hmac-guest'), host = await connect(actor), guest = await connect(guestId);
   const game = view(await host.ok('kingdown_create', { kind: 'friend', options: DEFAULT_OPTIONS })).game_id;

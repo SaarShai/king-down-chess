@@ -5,11 +5,10 @@
  * The owner makes both accounts first (docs/submission/checklist.md, owner step 2). This script reads no password.
  * The owner's test account gets the same data against the same opponent, with its own handle (KINGDOWN_REVIEW_HANDLE),
  * so that the owner's test runs leave the review account as the seed left it.
- * Set KINGDOWN_INTERNAL_SECRET through the private runtime path first. The invite codes need it.
  *
  *   PLUGIN_DATABASE_URL=… KINGDOWN_REVIEW_EMAIL=… KINGDOWN_REVIEW_OPPONENT_EMAIL=… [KINGDOWN_REVIEW_HANDLE=…] npm run plugin:db:seed-review
  */
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { DEFAULT_OPTIONS } from '../../src/match/setup';
@@ -20,7 +19,8 @@ import { AccountService } from '../../src/online/accounts';
 const CLASSIC = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
 
 export async function seedReview(pool: pg.Pool, reviewEmail: string, opponentEmail: string, handles = { review: 'review-player', opponent: 'review-friend' }) {
- const store = new PostgresMatchStore(pool), games = new GameService(store), accounts = new AccountService(store);
+ // The seed uses its one invite code at once, so a secret of its own works and the live secret stays on the server.
+ const store = new PostgresMatchStore(pool), games = new GameService(store, randomBytes(32).toString('hex')), accounts = new AccountService(store);
  const account = async (email: string): Promise<string> => {
   const id = (await pool.query('select id from auth.users where lower(email)=lower($1)', [email.trim()])).rows[0]?.id;
   if (!id) throw new Error(`No account has the address ${email}. Make it first.`);

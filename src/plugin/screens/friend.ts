@@ -30,7 +30,7 @@ export function row(title: string, lead: HTMLElement | string, line: (string | N
   el.append(head, sub); return el;
 }
 export function toolError(code: string, fallback: string) {
-  return ({ INVITE_UNAVAILABLE: /expired|used/i.test(fallback) ? 'This code has expired or was used. Ask your friend for a new code.' : 'No game has this code. Check the code with your friend.', NOT_FOUND: 'No game has this code. Check the code with your friend.', FORBIDDEN: 'You cannot join this game.', INVALID_INPUT: 'Check the code: 6 letters and digits.', RATE_LIMITED: 'Too many code tries. Wait one hour.' } as Record<string, string>)[code] ?? fallback;
+  return ({ INVITE_UNAVAILABLE: /expired|used/i.test(fallback) ? 'This code has expired or was used. Ask your friend for a new code.' : 'No game has this code. Check the code with your friend.', NOT_FOUND: 'No game has this code. Check the code with your friend.', FORBIDDEN: 'You cannot join this game.', INVALID_INPUT: 'Check the code: 6 letters and digits.', RATE_LIMITED: /code/i.test(fallback) ? 'Too many code tries. Wait one hour.' : fallback } as Record<string, string>)[code] ?? fallback;
 }
 export function showError(error: unknown, target = $('error')) { target.textContent = errorText(error); }
 const codes = new Map<string, { code: string; expires_at: string }>();

@@ -3,12 +3,13 @@
 ## Release notes: server limits and codes
 
 Each user has these limits: 120 Computer calls per minute, 30 Create calls per minute,
-60 Open calls per minute and 30 reports per hour. A refused call counts. The server returns
+60 Open calls per minute and 30 reports per hour. Find shares the Create count. A refused call counts. The server returns
 `RATE_LIMITED` with the wait time. Each user can hold three of the four active HTTP slots. The fourth stays available to another user.
 
 Short invite codes use HMAC-SHA-256 with `KINGDOWN_INTERNAL_SECRET`. Keep the same secret
-on every server instance and across restarts. An absent secret, or one shorter than 32
-characters, stops short-code use. Old short codes stop working at this release. Ask the host
+on every server instance and across restarts. Each new invitation needs the secret. An absent
+secret, or one shorter than 32 characters, stops all new invitations (codes and links) and all
+short-code joins. Both deploy configure paths require it. Old short codes stop working at this release. Ask the host
 for a new code. Long invite links still work. A secret change also ends all current short codes.
 
 ## Preparation and release gate

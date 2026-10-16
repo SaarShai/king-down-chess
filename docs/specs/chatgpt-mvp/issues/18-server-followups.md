@@ -1,7 +1,7 @@
 # 18 · Server limits and invite codes
 
-Status: resolved
-Parts: 18-d and 18-e
+Status: in-progress
+Parts done: 18-d and 18-e. Parts 18-a, 18-b and 18-c are open.
 
 ## Scope
 
@@ -17,11 +17,11 @@ Build ticket 18-d and 18-e only, on `claude/server-limits`. The owner gives the 
 ## Limits and choices
 
 - Computer: 120 calls per minute. A human needs time for a move before each computer turn.
-- Create: 30 calls per minute. This permits a burst of new games beyond normal play.
+- Create: 30 calls per minute. This permits a burst of new games beyond normal play. Find shares this count, because Find can open a new table.
 - Open: 60 calls per minute. This permits one new board each second.
 - Report: 30 calls per hour. This permits many reports without an open path to fill the table.
-- HTTP: three active calls per user. The board can overlap three reads. One user cannot hold all four server slots.
-- The existing internal secret also protects short codes. HMAC uses a fixed invite-code prefix. No new setting is needed. The review-data tool also needs this secret; its command notes and owner steps state this. Old short codes stop working; long links still work.
+- HTTP: three active calls per user. The board can overlap three reads. One user cannot hold all four server slots. A call takes its slots after the local token check and before the sign-in provider check, so a sign-in wait counts.
+- The existing internal secret also protects short codes. HMAC uses a fixed invite-code prefix. No new setting is needed. Each new invitation needs the secret, so both deploy configure paths require it. The review-data tool uses its one code at once, so it makes a secret of its own and needs no owner step. Old short codes stop working; long links still work.
 
 ## Results
 
@@ -43,3 +43,16 @@ M1 output folders are under `/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/ki
 The first test run finds repeated test handles, one test helper outside its scope and old schema error text. These are fixed. An old account test expects no report-delete grant. Role block 10 already permits deletion under the retention policy. The test now checks that recent reports stay.
 
 The first two-request user cap also refuses a normal third board read. A temporary status probe shows HTTP 429; the test host turns it into HTTP 500. The three-request cap fixes those transport errors and keeps one slot for another user. The focused regression test goes from red to green. The existing Join remount failure remains on both this lane and its parent.
+
+## Review round 2
+
+Two reviewers check `fabcde5b`. Each finding is checked against the code.
+
+1. Fixed. One user can hold all four slots: a call takes the server slot before the sign-in provider check, and the user check comes after it. Now `verify` calls `admit` after the local token check and before the provider call. `admit` checks the user cap, then the server cap, and takes both slots. A call with no valid token takes no slot. New test: three calls from one user wait in the provider check; a fourth gets 429 and does not reach the provider; another user gets 200. It fails on the old code.
+2. Fixed. `kingdown_find` counts on the Create counter, so Find and Cancel cannot make games past the limit. New database test; it fails on the old code (the count stays 29).
+3. Fixed. The Join screen shows the code-try text only for a code-try refusal. Another `RATE_LIMITED` text, such as the Open limit, shows as the server sends it. This is a one-line change in `src/plugin/screens/friend.ts`. New check in `tools/plugin-lobby.test.ts`; it fails on the old code.
+4. Fixed. The plugin deploy target requires `KINGDOWN_INTERNAL_SECRET` with at least 32 characters, as the site target does. The runbook says that an absent secret stops all new invitations and short-code joins. `tools/deploy.test.ts` checks seven plugin values, a short secret and an absent secret.
+5. Fixed. The privacy page and the privacy additions name the tool counters. A docs test lists each try counter in the migrations.
+6. Fixed. The review seed makes a random secret of its own. Owner step 2.6 no longer asks for the live secret. The seed database test runs with no secret in the environment; it fails on the old code.
+7. Fixed. This record says `in-progress` and names the open parts.
+
