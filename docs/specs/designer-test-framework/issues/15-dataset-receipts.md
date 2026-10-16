@@ -116,3 +116,15 @@ version 1, complete, with the exact submitted source hash. The studio collects
 all five terminal files and the notebook log. It then starts validation.
 The unknown submission response remains preserved; no submission is repeated.
 The next bounded local validation and backup check is 05:35 UTC.
+
+## Local validation failure
+
+At 05:35 UTC, the studio reports validation interrupted or failed. No backup
+starts. An isolated reproduction fails during runtime setup with
+`CERTIFICATE_VERIFY_FAILED`. The system Python verifies the same Node HTTPS
+endpoint with certificate checks enabled. A second isolated check uses
+`/usr/bin/python3`; it reads the original archive and collected files and writes
+only to `work/study-runs/receipt-validation-system-python`. Its PID is 96787;
+log `/tmp/kd-validation-system-python.log`. The original failed reproduction
+stays in `work/study-runs/receipt-validation-diagnosis`. No game or submission
+is repeated, and no live run state is changed. Next local check: 05:55 UTC.
