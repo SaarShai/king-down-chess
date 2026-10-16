@@ -117,7 +117,7 @@ it('names Black on a preview from a code in chat', async () => {
     expect(await frame.locator('#join-entry').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
-it('updates Your games when a new code arrives after Back', async () => {
+it('updates Your games after Back and keeps rows locked during Resume', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     const view = await start(page, 'friend'); await frame.locator('.game-code span').first().waitFor();
@@ -130,11 +130,20 @@ it('updates Your games when a new code arrives after Back', async () => {
     await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
     await frame.locator('#page-back').click();
     await frame.locator(`[data-screen="play"]:not([hidden]) [data-game-id="${view.game_id}"]`).waitFor();
-    await page.evaluate(() => (window as any).releaseHeld());
+    await page.evaluate(() => {
+      const host = window as any; host.releaseInvite = host.releaseHeld; host.releaseHeld = undefined; host.holdNext = 'kingdown_resume';
+    });
+    await frame.locator(`[data-game-id="${view.game_id}"]`).click();
+    await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
+    await page.evaluate(() => { const host = window as any; host.releaseResume = host.releaseHeld; host.releaseInvite(); });
     const row = frame.locator('.friend-invite-row').filter({ has: frame.locator(`[data-game-id="${view.game_id}"]`) });
     await row.waitFor();
     expect(await row.getByRole('button', { name: /^Share game / }).isVisible()).toBe(true);
+    expect(await row.getByRole('button', { name: /^Share game / }).isDisabled()).toBe(true);
+    expect(await row.locator('[data-game-id]').isDisabled()).toBe(true);
     expect(await frame.locator('[data-screen="play"]').isVisible()).toBe(true);
+    await page.evaluate(() => (window as any).releaseResume());
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });
 it('previews a lower-case code, declines without taking a seat and then joins', async () => {

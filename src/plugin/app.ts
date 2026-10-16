@@ -173,10 +173,11 @@ function renderGames(entries: InboxEntry[]) {
   // The hall lists your games first, only when you have some.
   $('games-status').textContent = ''; $('games-head').hidden = !entries.length;
   $('home-line').textContent = turnLine(entries.filter(entry => entry.action === 'ready').length);
-  renderGameRows(); actions();
+  renderGameRows();
 }
 export function renderGameRows() {
   gamesList($('games-list'), memory.games, (name, args) => call(name, args, false, false, false), routeView);
+  actions();
 }
 function remember(result: ToolResult) {
   if (result._meta?.settings) memory.settings = result._meta.settings as PlayerSettings;
