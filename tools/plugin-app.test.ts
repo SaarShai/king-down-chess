@@ -818,12 +818,12 @@ it('opens a new chat game after an older foreground read ends', async () => {
   } finally { await page.close(); }
 });
 
-it('keeps the saved New game choices when Play now loses its create reply', async () => {
+it.each(['retry', 'remount'])('keeps the saved New game choices after a lost Play now create reply and %s', async recovery => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
-      await app.call('kingdown_settings', { last_setup: { kind: 'friend', colour: 'white', level: 'strong', king: null, options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } } });
+      await app.call('kingdown_settings', { last_setup: { kind: 'friend', colour: 'white', level: 'strong', king: null, options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: true } } });
     });
     await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_create'; });
     await frame.getByRole('button', { name: 'Play now', exact: true }).click();
@@ -834,7 +834,8 @@ it('keeps the saved New game choices when Play now loses its create reply', asyn
     expect(await frame.getByRole('radio', { name: 'Beginner', exact: true }).isChecked()).toBe(true);
     expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(false);
     expect(await frame.locator('#setup-start').textContent()).not.toMatch(/Strong|Arrangement/);
-    await frame.locator('#retry').click();
+    if (recovery === 'remount') await page.locator('#remount').click();
+    else await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(1);
     expect(await frame.locator('#retry').isVisible()).toBe(false);

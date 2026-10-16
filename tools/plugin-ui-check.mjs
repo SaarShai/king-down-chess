@@ -499,7 +499,7 @@ try {
       assert(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked(), 'New game keeps the saved level');
       await setupTool('kingdown_abort', { game_id: quick.game_id });
     }
-    for (const name of ['kingdown_create', 'kingdown_choose', 'kingdown_get']) {
+    for (const [name, recovery] of [['kingdown_create', 'retry'], ['kingdown_create', 'remount'], ['kingdown_choose', 'retry'], ['kingdown_get', 'retry']]) {
       const remembered = { ...baseSetup, kind: 'friend', level: 'strong', options: { ...DEFAULT_OPTIONS, arrangement: true, kingPowers: true } };
       await setupMount(remembered);
       const home = await setupTool('kingdown_open', { screen: 'home' });
@@ -515,7 +515,8 @@ try {
       assert(await frame.getByRole('radio', { name: 'Beginner', exact: true }).isChecked());
       assert(!await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
       assert.doesNotMatch(await frame.locator('#setup-start').innerText(), /Strong|Arrangement/);
-      await frame.locator('#retry').click();
+      if (recovery === 'remount') await page.locator('#remount').click();
+      else await frame.locator('#retry').click();
       await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       const quick = await page.evaluate(() => window.harnessView);
       assert.equal(quick.kind, 'solo'); assert.equal(quick.level, 'beginner'); assert.equal(quick.options.arrangement, false);

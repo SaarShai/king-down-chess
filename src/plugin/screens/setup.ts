@@ -170,7 +170,8 @@ new MutationObserver(() => {
   if (!restoredSetup() || client.state.pending || !memory.view) return;
   if (['board','friend','wait'].includes(client.state.screen)) { restoreHandled = true; return; }
   if (client.state.screen !== 'seat' || memory.view.kind !== 'solo' || memory.view.status !== 'setup') return;
-  restoreHandled = true; ownCommand = true; draft ??= readSetup(memory.settings!.last_setup);
+  restoreHandled = true; ownCommand = true;
+  if (!draft) { draft = readSetup(memory.settings!.last_setup); memory.kind = draft.kind; }
   setTimeout(() => { void readGames().then(() => finish(memory.view!)).catch(error => { $('error').textContent = errorText(error); }); }, 0);
 }).observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
 // A failed start shows Retry; the start line then stops asking the player to wait.
