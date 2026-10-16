@@ -1149,7 +1149,10 @@ try {
     await frame.locator('#found-switch').click(); await frame.locator('#over.found[open]').waitFor({ state: 'hidden' });
     assert.equal(await page.evaluate(() => window.harnessView.game_id), waiting.game_id, 'Switch selects the human game');
     const ended = await tool('kingdown_get', { game_id: solo.game_id }); assert(!ended.isError && ended._meta.view.status === 'aborted' && !ended._meta.view.outcome, 'Switch ends the computer game with no result');
-    await remount('board'); assert.equal(await page.evaluate(() => window.harnessView.game_id), waiting.game_id, 'The human board survives remount');
+    // remount() waits for the mount's board read to start; harnessView changes at its reply. An enabled Menu shows that
+    // the mount has ended (the real server of plugin-ui-http replies later than the fixture).
+    await remount('board'); await frame.locator('#board-menu:not(:disabled)').waitFor();
+    assert.equal(await page.evaluate(() => window.harnessView?.game_id), waiting.game_id, 'The human board survives remount');
     console.log(`Ticket 13 look comparisons: ${look}`);
     await openPlay(); await legacyStart('solo');
   }
