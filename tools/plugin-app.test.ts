@@ -421,6 +421,25 @@ it('keeps the start screen through HANDLE_NEEDED, Back, Save and deferred routin
     expect(await frame.locator('#retry').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
+it('shows no Retry on New game while Save sends the waiting start again', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.evaluate(() => { (window as any).requireHandleNext = true; });
+    await start(page, false);
+    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
+    await frame.locator('#save-handle').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    expect(await frame.locator('[data-screen="setup"]').isVisible()).toBe(true);
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+    expect(await frame.locator('#error').textContent()).toBe('');
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('html').evaluate(() => new Promise<void>(resolve => {
+      const tick = () => (window as any).startResult ? resolve() : setTimeout(tick, 10); tick();
+    }));
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
 it.each([true, false])('keeps route=%s through Save, a failed send and Retry', async route => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -1029,6 +1048,24 @@ it('shows the connection sentence after three failed polls and clears it on the 
     expect(await frame.locator('#retry').isHidden()).toBe(true);
     await page.context().setOffline(false);
     await poll();
+    expect(await frame.locator('#error').textContent()).toBe('');
+  } finally { await page.context().setOffline(false); await page.close(); }
+});
+
+it('clears Try again and its sentence on the first good poll after a failed read and failed polls', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    const poll = () => frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true); });
+    await page.context().setOffline(true);
+    // Menu > Reload fails: Try again shows with the sentence. Three polls fail; then the connection comes back.
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
+    expect(await frame.locator('#retry').textContent()).toBe('Try again');
+    expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
+    await poll(); await poll(); await poll();
+    await page.context().setOffline(false);
+    await poll();
+    expect(await frame.locator('#retry').isVisible()).toBe(false);
     expect(await frame.locator('#error').textContent()).toBe('');
   } finally { await page.context().setOffline(false); await page.close(); }
 });

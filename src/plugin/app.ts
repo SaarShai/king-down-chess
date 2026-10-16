@@ -124,15 +124,17 @@ export async function call(name: string, args: Record<string, unknown>, retain =
       throw new Error(text);
     }
     remember(result);
-    const outage = pollFailures >= 3; pollFailures = 0;
+    // A good read ends an outage (three failed polls or a failed read): its sentence and Try again go together.
+    const outage = pollFailures >= 3 || name === 'kingdown_get' && readError; pollFailures = 0;
+    if (name === 'kingdown_get') readError = false;
     const next = (result._meta as { view?: View } | undefined)?.view;
     if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision) {
       view = { ...view, opponent: next.opponent, server_now: next.server_now }; if (state.screen === 'seat') seatScreen(); poll?.update(); if (outage) retryState(); return;
     }
-    if (name === 'kingdown_get') readError = false;
     show(next); received = next;
     if (name === 'kingdown_get' && !quiet) await games();
-    if (name === 'kingdown_handle') { followup = pending; navigate(followup?.screen ?? handleBack); }
+    // Save sends the waiting command again at once, so its old error and Retry go now.
+    if (name === 'kingdown_handle') { followup = pending; if (followup) followup.error = followup.error_screen = undefined; navigate(followup?.screen ?? handleBack); }
     const resumedStart = retain && next ? router.finishStart(next) : false;
     if (next && !resumedStart && (route ?? ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'].includes(name))) routeView(next);
     if (name === 'kingdown_invite') { const { code } = result.structuredContent as { code: string }; $('invitation').textContent = `Share this code: ${code}`; }
