@@ -39,7 +39,7 @@ try {
   assert(!open.isError); assert.equal(open.structuredContent.screen, 'home'); assert.equal(open._meta.view, undefined);
   const options = { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false };
   for (const [i, actor] of actors.entries()) assert(!(await tool(actor, 'kingdown_handle', {handle:`http${i}-${actor.slice(0,8)}`})).isError);
-  const created = await tool(actors[0], 'kingdown_create', {kind:'solo',options,colour:'white',board_id:open.structuredContent.board_id}); assert(!created.isError); const initial = created._meta.view;
+  const created = await tool(actors[0], 'kingdown_create', {kind:'solo',options,colour:'white',board_id:open._meta.board_id}); assert(!created.isError); const initial = created._meta.view;
   assert.equal(initial.revision, 0); assert(initial.legal.length); assert.equal(open.structuredContent.legal, undefined);
   const command = { game_id: initial.game_id, command_id: 'http-first', expected_revision: 0, lan: initial.legal.find(lan => !lan.includes('!')) };
   const moved = await tool(actors[0], 'kingdown_move', command); assert(!moved.isError); assert.equal(moved._meta.view.revision, 1);
@@ -52,17 +52,17 @@ try {
   // New pool/service/handler instances demonstrate reconnect without any in-memory authority.
   const restarted = await configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString }, { localDev: true });
   await app.pool.end(); app = restarted;
-  assert.equal((await tool(actors[0], 'kingdown_resume', {board_id:open.structuredContent.board_id}))._meta.view.fen, ai._meta.view.fen);
+  assert.equal((await tool(actors[0], 'kingdown_resume', {board_id:open._meta.board_id}))._meta.view.fen, ai._meta.view.fen);
   const waiting = (await tool(actors[0], 'kingdown_create', { kind: 'friend', options, colour: 'white' })).structuredContent;
   const invite = (await tool(actors[0], 'kingdown_invite', { game_id: waiting.game_id })).structuredContent;
   assert.match(invite.code, /^[A-HJKMNP-Z2-9]{6}$/); assert.equal(invite.link,undefined);
   const joined = (await tool(actors[1], 'kingdown_join', { code: invite.code })).structuredContent;
   assert.equal(joined.colour, 'black'); assert.equal(joined.status, 'playing');
-  const recoveryBoard = (await tool(actors[1], 'kingdown_open', {game_id:waiting.game_id})).structuredContent;
+  const recoveryBoard = (await tool(actors[1], 'kingdown_open', {game_id:waiting.game_id}))._meta;
   await pool.query('delete from public.games where id=$1',[waiting.game_id]);
   assert.equal((await tool(actors[1], 'kingdown_get', {game_id:waiting.game_id,board_id:recoveryBoard.board_id}))._meta.code, 'MATCH_REMOVED');
   const recovered = await tool(actors[1], 'kingdown_create', {kind:'solo',options,board_id:recoveryBoard.board_id});
-  assert(!recovered.isError); assert.equal(recovered.structuredContent.board_id,recoveryBoard.board_id);
+  assert(!recovered.isError); assert.equal(recovered._meta.board_id,recoveryBoard.board_id);
   assert.equal((await tool(actors[1], 'kingdown_get', {game_id:waiting.game_id,board_id:recoveryBoard.board_id})).structuredContent.game_id,recovered.structuredContent.game_id);
   assert.equal((await tool(actors[0], 'kingdown_create', {kind:'solo',options,board_id:recoveryBoard.board_id}))._meta.code,'FORBIDDEN');
   const tools = (await rpc(actors[0], 'tools/list', {})).result.tools;

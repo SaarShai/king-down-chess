@@ -52,12 +52,12 @@ describe('app client', () => {
     expect(client.state).not.toHaveProperty('settings');
   });
   it('keeps the new board binding when an old read returns after opening a game', async () => {
-    let release!: (value: { content: []; structuredContent: { board_id: string } }) => void;
-    const client = createClient({ callServerTool: async ({ name }) => name === 'kingdown_get' ? new Promise(resolve => { release = resolve; }) : { content: [], structuredContent: { board_id: 'new' } } });
+    let release!: (value: { content: []; _meta: { board_id: string } }) => void;
+    const client = createClient({ callServerTool: async ({ name }) => name === 'kingdown_get' ? new Promise(resolve => { release = resolve; }) : { content: [], _meta: { board_id: 'new' } } });
     client.state.board_id = 'old';
     const read = client.call('kingdown_get', { game_id: 'old-game' });
     await client.call('kingdown_open', { screen: 'board', game_id: 'new-game' });
-    release({ content: [], structuredContent: { board_id: 'old' } });
+    release({ content: [], _meta: { board_id: 'old' } });
     await read;
     expect(client.state.board_id).toBe('new');
   });
@@ -65,7 +65,7 @@ describe('app client', () => {
 
 it('binds foreground tools and leaves background reads outside the board', async () => {
   const requests: unknown[] = [];
-  const client = createClient({ callServerTool: async request => { requests.push(request); return { content: [], structuredContent: { board_id: 'reply' }, _meta: { view: { game_id: 'other' } } }; } });
+  const client = createClient({ callServerTool: async request => { requests.push(request); return { content: [], _meta: { board_id: 'reply', view: { game_id: 'other' } } }; } });
   client.state.board_id = 'board';
   client.state.pending = { name: 'kingdown_create', args: { kind: 'solo' } };
   await client.call('kingdown_get', { game_id: 'other', board_id: 'unwanted' }, { background: true });

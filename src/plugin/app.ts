@@ -78,7 +78,7 @@ function show(next: View | undefined) {
   // The identifier is presentation state; every board reload still reads server authority.
   saveState();
   // Widget state also supplies model context; a second writer would replace it.
-  if (!extension?.setWidgetState) void app.updateModelContext({ structuredContent: { revision: view.revision, status: view.status, your_turn: view.turn === view.seat } }).catch(() => {});
+  if (!extension?.setWidgetState) void app.updateModelContext({ structuredContent: { status: view.status, your_turn: view.turn === view.seat } }).catch(() => {});
 }
 async function resendPending(command: Pending, mountRead?: ToolResult) {
   const read = mountRead ?? await client.call('kingdown_get');
@@ -195,8 +195,8 @@ async function mountResult(result: ToolResult, initial: boolean, stale: () => bo
   const shown = view?.game_id;
   try {
     await connection;
-    const value = result.structuredContent as Record<string, unknown> | undefined;
-    if (!initial || !state.board_id) state.board_id = typeof value?.board_id === 'string' ? value.board_id : typeof value?.game_id === 'string' ? state.board_id : undefined;
+    const value = result.structuredContent as Record<string, unknown> | undefined, board = result._meta?.board_id;
+    if (!initial || !state.board_id) state.board_id = typeof board === 'string' ? board : typeof value?.game_id === 'string' ? state.board_id : undefined;
     remember(result);
     if (initial) {
       const settings = await client.call('kingdown_settings', {}, { limit: false });
@@ -214,7 +214,7 @@ async function mountResult(result: ToolResult, initial: boolean, stale: () => bo
     }
     if (value?.screen === 'join') { memory.preview = result._meta?.preview as JoinPreview | undefined; memory.code = memory.preview?.code ?? ''; memory.joinError = undefined; }
     if (value && ['home', 'play', 'board', 'profile', 'join'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen as Screen);
-    if (typeof value?.game_id === 'string' && !value.board_id && (!initial || !state.board_id)) {
+    if (typeof value?.game_id === 'string' && !board && (!initial || !state.board_id)) {
       const selected = await client.call(state.board_id ? 'kingdown_resume' : 'kingdown_open', { game_id: value.game_id }, { limit: false });
       if (stale()) return;
       if (selected.isError) throw new Error(selected.content.filter(c => c.type === 'text').map(c => c.text).join(' '));

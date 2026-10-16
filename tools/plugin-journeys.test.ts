@@ -173,7 +173,7 @@ it.each([
     const made = await tool(page, '/fixture-tool', 'kingdown_create', SOLO), newer = made._meta.view.game_id as string;
     // The model aborts the shown game. Its result names the game but no board, so the page selects it on its board.
     const aborted = await tool(page, '/fixture-tool', 'kingdown_abort', { game_id: old.game });
-    expect(aborted.structuredContent.board_id).toBeUndefined();
+    expect(aborted._meta.board_id).toBeUndefined();
     await page.evaluate(name => { (window as any)[name] = 'kingdown_resume'; }, hold);
     await page.evaluate(result => (window as any).harnessShow(result), aborted);
     await page.waitForFunction(name => !!(window as any)[name === 'holdNext' ? 'releaseHeld' : 'releaseBefore'], hold);
@@ -181,7 +181,7 @@ it.each([
     const { screen, ...summary } = made.structuredContent;
     const next = newBoard ? await tool(page, '/fixture-tool', 'kingdown_open', { game_id: newer }) : { ...made, structuredContent: summary };
     await page.evaluate(result => (window as any).harnessShow(result), next);
-    const board = newBoard ? next.structuredContent.board_id : old.board;
+    const board = newBoard ? next._meta.board_id : old.board;
     // The held call ends late: after the newer result shows its game, or after 1.5 s if the newer result waits for it.
     const newerShown = ([game, board]: string[]) => { const app = (document.querySelector('iframe')!.contentWindow as any).harnessApp; return app.memory.view?.game_id === game && app.client.state.board_id === board; };
     await page.waitForFunction(newerShown, [newer, board], { timeout: 1500 }).catch(() => {});
