@@ -550,3 +550,18 @@ it('W7: moves keyboard focus to the turn button, sends with Enter, and undoes wi
     expect((await moveCalls(page)).length).toBe(1);
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
+
+
+it('W7: releases the move lock if motion fails, so Undo still works', async () => {
+  const {page,frame} = await turnBoard();
+  try {
+    const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+    await frame.locator('html').evaluate(() => { (window as any).testBoard.animateMove=() => Promise.reject(new Error('Move motion test failure')); });
+    await chooseTurnMove(page,'e2-e4',12);
+    await expect.poll(() => errors).toEqual(['Move motion test failure']);
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
+    await frame.locator('#undo').click();
+    expect(await frame.locator('#last-move').innerText()).toBe('Move 1.');
+    expect(await moveCalls(page)).toEqual([]);
+  } finally { await page.close(); }
+});

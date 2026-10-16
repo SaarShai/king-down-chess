@@ -147,10 +147,11 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     const token = ++generation; steps.push(step); lastMove = step; pos = step.pos; animating = true;
     board.skip(); board.setLifted(null); moveLine(); refresh();
     if (step.move.drop !== undefined) board.sync(step.pos);
-    await (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve());
-    if (token !== generation) return;
-    board.sync(step.pos); sound(step); animating = false; refresh();
-    if (keyboard) $(turn().waits ? 'end-turn' : 'board').focus({preventScroll:true});
+    void (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve()).then(() => { if (token === generation) { board.sync(step.pos); sound(step); } }).finally(() => {
+      if (token !== generation) return;
+      animating = false; refresh();
+      if (keyboard) $(turn().waits ? 'end-turn' : 'board').focus({preventScroll:true});
+    });
   }
   function undo() {
     if (blocked() || !steps.length || sheet?.open) return;
