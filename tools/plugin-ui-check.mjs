@@ -851,6 +851,7 @@ try {
       const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
       await page.locator('#remount').click();
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
+      await idleBoard();
       await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
     }
     async function lookAt(state, screen) {
