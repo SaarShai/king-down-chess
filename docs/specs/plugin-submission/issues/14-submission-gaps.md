@@ -1,7 +1,7 @@
 # 14 · Submission gaps: accessible game rows
 
 Type: task
-Status: in-progress
+Status: closed
 
 ## Scope
 
@@ -26,4 +26,12 @@ Keep the same look. Do not change `features()`, E5 or B4.
 
 ## Results
 
-Checks are pending.
+- Your games and Profile history use `features()`. History maps `powers` to `kingPowers`.
+- W/D/L keep their visible letters and expose won, drawn and lost as named images.
+- One CSS rule keeps the Profile feature icons at their old positions. The test compares each row with its old icon markup.
+- The new test fails on the old code: Your games exposes no feature names. The other 21 Profile tests pass.
+- With the fix, all 22 Profile tests and 50 artwork tests pass on the M1. The test reads both lists, each feature flag and all three results.
+- `npx tsc --noEmit` and the commit hooks pass. The M1 `plugin-ui` browser check passes in 226.9 seconds on code commit `b04e8058`.
+- The full local `npm test` run ends with 2,570 passes, 8 skips and one timeout across 165 files. The random-board test at `src/rules/power-fixes.test.ts:470` exceeds its 5-second limit. That test and its engine files have no change from the base.
+- All 35 tests in that rule file pass when run alone on the M1. The full-suite timeout remains a check limit; no test or check limit changes.
+- E5 and B4 stay out of scope at the owner's request. No taste choice is needed.
