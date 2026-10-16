@@ -151,3 +151,45 @@ it('gives each control one id while the board Menu is open', async () => {
     await frame.locator('#board-sheet h2').filter({ hasText: 'Abort this game?' }).waitFor();
   } finally { await page.close(); }
 });
+
+// Codex review on PR 57: an older chat result must not read or route after a newer one.
+async function friendGame(page: Page) {
+  await html(page).evaluate(async (_, options) => { await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white', options }); }, CLASSIC);
+  const code = await html(page).evaluate(async () => { const app = (window as any).harnessApp; return (await app.client.call('kingdown_invite', { game_id: app.memory.view.game_id })).structuredContent.code; });
+  await tool(page, '/fixture-friend-tool', 'kingdown_join', { code });
+  await html(page).evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
+  return html(page).evaluate(() => { const app = (window as any).harnessApp; return { game: app.memory.view.game_id as string, board: app.client.state.board_id as string }; });
+}
+const shownGame = (page: Page) => html(page).evaluate(() => { const app = (window as any).harnessApp; return { game: app.memory.view?.game_id, screen: document.body.dataset.page, board: app.client.state.board_id }; });
+const SOLO = { kind: 'solo', colour: 'white', options: CLASSIC };
+
+it.each([
+  ['a slow board selection reply, and the newer result opens a new board', 'holdNext', true],
+  ['a board selection that reaches the server late, and the newer result uses the same board', 'holdBeforeNext', false],
+] as const)('shows the newest chat result after %s', async (_, hold, newBoard) => {
+  const page = await open();
+  try {
+    const old = await friendGame(page);
+    const made = await tool(page, '/fixture-tool', 'kingdown_create', SOLO), newer = made._meta.view.game_id as string;
+    // The model aborts the shown game. Its result names the game but no board, so the page selects it on its board.
+    const aborted = await tool(page, '/fixture-tool', 'kingdown_abort', { game_id: old.game });
+    expect(aborted.structuredContent.board_id).toBeUndefined();
+    await page.evaluate(name => { (window as any)[name] = 'kingdown_resume'; }, hold);
+    await page.evaluate(result => (window as any).harnessShow(result), aborted);
+    await page.waitForFunction(name => !!(window as any)[name === 'holdNext' ? 'releaseHeld' : 'releaseBefore'], hold);
+    // Then the model shows the new game: kingdown_open makes a new board; a create result keeps the page's board.
+    const { screen, ...summary } = made.structuredContent;
+    const next = newBoard ? await tool(page, '/fixture-tool', 'kingdown_open', { game_id: newer }) : { ...made, structuredContent: summary };
+    await page.evaluate(result => (window as any).harnessShow(result), next);
+    const board = newBoard ? next.structuredContent.board_id : old.board;
+    // The held call ends late: after the newer result shows its game, or after 1.5 s if the newer result waits for it.
+    const newerShown = ([game, board]: string[]) => { const app = (document.querySelector('iframe')!.contentWindow as any).harnessApp; return app.memory.view?.game_id === game && app.client.state.board_id === board; };
+    await page.waitForFunction(newerShown, [newer, board], { timeout: 1500 }).catch(() => {});
+    await page.evaluate(name => (window as any)[name === 'holdNext' ? 'releaseHeld' : 'releaseBefore'](), hold);
+    await page.waitForFunction(([game, board]) => { const app = document.querySelector('iframe')!.contentWindow as any; return app.harnessApp.memory.view?.game_id === game && app.harnessApp.client.state.board_id === board && app.document.querySelector('[data-screen="board"]:not([hidden])'); }, [newer, board]);
+    await page.waitForTimeout(300);
+    expect(await shownGame(page)).toEqual({ game: newer, screen: 'board', board });
+    // The server agrees: the page's board selects the newer game, so the next read keeps it.
+    expect((await tool(page, '/fixture-tool', 'kingdown_get', { board_id: board }))._meta.view.game_id).toBe(newer);
+  } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseBefore?.(); }); await page.close(); }
+});
