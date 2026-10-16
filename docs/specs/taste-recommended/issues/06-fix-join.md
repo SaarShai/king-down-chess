@@ -1,6 +1,6 @@
 # Base: repair Join after a remount
 
-Status: claimed
+Status: resolved
 Type: task
 
 ## Scope
@@ -31,10 +31,10 @@ Keep the approved hall, layout B, stone a and Lively motion.
 
 ## Result
 
-The code repairs pass the type check, full unit suite and plugin-ui.
-plugin-ui-http passes Join and the board remount, then finds a check
-race. Its repair needs approval under the owner's check-change rule.
-Ticket 01 also stays open for the parts in the later tickets below.
+Each confirmed review fault has a code fix and a test. The type check,
+full local unit suite and both M1 browser checks pass. The current owner
+request covers the code repairs and the check readiness waits.
+Ticket 01 keeps the parts assigned to later tickets below.
 
 ## Base parts
 
@@ -43,15 +43,15 @@ Ticket 01 also stays open for the parts in the later tickets below.
   The prior base ticket records their unit and browser tests.
 - J3 adds the turn to Resume. The selected game stays selected on a home
   remount. The end screen also stays selected while another game waits.
-  A move reads the games list again before Next game uses it.
+  A friend or random move reads the games list after the command ends.
+  That read does not lock the board. Solo moves need no list read.
 - L0 and F40 keep layout B, the board floors and the two coin rows at
   320 px. The existing size tests cover these rules.
-- L3 adds the Sound device words. A mount restores the final card state;
-  a live start can still deal. Tests cover both paths and Reduce Motion.
+- L3 adds the Sound device words. A mount with saved page state restores
+  the final card state. A first display from chat still deals. Tests cover both paths and Reduce Motion.
 - C1 keeps stone a and round coins. The prior base ticket records the
-  face and size checks. Disabled controls now keep their stone image;
-  they keep the same disabled colours and flat edge. A unit test covers
-  this state. Ticket 03-hall owns the chest with the D3 presets.
+  face and size checks. Disabled controls keep the approved flat face
+  with no grain. A unit test covers this state. Ticket 03-hall owns the chest with the D3 presets.
 - J8 keeps the Beginner notes and their read tests.
 - Ticket 02-home owns J10. Ticket 06-end owns the full C4 actions and
   Skip. These parts stay in their named lanes.
@@ -66,7 +66,7 @@ Ticket 01 also stays open for the parts in the later tickets below.
   ceremony controls. It depends on 04. This lane keeps the Lively
   subset and repairs card restore and the Sound device words.
 
-## Reviews
+## Prior reviews
 
 Reader 1 finds two faults in the first diff. Both have code fixes and
 tests. An empty home read must not leave a flag that blocks the next
@@ -93,7 +93,7 @@ KINGDOWN_TEST_FILE=tools/plugin-join-remount-repro.test.ts. It fails in
 8.71 s: one test fails; #join-confirm stays hidden after the held read.
 The temporary test file is removed before the base HTTP check starts.
 
-## Checks in progress
+## Prior check record
 
 - npx tsc --noEmit: pass.
 - The local app file runs 72 tests. Seventy pass, including the Join,
@@ -173,7 +173,7 @@ does not run before cancellation; the final M1 suite includes both cases.
   /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/kingdown-check-runs/kd-od-fixjoin-MDhUM4
   on the M1.
 
-## Hall check follow-up
+## Prior hall check blocker
 
 Both readers find a check race. fits uses a live nth control for two
 separate actions: scroll and bounds. The mount can add game rows between
@@ -197,3 +197,102 @@ if (screen === 'play') await frame.locator('#reload:not(:disabled)').waitFor({ s
 The draft patch is /tmp/kd-od-fixjoin-check-ready.patch on this Mac.
 The approval request names this exact wait and keeps all bounds checks.
 No new taste choice is necessary.
+
+## Review repair plan
+
+1. Check A1 to A7 and B1 to B2 against the code. Add a test for each
+   confirmed fault. Test late Join and Accept replies with a newer chat
+   selection. Test live chat deals, Resume words and saved screen state.
+2. Restore the approved flat disabled face. Restore the mount seed in
+   the host. Make browser checks wait for enabled Reload after mount,
+   and enabled Menu before the stone check. Keep each assertion and limit.
+3. Run npm test with the local test database. Run plugin-ui and
+   plugin-ui-http on the M1 in this lane, with the shared lock.
+4. Record each finding and the check results. Check the final diff and
+   commit on this branch. Do not push.
+
+Pass criteria: the new tests and full suite pass; both browser checks
+pass; every finding has a code result and evidence. The current owner
+request authorizes the confirmed repairs, including the readiness waits.
+
+## Review findings and repairs
+
+- A1: confirmed. The route check measures controls before mount ends.
+  It now waits for enabled Reload after each route mount and after the
+  game switch. It keeps each assertion and time limit.
+- A2: confirmed. The old mount flag suppresses every chat deal. The
+  deal now stops only during a mount with saved page state. Two tests
+  cover a same-page chat start and a new widget. The motion tests still
+  cover saved-page restore and Reduce Motion.
+- A3 and B1: confirmed. The games list can miss a new game or show an
+  old turn. Resume now uses the open game view. One test uses Play now
+  directly, then checks the words after the computer replies.
+- A4: confirmed. A terminal game does not show which screen the player
+  leaves. Page state now saves the Resume destination on collapse.
+  Tests cover collapse from End and collapse from the hall after End.
+- A5: confirmed. The old move path waits for a list read while busy.
+  Friend and random moves now start that read after busy ends. Solo
+  moves skip it. A held-read test checks enabled Reload before release.
+  The solo test checks the call list after the computer replies.
+- A6: confirmed. The changed shorthand keeps grain on disabled stone.
+  The approved flat face returns. Its style test expects no image.
+  The browser stone assertion waits for enabled Menu.
+- A7: confirmed. The retained host view can satisfy a remount assertion
+  before the app reads. The two retained seed assignments are removed.
+  The browser assertion waits for enabled Reload. The two held-read
+  tests show a seed before release and the selected board after it.
+  This result replaces the prior claim that the retained view is a host
+  repair. The app read is correct; the old check reads too early.
+- B2: confirmed. The client protects its board ID, but Join and Accept
+  still route a late view. Both screens now check the reply board before
+  they use the result. Two tests hold the reply, select a new game from
+  chat, release the old reply, and remount the saved board.
+- Code note, waiting game: confirmed. Resume now uses the existing
+  waiting words. A remount test checks the friend-game label.
+- Code note, handle field: confirmed. Like Join, the field accepts text
+  before the mount identity read replaces it. The field now stays
+  disabled during that read. A held-read test checks this state.
+- Branch conflict: no merge is in scope. The disabled CSS line now
+  returns to the approved sample. No other branch changes here.
+- The M1 probe folders stay in place. This task uses only its own lane.
+
+## Review check record
+
+The first focused run has six passes and two test failures. The late
+reply tests keep the correct game, but compare its board ID with the
+Create reply. A direct Create reply has no board ID. The tests now save
+that ID after selection and also check the game after a remount.
+The first queued reproduction does not run before cancellation: another
+lane holds the shared test lock. No test limit or lock rule changes.
+
+The corrected focused file passes all 8 tests in 17.80 s. Its npm test
+command also passes all 50 scene checks. Log:
+/tmp/kd-od-fixjoin-review2.log.
+
+The first full local suite passes 165 files and fails one engine test:
+Darkness readings at src/rules/power-fixes.test.ts:470 reaches its
+unchanged 5 s limit. There are 2,585 passes, 1 failure and 8 skips.
+All app and motion cases pass. The suite takes 184.10 s. The next full
+run uses VITEST_MAX_WORKERS=4 to reduce load. It changes no time limit.
+Log of the first full run: /tmp/kd-od-fixjoin-tests.log.
+
+The full local run with four workers passes: all 166 files pass,
+2,586 tests pass and 8 skip. All 50 scene checks pass. The suite takes
+224.95 s. The engine test passes with its original 5 s limit. No engine
+code changes. Log: /tmp/kd-od-fixjoin-tests4.log.
+
+M1 plugin-ui passes at the code checkpoint e96eb05b in 225.0 s. Its log
+is /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/kingdown-check-runs/kd-od-fixjoin-pIzle1/plugin-ui.log.
+
+M1 plugin-ui-http passes at e96eb05b in 302.9 s. Its log is
+/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/kingdown-check-runs/kd-od-fixjoin-tgIgRz/plugin-ui-http.log.
+Both checks use the lane folder and the shared lock. The shell releases
+that lock on exit. Both exit codes are 0. No check assertion or time
+limit changes. The desktop coin-size assertion passes in both modes;
+the cause of the prior reported failure stays unconfirmed.
+
+After the code checkpoint, only this ticket and the two corrected test
+assertions change. The runtime source, host and browser check are the
+same as the tested M1 commit. The corrected tests pass in the focused
+file and in the full local suite. The final diff has no further repair.
+No push, merge, deploy or change to another lane occurs.

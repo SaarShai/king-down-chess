@@ -343,13 +343,13 @@ it('keeps the opponent picked in the Play hall for the session', async () => {
     expect(await friend.isChecked()).toBe(true);
   } finally { await page.close(); }
 });
-it('keeps the stone face on a disabled control', async () => {
+it('uses the approved flat face on a disabled control', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     expect(await frame.locator('#board-menu').evaluate(button => {
       (button as HTMLButtonElement).disabled = true;
       return getComputedStyle(button).backgroundImage;
-    })).toContain('stone-control');
+    })).toBe('none');
   } finally { await page.close(); }
 });
 it('names the turn on Resume and keeps the open game after a home remount', async () => {
@@ -380,7 +380,7 @@ it('names the turn on Resume and keeps the open game after a home remount', asyn
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(game);
   } finally { await page.close(); }
 });
-it.each([false, true])('keeps the selected host view on remount with an older game seed: %s', async olderGameSeed => {
+it.each([false, true])('reads the selected board after remount with an older game seed: %s', async olderGameSeed => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await expand(page);
@@ -401,8 +401,7 @@ it.each([false, true])('keeps the selected host view on remount with an older ga
     await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_get'; });
     await page.locator('#remount').click();
     await page.waitForFunction(() => Boolean((window as any).releaseBefore));
-    expect(await page.evaluate(() => (window as any).harnessMatchId)).toBe(selected);
-    expect(await page.evaluate(() => (window as any).harnessView?.game_id)).toBe(selected);
+    expect(await page.evaluate(() => (window as any).harnessView?.game_id)).not.toBe(selected);
     await page.evaluate(() => (window as any).releaseBefore());
     await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(selected);
@@ -462,11 +461,17 @@ it('reads the games list after a move before it offers Next game', async () => {
     const code = await tool(true, 'kingdown_invite', { game_id: offered._meta.view.game_id });
     next = (await tool(false, 'kingdown_join', { code: code.structuredContent.code }))._meta.view.game_id;
     const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length);
+    await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_games'; });
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp, view = app.memory.view;
       await app.call('kingdown_move', { game_id: view.game_id, command_id: crypto.randomUUID(), expected_revision: view.revision, lan: 'e2-e4' }, true);
     });
+    await page.waitForFunction(() => Boolean((window as any).releaseBefore));
+    expect(await frame.locator('#reload').isDisabled()).toBe(false);
+    expect(await frame.locator('#next-game').count()).toBe(0);
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length)).toBeGreaterThan(reads);
+    await page.evaluate(() => (window as any).releaseBefore());
+    await frame.locator('#next-game').waitFor();
     await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
     expect(await frame.locator('#home-play').textContent()).toContain('Their turn');
     await frame.locator('#home-play').click();

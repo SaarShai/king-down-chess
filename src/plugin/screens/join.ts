@@ -45,8 +45,10 @@ async function preview() {
 async function join() {
   if (joining || !memory.preview) return;
   joining = true; $<HTMLButtonElement>('join-confirm').disabled = true;
+  const board = client.state.board_id;
   try {
     const result = await client.call('kingdown_join', { code: memory.preview.code });
+    if (client.state.board_id !== (result._meta?.board_id ?? board)) return;
     if (result.isError) {
       if (result._meta?.code === 'HANDLE_NEEDED') { afterHandle = true; navigate('handle'); return; }
       throw new Error(toolError(String(result._meta?.code ?? ''), result.content.filter(c => c.type === 'text').map(c => c.text).join(' ')));

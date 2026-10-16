@@ -439,6 +439,7 @@ try {
         && Math.abs(box.width - box.height) < .5 && box.width >= 44 && style.backgroundImage.includes('radial-gradient') && !style.backgroundImage.includes('stone-control');
     })), 'Card and power coins stay round with 44 px targets at 393 × 852');
     assert(await frame.locator('#board').evaluate(board => [board, board.parentElement].every(surface => !getComputedStyle(surface).backgroundImage.includes('stone-control'))), 'The board and its parent keep the stone control face off the board');
+    await frame.locator('#board-menu:not(:disabled)').waitFor();
     assert((await frame.locator('#board-menu').evaluate(button => getComputedStyle(button).backgroundImage)).includes('stone-control'), 'Menu keeps the stone face');
     await shot(page, `base-round-coins-393-${mode}`);
     await page.setViewportSize({ width: 390, height: 844 });
@@ -1035,7 +1036,7 @@ try {
     await frame.locator('#found-switch').click(); await frame.locator('#over.found[open]').waitFor({ state: 'hidden' });
     assert.equal(await page.evaluate(() => window.harnessView.game_id), waiting.game_id, 'Switch selects the human game');
     const ended = await tool('kingdown_get', { game_id: solo.game_id }); assert(!ended.isError && ended._meta.view.status === 'aborted' && !ended._meta.view.outcome, 'Switch ends the computer game with no result');
-    await remount('board'); assert.equal(await page.evaluate(() => window.harnessView.game_id), waiting.game_id, 'The human board survives remount');
+    await remount('board'); await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' }); assert.equal(await page.evaluate(() => window.harnessView.game_id), waiting.game_id, 'The human board survives remount');
     console.log(`Ticket 13 look comparisons: ${look}`);
     await openPlay(); await legacyStart('solo');
   }
@@ -1553,7 +1554,7 @@ try {
       await page.evaluate(({screen,base}) => { window.harnessNextView = screen === 'end' ? { ...base, status: 'finished', result: { winner: 0, reason: 'resign' } } : undefined; window.harnessWidgetState = { modelContent: {}, privateContent: { screen, sheet: undefined, board_id: window.harnessWidgetState.privateContent.board_id, pending: undefined } }; }, {screen,base:routeBase});
       await page.locator('#remount').click();
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
-      await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor(); await fits(screen,width);
+      await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor(); await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' }); await fits(screen,width);
       assert.deepEqual(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_get').arguments), { board_id: routeBoard }, 'A mount reads with the board ID alone');
       assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length), settingsReads + 1, 'Each mount reads server settings and me');
       assert.deepEqual(await page.evaluate(() => Object.keys(window.harnessWidgetState.privateContent).sort()), ['board_id','pending','screen','sheet']);
@@ -1709,6 +1710,7 @@ try {
   const switched = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_create', arguments: { kind: 'solo', options, colour: 'white' } } })).json();
   await page.evaluate(async result => { await window.harnessShow(result); }, switched);
   await frame.locator('#retry').waitFor({ state: 'hidden' });
+  await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
   await clickSquare(4, 1); assert(await frame.locator('#choices button').count() > 0);
   await page.evaluate(() => { window.harnessWidgetState = { modelContent: { game_id: window.harnessMatchId } }; });
   await page.locator('#remount').click();

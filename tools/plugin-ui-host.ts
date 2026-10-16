@@ -44,11 +44,11 @@ async function mount() {
     const result = initialResult ?? (new URLSearchParams(location.search).has('terminal') ? await (await fetch('/fixture-terminal')).json() : await invoke('kingdown_open', matchId ? { game_id: matchId } : {}));
     if (new URLSearchParams(location.search).has('terminal')) result.structuredContent.screen = 'board';
     initialResult = result;
-    matchId ??= result.structuredContent?.game_id;
+    matchId = result.structuredContent?.game_id;
     await bridge!.sendToolInput({ arguments: matchId ? { game_id: matchId } : {} });
     await bridge!.sendToolResult(result);
     (window as any).harnessMatchId = matchId;
-    (window as any).harnessView ??= result._meta?.view;
+    (window as any).harnessView = result._meta?.view;
   };
   (window as any).harnessShow = async (result: any, route = false) => { initialResult = route || result.isError ? result : { ...result, structuredContent: { ...result.structuredContent, screen: result.structuredContent?.screen ?? 'board' } }; matchId = result.structuredContent?.game_id; (window as any).harnessMatchId = matchId; (window as any).harnessView = result._meta?.view; await bridge!.sendToolResult(initialResult); };
   await bridge.connect(new PostMessageTransport(frame.contentWindow!, frame.contentWindow!));
