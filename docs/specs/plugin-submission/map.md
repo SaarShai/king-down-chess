@@ -22,10 +22,9 @@ The King Down ChatGPT plugin is ready to submit to OpenAI: no known fault on the
 - [What OpenAI review needs](issues/01-research-submission.md): four rejection gaps (sign-in, a read-only hint that writes, board URIs, no Android test); two go to fault round 2, sign-in goes to the owner (D8).
 - [ChatGPT host metrics](issues/02-research-host-metrics.md): read the insets at run time, no composer gap; fullscreen with no tap goes to the owner (D7).
 - [Game feel](issues/03-research-game-feel.md): texture only on the game surface; no haptics; reduced-motion gaps are faults; motion timings for the options.
+- [Stress and technical QA](issues/05-stress-qa.md): no blocker; a late reply froze the board (F31), an idle board used 71% of a core (F32), offline Start showed raw words (F33). Round 2 found one minor fault (an "Error:" prefix), now fixed.
 
 ## Not yet specified
-
-- Fault round 3: the Astra stress QA faults, the device matrix faults, and the 820 × 600 landscape board (82 px).
 
 - Which taste options the owner picks, and the build of those picks.
 - Android and iPad behaviour in the real ChatGPT apps (no device here).

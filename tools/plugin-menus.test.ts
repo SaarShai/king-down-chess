@@ -135,18 +135,25 @@ it('shows each card and power with the same rules and words on the Cards sheet, 
   } finally { await page.close(); }
 });
 
-it('shows Starting at once, then a wait line and a safe way back, with one Create', async () => {
+// F5 and the owner's item W3 b: Start is busy at once, says 'Starting…' after 1 s, and frees ‹ Play at 5 s.
+it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s, with one Create', async () => {
   const page = await open(OWNER, true), frame = page.frameLocator('iframe');
   try {
     await go(page, 'play');
     await frame.locator('.mode').filter({ hasText: 'A friend' }).click();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
-    await frame.locator('#setup-start').click();
-    await expect.poll(() => frame.locator('#setup-start').textContent()).toBe('Starting your game…');
+    const start = frame.locator('#setup-start');
+    await start.click();
+    // Read at once, in one step: a quick start shows no words.
+    expect(await start.evaluate((button: HTMLButtonElement) => [button.disabled, button.getAttribute('aria-busy'), button.textContent])).toEqual([true, 'true', 'Start game']);
     await expect.poll(() => page.evaluate(() => typeof (window as any).releaseHeld)).toBe('function');
+    await page.clock.fastForward(1_000);
+    await expect.poll(() => start.textContent()).toBe('Starting…');
     expect(await frame.locator('#page-back').isDisabled()).toBe(true);
-    await page.clock.fastForward(5_000);
-    await expect.poll(() => frame.locator('#setup-start').textContent()).toBe('Still starting. Keep this page open.');
+    await page.clock.fastForward(4_000);
+    // Play has no ‹ Play: its Settings row is the way out that the 5 s wait frees.
+    await frame.locator('[data-screen="play"] [data-nav="settings"]:not(:disabled)').waitFor();
+    expect(await start.textContent()).toBe('Starting…');
     await frame.locator('[data-screen="play"] [data-nav="settings"]').click();
     await frame.locator('#page-back:not(:disabled)').click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
@@ -171,11 +178,11 @@ it('keeps ‹ Play free after a slow settings save, while Create still waits', a
     await frame.locator('#setup-start').click();
     await expect.poll(() => page.evaluate(() => typeof (window as any).releaseHeld)).toBe('function');
     await page.clock.fastForward(5_000);
-    await expect.poll(() => frame.locator('#setup-start').textContent()).toBe('Still starting. Keep this page open.');
+    await frame.locator('[data-screen="play"] [data-nav="settings"]:not(:disabled)').waitFor();
     await page.evaluate(() => { const host = window as any, release = host.releaseHeld; host.releaseHeld = undefined; host.holdNext = 'kingdown_create'; release(); });
     await expect.poll(() => page.evaluate(() => typeof (window as any).releaseHeld)).toBe('function');
     await page.clock.fastForward(1_001);
-    await expect.poll(() => frame.locator('#setup-start').textContent()).toBe('Still starting. Keep this page open.');
+    await expect.poll(() => frame.locator('#setup-start').textContent()).toBe('Starting…');
     expect(await frame.locator('#page-back').isDisabled()).toBe(false);
     await page.evaluate(() => (window as any).releaseHeld());
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();

@@ -9,12 +9,13 @@ export const lastSetupSchema = z.strictObject({
  level: z.enum(['beginner', 'casual', 'club', 'strong']),
  king: choiceSchema.shape.king.refine(king => !king || KINGS[king.king].includes(king.power)),
 });
-export const settingsSchema = z.strictObject({ symbols_only: z.boolean().optional(), show_threats: z.boolean().optional(), last_setup: lastSetupSchema.optional() });
-export interface PlayerSettings { symbols_only: boolean; show_threats: boolean; last_setup: z.infer<typeof lastSetupSchema> | null }
+/** `show_online` is not stored here: PluginService.settings() writes it to profiles.online_visible_to. */
+export const settingsSchema = z.strictObject({ symbols_only: z.boolean().optional(), show_threats: z.boolean().optional(), show_online: z.boolean().optional(), last_setup: lastSetupSchema.optional() });
+export interface PlayerSettings { symbols_only: boolean; show_threats: boolean; show_online: boolean; last_setup: z.infer<typeof lastSetupSchema> | null }
 export class SettingsService {
  constructor(private pool: Pool) {}
- async settings(actor: string, input: unknown = {}): Promise<PlayerSettings> {
-  actor = id(actor); const changes = parse(settingsSchema, input);
+ async settings(actor: string, input: unknown = {}): Promise<Omit<PlayerSettings, 'show_online'>> {
+  actor = id(actor); const { show_online: _, ...changes } = parse(settingsSchema, input);
   if (Object.keys(changes).length) await this.pool.query(`insert into public.player_settings as s (user_id,symbols_only,show_threats,last_setup) values($1,coalesce($2,false),coalesce($3,false),$4)
    on conflict (user_id) do update set symbols_only=coalesce($2,s.symbols_only),show_threats=coalesce($3,s.show_threats),last_setup=coalesce($4,s.last_setup)`,
    [actor, changes.symbols_only ?? null, changes.show_threats ?? null, changes.last_setup ?? null]);

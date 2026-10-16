@@ -14,6 +14,7 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const icon = (name: string) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const image = (path: string, cls = '') => `<img class="${cls}" src="${art(path)}" alt="">`;
 const name = (word: string) => word[0].toUpperCase() + word.slice(1);
+export const ANY_RULES = 'Join the oldest open game, whatever its rules.';
 const levelLines = { beginner: 'New to King Down? Start here.', casual: 'Makes some mistakes.', club: 'Plays well. Keep your pieces safe.', strong: 'Thinks longer. Plays stronger.' };
 const pieceLines = { A: 'Shoots without moving.', L: 'Jumps over its own pieces.', G: 'Only a king takes it.', M: 'Swaps with a friend.', S: 'Bites in a chain.', O: 'Shoves a neighbour.', R: 'Moves in straight lines.', B: 'Moves on diagonals.', N: 'Jumps in an L.', Q: 'Moves in any line.' };
 /** The rules of a game with king powers; a game without them plays DEFAULT_RULES (src/match/worker.ts). */
@@ -21,7 +22,8 @@ export const kingRules = powersRules({ ...DEFAULT_RULES, ...POWERS_BALANCED });
 let cardMode: 'all' | 'four' = 'all';
 const mounted = (window as Window & { openai?: WidgetHost }).openai?.widgetState?.privateContent;
 const restored = mounted?.pending;
-let draft: SetupState | undefined, quick = !!restored?.quick, starting = false, slow = false, recovering = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
+// anyRules: 'Any rules' under A random player (owner item D1 a). It applies to this start only and is not saved.
+let draft: SetupState | undefined, quick = !!restored?.quick, anyRules = false, starting = false, late = false, recovering = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
 const restoredSetup = () => !restoreHandled && restored?.screen === 'play' && !!memory.settings && (restored.quick || !!memory.settings.last_setup) && (['kingdown_choose', 'kingdown_get'].includes(restored.name) || !!restored.args.options);
 const ownPending = () => ownCommand || restoredSetup();
 export const quickStart = () => quick && ownPending();
@@ -40,6 +42,7 @@ function toggle(key: string, symbol: string, title: string, line: string, sheet 
 }
 function build() {
   $('setup-body').innerHTML = `<fieldset class="modes"><legend class="sr-only">Who you play</legend>${(['solo','friend','random'] as const).map(kind => `<label class="mode"><input type="radio" name="setup-mode" value="${kind}" aria-label="${{ solo: 'Computer', friend: 'A friend', random: 'A random player' }[kind]}"><span class="mode-art${kind === 'random' ? ' emblem-fan' : ''}">${kind === 'random' ? ['frost','flame','stratus'].map(k => image(`ui/emblems/${k}.webp`)).join('') : image('ui/kings/spirit.webp') + (kind === 'friend' ? image('ui/kings/shadow-b.webp', 'face-left') : '')}</span><span class="mode-text"><b>${{ solo: 'Computer', friend: 'A friend', random: 'A random player' }[kind]}</b></span></label>`).join('')}</fieldset>
+    ${toggle('anyRules', 'globe', 'Any rules', ANY_RULES)}
     <button id="play-open" class="menu-row has-lead"><span class="row-art fan">${['frost','flame','stratus'].map(k => image(`ui/emblems/${k}.webp`)).join('')}</span><span class="row-title">Open games</span><span class="line">Join a game that another player opened.</span><i aria-hidden="true">›</i></button>
     <div id="play-join"><h3 class="group-head">Join with a code</h3><form id="join-form" class="code-row"><input id="token" class="field" aria-label="Game code" placeholder="K7QX2M" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" required maxlength="300"><button id="join" type="submit">Join</button></form></div>
     ${segment('setup-level', 'Computer level', ['beginner','casual','club','strong'])}<p id="level-line" class="seg-line"></p>
@@ -55,6 +58,7 @@ function build() {
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-mode"]').forEach(input => { input.onchange = () => { draft!.kind = memory.kind = input.value as SetupState['kind']; render(); }; });
   for (const key of ['level', 'colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.onchange = () => { draft = { ...draft!, [key]: input.value }; render(); }; });
   for (const key of ['fairy','arrangement','classic','cards','kingPowers'] as const) $<HTMLInputElement>(`setup-toggle-${key}`).onchange = event => { draft = withToggle(draft!, key, (event.target as HTMLInputElement).checked); render(); };
+  $<HTMLInputElement>('setup-toggle-anyRules').onchange = event => { anyRules = (event.target as HTMLInputElement).checked; render(); };
   for (const sheet of ['pieces','cards'] as const) $(`setup-${sheet}`).onclick = event => { event.preventDefault(); event.stopPropagation(); poolSheet(sheet); };
   $('setup-king').onclick = () => void pickKing();
   $('setup-start').onclick = () => void launch();
@@ -66,6 +70,7 @@ function render() {
   const setup = client.state.pending?.quick ? quickSetup(memory.settings?.last_setup) : draft, o = setup.options;
   for (const key of ['mode','level','colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.checked = input.value === (key === 'mode' ? setup.kind : setup[key]); });
   $('setup-level').hidden = $('level-line').hidden = setup.kind !== 'solo'; $('play-open').hidden = setup.kind !== 'random'; $('play-join').hidden = setup.kind !== 'friend'; $('level-line').textContent = levelLines[setup.level];
+  $('anyRules-row').hidden = setup.kind !== 'random'; $<HTMLInputElement>('setup-toggle-anyRules').checked = anyRules;
   for (const key of ['fairy','arrangement','classic','cards','kingPowers'] as const) $<HTMLInputElement>(`setup-toggle-${key}`).checked = o[key];
   $('arrangement-row').hidden = !o.fairy; $('classic-row').hidden = o.fairy; $('setup-pieces').hidden = !o.fairy; $('setup-cards').hidden = !o.cards;
   $('fairy-line').textContent = o.fairy ? 'Draw 7 pieces from the King Down pool.' : 'Only the chess pieces.';
@@ -80,9 +85,12 @@ function render() {
   const pick = shownKing(setup); $<HTMLImageElement>('setup-king').querySelector('img')!.src = art(`ui/emblems/${pick.king.toLowerCase()}.webp`);
   $('setup-king-name').innerHTML = `<b>${pick.king}</b> · ${POWER_NAME[pick.power]}`;
   $('setup-power-text').textContent = ruleLine(powerText(pick.power, kingRules));
-  $<HTMLButtonElement>('setup-start').disabled = setupBusy();
-  // Words wait for the owner (item W3, option a).
-  $('setup-start').textContent = !starting && !recovering ? 'Start game' : slow && !client.state.pending?.error ? 'Still starting. Keep this page open.' : 'Starting your game…';
+  // The button is disabled and busy at once (F5). Its words are the owner's items W3 b ('Starting…' after 1 s) and W6 a
+  // ('Start game' again while the error and Retry show).
+  const button = $<HTMLButtonElement>('setup-start'), busy = (starting || recovering) && !client.state.pending?.error;
+  button.disabled = setupBusy();
+  button.setAttribute('aria-busy', String(busy));
+  button.textContent = busy && (late || recovering) ? 'Starting…' : 'Start game';
 }
 function sheet(name: string, title: string, done: () => void) {
   closeSheet?.();
@@ -163,10 +171,11 @@ async function finish(view: View, pick = draft!.king) {
 async function launch(setup = draft, saveSetup = true) {
   if (!setup || starting || client.state.pending) return;
   starting = true; ownCommand = true; quick = !saveSetup; render();
-  // After a long wait, Back is a safe way out: the start stays pending, and Start sends no second Create.
-  // The wait line comes before the 10 s command limit (client.ts), which ends the call with Retry.
+  // A quick start shows no words; after 1 s the button says 'Starting…'. After 5 s, Back is a safe way out: the start stays
+  // pending, and Start sends no second Create. The 10 s command limit (client.ts) ends the call with Retry.
   const exits = document.querySelectorAll<HTMLButtonElement>('#page-back, [data-screen="play"] [data-nav]');
-  const wait = setTimeout(() => { slow = true; render(); exits.forEach(button => { button.dataset.free = ''; button.disabled = false; }); }, 5_000);
+  const words = setTimeout(() => { late = true; render(); }, 1_000);
+  const wait = setTimeout(() => { exits.forEach(button => { button.dataset.free = ''; button.disabled = false; }); }, 5_000);
   try {
     const last_setup = { ...setup, options: setupOptions(setup.options) };
     if (saveSetup) {
@@ -174,9 +183,10 @@ async function launch(setup = draft, saveSetup = true) {
       if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       memory.settings = saved._meta?.settings as typeof memory.settings;
     }
-    const view = await start(last_setup.kind, createArguments(last_setup), { route: false }); if (view) await finish(view, last_setup.king);
+    const args = { ...createArguments(last_setup), ...(last_setup.kind === 'random' && anyRules && { any_rules: true }) };
+    const view = await start(last_setup.kind, args, { route: false }); if (view) await finish(view, last_setup.king);
   } catch (error) { $('error').textContent = $('home-error').textContent = errorText(error); }
-  finally { clearTimeout(wait); starting = slow = false; exits.forEach(button => { delete button.dataset.free; }); if (!client.state.pending) ownCommand = false; render(); }
+  finally { clearTimeout(words); clearTimeout(wait); starting = late = false; exits.forEach(button => { delete button.dataset.free; }); if (!client.state.pending) ownCommand = false; render(); }
 }
 /** Play now starts a computer game and keeps the saved setup. */
 export function playNow() { if (memory.settings) void launch(quickSetup(memory.settings.last_setup), false); }
@@ -221,6 +231,7 @@ export function setupScreen() {
   if (!draft) {
     draft = readDraft();
     if (!client.state.pending?.quick) draft.kind = client.state.pending?.name === 'kingdown_find' ? 'random' : client.state.pending?.args.kind as SetupState['kind'] ?? draft.kind;
+    anyRules = client.state.pending?.name === 'kingdown_find' && client.state.pending.args.any_rules === true;
     memory.kind = draft.kind;
   } else draft.kind = memory.kind;
   if (!$('setup-body').childElementCount) build();

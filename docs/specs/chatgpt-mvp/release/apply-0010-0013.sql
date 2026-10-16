@@ -221,4 +221,10 @@ grant select, insert, update (symbols_only, show_threats, last_setup) on public.
 drop policy if exists kingdown_plugin_runtime on public.player_settings;
 create policy kingdown_plugin_runtime on public.player_settings for all to kingdown_plugin_runtime using (true) with check (true);
 
+-- SOURCE: block-10
+grant delete on public.reports to kingdown_plugin_runtime;
+drop policy if exists kingdown_plugin_runtime_old_reports on public.reports;
+create policy kingdown_plugin_runtime_old_reports on public.reports as restrictive for delete to kingdown_plugin_runtime
+  using (created_at < now() - interval '12 months' and (hold_until is null or hold_until <= now()));
+
 commit;

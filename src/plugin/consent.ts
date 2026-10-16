@@ -27,6 +27,14 @@ async function main(): Promise<void> {
         if (error) throw error;
       } catch { busy(false); say('Sign-in could not start. Try again.'); }
     };
+    // The one review account (approval D8 a). The before-user-created hook refuses every other password sign-up.
+    const email = document.getElementById('password-email') as HTMLInputElement, password = document.getElementById('password-value') as HTMLInputElement;
+    document.getElementById('password-form')!.onsubmit = async event => {
+      event.preventDefault(); busy(true); say('Signing in…');
+      const { error } = await sb.auth.signInWithPassword({ email: email.value.trim(), password: password.value });
+      if (error) { busy(false); password.value = ''; say(error.status === 400 ? 'The email or the password is not correct. Try again.' : 'Sign-in could not start. Try again.'); return; }
+      location.reload();
+    };
     return;
   }
   for (const button of document.querySelectorAll<HTMLButtonElement>('[data-signout]')) button.onclick = async () => {

@@ -44,6 +44,7 @@ export const checks = [
 ];
 
 // The probe files that a check runs as parts of itself: ux-defects (tools/verify-ux-defects.mjs) runs each
-// tools/ux-defects/d<N>-<slug>.mjs. The commit-msg counter counts their assertion lines as it counts the
+// tools/ux-defects/d<N>-<slug>.mjs, and plugin-browser-check.mjs runs plugin-ui-check.mjs and
+// plugin-oauth-check.mjs. The commit-msg counter counts their assertion lines as it counts the
 // lines of a registered check (web redesign spec, rule 7).
-export const probeFiles = /^tools\/ux-defects\/d\d+-[\w-]+\.mjs$/;
+export const probeFiles = /^tools\/(?:ux-defects\/d\d+-[\w-]+|plugin-(?:ui|oauth)-check)\.mjs$/;

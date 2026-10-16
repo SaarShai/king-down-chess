@@ -133,3 +133,26 @@ it.each(['Ready','Abort'])('keeps one three-day setup deadline through each Choo
   }
  } finally {vi.useRealTimers();await s.close();}
 });
+
+it('keeps the database start receipt in the fixture: other input with a used start ID is COMMAND_CONFLICT (RV7-1)', async () => {
+ const s = fixtureService();
+ try {
+  for (const actor of ['alice','bob']) await s.handle(actor,{handle:actor});
+  const open = await s.find('alice',DEFAULT_OPTIONS,'white');
+  expect((await s.find('bob',DEFAULT_OPTIONS,'white','b1')).game_id).toBe(open.game_id);
+  expect((await s.find('bob',DEFAULT_OPTIONS,'white','b1')).game_id).toBe(open.game_id);
+  await expect(s.find('bob',DEFAULT_OPTIONS,'black','b1')).rejects.toMatchObject({code:'COMMAND_CONFLICT'});
+  await expect(s.create('bob',{kind:'solo',options:DEFAULT_OPTIONS},'b1')).rejects.toMatchObject({code:'COMMAND_CONFLICT'});
+ } finally { await s.close(); }
+});
+
+it('takes only an open game with the same five switches in the fixture, or any game with any rules (D1 a)', async () => {
+ const s = fixtureService();
+ try {
+  for (const actor of ['alice','bob','carol']) await s.handle(actor,{handle:actor});
+  const open = await s.find('alice',{...DEFAULT_OPTIONS,kingPowers:true},'white');
+  expect((await s.find('bob',DEFAULT_OPTIONS,'white','b1')).game_id).not.toBe(open.game_id);
+  expect((await s.find('carol',DEFAULT_OPTIONS,'white','c1',true)).game_id).toBe(open.game_id);
+  await expect(s.find('carol',DEFAULT_OPTIONS,'white','c1')).rejects.toMatchObject({code:'COMMAND_CONFLICT'});
+ } finally { await s.close(); }
+});
