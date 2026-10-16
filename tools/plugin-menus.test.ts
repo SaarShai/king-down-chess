@@ -120,6 +120,24 @@ it('keeps every game row within reach after a saved Play mount', async () => {
   } finally { await page.evaluate(() => (window as any).releaseHeldGet?.()); await seedGames(page, savedGames); await page.close(); }
 });
 
+it('locks Name until settings finish on a saved screen', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const current = `mount_${randomUUID().slice(0, 8)}`, draft = `draft_${randomUUID().slice(0, 8)}`;
+  try {
+    await frame.locator('html').evaluate(async (_, handle) => { const app = (window as any).harnessApp; await app.call('kingdown_handle', { handle, icon: 'spirit' }); app.navigate('handle'); }, current);
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_settings'; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    expect(await frame.locator('#handle').isDisabled()).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('#handle:not(:disabled)').waitFor();
+    expect(await frame.locator('#handle').inputValue()).toBe(current);
+    await frame.locator('#handle').fill(draft);
+    await frame.locator('#handle-free:not([hidden])').waitFor();
+    expect(await frame.locator('#handle').inputValue()).toBe(draft);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
 it('scrolls the Profile scroll with the page, with its bottom roller at the page end', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   const history: HistoryEntry[] = Array.from({ length: 20 }, (_, i) => ({ game_id: randomUUID(), finished_at: new Date(Date.UTC(2026, 9, 10, 12 - i)).toISOString(), kind: 'friend', colour: 'white', result: 'won', reason: 'resignation', opponent: { handle: `player_${i}`, icon: 'spirit', computer: false, deleted: false, level: null }, features: { fairy: true, arrangement: true, classic: false, cards: false, powers: false, king: null, power: null } }));
