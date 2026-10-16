@@ -106,6 +106,10 @@ it('keeps a live checkmate loss calm and leaves the last move on the board', asy
     await frame.locator('#moves-line').click(); await frame.locator('#board-sheet[open]').waitFor();
     await page.waitForTimeout(3300);
     expect(await frame.locator('#board-sheet[open]').count()).toBe(1);
+    const offer = await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name: 'kingdown_rematch', arguments: { game_id: result._meta.view.game_id, command_id: crypto.randomUUID(), expected_revision: reply._meta.view.revision, choice: 'offer' } } })).json();
+    expect(offer.isError).not.toBe(true);
+    await page.waitForFunction(() => (window as any).harnessView.rematch_offer === 0);
+    expect(await frame.locator('#board-sheet[open]').count()).toBe(1);
   } finally { await page.close(); }
 });
 it.each([false, true])('gives a spent card a short gold pulse (reduced motion %s)', async reduced => {

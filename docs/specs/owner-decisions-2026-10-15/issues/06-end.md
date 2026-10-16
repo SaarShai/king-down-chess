@@ -45,6 +45,9 @@ Work starts from a clean worktree.
   regression tests: keep a live king fall on card open; cancel a
   pending ceremony during the final move; keep Moves open across an
   end poll after See the board.
+- The follow-up review finds the same Moves fault when an opponent's
+  rematch offer changes the revision. The board update now keeps that
+  sheet too. The test covers both an unchanged poll and a new offer.
 - Taste: keep the short ceremony, with no extra replay or move tiles.
   Use explicit buttons with no tap delay. Only a checkmate win uses
   the fall and card rise. Use Game result to return from the board.

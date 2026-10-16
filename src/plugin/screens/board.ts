@@ -328,7 +328,9 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (!same) { history = []; lastMove = undefined; optimistic = undefined; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
     const local = optimistic; optimistic = undefined;
-    armed = undefined; armedCard = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]);
+    armed = undefined; armedCard = undefined; selected = inspected = undefined;
+    if (!(same && next.status === 'finished' && client.state.screen === 'end' && !$<HTMLDialogElement>('over').open)) closeBoardSheet();
+    choices([]);
     document.querySelector('[data-screen="board"]')!.prepend($('game-table')); $('table-bar').hidden = false;
     $('game-table').dataset.empty = String(!next.fen || next.status === 'setup');
     if (!next.fen || next.status === 'setup') { pos = undefined; $('offer-draw').hidden = $('resign').hidden = true; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
