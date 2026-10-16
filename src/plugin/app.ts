@@ -237,13 +237,18 @@ async function mountResult(result: ToolResult, initial: boolean, stale: () => bo
   } catch (error) { $('error').textContent = $('home-error').textContent = errorText(error); }
   finally {
     mountReading = false;
-    // A command that was in flight when the host remounted the widget has no reply here; Retry reads, then resends its ID.
-    // A command still in flight on this page (a chat result came during it) gets its own reply.
-    if (pending && !pending.error && !busy) failPending(CANNOT_CONNECT);
+    // A command that was in flight when the host remounted the widget has no reply here. The page selects Retry for the
+    // player: Retry reads first, then sends the same command ID, and each screen keeps its own Retry steps (New game
+    // finishes a start). The error and Retry show only if that send fails (owner item W6 a). A start that waits for a
+    // name keeps its error and is not sent (R4C-3). A command still in flight on this page (a chat result came during
+    // it) gets its own reply.
+    const resend = !!pending && !pending.error && !busy;
+    if (resend && !connected) failPending(CANNOT_CONNECT);
     if (pending?.error) retryState();
     if (state.screen in screens) screens[state.screen as keyof typeof screens]();
     poll?.update();
     actions();
+    if (resend && connected) $('retry').click();
   }
 }
 app.onclose = () => { connected = false; poll?.stop(); router.finishStart(); };
