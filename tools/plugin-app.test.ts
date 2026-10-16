@@ -854,7 +854,8 @@ it('shows Retry in the hall when Play now loses its create reply', async () => {
       await app.call('kingdown_settings', { last_setup: { kind: 'solo', colour: 'white', level: 'beginner', king: null, options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } } });
     });
     await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_create'; });
-    await frame.getByRole('button', { name: 'Play now', exact: true }).click();
+    await hall(page);
+    await frame.locator('#hall-play').click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await frame.locator('#retry').waitFor();
     expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
@@ -1263,7 +1264,8 @@ it.each(['timeout', 'remount'])('retries Play now with the same command ID after
     });
     await page.clock.install();
     await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_create'; });
-    await frame.getByRole('button', { name: 'Play now', exact: true }).click();
+    await hall(page);
+    await frame.locator('#hall-play').click();
     await page.waitForFunction(() => !!(window as any).releaseBefore);
     if (failure === 'timeout') await page.clock.fastForward(10_001);
     else await page.locator('#remount').click();
@@ -1317,7 +1319,7 @@ it('shows the game count, resumes a person first, and opens the hall without a n
   const page = await open(isolated.url), frame = page.frameLocator('iframe');
   try {
     const person = crypto.randomUUID();
-    const make = (game_id: string, computer: boolean, action = 'ready') => ({ game_id, created_at: '2026-10-15T00:00:00Z', kind: computer ? 'solo' : 'friend', status: 'playing', action, level: 'beginner', seat: 0, move: 1, opponent: { computer, handle: computer ? null : 'friend' } });
+    const make = (game_id: string, computer: boolean, action = 'ready') => ({ game_id, created_at: '2026-10-15T00:00:00Z', updated_at: '2026-10-15T00:00:00Z', kind: computer ? 'solo' : 'friend', status: 'playing', action, level: 'beginner', seat: 0, move: 1, opponent: { computer, handle: computer ? null : 'friend' } });
     await page.request.post(isolated.url + 'fixture-seed', { data: { data: { games: [make(crypto.randomUUID(), true), make(person, false), make(crypto.randomUUID(), false, 'waiting')] } } });
     const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open' }));
     await page.evaluate(result => (window as any).harnessShow(result, true), result);
