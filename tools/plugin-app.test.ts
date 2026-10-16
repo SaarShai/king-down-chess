@@ -863,6 +863,24 @@ it('makes one game when Retry resends a Create that the server has not run yet',
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
 
+// The device clock and the server clock differ. Retry reads the board first and finds the game that the timed-out Create made.
+it('makes one game when Retry reads a timed-out Create and the device clock is ahead of or behind the server', async () => {
+  for (const offset of [60_000, -60_000]) {
+    const page = await open(), frame = page.frameLocator('iframe');
+    try {
+      await newGame(page);
+      await page.clock.install({ time: Date.now() + offset });
+      await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
+      await frame.locator('#setup-start').click();
+      await page.waitForFunction(() => !!(window as any).releaseHeld);
+      await page.clock.fastForward(10_001);
+      await frame.locator('#retry').click();
+      await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+      expect(await sent(page, 'kingdown_create')).toBe(1);
+    } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+  }
+});
+
 // Round 5: each failed command keeps its error and Retry on the screen where it started.
 const CANNOT_CONNECT = 'Cannot connect. Check your connection, then try again.';
 
