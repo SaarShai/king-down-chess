@@ -135,7 +135,8 @@ it.each([{ width: 393, height: 852, cards: true }, { width: 320, height: 568, ca
       expect(await frame.locator('#game-table button:visible').evaluateAll(edgeMisses)).toEqual([]);
     }
     expect.soft(await frame.locator('#strip-me .coin img').first().evaluate(e => [e.getBoundingClientRect().width, e.getBoundingClientRect().height])).toEqual(cards ? [26, 26] : [30, 30]);
-    expect(await frame.locator('#strip-me').evaluate(e => e.getBoundingClientRect().height)).toBe(44);
+    // U6 (taste preview): under 350 px the four cards go below the player name, so that row has two 44 px rows.
+    expect(await frame.locator('#strip-me').evaluate(e => e.getBoundingClientRect().height)).toBe(cards && width === 320 ? 88 : 44);
   } finally { await page.close(); }
 });
 

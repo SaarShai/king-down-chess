@@ -384,7 +384,10 @@ it('keeps page-title words whole, the seat title short and the title at body siz
 // Device matrix round 2, M1: at 200% zoom the board got only the height that the other rows left (3 px), and WebKit sent
 // no move. Under 320 px the board keeps the full width, and the screen scrolls to the rows below it.
 it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)', async () => {
-  const canvasWidth = (frame: FrameLocator) => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
+  // Measure at rest: the board opens with a short scale-in (Lively motion), and a measure during it reads a few px short.
+  const canvasWidth = (frame: FrameLocator) => frame.locator('#board canvas').evaluate(async e => {
+    await Promise.all(e.closest('#board')!.getAnimations({ subtree: true }).map(a => a.finished)); return e.getBoundingClientRect().width;
+  });
   const reachable = async (frame: FrameLocator, id: string) => {
     await frame.locator(`#${id}`).scrollIntoViewIfNeeded();
     return frame.locator(`#${id}`).evaluate(e => { const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); });
@@ -444,8 +447,10 @@ it('keeps the board screen unscrolled where the rows fit under 320 px (314 × 68
     }
   } finally { await page.close(); }
 });
-// The zoom rule leaves normal sizes alone: the board widths measured in device matrix round 2.
-it.each([[320, 568, 63, 84, true, 169, 158], [393, 852, 102, 118, true, 302, 302], [820, 600, 59, 34, false, 360, 360]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
+// The zoom rule leaves normal sizes alone. Device matrix round 2 measured 169/158 and 302/302 on the old phone rows;
+// layout B (short portrait rows, Back in the opponent row) gives the seat more height, and with Cards and King powers
+// its narrow opponent and player rows take two 44 px rows on the board. The 820 × 600 widths do not change.
+it.each([[320, 568, 63, 84, true, 218, 135], [393, 852, 102, 118, true, 384, 345], [820, 600, 59, 34, false, 360, 360]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: touch, hasTouch: touch }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000);
   try {
@@ -455,6 +460,8 @@ it.each([[320, 568, 63, 84, true, 169, 158], [393, 852, 102, 118, true, 302, 302
     await hall(page);
     await page.evaluate(async ({ touch, ...safe }) => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe, ...(touch ? { deviceCapabilities: { touch: true } } : {}) }); }, { top, bottom, left: 0, right: 0, touch });
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    // Cards and King powers stay on from the zoom test above; the test sets them, so its widths do not depend on the order.
+    for (const name of ['Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).check();
     // Every kind but the guard (an earlier test keeps a smaller pool), so no guard note takes a row from the seat board.
     await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).check(); await frame.locator('#setup-pieces').click();
     const pieces = frame.getByRole('dialog', { name: 'Fairy pieces' });
