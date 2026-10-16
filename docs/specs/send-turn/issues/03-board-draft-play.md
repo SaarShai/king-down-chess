@@ -33,3 +33,5 @@ Source: owner ticket 12-submit-turn. Scope: design section 8, ticket 03.
 - `npx tsc --noEmit` passes on the first build and after the review fixes. The local model test passes 46 tests and 50 figure checks.
 - The source unit suite runs with the supplied local test database and two workers. It passes 112 files and 1,619 tests; 8 tests skip. All 50 figure checks pass. It takes 113.58 seconds after the lock wait. No test limit changes. The log is `/tmp/kd-od-board-unit.log`.
 - The M1 board test waits for the shared browser lock. The detached check job is `/tmp/kd-od-board-verify.sh`; its log is `/tmp/kd-od-board-verify.log`.
+- The merged server fixture unit test passes 8 tests and 50 figure checks. It takes 2.56 seconds after the lock wait. The log is `/tmp/kd-od-board-fixture-unit.log`.
+- Both readers accept the final source. The code keeps the move-lock cleanup, draws the draft after failed motion, and keeps a pending connection error during piece and coin reads. The new UI checks cover these states. Their M1 run remains pending.
