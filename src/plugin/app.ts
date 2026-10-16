@@ -4,7 +4,7 @@ import { setRules } from '../rules/engine';
 import { nextGame } from './next-game';
 import { gameTitle, gamesList, waitingLine } from './games-list';
 import type { InboxEntry, JoinPreview, View } from '../match/protocol';
-import { CANNOT_CONNECT, createClient, errorText, SELECTION_TOOLS, type WidgetHost, type Screen, type Pending } from './client';
+import { CANNOT_CONNECT, createClient, errorText, knownScreen, SELECTION_TOOLS, type WidgetHost, type Screen, type Pending } from './client';
 import { art } from './art';
 import { handleProblem, ICONS, type Icon } from '../account/profile';
 import { boardScreen, rollbackBoardMove } from './screens/board';
@@ -24,7 +24,7 @@ import { collectionScreen } from './screens/collection';
 import './app.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 const extension = (window as Window & { openai?: WidgetHost }).openai;
-const savedScreen = extension?.widgetState?.privateContent?.screen;
+const savedScreen = knownScreen(extension?.widgetState?.privateContent?.screen);
 const app = new App({ name: 'King Down', version: '1.0.0' }, { availableDisplayModes: ['inline', 'fullscreen'] });
 export const client = createClient(app, extension);
 const state = client.state;
@@ -350,8 +350,6 @@ async function fullscreen(screen: Screen) {
   } catch (error) { const next = target; unqueue(); if (state.screen !== 'home') navigate('home'); if (next && next !== 'home') resume = state.queued = next; client.save(); actions(); $('error').textContent = $('home-error').textContent = errorText(error); }
   finally { asking = false; }
 }
-/** Opens the Play hall at its top, where Your games are. */
-export function showGames() { newGameFirst = false; gamesFirst = true; navigate('play'); }
 export function showNewGame() { newGameFirst = true; navigate('play'); }
 function scrollNewGame() {
   if (!newGameFirst || state.screen !== 'play' || gamesDirty || mountReading) return;

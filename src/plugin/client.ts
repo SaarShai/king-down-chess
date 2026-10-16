@@ -13,9 +13,13 @@ export const CANNOT_CONNECT = 'Cannot connect. Check your connection, then try a
 export const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
 export type WidgetHost = { widgetState?: { privateContent?: Partial<PageState> }; setWidgetState?: (state: unknown) => void };
 
+// Widget state from an older build can name a screen that this build does not have (PR 57 'setup'). It reads as no screen.
+export const knownScreen = (name: unknown) => SCREENS.find(screen => screen === name);
+
 export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost) {
-  const saved = host?.widgetState?.privateContent;
-  const state: PageState = { screen: saved?.screen ?? 'home', ...(saved?.settings_back && {settings_back:saved.settings_back}), ...(saved?.queued && {queued:saved.queued}), sheet: saved?.sheet, board_id: saved?.board_id, pending: saved?.pending };
+  const saved = host?.widgetState?.privateContent, settings_back = knownScreen(saved?.settings_back), queued = knownScreen(saved?.queued);
+  const pending = saved?.pending && { ...saved.pending, screen: knownScreen(saved.pending.screen), error_screen: knownScreen(saved.pending.error_screen) };
+  const state: PageState = { screen: knownScreen(saved?.screen) ?? 'home', ...(settings_back && {settings_back}), ...(queued && {queued}), sheet: saved?.sheet, board_id: saved?.board_id, pending };
   function save() {
     const pending = state.pending;
     const args = pending && Object.fromEntries(Object.entries(pending.args).filter(([key]) => !['game_id', 'code', 'handle'].includes(key)));

@@ -775,6 +775,22 @@ it.each(['end', 'friend'])('restores a saved %s route to the board when the game
   } finally { await page.close(); }
 });
 
+// An older build (PR 57) saved its New game screen as 'setup'. This build has no such screen, so the name reads as no
+// saved screen: a fullscreen mount opens the hall. Before the fix the page showed an empty frame with Back.
+it('opens the hall for a saved screen that this build does not have', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    await page.evaluate(() => { (window as any).harnessWidgetState = { modelContent: {}, privateContent: { screen: 'setup', settings_back: 'setup', queued: 'setup' } }; });
+    await page.locator('#remount').click();
+    await frame.locator('body[data-page="play"] [data-screen="play"]:not([hidden])').waitFor();
+    expect(await frame.locator('[data-screen]:not([hidden])').evaluateAll(screens => screens.map(screen => (screen as HTMLElement).dataset.screen))).toEqual(['play']);
+    expect(await frame.locator('#page-back').isVisible()).toBe(false);
+    await expect.poll(() => page.evaluate(() => (window as any).harnessWidgetState.privateContent)).toMatchObject({ screen: 'play' });
+    expect(await page.evaluate(() => JSON.stringify((window as any).harnessWidgetState.privateContent))).not.toContain('setup');
+  } finally { await page.close(); }
+});
+
 it('keeps both sides in Moves and restores them after Remount', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

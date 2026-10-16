@@ -142,7 +142,8 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
       await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin);
       expect(await frame.locator('.page-sheet').evaluate(e=>e.scrollTop)).toBe(0);
       const bar=await frame.locator('#table-bar').evaluate(e=>{const buttons=[...e.querySelectorAll('button')].filter(b=>!b.hidden),r=e.getBoundingClientRect(),b=buttons[0].getBoundingClientRect();return {count:buttons.length,empty:b.left-r.left};});
-      expect(bar.count).toBe(3); expect(bar.empty).toBeGreaterThanOrEqual(0);
+      // Undo fills the first cell: no empty cell at the left of the bar.
+      expect(bar.count).toBe(3); expect(bar.empty).toBeLessThanOrEqual(8);
       for(const id of ['undo','end-turn','board-menu']) {
         await frame.locator(`#${id}`).scrollIntoViewIfNeeded();
         expect(await frame.locator(`#${id}`).evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);

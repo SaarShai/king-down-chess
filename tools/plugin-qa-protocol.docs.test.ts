@@ -50,18 +50,28 @@ test.each([
   }
 });
 
-// Spec J7 a and B3 b: the bar holds only Menu, a deadline action shows on the board, and the read button keeps its built name.
+// Spec J7 a, B3 b and W7: the bar holds Undo, the turn button and Menu, a deadline action shows on the board,
+// and the read button keeps its built name. The words come from the build, so a tester reads the bar it shows.
 test.each([
   'docs/qa/plugin-qa-protocol.md',
   'docs/specs/chatgpt-mvp/release/TESTER-GUIDE.md',
   'docs/specs/chatgpt-mvp/release/LIVE-CHECKS.md',
 ])('%s names the board actions of the build', path => {
-  const text = readFileSync(path, 'utf8'), reload = /<button id="reload">([^<]+)</.exec(readFileSync('src/plugin/index.html', 'utf8'))![1];
+  const html = readFileSync('src/plugin/index.html', 'utf8'), board = readFileSync('src/plugin/screens/board.ts', 'utf8');
+  const text = readFileSync(path, 'utf8'), plain = text.replaceAll('**', ''), reload = /<button id="reload">([^<]+)</.exec(html)![1];
+  const bar = html.split('<nav id="table-bar"')[1].split('</nav>')[0];
+  expect([...bar.matchAll(/<button id="([^"]+)"/g)].map(match => match[1])).toEqual(['undo', 'end-turn', 'board-menu']);
+  const undo = /<button id="undo"[^>]*>.*?<span>([^<]+)</.exec(bar)![1], menu = /<button id="board-menu"[^>]*>.*?<span class="label">([^<]+)</.exec(bar)![1];
+  const [, computer, person] = /label = mode\(\) === 'computer' \? '([^']+)' : '([^']+)'/.exec(board)!;
   // The live checks name no read button; the other two list the Menu items.
   if (!path.endsWith('LIVE-CHECKS.md')) expect(text).toContain(reload);
   expect(text).not.toMatch(/\bReload\b/);
-  expect(text).toMatch(/bar shows only \**Menu/);
+  expect(plain).toContain(`The bar shows ${undo}, ${computer} (${person} in a game with a person) and ${menu}.`);
+  expect(plain).not.toMatch(/bar shows only/);
   expect(text).not.toMatch(/Menu[^.|]*Claim/);
+  // W7 removed Stop here: the turn button sends the turn.
+  expect(board).not.toContain('Stop here');
+  expect(text).not.toContain('Stop here');
 });
 
 // Spec W8 a: the end card shows New player, not "?", while the rating is new.

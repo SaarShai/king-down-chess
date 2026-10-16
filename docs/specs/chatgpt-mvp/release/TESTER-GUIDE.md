@@ -43,9 +43,9 @@ For a game with a person, each player chooses their own king and order when thes
 
 ## Play and return
 
-Tap your piece, then its destination or a move choice. Tap a card or power coin to read its rule. Select **Use** if it shows, then tap a marked square or select **Choose a move**. **Cancel** clears that choice. **Stop here** ends a turn that permits another move. Check that the move stays after you reopen the game. Use **Your games** to return to an open game.
+Tap your piece, then its destination or a move choice. Tap a card or power coin to read its rule. Select **Use** if it shows, then tap a marked square or select **Choose a move**. **Cancel** clears that choice. A move stays a draft until you send the turn. **Undo** takes back the last move of the draft. Select **End turn** (**Send your turn** in a game with a person) to send the turn. Check that the sent move stays after you reopen the game. Use **Your games** to return to an open game.
 
-The bar shows only **Menu**. **Menu** holds **Resign** and, in a game with a person, **Offer draw**. Select **Offer draw** and confirm. Your opponent uses **Accept draw** or **Decline draw** on the board, then **Accept** or **Decline** to confirm. **Resign** opens **Lay your king down?**; confirm **Resign** or select **Keep playing**.
+The bar shows **Undo**, **End turn** (**Send your turn** in a game with a person) and **Menu**. **Menu** holds **Resign** and, in a game with a person, **Offer draw**. Select **Offer draw** and confirm. Your opponent uses **Accept draw** or **Decline draw** on the board, then **Accept** or **Decline** to confirm. **Resign** opens **Lay your king down?**; confirm **Resign** or select **Keep playing**.
 
 **Menu** also holds **Abort** while it is available. Before each side's first move, **Abort** ends the game with no result. When your opponent misses a deadline, the board shows **End game** or **Claim the win**. After a missed first-move deadline, **End game** ends it with no result. After a later missed three-day deadline, **Claim the win** gives you the win. **Moves** in **Menu** shows the move list. **Refresh the board** in **Menu** reads the current game. If a read fails, the board stays and shows **Not current**. Moves and game actions stay off until **Try again** or the next good read.
 

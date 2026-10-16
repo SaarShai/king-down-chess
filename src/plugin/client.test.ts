@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createClient, BOARD_ID_TOOLS } from './client';
+import { createClient, BOARD_ID_TOOLS, type WidgetHost } from './client';
 
 describe('app client', () => {
   it('limits commands to 10 seconds, leaves mount reads to the SDK limit and passes a mount\'s abort signal', async () => {
@@ -41,6 +41,14 @@ describe('app client', () => {
     client.save();
     expect(widgetState).toEqual({ modelContent: {}, privateContent: { screen: 'settings', sheet: 'king', board_id: 'b1', pending: { name: 'kingdown_move', args: { lan: 'e2-e4', command_id: 'once' }, game_tag: 'aabbccdd' } } });
     expect((widgetState as { modelContent: object }).modelContent).not.toHaveProperty('pending');
+  });
+  it('reads a saved screen name that this build does not have as no screen', () => {
+    // PR 57 widget state: its New game screen was 'setup'.
+    const pending = { name: 'kingdown_create', args: { kind: 'solo', command_id: 'once' }, screen: 'setup', error: 'The reply was lost.', error_screen: 'setup' };
+    const saved = { privateContent: { screen: 'setup', settings_back: 'setup', queued: 'setup', board_id: 'b1', pending } } as unknown as NonNullable<WidgetHost['widgetState']>;
+    const client = createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: saved });
+    expect(client.state).toStrictEqual({ screen: 'home', sheet: undefined, board_id: 'b1', pending: { ...pending, screen: undefined, error_screen: undefined } });
+    expect(createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: { privateContent: { screen: 'seat', settings_back: 'board', queued: 'end' } } }).state).toMatchObject({ screen: 'seat', settings_back: 'board', queued: 'end' });
   });
   it('reads and writes settings through the account tool without saving them in widget state', async () => {
     const requests: unknown[] = [];
