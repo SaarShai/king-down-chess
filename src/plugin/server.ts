@@ -48,8 +48,10 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const { name, arguments: args } = CallToolRequestSchema.parse(request).params;
       const parsed = inputs.get(name)?.safeParse(args ?? {});
       if (parsed?.success === false) {
-        const field = parsed.error.issues[0]?.path.join('.');
-        return { isError: true, content: text(field ? `Invalid input: check ${field}.` : 'Invalid input: check the tool fields.'), _meta: { code: 'INVALID_INPUT' } };
+        const issue = parsed.error.issues[0], field = issue?.path.join('.');
+        // Our own refine messages are fixed text (setup.ts), so they never echo input.
+        const reason = issue?.code === 'custom' ? ` ${issue.message}` : '';
+        return { isError: true, content: text(field ? `Invalid input: check ${field}.${reason}` : 'Invalid input: check the tool fields.'), _meta: { code: 'INVALID_INPUT' } };
       }
     }
     return handler(request, extra);
@@ -86,7 +88,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     if (board) await service.selectBoard(actorId, board, view.game_id);
     return reply(view, board);
   }
-  const home = async (board?: string): Promise<Reply> => { const { handle, icon } = await service.profile(actorId); return { content: text('King Down. Start a game from Play.'), structuredContent: { screen: 'home', your_turn_count: 0 }, _meta: { ...(board && { board_id: board }), me: { handle, icon } } }; };
+  const home = async (board?: string): Promise<Reply> => { const { handle, icon } = await service.profile(actorId); return { content: text('King Down. Start a game from Play.'), structuredContent: { screen: 'home' }, _meta: { ...(board && { board_id: board }), me: { handle, icon } } }; };
   /** The most urgent game, or home when no game is open. */
   async function next(): Promise<View | null> {
     const urgent = (await service.inbox(actorId))[0];
@@ -166,7 +168,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const { code, expires_at } = await service.invite(actorId, args.game_id);
       return { content: text(`Send your friend the code ${code}. It works until ${expires_at}.`), structuredContent: { code, expires_at } };
     });
-  register('kingdown_join', 'Use this when the player has a King Down invitation: a 6-character code. A short-code preview counts one attempt toward the hourly limit. Join takes the open seat and uses the invitation. Then show the game with kingdown_open.',
+  register('kingdown_join', 'Use this when the player has a King Down invitation: a 6-character code. Each short-code preview or join, a retry included, counts one attempt toward the hourly limit of 10. Join takes the open seat and uses the invitation. Then show the game with kingdown_open.',
     { code: z.string().min(1).max(300), preview: z.boolean().optional(), board_id: boardId }, { visibility: ['model', 'app'], idempotent: false },
     async args => args.preview ? { content: text('Review the game features before you join.'), structuredContent: { screen: 'join' }, _meta: { ...(args.board_id && { board_id: args.board_id }), preview: await service.preview(actorId, args.code) } } : select(args.board_id, () => service.join(actorId, args.code)));
   register('kingdown_report', 'Use this when the player wants to report the opponent in a King Down game: the player, their handle, or a preset message (name it). The King Down team reviews each report.',

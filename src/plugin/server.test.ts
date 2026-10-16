@@ -70,9 +70,10 @@ it('returns a safe field name for schema errors without echoing input', async ()
   expect(tools.find(t=>t.name === 'kingdown_create')!.inputSchema.properties!.options).toMatchObject({type:'object',properties:{fairy:{type:'boolean'}}});
   expect(tools.find(t=>t.name === 'kingdown_get')!.inputSchema.properties!.since_revision).toMatchObject({maximum:1100});
   for (const [name,args,field] of [
-   ['kingdown_create',{kind:'solo',options:{...DEFAULT_OPTIONS,pool:[]}},'options'], ['kingdown_handle',{icon:'photo'},'icon'],
+   ['kingdown_create',{kind:'solo',options:{...DEFAULT_OPTIONS,pool:[]}},'options. Keep at least 7 pieces in the pool'], ['kingdown_handle',{icon:'photo'},'icon'],
    ['kingdown_get',{game_id,since_revision:1101},'since_revision'], ['kingdown_get',{game_id,actorId:'private-value'},undefined], ['kingdown_move',{game_id,command_id:'bad',expected_revision:1101,lan:'e2-e4'},'expected_revision'],
   ] as const) expect(await client.callTool({name,arguments:args})).toEqual({isError:true,content:[{type:'text',text:field ? `Invalid input: check ${field}.` : 'Invalid input: check the tool fields.'}],_meta:{code:'INVALID_INPUT'}});
+  expect((await client.callTool({name:'kingdown_create',arguments:{kind:'solo',options:{...DEFAULT_OPTIONS,classic:true,fairy:true}}})).content).toEqual([{type:'text',text:'Invalid input: check options. Classic needs Fairy pieces off.'}]);
  } finally {await client.close(); await server.close();}
 });
 

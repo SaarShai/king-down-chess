@@ -117,7 +117,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(await rows('select count(*)::int as n from public.games where created_by=$1', [actor])).toEqual([{ n: 0 }]);
   const board_id = opened._meta.board_id;
   const read = await player.ok('kingdown_get', {board_id});
-  expect(read.structuredContent).toEqual({screen:'home',your_turn_count:0}); expect(read._meta.board_id).toBe(board_id);
+  expect(read.structuredContent).toEqual({screen:'home'}); expect(read._meta.board_id).toBe(board_id);
   expect((await player.ok('kingdown_open', { game_id: 'next' }))._meta.view).toBeUndefined();
  });
 

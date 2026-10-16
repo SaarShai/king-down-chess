@@ -35,3 +35,10 @@ D10 stays open. This branch sets the six destructive hints for review. It waits 
 - The local MCP repeat covers P1–P5, N1–N3, all 25 tool descriptors, safe invalid-field replies, the widget resource and phone renders. It records 58 protocol calls. Host routing, refusal words and confirmation still need the final owner account.
 - Logs, transcripts, samples and the After the fixes section are in the scratch rehearsal folder. The report marks 10 findings fixed, 14 owner and 1 optional item open.
 - Cleanup drops kingdown_subfix_test and the suite’s kingdown_subfix_chatgpt_test copy. It stops the owned servers and browser. No push, merge, deploy or owner policy change occurs.
+
+## Third review (2026-10-15)
+
+- F1: `kingdown_join` now says that each short-code preview or join, a retry included, counts one attempt toward the hourly limit of 10. Checklist row 31 matches.
+- F2: the shared input guard adds the rule text of our own option checks, for example "Invalid input: check options. Keep at least 7 pieces in the pool." These texts are fixed and never echo input.
+- F3: `home()` no longer sends `your_turn_count: 0`. `kingdown_open` still sends the real count, so a remount keeps the current line until the games list refreshes it.
+- Typecheck passes. `server.test.ts`, `server.db.test.ts` and `plugin-app.test.ts` pass (75 tests).
