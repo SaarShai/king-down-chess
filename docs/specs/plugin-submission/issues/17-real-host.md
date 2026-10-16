@@ -1,7 +1,7 @@
 # 17 · WebKit checks
 
 Type: task
-Status: in-progress
+Status: closed
 
 ## Scope
 
@@ -37,7 +37,8 @@ Source: the owner's scratch ticket `tickets/issues/17-real-host.md`.
   phone-size and widget checks. Its limit is 15 minutes. No existing limit changes.
 - Six new launcher tests cover engine selection, options and channel precedence.
   Two new workflow tests cover the separate job and its three checks.
-- `npx tsc --noEmit` passes. The full local `npm test` run passes: 163 files,
+- `npx tsc --noEmit` passes on this Mac and the M1. The full local `npm test`
+  run passes: 163 files,
   2,563 tests, 8 skipped tests, and 50 document tests. The test database uses
   the owner's local test URL.
 - The two focused unit files also pass on the M1: 24 tests.
@@ -64,8 +65,12 @@ Source: the owner's scratch ticket `tickets/issues/17-real-host.md`.
   and 165.3 seconds on WebKit. The later changes affect only the board test and
   this ticket; the widget and phone-size results use the same product code.
 - The final local test file and full suite pass. The board file has 30 tests.
-  The full suite has 163 files, 2,563 tests, 8 skipped tests and 50 document tests.
-  The last M1 board repeat is pending after the control-ready wait.
+  The full suite takes 135.68 seconds. The final M1 board repeat also passes on
+  both engines after the control-ready wait. All temporary capture code is gone.
+- The workflow tests check the new CI job. CI itself does not run in this task;
+  the owner bars a push.
 - Logs are in `/tmp/kd-real-host-checks/` on this Mac and
-  `/tmp/kd-real-host-results/` on the M1.
+  `/tmp/kd-real-host-results/` on the M1 for the widget and phone-size checks.
+  The final board logs on the M1 are `/tmp/kd-real-host-board-final-chromium.log`
+  and `/tmp/kd-real-host-board-final-webkit.log`.
 - No visual or game design choice is needed. Part 17-b stays outside this task.
