@@ -5,6 +5,8 @@ import { WHY } from '../ending';
 import { BADGES, type Badge } from '../../match/badges';
 import { ICONS, type Icon } from '../../account/profile';
 import type { HistoryEntry, InboxEntry, PlayerRecord } from '../../match/protocol';
+import { DEFAULT_OPTIONS } from '../../match/setup';
+import { features } from './friend';
 import './profile.css';
 import { errorText } from '../client';
 type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; history: HistoryEntry[]; next_before: string | null };
@@ -97,12 +99,7 @@ function historyRow(entry: HistoryEntry) {
   const player = document.createElement('span'); player.className = 'grow';
   const name = document.createElement('b'); name.textContent = entry.opponent.computer ? `Computer${entry.opponent.level ? ` · ${entry.opponent.level[0].toUpperCase()}${entry.opponent.level.slice(1)}` : ''}` : entry.opponent.deleted ? 'Deleted player' : entry.opponent.handle ?? 'A player';
   const reason = document.createElement('small'); reason.textContent = WHY[entry.reason]; player.append(name, reason);
-  const feats = document.createElement('span'); feats.className = 'feats';
-  const labels: string[] = [];
-  for (const [field, icon, label] of [['fairy', 'fairy', 'Fairy pieces'], ['arrangement', 'arrange', 'Arrangement'], ['classic', 'classic', 'Classic'], ['cards', 'cards', 'Cards'], ['powers', 'powers', 'King powers']] as const) {
-    if (entry.features[field]) { labels.push(label); feats.insertAdjacentHTML('beforeend', `<svg class="icon" aria-hidden="true"><use href="#i-${icon}"/></svg>`); }
-  }
-  feats.setAttribute('aria-label', labels.join(', '));
-  const res = document.createElement('span'), letter = { won: 'W', drawn: 'D', lost: 'L' }[entry.result]; res.className = `res res-${letter.toLowerCase()}`; res.textContent = letter; res.setAttribute('aria-label', entry.result);
+  const feats = features({ ...DEFAULT_OPTIONS, ...entry.features, kingPowers: entry.features.powers });
+  const res = document.createElement('span'), letter = { won: 'W', drawn: 'D', lost: 'L' }[entry.result]; res.className = `res res-${letter.toLowerCase()}`; res.textContent = letter; res.setAttribute('role', 'img'); res.setAttribute('aria-label', entry.result);
   row.append(when, colour, player, feats, res); return row;
 }
