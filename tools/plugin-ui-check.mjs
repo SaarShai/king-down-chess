@@ -1633,6 +1633,59 @@ try {
       }
     }
   }
+  // Ticket 05: a draw offer keeps its size when piece and card actions show.
+  const drawRules = {...sampleRules, hands:[['Haste'],['Haste']]};
+  setRules(drawRules);
+  const drawStart = {...fromFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),used:[0,0]};
+  const drawHaste = legalMoves(drawStart).find(move => move.from===12 && move.to===28 && move.power==='haste');
+  assert(drawHaste, 'The draw sample has a legal Haste move');
+  const drawMid = applyLan(drawStart,toLan(drawStart,drawHaste),drawRules).pos;
+  // The sample view is not in the service; a background poll must not replace it.
+  await frame.locator('html').evaluate(()=>Object.defineProperty(document,'hidden',{configurable:true,value:true}));
+  for (const [stage,position] of [['start',drawStart],['mid',drawMid]]) {
+    const original=await page.evaluate(()=>window.harnessView), snapshot={...original,game_id:randomUUID(),revision:100,status:'playing',kind:'friend',seat:0,turn:0,action:'ready',fen:toFen(position),in_check:false,rules:drawRules,kings:drawRules.kings,hands:drawRules.hands,history:undefined,last_commands:[],legal:legalMoves(position).map(move=>toLan(position,move)),draw_offer:1,result:undefined,outcome:undefined,abort_open:false,deadline_at:null,server_now:new Date().toISOString()};
+    await page.evaluate(value=>{window.harnessNextView=value; return window.harnessShow({content:[],structuredContent:{game_id:value.game_id,screen:'board'},_meta:{board_id:window.harnessWidgetState.privateContent.board_id,view:value}});},snapshot);
+    await page.waitForFunction(id=>window.harnessView.game_id===id,snapshot.game_id); await idleBoard();
+    for (const [width,height] of [[320,568],[360,640],[852,393]]) {
+      await page.setViewportSize({width,height});
+      await page.evaluate(portrait=>window.harnessSetContext({safeAreaInsets:{top:portrait?63:0,right:0,bottom:portrait?84:0,left:0}}),height>width);
+      await frame.locator('#board').press('Escape');
+      await frame.locator('#status').evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+      const before=await frame.locator('#board canvas').boundingBox(), row=await frame.locator('#context-line').boundingBox();
+      for (let n=0;n<7;n++) {await frame.locator('#board').press('ArrowLeft'); await frame.locator('#board').press('ArrowDown');}
+      for (let n=0;n<4;n++) await frame.locator('#board').press('ArrowRight');
+      await frame.locator('#board').press('Enter');
+      const king=await frame.locator('#board canvas').boundingBox(); assert(Math.abs(before.width-king.width)<1,'Selecting the king keeps the board size');
+      for (let n=0;n<(stage==='start'?1:3);n++) await frame.locator('#board').press('ArrowUp');
+      await frame.locator('#board').press('Enter');
+      if(stage==='start') assert(await frame.locator('#context-actions').getByRole('button',{name:'Choose a move',exact:true}).count(),'The pawn offers an ordinary move and Haste');
+      else {
+        assert(await frame.locator('#context-actions').getByRole('button',{name:'Stop here',exact:true}).count(),'The Haste turn offers Stop here');
+        assert.equal(await frame.locator('#context-actions').getByRole('button',{name:'Choose a move',exact:true}).count(),0,'A pass has its own Stop here action');
+      }
+      const after=await frame.locator('#board canvas').boundingBox(), selectedRow=await frame.locator('#context-line').boundingBox();
+      assert(Math.abs(before.width-after.width)<1 && Math.abs(row.height-selectedRow.height)<1,`The draw offer keeps the board and row size at ${width}×${height} (${stage})`);
+      assert(await frame.locator('#context-actions').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Draw and piece actions have no horizontal overflow');
+      // The short landscape pane scrolls; the phone cases keep all replies in view.
+      if(width>height) await frame.locator('#context-actions').scrollIntoViewIfNeeded();
+      for (const action of await frame.locator('#context-actions button').all()) {const bounds=await action.evaluate(controlBounds); assert(bounds.accessible,`Draw and piece action fits at ${width}×${height} (${stage}): ${JSON.stringify(bounds)}`);}
+      await shot(page,`ticket05-draw-${stage}-${width}-${mode}`);
+      if(stage==='start') {
+        await frame.locator('#card-w-0').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
+        await frame.locator('#board').press('Enter');
+        assert(await frame.locator('#context-actions').getByRole('button',{name:'Cancel',exact:true}).count(),'The armed card keeps Cancel beside draw replies');
+        assert.equal(await frame.locator('#context-actions').getByRole('button',{name:'Choose a move',exact:true}).count(),0,'An armed card keeps its move list in Menu');
+        const armed=await frame.locator('#board canvas').boundingBox(), armedRow=await frame.locator('#context-line').boundingBox(); assert(Math.abs(before.width-armed.width)<1 && Math.abs(row.height-armedRow.height)<1,'Arming a card and selecting its pawn keeps the board and row size');
+        assert(await frame.locator('#context-actions').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Cancel and draw replies have no horizontal overflow');
+        if(width>height) await frame.locator('#context-actions').scrollIntoViewIfNeeded();
+        for (const action of await frame.locator('#context-actions button').all()) {const bounds=await action.evaluate(controlBounds); assert(bounds.accessible,`Cancel and draw reply fits: ${JSON.stringify(bounds)}`);}
+        await shot(page,`ticket05-draw-armed-${width}-${mode}`);
+      }
+    }
+  }
+  await frame.locator('html').evaluate(()=>{delete document.hidden;});
+  await page.evaluate(()=>window.harnessSetContext({safeAreaInsets:{top:0,right:0,bottom:0,left:0}}));
+  await page.setViewportSize({width:1000,height:1000});
   console.log(`Ticket 15 look comparisons: ${look}`);
   await openScreen('settings'); await boardSetting('symbols-only',false); await boardSetting('show-threats',false); await openPlay(); await legacyStart('solo');
   for (const [kind,features,status] of [['friend',options,'waiting'],['solo',{...options,arrangement:true},'setup']]) {

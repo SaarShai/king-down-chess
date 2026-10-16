@@ -31,14 +31,15 @@ const queuedAtStart = state.queued;
 let awaitingInitialResult = true;
 let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
-let readError = false;
+let readError = false, pollFailures = 0;
 let busy = false, polling = false, mountReading = true, gamesDirty = false;
 // Ends when the command in flight (busy) ends; call skips a read while busy.
 let commandDone = Promise.resolve(), endCommand = () => {};
 let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0;
 let pending = state.pending;
 let handleBack: Screen = pending?.screen ?? 'settings';
-const drawBoard = boardScreen(call, () => busy || mountReading || !!pending || readError, () => readError);
+export const gameActionsBlocked = () => busy || mountReading || !!pending || readError;
+const drawBoard = boardScreen(call, gameActionsBlocked, () => readError);
 const router = createRouter((name, args, retain) => call(name, args, retain, false, false), navigate, show, () => !!pending);
 export const { routeView, start } = router;
 const screens = { play: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
@@ -135,9 +136,9 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     }
     remember(result);
     // A good read clears the stale board, its error and Try again together.
-    const outage = name === 'kingdown_get' && readError;
-    if (name === 'kingdown_get') readError = false;
     const next = (result._meta as { view?: View } | undefined)?.view;
+    const goodRead = name === 'kingdown_get' || !!next, outage = goodRead && readError;
+    if (goodRead) { readError = false; pollFailures = 0; }
     if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision) {
       view = { ...view, opponent: next.opponent, server_now: next.server_now }; if (outage) drawBoard(view); if (state.screen === 'seat') seatScreen(); poll?.update(); if (outage) retryState(); return;
     }
@@ -153,6 +154,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     saveState(); retryState();
   } catch (error) { const message = error instanceof Error ? error.message : 'Could not update the game.';
     if (quiet && (busy || view !== before)) return;
+    if (quiet && message === CANNOT_CONNECT && ++pollFailures < 3) return;
     if (retain && pending) failPending(message);
     if (name === 'kingdown_get' && state.board_id) readError = true;
     retryState(); if (!retain || !pending) $('error').textContent = message; }

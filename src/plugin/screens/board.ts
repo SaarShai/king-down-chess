@@ -125,7 +125,13 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     }
     const words = document.createElement('span'); words.textContent = lastMove?.words ?? `Move ${moveNumber(pos)}.`; nodes.push(words); $('last-move').replaceChildren(...nodes);
     $('short-move-words').textContent = lastMove ? shortMove(lastMove.pre, lastMove.move) : `Move ${moveNumber(pos)}.`;
+  }
+  const remainingTime = () => view?.deadline_at ? Date.parse(view.deadline_at) - Date.parse(view.server_now) - (Date.now() - readAt) : 0;
+  function updateTime() {
     $('move-time-left').textContent = view ? timeLeft(view, Date.now() - readAt) : '';
+    clearTimeout(deadlineTimer);
+    const remaining = remainingTime();
+    if (!tornDown && view?.status === 'playing' && remaining > 0) deadlineTimer = setTimeout(() => remainingTime() > 0 ? updateTime() : refresh(), Math.min(60000, remaining + 1));
   }
   async function choose(lan: string) {
     if (!view || !pos || blocked() || view.action !== 'ready') return;
@@ -245,9 +251,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     $('board').dataset.animating = String(animating);
     if (readFailed()) { armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]); }
     moveLine();
-    clearTimeout(deadlineTimer);
-    const remaining = view.deadline_at ? Date.parse(view.deadline_at) - Date.parse(view.server_now) - (Date.now() - readAt) : 0;
-    if (!tornDown && view.status === 'playing' && remaining > 0) deadlineTimer = setTimeout(refresh, Math.min(60000, remaining + 1));
+    updateTime();
     const check = inCheck(pos) ? findKing(pos.board, pos.turn) : null;
     if (check !== checked) { checked = check; if (check !== null && board.motion()) checkAt = performance.now(); }
     rules(); const cands = selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
@@ -275,9 +279,11 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (readFailed()) Object.assign(context, {rank:'link', line:'Not current', note:''});
     $('status').textContent = context.rank === 'refusal' ? '' : context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
     const actions: HTMLButtonElement[] = [];
-    if (!armed && armedCard === undefined && square !== undefined && code) actions.push(button('All rules', () => boardSheet('All rules', text(readText(pos!, square)))));
-    if (selected !== undefined && moves.some(({move}) => move.from === selected && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
-    if (armed || armedCard !== undefined) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; choices([]); refresh(); }));
+    const drawReply = !view.result && view.draw_offer != null && view.draw_offer !== view.seat && view.kind !== 'solo';
+    const unarmed = !armed && armedCard === undefined;
+    if (!drawReply && unarmed && square !== undefined && code) actions.push(button('All rules', () => boardSheet('All rules', text(readText(pos!, square)))));
+    if ((!drawReply || unarmed) && selected !== undefined && moves.some(({move}) => move.from === selected && !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
+    if (!unarmed) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; choices([]); refresh(); }));
     if (view.legal.includes('--')) actions.push(button('Stop here', () => choose('--')));
     const gameActions = actionButtons(view,Date.now()-readAt,refused);
     if (!view.result) actions.push(...gameActions);

@@ -198,6 +198,10 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 #end-table { position: absolute; inset: 0; }
 #game-table .player-name :is(b, small), #seat-screen .player-name :is(b, small) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #game-table #context-text { display: block; max-height: none; overflow: visible; }
+#game-table #context-line:has(#accept-draw) { flex-wrap: wrap; }
+#game-table #context-line:has(#accept-draw) #context-text { flex-basis: 100%; min-height: 40px; }
+#game-table #context-actions:has(#accept-draw) { flex-basis: 100%; flex-wrap: wrap; }
+#game-table #context-actions:has(#accept-draw) button { padding-inline: 4px; }
 .table-back { display: none; }
 @media (max-width: 899px) and (orientation: portrait) {
   #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 44px; grid-template-rows: minmax(44px, max-content) minmax(var(--board-floor, 0px), max-content) minmax(44px, max-content) minmax(var(--context-floor, 44px), max-content) 44px minmax(0, 1fr) var(--bar-height); }
