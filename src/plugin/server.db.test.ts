@@ -267,6 +267,54 @@ suite('ChatGPT tools on PostgreSQL', () => {
   for (const input of [{ online_visible_to: true }, { online_visible_to: 'friends' }, { show_online: true }]) expect((await host.call('kingdown_settings', input))._meta.code).toBe('INVALID_INPUT');
  });
 
+ it('blocks and unblocks through account relations, Find, joins and hidden messages', async () => {
+  const [a,b] = [await user('block-a'), await user('block-b')], host = await connect(a), guest = await connect(b);
+  const options = { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: false, cards: false };
+  const game_id = view(await host.ok('kingdown_create', { kind: 'friend', options })).game_id;
+  const joined = await guest.ok('kingdown_join', { code: (await host.ok('kingdown_invite', { game_id })).structuredContent.code });
+  const said = await guest.ok('kingdown_say', { ...move(joined), preset: 'hello' });
+  expect(view(await host.ok('kingdown_get', { game_id })).last_commands.at(-1)!.action.type).toBe('say');
+  await admin.query("insert into public.relations(user_id,other_id,kind) values($1,$2,'follow'),($2,$1,'follow')", [a,b]);
+  expect((await host.ok('kingdown_block', { game_id }))._meta.blocked).toBe(false);
+  for (let n=0;n<2;n++) {
+   const blocked = await host.ok('kingdown_block', { game_id, blocked: true });
+   expect(blocked._meta.blocked).toBe(true);
+   expect(view(blocked).status).toBe('playing');
+   expect(view(blocked).last_commands.at(-1)!.action.type).toBe('hidden');
+  }
+  expect(await rows('select user_id,other_id,kind from public.relations where user_id=$1 or user_id=$2', [a,b])).toEqual([{user_id:a,other_id:b,kind:'block'}]);
+  expect((await (await connect(a)).ok('kingdown_block', { game_id }))._meta.blocked).toBe(true);
+  expect((await guest.ok('kingdown_block', { game_id }))._meta.blocked).toBe(false);
+  await guest.ok('kingdown_say', { ...move(said), preset: 'thanks' });
+  expect(view(await host.ok('kingdown_get', { game_id })).last_commands.slice(-2).map(c=>c.action.type)).toEqual(['hidden','hidden']);
+  const waiting = view(await host.ok('kingdown_create', { kind: 'random', options })).game_id;
+  expect((await guest.ok('kingdown_lobby'))._meta.lobby.games.some((g:any)=>g.game_id===waiting)).toBe(false);
+  expect((await guest.call('kingdown_accept', { game_id: waiting }))._meta.code).toBe('FORBIDDEN');
+  expect(view(await guest.ok('kingdown_find', { options })).game_id).not.toBe(waiting);
+  const friend = view(await host.ok('kingdown_create', { kind: 'friend', options })).game_id;
+  const code = (await host.ok('kingdown_invite', { game_id: friend })).structuredContent.code;
+  expect((await guest.call('kingdown_join', { code })).isError).toBe(true);
+  const unblocked = await host.ok('kingdown_block', { game_id, blocked: false });
+  expect(unblocked._meta.blocked).toBe(false);
+  expect(view(unblocked).last_commands.at(-1)!.action.type).toBe('say');
+  expect(await rows('select kind from public.relations where user_id=$1 or user_id=$2', [a,b])).toEqual([]);
+  expect((await guest.ok('kingdown_lobby'))._meta.lobby.games.some((g:any)=>g.game_id===waiting)).toBe(true);
+  expect(view(await guest.ok('kingdown_accept', { game_id: waiting })).game_id).toBe(waiting);
+  expect(view(await guest.ok('kingdown_join', { code })).game_id).toBe(friend);
+ });
+
+ it('reads block status without a write and refuses other accounts, solo games and bad input', async () => {
+  const [a,b,c] = [await user('target-a'),await user('target-b'),await user('target-c')], host = await connect(a), guest = await connect(b), stranger = await connect(c), reader = await connect(a,readOnly);
+  const game_id = view(await host.ok('kingdown_create', { kind:'friend', options:{...DEFAULT_OPTIONS,arrangement:false} })).game_id;
+  await guest.ok('kingdown_join', { code:(await host.ok('kingdown_invite',{game_id})).structuredContent.code });
+  expect((await reader.ok('kingdown_block',{game_id}))._meta.blocked).toBe(false);
+  expect((await stranger.call('kingdown_block',{game_id,blocked:true}))._meta.code).toBe('NOT_FOUND');
+  const solo = view(await host.ok('kingdown_create',{kind:'solo'})).game_id;
+  expect((await host.call('kingdown_block',{game_id:solo,blocked:true}))._meta.code).toBe('NOT_FOUND');
+  for (const input of [{ game_id,blocked:'yes' },{game_id,user_id:b},{game_id,actorId:c},{game_id:'bad',blocked:true}]) expect((await host.call('kingdown_block',input))._meta.code).toBe('INVALID_INPUT');
+  expect(await rows("select from public.relations where kind='block' and user_id=$1",[a])).toEqual([]);
+ });
+
  it('keeps an active reader recent when the server clock is two days ahead', async () => {
   const [a, b] = [await user('clock-a'), await user('clock-b')], host = await connect(a), guest = await connect(b);
   const game_id = view(await host.ok('kingdown_create', { kind: 'friend', options: { ...DEFAULT_OPTIONS, arrangement: false } })).game_id;

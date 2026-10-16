@@ -8,6 +8,7 @@ import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { POOL } from '../src/rules/setup';
 // The tool table of report part 03, section 4.5: who may call each tool, then its read-only and destructive hints.
 const TABLE: Record<string, [string, boolean, boolean]> = {
+  kingdown_block: ['app', false, true],
   kingdown_open: ['model,app', false, false], kingdown_create: ['model,app', false, false], kingdown_resume: ['app', false, false], kingdown_games: ['model,app', true, false],
   kingdown_lobby: ['app', true, false], kingdown_accept: ['app', false, false], kingdown_find: ['app', false, false], kingdown_cancel: ['app', false, true],
   kingdown_choose: ['app', false, false], kingdown_rematch: ['app', false, true], kingdown_handle: ['app', false, true], kingdown_settings: ['app', false, true],
@@ -26,7 +27,7 @@ try {
   console.log(`${'tool'.padEnd(18)} ${'visible to'.padEnd(10)} read-only  destructive  idempotent  open-world`);
   for (const tool of tools) console.log(`${tool.name.padEnd(18)} ${ui(tool).visibility.join(',').padEnd(10)} ${String(tool.annotations?.readOnlyHint).padEnd(10)} ${String(tool.annotations?.destructiveHint).padEnd(12)} ${String(tool.annotations?.idempotentHint).padEnd(11)} ${tool.annotations?.openWorldHint}`);
   assert.deepEqual(Object.fromEntries(tools.map(tool => [tool.name, [ui(tool).visibility.join(','), tool.annotations?.readOnlyHint, tool.annotations?.destructiveHint]])), TABLE);
-  for (const tool of tools) { for (const hint of ['readOnlyHint', 'destructiveHint', 'idempotentHint'] as const) assert.equal(typeof tool.annotations?.[hint], 'boolean', `${tool.name} ${hint}`); assert.equal(tool.annotations?.openWorldHint, ['kingdown_accept', 'kingdown_create', 'kingdown_find', 'kingdown_say', 'kingdown_invite', 'kingdown_join', 'kingdown_handle'].includes(tool.name), `${tool.name} openWorldHint`); }
+  for (const tool of tools) { for (const hint of ['readOnlyHint', 'destructiveHint', 'idempotentHint'] as const) assert.equal(typeof tool.annotations?.[hint], 'boolean', `${tool.name} ${hint}`); assert.equal(tool.annotations?.openWorldHint, ['kingdown_accept', 'kingdown_block', 'kingdown_create', 'kingdown_find', 'kingdown_say', 'kingdown_invite', 'kingdown_join', 'kingdown_handle'].includes(tool.name), `${tool.name} openWorldHint`); }
   for (const name of ['kingdown_join','kingdown_seen']) assert.equal(tools.find(tool=>tool.name===name)?.annotations?.idempotentHint,false);
   const boardResource = ui(tools.find(tool => tool.name === 'kingdown_open')!).resourceUri!;
   assert.match(boardResource, /^ui:\/\/kingdown\/board-[a-f0-9]{64}\.html$/);
@@ -68,5 +69,5 @@ try {
   service.view = async () => { throw new Error('database password=never-share'); };
   const failed = await call('kingdown_get', { game_id: view.game_id });
   assert.equal(failed.isError, true); assert(!JSON.stringify(failed).includes('never-share'));
-  console.log('PASS: 25 tools and their hints, the board resource on kingdown_open only, the profile tool, board data in _meta only, empty home, explicit solo game, next game, real engine move, duplicate command, stale revision, since_revision, board selection, invitation code and expiry, inbox, model resign, actor injection rejection, sanitized internal errors');
+  console.log('PASS: 26 tools and their hints, the board resource on kingdown_open only, the profile tool, board data in _meta only, empty home, explicit solo game, next game, real engine move, duplicate command, stale revision, since_revision, board selection, invitation code and expiry, inbox, model resign, actor injection rejection, sanitized internal errors');
 } finally { await client.close(); await server.close(); await service.close(); }

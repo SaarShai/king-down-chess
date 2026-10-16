@@ -11,7 +11,7 @@ import { board, highlight } from '../board-view';
 import { art, symbols } from '../art';
 import { pieceIcon } from '../../piece-icons';
 import { client, memory, navigate } from '../app';
-import { actionButtons, confirmDraw, confirmResign } from './board-actions';
+import { actionButtons, confirmDraw, confirmResign, playerBlockButton } from './board-actions';
 import { updateEnd } from './end';
 import { applyLan, boardActions, cardCoins, replayHistory, replayLans, stripLine, type BoardMove } from './board-model';
 import './board.css';
@@ -250,7 +250,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   }
   $('resign').onclick = confirmResign; $('offer-draw').onclick = () => confirmDraw('offer');
   $('reload').addEventListener('click', closeBoardSheet);
-  $('board-menu').onclick = () => boardSheet('Menu', button('Choose a move', () => boardSheet('Choose a move', $('choices'))), button('Moves', showMoves), ...view ? actionButtons(view,Date.now()-readAt,refused,true) : [], button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('computer'), $('invite'), $('invitation'));
+  $('board-menu').onclick = () => boardSheet('Menu', button('Choose a move', () => boardSheet('Choose a move', $('choices'))), button('Moves', showMoves), ...view ? actionButtons(view,Date.now()-readAt,refused,true) : [], ...view ? playerBlockButton(view) : [], button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('computer'), $('invite'), $('invitation'));
   function showMoves() { boardSheet('Moves', ...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No moves shown yet.')]); }
   $('moves-line').onclick = showMoves;
   bindBoard();

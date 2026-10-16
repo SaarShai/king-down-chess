@@ -96,3 +96,16 @@ The source tickets are in the owner's scratch ticket folder.
 ### Scope for this step
 
 Parts 18-a and 18-b, with A-F4, are approved by the owner's task. Parts 18-d and 18-e stay outside this step. Part 18-c and B4 are in the earlier commits above.
+
+### Build choices for 18-a and 18-b
+
+- Use the existing three-choice control and the stored `online_visible_to` values. No database change is needed. Both Settings menu rows name the control.
+- Put Unblock player in the same Menu. Use the same control during setup and play. Confirm both actions. Keep the current game in progress, as the website's block rules do. Unblock does not restore follows.
+- Read block status through the same tool with no `blocked` input. This read does not write. The Menu's other controls open at once while this read runs. A failed read has Retry on its row.
+- Keep Report for later, as the owner asks. Add no new rule for the current game and no new account store.
+
+### Check checkpoint
+
+- Part 18-a code commit: `c9e7a8ed`. Typecheck and the commit gates pass.
+- The focused local test run waits for the clone's shared test lock. The lock has another test process. This step does not bypass the lock or stop that process.
+- The M1 identity matches the project record. Browser checks will use this lane's folder and the shared browser lock.

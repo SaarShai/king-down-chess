@@ -891,6 +891,27 @@ try {
     await frame.locator('body').evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal((await tool('kingdown_get', { game_id: friend.game_id }, true))._meta.view.status, 'playing');
+    // Part 18-b: Cancel writes nothing. Block and Unblock survive a remount.
+    await frame.locator('#board-menu').click();
+    await frame.locator('#menu-block-player').filter({ hasText: 'Block player' }).click();
+    await frame.locator('#board-sheet-title').filter({ hasText: 'Block player?' }).waitFor();
+    await shot(page, `block-confirm-${mode}`);
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Keep playing', exact: true }).click();
+    assert.equal((await tool('kingdown_block', { game_id: friend.game_id }))._meta.blocked, false, 'Cancel keeps contact');
+    await frame.locator('#board-menu').click(); await frame.locator('#menu-block-player').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Block player', exact: true }).click();
+    await frame.locator('#board-menu:not(:disabled)').waitFor();
+    assert.equal((await tool('kingdown_block', { game_id: friend.game_id }))._meta.blocked, true);
+    assert.equal((await tool('kingdown_get', { game_id: friend.game_id }))._meta.view.status, 'playing', 'Block keeps the game');
+    await remount('board');
+    await frame.locator('#board-menu').click();
+    await frame.locator('#menu-block-player').filter({ hasText: 'Unblock player' }).waitFor();
+    await shot(page, `block-undo-${mode}`);
+    await frame.locator('#menu-block-player').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Unblock player', exact: true }).click();
+    await frame.locator('#board-menu:not(:disabled)').waitFor();
+    assert.equal((await tool('kingdown_block', { game_id: friend.game_id }))._meta.blocked, false);
+
 
     async function buddyCode(choices = options) {
       const game = await tool('kingdown_create', { kind: 'friend', options: choices, colour: 'white' }, true); assert(!game.isError);
@@ -1064,6 +1085,7 @@ try {
     await openScreen('settings');
     assert(await frame.locator(`#online-visibility input[value="${value}"]`).isChecked(), 'Online choice persists');
   }
+  await shot(page, `online-visibility-${mode}`);
   await openPlay(); await legacyStart('solo'); await idleBoard(); await boardBox();
   async function clickSquare(file, rank) {
     const box = await boardBox(); assert(box);

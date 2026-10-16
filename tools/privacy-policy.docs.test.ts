@@ -49,3 +49,11 @@ test('the policy says that a deletion keeps the handle in stored games and in re
  expect(text).toContain('After a deletion, it keeps the removed handle, if there is one, but not your account number');
  expect(text).not.toContain('no link to your account');
 });
+
+test('the policy names the block control, its effects and the undo path', () => {
+ expect(text).toContain('open Menu and select Block player');
+ expect(text).toContain('Confirm to end follows both ways, stop new games together and hide their messages');
+ expect(text).toContain('Your current game continues');
+ expect(text).toContain('The same Menu has Unblock player');
+ expect(text).toContain('Unblock does not restore follows');
+});

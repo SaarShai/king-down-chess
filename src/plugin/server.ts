@@ -177,6 +177,13 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   register('kingdown_join', 'Use this when the player has a King Down invitation: a 6-character code. Each short-code preview or join, a retry included, counts one attempt toward the hourly limit of 10. Join takes the open seat and uses the invitation. Then show the game with kingdown_open.',
     { code: z.string().min(1).max(300), preview: z.boolean().optional(), board_id: boardId }, { openWorld: true, visibility: ['model', 'app'], idempotent: false },
     async args => args.preview ? { content: text('Review the game features before you join.'), structuredContent: { screen: 'join' }, _meta: { ...(args.board_id && { board_id: args.board_id }), preview: await service.preview(actorId, args.code) } } : select(args.board_id, () => service.join(actorId, args.code)));
+  register('kingdown_block', 'Read whether you block the opponent in a shared game, or set blocked to true to block them or false to unblock them. A block ends follows both ways, prevents new games together and hides their messages. Your current game continues. Unblock does not restore follows.',
+    { game_id: gameId, blocked: z.boolean().optional() }, { visibility: ['app'], destructive: true, openWorld: true }, async args => {
+      const blocked = await service.block(actorId, args.game_id, args.blocked);
+      if (args.blocked === undefined) return { content: text('Your block setting is ready.'), _meta: { blocked } };
+      const result = await reply(await service.view(actorId, args.game_id));
+      return { ...result, content: text(blocked ? 'Player blocked. Your current game continues.' : 'Player unblocked. Follows stay off.'), _meta: { ...result._meta, blocked } };
+    });
   register('kingdown_report', 'Use this when the player wants to report the opponent in a King Down game: the player, their handle, or a preset message (name it). The King Down team reviews each report.',
     { game_id: gameId, target: z.enum(['player', 'handle', 'message']), category: z.enum(REPORT_CATEGORIES), intimate_image: z.boolean().optional(), preset: z.enum(PRESETS).optional(), note: z.string().max(1000).optional() },
     { visibility: ['app'], idempotent: false, destructive: true }, async args => {

@@ -1,3 +1,5 @@
+import { errorText } from '../client';
+import { call, client, memory } from '../app';
 import type { View } from '../../match/protocol';
 import { boardSheet, closeBoardSheet, sendBoardCommand } from './board';
 import { boardActions } from './board-model';
@@ -34,4 +36,30 @@ export function actionButtons(view: View, elapsed: number, hidden: Set<string>, 
     const b = button(label, () => confirmBoardAction(label + '?', actions.claim === 'win' ? 'Your opponent misses the move deadline. You win.' : 'Your opponent makes no first move. The game ends with no result.', label, () => void sendBoardCommand('kingdown_claim')), id('claim')); b.className='primary'; result.push(b);
   }
   return result;
+}
+
+/** Read the saved relation without delaying the Menu's other controls. */
+export function playerBlockButton(view: View, close = () => {}): HTMLButtonElement[] {
+  if (view.kind === 'solo' || !view.opponent || view.opponent.computer || view.opponent.deleted) return [];
+  let blocked: boolean | undefined, reading = false;
+  const row = button('Loading block setting…', () => {
+    if (reading || memory.view?.game_id !== view.game_id) return;
+    if (blocked === undefined) { void read(); return; }
+    const next = !blocked, label = blocked ? 'Unblock player' : 'Block player';
+    close();
+    confirmBoardAction(`${label}?`, blocked ? 'This player can join your new games again. Follows stay off.' : 'You do not meet in new games. Their messages are hidden. Follows end both ways. This game continues. You can unblock them in this Menu.', label, () => {
+      if (memory.view?.game_id === view.game_id) void call('kingdown_block', { game_id: view.game_id, blocked: next });
+    });
+  }, 'menu-block-player');
+  async function read() {
+    reading = true; row.disabled = true; row.setAttribute('aria-busy', 'true');
+    try {
+      const result = await client.call('kingdown_block', { game_id: view.game_id });
+      if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+      blocked = result._meta?.blocked === true;
+      row.textContent = blocked ? 'Unblock player' : 'Block player';
+    } catch (error) { row.textContent = 'Cannot read block setting. Retry'; row.title = errorText(error); }
+    finally { reading = false; row.disabled = (document.getElementById('reload') as HTMLButtonElement).disabled; row.removeAttribute('aria-busy'); }
+  }
+  void read(); return [row];
 }

@@ -15,6 +15,8 @@ The text for the portal's **Review details** (Metadata & Skills → Review infor
 >
 > **Sample data.** The account has one finished game against a friend (won), a rating, three badges, and one game against the computer where it is your move. Test case P5 resigns that game.
 >
+> **Block a player.** In a game against a person, open Menu, select **Block player** and confirm. The same Menu offers **Unblock player**. A block ends follows, stops new games together and hides messages. The current game continues. Unblock does not restore follows.
+>
 > **Online status.** In Settings, **Who sees when you are online** has three choices: Everyone, Friends only and Nobody. Friends only is the default. Friends are players who follow each other. The website and the app use the same value.
 >
 > **Surfaces.** King Down needs its board in the chat to play a move: the chat model does not see the position and does not choose moves. Please test King Down on the ChatGPT surfaces that show app screens: the website, the iOS app, the Android app and the desktop app. King Down does not claim Codex, because Codex shows no board. If the app can be limited to these surfaces, please limit it.
@@ -22,4 +24,4 @@ The text for the portal's **Review details** (Metadata & Skills → Review infor
 ## Sources
 
 - Sign-in: approval D8 a. The form is in `src/plugin/consent.html`; `plugin-deploy/review-signup-hook.sql` refuses every other password sign-up, and `plugin-deploy/oauth-audience-hook.sql` refuses a password sign-in for every other address; `npm run plugin:db:seed-review` adds the sample data (`tools/plugin-db/seed-review.ts`). The owner tests with a separate test account, so the review account keeps this data ([checklist.md](checklist.md), owner step 2).
-- Surfaces: approval D15 a; checklist row 39 and open question 2. 16 of the 25 tools are for the board only (rehearsal R16).
+- Surfaces: approval D15 a; checklist row 39 and open question 2. 17 of the 26 tools are for the board only (rehearsal R16).

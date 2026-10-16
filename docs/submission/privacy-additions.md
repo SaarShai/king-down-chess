@@ -81,3 +81,9 @@ If the password path is for one review account only, no policy change is necessa
 ## 6. Data that the rehearsal found (R10–R12)
 
 Pasted into "What the game stores for your account" as list items: the ChatGPT settings and last options (`player_settings`, migration 0013), games against the computer in ChatGPT, the last opened or played time and the surface of the last game action (`last_seen_at`, `last_surface`; R10 asks for "last game action", not "last move"), the board selections (`plugin_boards`, deleted after 7 days), the invitation-code tries in the last hour (`invite_code_tries`, migration 0009), the alerts and notices (`notifications`, migration 0006: `turn` and `reminder` for Daily games, `src/match/service.ts` and `src/online/jobs.ts`; `moderation` and `appeal`, `src/online/safety.ts`; no cleanup, so they stay until the account is deleted) and the deletion request (`account_deletions`). "Where it is kept" names OpenAI (section 3, R11). "How long we keep it" gives the 7-day, 30-day and 12-month cleanups (R12).
+
+## Block control (part 18-b)
+
+The policy names Menu → Block player and its confirmation. A block ends follows both ways, stops Find and open-game joins between the players, and hides the opponent's messages. The current game continues. The same Menu offers Unblock player, which does not restore follows.
+
+Evidence: `kingdown_block` uses `AccountService.relate()` and `unrelate()`, as the website's `/api/relations` routes do. The game store checks blocks both ways for Find, accept, invitation joins and message privacy. `src/plugin/server.db.test.ts` checks the tool through the database, including reads, repeat blocks, saved status, unblock and refused targets.
