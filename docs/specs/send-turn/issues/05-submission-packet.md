@@ -18,7 +18,7 @@ Lane: board. Branch: `claude/od-board`. Source: owner ticket 12-submit-turn, par
 
 ## Limits
 
-- The words are the T1 a words: "End turn" against the computer, "Send your turn" against a person. The owner's final T1 pick can change them. Then the board changes, this check fails, and the packet changes with it.
+- The words are the T1 a words: "End turn" against the computer, "Send your turn" against a person. The owner's final T1 pick can change them. Then the board changes and this check fails. The packet and the first test of the check (it pins the words) change with it.
 - The final packet pass (owner ticket 15, on `claude/owner-decisions`) does this text once more against the merged build.
 - No change to `listing.md`, `release-notes.md`, the source or the browser checks.
 

@@ -26,7 +26,8 @@ test('the release notes record the short-code decision, and the runbook has the 
  expect(readFileSync('docs/specs/chatgpt-mvp/release/RUNBOOK.md', 'utf8')).toContain('Old short codes stop working at this release');
 });
 
-// After the merge: the packet names the turn button words that the board shows (W7, T1 a) and the D7 fullscreen open.
+// The first test pins the approved turn words (W7, T1 a). A new pick changes that test and the packet together.
+// The packet also keeps the D7 fullscreen open.
 const imported = JSON.parse(readFileSync('docs/submission/package/plugin.json', 'utf8')).extensions['com.openai'].review.test_cases;
 const rows = new Map(readFileSync('docs/submission/test-cases.md', 'utf8').split('\n').filter(line => /^\| [PN]\d \|/.test(line))
   .map(line => { const [id, ...cells] = line.slice(2, -2).split(' | '); return [id, cells] as const; }));
