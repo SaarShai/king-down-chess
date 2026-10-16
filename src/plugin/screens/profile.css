@@ -41,6 +41,8 @@
 #profile-more { display: block; margin: var(--space-2) auto 0; }
 #profile-sheet .side-col .group-head { margin-top: 0 !important; }
 #profile-sheet .badges { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px 4px; margin-bottom: var(--space-3); }
+/* 200% zoom (under 320 px): three badges to a row, so each name fits under its badge (M1). */
+@media (max-width: 319px) { #profile-sheet .badges { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 #profile-sheet .badge { margin: 0; text-align: center; }
 #profile-sheet .badge button { display: grid; place-items: center; width: 100%; padding: 0; border: 0; background: transparent; box-shadow: none; }
 #profile-sheet .badge img { width: 100%; max-width: 72px; aspect-ratio: 1; filter: drop-shadow(0 2px 2px rgba(43, 38, 33, .3)); }
