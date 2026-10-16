@@ -1,6 +1,6 @@
 # Server: whole-turn input for kingdown_move
 
-Status: in progress
+Status: done
 
 Lane: w7-server. Branch: `claude/w7-server`. Base: `d748b1b6`.
 
@@ -39,9 +39,9 @@ The owner approves this build on 2026-10-15. The board UI stays outside this tic
    check, `plugin-ui` and `plugin-ui-http` on the M1 in this lane's folder.
    Keep the check limits. Record each result, check the diff and commit.
 
-The local regression test waits for the shared test lock. Check the two
-failure controls on the M1 in the lane folder before the browser checks.
-Run the fixed regression test and full suite here through `npm test`.
+Check the two failure controls on the M1 in the lane folder before the
+browser checks. Run the fixed regression test in the full suite here through
+`npm test`. Use the shared test lock and the M1 browser lock.
 
 ## Results
 
@@ -97,9 +97,41 @@ Run the fixed regression test and full suite here through `npm test`.
   The fix loads first, switches engines, waits for queued reads, then closes
   the old engine. A test queues full reads and polls for both players at the
   start and end of the load. It also checks the FEN, revision and history.
-  Check results are pending.
+  The new test detects both early closure and a missing queue drain. The
+  fixed test passes on the M1 and in the full local suite.
 - Review B: no findings. Its test run waits for the shared lock and stops
   before it starts. It supplies no new check result.
 - Fixture limit: during reload, a read can see the first refused action with
   the old revision. The board ignores a redraw at the same revision. The
   service applies each list on a separate copy and has no such read window.
+
+## Review fix checks
+
+- Source commit: `b81845fb`. The first local test has an invalid friend-game
+  setup and does not reach the read test. The test now uses valid options.
+  The first full run stops after the same setup fault.
+- The M1 failure controls use the new test and change only the restore code.
+  The reviewed close-first restore causes all four reads to fail. A switch
+  without the queue drain causes the two queued reads to fail. Each control
+  has one failed test and seven passes. With the fix, all eight tests and
+  all 50 art checks pass. The protocol check also passes.
+- The final local `npm test` uses the supplied local test database and
+  `VITEST_MAX_WORKERS=2`. It passes 165 files and 2,561 tests; eight tests
+  skip. All 50 art checks pass. The run takes 427.28 seconds after the lock
+  wait. The type check passes. All test limits stay the same.
+- The M1 `plugin-ui` check passes in 223.0 seconds. The lane uses its own
+  folder and the shared browser lock.
+- The M1 `plugin-ui-http` check fails in 162.7 seconds at
+  `tools/plugin-ui-check.mjs:902`. After the join screen remounts,
+  `#join-confirm` stays hidden for the existing 30-second limit. The profile,
+  setup and seat stages pass. This is the same fault that the earlier check
+  records on `d748b1b6`. The fix changes no HTTP or join code.
+- Both browser checks use source commit `b81845fb`. The M1 runner releases
+  the shared browser lock. The lane keeps a clean checkout. The local SSH
+  database tunnel stops after the HTTP check. Check logs are in
+  `/tmp/kd-w7-server-review/` here and
+  `/tmp/kd-w7-server-review-checks/` on the M1.
+- The diff check finds no extra source path to change. The queue drain and
+  its read test fix Review A's only finding. Review B has no finding. No
+  open review fault remains. The existing HTTP join fault stays outside
+  this server ticket.
