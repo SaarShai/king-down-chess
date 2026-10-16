@@ -35,6 +35,16 @@ Lane: board. Branch: `claude/od-board`. Source: owner ticket 12-submit-turn, par
 - The check runner runs `plugin-ui` and `plugin-ui-http` on this Mac at `d24b5517`. `plugin-ui` passes in 262.2 seconds. `plugin-ui-http` passes in 251.0 seconds with real HTTP MCP and PostgreSQL.
 - No test or check time limit changes.
 
+## Review fixes
+
+Two reviewers checked `e77985dc`. Review B found no fault.
+
+- Review A, finding 1 (low, documentation): confirmed. The service contract in `docs/plugin-preparation.md` said that Haste and free power actions may keep the same player to move. Since `08f11be8`, a player's command that stops part-way gets `INVALID_MOVE`. Fix `f0795e4a`: the guide now says that a player's command must contain the whole turn, and that each computer call plays one action. The new doc test `src/match/turn-contract.docs.test.ts` ties the guide to the service check. It fails on the old guide line, and it fails when the check is removed or also applies to the computer. `docs/match-foundation.md` describes the engine worker, which still applies one action at a time, so it does not change.
+- Review B, note 1: the taste line below said that only direct service callers see the refusal words. Website `/api` clients see them too. The line now says so.
+- `npm test` with the local test database and two workers passes 166 files and 2,642 tests; 8 tests skip. All 50 figure checks pass. The run takes 494.34 seconds.
+- The check runner runs `plugin-ui` on the M1 at `f0795e4a`. It passes in 232.3 seconds. No server code changes, so `plugin-ui-http` does not run again.
+- No test or check time limit changes.
+
 ## Taste choices
 
 - The service refusal words: "This turn is not finished. Send the whole turn in one command." Direct service callers and website `/api` clients see them (`src/api/http.ts` returns the code and the words). The plugin shows "This move is not available. Choose another move."
