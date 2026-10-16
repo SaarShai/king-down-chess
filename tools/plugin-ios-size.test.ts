@@ -371,12 +371,12 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
   }
 });
 // Review R1: under 320 px the screen scrolls only when the board would get less than its floor. At 314 × 681 (a 393 px
-// phone at 125% zoom) the rows fit, so Resign and Menu stay on the screen with no scroll.
-it('keeps the board screen unscrolled where the rows fit under 320 px (314 × 681, insets 82/94)', async () => {
+// phone at 125% zoom) the rows fit with Cards and King powers off, so the controls need no scroll.
+it('keeps the board screen unscrolled without cards where the rows fit under 320 px (314 × 681, insets 82/94)', async () => {
   const { page, frame } = await hostPage(314, 681, 82, 94);
   try {
     await frame.locator('#play-new').click(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
-    await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).check();
+    for (const name of ['Fairy pieces', 'Arrangement', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).setChecked(['Fairy pieces', 'Arrangement'].includes(name));
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     await frame.locator('#board[aria-busy="false"]').waitFor();

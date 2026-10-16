@@ -193,14 +193,14 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 #game-table #context-text { display: block; max-height: none; overflow: visible; }
 @media (max-width: 899px) and (orientation: portrait) {
 @container table-screen (max-height: 520px) {
-  #game-table { --context-height: 44px; grid-template-rows: 44px minmax(var(--board-floor, 0px), 1fr) 44px minmax(var(--context-floor, 44px), max-content) 44px 0 44px; }
+  #game-table { --context-height: 44px; grid-template-rows: var(--strip-row, 44px) minmax(var(--board-floor, 0px), 1fr) var(--strip-row, 44px) minmax(var(--context-floor, 44px), max-content) 44px 0 44px; }
   #game-table #context-line { min-height: 44px; padding-block: 0; flex-wrap: nowrap; }
   #game-table #moves-line { height: 44px; min-height: 44px; }
   #game-table #table-bar { padding-block: 0; }
   #game-table #table-bar > button { min-height: 44px; flex-direction: row; }
 }
 @container table-screen (max-height: 420px) {
-  #game-table { grid-template-rows: 44px minmax(var(--board-floor, 0px), 1fr) 44px minmax(var(--context-floor, 44px), max-content) 0 0 44px; }
+  #game-table { grid-template-rows: var(--strip-row, 44px) minmax(var(--board-floor, 0px), 1fr) var(--strip-row, 44px) minmax(var(--context-floor, 44px), max-content) 0 0 44px; }
   #game-table #moves-line { display: none; }
 }
 }
@@ -213,8 +213,8 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table { --board-floor: 210px; --context-floor: max-content; }
   #game-table #board { width: 100%; }
 }
-@container table-screen (max-width: 249px) {
-  #game-table { grid-template-rows: max-content minmax(var(--board-floor, 0px), 1fr) max-content minmax(var(--context-floor, 44px), max-content) 0 0 44px; }
+@container table-screen (max-width: 319px) {
+  #game-table:has(.card-coin) { --strip-row: max-content; }
   #game-table .player-strip:has(.card-coin) { flex-direction: column; align-items: stretch; }
   #game-table .coin-row { flex-wrap: wrap; }
 }
