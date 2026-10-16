@@ -1,6 +1,6 @@
 # Chat result mount: wait for a page command
 
-Status: in-progress
+Status: ready-for-human
 
 Lane: mount-r3. Branch: `claude/fault-round-2`.
 
@@ -57,6 +57,21 @@ adds code and does not remove the need for those guards.
   fails in both new cases. Each expects Seat and gets Board. The other
   23 journey tests pass. Log: `/tmp/kd-mount-r3-red.log`.
 - After the fix: `npx tsc --noEmit` passes.
-- The full `npm test` run and the M1 plugin-ui check are pending.
+- `npm test` passes on `3d876e79`: 163 files pass; 2,543 tests pass and
+  8 opt-in balance drift tests skip. All app and journey tests pass.
+  The 50 document tests also pass. The run uses the owner's local test
+  database. Log: `/tmp/kd-mount-r3-tests.log`.
+- `npm run -s check:browser plugin-ui` passes on the M1 at `3d876e79`
+  in `~/projects/kd-mount` (224.5 s). The run takes the shared browser
+  lock and releases it on exit. Log: `/tmp/kd-mount-r3-m1.log` on this
+  Mac. The M1 run folder is
+  `/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/kingdown-check-runs/kd-mount-Ih0Haf`.
 - No server code changes from `ec044593`. The house rule does not require
   plugin-ui-http for this change.
+
+## Scope and taste
+
+This step fixes the skipped read and uses the simpler wait rule.
+The other guards stay for the reasons above. This step needs no
+new words, layout or taste choice. The other parts of ticket 09 stay
+outside this step, as the owner asks.
