@@ -8,6 +8,7 @@ import { startHarness } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import type { View } from '../src/match/protocol';
+import { LESSONS } from '../src/lessons';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
@@ -336,5 +337,24 @@ it('hides the edge labels on a small board and keeps them in the frame on a phon
     });
     expect(coords[0][0]).toBe(false);
     expect(coords[1][0]).toBe(true); expect(coords[1][1]).toBeLessThanOrEqual(40); expect(coords[1][2]).toBeLessThanOrEqual(16);
+  } finally { await page.close(); }
+});
+
+it.each(['A', 'S', 'M', 'O', 'G', 'L'])('shows the %s lesson rule when a beginner selects the piece', async letter => {
+  const names: Record<string, string> = { A: 'Archer', S: 'Beast', M: 'Maester', O: 'Ogre', G: 'Guard', L: 'Paladin' };
+  const page = await open(view(`7k/8/8/8/3${letter}4/8/8/K7 w - - 0 1`, {}, { level: 'beginner' })), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('html').evaluate(() => (window as any).testBoard.onSquareClick(27));
+    expect(await frame.locator('#context-note').innerText()).toBe(LESSONS.find(lesson => lesson.name === names[letter])!.done);
+    expect(await frame.locator('#move-hint').textContent()).not.toMatch(/\bTap\b/);
+  } finally { await page.close(); }
+});
+it('keeps the normal piece rule for a player above beginner level', async () => {
+  const page = await open(view('7k/8/8/8/3G4/8/8/K7 w - - 0 1', {}, { level: 'club' })), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('html').evaluate(() => (window as any).testBoard.onSquareClick(27));
+    expect(await frame.locator('#context-note').innerText()).toBe('Only a king can take it.');
   } finally { await page.close(); }
 });

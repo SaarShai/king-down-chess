@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from 'vitest';
-import { A, DEFAULT_RULES, type Move, P, type Rules, T, legalMoves, nameOf, parseRule, parseSq, setRules } from './rules/engine';
+import { A, DEFAULT_RULES, type Move, P, type Rules, S, T, V, legalMoves, nameOf, parseRule, parseSq, setRules } from './rules/engine';
 import { describeMove } from './move-text';
 import { PRESETS, designCode, fromPreset } from './workshop/model';
 import { fromFen } from './rules/setup';
@@ -171,7 +171,7 @@ it('selects an own movable piece and reads without a move role', () => {
 
 it('keeps a Beast chain after a wrong tap, and reads a refused target', () => {
   const pos = fromFen('7k/8/n7/8/4P3/8/8/K7 w - - 0 1');
-  expect(unmarkedTap(pos, at('a6'), at('e4'), null, [at('d5')])).toEqual({ selected: at('e4'), inspected: null, pending: [at('d5')], notice: 'Tap a marked piece, or stop here.' });
+  expect(unmarkedTap(pos, at('a6'), at('e4'), null, [at('d5')])).toEqual({ selected: at('e4'), inspected: null, pending: [at('d5')], notice: 'Select a marked piece, or stop here.' });
   expect(unmarkedTap(pos, at('a6'), at('e4'), null, [])).toEqual({ selected: at('e4'), inspected: at('a6'), pending: [], notice: 'The pawn cannot take the knight on a6.' });
 });
 
@@ -282,4 +282,9 @@ it.each([
   expect(teachNote(pos, legalMoves(pos).find(m => m.from === at('e8'))!)).toBeUndefined();
   expect(contextLine({ voice: 'you', teach: words })).toMatchObject({ rank: 'your-move', note: words });
   expect(contextLine({ voice: 'you', teach: words, check: true, checkCause: 'Their archer attacks your king.' }).note).toBe('Their archer attacks your king.');
+});
+
+it('uses Select in the shared Beast and Reaver rules', () => {
+  expect(pieceGuide(S).special).toBe('After a bite, it can bite again from its new square. A chain cannot continue onto a king. Select each piece to bite. Select "Stop here" to end the chain.');
+  expect(pieceGuide(V).special).toBe('Select the enemy piece, then the landing square.');
 });

@@ -55,7 +55,7 @@ it('offers inline and fullscreen display, empty thread and global entrypoints, a
   for (const tool of tools.filter(tool => (tool._meta?.ui as {visibility:string[]}).visibility.includes('model'))) expect(tool.description).toMatch(/^Use this when/);
   const uri = (open._meta?.ui as {resourceUri:string}).resourceUri;
   const resource = (await client.readResource({uri})).contents[0];
-  expect(resource._meta).toMatchObject({ui:{permissions:{clipboardWrite:{}}},'openai/ui':{availableDisplayModes:['inline','fullscreen'],preferredDisplayMode:'inline'}});
+  expect(resource._meta).toMatchObject({ui:{permissions:{clipboardWrite:{}}},'openai/ui':{availableDisplayModes:['inline','fullscreen'],preferredDisplayMode:'fullscreen'}});
  } finally {await client.close(); await server.close();}
 });
 

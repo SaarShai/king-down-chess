@@ -57,7 +57,10 @@ function retryState() {
   $('retry').textContent = readError && !pending ? 'Try again' : 'Retry';
   $('error').textContent = message ?? '';
 }
-const turnLine = (count: number) => count === 0 ? 'No games need your move.' : `Your move in ${count} game${count === 1 ? '' : 's'}.`;
+function turnLine(count: number) {
+  $('home-line').hidden = count === 0;
+  $('home-line').textContent = `Your move in ${count} game${count === 1 ? '' : 's'}.`;
+}
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 function actions() {
   const blocked = busy || mountReading || !connected;
@@ -170,9 +173,8 @@ $('invite').onclick = () => { if (view) void call('kingdown_invite', { game_id: 
 type ToolResult = Awaited<ReturnType<typeof client.call>>;
 function renderGames(entries: InboxEntry[]) {
   memory.games = entries; gamesDirty = false;
-  // The hall lists your games first, only when you have some.
-  $('games-status').textContent = ''; $('games-head').hidden = !entries.length;
-  $('home-line').textContent = turnLine(entries.filter(entry => entry.action === 'ready').length);
+  $('games-status').textContent = ''; $('games-empty').hidden = !!entries.length;
+  turnLine(entries.filter(entry => entry.action === 'ready').length);
   gamesList($('games-list'), entries, (name, args) => call(name, args, false, false, false), routeView); actions();
 }
 function remember(result: ToolResult) {
@@ -183,7 +185,7 @@ function remember(result: ToolResult) {
   }
   if (Array.isArray(result._meta?.games)) renderGames(result._meta.games as InboxEntry[]);
   const value = result.structuredContent as Record<string, unknown> | undefined;
-  if (value && typeof value.your_turn_count === 'number') $('home-line').textContent = turnLine(value.your_turn_count);
+  if (value && typeof value.your_turn_count === 'number') turnLine(value.your_turn_count);
 }
 // Chat results mount one at a time, and a newer result stops an older mount at its next wait. So only the newest
 // result reads and routes, and each board selection (kingdown_resume) reaches the server in order.
@@ -217,7 +219,7 @@ async function mountResult(result: ToolResult, initial: boolean, stale: () => bo
       remember(home); saveState(); return;
     }
     if (value?.screen === 'join') { memory.preview = result._meta?.preview as JoinPreview | undefined; memory.code = memory.preview?.code ?? ''; memory.joinError = undefined; }
-    if (value && ['home', 'play', 'board', 'profile', 'join'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen as Screen);
+    if (value && ['home', 'play', 'board', 'profile', 'join'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen === 'home' && initial && !savedScreen && displayMode === 'fullscreen' ? 'play' : value.screen as Screen);
     if (typeof value?.game_id === 'string' && !board && (!initial || !state.board_id)) {
       const selected = await client.call(state.board_id ? 'kingdown_resume' : 'kingdown_open', { game_id: value.game_id }, { limit: false });
       if (stale()) return;
@@ -252,10 +254,10 @@ app.onteardown = async () => { connected = false; poll?.stop(); router.finishSta
 const connection = app.connect().then(() => {
   connected = true;
   const context = app.getHostContext(); hostContext(context);
-  // A screen that waited for fullscreen when the host remounted the widget opens now, or asks again inline.
-  if (queuedAtStart && state.screen === 'home') { if (displayMode === 'inline' && canFullscreen()) void fullscreen(queuedAtStart); else navigate(queuedAtStart); }
+  // A saved route waits behind the home card while the host stays inline.
+  if (queuedAtStart && state.screen === 'home') navigate(queuedAtStart);
   if (context?.displayMode === 'fullscreen' && state.screen === 'home' && !savedScreen) navigate('play');
-  if (state.screen !== 'home') { const screen = state.screen; if (displayMode === 'inline' && canFullscreen()) navigate('home'); void fullscreen(screen); }
+  if (state.screen !== 'home' && displayMode === 'inline' && canFullscreen()) { const screen = state.screen; navigate('home'); navigate(screen); }
   poll = runPoll(() => ['friend', 'wait', 'seat', 'board'].includes(state.screen) ? view : undefined, async () => {
     if (!connected || awaitingInitialResult || mountReading || !state.board_id || busy || pending) return;
     await call('kingdown_get', { ...(view?.fen ? { since_revision: view.revision } : {}) }, false, true, !savedScreen || !!view && ['friend', 'wait', 'seat', 'board'].includes(state.screen));
@@ -278,10 +280,7 @@ function measureLayout() {
 let press: ReturnType<typeof setTimeout> | undefined;
 $('page-title').onpointerdown = () => { clearTimeout(press); if (state.screen === 'settings') press = setTimeout(() => { $('layout-check').hidden = false; }, 600); };
 $('page-title').onpointerup = $('page-title').onpointerleave = $('page-title').onpointercancel = () => clearTimeout(press);
-// Spec Q25: inline, the widget shows only the home card; each other screen shows in fullscreen. A screen that opens
-// while inline (a chat tool call, a route) waits behind the home card until the host grants fullscreen. When the
-// player leaves fullscreen, the home card comes back with its own height; a late route or tool result waits for Play,
-// which returns to the game screen.
+// Inline routes wait behind the home card. Only a button requests fullscreen.
 const GAME_SCREENS: Screen[] = ['seat', 'board', 'wait', 'friend', 'end'];
 let displayMode: string | undefined, asking = false, collapsed = false, resume: Screen | undefined, target: Screen | undefined, gamesFirst = false;
 const canFullscreen = () => app.getHostContext()?.availableDisplayModes?.includes('fullscreen') ?? true;
@@ -306,8 +305,7 @@ async function fullscreen(screen: Screen) {
 export function showGames() { gamesFirst = true; navigate('play'); }
 export function navigate(screen: Screen) {
   if (screen !== 'home' && displayMode === 'inline' && canFullscreen()) {
-    if (collapsed) { if (GAME_SCREENS.includes(screen)) resume = screen; return; }
-    void fullscreen(screen); return;
+    resume = state.queued = screen; client.save(); return;
   }
   unqueue();
   if (screen === 'handle' && state.screen !== 'handle') handleBack = state.screen === 'settings' ? 'settings' : pending?.screen ?? state.screen;
@@ -338,10 +336,11 @@ function hostContext(context: McpUiHostContext | undefined) {
   document.body.dataset.touch = String(context.deviceCapabilities?.touch ?? false);
   for (const edge of ['top', 'right', 'bottom', 'left'] as const) document.documentElement.style.setProperty(`--safe-${edge}`, `${Math.max(0, context.safeAreaInsets?.[edge] ?? 0)}px`);
   if (context.displayMode === 'inline' && displayMode === 'fullscreen' && state.screen !== 'home' && canFullscreen()) {
-    resume = GAME_SCREENS.includes(state.screen) ? state.screen : undefined;
-    displayMode = 'inline'; navigate('home'); collapsed = true;
+    const screen = state.screen;
+    displayMode = 'inline'; navigate('home'); resume = state.queued = screen; client.save(); collapsed = true;
   }
   if (context.displayMode) displayMode = context.displayMode;
+  if (displayMode === 'fullscreen' && resume && !asking) { const screen = resume; resume = undefined; collapsed = false; navigate(screen); }
 }
 async function games() {
   $('games-status').textContent = 'Loading games…';
@@ -387,13 +386,13 @@ $('handle-form').onsubmit = event => {
   if (input.reportValidity()) void call('kingdown_handle', { handle, icon: picture });
 };
 $<HTMLInputElement>('handle').oninput = scheduleHandleCheck;
-/** Spec J3: while a game waits for you, the main action resumes it by name and Play now moves to second place. */
-const homeGame = () => resume ? memory.games.find(entry => entry.game_id === view?.game_id) : nextGame(memory.games);
+/** Resume prefers a person; Your games opens the list. */
+const homeGame = () => resume ? GAME_SCREENS.includes(resume) ? memory.games.find(entry => entry.game_id === view?.game_id) : undefined : nextGame(memory.games);
 function homeActions() {
   const game = homeGame(), back = !!resume || !!game;
   const label = (id: string, symbol: string, text: string) => { const html = `<svg class="icon" aria-hidden="true"><use href="#i-${symbol}"/></svg><span>${text}</span>`; if ($(id).innerHTML !== html) { $(id).innerHTML = html; $(id).querySelector('span')!.textContent = text; } };
   label('home-play', back ? 'continue' : 'play', back ? game ? `Resume · ${game.opponent?.computer ? 'Computer' : gameTitle(game)}` : 'Resume' : 'Play now');
-  label('home-games', back ? 'play' : 'guide', back ? 'Play now' : 'Choose a game');
+  label('home-games', 'guide', memory.games.length ? `Your games (${memory.games.length})` : 'Choose a game');
 }
 // Spec J2, D2: Play now asks for fullscreen on the tap and opens the board when the game exists.
 function homePlayNow() { collapsed = false; resume = undefined; void fullscreen('home'); playNow(); }
@@ -403,7 +402,8 @@ $('home-play').onclick = () => {
   else if (game) { collapsed = false; void fullscreen('home'); void call('kingdown_resume', { game_id: game.game_id }); }
   else homePlayNow();
 };
-$('home-games').onclick = () => { if (resume || homeGame()) return homePlayNow(); collapsed = false; gamesFirst = true; void fullscreen('play'); };
+$('home-games').onclick = () => { collapsed = false; resume = undefined; gamesFirst = true; void fullscreen('play'); };
+$('hall-play').onclick = $('games-start').onclick = () => playNow();
 document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => { button.onclick = () => navigate(button.dataset.nav as Screen); });
 $('page-back').onclick = () => navigate(state.screen === 'handle' ? handleBack : state.screen === 'collection' ? 'profile' : state.screen === 'settings' ? state.settings_back ?? 'play' : 'play');
 app.onhostcontextchanged = () => hostContext(app.getHostContext());

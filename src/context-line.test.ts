@@ -11,7 +11,7 @@ describe('contextLine', () => {
   });
   it('names the armed power and gives Cancel', () => {
     expect(contextLine({ voice: 'you', armed: 'Freeze', armedLine: 'Freeze · 1 left' })).toMatchObject({
-      rank: 'armed', line: 'Freeze · 1 left', note: 'Tap an enemy piece.', actions: ['power-cancel'],
+      rank: 'armed', line: 'Freeze · 1 left', note: 'Select an enemy piece.', actions: ['power-cancel'],
     });
   });
   it('shows Previously after the higher ranks, with its replay action', () => {
@@ -45,11 +45,11 @@ describe('contextLine', () => {
   });
   it('shows the ready turn before a check against the next side', () => {
     expect(contextLine({ voice: 'you', check: true, waiting: true }).line).toBe('Check. Your turn is ready.');
-    expect(contextLine({ voice: 'you', check: true, waiting: true, turnLine: 'Check. Tap Send your turn.' }).line).toBe('Check. Tap Send your turn.');
+    expect(contextLine({ voice: 'you', check: true, waiting: true, turnLine: 'Check. Select Send your turn.' }).line).toBe('Check. Select Send your turn.');
   });
   it('keeps a piece read above a mid-way turn', () => {
     expect(contextLine({ voice: 'you', read: 'Black archer.', midWay: true }).line).toBe('Black archer.');
-    expect(contextLine({ voice: 'you', selected: 'White ogre.', readNote: 'Tap a neighbour to shove or capture.' }).note).toBe('Tap a neighbour to shove or capture.');
+    expect(contextLine({ voice: 'you', selected: 'White ogre.', readNote: 'Select a neighbour to shove or capture.' }).note).toBe('Select a neighbour to shove or capture.');
   });
   it('keeps a refusal above a waiting turn', () => {
     expect(contextLine({ voice: 'you', refusal: 'Only a king can take a guard.', waiting: true }).line).toBe('Only a king can take a guard.');
@@ -58,12 +58,12 @@ describe('contextLine', () => {
     expect(contextLine({ voice: 'you', result: 'White wins.', armed: 'Freeze', read: 'Black archer.', waiting: true }).line).toBe('White wins.');
   });
   it('keeps named piece rules below a result, refusal or link', () => {
-    for (const status of [{ result: 'White wins.' }, { refusal: 'Tap End turn, or Undo.' }, { link: "Wait for your friend’s link." }]) {
+    for (const status of [{ result: 'White wins.' }, { refusal: 'Select End turn, or Undo.' }, { link: "Wait for your friend’s link." }]) {
       expect(contextLine({ voice: 'you', ...status, read: 'Black knight.', readNote: 'Jumps in an L shape.' }).note).toBe('Black knight. Jumps in an L shape.');
     }
   });
   it('keeps the first instruction within eight words, including armed powers and lessons', () => {
-    expect(contextLine({ voice: 'you', armed: 'Freeze' }).line).toBe('Tap an enemy piece.');
+    expect(contextLine({ voice: 'you', armed: 'Freeze' }).line).toBe('Select an enemy piece.');
     const states: Partial<ContextState>[] = [
       {}, { review: 'Review. Move 1.' }, { result: 'White wins.' }, { refusal: 'Only a king can take a guard.' }, { link: "Wait for your friend's link." },
       ...(['Freeze', 'IceWall', 'Haste', 'Sacrifice', 'Strike', 'Flight', 'March', 'Leap', 'HolyLight', 'Mercy', 'DeathTouch', 'Darkness'] as const).map(armed => ({ armed })),
@@ -74,7 +74,7 @@ describe('contextLine', () => {
     for (const state of states) expect(contextLine({ voice: 'you', ...state }).line.split(/\s+/).length).toBeLessThanOrEqual(8);
   });
   it('keeps lesson words when its move makes a turn ready', () => {
-    expect(contextLine({ voice: 'you', lesson: 'Lesson 1: Archer.', lessonNote: 'Well done.', waiting: true, check: true, turnLine: 'Tap End turn.' })).toMatchObject({ rank: 'lesson', line: 'Well done.', note: '' });
+    expect(contextLine({ voice: 'you', lesson: 'Lesson 1: Archer.', lessonNote: 'Well done.', waiting: true, check: true, turnLine: 'Select End turn.' })).toMatchObject({ rank: 'lesson', line: 'Well done.', note: '' });
   });
 });
 
@@ -87,4 +87,19 @@ it('keeps the chain status below the next bite', () => {
 it('names the computer move when its king is in check', () => {
   expect(contextLine({ voice: 'you', computer: true, check: true, checkCause: 'Your rook attacks their king.' }))
     .toMatchObject({ rank: 'computer', line: 'Their move.', note: 'Your rook attacks their king.' });
+});
+
+it.each([
+  ['Freeze', 'Select an enemy piece.'],
+  ['IceWall', 'Select one of your pieces.'],
+  ['Sacrifice', 'Select one of your pawns.'],
+] as const)('uses Select for the %s instruction on both hosts', (armed, line) => {
+  expect(contextLine({ voice: 'you', armed }).line).toBe(line);
+});
+it('uses Select in the shared turn instructions', () => {
+  for (const state of [{ midWay: true }, { midWay: true, free: true }, { stagedEnd: 'Checkmate.' }, { waiting: true }]) {
+    const result = contextLine({ voice: 'you', ...state });
+    expect(`${result.line} ${result.note}`).not.toMatch(/\btap\b/i);
+    expect(`${result.line} ${result.note}`).toMatch(/select/i);
+  }
 });

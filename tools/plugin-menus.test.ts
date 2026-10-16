@@ -59,7 +59,7 @@ it('says 1 game, shows Your turn once, and gives the name page, code fields and 
   try {
     // F18 and F16.
     await seedGames(page, []); await readGames(page);
-    expect(await frame.locator('#home-line').textContent()).toBe('No games need your move.');
+    expect(await frame.locator('#home-line').isHidden()).toBe(true);
     await seedGames(page, [entry(1, 'ready'), entry(2, 'waiting')]); await readGames(page);
     expect(await frame.locator('#home-line').textContent()).toBe('Your move in 1 game.');
     await go(page, 'play');

@@ -83,7 +83,9 @@ try {
   assert.equal(await frame.locator('#home-card button').count(), 2, 'The inline home card has only Play now and Choose a game');
   await frame.locator('#home-play:not(:disabled)').waitFor();
   assert.deepEqual(await page.evaluate(() => window.harnessDeclaredModes), ['inline', 'fullscreen'], 'App declares both display modes to the host');
-  assert.equal(await frame.locator('.inline-line').innerText(), 'No games need your move.', 'Home uses the server turn count and the sample line');
+  assert.equal(await frame.locator('.inline-line').first().innerText(), 'Chess, the way it was never meant to be played.', 'Home uses the owner pitch line');
+  assert(await frame.locator('#home-line').isHidden(), 'Home hides the zero turn count');
+  assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests ?? []), [], 'Mount sends no fullscreen request');
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), 0, 'An empty home reads no board');
   await frame.locator('#home-games').click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
@@ -1150,7 +1152,7 @@ try {
     await page.touchscreen.tap(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (64 + 32 + (7 - rank + .5) * 112) * box.width / 960);
   }
   await tapSquare(4, 1);
-  assert.equal(await frame.locator('#move-hint').innerText(), 'Tap a marked square to move, or choose a move below.');
+  assert.equal(await frame.locator('#move-hint').innerText(), 'Select a marked square to move, or choose a move below.');
   await tapSquare(4, 3);
   await idleBoard();
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_move' && c.arguments.game_id === window.harnessMatchId && c.arguments.lan === 'e2-e4').length), 1, 'Touch destination commits the ordinary move once');
@@ -1556,7 +1558,8 @@ try {
     reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     await page.evaluate(result => window.harnessShow(result), home);
     await frame.locator('#home-card').waitFor();
-    assert.equal(await frame.locator('#home-line').innerText(), home.structuredContent.your_turn_count === 0 ? 'No games need your move.' : `Your move in ${home.structuredContent.your_turn_count} game${home.structuredContent.your_turn_count === 1 ? '' : 's'}.`);
+    assert.equal(await frame.locator('#home-line').isHidden(), home.structuredContent.your_turn_count === 0);
+    if (home.structuredContent.your_turn_count) assert.equal(await frame.locator('#home-line').innerText(), `Your move in ${home.structuredContent.your_turn_count} game${home.structuredContent.your_turn_count === 1 ? '' : 's'}.`);
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), reads, 'Empty Open shows home with no board read');
     await legacyStart('solo');
   }
