@@ -1,6 +1,6 @@
 # End of game (J4 c, W9 a, C4 c, OPEN-endcard197)
 
-Status: claimed
+Status: resolved
 
 Lane: od-end. Branch: `claude/od-end`.
 
@@ -52,14 +52,15 @@ Work starts from a clean worktree.
   Use explicit buttons with no tap delay. Only a checkmate win uses
   the fall and card rise. Use Game result to return from the board.
 - `npx tsc --noEmit`: pass. The full local `npm test` run passes:
-  167 files, 2,592 tests and 50 doc checks. Eight tests are skipped.
+  167 files, 2,592 tests and 50 checks for piece scenes. Eight tests
+  are skipped.
   Log: `/tmp/kd-06-end-final2-local-tests.log`.
-  The M1 browser checks wait for the shared lock.
+  Both M1 browser checks pass. The final results follow below.
 - The 197 by 426 image check passes. Back stays above the card.
   The card scrolls, and each end action fits. The image is
   `/tmp/kd-06-end-197-fixture.png`.
 - Both final readers report no confirmed open fault in the code.
-  The follow-up reads also accept the two browser test fixes.
+  The follow-up reads also accept the browser check fixes.
 
 ## Check fixes
 
@@ -112,3 +113,48 @@ Work starts from a clean worktree.
   Play layout check. That remount path also measures before its read
   ends. The layout probe now waits for the app and the Play games list
   before it measures a control. Keep each bounds assertion.
+- A short layout test confirms the race. It fails in 3.63 seconds
+  when a mount read ends between the scroll and the bounds read.
+  The full fixture and HTTP checks pass with the ready-state waits.
+  We remove the temporary probes. We stop the second layout probe
+  while it still waits for the local test lock.
+
+## Answer
+
+All four parts are complete. No part is omitted.
+
+- J4 c: a computer abort returns to Play with the same draft. The
+  board and seat keep the Abort confirmation. Router, draft and app
+  tests cover the return and the saved choices.
+- W9 a: the card shows a plain reason for the player's seat. It keeps
+  the last move on the board. New game uses the game setup. Play again
+  keeps the player's colour. Reason tests cover both seats. Database
+  tests cover computer rematches from White and Black.
+- C4 c: actions work at once. Skip stops a live or pending ceremony.
+  See the board hides the card; Game result returns to it. Draws and
+  losses stay calm. Aborts have no ceremony. App, board and motion
+  tests cover these paths, a held end read and later end polls.
+- OPEN-endcard197: the card scrolls at 197 by 426. Back and each end
+  action stay in reach. The size test and both M1 checks pass. The
+  image check also passes at `/tmp/kd-06-end-197-http.png`.
+
+The M1 checks use code at `2ebf58ca`. This final ticket change adds no
+code. `npx tsc --noEmit` passes. The full local `npm test` run passes
+after the last product change: 167 files, 2,592 tests, eight skipped
+tests and 50 checks for piece scenes. Later changes touch only the
+browser check and this ticket. The local test log is
+`/tmp/kd-06-end-final2-local-tests.log`. The final `npm run test:docs`
+also passes: eight files and 118 tests.
+
+On the M1, `npm run -s check:browser plugin-ui` passes in 223.6 seconds.
+Its log is `/tmp/kd-06-end-v7-ui.log`. The HTTP check,
+`npm run -s check:browser plugin-ui-http`, passes in 300.8 seconds.
+Its log is `/tmp/kd-06-end-v7-http.log`. Both checks use the shared
+lock. No check time limit changes. Two independent readers report
+no confirmed open fault. Their follow-up reads cover the final fixes.
+
+Taste choices: keep the short Lively ceremony. Add no extra replay
+or move tiles. Use explicit buttons with no tap delay. Animate only
+a checkmate win. Use Game result as the board's return label. Keep
+the current game setup for New game. Reserve 80 px in the card height
+limit so Back stays clear; let the card scroll.
