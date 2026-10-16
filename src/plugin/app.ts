@@ -32,6 +32,8 @@ let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
 let readError = false;
 let busy = false, polling = false, mountReading = true, gamesDirty = false;
+// Ends when the command in flight (busy) ends; call skips a read while busy.
+let commandDone = Promise.resolve(), endCommand = () => {};
 let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0, pollFailures = 0;
 let pending = state.pending;
 let handleBack: Screen = pending?.screen ?? 'settings';
@@ -96,7 +98,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
   const before = view;
   let followup: Pending | undefined, received: View | undefined;
   if (quiet) polling = true;
-  else { busy = true; actions(); $('error').textContent = ''; }
+  else { busy = true; commandDone = new Promise(resolve => { endCommand = resolve; }); actions(); $('error').textContent = ''; }
   if (retain) {
     if (pending?.name !== name || pending.args !== args) pending = { name, args, game_tag: typeof args.game_id === 'string' ? args.game_id.slice(0, 8) : view?.game_id.slice(0, 8), started_at: Date.now(), screen: state.screen };
     pending.error = undefined; pending.error_screen = undefined; saveState();
@@ -149,7 +151,7 @@ export async function call(name: string, args: Record<string, unknown>, retain =
     if (retain && pending) failPending(message);
     if (!quiet && name === 'kingdown_get' && state.board_id) readError = true;
     retryState(); if (!retain || !pending) $('error').textContent = message; }
-  finally { if (quiet) polling = false; else { busy = false; actions(); } }
+  finally { if (quiet) polling = false; else { busy = false; endCommand(); actions(); } }
   if (retain && name === 'kingdown_move' && !received && !pending && before?.game_id === view?.game_id) await rollbackBoardMove();
   if (followup) void call(followup.name, followup.args, true, false, undefined, true);
   return received;
@@ -185,6 +187,7 @@ app.ontoolresult = result => {
 };
 async function mountResult(result: ToolResult, initial: boolean) {
   mountReading = true; actions();
+  const shown = view?.game_id;
   try {
     await connection;
     const value = result.structuredContent as Record<string, unknown> | undefined;
@@ -213,6 +216,9 @@ async function mountResult(result: ToolResult, initial: boolean) {
     // The server names the board for every game; the read routes by the game status (a game in setup opens the seat).
     const route = (value?.screen === undefined || value.screen === 'board') && (!initial || !savedScreen);
     const readBoard = state.board_id && (typeof value?.game_id === 'string' || initial && savedScreen);
+    // A command in flight for the game shown before would skip this read, and its reply would keep the old game on the screen.
+    // A result for another game waits for that command, so its own read shows last.
+    if (readBoard && typeof value?.game_id === 'string' && value.game_id !== shown) while (busy) await commandDone;
     if (readBoard) await call('kingdown_get', {}, false, false, route);
     else if (!result._meta?.view) view = undefined;
     if (!readBoard) await games();

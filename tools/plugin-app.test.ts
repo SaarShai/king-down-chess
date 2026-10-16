@@ -1034,6 +1034,34 @@ it('keeps a move in flight free of errors when a chat result arrives during it',
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
+it('opens the game of a chat result while the end screen of the last game still reads', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    const old = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
+    await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_abort', arguments: { game_id: old } } });
+    // A poll reads the abort and opens the end screen; the end screen then reads the full game, and the host holds that reply.
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true, true);
+      (window.parent as any).holdNext = 'kingdown_get';
+    });
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await frame.locator('[data-screen="end"]:not([hidden])').waitFor();
+    expect(await page.evaluate(() => (window as any).harnessCalls.at(-1))).toMatchObject({ name: 'kingdown_get', arguments: { board_id: expect.any(String) } });
+    const solo = await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_create', arguments: { kind: 'solo', colour: 'black', level: 'beginner', options: { fairy: true, pool: ['R','B','N','G'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } } } })).json();
+    expect(solo.isError).toBeFalsy();
+    // The chat result for the new game selects it and reads it while the old game's read still waits.
+    await frame.locator('html').evaluate(() => { const client = (window as any).harnessApp.client, call = client.call; client.call = async (...args: any[]) => { const result = await call(...args); if (args[0] === 'kingdown_resume') (window as any).resumed = true; return result; }; });
+    const { screen, ...summary } = solo.structuredContent;
+    await page.evaluate(result => (window as any).harnessShow(result, true), { ...solo, structuredContent: summary });
+    await frame.locator('html').evaluate(() => new Promise<void>(resolve => { const check = () => setTimeout((window as any).resumed ? resolve : check, 10); check(); }));
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(solo._meta.view.game_id);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
 it('shows the connection sentence after three failed polls and clears it on the next good read', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
