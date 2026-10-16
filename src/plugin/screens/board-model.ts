@@ -35,7 +35,7 @@ export function draftTurn(steps: readonly BoardMove[], pos: Position, mode: Excl
   const turn = turnOf(game, 0);
   if (!turn.staged && pos.turn === seat && turn.midWay && game.legal.some(move => move.pass)) turn.ready = true;
   const { staged, midWay, waits, ready } = turn;
-  return { staged, midWay, waits, ready, line: turnLine(game, turn, mode) };
+  return { staged, midWay, waits, ready, line: turnLine(game, ready && !staged ? { ...turn, staged: 1 } : turn, mode) };
 }
 
 export function sendActions(steps: readonly BoardMove[], pos: Position, seat: Color): string[] {

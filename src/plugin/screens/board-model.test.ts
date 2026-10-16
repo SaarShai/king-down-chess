@@ -192,11 +192,12 @@ test.each([
 });
 
 test.each([
-  [HASTE, 'Ra1-a4!H', hasteRules],
-  [FREEZE, '!F:d5', freezeRules],
-] as const)('a saved half turn with no draft steps can send a pass (%s)', (fen, lan, rules) => {
+  [HASTE, 'Ra1-a4!H', hasteRules, 'Move it again'],
+  [FREEZE, '!F:d5', freezeRules, 'Now make your move'],
+] as const)('a saved half turn with no draft steps can send a pass (%s)', (fen, lan, rules, next) => {
   const { pos } = stage(fen, [lan], rules);
-  expect(draftTurn([], pos, 'computer', 0)).toEqual({ staged: 0, midWay: true, waits: false, ready: true, line: '' });
+  expect(draftTurn([], pos, 'computer', 0)).toEqual({ staged: 0, midWay: true, waits: false, ready: true, line: `${next}, or tap End turn.` });
+  expect(draftTurn([], pos, 'link', 0).line).toBe(`${next.replace('Now make', 'Make')}, or tap Send your turn.`);
   expect(sendActions([], pos, 0)).toEqual(['--']);
 });
 

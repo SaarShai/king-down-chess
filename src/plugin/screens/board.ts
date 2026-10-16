@@ -38,7 +38,7 @@ export function closeBoardSheet() {
   if (sheet.open) document.querySelector<HTMLElement>('.page-sheet')!.inert = false;
   sheet.close(); scrim.hidden = true;
   const focus = sheetFocus?.id ? document.getElementById(sheetFocus.id) : sheetFocus;
-  if (restore && focus?.isConnected) focus.focus({preventScroll:true}); client.state.sheet = undefined; client.save();
+  if (restore) (focus?.isConnected ? focus : $('board')).focus({preventScroll:true}); client.state.sheet = undefined; client.save();
 }
 export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   if (!sheet) {
@@ -46,8 +46,7 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
     sheet = document.createElement('dialog'); sheet.id = 'board-sheet'; sheet.setAttribute('aria-labelledby', 'board-sheet-title'); sheet.className = 'over-sheet'; sheet.setAttribute('aria-modal', 'true');
     $('app-frame').append(scrim, sheet); scrim.onclick = closeBoardSheet;
     sheet.onkeydown = event => {
-      if (event.key === 'Escape') { event.preventDefault(); closeBoardSheet(); }
-      else if (event.key === 'Tab') {
+      if (event.key === 'Tab') {
         const buttons = [...sheet.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, select, [tabindex="0"]')].filter(el => el.getClientRects().length), i = buttons.indexOf(document.activeElement as HTMLElement);
         if (event.shiftKey && i <= 0 || !event.shiftKey && i === buttons.length - 1) { event.preventDefault(); buttons[event.shiftKey ? buttons.length - 1 : 0]?.focus({preventScroll:true}); }
       }
@@ -178,6 +177,10 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     $('move-hint').textContent = !list.length ? '' : list.every(({move}) => needsArming(move)) ? 'Choose a move below.' : 'Tap a marked square to move, or choose a move below.';
     $('choices').replaceChildren(...list.map(({lan, move}) => { const b = button(describeMove(pos!, move), () => choose(lan)); b.title = lan; return b; }));
   }
+  $('app-frame').addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || client.state.screen !== 'board' && !sheet?.contains(event.target as Node)) return;
+    event.preventDefault(); armed = undefined; armedCard = undefined; selected = undefined; choices([]); refresh(); closeBoardSheet();
+  });
   function select(square: number, submit = true) {
     if (!view || !pos || !canRead()) return;
     rules(); if (!networkBlocked()) $('error').textContent = '';
@@ -206,7 +209,6 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
       if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); board.setPreview(cursor); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
       else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(cursor); }
       else if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undo(); }
-      else if (event.key === 'Escape') { armed = undefined; armedCard = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]); refresh(); }
     };
   }
   function coinRead(side: Color, index?: number) {
@@ -308,17 +310,18 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     const fresh = teach && (taught.get(teach[0]) ?? history.length) === history.length;
     const first = beginner && pos.ply < 2 && pos.board.some(c => c && typeOf(c) > K) ? 'New pieces in this game. Tap any piece to read its rule.' : '';
     const context = contextLine({voice:'you', teach:first || (fresh ? teach[1] : ''), result:view.result ? ending(view) : '', refusal:$('error').textContent ?? '', link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:view.turn !== view.seat, midWay:view.turn === view.seat && draft.midWay && !draft.waits, stagedEnd:draft.waits && status(pos) !== 'playing' ? draft.line : '', waiting:draft.waits, free:!!pos.free, turnLine:draft.line, armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
-    if (inspected !== undefined && draft.waits && !['result','refusal','link'].includes(context.rank)) context.note = waitNotice(mode(), view.seat);
+    if (networkBlocked() && ['mid-way','waiting','staged-end'].includes(context.rank)) Object.assign(context, {rank:'sending', line:'Sending…', note:''});
+    if (inspected !== undefined && draft.waits && !networkBlocked() && view.draw_offer == null && !['result','refusal','link'].includes(context.rank)) context.note = waitNotice(mode(), view.seat);
     if (context.rank==='link' && deadline) context.note=available.claim==='end'?'You may end the game with no result.':'You may claim the win.';
     if (fresh && context.rank === 'your-move') taught.set(teach[0], history.length);
     if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:'armed',line:cardName(RULES.hands[view.seat][armedCard]),note:'Choose a piece, then a marked square.'});
-    if (view.draw_offer != null && !['result','refusal','link'].includes(context.rank)) context.note = view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.';
+    if (view.draw_offer != null && !['result','refusal','link'].includes(context.rank)) context.note = [context.note, view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.'].filter(Boolean).join(' ');
     if (readFailed()) Object.assign(context, {rank:'link', line:'Not current', note:''});
     $('status').textContent = context.rank === 'refusal' ? '' : context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
     const actions: HTMLButtonElement[] = [];
     const drawReply = !view.result && view.draw_offer != null && view.draw_offer !== view.seat && view.kind !== 'solo';
     const unarmed = !armed && armedCard === undefined;
-    if (!drawReply && unarmed && square !== undefined && code) actions.push(button('All rules', () => boardSheet('All rules', text(readText(pos!, square)))));
+    if (unarmed && square !== undefined && code) { const all = button('All rules', () => boardSheet('All rules', text(readText(pos!, square)))); all.id = 'all-rules'; actions.push(all); }
     if ((!drawReply || unarmed) && selected !== undefined && moves.some(({move}) => move.from === selected && !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
     if (!unarmed) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; choices([]); refresh(); }));
     const gameActions = actionButtons(view,Date.now()-readAt,refused);
@@ -378,7 +381,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     const token = ++generation; board.skip(); animating = false; $('board').dataset.animating='false';
     if (!same) { history = []; lastMove = undefined; steps = []; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
-    const local = steps; steps = [];
+    const local = steps; steps = []; if (local.length) lastMove = history.at(-1);
     armed = undefined; armedCard = undefined; selected = inspected = undefined; closeBoardSheet(); choices([]);
     document.querySelector('[data-screen="board"]')!.prepend($('game-table')); $('table-bar').hidden = false;
     $('game-table').dataset.empty = String(!next.fen || next.status === 'setup');
