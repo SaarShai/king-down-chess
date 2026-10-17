@@ -64,3 +64,8 @@ The drag guard uses the board input gate and the player seat.
 The first browser run at 12a4bbec stops on the old F9 board widths.
 K1 adds an approved coin row at 393–440 px. Set the F9 widths to that layout.
 Keep the 4 px bar cost check. All F9 hit sizes and all short landscape end cases pass in this run.
+
+N1 fails at fb415019: the loss card at 201 x 357, insets 31/17, hides New game.
+Use compact spacing only below 380 px high in narrow portrait. Keep Back clear.
+Move the input gate to the touchstart guard only. Keep mouse drag read checks.
+The fresh-frame remount test must find the new frame, not use the detached frame.

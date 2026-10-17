@@ -107,7 +107,7 @@ export class PaintedView implements BoardView {
     }).observe(container);
     this.canvas.addEventListener('pointerdown', e => this.onDown(e));
     // Keep piece drags; a touch that starts elsewhere can scroll the screen.
-    this.canvas.addEventListener('touchstart', e => { if (this.dragFrom != null) e.preventDefault(); }, { passive: false });
+    this.canvas.addEventListener('touchstart', e => { if (this.dragFrom != null && this.canDrag()) e.preventDefault(); }, { passive: false });
     this.canvas.addEventListener('pointermove', e => this.onMove(e));
     this.canvas.addEventListener('pointerup', e => this.onUp(e));
     this.canvas.addEventListener('pointercancel', () => this.clearPointer());
@@ -304,7 +304,7 @@ export class PaintedView implements BoardView {
     this.tap = e;
     if (e.button !== 0) return;
     const sq = this.tapSq = this.pick(e);
-    if (sq == null || !this.canDrag() || !this.ownPieceAt(sq)) return;
+    if (sq == null || !this.ownPieceAt(sq)) return;
     this.dragFrom = sq;
     this.canvas.setPointerCapture(e.pointerId);
   }

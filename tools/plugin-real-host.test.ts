@@ -151,8 +151,10 @@ it('keeps two live widgets on one game current, and the older widget writes only
     const booted = await boots(page);
     await page.clock.resume(); await page.locator('#remount').click();
     await page.waitForFunction(n => (window as any).harnessBoots > n, booted, POLL);
-    await newer.frame.waitForFunction(id => (window as any).harnessApp?.memory.view?.game_id === id && document.body.dataset.page === 'board', game, POLL);
-    expect(await shown(newer.frame)).toEqual({ game, revision: answer, board: newer.board, page: 'board' });
+    const remounted = await frameAt(page, 2);
+    expect(newer.frame.isDetached()).toBe(true);
+    await remounted.waitForFunction(id => (window as any).harnessApp?.memory.view?.game_id === id && document.body.dataset.page === 'board', game, POLL);
+    expect(await shown(remounted)).toEqual({ game, revision: answer, board: newer.board, page: 'board' });
     expect((await tool('/fixture-tool', 'kingdown_get', { board_id: newer.board }))._meta.view.game_id).toBe(game);
     expect((await tool('/fixture-tool', 'kingdown_get', { board_id: older.board }))._meta.view.game_id).toBe(solo);
   } finally { await page.close(); }
