@@ -14,6 +14,7 @@ const { setRules, legalMoves, inCheck, typeOf, N, sqName, moveNumber: positionMo
 const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
 const { applyLan, cardCoins } = await import('../src/plugin/screens/board-model.ts');
 const { threatsIn } = await import('../src/move-text.ts');
+const { cardName } = await import('../src/powers-ui.ts');
 const { POP_MS, RIPPLE_MS } = await import('../src/render/marks.ts');
 const iconNames = { P:'pawn', N:'knight', B:'bishop', R:'rook', Q:'queen', K:'king', A:'archer', L:'paladin', G:'guard', M:'maester', S:'beast', O:'ogre' };
 const iconSources = Object.fromEntries(await Promise.all(Object.values(iconNames).map(async name => [name, await readFile(`public/ui/icons/${name}.svg`, 'utf8')])));
@@ -535,7 +536,7 @@ try {
     await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
     await widget().waitForFunction(() => document.querySelector('#game-table').getAnimations({ subtree: true }).every(animation => animation.playState === 'finished'));
     assert.equal(await frame.locator('#game-table .coin').count(), 10, 'Both strips show four cards and one power');
-    assert(await frame.locator('#game-table .coin').evaluateAll(coins => coins.every(coin => {
+    assert(await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll('.coin')].every(coin => {
       const style = getComputedStyle(coin), box = coin.getBoundingClientRect();
       return [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomLeftRadius, style.borderBottomRightRadius].every(radius => radius === '50%')
         && Math.abs(box.width - box.height) < .5 && box.width >= 44 && style.backgroundImage.includes('radial-gradient') && !style.backgroundImage.includes('stone-control');
@@ -561,7 +562,7 @@ try {
       await desktop.evaluate(result => window.harnessShow(result, true), opened);
       await desktopFrame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
       assert.equal(await desktopFrame.locator('#game-table .coin').count(), 10);
-      assert(await desktopFrame.locator('#game-table .coin').evaluateAll(coins => coins.every(coin => {
+      assert(await desktopFrame.locator('#game-table').evaluate(table => [...table.querySelectorAll('.coin')].every(coin => {
         const style = getComputedStyle(coin), box = coin.getBoundingClientRect();
         return style.borderRadius === '50%' && Math.abs(box.width - box.height) < .5 && box.width === (coin.classList.contains('card-coin') ? 34 : 40);
       })), 'Card and power coins stay round on a desktop without touch');
@@ -1677,7 +1678,7 @@ try {
   const cardView = cardGame._meta.view; setRules(cardView.rules);
   const cardPos = fromFen(cardView.fen), cardLegal = legalMoves(cardPos).filter(m => cardView.legal.includes(toLan(cardPos,m))), hand = cardCoins(cardPos,cardView.seat,cardView.rules.hands[cardView.seat],cardLegal);
   const cardIndex = hand.findIndex(c=>c.moves.length); assert(cardIndex>=0,'The dealt hand has a card to play');
-  const card = hand[cardIndex], cardWords = card.card.replace(/([a-z])([A-Z])/g,'$1 $2'), cardLan = toLan(cardPos,card.moves[0]);
+  const card = hand[cardIndex], cardWords = cardName(card.card), cardLan = toLan(cardPos,card.moves[0]);
   assert.equal(await frame.locator('#strip-me .card-coin').count(),4); assert.equal(await frame.locator('#strip-them .card-coin').count(),4);
   const beforeCardRead = await page.evaluate(() => window.harnessWidgetState);
   await frame.locator('#strip-me .card-coin').nth(cardIndex).click();

@@ -68,3 +68,10 @@ The checks pass only when each command ends with exit 0. The browser log must na
 - Port the desktop coin animation wait to the frame. The coin lane adds that wait after the host moves to a second origin.
 - The final gate runs again after this check-only change: npx tsc --noEmit, npm test, plugin-ui and plugin-ui-http.
 - The final report, checked head and full logs are in the release scratchpad lane. The required report file is 29-merge-build.md. No taste choice is needed; keep the approved text, layout and actions.
+
+### Browser check fixes
+
+- Final full suite at 054b3780 passes: 186 files, 2,994 tests, 1 expected failure and 8 skipped cases. The 50 drawing tests also pass.
+- The first browser run fails both checks. The fixture check derives Morph P from the internal code, but the approved shared name is Morph. Use cardName(), as the board does. The existing board test checks the coin, sheet and armed-line names.
+- The HTTP coin check uses locator.evaluateAll() on coins that a strip redraw can remove. Use the stable game-table root and find the coins in the measure call, as the ticket 22 face check does. Keep the size, shape and background checks. The existing redraw test holds the same root and proves that removed elements measure zero.
+- Keep the approved runner as the browser feedback loop. The house rule permits no other browser check route. No check time limit changes.
