@@ -12,6 +12,18 @@ The next part adds G1 a and G3 a. G2, Q3 and Q6 stay as built.
 
 ## G1 and G3 plan
 
+### Review fix plan
+
+Review A has no findings. Review B correctly finds a global height limit and
+no keyboard focus on the armed text. Limit the scroll box to phone portrait
+view. Let armed text take keyboard focus at all sizes, so a resize needs no
+focus handler. Remove that tab stop when the card or power is no longer armed.
+
+Check the full card and power rules at 1280 x 800 and in landscape, with and
+without a draw offer. Check keyboard scroll and Cancel at 320 x 568 and
+393 x 852. Keep the board-size checks. Run `npm test`, commit, then run the
+given `plugin-ui` runner. No server code changes are planned.
+
 1. Put the target words before the rule for an armed card or power. Use the
    approved words for a square target and for a piece with a destination.
 2. Keep the approved shove and swap preview. The first tap or drag onto your

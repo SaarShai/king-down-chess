@@ -194,20 +194,51 @@ it.each(['EarthQuake', 'SkyLift'] as const)('G1: the armed %s note names its tar
   } finally { await page.close(); }
 });
 
-it('G1: an armed card keeps the draw row size in short landscape and lets the rule scroll', async () => {
-  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [['Haste'], []] }, { kind: 'friend', draw_offer: 1 }), 852, 393), frame = page.frameLocator('iframe');
+it.each([
+  [1280,800,false,'card'], [1280,800,true,'card'],
+  [852,393,false,'card'], [852,393,true,'card'],
+  [1280,800,false,'power'], [1280,800,true,'power'],
+  [852,393,false,'power'], [852,393,true,'power'],
+] as const)('G1: the full armed rule shows at %d×%d, draw=%s, %s', async (width,height,draw,kind) => {
+  const rules: Partial<Rules> = kind === 'card' ? {hands:[['Haste'],[]]} : {kings:[{king:'Frost',power:'Freeze'},null]};
+  const page = await open(view('4k3/1p6/8/8/8/8/4P3/4K3 w - - 0 1', rules, {kind:'friend',draw_offer:draw?1:null}),width,height), frame = page.frameLocator('iframe');
   try {
     await page.evaluate(() => (window as any).harnessSetContext({ safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 } }));
-    const before = await frame.locator('#context-line').boundingBox(), board = await frame.locator('#board canvas').boundingBox();
-    await frame.locator('#card-w-0').click();
+    const board = await frame.locator('#board canvas').boundingBox();
+    await frame.locator(kind === 'card' ? '#card-w-0' : '#power-w').click();
     await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
-    const after = await frame.locator('#context-line').boundingBox(), armed = await frame.locator('#board canvas').boundingBox();
-    expect(after!.height).toBeCloseTo(before!.height, 0);
-    expect(armed!.width).toBeCloseTo(board!.width, 0);
-    expect(await frame.locator('#context-text').evaluate(el => { el.scrollTop = el.scrollHeight; return el.scrollTop > 0; })).toBe(true);
-    expect(await frame.locator('#context-note').textContent()).toMatch(/^Choose a marked piece, then a marked square\. /);
+    expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('armed');
+    const text = await frame.locator('#context-text').evaluate(async el => {
+      await document.fonts.ready;
+      const style = getComputedStyle(el);
+      return {maxHeight:style.maxHeight,overflow:style.overflowY,height:el.clientHeight,content:el.scrollHeight};
+    });
+    expect(text.maxHeight).toBe('none');
+    expect(text.overflow).toBe('visible');
+    expect(text.content).toBeLessThanOrEqual(text.height + 1);
+    expect((await frame.locator('#board canvas').boundingBox())!.width).toBeCloseTo(board!.width,0);
   } finally { await page.close(); }
 });
+
+it.each([[320,568,'card'],[393,852,'card'],[320,568,'power'],[393,852,'power']] as const)(
+  'G1: keyboard scroll reads an armed rule at %d×%d, %s', async (width,height,kind) => {
+    const rules: Partial<Rules> = kind === 'card' ? {hands:[['Haste'],[]]} : {kings:[{king:'Frost',power:'Freeze'},null]};
+    const page = await open(view('4k3/1p6/8/8/8/8/4P3/4K3 w - - 0 1',rules),width,height), frame = page.frameLocator('iframe');
+    try {
+      await frame.locator(kind === 'card' ? '#card-w-0' : '#power-w').click();
+      await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
+      const text = frame.locator('#context-text'), cancel = frame.getByRole('button',{name:'Cancel',exact:true});
+      expect(await text.getAttribute('tabindex')).toBe('0');
+      expect(await text.evaluate(el => ({height:el.clientHeight,overflow:getComputedStyle(el).overflowY}))).toEqual({height:40,overflow:'auto'});
+      await cancel.focus(); await page.keyboard.press('Shift+Tab');
+      expect(await text.evaluate(el => el === document.activeElement)).toBe(true);
+      await page.keyboard.press('End');
+      await expect.poll(() => text.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+      await cancel.click();
+      expect(await text.getAttribute('tabindex')).toBe('-1');
+    } finally { await page.close(); }
+  }
+);
 
 // Spec G1 a: an armed power keeps its target words first and puts its rule second, in the same note.
 it('G1: the armed power note names the target, then the rule', async () => {

@@ -2057,7 +2057,8 @@ try {
         await frame.locator('#board').press('Enter');
         assert(await frame.locator('#context-actions').getByRole('button',{name:'Cancel',exact:true}).count(),'The armed card keeps Cancel beside draw replies');
         assert.equal(await frame.locator('#context-actions').getByRole('button',{name:'Choose a move',exact:true}).count(),0,'An armed card keeps its move list in Menu');
-        const armed=await frame.locator('#board canvas').boundingBox(), armedRow=await frame.locator('#context-line').boundingBox(); assert(Math.abs(before.width-armed.width)<1 && Math.abs(row.height-armedRow.height)<1,'Arming a card and selecting its pawn keeps the board and row size');
+        const armed=await frame.locator('#board canvas').boundingBox(), armedRow=await frame.locator('#context-line').boundingBox(); assert(Math.abs(before.width-armed.width)<1 && (width>height || Math.abs(row.height-armedRow.height)<1),'Arming a card keeps the board size and the portrait row size');
+        if(width>height) assert(await frame.locator('#context-text').evaluate(el=>getComputedStyle(el).maxHeight==='none' && getComputedStyle(el).overflowY==='visible' && el.scrollHeight<=el.clientHeight+1),'The full armed rule shows beside draw replies in landscape');
         assert(await frame.locator('#context-actions').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Cancel and draw replies have no horizontal overflow');
         // Q3 b: the screen scrolls to the replies.
         await frame.locator('#context-actions').scrollIntoViewIfNeeded();
@@ -2072,7 +2073,7 @@ try {
   // Ticket 26: check the approved words and preview on the built page at each required size.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const { cardText, ruleLine } = await import('../src/powers-ui.ts');
-  for (const [width,height] of [[320,568],[393,852],[1280,800]]) {
+  for (const [width,height] of [[320,568],[393,852],[1280,800],[852,393]]) {
     await page.setViewportSize({width,height});
     await page.evaluate(width => window.harnessSetContext({displayMode:'fullscreen',safeAreaInsets:{top:width===320?63:width===393?102:0,bottom:width===320?84:width===393?118:0,left:0,right:0}}),width);
     const boardId = await page.evaluate(()=>window.harnessWidgetState.privateContent.board_id);
@@ -2087,10 +2088,21 @@ try {
         const note=el.querySelector('#context-note'), range=document.createRange(); range.setStart(note.firstChild,0); range.setEnd(note.firstChild,words.length);
         const text=range.getBoundingClientRect(), row=el.getBoundingClientRect(); return text.bottom<=row.bottom+1 && text.right<=row.right+1;
       },targets.split(',')[0]),`${card}: the next action stays in view at ${width}px`);
+      if(width>height) {
+        assert(await frame.locator('#context-text').evaluate(el=>getComputedStyle(el).maxHeight==='none' && getComputedStyle(el).overflowY==='visible' && el.scrollHeight<=el.clientHeight+1),`${card}: the full rule shows at ${width}px`);
+      } else {
+        await frame.locator('#context-actions').getByRole('button',{name:'Cancel',exact:true}).focus(); await page.keyboard.press('Shift+Tab');
+        assert(await frame.locator('#context-text').evaluate(el=>el===document.activeElement && el.tabIndex===0),'The keyboard reaches the armed text');
+        await page.keyboard.press('End');
+        await page.waitForFunction(()=>document.querySelector('iframe').contentDocument.getElementById('context-text').scrollTop>0);
+        assert(await frame.locator('#context-text').evaluate(el=>el.scrollTop>0),'The keyboard scrolls the armed rule');
+        await page.keyboard.press('Home');
+      }
       const after = await frame.locator('#board canvas').boundingBox(); assert(Math.abs(before.width-after.width)<1,'G1 keeps the board size');
       await boardBox();
       await shot(page,`ticket26-targets-${card}-${width}-${mode}`);
       await frame.locator('#context-actions').getByRole('button',{name:'Cancel',exact:true}).click();
+      assert.equal(await frame.locator('#context-text').getAttribute('tabindex'),'-1','Cancel removes the armed text tab stop');
     }
     for (const [action,fen,from,target,other] of [
       ['shove','k7/8/8/8/8/8/4P3/4O2K w - - 0 1',4,12,3],
@@ -2120,7 +2132,7 @@ try {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.evaluate(()=>window.harnessSetContext({safeAreaInsets:{top:0,right:0,bottom:0,left:0}}));
   await page.setViewportSize({width:1000,height:1000});
-  console.log('PASS: G1 targets first; G3 tap, drag, cancel and one draft step at 320, 393 and 1280 px');
+  console.log('PASS: G1 targets first; G3 tap, drag, cancel and one draft step at 320, 393, 852 and 1280 px');
   console.log(`Ticket 15 look comparisons: ${look}`);
   await openScreen('settings'); await boardSetting('symbols-only',false); await boardSetting('show-threats',false); await openPlay(); await legacyStart('solo');
   for (const [kind,features,status] of [['friend',options,'waiting'],['solo',{...options,arrangement:true},'setup']]) {
