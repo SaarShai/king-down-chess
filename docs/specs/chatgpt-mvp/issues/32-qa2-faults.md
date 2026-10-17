@@ -1,6 +1,6 @@
 # Rolling QA 2: end card at 200% zoom
 
-Status: in-progress
+Status: ready-for-human
 
 This step covers ticket 32 fault C only. The base is `4692477c`.
 The owner asks for the cut-action cue. No new visual cue is needed.
@@ -78,4 +78,26 @@ Review A reports no fault. Review B reports that the width-only 224 px cap cuts 
 
 The first full test run starts after about 22 minutes in the shared queue. It reports three match test failures, one database test failure, and one failure in the new tall unit check. The new assertion includes the hidden Skip button. Its empty box fails the bounds check. The repair excludes hidden buttons, as the browser check already does. The lane stops only its own test runner, PID 94289, with SIGINT to repair this check. The command exits 130. Log: `tests-zoom-end-review-1.txt`. This run is incomplete and is not a pass. No time limit changes.
 
-Next: run the host-size file through `npm test`, then repeat the full suite with the local test database. Check the failed files with their current limits.
+The host-size and full-suite repeats use the local test database and the current limits.
+
+The host-size file passes through `npm test` with `KINGDOWN_TEST_FILE=tools/plugin-ios-size.test.ts`. All 31 tests pass in 40.21 seconds, including the tall case. All 51 art tests also pass. Log: `tests-zoom-end-review-size-1.txt`. The command exits 0. No time limit changes. The full suite starts again with the local test database.
+
+The final `plugin-ui` run passes on the M1 at `48bcc1de` in 141.9 seconds. It ends with `check-runner: M1 exit 0 at 48bcc1de`. Log: `checks-zoom-end-review-final-1.txt`; full detail: `zoom-end-review-final-detail.txt` in the lane folder. Both tall results and both short bottom gaps pass again.
+
+The second full `npm test` run completes in 304.73 seconds. It has 187 passed files and one failed file. There are 3,051 passed tests, one failure, one expected failure and eight skips. The failure is the unchanged home remount check at `tools/plugin-app.test.ts:93`: `data-page` is null instead of `home` after the test sees the enabled Home button. The match and database tests from the first run pass. The end-card tests pass. This run exits 1. Log: `tests-zoom-end-review-2.txt`. The app source and its test have no diff from `1de36781`. A single-file repeat checks this failure with the same limits.
+
+The unchanged app test file passes on repeat through `npm test` with `KINGDOWN_TEST_FILE=tools/plugin-app.test.ts`. All 129 tests pass in 263.36 seconds. All 51 art tests pass. The command exits 0. Log: `tests-zoom-end-review-app-1.txt`. No app code or app test changes. The full suite starts again with the same limits.
+
+The third full `npm test` run exits 1 in 331.73 seconds. It has 185 passed files and three failed files: 3,049 passed tests, three failures, one expected failure and eight skips. The home remount test now passes. The end-card tests pass. The failures are timing checks in unchanged files: the computer reply poll at `tools/plugin-join-review.test.ts:65`, the 5-second fixed-depth test at `src/ai/search.test.ts:115`, and the 30-second random-design test at `src/workshop/judge.test.ts:193`. These files have no diff from `1de36781`. Log: `tests-zoom-end-review-3.txt`. Three single-file repeats run through the shared test lock with the current limits. That run is not a pass.
+
+All three unchanged files pass alone through `npm test`: join review, 8 tests in 18.67 seconds; judge, 12 tests in 15.87 seconds; search, 18 tests in 96.00 seconds. Each command also passes all 51 art tests and exits 0. Logs: `tests-zoom-end-review-join-1.txt`, `tests-zoom-end-review-judge-1.txt`, `tests-zoom-end-review-search-1.txt`.
+
+The installed test runner reads `VITEST_MAX_WORKERS`. A final full `npm test` run uses `VITEST_MAX_WORKERS=1` to reduce contention. All test limits stay as they are. No runner or package configuration changes.
+
+## Final review result
+
+- Review A: no findings. No repair is needed.
+- Review B, finding 1: fixed. The width-only cap now also checks the viewport height. It applies at 480 px or less. Taller narrow views use `calc(100% - 68px)`. Both 197 x 800 results show all three actions with no scroll. The new check fails before the repair and passes after it.
+- Full `npm test` with `VITEST_MAX_WORKERS=1` and the local test database: pass, exit 0. All 188 files pass in 1,175.53 seconds. There are 3,052 passed tests, one expected failure and eight skips. All 51 art tests pass. Log: `tests-zoom-end-review-serial-1.txt` in the lane folder. The full runs with the default worker count report timing failures in unchanged files. Their single-file repeats pass. No time limit changes.
+- `plugin-ui`: pass on the M1 at `48bcc1de` in 141.9 seconds. Both tall results, both short bottom gaps, and the existing normal-size checks pass. All six saved end images pass visual review. Log: `checks-zoom-end-review-final-1.txt`.
+- The product diff changes `end.css` only. No board, hall or server changes. `plugin-ui-http` is not needed. No push, merge or deploy.
