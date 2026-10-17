@@ -1657,6 +1657,32 @@ try {
     await card.evaluate(el => { el.scrollTop = 0; });
     await zoomViewport(viewport.width, viewport.height, 0, 0);
   }
+  // T3: the boxes of the hall that the page cuts. Each box outside a scroll box must hold its box inside its holder box
+  // (its nearest clip parent, or the frame), and a box that cuts its content (hidden or clip overflow, no scroll box
+  // inside) must show that content in full: the player cannot scroll to it. The content of an auto or scroll box is
+  // reachable, so that content scrolls into view (M1/R1, the row below the fold is a layout choice).
+  const hallCuts = () => frame.locator('.page-sheet').evaluate(sheet => {
+    const scrolls = el => { const s = getComputedStyle(el); return /(auto|scroll)/.test(s.overflowY) || /(auto|scroll)/.test(s.overflowX); };
+    const clips = el => { const s = getComputedStyle(el); return /(auto|scroll|hidden|clip)/.test(s.overflowY) || /(auto|scroll|hidden|clip)/.test(s.overflowX); };
+    const name = el => el.id || `${el.tagName.toLowerCase()}${typeof el.className === 'string' && el.className ? '.' + el.className.trim().split(/\s+/)[0] : ''}`;
+    const box = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); };
+    const frame = sheet.parentElement, frameBox = box(frame), found = [];
+    // A box inside a scroll box scrolls into view, so only the boxes outside every scroll box must fit their holder.
+    const visit = (el, holder, holderName, scrolled) => {
+      const style = getComputedStyle(el), r = el.getBoundingClientRect();
+      if (!scrolled && r.width && r.height && style.visibility === 'visible') {
+        const out = r.top < holder[1] - 1 || r.bottom > holder[1] + holder[3] + 1 || r.left < holder[0] - 1 || r.right > holder[0] + holder[2] + 1;
+        const words = el.textContent.trim().length > 0, innerScroll = [...el.querySelectorAll('*')].some(scrolls);
+        const cutDown = words && !innerScroll && /(hidden|clip)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 1;
+        const cutAcross = words && !innerScroll && /(hidden|clip)/.test(style.overflowX) && el.scrollWidth > el.clientWidth + 1;
+        if (out || cutDown || cutAcross) found.push(`${name(el)} ${JSON.stringify(box(el))}${out ? ` outside ${holderName} ${JSON.stringify(holder)}` : ''}${cutDown ? ` cuts ${el.scrollHeight - el.clientHeight} px down` : ''}${cutAcross ? ` cuts ${el.scrollWidth - el.clientWidth} px across` : ''}`);
+      }
+      const inner = scrolled || scrolls(el), held = clips(el) ? { box: box(el), name: name(el) } : { box: holder, name: holderName };
+      for (const child of el.children) visit(child, held.box, held.name, inner);
+    };
+    visit(sheet, frameBox, 'frame', false);
+    return found.slice(0, 6);
+  });
   // T3: at 197 x 426 the hall scrolls to its end above the pinned Start game bar, and the page clips nothing.
   async function zoomHallFits() {
     const viewport = page.viewportSize();
@@ -1665,21 +1691,15 @@ try {
     await body.evaluate(el => { el.scrollTop = el.scrollHeight; });
     const last = await body.evaluate(el => { const kids = [...el.querySelectorAll('button, label, input')].filter(k => k.getClientRects().length); const r = kids.at(-1).getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); });
     const m = await zoomBoxes(['.page-sheet','#new-game','#new-game .new-game-head','#new-game .new-game-body','#new-game .new-game-foot']);
-    // The page clips a box that shows (has a size) outside the page and outside every scroll box inside the page.
-    const cut = await frame.locator('.page-sheet').evaluate(sheet => {
-      const s = sheet.getBoundingClientRect(), found = [];
-      for (const el of sheet.querySelectorAll('*')) {
-        const r = el.getBoundingClientRect();
-        if (!r.width || !r.height || getComputedStyle(el).visibility !== 'visible') continue;
-        let held = false;
-        for (let p = el.parentElement; p && p !== sheet; p = p.parentElement) if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(p).overflowY)) { held = true; break; }
-        if (!held && (r.top < s.top - 1 || r.bottom > s.bottom + 1)) found.push([el.id || el.tagName + '.' + el.className, Math.round(r.top), Math.round(r.height)]);
-      }
-      return found.slice(0, 5);
-    });
+    const cut = await hallCuts();
     const all = JSON.stringify({...m, last, cut}), foot = m['#new-game .new-game-foot'];
     assert(last[1] + last[3] <= foot[1] + 1, `The hall at 197 x 426: the last choice ends above the top of the Start game bar: ${all}`);
-    assert(cut.length === 0 && inFrame(foot, m.frame), `The hall at 197 x 426: the page clips nothing: ${all}`);
+    assert(inFrame(m['.page-sheet'],m.frame)&&inFrame(m['#new-game'],m.frame)&&inFrame(m['#new-game .new-game-body'],m.frame)&&inFrame(foot,m.frame)&&cut.length===0, `The hall at 197 x 426: the sheet, the dialog, the body and the Start game bar all fit the frame, and the page clips nothing: ${all}`);
+    // The audit must see the fault that the QA report names (a dialog cut by a taller body): a body 900 px tall leaves it.
+    await frame.locator('head').evaluate(head => { const s = document.createElement('style'); s.id = 'zoom-clip-probe'; s.textContent = '#new-game .new-game-body { min-height: 900px }'; head.append(s); });
+    const probed = await hallCuts();
+    await frame.locator('#zoom-clip-probe').evaluate(el => el.remove());
+    assert(probed.length > 0 && (await hallCuts()).length === 0, `The hall at 197 x 426: the clip audit sees a body taller than its holder: ${JSON.stringify(probed)}`);
     await shot(page, `zoom-fit-hall-${mode}`);
     await body.evaluate(el => { el.scrollTop = 0; });
     await zoomViewport(viewport.width, viewport.height, 0, 0);
