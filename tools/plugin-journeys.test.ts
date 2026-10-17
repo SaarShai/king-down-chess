@@ -78,25 +78,6 @@ it('keeps every board control under an open sheet and its scrim', async () => {
   } finally { await page.close(); }
 });
 
-it('hides the display check line until a long press on the Settings title', async () => {
-  const page = await open(), frame = page.frameLocator('iframe');
-  try {
-    await soloBoard(page);
-    await frame.locator('#layout-check').filter({ hasText: 'Display check: board' }).waitFor({ state: 'attached' });
-    await html(page).evaluate(() => (window as any).harnessApp.navigate('settings'));
-    const line = frame.locator('#layout-check'), title = (await frame.locator('#page-title').boundingBox())!;
-    expect(await line.isVisible()).toBe(false);
-    // The press timer runs on the page clock, so the check steps it and does not wait in real time.
-    await page.clock.install();
-    await page.mouse.move(title.x + title.width / 2, title.y + title.height / 2);
-    await page.mouse.down(); await page.clock.runFor(200); await page.mouse.up();
-    expect(await line.isVisible()).toBe(false);
-    await page.mouse.down(); await page.clock.runFor(800); await page.mouse.up();
-    expect(await line.isVisible()).toBe(true);
-    expect(await line.textContent()).toMatch(/^Display check: board · window \d+x\d+/);
-  } finally { await page.close(); }
-});
-
 it('reads the game again after a conflict and says that the opponent moved, and says that a refused move is not available, with no Reload', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   const bob = (name: string, args: Record<string, unknown>) => tool(page, '/fixture-friend-tool', name, args);

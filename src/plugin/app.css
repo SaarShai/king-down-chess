@@ -32,9 +32,6 @@ html { font-variant-numeric: lining-nums; }
 #games-head { margin-top: 0 !important; }
 .group-head small { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; font-size: var(--fs-xs); }
 .quiet-line { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0 !important; }
-#layout-check { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0; overflow-wrap: anywhere; user-select: text; }
-/* A long press on the Settings title shows #layout-check (ticket 21): no text selection or callout takes the press. */
-#page-title { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .wide-btn { justify-content: center; min-height: 48px; margin-top: var(--space-3); font-size: var(--fs-lg); }
 .seg-line { margin: 8px 0 0; color: var(--ink-soft); }
 /* A second sheet over the first (the game's Menu sheet: a bottom sheet on a phone, centred on a wide screen). */

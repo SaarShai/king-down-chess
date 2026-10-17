@@ -368,20 +368,6 @@ const connection = app.connect().then(() => {
   });
 }).catch(error => { store.dispatch({ type: 'connect', text: `Could not connect to the game: ${errorText(error)}` }); });
 
-// Ticket 21: the ChatGPT iOS app showed a 45 px board that no test browser shows. Settings keeps the sizes of the last
-// seat or board screen; a long press on its title shows them, so a screenshot from the device names the cause.
-// Remove when ticket 21 closes.
-const sentSizes: string[] = [], sendSize = app.sendSizeChanged.bind(app);
-app.sendSizeChanged = params => { sentSizes.push(`${params.width}x${params.height}`); sentSizes.splice(0, sentSizes.length - 3); return sendSize(params); };
-function measureLayout() {
-  const box = (selector: string) => { const el = [...document.querySelectorAll<HTMLElement>(selector)].find(e => e.offsetParent || e.id === 'app-frame'); if (!el) return '-'; const r = el.getBoundingClientRect(); return `${Math.round(r.width)}x${Math.round(r.height)}@${Math.round(r.top)}`; };
-  const probe = (height: string) => { const d = document.createElement('div'); d.style.cssText = `position:absolute;visibility:hidden;width:1px;height:${height}`; document.body.append(d); const h = Math.round(d.getBoundingClientRect().height); d.remove(); return h; };
-  const context = app.getHostContext(), line = $('layout-check');
-  line.textContent = `Display check: ${state.screen} · window ${innerWidth}x${innerHeight} · vv ${Math.round(visualViewport?.width ?? 0)}x${Math.round(visualViewport?.height ?? 0)} · vh ${probe('100vh')} dvh ${probe('100dvh')} · frame ${box('#app-frame')} · section ${box(`[data-screen="${state.screen}"]`)} · table ${box('#game-table, [data-seat-id="game-table"]')} · board ${box('#board')} · canvas ${box('#board canvas')} · safe ${JSON.stringify(context?.safeAreaInsets ?? {})} · ${context?.displayMode} ${JSON.stringify(context?.containerDimensions ?? {})} · sent ${sentSizes.join(' ')}`;
-}
-let press: ReturnType<typeof setTimeout> | undefined;
-$('page-title').onpointerdown = () => { clearTimeout(press); if (state.screen === 'settings') press = setTimeout(() => { $('layout-check').hidden = false; }, 600); };
-$('page-title').onpointerup = $('page-title').onpointerleave = $('page-title').onpointercancel = () => clearTimeout(press);
 // Inline routes wait behind the home card. Only a button requests fullscreen.
 const GAME_SCREENS: Screen[] = ['seat', 'board', 'wait', 'friend', 'end'];
 let displayMode: string = 'inline', asking = false, collapsed = false, resume: Screen | undefined, target: Screen | undefined, gamesFirst = false, openHallOnExpand = !savedScreen;
@@ -438,7 +424,6 @@ export function navigate(screen: Screen) {
   if (screen === 'play') scrollNewGame();
   if (screen === 'play' && gamesFirst) { gamesFirst = false; $('games-list').closest<HTMLElement>('.new-game-body')!.scrollTop = 0; }
   if (screen === 'settings') void applySettings();
-  if (screen === 'seat' || screen === 'board') setTimeout(() => { if (state.screen === screen) measureLayout(); }, 1500);
   if (screen === 'handle') scheduleHandleCheck(); else { clearTimeout(handleTimer); handleCheck++; }
 }
 function hostContext(context: McpUiHostContext | undefined) {
