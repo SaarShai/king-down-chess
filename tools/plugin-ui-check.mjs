@@ -1859,10 +1859,6 @@ try {
       await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen'}));
       for (const [top,bottom] of [[31,17],[62,34]]) {
         await zoomViewport(201,357,top,bottom); await boardBox(); await reset();
-        const strip = await frame.locator('#strip-them .player-name').boundingBox(); assert(strip);
-        await swipe(strip.x+strip.width/2,strip.y+strip.height/2);
-        const stripScroll = await screen.evaluate(el=>el.scrollTop);
-        await reset();
         // The board's full centre can be below the frame. Start at the centre of its visible area.
         const start = await frame.locator('canvas').evaluate(c=>{
           const b=c.getBoundingClientRect(), f=document.querySelector('.frame').getBoundingClientRect();
@@ -1877,13 +1873,18 @@ try {
         });
         await swipe(host.x+start.x,host.y+start.y);
         const boardScroll = await screen.evaluate(el=>el.scrollTop);
-        console.log(`T-A ${label} 201x357 insets ${top}/${bottom}: strip scrollTop=${stripScroll}, board scrollTop=${boardScroll}, start=${JSON.stringify(start)}`);
-        console.log(`T-A input: ${JSON.stringify(await frame.locator('canvas').evaluate(()=>window.touchTrace))}`);
+        const boxes = await zoomBoxes(['#undo','#end-turn','#board-menu']);
+        const endHit = await frame.locator('#end-turn').evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));});
+        const trace = await frame.locator('canvas').evaluate(()=>window.touchTrace);
+        await reset();
+        const strip = await frame.locator('#strip-them .player-name').boundingBox(); assert(strip);
+        await swipe(strip.x+strip.width/2,strip.y+strip.height/2);
+        const stripScroll = await screen.evaluate(el=>el.scrollTop);
+        console.log(`T-A ${label} 201x357 insets ${top}/${bottom}: strip scrollTop=${stripScroll}, board scrollTop=${boardScroll}, start=${JSON.stringify(start)}, input=${JSON.stringify(trace)}`);
         assert(stripScroll>0,`${label}: a touch swipe from the top strip scrolls the board screen`);
         assert(boardScroll>0,`${label}: a touch swipe from the board scrolls the board screen`);
-        const boxes = await zoomBoxes(['#undo','#end-turn','#board-menu']);
         for (const id of ['#undo','#end-turn','#board-menu']) assert(inFrame(boxes[id],boxes.frame),`${label}: ${id} fits after a board swipe: ${JSON.stringify(boxes)}`);
-        assert(await frame.locator('#end-turn').evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),`${label}: End turn receives a tap after a board swipe`);
+        assert(endHit,`${label}: End turn receives a tap after a board swipe`);
         await shot(page,`touch-scroll-${label}-${top}-${mode}`);
       }
     } finally {
