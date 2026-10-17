@@ -2057,6 +2057,9 @@ try {
     assert(pane.y+Math.min(lower,pane.height)<=viewport.height-reserve,'Visible controls stay inside the app pane');
   }
   // The approved table states use public views and the host's existing reply override.
+  // These sample games are not in the service; a background poll must not replace them.
+  await frame.locator('html').evaluate(()=>Object.defineProperty(document,'hidden',{configurable:true,value:true}));
+  await settled();
   const look = join(tmpdir(),'kingdown-look','15'); await mkdir(look,{recursive:true});
   const sharp = (await import('sharp')).default;
   const sampleHand=['Vault','Leap','Salvation','Curse'], sampleRules={kings:[{king:'Mud',power:'March'},{king:'Shadow',power:'Darkness'}],hands:[sampleHand,sampleHand],marchUses:0};
@@ -2179,8 +2182,6 @@ try {
   const drawHaste = legalMoves(drawStart).find(move => move.from===12 && move.to===28 && move.power==='haste');
   assert(drawHaste, 'The draw sample has a legal Haste move');
   const drawMid = applyLan(drawStart,toLan(drawStart,drawHaste),drawRules).pos;
-  // The sample view is not in the service; a background poll must not replace it.
-  await frame.locator('html').evaluate(()=>Object.defineProperty(document,'hidden',{configurable:true,value:true}));
   for (const [stage,position] of [['start',drawStart],['mid',drawMid]]) {
     const original=await page.evaluate(()=>window.harnessView), snapshot={...original,game_id:randomUUID(),revision:100,status:'playing',kind:'friend',seat:0,turn:0,action:'ready',fen:toFen(position),in_check:false,rules:drawRules,kings:drawRules.kings,hands:drawRules.hands,history:undefined,last_commands:[],legal:legalMoves(position).map(move=>toLan(position,move)),draw_offer:1,result:undefined,outcome:undefined,abort_open:false,deadline_at:null,server_now:new Date().toISOString()};
     await page.evaluate(value=>{window.harnessNextView=value; return window.harnessShow({content:[],structuredContent:{game_id:value.game_id,screen:'board'},_meta:{board_id:window.harnessWidgetState.privateContent.board_id,view:value}});},snapshot);
