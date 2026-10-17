@@ -88,3 +88,9 @@ Final review at 7fcec973 finds one weak F9 check: show() can measure the prior s
 Add the existing game-read wait and wait for Reload to unlock. Then measure the new sample.
 The full suite passes at 7fcec973: 191 files, 3137 tests pass, 8 skip; the 51 art tests pass.
 The final head must pass the full suite and all three browser paths after this check change.
+
+The HTTP check at afc03876 finds a K1 fault: the own name has 108 px of text in 94 px beside the rating.
+The fixture name is short, so only the HTTP profile exposes it. Both cases already test full name bounds.
+In the existing two-row card strip, use the base two-line name and rating layout within its 44 px first row.
+Keep the coins on the second row. Keep the grid and the board size. This choice gives each name the full 188 px span.
+The failed HTTP log is checks-afc-http.txt; its detail log is in the runner output folder.

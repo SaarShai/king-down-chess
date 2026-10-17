@@ -254,7 +254,7 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 @container table-screen (319px < width <= 440px) {
   #game-table :is(#strip-them, #strip-me):has(.card-coin) { display: grid; grid-template-columns: repeat(5, 44px); grid-template-rows: 44px 44px; gap: 0 4px; }
   #game-table :is(#strip-them, #strip-me):has(.card-coin) .coin-row { display: contents; }
-  #game-table :is(#strip-them, #strip-me):has(.card-coin) .player-name { grid-row: 1; grid-column: 2 / -1; }
+  #game-table :is(#strip-them, #strip-me):has(.card-coin) .player-name { display: block; grid-row: 1; grid-column: 2 / -1; }
   #game-table :is(#strip-them, #strip-me):has(.card-coin) .coin { grid-row: 2; }
 }
 }
