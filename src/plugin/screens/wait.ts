@@ -72,12 +72,12 @@ async function readOpen(game: string) {
     if (result.isError) { if (client.state.screen === 'wait') showError(new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' ')), $('wait-status')); return; }
     const next = result._meta?.view as View | undefined;
     if (!next || next.game_id !== game || !['wait','board'].includes(client.state.screen)) return;
-    recoverJoined = false;
     if (open?.game_id !== next.game_id) began = Date.now() - Math.max(0, Date.parse(next.server_now) - Date.parse(next.created_at));
     open = next;
     if (next.status === 'waiting') { if (client.state.screen === 'wait' && memory.view?.kind !== 'random') waitScreen(); return; }
     stopWatch();
     if (next.status === 'aborted' || next.status === 'finished') { if (client.state.screen === 'wait') navigate('lobby'); return; }
+    recoverJoined = false;
     if (client.state.screen === 'wait') await call('kingdown_resume', { game_id: next.game_id }, { route: true, origin: job });
     else if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && !dismissed.has(next.game_id)) found(next);
   });
