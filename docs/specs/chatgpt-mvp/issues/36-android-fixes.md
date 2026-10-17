@@ -33,4 +33,14 @@ The owner asks to skip the Android emulator check. The main session runs it afte
 - The red log is checks-red-6.txt in the lane scratch folder. The detailed log is
   /var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/android-fixes-KoL8OO/plugin-ui.log.
 
-T-B and final checks are in work.
+- The first fix check passes F9. Phone board widths become 348, 341 and 109 px.
+  Desktop stays 536 px. Moves stays 49 px where it shows. Each bar box stays 44 px.
+- The proposed T-B block alone fails. At scroll top 0, Play again ends at 211 px
+  in a win and 185 px in a loss, inside a 160 px card. This is a content-size fault.
+- T-B also reduces card padding to 12 px and removes the margins between the first
+  words, title, result and actions. Status messages follow the actions. Text and
+  action sizes stay. The narrow portrait block stays unchanged. No focus code changes.
+- Taste choice: use less space between items in short landscape. Keep all words
+  and type sizes instead of removing the win words.
+
+Final checks are in work.
