@@ -78,6 +78,7 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   assert((await frame.locator('#setup-cards').innerText()).startsWith('6 cards'));
   await frame.locator('#setup-cards').click();
   await sheet.locator('input[value="Haste"]').uncheck();
+  await sheet.locator('input[value="Haste"]').focus();
   const beforeSheet = await sheet.elementHandle(), beforeCard = await grid.locator('.card-face').first().elementHandle();
   const focused = await sheet.locator('input:focus').getAttribute('value');
   const result = await (await page.request.post(new URL('/fixture-tool', page.url()).href, { data: { name: 'kingdown_open', arguments: { screen: 'play' } } })).json();
