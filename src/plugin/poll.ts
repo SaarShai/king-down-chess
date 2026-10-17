@@ -31,8 +31,13 @@ export function runPoll(target: () => PollTarget | undefined, gate: () => boolea
     if (stopped || reading) return;
     const view = target()?.view;
     const key = view === 'waiting for a join' ? view : view && (view.status === 'waiting' || view.status === 'setup') ? `${view.game_id}:${view.status}` : undefined;
-    if (!began.has(key)) began.set(key, Date.now());
-    const delay = pollDelay(view, Date.now() - began.get(key)!, page.hidden);
+    if (key !== undefined && !began.has(key)) {
+      // A new human wait takes over the clock of its unnamed start and drops every older clock.
+      const join = began.get('waiting for a join'), named = key !== 'waiting for a join' && view !== 'waiting for a join' && view!.kind !== 'solo';
+      if (named) began.clear();
+      began.set(key, named && join !== undefined ? join : Date.now());
+    }
+    const delay = pollDelay(view, key === undefined ? 0 : Date.now() - began.get(key)!, page.hidden);
     if (delay !== undefined) timer = setTimeout(tick, delay);
   }
   async function tick() {
@@ -43,8 +48,8 @@ export function runPoll(target: () => PollTarget | undefined, gate: () => boolea
     reading = true;
     try { await next.read(); } catch {} finally { reading = false; update(); }
   }
-  // The two wake events of one return come together: they start one read.
-  function wake() { if (page.hidden) clearTimeout(timer); else if (Date.now() - woke >= 1000) { woke = Date.now(); void tick(); } }
+  // The two wake events of one return come together: they start one read. A skipped wake still sets the timer again.
+  function wake() { if (page.hidden) clearTimeout(timer); else if (Date.now() - woke >= 1000) { woke = Date.now(); void tick(); } else update(); }
   page.addEventListener('visibilitychange', wake); page.addEventListener('pageshow', wake);
   void tick();
   return { update, stop() { stopped = true; clearTimeout(timer); page.removeEventListener('visibilitychange', wake); page.removeEventListener('pageshow', wake); } };

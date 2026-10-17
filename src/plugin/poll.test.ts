@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import type { View } from '../match/protocol';
-import { pollDelay, runPoll } from './poll';
+import { pollDelay, runPoll, type PollTarget } from './poll';
 const view = (change: Partial<View> = {}) => ({ game_id: 'g1', kind: 'friend', status: 'playing', speed: 'daily', turn: 1, seat: 0, opponent: { last_seen_ms: null }, last_commands: [], server_now: '2026-10-11T12:00:00.000Z', ...change }) as View;
 
 it('uses the wait and game schedule, with the owner’s recent-opponent rule', () => {
@@ -112,5 +112,35 @@ it('C9: a wait keeps its two-minute clock when the target switches away and back
     current = wait; runner.update();
     const before = read.mock.calls.length;
     await vi.advanceTimersByTimeAsync(25000); expect(read.mock.calls.length - before).toBeLessThanOrEqual(2);
+  } finally { runner.stop(); vi.useRealTimers(); }
+});
+
+it('a hide and show inside one second keeps the poll alive', async () => {
+  vi.useFakeTimers();
+  const page = Object.assign(new EventTarget(), { hidden: true }), read = vi.fn(async () => {});
+  const runner = runPoll(() => ({ view: view(), read }), undefined, page);
+  try {
+    page.hidden = false; page.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(200); expect(read).toHaveBeenCalledTimes(1);
+    page.hidden = true; page.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(200);
+    page.hidden = false; page.dispatchEvent(new Event('visibilitychange')); page.dispatchEvent(new Event('pageshow'));
+    await vi.advanceTimersByTimeAsync(60000); expect(read.mock.calls.length).toBeGreaterThan(1);
+  } finally { runner.stop(); vi.useRealTimers(); }
+});
+
+it('a new wait after a long old wait starts at the 5-second rate', async () => {
+  vi.useFakeTimers();
+  const page = Object.assign(new EventTarget(), { hidden: false }), read = vi.fn(async () => {});
+  let current: PollTarget | undefined = { view: 'waiting for a join', read };
+  const runner = runPoll(() => current, undefined, page);
+  try {
+    await vi.advanceTimersByTimeAsync(1000);
+    current = { view: view({ kind: 'random', status: 'waiting' }), read }; runner.update();
+    await vi.advanceTimersByTimeAsync(130000);
+    current = { view: view(), read }; runner.update();
+    current = { view: 'waiting for a join', read }; runner.update();
+    const before = read.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(5000); expect(read.mock.calls.length - before).toBe(1);
   } finally { runner.stop(); vi.useRealTimers(); }
 });
