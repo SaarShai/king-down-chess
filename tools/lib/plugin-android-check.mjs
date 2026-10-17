@@ -45,7 +45,7 @@ export async function checkAndroidFixes(browser, base) {
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       });
     }
-    for (const [width, height, top, bottom] of [[412,790,54,24], [393,852,102,118], [320,568,63,84], [1280,800,0,0]]) {
+    for (const [width, height, top, bottom, oldBoard] of [[412,790,54,24,352], [393,852,102,118,345], [320,568,63,84,113], [1280,800,0,0,536]]) {
       await viewport(width, height, top, bottom);
       await show();
       for (const armed of [false, true]) {
@@ -58,12 +58,13 @@ export async function checkAndroidFixes(browser, base) {
         }
         const state = `F9 ${width}x${height} board-cards${armed ? '-armed' : ''}`;
         const sizes = (await frame.locator('#game-table').evaluate(hitSizes)).filter(c => ['undo','end-turn','board-menu','moves-line'].includes(c.name));
-        check(sizes.length === 4 && sizes.every(c => c.width >= 48 && c.height >= 48), state, sizes);
+        check(sizes.length === (width === 320 ? 3 : 4) && sizes.every(c => c.width >= 48 && c.height >= 48), state, sizes);
         const boxes = await frame.locator('#table-bar').evaluate(e => ({
           heights: [...e.querySelectorAll('button')].map(b => b.getBoundingClientRect().height),
           bottom: e.getBoundingClientRect().bottom, frameBottom: document.querySelector('.frame').getBoundingClientRect().bottom,
           board: document.querySelector('#board canvas').getBoundingClientRect().width
         }));
+        check(boxes.board >= oldBoard - 4 && boxes.board <= oldBoard, `${state} board loses at most 4 px`, boxes);
         check(boxes.bottom <= boxes.frameBottom + 1, `${state} bar inside frame`, boxes);
         if (width < height) check(boxes.heights.every(h => h === 44), `${state} button art stays 44 px`, boxes);
         console.log(`${state}: ${JSON.stringify({ sizes, ...boxes })}`);

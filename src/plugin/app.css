@@ -325,6 +325,9 @@ body[data-touch='true'] #game-table .coin.card-coin { overflow: visible; }
 /* A hit layer extends up; each control keeps its own lower edge against the control below. */
 body[data-touch='true'] button#moves-line { z-index: 1; }
 body[data-touch='true'] #context-actions button { z-index: 2; }
+/* The bar owns the 4 px above each button's touch layer. */
+body[data-touch='true'] #game-table { --bar-height: 48px; }
+body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
 @media (pointer: coarse) {
   button, .seg-row label, .fields > label { position: relative; }
   .field { min-height: 48px; }
@@ -333,6 +336,8 @@ body[data-touch='true'] #context-actions button { z-index: 2; }
   #game-table .coin.card-coin { overflow: visible; }
   button#moves-line { z-index: 1; }
   #context-actions button { z-index: 2; }
+  #game-table { --bar-height: 48px; }
+  #game-table #table-bar { padding-top: 4px; }
 }
 
 
