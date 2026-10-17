@@ -55,7 +55,7 @@ body[data-page='end'] #table-bar { visibility: hidden; }
 
 /* The list uses only the free grid row. It cannot move the board or the bar. */
 #moves-band { position: relative; min-height: 0; }
-#recent-moves { position: absolute; inset: 0 12px auto; height: 108px; overflow-y: auto; overscroll-behavior: contain; font-size: 14px; line-height: 20px; color: var(--ink-soft); }
+#recent-moves { position: absolute; inset: 0 12px auto; height: 108px; overflow-y: auto; overscroll-behavior: contain; font-size: var(--fs-sm); line-height: 20px; color: var(--ink-soft); }
 #recent-moves p { margin: 0; min-height: 36px; padding: 8px 4px; }
 #recent-moves p:nth-child(odd) { background: rgba(231, 216, 184, .45); }
 #moves-line[aria-expanded='true'] .moves-label > span { display: inline-block; transform: rotate(180deg); }

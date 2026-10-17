@@ -74,3 +74,5 @@ Each command must end with exit 0. Each browser log must name the head and show 
 - M1 plugin-ui passes at 4125fcef in 154.1 s. At 360 x 640 it samples 61 frames; at 400 x 800 it samples 65. Both reports show no sideways page overflow, 30 visible scaled-word samples and full words. Both reviewers find no remaining fault in 979e2a8a by source review. The later start-save scope check above follows the same rule.
 
 - Final teardown trace: the board's background Profile reply still changes the player strips after close or teardown. The UI reviewer confirms that no other guard stops it. Return before the rating or strip write when tornDown or queue.closed is true. Add two held-reply board cases. They check the same strip nodes and text after teardown and after queue close.
+
+- The merged recent-moves rule uses a raw 14 px font size. The existing type-scale test rejects every raw pixel font size in this file. Use the existing --fs-sm token, which is 14 px. This keeps the approved size and passes the same guard. No new taste choice or extra font scale is needed.
