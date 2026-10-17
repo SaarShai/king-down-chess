@@ -2196,7 +2196,9 @@ try {
           window.touchTrace=[];
           for(const name of ['pointerdown','pointercancel','touchstart']) document.addEventListener(name,e=>window.touchTrace.push({name,target:e.target.tagName,id:e.target.id,action:getComputedStyle(e.target).touchAction}),{once:true});
         });
+        const statusBeforeSwipe = await frame.locator('#status').textContent();
         await swipe(host.x+start.x,host.y+start.y);
+        if (label === 'board-their-turn') assert.equal(await frame.locator('#status').textContent(), statusBeforeSwipe, 'A swipe on their piece keeps the status line');
         const boardScroll = await screen.evaluate(el=>el.scrollTop);
         const boxes = await zoomBoxes(['#undo','#end-turn','#board-menu']);
         const endHit = await frame.locator('#end-turn').evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));});
@@ -2214,6 +2216,11 @@ try {
         assert(boardScroll>start.scroll,`${label}: a ${gesture} from the board scrolls the board screen`);
         for (const id of ['#undo','#end-turn','#board-menu']) assert(inFrame(boxes[id],boxes.frame),`${label}: ${id} fits after a board swipe: ${JSON.stringify(boxes)}`);
         assert(endHit,`${label}: End turn receives a tap after a board swipe`);
+        if (label === 'board-their-turn') {
+          await reset();
+          await page.touchscreen.tap(host.x + start.x, host.y + start.y);
+          assert.match(await frame.locator('#status').textContent(), view.turn === 0 ? /^White / : /^Black /, 'A tap on their piece still opens its note');
+        }
       }
     } finally {
       await touch?.detach();
@@ -2249,6 +2256,17 @@ try {
   // T3: at 197 x 426 the hall scrolls to its end above the pinned Start game bar, and the page clips nothing.
   async function zoomHallFits() {
     const viewport = page.viewportSize();
+    await zoomViewport(402,874,0,0);
+    await frame.locator('html').evaluate(() => document.fonts.ready);
+    const gaps = await frame.locator('#games-list .line').evaluateAll(lines => lines.map(line => {
+      const [dot, detail] = line.children, range = document.createRange();
+      range.selectNode(line.firstChild);
+      const words = range.getBoundingClientRect(), d = dot.getBoundingClientRect(), next = detail.getBoundingClientRect();
+      return { dot: dot.textContent, before: d.left - words.right, after: next.left - d.right, sameLine: Math.abs(words.top - d.top) < 2 && Math.abs(d.top - next.top) < 2 };
+    }));
+    await shot(page, `device-hall-402-${mode}`);
+    assert(gaps.length > 0 && gaps.every(gap => gap.dot === '·'), `Game rows use a separate dot: ${JSON.stringify(gaps)}`);
+    assert(gaps.some(gap => gap.sameLine) && gaps.filter(gap => gap.sameLine).every(gap => Math.abs(gap.before - gap.after) <= 1), `Each row dot has equal gaps on both sides: ${JSON.stringify(gaps)}`);
     await zoomViewport(197,426,51,59);
     const body = frame.locator('#new-game .new-game-body');
     await body.evaluate(el => { el.scrollTop = el.scrollHeight; });

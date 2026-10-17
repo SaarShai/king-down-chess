@@ -22,4 +22,18 @@ No server code, game rule, dependency, push, pull request, merge to main, deploy
 
 ## Evidence
 
-Checks and results follow here.
+The test-only commits are 1c962c1e and fc7e3e8c. The four source files still match 170bf85c.
+
+- F-1: checks-red-f1-2.txt, M1 exit 1 at 1c962c1e. The win at 206 x 395 fails the 12 px check. The loss and the existing 197 x 426 and 201 x 357 cases pass.
+- F-2: tests-red-targeted.txt. Pointer move calls onDragSelect with square 12 when canDrag is false.
+- F-4: tests-red-targeted.txt. Playing and waiting rows have a space and a dot joined to the detail, instead of a separate dot item.
+- The first row test stops on a missing DOM event stub. Add that stub, then run again. The second run fails on the row assertion above.
+
+- F-3: checks-red-f3-1.txt, Mac exit 1 at fc7e3e8c. The power Use label has justify-content normal, text-align left, and an offset of 159.4 px from the button centre.
+
+## Build
+
+Use the four fixes in the owner ticket. No new taste choice is needed.
+The old W7 checks expect a drag callback while play is locked. F-2 now requires no callback. Change those two assertions to require an empty list. Keep their tap, keyboard, board-state, and send checks.
+
+Final results follow here.
