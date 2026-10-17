@@ -1828,25 +1828,55 @@ try {
     await shot(page, `zoom-fit-${label}-${mode}`);
     await zoomViewport(viewport.width, viewport.height, 0, 0);
   }
-  // T1: at 197 x 426 the end card shows its result line and the top of its first action with no scroll, and its last
-  // action scrolls into the frame.
+  // Ticket 32 C: use a fresh mobile host. A cut New game shows that the card scrolls; each action stays reachable.
   async function zoomEndFits(label) {
-    const viewport = page.viewportSize();
-    await zoomViewport(197,426,51,59);
-    const card = frame.locator('#over.end-card[open]');
-    await card.evaluate(el => { el.scrollTop = 0; });
-    const buttons = card.locator('form button:visible');
-    const first = await buttons.first().evaluate(el => { const r = el.getBoundingClientRect(), c = el.closest('dialog').getBoundingClientRect(); return {button:[r.left,r.top,r.width,r.height].map(Math.round), card:[c.left,c.top,c.width,c.height].map(Math.round)}; });
-    const m = await zoomBoxes(['#over','#end-reason']);
-    const all = JSON.stringify({...m, first});
-    assert(inFrame(m['#end-reason'], m.frame) && m['#end-reason'][1] + m['#end-reason'][3] <= first.card[1] + first.card[3] + 1, `${label} at 197 x 426: the result line shows with no scroll: ${all}`);
-    assert(first.button[1] < first.card[1] + first.card[3] - 8, `${label} at 197 x 426: the first end action shows with no scroll, so the card shows that it scrolls: ${all}`);
-    const last = buttons.last(); await last.evaluate(el => { const card = el.closest('dialog'), r = el.getBoundingClientRect(), c = card.getBoundingClientRect(); card.scrollTop += Math.max(0, r.bottom - c.bottom + 16); });
-    const end = await zoomBoxes(['#app-frame']); const lastBox = await last.evaluate(el => [el.getBoundingClientRect().left, el.getBoundingClientRect().top, el.getBoundingClientRect().width, el.getBoundingClientRect().height].map(Math.round));
-    assert(inFrame(lastBox, end.frame) && (await last.evaluate(controlBounds)).accessible, `${label} at 197 x 426: the last end action scrolls into the frame: ${JSON.stringify({last:lastBox, frame:end.frame})}`);
-    await shot(page, `zoom-fit-${label}-${mode}`);
-    await card.evaluate(el => { el.scrollTop = 0; });
-    await zoomViewport(viewport.width, viewport.height, 0, 0);
+    const view = await page.evaluate(() => window.harnessView);
+    const host = await browser.newPage({ viewport: { width: 197, height: 426 }, isMobile: true, hasTouch: true });
+    const frame = host.frameLocator('iframe');
+    try {
+      await host.goto(base);
+      await host.locator('#remount').evaluate(el => { el.style.display = 'none'; });
+      await host.locator('iframe').evaluate(el => { el.style.setProperty('height', '100dvh', 'important'); });
+      await frame.locator('#home-play:not(:disabled)').waitFor();
+      await host.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top: 51, bottom: 59, left: 0, right: 0 }, deviceCapabilities: { touch: true } }));
+      // The win sample exists only in the check. A live poll must not replace it.
+      await frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
+      await host.evaluate(view => window.harnessShow({ content: [], structuredContent: { game_id: view.game_id, screen: 'board' }, _meta: { view } }), view);
+      const card = frame.locator('#over.end-card[open]');
+      await card.waitFor();
+      await frame.locator('html').evaluate(async () => {
+        await document.fonts.ready;
+        for (let run; (run = document.getAnimations().filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
+      });
+      for (const gap of [96, 59]) {
+        // The second case tests the host inset alone, with no estimated composer floor.
+        await frame.locator('#app-frame').evaluate((el, gap) => { el.style.bottom = `${gap}px`; }, gap);
+        await card.evaluate(el => { el.scrollTop = 0; });
+        const m = await card.evaluate(el => {
+          const box = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; };
+          return { frame: box(document.querySelector('#app-frame')), card: box(el), reason: box(el.querySelector('#end-reason')), buttons: [...el.querySelectorAll('form button')].map(box), scroll: el.scrollTop };
+        });
+        const all = `${label}, bottom gap ${gap}: ${JSON.stringify(m)}`, bottom = m.card[1] + m.card[3];
+        assert.equal(m.frame[1], 51, all); assert.equal(m.frame[1] + m.frame[3], 426 - gap, all);
+        await shot(host, `zoom-fit-${label}-gap-${gap}-${mode}`);
+        assert(inFrame(m.reason, m.frame) && inFrame(m.reason, m.card), `The result line shows with no scroll: ${all}`);
+        assert(inFrame(m.buttons[0], m.frame) && inFrame(m.buttons[0], m.card), `Play again shows in full with no scroll: ${all}`);
+        assert(m.scroll === 0 && m.buttons[1][1] <= bottom - 12 && m.buttons[1][1] + m.buttons[1][3] > bottom, `New game crosses the card edge with at least 12 px in view: ${all}`);
+        for (const name of ['Play again', 'New game', 'See the board']) {
+          const button = card.getByRole('button', { name, exact: true });
+          await button.evaluate(el => {
+            const card = el.closest('dialog'), r = el.getBoundingClientRect(), c = card.getBoundingClientRect();
+            card.scrollTop += r.top + r.height / 2 - c.top - card.clientHeight / 2;
+          });
+          const seen = await button.evaluate(el => {
+            const box = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }, r = el.getBoundingClientRect();
+            return { button: box(el), card: box(el.closest('dialog')), frame: box(document.querySelector('#app-frame')), hit: el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)) };
+          });
+          assert(inFrame(seen.button, seen.card) && inFrame(seen.button, seen.frame) && seen.hit, `${name} scrolls fully into the card and frame, and its centre takes a tap: ${JSON.stringify(seen)}`);
+        }
+        console.log(`PASS: ${all}; all three end actions fit and take a tap after scroll`);
+      }
+    } finally { await host.close(); }
   }
   // T3: the boxes of the hall that the page cuts. Each box outside a scroll box must hold its box inside its holder box
   // (its nearest clip parent, or the frame), and a box that cuts its content (hidden or clip overflow, no scroll box

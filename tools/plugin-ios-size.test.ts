@@ -562,12 +562,21 @@ it('keeps Back clear and end actions reachable at 197 by 426', async () => {
     await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Resign', exact: true }).click();
     await frame.locator('#over[open]').waitFor();
     expect(await frame.locator('#over').evaluate(e => e.scrollHeight > e.clientHeight)).toBe(true);
+    const cue = await frame.locator('#over').evaluate(e => {
+      e.scrollTop = 0;
+      const card = e.getBoundingClientRect(), [first, next] = [...e.querySelectorAll('form button')].map(b => b.getBoundingClientRect());
+      return { firstFits: first.top >= card.top && first.bottom <= card.bottom, visible: card.bottom - next.top, cut: next.bottom > card.bottom };
+    });
+    expect(cue.firstFits).toBe(true);
+    expect(cue.visible).toBeGreaterThanOrEqual(12);
+    expect(cue.cut).toBe(true);
     expect(await frame.locator('#game-table .table-back').evaluate(e => {
       const r = e.getBoundingClientRect(), card = document.getElementById('over')!.getBoundingClientRect();
       return r.height >= 44 && r.bottom <= card.top && e.contains(document.elementFromPoint(r.x+r.width/2, r.y+r.height/2));
     })).toBe(true);
     for (const name of ['Play again', 'New game', 'See the board']) {
       const button = frame.locator('#over').getByRole('button', { name, exact: true }); await button.scrollIntoViewIfNeeded();
+      expect((await button.evaluate(controlBounds)).accessible, name).toBe(true);
       expect(await button.evaluate(e => { const r=e.getBoundingClientRect(); return r.width>0 && e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)); }), name).toBe(true);
     }
     expect(await frame.locator('#over').evaluate(e => e.scrollWidth-e.clientWidth)).toBe(0);
