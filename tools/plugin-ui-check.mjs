@@ -2158,7 +2158,7 @@ try {
       const theirTurn = {...snapshot,game_id:randomUUID(),revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:[],last_commands:commands,history:{initial_fen:state.fen,actions:state.play},deadline_at:null};
       await showSnapshot(theirTurn,story); await zoomBoardFits('board-their-turn');
       // T6: match the tall-phone capture: full host height, no cards or powers, and the other player's turn.
-      await showSnapshot({...theirTurn,game_id:randomUUID(),options,rules:{kings:[null,null],hands:[[],[]]},kings:[null,null],hands:[[],[]]},story);
+      await showSnapshot({...theirTurn,game_id:randomUUID(),revision:0,fen:state.fen,last_commands:[],history:{initial_fen:state.fen,actions:[]},options,rules:{kings:[null,null],hands:[[],[]]},kings:[null,null],hands:[[],[]]});
       const viewport = page.viewportSize();
       const hostStyle = await page.locator('iframe').getAttribute('style');
       await page.locator('iframe').evaluate(el => el.style.setProperty('height','100dvh','important'));

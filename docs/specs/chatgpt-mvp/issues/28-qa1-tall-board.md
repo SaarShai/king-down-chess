@@ -19,3 +19,5 @@ The image shows about 120 px between the move list and the bar. The table gives 
 At `8d852a1b`, browser run 1 fails at the existing move-history sample. Run 2 fails at the known sideways-overflow assertion (274 px in a 197 px screen). Run 3 passes both of those steps, then fails while the new T6 sample loads. Runs 1 and 3 show that a background read replaces the sample with the real solo game. The draw samples already stop this poll with the document's hidden flag. Move that guard before all board samples and drain the reads in flight. No product code or time limit changes.
 
 The type check passes. The full unit run passes: 178 files, 2,877 tests passed, one expected failure and eight skipped. All 50 art tests pass. Log: `tests-tall-board-1.txt` in the lane output folder.
+
+Run 4 at `66bd4825` keeps the sample in place. It then exposes a T6 test-data fault: the sample removes the power rules but keeps history from the prior rule set. The size check needs no move history. Give it a fresh position and an empty history under its own rules.
