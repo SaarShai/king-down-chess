@@ -76,3 +76,10 @@ Each command must end with exit 0. Each browser log must name the head and show 
 - Final teardown trace: the board's background Profile reply still changes the player strips after close or teardown. The UI reviewer confirms that no other guard stops it. Return before the rating or strip write when tornDown or queue.closed is true. Add two held-reply board cases. They check the same strip nodes and text after teardown and after queue close.
 
 - The merged recent-moves rule uses a raw 14 px font size. The existing type-scale test rejects every raw pixel font size in this file. Use the existing --fs-sm token, which is 14 px. This keeps the approved size and passes the same guard. No new taste choice or extra font scale is needed.
+
+### First full suite
+
+- The full suite at ad1bc6d6 runs after the shared lock opens. It ends with 185 passed files, 4 failed files, 3,104 passed tests, 5 failed tests and 8 skips. Duration: 374.35 s. Log: tests-full-1.txt.
+- The Handle test fails before its target step: the unit input stub lacks setCustomValidity. Add that browser method to the stub. The review probe uses the same correction before its baseline run starts.
+- Two seed tests hit their unchanged 5 s limit. The database answers a separate short read. One board case times out at Home before it reaches the mating move. One mount-wait case sees a symbols decode error. Keep these failures in the log; check them in single files before the next full run. Do not change a limit.
+- M1 plugin-ui passes at ad1bc6d6 in 153.7 s. Log: checks-m1-6.txt. The reviewer finds no fault in the profile guard, its two held-reply cases or the shared font token.

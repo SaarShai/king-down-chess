@@ -29,7 +29,7 @@ vi.mock('./screens/collection', () => ({ collectionScreen() {} }));
 function node() {
   return { dataset: {}, style: { setProperty() {} }, textContent: '', innerHTML: '', value: '', disabled: false, hidden: false,
     querySelectorAll: () => [], querySelector: () => node(), closest: () => node(),
-    setAttribute() {}, removeAttribute() {}, replaceChildren() {}, append() {}, matches: () => false, hasAttribute: () => false };
+    setCustomValidity() {}, setAttribute() {}, removeAttribute() {}, replaceChildren() {}, append() {}, matches: () => false, hasAttribute: () => false };
 }
 beforeEach(() => {
   vi.resetModules(); vi.useFakeTimers();
