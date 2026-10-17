@@ -1860,8 +1860,8 @@ try {
         assert.equal(m.frame[1], 51, all); assert.equal(m.frame[1] + m.frame[3], 426 - gap, all);
         await shot(host, `zoom-fit-${label}-gap-${gap}-${mode}`);
         assert(inFrame(m.reason, m.frame) && inFrame(m.reason, m.card), `The result line shows with no scroll: ${all}`);
-        assert(inFrame(m.buttons[0], m.frame) && inFrame(m.buttons[0], m.card), `Play again shows in full with no scroll: ${all}`);
         assert(m.scroll === 0 && m.buttons[1][1] <= bottom - 12 && m.buttons[1][1] + m.buttons[1][3] > bottom, `New game crosses the card edge with at least 12 px in view: ${all}`);
+        assert(inFrame(m.buttons[0], m.frame) && inFrame(m.buttons[0], m.card), `Play again shows in full with no scroll: ${all}`);
         for (const name of ['Play again', 'New game', 'See the board']) {
           const button = card.getByRole('button', { name, exact: true });
           await button.evaluate(el => {
