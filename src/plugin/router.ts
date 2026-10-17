@@ -10,10 +10,10 @@ export function createRouter(call: (name: string, args: Record<string, unknown>,
     if (show(view) === false) return;
     navigate(screen); return screen;
   }
-  async function start(kind: View['kind'], args: Record<string, unknown> = {}, options: Pick<JobOptions, 'route' | 'then'> = {}) {
+  async function start(kind: View['kind'], args: Record<string, unknown> = {}, options: Pick<JobOptions, 'route' | 'then' | 'origin' | 'king'> = {}) {
     // Retry, also after a remount, sends the same command ID, so the server gives back the first game, never a second one.
     const command_id = crypto.randomUUID().replaceAll('-', '');
-    const next = await call(kind === 'random' ? 'kingdown_find' : 'kingdown_create', kind === 'random' ? { ...args, command_id } : { ...args, kind, command_id }, { retain: true, route: false, ...(options.then && { then: options.then }) });
+    const next = await call(kind === 'random' ? 'kingdown_find' : 'kingdown_create', kind === 'random' ? { ...args, command_id } : { ...args, kind, command_id }, { ...options, retain: true, route: false });
     if (next && options.route !== false) routeView(next);
     return next;
   }

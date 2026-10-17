@@ -15,6 +15,7 @@ import { createRouter } from './router';
 import { applyLocks, createStore, isStart, isStartStep, locks, messageLine } from './state';
 import { createQueue, EMPTY, REFUSALS, resultCode, resultText, type Job, type JobOptions, type Kind, type Outcome } from './queue';
 import { draftFromGame, finishStart, playNow, quickStart, setupBusy, setupScreen, setupStarting, setupSync } from './screens/setup';
+import { readSetup } from './screens/setup-model';
 import { friendScreen } from './screens/friend';
 import { joinScreen, joinSync } from './screens/join';
 import { finishHandoff, waitPoll, waitScreen, waitSync } from './screens/wait';
@@ -66,9 +67,9 @@ export const { routeView, start } = router;
 const screens = { play: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
 export const memory = { kind: 'solo' as 'solo' | 'friend' | 'random', code: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, games: [] as InboxEntry[], preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
 /** A command's error stays on the screen where the command started, so its Retry shows there, also after the player leaves. */
-function failPending(message: string, command = state.pending!) {
+function failPending(message: string, command = state.pending!, origin?: Job) {
   command.error = message; command.error_screen = command.screen ?? state.screen; client.save();
-  if (state.screen === 'home' && command.screen === 'play') navigate('play');
+  if ((!origin || queue.current(origin)) && state.screen === 'home' && command.screen === 'play') navigate('play');
 }
 const TOGGLES = [['symbols-only', 'symbols_only'], ['show-threats', 'show_threats'], ['show-online', 'show_online']] as const;
 function turnLine(count: number) {
@@ -129,7 +130,7 @@ function resend(command: Pending): Record<string, unknown> {
  * handoff. Each other command routes as its reply says. It replaces the waiting start and the Retry capture listeners.
  */
 function continuation(command: Pending): ((next: View, origin: Job) => Promise<unknown>) | undefined {
-  if (isStartStep(command)) return finishStart;
+  if (isStartStep(command)) return (next, origin) => finishStart(next, origin, command.king ?? null);
   if (command.screen === 'seat') return finishSeat;
   if (command.screen === 'wait' && command.name === 'kingdown_choose') return finishHandoff;
 }
@@ -199,13 +200,23 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
   const body = async (): Promise<Outcome> => {
     try {
       if (retain) {
-        if (state.pending?.name !== name || state.pending.args !== args) state.pending = { name, args, ...(game && { game_tag: game.slice(0, 8) }), screen: commandScreen, ...(quickStart() && { quick: true }) };
+        if (state.pending?.name !== name || state.pending.args !== args) state.pending = { name, args, ...(game && { game_tag: game.slice(0, 8) }), screen: commandScreen, ...(quickStart() && { quick: true }), ...(job.options.king !== undefined && { king: job.options.king }) };
         own = state.pending;
         state.pending.error = undefined; state.pending.error_screen = undefined; client.save();
       }
-      // Retry sends the same command again, from its receipt (design §5.3): no read comes first, and no clock compare.
-      if (retry && state.pending) args = resend(state.pending);
       const transport = { signal, ...(job.options.mount && { limit: false }) };
+      // A failed mount keeps the start until Settings can supply the saved choice.
+      if (own && isStartStep(own)) {
+        if (!memory.settings) {
+          const settings = await client.call('kingdown_settings', {}, transport);
+          if (late()) { settleLate(undefined, CANNOT_CONNECT); return { status: 'superseded' }; }
+          if (settings.isError) throw new Error(resultText(settings));
+          remember(settings, job);
+        }
+        if (own.king === undefined) { own.king = readSetup(memory.settings?.last_setup).king; client.save(); }
+      }
+      // Retry sends the same command again, from its receipt (design §5.3), with no clock compare.
+      if (retry && state.pending) args = resend(state.pending);
       let result = await client.call(name, args, transport);
       if (late()) { settleLate(result); return { status: 'superseded' }; }
       // A current selection reply selects the page's board; an older one leaves it (the epoch gate, design §1.2).
@@ -220,7 +231,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
         const text = resultText(result), code = resultCode(result);
         if (code === 'HANDLE_NEEDED') {
           // A retained command keeps state.pending with its error (design §2); a selection keeps its own continuation.
-          if (retain) { state.pending ??= { name, args, ...(typeof args.game_id === 'string' && { game_tag: args.game_id.slice(0, 8) }), screen: commandScreen }; failPending(text); }
+          if (own && state.pending === own) failPending(text, own, job);
           if (queue.current(job)) navigate('handle');
           return { status: 'failed', code, text };
         }
@@ -258,7 +269,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       if (refused) { if (user) store.dispatch({ type: 'refusal', text: refused.text, code: refused.code, ...(refused.game && { game: refused.game }) }); }
       // A poll timeout is silent; the third one in a row sets the read notice.
       else if (quiet && message === CANNOT_CONNECT) store.dispatch({ type: 'failed-poll', text: message, ...(view?.game_id && { game: view.game_id }) });
-      else if (retain && state.pending) { failPending(message); store.dispatch({ type: 'change' }); }
+      else if (own && state.pending === own) { failPending(message, own, job); store.dispatch({ type: 'change' }); }
       // Three failed polls in a row (or one failed foreground read) mark the board stale: "Not current", the lock and Try again.
       else if (name === 'kingdown_get' && state.board_id) store.dispatch({ type: 'failed-read', text: message, ...(view?.game_id && { game: view.game_id }) });
       else store.dispatch({ type: 'error', text: message });
@@ -369,7 +380,12 @@ async function mountBody(job: Job, result: ToolResult) {
     if (!readBoard) await games(job);
     if (stale()) return;
     client.save();
-  } catch (error) { if (!stale()) store.dispatch({ type: 'error', text: errorText(error) }); }
+  } catch (error) {
+    if (!stale()) {
+      if (!memory.settings && state.pending && isStartStep(state.pending) && !queue.inflight()) failPending(errorText(error), state.pending, job);
+      else store.dispatch({ type: 'error', text: errorText(error) });
+    }
+  }
   finally {
     // A stale mount leaves the page to the newer mount, which still reads or has finished.
     if (!stale()) {
@@ -502,25 +518,27 @@ function hostContext(context: McpUiHostContext | undefined) {
   if (displayMode === 'fullscreen' && resume && !asking) { const screen = resume; resume = undefined; collapsed = false; navigate(screen); }
   else if (showHall && state.screen === 'home' && !asking) navigate('play');
 }
-/** Each list read keeps its job's epoch and teardown gate (design §1.2). */
+let listRead = 0;
+/** Only the newest list read in the current epoch can write its result. */
 async function games(origin?: Job) {
   if (queue.closed() || origin && !queue.current(origin)) return false;
   const job = queue.command('read', 'kingdown_games', {}, { user: false, origin });
+  const read = ++listRead, current = () => read === listRead && queue.current(job);
   $('games-status').textContent = 'Loading games…';
   const outcome = await queue.run(job, async () => {
     try {
       const result = await client.call('kingdown_games', {}, { ...(origin?.options.mount && { limit: false }) });
-      if (!queue.current(job)) return { status: 'superseded' };
+      if (!current()) return { status: 'superseded' };
       if (result.isError) throw new Error(resultText(result));
       renderGames((result._meta?.games as InboxEntry[] | undefined) ?? []);
       return { status: 'done', result };
     } catch (error) {
-      if (!queue.current(job)) return { status: 'superseded' };
+      if (!current()) return { status: 'superseded' };
       const text = errorText(error); $('games-status').textContent = text;
       return { status: 'failed', text };
     }
   });
-  return outcome.status === 'done' && queue.current(job);
+  return outcome.status === 'done' && current();
 }
 let picture: Icon = 'spirit';
 document.querySelectorAll<HTMLImageElement>('[data-art]').forEach(img => { img.src = art(img.dataset.art!); });

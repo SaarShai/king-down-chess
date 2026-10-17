@@ -1,6 +1,51 @@
 # Client state: S5 review fixes
 
-Status: resolved
+Status: claimed
+
+## S1 to S5 recheck: plan and checks
+
+Check Review A items 1 to 5 and Review B items 1 to 3 at `4e8c1be7`.
+Add a test for each confirmed fault. Keep the start job from the Settings save
+through Create and its later steps. Keep the start king with its saved command.
+Stop an old error route and computer recovery read. Keep only the newest list
+reply in one epoch. Check the mount lock before a held read returns, then check
+its data and each active error line. Test a failed initial Settings read.
+
+Run the source unit suite through `npm test` with the required test database.
+Commit the fixes, then run `plugin-ui` through the owner's check runner.
+Record the findings, checks and final head in this ticket and the lane report.
+
+### Findings and tests
+
+All seven distinct faults are confirmed. A1 and B1 describe the same fault.
+
+| Review | Fix | Test |
+|---|---|---|
+| A1, B1 | The first Start keeps one origin before Settings, Create and each later step. An old save sends no Create and shows no error on Profile. | The app holds a friend setup save across Profile, with both success and error replies. |
+| A2 | A command keeps its own error. Its old job cannot route Home to Play. | The app holds Choose across Home, then checks the saved error and Retry on Play. |
+| A3 | A list reply must be from the newest list request in its epoch. | The app releases two lists in reverse order across navigation, with no chat result. The list and count stay current. |
+| A4 | Each saved start keeps its king choice, including an automatic choice. Choose and Get keep that choice. | App tests cover another setup draft, Retry and inline remount with changed Settings. Client tests cover the saved choice and null. |
+| A5 | The slow mount-read tests check the lock before release, then the returned data and all error lines. | The source-page test and the named browser check hold Settings, Get and Games for 20 seconds. |
+| B2 | The computer reads the full outcome. It stops on superseded. Its recovery read keeps the original job. | The named browser check holds a computer reply, opens a new game, then checks one mount read and Seat. |
+| B3 | A failed Settings read keeps the start for Retry. Retry loads Settings before it sends Create. | The app fails the mount read and one Retry, then checks the same Create ID and the saved king on success. |
+
+The new app cases fail on the old source: six failures and the reported unhandled
+Settings exception. The fixed source passes 119 files: 1,739 tests pass and 8 skip.
+The type check and all 50 document checks pass. The last app-only run also checks
+the explicit saved king after Settings changes: all 29 cases pass.
+Browser checks follow the fix commit. No server code or check limit changes.
+
+The first named browser run passes the computer case. It then finds a test wait
+for a hidden Home button. The test now checks that the button is enabled in the
+DOM. Seat stays visible. Two temporary source controls restore the 10-second
+limit, first for Get and then for Games. Both named browser runs fail at the new
+mount-lock assertion before release. The final source restores the SDK limit.
+The controls prove that the new assertions catch each reported timeout fault.
+The control logs are `checks-recheck-timeout-control.txt` and
+`checks-recheck-list-timeout-control-2.txt` in the state-review lane.
+One earlier Games control selects this Mac and cannot start Chromium because
+the browser executable is absent. The next run uses the M1 through the same
+check runner. No browser or dependency installation changes.
 
 Base: `c8cf0822`. S0: `1ab1975d`. S5 starts at `a5cac8f8`.
 The source ticket and design are in the owner's scratchpad, under `tickets/`.

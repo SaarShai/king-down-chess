@@ -1,10 +1,11 @@
 import type { App } from '@modelcontextprotocol/ext-apps';
+import type { KingChoice } from '../rules/rules';
 export const SCREENS = ['home', 'play', 'friend', 'join', 'wait', 'lobby', 'seat', 'board', 'end', 'profile', 'collection', 'settings', 'handle'] as const;
 export type Screen = typeof SCREENS[number];
 export const BOARD_ID_TOOLS = ['kingdown_get', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'] as const;
 /** The tools whose reply selects the page's board. */
 export const SELECTION_TOOLS = ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'];
-export type Pending = { name: string; args: Record<string, unknown>; game_tag?: string; screen?: Screen; quick?: boolean; error?: string; error_screen?: Screen };
+export type Pending = { name: string; args: Record<string, unknown>; game_tag?: string; screen?: Screen; quick?: boolean; king?: KingChoice | null; error?: string; error_screen?: Screen };
 export type BoardSettings = { symbols_only: boolean; show_threats: boolean };
 /** The unsent turn of a board (W7): the game's short tag, the base FEN and the LANs. The full game ID never goes here. */
 export type Draft = { game_tag: string; fen: string; lans: string[] };
@@ -29,7 +30,7 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
     const pending = state.pending;
     const args = pending && Object.fromEntries(Object.entries(pending.args).filter(([key]) => !['game_id', 'code', 'handle'].includes(key)));
     const game_tag = pending?.game_tag ?? (typeof pending?.args.game_id === 'string' ? pending.args.game_id.slice(0, 8) : undefined);
-    host?.setWidgetState?.({ modelContent: {}, privateContent: { ...state, pending: pending && { name: pending.name, args, game_tag, screen: pending.screen, ...(pending.quick && { quick: true }), error: pending.error, error_screen: pending.error_screen } } });
+    host?.setWidgetState?.({ modelContent: {}, privateContent: { ...state, pending: pending && { name: pending.name, args, game_tag, screen: pending.screen, ...(pending.quick && { quick: true }), ...(pending.king !== undefined && { king: pending.king }), error: pending.error, error_screen: pending.error_screen } } });
   }
   async function call(name: string, args: Record<string, unknown> = {}, options: { background?: boolean; limit?: boolean; signal?: AbortSignal } = {}): ReturnType<App['callServerTool']> {
     const sent = options.background ? Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'board_id')) : state.board_id && BOARD_ID_TOOLS.some(tool => tool === name) ? { ...args, board_id: state.board_id } : args;

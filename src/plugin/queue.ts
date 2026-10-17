@@ -4,6 +4,7 @@
 // makes an older job stale, and an older job writes only what the older-job rules allow.
 import { errorText } from './client';
 import type { View } from '../match/protocol';
+import type { KingChoice } from '../rules/rules';
 
 /** A tool result, as the transport gives it. */
 export type ToolResult = { isError?: boolean; content: { type: string; text?: string }[]; _meta?: Record<string, unknown>; structuredContent?: unknown };
@@ -19,6 +20,7 @@ export type Kind = 'read' | 'write';
 
 export type JobOptions = {
   origin?: Job;
+  king?: KingChoice | null;
   then?: (view: View, origin: Job) => Promise<unknown>;
   retain?: boolean;
   quiet?: boolean;

@@ -1,4 +1,4 @@
-import { actions, call, client, memory, navigate, routeView, start, store } from '../app';
+import { actions, call, client, memory, navigate, queue, routeView, start, store } from '../app';
 import type { Job } from '../queue';
 import { art } from '../art';
 import { cardArt } from '../card-face';
@@ -157,14 +157,15 @@ async function pickKing() {
   if (draft!.king || picked !== shown) draft!.king = picked;
   render();
 }
-async function finish(view: View, pick = draft?.king ?? null, origin?: Job) {
+async function finish(view: View, pick: KingChoice | null, origin: Job) {
   const choice = soloChoice(view, pick);
-  if (choice) { ownCommand = true; const next = await call('kingdown_choose', { ...choice, command_id: crypto.randomUUID().replaceAll('-', '') }, { retain: true, route: false, origin }); if (!next) return; view = next; }
-  if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, { retain: true, route: false, origin }); if (!full) return; view = full; }
+  if (choice) { ownCommand = true; const next = await call('kingdown_choose', { ...choice, command_id: crypto.randomUUID().replaceAll('-', '') }, { retain: true, route: false, origin, king: pick }); if (!next) return; view = next; }
+  if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, { retain: true, route: false, origin, king: pick }); if (!full) return; view = full; }
   ownCommand = false; routeView(view);
 }
 async function launch(setup = draft, saveSetup = true) {
   if (!setup || setupBusy()) return;
+  const origin = queue.command('write', 'kingdown_create', {});
   starting = true; ownCommand = true; quick = !saveSetup; render();
   // A quick start shows no words; after 1 s the button says 'Starting…'. After 5 s, Back is a safe way out: the start stays
   // pending, and Start sends no second Create. The 10 s command limit (client.ts) ends the call with Retry.
@@ -175,16 +176,17 @@ async function launch(setup = draft, saveSetup = true) {
     const last_setup = { ...setup, options: setupOptions(setup.options) };
     if (saveSetup) {
       const saved = await client.call('kingdown_settings', { last_setup });
+      if (!queue.current(origin)) return;
       if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       memory.settings = saved._meta?.settings as typeof memory.settings;
     }
     const args = { ...createArguments(last_setup), ...(last_setup.kind === 'random' && anyRules && { any_rules: true }) };
-    await start(last_setup.kind, args, { route: false, then: (view, origin) => finish(view, last_setup.king, origin) });
-  } catch (error) { store.dispatch({ type: 'error', text: errorText(error) }); }
-  finally { clearTimeout(words); clearTimeout(wait); starting = late = false; exits.forEach(button => { delete button.dataset.free; }); if (!client.state.pending) ownCommand = false; render(); }
+    await start(last_setup.kind, args, { route: false, origin, king: last_setup.king, then: (view, origin) => finish(view, last_setup.king, origin) });
+  } catch (error) { if (queue.current(origin)) store.dispatch({ type: 'error', text: errorText(error) }); }
+  finally { clearTimeout(words); clearTimeout(wait); starting = late = false; exits.forEach(button => { delete button.dataset.free; }); if (!client.state.pending) ownCommand = false; if (!queue.closed()) render(); }
 }
 /** The continuation of a resent start or setup step (design §5.2): it finishes the start. */
-export const finishStart = (view: View, origin: Job) => finish(view, (draft ?? readDraft()).king, origin);
+export const finishStart = (view: View, origin: Job, king: KingChoice | null) => finish(view, king, origin);
 /** Play now starts a computer game and keeps the saved setup. */
 export function playNow() { if (memory.settings) void launch(quickSetup(memory.settings.last_setup), false); }
 // The store's subscriber replaces the data-page and #retry observers.

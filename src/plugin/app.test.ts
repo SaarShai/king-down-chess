@@ -97,6 +97,88 @@ it('finishes the first Start after Choose supplies a position without rules', as
   expect(app.client.state.screen).toBe('board'); expect(app.client.state.pending).toBeUndefined();
 });
 
+it.each([false, true])('keeps Profile when the first Settings save ends (error: %s)', async failed => {
+  const app = await mounted(), setup = await import('./screens/setup');
+  setup.draftFromGame({ ...game, seat: 0, options: (await import('./screens/setup-model')).readSetup(null).options });
+  app.navigate('play');
+  let release!: (value: unknown) => void;
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_settings'
+    ? new Promise(resolve => { release = resolve; }) : { content: [], _meta: { games: [] } });
+  const button = document.getElementById('setup-start')!;
+  Reflect.apply(button.onclick!, button, [{}]); await vi.advanceTimersByTimeAsync(0);
+  expect(release).toBeTypeOf('function');
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'profile' }, _meta: { board_id: 'profile-board' } });
+  await vi.advanceTimersByTimeAsync(0);
+  release({ content: [{ type: 'text', text: 'Old save error' }], isError: failed, _meta: { settings } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.screen).toBe('profile');
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create')).toHaveLength(0);
+  expect((await import('./state')).messageLine(app.store.page()).text).toBe('');
+});
+
+it('keeps Home when an older automatic Choose fails', async () => {
+  const app = await mounted(), setup = await import('./screens/setup');
+  const saved = (await import('./screens/setup-model')).readSetup(null);
+  saved.options = { ...saved.options, cards: false, kingPowers: true, arrangement: false };
+  saved.king = { king: 'Flame', power: 'Haste' }; app.memory.settings = { ...settings, last_setup: { ...saved, options: { ...saved.options, pool: [...saved.options.pool], cardPool: [...saved.options.cardPool] } } };
+  let release!: (value: unknown) => void;
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_choose'
+    ? new Promise(resolve => { release = resolve; })
+    : { content: [], _meta: name === 'kingdown_create' ? { view: { ...game, kind: 'solo', status: 'setup', seat: 0, draw: 'RNBQKBNR', options: saved.options } } : { games: [] } });
+  setup.playNow(); await vi.advanceTimersByTimeAsync(0);
+  const pending = app.client.state.pending;
+  expect(pending?.name).toBe('kingdown_choose');
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'home' }, _meta: { board_id: 'home-board' } });
+  await vi.advanceTimersByTimeAsync(0);
+  release({ content: [{ type: 'text', text: 'Old Choose error' }], isError: true, _meta: { code: 'INTERNAL_ERROR' } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.screen).toBe('home'); expect(app.client.state.pending).toBe(pending);
+  expect(pending?.error).toBe('Old Choose error');
+  expect((await import('./state')).messageLine(app.store.page()).text).toBe('');
+  app.navigate('play'); expect((await import('./state')).messageLine(app.store.page()).action).toBe('retry');
+});
+
+it('keeps a newer list after navigation in the same epoch', async () => {
+  const app = await mounted(); app.routeView(game);
+  let release!: (value: unknown) => void, lists = 0;
+  const newer = [{ game_id: 'game-b000', action: 'ready' }];
+  transport.call.mockImplementation(async ({ name }) => {
+    if (name === 'kingdown_games' && ++lists === 1) return new Promise(resolve => { release = resolve; });
+    return { content: [], _meta: name === 'kingdown_move' ? { view: { ...game, revision: 2 } } : { games: newer } };
+  });
+  await app.send('kingdown_move', { game_id: game.game_id, command_id: 'move', actions: ['e2-e4'] }, { retain: true });
+  expect(release).toBeTypeOf('function'); const epoch = app.queue.epoch();
+  app.navigate('play'); await vi.advanceTimersByTimeAsync(0);
+  expect(app.queue.epoch()).toBe(epoch); expect(app.memory.games).toEqual(newer);
+  const draws = transport.draw.mock.calls.length;
+  release({ content: [], _meta: { games: [] } }); await vi.advanceTimersByTimeAsync(0);
+  expect(app.memory.games).toEqual(newer);
+  expect(document.getElementById('home-line')!.textContent).toBe('Your move in 1 game.');
+  expect(transport.draw).toHaveBeenCalledTimes(draws);
+});
+
+it('retries Play now with its saved king when another setup draft exists', async () => {
+  const app = await mounted(), setup = await import('./screens/setup');
+  const saved = (await import('./screens/setup-model')).readSetup(null);
+  saved.options = { ...saved.options, cards: false, kingPowers: true, arrangement: false }; saved.king = { king: 'Flame', power: 'Haste' };
+  app.memory.settings = { ...settings, last_setup: { ...saved, options: { ...saved.options, pool: [...saved.options.pool], cardPool: [...saved.options.cardPool] } } };
+  const created = { ...game, kind: 'solo', status: 'setup', seat: 0, draw: 'RNBQKBNR', options: saved.options } as View;
+  setup.draftFromGame({ ...created, kings: [{ king: 'Frost', power: 'Freeze' }, null] } as View);
+  let creates = 0;
+  transport.call.mockImplementation(async ({ name }) => {
+    if (name === 'kingdown_create' && ++creates === 1) throw new Error('Lost Create reply');
+    return { content: [], _meta: name === 'kingdown_create' ? { view: created }
+      : name === 'kingdown_choose' ? { view: { ...created, status: 'playing', revision: 2, rules: {} } } : { games: [] } };
+  });
+  setup.playNow(); await vi.advanceTimersByTimeAsync(0);
+  const pending = app.client.state.pending!; expect(pending.error).toBe('Lost Create reply');
+  await app.send(pending.name, pending.args, { retain: true, retry: true });
+  const inputs = transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create').map(([input]) => input.arguments);
+  expect(inputs).toHaveLength(2); expect(inputs[1]).toEqual(inputs[0]);
+  expect(transport.call.mock.calls.find(([input]) => input.name === 'kingdown_choose')?.[0].arguments.king).toEqual(saved.king);
+  expect(app.client.state.screen).toBe('board'); expect(app.client.state.pending).toBeUndefined();
+});
+
 it('keeps Profile when the friend Cancel reply arrives late', async () => {
   const app = await mounted();
   app.memory.games = [{ game_id: game.game_id }] as any;
@@ -193,12 +275,13 @@ it.each(['chat result', 'teardown'])('drops a move list reply after a newer %s',
   expect(app.memory.games).toBe(before); expect(transport.draw).toHaveBeenCalledTimes(draws);
 });
 
-it('uses the saved king when the inline mount resends Create', async () => {
+it.each([false, true])('uses the start king when the inline mount resends Create (saved command: %s)', async withKing => {
   transport.mode = 'inline';
-  const pending = { name: 'kingdown_create', args: { kind: 'solo', command_id: 'once' }, screen: 'play', quick: true };
+  const king = { king: 'Flame', power: 'Haste' } as const;
+  const pending = { name: 'kingdown_create', args: { kind: 'solo', command_id: 'once' }, screen: 'play', quick: true, ...(withKing && { king }) };
   (window as any).openai.widgetState = { privateContent: { screen: 'home', queued: 'play', pending } };
   const { readSetup } = await import('./screens/setup-model');
-  const saved = readSetup(null); saved.options = { ...saved.options, cards: false, kingPowers: true, arrangement: false }; saved.king = { king: 'Flame', power: 'Haste' };
+  const saved = readSetup(null); saved.options = { ...saved.options, cards: false, kingPowers: true, arrangement: false }; saved.king = withKing ? { king: 'Frost', power: 'Freeze' } : king;
   const created = { ...game, kind: 'solo', status: 'setup', seat: 0, draw: 'RNBQKBNR', options: saved.options };
   transport.call.mockImplementation(async ({ name }) => ({ content: [], _meta: name === 'kingdown_settings'
     ? { settings: { ...settings, last_setup: saved }, me: { handle: 'player', icon: 'spirit' } }
@@ -207,7 +290,7 @@ it('uses the saved king when the inline mount resends Create', async () => {
   const app = await import('./app');
   transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'home' }, _meta: { board_id: 'board-a' } });
   await vi.advanceTimersByTimeAsync(0);
-  expect(transport.call.mock.calls.find(([input]) => input.name === 'kingdown_choose')?.[0].arguments.king).toEqual(saved.king);
+  expect(transport.call.mock.calls.find(([input]) => input.name === 'kingdown_choose')?.[0].arguments.king).toEqual(king);
   expect(app.client.state.pending).toBeUndefined();
 });
 
@@ -221,6 +304,34 @@ it('keeps the saved command and makes no widget write when Create replies after 
   const before = save.mock.calls.length;
   release({ content: [], _meta: { view: { ...game, kind: 'solo' } } }); await vi.advanceTimersByTimeAsync(0);
   expect(save).toHaveBeenCalledTimes(before); expect(app.client.state.pending).toBe(pending);
+});
+
+it('keeps the inline start for Retry when the first Settings read fails', async () => {
+  transport.mode = 'inline';
+  const pending = { name: 'kingdown_create', args: { kind: 'solo', command_id: 'once' }, screen: 'play', quick: true };
+  (window as any).openai.widgetState = { privateContent: { screen: 'home', queued: 'play', pending } };
+  const saved = (await import('./screens/setup-model')).readSetup(null);
+  saved.options = { ...saved.options, cards: false, kingPowers: true, arrangement: false }; saved.king = { king: 'Flame', power: 'Haste' };
+  const created = { ...game, kind: 'solo', status: 'setup', seat: 0, draw: 'RNBQKBNR', options: saved.options };
+  let failed = true;
+  transport.call.mockImplementation(async ({ name }) => {
+    if (name === 'kingdown_settings' && failed) return { content: [{ type: 'text', text: 'Settings unavailable' }], isError: true };
+    return { content: [], _meta: name === 'kingdown_settings' ? { settings: { ...settings, last_setup: saved }, me: { handle: 'player', icon: 'spirit' } }
+      : name === 'kingdown_create' ? { view: created }
+      : name === 'kingdown_choose' ? { view: { ...created, status: 'playing', revision: 2, rules: {} } } : { games: [] } };
+  });
+  const app = await import('./app');
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'home' }, _meta: { board_id: 'board-a' } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.pending).toMatchObject({ name: 'kingdown_create', args: { command_id: 'once' }, error: 'Settings unavailable' });
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create')).toHaveLength(0);
+  await app.send(pending.name, app.client.state.pending!.args, { retry: true, retain: true });
+  expect(app.client.state.pending?.error).toBe('Settings unavailable');
+  failed = false;
+  await app.send(pending.name, app.client.state.pending!.args, { retry: true, retain: true });
+  expect(transport.call.mock.calls.find(([input]) => input.name === 'kingdown_create')?.[0].arguments.command_id).toBe('once');
+  expect(transport.call.mock.calls.find(([input]) => input.name === 'kingdown_choose')?.[0].arguments.king).toEqual(saved.king);
+  expect(app.client.state.pending).toBeUndefined(); expect(app.memory.view?.status).toBe('playing');
 });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 

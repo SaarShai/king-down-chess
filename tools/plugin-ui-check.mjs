@@ -675,6 +675,47 @@ try {
     assert(await frame.locator('[data-screen="profile"]').isVisible(), 'A late Choose keeps the newer Profile screen');
     assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending ?? null), null);
     await abortSetup(lateGame);
+    // A computer reply must leave the newer game's mount in its own epoch.
+    const nextSeat = await setupTool('kingdown_create', { kind: 'solo', colour: 'white', options: { ...DEFAULT_OPTIONS, arrangement: true, kingPowers: false } });
+    await setupMount({ ...baseSetup, colour: 'black', options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: false } });
+    await page.evaluate(() => { window.holdNext = 'kingdown_computer'; });
+    await frame.locator('#setup-start').click(); await page.waitForFunction(() => !!window.releaseHeld);
+    const oldComputerGame = await page.evaluate(() => window.harnessView.game_id);
+    const seatResult = await setupTool('kingdown_open', { game_id: nextSeat._meta.view.game_id });
+    const getsBeforeSeat = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
+    await page.evaluate(result => { window.holdNextGet = true; return window.harnessShow(result); }, seatResult);
+    await page.evaluate(() => window.releaseHeld());
+    await page.waitForFunction(() => !!window.releaseHeldGet); await settled();
+    assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), getsBeforeSeat + 1, 'The old computer reply sends no recovery read over the mount');
+    await page.evaluate(() => window.releaseHeldGet()); await settled();
+    await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'seat');
+    await abortSetup(nextSeat._meta.view.game_id); await abortSetup(oldComputerGame);
+    // Check the mount lock before release, then the returned list and all error lines.
+    for (const held of ['kingdown_settings', 'kingdown_get', 'kingdown_games']) {
+      const mountGame = await setupTool('kingdown_create', { kind: 'solo', colour: 'white', options: { ...DEFAULT_OPTIONS, arrangement: true, kingPowers: false } });
+      const mountResult = await setupTool('kingdown_open', { game_id: mountGame._meta.view.game_id });
+      await page.evaluate(result => window.harnessShow(result), mountResult);
+      await frame.locator('[data-screen="seat"]:not([hidden])').waitFor(); await settled();
+      const listed = (await setupTool('kingdown_games'))._meta.games;
+      await page.evaluate(name => { window.holdNext = name; }, held);
+      await remountFrame(); await page.waitForFunction(() => !!window.releaseHeld);
+      await page.clock.fastForward(20_000); await settled();
+      assert(await frame.locator('#home-play').isDisabled(), `${held} still holds the mount lock after 20 s`);
+      assert(await frame.locator('#setup-start').isDisabled(), `${held} still locks Start`);
+      assert.equal(await frame.locator('#error').textContent(), '');
+      assert.equal(await frame.locator('#home-error').textContent(), '');
+      if (held === 'kingdown_games') assert.equal(await frame.locator('#games-status').textContent(), 'Loading games…');
+      await page.evaluate(() => window.releaseHeld()); await settled();
+      await frame.locator('#home-play:not(:disabled)').waitFor({ state: 'attached' });
+      assert.equal(await frame.locator('#error').textContent(), '');
+      assert.equal(await frame.locator('#home-error').textContent(), '');
+      assert.equal(await frame.locator('#games-status').textContent(), '');
+      assert.deepEqual(await frame.locator('#games-list [data-game-id]').evaluateAll(rows => rows.map(row => row.dataset.gameId).sort()), listed.map(game => game.game_id).sort());
+      assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'seat');
+      await frame.locator('[data-screen="seat"]:not([hidden]) #seat-ready').waitFor();
+      await abortSetup(mountGame._meta.view.game_id);
+    }
     const newArt = ['archer-w','paladin-w','guard-w','maester-w','beast-w','ogre-w','rook-w','bishop-w','knight-w','queen-w','frost','flame','stratus','mud','spirit','shadow','shadow-b','freeze','icewall','sacrifice','march','leap','salvation','mimic','vault','skylift','back'];
     const html = await frame.locator('html').innerHTML(); for (const file of newArt) assert(html.includes(`/${file}-`), `Setup names ${file}.webp through art`);
     await openPlay();

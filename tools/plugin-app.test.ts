@@ -1367,14 +1367,27 @@ it.each(['kingdown_settings', 'kingdown_get', 'kingdown_games'])('lets the mount
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     if (held === 'kingdown_get') await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); });
+    const expected = await page.evaluate(() => ({ game: (window as any).harnessView?.game_id, revision: (window as any).harnessView?.revision }));
+    const listed = await (await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name: 'kingdown_games', arguments: {} } })).json();
     await page.clock.install();
     await page.evaluate(name => { (window as any).holdNext = name; }, held);
     await page.locator('#remount').click();
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     await page.clock.fastForward(20_000);
+    expect(await frame.locator('html').evaluate(() => ({ mounting: (window as any).harnessApp.queue.mounting(), reads: (window as any).harnessApp.client.inflight }))).toEqual({ mounting: true, reads: 1 });
+    expect(await frame.locator('#home-play').isDisabled()).toBe(true);
+    expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
+    expect(await frame.locator('#home-error').textContent()).toBe('');
+    expect(await frame.locator('#error').textContent()).toBe('');
+    if (held === 'kingdown_games') expect(await frame.locator('#games-status').textContent()).toBe('Loading games…');
     await page.evaluate(() => (window as any).releaseHeld());
     await frame.locator('#home-play:not(:disabled)').waitFor();
+    await settled(page);
     expect(await frame.locator('#home-error').textContent()).toBe('');
+    expect(await frame.locator('#error').textContent()).toBe('');
+    expect(await frame.locator('#games-status').textContent()).toBe('');
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.games.map((g: any) => g.game_id))).toEqual(listed._meta.games.map((g: any) => g.game_id));
+    if (held === 'kingdown_get') expect(await frame.locator('html').evaluate(() => ({ game: (window as any).harnessApp.memory.view?.game_id, revision: (window as any).harnessApp.memory.view?.revision }))).toEqual(expected);
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 

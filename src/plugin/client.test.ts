@@ -2,6 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { createClient, BOARD_ID_TOOLS, type WidgetHost } from './client';
 
 describe('app client', () => {
+  it.each([null, { king: 'Flame', power: 'Haste' } as const])('keeps the start king through a widget save and remount: %s', king => {
+    const host: WidgetHost = { setWidgetState: state => { host.widgetState = state as NonNullable<WidgetHost['widgetState']>; } };
+    const client = createClient({ callServerTool: async () => ({ content: [] }) }, host);
+    client.state.pending = { name: 'kingdown_create', args: { kind: 'solo', command_id: 'once' }, king };
+    client.save();
+    expect(createClient({ callServerTool: async () => ({ content: [] }) }, host).state.pending?.king).toEqual(king);
+  });
   it('limits commands to 10 seconds, leaves mount reads to the SDK limit and passes a mount\'s abort signal', async () => {
     const callServerTool = vi.fn(async () => ({ content: [] }));
     const client = createClient({ callServerTool }), { signal } = new AbortController();

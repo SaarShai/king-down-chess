@@ -14,7 +14,7 @@ import { art, symbols } from '../art';
 import { pieceIcon } from '../../piece-icons';
 import { snd } from '../../render/sfx';
 import '../../ceremony.css';
-import { client, memory, navigate, routeView } from '../app';
+import { client, memory, navigate, queue, routeView, send } from '../app';
 import { locks, noticeShows, staleRead, type Page, type Store } from '../state';
 import { nextGame } from '../next-game';
 import { actionButtons } from './board-actions';
@@ -123,8 +123,11 @@ export function boardScreen(store: Store) {
     if (tornDown || !view || client.state.screen !== 'board' || document.hidden || blocked() || computerRunning || computerCalls >= 4 || view.kind !== 'solo' || view.status !== 'playing' || view.turn === view.seat || $<HTMLDialogElement>('over').open) return;
     const game = view.game_id; computerRunning = true;
     if (computerCalls++ === 0) thinkingTimer = setTimeout(() => { if (view?.game_id === game && view.turn !== view.seat) { thinking = true; strips(); } }, 1000);
-    const next = await call('kingdown_computer', {game_id:game, command_id:crypto.randomUUID().replaceAll('-', ''), expected_revision:view.revision}, true, false, undefined, false, undefined, false);
-    if (!next && !client.state.pending && view?.game_id === game) await call('kingdown_get', {});
+    const origin = queue.command('write', 'kingdown_computer', {}, { user: false });
+    const outcome = await send('kingdown_computer', {game_id:game, command_id:crypto.randomUUID().replaceAll('-', ''), expected_revision:view.revision}, { retain: true, user: false, origin });
+    if (outcome.status === 'superseded') { computerRunning = false; clearTimeout(thinkingTimer); thinking = false; return; }
+    const next = outcome.status === 'done' || outcome.status === 'refused' ? outcome.view : undefined;
+    if (!next && !client.state.pending && view?.game_id === game) await send('kingdown_get', {}, { origin, user: false });
     computerRunning = false;
     if (!view || view.game_id !== game || view.turn === view.seat || view.status !== 'playing' || client.state.pending?.error) { clearTimeout(thinkingTimer); thinking = false; }
     if (view?.game_id === game) { strips(); void computer(); }
