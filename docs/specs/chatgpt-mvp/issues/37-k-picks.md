@@ -16,4 +16,15 @@ The owner approves K1 a and K2 a on 2026-10-17. The build uses the ticket in the
 
 ## Evidence
 
-Checks are written before the CSS and markup change. Results follow after each check run.
+The final base check uses commit `63767598`. The app CSS and markup match `4692477c` (`git diff --exit-code 4692477c -- src/plugin/app.ts src/plugin/app.css` passes). The M1 runner exits 1 in 109.5 s. Both K1 and K2 fail before the build.
+
+- K1: at 402 px without powers, the opponent name needs 81 px but gets 66 px. Your name needs 109 px but gets 86 px. With powers, your name gets 56 px. The coins stay in the name row. All six card cases have the expected four or five coins.
+- K2: Resume stays on one line and is cut at 390, 402, and 440 px. The 48 px button height and the 320 px column pass.
+- The first two base runs expose faults in the new test data. The final test waits for the host read and uses the valid always-on March power with cards.
+- Base runner log: `scratchpad/lanes/k-picks/checks-base-3.txt` in the task scratch folder.
+
+## Build
+
+K1 merges the three existing card-row rules into one rule through 440 px. It applies to both strips. The base check shows that both names need the change. The zoom rules below 320 px and the desktop rules stay in place.
+
+K2 and final check results follow.
