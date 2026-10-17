@@ -4,7 +4,7 @@
 #profile-sheet .who-row small { color: var(--ink-soft); font-size: var(--fs-sm); }
 #profile-sheet .rating { display: flex; align-items: baseline; gap: 4px; font-family: var(--font-display); }
 #profile-sheet .rating b { font-size: var(--fs-2xl); }
-#profile-sheet .q { display: inline-grid; place-items: center; width: 20px; height: 20px; font-family: var(--font-body); font-size: 13px; font-weight: 800; color: var(--vellum); background: var(--gold-ink); border-radius: 50%; vertical-align: 2px; }
+#profile-sheet .q { display: inline-grid; place-items: center; width: 20px; height: 20px; font-family: var(--font-body); font-size: var(--fs-xs); font-weight: 800; color: var(--vellum); background: var(--gold-ink); border-radius: 50%; vertical-align: 2px; }
 #profile-sheet .split { display: grid; gap: var(--space-4); margin-top: var(--space-3); }
 /* The slices hold the rollers and the shadow under each roller at the scale of the art. Only the flat parchment stretches
    with the list, so the rows of a long list stay on light parchment (M13 after More). */
