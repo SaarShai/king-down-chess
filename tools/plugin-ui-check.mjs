@@ -2370,7 +2370,7 @@ try {
       const expected = {
         frame:[0,0,393,756], '#board':[4,44,385,411], '#board canvas':[4,44,385,411],
         '#strip-them':[0,0,393,44], '#strip-me':[0,455,393,44], '#context-line':[12,499,369,44],
-        '#moves-line':[12,543,369,44], '#table-bar':[0,712,393,44],
+        '#moves-line':[12,543,369,44], '#table-bar':[0,708,393,48],
       };
       for (const [id,box] of Object.entries(expected)) assert(boxes[id]?.every((value,i) => Math.abs(value-box[i]) <= 1),
         `At 393 x 852 ${id} keeps its measured box (1 px rounding): ${JSON.stringify(boxes)}`);
