@@ -33,6 +33,7 @@ for (const [owner, methods] of [
   const original = owner[method];
   owner[method] = async function (...args) {
     const start = Date.now();
+    if (['click', 'check', 'uncheck'].includes(method)) args[0] = { ...args[0], timeout: 2000 };
     try { return await original.apply(this, args); }
     finally { const ms = Date.now() - start; if (ms >= 100) console.log('[DEBUG-webkit-30]', Date.now() - debugStart, method, ms, String(this).slice(0, 160), String(args[0]).slice(0, 80)); }
   };
