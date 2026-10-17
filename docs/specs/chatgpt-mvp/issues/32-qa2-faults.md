@@ -71,4 +71,11 @@ Review A reports no fault. Review B reports that the width-only 224 px cap cuts 
 - The repair keeps the 224 px cap only at viewport heights of 480 px or less. All other narrow viewports use `calc(100% - 68px)`. The two short cases keep their existing rules. Widths of 320 px or more keep their existing rules.
 - The checks use fresh mobile hosts at 197 x 426 with insets 51/59 and at 197 x 800 with insets 51/0. Both result types must pass. The tall case requires all three actions to fit at scroll top zero and no card scroll. The host-size test adds the same tall loss case.
 
-The full test suite and the fixed browser check are next.
+- `plugin-ui`: pass on the M1 at `72616464` in 144.0 seconds. The runner ends with `check-runner: M1 exit 0 at 72616464`. Log: `checks-zoom-end-review-fix-1.txt`; full detail: `zoom-end-review-fix-detail.txt` in the lane folder.
+- At 197 x 800, the loss card is 369.44 px high (`scrollHeight` and `clientHeight`: 367). The win card is 372.34 px high (`scrollHeight` and `clientHeight`: 370). All three actions fit at scroll top zero. Both short bottom-gap cases keep the cut New game cue and the full action checks after scroll.
+- The existing 320 x 568, 393 x 852 and 1280 x 800 browser checks pass. All six saved end images pass visual review. Back stays clear. The tall cards show all three actions.
+- No server code changes. `plugin-ui-http` is not needed.
+
+The first full test run starts after about 22 minutes in the shared queue. It reports three match test failures, one database test failure, and one failure in the new tall unit check. The new assertion includes the hidden Skip button. Its empty box fails the bounds check. The repair excludes hidden buttons, as the browser check already does. The lane stops only its own test runner, PID 94289, with SIGINT to repair this check. The command exits 130. Log: `tests-zoom-end-review-1.txt`. This run is incomplete and is not a pass. No time limit changes.
+
+Next: run the host-size file through `npm test`, then repeat the full suite with the local test database. Check the failed files with their current limits.

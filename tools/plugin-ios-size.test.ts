@@ -572,7 +572,7 @@ it.each([[426, 59], [800, 0]])('keeps Back clear and end actions reachable at 19
       expect(cue.visible).toBeGreaterThanOrEqual(12);
       expect(cue.cut).toBe(true);
     } else {
-      expect(await frame.locator('#over form button').evaluateAll(buttons => buttons.every(e => {
+      expect(await frame.locator('#over form button:not([hidden])').evaluateAll(buttons => buttons.every(e => {
         const r = e.getBoundingClientRect(), card = e.closest('dialog')!.getBoundingClientRect(), frame = document.getElementById('app-frame')!.getBoundingClientRect();
         return r.top >= card.top && r.bottom <= card.bottom && r.left >= card.left && r.right <= card.right && r.top >= frame.top && r.bottom <= frame.bottom && r.left >= frame.left && r.right <= frame.right;
       }))).toBe(true);
