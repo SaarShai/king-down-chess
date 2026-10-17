@@ -164,6 +164,7 @@ it('marks the pieces that can use Vault with the power target mark', async () =>
   const page = await open(next), frame = page.frameLocator('iframe');
   try {
     await frame.locator('#card-w-0').click(); await frame.getByRole('button', { name: 'Use', exact: true }).click();
+    expect(await frame.locator('#status').textContent()).toBe('Vault.');
     setRules(rules); const sources = [...new Set(legalMoves(fromFen(next.fen)).filter(m => m.power === 'vault').map(m => m.from))];
     expect(sources.length).toBeGreaterThan(0); expect((await marks(page)).powers).toEqual(sources);
   } finally { await page.close(); }
@@ -199,7 +200,7 @@ it('names Mirror B and Morph P with the shared card names on the coins, the shee
     await frame.locator('#card-w-0').click();
     expect(await frame.locator('#board-sheet[open] h2').textContent()).toBe('Morph');
     await frame.getByRole('button', { name: 'Use', exact: true }).click();
-    expect(await frame.locator('#status').textContent()).toBe('Morph');
+    expect(await frame.locator('#status').textContent()).toBe('Morph.');
   } finally { await page.close(); }
 });
 

@@ -357,7 +357,7 @@ export function boardScreen(store: Store) {
     // G1 a: put the target words first so a short screen keeps the next action in view.
     if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) {
       const card = RULES.hands[view.seat][armedCard], squares = named().length && named().length === cardChoices().filter(c => !c.move.pass).length;
-      Object.assign(context, {rank:'armed', line:cardName(card), note:`${squares ? 'Tap a marked square.' : 'Choose a marked piece, then a marked square.'} ${ruleLine(cardText(card))}`});
+      Object.assign(context, {rank:'armed', line:`${cardName(card)}.`, note:`${squares ? 'Tap a marked square.' : 'Choose a marked piece, then a marked square.'} ${ruleLine(cardText(card))}`});
     } else if (armed && context.rank === 'armed') Object.assign(context, {note:`${context.note} ${ruleLine(powerText(armed, RULES))}`});
     // Keep the armed row size while the preview asks for a second tap and names the result.
     if (hold && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:context.rank === 'armed' ? 'armed' : 'held', line:`Tap again to ${hold.move.shove ? 'shove' : 'swap'}.`, note:describeMove(pos, hold.move)});

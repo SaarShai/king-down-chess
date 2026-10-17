@@ -25,6 +25,7 @@ const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: true });
 trapErrors(page);
 page.on('pageerror', error => console.error(error.stack));
+
 try {
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
@@ -1134,6 +1135,21 @@ try {
   // Ticket 15: the board and end routes.
   assert.equal(await frame.locator('#game-table').count(), 1, 'The board uses the approved game table');
 
+  async function hostPage(width, height, top, bottom) {
+    const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
+    trapErrors(page);
+    await page.goto(base);
+    await page.locator('#remount').evaluate(el => { el.style.display = 'none'; });
+    await page.locator('iframe').evaluate(el => { el.style.setProperty('height', '100dvh', 'important'); });
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    await page.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen' }));
+    const result = await page.evaluate(() => window.harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }));
+    await page.evaluate(result => window.harnessShow(result), result);
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await page.evaluate(safeAreaInsets => window.harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets, deviceCapabilities: { touch: true } }), { top, bottom, left: 0, right: 0 });
+    return { page, frame };
+  }
+
   // Ticket 13: friend, join, lobby and wait.
   {
     const { mkdir } = await import('node:fs/promises'), { tmpdir } = await import('node:os'), { join } = await import('node:path');
@@ -1167,6 +1183,34 @@ try {
     assert(await frame.locator('#friend-share').evaluate(button => button.classList.contains('primary')), 'Share is the main action');
     assert((await frame.locator('#friend-expiry').innerText()).startsWith('Ends '), 'The Ends line stays');
     await lookAt('friend-code', 'friend');
+    // Ticket 32 D: use fresh mobile hosts, including the real 200% host geometry.
+    for (const [width, height, top, bottom] of [[197, 426, 51, 59], [320, 568, 63, 84], [393, 852, 102, 118], [1280, 800, 0, 0]]) {
+      const host = await hostPage(width, height, top, bottom);
+      try {
+        await host.frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
+        await host.frame.locator('#setup-start').click();
+        await host.frame.locator('.game-code span').first().waitFor();
+        await host.frame.locator('html').evaluate(() => document.fonts.ready);
+        const labels = await host.frame.locator('#friend-actions').evaluate(row => [...row.querySelectorAll('button')].map(button => {
+          const label = button.querySelector('.label') ?? button, range = document.createRange();
+          range.selectNodeContents(label);
+          const box = button.getBoundingClientRect(), text = range.getBoundingClientRect();
+          return { id: button.id, scroll: label.scrollWidth, client: label.clientWidth, rightGap: box.right - text.right, left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, rowWidth: row.getBoundingClientRect().width };
+        }));
+        const all = `Friend actions at ${width} x ${height}: ${JSON.stringify(labels)}`;
+        console.log(all);
+        assert.deepEqual(labels.map(label => label.id), ['friend-share', 'friend-copy'], all);
+        for (const label of labels) {
+          assert(label.scroll <= label.client, `The ${label.id} label fits: ${all}`);
+          assert(label.rightGap >= 8, `The ${label.id} text keeps at least 8 px on the right: ${all}`);
+        }
+        if (width <= 299) assert(labels[1].top >= labels[0].bottom && labels.every(label => Math.abs(label.width - label.rowWidth) < 1), `Share and Copy stack at full width: ${all}`);
+        else assert(Math.abs(labels[0].top - labels[1].top) < 1 && labels[0].right <= labels[1].left, `Share and Copy stay side by side: ${all}`);
+        await host.frame.locator('#friend-copy').scrollIntoViewIfNeeded();
+        await shot(host.page, `friend-actions-${width}-${mode}`);
+      } finally { await host.page.close(); }
+    }
+
     await frame.locator('html').evaluate(() => {
       window.inviteShareCalls = 0;
       Object.defineProperty(navigator, 'share', { configurable: true, value: async () => { window.inviteShareCalls++; } });
@@ -1806,7 +1850,7 @@ try {
   await measureCardCoins(frame, env('PLAYABLE_OUT'));
   const cardView = cardGame._meta.view; setRules(cardView.rules);
   const cardPos = fromFen(cardView.fen), cardLegal = legalMoves(cardPos).filter(m => cardView.legal.includes(toLan(cardPos,m))), hand = cardCoins(cardPos,cardView.seat,cardView.rules.hands[cardView.seat],cardLegal);
-  const cardIndex = hand.findIndex(c=>c.moves.length); assert(cardIndex>=0,'The dealt hand has a card to play');
+  const cardIndex = hand.findIndex(c=>c.card === 'Vault' && c.moves.length); assert(cardIndex>=0,'The dealt Vault has a move');
   const card = hand[cardIndex], cardWords = cardName(card.card), cardLan = toLan(cardPos,card.moves[0]);
   assert.equal(await frame.locator('#strip-me .card-coin').count(),4); assert.equal(await frame.locator('#strip-them .card-coin').count(),4);
   const beforeCardRead = await page.evaluate(() => window.harnessWidgetState);
@@ -1815,6 +1859,22 @@ try {
   await page.waitForFunction(() => window.harnessWidgetState.privateContent.sheet === 'board-sheet');
   assertCardReadState(beforeCardRead, await page.evaluate(() => window.harnessWidgetState));
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
+  for (const [width, height, top, bottom] of [[197, 426, 51, 59], [393, 852, 102, 118]]) {
+    const host = await hostPage(width, height, top, bottom);
+    try {
+      await host.frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
+      await host.page.evaluate(view => {
+        window.harnessNextView = view;
+        return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id, screen: 'board' }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
+      }, cardView);
+      await host.frame.locator('#card-w-' + cardIndex).click();
+      await host.frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
+      assert.equal(await host.frame.locator('#status').textContent(), 'Vault.', `The armed card name ends with a stop at ${width} x ${height}`);
+      await host.frame.locator('#context-text').scrollIntoViewIfNeeded();
+      await host.frame.locator('html').evaluate(() => document.fonts.ready);
+      await shot(host.page, `board-cards-armed-${width}-${mode}`);
+    } finally { await host.page.close(); }
+  }
   await zoomBoardFits('board-cards-armed');
   await openMoveChoices(); await frame.locator(`#choices button[title="${cardLan}"]`).click(); await sendTurn();
   await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.actions?.[0]===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
@@ -1971,25 +2031,65 @@ try {
     await shot(page, `zoom-fit-${label}-${mode}`);
     await zoomViewport(viewport.width, viewport.height, 0, 0);
   }
-  // T1: at 197 x 426 the end card shows its result line and the top of its first action with no scroll, and its last
-  // action scrolls into the frame.
-  async function zoomEndFits(label) {
-    const viewport = page.viewportSize();
-    await zoomViewport(197,426,51,59);
-    const card = frame.locator('#over.end-card[open]');
-    await card.evaluate(el => { el.scrollTop = 0; });
-    const buttons = card.locator('form button:visible');
-    const first = await buttons.first().evaluate(el => { const r = el.getBoundingClientRect(), c = el.closest('dialog').getBoundingClientRect(); return {button:[r.left,r.top,r.width,r.height].map(Math.round), card:[c.left,c.top,c.width,c.height].map(Math.round)}; });
-    const m = await zoomBoxes(['#over','#end-reason']);
-    const all = JSON.stringify({...m, first});
-    assert(inFrame(m['#end-reason'], m.frame) && m['#end-reason'][1] + m['#end-reason'][3] <= first.card[1] + first.card[3] + 1, `${label} at 197 x 426: the result line shows with no scroll: ${all}`);
-    assert(first.button[1] < first.card[1] + first.card[3] - 8, `${label} at 197 x 426: the first end action shows with no scroll, so the card shows that it scrolls: ${all}`);
-    const last = buttons.last(); await last.evaluate(el => { const card = el.closest('dialog'), r = el.getBoundingClientRect(), c = card.getBoundingClientRect(); card.scrollTop += Math.max(0, r.bottom - c.bottom + 16); });
-    const end = await zoomBoxes(['#app-frame']); const lastBox = await last.evaluate(el => [el.getBoundingClientRect().left, el.getBoundingClientRect().top, el.getBoundingClientRect().width, el.getBoundingClientRect().height].map(Math.round));
-    assert(inFrame(lastBox, end.frame) && (await last.evaluate(controlBounds)).accessible, `${label} at 197 x 426: the last end action scrolls into the frame: ${JSON.stringify({last:lastBox, frame:end.frame})}`);
-    await shot(page, `zoom-fit-${label}-${mode}`);
-    await card.evaluate(el => { el.scrollTop = 0; });
-    await zoomViewport(viewport.width, viewport.height, 0, 0);
+  // Ticket 32 C: use a fresh mobile host. A cut New game shows that the card scrolls; each action stays reachable.
+  async function zoomEndFits(label, height = 426) {
+    // Both results use the three solo actions named in ticket 32 C.
+    const view = await page.evaluate(() => ({ ...window.harnessView, kind: 'solo', opponent: { ...window.harnessView.opponent, computer: true } }));
+    const host = await browser.newPage({ viewport: { width: 197, height }, isMobile: true, hasTouch: true });
+    trapErrors(host);
+    const frame = host.frameLocator('iframe');
+    try {
+      await host.goto(base);
+      await host.locator('#remount').evaluate(el => { el.style.display = 'none'; });
+      await host.locator('iframe').evaluate(el => { el.style.setProperty('height', '100dvh', 'important'); });
+      await frame.locator('#home-play:not(:disabled)').waitFor();
+      await host.evaluate(bottom => window.harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top: 51, bottom, left: 0, right: 0 }, deviceCapabilities: { touch: true } }), height === 426 ? 59 : 0);
+      // The win sample exists only in the check. A live poll must not replace it.
+      await frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
+      await host.evaluate(view => {
+        window.harnessNextView = view;
+        return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id, screen: 'board' }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
+      }, view);
+      const card = frame.locator('#over.end-card[open]');
+      await card.waitFor();
+      await frame.locator('html').evaluate(async () => {
+        await document.fonts.ready;
+        for (let run; (run = document.getAnimations().filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
+      });
+      for (const gap of height === 426 ? [96, 59] : [96]) {
+        // The second case tests the host inset alone, with no estimated composer floor.
+        await frame.locator('#app-frame').evaluate((el, gap) => { el.style.bottom = `${gap}px`; }, gap);
+        await card.evaluate(el => { el.scrollTop = 0; });
+        const m = await card.evaluate(el => {
+          const box = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; };
+          return { frame: box(document.querySelector('#app-frame')), card: box(el), reason: box(el.querySelector('#end-reason')), buttons: [...el.querySelectorAll('form button:not([hidden])')].map(box), scroll: el.scrollTop, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
+        });
+        const all = `${label} at 197 x ${height}, bottom gap ${gap}: ${JSON.stringify(m)}`, bottom = m.card[1] + m.card[3];
+        assert.equal(m.frame[1], 51, all); assert.equal(m.frame[1] + m.frame[3], height - gap, all);
+        assert.equal(m.buttons.length, 3, all);
+        await shot(host, `zoom-fit-${label}-${height}-gap-${gap}-${mode}`);
+        assert(inFrame(m.reason, m.frame) && inFrame(m.reason, m.card), `The result line shows with no scroll: ${all}`);
+        if (height === 426) {
+          assert(m.scroll === 0 && m.buttons[1][1] <= bottom - 12 && m.buttons[1][1] + m.buttons[1][3] > bottom, `New game crosses the card edge with at least 12 px in view: ${all}`);
+        } else {
+          assert(m.scroll === 0 && m.scrollHeight <= m.clientHeight && m.buttons.every(button => inFrame(button, m.card) && inFrame(button, m.frame)), `All three end actions show in full with no scroll in a tall frame: ${all}`);
+        }
+        assert(inFrame(m.buttons[0], m.frame) && inFrame(m.buttons[0], m.card), `Play again shows in full with no scroll: ${all}`);
+        for (const name of ['Play again', 'New game', 'See the board']) {
+          const button = card.getByRole('button', { name, exact: true });
+          await button.evaluate(el => {
+            const card = el.closest('dialog'), r = el.getBoundingClientRect(), c = card.getBoundingClientRect();
+            card.scrollTop += r.top + r.height / 2 - c.top - card.clientHeight / 2;
+          });
+          const seen = await button.evaluate(el => {
+            const box = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }, r = el.getBoundingClientRect();
+            return { button: box(el), card: box(el.closest('dialog')), frame: box(document.querySelector('#app-frame')), hit: el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)) };
+          });
+          assert(inFrame(seen.button, seen.card) && inFrame(seen.button, seen.frame) && seen.hit, `${name} scrolls fully into the card and frame, and its centre takes a tap: ${JSON.stringify(seen)}`);
+        }
+        console.log(`PASS: ${all}; all three end actions fit and take a tap after scroll`);
+      }
+    } finally { await host.close(); }
   }
   // T3: the boxes of the hall that the page cuts. Each box outside a scroll box must hold its box inside its holder box
   // (its nearest clip parent, or the frame), and a box that cuts its content (hidden or clip overflow, no scroll box
@@ -2075,7 +2175,7 @@ try {
   const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);
   await page.clock.fastForward(1100);
   await page.evaluate(()=>{window.dropNextReply='kingdown_rematch';});
-  await zoomEndFits('end-loss');
+  for (const height of [426, 800]) await zoomEndFits('end-loss', height);
   await tapEndAtZoom('Play again');
   await frame.locator('#over #retry').waitFor();
   const pendingRematch=await page.evaluate(()=>window.harnessWidgetState.privateContent.pending);
@@ -2502,7 +2602,7 @@ try {
     // Ticket 28 T1 and T2 at 200% zoom.
     const zoomName={board:'board-turn','board-abort':'board-cards'}[state.name];
     if (zoomName) await zoomBoardFits(zoomName);
-    if (state.end) await zoomEndFits('end-win');
+    if (state.end) for (const height of [426, 800]) await zoomEndFits('end-win', height);
     if (state.name === 'board-abort') {
       const viewport = page.viewportSize();
       const screen = frame.locator('[data-screen="board"]');

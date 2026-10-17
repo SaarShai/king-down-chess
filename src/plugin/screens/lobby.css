@@ -8,6 +8,7 @@
 .friend-invite-row > [role="status"] { grid-column: 1 / -1; user-select: text; }
 .friend-invite-row > [role="status"]:empty { display: none; }
 @media (max-width: 299px) {
+  .friend-actions { flex-direction: column; }
   .friend-invite-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
 }
 #friend-copy-status { user-select: text; }
