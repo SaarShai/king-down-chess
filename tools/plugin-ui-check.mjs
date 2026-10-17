@@ -1832,6 +1832,7 @@ try {
   async function zoomEndFits(label) {
     const view = await page.evaluate(() => window.harnessView);
     const host = await browser.newPage({ viewport: { width: 197, height: 426 }, isMobile: true, hasTouch: true });
+    trapErrors(host);
     const frame = host.frameLocator('iframe');
     try {
       await host.goto(base);
@@ -1841,7 +1842,10 @@ try {
       await host.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top: 51, bottom: 59, left: 0, right: 0 }, deviceCapabilities: { touch: true } }));
       // The win sample exists only in the check. A live poll must not replace it.
       await frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
-      await host.evaluate(view => window.harnessShow({ content: [], structuredContent: { game_id: view.game_id, screen: 'board' }, _meta: { view } }), view);
+      await host.evaluate(view => {
+        window.harnessNextView = view;
+        return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id, screen: 'board' }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
+      }, view);
       const card = frame.locator('#over.end-card[open]');
       await card.waitFor();
       await frame.locator('html').evaluate(async () => {
