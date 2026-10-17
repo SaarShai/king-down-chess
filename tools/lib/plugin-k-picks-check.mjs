@@ -11,7 +11,7 @@ export async function checkOwnerPicks(page, frame, saved, idleBoard, boardBox) {
       window.harnessNextView = view;
       return window.harnessShow({ content: [], structuredContent: { screen: 'board', game_id: view.game_id }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
     }, view);
-    await page.waitForFunction(view => window.harnessView.game_id === view.game_id, view);
+    await page.waitForFunction(view => window.harnessView.game_id === view.game_id && !window.harnessNextView, view);
     await idleBoard(); await boardBox();
   };
   await frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
