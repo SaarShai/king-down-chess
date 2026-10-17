@@ -2151,7 +2151,26 @@ try {
     }
     // Ticket 28 T2: the other player's turn has its own game id, since the board ignores a second view at one revision.
     // A new game needs its matching full history to restore the last move.
-    if (state.claim) { await showSnapshot({...snapshot,game_id:randomUUID(),revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:[],last_commands:commands,history:{initial_fen:state.fen,actions:state.play},deadline_at:null},story); await zoomBoardFits('board-their-turn'); }
+    if (state.claim) {
+      const theirTurn = {...snapshot,game_id:randomUUID(),revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:[],last_commands:commands,history:{initial_fen:state.fen,actions:state.play},deadline_at:null};
+      await showSnapshot(theirTurn,story); await zoomBoardFits('board-their-turn');
+      // T6: match the tall-phone capture: full host height, no cards or powers, and the other player's turn.
+      await showSnapshot({...theirTurn,game_id:randomUUID(),options,rules:{kings:[null,null],hands:[[],[]]},kings:[null,null],hands:[[],[]]},story);
+      const viewport = page.viewportSize();
+      const hostStyle = await page.locator('iframe').getAttribute('style');
+      await page.locator('iframe').evaluate(el => el.style.setProperty('height','100dvh','important'));
+      await zoomViewport(393,852,0,0); await boardBox();
+      const boxes = await zoomBoxes(['#board','#board canvas','#strip-them','#strip-me','#context-line','#moves-line','#table-bar']);
+      console.log(`T6 tall-phone boxes: ${JSON.stringify(boxes)}`);
+      assert.deepEqual(boxes, {
+        frame:[0,0,393,756], '#board':[4,44,385,411], '#board canvas':[4,44,385,411],
+        '#strip-them':[0,0,393,44], '#strip-me':[0,455,393,44], '#context-line':[12,499,369,44],
+        '#moves-line':[12,543,369,44], '#table-bar':[0,712,393,44],
+      }, 'At 393 x 852 the board fills its available width; the 125 px band and all rows keep their measured boxes');
+      await shot(page,`tall-board-their-turn-393-${mode}`);
+      await page.locator('iframe').evaluate((el,style) => style === null ? el.removeAttribute('style') : el.setAttribute('style',style),hostStyle);
+      await zoomViewport(viewport.width,viewport.height,0,0);
+    }
   }
   // Ticket 05: a draw offer keeps its size when piece and card actions show.
   const drawRules = {...sampleRules, hands:[['Haste'],['Haste']]};
