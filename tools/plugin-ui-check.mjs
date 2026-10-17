@@ -2088,6 +2088,7 @@ try {
         const text=range.getBoundingClientRect(), row=el.getBoundingClientRect(); return text.bottom<=row.bottom+1 && text.right<=row.right+1;
       },targets.split(',')[0]),`${card}: the next action stays in view at ${width}px`);
       const after = await frame.locator('#board canvas').boundingBox(); assert(Math.abs(before.width-after.width)<1,'G1 keeps the board size');
+      await boardBox();
       await shot(page,`ticket26-targets-${card}-${width}-${mode}`);
       await frame.locator('#context-actions').getByRole('button',{name:'Cancel',exact:true}).click();
     }
@@ -2100,6 +2101,8 @@ try {
       await clickSquare(from&7,from>>3); await clickSquare(target&7,target>>3);
       assert.equal(await frame.locator('#status').textContent(),`Tap again to ${action}.`);
       assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'true','The first tap adds no draft step');
+      // The status changes before the canvas paints its new marks.
+      await boardBox();
       await shot(page,`ticket26-preview-${action}-${width}-${mode}`);
       await clickSquare(other&7,other>>3);
       assert.equal(await frame.locator('#status').textContent(),'Your move.','A tap elsewhere clears the preview');

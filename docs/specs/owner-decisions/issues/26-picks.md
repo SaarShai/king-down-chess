@@ -58,6 +58,11 @@ can have a smaller board. The helper now waits for stable, nonzero bounds.
 The tap, drag and draft checks still test the board through its visible squares.
 The 10 s limit stays the same.
 
+The browser check passes on `07e0468e` in 154.7 s. The prior run stops at the
+known `end fits at 360px` fault; the same head passes on the next run. Capture
+review finds one old canvas frame after the status changes. Each new capture
+now waits for the board paint. The product code needs no further change.
+
 ## Build
 
 - G2 a "Dim to 0.85": a spent card coin dims to 0.85, not 0.7. The coin still
