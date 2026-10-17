@@ -81,6 +81,11 @@ addEventListener('message', ({ source, data }) => {
 });
 // The bridge listens before the page loads, as in a real host: the frame's load event waits for the board art.
 async function mount(widget: Widget) {
+  // Drop the old page before a check can find its controls.
+  if (widget.bridge) {
+    const fresh = widget.frame.cloneNode() as HTMLIFrameElement;
+    fresh.removeAttribute('src'); widget.frame.replaceWith(fresh); widget.frame = fresh;
+  }
   await widget.bridge?.close();
   const bridge = widget.bridge = new AppBridge(null, { name: 'King Down local harness', version: '1' }, { serverTools: {}, updateModelContext: {} }, { hostContext: { displayMode: host.harnessDisplayMode ?? 'inline', availableDisplayModes: ['inline', 'fullscreen'], ...host.harnessHostContext } });
   bridge.onrequestdisplaymode = async ({ mode }) => { (host.harnessDisplayRequests ??= []).push(mode); if (host.denyDisplayNext) { host.denyDisplayNext = false; return { mode: host.harnessDisplayMode ?? 'inline' }; } if (host.holdDisplayNext) { host.holdDisplayNext = false; await new Promise(resolve => { host.releaseDisplay = resolve; }); } host.harnessDisplayMode = mode; await bridge.setHostContext({ displayMode: mode }); return { mode }; };
