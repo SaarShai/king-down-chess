@@ -63,3 +63,12 @@ Review A reports no fault. Review B reports that the width-only 224 px cap cuts 
 2. Commit the checks. Run `plugin-ui` through the owner's runner against the current CSS. Record the tall-case failure.
 3. Keep the 224 px cap on short viewports only. Keep the narrow spacing and `calc(100% - 68px)` at other heights.
 4. Run `npm test` with the local test database and `plugin-ui` through the owner's runner. Keep all time limits. Check both short bottom gaps and the existing normal sizes. Record the results and commit the repair.
+
+## Review repair evidence
+
+- Review A: no findings. No repair is needed.
+- Review B, finding 1: confirmed. The new browser check fails on the current CSS at `7a71f9c7`. The loss case has a 653 px frame and a 224 px card at 197 x 800. All three actions do not fit. The M1 ends with `check-runner: M1 exit 1 at 7a71f9c7` after 91.9 seconds. Log: `checks-zoom-end-review-baseline-1.txt`; full detail: `zoom-end-review-baseline-detail.txt` in the lane folder.
+- The repair keeps the 224 px cap only at viewport heights of 480 px or less. All other narrow viewports use `calc(100% - 68px)`. The two short cases keep their existing rules. Widths of 320 px or more keep their existing rules.
+- The checks use fresh mobile hosts at 197 x 426 with insets 51/59 and at 197 x 800 with insets 51/0. Both result types must pass. The tall case requires all three actions to fit at scroll top zero and no card scroll. The host-size test adds the same tall loss case.
+
+The full test suite and the fixed browser check are next.
