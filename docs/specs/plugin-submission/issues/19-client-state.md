@@ -1,6 +1,6 @@
 # Client state: S5 review fixes
 
-Status: in-progress
+Status: resolved
 
 Base: `c8cf0822`. S0: `1ab1975d`. S5 starts at `a5cac8f8`.
 The source ticket and design are in the owner's scratchpad, under `tickets/`.
@@ -38,7 +38,7 @@ Both reviews describe 11 distinct faults. The source confirms all 11.
 | 6. A poll sends Seen after teardown | A6, B6 | The poll checks its outcome, epoch, board, game and screen after Get. Tests leave by teardown, Profile and another game. |
 | 7. An old list replaces the new list | A7 | Every list read uses a queue job. Its data and later board redraw use the same gate. Tests release the old list after a chat result and teardown. |
 | 8. The clock test permits two games | A8 | The test checks the same nonempty command ID, full input, returned game and one new server game for each clock offset. |
-| 9. R3 starts after the held read ends | A9, B7 | R3 starts the read without a wait. It proves that the read is pending before Profile opens. It then releases the reply and checks the screen and view. |
+| 9. R3 starts after the held read ends | A9, B7 | R3 starts the read without a wait. It proves that the read is pending before Profile opens. It checks that both held transport calls still run before release, then checks the screen and view. |
 | 10. Inline Create uses the default king | B4 | The resend loads the saved setup when no draft exists. The inline mount test checks Flame/Haste in the Choose input. |
 | 11. Late Create saves after teardown | B5 | Receipt settlement and the final render stop when the queue closes. A test checks no later widget write and keeps the saved command. |
 
@@ -52,7 +52,25 @@ now accepts the reply for its caller before drawing. Drawing and routing still
 need the rules. A new unit checks Create, Choose, Get and the final Board screen.
 The first app browser file has the same cause in nine tests. Its other 118 tests
 pass. The source run without the database passes 1,608 tests and skips 130 tests.
-The source run with the required database and both browser files must pass next.
+
+## Current verification
+
+All 11 findings are fixed. Each has a unit test or a stronger browser test.
+
+| Check | Result | Log in the owner's state-review lane |
+|---|---|---|
+| `npm test`, with `KINGDOWN_TEST_FILE='src/**/*.test.ts'` and the required local test database | 119 files pass; 1,731 tests pass and 8 skip. The type check passes. | `fix-source-units-2.txt` |
+| `npm test`, with `KINGDOWN_TEST_FILE='tools/plugin-races.test.ts'` | All 42 tests pass, including the final R3 assertion. | `fix-races-browser-2.txt` |
+| `npm test`, with `KINGDOWN_TEST_FILE='tools/plugin-app.test.ts'` | All 127 tests pass, including the three slow mount reads and both clock offsets. | `fix-app-browser-2.txt` |
+| The 50 document tests in each successful `npm test` run | All pass. | The same logs |
+| Required check runner, `plugin-ui` | M1 passes at `d8a4944d` in 156.1 seconds. Final line: `check-runner: M1 exit 0 at d8a4944d`. | `checks-fix-3.txt` |
+
+The last commit adds this check record and the R3 transport assertion. The product
+code matches the passing M1 check. `plugin-ui-http` does not run because no server
+code changes. No test or check time limit changes.
+
+Against `2b7c98f3`, this fix round changes source by `+75 / -47`, net `+28`.
+The size cleanup stays in S6, as the owner directs in the source ticket.
 
 ## Prior findings
 
@@ -68,9 +86,9 @@ Review A has six findings. Review B repeats five of them and adds the setup Retr
 | A5 / B5 | Fixed | D10 checks the saved revision, full FEN, history, cleared offer, cleared draft and settled command after the second press. It has no forced refusal. |
 | A6 | Fixed | The new unit uses the app's real retained call and the router's pending input. It checks that Start settles while Retry stays available. The S4 router fails this assertion; the current router passes. |
 
-## Size gate
+## Prior size gate
 
-The gate still fails. S5 stays open.
+The owner moves this gate to S6. These figures record the prior round.
 
 - Against S0: source `+880 / -402`, net `+478`. With tests: `+1504 / -434`, net `+1070`.
 - Against S4: source `+170 / -205`, net `-35`. With tests: `+312 / -211`, net `+101`.
@@ -78,7 +96,7 @@ The gate still fails. S5 stays open.
 
 The cleanup removes the second pending field, the setup recovery timer and its extra games read, the second saved-pending snapshot, the unused result classifier, and unused queue fields. It does not change code layout to reach a count. These removals do not meet the required net reduction against S0. That gate still needs a larger change to the store and queue.
 
-## Verification
+## Prior verification
 
 The final source unit run passes 119 files: 1,712 tests pass and 8 skip. All 50 document checks pass. The six client files also pass 70 tests.
 

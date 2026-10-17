@@ -499,6 +499,8 @@ it('R3: a poll reply does not replace the screen that a chat result chose (a.out
     await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
     await page.waitForFunction(() => !!(window as any).releaseBefore);
     // The poll reply is older than the chat result, so Profile stays.
+    await settled(page);
+    expect(await html(page).evaluate(() => (window as any).harnessApp.client.inflight)).toBe(2);
     await page.evaluate(() => (window as any).releaseHeld());
     await settled(page);
     await page.evaluate(() => (window as any).releaseBefore());
