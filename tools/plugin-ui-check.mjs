@@ -1317,6 +1317,30 @@ try {
   await clickSquare(3, 3);
   await page.waitForFunction(() => document.querySelector('iframe').contentWindow.harnessSwapMarks > 0);
   assert(await frame.locator('#choices button').count() > 0, 'The Maester fixture offers a swap and PaintedView draws its violet mark');
+  assert.equal(await frame.locator('#status').innerText(), 'White Maester.', 'T5: the selected piece uses its shared display name');
+  const swapViewport = page.viewportSize();
+  for (const [width,height] of [[320,568],[393,852]]) {
+    await page.setViewportSize({width,height});
+    await frame.locator('#piece-info-art').evaluate(image => image.decode());
+    const info = frame.getByRole('button', {name:'All rules',exact:true});
+    const layout = await frame.locator('#context-line').evaluate(async row => {
+      await document.fonts.ready;
+      const button = row.querySelector('#all-rules'), image = button.querySelector('img'), text = row.querySelector('#context-text');
+      const r = row.getBoundingClientRect(), b = button.getBoundingClientRect(), t = text.getBoundingClientRect();
+      return {first:row.firstElementChild === button, loaded:image.naturalWidth > 0, portrait:image.src.includes('/maester-w-'),
+        size:b.width >= 44 && b.height >= 44, inside:b.left >= r.left && b.top >= r.top && b.right <= r.right && b.bottom <= r.bottom,
+        wordsAfter:t.left >= b.right, lines:text.scrollHeight / parseFloat(getComputedStyle(text).lineHeight), clipped:text.scrollHeight > text.clientHeight + 1};
+    });
+    assert(layout.first && layout.loaded && layout.portrait && layout.size && layout.inside && layout.wordsAfter, `T4 at ${width}: the named piece portrait starts and fits the context row: ${JSON.stringify(layout)}`);
+    assert(layout.lines <= 2 && !layout.clipped, `T4 at ${width}: the swap words keep at most the sample's two lines: ${JSON.stringify(layout)}`);
+    await info.click();
+    await frame.locator('#board-sheet[open]').waitFor();
+    assert((await frame.locator('#board-sheet').innerText()).includes('Swaps places with a friendly piece.'), 'T4: the portrait opens the selected piece rules');
+    await page.keyboard.press('Escape');
+    assert(await info.evaluate(el => el === document.activeElement), 'T4: closing the rules returns focus to the portrait');
+    await shot(page, `swap-portrait-${width}-${mode}`);
+  }
+  await page.setViewportSize(swapViewport);
   await shot(page, `shell-swap-${mode}`);
   await zoomBoardFits('board-swap-preview');
   await haste();

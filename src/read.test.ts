@@ -1,13 +1,20 @@
 import { afterEach, expect, it } from 'vitest';
-import { A, DEFAULT_RULES, type Move, P, type Rules, S, T, V, legalMoves, nameOf, parseRule, parseSq, setRules } from './rules/engine';
+import { A, DEFAULT_RULES, type Move, M, P, type Rules, S, T, V, legalMoves, nameOf, parseRule, parseSq, setRules } from './rules/engine';
 import { describeMove } from './move-text';
 import { PRESETS, designCode, fromPreset } from './workshop/model';
 import { fromFen } from './rules/setup';
-import { pieceGuide, guideTypes, reachOf, readText, readTap, teachNote, unmarkedTap, whyNot } from './read';
+import { pieceGuide, guideTypes, reachOf, readText, pieceTitle, readTap, teachNote, unmarkedTap, whyNot } from './read';
 import { contextLine } from './context-line';
 
 const at = parseSq;
 afterEach(() => setRules(DEFAULT_RULES));
+
+it('uses the shared piece name in a board title', () => {
+  expect(pieceTitle(M)).toBe('White Maester.');
+  expect(pieceTitle(M | 16)).toBe('Black Maester.');
+  setRules(parseRule(`design=${designCode({ ...fromPreset(PRESETS.find(p => p.key === 'rook')!), name: 'Old Ward', letter: 'Y' })}`));
+  expect(pieceTitle(T)).toBe('White Old Ward.');
+});
 
 it('reads an enemy knight from its own side without changing the position', () => {
   const pos = fromFen('7k/8/8/8/3n4/8/8/K7 w - - 0 1');

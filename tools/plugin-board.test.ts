@@ -616,7 +616,7 @@ it.each(['power','card'] as const)('W7: Escape on the board and sheet clears %s 
   } finally { await page.close(); }
 });
 
-it.each([[320,568],[360,640],[852,393]])('keeps draw offer board and row size with all four pawn actions at %d×%d', async (width,height) => {
+it.each([[320,568],[360,640],[852,393]])('keeps draw offer board and row size with the pawn portrait and actions at %d×%d', async (width,height) => {
   const rules: Partial<Rules> = {kings:[{king:'Mud',power:'March'},{king:'Shadow',power:'Darkness'}],hands:[['Haste'],['Haste']],marchUses:0};
   const page = await open(view('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',rules,{kind:'friend',draw_offer:1}),width,height), frame = page.frameLocator('iframe');
   const sizes = () => frame.locator('#context-line').evaluate(async row => {
@@ -633,7 +633,8 @@ it.each([[320,568],[360,640],[852,393]])('keeps draw offer board and row size wi
     await frame.locator('#board').evaluate(() => document.fonts.ready.then(() => {}));
     const before = await sizes();
     await squareTap(page,12);
-    expect(await frame.locator('#context-actions button').allTextContents()).toEqual(['All rules','Choose a move','Accept draw','Decline draw']);
+    expect(await frame.getByRole('button', {name:'All rules',exact:true}).isVisible()).toBe(true);
+    expect(await frame.locator('#context-actions button').allTextContents()).toEqual(['Choose a move','Accept draw','Decline draw']);
     const after = await sizes();
     expect(Math.abs(before.board-after.board), JSON.stringify({before,after})).toBeLessThan(1);
     expect(Math.abs(before.row-after.row), JSON.stringify({before,after})).toBeLessThan(1);
@@ -748,12 +749,12 @@ it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and dur
         expect((await moveCalls(page)).length).toBe(sending ? 1 : 0);
       };
       await squareTap(page,28);
-      expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
+      expect(await frame.locator('#context-line').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
       if (sending) expect(await frame.locator('#context-text').innerText()).not.toMatch(/End turn|Undo/);
       else expect(await frame.locator('#context-note').textContent()).toContain('Select End turn, or Undo.');
-      await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).click();
+      await frame.locator('#context-line').getByRole('button',{name:'All rules',exact:true}).click();
       await frame.locator('#board-sheet[open]').waitFor(); await page.keyboard.press('Escape');
-      expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).evaluate(e => e===document.activeElement)).toBe(true);
+      expect(await frame.locator('#context-line').getByRole('button',{name:'All rules',exact:true}).evaluate(e => e===document.activeElement)).toBe(true);
       await frame.locator('#power-w').click();
       expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);
       await page.keyboard.press('Escape');
@@ -778,7 +779,7 @@ it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and dur
     await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_computer'; (window as any).releaseBefore(); });
     await page.waitForFunction(() => (window as any).harnessCalls.some((c: any) => c.name==='kingdown_computer'));
     await squareTap(page,28);
-    expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
+    expect(await frame.locator('#context-line').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
     await frame.locator('#power-w').click();
     expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);
     await page.keyboard.press('Escape'); await squareTap(page,36); await frame.locator('#board').press('Enter');
@@ -884,7 +885,7 @@ it('W7: keeps a lost-send error while pieces and coins remain readable', async (
     const message=await frame.locator('#error').innerText(); expect(message).not.toBe('');
     await squareTap(page,28);
     expect(await frame.locator('#error').innerText()).toBe(message);
-    expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
+    expect(await frame.locator('#context-line').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
     await frame.locator('#power-w').click();
     expect(await frame.locator('#error').innerText()).toBe(message);
     expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);
