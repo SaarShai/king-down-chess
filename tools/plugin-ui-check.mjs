@@ -23,54 +23,22 @@ const base = env('PLAYABLE_URL');
 const testHandle = `mvp_${randomUUID().replaceAll('-', '').slice(0,12)}`;
 const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: true });
-const debugClick = Object.getPrototypeOf(page.locator('body')).click;
-// [DEBUG-webkit-30] Measure the existing check without changing its waits.
-const debugStart = Date.now();
-for (const [owner, methods] of [
-  [Object.getPrototypeOf(page.locator('body')), ['click', 'check', 'uncheck', 'press', 'screenshot']],
-  [page, ['screenshot', 'setViewportSize', 'goto']],
-  [page.clock, ['fastForward', 'runFor']],
-]) for (const method of methods) {
-  const original = owner[method];
-  owner[method] = async function (...args) {
-    const start = Date.now();
-    if (['click', 'check', 'uncheck'].includes(method)) args[0] = { ...args[0], timeout: 2000 };
-    try { return await original.apply(this, args); }
-    catch (error) {
-      if (['click', 'check', 'uncheck'].includes(method)) {
-        console.log('[DEBUG-webkit-30] target', await this.evaluate(async el => {
-          const b = window.__pwClock.builtins, start = b.performance.now(), rects = [], frames = [];
-          for (let i = 0; i < 3; i++) { rects.push(JSON.stringify(el.getBoundingClientRect())); await new Promise(r => b.setTimeout(r, 100)); }
-          const raf = () => b.requestAnimationFrame(() => { frames.push(b.performance.now() - start); if (frames.length < 3) raf(); }); raf();
-          await new Promise(r => b.setTimeout(r, 1000));
-          return { rects, frames, hidden: document.hidden, viewport: [innerWidth, innerHeight] };
-        }));
-        console.log('[DEBUG-webkit-30] host', await page.locator('iframe').boundingBox());
-        await shot(page, 'webkit-action-failure');
-      }
-      throw error;
-    }
-    finally { const ms = Date.now() - start; if (ms >= 100) console.log('[DEBUG-webkit-30]', Date.now() - debugStart, method, ms, String(this).slice(0, 160), String(args[0]).slice(0, 80)); }
-  };
+// [DEBUG-webkit-30] Keep the action probe short.
+const debugProto = Object.getPrototypeOf(page.locator('body'));
+for (const method of ['click', 'check', 'uncheck']) {
+  const original = debugProto[method];
+  debugProto[method] = function (options) { return original.call(this, { ...options, timeout: 2000 }); };
 }
 trapErrors(page);
 page.on('pageerror', error => console.error(error.stack));
 try {
-  // [DEBUG-webkit-30] Compare plain button clicks with and without the clock.
-  for (const clock of [false, true]) {
-    const probe = await browser.newPage();
-    try {
-      if (clock) await probe.clock.install();
-      await probe.setContent('<button>Probe</button>');
-      for (let i = 0; i < 5; i++) {
-        const start = Date.now();
-        try { await debugClick.call(probe.locator('button'), { timeout: 1000 }); console.log('[DEBUG-webkit-30] plain', clock, Date.now() - start); }
-        catch (error) { console.log('[DEBUG-webkit-30] plain', clock, String(error)); break; }
-      }
-    } finally { await probe.close(); }
-  }
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
+  // [DEBUG-webkit-30] The captured callback stays native under either init-script order.
+  await page.addInitScript(() => {
+    const raf = window.__pwClock?.builtins.requestAnimationFrame ?? window.requestAnimationFrame.bind(window);
+    const tick = () => raf(tick); tick();
+  });
   await page.addInitScript(() => {
     // The terminal mount below has no Home check to release this hold.
     if (!new URLSearchParams(location.search).has('terminal')) window.holdBeforeNext = 'kingdown_settings';
@@ -105,8 +73,6 @@ try {
     }
   });
   await page.goto(base);
-  // [DEBUG-webkit-30] Test WebKit's visibility tracking for a separate frame layer.
-  await page.locator('iframe').evaluate(frame => { frame.style.transform = 'translateZ(0)'; });
   const capabilities = await (await page.request.get(new URL('/harness-mode', base).href)).json();
   const mode = capabilities.mode;
   if (process.env.PLUGIN_EXPECT_MODE) assert.equal(mode, process.env.PLUGIN_EXPECT_MODE, 'Connected to the expected harness backend');
