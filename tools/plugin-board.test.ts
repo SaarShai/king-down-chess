@@ -249,10 +249,12 @@ it.each([[320,568], [393,852]])('keeps the swap portrait and held note with the 
   expect(swap).toBeDefined();
   try {
     await frame.locator('html').evaluate(() => { (window as any).harnessApp.memory.blockNotice = 'Player blocked.'; });
-    await squareTap(page,27); await squareTap(page,26);
+    await squareTap(page,27);
+    expect(await frame.locator('#status').textContent()).toBe('White Maester.');
+    await squareTap(page,26);
     expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('held');
     expect(await frame.locator('#context-note').textContent()).toBe(`${describeMove(pre,swap)} Player blocked.`);
-    expect(await frame.locator('#status').textContent()).toBe('White Maester.');
+    expect(await frame.locator('#status').textContent()).toBe('Tap again to swap.');
     const info = frame.getByRole('button', {name:'All rules',exact:true});
     await info.locator('img').evaluate(image => (image as HTMLImageElement).decode());
     expect(await info.evaluate(button => {
@@ -796,7 +798,7 @@ it('G3: the ogre holds a shove onto its own pawn and plays it on the second tap'
     await squareTap(page,4); await squareTap(page,12);
     expect(await frame.locator('#status').textContent()).toBe('Tap again to shove.');
     await squareTap(page,11);
-    expect(await frame.locator('#status').textContent()).toBe('Black pawn.');
+    expect(await frame.locator('#status').textContent()).toBe('Black Pawn.');
     expect((await marks(page)).read).toBeDefined();
     expect(await boardFen(page)).toBe(fen);
     // Holding the shove again clears the enemy read, so All rules opens the ogre's rules.
@@ -1007,12 +1009,18 @@ it.each([['C',''], ['c',''], ['V',''], ['v',''], ['T','Y'], ['t','Y'], ['T',''],
   const rules = designed ? parseRule(`design=${designCode({ ...fromPreset(PRESETS.find(p => p.key === 'rook')!), name: 'Old Ward', letter: designLetter })}`) : {};
   const page = await open(view(`7k/8/8/8/3${letter}4/8/P7/K7 w - - 0 1`, rules), 320, 568), frame = page.frameLocator('iframe');
   try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('#board').evaluate(async () => {
+      await document.fonts.ready;
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
     await squareTap(page, 27);
     const info = frame.getByRole('button', {name:'All rules',exact:true});
     for (const [width, height] of [[320,568], [393,852]]) {
       await page.setViewportSize({width, height});
       expect(await info.isVisible()).toBe(true);
       expect(await info.locator('.portrait').textContent()).toBe(designLetter || letter.toUpperCase());
+      expect(await info.locator('.portrait').evaluate(el => { const style = getComputedStyle(el); return style.fontSize === style.getPropertyValue('--fs-xl').trim(); })).toBe(true);
       expect(await info.locator('img').count()).toBe(0);
       expect(await info.evaluate(button => {
         const b = button.getBoundingClientRect(), r = button.parentElement!.getBoundingClientRect();

@@ -224,3 +224,15 @@ Pass criteria: both source heads are ancestors; S5 stays out; the protected rele
 - The retained G3 test expects Black pawn. T5 now uses the shared title Black Pawn. Update that assertion and keep its shove and enemy-read checks.
 - The two new portrait tests incorrectly expect the piece title during a held swap. Check the title before the hold, then keep the required Tap again to swap line during the hold.
 - One missing-art case reads the control as hidden after the board tap. Check this case after the deterministic repairs; keep its rules, bounds and focus assertions.
+
+#### Merge repairs and passing unit checks
+
+- Merge commit: 47a5ca20, with parents 94dde1a2 and 343b8a13. All three conflict files and results are in its message.
+- Keep F25 with the existing --fs-xl token (23 px) for the letter tile. The retained type-scale test catches the raw-size fault. All eight missing-art cases also check that the letter uses that token.
+- Keep T5 with the Black Pawn assertion in G3. The test keeps all enemy-read, held-shove and move checks.
+- The combined portrait tests check White Maester before the hold and Tap again to swap during it. The rules sheet keeps the held move, the block notice and return focus at both widths.
+- The missing-art test waits for board art, fonts and two layout frames before its tap. The first run fails at the immediate visibility read; the repaired full run passes all eight cases. No time limit changes.
+- Protected files match 94dde1a2: public/privacy.html, the review notes and privacy additions, app.ts, client.ts, state.ts, queue.ts and poll.ts. The Resume fix 91c8c086, scroll fix 3f1281d1, ticket 26 head 64805f5e and ticket 27 head 606584b8 remain ancestors. The merge brings no S5 work.
+- npx tsc --noEmit exits 0 after the repairs. Full npm test with the local test database exits 0: all 188 files pass; 3,049 tests pass, with one expected failure and eight skips. All 51 drawing tests pass. Logs: tsc-29-merge-3-2.txt and tests-29-merge-3-2.txt.
+- Run plugin-ui and plugin-ui-http through the approved runner after this repair commit. Record the checked head and final runner exit line. The browser source keeps the two-frame sideways reread, second-origin reads, current-game Retry wait, early sample poll guard and spent-power history.
+- The only size choice in this merge repair is the existing 23 px type token for the letter tile. It follows F25. No new layout or action choice is needed.
