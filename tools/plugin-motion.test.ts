@@ -133,7 +133,13 @@ it('keeps a live checkmate loss calm and leaves the last move on the board', asy
 it.each([false, true])('gives a spent card a short gold pulse (reduced motion %s)', async reduced => {
   const { page, frame } = await open(reduced);
   try {
-    await newGame(frame, only(['Cards'])); await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    // A random hand can have no legal card at the start. Keep a playable hand for the pulse check.
+    await newGame(frame, only(['Cards']), false); await frame.locator('#setup-cards').click();
+    await frame.locator('[name="card-mode"][value="Use all cards"]').check();
+    await frame.locator('[name="card-mode"][value="Pick four"]').check();
+    for (const card of ['Freeze', 'IceWall', 'MorphP', 'Vault']) await frame.locator(`.card-grid input[value="${card}"]`).check();
+    await frame.locator('#setup-done').click(); await frame.locator('#setup-start').click();
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     let index = -1;
     for (let i = 0; i < 4 && index < 0; i++) {
       await frame.locator(`#card-w-${i}`).click();
