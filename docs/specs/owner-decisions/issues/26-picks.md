@@ -1,6 +1,6 @@
 # Ticket 26: the owner's board and layout picks
 
-Status: claimed
+Status: resolved
 Type: task
 
 ## Scope
@@ -40,8 +40,8 @@ is sent before End turn. All required checks pass with their current limits.
   elsewhere, a drag and one Undo at all three required screen sizes.
 
 The old source fails all nine new board tests. The other 76 board tests pass.
-The log is `tests-26-board-before.txt` in the lane's scratch folder. The type
-check and full test suite run next. No test or check time limit changes.
+The log is `tests-26-board-before.txt` in the lane's scratch folder. The final
+check results are below. No test or check time limit changes.
 
 Taste: no new choice. The build uses G1 a and G3 a as approved, including the
 drag rule. G2, Q3 and Q6 need no further change.
@@ -158,3 +158,36 @@ Head `90b0a503`.
 - The `plugin-ui` browser check passes at `90b0a503` (148.4 s, M1 runner, exit 0).
   The first run hit the known `end fits at 360px` flake; the rerun passes. Logs:
   `.../lanes/od-picks/checks-26-css-10.txt` (pass) and `checks-26-css-9.txt` (flake).
+
+## G1 and G3 final checks
+
+- `npx tsc --noEmit` passes after the row-size fix. Log: `tsc-26-board-2.txt`.
+- `npm test` passes on the product source in `cacf5113`, with the required
+  local test database. All 177 files pass. The suite has 2,874 passes, 3
+  expected failures and 8 skips. All 50 drawing tests then pass. Log:
+  `tests-26-board-full-2.txt`.
+- Ten new board tests cover both target word forms, power words, row size,
+  shove, swap, other square taps, drag, keyboard, Escape, Cancel and Undo.
+  Nine of these fail on the old source. The row-size test guards the first
+  build's long-rule fault, which the browser check also finds.
+- `plugin-ui` passes on `2dddb655` in 168.7 s on the M1, exit 0. It checks G1
+  and G3 on the built page at 320 x 568, 393 x 852 with touch, and 1280 x 800.
+  Log: `checks-26-board-8.txt`. Detailed log: `browser-26-board-8.txt`.
+- The source has no change after the full suite. Later commits change only
+  the browser helper, capture waits and this ticket. The check script also
+  passes `node --check`.
+- Capture review covers the target words and shove or swap previews at all
+  three sizes. The final 12 captures are in `26-board-captures/` in the lane's
+  scratch folder.
+- Browser reruns also find intermittent failures in the existing 360 px end
+  check, the 197 px board overflow check, and an SDK connection time-out during
+  a virtual-clock step. The final same-head run passes with all assertions and
+  limits intact. Logs: `checks-26-board-4.txt`, `checks-26-board-6.txt` and
+  `checks-26-board-7.txt`.
+
+All logs above are under
+`/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/od-picks/`.
+
+Nothing in G1 or G3 remains open. No new taste choice is required. G1 a and
+G3 a set the words and the drag rule. G2, Q3 and Q6 stay as built. No server
+code changes, so `plugin-ui-http` is not required.
