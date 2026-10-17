@@ -1830,7 +1830,8 @@ try {
   }
   // Ticket 32 C: use a fresh mobile host. A cut New game shows that the card scrolls; each action stays reachable.
   async function zoomEndFits(label) {
-    const view = await page.evaluate(() => window.harnessView);
+    // Both results use the three solo actions named in ticket 32 C.
+    const view = await page.evaluate(() => ({ ...window.harnessView, kind: 'solo', opponent: { ...window.harnessView.opponent, computer: true } }));
     const host = await browser.newPage({ viewport: { width: 197, height: 426 }, isMobile: true, hasTouch: true });
     trapErrors(host);
     const frame = host.frameLocator('iframe');
@@ -1858,7 +1859,7 @@ try {
         await card.evaluate(el => { el.scrollTop = 0; });
         const m = await card.evaluate(el => {
           const box = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; };
-          return { frame: box(document.querySelector('#app-frame')), card: box(el), reason: box(el.querySelector('#end-reason')), buttons: [...el.querySelectorAll('form button')].map(box), scroll: el.scrollTop };
+          return { frame: box(document.querySelector('#app-frame')), card: box(el), reason: box(el.querySelector('#end-reason')), buttons: [...el.querySelectorAll('form button:not([hidden])')].map(box), scroll: el.scrollTop };
         });
         const all = `${label}, bottom gap ${gap}: ${JSON.stringify(m)}`, bottom = m.card[1] + m.card[3];
         assert.equal(m.frame[1], 51, all); assert.equal(m.frame[1] + m.frame[3], 426 - gap, all);
