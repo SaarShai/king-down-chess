@@ -1829,10 +1829,10 @@ try {
     await zoomViewport(viewport.width, viewport.height, 0, 0);
   }
   // Ticket 32 C: use a fresh mobile host. A cut New game shows that the card scrolls; each action stays reachable.
-  async function zoomEndFits(label) {
+  async function zoomEndFits(label, height = 426) {
     // Both results use the three solo actions named in ticket 32 C.
     const view = await page.evaluate(() => ({ ...window.harnessView, kind: 'solo', opponent: { ...window.harnessView.opponent, computer: true } }));
-    const host = await browser.newPage({ viewport: { width: 197, height: 426 }, isMobile: true, hasTouch: true });
+    const host = await browser.newPage({ viewport: { width: 197, height }, isMobile: true, hasTouch: true });
     trapErrors(host);
     const frame = host.frameLocator('iframe');
     try {
@@ -1840,7 +1840,7 @@ try {
       await host.locator('#remount').evaluate(el => { el.style.display = 'none'; });
       await host.locator('iframe').evaluate(el => { el.style.setProperty('height', '100dvh', 'important'); });
       await frame.locator('#home-play:not(:disabled)').waitFor();
-      await host.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top: 51, bottom: 59, left: 0, right: 0 }, deviceCapabilities: { touch: true } }));
+      await host.evaluate(bottom => window.harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top: 51, bottom, left: 0, right: 0 }, deviceCapabilities: { touch: true } }), height === 426 ? 59 : 0);
       // The win sample exists only in the check. A live poll must not replace it.
       await frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
       await host.evaluate(view => {
@@ -1853,19 +1853,24 @@ try {
         await document.fonts.ready;
         for (let run; (run = document.getAnimations().filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
       });
-      for (const gap of [96, 59]) {
+      for (const gap of height === 426 ? [96, 59] : [96]) {
         // The second case tests the host inset alone, with no estimated composer floor.
         await frame.locator('#app-frame').evaluate((el, gap) => { el.style.bottom = `${gap}px`; }, gap);
         await card.evaluate(el => { el.scrollTop = 0; });
         const m = await card.evaluate(el => {
           const box = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; };
-          return { frame: box(document.querySelector('#app-frame')), card: box(el), reason: box(el.querySelector('#end-reason')), buttons: [...el.querySelectorAll('form button:not([hidden])')].map(box), scroll: el.scrollTop };
+          return { frame: box(document.querySelector('#app-frame')), card: box(el), reason: box(el.querySelector('#end-reason')), buttons: [...el.querySelectorAll('form button:not([hidden])')].map(box), scroll: el.scrollTop, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
         });
-        const all = `${label}, bottom gap ${gap}: ${JSON.stringify(m)}`, bottom = m.card[1] + m.card[3];
-        assert.equal(m.frame[1], 51, all); assert.equal(m.frame[1] + m.frame[3], 426 - gap, all);
-        await shot(host, `zoom-fit-${label}-gap-${gap}-${mode}`);
+        const all = `${label} at 197 x ${height}, bottom gap ${gap}: ${JSON.stringify(m)}`, bottom = m.card[1] + m.card[3];
+        assert.equal(m.frame[1], 51, all); assert.equal(m.frame[1] + m.frame[3], height - gap, all);
+        assert.equal(m.buttons.length, 3, all);
+        await shot(host, `zoom-fit-${label}-${height}-gap-${gap}-${mode}`);
         assert(inFrame(m.reason, m.frame) && inFrame(m.reason, m.card), `The result line shows with no scroll: ${all}`);
-        assert(m.scroll === 0 && m.buttons[1][1] <= bottom - 12 && m.buttons[1][1] + m.buttons[1][3] > bottom, `New game crosses the card edge with at least 12 px in view: ${all}`);
+        if (height === 426) {
+          assert(m.scroll === 0 && m.buttons[1][1] <= bottom - 12 && m.buttons[1][1] + m.buttons[1][3] > bottom, `New game crosses the card edge with at least 12 px in view: ${all}`);
+        } else {
+          assert(m.scroll === 0 && m.scrollHeight <= m.clientHeight && m.buttons.every(button => inFrame(button, m.card) && inFrame(button, m.frame)), `All three end actions show in full with no scroll in a tall frame: ${all}`);
+        }
         assert(inFrame(m.buttons[0], m.frame) && inFrame(m.buttons[0], m.card), `Play again shows in full with no scroll: ${all}`);
         for (const name of ['Play again', 'New game', 'See the board']) {
           const button = card.getByRole('button', { name, exact: true });
@@ -1967,7 +1972,7 @@ try {
   const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);
   await page.clock.fastForward(1100);
   await page.evaluate(()=>{window.dropNextReply='kingdown_rematch';});
-  await zoomEndFits('end-loss');
+  for (const height of [426, 800]) await zoomEndFits('end-loss', height);
   await tapEndAtZoom('Play again');
   await frame.locator('#over #retry').waitFor();
   const pendingRematch=await page.evaluate(()=>window.harnessWidgetState.privateContent.pending);
@@ -2317,7 +2322,7 @@ try {
     // Ticket 28 T1 and T2 at 200% zoom.
     const zoomName={board:'board-turn','board-abort':'board-cards'}[state.name];
     if (zoomName) await zoomBoardFits(zoomName);
-    if (state.end) await zoomEndFits('end-win');
+    if (state.end) for (const height of [426, 800]) await zoomEndFits('end-win', height);
     if (state.name === 'board-abort') {
       const viewport = page.viewportSize();
       const screen = frame.locator('[data-screen="board"]');

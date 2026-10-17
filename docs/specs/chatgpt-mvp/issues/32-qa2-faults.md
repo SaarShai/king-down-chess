@@ -1,6 +1,6 @@
 # Rolling QA 2: end card at 200% zoom
 
-Status: ready-for-human
+Status: in-progress
 
 This step covers ticket 32 fault C only. The base is `4692477c`.
 The owner asks for the cut-action cue. No new visual cue is needed.
@@ -53,4 +53,13 @@ The failed `8f9c071b` check ends on the M1 in 154.4 seconds. Its SSH process rem
 
 No server code changes. `plugin-ui-http` is not needed. No requested part of fault C remains. A and B stay refuted. D and G are outside this step. No push, merge or deploy is made.
 
-The spacing and the 224 px cap are the only taste choices. They keep the approved cut-action cue and the current text. No new approval is needed for a fade, a shadow or a button row because none is added.
+The compact spacing keeps the approved cut-action cue and the current text. No new visual element is added.
+
+## Review repair plan
+
+Review A reports no fault. Review B reports that the width-only 224 px cap cuts the actions in a tall frame. The CSS confirms this cause.
+
+1. Add a fresh 197 x 800 mobile host with insets 51/0 to `zoomEndFits`, for loss and win. At scroll top zero, all three actions must fit inside the card and frame, with no scroll. Add the tall case to the host-size test.
+2. Commit the checks. Run `plugin-ui` through the owner's runner against the current CSS. Record the tall-case failure.
+3. Keep the 224 px cap on short viewports only. Keep the narrow spacing and `calc(100% - 68px)` at other heights.
+4. Run `npm test` with the local test database and `plugin-ui` through the owner's runner. Keep all time limits. Check both short bottom gaps and the existing normal sizes. Record the results and commit the repair.

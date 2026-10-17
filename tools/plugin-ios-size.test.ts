@@ -551,8 +551,8 @@ it.each([[320, 568, 63, 84, true, 218, 113], [393, 852, 102, 118, true, 384, 345
 });
 
 // The fixture shares saved setup. Keep this chess-only case after the fairy-piece size checks.
-it('keeps Back clear and end actions reachable at 197 by 426', async () => {
-  const { page, frame } = await hostPage(197, 426, 51, 59);
+it.each([[426, 59], [800, 0]])('keeps Back clear and end actions reachable at 197 by %i', async (height, bottom) => {
+  const { page, frame } = await hostPage(197, height, 51, bottom);
   try {
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.getByRole('radio', { name: 'White', exact: true }).locator('..').click();
@@ -561,15 +561,22 @@ it('keeps Back clear and end actions reachable at 197 by 426', async () => {
     await frame.locator('#setup-start').click(); await frame.locator('#board[aria-busy="false"]').waitFor();
     await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Resign', exact: true }).click();
     await frame.locator('#over[open]').waitFor();
-    expect(await frame.locator('#over').evaluate(e => e.scrollHeight > e.clientHeight)).toBe(true);
+    expect(await frame.locator('#over').evaluate(e => e.scrollHeight > e.clientHeight)).toBe(height === 426);
     const cue = await frame.locator('#over').evaluate(e => {
       e.scrollTop = 0;
       const card = e.getBoundingClientRect(), [first, next] = [...e.querySelectorAll('form button')].map(b => b.getBoundingClientRect());
       return { firstFits: first.top >= card.top && first.bottom <= card.bottom, visible: card.bottom - next.top, cut: next.bottom > card.bottom };
     });
     expect(cue.firstFits).toBe(true);
-    expect(cue.visible).toBeGreaterThanOrEqual(12);
-    expect(cue.cut).toBe(true);
+    if (height === 426) {
+      expect(cue.visible).toBeGreaterThanOrEqual(12);
+      expect(cue.cut).toBe(true);
+    } else {
+      expect(await frame.locator('#over form button').evaluateAll(buttons => buttons.every(e => {
+        const r = e.getBoundingClientRect(), card = e.closest('dialog')!.getBoundingClientRect(), frame = document.getElementById('app-frame')!.getBoundingClientRect();
+        return r.top >= card.top && r.bottom <= card.bottom && r.left >= card.left && r.right <= card.right && r.top >= frame.top && r.bottom <= frame.bottom && r.left >= frame.left && r.right <= frame.right;
+      }))).toBe(true);
+    }
     expect(await frame.locator('#game-table .table-back').evaluate(e => {
       const r = e.getBoundingClientRect(), card = document.getElementById('over')!.getBoundingClientRect();
       return r.height >= 44 && r.bottom <= card.top && e.contains(document.elementFromPoint(r.x+r.width/2, r.y+r.height/2));
