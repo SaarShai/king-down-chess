@@ -1647,7 +1647,7 @@ try {
     const all = JSON.stringify({...m, first});
     assert(inFrame(m['#end-reason'], m.frame) && m['#end-reason'][1] + m['#end-reason'][3] <= first.card[1] + first.card[3] + 1, `${label} at 197 x 426: the result line shows with no scroll: ${all}`);
     assert(first.button[1] < first.card[1] + first.card[3] - 8, `${label} at 197 x 426: the first end action shows with no scroll, so the card shows that it scrolls: ${all}`);
-    const last = buttons.last(); await last.evaluate(el => el.scrollIntoView({block:'nearest'}));
+    const last = buttons.last(); await last.evaluate(el => { const card = el.closest('dialog'), r = el.getBoundingClientRect(), c = card.getBoundingClientRect(); card.scrollTop += Math.max(0, r.bottom - c.bottom + 16); });
     const end = await zoomBoxes(['#app-frame']); const lastBox = await last.evaluate(el => [el.getBoundingClientRect().left, el.getBoundingClientRect().top, el.getBoundingClientRect().width, el.getBoundingClientRect().height].map(Math.round));
     assert(inFrame(lastBox, end.frame) && (await last.evaluate(controlBounds)).accessible, `${label} at 197 x 426: the last end action scrolls into the frame: ${JSON.stringify({last:lastBox, frame:end.frame})}`);
     await shot(page, `zoom-fit-${label}-${mode}`);
