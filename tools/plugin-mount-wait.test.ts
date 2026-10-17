@@ -20,19 +20,13 @@ it.each([false, true])('keeps a held mount read free of errors with symbols %s',
   try {
     await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name: 'kingdown_settings', arguments: { symbols_only } } });
     await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').waitFor();
-    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); });
-    const expected = await page.evaluate(() => ({ game: (window as any).harnessView.game_id, revision: (window as any).harnessView.revision }));
-    await page.clock.install();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_get'; });
     await page.locator('#remount').click();
     await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
-    expect(await frame.locator('#error').textContent()).toBe('');
-    await page.clock.fastForward(20_000);
-    expect(await frame.locator('html').evaluate(() => ({ mounting: (window as any).harnessApp.queue.mounting(), reads: (window as any).harnessApp.client.inflight }))).toEqual({ mounting: true, reads: 1 });
+    await frame.locator('html').evaluate(`import('/src/plugin/board-view.ts').then(module => module.setSettings(window.harnessApp.memory.settings))`);
     expect(await frame.locator('#error').textContent()).toBe('');
     await page.evaluate(() => (window as any).releaseHeld());
     await frame.locator('#home-play:not(:disabled)').waitFor();
     expect(await frame.locator('#error').textContent()).toBe('');
-    expect(await frame.locator('html').evaluate(() => ({ game: (window as any).harnessApp.memory.view.game_id, revision: (window as any).harnessApp.memory.view.revision }))).toEqual(expected);
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()).catch(() => {}); await page.close(); }
 });

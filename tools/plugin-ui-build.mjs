@@ -2,7 +2,8 @@ import { build } from 'vite';
 import { atRule, parse } from 'postcss';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
-import { basename, resolve } from 'node:path';
+import { resolve } from 'node:path';
+import { pluginSymbols } from './lib/plugin-symbols.mjs';
 const output = resolve(process.argv[2] || 'dist-plugin-ui');
 // Matches ART_ORIGIN in src/plugin/server.ts, which swaps in the server's public origin.
 const ART_ORIGIN = 'https://kingdown-art.invalid';
@@ -30,15 +31,7 @@ shared.walkAtRules('media', rule => {
 const gameStyle = shared.toString().replaceAll("'/fonts/", "'../../public/fonts/").replaceAll("'/ui/", "'../../public/ui/");
 // The art leaves the page: hashed files under plugin-art/, loaded by absolute URL. The board scene asks for each
 // image in CORS mode (crossOrigin 'anonymous'), so its getImageData works on art from the plugin origin.
-await build({ configFile: false, root: resolve('src/plugin'), base: './', publicDir: false, plugins: [{ name: 'game-style-assets', enforce: 'pre', async load(id) {
-  if (!id.endsWith('.svg?symbol')) return;
-  const source = await readFile(id.slice(0, -7), 'utf8');
-  const urls = ['color:#2b2621;--pi-disc:#fffcf4', 'color:#2b2621;--pi-disc:#4a4850;--pi-ring:#6e6a74;--pi-glyph:#f3ead7'].map((style, side) => {
-    const ref = this.emitFile({ type: 'asset', name: `${basename(id.slice(0, -11))}-${side}.svg`, source: source.replace('<svg ', `<svg style="${style}" `) });
-    return `"__VITE_ASSET__${ref}__"`;
-  });
-  return `export default [${urls.join(',')}];`;
-}, transform(code, id) {
+await build({ configFile: false, root: resolve('src/plugin'), base: './', publicDir: false, plugins: [pluginSymbols(), { name: 'game-style-assets', enforce: 'pre', transform(code, id) {
   if (!id.endsWith('.css')) return;
   if (id === resolve('src/plugin/app.css')) code = code.replace("@import '../style.css';", gameStyle).replace("@import '../ui/table.css';", '');
   // Seat hooks share the table look while the board keeps its IDs.

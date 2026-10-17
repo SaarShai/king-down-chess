@@ -12,6 +12,7 @@ import { createPluginServer } from '../src/plugin/server';
 import type { MatchSetup } from '../src/match';
 import { fixtureService } from './plugin-protocol-fixture';
 import { ART_HEADERS, artType } from './plugin-art-headers.mjs';
+import { pluginSymbols } from './lib/plugin-symbols.mjs';
 type UiMeta = { ui?: { csp?: { connectDomains?: string[]; resourceDomains?: string[]; frameDomains?: string[]; baseUriDomains?: string[] }; permissions?: Record<string, unknown> } };
 /** The frame rules of a real host, from the resource's _meta.ui. The MCP Apps spec (2026-01-26, apps.mdx,
  * https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx) says: "Host MUST
@@ -96,7 +97,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
   frameServer.listen(0, '127.0.0.1'); await new Promise(resolve => frameServer.once('listening', resolve));
   const frameHost = `127.0.0.1:${(frameServer.address() as AddressInfo).port}`;
   const body = async (req: AsyncIterable<Buffer>) => { const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(chunk); return JSON.parse(Buffer.concat(chunks).toString()); };
-  vite = await createServer({ configFile: false, logLevel: 'error', cacheDir: resolve(dirname(boardPath), '.harness-cache'), optimizeDeps: { include: ['@modelcontextprotocol/ext-apps/app-bridge'] }, server: { host: '127.0.0.1', port: 0, strictPort: true }, plugins: [{ name: 'mcp-app-harness', configureServer(vite) {
+  vite = await createServer({ configFile: false, logLevel: 'error', cacheDir: resolve(dirname(boardPath), '.harness-cache'), optimizeDeps: { include: ['@modelcontextprotocol/ext-apps/app-bridge'] }, server: { host: '127.0.0.1', port: 0, strictPort: true }, plugins: [pluginSymbols(), { name: 'mcp-app-harness', configureServer(vite) {
     vite.middlewares.use(async (req, res, next) => {
       // The frame origin serves the widget page and the files it loads; the host page and its routes stay on the host origin.
       const path = req.url?.split('?')[0] ?? '';
