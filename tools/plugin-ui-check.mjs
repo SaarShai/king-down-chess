@@ -1331,7 +1331,11 @@ try {
     await idleBoard();
     assert.equal(await frame.locator('#retry').isVisible(), false, `${code} must release the pending command`);
     await frame.locator('#error').filter({hasText:'Harness definitive rejection'}).waitFor();
-    assert.equal(await frame.locator('#status').innerText(), '', 'The error appears once in the error row');
+    // W7 ticket 04: STALE_REVISION and WRONG_TURN keep the draft and show the T6 line; Undo takes the draft back.
+    if (['STALE_REVISION', 'WRONG_TURN'].includes(code)) {
+      assert.equal(await frame.locator('#status').innerText(), 'The game changed. Check it, then tap End turn.', `${code} keeps the draft with the T6 line`);
+      await frame.locator('#undo').click();
+    } else assert.equal(await frame.locator('#status').innerText(), '', 'The error appears once in the error row');
     assert.equal(await frame.locator('#last-move').innerText(), 'Move 1.', `${code} restores the last server position and move line`);
   }
   await haste();
