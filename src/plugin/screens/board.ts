@@ -504,6 +504,6 @@ export function boardScreen(store: Store) {
     } else board.sync(pos);
     $('computer').hidden = true; $('invite').hidden = true;
     refresh(); scheduleComputer();
-    if (!profileRead) { profileRead = true; void client.call('kingdown_profile', {}, {background:true}).then(result => { ownRating = (result._meta?.record as PlayerRecord | undefined)?.rating; if (active()) strips(); }).catch(() => {}); }
+    if (!profileRead) { profileRead = true; void client.call('kingdown_profile', {}, {background:true}).then(result => { if (tornDown || queue.closed()) return; ownRating = (result._meta?.record as PlayerRecord | undefined)?.rating; if (active()) strips(); }).catch(() => {}); }
   };
 }

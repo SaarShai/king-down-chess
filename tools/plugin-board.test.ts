@@ -1528,3 +1528,30 @@ it.each(['playing', 'setup', 'waiting'] as const)('W7-04: keeps the draft throug
     expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
   } finally { await page.close(); }
 });
+
+it.each(['teardown', 'close'] as const)('keeps the player strips fixed when a profile reply follows %s', async lifecycle => {
+  const page = await browser.newPage(); page.setDefaultTimeout(3000);
+  const frame = page.frameLocator('iframe');
+  try {
+    await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').waitFor();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_profile'; });
+    await page.route('**/fixture-tool', route => route.request().postDataJSON()?.name === 'kingdown_profile'
+      ? route.fulfill({ json: { content: [], _meta: { record: { rating: { rating: 1900, provisional: false } } } } }) : route.continue());
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen' }));
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), view('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1', {}, { kind: 'friend' }));
+    await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('html').evaluate((_, lifecycle) => {
+      const w = window as any;
+      if (lifecycle === 'close') w.harnessApp.queue.close();
+      else window.dispatchEvent(new MessageEvent('message', { data: { method: 'ui/resource-teardown' } }));
+      w.closedStrips = [...document.querySelectorAll('#strip-me, #strip-them')].map(node => ({ node: node.firstChild, text: node.textContent }));
+    }, lifecycle);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
+    await frame.locator('html').evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+    expect(await frame.locator('html').evaluate(() => [...document.querySelectorAll('#strip-me, #strip-them')].every((node, i) => {
+      const before = (window as any).closedStrips[i]; return node.firstChild === before.node && node.textContent === before.text;
+    }))).toBe(true);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()).catch(() => {}); await page.close(); }
+});
