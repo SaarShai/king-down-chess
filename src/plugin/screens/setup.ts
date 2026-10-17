@@ -170,10 +170,10 @@ async function launch(setup = draft, saveSetup = true) {
   // A quick start shows no words; after 1 s the button says 'Starting…'. After 5 s, Back is a safe way out: the start stays
   // pending, and Start sends no second Create. The 10 s command limit (client.ts) ends the call with Retry.
   const exits = document.querySelectorAll<HTMLButtonElement>('#page-back, [data-screen="play"] [data-nav]');
-  const words = setTimeout(() => { late = true; render(); }, 1_000);
+  const words = setTimeout(() => { if (!queue.current(origin)) return; late = true; render(); }, 1_000);
   let left = false; const leave = () => { left = true; };
   exits.forEach(button => button.addEventListener('click', leave));
-  const wait = setTimeout(() => { exits.forEach(button => { button.dataset.free = ''; button.disabled = false; }); }, 5_000);
+  const wait = setTimeout(() => { if (!queue.current(origin)) return; exits.forEach(button => { button.dataset.free = ''; button.disabled = false; }); }, 5_000);
   try {
     const last_setup = { ...setup, options: setupOptions(setup.options) };
     if (saveSetup) {
@@ -186,7 +186,7 @@ async function launch(setup = draft, saveSetup = true) {
     const args = { ...createArguments(last_setup), ...(last_setup.kind === 'random' && anyRules && { any_rules: true }) };
     await start(last_setup.kind, args, { route: false, origin, king: last_setup.king, then: (view, origin) => finish(view, last_setup.king, origin) });
   } catch (error) { if (queue.current(origin)) store.dispatch({ type: 'error', text: errorText(error) }); }
-  finally { exits.forEach(button => button.removeEventListener('click', leave)); clearTimeout(words); clearTimeout(wait); starting = late = false; exits.forEach(button => { delete button.dataset.free; }); if (!client.state.pending) ownCommand = false; if (!queue.closed()) render(); }
+  finally { exits.forEach(button => button.removeEventListener('click', leave)); clearTimeout(words); clearTimeout(wait); starting = late = false; if (!client.state.pending) ownCommand = false; if (!queue.closed()) { exits.forEach(button => { delete button.dataset.free; }); render(); } }
 }
 /** The continuation of a resent start or setup step (design §5.2): it finishes the start. */
 export const finishStart = (view: View, origin: Job, king: KingChoice | null) => finish(view, king, origin);

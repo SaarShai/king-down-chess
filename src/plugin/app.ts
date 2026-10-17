@@ -260,10 +260,11 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       }
       if (acceptsView(next, job)) received = next;
       const shown = show(received, job);
+      if (!next && name === 'kingdown_get') store.dispatch({ type: 'good-read', game });
       if (name === 'kingdown_block' && shown) { memory.blockNotice = resultText(result); $('context-note').textContent = memory.blockNotice; }
       if (name === 'kingdown_get' && !quiet) { await games(job); if (late()) { settleLate(result); return { status: 'superseded' }; } }
       // Save sends the waiting command again at once, so its old error and Retry go now.
-      if (name === 'kingdown_handle') { followup = state.pending; if (followup) followup.error = followup.error_screen = undefined; if (queue.current(job)) navigate(followup?.screen ?? handleBack); }
+      if (name === 'kingdown_handle' && queue.current(job)) { followup = state.pending; if (followup) followup.error = followup.error_screen = undefined; if (queue.current(job)) navigate(followup?.screen ?? handleBack); }
       // An older job never routes. A poll reply routes only between the game screens of the shown game (design §1.2).
       if (shown && received && queue.current(job) && (route ?? SELECTION_TOOLS.includes(name)) && (!quiet || POLL_SCREENS.includes(state.screen))) routeView(received);
       if (name === 'kingdown_invite' && queue.current(job)) { const { code } = result.structuredContent as { code: string }; $('invitation').textContent = `Share this code: ${code}`; }
@@ -281,7 +282,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       else if (own && state.pending === own) { failPending(message, own, job); store.dispatch({ type: 'change' }); }
       // Three failed polls in a row (or one failed foreground read) mark the board stale: "Not current", the lock and Try again.
       else if (name === 'kingdown_get' && state.board_id) store.dispatch({ type: 'failed-read', text: message, ...(view?.game_id && { game: view.game_id }) });
-      else store.dispatch({ type: 'error', text: message });
+      else if (queue.current(job) && state.screen === commandScreen) store.dispatch({ type: 'error', text: message });
       return refused ? { status: 'refused', code: refused.code, text: refused.text, result: EMPTY } : { status: 'failed', text: message };
     } finally { if (quiet) polling = false; }
   };
@@ -291,7 +292,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
   // current, so a newer mount owns the page (design §2). The refusal code reaches the board: INVALID_MOVE drops a
   // draft turn, and the other codes re-read while the redraw keeps or drops it (W7 ticket 04).
   if (retain && name === 'kingdown_move' && !received && !state.pending && queue.current(job) && before?.game_id === view?.game_id) { rollingBack = true; try { await rollbackBoardMove(refused?.code); } finally { rollingBack = false; } }
-  if (followup) void call(followup.name, followup.args, true, false, undefined, true);
+  if (followup) void call(followup.name, followup.args, { retain: true, retry: true, origin: job });
   return outcome;
 }
 $('reload').onclick = () => { if (state.board_id) void call('kingdown_get', {}); };
@@ -615,22 +616,21 @@ async function applySettings() {
   await setSettings(memory.settings);
 }
 async function saveSetting(change: Record<string, unknown>) {
+  const origin = queue.command('write', 'kingdown_settings', change);
   const focused = document.activeElement as HTMLElement | null;
   let moved = false;
   const changedFocus = () => { moved = true; };
   document.addEventListener('focusin', changedFocus);
   document.addEventListener('pointerdown', changedFocus);
-  for (const [id] of TOGGLES) $<HTMLInputElement>(id).disabled = true;
-  onlineChoices().forEach(input => { input.disabled = true; });
   try {
-    const result = await client.call('kingdown_settings', change);
-    if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
-    remember(result);
-  } catch (error) { store.dispatch({ type: 'error', text: errorText(error) }); }
-  await applySettings();
-  document.removeEventListener('focusin', changedFocus);
-  document.removeEventListener('pointerdown', changedFocus);
-  if (!moved && state.screen === 'settings' && document.activeElement === document.body) focused?.focus({ preventScroll: true });
+    await send('kingdown_settings', change, { origin });
+    if (!queue.current(origin)) return;
+    await applySettings();
+    if (queue.current(origin) && !moved && state.screen === 'settings' && document.activeElement === document.body) focused?.focus({ preventScroll: true });
+  } finally {
+    document.removeEventListener('focusin', changedFocus);
+    document.removeEventListener('pointerdown', changedFocus);
+  }
 }
 for (const [id, key] of TOGGLES) $<HTMLInputElement>(id).onchange = () => void saveSetting({ [key]: $<HTMLInputElement>(id).checked });
 onlineChoices().forEach(input => { input.onchange = () => void saveSetting({ online_visible_to: input.value }); });

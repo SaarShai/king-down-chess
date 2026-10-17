@@ -54,3 +54,14 @@ Each command must end with exit 0. Each browser log must name the head and show 
 - M3: the S5 message line already shows the error once. Add built checks on Play and Board, each with one enabled Try again. The Board check keeps the last canvas at its size, marks it Not current and removes moves. A good read clears the error.
 - No new taste choice. Keep B3 b and the approved words and motion.
 - The first test command has bad file-filter arguments and is stopped with its own child processes. It has no valid result. Use KINGDOWN_TEST_FILE for a single file and plain npm test for the full suite.
+
+### Review and first browser check
+
+- Two read-only reviewers check fa67175e as a merge result. Their probe uses a git archive of that head. No reviewer edits this worktree.
+- State review: confirm that a late Settings failure can show on the screen opened with Back, and a reply can write after teardown. Use the existing command queue for Settings. Gate generic errors by current job and origin screen. Keep focus listener cleanup in finally.
+- State review: confirm that an old Handle save can resend the waiting start after a newer Profile mount. Gate that follow-up by the current job and carry its origin into the resend. Keep the pending receipt and error intact when the old job is no longer current.
+- State review: confirm that a new empty/setup game returns before it drops the old draft. Drop the draft before that return. Extend D13 to playing, setup and waiting target games, then return to the old board and check that Undo stays off.
+- Merge and UI review: confirm that a held first Settings save leaves Start timers alive after teardown. Gate both timer bodies by the start origin. Keep exit data cleanup inside the open-queue guard. Keep timer and listener cleanup outside it.
+- Add app tests for Settings failure after Back, Settings replies after teardown, Start timers and exit cleanup after teardown, old Handle success after Profile, and a good empty Play read.
+- M1 browser run at fa67175e fails in 33.0 s on the M1. The new Play case finds a real fault: a good Get with no view does not clear Try again. Clear that read notice through the store. The failure log is browser-m1-2.txt. The runner ends with check-runner: M1 exit 1 at fa67175e.
+- The first detached runner start writes no output and leaves no process. It has no result. The next start uses the same approved runner as a foreground command with a saved log.

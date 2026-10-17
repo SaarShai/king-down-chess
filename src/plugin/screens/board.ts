@@ -474,7 +474,7 @@ export function boardScreen(store: Store) {
     choices([]);
     document.querySelector('[data-screen="board"]')!.prepend($('game-table')); $('table-bar').hidden = false;
     $('game-table').dataset.empty = String(!next.fen || next.status === 'setup');
-    if (!next.fen || next.status === 'setup') { $('all-rules').hidden = true; pos = undefined; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('short-move-words').textContent = ''; $('move-time-left').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
+    if (!next.fen || next.status === 'setup') { dropDraft(); $('all-rules').hidden = true; pos = undefined; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('short-move-words').textContent = ''; $('move-time-left').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
     rules(); pos = fromFen(next.fen);
     const replayed = before && same ? replayLans(before, next, view.rules!) : undefined;
     const restored = replayHistory(next, view.rules!);

@@ -397,3 +397,98 @@ it('keeps a newer game after a held Choose returns to an older start job', async
   expect(app.client.state.screen).toBe('board');
   expect(app.client.state.pending).toBeUndefined();
 });
+
+it('review: keeps a failed Settings save off the screen opened after Back', async () => {
+  const app = await mounted(); app.routeView(game); app.navigate('settings');
+  Object.assign(document, { addEventListener() {}, removeEventListener() {} });
+  let reject!: (error: Error) => void;
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_settings'
+    ? new Promise((_resolve, fail) => { reject = fail; }) : { content: [], _meta: { games: [] } });
+  const input = document.getElementById('symbols-only')!;
+  Reflect.apply(input.onchange!, input, [{}]); await vi.advanceTimersByTimeAsync(0);
+  expect(reject).toBeTypeOf('function');
+  expect(app.queue.writing()).toBe(true);
+  app.navigate('board');
+  reject(new Error('Setting save failed')); await vi.advanceTimersByTimeAsync(0);
+  expect((await import('./state')).messageLine(app.store.page()).text).toBe('');
+});
+
+it.each([false, true])('review: ignores a Settings save reply after teardown (error: %s)', async failed => {
+  const app = await mounted(); app.navigate('settings');
+  Object.assign(document, { addEventListener() {}, removeEventListener() {} });
+  let release!: (value: unknown) => void;
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_settings'
+    ? new Promise(resolve => { release = resolve; }) : { content: [], _meta: { games: [] } });
+  const input = document.getElementById('symbols-only')!;
+  Reflect.apply(input.onchange!, input, [{}]); await vi.advanceTimersByTimeAsync(0);
+  const before = app.memory.settings;
+  await transport.instance.onteardown();
+  release(failed ? { content: [{ type: 'text', text: 'Setting save failed' }], isError: true }
+    : { content: [], _meta: { settings: { ...settings, symbols_only: true } } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.memory.settings).toBe(before);
+  expect((await import('./state')).messageLine(app.store.page()).text).toBe('');
+});
+
+it('clears a failed empty Play read when Try again reads no game', async () => {
+  const app = await mounted(); app.navigate('play');
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_get'
+    ? { isError: true, content: [{ type: 'text', text: 'Read failed' }] } : { content: [], _meta: { games: [] } });
+  await app.call('kingdown_get', {});
+  expect((await import('./state')).messageLine(app.store.page()).action).toBe('try-again');
+  transport.call.mockResolvedValue({ content: [], _meta: { games: [] } });
+  await app.call('kingdown_get', {});
+  expect((await import('./state')).messageLine(app.store.page())).toMatchObject({ text: '', action: 'none' });
+});
+
+it.each(['kingdown_settings', 'kingdown_create'])('keeps Start and exits fixed after teardown while %s waits', async held => {
+  const app = await mounted(), setup = await import('./screens/setup'); app.navigate('play');
+  const exit = { disabled: true, dataset: {} as Record<string, string>, addEventListener() {}, removeEventListener() {} };
+  Object.assign(document, { querySelectorAll: (selector: string) => selector === '#page-back, [data-screen="play"] [data-nav]' ? [exit] : [] });
+  let release!: (value: unknown) => void;
+  transport.call.mockImplementation(async ({ name }) => name === held ? new Promise(resolve => { release = resolve; })
+    : { content: [], _meta: { settings, games: [] } });
+  if (held === 'kingdown_settings') {
+    setup.setupScreen();
+    const button = document.getElementById('setup-start')!; Reflect.apply(button.onclick!, button, [{}]);
+  } else setup.playNow();
+  await vi.advanceTimersByTimeAsync(held === 'kingdown_create' ? 5001 : 0);
+  expect(release).toBeTypeOf('function');
+  const button = document.getElementById('setup-start')!, before = { text: button.textContent, disabled: exit.disabled, dataset: { ...exit.dataset } };
+  await transport.instance.onteardown(); await vi.advanceTimersByTimeAsync(5001);
+  expect({ text: button.textContent, disabled: exit.disabled, dataset: exit.dataset }).toEqual(before);
+  const calls = transport.call.mock.calls.length;
+  release({ content: [], _meta: { settings, games: [] } }); await vi.advanceTimersByTimeAsync(0);
+  expect(transport.call).toHaveBeenCalledTimes(calls);
+  expect({ text: button.textContent, disabled: exit.disabled, dataset: exit.dataset }).toEqual(before);
+});
+
+it('review: an old Handle success keeps Profile and does not resend the waiting start', async () => {
+  const app = await mounted();
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_create'
+    ? { content: [{ type: 'text', text: 'Choose a name' }], isError: true, _meta: { code: 'HANDLE_NEEDED' } }
+    : { content: [], _meta: { games: [] } });
+  await app.send('kingdown_create', { kind: 'friend', command_id: 'waiting-start' }, { retain: true });
+  expect(app.client.state.screen).toBe('handle');
+  const pending = app.client.state.pending!;
+  expect(pending).toMatchObject({ name: 'kingdown_create', args: { command_id: 'waiting-start' }, error: 'Choose a name' });
+  let release!: (value: unknown) => void;
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_handle'
+    ? new Promise(resolve => { release = resolve; })
+    : name === 'kingdown_create' ? { content: [], _meta: { view: { ...game, kind: 'friend', status: 'waiting' } } }
+    : { content: [], _meta: { games: [] } });
+  const saved = app.call('kingdown_handle', { handle: 'newname', icon: 'spirit' });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(release).toBeTypeOf('function');
+  const creates = transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create').length;
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'profile' }, _meta: { board_id: 'profile-board' } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.screen).toBe('profile');
+  release({ content: [], _meta: { me: { handle: 'newname', icon: 'spirit' } } });
+  await saved; await vi.advanceTimersByTimeAsync(0);
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create')).toHaveLength(creates);
+  expect(app.client.state.screen).toBe('profile');
+  expect(app.client.state.pending).toBe(pending);
+  expect(app.client.state.pending).toMatchObject({ name: 'kingdown_create', args: { command_id: 'waiting-start' }, error: 'Choose a name' });
+  expect(app.memory.me?.handle).toBe('newname');
+});

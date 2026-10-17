@@ -1499,7 +1499,7 @@ it('W7-04: a lost send keeps the ID, revision and actions for Retry, and drops t
   } finally { await page.close(); }
 });
 
-it('W7-04: keeps the draft through a sheet, Settings, Back and an equal-revision poll, and drops it for another game (D13)', async () => {
+it.each(['playing', 'setup', 'waiting'] as const)('W7-04: keeps the draft through sheets and an equal-revision poll, and drops it for another %s game (D13)', async status => {
   const {page,frame,base} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1');
   try {
     await chooseTurnMove(page,'e2-e4',12);
@@ -1520,8 +1520,11 @@ it('W7-04: keeps the draft through a sheet, Settings, Back and an equal-revision
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {...base, opponent: {...base.opponent, last_seen_ms: 1234}});
     expect((await savedDraft(page)).lans).toEqual(['e2-e4']);
     // Another game drops it.
-    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), view('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1'));
+    const other = view('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1', {}, { status, ...(status !== 'playing' && { fen: '', kind: 'friend' }) });
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), other);
     await expect.poll(() => savedDraft(page)).toBeNull();
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), base);
+    expect(await savedDraft(page)).toBeNull();
     expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
   } finally { await page.close(); }
 });
