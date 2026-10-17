@@ -1,6 +1,6 @@
 # Client state: S5 review fixes
 
-Status: claimed
+Status: resolved
 
 ## S1 to S5 recheck: plan and checks
 
@@ -46,6 +46,23 @@ The control logs are `checks-recheck-timeout-control.txt` and
 One earlier Games control selects this Mac and cannot start Chromium because
 the browser executable is absent. The next run uses the M1 through the same
 check runner. No browser or dependency installation changes.
+
+### Final recheck results
+
+The fixed source is `4068e1a0`. All seven findings are fixed. None is refuted.
+
+| Check | Result | State-review lane log |
+|---|---|---|
+| `npm test`, `KINGDOWN_TEST_FILE='src/**/*.test.ts'`, with the required local test database | 119 files pass. 1,740 tests pass and 8 skip. The type check and all 50 document checks pass. | `recheck-source-final.txt` |
+| Required check runner, `plugin-ui`, on the M1 | Pass in 154.5 seconds. Final line: `check-runner: M1 exit 0 at 4068e1a0`. | `checks-recheck-final.txt` |
+| Temporary 10-second mount Get control | Fails at the new lock assertion before release, as required. | `checks-recheck-timeout-control.txt` |
+| Temporary 10-second mount Games control | Fails at the new lock assertion before release, as required. | `checks-recheck-list-timeout-control-2.txt` |
+
+The final record commit changes this ticket only. Its product and test files
+match the passing head. The source-page browser file does not run on this Mac.
+Its three slow mount cases also run in the passing named check. `plugin-ui-http`
+does not run because no server code changes. No check limit changes.
+All test and check commands end before the final report.
 
 Base: `c8cf0822`. S0: `1ab1975d`. S5 starts at `a5cac8f8`.
 The source ticket and design are in the owner's scratchpad, under `tickets/`.
