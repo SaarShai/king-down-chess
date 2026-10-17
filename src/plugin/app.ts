@@ -10,17 +10,17 @@ import { handleProblem, ICONS, type Icon } from '../account/profile';
 import { boardScreen, rollbackBoardMove } from './screens/board';
 import { setSettings } from './board-view';
 import { setSound, snd } from '../render/sfx';
-import { runPoll } from './poll';
+import { runPoll, type PollTarget } from './poll';
 import { createRouter } from './router';
 import { applyLocks, createStore, locks, messageLine } from './state';
 import { createQueue, EMPTY, REFUSALS, resultCode, resultText, type Job, type JobOptions, type Kind, type Outcome } from './queue';
 import { draftFromGame, playNow, quickStart, setupBusy, setupScreen, setupStarting, setupSync } from './screens/setup';
 import { friendScreen } from './screens/friend';
-import { joinScreen } from './screens/join';
-import { waitScreen } from './screens/wait';
-import { lobbyScreen } from './screens/lobby';
+import { joinScreen, joinSync } from './screens/join';
+import { waitPoll, waitScreen, waitSync } from './screens/wait';
+import { lobbyPoll, lobbyScreen, lobbySync } from './screens/lobby';
 import { seatScreen, seatSync } from './screens/seat';
-import { endSync, endScreen } from './screens/end';
+import { endPoll, endSync, endScreen } from './screens/end';
 import { profileScreen } from './screens/profile';
 import { collectionScreen } from './screens/collection';
 import './app.css';
@@ -56,6 +56,7 @@ const drawBoard = boardScreen(store);
 store.subscribe(page => setupSync(page));
 store.subscribe(page => seatSync(page));
 store.subscribe(page => endSync(page));
+store.subscribe(page => { lobbySync(page); joinSync(page); waitSync(); });
 store.subscribe(() => actions());
 const router = createRouter((name, args, retain) => call(name, args, retain, false, false), navigate, next => {
   show(next);
@@ -371,6 +372,22 @@ async function mountBody(job: Job, result: ToolResult) {
     }
   }
 }
+/**
+ * The one poll's target (design §4): the page board on a human game screen, the rematch watch on End, the list on the
+ * lobby, else the watch of a waiting human game during a solo game.
+ */
+function pollTarget(): PollTarget | undefined {
+  if (state.screen === 'end') return endPoll();
+  if (state.screen === 'lobby') return lobbyPoll();
+  if (!['friend', 'wait', 'seat', 'board'].includes(state.screen)) return waitPoll();
+  return (view?.kind === 'solo' && waitPoll()) || { view, read: async () => {
+    if (!state.board_id) return;
+    await call('kingdown_get', { ...(view?.fen ? { since_revision: view.revision } : {}) }, false, true, !savedScreen || !!view && ['friend', 'wait', 'seat', 'board'].includes(state.screen));
+    // kingdown_get is read-only; this write lets the opponent see the player online.
+    if (view && Date.now() - seenAt >= 30_000) { seenAt = Date.now(); void client.call('kingdown_seen', { game_id: view.game_id }).catch(() => {}); }
+  } };
+}
+export const pollUpdate = () => poll?.update();
 app.onclose = () => { connected = false; poll?.stop(); router.finishStart(); queue.close(); };
 app.onteardown = async () => { connected = false; poll?.stop(); router.finishStart(); saveState(); queue.close(); return {}; };
 const connection = app.connect().then(() => {
@@ -379,12 +396,7 @@ const connection = app.connect().then(() => {
   // A saved route waits behind the home card while the host stays inline.
   if (queuedAtStart && state.screen === 'home') navigate(queuedAtStart);
   if (state.screen !== 'home' && displayMode === 'inline') { const screen = state.screen; if (canFullscreen()) navigate('home'); navigate(screen); }
-  poll = runPoll(() => ['friend', 'wait', 'seat', 'board'].includes(state.screen) ? view : undefined, async () => {
-    if (!connected || awaitingInitialResult || mounting() || !state.board_id || queue.writing()) return;
-    await call('kingdown_get', { ...(view?.fen ? { since_revision: view.revision } : {}) }, false, true, !savedScreen || !!view && ['friend', 'wait', 'seat', 'board'].includes(state.screen));
-    // kingdown_get is read-only; this write lets the opponent see the player online.
-    if (view && Date.now() - seenAt >= 30_000) { seenAt = Date.now(); void client.call('kingdown_seen', { game_id: view.game_id }).catch(() => {}); }
-  });
+  poll = runPoll(pollTarget, () => connected && !awaitingInitialResult && !mounting() && !queue.closed() && !queue.writing());
 }).catch(error => { store.dispatch({ type: 'connect', text: `Could not connect to the game: ${errorText(error)}` }); });
 
 // Ticket 21: the ChatGPT iOS app showed a 45 px board that no test browser shows. Settings keeps the sizes of the last

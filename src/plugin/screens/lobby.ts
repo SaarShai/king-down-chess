@@ -1,10 +1,11 @@
 import { call, client, memory, navigate, routeView, send, start } from '../app';
 import { DEFAULT_OPTIONS } from '../../match/setup';
 import type { InboxEntry, Lobby, View } from '../../match/protocol';
-import { runPoll } from '../poll';
+import type { PollTarget } from '../poll';
+import type { Page } from '../state';
 import { ANY_RULES } from './setup';
 import { $, featureNames, features, icon, onStop, portrait, row, showError } from './friend';
-let poll: ReturnType<typeof runPoll> | undefined, finding = false, accepting = false, afterHandle: string | undefined;
+let finding = false, accepting = false, afterHandle: string | undefined;
 // The list uses the runner's visible 15-second schedule, with no board position.
 const listClock = { kind: 'random', status: 'playing', speed: 'live', seat: 0, turn: 0, opponent: null, last_commands: [], server_now: '' } as unknown as View;
 export function lobbyScreen() {
@@ -21,8 +22,7 @@ export function lobbyScreen() {
     } finally { finding = false; }
   };
   $('lobby-key').innerHTML = featureNames.map(([, name, label]) => `${icon(name)} ${label}`).join(' · ');
-  if (!poll) poll = runPoll(() => client.state.screen === 'lobby' ? listClock : undefined, readLobby);
-  else void readLobby();
+  void readLobby();
 }
 async function readLobby() {
   try {
@@ -59,9 +59,9 @@ async function acceptGame(game: string) {
   } catch (error) { showError(error, $('lobby-status')); }
   finally { accepting = false; }
 }
-function stop() { poll?.stop(); poll = undefined; }
-const observer = new MutationObserver(() => { if (client.state.screen !== 'lobby') stop(); if (!['lobby','handle'].includes(client.state.screen)) afterHandle = undefined; });
-observer.observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
+/** The lobby's target of the one poll: the list on its 15-second clock (design §4). */
+export const lobbyPoll = (): PollTarget => ({ view: listClock, read: readLobby });
+export function lobbySync(page: Page) { if (!['lobby','handle'].includes(page.screen)) afterHandle = undefined; }
 const back = () => { if (client.state.screen === 'handle') afterHandle = undefined; };
 $('page-back').addEventListener('click', back, true);
-onStop(() => { stop(); observer.disconnect(); $('page-back').removeEventListener('click', back, true); });
+onStop(() => { $('page-back').removeEventListener('click', back, true); });

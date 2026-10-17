@@ -1,11 +1,11 @@
-import { call, client, memory, navigate, routeView, start } from '../app';
+import { call, client, memory, navigate, pollUpdate, routeView, start } from '../app';
 import { art } from '../art';
-import { runPoll } from '../poll';
+import type { PollTarget } from '../poll';
 import { DEFAULT_OPTIONS, defaultChoice } from '../../match/setup';
 import type { View } from '../../match/protocol';
 import { $, features, onStop, portrait, showError } from './friend';
 let open: View | undefined, began = 0, timer: ReturnType<typeof setInterval> | undefined;
-let watch: ReturnType<typeof runPoll> | undefined, watched: string | undefined, offering = false, switching = false, background = false;
+let watched: string | undefined, offering = false, switching = false, background = false;
 const dismissed = new Set<string>();
 let abortReceipt: View | undefined, recoverJoined: boolean | undefined;
 export function waitScreen() {
@@ -90,21 +90,29 @@ function syncWatch() {
   const entry = memory.games.find(game => game.kind === 'random' && game.status === 'waiting') ?? joined;
   const id = open?.status === 'waiting' ? open.game_id : entry?.game_id;
   if (!id || solo && id === memory.view?.game_id || dismissed.has(id)) { stopWatch(); return; }
-  if (watch && watched === id) {
+  if (watched === id) {
     if (active && !background) { background = true; void readOpen(id); }
     else if (!active) background = false;
     return;
   }
   if (!active && client.state.screen !== 'wait') return;
-  stopWatch(); watched = id; background = active;
-  // Keep the wait clock on Play too. Only a computer board makes this runner read.
-  watch = runPoll(() => open?.game_id === id ? open : 'waiting for a join', async () => {
-    if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && ['board','wait'].includes(client.state.screen) && !client.state.pending) await readOpen(id);
-  });
+  stopWatch(); watched = id; background = active; if (active) void readOpen(id);
+  pollUpdate();
+}
+/**
+ * The watch of a waiting human game, a target of the one poll (design §4). The wait clock runs on Play too; only a
+ * computer board or the wait screen makes it read. It never selects that game.
+ */
+export function waitPoll(): PollTarget | undefined {
+  const id = watched;
+  return id ? { view: open?.game_id === id ? open : 'waiting for a join', read: async () => {
+    if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && ['board','wait'].includes(client.state.screen)) await readOpen(id);
+  } } : undefined;
 }
 function found(human: View) {
   const over = $<HTMLDialogElement>('over');
-  if (over.open && !over.classList.contains('found')) return;
+  // An open dialog stays: a later watch read does not rebuild Switch now (or its error) while the player answers.
+  if (over.open) return;
   over.className = 'found'; over.setAttribute('aria-labelledby', 'found-title');
   over.innerHTML = '<div class="over-art"></div><h2 id="found-title">Opponent found</h2><p></p><form method="dialog"><button id="found-switch" class="primary" type="button">Switch now</button><button id="found-later" type="button">Not now</button></form><p id="found-error" role="alert"></p>';
   over.querySelector('.over-art')!.append(portrait(human.opponent?.icon, true));
@@ -128,11 +136,12 @@ function found(human: View) {
   };
   if (!over.open) over.showModal();
 }
-function stopWatch() { watch?.stop(); watch = undefined; watched = undefined; background = false; }
-const observer = new MutationObserver(() => {
+function stopWatch() { watched = undefined; background = false; }
+export function waitSync() {
   if (client.state.screen !== 'wait') { clearInterval(timer); timer = undefined; }
   syncWatch();
-});
-observer.observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
+}
+// The games list changes outside the store: its rows can name a new waiting game.
+const observer = new MutationObserver(waitSync);
 observer.observe($('games-list'), { childList: true });
 onStop(() => { clearInterval(timer); stopWatch(); observer.disconnect(); });

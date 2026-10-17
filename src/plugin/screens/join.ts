@@ -1,5 +1,6 @@
 import { client, memory, navigate, routeView, send } from '../app';
 import type { JoinPreview } from '../../match/protocol';
+import type { Page } from '../state';
 import { $, features, onStop, portrait, row, showError, toolError } from './friend';
 let reading = false, joining = false, afterHandle = false;
 let checked = '';
@@ -61,8 +62,7 @@ async function join() {
   finally { joining = false; $<HTMLButtonElement>('join-confirm').disabled = false; }
 }
 // Join keeps the code in page memory through Save; a remount needs the code again.
-const observer = new MutationObserver(() => { if (client.state.screen !== 'join' && client.state.screen !== 'handle') { afterHandle = false; memory.code = ''; memory.preview = undefined; memory.joinError = undefined; checked = ''; } });
-observer.observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
+export function joinSync(page: Page) { if (page.screen !== 'join' && page.screen !== 'handle') { afterHandle = false; memory.code = ''; memory.preview = undefined; memory.joinError = undefined; checked = ''; } }
 const back = () => { if (client.state.screen === 'handle') afterHandle = false; };
 $('page-back').addEventListener('click', back, true);
-onStop(() => { observer.disconnect(); $('page-back').removeEventListener('click', back, true); });
+onStop(() => { $('page-back').removeEventListener('click', back, true); });

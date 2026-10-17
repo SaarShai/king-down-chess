@@ -1,7 +1,7 @@
-import { call, client, memory, routeView, showNewGame, store } from '../app';
+import { call, client, memory, pollUpdate, routeView, showNewGame, store } from '../app';
 import { art } from '../art';
 import { ending, endReason } from '../ending';
-import { runPoll } from '../poll';
+import type { PollTarget } from '../poll';
 import { PLAIN_KINGS } from '../../rules/engine';
 import { staleRead, type Page } from '../state';
 import { boardGame, closeBoardSheet, sendBoardCommand, skipBoardCeremony } from './board';
@@ -10,7 +10,7 @@ import { draftFromGame } from './setup';
 import './end.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 const readFailed = () => staleRead(store.page());
-let scrim: HTMLElement, poll: ReturnType<typeof runPoll> | undefined;
+let scrim: HTMLElement;
 const read = new Set<string>(), resumed = new Set<string>();
 let updating = false, stopped = false, opening = false;
 let endGame: string | undefined, looking = false;
@@ -25,7 +25,6 @@ function closeEnd() {
   if (scrim) scrim.hidden = true;
   skipBoardCeremony(); looking = false; queuedRematch = undefined; $('end-result').hidden = true;
   opening = false;
-  poll?.stop(); poll = undefined;
 }
 function pollView() {
   const view = memory.view;
@@ -40,6 +39,11 @@ export function endSync(page: Page) {
   endKey = key;
   if (page.screen === 'end') setTimeout(updateEnd, 0);
   else if (scrim) closeEnd();
+}
+/** The rematch watch: the one poll reads the finished human game until a rematch or a reply comes (design §4). */
+export function endPoll(): PollTarget | undefined {
+  const view = pollView();
+  return view && { view, read: async () => { await call('kingdown_get', { since_revision: boardGame()?.revision }, false, true); updateEnd(); } };
 }
 export function updateEnd() {
   if (client.state.screen !== 'end') { closeEnd(); return; }
@@ -128,11 +132,6 @@ export function endScreen(schedule = true) {
     };
     requestAnimationFrame(show);
   }
-  poll ??= runPoll(pollView, async()=>{
-    await Promise.resolve();
-    if (!pollView()) return;
-    if (!client.state.pending && !$<HTMLButtonElement>('reload').disabled) await call('kingdown_get',{since_revision:boardGame()?.revision},false,true);
-    updateEnd();
-  }); poll.update();
+  pollUpdate();
   if (schedule) setTimeout(updateEnd,0);
 }
