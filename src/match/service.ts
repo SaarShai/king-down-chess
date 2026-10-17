@@ -369,7 +369,7 @@ export class GameService {
   const key = typeof tokenOrCode === 'string' ? tokenOrCode.trim() : '', token = /^[A-Za-z0-9_-]{43}$/.test(key), code = key.toUpperCase().replace(/[\s-]/g, '');
   if (!token && !/^[A-HJKMNP-Z2-9]{6}$/.test(code)) fail('INVALID_INPUT', 400, 'Invalid invitation');
   if (!token) await this.store.codeTry(actor); // a 6-character code can be guessed; a 43-character token cannot
-  return { column: token ? 'token_hash' : 'code_hash', value: token ? hash(key) : this.codeHash(code), code };
+  return { column: token ? 'token_hash' : 'code_hash', value: token ? hash(key) : this.codeHash(code), code: token ? key : code };
  }
  async preview(actor: string, tokenOrCode: unknown): Promise<JoinPreview> {
   actor = id(actor); const { column, value, code } = await this.invitation(actor, tokenOrCode);
