@@ -36,7 +36,7 @@ async function settled(page: Page) {
     if (Date.now() > end) throw new Error('settled: the frame still waits for a call');
     await new Promise(resolve => setTimeout(resolve, 10));
   }
-  await html(page).evaluate(() => {});
+  await html(page).evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve(undefined))));
 }
 async function friendGame(page: Page) {
   await html(page).evaluate(async (_, options) => { await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white', options }); }, CLASSIC);
@@ -505,5 +505,114 @@ it.fails('R9: a failed connect shows an enabled Try again that connects again (a
     await retry.click();
     await expect.poll(() => frame.locator('#home-error').textContent(), { timeout: 5000 }).toBe('');
     await expect.poll(() => page.evaluate(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_open').length, opens)).toBeGreaterThan(opens);
+  } finally { await page.close(); }
+});
+
+it.fails('R3b: a poll reply does not leave the screen the player opened (a.out 3, user navigation)', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await soloBoard(page);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    const view = await html(page).evaluate(() => (window as any).harnessApp.memory.view);
+    // A poll is in flight, and its reply brings a game that has ended.
+    await page.evaluate(next => { (window as any).harnessNextView = next; (window as any).holdNext = 'kingdown_get'; }, { ...view, revision: view.revision + 1, status: 'finished' });
+    await html(page).evaluate((_, revision) => { void (window as any).harnessApp.call('kingdown_get', { since_revision: revision }, false, true, true); }, view.revision);
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    // The player opens Settings while the poll waits.
+    await html(page).evaluate(() => (window as any).harnessApp.navigate('settings'));
+    await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
+    await page.evaluate(() => (window as any).releaseHeld());
+    await settled(page);
+    // A poll routes only between the game screens of the shown game. It never leaves the player's screen.
+    expect(await html(page).evaluate(() => document.body.dataset.page)).toBe('settings');
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
+// This fault is masked on the merged base: the chat result's own mount read runs after the refusal and clears the
+// message line, so the refused move's words do not stay on the chat board (a.out 4). The test records the wanted
+// behaviour for S3, like R3.
+it('R4: a refused move on A does not write its words on the chat board B (a.out 4)', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const a = await friendGame(page);
+    const b = await tool(page, '/fixture-tool', 'kingdown_open', { game_id: await soloGame(page) });
+    // A move on A is in flight: the server refuses it (an illegal move), and the host holds the refusal.
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_move'; });
+    await html(page).evaluate((_, game_id) => {
+      const app = (window as any).harnessApp;
+      void app.call('kingdown_move', { game_id, command_id: 'r4-refused', expected_revision: app.memory.view.revision, lan: 'e2-e7' }, true);
+    }, a.game);
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    // A chat result selects board B while the refusal waits at the host.
+    await page.evaluate(result => (window as any).harnessShow(result), b);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await settled(page);
+    // The refusal belongs to A's board only. B keeps an empty message line.
+    expect(await frame.locator('#error').textContent()).toBe('');
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
+it.fails('R5: a refused Abort leaves the board menu (a.out 5)', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const a = await friendGame(page);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    const chat = await tool(page, '/fixture-tool', 'kingdown_get', { game_id: a.game });
+    // The server refuses the abort that the board still offers, and the host holds its reply before the server runs.
+    await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_abort'; (window as any).rejectNextAction = { name: 'kingdown_abort', code: 'NOT_ALLOWED', text: 'Abort is closed' }; });
+    await frame.locator('#board-menu:not(:disabled)').click();
+    await frame.locator('#menu-abort').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Abort', exact: true }).click();
+    await page.waitForFunction(() => !!(window as any).releaseBefore);
+    // A chat result arrives while the refusal waits: its mount read waits behind the command.
+    await page.evaluate(result => (window as any).harnessShow(result), chat);
+    // The refusal ends the command; the mount read resumes and must not erase the refusal.
+    await page.evaluate(() => (window as any).releaseBefore());
+    await settled(page);
+    expect(await frame.locator('#error').textContent()).toBe('Abort is closed');
+    // The refused action does not offer itself again.
+    await frame.locator('#board-menu:not(:disabled)').click();
+    expect(await frame.locator('#menu-abort').count()).toBe(0);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
+it.fails('R6: a command that starts while a read is in flight waits for it and runs (a.out 6)', async () => {
+  const page = await open();
+  try {
+    await soloBoard(page);
+    const game = await html(page).evaluate(() => (window as any).harnessApp.memory.view.game_id as string);
+    // A foreground read is in flight.
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_get'; });
+    await html(page).evaluate(() => { void (window as any).harnessApp.call('kingdown_get', {}); });
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    // A board command starts while the read still waits: it must wait for the read and run, not be dropped.
+    const outcome = await html(page).evaluate(async (_, game_id) => (window as any).harnessApp.call('kingdown_move', { game_id, command_id: 'r6-waits', expected_revision: (window as any).harnessApp.memory.view.revision, lan: 'e2-e4' }, true), game);
+    expect(outcome).toBeTruthy();
+    await page.evaluate(() => (window as any).releaseHeld());
+    await settled(page);
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.command_id))).toEqual(['r6-waits']);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
+it.fails('R10: a remount keeps a waiting move on A and sends nothing to the shown game (a.out 10)', async () => {
+  const page = await open();
+  try {
+    const a = await friendGame(page);
+    const b = await tool(page, '/fixture-tool', 'kingdown_open', { game_id: await soloGame(page) });
+    const revision = await html(page).evaluate(() => (window as any).harnessApp.memory.view.revision as number);
+    // The saved widget state names board B while A's move waits (its reply was lost at the teardown).
+    await page.evaluate(([board, tag, rev]) => {
+      (window as any).harnessDropWidgetWrites = true;
+      (window as any).harnessWidgetState = { modelContent: {}, privateContent: { screen: 'board', board_id: board, pending: { name: 'kingdown_move', args: { command_id: 'r10-move', expected_revision: rev, lan: 'e2-e4' }, game_tag: tag, screen: 'board' } } };
+    }, [b._meta.board_id, a.game.slice(0, 8), revision]);
+    // The new frame reads the saved board B and writes its state; wait for that write before its state is read.
+    await nextWrite(page, () => page.locator('#remount').click());
+    await settled(page);
+    // Nothing is sent for the shown game B.
+    expect(await page.evaluate(game => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move' && c.arguments.game_id === game).length, b.structuredContent.game_id)).toBe(0);
+    // The waiting move stays for A, with the connection words.
+    const sent = await html(page).evaluate(() => (window as any).harnessApp.client.state.pending);
+    expect(sent?.game_tag).toBe(a.game.slice(0, 8));
+    expect(sent?.error).toBeTruthy();
   } finally { await page.close(); }
 });

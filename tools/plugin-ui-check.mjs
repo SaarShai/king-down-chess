@@ -71,7 +71,7 @@ try {
       if (Date.now() > end) throw new Error('settled: a tool call still waits');
       await new Promise(resolve => setTimeout(resolve, 10));
     }
-    await frame.locator('html').evaluate(() => {});
+    await frame.locator('html').evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve(undefined))));
   }
 
   async function boardBox() {

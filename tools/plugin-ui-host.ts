@@ -46,6 +46,9 @@ async function mount() {
     // Each names one tool, or a list of tools for the first call to any of them.
     const holds = (hold: unknown) => hold === params.name || (Array.isArray(hold) && hold.includes(params.name));
     if (holds((window as any).holdBeforeNext)) { (window as any).holdBeforeNext = undefined; await hold('releaseBefore'); }
+    // A named refusal for any tool (design §7.5 R5): the server answer is an error with its own words and code.
+    // It runs after a hold, so a test can put the refusal among other calls in flight.
+    if ((window as any).rejectNextAction?.name === params.name) { const { code, text } = (window as any).rejectNextAction; (window as any).rejectNextAction = undefined; return { isError: true, content: [{ type: 'text', text }], _meta: { code } }; }
     const result = await invoke(params.name, params.arguments ?? {});
     if (params.name === 'kingdown_get' && (window as any).harnessNextView) { result._meta.view = (window as any).harnessNextView; (window as any).harnessView = result._meta?.view; (window as any).harnessNextView = undefined; }
     if (holds((window as any).holdNext)) { (window as any).holdNext = undefined; await hold('releaseHeld'); }

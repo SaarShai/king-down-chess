@@ -29,7 +29,7 @@ async function settled(page: Page) {
     if (Date.now() > end) throw new Error('settled: the frame still waits for a call');
     await new Promise(resolve => setTimeout(resolve, 10));
   }
-  await page.frameLocator('iframe').locator('html').evaluate(() => {});
+  await page.frameLocator('iframe').locator('html').evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve(undefined))));
 }
 // Spec J2, D2: the first test, while the shared player has no saved setup and no game.
 it('takes a new player from the home card to a draft move and the turn press', async () => {
