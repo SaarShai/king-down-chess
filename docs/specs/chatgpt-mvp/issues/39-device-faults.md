@@ -36,4 +36,10 @@ The test-only commits are 1c962c1e and fc7e3e8c. The four source files still mat
 Use the four fixes in the owner ticket. No new taste choice is needed.
 The old W7 checks expect a drag callback while play is locked. F-2 now requires no callback. Change those two assertions to require an empty list. Keep their tap, keyboard, board-state, and send checks.
 
+The first full test run at 87fa4fe9 finds that the separate dot can end a wrapped line. It also finds that row text loses its spaces.
+Keep the dot and detail in an inline flex group, with an 8 px gap. The outer row keeps its 8 px gap. Keep spaces in textContent. This keeps the old wrap and text checks.
+The owner receives this choice as a question; work continues with the group as the stated pick.
+The first browser pass at 87fa4fe9 stops on the new tap check after a swipe. Read the tap point again after the scroll reset and wait for the note. The swipe status check passes.
+Two full-suite timing checks also fail: the computer reply and the wait poll count. Rerun them with the same limits.
+
 Final results follow here.

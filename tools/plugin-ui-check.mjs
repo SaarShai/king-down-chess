@@ -2218,8 +2218,12 @@ try {
         assert(endHit,`${label}: End turn receives a tap after a board swipe`);
         if (label === 'board-their-turn') {
           await reset();
-          await page.touchscreen.tap(host.x + start.x, host.y + start.y);
-          assert.match(await frame.locator('#status').textContent(), view.turn === 0 ? /^White / : /^Black /, 'A tap on their piece still opens its note');
+          const point = await frame.locator('canvas').evaluate((canvas, { sq, black }) => {
+            const r = canvas.getBoundingClientRect(), file = sq % 8, rank = Math.floor(sq / 8);
+            return { x: r.x + (32 + ((black ? 7 - file : file) + .5) * 112) * r.width / 960, y: r.y + (96 + ((black ? rank : 7 - rank) + .5) * 112) * r.width / 960 };
+          }, { sq: start.sq, black: view.seat === 1 });
+          await page.touchscreen.tap(host.x + point.x, host.y + point.y);
+          await widget().waitForFunction(colour => document.querySelector('#status').textContent.startsWith(colour), view.turn === 0 ? 'White ' : 'Black ', { timeout: 3000 });
         }
       }
     } finally {
@@ -2259,7 +2263,7 @@ try {
     await zoomViewport(402,874,0,0);
     await frame.locator('html').evaluate(() => document.fonts.ready);
     const gaps = await frame.locator('#games-list .line').evaluateAll(lines => lines.map(line => {
-      const [dot, detail] = line.children, range = document.createRange();
+      const [dot, detail] = line.querySelector('.game-detail').children, range = document.createRange();
       range.selectNode(line.firstChild);
       const words = range.getBoundingClientRect(), d = dot.getBoundingClientRect(), next = detail.getBoundingClientRect();
       return { dot: dot.textContent, before: d.left - words.right, after: next.left - d.right, sameLine: Math.abs(words.top - d.top) < 2 && Math.abs(d.top - next.top) < 2 };

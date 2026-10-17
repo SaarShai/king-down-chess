@@ -32,7 +32,8 @@ export function gamesList(target: HTMLElement, entries: InboxEntry[], call: (nam
     const detail = document.createElement('span');
     detail.textContent = gameDetail(entry);
     const dot = document.createElement('span'); dot.textContent = '·';
-    line.append(dot, detail, feats); button.append(lead, title, line);
+    const info = document.createElement('span'); info.className = 'game-detail'; info.append(dot, ' ', detail);
+    line.append(' ', info, feats); button.append(lead, title, line);
     if (yours) { const mark = document.createElement('b'); mark.className = 'turn-mark'; mark.textContent = 'Your turn'; button.append(mark); }
     else { const end = document.createElement('i'); end.setAttribute('aria-hidden', 'true'); end.textContent = '›'; button.append(end); }
     button.onclick = async () => { const view = await call('kingdown_resume', { game_id: entry.game_id }); if (view) routeView(view); };

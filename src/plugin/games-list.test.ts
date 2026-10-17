@@ -38,5 +38,7 @@ it.each(['playing', 'waiting'] as const)('gives the dot its own item in a %s gam
   gamesList(target as unknown as HTMLElement, [game], async () => undefined, () => {}, Date.parse(game.created_at));
   const row = target.children[0] as RowNode, line = row.children.find(n => typeof n !== 'string' && n.className === 'line') as RowNode;
   expect(line.textContent).toBe(status === 'waiting' ? 'Just opened' : 'Move 2');
-  expect(line.children.map(n => typeof n === 'string' ? n : n.textContent)).toEqual(['·', gameDetail(game), '']);
+  const info = line.children.find(n => typeof n !== 'string' && n.className === 'game-detail') as RowNode;
+  expect(line.children[0]).toBe(' ');
+  expect(info.children.map(n => typeof n === 'string' ? n : n.textContent)).toEqual(['·', ' ', gameDetail(game)]);
 });
