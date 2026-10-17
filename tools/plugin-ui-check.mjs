@@ -2140,7 +2140,14 @@ try {
       const viewport = page.viewportSize();
       const screen = frame.locator('[data-screen="board"]');
       const noSidewaysScroll = async () => {
-        const bounds = await screen.evaluate(el => ({width:el.clientWidth,scrollWidth:el.scrollWidth,left:el.scrollLeft}));
+        const readBounds = () => screen.evaluate(el => ({width:el.clientWidth,scrollWidth:el.scrollWidth,left:el.scrollLeft}));
+        let bounds = await readBounds();
+        if (bounds.scrollWidth > bounds.width || bounds.left !== 0) {
+          // PaintedView sizes the canvas from a ResizeObserver, one frame behind the viewport and inset change, so the
+          // first read can see the old canvas (344 px in a 197 px screen). Read again after two frames; a real overflow stays.
+          await screen.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+          bounds = await readBounds();
+        }
         assert(bounds.scrollWidth <= bounds.width && bounds.left === 0, `The board screen has no sideways overflow or scroll: ${JSON.stringify(bounds)}`);
       };
       for (const [width,height,top,bottom] of [[197,426,51,59],[250,542,0,0],[262,568,68,79],[280,606,0,0],[287,621,0,0],[319,691,0,0]]) {
