@@ -74,3 +74,12 @@ Both independent readers find the same N1 issue at fb415019. No other confirmed 
 The fix at 51354ad3 passes both loss N1 cases on the M1 so far.
 The first full test run has 4 failures: two mouse read-drag assertions, the detached frame reference, and a width of 300 instead of 299.
 Keep setup touch drags as before. Add a setup touch guard assertion. Use the measured 300 px width.
+
+## Review and final check record
+
+The two read-only reviews at fb415019 report one N1 issue each. The M1 check passes at 51354ad3 after the N1 fix.
+Each review uses a separate source copy from git archive. Final reviews use the final source and a9894b6a as the base.
+The touch unit check sends pointercancel when native pan takes the gesture. It still requires touchstart to remain uncancelled.
+The N1 spacing choice applies only to narrow portrait views below 380 px high: a 144 px card cap, compact gaps, and no decorative King Down line. Keep the result, title, and actions.
+No dependency or game rule changes. No push, pull request, merge to main, deploy, or sign-in.
+Final check logs and the complete result go in scratchpad/lanes/merge-5/merge-5-build.md, as the owner requests.

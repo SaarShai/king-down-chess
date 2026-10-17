@@ -62,7 +62,7 @@ describe('PaintedView touch input', () => {
     view.canDrag = () => false; pickedSquare = 12;
     fire('pointerdown', down); fire('touchstart', { preventDefault });
     expect(preventDefault).not.toHaveBeenCalled();
-    fire('pointermove', { ...down, clientY: -40 }); fire('pointercancel'); fire('pointerup', down);
+    fire('pointercancel'); fire('pointerup', down);
     expect(view.onDragSelect).not.toHaveBeenCalled(); expect(view.onSquareClick).not.toHaveBeenCalled();
   });
   it('keeps a square tap', async () => {
