@@ -2158,7 +2158,7 @@ it('shows the game count, resumes a person first, and opens the hall without a n
     const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open' }));
     await page.evaluate(result => (window as any).harnessShow(result, true), result);
     await frame.locator('#home-games:not(:disabled)').filter({ hasText: 'Your games (3)' }).waitFor();
-    expect(await frame.locator('#home-play').innerText()).toBe('Resume · friend · Your move');
+    expect(await frame.locator('#home-play').innerText()).toBe('Resume\nfriend · Your move');
     await frame.locator('#home-play').click();
     await expect.poll(() => page.evaluate(() => (window as any).harnessCalls.findLast((c: any) => c.name === 'kingdown_resume')?.arguments.game_id)).toBe(person);
     await frame.locator('#home-games:not(:disabled)').click();
@@ -2255,7 +2255,7 @@ it.each(['collapse', 'chat'])('uses the person-first Home action for a saved hal
       await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
       await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
     }
-    expect(await frame.locator('#home-play').innerText()).toBe('Resume · friend · Your move');
+    expect(await frame.locator('#home-play').innerText()).toBe('Resume\nfriend · Your move');
     await frame.locator('#home-play').click();
     await expect.poll(() => page.evaluate(() => (window as any).harnessCalls.findLast((c: any) => c.name === 'kingdown_resume')?.arguments.game_id)).toBe(person);
   } finally { await page.close(); await isolated.close(); }

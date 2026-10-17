@@ -156,7 +156,7 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
   }
 });
 
-it('keeps card and power targets at 44 px without increasing the player rows', async () => {
+it('keeps 44 px card and power targets in two player rows', async () => {
   const page=await browser.newPage({viewport:{width:375,height:667},hasTouch:true}), frame=page.frameLocator('iframe');
   try {
     await page.goto(harness.url); await hall(page);
@@ -174,7 +174,7 @@ it('keeps card and power targets at 44 px without increasing the player rows', a
     expect(bounds.length).toBeGreaterThanOrEqual(8); for(const [w,h] of bounds){expect(w).toBeGreaterThanOrEqual(44);expect(h).toBeGreaterThanOrEqual(44);}
     expect(await frame.locator('#strip-me b').getAttribute('title')).toBe('wwwwwwwwwwwwwwwwwwww');
     expect(await frame.locator('#strip-me b').evaluate(e=>{const r=e.getBoundingClientRect(),p=e.closest('.player-strip')!.getBoundingClientRect();return r.top>=p.top && r.bottom<=p.bottom && getComputedStyle(e).textOverflow==='ellipsis';})).toBe(true);
-    expect(await frame.locator('#strip-me').evaluate(e=>e.getBoundingClientRect().height)).toBe(44);
+    expect(await frame.locator('#strip-me').evaluate(e=>e.getBoundingClientRect().height)).toBe(88);
   } finally {await page.close();}
 });
 
@@ -521,7 +521,7 @@ it('keeps the board screen unscrolled without cards where the rows fit under 320
 // The zoom rule leaves normal sizes alone. Device matrix round 2 measured 169/158 and 302/302 on the old phone rows;
 // layout B (short portrait rows, Back in the opponent row) gives the seat more height, and with Cards and King powers
 // its narrow opponent and player rows take two 44 px rows on the board. The short last-move row takes 24 px from the board at short heights.
-it.each([[320, 568, 63, 84, true, 218, 113], [393, 852, 102, 118, true, 384, 345], [820, 600, 59, 34, false, 360, 338]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
+it.each([[320, 568, 63, 84, true, 218, 113], [393, 852, 102, 118, true, 384, 303], [820, 600, 59, 34, false, 360, 338]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: touch, hasTouch: touch }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000);
   try {
