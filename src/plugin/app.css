@@ -268,13 +268,16 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table #board { width: 100%; }
 }
 @container table-screen (max-width: 319px) {
-  #game-table #context-text { display: block; height: auto; -webkit-line-clamp: none; }
+  /* The words keep at least 96 px; wider actions go to their own line below them. */
+  #game-table #context-line { flex-wrap: wrap; }
+  #game-table #context-text { display: block; flex: 1 1 96px; min-width: 96px; height: auto; -webkit-line-clamp: none; }
+  #game-table #context-actions { max-width: 100%; flex-wrap: wrap; margin-left: auto; }
   /* Each strip stays one 44 px row: the portrait and the coins scroll sideways in their own row, and the name keeps
      the rest. The coins keep 44 px targets. */
   #game-table .player-strip:has(.card-coin) { gap: 6px; }
   #game-table .player-strip:has(.card-coin) .coin-row { flex: 0 1 auto; min-width: 44px; flex-wrap: nowrap; overflow: auto hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
   #game-table .player-strip:has(.card-coin) .coin-row > * { flex: none; }
-  #game-table .player-strip:has(.card-coin) .player-name { flex: 1 0 48px; }
+  #game-table .player-strip:has(.card-coin) .player-name { flex: 1 0 45%; }
 }
 /* 200% zoom (197 px): a quarter of the bar is under 58 px, too narrow for an icon and its word side by side. */
 @container table-screen (max-width: 239px) {
