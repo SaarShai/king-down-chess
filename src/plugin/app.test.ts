@@ -26,7 +26,8 @@ vi.mock('./screens/collection', () => ({ collectionScreen() {} }));
 
 // The app uses the real client, queue, router and notice store. These nodes replace only the display.
 function node() {
-  return { dataset: {}, style: { setProperty() {} }, textContent: '', innerHTML: '', value: '', disabled: false, hidden: false,
+  return { dataset: {}, style: { setProperty() {} }, textContent: '', innerHTML: '', value: '', disabled: false, hidden: false, open: false,
+    showModal() { this.open = true; }, close() { this.open = false; },
     querySelectorAll: () => [], querySelector: () => node(), closest: () => node(),
     setCustomValidity() {}, setAttribute() {}, removeAttribute() {}, replaceChildren() {}, append() {}, matches: () => false, hasAttribute: () => false };
 }
@@ -115,6 +116,26 @@ it.each(['onclose', 'onteardown'])('stops a delayed name check on %s', async sto
   const input = document.getElementById('handle')! as HTMLInputElement; input.value = 'newname'; Reflect.apply(input.oninput!, input, [{}]);
   await transport.instance[stop](); await vi.advanceTimersByTimeAsync(251);
   expect(transport.call.mock.calls.filter(([call]) => call.name === 'kingdown_handle')).toHaveLength(0);
+});
+
+it('keeps a recovered watch until its first read ends', async () => {
+  const waiting = await waitingGame(), now = Date.now();
+  const human = { ...waiting, status: 'setup', created_at: new Date(now - 2000).toISOString(), updated_at: new Date(now).toISOString() };
+  const solo = { ...waiting, game_id: 'solo-a000', kind: 'solo', status: 'playing', created_at: new Date(now - 1000).toISOString(), rules: {} };
+  (window as any).openai.widgetState = { privateContent: { screen: 'board', board_id: 'solo-board' } };
+  let release!: (value: unknown) => void;
+  transport.call.mockImplementation(async ({ name, arguments: args }) => {
+    if (name === 'kingdown_get' && args.game_id === human.game_id) return new Promise(resolve => { release = resolve; });
+    return { content: [], _meta: name === 'kingdown_get' ? { view: solo } : name === 'kingdown_settings'
+      ? { settings, me: { handle: 'player', icon: 'spirit' } } : { games: [solo, human] } };
+  });
+  const app = await import('./app');
+  transport.instance.ontoolresult({ content: [], structuredContent: { game_id: solo.game_id }, _meta: { board_id: 'solo-board' } });
+  await vi.advanceTimersByTimeAsync(0); expect(release).toBeTypeOf('function');
+  app.store.sync();
+  release({ content: [], _meta: { view: human } }); await vi.advanceTimersByTimeAsync(0);
+  expect((document.getElementById('over') as HTMLDialogElement).open).toBe(true);
+  expect(app.memory.view?.game_id).toBe(solo.game_id); expect(app.client.state.screen).toBe('board');
 });
 
 it.each([false, true])('keeps the wait read origin through Resume (new chat: %s)', async changed => {

@@ -72,6 +72,7 @@ async function readOpen(game: string) {
     if (result.isError) { if (client.state.screen === 'wait') showError(new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' ')), $('wait-status')); return; }
     const next = result._meta?.view as View | undefined;
     if (!next || next.game_id !== game || !['wait','board'].includes(client.state.screen)) return;
+    recoverJoined = false;
     if (open?.game_id !== next.game_id) began = Date.now() - Math.max(0, Date.parse(next.server_now) - Date.parse(next.created_at));
     open = next;
     if (next.status === 'waiting') { if (client.state.screen === 'wait' && memory.view?.kind !== 'random') waitScreen(); return; }
@@ -88,7 +89,7 @@ function syncWatch() {
   const active = solo && ['board','wait'].includes(client.state.screen);
   const joined = recoverJoined && solo ? memory.games.filter(game => game.kind === 'random' && game.status !== 'waiting' && Date.parse(game.created_at) <= Date.parse(memory.view!.created_at) && Date.parse(game.updated_at) >= Date.parse(memory.view!.created_at))
     .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] : undefined;
-  if (memory.view && memory.games.some(game => game.game_id === memory.view?.game_id)) recoverJoined = false;
+  if (!joined && memory.view && memory.games.some(game => game.game_id === memory.view?.game_id)) recoverJoined = false;
   const entry = memory.games.find(game => game.kind === 'random' && game.status === 'waiting') ?? joined;
   const id = open?.status === 'waiting' ? open.game_id : entry?.game_id;
   if (!id || solo && id === memory.view?.game_id || dismissed.has(id)) { stopWatch(); return; }
