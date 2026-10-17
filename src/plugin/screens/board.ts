@@ -39,6 +39,7 @@ export function closeBoardSheet() {
   const restore = sheet.open && sheet.contains(document.activeElement);
   if (sheet.open) document.querySelector<HTMLElement>('.page-sheet')!.inert = false;
   sheet.close(); scrim.hidden = true;
+  $('moves-line').setAttribute('aria-expanded', String(!$('recent-moves').hidden));
   const focus = sheetFocus?.id ? document.getElementById(sheetFocus.id) : sheetFocus;
   if (restore) (focus?.isConnected ? focus : $('board')).focus({preventScroll:true}); client.state.sheet = undefined; client.save();
 }
@@ -151,6 +152,8 @@ export function boardScreen(store: Store) {
       if (name) { const image = document.createElement('img'); image.className = 'pi'; image.alt = ''; image.src = symbols[`../../public/ui/icons/${name}.svg`][colorOf(code)]; nodes.push(image); }
     }
     const words = document.createElement('span'); words.textContent = lastMove?.words ?? `Move ${moveNumber(pos)}.`; nodes.push(words); $('last-move').replaceChildren(...nodes);
+    $('recent-moves').replaceChildren(...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No moves shown yet.')]);
+    fitMoves();
     $('short-move-words').textContent = lastMove ? shortMove(lastMove.pre, lastMove.move) : `Move ${moveNumber(pos)}.`;
   }
   const remainingTime = () => view?.deadline_at ? Date.parse(view.deadline_at) - Date.parse(view.server_now) - (Date.now() - readAt) : 0;
@@ -415,14 +418,30 @@ export function boardScreen(store: Store) {
     boardSheet('Menu', button('Moves', showMoves), ...actions, button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('invite'), $('invitation'));
     sheet.classList.add('board-menu');
   };
-  function showMoves() { boardSheet('Moves', ...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No moves shown yet.')]); }
-  $('moves-line').onclick = showMoves;
+  function showMoves() { boardSheet('Moves', ...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No moves shown yet.')]); $('moves-line').setAttribute('aria-expanded', 'true'); }
+  let movesChoice: boolean | undefined;
+  let bandFits = false;
+  const recentMoves = $('recent-moves');
+  function fitMoves() {
+    const band = $('moves-band').getBoundingClientRect(), line = $('moves-line').getBoundingClientRect();
+    bandFits = matchMedia('(max-width: 899px) and (orientation: portrait)').matches && line.height > 0 && band.height >= 108;
+    const open = active() && bandFits && movesChoice !== false;
+    recentMoves.hidden = !open;
+    $('moves-line').setAttribute('aria-expanded', String(open || !!sheet?.open && sheet.querySelector('h2')?.textContent === 'Moves'));
+    if (open) recentMoves.scrollTop = recentMoves.scrollHeight;
+  }
+  new ResizeObserver(fitMoves).observe($('moves-band'));
+  $('moves-line').onclick = () => {
+    if (!bandFits) { showMoves(); return; }
+    movesChoice = !!recentMoves.hidden;
+    fitMoves();
+  };
   bindBoard();
   // The store replaces the #reload, data-page and #error observers; a sync also schedules the computer and updates End.
   // The board redraws on a screen change, or when its game, board data, lock or refusal changes. An equal-revision poll
   // reply changes only opponent and server_now, so the key holds and the coin row (and its focus) stay (design §3.4).
   const key = (p: Page) => { const l = locks(p); return [p.screen, p.view?.game_id, p.view?.revision, p.view?.status, p.view?.fen, l.game, l.blocked, staleRead(p), p.notice?.kind === 'refusal' ? p.notice.text : ''].join('|'); };
-  store.subscribe((page, before) => { if (active()) { if (key(page) !== key(before)) refresh(); } else skipBoardCeremony(); scheduleComputer(); if (client.state.screen === 'end') updateEnd(); });
+  store.subscribe((page, before) => { if (active()) { if (key(page) !== key(before)) refresh(); } else { movesChoice = undefined; fitMoves(); skipBoardCeremony(); } scheduleComputer(); if (client.state.screen === 'end') updateEnd(); });
   new MutationObserver(() => { if (active()) refresh(); else skipBoardCeremony(); scheduleComputer(); if (client.state.screen === 'end') updateEnd(); }).observe($('over'), {attributes:true, attributeFilter:['open']});
   new MutationObserver(() => turnControls()).observe($('app-frame'), {attributes:true, attributeFilter:['open'], subtree:true});
   return (next: View, restoring = false) => {
@@ -447,7 +466,7 @@ export function boardScreen(store: Store) {
     readAt = Date.now(); clearTimeout(deadlineTimer);
     if (unchanged) { if (pos) { rules(); refresh(); } scheduleComputer(); return; }
     const token = ++generation; board.skip(); animating = false; $('board').dataset.animating='false';
-    if (!same) { history = []; lastMove = undefined; steps = []; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
+    if (!same) { movesChoice = undefined; history = []; lastMove = undefined; steps = []; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
     const local = steps; steps = []; if (local.length) lastMove = history.at(-1);
     armed = undefined; armedCard = undefined; selected = inspected = held = undefined;

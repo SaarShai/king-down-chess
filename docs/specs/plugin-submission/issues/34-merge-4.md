@@ -34,3 +34,8 @@ Each command must end with exit 0. Each browser log must name the head and show 
 - Source: a761dd3e. tools/plugin-ui-check.mjs conflicts.
 - Keep the data-toppling wait and the check that its words are gone. Keep the release zoom checks and the 400 px end-word restart. Remove the second animation wait.
 - The board tests keep the WebKit focus checks and the corrected win-sequence wait.
+
+### Merge 3: od-q10
+
+- Source: 6777221e. No file conflict.
+- Keep the inline recent moves, its phone fit and sheet path. M1 follows this merge and corrects its source order.

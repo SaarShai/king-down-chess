@@ -780,6 +780,7 @@ async function turnBoard(fen?: string) {
 }
 async function squarePoint(page: Page, square: number) {
   const frame = page.frameLocator('iframe'), pane = (await page.locator('iframe').boundingBox())!;
+  await frame.locator('#board canvas').waitFor({state:'visible'});
   const point = await frame.locator('#board canvas').evaluate((canvas, sq) => {
     const r = canvas.getBoundingClientRect(), k = r.width / 960;
     return {x:r.x+(32+((sq&7)+.5)*112)*k, y:r.y+(96+(7-(sq>>3)+.5)*112)*k};
