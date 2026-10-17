@@ -204,7 +204,12 @@ it.each([
   const page = await open(view('4k3/1p6/8/8/8/8/4P3/4K3 w - - 0 1', rules, {kind:'friend',draw_offer:draw?1:null}),width,height), frame = page.frameLocator('iframe');
   try {
     await page.evaluate(() => (window as any).harnessSetContext({ safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 } }));
-    const board = await frame.locator('#board canvas').boundingBox();
+    await expect.poll(() => frame.locator('html').evaluate(el => getComputedStyle(el).getPropertyValue('--safe-top').trim())).toBe('0px');
+    const board = await frame.locator('#board canvas').evaluate(async canvas => {
+      await document.fonts.ready;
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      return canvas.getBoundingClientRect().width;
+    });
     await frame.locator(kind === 'card' ? '#card-w-0' : '#power-w').click();
     await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
     expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('armed');
@@ -216,7 +221,7 @@ it.each([
     expect(text.maxHeight).toBe('none');
     expect(text.overflow).toBe('visible');
     expect(text.content).toBeLessThanOrEqual(text.height + 1);
-    expect((await frame.locator('#board canvas').boundingBox())!.width).toBeCloseTo(board!.width,0);
+    expect((await frame.locator('#board canvas').boundingBox())!.width).toBeCloseTo(board,0);
   } finally { await page.close(); }
 });
 

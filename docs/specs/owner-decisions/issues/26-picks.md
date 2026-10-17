@@ -59,10 +59,11 @@ Taste: no new choice. The build uses G1 a and G3 a as approved, including the
 drag rule. G2, Q3 and Q6 need no further change.
 
 The first completed browser check finds that the long armed card rule makes
-the draw row grow in short landscape. The armed text now keeps the existing
-two-line height. The rule scrolls after the target words. A test checks the
-row height, board size and scroll. This uses one CSS rule. It needs no saved
-size or resize handler. The type check passes after this fix.
+the draw row grow in short landscape. The armed text keeps the existing two-line height in phone portrait view.
+The rule scrolls after the target words, and the keyboard can focus and scroll
+it. Wide and landscape rows show the full rule. The tests check the row size,
+full rule text, board size and keyboard scroll. This needs no saved size or
+resize handler.
 
 The next browser run passes the row-size check. The new 320 px case then finds
 a check helper fault: `boardBox()` requires a width above 250 px. A small phone
@@ -203,3 +204,43 @@ All logs above are under
 Nothing in G1 or G3 remains open. No new taste choice is required. G1 a and
 G3 a set the words and the drag rule. G2, Q3 and Q6 stay as built. No server
 code changes, so `plugin-ui-http` is not required.
+
+
+## Review (26-board)
+
+- Review A has no findings. The target words, preview, drag and clear paths
+  match the code. The existing checks still pass on the built page.
+- Review B's height-limit fault is confirmed and fixed. The global selector
+  beats the wide-view rule. The 40 px limit now applies only in phone portrait
+  view. Eight tests check full card and power rules at 1280 x 800 and 852 x 393,
+  with and without a draw offer. The landscape row may grow to show its rule;
+  the board-size check stays.
+- Review B's keyboard fault is confirmed and fixed. Armed text has tab index
+  0; other text has tab index -1. This works across a resize with no handler.
+  Four tests check Tab, keyboard scroll and Cancel for cards and powers at
+  320 x 568 and 393 x 852.
+- Review B's test gap is fixed. The built-page check tests full text in wide
+  and landscape views, keyboard focus and scroll on phones, and Cancel. It
+  keeps the portrait row-size and board-size checks.
+
+The `plugin-ui` check passes on the M1 at `02c6f929` in 161.1 s, exit 0.
+Log: `checks-26-board-fix-2.txt` in the lane's scratch folder. The first launch
+ends before the runner writes a log; the second launch completes. No check
+limit changes. No server code changes, so `plugin-ui-http` is not required.
+The first full suite run has one failure in a new board-size check. It reads
+440 px before the host inset change takes effect and 536 px after it. The
+rule-text checks pass. The test now waits for the zero host inset, fonts and
+two paint frames before it measures the board. No limit or assertion changes.
+The full suite rerun passes: 177 files; 2885 tests pass, 3 are expected fail,
+and 8 skip. All 50 pose tests pass too. The run takes 277.19 s and exits 0.
+Log: `npmtest-26-board-fix-2.txt` in the lane's scratch folder. The first run's
+log is `npmtest-26-board-fix.txt`. The queued single-file run stops before it
+starts; the full suite covers those tests.
+
+The final product code is the code that passes the M1 browser check at
+`02c6f929`. Later changes only fix the test's first measurement and update this
+ticket. The commit hooks pass the type check and repo gate.
+
+Capture review confirms the full Sky Lift rule at 1280 x 800. The phone capture
+keeps the scroll box and Cancel visible. The captures are
+`26-board-fix-wide.png` and `26-board-fix-phone.png` in the lane's scratch folder.
