@@ -18,3 +18,11 @@ Source: the approved ticket in the release scratchpad. The owner asks to fix T-A
 
 - The screen has vertical overflow. Both `#board` and its painted canvas have `touch-action: none`.
 - `PaintedView` has a piece drag. A drag starts on a piece of the side to move. A tap selects a square. The fix must keep both paths.
+
+## Build and evidence
+
+- The test-only commit `a532532c` has the app files from `4692477c`. The M1 Chromium check fails at the new board-swipe assertion. Native input hits the canvas. Both computed touch-action values are `none`. The board swipe leaves `scrollTop` at 0. The top-strip swipe changes it to 220. The runner ends with `M1 exit 1 at a532532c`. Log: `checks-red-6.txt` in the touch-scroll scratchpad lane.
+- The first test drafts put the strip swipe first. Its later scroll motion affected the next read. The final cause check puts the board swipe first and records its start position.
+- The plugin board and its canvas now use `pan-y`. A non-passive touch-start handler keeps a press on a piece on the existing drag path. The shared website CSS and the 210 px floor stay unchanged.
+- Gesture choice: a piece starts a drag. An empty square starts scroll. The scroll check uses the empty square nearest the visible board centre. The tap check selects the Maester before the swipe at 201 px. The drag checks use vertical and horizontal rook moves at 320 × 568, 393 × 852 and 1280 × 800.
+- Unit checks cover the square tap, both drag directions, scroll from empty and enemy squares, and pointer cancellation followed by another tap. Full checks are in progress.
