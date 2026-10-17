@@ -23,22 +23,11 @@ const base = env('PLAYABLE_URL');
 const testHandle = `mvp_${randomUUID().replaceAll('-', '').slice(0,12)}`;
 const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: true });
-// [DEBUG-webkit-30] Keep the action probe short.
-const debugProto = Object.getPrototypeOf(page.locator('body'));
-for (const method of ['click', 'check', 'uncheck']) {
-  const original = debugProto[method];
-  debugProto[method] = function (options) { return original.call(this, { ...options, timeout: 2000 }); };
-}
 trapErrors(page);
 page.on('pageerror', error => console.error(error.stack));
 try {
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
-  // [DEBUG-webkit-30] The captured callback stays native under either init-script order.
-  await page.addInitScript(() => {
-    const raf = window.__pwClock?.builtins.requestAnimationFrame ?? window.requestAnimationFrame.bind(window);
-    const tick = () => raf(tick); tick();
-  });
   await page.addInitScript(() => {
     // The terminal mount below has no Home check to release this hold.
     if (!new URLSearchParams(location.search).has('terminal')) window.holdBeforeNext = 'kingdown_settings';
