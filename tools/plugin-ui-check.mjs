@@ -1836,12 +1836,17 @@ try {
       // Playwright exposes only tap for WebKit; use its native input session for a swipe.
       : page._connection.toImpl(page)._delegate._pageProxySession;
     async function swipe(x, y) {
+      if (browser.browserType().name()==='chromium') {
+        await touch.send('Input.synthesizeScrollGesture',{x,y,yDistance:-500,speed:800,gestureSourceType:'touch',preventFling:true});
+        return;
+      }
       await touch.send('Input.dispatchTouchEvent', {type:'touchStart',touchPoints:[{x,y,id:0}]});
       for (let i=1;i<=20;i++) {
         await touch.send('Input.dispatchTouchEvent', {type:'touchMove',touchPoints:[{x,y:y-i*20,id:0}]});
         await new Promise(r=>setTimeout(r,16));
       }
-      await new Promise(r=>setTimeout(r,80));
+      await new Promise(r=>setTimeout(r,100));
+      await touch.send('Input.dispatchTouchEvent', {type:'touchMove',touchPoints:[{x,y:y-400,id:0}]});
       await touch.send('Input.dispatchTouchEvent', {type:'touchEnd',touchPoints:[]});
       await new Promise(r=>setTimeout(r,100));
     }
