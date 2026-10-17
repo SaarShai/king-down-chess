@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import type { Browser, FrameLocator, Page } from 'playwright';
 import { launch } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
+import { hitSizes } from './lib/plugin-hit-sizes.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 // Test the built page. The build gives the seat its table styles.
@@ -323,13 +324,6 @@ async function hostPage(width: number, height: number, top: number, bottom: numb
   await page.evaluate(async safe => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe, deviceCapabilities: { touch: true } }); }, { top, bottom, left: 0, right: 0 });
   return { page, frame };
 }
-// The tap height and width at the centre lines of each visible control: the run of points that reach the control.
-const hitSizes = (root: Element) => [...root.querySelectorAll('button, label, input:not([type=radio]):not([type=checkbox])')].filter(e => (e as HTMLElement).offsetParent && !e.closest('dialog:not([open])')).map(e => {
-  e.scrollIntoView({ block: 'center' });
-  const own = (p: Element | null) => p?.closest('button, label, input'), r = e.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, target = own(e);
-  const run = (dx: number, dy: number) => { let n = 0; while (n < 40 && own(document.elementFromPoint(x + dx * (n + 1), y + dy * (n + 1))) === target) n++; return n; };
-  return { name: e.id || e.textContent!.trim().slice(0, 20), height: run(0, -1) + run(0, 1) + 1, width: run(-1, 0) + run(1, 0) + 1 };
-});
 it.each([[768, 1024], [1024, 768]])('gives Settings controls the 44 px floor with touch at %i × %i', async (width, height) => {
   const { page, frame } = await hostPage(width, height, 24, 20);
   try {
