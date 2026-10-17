@@ -12,6 +12,7 @@ import { applyLan } from '../src/plugin/screens/board-model';
 import { LESSONS } from '../src/lessons';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { readText } from '../src/read';
+import { cardFaces } from './lib/plugin-card-faces.mjs';
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -315,6 +316,41 @@ it.each([[393, 852], [360, 740], [320, 568]])('serves 48 px targets on Seat and 
         expect(await section.evaluate((e, coin) => { const r = e.querySelector(`${coin} img`)!.getBoundingClientRect(); return [r.width, r.height]; }, coin)).toEqual(cards ? [36, 36] : [30, 30]);
       }
     }
+  } finally { await page.close(); }
+});
+
+// Ticket 22 review: the card-coin face measure holds a root that a redraw keeps.
+// `locator.evaluateAll` finds the images in one page call and measures them in the next. The board replaces each
+// strip's content on every refresh (`strips()` sets `strip.innerHTML`), so an image that a redraw removed is detached
+// and measures 0 × 0. `cardFaces` holds `#game-table`, which a redraw keeps, and finds the images inside the one call.
+it('measures the card coin face in one page call on a root a redraw keeps', async () => {
+  const page = await browser.newPage({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
+  try {
+    await page.goto(served.url); await frame.locator('#home-play:not(:disabled)').waitFor();
+    await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
+    await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
+    await page.evaluate(async () => (window as any).harnessSetContext({ displayMode: 'fullscreen', deviceCapabilities: { touch: true } }));
+    await page.evaluate(async options => {
+      const result = await (await fetch('/fixture-tool', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'kingdown_create', arguments: { kind: 'solo', colour: 'white', options } }) })).json();
+      if (result.isError) throw new Error(JSON.stringify(result));
+      await (window as any).harnessShow({ ...result, structuredContent: { ...result.structuredContent, screen: undefined, game_id: result._meta.view.game_id } }, true);
+    }, { ...DEFAULT_OPTIONS, arrangement: false, cards: true, kingPowers: false, cardPool: ['Freeze', 'Vault', 'March', 'IceWall'] });
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    const settle = () => frame.locator('#game-table').evaluate(async e => { for (let run: Animation[]; (run = e.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {}))); });
+    await settle();
+    const faces: { coin: number; image: number; x: number; y: number }[] = await cardFaces(frame);
+    expect(faces.length).toBe(8);
+    expect(faces.every(face => face.coin === 44 && face.image === 36 && face.x === 0 && face.y === 0)).toBe(true);
+    // A measure that finds the images first and reads them later loses them to a redraw: hold that hazard here.
+    const found = await frame.locator('#game-table .card-coin img').elementHandles();
+    expect(found.length).toBe(8);
+    await frame.locator('#game-table').evaluate(table => { for (const strip of table.querySelectorAll('.player-strip')) (strip as HTMLElement).innerHTML = (strip as HTMLElement).innerHTML; });
+    expect(await Promise.all(found.map(handle => handle.evaluate(image => Math.round(image.getBoundingClientRect().width))))).toEqual(Array(8).fill(0));
+    // `cardFaces` holds `#game-table` and finds the images in the same page call as the measure, so it reads them all.
+    await settle();
+    const after: { coin: number; image: number; x: number; y: number }[] = await cardFaces(frame);
+    expect(after.length).toBe(8);
+    expect(after.every(face => face.coin === 44 && face.image === 36 && face.x === 0 && face.y === 0)).toBe(true);
   } finally { await page.close(); }
 });
 

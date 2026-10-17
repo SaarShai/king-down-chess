@@ -1,3 +1,4 @@
+import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -505,16 +506,8 @@ try {
     // Ticket 22: measure the card image against its card coin. The image is centred when the two gaps on each axis
     // match (x and y are 0). It fills the coin face inside the ring when it keeps a 4 px gutter at each size:
     // 26 px in a 34 px coin and 36 px in a 44 px coin, with the 1 px border, the 2 px ring and 1 px of light.
-    async function cardFaces(scope) {
-      return scope.locator('#game-table .card-coin img').evaluateAll(images => images.map(image => {
-        const round = value => Math.round(value * 100) / 100;
-        const coin = image.parentElement.getBoundingClientRect(), face = image.getBoundingClientRect();
-        return {
-          side: image.closest('.player-strip').id, coin: round(coin.width), image: round(face.width),
-          x: round((face.left - coin.left) - (coin.right - face.right)), y: round((face.top - coin.top) - (coin.bottom - face.bottom)),
-        };
-      }));
-    }
+    // `cardFaces` holds `#game-table` (a strip redraw keeps it) and finds the images in the same page call as the
+    // measure, so the computer's reply, which redraws the strips, cannot detach a found image.
     const faceFaults = (faces, size) => faces.filter(face => !['strip-me', 'strip-them'].includes(face.side)
       || face.coin !== size || face.image !== size - 8 || face.x !== 0 || face.y !== 0);
     await page.setViewportSize({ width: 393, height: 852 });
