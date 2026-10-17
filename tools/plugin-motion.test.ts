@@ -135,8 +135,8 @@ it.each([false, true])('gives a spent card a short gold pulse (reduced motion %s
   try {
     // A random hand can have no legal card at the start. Keep a playable hand for the pulse check.
     await newGame(frame, only(['Cards']), false); await frame.locator('#setup-cards').click();
-    await frame.locator('[name="card-mode"][value="Use all cards"]').check();
-    await frame.locator('[name="card-mode"][value="Pick four"]').check();
+    await frame.locator('[name="card-mode"][value="Use all cards"]').locator('..').click();
+    await frame.locator('[name="card-mode"][value="Pick four"]').locator('..').click();
     for (const card of ['Freeze', 'IceWall', 'MorphP', 'Vault']) await frame.locator(`.card-grid input[value="${card}"]`).check();
     await frame.locator('#setup-done').click(); await frame.locator('#setup-start').click();
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
