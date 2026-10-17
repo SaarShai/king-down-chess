@@ -55,6 +55,11 @@ for (const [owner, methods] of [
 trapErrors(page);
 page.on('pageerror', error => console.error(error.stack));
 try {
+  // [DEBUG-webkit-30] Test whether native frames stop while the controlled clock runs.
+  await page.addInitScript(() => {
+    const raf = window.requestAnimationFrame.bind(window);
+    const tick = () => raf(tick); tick();
+  });
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
   await page.addInitScript(() => {
