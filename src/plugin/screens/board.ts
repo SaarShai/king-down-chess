@@ -334,11 +334,10 @@ export function boardScreen(store: Store) {
     const lesson = beginner && code ? LESSONS.find(lesson => lesson.name.toLowerCase() === nameOf(typeOf(code)))?.done : undefined;
     // Only a refusal shows in the board's words area; a read or an error keeps to the message line.
     const refusalNotice = store.refusal(); const refusal = refusalNotice && noticeShows(store.page(), refusalNotice) ? refusalNotice.text : '';
-    const context = contextLine({voice:'you', teach:first || (fresh ? teach[1] : ''), result:view.result ? ending(view) : '', refusal, link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:lesson ?? line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:view.turn !== view.seat, midWay:view.turn === view.seat && draft.midWay && !draft.waits, stagedEnd:draft.waits && status(pos) !== 'playing' ? draft.line : '', waiting:draft.waits, free:!!pos.free, turnLine:draft.line, armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
+    const context = contextLine({voice:'you', teach:(fresh ? teach[1] : '') || first, result:view.result ? ending(view) : '', refusal, link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:lesson ?? line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:view.turn !== view.seat, midWay:view.turn === view.seat && draft.midWay && !draft.waits, stagedEnd:draft.waits && status(pos) !== 'playing' ? draft.line : '', waiting:draft.waits, free:!!pos.free, turnLine:draft.line, armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
     if (networkBlocked() && ['mid-way','waiting','staged-end'].includes(context.rank)) Object.assign(context, {rank:'sending', line:'Sending…', note:''});
     if (inspected !== undefined && draft.waits && !networkBlocked() && view.draw_offer == null && !['result','refusal','link'].includes(context.rank)) context.note = waitNotice(mode(), view.seat);
     if (context.rank==='link' && deadline) context.note=available.claim==='end'?'You may end the game with no result.':'You may claim the win.';
-    if (fresh && context.rank === 'your-move') taught.set(teach[0], history.length);
     // G1 a: put the target words first so a short screen keeps the next action in view.
     if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) {
       const card = RULES.hands[view.seat][armedCard], squares = named().length && named().length === cardChoices().filter(c => !c.move.pass).length;
@@ -350,6 +349,7 @@ export function boardScreen(store: Store) {
     if (stale()) Object.assign(context, {rank:'link', line:'Not current', note:''});
     $('status').textContent = context.rank === 'refusal' ? '' : context.line;
     $('context-note').textContent = ['armed','held'].includes(context.rank) ? [context.note, memory.blockNotice].filter(Boolean).join(' ') : memory.blockNotice || context.note;
+    if (fresh && $('context-note').textContent?.includes(teach[1])) taught.set(teach[0], history.length);
     $('context-text').dataset.rank = context.rank;
     $('context-text').tabIndex = context.rank === 'armed' ? 0 : -1;
     const actions: HTMLButtonElement[] = [];
