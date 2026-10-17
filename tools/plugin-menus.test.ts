@@ -289,3 +289,18 @@ it('shows the opponent\'s moves and the mate without Reload (F4, the J12 steps f
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get' && c.arguments.since_revision === undefined).length)).toBeLessThanOrEqual(2);
   } finally { await page.close(); }
 });
+
+it('keeps the three online choices with no Display check line', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await go(page, 'settings');
+    expect(await frame.locator('#online-visibility input').evaluateAll(inputs => inputs.map(input => (input as HTMLInputElement).value))).toEqual(['everyone', 'mutual', 'nobody']);
+    expect(await frame.locator('#layout-check, #show-online').count()).toBe(0);
+    await page.clock.install();
+    await frame.locator('#page-title').dispatchEvent('pointerdown');
+    await page.clock.runFor(800);
+    await frame.locator('#page-title').dispatchEvent('pointerup');
+    expect(await frame.locator('#settings-sheet').textContent()).not.toContain('Display check:');
+    expect(await frame.locator('#online-visibility input:checked').inputValue()).toBe('mutual');
+  } finally { await page.close(); }
+});

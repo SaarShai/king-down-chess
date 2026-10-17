@@ -3,7 +3,7 @@ body[data-page='seat'] #page-head { padding-block: 4px; }
 #seat-screen #game-table { min-height: 0; width: 100%; }
 #seat-screen #table-bar { margin-top: 0; }
 
-#seat-screen #last-move { font-size: 14px; font-weight: 700; }
+#seat-screen #last-move { font-size: var(--fs-sm); font-weight: 700; }
 #seat-screen #moves-line { align-items: center; }
 #seat-screen #seat-king { width: 44px; height: 44px; min-height: 44px; padding: 0; }
 #seat-veil-layer { inset: 0; width: 100%; height: 100%; transform: none; }

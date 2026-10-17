@@ -88,7 +88,10 @@ export class PaintedView implements BoardView {
     // The kings' effects redraw the board about 30 times a second: not while the tab is hidden.
     document.addEventListener('visibilitychange', () => this.applyLively());
     this.applyLively();
-    this.loaded = this.scene.load().catch(error => { this.onLoadError?.(error); });
+    // F13: no board before the stone art is decoded; the first frame shows stone and pieces together.
+    this.canvas.style.visibility = 'hidden';
+    const show = (): void => { requestAnimationFrame(() => { this.canvas.style.visibility = ''; }); };
+    this.loaded = this.scene.load().then(show, error => { show(); this.onLoadError?.(error); });
     // Keep the square board as large as the container allows.
     new ResizeObserver(([entry]) => {
       const box = entry.contentRect; // excludes the padding that keeps the title card clear

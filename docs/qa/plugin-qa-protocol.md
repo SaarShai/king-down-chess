@@ -81,7 +81,7 @@ The server tools: `kingdown_open`, `create`, `find`, `lobby`, `accept`, `cancel`
 | Tablet | 820 × 1180, 1180 × 820 | WebKit, `hasTouch` |
 | Desktop | 1024 × 768, 1280 × 800, 1440 × 900, 1920 × 1080 | Chromium and WebKit, `deviceScaleFactor` 1 and 2; Firefox one time |
 | ChatGPT inline | the iframe at the chat column width (about 760 px on desktop, the screen width on a phone) | The harness does not resize the iframe. Listen on the host page for `ui/notifications/size-changed`, set the iframe height to the last height that the widget sent, and do this 3 times: the height must stay the same, and the home card must show in full with no inner scroll. |
-| iOS Simulator | the device in your task | Safari opens the harness URL. Drive it with the simulator tool. You cannot run JavaScript there: read the Display check line (section 4). The line is hidden: to show it, press the "Settings" title for about 600 ms (a simulator tap with a duration of 0.7 s or more). |
+| iOS Simulator | the device in your task | Safari opens the harness URL. Drive it with the simulator tool. You cannot run JavaScript there: compare screenshots. |
 
 **Tier 1 (each run):** phone WebKit 393 × 852 inline and fullscreen; desktop Chromium 1280 × 800; ChatGPT inline at 760 px. **Tier 2:** the other rows; run at least 2 of them each time and name them in the report. Do the layout sweep (step 13) on all of the surfaces in your task.
 
@@ -95,7 +95,7 @@ The ChatGPT apps themselves are for the owner only (section 8). The harness and 
 
 Do the steps in this order. Each step names what to check. For each check, record pass or fail and the evidence.
 
-0. **Smoke pass (10 min).** One phone surface and one desktop surface. Open the widget, start a computer game, make 3 moves, Remount, and see the same game. Open Settings, press the "Settings" title for about 600 ms to show the Display check line, and read it. If one item fails, stop: report a Blocker and do not run the other steps.
+0. **Smoke pass (10 min).** One phone surface and one desktop surface. Open the widget, start a computer game, make 3 moves, Remount, and see the same game. If one item fails, stop: report a Blocker and do not run the other steps.
 1. **First open.** A player opens the widget inline. Check: the home card, its words, its 2 actions at most. Record the taps and the time from the first open to the first move, and each word that a new player does not know. With "A friend" and `requireHandleNext`, check the name and picture flow; leave it with Back and with a Remount: the player is never stuck. A player with no record, games or badges sees no empty table and no "0" with no explanation.
 2. **Quick-start hall.** "Choose a game" opens the Play screen. Check "Your games" (a list) and "New game" (the setup controls and "Start game"). Select A friend to see "Join with a code" (a code field). Check the Profile and Settings rows, their words and art, and Back from each. "Play now" always starts a Beginner computer game with an automatic army and no seat screen. Check this for a new player and for a saved A friend setup with Arrangement on and level Strong. With a game that needs your move, the home card shows "Resume" with the opponent and turn, and "Play now". The saved setup stays after Play now, including the opponent, level and Arrangement choices. Open New game to check these saved choices.
 3. **New game.** For each opponent (Computer, A friend, A random player): the level (4), the colour (3), each game option (Fairy pieces and the pieces sheet, Arrangement, Classic chess, Cards and the cards sheet, King powers and the king choice). Check that an option that cannot apply is clear, that the choice stays after Back and after a Remount, and that Start does what the words say.
@@ -128,7 +128,6 @@ After a fix, do a **confirmation test** (the exact steps of the finding again) a
 
 - **Board fill.** In a browser you script: the board canvas (`#board canvas`) width and height, the board box (`#board`), the table (`#game-table`, or `[data-seat-id="game-table"]` on the seat), its screen (`[data-screen="seat"]` or `[data-screen="board"]`), and the frame (`#app-frame`). Record `canvas width / frame width`. The canvas must equal `min(board width, board height × 960 / 1024)`, and the table must fill its screen.
 - **Stale viewport units.** The iOS host can keep `vh` and `dvh` at an old height. Use the method in `tools/plugin-ios-size.test.ts`: scale each `vh` value in the page CSS to a stale height. Then measure every screen and sheet: the profile scroll, the pieces, cards and king sheets, and the board Menu. Nothing may clip, collapse or go under the composer.
-- **Display check line.** Play → Settings keeps the sizes of the last seat or board screen: window, visual viewport, vh and dvh, frame, section (the screen box), table, board, canvas, safe areas, display mode, and the sizes sent to the host. The line is hidden until you press the "Settings" title for about 600 ms (in the Simulator, a tap with a duration of 0.7 s or more). It measures one time, 1.5 s after the seat or the board opens, and does not change after a rotation or a change of display mode. Open the seat or the board, wait 2 s, then open Settings, show the line and read it; after a change, leave the board and open it again first. This is the only measure in Simulator Safari.
 - **Sharpness.** At each `deviceScaleFactor`, record `canvas.width` × `canvas.height` and zoom the screenshots: the board, the pieces, the coins and the badges are sharp.
 - **Touch targets.** The bounding box of each control.
 - **Times.** From the click to the next stable screen.
@@ -176,7 +175,7 @@ Agents cannot test these. The owner covers them on each release:
 
 | Gap | Owner check |
 |---|---|
-| The real ChatGPT hosts (iOS, Android, desktop app, chatgpt.com) | 15 minutes of tier 1 flows on each, inline and fullscreen, with a screenshot of the Display check line (press the "Settings" title for about 600 ms to show it). |
+| The real ChatGPT hosts (iOS, Android, desktop app, chatgpt.com) | 15 minutes of tier 1 flows on each, inline and fullscreen, with a screenshot of the board. |
 | The model's choice of tool | A prompt set in ChatGPT developer mode: direct ("Start a King Down game against the computer"), indirect ("I'm bored, play chess with me"), follow-up ("make that game harder") and negative ("explain the Sicilian Defence") prompts, each with the expected tool. |
 | Real networks, two people, a full day | One friend game with a second person on two phones, across a day, on Wi-Fi and cellular. |
 | Battery, heat and screen readers | A 30-minute game on an iPhone; one VoiceOver game each major release. |

@@ -128,3 +128,11 @@ Pass criteria: both exact lane heads are ancestors; held release changes remain;
 - src/plugin/screens/board.ts: keep the release block notice and G1 keyboard scroll stop. Keep the state store, command queue and one poll.
 - tools/plugin-board.test.ts: keep both imports and both test groups. Add a test for the block notice with the armed scroll stop.
 - Keep G1 target words, G3 shove and swap previews, Q3 board size with page scroll, and Q6 word wrapping and margins. Keep the release privacy text, packet and Resume route fix.
+
+#### Merge 2: od-faults
+
+- Source: 606584b8. Use one --no-ff merge.
+- src/plugin/app.css: keep release coin image size, G2 opacity 0.85, and F25 font tokens. Add a combined coin test.
+- src/plugin/index.html: keep all three release online privacy choices. Remove only the Display check element, as F26 requires. Add a test for the choices and the removed long-press output.
+- Keep F13 art decode before board display, F14 stable end-card board bounds, F25 font tokens, F26 debug removal and F32 idle drawing stop. The source tests stay in place.
+- The source logic completion file has exit 1. The owner directs this merge and identifies the 197 px sideways-read failure as the race fixed at 3f1281d1. Keep that release fix and run both final browser checks.

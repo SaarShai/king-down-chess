@@ -27,7 +27,7 @@ label.check.toggle .all { flex: none; width: auto; min-height: var(--tap); paddi
 .your-king { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
 .your-king h3 { margin: 0 !important; }
 .your-king .power-text { min-height: 0; margin: 2px 0 0; color: var(--ink-soft); }
-.your-king .chev { font-size: 22px; color: var(--ink); }
+.your-king .chev { font-size: var(--fs-xl); color: var(--ink); }
 .kings-off { display: flex; align-items: flex-end; gap: 4px; margin-top: var(--space-3); padding: var(--space-3); background: color-mix(in srgb, var(--vellum) 70%, transparent); border: 1px solid var(--stone-300); border-radius: var(--radius); }
 .kings-off img { height: 56px; }
 .kings-off .face-left { transform: scaleX(-1); margin-left: -10px; }
