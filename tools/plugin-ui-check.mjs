@@ -1,4 +1,5 @@
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
+import { boxText, layoutMessage } from './lib/layout-message.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -1755,10 +1756,10 @@ try {
     for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) {
       await page.setViewportSize({width,height}); await boardBox();
       await frame.locator('#game-table img,#over.end-card img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
-      const bounds=await frame.locator('#game-table').evaluate(el=>{const r=el.getBoundingClientRect();return {overflow:el.scrollWidth>el.clientWidth+1,left:r.left,right:r.right,width:innerWidth,body:document.body.scrollWidth>innerWidth};});
-      assert(!bounds.overflow&&!bounds.body&&bounds.left>=-1&&bounds.right<=bounds.width+1,`${state.name} fits at ${width}px`);
+      const bounds=await frame.locator('#game-table').evaluate(el=>{const r=el.getBoundingClientRect(),box=b=>({left:b.left,right:b.right,top:b.top,bottom:b.bottom,width:b.width});return {overflow:el.scrollWidth>el.clientWidth+1,scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,el:box(r),frame:box(document.querySelector('#app-frame').getBoundingClientRect()),left:r.left,right:r.right,width:innerWidth,body:document.body.scrollWidth>innerWidth,bodyScroll:document.body.scrollWidth};});
+      assert(!bounds.overflow&&!bounds.body&&bounds.left>=-1&&bounds.right<=bounds.width+1,layoutMessage(state.name,width,bounds.el,bounds.frame,`window width ${bounds.width}, table scroll ${bounds.scrollWidth}/${bounds.clientWidth}, body scroll ${bounds.bodyScroll}`));
       const ids=state.end?['#over','#context-line']:['#table-bar','#context-line'];
-      for(const id of ids) { const box=await frame.locator(id).evaluate(el=>{const r=el.getBoundingClientRect(),frame=document.querySelector('#app-frame').getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,frameBottom:frame.bottom,width:innerWidth};}); assert(box.top>=0&&box.bottom<=box.frameBottom+1&&box.left>=-1&&box.right<=box.width+1,`${state.name} ${id} stays inside the frame at ${width}px`); }
+      for(const id of ids) { const box=await frame.locator(id).evaluate(el=>{const r=el.getBoundingClientRect(),frame=document.querySelector('#app-frame').getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,frameBottom:frame.bottom,width:innerWidth,el:{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width},frame:{left:frame.left,right:frame.right,top:frame.top,bottom:frame.bottom,width:frame.width}};}); assert(box.top>=0&&box.bottom<=box.frameBottom+1&&box.left>=-1&&box.right<=box.width+1,`${state.name} ${id} stays inside the frame at ${width}px: ${boxText('element',box.el)}; ${boxText('frame',box.frame)}; window width ${box.width}`); }
       const shotPath=await shot(page,`ticket15-${state.name}-${width}-${mode}`);
       if (width===390||width===1440) {
         const size=width===390?'phone':'desktop', actual=await readFile(shotPath), golden=await readFile(`docs/specs/chatgpt-mvp/sample/png/${state.name}-${size}.png`);
