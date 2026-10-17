@@ -18,8 +18,9 @@ export async function checkOwnerPicks(page, frame, saved, idleBoard, boardBox) {
   await page.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen', deviceCapabilities: { touch: true }, safeAreaInsets: { top: 0, bottom: 0, left: 0, right: 0 } }));
   for (const powers of [false, true]) {
     const kings = powers ? [{ king: 'Mud', power: 'March' }, { king: 'Shadow', power: 'Darkness' }] : saved._meta.view.rules.kings;
-    const view = { ...saved._meta.view, game_id: randomUUID(), kind: 'friend', opponent: { handle: 'friend_player1', computer: false }, rules: { ...saved._meta.view.rules, kings }, kings };
+    const view = { ...saved._meta.view, game_id: randomUUID(), kind: 'friend', opponent: { handle: 'friend_player1', computer: false }, rules: { ...saved._meta.view.rules, kings, marchUses: 0 }, kings };
     await show(view);
+    assert.equal(await frame.locator('#strip-them .coin').count(), powers ? 5 : 4, 'The card view has the expected power and card coins');
     for (const [width, height] of [[402, 714], [412, 790], [440, 760]]) {
       await page.setViewportSize({ width, height }); await boardBox();
       await frame.locator('html').evaluate(() => document.fonts.ready);
