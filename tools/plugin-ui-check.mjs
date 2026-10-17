@@ -1630,6 +1630,7 @@ try {
     await sendTurn(); await settled(); await idleBoard();
     const saved = (await gameTool('kingdown_get', {game_id}))._meta.view;
     assert.equal(saved.revision, offered._meta.view.revision + 1);
+    setRules(opened._meta.view.rules);
     assert.equal(saved.fen, toFen(applyLan(fromFen(opened._meta.view.fen),'e2-e4',opened._meta.view.rules).pos));
     assert.equal(saved.draw_offer, null);
     assert.deepEqual(saved.history.actions, ['e2-e4']);
