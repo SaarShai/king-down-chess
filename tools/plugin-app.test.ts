@@ -17,6 +17,7 @@ async function open() {
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   return page;
 }
+
 it('keeps a board open without a game on home and stores its ID only in private state', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

@@ -25,6 +25,13 @@ describe('firstFault(log)', () => {
     expect(firstFault('ok 3 cases\nFAIL shot: wrote /tmp/x.png\n')).toBe('FAIL shot: wrote /tmp/x.png');
   });
 
+  it.each([
+    "locator.waitFor: Timeout 30000ms exceeded.",
+    "locator.evaluate: Error: strict mode violation: locator('nav') resolved to 2 elements:",
+  ])('keeps the Playwright cause before the plugin wrapper: %s', cause => {
+    expect(firstFault(`${cause}\nCall log:\n  - waiting for locator('iframe')\nAssertionError [ERR_ASSERTION]: Plugin http check failed\n`)).toBe(cause);
+  });
+
   it('falls back to a "timed out" line, then to the last line, then to null', () => {
     expect(firstFault('start\nthe page timed out\nend')).toBe('the page timed out');
     expect(firstFault('start\nend\n')).toBe('end');
