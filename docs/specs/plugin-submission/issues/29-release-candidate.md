@@ -136,3 +136,14 @@ Pass criteria: both exact lane heads are ancestors; held release changes remain;
 - src/plugin/index.html: keep all three release online privacy choices. Remove only the Display check element, as F26 requires. Add a test for the choices and the removed long-press output.
 - Keep F13 art decode before board display, F14 stable end-card board bounds, F25 font tokens, F26 debug removal and F32 idle drawing stop. The source tests stay in place.
 - The source logic completion file has exit 1. The owner directs this merge and identifies the 197 px sideways-read failure as the race fixed at 3f1281d1. Keep that release fix and run both final browser checks.
+
+#### Checks and merge fixes
+
+- Merge commits: dd06ffa6 has parents 3f1281d1 and 64805f5e. 8fe2d975 has parents dd06ffa6 and 606584b8. Both source heads are ancestors.
+- Compare the protected files to 3f1281d1: privacy pages, review packet, client, state store, command queue and poll module have no changes. The only app change removes F26 debug code. The Resume fix remains.
+- npx tsc --noEmit exits 0. The first full npm test run at 8fe2d975 exits 0: 188 files, 3,036 passed tests, one expected failure, eight skips, and 51 drawing tests. Log: tests-29-merge-2-1.txt.
+- The first approved browser run at 8fe2d975 exits 1. Both plugin-ui and plugin-ui-http fail at the new G1 keyboard scroll wait. The lane reads iframe.contentDocument from the parent page; the release harness uses a second origin, so that value is null. Log: checks-29-merge-2-1.txt.
+- The planned fix uses the existing widget() helper for this wait. Keep the scroll assertion and the time limit. Add a test that rejects direct parent-page reads of the widget document.
+
+- The new origin test fails before the fix: one failed case and two passed cases. Log: tests-29-merge-2-origin-before.txt. It runs through npm test and the shared test lock.
+- Apply the one-line fix: the G1 scroll wait now runs in widget(). Keep the same scroll condition, assertion and time limit. The source guard rejects parent-page widget document reads. This fixes the cause in the check; game code does not change.

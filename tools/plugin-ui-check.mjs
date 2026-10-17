@@ -2287,7 +2287,7 @@ try {
         await frame.locator('#context-actions').getByRole('button',{name:'Cancel',exact:true}).focus(); await page.keyboard.press('Shift+Tab');
         assert(await frame.locator('#context-text').evaluate(el=>el===document.activeElement && el.tabIndex===0),'The keyboard reaches the armed text');
         await page.keyboard.press('End');
-        await page.waitForFunction(()=>document.querySelector('iframe').contentDocument.getElementById('context-text').scrollTop>0);
+        await widget().waitForFunction(()=>document.getElementById('context-text').scrollTop>0);
         assert(await frame.locator('#context-text').evaluate(el=>el.scrollTop>0),'The keyboard scrolls the armed rule');
         await page.keyboard.press('Home');
       }

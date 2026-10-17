@@ -24,3 +24,7 @@ it('measures the table bar in the check without an ambiguous navigation selector
   expect(source.match(/\.locator\((['"])nav\1\)/)).toBeNull();
   expect(source.includes("const lower = await frame.locator('#table-bar').evaluate(el=>el.getBoundingClientRect().bottom);")).toBe(true);
 });
+
+it('keeps widget DOM reads inside its own origin', () => {
+  expect(source.match(/\.contentDocument\b|\.contentWindow\.document\b/)).toBeNull();
+});
