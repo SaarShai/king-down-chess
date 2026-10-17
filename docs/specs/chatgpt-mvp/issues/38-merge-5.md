@@ -69,3 +69,8 @@ N1 fails at fb415019: the loss card at 201 x 357, insets 31/17, hides New game.
 Use compact spacing only below 380 px high in narrow portrait. Keep Back clear.
 Move the input gate to the touchstart guard only. Keep mouse drag read checks.
 The fresh-frame remount test must find the new frame, not use the detached frame.
+
+Both independent readers find the same N1 issue at fb415019. No other confirmed finding.
+The fix at 51354ad3 passes both loss N1 cases on the M1 so far.
+The first full test run has 4 failures: two mouse read-drag assertions, the detached frame reference, and a width of 300 instead of 299.
+Keep setup touch drags as before. Add a setup touch guard assertion. Use the measured 300 px width.

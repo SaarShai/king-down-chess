@@ -78,7 +78,7 @@ export function boardScreen(store: Store) {
   const dropDraft = () => { if (client.state.draft) { client.state.draft = undefined; client.save(); } };
   const turn = () => draftTurn(steps, pos!, mode(), view!.seat);
   const canPlay = () => !!view && !!pos && !blocked() && view.action === 'ready' && view.status === 'playing' && !turn().waits;
-  board.canDrag = () => canPlay() && pos!.turn === view!.seat;
+  board.canDrag = () => client.state.screen === 'seat' || canPlay() && pos!.turn === view!.seat;
   const canRead = () => !animating;
   let armed: PowerName | undefined, armedCard: number | undefined;
   let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0, cursorShown = false;
