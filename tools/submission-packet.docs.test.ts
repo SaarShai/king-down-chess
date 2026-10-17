@@ -79,3 +79,12 @@ test('both P3 copies count the review seed and the P2 game', () => {
   expect(rows.get('P3')![3]).toContain('3 active games; your turn in 2.');
   expect(imported.positive[2].expected_behavior).toContain('3 active games; your turn in 2.');
 });
+
+
+test('P5 ends the computer game and keeps the friend game for the Block check', () => {
+  const notes = readFileSync('docs/submission/review-notes.md', 'utf8');
+  expect(rows.get('P5')![1]).toBe('Resign my King Down game against the computer.');
+  expect(imported.positive[4].prompt).toBe(rows.get('P5')![1]);
+  expect(notes).toContain('Test case P5 resigns a game against the computer.');
+  expect(notes).toContain('The active game against review-friend stays for the Block check.');
+});

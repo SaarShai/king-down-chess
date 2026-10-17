@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { register } from 'tsx/esm/api';
 const unregister = register();
 const { fromFen, toFen, toLan } = await import('../src/rules/setup.ts');
-const { setRules, legalMoves, inCheck, typeOf, N, sqName, moveNumber: positionMoveNumber } = await import('../src/rules/engine.ts');
+const { setRules, legalMoves, inCheck, typeOf, N, RULES, sqName, moveNumber: positionMoveNumber } = await import('../src/rules/engine.ts');
 const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
 const { applyLan, cardCoins, replayHistory } = await import('../src/plugin/screens/board-model.ts');
 const { threatsIn } = await import('../src/move-text.ts');
@@ -2245,6 +2245,42 @@ try {
   // These sample games are not in the service; a background poll must not replace them.
   await frame.locator('html').evaluate(()=>Object.defineProperty(document,'hidden',{configurable:true,value:true}));
   await settled();
+  // R1: use the board's public view, as the table samples below do.
+  {
+    const original = await page.evaluate(() => window.harnessView);
+    const initial_fen = 'rmnqkgbs/pppppppp/8/8/8/8/PPPPPPPP/RMNQKGBS w - - 0 1';
+    setRules({});
+    const rules = structuredClone(RULES);
+    const snapshot = { ...original, game_id: randomUUID(), revision: 0, kind: 'solo', level: 'beginner', status: 'playing', action: 'ready', seat: 0, turn: 0, fen: initial_fen, rules, in_check: false, result: undefined, outcome: undefined, draw_offer: null, deadline_at: null, last_commands: [], history: { initial_fen, actions: [] } };
+    async function showLesson(value) {
+      await page.evaluate(value => { window.harnessNextView = value; return window.harnessShow({ content: [], structuredContent: { game_id: value.game_id, screen: 'board' }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view: value } }); }, value);
+      await frame.locator('#status').filter({ hasText: value.in_check ? 'Check!' : 'Your move.' }).waitFor();
+      await idleBoard(); await boardBox();
+    }
+    await showLesson(snapshot);
+    assert.equal(await frame.locator('#context-note').innerText(), 'New pieces in this game. Select any piece to read its rule.', 'R1: White keeps the first-turn note');
+    let position = fromFen(initial_fen);
+    const actions = [];
+    function advance(lan) {
+      const step = applyLan(position, lan, rules); assert(step, `R1: ${lan} is legal`);
+      position = step.pos; actions.push(lan);
+      return { ...snapshot, seat: 1, turn: position.turn, revision: actions.length, fen: toFen(position), legal: legalMoves(position).map(m => toLan(position, m)), history: { initial_fen, actions: [...actions] } };
+    }
+    const first = advance('Mb1<>a1');
+    await showLesson({ ...first, game_id: randomUUID() });
+    assert.equal(await frame.locator('#context-note').innerText(), 'Their maester swapped places with one of their pieces.', 'R1: Black sees the first enemy swap before the general note');
+    const game_id = await page.evaluate(() => window.harnessView.game_id);
+    advance('a7-a6');
+    const later = advance('Ma1<>b1');
+    await showLesson({ ...later, game_id });
+    assert.equal(await frame.locator('#context-note').innerText(), '', 'R1: a later swap does not repeat a shown lesson');
+    const hiddenGame = randomUUID();
+    await showLesson({ ...first, game_id: hiddenGame, in_check: true });
+    assert.notEqual(await frame.locator('#context-note').innerText(), 'Their maester swapped places with one of their pieces.', 'R1: check has priority over the lesson');
+    await showLesson({ ...later, game_id: hiddenGame });
+    assert.equal(await frame.locator('#context-note').innerText(), 'Their maester swapped places with one of their pieces.', 'R1: a hidden lesson stays available for a later swap');
+    console.log('R1: White first note, Black first enemy lesson, later swap and hidden lesson pass.');
+  }
   const look = join(tmpdir(),'kingdown-look','15'); await mkdir(look,{recursive:true});
   const sharp = (await import('sharp')).default;
   const sampleHand=['Vault','Leap','Salvation','Curse'], sampleRules={kings:[{king:'Mud',power:'March'},{king:'Shadow',power:'Darkness'}],hands:[sampleHand,sampleHand],marchUses:0};

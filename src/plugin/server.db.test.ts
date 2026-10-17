@@ -165,6 +165,20 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect((await new GameService(store, '').join(guest, token)).game_id).toBe(game);
  });
 
+ it('keeps a long invitation token through Open, preview and Join', async () => {
+  const actor = await user('token-host'), guest = await connect(await user('token-guest'));
+  const games = new GameService(new PostgresMatchStore(admin));
+  const game = (await games.create(actor, { kind: 'friend', options: DEFAULT_OPTIONS })).game_id;
+  await games.invite(actor, game);
+  const token = 'aB-cD_'.repeat(7) + 'z';
+  await admin.query('update public.game_invites set token_hash=$2 where game_id=$1', [game, createHash('sha256').update(token).digest('hex')]);
+  const opened = await guest.ok('kingdown_open', { code: token });
+  expect(opened._meta.preview.code).toBe(token);
+  const previewed = await guest.ok('kingdown_join', { code: opened._meta.preview.code, preview: true });
+  expect(previewed._meta.preview.code).toBe(token);
+  expect(view(await guest.ok('kingdown_join', { code: previewed._meta.preview.code })).game_id).toBe(game);
+ });
+
  it('reuses one open random game for two create calls', async () => {
   const actor = await user('random-retry'), player = await connect(actor);
   const [first, second] = await Promise.all([player.ok('kingdown_create',{kind:'random'}), player.ok('kingdown_create',{kind:'random'})]);
