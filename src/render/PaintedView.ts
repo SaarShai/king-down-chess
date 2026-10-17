@@ -105,6 +105,8 @@ export class PaintedView implements BoardView {
       this.scene.setResolution(Math.min(2, Math.max(1, Math.ceil(width * devicePixelRatio / 960 * 4) / 4)));
     }).observe(container);
     this.canvas.addEventListener('pointerdown', e => this.onDown(e));
+    // Keep piece drags; a touch that starts elsewhere can scroll the screen.
+    this.canvas.addEventListener('touchstart', e => { if (this.dragFrom != null) e.preventDefault(); }, { passive: false });
     this.canvas.addEventListener('pointermove', e => this.onMove(e));
     this.canvas.addEventListener('pointerup', e => this.onUp(e));
     this.canvas.addEventListener('pointercancel', () => this.clearPointer());
