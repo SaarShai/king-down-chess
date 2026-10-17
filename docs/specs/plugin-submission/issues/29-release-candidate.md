@@ -246,3 +246,16 @@ Pass criteria: both source heads are ancestors; S5 stays out; the protected rele
 
 - After the armed-text repair, npx tsc --noEmit exits 0. Full npm test with the local test database exits 0: 188 files and 3,051 passed tests, one expected failure and eight skips. All 51 drawing tests pass. Logs: tsc-29-merge-3-3.txt and tests-29-merge-3-3.txt.
 - The full run includes both new 197 px cases, both combined portrait cases, all eight missing-art cases, the type-scale guard and the normal-phone G1 keyboard scroll cases. The repair narrows the existing media rule; it adds no helper or new selector.
+
+#### Repeated end-fit check fault
+
+- Browser run 2 at b691cc97 passes all ticket 28 checks through T6, then plugin-ui fails the old end-fit check at 360 px in 117.8 s. plugin-ui-http passes in 232.3 s. The runner exits 1. Log: checks-29-merge-3-2.txt.
+- Run 3 is the owner's one repeat, at the same head with no code or time-limit change. plugin-ui fails the same check in 114.7 s; plugin-ui-http fails it in 123.7 s. The runner exits 1. Log: checks-29-merge-3-3.txt. Both runs are kept.
+- The fit report names only kd-words.is-in outside the table. The table and frame are 360 px wide. Run 2 sees 364 px of scroll width; run 3 sees 366 px. The entrance starts at scale 1.08 and ends at scale 1. This code has no product change in this merge.
+- The required runner is the red-capable feedback loop. It gives the same fault twice. Keep that route instead of adding a separate browser harness. Its runtime is longer than a focused unit test because the owner permits browser checks only through this runner.
+- Ranked causes: first, the fit read runs during the entrance scale; second, a late font changes width; third, the settled layout is too wide. Test the first cause with the animation-state wait already used by the coin checks.
+- Keep every end-fit assertion and its full bounds report. Before the end sample's width check, wait in the widget for its table animations to finish. Add a regression step at 400 px that restarts the real end-word entrance before the wait. This keeps the actual animated path in the check.
+- No product code, clock duration or time limit changes for this repair. The existing failing end-fit assertions are the runtime regression checks. No debug output or separate harness is added.
+
+- After the end-fit check repair, node --check tools/plugin-ui-check.mjs, git diff --check and npx tsc --noEmit pass. Full npm test with the local test database passes: 188 files, 3,051 tests, one expected failure, eight skips and 51 drawing tests. Logs: tsc-29-merge-3-4.txt and tests-29-merge-3-4.txt.
+- The next approved browser run tests both the original fit path and the new 400 px entrance restart at the repair commit. Keep the source fixed for that run.
