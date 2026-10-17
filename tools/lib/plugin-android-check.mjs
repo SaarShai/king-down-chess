@@ -6,12 +6,14 @@ import { hitSizes } from './plugin-hit-sizes.mjs';
 export async function checkAndroidFixes(browser, base) {
   const page = await browser.newPage({ viewport: { width: 412, height: 790 }, hasTouch: true });
   const frame = page.frameLocator('iframe'), faults = [];
+  let gameId;
   page.setDefaultTimeout(10_000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const check = (ok, message, detail) => { if (!ok) faults.push(`${message}: ${JSON.stringify(detail)}`); };
   try {
     await page.goto(base);
     await frame.locator('#home-play:not(:disabled)').waitFor();
+    await page.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen', deviceCapabilities: { touch: true } }));
     await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
     await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
     // These public view samples have no service game. A poll must not replace them.
@@ -21,7 +23,11 @@ export async function checkAndroidFixes(browser, base) {
         cards: true, cardPool: ['EarthQuake','SkyLift','MorphP','Freeze'], kingPowers: true }
     } }));
     assert(!created.isError, JSON.stringify(created));
-    const original = created._meta.view;
+    gameId = created._meta.view.game_id;
+    await page.evaluate(result => window.harnessShow(result), created);
+    await frame.locator('#seat-ready').click();
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    const original = await page.evaluate(() => window.harnessView);
     async function viewport(width, height, top, bottom, left = 0) {
       await page.setViewportSize({ width, height });
       await page.evaluate(safe => window.harnessSetContext({ displayMode: 'fullscreen', deviceCapabilities: { touch: true }, safeAreaInsets: safe }), { top, bottom, left, right: 0 });
@@ -30,7 +36,7 @@ export async function checkAndroidFixes(browser, base) {
       const view = { ...original, game_id: randomUUID(), revision: 100, status: 'playing', action: 'ready', ...extra };
       await page.evaluate(view => {
         window.harnessNextView = view;
-        return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id }, _meta: { view } });
+        return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
       }, view);
       await frame.locator('#board[aria-busy="false"]').waitFor();
       await frame.locator('html').evaluate(() => document.fonts.ready);
@@ -93,5 +99,11 @@ export async function checkAndroidFixes(browser, base) {
     }
     assert.deepEqual(faults, [], 'Ticket 36 browser checks');
     console.log('PASS: ticket 36 F9 bar targets and T-B end cards');
-  } finally { await page.close(); }
+  } catch (error) {
+    console.error('Ticket 36 state:', await frame.locator('body').evaluate(e => ({ screen: e.dataset.page, status: document.querySelector('#status').textContent, sheet: document.querySelector('#board-sheet').textContent })));
+    throw error;
+  } finally {
+    if (gameId) assert((await page.request.post(new URL('/fixture-delete-match', base).href, { data: { game_id: gameId } })).ok());
+    await page.close();
+  }
 }
