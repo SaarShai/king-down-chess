@@ -2068,6 +2068,55 @@ try {
   await frame.locator('html').evaluate(()=>{delete document.hidden;});
   await page.evaluate(()=>window.harnessSetContext({safeAreaInsets:{top:0,right:0,bottom:0,left:0}}));
   await page.setViewportSize({width:1000,height:1000});
+  // Ticket 26: check the approved words and preview on the built page at each required size.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const { cardText, ruleLine } = await import('../src/powers-ui.ts');
+  for (const [width,height] of [[320,568],[393,852],[1280,800]]) {
+    await page.setViewportSize({width,height});
+    await page.evaluate(width => window.harnessSetContext({displayMode:'fullscreen',safeAreaInsets:{top:width===320?63:width===393?102:0,bottom:width===320?84:width===393?118:0,left:0,right:0}}),width);
+    const boardId = await page.evaluate(()=>window.harnessWidgetState.privateContent.board_id);
+    const cards = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_create',arguments:{kind:'solo',colour:'white',board_id:boardId,options:{...DEFAULT_OPTIONS,arrangement:false,kingPowers:false,cards:true,cardPool:['EarthQuake','SkyLift','MorphP','Freeze']}}}})).json();
+    assert(!cards.isError); await page.evaluate(r=>window.harnessShow(r),cards); await idleBoard(); await boardBox();
+    for (const [card,targets] of [['EarthQuake','Tap a marked square.'],['SkyLift','Choose a marked piece, then a marked square.']]) {
+      const index = cards._meta.view.rules.hands[0].indexOf(card); assert(index>=0);
+      const before = await frame.locator('#board canvas').boundingBox();
+      await frame.locator(`#card-w-${index}`).click(); await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
+      assert.equal(await frame.locator('#context-note').textContent(),`${targets} ${ruleLine(cardText(card,cards._meta.view.rules))}`);
+      assert(await frame.locator('#context-text').evaluate((el,words)=>{
+        const note=el.querySelector('#context-note'), range=document.createRange(); range.setStart(note.firstChild,0); range.setEnd(note.firstChild,words.length);
+        const text=range.getBoundingClientRect(), row=el.getBoundingClientRect(); return text.bottom<=row.bottom+1 && text.right<=row.right+1;
+      },targets.split(',')[0]),`${card}: the next action stays in view at ${width}px`);
+      const after = await frame.locator('#board canvas').boundingBox(); assert(Math.abs(before.width-after.width)<1,'G1 keeps the board size');
+      await shot(page,`ticket26-targets-${card}-${width}-${mode}`);
+      await frame.locator('#context-actions').getByRole('button',{name:'Cancel',exact:true}).click();
+    }
+    for (const [action,fen,from,target,other] of [
+      ['shove','k7/8/8/8/8/8/4P3/4O2K w - - 0 1',4,12,3],
+      ['swap','7k/8/8/8/2RM4/8/8/K7 w - - 0 1',27,26,28],
+    ]) {
+      await seedBoard(`picks&fen=${encodeURIComponent(fen)}`);
+      const calls = await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_move').length);
+      await clickSquare(from&7,from>>3); await clickSquare(target&7,target>>3);
+      assert.equal(await frame.locator('#status').textContent(),`Tap again to ${action}.`);
+      assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'true','The first tap adds no draft step');
+      await shot(page,`ticket26-preview-${action}-${width}-${mode}`);
+      await clickSquare(other&7,other>>3);
+      assert.equal(await frame.locator('#status').textContent(),'Your move.','A tap elsewhere clears the preview');
+      assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'true','A tap elsewhere plays no move');
+      const box=await boardBox(), point=sq=>({x:box.x+(32+((sq&7)+.5)*112)*box.width/960,y:box.y+(96+(7-(sq>>3)+.5)*112)*box.width/960}), a=point(from), b=point(target);
+      await page.mouse.move(a.x,a.y); await page.mouse.down(); await page.mouse.move(b.x,b.y,{steps:8}); await page.mouse.up();
+      assert.equal(await frame.locator('#status').textContent(),`Tap again to ${action}.`,'A drag shows the same preview');
+      assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'true','A drag adds no draft step');
+      await clickSquare(target&7,target>>3); await boardBox();
+      assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'false','A second tap adds the draft step');
+      assert.equal(await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_move').length),calls,'The preview and draft send no move');
+      await frame.locator('#undo').click(); assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'true','One Undo removes the one draft step');
+    }
+  }
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.evaluate(()=>window.harnessSetContext({safeAreaInsets:{top:0,right:0,bottom:0,left:0}}));
+  await page.setViewportSize({width:1000,height:1000});
+  console.log('PASS: G1 targets first; G3 tap, drag, cancel and one draft step at 320, 393 and 1280 px');
   console.log(`Ticket 15 look comparisons: ${look}`);
   await openScreen('settings'); await boardSetting('symbols-only',false); await boardSetting('show-threats',false); await openPlay(); await legacyStart('solo');
   for (const [kind,features,status] of [['friend',options,'waiting'],['solo',{...options,arrangement:true},'setup']]) {

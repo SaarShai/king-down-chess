@@ -1,4 +1,4 @@
-# Ticket 26: the owner's CSS and layout picks (G2, Q3, Q6)
+# Ticket 26: the owner's board and layout picks
 
 Status: claimed
 Type: task
@@ -7,6 +7,44 @@ Type: task
 
 Build the owner's picks G2 a, Q3 b and Q6 b on `claude/od-picks`. The
 approval page is 2026-10-17. Build nothing else.
+
+The next part adds G1 a and G3 a. G2, Q3 and Q6 stay as built.
+
+## G1 and G3 plan
+
+1. Put the target words before the rule for an armed card or power. Use the
+   approved words for a square target and for a piece with a destination.
+2. Keep the approved shove and swap preview. The first tap or drag onto your
+   own piece shows the result. The second tap plays it. A tap on another square
+   ends the preview and only selects or reads that square.
+3. Test the words, marks, draft state, drag, keyboard and cancel paths. Check
+   320 x 568, 393 x 852 with touch, and 1280 x 800 on the built page.
+4. Prove the new tests fail on the old source. Run `npx tsc --noEmit`,
+   `npm test` and the required `plugin-ui` runner. Commit on `claude/od-picks`.
+
+Pass criteria: target words come first; only the previewed move has marks; a
+tap elsewhere plays no move; a second target tap adds one draft step; no move
+is sent before End turn. All required checks pass with their current limits.
+
+## G1 and G3 build
+
+- G1 uses the approved target words for a square target and for a piece with
+  a destination. The card or power rule follows those words.
+- G3 shows only the previewed shove or swap. A second target tap adds the
+  draft step. An empty square clears the selection. An enemy piece opens its
+  rule in the context line. Your own piece becomes selected. None of these
+  other taps plays a move. A drag onto your own target piece shows the preview.
+- Escape, Cancel, Undo, a stale board and a new board state clear the preview.
+  The tests also check keyboard play and an armed Sky Lift swap.
+- The built-page check covers both target word forms, shove and swap, a tap
+  elsewhere, a drag and one Undo at all three required screen sizes.
+
+The old source fails all nine new board tests. The other 76 board tests pass.
+The log is `tests-26-board-before.txt` in the lane's scratch folder. The type
+check and full test suite run next. No test or check time limit changes.
+
+Taste: no new choice. The build uses G1 a and G3 a as approved, including the
+drag rule. G2, Q3 and Q6 need no further change.
 
 ## Build
 

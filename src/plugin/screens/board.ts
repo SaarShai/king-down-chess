@@ -76,7 +76,13 @@ export function boardScreen(store: Store) {
   const canPlay = () => !!view && !!pos && !blocked() && view.action === 'ready' && view.status === 'playing' && !turn().waits;
   const canRead = () => !animating;
   let armed: PowerName | undefined, armedCard: number | undefined;
-  let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0;
+  let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0, cursorShown = false;
+  // G3 a: a shove or swap onto your own piece needs a second tap.
+  let held: Choice | undefined;
+  const heldSquare = (move: Move) => move.shove?.from ?? move.to;
+  const ownTarget = (move: Move, square: number) => !!pos!.board[square] && colorOf(pos!.board[square]) === view!.seat && (move.shove?.from === square || !!move.swap && move.to === square);
+  // Keep the preview only while its piece stays selected and the move stays legal and offered.
+  const holding = () => { const now = held && moves.find(c => c.lan === held!.lan); return now && selected === now.move.from && canPlay() && reachable(now.move) ? now : undefined; };
   let computerCalls = 0, computerRunning = false, thinking = false, tornDown = false, thinkingTimer: ReturnType<typeof setTimeout> | undefined;
   let ownRating: PlayerRecord['rating'] | undefined, profileRead = false;
   let readAt = Date.now(), deadlineTimer: ReturnType<typeof setTimeout> | undefined;
@@ -153,7 +159,7 @@ export function boardScreen(store: Store) {
     rules(); const step = applyLan(pos!, lan, view!.rules!, moves.map(choice => choice.lan));
     if (!step) return;
     const keyboard = document.activeElement === $('board') || !!sheet?.contains(document.activeElement);
-    closeBoardSheet(); armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]);
+    closeBoardSheet(); armed = undefined; armedCard = undefined; selected = inspected = held = undefined; choices([]);
     const token = ++generation; steps.push(step); lastMove = step; pos = step.pos; animating = true;
     board.skip(); board.setLifted(null); moveLine(); refresh();
     if (step.move.drop !== undefined) board.sync(step.pos);
@@ -166,7 +172,7 @@ export function boardScreen(store: Store) {
   function undo() {
     if (blocked() || !steps.length || sheet?.open) return;
     const step = steps.pop()!; ++generation; board.skip(); pos = step.pre; lastMove = steps.at(-1) ?? history.at(-1);
-    armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]);
+    armed = undefined; armedCard = undefined; selected = inspected = held = undefined; choices([]);
     board.sync(pos); refresh();
   }
   $('undo').onclick = undo;
@@ -189,19 +195,22 @@ export function boardScreen(store: Store) {
   }
   $('app-frame').addEventListener('keydown', event => {
     if (event.key !== 'Escape' || client.state.screen !== 'board' && !sheet?.contains(event.target as Node)) return;
-    event.preventDefault(); armed = undefined; armedCard = undefined; selected = undefined; choices([]); refresh(); closeBoardSheet();
+    event.preventDefault(); armed = undefined; armedCard = undefined; selected = held = undefined; choices([]); refresh(); closeBoardSheet();
   });
   function select(square: number, submit = true) {
     if (!view || !pos || !canRead()) return;
     rules();
-    const targets = submit && canPlay() ? named().filter(({move}) => move.to === square || move.from === square) : [];
+    // A second target tap plays the move. Any other tap ends the preview and only selects or reads.
+    const hold = holding(); held = undefined;
+    if (hold && submit && heldSquare(hold.move) === square) return choose(hold.lan);
+    const targets = !hold && submit && canPlay() ? named().filter(({move}) => move.to === square || move.from === square) : [];
     if (targets.length === 1) return choose(targets[0].lan);
     if (targets.length > 1) { choices(targets); boardSheet('Choose a move', $('choices')); return; }
     if (submit && selected === square) { selected = inspected = undefined; choices([]); refresh(); return; }
-    const options = !submit || selected === undefined || !canPlay() ? [] : moves.filter(({move}) => move.from === selected && reachable(move) && ((move.to !== move.from && move.to === square) || move.captures.includes(square) || move.shove?.from === square));
-    const ordinary = options.filter(({move}) => !move.power);
-    if (ordinary.length === 1) return choose(ordinary[0].lan);
-    if (options.length === 1) return choose(options[0].lan);
+    const options = hold || !submit || selected === undefined || !canPlay() ? [] : moves.filter(({move}) => move.from === selected && reachable(move) && ((move.to !== move.from && move.to === square) || move.captures.includes(square) || move.shove?.from === square));
+    const ordinary = options.filter(({move}) => !move.power), one = ordinary.length === 1 ? ordinary[0] : options.length === 1 ? options[0] : undefined;
+    if (one && ownTarget(one.move, square)) { held = one; inspected = undefined; refresh(); return; }
+    if (one) return choose(one.lan);
     if (options.length > 1) { choices(options); boardSheet('Choose a move', $('choices')); return; }
     if (!pos.board[square]) { selected = inspected = undefined; choices(named()); }
     else if (canPlay() && (colorOf(pos.board[square]) === view.seat || armedCard !== undefined && cardChoices().some(c=>c.move.from===square))) { selected = square; inspected = undefined; choices(moves.filter(({move}) => move.from === square && (armed || armedCard !== undefined || RULES.hands[view!.seat].length ? reachable(move) : true))); }
@@ -216,7 +225,7 @@ export function boardScreen(store: Store) {
     $('board').onkeydown = event => {
       // The cursor moves while play waits. Enter reads a square when motion stops.
       const delta = ({ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,1], ArrowDown:[0,-1]} as Record<string,number[]>)[event.key];
-      if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); board.setPreview(cursor); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
+      if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); cursorShown = true; board.setPreview(cursor); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
       else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(cursor); }
       else if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undo(); }
     };
@@ -231,7 +240,7 @@ export function boardScreen(store: Store) {
       const nodes: HTMLElement[] = [window, text(ruleLine(cardText(card)))], coin = cardCoins(pos,side,RULES.hands[side],moves.map(c=>c.move))[index];
       if (side === view.seat && canPlay() && !coin.spent && coin.moves.length) nodes.push(button('Use', () => {
         if (!canPlay()) return;
-        armed = undefined; armedCard = index; selected = inspected = undefined; closeBoardSheet(); choices(cardChoices()); refresh();
+        armed = undefined; armedCard = index; selected = inspected = held = undefined; closeBoardSheet(); choices(cardChoices()); refresh();
       }));
       boardSheet(cardName(card), ...nodes);
     } else {
@@ -240,7 +249,7 @@ export function boardScreen(store: Store) {
       const nodes: HTMLElement[] = [text(coinWords(coin, pos)), text(ruleLine(powerText(coin.power, RULES)))];
       if (canPlay() && side === view.seat && ['ready','armed'].includes(coin.state) && POWER_TAG[coin.power]) nodes.push(button('Use', () => {
         if (!canPlay()) return;
-        armed = coin.power; selected = inspected = undefined; closeBoardSheet(); choices(named()); refresh();
+        armed = coin.power; selected = inspected = held = undefined; closeBoardSheet(); choices(named()); refresh();
       }));
       boardSheet(coin.king + ' King', ...nodes);
     }
@@ -297,12 +306,13 @@ export function boardScreen(store: Store) {
     const draft = turn();
     turnControls(draft);
     $('board').dataset.animating = String(animating);
-    if (stale()) { armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]); }
+    if (stale()) { armed = undefined; armedCard = undefined; selected = inspected = held = undefined; choices([]); }
     moveLine();
     updateTime();
     const check = inCheck(pos) ? findKing(pos.board, pos.turn) : null;
     if (check !== checked) { checked = check; if (check !== null && board.motion()) checkAt = performance.now(); }
-    rules(); const cands = selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
+    // Show only the previewed move's marks.
+    rules(); const hold = holding(), cands = hold ? [hold.move] : selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
     // Mark every step of the last turn (Haste, free marks); a pass step has no square.
     let start = history.length;
     if (lastMove && history.at(-1) === lastMove) while (start > 0 && history[start - 1].pre.turn === lastMove.pre.turn) start--;
@@ -327,7 +337,13 @@ export function boardScreen(store: Store) {
     if (inspected !== undefined && draft.waits && !networkBlocked() && view.draw_offer == null && !['result','refusal','link'].includes(context.rank)) context.note = waitNotice(mode(), view.seat);
     if (context.rank==='link' && deadline) context.note=available.claim==='end'?'You may end the game with no result.':'You may claim the win.';
     if (fresh && context.rank === 'your-move') taught.set(teach[0], history.length);
-    if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:'armed',line:cardName(RULES.hands[view.seat][armedCard]),note:'Choose a piece, then a marked square.'});
+    // G1 a: put the target words first so a short screen keeps the next action in view.
+    if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) {
+      const card = RULES.hands[view.seat][armedCard], squares = named().length && named().length === cardChoices().filter(c => !c.move.pass).length;
+      Object.assign(context, {rank:'armed', line:cardName(card), note:`${squares ? 'Tap a marked square.' : 'Choose a marked piece, then a marked square.'} ${ruleLine(cardText(card))}`});
+    } else if (armed && context.rank === 'armed') Object.assign(context, {note:`${context.note} ${ruleLine(powerText(armed, RULES))}`});
+    // Keep the armed row size while the preview asks for a second tap and names the result.
+    if (hold && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:context.rank === 'armed' ? 'armed' : 'held', line:`Tap again to ${hold.move.shove ? 'shove' : 'swap'}.`, note:describeMove(pos, hold.move)});
     if (view.draw_offer != null && !['result','refusal','link'].includes(context.rank)) context.note = [context.note, view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.'].filter(Boolean).join(' ');
     if (stale()) Object.assign(context, {rank:'link', line:'Not current', note:''});
     $('status').textContent = context.rank === 'refusal' ? '' : context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
@@ -336,7 +352,7 @@ export function boardScreen(store: Store) {
     const unarmed = !armed && armedCard === undefined;
     if (unarmed && square !== undefined && code) { const all = button('All rules', () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(pos!, square)}` : readText(pos!, square)))); all.id = 'all-rules'; all.setAttribute('aria-label', 'All rules'); actions.push(all); }
     if ((!drawReply || unarmed) && selected !== undefined && moves.some(({move}) => move.from === selected && !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
-    if (!unarmed) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; choices([]); refresh(); }));
+    if (!unarmed) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; held = undefined; choices([]); refresh(); }));
     const gameActions = actionButtons(view,Date.now()-readAt,refused);
     if (!view.result) actions.push(...gameActions);
     // Spec J3: after your move in a game the opponent answers later, go on to the next game that waits for you.
@@ -349,7 +365,7 @@ export function boardScreen(store: Store) {
     const table = $('game-table');
     if (drawReply) { table.dataset.replies = ''; if (boardRoom) table.style.setProperty('--board-floor', `${boardRoom}px`); }
     else { delete table.dataset.replies; table.style.removeProperty('--board-floor'); boardRoom = $('board').getBoundingClientRect().height || boardRoom; }
-    board.setLifted(selected ?? null);
+    board.setLifted(selected ?? null); board.setPreview(hold ? heldSquare(hold.move) : cursorShown ? cursor : null);
     // Never lay the king down on the position before the final move.
     const fallen = !animating && view.result?.reason === 'checkmate' && view.result.winner !== null ? findKing(pos.board,(1-view.result.winner) as Color) : null;
     const win = view.result?.winner === view.seat;
@@ -408,7 +424,7 @@ export function boardScreen(store: Store) {
     if (!same) { history = []; lastMove = undefined; steps = []; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
     const local = steps; steps = []; if (local.length) lastMove = history.at(-1);
-    armed = undefined; armedCard = undefined; selected = inspected = undefined;
+    armed = undefined; armedCard = undefined; selected = inspected = held = undefined;
     if (!(same && next.status === 'finished' && client.state.screen === 'end' && !$<HTMLDialogElement>('over').open)) closeBoardSheet();
     choices([]);
     document.querySelector('[data-screen="board"]')!.prepend($('game-table')); $('table-bar').hidden = false;
