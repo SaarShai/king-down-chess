@@ -47,6 +47,7 @@ export class PaintedView implements BoardView {
   onDragSelect: (sq: number) => void = () => {};
   onSquareHover: (sq: number | null) => void = () => {};
   onLoadError?: (error: unknown) => void;
+  canDrag = () => true;
 
   private canvas = document.createElement('canvas');
   private scene: PaintedScene;
@@ -303,7 +304,7 @@ export class PaintedView implements BoardView {
     this.tap = e;
     if (e.button !== 0) return;
     const sq = this.tapSq = this.pick(e);
-    if (sq == null || !this.ownPieceAt(sq)) return;
+    if (sq == null || !this.canDrag() || !this.ownPieceAt(sq)) return;
     this.dragFrom = sq;
     this.canvas.setPointerCapture(e.pointerId);
   }

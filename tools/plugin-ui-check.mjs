@@ -2060,10 +2060,10 @@ try {
     await zoomViewport(viewport.width, viewport.height, 0, 0);
   }
   // Ticket 32 C: use a fresh mobile host. A cut New game shows that the card scrolls; each action stays reachable.
-  async function zoomEndFits(label, height = 426) {
+  async function zoomEndFits(label, height = 426, width = 197, top = 51, safeBottom = height === 426 ? 59 : 0) {
     // Both results use the three solo actions named in ticket 32 C.
     const view = await page.evaluate(() => ({ ...window.harnessView, kind: 'solo', opponent: { ...window.harnessView.opponent, computer: true } }));
-    const host = await browser.newPage({ viewport: { width: 197, height }, isMobile: true, hasTouch: true });
+    const host = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true });
     trapErrors(host);
     const frame = host.frameLocator('iframe');
     try {
@@ -2071,7 +2071,7 @@ try {
       await host.locator('#remount').evaluate(el => { el.style.display = 'none'; });
       await host.locator('iframe').evaluate(el => { el.style.setProperty('height', '100dvh', 'important'); });
       await frame.locator('#home-play:not(:disabled)').waitFor();
-      await host.evaluate(bottom => window.harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top: 51, bottom, left: 0, right: 0 }, deviceCapabilities: { touch: true } }), height === 426 ? 59 : 0);
+      await host.evaluate(({top,bottom}) => window.harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top, bottom, left: 0, right: 0 }, deviceCapabilities: { touch: true } }), {top,bottom:safeBottom});
       // The win sample exists only in the check. A live poll must not replace it.
       await frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
       await host.evaluate(view => {
@@ -2092,12 +2092,12 @@ try {
           const box = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; };
           return { frame: box(document.querySelector('#app-frame')), card: box(el), reason: box(el.querySelector('#end-reason')), buttons: [...el.querySelectorAll('form button:not([hidden])')].map(box), scroll: el.scrollTop, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
         });
-        const all = `${label} at 197 x ${height}, bottom gap ${gap}: ${JSON.stringify(m)}`, bottom = m.card[1] + m.card[3];
-        assert.equal(m.frame[1], 51, all); assert.equal(m.frame[1] + m.frame[3], height - gap, all);
+        const all = `${label} at ${width} x ${height}, top ${top}, bottom gap ${gap}: ${JSON.stringify(m)}`, bottom = m.card[1] + m.card[3];
+        assert.equal(m.frame[1], top, all); assert.equal(m.frame[1] + m.frame[3], height - gap, all);
         assert.equal(m.buttons.length, 3, all);
-        await shot(host, `zoom-fit-${label}-${height}-gap-${gap}-${mode}`);
+        await shot(host, `zoom-fit-${label}-${width}-${height}-${top}-gap-${gap}-${mode}`);
         assert(inFrame(m.reason, m.frame) && inFrame(m.reason, m.card), `The result line shows with no scroll: ${all}`);
-        if (height === 426) {
+        if (height <= 426) {
           assert(m.scroll === 0 && m.buttons[1][1] <= bottom - 12 && m.buttons[1][1] + m.buttons[1][3] > bottom, `New game crosses the card edge with at least 12 px in view: ${all}`);
         } else {
           assert(m.scroll === 0 && m.scrollHeight <= m.clientHeight && m.buttons.every(button => inFrame(button, m.card) && inFrame(button, m.frame)), `All three end actions show in full with no scroll in a tall frame: ${all}`);
@@ -2160,19 +2160,19 @@ try {
           assert(await frame.locator('#choices button').count()>0,'The touch tap keeps the swap choices');
           await reset();
         }
-        // A piece starts a drag. Use the empty square nearest the visible board centre for a scroll.
-        const view = await page.evaluate(()=>({fen:window.harnessView.fen,seat:window.harnessView.seat}));
-        const start = await frame.locator('canvas').evaluate((c,{occupied,black})=>{
+        // On the other turn, start on their piece. On this turn, use an empty square.
+        const view = await page.evaluate(()=>({fen:window.harnessView.fen,seat:window.harnessView.seat,turn:window.harnessView.turn}));
+        const start = await frame.locator('canvas').evaluate((c,{occupied,black,swipePiece,turn})=>{
           const b=c.getBoundingClientRect(), f=document.querySelector('.frame').getBoundingClientRect();
           const cx=(Math.max(b.left,f.left)+Math.min(b.right,f.right))/2, cy=(Math.max(b.top,f.top)+Math.min(b.bottom,f.bottom))/2;
           const empty=occupied.flatMap((piece,sq)=>{
-            if(piece) return [];
+            if(swipePiece ? !piece || ((piece >> 4) & 1) !== turn : piece) return [];
             const file=sq%8,rank=Math.floor(sq/8),x=b.x+(32+((black?7-file:file)+.5)*112)*b.width/960,y=b.y+(96+((black?rank:7-rank)+.5)*112)*b.width/960;
             return x>f.left&&x<f.right&&y>f.top&&y<f.bottom&&document.elementFromPoint(x,y)===c ? [{x,y,sq,distance:Math.hypot(x-cx,y-cy)}] : [];
           }).sort((a,b)=>a.distance-b.distance);
           return {...empty[0],hit:empty.length>0,action:getComputedStyle(c).touchAction,boardAction:getComputedStyle(c.parentElement).touchAction,scroll:c.closest('[data-screen="board"]').scrollTop};
-        },{occupied:Array.from(fromFen(view.fen).board),black:view.seat===1});
-        const host = await page.locator('iframe').boundingBox(); assert(host && start.hit,`${label}: the swipe starts on the visible board`);
+        },{occupied:Array.from(fromFen(view.fen).board),black:view.seat===1,swipePiece:label==='board-their-turn',turn:view.turn});
+        const host = await page.locator('iframe').boundingBox(); assert(host && start.hit,`${label}: the swipe starts on ${label==='board-their-turn' ? 'their piece' : 'the visible board'}`);
         await frame.locator('canvas').evaluate(c=>{
           window.touchTrace=[];
           for(const name of ['pointerdown','pointercancel','touchstart']) document.addEventListener(name,e=>window.touchTrace.push({name,target:e.target.tagName,id:e.target.id,action:getComputedStyle(e.target).touchAction}),{once:true});
@@ -2285,7 +2285,7 @@ try {
   const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);
   await page.clock.fastForward(1100);
   await page.evaluate(()=>{window.dropNextReply='kingdown_rematch';});
-  for (const height of [426, 800]) await zoomEndFits('end-loss', height);
+  for (const [width,height,top,bottom] of [[197,426,51,59],[197,800,51,0],[201,357,31,17],[201,357,62,34]]) await zoomEndFits('end-loss',height,width,top,bottom);
   await tapEndAtZoom('Play again');
   await frame.locator('#over #retry').waitFor();
   const pendingRematch=await page.evaluate(()=>window.harnessWidgetState.privateContent.pending);
@@ -2712,7 +2712,7 @@ try {
     // Ticket 28 T1 and T2 at 200% zoom.
     const zoomName={board:'board-turn','board-abort':'board-cards'}[state.name];
     if (zoomName) await zoomBoardFits(zoomName);
-    if (state.end) for (const height of [426, 800]) await zoomEndFits('end-win', height);
+    if (state.end) for (const [width,height,top,bottom] of [[197,426,51,59],[197,800,51,0],[201,357,31,17],[201,357,62,34]]) await zoomEndFits('end-win',height,width,top,bottom);
     if (state.name === 'board-abort') {
       const viewport = page.viewportSize();
       const screen = frame.locator('[data-screen="board"]');

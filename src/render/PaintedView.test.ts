@@ -57,6 +57,14 @@ describe('PaintedView touch input', () => {
     expect(view.onDragSelect).toHaveBeenCalledExactlyOnceWith(12);
     expect(view.onSquareClick).toHaveBeenCalledExactlyOnceWith(28, false);
   });
+  it('allows a swipe from the side-to-move piece when the board takes no input', async () => {
+    const view = await board(), preventDefault = vi.fn();
+    view.canDrag = () => false; pickedSquare = 12;
+    fire('pointerdown', down); fire('touchstart', { preventDefault });
+    expect(preventDefault).not.toHaveBeenCalled();
+    fire('pointermove', { ...down, clientY: -40 }); fire('pointercancel'); fire('pointerup', down);
+    expect(view.onDragSelect).not.toHaveBeenCalled(); expect(view.onSquareClick).not.toHaveBeenCalled();
+  });
   it('keeps a square tap', async () => {
     const view = await board(); pickedSquare = 12;
     fire('pointerdown', down); fire('touchstart', { preventDefault() {} }); fire('pointerup', down);

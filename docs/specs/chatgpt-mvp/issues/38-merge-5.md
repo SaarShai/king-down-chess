@@ -45,3 +45,18 @@ Note for the end.css merge: android-fixes measured the end card at 197 x 426 (lo
 Pass criteria: each lane keeps its change. The narrow and landscape end checks both pass.
 A swipe on the other turn scrolls. An own-piece drag on the player turn moves the piece.
 All required checks pass. No push, pull request, merge to main, or deploy occurs.
+
+## Merge record
+
+- d8e210b5: rc-fixes. Resolve board.ts. Keep stale-turn and draw messages. Put a fresh lesson first.
+- ea5a387e: qa2-faults. No conflicts. Keep all three fixes and the stronger end check.
+- 1b6049f2: touch-scroll. Resolve the card focus note and browser helpers. Keep explicit WebKit focus and both touch and end checks.
+- 8dd01de5: android-fixes. Resolve end.css and the bar size check. Keep the narrow cap and add the separate landscape block. Keep the recent moves check.
+- 83c25c59: k-picks. Resolve Resume and size tests. Keep the Home wait, two-line text, extra coin row, and touch bar.
+- 0db1c1b5: main. Resolve the harness mount. Replace the target widget frame. Keep the per-widget state and call hooks.
+
+## Added checks
+
+N1 uses 201 x 357 with insets 31/17 and 62/34 for win and loss.
+The other-turn swipe starts on a piece of the side to move. Existing touch drags still send a move once.
+The drag guard uses the board input gate and the player seat.
