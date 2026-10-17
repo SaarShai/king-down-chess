@@ -78,7 +78,7 @@ the board to keep its portrait height after a turn to landscape. The finding is 
   L2 b: "the board keeps its size and the page scrolls to the replies." A re-measure on a resize
   would change the size the pick asks to keep.
 
-No change is made. The full `npm test` and the browser checks stay green on the untouched code.
+No code change answers this finding. The Checks section holds the run facts.
 
 ## Test stability (gold pulse)
 
@@ -95,4 +95,11 @@ so the check keeps its strength.
 
 ## Checks
 
-Filled in after the full `npm test` and the browser checks.
+Head `90b0a503`.
+
+- `npm test` passes. 165 test files pass, 12 skip; 2728 tests pass, 3 are
+  expected fail, 144 skip. Log:
+  `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/od-picks/npmtest-9.txt`.
+- The `plugin-ui` browser check passes at `90b0a503` (148.4 s, M1 runner, exit 0).
+  The first run hit the known `end fits at 360px` flake; the rerun passes. Logs:
+  `.../lanes/od-picks/checks-26-css-10.txt` (pass) and `checks-26-css-9.txt` (flake).
