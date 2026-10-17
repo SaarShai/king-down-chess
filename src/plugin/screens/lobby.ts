@@ -1,4 +1,4 @@
-import { call, client, memory, navigate, routeView, start } from '../app';
+import { call, client, memory, navigate, routeView, send, start } from '../app';
 import { DEFAULT_OPTIONS } from '../../match/setup';
 import type { InboxEntry, Lobby, View } from '../../match/protocol';
 import { runPoll } from '../poll';
@@ -45,18 +45,17 @@ async function readLobby() {
 }
 async function acceptGame(game: string) {
   if (accepting || finding) return; accepting = true;
-  const board = client.state.board_id;
   try {
-    const result = await client.call('kingdown_accept', { game_id: game });
-    // A newer chat selection keeps its board and screen, even if this reply is an error.
-    const selected = result._meta?.board_id;
-    if ((typeof selected === 'string' ? selected : board) !== client.state.board_id) return;
-    if (result.isError) {
-      if (result._meta?.code === 'HANDLE_NEEDED') { afterHandle = game; navigate('handle'); return; }
-      if (['NOT_ALLOWED','FORBIDDEN'].includes(String(result._meta?.code))) { await readLobby(); $('lobby-status').textContent = 'Someone else took this game'; return; }
-      throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+    // An accept is a selection: it goes on the queue, so a newer chat result detaches it (design §1.2).
+    const outcome = await send('kingdown_accept', { game_id: game });
+    if (outcome.status === 'superseded') return;
+    if (outcome.status !== 'done') {
+      const code = outcome.status === 'refused' ? outcome.code : outcome.code ?? '';
+      if (code === 'HANDLE_NEEDED') { afterHandle = game; navigate('handle'); return; }
+      if (['NOT_ALLOWED','FORBIDDEN'].includes(code)) { await readLobby(); $('lobby-status').textContent = 'Someone else took this game'; return; }
+      throw new Error(outcome.text);
     }
-    const next = result._meta?.view as View | undefined; if (next) routeView(next);
+    const next = outcome.view as View | undefined; if (next) routeView(next);
   } catch (error) { showError(error, $('lobby-status')); }
   finally { accepting = false; }
 }

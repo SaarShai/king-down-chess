@@ -1,0 +1,173 @@
+// The one command lane and the one epoch gate (design §1.2 and §2, ticket 19 S3). A write runs on the
+// lane, first in first out and one at a time. A read runs beside the lane, and waits only when it is a
+// read of the page board. Each job keeps the epoch it started in; a newer chat result or user command
+// makes an older job stale, and an older job writes only what the older-job rules allow.
+import { errorText } from './client';
+
+/** A tool result, as the transport gives it. */
+export type ToolResult = { isError?: boolean; content: { type: string; text?: string }[]; _meta?: Record<string, unknown>; structuredContent?: unknown };
+
+/** One call's whole result. It is never `undefined`, and each promise settles once (design §2). */
+export type Outcome =
+  | { status: 'done'; result: ToolResult; view?: unknown }
+  | { status: 'refused'; code: string; text: string; result: ToolResult; view?: unknown }
+  | { status: 'failed'; code?: string; text: string }
+  | { status: 'superseded' };
+
+export type Kind = 'read' | 'write';
+
+export type JobOptions = {
+  retain?: boolean;
+  quiet?: boolean;
+  route?: boolean;
+  retry?: boolean;
+  user?: boolean;
+  mount?: boolean;
+  initial?: boolean;
+  board?: boolean;
+  signal?: AbortSignal;
+};
+
+export type Job = {
+  id: number;
+  kind: Kind;
+  name: string;
+  args: Record<string, unknown>;
+  options: JobOptions;
+  epoch: number;
+  mount: boolean;
+  /** A sticky write changes a game or the account; a newer chat result never detaches it. */
+  sticky: boolean;
+  detached: boolean;
+  started: boolean;
+  done: boolean;
+  outcome?: Outcome;
+  promise: Promise<Outcome>;
+  resolve: (outcome: Outcome) => void;
+  release: () => void;
+};
+
+/** A selection or a start: a newer chat result detaches it at once (design §2). */
+export const DETACHABLE = ['kingdown_open', 'kingdown_resume', 'kingdown_join', 'kingdown_accept', 'kingdown_find', 'kingdown_create'];
+
+/** The definitive refusals; every other error is `failed` (design §2 outcome map). */
+export const REFUSALS = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'NOT_ALLOWED', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE', 'RATE_LIMITED'];
+
+export const EMPTY: ToolResult = { content: [] };
+export const resultText = (result: ToolResult) => result.content.filter(part => part.type === 'text').map(part => part.text ?? '').join(' ');
+/** The code of a refusal or a failure (HANDLE_NEEDED is a failure with a code, design §2). */
+export const resultCode = (result: ToolResult) => String(result._meta?.code ?? '');
+
+/** The outcome of one result: a refusal, a failure, or a done call with its view. */
+export function classify(result: ToolResult): Outcome {
+  if (result.isError) {
+    const text = resultText(result), code = resultCode(result);
+    return REFUSALS.includes(code) ? { status: 'refused', code, text, result } : { status: 'failed', ...(code && { code }), text };
+  }
+  return { status: 'done', result, view: result._meta?.view };
+}
+
+export type Queue = ReturnType<typeof createQueue>;
+
+export function createQueue() {
+  let epoch = 0, next = 0, closed = false;
+  /** The write that holds the lane now. */
+  let running: Job | undefined;
+  /** The writes that wait for the lane, in order. */
+  const line: Job[] = [];
+  /** The reads in flight. They run beside the lane. */
+  const reads = new Set<Job>();
+  /** The mount job of the newest chat result. */
+  let mount: Job | undefined;
+  /** The page-board reads that wait for an idle lane. */
+  const idleWaiters: (() => void)[] = [];
+
+  const make = (kind: Kind, name: string, args: Record<string, unknown>, options: JobOptions): Job => {
+    let resolve!: (outcome: Outcome) => void;
+    return {
+      id: ++next, kind, name, args, options, epoch,
+      mount: !!options.mount,
+      sticky: kind === 'write' && !DETACHABLE.includes(name),
+      detached: false, started: false, done: false,
+      promise: new Promise<Outcome>(settle => { resolve = settle; }),
+      resolve, release: () => {},
+    };
+  };
+  /** Ends a job once. A detached job keeps running, but its later work writes nothing (the epoch gate). */
+  function settle(job: Job, outcome: Outcome) {
+    if (job.done) return;
+    job.done = true; job.outcome = outcome; job.resolve(outcome);
+    if (running === job) { running = undefined; pump(); flushIdle(); }
+  }
+  const detach = (job: Job) => { if (!job.done) { job.detached = true; if (!job.started) job.release(); settle(job, { status: 'superseded' }); } };
+  /** Wakes every page-board read that waits for an idle lane. */
+  function flushIdle() { if (!running) idleWaiters.splice(0).forEach(resolve => resolve()); }
+  /** Starts the next waiting write; a detached one gives up its place. */
+  function pump() {
+    while (!running) {
+      const job = line.shift();
+      if (!job) return;
+      if (job.detached || job.done) continue;
+      running = job; job.started = true; job.release();
+    }
+  }
+  /** A newer chat result: a new epoch, and every older read and detachable write detaches at once. */
+  function chatResult(initial = false): Job {
+    epoch++;
+    for (const job of [...reads]) if (job.epoch < epoch) detach(job);
+    for (const job of line) if (!job.sticky) detach(job);
+    if (running && !running.sticky) detach(running);
+    const job = make('read', 'mount', {}, { mount: true, initial });
+    mount = job;
+    return job;
+  }
+  /** A user command: a new epoch, and every older read detaches. A write is untouched (design §2). */
+  function command(kind: Kind, name: string, args: Record<string, unknown>, options: JobOptions = {}): Job {
+    if (closed) { const job = make(kind, name, args, options); settle(job, { status: 'superseded' }); return job; }
+    if (kind === 'write' && options.user !== false) { epoch++; for (const job of [...reads]) if (job.epoch < epoch) detach(job); }
+    return make(kind, name, args, options);
+  }
+  /** Runs one job's body. A write waits for the lane; a read of the page board waits for an idle lane. */
+  async function run(job: Job, body: (job: Job) => Promise<Outcome | void>): Promise<Outcome> {
+    if (closed || job.done) return job.promise;
+    if (job.kind === 'write') {
+      await new Promise<void>(resolve => { job.release = resolve; line.push(job); pump(); });
+      if (job.detached || job.done) return job.promise;
+    } else {
+      if (job.options.board) await laneIdle();
+      if (job.detached) return job.promise;
+      reads.add(job);
+    }
+    // The body runs on its own: a detached job settles at once (the epoch gate), and the body's later work writes
+    // nothing. So the caller reads the outcome from the job, never from the body's return.
+    void (async () => {
+      try { settle(job, (await body(job)) ?? { status: 'done', result: EMPTY }); }
+      catch (error) { settle(job, { status: 'failed', text: errorText(error) }); }
+      finally { if (job.kind === 'read') reads.delete(job); if (mount === job && job.done) mount = undefined; }
+    })();
+    return job.promise;
+  }
+  /** A read of the page board waits until the lane is idle (design §2). */
+  const laneIdle = () => running ? new Promise<void>(resolve => idleWaiters.push(resolve)) : Promise.resolve();
+  function close() {
+    closed = true;
+    for (const job of [...reads]) detach(job);
+    for (const job of line) detach(job);
+    if (mount && !mount.done) detach(mount);
+    flushIdle();
+  }
+  return {
+    /** A current job is of the newest epoch and not detached. Only it writes a route, a board or a screen. */
+    current: (job: Job) => !closed && job.epoch === epoch && !job.detached,
+    /** The older-job rules let a write settle its own pending and show its own refusal. */
+    writing: () => !!running,
+    mounting: () => !!mount && !mount.done && mount.epoch === epoch,
+    /** The mount job of the newest chat result; a mount's `initial` flag marks the first one. */
+    mountJob: () => mount && mount.epoch === epoch ? mount : undefined,
+    closed: () => closed,
+    epoch: () => epoch,
+    command, chatResult, run, close,
+    /** The lane is idle when no write holds it. */
+    idle: laneIdle,
+  };
+}

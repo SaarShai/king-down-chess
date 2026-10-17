@@ -509,7 +509,7 @@ it('R9: a failed connect shows an enabled Try again that connects again (a.out 9
   } finally { await page.close(); }
 });
 
-it.fails('R3b: a poll reply does not leave the screen the player opened (a.out 3, user navigation)', async () => {
+it('R3b: a poll reply does not leave the screen the player opened (a.out 3, user navigation)', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await soloBoard(page);
@@ -599,7 +599,7 @@ it('R7: a move with a view clears Try again and its read text (a.out 7)', async 
   } finally { await page.close(); }
 });
 
-it.fails('R6: a command that starts while a read is in flight waits for it and runs (a.out 6)', async () => {
+it('R6: a command that starts while a read is in flight waits for it and runs (a.out 6)', async () => {
   const page = await open();
   try {
     await soloBoard(page);

@@ -119,8 +119,8 @@ export function renderPage(page: Page) {
   const back = $('page-back'); if (back) back.textContent = backLabel(page);
   const title = $('page-title'); if (title) title.textContent = TITLES[page.screen] ?? '';
   const line = messageLine(page);
-  const error = $('error'); if (error) error.textContent = line.text;
-  // The home card shows the line only on home; otherwise it stays clear, so the text shows once.
+  // The line shows once: the home card has its own line on home; the frame's line takes it elsewhere.
+  const error = $('error'); if (error) error.textContent = page.screen === 'home' ? '' : line.text;
   const home = $('home-error'); if (home) home.textContent = page.screen === 'home' ? line.text : '';
   const retry = $<HTMLButtonElement>('retry');
   if (retry) { retry.hidden = line.action === 'none'; retry.textContent = line.action === 'retry' ? 'Retry' : 'Try again'; }

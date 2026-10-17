@@ -35,7 +35,7 @@ function pollView() {
 // The card is rebuilt on a change of either only, as the two observers did.
 let endKey: string | undefined;
 export function endSync(page: Page) {
-  const key = `${page.screen}:${$<HTMLButtonElement>('reload').disabled}`;
+  const key = `${page.screen}:${$<HTMLButtonElement>('reload').disabled}:${staleRead(page)}`;
   if (key === endKey) return;
   endKey = key;
   if (page.screen === 'end') setTimeout(updateEnd, 0);

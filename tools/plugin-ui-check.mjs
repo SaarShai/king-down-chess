@@ -1672,7 +1672,11 @@ try {
     const decline=await friendTool('kingdown_draw',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'decline'}); assert(!decline.isError); await readGame();
     current=await page.evaluate(()=>window.harnessView);
     const offer=await friendTool('kingdown_draw',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'offer'}); assert(!offer.isError); await readGame();
-    await frame.locator('#context-actions #decline-draw').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Decline',exact:true}).click(); await idleBoard();
+    // A declined draw sends a page-board read first, then the command. A foreground read no longer locks the frame
+    // (design §2 and §3.3), so wait for the command itself, then for its reply to settle.
+    const declines=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_draw').length);
+    await frame.locator('#context-actions #decline-draw').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Decline',exact:true}).click();
+    await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_draw').length>n,declines); await settled(); await idleBoard();
     current=await page.evaluate(()=>window.harnessView); assert.equal(current.draw_offer,null);
     const offerAgain=await friendTool('kingdown_draw',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'offer'}); assert(!offerAgain.isError); await readGame();
     if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:new Date().toISOString()}]}}}}}});

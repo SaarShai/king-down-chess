@@ -1,4 +1,4 @@
-import { client, memory, navigate, routeView } from '../app';
+import { client, memory, navigate, routeView, send } from '../app';
 import type { JoinPreview } from '../../match/protocol';
 import { $, features, onStop, portrait, row, showError, toolError } from './friend';
 let reading = false, joining = false, afterHandle = false;
@@ -46,19 +46,17 @@ async function preview() {
 async function join() {
   if (joining || !memory.preview) return;
   joining = true; $<HTMLButtonElement>('join-confirm').disabled = true;
-  const board = client.state.board_id;
   try {
-    const result = await client.call('kingdown_join', { code: memory.preview.code });
-    // A newer chat selection keeps its board and screen, even if this reply is an error.
-    const selected = result._meta?.board_id;
-    if ((typeof selected === 'string' ? selected : board) !== client.state.board_id) return;
-    if (result.isError) {
-      if (result._meta?.code === 'HANDLE_NEEDED') { afterHandle = true; navigate('handle'); return; }
-      throw new Error(toolError(String(result._meta?.code ?? ''), result.content.filter(c => c.type === 'text').map(c => c.text).join(' ')));
+    // A join is a selection: it goes on the queue, so a newer chat result detaches it (design §1.2).
+    const outcome = await send('kingdown_join', { code: memory.preview.code });
+    if (outcome.status === 'superseded') return;
+    if (outcome.status !== 'done') {
+      if (outcome.status === 'failed' && outcome.code === 'HANDLE_NEEDED') { afterHandle = true; navigate('handle'); return; }
+      throw new Error(toolError(outcome.code ?? '', outcome.text));
     }
-    const next = result._meta?.view;
+    const next = outcome.view as NonNullable<typeof memory.view> | undefined;
     memory.code = ''; memory.preview = undefined; memory.joinError = undefined; checked = '';
-    if (next) routeView(next as NonNullable<typeof memory.view>);
+    if (next) routeView(next);
   } catch (error) { showError(error, $('join-message')); }
   finally { joining = false; $<HTMLButtonElement>('join-confirm').disabled = false; }
 }
