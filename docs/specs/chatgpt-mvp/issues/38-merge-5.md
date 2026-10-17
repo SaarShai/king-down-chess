@@ -60,3 +60,7 @@ All required checks pass. No push, pull request, merge to main, or deploy occurs
 N1 uses 201 x 357 with insets 31/17 and 62/34 for win and loss.
 The other-turn swipe starts on a piece of the side to move. Existing touch drags still send a move once.
 The drag guard uses the board input gate and the player seat.
+
+The first browser run at 12a4bbec stops on the old F9 board widths.
+K1 adds an approved coin row at 393–440 px. Set the F9 widths to that layout.
+Keep the 4 px bar cost check. All F9 hit sizes and all short landscape end cases pass in this run.

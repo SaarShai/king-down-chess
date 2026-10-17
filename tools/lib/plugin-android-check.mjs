@@ -46,7 +46,8 @@ export async function checkAndroidFixes(browser, base) {
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       });
     }
-    for (const [width, height, top, bottom, oldBoard] of [[412,790,54,24,352], [393,852,102,118,345], [320,568,63,84,113], [1280,800,0,0,536]]) {
+    // K1 adds a coin row at 393–440 px. Keep the bar cost at no more than 4 px from that layout.
+    for (const [width, height, top, bottom, oldBoard] of [[412,790,54,24,311], [393,852,102,118,304], [320,568,63,84,113], [1280,800,0,0,536]]) {
       await viewport(width, height, top, bottom);
       await show();
       for (const armed of [false, true]) {
