@@ -23,6 +23,7 @@ const base = env('PLAYABLE_URL');
 const testHandle = `mvp_${randomUUID().replaceAll('-', '').slice(0,12)}`;
 const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: true });
+await page.bringToFront();
 // [DEBUG-webkit-30] Measure the existing check without changing its waits.
 const debugStart = Date.now();
 for (const [owner, methods] of [
