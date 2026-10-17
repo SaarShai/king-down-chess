@@ -584,8 +584,9 @@ try {
       assert(await frame.getByRole('radio', { name: 'Beginner', exact: true }).isChecked());
       assert(!await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
       assert.doesNotMatch(await frame.locator('#setup-start').innerText(), /Strong|Arrangement/);
-      if (recovery === 'remount') await page.locator('#remount').click();
-      else await frame.locator('#retry').click();
+      // A remount of a pending with an error shows its saved words and Retry; the player taps Retry (design §5.3).
+      if (recovery === 'remount') { await page.locator('#remount').click(); await frame.locator('#retry:not(:disabled)').waitFor(); }
+      await frame.locator('#retry').click();
       await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       const quick = await page.evaluate(() => window.harnessView);
       assert.equal(quick.kind, 'solo'); assert.equal(quick.level, 'beginner'); assert.equal(quick.options.arrangement, false);
@@ -629,14 +630,14 @@ try {
     assert.equal(await page.evaluate(() => window.harnessView.days_per_move), 3);
     const waiting = await page.evaluate(() => window.harnessView); assert.equal(waiting.choices[waiting.seat].king.king, 'Spirit', 'Waiting keeps the server default; the remembered king goes to the seat screen');
     await abortSetup(waiting.game_id);
-    // A lost Start reply survives a remount without a second game.
+    // A lost Start reply survives a remount without a second game: the remount shows Retry, and Retry sends the same
+    // command ID, so the receipt gives back the first game (design §5.2 and §5.3).
     await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true } });
     await page.evaluate(() => { window.dropNextReply = 'kingdown_create'; }); await frame.locator('#setup-start').click(); await frame.locator('#retry').waitFor();
-    const creates = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_create').length);
-    await remountFrame();
+    const startId = await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_create').arguments.command_id);
+    await remountFrame(); await frame.locator('#retry:not(:disabled)').waitFor(); await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
-    assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_create').length), creates, 'Recovered Start sends no second create');
-    assert(await page.evaluate(() => window.harnessCalls.some(c => c.name === 'kingdown_games')), 'Pending Start reads Games before a resend');
+    assert.equal(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_create').arguments.command_id), startId, 'Retry sends the same Create command ID');
     const privateState = await page.evaluate(() => window.harnessWidgetState.privateContent);
     assert.deepEqual(Object.keys(privateState).sort(), ['board_id','pending','screen','sheet']);
     assert.equal(await page.evaluate(() => JSON.stringify(window.harnessWidgetState.modelContent)), '{}', 'Setup puts no choice or draw in model context');
@@ -818,7 +819,8 @@ try {
     await seatShow(solo); await page.evaluate(() => { window.dropNextReply = 'kingdown_choose'; });
     await frame.locator('#seat-ready').click(); await frame.locator('#retry').waitFor();
     const soloId = await page.evaluate(() => window.harnessWidgetState.privateContent.pending.args.command_id);
-    await remountFrame(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
+    await remountFrame(); await frame.locator('#retry:not(:disabled)').waitFor(); await frame.locator('#retry').click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
     assert.equal(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_choose').arguments.command_id),soloId,'A started solo Ready keeps the same command after remount');
     assert.equal(await page.evaluate(() => window.harnessView.seat),1);
     // Ticket 15 owns the automatic start reply. This base still has its old Computer move control.
