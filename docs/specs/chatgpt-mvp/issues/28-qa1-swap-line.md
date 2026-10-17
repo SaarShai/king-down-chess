@@ -21,3 +21,4 @@ T1 to T3 and T6 belong to other steps. This step changes no server code.
 - T5: both board views use `pieceTitle` from `src/read.ts`. It uses the shared name table and keeps custom names. The source search finds no other copy of the colour-and-piece title.
 - Tests: the unit test checks White Maester, Black Maester and a custom name. The browser check checks the loaded face, row order, bounds, two text lines, rules sheet and return focus at 320 and 393 px.
 - The first full test run finds one old lower-case expectation and two draw-row overlaps in landscape. The draw row keeps its prior total height with a 44 px first row and a 4 px row gap. The existing Menu and row-size tests cover this case.
+- The second full test run passes. The first browser run finds an image with no source in the hidden info control. The control now creates its image only after a piece is selected. The existing page image check covers the state before selection.

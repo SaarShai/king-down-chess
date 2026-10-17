@@ -336,7 +336,7 @@ export function boardScreen(store: Store) {
     all.hidden = !unarmed || square === undefined || !code;
     if (!all.hidden) {
       const type = typeOf(code);
-      $<HTMLImageElement>('piece-info-art').src = art(type === K ? portraitPath(colorOf(code)) : `ui/pieces/${NAMES[type]}-${colorOf(code) ? 'b' : 'w'}.webp`);
+      all.innerHTML = `<span class="portrait"><img id="piece-info-art" alt="" src="${art(type === K ? portraitPath(colorOf(code)) : `ui/pieces/${NAMES[type]}-${colorOf(code) ? 'b' : 'w'}.webp`)}"></span>`;
       all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(pos!, square!)}` : readText(pos!, square!)));
     }
     if ((!drawReply || unarmed) && selected !== undefined && moves.some(({move}) => move.from === selected && !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
