@@ -536,11 +536,11 @@ try {
     await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
     await widget().waitForFunction(() => document.querySelector('#game-table').getAnimations({ subtree: true }).every(animation => animation.playState === 'finished'));
     assert.equal(await frame.locator('#game-table .coin').count(), 10, 'Both strips show four cards and one power');
-    assert(await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll('.coin')].every(coin => {
+    const coins44 = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll('.coin')].map(coin => {
       const style = getComputedStyle(coin), box = coin.getBoundingClientRect();
-      return [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomLeftRadius, style.borderBottomRightRadius].every(radius => radius === '50%')
-        && Math.abs(box.width - box.height) < .5 && box.width >= 44 && style.backgroundImage.includes('radial-gradient') && !style.backgroundImage.includes('stone-control');
-    })), 'Card and power coins stay round with 44 px targets at 393 × 852');
+      return { id: coin.id, width: box.width, height: box.height, radii: [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomLeftRadius, style.borderBottomRightRadius], radial: style.backgroundImage.includes('radial-gradient'), stone: style.backgroundImage.includes('stone-control'), disabled: coin.disabled, motion: coin.getAnimations().map(animation => animation.playState) };
+    }));
+    assert(coins44.every(coin => coin.radii.every(radius => radius === '50%') && Math.abs(coin.width - coin.height) < .5 && coin.width >= 44 && coin.radial && !coin.stone), `Card and power coins stay round with 44 px targets at 393 × 852: ${JSON.stringify(coins44)}`);
     const faces44 = await cardFaces(frame);
     assert.equal(faces44.length, 8, 'Both strips show four card coins at 393 × 852');
     assert.deepEqual(faceFaults(faces44, 44), [], 'The card image is centred in the 44 px card coin and fills its face in both strips');
@@ -1683,6 +1683,7 @@ try {
   const beforeCardRead = await page.evaluate(() => window.harnessWidgetState);
   await frame.locator('#strip-me .card-coin').nth(cardIndex).click();
   await frame.locator('#board-sheet[open] h2').filter({ hasText: cardWords }).waitFor();
+  await page.waitForFunction(() => window.harnessWidgetState.privateContent.sheet === 'board-sheet');
   assertCardReadState(beforeCardRead, await page.evaluate(() => window.harnessWidgetState));
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
   await openMoveChoices(); await frame.locator(`#choices button[title="${cardLan}"]`).click(); await sendTurn();
