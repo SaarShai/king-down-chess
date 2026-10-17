@@ -23,6 +23,7 @@ const base = env('PLAYABLE_URL');
 const testHandle = `mvp_${randomUUID().replaceAll('-', '').slice(0,12)}`;
 const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: true });
+const debugClick = Object.getPrototypeOf(page.locator('body')).click;
 // [DEBUG-webkit-30] Measure the existing check without changing its waits.
 const debugStart = Date.now();
 for (const [owner, methods] of [
@@ -55,11 +56,19 @@ for (const [owner, methods] of [
 trapErrors(page);
 page.on('pageerror', error => console.error(error.stack));
 try {
-  // [DEBUG-webkit-30] Test whether native frames stop while the controlled clock runs.
-  await page.addInitScript(() => {
-    const raf = window.requestAnimationFrame.bind(window);
-    const tick = () => raf(tick); tick();
-  });
+  // [DEBUG-webkit-30] Compare plain button clicks with and without the clock.
+  for (const clock of [false, true]) {
+    const probe = await browser.newPage();
+    try {
+      if (clock) await probe.clock.install();
+      await probe.setContent('<button>Probe</button>');
+      for (let i = 0; i < 5; i++) {
+        const start = Date.now();
+        try { await debugClick.call(probe.locator('button'), { timeout: 1000 }); console.log('[DEBUG-webkit-30] plain', clock, Date.now() - start); }
+        catch (error) { console.log('[DEBUG-webkit-30] plain', clock, String(error)); break; }
+      }
+    } finally { await probe.close(); }
+  }
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
   await page.addInitScript(() => {
