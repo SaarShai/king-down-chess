@@ -1608,11 +1608,11 @@ try {
     await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
   }
   // Ticket 28: the boxes of a 200% zoom layout, rounded to [left, top, width, height] for the assert messages.
-  const zoomBoxes = (selectors) => frame.locator('#app-frame').evaluate((frameEl, selectors) => {
+  function zoomBoxes(selectors) { return frame.locator('#app-frame').evaluate((frameEl, selectors) => {
     const box = el => { if (!el) return null; const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); };
     return { frame: box(frameEl), ...Object.fromEntries(selectors.map(s => [s, box(document.querySelector(s))])) };
-  }, selectors);
-  const inFrame = (b, f) => b && b[2] > 0 && b[3] > 0 && b[0] >= f[0] - 1 && b[1] >= f[1] - 1 && b[0] + b[2] <= f[0] + f[2] + 1 && b[1] + b[3] <= f[1] + f[3] + 1;
+  }, selectors); }
+  function inFrame(b, f) { return b && b[2] > 0 && b[3] > 0 && b[0] >= f[0] - 1 && b[1] >= f[1] - 1 && b[0] + b[2] <= f[0] + f[2] + 1 && b[1] + b[3] <= f[1] + f[3] + 1; }
   // T2: at 197 x 426 the strips, the context line and the bar stay in the frame, the context words show in full, the
   // coins stay on one row and the board takes what is left.
   async function zoomBoardFits(label) {
