@@ -78,3 +78,7 @@ The checks pass only when each command ends with exit 0. The browser log must na
 
 - The next browser run is diagnostic only: its header names the prior commit. The shared card name now passes. The card-read assertion reaches the visible sheet before the host receives its saved state; wait for that same saved sheet before the unchanged comparison.
 - The phone coin assertion still fails with a stable root. Add the measured sizes, radii, background flags and motion states to its failure message. This separates CSS faults from motion at the read.
+
+- At 3e43318f, plugin-ui passes in 174.6 s. The HTTP measurement proves all ten coins are round and 44 by 44, with no running motion. Six disabled coins lose their radial background. The generic disabled-button selector wins over the base coin selector.
+- Fix the shared selector to exclude coins. Keep the default pointer on a disabled coin. Add a board test that disables the coin buttons and checks their round radial faces and pointer.
+- The browser run is the observed failing control. The new unit test queues behind other lanes for the shared test lock, so its first run checks the fixed CSS. Do not claim a separate failed unit run.

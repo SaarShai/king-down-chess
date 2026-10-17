@@ -197,6 +197,19 @@ it('names Mirror B and Morph P with the shared card names on the coins, the shee
   } finally { await page.close(); }
 });
 
+it('keeps round coin faces while a command disables the buttons', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [['MorphP'], ['MirrorB']] })), frame = page.frameLocator('iframe');
+  try {
+    const coins = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll<HTMLButtonElement>('.coin')].map(coin => {
+      coin.disabled = true;
+      const style = getComputedStyle(coin);
+      return { round: style.borderRadius === '50%', radial: style.backgroundImage.includes('radial-gradient'), cursor: style.cursor };
+    }));
+    expect(coins.length).toBeGreaterThan(0);
+    expect(coins.every(coin => coin.round && coin.radial && coin.cursor === 'default')).toBe(true);
+  } finally { await page.close(); }
+});
+
 it('names the power coin owner when both kings have the same power', async () => {
   const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'Freeze' }] })), frame = page.frameLocator('iframe');
   try {
