@@ -1850,25 +1850,26 @@ try {
       await touch.send('Input.dispatchTouchEvent', {type:'touchEnd',touchPoints:[]});
       await new Promise(r=>setTimeout(r,100));
     }
-    const reset = () => screen.evaluate(el=>{el.scrollTop=0;});
+    const reset = () => screen.evaluate(el=>{document.getElementById('board').focus({preventScroll:true});el.scrollTop=0;});
     try {
       await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen'}));
       for (const [top,bottom] of [[31,17],[62,34]]) {
-        await zoomViewport(201,357,top,bottom); await reset(); await boardBox();
+        await zoomViewport(201,357,top,bottom); await boardBox(); await reset();
         const strip = await frame.locator('#strip-them .player-name').boundingBox(); assert(strip);
         await swipe(strip.x+strip.width/2,strip.y+strip.height/2);
         const stripScroll = await screen.evaluate(el=>el.scrollTop);
-        await reset(); await boardBox();
+        await reset();
         // The board's full centre can be below the frame. Start at the centre of its visible area.
         const start = await frame.locator('canvas').evaluate(c=>{
           const b=c.getBoundingClientRect(), f=document.querySelector('.frame').getBoundingClientRect();
           const x=(Math.max(b.left,f.left)+Math.min(b.right,f.right))/2, y=(Math.max(b.top,f.top)+Math.min(b.bottom,f.bottom))/2;
-          return {x,y,hit:document.elementFromPoint(x,y)===c};
+          return {x,y,hit:document.elementFromPoint(x,y)===c,action:getComputedStyle(c).touchAction,boardAction:getComputedStyle(c.parentElement).touchAction,scroll:c.closest('[data-screen="board"]').scrollTop};
         });
         const host = await page.locator('iframe').boundingBox(); assert(host && start.hit,`${label}: the swipe starts on the visible board`);
+        assert.equal(start.scroll,0,`${label}: the board swipe starts with no scroll`);
         await swipe(host.x+start.x,host.y+start.y);
         const boardScroll = await screen.evaluate(el=>el.scrollTop);
-        console.log(`T-A ${label} 201x357 insets ${top}/${bottom}: strip scrollTop=${stripScroll}, board scrollTop=${boardScroll}`);
+        console.log(`T-A ${label} 201x357 insets ${top}/${bottom}: strip scrollTop=${stripScroll}, board scrollTop=${boardScroll}, start=${JSON.stringify(start)}`);
         assert(stripScroll>0,`${label}: a touch swipe from the top strip scrolls the board screen`);
         assert(boardScroll>0,`${label}: a touch swipe from the board scrolls the board screen`);
         const boxes = await zoomBoxes(['#undo','#end-turn','#board-menu']);
