@@ -1,5 +1,7 @@
 import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
+import { boxText, layoutMessage } from './lib/layout-message.mjs';
+import { assertCardReadState } from './lib/plugin-card-read.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -26,6 +28,8 @@ try {
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
   await page.addInitScript(() => {
+    // The terminal mount below has no Home check to release this hold.
+    if (!new URLSearchParams(location.search).has('terminal')) window.holdBeforeNext = 'kingdown_settings';
     window.harnessTableIdConflicts = [];
     const tableIds = ['game-table','strip-me','strip-them','context-line','context-text','moves-line','last-move','table-bar'];
     new MutationObserver(() => {
@@ -117,6 +121,7 @@ try {
     return controls.evaluateAll(controlBounds, true);
   }
 
+  await page.waitForFunction(() => typeof window.releaseBefore === 'function');
   await frame.locator('#home-card').waitFor();
   assert.equal(await frame.locator('#app-head').count(), 0, 'The approved sample has no page title or tabs');
   assert.equal(await frame.locator('symbol').count(), 23, 'The page has the full game sprite');
@@ -124,6 +129,7 @@ try {
   assert.equal(await frame.locator('#i-back, #i-close, #i-plus, #i-mic').count(), 0, 'Host icons stay with the host');
   assert(await frame.locator('#home-play').isDisabled(), 'Play waits for the page and the host to connect');
   assert.equal(await frame.locator('#home-card button').count(), 2, 'The inline home card has only Play now and Choose a game');
+  await page.evaluate(() => window.releaseBefore());
   await frame.locator('#home-play:not(:disabled)').waitFor();
   assert.deepEqual(await page.evaluate(() => window.harnessDeclaredModes), ['inline', 'fullscreen'], 'App declares both display modes to the host');
   assert.equal(await frame.locator('.inline-line').first().innerText(), 'Chess, the way it was never meant to be played.', 'Home uses the owner pitch line');
@@ -1673,8 +1679,10 @@ try {
   const cardIndex = hand.findIndex(c=>c.moves.length); assert(cardIndex>=0,'The dealt hand has a card to play');
   const card = hand[cardIndex], cardWords = card.card.replace(/([a-z])([A-Z])/g,'$1 $2'), cardLan = toLan(cardPos,card.moves[0]);
   assert.equal(await frame.locator('#strip-me .card-coin').count(),4); assert.equal(await frame.locator('#strip-them .card-coin').count(),4);
+  const beforeCardRead = await page.evaluate(() => window.harnessWidgetState);
   await frame.locator('#strip-me .card-coin').nth(cardIndex).click();
-  assert(!(await page.evaluate(()=>JSON.stringify(window.harnessWidgetState))).includes(cardWords),'A card read stores no hand data in widget state');
+  await frame.locator('#board-sheet[open] h2').filter({ hasText: cardWords }).waitFor();
+  assertCardReadState(beforeCardRead, await page.evaluate(() => window.harnessWidgetState));
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
   await openMoveChoices(); await frame.locator(`#choices button[title="${cardLan}"]`).click(); await sendTurn();
   await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.actions?.[0]===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
@@ -2087,7 +2095,7 @@ try {
     await page.setViewportSize(viewport); await frame.locator('#status').evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
     assert.equal(await frame.locator('body').evaluate(el=>el.scrollWidth>window.innerWidth),false);
     const reserve=viewport.width<900?96:128;
-    const lower = await frame.locator('nav').evaluate(el=>el.getBoundingClientRect().bottom);
+    const lower = await frame.locator('#table-bar').evaluate(el=>el.getBoundingClientRect().bottom);
     const pane=await page.locator('iframe').boundingBox(); assert(pane);
     assert(pane.y+lower<=viewport.height-reserve,`The page controls clear the composer at ${viewport.width}×${viewport.height}`);
     assert(pane.y+Math.min(lower,pane.height)<=viewport.height-reserve,'Visible controls stay inside the app pane');
@@ -2170,10 +2178,10 @@ try {
     for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) {
       await page.setViewportSize({width,height}); await boardBox();
       await frame.locator('#game-table img,#over.end-card img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
-      const bounds=await frame.locator('#game-table').evaluate(el=>{const r=el.getBoundingClientRect();return {overflow:el.scrollWidth>el.clientWidth+1,left:r.left,right:r.right,width:innerWidth,body:document.body.scrollWidth>innerWidth};});
-      assert(!bounds.overflow&&!bounds.body&&bounds.left>=-1&&bounds.right<=bounds.width+1,`${state.name} fits at ${width}px`);
+      const bounds=await frame.locator('#game-table').evaluate(el=>{const r=el.getBoundingClientRect(),box=b=>({left:b.left,right:b.right,top:b.top,bottom:b.bottom,width:b.width});return {overflow:el.scrollWidth>el.clientWidth+1,scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,el:box(r),frame:box(document.querySelector('#app-frame').getBoundingClientRect()),left:r.left,right:r.right,width:innerWidth,body:document.body.scrollWidth>innerWidth,bodyScroll:document.body.scrollWidth};});
+      assert(!bounds.overflow&&!bounds.body&&bounds.left>=-1&&bounds.right<=bounds.width+1,layoutMessage(state.name,width,bounds.el,bounds.frame,`window width ${bounds.width}, table scroll ${bounds.scrollWidth}/${bounds.clientWidth}, body scroll ${bounds.bodyScroll}`));
       const ids=state.end?['#over','#context-line']:['#table-bar','#context-line'];
-      for(const id of ids) { const box=await frame.locator(id).evaluate(el=>{const r=el.getBoundingClientRect(),frame=document.querySelector('#app-frame').getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,frameBottom:frame.bottom,width:innerWidth};}); assert(box.top>=0&&box.bottom<=box.frameBottom+1&&box.left>=-1&&box.right<=box.width+1,`${state.name} ${id} stays inside the frame at ${width}px`); }
+      for(const id of ids) { const box=await frame.locator(id).evaluate(el=>{const r=el.getBoundingClientRect(),frame=document.querySelector('#app-frame').getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,frameBottom:frame.bottom,width:innerWidth,el:{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width},frame:{left:frame.left,right:frame.right,top:frame.top,bottom:frame.bottom,width:frame.width}};}); assert(box.top>=0&&box.bottom<=box.frameBottom+1&&box.left>=-1&&box.right<=box.width+1,`${state.name} ${id} stays inside the frame at ${width}px: ${boxText('element',box.el)}; ${boxText('frame',box.frame)}; window width ${box.width}`); }
       const shotPath=await shot(page,`ticket15-${state.name}-${width}-${mode}`);
       if (width===390||width===1440) {
         const size=width===390?'phone':'desktop', actual=await readFile(shotPath), golden=await readFile(`docs/specs/chatgpt-mvp/sample/png/${state.name}-${size}.png`);

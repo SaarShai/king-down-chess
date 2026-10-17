@@ -37,3 +37,14 @@ The checks pass only when each command ends with exit 0. The browser log must na
 - The type check passes after the code merge. Full checks follow all merges.
 
 - Apply ticket 15 after-merge changes to P2, row 49, the skill and copy checks. Keep the approved fullscreen P1 words in both copies. Add a check for the two-game P3 count.
+
+### Steps 2 to 6
+
+- Coin back: merge 9140d761 without conflicts.
+- W7: pick 08f11be8, d24b5517, e77985dc, f0795e4a, f33ab769, cec8d381, 496dc7f0, 0dd4277e and 4b293393 with source links. These are only the w7-05 and w7-06 build, fix and evidence commits.
+- W7 conflicts: keep startKey and UNFINISHED in the fixture import. Keep ticket 15 packet words and checks where the packet build repeats them. Keep the corrected test comment from 0dd4277e.
+- acct-words d27659fd is already an ancestor through submit-prep. Its website delete-account words are present. No extra merge is needed.
+- check-flakes: the 25-b-fix.done file exists with exit 0. Merge its head f29ed7a5. Keep the current hall tests and the new boot hold release in the two conflicts.
+- Skip od-picks: 26-board-build is the latest brief; its completion file is absent.
+- Skip od-faults: the last logic build ends with exit 1. No last-fix completion file is present. The lane has no complete build to merge.
+- Keep od-qa1, od-end, od-home and the later owner-decisions work out, as ticket 29 requires.
