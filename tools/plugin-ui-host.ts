@@ -1,5 +1,5 @@
 import { AppBridge, PostMessageTransport } from '@modelcontextprotocol/ext-apps/app-bridge';
-const frame = document.querySelector<HTMLIFrameElement>('iframe')!;
+let frame = document.querySelector<HTMLIFrameElement>('iframe')!;
 let bridge: AppBridge | undefined;
 let matchId: string | undefined;
 let initialResult: any;
@@ -12,6 +12,8 @@ const invoke = async (name: string, args: Record<string, unknown>) => {
 };
 // The bridge listens before the page loads, as in a real host: the frame's load event waits for the board art.
 async function mount() {
+  // A remount drops the old document at once (a new frame, no src yet), so a test's wait cannot match the old page's elements.
+  if (bridge) { const fresh = frame.cloneNode() as HTMLIFrameElement; fresh.removeAttribute('src'); frame.replaceWith(fresh); frame = fresh; }
   await bridge?.close();
   bridge = new AppBridge(null, { name: 'King Down local harness', version: '1' }, { serverTools: {}, updateModelContext: {} }, { hostContext: { displayMode: (window as any).harnessDisplayMode ?? 'inline', availableDisplayModes: ['inline', 'fullscreen'], ...(window as any).harnessHostContext } });
   (window as any).harnessSetContext = async (context: any) => { (window as any).harnessHostContext = context; await bridge!.setHostContext(context); };
