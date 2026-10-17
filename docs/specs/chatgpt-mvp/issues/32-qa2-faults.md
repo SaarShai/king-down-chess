@@ -137,3 +137,22 @@ The G unit base run uses `KINGDOWN_TEST_FILE=tools/plugin-board.test.ts npm test
 ## D and G final check plan
 
 Run `npx tsc --noEmit`, full `npm test` with the local test database and `VITEST_MAX_WORKERS=1`, and `plugin-ui` through the owner runner. The single worker reduces test contention, as the prior C check does. All test and check limits stay the same. No server code changes; `plugin-ui-http` does not apply.
+
+## D and G final browser result
+
+- `npx tsc --noEmit`: pass after the G fix.
+- `node --check tools/plugin-ui-check.mjs` and `git diff --check`: pass.
+- `plugin-ui`: pass on the M1 at `7dfbe9c4` in 180.6 seconds. The runner ends with `check-runner: M1 exit 0 at 7dfbe9c4`. Logs: `checks-small-final-1.txt` and `small-final-browser-detail.txt` in the lane folder.
+- D: the 197 x 426 host with insets 51/59 passes both label checks and the full-width stack check. The 320 x 568, 393 x 852 and 1280 x 800 hosts pass both label checks and keep the row.
+- G: fresh hosts at 197 x 426 with insets 51/59 and at 393 x 852 with insets 102/118 both read `Vault.`. The saved images pass visual review. Local images: `small-board-cards-armed-197.png` and `small-board-cards-armed-393.png` in the lane folder.
+- The existing normal-size browser checks pass. The prior C checks pass too. No server code changes.
+
+The product diff has one line for D and one line for G. It uses the existing CSS size rule and the existing card-name function. No new dependency or visual element is needed. There is no new taste choice. E stays refuted, and the portrait stays.
+
+## D and G check repair
+
+The first full suite exits 1 in 1,121.31 seconds. It has 187 passed files and one failed file: 3,051 passed tests, one failure, one expected failure and eight skips. The G board assertion passes. The W7 draw test from the base run passes too.
+
+The failed file is `tools/plugin-ui-check.test.ts`. Its source-order test finds the new host helper's `page.goto` before the main page's Home hold setup. The helper works in the browser, but its position breaks that check. The repair moves the helper below the main setup, next to the friend path that uses it. The source-order assertion stays as it is. The product source stays as it is. Log: `tests-small-final-1.txt`.
+
+Run the source-order file through `npm test`, then repeat the full suite and `plugin-ui` with the same limits.

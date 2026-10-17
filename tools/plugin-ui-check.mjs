@@ -25,20 +25,7 @@ const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: true });
 trapErrors(page);
 page.on('pageerror', error => console.error(error.stack));
-async function hostPage(width, height, top, bottom) {
-  const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
-  trapErrors(page);
-  await page.goto(base);
-  await page.locator('#remount').evaluate(el => { el.style.display = 'none'; });
-  await page.locator('iframe').evaluate(el => { el.style.setProperty('height', '100dvh', 'important'); });
-  await frame.locator('#home-play:not(:disabled)').waitFor();
-  await page.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen' }));
-  const result = await page.evaluate(() => window.harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }));
-  await page.evaluate(result => window.harnessShow(result), result);
-  await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-  await page.evaluate(safeAreaInsets => window.harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets, deviceCapabilities: { touch: true } }), { top, bottom, left: 0, right: 0 });
-  return { page, frame };
-}
+
 try {
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
@@ -1065,6 +1052,21 @@ try {
 
   // Ticket 15: the board and end routes.
   assert.equal(await frame.locator('#game-table').count(), 1, 'The board uses the approved game table');
+
+  async function hostPage(width, height, top, bottom) {
+    const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
+    trapErrors(page);
+    await page.goto(base);
+    await page.locator('#remount').evaluate(el => { el.style.display = 'none'; });
+    await page.locator('iframe').evaluate(el => { el.style.setProperty('height', '100dvh', 'important'); });
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    await page.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen' }));
+    const result = await page.evaluate(() => window.harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }));
+    await page.evaluate(result => window.harnessShow(result), result);
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await page.evaluate(safeAreaInsets => window.harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets, deviceCapabilities: { touch: true } }), { top, bottom, left: 0, right: 0 });
+    return { page, frame };
+  }
 
   // Ticket 13: friend, join, lobby and wait.
   {
