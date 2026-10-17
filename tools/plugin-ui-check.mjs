@@ -1625,8 +1625,15 @@ try {
   await frame.locator('#board-sheet h2').filter({hasText:'Lay your king down?'}).waitFor({timeout:3000});
   assert.equal(await page.evaluate(()=>window.harnessView.status),'playing','Resign waits for its confirm');
   await frame.locator('#board-sheet').getByRole('button',{name:'Keep playing',exact:true}).click();
+  await boardBox();
+  const boardBeforeEnd = await frame.locator('#board canvas').boundingBox();
+  const rounded = (box) => box && [box.x, box.y, box.width, box.height].map(v => Math.round(v));
   await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
   await frame.locator('#over.end-card[open] h2').filter({hasText:'You lose'}).waitFor(); await idleBoard();
+  // F14: the end card is an overlay over #game-table. The board and its canvas keep their rect, and the table bar
+  // keeps its cell in the grid, so the board never resizes and the canvas does not redraw at a new size.
+  assert.deepEqual(rounded(await frame.locator('#board canvas').boundingBox()), rounded(boardBeforeEnd), 'The board keeps its rect when the end card opens');
+  assert(await frame.locator('#table-bar').evaluate(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0;}),'The table bar keeps its grid cell behind the end card');
   assert.equal(await frame.locator('#end-reason').innerText(),'You resigned.');
   assert.equal(await frame.locator('#over.is-win, #board[data-toppling]').count(),0,'A loss stays calm');
   const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);

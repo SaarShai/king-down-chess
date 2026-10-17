@@ -38,7 +38,9 @@ export function endSync(page: Page) {
   const key = `${page.screen}:${$<HTMLButtonElement>('reload').disabled}:${staleRead(page)}`;
   if (key === endKey) return;
   endKey = key;
-  if (page.screen === 'end') setTimeout(updateEnd, 0);
+  // Hand the table to the end screen in the same pass as the screen switch. The board then never sits in a
+  // hidden box, so #board keeps its box and the canvas does not redraw at a new size. The end card overlays it.
+  if (page.screen === 'end') { $('end-table').append($('game-table')); setTimeout(updateEnd, 0); }
   else if (scrim) closeEnd();
 }
 export function updateEnd() {
@@ -75,7 +77,7 @@ export function endScreen(schedule = true) {
     new MutationObserver(() => { const skip = document.getElementById('end-skip'); if (skip) skip.hidden = !$('board').dataset.toppling; }).observe($('board'),{attributes:true,attributeFilter:['data-toppling']});
     window.addEventListener('message',event=>{ if(event.data?.method==='ui/resource-teardown') {stopped=true; closeEnd();} });
   }
-  $('end-table').append($('game-table')); $('table-bar').hidden = true;
+  $('end-table').append($('game-table'));
   const win = view.result?.reason === 'checkmate' && view.result.winner === view.seat;
   over.className = 'end-card' + (win ? ' is-win' : ''); over.setAttribute('aria-labelledby','over-title');
   over.innerHTML = '<div class="over-art" aria-hidden="true"></div><p class="over-words"></p><h2 id="over-title"></h2><p id="end-reason"></p><div class="end-facts"></div><form method="dialog"></form><p class="quiet-line"></p>';

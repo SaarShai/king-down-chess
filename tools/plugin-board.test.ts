@@ -267,16 +267,31 @@ it.each(['normal', 'fast'])('uses a slide, a 150 ms fade and no shake under redu
   } finally { await page.close(); }
 });
 
-it.each([[393, 852], [320, 568]])('keeps the board box still behind the end card at %i × %i', async (width, height) => {
+it.each([[393, 852], [320, 568], [844, 390], [1440, 900]])('keeps the board box still behind the end card at %i × %i', async (width, height) => {
   const next = view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), page = await open(next, width, height), frame = page.frameLocator('iframe');
   try {
     await frame.locator('#board[aria-busy="false"]').waitFor();
     await expect.poll(() => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width)).toBeGreaterThan(0);
     await frame.locator('#game-table').evaluate(async e => { await Promise.all(e.getAnimations().map(a => a.finished)); });
-    const before = await frame.locator('#board canvas').boundingBox();
+    // The render compare: the two boxes the canvas follows, in the page's pixels.
+    const boxes = () => frame.locator('html').evaluate(() => ['#board', '#board canvas', '#table-bar'].map(sel => { const r = document.querySelector(sel)!.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(v => Math.round(v * 100) / 100); }));
+    const before = await boxes();
+    // Record every board size while the card opens, so a transient resize (a hidden box) shows.
+    await frame.locator('html').evaluate(() => {
+      (window as any).endSizes = [];
+      new ResizeObserver(entries => { for (const e of entries) (window as any).endSizes.push(Math.round(e.contentRect.width * 10) / 10); }).observe(document.getElementById('board')!);
+    });
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), { ...next, revision: 1, status: 'finished', action: 'finished', result: { reason: 'resign', winner: 0 } });
     await frame.locator('#over[open]').waitFor();
-    expect(await frame.locator('#board canvas').boundingBox()).toEqual(before);
+    await frame.locator('html').evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const after = await boxes();
+    // F14: the board and its canvas keep the same rect; the canvas does not redraw at a new size.
+    expect(after.slice(0, 2)).toEqual(before.slice(0, 2));
+    // The end card is an overlay over #game-table: the table bar keeps its box in the grid (no zero-height cell).
+    expect(after[2][2]).toBeGreaterThan(0); expect(after[2][3]).toBeGreaterThan(0);
+    // No resize of the board happens while the card opens: the board never takes a hidden (0 px) box.
+    const sizes = await frame.locator('html').evaluate(() => (window as any).endSizes as number[]);
+    expect(sizes.filter(w => w < 1)).toEqual([]);
   } finally { await page.close(); }
 });
 

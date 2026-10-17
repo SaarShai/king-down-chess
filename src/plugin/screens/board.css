@@ -6,6 +6,9 @@ body:is([data-page='board'], [data-page='end']) #page-title { display: none; }
 #game-table { min-height: 0; width: 100%; }
 #game-table #board { display: flex; }
 #game-table #table-bar { margin-top: 0; }
+/* The end card is an overlay over #game-table. On the end screen the table bar keeps its place in the grid,
+   so #board and its canvas keep their box; it does not show under the card. */
+body[data-page='end'] #table-bar { visibility: hidden; }
 
 #game-table .coin { min-height: 40px; padding: 0; }
 #game-table .coin.card-coin { width: 34px; height: 34px; min-height: 34px; }
@@ -20,7 +23,7 @@ body:is([data-page='board'], [data-page='end']) #page-title { display: none; }
 .frame #board-sheet.board-menu { max-height: 100%; }
 #board-sheet.board-menu .sheet-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 #board-sheet.board-menu .sheet-body > button { min-width: 0; flex-direction: column; padding: 6px; }
-#board-sheet.board-menu small { font-size: 12px; line-height: 1.2; font-weight: 400; }
+#board-sheet.board-menu small { font-size: var(--fs-xs); line-height: 1.2; font-weight: 400; }
 #board-sheet.board-menu #invitation:empty { display: none; }
 #board-sheet.board-menu #invitation { grid-column: 1 / -1; margin: 0; }
 #board-sheet #choices { height: auto; overflow: visible; flex-direction: column; }
