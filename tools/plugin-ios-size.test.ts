@@ -48,13 +48,12 @@ it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
     await frame.locator('#board[aria-busy="false"]').waitFor();
-    expect(await frame.locator('#board canvas').evaluate(canvas => {
-      const r = canvas.getBoundingClientRect(), x = r.left + 88 * r.width / 960, y = r.top + 936 * r.width / 960;
-      canvas.dispatchEvent(new PointerEvent('pointerdown', { button: 0, pointerId: 1, pointerType: 'touch', clientX: x, clientY: y }));
-      const touch = new Event('touchstart', { cancelable: true }); canvas.dispatchEvent(touch);
-      canvas.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 1 }));
-      return touch.defaultPrevented;
-    }), 'A setup piece keeps its touch drag guard').toBe(true);
+    await frame.locator('#board canvas').evaluate(canvas => canvas.addEventListener('touchstart', event => {
+      (window as any).setupTouchGuard = event.defaultPrevented;
+    }, { once: true }));
+    const setupBoard = (await frame.locator('#board canvas').boundingBox())!;
+    await page.touchscreen.tap(setupBoard.x + 88 * setupBoard.width / 960, setupBoard.y + 936 * setupBoard.width / 960);
+    expect(await frame.locator('html').evaluate(() => (window as any).setupTouchGuard), 'A setup piece keeps its touch drag guard').toBe(true);
     await frame.locator('#seat-shuffle').click();
     expect(await frame.locator('#seat-context').textContent()).toBe('Select one back-rank piece, then another, to swap them.');
     expect(await frame.locator('#seat-note').textContent()).toBe('The guard stays next to the king.');
