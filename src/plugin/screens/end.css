@@ -19,7 +19,7 @@ body[data-page='end'] #page-head { position: relative; z-index: 3; }
 /* Under 320 px, leave Back and 12 px clear. Short viewports keep New game cut to show that the card scrolls. */
 @media (max-width: 319px) {
   .frame dialog#over.end-card { max-height: calc(100% - 68px); padding-top: 8px; }
-  #over.end-card .over-art, #over.end-card .over-words:empty { display: none; }
+  #over.end-card .over-art, #over.end-card .over-words { display: none; }
   #over.end-card h2 { margin-bottom: 0; }
   /* The actions come right after the result line; the rating and badge facts follow them. */
   .frame dialog#over.end-card[open] { display: flex; flex-direction: column; }
