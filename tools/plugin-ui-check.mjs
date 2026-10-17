@@ -1336,7 +1336,8 @@ try {
     await info.click();
     await frame.locator('#board-sheet[open]').waitFor();
     assert((await frame.locator('#board-sheet').innerText()).includes('Swaps places with a friendly piece.'), 'T4: the portrait opens the selected piece rules');
-    await page.keyboard.press('Escape');
+    // Close keeps the swap selected; Escape clears the selected piece.
+    await frame.locator('#board-sheet').getByRole('button', {name:'Close',exact:true}).click();
     assert(await info.evaluate(el => el === document.activeElement), 'T4: closing the rules returns focus to the portrait');
     await shot(page, `swap-portrait-${width}-${mode}`);
   }
