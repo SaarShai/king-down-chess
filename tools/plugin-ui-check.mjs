@@ -1,5 +1,6 @@
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
+import { assertCardReadState } from './lib/plugin-card-read.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -26,6 +27,8 @@ try {
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
   await page.addInitScript(() => {
+    // The terminal mount below has no Home check to release this hold.
+    if (!new URLSearchParams(location.search).has('terminal')) window.holdBeforeNext = 'kingdown_settings';
     window.harnessTableIdConflicts = [];
     const tableIds = ['game-table','strip-me','strip-them','context-line','context-text','moves-line','last-move','table-bar'];
     new MutationObserver(() => {
@@ -102,6 +105,7 @@ try {
     return controls.evaluateAll(controlBounds, true);
   }
 
+  await page.waitForFunction(() => typeof window.releaseBefore === 'function');
   await frame.locator('#home-card').waitFor();
   assert.equal(await frame.locator('#app-head').count(), 0, 'The approved sample has no page title or tabs');
   assert.equal(await frame.locator('symbol').count(), 21, 'The page has the full game sprite');
@@ -109,6 +113,7 @@ try {
   assert.equal(await frame.locator('#i-back, #i-close, #i-plus, #i-mic').count(), 0, 'Host icons stay with the host');
   assert(await frame.locator('#home-play').isDisabled(), 'Play waits for the page and the host to connect');
   assert.equal(await frame.locator('#home-card button').count(), 2, 'The inline home card has only Play and Your games');
+  await page.evaluate(() => window.releaseBefore());
   await frame.locator('#home-play:not(:disabled)').waitFor();
   assert.deepEqual(await page.evaluate(() => window.harnessDeclaredModes), ['inline', 'fullscreen'], 'App declares both display modes to the host');
   assert.equal(await frame.locator('.inline-line').innerText(), 'Your move in 0 games.', 'Home uses the server turn count and the sample line');
@@ -1316,8 +1321,10 @@ try {
   const cardIndex = hand.findIndex(c=>c.moves.length); assert(cardIndex>=0,'The dealt hand has a card to play');
   const card = hand[cardIndex], cardWords = card.card.replace(/([a-z])([A-Z])/g,'$1 $2'), cardLan = toLan(cardPos,card.moves[0]);
   assert.equal(await frame.locator('#strip-me .card-coin').count(),4); assert.equal(await frame.locator('#strip-them .card-coin').count(),4);
+  const beforeCardRead = await page.evaluate(() => window.harnessWidgetState);
   await frame.locator('#strip-me .card-coin').nth(cardIndex).click();
-  assert(!(await page.evaluate(()=>JSON.stringify(window.harnessWidgetState))).includes(cardWords),'A card read stores no hand data in widget state');
+  await frame.locator('#board-sheet[open] h2').filter({ hasText: cardWords }).waitFor();
+  assertCardReadState(beforeCardRead, await page.evaluate(() => window.harnessWidgetState));
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
   await openMoveChoices(); await frame.locator(`#choices button[title="${cardLan}"]`).click();
   await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.lan===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
@@ -1674,7 +1681,7 @@ try {
     await page.setViewportSize(viewport); await frame.locator('#status').evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
     assert.equal(await frame.locator('body').evaluate(el=>el.scrollWidth>window.innerWidth),false);
     const reserve=viewport.width<900?96:128;
-    const lower = await frame.locator('nav').evaluate(el=>el.getBoundingClientRect().bottom);
+    const lower = await frame.locator('#table-bar').evaluate(el=>el.getBoundingClientRect().bottom);
     const pane=await page.locator('iframe').boundingBox(); assert(pane);
     assert(pane.y+lower<=viewport.height-reserve,`The page controls clear the composer at ${viewport.width}×${viewport.height}`);
     assert(pane.y+Math.min(lower,pane.height)<=viewport.height-reserve,'Visible controls stay inside the app pane');

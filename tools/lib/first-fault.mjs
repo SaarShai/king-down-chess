@@ -3,7 +3,7 @@
 // then the message. The source line holds "Error(" for each thrown Error, so the search skips the
 // location, the source line and the caret line, and prefers a line that starts with a verdict or an error.
 
-const strict = /^(\w*Error\b|FAIL\b|XPASS\b)/;
+const strict = /^(\w*Error\b|FAIL\b|XPASS\b|(?:\w+\.)+\w+: (?:\w*Error\b|Timeout\b))/;
 const loose = /\bFAIL\b|Error\b|\bfailed\b|\bTimeout\b|\btimed out\b/;
 
 /** The fault line of a log text, or null when the log holds no line. */
