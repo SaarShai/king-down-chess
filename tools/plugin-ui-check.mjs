@@ -23,7 +23,6 @@ const base = env('PLAYABLE_URL');
 const testHandle = `mvp_${randomUUID().replaceAll('-', '').slice(0,12)}`;
 const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: true });
-await page.bringToFront();
 // [DEBUG-webkit-30] Measure the existing check without changing its waits.
 const debugStart = Date.now();
 for (const [owner, methods] of [
@@ -36,6 +35,20 @@ for (const [owner, methods] of [
     const start = Date.now();
     if (['click', 'check', 'uncheck'].includes(method)) args[0] = { ...args[0], timeout: 2000 };
     try { return await original.apply(this, args); }
+    catch (error) {
+      if (['click', 'check', 'uncheck'].includes(method)) {
+        console.log('[DEBUG-webkit-30] target', await this.evaluate(async el => {
+          const b = window.__pwClock.builtins, start = b.performance.now(), rects = [], frames = [];
+          for (let i = 0; i < 3; i++) { rects.push(JSON.stringify(el.getBoundingClientRect())); await new Promise(r => b.setTimeout(r, 100)); }
+          const raf = () => b.requestAnimationFrame(() => { frames.push(b.performance.now() - start); if (frames.length < 3) raf(); }); raf();
+          await new Promise(r => b.setTimeout(r, 1000));
+          return { rects, frames, hidden: document.hidden, viewport: [innerWidth, innerHeight] };
+        }));
+        console.log('[DEBUG-webkit-30] host', await page.locator('iframe').boundingBox());
+        await shot(page, 'webkit-action-failure');
+      }
+      throw error;
+    }
     finally { const ms = Date.now() - start; if (ms >= 100) console.log('[DEBUG-webkit-30]', Date.now() - debugStart, method, ms, String(this).slice(0, 160), String(args[0]).slice(0, 80)); }
   };
 }
