@@ -52,6 +52,12 @@ two-line height. The rule scrolls after the target words. A test checks the
 row height, board size and scroll. This uses one CSS rule. It needs no saved
 size or resize handler. The type check passes after this fix.
 
+The next browser run passes the row-size check. The new 320 px case then finds
+a check helper fault: `boardBox()` requires a width above 250 px. A small phone
+can have a smaller board. The helper now waits for stable, nonzero bounds.
+The tap, drag and draft checks still test the board through its visible squares.
+The 10 s limit stays the same.
+
 ## Build
 
 - G2 a "Dim to 0.85": a spent card coin dims to 0.85, not 0.7. The coin still

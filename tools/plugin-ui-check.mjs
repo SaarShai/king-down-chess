@@ -80,7 +80,8 @@ try {
       const end = performance.now() + 10000; let last;
       const tick = () => {
         const rect = c.getBoundingClientRect(), key = [rect.x, rect.y, rect.width, rect.height].join(',');
-        if (rect.width > 250 && key === last) resolve();
+        // A small phone can have a board below 250 px; wait for stable, nonzero bounds.
+        if (rect.width > 0 && rect.height > 0 && key === last) resolve();
         else if (performance.now() > end) reject(new Error('The visible board did not settle'));
         else { last = key; requestAnimationFrame(tick); }
       }; requestAnimationFrame(tick);
