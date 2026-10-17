@@ -68,11 +68,32 @@ The owner asks to skip the Android emulator check. The main session runs it afte
   It records 3051 passed tests, 1 expected failure and 8 skipped tests. All 51 motion
   tests also pass. The run exits 0. Its log is tests-final-1.txt.
 - No time limit changes. The workshop judge passes in the focused run and the final full run.
-- Only test expectations and this ticket change after the passing browser commit.
-  The application CSS and browser check code stay the same.
+- Commits 94b8a238 and 1d029396 change tools/plugin-ios-size.test.ts after
+  the browser pass at 4c4e594d. That pass does not cover those test changes.
+  The application CSS stays the same.
 - The red and green browser detail logs and both end-card images are also copied to the lane folder.
 - No server code changes. plugin-ui-http is not required.
 - The Android emulator check is not run, as the owner asks. The main session owns it after merge 5.
 
 All ticket parts are built and checked. Both fixes use CSS only. The Android emulator
 check stays with the main session after merge 5, as the owner asks.
+
+
+## Review fix
+
+Plan: verify the finding, run plugin-ui at be40b900, correct the records, run
+npm test, commit the record fix, then run plugin-ui on that commit. Both check
+commands must exit 0. The final lane report records the checked commit.
+
+- Review A is confirmed. The old pass covers 4c4e594d. Later commits change
+  the size test file. The old claim that browser check code stays the same is false.
+- The 4 px portrait allowance matches the approved bar change. The landscape
+  limits and exact board widths stay the same. No code change is required.
+- plugin-ui passes at be40b900 on the M1 in 180.3 s. The lane runner exits 0.
+  The log is checks-review-head-2.txt in the lane folder.
+- This missing-check fault needs the existing browser check, with a commit in
+  its result. It does not need a new unit test. After a test file changes, use
+  a new check result for that commit.
+- Review B lists no code fault. It asks for the head, finding result and checks.
+- The new full npm test run uses the local test database and the shared test lock.
+  Its result and the final commit check go in the lane report.
