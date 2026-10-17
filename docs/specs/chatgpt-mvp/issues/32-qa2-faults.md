@@ -101,3 +101,13 @@ The installed test runner reads `VITEST_MAX_WORKERS`. A final full `npm test` ru
 - Full `npm test` with `VITEST_MAX_WORKERS=1` and the local test database: pass, exit 0. All 188 files pass in 1,175.53 seconds. There are 3,052 passed tests, one expected failure and eight skips. All 51 art tests pass. Log: `tests-zoom-end-review-serial-1.txt` in the lane folder. The full runs with the default worker count report timing failures in unchanged files. Their single-file repeats pass. No time limit changes.
 - `plugin-ui`: pass on the M1 at `48bcc1de` in 141.9 seconds. Both tall results, both short bottom gaps, and the existing normal-size checks pass. All six saved end images pass visual review. Log: `checks-zoom-end-review-final-1.txt`.
 - The product diff changes `end.css` only. No board, hall or server changes. `plugin-ui-http` is not needed. No push, merge or deploy.
+
+## D and G plan and checks
+
+This step covers D and G only. It starts at `10115a2c` on the same branch.
+The prior C work stays. E is refuted; the portrait stays.
+
+1. Add an armed Vault stop assertion to the board unit test and the browser path. Use fresh mobile hosts at 393 x 852 with insets 102/118 and at 197 x 426 with insets 51/59. Run the checks before the product fix.
+2. Add a lobby wait check with a fresh 197 x 426 mobile host and insets 51/59. Measure each Share and Copy label and its text range. Require no label overflow and at least 8 px to the button right edge. Check the normal widths too. Run it before the CSS fix.
+3. Stack the friend actions in the existing under-299 px CSS rule. Add the stop to the armed card line. Update bare-name checks.
+4. Run `npx tsc --noEmit`, `npm test` with the local test database, and `plugin-ui` through the owner runner. Keep all time limits. Record the base failures and final results. Commit each check and fix.

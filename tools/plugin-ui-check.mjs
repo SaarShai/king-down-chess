@@ -25,6 +25,20 @@ const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: true });
 trapErrors(page);
 page.on('pageerror', error => console.error(error.stack));
+async function hostPage(width, height, top, bottom) {
+  const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
+  trapErrors(page);
+  await page.goto(base);
+  await page.locator('#remount').evaluate(el => { el.style.display = 'none'; });
+  await page.locator('iframe').evaluate(el => { el.style.setProperty('height', '100dvh', 'important'); });
+  await frame.locator('#home-play:not(:disabled)').waitFor();
+  await page.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen' }));
+  const result = await page.evaluate(() => window.harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }));
+  await page.evaluate(result => window.harnessShow(result), result);
+  await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  await page.evaluate(safeAreaInsets => window.harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets, deviceCapabilities: { touch: true } }), { top, bottom, left: 0, right: 0 });
+  return { page, frame };
+}
 try {
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
@@ -1706,7 +1720,7 @@ try {
   await measureCardCoins(frame, env('PLAYABLE_OUT'));
   const cardView = cardGame._meta.view; setRules(cardView.rules);
   const cardPos = fromFen(cardView.fen), cardLegal = legalMoves(cardPos).filter(m => cardView.legal.includes(toLan(cardPos,m))), hand = cardCoins(cardPos,cardView.seat,cardView.rules.hands[cardView.seat],cardLegal);
-  const cardIndex = hand.findIndex(c=>c.moves.length); assert(cardIndex>=0,'The dealt hand has a card to play');
+  const cardIndex = hand.findIndex(c=>c.card === 'Vault' && c.moves.length); assert(cardIndex>=0,'The dealt Vault has a move');
   const card = hand[cardIndex], cardWords = cardName(card.card), cardLan = toLan(cardPos,card.moves[0]);
   assert.equal(await frame.locator('#strip-me .card-coin').count(),4); assert.equal(await frame.locator('#strip-them .card-coin').count(),4);
   const beforeCardRead = await page.evaluate(() => window.harnessWidgetState);
@@ -1715,6 +1729,19 @@ try {
   await page.waitForFunction(() => window.harnessWidgetState.privateContent.sheet === 'board-sheet');
   assertCardReadState(beforeCardRead, await page.evaluate(() => window.harnessWidgetState));
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
+  for (const [width, height, top, bottom] of [[393, 852, 102, 118], [197, 426, 51, 59]]) {
+    const host = await hostPage(width, height, top, bottom);
+    try {
+      await host.frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
+      await host.page.evaluate(view => {
+        window.harnessNextView = view;
+        return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id, screen: 'board' }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
+      }, cardView);
+      await host.frame.locator('#card-w-' + cardIndex).click();
+      await host.frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
+      assert.equal(await host.frame.locator('#status').textContent(), 'Vault.', `The armed card name ends with a stop at ${width} x ${height}`);
+    } finally { await host.page.close(); }
+  }
   await zoomBoardFits('board-cards-armed');
   await openMoveChoices(); await frame.locator(`#choices button[title="${cardLan}"]`).click(); await sendTurn();
   await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.actions?.[0]===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
