@@ -1662,10 +1662,21 @@ try {
     await body.evaluate(el => { el.scrollTop = el.scrollHeight; });
     const last = await body.evaluate(el => { const kids = [...el.querySelectorAll('button, label, input')].filter(k => k.getClientRects().length); const r = kids.at(-1).getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); });
     const m = await zoomBoxes(['.page-sheet','#new-game','#new-game .new-game-head','#new-game .new-game-body','#new-game .new-game-foot']);
-    const sheet = await frame.locator('.page-sheet').evaluate(el => ({scroll:el.scrollHeight, client:el.clientHeight, kids:[...el.children].filter(k => k.getClientRects().length).map(k => [k.id || k.className, Math.round(k.getBoundingClientRect().height)])}));
-    const all = JSON.stringify({...m, last, sheet}), foot = m['#new-game .new-game-foot'];
+    // The page clips a box that shows (has a size) outside the page and outside every scroll box inside the page.
+    const cut = await frame.locator('.page-sheet').evaluate(sheet => {
+      const s = sheet.getBoundingClientRect(), found = [];
+      for (const el of sheet.querySelectorAll('*')) {
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height || getComputedStyle(el).visibility !== 'visible') continue;
+        let held = false;
+        for (let p = el.parentElement; p && p !== sheet; p = p.parentElement) if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(p).overflowY)) { held = true; break; }
+        if (!held && (r.top < s.top - 1 || r.bottom > s.bottom + 1)) found.push([el.id || el.tagName + '.' + el.className, Math.round(r.top), Math.round(r.height)]);
+      }
+      return found.slice(0, 5);
+    });
+    const all = JSON.stringify({...m, last, cut}), foot = m['#new-game .new-game-foot'];
     assert(last[1] + last[3] <= foot[1] + 1, `The hall at 197 x 426: the last choice ends above the top of the Start game bar: ${all}`);
-    assert(sheet.scroll <= sheet.client + 1 && inFrame(foot, m.frame), `The hall at 197 x 426: the page clips nothing: ${all}`);
+    assert(cut.length === 0 && inFrame(foot, m.frame), `The hall at 197 x 426: the page clips nothing: ${all}`);
     await shot(page, `zoom-fit-hall-${mode}`);
     await body.evaluate(el => { el.scrollTop = 0; });
     await zoomViewport(viewport.width, viewport.height, 0, 0);
