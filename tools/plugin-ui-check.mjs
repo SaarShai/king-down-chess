@@ -1120,8 +1120,9 @@ try {
           assert(label.scroll <= label.client, `The ${label.id} label fits: ${all}`);
           assert(label.rightGap >= 8, `The ${label.id} text keeps at least 8 px on the right: ${all}`);
         }
-        if (width < 299) assert(labels[1].top >= labels[0].bottom && labels.every(label => Math.abs(label.width - label.rowWidth) < 1), `Share and Copy stack at full width: ${all}`);
+        if (width <= 299) assert(labels[1].top >= labels[0].bottom && labels.every(label => Math.abs(label.width - label.rowWidth) < 1), `Share and Copy stack at full width: ${all}`);
         else assert(Math.abs(labels[0].top - labels[1].top) < 1 && labels[0].right <= labels[1].left, `Share and Copy stay side by side: ${all}`);
+        await host.frame.locator('#friend-copy').scrollIntoViewIfNeeded();
         await shot(host.page, `friend-actions-${width}-${mode}`);
       } finally { await host.page.close(); }
     }
@@ -1756,7 +1757,7 @@ try {
   await page.waitForFunction(() => window.harnessWidgetState.privateContent.sheet === 'board-sheet');
   assertCardReadState(beforeCardRead, await page.evaluate(() => window.harnessWidgetState));
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
-  for (const [width, height, top, bottom] of [[393, 852, 102, 118], [197, 426, 51, 59]]) {
+  for (const [width, height, top, bottom] of [[197, 426, 51, 59], [393, 852, 102, 118]]) {
     const host = await hostPage(width, height, top, bottom);
     try {
       await host.frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
@@ -1767,6 +1768,9 @@ try {
       await host.frame.locator('#card-w-' + cardIndex).click();
       await host.frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
       assert.equal(await host.frame.locator('#status').textContent(), 'Vault.', `The armed card name ends with a stop at ${width} x ${height}`);
+      await host.frame.locator('#context-text').scrollIntoViewIfNeeded();
+      await host.frame.locator('html').evaluate(() => document.fonts.ready);
+      await shot(host.page, `board-cards-armed-${width}-${mode}`);
     } finally { await host.page.close(); }
   }
   await zoomBoardFits('board-cards-armed');

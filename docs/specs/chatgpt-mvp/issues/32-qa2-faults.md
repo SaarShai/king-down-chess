@@ -1,10 +1,10 @@
-# Rolling QA 2: end card at 200% zoom
+# Rolling QA 2: end card, friend actions and armed card text
 
 Status: ready-for-human
 
-This step covers ticket 32 fault C only. The base is `4692477c`.
+The first step covers ticket 32 fault C only. The base is `4692477c`.
 The owner asks for the cut-action cue. No new visual cue is needed.
-Faults A and B are refuted. Faults D and G are outside this step.
+Faults A and B are refuted. Faults D and G are outside the first step.
 
 ## Plan and checks
 
@@ -121,3 +121,5 @@ The product files `board.ts` and `lobby.css` match `4692477c` byte for byte befo
 
 - D: the repaired browser check fails on the M1 at `b1ce0066` in 74.4 seconds. At 197 x 426 with insets 51/59, Copy has 35 px of text in a 25 px label box. Its text has about 2.4 px to the button right edge. The runner exits 1. Logs: `checks-small-d-baseline-2.txt` and `small-d-baseline-detail.txt`.
 - The D fix adds one CSS declaration to the existing max-width 299 px rule: `.friend-actions { flex-direction: column; }`. The row gives each action its full width. Wider screens keep the row.
+
+The next browser pass checks the D fix at all four widths and puts the 197 x 426 armed-card host first. G still has the base source. This pass must reach G and fail there, so both required G host sizes have base failure evidence. Saved images show the friend actions and the armed context after a scroll to them.
