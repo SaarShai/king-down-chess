@@ -185,7 +185,7 @@ async function launch(setup = draft, saveSetup = true) {
     if (left) return;
     const args = { ...createArguments(last_setup), ...(last_setup.kind === 'random' && anyRules && { any_rules: true }) };
     await start(last_setup.kind, args, { route: false, origin, king: last_setup.king, then: (view, origin) => finish(view, last_setup.king, origin) });
-  } catch (error) { if (queue.current(origin)) store.dispatch({ type: 'error', text: errorText(error) }); }
+  } catch (error) { if (queue.current(origin) && !left) store.dispatch({ type: 'error', text: errorText(error) }); }
   finally { exits.forEach(button => button.removeEventListener('click', leave)); clearTimeout(words); clearTimeout(wait); starting = late = false; if (!client.state.pending) ownCommand = false; if (!queue.closed()) { exits.forEach(button => { delete button.dataset.free; }); render(); } }
 }
 /** The continuation of a resent start or setup step (design §5.2): it finishes the start. */

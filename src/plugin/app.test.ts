@@ -492,3 +492,18 @@ it('review: an old Handle success keeps Profile and does not resend the waiting 
   expect(app.client.state.pending).toMatchObject({ name: 'kingdown_create', args: { command_id: 'waiting-start' }, error: 'Choose a name' });
   expect(app.memory.me?.handle).toBe('newname');
 });
+
+it('keeps a failed start-settings save off the page opened with Back', async () => {
+  const app = await mounted(), setup = await import('./screens/setup'); app.navigate('play');
+  let leave!: () => void, release!: (value: unknown) => void;
+  const exit = { disabled: true, dataset: {}, addEventListener: (_: string, listener: () => void) => { leave = listener; }, removeEventListener() {} };
+  Object.assign(document, { querySelectorAll: (selector: string) => selector === '#page-back, [data-screen="play"] [data-nav]' ? [exit] : [] });
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_settings' ? new Promise(resolve => { release = resolve; }) : { content: [], _meta: { games: [] } });
+  setup.setupScreen(); const start = document.getElementById('setup-start')!; Reflect.apply(start.onclick!, start, [{}]);
+  await vi.advanceTimersByTimeAsync(5001); expect(exit.disabled).toBe(false);
+  leave(); app.navigate('profile');
+  release({ isError: true, content: [{ type: 'text', text: 'Start settings save failed' }] }); await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.screen).toBe('profile');
+  expect((await import('./state')).messageLine(app.store.page()).text).toBe('');
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create')).toHaveLength(0);
+});
