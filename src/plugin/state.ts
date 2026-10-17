@@ -136,7 +136,7 @@ export function applyLocks(page: Page) {
   document.querySelectorAll<HTMLButtonElement>('button').forEach(button => {
     // Retry follows the message line alone; a failed connect must leave it on while blocked.
     if (button.id === 'retry') { button.disabled = !lock.retry; return; }
-    const free = button.hasAttribute('data-free');
+    const free = button.hasAttribute('data-free') || button.id === 'page-back' && page.screen === 'settings' && page.connected && !page.mounting;
     button.disabled = button.matches('#king-picker [aria-disabled="true"]')
       || !free && (lock.blocked || lock.game && button.matches('.game-action, #choices button, #context-actions button'));
   });

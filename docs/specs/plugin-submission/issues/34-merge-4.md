@@ -65,3 +65,5 @@ Each command must end with exit 0. Each browser log must name the head and show 
 - Add app tests for Settings failure after Back, Settings replies after teardown, Start timers and exit cleanup after teardown, old Handle success after Profile, and a good empty Play read.
 - M1 browser run at fa67175e fails in 33.0 s on the M1. The new Play case finds a real fault: a good Get with no view does not clear Try again. Clear that read notice through the store. The failure log is browser-m1-2.txt. The runner ends with check-runner: M1 exit 1 at fa67175e.
 - The first detached runner start writes no output and leaves no process. It has no result. The next start uses the same approved runner as a foreground command with a saved log.
+
+- The next M1 run at 3296365c passes the new Play retry. It fails the existing Settings focus case in 58.3 s: the queued save disables Back, so Back cannot take focus while the save waits. Keep Back free on Settings while connected and not mounting. Keep every other lock. Add four lock cases for save, mount, lost connection and Board. This keeps the prior release focus intent on the S5 queue path.

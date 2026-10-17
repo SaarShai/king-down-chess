@@ -1,8 +1,8 @@
 // Unit tests for the store's pure parts (design §1 and §3, ticket 19 S2). The page parts load no DOM, so they run in
 // the node environment: the notice reducer, the scopes, the message line and the scoped locks.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { View } from '../match/protocol';
-import { backLabel, blocked, isStart, locks, messageLine, noticeShows, pendingHere, reduce, staleRead, type Notice, type Page, type Slot } from './state';
+import { applyLocks, backLabel, blocked, isStart, locks, messageLine, noticeShows, pendingHere, reduce, staleRead, type Notice, type Page, type Slot } from './state';
 
 const view = (game_id: string, revision = 1) => ({ game_id, revision } as unknown as View);
 const page = (part: Partial<Page> = {}): Page => ({ screen: 'board', connected: true, mounting: false, writing: false, settings: true, ...part });
@@ -180,4 +180,20 @@ describe('the back label', () => {
     expect(backLabel(page({ screen: 'settings', settings_back: 'board' }))).toBe('‹ Game');
     expect(backLabel(page({ screen: 'play' }))).toBe('‹ Play');
   });
+});
+
+it.each([
+  ['settings', true, false, false],
+  ['settings', true, true, true],
+  ['settings', false, false, true],
+  ['board', true, false, true],
+] as const)('keeps Settings Back free during a save, with mount and connect locks (%s, %s, %s)', (screen, connected, mounting, disabled) => {
+  const button = (id: string) => ({ id, disabled: false, hasAttribute: () => false, matches: () => false });
+  const back = button('page-back'), other = button('setup-start');
+  vi.stubGlobal('document', { querySelectorAll: () => [back, other] });
+  try {
+    applyLocks(page({ screen, connected, mounting, writing: true }));
+    expect(back.disabled).toBe(disabled);
+    expect(other.disabled).toBe(true);
+  } finally { vi.unstubAllGlobals(); }
 });
