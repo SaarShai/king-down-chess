@@ -9,7 +9,7 @@ const unregister = register();
 const { fromFen, toFen, toLan } = await import('../src/rules/setup.ts');
 const { setRules, legalMoves, inCheck, typeOf, N, sqName, moveNumber: positionMoveNumber } = await import('../src/rules/engine.ts');
 const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
-const { applyLan, cardCoins } = await import('../src/plugin/screens/board-model.ts');
+const { applyLan, cardCoins, replayHistory } = await import('../src/plugin/screens/board-model.ts');
 const { threatsIn } = await import('../src/move-text.ts');
 const { POP_MS, RIPPLE_MS } = await import('../src/render/marks.ts');
 const iconNames = { P:'pawn', N:'knight', B:'bishop', R:'rook', Q:'queen', K:'king', A:'archer', L:'paladin', G:'guard', M:'maester', S:'beast', O:'ogre' };
@@ -2078,6 +2078,7 @@ try {
     const original=await page.evaluate(()=>window.harnessView), game_id=randomUUID();
     const snapshot={...original,game_id,revision:100,status:'playing',kind:'friend',speed:'daily',days_per_move:3,seat:0,abort_open:!!state.abort,result:undefined,outcome:undefined,draw_offer:null,rematch_offer:null,rematch_game_id:null,rules:sampleRules,kings:sampleRules.kings,hands:sampleRules.hands,opponent:{handle:'mira_k',computer:false,deleted:false,rating:{rating:1540,provisional:false},last_seen_ms:121000},last_commands:[],deadline_at:null,server_now:new Date().toISOString()};
     setRules(sampleRules); let position={...fromFen(state.fen),used:state.used??[3,1]};
+    const initial_fen = toFen(position);
     async function showSnapshot(value, words=`Move ${positionMoveNumber(fromFen(value.fen))}.`) {
       await page.evaluate(value=>{window.harnessNextView=value; return window.harnessShow({content:[],structuredContent:{game_id:value.game_id,screen:'board'},_meta:{board_id:window.harnessWidgetState.privateContent.board_id,view:value}});},value);
       await page.waitForFunction(value=>window.harnessView.game_id===value.game_id&&window.harnessView.fen===value.fen,value);
@@ -2085,7 +2086,7 @@ try {
       await idleBoard(); await boardBox();
     }
     const legal=()=>position.turn===0?legalMoves(position).map(m=>toLan(position,m)):[];
-    await showSnapshot({...snapshot,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:legal()});
+    await showSnapshot({...snapshot,fen:initial_fen,turn:position.turn,in_check:inCheck(position),legal:legal()});
     const commands=[]; let story=`Move ${positionMoveNumber(position)}.`;
     for (const [index,lan] of state.play.entries()) {const step=applyLan(position,lan,sampleRules); assert(step,`${state.name}: the sample move is legal`); commands.push({seq:101+index,seat:position.turn,at:snapshot.server_now,action:{type:'turn',actions:[lan]}}); position=step.pos; story=step.words;}
     const finished=state.end?{status:'finished',result:{winner:0,reason:'checkmate'},outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:snapshot.server_now}]}}:{};
@@ -2155,7 +2156,8 @@ try {
     // Ticket 28 T2: the other player's turn has its own game id, since the board ignores a second view at one revision.
     // A new game needs its matching full history to restore the last move.
     if (state.claim) {
-      const theirTurn = {...snapshot,game_id:randomUUID(),revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:[],last_commands:commands,history:{initial_fen:state.fen,actions:state.play},deadline_at:null};
+      const theirTurn = {...snapshot,game_id:randomUUID(),revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:[],last_commands:commands,history:{initial_fen,actions:state.play},deadline_at:null};
+      assert.equal(replayHistory(theirTurn,sampleRules)?.at(-1)?.words,story,'The sample history keeps its spent-power counts and restores the last move');
       await showSnapshot(theirTurn,story); await zoomBoardFits('board-their-turn');
       // T6: match the tall-phone capture: full host height, no cards or powers, and the other player's turn.
       await showSnapshot({...theirTurn,game_id:randomUUID(),revision:0,fen:state.fen,last_commands:[],history:{initial_fen:state.fen,actions:[]},options,rules:{kings:[null,null],hands:[[],[]]},kings:[null,null],hands:[[],[]]});
@@ -2165,11 +2167,13 @@ try {
       await zoomViewport(393,852,0,0); await boardBox();
       const boxes = await zoomBoxes(['#board','#board canvas','#strip-them','#strip-me','#context-line','#moves-line','#table-bar']);
       console.log(`T6 tall-phone boxes: ${JSON.stringify(boxes)}`);
-      assert.deepEqual(boxes, {
+      const expected = {
         frame:[0,0,393,756], '#board':[4,44,385,411], '#board canvas':[4,44,385,411],
         '#strip-them':[0,0,393,44], '#strip-me':[0,455,393,44], '#context-line':[12,499,369,44],
         '#moves-line':[12,543,369,44], '#table-bar':[0,712,393,44],
-      }, 'At 393 x 852 the board fills its available width; the 125 px band and all rows keep their measured boxes');
+      };
+      for (const [id,box] of Object.entries(expected)) assert(boxes[id]?.every((value,i) => Math.abs(value-box[i]) <= 1),
+        `At 393 x 852 ${id} keeps its measured box (1 px rounding): ${JSON.stringify(boxes)}`);
       await shot(page,`tall-board-their-turn-393-${mode}`);
       await page.locator('iframe').evaluate((el,style) => style === null ? el.removeAttribute('style') : el.setAttribute('style',style),hostStyle);
       await zoomViewport(viewport.width,viewport.height,0,0);

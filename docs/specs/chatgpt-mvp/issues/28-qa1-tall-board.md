@@ -21,3 +21,5 @@ At `8d852a1b`, browser run 1 fails at the existing move-history sample. Run 2 fa
 The type check passes. The full unit run passes: 178 files, 2,877 tests passed, one expected failure and eight skipped. All 50 art tests pass. Log: `tests-tall-board-1.txt` in the lane output folder.
 
 Run 4 at `66bd4825` keeps the sample in place. It then exposes a T6 test-data fault: the sample removes the power rules but keeps history from the prior rule set. The size check needs no move history. Give it a fresh position and an empty history under its own rules.
+
+Run 5 at `17e5911a` fails in the old history sample with the poll stopped. The poll is not the only cause. The source sample adds spent-power counts `[3,1]`, but its history starts from the plain FEN without those counts. A new game cannot replay that history to the final FEN. Save `toFen(position)` before the moves and use it as the history start. A browser assertion checks that this exact history restores the last move. The box assertions allow 1 px for canvas and CSS rounding.
