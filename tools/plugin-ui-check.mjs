@@ -1318,6 +1318,7 @@ try {
   await page.waitForFunction(() => document.querySelector('iframe').contentWindow.harnessSwapMarks > 0);
   assert(await frame.locator('#choices button').count() > 0, 'The Maester fixture offers a swap and PaintedView draws its violet mark');
   await shot(page, `shell-swap-${mode}`);
+  await zoomBoardFits('board-swap-preview');
   await haste();
   await clickSquare(4, 1);
   assert(await frame.locator('#choices button').count() > 0);
@@ -1588,7 +1589,11 @@ try {
   async function scrollVertically(control) {
     await control.evaluate(el => {
       for (let parent = el.parentElement; parent; parent = parent.parentElement) {
-        parent.scrollLeft = 0;
+        // A strip's coin row scrolls sideways on its own at 200% zoom (ticket 28 T2); every other box stays at the left.
+        if (parent.classList.contains('coin-row') && /(auto|scroll)/.test(getComputedStyle(parent).overflowX)) {
+          const rect = el.getBoundingClientRect(), box = parent.getBoundingClientRect();
+          parent.scrollLeft += rect.left + rect.width / 2 - box.left - parent.clientWidth / 2;
+        } else parent.scrollLeft = 0;
         if (/(auto|scroll)/.test(getComputedStyle(parent).overflowY) && parent.scrollHeight > parent.clientHeight) {
           const rect = el.getBoundingClientRect(), box = parent.getBoundingClientRect();
           parent.scrollTop += rect.top + rect.height / 2 - box.top - parent.clientHeight / 2;
@@ -1601,6 +1606,69 @@ try {
     assert((await control.evaluate(controlBounds)).accessible, 'The full control fits after vertical scroll');
     const box = await control.boundingBox(); assert(box);
     await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+  }
+  // Ticket 28: the boxes of a 200% zoom layout, rounded to [left, top, width, height] for the assert messages.
+  const zoomBoxes = (selectors) => frame.locator('#app-frame').evaluate((frameEl, selectors) => {
+    const box = el => { if (!el) return null; const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); };
+    return { frame: box(frameEl), ...Object.fromEntries(selectors.map(s => [s, box(document.querySelector(s))])) };
+  }, selectors);
+  const inFrame = (b, f) => b && b[2] > 0 && b[3] > 0 && b[0] >= f[0] - 1 && b[1] >= f[1] - 1 && b[0] + b[2] <= f[0] + f[2] + 1 && b[1] + b[3] <= f[1] + f[3] + 1;
+  // T2: at 197 x 426 the strips, the context line and the bar stay in the frame, the context words show in full, the
+  // coins stay on one row and the board takes what is left.
+  async function zoomBoardFits(label) {
+    const viewport = page.viewportSize();
+    await zoomViewport(197,426,51,59);
+    await frame.locator('#status').evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const ids = ['#strip-them','#strip-me','#context-line','#undo','#end-turn','#board-menu'];
+    const m = await zoomBoxes([...ids,'#board','#board canvas','#context-text']);
+    const text = await frame.locator('#context-text').evaluate(el => ({scroll:el.scrollHeight,client:el.clientHeight,clip:getComputedStyle(el).overflowY}));
+    const coinRows = await frame.locator('#game-table .coin-row').evaluateAll(rows => rows.map(row => [...row.children].map(c => { const r = c.getBoundingClientRect(); return Math.round(r.top + r.height / 2); })));
+    const screenScroll = await frame.locator('[data-screen="board"]').evaluate(el => [el.scrollHeight, el.clientHeight]);
+    const all = JSON.stringify({...m, text, coinRows, screenScroll});
+    for (const id of ids) assert(inFrame(m[id], m.frame), `${label} at 197 x 426: ${id} stays inside the frame: ${all}`);
+    assert(text.clip === 'visible' || text.scroll <= text.client + 1, `${label} at 197 x 426: #context-text shows all its words: ${all}`);
+    assert(coinRows.every(tops => tops.every(t => Math.abs(t - tops[0]) <= 1)), `${label} at 197 x 426: each strip keeps its coins on one row: ${all}`);
+    const canvas = m['#board canvas'], board = m['#board'];
+    assert(canvas && board && (canvas[2] >= board[2] - 2 || canvas[3] >= board[3] - 2), `${label} at 197 x 426: the board takes the free width or height: ${all}`);
+    assert(screenScroll[0] <= screenScroll[1] + 1, `${label} at 197 x 426: the board screen needs no scroll: ${all}`);
+    await shot(page, `zoom-fit-${label}-${mode}`);
+    await zoomViewport(viewport.width, viewport.height, 0, 0);
+  }
+  // T1: at 197 x 426 the end card shows its result line and the top of its first action with no scroll, and its last
+  // action scrolls into the frame.
+  async function zoomEndFits(label) {
+    const viewport = page.viewportSize();
+    await zoomViewport(197,426,51,59);
+    const card = frame.locator('#over.end-card[open]');
+    await card.evaluate(el => { el.scrollTop = 0; });
+    const buttons = card.locator('form button:visible');
+    const first = await buttons.first().evaluate(el => { const r = el.getBoundingClientRect(), c = el.closest('dialog').getBoundingClientRect(); return {button:[r.left,r.top,r.width,r.height].map(Math.round), card:[c.left,c.top,c.width,c.height].map(Math.round)}; });
+    const m = await zoomBoxes(['#over','#end-reason']);
+    const all = JSON.stringify({...m, first});
+    assert(inFrame(m['#end-reason'], m.frame) && m['#end-reason'][1] + m['#end-reason'][3] <= first.card[1] + first.card[3] + 1, `${label} at 197 x 426: the result line shows with no scroll: ${all}`);
+    assert(first.button[1] < first.card[1] + first.card[3] - 8, `${label} at 197 x 426: the first end action shows with no scroll, so the card shows that it scrolls: ${all}`);
+    const last = buttons.last(); await last.evaluate(el => el.scrollIntoView({block:'nearest'}));
+    const end = await zoomBoxes(['#app-frame']); const lastBox = await last.evaluate(el => [el.getBoundingClientRect().left, el.getBoundingClientRect().top, el.getBoundingClientRect().width, el.getBoundingClientRect().height].map(Math.round));
+    assert(inFrame(lastBox, end.frame) && (await last.evaluate(controlBounds)).accessible, `${label} at 197 x 426: the last end action scrolls into the frame: ${JSON.stringify({last:lastBox, frame:end.frame})}`);
+    await shot(page, `zoom-fit-${label}-${mode}`);
+    await card.evaluate(el => { el.scrollTop = 0; });
+    await zoomViewport(viewport.width, viewport.height, 0, 0);
+  }
+  // T3: at 197 x 426 the hall scrolls to its end above the pinned Start game bar, and the page clips nothing.
+  async function zoomHallFits() {
+    const viewport = page.viewportSize();
+    await zoomViewport(197,426,51,59);
+    const body = frame.locator('#new-game .new-game-body');
+    await body.evaluate(el => { el.scrollTop = el.scrollHeight; });
+    const last = await body.evaluate(el => { const kids = [...el.querySelectorAll('button, label, input')].filter(k => k.getClientRects().length); const r = kids.at(-1).getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); });
+    const m = await zoomBoxes(['.page-sheet','#new-game','#new-game .new-game-head','#new-game .new-game-body','#new-game .new-game-foot']);
+    const sheet = await frame.locator('.page-sheet').evaluate(el => ({scroll:el.scrollHeight, client:el.clientHeight, kids:[...el.children].filter(k => k.getClientRects().length).map(k => [k.id || k.className, Math.round(k.getBoundingClientRect().height)])}));
+    const all = JSON.stringify({...m, last, sheet}), foot = m['#new-game .new-game-foot'];
+    assert(last[1] + last[3] <= foot[1] + 1, `The hall at 197 x 426: the last choice ends above the top of the Start game bar: ${all}`);
+    assert(sheet.scroll <= sheet.client + 1 && inFrame(foot, m.frame), `The hall at 197 x 426: the page clips nothing: ${all}`);
+    await shot(page, `zoom-fit-hall-${mode}`);
+    await body.evaluate(el => { el.scrollTop = 0; });
+    await zoomViewport(viewport.width, viewport.height, 0, 0);
   }
   async function tapEndAtZoom(name) {
     const viewport = page.viewportSize();
@@ -1632,6 +1700,7 @@ try {
   const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);
   await page.clock.fastForward(1100);
   await page.evaluate(()=>{window.dropNextReply='kingdown_rematch';});
+  await zoomEndFits('end-loss');
   await tapEndAtZoom('Play again');
   await frame.locator('#over #retry').waitFor();
   const pendingRematch=await page.evaluate(()=>window.harnessWidgetState.privateContent.pending);
@@ -1649,6 +1718,7 @@ try {
   await page.clock.fastForward(1100);
   await tapEndAtZoom('New game');
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); assert.equal(await frame.locator('#over').isVisible(),false);
+  await zoomHallFits();
   await openPlay(); await legacyStart('solo'); await frame.locator('#board-menu').click(); await frame.locator('#menu-abort').click();
   await frame.locator('#board-sheet').getByRole('button',{name:'Abort',exact:true}).click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); await idleBoard();
@@ -1961,6 +2031,10 @@ try {
     if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+14*RIPPLE_MS+50);}
     if (state.claim) assert.equal(await frame.locator('#status').innerText(),'mira_k has not moved for 3 days.');
     if (state.end) await frame.locator('#over.end-card[open]').waitFor();
+    // Ticket 28 T1 and T2 at 200% zoom.
+    const zoomName={board:'board-turn','board-abort':'board-cards','board-claim':'board-their-turn'}[state.name];
+    if (zoomName) await zoomBoardFits(zoomName);
+    if (state.end) await zoomEndFits('end-win');
     if (state.name === 'board-abort') {
       const viewport = page.viewportSize();
       const screen = frame.locator('[data-screen="board"]');
@@ -2065,6 +2139,7 @@ try {
         if(width>height) await frame.locator('#context-actions').scrollIntoViewIfNeeded();
         for (const action of await frame.locator('#context-actions button').all()) {const bounds=await action.evaluate(controlBounds); assert(bounds.accessible,`Cancel and draw reply fits: ${JSON.stringify(bounds)}`);}
         await shot(page,`ticket05-draw-armed-${width}-${mode}`);
+        if (width===320) await zoomBoardFits('board-cards-armed');
       }
     }
   }

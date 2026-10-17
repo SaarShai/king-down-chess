@@ -14,8 +14,14 @@ body[data-page='end'] #page-head { position: relative; z-index: 3; }
 .new-badge small { color: var(--ink-soft); font-weight: 400; }
 #over.end-card form { margin-top: var(--space-3); }
 #over.end-card .quiet-line { margin-top: var(--space-2) !important; }
-/* Leave the page head clear, with room for the card edge. */
-@media (max-width: 319px) { .frame dialog#over.end-card { max-height: calc(100% - 96px); } }
+/* 200% zoom (under 320 px, portrait): the page head is hidden and the 44 px Back is the top control. The card leaves Back
+   and 12 px clear, and the art is smaller, so the result line and the top of the first action show with no scroll; the
+   cut action shows that the card scrolls (ticket 28 T1). */
+@media (max-width: 319px) {
+  .frame dialog#over.end-card { max-height: calc(100% - 68px); }
+  #over.end-card .over-art { height: 56px; }
+  #over.end-card .over-king { height: 52px; }
+}
 @media (min-width: 900px) { .frame dialog#over.end-card { inset: 0 auto 0 calc(50% - 440px); margin: auto 0; } }
 
 /* Lively: only a win raises the end card. Its actions work during the ceremony. */

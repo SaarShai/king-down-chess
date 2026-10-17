@@ -259,20 +259,22 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table #strip-me:has(.card-coin) .coin { grid-row: 2; }
 }
 }
-/* 200% zoom (under 320 px): the board keeps the full width and a 210 px floor in the short table rows (a 197 px canvas
-   at 960/1024). The table keeps the screen height; only when the other rows leave less than the floor does it overflow,
-   and the screen scrolls (M1, review R1).
-   The context row then keeps its content height, so its buttons do not spill over the bar. */
+/* 200% zoom (under 320 px): the strips, the context line and the bar stay in the frame, and the board takes the height
+   that is left, up to the full width (ticket 28 T2). The screen scrolls only as a last resort.
+   The context row keeps its content height and shows all its words, so its buttons do not spill over the bar. */
 @media (max-width: 319px) and (orientation: portrait) {
   .page-sheet > :is([data-screen='seat'], [data-screen='board'], [data-screen='end']) { overflow: hidden auto; }
-  #game-table { --board-floor: 210px; --context-floor: max-content; }
+  #game-table { --context-floor: max-content; }
   #game-table #board { width: 100%; }
 }
 @container table-screen (max-width: 319px) {
-  /* The strip rows take the wrapped coins' full height, also when the screen is short (minmax keeps 44 px there). */
-  #game-table:has(.card-coin) { --strip-row: max-content; }
-  #game-table .player-strip:has(.card-coin) { flex-direction: column; align-items: stretch; }
-  #game-table .coin-row { flex-wrap: wrap; }
+  #game-table #context-text { display: block; height: auto; -webkit-line-clamp: none; }
+  /* Each strip stays one 44 px row: the portrait and the coins scroll sideways in their own row, and the name keeps
+     the rest. The coins keep 44 px targets. */
+  #game-table .player-strip:has(.card-coin) { gap: 6px; }
+  #game-table .player-strip:has(.card-coin) .coin-row { flex: 0 1 auto; min-width: 44px; flex-wrap: nowrap; overflow: auto hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
+  #game-table .player-strip:has(.card-coin) .coin-row > * { flex: none; }
+  #game-table .player-strip:has(.card-coin) .player-name { flex: 1 0 48px; }
 }
 /* 200% zoom (197 px): a quarter of the bar is under 58 px, too narrow for an icon and its word side by side. */
 @container table-screen (max-width: 239px) {
