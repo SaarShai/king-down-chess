@@ -1850,7 +1850,11 @@ try {
       await touch.send('Input.dispatchTouchEvent', {type:'touchEnd',touchPoints:[]});
       await new Promise(r=>setTimeout(r,100));
     }
-    const reset = () => screen.evaluate(el=>{document.getElementById('board').focus({preventScroll:true});el.scrollTop=0;});
+    const reset = async () => {
+      await screen.evaluate(el=>{document.getElementById('board').focus({preventScroll:true});el.scrollTop=0;});
+      // Let the compositor apply the scroll reset before the next native gesture.
+      await new Promise(r=>setTimeout(r,250));
+    };
     try {
       await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen'}));
       for (const [top,bottom] of [[31,17],[62,34]]) {
@@ -1867,9 +1871,14 @@ try {
         });
         const host = await page.locator('iframe').boundingBox(); assert(host && start.hit,`${label}: the swipe starts on the visible board`);
         assert.equal(start.scroll,0,`${label}: the board swipe starts with no scroll`);
+        await frame.locator('canvas').evaluate(c=>{
+          window.touchTrace=[];
+          for(const name of ['pointerdown','pointercancel','touchstart']) document.addEventListener(name,e=>window.touchTrace.push({name,target:e.target.tagName,id:e.target.id,action:getComputedStyle(e.target).touchAction}),{once:true});
+        });
         await swipe(host.x+start.x,host.y+start.y);
         const boardScroll = await screen.evaluate(el=>el.scrollTop);
         console.log(`T-A ${label} 201x357 insets ${top}/${bottom}: strip scrollTop=${stripScroll}, board scrollTop=${boardScroll}, start=${JSON.stringify(start)}`);
+        console.log(`T-A input: ${JSON.stringify(await frame.locator('canvas').evaluate(()=>window.touchTrace))}`);
         assert(stripScroll>0,`${label}: a touch swipe from the top strip scrolls the board screen`);
         assert(boardScroll>0,`${label}: a touch swipe from the board scrolls the board screen`);
         const boxes = await zoomBoxes(['#undo','#end-turn','#board-menu']);
