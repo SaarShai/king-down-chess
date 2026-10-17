@@ -39,6 +39,16 @@ Pass criteria: each required command exits 0; each browser log has the final run
 ### Part 3: final checks
 
 - `npx tsc --noEmit` exits 0. Full `npm test` with the specified local database exits 0: 188 files, 3,039 passed tests, one expected failure and eight skips. All 51 drawing tests pass. Logs: `typecheck-1.txt` and `tests-1.txt` in the lane folder.
-- The source at `43ce25e6` matches the tested fix at `dba683bb`. The final change has three check lines and this ticket. It adds no dependency, helper or product path.
+- The source at `43ce25e6` matches the tested fix at `dba683bb`. The focus repair has three check lines and this ticket. The end-layout repair below follows the next browser runs. It adds no dependency, helper or product path.
 - Run the final type check, full tests, WebKit `plugin-ui`, Chromium `plugin-ui` and Chromium `plugin-ui-http` after this evidence commit. The exact final head, exit lines and logs go in the external ticket and `30-webkit-build.md` in the lane folder. No source change follows those checks.
 - No requested product part is omitted. The M1 timing fault remains unresolved; WebKit passes on this Mac. No taste choice is needed. The client-state merge stays out of scope.
+
+### Failure 2: end layout reads the win text during its scale
+
+- Class: check timing assumption on both engines. `#over` opens while the short king-fall sequence still runs. The win text starts at scale 1.08 and ends at scale 1. The old check reads the table scroll width during this scale.
+- Control at `a4fc24a2`: Chromium `plugin-ui` on the M1 fails at 360 px after 143.9 s. It reports `kd-words is-in`, table scroll 370/360, and text bounds about -10 to 370 px. The one repeat passes in 161.1 s. The width differs from the owner's reported 400 px flake. Keep both logs.
+- WebKit on this Mac fails at the same 360 px read after 209.5 s. Its text bounds are about -9 to 369 px. This confirms that the check race affects WebKit too.
+- Fix: after the end card opens, wait for the board to clear `data-toppling`. Assert that the win text is gone, then run every existing viewport and scroll assertion. Use the product's existing sequence state, with no fixed sleep and no time limit change.
+- Test: extend the existing king-fall test with Skip and Finish cases at 360 px. Both must keep the fall running when the result opens, then clear the state and the win text and leave no sideways overflow. The failed browser runs above are the controls for the check repair.
+- The queued final full test and HTTP check at `a4fc24a2` do not start. Stop only those two owned process groups before the source changes. They are cancelled queue entries, not failed checks. Repeat all required commands at the new final head.
+- No product code changes. No taste choice is needed. Keep all temporary probes removed.

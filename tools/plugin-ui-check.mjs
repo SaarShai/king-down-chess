@@ -2145,7 +2145,12 @@ try {
     await showSnapshot({...snapshot,...finished,revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:state.end?[]:legal(),last_commands:commands,deadline_at:state.claim?new Date(Date.now()-60000).toISOString():null},story);
     if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+14*RIPPLE_MS+50);}
     if (state.claim) assert.equal(await frame.locator('#status').innerText(),'mira_k has not moved for 3 days.');
-    if (state.end) await frame.locator('#over.end-card[open]').waitFor();
+    if (state.end) {
+      await frame.locator('#over.end-card[open]').waitFor();
+      // The result card opens while the win words still scale outside the board.
+      await frame.locator('#board[data-toppling]').waitFor({ state: 'detached' });
+      assert.equal(await frame.locator('#board .kd-words').count(), 0, 'End layout starts after the win sequence');
+    }
     if (state.name === 'board-abort') {
       const viewport = page.viewportSize();
       const screen = frame.locator('[data-screen="board"]');
