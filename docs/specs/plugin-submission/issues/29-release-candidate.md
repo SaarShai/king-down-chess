@@ -110,7 +110,7 @@ The checks pass only when the unit suite ends with exit 0 and each browser log h
 
 ### Part 29-merge-2: plan and checks
 
-Status: in progress. Base: 3f1281d1.
+Status: built. Base: 3f1281d1.
 
 1. Merge od-picks at 64805f5e with --no-ff. Check each conflict against both parents. Keep G1, G2, G3, Q3 and Q6.
 2. Merge od-faults at 606584b8 with --no-ff. Keep F13, F14, F25, F26 and F32. Keep the Display check line removed.
@@ -147,3 +147,11 @@ Pass criteria: both exact lane heads are ancestors; held release changes remain;
 
 - The new origin test fails before the fix: one failed case and two passed cases. Log: tests-29-merge-2-origin-before.txt. It runs through npm test and the shared test lock.
 - Apply the one-line fix: the G1 scroll wait now runs in widget(). Keep the same scroll condition, assertion and time limit. The source guard rejects parent-page widget document reads. This fixes the cause in the check; game code does not change.
+
+#### Final evidence
+
+- The merge fix is 550b238e. Four added merge tests check the block notice with armed focus, spent coin styles, privacy choices without Display check, and widget document reads. All source tests remain except the obsolete F26 Display check case.
+- npx tsc --noEmit exits 0 after the fix. Full npm test at 550b238e exits 0: 188 files, 3,037 passed tests, one expected failure and eight skips. All 51 drawing tests pass. Log: tests-29-merge-2-2.txt.
+- The approved browser run at 550b238e passes plugin-ui in 128.3 s and plugin-ui-http in 133.5 s. Its last line is check-runner: mac exit 0 at 550b238e. Log: checks-29-merge-2-2.txt. Both the armed scroll wait and the 197 px board checks pass.
+- This evidence commit changes only this ticket. Repeat npx tsc --noEmit, npm test and both browser checks at that final head. The exact head and final exit lines are in tests-29-merge-2-3.txt, checks-29-merge-2-3.txt and 29-merge-2-build-report.md in the release scratchpad lane.
+- All requested parts are built: G1, G2, G3, Q3, Q6, F13, F14, F25, F26 and F32. Keep od-qa1 and S5 for their later merge. No requested part is omitted. No new taste choice is needed. No time limit changes.
