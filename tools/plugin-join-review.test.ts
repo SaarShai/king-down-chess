@@ -56,6 +56,7 @@ it('names the current game on Resume after Play now and after the computer reply
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     game_id = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
     await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    await frame.locator('#home-card').waitFor({ state: 'visible' });
     expect(await frame.locator('#home-play').textContent()).toBe('Resume · Computer · Your move');
     await frame.locator('#home-play').click();
     await frame.locator('html').evaluate(async () => {
@@ -66,6 +67,7 @@ it('names the current game on Resume after Play now and after the computer reply
     const names = await page.evaluate(() => (window as any).harnessCalls.map((c: any) => c.name) as string[]);
     expect(names.slice(names.lastIndexOf('kingdown_move') + 1)).not.toContain('kingdown_games');
     await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    await frame.locator('#home-card').waitFor({ state: 'visible' });
     expect(await frame.locator('#home-play').textContent()).toBe('Resume · Computer · Your move');
   } finally { if (game_id) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } }); await page.close(); }
 });
@@ -80,6 +82,7 @@ it('keeps the home action after the player leaves an ended game for the hall', a
     await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_resign', { game_id: app.memory.view.game_id }, true, false, true); await app.call('kingdown_get', {}); app.navigate('play'); });
     await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
     await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    await frame.locator('#home-card').waitFor({ state: 'visible' });
     const label = await frame.locator('#home-play').textContent();
     expect(label).toContain('Computer');
     await remount(page);

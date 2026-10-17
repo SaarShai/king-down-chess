@@ -100,6 +100,9 @@ Each command must end with exit 0. Each browser log must name the head and show 
 
 ### Final verification
 
+- The first fixed-head checks at 3e1e7b1a pass: type check; M1 plugin-ui in 156.6 s; Mac plugin-ui-http in 154.0 s; Mac WebKit plugin-ui in 188.6 s. M1 samples 60 and 65 frames at the two M2 sizes, with full words and no overflow. WebKit samples 59 and 65 frames with the same result.
+- The full suite at that head has 3,110 passes, eight default balance drift skips and one failed case. The case reads the hidden Home button just after a context notification and gets Play now before Home updates. Log: tests-final.txt. The original symbols failure is gone.
+- The UI reviewer confirms the wait gap from the installed SDK: setHostContext returns void and sends the context notification without a frame acknowledgement. Wait for the Home card to be visible before each of the three immediate label reads in plugin-join-review.test.ts. Keep each label assertion and each time limit. No product fault is confirmed.
 - All four merges and M1 to M3 are built. Both reviewers have no confirmed finding left. No part is omitted. No new taste choice is needed.
 - Freeze the check head with this ticket commit. Run npx tsc --noEmit, then the full npm test suite with the local database and VITEST_MAX_WORKERS=2. This reduces file concurrency; it changes no test or check limit.
 - Run plugin-ui on the M1. Run plugin-ui-http and WebKit plugin-ui on this Mac through the approved runner. All final results must name this ticket commit. Add no tracked edit after these checks.
