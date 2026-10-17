@@ -1593,17 +1593,23 @@ try {
   for (const [width,height] of [[320,568],[393,852],[1280,800]]) {
     await zoomViewport(width,height,0,0);
     for (const [target,lan] of [[[2,5],'Rc4-c6'],[[0,3],'Rc4-a4']]) {
-      const seeded = await seedBoard('swap'), input = await nativeTouchInput();
+      const seeded = await seedBoard('swap'), touch = browser.browserType().name()==='chromium';
       await tapSquare(2,3);
       assert.equal(await frame.locator('#status').innerText(),'White Rook.',`${width}: a touch tap selects the rook`);
       await tapSquare(2,3);
       const box = await boardBox(), point = ([file,rank]) => ({x:box.x+(32+(file+.5)*112)*box.width/960,y:box.y+(96+(7-rank+.5)*112)*box.width/960});
-      try { await touchStroke(input,point([2,3]),point(target)); }
-      finally { if (browser.browserType().name()==='chromium') await input.detach(); }
+      if (touch) {
+        const input = await page.context().newCDPSession(page);
+        try { await touchStroke(input,point([2,3]),point(target)); }
+        finally { await input.detach(); }
+      } else {
+        const from=point([2,3]),to=point(target);
+        await page.mouse.move(from.x,from.y); await page.mouse.down(); await page.mouse.move(to.x,to.y,{steps:20}); await page.mouse.up();
+      }
       await frame.locator('#end-turn[aria-disabled="false"]').waitFor();
       assert.equal(await page.evaluate(()=>window.harnessView.revision),seeded._meta.view.revision,`${width}: the drag waits for End turn`);
       await sendTurn(); await idleBoard();
-      assert.equal(await page.evaluate(({id,lan})=>window.harnessCalls.filter(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.actions?.[0]===lan).length,{id:seeded._meta.view.game_id,lan}),1,`${width}: a touch drag sends ${lan} once`);
+      assert.equal(await page.evaluate(({id,lan})=>window.harnessCalls.filter(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.actions?.[0]===lan).length,{id:seeded._meta.view.game_id,lan}),1,`${width}: a ${touch?'touch':'mouse'} drag sends ${lan} once`);
     }
   }
   await zoomViewport(390,844,0,0);
@@ -1846,12 +1852,7 @@ try {
     await shot(page, `zoom-fit-${label}-${mode}`);
     await zoomViewport(viewport.width, viewport.height, 0, 0);
   }
-  // Browser input runs the engine's touch-action and scroll path. DOM touch events cannot test that path.
-  async function nativeTouchInput() {
-    return browser.browserType().name()==='chromium' ? page.context().newCDPSession(page)
-      // Playwright exposes only tap for WebKit; use its native input session for a swipe.
-      : page._connection.toImpl(page).delegate._pageProxySession;
-  }
+  // CDP touch input tests native pan. Desktop WebKit cannot pan with raw touch input; check its CSS and wheel scroll.
   async function touchStroke(input,from,to) {
     await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...from,id:0}]});
     for (let i=1;i<=20;i++) {
@@ -1865,13 +1866,16 @@ try {
   }
   async function touchBoardScroll(label) {
     const viewport = page.viewportSize(), screen = frame.locator('[data-screen="board"]');
-    const touch = await nativeTouchInput();
+    const touch = browser.browserType().name()==='chromium' ? await page.context().newCDPSession(page) : undefined;
+    const gesture = touch ? 'touch swipe' : 'wheel scroll';
     async function swipe(x, y) {
-      if (browser.browserType().name()==='chromium') {
+      if (touch) {
         await touch.send('Input.synthesizeScrollGesture',{x,y,yDistance:-500,speed:800,gestureSourceType:'touch',preventFling:true});
         return;
       }
-      await touchStroke(touch,{x,y},{x,y:y-400});
+      assert.deepEqual(await frame.locator('#board, #board canvas').evaluateAll(els=>els.map(el=>getComputedStyle(el).touchAction)),['pan-y','pan-y'],'WebKit parses vertical pan on the board and canvas');
+      await page.mouse.move(x,y); await page.mouse.wheel(0,500);
+      await new Promise(r=>setTimeout(r,250));
     }
     const reset = async () => {
       await screen.evaluate(el=>{document.getElementById('board').focus({preventScroll:true});el.scrollTop=0;});
@@ -1918,15 +1922,15 @@ try {
           const strip = await frame.locator('#strip-them .player-name').boundingBox(); assert(strip);
           await swipe(strip.x+strip.width/2,strip.y+strip.height/2);
           stripScroll = await screen.evaluate(el=>el.scrollTop);
-          assert(stripScroll>0,`${label}: a touch swipe from the top strip scrolls the board screen`);
+          assert(stripScroll>0,`${label}: a ${gesture} from the top strip scrolls the board screen`);
         }
-        console.log(`T-A ${label} 201x357 insets ${top}/${bottom}: strip scrollTop=${stripScroll}, board scrollTop=${boardScroll}, start=${JSON.stringify(start)}, input=${JSON.stringify(trace)}`);
-        assert(boardScroll>start.scroll,`${label}: a touch swipe from the board scrolls the board screen`);
+        console.log(`T-A ${label} 201x357 insets ${top}/${bottom} ${gesture}: strip scrollTop=${stripScroll}, board scrollTop=${boardScroll}, start=${JSON.stringify(start)}, input=${JSON.stringify(trace)}`);
+        assert(boardScroll>start.scroll,`${label}: a ${gesture} from the board scrolls the board screen`);
         for (const id of ['#undo','#end-turn','#board-menu']) assert(inFrame(boxes[id],boxes.frame),`${label}: ${id} fits after a board swipe: ${JSON.stringify(boxes)}`);
         assert(endHit,`${label}: End turn receives a tap after a board swipe`);
       }
     } finally {
-      if (browser.browserType().name()==='chromium') await touch.detach();
+      await touch?.detach();
       await reset(); await zoomViewport(viewport.width,viewport.height,0,0);
     }
   }
