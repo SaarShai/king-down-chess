@@ -16,7 +16,7 @@ body[data-page='end'] #page-head { position: relative; z-index: 3; }
 .new-badge small { color: var(--ink-soft); font-weight: 400; }
 #over.end-card form { margin-top: var(--space-3); }
 #over.end-card .quiet-line { margin-top: var(--space-2) !important; }
-/* Under 320 px, leave Back and 12 px clear. Short viewports keep New game cut to show that the card scrolls. */
+/* Under 320 px, leave Back and 12 px clear. Short viewports keep the actions in a scroll box. */
 @media (max-width: 319px) {
   .frame dialog#over.end-card { max-height: calc(100% - 68px); padding-top: 8px; }
   #over.end-card .over-art, #over.end-card .over-words { display: none; }

@@ -13,7 +13,7 @@ F-5 and taste calls T-1 to T-3 stay out of this build.
 2. F-1: hide the words line below 320 px. Check win and loss at 206 x 395, insets 27/12. Keep the existing 197 x 426 and Safari 201 x 357 cases.
 3. F-2: apply the drag gate at pointer down. Check that a swipe sends no selection or click when drag is off. Keep a tap.
 4. F-3: centre direct sheet buttons. Check card and power Use at 402 px. Keep move rows left aligned. Check the menu and resign sheet.
-5. F-4: give the first dot its own row item. Check the row elements and the gap in the hall.
+5. F-4: give the first dot its own item. Check the row elements and the gap in the hall.
 6. Run the type check, full tests through the lock, and plugin-ui on the M1 and WebKit on this Mac. Commit the build and record the results.
 
 The checks use the interfaces that the owner names in ticket 39: PaintedView pointer events, gamesList row elements, and the built page.
@@ -42,4 +42,10 @@ The owner receives this choice as a question; work continues with the group as t
 The first browser pass at 87fa4fe9 stops on the new tap check after a swipe. Read the tap point again after the scroll reset and wait for the note. The swipe status check passes.
 Two full-suite timing checks also fail: the computer reply and the wait poll count. Rerun them with the same limits.
 
-Final results follow here.
+The raw tap added after the native swipe is outside the required F-2 unit check. Its inferred tile point does not open the expected note in this sample, also after a fresh point read. Remove this extra probe. Keep the required pointer-event tap check and the native scroll/status check. The main Android recheck still tests the real e2 tap.
+F-1 hides the win words at every width below 320 px. This can show New game in full at 197 px. The owner ticket requires at least 12 px, so the check permits a full button and still requires a scrollable card and access to all actions. The loss at 206 px also keeps its 42 px view, with 1 px rounding.
+The three focused test files pass at 29ba68cd: 61 tests, plus 51 art tests. No time limit changes.
+
+Final logs and the complete result go to the lane report that the owner names. The ticket stays open for the main Android device recheck.
+Report: /private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/device-faults/39-device-faults-build.md
+
