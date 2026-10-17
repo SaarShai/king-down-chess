@@ -16,6 +16,18 @@ beforeEach(() => {
  vi.mocked(loadMatch).mockResolvedValue({apply,close,exportSave} as unknown as LocalMatch);
 });
 describe('game service failure boundaries', () => {
+ it('loads the engine save on a full read only, for the move history', async () => {
+  // The store selects the engine save only when asked, as its SQL does.
+  const reads = {load:vi.fn(), seen:vi.fn(), commands:vi.fn().mockResolvedValue([]), pool:{}};
+  const game = {id,kind:'solo',status:'playing',turn:0,revision:2,created_at:new Date(0),deadline_at:null,draw_offer:null,
+   snapshot:{fen:'fen',inCheck:false,legal:[],history:['e2-e4','e7-e5'],rules:{kings:[],hands:[]}},
+   players:[{...seat(0,actor),last_seen_ms:0},{...seat(1,null),last_seen_ms:null}]};
+  reads.load.mockImplementation(async (_id: string, options?: {state?: boolean}) => ({...game, ...options?.state && {state:JSON.stringify({initialFen:'start'})}}));
+  const views = new GameService(reads as unknown as PostgresMatchStore);
+  expect((await views.view(actor,id)).history).toEqual({initial_fen:'start',actions:['e2-e4','e7-e5']});
+  expect((await views.view(actor,id,1)).history).toBeUndefined();
+  expect(reads.load.mock.calls.map(call => call[1])).toEqual([{state:true},{state:false}]);
+ });
  it('refuses a custom position in a game against a person', async () => {
   for (const kind of ['random', 'friend'])
    await expect(service.create(actor,{kind,setup:{fen:'7k/8/8/8/8/8/8/K7 w - - 0 1'}})).rejects.toMatchObject({code:'INVALID_INPUT',status:400});

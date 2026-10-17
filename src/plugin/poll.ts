@@ -5,8 +5,13 @@ export function pollDelay(view: PollView, waitingMs: number, hidden: boolean): n
   if (view === 'waiting for a join') return waitingMs < 120000 ? 5000 : 15000;
   if (view.kind === 'solo' || view.status === 'finished' || view.status === 'aborted') return;
   if (view.status === 'waiting' || view.status === 'setup') return waitingMs < 120000 ? 5000 : 15000;
-  const commands = view.last_commands.filter(command => command.seat !== null && command.seat !== view.seat).map(command => Date.parse(command.at)).filter(Number.isFinite);
-  const seen = view.opponent?.last_seen_ms ?? Math.max(0, Date.parse(view.server_now) - Math.max(...commands));
+  if (view.draw_offer != null) return 3000;
+  const age = (mine: boolean, types?: string[]) => Date.parse(view.server_now) - Math.max(...view.last_commands
+    .filter(command => command.seat !== null && (command.seat === view.seat) === mine && (!types || types.includes(command.action.type)))
+    .map(command => Date.parse(command.at)).filter(Number.isFinite));
+  // For 2 minutes after your own move, draw or rematch command, the other side's answer shows within 3 seconds.
+  if (age(true, ['turn', 'draw', 'rematch']) < 120000) return 3000;
+  const seen = view.opponent?.last_seen_ms ?? Math.max(0, age(false));
   if (view.turn !== view.seat && seen < 120000) return 3000;
   return view.speed === 'daily' ? 30000 : 15000;
 }

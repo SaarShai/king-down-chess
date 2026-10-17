@@ -91,6 +91,13 @@ describe('the counter reads its lists from the runner and the shared module', ()
     expect(registeredChecks()).toEqual([...new Set(checks.map(c => c.script))]);
   });
 
+  it('counts the plugin check scripts that plugin-browser-check runs', () => {
+    for (const probe of ['tools/plugin-ui-check.mjs', 'tools/plugin-oauth-check.mjs']) {
+      expect(readFileSync(join(__dirname, '..', 'plugin-browser-check.mjs'), 'utf8')).toContain(probe);
+      expect(count(file(probe, [5, ['  assert.equal(a, b);'], []]))).toEqual([{ file: probe, line: 5, text: 'assert.equal(a, b);' }]);
+    }
+  });
+
   it('takes the probe files from the registry pattern that the ux-defects runner uses', () => {
     const probes = readdirSync(join(__dirname, '..', 'ux-defects')).map(name => `tools/ux-defects/${name}`).filter(path => probeFiles.test(path));
     expect(probes).toContain('tools/ux-defects/d10-enemy-card.mjs');

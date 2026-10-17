@@ -4,7 +4,7 @@
   --context-height: 77px; /* Three 20 px lines, padding and the top border. */
   height: 100vh; height: 100dvh;
   display: grid; grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: var(--strip-height) minmax(0, max-content) var(--strip-height) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
+  grid-template-rows: var(--strip-row, var(--strip-height)) minmax(0, max-content) var(--strip-row, var(--strip-height)) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
   grid-template-areas: 'them' 'board' 'me' 'context' 'moves' 'space' 'bar';
   max-width: 760px; margin: auto; padding-top: env(safe-area-inset-top);
 }
@@ -106,7 +106,7 @@
 @media (max-height: 640px) and (max-width: 899px) and (orientation: portrait) {
   #game-table {
     --strip-height: 44px; --context-height: 57px;
-    grid-template-rows: 44px minmax(0, max-content) 44px 57px 44px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
+    grid-template-rows: var(--strip-row, 44px) minmax(0, max-content) var(--strip-row, 44px) minmax(var(--context-height), max-content) 44px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
   }
   #game-table .player-strip { padding-block: 0; }
   #game-table .portrait { width: 36px; height: 36px; }
@@ -114,7 +114,7 @@
   #game-table .player-name small { margin-left: 4px; }
   #game-table .coin { width: 44px; height: 44px; }
   #game-table .coin img { width: 32px; height: 32px; }
-  #context-line { height: 57px; padding-block: 0; flex-wrap: nowrap; }
+  #context-line { min-height: 57px; padding-block: 0; flex-wrap: nowrap; }
   #context-text { -webkit-line-clamp: 3; line-height: 1.25; overflow: hidden; }
   #context-text[data-rank='previously'] { overflow: hidden; font-size: 14px; max-height: 52.5px; }
   #context-text #previously-before { display: none; }

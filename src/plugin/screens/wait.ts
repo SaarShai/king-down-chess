@@ -36,7 +36,8 @@ export function waitScreen() {
 function tick() {
   if (client.state.screen !== 'wait' || !open) return;
   const seconds = Math.max(0, Math.floor((Date.now() - began) / 1000));
-  $('page-title').textContent = `Looking for an opponent · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  $('page-title').textContent = 'Finding an opponent';
+  $('wait-time').textContent = `Waiting ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}.`;
   $('wait-computer').hidden = seconds < 25;
 }
 async function computer() {

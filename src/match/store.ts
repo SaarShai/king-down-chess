@@ -45,16 +45,20 @@ export class PostgresMatchStore {
   const players = await client.query(`select ${PLAYER} from public.game_players p left join public.profiles pr on pr.id=p.user_id where p.game_id=$1 order by p.seat`, [id]);
   return { ...game.rows[0], players: players.rows as [Player, Player] };
  }
- async insert(game: Game, client?: PoolClient): Promise<void> {
+ /** False when a game with this ID exists already: a resent start keeps the first game. */
+ async insert(game: Game, client?: PoolClient): Promise<boolean> {
   if (!client) return this.transaction(c => this.insert(game, c));
-  await client.query(`insert into public.games(id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,turn,revision,state,snapshot,created_by,created_at,started_at,updated_at,options,draw,deal,level,setup_deadline_at,deadline_at,deadline_kind)
-   values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$17,$19,$20,$21,$22,$23,$24,$25)`,
+  const added = await client.query(`insert into public.games(id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,turn,revision,state,snapshot,created_by,created_at,started_at,updated_at,options,draw,deal,level,setup_deadline_at,deadline_at,deadline_kind)
+   values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$17,$19,$20,$21,$22,$23,$24,$25) on conflict (id) do nothing`,
    [game.id, game.kind, game.speed, game.days_per_move, game.category, game.readings, game.colour_rule, game.engine_fingerprint, game.setup, game.rules, game.status, game.turn, game.revision, game.state, game.snapshot, game.created_by, game.created_at, game.started_at, game.options, game.draw, game.deal === null ? null : JSON.stringify(game.deal), game.level, game.setup_deadline_at, game.deadline_at, game.deadline_kind]);
+  if (!added.rowCount) return false;
   for (const p of game.players) await client.query(`insert into public.game_players(game_id,seat,user_id,computer,handle_at_start,power,action,last_seen_at,choice,ready)
    values($1,$2,$3,$4,(select handle from public.profiles where id=$3),$5,$6,$7,$8,$9)`, [game.id, p.seat, p.user_id, p.computer, p.power, p.action, p.last_seen_at, p.choice, p.ready]);
+  return true;
  }
- async seen(game: string, seat: Seat): Promise<void> {
-  await this.pool.query("update public.game_players set last_seen_at=statement_timestamp() where game_id=$1 and seat=$2 and (last_seen_at is null or last_seen_at<=statement_timestamp()-interval '30 seconds')", [game, seat]);
+ /** The user's seat activity, at most once each 30 seconds; a user with no seat changes nothing. */
+ async seen(game: string, user: string): Promise<void> {
+  await this.pool.query("update public.game_players set last_seen_at=statement_timestamp() where game_id=$1 and user_id=$2 and (last_seen_at is null or last_seen_at<=statement_timestamp()-interval '30 seconds')", [game, user]);
  }
  /** Writes `next` (revision = before + 1), its log row and its alerts. State and snapshot are written only when they changed. */
  async save(client: PoolClient, before: Game, next: Game, log: Log, out: Outgoing): Promise<void> {
@@ -81,7 +85,8 @@ export class PostgresMatchStore {
  }
  /** The commands after `since` (at most 50, the newest), or the last 10. */
  async commands(game: string, since?: number, client: Client = this.pool): Promise<LoggedCommand[]> {
-  const result = await client.query(`select seq,seat,kind,payload,actions,created_at from public.game_commands where game_id=$1 and seq>$2 order by seq desc limit $3`, [game, since ?? 0, since === undefined ? 10 : 50]);
+  // A start receipt is no move: its time would show when a player who hides online status chose Find (RV7-2).
+  const result = await client.query(`select seq,seat,kind,payload,actions,created_at from public.game_commands where game_id=$1 and seq>$2 and kind<>'start' order by seq desc limit $3`, [game, since ?? 0, since === undefined ? 10 : 50]);
   return result.rows.reverse().map(r => ({ seq: r.seq, seat: r.seat, at: r.created_at.toISOString(),
    action: r.kind === 'join' || r.kind === 'expire' ? { type: r.kind } : r.kind === 'computer' ? { type: 'computer', actions: r.actions } : r.payload.action }));
  }
@@ -126,12 +131,13 @@ export class PostgresMatchStore {
   return result.rows.map(({ op_user, op_computer, op_seen, op_handle, op_icon, ...r }) => ({ ...r, created_at: r.created_at.toISOString(), open_until: r.open_until?.toISOString() ?? null, deadline_at: r.deadline_at?.toISOString() ?? null, updated_at: r.updated_at.toISOString(),
    opponent: r.status === 'waiting' && !op_user ? null : { handle: op_handle ?? null, icon: op_icon ?? null, computer: op_computer, deleted: !op_user && !op_computer, last_seen_ms: op_seen } }));
  }
- async lobby(actor: string, { client = this.pool as Client, lock = false } = {}): Promise<LobbyEntry[]> {
+ /** Open random games, oldest first. `switches` (JSON) keeps only games whose options contain those values. */
+ async lobby(actor: string, { client = this.pool as Client, lock = false, switches }: { client?: Client; lock?: boolean; switches?: string } = {}): Promise<LobbyEntry[]> {
   const result = await client.query(`select g.id as game_id,g.options,p.seat,pr.handle,pr.icon,g.created_at from public.games g
    join public.game_players p on p.game_id=g.id and p.user_id is null and not p.computer
    join public.profiles pr on pr.id=g.created_by
    where g.kind='random' and g.status='waiting' and g.created_at>statement_timestamp()-interval '24 hours' and g.created_by<>$1 and pr.handle is not null and ${unblocked('$1', 'g.created_by')}
-   order by g.created_at,g.id limit ${lock ? 1 : 100}${lock ? ' for update of g skip locked' : ''}`, [actor]);
+   and ($2::jsonb is null or g.options @> $2::jsonb) order by g.created_at,g.id limit ${lock ? 1 : 100}${lock ? ' for update of g skip locked' : ''}`, [actor, switches ?? null]);
   return result.rows.map(({ seat, handle, icon, created_at, ...row }) => ({ ...row, colour: seat === 0 ? 'white' : 'black', creator: { handle, icon }, created_at: created_at.toISOString() }));
  }
  async activeCount(): Promise<number> {

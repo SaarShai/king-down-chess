@@ -73,6 +73,7 @@ export function describeMove(pre: Position, m: Move, freePass = false, final = f
   if (freePass && m.pass && pre.free) return `${side} ends the turn after the ${pre.marks?.[pre.turn] ? 'mark' : 'draw'}.`;
   if (m.pass) return `${side} ends the turn without the ${pre.rage === 3 ? 'Rally' : 'Haste'} second move.`;
   if (m.power === 'freeze') return `${side} freezes the ${colour(m.to)} ${the(m.to)}.`;
+  if (m.power === 'firewall') return `${side} uses Firewall to protect all its pieces until its next turn.`;
   if (m.power === 'ward') return `${side} puts an Ice Wall on the ${colour(m.to)} ${the(m.to)}.`;
   if (m.power === 'sacrifice') return `${side} sacrifices the pawn on ${sqName(m.from)} and brings back ${aName(m.promo!)} there.`;
   if (m.power === 'morph' || m.power === 'morphb' || m.power === 'morphp') return `${side} turns ${theOn(m.from)} into ${aName(m.promo!)}.`;

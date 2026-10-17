@@ -43,6 +43,32 @@ try {
   assert.equal(createHash('sha256').update(exchange.code_verifier).digest('base64url'), signInUrl.searchParams.get('code_challenge'));
   assert.equal(new URL(signin.url()).searchParams.get('authorization_id'), authorizationId);
   await signin.close();
+  // Approval D8 a: the one review account signs in with a password under the closed form, then sees the same account choice.
+  const review = await browser.newPage(); trapErrors(review, [{ pattern: /^Failed to load resource: the server responded with a status of 400 \(Bad Request\)$/, reason: 'The wrong-password case returns 400 on purpose.' }]);
+  const grants = [];
+  await review.route('https://project.supabase.co/**', async route => {
+    const url = new URL(route.request().url());
+    if (!url.pathname.endsWith('/token')) { await route.fulfill({ json: { authorization_id: authorizationId, redirect_uri: 'https://client.example/callback', client: { id: clientId, name: 'King Down browser check', uri: 'https://client.example', logo_uri: '' }, user: { id: actor, email: 'review@example.test' }, scope: 'openid email' } }); return; }
+    const body = route.request().postDataJSON(); grants.push([url.searchParams.get('grant_type'), body.email]);
+    if (body.password !== 'test-only-value') { await route.fulfill({ status: 400, json: { code: 'invalid_credentials', message: 'Invalid login credentials' } }); return; }
+    const now = Math.floor(Date.now() / 1000);
+    await route.fulfill({ json: { access_token: `header.${Buffer.from(JSON.stringify({ exp: now + 3600, sub: actor })).toString('base64url')}.signature`, refresh_token: 'mock-refresh', expires_in: 3600, expires_at: now + 3600, token_type: 'bearer', user: { id: actor, email: 'review@example.test', is_anonymous: false, app_metadata: {}, user_metadata: {} } } });
+  });
+  await review.goto(`${origin}/authorize?authorization_id=${authorizationId}`);
+  await review.getByRole('button', { name: 'Continue with Google' }).waitFor();
+  assert(await review.getByLabel('Password').isHidden(), 'The password form starts closed under Google and GitHub');
+  await review.getByText('Sign in with email and password', { exact: true }).click();
+  await review.getByLabel('Email').fill(' review@example.test '); await review.getByLabel('Password').fill('wrong');
+  await review.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await review.getByText('The email or the password is not correct. Try again.', { exact: true }).waitFor();
+  assert.equal(await review.getByLabel('Password').inputValue(), ''); assert(await review.getByRole('button', { name: 'Sign in', exact: true }).isEnabled());
+  await review.getByLabel('Password').fill('test-only-value'); await review.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await review.getByText('review@example.test', { exact: true }).waitFor();
+  await review.getByRole('button', { name: 'Continue', exact: true }).click();
+  await review.getByRole('button', { name: 'Allow connection' }).waitFor();
+  assert.deepEqual(grants, [['password', 'review@example.test'], ['password', 'review@example.test']]);
+  assert.equal(new URL(review.url()).searchParams.get('authorization_id'), authorizationId);
+  await review.close();
   for (const action of ['approve', 'deny', 'unlisted']) {
     const page = await browser.newPage(); trapErrors(page, action === 'unlisted' ? [{ pattern: /^Failed to load resource: the server responded with a status of 503 \(Service Unavailable\)$/, reason: 'The sign-out failure case returns 503 on purpose.' }] : []); let decision;
     const now = Math.floor(Date.now() / 1000);
@@ -93,7 +119,7 @@ try {
   }
   const missing = await browser.newPage(); trapErrors(missing); await missing.goto(`${origin}/authorize`); await missing.getByText('This authorization request is unavailable or expired.', { exact: false }).waitFor(); assert(await missing.getByRole('button', { name: 'Allow connection' }).isHidden()); await missing.close();
   assertNoErrors();
-  console.log('Consent browser: PKCE social return, account choice before existing-grant redirect, local account switch, SDK approve/deny, sign-out failure preserves blocked client, escaped client name, and missing request passed');
+  console.log('Consent browser: PKCE social return, review password sign-in (closed form, wrong password, account choice), account choice before existing-grant redirect, local account switch, SDK approve/deny, sign-out failure preserves blocked client, escaped client name, and missing request passed');
 } finally { await browser?.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 
 // Retry a failed OAuth-discovery configuration without contacting a real Auth server.
@@ -122,7 +148,7 @@ try {
   await client.query(sql);
   await client.query('insert into kingdown_oauth.client_resources(client_id,resource) values($1,$2) on conflict(client_id) do update set resource=excluded.resource', [clientId, 'https://plugin.example/mcp']);
   const now = Math.floor(Date.now() / 1000);
-  const claims = { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', exp: now + 3600, iat: now, sub: actor, role: 'authenticated', aal: 'aal1', session_id: randomUUID(), email: 'player@example.test', phone: '', is_anonymous: false, client_id: clientId, scope: 'openid email' };
+  const claims = { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', exp: now + 3600, iat: now, sub: actor, role: 'authenticated', aal: 'aal1', session_id: randomUUID(), email: 'player@example.test', phone: '', is_anonymous: false, app_metadata: { provider: 'google', providers: ['google'] }, client_id: clientId, scope: 'openid email' };
   await client.query('set local role supabase_auth_admin');
   async function hook(event) { return (await client.query('select public.kingdown_access_token_hook($1::jsonb) as result', [event])).rows[0].result.claims; }
   const oauth = await hook({ user_id: actor, authentication_method: 'oauth_provider/authorization_code', claims }); assert.deepEqual(oauth, { ...claims, aud: 'https://plugin.example/mcp' });

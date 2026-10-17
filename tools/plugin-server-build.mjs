@@ -4,14 +4,31 @@ import { build } from 'vite';
 import { builtinModules } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { existsSync, readFileSync } from 'node:fs';
 import { cp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRuntime } from './plugin-runtime-build.mjs';
 import { ART_HEADERS, ART_TYPES } from './plugin-art-headers.mjs';
 
+/** Site routes keep the domain challenge separate from the plugin function. */
+export function vercelRoutes(site) {
+  const routes = Object.entries(ART_TYPES).map(([type, contentType]) => ({ src: `^/plugin-art/[\\w-]+\\.${type}$`, headers: { ...ART_HEADERS, 'Content-Type': contentType }, continue: true }));
+  if (site) {
+    const challenge = resolve(site, '.well-known/openai-apps-challenge');
+    if (existsSync(challenge)) {
+      const token = readFileSync(challenge, 'utf8');
+      if (!token || /\s/.test(token)) throw new Error('openai-apps-challenge must contain only the token, with no white space or final newline');
+      routes.push({ src: '^/\\.well-known/openai-apps-challenge$', headers: { 'Content-Type': 'text/plain' }, continue: true });
+    }
+    routes.push({ src: '^/internal/.+$', dest: '/internal' });
+  }
+  return routes;
+}
+
 export async function buildPluginServer(outDir = resolve('plugin-server-dist'), { vercel = false, site } = {}) {
   vercel ||= Boolean(site);
+  const routes = vercel ? vercelRoutes(site) : [];
   const root = fileURLToPath(new URL('../', import.meta.url));
   const output = vercel ? resolve(outDir, '.vercel/output') : outDir;
   const functionDir = vercel ? resolve(output, 'functions/mcp.func') : output;
@@ -50,12 +67,10 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     await symlink('mcp.func', resolve(output, 'functions/consent.mjs.func'));
     await symlink('../mcp.func', resolve(discovery, 'oauth-protected-resource.func'));
     await symlink('../../mcp.func', resolve(discovery, 'oauth-protected-resource/mcp.func'));
-    const routes = Object.entries(ART_TYPES).map(([type, contentType]) => ({ src: `^/plugin-art/[\\w-]+\\.${type}$`, headers: { ...ART_HEADERS, 'Content-Type': contentType }, continue: true }));
     if (site) {
       await cp(site, resolve(output, 'static'), { recursive: true });
       // The function entry (tools/plugin-server.mjs) dispatches these paths; Vercel keeps the request path.
       await symlink('mcp.func', resolve(output, 'functions/internal.func'));
-      routes.push({ src: '^/internal/.+$', dest: '/internal' });
     }
     await writeFile(resolve(output, 'config.json'), JSON.stringify({ version: 3, routes }) + '\n');
   }

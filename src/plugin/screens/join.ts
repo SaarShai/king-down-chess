@@ -4,12 +4,16 @@ import { $, features, onStop, portrait, row, showError, toolError } from './frie
 let reading = false, joining = false, afterHandle = false;
 let checked = '';
 export function joinScreen() {
+  $('join-help').textContent = 'Enter the game code.';
+  $('join-game-head').hidden = $('join-preview').hidden = $('join-foot').hidden = true;
+  $<HTMLInputElement>('join-code').value = memory.code;
   $('join-message').textContent = '';
   $('join-preview').replaceChildren();
   $('join-confirm').hidden = true;
   $('join-entry').hidden = !!memory.code || !!memory.preview;
   $('join-decline').onclick = () => { afterHandle = false; memory.code = ''; memory.preview = undefined; memory.joinError = undefined; checked = ''; navigate('play'); };
   $('join-entry').onsubmit = event => { event.preventDefault(); memory.code = $<HTMLInputElement>('join-code').value.trim(); memory.joinError = undefined; void preview(); };
+  $<HTMLInputElement>('join-code').oninput = () => { memory.code = $<HTMLInputElement>('join-code').value; memory.joinError = undefined; $('join-message').textContent = ''; };
   $('join-confirm').onclick = () => void join();
   if (afterHandle && memory.me?.handle) { afterHandle = false; void join(); return; }
   if (memory.joinError) { $('join-message').textContent = toolError(memory.joinError.code, memory.joinError.message); $('join-entry').hidden = false; return; }
@@ -20,8 +24,10 @@ export function joinScreen() {
 }
 function render(value: JoinPreview) {
   $('join-entry').hidden = true;
+  $('join-help').textContent = 'Review this game before you join.';
+  $('join-game-head').hidden = $('join-preview').hidden = $('join-foot').hidden = false;
   $('join-preview').replaceChildren(row('Your opponent', portrait(value.creator.icon), [value.creator.handle ?? 'Your friend']));
-  if (value.options) $('join-preview').append(row('Features', 'fairy', [features(value.options), `You play ${value.colour === 'white' ? 'White' : 'Black'}.`]));
+  if (value.options) $('join-preview').append(row('Features', 'fairy', [features(value.options, true), `You play ${value.colour === 'white' ? 'White' : 'Black'}.`]));
   else $('join-preview').append(row('Your colour', 'clock', [`You play ${value.colour === 'white' ? 'White' : 'Black'}.`]));
   $('join-confirm').hidden = false;
 }
@@ -39,8 +45,12 @@ async function preview() {
 async function join() {
   if (joining || !memory.preview) return;
   joining = true; $<HTMLButtonElement>('join-confirm').disabled = true;
+  const board = client.state.board_id;
   try {
     const result = await client.call('kingdown_join', { code: memory.preview.code });
+    // A newer chat selection keeps its board and screen, even if this reply is an error.
+    const selected = result._meta?.board_id;
+    if ((typeof selected === 'string' ? selected : board) !== client.state.board_id) return;
     if (result.isError) {
       if (result._meta?.code === 'HANDLE_NEEDED') { afterHandle = true; navigate('handle'); return; }
       throw new Error(toolError(String(result._meta?.code ?? ''), result.content.filter(c => c.type === 'text').map(c => c.text).join(' ')));

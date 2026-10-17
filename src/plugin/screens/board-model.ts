@@ -5,7 +5,7 @@ import { describeMove } from '../../move-text';
 
 export type BoardMove = { pre: Position; pos: Position; move: Move; lan: string; words: string };
 export function stripLine(side: Color, rating?: NonNullable<View['opponent']>['rating'], level?: View['level']): string {
-  if (level) return 'Computer · ' + level[0].toUpperCase() + level.slice(1);
+  if (level) return level[0].toUpperCase() + level.slice(1);
   const colour = side === 0 ? 'White' : 'Black';
   return rating ? `${Math.round(rating.rating)}${rating.provisional ? '?' : ''} · ${colour}` : colour;
 }
@@ -39,6 +39,18 @@ export function replayLans(before: Pick<View, 'game_id' | 'revision' | 'fen'>, n
     }
   }
   return revision === next.revision && toFen(pos) === next.fen ? steps : undefined;
+}
+
+export function replayHistory(next: View, rules: Partial<Rules>): BoardMove[] | undefined {
+  if (!next.history) return;
+  let pos = fromFen(next.history.initial_fen);
+  const steps: BoardMove[] = [];
+  for (const lan of next.history.actions) {
+    const step = applyLan(pos, lan, rules);
+    if (!step) return;
+    steps.push(step); pos = step.pos;
+  }
+  return toFen(pos) === next.fen ? steps : undefined;
 }
 
 export function boardActions(view: View, elapsed = 0): { abort: boolean; claim: 'win' | 'end' | null } {

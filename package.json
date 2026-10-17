@@ -29,6 +29,7 @@
     "plugin:check:protocol": "tsx tools/plugin-protocol-check.ts",
     "plugin:db:init-test": "node tools/plugin-db/bootstrap-test.mjs",
     "plugin:db:migrate": "tsx tools/plugin-db/migrate.ts",
+    "plugin:db:seed-review": "tsx tools/plugin-db/seed-review.ts",
     "mod": "tsx tools/mod.ts",
     "plugin:server:check": "node tools/plugin-server-check.mjs",
     "plugin:serve": "node plugin-server-dist/server.mjs",

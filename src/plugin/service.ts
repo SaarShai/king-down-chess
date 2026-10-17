@@ -7,7 +7,7 @@ import { handleProblem, ICONS } from '../account/profile';
 import { fail, GameService, id, parse } from '../match/service';
 import type { PostgresMatchStore } from '../match/store';
 import { AccountService } from '../online/accounts';
-import { SettingsService } from './settings';
+import { SettingsService, settingsSchema, type PlayerSettings } from './settings';
 import { SafetyService } from '../online/safety';
 
 export const handleSchema = z.strictObject({ handle: z.string().max(40).optional(), icon: z.enum(Object.keys(ICONS) as [keyof typeof ICONS, ...(keyof typeof ICONS)[]]).optional(), check: z.boolean().optional() });
@@ -15,9 +15,11 @@ const seated = 'exists(select from public.game_players where game_id=$3 and user
 export class PluginService {
   private games: GameService; private safety: SafetyService; private accounts: AccountService; private playerSettings: SettingsService;
   constructor(private store: PostgresMatchStore) { this.games = new GameService(store); this.safety = new SafetyService(store); this.accounts = new AccountService(store); this.playerSettings = new SettingsService(store.pool); }
-  create(actor: string, input: unknown) { return this.games.create(actor, input); }
-  /** A seat read also records activity at most once each 30 seconds. */
+  create(actor: string, input: unknown, commandId?: string) { return this.games.create(actor, input, commandId); }
+  /** Read-only. */
   view(actor: string, gameId: string, since?: number) { return this.games.view(actor, gameId, since); }
+  /** Records seat activity at most once each 30 seconds. */
+  seen(actor: string, gameId: string) { return this.games.seen(actor, gameId); }
   /** Read-only. */
   inbox(actor: string) { return this.games.inbox(actor); }
   /** Read-only: finished games and the actor's record. */
@@ -29,12 +31,19 @@ export class PluginService {
   preview(actor: string, code: unknown) { return this.games.preview(actor, code); }
   lobby(actor: string) { return this.games.lobby(actor); }
   accept(actor: string, gameId: string) { return this.games.accept(actor, gameId); }
-  find(actor: string, options: unknown, colour: unknown = 'white') { return this.games.find(actor, options, colour); }
+  find(actor: string, options: unknown, colour: unknown = 'white', commandId?: string, anyRules = false) { return this.games.find(actor, options, colour, commandId, anyRules); }
   cancel(actor: string, gameId: string) { return this.games.cancel(actor, gameId); }
   report(actor: string, input: unknown) { return this.safety.report(actor, input); }
   /** Read-only. The ID and the handle; never the email. */
   async profile(actor: string) { const { user_id, handle, icon } = await this.accounts.profile(actor); return { user_id, handle, icon }; }
-  settings(actor: string, input: unknown = {}) { return this.playerSettings.settings(actor, input); }
+  /** Board settings and last setup, plus 'Show when I am online': on is 'everyone', off is 'nobody'. The default
+   * 'mutual' shows as off: no King Down screen can make a follow yet, so it acts like 'nobody'. */
+  async settings(actor: string, input: unknown = {}): Promise<PlayerSettings> {
+    const { show_online, ...board } = parse(settingsSchema, input);
+    if (show_online !== undefined) await this.accounts.updateSettings(actor, { online_visible_to: show_online ? 'everyone' : 'nobody' });
+    const [settings, { online_visible_to }] = await Promise.all([this.playerSettings.settings(actor, board), this.accounts.profile(actor)]);
+    return { ...settings, show_online: online_visible_to === 'everyone' };
+  }
   async handle(actor: string, input: unknown) {
     actor = id(actor); const { handle, icon, check } = parse(handleSchema, input);
     if (check) {
@@ -45,7 +54,7 @@ export class PluginService {
       if (taken) fail('HANDLE_TAKEN', 409, 'This handle is taken');
     } else {
       if (handle !== undefined) await this.accounts.setHandle(actor, { handle });
-      if (icon !== undefined) await this.accounts.updateSettings(actor, { icon });
+      if (icon !== undefined && (await this.profile(actor)).icon !== icon) await this.accounts.updateSettings(actor, { icon });
     }
     return this.profile(actor);
   }

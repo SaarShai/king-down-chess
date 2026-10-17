@@ -47,3 +47,24 @@ it('reads at mount and visibility, and stops on hide and teardown', async () => 
     page.dispatchEvent(new Event('visibilitychange')); await vi.advanceTimersByTimeAsync(60000); expect(read).toHaveBeenCalledTimes(3);
   } finally { runner.stop(); vi.useRealTimers(); }
 });
+
+
+it('reads every three seconds for two minutes after your own move, draw or rematch answer against a person', () => {
+  const idle = { handle: null, icon: null, computer: false, deleted: false, last_seen_ms: 600000 };
+  const own = (type: 'turn' | 'draw' | 'rematch', ago: number) => [{ seq: 3, seat: 0 as const, at: new Date(Date.parse('2026-10-11T12:00:00.000Z') - ago).toISOString(), action: type === 'turn' ? { type, actions: ['e2-e4'] } : { type, choice: 'offer' as const } }];
+  for (const type of ['turn', 'draw', 'rematch'] as const) {
+    expect(pollDelay(view({ opponent: idle, last_commands: own(type, 0) }), 0, false)).toBe(3000);
+    expect(pollDelay(view({ opponent: idle, last_commands: own(type, 119999) }), 0, false)).toBe(3000);
+    expect(pollDelay(view({ opponent: idle, last_commands: own(type, 120000) }), 0, false)).toBe(30000);
+  }
+  // A draw answer or a rematch offer leaves the turn with you.
+  expect(pollDelay(view({ turn: 0, opponent: idle, last_commands: own('draw', 5000) }), 0, false)).toBe(3000);
+  // Never faster in a computer game.
+  expect(pollDelay(view({ kind: 'solo', last_commands: own('turn', 0) }), 0, false)).toBeUndefined();
+});
+
+it('reads a pending draw offer every three seconds, also on your turn', () => {
+  expect(pollDelay(view({turn:0,draw_offer:0}), 0, false)).toBe(3000);
+  expect(pollDelay(view({turn:0,draw_offer:1}), 0, false)).toBe(3000);
+  expect(pollDelay(view({turn:0,draw_offer:null}), 0, false)).toBe(30000);
+});

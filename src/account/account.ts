@@ -132,7 +132,7 @@ export function startAccount(onApply: (down: Section[]) => void): void {
       await (await load()).deleteAccount();
       sync?.stop(); sync = null; userId = ''; user = null;
       render();
-      say('Your account is deleted. Your games stay on this device.');
+      say('We delete your account in seven days. To keep it, sign in again before then. Your games stay on this device.');
     } catch { say('Could not delete your account. Check your connection and try again.'); }
   });
   addEventListener('online', () => { if (sync) void sync.flush(); else if (user) void load().catch(() => {}); });

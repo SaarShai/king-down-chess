@@ -15,7 +15,7 @@ async function mount() {
   await bridge?.close();
   bridge = new AppBridge(null, { name: 'King Down local harness', version: '1' }, { serverTools: {}, updateModelContext: {} }, { hostContext: { displayMode: (window as any).harnessDisplayMode ?? 'inline', availableDisplayModes: ['inline', 'fullscreen'], ...(window as any).harnessHostContext } });
   (window as any).harnessSetContext = async (context: any) => { (window as any).harnessHostContext = context; await bridge!.setHostContext(context); };
-  bridge.onrequestdisplaymode = async ({ mode }) => { (window as any).harnessDisplayRequests ??= []; (window as any).harnessDisplayRequests.push(mode); (window as any).harnessDisplayMode = mode; await bridge!.setHostContext({ displayMode: mode }); return { mode }; };
+  bridge.onrequestdisplaymode = async ({ mode }) => { (window as any).harnessDisplayRequests ??= []; (window as any).harnessDisplayRequests.push(mode); if ((window as any).denyDisplayNext) { (window as any).denyDisplayNext = false; return { mode: (window as any).harnessDisplayMode ?? 'inline' }; } if ((window as any).holdDisplayNext) { (window as any).holdDisplayNext = false; await new Promise(resolve => { (window as any).releaseDisplay = resolve; }); } (window as any).harnessDisplayMode = mode; await bridge!.setHostContext({ displayMode: mode }); return { mode }; };
   bridge.oncalltool = async params => {
     (window as any).harnessCalls ??= []; (window as any).harnessCalls.push(params);
     if ((window as any).rejectNextGet && params.name === 'kingdown_get') { (window as any).rejectNextGet = false; throw new Error('Harness saved-game read failed'); }
@@ -23,9 +23,13 @@ async function mount() {
     if ((window as any).requireHandleNext && params.name === 'kingdown_create') { (window as any).requireHandleNext = false; return { isError: true, content: [{ type: 'text', text: 'Pick a name and picture first.' }], _meta: { code: 'HANDLE_NEEDED' } }; }
     if ((window as any).failNextAction && params.name !== 'kingdown_handle') { (window as any).failNextAction = false; throw new Error('Harness action after Save failed'); }
     if (params.name === 'kingdown_handle' && params.arguments?.check !== true) { if ((window as any).failActionAfterHandle) { (window as any).failActionAfterHandle = false; (window as any).failNextAction = true; } (window as any).harnessHandle = params.arguments; }
+    // holdBeforeNext holds a call before the server runs it; holdNext (below) holds the reply after the server commits.
+    // Each names one tool, or a list of tools for the first call to any of them.
+    const holds = (hold: unknown) => hold === params.name || (Array.isArray(hold) && hold.includes(params.name));
+    if (holds((window as any).holdBeforeNext)) { (window as any).holdBeforeNext = undefined; await new Promise<void>(resolve => { (window as any).releaseBefore = () => { (window as any).releaseBefore = undefined; resolve(); }; }); }
     const result = await invoke(params.name, params.arguments ?? {});
     if (params.name === 'kingdown_get' && (window as any).harnessNextView) { result._meta.view = (window as any).harnessNextView; (window as any).harnessView = result._meta?.view; (window as any).harnessNextView = undefined; }
-    if ((window as any).holdNext === params.name) { (window as any).holdNext = undefined; await new Promise<void>(resolve => { (window as any).releaseHeld = () => { (window as any).releaseHeld = undefined; resolve(); }; }); }
+    if (holds((window as any).holdNext)) { (window as any).holdNext = undefined; await new Promise<void>(resolve => { (window as any).releaseHeld = () => { (window as any).releaseHeld = undefined; resolve(); }; }); }
     if ((window as any).holdNextGet && params.name === 'kingdown_get') { (window as any).holdNextGet = false; await new Promise<void>(resolve => { (window as any).releaseHeldGet = () => { (window as any).releaseHeldGet = undefined; resolve(); }; }); (window as any).heldGetReturned = true; }
     if ((window as any).dropNextReply === params.name) { (window as any).dropNextReply = undefined; throw new Error('Harness lost reply after commit'); }
     if ((window as any).dropNextMoveReply && params.name === 'kingdown_move') { (window as any).dropNextMoveReply = false; throw new Error('Harness lost reply after commit'); }

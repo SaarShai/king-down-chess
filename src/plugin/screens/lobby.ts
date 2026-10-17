@@ -1,7 +1,8 @@
 import { call, client, memory, navigate, routeView, start } from '../app';
-import { DEFAULT_OPTIONS } from '../../match/setup';
+import { DEFAULT_OPTIONS, switches } from '../../match/setup';
 import type { InboxEntry, Lobby, View } from '../../match/protocol';
 import { runPoll } from '../poll';
+import { ANY_RULES } from './setup';
 import { $, featureNames, features, icon, onStop, portrait, row, showError } from './friend';
 let poll: ReturnType<typeof runPoll> | undefined, finding = false, accepting = false, afterHandle: string | undefined;
 // The list uses the runner's visible 15-second schedule, with no board position.
@@ -10,12 +11,15 @@ export function lobbyScreen() {
   if (afterHandle && memory.me?.handle) { const game = afterHandle; afterHandle = undefined; void acceptGame(game); return; }
   const setup = memory.settings?.last_setup;
   $('find-features').replaceChildren(features(setup?.options ?? DEFAULT_OPTIONS));
+  $('find-any-line').textContent = ANY_RULES;
   $('find-opponent').onclick = async () => {
     if (finding || accepting) return; finding = true;
     try {
-      const own = memory.view?.kind === 'random' && memory.view.status === 'waiting' ? memory.view.game_id : memory.games.find(game => game.kind === 'random' && game.status === 'waiting')?.game_id;
+      // Your own open game comes back with no new Find only when Find would take it: the same five switches, or Any rules (D1 a).
+      const options = setup?.options ?? DEFAULT_OPTIONS, anyRules = $<HTMLInputElement>('find-any-rules').checked;
+      const own = [memory.view, ...memory.games].find(game => game?.kind === 'random' && game.status === 'waiting' && (anyRules || !!game.options && switches(game.options) === switches(options)))?.game_id;
       if (own) { const next = await call('kingdown_resume', { game_id: own }, false, false, false); if (next) routeView(next); }
-      else await start('random', { options: setup?.options ?? DEFAULT_OPTIONS, colour: setup?.colour ?? 'white' });
+      else await start('random', { options, colour: setup?.colour ?? 'white', ...(anyRules && { any_rules: true }) });
     } finally { finding = false; }
   };
   $('lobby-key').innerHTML = featureNames.map(([, name, label]) => `${icon(name)} ${label}`).join(' · ');
@@ -33,7 +37,7 @@ async function readLobby() {
     $('lobby-online').textContent = `${lobby.active_count ?? 0} players online`;
     $('lobby-list').replaceChildren(...lobby.games.map(game => {
       const minutes = Math.max(0, Math.floor((Date.parse(lobby.server_now) - Date.parse(game.created_at)) / 60000));
-      const entry = row(game.creator.handle, portrait(game.creator.icon), [features(game.options), `· open ${minutes} min`], 'button'); entry.classList.add('game-row');
+      const entry = row(game.creator.handle, portrait(game.creator.icon), [features(game.options), minutes === 0 ? '· just opened' : `· open ${minutes} min`], 'button'); entry.classList.add('game-row');
       const accept = document.createElement('span'); accept.className = 'accept'; accept.textContent = 'Accept';
       entry.onclick = () => void acceptGame(game.game_id);
       entry.append(accept); return entry;
@@ -43,8 +47,12 @@ async function readLobby() {
 }
 async function acceptGame(game: string) {
   if (accepting || finding) return; accepting = true;
+  const board = client.state.board_id;
   try {
     const result = await client.call('kingdown_accept', { game_id: game });
+    // A newer chat selection keeps its board and screen, even if this reply is an error.
+    const selected = result._meta?.board_id;
+    if ((typeof selected === 'string' ? selected : board) !== client.state.board_id) return;
     if (result.isError) {
       if (result._meta?.code === 'HANDLE_NEEDED') { afterHandle = game; navigate('handle'); return; }
       if (['NOT_ALLOWED','FORBIDDEN'].includes(String(result._meta?.code))) { await readLobby(); $('lobby-status').textContent = 'Someone else took this game'; return; }

@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import type { View } from '../../match/protocol';
 import { fromFen, toFen, toLan } from '../../rules/setup';
 import { legalMoves, setRules, type CardName } from '../../rules/engine';
-import { applyLan, boardActions, cardCoins, replayLans, stripLine } from './board-model';
+import { applyLan, boardActions, cardCoins, replayHistory, replayLans, stripLine } from './board-model';
 
 const view = (fields: Partial<View> = {}): View => ({ game_id: 'game', revision: 2, created_at: '2026-10-11T00:00:00Z', abort_open: false, seat: 0, kind: 'friend', speed: 'daily', days_per_move: 3, status: 'playing', turn: 1, action: 'waiting', fen: '7k/8/8/8/8/8/P7/K7 b - - 0 1', in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: '2026-10-11T00:00:01Z', server_now: '2026-10-11T00:00:00Z', ...fields });
 
@@ -18,7 +18,7 @@ test('each strip names its rating and colour, or the computer level', () => {
   expect(stripLine(0, { rating: 1499.6, provisional: true })).toBe('1500? · White');
   expect(stripLine(1, { rating: 1540, provisional: false })).toBe('1540 · Black');
   expect(stripLine(1)).toBe('Black');
-  expect(stripLine(1, undefined, 'club')).toBe('Computer · Club');
+  expect(stripLine(1, undefined, 'club')).toBe('Club');
 });
 
 test('the open hand spends Mirror B itself and keeps the copied card', () => {
@@ -56,4 +56,22 @@ test('a shown move uses the server legal list and keeps its prior position for r
   expect(shown?.pre).toBe(pre);
   expect(toFen(pre)).toBe('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1');
   expect(applyLan(pre, 'e2-e4', {}, ['e2-e3'])).toBeUndefined();
+});
+
+
+test('a full read restores every move beyond the recent command window', () => {
+  const initial_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';
+  const actions = ['a2-a3','a7-a6','b2-b3','b7-b6','c2-c3','c7-c6','d2-d3','d7-d6','e2-e3','e7-e6','f2-f3','f7-f6'];
+  let pos = fromFen(initial_fen);
+  for (const lan of actions) pos = applyLan(pos, lan, {})!.pos;
+  const next = view({fen:toFen(pos),history:{initial_fen,actions},last_commands:[]});
+  expect(replayHistory(next, {})?.map(step => step.lan)).toEqual(actions);
+  expect(replayHistory({...next,fen:initial_fen}, {})).toBeUndefined();
+});
+
+test('Firewall names the card action on the shared move text path', () => {
+  const rules = {hands:[['Firewall'],['Firewall']] as const};
+  setRules(rules);
+  const pre = fromFen('7k/8/8/8/8/8/P7/K7 w - - 0 1');
+  expect(applyLan(pre, '!P', rules)?.words).toBe('White uses Firewall to protect all its pieces until its next turn.');
 });
