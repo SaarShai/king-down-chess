@@ -46,3 +46,11 @@ Each command must end with exit 0. Each browser log must name the head and show 
 - Keep the move to plugin-races.test.ts. Do not add a second copy of those tests.
 - Apply PR 59 to the held-Choose test there: one wait reads all six fields, with a 1000 ms limit and a catch that reports the state. Read in the widget frame because the release host uses a second origin.
 - PR 58 is already in the release history. No other main file changes.
+
+### M1 to M3
+
+- M1: move the recent-moves band after its Moves button in source order. Add aria-controls. The named grid cell keeps the layout. The built check reads both the relation and the source order beside the existing list and fit checks.
+- M2: clip overflow at the board in the end table. Keep the full text inside that box. The built check samples document scrollWidth and clientWidth in each frame of the live win at 360 x 640 and 400 x 800. It checks full text bounds and confirms that text scales. The 400 px restart now runs while the words exist; the old restart ran after they were removed.
+- M3: the S5 message line already shows the error once. Add built checks on Play and Board, each with one enabled Try again. The Board check keeps the last canvas at its size, marks it Not current and removes moves. A good read clears the error.
+- No new taste choice. Keep B3 b and the approved words and motion.
+- The first test command has bad file-filter arguments and is stopped with its own child processes. It has no valid result. Use KINGDOWN_TEST_FILE for a single file and plain npm test for the full suite.

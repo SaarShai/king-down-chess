@@ -1,4 +1,6 @@
 .frame dialog#over.end-card { z-index: 2; max-height: calc(100% - 80px); overflow-y: auto; overscroll-behavior: contain; }
+/* Keep the win text inside the end board while it scales. */
+#end-table #board { overflow: clip; }
 #end-result { position: absolute; bottom: 12px; right: 12px; z-index: 2; width: auto; }
 #end-scrim { z-index: 1; }
 body[data-page='end'] #page-head { position: relative; z-index: 3; }

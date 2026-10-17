@@ -141,6 +141,21 @@ try {
   await frame.locator('#home-games').click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
   assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Choose a game opens the Play hall');
+  // M3: a failed first read on Play has one error and one way to read again.
+  async function readErrorOnce(screen) {
+    const message = 'Harness saved-game read failed';
+    await frame.locator('#error').filter({ hasText: message }).waitFor();
+    assert.equal((await frame.locator('body').innerText()).split(message).length - 1, 1, `${screen} shows the read error once`);
+    assert.equal(await frame.getByRole('button', { name: 'Try again', exact: true }).count(), 1, `${screen} has one Try again`);
+    assert(await frame.getByRole('button', { name: 'Try again', exact: true }).isEnabled(), `${screen} can read again`);
+  }
+  await page.evaluate(() => { window.rejectNextGet = true; });
+  await remountFrame();
+  await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  await readErrorOnce('Play');
+  await frame.getByRole('button', { name: 'Try again', exact: true }).click();
+  await frame.locator('#retry').waitFor({ state: 'hidden' });
+  assert.equal(await frame.locator('#error').innerText(), '', 'A good Play read clears the error');
   const homeAgain = await (await page.request.post(new URL('/fixture-tool',base).href, { data: { name: 'kingdown_open', arguments: { screen: 'home' } } })).json();
   await page.evaluate(result => window.harnessShow(result), homeAgain);
   await frame.locator('#home-play:not(:disabled)').waitFor();
@@ -1632,6 +1647,19 @@ try {
   const id = await page.evaluate(() => window.harnessMatchId);
   const snapshot = await page.evaluate(() => window.harnessView), lastMove = await frame.locator('#last-move').innerText();
   assert(snapshot.revision >= 2 && snapshot.revision <= 5);
+  // M3 and B3: a failed live read keeps the last board and turns its actions off.
+  const boardRect = box => [box.x, box.y, box.width, box.height].map(Math.round);
+  const lastBoard = boardRect(await frame.locator('#board canvas').boundingBox());
+  await page.evaluate(() => { window.rejectNextGet = true; });
+  await menuAction('reload');
+  await readErrorOnce('Board');
+  assert.equal(await frame.locator('#status').innerText(), 'Not current', 'The last board is marked Not current');
+  assert.deepEqual(boardRect(await frame.locator('#board canvas').boundingBox()), lastBoard, 'The last board keeps its size after a failed read');
+  assert.equal(await frame.locator('#end-turn').getAttribute('aria-disabled'), 'true', 'The stale board cannot send a turn');
+  assert.equal(await frame.locator('#choices button').count(), 0, 'The stale board offers no move');
+  await frame.getByRole('button', { name: 'Try again', exact: true }).click();
+  await frame.locator('#retry').waitFor({ state: 'hidden' });
+  assert.equal(await frame.locator('#error').innerText(), '', 'A good Board read clears the error');
   const readsBeforeRemount = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_get').length);
   await remountFrame();
   await page.waitForFunction(count => window.harnessCalls.filter(call => call.name === 'kingdown_get').length > count, readsBeforeRemount);
@@ -2394,10 +2422,46 @@ try {
     if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+14*RIPPLE_MS+50);}
     if (state.claim) assert.equal(await frame.locator('#status').innerText(),'mira_k has not moved for 3 days.');
     if (state.end) {
-      await frame.locator('#over.end-card[open]').waitFor();
-      // The result card opens while the win words still scale outside the board.
-      await frame.locator('#board[data-toppling]').waitFor({ state: 'detached' });
-      assert.equal(await frame.locator('#board .kd-words').count(), 0, 'End layout starts after the win sequence');
+      const viewport = page.viewportSize();
+      for (const [width, height] of [[360, 640], [400, 800]]) {
+        await page.setViewportSize({ width, height });
+        const before = { ...snapshot, game_id: randomUUID(), fen: initial_fen, turn: fromFen(initial_fen).turn, legal: legalMoves(fromFen(initial_fen)).map(move => toLan(fromFen(initial_fen), move)) };
+        await showSnapshot(before); await boardBox();
+        await showSnapshot({ ...before, ...finished, revision: 101, fen: toFen(position), turn: position.turn, in_check: true, legal: [], last_commands: commands }, story);
+        await frame.locator('#over.end-card[open]').waitFor();
+        await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
+        const sampling = frame.locator('html').evaluate(() => new Promise(resolve => {
+          const report = { samples: 0, wordSamples: 0, scaledSamples: 0, overflow: [], whole: true };
+          function sample() {
+            const doc = document.documentElement, board = document.getElementById('board'), words = board.querySelector('.kd-words:not([hidden])');
+            report.samples++;
+            if (doc.scrollWidth > doc.clientWidth) report.overflow.push([doc.scrollWidth, doc.clientWidth]);
+            if (words) {
+              report.wordSamples++;
+              if (getComputedStyle(words).transform !== 'none') report.scaledSamples++;
+              const range = document.createRange(); range.selectNodeContents(words);
+              const text = range.getBoundingClientRect(), clip = board.getBoundingClientRect();
+              report.whole &&= words.textContent === 'King Down' && text.left >= clip.left && text.right <= clip.right;
+            }
+            if (board.hasAttribute('data-toppling')) requestAnimationFrame(sample); else resolve(report);
+          }
+          sample();
+        }));
+        // Keep the 400 px regression: restart the real entrance while its words exist.
+        if (width === 400) await frame.locator('#board .kd-words:not([hidden])').evaluate(word => {
+          word.classList.remove('is-in'); void word.getBoundingClientRect(); word.classList.add('is-in');
+        });
+        await page.clock.runFor(1200);
+        const report = await sampling;
+        console.log(`M2 win width at ${width} x ${height}: ${JSON.stringify(report)}`);
+        assert(report.samples > 1 && report.wordSamples > 0 && report.scaledSamples > 0, 'M2 samples the live win text while it scales');
+        assert.deepEqual(report.overflow, [], `The page never scrolls sideways during the win at ${width} x ${height}`);
+        assert(report.whole, 'Clipping keeps the full King Down text');
+        // The result card opens while the win words still scale outside the board.
+        await frame.locator('#board[data-toppling]').waitFor({ state: 'detached' });
+        assert.equal(await frame.locator('#board .kd-words').count(), 0, 'End layout starts after the win sequence');
+      }
+      await page.setViewportSize(viewport);
     }
     // Ticket 28 T1 and T2 at 200% zoom.
     const zoomName={board:'board-turn','board-abort':'board-cards'}[state.name];
@@ -2454,10 +2518,6 @@ try {
     for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) {
       await page.setViewportSize({width,height}); await boardBox();
       await frame.locator('#game-table img,#over.end-card img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
-      // Restart the real end-word entrance at 400 px so this fit check keeps the animation race as a regression case.
-      if (state.end && width === 400) await frame.locator('#game-table .kd-words').evaluateAll(words => {
-        for (const word of words) { word.classList.remove('is-in'); void word.getBoundingClientRect(); word.classList.add('is-in'); }
-      });
       const bounds=await frame.locator('#game-table').evaluate(el=>{const r=el.getBoundingClientRect(),box=b=>({left:b.left,right:b.right,top:b.top,bottom:b.bottom,width:b.width});return {overflow:el.scrollWidth>el.clientWidth+1,scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,el:box(r),frame:box(document.querySelector('#app-frame').getBoundingClientRect()),left:r.left,right:r.right,width:innerWidth,body:document.body.scrollWidth>innerWidth,bodyScroll:document.body.scrollWidth,outside:[...el.querySelectorAll('*')].filter(child=>child.getClientRects().length).map(child=>({id:child.id,tag:child.tagName,class:typeof child.className==='string'?child.className:'',...box(child.getBoundingClientRect())})).filter(child=>child.right>r.right+1||child.left<r.left-1).slice(0,16)};});
       assert(!bounds.overflow&&!bounds.body&&bounds.left>=-1&&bounds.right<=bounds.width+1,layoutMessage(state.name,width,bounds.el,bounds.frame,`window width ${bounds.width}, table scroll ${bounds.scrollWidth}/${bounds.clientWidth}, body scroll ${bounds.bodyScroll}; outside ${JSON.stringify(bounds.outside)}`));
       const ids=state.end?['#over','#context-line']:['#table-bar','#context-line'];
@@ -2504,6 +2564,8 @@ try {
       const movesControl = frame.locator('#moves-line'), recentMoves = frame.locator('#recent-moves');
       await frame.locator('#moves-line[aria-expanded="true"]').waitFor();
       assert.match(await movesControl.innerText(), /Moves/, 'The Moves control keeps its name');
+      assert.equal(await movesControl.getAttribute('aria-controls'), 'recent-moves', 'Moves names the list it controls');
+      assert(await movesControl.evaluate(el => !!(el.compareDocumentPosition(document.getElementById('recent-moves')) & Node.DOCUMENT_POSITION_FOLLOWING)), 'The recent list follows its control in source order');
       assert.equal(await recentMoves.locator('p').count(), tallActions.length, 'The list contains the game history');
       assert((await recentMoves.locator('p').last().innerText()).endsWith(tallWords.at(-1)), 'The list ends with the last move');
       const lastVisible = await recentMoves.evaluate(el => {
