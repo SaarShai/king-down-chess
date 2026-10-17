@@ -59,6 +59,27 @@ in the current type.
   its label, on one line, at 12.5 px. Fails before the change
   ("Powers left: expected 0 to be greater than or equal to 2").
 
+## Review (26-css)
+
+A review said that the pinned board height goes stale when the screen size changes during a draw
+offer. It named `src/plugin/screens/board.ts:350-351` and `src/plugin/app.css:248`, and it expected
+the board to keep its portrait height after a turn to landscape. The finding is refuted.
+
+- The `@container table-screen (max-height: 480px)` grid at `app.css:248` sits inside
+  `@media (max-width: 899px) and (orientation: portrait)` (`app.css:229`). It does not apply in
+  landscape.
+- In landscape at 852 x 393 the wide table applies (`src/ui/table.css:62`). Its board row is
+  `minmax(0, 1fr)`, so it never reads `--board-floor`.
+- A probe on the harness page measured the offer at 393 x 852: the board holds 410.66 px and the
+  inline `--board-floor` is 410.65625 px. After the turn to 852 x 393 the inline value stays, but
+  the board re-fits to 213 px in a 245 px screen, and the board screen does not overflow
+  (`scrollHeight` = `clientHeight` = 245). No strip, reply or bar falls below the fold.
+- In portrait the pin keeps the board's size and the screen scrolls. That is pick Q3 b, from
+  L2 b: "the board keeps its size and the page scrolls to the replies." A re-measure on a resize
+  would change the size the pick asks to keep.
+
+No change is made. The full `npm test` and the browser checks stay green on the untouched code.
+
 ## Checks
 
 Filled in after the full `npm test` and the browser checks.
