@@ -1349,7 +1349,8 @@ try {
   const raceReads = await page.evaluate(() => window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
   await frame.locator('#retry').click(); await page.waitForFunction(()=>typeof window.releaseHeld==='function');
   assert.doesNotMatch(await frame.locator('#last-move').innerText(),/e2 to e4/,'A final Retry refusal removes the refused move');
-  assert(await page.evaluate(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>=n+2,raceReads),'Retry reads in full after the refusal');
+  // Retry sends the move with no read first (design 5.3); the refusal's rollback reads the board in full.
+  assert(await page.evaluate(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>=n+1,raceReads),'Retry reads in full after the refusal');
   await page.waitForFunction(()=>typeof window.releaseHeld==='function'); await page.evaluate(()=>window.releaseHeld()); await idleBoard();
   await haste(); await clickSquare(4,1);
   if (!await frame.locator('#choices button[title="e2-e4"]').count()) await clickSquare(4,1);
