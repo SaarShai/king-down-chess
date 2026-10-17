@@ -194,6 +194,21 @@ it.each(['EarthQuake', 'SkyLift'] as const)('G1: the armed %s note names its tar
   } finally { await page.close(); }
 });
 
+it('G1: an armed card keeps the draw row size in short landscape and lets the rule scroll', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [['Haste'], []] }, { kind: 'friend', draw_offer: 1 }), 852, 393), frame = page.frameLocator('iframe');
+  try {
+    await page.evaluate(() => (window as any).harnessSetContext({ safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 } }));
+    const before = await frame.locator('#context-line').boundingBox(), board = await frame.locator('#board canvas').boundingBox();
+    await frame.locator('#card-w-0').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
+    const after = await frame.locator('#context-line').boundingBox(), armed = await frame.locator('#board canvas').boundingBox();
+    expect(after!.height).toBeCloseTo(before!.height, 0);
+    expect(armed!.width).toBeCloseTo(board!.width, 0);
+    expect(await frame.locator('#context-text').evaluate(el => { el.scrollTop = el.scrollHeight; return el.scrollTop > 0; })).toBe(true);
+    expect(await frame.locator('#context-note').textContent()).toMatch(/^Choose a marked piece, then a marked square\. /);
+  } finally { await page.close(); }
+});
+
 // Spec G1 a: an armed power keeps its target words first and puts its rule second, in the same note.
 it('G1: the armed power note names the target, then the rule', async () => {
   const rules: Partial<Rules> = { kings: [{ king: 'Frost', power: 'Freeze' }, null] };

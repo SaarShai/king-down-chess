@@ -46,6 +46,12 @@ check and full test suite run next. No test or check time limit changes.
 Taste: no new choice. The build uses G1 a and G3 a as approved, including the
 drag rule. G2, Q3 and Q6 need no further change.
 
+The first completed browser check finds that the long armed card rule makes
+the draw row grow in short landscape. The armed text now keeps the existing
+two-line height. The rule scrolls after the target words. A test checks the
+row height, board size and scroll. This uses one CSS rule. It needs no saved
+size or resize handler. The type check passes after this fix.
+
 ## Build
 
 - G2 a "Dim to 0.85": a spent card coin dims to 0.85, not 0.7. The coin still
