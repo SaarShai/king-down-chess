@@ -964,6 +964,7 @@ it('W7-04: a refused press after a real draw offer keeps T6 and the note, then s
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending ?? null)).toBeNull();
     const saved = (await tool('kingdown_get', {game_id}))._meta.view as View;
     expect(saved.revision).toBe(offered.revision + 1);
+    setRules(base.rules!);
     expect(saved.fen).toBe(toFen(applyLan(fromFen(base.fen),'e2-e4',base.rules!)!.pos));
     expect(saved.draw_offer).toBeNull();
     expect(saved.history!.actions).toEqual(['e2-e4']);
