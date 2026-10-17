@@ -81,6 +81,8 @@ export function createQueue() {
   let mount: Job | undefined;
   /** The page-board reads that wait for an idle lane. */
   const idleWaiters: (() => void)[] = [];
+  /** The writes whose body has not ended, a detached one included. A mount never resends one of these (design §5.3). */
+  let inFlight = 0;
 
   const make = (kind: Kind, name: string, args: Record<string, unknown>, options: JobOptions): Job => {
     let resolve!: (outcome: Outcome) => void;
@@ -113,6 +115,8 @@ export function createQueue() {
   }
   /** A newer chat result: a new epoch, and every older read and detachable write detaches at once. */
   function chatResult(initial = false): Job {
+    // A teardown already ran: the mount job is settled at once, so a late result never hangs a caller (design §2, close).
+    if (closed) { const job = make('read', 'mount', {}, { mount: true, initial }); settle(job, { status: 'superseded' }); return job; }
     epoch++;
     for (const job of [...reads]) if (job.epoch < epoch) detach(job);
     for (const job of line) if (!job.sticky) detach(job);
@@ -131,19 +135,22 @@ export function createQueue() {
   async function run(job: Job, body: (job: Job) => Promise<Outcome | void>): Promise<Outcome> {
     if (closed || job.done) return job.promise;
     if (job.kind === 'write') {
+      inFlight++;
       await new Promise<void>(resolve => { job.release = resolve; line.push(job); pump(); });
-      if (job.detached || job.done) return job.promise;
+      if (job.detached || job.done) { inFlight--; return job.promise; }
     } else {
-      if (job.options.board) await laneIdle();
-      if (job.detached) return job.promise;
+      // The read joins the set before it waits, so a newer chat result or a teardown detaches it also while it waits
+      // for the lane (design §2 and §7.6 F4).
       reads.add(job);
+      if (job.options.board && !job.detached && !closed) await laneIdle();
+      if (job.detached || closed) { reads.delete(job); return job.promise; }
     }
     // The body runs on its own: a detached job settles at once (the epoch gate), and the body's later work writes
     // nothing. So the caller reads the outcome from the job, never from the body's return.
     void (async () => {
       try { settle(job, (await body(job)) ?? { status: 'done', result: EMPTY }); }
       catch (error) { settle(job, { status: 'failed', text: errorText(error) }); }
-      finally { if (job.kind === 'read') reads.delete(job); if (mount === job && job.done) mount = undefined; }
+      finally { if (job.kind === 'write') inFlight--; if (job.kind === 'read') reads.delete(job); if (mount === job && job.done) mount = undefined; }
     })();
     return job.promise;
   }
@@ -153,6 +160,9 @@ export function createQueue() {
     closed = true;
     for (const job of [...reads]) detach(job);
     for (const job of line) detach(job);
+    // The write that holds the lane stops too. Its transport call cannot be recalled, but its body writes nothing more
+    // (the app's `late()` reads `closed`), so no render and no widget write follows the teardown (design §7.6 F4).
+    if (running) detach(running);
     if (mount && !mount.done) detach(mount);
     flushIdle();
   }
@@ -161,6 +171,8 @@ export function createQueue() {
     current: (job: Job) => !closed && job.epoch === epoch && !job.detached,
     /** The older-job rules let a write settle its own pending and show its own refusal. */
     writing: () => !!running,
+    /** A write whose body has not ended: a mount never resends one of these in the same live iframe (design §5.3). */
+    inflight: () => inFlight > 0,
     mounting: () => !!mount && !mount.done && mount.epoch === epoch,
     /** The mount job of the newest chat result; a mount's `initial` flag marks the first one. */
     mountJob: () => mount && mount.epoch === epoch ? mount : undefined,

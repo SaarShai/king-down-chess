@@ -316,6 +316,44 @@ it('keeps the controls locked, with no error, when a newer chat result stops an 
   } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseBefore?.(); }); await page.close(); }
 });
 
+it('locks the page at once when a chat result comes, while its selection waits', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await soloBoard(page);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    // The chat result names a game and no board, so the mount selects the game's board first; the host holds that call.
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_open'; });
+    await page.evaluate(game_id => (window as any).harnessShow({ content: [], structuredContent: { game_id } }, true), (await shownGame(page)).game);
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    // The lock shows at once, with no text, while the mount waits (design §2 and §3.3).
+    expect(await html(page).evaluate(() => ({ mounting: (window as any).harnessApp.store.page().mounting, play: (document.getElementById('home-play') as HTMLButtonElement).disabled, reload: (document.getElementById('reload') as HTMLButtonElement).disabled, error: document.getElementById('error')!.textContent }))).toEqual({ mounting: true, play: true, reload: true, error: '' });
+    await page.evaluate(() => (window as any).releaseHeld());
+    await settled(page);
+    await expect.poll(() => locks(page)).toEqual({ locked: false, error: '', home: '' });
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
+it('sends a start that a chat result detached only once, and keeps the chat result on its screen', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await html(page).evaluate(() => (window as any).harnessApp.navigate('play'));
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    // The start waits at the host: its body has not ended, so the mount must not send it again (design §5.3).
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
+    await html(page).evaluate(async (_, options) => { void (window as any).harnessApp.start('solo', { options, colour: 'white' }); }, CLASSIC);
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    await page.evaluate(result => (window as any).harnessShow(result), await tool(page, '/fixture-tool', 'kingdown_open', { screen: 'play' }));
+    await page.waitForFunction(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length > 0);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await settled(page);
+    const creates = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create' || c.name === 'kingdown_find').map((c: any) => c.arguments.command_id));
+    expect(creates).toHaveLength(1);
+    expect(await shownGame(page)).toMatchObject({ screen: 'play' });
+    // The older start settles its own pending (design §1.2): Play keeps its Start, with no Retry.
+    await expect.poll(() => html(page).evaluate(() => { const app = (window as any).harnessApp; return { pending: app.client.state.pending ?? null, start: (document.getElementById('setup-start') as HTMLButtonElement).disabled, retry: document.getElementById('retry')!.hidden }; })).toEqual({ pending: null, start: false, retry: true });
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
 it.each(['same game', 'other game', 'failed read'] as const)('keeps a command refusal only for its game after a chat result reads: %s', async kind => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

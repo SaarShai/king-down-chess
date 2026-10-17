@@ -158,14 +158,28 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
   const quiet = job.options.quiet ?? false, user = job.options.user ?? true, signal = job.options.signal;
   const before = view;
   const commandScreen = state.screen === 'home' && (quickStart() || ['kingdown_create', 'kingdown_find'].includes(name)) ? 'play' : state.screen;
-  // A read and a detachable write give way to a newer epoch; a sticky write still settles its own pending and refusal.
-  const late = () => (job.sticky ? !!signal?.aborted : !queue.current(job) || (quiet && view !== before) || !!signal?.aborted);
+  // A read and a detachable write give way to a newer epoch, and a teardown stops every job. A sticky write keeps its
+  // own pending and refusal while its epoch stays current.
+  const late = () => queue.closed() || (job.sticky ? !!signal?.aborted : !queue.current(job) || (quiet && view !== before) || !!signal?.aborted);
+  /** The pending this job set (or reused) in its retain branch, so a late reply settles only its own (design §1.2). */
+  let own: Pending | undefined;
+  /**
+   * An older write settles its own pending (design §1.2): a success and a refusal clear it, and a failure keeps its
+   * error for Retry. It never routes, selects a board, writes the screen or runs a continuation.
+   */
+  function settleLate(result?: ToolResult, message?: string) {
+    if (job.kind !== 'write' || job.sticky || !own || pending !== own) return;
+    const failure = message ?? (result?.isError && !REFUSALS.includes(resultCode(result)) ? resultText(result) : undefined);
+    if (failure) { own.error = failure; own.error_screen = own.screen ?? state.screen; saveState(); return; }
+    pending = undefined; saveState();
+  }
   let followup: Pending | undefined, received: View | undefined, refused: { text: string; code: string; game?: string } | undefined;
   if (quiet) polling = true;
   const body = async (): Promise<Outcome> => {
     try {
       if (retain) {
         if (pending?.name !== name || pending.args !== args) pending = { name, args, ...(typeof args.game_id === 'string' && { game_tag: args.game_id.slice(0, 8) }), started_at: Date.now(), screen: commandScreen, ...(quickStart() && { quick: true }) };
+        own = pending;
         pending.error = undefined; pending.error_screen = undefined; saveState();
       }
       let result: ToolResult | undefined;
@@ -176,7 +190,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
         const recovered = await resendPending(pending, result);
         if (recovered) { name = pending.name; retain = true; route = undefined; result = recovered; }
       }
-      if (late()) return { status: 'superseded' };
+      if (late()) { settleLate(result); return { status: 'superseded' }; }
       // A current selection reply selects the page's board; an older one leaves it (the epoch gate, design §1.2).
       const selected = result._meta?.board_id;
       if (!quiet && queue.current(job) && SELECTION_TOOLS.includes(name) && typeof selected === 'string') state.board_id = selected;
@@ -222,7 +236,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       return { status: 'done', result, ...(received && { view: received }) };
     } catch (error) {
       const message = errorText(error);
-      if (late()) return { status: 'superseded' };
+      if (late()) { settleLate(undefined, message); return { status: 'superseded' }; }
       // A refusal shows only for a user command; a programmatic write (the computer move) stays silent, as before S2.
       if (refused) { if (user) store.dispatch({ type: 'refusal', text: refused.text, code: refused.code, ...(refused.game && { game: refused.game }) }); }
       // A poll timeout is silent; the third one in a row sets the read notice.
@@ -279,6 +293,9 @@ function remember(result: ToolResult) {
 app.ontoolresult = result => {
   const initial = awaitingInitialResult; awaitingInitialResult = false;
   const job = queue.chatResult(initial);
+  // The lock shows at once: `mounting` is true from here, so every control stays off until the mount ends, also while
+  // the mount waits for a selection or a settings read (design §2 and §3.3).
+  store.sync();
   // render() unlocks the controls after the job settles: `mounting` stays true through the body (design §2).
   void queue.run(job, () => mountBody(job, result)).then(outcome => { if (outcome.status !== 'superseded') store.sync(); });
 };
@@ -342,7 +359,9 @@ async function mountBody(job: Job, result: ToolResult) {
       // finishes a start). The error and Retry show only if that send fails (owner item W6 a). A start that waits for a
       // name keeps its error and is not sent (R4C-3). A command still in flight on this page (a chat result came during
       // it) gets its own reply.
-      const resend = !!pending && !pending.error && !queue.writing();
+      // A command still in flight on this page (a chat result came during it) gets its own reply: its body has not
+      // ended, so this mount does not resend it (design §5.3). A write that holds no lane can still be in flight.
+      const resend = !!pending && !pending.error && !queue.inflight();
       if (resend && !connected) failPending(CANNOT_CONNECT);
       if (state.screen in screens) screens[state.screen as keyof typeof screens]();
       poll?.update();

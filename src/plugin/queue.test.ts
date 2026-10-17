@@ -113,6 +113,86 @@ describe('the command queue', () => {
     hold.resolve();
   });
 
+  it('detaches the write that holds the lane when the queue closes', async () => {
+    const queue = createQueue(), hold = deferred();
+    const job = queue.command('write', 'kingdown_move', {});
+    const running = queue.run(job, async () => { await hold.promise; return { status: 'done', result: { content: [] } }; });
+    await tick();
+    expect(queue.writing()).toBe(true);
+    queue.close();
+    // The lane is free and the job is detached, so its body writes nothing more (design §7.6 F4).
+    expect(queue.writing()).toBe(false);
+    expect(job.detached).toBe(true);
+    await expect(running).resolves.toEqual({ status: 'superseded' });
+    hold.resolve();
+  });
+
+  it('settles a chat result that comes after the queue closed', async () => {
+    const queue = createQueue();
+    queue.close();
+    const mount = queue.chatResult(true);
+    expect(queue.mounting()).toBe(false);
+    await expect(queue.run(mount, body([], 'mount'))).resolves.toEqual({ status: 'superseded' });
+  });
+
+  it('makes no call for a page-board read that waits for the lane when a chat result comes', async () => {
+    const queue = createQueue(), hold = deferred();
+    const running = queue.run(queue.command('write', 'kingdown_move', {}), async () => { await hold.promise; return { status: 'done', result: { content: [] } }; });
+    await tick();
+    let ran = false;
+    const read = queue.command('read', 'kingdown_get', {}, { board: true });
+    const done = queue.run(read, async () => { ran = true; return { status: 'done', result: { content: [] } }; });
+    await tick();
+    queue.chatResult(true);
+    hold.resolve(); await running; await tick();
+    await expect(done).resolves.toEqual({ status: 'superseded' });
+    expect(ran).toBe(false);
+  });
+
+  it('makes no call for a page-board read that waits for the lane when the queue closes', async () => {
+    const queue = createQueue(), hold = deferred();
+    const running = queue.run(queue.command('write', 'kingdown_move', {}), async () => { await hold.promise; return { status: 'done', result: { content: [] } }; });
+    await tick();
+    let ran = false;
+    const done = queue.run(queue.command('read', 'kingdown_get', {}, { board: true }), async () => { ran = true; return { status: 'done', result: { content: [] } }; });
+    await tick();
+    queue.close();
+    hold.resolve(); await running; await tick();
+    await expect(done).resolves.toEqual({ status: 'superseded' });
+    expect(ran).toBe(false);
+  });
+
+  it('counts a write in flight after a chat result detached it, until its body ends', async () => {
+    const queue = createQueue(), hold = deferred();
+    const write = queue.command('write', 'kingdown_create', {});
+    const started = queue.run(write, async () => { await hold.promise; return { status: 'done', result: { content: [] } }; });
+    await tick();
+    expect(queue.inflight()).toBe(true);
+    queue.chatResult();
+    // The lane is free, but the transport call still waits: a mount never resends this command (design §5.3).
+    expect(queue.writing()).toBe(false);
+    expect(queue.inflight()).toBe(true);
+    hold.resolve(); await started; await tick();
+    expect(queue.inflight()).toBe(false);
+  });
+
+  it('counts no read as a write in flight, and drops a write that a chat result detached before it started', async () => {
+    const queue = createQueue(), hold = deferred();
+    void queue.run(queue.command('read', 'kingdown_get', {}), body([], 'read'));
+    await tick();
+    expect(queue.inflight()).toBe(false);
+    queue.run(queue.command('write', 'kingdown_move', {}), async () => { await hold.promise; return { status: 'done', result: { content: [] } }; });
+    const queued = queue.command('write', 'kingdown_resume', {});
+    const waiting = queue.run(queued, body([], 'resume'));
+    await tick();
+    queue.chatResult();
+    await expect(waiting).resolves.toEqual({ status: 'superseded' });
+    // The write that holds the lane is still in flight; the one that never started is not.
+    expect(queue.inflight()).toBe(true);
+    hold.resolve(); await tick();
+    expect(queue.inflight()).toBe(false);
+  });
+
   it('runs a queued job body once, and its outcome is read by the caller', async () => {
     const queue = createQueue();
     const ran: Job[] = [];
