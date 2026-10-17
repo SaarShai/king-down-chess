@@ -12,7 +12,7 @@ import { setSettings } from './board-view';
 import { setSound, snd } from '../render/sfx';
 import { runPoll, type PollTarget } from './poll';
 import { createRouter } from './router';
-import { applyLocks, createStore, isStartStep, locks, messageLine } from './state';
+import { applyLocks, createStore, isStart, isStartStep, locks, messageLine } from './state';
 import { createQueue, EMPTY, REFUSALS, resultCode, resultText, type Job, type JobOptions, type Kind, type Outcome } from './queue';
 import { draftFromGame, finishStart, playNow, quickStart, setupBusy, setupScreen, setupStarting, setupSync } from './screens/setup';
 import { friendScreen } from './screens/friend';
@@ -119,7 +119,8 @@ function show(next: View | undefined) {
 async function resend(command: Pending): Promise<ToolResult> {
   const game = view?.game_id;
   // Widget state keeps only the tag, so a command with a tag takes the ID of the shown game that the tag names.
-  if (command.game_tag && game?.startsWith(command.game_tag)) return client.call(command.name, { ...command.args, game_id: game });
+  // A start (Create or Find) takes no game ID.
+  if (command.game_tag && !isStart(command) && game?.startsWith(command.game_tag)) return client.call(command.name, { ...command.args, game_id: game });
   // A game command for a game that does not show sends nothing; it keeps the connection words (finding 10).
   if (command.game_tag && !isStartStep(command)) { failPending(CANNOT_CONNECT, command); throw new Error(CANNOT_CONNECT); }
   // A start, a setup step and a read with no game go again as they are: the receipt gives back the first result.
