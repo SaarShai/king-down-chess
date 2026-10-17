@@ -1,6 +1,6 @@
 # Privacy policy additions
 
-Status: pasted into `public/privacy.html` on 16 October 2026 (ticket 11), with the owner's picks of 15 October: D9 a (account life, 12 months, host defaults), D12 a (the policy explains the activity time; no new screen) and D14 a ('Show when I am online' in Settings). The page is now the source; this file keeps the evidence for each block. `tools/privacy-policy.docs.test.ts` fails when a cleanup period, the Settings label or the OpenAI paragraph leaves the page.
+Status: pasted into `public/privacy.html` on 16 October 2026 (ticket 11), with the owner's picks of 15 October: D9 a (account life, 12 months, host defaults), D12 a (the policy explains the activity time; no new screen) and D14 a ('Who sees when you are online' in Settings). The page is now the source; this file keeps the evidence for each block. `tools/privacy-policy.docs.test.ts` fails when a cleanup period, the Settings label or the OpenAI paragraph leaves the page.
 
 Owner checks before the deploy: the Vercel and Supabase log periods and the audit-log rows in section 2, and the scope words "private ChatGPT app" (rehearsal R22; [checklist.md](checklist.md), owner step 6).
 
@@ -17,10 +17,10 @@ Where: in "What the game stores for your account", as a new list item after "gam
 Where: in the same section, after the paragraph that starts "Other players see your handle".
 
 ```html
-<p>The game uses the time you last opened or played a game to update the board faster while both players are there, and to count how many players are online. The count shows no names. Your opponent's board gets your time only when <strong>Show when I am online</strong> is on in the app's Settings. It is off by default: then only a player who follows you and whom you follow gets it, and King Down has no way to follow a player yet. The game records these times with every setting: the default applies, and no setting stops it. We do not use these times for anything else.</p>
+<p>The game uses the time you last opened or played a game to update the board faster while both players are there, and to count how many players are online. The count shows no names. In Settings, <strong>Who sees when you are online</strong> has three choices: Everyone, Friends only and Nobody. Friends only is the default: only a player who follows you and whom you follow gets your time. Everyone lets any opponent get it. Nobody hides it from all opponents. The game records these times with every setting: the default applies, and no setting stops it. We do not use these times for anything else.</p>
 ```
 
-D14 a: the Settings row writes `online_visible_to` through `PluginService.settings()`: on is `everyone`, off is `nobody`. The default `mutual` shows as off, because no King Down screen can make a follow (`AccountService.relate` has only the website API route `POST /api/relations`, and no screen calls it). The owner's last answer (16 October 2026, after the review): keep the friends-only default. Ticket 18 makes the row three choices (Everyone, Friends only, the default, and Nobody), so that it never shows off while friends can see the player, and changes these words to match. D12 a: the last sentence but one is the line that says the default applies.
+The owner's answer of 16 October 2026 keeps Friends only as the default. The Settings control takes `online_visible_to` through `PluginService.settings()`: Everyone is `everyone`, Friends only is `mutual`, and Nobody is `nobody`. Friends are players who follow each other. The stored value is the same on the website and in ChatGPT. D12 a: the last sentence but one says that the default applies.
 
 Evidence: `last_seen_at` and `last_surface` in `src/match/store.ts:12, 57, 67`; written on each command and at most once each 30 seconds on a board reload (`src/match/service.ts:155, 285`). The opponent sees `last_seen_ms` only when `online_visible_to` allows it; the default is `mutual` (`src/match/service.ts:375–387`, `src/match/store.ts:30–31`, `src/match/service.db.test.ts:380`). The board polls faster when the opponent was seen in the last two minutes (`src/plugin/poll.ts:10`, `src/plugin/poll.test.ts:14–15`). The lobby shows a count, "N players online", from the players seen in the last 10 minutes (`src/match/store.ts:137–138`, `src/plugin/screens/lobby.ts:32–33`). The ChatGPT board does not show the opponent's online status as text. *Check:* whether the website shows it; if so, add "and to show whether you are online" to the paragraph.
 
@@ -46,7 +46,7 @@ Where: in "Where it is kept", after the new logs paragraph.
 <p>When you play King Down in ChatGPT, OpenAI receives what the app sends to ChatGPT. That is a short summary for the chat (for example, whose move it is, or your rating), and the board data that ChatGPT shows in the King Down board (the position, the moves, and your and your opponent's handles and pictures). OpenAI handles this data under its own privacy policy. We do not receive your ChatGPT conversation.</p>
 ```
 
-Evidence: `content` and `structuredContent` reach the model and the transcript; `_meta` reaches only the component [O8]. `reply()` puts the summary in `content` and `structuredContent`, and the view and handles in `_meta` (`src/plugin/server.ts:61–75`). Both pass through ChatGPT. The MCP server receives only tool arguments; the consent page says the connection "cannot read the surrounding chat" (`src/plugin/consent.html`).
+Evidence: `content` and `structuredContent` reach the model and the transcript; `_meta` reaches only the component [O8]. `reply()` puts the summary in `content` and `structuredContent`, and the view and handles in `_meta` (`src/plugin/server.ts`). Both pass through ChatGPT. The MCP server receives only tool arguments. Its strict input schemas accept game actions and account settings, with no chat transcript (`createPluginServer()` in `src/plugin/server.ts`).
 
 ## 4. Retention times
 
@@ -76,8 +76,14 @@ If the password path is for one review account only, no policy change is necessa
 ## Not changed
 
 - The "Children" section stays. OpenAI asks that plugins suit users aged 13–17 and do not target children under 13 [O3]; the current text meets this (research report 01, D10).
-- Controls: the policy names show, correct, export and delete, and now also the 'Show when I am online' row in Settings (D14 a).
+- Controls: the policy names show, correct, export and delete, and now also the 'Who sees when you are online' row in Settings (D14 a).
 
 ## 6. Data that the rehearsal found (R10–R12)
 
 Pasted into "What the game stores for your account" as list items: the ChatGPT settings and last options (`player_settings`, migration 0013), games against the computer in ChatGPT, the last opened or played time and the surface of the last game action (`last_seen_at`, `last_surface`; R10 asks for "last game action", not "last move"), the board selections (`plugin_boards`, deleted after 7 days), the invitation-code tries in the last hour (`invite_code_tries`, migration 0009), the alerts and notices (`notifications`, migration 0006: `turn` and `reminder` for Daily games, `src/match/service.ts` and `src/online/jobs.ts`; `moderation` and `appeal`, `src/online/safety.ts`; no cleanup, so they stay until the account is deleted) and the deletion request (`account_deletions`). "Where it is kept" names OpenAI (section 3, R11). "How long we keep it" gives the 7-day, 30-day and 12-month cleanups (R12).
+
+## Block control (part 18-b)
+
+The stored-data list names the players you follow and block. The policy names Menu → Block player and its confirmation. A block ends follows both ways, stops Find and open-game joins between the players, and hides the opponent's messages. The current game continues. The same Menu offers Unblock player, which does not restore follows. Profile also lists blocked players, with Unblock for each player, after the game ends.
+
+Evidence: `kingdown_block` uses `AccountService.relate()` and `unrelate()`, as the website's `/api/relations` routes do. The game store checks blocks both ways for Find, accept, invitation joins and message privacy. `src/plugin/server.db.test.ts` checks the tool through the database, including reads, repeat blocks, saved status, unblock and refused targets.

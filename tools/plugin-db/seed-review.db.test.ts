@@ -20,7 +20,7 @@ suite('the review account seed', () => {
   await pool.end();
  });
 
- it('makes one won friend game with a rating and badges, then one computer game on the review account\'s move', async () => {
+ it('makes a won friend game, an active friend game on their move, and a computer game on your move', async () => {
   const [review, opponent] = [await account('Review'), await account('friend')];
   const handles = { review: `rv-${tag}`, opponent: `rf-${tag}` };
   const seeded = await seedReview(pool, ` ${review.toUpperCase()} `, opponent, handles);
@@ -30,6 +30,8 @@ suite('the review account seed', () => {
   const games = new GameService(new PostgresMatchStore(pool));
   expect(await games.view(seeded.review, seeded.finished)).toMatchObject({ status: 'finished', kind: 'friend' });
   expect(await games.view(seeded.review, seeded.active)).toMatchObject({ status: 'playing', kind: 'solo', level: 'beginner', seat: 0, turn: 0 });
+  expect(await games.view(seeded.review, seeded.activeFriend)).toMatchObject({ status: 'playing', kind: 'friend', seat: 0, turn: 1, opponent: { handle: handles.opponent, deleted: false } });
+  expect(await games.inbox(seeded.review)).toHaveLength(2);
   expect((await games.inbox(seeded.review)).filter(game => game.action === 'ready').map(game => game.game_id)).toEqual([seeded.active]);
   expect((await pool.query('select handle from public.profiles where id=$1', [seeded.review])).rows[0].handle).toBe(handles.review);
   // Owner step 2.7: the test account gets the same data against the same opponent, with its own handle, and the

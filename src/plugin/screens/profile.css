@@ -59,3 +59,5 @@ body[data-page='profile'] .frame dialog#over.badge-sheet { position: fixed; inse
   #profile-sheet .split { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }
   body[data-page='profile'] .frame dialog#over.badge-sheet { inset: 24px 0 max(152px, var(--safe-bottom, 0px)); width: min(560px, calc(100% - 48px)); max-height: calc(100% - 176px); border-radius: var(--radius-lg); margin: auto; }
 }
+
+#profile-blocks button { overflow-wrap: anywhere; }

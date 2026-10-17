@@ -30,6 +30,11 @@ it('supports the screen tools, hidden setup choices, board selection and rematch
   expect(Date.parse(invite.expires_at)-Date.now()).toBeGreaterThan(6*86_400_000); expect(Date.parse(invite.expires_at)-Date.now()).toBeLessThanOrEqual(7*86_400_000);
   expect((await s.view('alice',friend.game_id)).opponent).toBeNull();
   expect((await s.join('bob',invite.code)).status).toBe('playing');
+  await s.block('alice',{game_id:friend.game_id},true);
+  const blocks = await s.blocks('alice'); expect(blocks).toHaveLength(1);
+  expect(blocks[0].user_id).toMatch(/^[0-9a-f-]{36}$/);
+  await s.block('alice',{user_id:blocks[0].user_id},false); expect(await s.blocks('alice')).toEqual([]);
+
   const pending = await s.find('alice',DEFAULT_OPTIONS); expect((await s.cancel('alice',pending.game_id)).status).toBe('aborted');
  } finally {await s.close();}
 });

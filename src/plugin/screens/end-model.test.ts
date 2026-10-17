@@ -9,4 +9,6 @@ test('a rematch excludes deleted seats and gives only the available choices', ()
   expect(rematchChoices({...view,opponent:{...view.opponent!,deleted:true}})).toEqual([]);
   expect(rematchChoices({...view,rematch_game_id:'next'})).toEqual([]);
   expect(rematchChoices({...view,status:'aborted'})).toEqual([]);
+  expect(rematchChoices({...view,kind:'friend',rematch_allowed:false})).toEqual([]);
+  expect(rematchChoices({...view,kind:'friend',rematch_offer:1,rematch_allowed:false})).toEqual([]);
 });

@@ -9,6 +9,7 @@ import { seatChoicesNeeded, validateChoice, type Choice } from '../../match/setu
 import type { View } from '../../match/protocol';
 import { ICONS } from '../../account/profile';
 import { POWER_NAME } from '../../powers-ui';
+import { playerBlockButton } from './board-actions';
 import { kingSheet } from './setup';
 import { legalSwaps, seatChoice, seatFen, seatIndex, seatSquare, screenOrder, shuffleOrder, submitReady, swapOrder } from './seat-model';
 import './seat.css';
@@ -130,6 +131,7 @@ function menu(confirm = false) {
   document.addEventListener('keydown', key); closeMenu = close; $('seat-menu-close').onclick = scrim.onclick = close;
   if (confirm) { $('seat-abort-cancel').onclick = close; $('seat-abort-confirm').onclick = async () => { const v = current(); if (!v?.abort_open || sending || client.state.pending) return; close(); sending = true; locks(); try { const next = await call('kingdown_abort', { game_id: v.game_id, command_id: uuid(), expected_revision: v.revision }, true, false, false); if (next) await finish(next); } finally { sending = false; render(); } }; }
   else { if (view.abort_open) $('seat-abort').onclick = () => menu(true); $('seat-settings').onclick = () => { close(); navigate('settings'); }; }
+  if (!confirm) for (const block of playerBlockButton(view, close)) { block.className = 'menu-row'; $('seat-settings').before(block); }
   $('seat-menu-close').focus();
 }
 

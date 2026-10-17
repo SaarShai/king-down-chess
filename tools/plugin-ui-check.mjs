@@ -768,7 +768,7 @@ try {
         assert.equal(await frame.locator('#me-handle').innerText(), settings._meta.me.handle, 'Settings shows the server handle');
         assert(await frame.locator('.sym-demo img').evaluateAll(images => images.length === 2 && images.every(image => image.naturalWidth > 0)), 'Settings shows the painted knight and its own symbol');
         assert.deepEqual(await frame.locator('.set-line').first().evaluate(el => { const css = getComputedStyle(el); return [css.marginTop,css.marginBottom]; }), ['-6px','6px'], 'Settings keeps the sample help spacing');
-        assert.equal(await frame.locator('[data-screen="settings"] .quiet-line').innerText(), 'Your settings and your record go with you to any device and any chat.');
+        assert.equal(await frame.locator('[data-screen="settings"] .quiet-line').last().innerText(), 'Your settings and your record go with you to any device and any chat.');
       }
       await shot(page, `shell-${screen}-${width}-${mode}`);
     }
@@ -920,6 +920,128 @@ try {
     await frame.locator('body').evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal((await tool('kingdown_get', { game_id: friend.game_id }, true))._meta.view.status, 'playing');
+    // Part 18-a: each choice sends only its own field and persists on remount.
+    await openScreen('settings');
+    for (const value of ['everyone', 'nobody', 'mutual']) {
+      const choice = frame.locator(`#online-visibility input[value="${value}"]`);
+      await choice.locator('..').click();
+      await frame.locator(`#online-visibility input[value="${value}"]:not(:disabled)`).waitFor({ state: 'attached' });
+      assert(await choice.isChecked());
+      assert.deepEqual(await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').at(-1).arguments), {online_visible_to:value});
+      assert((await choice.locator('..').boundingBox()).height >= 44, 'Online choices have 44 px targets');
+      const reads = await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length);
+      await page.locator('#remount').click();
+      await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length>n, reads);
+      await openScreen('settings');
+      assert(await frame.locator(`#online-visibility input[value="${value}"]`).isChecked(), 'Online choice persists');
+    }
+    const mutual = frame.locator('#online-visibility input[value="mutual"]');
+    await mutual.focus();
+    await mutual.press('ArrowRight');
+    const nobody = frame.locator('#online-visibility input[value="nobody"]');
+    await nobody.locator('xpath=self::*[not(@disabled)]').waitFor({state:'attached'});
+    assert(await nobody.isChecked());
+    assert(await nobody.evaluate(input=>document.activeElement===input), 'Online save keeps keyboard focus');
+    await nobody.press('ArrowLeft');
+    await mutual.locator('xpath=self::*[not(@disabled)]').waitFor({state:'attached'});
+    assert(await mutual.isChecked(), 'The next arrow key changes the saved value');
+    assert(await mutual.evaluate(input=>document.activeElement===input));
+    await page.evaluate(()=>{window.holdNext='kingdown_settings';});
+    await mutual.press('ArrowRight');
+    await page.waitForFunction(()=>typeof window.releaseHeld==='function');
+    await frame.locator('#page-back').focus();
+    await page.evaluate(()=>window.releaseHeld());
+    await nobody.locator('xpath=self::*[not(@disabled)]').waitFor({state:'attached'});
+    assert(await frame.locator('#page-back').evaluate(button=>document.activeElement===button), 'A save does not take focus from another control');
+    assert(await frame.locator('#online-visibility').evaluate(control => control.nextElementSibling.getBoundingClientRect().top >= control.getBoundingClientRect().bottom), 'The online help text does not overlap the choices');
+    await shot(page, `online-visibility-${mode}`);
+    await openPlay();
+    await frame.locator(`#games-list [data-game-id="${friend.game_id}"]`).click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); await idleBoard();
+    // Part 18-b: a failed status read keeps the other Menu controls and can retry.
+    let failBlockRead = true;
+    const blockRoute = async route => {
+      const request = route.request().postDataJSON();
+      if (failBlockRead && request.name === 'kingdown_block') {
+        failBlockRead = false;
+        return route.fulfill({ json: { isError: true, content: [{ type: 'text', text: 'Cannot read block setting.' }] } });
+      }
+      return route.continue();
+    };
+    await page.route('**/fixture-tool', blockRoute);
+    await frame.locator('#board-menu').click();
+    await frame.locator('#menu-block-player').filter({ hasText: 'Cannot read block setting. Retry' }).waitFor();
+    assert(await frame.locator('#board-sheet').getByRole('button', { name: 'Settings', exact: true }).isEnabled());
+    await frame.locator('#menu-block-player').click();
+    await frame.locator('#menu-block-player').filter({ hasText: 'Block player' }).waitFor();
+    await page.unroute('**/fixture-tool', blockRoute);
+    // Cancel writes nothing. Block and Unblock survive a remount.
+    await frame.locator('#menu-block-player').filter({ hasText: 'Block player' }).click();
+    await frame.locator('#board-sheet-title').filter({ hasText: 'Block player?' }).waitFor();
+    await shot(page, `block-confirm-${mode}`);
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Keep playing', exact: true }).click();
+    assert.equal((await tool('kingdown_block', { game_id: friend.game_id }))._meta.blocked, false, 'Cancel keeps contact');
+    await frame.locator('#board-menu').click(); await frame.locator('#menu-block-player').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Block player', exact: true }).click();
+    await frame.locator('#board-menu:not(:disabled)').waitFor();
+    await frame.locator('#context-note').filter({hasText:'Player blocked. Your current game continues.'}).waitFor();
+    assert.equal(await frame.locator('#context-text').getAttribute('aria-live'),'polite');
+    assert.equal((await tool('kingdown_block', { game_id: friend.game_id }))._meta.blocked, true);
+    assert.equal((await tool('kingdown_get', { game_id: friend.game_id }))._meta.view.status, 'playing', 'Block keeps the game');
+    await remount('board');
+    await frame.locator('#board-menu').click();
+    await frame.locator('#menu-block-player').filter({ hasText: 'Unblock player' }).waitFor();
+    await shot(page, `block-undo-${mode}`);
+    await frame.locator('#menu-block-player').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Unblock player', exact: true }).click();
+    await frame.locator('#board-menu:not(:disabled)').waitFor();
+    assert.equal((await tool('kingdown_block', { game_id: friend.game_id }))._meta.blocked, false);
+    await frame.locator('#context-note').filter({hasText:'Player unblocked. Follows stay off.'}).waitFor();
+    // The end card can block a person, and Profile keeps the undo path.
+    const resigned = await tool('kingdown_resign', { game_id: friend.game_id });
+    await page.evaluate(result=>window.harnessShow(result),resigned);
+    await frame.locator('#over.end-card[open]').waitFor(); await idleBoard();
+    await frame.locator('#over #end-block-player').filter({hasText:'Block player'}).click();
+    await frame.locator('#board-sheet-title').filter({hasText:'Block player?'}).waitFor();
+    assert.match(await frame.locator('#board-sheet').innerText(),/You can unblock them in Profile/);
+    await frame.locator('#board-sheet').getByRole('button',{name:'Block player',exact:true}).click();
+    await frame.locator('#end-block-status').filter({hasText:'Player blocked.'}).waitFor();
+    assert.equal(await frame.locator('#end-block-status').innerText(),'Player blocked.');
+    await frame.locator('#over #end-block-player').filter({hasText:'Unblock player'}).waitFor();
+    assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).count(),0);
+    const blockReads = await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_block').length);
+    await page.clock.fastForward(3100);
+    await frame.locator('#over #end-block-player').filter({hasText:'Unblock player'}).waitFor();
+    assert.equal(await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_block').length),blockReads,'An end poll reuses the saved Block control');
+    await shot(page, `end-block-${mode}`);
+    await openScreen('profile');
+    if (mode === 'fixture') {
+      const profile = await tool('kingdown_profile'), cursor = randomUUID();
+      const blockPages = async route => {
+        const request = route.request().postDataJSON();
+        if (request.name !== 'kingdown_profile') return route.continue();
+        const more = request.arguments.blocks_after === cursor;
+        return route.fulfill({json:{...profile,_meta:{...profile._meta,
+          blocks:more?profile._meta.blocks:Array.from({length:50},(_,n)=>({user_id:randomUUID(),handle:`blocked-${n}`})),
+          next_blocks_after:more?null:cursor}}});
+      };
+      await page.route('**/fixture-tool',blockPages);
+      await openPlay(); await openScreen('profile');
+      await frame.locator('#profile-blocks-more').click();
+      await page.waitForFunction(cursor=>window.harnessCalls.some(c=>c.name==='kingdown_profile'&&c.arguments.blocks_after===cursor),cursor);
+      await frame.locator('#profile-blocks-more').waitFor({state:'hidden'});
+      assert.equal(await frame.locator('#profile-blocks button').count(),51,'More appends the last page of blocks');
+      await page.unroute('**/fixture-tool',blockPages);
+    }
+    await frame.locator('#profile-blocks button').last().click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Cancel', exact: true }).click();
+    assert.equal((await tool('kingdown_profile'))._meta.blocks.length, 1, 'Cancel keeps the block');
+    await frame.locator('#profile-blocks button').last().click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Unblock player', exact: true }).click();
+    await frame.locator('#profile-blocks-empty:not([hidden])').waitFor();
+    assert.equal((await tool('kingdown_profile'))._meta.blocks.length, 0, 'Profile can unblock after a finished game');
+
+
 
     async function buddyCode(choices = options) {
       const game = await tool('kingdown_create', { kind: 'friend', options: choices, colour: 'white' }, true); assert(!game.isError);
@@ -1086,10 +1208,6 @@ try {
     await openScreen('settings'); await boardSetting('symbols-only',false); await boardSetting('show-threats',false);
   }
   await page.setViewportSize({width:1000,height:1000});
-  // Approval D14 a: the toggle sends only its own field, and the server's answer sets the box.
-  await openScreen('settings'); await boardSetting('show-online',true);
-  assert.deepEqual(await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').at(-1).arguments), {show_online:true}, 'Show when I am online sends only its own setting');
-  await boardSetting('show-online',false);
   await openPlay(); await legacyStart('solo'); await idleBoard(); await boardBox();
   async function clickSquare(file, rank) {
     const box = await boardBox(); assert(box);
@@ -1476,12 +1594,19 @@ try {
     await frame.locator('#over').getByRole('button',{name:'Accept',exact:true}).waitFor({timeout:3000});
     const offeredEnd=await page.evaluate(()=>window.harnessView);
     assert.equal(offeredEnd.rematch_offer,1,'A later Rematch offer arrives without a manual read');
+    for (const allowed of [false,true]) {
+      await page.evaluate(({view,allowed})=>{window.holdNext='kingdown_get'; window.harnessNextView={...view,rules:undefined,rematch_allowed:allowed};},{view:offeredEnd,allowed});
+      await page.clock.fastForward(3100); await page.waitForFunction(()=>typeof window.releaseHeld==='function');
+      await page.evaluate(()=>window.releaseHeld());
+      await frame.locator('#over').getByRole('button',{name:'Accept',exact:true}).waitFor({state:allowed?'visible':'detached',timeout:3000});
+    }
     for(const deleted of [true,false]) {
       await page.evaluate(({view,deleted})=>{window.holdNext='kingdown_get'; window.harnessNextView={...view,rules:undefined,opponent:{...view.opponent,deleted}};},{view:offeredEnd,deleted});
       await page.clock.fastForward(3100); await page.waitForFunction(()=>typeof window.releaseHeld==='function');
       assert(await frame.locator('#page-back').isEnabled(),'An end poll leaves controls enabled'); await page.evaluate(()=>window.releaseHeld());
       await frame.locator('#over').getByRole('button',{name:'Accept',exact:true}).waitFor({state:deleted?'detached':'visible',timeout:3000});
       if (deleted) {
+        assert.equal(await frame.locator('#over #end-block-player').count(),0,'A deleted opponent has no Block control');
         const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
         await page.clock.fastForward(31000);
         assert.equal(await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length),reads,'A deleted opponent stops end polling');

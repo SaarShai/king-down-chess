@@ -144,8 +144,8 @@ export class PostgresMatchStore {
   return (await this.pool.query("select count(distinct user_id)::int as n from public.game_players where user_id is not null and last_seen_at>=now()-interval '10 minutes'")).rows[0].n;
  }
  /** What `viewer` sees of `other`: their presets (no block, and the viewer's quiet mode is off) and when they were last seen. */
- async privacy(client: Client, viewer: string, other: string): Promise<{ presets: boolean; online: boolean }> {
-  const result = await client.query(`select ${unblocked('$1', '$2')} and not (select quiet_mode from public.profiles where id=$1) as presets,
+ async privacy(client: Client, viewer: string, other: string): Promise<{ presets: boolean; online: boolean; unblocked: boolean }> {
+  const result = await client.query(`select ${unblocked('$1', '$2')} as unblocked, ${unblocked('$1', '$2')} and not (select quiet_mode from public.profiles where id=$1) as presets,
    coalesce((select ${online('$1', '$2', 'online_visible_to')} from public.profiles where id=$2), false) as online`, [viewer, other]);
   return result.rows[0];
  }

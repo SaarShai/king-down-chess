@@ -66,6 +66,26 @@ try {
   await review.getByText('review@example.test', { exact: true }).waitFor();
   await review.getByRole('button', { name: 'Continue', exact: true }).click();
   await review.getByRole('button', { name: 'Allow connection' }).waitFor();
+  await review.getByRole('heading', { name: 'Let ChatGPT use your King Down account?', exact: true }).waitFor();
+  assert.deepEqual(await review.locator('#consent li').allTextContents(), [
+    'play and continue games against the computer or people',
+    'make and join friend games, and find a random player',
+    'send game messages, offer draws, resign and ask for rematches',
+    'show your rating, badges and past games',
+    'change your player name, online status, sounds and other settings',
+    'report a player',
+  ]);
+  assert(await review.getByText('ChatGPT cannot read the chat around the game or see your email address.', { exact: true }).isVisible());
+  const privacy = review.getByRole('link', { name: 'Privacy policy', exact: true });
+  assert(await privacy.isVisible());
+  assert.equal(await privacy.getAttribute('href'), 'https://kingdown.dev/privacy.html');
+  assert.equal(await privacy.getAttribute('target'), '_blank');
+  assert.equal(await privacy.getAttribute('rel'), 'noopener');
+  assert.equal(await review.locator('#scopes').count(), 0);
+  assert(!/access tokens|data permissions/.test(await review.locator('#consent').innerText()));
+  assert.equal(await review.locator('#client-name').innerText(), 'King Down browser check');
+  assert.equal(await review.locator('#account').innerText(), 'review@example.test');
+  assert.equal(await review.locator('#redirect').innerText(), 'https://client.example/callback');
   assert.deepEqual(grants, [['password', 'review@example.test'], ['password', 'review@example.test']]);
   assert.equal(new URL(review.url()).searchParams.get('authorization_id'), authorizationId);
   await review.close();
@@ -148,7 +168,7 @@ try {
   await client.query(sql);
   await client.query('insert into kingdown_oauth.client_resources(client_id,resource) values($1,$2) on conflict(client_id) do update set resource=excluded.resource', [clientId, 'https://plugin.example/mcp']);
   const now = Math.floor(Date.now() / 1000);
-  const claims = { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', exp: now + 3600, iat: now, sub: actor, role: 'authenticated', aal: 'aal1', session_id: randomUUID(), email: 'player@example.test', phone: '', is_anonymous: false, app_metadata: { provider: 'google', providers: ['google'] }, client_id: clientId, scope: 'openid email' };
+  const claims = { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', exp: now + 3600, iat: now, sub: actor, role: 'authenticated', aal: 'aal1', session_id: randomUUID(), email: 'player@example.test', phone: '', is_anonymous: false, app_metadata: { provider: 'google', providers: ['google'] }, client_id: clientId, scope: 'openid email', user_metadata: { email: 'player@example.test' } };
   await client.query('set local role supabase_auth_admin');
   async function hook(event) { return (await client.query('select public.kingdown_access_token_hook($1::jsonb) as result', [event])).rows[0].result.claims; }
   const oauth = await hook({ user_id: actor, authentication_method: 'oauth_provider/authorization_code', claims }); assert.deepEqual(oauth, { ...claims, aud: 'https://plugin.example/mcp' });

@@ -11,7 +11,7 @@ import { board, highlight } from '../board-view';
 import { art, symbols } from '../art';
 import { pieceIcon } from '../../piece-icons';
 import { client, memory, navigate } from '../app';
-import { actionButtons, confirmDraw, confirmResign } from './board-actions';
+import { actionButtons, confirmDraw, confirmResign, playerBlockButton } from './board-actions';
 import { updateEnd } from './end';
 import { applyLan, boardActions, cardCoins, replayHistory, replayLans, stripLine, type BoardMove } from './board-model';
 import './board.css';
@@ -235,7 +235,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (available.abort && ['your-move','computer'].includes(context.rank)) context.note='Abort ends the game with no result, until each side moves once.';
     if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:'armed',line:cardName(RULES.hands[view.seat][armedCard]),note:'Choose a piece, then a marked square.'});
     if (view.draw_offer != null && !['result','refusal','link'].includes(context.rank)) context.note = view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.';
-    $('status').textContent = context.rank === 'refusal' ? '' : context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
+    $('status').textContent = context.rank === 'refusal' ? '' : context.line; $('context-note').textContent = memory.blockNotice || context.note; $('context-text').dataset.rank = context.rank;
     const actions: HTMLButtonElement[] = [];
     if (!armed && armedCard === undefined && square !== undefined && code) actions.push(button('All rules', () => boardSheet('All rules', text(readText(pos!, square)))));
     if (selected !== undefined && moves.some(({move}) => move.from === selected && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
@@ -250,7 +250,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   }
   $('resign').onclick = confirmResign; $('offer-draw').onclick = () => confirmDraw('offer');
   $('reload').addEventListener('click', closeBoardSheet);
-  $('board-menu').onclick = () => boardSheet('Menu', button('Choose a move', () => boardSheet('Choose a move', $('choices'))), button('Moves', showMoves), ...view ? actionButtons(view,Date.now()-readAt,refused,true) : [], button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('computer'), $('invite'), $('invitation'));
+  $('board-menu').onclick = () => boardSheet('Menu', button('Choose a move', () => boardSheet('Choose a move', $('choices'))), button('Moves', showMoves), ...view ? actionButtons(view,Date.now()-readAt,refused,true) : [], ...view ? playerBlockButton(view) : [], button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('computer'), $('invite'), $('invitation'));
   function showMoves() { boardSheet('Moves', ...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No moves shown yet.')]); }
   $('moves-line').onclick = showMoves;
   bindBoard();

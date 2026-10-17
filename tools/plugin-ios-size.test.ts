@@ -239,12 +239,14 @@ const hitSizes = (root: Element) => [...root.querySelectorAll('button, label, in
   const run = (dx: number, dy: number) => { let n = 0; while (n < 40 && own(document.elementFromPoint(x + dx * (n + 1), y + dy * (n + 1))) === target) n++; return n; };
   return { name: e.id || e.textContent!.trim().slice(0, 20), height: run(0, -1) + run(0, 1) + 1, width: run(-1, 0) + run(1, 0) + 1 };
 });
-it.each([[768, 1024], [1024, 768]])('gives Settings toggles the 44 px floor with touch at %i × %i', async (width, height) => {
+it.each([[768, 1024], [1024, 768]])('gives Settings controls the 44 px floor with touch at %i × %i', async (width, height) => {
   const { page, frame } = await hostPage(width, height, 24, 20);
   try {
     await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
     const heights = await frame.locator('[data-screen="settings"] .fields > label').evaluateAll(labels => labels.map(l => l.getBoundingClientRect().height));
-    expect(heights).toHaveLength(3); for (const h of heights) expect(h).toBeGreaterThanOrEqual(44);
+    expect(heights).toHaveLength(2); for (const h of heights) expect(h).toBeGreaterThanOrEqual(44);
+    const online = await frame.locator('#online-visibility label').evaluateAll(labels => labels.map(l => l.getBoundingClientRect().height));
+    expect(online).toHaveLength(3); for (const h of online) expect(h).toBeGreaterThanOrEqual(44);
   } finally { await page.close(); }
 });
 it('wraps the page title at 320 px and never cuts it', async () => {

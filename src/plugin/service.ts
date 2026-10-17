@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { handleProblem, ICONS } from '../account/profile';
 import { fail, GameService, id, parse } from '../match/service';
 import type { PostgresMatchStore } from '../match/store';
-import { AccountService } from '../online/accounts';
+import { AccountService, who } from '../online/accounts';
 import { SettingsService, settingsSchema, type PlayerSettings } from './settings';
 import { SafetyService } from '../online/safety';
 
@@ -34,15 +34,26 @@ export class PluginService {
   find(actor: string, options: unknown, colour: unknown = 'white', commandId?: string, anyRules = false) { return this.games.find(actor, options, colour, commandId, anyRules); }
   cancel(actor: string, gameId: string) { return this.games.cancel(actor, gameId); }
   report(actor: string, input: unknown) { return this.safety.report(actor, input); }
+  /** Read or change the actor's block of the opponent in a shared game. */
+  async block(actor: string, target: { game_id?: string; user_id?: string }, blocked?: boolean): Promise<boolean> {
+    actor = id(actor);
+    const other = await who(this.store.pool, actor, target);
+    const relation = { kind: 'block', user_id: other };
+    if (blocked === true) await this.accounts.relate(actor, relation);
+    if (blocked === false) await this.accounts.unrelate(actor, relation);
+    return (await this.store.pool.query("select exists(select from public.relations where user_id=$1 and other_id=$2 and kind='block') as blocked", [actor, other])).rows[0].blocked;
+  }
+  async blocks(actor: string, after?: string): Promise<{ user_id: string; handle: string | null }[]> {
+    return (await this.store.pool.query("select r.other_id as user_id,p.handle from public.relations r left join public.profiles p on p.id=r.other_id where r.user_id=$1 and r.kind='block' and ($2::uuid is null or r.other_id>$2) order by r.other_id limit 51", [id(actor), after === undefined ? null : id(after)])).rows;
+  }
   /** Read-only. The ID and the handle; never the email. */
   async profile(actor: string) { const { user_id, handle, icon } = await this.accounts.profile(actor); return { user_id, handle, icon }; }
-  /** Board settings and last setup, plus 'Show when I am online': on is 'everyone', off is 'nobody'. The default
-   * 'mutual' shows as off: no King Down screen can make a follow yet, so it acts like 'nobody'. */
+  /** Board settings and last setup, with the account's online visibility. */
   async settings(actor: string, input: unknown = {}): Promise<PlayerSettings> {
-    const { show_online, ...board } = parse(settingsSchema, input);
-    if (show_online !== undefined) await this.accounts.updateSettings(actor, { online_visible_to: show_online ? 'everyone' : 'nobody' });
-    const [settings, { online_visible_to }] = await Promise.all([this.playerSettings.settings(actor, board), this.accounts.profile(actor)]);
-    return { ...settings, show_online: online_visible_to === 'everyone' };
+    const { online_visible_to, ...board } = parse(settingsSchema, input);
+    if (online_visible_to !== undefined) await this.accounts.updateSettings(actor, { online_visible_to });
+    const [settings, profile] = await Promise.all([this.playerSettings.settings(actor, board), this.accounts.profile(actor)]);
+    return { ...settings, online_visible_to: profile.online_visible_to };
   }
   async handle(actor: string, input: unknown) {
     actor = id(actor); const { handle, icon, check } = parse(handleSchema, input);
