@@ -94,3 +94,7 @@ The fixture name is short, so only the HTTP profile exposes it. Both cases alrea
 In the existing two-row card strip, use the base two-line name and rating layout within its 44 px first row.
 Keep the coins on the second row. Keep the grid and the board size. This choice gives each name the full 188 px span.
 The failed HTTP log is checks-afc-http.txt; its detail log is in the runner output folder.
+
+The M1 run at 2578ad9f confirms both names fit in 188 px. The first K1 measure catches the upward card-deal motion.
+Wait for the table animations to end before the K1 row measure. Keep all fit and second-row assertions.
+The name and rating keep the full first row. The product grid does not change.

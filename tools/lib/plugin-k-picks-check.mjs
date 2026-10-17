@@ -24,6 +24,9 @@ export async function checkOwnerPicks(page, frame, saved, idleBoard, boardBox) {
     for (const [width, height] of [[402, 714], [412, 790], [440, 760]]) {
       await page.setViewportSize({ width, height }); await boardBox();
       await frame.locator('html').evaluate(() => document.fonts.ready);
+      await frame.locator('#game-table').evaluate(async table => {
+        await Promise.all(table.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})));
+      });
       for (const side of ['them', 'me']) {
         const fit = await frame.locator(`#strip-${side}`).evaluate(strip => {
           const name = strip.querySelector('.player-name b'), row = strip.querySelector('.player-name').getBoundingClientRect();
