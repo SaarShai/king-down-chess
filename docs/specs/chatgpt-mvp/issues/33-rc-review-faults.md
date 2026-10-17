@@ -1,6 +1,6 @@
 # 33 Release candidate review faults
 
-Status: claimed
+Status: resolved
 Branch: claude/rc-fixes
 Base: 4692477c1669db14782e0058126ad291e1664ba8
 
@@ -34,4 +34,23 @@ The tests-only commit is `c6771fd3`. Its board, service and review note match th
 
 ## Final checks
 
-Pending.
+The code checks run at `f57722b5`. The later ticket commit changes only this record.
+
+- `npx tsc --noEmit`: pass.
+- Full `npm test`, with the local test database and two workers: exit 0. All 188 test files pass. The totals are 3,053 passing tests, one expected failure and eight skipped tests. The 51 art tests also pass. Log: `scratchpad/lanes/rc-fixes/tests-green-3.txt`.
+- `plugin-ui`: pass in 132.1 seconds on this Mac with Chrome.
+- `plugin-ui-http`: pass in 144.7 seconds on this Mac with Chrome and the local test database.
+- The browser run ends with `check-runner: mac exit 0 at f57722b5`. Log: `scratchpad/lanes/rc-fixes/checks-green-1.txt`. Both logs include the four R1 board cases.
+- `git diff --check`: pass. The diff leaves `src/plugin/app.css` and the zoom checks unchanged.
+
+## Test setup and failed checks
+
+The first full test run reports a missing WebKit file and a search test that exceeds its five-second limit. The test browser install supplies WebKit. A single-file search check then passes all 18 tests with the same limits. Logs: `tests-green-1.txt` and `search-recheck.txt` in the lane folder.
+
+The next full run uses one worker. It reports the simulation child-process limit and a clipboard test limit. A results-card query also fails to return within five seconds. The configured results folder is present. A file-system volume check (`getattrlist`, `ATTR_VOL_UUID`) confirms that its volume identity matches the card configuration. I stop only my failed test run with SIGINT; it exits 130. Log: `tests-green-2.txt`.
+
+The final run uses `VITEST_MAX_WORKERS=2` and sets the existing `KING_DOWN_RESULTS_DIR` option to that same verified card folder. Results stay on the card through `tools/lib/results-root.mjs`. This avoids repeated slow disk queries. The local test database URL stays as the owner gives it. No test or check time limit changes. No source change is needed for this setup.
+
+## Review
+
+Each fix stays in its current code path. No new dependency or extra product choice is needed. R3 keeps all other packet words. All three parts are built. No taste choice is needed.
