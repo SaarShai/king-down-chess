@@ -185,6 +185,7 @@ it('returns focus to each sheet opener after a pointer opens the sheet', async (
   const focus: Record<string,string> = {};
   const active = () => frame.locator('html').evaluate(() => { const e = document.activeElement; return e ? e.id || e.tagName : 'none'; });
   const opens = async (id: string, sheet: string, close: 'Escape' | '×' = 'Escape') => {
+    if (id === 'menu-resign') await frame.locator('#board-menu').click();
     await frame.locator(`#${id}`).click(); await frame.locator(`${sheet}[open]`).waitFor();
     // A refresh under the sheet rebuilds the coins.
     if (/^(power|card)-/.test(id)) await frame.locator('#reload').evaluate(e=>{e.setAttribute('disabled','');e.removeAttribute('disabled');});
@@ -209,9 +210,9 @@ it('returns focus to each sheet opener after a pointer opens the sheet', async (
     const ring = await frame.locator('#seat-shuffle').evaluate(e=>({focused:document.activeElement===e, ring:e.matches(':focus-visible')}));
     await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     await frame.locator('#board-menu:not(:disabled)').waitFor();
-    for (const id of ['board-menu','moves-line','resign','power-w','card-w-0']) await opens(id, '#board-sheet');
+    for (const id of ['board-menu','moves-line','menu-resign','power-w','card-w-0']) await opens(id, '#board-sheet');
     for (const id of ['board-menu','moves-line','card-w-0']) await opens(id, '#board-sheet', '×');
-    expect(focus).toEqual(Object.fromEntries(Object.keys(focus).map(key => [key, key.split(' ')[0]])));
+    expect(focus).toEqual(Object.fromEntries(Object.keys(focus).map(key => [key, key.startsWith('menu-resign ') ? 'board-menu' : key.split(' ')[0]])));
     expect(Object.keys(focus)).toHaveLength(14);
     expect(ring).toEqual({focused:true, ring:false});
   } finally {await page.close();}

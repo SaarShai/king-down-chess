@@ -1351,7 +1351,7 @@ it('shows a neutral Start game beside the connection line when a slow start time
   } finally { await page.close(); }
 });
 
-it('starts no game when the player goes Back while a slow start still saves the setup', async () => {
+it('starts no game when the player leaves the hall while a slow start still saves the setup', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await hall(page);
@@ -1359,14 +1359,14 @@ it('starts no game when the player goes Back while a slow start still saves the 
     await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_settings'; });
     await frame.locator('#setup-start').click();
     await page.waitForFunction(() => !!(window as any).releaseBefore);
-    // After 5 s Back is free, and no Create has gone out yet.
+    // After 5 s the hall exits are free, and no Create has gone out yet.
     await page.clock.fastForward(5_001);
-    await frame.locator('#page-back:not(:disabled)').click();
-    await frame.locator('#home-card:not([hidden])').waitFor();
+    await frame.locator('[data-screen="play"] [data-nav="profile"]:not(:disabled)').click();
+    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
     await page.evaluate(() => (window as any).releaseBefore());
     await frame.locator('#page-back:not([data-free])').waitFor({ state: 'attached' });
     expect(await sent(page, 'kingdown_create')).toBe(0);
-    expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
+    expect(await frame.locator('body').getAttribute('data-page')).toBe('profile');
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
 

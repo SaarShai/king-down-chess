@@ -58,3 +58,6 @@ The checks pass only when each command ends with exit 0. The browser log must na
 - Wait for the keyboard send to reach the host before counting it. Keep the focus check.
 - The offline check now expects the current state contract: Not current and Try again after three failed polls. A good read clears both.
 - The type check passes. No test or check time limit changes.
+
+- Second full suite: 184 files pass; 2 fail. All race, server, keyboard and offline fixes pass. The two failures still target removed controls.
+- The slow-start test now leaves the hall through Profile. The focus test opens Resign through Menu and checks focus returns to Menu. Keep all 14 focus cases.
