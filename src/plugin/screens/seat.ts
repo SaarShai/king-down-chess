@@ -134,16 +134,11 @@ function menu(confirm = false) {
   $('seat-menu-close').focus();
 }
 
-async function retryPending() {
-  const pending = client.state.pending; if (!pending || sending || client.state.screen !== 'seat') return;
+/** The continuation of a resent Seat command (design §5.2): Seat finishes with the reply. */
+export async function finishSeat(next: View) {
   sending = true; locks();
-  try { const next = await call(pending.name, pending.args, true, false, false, true); if (next) await finish(next); }
-  finally { sending = false; render(); }
+  try { await finish(next); } finally { sending = false; render(); }
 }
-document.addEventListener('click', event => {
-  if (!(event.target as HTMLElement).closest('#retry') || client.state.screen !== 'seat' || !['kingdown_choose','kingdown_abort','kingdown_get'].includes(client.state.pending?.name ?? '')) return;
-  event.preventDefault(); event.stopImmediatePropagation(); void retryPending();
-}, true);
 // The store's subscriber replaces the data-page, #status and #seat-ready observers. The ResizeObserver stays: it measures layout.
 export function seatSync(page: Page) {
   if (page.screen !== 'seat') { release(); return; }
@@ -158,8 +153,7 @@ export function seatScreen() {
   if (!view.options) { release(); routeView(view); return; }
   if (view.status !== 'setup') {
     game = view.game_id;
-    if (['kingdown_choose','kingdown_abort','kingdown_get'].includes(client.state.pending?.name ?? '')) setTimeout(() => void retryPending(), 0);
-    else if (!sending && view.options && Object.values(seatChoicesNeeded(view.options)).some(Boolean)) { sending = true; void finish(view).finally(() => { sending = false; }); }
+    if (!client.state.pending && !sending && view.options && Object.values(seatChoicesNeeded(view.options)).some(Boolean)) { sending = true; void finish(view).finally(() => { sending = false; }); }
     return;
   }
   const own = seatChoice(view, memory.settings?.last_setup?.king ?? null); if (!own) return;
@@ -167,7 +161,6 @@ export function seatScreen() {
   else if (view.ready?.[view.seat]) { choice = own; selected = null; }
   if (!$('seat-board-slot') && !home) { const slot = document.createElement('div'); slot.id = 'seat-board-slot'; $('game-table').prepend(slot); }
   ownBoard(view); render();
-  if (!sending && ['kingdown_choose','kingdown_abort','kingdown_get'].includes(client.state.pending?.name ?? '') && !client.state.pending?.error) setTimeout(() => void retryPending(), 0);
   if (!closeMenu && ['seat-menu','seat-abort'].includes(client.state.sheet ?? '')) menu(client.state.sheet === 'seat-abort');
   else if (!picking && client.state.sheet === 'king') setTimeout(() => { if (client.state.sheet === 'king' && !locked()) void pickKing(); }, 0);
 }

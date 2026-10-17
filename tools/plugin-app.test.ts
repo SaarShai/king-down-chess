@@ -143,7 +143,7 @@ it('recovers a completed create or find after its reply is lost', async () => {
       const completed = await page.evaluate(() => (window as any).harnessView.game_id);
       await frame.locator('#retry').click();
       await frame.locator(`[data-screen="${kind === 'friend' ? 'friend' : 'wait'}"]:not([hidden])`).waitFor();
-      expect(await frame.locator('html').evaluate(() => (window as any).startResult.game_id)).toBe(completed);
+      expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(completed);
       // Retry sends the same command ID again; the server receipt gives back the same game (design §5.2).
       expect(await page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name)).toBe(2);
       expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
@@ -167,7 +167,7 @@ it('recovers a lost Create or Find reply when Save resumes the pending start', a
       await frame.locator('[data-nav="handle"]').click();
       await frame.locator('#save-handle').click();
       await frame.locator(`[data-screen="${kind === 'friend' ? 'friend' : 'wait'}"]:not([hidden])`).waitFor();
-      expect(await frame.locator('html').evaluate(() => (window as any).startResult.game_id)).toBe(completed);
+      expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(completed);
       expect(await page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name)).toBe(2);
       expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
     } finally { await page.close(); }
@@ -639,7 +639,8 @@ it('updates activity on unchanged replies across the two-minute poll boundary', 
     })).toEqual({ delay: 30000, now: '2026-10-11T12:00:02Z' });
   } finally { await page.close(); }
 });
-it('keeps the start screen through HANDLE_NEEDED, Back, Save and deferred routing', async () => {
+// The start does not wait for the name: Save resends it, and its continuation finishes the start (design §5.2).
+it('keeps the start through HANDLE_NEEDED and Back, and Save finishes it', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await page.evaluate(() => { (window as any).requireHandleNext = true; });
@@ -652,11 +653,8 @@ it('keeps the start screen through HANDLE_NEEDED, Back, Save and deferred routin
     expect(await frame.locator('[data-screen="play"]').isVisible()).toBe(true);
     await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('handle'); });
     await frame.locator('#save-handle').click();
-    await frame.locator('html').evaluate(() => new Promise<void>(resolve => {
-      const tick = () => (window as any).startResult ? resolve() : setTimeout(tick, 10); tick();
-    }));
-    expect(await frame.locator('html').evaluate(() => (window as any).startResult.status)).toBe('waiting');
-    expect(await frame.locator('[data-screen="play"]').isVisible()).toBe(true);
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.status)).toBe('waiting');
     expect(await frame.locator('#retry').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
@@ -673,13 +671,12 @@ it('shows no Retry on New game while Save sends the waiting start again', async 
     expect(await frame.locator('#retry').isVisible()).toBe(false);
     expect(await frame.locator('#error').textContent()).toBe('');
     await page.evaluate(() => (window as any).releaseHeld());
-    await frame.locator('html').evaluate(() => new Promise<void>(resolve => {
-      const tick = () => (window as any).startResult ? resolve() : setTimeout(tick, 10); tick();
-    }));
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     expect(await frame.locator('#retry').isVisible()).toBe(false);
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
-it.each([true, false])('keeps route=%s through Save, a failed send and Retry', async route => {
+// The continuation of a resent start routes (design §5.2), so the start's own route option no longer matters here.
+it.each([true, false])('finishes a start with route=%s through Save, a failed send and Retry', async route => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await page.evaluate(() => { (window as any).requireHandleNext = true; (window as any).failActionAfterHandle = true; });
@@ -694,11 +691,8 @@ it.each([true, false])('keeps route=%s through Save, a failed send and Retry', a
     expect(await frame.locator('#error').textContent()).toBe('');
     await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('play'); });
     await frame.locator('#retry').click();
-    await frame.locator('html').evaluate(() => new Promise<void>(resolve => {
-      const tick = () => (window as any).startResult ? resolve() : setTimeout(tick, 10); tick();
-    }));
-    expect(await frame.locator('html').evaluate(() => (window as any).startResult.status)).toBe('waiting');
-    expect(await frame.locator(`[data-screen="${route ? 'friend' : 'play'}"]`).isVisible()).toBe(true);
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.status)).toBe('waiting');
     expect(await frame.locator('#retry').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
@@ -2318,6 +2312,8 @@ it('recovers a lost seat Ready before the computer makes the first move after re
     const reads = await sent(page, 'kingdown_settings');
     await page.locator('#remount').click();
     await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, reads);
+    // A pending with an error shows its saved words and Retry at the remount; Retry sends it, and Seat finishes (design §5.3).
+    await frame.locator('#retry:not(:disabled)').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending?.name ?? null)).toBeNull();
     await page.waitForFunction(() => (window as any).harnessView.turn === (window as any).harnessView.seat);

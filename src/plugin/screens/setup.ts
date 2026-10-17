@@ -24,13 +24,13 @@ let cardMode: 'all' | 'four' = 'all';
 const mounted = (window as Window & { openai?: WidgetHost }).openai?.widgetState?.privateContent;
 const restored = mounted?.pending;
 // anyRules: 'Any rules' under A random player (owner item D1 a). It applies to this start only and is not saved.
-let draft: SetupState | undefined, quick = !!restored?.quick, anyRules = false, starting = false, late = false, recovering = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
+let draft: SetupState | undefined, quick = !!restored?.quick, anyRules = false, starting = false, late = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
 const restoredSetup = () => !restoreHandled && restored?.screen === 'play' && !!memory.settings && (restored.quick || !!memory.settings.last_setup) && (['kingdown_choose', 'kingdown_get'].includes(restored.name) || !!restored.args.options);
 const ownPending = () => ownCommand || restoredSetup();
 export const quickStart = () => quick && ownPending();
-export const setupBusy = () => starting || recovering || !!client.state.pending;
+export const setupBusy = () => starting || !!client.state.pending;
 /** A start of this screen runs: Start is busy, and no other start or game command waits on it. */
-export const setupStarting = () => starting || recovering;
+export const setupStarting = () => starting;
 async function readGames() {
   const result = await client.call('kingdown_games', {}, { background: true });
   if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
@@ -90,11 +90,11 @@ function render() {
   $('setup-power-text').textContent = ruleLine(powerText(pick.power, kingRules));
   // The button is disabled and busy at once (F5). Its words are the owner's items W3 b ('Starting…' after 1 s) and W6 a
   // ('Start game' again while the error and Retry show).
-  const button = $<HTMLButtonElement>('setup-start'), busy = (starting || recovering) && !client.state.pending?.error;
+  const button = $<HTMLButtonElement>('setup-start'), busy = starting && !client.state.pending?.error;
   // The app's one action update locks every start control (setup-start, hall-play, games-start) while a start waits.
   actions();
   button.setAttribute('aria-busy', String(busy));
-  button.textContent = busy && (late || recovering) ? 'Starting…' : 'Start game';
+  button.textContent = busy && late ? 'Starting…' : 'Start game';
 }
 function sheet(name: string, title: string, done: () => void) {
   closeSheet?.();
@@ -166,7 +166,7 @@ async function pickKing() {
   if (draft!.king || picked !== shown) draft!.king = picked;
   render();
 }
-async function finish(view: View, pick = draft!.king) {
+async function finish(view: View, pick = draft?.king ?? null) {
   const choice = soloChoice(view, pick);
   if (choice) { ownCommand = true; const next = await call('kingdown_choose', { ...choice, command_id: crypto.randomUUID().replaceAll('-', '') }, true, false, false); if (!next) return; view = next; }
   if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, true, false, false); if (!full) return; view = full; }
@@ -192,19 +192,10 @@ async function launch(setup = draft, saveSetup = true) {
   } catch (error) { store.dispatch({ type: 'error', text: errorText(error) }); }
   finally { clearTimeout(words); clearTimeout(wait); starting = late = false; exits.forEach(button => { delete button.dataset.free; }); if (!client.state.pending) ownCommand = false; render(); }
 }
+/** The continuation of a resent start or setup step (design §5.2): it finishes the start. */
+export const finishStart = (view: View) => finish(view);
 /** Play now starts a computer game and keeps the saved setup. */
 export function playNow() { if (memory.settings) void launch(quickSetup(memory.settings.last_setup), false); }
-async function recoverStart() {
-  const pending = client.state.pending;
-  if (!draft || !pending || recovering) return;
-  const active = starting; recovering = true; ownCommand = true; render();
-  try {
-    await readGames();
-    const view = await call(pending.name, pending.args, true, false, false, true);
-    if (!active && view) await finish(view);
-  } catch (error) { store.dispatch({ type: 'error', text: errorText(error) }); }
-  finally { recovering = false; render(); }
-}
 // The store's subscriber replaces the data-page and #retry observers.
 export function setupSync(page: Page) {
   if (page.screen !== 'play' && !(page.screen === 'seat' && client.state.sheet === 'king')) {
@@ -219,12 +210,6 @@ export function setupSync(page: Page) {
   if (!draft) { readDraft(); memory.kind = draft!.kind; }
   setTimeout(() => { void readGames().then(() => finish(memory.view!)).catch(error => { store.dispatch({ type: 'error', text: errorText(error) }); }); }, 0);
 }
-document.addEventListener('click', event => {
-  if (!(event.target as HTMLElement).closest('#retry') || client.state.screen !== 'play' || !ownPending()) return;
-  const pending = client.state.pending;
-  if (['kingdown_create','kingdown_find'].includes(pending?.name ?? '')) { event.preventDefault(); event.stopImmediatePropagation(); void recoverStart(); }
-  else if (['kingdown_choose','kingdown_get'].includes(pending?.name ?? '')) { event.preventDefault(); event.stopImmediatePropagation(); void call(pending!.name, pending!.args, true, false, false, true).then(async view => { if (view) await finish(view); render(); }); }
-}, true);
 /** An exact four-card saved pool opens as Pick four. */
 function readDraft() {
   draft = readSetup(memory.settings!.last_setup); cardMode = draft.options.cardPool.length === 4 ? 'four' : 'all';
