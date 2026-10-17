@@ -2160,21 +2160,66 @@ try {
       assert.equal(replayHistory(theirTurn,sampleRules)?.at(-1)?.words,story,'The sample history keeps its spent-power counts and restores the last move');
       await showSnapshot(theirTurn,story); await zoomBoardFits('board-their-turn');
       // T6: match the tall-phone capture: full host height, no cards or powers, and the other player's turn.
-      await showSnapshot({...theirTurn,game_id:randomUUID(),revision:0,fen:state.fen,last_commands:[],history:{initial_fen:state.fen,actions:[]},options,rules:{kings:[null,null],hands:[[],[]]},kings:[null,null],hands:[[],[]]});
+      const tallRules = {kings:[null,null],hands:[[],[]]}, tallStart = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';
+      setRules(tallRules);
+      let tallPosition = fromFen(tallStart);
+      const tallActions = [], tallWords = [];
+      for (const [from,to] of [[12,28],[52,36],[6,21],[57,42],[5,26],[62,45],[11,19],[51,43]]) {
+        const move = legalMoves(tallPosition).find(move => move.from === from && move.to === to && !move.power);
+        assert(move, 'The tall-phone sample uses legal moves');
+        const lan = toLan(tallPosition,move), step = applyLan(tallPosition,lan,tallRules);
+        tallActions.push(lan); tallWords.push(step.words); tallPosition = step.pos;
+      }
+      const tallView = {...theirTurn,game_id:randomUUID(),revision:0,fen:toFen(tallPosition),turn:tallPosition.turn,seat:1,last_commands:[],history:{initial_fen:tallStart,actions:tallActions},options,rules:tallRules,kings:[null,null],hands:[[],[]]};
+      await showSnapshot(tallView,tallWords.at(-1));
       const viewport = page.viewportSize();
       const hostStyle = await page.locator('iframe').getAttribute('style');
       await page.locator('iframe').evaluate(el => el.style.setProperty('height','100dvh','important'));
       await zoomViewport(393,852,0,0); await boardBox();
-      const boxes = await zoomBoxes(['#board','#board canvas','#strip-them','#strip-me','#context-line','#moves-line','#table-bar']);
-      console.log(`T6 tall-phone boxes: ${JSON.stringify(boxes)}`);
+      const boxes = await zoomBoxes(['#board','#board canvas','#strip-them','#strip-me','#context-line','#moves-line','#recent-moves','#table-bar']);
+      console.log(`T6/T7 tall-phone boxes: ${JSON.stringify(boxes)}`);
       const expected = {
         frame:[0,0,393,756], '#board':[4,44,385,411], '#board canvas':[4,44,385,411],
         '#strip-them':[0,0,393,44], '#strip-me':[0,455,393,44], '#context-line':[12,499,369,44],
-        '#moves-line':[12,543,369,44], '#table-bar':[0,712,393,44],
+        '#moves-line':[12,543,369,44], '#recent-moves':[12,587,369,108], '#table-bar':[0,712,393,44],
       };
       for (const [id,box] of Object.entries(expected)) assert(boxes[id]?.every((value,i) => Math.abs(value-box[i]) <= 1),
         `At 393 x 852 ${id} keeps its measured box (1 px rounding): ${JSON.stringify(boxes)}`);
+      const movesControl = frame.locator('#moves-line'), recentMoves = frame.locator('#recent-moves');
+      await frame.locator('#moves-line[aria-expanded="true"]').waitFor();
+      assert.match(await movesControl.innerText(), /Moves/, 'The Moves control keeps its name');
+      assert.equal(await recentMoves.locator('p').count(), tallActions.length, 'The list contains the game history');
+      assert((await recentMoves.locator('p').last().innerText()).endsWith(tallWords.at(-1)), 'The list ends with the last move');
+      const lastVisible = await recentMoves.evaluate(el => {
+        const list = el.getBoundingClientRect(), last = el.lastElementChild.getBoundingClientRect();
+        return last.top >= list.top && last.bottom <= list.bottom + 1 && el.scrollTop > 0;
+      });
+      assert(lastVisible, 'The open list scrolls to the last move');
+      const noPageScroll = await frame.locator('#app-frame').evaluate(el => [document.documentElement,document.body,el,document.querySelector('[data-screen="board"]')].every(node => node.scrollHeight <= node.clientHeight + 1));
+      assert(noPageScroll, 'The open list adds no page scroll');
+      assert.equal(boxes['#table-bar'][1] + boxes['#table-bar'][3], boxes.frame[1] + boxes.frame[3], 'The bar stays at the bottom');
       await shot(page,`tall-board-their-turn-393-${mode}`);
+      for (const [width,height] of [[320,568],[197,426],[393,740]]) {
+        await zoomViewport(width,height,0,0);
+        await frame.locator('#moves-line[aria-expanded="false"]').waitFor({state:'attached'});
+        assert(await recentMoves.isHidden(), `The list stays closed at ${width} x ${height}`);
+      }
+      await zoomViewport(393,852,0,0);
+      await frame.locator('#moves-line[aria-expanded="true"]').waitFor();
+      await tapCentre(movesControl);
+      assert.equal(await movesControl.getAttribute('aria-expanded'), 'false', 'A tap closes Moves');
+      assert(await recentMoves.isHidden(), 'A tap hides the list');
+      await showSnapshot({...tallView,revision:1},tallWords.at(-1));
+      await zoomViewport(320,568,0,0); await zoomViewport(393,852,0,0);
+      await boardBox();
+      assert.equal(await movesControl.getAttribute('aria-expanded'), 'false', 'The player close holds after a board update and resize');
+      await tapCentre(movesControl);
+      assert.equal(await movesControl.getAttribute('aria-expanded'), 'true', 'A tap opens Moves');
+      assert(await recentMoves.isVisible(), 'A tap shows the list');
+      await tapCentre(movesControl);
+      await showSnapshot({...tallView,game_id:randomUUID()},tallWords.at(-1));
+      await frame.locator('#moves-line[aria-expanded="true"]').waitFor();
+      assert(await recentMoves.isVisible(), 'A new board view can open the list by itself');
       await page.locator('iframe').evaluate((el,style) => style === null ? el.removeAttribute('style') : el.setAttribute('style',style),hostStyle);
       await zoomViewport(viewport.width,viewport.height,0,0);
     }
