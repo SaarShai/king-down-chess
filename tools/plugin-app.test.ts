@@ -18,34 +18,6 @@ async function open() {
   return page;
 }
 
-it('holds the first settings read until the check releases Home', async () => {
-  const page = await browser.newPage(), frame = page.frameLocator('iframe');
-  page.setDefaultTimeout(5000);
-  try {
-    await page.clock.install();
-    await page.addInitScript(() => { (window as any).holdBeforeNext = 'kingdown_settings'; });
-    await page.goto(harness.url);
-    await page.waitForFunction(() => typeof (window as any).releaseBefore === 'function');
-    // The old 300 ms boot delay can expire before the check reads the controls.
-    await page.clock.fastForward(1000);
-    expect(await frame.locator('#home-play').isDisabled()).toBe(true);
-    expect(await frame.locator('#home-games').isDisabled()).toBe(true);
-    await page.evaluate(() => (window as any).releaseBefore());
-    await frame.locator('#home-play:not(:disabled)').waitFor();
-    expect(await frame.locator('#home-games').isDisabled()).toBe(false);
-  } finally { await page.close(); }
-});
-
-it('measures the game controls when the host page has another navigation bar', async () => {
-  const page = await open(), frame = page.frameLocator('iframe');
-  try {
-    await frame.locator('body').evaluate(() => {
-      const nav = document.createElement('nav'); nav.id = 'hall-tools'; document.body.append(nav);
-    });
-    await expect(frame.locator('nav').evaluate(el => el.getBoundingClientRect().bottom)).rejects.toThrow('strict mode violation');
-    expect(await frame.locator('#table-bar').evaluate(el => el.id)).toBe('table-bar');
-  } finally { await page.close(); }
-});
 it('keeps a board open without a game on home and stores its ID only in private state', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

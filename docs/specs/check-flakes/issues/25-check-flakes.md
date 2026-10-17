@@ -10,6 +10,7 @@ Scope: part b. Parts a and c are in the branch. Tools only.
 2. Fix faults in tools. Wait for a real state. Keep all time limits.
 3. Add tests for each change. Run the type check and the full unit tests.
 4. Commit. Run plugin-ui and three plugin-ui-http checks in order through the check runner.
+5. Check the review finding. Replace weak app tests with source checks. Prove that both fail on the old check script. Run npm test, commit, and repeat the browser checks at that head.
 
 ## Checks
 
@@ -51,3 +52,13 @@ The saved local log root is `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/ki
 
 - At `29d5bdb0`, the required runner passes `plugin-ui` in 93.5 s and `plugin-ui-http` in 102.2 s. Log: `checks-b-1.txt`; detailed folder: `check-flakes-e3uBDi`.
 - A source-history check corrects the 35.6 s cause above. This doc change does not change the tested code. The three final HTTP checks run at the next head.
+
+### Part b review fix
+
+- Review A, finding 1 is confirmed. The two app tests in `tools/plugin-app.test.ts` do not read or run `tools/plugin-ui-check.mjs`. They still pass if its hold and selector fixes are removed.
+- Replace those tests with two source checks in `tools/plugin-ui-check.test.ts`. One guards the hold, its terminal exclusion, and the order of the load, wait, disabled-Play assert and release. The other guards the table-bar measurement and rejects the ambiguous `nav` selector.
+- Review B has no finding. Its checks of the hold, terminal load, card-state comparison, selector and log reader agree with the code.
+- Verification: both new tests must fail on the check script before `29d5bdb0`. The full tests and type check must pass. After the commit, plugin-ui and three plugin-ui-http checks must pass in order at the same head through the required runner. No test limit or check limit changes.
+- `tests-b-review-red-1.txt`: both new source tests fail on the check script before `29d5bdb0`. The hold test finds no settings hold. The selector test finds `locator('nav')`. The test command restores the fixed script after this check.
+- `tests-b-review-full-1.txt`: npm test with the required local database passes. The type check passes; 172 files pass; 2,643 tests pass and 8 skip; all 50 artwork checks pass. No product code or check script changes.
+- The final browser checks run from the commit that holds this test fix. Their logs are `checks-b-review-1.txt`, `checks-b-review-2.txt` and `checks-b-review-3.txt` in the check-flakes lane. The complete result, with the tested head, is in `25-b-fix.md` in that lane.
