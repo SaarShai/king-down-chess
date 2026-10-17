@@ -16,7 +16,7 @@ describe('public consent configuration', () => {
       'change your player name, online status, sounds and other settings',
       'report a player',
     ]);
-    expect(html).toContain('<p>ChatGPT cannot read the chat around the game or see your email address.</p>');
+    expect(html).not.toMatch(/cannot read the chat|see your email address/);
     expect(html).not.toMatch(/id="scopes"|Requested information|access tokens|data permissions/);
     for (const id of ['client-name', 'account', 'redirect', 'approve', 'deny', 'password-form', 'password-email', 'password-value']) expect(html).toContain(`id="${id}"`);
   });

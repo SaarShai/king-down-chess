@@ -75,7 +75,7 @@ try {
     'change your player name, online status, sounds and other settings',
     'report a player',
   ]);
-  assert(await review.getByText('ChatGPT cannot read the chat around the game or see your email address.', { exact: true }).isVisible());
+  assert(!/cannot read the chat|see your email address/.test(await review.locator('#consent').innerText()));
   const privacy = review.getByRole('link', { name: 'Privacy policy', exact: true });
   assert(await privacy.isVisible());
   assert.equal(await privacy.getAttribute('href'), 'https://kingdown.dev/privacy.html');
