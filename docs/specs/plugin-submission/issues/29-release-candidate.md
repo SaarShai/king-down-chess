@@ -155,3 +155,10 @@ Pass criteria: both exact lane heads are ancestors; held release changes remain;
 - The approved browser run at 550b238e passes plugin-ui in 128.3 s and plugin-ui-http in 133.5 s. Its last line is check-runner: mac exit 0 at 550b238e. Log: checks-29-merge-2-2.txt. Both the armed scroll wait and the 197 px board checks pass.
 - This evidence commit changes only this ticket. Repeat npx tsc --noEmit, npm test and both browser checks at that final head. The exact head and final exit lines are in tests-29-merge-2-3.txt, checks-29-merge-2-3.txt and 29-merge-2-build-report.md in the release scratchpad lane.
 - All requested parts are built: G1, G2, G3, Q3, Q6, F13, F14, F25, F26 and F32. Keep od-qa1 and S5 for their later merge. No requested part is omitted. No new taste choice is needed. No time limit changes.
+
+#### Final-head retry check fix
+
+- At 0e42c326, npx tsc --noEmit and full npm test pass: 188 files, 3,037 tests, one expected failure, eight skips and 51 drawing tests. Log: tests-29-merge-2-3.txt.
+- The final-head browser run passes plugin-ui in 128.3 s. The HTTP check fails at the lost-reply Retry comparison. It reads the last two sends before Retry reaches the host, so one send belongs to the prior game. Log: checks-29-merge-2-3.txt.
+- Fix the check at its cause. Wait for two move sends for the selected game, then compare those sends. Keep the exact count of two, identical arguments and the server commit-once check. No product code or time limit changes. The failed browser run is the control for this check repair.
+- Repeat all required checks after this commit. The final head and results are in tests-29-merge-2-4.txt, checks-29-merge-2-4.txt and 29-merge-2-build-report.md in the release scratchpad lane.

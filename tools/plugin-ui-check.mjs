@@ -1523,7 +1523,9 @@ try {
   assert(await frame.locator('#retry').isVisible(), 'Reload must preserve the pending command');
   await frame.locator('#retry').click();
   await frame.locator('#retry').waitFor({ state: 'hidden' });
-  const commands = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_move').slice(-2));
+  // Retry hides before its queued send reaches the host. Count this game's sends before comparing them.
+  await page.waitForFunction(() => window.harnessCalls.filter(call => call.name === 'kingdown_move' && call.arguments.game_id === window.harnessMatchId).length >= 2);
+  const commands = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_move' && call.arguments.game_id === window.harnessMatchId));
   assert.equal(commands.length, 2); assert.deepEqual(commands[0].arguments, commands[1].arguments);
   await page.waitForFunction(() => window.harnessCalls.some(c => c.name === 'kingdown_computer' && c.arguments.game_id === window.harnessMatchId));
   assert.equal(await page.evaluate(() => window.harnessCalls.find(c => c.name === 'kingdown_computer' && c.arguments.game_id === window.harnessMatchId).arguments.expected_revision), 1, 'Lost reply and retry commit exactly once');
