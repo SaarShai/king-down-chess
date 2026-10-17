@@ -1,6 +1,6 @@
 # Rolling QA 2: end card, friend actions and armed card text
 
-Status: claimed
+Status: ready-for-human
 
 The first step covers ticket 32 fault C only. The base is `4692477c`.
 The owner asks for the cut-action cue. No new visual cue is needed.
@@ -156,3 +156,18 @@ The first full suite exits 1 in 1,121.31 seconds. It has 187 passed files and on
 The failed file is `tools/plugin-ui-check.test.ts`. Its source-order test finds the new host helper's `page.goto` before the main page's Home hold setup. The helper works in the browser, but its position breaks that check. The repair moves the helper below the main setup, next to the friend path that uses it. The source-order assertion stays as it is. The product source stays as it is. Log: `tests-small-final-1.txt`.
 
 Run the source-order file through `npm test`, then repeat the full suite and `plugin-ui` with the same limits.
+
+The browser repeat passes on the M1 at `5503893c` in 170.3 seconds. It ends with `check-runner: M1 exit 0 at 5503893c`. D, G, the existing normal sizes and the prior C checks pass. Logs: `checks-small-final-2.txt` and `small-final-browser-2-detail.txt`. The helper move changes no product code.
+
+The source-order file passes through `npm test` after the helper move. All three tests pass, and all 51 art tests pass. Log: `tests-small-check-order-1.txt`. The command then starts the full suite with one worker and the same limits.
+
+## D and G final result
+
+- Full `npm test` with the local test database and `VITEST_MAX_WORKERS=1`: pass, exit 0. All 188 files pass in 1,155.18 seconds. There are 3,052 passed tests, one expected failure and eight skips. All 51 art tests pass. Log: `tests-small-final-2.txt`. All limits stay the same.
+- `npx tsc --noEmit`: pass again after the helper repair.
+- `node --check tools/plugin-ui-check.mjs` and `git diff --check`: pass.
+- `plugin-ui`: pass on the M1 at `5503893c` in 170.3 seconds. The final runner line reports exit 0 at that commit. Both D label checks, both G host sizes, the normal sizes and the prior C checks pass.
+- D and G each have a check that fails with their base source from `4692477c` and passes after the fix. G also has the requested unit assertion. The old Morph status assertion now includes the stop.
+- No requested part of D or G remains. No new taste choice is needed. The CSS uses the existing max-width 299 px rule. E stays refuted; the portrait stays. No server code changes, so `plugin-ui-http` does not apply.
+
+The source and checks match `5503893c`. The final commit adds check results only. The lane makes no push, merge, deploy or sign-in.
