@@ -1,6 +1,6 @@
 # Rolling QA 2: end card, friend actions and armed card text
 
-Status: ready-for-human
+Status: claimed
 
 The first step covers ticket 32 fault C only. The base is `4692477c`.
 The owner asks for the cut-action cue. No new visual cue is needed.
@@ -123,3 +123,10 @@ The product files `board.ts` and `lobby.css` match `4692477c` byte for byte befo
 - The D fix adds one CSS declaration to the existing max-width 299 px rule: `.friend-actions { flex-direction: column; }`. The row gives each action its full width. Wider screens keep the row.
 
 The next browser pass checks the D fix at all four widths and puts the 197 x 426 armed-card host first. G still has the base source. This pass must reach G and fail there, so both required G host sizes have base failure evidence. Saved images show the friend actions and the armed context after a scroll to them.
+
+- D passes at 197, 320, 393 and 1280 px in the next browser run at `c07b85e1`. At 197 px each action is 165 px wide. Copy has a 35 px label box for its 35 px text and a 50.97 px right gap. Share and Copy stack. The wider cases keep the row and pass both text checks.
+- The same run then fails G at 197 x 426 with insets 51/59: `Vault` differs from `Vault.`. The M1 runner exits 1 after 106.9 seconds. Logs: `checks-small-g-zoom-baseline-1.txt` and `small-g-zoom-baseline-detail.txt`. Both required G host sizes now have base browser failure evidence.
+
+The saved 197 px and 320 px friend images pass visual review. At 197 px the two full-width actions show after a scroll to Copy. At 320 px they stay side by side with clear text. Local images: `small-friend-actions-197.png` and `small-friend-actions-320.png` in the lane folder.
+
+The G unit base run uses `KINGDOWN_TEST_FILE=tools/plugin-board.test.ts npm test` with the local test database. It must get the shared test lock before the G product fix. The lane keeps the base `board.ts` until that run ends. No time limit changes.
