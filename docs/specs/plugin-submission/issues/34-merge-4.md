@@ -83,3 +83,11 @@ Each command must end with exit 0. Each browser log must name the head and show 
 - The Handle test fails before its target step: the unit input stub lacks setCustomValidity. Add that browser method to the stub. The review probe uses the same correction before its baseline run starts.
 - Two seed tests hit their unchanged 5 s limit. The database answers a separate short read. One board case times out at Home before it reaches the mating move. One mount-wait case sees a symbols decode error. Keep these failures in the log; check them in single files before the next full run. Do not change a limit.
 - M1 plugin-ui passes at ad1bc6d6 in 153.7 s. Log: checks-m1-6.txt. The reviewer finds no fault in the profile guard, its two held-reply cases or the shared font token.
+
+### Mount-read error check
+
+- The app browser file fails again on its own: 130 cases pass; the held mount Get case sees the symbols load error. Duration: 254.25 s. Log: tests-focus-app-browser.txt. The board file passes all 127 cases in 104.75 s. The seed file passes both cases in 2.58 s with the same 5 s limit.
+- Use the diagnosing-bugs workflow for the repeated app failure. There is no GLOSSARY.md or matching ADR in this tree.
+- Make a small two-case test file for a held mount Get, with symbols off and on. Keep the real source page, saved game, remount, held read, 20 s clock step and game/revision checks. Check for the error before the clock step too. Run it with KINGDOWN_TEST_FILE=tools/plugin-mount-wait.test.ts npm test.
+- First get the small loop's result. Then remove any step that does not cause the failure, rank the causes and check one at a time. Keep every existing assertion and time limit.
+- The archive probe completes: all 29 old app cases pass and all four new cases fail at their intended checks. The current result at 80a330b2 has no confirmed source finding from either reviewer. No reviewer command remains active.
