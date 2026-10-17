@@ -18,7 +18,6 @@ vi.mock('../render/sfx', () => ({ setSound: () => {}, snd: {} }));
 vi.mock('./poll', () => ({ runPoll: (target: unknown) => { transport.target = target; return { update() {}, stop() {} }; } }));
 vi.mock('./screens/board', () => ({ boardScreen: () => transport.draw, rollbackBoardMove: async () => {} }));
 vi.mock('./screens/join', () => ({ joinScreen() {}, joinSync() {} }));
-vi.mock('./screens/wait', () => ({ finishHandoff() {}, waitPoll() {}, waitScreen() {}, waitSync() {} }));
 vi.mock('./screens/lobby', () => ({ lobbyPoll() {}, lobbyScreen() {}, lobbySync() {} }));
 vi.mock('./screens/seat', () => ({ finishSeat() {}, seatScreen() {}, seatSync() {} }));
 vi.mock('./screens/end', () => ({ endPoll() {}, endSync() {}, endScreen() {} }));
@@ -40,6 +39,7 @@ beforeEach(() => {
   vi.stubGlobal('navigator', {});
   vi.stubGlobal('localStorage', { getItem: () => null });
   vi.stubGlobal('addEventListener', vi.fn());
+  vi.stubGlobal('MutationObserver', class { observe() {} disconnect() {} });
   transport.mode = 'fullscreen'; transport.draw.mockClear();
   transport.call.mockReset().mockResolvedValue({ content: [], _meta: { games: [] } });
 });
@@ -54,6 +54,115 @@ async function mounted() {
   await vi.advanceTimersByTimeAsync(0);
   return app;
 }
+
+const press = (id: string) => { const button = document.getElementById(id)!; return Reflect.apply(button.onclick!, button, [{}]); };
+async function waitingGame() {
+  const options = (await import('./screens/setup-model')).readSetup(null).options;
+  return { ...game, kind: 'random', status: 'waiting', seat: 0, created_at: new Date().toISOString(), server_now: new Date().toISOString(),
+    options: { ...options, arrangement: true, kingPowers: false, cards: false } } as View;
+}
+
+it.each(['wait', 'play'] as const)('keeps one computer Create and finishes its Retry from %s', async screen => {
+  const app = await mounted(), waiting = await waitingGame(); app.routeView(waiting);
+  const solo = { ...waiting, game_id: 'solo-a000', kind: 'solo', status: 'setup', draw: 'RNBQKBNR' } as View;
+  let creates = 0;
+  transport.call.mockImplementation(async ({ name, arguments: args }) => {
+    if (name === 'kingdown_create' && ++creates === 1) return { isError: true, content: [{ type: 'text', text: 'Lost Create reply' }] };
+    const view = name === 'kingdown_create' ? solo : name === 'kingdown_choose' || name === 'kingdown_get' && !args.game_id ? { ...solo, status: 'playing', revision: 2, rules: {} } : undefined;
+    return { content: [], _meta: { ...(view && { view }), games: [] } };
+  });
+  press('wait-computer'); await vi.advanceTimersByTimeAsync(0);
+  const pending = app.client.state.pending;
+  expect(pending?.name).toBe('kingdown_create'); expect(pending?.error).toBe('Lost Create reply');
+  expect((document.getElementById('wait-computer') as HTMLButtonElement).disabled).toBe(true);
+  expect((await import('./state')).messageLine(app.store.page()).action).toBe('retry');
+  press('wait-computer'); await vi.advanceTimersByTimeAsync(0);
+  expect(creates).toBe(1); expect(app.client.state.pending).toBe(pending);
+  app.navigate(screen); press('retry'); await vi.advanceTimersByTimeAsync(0);
+  const calls = transport.call.mock.calls.map(([input]) => input);
+  expect(calls.filter(input => input.name === 'kingdown_create').map(input => input.arguments.command_id)).toEqual([pending!.args.command_id, pending!.args.command_id]);
+  expect(calls.find(input => input.name === 'kingdown_choose')?.arguments).toMatchObject({ game_id: solo.game_id, ready: true });
+  expect(calls.filter(input => input.name === 'kingdown_get' && !input.arguments.game_id)).toHaveLength(1);
+  expect(app.client.state.screen).toBe('board'); expect(app.client.state.pending).toBeUndefined();
+});
+
+it.each(['waiting', 'setup', 'error'])('drops an old wait %s reply after a new waiting game mounts', async reply => {
+  const app = await mounted(), first = await waitingGame(); app.routeView(first);
+  const solo = { ...first, game_id: 'solo-a000', kind: 'solo', status: 'playing', rules: {} } as View;
+  const newer = { ...first, game_id: 'game-c000' };
+  let selected: View = solo, release!: (value: unknown) => void;
+  transport.call.mockImplementation(async ({ name, arguments: args }) => {
+    if (name === 'kingdown_get' && args.game_id === first.game_id) return new Promise(resolve => { release = resolve; });
+    return { content: [], _meta: name === 'kingdown_create' || name === 'kingdown_get' ? { view: selected } : { games: [] } };
+  });
+  press('wait-computer'); await vi.advanceTimersByTimeAsync(0);
+  expect(release).toBeTypeOf('function'); expect(app.client.state.screen).toBe('board');
+  selected = newer;
+  transport.instance.ontoolresult({ content: [], structuredContent: { game_id: newer.game_id }, _meta: { board_id: 'board-c' } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.memory.view?.game_id).toBe(newer.game_id); expect(app.client.state.screen).toBe('wait');
+  const before = document.getElementById('wait-status')!.textContent;
+  release(reply === 'error' ? { isError: true, content: [{ type: 'text', text: 'Old wait error' }] }
+    : { content: [], _meta: { view: { ...first, status: reply } } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_resume')).toHaveLength(0);
+  expect(app.memory.view?.game_id).toBe(newer.game_id); expect(app.client.state.screen).toBe('wait');
+  expect(document.getElementById('wait-status')!.textContent).toBe(before);
+});
+
+it.each(['onclose', 'onteardown'])('stops a delayed name check on %s', async stop => {
+  const app = await mounted(); app.navigate('handle');
+  const input = document.getElementById('handle')! as HTMLInputElement; input.value = 'newname'; Reflect.apply(input.oninput!, input, [{}]);
+  await transport.instance[stop](); await vi.advanceTimersByTimeAsync(251);
+  expect(transport.call.mock.calls.filter(([call]) => call.name === 'kingdown_handle')).toHaveLength(0);
+});
+
+it.each([false, true])('keeps the wait read origin through Resume (new chat: %s)', async changed => {
+  const app = await mounted(), waiting = await waitingGame(); app.routeView(waiting);
+  const solo = { ...waiting, game_id: 'solo-a000', kind: 'solo', status: 'playing', rules: {} } as View;
+  const joined = { ...waiting, status: 'playing', rules: {} } as View, newer = { ...waiting, game_id: 'game-c000' };
+  let selected: View = solo, join!: (value: unknown) => void, resume!: (value: unknown) => void;
+  transport.call.mockImplementation(async ({ name, arguments: args }) => {
+    if (name === 'kingdown_get' && args.game_id === waiting.game_id) return new Promise(resolve => { join = resolve; });
+    if (name === 'kingdown_resume') return new Promise(resolve => { resume = resolve; });
+    return { content: [], _meta: name === 'kingdown_create' || name === 'kingdown_get' ? { view: selected } : { games: [] } };
+  });
+  press('wait-computer'); await vi.advanceTimersByTimeAsync(0); app.navigate('wait');
+  const epoch = app.queue.epoch();
+  join({ content: [], _meta: { view: joined } }); await vi.advanceTimersByTimeAsync(0);
+  expect(resume).toBeTypeOf('function'); expect(app.queue.epoch()).toBe(epoch);
+  if (changed) {
+    selected = newer;
+    transport.instance.ontoolresult({ content: [], structuredContent: { game_id: newer.game_id }, _meta: { board_id: 'board-c' } });
+    await vi.advanceTimersByTimeAsync(0);
+  }
+  resume({ content: [], _meta: { view: joined } }); await vi.advanceTimersByTimeAsync(0);
+  expect(app.memory.view?.game_id).toBe(changed ? newer.game_id : joined.game_id);
+  expect(app.client.state.screen).toBe(changed ? 'wait' : 'board');
+});
+
+it.each(['onclose', 'onteardown', 'queue.close'])('drops a name check success after %s', async stop => {
+  const app = await mounted(); app.navigate('handle');
+  let release!: (value: unknown) => void;
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_handle' ? new Promise(resolve => { release = resolve; }) : { content: [] });
+  const input = document.getElementById('handle')! as HTMLInputElement; input.value = 'newname'; Reflect.apply(input.oninput!, input, [{}]);
+  await vi.advanceTimersByTimeAsync(251); expect(release).toBeTypeOf('function');
+  if (stop === 'queue.close') app.queue.close(); else await transport.instance[stop]();
+  const free = document.getElementById('handle-free')!, error = document.getElementById('handle-check-error')!;
+  release({ content: [], structuredContent: { available: true } }); await vi.advanceTimersByTimeAsync(0);
+  expect(free.hidden).toBe(true); expect(error.textContent).toBe('');
+});
+
+it.each(['onclose', 'onteardown'])('drops a name check failure after %s', async stop => {
+  const app = await mounted(); app.navigate('handle');
+  let reject!: (reason: unknown) => void;
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_handle' ? new Promise((_, fail) => { reject = fail; }) : { content: [] });
+  const input = document.getElementById('handle')! as HTMLInputElement; input.value = 'newname'; Reflect.apply(input.oninput!, input, [{}]);
+  await vi.advanceTimersByTimeAsync(251); await transport.instance[stop](); reject(new Error('Old name error'));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(document.getElementById('handle-free')!.hidden).toBe(true);
+  expect(document.getElementById('handle-check-error')!.textContent).toBe('');
+});
 
 it.each(['kingdown_choose', 'kingdown_get'])('keeps Profile when the first start waits on %s', async held => {
   const app = await mounted(), setup = await import('./screens/setup');

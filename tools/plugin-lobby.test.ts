@@ -473,20 +473,26 @@ it('retries Switch after Abort succeeds and Resume loses its reply', async () =>
   } finally { await page.close(); }
 });
 
-it('finishes the computer handoff when the automatic Choose needs Retry', async () => {
+it.each(['kingdown_create', 'kingdown_choose'])('finishes the computer handoff when %s needs Retry', async lost => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await clearWait(page); await freeze(page);
     await frame.locator('html').evaluate(async (_, options) => (window as any).harnessApp.start('random', { options: { ...options, arrangement: true }, colour: 'white' }), options);
     await page.clock.runFor(26000);
-    await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_choose'; });
+    await page.evaluate(lost => { (window as any).dropNextReply = lost; }, lost);
     await frame.locator('#wait-computer').click(); await frame.locator('#retry').waitFor();
-    const choose = await page.evaluate(() => (window as any).harnessCalls.findLast((c: any) => c.name === 'kingdown_choose'));
+    const command = await page.evaluate(lost => (window as any).harnessCalls.findLast((c: any) => c.name === lost), lost);
+    if (lost === 'kingdown_create') {
+      expect(await frame.locator('#wait-computer').isDisabled()).toBe(true);
+      await frame.locator('#wait-computer').evaluate(button => button.dispatchEvent(new MouseEvent('click')));
+      await frame.locator('#page-back').click(); await frame.locator('#retry').waitFor();
+    }
     await frame.locator('#retry').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.status)).toBe('playing');
     const calls = await page.evaluate(() => (window as any).harnessCalls);
-    const choices = calls.filter((c: any) => c.name === 'kingdown_choose');
-    expect(choices.map((c: any) => c.arguments.command_id)).toEqual([choose.arguments.command_id, choose.arguments.command_id]);
+    const commands = calls.filter((c: any) => c.name === lost);
+    expect(commands.map((c: any) => c.arguments.command_id)).toEqual([command.arguments.command_id, command.arguments.command_id]);
+    expect(calls.findLast((c: any) => c.name === 'kingdown_choose').arguments.ready).toBe(true);
     expect(calls.findLast((c: any) => c.name === 'kingdown_get').arguments.since_revision).toBeUndefined();
     expect(await frame.locator('#board canvas').isVisible()).toBe(true);
   } finally { await page.close(); }

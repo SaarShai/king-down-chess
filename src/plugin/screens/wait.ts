@@ -1,4 +1,5 @@
-import { call, client, memory, navigate, pollUpdate, routeView, start } from '../app';
+import { call, client, memory, navigate, pollUpdate, queue, routeView, start } from '../app';
+import { setupBusy } from './setup';
 import type { Job } from '../queue';
 import { art } from '../art';
 import type { PollTarget } from '../poll';
@@ -19,7 +20,7 @@ export function waitScreen() {
   if (!open || open.status !== 'waiting') {
     $('wait-status').textContent = 'Open your waiting game from Your games.';
     const entry = memory.games.find(game => game.kind === 'random' && game.status === 'waiting');
-    if (entry) void readOpen(entry.game_id);
+    if (entry) { syncWatch(); void readOpen(entry.game_id); }
     return;
   }
   $('wait-status').textContent = '';
@@ -42,35 +43,43 @@ function tick() {
   $('wait-computer').hidden = seconds < 25;
 }
 async function computer() {
-  if (!open || offering) return; offering = true;
+  if (!open || offering || setupBusy()) return; offering = true;
   try {
     const options = open.options ?? DEFAULT_OPTIONS;
-    let solo = await start('solo', { options, colour: open.seat === 0 ? 'white' : 'black', level: memory.settings?.last_setup?.level ?? 'club' }, { route: false });
-    if (solo?.status === 'setup' && solo.draw) {
-      const choice = defaultChoice(options, { army: solo.draw, hand: solo.deal ?? [] }, solo.seat, Math.random, false);
-      const args = { game_id: solo.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: solo.revision, ...choice, ready: true };
-      if (await call('kingdown_choose', args, true, false, false)) await finishHandoff();
-      return;
-    }
-    if (solo) { routeView(solo); await call('kingdown_games', {}); syncWatch(); }
+    await start('solo', { options, colour: open.seat === 0 ? 'white' : 'black', level: memory.settings?.last_setup?.level ?? 'club' }, { route: false, then: finishComputer });
   } finally { offering = false; }
+}
+/** Create and its Retry use the same automatic setup and full read. */
+export async function finishComputer(solo: View, origin: Job) {
+  if (solo.status === 'setup' && solo.draw) {
+    const options = solo.options ?? DEFAULT_OPTIONS;
+    const choice = defaultChoice(options, { army: solo.draw, hand: solo.deal ?? [] }, solo.seat, Math.random, false);
+    const args = { game_id: solo.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: solo.revision, ...choice, ready: true };
+    await call('kingdown_choose', args, { retain: true, route: false, origin, then: finishHandoff });
+  } else await finishHandoff(solo, origin);
 }
 /** The continuation of the handoff's Choose, also after Retry (design §5.2): read the game, then watch the human game. */
 export async function finishHandoff(_next?: View, origin?: Job) {
   if (await call('kingdown_get', {}, { route: true, origin })) syncWatch();
 }
 async function readOpen(game: string) {
-  const result = await client.call('kingdown_get', { game_id: game }, { background: true });
-  if (result.isError) { if (client.state.screen === 'wait') showError(new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' ')), $('wait-status')); return; }
-  const next = result._meta?.view as View | undefined;
-  if (!next || !['wait','board'].includes(client.state.screen)) return;
-  if (open?.game_id !== next.game_id) began = Date.now() - Math.max(0, Date.parse(next.server_now) - Date.parse(next.created_at));
-  open = next;
-  if (next.status === 'waiting') { if (client.state.screen === 'wait' && memory.view?.kind !== 'random') waitScreen(); return; }
-  stopWatch();
-  if (next.status === 'aborted' || next.status === 'finished') { if (client.state.screen === 'wait') navigate('lobby'); return; }
-  if (client.state.screen === 'wait') { const bound = await call('kingdown_resume', { game_id: next.game_id }, false, false, false); if (bound) routeView(bound); }
-  else if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && !dismissed.has(next.game_id)) found(next);
+  if (queue.closed() || watched !== game) return;
+  const job = queue.command('read', 'kingdown_get', { game_id: game }, { user: false });
+  const current = () => queue.current(job) && watched === game;
+  await queue.run(job, async () => {
+    const result = await client.call('kingdown_get', { game_id: game }, { background: true });
+    if (!current()) return;
+    if (result.isError) { if (client.state.screen === 'wait') showError(new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' ')), $('wait-status')); return; }
+    const next = result._meta?.view as View | undefined;
+    if (!next || next.game_id !== game || !['wait','board'].includes(client.state.screen)) return;
+    if (open?.game_id !== next.game_id) began = Date.now() - Math.max(0, Date.parse(next.server_now) - Date.parse(next.created_at));
+    open = next;
+    if (next.status === 'waiting') { if (client.state.screen === 'wait' && memory.view?.kind !== 'random') waitScreen(); return; }
+    stopWatch();
+    if (next.status === 'aborted' || next.status === 'finished') { if (client.state.screen === 'wait') navigate('lobby'); return; }
+    if (client.state.screen === 'wait') await call('kingdown_resume', { game_id: next.game_id }, { route: true, origin: job });
+    else if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && !dismissed.has(next.game_id)) found(next);
+  });
 }
 function syncWatch() {
   recoverJoined ??= client.state.screen === 'board';

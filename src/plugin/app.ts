@@ -18,7 +18,7 @@ import { draftFromGame, finishStart, playNow, quickStart, setupBusy, setupScreen
 import { readSetup } from './screens/setup-model';
 import { friendScreen } from './screens/friend';
 import { joinScreen, joinSync } from './screens/join';
-import { finishHandoff, waitPoll, waitScreen, waitSync } from './screens/wait';
+import { finishComputer, finishHandoff, waitPoll, waitScreen, waitSync } from './screens/wait';
 import { lobbyPoll, lobbyScreen, lobbySync } from './screens/lobby';
 import { finishSeat, seatScreen, seatSync } from './screens/seat';
 import { endPoll, endSync, endScreen } from './screens/end';
@@ -87,7 +87,7 @@ export function actions() {
   applyLocks(store.page());
   const lock = locks(store.page());
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = lock.blocked || !memory.settings;
-  for (const id of ['setup-start', 'hall-play', 'games-start']) $<HTMLButtonElement>(id).disabled = lock.start || setupStarting();
+  for (const id of ['setup-start', 'hall-play', 'games-start', 'wait-computer']) $<HTMLButtonElement>(id).disabled = lock.start || setupStarting();
   $<HTMLInputElement>('join-code').disabled = lock.blocked;
   $<HTMLInputElement>('handle').disabled = lock.blocked;
   homeActions();
@@ -134,10 +134,11 @@ function resend(command: Pending): Record<string, unknown> {
 }
 /**
  * The continuation of a resent command (design §5.2): the step that its first caller would have run after it. A start
- * or a setup step finishes the start, a Seat command finishes Seat, and the computer handoff's Choose finishes the
- * handoff. Each other command routes as its reply says. It replaces the waiting start and the Retry capture listeners.
+ * or a setup step finishes the start, a Seat command finishes Seat, and the computer handoff keeps its Create and
+ * Choose steps. Each other command routes as its reply says. It replaces the waiting start and the Retry capture listeners.
  */
 function continuation(command: Pending): ((next: View, origin: Job) => Promise<unknown>) | undefined {
+  if (command.screen === 'wait' && command.name === 'kingdown_create') return finishComputer;
   if (isStartStep(command)) return (next, origin) => finishStart(next, origin, command.king ?? null);
   if (command.screen === 'seat') return finishSeat;
   if (command.screen === 'wait' && command.name === 'kingdown_choose') return finishHandoff;
@@ -433,8 +434,8 @@ function pollTarget(): PollTarget | undefined {
   } };
 }
 export const pollUpdate = () => poll?.update();
-app.onclose = () => { connected = false; poll?.stop(); queue.close(); };
-app.onteardown = async () => { connected = false; poll?.stop(); client.save(); queue.close(); return {}; };
+app.onclose = () => { connected = false; poll?.stop(); stopHandleCheck(); queue.close(); };
+app.onteardown = async () => { connected = false; poll?.stop(); stopHandleCheck(); client.save(); queue.close(); return {}; };
 const connection = app.connect().then(() => {
   connected = true; store.dispatch({ type: 'connected' });
   const context = app.getHostContext(); hostContext(context);
@@ -500,7 +501,7 @@ export function navigate(screen: Screen) {
   if (screen === 'play') scrollNewGame();
   if (screen === 'play' && gamesFirst) { gamesFirst = false; $('games-list').closest<HTMLElement>('.new-game-body')!.scrollTop = 0; }
   if (screen === 'settings') void applySettings();
-  if (screen === 'handle') scheduleHandleCheck(); else { clearTimeout(handleTimer); handleCheck++; }
+  if (screen === 'handle') scheduleHandleCheck(); else stopHandleCheck();
 }
 function hostContext(context: McpUiHostContext | undefined) {
   if (!context) return;
@@ -547,6 +548,7 @@ $('presets').replaceChildren(...Object.entries(ICONS).map(([key, path]) => {
   button.onclick = () => { picture = key as Icon; $('presets').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === button))); }; return button;
 }));
 let handleCheck = 0, handleTimer: ReturnType<typeof setTimeout> | undefined;
+function stopHandleCheck() { clearTimeout(handleTimer); handleCheck++; }
 function renderIdentity() {
   if (!memory.me) return;
   $('me-handle').textContent = memory.me.handle ?? 'Choose a name';
@@ -556,20 +558,22 @@ function renderIdentity() {
   if (state.screen === 'handle') scheduleHandleCheck();
 }
 function scheduleHandleCheck() {
+  if (queue.closed()) return;
   clearTimeout(handleTimer); const check = ++handleCheck, input = $<HTMLInputElement>('handle'), handle = input.value.trim().toLowerCase();
   input.setCustomValidity(''); $('handle-free').hidden = true; $('handle-check-error').textContent = '';
   if (!handle) return;
   handleTimer = setTimeout(async () => {
+    if (queue.closed() || check !== handleCheck) return;
     try {
       const result = await client.call('kingdown_handle', { handle, check: true });
-      if (check !== handleCheck) return;
+      if (queue.closed() || check !== handleCheck) return;
       if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       $('handle-free').hidden = (result.structuredContent as { available?: boolean } | undefined)?.available !== true;
-    } catch (error) { if (check === handleCheck) $('handle-check-error').textContent = errorText(error); }
+    } catch (error) { if (!queue.closed() && check === handleCheck) $('handle-check-error').textContent = errorText(error); }
   }, 250);
 }
 $('handle-form').onsubmit = event => {
-  event.preventDefault(); clearTimeout(handleTimer); handleCheck++;
+  event.preventDefault(); stopHandleCheck();
   const input = $<HTMLInputElement>('handle'), handle = input.value.trim().toLowerCase(); input.setCustomValidity(handleProblem(handle) ?? '');
   if (input.reportValidity()) void call('kingdown_handle', { handle, icon: picture });
 };

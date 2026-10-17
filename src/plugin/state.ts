@@ -55,7 +55,8 @@ export function pendingHere(page: Page) {
   if (!pending) return false;
   // A game command belongs to the game it names, only while that game shows on a game screen.
   if (pending.game_tag && GAME_SCREENS.includes(page.screen) && !!page.view?.game_id.startsWith(pending.game_tag)) return true;
-  // A start keeps the setup flow: its error and Retry show on Play only.
+  if (isStart(pending) && pending.screen === 'wait' && page.screen === 'wait') return true;
+  // Other starts and setup steps keep their error and Retry on Play.
   if (isStartStep(pending)) return page.screen === 'play';
   // A command with no game shows on the screen where it failed.
   return !pending.game_tag && pending.error_screen === page.screen;

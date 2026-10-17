@@ -17,6 +17,21 @@ Each command must end with exit 0. Each browser log must name the head and show 
 
 ## Progress
 
+### Review fixes
+
+1. Check the four findings at 9f4329c7. Use the shared Start lock and keep the Create receipt. Show its Retry on Wait.
+2. Keep the computer start continuation for Create Retry. Carry its job through automatic Choose and the full read.
+3. Give each background wait read a queue job. Check its job and watched game before each page change and Resume.
+4. Stop delayed name checks on close and teardown. Block both late success and late error replies.
+5. Add tests for all four faults. Run npm test with the local test database. Commit, then run the approved browser checks at that head. Keep all limits.
+
+Pass criteria: one Create ID across Retry; automatic Ready reaches Board; an old wait read cannot replace a new game; name checks send and write nothing after close or teardown. Record the head and check results in merge-4-fix.md.
+
+- All four findings are confirmed in the code. Wait now uses the shared Start lock and shows the saved Create Retry. Create and Choose use their computer start continuations with the same origin. The background wait read uses a queue job and checks its watched game. Close and teardown clear the name timer and invalidate its replies.
+- The app tests now use the real Wait screen. New cases cover Retry on Wait and Play, old wait success and error replies, Resume with the same origin, and name checks before and after close or teardown. The lobby test now loses Create as well as Choose.
+- The type check and diff check pass. After the shared lock opens, the app file passes all 51 cases, including 14 new cases. The same npm test command passes all 51 drawing tests. Log: tests-fix-app-1.txt.
+- Freeze the check head with this ticket update. Run the full suite with the local database and two file workers. Run the approved browser checks at HEAD. Record all final results in the required merge-4-fix.md report. Do not change any limit. Add no tracked edit after these checks unless a failure needs a fix.
+
 - The worktree is clean at 4692477c. The branch is correct.
 - B3 is option b: keep the last board, mark it Not current, turn moves and actions off, and show Try again.
 
