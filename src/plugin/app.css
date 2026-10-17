@@ -130,6 +130,8 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 #app-root #strip-me .coin.card-coin { background: radial-gradient(circle at 40% 30%, var(--stone-700) 70%, var(--stone-900)); border-color: var(--gold); --card-ring: var(--gold); }
 #app-root #strip-them .coin.card-coin { border-color: var(--stone-700); --card-ring: var(--stone-700); }
 #game-table .coin.card-coin:not([data-state='armed']) { box-shadow: var(--lift), inset 0 0 0 2px var(--card-ring); }
+/* G2 a: a spent card coin still opens its read sheet, so its word keeps 4.5:1. The grey and a lighter dim (0.85) mark it as spent. */
+#game-table .coin.card-coin[data-state='used'] { opacity: .85; }
 .coin.card-coin img { inset: 3px; width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
 .cc-word { position: absolute; inset: 0; color: var(--vellum) !important; text-shadow: 0 1px 2px rgba(0,0,0,.6); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--ink); }
 #game-table .coin:not(.card-coin) { width: 40px; height: 40px; }
@@ -213,6 +215,12 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 #game-table #context-actions:has(#accept-draw) { flex-basis: 100%; flex-wrap: wrap; }
 /* Two label lines fit the existing row. */
 #game-table #context-actions:has(#accept-draw) button { flex: 1; padding: 3px 4px; white-space: normal; }
+/* Q3 b: a draw offer keeps the board's size. board.ts pins the board to its last size with no reply; 210 px is the
+   fallback on a fresh mount. The replies take their room, and the screen scrolls to them. */
+#game-table[data-replies] { --board-floor: 210px; --context-floor: max-content; }
+@media (max-width: 899px) {
+  .page-sheet > [data-screen='board']:has(#game-table[data-replies]) { overflow: hidden auto; }
+}
 .table-back { display: none; }
 @media (max-width: 899px) and (orientation: portrait) {
   #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 44px; grid-template-rows: minmax(var(--strip-row, 44px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) 44px minmax(0, 1fr) var(--bar-height); }
@@ -293,6 +301,11 @@ body[data-touch='true'] #game-table .coin, body[data-touch='true'] #game-table .
 @media (pointer: coarse) {
   #game-table .coin, #game-table .coin.card-coin { width: 44px; height: 44px; min-height: 44px; }
 }
+/* Q6 b: a segment name wraps only between words. On a 197 px (200% zoom) screen the four Collection names keep
+   one line inside their labels at the small token size. The narrow status text keeps 12 px at each side. */
+.seg-row label > span { overflow-wrap: normal; word-break: normal; hyphens: none; }
+@media (max-width: 260px) { .seg-row label > span { font-size: var(--fs-xs); } }
+@container table-screen (max-width: 350px) { #game-table #context-line { margin-inline: 12px; } }
 /* Extend touch targets up, inside the frame, without changing art or rows. */
 body[data-touch='true'] :is(button, .seg-row label, .fields > label) { position: relative; }
 body[data-touch='true'] .field { min-height: 48px; }

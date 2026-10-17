@@ -174,6 +174,25 @@ it('shows each card and power with the same rules and words on the Cards sheet, 
   } finally { await page.close(); }
 });
 
+// Q6 b: on a 197 px (200% zoom) screen the four Collection names stay whole and inside their labels, at a smaller size.
+it('keeps the Collection tab names whole and inside their labels at 197 px', async () => {
+  const page = await open({ width: 197, height: 426, top: 0, bottom: 0 }), frame = page.frameLocator('iframe');
+  try {
+    await go(page, 'collection'); await frame.locator('#collection-tabs').waitFor();
+    const tabs = await frame.locator('#collection-tabs label').evaluateAll(labels => labels.map(label => {
+      const box = label.getBoundingClientRect(), span = label.querySelector('span')!, words = span.getBoundingClientRect();
+      const range = document.createRange(); range.selectNodeContents(span);
+      return { name: span.textContent, left: Math.round(words.left - box.left), right: Math.round(box.right - words.right), lines: range.getClientRects().length, size: getComputedStyle(span).fontSize };
+    }));
+    for (const tab of tabs) {
+      expect(tab.left, `${tab.name} left`).toBeGreaterThanOrEqual(2);
+      expect(tab.right, `${tab.name} right`).toBeGreaterThanOrEqual(2);
+      expect(tab.lines, `${tab.name} lines`).toBe(1);
+    }
+    expect(tabs.map(tab => tab.size)).toEqual(['12.5px', '12.5px', '12.5px', '12.5px']);
+  } finally { await page.close(); }
+});
+
 // F5 and the owner's item W3 b: Start is busy at once, says 'Starting…' after 1 s, and frees ‹ Play at 5 s.
 it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s, with one Create', async () => {
   const page = await open(OWNER, true), frame = page.frameLocator('iframe');

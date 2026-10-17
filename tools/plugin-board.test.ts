@@ -641,6 +641,39 @@ it.each([[320,568],[360,640],[852,393]])('keeps draw offer board and row size wi
   } finally { await page.close(); }
 });
 
+it.each([[320,568],[393,852]] as const)('Q3 b: a draw offer keeps the board size, and the screen scrolls to the replies at %d×%d', async (width,height) => {
+  const rules: Partial<Rules> = {kings:[{king:'Mud',power:'March'},{king:'Shadow',power:'Darkness'}],hands:[['Haste'],['Haste']],marchUses:0};
+  const base = view('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',rules,{kind:'friend'});
+  const page = await open(base,width,height), frame = page.frameLocator('iframe');
+  const boardWidth = () => frame.locator('#board canvas').evaluate(async canvas => { await document.fonts.ready; return canvas.getBoundingClientRect().width; });
+  try {
+    await page.evaluate(safeAreaInsets => (window as any).harnessSetContext({safeAreaInsets}),insets(width));
+    const before = await boardWidth();
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {...base, revision:1, draw_offer:1});
+    await frame.locator('#accept-draw').waitFor();
+    const after = await boardWidth();
+    expect(after, `board ${before} → ${after}`).toBeGreaterThanOrEqual(before - 1);
+    // The replies stay reachable: the screen scrolls to them rather than shrinking the board.
+    const screen = await frame.locator('[data-screen="board"]').evaluate(el => ({ overflow: getComputedStyle(el).overflowY, over: el.scrollWidth > el.clientWidth + 1 }));
+    expect(screen.overflow).toBe('auto'); expect(screen.over).toBe(false);
+    expect(await frame.locator('#accept-draw').evaluate(el => {
+      el.scrollIntoView({block:'nearest'});
+      const r = el.getBoundingClientRect(), box = document.querySelector('[data-screen="board"]')!.getBoundingClientRect();
+      return r.top >= box.top - 1 && r.bottom <= box.bottom + 1 && r.left >= box.left - 1 && r.right <= box.right + 1;
+    })).toBe(true);
+  } finally { await page.close(); }
+});
+
+it.each([[320,568],[393,852]] as const)('Q6 b: the narrow status text keeps 12 px at each side at %d×%d', async (width,height) => {
+  const page = await open(view('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1'),width,height), frame = page.frameLocator('iframe');
+  try {
+    await page.evaluate(safeAreaInsets => (window as any).harnessSetContext({safeAreaInsets}),insets(width));
+    await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
+    const margins = await frame.locator('#context-line').evaluate(line => { const r = line.getBoundingClientRect(), s = line.closest('[data-screen="board"]')!.getBoundingClientRect(); return [r.left - s.left, s.right - r.right]; });
+    expect(margins[0], 'left margin').toBeGreaterThanOrEqual(11.5); expect(margins[1], 'right margin').toBeGreaterThanOrEqual(11.5);
+  } finally { await page.close(); }
+});
+
 it('W7: a draw offer keeps piece rules readable at 320 px before and during Send', async () => {
   const base = view('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1',{}, {kind:'friend',draw_offer:1});
   const page = await open(base,320,568), frame = page.frameLocator('iframe');

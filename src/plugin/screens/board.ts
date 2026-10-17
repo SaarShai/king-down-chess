@@ -86,6 +86,8 @@ export function boardScreen(store: Store) {
   skipBoardCeremony = () => { toppling = false; stopCeremony(); };
   // Each card coin's last spent state, and when a live use spent it (for the gold pulse).
   const cardSpent = new Map<string, boolean>(), spentAt = new Map<string, number>();
+  // Q3 b: the board's height on the last render with no draw reply. A draw offer pins the board to it.
+  let boardRoom = 0;
   // When the four cards dealt (a live game start), and when a check last began.
   let dealtAt = -Infinity, dealing = false, opening = false, checkAt = -Infinity, checked: number | null = null;
   // strips() rebuilds the coins; a negative delay keeps a running moment in its place.
@@ -342,6 +344,11 @@ export function boardScreen(store: Store) {
     if (next) { const b = button('Next game ›', () => void call('kingdown_resume', { game_id: next.game_id })); b.id = 'next-game'; actions.push(b); }
     for (const action of actions) action.disabled = networkBlocked() && action.textContent !== 'All rules';
     $('context-actions').replaceChildren(...actions); strips();
+    // Q3 b: a draw offer keeps the board's size. Pin the board to its last size with no reply, and the
+    // screen scrolls to the replies (app.css). A fresh mount with an offer keeps the phone floor.
+    const table = $('game-table');
+    if (drawReply) { table.dataset.replies = ''; if (boardRoom) table.style.setProperty('--board-floor', `${boardRoom}px`); }
+    else { delete table.dataset.replies; table.style.removeProperty('--board-floor'); boardRoom = $('board').getBoundingClientRect().height || boardRoom; }
     board.setLifted(selected ?? null);
     // Never lay the king down on the position before the final move.
     const fallen = !animating && view.result?.reason === 'checkmate' && view.result.winner !== null ? findKing(pos.board,(1-view.result.winner) as Color) : null;
