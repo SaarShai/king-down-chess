@@ -1099,6 +1099,33 @@ try {
     assert(await frame.locator('#friend-share').evaluate(button => button.classList.contains('primary')), 'Share is the main action');
     assert((await frame.locator('#friend-expiry').innerText()).startsWith('Ends '), 'The Ends line stays');
     await lookAt('friend-code', 'friend');
+    // Ticket 32 D: use fresh mobile hosts, including the real 200% host geometry.
+    for (const [width, height, top, bottom] of [[197, 426, 51, 59], [320, 568, 63, 84], [393, 852, 102, 118], [1280, 800, 0, 0]]) {
+      const host = await hostPage(width, height, top, bottom);
+      try {
+        await host.frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
+        await host.frame.locator('#setup-start').click();
+        await host.frame.locator('.game-code span').first().waitFor();
+        await host.frame.locator('html').evaluate(() => document.fonts.ready);
+        const labels = await host.frame.locator('#friend-actions').evaluate(row => [...row.querySelectorAll('button')].map(button => {
+          const label = button.querySelector('.label'), range = document.createRange();
+          range.selectNodeContents(label);
+          const box = button.getBoundingClientRect(), text = range.getBoundingClientRect();
+          return { id: button.id, scroll: label.scrollWidth, client: label.clientWidth, rightGap: box.right - text.right, left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, rowWidth: row.getBoundingClientRect().width };
+        }));
+        const all = `Friend actions at ${width} x ${height}: ${JSON.stringify(labels)}`;
+        console.log(all);
+        assert.deepEqual(labels.map(label => label.id), ['friend-share', 'friend-copy'], all);
+        for (const label of labels) {
+          assert(label.scroll <= label.client, `The ${label.id} label fits: ${all}`);
+          assert(label.rightGap >= 8, `The ${label.id} text keeps at least 8 px on the right: ${all}`);
+        }
+        if (width < 299) assert(labels[1].top >= labels[0].bottom && labels.every(label => Math.abs(label.width - label.rowWidth) < 1), `Share and Copy stack at full width: ${all}`);
+        else assert(Math.abs(labels[0].top - labels[1].top) < 1 && labels[0].right <= labels[1].left, `Share and Copy stay side by side: ${all}`);
+        await shot(host.page, `friend-actions-${width}-${mode}`);
+      } finally { await host.page.close(); }
+    }
+
     await frame.locator('html').evaluate(() => {
       window.inviteShareCalls = 0;
       Object.defineProperty(navigator, 'share', { configurable: true, value: async () => { window.inviteShareCalls++; } });
