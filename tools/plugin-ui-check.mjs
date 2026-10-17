@@ -1331,11 +1331,11 @@ try {
     await idleBoard();
     assert.equal(await frame.locator('#retry').isVisible(), false, `${code} must release the pending command`);
     await frame.locator('#error').filter({hasText:'Harness definitive rejection'}).waitFor();
-    // W7 ticket 04: STALE_REVISION and WRONG_TURN keep the draft and show the T6 line; Undo takes the draft back.
-    if (['STALE_REVISION', 'WRONG_TURN'].includes(code)) {
-      assert.equal(await frame.locator('#status').innerText(), 'The game changed. Check it, then tap End turn.', `${code} keeps the draft with the T6 line`);
-      await frame.locator('#undo').click();
-    } else assert.equal(await frame.locator('#status').innerText(), '', 'The error appears once in the error row');
+    // W7 ticket 04: only INVALID_MOVE drops the draft. The re-read keeps it for the other codes, and Undo takes it back.
+    // STALE_REVISION and WRONG_TURN also show the T6 line.
+    if (['STALE_REVISION', 'WRONG_TURN'].includes(code)) assert.equal(await frame.locator('#status').innerText(), 'The game changed. Check it, then tap End turn.', `${code} keeps the draft with the T6 line`);
+    else assert.equal(await frame.locator('#status').innerText(), '', 'The error appears once in the error row');
+    if (code !== 'INVALID_MOVE') await frame.locator('#undo').click();
     assert.equal(await frame.locator('#last-move').innerText(), 'Move 1.', `${code} restores the last server position and move line`);
   }
   await haste();
