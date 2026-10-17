@@ -65,6 +65,16 @@ describe('PaintedView touch input', () => {
     fire('pointercancel'); fire('pointerup', down);
     expect(view.onDragSelect).not.toHaveBeenCalled(); expect(view.onSquareClick).not.toHaveBeenCalled();
   });
+  it('keeps a swipe from selecting their piece when drag is off, but keeps a tap', async () => {
+    const view = await board(); view.canDrag = () => false; pickedSquare = 12;
+    fire('pointerdown', down);
+    fire('pointermove', { ...down, clientY: -40 }); fire('pointerup', { ...down, clientY: -40 });
+    expect(view.onDragSelect).not.toHaveBeenCalled();
+    expect(view.onSquareClick).not.toHaveBeenCalled();
+    fire('pointerdown', down); fire('pointerup', down);
+    expect(view.onSquareClick).toHaveBeenCalledExactlyOnceWith(12, false);
+    expect(view.onDragSelect).not.toHaveBeenCalled();
+  });
   it('keeps a square tap', async () => {
     const view = await board(); pickedSquare = 12;
     fire('pointerdown', down); fire('touchstart', { preventDefault() {} }); fire('pointerup', down);

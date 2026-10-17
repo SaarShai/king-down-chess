@@ -2285,7 +2285,7 @@ try {
   const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);
   await page.clock.fastForward(1100);
   await page.evaluate(()=>{window.dropNextReply='kingdown_rematch';});
-  for (const [width,height,top,bottom] of [[197,426,51,59],[197,800,51,0],[201,357,31,17],[201,357,62,34]]) await zoomEndFits('end-loss',height,width,top,bottom);
+  for (const [width,height,top,bottom] of [[197,426,51,59],[197,800,51,0],[201,357,31,17],[201,357,62,34],[206,395,27,12]]) await zoomEndFits('end-loss',height,width,top,bottom);
   await tapEndAtZoom('Play again');
   await frame.locator('#over #retry').waitFor();
   const pendingRematch=await page.evaluate(()=>window.harnessWidgetState.privateContent.pending);
@@ -2712,7 +2712,7 @@ try {
     // Ticket 28 T1 and T2 at 200% zoom.
     const zoomName={board:'board-turn','board-abort':'board-cards'}[state.name];
     if (zoomName) await zoomBoardFits(zoomName);
-    if (state.end) for (const [width,height,top,bottom] of [[197,426,51,59],[197,800,51,0],[201,357,31,17],[201,357,62,34]]) await zoomEndFits('end-win',height,width,top,bottom);
+    if (state.end) for (const [width,height,top,bottom] of [[197,426,51,59],[197,800,51,0],[201,357,31,17],[201,357,62,34],[206,395,27,12]]) await zoomEndFits('end-win',height,width,top,bottom);
     if (state.name === 'board-abort') {
       const viewport = page.viewportSize();
       const screen = frame.locator('[data-screen="board"]');
