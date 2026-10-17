@@ -83,6 +83,14 @@ export async function checkAndroidFixes(browser, base) {
           const inside = node => { const r = node.getBoundingClientRect(); return r.top >= card.top && r.bottom <= card.bottom && r.top >= frame.top && r.bottom <= frame.bottom; };
           return { scrollTop: e.scrollTop, title: inside(e.querySelector('#over-title')), result: inside(e.querySelector('#end-reason')), play: inside(e.querySelector('form button')) };
         });
+        if (width > height && first.scrollTop) console.log('[DEBUG-ticket36] at top:', await card.evaluate(e => {
+          e.scrollTop = 0;
+          const c = e.getBoundingClientRect();
+          return { height: c.height, rows: [...e.querySelectorAll('.over-words, h2, #end-reason, form, form button')].map(n => {
+            const r = n.getBoundingClientRect(), s = getComputedStyle(n);
+            return { text: n.textContent, top: r.top - c.top, bottom: r.bottom - c.top, margin: s.margin, padding: s.padding, font: s.fontSize };
+          }) };
+        }));
         // The 197 px card keeps the separate cut-action design of ticket 32.
         if (width > height) check(first.scrollTop === 0 && first.title && first.result && first.play, `${state} first view`, first);
         for (const name of ['Play again','New game','See the board']) {
