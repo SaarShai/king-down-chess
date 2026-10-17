@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import type { Browser, FrameLocator, Page } from 'playwright';
 import { launch } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
+import { hitSizes } from './lib/plugin-hit-sizes.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 // Test the built page. The build gives the seat its table styles.
@@ -29,7 +30,7 @@ it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]
     expect((await frame.locator('#page-back').evaluate(controlBounds)).limit).toBe(height - gap);
   } finally { await page.close(); }
 });
-// Rule and state text stay whole. Each floor uses the smaller seat or board width, rounded down to 5 px.
+// Rule and state text stay whole. The short-phone floors include the 4 px touch-bar padding.
 it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568, 63, 180, 135, 95]])('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min, boardMin) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000);
@@ -63,10 +64,10 @@ it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568
     });
     expect(await frame.locator('#app-frame').evaluate(e => innerHeight - e.getBoundingClientRect().bottom)).toBe(Math.max(96, bottom));
     expect(await textFits()).toEqual([]);
-    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
+    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min - (width < height ? 4 : 0));
     await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await frame.locator('#app-frame').evaluate(e => innerHeight - e.getBoundingClientRect().bottom)).toBe(Math.max(96, bottom));
-    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin);
+    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin - (width < height ? 4 : 0));
     expect(await frame.locator('#context-note').textContent()).toBe('');
     expect(await textFits()).toEqual([]);
     await page.evaluate(async () => {
@@ -117,7 +118,7 @@ it('sizes the seat and the board from their screens, with no viewport units and 
   } finally { await page.close(); }
 });
 
-// The floors are the measured sizes with whole rule text, rounded down to 5 px.
+// The floors keep whole rule text and include the 4 px touch-bar padding on short phones.
 it('keeps short-phone boards large, landscape controls reachable and the end table in its box', async () => {
   for (const [width,height,top,bottom,left,right,min,boardMin] of [[320,568,20,0,0,0,235,190],[375,667,20,0,0,0,285,285],[393,852,59,34,0,0,380,380],[440,956,59,34,0,0,430,430],[852,393,0,21,59,59,195,150],[852,393,59,34,0,0,140,95]]) {
     const page=await browser.newPage({viewport:{width,height},isMobile:true,hasTouch:true}), frame=page.frameLocator('iframe'); page.setDefaultTimeout(10000);
@@ -130,7 +131,7 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
       const canvasWidth=()=>frame.locator('#board canvas').evaluate(e=>e.getBoundingClientRect().width);
       await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
       await expect.poll(canvasWidth).toBeGreaterThan(0);
-      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
+      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min - (width < height ? 4 : 0));
       expect(await frame.locator('#seat-context').textContent()).not.toMatch(/Tap/);
       const veil=await frame.locator('#seat-veil-layer .veil').evaluate(e=>{const r=e.getBoundingClientRect(),b=document.querySelector('#board')!.getBoundingClientRect(); return r.top>=b.top-1 && r.bottom<=b.bottom+1 && getComputedStyle(e).overflow==='hidden';});
       expect(veil).toBe(true);
@@ -140,7 +141,7 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
       }
       await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       await expect.poll(canvasWidth).toBeGreaterThan(0);
-      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin);
+      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin - (width < height ? 4 : 0));
       expect(await frame.locator('.page-sheet').evaluate(e=>e.scrollTop)).toBe(0);
       const bar=await frame.locator('#table-bar').evaluate(e=>{const buttons=[...e.querySelectorAll('button')].filter(b=>!b.hidden),r=e.getBoundingClientRect(),b=buttons[0].getBoundingClientRect();return {count:buttons.length,empty:b.left-r.left};});
       // Undo fills the first cell: no empty cell at the left of the bar.
@@ -323,13 +324,6 @@ async function hostPage(width: number, height: number, top: number, bottom: numb
   await page.evaluate(async safe => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe, deviceCapabilities: { touch: true } }); }, { top, bottom, left: 0, right: 0 });
   return { page, frame };
 }
-// The tap height and width at the centre lines of each visible control: the run of points that reach the control.
-const hitSizes = (root: Element) => [...root.querySelectorAll('button, label, input:not([type=radio]):not([type=checkbox])')].filter(e => (e as HTMLElement).offsetParent && !e.closest('dialog:not([open])')).map(e => {
-  e.scrollIntoView({ block: 'center' });
-  const own = (p: Element | null) => p?.closest('button, label, input'), r = e.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, target = own(e);
-  const run = (dx: number, dy: number) => { let n = 0; while (n < 40 && own(document.elementFromPoint(x + dx * (n + 1), y + dy * (n + 1))) === target) n++; return n; };
-  return { name: e.id || e.textContent!.trim().slice(0, 20), height: run(0, -1) + run(0, 1) + 1, width: run(-1, 0) + run(1, 0) + 1 };
-});
 it.each([[768, 1024], [1024, 768]])('gives Settings controls the 44 px floor with touch at %i × %i', async (width, height) => {
   const { page, frame } = await hostPage(width, height, 24, 20);
   try {
@@ -520,8 +514,8 @@ it('keeps the board screen unscrolled without cards where the rows fit under 320
 });
 // The zoom rule leaves normal sizes alone. Device matrix round 2 measured 169/158 and 302/302 on the old phone rows;
 // layout B (short portrait rows, Back in the opponent row) gives the seat more height, and with Cards and King powers
-// its narrow opponent and player rows take two 44 px rows on the board. The short last-move row takes 24 px from the board at short heights.
-it.each([[320, 568, 63, 84, true, 218, 113], [393, 852, 102, 118, true, 384, 345], [820, 600, 59, 34, false, 360, 338]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
+// its narrow opponent and player rows take two 44 px rows on the board. The touch bar adds 4 px; the short last-move row takes 24 px at short heights.
+it.each([[320, 568, 63, 84, true, 214, 109], [393, 852, 102, 118, true, 382, 341], [820, 600, 59, 34, false, 360, 338]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: touch, hasTouch: touch }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000);
   try {

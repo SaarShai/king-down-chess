@@ -1,3 +1,4 @@
+import { checkAndroidFixes } from './lib/plugin-android-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
@@ -27,6 +28,7 @@ trapErrors(page);
 page.on('pageerror', error => console.error(error.stack));
 
 try {
+  await checkAndroidFixes(browser, base);
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
   await page.addInitScript(() => {
@@ -2799,7 +2801,7 @@ try {
       const expected = {
         frame:[0,0,393,756], '#board':[4,44,385,411], '#board canvas':[4,44,385,411],
         '#strip-them':[0,0,393,44], '#strip-me':[0,455,393,44], '#context-line':[12,499,369,44],
-        '#moves-line':[12,543,369,44], '#recent-moves':[12,587,369,108], '#table-bar':[0,712,393,44],
+        '#moves-line':[12,543,369,44], '#recent-moves':[12,587,369,108], '#table-bar':[0,708,393,48],
       };
       for (const [id,box] of Object.entries(expected)) assert(boxes[id]?.every((value,i) => Math.abs(value-box[i]) <= 1),
         `At 393 x 852 ${id} keeps its measured box (1 px rounding): ${JSON.stringify(boxes)}`);
@@ -3019,6 +3021,6 @@ try {
 } catch (error) {
   console.error(error);
   console.error('Page check state:', await page.evaluate(() => ({ screen: window.harnessWidgetState?.privateContent?.screen, pending: window.harnessWidgetState?.privateContent?.pending?.name, view: window.harnessView && { status: window.harnessView.status, kind: window.harnessView.kind, speed: window.harnessView.speed, revision: window.harnessView.revision, turn: window.harnessView.turn, seat: window.harnessView.seat, opponent: window.harnessView.opponent, server_now: window.harnessView.server_now, commands: window.harnessView.last_commands.map(c => ({ seat: c.seat, at: c.at })) }, calls: (window.harnessCalls ?? []).slice(-6).map(c => c.name) })));
-  console.error('Board check state:', await page.frameLocator('iframe').locator('body').evaluate(() => ({ hidden: document.hidden, status: document.querySelector('#status').textContent, error: document.querySelector('#error').textContent, reloadDisabled: document.querySelector('#reload').disabled })));
+  if (page.mainFrame().childFrames().length) console.error('Board check state:', await page.frameLocator('iframe').locator('body').evaluate(() => ({ hidden: document.hidden, status: document.querySelector('#status').textContent, error: document.querySelector('#error').textContent, reloadDisabled: document.querySelector('#reload').disabled })));
   assertNoErrors(); throw error;
 } finally { await browser.close(); unregister(); }
