@@ -1,6 +1,6 @@
 # 29 Release candidate
 
-Status: in-progress
+Status: built
 Branch: claude/release-candidate
 Base: a5cac8f8
 
@@ -61,3 +61,10 @@ The checks pass only when each command ends with exit 0. The browser log must na
 
 - Second full suite: 184 files pass; 2 fail. All race, server, keyboard and offline fixes pass. The two failures still target removed controls.
 - The slow-start test now leaves the hall through Profile. The focus test opens Resign through Menu and checks focus returns to Menu. Keep all 14 focus cases.
+
+### Test evidence and final gate
+
+- Third full suite passes at dfd703d0: 186 test files pass. The log is tests-merge-3.txt in the release lane. The command also passes the 50 drawing tests.
+- Port the desktop coin animation wait to the frame. The coin lane adds that wait after the host moves to a second origin.
+- The final gate runs again after this check-only change: npx tsc --noEmit, npm test, plugin-ui and plugin-ui-http.
+- The final report, checked head and full logs are in the release scratchpad lane. The required report file is 29-merge-build.md. No taste choice is needed; keep the approved text, layout and actions.

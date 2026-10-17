@@ -568,7 +568,7 @@ try {
       // Ticket 22: the same face rule holds on a desktop without touch, at the 34 px card coin.
       await desktop.setViewportSize({ width: 1280, height: 800 });
       await desktopFrame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
-      await desktop.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#game-table').getAnimations({ subtree: true }).every(animation => animation.playState === 'finished'));
+      await desktop.mainFrame().childFrames()[0].waitForFunction(() => document.querySelector('#game-table').getAnimations({ subtree: true }).every(animation => animation.playState === 'finished'));
       const faces34 = await cardFaces(desktopFrame);
       assert.equal(faces34.length, 8, 'Both strips show four card coins at 1280 × 800');
       assert.deepEqual(faceFaults(faces34, 34), [], 'The card image is centred in the 34 px card coin and fills its face in both strips');
