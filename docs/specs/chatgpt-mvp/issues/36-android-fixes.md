@@ -1,6 +1,6 @@
 # 36 Android bar targets and landscape end card
 
-Status: claimed
+Status: resolved
 Branch: claude/android-fixes
 Base: 4692477c
 
@@ -43,4 +43,36 @@ The owner asks to skip the Android emulator check. The main session runs it afte
 - Taste choice: use less space between items in short landscape. Keep all words
   and type sizes instead of removing the win words.
 
-Final checks are in work.
+- npx tsc --noEmit passes after the final code change.
+- plugin-ui passes on this Mac at 4c4e594d in 137.6 s. The lane runner exits 0.
+  All F9 cases pass. Win and loss open at scroll top 0 at 870 x 280, 740 x 360
+  and 844 x 390. The title, result and Play again fit on every edge. All actions
+  fit inside the card and frame and receive a centre hit after a scroll.
+- The 197 x 426, 320 x 568, 393 x 852 and 1280 x 800 end-action checks pass.
+  The existing narrow-screen block stays unchanged. Moves remains hidden at 320 x 568.
+- The old tall-phone bar-box check now expects [0,708,393,48], as F9 requires.
+  Every other measured box in that check stays unchanged.
+- Visual check: both 870 x 280 images show the title, result and all three actions.
+  The images are ticket36-end-win-870x280.png and ticket36-end-loss-870x280.png
+  in /var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/android-fixes-7Ch5Fr/plugin-ui/.
+- The browser log is checks-final-1.txt in the lane scratch folder.
+- Full npm test uses the lane's local test database. It ends with 186 passed files and
+  2 failed files: 3046 passed tests, 5 failed tests, 1 expected failure and 8 skipped tests.
+  Four size checks use the old seat widths or floors. The fifth failure is the unchanged
+  workshop judge test's 30000 ms time limit. No time limit changes.
+- The size checks now permit the same 4 px portrait change as F9. Exact seat widths
+  change from 218 to 214 px and from 384 to 382 px. Exact board widths are 109 and 341 px.
+- The focused npm test run passes: 30 size tests, 12 workshop judge tests and 51 motion tests.
+  Its log is tests-focus-1.txt. Both files pass within the original time limits.
+- The final full npm test run passes at 1d029396 in 273.02 s: all 188 files pass.
+  It records 3051 passed tests, 1 expected failure and 8 skipped tests. All 51 motion
+  tests also pass. The run exits 0. Its log is tests-final-1.txt.
+- No time limit changes. The workshop judge passes in the focused run and the final full run.
+- Only test expectations and this ticket change after the passing browser commit.
+  The application CSS and browser check code stay the same.
+- The red and green browser detail logs and both end-card images are also copied to the lane folder.
+- No server code changes. plugin-ui-http is not required.
+- The Android emulator check is not run, as the owner asks. The main session owns it after merge 5.
+
+All ticket parts are built and checked. Both fixes use CSS only. The Android emulator
+check stays with the main session after merge 5, as the owner asks.
