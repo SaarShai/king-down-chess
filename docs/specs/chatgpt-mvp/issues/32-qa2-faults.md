@@ -111,3 +111,13 @@ The prior C work stays. E is refuted; the portrait stays.
 2. Add a lobby wait check with a fresh 197 x 426 mobile host and insets 51/59. Measure each Share and Copy label and its text range. Require no label overflow and at least 8 px to the button right edge. Check the normal widths too. Run it before the CSS fix.
 3. Stack the friend actions in the existing under-299 px CSS rule. Add the stop to the armed card line. Update bare-name checks.
 4. Run `npx tsc --noEmit`, `npm test` with the local test database, and `plugin-ui` through the owner runner. Keep all time limits. Record the base failures and final results. Commit each check and fix.
+
+## D and G base evidence
+
+The product files `board.ts` and `lobby.css` match `4692477c` byte for byte before these fixes. The checks run on commits after C so that the prior C work stays.
+
+- G: the new browser check fails on the M1 at `3553d1ea` in 104.0 seconds. It reads `Vault` and expects `Vault.` at 393 x 852 with insets 102/118. The runner exits 1. Logs: `checks-small-g-baseline-2.txt` and `small-g-baseline-detail.txt` in the lane folder.
+- The first D check at `8d11c4c8` stops on a test setup error. Share has plain button text; Copy has a `.label` span. The repaired check measures the plain text or the span, as the page supplies it. This run is not fault evidence.
+
+- D: the repaired browser check fails on the M1 at `b1ce0066` in 74.4 seconds. At 197 x 426 with insets 51/59, Copy has 35 px of text in a 25 px label box. Its text has about 2.4 px to the button right edge. The runner exits 1. Logs: `checks-small-d-baseline-2.txt` and `small-d-baseline-detail.txt`.
+- The D fix adds one CSS declaration to the existing max-width 299 px rule: `.friend-actions { flex-direction: column; }`. The row gives each action its full width. Wider screens keep the row.
