@@ -1648,7 +1648,7 @@ try {
   const snapshot = await page.evaluate(() => window.harnessView), lastMove = await frame.locator('#last-move').innerText();
   assert(snapshot.revision >= 2 && snapshot.revision <= 5);
   // M3 and B3: a failed live read keeps the last board and turns its actions off.
-  const boardRect = box => [box.x, box.y, box.width, box.height].map(Math.round);
+  const boardRect = box => [box.width, box.height].map(Math.round);
   const lastBoard = boardRect(await frame.locator('#board canvas').boundingBox());
   await page.evaluate(() => { window.rejectNextGet = true; });
   await menuAction('reload');

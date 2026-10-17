@@ -67,3 +67,5 @@ Each command must end with exit 0. Each browser log must name the head and show 
 - The first detached runner start writes no output and leaves no process. It has no result. The next start uses the same approved runner as a foreground command with a saved log.
 
 - The next M1 run at 3296365c passes the new Play retry. It fails the existing Settings focus case in 58.3 s: the queued save disables Back, so Back cannot take focus while the save waits. Keep Back free on Settings while connected and not mounting. Keep every other lock. Add four lock cases for save, mount, lost connection and Board. This keeps the prior release focus intent on the S5 queue path.
+
+- The M1 run at 979e2a8a passes Settings focus and reaches the new Board read check. Its board remains 568 by 606 px. The error shifts its top from 171 to 126 px. The size check also compares position by mistake. Compare width and height only, as its words and B3 require. Keep the error count, stale mark, locked turn and absent moves checks. Cancel the queued WebKit run before it acquires a runner, so it does not test a changed head.
