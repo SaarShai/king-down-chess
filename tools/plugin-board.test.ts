@@ -661,6 +661,11 @@ it.each([[320,568],[393,852]] as const)('Q3 b: a draw offer keeps the board size
       const r = el.getBoundingClientRect(), box = document.querySelector('[data-screen="board"]')!.getBoundingClientRect();
       return r.top >= box.top - 1 && r.bottom <= box.bottom + 1 && r.left >= box.left - 1 && r.right <= box.right + 1;
     })).toBe(true);
+    // No row shrinks under its content: each card coin stays inside its strip, so the status never covers it.
+    expect(await frame.locator('#game-table .card-coin').evaluateAll(coins => coins.filter(coin => {
+      const c = coin.getBoundingClientRect(), s = coin.closest('.player-strip')!.getBoundingClientRect();
+      return c.top < s.top - 1 || c.bottom > s.bottom + 1;
+    }).length)).toBe(0);
   } finally { await page.close(); }
 });
 

@@ -220,6 +220,8 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 #game-table[data-replies] { --board-floor: 210px; --context-floor: max-content; }
 @media (max-width: 899px) {
   .page-sheet > [data-screen='board']:has(#game-table[data-replies]) { overflow: hidden auto; }
+  /* The table grows to its rows, so no row shrinks under its content; the screen scrolls instead. */
+  .page-sheet > [data-screen='board'] > #game-table[data-replies] { bottom: auto; min-height: 100%; }
 }
 .table-back { display: none; }
 @media (max-width: 899px) and (orientation: portrait) {
