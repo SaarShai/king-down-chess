@@ -130,3 +130,10 @@ The next browser pass checks the D fix at all four widths and puts the 197 x 426
 The saved 197 px and 320 px friend images pass visual review. At 197 px the two full-width actions show after a scroll to Copy. At 320 px they stay side by side with clear text. Local images: `small-friend-actions-197.png` and `small-friend-actions-320.png` in the lane folder.
 
 The G unit base run uses `KINGDOWN_TEST_FILE=tools/plugin-board.test.ts npm test` with the local test database. It must get the shared test lock before the G product fix. The lane keeps the base `board.ts` until that run ends. No time limit changes.
+
+- G unit base: the board file runs through `npm test` after the shared lock opens. The new assertion fails: expected `Vault.`, received `Vault`. The file exits 1 in 91.66 seconds, with 116 passed tests and two failures. The second failure is an unchanged W7 draw test: its e2-e4 choice click reaches the existing 3-second limit. Log: `tests-small-g-baseline-1.txt`. This run supplies the required G failure; it is not a suite pass.
+- The G fix changes only the armed card line in `board.ts` to `${cardName(card)}.`. The old Morph status check now expects `Morph.`. Card sheet titles and coin names keep their current words.
+
+## D and G final check plan
+
+Run `npx tsc --noEmit`, full `npm test` with the local test database and `VITEST_MAX_WORKERS=1`, and `plugin-ui` through the owner runner. The single worker reduces test contention, as the prior C check does. All test and check limits stay the same. No server code changes; `plugin-ui-http` does not apply.
