@@ -404,4 +404,4 @@ body[data-touch='true'] #context-actions button { z-index: 2; }
 }
 #game-table #context-actions:empty { display: none; }
 #app-root #all-rules::after { content: ''; }
-#app-root #all-rules .portrait { width: 36px; height: 36px; }
+#app-root #all-rules .portrait { display: grid; place-items: center; width: 36px; height: 36px; font-size: 22px; }

@@ -6,12 +6,13 @@ import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
-import { legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
+import { legalMoves, makeMove, parseRule, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import type { View } from '../src/match/protocol';
 import { applyLan } from '../src/plugin/screens/board-model';
 import { LESSONS } from '../src/lessons';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { readText } from '../src/read';
+import { PRESETS, designCode, fromPreset } from '../src/workshop/model';
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -613,6 +614,30 @@ it.each(['power','card'] as const)('W7: Escape on the board and sheet clears %s 
     await squareTap(page,12); await squareTap(page,28); await frame.locator('#board[data-animating="false"]').waitFor();
     expect(await boardFen(page)).toBe(toFen(applyLan(fromFen(base.fen),'e2-e4',rules)!.pos));
     expect(await moveCalls(page)).toEqual([]);
+  } finally { await page.close(); }
+});
+
+it.each([['C',''], ['c',''], ['V',''], ['v',''], ['T','Y'], ['t','Y'], ['T',''], ['t','']])('shows a letter and opens rules when %s has no portrait (design letter %s)', async (letter, designLetter) => {
+  const designed = !!designLetter;
+  const rules = designed ? parseRule(`design=${designCode({ ...fromPreset(PRESETS.find(p => p.key === 'rook')!), name: 'Old Ward', letter: designLetter })}`) : {};
+  const page = await open(view(`7k/8/8/8/3${letter}4/8/P7/K7 w - - 0 1`, rules), 320, 568), frame = page.frameLocator('iframe');
+  try {
+    await squareTap(page, 27);
+    const info = frame.getByRole('button', {name:'All rules',exact:true});
+    for (const [width, height] of [[320,568], [393,852]]) {
+      await page.setViewportSize({width, height});
+      expect(await info.isVisible()).toBe(true);
+      expect(await info.locator('.portrait').textContent()).toBe(designLetter || letter.toUpperCase());
+      expect(await info.locator('img').count()).toBe(0);
+      expect(await info.evaluate(button => {
+        const b = button.getBoundingClientRect(), r = button.parentElement!.getBoundingClientRect();
+        return b.width >= 44 && b.height >= 44 && b.left >= r.left && b.right <= r.right && b.top >= r.top && b.bottom <= r.bottom;
+      })).toBe(true);
+      await info.click();
+      expect(await frame.locator('#board-sheet').innerText()).toContain(designed ? 'Old Ward' : letter.toUpperCase() === 'C' ? 'catapult' : letter.toUpperCase() === 'V' ? 'reaver' : 'templar');
+      await frame.locator('#board-sheet').getByRole('button', {name:'Close',exact:true}).click();
+      expect(await info.evaluate(button => button === document.activeElement)).toBe(true);
+    }
   } finally { await page.close(); }
 });
 

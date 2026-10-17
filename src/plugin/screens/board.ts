@@ -1,5 +1,5 @@
 import { fromFen, toFen } from '../../rules/setup';
-import { colorOf, findKing, K, inCheck, status, moveNumber, nameOf, NAMES, piece, PLAIN_KINGS, RULES, setRules, sqName, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
+import { colorOf, findKing, K, inCheck, status, moveNumber, nameOf, NAMES, LETTERS, piece, playedDesign, PLAIN_KINGS, RULES, setRules, sqName, T, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
 import { cardName, cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
 import { checkCause, checkersOf, describeMove, shortMove, threatsIn } from '../../move-text';
 import { marksModel, railsOf } from '../../marks-model';
@@ -336,7 +336,9 @@ export function boardScreen(store: Store) {
     all.hidden = !unarmed || square === undefined || !code;
     if (!all.hidden) {
       const type = typeOf(code);
-      all.innerHTML = `<span class="portrait"><img id="piece-info-art" alt="" src="${art(type === K ? portraitPath(colorOf(code)) : `ui/pieces/${NAMES[type]}-${colorOf(code) ? 'b' : 'w'}.webp`)}"></span>`;
+      const face = art(type === K ? portraitPath(colorOf(code)) : `ui/pieces/${NAMES[type]}-${colorOf(code) ? 'b' : 'w'}.webp`);
+      all.innerHTML = `<span class="portrait" aria-hidden="true">${face ? `<img id="piece-info-art" alt="" src="${face}">` : ''}</span>`;
+      if (!face) all.firstElementChild!.textContent = (type === T && playedDesign()?.letter) || LETTERS[type];
       all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(pos!, square!)}` : readText(pos!, square!)));
     }
     if ((!drawReply || unarmed) && selected !== undefined && moves.some(({move}) => move.from === selected && !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));

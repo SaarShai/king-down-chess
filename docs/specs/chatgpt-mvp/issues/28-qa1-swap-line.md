@@ -31,3 +31,23 @@ The checked code and tests are at `ce45aa3c`. The final commit records these res
 - Both captures pass visual review. The words use two lines at 320 px and one at 393 px. The portrait stays in the row. Captures: `swap-line-320.png` and `swap-line-393.png` in the lane output folder.
 
 No part of T4 or T5 remains unbuilt. The taste choices are the existing 36 px round face in a 44 px control, and the 4 px gap between the two draw rows.
+
+## Review repair
+
+Status: in progress.
+
+1. Check both review findings against the source and the available art.
+2. Add a test for Catapult, Reaver and a designed piece in both colours. Use a letter tile when no portrait exists. Check the tile, its rules action and its row bounds at 320 and 393 px.
+3. Run `npm test` with the local test database. Commit the repair. Run `plugin-ui` through the owner's check runner, then record the result.
+
+Review A, finding 1: confirmed. The portrait lookup can return no URL. These three piece types also have no rulebook icon, so the repair needs a letter tile.
+
+Review A, finding 2: no fault. `pieceTitle` uses the shared name and keeps the rest of a custom name. The existing test checks `Old Ward`. No title change is needed.
+
+Review B finds no T5 fault. Its T4 result misses the unchecked portrait lookup. The solo create schema accepts a FEN or a back rank (`src/match/protocol.ts`), so a lab piece can reach the board without a pool draw. The new test also covers a game view that contains a designed piece. The current create schema has no design option.
+
+The repair uses the piece letter when the art lookup has no URL. A designed piece uses its chosen letter. The rules action keeps its name and size. Eight new cases check both colours of Catapult, Reaver, plain Templar and Old Ward at both widths. They check the letter, absence of a broken image, row bounds, rules sheet and return focus.
+
+`npm test` passes with the local test database: 178 files pass, with 2,877 tests passed, one expected failure and eight skipped. All 50 art tests pass. The type check passes in the same command. Log: `tests-swap-line-fix-full-1.txt` in the lane output folder. The queued file-only run stops before it gets the lock; the full run covers its cases.
+
+The browser check follows the repair commit. No server code changes, so this step needs `plugin-ui` only.
