@@ -191,8 +191,14 @@ it('says it cannot connect after three failed polls offline, and shows the curre
     const game = await friendGame(), { frame } = await showGame(page, game), widget = page.frameLocator('iframe');
     const mine = await move(frame, 'e2-e4');
     await pause(page);
-    // The frame counts the failed replies, so each clock step starts after the poll that failed has set its next timer.
-    await frame.evaluate(() => { const app = window as any; app.failedReplies = 0; addEventListener('message', event => { if (event.source === parent && event.data?.error) app.failedReplies++; }); });
+    // The frame counts the failed board reads after each poll sets its next timer; kingdown_seen does not count.
+    await frame.evaluate(() => {
+      const w = window as any, send = w.harnessApp.client.call; w.failedReplies = 0;
+      w.harnessApp.client.call = async (name: string, args: any, options: any) => {
+        try { return await send(name, args, options); }
+        catch (error) { if (name === 'kingdown_get') void (async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); w.failedReplies++; })(); throw error; }
+      };
+    });
     await page.context().setOffline(true);
     const answer = await friendMove(game, mine, 'e7-e5');
     for (let failed = 0; failed < 3; failed++) {

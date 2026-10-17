@@ -27,7 +27,7 @@ suite('Supabase sign-up and access token hooks', () => {
    for (const provider of ['google', 'github']) {
     const claims = { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', exp: now + 3600, iat: now, sub: actor,
      role: 'authenticated', aal: 'aal1', session_id: randomUUID(), email: 'player@example.test', phone: '', is_anonymous: false,
-     client_id: clientId, scope: 'openid email', app_metadata: { provider }, user_metadata: { email: 'player@example.test' } };
+     client_id: clientId, scope: 'openid email', app_metadata: { provider, providers: [provider] }, user_metadata: { email: 'player@example.test' } };
     for (const method of ['oauth_provider/authorization_code', 'token_refresh']) {
      const result = (await client.query('select public.kingdown_access_token_hook($1::jsonb) as result', [{ user_id: actor, authentication_method: method, claims }])).rows[0].result;
      expect(result, `${provider} ${method}`).toEqual({ claims: { ...claims, aud: resource } });
