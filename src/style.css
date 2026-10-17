@@ -181,7 +181,7 @@ button.primary {
 @media (hover: hover) { button.primary:hover { background: linear-gradient(#a8422f, #8f3124); } }
 button.quiet { background: transparent; box-shadow: none; border-color: var(--stone-500); font-weight: 400; }
 @media (hover: hover) { button.quiet:hover { background: rgba(255, 255, 255, 0.5); } }
-button:disabled:not(.coin), button:disabled:hover:not(.coin) {
+button:disabled:not(:where(.coin)), button:disabled:hover:not(:where(.coin)) {
   cursor: default; color: var(--ink-soft); background: var(--stone-100);
   border-color: var(--stone-300); box-shadow: none; transform: none;
 }

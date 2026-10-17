@@ -82,3 +82,5 @@ The checks pass only when each command ends with exit 0. The browser log must na
 - At 3e43318f, plugin-ui passes in 174.6 s. The HTTP measurement proves all ten coins are round and 44 by 44, with no running motion. Six disabled coins lose their radial background. The generic disabled-button selector wins over the base coin selector.
 - Fix the shared selector to exclude coins. Keep the default pointer on a disabled coin. Add a board test that disables the coin buttons and checks their round radial faces and pointer.
 - The browser run is the observed failing control. The new unit test queues behind other lanes for the shared test lock, so its first run checks the fixed CSS. Do not claim a separate failed unit run.
+
+- The first coin-selector fix raises the generic disabled rule's specificity. Both browser checks catch its effect on disabled king pictures. Use :not(:where(.coin)) to keep the generic rule's original specificity. This is the same exclusion pattern as the app controls. Keep the existing king-picture assertion.
