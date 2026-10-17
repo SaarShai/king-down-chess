@@ -39,3 +39,10 @@ Each command must end with exit 0. Each browser log must name the head and show 
 
 - Source: 6777221e. No file conflict.
 - Keep the inline recent moves, its phone fit and sheet path. M1 follows this merge and corrects its source order.
+
+### Merge 4: main
+
+- Source: bdaaa50d. tools/plugin-journeys.test.ts conflicts because the race tests moved.
+- Keep the move to plugin-races.test.ts. Do not add a second copy of those tests.
+- Apply PR 59 to the held-Choose test there: one wait reads all six fields, with a 1000 ms limit and a catch that reports the state. Read in the widget frame because the release host uses a second origin.
+- PR 58 is already in the release history. No other main file changes.

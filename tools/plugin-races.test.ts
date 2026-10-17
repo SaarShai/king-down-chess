@@ -171,7 +171,13 @@ it.each([
     await nextWrite(page, () => page.evaluate(result => (window as any).harnessShow(result), result));
     expect(await reads(page)).toBe(before);
     await page.evaluate(release, hold);
-    await expect.poll(async () => ({ ...await shownGame(page), ...await locks(page) })).toEqual({ game, board: result._meta.board_id, screen: 'seat', locked: false, error: '', home: '' });
+    // Read all six fields in one frame state. Separate reads can span a screen change.
+    await widget(page).waitForFunction(({ game, board }) => {
+      const app = (window as any).harnessApp, doc = document;
+      return app.memory.view?.game_id === game && app.client.state.board_id === board && doc.body.dataset.page === 'seat'
+        && !doc.getElementById('home-play')!.hasAttribute('disabled') && doc.getElementById('error')!.textContent === '' && doc.getElementById('home-error')!.textContent === '';
+    }, { game, board: result._meta.board_id }, { timeout: 1000 })
+      .catch(async e => { throw new Error(`${e.message}; the state: ${JSON.stringify({ ...await shownGame(page), ...await locks(page) })}`); });
     expect(await reads(page)).toBeGreaterThan(before);
     expect(await html(page).evaluate(() => { const app = (window as any).harnessApp; return { status: app.memory.view.status, ready: app.memory.view.ready[app.memory.view.seat], pending: app.client.state.pending }; })).toEqual({ status: 'setup', ready: true, pending: undefined });
   } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseBefore?.(); }); await page.close(); }
