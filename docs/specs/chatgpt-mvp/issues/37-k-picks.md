@@ -27,4 +27,6 @@ The final base check uses commit `63767598`. The app CSS and markup match `46924
 
 K1 merges the three existing card-row rules into one rule through 440 px. It applies to both strips. The base check shows that both names need the change. The zoom rules below 320 px and the desktop rules stay in place.
 
-K2 and final check results follow.
+K2 puts Resume on the first line and its existing game detail in a `small` element on the second line. The button keeps both lines in its accessible name. The other home labels keep one line. The small line uses `--fs-xs` and normal weight. Long game names can wrap. The label helper uses text nodes so game names cannot become markup.
+
+Final check results follow.

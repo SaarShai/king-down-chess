@@ -159,6 +159,7 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .inline-card .title-actions { width: 100%; flex-direction: row; flex-wrap: nowrap; margin-top: var(--space-1); }
 .inline-card .title-actions button { flex: 1; min-width: 0; min-height: 48px; font-size: var(--fs-md); white-space: nowrap; padding: 8px 10px; }
 .inline-card .title-actions button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.inline-card .title-actions button small { display: block; font-size: var(--fs-xs); font-weight: 400; white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 339px) {
   .inline-card .title-actions { flex-direction: column; }
 }

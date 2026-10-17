@@ -537,8 +537,13 @@ function homeActions() {
   const game = homeGame(), back = !!resume && resume !== 'play' || !!game;
   const turn = game?.status === 'playing' ? game.action === 'ready' ? ' · Your move' : ' · Their turn' : '';
   $<HTMLButtonElement>('home-play').disabled ||= !back && setupBusy();
-  const label = (id: string, symbol: string, text: string) => { const html = `<svg class="icon" aria-hidden="true"><use href="#i-${symbol}"/></svg><span>${text}</span>`; if ($(id).innerHTML !== html) { $(id).innerHTML = html; $(id).querySelector('span')!.textContent = text; } };
-  label('home-play', back ? 'continue' : 'play', back ? game ? `Resume · ${game.status === 'waiting' ? waitingLine(game) : game.opponent?.computer ? 'Computer' : gameTitle(game)}${turn}` : 'Resume' : 'Play now');
+  const label = (id: string, symbol: string, text: string, detail = '') => {
+    const span = document.createElement('span'); span.textContent = text;
+    if (detail) { const small = document.createElement('small'); small.textContent = detail; span.append(' ', small); }
+    const html = `<svg class="icon" aria-hidden="true"><use href="#i-${symbol}"/></svg>${span.outerHTML}`;
+    if ($(id).innerHTML !== html) $(id).innerHTML = html;
+  };
+  label('home-play', back ? 'continue' : 'play', back ? 'Resume' : 'Play now', back && game ? `${game.status === 'waiting' ? waitingLine(game) : game.opponent?.computer ? 'Computer' : gameTitle(game)}${turn}` : '');
   label('home-games', 'guide', memory.games.length ? `Your games (${memory.games.length})` : 'Choose a game');
 }
 // Spec J2, D2: Play now asks for fullscreen on the tap and opens the board when the game exists.
