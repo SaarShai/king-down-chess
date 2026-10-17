@@ -1,4 +1,4 @@
-import { call, client, memory, navigate, routeView } from '../app';
+import { call, client, gameActionsBlocked, memory, navigate, routeView } from '../app';
 import type { Job } from '../queue';
 import { art } from '../art';
 import { board, highlight } from '../board-view';
@@ -21,7 +21,7 @@ let game = '', choice: Choice | null = null, selected: number | null = null, sen
 let home: { parent: HTMLElement; next: ChildNode | null; click: typeof board.onSquareClick; drag: typeof board.onDragSelect; hover: typeof board.onSquareHover; key: HTMLElement['onkeydown']; label: string | null } | undefined;
 let closeMenu: (() => void) | undefined, cursor = 0;
 const current = () => client.state.screen === 'seat' && memory.view?.game_id === game ? memory.view : undefined;
-const locked = () => sending || picking || $<HTMLButtonElement>('seat-menu').disabled || !!client.state.pending || !!current()?.ready?.[current()!.seat];
+const locked = () => sending || picking || $<HTMLButtonElement>('seat-menu').disabled || gameActionsBlocked() || !!current()?.ready?.[current()!.seat];
 const uuid = () => crypto.randomUUID().replaceAll('-', '');
 
 function release() {
@@ -110,7 +110,7 @@ async function ready() {
   const view = current(); if (!view?.options || !choice || locked() || validateChoice(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice)) return;
   sending = true; locks();
   try {
-    const next = await submitReady(view, { ...choice }, { send: args => call('kingdown_choose', args, true, false, false), read: () => call('kingdown_get', {}, false, false, false), pending: () => !!client.state.pending, id: uuid });
+    const next = await submitReady(view, { ...choice }, { send: args => call('kingdown_choose', args, true, false, false), read: () => call('kingdown_get', {}, false, false, false), pending: gameActionsBlocked, id: uuid });
     if (next) await finish(next);
   } finally { sending = false; render(); }
 }
@@ -130,7 +130,7 @@ function menu(confirm = false) {
   const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); close(); }
     else if (event.key === 'Tab') { const buttons = [...dialog.querySelectorAll<HTMLButtonElement>('button')], i = buttons.indexOf(document.activeElement as HTMLButtonElement); if (event.shiftKey && i <= 0 || !event.shiftKey && i === buttons.length - 1) { event.preventDefault(); buttons[event.shiftKey ? buttons.length - 1 : 0].focus(); } } };
   document.addEventListener('keydown', key); closeMenu = close; $('seat-menu-close').onclick = scrim.onclick = close;
-  if (confirm) { $('seat-abort-cancel').onclick = close; $('seat-abort-confirm').onclick = async () => { const v = current(); if (!v?.abort_open || sending || client.state.pending) return; close(); sending = true; locks(); try { const next = await call('kingdown_abort', { game_id: v.game_id, command_id: uuid(), expected_revision: v.revision }, true, false, false); if (next) await finish(next); } finally { sending = false; render(); } }; }
+  if (confirm) { $('seat-abort-cancel').onclick = close; $('seat-abort-confirm').onclick = async () => { const v = current(); if (!v?.abort_open || sending || gameActionsBlocked()) return; close(); sending = true; locks(); try { const next = await call('kingdown_abort', { game_id: v.game_id, command_id: uuid(), expected_revision: v.revision }, true, false, false); if (next) await finish(next); } finally { sending = false; render(); } }; }
   else { if (view.abort_open) $('seat-abort').onclick = () => menu(true); $('seat-settings').onclick = () => { close(); navigate('settings'); }; }
   $('seat-menu-close').focus();
 }
@@ -154,7 +154,7 @@ export function seatScreen() {
   if (!view.options) { release(); routeView(view); return; }
   if (view.status !== 'setup') {
     game = view.game_id;
-    if (!client.state.pending && !sending && view.options && Object.values(seatChoicesNeeded(view.options)).some(Boolean)) { sending = true; void finish(view).finally(() => { sending = false; }); }
+    if (!gameActionsBlocked() && !sending && view.options && Object.values(seatChoicesNeeded(view.options)).some(Boolean)) { sending = true; void finish(view).finally(() => { sending = false; }); }
     return;
   }
   const own = seatChoice(view, memory.settings?.last_setup?.king ?? null); if (!own) return;
