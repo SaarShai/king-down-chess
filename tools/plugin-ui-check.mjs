@@ -1526,6 +1526,7 @@ try {
   await frame.locator('#strip-me .card-coin').nth(cardIndex).click();
   assert(!(await page.evaluate(()=>JSON.stringify(window.harnessWidgetState))).includes(cardWords),'A card read stores no hand data in widget state');
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
+  await zoomBoardFits('board-cards-armed');
   await openMoveChoices(); await frame.locator(`#choices button[title="${cardLan}"]`).click(); await sendTurn();
   await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.actions?.[0]===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
   await frame.locator('#strip-me .card-coin').nth(cardIndex).and(frame.locator('[data-state="used"]')).waitFor();
@@ -2153,7 +2154,6 @@ try {
         if(width>height) await frame.locator('#context-actions').scrollIntoViewIfNeeded();
         for (const action of await frame.locator('#context-actions button').all()) {const bounds=await action.evaluate(controlBounds); assert(bounds.accessible,`Cancel and draw reply fits: ${JSON.stringify(bounds)}`);}
         await shot(page,`ticket05-draw-armed-${width}-${mode}`);
-        if (width===320) await zoomBoardFits('board-cards-armed');
       }
     }
   }
