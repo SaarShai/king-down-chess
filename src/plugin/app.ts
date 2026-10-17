@@ -117,14 +117,13 @@ function show(next: View | undefined) {
  * words, so its Retry shows when its own game shows (finding 10).
  */
 async function resend(command: Pending): Promise<ToolResult> {
-  // A start, or a step of the setup flow, goes again as it is: the receipt gives back the first game.
-  if (isStartStep(command)) return client.call(command.name, command.args);
   const game = view?.game_id;
-  // A game command goes to the game the page shows, and only while its tag names that game; else nothing goes, and the
-  // command keeps its place with the connection words, so its Retry shows when its own game shows (finding 10).
-  if (command.game_tag && (!game || !game.startsWith(command.game_tag))) { failPending(CANNOT_CONNECT, command); throw new Error(CANNOT_CONNECT); }
-  // A read with no game (a retained board read) goes again as it is; a game command takes the shown game's ID.
-  return client.call(command.name, command.game_tag && game ? { ...command.args, game_id: game } : command.args);
+  // Widget state keeps only the tag, so a command with a tag takes the ID of the shown game that the tag names.
+  if (command.game_tag && game?.startsWith(command.game_tag)) return client.call(command.name, { ...command.args, game_id: game });
+  // A game command for a game that does not show sends nothing; it keeps the connection words (finding 10).
+  if (command.game_tag && !isStartStep(command)) { failPending(CANNOT_CONNECT, command); throw new Error(CANNOT_CONNECT); }
+  // A start, a setup step and a read with no game go again as they are: the receipt gives back the first result.
+  return client.call(command.name, command.args);
 }
 /**
  * The continuation of a resent command (design §5.2): the step that its first caller would have run after it. A start
