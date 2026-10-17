@@ -83,3 +83,8 @@ The touch unit check sends pointercancel when native pan takes the gesture. It s
 The N1 spacing choice applies only to narrow portrait views below 380 px high: a 144 px card cap, compact gaps, and no decorative King Down line. Keep the result, title, and actions.
 No dependency or game rule changes. No push, pull request, merge to main, deploy, or sign-in.
 Final check logs and the complete result go in scratchpad/lanes/merge-5/merge-5-build.md, as the owner requests.
+
+Final review at 7fcec973 finds one weak F9 check: show() can measure the prior sample before the next read ends.
+Add the existing game-read wait and wait for Reload to unlock. Then measure the new sample.
+The full suite passes at 7fcec973: 191 files, 3137 tests pass, 8 skip; the 51 art tests pass.
+The final head must pass the full suite and all three browser paths after this check change.

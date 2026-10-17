@@ -39,6 +39,8 @@ export async function checkAndroidFixes(browser, base) {
         window.harnessNextView = view;
         return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
       }, view);
+      await page.waitForFunction(view => window.harnessView.game_id === view.game_id && !window.harnessNextView, view);
+      await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
       await frame.locator('#board[aria-busy="false"]').waitFor();
       await frame.locator('html').evaluate(() => document.fonts.ready);
       await frame.locator('#game-table').evaluate(async e => {
