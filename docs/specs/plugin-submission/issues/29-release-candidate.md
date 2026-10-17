@@ -84,3 +84,5 @@ The checks pass only when each command ends with exit 0. The browser log must na
 - The browser run is the observed failing control. The new unit test queues behind other lanes for the shared test lock, so its first run checks the fixed CSS. Do not claim a separate failed unit run.
 
 - The first coin-selector fix raises the generic disabled rule's specificity. Both browser checks catch its effect on disabled king pictures. Use :not(:where(.coin)) to keep the generic rule's original specificity. This is the same exclusion pattern as the app controls. Keep the existing king-picture assertion.
+
+- At 568a9f42, plugin-ui-http passes in 199.1 s. The fixture check finds end-table content 402 px wide inside a 400 px table. Add child bounds to the same assertion to identify the source. Keep the 1 px tolerance.
