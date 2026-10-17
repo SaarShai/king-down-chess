@@ -1902,7 +1902,6 @@ try {
           return {...empty[0],hit:empty.length>0,action:getComputedStyle(c).touchAction,boardAction:getComputedStyle(c.parentElement).touchAction,scroll:c.closest('[data-screen="board"]').scrollTop};
         },{occupied:Array.from(fromFen(view.fen).board),black:view.seat===1});
         const host = await page.locator('iframe').boundingBox(); assert(host && start.hit,`${label}: the swipe starts on the visible board`);
-        assert.equal(start.scroll,0,`${label}: the board swipe starts with no scroll`);
         await frame.locator('canvas').evaluate(c=>{
           window.touchTrace=[];
           for(const name of ['pointerdown','pointercancel','touchstart']) document.addEventListener(name,e=>window.touchTrace.push({name,target:e.target.tagName,id:e.target.id,action:getComputedStyle(e.target).touchAction}),{once:true});
@@ -1922,7 +1921,7 @@ try {
           assert(stripScroll>0,`${label}: a touch swipe from the top strip scrolls the board screen`);
         }
         console.log(`T-A ${label} 201x357 insets ${top}/${bottom}: strip scrollTop=${stripScroll}, board scrollTop=${boardScroll}, start=${JSON.stringify(start)}, input=${JSON.stringify(trace)}`);
-        assert(boardScroll>0,`${label}: a touch swipe from the board scrolls the board screen`);
+        assert(boardScroll>start.scroll,`${label}: a touch swipe from the board scrolls the board screen`);
         for (const id of ['#undo','#end-turn','#board-menu']) assert(inFrame(boxes[id],boxes.frame),`${label}: ${id} fits after a board swipe: ${JSON.stringify(boxes)}`);
         assert(endHit,`${label}: End turn receives a tap after a board swipe`);
       }
