@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { hitSizes } from './plugin-hit-sizes.mjs';
+import { shot } from './checks.mjs';
 
 // Ticket 36: measure the built page with the host's touch and fullscreen context.
 export async function checkAndroidFixes(browser, base) {
@@ -64,7 +65,7 @@ export async function checkAndroidFixes(browser, base) {
           bottom: e.getBoundingClientRect().bottom, frameBottom: document.querySelector('.frame').getBoundingClientRect().bottom,
           board: document.querySelector('#board canvas').getBoundingClientRect().width
         }));
-        check(boxes.board >= oldBoard - 4 && boxes.board <= oldBoard, `${state} board loses at most 4 px`, boxes);
+        check(boxes.board >= oldBoard - (width < height ? 4 : 0) && boxes.board <= oldBoard, `${state} board loses at most 4 px`, boxes);
         check(boxes.bottom <= boxes.frameBottom + 1, `${state} bar inside frame`, boxes);
         if (width < height) check(boxes.heights.every(h => h === 44), `${state} button art stays 44 px`, boxes);
         console.log(`${state}: ${JSON.stringify({ sizes, ...boxes })}`);
@@ -80,9 +81,10 @@ export async function checkAndroidFixes(browser, base) {
         // Do not reset scrollTop: this must measure the first view after focus.
         const first = await card.evaluate(e => {
           const card = e.getBoundingClientRect(), frame = document.querySelector('.frame').getBoundingClientRect();
-          const inside = node => { const r = node.getBoundingClientRect(); return r.top >= card.top && r.bottom <= card.bottom && r.top >= frame.top && r.bottom <= frame.bottom; };
+          const inside = node => { const r = node.getBoundingClientRect(); return r.top >= card.top && r.bottom <= card.bottom && r.left >= card.left && r.right <= card.right && r.top >= frame.top && r.bottom <= frame.bottom && r.left >= frame.left && r.right <= frame.right; };
           return { scrollTop: e.scrollTop, title: inside(e.querySelector('#over-title')), result: inside(e.querySelector('#end-reason')), play: inside(e.querySelector('form button')) };
         });
+        if (width === 870) await shot(page, `ticket36-end-${winner === 0 ? 'win' : 'loss'}-${width}x${height}`);
         // The 197 px card keeps the separate cut-action design of ticket 32.
         if (width > height) check(first.scrollTop === 0 && first.title && first.result && first.play, `${state} first view`, first);
         for (const name of ['Play again','New game','See the board']) {
@@ -90,7 +92,7 @@ export async function checkAndroidFixes(browser, base) {
           await button.scrollIntoViewIfNeeded();
           const reachable = await button.evaluate(e => {
             const r = e.getBoundingClientRect(), card = e.closest('dialog').getBoundingClientRect(), frame = document.querySelector('.frame').getBoundingClientRect();
-            return r.top >= card.top && r.bottom <= card.bottom && r.top >= frame.top && r.bottom <= frame.bottom && e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+            return r.top >= card.top && r.bottom <= card.bottom && r.left >= card.left && r.right <= card.right && r.top >= frame.top && r.bottom <= frame.bottom && r.left >= frame.left && r.right <= frame.right && e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
           });
           check(reachable, `${state} ${name} reachable`, reachable);
         }
