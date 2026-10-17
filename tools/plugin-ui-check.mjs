@@ -2058,7 +2058,8 @@ try {
         assert.equal(await frame.locator('#context-actions').getByRole('button',{name:'Choose a move',exact:true}).count(),0,'An armed card keeps its move list in Menu');
         const armed=await frame.locator('#board canvas').boundingBox(), armedRow=await frame.locator('#context-line').boundingBox(); assert(Math.abs(before.width-armed.width)<1 && Math.abs(row.height-armedRow.height)<1,'Arming a card and selecting its pawn keeps the board and row size');
         assert(await frame.locator('#context-actions').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Cancel and draw replies have no horizontal overflow');
-        if(width>height) await frame.locator('#context-actions').scrollIntoViewIfNeeded();
+        // Q3 b: the screen scrolls to the replies.
+        await frame.locator('#context-actions').scrollIntoViewIfNeeded();
         for (const action of await frame.locator('#context-actions button').all()) {const bounds=await action.evaluate(controlBounds); assert(bounds.accessible,`Cancel and draw reply fits: ${JSON.stringify(bounds)}`);}
         await shot(page,`ticket05-draw-armed-${width}-${mode}`);
       }
