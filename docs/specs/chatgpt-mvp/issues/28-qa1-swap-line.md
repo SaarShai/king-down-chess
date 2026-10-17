@@ -51,3 +51,7 @@ The repair uses the piece letter when the art lookup has no URL. A designed piec
 `npm test` passes with the local test database: 178 files pass, with 2,877 tests passed, one expected failure and eight skipped. All 50 art tests pass. The type check passes in the same command. Log: `tests-swap-line-fix-full-1.txt` in the lane output folder. The queued file-only run stops before it gets the lock; the full run covers its cases.
 
 The browser check follows the repair commit. No server code changes, so this step needs `plugin-ui` only.
+
+The first two browser runs at `3aa38616` fail in the same later move-history sample. Both pass the portrait checks. The T2 sample changes the game id but keeps the prior game's history. The board cannot restore the expected knight capture from that history. It waits for 30 seconds, then fails. The page's later poll returns the real solo game; that final state first points to a read race, but the source shows that the sample lacks a matching full history before the poll.
+
+The check repair gives that new game its own initial FEN and action list. The existing browser assertion for the knight capture checks the repair. No product code or time limit changes. Logs: `checks-swap-line-fix-2.txt` and `checks-swap-line-fix-3.txt`. The first launch has no active runner or output, so it gives no check result.
