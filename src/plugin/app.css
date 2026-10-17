@@ -206,8 +206,9 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 #end-table { position: absolute; inset: 0; }
 #game-table .player-name :is(b, small), #seat-screen .player-name :is(b, small) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #game-table #context-text { display: block; max-height: none; overflow: visible; }
-#game-table #context-line:has(#accept-draw) { flex-wrap: wrap; }
-#game-table #context-line:has(#accept-draw) #context-text { flex-basis: 100%; min-height: 40px; }
+/* A 44 px portrait row and a 4 px row gap keep the draw reply at its prior height. */
+#game-table #context-line:has(#accept-draw) { flex-wrap: wrap; row-gap: 4px; }
+#game-table #context-line:has(#accept-draw) #context-text { flex-basis: calc(100% - 52px); min-height: 44px; }
 #game-table #context-line:has(#accept-draw) #context-text > span { display: inline; }
 #game-table #context-line:has(#accept-draw) #context-text > span + span::before { content: ' '; }
 #game-table #context-actions:has(#accept-draw) { flex-basis: 100%; flex-wrap: wrap; }
@@ -271,18 +272,25 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 }
 /* 200% zoom (under 320 px): the board keeps the full width and a 210 px floor in the short table rows (a 197 px canvas
    at 960/1024). The table keeps the screen height; only when the other rows leave less than the floor does it overflow,
-   and the screen scrolls (M1, review R1).
-   The context row then keeps its content height, so its buttons do not spill over the bar. */
+   and the screen scrolls (M1, review R1). A board that fits the 255 px frame with all rows is under 80 px: too small
+   to tap (ticket 28 T2 keeps this floor; tools/plugin-ios-size.test.ts).
+   The context row keeps its content height and shows all its words, so its buttons do not spill over the bar. */
 @media (max-width: 319px) and (orientation: portrait) {
   .page-sheet > :is([data-screen='seat'], [data-screen='board'], [data-screen='end']) { overflow: hidden auto; }
   #game-table { --board-floor: 210px; --context-floor: max-content; }
   #game-table #board { width: 100%; }
 }
 @container table-screen (max-width: 319px) {
-  /* The strip rows take the wrapped coins' full height, also when the screen is short (minmax keeps 44 px there). */
-  #game-table:has(.card-coin) { --strip-row: max-content; }
-  #game-table .player-strip:has(.card-coin) { flex-direction: column; align-items: stretch; }
-  #game-table .coin-row { flex-wrap: wrap; }
+  /* The words keep at least 96 px; wider actions go to their own line below them. */
+  #game-table #context-line { flex-wrap: wrap; }
+  #game-table #context-text { display: block; flex: 1 1 96px; min-width: 96px; height: auto; -webkit-line-clamp: none; }
+  #game-table #context-actions { max-width: 100%; flex-wrap: wrap; margin-left: auto; }
+  /* Each strip stays one 44 px row: the portrait and the coins scroll sideways in their own row, and the name keeps
+     the rest. The coins keep 44 px targets. */
+  #game-table .player-strip:has(.card-coin) { gap: 6px; }
+  #game-table .player-strip:has(.card-coin) .coin-row { flex: 0 1 auto; min-width: 44px; flex-wrap: nowrap; overflow: auto hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
+  #game-table .player-strip:has(.card-coin) .coin-row > * { flex: none; }
+  #game-table .player-strip:has(.card-coin) .player-name { flex: 1 0 45%; }
 }
 /* 200% zoom (197 px): a quarter of the bar is under 58 px, too narrow for an icon and its word side by side. */
 @container table-screen (max-width: 239px) {
@@ -403,3 +411,13 @@ body[data-touch='true'] #context-actions button { z-index: 2; }
 @keyframes turn-ready { 50% { filter: brightness(1.3); } }
 @media (prefers-reduced-motion: reduce) { #end-turn.primary { animation: none; } }
 #online-visibility .seg-row label { min-height: 44px; }
+
+/* The piece portrait opens its rules before the context words. */
+#app-root #all-rules {
+  display: flex; align-items: center; justify-content: center; flex: 0 0 44px;
+  width: 44px; height: 44px; min-height: 44px; padding: 0;
+  border: 0; border-radius: 50%; background: none; box-shadow: none;
+}
+#game-table #context-actions:empty { display: none; }
+#app-root #all-rules::after { content: ''; }
+#app-root #all-rules .portrait { display: grid; place-items: center; width: 36px; height: 36px; font-size: 22px; }

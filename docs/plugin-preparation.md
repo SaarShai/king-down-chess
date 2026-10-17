@@ -5,6 +5,7 @@ The private plugin shares the website's engine and painted board, with a Node wo
 ## Local checks
 
 Use Node 24 and a disposable local PostgreSQL 17 database. No live Supabase credentials are needed for these checks.
+Keep the test database data folder out of `/tmp`, because macOS removes old files there and the server then fails with `could not open file "global/pg_filenode.map"`.
 
 ```sh
 npm ci

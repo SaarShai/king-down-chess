@@ -1739,7 +1739,7 @@ it('keeps two failed polls silent, resets the count on a good read, and locks af
     await page.context().setOffline(true);
     for (let n = 0; n < 2; n++) {
       await poll();
-      expect(await frame.locator('#status').textContent()).toBe('White pawn.');
+      expect(await frame.locator('#status').textContent()).toBe('White Pawn.');
       expect(await frame.locator('#choices button').count()).toBe(2);
       expect(await frame.locator('#error').textContent()).toBe('');
       expect(await frame.locator('#retry').isVisible()).toBe(false);

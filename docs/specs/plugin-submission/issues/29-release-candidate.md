@@ -185,3 +185,42 @@ Pass criteria: the new cases fail before the fix; the full test suite and both b
 - The protected privacy pages, review packet, client, state store, command queue and poll module match 3f1281d1. The app diff from that base only removes the F26 Display check code. The Resume fix stays in place.
 - The source review keeps the fix in the shared display line. It needs no new helper or dependency. The tests retain the armed keyboard stop and verify the notice after Cancel.
 - Both browser checks run at the fix commit through the approved runner. Their checked head and final exit line go in `checks-29-merge-2-conflicts-1.txt` and `29-merge-2-conflicts-fix.md` in the release scratchpad lane. Keep the source fixed during that run.
+
+
+### Part 29-merge-3: plan and checks
+
+1. Merge ticket 28 from claude/od-qa1 at 343b8a13 into 94dde1a2 with one merge commit. List each conflict and its result in the merge message.
+2. Keep the prior release work and ticket 28 intent in each conflict. Keep S5 out. Compare the protected privacy, review, state, queue, poll and Resume paths to the release base.
+3. Add one sentence under Local checks in docs/plugin-preparation.md. Keep the test database data folder out of /tmp to prevent the missing global/pg_filenode.map fault.
+4. Add a test for each new merge behaviour. Run npx tsc --noEmit and npm test with the local test database. Keep all time limits.
+5. Commit before the approved runner checks plugin-ui and plugin-ui-http. Repeat once if the known end-fit fault occurs in unchanged code. Record both runs.
+6. Record the merge, conflicts and final check results here. Write the full report and final answer to the required release lane files.
+
+Pass criteria: both source heads are ancestors; S5 stays out; the protected release paths keep their behaviour; all required checks exit 0 at the final head; the browser log has the final runner exit line.
+
+#### Merge and conflict results
+
+- Source: 343b8a13. Release base: 94dde1a2. Merge only claude/od-qa1. S5 stays out.
+- src/plugin/app.css: keep the release online-choice 44 px targets and add the ticket 28 portrait rules. Keep the zoom rows, the coin scroll row and the end-card changes.
+- tools/plugin-board.test.ts: keep the release launch helper and all card, move and rule imports. Add the ticket 28 design imports and missing-portrait tests. Both test sets stay.
+- tools/plugin-ui-check.mjs: keep the release table bounds report. Add ticket 28 zoom, portrait, hall and tall-board checks. Keep the second-origin reads, the two-frame sideways reread, the early live-poll guard and spent-power history.
+- Add a combined test at 320 x 568 and 393 x 852. The held swap keeps its portrait, shared title, rules action, return focus, held note and block notice. Clearing the selection keeps the block notice.
+- Add the requested Local checks sentence about the database data folder. No product behaviour changes beyond ticket 28. No time limit changes.
+
+#### Parts and taste
+
+- T1: the end card scrolls at 197 x 426. The result and the first action show before a scroll. The last action can scroll into view.
+- T2: at 197 x 426 the context words show, the coin rows scroll on one line, and each strip and control can scroll into view. Keep the 210 px board floor.
+- T3: keep the hall layout and add its clip audit, last-choice check and a control that proves the audit detects a cut box.
+- T4: put the selected piece portrait before the context words. Keep a 44 px rules control and the letter tile when no art exists.
+- T5: use the shared piece title in both board views. The unit test and built-page check require White Maester.
+- T6: keep the measured 393 x 852 layout. The board already fills its available width. Keep the sample poll guard and history with spent-power counts.
+- No requested part is omitted. No new taste choice is needed. Keep the lane's 36 px face in its 44 px control, its 4 px draw-row gap, the existing margins and the low bar.
+
+#### First test results
+
+- npx tsc --noEmit exits 0. The first full npm test exits 1: 186 files pass and two fail; 3,044 tests pass and five fail, with one expected failure and eight skips. Logs: tsc-29-merge-3-1.txt and tests-29-merge-3-1.txt in the release lane.
+- F25 rejects the lane's new raw 22 px letter size. Use the existing type token and keep the F25 test.
+- The retained G3 test expects Black pawn. T5 now uses the shared title Black Pawn. Update that assertion and keep its shove and enemy-read checks.
+- The two new portrait tests incorrectly expect the piece title during a held swap. Check the title before the hold, then keep the required Tap again to swap line during the hold.
+- One missing-art case reads the control as hidden after the board tap. Check this case after the deterministic repairs; keep its rules, bounds and focus assertions.

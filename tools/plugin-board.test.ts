@@ -7,7 +7,7 @@ import type { Browser, Page } from 'playwright';
 import { launch } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
-import { legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
+import { legalMoves, makeMove, parseRule, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import type { View } from '../src/match/protocol';
 import { applyLan } from '../src/plugin/screens/board-model';
 import { LESSONS } from '../src/lessons';
@@ -16,6 +16,7 @@ import { readText } from '../src/read';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { describeMove } from '../src/move-text';
 import { cardText, powerText, ruleLine } from '../src/powers-ui';
+import { PRESETS, designCode, fromPreset } from '../src/workshop/model';
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -242,13 +243,26 @@ it.each(['EarthQuake', 'SkyLift'] as const)('keeps the armed %s targets and rule
   } finally { await page.close(); }
 });
 
-it('keeps the held swap note before the block notice', async () => {
-  const fen = '7k/8/8/8/2RM4/8/8/K7 w - - 0 1', base = view(fen), page = await open(base), frame = page.frameLocator('iframe');
+it.each([[320,568], [393,852]])('keeps the swap portrait and held note with the block notice at %d x %d', async (width,height) => {
+  const fen = '7k/8/8/8/2RM4/8/8/K7 w - - 0 1', base = view(fen), page = await open(base,width,height), frame = page.frameLocator('iframe');
   setRules(base.rules!); const pre = fromFen(fen), swap = legalMoves(pre).find(m => m.from === 27 && m.to === 26 && m.swap)!;
   expect(swap).toBeDefined();
   try {
     await frame.locator('html').evaluate(() => { (window as any).harnessApp.memory.blockNotice = 'Player blocked.'; });
     await squareTap(page,27); await squareTap(page,26);
+    expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('held');
+    expect(await frame.locator('#context-note').textContent()).toBe(`${describeMove(pre,swap)} Player blocked.`);
+    expect(await frame.locator('#status').textContent()).toBe('White Maester.');
+    const info = frame.getByRole('button', {name:'All rules',exact:true});
+    await info.locator('img').evaluate(image => (image as HTMLImageElement).decode());
+    expect(await info.evaluate(button => {
+      const b = button.getBoundingClientRect(), row = button.parentElement!, r = row.getBoundingClientRect();
+      return row.firstElementChild === button && b.width >= 44 && b.height >= 44 && b.left >= r.left && b.right <= r.right && b.top >= r.top && b.bottom <= r.bottom;
+    })).toBe(true);
+    await info.click();
+    expect(await frame.locator('#board-sheet').innerText()).toContain('Swaps places with a friendly piece.');
+    await frame.locator('#board-sheet').getByRole('button', {name:'Close',exact:true}).click();
+    expect(await info.evaluate(button => button === document.activeElement)).toBe(true);
     expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('held');
     expect(await frame.locator('#context-note').textContent()).toBe(`${describeMove(pre,swap)} Player blocked.`);
     await squareTap(page,27);
@@ -988,7 +1002,31 @@ it.each(['power','card'] as const)('W7: Escape on the board and sheet clears %s 
   } finally { await page.close(); }
 });
 
-it.each([[320,568],[360,640],[852,393]])('keeps draw offer board and row size with all four pawn actions at %d×%d', async (width,height) => {
+it.each([['C',''], ['c',''], ['V',''], ['v',''], ['T','Y'], ['t','Y'], ['T',''], ['t','']])('shows a letter and opens rules when %s has no portrait (design letter %s)', async (letter, designLetter) => {
+  const designed = !!designLetter;
+  const rules = designed ? parseRule(`design=${designCode({ ...fromPreset(PRESETS.find(p => p.key === 'rook')!), name: 'Old Ward', letter: designLetter })}`) : {};
+  const page = await open(view(`7k/8/8/8/3${letter}4/8/P7/K7 w - - 0 1`, rules), 320, 568), frame = page.frameLocator('iframe');
+  try {
+    await squareTap(page, 27);
+    const info = frame.getByRole('button', {name:'All rules',exact:true});
+    for (const [width, height] of [[320,568], [393,852]]) {
+      await page.setViewportSize({width, height});
+      expect(await info.isVisible()).toBe(true);
+      expect(await info.locator('.portrait').textContent()).toBe(designLetter || letter.toUpperCase());
+      expect(await info.locator('img').count()).toBe(0);
+      expect(await info.evaluate(button => {
+        const b = button.getBoundingClientRect(), r = button.parentElement!.getBoundingClientRect();
+        return b.width >= 44 && b.height >= 44 && b.left >= r.left && b.right <= r.right && b.top >= r.top && b.bottom <= r.bottom;
+      })).toBe(true);
+      await info.click();
+      expect(await frame.locator('#board-sheet').innerText()).toContain(designed ? 'Old Ward' : letter.toUpperCase() === 'C' ? 'catapult' : letter.toUpperCase() === 'V' ? 'reaver' : 'templar');
+      await frame.locator('#board-sheet').getByRole('button', {name:'Close',exact:true}).click();
+      expect(await info.evaluate(button => button === document.activeElement)).toBe(true);
+    }
+  } finally { await page.close(); }
+});
+
+it.each([[320,568],[360,640],[852,393]])('keeps draw offer board and row size with the pawn portrait and actions at %d×%d', async (width,height) => {
   const rules: Partial<Rules> = {kings:[{king:'Mud',power:'March'},{king:'Shadow',power:'Darkness'}],hands:[['Haste'],['Haste']],marchUses:0};
   const page = await open(view('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',rules,{kind:'friend',draw_offer:1}),width,height), frame = page.frameLocator('iframe');
   const sizes = () => frame.locator('#context-line').evaluate(async row => {
@@ -1005,7 +1043,8 @@ it.each([[320,568],[360,640],[852,393]])('keeps draw offer board and row size wi
     await frame.locator('#board').evaluate(() => document.fonts.ready.then(() => {}));
     const before = await sizes();
     await squareTap(page,12);
-    expect(await frame.locator('#context-actions button').allTextContents()).toEqual(['All rules','Choose a move','Accept draw','Decline draw']);
+    expect(await frame.getByRole('button', {name:'All rules',exact:true}).isVisible()).toBe(true);
+    expect(await frame.locator('#context-actions button').allTextContents()).toEqual(['Choose a move','Accept draw','Decline draw']);
     const after = await sizes();
     expect(Math.abs(before.board-after.board), JSON.stringify({before,after})).toBeLessThan(1);
     expect(Math.abs(before.row-after.row), JSON.stringify({before,after})).toBeLessThan(1);
@@ -1158,12 +1197,12 @@ it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and dur
         expect((await moveCalls(page)).length).toBe(sending ? 1 : 0);
       };
       await squareTap(page,28);
-      expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
+      expect(await frame.locator('#context-line').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
       if (sending) expect(await frame.locator('#context-text').innerText()).not.toMatch(/End turn|Undo/);
       else expect(await frame.locator('#context-note').textContent()).toContain('Select End turn, or Undo.');
-      await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).click();
+      await frame.locator('#context-line').getByRole('button',{name:'All rules',exact:true}).click();
       await frame.locator('#board-sheet[open]').waitFor(); await page.keyboard.press('Escape');
-      expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).evaluate(e => e===document.activeElement)).toBe(true);
+      expect(await frame.locator('#context-line').getByRole('button',{name:'All rules',exact:true}).evaluate(e => e===document.activeElement)).toBe(true);
       await frame.locator('#power-w').click();
       expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);
       await page.keyboard.press('Escape');
@@ -1188,7 +1227,7 @@ it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and dur
     await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_computer'; (window as any).releaseBefore(); });
     await page.waitForFunction(() => (window as any).harnessCalls.some((c: any) => c.name==='kingdown_computer'));
     await squareTap(page,28);
-    expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
+    expect(await frame.locator('#context-line').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
     await frame.locator('#power-w').click();
     expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);
     await page.keyboard.press('Escape'); await squareTap(page,36); await frame.locator('#board').press('Enter');
@@ -1294,7 +1333,7 @@ it('W7: keeps a lost-send error while pieces and coins remain readable', async (
     const message=await frame.locator('#error').innerText(); expect(message).not.toBe('');
     await squareTap(page,28);
     expect(await frame.locator('#error').innerText()).toBe(message);
-    expect(await frame.locator('#context-actions').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
+    expect(await frame.locator('#context-line').getByRole('button',{name:'All rules',exact:true}).isEnabled()).toBe(true);
     await frame.locator('#power-w').click();
     expect(await frame.locator('#error').innerText()).toBe(message);
     expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);

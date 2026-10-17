@@ -3,6 +3,12 @@ import { needsArming, offered } from './powers-ui';
 import { POOL } from './rules/setup';
 import { describe } from './workshop/text';
 
+/** The title of a piece in the board context line. */
+export function pieceTitle(code: number): string {
+  const name = nameOf(typeOf(code));
+  return `${colorOf(code) ? 'Black' : 'White'} ${name[0].toUpperCase() + name.slice(1)}.`;
+}
+
 export interface Reach {
   step: Set<number>;
   take: Set<number>;

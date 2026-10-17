@@ -1,9 +1,9 @@
 import { fromFen, toFen } from '../../rules/setup';
-import { colorOf, findKing, K, inCheck, status, moveNumber, nameOf, piece, PLAIN_KINGS, RULES, setRules, sqName, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
+import { colorOf, findKing, K, inCheck, status, moveNumber, nameOf, NAMES, LETTERS, piece, playedDesign, PLAIN_KINGS, RULES, setRules, sqName, T, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
 import { cardName, cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
 import { checkCause, checkersOf, describeMove, shortMove, threatsIn } from '../../move-text';
 import { marksModel, railsOf } from '../../marks-model';
-import { readText, reachOf, teachNote } from '../../read';
+import { pieceTitle, readText, reachOf, teachNote } from '../../read';
 import { LESSONS } from '../../lessons';
 import { contextLine } from '../../context-line';
 import { waitNotice } from '../../turn';
@@ -324,7 +324,7 @@ export function boardScreen(store: Store) {
     highlight({ ...marks, selected, last: [...new Set(trail)], read: inspected === undefined ? undefined : reachOf(pos, inspected), powers: [...new Set([...cands.filter(m => m.power && !m.pass).map(m => m.to), ...named().map(c => c.move.to), ...users])], rails: selected === undefined ? [] : railsOf(pos.board, selected, [...marks.moves, ...marks.captures], marks.captures), check: inCheck(pos) ? findKing(pos.board, pos.turn) : null, checkers: checkersOf(pos), threats: view.status === 'playing' && !animating ? threatsIn({...pos, turn:view.seat}) : [] });
     const square = inspected ?? selected, code = square === undefined ? 0 : pos.board[square];
     const [line = '', states = ''] = square === undefined ? [] : readText(pos, square).split('\n');
-    const words = code ? `${colorOf(code) ? 'Black' : 'White'} ${nameOf(typeOf(code))}.${states ? ' ' + states + '.' : ''}` : '';
+    const words = code ? `${pieceTitle(code)}${states ? ' ' + states + '.' : ''}` : '';
     const available = boardActions(view,Date.now()-readAt), opponent = view.opponent?.handle ?? 'Your opponent';
     const deadline = available.claim === 'end' ? 'The first-turn deadline passes.' : available.claim ? view.days_per_move ? `${opponent} has not moved for ${view.days_per_move} day${view.days_per_move===1?'':'s'}.` : `${opponent} misses the move deadline.` : '';
     // Option A: Beginner notes; each enemy fairy action kind shows once a game, at the history length it first shows.
@@ -355,7 +355,15 @@ export function boardScreen(store: Store) {
     const actions: HTMLButtonElement[] = [];
     const drawReply = !view.result && view.draw_offer != null && view.draw_offer !== view.seat && view.kind !== 'solo';
     const unarmed = !armed && armedCard === undefined;
-    if (unarmed && square !== undefined && code) { const all = button('All rules', () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(pos!, square)}` : readText(pos!, square)))); all.id = 'all-rules'; all.setAttribute('aria-label', 'All rules'); actions.push(all); }
+    const all = $<HTMLButtonElement>('all-rules');
+    all.hidden = !unarmed || square === undefined || !code;
+    if (!all.hidden) {
+      const type = typeOf(code);
+      const face = art(type === K ? portraitPath(colorOf(code)) : `ui/pieces/${NAMES[type]}-${colorOf(code) ? 'b' : 'w'}.webp`);
+      all.innerHTML = `<span class="portrait" aria-hidden="true">${face ? `<img id="piece-info-art" alt="" src="${face}">` : ''}</span>`;
+      if (!face) all.firstElementChild!.textContent = (type === T && playedDesign()?.letter) || LETTERS[type];
+      all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(pos!, square!)}` : readText(pos!, square!)));
+    }
     if ((!drawReply || unarmed) && selected !== undefined && moves.some(({move}) => move.from === selected && !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
     if (!unarmed) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; held = undefined; choices([]); refresh(); }));
     const gameActions = actionButtons(view,Date.now()-readAt,refused);
@@ -434,7 +442,7 @@ export function boardScreen(store: Store) {
     choices([]);
     document.querySelector('[data-screen="board"]')!.prepend($('game-table')); $('table-bar').hidden = false;
     $('game-table').dataset.empty = String(!next.fen || next.status === 'setup');
-    if (!next.fen || next.status === 'setup') { pos = undefined; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('short-move-words').textContent = ''; $('move-time-left').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
+    if (!next.fen || next.status === 'setup') { $('all-rules').hidden = true; pos = undefined; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('short-move-words').textContent = ''; $('move-time-left').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
     rules(); pos = fromFen(next.fen); moves = draftChoices(view, pos, steps);
     const replayed = before && same ? replayLans(before, next, view.rules!) : undefined;
     const restored = replayHistory(next, view.rules!);

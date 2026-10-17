@@ -6,7 +6,7 @@ import type { KeyMoment } from '../moment';
 import { checkCause, describeMove, moveNumbers } from '../move-text';
 import { pieceIcon } from '../piece-icons';
 import { type Color, type PieceType, type Rules, type Position, A, C, L, M, NAMES, nameOf, O, S, V, colorOf, typeOf } from '../rules/engine';
-import { readText } from '../read';
+import { pieceTitle, readText } from '../read';
 import type { SkillName } from '../ai/skill';
 import { turnLine, type Mode, type Turn } from '../turn';
 import type { CoinContext } from './powers';
@@ -20,7 +20,7 @@ let thinkingAt = 0, thinkTimer: ReturnType<typeof setTimeout> | undefined;
 export function readPiece(pos: Position, sq: number | null, inspecting: boolean): void {
   const code = sq == null ? 0 : pos.board[sq];
   const [line = '', states = ''] = sq == null ? [] : readText(pos, sq).split('\n');
-  read = code ? `${colorOf(code) ? 'Black' : 'White'} ${nameOf(typeOf(code))}.${states ? ` ${states}.` : ''}` : '';
+  read = code ? `${pieceTitle(code)}${states ? ` ${states}.` : ''}` : '';
   readNote = line.split(' · ')[1] ?? '';
   reading = inspecting;
   const button = $('all-rules');
