@@ -34,7 +34,7 @@ No part of T4 or T5 remains unbuilt. The taste choices are the existing 36 px ro
 
 ## Review repair
 
-Status: in progress.
+Status: ready-for-human.
 
 1. Check both review findings against the source and the available art.
 2. Add a test for Catapult, Reaver and a designed piece in both colours. Use a letter tile when no portrait exists. Check the tile, its rules action and its row bounds at 320 and 393 px.
@@ -55,3 +55,12 @@ The browser check follows the repair commit. No server code changes, so this ste
 The first two browser runs at `3aa38616` fail in the same later move-history sample. Both pass the portrait checks. The T2 sample changes the game id but keeps the prior game's history. The board cannot restore the expected knight capture from that history. It waits for 30 seconds, then fails. The page's later poll returns the real solo game; that final state first points to a read race, but the source shows that the sample lacks a matching full history before the poll.
 
 The check repair gives that new game its own initial FEN and action list. The existing browser assertion for the knight capture checks the repair. No product code or time limit changes. Logs: `checks-swap-line-fix-2.txt` and `checks-swap-line-fix-3.txt`. The first launch has no active runner or output, so it gives no check result.
+
+### Final review checks
+
+- The portrait repair and its eight new cases are at `3aa38616`. The full `npm test` run passes on that code, as recorded above.
+- The browser test-data repair is at `bca82b3e`. It changes only the browser check and this ticket. The product code and unit tests stay the same as the full passing test run.
+- `plugin-ui` passes on the M1 at `bca82b3e` in 147.0 seconds. The runner reports `check-runner: M1 exit 0 at bca82b3e`. Log: `checks-swap-line-fix-4.txt` in the lane output folder. This run passes the portrait checks and the repaired move-history check.
+- The commit hooks pass the type check and staged gate for both repair commits. No test or check time limit changes.
+
+Review A finding 1 is fixed and tested. Finding 2 is a note, not a fault; the title remains correct. Review B has no further fault to fix, but its claim that the pool prevents a missing portrait is refuted by the solo FEN and back-rank paths. All checks required for this repair pass.
