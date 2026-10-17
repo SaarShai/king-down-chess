@@ -2101,8 +2101,9 @@ try {
         await sharp({create:{width:width*2,height,channels:3,background:'#fff'}}).composite([{input:left,left:0,top:0},{input:actual,left:width,top:0}]).png().toFile(join(look,`${state.name}-${size}-${mode}.png`));
       }
     }
-    // Ticket 28 T2: the same position on the other player's turn, with no claim deadline.
-    if (state.claim) { await showSnapshot({...snapshot,revision:101+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:[],last_commands:commands,deadline_at:null},story); await zoomBoardFits('board-their-turn'); }
+    // Ticket 28 T2: the same position on the other player's turn, with no claim deadline, as its own game (the board
+    // does not take a second view of one game at one revision).
+    if (state.claim) { await showSnapshot({...snapshot,game_id:randomUUID(),revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:[],last_commands:commands,deadline_at:null},story); await zoomBoardFits('board-their-turn'); }
   }
   // Ticket 05: a draw offer keeps its size when piece and card actions show.
   const drawRules = {...sampleRules, hands:[['Haste'],['Haste']]};
