@@ -57,7 +57,7 @@ it('names the current game on Resume after Play now and after the computer reply
     game_id = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
     await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
     await frame.locator('#home-card').waitFor({ state: 'visible' });
-    expect(await frame.locator('#home-play').textContent()).toBe('Resume · Computer · Your move');
+    expect(await frame.locator('#home-play').textContent()).toBe('Resume Computer · Your move');
     await frame.locator('#home-play').click();
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp, view = app.memory.view;
@@ -68,7 +68,7 @@ it('names the current game on Resume after Play now and after the computer reply
     expect(names.slice(names.lastIndexOf('kingdown_move') + 1)).not.toContain('kingdown_games');
     await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
     await frame.locator('#home-card').waitFor({ state: 'visible' });
-    expect(await frame.locator('#home-play').textContent()).toBe('Resume · Computer · Your move');
+    expect(await frame.locator('#home-play').textContent()).toBe('Resume Computer · Your move');
   } finally { if (game_id) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } }); await page.close(); }
 });
 it('keeps the home action after the player leaves an ended game for the hall', async () => {
@@ -149,6 +149,6 @@ it('names a waiting friend game on Resume after a remount', async () => {
     game_id = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
     await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
     await remount(page);
-    expect(await frame.locator('#home-play').textContent()).toBe('Resume · Waiting for a friend');
+    expect(await frame.locator('#home-play').textContent()).toBe('Resume Waiting for a friend');
   } finally { if (game_id) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } }); await page.close(); }
 });

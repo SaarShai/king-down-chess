@@ -428,8 +428,8 @@ it.each([{ width: 393, height: 852, cards: true }, { width: 320, height: 568, ca
       expect(await frame.locator('#game-table').evaluate(edgeMisses)).toEqual([]);
     }
     expect.soft(await frame.locator('#strip-me').evaluate(e => { const r = e.querySelector('.coin img')!.getBoundingClientRect(); return [r.width, r.height]; })).toEqual(cards ? [36, 36] : [30, 30]);
-    // U6 (taste preview): under 350 px the four cards go below the player name, so that row has two 44 px rows.
-    expect(await frame.locator('#strip-me').evaluate(e => e.getBoundingClientRect().height)).toBe(cards && width === 320 ? 88 : 44);
+    // K1 a: through 440 px the cards go below the player name in two 44 px rows.
+    expect(await frame.locator('#strip-me').evaluate(e => e.getBoundingClientRect().height)).toBe(cards ? 88 : 44);
   } finally { await page.close(); }
 });
 

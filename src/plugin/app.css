@@ -159,6 +159,7 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .inline-card .title-actions { width: 100%; flex-direction: row; flex-wrap: nowrap; margin-top: var(--space-1); }
 .inline-card .title-actions button { flex: 1; min-width: 0; min-height: 48px; font-size: var(--fs-md); white-space: nowrap; padding: 8px 10px; }
 .inline-card .title-actions button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.inline-card .title-actions button small { display: block; font-size: var(--fs-xs); font-weight: 400; white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 339px) {
   .inline-card .title-actions { flex-direction: column; }
 }
@@ -249,25 +250,12 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   body:is([data-page='board'], [data-page='end']) #game-table #moves-line { display: none; }
   body:is([data-page='board'], [data-page='end']) #game-table { grid-template-areas: 'them' 'moves' 'board' 'me' 'context' 'space' 'bar'; grid-template-rows: minmax(var(--strip-row, 44px), max-content) 24px minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) minmax(0, 1fr) var(--bar-height); }
 }
-/* The back button takes 48 px from the opponent row. A power adds one 48 px coin slot. Under 320 px the coins wrap
-   instead (ticket 16, below). */
+/* Card coins get their own row so both player names fit through 440 px. Under 320 px the coins scroll instead. */
 @container table-screen (319px < width <= 440px) {
-  #game-table #strip-them:has(.card-coin):has(.coin:not(.card-coin)) { display: grid; grid-template-columns: repeat(5, 44px); grid-template-rows: 44px 44px; gap: 0 4px; }
-  #game-table #strip-them:has(.card-coin):has(.coin:not(.card-coin)) .coin-row { display: contents; }
-  #game-table #strip-them:has(.card-coin):has(.coin:not(.card-coin)) .player-name { grid-row: 1; grid-column: 2 / -1; }
-  #game-table #strip-them:has(.card-coin):has(.coin:not(.card-coin)) .coin { grid-row: 2; }
-}
-@container table-screen (319px < width <= 392px) {
-  #game-table #strip-them:has(.card-coin) { display: grid; grid-template-columns: repeat(5, 44px); grid-template-rows: 44px 44px; gap: 0 4px; }
-  #game-table #strip-them:has(.card-coin) .coin-row { display: contents; }
-  #game-table #strip-them:has(.card-coin) .player-name { grid-row: 1; grid-column: 2 / -1; }
-  #game-table #strip-them:has(.card-coin) .coin { grid-row: 2; }
-}
-@container table-screen (319px < width <= 350px) {
-  #game-table #strip-me:has(.card-coin) { display: grid; grid-template-columns: repeat(5, 44px); grid-template-rows: 44px 44px; gap: 0 4px; }
-  #game-table #strip-me:has(.card-coin) .coin-row { display: contents; }
-  #game-table #strip-me:has(.card-coin) .player-name { grid-row: 1; grid-column: 2 / -1; }
-  #game-table #strip-me:has(.card-coin) .coin { grid-row: 2; }
+  #game-table :is(#strip-them, #strip-me):has(.card-coin) { display: grid; grid-template-columns: repeat(5, 44px); grid-template-rows: 44px 44px; gap: 0 4px; }
+  #game-table :is(#strip-them, #strip-me):has(.card-coin) .coin-row { display: contents; }
+  #game-table :is(#strip-them, #strip-me):has(.card-coin) .player-name { grid-row: 1; grid-column: 2 / -1; }
+  #game-table :is(#strip-them, #strip-me):has(.card-coin) .coin { grid-row: 2; }
 }
 }
 /* 200% zoom (under 320 px): the board keeps the full width and a 210 px floor in the short table rows (a 197 px canvas
