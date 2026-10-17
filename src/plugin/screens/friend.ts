@@ -72,9 +72,10 @@ async function makeCode(view: View) {
   } catch (error) { showError(error, $('friend-status')); }
   finally { making = false; $('friend-new').removeAttribute('disabled'); }
 }
-// These screens own no App instance. Stop their runners on the host teardown and page close.
+// These screens own no App instance. Stop their runners on the host teardown and page close. A pagehide with
+// persisted: true puts the page in the back-forward cache: its timers freeze, and the page can come back with them.
 const stops = new Set<() => void>();
 export function onStop(stop: () => void) { stops.add(stop); return () => stops.delete(stop); }
 function stopAll() { for (const stop of stops) stop(); stops.clear(); }
-addEventListener('pagehide', stopAll);
+addEventListener('pagehide', event => { if (!event.persisted) stopAll(); });
 addEventListener('message', event => { if (event.source === parent && event.data?.method === 'ui/resource-teardown') stopAll(); });

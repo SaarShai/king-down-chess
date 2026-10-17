@@ -20,6 +20,8 @@ async function open({ width = 393, height = 852, top = 0, bottom = 0 } = {}) {
   return page;
 }
 const html = (page: Page) => page.frameLocator('iframe').locator('html');
+// The widget frame is on another origin, so a wait on its page runs in the frame.
+const widget = (page: Page) => page.mainFrame().childFrames()[0];
 const tool = async (page: Page, path: string, name: string, args: Record<string, unknown> = {}) => (await page.request.post(new URL(path, harness.url).href, { data: { name, arguments: args } })).json();
 const reads = (page: Page) => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
 const soloBoard = (page: Page) => html(page).evaluate(async (_, options) => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options }); }, CLASSIC);
@@ -166,8 +168,8 @@ const soloGame = async (page: Page) => (await tool(page, '/fixture-tool', 'kingd
 // A mount selects the game of a result with no board; the host holds the first call to either selection tool.
 const SELECT = ['kingdown_open', 'kingdown_resume'];
 const release = (hold: string) => (window as any)[hold === 'holdNext' ? 'releaseHeld' : 'releaseBefore']();
-/** Runs in the host page: the frame shows this game on the board screen. */
-const shows = (game: string) => { const frame = document.querySelector('iframe')!.contentWindow as any; return frame.harnessApp.memory.view?.game_id === game && frame.document.body.dataset.page === 'board'; };
+/** Runs in the frame: it shows this game on the board screen. */
+const shows = (game: string) => (window as any).harnessApp.memory.view?.game_id === game && document.body.dataset.page === 'board';
 /** From now on, records each page the frame shows and the board of each board read (a background read names none). */
 async function watch(page: Page) {
   await html(page).evaluate(() => { const frame = window as any; frame.pages = []; new MutationObserver(() => frame.pages.push(document.body.dataset.page)).observe(document.body, { attributes: true, attributeFilter: ['data-page'] }); });
@@ -198,7 +200,7 @@ it.each([
     const seen = await watch(page);
     await page.evaluate(result => (window as any).harnessShow(result), next);
     // The newer result does not wait for the older mount's call, which has no client time limit.
-    await page.waitForFunction(shows, newer, { timeout: 1500 });
+    await widget(page).waitForFunction(shows, newer, { timeout: 1500 });
     await page.evaluate(release, hold);
     await page.waitForTimeout(300);
     const shown = await shownGame(page);
@@ -230,7 +232,7 @@ it.each([
     if (hold === 'holdBeforeNext') await page.waitForFunction(game => (window as any).harnessCalls.some((c: any) => c.name !== 'kingdown_get' && c.arguments?.game_id === game), chat);
     await page.waitForTimeout(300);
     await page.evaluate(release, hold);
-    await page.waitForFunction(shows, chat).catch(() => {});
+    await widget(page).waitForFunction(shows, chat).catch(() => {});
     await page.waitForTimeout(300);
     const shown = await shownGame(page);
     expect(shown).toMatchObject({ game: chat, screen: 'board' });
@@ -294,7 +296,7 @@ it.each([
     await page.evaluate(result => (window as any).harnessShow(result), newer);
     // The newer result stops the older read, so it does not wait for it (up to the 10 s client limit). Its own read
     // opens the screen of the game status, and the controls unlock.
-    await page.waitForFunction(([game, screen]) => { const frame = document.querySelector('iframe')!.contentWindow as any; return frame.harnessApp.memory.view?.game_id === game && frame.document.body.dataset.page === screen && !frame.document.getElementById('home-play').disabled; }, [game, screen], { timeout: 1500 });
+    await widget(page).waitForFunction(([game, screen]) => (window as any).harnessApp.memory.view?.game_id === game && document.body.dataset.page === screen && !document.querySelector<HTMLButtonElement>('#home-play')!.disabled, [game, screen], { timeout: 1500 });
     await page.evaluate(() => (window as any).releaseHeld());
     await page.waitForTimeout(300);
     expect(await shownGame(page)).toEqual({ game, screen, board: newer._meta.board_id });
@@ -343,7 +345,7 @@ it.each([
     await page.evaluate(result => (window as any).harnessShow(result), older);
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     await page.evaluate(result => (window as any).harnessShow(result, true), newer);
-    await page.waitForFunction(screen => (document.querySelector('iframe')!.contentWindow as any).document.body.dataset.page === screen, screen);
+    await widget(page).waitForFunction(screen => document.body.dataset.page === screen, screen);
     const seen = await watch(page);
     // The older list comes late; the older result does not open its game.
     await page.evaluate(() => (window as any).releaseHeld());
@@ -363,7 +365,7 @@ it('keeps the newer games list when an older chat result reads its list late', a
     // The model makes a game and opens it; its result reads the newer list.
     const made = await soloGame(page);
     await page.evaluate(result => (window as any).harnessShow(result), await tool(page, '/fixture-tool', 'kingdown_open', { game_id: made }));
-    await page.waitForFunction(shows, made);
+    await widget(page).waitForFunction(shows, made);
     const listed = () => html(page).evaluate((_, game) => (window as any).harnessApp.memory.games.some((entry: any) => entry.game_id === game), made);
     await expect.poll(listed).toBe(true);
     await page.evaluate(() => (window as any).releaseHeld());
@@ -414,7 +416,7 @@ it('keeps the controls locked, with no error, when a newer chat result stops an 
     await page.waitForTimeout(300);
     expect(await locks(page)).toEqual({ locked: true, error: '', home: '' });
     await page.evaluate(() => (window as any).releaseBefore());
-    await page.waitForFunction(shows, newer);
+    await widget(page).waitForFunction(shows, newer);
     await expect.poll(() => locks(page)).toEqual({ locked: false, error: '', home: '' });
   } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseBefore?.(); }); await page.close(); }
 });

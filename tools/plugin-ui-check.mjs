@@ -30,9 +30,9 @@ try {
     new MutationObserver(() => {
       for (const id of tableIds) if (document.querySelectorAll(`#${id}`).length > 1 && !window.harnessTableIdConflicts.includes(id)) window.harnessTableIdConflicts.push(id);
     }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['id'] });
-    // The harness holds each frame boot for this delay on the page clock; the count of boots lets remountFrame() see
-    // when a new frame has set its boot timer.
-    let boots = 0; Object.defineProperty(window, 'harnessBootDelay', { configurable: true, get: () => { window.harnessBoots = ++boots; return 300; } });
+    // The harness holds each frame boot for this delay on the page clock. The host counts each frame that has set its
+    // boot timer (harnessBoots), so remountFrame() sees when a new frame is ready for the clock step.
+    window.harnessBootDelay = 300;
     window.harnessArrowLines = [];
     window.harnessGhostSymbols = [];
     window.harnessSwapMarks = 0;
@@ -60,6 +60,8 @@ try {
   const mode = capabilities.mode;
   if (process.env.PLUGIN_EXPECT_MODE) assert.equal(mode, process.env.PLUGIN_EXPECT_MODE, 'Connected to the expected harness backend');
   const frame = page.frameLocator('iframe');
+  // The widget frame is on another origin, so the host page cannot read it: code that waits on the frame runs in it.
+  const widget = () => page.mainFrame().childFrames()[0];
   const options = {fairy:true,pool:['R','A','G','Q','M','S','O'],arrangement:false,classic:false,cards:false,cardPool:[],kingPowers:false};
 
   async function boardBox() {
@@ -85,7 +87,8 @@ try {
     const before = await page.evaluate(() => window.harnessBoots);
     await page.locator('#remount').click();
     await page.waitForFunction(n => window.harnessBoots > n, before);
-    await page.evaluate(() => { document.querySelector('iframe').contentWindow.Date.now(); Date.now(); });
+    await widget().evaluate(() => Date.now());
+    await page.evaluate(() => Date.now());
     await page.clock.fastForward(300);
   }
   // The per-control scroll and measure in one page call. Playwright's scrollIntoViewIfNeeded first waits until the
@@ -139,7 +142,7 @@ try {
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor({ timeout: 5000 });
   }
   async function openScreen(screen) { await openPlay(); await frame.locator(`[data-screen="play"] [data-nav="${screen}"]`).click(); }
-  async function idleBoard() { await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#reload')?.disabled === false); }
+  async function idleBoard() { await widget().waitForFunction(() => document.querySelector('#reload')?.disabled === false); }
   async function openMoveChoices() {
     if (await frame.locator('#board-sheet[open] h2').count() && await frame.locator('#board-sheet h2').innerText() === 'Choose a move') return;
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
@@ -167,7 +170,7 @@ try {
     });
     await remountFrame();
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
-    await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#reload').disabled === false);
+    await widget().waitForFunction(() => document.querySelector('#reload').disabled === false);
     await frame.locator('#retry').waitFor();
     await page.evaluate(fail => { window.requireHandleNext = true; window.failActionAfterHandle = fail; }, fail);
     await frame.locator('#retry').click(); await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
@@ -273,7 +276,7 @@ try {
       if(mode==='fixture') {
         assert.equal(await frame.locator('#profile-history li').first().locator('.feats use').count(),5);
         await frame.locator('#profile-more').click();
-        await page.waitForFunction(()=>document.querySelector('iframe').contentDocument.querySelectorAll('#profile-history li').length===23);
+        await widget().waitForFunction(()=>document.querySelectorAll('#profile-history li').length===23);
         assert.deepEqual(await page.evaluate(()=>window.harnessCalls.findLast(c=>c.name==='kingdown_profile').arguments),{before:data.next_before},'More sends the unchanged cursor');
         const ids=await frame.locator('#profile-history li').evaluateAll(rows=>rows.map(row=>row.dataset.gameId)); assert.equal(new Set(ids).size,23);
         await frame.locator('#profile-history li').last().scrollIntoViewIfNeeded(); assert((await frame.locator('#profile-history li').last().evaluate(controlBounds)).accessible,'The last row clears the composer');
@@ -615,7 +618,7 @@ try {
     await frame.locator('#setup-done').click();
     const initial = v.choices[0].order, r = initial.indexOf('R'), n = initial.indexOf('N');
     assert.equal(await frame.locator('#seat-context').innerText(), 'Select a marked piece to swap the knight with it.', 'The seat starts with the sample knight selected before a board tap');
-    await page.waitForFunction(() => document.querySelector('iframe').contentWindow.harnessSwapMarks > 0);
+    await widget().waitForFunction(() => window.harnessSwapMarks > 0);
     await seatFits('seat');
     await seatTap(r); assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), rankLine(swapped(initial,n,r),0));
     const beforePawn = await frame.locator('[data-seat-id="last-move"]').innerText(); await seatTap(0,true); assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), beforePawn, 'Pawns do not react');
@@ -642,7 +645,7 @@ try {
     await page.evaluate(() => { const v = window.harnessView; window.harnessNextView = { ...v, server_now: new Date(Date.parse(v.server_now) + 86400000).toISOString() }; });
     await frame.locator('body').evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await page.waitForFunction(() => !window.harnessNextView);
-    await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#seat-note').textContent.includes('2 days to choose'), undefined, { timeout: 3000 });
+    await widget().waitForFunction(() => document.querySelector('#seat-note').textContent.includes('2 days to choose'), undefined, { timeout: 3000 });
     assert.match(await frame.locator('#seat-them-line').innerText(), /2 days left/, 'An unchanged setup read refreshes both days-left lines');
     const state = await page.evaluate(() => window.harnessWidgetState);
     assert.deepEqual(Object.keys(state.privateContent).sort(), ['board_id','pending','screen','sheet']); assert.deepEqual(state.modelContent, {});
@@ -705,7 +708,8 @@ try {
     await page.evaluate(result => window.harnessShow(result),legacy);
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n,legacyReads);
     await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
-    await page.evaluate(() => { window.harnessWidgetState.privateContent.screen = 'seat'; });
+    // The setter, not an edit in place, so a frame write still in flight does not replace it.
+    await page.evaluate(() => { const saved = window.harnessWidgetState; window.harnessWidgetState = { ...saved, privateContent: { ...saved.privateContent, screen: 'seat' } }; });
     legacyReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     await remountFrame();
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n,legacyReads);
@@ -819,7 +823,7 @@ try {
   // The art is not in the page (ticket 09): each named file loads from the plugin origin and a canvas may read it.
   const art = await frame.locator('html').evaluate(async () => {
     const urls = [...new Set(document.documentElement.innerHTML.match(/https?:\/\/[^"'`\s]+\/plugin-art\/[\w-]+\.webp/g))];
-    return Promise.all(urls.map(async src => { const image = Object.assign(new Image(), { crossOrigin: 'anonymous', src }); await image.decode(); const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d'); g.drawImage(image, 0, 0, 8, 8); g.getImageData(0, 0, 8, 8); return { src, page: new URL(src).origin === location.origin, width: image.naturalWidth }; }));
+    return Promise.all(urls.map(async src => { const image = Object.assign(new Image(), { crossOrigin: 'anonymous', src }); await image.decode(); const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d'); g.drawImage(image, 0, 0, 8, 8); g.getImageData(0, 0, 8, 8); return { src, width: image.naturalWidth }; }));
   });
   assert(art.length >= 20, 'The page names the board art and menu art');
   assert(art.some(file => file.src.includes('/scroll-')), 'scroll.webp loads from the plugin origin');
@@ -833,7 +837,8 @@ try {
   assert(art.some(file => file.src.includes('/badge-crowned-')), 'badge-crowned.webp loads from the plugin origin');
   assert(art.some(file => file.src.includes('/badge-card-sharp-')), 'badge-card-sharp.webp loads from the plugin origin');
   assert(art.some(file => file.src.includes('/badge-architect-')), 'badge-architect.webp loads from the plugin origin'); assert(art.every(file => file.width > 0), 'Every art file decodes');
-  assert.equal(art.every(file => file.page), mode === 'fixture', 'The HTTP board loads its art from the plugin origin, not the page origin');
+  // The host page's origin: the widget page has its own origin, as in ChatGPT.
+  assert.equal(art.every(file => new URL(file.src).origin === new URL(base).origin), mode === 'fixture', 'The HTTP board loads its art from the plugin origin, not the page origin');
   assert.equal(await page.content().then(html => html.includes('data:image/webp')), false);
   await shot(page, `board-art-${mode}`);
   await openScreen('settings');
@@ -902,11 +907,18 @@ try {
     await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join(''); assert(code.length === 6, 'Create gives six code tiles');
     await lookAt('friend-code', 'friend');
-    await page.context().grantPermissions(['clipboard-read','clipboard-write']); await frame.locator('#friend-copy').click();
-    await frame.locator('#friend-copy-status').filter({ hasText: /^Copied$/ }).waitFor();
-    assert(await page.evaluate(code => navigator.clipboard.readText().then(text => text === code), code), 'The granted clipboard contains the code');
-    await frame.locator('html').evaluate(() => {
+    // Chromium reads the real clipboard back. WebKit has no clipboard-read permission, so it captures the widget's platform call.
+    const webkit = browser.browserType().name() === 'webkit';
+    if (!webkit) await page.context().grantPermissions(['clipboard-read','clipboard-write']);
+    await frame.locator('html').evaluate((_, webkit) => {
       window.ticket13Clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard'); window.ticket13Copy = document.execCommand;
+      if (webkit) Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.ticket13CopiedText = text; } } });
+    }, webkit);
+    await frame.locator('#friend-copy').click();
+    await frame.locator('#friend-copy-status').filter({ hasText: /^Copied$/ }).waitFor();
+    if (webkit) assert.equal(await frame.locator('html').evaluate(() => window.ticket13CopiedText), code, 'Copy sends the full code to the clipboard');
+    else assert.equal(await page.evaluate(() => navigator.clipboard.readText()), code, 'The granted clipboard contains the code');
+    await frame.locator('html').evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Denied'); } } }); document.execCommand = () => false;
     });
     await frame.locator('#friend-copy').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Select the code and copy it' }).waitFor();
@@ -1091,9 +1103,13 @@ try {
     await remount('wait'); await frame.locator('#wait-cancel').click(); await frame.locator('[data-screen="lobby"]:not([hidden])').waitFor();
     await frame.locator('#lobby-status').filter({ hasText: /^$/ }).waitFor({ state: 'attached' });
     await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 1000));
-    await page.evaluate(() => { const push = window.harnessCalls.push; window.harnessCalls.push = function(call) { call.at = Date.now(); return push.call(this, call); }; window.ticket13Reads = []; window.ticket13Ids = new Set(); addEventListener('message', event => { if (event.data?.method === 'tools/call' && event.data.params?.name === 'kingdown_get') window.ticket13Ids.add(event.data.id); }); });
+    // The frame tells the host page of each reply it has handled; the host page counts the kingdown_get replies for the waiting game.
+    await page.evaluate(() => { const push = window.harnessCalls.push; window.harnessCalls.push = function(call) { call.at = Date.now(); return push.call(this, call); }; window.ticket13Reads = []; window.ticket13Ids = new Set(); addEventListener('message', event => {
+      if (event.data?.method === 'tools/call' && event.data.params?.name === 'kingdown_get') window.ticket13Ids.add(event.data.id);
+      if (event.data?.ticket13Reply !== undefined && window.ticket13Ids.delete(event.data.ticket13Reply) && event.data.game === window.ticket13WaitingId) { window.ticket13Reads.push(Date.now()); dispatchEvent(new Event('ticket13-read')); }
+    }); });
     await frame.locator('html').evaluate(() => addEventListener('message', event => {
-      if (parent.ticket13Ids.delete(event.data?.id) && event.data.result?._meta?.view?.game_id === parent.ticket13WaitingId) { parent.ticket13Reads.push(Date.now()); parent.dispatchEvent(new Event('ticket13-read')); }
+      if (event.source === parent && event.data?.result) parent.postMessage({ ticket13Reply: event.data.id, game: event.data.result._meta?.view?.game_id }, '*');
     }));
     const receipt = n => page.evaluate(n => new Promise(resolve => {
       if (window.ticket13Reads.length > n) resolve(); else addEventListener('ticket13-read', resolve, { once: true });
@@ -1164,7 +1180,7 @@ try {
   }
   async function boardSetting(id, checked) {
     await frame.locator('#'+id).setChecked(checked);
-    await page.waitForFunction(({id,checked})=>{const input=document.querySelector('iframe').contentDocument.getElementById(id); return !input.disabled && input.checked===checked;},{id,checked});
+    await widget().waitForFunction(({id,checked})=>{const input=document.getElementById(id); return !input.disabled && input.checked===checked;},{id,checked});
   }
   for (const scenario of ['threats','threats-black']) {
     const seeded = await seedBoard(scenario), plain = await pixels();
@@ -1178,7 +1194,7 @@ try {
     await frame.locator('canvas').evaluate(() => { window.harnessArrowLines = []; });
     const arrowBox = await boardBox(); await page.mouse.move(arrowBox.x+arrowBox.width/2, arrowBox.y+arrowBox.height/2);
     await frame.locator('canvas').evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
-    await page.waitForFunction(() => document.querySelector('iframe').contentWindow.harnessArrowLines.length > 0);
+    await widget().waitForFunction(() => window.harnessArrowLines.length > 0);
     const arrows = await frame.locator('canvas').evaluate((c, black) => {
       const square = ([x,y]) => { const col = Math.floor((x-32)/112), row = Math.floor((y-32)/112); return black ? 7-col+8*row : col+8*(7-row); };
       return [...new Set(window.harnessArrowLines.map(path => path.map(square).join(':')))].sort();
@@ -1228,7 +1244,7 @@ try {
   await seedBoard('swap');
   await frame.locator('canvas').evaluate(() => { window.harnessSwapMarks = 0; });
   await clickSquare(3, 3);
-  await page.waitForFunction(() => document.querySelector('iframe').contentWindow.harnessSwapMarks > 0);
+  await widget().waitForFunction(() => window.harnessSwapMarks > 0);
   assert(await frame.locator('#choices button').count() > 0, 'The Maester fixture offers a swap and PaintedView draws its violet mark');
   await shot(page, `shell-swap-${mode}`);
   await haste();
@@ -1489,8 +1505,8 @@ try {
     await page.setViewportSize({width,height});
     await page.evaluate(safeAreaInsets => window.harnessSetContext({deviceCapabilities:{touch:true},safeAreaInsets}), safeAreaInsets);
     // The widget applies host insets after the host sends them.
-    await page.waitForFunction(expected => {
-      const css = getComputedStyle(document.querySelector('iframe').contentDocument.documentElement);
+    await widget().waitForFunction(expected => {
+      const css = getComputedStyle(document.documentElement);
       return Object.entries(expected).every(([edge,value]) => parseFloat(css.getPropertyValue(`--safe-${edge}`)) === value);
     }, safeAreaInsets);
     // The board canvas takes its size from a ResizeObserver one frame later; a read before then sees the old canvas.
@@ -1706,7 +1722,7 @@ try {
     }, { base: routeBase, board_id: routeBoard, status, kind, options });
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_get').length > n, reads);
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
-    await page.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#reload').disabled === false);
+    await widget().waitForFunction(() => document.querySelector('#reload').disabled === false);
   }
   const routes = ['home','play','setup','friend','join','wait','lobby','seat','board','end','profile','collection','settings','handle'];
   assert.deepEqual(await frame.locator('[data-screen]').evaluateAll(els => els.map(el => el.dataset.screen).sort()), [...routes].sort());
@@ -1731,7 +1747,12 @@ try {
   const backgroundBefore = await frame.locator('#status').innerText(), binding = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
   const afterBinding = await frame.locator('html').evaluate(async (_, game_id) => {
     const { createClient } = await import('/src/plugin/client.ts');
-    const client = createClient({ callServerTool: request => parent.harnessTool(request) }, window.openai);
+    // The host page's harnessTool, through the harness postMessage hook (tools/plugin-ui-host.ts).
+    const callServerTool = params => new Promise((resolve, reject) => {
+      const id = Math.random(); addEventListener('message', function reply(event) { if (event.source !== parent || event.data?.harness !== 'tool' || event.data.id !== id) return; removeEventListener('message', reply); if (event.data.error) reject(new Error(event.data.error)); else resolve(event.data.result); });
+      parent.postMessage({ harness: 'tool', id, params }, '*');
+    });
+    const client = createClient({ callServerTool }, window.openai);
     await client.call('kingdown_get', { game_id, board_id: 'discard' }, { background: true }); return client.state.board_id;
   }, other._meta.view.game_id);
   assert.equal(afterBinding, binding);

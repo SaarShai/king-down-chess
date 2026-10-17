@@ -3,7 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { chromium, type Browser, type FrameLocator } from 'playwright';
+import type { Browser, FrameLocator } from 'playwright';
+import { launch } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
@@ -13,7 +14,7 @@ let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: 
 beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-ios-size-'));
   execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe' });
-  harness = await startHarness({ boardPath: join(folder, 'board.html') }); browser = await chromium.launch({ headless: true });
+  harness = await startHarness({ boardPath: join(folder, 'board.html') }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
 it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]])('reserves one bottom gap at %i × %i with insets %i/%i', async (width, height, top, bottom, gap) => {
@@ -162,12 +163,45 @@ it('keeps card and power targets at 44 px without increasing the player rows', a
     expect(await frame.locator('#strip-me b').getAttribute('title')).toBe('wwwwwwwwwwwwwwwwwwww');
     expect(await frame.locator('#strip-me b').evaluate(e=>{const r=e.getBoundingClientRect(),p=e.closest('.player-strip')!.getBoundingClientRect();return r.top>=p.top && r.bottom<=p.bottom && getComputedStyle(e).textOverflow==='ellipsis';})).toBe(true);
     expect(await frame.locator('#strip-me').evaluate(e=>e.getBoundingClientRect().height)).toBe(44);
-    for (const id of ['power-w','card-w-0']) {
-      await frame.locator(`#${id}`).click();
-      await frame.locator('#reload').evaluate(e=>{e.setAttribute('disabled','');e.removeAttribute('disabled');});
-      await page.keyboard.press('Escape');
-      expect(await frame.locator(`#${id}`).evaluate(e=>document.activeElement===e)).toBe(true);
-    }
+  } finally {await page.close();}
+});
+
+// WebKit does not focus a clicked button. Each sheet must still give focus back to the control that opened it.
+it('returns focus to each sheet opener after a pointer opens the sheet', async () => {
+  const page=await browser.newPage({viewport:{width:393,height:852},hasTouch:true}), frame=page.frameLocator('iframe');
+  page.setDefaultTimeout(10_000);
+  const focus: Record<string,string> = {};
+  const active = () => frame.locator('html').evaluate(() => { const e = document.activeElement; return e ? e.id || e.tagName : 'none'; });
+  const opens = async (id: string, sheet: string, close: 'Escape' | '×' = 'Escape') => {
+    await frame.locator(`#${id}`).click(); await frame.locator(`${sheet}[open]`).waitFor();
+    // A refresh under the sheet rebuilds the coins.
+    if (/^(power|card)-/.test(id)) await frame.locator('#reload').evaluate(e=>{e.setAttribute('disabled','');e.removeAttribute('disabled');});
+    if (close === 'Escape') await page.keyboard.press('Escape'); else await frame.locator(`${sheet} .sheet-head button`).click();
+    await expect.poll(() => frame.locator(`${sheet}[open]`).count()).toBe(0);
+    focus[`${id} ${close}`] = await active();
+  };
+  try {
+    await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').click();
+    await page.evaluate(async()=>{await (window as any).harnessSetContext({deviceCapabilities:{touch:true},displayMode:'fullscreen',safeAreaInsets:{top:20,bottom:0,left:0,right:0}});});
+    await frame.locator('#play-new').click(); await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
+    await frame.getByRole('checkbox',{name:'Arrangement',exact:true}).check();
+    await frame.getByRole('checkbox',{name:'Cards',exact:true}).check(); await frame.getByRole('checkbox',{name:'King powers',exact:true}).check();
+    for (const id of ['setup-pieces','setup-cards','setup-king']) await opens(id, '#menu-sheet');
+    await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    await frame.locator('#seat-menu:not(:disabled)').waitFor();
+    await opens('seat-menu', '#seat-menu-sheet'); await opens('seat-menu', '#seat-menu-sheet', '×');
+    // The King sheet locks its coin while it is open.
+    await opens('seat-king', '#menu-sheet');
+    // A pointer click shows no focus ring.
+    await frame.locator('#seat-shuffle').click();
+    const ring = await frame.locator('#seat-shuffle').evaluate(e=>({focused:document.activeElement===e, ring:e.matches(':focus-visible')}));
+    await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#board-menu:not(:disabled)').waitFor();
+    for (const id of ['board-menu','moves-line','resign','power-w','card-w-0']) await opens(id, '#board-sheet');
+    for (const id of ['board-menu','moves-line','card-w-0']) await opens(id, '#board-sheet', '×');
+    expect(focus).toEqual(Object.fromEntries(Object.keys(focus).map(key => [key, key.split(' ')[0]])));
+    expect(Object.keys(focus)).toHaveLength(14);
+    expect(ring).toEqual({focused:true, ring:false});
   } finally {await page.close();}
 });
 
@@ -345,16 +379,16 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
       for (const name of ['Fairy pieces', 'Arrangement', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).setChecked(features.includes(name));
       await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
       await frame.locator('#board[aria-busy="false"]').waitFor();
-      expect(await canvasWidth(frame), all ? 'all-features seat' : 'seat').toBeGreaterThanOrEqual(192);
+      await expect.poll(() => canvasWidth(frame), all ? 'all-features seat' : 'seat').toBeGreaterThanOrEqual(192);
       if (!all) {
         await frame.locator('#seat-shuffle').click();
         await frame.locator('#seat-context').filter({ hasText: 'Select one back-rank piece' }).waitFor();
-        expect(await canvasWidth(frame), 'seat after Shuffle').toBeGreaterThanOrEqual(192);
+        await expect.poll(() => canvasWidth(frame), 'seat after Shuffle').toBeGreaterThanOrEqual(192);
       }
       for (const id of ['seat-shuffle', 'seat-menu', 'seat-ready']) expect(await reachable(frame, id), id).toBe(true);
       await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       await frame.locator('#board[aria-busy="false"]').waitFor();
-      expect(await canvasWidth(frame), all ? 'all-features board' : 'board').toBeGreaterThanOrEqual(192);
+      await expect.poll(() => canvasWidth(frame), all ? 'all-features board' : 'board').toBeGreaterThanOrEqual(192);
       if (!all) {
         // White moves e2-e4 with two taps on the board.
         await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();

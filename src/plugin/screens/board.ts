@@ -190,6 +190,8 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   function strips() {
     if (!view || !pos) return;
     rules();
+    // The rebuild replaces the coins. A focused coin gives its focus to its replacement.
+    const focused = document.activeElement?.closest('#strip-me, #strip-them') ? document.activeElement.id : '';
     for (const side of [0,1] as const) {
       const mine = side === view.seat, strip = $(mine ? 'strip-me' : 'strip-them');
       strip.classList.toggle('is-turn', view.status === 'playing' && view.turn === side);
@@ -213,6 +215,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
         row.append(b);
       }
     }
+    if (focused) document.getElementById(focused)?.focus({preventScroll:true});
   }
   function refresh() {
     if (!view || !pos) return;

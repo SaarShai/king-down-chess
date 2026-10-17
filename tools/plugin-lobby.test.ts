@@ -148,7 +148,8 @@ it('keeps the five-second wait budget through the computer handoff, then uses fi
     await page.emulateMedia({reducedMotion:'reduce'});
     await freeze(page);
     await frame.locator('html').evaluate(() => {
-      const host = parent as any, app = (window as any).harnessApp, send = app.client.call;
+      // The frame keeps its own read log: the host page cannot reach a frame on another origin.
+      const host = window as any, app = host.harnessApp, send = app.client.call;
       host.ticketReads = [];
       app.client.call = async (name: string, args: any, options: any) => {
         const at = Date.now(), result = await send(name, args, options);
@@ -158,32 +159,32 @@ it('keeps the five-second wait budget through the computer handoff, then uses fi
     });
     await start(page, 'random');
     const advance = async (ms: number) => {
-      const n = await page.evaluate(() => (window as any).ticketReads.length);
-      await page.clock.runFor(ms); await expect.poll(() => page.evaluate(() => (window as any).ticketReads.length)).toBe(n+1);
+      const n = await frame.locator('html').evaluate(() => (window as any).ticketReads.length);
+      await page.clock.runFor(ms); await expect.poll(() => frame.locator('html').evaluate(() => (window as any).ticketReads.length)).toBe(n+1);
     };
     for (let i=0;i<5;i++) await advance(5000);
     // Any rules lets Find take back this open game, whose switches differ from the saved setup (D1 a).
     await frame.locator('#page-back').click(); await frame.locator('#play-open').click(); await frame.locator('#find-any-row').click(); await frame.locator('#find-opponent').click();
     await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
-    const reads = await page.evaluate(() => (window as any).ticketReads.length);
+    const reads = await frame.locator('html').evaluate(() => (window as any).ticketReads.length);
     await frame.locator('#wait-computer').click();
-    await expect.poll(() => page.evaluate(() => (window as any).ticketReads.length)).toBeGreaterThan(reads);
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).ticketReads.length)).toBeGreaterThan(reads);
     for (let i=5;i<24;i++) await advance(5000);
-    const count = await page.evaluate(() => (window as any).ticketReads.length);
+    const count = await frame.locator('html').evaluate(() => (window as any).ticketReads.length);
     await page.clock.runFor(14999);
-    expect(await page.evaluate(() => (window as any).ticketReads.length)).toBe(count);
+    expect(await frame.locator('html').evaluate(() => (window as any).ticketReads.length)).toBe(count);
     await advance(1);
-    const times = await page.evaluate(() => (window as any).ticketReads.map((r: any) => r.at));
+    const times = await frame.locator('html').evaluate(() => (window as any).ticketReads.map((r: any) => r.at));
     expect(times.at(-1)-times.at(-2)).toBe(15000);
     await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
-    const hidden = await page.evaluate(() => (window as any).ticketReads.length); await page.clock.fastForward(30000);
-    expect(await page.evaluate(() => (window as any).ticketReads.length)).toBe(hidden);
+    const hidden = await frame.locator('html').evaluate(() => (window as any).ticketReads.length); await page.clock.fastForward(30000);
+    expect(await frame.locator('html').evaluate(() => (window as any).ticketReads.length)).toBe(hidden);
     await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: false }); document.dispatchEvent(new Event('visibilitychange')); });
-    await expect.poll(() => page.evaluate(() => (window as any).ticketReads.length)).toBeGreaterThan(hidden);
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).ticketReads.length)).toBeGreaterThan(hidden);
     await page.clock.resume();
     await page.evaluate(() => (window as any).harnessTeardown());
-    const closed = await page.evaluate(() => (window as any).ticketReads.length); await page.clock.fastForward(30000);
-    expect(await page.evaluate(() => (window as any).ticketReads.length)).toBe(closed);
+    const closed = await frame.locator('html').evaluate(() => (window as any).ticketReads.length); await page.clock.fastForward(30000);
+    expect(await frame.locator('html').evaluate(() => (window as any).ticketReads.length)).toBe(closed);
   } finally { await page.close(); }
 });
 // The owner's item D1 a: 'Any rules' under A random player and in Open games. Find sends any_rules only when it is on.
@@ -340,10 +341,10 @@ it('keeps Join through handle Save and sends nothing when Back cancels it', asyn
     const created = await buddy(page, 'kingdown_create', { kind: 'friend', options, colour: 'white' });
     const invite = await buddy(page, 'kingdown_invite', { game_id: created._meta.view.game_id });
     await frame.locator('html').evaluate(() => {
-      const app = (window as any).harnessApp, send = app.client.call; let blocked = true; (parent as any).ticketJoins = 0;
+      const app = (window as any).harnessApp, send = app.client.call; let blocked = true; (window as any).ticketJoins = 0;
       app.client.call = async (name: string, args: any, opts: any) => {
         if (name === 'kingdown_handle' && !args?.check) blocked = false;
-        if (name === 'kingdown_join' && !args?.preview) { (parent as any).ticketJoins++; if (blocked) return { isError: true, content: [{ type: 'text', text: 'Choose a handle first' }], _meta: { code: 'HANDLE_NEEDED' } }; }
+        if (name === 'kingdown_join' && !args?.preview) { (window as any).ticketJoins++; if (blocked) return { isError: true, content: [{ type: 'text', text: 'Choose a handle first' }], _meta: { code: 'HANDLE_NEEDED' } }; }
         return send(name, args, opts);
       };
     });
@@ -351,7 +352,7 @@ it('keeps Join through handle Save and sends nothing when Back cancels it', asyn
     await frame.locator('#join-confirm').click(); await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
     expect(await page.evaluate(code => JSON.stringify((window as any).harnessWidgetState).includes(code), invite.structuredContent.code)).toBe(false);
     await frame.locator('#page-back').click(); await frame.locator('[data-screen="join"]:not([hidden])').waitFor();
-    expect(await page.evaluate(() => (window as any).ticketJoins)).toBe(1);
+    expect(await frame.locator('html').evaluate(() => (window as any).ticketJoins)).toBe(1);
     await frame.locator('#join-confirm').click(); await frame.locator('[data-screen="handle"]:not([hidden])').waitFor(); await frame.locator('#save-handle').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
   } finally { await page.close(); }
@@ -434,7 +435,7 @@ it('finds a joined random game when the computer page mounts again', async () =>
     const solo = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
     const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
     await page.locator('iframe').evaluate(el => { (el as HTMLIFrameElement).src = 'about:blank'; });
-    await page.waitForFunction(() => document.querySelector('iframe')?.contentDocument?.URL === 'about:blank');
+    await page.mainFrame().childFrames()[0].waitForURL('about:blank');
     await buddy(page, 'kingdown_accept', { game_id: waiting.game_id });
     await page.locator('#remount').click();
     await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
