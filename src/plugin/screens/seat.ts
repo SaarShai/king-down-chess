@@ -1,4 +1,5 @@
-import { call, client, memory, navigate, routeView } from '../app';
+import { call, client, gameActionsBlocked, memory, navigate, routeView } from '../app';
+import type { Job } from '../queue';
 import { art } from '../art';
 import { board, highlight } from '../board-view';
 import { ending } from '../ending';
@@ -21,7 +22,7 @@ let game = '', choice: Choice | null = null, selected: number | null = null, sen
 let home: { parent: HTMLElement; next: ChildNode | null; click: typeof board.onSquareClick; drag: typeof board.onDragSelect; hover: typeof board.onSquareHover; key: HTMLElement['onkeydown']; label: string | null } | undefined;
 let closeMenu: (() => void) | undefined, cursor = 0;
 const current = () => client.state.screen === 'seat' && memory.view?.game_id === game ? memory.view : undefined;
-const locked = () => sending || picking || $<HTMLButtonElement>('seat-menu').disabled || !!client.state.pending || !!current()?.ready?.[current()!.seat];
+const locked = () => sending || picking || $<HTMLButtonElement>('seat-menu').disabled || gameActionsBlocked() || !!current()?.ready?.[current()!.seat];
 const uuid = () => crypto.randomUUID().replaceAll('-', '');
 
 function release() {
@@ -96,10 +97,10 @@ function render() {
   highlight({ selected: ready ? null : selected, swaps: !ready && selected !== null ? legalSwaps(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice, view.seat, selected) : [] });
   locks(); requestAnimationFrame(placeVeil);
 }
-async function finish(next: View) {
+async function finish(next: View, origin?: Job) {
   if (next.game_id !== game || client.state.screen !== 'seat') return;
   if (next.status === 'playing') {
-    const full = next.rules ? next : await call('kingdown_get', {}, true, false, false); if (!full) return;
+    const full = next.rules ? next : await call('kingdown_get', {}, { retain: true, route: false, origin }); if (!full) return;
     release();
     if (full.rules) setRules(full.rules); routeView(full);
   } else if (next.status === 'finished' || next.status === 'aborted') {
@@ -110,7 +111,7 @@ async function ready() {
   const view = current(); if (!view?.options || !choice || locked() || validateChoice(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice)) return;
   sending = true; locks();
   try {
-    const next = await submitReady(view, { ...choice }, { send: args => call('kingdown_choose', args, true, false, false), read: () => call('kingdown_get', {}, false, false, false), pending: () => !!client.state.pending, id: uuid });
+    const next = await submitReady(view, { ...choice }, { send: args => call('kingdown_choose', args, true, false, false), read: () => call('kingdown_get', {}, false, false, false), pending: gameActionsBlocked, id: uuid });
     if (next) await finish(next);
   } finally { sending = false; render(); }
 }
@@ -131,22 +132,17 @@ function menu(confirm = false) {
   const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); close(); }
     else if (event.key === 'Tab') { const buttons = [...dialog.querySelectorAll<HTMLButtonElement>('button')], i = buttons.indexOf(document.activeElement as HTMLButtonElement); if (event.shiftKey && i <= 0 || !event.shiftKey && i === buttons.length - 1) { event.preventDefault(); buttons[event.shiftKey ? buttons.length - 1 : 0].focus(); } } };
   document.addEventListener('keydown', key); closeMenu = close; $('seat-menu-close').onclick = scrim.onclick = close;
-  if (confirm) { $('seat-abort-cancel').onclick = close; $('seat-abort-confirm').onclick = async () => { const v = current(); if (!v?.abort_open || sending || client.state.pending) return; close(); sending = true; locks(); try { const next = await call('kingdown_abort', { game_id: v.game_id, command_id: uuid(), expected_revision: v.revision }, true, false, false); if (next) await finish(next); } finally { sending = false; render(); } }; }
+  if (confirm) { $('seat-abort-cancel').onclick = close; $('seat-abort-confirm').onclick = async () => { const v = current(); if (!v?.abort_open || sending || gameActionsBlocked()) return; close(); sending = true; locks(); try { const next = await call('kingdown_abort', { game_id: v.game_id, command_id: uuid(), expected_revision: v.revision }, true, false, false); if (next) await finish(next); } finally { sending = false; render(); } }; }
   else { if (view.abort_open) $('seat-abort').onclick = () => menu(true); $('seat-settings').onclick = () => { close(); navigate('settings'); }; }
   if (!confirm) for (const block of playerBlockButton(view, close)) { block.className = 'menu-row'; $('seat-settings').before(block); }
   $('seat-menu-close').focus();
 }
 
-async function retryPending() {
-  const pending = client.state.pending; if (!pending || sending || client.state.screen !== 'seat') return;
+/** The continuation of a resent Seat command (design §5.2): Seat finishes with the reply. */
+export async function finishSeat(next: View, origin: Job) {
   sending = true; locks();
-  try { const next = await call(pending.name, pending.args, true, false, false, true); if (next) await finish(next); }
-  finally { sending = false; render(); }
+  try { await finish(next, origin); } finally { sending = false; render(); }
 }
-document.addEventListener('click', event => {
-  if (!(event.target as HTMLElement).closest('#retry') || client.state.screen !== 'seat' || !['kingdown_choose','kingdown_abort','kingdown_get'].includes(client.state.pending?.name ?? '')) return;
-  event.preventDefault(); event.stopImmediatePropagation(); void retryPending();
-}, true);
 // The store's subscriber replaces the data-page, #status and #seat-ready observers. The ResizeObserver stays: it measures layout.
 export function seatSync(page: Page) {
   if (page.screen !== 'seat') { release(); return; }
@@ -161,8 +157,7 @@ export function seatScreen() {
   if (!view.options) { release(); routeView(view); return; }
   if (view.status !== 'setup') {
     game = view.game_id;
-    if (['kingdown_choose','kingdown_abort','kingdown_get'].includes(client.state.pending?.name ?? '')) setTimeout(() => void retryPending(), 0);
-    else if (!sending && view.options && Object.values(seatChoicesNeeded(view.options)).some(Boolean)) { sending = true; void finish(view).finally(() => { sending = false; }); }
+    if (!gameActionsBlocked() && !sending && view.options && Object.values(seatChoicesNeeded(view.options)).some(Boolean)) { sending = true; void finish(view).finally(() => { sending = false; }); }
     return;
   }
   const own = seatChoice(view, memory.settings?.last_setup?.king ?? null); if (!own) return;
@@ -170,7 +165,6 @@ export function seatScreen() {
   else if (view.ready?.[view.seat]) { choice = own; selected = null; }
   if (!$('seat-board-slot') && !home) { const slot = document.createElement('div'); slot.id = 'seat-board-slot'; $('game-table').prepend(slot); }
   ownBoard(view); render();
-  if (!sending && ['kingdown_choose','kingdown_abort','kingdown_get'].includes(client.state.pending?.name ?? '') && !client.state.pending?.error) setTimeout(() => void retryPending(), 0);
   if (!closeMenu && ['seat-menu','seat-abort'].includes(client.state.sheet ?? '')) menu(client.state.sheet === 'seat-abort');
   else if (!picking && client.state.sheet === 'king') setTimeout(() => { if (client.state.sheet === 'king' && !locked()) void pickKing(); }, 0);
 }

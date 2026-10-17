@@ -8,6 +8,46 @@ function deferred() { let resolve!: () => void; const promise = new Promise<void
 const body = (order: string[], name: string) => async () => { order.push(name); return { status: 'done' as const, result: { content: [] } }; };
 
 describe('the command queue', () => {
+  it('lets a user read take the epoch but keeps polls and job steps in their epoch', async () => {
+    const queue = createQueue(), hold = deferred();
+    const first = queue.command('read', 'kingdown_get', {});
+    const done = queue.run(first, async () => { await hold.promise; return { status: 'done', result: { content: [] } }; });
+    const newer = queue.command('read', 'kingdown_get', {});
+    await expect(done).resolves.toEqual({ status: 'superseded' });
+    expect(queue.current(first)).toBe(false);
+    expect(queue.current(newer)).toBe(true);
+    queue.command('read', 'kingdown_get', {}, { quiet: true });
+    queue.command('read', 'kingdown_games', {}, { user: false });
+    queue.command('read', 'kingdown_get', {}, { origin: newer });
+    expect(queue.current(newer)).toBe(true);
+    hold.resolve();
+  });
+
+  it('keeps a retained start read in flight after a chat result detaches it', async () => {
+    const queue = createQueue(), hold = deferred();
+    const job = queue.command('read', 'kingdown_get', {}, { retain: true });
+    const done = queue.run(job, async () => { await hold.promise; return { status: 'done', result: { content: [] } }; });
+    queue.chatResult();
+    await expect(done).resolves.toEqual({ status: 'superseded' });
+    expect(queue.inflight()).toBe(true);
+    hold.resolve(); await tick();
+    expect(queue.inflight()).toBe(false);
+  });
+
+  it('keeps the start epoch through its follow-up writes and reads', async () => {
+    const queue = createQueue();
+    const origin = queue.command('write', 'kingdown_create', {});
+    const choose = queue.command('write', 'kingdown_choose', {}, { origin });
+    expect(queue.current(origin)).toBe(true);
+    expect(choose.epoch).toBe(origin.epoch);
+    queue.chatResult();
+    const read = queue.command('read', 'kingdown_get', {}, { origin });
+    expect(read.epoch).toBe(origin.epoch);
+    expect(queue.current(origin)).toBe(false);
+    expect(queue.current(choose)).toBe(false);
+    expect(queue.current(read)).toBe(false);
+  });
+
   it('runs writes on the lane, first in first out and one at a time', async () => {
     const queue = createQueue(), order: string[] = [], first = deferred(), second = deferred();
     const a = queue.command('write', 'kingdown_move', {}), b = queue.command('write', 'kingdown_move', {});

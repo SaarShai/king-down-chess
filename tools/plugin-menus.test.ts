@@ -218,10 +218,11 @@ it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s
     expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
     await page.clock.fastForward(5_001);
     await page.evaluate(() => (window as any).releaseHeld());
-    // The 10-second limit rejects the late reply. Retry finds the same game.
+    // The 10-second limit rejects the late reply. Retry sends the same command ID; the receipt gives back the same game.
     await frame.locator('#retry').click();
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
-    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(1);
+    const ids = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').map((c: any) => c.arguments.command_id));
+    expect(ids).toEqual([ids[0], ids[0]]);
     await go(page, 'play');
     expect(await frame.locator('#setup-start').textContent()).toBe('Start game');
   } finally { await page.close(); }

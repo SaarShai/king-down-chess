@@ -969,18 +969,19 @@ it.each(['Resign', 'Abort'])('W7: Menu %s drops the draft move from the end card
   } finally { await page.close(); }
 });
 
-it.each([false,true])('W7: an incremental draw reply drops draft text and keeps saved history=%s', async saved => {
+it('W7-04: an incremental draw reply keeps the draft and the draw note (D13)', async () => {
   const initial_fen = '4k3/7p/8/8/8/8/4P3/4K3 b - - 0 1';
   const prior = applyLan(fromFen(initial_fen),'h7-h5',{})!;
-  const base = view(toFen(prior.pos), {}, {kind:'friend', revision:1, ...(saved ? {history:{initial_fen,actions:['h7-h5']}} : {})});
+  const base = view(toFen(prior.pos), {}, {kind:'friend', revision:1, history:{initial_fen,actions:['h7-h5']}});
   const page = await open(base), frame = page.frameLocator('iframe');
   try {
     await chooseTurnMove(page,'e2-e4',12);
+    // Ticket 04 (D13): a draw offer is a new revision with the same base FEN, so the draft stays.
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {...base, revision:2, history:undefined, draw_offer:1, last_commands:[{seq:2, seat:1, at:base.server_now, action:{type:'draw',choice:'offer'}}]});
-    expect(await boardFen(page)).toBe(base.fen);
-    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
-    expect(await frame.locator('#last-move').innerText()).toBe(saved ? 'Black pawn h7 to h5.' : 'Move 2.');
-    expect((await marks(page)).last).toEqual(saved ? [55,39] : []);
+    expect(await boardFen(page)).toBe(toFen(applyLan(fromFen(base.fen),'e2-e4',{})!.pos));
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
+    expect(await frame.locator('#last-move').innerText()).toBe('White pawn e2 to e4.');
+    expect(await frame.locator('#context-note').innerText()).toContain('Your opponent offers a draw.');
     expect(await moveCalls(page)).toEqual([]);
   } finally { await page.close(); }
 });
@@ -1372,5 +1373,151 @@ it('W7: keeps a lost-send error while pieces and coins remain readable', async (
     expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);
     expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
     await expect.poll(async () => (await moveCalls(page)).length).toBe(1);
+  } finally { await page.close(); }
+});
+
+
+// W7 ticket 04 browser journeys (design §7.4 D9 to D13): the draft in widget state, its restore and its keep-or-drop.
+const getCalls = (page: Page) => page.evaluate(() => ((window as any).harnessCalls ?? []).filter((c: any) => c.name === 'kingdown_get').length);
+const savedDraft = (page: Page) => page.evaluate(() => (window as any).harnessWidgetState.privateContent?.draft ?? null);
+async function remountBoard(page: Page) {
+  await page.locator('#remount').evaluate(e => (e as HTMLButtonElement).click());
+  const frame = page.frameLocator('iframe');
+  await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
+  await frame.locator('html').evaluate('(async () => { window.testBoard = (await import("/src/plugin/board-view.ts")).board; })()');
+}
+
+it('W7-04: restores a saved draft after a remount only when the game, the base FEN and the replay agree (D9)', async () => {
+  for (const change of ['same', 'fen', 'lan'] as const) {
+    const {page,frame,base} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1');
+    try {
+      await chooseTurnMove(page,'e2-e4',12);
+      expect((await savedDraft(page)).lans).toEqual(['e2-e4']);
+      if (change !== 'same') await page.evaluate(change => {
+        const draft = (window as any).harnessWidgetState.privateContent.draft;
+        if (change === 'fen') draft.fen = '7k/8/8/8/8/8/8/7K w - - 0 1'; else draft.lans = ['e2-e5'];
+      }, change);
+      await remountBoard(page);
+      if (change === 'same') {
+        const draft = await savedDraft(page);
+        expect(draft.lans).toEqual(['e2-e4']);
+        expect(await frame.locator('#last-move').innerText()).toBe('White pawn e2 to e4.');
+        expect(await frame.locator('#short-move-words').innerText()).toBe('White pawn e2 → e4');
+        expect(await frame.locator('#status').textContent()).toBe('Your turn is ready. Select End turn.');
+        expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
+        expect(await boardFen(page)).toBe(toFen(applyLan(fromFen(base.fen),'e2-e4',base.rules!)!.pos));
+      } else {
+        expect(await savedDraft(page)).toBeNull();
+        expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
+        expect(await boardFen(page)).toBe(base.fen);
+      }
+    } finally { await page.close(); }
+  }
+});
+
+it('W7-04: a refused press after a real draw offer keeps T6 and the note, then saves the turn (D10)', async () => {
+  const page = await open(view('')), frame = page.frameLocator('iframe');
+  const tool = async (name: string, args: Record<string, unknown> = {}, friend = false) => {
+    const result = await (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', harness.url).href, {data:{name,arguments:args}})).json();
+    expect(result.isError, JSON.stringify(result.content)).not.toBe(true); return result;
+  };
+  try {
+    const created = await tool('kingdown_create', {kind:'friend', colour:'white', options:{...DEFAULT_OPTIONS, fairy:false, pool:[], classic:true, arrangement:false}});
+    const game_id = created._meta.view.game_id;
+    const invite = await tool('kingdown_invite', {game_id});
+    await tool('kingdown_join', {code:invite.structuredContent.code}, true);
+    const result = await tool('kingdown_open', {game_id});
+    await page.evaluate(result => (window as any).harnessShow(result), result);
+    await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
+    const base = result._meta.view as View;
+    await chooseTurnMove(page,'e2-e4',12);
+    const offered = (await tool('kingdown_draw', {game_id, choice:'offer'}, true))._meta.view as View;
+    expect(offered.revision).toBeGreaterThan(base.revision);
+    // The page still has the revision from before the offer. The server refuses that first press.
+    await frame.locator('#end-turn').click();
+    await frame.locator('#status').filter({hasText:'The game changed. Check it, then tap Send your turn.'}).waitFor();
+    await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
+    expect(await frame.locator('#context-note').innerText()).toContain('Your opponent offers a draw.');
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
+    expect((await savedDraft(page)).lans).toEqual(['e2-e4']);
+    expect(await frame.locator('#last-move').innerText()).toBe('White pawn e2 to e4.');
+    expect(await frame.locator('#short-move-words').innerText()).toBe('White pawn e2 → e4');
+    await frame.locator('#end-turn').click();
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending ?? null)).toBeNull();
+    const saved = (await tool('kingdown_get', {game_id}))._meta.view as View;
+    expect(saved.revision).toBe(offered.revision + 1);
+    setRules(base.rules!);
+    expect(saved.fen).toBe(toFen(applyLan(fromFen(base.fen),'e2-e4',base.rules!)!.pos));
+    expect(saved.draw_offer).toBeNull();
+    expect(saved.history!.actions).toEqual(['e2-e4']);
+    expect(await savedDraft(page)).toBeNull();
+    expect((await moveCalls(page)).map((c: any) => c.arguments.actions)).toEqual([['e2-e4'], ['e2-e4']]);
+  } finally { await page.close(); }
+});
+
+it('W7-04: a press refused with INVALID_MOVE drops the draft and reads once (D11)', async () => {
+  const {page,frame,base} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1');
+  try {
+    await chooseTurnMove(page,'e2-e4',12);
+    const reads = await getCalls(page);
+    await page.evaluate(() => { (window as any).rejectNextMove = 'INVALID_MOVE'; });
+    await frame.locator('#end-turn').click();
+    await frame.locator('#error').filter({hasText:'Harness definitive rejection'}).waitFor();
+    // The draft drops, the board returns to the base FEN, and the rollback reads the board once.
+    await expect.poll(() => savedDraft(page)).toBeNull();
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
+    await expect.poll(() => getCalls(page)).toBe(reads + 1);
+    await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
+    expect(await boardFen(page)).toBe(base.fen);
+    expect((await moveCalls(page)).length).toBe(1);
+  } finally { await page.close(); }
+});
+
+it('W7-04: a lost send keeps the ID, revision and actions for Retry, and drops the draft when the FEN moves (D12)', async () => {
+  const {page,frame,base} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1');
+  try {
+    await chooseTurnMove(page,'e2-e4',12);
+    await page.evaluate(() => { (window as any).dropNextMoveReply=true; });
+    await frame.locator('#end-turn').click();
+    await frame.locator('#retry').waitFor();
+    const first = (await moveCalls(page))[0].arguments;
+    // Undo is off while the send waits; the draft stays in widget state.
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
+    expect((await savedDraft(page)).lans).toEqual(['e2-e4']);
+    await frame.locator('#retry').click();
+    await frame.locator('#retry').waitFor({state:'hidden'});
+    const calls = await moveCalls(page);
+    expect(calls.length).toBe(2);
+    expect(calls.map((c: any) => [c.arguments.command_id, c.arguments.expected_revision, c.arguments.actions]))
+      .toEqual([[first.command_id, first.expected_revision, first.actions],[first.command_id, first.expected_revision, first.actions]]);
+    // The retry's read shows the sent position, so the base FEN moved and the draft drops.
+    await expect.poll(() => savedDraft(page)).toBeNull();
+  } finally { await page.close(); }
+});
+
+it('W7-04: keeps the draft through a sheet, Settings, Back and an equal-revision poll, and drops it for another game (D13)', async () => {
+  const {page,frame,base} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1');
+  try {
+    await chooseTurnMove(page,'e2-e4',12);
+    // A sheet.
+    await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Moves',exact:true}).click();
+    await page.keyboard.press('Escape');
+    expect((await savedDraft(page)).lans).toEqual(['e2-e4']);
+    // Settings, then back to the game.
+    await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Settings',exact:true}).click();
+    await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
+    await frame.locator('html').evaluate((_, next) => { (window as any).harnessApp.navigate('play'); (window as any).harnessApp.routeView(next); }, base);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await expect.poll(() => savedDraft(page)).toMatchObject({lans: ['e2-e4']});
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
+    expect(await frame.locator('#last-move').innerText()).toBe('White pawn e2 to e4.');
+    expect(await frame.locator('#short-move-words').innerText()).toBe('White pawn e2 → e4');
+    // An equal-revision poll keeps it.
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {...base, opponent: {...base.opponent, last_seen_ms: 1234}});
+    expect((await savedDraft(page)).lans).toEqual(['e2-e4']);
+    // Another game drops it.
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), view('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1'));
+    await expect.poll(() => savedDraft(page)).toBeNull();
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
   } finally { await page.close(); }
 });

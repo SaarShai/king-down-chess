@@ -3,6 +3,8 @@
 // read of the page board. Each job keeps the epoch it started in; a newer chat result or user command
 // makes an older job stale, and an older job writes only what the older-job rules allow.
 import { errorText } from './client';
+import type { View } from '../match/protocol';
+import type { KingChoice } from '../rules/rules';
 
 /** A tool result, as the transport gives it. */
 export type ToolResult = { isError?: boolean; content: { type: string; text?: string }[]; _meta?: Record<string, unknown>; structuredContent?: unknown };
@@ -17,6 +19,9 @@ export type Outcome =
 export type Kind = 'read' | 'write';
 
 export type JobOptions = {
+  origin?: Job;
+  king?: KingChoice | null;
+  then?: (view: View, origin: Job) => Promise<unknown>;
   retain?: boolean;
   quiet?: boolean;
   route?: boolean;
@@ -29,19 +34,16 @@ export type JobOptions = {
 };
 
 export type Job = {
-  id: number;
   kind: Kind;
   name: string;
   args: Record<string, unknown>;
   options: JobOptions;
   epoch: number;
-  mount: boolean;
   /** A sticky write changes a game or the account; a newer chat result never detaches it. */
   sticky: boolean;
   detached: boolean;
   started: boolean;
   done: boolean;
-  outcome?: Outcome;
   promise: Promise<Outcome>;
   resolve: (outcome: Outcome) => void;
   release: () => void;
@@ -58,19 +60,8 @@ export const resultText = (result: ToolResult) => result.content.filter(part => 
 /** The code of a refusal or a failure (HANDLE_NEEDED is a failure with a code, design §2). */
 export const resultCode = (result: ToolResult) => String(result._meta?.code ?? '');
 
-/** The outcome of one result: a refusal, a failure, or a done call with its view. */
-export function classify(result: ToolResult): Outcome {
-  if (result.isError) {
-    const text = resultText(result), code = resultCode(result);
-    return REFUSALS.includes(code) ? { status: 'refused', code, text, result } : { status: 'failed', ...(code && { code }), text };
-  }
-  return { status: 'done', result, view: result._meta?.view };
-}
-
-export type Queue = ReturnType<typeof createQueue>;
-
 export function createQueue() {
-  let epoch = 0, next = 0, closed = false;
+  let epoch = 0, closed = false;
   /** The write that holds the lane now. */
   let running: Job | undefined;
   /** The writes that wait for the lane, in order. */
@@ -81,14 +72,13 @@ export function createQueue() {
   let mount: Job | undefined;
   /** The page-board reads that wait for an idle lane. */
   const idleWaiters: (() => void)[] = [];
-  /** The writes whose body has not ended, a detached one included. A mount never resends one of these (design §5.3). */
+  /** The writes and retained reads whose body has not ended. A mount never resends one of these (design §5.3). */
   let inFlight = 0;
 
   const make = (kind: Kind, name: string, args: Record<string, unknown>, options: JobOptions): Job => {
     let resolve!: (outcome: Outcome) => void;
     return {
-      id: ++next, kind, name, args, options, epoch,
-      mount: !!options.mount,
+      kind, name, args, options, epoch: options.origin?.epoch ?? epoch,
       sticky: kind === 'write' && !DETACHABLE.includes(name),
       detached: false, started: false, done: false,
       promise: new Promise<Outcome>(settle => { resolve = settle; }),
@@ -98,7 +88,7 @@ export function createQueue() {
   /** Ends a job once. A detached job keeps running, but its later work writes nothing (the epoch gate). */
   function settle(job: Job, outcome: Outcome) {
     if (job.done) return;
-    job.done = true; job.outcome = outcome; job.resolve(outcome);
+    job.done = true; job.resolve(outcome);
     if (running === job) { running = undefined; pump(); flushIdle(); }
   }
   const detach = (job: Job) => { if (!job.done) { job.detached = true; if (!job.started) job.release(); settle(job, { status: 'superseded' }); } };
@@ -128,29 +118,31 @@ export function createQueue() {
   /** A user command: a new epoch, and every older read detaches. A write is untouched (design §2). */
   function command(kind: Kind, name: string, args: Record<string, unknown>, options: JobOptions = {}): Job {
     if (closed) { const job = make(kind, name, args, options); settle(job, { status: 'superseded' }); return job; }
-    if (kind === 'write' && options.user !== false) { epoch++; for (const job of [...reads]) if (job.epoch < epoch) detach(job); }
+    if (options.user !== false && !options.quiet && !options.mount && !options.origin) { epoch++; for (const job of [...reads]) if (job.epoch < epoch) detach(job); }
     return make(kind, name, args, options);
   }
   /** Runs one job's body. A write waits for the lane; a read of the page board waits for an idle lane. */
   async function run(job: Job, body: (job: Job) => Promise<Outcome | void>): Promise<Outcome> {
     if (closed || job.done) return job.promise;
+    const retainedRead = job.kind === 'read' && job.options.retain;
     if (job.kind === 'write') {
       inFlight++;
       await new Promise<void>(resolve => { job.release = resolve; line.push(job); pump(); });
       if (job.detached || job.done) { inFlight--; return job.promise; }
     } else {
+      if (retainedRead) inFlight++;
       // The read joins the set before it waits, so a newer chat result or a teardown detaches it also while it waits
       // for the lane (design §2 and §7.6 F4).
       reads.add(job);
       if (job.options.board && !job.detached && !closed) await laneIdle();
-      if (job.detached || closed) { reads.delete(job); return job.promise; }
+      if (job.detached || closed) { reads.delete(job); if (retainedRead) inFlight--; return job.promise; }
     }
     // The body runs on its own: a detached job settles at once (the epoch gate), and the body's later work writes
     // nothing. So the caller reads the outcome from the job, never from the body's return.
     void (async () => {
       try { settle(job, (await body(job)) ?? { status: 'done', result: EMPTY }); }
       catch (error) { settle(job, { status: 'failed', text: errorText(error) }); }
-      finally { if (job.kind === 'write') inFlight--; if (job.kind === 'read') reads.delete(job); if (mount === job && job.done) mount = undefined; }
+      finally { if (job.kind === 'write' || retainedRead) inFlight--; if (job.kind === 'read') reads.delete(job); if (mount === job && job.done) mount = undefined; }
     })();
     return job.promise;
   }
@@ -171,7 +163,7 @@ export function createQueue() {
     current: (job: Job) => !closed && job.epoch === epoch && !job.detached,
     /** The older-job rules let a write settle its own pending and show its own refusal. */
     writing: () => !!running,
-    /** A write whose body has not ended: a mount never resends one of these in the same live iframe (design §5.3). */
+    /** A write or retained read still in flight: a mount never resends it in this frame (design §5.3). */
     inflight: () => inFlight > 0,
     mounting: () => !!mount && !mount.done && mount.epoch === epoch,
     /** The mount job of the newest chat result; a mount's `initial` flag marks the first one. */

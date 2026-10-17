@@ -480,8 +480,6 @@ it('R2: a failed start does not lock another game (a.out 2)', async () => {
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
-// This fault is already masked on the merged base: the mount of a view-less chat result clears `view`, so the poll
-// sees `view !== before` and drops its reply (a.out 3). The test records the wanted behaviour.
 it('R3: a poll reply does not replace the screen that a chat result chose (a.out 3)', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -490,19 +488,24 @@ it('R3: a poll reply does not replace the screen that a chat result chose (a.out
     // A poll is in flight, and its reply brings a new revision.
     const view = await html(page).evaluate(() => (window as any).harnessApp.memory.view);
     await page.evaluate(next => { (window as any).harnessNextView = next; (window as any).holdNext = 'kingdown_get'; }, { ...view, revision: view.revision + 1 });
-    await html(page).evaluate(async (_, revision) => { await (window as any).harnessApp.call('kingdown_get', { since_revision: revision }, false, true, true); }, view.revision);
+    await html(page).evaluate((_, revision) => { const frame = window as any; frame.pollSettled = false; void frame.harnessApp.call('kingdown_get', { since_revision: revision }, false, true, true).then(() => { frame.pollSettled = true; }); }, view.revision);
     await page.waitForFunction(() => !!(window as any).releaseHeld);
+    expect(await html(page).evaluate(() => (window as any).pollSettled)).toBe(false);
+    expect(await html(page).evaluate(() => (window as any).harnessApp.client.inflight)).toBe(1);
     // The chat opens Profile; its games list waits too.
     await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_games'; });
     await page.evaluate(result => (window as any).harnessShow(result, true), await tool(page, '/fixture-tool', 'kingdown_open', { screen: 'profile' }));
     await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
     await page.waitForFunction(() => !!(window as any).releaseBefore);
     // The poll reply is older than the chat result, so Profile stays.
+    await settled(page);
+    expect(await html(page).evaluate(() => (window as any).harnessApp.client.inflight)).toBe(2);
     await page.evaluate(() => (window as any).releaseHeld());
     await settled(page);
     await page.evaluate(() => (window as any).releaseBefore());
     await settled(page);
     expect(await shownGame(page)).toMatchObject({ screen: 'profile' });
+    expect(await html(page).evaluate(() => (window as any).harnessApp.memory.view)).toBeUndefined();
   } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseBefore?.(); }); await page.close(); }
 });
 
@@ -654,7 +657,7 @@ it('R6: a command that starts while a read is in flight waits for it and runs (a
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
-it.fails('R10: a remount keeps a waiting move on A and sends nothing to the shown game (a.out 10)', async () => {
+it('R10: a remount keeps a waiting move on A and sends nothing to the shown game (a.out 10)', async () => {
   const page = await open();
   try {
     const a = await friendGame(page);
@@ -673,6 +676,13 @@ it.fails('R10: a remount keeps a waiting move on A and sends nothing to the show
     // The waiting move stays for A, with the connection words.
     const sent = await html(page).evaluate(() => (window as any).harnessApp.client.state.pending);
     expect(sent?.game_tag).toBe(a.game.slice(0, 8));
-    expect(sent?.error).toBeTruthy();
+    expect(sent?.error).toBe(CANNOT_CONNECT);
+    // Its Retry shows when A shows, and A never gets the move.
+    const aView = (await tool(page, '/fixture-tool', 'kingdown_get', { game_id: a.game }))._meta.view;
+    await html(page).evaluate((_, next) => (window as any).harnessApp.routeView(next), aView);
+    await page.frameLocator('iframe').locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await page.frameLocator('iframe').locator('#retry').isVisible()).toBe(true);
+    expect(await page.frameLocator('iframe').locator('#error').textContent()).toBe(CANNOT_CONNECT);
+    expect(await page.evaluate(game => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move' && c.arguments.game_id === game).length, a.game)).toBe(0);
   } finally { await page.close(); }
 });

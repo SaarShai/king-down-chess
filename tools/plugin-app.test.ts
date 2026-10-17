@@ -177,8 +177,9 @@ it('recovers a completed create or find after its reply is lost', async () => {
       const completed = await page.evaluate(() => (window as any).harnessView.game_id);
       await frame.locator('#retry').click();
       await frame.locator(`[data-screen="${kind === 'friend' ? 'friend' : 'wait'}"]:not([hidden])`).waitFor();
-      expect(await frame.locator('html').evaluate(() => (window as any).startResult.game_id)).toBe(completed);
-      expect(await page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name)).toBe(1);
+      expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(completed);
+      // Retry sends the same command ID again; the server receipt gives back the same game (design §5.2).
+      expect(await page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name)).toBe(2);
       expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
     } finally { await page.close(); }
   }
@@ -200,13 +201,13 @@ it('recovers a lost Create or Find reply when Save resumes the pending start', a
       await frame.locator('[data-nav="handle"]').click();
       await frame.locator('#save-handle').click();
       await frame.locator(`[data-screen="${kind === 'friend' ? 'friend' : 'wait'}"]:not([hidden])`).waitFor();
-      expect(await frame.locator('html').evaluate(() => (window as any).startResult.game_id)).toBe(completed);
-      expect(await page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name)).toBe(1);
+      expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(completed);
+      expect(await page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name)).toBe(2);
       expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
     } finally { await page.close(); }
   }
 });
-it('recovers a lost Create or Find reply on mount without another send', async () => {
+it('shows the saved failure words and Retry after a remount of a lost Create or Find reply, then finishes it', async () => {
   for (const kind of ['friend', 'random']) {
     const page = await open(), frame = page.frameLocator('iframe'), name = kind === 'friend' ? 'kingdown_create' : 'kingdown_find';
     try {
@@ -219,10 +220,14 @@ it('recovers a lost Create or Find reply on mount without another send', async (
       }, kind);
       await frame.locator('#retry').waitFor();
       const completed = await page.evaluate(() => (window as any).harnessView.game_id);
+      // At a remount, a pending with an error shows its saved words and Retry, and sends nothing by itself (design §5.3).
       await page.locator('#remount').click();
+      await frame.locator('#retry:not(:disabled)').waitFor();
+      await expect.poll(() => frame.locator('#error').textContent()).toBe('Harness lost reply after commit');
+      await frame.locator('#retry').click();
       await frame.locator(`[data-screen="${kind === 'friend' ? 'friend' : 'wait'}"]:not([hidden])`).waitFor();
       expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(completed);
-      expect(await page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name)).toBe(1);
+      expect(await page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name)).toBe(2);
       expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
     } finally { await page.close(); }
   }
@@ -672,7 +677,8 @@ it('updates activity on unchanged replies across the two-minute poll boundary', 
     })).toEqual({ delay: 30000, now: '2026-10-11T12:00:02Z' });
   } finally { await page.close(); }
 });
-it('keeps the start screen through HANDLE_NEEDED, Back, Save and deferred routing', async () => {
+// The start does not wait for the name: Save resends it, and its continuation finishes the start (design §5.2).
+it('keeps the start through HANDLE_NEEDED and Back, and Save finishes it', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await page.evaluate(() => { (window as any).requireHandleNext = true; });
@@ -685,11 +691,8 @@ it('keeps the start screen through HANDLE_NEEDED, Back, Save and deferred routin
     expect(await frame.locator('[data-screen="play"]').isVisible()).toBe(true);
     await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('handle'); });
     await frame.locator('#save-handle').click();
-    await frame.locator('html').evaluate(() => new Promise<void>(resolve => {
-      const tick = () => (window as any).startResult ? resolve() : setTimeout(tick, 10); tick();
-    }));
-    expect(await frame.locator('html').evaluate(() => (window as any).startResult.status)).toBe('waiting');
-    expect(await frame.locator('[data-screen="play"]').isVisible()).toBe(true);
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.status)).toBe('waiting');
     expect(await frame.locator('#retry').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
@@ -706,13 +709,12 @@ it('shows no Retry on New game while Save sends the waiting start again', async 
     expect(await frame.locator('#retry').isVisible()).toBe(false);
     expect(await frame.locator('#error').textContent()).toBe('');
     await page.evaluate(() => (window as any).releaseHeld());
-    await frame.locator('html').evaluate(() => new Promise<void>(resolve => {
-      const tick = () => (window as any).startResult ? resolve() : setTimeout(tick, 10); tick();
-    }));
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     expect(await frame.locator('#retry').isVisible()).toBe(false);
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
-it.each([true, false])('keeps route=%s through Save, a failed send and Retry', async route => {
+// The continuation of a resent start routes (design §5.2), so the start's own route option no longer matters here.
+it.each([true, false])('finishes a start with route=%s through Save, a failed send and Retry', async route => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await page.evaluate(() => { (window as any).requireHandleNext = true; (window as any).failActionAfterHandle = true; });
@@ -727,11 +729,8 @@ it.each([true, false])('keeps route=%s through Save, a failed send and Retry', a
     expect(await frame.locator('#error').textContent()).toBe('');
     await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('play'); });
     await frame.locator('#retry').click();
-    await frame.locator('html').evaluate(() => new Promise<void>(resolve => {
-      const tick = () => (window as any).startResult ? resolve() : setTimeout(tick, 10); tick();
-    }));
-    expect(await frame.locator('html').evaluate(() => (window as any).startResult.status)).toBe('waiting');
-    expect(await frame.locator(`[data-screen="${route ? 'friend' : 'play'}"]`).isVisible()).toBe(true);
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.status)).toBe('waiting');
     expect(await frame.locator('#retry').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
@@ -1146,7 +1145,8 @@ it('recovers a held move at 10 seconds and ignores its late reply', async () => 
     const first = calls.findIndex((c: any) => c.id === command);
     expect(calls.slice(first).filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.id)).toEqual([command, command]);
     const recovery = calls.slice(first + 1).filter((c: any) => ['kingdown_get', 'kingdown_move'].includes(c.name)).map((c: any) => c.name);
-    expect(recovery).toEqual(['kingdown_get', 'kingdown_move']);
+    // Retry resends the held move with its command ID; it reads nothing first (design §5.3).
+    expect(recovery).toEqual(['kingdown_move']);
     // Advance the other seat before the old revision arrives.
     const game_id = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
     const bob = await (await page.request.post(harness.url + 'fixture-friend-tool', { data: { name: 'kingdown_get', arguments: { game_id } } })).json();
@@ -1234,9 +1234,12 @@ it.each(['retry', 'remount'])('keeps the saved New game choices after a lost Pla
     expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(false);
     expect(await frame.locator('#setup-start').textContent()).not.toMatch(/Strong|Arrangement/);
     if (recovery === 'remount') await page.locator('#remount').click();
-    else await frame.locator('#retry').click();
+    // A remount of a pending with an error shows its saved words and Retry; the player taps Retry (design §5.3).
+    await frame.locator('#retry:not(:disabled)').waitFor();
+    await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
-    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(1);
+    // Retry resends the same command ID; the server receipt gives back one game (design §5.2).
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(2);
     expect(await frame.locator('#retry').isVisible()).toBe(false);
     expect(await page.evaluate(() => (window as any).harnessView)).toMatchObject({ kind: 'solo', level: 'beginner', options: { arrangement: false } });
     await hall(page);
@@ -1417,18 +1420,32 @@ it('shows the connection sentence with no error name on Settings', async () => {
   } finally { await page.close(); }
 });
 
-it('lets the mount reads wait past 10 seconds', async () => {
+it.each(['kingdown_settings', 'kingdown_get', 'kingdown_games'])('lets the mount %s read wait past 10 seconds', async held => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    if (held === 'kingdown_get') await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); });
+    const expected = await page.evaluate(() => ({ game: (window as any).harnessView?.game_id, revision: (window as any).harnessView?.revision }));
+    const listed = await (await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name: 'kingdown_games', arguments: {} } })).json();
     await page.clock.install();
-    await page.evaluate(() => { (window as any).holdNext = 'kingdown_settings'; });
+    await page.evaluate(name => { (window as any).holdNext = name; }, held);
     await page.locator('#remount').click();
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     await page.clock.fastForward(20_000);
+    expect(await frame.locator('html').evaluate(() => ({ mounting: (window as any).harnessApp.queue.mounting(), reads: (window as any).harnessApp.client.inflight }))).toEqual({ mounting: true, reads: 1 });
+    expect(await frame.locator('#home-play').isDisabled()).toBe(true);
+    expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
+    expect(await frame.locator('#home-error').textContent()).toBe('');
+    expect(await frame.locator('#error').textContent()).toBe('');
+    if (held === 'kingdown_games') expect(await frame.locator('#games-status').textContent()).toBe('Loading games…');
     await page.evaluate(() => (window as any).releaseHeld());
     await frame.locator('#home-play:not(:disabled)').waitFor();
+    await settled(page);
     expect(await frame.locator('#home-error').textContent()).toBe('');
-  } finally { await page.close(); }
+    expect(await frame.locator('#error').textContent()).toBe('');
+    expect(await frame.locator('#games-status').textContent()).toBe('');
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.games.map((g: any) => g.game_id))).toEqual(listed._meta.games.map((g: any) => g.game_id));
+    if (held === 'kingdown_get') expect(await frame.locator('html').evaluate(() => ({ game: (window as any).harnessApp.memory.view?.game_id, revision: (window as any).harnessApp.memory.view?.revision }))).toEqual(expected);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
 // Round 5 helpers: a player opens New game against a friend; the count of calls sent with one name.
@@ -1461,30 +1478,37 @@ it('makes one game when Retry resends a Create that the server has not run yet',
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
 
-// The device clock and the server clock differ. Retry reads the board first and finds the game that the timed-out Create made.
-it('makes one game when Retry reads a timed-out Create and the device clock is ahead of or behind the server', async () => {
+// The device clock and the server clock differ. Retry sends the same Create command ID again; the receipt gives back
+// the one game (R11). The clock compare is gone (design §5.2).
+it('makes one game when Retry resends a timed-out Create and the device clock is ahead of or behind the server', async () => {
   for (const offset of [60_000, -60_000]) {
     const page = await open(), frame = page.frameLocator('iframe');
     try {
       await newGame(page);
+      const before = (await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_games', arguments: {} } })).json())._meta.games.map((game: any) => game.game_id);
       await page.clock.install({ time: Date.now() + offset });
       await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
       await frame.locator('#setup-start').click();
       await page.waitForFunction(() => !!(window as any).releaseHeld);
+      const made = await page.evaluate(() => (window as any).harnessView.game_id);
       await page.clock.fastForward(10_001);
       await frame.locator('#retry').click();
       await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
-      expect(await sent(page, 'kingdown_create')).toBe(1);
+      const calls = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').map((c: any) => c.arguments));
+      expect(calls).toHaveLength(2);
+      expect(calls[0].command_id).toMatch(/^[0-9a-f]{32}$/);
+      expect(calls[1]).toEqual(calls[0]);
+      expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(made);
+      const after = (await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_games', arguments: {} } })).json())._meta.games;
+      expect(after.filter((game: any) => !before.includes(game.game_id)).map((game: any) => game.game_id)).toEqual([made]);
     } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
   }
 });
 
-// A lost Start reply, then a remount. The mount read takes the board's game when it began after the start: the device
-// clock gives only the time since the start. A clock that steps forward over the remount (as the plugin-ui check steps
-// over the boot timer) finds the game with no send. A clock that steps back below the real time cannot; the start keeps
-// its error and Retry, as a start that failed before a remount does (W6 a), and Retry sends the same command ID: the
-// start receipt gives back the first game.
-it('makes one game after a lost Start reply and a remount, when the device clock steps forward or back over the remount', async () => {
+// A lost Start reply, then a remount. The start receipt is the recovery: the remount sends nothing and shows the saved
+// words with Retry; Retry sends the same command ID, and the receipt gives back the first game. The device clock no
+// longer matters (design §5.2/§5.3).
+it('makes one game after a lost Start reply and a remount, with the device clock forward or back', async () => {
   for (const step of [300, -60_000]) {
     const page = await open(), frame = page.frameLocator('iframe');
     try {
@@ -1495,17 +1519,14 @@ it('makes one game after a lost Start reply and a remount, when the device clock
       await frame.locator('#setup-start').click(); await frame.locator('#retry').waitFor();
       const made = await page.evaluate(() => (window as any).harnessView.game_id);
       if (step > 0) await page.clock.fastForward(step); else await page.clock.setSystemTime(await page.evaluate(() => Date.now()) + step);
-      const reads = await sent(page, 'kingdown_get');
       await page.locator('#remount').click();
-      if (step < 0) {
-        await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
-        await frame.locator('#retry:not([hidden])').waitFor();
-        expect([await frame.locator('#error').textContent(), await sent(page, 'kingdown_create')], `step ${step}`).toEqual(['Harness lost reply after commit', 1]);
-        await frame.locator('#retry').click();
-      }
+      // A pending with an error shows its saved words and Retry; the remount sends nothing by itself (design §5.3).
+      await frame.locator('#retry:not(:disabled)').waitFor();
+      expect([await frame.locator('#error').textContent(), await sent(page, 'kingdown_create')], `step ${step}`).toEqual(['Harness lost reply after commit', 1]);
+      await frame.locator('#retry').click();
       await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
       const ids = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').map((c: any) => c.arguments.command_id));
-      expect(ids, `step ${step}`).toEqual(step > 0 ? [ids[0]] : [ids[0], ids[0]]);
+      expect(ids, `step ${step}`).toEqual([ids[0], ids[0]]);
       expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(made);
       expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
       const games = (await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_games', arguments: {} } })).json())._meta.games;
@@ -1549,7 +1570,6 @@ it('keeps a timed-out start and its Retry on New game when the player leaves at 
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await newGame(page);
-    // Recovery compares start dates. Keep virtual time behind the fixture server's real clock.
     await page.clock.install({ time: new Date(0) });
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
     await frame.locator('#setup-start').click();
@@ -1566,7 +1586,8 @@ it('keeps a timed-out start and its Retry on New game when the player leaves at 
     expect(await frame.locator('#setup-start').textContent()).toBe('Start game');
     await frame.locator('#retry').click();
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
-    expect(await sent(page, 'kingdown_create')).toBe(1);
+    // Retry resends the same command ID; the receipt gives back one game (design §5.2).
+    expect(await sent(page, 'kingdown_create')).toBe(2);
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
@@ -2348,7 +2369,8 @@ it('locks Home Play now while a lost hall start waits for Retry', async () => {
     await frame.locator('#retry:not(:disabled)').waitFor();
     await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
-    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(1);
+    // Retry resends the same command ID; the server receipt gives back one game (design §5.2).
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(2);
   } finally { await page.close(); await isolated.close(); }
 });
 
@@ -2385,6 +2407,8 @@ it('recovers a lost seat Ready before the computer makes the first move after re
     const reads = await sent(page, 'kingdown_settings');
     await page.locator('#remount').click();
     await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, reads);
+    // A pending with an error shows its saved words and Retry at the remount; Retry sends it, and Seat finishes (design §5.3).
+    await frame.locator('#retry:not(:disabled)').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending?.name ?? null)).toBeNull();
     await page.waitForFunction(() => (window as any).harnessView.turn === (window as any).harnessView.seat);

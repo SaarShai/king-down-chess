@@ -1,4 +1,5 @@
 import { call, client, memory, navigate, pollUpdate, routeView, start } from '../app';
+import type { Job } from '../queue';
 import { art } from '../art';
 import type { PollTarget } from '../poll';
 import { DEFAULT_OPTIONS, defaultChoice } from '../../match/setup';
@@ -48,23 +49,15 @@ async function computer() {
     if (solo?.status === 'setup' && solo.draw) {
       const choice = defaultChoice(options, { army: solo.draw, hand: solo.deal ?? [] }, solo.seat, Math.random, false);
       const args = { game_id: solo.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: solo.revision, ...choice, ready: true };
-      const choose = async (resend = false) => {
-        const chosen = await call('kingdown_choose', args, true, false, false, resend);
-        if (!chosen) return;
-        $('retry').removeEventListener('click', retry, true);
-        const next = await call('kingdown_get', {}, false, false, true);
-        if (next) syncWatch();
-      };
-      const retry = (event: Event) => {
-        if (client.state.pending?.args.command_id !== args.command_id) { $('retry').removeEventListener('click', retry, true); return; }
-        event.stopImmediatePropagation(); void choose(true);
-      };
-      $('retry').addEventListener('click', retry, true);
-      onStop(() => $('retry').removeEventListener('click', retry, true));
-      await choose(); return;
+      if (await call('kingdown_choose', args, true, false, false)) await finishHandoff();
+      return;
     }
     if (solo) { routeView(solo); await call('kingdown_games', {}); syncWatch(); }
   } finally { offering = false; }
+}
+/** The continuation of the handoff's Choose, also after Retry (design §5.2): read the game, then watch the human game. */
+export async function finishHandoff(_next?: View, origin?: Job) {
+  if (await call('kingdown_get', {}, { route: true, origin })) syncWatch();
 }
 async function readOpen(game: string) {
   const result = await client.call('kingdown_get', { game_id: game }, { background: true });
