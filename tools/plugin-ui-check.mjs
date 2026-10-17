@@ -2038,12 +2038,14 @@ try {
     const commands=[]; let story=`Move ${positionMoveNumber(position)}.`;
     for (const [index,lan] of state.play.entries()) {const step=applyLan(position,lan,sampleRules); assert(step,`${state.name}: the sample move is legal`); commands.push({seq:101+index,seat:position.turn,at:snapshot.server_now,action:{type:'turn',actions:[lan]}}); position=step.pos; story=step.words;}
     const finished=state.end?{status:'finished',result:{winner:0,reason:'checkmate'},outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:snapshot.server_now}]}}:{};
+    // Ticket 28 T2: the same position on the other player's turn, before the claim deadline passes.
+    if (state.claim) { await showSnapshot({...snapshot,revision:99+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:[],last_commands:commands,deadline_at:null},story); await zoomBoardFits('board-their-turn'); }
     await showSnapshot({...snapshot,...finished,revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:state.end?[]:legal(),last_commands:commands,deadline_at:state.claim?new Date(Date.now()-60000).toISOString():null},story);
     if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+14*RIPPLE_MS+50);}
     if (state.claim) assert.equal(await frame.locator('#status').innerText(),'mira_k has not moved for 3 days.');
     if (state.end) await frame.locator('#over.end-card[open]').waitFor();
     // Ticket 28 T1 and T2 at 200% zoom.
-    const zoomName={board:'board-turn','board-abort':'board-cards','board-claim':'board-their-turn'}[state.name];
+    const zoomName={board:'board-turn','board-abort':'board-cards'}[state.name];
     if (zoomName) await zoomBoardFits(zoomName);
     if (state.end) await zoomEndFits('end-win');
     if (state.name === 'board-abort') {
