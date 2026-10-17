@@ -655,7 +655,7 @@ it('R6: a command that starts while a read is in flight waits for it and runs (a
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
-it.fails('R10: a remount keeps a waiting move on A and sends nothing to the shown game (a.out 10)', async () => {
+it('R10: a remount keeps a waiting move on A and sends nothing to the shown game (a.out 10)', async () => {
   const page = await open();
   try {
     const a = await friendGame(page);
@@ -674,6 +674,13 @@ it.fails('R10: a remount keeps a waiting move on A and sends nothing to the show
     // The waiting move stays for A, with the connection words.
     const sent = await html(page).evaluate(() => (window as any).harnessApp.client.state.pending);
     expect(sent?.game_tag).toBe(a.game.slice(0, 8));
-    expect(sent?.error).toBeTruthy();
+    expect(sent?.error).toBe(CANNOT_CONNECT);
+    // Its Retry shows when A shows, and A never gets the move.
+    const aView = (await tool(page, '/fixture-tool', 'kingdown_get', { game_id: a.game }))._meta.view;
+    await html(page).evaluate((_, next) => (window as any).harnessApp.routeView(next), aView);
+    await page.frameLocator('iframe').locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await page.frameLocator('iframe').locator('#retry').isVisible()).toBe(true);
+    expect(await page.frameLocator('iframe').locator('#error').textContent()).toBe(CANNOT_CONNECT);
+    expect(await page.evaluate(game => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move' && c.arguments.game_id === game).length, a.game)).toBe(0);
   } finally { await page.close(); }
 });

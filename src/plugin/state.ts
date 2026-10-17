@@ -43,6 +43,9 @@ const START_TOOLS = ['kingdown_create', 'kingdown_find'];
 /** A start, or the step of one that still holds the setup flow. */
 export const isStart = (pending: Pending) => START_TOOLS.includes(pending.name);
 
+/** A start, or a step of one that still holds the setup flow: it belongs to Play, not to the game the page shows. */
+export const isStartStep = (pending: Pending) => isStart(pending) || pending.screen === 'play' || !!pending.quick;
+
 /** Derived, never stored (design §1.1). */
 export const blocked = (page: Page) => !page.connected || page.writing || page.mounting;
 
@@ -53,7 +56,7 @@ export function pendingHere(page: Page) {
   // A game command belongs to the game it names, only while that game shows on a game screen.
   if (pending.game_tag && GAME_SCREENS.includes(page.screen) && !!page.view?.game_id.startsWith(pending.game_tag)) return true;
   // A start keeps the setup flow: its error and Retry show on Play only.
-  if (pending.screen === 'play' || isStart(pending) || pending.quick) return page.screen === 'play';
+  if (isStartStep(pending)) return page.screen === 'play';
   // A command with no game shows on the screen where it failed.
   return !pending.game_tag && pending.error_screen === page.screen;
 }
