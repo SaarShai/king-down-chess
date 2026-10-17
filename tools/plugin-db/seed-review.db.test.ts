@@ -5,6 +5,12 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GameService } from '../../src/match/service';
 import { PostgresMatchStore } from '../../src/match/store';
 import { seedReview } from './seed-review';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { createPluginServer } from '../../src/plugin/server';
+import { PluginService } from '../../src/plugin/service';
+import { DEFAULT_OPTIONS } from '../../src/match/setup';
+import type { View } from '../../src/match/protocol';
 
 const url = process.env.PLUGIN_TEST_DATABASE_URL;
 const suite = url ? describe : describe.skip;
@@ -18,6 +24,31 @@ suite('the review account seed', () => {
   await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1))', [users]);
   await pool.query('delete from auth.users where id=any($1)', [users]);
   await pool.end();
+ });
+
+ it('counts three active games and two player turns after P1 and P2', async () => {
+  const review = await account('p3-review'), opponent = await account('p3-friend');
+  const seeded = await seedReview(pool, review, opponent, { review: `p3-r-${tag}`, opponent: `p3-f-${tag}` });
+  const server = createPluginServer({ service: new PluginService(new PostgresMatchStore(pool)), actorId: seeded.review, resourceHtml: '<html>board</html>', publicOrigin: 'https://kingdown.example' });
+  const client = new Client({ name: 'packet-test', version: '1' }), [a, b] = InMemoryTransport.createLinkedPair();
+  try {
+   await server.connect(a); await client.connect(b);
+   const call = async (name: string, args: Record<string, unknown> = {}) => {
+    const result = await client.callTool({ name, arguments: args });
+    expect(result.isError, name).not.toBe(true);
+    return result;
+   };
+   const opened = await call('kingdown_open');
+   expect(opened.content).toEqual([{ type: 'text', text: 'Your move in 1 game.' }]);
+   let view = (await call('kingdown_create', { kind: 'solo', colour: 'white', level: 'beginner', options: { ...DEFAULT_OPTIONS, kingPowers: true, arrangement: true } }))._meta!.view as View;
+   view = (await call('kingdown_open', { game_id: view.game_id }))._meta!.view as View;
+   view = (await call('kingdown_choose', { game_id: view.game_id, command_id: randomUUID(), expected_revision: view.revision, king: { king: 'Flame', power: 'Haste' }, order: view.draw!, ready: true }))._meta!.view as View;
+   expect(view.status).toBe('playing');
+   view = (await call('kingdown_move', { game_id: view.game_id, command_id: randomUUID(), expected_revision: view.revision, actions: [view.legal.find(lan => !lan.includes('!'))!] }))._meta!.view as View;
+   view = (await call('kingdown_computer', { game_id: view.game_id, command_id: randomUUID(), expected_revision: view.revision }))._meta!.view as View;
+   expect(view.action).toBe('ready');
+   expect((await call('kingdown_games')).content).toEqual([{ type: 'text', text: '3 active games; your turn in 2.' }]);
+  } finally { await client.close(); await server.close(); }
  });
 
  it('makes a won friend game, an active friend game on their move, and a computer game on your move', async () => {

@@ -356,7 +356,11 @@ async function mountBody(job: Job, result: ToolResult) {
       const next = await call('kingdown_get', {}, false, false, route, false);
       if (stale()) return;
       if (savedGame && !route && next && (next.status === 'finished' || next.status === 'aborted')) routeView(next);
-    } else if (!result._meta?.view) view = undefined;
+    } else if (!result._meta?.view) {
+      view = undefined;
+      // A game return screen needs a view; a chat result with no route leaves the hall as its return screen.
+      if (resume && GAME_SCREENS.includes(resume)) navigate('play');
+    }
     if (!readBoard) await games(() => queue.current(job));
     if (stale()) return;
     saveState();
@@ -557,7 +561,7 @@ function homePlayNow() { collapsed = false; resume = undefined; void fullscreen(
 $('home-play').onclick = () => {
   const game = homeGame();
   if (resume && resume !== 'play') { const next = resume; collapsed = false; resume = undefined; void fullscreen(next); }
-  else if (game) { collapsed = false; void fullscreen('home'); void call('kingdown_resume', { game_id: game.game_id }); }
+  else if (game) { collapsed = false; void fullscreen('home'); void call(state.board_id ? 'kingdown_resume' : 'kingdown_open', { game_id: game.game_id }); }
   else homePlayNow();
 };
 $('home-games').onclick = () => { collapsed = false; resume = undefined; gamesFirst = true; void fullscreen('play'); };

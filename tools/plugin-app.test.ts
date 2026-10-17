@@ -98,6 +98,39 @@ it('keeps a board open without a game on home and stores its ID only in private 
 const expand = (page: Page) => page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'] }));
 // Tests of the hall itself open it directly.
 async function hall(page: Page) { await expand(page); await page.frameLocator('iframe').locator('html').evaluate(() => (window as any).harnessApp.navigate('play')); }
+it.each(['games', 'profile'] as const)('keeps a valid Resume route after a %s result clears the game behind home', async route => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  let game_id: string | undefined;
+  try {
+    await hall(page);
+    game_id = await frame.locator('html').evaluate(async () => {
+      await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', level: 'beginner', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } });
+      return (window as any).harnessApp.memory.view.game_id as string;
+    });
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] }));
+    await frame.locator('#home-card:not([hidden])').waitFor();
+    const result = await page.evaluate(route => (window as any).harnessTool(route === 'profile'
+      ? { name: 'kingdown_open', arguments: { screen: 'profile' } }
+      : { name: 'kingdown_games', arguments: {} }), route);
+    const lists = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length);
+    await page.evaluate(result => (window as any).harnessShow(result, true), result);
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length > n, lists);
+    await settled(page);
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view)).toBeUndefined();
+    await expect.poll(() => page.evaluate(() => (window as any).harnessWidgetState.privateContent.queued)).toBe(route === 'profile' ? 'profile' : 'play');
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => ['kingdown_open', 'kingdown_resume'].includes(c.name)).length);
+    await frame.locator('#home-play:not(:disabled)').click();
+    await frame.locator(`[data-screen="${route === 'profile' ? 'profile' : 'board'}"]:not([hidden])`).waitFor();
+    if (route === 'games') {
+      expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view?.game_id)).toBe(game_id);
+      expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => ['kingdown_open', 'kingdown_resume'].includes(c.name)).length)).toBeGreaterThan(reads);
+    }
+  } finally {
+    if (game_id) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } });
+    await page.close();
+  }
+});
 async function start(page: Page, route = true) {
   await expand(page);
   await page.frameLocator('iframe').locator('html').evaluate((_, route) => {

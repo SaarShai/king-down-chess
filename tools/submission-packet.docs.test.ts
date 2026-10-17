@@ -74,8 +74,8 @@ test('the skill names both turn button words', () => {
     `A turn goes to the game only when the player presses the turn button on the board: ${computer} against the computer, ${person} against a person.`);
 });
 
-// The review seed creates one active friend game and one active computer game.
-test('both P3 copies use the review seed count', () => {
-  expect(rows.get('P3')![3]).toContain('2 active games; your turn in 1.');
-  expect(imported.positive[2].expected_behavior).toContain('2 active games; your turn in 1.');
+// P3 counts the two seed games and the P2 game after the computer reply.
+test('both P3 copies count the review seed and the P2 game', () => {
+  expect(rows.get('P3')![3]).toContain('3 active games; your turn in 2.');
+  expect(imported.positive[2].expected_behavior).toContain('3 active games; your turn in 2.');
 });

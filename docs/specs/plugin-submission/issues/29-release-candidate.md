@@ -28,7 +28,7 @@ The checks pass only when each command ends with exit 0. The browser log must na
 ### Step 1: submit-prep
 
 - Merge source: f4571b9d. Keep the privacy, consent, server limits and host changes.
-- The review seed makes two active games. Both P3 copies now say 2.
+- The review seed makes two active games. P2 adds one game before P3. Both P3 copies must count all three games, with two on the player's turn.
 - Keep the current fullscreen P1 text. The ticket 15 patch follows this merge.
 - Resolve 20 file conflicts. The merge message lists each file and its result.
 - Keep the state store, command queue and one poll. Add the online choices and block notice to those paths.
@@ -36,7 +36,7 @@ The checks pass only when each command ends with exit 0. The browser log must na
 - Keep the current hall, turn draft, end card, sound and motion. Keep the new privacy and block controls.
 - The type check passes after the code merge. Full checks follow all merges.
 
-- Apply ticket 15 after-merge changes to P2, row 49, the skill and copy checks. Keep the approved fullscreen P1 words in both copies. Add a check for the two-game P3 count.
+- Apply ticket 15 after-merge changes to P2, row 49, the skill and copy checks. Keep the approved fullscreen P1 words in both copies. Check the P3 count after P2, as the packet order requires.
 
 ### Steps 2 to 6
 
@@ -86,3 +86,24 @@ The checks pass only when each command ends with exit 0. The browser log must na
 - The first coin-selector fix raises the generic disabled rule's specificity. Both browser checks catch its effect on disabled king pictures. Use :not(:where(.coin)) to keep the generic rule's original specificity. This is the same exclusion pattern as the app controls. Keep the existing king-picture assertion.
 
 - At 568a9f42, plugin-ui-http passes in 199.1 s. The fixture check finds end-table content 402 px wide inside a 400 px table. Add child bounds to the same assertion to identify the source. Keep the 1 px tolerance.
+
+### Part 29-merge-review: plan and checks
+
+1. Check each review finding against the current code. Test the review seed, P2 setup, one submitted turn, the computer reply and the P3 text on the local test database.
+2. Test a chat result that clears the game behind the home card. Check an explicit Profile route and a result with no route. Clear any game return screen when its view clears. Keep valid routes.
+3. Run `npm test` with the local test database. Commit the fixes and tests. Run `plugin-ui` and `plugin-ui-http` through the required check runner at that commit.
+4. Record the findings, reasons, checked head and check results here. Write the complete answer to `29-merge-review-fix.md` in the release scratchpad lane.
+
+The checks pass only when the unit suite ends with exit 0 and each browser log has its final runner exit line. Do not change any time limit.
+
+#### Findings
+
+- Review A, finding 1: confirmed. P3 runs after P2. Both packet copies now say `3 active games; your turn in 2.` The copy test checks that count. The database test runs the seed, P1, P2 setup, one submitted turn and the computer reply before it checks P3.
+- Review B, finding 1: the stale return screen is a fault for a chat result with no view and no route, such as `kingdown_games`. Clear the game return screen when that view clears. Resume then reads the selected game. A result with no board ID uses Open to get its board. The app test checks the saved return screen, a fresh read and the same game ID.
+- Review B's Profile example does not keep the old game return screen in this code. `navigate('profile')` replaces it. The error path also replaces it with Join. Keep both routes. The second app case checks that the explicit Profile result still opens Profile.
+
+#### Check evidence
+
+- The packet and seed checks pass: 14 tests and 50 drawing tests. Log: `tests-review-packet-2.txt` in the release scratchpad lane.
+- The full `npm test` run passes with the local test database: 186 files; 2,998 passed tests, one expected failure and eight skipped tests. All 50 drawing tests pass. The type check passes as part of that command. Log: `tests-review-full-1.txt` in the same lane.
+- The browser checks run after this commit through the required runner. Their checked head, final exit lines and results go in `29-merge-review-fix.md` in the same lane. Keep all source files fixed during that run.
