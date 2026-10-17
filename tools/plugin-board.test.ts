@@ -201,7 +201,7 @@ it.each([{ width: 393, height: 852, cards: true }, { width: 320, height: 568, ca
       await frame.getByRole('button', { name: 'Cancel', exact: true }).waitFor();
       expect(await frame.locator('#game-table').evaluate(edgeMisses)).toEqual([]);
     }
-    expect.soft(await frame.locator('#strip-me').evaluate(e => { const r = e.querySelector('.coin img')!.getBoundingClientRect(); return [r.width, r.height]; })).toEqual(cards ? [26, 26] : [30, 30]);
+    expect.soft(await frame.locator('#strip-me').evaluate(e => { const r = e.querySelector('.coin img')!.getBoundingClientRect(); return [r.width, r.height]; })).toEqual(cards ? [36, 36] : [30, 30]);
     // U6 (taste preview): under 350 px the four cards go below the player name, so that row has two 44 px rows.
     expect(await frame.locator('#strip-me').evaluate(e => e.getBoundingClientRect().height)).toBe(cards && width === 320 ? 88 : 44);
   } finally { await page.close(); }
@@ -312,7 +312,7 @@ it.each([[393, 852], [360, 740], [320, 568]])('serves 48 px targets on Seat and 
         const section = frame.locator(`[data-screen="${screen}"]`);
         expect(await section.evaluate(targetMisses)).toEqual([]);
         expect(await section.evaluate(edgeMisses)).toEqual([]);
-        expect(await section.evaluate((e, coin) => { const r = e.querySelector(`${coin} img`)!.getBoundingClientRect(); return [r.width, r.height]; }, coin)).toEqual(cards ? [26, 26] : [30, 30]);
+        expect(await section.evaluate((e, coin) => { const r = e.querySelector(`${coin} img`)!.getBoundingClientRect(); return [r.width, r.height]; }, coin)).toEqual(cards ? [36, 36] : [30, 30]);
       }
     }
   } finally { await page.close(); }
