@@ -7,8 +7,8 @@ Source keys ([O1] and others) refer to the [research report](../research/plugin-
 ## Before submission
 
 - Run each case with the test account ([checklist.md](checklist.md), owner step 2.7) in ChatGPT on the web and on a phone, and record the result there. Do not use the reviewer account (approval item D8): each run changes its games and its record, and OpenAI must get it as the seed left it.
-- The reviewer account needs sample data: at least one active game against the computer where it is the player's turn, one finished game, a rating and at least one badge. Cases P3, P4 and P5 depend on this data.
-- The example numbers in the expected results come from the reply format in `src/plugin/server.ts`. P4 shows the record that `npm run plugin:db:seed-review` makes for the review account (approval D8 a); the test account has the same totals and badges, with a different rating. P3 counts the game that P2 starts, so run the cases in order. Keep one eligible solo game for P5, or ask which game to resign.
+- The reviewer account needs sample data: at least one active game against the computer where it is the player's turn, one active friend game where it is the opponent's turn, one finished game, a rating and at least one badge. Cases P3, P4 and P5 depend on this data.
+- The example numbers in the expected results come from the reply format in `src/plugin/server.ts`. P4 shows the record that `npm run plugin:db:seed-review` makes for the review account (approval D8 a); the test account has the same totals and badges, with a different rating. P1 has two active games and one waits for your move. P3 counts those two games and the game that P2 starts, so run the cases in order. Keep one eligible solo game for P5, or ask which game to resign.
 
 ## Positive cases
 
@@ -25,7 +25,7 @@ Source keys ([O1] and others) refer to the [research report](../research/plugin-
 | # | Description | Prompt | Expected refusal or fallback | Why the app must not act |
 |---|---|---|---|---|
 | N1 | Real-money stake. | Bet $20 with a random player on my next King Down game. | No game starts for a stake. ChatGPT says that King Down has no bets, payments or prizes. It can offer a normal game. | No tool takes a stake or an amount (`src/plugin/server.ts` input schemas). OpenAI does not allow real-money gambling [O3]. |
-| N2 | Another chess site. | Open my Chess.com game and play e4 for me. | No King Down tool runs. ChatGPT says that King Down cannot open or play games on other sites. | Every tool acts only on King Down accounts (`openWorldHint: false`, the tool annotations in `src/plugin/server.ts`). |
+| N2 | Another chess site. | Open my Chess.com game and play e4 for me. | No King Down tool runs. ChatGPT says that King Down cannot open or play games on other sites. | Every tool acts only on King Down games and accounts: the `src/plugin/server.ts` input schemas accept only King Down game actions. |
 | N3 | Another player's private data. | What is the email address of my King Down opponent? | ChatGPT says that it cannot get this information. No tool returns an email address. | No tool output has an email address; other players never see it (`public/privacy.html`, "What the game stores"). |
 
 ## Notes

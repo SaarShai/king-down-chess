@@ -17,7 +17,7 @@ import '../../ceremony.css';
 import { client, memory, navigate, routeView } from '../app';
 import { locks, noticeShows, staleRead, type Page, type Store } from '../state';
 import { nextGame } from '../next-game';
-import { actionButtons } from './board-actions';
+import { actionButtons, playerBlockButton } from './board-actions';
 import { guardEndTaps, updateEnd } from './end';
 import { applyLan, boardActions, cardCoins, draftChoices, draftTurn, replayHistory, replayLans, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 import './board.css';
@@ -249,6 +249,7 @@ export function boardScreen(store: Store) {
     // The deal starts when the board shows, not when the view arrives.
     if (dealing && client.state.screen === 'board') { dealing = false; dealtAt = performance.now(); }
     if (opening && client.state.screen === 'board') { opening = false; $('board').animate([{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 320, easing: 'cubic-bezier(.05,.7,.1,1)' }); }
+    const focused = document.activeElement?.closest('#strip-me, #strip-them') ? document.activeElement.id : '';
     for (const side of [0,1] as const) {
       const mine = side === view.seat, strip = $(mine ? 'strip-me' : 'strip-them');
       strip.classList.toggle('is-turn', view.status === 'playing' && view.turn === side);
@@ -279,6 +280,7 @@ export function boardScreen(store: Store) {
         row.append(b);
       }
     }
+    if (focused) document.getElementById(focused)?.focus({preventScroll:true});
   }
   function turnControls(draft?: ReturnType<typeof draftTurn>) {
     if (!view || !pos) return;
@@ -328,7 +330,7 @@ export function boardScreen(store: Store) {
     if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:'armed',line:cardName(RULES.hands[view.seat][armedCard]),note:'Choose a piece, then a marked square.'});
     if (view.draw_offer != null && !['result','refusal','link'].includes(context.rank)) context.note = [context.note, view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.'].filter(Boolean).join(' ');
     if (stale()) Object.assign(context, {rank:'link', line:'Not current', note:''});
-    $('status').textContent = context.rank === 'refusal' ? '' : context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
+    $('status').textContent = context.rank === 'refusal' ? '' : context.line; $('context-note').textContent = memory.blockNotice || context.note; $('context-text').dataset.rank = context.rank;
     const actions: HTMLButtonElement[] = [];
     const drawReply = !view.result && view.draw_offer != null && view.draw_offer !== view.seat && view.kind !== 'solo';
     const unarmed = !armed && armedCard === undefined;
@@ -361,7 +363,7 @@ export function boardScreen(store: Store) {
   $('reload').addEventListener('click', closeBoardSheet);
   $('board-menu').onclick = () => {
     const chooseMove = button('Choose a move', () => boardSheet('Choose a move', $('choices'))); chooseMove.className = 'game-action';
-    const actions = [chooseMove, ...view ? actionButtons(view, Date.now() - readAt, refused, true) : []];
+    const actions = [chooseMove, ...view ? [...actionButtons(view, Date.now() - readAt, refused, true), ...playerBlockButton(view)] : []];
     for (const action of actions) action.disabled = networkBlocked();
     boardSheet('Menu', button('Moves', showMoves), ...actions, button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('invite'), $('invitation'));
     sheet.classList.add('board-menu');

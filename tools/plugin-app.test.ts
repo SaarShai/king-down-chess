@@ -21,10 +21,8 @@ async function open(url = harness.url) {
 async function settled(page: Page) {
   const end = Date.now() + 5000;
   for (;;) {
-    const done = await page.evaluate(() => {
-      const frame = document.querySelector('iframe')?.contentWindow as any;
-      return frame?.harnessApp?.client?.inflight === ((window as any).harnessHeld ?? 0);
-    });
+    const held = await page.evaluate(() => (window as any).harnessHeld ?? 0);
+    const done = await page.frameLocator('iframe').locator('html').evaluate((_, held) => (window as any).harnessApp.client.inflight === held, held);
     if (done) break;
     if (Date.now() > end) throw new Error('settled: the frame still waits for a call');
     await new Promise(resolve => setTimeout(resolve, 10));
@@ -114,6 +112,9 @@ it('reads a saved board at mount and shows Retry with the saved failure words', 
   try {
     await expand(page);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white' }); });
+    // The friend screen opens after the host grants fullscreen. Its state write reaches the host page by postMessage,
+    // so the check waits for it before it replaces the saved state.
+    await page.waitForFunction(() => (window as any).harnessWidgetState?.privateContent?.screen === 'friend');
     await page.evaluate(() => {
       const host = window as any;
       host.harnessWidgetState = { modelContent: {}, privateContent: { screen: 'play', board_id: host.harnessWidgetState.privateContent.board_id, pending: { name: 'kingdown_create', args: { kind: 'friend' }, error: 'The reply was lost.', error_screen: 'play' } } };
@@ -557,11 +558,14 @@ it('keeps chat preview and code errors in page memory on notification and mount'
     }
   } finally { await page.close(); }
 });
+// A static field takes text before the mount read ends. The mount then draws its screen from the new page's memory and
+// would clear what the player typed, so the code field stays blocked until the Join handlers are ready.
 it('reads a friend code again after the join preview remounts', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   const tool = async (path: string, name: string, args = {}) => (await page.request.post(new URL(path, harness.url).href, { data: { name, arguments: args } })).json();
   try {
     await expand(page);
+    // A saved board makes the mount read it; the test holds that read.
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); });
     const friend = await tool('/fixture-friend-tool', 'kingdown_create', { kind: 'friend', colour: 'white' });
     const invite = await tool('/fixture-friend-tool', 'kingdown_invite', { game_id: friend._meta.view.game_id });
@@ -580,7 +584,7 @@ it('reads a friend code again after the join preview remounts', async () => {
     await filled; await frame.locator('#join-entry button').click();
     await frame.locator('#join-confirm').waitFor();
     expect(await frame.locator('#join-help').textContent()).toBe('Review this game before you join.');
-  } finally { await page.close(); }
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 it('shows both setup states in the app games rows', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
@@ -615,7 +619,8 @@ it('updates activity on unchanged replies across the two-minute poll boundary', 
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
       await app.call('kingdown_create', { kind: 'friend', colour: 'white' });
-      (parent as any).harnessNextView = { ...app.memory.view, status: 'playing', speed: 'daily', turn: 1, seat: 0, opponent: { last_seen_ms: 119000 }, server_now: '2026-10-11T12:00:00Z' };
+      // The harness postMessage hook sets a host flag in order with the frame's next tool call.
+      parent.postMessage({ harness: 'set', values: { harnessNextView: { ...app.memory.view, status: 'playing', speed: 'daily', turn: 1, seat: 0, opponent: { last_seen_ms: 119000 }, server_now: '2026-10-11T12:00:00Z' } } }, '*');
       await app.call('kingdown_get', {});
     });
     const before = await frame.locator('html').evaluate(async () => {
@@ -625,7 +630,7 @@ it('updates activity on unchanged replies across the two-minute poll boundary', 
     expect(before).toBe(3000);
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
-      (parent as any).harnessNextView = { ...app.memory.view, opponent: { last_seen_ms: 121000 }, server_now: '2026-10-11T12:00:02Z' };
+      parent.postMessage({ harness: 'set', values: { harnessNextView: { ...app.memory.view, opponent: { last_seen_ms: 121000 }, server_now: '2026-10-11T12:00:02Z' } } }, '*');
       await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true, false);
     });
     expect(await frame.locator('html').evaluate(async () => {
@@ -1346,6 +1351,25 @@ it('shows a neutral Start game beside the connection line when a slow start time
   } finally { await page.close(); }
 });
 
+it('starts no game when the player goes Back while a slow start still saves the setup', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page); await frame.locator('#home-play').click(); await frame.locator('#play-new').click();
+    await page.clock.install();
+    await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_settings'; });
+    await frame.locator('#setup-start').click();
+    await page.waitForFunction(() => !!(window as any).releaseBefore);
+    // After 5 s Back is free, and no Create has gone out yet.
+    await page.clock.fastForward(5_001);
+    await frame.locator('#page-back:not(:disabled)').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await page.evaluate(() => (window as any).releaseBefore());
+    await frame.locator('#page-back:not([data-free])').waitFor({ state: 'attached' });
+    expect(await sent(page, 'kingdown_create')).toBe(0);
+    expect(await frame.locator('body').getAttribute('data-page')).toBe('play');
+  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+});
+
 it('shows the connection sentence with no error name on Settings', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -1652,7 +1676,7 @@ it('opens the game of a chat result while the end screen of the last game still 
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
       await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true, true);
-      (window.parent as any).holdNext = 'kingdown_get';
+      parent.postMessage({ harness: 'set', values: { holdNext: 'kingdown_get' } }, '*');
     });
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     await frame.locator('[data-screen="end"]:not([hidden])').waitFor();
@@ -2021,6 +2045,22 @@ it('keeps a failed read board locked until a good read, and offers Try again aft
   } finally { await page.close(); }
 });
 
+it('lets the board read for a chat result with a game wait past 10 seconds', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    const game_id = await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_create', { kind: 'solo', colour: 'white' }); return app.memory.view.game_id; });
+    await page.clock.install();
+    // holdBeforeNext takes the next call that starts, so a poll read that is already on its way is not held.
+    await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_get'; });
+    await page.evaluate(game_id => (window as any).harnessShow({ content: [], structuredContent: { screen: 'board', game_id } }), game_id);
+    await page.waitForFunction(() => !!(window as any).releaseBefore);
+    await page.clock.fastForward(20_000);
+    await page.evaluate(() => (window as any).releaseBefore());
+    await frame.locator('#page-back:not(:disabled)').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe('');
+  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+});
 
 it.each([true, false])('keeps a saved setting when the first settings reply comes late (new result has settings: %s)', async carriesSettings => {
   const page = await open(), frame = page.frameLocator('iframe');

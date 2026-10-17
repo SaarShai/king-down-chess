@@ -4,11 +4,12 @@
 // so the `npm` stub also logs the runner. Origin/main holds a stub `tools/wt.sh`, because the deploy
 // script calls the `wt` of the commit that it tests; the stub logs `wt add <path>`.
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.setConfig({ testTimeout: 60_000 }); // each case runs a real script or hook in a child process; under load one takes more than vitest's 5 s
@@ -126,7 +127,7 @@ describe('deploy.sh', () => {
     }
   });
 
-  it('sets only the six plugin values through stdin and prints none of their values', () => {
+  it('sets only the seven plugin values through stdin and prints none of their values', () => {
     const { repo, deploy, calls } = setup();
     const values = {
       KINGDOWN_PLUGIN_ORIGIN: 'https://kingdown-plugin.vercel.app',
@@ -134,7 +135,7 @@ describe('deploy.sh', () => {
       SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test',
       KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: 'a6478e14-9e9a-43a7-a4b7-b888aed30791',
       KINGDOWN_PLUGIN_DATABASE_URL: 'postgresql://kingdown_plugin_runtime.utqzovjmclfyojedmwok:fake-test-password@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require',
-      KINGDOWN_PLUGIN_OAUTH_READY: '0',
+      KINGDOWN_PLUGIN_OAUTH_READY: '0', KINGDOWN_INTERNAL_SECRET: 'fake-internal-secret-for-plugin-tests',
     };
     const file = join(repo.root, 'plugin.env');
     const inputDir = join(repo.root, 'env-input'); mkdirSync(inputDir);
@@ -143,18 +144,18 @@ describe('deploy.sh', () => {
     expect(result.status, result.stderr).toBe(0);
     for (const [key, value] of Object.entries(values)) expect(readFileSync(join(inputDir, key), 'utf8')).toBe(value);
     const writes = calls().filter(line => line.includes(' env add '));
-    expect(writes).toHaveLength(6);
+    expect(writes).toHaveLength(7);
     expect(writes.every(line => line.includes('production --force --sensitive --yes --scope saars-projects-2c777ec5'))).toBe(true);
-    expect(result.stdout + result.stderr + calls().join('\n')).not.toContain('fake-test-password');
+    expect(result.stdout + result.stderr + calls().join('\n')).not.toMatch(/fake-test-password|fake-internal-secret/);
     expect(calls().some(line => line.startsWith('npm ') || line.includes(' deploy '))).toBe(false);
 
     const before = calls().length;
     const valid = readFileSync(file, 'utf8');
-    for (const data of [valid + '\nUNEXPECTED=value', valid.replace('kingdown_plugin_runtime.', 'postgres.'), valid.replace('?sslmode=require', '?user=postgres&host=wrong.example'), valid.replace('?sslmode=require', '')]) {
+    for (const data of [valid + '\nUNEXPECTED=value', valid.replace('kingdown_plugin_runtime.', 'postgres.'), valid.replace('?sslmode=require', '?user=postgres&host=wrong.example'), valid.replace('?sslmode=require', ''), valid.replace(values.KINGDOWN_INTERNAL_SECRET, 'short'), valid.replace(/\nKINGDOWN_INTERNAL_SECRET=.*/, '')]) {
       writeFileSync(file, data);
       const invalid = deploy(['--configure-plugin', file], { STUB_ENV_DIR: inputDir });
       expect(invalid.status).not.toBe(0);
-      expect(invalid.stdout + invalid.stderr).not.toContain('fake-test-password');
+      expect(invalid.stdout + invalid.stderr).not.toMatch(/fake-test-password|fake-internal-secret/);
       expect(calls()).toHaveLength(before);
     }
     chmodSync(file, 0o644);
@@ -382,12 +383,15 @@ const pages = (bundle = 'index-Abc123_x', terms = 'Terms v1') => ({
 function buildFolder(files: Record<string, string>) {
   const dir = mkdtempSync(join(realpathSync(tmpdir()), 'deploy-build-'));
   folders.push(dir);
-  for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, name), text);
+  for (const [name, text] of Object.entries(files)) {
+    mkdirSync(dirname(join(dir, name)), { recursive: true });
+    writeFileSync(join(dir, name), text);
+  }
   return dir;
 }
 
 /** A local site. `files` can change between requests; `/` serves `index.html`. */
-async function site(files: () => Record<string, string>) {
+async function site(files: () => Record<string, string>, challengeReply: { status?: number; type?: string | null; location?: string } = {}) {
   const requests: { path: string; cookie?: string }[] = [];
   const server = createServer((req, res) => {
     const path = (req.url ?? '/').split('?')[0];
@@ -395,6 +399,11 @@ async function site(files: () => Record<string, string>) {
     if (req.headers.cookie !== undefined) { res.writeHead(400).end('cookie sent'); return; }
     const body = files()[path === '/' ? 'index.html' : path.slice(1)];
     if (body === undefined) { res.writeHead(404).end('not found'); return; }
+    if (path === '/.well-known/openai-apps-challenge') {
+      const type = challengeReply.type === undefined ? 'text/plain; charset=utf-8' : challengeReply.type;
+      res.writeHead(challengeReply.status ?? 200, { ...(type ? { 'content-type': type } : {}), ...(challengeReply.location ? { location: challengeReply.location } : {}) }).end(body);
+      return;
+    }
     res.writeHead(200, { 'content-type': 'text/html', 'set-cookie': 'visit=1; Path=/' }).end(body);
   });
   await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
@@ -419,6 +428,8 @@ const check = (folder: string, url: string, timeoutMs = 1500) =>
   runAsync(process.execPath, [liveCheck, folder], { env: { ...process.env, DEPLOY_LIVE_URL: url, DEPLOY_LIVE_TIMEOUT_MS: String(timeoutMs) } });
 
 describe('deploy-live-check.mjs', () => {
+  const challenge = '.well-known/openai-apps-challenge';
+
   it('passes when the live site serves the build, and sends no cookie', async () => {
     const files = pages();
     const live = await site(() => files);
@@ -465,6 +476,55 @@ describe('deploy-live-check.mjs', () => {
     const result = await check(buildFolder(pages()), live.url, 3000);
     expect(result.status, result.stderr).toBe(0);
     expect(live.requests.filter(r => r.path === '/').length).toBe(2);
+  });
+
+  it('checks the exact domain challenge bytes as plain text with no cookie', async () => {
+    const files = { ...pages(), [challenge]: randomUUID() };
+    const live = await site(() => files);
+    const result = await check(buildFolder(files), live.url, 0);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain(`${challenge} are identical to the build`);
+    expect(live.requests.filter(r => r.path === `/${challenge}`)).toHaveLength(1);
+    expect(live.requests.filter(r => r.cookie !== undefined)).toEqual([]);
+  });
+
+  it('skips a live domain challenge when the build has no file', async () => {
+    const live = await site(() => ({ ...pages(), [challenge]: randomUUID() }));
+    const result = await check(buildFolder(pages()), live.url, 0);
+    expect(result.status, result.stderr).toBe(0);
+    expect(live.requests.some(r => r.path === `/${challenge}`)).toBe(false);
+  });
+
+  it.each(['application/json', 'text/html', 'text/plainly', null])('rejects a domain challenge with type %s', async type => {
+    const files = { ...pages(), [challenge]: randomUUID() };
+    const live = await site(() => files, { type });
+    const result = await check(buildFolder(files), live.url, 0);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`${challenge}: expected text/plain`);
+  });
+
+  it.each([201, 301, 302, 307, 308])('rejects domain challenge status %s and follows no redirect', async status => {
+    const files = { ...pages(), [challenge]: randomUUID() };
+    const live = await site(() => files, { status, location: '/token' });
+    const result = await check(buildFolder(files), live.url, 0);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`${challenge}: HTTP ${status}`);
+    expect(live.requests.some(r => r.path === '/token')).toBe(false);
+  });
+
+  it('rejects a missing live domain challenge', async () => {
+    const live = await site(() => pages());
+    const result = await check(buildFolder({ ...pages(), [challenge]: randomUUID() }), live.url, 0);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`${challenge}: HTTP 404`);
+  });
+
+  it('rejects a domain challenge that differs by one byte', async () => {
+    const files = { ...pages(), [challenge]: randomUUID() };
+    const live = await site(() => ({ ...files, [challenge]: files[challenge].slice(0, -1) }));
+    const result = await check(buildFolder(files), live.url, 0);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`${challenge}: the live page differs`);
   });
 });
 

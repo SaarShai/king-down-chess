@@ -100,3 +100,14 @@ test.each(['TESTER-GUIDE.md', 'LIVE-CHECKS.md', 'RUNBOOK.md'])('%s describes the
     'A computer abort returns to Play with the same setup', '1 s after a live result opens']) expect(text).toContain(words);
   expect(text).not.toContain('Your games opens the profile scroll');
 });
+
+// Ticket 17-b: the harness frame acts as ChatGPT's (a second origin, the sandbox, the resource CSP). A QA agent who reads
+// that the harness has no CSP adds a second one by hand, and one who reads "same-origin" tries to read the frame.
+test('the QA protocol describes the harness frame as the harness builds it', () => {
+  const sandbox = /sandbox = '([^']+)'/.exec(readFileSync('tools/plugin-ui-harness.ts', 'utf8'))?.[1];
+  expect(sandbox, 'the frame sandbox in framePolicy() in tools/plugin-ui-harness.ts').toBeDefined();
+  const protocol = readFileSync('docs/qa/plugin-qa-protocol.md', 'utf8');
+  expect(protocol).toContain(`the sandbox \`${sandbox}\``);
+  expect(protocol).toContain('`_meta.ui.csp`');
+  expect(protocol).not.toMatch(/no CSP|no sandbox|same-origin iframe|missing CSP/i);
+});

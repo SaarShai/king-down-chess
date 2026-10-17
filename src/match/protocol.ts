@@ -93,6 +93,7 @@ export interface View {
   /** Null while the seat is open. */
   opponent: Opponent | null;
   draw_offer: Seat | null;
+  rematch_allowed?: boolean;
   rematch_offer?: Seat | null;
   rematch_game_id?: string | null;
   options?: Options;

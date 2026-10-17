@@ -1,7 +1,7 @@
 /** The review account seed (approval D8 a) gives the data that test cases P3, P4 and P5 need. */
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GameService } from '../../src/match/service';
 import { PostgresMatchStore } from '../../src/match/store';
 import { seedReview } from './seed-review';
@@ -20,16 +20,20 @@ suite('the review account seed', () => {
   await pool.end();
  });
 
- it('makes one won friend game with a rating and badges, then one computer game on the review account\'s move', async () => {
+ it('makes a won friend game, an active friend game on their move, and a computer game on your move', async () => {
   const [review, opponent] = [await account('Review'), await account('friend')];
   const handles = { review: `rv-${tag}`, opponent: `rf-${tag}` };
-  const seeded = await seedReview(pool, ` ${review.toUpperCase()} `, opponent, handles);
+  // The owner runs the seed without the live invite secret (docs/submission/checklist.md, owner step 2.6).
+  vi.stubEnv('KINGDOWN_INTERNAL_SECRET', '');
+  const seeded = await seedReview(pool, ` ${review.toUpperCase()} `, opponent, handles).finally(() => vi.unstubAllEnvs());
   expect(seeded.record.totals).toEqual({ played: 1, won: 1, drawn: 0, lost: 0 });
   expect(seeded.record.rating.rating).toBeGreaterThan(1500);
   expect(seeded.record.badges.map(b => b.badge).sort()).toEqual(['first_win', 'friend_match', 'purist']);
   const games = new GameService(new PostgresMatchStore(pool));
   expect(await games.view(seeded.review, seeded.finished)).toMatchObject({ status: 'finished', kind: 'friend' });
   expect(await games.view(seeded.review, seeded.active)).toMatchObject({ status: 'playing', kind: 'solo', level: 'beginner', seat: 0, turn: 0 });
+  expect(await games.view(seeded.review, seeded.activeFriend)).toMatchObject({ status: 'playing', kind: 'friend', seat: 0, turn: 1, opponent: { handle: handles.opponent, deleted: false } });
+  expect(await games.inbox(seeded.review)).toHaveLength(2);
   expect((await games.inbox(seeded.review)).filter(game => game.action === 'ready').map(game => game.game_id)).toEqual([seeded.active]);
   expect((await pool.query('select handle from public.profiles where id=$1', [seeded.review])).rows[0].handle).toBe(handles.review);
   // Owner step 2.7: the test account gets the same data against the same opponent, with its own handle, and the

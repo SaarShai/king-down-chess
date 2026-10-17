@@ -387,3 +387,4 @@ body[data-touch='true'] #context-actions button { z-index: 2; }
 #end-turn.primary { animation: turn-ready 400ms var(--ease-out); }
 @keyframes turn-ready { 50% { filter: brightness(1.3); } }
 @media (prefers-reduced-motion: reduce) { #end-turn.primary { animation: none; } }
+#online-visibility .seg-row label { min-height: 44px; }

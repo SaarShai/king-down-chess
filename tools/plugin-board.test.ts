@@ -3,7 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { chromium, type Browser, type Page } from 'playwright';
+import type { Browser, Page } from 'playwright';
+import { launch } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
@@ -20,7 +21,7 @@ beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-board-faults-'));
   execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe' });
   const boardPath = join(folder, 'board.html');
-  harness = await startHarness({ boardPath, sourcePage: true }); served = await startHarness({ boardPath }); browser = await chromium.launch({ headless: true });
+  harness = await startHarness({ boardPath, sourcePage: true }); served = await startHarness({ boardPath }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await served?.close(); await rm(folder, { recursive: true, force: true }); });
 
@@ -48,9 +49,11 @@ const edgeMisses = (root: Element) => [...root.querySelectorAll('button')].filte
     return !hit || hit === button ? [] : [`${button.id || button.textContent}: ${Math.round(x)},${Math.round(y)} → ${hit.id || hit.textContent}`];
   });
 });
-async function open(next: View, width = 393, height = 852) {
+async function open(next: View, width = 393, height = 852, clock = false) {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true });
-  page.setDefaultTimeout(3000); await page.goto(harness.url);
+  page.setDefaultTimeout(3000);
+  if (clock) await page.clock.install();
+  await page.goto(harness.url);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
   await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
@@ -141,8 +144,7 @@ it('keeps Their move through the opponent Haste turn', async () => {
     // Wait for the board's four computer asks and their follow-up reads to finish, then check the words area.
     await page.waitForFunction(() => {
       const calls = (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_computer').length;
-      const frame = document.querySelector('iframe')?.contentWindow as any;
-      return calls >= 4 && frame?.harnessApp?.client?.inflight === 0;
+      return calls >= 4 && (window as any).harnessInflight === 0;
     });
     expect(await frame.locator('#error').textContent()).toBe('');
     expect(await frame.locator('#status').textContent()).toBe('Their move.');
@@ -157,6 +159,19 @@ it('marks the pieces that can use Vault with the power target mark', async () =>
     await frame.locator('#card-w-0').click(); await frame.getByRole('button', { name: 'Use', exact: true }).click();
     setRules(rules); const sources = [...new Set(legalMoves(fromFen(next.fen)).filter(m => m.power === 'vault').map(m => m.from))];
     expect(sources.length).toBeGreaterThan(0); expect((await marks(page)).powers).toEqual(sources);
+  } finally { await page.close(); }
+});
+
+// Use refreshes the board, and the refresh rebuilds the coins.
+it.each([
+  ['card-w-0', '7k/8/8/8/8/8/P7/R6K w - - 0 1', { hands: [['Vault'], []] }],
+  ['power-w', '7k/8/8/8/8/8/p7/K7 w - - 0 1', { kings: [{ king: 'Frost', power: 'Freeze' }, null] }],
+] as [string, string, Partial<Rules>][])('keeps focus on %s after its Use button', async (id, fen, rules) => {
+  const page = await open(view(fen, rules)), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator(`#${id}`).click(); await frame.getByRole('button', { name: 'Use', exact: true }).click();
+    await frame.locator('#board-sheet:not([open])').waitFor({ state: 'attached' });
+    expect(await frame.locator('html').evaluate(() => document.activeElement?.id || document.activeElement?.tagName)).toBe(id);
   } finally { await page.close(); }
 });
 
@@ -193,8 +208,29 @@ it('names the power coin owner when both kings have the same power', async () =>
 });
 
 it.each([[true, 393, 852], [true, 320, 568], [false, 393, 852]] as const)('uses the correct seat line for computer=%s at %i × %i', async (computer, width, height) => {
-  const page = await open(view('', {}, { status: 'setup', legal: [], options: { fairy: false, pool: ['R', 'N', 'B', 'Q'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: true }, draw: 'RNBQKBNR', choices: [{ order: 'RNBQKBNR', king: { king: 'Spirit', power: 'Mercy' } }, null], ready: [false, computer], opponent: { handle: null, icon: null, computer, deleted: false, last_seen_ms: null } }), width, height), frame = page.frameLocator('iframe');
+  const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
+  page.setDefaultTimeout(3000);
+  const tool = async (path: string, name: string, args: Record<string, unknown>) => {
+    const result = await (await page.request.post(new URL(path, served.url).href, { data: { name, arguments: args } })).json();
+    expect(result.isError, JSON.stringify(result)).not.toBe(true); return result;
+  };
   try {
+    // The build writes the seat's table selectors. Test its rendered page.
+    await page.goto(served.url); await frame.locator('#home-play:not(:disabled)').waitFor();
+    await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
+    await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
+    await page.evaluate(async safeAreaInsets => (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets, deviceCapabilities: { touch: true } }), insets(width));
+    const game = await tool('/fixture-tool', 'kingdown_create', { kind: computer ? 'solo' : 'friend', colour: 'white', options: { ...DEFAULT_OPTIONS, arrangement: true, kingPowers: true } });
+    const game_id = game._meta.view.game_id;
+    if (!computer) {
+      const invite = await tool('/fixture-tool', 'kingdown_invite', { game_id });
+      await tool('/fixture-friend-tool', 'kingdown_join', { code: invite.structuredContent.code });
+    }
+    const opened = await tool('/fixture-tool', 'kingdown_open', { game_id });
+    await page.evaluate(result => (window as any).harnessShow({ ...result, structuredContent: { ...result.structuredContent, screen: undefined } }, true), opened);
+    await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    await expect.poll(() => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width)).toBeGreaterThan(0);
+    await frame.locator('#seat-veil-layer .veil').waitFor();
     expect(await frame.locator('#seat-veil-layer').innerText()).toBe(computer ? 'Their side stays hidden until you are ready.' : 'Their side stays hidden until both players are ready.');
   }
   finally { await page.close(); }
@@ -330,10 +366,9 @@ it.each([[393, 852], [360, 740], [320, 568]])('serves 48 px targets on Seat and 
 });
 
 it('stops passive drawing five seconds after changes and keeps move motion', async () => {
-  const page = await open(view('7k/8/8/8/8/3p4/4P3/K7 w - - 0 1')), frame = page.frameLocator('iframe');
+  const page = await open(view('7k/8/8/8/8/3p4/4P3/K7 w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
   try {
     await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
-    await page.clock.install();
     await frame.locator('html').evaluate(() => (window as any).testBoard.scene.redraw());
     const frames = () => frame.locator('html').evaluate(() => (window as any).testBoard.scene.frames);
     const settle = async () => { await page.clock.fastForward(5_100); await page.clock.runFor(100); const count = await frames(); await page.clock.runFor(200); expect(await frames()).toBe(count); };

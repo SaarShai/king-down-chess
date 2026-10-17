@@ -1,14 +1,15 @@
 /**
  * Sample data for the OpenAI review account (approval D8 a; docs/submission/test-cases.md "Before submission"):
  * one finished friend game that the review account won (a rating, and the First Win, Friend Match and Purist
- * badges), then one Classic beginner game against the computer where it is the review account's move.
+ * badges), one active friend game with the opponent to move, and one Classic beginner computer game
+ * where it is the review account's move.
  * The owner makes both accounts first (docs/submission/checklist.md, owner step 2). This script reads no password.
  * The owner's test account gets the same data against the same opponent, with its own handle (KINGDOWN_REVIEW_HANDLE),
  * so that the owner's test runs leave the review account as the seed left it.
  *
  *   PLUGIN_DATABASE_URL=… KINGDOWN_REVIEW_EMAIL=… KINGDOWN_REVIEW_OPPONENT_EMAIL=… [KINGDOWN_REVIEW_HANDLE=…] npm run plugin:db:seed-review
  */
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { DEFAULT_OPTIONS } from '../../src/match/setup';
@@ -19,7 +20,8 @@ import { AccountService } from '../../src/online/accounts';
 const CLASSIC = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
 
 export async function seedReview(pool: pg.Pool, reviewEmail: string, opponentEmail: string, handles = { review: 'review-player', opponent: 'review-friend' }) {
- const store = new PostgresMatchStore(pool), games = new GameService(store), accounts = new AccountService(store);
+ // The seed uses its one invite code at once, so a secret of its own works and the live secret stays on the server.
+ const store = new PostgresMatchStore(pool), games = new GameService(store, randomBytes(32).toString('hex')), accounts = new AccountService(store);
  const account = async (email: string): Promise<string> => {
   const id = (await pool.query('select id from auth.users where lower(email)=lower($1)', [email.trim()])).rows[0]?.id;
   if (!id) throw new Error(`No account has the address ${email}. Make it first.`);
@@ -40,8 +42,11 @@ export async function seedReview(pool: pg.Pool, reviewEmail: string, opponentEma
  await turn(review, friend.game_id); await turn(opponent, friend.game_id);
  const ended = await games.view(opponent, friend.game_id);
  await games.command(opponent, friend.game_id, { command_id: randomUUID(), expected_revision: ended.revision, action: { type: 'resign' } });
+ const activeFriend = await games.create(review, { kind: 'friend', options: CLASSIC, colour: 'white' });
+ await games.join(opponent, (await games.invite(review, activeFriend.game_id)).code);
+ await turn(review, activeFriend.game_id);
  const solo = await games.create(review, { kind: 'solo', options: CLASSIC, colour: 'white', level: 'beginner' });
- return { review, finished: friend.game_id, active: solo.game_id, record: await games.record(review) };
+ return { review, finished: friend.game_id, active: solo.game_id, activeFriend: activeFriend.game_id, record: await games.record(review) };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -49,8 +54,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
  if (!connectionString || !reviewEmail || !opponentEmail) throw new Error('Set PLUGIN_DATABASE_URL, KINGDOWN_REVIEW_EMAIL and KINGDOWN_REVIEW_OPPONENT_EMAIL');
  const pool = new pg.Pool({ connectionString, max: 1 });
  try {
-  const { finished, active, record } = await seedReview(pool, reviewEmail, opponentEmail, { review: handle, opponent: 'review-friend' });
+  const { finished, active, activeFriend, record } = await seedReview(pool, reviewEmail, opponentEmail, { review: handle, opponent: 'review-friend' });
   const { played, won, drawn, lost } = record.totals;
-  console.log(`Review account seeded: finished game ${finished}, active game ${active}; rating ${Math.round(record.rating.rating)}${record.rating.provisional ? '?' : ''}; ${played} played, ${won} won, ${drawn} drawn, ${lost} lost; ${record.badges.length} badges.`);
+  console.log(`Review account seeded: finished game ${finished}, active computer game ${active}, active friend game ${activeFriend}; rating ${Math.round(record.rating.rating)}${record.rating.provisional ? '?' : ''}; ${played} played, ${won} won, ${drawn} drawn, ${lost} lost; ${record.badges.length} badges.`);
  } finally { await pool.end(); }
 }

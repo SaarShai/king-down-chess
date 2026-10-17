@@ -10,6 +10,7 @@ import type { View } from '../../match/protocol';
 import { ICONS } from '../../account/profile';
 import { POWER_NAME } from '../../powers-ui';
 import type { Page } from '../state';
+import { playerBlockButton } from './board-actions';
 import { kingSheet } from './setup';
 import { legalSwaps, seatChoice, seatFen, seatIndex, seatSquare, screenOrder, shuffleOrder, submitReady, swapOrder } from './seat-model';
 import './seat.css';
@@ -117,7 +118,8 @@ async function pickKing() {
   const view = current(); if (!view?.options || !choice?.king || locked()) return;
   picking = true; locks();
   try { const pick = await kingSheet(view.options, choice.king); if (current()?.game_id === view.game_id && choice && !current()?.ready?.[view.seat]) choice.king = pick; }
-  finally { picking = false; render(); }
+  // The sheet gives focus back while the coin is still locked, and a disabled coin cannot take it.
+  finally { picking = false; render(); if (!document.activeElement || document.activeElement === document.body) $('seat-king').focus({ preventScroll: true }); }
 }
 function menu(confirm = false) {
   closeMenu?.(); const view = current(); if (!view) return;
@@ -131,6 +133,7 @@ function menu(confirm = false) {
   document.addEventListener('keydown', key); closeMenu = close; $('seat-menu-close').onclick = scrim.onclick = close;
   if (confirm) { $('seat-abort-cancel').onclick = close; $('seat-abort-confirm').onclick = async () => { const v = current(); if (!v?.abort_open || sending || client.state.pending) return; close(); sending = true; locks(); try { const next = await call('kingdown_abort', { game_id: v.game_id, command_id: uuid(), expected_revision: v.revision }, true, false, false); if (next) await finish(next); } finally { sending = false; render(); } }; }
   else { if (view.abort_open) $('seat-abort').onclick = () => menu(true); $('seat-settings').onclick = () => { close(); navigate('settings'); }; }
+  if (!confirm) for (const block of playerBlockButton(view, close)) { block.className = 'menu-row'; $('seat-settings').before(block); }
   $('seat-menu-close').focus();
 }
 

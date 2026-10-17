@@ -55,7 +55,6 @@ async function main(): Promise<void> {
   const enabled = config.clientIds.includes(data.client.id.toLowerCase()) && data.scope.split(/\s+/).includes('openid');
   document.getElementById('client-name')!.textContent = data.client.name;
   document.getElementById('account')!.textContent = data.user.email || 'Your signed-in account';
-  document.getElementById('scopes')!.textContent = data.scope;
   document.getElementById('redirect')!.textContent = data.redirect_uri;
   consent.hidden = false; say(enabled ? 'Review this application before connecting.' : 'This application is not enabled for King Down. You can deny the request.');
   const approve = document.getElementById('approve') as HTMLButtonElement; approve.disabled = !enabled;

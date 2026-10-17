@@ -18,6 +18,8 @@ export const DEAL_CARDS: readonly CardName[] = [
 export const POOL_KINDS: readonly string[] = [...new Set(POOL)];
 
 export interface Options { fairy: boolean; pool: readonly string[]; arrangement: boolean; classic: boolean; cards: boolean; cardPool: readonly CardName[]; kingPowers: boolean }
+/** The five feature switches that a random game must share with a Find (owner, D1 a). The piece and card pools may differ. */
+export const switches = ({ fairy, arrangement, classic, cards, kingPowers }: Options) => JSON.stringify({ fairy, arrangement, classic, cards, kingPowers });
 /** Frozen to the arrays: a caller copies them (`[...o.pool]`) before an edit. */
 export const DEFAULT_OPTIONS: Readonly<Options> = Object.freeze({ fairy: true, pool: Object.freeze([...POOL_KINDS]), arrangement: true, classic: false, cards: false, cardPool: Object.freeze([...DEAL_CARDS]), kingPowers: false });
 

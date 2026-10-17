@@ -1,11 +1,11 @@
 /** The one write path for online games (report part 03, section 5.2). Actor IDs come from verified identity, never from input. */
-import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { createMatch, loadMatch, MatchError, type MatchSnapshot } from './index';
 import { commandSchema, createSchema, MAX_REVISION, type Command, type CreateOptions, type EndReason, type InboxEntry, type Invite, type JoinPreview, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
 import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
 import { diagnostic } from '../plugin/diagnostics';
-import { buildSetup, defaultChoice, draw, seatChoicesNeeded, validateChoice, type Options } from './setup';
+import { buildSetup, defaultChoice, draw, seatChoicesNeeded, switches, validateChoice } from './setup';
 import type { HistoryPage, PlayerRecord } from './protocol';
 import { gameHistory, gameOutcome, opponentRating, playerRecord, recordResult } from './results';
 export { MatchServiceError } from './store';
@@ -34,8 +34,6 @@ export function startKey(input: CreateOptions, anyRules = false) {
  return { kind: input.kind, speed, days_per_move: speed === 'daily' ? input.days_per_move ?? 3 : null, colour: input.colour ?? 'white', level: input.level ?? 'club', options: input.options ?? null, setup: input.setup ?? null, any_rules: anyRules };
 }
 type StartKey = ReturnType<typeof startKey>;
-/** The five feature switches that a random game must share with a Find (owner, D1 a). The piece and card pools may differ. */
-export const switches = ({ fairy, arrangement, classic, cards, kingPowers }: Options) => JSON.stringify({ fairy, arrangement, classic, cards, kingPowers });
 export function id(value: unknown): string { return typeof value === 'string' && uuid.test(value) ? value.toLowerCase() : fail('INVALID_INPUT', 400, 'Expected a UUID'); }
 export function parse<T>(schema: z.ZodType<T>, input: unknown): T { const result = schema.safeParse(input); return result.success ? result.data : fail('INVALID_INPUT', 400, 'Invalid input'); }
 function seatOf(game: Game, actor: string): Seat { return game.players.find(p => p.user_id === actor)?.seat ?? fail('FORBIDDEN', 403, 'You do not have a seat in this game'); }
@@ -114,7 +112,12 @@ async function play(game: Game, mover: Seat, lans: string[] | 'computer', engine
 }
 
 export class GameService {
- constructor(readonly store: PostgresMatchStore) {}
+ constructor(readonly store: PostgresMatchStore, private readonly inviteSecret = process.env.KINGDOWN_INTERNAL_SECRET) {}
+ private codeHash(code: string): string {
+  const secret = this.inviteSecret;
+  if (!secret || secret.length < 32) return fail('UNAVAILABLE', 503, 'Invitation codes are unavailable. Try again later.');
+  return createHmac('sha256', secret).update('kingdown:invite-code:').update(code).digest('hex');
+ }
  /** With a command ID, a resent Create (the reply was lost or late) gets the first game; other input is COMMAND_CONFLICT. */
  async create(actor: string, input: unknown, commandId?: string): Promise<View> {
   actor = id(actor); const options = parse(createSchema, input), key = startKey(options);
@@ -297,6 +300,7 @@ export class GameService {
   const outcome = await this.store.transaction(async client => {
    const game = await this.store.load(gameId, { client, lock: true });
    if (await this.store.receipt(client, gameId, seat, command.command_id, payload)) return this.render(game, seat, { client });
+   if (action.type === 'rematch' && action.choice !== 'decline' && game.kind !== 'solo' && game.players.every(p => p.user_id) && !await this.store.unblocked(client, actor, game.players[other(seat)].user_id!)) fail('NOT_ALLOWED', 409, 'No rematch is available with this player');
    const next = step(game), out: Outgoing = { notify: [], outbox: [] };
    const log: Log = { seat, actor_id: actor, command_id: command.command_id, kind: action.type, payload, actions: null, surface, received_at: at };
    if (check(game, seat, command, at, action.type === 'abort' && game.kind === 'solo' && await this.store.canSwitch(actor, game.created_at, client))) {
@@ -353,7 +357,7 @@ export class GameService {
    const expires = new Date(Date.now() + (game.speed === 'daily' ? FRIEND_CODE_DAYS : 1) * DAY);
    for (let attempt = 0; attempt < 5; attempt++) {
     const token = randomBytes(32).toString('base64url'), code = Array.from({ length: 6 }, () => CODE[randomInt(CODE.length)]).join('');
-    if (await this.store.addInvite(client, { token_hash: hash(token), code_hash: hash(code), game_id: game.id, seat: other(seat), created_by: actor, expires_at: expires })) return { token, code, expires_at: expires.toISOString() };
+    if (await this.store.addInvite(client, { token_hash: hash(token), code_hash: this.codeHash(code), game_id: game.id, seat: other(seat), created_by: actor, expires_at: expires })) return { token, code, expires_at: expires.toISOString() };
    }
    return fail('UNAVAILABLE', 503, 'Could not make an invitation. Retry.');
   });
@@ -362,7 +366,7 @@ export class GameService {
   const key = typeof tokenOrCode === 'string' ? tokenOrCode.trim() : '', token = /^[A-Za-z0-9_-]{43}$/.test(key), code = key.toUpperCase().replace(/[\s-]/g, '');
   if (!token && !/^[A-HJKMNP-Z2-9]{6}$/.test(code)) fail('INVALID_INPUT', 400, 'Invalid invitation');
   if (!token) await this.store.codeTry(actor); // a 6-character code can be guessed; a 43-character token cannot
-  return { column: token ? 'token_hash' : 'code_hash', value: hash(token ? key : code), code };
+  return { column: token ? 'token_hash' : 'code_hash', value: token ? hash(key) : this.codeHash(code), code };
  }
  async preview(actor: string, tokenOrCode: unknown): Promise<JoinPreview> {
   actor = id(actor); const { column, value, code } = await this.invitation(actor, tokenOrCode);
@@ -427,7 +431,7 @@ export class GameService {
  private async render(game: Game, seat: Seat, { since, client, rules = false }: { since?: number; client?: Parameters<PostgresMatchStore['save']>[0]; rules?: boolean } = {}): Promise<View> {
   const now = new Date(), opponent = game.players[other(seat)], playing = game.status === 'playing';
   // A block or my quiet mode hides the opponent's presets; their own setting decides if I see when they were last here.
-  const sees = opponent.user_id ? await this.store.privacy(client ?? this.store.pool, game.players[seat].user_id!, opponent.user_id) : { presets: true, online: true };
+  const sees = opponent.user_id ? await this.store.privacy(client ?? this.store.pool, game.players[seat].user_id!, opponent.user_id) : { presets: true, online: true, unblocked: true };
   const commands = await this.store.commands(game.id, since, client);
   const db = client ?? this.store.pool;
   const vacant = !opponent.user_id && !opponent.computer && !opponent.handle_at_start && !await this.store.hasJoined(game.id, db);
@@ -440,7 +444,7 @@ export class GameService {
    fen: game.snapshot?.fen ?? '', in_check: game.snapshot?.inCheck ?? false, legal: playing && game.turn === seat ? game.snapshot!.legal : [],
    last_commands: commands.map(entry => entry.seat === opponent.seat && (entry.action.type === 'choose' && !game.players.every(p => p.ready) || entry.action.type === 'say' && !sees.presets) ? { ...entry, action: { type: 'hidden' as const } } : entry),
    opponent: vacant ? null : { handle: opponent.handle, icon: opponent.icon ?? null, ...(rating && { rating }), computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online ? opponent.last_seen_ms : null },
-   draw_offer: game.draw_offer, rematch_offer: game.rematch_offer, rematch_game_id: game.rematch_game_id,
+   rematch_allowed: sees.unblocked, draw_offer: game.draw_offer, rematch_offer: game.rematch_offer, rematch_game_id: game.rematch_game_id,
    ...(game.options && { options: game.options, draw: game.draw!, deal: game.deal!, level: game.level,
     choices: game.players.map(p => p.seat === seat || game.players.every(s => s.ready) ? p.choice : null) as View['choices'],
     ready: game.players.map(p => p.ready) as [boolean, boolean], setup_deadline_at: game.setup_deadline_at?.toISOString() ?? null }),

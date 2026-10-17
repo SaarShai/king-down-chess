@@ -87,7 +87,7 @@ The server tools: `kingdown_open`, `create`, `find`, `lobby`, `accept`, `cancel`
 
 Do one phone pass with `locale: 'he-IL'` and `timezoneId: 'Asia/Jerusalem'`, and one desktop pass with `locale: 'en-US'` and `timezoneId: 'America/Los_Angeles'`.
 
-The harness serves the page with no CSP, in a same-origin iframe with no sandbox. ChatGPT applies the CSP from the resource `_meta` (`src/plugin/server.ts`) in a sandboxed iframe. In one pass, add that CSP to `/board-resource` (for example, with a Playwright route) and read the console for CSP errors on each screen.
+The harness shows the widget as ChatGPT does: the widget page comes from a second origin (a second loopback port), in an iframe with the sandbox `allow-scripts allow-same-origin allow-forms`, and with the CSP that the harness builds from the resource `_meta.ui.csp` (`src/plugin/server.ts`). The host page cannot read the widget page: run widget code in the frame, and set the hooks on the host page. Read the console for CSP errors on each screen. With `?frame-per-result`, each `harnessShow` mounts a new iframe, and the old iframes stay live.
 
 The ChatGPT apps themselves are for the owner only (section 8). The harness and the Simulator do not show every host fault.
 
@@ -151,7 +151,7 @@ Give a repro rate ("3/10"). Report a fault that occurs only some of the time wit
 - Reproduce each finding 2 times before you report it. Give the exact steps from a fresh page.
 - Give a screenshot or a measurement for each finding. For a flow finding, also save the `harnessCalls` JSON and the console log, and for a finding between players, both players' views. A Playwright trace helps. Put the files in your output folder.
 - One finding for each fault. Before you report, look in `docs/specs/` and the earlier reports for the same fault; if you find it, add your evidence as "also seen".
-- Separate product faults from harness faults. Examples of harness faults: a Simulator page zoom, the missing CSP. Report harness faults in their own section.
+- Separate product faults from harness faults. Example of a harness fault: a Simulator page zoom. Report harness faults in their own section.
 - Mark a guess as a guess. Do not report what you did not see.
 - Give the likely cause (`file:line`) when you can find it. Do not fix it.
 

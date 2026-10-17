@@ -30,7 +30,7 @@ export function row(title: string, lead: HTMLElement | string, line: (string | N
   el.append(head, sub); return el;
 }
 export function toolError(code: string, fallback: string) {
-  return ({ INVITE_UNAVAILABLE: /expired|used/i.test(fallback) ? 'This code has expired or was used. Ask your friend for a new code.' : 'No game has this code. Check the code with your friend.', NOT_FOUND: 'No game has this code. Check the code with your friend.', FORBIDDEN: 'You cannot join this game.', INVALID_INPUT: 'Check the code: 6 letters and digits.', RATE_LIMITED: 'Too many code tries. Wait one hour.' } as Record<string, string>)[code] ?? fallback;
+  return ({ INVITE_UNAVAILABLE: /expired|used/i.test(fallback) ? 'This code has expired or was used. Ask your friend for a new code.' : 'No game has this code. Check the code with your friend.', NOT_FOUND: 'No game has this code. Check the code with your friend.', FORBIDDEN: 'You cannot join this game.', INVALID_INPUT: 'Check the code: 6 letters and digits.', RATE_LIMITED: /code/i.test(fallback) ? 'Too many code tries. Wait one hour.' : fallback } as Record<string, string>)[code] ?? fallback;
 }
 export function showError(error: unknown, target = $('error')) { target.textContent = errorText(error); }
 const attempted = new Set<string>();
@@ -70,9 +70,10 @@ async function makeCode(view: View) {
   } catch (error) { showError(error, $('friend-status')); }
   finally { making = false; $('friend-new').removeAttribute('disabled'); }
 }
-// These screens own no App instance. Stop their runners on the host teardown and page close.
+// These screens own no App instance. Stop their runners on the host teardown and page close. A pagehide with
+// persisted: true puts the page in the back-forward cache: its timers freeze, and the page can come back with them.
 const stops = new Set<() => void>();
 export function onStop(stop: () => void) { stops.add(stop); return () => stops.delete(stop); }
 function stopAll() { for (const stop of stops) stop(); stops.clear(); }
-addEventListener('pagehide', stopAll);
+addEventListener('pagehide', event => { if (!event.persisted) stopAll(); });
 addEventListener('message', event => { if (event.source === parent && event.data?.method === 'ui/resource-teardown') stopAll(); });

@@ -1,10 +1,12 @@
 // Unit test for the shared browser-check settings (checks-and-hooks/05) and isInside.
 // The assertions and shot() have a browser self-test: tools/check-selftest.mjs.
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
-import { env, isInside, outRoot } from './checks.mjs';
+import { chromium, webkit } from 'playwright';
+import { env, isInside, launch, outRoot } from './checks.mjs';
 
 const checkout = resolve(__dirname, '../..');
 let argv1: string;
@@ -17,6 +19,57 @@ beforeEach(() => {
 afterEach(() => {
   process.argv[1] = argv1;
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
+
+describe('launch', () => {
+  it.each(['chrome', 'chromium'])('opens the %s channel with the caller options', async channel => {
+    vi.stubEnv('PLAYABLE_BROWSER', channel);
+    const chromiumLaunch = vi.spyOn(chromium, 'launch').mockResolvedValue({} as any);
+    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue({} as any);
+    const options = { headless: true, slowMo: 10 };
+    const browser = await launch(options);
+    expect(chromiumLaunch).toHaveBeenCalledWith({ channel, ...options });
+    expect(webkitLaunch).not.toHaveBeenCalled();
+    expect(browser).toBe(await chromiumLaunch.mock.results[0].value);
+  });
+
+  it('opens WebKit with the caller options and no Chromium channel', async () => {
+    vi.stubEnv('PLAYABLE_BROWSER', 'webkit');
+    const chromiumLaunch = vi.spyOn(chromium, 'launch').mockResolvedValue({} as any);
+    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue({} as any);
+    const options = { headless: true, slowMo: 10 };
+    const browser = await launch(options);
+    expect(webkitLaunch).toHaveBeenCalledWith(options);
+    expect(chromiumLaunch).not.toHaveBeenCalled();
+    expect(browser).toBe(await webkitLaunch.mock.results[0].value);
+  });
+
+  it('keeps the default options for WebKit', async () => {
+    vi.stubEnv('PLAYABLE_BROWSER', 'webkit');
+    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue({} as any);
+    await launch();
+    expect(webkitLaunch).toHaveBeenCalledWith({});
+  });
+
+  it('uses an explicit channel before the default setting', async () => {
+    const chromiumLaunch = vi.spyOn(chromium, 'launch').mockResolvedValue({} as any);
+    await launch({ channel: 'chromium', headless: true });
+    expect(chromiumLaunch).toHaveBeenCalledWith({ channel: 'chromium', headless: true });
+  });
+
+  it('accepts WebKit as an explicit channel without sending it to Playwright', async () => {
+    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue({} as any);
+    await launch({ channel: 'webkit', headless: true });
+    expect(webkitLaunch).toHaveBeenCalledWith({ headless: true });
+  });
+
+  // Some checks use CDP or open Chromium directly, so the runner help must not offer WebKit for every check.
+  it('limits WebKit to plugin-ui in the runner help', () => {
+    const help = spawnSync(process.execPath, ['tools/check.mjs', '--help'], { cwd: checkout, encoding: 'utf8' });
+    expect(help.status).toBe(0);
+    expect(help.stdout.replace(/\s+/g, ' ')).toContain('Use webkit for plugin-ui only');
+  });
 });
 
 describe('env defaults when the variable is not set', () => {
