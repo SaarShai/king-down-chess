@@ -1614,8 +1614,8 @@ try {
     return { frame: box(frameEl), ...Object.fromEntries(selectors.map(s => [s, box(document.querySelector(s))])) };
   }, selectors); }
   function inFrame(b, f) { return b && b[2] > 0 && b[3] > 0 && b[0] >= f[0] - 1 && b[1] >= f[1] - 1 && b[0] + b[2] <= f[0] + f[2] + 1 && b[1] + b[3] <= f[1] + f[3] + 1; }
-  // T2: at 197 x 426 the strips, the context line and the bar stay in the frame, the context words show in full, the
-  // coins stay on one row and the board takes what is left.
+  // T2: at 197 x 426 the context words show in full, the coins stay on one row, the board keeps its usable floor, and
+  // the strips, the context line, Undo, End turn and Menu each come fully into the frame (the screen scrolls).
   async function zoomBoardFits(label) {
     const viewport = page.viewportSize();
     await zoomViewport(197,426,51,59);
@@ -1624,14 +1624,16 @@ try {
     const m = await zoomBoxes([...ids,'#board','#board canvas','#context-text']);
     const text = await frame.locator('#context-text').evaluate(el => ({scroll:el.scrollHeight,client:el.clientHeight,clip:getComputedStyle(el).overflowY}));
     const coinRows = await frame.locator('#game-table .coin-row').evaluateAll(rows => rows.map(row => [...row.children].map(c => { const r = c.getBoundingClientRect(); return Math.round(r.top + r.height / 2); })));
-    const screenScroll = await frame.locator('[data-screen="board"]').evaluate(el => [el.scrollHeight, el.clientHeight]);
-    const all = JSON.stringify({...m, text, coinRows, screenScroll});
-    for (const id of ids) assert(inFrame(m[id], m.frame), `${label} at 197 x 426: ${id} stays inside the frame: ${all}`);
+    const all = JSON.stringify({...m, text, coinRows});
     assert(text.clip === 'visible' || text.scroll <= text.client + 1, `${label} at 197 x 426: #context-text shows all its words: ${all}`);
     assert(coinRows.every(tops => tops.every(t => Math.abs(t - tops[0]) <= 1)), `${label} at 197 x 426: each strip keeps its coins on one row: ${all}`);
-    const canvas = m['#board canvas'], board = m['#board'];
-    assert(canvas && board && (canvas[2] >= board[2] - 2 || canvas[3] >= board[3] - 2), `${label} at 197 x 426: the board takes the free width or height: ${all}`);
-    assert(screenScroll[0] <= screenScroll[1] + 1, `${label} at 197 x 426: the board screen needs no scroll: ${all}`);
+    assert(m['#board canvas'] && m['#board canvas'][2] >= 192, `${label} at 197 x 426: the board keeps its 192 px floor: ${all}`);
+    for (const id of ids) {
+      await scrollVertically(frame.locator(id));
+      const seen = await zoomBoxes([id]);
+      assert(inFrame(seen[id], seen.frame), `${label} at 197 x 426: ${id} comes fully into the frame: ${JSON.stringify(seen)} (${all})`);
+    }
+    await frame.locator('[data-screen="board"]').evaluate(el => { el.scrollTop = 0; });
     await shot(page, `zoom-fit-${label}-${mode}`);
     await zoomViewport(viewport.width, viewport.height, 0, 0);
   }

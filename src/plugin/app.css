@@ -259,12 +259,14 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table #strip-me:has(.card-coin) .coin { grid-row: 2; }
 }
 }
-/* 200% zoom (under 320 px): the strips, the context line and the bar stay in the frame, and the board takes the height
-   that is left, up to the full width (ticket 28 T2). The screen scrolls only as a last resort.
+/* 200% zoom (under 320 px): the board keeps the full width and a 210 px floor in the short table rows (a 197 px canvas
+   at 960/1024). The table keeps the screen height; only when the other rows leave less than the floor does it overflow,
+   and the screen scrolls (M1, review R1). A board that fits the 255 px frame with all rows is under 80 px: too small
+   to tap (ticket 28 T2 keeps this floor; tools/plugin-ios-size.test.ts).
    The context row keeps its content height and shows all its words, so its buttons do not spill over the bar. */
 @media (max-width: 319px) and (orientation: portrait) {
   .page-sheet > :is([data-screen='seat'], [data-screen='board'], [data-screen='end']) { overflow: hidden auto; }
-  #game-table { --context-floor: max-content; }
+  #game-table { --board-floor: 210px; --context-floor: max-content; }
   #game-table #board { width: 100%; }
 }
 @container table-screen (max-width: 319px) {
