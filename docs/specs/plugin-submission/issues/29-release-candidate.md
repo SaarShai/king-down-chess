@@ -107,3 +107,24 @@ The checks pass only when the unit suite ends with exit 0 and each browser log h
 - The packet and seed checks pass: 14 tests and 50 drawing tests. Log: `tests-review-packet-2.txt` in the release scratchpad lane.
 - The full `npm test` run passes with the local test database: 186 files; 2,998 passed tests, one expected failure and eight skipped tests. All 50 drawing tests pass. The type check passes as part of that command. Log: `tests-review-full-1.txt` in the same lane.
 - The browser checks run after this commit through the required runner. Their checked head, final exit lines and results go in `29-merge-review-fix.md` in the same lane. Keep all source files fixed during that run.
+
+### Part 29-merge-2: plan and checks
+
+Status: in progress. Base: 3f1281d1.
+
+1. Merge od-picks at 64805f5e with --no-ff. Check each conflict against both parents. Keep G1, G2, G3, Q3 and Q6.
+2. Merge od-faults at 606584b8 with --no-ff. Keep F13, F14, F25, F26 and F32. Keep the Display check line removed.
+3. Keep the release privacy text, review packet, state store, command queue, one poll and Resume route fix. Keep od-qa1 and S5 out. List each conflict and its result in the merge message.
+4. Add a test for each new merge behaviour. Run npx tsc --noEmit and npm test with the local test database. Keep all time limits.
+5. Commit all merge fixes. Run plugin-ui and plugin-ui-http at the final code commit through the required check runner. Record its checked head and final exit line.
+6. Record the merges, conflicts and checks here. Write the full report and final answer in the release scratchpad lane.
+
+Pass criteria: both exact lane heads are ancestors; held release changes remain; each required command exits 0; both browser checks pass at the final commit.
+
+#### Merge 1: od-picks
+
+- Source: 64805f5e. Use one --no-ff merge.
+- src/plugin/app.css: keep the release coin image size and the G2 spent opacity of 0.85.
+- src/plugin/screens/board.ts: keep the release block notice and G1 keyboard scroll stop. Keep the state store, command queue and one poll.
+- tools/plugin-board.test.ts: keep both imports and both test groups. Add a test for the block notice with the armed scroll stop.
+- Keep G1 target words, G3 shove and swap previews, Q3 board size with page scroll, and Q6 word wrapping and margins. Keep the release privacy text, packet and Resume route fix.

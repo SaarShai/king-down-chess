@@ -146,6 +146,9 @@ it.each([false, true])('gives a spent card a short gold pulse (reduced motion %s
     const coin = frame.locator(`#card-w-${index}`);
     if (!reduced) await coin.and(frame.locator('.is-spending')).waitFor();
     await coin.and(frame.locator('[data-state="used"]:not(.is-spending)')).waitFor({ timeout: reduced ? 1000 : 2000 });
+    // G2 a: a spent card coin dims to 0.85, so its word keeps 4.5:1.
+    // strips() rebuilds the coin row on a poll. A detached coin reads no style, so poll until an attached coin dims.
+    await expect.poll(() => coin.evaluate(e => (e as HTMLElement).isConnected ? getComputedStyle(e).opacity : null), { timeout: 5000 }).toBe('0.85');
   } finally { await page.close(); }
 });
 

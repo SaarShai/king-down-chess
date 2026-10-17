@@ -88,7 +88,8 @@ try {
       const end = performance.now() + 10000; let last;
       const tick = () => {
         const rect = c.getBoundingClientRect(), key = [rect.x, rect.y, rect.width, rect.height].join(',');
-        if (rect.width > 250 && key === last) resolve();
+        // A small phone can have a board below 250 px; wait for stable, nonzero bounds.
+        if (rect.width > 0 && rect.height > 0 && key === last) resolve();
         else if (performance.now() > end) reject(new Error('The visible board did not settle'));
         else { last = key; requestAnimationFrame(tick); }
       }; requestAnimationFrame(tick);
@@ -2233,8 +2234,8 @@ try {
       const after=await frame.locator('#board canvas').boundingBox(), selectedRow=await frame.locator('#context-line').boundingBox();
       assert(Math.abs(before.width-after.width)<1 && Math.abs(row.height-selectedRow.height)<1,`The draw offer keeps the board and row size at ${width}×${height} (${stage})`);
       assert(await frame.locator('#context-actions').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Draw and piece actions have no horizontal overflow');
-      // The short landscape pane scrolls; the phone cases keep all replies in view.
-      if(width>height) await frame.locator('#context-actions').scrollIntoViewIfNeeded();
+      // Q3 b: the board keeps its size, and the screen scrolls to the replies (short landscape and small phones).
+      await frame.locator('#context-actions').scrollIntoViewIfNeeded();
       for (const action of await frame.locator('#context-actions button').all()) {const bounds=await action.evaluate(controlBounds); assert(bounds.accessible,`Draw and piece action fits at ${width}×${height} (${stage}): ${JSON.stringify(bounds)}`);}
       await shot(page,`ticket05-draw-${stage}-${width}-${mode}`);
       if(stage==='start') {
@@ -2242,9 +2243,11 @@ try {
         await frame.locator('#board').press('Enter');
         assert(await frame.locator('#context-actions').getByRole('button',{name:'Cancel',exact:true}).count(),'The armed card keeps Cancel beside draw replies');
         assert.equal(await frame.locator('#context-actions').getByRole('button',{name:'Choose a move',exact:true}).count(),0,'An armed card keeps its move list in Menu');
-        const armed=await frame.locator('#board canvas').boundingBox(), armedRow=await frame.locator('#context-line').boundingBox(); assert(Math.abs(before.width-armed.width)<1 && Math.abs(row.height-armedRow.height)<1,'Arming a card and selecting its pawn keeps the board and row size');
+        const armed=await frame.locator('#board canvas').boundingBox(), armedRow=await frame.locator('#context-line').boundingBox(); assert(Math.abs(before.width-armed.width)<1 && (width>height || Math.abs(row.height-armedRow.height)<1),'Arming a card keeps the board size and the portrait row size');
+        if(width>height) assert(await frame.locator('#context-text').evaluate(el=>getComputedStyle(el).maxHeight==='none' && getComputedStyle(el).overflowY==='visible' && el.scrollHeight<=el.clientHeight+1),'The full armed rule shows beside draw replies in landscape');
         assert(await frame.locator('#context-actions').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Cancel and draw replies have no horizontal overflow');
-        if(width>height) await frame.locator('#context-actions').scrollIntoViewIfNeeded();
+        // Q3 b: the screen scrolls to the replies.
+        await frame.locator('#context-actions').scrollIntoViewIfNeeded();
         for (const action of await frame.locator('#context-actions button').all()) {const bounds=await action.evaluate(controlBounds); assert(bounds.accessible,`Cancel and draw reply fits: ${JSON.stringify(bounds)}`);}
         await shot(page,`ticket05-draw-armed-${width}-${mode}`);
       }
@@ -2253,6 +2256,69 @@ try {
   await frame.locator('html').evaluate(()=>{delete document.hidden;});
   await page.evaluate(()=>window.harnessSetContext({safeAreaInsets:{top:0,right:0,bottom:0,left:0}}));
   await page.setViewportSize({width:1000,height:1000});
+  // Ticket 26: check the approved words and preview on the built page at each required size.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const { cardText, ruleLine } = await import('../src/powers-ui.ts');
+  for (const [width,height] of [[320,568],[393,852],[1280,800],[852,393]]) {
+    await page.setViewportSize({width,height});
+    await page.evaluate(width => window.harnessSetContext({displayMode:'fullscreen',safeAreaInsets:{top:width===320?63:width===393?102:0,bottom:width===320?84:width===393?118:0,left:0,right:0}}),width);
+    const boardId = await page.evaluate(()=>window.harnessWidgetState.privateContent.board_id);
+    const cards = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_create',arguments:{kind:'solo',colour:'white',board_id:boardId,options:{...DEFAULT_OPTIONS,arrangement:false,kingPowers:false,cards:true,cardPool:['EarthQuake','SkyLift','MorphP','Freeze']}}}})).json();
+    assert(!cards.isError); await page.evaluate(r=>window.harnessShow(r),cards); await idleBoard(); await boardBox();
+    for (const [card,targets] of [['EarthQuake','Tap a marked square.'],['SkyLift','Choose a marked piece, then a marked square.']]) {
+      const index = cards._meta.view.rules.hands[0].indexOf(card); assert(index>=0);
+      const before = await frame.locator('#board canvas').boundingBox();
+      await frame.locator(`#card-w-${index}`).click(); await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
+      assert.equal(await frame.locator('#context-note').textContent(),`${targets} ${ruleLine(cardText(card,cards._meta.view.rules))}`);
+      assert(await frame.locator('#context-text').evaluate((el,words)=>{
+        const note=el.querySelector('#context-note'), range=document.createRange(); range.setStart(note.firstChild,0); range.setEnd(note.firstChild,words.length);
+        const text=range.getBoundingClientRect(), row=el.getBoundingClientRect(); return text.bottom<=row.bottom+1 && text.right<=row.right+1;
+      },targets.split(',')[0]),`${card}: the next action stays in view at ${width}px`);
+      if(width>height) {
+        assert(await frame.locator('#context-text').evaluate(el=>getComputedStyle(el).maxHeight==='none' && getComputedStyle(el).overflowY==='visible' && el.scrollHeight<=el.clientHeight+1),`${card}: the full rule shows at ${width}px`);
+      } else {
+        await frame.locator('#context-actions').getByRole('button',{name:'Cancel',exact:true}).focus(); await page.keyboard.press('Shift+Tab');
+        assert(await frame.locator('#context-text').evaluate(el=>el===document.activeElement && el.tabIndex===0),'The keyboard reaches the armed text');
+        await page.keyboard.press('End');
+        await page.waitForFunction(()=>document.querySelector('iframe').contentDocument.getElementById('context-text').scrollTop>0);
+        assert(await frame.locator('#context-text').evaluate(el=>el.scrollTop>0),'The keyboard scrolls the armed rule');
+        await page.keyboard.press('Home');
+      }
+      const after = await frame.locator('#board canvas').boundingBox(); assert(Math.abs(before.width-after.width)<1,'G1 keeps the board size');
+      await boardBox();
+      await shot(page,`ticket26-targets-${card}-${width}-${mode}`);
+      await frame.locator('#context-actions').getByRole('button',{name:'Cancel',exact:true}).click();
+      assert.equal(await frame.locator('#context-text').getAttribute('tabindex'),'-1','Cancel removes the armed text tab stop');
+    }
+    for (const [action,fen,from,target,other] of [
+      ['shove','k7/8/8/8/8/8/4P3/4O2K w - - 0 1',4,12,3],
+      ['swap','7k/8/8/8/2RM4/8/8/K7 w - - 0 1',27,26,28],
+    ]) {
+      await seedBoard(`picks&fen=${encodeURIComponent(fen)}`);
+      const calls = await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_move').length);
+      await clickSquare(from&7,from>>3); await clickSquare(target&7,target>>3);
+      assert.equal(await frame.locator('#status').textContent(),`Tap again to ${action}.`);
+      assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'true','The first tap adds no draft step');
+      // The status changes before the canvas paints its new marks.
+      await boardBox();
+      await shot(page,`ticket26-preview-${action}-${width}-${mode}`);
+      await clickSquare(other&7,other>>3);
+      assert.equal(await frame.locator('#status').textContent(),'Your move.','A tap elsewhere clears the preview');
+      assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'true','A tap elsewhere plays no move');
+      const box=await boardBox(), point=sq=>({x:box.x+(32+((sq&7)+.5)*112)*box.width/960,y:box.y+(96+(7-(sq>>3)+.5)*112)*box.width/960}), a=point(from), b=point(target);
+      await page.mouse.move(a.x,a.y); await page.mouse.down(); await page.mouse.move(b.x,b.y,{steps:8}); await page.mouse.up();
+      assert.equal(await frame.locator('#status').textContent(),`Tap again to ${action}.`,'A drag shows the same preview');
+      assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'true','A drag adds no draft step');
+      await clickSquare(target&7,target>>3); await boardBox();
+      assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'false','A second tap adds the draft step');
+      assert.equal(await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_move').length),calls,'The preview and draft send no move');
+      await frame.locator('#undo').click(); assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'true','One Undo removes the one draft step');
+    }
+  }
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.evaluate(()=>window.harnessSetContext({safeAreaInsets:{top:0,right:0,bottom:0,left:0}}));
+  await page.setViewportSize({width:1000,height:1000});
+  console.log('PASS: G1 targets first; G3 tap, drag, cancel and one draft step at 320, 393, 852 and 1280 px');
   console.log(`Ticket 15 look comparisons: ${look}`);
   await openScreen('settings'); await boardSetting('symbols-only',false); await boardSetting('show-threats',false); await openPlay(); await legacyStart('solo');
   for (const [kind,features,status] of [['friend',options,'waiting'],['solo',{...options,arrangement:true},'setup']]) {
