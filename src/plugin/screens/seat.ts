@@ -9,6 +9,7 @@ import { seatChoicesNeeded, validateChoice, type Choice } from '../../match/setu
 import type { View } from '../../match/protocol';
 import { ICONS } from '../../account/profile';
 import { POWER_NAME } from '../../powers-ui';
+import type { Page } from '../state';
 import { kingSheet } from './setup';
 import { legalSwaps, seatChoice, seatFen, seatIndex, seatSquare, screenOrder, shuffleOrder, submitReady, swapOrder } from './seat-model';
 import './seat.css';
@@ -143,9 +144,12 @@ document.addEventListener('click', event => {
   if (!(event.target as HTMLElement).closest('#retry') || client.state.screen !== 'seat' || !['kingdown_choose','kingdown_abort','kingdown_get'].includes(client.state.pending?.name ?? '')) return;
   event.preventDefault(); event.stopImmediatePropagation(); void retryPending();
 }, true);
-new MutationObserver(() => { if (client.state.screen !== 'seat') release(); }).observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
-new MutationObserver(() => { if (current()?.status === 'setup' && !sending) seatScreen(); }).observe($('status'), { childList: true });
-new MutationObserver(locks).observe($('seat-ready'), { attributes: true, attributeFilter: ['disabled'] });
+// The store's subscriber replaces the data-page, #status and #seat-ready observers. The ResizeObserver stays: it measures layout.
+export function seatSync(page: Page) {
+  if (page.screen !== 'seat') { release(); return; }
+  if (current()?.status === 'setup' && !sending) seatScreen();
+  else locks();
+}
 new ResizeObserver(() => requestAnimationFrame(placeVeil)).observe($('board'));
 $('seat-ready').onclick = () => void ready(); $('seat-menu').onclick = () => menu(); $('seat-king').onclick = () => void pickKing();
 $('seat-shuffle').onclick = () => { const view = current(); if (view?.options?.arrangement && choice && !locked()) { choice.order = shuffleOrder(view); selected = null; render(); } };

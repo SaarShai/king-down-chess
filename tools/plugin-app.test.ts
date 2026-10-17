@@ -240,7 +240,7 @@ it('blocks Retry and screen actions until both mount reads finish', async () => 
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await expand(page);
-    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); });
+    const moved = await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); return (window as any).harnessApp.memory.view.game_id as string; });
     await page.evaluate(() => { (window as any).dropNextMoveReply = true; });
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
@@ -265,7 +265,9 @@ it('blocks Retry and screen actions until both mount reads finish', async () => 
     await page.evaluate(() => { (window as any).releaseHeldGet(); });
     await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').length)).toBe(sends);
-    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
+    // Finding 8: the pending move stays for its own game; the other board shows no Retry.
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toMatchObject({ name: 'kingdown_move', game_tag: moved.slice(0, 8) });
+    expect(await frame.locator('#retry').isHidden()).toBe(true);
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(switched._meta.view.game_id);
   } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseHeldGet?.(); }); await page.close(); }
 });
@@ -1511,8 +1513,8 @@ it('keeps a timed-out start and its Retry on New game when the player leaves at 
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
-// A failed command locks Start, the board, the seat and the poll on every game screen, so each of them says why.
-it('shows a timed-out start and its Retry on the board of another game, and Retry finishes the start', async () => {
+// A failed start keeps its text and Retry on Play only; another game plays and is free (fault b).
+it('keeps a timed-out start on Play and finishes it there while another game plays', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await friendGame(page);
@@ -1523,19 +1525,23 @@ it('shows a timed-out start and its Retry on the board of another game, and Retr
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
     await frame.locator('#setup-start').click();
     await page.waitForFunction(() => !!(window as any).releaseHeld);
-    await page.clock.fastForward(5_001);
-    await frame.locator('[data-screen="play"] [data-nav="settings"]').click();
-    await page.clock.fastForward(5_000);
-    await frame.locator('#page-back').click();
-    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-    await frame.locator(`#games-list [data-game-id="${friend}"]:not(:disabled)`).click();
-    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    // The 10 s client limit ends the start; its error stays on Play.
+    await page.clock.fastForward(10_001);
     await frame.locator('#retry').waitFor();
     expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
+    // The player opens another game: its board plays, with no start text.
+    await frame.locator(`#games-list [data-game-id="${friend}"]:not(:disabled)`).click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe('');
+    expect(await frame.locator('#retry').isHidden()).toBe(true);
+    expect(await frame.locator('#board-menu').isEnabled()).toBe(true);
+    // Play keeps the start's text and Retry; Retry sends the same command ID and finishes the start.
+    await frame.locator('#page-back').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await expect.poll(() => frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
     await frame.locator('#retry').click();
     await frame.locator('#retry').waitFor({ state: 'hidden' });
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).not.toBe(friend);
-    // The friend game's own Create (sent by the test) has no command ID.
     const ids = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create' && c.arguments.command_id).map((c: any) => c.arguments.command_id));
     expect(ids).toHaveLength(2); expect(ids[1]).toBe(ids[0]);
     await expect.poll(() => frame.locator('#error').textContent()).toBe('');
@@ -1694,6 +1700,19 @@ it('keeps two failed polls silent, resets the count on a good read, and locks af
     await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
     expect(await frame.locator('#error').textContent()).toBe('');
   } finally { await page.context().setOffline(false); await page.close(); }
+});
+
+// Design §4: a poll reply never sets a refusal. The server's definitive words for a poll are a stale read, so the
+// board's words stay readable and Try again shows. Only a user command gives a refusal.
+it('marks the board stale when the server refuses a poll, and sets no refusal', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    const poll = () => frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true); });
+    await page.evaluate(() => { (window as any).rejectNextAction = { name: 'kingdown_get', code: 'MATCH_REMOVED', text: 'This game was deleted. Start, resume or join another game.' }; });
+    await poll();
+    expect([await frame.locator('#error').textContent(), await frame.locator('#status').textContent(), await frame.locator('#retry').textContent(), await frame.locator('#retry').isVisible()]).toEqual(['This game was deleted. Start, resume or join another game.', 'Not current', 'Try again', true]);
+  } finally { await page.close(); }
 });
 
 it('clears Try again and its sentence on the first good poll after a failed read and failed polls', async () => {
@@ -1871,6 +1890,79 @@ it.each(['power-w', 'card-w-0'])('keeps focus on %s through a minute tick and up
     expect(await frame.locator('#move-time-left').textContent()).toBe('Time is up');
     expect(await frame.locator('#claim').textContent()).toBe('Claim the win');
   } finally { await page.context().setOffline(false); await page.close(); }
+});
+
+it('keeps focus on a power coin through a presence update (an equal-revision poll reply)', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    await page.evaluate(() => {
+      const host = window as any, rules = { kings: [{ king: 'Flame', power: 'Haste' }, null], hands: [[], []] };
+      host.harnessNextView = { ...host.harnessView, kind: 'solo', rules: { ...host.harnessView.rules, ...rules } };
+    });
+    // A full read draws the power coin; then a poll reply at the same revision changes only opponent and server_now.
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
+    await frame.locator('#power-w').waitFor();
+    await frame.locator('#power-w').focus();
+    expect(await frame.locator('#power-w').evaluate(b => document.activeElement === b)).toBe(true);
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true, true);
+    });
+    await settled(page);
+    // The coin row is not rebuilt, so the keyboard focus stays on the coin (design §3.4, OD A1389).
+    expect(await frame.locator('#power-w').evaluate(b => document.activeElement === b)).toBe(true);
+  } finally { await page.close(); }
+});
+
+it('keeps a lost command through a poll reply that the server refuses', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    const game = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id as string);
+    await page.evaluate(() => { (window as any).dropNextMoveReply = true; });
+    await frame.locator('html').evaluate(async (_, game_id) => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_move', { game_id, command_id: 'poll-keeps-move', expected_revision: app.memory.view.revision, lan: 'e2-e4' }, true);
+    }, game);
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toMatchObject({ name: 'kingdown_move', game_tag: game.slice(0, 8) });
+    // The server refuses the next poll with a definitive code. A read never clears `pending` (design §4).
+    await page.evaluate(() => { (window as any).rejectNextAction = { name: 'kingdown_get', code: 'MATCH_REMOVED', text: 'This game was deleted. Start, resume or join another game.' }; });
+    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true, true); });
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toMatchObject({ name: 'kingdown_move', game_tag: game.slice(0, 8) });
+    // The refused poll never shows its own text: the lost command keeps the line and its Retry (design §3.2 and §4).
+    expect(await frame.locator('#error').textContent()).toBe('Harness lost reply after commit');
+    expect(await frame.locator('#retry').textContent()).toBe('Retry');
+    // The refused read still marks the board stale, with "Not current".
+    expect(await frame.locator('#status').textContent()).toBe('Not current');
+  } finally { await page.close(); }
+});
+
+it('keeps a programmatic write refusal out of the line, while a user command shows its own', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    const game = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id as string);
+    // The board's own ask to move the computer is a programmatic write (`user` false): its refusal clears `pending`
+    // and stays silent, as before S2 (design §2 and §4).
+    await page.evaluate(() => { (window as any).rejectNextAction = { name: 'kingdown_computer', code: 'MATCH_TERMINAL', text: 'This game already ended.' }; });
+    await frame.locator('html').evaluate(async (_, game_id) => {
+      const app = (window as any).harnessApp, view = app.memory.view;
+      await app.call('kingdown_computer', { game_id, command_id: 'program-refusal', expected_revision: view.revision }, true, false, undefined, false, undefined, false);
+    }, game);
+    expect(await frame.locator('#error').textContent()).toBe('');
+    expect(await frame.locator('#status').textContent()).toBe('Your move.');
+    expect(await frame.locator('#retry').isHidden()).toBe(true);
+    expect(await page.evaluate(() => (window as any).harnessWidgetState.privateContent.pending)).toBeUndefined();
+    // A user command's refusal becomes the one notice: its words, no Retry (design §2 and §3.2).
+    await page.evaluate(() => { (window as any).rejectNextAction = { name: 'kingdown_abort', code: 'MATCH_TERMINAL', text: 'This game already ended.' }; });
+    await frame.locator('html').evaluate(async (_, game_id) => {
+      const app = (window as any).harnessApp, view = app.memory.view;
+      await app.call('kingdown_abort', { game_id, command_id: 'user-refusal', expected_revision: view.revision }, true);
+    }, game);
+    expect(await frame.locator('#error').textContent()).toBe('This game already ended.');
+    expect(await frame.locator('#retry').isHidden()).toBe(true);
+  } finally { await page.close(); }
 });
 
 it('keeps a failed read board locked until a good read, and offers Try again after a failed remount', async () => {

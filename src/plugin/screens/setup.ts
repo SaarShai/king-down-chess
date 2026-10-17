@@ -1,4 +1,4 @@
-import { actions, call, client, memory, navigate, routeView, start } from '../app';
+import { actions, call, client, memory, navigate, routeView, start, store } from '../app';
 import { art } from '../art';
 import { cardArt } from '../card-face';
 import { errorText, type WidgetHost } from '../client';
@@ -7,6 +7,7 @@ import { LETTERS, NAMES } from '../../rules/engine';
 import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
 import { POWER_NAME, cardName, cardCost, cardText, powerText, powerOptions, powersRules, ruleLine } from '../../powers-ui';
 import type { View, InboxEntry } from '../../match/protocol';
+import type { Page } from '../state';
 import { availablePowers, cleanKing, createArguments, gameSetup, pieceLocked, quickSetup, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
 import './setup.css';
 
@@ -28,6 +29,8 @@ const restoredSetup = () => !restoreHandled && restored?.screen === 'play' && !!
 const ownPending = () => ownCommand || restoredSetup();
 export const quickStart = () => quick && ownPending();
 export const setupBusy = () => starting || recovering || !!client.state.pending;
+/** A start of this screen runs: Start is busy, and no other start or game command waits on it. */
+export const setupStarting = () => starting || recovering;
 async function readGames() {
   const result = await client.call('kingdown_games', {}, { background: true });
   if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
@@ -186,7 +189,7 @@ async function launch(setup = draft, saveSetup = true) {
     }
     const args = { ...createArguments(last_setup), ...(last_setup.kind === 'random' && anyRules && { any_rules: true }) };
     const view = await start(last_setup.kind, args, { route: false }); if (view) await finish(view, last_setup.king);
-  } catch (error) { $('error').textContent = $('home-error').textContent = errorText(error); }
+  } catch (error) { store.dispatch({ type: 'error', text: errorText(error) }); }
   finally { clearTimeout(words); clearTimeout(wait); starting = late = false; exits.forEach(button => { delete button.dataset.free; }); if (!client.state.pending) ownCommand = false; render(); }
 }
 /** Play now starts a computer game and keeps the saved setup. */
@@ -199,23 +202,23 @@ async function recoverStart() {
     await readGames();
     const view = await call(pending.name, pending.args, true, false, false, true);
     if (!active && view) await finish(view);
-  } catch (error) { $('error').textContent = errorText(error); }
+  } catch (error) { store.dispatch({ type: 'error', text: errorText(error) }); }
   finally { recovering = false; render(); }
 }
-new MutationObserver(() => {
-  if (client.state.screen !== 'play' && !(client.state.screen === 'seat' && client.state.sheet === 'king')) {
+// The store's subscriber replaces the data-page and #retry observers.
+export function setupSync(page: Page) {
+  if (page.screen !== 'play' && !(page.screen === 'seat' && client.state.sheet === 'king')) {
     if (closeSheet) closeSheet();
     else if (['pieces','cards','king'].includes(client.state.sheet ?? '')) { client.state.sheet = undefined; client.save(); }
   }
-  if (!restoredSetup() || client.state.pending || !memory.view) return;
-  if (['board','friend','wait'].includes(client.state.screen)) { restoreHandled = true; return; }
-  if (client.state.screen !== 'seat' || memory.view.kind !== 'solo' || memory.view.status !== 'setup') return;
+  if (page.screen === 'play' && $('setup-body').childElementCount) render();
+  if (!restoredSetup() || page.pending || !memory.view) return;
+  if (['board','friend','wait'].includes(page.screen)) { restoreHandled = true; return; }
+  if (page.screen !== 'seat' || memory.view.kind !== 'solo' || memory.view.status !== 'setup') return;
   restoreHandled = true; ownCommand = true;
   if (!draft) { readDraft(); memory.kind = draft!.kind; }
-  setTimeout(() => { void readGames().then(() => finish(memory.view!)).catch(error => { $('error').textContent = errorText(error); }); }, 0);
-}).observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
-// A failed start shows Retry; the start line then stops asking the player to wait.
-new MutationObserver(() => { if ($('setup-body').childElementCount) render(); }).observe($('retry'), { attributes: true, attributeFilter: ['hidden'] });
+  setTimeout(() => { void readGames().then(() => finish(memory.view!)).catch(error => { store.dispatch({ type: 'error', text: errorText(error) }); }); }, 0);
+}
 document.addEventListener('click', event => {
   if (!(event.target as HTMLElement).closest('#retry') || client.state.screen !== 'play' || !ownPending()) return;
   const pending = client.state.pending;

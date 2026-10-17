@@ -394,7 +394,7 @@ it.each([
 // each test records the wanted behaviour now and fails on this build.
 const CANNOT_CONNECT = 'Cannot connect. Check your connection, then try again.';
 
-it.fails('R1: keeps a command refusal for the shown game after a chat result reads (a.out 1)', async () => {
+it('R1: keeps a command refusal for the shown game after a chat result reads (a.out 1)', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await soloBoard(page);
@@ -419,7 +419,7 @@ it.fails('R1: keeps a command refusal for the shown game after a chat result rea
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
-it.fails('R2: a failed start does not lock another game (a.out 2)', async () => {
+it('R2: a failed start does not lock another game (a.out 2)', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     const { game: friend } = await friendGame(page);
@@ -469,7 +469,7 @@ it('R3: a poll reply does not replace the screen that a chat result chose (a.out
   } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseBefore?.(); }); await page.close(); }
 });
 
-it.fails('R8: another game does not drop a failed command for the game it belongs to (a.out 8)', async () => {
+it('R8: another game does not drop a failed command for the game it belongs to (a.out 8)', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await soloBoard(page);
@@ -491,20 +491,21 @@ it.fails('R8: another game does not drop a failed command for the game it belong
   } finally { await page.context().setOffline(false).catch(() => {}); await page.close(); }
 });
 
-it.fails('R9: a failed connect shows an enabled Try again that connects again (a.out 9)', async () => {
+it('R9: a failed connect shows an enabled Try again that connects again (a.out 9)', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    const opens = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_open').length);
+    const mounts = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length);
     await page.evaluate(() => { (window as any).rejectNextConnect = true; });
     await page.locator('#remount').click();
-    await frame.locator('#home-error').filter({ hasText: 'Could not connect to the game' }).waitFor();
+    const line = frame.locator('#error, #home-error').filter({ hasText: 'Could not connect to the game' });
+    await line.waitFor();
     // The widget offers a Try again that connects again and mounts the page.
     const retry = frame.locator('#retry');
     expect(await retry.isVisible()).toBe(true);
     expect(await retry.isEnabled()).toBe(true);
     await retry.click();
-    await expect.poll(() => frame.locator('#home-error').textContent(), { timeout: 5000 }).toBe('');
-    await expect.poll(() => page.evaluate(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_open').length, opens)).toBeGreaterThan(opens);
+    await expect.poll(() => line.count(), { timeout: 5000 }).toBe(0);
+    await expect.poll(() => page.evaluate(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length, mounts)).toBeGreaterThan(mounts);
   } finally { await page.close(); }
 });
 
@@ -552,7 +553,7 @@ it('R4: a refused move on A does not write its words on the chat board B (a.out 
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
-it.fails('R5: a refused Abort leaves the board menu (a.out 5)', async () => {
+it('R5: a refused Abort leaves the board menu (a.out 5)', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     const a = await friendGame(page);
@@ -574,6 +575,28 @@ it.fails('R5: a refused Abort leaves the board menu (a.out 5)', async () => {
     await frame.locator('#board-menu:not(:disabled)').click();
     expect(await frame.locator('#menu-abort').count()).toBe(0);
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
+it('R7: a move with a view clears Try again and its read text (a.out 7)', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await soloBoard(page);
+    const game = await html(page).evaluate(() => (window as any).harnessApp.memory.view.game_id as string);
+    // A failed foreground read shows Try again, its sentence and "Not current".
+    await page.evaluate(() => { (window as any).rejectNextGet = true; });
+    await html(page).evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
+    await frame.locator('#retry').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe('Harness saved-game read failed');
+    expect(await frame.locator('#status').textContent()).toBe('Not current');
+    // A move succeeds with a view: the good view clears the read notice, its text and Try again.
+    await html(page).evaluate(async (_, game_id) => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_move', { game_id, command_id: 'r7-move', expected_revision: app.memory.view.revision, lan: 'e2-e4' }, true);
+    }, game);
+    expect(await frame.locator('#error').textContent()).toBe('');
+    expect(await frame.locator('#retry').isHidden()).toBe(true);
+    expect(await frame.locator('#status').textContent()).not.toBe('Not current');
+  } finally { await page.close(); }
 });
 
 it.fails('R6: a command that starts while a read is in flight waits for it and runs (a.out 6)', async () => {

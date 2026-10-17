@@ -15,6 +15,7 @@ import { pieceIcon } from '../../piece-icons';
 import { snd } from '../../render/sfx';
 import '../../ceremony.css';
 import { client, memory, navigate, routeView } from '../app';
+import { locks, noticeShows, staleRead, type Page, type Store } from '../state';
 import { nextGame } from '../next-game';
 import { actionButtons } from './board-actions';
 import { guardEndTaps, updateEnd } from './end';
@@ -63,8 +64,12 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
 }
 const text = (words: string) => { const p = document.createElement('p'); p.textContent = words; return p; };
 const button = (words: string, click: () => void) => { const b = document.createElement('button'); b.textContent = words; b.onclick = click; return b; };
-export function boardScreen(call: (name: string, args: Record<string, unknown>, retain?: boolean) => Promise<View | undefined>, networkBlocked: () => boolean, readFailed: () => boolean) {
+export function boardScreen(store: Store) {
   let generation = 0, animating = false, steps: BoardMove[] = [];
+  const call = store.call;
+  // The game lock covers a write, a mount, a command that belongs here and a stale board.
+  const networkBlocked = () => locks(store.page()).game;
+  const stale = () => staleRead(store.page());
   const blocked = () => networkBlocked() || animating;
   const mode = () => view!.kind === 'solo' ? 'computer' : 'link';
   const turn = () => draftTurn(steps, pos!, mode(), view!.seat);
@@ -100,9 +105,10 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     }
     const next = await call(name, {game_id:game, command_id:crypto.randomUUID().replaceAll('-', ''), expected_revision:view.revision, ...args}, true);
     if (!next && !client.state.pending && view?.game_id === game) {
-      const message = $('error').textContent ?? '';
-      if (/Abort is/.test(message) || args.choice==='offer' && /No draw offer/.test(message)) refused.add(name);
-      await call('kingdown_get', {}); $('error').textContent = message; refresh();
+      // A refusal of Abort or a draw offer hides that button for this game; the notice text never comes from the DOM.
+      const notice = store.refusal();
+      if (notice && notice.game === game && (name === 'kingdown_abort' || name === 'kingdown_draw' && args.choice === 'offer')) refused.add(name);
+      await call('kingdown_get', {}); refresh();
     }
     return next;
   };
@@ -114,7 +120,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     if (tornDown || !view || client.state.screen !== 'board' || document.hidden || blocked() || computerRunning || computerCalls >= 4 || view.kind !== 'solo' || view.status !== 'playing' || view.turn === view.seat || $<HTMLDialogElement>('over').open) return;
     const game = view.game_id; computerRunning = true;
     if (computerCalls++ === 0) thinkingTimer = setTimeout(() => { if (view?.game_id === game && view.turn !== view.seat) { thinking = true; strips(); } }, 1000);
-    const next = await call('kingdown_computer', {game_id:game, command_id:crypto.randomUUID().replaceAll('-', ''), expected_revision:view.revision}, true);
+    const next = await call('kingdown_computer', {game_id:game, command_id:crypto.randomUUID().replaceAll('-', ''), expected_revision:view.revision}, true, false, undefined, false, undefined, false);
     if (!next && !client.state.pending && view?.game_id === game) await call('kingdown_get', {});
     computerRunning = false;
     if (!view || view.game_id !== game || view.turn === view.seat || view.status !== 'playing' || client.state.pending?.error) { clearTimeout(thinkingTimer); thinking = false; }
@@ -171,10 +177,9 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   $('table-bar').onkeydown = event => { if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undo(); } };
   rollbackBoardMove = async () => {
     if (!view) return;
-    const message = $('error').textContent ?? '';
     ++generation; board.skip(); animating = false; steps = []; lastMove = history.at(-1);
     rules(); pos = fromFen(view.fen); board.sync(pos); moveLine(); refresh();
-    await call('kingdown_get', {}); $('error').textContent = message; refresh();
+    await call('kingdown_get', {}); refresh();
   };
   function choices(list: Choice[]) {
     $('move-hint').textContent = !list.length ? '' : list.every(({move}) => needsArming(move)) ? 'Choose a move below.' : 'Select a marked square to move, or choose a move below.';
@@ -186,7 +191,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   });
   function select(square: number, submit = true) {
     if (!view || !pos || !canRead()) return;
-    rules(); if (!networkBlocked()) $('error').textContent = '';
+    rules();
     const targets = submit && canPlay() ? named().filter(({move}) => move.to === square || move.from === square) : [];
     if (targets.length === 1) return choose(targets[0].lan);
     if (targets.length > 1) { choices(targets); boardSheet('Choose a move', $('choices')); return; }
@@ -216,7 +221,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   }
   function coinRead(side: Color, index?: number) {
     if (!view || !pos || !canRead()) return;
-    rules(); if (!networkBlocked()) $('error').textContent = '';
+    rules();
     if (index !== undefined) {
       const card = RULES.hands[side][index], image = document.createElement('img'), face = art(`ui/cards/${card.toLowerCase()}.webp`);
       image.src = face ?? art('ui/cards/back.webp'); image.alt = '';
@@ -290,7 +295,7 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     const draft = turn();
     turnControls(draft);
     $('board').dataset.animating = String(animating);
-    if (readFailed()) { armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]); }
+    if (stale()) { armed = undefined; armedCard = undefined; selected = inspected = undefined; choices([]); }
     moveLine();
     updateTime();
     const check = inCheck(pos) ? findKing(pos.board, pos.turn) : null;
@@ -313,14 +318,16 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
     const fresh = teach && (taught.get(teach[0]) ?? history.length) === history.length;
     const first = beginner && pos.ply < 2 && pos.board.some(c => c && typeOf(c) > K) ? 'New pieces in this game. Select any piece to read its rule.' : '';
     const lesson = beginner && code ? LESSONS.find(lesson => lesson.name.toLowerCase() === nameOf(typeOf(code)))?.done : undefined;
-    const context = contextLine({voice:'you', teach:first || (fresh ? teach[1] : ''), result:view.result ? ending(view) : '', refusal:$('error').textContent ?? '', link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:lesson ?? line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:view.turn !== view.seat, midWay:view.turn === view.seat && draft.midWay && !draft.waits, stagedEnd:draft.waits && status(pos) !== 'playing' ? draft.line : '', waiting:draft.waits, free:!!pos.free, turnLine:draft.line, armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
+    // Only a refusal shows in the board's words area; a read or an error keeps to the message line.
+    const refusalNotice = store.refusal(); const refusal = refusalNotice && noticeShows(store.page(), refusalNotice) ? refusalNotice.text : '';
+    const context = contextLine({voice:'you', teach:first || (fresh ? teach[1] : ''), result:view.result ? ending(view) : '', refusal, link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:lesson ?? line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:view.turn !== view.seat, midWay:view.turn === view.seat && draft.midWay && !draft.waits, stagedEnd:draft.waits && status(pos) !== 'playing' ? draft.line : '', waiting:draft.waits, free:!!pos.free, turnLine:draft.line, armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
     if (networkBlocked() && ['mid-way','waiting','staged-end'].includes(context.rank)) Object.assign(context, {rank:'sending', line:'Sending…', note:''});
     if (inspected !== undefined && draft.waits && !networkBlocked() && view.draw_offer == null && !['result','refusal','link'].includes(context.rank)) context.note = waitNotice(mode(), view.seat);
     if (context.rank==='link' && deadline) context.note=available.claim==='end'?'You may end the game with no result.':'You may claim the win.';
     if (fresh && context.rank === 'your-move') taught.set(teach[0], history.length);
     if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:'armed',line:cardName(RULES.hands[view.seat][armedCard]),note:'Choose a piece, then a marked square.'});
     if (view.draw_offer != null && !['result','refusal','link'].includes(context.rank)) context.note = [context.note, view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.'].filter(Boolean).join(' ');
-    if (readFailed()) Object.assign(context, {rank:'link', line:'Not current', note:''});
+    if (stale()) Object.assign(context, {rank:'link', line:'Not current', note:''});
     $('status').textContent = context.rank === 'refusal' ? '' : context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
     const actions: HTMLButtonElement[] = [];
     const drawReply = !view.result && view.draw_offer != null && view.draw_offer !== view.seat && view.kind !== 'solo';
@@ -362,12 +369,13 @@ export function boardScreen(call: (name: string, args: Record<string, unknown>, 
   function showMoves() { boardSheet('Moves', ...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No moves shown yet.')]); }
   $('moves-line').onclick = showMoves;
   bindBoard();
-  const observer = new MutationObserver(() => { if (active()) refresh(); else skipBoardCeremony(); scheduleComputer(); if (client.state.screen === 'end') updateEnd(); });
-  observer.observe($('reload'), {attributes:true, attributeFilter:['disabled']});
-  observer.observe(document.body, {attributes:true, attributeFilter:['data-page']});
-  observer.observe($('over'), {attributes:true, attributeFilter:['open']});
+  // The store replaces the #reload, data-page and #error observers; a sync also schedules the computer and updates End.
+  // The board redraws on a screen change, or when its game, board data, lock or refusal changes. An equal-revision poll
+  // reply changes only opponent and server_now, so the key holds and the coin row (and its focus) stay (design §3.4).
+  const key = (p: Page) => { const l = locks(p); return [p.screen, p.view?.game_id, p.view?.revision, p.view?.status, p.view?.fen, l.game, l.blocked, staleRead(p), p.notice?.kind === 'refusal' ? p.notice.text : ''].join('|'); };
+  store.subscribe((page, before) => { if (active()) { if (key(page) !== key(before)) refresh(); } else skipBoardCeremony(); scheduleComputer(); if (client.state.screen === 'end') updateEnd(); });
+  new MutationObserver(() => { if (active()) refresh(); else skipBoardCeremony(); scheduleComputer(); if (client.state.screen === 'end') updateEnd(); }).observe($('over'), {attributes:true, attributeFilter:['open']});
   new MutationObserver(() => turnControls()).observe($('app-frame'), {attributes:true, attributeFilter:['open'], subtree:true});
-  observer.observe($('error'), {childList:true, characterData:true, subtree:true});
   return (next: View, restoring = false) => {
     if (view?.game_id === next.game_id && next.revision < view.revision) return;
     const before = view, same = view?.game_id === next.game_id;

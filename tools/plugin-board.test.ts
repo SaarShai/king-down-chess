@@ -132,10 +132,21 @@ it.each([['a stop', 'pass'], ['a second move', 'move']] as const)('marks each op
 it('keeps Their move through the opponent Haste turn', async () => {
   const rules: Partial<Rules> = { kings: [null, { king: 'Flame', power: 'Haste' }] }, fen = '4k3/p7/8/8/8/8/4P3/K7 b - - 0 1';
   setRules(rules); const pre = fromFen(fen), move = legalMoves(pre).find(m => m.power === 'haste' && m.from === 48 && m.to === 40)!;
+  // A solo view asks the server to move the computer. This game has no server row, so that programmatic write comes
+  // back refused. The refusal must not blank the words area (ticket 19 S2: a refusal belongs to a user command).
   const page = await open(view(toFen(makeMove(pre, move)), rules, { revision: 1, seat: 0, history: { initial_fen: fen, actions: [toLan(pre, move)] } })), frame = page.frameLocator('iframe');
   try {
     expect(await frame.locator('#status').textContent()).toBe('Their move.');
     expect(await frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('true');
+    // Wait for the board's four computer asks and their follow-up reads to finish, then check the words area.
+    await page.waitForFunction(() => {
+      const calls = (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_computer').length;
+      const frame = document.querySelector('iframe')?.contentWindow as any;
+      return calls >= 4 && frame?.harnessApp?.client?.inflight === 0;
+    });
+    expect(await frame.locator('#error').textContent()).toBe('');
+    expect(await frame.locator('#status').textContent()).toBe('Their move.');
+    expect(await frame.locator('#retry').isHidden()).toBe(true);
   } finally { await page.close(); }
 });
 

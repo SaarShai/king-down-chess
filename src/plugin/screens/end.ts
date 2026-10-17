@@ -1,14 +1,16 @@
-import { call, client, memory, readFailed, routeView, showNewGame } from '../app';
+import { call, client, memory, routeView, showNewGame, store } from '../app';
 import { art } from '../art';
 import { ending, endReason } from '../ending';
 import { runPoll } from '../poll';
 import { PLAIN_KINGS } from '../../rules/engine';
+import { staleRead, type Page } from '../state';
 import { boardGame, closeBoardSheet, sendBoardCommand, skipBoardCeremony } from './board';
 import { rematchChoices } from './end-model';
 import { draftFromGame } from './setup';
 import './end.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
-let scrim: HTMLElement, poll: ReturnType<typeof runPoll> | undefined, observer: MutationObserver;
+const readFailed = () => staleRead(store.page());
+let scrim: HTMLElement, poll: ReturnType<typeof runPoll> | undefined;
 const read = new Set<string>(), resumed = new Set<string>();
 let updating = false, stopped = false, opening = false;
 let endGame: string | undefined, looking = false;
@@ -28,6 +30,16 @@ function closeEnd() {
 function pollView() {
   const view = memory.view;
   if (!stopped && client.state.screen === 'end' && view?.status === 'finished' && view.kind !== 'solo' && !view.rematch_game_id && view.opponent && !view.opponent.deleted) return {...view,status:'playing' as const,turn:(1-view.seat) as 0|1};
+}
+// The store's subscriber replaces the data-page and #reload observers: the end screen follows its screen and its lock.
+// The card is rebuilt on a change of either only, as the two observers did.
+let endKey: string | undefined;
+export function endSync(page: Page) {
+  const key = `${page.screen}:${$<HTMLButtonElement>('reload').disabled}`;
+  if (key === endKey) return;
+  endKey = key;
+  if (page.screen === 'end') setTimeout(updateEnd, 0);
+  else if (scrim) closeEnd();
 }
 export function updateEnd() {
   if (client.state.screen !== 'end') { closeEnd(); return; }
@@ -60,10 +72,8 @@ export function endScreen(schedule = true) {
   const error = document.querySelector('.page-error')!; error.remove();
   if (!scrim) {
     scrim = document.createElement('div'); scrim.id = 'end-scrim'; scrim.className = 'scrim'; scrim.hidden=true; $('app-frame').insertBefore(scrim,over);
-    observer = new MutationObserver(() => { if (client.state.screen === 'end') setTimeout(updateEnd,0); else closeEnd(); });
-    observer.observe(document.body,{attributes:true,attributeFilter:['data-page']}); observer.observe($('reload'),{attributes:true,attributeFilter:['disabled']});
     new MutationObserver(() => { const skip = document.getElementById('end-skip'); if (skip) skip.hidden = !$('board').dataset.toppling; }).observe($('board'),{attributes:true,attributeFilter:['data-toppling']});
-    window.addEventListener('message',event=>{ if(event.data?.method==='ui/resource-teardown') {stopped=true; closeEnd(); observer.disconnect();} });
+    window.addEventListener('message',event=>{ if(event.data?.method==='ui/resource-teardown') {stopped=true; closeEnd();} });
   }
   $('end-table').append($('game-table')); $('table-bar').hidden = true;
   const win = view.result?.reason === 'checkmate' && view.result.winner === view.seat;
