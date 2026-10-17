@@ -48,3 +48,13 @@ The checks pass only when each command ends with exit 0. The browser log must na
 - Skip od-picks: 26-board-build is the latest brief; its completion file is absent.
 - Skip od-faults: the last logic build ends with exit 1. No last-fix completion file is present. The lane has no complete build to merge.
 - Keep od-qa1, od-end, od-home and the later owner-decisions work out, as ticket 29 requires.
+
+### Merge check fixes
+
+- First full suite: 180 files pass; 6 files fail, with 36 failed cases. Log: tests-merge-1.txt in the release lane.
+- Port the 31 race failures to frame reads on the second origin. Keep their held-call and late-reply checks. Remove the older duplicate race cases from plugin-journeys; plugin-races holds the current cases.
+- Add the rate-limit method to the next-game server test stub. The live service already has it.
+- Use the current hall controls in the focus and slow-start tests. Keep the slow-start cancel guard from submit-prep: Back before Create sends no Create.
+- Wait for the keyboard send to reach the host before counting it. Keep the focus check.
+- The offline check now expects the current state contract: Not current and Try again after three failed polls. A good read clears both.
+- The type check passes. No test or check time limit changes.

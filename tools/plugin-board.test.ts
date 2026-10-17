@@ -764,7 +764,7 @@ it('W7: stages a move, sends once, and starts the computer only after the press'
     await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_computer'; (window as any).releaseBefore(); });
     await page.waitForFunction(() => (window as any).harnessCalls.some((c: any) => c.name==='kingdown_computer'));
     expect(await frame.locator('#status').textContent()).toBe('Their move.');
-    expect((await moveCalls(page)).length).toBe(1);
+    await expect.poll(async () => (await moveCalls(page)).length).toBe(1);
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
 
@@ -854,7 +854,7 @@ it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and dur
     expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);
     await page.keyboard.press('Escape'); await squareTap(page,36); await frame.locator('#board').press('Enter');
     expect(await frame.locator('#last-move').innerText()).toContain('White pawn e2 to e4.');
-    expect((await moveCalls(page)).length).toBe(1);
+    await expect.poll(async () => (await moveCalls(page)).length).toBe(1);
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
 
@@ -925,7 +925,7 @@ it('W7: moves keyboard focus to the turn button, sends with Enter, and undoes wi
     await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_move'; });
     await frame.locator('#end-turn').press('Enter');
     expect(await board.evaluate(e => e===document.activeElement)).toBe(true);
-    expect((await moveCalls(page)).length).toBe(1);
+    await expect.poll(async () => (await moveCalls(page)).length).toBe(1);
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
 
@@ -960,6 +960,6 @@ it('W7: keeps a lost-send error while pieces and coins remain readable', async (
     expect(await frame.locator('#error').innerText()).toBe(message);
     expect(await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).count()).toBe(0);
     expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
-    expect((await moveCalls(page)).length).toBe(1);
+    await expect.poll(async () => (await moveCalls(page)).length).toBe(1);
   } finally { await page.close(); }
 });

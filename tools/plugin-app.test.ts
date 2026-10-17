@@ -1354,7 +1354,7 @@ it('shows a neutral Start game beside the connection line when a slow start time
 it('starts no game when the player goes Back while a slow start still saves the setup', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await expand(page); await frame.locator('#home-play').click(); await frame.locator('#play-new').click();
+    await hall(page);
     await page.clock.install();
     await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_settings'; });
     await frame.locator('#setup-start').click();
@@ -1362,11 +1362,11 @@ it('starts no game when the player goes Back while a slow start still saves the 
     // After 5 s Back is free, and no Create has gone out yet.
     await page.clock.fastForward(5_001);
     await frame.locator('#page-back:not(:disabled)').click();
-    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator('#home-card:not([hidden])').waitFor();
     await page.evaluate(() => (window as any).releaseBefore());
     await frame.locator('#page-back:not([data-free])').waitFor({ state: 'attached' });
     expect(await sent(page, 'kingdown_create')).toBe(0);
-    expect(await frame.locator('body').getAttribute('data-page')).toBe('play');
+    expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
 

@@ -193,9 +193,9 @@ it('returns focus to each sheet opener after a pointer opens the sheet', async (
     focus[`${id} ${close}`] = await active();
   };
   try {
-    await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').click();
+    await page.goto(harness.url); await frame.locator('#home-games:not(:disabled)').click();
     await page.evaluate(async()=>{await (window as any).harnessSetContext({deviceCapabilities:{touch:true},displayMode:'fullscreen',safeAreaInsets:{top:20,bottom:0,left:0,right:0}});});
-    await frame.locator('#play-new').click(); await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
+    await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
     await frame.getByRole('checkbox',{name:'Arrangement',exact:true}).check();
     await frame.getByRole('checkbox',{name:'Cards',exact:true}).check(); await frame.getByRole('checkbox',{name:'King powers',exact:true}).check();
     for (const id of ['setup-pieces','setup-cards','setup-king']) await opens(id, '#menu-sheet');

@@ -206,13 +206,15 @@ it('says it cannot connect after three failed polls offline, and shows the curre
       await page.clock.fastForward(30_000); await frame.waitForFunction(n => (window as any).failedReplies > n, failed);
     }
     await widget.locator('#error').filter({ hasText: 'Cannot connect. Check your connection, then try again.' }).waitFor();
-    expect(await widget.locator('#retry').isHidden()).toBe(true);
+    expect(await widget.locator('#retry').innerText()).toBe('Try again');
+    expect(await widget.locator('#status').innerText()).toBe('Not current');
     expect((await shown(frame)).revision).toBe(mine);
     await page.context().setOffline(false);
     await page.clock.fastForward(30_000);
     await atRevision(frame, answer);
     await widget.locator('#error').filter({ hasText: /^$/ }).waitFor({ state: 'attached' });
     await widget.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    expect(await widget.locator('#retry').isHidden()).toBe(true);
   } finally { await page.close(); }
 });
 

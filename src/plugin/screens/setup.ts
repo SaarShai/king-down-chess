@@ -179,6 +179,8 @@ async function launch(setup = draft, saveSetup = true) {
   // pending, and Start sends no second Create. The 10 s command limit (client.ts) ends the call with Retry.
   const exits = document.querySelectorAll<HTMLButtonElement>('#page-back, [data-screen="play"] [data-nav]');
   const words = setTimeout(() => { late = true; render(); }, 1_000);
+  let left = false; const leave = () => { left = true; };
+  exits.forEach(button => button.addEventListener('click', leave));
   const wait = setTimeout(() => { exits.forEach(button => { button.dataset.free = ''; button.disabled = false; }); }, 5_000);
   try {
     const last_setup = { ...setup, options: setupOptions(setup.options) };
@@ -187,10 +189,11 @@ async function launch(setup = draft, saveSetup = true) {
       if (saved.isError) throw new Error(saved.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       memory.settings = saved._meta?.settings as typeof memory.settings;
     }
+    if (left) return;
     const args = { ...createArguments(last_setup), ...(last_setup.kind === 'random' && anyRules && { any_rules: true }) };
     const view = await start(last_setup.kind, args, { route: false }); if (view) await finish(view, last_setup.king);
   } catch (error) { store.dispatch({ type: 'error', text: errorText(error) }); }
-  finally { clearTimeout(words); clearTimeout(wait); starting = late = false; exits.forEach(button => { delete button.dataset.free; }); if (!client.state.pending) ownCommand = false; render(); }
+  finally { exits.forEach(button => button.removeEventListener('click', leave)); clearTimeout(words); clearTimeout(wait); starting = late = false; exits.forEach(button => { delete button.dataset.free; }); if (!client.state.pending) ownCommand = false; render(); }
 }
 /** Play now starts a computer game and keeps the saved setup. */
 export function playNow() { if (memory.settings) void launch(quickSetup(memory.settings.last_setup), false); }
