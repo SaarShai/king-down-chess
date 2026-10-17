@@ -1808,6 +1808,7 @@ try {
   // T2: at 197 x 426 the context words show in full, the coins stay on one row, the board keeps its usable floor, and
   // the strips, the context line, Undo, End turn and Menu each come fully into the frame (the screen scrolls).
   async function zoomBoardFits(label) {
+    if (['board-turn','board-cards-armed','board-swap-preview','board-their-turn'].includes(label)) await touchBoardScroll(label);
     const viewport = page.viewportSize();
     await zoomViewport(197,426,51,59);
     await frame.locator('#status').evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
@@ -1827,6 +1828,53 @@ try {
     await frame.locator('[data-screen="board"]').evaluate(el => { el.scrollTop = 0; });
     await shot(page, `zoom-fit-${label}-${mode}`);
     await zoomViewport(viewport.width, viewport.height, 0, 0);
+  }
+  // Browser input runs the engine's touch-action and scroll path. DOM touch events cannot test that path.
+  async function touchBoardScroll(label) {
+    const viewport = page.viewportSize(), screen = frame.locator('[data-screen="board"]');
+    const touch = browser.browserType().name() === 'chromium' ? await page.context().newCDPSession(page)
+      // Playwright exposes only tap for WebKit; use its native input session for a swipe.
+      : page._connection.toImpl(page)._delegate._pageProxySession;
+    async function swipe(x, y) {
+      await touch.send('Input.dispatchTouchEvent', {type:'touchStart',touchPoints:[{x,y,id:0}]});
+      for (let i=1;i<=20;i++) {
+        await touch.send('Input.dispatchTouchEvent', {type:'touchMove',touchPoints:[{x,y:y-i*20,id:0}]});
+        await new Promise(r=>setTimeout(r,16));
+      }
+      await new Promise(r=>setTimeout(r,80));
+      await touch.send('Input.dispatchTouchEvent', {type:'touchEnd',touchPoints:[]});
+      await new Promise(r=>setTimeout(r,100));
+    }
+    const reset = () => screen.evaluate(el=>{el.scrollTop=0;});
+    try {
+      await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen'}));
+      for (const [top,bottom] of [[31,17],[62,34]]) {
+        await zoomViewport(201,357,top,bottom); await reset(); await boardBox();
+        const strip = await frame.locator('#strip-them .player-name').boundingBox(); assert(strip);
+        await swipe(strip.x+strip.width/2,strip.y+strip.height/2);
+        const stripScroll = await screen.evaluate(el=>el.scrollTop);
+        await reset(); await boardBox();
+        // The board's full centre can be below the frame. Start at the centre of its visible area.
+        const start = await frame.locator('canvas').evaluate(c=>{
+          const b=c.getBoundingClientRect(), f=document.querySelector('.frame').getBoundingClientRect();
+          const x=(Math.max(b.left,f.left)+Math.min(b.right,f.right))/2, y=(Math.max(b.top,f.top)+Math.min(b.bottom,f.bottom))/2;
+          return {x,y,hit:document.elementFromPoint(x,y)===c};
+        });
+        const host = await page.locator('iframe').boundingBox(); assert(host && start.hit,`${label}: the swipe starts on the visible board`);
+        await swipe(host.x+start.x,host.y+start.y);
+        const boardScroll = await screen.evaluate(el=>el.scrollTop);
+        console.log(`T-A ${label} 201x357 insets ${top}/${bottom}: strip scrollTop=${stripScroll}, board scrollTop=${boardScroll}`);
+        assert(stripScroll>0,`${label}: a touch swipe from the top strip scrolls the board screen`);
+        assert(boardScroll>0,`${label}: a touch swipe from the board scrolls the board screen`);
+        const boxes = await zoomBoxes(['#undo','#end-turn','#board-menu']);
+        for (const id of ['#undo','#end-turn','#board-menu']) assert(inFrame(boxes[id],boxes.frame),`${label}: ${id} fits after a board swipe: ${JSON.stringify(boxes)}`);
+        assert(await frame.locator('#end-turn').evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),`${label}: End turn receives a tap after a board swipe`);
+        await shot(page,`touch-scroll-${label}-${top}-${mode}`);
+      }
+    } finally {
+      if (browser.browserType().name()==='chromium') await touch.detach();
+      await reset(); await zoomViewport(viewport.width,viewport.height,0,0);
+    }
   }
   // T1: at 197 x 426 the end card shows its result line and the top of its first action with no scroll, and its last
   // action scrolls into the frame.
