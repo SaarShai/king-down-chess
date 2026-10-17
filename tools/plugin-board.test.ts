@@ -226,18 +226,33 @@ it('keeps spent coin contrast, token text and full coin faces together', async (
   } finally { await page.close(); }
 });
 
-it('keeps the block notice when an armed card adds a keyboard scroll stop', async () => {
-  const page = await open(view('7k/8/8/8/2RM4/8/P7/K7 w - - 0 1', { hands: [['SkyLift'], []] })), frame = page.frameLocator('iframe');
+it.each(['EarthQuake', 'SkyLift'] as const)('keeps the armed %s targets and rule before the block notice', async card => {
+  const page = await open(view('7k/8/8/8/2RM4/8/P7/K7 w - - 0 1', { hands: [[card], []] })), frame = page.frameLocator('iframe');
   try {
     await frame.locator('html').evaluate(() => { (window as any).harnessApp.memory.blockNotice = 'Player blocked.'; });
     await frame.locator('#card-w-0').click();
     await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
-    expect(await frame.locator('#context-note').textContent()).toBe('Player blocked.');
+    const targets = card === 'EarthQuake' ? 'Tap a marked square.' : 'Choose a marked piece, then a marked square.';
+    expect(await frame.locator('#context-note').textContent()).toBe(`${targets} ${ruleLine(cardText(card))} Player blocked.`);
     expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('armed');
     expect(await frame.locator('#context-text').getAttribute('tabindex')).toBe('0');
     await frame.getByRole('button', { name: 'Cancel', exact: true }).click();
     expect(await frame.locator('#context-note').textContent()).toBe('Player blocked.');
     expect(await frame.locator('#context-text').getAttribute('tabindex')).toBe('-1');
+  } finally { await page.close(); }
+});
+
+it('keeps the held swap note before the block notice', async () => {
+  const fen = '7k/8/8/8/2RM4/8/8/K7 w - - 0 1', base = view(fen), page = await open(base), frame = page.frameLocator('iframe');
+  setRules(base.rules!); const pre = fromFen(fen), swap = legalMoves(pre).find(m => m.from === 27 && m.to === 26 && m.swap)!;
+  expect(swap).toBeDefined();
+  try {
+    await frame.locator('html').evaluate(() => { (window as any).harnessApp.memory.blockNotice = 'Player blocked.'; });
+    await squareTap(page,27); await squareTap(page,26);
+    expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('held');
+    expect(await frame.locator('#context-note').textContent()).toBe(`${describeMove(pre,swap)} Player blocked.`);
+    await squareTap(page,27);
+    expect(await frame.locator('#context-note').textContent()).toBe('Player blocked.');
   } finally { await page.close(); }
 });
 

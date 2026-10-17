@@ -162,3 +162,26 @@ Pass criteria: both exact lane heads are ancestors; held release changes remain;
 - The final-head browser run passes plugin-ui in 128.3 s. The HTTP check fails at the lost-reply Retry comparison. It reads the last two sends before Retry reaches the host, so one send belongs to the prior game. Log: checks-29-merge-2-3.txt.
 - Fix the check at its cause. Wait for two move sends for the selected game, then compare those sends. Keep the exact count of two, identical arguments and the server commit-once check. No product code or time limit changes. The failed browser run is the control for this check repair.
 - Repeat all required checks after this commit. The final head and results are in tests-29-merge-2-4.txt, checks-29-merge-2-4.txt and 29-merge-2-build-report.md in the release scratchpad lane.
+
+### Part 29-merge-2-conflicts: plan and checks
+
+1. Check both reviews against the code. Review A lists no findings. Review B identifies one fault: the block notice hides the armed target words and rule.
+2. Add tests for both affected cards and a held swap. First confirm that the tests fail with the current code. Put the armed or held note before the block notice. After Cancel, keep only the block notice.
+3. Run `npm test` with the local test database. Commit the fix and tests. Run `plugin-ui` and `plugin-ui-http` through the approved runner at that commit. Keep all time limits.
+4. Record each finding, the checked head and the check results here. Write the complete answer to `29-merge-2-conflicts-fix.md` in the release scratchpad lane.
+
+Pass criteria: the new cases fail before the fix; the full test suite and both browser checks exit 0 after the fix; the browser log names the code commit and has its final runner exit line.
+
+#### Findings and failing test evidence
+
+- Review A lists no findings. Its block-notice merge test keeps the focus stop but expects the wrong words when a card is armed. Review B identifies this fault.
+- Review B, finding 1: confirmed. `memory.blockNotice || context.note` hides the target words and rule. Arming a card changes neither the game nor its revision, so the notice stays. The shared display now puts an armed or held note first and the block notice second. Other ranks keep the current notice order.
+- The regression test checks Earth Quake and Sky Lift target words, the full rule, the block notice, the armed focus stop and Cancel. A second test checks the held swap description and clears the held state. These tests record the display rule in code.
+- Before the fix, `npm test` with `KINGDOWN_TEST_FILE=tools/plugin-board.test.ts` exits 1: all three new cases fail at the expected text check; the other 104 board tests pass. Log: `tests-29-merge-2-conflicts-before.txt` in the release scratchpad lane. No time limit changes.
+
+#### Check evidence
+
+- Full `npm test` with the local test database exits 0: 188 files; 3,039 passed tests, one expected failure and eight skips. All 51 drawing tests pass. The type check passes as part of that command. Log: `tests-29-merge-2-conflicts-full-1.txt` in the release scratchpad lane.
+- The protected privacy pages, review packet, client, state store, command queue and poll module match 3f1281d1. The app diff from that base only removes the F26 Display check code. The Resume fix stays in place.
+- The source review keeps the fix in the shared display line. It needs no new helper or dependency. The tests retain the armed keyboard stop and verify the notice after Cancel.
+- Both browser checks run at the fix commit through the approved runner. Their checked head and final exit line go in `checks-29-merge-2-conflicts-1.txt` and `29-merge-2-conflicts-fix.md` in the release scratchpad lane. Keep the source fixed during that run.
