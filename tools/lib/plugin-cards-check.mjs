@@ -78,8 +78,11 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   assert((await frame.locator('#setup-cards').innerText()).startsWith('6 cards'));
   await frame.locator('#setup-cards').click();
   await sheet.locator('input[value="Haste"]').uncheck();
+  // WebKit does not give keyboard focus to a checkbox on a pointer click.
+  await sheet.locator('input[value="Haste"]').focus();
   const beforeSheet = await sheet.elementHandle(), beforeCard = await grid.locator('.card-face').first().elementHandle();
   const focused = await sheet.locator('input:focus').getAttribute('value');
+  assert.equal(focused, 'Haste', 'The refresh starts with keyboard focus on the changed card');
   const result = await (await page.request.post(new URL('/fixture-tool', page.url()).href, { data: { name: 'kingdown_open', arguments: { screen: 'play' } } })).json();
   assert(!result.isError);
   await page.evaluate(result => window.harnessShow(result), result);
