@@ -2078,7 +2078,11 @@ try {
     assert.equal(switched._meta.view.status,status); assert.equal(switched._meta.view.fen,'');
     await page.evaluate(result=>window.harnessShow(result),switched);
     await frame.locator('#retry').waitFor({state:'hidden'});
-    assert.equal(await page.evaluate(()=>window.harnessWidgetState?.privateContent?.pending),undefined,'An empty-FEN host switch clears the old command');
+    // A view of another game never clears a game command: the old move stays for its own game, and the shown game
+    // shows no Retry (design §5.3 and §6; B1 changed, finding 8). The old "clears the old command" rule is gone.
+    const kept = await page.evaluate(()=>window.harnessWidgetState?.privateContent?.pending);
+    assert.equal(kept?.name,'kingdown_move','An empty-FEN host switch keeps the old command for its own game');
+    assert.notEqual(kept?.game_tag,switched._meta.view.game_id.slice(0,8),'The kept command belongs to the game it left, not the empty-FEN game on show');
   }
   await legacyStart('solo');
   await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
