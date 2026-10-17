@@ -9,7 +9,7 @@ body:is([data-page='board'], [data-page='end']) #page-title { display: none; }
 
 #game-table .coin { min-height: 40px; padding: 0; }
 #game-table .coin.card-coin { width: 34px; height: 34px; min-height: 34px; }
-#game-table .coin.card-coin img { width: 26px; height: 26px; }
+#game-table .coin.card-coin img { width: calc(100% - 6px); height: calc(100% - 6px); }
 #game-table #context-note:empty { display: none; }
 #board-sheet { padding: 0; overflow: hidden; display: none; }
 #board-sheet[open] { display: flex; flex-direction: column; }

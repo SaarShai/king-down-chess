@@ -122,7 +122,8 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 #short-last-move { display: none; }
 #table-bar > button.primary { background: var(--accent); color: var(--vellum); }
 #table-bar > button[aria-disabled='true'] { color: rgb(91 80 69 / 60%); }
-/* Card coins (card mode C): smaller than the power coin, so a full hand fits the strip at 360 px. */
+/* Card coins (card mode C): smaller than the power coin, so a full hand fits the strip at 360 px. The card face fills
+   the coin inside the ring, so it grows with the coin (26 px in a 34 px coin, 36 px in a 44 px coin). */
 .coin-row { gap: 4px; }
 #game-table .player-strip { gap: 8px; }
 .coin.card-coin { width: 34px; height: 34px; overflow: hidden; }
@@ -130,7 +131,7 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 #app-root #strip-me .coin.card-coin { background: radial-gradient(circle at 40% 30%, var(--stone-700) 70%, var(--stone-900)); border-color: var(--gold); --card-ring: var(--gold); }
 #app-root #strip-them .coin.card-coin { border-color: var(--stone-700); --card-ring: var(--stone-700); }
 #game-table .coin.card-coin:not([data-state='armed']) { box-shadow: var(--lift), inset 0 0 0 2px var(--card-ring); }
-.coin.card-coin img { inset: 3px; width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+.coin.card-coin img { inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); border-radius: 50%; object-fit: cover; }
 .cc-word { position: absolute; inset: 0; color: var(--vellum) !important; text-shadow: 0 1px 2px rgba(0,0,0,.6); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--ink); }
 #game-table .coin:not(.card-coin) { width: 40px; height: 40px; }
 #game-table .coin:not(.card-coin) img { inset: 4px; width: 30px; height: 30px; }

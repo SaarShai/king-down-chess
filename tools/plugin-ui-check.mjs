@@ -1,3 +1,4 @@
+import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -517,6 +518,13 @@ try {
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal(await page.evaluate(() => window.harnessView.seat), 1);
     assert.deepEqual(await page.evaluate(() => window.harnessView.kings[1]), { king: 'Shadow', power: 'Darkness' });
+    // Ticket 22: measure the card image against its card coin. The image is centred when the two gaps on each axis
+    // match (x and y are 0). It fills the coin face inside the ring when it keeps a 4 px gutter at each size:
+    // 26 px in a 34 px coin and 36 px in a 44 px coin, with the 1 px border, the 2 px ring and 1 px of light.
+    // `cardFaces` holds `#game-table` (a strip redraw keeps it) and finds the images in the same page call as the
+    // measure, so the computer's reply, which redraws the strips, cannot detach a found image.
+    const faceFaults = (faces, size) => faces.filter(face => !['strip-me', 'strip-them'].includes(face.side)
+      || face.coin !== size || face.image !== size - 8 || face.x !== 0 || face.y !== 0);
     await page.setViewportSize({ width: 393, height: 852 });
     await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
     await widget().waitForFunction(() => document.querySelector('#game-table').getAnimations({ subtree: true }).every(animation => animation.playState === 'finished'));
@@ -526,6 +534,9 @@ try {
       return [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomLeftRadius, style.borderBottomRightRadius].every(radius => radius === '50%')
         && Math.abs(box.width - box.height) < .5 && box.width >= 44 && style.backgroundImage.includes('radial-gradient') && !style.backgroundImage.includes('stone-control');
     })), 'Card and power coins stay round with 44 px targets at 393 × 852');
+    const faces44 = await cardFaces(frame);
+    assert.equal(faces44.length, 8, 'Both strips show four card coins at 393 × 852');
+    assert.deepEqual(faceFaults(faces44, 44), [], 'The card image is centred in the 44 px card coin and fills its face in both strips');
     assert(await frame.locator('#board').evaluate(board => [board, board.parentElement].every(surface => !getComputedStyle(surface).backgroundImage.includes('stone-control'))), 'The board and its parent keep the stone control face off the board');
     // The Black seat waits for the computer's first move. Until its reply the Menu is off and shows the disabled face;
     // the real server (plugin-ui-http) replies later than the fixture.
@@ -548,6 +559,13 @@ try {
         const style = getComputedStyle(coin), box = coin.getBoundingClientRect();
         return style.borderRadius === '50%' && Math.abs(box.width - box.height) < .5 && box.width === (coin.classList.contains('card-coin') ? 34 : 40);
       })), 'Card and power coins stay round on a desktop without touch');
+      // Ticket 22: the same face rule holds on a desktop without touch, at the 34 px card coin.
+      await desktop.setViewportSize({ width: 1280, height: 800 });
+      await desktopFrame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+      await desktop.waitForFunction(() => document.querySelector('iframe').contentDocument.querySelector('#game-table').getAnimations({ subtree: true }).every(animation => animation.playState === 'finished'));
+      const faces34 = await cardFaces(desktopFrame);
+      assert.equal(faces34.length, 8, 'Both strips show four card coins at 1280 × 800');
+      assert.deepEqual(faceFaults(faces34, 34), [], 'The card image is centred in the 34 px card coin and fills its face in both strips');
     } finally { await desktop.close(); }
     const saved = (await setupTool('kingdown_settings'))._meta.settings.last_setup;
     assert.deepEqual(saved.king, { king: 'Shadow', power: 'Darkness' }); assert.equal(saved.level, 'strong'); assert.equal(saved.colour, 'black');
