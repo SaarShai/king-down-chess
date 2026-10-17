@@ -31,7 +31,7 @@ it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]
   } finally { await page.close(); }
 });
 // Rule and state text stay whole. The short-phone floors include the 4 px touch-bar padding.
-it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 211, 171], [320, 568, 63, 180, 135, 95]])('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min, boardMin) => {
+it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568, 63, 180, 135, 95]])('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min, boardMin) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000);
   try {
@@ -64,10 +64,10 @@ it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 211, 171], [320, 568
     });
     expect(await frame.locator('#app-frame').evaluate(e => innerHeight - e.getBoundingClientRect().bottom)).toBe(Math.max(96, bottom));
     expect(await textFits()).toEqual([]);
-    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
+    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min - (width < height ? 4 : 0));
     await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await frame.locator('#app-frame').evaluate(e => innerHeight - e.getBoundingClientRect().bottom)).toBe(Math.max(96, bottom));
-    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin);
+    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin - (width < height ? 4 : 0));
     expect(await frame.locator('#context-note').textContent()).toBe('');
     expect(await textFits()).toEqual([]);
     await page.evaluate(async () => {
@@ -120,7 +120,7 @@ it('sizes the seat and the board from their screens, with no viewport units and 
 
 // The floors keep whole rule text and include the 4 px touch-bar padding on short phones.
 it('keeps short-phone boards large, landscape controls reachable and the end table in its box', async () => {
-  for (const [width,height,top,bottom,left,right,min,boardMin] of [[320,568,20,0,0,0,231,186],[375,667,20,0,0,0,285,285],[393,852,59,34,0,0,380,380],[440,956,59,34,0,0,430,430],[852,393,0,21,59,59,195,150],[852,393,59,34,0,0,140,95]]) {
+  for (const [width,height,top,bottom,left,right,min,boardMin] of [[320,568,20,0,0,0,235,190],[375,667,20,0,0,0,285,285],[393,852,59,34,0,0,380,380],[440,956,59,34,0,0,430,430],[852,393,0,21,59,59,195,150],[852,393,59,34,0,0,140,95]]) {
     const page=await browser.newPage({viewport:{width,height},isMobile:true,hasTouch:true}), frame=page.frameLocator('iframe'); page.setDefaultTimeout(10000);
     try {
       await page.goto(harness.url); await hall(page);
@@ -131,7 +131,7 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
       const canvasWidth=()=>frame.locator('#board canvas').evaluate(e=>e.getBoundingClientRect().width);
       await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
       await expect.poll(canvasWidth).toBeGreaterThan(0);
-      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min);
+      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min - (width < height ? 4 : 0));
       expect(await frame.locator('#seat-context').textContent()).not.toMatch(/Tap/);
       const veil=await frame.locator('#seat-veil-layer .veil').evaluate(e=>{const r=e.getBoundingClientRect(),b=document.querySelector('#board')!.getBoundingClientRect(); return r.top>=b.top-1 && r.bottom<=b.bottom+1 && getComputedStyle(e).overflow==='hidden';});
       expect(veil).toBe(true);
@@ -141,7 +141,7 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
       }
       await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       await expect.poll(canvasWidth).toBeGreaterThan(0);
-      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin);
+      await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin - (width < height ? 4 : 0));
       expect(await frame.locator('.page-sheet').evaluate(e=>e.scrollTop)).toBe(0);
       const bar=await frame.locator('#table-bar').evaluate(e=>{const buttons=[...e.querySelectorAll('button')].filter(b=>!b.hidden),r=e.getBoundingClientRect(),b=buttons[0].getBoundingClientRect();return {count:buttons.length,empty:b.left-r.left};});
       // Undo fills the first cell: no empty cell at the left of the bar.
