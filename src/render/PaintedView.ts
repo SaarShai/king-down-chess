@@ -304,7 +304,7 @@ export class PaintedView implements BoardView {
     this.tap = e;
     if (e.button !== 0) return;
     const sq = this.tapSq = this.pick(e);
-    if (sq == null || !this.ownPieceAt(sq)) return;
+    if (sq == null || !this.ownPieceAt(sq) || !this.canDrag()) return;
     this.dragFrom = sq;
     this.canvas.setPointerCapture(e.pointerId);
   }

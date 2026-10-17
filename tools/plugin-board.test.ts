@@ -1256,7 +1256,7 @@ it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and dur
       expect(await board.getAttribute('aria-label')).toContain('e5.'); await board.press('Enter'); await unchanged();
       const source=await squarePoint(page,52), target=await squarePoint(page,36);
       await page.mouse.move(source.x,source.y); await page.mouse.down(); await page.mouse.move(target.x,target.y,{steps:5}); await page.mouse.up();
-      expect(await frame.locator('html').evaluate(() => (window as any).dragAttempts)).toEqual(sending ? [52,52] : [52]);
+      expect(await frame.locator('html').evaluate(() => (window as any).dragAttempts)).toEqual([]);
       await unchanged();
       if (!sending) { await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Choose a move',exact:true}).click(); }
       expect(await frame.locator('#choices button').count()).toBe(0); await page.keyboard.press('Escape');
@@ -1303,7 +1303,7 @@ it('W7: blocks a legal Haste follow-up while Send waits', async () => {
     await board.press('ArrowUp'); expect(await board.getAttribute('aria-label')).toContain('e5.'); await board.press('Enter'); await unchanged();
     const source=await squarePoint(page,28), target=await squarePoint(page,36);
     await page.mouse.move(source.x,source.y); await page.mouse.down(); await page.mouse.move(target.x,target.y,{steps:5}); await page.mouse.up();
-    expect(await frame.locator('html').evaluate(() => (window as any).dragAttempts)).toEqual([28]);
+    expect(await frame.locator('html').evaluate(() => (window as any).dragAttempts)).toEqual([]);
     await unchanged();
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
