@@ -8,6 +8,20 @@ function deferred() { let resolve!: () => void; const promise = new Promise<void
 const body = (order: string[], name: string) => async () => { order.push(name); return { status: 'done' as const, result: { content: [] } }; };
 
 describe('the command queue', () => {
+  it('keeps the start epoch through its follow-up writes and reads', async () => {
+    const queue = createQueue();
+    const origin = queue.command('write', 'kingdown_create', {});
+    const choose = queue.command('write', 'kingdown_choose', {}, { origin });
+    expect(queue.current(origin)).toBe(true);
+    expect(choose.epoch).toBe(origin.epoch);
+    queue.chatResult();
+    const read = queue.command('read', 'kingdown_get', {}, { origin });
+    expect(read.epoch).toBe(origin.epoch);
+    expect(queue.current(origin)).toBe(false);
+    expect(queue.current(choose)).toBe(false);
+    expect(queue.current(read)).toBe(false);
+  });
+
   it('runs writes on the lane, first in first out and one at a time', async () => {
     const queue = createQueue(), order: string[] = [], first = deferred(), second = deferred();
     const a = queue.command('write', 'kingdown_move', {}), b = queue.command('write', 'kingdown_move', {});

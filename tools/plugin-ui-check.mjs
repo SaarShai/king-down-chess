@@ -661,6 +661,20 @@ try {
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 });
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_choose').at(-1).arguments.command_id), chooseId);
     await abortSetup(await page.evaluate(() => window.harnessView.game_id));
+    // S5 review: the start's Choose waits while a newer chat result opens Profile.
+    await setupMount({ ...baseSetup, king: {king:'Frost',power:'Freeze'}, options:{...DEFAULT_OPTIONS,arrangement:true,kingPowers:true} });
+    await page.evaluate(() => { window.dropNextReply = 'kingdown_create'; });
+    await frame.locator('#setup-start').click(); await frame.locator('#retry:not(:disabled)').waitFor();
+    const lateGame = await page.evaluate(() => window.harnessView.game_id);
+    await page.evaluate(() => { window.holdNext = 'kingdown_choose'; });
+    await frame.locator('#retry').click(); await page.waitForFunction(() => !!window.releaseHeld);
+    const profile = await setupTool('kingdown_open', {screen:'profile'});
+    await page.evaluate(result => window.harnessShow(result), profile);
+    await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
+    await page.evaluate(() => window.releaseHeld()); await settled();
+    assert(await frame.locator('[data-screen="profile"]').isVisible(), 'A late Choose keeps the newer Profile screen');
+    assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending ?? null), null);
+    await abortSetup(lateGame);
     const newArt = ['archer-w','paladin-w','guard-w','maester-w','beast-w','ogre-w','rook-w','bishop-w','knight-w','queen-w','frost','flame','stratus','mud','spirit','shadow','shadow-b','freeze','icewall','sacrifice','march','leap','salvation','mimic','vault','skylift','back'];
     const html = await frame.locator('html').innerHTML(); for (const file of newArt) assert(html.includes(`/${file}-`), `Setup names ${file}.webp through art`);
     await openPlay();
@@ -1582,6 +1596,48 @@ try {
   assert.equal(await page.evaluate(()=>window.harnessView.game_id),replacement,'Deleted-game recovery survives immediate remount');
   const friendTool = async (name,args={}) => (await page.request.post(new URL('/fixture-friend-tool',base).href,{data:{name,arguments:args,fresh:true}})).json();
   const tool = async (name,args={}) => (await page.request.post(new URL('/fixture-tool',base).href,{data:{name,arguments:args}})).json();
+  // S5 review: full reads keep the draft words. A real draw offer refuses the old revision once.
+  {
+    const gameTool = async (name, args = {}, friend = false) => {
+      const result = await (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', base).href, {data:{name,arguments:args}})).json();
+      assert(!result.isError, `${name}: ${JSON.stringify(result.content)}`); return result;
+    };
+    const classic = {fairy:false,pool:[],classic:true,arrangement:false,cards:false,cardPool:[],kingPowers:false};
+    const created = await gameTool('kingdown_create', {kind:'friend',colour:'white',options:classic});
+    const game_id = created._meta.view.game_id;
+    const invite = await gameTool('kingdown_invite', {game_id});
+    await gameTool('kingdown_join', {code:invite.structuredContent.code}, true);
+    const opened = await gameTool('kingdown_open', {game_id});
+    await page.evaluate(result => window.harnessShow(result), opened);
+    await frame.locator('#status').filter({hasText:'Your move'}).waitFor(); await idleBoard();
+    await clickSquare(4,1); await clickSquare(4,3); await boardBox();
+    const draftWords = async () => {
+      assert.equal(await frame.locator('#last-move').innerText(), 'White pawn e2 to e4.');
+      assert.equal(await frame.locator('#short-move-words').innerText(), 'White pawn e2 → e4');
+    };
+    await draftWords();
+    await remountFrame(); await frame.locator('#end-turn[aria-disabled="false"]').waitFor(); await draftWords();
+    await frame.locator('#board-menu').click();
+    await frame.locator('#board-sheet').getByRole('button',{name:'Settings',exact:true}).click();
+    await frame.locator('#page-back').click();
+    await frame.locator('#end-turn[aria-disabled="false"]').waitFor(); await draftWords();
+    const offered = await gameTool('kingdown_draw', {game_id,choice:'offer'}, true);
+    await sendTurn();
+    await frame.locator('#status').filter({hasText:'The game changed. Check it, then tap Send your turn.'}).waitFor();
+    await idleBoard(); await draftWords();
+    assert.match(await frame.locator('#context-note').innerText(), /Your opponent offers a draw/);
+    assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'), 'false');
+    await sendTurn(); await settled(); await idleBoard();
+    const saved = (await gameTool('kingdown_get', {game_id}))._meta.view;
+    assert.equal(saved.revision, offered._meta.view.revision + 1);
+    assert.equal(saved.fen, toFen(applyLan(fromFen(opened._meta.view.fen),'e2-e4',opened._meta.view.rules).pos));
+    assert.equal(saved.draw_offer, null);
+    assert.deepEqual(saved.history.actions, ['e2-e4']);
+    assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending ?? null), null);
+    assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.draft ?? null), null);
+    await gameTool('kingdown_resign', {game_id});
+    await legacyStart('solo');
+  }
   async function zoomViewport(width,height,top,bottom) {
     const safeAreaInsets = {top,right:0,bottom,left:0};
     await page.setViewportSize({width,height});

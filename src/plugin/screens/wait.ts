@@ -1,4 +1,5 @@
 import { call, client, memory, navigate, pollUpdate, routeView, start } from '../app';
+import type { Job } from '../queue';
 import { art } from '../art';
 import type { PollTarget } from '../poll';
 import { DEFAULT_OPTIONS, defaultChoice } from '../../match/setup';
@@ -55,8 +56,8 @@ async function computer() {
   } finally { offering = false; }
 }
 /** The continuation of the handoff's Choose, also after Retry (design §5.2): read the game, then watch the human game. */
-export async function finishHandoff() {
-  if (await call('kingdown_get', {}, false, false, true)) syncWatch();
+export async function finishHandoff(_next?: View, origin?: Job) {
+  if (await call('kingdown_get', {}, { route: true, origin })) syncWatch();
 }
 async function readOpen(game: string) {
   const result = await client.call('kingdown_get', { game_id: game }, { background: true });

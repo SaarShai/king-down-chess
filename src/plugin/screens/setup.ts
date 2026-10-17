@@ -1,12 +1,13 @@
 import { actions, call, client, memory, navigate, routeView, start, store } from '../app';
+import type { Job } from '../queue';
 import { art } from '../art';
 import { cardArt } from '../card-face';
-import { errorText, type WidgetHost } from '../client';
+import { errorText } from '../client';
 import { DEAL_CARDS, POOL_KINDS, type Options } from '../../match/setup';
 import { LETTERS, NAMES } from '../../rules/engine';
 import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
 import { POWER_NAME, cardName, cardCost, cardText, powerText, powerOptions, powersRules, ruleLine } from '../../powers-ui';
-import type { View, InboxEntry } from '../../match/protocol';
+import type { View } from '../../match/protocol';
 import type { Page } from '../state';
 import { availablePowers, cleanKing, createArguments, gameSetup, pieceLocked, quickSetup, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
 import './setup.css';
@@ -21,22 +22,12 @@ const pieceLines = { A: 'Shoots without moving.', L: 'Jumps over its own pieces.
 /** The rules of a game with king powers; a game without them plays DEFAULT_RULES (src/match/worker.ts). */
 export const kingRules = powersRules({ ...DEFAULT_RULES, ...POWERS_BALANCED });
 let cardMode: 'all' | 'four' = 'all';
-const mounted = (window as Window & { openai?: WidgetHost }).openai?.widgetState?.privateContent;
-const restored = mounted?.pending;
 // anyRules: 'Any rules' under A random player (owner item D1 a). It applies to this start only and is not saved.
-let draft: SetupState | undefined, quick = !!restored?.quick, anyRules = false, starting = false, late = false, ownCommand = false, restoreHandled = false, closeSheet: (() => void) | undefined;
-const restoredSetup = () => !restoreHandled && restored?.screen === 'play' && !!memory.settings && (restored.quick || !!memory.settings.last_setup) && (['kingdown_choose', 'kingdown_get'].includes(restored.name) || !!restored.args.options);
-const ownPending = () => ownCommand || restoredSetup();
-export const quickStart = () => quick && ownPending();
+let draft: SetupState | undefined, quick = false, anyRules = false, starting = false, late = false, ownCommand = false, closeSheet: (() => void) | undefined;
+export const quickStart = () => quick && ownCommand || !!client.state.pending?.quick;
 export const setupBusy = () => starting || !!client.state.pending;
 /** A start of this screen runs: Start is busy, and no other start or game command waits on it. */
 export const setupStarting = () => starting;
-async function readGames() {
-  const result = await client.call('kingdown_games', {}, { background: true });
-  if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
-  memory.games = result._meta?.games as InboxEntry[] ?? [];
-}
-
 function segment(id: string, title: string, values: readonly string[]) {
   return `<fieldset id="${id}" class="seg"><legend>${title}</legend><div class="seg-row">${values.map(value => `<label><input type="radio" name="${id}" value="${value}" aria-label="${name(value)}"><span>${name(value)}</span></label>`).join('')}</div></fieldset>`;
 }
@@ -166,10 +157,10 @@ async function pickKing() {
   if (draft!.king || picked !== shown) draft!.king = picked;
   render();
 }
-async function finish(view: View, pick = draft?.king ?? null) {
+async function finish(view: View, pick = draft?.king ?? null, origin?: Job) {
   const choice = soloChoice(view, pick);
-  if (choice) { ownCommand = true; const next = await call('kingdown_choose', { ...choice, command_id: crypto.randomUUID().replaceAll('-', '') }, true, false, false); if (!next) return; view = next; }
-  if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, true, false, false); if (!full) return; view = full; }
+  if (choice) { ownCommand = true; const next = await call('kingdown_choose', { ...choice, command_id: crypto.randomUUID().replaceAll('-', '') }, { retain: true, route: false, origin }); if (!next) return; view = next; }
+  if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, { retain: true, route: false, origin }); if (!full) return; view = full; }
   ownCommand = false; routeView(view);
 }
 async function launch(setup = draft, saveSetup = true) {
@@ -193,7 +184,7 @@ async function launch(setup = draft, saveSetup = true) {
   finally { clearTimeout(words); clearTimeout(wait); starting = late = false; exits.forEach(button => { delete button.dataset.free; }); if (!client.state.pending) ownCommand = false; render(); }
 }
 /** The continuation of a resent start or setup step (design §5.2): it finishes the start. */
-export const finishStart = (view: View) => finish(view);
+export const finishStart = (view: View, origin: Job) => finish(view, draft?.king, origin);
 /** Play now starts a computer game and keeps the saved setup. */
 export function playNow() { if (memory.settings) void launch(quickSetup(memory.settings.last_setup), false); }
 // The store's subscriber replaces the data-page and #retry observers.
@@ -203,12 +194,7 @@ export function setupSync(page: Page) {
     else if (['pieces','cards','king'].includes(client.state.sheet ?? '')) { client.state.sheet = undefined; client.save(); }
   }
   if (page.screen === 'play' && $('setup-body').childElementCount) render();
-  if (!restoredSetup() || page.pending || !memory.view) return;
-  if (['board','friend','wait'].includes(page.screen)) { restoreHandled = true; return; }
-  if (page.screen !== 'seat' || memory.view.kind !== 'solo' || memory.view.status !== 'setup') return;
-  restoreHandled = true; ownCommand = true;
-  if (!draft) { readDraft(); memory.kind = draft!.kind; }
-  setTimeout(() => { void readGames().then(() => finish(memory.view!)).catch(error => { store.dispatch({ type: 'error', text: errorText(error) }); }); }, 0);
+
 }
 /** An exact four-card saved pool opens as Pick four. */
 function readDraft() {

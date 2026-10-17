@@ -1,4 +1,5 @@
 import { call, client, memory, navigate, routeView } from '../app';
+import type { Job } from '../queue';
 import { art } from '../art';
 import { board, highlight } from '../board-view';
 import { ending } from '../ending';
@@ -95,10 +96,10 @@ function render() {
   highlight({ selected: ready ? null : selected, swaps: !ready && selected !== null ? legalSwaps(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice, view.seat, selected) : [] });
   locks(); requestAnimationFrame(placeVeil);
 }
-async function finish(next: View) {
+async function finish(next: View, origin?: Job) {
   if (next.game_id !== game || client.state.screen !== 'seat') return;
   if (next.status === 'playing') {
-    const full = next.rules ? next : await call('kingdown_get', {}, true, false, false); if (!full) return;
+    const full = next.rules ? next : await call('kingdown_get', {}, { retain: true, route: false, origin }); if (!full) return;
     release();
     if (full.rules) setRules(full.rules); routeView(full);
   } else if (next.status === 'finished' || next.status === 'aborted') {
@@ -135,9 +136,9 @@ function menu(confirm = false) {
 }
 
 /** The continuation of a resent Seat command (design §5.2): Seat finishes with the reply. */
-export async function finishSeat(next: View) {
+export async function finishSeat(next: View, origin: Job) {
   sending = true; locks();
-  try { await finish(next); } finally { sending = false; render(); }
+  try { await finish(next, origin); } finally { sending = false; render(); }
 }
 // The store's subscriber replaces the data-page, #status and #seat-ready observers. The ResizeObserver stays: it measures layout.
 export function seatSync(page: Page) {

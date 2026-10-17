@@ -37,10 +37,3 @@ it('starts each kind as a pending call and lets a caller defer the route', async
   expect(new Set(calls.map(call => (call as [string, { command_id: string }])[1].command_id)).size).toBe(3);
   expect(screens).toEqual(['seat', 'seat']);
 });
-
-it('returns at once from a failed start: Retry and its continuation finish it, not the start (design §5.2)', async () => {
-  const screens: string[] = [];
-  const router = createRouter(async () => undefined, screen => { screens.push(screen); }, () => {});
-  expect(await router.start('random')).toBeUndefined();
-  expect(screens).toEqual([]);
-});

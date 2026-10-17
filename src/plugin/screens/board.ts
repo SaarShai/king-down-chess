@@ -336,7 +336,7 @@ export function boardScreen(store: Store) {
     if (context.rank==='link' && deadline) context.note=available.claim==='end'?'You may end the game with no result.':'You may claim the win.';
     if (fresh && context.rank === 'your-move') taught.set(teach[0], history.length);
     if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:'armed',line:cardName(RULES.hands[view.seat][armedCard]),note:'Choose a piece, then a marked square.'});
-    if (view.draw_offer != null && !['result','refusal','link'].includes(context.rank)) context.note = [context.note, view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.'].filter(Boolean).join(' ');
+    if (view.draw_offer != null && (t6 || !['result','refusal','link'].includes(context.rank))) context.note = [context.note, view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.'].filter(Boolean).join(' ');
     if (stale()) Object.assign(context, {rank:'link', line:'Not current', note:''});
     $('status').textContent = context.rank === 'refusal' ? t6 : context.line; $('context-note').textContent = context.note; $('context-text').dataset.rank = context.rank;
     const actions: HTMLButtonElement[] = [];
@@ -418,6 +418,13 @@ export function boardScreen(store: Store) {
     $('game-table').dataset.empty = String(!next.fen || next.status === 'setup');
     if (!next.fen || next.status === 'setup') { pos = undefined; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('short-move-words').textContent = ''; $('move-time-left').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
     rules(); pos = fromFen(next.fen);
+    const replayed = before && same ? replayLans(before, next, view.rules!) : undefined;
+    const restored = replayHistory(next, view.rules!);
+    if (restored) { history = restored; lastMove = restored.at(-1); }
+    else if (replayed) { history.push(...replayed); if (replayed.length) lastMove = replayed.at(-1); }
+    else if (same && before?.revision !== next.revision) {
+      if (local.length && toFen(local.at(-1)!.pos) === next.fen) { history.push(...local); lastMove = local.at(-1); } else lastMove = undefined;
+    }
     // W7 ticket 04: a saved draft comes back when the tag, the base FEN, the ready state and a legal replay agree.
     // A moved FEN, another game or an ended game drops it; a draw offer or a preset keeps it (the base FEN is the key).
     const savedDraft = client.state.draft, draftRules = view.rules;
@@ -427,13 +434,6 @@ export function boardScreen(store: Store) {
       else dropDraft();
     }
     moves = draftChoices(view, pos, steps);
-    const replayed = before && same ? replayLans(before, next, view.rules!) : undefined;
-    const restored = replayHistory(next, view.rules!);
-    if (restored) { history = restored; lastMove = restored.at(-1); }
-    else if (replayed) { history.push(...replayed); if (replayed.length) lastMove = replayed.at(-1); }
-    else if (same && before?.revision !== next.revision) {
-      if (local.length && toFen(local.at(-1)!.pos) === next.fen) { history.push(...local); lastMove = local.at(-1); } else lastMove = undefined;
-    }
     bindBoard(); board.flip(next.seat === 1); moveLine();
     const replay = replayed?.filter((step, index) => !step.move.pass && !(local[index] && toFen(local[index].pos) === toFen(step.pos))) ?? [];
     const authoritative = pos;
