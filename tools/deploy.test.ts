@@ -127,7 +127,7 @@ describe('deploy.sh', () => {
     }
   });
 
-  it('sets only the six plugin values through stdin and prints none of their values', () => {
+  it('sets only the seven plugin values through stdin and prints none of their values', () => {
     const { repo, deploy, calls } = setup();
     const values = {
       KINGDOWN_PLUGIN_ORIGIN: 'https://kingdown-plugin.vercel.app',
@@ -135,7 +135,7 @@ describe('deploy.sh', () => {
       SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test',
       KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: 'a6478e14-9e9a-43a7-a4b7-b888aed30791',
       KINGDOWN_PLUGIN_DATABASE_URL: 'postgresql://kingdown_plugin_runtime.utqzovjmclfyojedmwok:fake-test-password@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require',
-      KINGDOWN_PLUGIN_OAUTH_READY: '0',
+      KINGDOWN_PLUGIN_OAUTH_READY: '0', KINGDOWN_INTERNAL_SECRET: 'fake-internal-secret-for-plugin-tests',
     };
     const file = join(repo.root, 'plugin.env');
     const inputDir = join(repo.root, 'env-input'); mkdirSync(inputDir);
@@ -144,18 +144,18 @@ describe('deploy.sh', () => {
     expect(result.status, result.stderr).toBe(0);
     for (const [key, value] of Object.entries(values)) expect(readFileSync(join(inputDir, key), 'utf8')).toBe(value);
     const writes = calls().filter(line => line.includes(' env add '));
-    expect(writes).toHaveLength(6);
+    expect(writes).toHaveLength(7);
     expect(writes.every(line => line.includes('production --force --sensitive --yes --scope saars-projects-2c777ec5'))).toBe(true);
-    expect(result.stdout + result.stderr + calls().join('\n')).not.toContain('fake-test-password');
+    expect(result.stdout + result.stderr + calls().join('\n')).not.toMatch(/fake-test-password|fake-internal-secret/);
     expect(calls().some(line => line.startsWith('npm ') || line.includes(' deploy '))).toBe(false);
 
     const before = calls().length;
     const valid = readFileSync(file, 'utf8');
-    for (const data of [valid + '\nUNEXPECTED=value', valid.replace('kingdown_plugin_runtime.', 'postgres.'), valid.replace('?sslmode=require', '?user=postgres&host=wrong.example'), valid.replace('?sslmode=require', '')]) {
+    for (const data of [valid + '\nUNEXPECTED=value', valid.replace('kingdown_plugin_runtime.', 'postgres.'), valid.replace('?sslmode=require', '?user=postgres&host=wrong.example'), valid.replace('?sslmode=require', ''), valid.replace(values.KINGDOWN_INTERNAL_SECRET, 'short'), valid.replace(/\nKINGDOWN_INTERNAL_SECRET=.*/, '')]) {
       writeFileSync(file, data);
       const invalid = deploy(['--configure-plugin', file], { STUB_ENV_DIR: inputDir });
       expect(invalid.status).not.toBe(0);
-      expect(invalid.stdout + invalid.stderr).not.toContain('fake-test-password');
+      expect(invalid.stdout + invalid.stderr).not.toMatch(/fake-test-password|fake-internal-secret/);
       expect(calls()).toHaveLength(before);
     }
     chmodSync(file, 0o644);

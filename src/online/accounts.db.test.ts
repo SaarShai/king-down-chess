@@ -273,6 +273,7 @@ async function friend(host: string, guest: string) {
   expect((await runtime.query('delete from public.reports where id=any($1)', [[fresh, held]])).rowCount).toBe(0);
   await cleanup(games);
   expect((await rows('select id::int from public.reports where id=any($1) order by id', [[fresh, held, expired]])).map(row => row.id)).toEqual([fresh, held]);
+  expect((await runtime.query('delete from public.reports')).rowCount).toBe(0);
  });
 
  it('runs the owner command line over the same functions', async () => {

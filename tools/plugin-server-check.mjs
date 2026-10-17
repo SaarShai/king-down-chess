@@ -15,7 +15,7 @@ const url = new URL(connectionString);
 if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || !url.pathname.endsWith('_test')) throw new Error('This check requires a disposable loopback database ending in _test');
 const artifact = await mkdtemp(join(tmpdir(), 'kingdown-http-artifact-'));
 const pool = new pg.Pool({ connectionString });
-const actors = [randomUUID(), randomUUID()];
+const actors = [randomUUID(), randomUUID()], secret = randomUUID();
 const server = createServer(); let app, requestId = 0;
 try {
   await cp(resolve(process.argv[2] || 'plugin-server-dist'), artifact, { recursive: true });
@@ -27,7 +27,7 @@ try {
   for (const actor of actors) await pool.query('insert into auth.users(id) values($1)', [actor]);
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const origin = `http://127.0.0.1:${server.address().port}`;
-  app = await configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString }, { localDev: true });
+  app = await configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: secret }, { localDev: true });
   server.on('request', (req, res) => { void app.handler(req, res).catch(() => { res.statusCode = 500; res.end(); }); });
   async function rpc(actor, method, params) {
     const response = await fetch(`${origin}/mcp`, { method: 'POST', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method, params }) });
@@ -50,7 +50,7 @@ try {
   const persisted = await pool.query('select state as save,revision,(select count(*)::int from public.game_commands where game_id=$1) as commands from public.games where id=$1', [initial.game_id]);
   assert.equal(persisted.rows[0].commands, 2); assert.equal(persisted.rows[0].revision, 2); assert.match(JSON.parse(persisted.rows[0].save).engine, /^sha256:/);
   // New pool/service/handler instances demonstrate reconnect without any in-memory authority.
-  const restarted = await configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString }, { localDev: true });
+  const restarted = await configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: secret }, { localDev: true });
   await app.pool.end(); app = restarted;
   assert.equal((await tool(actors[0], 'kingdown_resume', {board_id:open._meta.board_id}))._meta.view.fen, ai._meta.view.fen);
   const waiting = (await tool(actors[0], 'kingdown_create', { kind: 'friend', options, colour: 'white' })).structuredContent;
@@ -86,7 +86,7 @@ try {
   }
   assert.equal((await fetch(`${origin}/plugin-art/missing.webp`)).status, 404); assert.equal((await fetch(`${origin}/plugin-art/..%2fserver.mjs`)).status, 404);
   await assert.rejects(configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: 'https://plugin.example', KINGDOWN_PLUGIN_DATABASE_URL: connectionString, SUPABASE_URL: 'https://project.supabase.co', KINGDOWN_PLUGIN_OAUTH_READY: '0' }), /Enable Supabase OAuth/);
-  await assert.rejects(configurePlugin({ NODE_ENV: 'production', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString }, { localDev: true }), /Local personas/);
+  await assert.rejects(configurePlugin({ NODE_ENV: 'production', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: secret }, { localDev: true }), /Local personas/);
   console.log(`Compiled HTTP + real PostgreSQL: open, move, AI, retry, foreign seat rejection, service restart/resume, friend code/join, board recovery, resource (${resource.bytes} JSON bytes), ${art.length} art files (${JSON.stringify(counts)}), and production auth gate passed`);
 } finally {
   server.closeAllConnections(); await new Promise(resolve => server.close(resolve));

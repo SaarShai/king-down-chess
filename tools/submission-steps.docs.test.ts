@@ -70,3 +70,12 @@ test('case N2 bases the other-site refusal on tool inputs', () => {
  expect(row).toContain('`src/plugin/server.ts` input schemas');
  expect(row).not.toContain('openWorldHint');
 });
+
+test('the deploy steps record the invite secret variable name without a value', () => {
+ const row = checklist.split('\n').find(line => line.startsWith('| 51 |'))!;
+ expect(row).toContain('`KINGDOWN_INTERNAL_SECRET`');
+ expect(row).toContain('name only, never a value');
+ const ownerSteps = readFileSync('docs/specs/chatgpt-mvp/release/OWNER-STEPS.md', 'utf8');
+ expect(ownerSteps).toContain('KINGDOWN_INTERNAL_SECRET');
+ expect(ownerSteps).not.toMatch(/KINGDOWN_INTERNAL_SECRET=/);
+});

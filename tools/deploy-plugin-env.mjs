@@ -3,7 +3,7 @@ import { lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 try {
   const [file, output, target = 'plugin', ...extra] = process.argv.slice(2);
   const site = target === 'website';
-  const keys = ['KINGDOWN_PLUGIN_ORIGIN', 'SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY', 'KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS', 'KINGDOWN_PLUGIN_DATABASE_URL', 'KINGDOWN_PLUGIN_OAUTH_READY', ...(site ? ['KINGDOWN_INTERNAL_SECRET'] : [])];
+  const keys = ['KINGDOWN_PLUGIN_ORIGIN', 'SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY', 'KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS', 'KINGDOWN_PLUGIN_DATABASE_URL', 'KINGDOWN_PLUGIN_OAUTH_READY', 'KINGDOWN_INTERNAL_SECRET'];
   if (!file || !output || !['website', 'plugin'].includes(target) || extra.length) throw new Error('expected a private environment file and output folder');
   const stat = lstatSync(file);
   if (!stat.isFile() || (stat.mode & 0o777) !== 0o600 || stat.uid !== process.getuid()) throw new Error('environment file must be owned by this user with mode 600');
@@ -21,7 +21,8 @@ try {
   const clients = values.get(keys[3]).split(',').map(id => id.trim().toLowerCase());
   const legacyClient = 'a6478e14-9e9a-43a7-a4b7-b888aed30791';
   if (site ? clients.some(id => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id) || id === legacyClient) : values.get(keys[3]) !== legacyClient) throw new Error('use the registered ChatGPT OAuth client UUID for this origin');
-  if (site && values.get('KINGDOWN_INTERNAL_SECRET').length < 32) throw new Error('internal secret must have at least 32 characters');
+  // Every invitation stores an HMAC of its short code, so both targets need the secret.
+  if (values.get('KINGDOWN_INTERNAL_SECRET').length < 32) throw new Error('internal secret must have at least 32 characters');
   let db;
   try { db = new URL(values.get(keys[4])); } catch { throw new Error('invalid runtime database URL'); }
   if (!['postgres:', 'postgresql:'].includes(db.protocol) || db.username !== 'kingdown_plugin_runtime.utqzovjmclfyojedmwok' || db.hostname !== 'aws-0-us-east-2.pooler.supabase.com' || db.port !== '6543' || db.pathname !== '/postgres' || !db.password) throw new Error('use the approved runtime role and production pooler');

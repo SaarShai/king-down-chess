@@ -129,7 +129,7 @@ Do these in order. Each step names its rows below.
 
 | # | Requirement | Ref | Status | Step or evidence |
 |---|---|---|---|---|
-| 51 | Production HTTPS MCP endpoint [O4]. | E4 | deploy | Final HTTPS URL and production release are absent from this rehearsal evidence. |
+| 51 | Production HTTPS MCP endpoint [O4]. | E4 | deploy | Final HTTPS URL and production release are absent from this rehearsal evidence. The release sets `KINGDOWN_INTERNAL_SECRET` (at least 32 characters; name only, never a value in Git) in the production environment (`docs/specs/chatgpt-mvp/release/OWNER-STEPS.md` step 5) for HMAC short invite codes. |
 | 52 | **Domain verification**: the exact token as plain text at `https://kingdown.dev/.well-known/openai-apps-challenge` [O1]. | E5 | deploy | Paste the token (only the token, no final newline) into `public/.well-known/openai-apps-challenge` on a branch. Merge the pull request into main, then run `tools/deploy.sh --publish`. Its live-check pass line must name `.well-known/openai-apps-challenge`. |
 | 53 | **Production scan**: a successful, current tool scan [O1][O4]. | E4 | deploy | No current successful production scan is supplied. Local tools/list is not a portal scan. |
 | 54 | The request-origin rule lets the scanner and reviewer clients in. | E6 | owner | `http.ts:42–48` refuses an unknown `Origin`. Watch the first scan; widen the list only on evidence, then deploy. Rehearsal: Known ChatGPT Origin passes and an unknown Origin fails. Test the real scanner before any allowlist change. |

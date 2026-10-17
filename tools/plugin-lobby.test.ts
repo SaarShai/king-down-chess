@@ -265,6 +265,10 @@ it('shows code errors on a chat mount and permits a new code from Play', async (
       await frame.locator('#join-message').filter({ hasText: words }).waitFor();
       expect(await frame.locator('#join-message').textContent()).toBe(words);
     }
+    // Another limit (here the Open limit) keeps its own server text.
+    const boards = 'Too many new boards. Wait one minute, then try again.';
+    await page.evaluate(text => (window as any).harnessShow({ isError: true, content: [{ type: 'text', text }], _meta: { code: 'RATE_LIMITED' } }, true), boards);
+    await frame.locator('#join-message').filter({ hasText: boards }).waitFor();
     const created = await buddy(page, 'kingdown_create', { kind: 'friend', options, colour: 'white' });
     const invite = await buddy(page, 'kingdown_invite', { game_id: created._meta.view.game_id });
     await frame.locator('#page-back').click(); await frame.locator('#token').fill(invite.structuredContent.code); await frame.locator('#join').click();

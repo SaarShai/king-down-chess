@@ -227,4 +227,21 @@ drop policy if exists kingdown_plugin_runtime_old_reports on public.reports;
 create policy kingdown_plugin_runtime_old_reports on public.reports as restrictive for delete to kingdown_plugin_runtime
   using (created_at < now() - interval '12 months' and (hold_until is null or hold_until <= now()));
 
+
+-- SOURCE: supabase/migrations/0014_plugin_tool_tries.sql
+create table if not exists public.plugin_tool_tries (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  tool text not null check (tool in ('kingdown_computer','kingdown_create','kingdown_open','kingdown_report')),
+  window_start timestamptz not null default now(),
+  tries integer not null default 1 check (tries >= 1),
+  primary key (user_id,tool)
+);
+alter table public.plugin_tool_tries enable row level security;
+revoke all on public.plugin_tool_tries from public, anon, authenticated;
+
+-- SOURCE: block-11
+grant select, insert (user_id,tool), update (window_start,tries) on public.plugin_tool_tries to kingdown_plugin_runtime;
+drop policy if exists kingdown_plugin_runtime on public.plugin_tool_tries;
+create policy kingdown_plugin_runtime on public.plugin_tool_tries for all to kingdown_plugin_runtime using (true) with check (true);
+
 commit;
