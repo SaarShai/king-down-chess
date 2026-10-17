@@ -13,7 +13,7 @@ The text for the portal's **Review details** (Metadata & Skills → Review infor
 >
 > Email: `<REVIEW_EMAIL>`. Password: `<REVIEW_PASSWORD>`.
 >
-> **Sample data.** The account has one finished game against a friend (won), a rating, three badges, and one game against the computer where it is your move. It also has an active game against review-friend where it is their move. Open that game from Your games to test Block player. Test case P5 resigns that game.
+> **Sample data.** The account has one finished game against a friend (won), a rating, three badges, and one game against the computer where it is your move. It also has an active game against review-friend where it is their move. Open that game from Your games to test Block player. Test case P5 resigns a game against the computer. The active game against review-friend stays for the Block check.
 >
 > **Block a player.** In a game against a person, open Menu, select **Block player** and confirm. After a game ends, its end card also offers **Block player** or **Unblock player**. The same Menu offers **Unblock player**. A block ends follows, stops Find and joins to open games, and hides messages. The current game continues. A block also stops new rematch offers and accepts. Unblock does not restore follows. Profile also lists blocked players, with Unblock for each player. You can use it after the game ends.
 >
