@@ -830,7 +830,17 @@ try {
     await frame.locator('body').evaluate(() => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); });
     await seatTool('kingdown_abort', { game_id: v.game_id });
     const solo = await seatTool('kingdown_create',{kind:'solo',options:{...features,cards:false,kingPowers:false},colour:'black',level:'beginner'});
-    await seatShow(solo); await page.evaluate(() => { window.dropNextReply = 'kingdown_choose'; });
+    await seatShow(solo);
+    // An old game's retained read must not lock Ready on this game's seat.
+    const oldTag = v.game_id.slice(0,8);
+    await page.evaluate(game_tag => {
+      window.harnessWidgetState.privateContent.pending = {name:'kingdown_get',args:{},game_tag,screen:'seat',error:'Cannot connect. Check your connection, then try again.'};
+    }, oldTag);
+    await seatRemount();
+    assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending?.game_tag), oldTag);
+    assert(await frame.locator('#seat-ready').isEnabled(), 'A retained read of another game leaves Ready enabled');
+    assert(await frame.locator('#retry').isHidden(), 'The old read has no Retry on this game');
+    await page.evaluate(() => { window.dropNextReply = 'kingdown_choose'; });
     await frame.locator('#seat-ready').click(); await frame.locator('#retry').waitFor();
     const soloId = await page.evaluate(() => window.harnessWidgetState.privateContent.pending.args.command_id);
     await remountFrame(); await frame.locator('#retry:not(:disabled)').waitFor(); await frame.locator('#retry').click();
