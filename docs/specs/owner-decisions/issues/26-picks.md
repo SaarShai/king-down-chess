@@ -80,6 +80,19 @@ the board to keep its portrait height after a turn to landscape. The finding is 
 
 No change is made. The full `npm test` and the browser checks stay green on the untouched code.
 
+## Test stability (gold pulse)
+
+The full `npm test` after the review found one red test: `plugin-motion.test.ts`
+"gives a spent card a short gold pulse", at both motion settings, in 4 of 7 runs.
+A probe showed the cause: the coin element is detached at the read. `strips()`
+rebuilds the coin row on a poll (a profile read and a computer-move timer both
+call it), and Chromium reads no computed style from a detached element, so
+`opacity` came back empty.
+
+The test now polls until an attached coin reads 0.85. Five isolated runs pass. A
+control run with the rule at 0.7 still fails with `expected '0.7' to be '0.85'`,
+so the check keeps its strength.
+
 ## Checks
 
 Filled in after the full `npm test` and the browser checks.
