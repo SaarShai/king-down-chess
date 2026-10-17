@@ -15,7 +15,7 @@ Nothing here is submitted, deployed or signed in.
 
 | met | drafted | owner | deploy | total |
 |---|---|---|---|---|
-| 19 | 14 | 17 | 10 | 60 |
+| 21 | 12 | 18 | 9 | 60 |
 
 ## Owner steps (approval item O1)
 
@@ -65,7 +65,7 @@ Do these in order. Each step names its rows below.
 | 14 | Root `mcp.json` with one remote server and `auth.type: "oauth"`, `client.mode: "provided"`, `tokenEndpointAuthMethod: "none"`, no client secret [O1][O5]. | B3 | drafted | OAuth/public-client fields exist. URL and client ID remain placeholders. |
 | 15 | No `apps` / `.app.json`, no lifecycle hooks, no credentials, no `test_credentials` or `reviewer_instructions` in the ZIP [O1]. | — | met | The inspected package has no app bundle, lifecycle hook, credentials or reviewer secret field. |
 | 16 | Build the ZIP with every referenced file [O1]. | D1 | owner | Fill the three placeholders (`<PRODUCTION_MCP_URL>`, `<OAUTH_CLIENT_ID>`, `<DEMO_VIDEO_URL>`), then: `cd docs/submission/package && zip -r ../king-down-1.0.0.zip plugin.json mcp.json skills assets`. Do not commit the ZIP. Rehearsal: No final ZIP is built. Fill values first. Include all four package components. |
-| 17 | `brandColor`, `brandColorDark`, screenshots: optional [O3][O4]. | — | owner: screenshots required | Brand colours stay absent (optional). Re-check 2026-10-17: the refresh asks for one PNG for each starter prompt, 706 px wide, 400-860 px tall, of the real ChatGPT view. The owner takes them after the early deploy. Then the PNGs go in `package/assets` and the screenshot field goes in `plugin.json`. |
+| 17 | `brandColor`, `brandColorDark`, screenshots: optional [O3][O4]. | — | owner | Screenshots required. Brand colours stay absent (optional). Re-check 2026-10-17: the refresh asks for one PNG for each starter prompt, 706 px wide, 400-860 px tall, of the real ChatGPT view. The owner takes them after the early deploy. Then the PNGs go in `package/assets` and the screenshot field goes in `plugin.json`. |
 
 ## 3. Listing URLs and policies
 
@@ -103,7 +103,7 @@ Do these in order. Each step names its rows below.
 | 37 | Each published UI resource URI keeps working while an update is held [O2]. | C5 | met | FIXED LOCALLY. The template serves a prior hash with the current resource. Keep contracts compatible during held updates. |
 | 38 | Works on desktop and mobile, UI included [O3]. | C9 | owner | Run `docs/specs/chatgpt-mvp/release/LIVE-CHECKS.md` on the iPhone app, an Android phone, the ChatGPT website and the macOS app; record each result. Rehearsal: Three local browser sizes pass. Actual supported ChatGPT apps and devices remain unproved. |
 | 39 | Useful without UI; reviewers test on supported ChatGPT and Codex surfaces [O2][O7]. | C10 | drafted | Approval D15 a: the submission claims the board surfaces only: ChatGPT on the web, iOS, Android and desktop; no Codex. The claim is in [review-notes.md](review-notes.md) for Review details. Open question 2 asks OpenAI to limit the app to these surfaces. The long description states the board limit. You test each surface (owner step 5). |
-| 40 | Report and block for play with strangers (no explicit rule; *inference:* risk with 13–17 users). | D11 | met (code) | The owner's later pick is Block only (2026-10-16, 18-b). The game Menu has Block player with confirmation and Unblock player in the same place. Profile also lists blocked players, with Unblock for each, after the game ends. The tool uses the website's account relations. Find, open games and message privacy keep the existing block rules. Report has no UI caller and stays for later. Re-check 2026-10-17: the Block and Unblock code is merged. |
+| 40 | Report and block for play with strangers (no explicit rule; *inference:* risk with 13–17 users). | D11 | met | Met (code). The owner's later pick is Block only (2026-10-16, 18-b). The game Menu has Block player with confirmation and Unblock player in the same place. Profile also lists blocked players, with Unblock for each, after the game ends. The tool uses the website's account relations. Find, open games and message privacy keep the existing block rules. Report has no UI caller and stays for later. Re-check 2026-10-17: the Block and Unblock code is merged. |
 
 ## 6. Sign-in and the reviewer account
 

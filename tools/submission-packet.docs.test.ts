@@ -6,7 +6,8 @@ const checklist = readFileSync('docs/submission/checklist.md', 'utf8');
 const grade = (n: number) => checklist.match(new RegExp(`^\\| ${n} \\|[^|]*\\|[^|]*\\| ([^|]+) \\|`, 'm'))![1];
 
 test('the re-check grades rows 8, 17, 27, 31, 33 and 40', () => {
- expect([8, 17, 27, 31, 33, 40].map(grade)).toEqual(['met', 'owner: screenshots required', 'met', 'met', 'met', 'met (code)']);
+ expect(checklist).toMatch(/^\| 17 \|.*\| owner \| Screenshots required\./m);
+ expect([8, 17, 27, 31, 33, 40].map(grade)).toEqual(['met', 'owner', 'met', 'met', 'met', 'met']);
 });
 
 test('N2 gives the King Down scope as its reason, not a hint value', () => {
