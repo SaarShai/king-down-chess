@@ -1850,7 +1850,7 @@ try {
   async function nativeTouchInput() {
     return browser.browserType().name()==='chromium' ? page.context().newCDPSession(page)
       // Playwright exposes only tap for WebKit; use its native input session for a swipe.
-      : page._connection.toImpl(page)._delegate._pageProxySession;
+      : page._connection.toImpl(page).delegate._pageProxySession;
   }
   async function touchStroke(input,from,to) {
     await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...from,id:0}]});
