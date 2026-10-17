@@ -46,6 +46,14 @@ The first-Get test also finds a retained read that the mount can resend while it
 still runs. The queue counts retained reads until their bodies end. A queue test
 checks that count across a new chat result. Rollback reads keep their parent epoch.
 
+The first named browser check at `ff199de7` fails at the first solo Start. The new
+view gate also blocks a valid Choose reply that needs a full rules read. The gate
+now accepts the reply for its caller before drawing. Drawing and routing still
+need the rules. A new unit checks Create, Choose, Get and the final Board screen.
+The first app browser file has the same cause in nine tests. Its other 118 tests
+pass. The source run without the database passes 1,608 tests and skips 130 tests.
+The source run with the required database and both browser files must pass next.
+
 ## Prior findings
 
 Review A has six findings. Review B repeats five of them and adds the setup Retry with no game ID. All seven faults have a matching source path. The source size gate also fails at the base.

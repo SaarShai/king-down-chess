@@ -86,10 +86,15 @@ export function actions() {
   homeActions();
   for (const [id] of TOGGLES) $<HTMLInputElement>(id).disabled = lock.blocked || !memory.settings;
 }
-/** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
-function show(next: View | undefined, job?: Job) {
+/** A reply can reach its caller before the full read supplies the rules for drawing. */
+function acceptsView(next: View | undefined, job?: Job): next is View {
   if (!next || job && !queue.current(job) && next.game_id !== view?.game_id) return false;
   if (next.game_id === view?.game_id && next.revision < view.revision) return false;
+  return true;
+}
+/** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
+function show(next: View | undefined, job?: Job) {
+  if (!acceptsView(next, job)) return false;
   const before = view;
   if (next.rules) rules = { game: next.game_id, value: next.rules };
   // A full read carries the rules; a reply without them is for a game this board no longer shows.
@@ -234,12 +239,13 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision) {
         view = { ...view, opponent: next.opponent, server_now: next.server_now }; if (outage) drawBoard(view); store.dispatch({ type: 'good-read', game: next.game_id }); if (state.screen === 'seat') seatScreen(); poll?.update(); return { status: 'done', result, view };
       }
-      if (show(next, job)) received = next;
+      if (acceptsView(next, job)) received = next;
+      const shown = show(received, job);
       if (name === 'kingdown_get' && !quiet) { await games(job); if (late()) { settleLate(result); return { status: 'superseded' }; } }
       // Save sends the waiting command again at once, so its old error and Retry go now.
       if (name === 'kingdown_handle') { followup = state.pending; if (followup) followup.error = followup.error_screen = undefined; if (queue.current(job)) navigate(followup?.screen ?? handleBack); }
       // An older job never routes. A poll reply routes only between the game screens of the shown game (design §1.2).
-      if (received && queue.current(job) && (route ?? SELECTION_TOOLS.includes(name)) && (!quiet || POLL_SCREENS.includes(state.screen))) routeView(received);
+      if (shown && received && queue.current(job) && (route ?? SELECTION_TOOLS.includes(name)) && (!quiet || POLL_SCREENS.includes(state.screen))) routeView(received);
       if (name === 'kingdown_invite' && queue.current(job)) { const { code } = result.structuredContent as { code: string }; $('invitation').textContent = `Share this code: ${code}`; }
       // A reload preserves the command receipt; retry still uses its original ID.
       if (retain) state.pending = undefined;

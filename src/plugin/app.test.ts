@@ -65,7 +65,7 @@ it.each(['kingdown_choose', 'kingdown_get'])('keeps Profile when the first start
   transport.call.mockImplementation(async ({ name }) => {
     if (name === held) return new Promise(resolve => { release = resolve; });
     if (name === 'kingdown_create') return { content: [], _meta: { view: created } };
-    if (name === 'kingdown_choose') return { content: [], _meta: { view: { ...created, status: 'playing', revision: 2 } } };
+    if (name === 'kingdown_choose') return { content: [], _meta: { view: { ...created, status: 'playing', revision: 2, fen: 'position before the rules read' } } };
     return { content: [], _meta: { games: [] } };
   });
   setup.playNow(); await vi.advanceTimersByTimeAsync(0);
@@ -80,6 +80,21 @@ it.each(['kingdown_choose', 'kingdown_get'])('keeps Profile when the first start
   expect(app.client.state.screen).toBe('profile');
   expect(app.memory.view).toBeUndefined();
   expect(app.client.state.pending).toBeUndefined();
+});
+
+it('finishes the first Start after Choose supplies a position without rules', async () => {
+  const app = await mounted(), setup = await import('./screens/setup');
+  const { readSetup } = await import('./screens/setup-model');
+  const saved = readSetup(null); saved.options = { ...saved.options, cards: false, kingPowers: true }; saved.king = { king: 'Flame', power: 'Haste' };
+  app.memory.settings!.last_setup = { ...saved, options: { ...saved.options, pool: [...saved.options.pool], cardPool: [...saved.options.cardPool] } };
+  const created = { ...game, kind: 'solo', status: 'setup', seat: 0, draw: 'RNBQKBNR', options: { ...saved.options, arrangement: false } };
+  const playing = { ...created, status: 'playing', revision: 2, fen: 'position before the rules read' };
+  transport.call.mockImplementation(async ({ name }) => ({ content: [], _meta: name === 'kingdown_create' ? { view: created }
+    : name === 'kingdown_choose' ? { view: playing }
+    : name === 'kingdown_get' ? { view: { ...playing, rules: {} } } : { games: [] } }));
+  setup.playNow(); await vi.advanceTimersByTimeAsync(0);
+  expect(transport.call.mock.calls.filter(([input]) => ['kingdown_create', 'kingdown_choose', 'kingdown_get'].includes(input.name)).map(([input]) => input.name)).toEqual(['kingdown_create', 'kingdown_choose', 'kingdown_get']);
+  expect(app.client.state.screen).toBe('board'); expect(app.client.state.pending).toBeUndefined();
 });
 
 it('keeps Profile when the friend Cancel reply arrives late', async () => {
