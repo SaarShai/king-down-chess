@@ -1363,18 +1363,19 @@ it('shows the connection sentence with no error name on Settings', async () => {
   } finally { await page.close(); }
 });
 
-it('lets the mount reads wait past 10 seconds', async () => {
+it.each(['kingdown_settings', 'kingdown_get', 'kingdown_games'])('lets the mount %s read wait past 10 seconds', async held => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    if (held === 'kingdown_get') await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white' }); });
     await page.clock.install();
-    await page.evaluate(() => { (window as any).holdNext = 'kingdown_settings'; });
+    await page.evaluate(name => { (window as any).holdNext = name; }, held);
     await page.locator('#remount').click();
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     await page.clock.fastForward(20_000);
     await page.evaluate(() => (window as any).releaseHeld());
     await frame.locator('#home-play:not(:disabled)').waitFor();
     expect(await frame.locator('#home-error').textContent()).toBe('');
-  } finally { await page.close(); }
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
 // Round 5 helpers: a player opens New game against a friend; the count of calls sent with one name.
@@ -1414,14 +1415,22 @@ it('makes one game when Retry resends a timed-out Create and the device clock is
     const page = await open(), frame = page.frameLocator('iframe');
     try {
       await newGame(page);
+      const before = (await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_games', arguments: {} } })).json())._meta.games.map((game: any) => game.game_id);
       await page.clock.install({ time: Date.now() + offset });
       await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
       await frame.locator('#setup-start').click();
       await page.waitForFunction(() => !!(window as any).releaseHeld);
+      const made = await page.evaluate(() => (window as any).harnessView.game_id);
       await page.clock.fastForward(10_001);
       await frame.locator('#retry').click();
       await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
-      expect(await sent(page, 'kingdown_create')).toBe(2);
+      const calls = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').map((c: any) => c.arguments));
+      expect(calls).toHaveLength(2);
+      expect(calls[0].command_id).toMatch(/^[0-9a-f]{32}$/);
+      expect(calls[1]).toEqual(calls[0]);
+      expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(made);
+      const after = (await (await page.request.post(harness.url + 'fixture-tool', { data: { name: 'kingdown_games', arguments: {} } })).json())._meta.games;
+      expect(after.filter((game: any) => !before.includes(game.game_id)).map((game: any) => game.game_id)).toEqual([made]);
     } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
   }
 });

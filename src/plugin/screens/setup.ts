@@ -8,7 +8,7 @@ import { LETTERS, NAMES } from '../../rules/engine';
 import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
 import { POWER_NAME, cardName, cardCost, cardText, powerText, powerOptions, powersRules, ruleLine } from '../../powers-ui';
 import type { View } from '../../match/protocol';
-import type { Page } from '../state';
+import { locks, type Page } from '../state';
 import { availablePowers, cleanKing, createArguments, gameSetup, pieceLocked, quickSetup, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
 import './setup.css';
 
@@ -25,7 +25,7 @@ let cardMode: 'all' | 'four' = 'all';
 // anyRules: 'Any rules' under A random player (owner item D1 a). It applies to this start only and is not saved.
 let draft: SetupState | undefined, quick = false, anyRules = false, starting = false, late = false, ownCommand = false, closeSheet: (() => void) | undefined;
 export const quickStart = () => quick && ownCommand || !!client.state.pending?.quick;
-export const setupBusy = () => starting || !!client.state.pending;
+export const setupBusy = () => starting || locks(store.page()).start;
 /** A start of this screen runs: Start is busy, and no other start or game command waits on it. */
 export const setupStarting = () => starting;
 function segment(id: string, title: string, values: readonly string[]) {
@@ -164,7 +164,7 @@ async function finish(view: View, pick = draft?.king ?? null, origin?: Job) {
   ownCommand = false; routeView(view);
 }
 async function launch(setup = draft, saveSetup = true) {
-  if (!setup || starting || client.state.pending) return;
+  if (!setup || setupBusy()) return;
   starting = true; ownCommand = true; quick = !saveSetup; render();
   // A quick start shows no words; after 1 s the button says 'Starting…'. After 5 s, Back is a safe way out: the start stays
   // pending, and Start sends no second Create. The 10 s command limit (client.ts) ends the call with Retry.
@@ -179,12 +179,12 @@ async function launch(setup = draft, saveSetup = true) {
       memory.settings = saved._meta?.settings as typeof memory.settings;
     }
     const args = { ...createArguments(last_setup), ...(last_setup.kind === 'random' && anyRules && { any_rules: true }) };
-    const view = await start(last_setup.kind, args, { route: false }); if (view) await finish(view, last_setup.king);
+    await start(last_setup.kind, args, { route: false, then: (view, origin) => finish(view, last_setup.king, origin) });
   } catch (error) { store.dispatch({ type: 'error', text: errorText(error) }); }
   finally { clearTimeout(words); clearTimeout(wait); starting = late = false; exits.forEach(button => { delete button.dataset.free; }); if (!client.state.pending) ownCommand = false; render(); }
 }
 /** The continuation of a resent start or setup step (design §5.2): it finishes the start. */
-export const finishStart = (view: View, origin: Job) => finish(view, draft?.king, origin);
+export const finishStart = (view: View, origin: Job) => finish(view, (draft ?? readDraft()).king, origin);
 /** Play now starts a computer game and keeps the saved setup. */
 export function playNow() { if (memory.settings) void launch(quickSetup(memory.settings.last_setup), false); }
 // The store's subscriber replaces the data-page and #retry observers.

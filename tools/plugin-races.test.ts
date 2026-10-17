@@ -481,8 +481,6 @@ it('R2: a failed start does not lock another game (a.out 2)', async () => {
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
-// This fault is already masked on the merged base: the mount of a view-less chat result clears `view`, so the poll
-// sees `view !== before` and drops its reply (a.out 3). The test records the wanted behaviour.
 it('R3: a poll reply does not replace the screen that a chat result chose (a.out 3)', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -491,8 +489,10 @@ it('R3: a poll reply does not replace the screen that a chat result chose (a.out
     // A poll is in flight, and its reply brings a new revision.
     const view = await html(page).evaluate(() => (window as any).harnessApp.memory.view);
     await page.evaluate(next => { (window as any).harnessNextView = next; (window as any).holdNext = 'kingdown_get'; }, { ...view, revision: view.revision + 1 });
-    await html(page).evaluate(async (_, revision) => { await (window as any).harnessApp.call('kingdown_get', { since_revision: revision }, false, true, true); }, view.revision);
+    await html(page).evaluate((_, revision) => { const frame = window as any; frame.pollSettled = false; void frame.harnessApp.call('kingdown_get', { since_revision: revision }, false, true, true).then(() => { frame.pollSettled = true; }); }, view.revision);
     await page.waitForFunction(() => !!(window as any).releaseHeld);
+    expect(await html(page).evaluate(() => (window as any).pollSettled)).toBe(false);
+    expect(await html(page).evaluate(() => (window as any).harnessApp.client.inflight)).toBe(1);
     // The chat opens Profile; its games list waits too.
     await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_games'; });
     await page.evaluate(result => (window as any).harnessShow(result, true), await tool(page, '/fixture-tool', 'kingdown_open', { screen: 'profile' }));
@@ -504,6 +504,7 @@ it('R3: a poll reply does not replace the screen that a chat result chose (a.out
     await page.evaluate(() => (window as any).releaseBefore());
     await settled(page);
     expect(await shownGame(page)).toMatchObject({ screen: 'profile' });
+    expect(await html(page).evaluate(() => (window as any).harnessApp.memory.view)).toBeUndefined();
   } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseBefore?.(); }); await page.close(); }
 });
 

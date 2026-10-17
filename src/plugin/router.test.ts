@@ -29,9 +29,9 @@ it('starts each kind as a pending call and lets a caller defer the route', async
   await router.start('friend', { colour: 'black' }); await router.start('random', { colour: 'white' });
   const command_id = expect.stringMatching(/^[0-9a-f]{32}$/);
   expect(calls).toEqual([
-    ['kingdown_create', { kind: 'solo', colour: 'white', command_id }, true],
-    ['kingdown_create', { kind: 'friend', colour: 'black', command_id }, true],
-    ['kingdown_find', { colour: 'white', command_id }, true],
+    ['kingdown_create', { kind: 'solo', colour: 'white', command_id }, { retain: true, route: false }],
+    ['kingdown_create', { kind: 'friend', colour: 'black', command_id }, { retain: true, route: false }],
+    ['kingdown_find', { colour: 'white', command_id }, { retain: true, route: false }],
   ]);
   // Each start has its own command ID: only a resend of the same start reuses one.
   expect(new Set(calls.map(call => (call as [string, { command_id: string }])[1].command_id)).size).toBe(3);

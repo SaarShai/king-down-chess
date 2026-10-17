@@ -7,6 +7,15 @@ The source ticket and design are in the owner's scratchpad, under `tickets/`.
 
 ## Plan and checks
 
+Current fix round: check all 11 faults in the S1 to S5 reviews at `2b7c98f3`.
+Keep the first send and Retry under the same job gate. Use the shared Start lock.
+Keep unrelated command receipts. Gate reads, list updates and teardown writes.
+Restore the saved king before the inline resend. Strengthen the clock and R3 tests.
+Each confirmed fault gets a test. Run `npm test`, commit, then run `plugin-ui`
+through the owner's check runner. Record each finding, the head and the results.
+The checks must hold replies across a newer result or teardown. They must check
+the saved king, unchanged command input, one game and the accepted revision.
+
 1. Check both reviews against the source. Add a test for each confirmed fault.
 2. Keep the start job through its steps. Restore the game ID before Retry. Load saved history before the draft. Keep the draw note beside T6.
 3. Use a real two-player game for D10. Check the saved turn after the second press. Test a retained start failure through the app.
@@ -15,7 +24,29 @@ The source ticket and design are in the owner's scratchpad, under `tickets/`.
 
 The checks must prove that a late Choose keeps Profile open, an unresolved game command stays available, a refusal stays on its game, draft move text survives a full read, and a second press saves the turn after a real draw offer.
 
-## Findings
+## Current findings
+
+Both reviews describe 11 distinct faults. The source confirms all 11.
+
+| Fault | Review | Fix and test |
+|---|---|---|
+| 1. First Choose or Cancel can replace Profile | A1, B1 | First Start steps use the same continuation gate as Retry. The call adapter drops an older job's view. Held Choose, Get and friend Cancel tests keep Profile. |
+| 2. Start is on but sends nothing | A4, B2 | The handler and the button use the shared Start lock. A test starts Play now with a lost Move from another game. |
+| 3. A refused read clears another command | A2, B3 | A refusal clears only its own retained command. Foreground and remount tests keep the other game's receipt and Retry. |
+| 4. An old Try again opens Board over End | A3 | User reads advance the epoch. Routes use accepted views. A test releases two reads in reverse order and checks End and revision 2. |
+| 5. Mount Get has the command limit | A5 | The mount passes its job and SDK limit through Get and the list. Unit tests check the transport options. Browser cases hold each mount read for 20 seconds. |
+| 6. A poll sends Seen after teardown | A6, B6 | The poll checks its outcome, epoch, board, game and screen after Get. Tests leave by teardown, Profile and another game. |
+| 7. An old list replaces the new list | A7 | Every list read uses a queue job. Its data and later board redraw use the same gate. Tests release the old list after a chat result and teardown. |
+| 8. The clock test permits two games | A8 | The test checks the same nonempty command ID, full input, returned game and one new server game for each clock offset. |
+| 9. R3 starts after the held read ends | A9, B7 | R3 starts the read without a wait. It proves that the read is pending before Profile opens. It then releases the reply and checks the screen and view. |
+| 10. Inline Create uses the default king | B4 | The resend loads the saved setup when no draft exists. The inline mount test checks Flame/Haste in the Choose input. |
+| 11. Late Create saves after teardown | B5 | Receipt settlement and the final render stop when the queue closes. A test checks no later widget write and keeps the saved command. |
+
+The first-Get test also finds a retained read that the mount can resend while it
+still runs. The queue counts retained reads until their bodies end. A queue test
+checks that count across a new chat result. Rollback reads keep their parent epoch.
+
+## Prior findings
 
 Review A has six findings. Review B repeats five of them and adds the setup Retry with no game ID. All seven faults have a matching source path. The source size gate also fails at the base.
 
