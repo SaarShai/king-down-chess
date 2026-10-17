@@ -105,6 +105,8 @@ try {
     }
   });
   await page.goto(base);
+  // [DEBUG-webkit-30] Test WebKit's visibility tracking for a separate frame layer.
+  await page.locator('iframe').evaluate(frame => { frame.style.transform = 'translateZ(0)'; });
   const capabilities = await (await page.request.get(new URL('/harness-mode', base).href)).json();
   const mode = capabilities.mode;
   if (process.env.PLUGIN_EXPECT_MODE) assert.equal(mode, process.env.PLUGIN_EXPECT_MODE, 'Connected to the expected harness backend');
