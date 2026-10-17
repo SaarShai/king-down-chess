@@ -259,3 +259,11 @@ Pass criteria: both source heads are ancestors; S5 stays out; the protected rele
 
 - After the end-fit check repair, node --check tools/plugin-ui-check.mjs, git diff --check and npx tsc --noEmit pass. Full npm test with the local test database passes: 188 files, 3,051 tests, one expected failure, eight skips and 51 drawing tests. Logs: tsc-29-merge-3-4.txt and tests-29-merge-3-4.txt.
 - The next approved browser run tests both the original fit path and the new 400 px entrance restart at the repair commit. Keep the source fixed for that run.
+
+#### Passing browser checks and final gate
+
+- Browser run 4 passes at 84d852c6: plugin-ui in 130.6 s and plugin-ui-http in 198.8 s. The approved runner ends with check-runner: mac exit 0 at 84d852c6. Log: checks-29-merge-3-4.txt. Full per-check logs are copied to browser-29-merge-3-4-plugin-ui.txt and browser-29-merge-3-4-plugin-ui-http.txt in the release lane.
+- Both checks pass the original fit assertions and the 400 px entrance restart. The animation-state wait fixes the repeated transient bounds read. The font and product layout stay unchanged for that repair. The two failed end-fit runs remain recorded above.
+- Both checks pass T1 through T6. T6 measures a 385 px board box and a 384 px canvas at 393 x 852. The 197 px full words, scroll access, one-row coins, hall audit, portrait rules action and shared title pass. The live-poll guard and spent-power history stay in place.
+- This evidence commit changes only this ticket. Run npx tsc --noEmit, full npm test with the local test database, and both approved browser checks again at that final head. Exact final-head results go in tsc-29-merge-3-5.txt, tests-29-merge-3-5.txt, checks-29-merge-3-5.txt and 29-merge-3-build-report.md in the release lane.
+- All requested parts are built. S5 stays out for its later merge. The only size choice in the merge repair is the existing --fs-xl token, 23 px, for the letter tile. Keep the lane's 36 px face, 44 px control and 4 px draw-row gap. No time limit changes.
