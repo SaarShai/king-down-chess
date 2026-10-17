@@ -31,6 +31,7 @@ class RowNode {
 it.each(['playing', 'waiting'] as const)('gives the dot its own item in a %s game row', async status => {
   vi.stubGlobal('document', { createElement: () => new RowNode() });
   vi.stubGlobal('navigator', { language: 'en-US' });
+  vi.stubGlobal('addEventListener', () => {});
   const { gamesList, gameDetail } = await import('./games-list');
   const game = entry('row', false, { status, seat: 0, move: 2, created_at: '2026-10-17T16:00:00Z', options: DEFAULT_OPTIONS });
   const target = new RowNode();

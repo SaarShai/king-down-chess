@@ -1152,6 +1152,22 @@ try {
     return { page, frame };
   }
 
+  // Ticket 39 F-3: use the label bounds as well as the button style.
+  async function sheetLabelsCentered(label) {
+    const viewport = page.viewportSize();
+    try {
+      await page.setViewportSize({ width: 402, height: 874 });
+      await frame.locator('html').evaluate(() => document.fonts.ready);
+      const buttons = await frame.locator('#board-sheet .sheet-body > button').evaluateAll(buttons => buttons.map(button => {
+        const style = getComputedStyle(button), box = button.getBoundingClientRect(), range = document.createRange();
+        range.selectNodeContents(button); const words = range.getBoundingClientRect();
+        return { text: button.textContent, justify: style.justifyContent, align: style.textAlign, column: style.flexDirection === 'column', offset: Math.abs(words.left + words.width / 2 - box.left - box.width / 2) };
+      }));
+      await shot(page, `device-sheet-${label}-402-${mode}`);
+      assert(buttons.length > 0 && buttons.every(b => b.justify === 'center' && b.align === 'center' && (b.column || b.offset <= 1)), `${label}: sheet button labels are centred: ${JSON.stringify(buttons)}`);
+    } finally { await page.setViewportSize(viewport); }
+  }
+
   // Ticket 13: friend, join, lobby and wait.
   {
     const { mkdir } = await import('node:fs/promises'), { tmpdir } = await import('node:os'), { join } = await import('node:path');
@@ -1797,7 +1813,7 @@ try {
     assert.equal(await page.evaluate(()=>window.harnessView.revision),start);
     await tap(file,rank);
     if (!black) { await dragOwnSquare(file,rank); assert.equal(await page.evaluate(()=>window.harnessView.revision),start,'Drag must not shoot'); await tap(2,2); await tap(2,4); }
-    else { await frame.locator('#power-b').click(); await frame.locator('#board-sheet').getByRole('button', {name:'Use', exact:true}).click(); await openMoveChoices(); await frame.locator('#choices button').filter({hasText:/freeze/i}).click(); }
+    else { await frame.locator('#power-b').click(); await sheetLabelsCentered('power'); await frame.locator('#board-sheet').getByRole('button', {name:'Use', exact:true}).click(); await openMoveChoices(); await frame.locator('#choices button').filter({hasText:/freeze/i}).click(); }
     // W7: End turn sends the whole turn, so the turn passes to the friend. Wait for the reply before the keys (blocked()).
     await sendTurn(); await page.waitForFunction(r=>window.harnessView.revision>=r,start+1);
     await idleBoard();
@@ -1885,6 +1901,7 @@ try {
   await frame.locator('#board-sheet[open] h2').filter({ hasText: cardWords }).waitFor();
   await page.waitForFunction(() => window.harnessWidgetState.privateContent.sheet === 'board-sheet');
   assertCardReadState(beforeCardRead, await page.evaluate(() => window.harnessWidgetState));
+  await sheetLabelsCentered('card');
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
   for (const [width, height, top, bottom] of [[197, 426, 51, 59], [393, 852, 102, 118]]) {
     const host = await hostPage(width, height, top, bottom);
@@ -1903,7 +1920,9 @@ try {
     } finally { await host.page.close(); }
   }
   await zoomBoardFits('board-cards-armed');
-  await openMoveChoices(); await frame.locator(`#choices button[title="${cardLan}"]`).click(); await sendTurn();
+  await openMoveChoices();
+  assert(await frame.locator('#choices button').evaluateAll(buttons => buttons.length > 0 && buttons.every(button => getComputedStyle(button).justifyContent === 'flex-start' && getComputedStyle(button).textAlign === 'left')), 'Move choices stay left aligned');
+  await frame.locator(`#choices button[title="${cardLan}"]`).click(); await sendTurn();
   await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.actions?.[0]===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
   await frame.locator('#strip-me .card-coin').nth(cardIndex).and(frame.locator('[data-state="used"]')).waitFor();
   assert.equal(await frame.locator('#strip-me .card-coin').nth(cardIndex).getAttribute('data-state'),'used','The played card is spent');
@@ -2267,7 +2286,7 @@ try {
     await tapCentre(button);
     await zoomViewport(viewport.width,viewport.height,0,0);
   }
-  await legacyStart('solo'); await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click();
+  await legacyStart('solo'); await frame.locator('#board-menu').click(); await sheetLabelsCentered('menu'); await frame.locator('#menu-resign').click(); await sheetLabelsCentered('resign');
   await frame.locator('#board-sheet h2').filter({hasText:'Lay your king down?'}).waitFor({timeout:3000});
   assert.equal(await page.evaluate(()=>window.harnessView.status),'playing','Resign waits for its confirm');
   await frame.locator('#board-sheet').getByRole('button',{name:'Keep playing',exact:true}).click();
