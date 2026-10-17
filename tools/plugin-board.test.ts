@@ -334,6 +334,31 @@ it.each([[320,568,'card'],[393,852,'card'],[320,568,'power'],[393,852,'power']] 
   }
 );
 
+it.each(['card','power'] as const)('keeps the full armed %s rule and block notice at 197 x 426', async kind => {
+  const rules: Partial<Rules> = kind === 'card' ? {hands:[['EarthQuake'],[]]} : {kings:[{king:'Frost',power:'Freeze'},null]};
+  const base = view('4k3/1p6/8/8/8/8/4P3/4K3 w - - 0 1',rules);
+  const page = await open(base,197,426), frame = page.frameLocator('iframe');
+  try {
+    await page.evaluate(() => (window as any).harnessSetContext({safeAreaInsets:{top:51,bottom:59,left:0,right:0}}));
+    await expect.poll(() => frame.locator('html').evaluate(el => getComputedStyle(el).getPropertyValue('--safe-top').trim())).toBe('51px');
+    await frame.locator('html').evaluate(() => { (window as any).harnessApp.memory.blockNotice = 'Player blocked.'; });
+    await frame.locator(kind === 'card' ? '#card-w-0' : '#power-w').click();
+    await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
+    const rule = ruleLine(kind === 'card' ? cardText('EarthQuake') : powerText('Freeze',base.rules!));
+    expect(await frame.locator('#context-note').textContent()).toContain(`${rule} Player blocked.`);
+    expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('armed');
+    const text = await frame.locator('#context-text').evaluate(async el => {
+      await document.fonts.ready;
+      return {maxHeight:getComputedStyle(el).maxHeight,height:el.clientHeight,content:el.scrollHeight};
+    });
+    expect(text.maxHeight).toBe('none');
+    expect(text.content).toBeLessThanOrEqual(text.height + 1);
+    expect((await frame.locator('#board canvas').boundingBox())!.width).toBeGreaterThanOrEqual(192);
+    await frame.getByRole('button',{name:'Cancel',exact:true}).click();
+    expect(await frame.locator('#context-note').textContent()).toBe('Player blocked.');
+  } finally { await page.close(); }
+});
+
 // Spec G1 a: an armed power keeps its target words first and puts its rule second, in the same note.
 it('G1: the armed power note names the target, then the rule', async () => {
   const rules: Partial<Rules> = { kings: [{ king: 'Frost', power: 'Freeze' }, null] };

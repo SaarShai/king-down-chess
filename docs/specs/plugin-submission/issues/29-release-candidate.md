@@ -236,3 +236,13 @@ Pass criteria: both source heads are ancestors; S5 stays out; the protected rele
 - npx tsc --noEmit exits 0 after the repairs. Full npm test with the local test database exits 0: all 188 files pass; 3,049 tests pass, with one expected failure and eight skips. All 51 drawing tests pass. Logs: tsc-29-merge-3-2.txt and tests-29-merge-3-2.txt.
 - Run plugin-ui and plugin-ui-http through the approved runner after this repair commit. Record the checked head and final runner exit line. The browser source keeps the two-frame sideways reread, second-origin reads, current-game Retry wait, early sample poll guard and spent-power history.
 - The only size choice in this merge repair is the existing 23 px type token for the letter tile. It follows F25. No new layout or action choice is needed.
+
+#### Armed words at 200 percent zoom
+
+- Both approved browser checks at f65b7674 fail at the same merged behaviour: board-cards-armed at 197 x 426. The armed text has 120 px of content in a 40 px scroll box. The runner ends with check-runner: mac exit 1 at f65b7674. Log: checks-29-merge-3-1.txt. plugin-ui takes 172.2 s; plugin-ui-http takes 88.4 s.
+- The cause is the G1 armed selector in screens/board.css. Its phone rule overrides T2's full-height zoom words. Limit the G1 two-line scroll box to widths from 320 through 899 px. Below 320 px, keep T2's full words and page scroll. Normal phone, desktop and landscape G1 behaviour stays checked.
+- Add two tests at 197 x 426, with the required 51 px top and 59 px bottom insets: an armed card and an armed power. Each keeps its full rule, block notice and board floor. Cancel keeps the block notice. The existing G1 tests still check the two-line keyboard scroll at 320 and 393 px.
+- This is a merge fix, not the known end-fit flake. Do not repeat the failed check without this repair. Keep every time limit.
+
+- After the armed-text repair, npx tsc --noEmit exits 0. Full npm test with the local test database exits 0: 188 files and 3,051 passed tests, one expected failure and eight skips. All 51 drawing tests pass. Logs: tsc-29-merge-3-3.txt and tests-29-merge-3-3.txt.
+- The full run includes both new 197 px cases, both combined portrait cases, all eight missing-art cases, the type-scale guard and the normal-phone G1 keyboard scroll cases. The repair narrows the existing media rule; it adds no helper or new selector.
