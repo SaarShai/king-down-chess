@@ -9,7 +9,11 @@
     "url": "https://kingdown.dev"
   },
   "homepage": "https://kingdown.dev",
-  "keywords": ["chess", "game", "board game"],
+  "keywords": [
+    "chess",
+    "game",
+    "board game"
+  ],
   "extensions": {
     "com.openai": {
       "interface": {
@@ -43,13 +47,13 @@
               "description": "Open King Down fullscreen with no game selected.",
               "prompt": "Play King Down.",
               "tools_triggered": "kingdown_open",
-              "expected_behavior": "ChatGPT opens King Down fullscreen at the Play hall. The app sends no fullscreen request on mount. If the host stays inline, the home card waits for a button action. The text reply gives the number of games that wait for the player's move, for example \"Your move in 1 game.\" No new game starts."
+              "expected_behavior": "ChatGPT opens King Down fullscreen at the Play hall. The app sends no fullscreen request on mount. If the host stays inline, the home card waits for a button action. The text reply gives the number of games that wait for the player's move (\"Your move in 1 game.\"). No new game starts."
             },
             {
               "description": "Start a beginner computer game as White, with king powers and arrangement. Choose the king and order, then Ready.",
               "prompt": "Start a new King Down game against the computer at beginner level, as White, with king powers and arrangement on.",
               "tools_triggered": "kingdown_create, kingdown_open, kingdown_choose, kingdown_move, kingdown_computer",
-              "expected_behavior": "kingdown_create starts a solo game with level beginner, colour white, king powers on and arrangement on. It returns \"Choose your king and arrangement.\" kingdown_open with the new game_id shows the setup screen. On the board, choose a king and its power, set the arrangement, then select Ready. The board sends kingdown_choose with ready true. The reply then says \"Your move, move 1.\" The board shows White at the bottom. A move on the board sends kingdown_move; kingdown_computer returns the computer reply on the board. The player, not ChatGPT, makes the setup and move choices."
+              "expected_behavior": "kingdown_create starts a solo game with level beginner, colour white, king powers on and arrangement on. It returns \"Choose your king and arrangement.\" kingdown_open with the new game_id shows the setup screen. On the board, choose a king and its power, set the arrangement, then select Ready. The board sends kingdown_choose with ready true. The reply then says \"Your move, move 1.\" The board shows White at the bottom. A move on the board changes the board only. Undo takes it back. End turn (the sword button) sends kingdown_move with the turn's moves; then kingdown_computer returns the computer reply on the board. The player, not ChatGPT, makes the setup and move choices."
             },
             {
               "description": "List the active games and say where it is the player's turn.",
@@ -67,7 +71,7 @@
               "description": "Resign an active game against the computer. ChatGPT asks for confirmation first, because the action ends the game.",
               "prompt": "Resign my King Down game against the computer.",
               "tools_triggered": "kingdown_games, kingdown_resign",
-              "expected_behavior": "ChatGPT finds the solo game with kingdown_games and asks the player to confirm. After the confirmation, kingdown_resign ends the game and the reply says who won, for example \"Game over: Black wins · Resignation.\" The game no longer shows in the active games."
+              "expected_behavior": "ChatGPT finds the solo game with kingdown_games and asks the player to confirm. After the confirmation, kingdown_resign ends the game and the reply says who won, for example \"Game over: Black wins \u00b7 Resignation.\" The game no longer shows in the active games."
             }
           ],
           "negative": [

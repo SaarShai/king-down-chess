@@ -35,3 +35,5 @@ The checks pass only when each command ends with exit 0. The browser log must na
 - Keep the second-origin test host. Port the held-call counts and connect refusal to each widget.
 - Keep the current hall, turn draft, end card, sound and motion. Keep the new privacy and block controls.
 - The type check passes after the code merge. Full checks follow all merges.
+
+- Apply ticket 15 after-merge changes to P2, row 49, the skill and copy checks. Keep the approved fullscreen P1 words in both copies. Add a check for the two-game P3 count.
