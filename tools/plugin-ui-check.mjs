@@ -2030,6 +2030,13 @@ try {
       const screen = frame.locator('[data-screen="board"]');
       const noSidewaysScroll = async () => {
         const bounds = await screen.evaluate(el => ({width:el.clientWidth,scrollWidth:el.scrollWidth,left:el.scrollLeft}));
+        if (bounds.scrollWidth > bounds.width || bounds.left !== 0) {
+          const probe = () => screen.evaluate(root => [...root.querySelectorAll('#game-table, #board, canvas, .player-strip, .coin-row, .player-name, #context-line, #moves-line, #table-bar')].map(el => { const r=el.getBoundingClientRect(), s=getComputedStyle(el); return {id:el.id,cls:el.className,width:r.width,right:r.right,scroll:el.scrollWidth,display:s.display,wrap:s.flexWrap,container:s.containerType}; }));
+          console.error('[DEBUG-S5-size] first', await probe());
+          await screen.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+          console.error('[DEBUG-S5-size] later', await probe());
+          await shot(page, 's5-size-failure');
+        }
         assert(bounds.scrollWidth <= bounds.width && bounds.left === 0, `The board screen has no sideways overflow or scroll: ${JSON.stringify(bounds)}`);
       };
       for (const [width,height,top,bottom] of [[197,426,51,59],[250,542,0,0],[262,568,68,79],[280,606,0,0],[287,621,0,0],[319,691,0,0]]) {
