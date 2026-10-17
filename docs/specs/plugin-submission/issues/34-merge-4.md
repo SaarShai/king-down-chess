@@ -1,6 +1,6 @@
 # 34 Merge 4
 
-Status: claimed
+Status: built
 Branch: claude/release-candidate
 Base: 4692477c
 
@@ -96,3 +96,11 @@ Each command must end with exit 0. Each browser log must name the head and show 
 - The build owns the symbol loader, but the source-page harness has no such loader. Move that loader into one shared plugin. Keep emitted asset URLs for the build; serve data URLs in the source harness. Keep the two army colours in that one loader. The small regression test waits for the real settings image load, holds a remount read, and checks the error before and after release. Remove the debug probe.
 - Stop only the queued HTTP and WebKit runners before they get a browser slot. The HTTP wrapper holds the test lock while it waits for the Mac; remove that wrapper from the next browser run. Neither stopped run has a browser result. Re-run both checks at the final head.
 - The small regression file passes both cases with the shared loader. Its npm test call also passes the 51 drawing tests and the type check. Log: tests-mount-fixed-1.txt. The full suite must now repeat the original mount case.
+- The read-only UI reviewer finds no fault at 25e966ff. The build keeps the asset names, SVG content and URL markers. The source path returns two data URLs. The held-read test checks the error before a later render can hide it. The reviewer runs no command or check for this last source review.
+
+### Final verification
+
+- All four merges and M1 to M3 are built. Both reviewers have no confirmed finding left. No part is omitted. No new taste choice is needed.
+- Freeze the check head with this ticket commit. Run npx tsc --noEmit, then the full npm test suite with the local database and VITEST_MAX_WORKERS=2. This reduces file concurrency; it changes no test or check limit.
+- Run plugin-ui on the M1. Run plugin-ui-http and WebKit plugin-ui on this Mac through the approved runner. All final results must name this ticket commit. Add no tracked edit after these checks.
+- The final head, test counts, runner exit lines and full results go in the owner's required report: /private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/merge-4/merge-4-build.md. The report is written only after all commands end. This section records the check plan, not a pass result.
