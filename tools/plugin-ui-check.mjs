@@ -1108,7 +1108,7 @@ try {
         await host.frame.locator('.game-code span').first().waitFor();
         await host.frame.locator('html').evaluate(() => document.fonts.ready);
         const labels = await host.frame.locator('#friend-actions').evaluate(row => [...row.querySelectorAll('button')].map(button => {
-          const label = button.querySelector('.label'), range = document.createRange();
+          const label = button.querySelector('.label') ?? button, range = document.createRange();
           range.selectNodeContents(label);
           const box = button.getBoundingClientRect(), text = range.getBoundingClientRect();
           return { id: button.id, scroll: label.scrollWidth, client: label.clientWidth, rightGap: box.right - text.right, left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, rowWidth: row.getBoundingClientRect().width };
