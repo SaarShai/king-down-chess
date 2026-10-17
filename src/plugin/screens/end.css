@@ -20,6 +20,12 @@ body[data-page='end'] #page-head { position: relative; z-index: 3; }
 @media (max-width: 319px) {
   .frame dialog#over.end-card { max-height: calc(100% - 68px); }
   #over.end-card .over-art { display: none; }
+  /* The actions come right after the result line; the rating and badge facts follow them. */
+  .frame dialog#over.end-card[open] { display: flex; flex-direction: column; }
+  #over.end-card > * { flex: none; }
+  #over.end-card > form { order: 1; }
+  #over.end-card > .end-facts { order: 2; margin: var(--space-3) 0 0; }
+  #over.end-card > .quiet-line { order: 3; }
 }
 @media (min-width: 900px) { .frame dialog#over.end-card { inset: 0 auto 0 calc(50% - 440px); margin: auto 0; } }
 
