@@ -2393,7 +2393,12 @@ try {
     await showSnapshot({...snapshot,...finished,revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:state.end?[]:legal(),last_commands:commands,deadline_at:state.claim?new Date(Date.now()-60000).toISOString():null},story);
     if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+14*RIPPLE_MS+50);}
     if (state.claim) assert.equal(await frame.locator('#status').innerText(),'mira_k has not moved for 3 days.');
-    if (state.end) await frame.locator('#over.end-card[open]').waitFor();
+    if (state.end) {
+      await frame.locator('#over.end-card[open]').waitFor();
+      // The result card opens while the win words still scale outside the board.
+      await frame.locator('#board[data-toppling]').waitFor({ state: 'detached' });
+      assert.equal(await frame.locator('#board .kd-words').count(), 0, 'End layout starts after the win sequence');
+    }
     // Ticket 28 T1 and T2 at 200% zoom.
     const zoomName={board:'board-turn','board-abort':'board-cards'}[state.name];
     if (zoomName) await zoomBoardFits(zoomName);
@@ -2453,8 +2458,6 @@ try {
       if (state.end && width === 400) await frame.locator('#game-table .kd-words').evaluateAll(words => {
         for (const word of words) { word.classList.remove('is-in'); void word.getBoundingClientRect(); word.classList.add('is-in'); }
       });
-      // Measure the settled table, as the coin checks do; entrance scale is transient overflow.
-      if (state.end) await widget().waitForFunction(() => document.querySelector('#game-table').getAnimations({ subtree: true }).every(animation => animation.playState === 'finished'));
       const bounds=await frame.locator('#game-table').evaluate(el=>{const r=el.getBoundingClientRect(),box=b=>({left:b.left,right:b.right,top:b.top,bottom:b.bottom,width:b.width});return {overflow:el.scrollWidth>el.clientWidth+1,scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,el:box(r),frame:box(document.querySelector('#app-frame').getBoundingClientRect()),left:r.left,right:r.right,width:innerWidth,body:document.body.scrollWidth>innerWidth,bodyScroll:document.body.scrollWidth,outside:[...el.querySelectorAll('*')].filter(child=>child.getClientRects().length).map(child=>({id:child.id,tag:child.tagName,class:typeof child.className==='string'?child.className:'',...box(child.getBoundingClientRect())})).filter(child=>child.right>r.right+1||child.left<r.left-1).slice(0,16)};});
       assert(!bounds.overflow&&!bounds.body&&bounds.left>=-1&&bounds.right<=bounds.width+1,layoutMessage(state.name,width,bounds.el,bounds.frame,`window width ${bounds.width}, table scroll ${bounds.scrollWidth}/${bounds.clientWidth}, body scroll ${bounds.bodyScroll}; outside ${JSON.stringify(bounds.outside)}`));
       const ids=state.end?['#over','#context-line']:['#table-bar','#context-line'];

@@ -28,3 +28,9 @@ Each command must end with exit 0. Each browser log must name the head and show 
 - setup.ts: keep the S5 start origin, saved king and continuation. Keep the leave guard and remove its listeners on exit. Do not render after teardown.
 - client.ts merges without a conflict. It uses the S5 receipt with no wall-clock retry test.
 - The new app unit fixture uses the current online visibility field and the click listener stub.
+
+### Merge 2: webkit-rc
+
+- Source: a761dd3e. tools/plugin-ui-check.mjs conflicts.
+- Keep the data-toppling wait and the check that its words are gone. Keep the release zoom checks and the 400 px end-word restart. Remove the second animation wait.
+- The board tests keep the WebKit focus checks and the corrected win-sequence wait.
