@@ -2047,8 +2047,8 @@ try {
       const after=await frame.locator('#board canvas').boundingBox(), selectedRow=await frame.locator('#context-line').boundingBox();
       assert(Math.abs(before.width-after.width)<1 && Math.abs(row.height-selectedRow.height)<1,`The draw offer keeps the board and row size at ${width}×${height} (${stage})`);
       assert(await frame.locator('#context-actions').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Draw and piece actions have no horizontal overflow');
-      // The short landscape pane scrolls; the phone cases keep all replies in view.
-      if(width>height) await frame.locator('#context-actions').scrollIntoViewIfNeeded();
+      // Q3 b: the board keeps its size, and the screen scrolls to the replies (short landscape and small phones).
+      await frame.locator('#context-actions').scrollIntoViewIfNeeded();
       for (const action of await frame.locator('#context-actions button').all()) {const bounds=await action.evaluate(controlBounds); assert(bounds.accessible,`Draw and piece action fits at ${width}×${height} (${stage}): ${JSON.stringify(bounds)}`);}
       await shot(page,`ticket05-draw-${stage}-${width}-${mode}`);
       if(stage==='start') {
