@@ -14,12 +14,12 @@ body[data-page='end'] #page-head { position: relative; z-index: 3; }
 .new-badge small { color: var(--ink-soft); font-weight: 400; }
 #over.end-card form { margin-top: var(--space-3); }
 #over.end-card .quiet-line { margin-top: var(--space-2) !important; }
-/* 200% zoom (under 320 px, portrait): the page head is hidden and the 44 px Back is the top control. The card leaves Back
-   and 12 px clear and drops the kings' art, so the result line and the top of the first action show with no scroll;
-   the cut action shows that the card scrolls (ticket 28 T1). */
+/* Under 320 px, leave Back and 12 px clear. Keep Play again whole and New game cut, so the card shows that it scrolls.
+   Cap the height when the host leaves a smaller bottom gap (ticket 32 C). */
 @media (max-width: 319px) {
-  .frame dialog#over.end-card { max-height: calc(100% - 68px); }
-  #over.end-card .over-art { display: none; }
+  .frame dialog#over.end-card { max-height: min(224px, calc(100% - 68px)); padding-top: 8px; }
+  #over.end-card .over-art, #over.end-card .over-words:empty { display: none; }
+  #over.end-card h2 { margin-bottom: 0; }
   /* The actions come right after the result line; the rating and badge facts follow them. */
   .frame dialog#over.end-card[open] { display: flex; flex-direction: column; }
   #over.end-card > * { flex: none; }

@@ -16,3 +16,7 @@ Faults A and B are refuted. Faults D and G are outside this step.
 ## Evidence
 
 Work starts with a clean worktree on `claude/qa2-faults` at `4692477c`.
+
+- The base CSS fails the new check at `f76584ce` on the M1. This commit changes checks only. Frame: y 51 to 330. Card: y 107 to 318. New game starts at y 332.84 and ends at 376.84. No part shows. Log: `checks-zoom-end-baseline-3.txt` in the lane folder.
+- The first check run at `9bd6a47c` stops on the full Play again assertion. It ends at y 322.84, 4.84 px past the card edge. The next check puts the cut-action assertion first. Both runs use a fresh mobile host, with the built page and fonts ready.
+- The fix changes only the under-320 px rules in `end.css`. It caps the card at 224 px, sets top padding to 8 px, hides the empty line above a loss, and removes the title's bottom margin. It keeps the win text, result type, button order and cut-action cue.
