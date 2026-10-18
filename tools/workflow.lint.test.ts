@@ -62,9 +62,10 @@ describe('.github/workflows/plugin-checks.yml', () => {
   const workflow = readFileSync(join(import.meta.dirname, '..', '.github', 'workflows', 'plugin-checks.yml'), 'utf8');
   const job = (name: string) => workflow.split(`\n  ${name}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0] ?? '';
 
-  it('runs WebKit in a separate job with its own install and the current time limit', () => {
+  it('runs WebKit in a separate job with its own install and the time limit for its scaled steps', () => {
     const webkit = job('browser-webkit');
-    expect(webkit).toContain('timeout-minutes: 15');
+    // The WebKit steps run with limits times 3 (tools/lib/checks.mjs STEP), so the job has 45 minutes.
+    expect(webkit).toContain('timeout-minutes: 45');
     expect(webkit).toContain('PLAYABLE_BROWSER: webkit');
     expect(webkit).toContain('npx playwright install --with-deps webkit');
     expect(webkit).not.toContain('needs:');
