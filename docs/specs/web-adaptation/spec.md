@@ -361,7 +361,7 @@ The plan uses the smallest complete change: keep the working local app; share th
 
 Open tickets hold recommended picks, not owner answers. Seven research tickets hold resolved source facts. The other tickets wait for the owner, the final release facts or a sample. Nothing here authorizes a build or a publish.
 
-Faults found during planning: the PR 61 release packet says unsent outbox rows stay, but the code, the privacy page and the database test delete them after 30 days (the plugin session's PR fixes the documents); the offline worker cache and the old watcher are latent web faults that phases 1 and 3 remove.
+Faults found during planning: the PR 61 release packet says unsent outbox rows stay, but the code, the privacy page and the database test delete them after 30 days (fixed on the PR 61 branch in `5e5b7fd8`); the offline worker cache and the old watcher are latent web faults that phases 1 and 3 remove.
 
 The top risks are private data in a worker cache or the wrong account state; divergent client behavior or duplicate commands after extraction; and a moving release base whose checks, schema, and real-device evidence do not match. The phase order addresses these before public play.
 
