@@ -62,6 +62,8 @@ const edgeMisses = (root: Element) => [...root.querySelectorAll('button')].filte
 async function open(next: View, width = 393, height = 852, clock = false, limit = 3000) {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true });
   page.setDefaultTimeout(limit * STEP);
+  // CI WebKit once closed one page in the middle of a test, with no error of its own (ticket 49).
+  page.on('crash', () => console.error('The test page crashed'));
   if (clock) await page.clock.install();
   await page.goto(harness.url);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
@@ -77,8 +79,21 @@ async function open(next: View, width = 393, height = 852, clock = false, limit 
 async function marks(page: Page) {
   return page.frameLocator('iframe').locator('html').evaluate(() => structuredClone((window as any).testBoard.marks));
 }
+// Release a held call and close the page. A crashed page has no call to release: keep the test's own first error.
+async function closeHeld(page: Page) {
+  if (!page.isClosed()) await page.evaluate(() => (window as any).releaseBefore?.()).catch(() => {});
+  await page.close();
+}
 // Keep real pointer input without WebKit's stalled locator geometry check. Check the hit target in the frame.
 async function clickButton(page: Page, button: Locator) {
+  // Playwright's scrollIntoViewIfNeeded waits for a box that holds over two animation frames, as its click does, and CI
+  // WebKit can stop sending frames. Scroll in the page instead, and wait until two reads 20 ms apart agree.
+  const box = () => button.evaluate((button: HTMLElement) => {
+    button.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+    const r = button.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].join();
+  });
+  let last = '';
+  await expect.poll(async () => { const next = await box(), still = next === last; last = next; return still; }, { intervals: [20] }).toBe(true);
   const pane = await page.locator('iframe').evaluate(e => ({ x: e.getBoundingClientRect().x, y: e.getBoundingClientRect().y }));
   const point = await button.evaluate((button: HTMLButtonElement) => {
     const r = button.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + r.height / 2;
@@ -574,7 +589,7 @@ it.each([[393, 852], [360, 740], [320, 568]])('serves 48 px targets on Seat and 
       for (const screen of cards ? ['board'] : ['seat', 'board']) {
         if (screen === 'board' && !cards) {
           const ready = frame.locator('#seat-ready:not(:disabled)');
-          await ready.scrollIntoViewIfNeeded(); await clickButton(page, ready);
+          await clickButton(page, ready);
           // Ready commits the choice, then reads the full rules before it opens the board.
           await page.waitForFunction(() => (window as any).harnessView.status === 'playing');
           await page.waitForFunction(() => !!(window as any).harnessView.rules);
@@ -1194,7 +1209,6 @@ it('W7: a draw offer keeps piece rules readable at 320 px before and during Send
       if (sending) {
         await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_move'; });
         await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
-        await frame.locator('#end-turn').scrollIntoViewIfNeeded();
         await clickButton(page, frame.locator('#end-turn')); await page.waitForFunction(() => typeof (window as any).releaseBefore==='function');
       }
       await squareTap(page,28);
@@ -1209,7 +1223,7 @@ it('W7: a draw offer keeps piece rules readable at 320 px before and during Send
       expect(await boardFen(page)).toBe(toFen(staged.pos));
       expect((await moveCalls(page)).length).toBe(sending ? 1 : 0);
     }
-  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+  } finally { await closeHeld(page); }
 });
 
 it('W7: stages a move, sends once, and starts the computer only after the press', async () => {
@@ -1228,7 +1242,6 @@ it('W7: stages a move, sends once, and starts the computer only after the press'
     expect(await frame.locator('#end-turn').evaluate(e => getComputedStyle(e).animationName)).toBe('none');
     await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_move'; });
     await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
-    await frame.locator('#end-turn').scrollIntoViewIfNeeded();
     await clickButton(page, frame.locator('#end-turn'));
     await page.waitForFunction(() => typeof (window as any).releaseBefore==='function');
     await frame.locator('#end-turn').evaluate(e => { (e as HTMLButtonElement).click(); });
@@ -1242,7 +1255,7 @@ it('W7: stages a move, sends once, and starts the computer only after the press'
     await page.waitForFunction(() => (window as any).harnessCalls.some((c: any) => c.name==='kingdown_computer'));
     expect(await frame.locator('#status').textContent()).toBe('Their move.');
     await expect.poll(async () => (await moveCalls(page)).length).toBe(1);
-  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+  } finally { await closeHeld(page); }
 });
 
 it('W7: undoes both Haste steps and restores the power coin and trail', async () => {
@@ -1271,11 +1284,10 @@ it('W7: sends a mid-way Haste turn with a pass in the same command', async () =>
     expect(await frame.getByRole('button',{name:'Stop here',exact:true}).count()).toBe(0);
     await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_computer'; });
     await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
-    await frame.locator('#end-turn').scrollIntoViewIfNeeded();
     await clickButton(page, frame.locator('#end-turn'));
     await expect.poll(async () => (await moveCalls(page)).length).toBe(1);
     expect((await moveCalls(page))[0].arguments.actions).toEqual(['e2-e4!H','--']);
-  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+  } finally { await closeHeld(page); }
 });
 
 it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and during Send', async () => {
@@ -1298,7 +1310,6 @@ it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and dur
         }
         await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_move'; });
         await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
-        await frame.locator('#end-turn').scrollIntoViewIfNeeded();
         await clickButton(page, frame.locator('#end-turn')); await page.waitForFunction(() => typeof (window as any).releaseBefore==='function');
       }
       expect(await frame.locator('#status').textContent()).toBe(sending ? 'Sending…' : 'Your turn is ready. Select End turn.');
@@ -1346,7 +1357,7 @@ it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and dur
     await page.keyboard.press('Escape'); await squareTap(page,36); await frame.locator('#board').press('Enter');
     expect(await frame.locator('#last-move').innerText()).toContain('White pawn e2 to e4.');
     await expect.poll(async () => (await moveCalls(page)).length).toBe(1);
-  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+  } finally { await closeHeld(page); }
 });
 
 it('W7: blocks a legal Haste follow-up while Send waits', async () => {
@@ -1362,7 +1373,6 @@ it('W7: blocks a legal Haste follow-up while Send waits', async () => {
     });
     await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_move'; });
     await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
-    await frame.locator('#end-turn').scrollIntoViewIfNeeded();
     await clickButton(page, frame.locator('#end-turn')); await page.waitForFunction(() => typeof (window as any).releaseBefore==='function');
     expect(await frame.locator('#status').innerText()).toBe('Sending…');
     const unchanged = async () => {
@@ -1381,7 +1391,7 @@ it('W7: blocks a legal Haste follow-up while Send waits', async () => {
     await page.mouse.move(source.x,source.y); await page.mouse.down(); await page.mouse.move(target.x,target.y,{steps:5}); await page.mouse.up();
     expect(await frame.locator('html').evaluate(() => (window as any).dragAttempts)).toEqual([]);
     await unchanged();
-  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+  } finally { await closeHeld(page); }
 });
 
 it('W7: stages mate, permits Undo, and ends only on the press with no second move animation', async () => {
@@ -1396,7 +1406,6 @@ it('W7: stages mate, permits Undo, and ends only on the press with no second mov
     expect(await frame.locator('#status').textContent()).toBe('Your move.');
     await squareTap(page,7); await squareTap(page,63); await frame.locator('#board[data-animating="false"]').waitFor();
     await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
-    await frame.locator('#end-turn').scrollIntoViewIfNeeded();
     await clickButton(page, frame.locator('#end-turn')); await frame.locator('#over[open]').waitFor();
     expect(await frame.locator('html').evaluate(() => (window as any).turnAnimations)).toBe(2);
     expect((await moveCalls(page))[0].arguments.actions).toEqual(['Rh1-h8']);
@@ -1423,7 +1432,7 @@ it('W7: moves keyboard focus to the turn button, sends with Enter, and undoes wi
     await frame.locator('#end-turn').press('Enter');
     expect(await board.evaluate(e => e===document.activeElement)).toBe(true);
     await expect.poll(async () => (await moveCalls(page)).length).toBe(1);
-  } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
+  } finally { await closeHeld(page); }
 });
 
 
@@ -1449,7 +1458,6 @@ it('W7: keeps a lost-send error while pieces and coins remain readable', async (
     await chooseTurnMove(page,'e2-e4',12);
     await page.evaluate(() => { (window as any).dropNextMoveReply=true; });
     await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
-    await frame.locator('#end-turn').scrollIntoViewIfNeeded();
     await clickButton(page, frame.locator('#end-turn')); await frame.locator('#retry').waitFor();
     const message=await frame.locator('#error').innerText(); expect(message).not.toBe('');
     await squareTap(page,28);
@@ -1470,7 +1478,6 @@ it('W7: a lost send shows the waiting words beside Retry, not Sending, also afte
     // The connection drops before the server gets the turn, so the restored draft and command stay after a remount.
     await page.route('**/fixture-tool', route => route.request().postDataJSON()?.name === 'kingdown_move' ? route.abort() : route.continue());
     await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
-    await frame.locator('#end-turn').scrollIntoViewIfNeeded();
     await clickButton(page, frame.locator('#end-turn')); await frame.locator('#retry').waitFor();
     // Nothing is in flight now: send-turn 03 A3 shows Sending only while the turn waits for its reply.
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
@@ -1540,7 +1547,6 @@ it('W7-04: a refused press after a real draw offer keeps T6 and the note, then s
     const offered = (await tool('kingdown_draw', {game_id, choice:'offer'}, true))._meta.view as View;
     expect(offered.revision).toBeGreaterThan(base.revision);
     // The page still has the revision from before the offer. The server refuses that first press.
-    await frame.locator('#end-turn').scrollIntoViewIfNeeded();
     await clickButton(page, frame.locator('#end-turn'));
     await frame.locator('#status').filter({hasText:'The game changed. Check it, then tap Send your turn.'}).waitFor();
     await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
@@ -1549,7 +1555,6 @@ it('W7-04: a refused press after a real draw offer keeps T6 and the note, then s
     expect((await savedDraft(page)).lans).toEqual(['e2-e4']);
     expect(await frame.locator('#last-move').innerText()).toBe('White pawn e2 to e4.');
     expect(await frame.locator('#short-move-words').innerText()).toBe('White pawn e2 → e4');
-    await frame.locator('#end-turn').scrollIntoViewIfNeeded();
     await clickButton(page, frame.locator('#end-turn'));
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending ?? null)).toBeNull();
     const saved = (await tool('kingdown_get', {game_id}))._meta.view as View;
@@ -1570,7 +1575,6 @@ it('W7-04: a press refused with INVALID_MOVE drops the draft and reads once (D11
     const reads = await getCalls(page);
     await page.evaluate(() => { (window as any).rejectNextMove = 'INVALID_MOVE'; });
     await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
-    await frame.locator('#end-turn').scrollIntoViewIfNeeded();
     await clickButton(page, frame.locator('#end-turn'));
     await frame.locator('#error').filter({hasText:'Harness definitive rejection'}).waitFor();
     // The draft drops, the board returns to the base FEN, and the rollback reads the board once.
@@ -1589,7 +1593,6 @@ it('W7-04: a lost send keeps the ID, revision and actions for Retry, and drops t
     await chooseTurnMove(page,'e2-e4',12);
     await page.evaluate(() => { (window as any).dropNextMoveReply=true; });
     await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
-    await frame.locator('#end-turn').scrollIntoViewIfNeeded();
     await clickButton(page, frame.locator('#end-turn'));
     await frame.locator('#retry').waitFor();
     const first = (await moveCalls(page))[0].arguments;

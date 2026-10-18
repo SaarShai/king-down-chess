@@ -31,7 +31,17 @@ page.on('pageerror', error => console.error(error.stack));
 // Use real mouse input after the hit check, without WebKit's stalled locator click.
 async function clickButton(page, button) {
   await button.waitFor();
-  await button.scrollIntoViewIfNeeded();
+  // Playwright's scrollIntoViewIfNeeded waits for a box that holds over two animation frames, as its click does, and CI
+  // WebKit can stop sending frames. Scroll in the page instead, and wait until two reads 20 ms apart agree.
+  const box = () => button.evaluate(button => {
+    button.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+    const r = button.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].join();
+  });
+  for (let last = await box(), end = Date.now() + 30000; ;) {
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const next = await box(); if (next === last) break;
+    assert(Date.now() < end, `The button keeps moving: ${next}`); last = next;
+  }
   const pane = await page.locator('iframe').evaluate(e => ({ x: e.getBoundingClientRect().x, y: e.getBoundingClientRect().y }));
   const point = await button.evaluate(button => {
     const r = button.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + r.height / 2;

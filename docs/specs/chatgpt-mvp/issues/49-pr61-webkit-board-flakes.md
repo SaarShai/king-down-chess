@@ -95,3 +95,33 @@ The owner checks Linux CI. The full Mac WebKit file is not all green
 because of the separate base focus failure. No push or merge is made.
 The commit hook uses empty secret sources through its documented
 overrides. It does not read or compare real secret files.
+
+## The scroll before each checked press (2026-10-18)
+
+CI WebKit failed one board test on each of two heads after the earlier
+fixes. On `788caa53`, 'W7: keeps a lost-send error while pieces and coins
+remain readable' stopped in `locator.scrollIntoViewIfNeeded` (9 s). That
+call waits for a box that holds over two animation frames, the same wait
+as the locator click that `clickButton` replaced. The race fixes put it
+before each checked press (13 board sites, 11 size sites, and inside the
+plugin-ui helper).
+
+Each `clickButton` now scrolls the button in the page
+(`scrollIntoView`, nearest, instant), waits until two box reads 20 ms
+apart agree (the house poll limit), then checks the hit target. The
+separate scroll before each press goes. No assertion or limit changes.
+
+On `1e457750`, 'W7: blocks a legal Haste follow-up while Send waits'
+failed after 29 s. The page closed during the test, and the error of
+the `finally` block hid the first error. Nothing in the test or the
+harness closes a page, and the next tests ran in the same browser, so a
+WebKit page crash is the likely cause; the log cannot prove it. The
+board file now logs a page crash, and `closeHeld()` releases a held call
+only on an open page, so the next failure shows its first error. The
+call gate (`bad216ed`) does not act in either test: at most one call is
+in flight there.
+
+Checks on this Mac, one at a time through the lock: the board file
+passes 128 of 128 in Chromium and 127 of 128 in WebKit (the separate
+base focus case above); the size file passes 31 of 31 in both; the
+WebKit plugin-ui check passes (210 s). Two reviewers found no fault.
