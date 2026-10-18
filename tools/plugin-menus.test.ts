@@ -252,14 +252,18 @@ it('keeps ‹ Play free after a slow settings save, while Create still waits', a
 it('records seat activity from the poll at most once each 30 seconds', async () => {
   const page = await open(OWNER, true), frame = page.frameLocator('iframe');
   const count = (name: string) => page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name);
+  // Finish the replies before a clock jump can expire an in-flight call's 10-second limit.
+  const idle = () => expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
   try {
     await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; app.navigate('play'); await app.start('friend', { colour: 'white' }); });
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     await page.clock.fastForward(6_000);
     await expect.poll(() => count('kingdown_seen')).toBe(1);
+    await idle();
     const gets = await count('kingdown_get');
     await page.clock.fastForward(20_000);
     await expect.poll(() => count('kingdown_get')).toBeGreaterThan(gets);
+    await idle();
     expect(await count('kingdown_seen')).toBe(1);
     await page.clock.fastForward(15_000);
     await expect.poll(() => count('kingdown_seen')).toBe(2);
