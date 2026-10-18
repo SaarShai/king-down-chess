@@ -77,6 +77,9 @@ it.each(['See the board', 'New game'])('cancels a pending ceremony with %s durin
   const move = legalMoves(pre).find(m => toLan(pre,m) === 'Qa1-a8')!, post = makeMove(pre,move);
   const page = await open(before), frame = page.frameLocator('iframe');
   try {
+    // Start the final move after the artwork and the first canvas size are ready.
+    await frame.locator('#board canvas').waitFor({ state: 'visible' });
+    await page.clock.install();
     await frame.locator('html').evaluate(() => {
       const w = window as any; w.falls = []; const set = w.testBoard.setFallen.bind(w.testBoard);
       w.testBoard.setFallen = (sq: number|null, animate: boolean) => { if (sq !== null) w.falls.push(animate); set(sq,animate); };
@@ -86,7 +89,7 @@ it.each(['See the board', 'New game'])('cancels a pending ceremony with %s durin
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
     await frame.locator('#over[open]').waitFor();
     expect(await frame.locator('#board[data-toppling]').count()).toBe(0);
-    if (action === 'New game') await page.waitForTimeout(1100);
+    if (action === 'New game') await page.clock.runFor(1000);
     await frame.locator('#over').getByRole('button', { name: action, exact: true }).click();
     await frame.locator('html').evaluate(() => (window as any).endReplay());
     await frame.locator('#board[data-animating="false"]').waitFor({ state: 'attached' });
@@ -408,7 +411,7 @@ it.each([[true, 393, 852], [true, 320, 568], [false, 393, 852]] as const)('uses 
     const opened = await tool('/fixture-tool', 'kingdown_open', { game_id });
     await page.evaluate(result => (window as any).harnessShow({ ...result, structuredContent: { ...result.structuredContent, screen: undefined } }, true), opened);
     await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
-    await expect.poll(() => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width)).toBeGreaterThan(0);
+    await frame.locator('#board canvas').waitFor({ state: 'visible' });
     await frame.locator('#seat-veil-layer .veil').waitFor();
     expect(await frame.locator('#seat-veil-layer').innerText()).toBe(computer ? 'Their side stays hidden until you are ready.' : 'Their side stays hidden until both players are ready.');
   }

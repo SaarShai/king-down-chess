@@ -136,7 +136,7 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
       await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
       const canvasWidth=()=>frame.locator('#board canvas').evaluate(e=>e.getBoundingClientRect().width);
       await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
-      await expect.poll(canvasWidth).toBeGreaterThan(0);
+      await frame.locator('#board canvas').waitFor({ state: 'visible' });
       await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min - (width < height ? 4 : 0));
       expect(await frame.locator('#seat-context').textContent()).not.toMatch(/Tap/);
       const veil=await frame.locator('#seat-veil-layer .veil').evaluate(e=>{const r=e.getBoundingClientRect(),b=document.querySelector('#board')!.getBoundingClientRect(); return r.top>=b.top-1 && r.bottom<=b.bottom+1 && getComputedStyle(e).overflow==='hidden';});
@@ -146,7 +146,7 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
         expect(await frame.locator(`#${id}`).evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
       }
       await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
-      await expect.poll(canvasWidth).toBeGreaterThan(0);
+      await frame.locator('#board canvas').waitFor({ state: 'visible' });
       await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin - (width < height ? 4 : 0));
       expect(await frame.locator('.page-sheet').evaluate(e=>e.scrollTop)).toBe(0);
       const bar=await frame.locator('#table-bar').evaluate(e=>{const buttons=[...e.querySelectorAll('button')].filter(b=>!b.hidden),r=e.getBoundingClientRect(),b=buttons[0].getBoundingClientRect();return {count:buttons.length,empty:b.left-r.left};});
