@@ -126,3 +126,19 @@ the handoff locks `wait-computer`; a name screen opened again sets its
 Back and clears `nameForCaller`, except on the Resume after a collapse.
 A known limit here (a Join that gets HANDLE_NEEDED after a collapse lost
 its Back to Join) is fixed: see Codex comment 4307999875 below.
+
+## Stale-state faults (2026-10-18)
+
+Plan: add a failing unit test for each confirmed fault. Keep one origin
+through each Wait action. Save the name screen return in private widget
+state. Keep Join codes in memory. Make one commit for each fault.
+
+Checks: each new test fails before its fix and passes after it. Run the
+app and queue unit files, the type check, and the name and Wait browser
+files once each in Chromium through the test lock. Keep all assertions
+and time limits.
+
+- Switch now opens an old game over a newer screen. One origin now guards
+  Abort, Resume and Games. Test: `keeps the Switch now origin while Abort
+  waits (new chat: %s)`. Red: 2 stale cases fail (an extra Resume); the
+  control passes. Green: all 70 app tests pass.

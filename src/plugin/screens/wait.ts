@@ -124,18 +124,22 @@ function found(human: View) {
   over.querySelector('p')!.append(name, ' joined your open game. Switch now? The computer game then ends with no result.');
   $('found-later').onclick = () => { dismissed.add(human.game_id); over.close(); void call('kingdown_games', {}); };
   $('found-switch').onclick = async () => {
-    if (switching) return; switching = true; $<HTMLButtonElement>('found-switch').disabled = true;
+    if (switching) return;
+    const origin = queue.command('write', 'kingdown_abort', {});
+    switching = true; $<HTMLButtonElement>('found-switch').disabled = true;
     try {
       const solo = memory.view;
       if (solo?.kind === 'solo' && solo.status === 'playing' && abortReceipt?.game_id !== solo.game_id) {
         const result = await client.call('kingdown_abort', { game_id: solo.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: solo.revision });
+        if (!queue.current(origin)) return;
         if (result.isError && result._meta?.code !== 'NOT_ALLOWED') throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
         if (!result.isError) abortReceipt = result._meta?.view as View;
       }
-      const next = await call('kingdown_resume', { game_id: human.game_id }, false, false, false);
-      if (next) { over.close(); routeView(next); await call('kingdown_games', {}); }
+      const next = await call('kingdown_resume', { game_id: human.game_id }, { route: false, origin });
+      if (!queue.current(origin)) return;
+      if (next) { over.close(); routeView(next); await call('kingdown_games', {}, { origin }); }
       else showError(new Error($('error').textContent ?? 'Could not open the game.'), $('found-error'));
-    } catch (error) { showError(error, $('found-error')); }
+    } catch (error) { if (queue.current(origin)) showError(error, $('found-error')); }
     finally { switching = false; $<HTMLButtonElement>('found-switch').disabled = false; }
   };
   if (!over.open) over.showModal();

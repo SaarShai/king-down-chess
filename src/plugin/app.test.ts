@@ -154,6 +154,36 @@ it('keeps a recovered watch until its first read ends', async () => {
   expect(app.memory.view?.game_id).toBe(solo.game_id); expect(app.client.state.screen).toBe('board');
 });
 
+it.each(['profile', 'board', 'unchanged'])('keeps the Switch now origin while Abort waits (new chat: %s)', async screen => {
+  const waiting = await waitingGame(), now = Date.now();
+  const human = { ...waiting, status: 'playing', created_at: new Date(now - 2000).toISOString(), updated_at: new Date(now).toISOString() } as View;
+  const solo = { ...waiting, game_id: 'solo-a000', kind: 'solo', status: 'playing', created_at: new Date(now - 1000).toISOString(), rules: {} } as View;
+  const newer = { ...solo, game_id: 'game-c000' };
+  (window as any).openai.widgetState = { privateContent: { screen: 'board', board_id: 'solo-board' } };
+  let abort!: (value: unknown) => void, selected = solo;
+  transport.call.mockImplementation(async ({ name, arguments: args }) => {
+    if (name === 'kingdown_abort') return new Promise(resolve => { abort = resolve; });
+    return { content: [], _meta: name === 'kingdown_get' ? { view: args.game_id === human.game_id ? human : selected }
+      : name === 'kingdown_resume' ? { view: human, board_id: 'human-board' }
+      : name === 'kingdown_settings' ? { settings, me: { handle: 'player', icon: 'spirit' } } : { games: [solo, human] } };
+  });
+  const app = await import('./app');
+  transport.instance.ontoolresult({ content: [], structuredContent: { game_id: solo.game_id }, _meta: { board_id: 'solo-board' } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect((document.getElementById('over') as HTMLDialogElement).open).toBe(true);
+  press('found-switch'); await vi.advanceTimersByTimeAsync(0); expect(abort).toBeTypeOf('function');
+  if (screen !== 'unchanged') {
+    selected = newer;
+    transport.instance.ontoolresult({ content: [], structuredContent: screen === 'profile' ? { screen } : { game_id: newer.game_id }, _meta: { board_id: 'new-board' } });
+    await vi.advanceTimersByTimeAsync(0); expect(app.client.state.screen).toBe(screen);
+  }
+  abort({ content: [], _meta: { view: { ...solo, status: 'aborted' } } }); await vi.advanceTimersByTimeAsync(0);
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_resume')).toHaveLength(screen === 'unchanged' ? 1 : 0);
+  expect(app.client.state.screen).toBe(screen === 'unchanged' ? 'board' : screen);
+  expect(app.client.state.board_id).toBe(screen === 'unchanged' ? 'human-board' : 'new-board');
+  expect(app.memory.view?.game_id).toBe(screen === 'unchanged' ? human.game_id : screen === 'board' ? newer.game_id : undefined);
+});
+
 it.each([false, true])('keeps the wait read origin through Resume (new chat: %s)', async changed => {
   const app = await mounted(), waiting = await waitingGame(); app.routeView(waiting);
   const solo = { ...waiting, game_id: 'solo-a000', kind: 'solo', status: 'playing', rules: {} } as View;
