@@ -2209,8 +2209,9 @@ it('keeps the game route when Play now finishes before fullscreen is granted', a
   try {
     await page.evaluate(() => { (window as any).holdDisplayNext = true; });
     await frame.locator('#home-play').click();
-    await page.waitForFunction(() => !!(window as any).releaseDisplay);
-    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.queued)).toBe('board');
+    await page.waitForFunction(() => !!(window as any).releaseDisplay && (window as any).harnessCalls.some((c: any) => c.name === 'kingdown_create'));
+    await settled(page);
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.queued)).toBe('board');
     expect(await frame.locator('#home-card').isVisible()).toBe(true);
     await page.evaluate(() => (window as any).releaseDisplay());
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
