@@ -278,7 +278,8 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       const message = errorText(error);
       if (late()) { settleLate(undefined, message); return { status: 'superseded' }; }
       // A refusal shows only for a user command; a programmatic write (the computer move) stays silent, as before S2.
-      if (refused) { if (user) store.dispatch({ type: 'refusal', text: refused.text, code: refused.code, ...(refused.game && { game: refused.game }) }); }
+      // Join shows its own sentence for a refused code on the join screen, so its refusal is never the page notice.
+      if (refused) { if (user && name !== 'kingdown_join') store.dispatch({ type: 'refusal', text: refused.text, code: refused.code, ...(refused.game && { game: refused.game }) }); }
       // A poll timeout is silent; the third one in a row sets the read notice.
       else if (quiet && message === CANNOT_CONNECT) store.dispatch({ type: 'failed-poll', text: message, ...(view?.game_id && { game: view.game_id }) });
       else if (own && state.pending === own) { failPending(message, own, job); store.dispatch({ type: 'change' }); }

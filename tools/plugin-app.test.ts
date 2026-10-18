@@ -624,6 +624,28 @@ it('reads a friend code again after the join preview remounts', async () => {
     expect(await frame.locator('#join-help').textContent()).toBe('Review this game before you join.');
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
+// Join shows its own sentence for a refused code; the raw server text is not the page notice on any screen.
+it('keeps a refused Join on the join screen', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const tool = async (name: string, args = {}) => (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name, arguments: args } })).json();
+  try {
+    const friend = await tool('kingdown_create', { kind: 'friend', colour: 'white' });
+    const invite = await tool('kingdown_invite', { game_id: friend._meta.view.game_id });
+    await hall(page);
+    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
+    await frame.locator('#token').fill(invite.structuredContent.code); await frame.locator('#join').click();
+    await frame.locator('#join-confirm').waitFor();
+    // The creator makes a new code, so the shown code stops working before the tap.
+    await tool('kingdown_invite', { game_id: friend._meta.view.game_id });
+    await frame.locator('#join-confirm').click();
+    await expect.poll(() => frame.locator('#join-message').textContent()).toBe('No game has this code. Check the code with your friend.');
+    expect(await frame.locator('#error').textContent()).toBe('');
+    await frame.locator('#join-decline').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    expect(await frame.locator('#error').textContent()).toBe('');
+    await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id: friend._meta.view.game_id } });
+  } finally { await page.close(); }
+});
 it('shows both setup states in the app games rows', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
