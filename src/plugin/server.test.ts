@@ -221,7 +221,7 @@ it('advertises the irreversible writes and repeat effects for review', async () 
  await server.connect(a); await client.connect(b);
  try {
   const tools = (await client.listTools()).tools;
-  for (const name of ['invite','say','rematch','handle','settings','report','block']) expect(tools.find(t=>t.name===`kingdown_${name}`)?.annotations?.destructiveHint, name).toBe(true);
+  for (const name of ['accept','find','join','invite','say','rematch','handle','settings','report','block']) expect(tools.find(t=>t.name===`kingdown_${name}`)?.annotations?.destructiveHint, name).toBe(true);
   for (const name of ['join','seen']) expect(tools.find(t=>t.name===`kingdown_${name}`)?.annotations?.idempotentHint, name).toBe(false);
   expect(tools.find(t=>t.name==='kingdown_open')?.description).toContain('board record');
   expect(tools.find(t=>t.name==='kingdown_create')?.description).toContain('last setup');

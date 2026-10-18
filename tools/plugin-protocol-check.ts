@@ -10,11 +10,11 @@ import { POOL } from '../src/rules/setup';
 const TABLE: Record<string, [string, boolean, boolean]> = {
   kingdown_block: ['app', false, true],
   kingdown_open: ['model,app', false, false], kingdown_create: ['model,app', false, false], kingdown_resume: ['app', false, false], kingdown_games: ['model,app', true, false],
-  kingdown_lobby: ['app', true, false], kingdown_accept: ['app', false, false], kingdown_find: ['app', false, false], kingdown_cancel: ['app', false, true],
+  kingdown_lobby: ['app', true, false], kingdown_accept: ['app', false, true], kingdown_find: ['app', false, true], kingdown_cancel: ['app', false, true],
   kingdown_choose: ['app', false, false], kingdown_rematch: ['app', false, true], kingdown_handle: ['app', false, true], kingdown_settings: ['app', false, true],
   kingdown_get: ['app', true, false], kingdown_seen: ['app', false, false], kingdown_move: ['app', false, false], kingdown_computer: ['app', false, false], kingdown_say: ['app', false, true],
   kingdown_draw: ['model,app', false, true], kingdown_claim: ['app', false, true], kingdown_resign: ['model,app', false, true], kingdown_abort: ['model,app', false, true],
-  kingdown_invite: ['model,app', false, true], kingdown_join: ['model,app', false, false], kingdown_report: ['app', false, true], kingdown_profile: ['model,app', true, false],
+  kingdown_invite: ['model,app', false, true], kingdown_join: ['model,app', false, true], kingdown_report: ['app', false, true], kingdown_profile: ['model,app', true, false],
 };
 const service = fixtureService();
 const server = createPluginServer({ service, actorId: 'alice', resourceHtml: '<html>board</html>', publicOrigin: 'https://kingdown.example' });

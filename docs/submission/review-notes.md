@@ -21,6 +21,10 @@ The text for the portal's **Review details** (Metadata & Skills → Review infor
 >
 > **Surfaces.** King Down needs its board in the chat to play a move: the chat model does not see the position and does not choose moves. Please test King Down on the ChatGPT surfaces that show app screens: the website, the iOS app, the Android app and the desktop app. King Down does not claim Codex, because Codex shows no board. If the app can be limited to these surfaces, please limit it.
 
+## Annotation appeal (use only if the automated review flags a hint)
+
+> kingdown_move, kingdown_computer and kingdown_choose have destructiveHint false. Each call adds one turn or one setup choice to the player's own game record. It deletes, overwrites or sends nothing outside that game. The board in the chat makes each call; the model cannot call them. Tools that end a game, cancel, take a seat, use an invitation or send to another player (resign, abort, draw, claim, cancel, accept, find, join, invite, say, rematch, report, block, handle, settings) have destructiveHint true.
+
 ## Sources
 
 - Sign-in: approval D8 a. The form is in `src/plugin/consent.html`; `plugin-deploy/review-signup-hook.sql` refuses every other password sign-up, and `plugin-deploy/oauth-audience-hook.sql` refuses a password sign-in for every other address; `npm run plugin:db:seed-review` adds the sample data (`tools/plugin-db/seed-review.ts`). The owner tests with a separate test account, so the review account keeps this data ([checklist.md](checklist.md), owner step 2).

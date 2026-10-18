@@ -3,7 +3,7 @@
   "mcpServers": {
     "kingdown": {
       "type": "streamable-http",
-      "url": "<PRODUCTION_MCP_URL>",
+      "url": "https://kingdown.dev/mcp",
       "extensions": {
         "com.openai": {
           "auth": {
