@@ -179,6 +179,36 @@ browser check still fails on native memory use in this ARM VM. This
 ticket stays claimed until that failure is explained or the full job
 passes on its target runner. Do not report the whole CI job as green.
 
+## The extra WebKit check: the harness cause (2026-10-18)
+
+The cause is in the check harness, not in the product. One host page
+keeps the whole `plugin-ui` run, about 120 widget remounts. With
+Playwright attached, the page keeps each old widget document: Playwright
+holds the console arguments that the ext-apps transport logs (each a
+message event from the old widget window), and its scripts stay in each
+document. So no old document is freed. On the Mac, the WebKit GPU process
+grows from 0.9 to 15.4 GB. On the CI runner, the check stops at about
+line 1604 (run 39155736132 stops at line 1556, at the 1260 s limit).
+A real player has one widget at a time, so the product does not have
+this fault.
+
+The fix (`ffebd8ee`, `b3f0ab5d`): `freshHost()` in
+`tools/plugin-ui-check.mjs` loads the host page again at seven block
+boundaries, with the same chat state, and then remounts once, as a chat
+reload does. It first waits until the page is settled, so no widget-state
+write is lost. The widget-state UUID check at the end also covers the
+states of each host page that the check left. No limit, STEP factor or
+assertion changes. Three boundaries were not sufficient: the GPU peak
+stayed at 7.0 to 7.3 GB, the old CI stall level.
+
+Mac proof: WebKit `plugin-ui` passes in 235.5 s, with a GPU peak of
+3.9 GB (before: 15.4 GB) and a page-process peak of 1.02 GB (before:
+2.5 to 3.3 GB). Chromium `plugin-ui` passes in 201.8 s, and
+`plugin-ui-http` passes in 214.1 s. The samples are in
+`node_modules/.cache/webkit-stall/after.tsv` of the `rc-wk-host` worktree.
+The full job on the target runner is the last proof. This ticket stays
+claimed until it passes there.
+
 ## Review
 
 The product changes stay in readiness and DOM placement. Tests check the
