@@ -3,7 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { webkit, type Browser } from 'playwright';
+import type { Browser } from 'playwright';
+import { launch } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
@@ -12,7 +13,7 @@ beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-preview-size-'));
   execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe' });
   harness = await startHarness({ boardPath: join(folder, 'board.html') });
-  browser = await webkit.launch({ headless: true });
+  browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
 

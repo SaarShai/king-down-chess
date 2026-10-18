@@ -1350,7 +1350,7 @@ it('W7: moves keyboard focus to the turn button, sends with Enter, and undoes wi
 it('W7: snaps to the draft if motion fails and keeps Undo available', async () => {
   const {page,frame,base} = await turnBoard();
   try {
-    const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+    const errors: string[] = []; page.on('pageerror', error => errors.push(error.message.replace(/^Error: /, '')));
     await frame.locator('html').evaluate(() => { (window as any).testBoard.animateMove=() => Promise.reject(new Error('Move motion test failure')); });
     await chooseTurnMove(page,'e2-e4',12);
     await expect.poll(() => errors).toEqual(['Move motion test failure']);
@@ -1443,7 +1443,7 @@ it('W7-04: a refused press after a real draw offer keeps T6 and the note, then s
     await frame.locator('#status').filter({hasText:'The game changed. Check it, then tap Send your turn.'}).waitFor();
     await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
     expect(await frame.locator('#context-note').innerText()).toContain('Your opponent offers a draw.');
-    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
+    await frame.locator('#undo[aria-disabled="false"]').waitFor();
     expect((await savedDraft(page)).lans).toEqual(['e2-e4']);
     expect(await frame.locator('#last-move').innerText()).toBe('White pawn e2 to e4.');
     expect(await frame.locator('#short-move-words').innerText()).toBe('White pawn e2 → e4');
