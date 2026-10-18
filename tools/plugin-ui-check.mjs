@@ -1937,7 +1937,7 @@ try {
   }
   await openPlay(); await legacyStart('solo'); await idleBoard();
   const cardBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
-  const cardGame = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_create',arguments:{kind:'solo',colour:'white',board_id:cardBoard,options:{...DEFAULT_OPTIONS,arrangement:false,kingPowers:false,cards:true,cardPool:['Freeze','IceWall','MorphP','Vault']}}}})).json();
+  const cardGame = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_create',arguments:{kind:'solo',colour:'white',board_id:cardBoard,options:{...DEFAULT_OPTIONS,fairy:false,arrangement:false,kingPowers:false,cards:true,cardPool:['Freeze','IceWall','MorphP','Vault']}}}})).json();
   assert(!cardGame.isError); await page.evaluate(r=>window.harnessShow(r),cardGame); await idleBoard(); await boardBox();
   const { checkOwnerPicks } = await import('./lib/plugin-k-picks-check.mjs');
   await checkOwnerPicks(page, frame, cardGame, idleBoard, boardBox);
