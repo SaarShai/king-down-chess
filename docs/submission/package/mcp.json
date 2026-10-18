@@ -10,7 +10,7 @@
             "type": "oauth",
             "client": {
               "mode": "provided",
-              "clientId": "<OAUTH_CLIENT_ID>",
+              "clientId": "0cede8c8-718f-4a3b-9215-32fcec221881",
               "tokenEndpointAuthMethod": "none"
             }
           }
