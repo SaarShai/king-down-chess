@@ -18,6 +18,14 @@ beforeAll(async () => {
   harness = await startHarness({ boardPath: join(folder, 'board.html') }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
+// Check geometry after the visible canvas and its entry motion reach a frame.
+async function waitForBoardPaint(frame: FrameLocator) {
+  await frame.locator('#board canvas').waitFor({ state: 'visible' });
+  await frame.locator('#board').evaluate(async board => {
+    for (let run: Animation[]; (run = board.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+  });
+}
 it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]])('reserves one bottom gap at %i × %i with insets %i/%i', async (width, height, top, bottom, gap) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
   try {
@@ -114,13 +122,16 @@ it('sizes the seat and the board from their screens, with no viewport units and 
     const fill = () => frame.locator('html').evaluate(() => {
       const table = [...document.querySelectorAll<HTMLElement>('#game-table, [data-seat-id="game-table"]')].find(e => e.offsetParent)!, rect = (e: Element) => e.getBoundingClientRect();
       const canvas = table.querySelector('canvas')!, board = rect(table.querySelector('#board')!), screen = rect(table.parentElement!);
-      return Math.abs(rect(table).height - screen.height) < 1 && Math.abs(rect(canvas).width - Math.min(board.width, board.height * 960 / 1024)) < 2 && rect(canvas).width / rect(document.getElementById('app-frame')!).width;
+      return Math.abs(rect(table).height - screen.height) < 1 && Math.abs(rect(canvas).width - Math.min(board.width, board.height * 960 / 1024)) < 2 ? rect(canvas).width / rect(document.getElementById('app-frame')!).width : 0;
     });
     await hall(page); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
-    await expect.poll(fill).toBeGreaterThan(0.75);
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await waitForBoardPaint(frame);
+    expect(await fill()).toBeGreaterThan(0.75);
     await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
-    await expect.poll(fill).toBeGreaterThan(0.75);
+    await waitForBoardPaint(frame);
+    expect(await fill()).toBeGreaterThan(0.75);
   } finally { await page.close(); }
 });
 
@@ -176,8 +187,12 @@ it('keeps 44 px card and power targets in two player rows', async () => {
     await frame.locator('#setup-start').click(); await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     // Measure the coins at rest, after the start deal (Lively motion).
     // A strip rebuild can cancel a running coin animation and start it again, so wait until no motion runs.
-    await frame.locator('#game-table').evaluate(async e => { for (let run: Animation[]; (run = e.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {}))); });
-    const bounds=await frame.locator('#game-table .coin').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return [r.width,r.height];}));
+    const bounds=await frame.locator('#game-table').evaluate(async e => {
+      for (let run: Animation[]; (run = e.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
+      // WebKit applies the final transform on the next frame. Find and measure the current coins together.
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      return [...e.querySelectorAll('.coin')].map(coin => { const r=coin.getBoundingClientRect(); return [r.width,r.height]; });
+    });
     expect(bounds.length).toBeGreaterThanOrEqual(8); for(const [w,h] of bounds){expect(w).toBeGreaterThanOrEqual(44);expect(h).toBeGreaterThanOrEqual(44);}
     expect(await frame.locator('#strip-me b').getAttribute('title')).toBe('wwwwwwwwwwwwwwwwwwww');
     expect(await frame.locator('#strip-me b').evaluate(e=>{const r=e.getBoundingClientRect(),p=e.closest('.player-strip')!.getBoundingClientRect();return r.top>=p.top && r.bottom<=p.bottom && getComputedStyle(e).textOverflow==='ellipsis';})).toBe(true);
@@ -452,12 +467,7 @@ it('keeps page-title words whole, the seat title short and the title at body siz
 // Device matrix round 2, M1: at 200% zoom the board got only the height that the other rows left (3 px), and WebKit sent
 // no move. Under 320 px the board keeps the full width, and the screen scrolls to the rows below it.
 it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)', async () => {
-  // Wait for the visible size and rest: ResizeObserver sets the canvas size after the screen opens.
-  const canvasWidth = (frame: FrameLocator) => frame.locator('#board canvas').evaluate(async e => {
-    const board = e.closest('#board')!;
-    for (let run: Animation[]; (run = board.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
-    return e.getBoundingClientRect().width;
-  });
+  const canvasWidth = (frame: FrameLocator) => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
   const reachable = async (frame: FrameLocator, id: string) => {
     await frame.locator(`#${id}`).scrollIntoViewIfNeeded();
     return frame.locator(`#${id}`).evaluate(e => { const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); });
@@ -469,15 +479,18 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
       for (const name of ['Fairy pieces', 'Arrangement', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).setChecked(features.includes(name));
       await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
       await frame.locator('#board[aria-busy="false"]').waitFor();
+      await waitForBoardPaint(frame);
       await expect.poll(() => canvasWidth(frame), all ? 'all-features seat' : 'seat').toBeGreaterThanOrEqual(192);
       if (!all) {
         await frame.locator('#seat-shuffle').click();
         await frame.locator('#seat-context').filter({ hasText: 'Select one back-rank piece' }).waitFor();
+        await waitForBoardPaint(frame);
         await expect.poll(() => canvasWidth(frame), 'seat after Shuffle').toBeGreaterThanOrEqual(192);
       }
       for (const id of ['seat-shuffle', 'seat-menu', 'seat-ready']) expect(await reachable(frame, id), id).toBe(true);
       await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       await frame.locator('#board[aria-busy="false"]').waitFor();
+      await waitForBoardPaint(frame);
       await expect.poll(() => canvasWidth(frame), all ? 'all-features board' : 'board').toBeGreaterThanOrEqual(192);
       if (!all) {
         // White moves e2-e4 with two taps on the board.
@@ -490,8 +503,19 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
           }, square);
           await page.mouse.click(pane.x + point.x, pane.y + point.y);
         }
-        await frame.locator('#board[data-animating="false"]').waitFor(); await frame.locator('#end-turn').click();
+        await frame.locator('#board[data-animating="false"]').waitFor();
+        await page.evaluate(() => { (window as any).holdNext = 'kingdown_computer'; });
+        await frame.locator('#end-turn').click();
         await expect.poll(() => page.evaluate(() => { const host = window as any; return { sent: host.harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.actions), moved: host.harnessView.revision > 0 }; })).toEqual({ sent: [['e2-e4']], moved: true });
+        // A reply must keep the player's scroll while the lower controls are in view.
+        await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
+        await frame.locator('#undo').scrollIntoViewIfNeeded();
+        const screen = frame.locator('[data-screen="board"]'), scroll = await screen.evaluate(e => e.scrollTop);
+        expect(scroll).toBeGreaterThan(0);
+        await page.evaluate(() => (window as any).releaseHeld());
+        await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+        await frame.locator('#board[data-animating="false"]').waitFor();
+        expect(await screen.evaluate(e => e.scrollTop), 'The computer reply keeps the screen scroll').toBe(scroll);
       }
       for (const id of ['undo','end-turn','board-menu']) expect(await reachable(frame, id), id).toBe(true);
     } finally { await page.close(); }
@@ -543,9 +567,11 @@ it.each([[320, 568, 63, 84, true, 214, 109], [393, 852, 102, 118, true, 382, 300
     await frame.locator('#board[aria-busy="false"]').waitFor();
     await frame.locator('#seat-context').filter({ hasText: /\S/ }).waitFor();
     const canvasWidth = () => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
+    await waitForBoardPaint(frame);
     await expect.poll(canvasWidth).toBe(seat);
     await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    await waitForBoardPaint(frame);
     await expect.poll(canvasWidth).toBe(board);
   } finally { await page.close(); }
 });

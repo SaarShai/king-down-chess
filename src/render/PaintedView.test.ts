@@ -25,17 +25,22 @@ function stubDom() {
 afterEach(() => { vi.unstubAllGlobals(); frames.length = 0; listeners.clear(); pickedSquare = null; });
 
 describe('PaintedView first paint', () => {
-  it('hides the canvas until the scene has loaded, then shows it on the next frame', async () => {
+  it('stays unready until the loaded scene is visible on its first frame', async () => {
     const container = stubDom();
     const { PaintedView } = await import('./PaintedView');
     const view = new PaintedView(container as unknown as HTMLElement);
     const canvas = (view as unknown as { canvas: { style: { visibility: string } } }).canvas;
     expect(canvas.style.visibility).toBe('hidden');
+    const ready = vi.fn();
+    void view.ready().then(ready);
     resolveLoad();
-    await view.ready();
+    await vi.waitFor(() => expect(frames).toHaveLength(1));
     expect(canvas.style.visibility).toBe('hidden');
+    expect(ready).not.toHaveBeenCalled();
     frames.splice(0).forEach(f => f(0));
+    await view.ready();
     expect(canvas.style.visibility).toBe('');
+    expect(ready).toHaveBeenCalledOnce();
   });
 });
 

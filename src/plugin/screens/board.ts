@@ -230,9 +230,15 @@ export function boardScreen(store: Store) {
     else { inspected = square; }
     refresh();
   }
+  function mountTable() {
+    const screen = document.querySelector('[data-screen="board"]')!, table = $('game-table');
+    // Moving an existing child resets its screen's scroll in WebKit.
+    if (table.parentElement !== screen) screen.prepend(table);
+    $('table-bar').hidden = false;
+  }
   function bindBoard() {
-    document.querySelector('[data-screen="board"]')!.prepend($('game-table')); $('table-bar').hidden = false;
-    $('game-table').prepend($('board'));
+    mountTable();
+    if ($('board').parentElement !== $('game-table')) $('game-table').prepend($('board'));
     board.onSquareClick = square => select(square); board.onDragSelect = square => select(square, false);
     $('board').tabIndex = 0;
     $('board').onkeydown = event => {
@@ -473,7 +479,7 @@ export function boardScreen(store: Store) {
     armed = undefined; armedCard = undefined; selected = inspected = held = undefined;
     if (!(same && next.status === 'finished' && client.state.screen === 'end' && !$<HTMLDialogElement>('over').open)) closeBoardSheet();
     choices([]);
-    document.querySelector('[data-screen="board"]')!.prepend($('game-table')); $('table-bar').hidden = false;
+    mountTable();
     $('game-table').dataset.empty = String(!next.fen || next.status === 'setup');
     if (!next.fen || next.status === 'setup') { dropDraft(); $('all-rules').hidden = true; pos = undefined; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('short-move-words').textContent = ''; $('move-time-left').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
     rules(); pos = fromFen(next.fen);

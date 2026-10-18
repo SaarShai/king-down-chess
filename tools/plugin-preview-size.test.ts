@@ -50,7 +50,12 @@ it('keeps coins in the frame and the first name word visible at 320 px with Card
     await frame.locator('#status').filter({ hasText: 'Your move.' }).waitFor();
     await frame.locator('#board[data-animating="false"]').waitFor();
     await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
-    await expect.poll(() => frame.locator('#game-table').evaluate(e => e.getAnimations({ subtree: true }).every(a => a.playState === 'finished'))).toBe(true);
+    // Wait for the deal itself before the size checks.
+    await frame.locator('#game-table').evaluate(async table => {
+      for (let run: Animation[]; (run = table.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    });
+    expect(await frame.locator('#game-table').evaluate(e => e.getAnimations({ subtree: true }).every(a => a.playState === 'finished'))).toBe(true);
     const sizes = await frame.locator('#game-table').evaluate(e => {
       const box = document.getElementById('app-frame')!.getBoundingClientRect();
       const coins = [...e.querySelectorAll('.coin')].map(coin => {
