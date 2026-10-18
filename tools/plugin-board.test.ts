@@ -611,11 +611,14 @@ it('measures the card coin face in one page call on a root a redraw keeps', asyn
       await (window as any).harnessShow({ ...result, structuredContent: { ...result.structuredContent, screen: undefined, game_id: result._meta.view.game_id } }, true);
     }, { ...DEFAULT_OPTIONS, arrangement: false, cards: true, kingPowers: false, cardPool: ['Freeze', 'Vault', 'March', 'IceWall'] });
     await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
-    const settle = () => frame.locator('#game-table').evaluate(async e => { for (let run: Animation[]; (run = e.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {}))); });
+    const settle = () => frame.locator('#game-table').evaluate(async e => {
+      for (let run: Animation[]; (run = e.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    });
     await settle();
     const faces: { coin: number; image: number; x: number; y: number }[] = await cardFaces(frame);
     expect(faces.length).toBe(8);
-    expect(faces.every(face => face.coin === 44 && face.image === 36 && face.x === 0 && face.y === 0)).toBe(true);
+    expect(faces.every(face => face.coin === 44 && face.image === 36 && face.x === 0 && face.y === 0), JSON.stringify(faces)).toBe(true);
     // A measure that finds the images first and reads them later loses them to a redraw: hold that hazard here.
     const found = await frame.locator('#game-table .card-coin img').elementHandles();
     expect(found.length).toBe(8);
@@ -625,7 +628,7 @@ it('measures the card coin face in one page call on a root a redraw keeps', asyn
     await settle();
     const after: { coin: number; image: number; x: number; y: number }[] = await cardFaces(frame);
     expect(after.length).toBe(8);
-    expect(after.every(face => face.coin === 44 && face.image === 36 && face.x === 0 && face.y === 0)).toBe(true);
+    expect(after.every(face => face.coin === 44 && face.image === 36 && face.x === 0 && face.y === 0), JSON.stringify(after)).toBe(true);
   } finally { await page.close(); }
 });
 
@@ -1502,7 +1505,8 @@ it('W7-04: a refused press after a real draw offer keeps T6 and the note, then s
     const offered = (await tool('kingdown_draw', {game_id, choice:'offer'}, true))._meta.view as View;
     expect(offered.revision).toBeGreaterThan(base.revision);
     // The page still has the revision from before the offer. The server refuses that first press.
-    await frame.locator('#end-turn').click();
+    await frame.locator('#end-turn').scrollIntoViewIfNeeded();
+    await clickButton(page, frame.locator('#end-turn'));
     await frame.locator('#status').filter({hasText:'The game changed. Check it, then tap Send your turn.'}).waitFor();
     await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
     expect(await frame.locator('#context-note').innerText()).toContain('Your opponent offers a draw.');
@@ -1510,7 +1514,8 @@ it('W7-04: a refused press after a real draw offer keeps T6 and the note, then s
     expect((await savedDraft(page)).lans).toEqual(['e2-e4']);
     expect(await frame.locator('#last-move').innerText()).toBe('White pawn e2 to e4.');
     expect(await frame.locator('#short-move-words').innerText()).toBe('White pawn e2 → e4');
-    await frame.locator('#end-turn').click();
+    await frame.locator('#end-turn').scrollIntoViewIfNeeded();
+    await clickButton(page, frame.locator('#end-turn'));
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending ?? null)).toBeNull();
     const saved = (await tool('kingdown_get', {game_id}))._meta.view as View;
     expect(saved.revision).toBe(offered.revision + 1);
