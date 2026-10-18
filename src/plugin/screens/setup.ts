@@ -1,5 +1,5 @@
 import { actions, call, client, memory, navigate, queue, routeView, start, store } from '../app';
-import type { Job } from '../queue';
+import type { Job, JobOptions } from '../queue';
 import { art } from '../art';
 import { cardArt } from '../card-face';
 import { errorText } from '../client';
@@ -156,15 +156,16 @@ async function pickKing() {
   if (draft!.king || picked !== shown) draft!.king = picked;
   render();
 }
-async function finish(view: View, pick: KingChoice | null, origin: Job, quick: boolean) {
+/** The later steps keep the start's scope, so their error and Retry stay on Play after the player leaves. */
+async function finish(view: View, pick: KingChoice | null, origin: Job, scope: Pick<JobOptions, 'screen' | 'quick'>) {
   const choice = soloChoice(view, pick);
-  if (choice) { const next = await call('kingdown_choose', { ...choice, command_id: crypto.randomUUID().replaceAll('-', '') }, { retain: true, route: false, origin, king: pick, quick }); if (!next) return; view = next; }
-  if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, { retain: true, route: false, origin, king: pick, quick }); if (!full) return; view = full; }
+  if (choice) { const next = await call('kingdown_choose', { ...choice, command_id: crypto.randomUUID().replaceAll('-', '') }, { retain: true, route: false, origin, king: pick, ...scope }); if (!next) return; view = next; }
+  if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, { retain: true, route: false, origin, king: pick, ...scope }); if (!full) return; view = full; }
   routeView(view);
 }
 async function launch(setup = draft, saveSetup = true) {
   if (!setup || setupBusy()) return;
-  const origin = queue.command('write', 'kingdown_create', {});
+  const origin = queue.command('write', 'kingdown_create', {}), scope = { screen: 'play', quick: !saveSetup } as const;
   starting = true; render();
   // A quick start shows no words; after 1 s the button says 'Starting…'. After 5 s, Back is a safe way out: the start stays
   // pending, and Start sends no second Create. The 10 s command limit (client.ts) ends the call with Retry.
@@ -183,12 +184,12 @@ async function launch(setup = draft, saveSetup = true) {
     }
     if (left) return;
     const args = { ...createArguments(last_setup), ...(last_setup.kind === 'random' && anyRules && { any_rules: true }) };
-    await start(last_setup.kind, args, { route: false, origin, king: last_setup.king, quick: !saveSetup, then: (view, origin) => finish(view, last_setup.king, origin, !saveSetup) });
+    await start(last_setup.kind, args, { route: false, origin, king: last_setup.king, ...scope, then: (view, origin) => finish(view, last_setup.king, origin, scope) });
   } catch (error) { if (queue.current(origin) && !left) store.dispatch({ type: 'error', text: errorText(error) }); }
   finally { exits.forEach(button => button.removeEventListener('click', leave)); clearTimeout(words); clearTimeout(wait); starting = late = false; if (!queue.closed()) { exits.forEach(button => { delete button.dataset.free; }); render(); } }
 }
 /** The continuation of a resent start or setup step (design §5.2): it finishes the start. */
-export const finishStart = (view: View, origin: Job, king: KingChoice | null, quick: boolean) => finish(view, king, origin, quick);
+export const finishStart = (view: View, origin: Job, king: KingChoice | null, scope: Pick<JobOptions, 'screen' | 'quick'>) => finish(view, king, origin, scope);
 /** Play now starts a computer game and keeps the saved setup. */
 export function playNow() { if (memory.settings) void launch(quickSetup(memory.settings.last_setup), false); }
 // The store's subscriber replaces the data-page and #retry observers.

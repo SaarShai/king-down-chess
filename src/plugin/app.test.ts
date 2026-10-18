@@ -293,6 +293,31 @@ it.each(['failed', 'superseded'])('keeps the quick start flag off a later move a
   app.navigate('play'); expect(messageLine(app.store.page()).text).toBe('');
 });
 
+it.each(['kingdown_choose', 'kingdown_get'])('keeps a failed start %s on Play after the player opens Settings', async failed => {
+  const app = await mounted(), setup = await import('./screens/setup'), { locks, messageLine } = await import('./state');
+  const saved = (await import('./screens/setup-model')).readSetup(null);
+  saved.options = { ...saved.options, cards: false, kingPowers: true, arrangement: false }; saved.king = { king: 'Flame', power: 'Haste' };
+  app.memory.settings = { ...settings, last_setup: { ...saved, options: { ...saved.options, pool: [...saved.options.pool], cardPool: [...saved.options.cardPool] } } };
+  const created = { ...game, kind: 'solo', status: 'setup', seat: 0, draw: 'RNBQKBNR', options: saved.options };
+  const playing = { ...created, status: 'playing', revision: 2, fen: 'position before the rules read' };
+  let release!: (value: unknown) => void, sends = 0;
+  transport.call.mockImplementation(async ({ name }) => {
+    if (name === 'kingdown_create') return new Promise(resolve => { release = resolve; });
+    if (name === failed && ++sends === 1) throw new Error('Lost step reply');
+    return { content: [], _meta: name === 'kingdown_choose' ? { view: playing } : name === 'kingdown_get' ? { view: { ...playing, rules: {} } } : { games: [] } };
+  });
+  app.navigate('play'); setup.playNow(); await vi.advanceTimersByTimeAsync(0);
+  // The Create waits past 5 s, so Settings is free, and the player opens it.
+  app.navigate('settings');
+  release({ content: [], _meta: { view: created } }); await vi.advanceTimersByTimeAsync(0);
+  const pending = app.client.state.pending!;
+  expect(pending).toMatchObject({ name: failed, screen: 'play', quick: true, error: 'Lost step reply' });
+  expect(locks(app.store.page()).start).toBe(true);
+  app.navigate('play'); expect(messageLine(app.store.page())).toMatchObject({ text: 'Lost step reply', action: 'retry' });
+  await app.send(pending.name, pending.args, { retain: true, retry: true });
+  expect(app.client.state.screen).toBe('board'); expect(app.client.state.pending).toBeUndefined();
+});
+
 it('keeps a newer list after navigation in the same epoch', async () => {
   const app = await mounted(); app.routeView(game);
   let release!: (value: unknown) => void, lists = 0;

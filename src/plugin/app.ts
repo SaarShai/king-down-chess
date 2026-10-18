@@ -139,7 +139,7 @@ function resend(command: Pending): Record<string, unknown> {
  */
 function continuation(command: Pending): ((next: View, origin: Job) => Promise<unknown>) | undefined {
   if (command.screen === 'wait' && command.name === 'kingdown_create') return finishComputer;
-  if (isStartStep(command)) return (next, origin) => finishStart(next, origin, command.king ?? null, !!command.quick);
+  if (isStartStep(command)) return (next, origin) => finishStart(next, origin, command.king ?? null, { screen: command.screen, quick: !!command.quick });
   if (command.screen === 'seat') return finishSeat;
   if (command.screen === 'wait' && command.name === 'kingdown_choose') return finishHandoff;
   if (command.screen === 'friend' && command.name === 'kingdown_abort') return finishCancel;
@@ -186,7 +186,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
   const quiet = job.options.quiet ?? false, user = job.options.user ?? true, signal = job.options.signal;
   const before = view;
   const game = typeof args.game_id === 'string' ? args.game_id : name === 'kingdown_get' ? view?.game_id : undefined;
-  const commandScreen = state.screen === 'home' && (job.options.quick || ['kingdown_create', 'kingdown_find'].includes(name)) ? 'play' : state.screen;
+  const commandScreen = job.options.screen ?? (state.screen === 'home' && ['kingdown_create', 'kingdown_find'].includes(name) ? 'play' : state.screen);
   // A read and a detachable write give way to a newer epoch, and a teardown stops every job. A sticky write keeps its
   // own state.pending and refusal while its epoch stays current.
   const late = () => queue.closed() || (job.sticky ? !!signal?.aborted : !queue.current(job) || (quiet && view !== before) || !!signal?.aborted);

@@ -2,7 +2,7 @@
 // lane, first in first out and one at a time. A read runs beside the lane, and waits only when it is a
 // read of the page board. Each job keeps the epoch it started in; a newer chat result or user command
 // makes an older job stale, and an older job writes only what the older-job rules allow.
-import { errorText } from './client';
+import { errorText, type Screen } from './client';
 import type { View } from '../match/protocol';
 import type { KingChoice } from '../rules/rules';
 
@@ -21,7 +21,8 @@ export type Kind = 'read' | 'write';
 export type JobOptions = {
   origin?: Job;
   king?: KingChoice | null;
-  /** A step of Play now: its state.pending keeps the quick start (design §5.2). */
+  /** A step of a start: its state.pending keeps the start's screen and quick start, also after the player leaves (design §5.2). */
+  screen?: Screen;
   quick?: boolean;
   then?: (view: View, origin: Job) => Promise<unknown>;
   retain?: boolean;
