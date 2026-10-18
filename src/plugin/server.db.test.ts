@@ -150,12 +150,46 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(view(await (await connect(guestId)).ok('kingdown_join', { code })).game_id).toBe(game);
  });
 
+ it('previews and joins a legacy SHA-256 short code', async () => {
+  const actor = await user('legacy-host'), guest = await user('legacy-guest'), games = new GameService(new PostgresMatchStore(admin));
+  const game = (await games.create(actor, { kind: 'friend', options: DEFAULT_OPTIONS, colour: 'white' })).game_id, code = 'K7QX2M';
+  await admin.query('insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,1,$4,now()+interval \'7 days\')',
+   [createHash('sha256').update(randomUUID()).digest('hex'), createHash('sha256').update(code).digest('hex'), game, actor]);
+  expect(await games.preview(guest, 'k7q-x2m')).toMatchObject({ code, colour: 'black', creator: { handle: `legacy-host-${tag}` } });
+  expect(await games.join(guest, 'k7q-x2m')).toMatchObject({ game_id: game, seat: 1, revision: 1 });
+  expect(await games.join(guest, code)).toMatchObject({ game_id: game, seat: 1, revision: 1 });
+  await expect(games.preview(await user('legacy-late'), code)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
+ });
+
+ it('prefers the HMAC game when a legacy row has the same short code and leaves that row unlocked', async () => {
+  const actor = await user('prefer-host'), oldActor = await user('prefer-old'), guest = await user('prefer-guest');
+  const games = new GameService(new PostgresMatchStore(admin));
+  const oldGame = (await games.create(oldActor, { kind: 'friend', options: DEFAULT_OPTIONS, colour: 'black' })).game_id;
+  const game = (await games.create(actor, { kind: 'friend', options: DEFAULT_OPTIONS, colour: 'white' })).game_id;
+  const { code } = await games.invite(actor, game);
+  await admin.query('insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,0,$4,now()+interval \'7 days\')',
+   [createHash('sha256').update(randomUUID()).digest('hex'), createHash('sha256').update(code).digest('hex'), oldGame, oldActor]);
+  const lock = await admin.connect(), pool = new pg.Pool({ connectionString: admin.options.connectionString, max: 1, options: '-c lock_timeout=1000' });
+  try {
+   await lock.query('begin');
+   await lock.query('select from public.games where id=$1 for update', [oldGame]);
+   await lock.query('select from public.game_invites where game_id=$1 for update', [oldGame]);
+   const joining = new GameService(new PostgresMatchStore(pool));
+   expect(await joining.preview(guest, code)).toMatchObject({ code, colour: 'black', creator: { handle: `prefer-host-${tag}` } });
+   expect(await joining.join(guest, code)).toMatchObject({ game_id: game, seat: 1, revision: 1 });
+   expect(await joining.join(guest, code)).toMatchObject({ game_id: game, seat: 1, revision: 1 });
+   expect((await lock.query('select used_by,used_at from public.game_invites where game_id=$1', [oldGame])).rows[0]).toEqual({ used_by: null, used_at: null });
+   expect((await lock.query('select user_id from public.game_players where game_id=$1 and seat=0', [oldGame])).rows[0]).toEqual({ user_id: null });
+   expect((await lock.query('select status,revision from public.games where id=$1', [oldGame])).rows[0]).toEqual({ status: 'waiting', revision: 0 });
+   expect((await lock.query("select count(*)::int as n from public.game_commands where game_id=$1 and kind='join'", [oldGame])).rows[0].n).toBe(0);
+  } finally { await lock.query('rollback'); lock.release(); await pool.end(); }
+ });
+
  it('refuses short codes without a valid secret and keeps old long links usable', async () => {
   const actor = await user('hmac-old'), guest = await user('old-guest'), store = new PostgresMatchStore(admin), games = new GameService(store);
   const game = (await games.create(actor, { kind: 'friend', options: DEFAULT_OPTIONS })).game_id;
   const { code, token } = await games.invite(actor, game);
   await admin.query('update public.game_invites set code_hash=$2 where game_id=$1', [game, createHash('sha256').update(code).digest('hex')]);
-  await expect(games.preview(guest, code)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
   for (const secret of ['', 'too-short']) {
    const missing = new GameService(store, secret);
    await expect(missing.invite(actor, game)).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 });
