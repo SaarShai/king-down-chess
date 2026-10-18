@@ -100,7 +100,7 @@ jobs:
       - run: npx playwright install --with-deps webkit
       - run: npm test
         env:
-          KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size}.test.ts'
+          KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'
       - run: npm run check:browser plugin-ui
       - if: failure() || cancelled()
         uses: actions/upload-artifact@v4
