@@ -76,6 +76,25 @@ All four reviews passed. Merged at `65c7058f`; `tsc` passes.
   threats-black viewport loop); it passes on macOS WebKit in 220 s. Saar,
   2026-10-18: "Investigate now". `openScreen()` now logs the lock, the
   row's box over two frames and the frame rate when a click stalls.
+  The cause is in the harness: one host page keeps each old widget
+  document across about 120 remounts. `freshHost()` now loads the host
+  page again at seven block boundaries (`ffebd8ee`, `b3f0ab5d`; ticket 45).
+  The macOS WebKit GPU peak falls from 15.4 GB to 3.9 GB.
+- After the limits change, four other checks failed once each and
+  passed on the run before. Each one is a race in a test, not a product
+  fault. No limit or assertion changes.
+  - "The dealt Vault has a move": a random army can have no rook, bishop
+    or queen. The card game now has no fairy pieces (ticket 48).
+  - The WebKit card coin face read 44 px one frame early, and a WebKit
+    Send click stalled in Playwright's stable wait. The test waits one
+    more frame, and the click uses `clickButton` (ticket 49).
+  - "moves the keyboard cursor while the opponent move animates" missed
+    a 189 ms animation. The test holds the animation until the real key
+    arrives and records that the board was animating (ticket 50).
+  - plugin-ui on Chromium stopped with "socket hang up" on a fixture
+    call. The harness server closed idle sockets after 5 s, and
+    Playwright reuses its sockets. The server now keeps them
+    (`plugin-ui-harness.ts`, `keepAliveTimeout = 0`).
 
 ## Round 2 (base `65c7058f`)
 
