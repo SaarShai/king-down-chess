@@ -2,7 +2,7 @@
 
 Status: pasted into `public/privacy.html` on 16 October 2026 (ticket 11), with the owner's picks of 15 October: D9 a (account life, 12 months, host defaults), D12 a (the policy explains the activity time; no new screen) and D14 a ('Who sees when you are online' in Settings). The page is now the source; this file keeps the evidence for each block. `tools/privacy-policy.docs.test.ts` fails when a cleanup period, the Settings label or the OpenAI paragraph leaves the page.
 
-Owner checks before the deploy: the Vercel and Supabase log periods and the audit-log rows in section 2, and the scope words "private ChatGPT app" (rehearsal R22; [checklist.md](checklist.md), owner step 6).
+Owner checks before the deploy: the Vercel and Supabase log periods and the audit-log rows in section 2 (rehearsal R22; the scope words are fixed at the release candidate; [checklist.md](checklist.md), owner step 6).
 
 OpenAI rejects a plugin that "returns user-related data types that are not disclosed in your privacy policy" [O2]. The policy must give "the categories of personal data collected, the purposes of use, the categories of recipients, data retention timelines, and any controls offered to your users" [O3]. Research report 01, item D6, lists five gaps in `public/privacy.html` (updated 12 October 2026). The paragraphs below close them.
 
