@@ -59,17 +59,24 @@ it('names the current game on Resume after Play now and after the computer reply
     await frame.locator('#home-card').waitFor({ state: 'visible' });
     expect(await frame.locator('#home-play').textContent()).toBe('Resume Computer · Your move');
     await frame.locator('#home-play').click();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_computer'; });
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp, view = app.memory.view;
       await app.call('kingdown_move', { game_id: view.game_id, command_id: crypto.randomUUID(), expected_revision: view.revision, lan: 'e2-e4' }, true);
     });
-    await expect.poll(() => frame.locator('html').evaluate(() => { const view = (window as any).harnessApp.memory.view; return view.revision >= 2 && view.action === 'ready'; })).toBe(true);
+    await page.waitForFunction(() => Boolean((window as any).releaseHeld));
     const names = await page.evaluate(() => (window as any).harnessCalls.map((c: any) => c.name) as string[]);
     expect(names.slice(names.lastIndexOf('kingdown_move') + 1)).not.toContain('kingdown_games');
+    expect(await frame.locator('#board-menu').isDisabled()).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('#board-menu:not(:disabled)').waitFor();
+    await expect.poll(() => frame.locator('html').evaluate(() => { const view = (window as any).harnessApp.memory.view; return view.revision >= 2 && view.action === 'ready'; })).toBe(true);
+    const afterReply = await page.evaluate(() => (window as any).harnessCalls.map((c: any) => c.name) as string[]);
+    expect(afterReply.slice(afterReply.lastIndexOf('kingdown_move') + 1)).not.toContain('kingdown_games');
     await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
     await frame.locator('#home-card').waitFor({ state: 'visible' });
     expect(await frame.locator('#home-play').textContent()).toBe('Resume Computer · Your move');
-  } finally { if (game_id) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } }); await page.close(); }
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); if (game_id) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } }); await page.close(); }
 });
 it('keeps the home action after the player leaves an ended game for the hall', async () => {
   const page = await open(), frame = page.frameLocator('iframe'); const games: string[] = [];
