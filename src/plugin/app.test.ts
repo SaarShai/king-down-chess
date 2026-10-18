@@ -512,6 +512,21 @@ it.each(['kingdown_move', 'kingdown_choose'])('keeps a restored %s when its game
   expect(app.client.state.pending).toMatchObject({ name, game_tag: 'game-a00', error: 'Cannot connect. Check your connection, then try again.' });
 });
 
+it('keeps a refused Join out of the page notice', async () => {
+  const app = await mounted();
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_join'
+    ? { content: [{ type: 'text', text: 'Invitation unavailable' }], isError: true, _meta: { code: 'INVITE_UNAVAILABLE' } }
+    : { content: [], _meta: { games: [] } });
+  app.navigate('join');
+  // Join shows its own sentence from the refusal code, so the outcome keeps the code.
+  expect(await app.send('kingdown_join', { code: 'ABC123' })).toMatchObject({ status: 'refused', code: 'INVITE_UNAVAILABLE' });
+  expect(app.store.refusal()).toBeUndefined();
+  const { messageLine } = await import('./state');
+  expect(messageLine(app.store.page()).text).toBe('');
+  app.navigate('play');
+  expect(messageLine(app.store.page()).text).toBe('');
+});
+
 it('scopes a refused Retry to the game ID restored after a remount', async () => {
   (window as any).openai.widgetState = { privateContent: { screen: 'board', pending: { name: 'kingdown_move', args: { command_id: 'saved', expected_revision: 0 }, game_tag: 'game-a00', screen: 'board', error: 'Lost reply' } } };
   const app = await import('./app');
