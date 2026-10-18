@@ -15,7 +15,7 @@ import { pieceIcon } from '../../piece-icons';
 import { snd } from '../../render/sfx';
 import '../../ceremony.css';
 import { client, memory, navigate, queue, routeView, send } from '../app';
-import { locks, noticeShows, staleRead, type Page, type Store } from '../state';
+import { locks, noticeShows, pendingHere, staleRead, type Page, type Store } from '../state';
 import { nextGame } from '../next-game';
 import { actionButtons, playerBlockButton } from './board-actions';
 import { guardEndTaps, updateEnd } from './end';
@@ -71,6 +71,8 @@ export function boardScreen(store: Store) {
   // The game lock covers a write, a mount, a command that belongs here and a stale board.
   const networkBlocked = () => locks(store.page()).game;
   const stale = () => staleRead(store.page());
+  // Send-turn 03 A3: "Sending…" only while a write is in flight; a failed command waits for Retry with the normal words.
+  const sending = () => { const page = store.page(); return page.writing || (pendingHere(page) && !page.pending!.error); };
   const blocked = () => networkBlocked() || animating;
   const mode = () => view!.kind === 'solo' ? 'computer' : 'link';
   // W7 ticket 04: the unsent turn lives in widget state as a short tag, the base FEN and its LANs. The game ID never goes.
@@ -362,7 +364,7 @@ export function boardScreen(store: Store) {
       ? (mode() === 'computer' ? 'The game changed. Check it, then tap End turn.' : 'The game changed. Check it, then tap Send your turn.') : '';
     const refusal = t6 || (shown ? refusalNotice!.text : '');
     const context = contextLine({voice:'you', teach:(fresh ? teach[1] : '') || first, result:view.result ? ending(view) : '', refusal, link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:lesson ?? line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:view.turn !== view.seat, midWay:view.turn === view.seat && draft.midWay && !draft.waits, stagedEnd:draft.waits && status(pos) !== 'playing' ? draft.line : '', waiting:draft.waits, free:!!pos.free, turnLine:draft.line, armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
-    if (networkBlocked() && ['mid-way','waiting','staged-end'].includes(context.rank)) Object.assign(context, {rank:'sending', line:'Sending…', note:''});
+    if (sending() && ['mid-way','waiting','staged-end'].includes(context.rank)) Object.assign(context, {rank:'sending', line:'Sending…', note:''});
     if (inspected !== undefined && draft.waits && !networkBlocked() && view.draw_offer == null && !['result','refusal','link'].includes(context.rank)) context.note = waitNotice(mode(), view.seat);
     if (context.rank==='link' && deadline) context.note=available.claim==='end'?'You may end the game with no result.':'You may claim the win.';
     // G1 a: put the target words first so a short screen keeps the next action in view.

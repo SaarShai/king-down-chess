@@ -1427,6 +1427,23 @@ it('W7: keeps a lost-send error while pieces and coins remain readable', async (
   } finally { await page.close(); }
 });
 
+it('W7: a lost send shows the waiting words beside Retry, not Sending, also after a remount', async () => {
+  const {page,frame} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1');
+  try {
+    await chooseTurnMove(page,'e2-e4',12);
+    // The connection drops before the server gets the turn, so the restored draft and command stay after a remount.
+    await page.route('**/fixture-tool', route => route.request().postDataJSON()?.name === 'kingdown_move' ? route.abort() : route.continue());
+    await frame.locator('#end-turn').click(); await frame.locator('#retry').waitFor();
+    // Nothing is in flight now: send-turn 03 A3 shows Sending only while the turn waits for its reply.
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
+    expect(await frame.locator('#status').textContent()).toBe('Your turn is ready. Select End turn.');
+    await remountBoard(page);
+    await frame.locator('#retry').waitFor();
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
+    expect(await frame.locator('#status').textContent()).toBe('Your turn is ready. Select End turn.');
+  } finally { await page.close(); }
+});
+
 
 // W7 ticket 04 browser journeys (design §7.4 D9 to D13): the draft in widget state, its restore and its keep-or-drop.
 const getCalls = (page: Page) => page.evaluate(() => ((window as any).harnessCalls ?? []).filter((c: any) => c.name === 'kingdown_get').length);
