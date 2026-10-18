@@ -28,8 +28,22 @@ page.setDefaultTimeout(30_000 * STEP);
 trapErrors(page);
 page.on('pageerror', error => console.error(error.stack));
 
+// Use real mouse input after the hit check, without WebKit's stalled locator click.
+async function clickButton(page, button) {
+  await button.waitFor();
+  await button.scrollIntoViewIfNeeded();
+  const pane = await page.locator('iframe').evaluate(e => ({ x: e.getBoundingClientRect().x, y: e.getBoundingClientRect().y }));
+  const point = await button.evaluate(button => {
+    const r = button.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + r.height / 2;
+    return { x, y, hit: document.elementFromPoint(x, y)?.closest('button') === button,
+      enabled: !button.disabled && button.getAttribute('aria-disabled') !== 'true' };
+  });
+  assert(point.hit); assert(point.enabled);
+  await page.mouse.click(pane.x + point.x, pane.y + point.y);
+}
+
 try {
-  await checkAndroidFixes(browser, base);
+  await checkAndroidFixes(browser, base, clickButton);
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
   await page.addInitScript(() => {
@@ -596,7 +610,10 @@ try {
       || face.coin !== size || face.image !== size - 8 || face.x !== 0 || face.y !== 0);
     await page.setViewportSize({ width: 393, height: 852 });
     await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
-    await widget().waitForFunction(() => document.querySelector('#game-table').getAnimations({ subtree: true }).every(animation => animation.playState === 'finished'));
+    await frame.locator('#game-table').evaluate(async table => {
+      for (let run; (run = table.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
+      await new Promise(resolve => requestAnimationFrame(() => resolve()));
+    });
     assert.equal(await frame.locator('#game-table .coin').count(), 10, 'Both strips show four cards and one power');
     const coins44 = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll('.coin')].map(coin => {
       const style = getComputedStyle(coin), box = coin.getBoundingClientRect();
@@ -916,7 +933,7 @@ try {
     await frame.locator('#seat-ready').evaluate(el => el.click());
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_choose').length), sends, 'Illegal Ready sends no tool');
     await frame.locator('#seat-shuffle').click();
-    await page.evaluate(() => { window.dropNextReply = 'kingdown_choose'; }); await frame.locator('#seat-ready').click(); await frame.locator('#retry').waitFor();
+    await page.evaluate(() => { window.dropNextReply = 'kingdown_choose'; }); await clickButton(page, frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])')); await frame.locator('#retry').waitFor();
     const pending = await page.evaluate(() => window.harnessWidgetState.privateContent.pending);
     assert(pending.args.order); assert.equal(pending.name,'kingdown_choose'); assert.equal(pending.args.game_id,undefined);
     await seatRemount(); await frame.locator('#retry').click();
@@ -955,7 +972,7 @@ try {
     await frame.locator('body').evaluate(() => { Object.defineProperty(document,'hidden',{configurable:true,value:true}); document.dispatchEvent(new Event('visibilitychange')); });
     await buddyReady(v);
     const count = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_choose').length);
-    await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await clickButton(page, frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     const retries = await page.evaluate(n => window.harnessCalls.filter(c => c.name === 'kingdown_choose').slice(n), count);
     assert.equal(retries.length,2, 'Stale Ready reads and resends'); assert.notEqual(retries[0].arguments.command_id,retries[1].arguments.command_id);
     assert.equal(retries[1].arguments.expected_revision,retries[0].arguments.expected_revision+1);
@@ -974,7 +991,7 @@ try {
     assert(await frame.locator('#seat-ready').isEnabled(), 'A retained read of another game leaves Ready enabled');
     assert(await frame.locator('#retry').isHidden(), 'The old read has no Retry on this game');
     await page.evaluate(() => { window.dropNextReply = 'kingdown_choose'; });
-    await frame.locator('#seat-ready').click(); await frame.locator('#retry').waitFor();
+    await clickButton(page, frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])')); await frame.locator('#retry').waitFor();
     const soloId = await page.evaluate(() => window.harnessWidgetState.privateContent.pending.args.command_id);
     await remountFrame(); await frame.locator('#retry:not(:disabled)').waitFor(); await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 * STEP });
@@ -990,7 +1007,7 @@ try {
     await frame.locator('#board').press('ArrowRight');
     assert.equal(await frame.locator('#board').getAttribute('aria-label'), 'Your back rank, b1. Enter selects a piece.');
     await page.evaluate(() => { window.rejectNextGet = true; });
-    await frame.locator('#seat-ready').click(); await frame.locator('#retry').waitFor({ timeout: 5000 * STEP });
+    await clickButton(page, frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])')); await frame.locator('#retry').waitFor({ timeout: 5000 * STEP });
     assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending.name),'kingdown_get','A failed start read stays pending');
     await frame.locator('#retry').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 * STEP });
     assert(await page.evaluate(() => !!window.harnessView.rules));
@@ -1665,7 +1682,7 @@ try {
   await page.evaluate(() => window.releaseHeld());
   await frame.locator('#status').filter({hasText:'Your move'}).waitFor(); await idleBoard();
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_computer').length), computerBefore + 1, 'One normal computer turn sends one command');
-  async function sendTurn() { await idleBoard(); await frame.locator('#end-turn[aria-disabled="false"]').click(); }
+  async function sendTurn() { await idleBoard(); await clickButton(page, frame.locator('#end-turn:not(:disabled)[aria-disabled="false"]')); }
   async function haste() { const result = await (await page.request.post(new URL('/fixture-position?case=haste',base).href)).json(); assert(!result.isError); await page.evaluate(result=>window.harnessShow(result),result); await frame.locator('#status').filter({hasText:'Your move'}).waitFor(); await idleBoard(); }
   await seedBoard('swap');
   await frame.locator('canvas').evaluate(() => { window.harnessSwapMarks = 0; });

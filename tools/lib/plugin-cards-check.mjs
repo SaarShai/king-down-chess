@@ -5,7 +5,11 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   await mount(setup);
   const grid = frame.locator('#setup-card-grid'), sheet = frame.locator('#menu-sheet');
   const noLoops = async root => assert.equal(await root.evaluate(el => el.getAnimations({ subtree: true }).filter(a => a.playState === 'running' && a.effect.getComputedTiming().iterations === Infinity).length), 0, 'Card art has no running loop');
-  const transform = face => face.evaluate(async el => { await Promise.all(el.getAnimations().map(a => a.finished)); return getComputedStyle(el).transform; });
+  const transform = face => face.evaluate(async el => {
+    await Promise.all(el.getAnimations().map(a => a.finished));
+    await new Promise(resolve => requestAnimationFrame(() => resolve()));
+    return getComputedStyle(el).transform;
+  });
   await noLoops(grid);
   assert.equal(await grid.locator('.card-face').count(), 4);
   for (const width of [197, 393, 1000]) {

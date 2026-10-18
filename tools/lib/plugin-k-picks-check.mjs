@@ -25,7 +25,8 @@ export async function checkOwnerPicks(page, frame, saved, idleBoard, boardBox) {
       await page.setViewportSize({ width, height }); await boardBox();
       await frame.locator('html').evaluate(() => document.fonts.ready);
       await frame.locator('#game-table').evaluate(async table => {
-        await Promise.all(table.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})));
+        for (let run; (run = table.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
+        await new Promise(resolve => requestAnimationFrame(() => resolve()));
       });
       for (const side of ['them', 'me']) {
         const fit = await frame.locator(`#strip-${side}`).evaluate(strip => {

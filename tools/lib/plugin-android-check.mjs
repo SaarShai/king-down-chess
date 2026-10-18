@@ -4,7 +4,7 @@ import { hitSizes } from './plugin-hit-sizes.mjs';
 import { shot } from './checks.mjs';
 
 // Ticket 36: measure the built page with the host's touch and fullscreen context.
-export async function checkAndroidFixes(browser, base) {
+export async function checkAndroidFixes(browser, base, clickButton) {
   const page = await browser.newPage({ viewport: { width: 412, height: 790 }, hasTouch: true });
   const frame = page.frameLocator('iframe'), faults = [];
   let gameId;
@@ -26,7 +26,7 @@ export async function checkAndroidFixes(browser, base) {
     assert(!created.isError, JSON.stringify(created));
     gameId = created._meta.view.game_id;
     await page.evaluate(result => window.harnessShow(result), created);
-    await frame.locator('#seat-ready').click();
+    await clickButton(page, frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])'));
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     const original = await page.evaluate(() => window.harnessView);
     async function viewport(width, height, top, bottom, left = 0) {
