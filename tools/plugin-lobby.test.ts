@@ -253,9 +253,10 @@ it('keeps the five-second wait budget through the computer handoff, then uses fi
     for (let i=0;i<5;i++) await advance(5000);
     await frame.locator('#page-back').click(); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click(); await frame.locator('#find-any-row').click(); await frame.locator('#find-opponent').click();
     await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
-    const reads = await frame.locator('html').evaluate(() => (window as any).ticketReads.length);
     await frame.locator('#wait-computer').click();
-    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).ticketReads.length)).toBeGreaterThan(reads);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    // The solo read and the human-game watch can finish in either order.
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
     for (let i=5;i<24;i++) await advance(5000);
     const count = await frame.locator('html').evaluate(() => (window as any).ticketReads.length);
     await page.clock.runFor(14999);

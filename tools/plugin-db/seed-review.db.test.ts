@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GameService } from '../../src/match/service';
 import { PostgresMatchStore } from '../../src/match/store';
 import { seedReview } from './seed-review';
+import { ownTestDatabase } from './own-test-db';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createPluginServer } from '../../src/plugin/server';
@@ -18,7 +19,8 @@ const suite = url ? describe : describe.skip;
 suite('the review account seed', () => {
  let pool: pg.Pool; const users: string[] = [], tag = randomUUID().slice(0, 8);
  const account = async (name: string) => { const id = randomUUID(); users.push(id); await pool.query('insert into auth.users(id,email) values($1,$2)', [id, `${name}-${tag}@example.test`]); return `${name}-${tag}@example.test`; };
- beforeAll(() => { pool = new pg.Pool({ connectionString: url, max: 2 }); });
+ // The MCP tools need the current schema, including their per-tool counters.
+ beforeAll(async () => { pool = new pg.Pool({ connectionString: (await ownTestDatabase('seedreview')).href, max: 2 }); });
  afterAll(async () => {
   if (!pool) return;
   await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1))', [users]);
