@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Browser, Page } from 'playwright';
+import type { Browser, Locator, Page } from 'playwright';
 import { launch } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
@@ -71,15 +71,26 @@ async function open(next: View, width = 393, height = 852, clock = false) {
 async function marks(page: Page) {
   return page.frameLocator('iframe').locator('html').evaluate(() => structuredClone((window as any).testBoard.marks));
 }
+// Keep real pointer input without WebKit's stalled locator geometry check. Check the hit target in the frame.
+async function clickButton(page: Page, button: Locator) {
+  const pane = await page.locator('iframe').evaluate(e => ({ x: e.getBoundingClientRect().x, y: e.getBoundingClientRect().y }));
+  const point = await button.evaluate((button: HTMLButtonElement) => {
+    const r = button.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + r.height / 2;
+    return { x, y, hit: document.elementFromPoint(x, y)?.closest('button') === button,
+      enabled: !button.disabled && button.getAttribute('aria-disabled') !== 'true' };
+  });
+  expect(point.hit).toBe(true); expect(point.enabled).toBe(true);
+  await page.mouse.click(pane.x + point.x, pane.y + point.y);
+}
 
 it.each(['See the board', 'New game'])('cancels a pending ceremony with %s during the final move', async action => {
   const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), pre = fromFen(before.fen);
   const move = legalMoves(pre).find(m => toLan(pre,m) === 'Qa1-a8')!, post = makeMove(pre,move);
-  const page = await open(before), frame = page.frameLocator('iframe');
+  const page = await open(before, 393, 852, true), frame = page.frameLocator('iframe');
   try {
-    // Start the final move after the artwork and the first canvas size are ready.
+    // Artwork load is separate from the first visible frame; it can outlast an action wait on a cold load.
+    await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
     await frame.locator('#board canvas').waitFor({ state: 'visible' });
-    await page.clock.install();
     await frame.locator('html').evaluate(() => {
       const w = window as any; w.falls = []; const set = w.testBoard.setFallen.bind(w.testBoard);
       w.testBoard.setFallen = (sq: number|null, animate: boolean) => { if (sq !== null) w.falls.push(animate); set(sq,animate); };
@@ -89,8 +100,13 @@ it.each(['See the board', 'New game'])('cancels a pending ceremony with %s durin
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
     await frame.locator('#over[open]').waitFor();
     expect(await frame.locator('#board[data-toppling]').count()).toBe(0);
-    if (action === 'New game') await page.clock.runFor(1000);
-    await frame.locator('#over').getByRole('button', { name: action, exact: true }).click();
+    if (action === 'New game') await page.clock.fastForward(1000);
+    // The CSS entry animation uses the browser timeline, not the test clock.
+    await frame.locator('#over').evaluate(async e => { await Promise.all(e.getAnimations().map(a => a.finished)); });
+    await clickButton(page, frame.locator('#over').getByRole('button', { name: action, exact: true }));
+    await frame.locator('#over[open]').waitFor({ state: 'hidden' });
+    if (action === 'New game') await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    else await frame.locator('#end-result').waitFor();
     await frame.locator('html').evaluate(() => (window as any).endReplay());
     await frame.locator('#board[data-animating="false"]').waitFor({ state: 'attached' });
     expect(await frame.locator('html').evaluate(() => (window as any).falls.includes(true))).toBe(false);
@@ -1318,7 +1334,9 @@ it('W7: stages mate, permits Undo, and ends only on the press with no second mov
     await squareTap(page,7); await squareTap(page,63); await frame.locator('#board[data-animating="false"]').waitFor();
     expect(await frame.locator('#status').textContent()).toBe('Checkmate. Select End turn to finish.');
     expect(await frame.locator('#over[open]').count()).toBe(0); expect(await moveCalls(page)).toEqual([]);
-    await frame.locator('#undo').click(); expect(await frame.locator('#status').textContent()).toBe('Your move.');
+    await clickButton(page, frame.locator('#undo'));
+    await frame.locator('#status').filter({ hasText: 'Your move.' }).waitFor();
+    expect(await frame.locator('#status').textContent()).toBe('Your move.');
     await squareTap(page,7); await squareTap(page,63); await frame.locator('#board[data-animating="false"]').waitFor();
     await frame.locator('#end-turn').click(); await frame.locator('#over[open]').waitFor();
     expect(await frame.locator('html').evaluate(() => (window as any).turnAnimations)).toBe(2);
