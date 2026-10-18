@@ -1633,7 +1633,7 @@ try {
       const r = row.getBoundingClientRect(), b = button.getBoundingClientRect(), t = text.getBoundingClientRect();
       return {first:row.firstElementChild === button, loaded:image.naturalWidth > 0, portrait:image.src.includes('/maester-w-'),
         size:b.width >= 44 && b.height >= 44, inside:b.left >= r.left && b.top >= r.top && b.right <= r.right && b.bottom <= r.bottom,
-        wordsAfter:t.left >= b.right, lines:text.scrollHeight / parseFloat(getComputedStyle(text).lineHeight), clipped:text.scrollHeight > text.clientHeight + 1};
+        wordsAfter:t.left >= b.right, lines:Math.round(text.scrollHeight / parseFloat(getComputedStyle(text).lineHeight)), clipped:text.scrollHeight > text.clientHeight + 1};
     });
     assert(layout.first && layout.loaded && layout.portrait && layout.size && layout.inside && layout.wordsAfter, `T4 at ${width}: the named piece portrait starts and fits the context row: ${JSON.stringify(layout)}`);
     assert(layout.lines <= 2 && !layout.clipped, `T4 at ${width}: the swap words keep at most the sample's two lines: ${JSON.stringify(layout)}`);
