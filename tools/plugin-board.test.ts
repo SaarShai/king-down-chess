@@ -26,6 +26,14 @@ beforeAll(async () => {
   execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe' });
   const boardPath = join(folder, 'board.html');
   harness = await startHarness({ boardPath, sourcePage: true }); served = await startHarness({ boardPath }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
+  // The first source import makes Vite transform the board's module graph (CI run 39135693919: over 3 s on cold Linux
+  // WebKit). Pay that once here, so the first test's 3 s steps measure the page, not the transform.
+  const warm = await browser.newPage();
+  try {
+    await warm.goto(harness.url);
+    await warm.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+    await warm.frameLocator('iframe').locator('html').evaluate('import("/src/plugin/board-view.ts").then(m => m.board.ready())');
+  } finally { await warm.close(); }
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await served?.close(); await rm(folder, { recursive: true, force: true }); });
 
