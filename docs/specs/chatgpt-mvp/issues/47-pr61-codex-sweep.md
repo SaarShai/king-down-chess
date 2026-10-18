@@ -76,6 +76,11 @@ All four reviews passed. Merged at `65c7058f`; `tsc` passes.
   Not changed: a call that times out on the client (10 s) frees its gate
   slot while the server still holds its own; this needs a server that
   takes more than 10 s for each of three calls.
+- 4309049972 (P2): a Block that failed with a connection error kept the
+  error after a second Block worked; the command action cleared only a
+  refusal. A user command now clears an error notice too. Test: 'clears
+  a failed Block error when the player blocks again and it works' (red
+  before the fix).
 
 ## CI
 
@@ -145,3 +150,26 @@ the handoff locks `wait-computer`; a name screen opened again sets its
 Back and clears `nameForCaller`, except on the Resume after a collapse.
 A known limit here (a Join that gets HANDLE_NEEDED after a collapse lost
 its Back to Join) is fixed: see Codex comment 4307999875 below.
+
+## Stale-state faults (2026-10-18)
+
+Plan: add a failing unit test for each confirmed fault. Keep one origin
+through each Wait action. Save the name screen return in private widget
+state. Keep Join codes in memory. Make one commit for each fault.
+
+Checks: each new test fails before its fix and passes after it. Run the
+app and queue unit files, the type check, and the name and Wait browser
+files once each in Chromium through the test lock. Keep all assertions
+and time limits.
+
+- Switch now opens an old game over a newer screen. One origin guards Abort, Resume and Games. Test: `keeps the Switch now origin while Abort waits (new chat: %s)`.
+- A remounted name Save resends an old failed start. Private widget state keeps the return screen and caller flag; Join codes stay in memory. Test: `keeps the name return after a remount without resending an old start from %s`.
+- Wait Cancel opens Open games after a newer result supersedes Games. Cancel and Games share one origin; the final route checks it. Test: `keeps the Cancel origin while Games waits (new chat: %s)`.
+
+Verification: the locked app file passes all 74 tests. The locked queue
+file passes all 18 tests. `npx tsc --noEmit -p .` passes. Chromium runs once
+per file, one at a time through the lock: `tools/plugin-lobby.test.ts`
+passes all 33 tests (77.00 s); `tools/plugin-join-review.test.ts` passes all
+14 tests (21.05 s). Existing assertions, time limits and STEP stay the
+same. Finding 3 from the sweep stays unchanged: the reviewers find it
+unreachable by a player. No push or merge.
