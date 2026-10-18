@@ -735,3 +735,39 @@ it('review: a failed Find from Open games keeps its error and Retry there and lo
   const ids = transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_find').map(([input]) => input.arguments.command_id);
   expect(ids).toHaveLength(2); expect(ids[1]).toBe(ids[0]);
 });
+
+it('review: a name saved for a lobby Accept goes back to Open games and does not resend an old failed start', async () => {
+  const app = await mounted(); app.navigate('play');
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_create' ? { content: [{ type: 'text', text: 'Lost Create reply' }], isError: true }
+    : name === 'kingdown_accept' ? { content: [{ type: 'text', text: 'Choose a name' }], isError: true, _meta: { code: 'HANDLE_NEEDED' } }
+    : { content: [], _meta: { games: [] } });
+  await app.start('solo', { colour: 'white' }); await vi.advanceTimersByTimeAsync(0);
+  const pending = app.client.state.pending!;
+  expect(pending).toMatchObject({ name: 'kingdown_create', screen: 'play', error: 'Lost Create reply' });
+  app.navigate('lobby');
+  await app.send('kingdown_accept', { game_id: 'open-a000' });
+  expect(app.client.state.screen).toBe('handle'); expect(app.store.page().handle_back).toBe('lobby');
+  const creates = transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create').length;
+  transport.call.mockResolvedValue({ content: [], _meta: { me: { handle: 'newname', icon: 'spirit' } } });
+  await app.call('kingdown_handle', { handle: 'newname', icon: 'spirit' }); await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.screen).toBe('lobby');
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create')).toHaveLength(creates);
+  expect(app.client.state.pending).toBe(pending); expect(pending.error).toBe('Lost Create reply');
+});
+
+it('sends the start that needed a name again when Save succeeds, also after a remount', async () => {
+  let saved: any; (window as any).openai.setWidgetState = (value: any) => { saved = value; };
+  const first = await mounted(); first.navigate('play');
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_create' ? { content: [{ type: 'text', text: 'Choose a name' }], isError: true, _meta: { code: 'HANDLE_NEEDED' } } : { content: [], _meta: { games: [] } });
+  await first.start('friend', { colour: 'white' }); await vi.advanceTimersByTimeAsync(0);
+  expect(first.client.state.screen).toBe('handle'); expect(first.store.page().handle_back).toBe('play');
+  const id = first.client.state.pending!.args.command_id;
+  // The remount reads the saved widget state.
+  vi.resetModules(); (window as any).openai.widgetState = { privateContent: saved.privateContent };
+  const app = await mounted();
+  expect(app.client.state.screen).toBe('handle'); expect(app.store.page().handle_back).toBe('play');
+  transport.call.mockReset().mockImplementation(async ({ name }) => ({ content: [], _meta: name === 'kingdown_handle' ? { me: { handle: 'newname', icon: 'spirit' } } : name === 'kingdown_create' ? { view: { ...game, kind: 'friend', status: 'waiting' } } : { games: [] } }));
+  await app.call('kingdown_handle', { handle: 'newname', icon: 'spirit' }); await vi.advanceTimersByTimeAsync(0);
+  const resent = transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create');
+  expect(resent).toHaveLength(1); expect(resent[0][0].arguments.command_id).toBe(id);
+});
