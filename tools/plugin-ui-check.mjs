@@ -3061,7 +3061,7 @@ try {
     const boardId = await page.evaluate(()=>window.harnessWidgetState.privateContent.board_id);
     const cards = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_create',arguments:{kind:'solo',colour:'white',board_id:boardId,options:{...DEFAULT_OPTIONS,arrangement:false,kingPowers:false,cards:true,cardPool:['EarthQuake','SkyLift','MorphP','Freeze']}}}})).json();
     assert(!cards.isError); await page.evaluate(r=>window.harnessShow(r),cards); await idleBoard(); await boardBox();
-    for (const [card,targets] of [['EarthQuake','Tap a marked square.'],['SkyLift','Choose a marked piece, then a marked square.']]) {
+    for (const [card,targets] of [['EarthQuake','Select a marked square.'],['SkyLift','Choose a marked piece, then a marked square.']]) {
       const index = cards._meta.view.rules.hands[0].indexOf(card); assert(index>=0);
       const before = await frame.locator('#board canvas').boundingBox();
       await frame.locator(`#card-w-${index}`).click(); await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
@@ -3093,7 +3093,7 @@ try {
       await seedBoard(`picks&fen=${encodeURIComponent(fen)}`);
       const calls = await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_move').length);
       await clickSquare(from&7,from>>3); await clickSquare(target&7,target>>3);
-      assert.equal(await frame.locator('#status').textContent(),`Tap again to ${action}.`);
+      assert.equal(await frame.locator('#status').textContent(),`Select again to ${action}.`);
       assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'true','The first tap adds no draft step');
       // The status changes before the canvas paints its new marks.
       await boardBox();
@@ -3103,7 +3103,7 @@ try {
       assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'true','A tap elsewhere plays no move');
       const box=await boardBox(), point=sq=>({x:box.x+(32+((sq&7)+.5)*112)*box.width/960,y:box.y+(96+(7-(sq>>3)+.5)*112)*box.width/960}), a=point(from), b=point(target);
       await page.mouse.move(a.x,a.y); await page.mouse.down(); await page.mouse.move(b.x,b.y,{steps:8}); await page.mouse.up();
-      assert.equal(await frame.locator('#status').textContent(),`Tap again to ${action}.`,'A drag shows the same preview');
+      assert.equal(await frame.locator('#status').textContent(),`Select again to ${action}.`,'A drag shows the same preview');
       assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'true','A drag adds no draft step');
       await clickSquare(target&7,target>>3); await boardBox();
       assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'),'false','A second tap adds the draft step');

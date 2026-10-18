@@ -266,7 +266,7 @@ it.each(['EarthQuake', 'SkyLift'] as const)('keeps the armed %s targets and rule
     await frame.locator('html').evaluate(() => { (window as any).harnessApp.memory.blockNotice = 'Player blocked.'; });
     await frame.locator('#card-w-0').click();
     await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
-    const targets = card === 'EarthQuake' ? 'Tap a marked square.' : 'Choose a marked piece, then a marked square.';
+    const targets = card === 'EarthQuake' ? 'Select a marked square.' : 'Choose a marked piece, then a marked square.';
     expect(await frame.locator('#context-note').textContent()).toBe(`${targets} ${ruleLine(cardText(card))} Player blocked.`);
     expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('armed');
     expect(await frame.locator('#context-text').getAttribute('tabindex')).toBe('0');
@@ -287,7 +287,7 @@ it.each([[320,568], [393,852]])('keeps the swap portrait and held note with the 
     await squareTap(page,26);
     expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('held');
     expect(await frame.locator('#context-note').textContent()).toBe(`${describeMove(pre,swap)} Player blocked.`);
-    expect(await frame.locator('#status').textContent()).toBe('Tap again to swap.');
+    expect(await frame.locator('#status').textContent()).toBe('Select again to swap.');
     const info = frame.getByRole('button', {name:'All rules',exact:true});
     await info.locator('img').evaluate(image => (image as HTMLImageElement).decode());
     expect(await info.evaluate(button => {
@@ -311,7 +311,7 @@ it.each(['EarthQuake', 'SkyLift'] as const)('G1: the armed %s note names its tar
   try {
     await frame.locator('#card-w-0').click();
     await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
-    const targets = card === 'EarthQuake' ? 'Tap a marked square.' : 'Choose a marked piece, then a marked square.';
+    const targets = card === 'EarthQuake' ? 'Select a marked square.' : 'Choose a marked piece, then a marked square.';
     expect(await frame.locator('#context-note').textContent()).toBe(`${targets} ${ruleLine(cardText(card))}`);
   } finally { await page.close(); }
 });
@@ -865,7 +865,7 @@ it('G3: the ogre holds a shove onto its own pawn and plays it on the second tap'
     await squareTap(page,4);
     expect((await marks(page)).shoves).toEqual([12]); expect((await marks(page)).moves.length).toBeGreaterThan(0); expect((await marks(page)).captures).toContain(11);
     await squareTap(page,12);
-    expect(await frame.locator('#status').textContent()).toBe('Tap again to shove.');
+    expect(await frame.locator('#status').textContent()).toBe('Select again to shove.');
     expect(await frame.locator('#context-note').textContent()).toBe(describeMove(pre,shove));
     expect(await marks(page)).toMatchObject({selected:4, moves:[], captures:[], swaps:[], shoves:[12], shoveTo:[{from:12,to:20}]});
     expect(await cursorOf(page)).toBe(12);
@@ -879,19 +879,19 @@ it('G3: the ogre holds a shove onto its own pawn and plays it on the second tap'
     expect(await boardFen(page)).toBe(fen);
     // An unmarked enemy piece that the ogre can take lets the shove go and reads that piece, without taking it.
     await squareTap(page,4); await squareTap(page,12);
-    expect(await frame.locator('#status').textContent()).toBe('Tap again to shove.');
+    expect(await frame.locator('#status').textContent()).toBe('Select again to shove.');
     await squareTap(page,11);
     expect(await frame.locator('#status').textContent()).toBe('Black Pawn.');
     expect((await marks(page)).read).toBeDefined();
     expect(await boardFen(page)).toBe(fen);
     // Holding the shove again clears the enemy read, so All rules opens the ogre's rules.
     await squareTap(page,12);
-    expect(await frame.locator('#status').textContent()).toBe('Tap again to shove.');
+    expect(await frame.locator('#status').textContent()).toBe('Select again to shove.');
     expect((await marks(page)).read).toBeUndefined();
     await frame.locator('#all-rules').click();
     expect(await frame.locator('#board-sheet').innerText()).toContain(readText(pre,4));
     await frame.locator('#board-sheet button[aria-label="Close"]').click();
-    expect(await frame.locator('#status').textContent()).toBe('Tap again to shove.');
+    expect(await frame.locator('#status').textContent()).toBe('Select again to shove.');
     // Escape lets the held shove go and clears the selection.
     await page.keyboard.press('Escape');
     expect((await marks(page)).selected).toBeUndefined();
@@ -901,11 +901,11 @@ it('G3: the ogre holds a shove onto its own pawn and plays it on the second tap'
     await squareTap(page,4); await squareTap(page,12);
     await squareTap(page,7);
     expect((await marks(page)).selected).toBe(7);
-    expect(await frame.locator('#status').textContent()).not.toBe('Tap again to shove.');
+    expect(await frame.locator('#status').textContent()).not.toBe('Select again to shove.');
     expect(await cursorOf(page)).toBe(null);
     // The let-go shove does not play on the next tap of the pawn: that tap holds it again.
     await squareTap(page,4); await squareTap(page,12);
-    expect(await frame.locator('#status').textContent()).toBe('Tap again to shove.');
+    expect(await frame.locator('#status').textContent()).toBe('Select again to shove.');
     expect(await boardFen(page)).toBe(fen);
     await squareTap(page,12); await frame.locator('#board[data-animating="false"]').waitFor();
     expect(await boardFen(page)).toBe(toFen(makeMove(pre,shove)));
@@ -921,7 +921,7 @@ it('G3: the maester holds a swap with its own rook, by tap and by keyboard', asy
   expect(swap).toBeDefined();
   try {
     await squareTap(page,27); await squareTap(page,26);
-    expect(await frame.locator('#status').textContent()).toBe('Tap again to swap.');
+    expect(await frame.locator('#status').textContent()).toBe('Select again to swap.');
     expect(await frame.locator('#context-note').textContent()).toBe(describeMove(pre,swap));
     expect(await marks(page)).toMatchObject({selected:27, moves:[], captures:[], shoves:[], swaps:[26]});
     expect(await boardFen(page)).toBe(fen);
@@ -933,7 +933,7 @@ it('G3: the maester holds a swap with its own rook, by tap and by keyboard', asy
     // Keyboard: Enter on the rook holds the swap, and a second Enter plays it.
     await frame.locator('#board').focus();
     for (const key of ['ArrowRight','ArrowRight','ArrowRight','ArrowUp','ArrowUp','ArrowUp','Enter','ArrowLeft','Enter']) await page.keyboard.press(key);
-    expect(await frame.locator('#status').textContent()).toBe('Tap again to swap.');
+    expect(await frame.locator('#status').textContent()).toBe('Select again to swap.');
     expect(await boardFen(page)).toBe(fen);
     await page.keyboard.press('Enter'); await frame.locator('#board[data-animating="false"]').waitFor();
     expect(await boardFen(page)).toBe(toFen(makeMove(pre,swap)));
@@ -949,18 +949,18 @@ it('G3: an armed Sky Lift card holds a swap of two own pieces, and Cancel ends i
   expect(swap).toBeDefined(); const use = async () => { await frame.locator('#card-w-0').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click(); };
   try {
     await use(); await squareTap(page,swap.from); await squareTap(page,swap.to);
-    expect(await frame.locator('#status').textContent()).toBe('Tap again to swap.');
+    expect(await frame.locator('#status').textContent()).toBe('Select again to swap.');
     expect(await frame.locator('#context-note').textContent()).toBe(describeMove(pre,swap));
     expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('armed');
     expect(await marks(page)).toMatchObject({selected:swap.from, moves:[], captures:[], shoves:[], swaps:[swap.to]});
     expect(await boardFen(page)).toBe(fen);
     // Cancel ends the armed card and the held swap.
     await frame.locator('#context-actions').getByRole('button', { name: 'Cancel', exact: true }).click();
-    expect(await frame.locator('#status').textContent()).not.toBe('Tap again to swap.');
+    expect(await frame.locator('#status').textContent()).not.toBe('Select again to swap.');
     expect(await cursorOf(page)).toBe(null);
     // The second tap on the target plays the swap as a draft step.
     await use(); await squareTap(page,swap.from); await squareTap(page,swap.to);
-    expect(await frame.locator('#status').textContent()).toBe('Tap again to swap.');
+    expect(await frame.locator('#status').textContent()).toBe('Select again to swap.');
     await squareTap(page,swap.to); await frame.locator('#board[data-animating="false"]').waitFor();
     expect(await boardFen(page)).toBe(toFen(makeMove(pre,swap)));
     expect(await frame.locator('#status').textContent()).toBe('Your turn is ready. Select End turn.');
@@ -977,7 +977,7 @@ it.each([
     const a = await squarePoint(page, from), b = await squarePoint(page, target);
     await page.mouse.move(a.x, a.y); await page.mouse.down();
     await page.mouse.move(b.x, b.y, { steps: 8 }); await page.mouse.up();
-    expect(await frame.locator('#status').textContent()).toBe(`Tap again to ${action}.`);
+    expect(await frame.locator('#status').textContent()).toBe(`Select again to ${action}.`);
     expect(await boardFen(page)).toBe(fen);
     expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
     await squareTap(page, target); await frame.locator('#board[data-animating="false"]').waitFor();
@@ -997,7 +997,7 @@ it('G3: Undo lets a held shove go in the second move of a Haste turn', async () 
     await squareTap(page,4); await squareTap(page,12); await frame.locator('#board[data-animating="false"]').waitFor();
     expect(await boardFen(page)).toBe(toFen(mid));
     await squareTap(page,12); await squareTap(page,11);
-    expect(await frame.locator('#status').textContent()).toBe('Tap again to shove.');
+    expect(await frame.locator('#status').textContent()).toBe('Select again to shove.');
     expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
     await frame.locator('#undo').click();
     expect(await boardFen(page)).toBe(fen);
