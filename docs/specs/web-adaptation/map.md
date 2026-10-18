@@ -35,6 +35,7 @@ An owner-approved spec, [Web app adaptation spec](spec.md), with its build order
 - [Prototype browser routes and invite return](issues/13-routes.md): account routes with browser history; a URL only reads; Join and the sign-in callback replace the URL; one `/play/` callback with a per-tab flow record; the invite token moves to the fragment (`/j#<token>`, amends ticket 06); prototype on branch `prototype/web-account-routes`.
 - [Approve a browser sample from the game UI](issues/14-visual-sample.md): the actual plugin screens in a page host; existing sheets and columns; 48 px DOM controls; board squares an accepted exception (44 px on the main phone); full target words with page scroll; "Play online" on the local home and "Play on this device" on the account page; sample on branch `prototype/web-account-sample`.
 - [Choose the public play and alert scope](issues/15-public-safety.md): alerts and chat off; one budget across surfaces; email support with an operator intake step instead of an in-app Report; a shared notice view; these gate public random matching.
+- [Choose the test and device gate](issues/16-test-gate.md): the HTTP boundary with a real database is the main seam; one `web-online` browser driver; the web gate in `plugin-checks.yml` with Firefox added; a device matrix with a person per row; real Android open and a release blocker ([test-gate.md](test-gate.md)).
 
 ## Not yet specified
 

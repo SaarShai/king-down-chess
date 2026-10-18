@@ -1,7 +1,7 @@
 # Choose the test and device gate
 
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: 04, 07, 13, 14
 Parent: [Web adaptation map](../map.md)
 Labels: wayfinder:grilling
@@ -41,3 +41,14 @@ On yes: use the Testing Decisions and phase exits in the spec. Tests run only th
 ## Pass criterion
 
 No confirmed release fault remains. Each changed control selector has its affected checks run. Render compares use two stable main captures in the same environment. The report names devices, source, skipped cover and known limits. The cold-load compare includes a run with workers blocked.
+
+## Answer
+
+Decided by delegation (owner, 2026-10-18: "regarding \"my decisions\" - please use your best judgement. i trust you to make the decisions."). Three independent reviews (enough and no more; risk cover; can it run) checked the draft and gave 12 required changes; all are in. The full gate: [test-gate.md](../test-gate.md).
+
+- **Option 1.** T1, the website HTTP boundary with real services and a disposable PostgreSQL database, is the main seam. Keep the pure tests (T2) and the named local checks (T4). Add one registered browser driver, `web-online`, for the top-level page (T3), and grow its cases by phase; do not copy the plugin checks into a second suite. Extend the built-output and worker probes in place (T5).
+- **Where checks run.** The web push gate goes into `plugin-checks.yml` only (every PR, and pushes to `main` and `codex/**`); `test.yml` does not change. Its WebKit job and a new Firefox job get a database. `plugin-ui` and `plugin-ui-http` already run there on every PR. This Mac runs unit tests or one test file and one named browser check at a time; full browser sweeps, render compares and load samples go to CI or the M1.
+- **Per phase.** Each phase of the spec has its smallest added set in the gate's phase table, with the new cases the reviews asked for: log and Referer redaction of sign-in codes and invite tokens (phases 2, 5, 8); one create budget across MCP and `/api` from phase 3; the local save across sign-in, account switch and sign-out (phases 2, 8); two tabs that sign in at the same time and crossed, stale or missing flow records (phase 2).
+- **Release gate.** The device matrix of this ticket plus the sample's rows (board squares, 48 px controls, focus visible and not obscured, the contrast values, the "Play online" row, real keyboard, zoom and larger text). Each row is automated, scripted manual or owner-run, and names its person: the main session on this Mac (Chromium, WebKit, Firefox, the iOS Simulator and VoiceOver through computer use), the owner (real iPhone, real provider sign-in, the support procedure, the publish go). Real Android has no device or person yet: it stays open and blocks the release until the owner names one.
+- **Speed.** Proposed targets: 2.5 s to the first account screen and 300 ms for local visual response (median of three cold runs, 4× CPU, Slow 4G, workers blocked and real). The main session fixes the numbers after the baseline measurements.
+- **Stops.** A confirmed release fault, an unknown source, a skipped required database, engine or device result, an unsafe cache, an unsupported active game, an incomplete public-safety gate or a missing publish go stops the release.
