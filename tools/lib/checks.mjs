@@ -72,11 +72,12 @@ export function env(name) {
 }
 
 /**
- * The step-limit factor: 3 for WebKit on CI, else 1. GitHub's Linux runner draws WebKit in software, about three times
- * slower than the Macs that set the limits (Saar, 2026-10-18: "Slower limits on CI WebKit"). It scales waits only; a
- * checked timing (an animation length, a reply budget) never uses it.
+ * The step-limit factor: 3 for WebKit on CI, 2 for Chromium on CI, else 1. GitHub's Linux runner draws WebKit in
+ * software, about three times slower than the Macs that set the limits, and runs the Chromium checks about 2.5 times
+ * slower (Saar, 2026-10-18: "Slower limits on CI WebKit", then "Raise CI limits"). It scales waits only; a checked timing
+ * (an animation length, a reply budget) never uses it. Local runs and the pre-push hook keep the limits at 1.
  */
-export const STEP = process.env.CI && process.env.PLAYABLE_BROWSER === 'webkit' ? 3 : 1;
+export const STEP = !process.env.CI ? 1 : process.env.PLAYABLE_BROWSER === 'webkit' ? 3 : 2;
 
 /** Opens WebKit or the Chromium channel that PLAYABLE_BROWSER names. */
 export const launch = ({ channel = env('PLAYABLE_BROWSER'), ...options } = {}) => channel === 'webkit'

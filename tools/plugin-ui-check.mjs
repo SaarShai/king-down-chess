@@ -193,7 +193,21 @@ try {
     }
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor({ timeout: 5000 * STEP });
   }
-  async function openScreen(screen) { await openPlay(); await frame.locator(`[data-screen="play"] [data-nav="${screen}"]`).click(); }
+  async function openScreen(screen) {
+    await openPlay();
+    const row = frame.locator(`[data-screen="play"] [data-nav="${screen}"]`);
+    // A stalled click logs what holds it: the lock, the row's box before and after two frames, and whether frames run.
+    await row.click().catch(async error => { console.log(`openScreen(${screen}) stalled: ${JSON.stringify(await stall(row).catch(e => String(e)))}`); throw error; });
+  }
+  const stall = row => row.evaluate(async el => {
+    const box = () => { const r = el.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); };
+    const before = box();
+    const frames = await new Promise(resolve => { let n = 0; const start = performance.now(); const tick = () => ++n < 3 ? requestAnimationFrame(tick) : resolve(Math.round(performance.now() - start)); requestAnimationFrame(tick); setTimeout(() => resolve(`${n} frames in 2 s`), 2000); });
+    const page = window.harnessApp?.store?.page?.();
+    return { disabled: el.disabled, rects: el.getClientRects().length, before, frames, after: box(), visibility: document.visibilityState, hiddenBy: el.closest('[hidden]')?.dataset.screen ?? null,
+      lock: page && { screen: page.screen, connected: page.connected, mounting: page.mounting, writing: page.writing },
+      page: document.body.dataset.page, reload: document.querySelector('#reload')?.disabled, error: document.querySelector('#error')?.textContent, animations: document.getAnimations().slice(0, 8).map(a => `${a.animationName ?? a.transitionProperty ?? 'animation'}:${a.playState}`) };
+  }, undefined, { timeout: 10_000 });
   async function idleBoard() { await widget().waitForFunction(() => document.querySelector('#reload')?.disabled === false); }
   async function remount(screen) {
     // Each mount reads the settings; a mount with no board makes no board read.

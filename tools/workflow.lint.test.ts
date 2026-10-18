@@ -73,6 +73,12 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(job('browser')).not.toContain('webkit');
   });
 
+  it('gives the full test job and the Chromium checks 30 minutes for their CI step limits', () => {
+    // CI runs the steps with limits times 2 (tools/lib/checks.mjs STEP); the full npm test takes about 15 minutes there.
+    expect(job('verify')).toContain('timeout-minutes: 30');
+    expect(job('browser')).toContain('timeout-minutes: 30');
+  });
+
   it('runs the board, phone-size and widget checks on WebKit', () => {
     const webkit = job('browser-webkit');
     expect(webkit).toContain('- run: npm test');

@@ -65,6 +65,17 @@ All four reviews passed. Merged at `65c7058f`; `tsc` passes.
   move is a retained command, so `pending` was `kingdown_computer` while
   the slow runner made the move. The test now waits for that move, then
   checks that no command is pending. The checks are the same.
+- The Validate workflow never passed on this branch: `verify` and
+  `browser` stopped at their 15-minute limits on every run. The release
+  candidate's `npm test` takes about 15 minutes on the runner (main: 7),
+  and plugin-ui on Chromium about 2.5 times its local 194 s. Saar,
+  2026-10-18: "Raise CI limits". `STEP` is now 2 for Chromium on CI (3
+  for WebKit, 1 locally), and `verify` and `browser` have 30 minutes.
+- The full WebKit plugin-ui check on CI stopped once for 90 s on the
+  Settings row of Play (`plugin-ui-check.mjs` openScreen, after the
+  threats-black viewport loop); it passes on macOS WebKit in 220 s. Saar,
+  2026-10-18: "Investigate now". `openScreen()` now logs the lock, the
+  row's box over two frames and the frame rate when a click stalls.
 
 ## Round 2 (base `65c7058f`)
 
