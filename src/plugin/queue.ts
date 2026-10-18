@@ -36,6 +36,9 @@ export type JobOptions = {
   signal?: AbortSignal;
 };
 
+/** A call the player starts: not a poll, a mount, a programmatic write or a step of an earlier job (design §2). */
+export const userCommand = (options: JobOptions) => options.user !== false && !options.quiet && !options.mount && !options.origin;
+
 export type Job = {
   kind: Kind;
   name: string;
@@ -121,7 +124,7 @@ export function createQueue() {
   /** A user command: a new epoch, and every older read detaches. A write is untouched (design §2). */
   function command(kind: Kind, name: string, args: Record<string, unknown>, options: JobOptions = {}): Job {
     if (closed) { const job = make(kind, name, args, options); settle(job, { status: 'superseded' }); return job; }
-    if (options.user !== false && !options.quiet && !options.mount && !options.origin) { epoch++; for (const job of [...reads]) if (job.epoch < epoch) detach(job); }
+    if (userCommand(options)) { epoch++; for (const job of [...reads]) if (job.epoch < epoch) detach(job); }
     return make(kind, name, args, options);
   }
   /** Runs one job's body. A write waits for the lane; a read of the page board waits for an idle lane. */

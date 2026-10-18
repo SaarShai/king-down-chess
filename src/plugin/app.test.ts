@@ -577,6 +577,19 @@ it('keeps a refused Join out of the page notice', async () => {
   expect(messageLine(app.store.page()).text).toBe('');
 });
 
+it('clears a board refusal when the player then blocks the opponent', async () => {
+  const app = await mounted();
+  app.routeView(game);
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_draw'
+    ? { content: [{ type: 'text', text: 'You cannot offer a draw now' }], isError: true, _meta: { code: 'NOT_ALLOWED' } }
+    : { content: [], _meta: { view: { ...game, revision: 2 } } });
+  await app.send('kingdown_draw', { game_id: game.game_id, command_id: 'draw', expected_revision: 1 }, { retain: true });
+  expect(app.store.refusal()).toMatchObject({ code: 'NOT_ALLOWED' });
+  // Block is a user write without retain; it starts a new command, so the old refusal goes.
+  await app.call('kingdown_block', { game_id: game.game_id, blocked: true });
+  expect(app.store.refusal()).toBeUndefined();
+});
+
 it('scopes a refused Retry to the game ID restored after a remount', async () => {
   (window as any).openai.widgetState = { privateContent: { screen: 'board', pending: { name: 'kingdown_move', args: { command_id: 'saved', expected_revision: 0 }, game_tag: 'game-a00', screen: 'board', error: 'Lost reply' } } };
   const app = await import('./app');

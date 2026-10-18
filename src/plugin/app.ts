@@ -13,7 +13,7 @@ import { setSound, snd } from '../render/sfx';
 import { runPoll, type PollTarget } from './poll';
 import { createRouter } from './router';
 import { applyLocks, createStore, isStart, isStartStep, locks, messageLine } from './state';
-import { createQueue, EMPTY, REFUSALS, resultCode, resultText, type Job, type JobOptions, type Kind, type Outcome } from './queue';
+import { createQueue, EMPTY, REFUSALS, resultCode, resultText, type Job, type JobOptions, type Kind, type Outcome, userCommand } from './queue';
 import { draftFromGame, finishStart, playNow, setupBusy, setupScreen, setupStarting, setupSync } from './screens/setup';
 import { readSetup } from './screens/setup-model';
 import { finishCancel, friendScreen } from './screens/friend';
@@ -163,7 +163,8 @@ export function send(name: string, args: Record<string, unknown>, options: JobOp
   const job = queue.command(kind, name, args, { ...options, board, ...(rollingBack && { user: false }), ...(then && { route: false }) });
   const started = queue.run(job, current => perform(current, name, args));
   // A write locks the page at once, so the board shows its own locked words ("Sending…") while the send waits.
-  if (!options.quiet && kind === 'write') store.dispatch({ type: options.retain ? 'command' : 'change' });
+  // A user write, retained or not (Block, Invite), clears the refusal of an earlier command (design §1.2).
+  if (!options.quiet && kind === 'write') store.dispatch({ type: options.retain || userCommand(job.options) ? 'command' : 'change' });
   return started.then(async outcome => {
     if (!options.quiet && !queue.closed()) store.dispatch({ type: 'change' });
     if (!queue.current(job)) return { status: 'superseded' };
