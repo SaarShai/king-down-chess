@@ -14,7 +14,7 @@ F-5 and taste calls T-1 to T-3 stay out of this build.
 3. F-2: apply the drag gate at pointer down. Check that a swipe sends no selection or click when drag is off. Keep a tap.
 4. F-3: centre direct sheet buttons. Check card and power Use at 402 px. Keep move rows left aligned. Check the menu and resign sheet.
 5. F-4: give the first dot its own item. Check the row elements and the gap in the hall.
-6. Run the type check, full tests through the lock, and plugin-ui on the M1 and WebKit on this Mac. Commit the build and record the results.
+6. Commit the build. Keep the source fixed through each check run: live test servers reload source edits. Run the type check, full tests through the lock, and plugin-ui on the M1 and WebKit on this Mac. Record the results.
 
 The checks use the interfaces that the owner names in ticket 39: PaintedView pointer events, gamesList row elements, and the built page.
 The main session then checks Android F-1 and F-2 on the emulator.
@@ -47,4 +47,5 @@ F-1 hides the win words at every width below 320 px. This can show New game in f
 The three focused test files pass at 29ba68cd: 61 tests, plus 51 art tests. No time limit changes.
 
 Final logs and the complete result go to the lane report that the owner names. The ticket stays open for the main Android device recheck.
+The M1 check passes at 0baf7341. A later CSS selector repair changes the final head. The full test run that overlaps that edit is invalid: live servers reload and report module-load errors. End only that owned test process, then run from the fixed source.
 Report: /private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/device-faults/39-device-faults-build.md
