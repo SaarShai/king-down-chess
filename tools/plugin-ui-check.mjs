@@ -252,6 +252,31 @@ try {
     assert.equal(await frame.locator('#retry').isVisible(), false, 'HANDLE_NEEDED waits for Save without Retry');
     assert.equal(await frame.locator('#error').textContent(), '', 'HANDLE_NEEDED has no failed-send words');
   }
+  // With Playwright attached, the host page keeps each old widget document until the host page itself navigates, and
+  // the remounts filled the WebKit GPU and page processes past the CI runner's memory (ticket 45). So at a few block
+  // boundaries the check loads the host page again with the same chat state: the host context and display mode, the
+  // last tool result and the widget state. Then one remount restores the screen, as a chat reload does. A given screen
+  // must show after it; a saved game screen can follow the game's fresh status to another screen.
+  const retiredWidgetStates = [];
+  async function freshHost(screen) {
+    const saved = await page.evaluate(() => ({ context: window.harnessHostContext, mode: window.harnessDisplayMode, result: window.harnessWidgets.at(-1).initialResult, state: window.harnessWidgetState, states: window.harnessWidgetStates }));
+    retiredWidgetStates.push(...saved.states);
+    await page.goto(base);
+    // The first boot of each host page waits for its held settings read (the init script), as at the start.
+    await page.waitForFunction(() => typeof window.releaseBefore === 'function');
+    await page.evaluate(() => window.releaseBefore());
+    await frame.locator('#home-games:not(:disabled)').waitFor();
+    await page.evaluate(({ context, mode, result, state }) => {
+      window.harnessHostContext = context; window.harnessDisplayMode = mode;
+      window.harnessWidgets.at(-1).initialResult = result; window.harnessWidgetState = state;
+    }, saved);
+    const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length);
+    await remountFrame();
+    await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length > n, reads);
+    await idleBoard();
+    if (screen) await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
+    await settled();
+  }
   // Ticket 16: profile and collection.
   {
     const { BADGES } = await import('../src/match/badges.ts');
@@ -414,6 +439,7 @@ try {
     && !(name === 'kingdown_settings' && Object.keys(a).every(k => k === 'board_id'))).map(c => c.name), navCalls);
   assert.deepEqual(navWrites, [], 'Play rows and Back send no write call');
   assert.equal(await page.evaluate(() => JSON.stringify(window.harnessWidgetState).includes('K7QX2M')), false, 'The join code stays in page memory');
+  await freshHost('play');
   // Ticket 12: setup and its three sheets.
   {
     const { DEFAULT_OPTIONS, DEAL_CARDS } = await import('../src/match/setup.ts');
@@ -661,6 +687,7 @@ try {
       await abortSetup(quick.game_id);
     }
     assert.deepEqual(page.viewportSize(), { width: 390, height: 844 }, 'The setup mixes and recovery checks use the phone size');
+    await freshHost('play');
     const levels = ['beginner','casual','club','strong']; let mix = 0;
     for (const fairy of [true,false]) for (const secondary of [false,true]) for (const cards of [false,true]) for (const powers of [false,true]) {
       const options = { ...DEFAULT_OPTIONS, fairy, arrangement: fairy && secondary, classic: !fairy && secondary, cards, kingPowers: powers };
@@ -783,6 +810,7 @@ try {
     await openPlay();
     console.log(`PASS: setup defaults, 16 toggle mixes, seat kings, four levels, weighted locks, card-safe powers, HANDLE_NEEDED, saved choices and lost Start remount; look checks in ${look}`);
   }
+  await freshHost('play');
   await legacyStart('solo');
   // Ticket 14: the hidden seat setup step.
   {
@@ -1558,6 +1586,7 @@ try {
     console.log(`Ticket 13 look comparisons: ${look}`);
     await openPlay(); await legacyStart('solo');
   }
+  await freshHost('board');
 
   const pixels = () => frame.locator('canvas').evaluate(c => {
     const data = c.getContext('2d').getImageData(0,0,c.width,c.height).data; let hash=0, red=0;
@@ -2593,6 +2622,7 @@ try {
   const routes = ['home','play','friend','join','wait','lobby','seat','board','end','profile','collection','settings','handle'];
   assert.deepEqual(await frame.locator('[data-screen]').evaluateAll(els => els.map(el => el.dataset.screen).sort()), [...routes].sort());
   for (const [width,height] of [[390,844],[400,900],[1440,900]]) {
+    await freshHost();
     await page.setViewportSize({width,height});
     for (const screen of routes) {
       const settingsReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length);
@@ -2692,6 +2722,7 @@ try {
     assert(pane.y+lower<=viewport.height-reserve,`The page controls clear the composer at ${viewport.width}×${viewport.height}`);
     assert(pane.y+Math.min(lower,pane.height)<=viewport.height-reserve,'Visible controls stay inside the app pane');
   }
+  await freshHost('board');
   // The approved table states use public views and the host's existing reply override.
   // These sample games are not in the service; a background poll must not replace them.
   await frame.locator('html').evaluate(()=>Object.defineProperty(document,'hidden',{configurable:true,value:true}));
@@ -3109,7 +3140,7 @@ try {
   assert.equal(await frame.locator('#choices button').count(), 0);
   }
   await page.evaluate(() => window.harnessTeardown());
-  for (const state of await page.evaluate(() => window.harnessWidgetStates ?? [])) {
+  for (const state of [...retiredWidgetStates, ...await page.evaluate(() => window.harnessWidgetStates ?? [])]) {
     const json = JSON.stringify(state).replace(/"board_id":"[0-9a-f-]+"/gi, '');
     assert(!/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/i.test(json), 'Each widget write has no full UUID except board_id');
     assert(!state.privateContent?.pending?.args?.code && !state.privateContent?.pending?.args?.handle, 'Pending state has no code or handle');
