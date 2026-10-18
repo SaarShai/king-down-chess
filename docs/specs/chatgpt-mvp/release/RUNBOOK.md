@@ -119,7 +119,7 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
 
 13. **Owner word — install only the MVP jobs.** Enable pg_cron and pg_net. Put the internal secret in Vault as `kingdown_internal_secret` through the private path. Paste only [cron-mvp.sql](cron-mvp.sql). Its helper posts to `https://kingdown.dev/internal/tick` and `/internal/daily` with `x-kingdown-internal`, which the server checks. The secret matches `KINGDOWN_INTERNAL_SECRET`.
 
-    Tick runs each minute. Daily runs at 03:17 UTC. Cron history cleanup runs at 03:47 UTC and keeps seven days. The file removes old outbox and reminder jobs by ID if present. Pending outbox rows keep `done_at` null; cleanup removes only finished rows older than 30 days. Record the pending count without payloads. No email or push runs.
+    Tick runs each minute. Daily runs at 03:17 UTC. Cron history cleanup runs at 03:47 UTC and keeps seven days. The file removes old outbox and reminder jobs by ID if present. Pending outbox rows keep `done_at` null; the daily cleanup deletes each row made or done more than 30 days ago, as the privacy page says. Record the pending count without payloads. No email or push runs.
 
     Check: `tools/cron-mvp.docs.test.ts` passes. In the SQL Editor, run:
 
