@@ -26,14 +26,12 @@ beforeAll(async () => {
   execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe' });
   const boardPath = join(folder, 'board.html');
   harness = await startHarness({ boardPath, sourcePage: true }); served = await startHarness({ boardPath }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
-  // The first source import makes Vite transform the board's module graph (CI run 39135693919: over 3 s on cold Linux
-  // WebKit). Pay that once here, so the first test's 3 s steps measure the page, not the transform.
-  const warm = await browser.newPage();
-  try {
-    await warm.goto(harness.url);
-    await warm.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
-    await warm.frameLocator('iframe').locator('html').evaluate('import("/src/plugin/board-view.ts").then(m => m.board.ready())');
-  } finally { await warm.close(); }
+  // The first board page of a new browser pays one-time costs (Vite's transform of the board modules, the first painted
+  // board): over 3 s on cold Linux WebKit in CI runs 39135693919 and 39138716531. Open one board here with the hook's
+  // limit, so the first test's 3 s steps measure the page, not the cold start.
+  const warm = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), 393, 852, true, 30_000);
+  try { await warm.frameLocator('iframe').locator('html').evaluate(async () => { await (window as any).testBoard.ready(); }); }
+  finally { await warm.close(); }
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await served?.close(); await rm(folder, { recursive: true, force: true }); });
 
@@ -61,9 +59,9 @@ const edgeMisses = (root: Element) => [...root.querySelectorAll('button')].filte
     return !hit || hit === button ? [] : [`${button.id || button.textContent}: ${Math.round(x)},${Math.round(y)} → ${hit.id || hit.textContent}`];
   });
 });
-async function open(next: View, width = 393, height = 852, clock = false) {
+async function open(next: View, width = 393, height = 852, clock = false, limit = 3000) {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true });
-  page.setDefaultTimeout(3000);
+  page.setDefaultTimeout(limit);
   if (clock) await page.clock.install();
   await page.goto(harness.url);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
