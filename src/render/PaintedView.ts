@@ -90,6 +90,7 @@ export class PaintedView implements BoardView {
     document.addEventListener('visibilitychange', () => this.applyLively());
     this.applyLively();
     // F13: no board before the stone art is decoded; the first frame shows stone and pieces together.
+    // ready() waits for that frame, so a hidden tab or off-screen frame becomes ready when it shows.
     this.canvas.style.visibility = 'hidden';
     this.loaded = this.scene.load().catch(error => { this.onLoadError?.(error); }).then(() => new Promise<void>(resolve => {
       requestAnimationFrame(() => { this.canvas.style.visibility = ''; resolve(); });
