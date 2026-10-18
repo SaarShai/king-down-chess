@@ -1157,9 +1157,9 @@ try {
     const viewport = page.viewportSize();
     try {
       await page.setViewportSize({ width: 402, height: 874 });
-      await frame.locator('#board-sheet .sheet-body > button').last().scrollIntoViewIfNeeded();
+      await frame.locator('#board-sheet .sheet-body > button:visible').last().evaluate(el => el.scrollIntoView({ block: 'nearest' }));
       await frame.locator('html').evaluate(() => document.fonts.ready);
-      const buttons = await frame.locator('#board-sheet .sheet-body > button').evaluateAll(buttons => buttons.map(button => {
+      const buttons = await frame.locator('#board-sheet .sheet-body > button:visible').evaluateAll(buttons => buttons.map(button => {
         const style = getComputedStyle(button), box = button.getBoundingClientRect(), range = document.createRange();
         range.selectNodeContents(button); const words = range.getBoundingClientRect();
         return { text: button.textContent, justify: style.justifyContent, align: style.textAlign, column: style.flexDirection === 'column', offset: Math.abs(words.left + words.width / 2 - box.left - box.width / 2) };
