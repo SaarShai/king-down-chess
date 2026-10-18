@@ -327,6 +327,24 @@ it('keeps Profile when the friend Cancel reply arrives late', async () => {
   expect(app.client.state.pending).toBeUndefined();
 });
 
+it('goes to Play when a retried friend Cancel succeeds', async () => {
+  const app = await mounted();
+  app.memory.games = [{ game_id: game.game_id }] as any;
+  app.routeView({ ...game, status: 'waiting' });
+  expect(app.client.state.screen).toBe('friend');
+  let aborts = 0;
+  transport.call.mockImplementation(async ({ name }) => {
+    if (name === 'kingdown_abort' && ++aborts === 1) throw new Error('Lost Cancel reply');
+    return { content: [], _meta: name === 'kingdown_abort' ? { view: { ...game, status: 'aborted', revision: 2 } } : { games: [] } };
+  });
+  const button = document.getElementById('friend-cancel')!;
+  await Reflect.apply(button.onclick!, button, [{}]); await vi.advanceTimersByTimeAsync(0);
+  const pending = app.client.state.pending!; expect(pending).toMatchObject({ name: 'kingdown_abort', screen: 'friend', error: 'Lost Cancel reply' });
+  await app.send(pending.name, pending.args, { retain: true, retry: true });
+  expect(aborts).toBe(2);
+  expect(app.client.state.screen).toBe('play'); expect(app.client.state.pending).toBeUndefined();
+});
+
 it('starts Play now with the same lock as its button when another game has a lost command', async () => {
   const app = await mounted(), setup = await import('./screens/setup');
   app.client.state.pending = receipt(); app.actions();

@@ -16,7 +16,7 @@ import { applyLocks, createStore, isStart, isStartStep, locks, messageLine } fro
 import { createQueue, EMPTY, REFUSALS, resultCode, resultText, type Job, type JobOptions, type Kind, type Outcome } from './queue';
 import { draftFromGame, finishStart, playNow, quickStart, setupBusy, setupScreen, setupStarting, setupSync } from './screens/setup';
 import { readSetup } from './screens/setup-model';
-import { friendScreen } from './screens/friend';
+import { finishCancel, friendScreen } from './screens/friend';
 import { joinScreen, joinSync } from './screens/join';
 import { finishComputer, finishHandoff, waitPoll, waitScreen, waitSync } from './screens/wait';
 import { lobbyPoll, lobbyScreen, lobbySync } from './screens/lobby';
@@ -134,14 +134,15 @@ function resend(command: Pending): Record<string, unknown> {
 }
 /**
  * The continuation of a resent command (design §5.2): the step that its first caller would have run after it. A start
- * or a setup step finishes the start, a Seat command finishes Seat, and the computer handoff keeps its Create and
- * Choose steps. Each other command routes as its reply says. It replaces the waiting start and the Retry capture listeners.
+ * or a setup step finishes the start, a Seat command finishes Seat, the computer handoff keeps its Create and
+ * Choose steps, and a friend Cancel goes to Play. Each other command routes as its reply says. It replaces the waiting start and the Retry capture listeners.
  */
 function continuation(command: Pending): ((next: View, origin: Job) => Promise<unknown>) | undefined {
   if (command.screen === 'wait' && command.name === 'kingdown_create') return finishComputer;
   if (isStartStep(command)) return (next, origin) => finishStart(next, origin, command.king ?? null);
   if (command.screen === 'seat') return finishSeat;
   if (command.screen === 'wait' && command.name === 'kingdown_choose') return finishHandoff;
+  if (command.screen === 'friend' && command.name === 'kingdown_abort') return finishCancel;
 }
 /** The tools that change no game and no account: they run as reads, beside the lane (design §2). */
 export const READ_TOOLS = ['kingdown_get', 'kingdown_games', 'kingdown_lobby', 'kingdown_profile'];

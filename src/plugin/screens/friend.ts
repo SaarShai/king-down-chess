@@ -10,6 +10,8 @@ import { errorText } from '../client';
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 export const icon = (name: string) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 export { featureNames };
+/** After Cancel: drop the game's code and go to Play. A retried Cancel runs it as its continuation. */
+export function finishCancel(next: View) { codes.delete(next.game_id); navigate('play'); return Promise.resolve(); }
 export function features(options: Options | null | undefined, words = false) {
   const span = document.createElement('span'); span.className = 'feats';
   if (words) { span.textContent = ruleNames(options); return span; }
@@ -55,7 +57,7 @@ export function friendScreen() {
   $('friend-share').onclick = () => { if (invite) void sendInvite(inviteText(invite.code, view.options), $('friend-copy-status')); };
   $('friend-copy').onclick = () => { if (invite) void sendInvite(inviteText(invite.code, view.options), $('friend-copy-status'), false); };
   $('friend-new').onclick = () => void makeCode(view);
-  $('friend-cancel').onclick = async () => { const next = await call('kingdown_abort', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision }, true, false, false); if (next) { codes.delete(view.game_id); navigate('play'); } };
+  $('friend-cancel').onclick = async () => { const next = await call('kingdown_abort', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision }, true, false, false); if (next) finishCancel(next); };
   // Create routes before the inbox read. A remount reads the inbox first and never renews the invite.
   if (!invite && !attempted.has(view.game_id) && !memory.games.some(game => game.game_id === view.game_id)) void makeCode(view);
 }
