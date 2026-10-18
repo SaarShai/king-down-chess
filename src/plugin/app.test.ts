@@ -268,6 +268,56 @@ it('keeps Home when an older automatic Choose fails', async () => {
   app.navigate('play'); expect((await import('./state')).messageLine(app.store.page()).action).toBe('retry');
 });
 
+it.each(['failed', 'superseded'])('keeps the quick start flag off a later move after a %s Play now', async end => {
+  const app = await mounted(), setup = await import('./screens/setup'), { isStartStep, messageLine } = await import('./state');
+  let release!: (value: unknown) => void;
+  transport.call.mockImplementation(async ({ name }) => {
+    if (name === 'kingdown_create') return end === 'failed' ? { content: [{ type: 'text', text: 'Lost Create reply' }], isError: true } : new Promise(resolve => { release = resolve; });
+    if (name === 'kingdown_move') throw new Error('Lost move reply');
+    return { content: [], _meta: { games: [] } };
+  });
+  setup.playNow(); await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.pending).toMatchObject({ name: 'kingdown_create', quick: true });
+  if (end === 'superseded') {
+    // A newer chat result detaches the Create; its late success clears its own state.pending.
+    transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'home' }, _meta: { board_id: 'board-b' } });
+    await vi.advanceTimersByTimeAsync(0);
+    release({ content: [], _meta: { view: { ...game, game_id: 'solo-a000', kind: 'solo', status: 'setup', seat: 0 } } }); await vi.advanceTimersByTimeAsync(0);
+    expect(app.client.state.pending).toBeUndefined();
+  }
+  app.routeView(game);
+  await app.send('kingdown_move', { game_id: game.game_id, command_id: 'move', expected_revision: 1, actions: ['e2-e4'] }, { retain: true });
+  const pending = app.client.state.pending!;
+  expect(pending).toMatchObject({ name: 'kingdown_move', screen: 'board', error: 'Lost move reply' });
+  expect(pending.quick).toBeUndefined(); expect(isStartStep(pending)).toBe(false);
+  app.navigate('play'); expect(messageLine(app.store.page()).text).toBe('');
+});
+
+it.each(['kingdown_choose', 'kingdown_get'])('keeps a failed start %s on Play after the player opens Settings', async failed => {
+  const app = await mounted(), setup = await import('./screens/setup'), { locks, messageLine } = await import('./state');
+  const saved = (await import('./screens/setup-model')).readSetup(null);
+  saved.options = { ...saved.options, cards: false, kingPowers: true, arrangement: false }; saved.king = { king: 'Flame', power: 'Haste' };
+  app.memory.settings = { ...settings, last_setup: { ...saved, options: { ...saved.options, pool: [...saved.options.pool], cardPool: [...saved.options.cardPool] } } };
+  const created = { ...game, kind: 'solo', status: 'setup', seat: 0, draw: 'RNBQKBNR', options: saved.options };
+  const playing = { ...created, status: 'playing', revision: 2, fen: 'position before the rules read' };
+  let release!: (value: unknown) => void, sends = 0;
+  transport.call.mockImplementation(async ({ name }) => {
+    if (name === 'kingdown_create') return new Promise(resolve => { release = resolve; });
+    if (name === failed && ++sends === 1) throw new Error('Lost step reply');
+    return { content: [], _meta: name === 'kingdown_choose' ? { view: playing } : name === 'kingdown_get' ? { view: { ...playing, rules: {} } } : { games: [] } };
+  });
+  app.navigate('play'); setup.playNow(); await vi.advanceTimersByTimeAsync(0);
+  // The Create waits past 5 s, so Settings is free, and the player opens it.
+  app.navigate('settings');
+  release({ content: [], _meta: { view: created } }); await vi.advanceTimersByTimeAsync(0);
+  const pending = app.client.state.pending!;
+  expect(pending).toMatchObject({ name: failed, screen: 'play', quick: true, error: 'Lost step reply' });
+  expect(locks(app.store.page()).start).toBe(true);
+  app.navigate('play'); expect(messageLine(app.store.page())).toMatchObject({ text: 'Lost step reply', action: 'retry' });
+  await app.send(pending.name, pending.args, { retain: true, retry: true });
+  expect(app.client.state.screen).toBe('board'); expect(app.client.state.pending).toBeUndefined();
+});
+
 it('keeps a newer list after navigation in the same epoch', async () => {
   const app = await mounted(); app.routeView(game);
   let release!: (value: unknown) => void, lists = 0;

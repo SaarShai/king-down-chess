@@ -14,7 +14,7 @@ import { runPoll, type PollTarget } from './poll';
 import { createRouter } from './router';
 import { applyLocks, createStore, isStart, isStartStep, locks, messageLine } from './state';
 import { createQueue, EMPTY, REFUSALS, resultCode, resultText, type Job, type JobOptions, type Kind, type Outcome } from './queue';
-import { draftFromGame, finishStart, playNow, quickStart, setupBusy, setupScreen, setupStarting, setupSync } from './screens/setup';
+import { draftFromGame, finishStart, playNow, setupBusy, setupScreen, setupStarting, setupSync } from './screens/setup';
 import { readSetup } from './screens/setup-model';
 import { finishCancel, friendScreen } from './screens/friend';
 import { joinScreen, joinSync } from './screens/join';
@@ -139,7 +139,7 @@ function resend(command: Pending): Record<string, unknown> {
  */
 function continuation(command: Pending): ((next: View, origin: Job) => Promise<unknown>) | undefined {
   if (command.screen === 'wait' && command.name === 'kingdown_create') return finishComputer;
-  if (isStartStep(command)) return (next, origin) => finishStart(next, origin, command.king ?? null);
+  if (isStartStep(command)) return (next, origin) => finishStart(next, origin, command.king ?? null, { screen: command.screen, quick: !!command.quick });
   if (command.screen === 'seat') return finishSeat;
   if (command.screen === 'wait' && command.name === 'kingdown_choose') return finishHandoff;
   if (command.screen === 'friend' && command.name === 'kingdown_abort') return finishCancel;
@@ -186,7 +186,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
   const quiet = job.options.quiet ?? false, user = job.options.user ?? true, signal = job.options.signal;
   const before = view;
   const game = typeof args.game_id === 'string' ? args.game_id : name === 'kingdown_get' ? view?.game_id : undefined;
-  const commandScreen = state.screen === 'home' && (quickStart() || ['kingdown_create', 'kingdown_find'].includes(name)) ? 'play' : state.screen;
+  const commandScreen = job.options.screen ?? (state.screen === 'home' && ['kingdown_create', 'kingdown_find'].includes(name) ? 'play' : state.screen);
   // A read and a detachable write give way to a newer epoch, and a teardown stops every job. A sticky write keeps its
   // own state.pending and refusal while its epoch stays current.
   const late = () => queue.closed() || (job.sticky ? !!signal?.aborted : !queue.current(job) || (quiet && view !== before) || !!signal?.aborted);
@@ -210,7 +210,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
   const body = async (): Promise<Outcome> => {
     try {
       if (retain) {
-        if (state.pending?.name !== name || state.pending.args !== args) state.pending = { name, args, ...(game && { game_tag: game.slice(0, 8) }), screen: commandScreen, ...(quickStart() && { quick: true }), ...(job.options.king !== undefined && { king: job.options.king }) };
+        if (state.pending?.name !== name || state.pending.args !== args) state.pending = { name, args, ...(game && { game_tag: game.slice(0, 8) }), screen: commandScreen, ...(job.options.quick && { quick: true }), ...(job.options.king !== undefined && { king: job.options.king }) };
         own = state.pending;
         state.pending.error = undefined; state.pending.error_screen = undefined; client.save();
       }
