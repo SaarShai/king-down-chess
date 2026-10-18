@@ -178,10 +178,25 @@ suite('ChatGPT tools on PostgreSQL', () => {
    expect(await joining.preview(guest, code)).toMatchObject({ code, colour: 'black', creator: { handle: `prefer-host-${tag}` } });
    expect(await joining.join(guest, code)).toMatchObject({ game_id: game, seat: 1, revision: 1 });
    expect(await joining.join(guest, code)).toMatchObject({ game_id: game, seat: 1, revision: 1 });
+   await expect(joining.preview(oldActor, code)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
+   await expect(joining.join(oldActor, code)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
    expect((await lock.query('select used_by,used_at from public.game_invites where game_id=$1', [oldGame])).rows[0]).toEqual({ used_by: null, used_at: null });
    expect((await lock.query('select user_id from public.game_players where game_id=$1 and seat=0', [oldGame])).rows[0]).toEqual({ user_id: null });
    expect((await lock.query('select status,revision from public.games where id=$1', [oldGame])).rows[0]).toEqual({ status: 'waiting', revision: 0 });
    expect((await lock.query("select count(*)::int as n from public.game_commands where game_id=$1 and kind='join'", [oldGame])).rows[0].n).toBe(0);
+  } finally { await lock.query('rollback'); lock.release(); await pool.end(); }
+ });
+
+ it('checks the code-try limit before any invitation lookup', async () => {
+  const guest = await user('code-limit');
+  await admin.query('insert into public.invite_code_tries(user_id,tries) values($1,10)', [guest]);
+  const lock = await admin.connect(), pool = new pg.Pool({ connectionString: admin.options.connectionString, max: 1, options: '-c lock_timeout=1000' });
+  try {
+   await lock.query('begin');
+   await lock.query('lock table public.game_invites in access exclusive mode');
+   const games = new GameService(new PostgresMatchStore(pool));
+   await expect(games.preview(guest, 'K7QX2M')).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429 });
+   await expect(games.join(guest, 'K7QX2M')).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429 });
   } finally { await lock.query('rollback'); lock.release(); await pool.end(); }
  });
 

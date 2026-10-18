@@ -369,7 +369,11 @@ export class GameService {
   const key = typeof tokenOrCode === 'string' ? tokenOrCode.trim() : '', token = /^[A-Za-z0-9_-]{43}$/.test(key), code = key.toUpperCase().replace(/[\s-]/g, '');
   if (!token && !/^[A-HJKMNP-Z2-9]{6}$/.test(code)) fail('INVALID_INPUT', 400, 'Invalid invitation');
   if (!token) await this.store.codeTry(actor); // a 6-character code can be guessed; a 43-character token cannot
-  return { column: token ? 'token_hash' : 'code_hash', value: token ? hash(key) : this.codeHash(code), code: token ? key : code };
+  let value = token ? hash(key) : this.codeHash(code);
+  // shortcut: legacy codes last at most FRIEND_CODE_DAYS after this build is published, remove this fallback after that.
+  if (!token) value = (await this.store.pool.query(`select code_hash from public.game_invites where code_hash=$1 or code_hash=$2
+   order by (code_hash=$1) desc limit 1`, [value, hash(code)])).rows[0]?.code_hash ?? value;
+  return { column: token ? 'token_hash' : 'code_hash', value, code: token ? key : code };
  }
  async preview(actor: string, tokenOrCode: unknown): Promise<JoinPreview> {
   actor = id(actor); const { column, value, code } = await this.invitation(actor, tokenOrCode);
