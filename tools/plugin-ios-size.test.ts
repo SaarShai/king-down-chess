@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import type { Browser, FrameLocator, Page } from 'playwright';
+import type { Browser, FrameLocator, Locator, Page } from 'playwright';
 import { launch, STEP } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { hitSizes } from './lib/plugin-hit-sizes.mjs';
@@ -25,6 +25,17 @@ async function waitForBoardPaint(frame: FrameLocator) {
     for (let run: Animation[]; (run = board.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
   });
+}
+// Keep real pointer input without WebKit's stalled locator geometry check. Check the hit target in the frame.
+async function clickButton(page: Page, button: Locator) {
+  const pane = await page.locator('iframe').evaluate(e => ({ x: e.getBoundingClientRect().x, y: e.getBoundingClientRect().y }));
+  const point = await button.evaluate((button: HTMLButtonElement) => {
+    const r = button.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + r.height / 2;
+    return { x, y, hit: document.elementFromPoint(x, y)?.closest('button') === button,
+      enabled: !button.disabled && button.getAttribute('aria-disabled') !== 'true' };
+  });
+  expect(point.hit).toBe(true); expect(point.enabled).toBe(true);
+  await page.mouse.click(pane.x + point.x, pane.y + point.y);
 }
 it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]])('reserves one bottom gap at %i × %i with insets %i/%i', async (width, height, top, bottom, gap) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
@@ -79,7 +90,9 @@ it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568
     expect(await frame.locator('#app-frame').evaluate(e => innerHeight - e.getBoundingClientRect().bottom)).toBe(Math.max(96, bottom));
     expect(await textFits()).toEqual([]);
     await expect.poll(canvasWidth).toBeGreaterThanOrEqual(min - (width < height ? 4 : 0));
-    await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
+    await frame.locator('#seat-ready').scrollIntoViewIfNeeded();
+    await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await frame.locator('#app-frame').evaluate(e => innerHeight - e.getBoundingClientRect().bottom)).toBe(Math.max(96, bottom));
     await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin - (width < height ? 4 : 0));
     expect(await frame.locator('#context-note').textContent()).toBe('');
@@ -129,7 +142,9 @@ it('sizes the seat and the board from their screens, with no viewport units and 
     await frame.locator('#board[aria-busy="false"]').waitFor();
     await waitForBoardPaint(frame);
     expect(await fill()).toBeGreaterThan(0.75);
-    await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
+    await frame.locator('#seat-ready').scrollIntoViewIfNeeded();
+    await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     await waitForBoardPaint(frame);
     expect(await fill()).toBeGreaterThan(0.75);
   } finally { await page.close(); }
@@ -156,7 +171,9 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
         await frame.locator(`#${id}`).scrollIntoViewIfNeeded();
         expect(await frame.locator(`#${id}`).evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
       }
-      await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+      await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
+      await frame.locator('#seat-ready').scrollIntoViewIfNeeded();
+      await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       await frame.locator('#board canvas').waitFor({ state: 'visible' });
       await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin - (width < height ? 4 : 0));
       expect(await frame.locator('.page-sheet').evaluate(e=>e.scrollTop)).toBe(0);
@@ -184,7 +201,10 @@ it('keeps 44 px card and power targets in two player rows', async () => {
     await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
     await frame.getByRole('checkbox',{name:'Arrangement',exact:true}).check();
     await frame.getByRole('checkbox',{name:'Cards',exact:true}).check(); await frame.getByRole('checkbox',{name:'King powers',exact:true}).check();
-    await frame.locator('#setup-start').click(); await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#setup-start').click();
+    await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
+    await frame.locator('#seat-ready').scrollIntoViewIfNeeded();
+    await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     // Measure the coins at rest, after the start deal (Lively motion).
     // A strip rebuild can cancel a running coin animation and start it again, so wait until no motion runs.
     const bounds=await frame.locator('#game-table').evaluate(async e => {
@@ -230,7 +250,9 @@ it('returns focus to each sheet opener after a pointer opens the sheet', async (
     // A pointer click shows no focus ring.
     await frame.locator('#seat-shuffle').click();
     const ring = await frame.locator('#seat-shuffle').evaluate(e=>({focused:document.activeElement===e, ring:e.matches(':focus-visible')}));
-    await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
+    await frame.locator('#seat-ready').scrollIntoViewIfNeeded();
+    await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     await frame.locator('#board-menu:not(:disabled)').waitFor();
     for (const id of ['board-menu','moves-line','menu-resign','power-w','card-w-0']) await opens(id, '#board-sheet');
     for (const id of ['board-menu','moves-line','card-w-0']) await opens(id, '#board-sheet', '×');
@@ -270,7 +292,10 @@ it.each([
     await hall(page);
     await page.evaluate(safe => (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe }), { top, bottom, left, right });
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
-    await frame.locator('#setup-start').click(); await frame.locator('#seat-ready').click();
+    await frame.locator('#setup-start').click();
+    await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
+    await frame.locator('#seat-ready').scrollIntoViewIfNeeded();
+    await clickButton(page, frame.locator('#seat-ready'));
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     await frame.locator('#board[aria-busy="false"]').waitFor();
     const measure = () => frame.locator('#game-table').evaluate(e => ({ width: e.querySelector('canvas')!.getBoundingClientRect().width, side: getComputedStyle(e.querySelector('.table-side')!).display === 'grid' }));
@@ -303,7 +328,9 @@ it('opens Play from the seat and board Back buttons on a portrait phone', async 
     await frame.getByRole('button', { name: 'Back to Play', exact: true }).click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await frame.locator(`#games-list [data-game-id="${gameId}"]`).click();
-    await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
+    await frame.locator('#seat-ready').scrollIntoViewIfNeeded();
+    await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await frame.locator('#page-head').isVisible()).toBe(false);
     await frame.getByRole('button', { name: 'Back to Play', exact: true }).click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
@@ -488,7 +515,9 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
         await expect.poll(() => canvasWidth(frame), 'seat after Shuffle').toBeGreaterThanOrEqual(192);
       }
       for (const id of ['seat-shuffle', 'seat-menu', 'seat-ready']) expect(await reachable(frame, id), id).toBe(true);
-      await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+      await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
+      await frame.locator('#seat-ready').scrollIntoViewIfNeeded();
+      await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       await frame.locator('#board[aria-busy="false"]').waitFor();
       await waitForBoardPaint(frame);
       await expect.poll(() => canvasWidth(frame), all ? 'all-features board' : 'board').toBeGreaterThanOrEqual(192);
@@ -505,7 +534,9 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
         }
         await frame.locator('#board[data-animating="false"]').waitFor();
         await page.evaluate(() => { (window as any).holdNext = 'kingdown_computer'; });
-        await frame.locator('#end-turn').click();
+        await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
+        await frame.locator('#end-turn').scrollIntoViewIfNeeded();
+        await clickButton(page, frame.locator('#end-turn'));
         await expect.poll(() => page.evaluate(() => { const host = window as any; return { sent: host.harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.actions), moved: host.harnessView.revision > 0 }; })).toEqual({ sent: [['e2-e4']], moved: true });
         // A reply must keep the player's scroll while the lower controls are in view.
         await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
@@ -529,8 +560,11 @@ it('keeps the board screen unscrolled without cards where the rows fit under 320
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     for (const name of ['Fairy pieces', 'Arrangement', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).setChecked(['Fairy pieces', 'Arrangement'].includes(name));
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
-    await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
+    await frame.locator('#seat-ready').scrollIntoViewIfNeeded();
+    await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     await frame.locator('#board[aria-busy="false"]').waitFor();
+    await waitForBoardPaint(frame);
     const screen = frame.locator('[data-screen="board"]');
     expect(await screen.evaluate(e => e.scrollHeight - e.clientHeight)).toBe(0);
     expect(await frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width)).toBeGreaterThanOrEqual(192);
@@ -569,7 +603,9 @@ it.each([[320, 568, 63, 84, true, 214, 109], [393, 852, 102, 118, true, 382, 300
     const canvasWidth = () => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
     await waitForBoardPaint(frame);
     await expect.poll(canvasWidth).toBe(seat);
-    await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
+    await frame.locator('#seat-ready').scrollIntoViewIfNeeded();
+    await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     await waitForBoardPaint(frame);
     await expect.poll(canvasWidth).toBe(board);
