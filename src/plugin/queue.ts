@@ -21,6 +21,8 @@ export type Kind = 'read' | 'write';
 export type JobOptions = {
   origin?: Job;
   king?: KingChoice | null;
+  /** A step of Play now: its state.pending keeps the quick start (design §5.2). */
+  quick?: boolean;
   then?: (view: View, origin: Job) => Promise<unknown>;
   retain?: boolean;
   quiet?: boolean;

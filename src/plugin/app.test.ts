@@ -268,6 +268,31 @@ it('keeps Home when an older automatic Choose fails', async () => {
   app.navigate('play'); expect((await import('./state')).messageLine(app.store.page()).action).toBe('retry');
 });
 
+it.each(['failed', 'superseded'])('keeps the quick start flag off a later move after a %s Play now', async end => {
+  const app = await mounted(), setup = await import('./screens/setup'), { isStartStep, messageLine } = await import('./state');
+  let release!: (value: unknown) => void;
+  transport.call.mockImplementation(async ({ name }) => {
+    if (name === 'kingdown_create') return end === 'failed' ? { content: [{ type: 'text', text: 'Lost Create reply' }], isError: true } : new Promise(resolve => { release = resolve; });
+    if (name === 'kingdown_move') throw new Error('Lost move reply');
+    return { content: [], _meta: { games: [] } };
+  });
+  setup.playNow(); await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.pending).toMatchObject({ name: 'kingdown_create', quick: true });
+  if (end === 'superseded') {
+    // A newer chat result detaches the Create; its late success clears its own state.pending.
+    transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'home' }, _meta: { board_id: 'board-b' } });
+    await vi.advanceTimersByTimeAsync(0);
+    release({ content: [], _meta: { view: { ...game, game_id: 'solo-a000', kind: 'solo', status: 'setup', seat: 0 } } }); await vi.advanceTimersByTimeAsync(0);
+    expect(app.client.state.pending).toBeUndefined();
+  }
+  app.routeView(game);
+  await app.send('kingdown_move', { game_id: game.game_id, command_id: 'move', expected_revision: 1, actions: ['e2-e4'] }, { retain: true });
+  const pending = app.client.state.pending!;
+  expect(pending).toMatchObject({ name: 'kingdown_move', screen: 'board', error: 'Lost move reply' });
+  expect(pending.quick).toBeUndefined(); expect(isStartStep(pending)).toBe(false);
+  app.navigate('play'); expect(messageLine(app.store.page()).text).toBe('');
+});
+
 it('keeps a newer list after navigation in the same epoch', async () => {
   const app = await mounted(); app.routeView(game);
   let release!: (value: unknown) => void, lists = 0;
