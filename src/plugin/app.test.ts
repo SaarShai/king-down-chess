@@ -563,6 +563,23 @@ it('keeps the inline start for Retry when the first Settings read fails', async 
   expect(transport.call.mock.calls.find(([input]) => input.name === 'kingdown_choose')?.[0].arguments.king).toEqual(saved.king);
   expect(app.client.state.pending).toBeUndefined(); expect(app.memory.view?.status).toBe('playing');
 });
+it('offers Try again when the first Settings read fails with no start to retry, and clears it when a later mount reads them', async () => {
+  // A refused read (429 while an older frame's calls still run) left Play off with no way out but a new chat result.
+  let failed = true;
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_settings' && failed
+    ? { content: [{ type: 'text', text: 'Too many active requests for your account.' }], isError: true }
+    : { content: [], _meta: name === 'kingdown_settings' ? { settings, me: { handle: 'player', icon: 'spirit' } } : { games: [] } });
+  const app = await import('./app'), { messageLine } = await import('./state');
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'home' }, _meta: { board_id: 'board-a' } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.memory.settings).toBeUndefined();
+  expect(messageLine(app.store.page())).toMatchObject({ text: 'Too many active requests for your account.', action: 'connect' });
+  failed = false;
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'home' }, _meta: { board_id: 'board-b' } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.memory.settings).toEqual(settings);
+  expect(messageLine(app.store.page()).text).toBe('');
+});
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 it('settles a retained start failure while its command stays available for Retry', async () => {

@@ -57,6 +57,25 @@ All four reviews passed. Merged at `65c7058f`; `tsc` passes.
   the Back when it queues the name screen, and the Resume keeps it. Test:
   'keeps the Join return through a collapse while its reply asks for a
   name' (red before the fix).
+- 4308852602 and 4308969434 (P2): a reopened Profile or Open games
+  started a second pair of reads while the first pair still held server
+  slots, so the fourth call got 429. A sweep of the client found the same
+  fault in six more paths: each return to Play, Try again, the board Menu,
+  the wait watch, Unblock, and a mix of screens. One gate in
+  `client.call` now sends at most three calls at once for each widget; a
+  fourth call waits, the oldest first, and a mount abort drops a waiting
+  call. It replaces the Profile counter of `96c95bd7` and `67d66155`.
+  Test: 'sends at most three calls at once, the oldest waiting call
+  next, and drops a waiting call that its mount aborts' in
+  `src/plugin/client.test.ts` (red before the fix).
+- The same sweep: a first Settings read that failed with no start to
+  retry left Play off with no way out. It now shows the 'connect' notice,
+  whose Try again loads the widget again, and a later good Settings read
+  clears it. Test: 'offers Try again when the first Settings read fails
+  with no start to retry, and clears it when a later mount reads them'.
+  Not changed: a call that times out on the client (10 s) frees its gate
+  slot while the server still holds its own; this needs a server that
+  takes more than 10 s for each of three calls.
 
 ## CI
 

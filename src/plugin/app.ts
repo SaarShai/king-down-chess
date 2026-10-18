@@ -364,7 +364,7 @@ async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
       const settings = await client.call('kingdown_settings', {}, { limit: false, signal });
       if (stale()) return;
       if (settings.isError) throw new Error(resultText(settings));
-      remember(settings); await applySettings();
+      remember(settings); await applySettings(); store.dispatch({ type: 'connected' });
     }
     if (stale()) return;
     if (result.isError) {
@@ -408,7 +408,8 @@ async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
   } catch (error) {
     if (!stale()) {
       if (!memory.settings && state.pending && isStartStep(state.pending) && !queue.inflight()) failPending(errorText(error), state.pending, job);
-      else store.dispatch({ type: 'error', text: errorText(error) });
+      // With no settings the page cannot start a game; its Try again loads the widget again (design §3.2 'connect').
+      else store.dispatch({ type: memory.settings ? 'error' : 'connect', text: errorText(error) });
     }
   }
   finally {
