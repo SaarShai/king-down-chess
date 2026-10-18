@@ -445,6 +445,35 @@ it('keeps Join through handle Save and sends nothing when Back cancels it', asyn
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });
+it.each(['join', 'accept'])('keeps %s through a collapse to inline on the name screen and Save finishes it', async action => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const created = await buddy(page, 'kingdown_create', { kind: action === 'join' ? 'friend' : 'random', options, colour: 'white' });
+    const code = action === 'join' ? (await buddy(page, 'kingdown_invite', { game_id: created._meta.view.game_id })).structuredContent.code : '';
+    await frame.locator('html').evaluate((_, tool) => {
+      const app = (window as any).harnessApp, send = app.client.call; let blocked = true;
+      app.client.call = async (name: string, args: any, opts: any) => {
+        if (name === 'kingdown_handle' && !args?.check) blocked = false;
+        if (name === tool && !args?.preview && blocked) return { isError: true, content: [{ type: 'text', text: 'Choose a handle first' }], _meta: { code: 'HANDLE_NEEDED' } };
+        return send(name, args, opts);
+      };
+    }, `kingdown_${action}`);
+    await hall(page);
+    if (action === 'join') {
+      await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(code); await frame.locator('#join').click();
+      await frame.locator('#join-confirm').click();
+    } else {
+      await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click();
+      await frame.locator('#lobby-list .accept').first().click();
+    }
+    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+    // The host control collapses the widget on the name screen; Resume opens it again.
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    await frame.locator('#home-card').waitFor({ state: 'visible' });
+    await frame.locator('#home-play').click(); await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+    await frame.locator('#save-handle').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+  } finally { await page.close(); }
+});
 it('shows the lobby name beside Accept without a button over the text', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

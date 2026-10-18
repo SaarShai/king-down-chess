@@ -458,6 +458,8 @@ const connection = app.connect().then(() => {
 // Inline routes wait behind the home card. Only a button requests fullscreen.
 const GAME_SCREENS: Screen[] = ['seat', 'board', 'wait', 'friend', 'end'];
 let displayMode: string = 'inline', asking = false, collapsed = false, resume: Screen | undefined, target: Screen | undefined, gamesFirst = false, openHallOnExpand = !savedScreen;
+// A collapse on the name screen keeps its Back screen for the next navigation, its Resume.
+let keepHandleBack = false;
 const canFullscreen = () => app.getHostContext()?.availableDisplayModes?.includes('fullscreen') ?? true;
 /** The widget state keeps the waiting screen only while it waits. */
 function unqueue() { target = undefined; delete state.queued; }
@@ -483,14 +485,16 @@ function scrollNewGame() {
   body.scrollTop += heading.getBoundingClientRect().top - body.getBoundingClientRect().top;
   newGameFirst = false;
 }
-export function navigate(screen: Screen) {
+/** `queued` is the screen that waits behind the home card; it is set before the page syncs, so its memory stays. */
+export function navigate(screen: Screen, queued?: Screen) {
+  const keepBack = keepHandleBack; keepHandleBack = queued === 'handle';
   if (screen !== 'home' && displayMode === 'inline' && canFullscreen()) {
     resume = state.queued = screen; if (asking) target = screen; client.save(); return;
   }
   unqueue();
-  resume = undefined;
+  resume = queued; if (queued) state.queued = queued;
   if (screen === 'home' && !mounting()) openHallOnExpand = false;
-  if (screen === 'handle' && state.screen !== 'handle') { handleBack = state.screen === 'settings' ? 'settings' : state.pending?.screen ?? state.screen; nameForCaller = false; }
+  if (screen === 'handle' && state.screen !== 'handle' && !keepBack) { handleBack = state.screen === 'settings' ? 'settings' : state.pending?.screen ?? state.screen; nameForCaller = false; }
   if (screen === 'settings' && !['settings','handle'].includes(state.screen)) {
     if (['board','seat'].includes(state.screen)) state.settings_back = state.screen; else delete state.settings_back;
   }
@@ -520,7 +524,7 @@ function hostContext(context: McpUiHostContext | undefined) {
   for (const edge of ['top', 'right', 'bottom', 'left'] as const) document.documentElement.style.setProperty(`--safe-${edge}`, `${Math.max(0, context.safeAreaInsets?.[edge] ?? 0)}px`);
   if (context.displayMode === 'inline' && displayMode === 'fullscreen' && state.screen !== 'home' && canFullscreen()) {
     const screen = state.screen;
-    displayMode = 'inline'; navigate('home'); resume = state.queued = screen; client.save(); collapsed = true; store.sync();
+    displayMode = 'inline'; navigate('home', screen); collapsed = true; store.sync();
   }
   const showHall = context.displayMode === 'fullscreen' && openHallOnExpand;
   if (context.displayMode) displayMode = context.displayMode;

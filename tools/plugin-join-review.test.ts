@@ -164,6 +164,41 @@ it.each([true, false])('keeps an inline chat join for Resume (good code %s)', as
     }
   } finally { if (game_id) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } }); await page.close(); }
 });
+it('keeps the Join preview when the player collapses to inline before Resume', async () => {
+  const page = await open(), frame = page.frameLocator('iframe'); let game_id: string | undefined;
+  try {
+    await expand(page);
+    const offered = await tool(page, true, 'kingdown_create', { kind: 'friend', colour: 'black', options });
+    expect(offered.isError).toBeFalsy(); game_id = offered._meta.view.game_id;
+    const code = (await tool(page, true, 'kingdown_invite', { game_id })).structuredContent.code;
+    await page.evaluate(result => (window as any).harnessShow(result, true), await tool(page, false, 'kingdown_open', { code }));
+    await frame.locator('#join-confirm:not([hidden])').waitFor();
+    // The host control collapses the widget; the home card offers Resume.
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    await frame.locator('#home-card').waitFor({ state: 'visible' });
+    await frame.locator('#home-play').click();
+    await frame.locator('[data-screen="join"]:not([hidden])').waitFor();
+    await frame.locator('#join-confirm:not([hidden])').waitFor();
+    expect(await frame.locator('#join-help').textContent()).toBe('Review this game before you join.');
+  } finally { if (game_id) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } }); await page.close(); }
+});
+// The name screen's Back goes to the screen that opened it; only a collapse on the name screen keeps its Back for Resume.
+it.each([['inline', 'home'], ['fullscreen', 'home'], ['collapse', 'settings']])('gives the name screen opened from home the right Back (%s)', async (mode, back) => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const go = (screen: string) => frame.locator('html').evaluate((_, screen) => (window as any).harnessApp.navigate(screen), screen);
+  try {
+    if (mode !== 'inline') await expand(page);
+    if (mode === 'collapse') {
+      await go('settings'); await go('handle'); await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+      await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    } else { if (mode === 'fullscreen') await go('home'); await go('handle'); }
+    if (mode !== 'fullscreen') { await frame.locator('#home-card').waitFor({ state: 'visible' }); await frame.locator('#home-play').click(); }
+    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
+    expect(await frame.locator('#page-back').textContent()).toBe(back === 'settings' ? '‹ Settings' : '‹ Play');
+    await frame.locator('#page-back').click();
+    await frame.locator(`[data-screen="${back}"]:not([hidden])`).waitFor();
+  } finally { await page.close(); }
+});
 it('keeps the handle field blocked until the mount identity read ends', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
