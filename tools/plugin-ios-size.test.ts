@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import type { Browser, FrameLocator, Page } from 'playwright';
-import { launch } from './lib/checks.mjs';
+import { launch, STEP } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { hitSizes } from './lib/plugin-hit-sizes.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
-vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
+vi.setConfig({ testTimeout: 120_000 * STEP, hookTimeout: 120_000 * STEP, expect: { poll: { timeout: 1000 * STEP } } });
 // Test the built page. The build gives the seat its table styles.
 // Host copies test sizes and insets. They do not replace a native ChatGPT iOS check.
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -41,7 +41,7 @@ it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]
 // Rule and state text stay whole. The short-phone floors include the 4 px touch-bar padding.
 it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568, 63, 180, 135, 95]])('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min, boardMin) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
-  page.setDefaultTimeout(10_000);
+  page.setDefaultTimeout(10_000 * STEP);
   try {
     await page.goto(harness.url);
     await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
@@ -104,7 +104,7 @@ async function hall(page: Page) {
 }
 it('sizes the seat and the board from their screens, with no viewport units and the short-phone rows', async () => {
   const page = await browser.newPage({ viewport: { width: 393, height: 760 }, hasTouch: true }), frame = page.frameLocator('iframe');
-  page.setDefaultTimeout(10_000);
+  page.setDefaultTimeout(10_000 * STEP);
   try {
     await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').waitFor();
     // A host can keep vh and dvh at an old height (here 350 px); the seat and the board must not depend on them.
@@ -138,7 +138,7 @@ it('sizes the seat and the board from their screens, with no viewport units and 
 // The floors keep whole rule text and include the 4 px touch-bar padding on short phones.
 it('keeps short-phone boards large, landscape controls reachable and the end table in its box', async () => {
   for (const [width,height,top,bottom,left,right,min,boardMin] of [[320,568,20,0,0,0,235,190],[375,667,20,0,0,0,285,285],[393,852,59,34,0,0,380,380],[440,956,59,34,0,0,430,430],[852,393,0,21,59,59,195,150],[852,393,59,34,0,0,140,95]]) {
-    const page=await browser.newPage({viewport:{width,height},isMobile:true,hasTouch:true}), frame=page.frameLocator('iframe'); page.setDefaultTimeout(10000);
+    const page=await browser.newPage({viewport:{width,height},isMobile:true,hasTouch:true}), frame=page.frameLocator('iframe'); page.setDefaultTimeout(10000 * STEP);
     try {
       await page.goto(harness.url); await hall(page);
       await page.evaluate(async safe => { await (window as any).harnessSetContext({displayMode:'fullscreen',safeAreaInsets:safe,deviceCapabilities:{touch:true}}); },{top,bottom,left,right});
@@ -203,7 +203,7 @@ it('keeps 44 px card and power targets in two player rows', async () => {
 // WebKit does not focus a clicked button. Each sheet must still give focus back to the control that opened it.
 it('returns focus to each sheet opener after a pointer opens the sheet', async () => {
   const page=await browser.newPage({viewport:{width:393,height:852},hasTouch:true}), frame=page.frameLocator('iframe');
-  page.setDefaultTimeout(10_000);
+  page.setDefaultTimeout(10_000 * STEP);
   const focus: Record<string,string> = {};
   const active = () => frame.locator('html').evaluate(() => { const e = document.activeElement; return e ? e.id || e.tagName : 'none'; });
   const opens = async (id: string, sheet: string, close: 'Escape' | '×' = 'Escape') => {
@@ -337,7 +337,7 @@ it('shows each checked stone choice in light and dark mode', async () => {
 // Fault round 4 (device matrix M1, M4, M5, M11).
 async function hostPage(width: number, height: number, top: number, bottom: number) {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
-  page.setDefaultTimeout(10_000);
+  page.setDefaultTimeout(10_000 * STEP);
   await page.goto(harness.url);
   await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
   await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
@@ -382,9 +382,9 @@ it('gives each Android control a 48 px tap area at 360 × 800', async () => {
 it('reflows New game and a waiting friend invite at 200% zoom (197 CSS px)', async () => {
   const { page, frame } = await hostPage(197, 426, 51, 59);
   try {
-    for (const name of ['Computer', 'A friend', 'Computer']) await frame.getByRole('radio', { name, exact: true }).locator('..').click({ timeout: 3000 });
-    for (const name of ['Fairy pieces', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).check({ timeout: 3000 });
-    await frame.getByRole('radio', { name: 'Strong', exact: true }).locator('..').click({ timeout: 3000 });
+    for (const name of ['Computer', 'A friend', 'Computer']) await frame.getByRole('radio', { name, exact: true }).locator('..').click({ timeout: 3000 * STEP });
+    for (const name of ['Fairy pieces', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).check({ timeout: 3000 * STEP });
+    await frame.getByRole('radio', { name: 'Strong', exact: true }).locator('..').click({ timeout: 3000 * STEP });
     expect(await frame.locator('#setup-body').evaluate(e => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(1);
     // The segments wrap two to a line; a tap 1 px inside each edge selects that segment, not the one below.
     const misses = await frame.locator('#setup-body .seg-row label').evaluateAll(labels => labels.filter(l => (l as HTMLElement).offsetParent).flatMap(label => {
@@ -402,7 +402,7 @@ it('reflows New game and a waiting friend invite at 200% zoom (197 CSS px)', asy
       return b.top >= t.bottom - 1 || b.left >= t.right - 1;
     });
     expect(clear).toBe(true);
-    await frame.locator('#setup-pieces').click({ timeout: 3000 });
+    await frame.locator('#setup-pieces').click({ timeout: 3000 * STEP });
     const title = frame.getByRole('dialog', { name: 'Fairy pieces' }).locator('h2');
     expect(await title.evaluate(h => { const t = h.getBoundingClientRect(), x = h.parentElement!.querySelector('button')!.getBoundingClientRect(); return h.scrollWidth <= h.clientWidth && t.right <= x.left; })).toBe(true);
     await frame.getByRole('button', { name: 'Done', exact: true }).click();
@@ -451,9 +451,9 @@ it('keeps page-title words whole, the seat title short and the title at body siz
     expect(await title()).toMatchObject({ text: 'Pick a name and a picture', cut: [], belowBody: false });
     await frame.locator('#page-back').click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
     await frame.locator('#page-back').click();
-    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click({ timeout: 3000 });
-    await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).check({ timeout: 3000 });
-     await frame.locator('#setup-start').click({ timeout: 3000 }); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click({ timeout: 3000 * STEP });
+    await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).check({ timeout: 3000 * STEP });
+     await frame.locator('#setup-start').click({ timeout: 3000 * STEP }); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
      // Layout B hides this title in portrait. Keep the 197 px width and check it in landscape, where it shows.
      await page.setViewportSize({ width: 197, height: 196 });
      await page.evaluate(() => (window as any).harnessSetContext({ safeAreaInsets: { top: 0, bottom: 0, left: 0, right: 0 } }));
@@ -547,7 +547,7 @@ it('keeps the board screen unscrolled without cards where the rows fit under 320
 // its narrow opponent and player rows take two 44 px rows on the board. The touch bar adds 4 px; the short last-move row takes 24 px at short heights.
 it.each([[320, 568, 63, 84, true, 214, 109], [393, 852, 102, 118, true, 382, 300], [820, 600, 59, 34, false, 360, 338]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: touch, hasTouch: touch }), frame = page.frameLocator('iframe');
-  page.setDefaultTimeout(10_000);
+  page.setDefaultTimeout(10_000 * STEP);
   try {
     await page.goto(harness.url);
     await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });

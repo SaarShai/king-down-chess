@@ -4,10 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import type { Browser } from 'playwright';
-import { launch } from './lib/checks.mjs';
+import { launch, STEP } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 
-vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
+vi.setConfig({ testTimeout: 120_000 * STEP, hookTimeout: 120_000 * STEP, expect: { poll: { timeout: 1000 * STEP } } });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-preview-size-'));

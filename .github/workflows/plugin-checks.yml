@@ -87,7 +87,8 @@ jobs:
 
   browser-webkit:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP), and then the full plugin-ui check.
+    timeout-minutes: 45
     env:
       PLAYABLE_BROWSER: webkit
     steps:

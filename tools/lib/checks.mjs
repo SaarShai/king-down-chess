@@ -71,6 +71,13 @@ export function env(name) {
   return process.env[name] || defaults[name]();
 }
 
+/**
+ * The step-limit factor: 3 for WebKit on CI, else 1. GitHub's Linux runner draws WebKit in software, about three times
+ * slower than the Macs that set the limits (Saar, 2026-10-18: "Slower limits on CI WebKit"). It scales waits only; a
+ * checked timing (an animation length, a reply budget) never uses it.
+ */
+export const STEP = process.env.CI && process.env.PLAYABLE_BROWSER === 'webkit' ? 3 : 1;
+
 /** Opens WebKit or the Chromium channel that PLAYABLE_BROWSER names. */
 export const launch = ({ channel = env('PLAYABLE_BROWSER'), ...options } = {}) => channel === 'webkit'
   ? webkit.launch(options)

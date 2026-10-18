@@ -7,7 +7,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { env, isInside, outRoot } from './lib/checks.mjs';
+import { env, isInside, outRoot, STEP } from './lib/checks.mjs';
 import { firstFault as faultLine } from './lib/first-fault.mjs';
 import { SLOTS, releaseAll, runLockPath, takeAllSlots, takeLock, takeSlot } from './lib/lock.mjs';
 import { checks } from './lib/registry.mjs';
@@ -166,7 +166,7 @@ for (const c of selected) {
     writeRecord();
     const before = treeStatus(root);
     const result = await run(process.execPath, [c.script, ...(c.args ?? [])], {
-      log, limit: c.limit,
+      log, limit: c.limit * STEP,
       extraEnv: { PLAYABLE_URL: url, PLAYABLE_OUT: join(runDir, c.name), PLAYABLE_BROWSER: process.env.PLAYABLE_BROWSER || c.channel || env('PLAYABLE_BROWSER') },
     });
     exitIfInterrupted();

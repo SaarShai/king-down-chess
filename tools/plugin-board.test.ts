@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Browser, Locator, Page } from 'playwright';
-import { launch } from './lib/checks.mjs';
+import { launch, STEP } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { legalMoves, makeMove, parseRule, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
@@ -18,7 +18,7 @@ import { describeMove } from '../src/move-text';
 import { cardText, powerText, ruleLine } from '../src/powers-ui';
 import { PRESETS, designCode, fromPreset } from '../src/workshop/model';
 
-vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
+vi.setConfig({ testTimeout: 60_000 * STEP, hookTimeout: 60_000 * STEP, expect: { poll: { timeout: 1000 * STEP } } });
 
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, served: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => {
@@ -61,7 +61,7 @@ const edgeMisses = (root: Element) => [...root.querySelectorAll('button')].filte
 });
 async function open(next: View, width = 393, height = 852, clock = false, limit = 3000) {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true });
-  page.setDefaultTimeout(limit);
+  page.setDefaultTimeout(limit * STEP);
   if (clock) await page.clock.install();
   await page.goto(harness.url);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
@@ -413,7 +413,7 @@ it('names the power coin owner when both kings have the same power', async () =>
 
 it.each([[true, 393, 852], [true, 320, 568], [false, 393, 852]] as const)('uses the correct seat line for computer=%s at %i × %i', async (computer, width, height) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
-  page.setDefaultTimeout(3000);
+  page.setDefaultTimeout(3000 * STEP);
   const tool = async (path: string, name: string, args: Record<string, unknown>) => {
     const result = await (await page.request.post(new URL(path, served.url).href, { data: { name, arguments: args } })).json();
     expect(result.isError, JSON.stringify(result)).not.toBe(true); return result;
@@ -554,7 +554,7 @@ it('draws no fallback board before the stone loads', async () => {
 });
 
 it.each([[393, 852], [360, 740], [320, 568]])('serves 48 px targets on Seat and Board at %i × %i', async (width, height) => {
-  const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe'); page.setDefaultTimeout(2000);
+  const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe'); page.setDefaultTimeout(2000 * STEP);
   try {
     await page.goto(served.url); await frame.locator('#home-play:not(:disabled)').waitFor();
     await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
@@ -676,7 +676,7 @@ it('lays the mated king down only after the mating move ends', async () => {
       board.setFallen = (sq: number | null, animate?: boolean) => { host.fallen.push({ sq, animating: document.getElementById('board')!.dataset.animating, moving: host.moving }); setFallen(sq, animate); };
       host.harnessApp.routeView(next);
     }, { ...first, revision: 1, fen: post, turn: 1, status: 'finished', action: 'finished', result: { reason: 'checkmate', winner: 0 }, last_commands: [{ seq: 1, seat: 0, action: { type: 'turn', actions: [lan] }, at: '2026-10-15T00:00:01Z' }] });
-    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).fallen.some((c: any) => c.sq !== null && c.animating === 'false')), { timeout: 3000 }).toBe(true);
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).fallen.some((c: any) => c.sq !== null && c.animating === 'false')), { timeout: 3000 * STEP }).toBe(true);
     const calls = await frame.locator('html').evaluate(() => (window as any).fallen);
     expect(calls.filter((c: any) => c.sq !== null && c.animating === 'true')).toEqual([]);
     expect(calls.some((c: any) => c.animating === 'true')).toBe(true);
@@ -1577,7 +1577,7 @@ it.each(['playing', 'setup', 'waiting'] as const)('W7-04: keeps the draft throug
 });
 
 it.each(['teardown', 'close'] as const)('keeps the player strips fixed when a profile reply follows %s', async lifecycle => {
-  const page = await browser.newPage(); page.setDefaultTimeout(3000);
+  const page = await browser.newPage(); page.setDefaultTimeout(3000 * STEP);
   const frame = page.frameLocator('iframe');
   try {
     await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').waitFor();
