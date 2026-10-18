@@ -1149,6 +1149,10 @@ try {
     await page.evaluate(result => window.harnessShow(result), result);
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await page.evaluate(safeAreaInsets => window.harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets, deviceCapabilities: { touch: true } }), { top, bottom, left: 0, right: 0 });
+    await page.mainFrame().childFrames()[0].waitForFunction(({ top, bottom }) => {
+      const css = getComputedStyle(document.documentElement);
+      return document.body.dataset.touch === 'true' && parseFloat(css.getPropertyValue('--safe-top')) === top && parseFloat(css.getPropertyValue('--safe-bottom')) === bottom;
+    }, { top, bottom });
     return { page, frame };
   }
 
@@ -1207,6 +1211,7 @@ try {
       const host = await hostPage(width, height, top, bottom);
       try {
         await host.frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
+        await host.frame.locator('input[name="setup-mode"][value="friend"]:checked').waitFor({ state: 'attached' });
         await host.frame.locator('#setup-start').click();
         await host.frame.locator('.game-code span').first().waitFor();
         await host.frame.locator('html').evaluate(() => document.fonts.ready);
@@ -2157,20 +2162,30 @@ try {
     const viewport = page.viewportSize(), screen = frame.locator('[data-screen="board"]');
     const touch = browser.browserType().name()==='chromium' ? await page.context().newCDPSession(page) : undefined;
     const gesture = touch ? 'touch swipe' : 'wheel scroll';
-    async function swipe(x, y) {
+    async function expectScrollEnd() {
+      await screen.evaluate(el => {
+        window.harnessScrollEnded = false;
+        el.addEventListener('scrollend', () => { window.harnessScrollEnded = true; }, { once: true });
+      });
+    }
+    const scrollEnded = () => widget().waitForFunction(() => window.harnessScrollEnded);
+    async function swipe(x, y, distance = 500) {
+      await expectScrollEnd();
       if (touch) {
-        await touch.send('Input.synthesizeScrollGesture',{x,y,yDistance:-500,speed:800,gestureSourceType:'touch',preventFling:true});
-        return;
+        await touch.send('Input.synthesizeScrollGesture',{x,y,yDistance:-distance,speed:800,gestureSourceType:'touch',preventFling:true});
+      } else {
+        assert.deepEqual(await frame.locator('#board, #board canvas').evaluateAll(els=>els.map(el=>getComputedStyle(el).touchAction)),['pan-y','pan-y'],'WebKit parses vertical pan on the board and canvas');
+        await page.mouse.move(x,y); await page.mouse.wheel(0,distance);
       }
-      assert.deepEqual(await frame.locator('#board, #board canvas').evaluateAll(els=>els.map(el=>getComputedStyle(el).touchAction)),['pan-y','pan-y'],'WebKit parses vertical pan on the board and canvas');
-      await page.mouse.move(x,y); await page.mouse.wheel(0,500);
-      await new Promise(r=>setTimeout(r,250));
+      await scrollEnded();
     }
     const reset = async () => {
-      await screen.evaluate(el=>{document.getElementById('board').focus({preventScroll:true});el.scrollTop=0;});
-      // Let the compositor apply the scroll reset before the next native gesture.
-      await new Promise(r=>setTimeout(r,250));
-      await screen.evaluate(el=>{el.scrollTop=0;});
+      await screen.evaluate(() => document.getElementById('board').focus({ preventScroll: true }));
+      if (await screen.evaluate(el => el.scrollTop !== 0)) {
+        await expectScrollEnd();
+        await screen.evaluate(el => el.scrollTo({ top: 0, behavior: 'instant' }));
+        await scrollEnded();
+      }
     };
     try {
       await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen'}));
@@ -2211,7 +2226,13 @@ try {
         if (label==='board-swap-preview'&&top===31) {
           await reset();
           const strip = await frame.locator('#strip-them .player-name').boundingBox(); assert(strip);
-          await swipe(strip.x+strip.width/2,strip.y+strip.height/2);
+          const x = strip.x + strip.width / 2, y = strip.y + strip.height / 2;
+          assert(await frame.locator('#strip-them .player-name').evaluate(el => {
+            const r = el.getBoundingClientRect();
+            return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+          }), `${label}: the swipe starts on the visible top strip`);
+          // Keep this short swipe inside the viewport; the strip starts close to its top edge.
+          await swipe(x, y, y - 1);
           stripScroll = await screen.evaluate(el=>el.scrollTop);
           assert(stripScroll>0,`${label}: a ${gesture} from the top strip scrolls the board screen`);
         }
