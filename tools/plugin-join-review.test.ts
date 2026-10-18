@@ -141,6 +141,29 @@ it.each(['join', 'accept'])('keeps a newer chat selection after a late %s reply'
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); for (const game_id of games) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } }); await page.close(); }
 });
 
+it.each([true, false])('keeps an inline chat join for Resume (good code %s)', async good => {
+  const page = await open(), frame = page.frameLocator('iframe'); let game_id: string | undefined;
+  try {
+    const offered = await tool(page, true, 'kingdown_create', { kind: 'friend', colour: 'black', options });
+    expect(offered.isError).toBeFalsy(); game_id = offered._meta.view.game_id;
+    const code = good ? (await tool(page, true, 'kingdown_invite', { game_id })).structuredContent.code : 'ZZZZZZ';
+    const opened = await tool(page, false, 'kingdown_open', { code });
+    expect(!!opened.isError).toBe(!good);
+    // The widget stays inline, so Join waits behind the home card until the player taps Resume.
+    await page.evaluate(result => (window as any).harnessShow(result, true), opened);
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    await frame.locator('#home-card').waitFor({ state: 'visible' });
+    await frame.locator('#home-play').click();
+    await frame.locator('[data-screen="join"]:not([hidden])').waitFor();
+    if (good) {
+      await frame.locator('#join-confirm:not([hidden])').waitFor();
+      expect(await frame.locator('#join-help').textContent()).toBe('Review this game before you join.');
+    } else {
+      await expect.poll(() => frame.locator('#join-message').textContent()).not.toBe('');
+      expect(await frame.locator('#join-confirm').isHidden()).toBe(true);
+    }
+  } finally { if (game_id) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } }); await page.close(); }
+});
 it('keeps the handle field blocked until the mount identity read ends', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

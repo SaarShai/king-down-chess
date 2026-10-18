@@ -61,8 +61,9 @@ async function join() {
   } catch (error) { showError(error, $('join-message')); }
   finally { joining = false; $<HTMLButtonElement>('join-confirm').disabled = false; }
 }
-// Join keeps the code in page memory through Save; a remount needs the code again.
-export function joinSync(page: Page) { if (page.screen !== 'join' && page.screen !== 'handle') { afterHandle = false; memory.code = ''; memory.preview = undefined; memory.joinError = undefined; checked = ''; } }
+// Join keeps the code in page memory through Save; a remount needs the code again. An inline Join waits on the
+// queue behind the home card, so the memory stays for its Resume.
+export function joinSync(page: Page) { if (page.screen !== 'join' && page.screen !== 'handle' && client.state.queued !== 'join') { afterHandle = false; memory.code = ''; memory.preview = undefined; memory.joinError = undefined; checked = ''; } }
 const back = () => { if (client.state.screen === 'handle') afterHandle = false; };
 $('page-back').addEventListener('click', back, true);
 onStop(() => { $('page-back').removeEventListener('click', back, true); });
