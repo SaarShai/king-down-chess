@@ -47,4 +47,12 @@ All four reviews passed. Merged at `65c7058f`; `tsc` passes.
   as on main. Test: 'aborts the calls of a mount that a newer chat result
   supersedes' (red before the fix).
 
+## CI
+
+- `test` on `dc966b69` failed once in 'recovers a lost seat Ready before
+  the computer makes the first move after remount'. The computer's first
+  move is a retained command, so `pending` was `kingdown_computer` while
+  the slow runner made the move. The test now waits for that move, then
+  checks that no command is pending. The checks are the same.
+
 A second sweep round runs on `65c7058f`.
