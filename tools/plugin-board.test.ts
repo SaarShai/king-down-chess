@@ -694,11 +694,22 @@ it('moves the keyboard cursor while the opponent move animates', async () => {
   const page = await open(first), frame = page.frameLocator('iframe');
   try {
     await frame.locator('#board[aria-busy="false"]').waitFor();
-    await frame.locator('html').evaluate((_, next) => { (window as any).harnessApp.routeView(next); },
+    await frame.locator('#board').press('ArrowLeft');
+    expect(await frame.locator('#board').getAttribute('aria-label')).toBe('Chess board, b1. Enter selects a square.');
+    await frame.locator('html').evaluate((_, next) => {
+      const host = window as any, board = document.getElementById('board')!;
+      // Hold the replay until the real cursor key arrives, as in the ceremony test.
+      host.testBoard.animateMove = () => new Promise<void>(resolve => { host.endReplay = resolve; });
+      board.addEventListener('keydown', event => { if (event.key === 'ArrowRight') host.cursorKeyAnimating = board.dataset.animating; }, { once: true });
+      host.harnessApp.routeView(next);
+    },
       { ...first, revision: 1, fen: toFen(makeMove(pre, move)), turn: 1, last_commands: [{ seq: 1, seat: 0, action: { type: 'turn', actions: [toLan(pre, move)] }, at: '2026-10-15T00:00:01Z' }] });
     await frame.locator('#board[data-animating="true"]').waitFor();
     await frame.locator('#board').focus(); await page.keyboard.press('ArrowRight');
-    expect(await frame.locator('#board').getAttribute('aria-label')).toMatch(/^Chess board, [a-h][1-8]\./);
+    expect(await frame.locator('html').evaluate(() => (window as any).cursorKeyAnimating)).toBe('true');
+    expect(await frame.locator('#board').getAttribute('aria-label')).toBe('Chess board, a1. Enter selects a square.');
+    await frame.locator('html').evaluate(() => (window as any).endReplay());
+    await frame.locator('#board[data-animating="false"]').waitFor();
   } finally { await page.close(); }
 });
 
