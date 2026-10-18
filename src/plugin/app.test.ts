@@ -847,6 +847,32 @@ it('review: a name saved for a lobby Accept goes back to Open games and does not
   expect(app.client.state.pending).toBe(pending); expect(pending.error).toBe('Lost Create reply');
 });
 
+it.each(['lobby', 'join'] as const)('keeps the name return after a remount without resending an old start from %s', async screen => {
+  let saved: any; (window as any).openai.setWidgetState = (value: any) => { saved = value; };
+  const first = await mounted(); first.navigate('play');
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_create' ? { content: [{ type: 'text', text: 'Lost Create reply' }], isError: true }
+    : ['kingdown_accept', 'kingdown_join'].includes(name) ? { content: [{ type: 'text', text: 'Choose a name' }], isError: true, _meta: { code: 'HANDLE_NEEDED' } }
+    : { content: [], _meta: { games: [] } });
+  await first.start('solo', { colour: 'white' }); await vi.advanceTimersByTimeAsync(0);
+  const pending = structuredClone(first.client.state.pending!);
+  expect(pending).toMatchObject({ name: 'kingdown_create', screen: 'play', error: 'Lost Create reply', error_screen: 'play' });
+  first.navigate(screen);
+  if (screen === 'join') first.memory.code = 'ABC123';
+  await first.send(screen === 'lobby' ? 'kingdown_accept' : 'kingdown_join', screen === 'lobby' ? { game_id: 'open-a000' } : { code: first.memory.code });
+  expect(first.client.state.screen).toBe('handle'); expect(first.store.page().handle_back).toBe(screen);
+  const restored = structuredClone(saved);
+  expect(JSON.stringify(restored)).not.toContain('ABC123');
+  first.queue.close(); vi.resetModules(); (window as any).openai.widgetState = restored;
+  const app = await mounted();
+  expect(app.client.state.screen).toBe('handle');
+  transport.call.mockReset().mockResolvedValue({ content: [], _meta: { me: { handle: 'newname', icon: 'spirit' } } });
+  await app.call('kingdown_handle', { handle: 'newname', icon: 'spirit' }); await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.screen).toBe(screen);
+  expect(transport.call.mock.calls.filter(([input]) => ['kingdown_create', 'kingdown_join', 'kingdown_accept'].includes(input.name))).toHaveLength(0);
+  expect(app.client.state.pending).toEqual(pending);
+  expect(app.memory.code).toBe('');
+});
+
 it('keeps the Join return through a collapse while its reply asks for a name', async () => {
   const app = await mounted(); app.navigate('join');
   let release!: (value: unknown) => void;

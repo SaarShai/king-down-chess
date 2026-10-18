@@ -42,9 +42,9 @@ let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
 let polling = false, gamesDirty = false, newGameFirst = false;
 let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0;
-let handleBack: Screen = state.pending?.screen ?? 'settings';
+let handleBack: Screen = state.handle_back ?? state.pending?.screen ?? 'settings';
 // A command the page does not keep (Accept, Join) asked for the name: Save goes back to its screen, which sends it again.
-let nameForCaller = false;
+let nameForCaller = !!state.name_for_caller;
 // The one command lane and the one epoch gate (design §1.2 and §2, ticket 19 S3).
 export const queue = createQueue();
 // The pre-mount window counts as mounting too, so every control stays off until the first mount ends (design §3.3).
@@ -247,7 +247,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
         if (code === 'HANDLE_NEEDED') {
           // A retained command keeps state.pending with its error (design §2); a selection keeps its own continuation.
           if (own && state.pending === own) failPending(text, own, job);
-          if (queue.current(job)) { navigate('handle'); if (!own) { nameForCaller = true; handleBack = commandScreen; } }
+          if (queue.current(job)) { navigate('handle'); if (!own) { nameForCaller = state.name_for_caller = true; handleBack = state.handle_back = commandScreen; client.save(); } }
           return { status: 'failed', code, text };
         }
         if (REFUSALS.includes(code)) {
@@ -451,7 +451,7 @@ const connection = app.connect().then(() => {
   const context = app.getHostContext(); hostContext(context);
   // A saved route waits behind the home card while the host stays inline.
   if (queuedAtStart && state.screen === 'home') navigate(queuedAtStart);
-  if (state.screen !== 'home' && displayMode === 'inline') { const screen = state.screen; if (canFullscreen()) navigate('home'); navigate(screen); }
+  if (state.screen !== 'home' && displayMode === 'inline') { const screen = state.screen; if (canFullscreen()) navigate('home', screen); navigate(screen); }
   poll = runPoll(pollTarget, () => connected && !awaitingInitialResult && !mounting() && !queue.closed() && !queue.writing());
 }).catch(error => { store.dispatch({ type: 'connect', text: `Could not connect to the game: ${errorText(error)}` }); });
 
@@ -488,7 +488,8 @@ function scrollNewGame() {
 /** `queued` is the screen that waits behind the home card; it is set before the page syncs, so its memory stays. */
 export function navigate(screen: Screen, queued?: Screen) {
   const keepBack = keepHandleBack; keepHandleBack = queued === 'handle';
-  if (screen === 'handle' && state.screen !== 'handle' && !keepBack) { handleBack = state.screen === 'settings' ? 'settings' : state.pending?.screen ?? state.screen; nameForCaller = false; }
+  if (screen === 'handle' && state.screen !== 'handle' && !keepBack) { handleBack = state.handle_back = state.screen === 'settings' ? 'settings' : state.pending?.screen ?? state.screen; nameForCaller = state.name_for_caller = false; }
+  if (screen !== 'handle' && queued !== 'handle' && (state.screen === 'handle' || state.queued === 'handle')) { delete state.handle_back; delete state.name_for_caller; }
   if (screen !== 'home' && displayMode === 'inline' && canFullscreen()) {
     // A queued name screen keeps the Back screen of its caller for the Resume.
     keepHandleBack = screen === 'handle';
@@ -625,7 +626,7 @@ $('hall-play').onclick = $('games-start').onclick = () => playNow();
 document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => { button.onclick = () => navigate(button.dataset.nav as Screen); });
 $('page-back').onclick = () => navigate(state.screen === 'handle' ? handleBack : state.screen === 'collection' ? 'profile' : state.screen === 'settings' ? state.settings_back ?? 'play' : 'play');
 app.onhostcontextchanged = () => hostContext(app.getHostContext());
-navigate(state.screen);
+navigate(state.screen, queuedAtStart);
 
 // Sound is per device and off by default. The tap that turns it on unlocks audio with one knock.
 const soundOn = () => { try { return localStorage.getItem('kingdown-sound') === 'on'; } catch { return false; } };

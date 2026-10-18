@@ -9,7 +9,7 @@ export type Pending = { name: string; args: Record<string, unknown>; game_tag?: 
 export type BoardSettings = { symbols_only: boolean; show_threats: boolean };
 /** The unsent turn of a board (W7): the game's short tag, the base FEN and the LANs. The full game ID never goes here. */
 export type Draft = { game_tag: string; fen: string; lans: string[] };
-export type PageState = { screen: Screen; settings_back?: Screen; queued?: Screen; sheet?: string; board_id?: string; pending?: Pending; draft?: Draft };
+export type PageState = { screen: Screen; handle_back?: Screen; name_for_caller?: boolean; settings_back?: Screen; queued?: Screen; sheet?: string; board_id?: string; pending?: Pending; draft?: Draft };
 // Every failed connection and time-out shows this one sentence.
 export const CANNOT_CONNECT = 'Cannot connect. Check your connection, then try again.';
 // An Error shows its message only; String(error) would add its name ("Error: …").
@@ -22,11 +22,11 @@ export const knownScreen = (name: unknown) => SCREENS.find(screen => screen === 
 const commandScreen = (name: unknown) => name === 'setup' ? 'play' : knownScreen(name);
 
 export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost) {
-  const saved = host?.widgetState?.privateContent, settings_back = knownScreen(saved?.settings_back), queued = knownScreen(saved?.queued);
+  const saved = host?.widgetState?.privateContent, handle_back = knownScreen(saved?.handle_back), settings_back = knownScreen(saved?.settings_back), queued = knownScreen(saved?.queued);
   const pending = saved?.pending && { ...saved.pending, screen: commandScreen(saved.pending.screen), error_screen: commandScreen(saved.pending.error_screen) };
   // A saved draft is widget state from an older build: keep its three fields only, and its LANs as strings.
   const savedDraft = saved?.draft, draft = savedDraft && { game_tag: String(savedDraft.game_tag ?? ''), fen: String(savedDraft.fen ?? ''), lans: (savedDraft.lans ?? []).map(String) };
-  const state: PageState = { screen: knownScreen(saved?.screen) ?? 'home', ...(settings_back && {settings_back}), ...(queued && {queued}), sheet: saved?.sheet, board_id: saved?.board_id, pending, ...(draft && { draft }) };
+  const state: PageState = { screen: knownScreen(saved?.screen) ?? 'home', ...(handle_back && { handle_back }), ...(saved?.name_for_caller === true && { name_for_caller: true }), ...(settings_back && {settings_back}), ...(queued && {queued}), sheet: saved?.sheet, board_id: saved?.board_id, pending, ...(draft && { draft }) };
   let inflight = 0;
   function save() {
     const pending = state.pending;

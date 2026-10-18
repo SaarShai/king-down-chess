@@ -142,3 +142,9 @@ and time limits.
   Abort, Resume and Games. Test: `keeps the Switch now origin while Abort
   waits (new chat: %s)`. Red: 2 stale cases fail (an extra Resume); the
   control passes. Green: all 70 app tests pass.
+
+- A remounted name Save resends an old failed start. Private widget state
+  now keeps the name return screen and caller flag, including an inline
+  return. Join codes stay in memory. Test: `keeps the name return after a
+  remount without resending an old start from %s`. Red: Accept and Join
+  return to Play. Green: both cases pass; the old receipt and error stay.
