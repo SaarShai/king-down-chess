@@ -116,12 +116,15 @@ export function boardScreen(store: Store) {
       const fresh = await call('kingdown_get', {});
       if (!fresh || fresh.game_id !== game) return;
     }
-    const next = await call(name, {game_id:game, command_id:crypto.randomUUID().replaceAll('-', ''), expected_revision:view.revision, ...args}, true);
+    const outcome = await send(name, {game_id:game, command_id:crypto.randomUUID().replaceAll('-', ''), expected_revision:view.revision, ...args}, { retain: true });
+    const next = outcome.status === 'done' || outcome.status === 'refused' ? outcome.view as View | undefined : undefined;
     if (!next && !client.state.pending && view?.game_id === game) {
       // A NOT_ALLOWED refusal of Abort or a draw offer hides that button for this game; a stale revision does not, because
       // the read below can show the action is still open. The notice text never comes from the DOM.
       const notice = store.refusal();
       if (notice && notice.game === game && notice.code === 'NOT_ALLOWED' && (name === 'kingdown_abort' || name === 'kingdown_draw' && args.choice === 'offer')) refused.add(name);
+      // A newer chat result or user command owns the page: its own read routes, and a re-read here would stop it (design §2).
+      if (outcome.status === 'superseded') return;
       await call('kingdown_get', {}); refresh();
     }
     return next;
