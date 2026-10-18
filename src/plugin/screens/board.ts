@@ -118,9 +118,10 @@ export function boardScreen(store: Store) {
     }
     const next = await call(name, {game_id:game, command_id:crypto.randomUUID().replaceAll('-', ''), expected_revision:view.revision, ...args}, true);
     if (!next && !client.state.pending && view?.game_id === game) {
-      // A refusal of Abort or a draw offer hides that button for this game; the notice text never comes from the DOM.
+      // A NOT_ALLOWED refusal of Abort or a draw offer hides that button for this game; a stale revision does not, because
+      // the read below can show the action is still open. The notice text never comes from the DOM.
       const notice = store.refusal();
-      if (notice && notice.game === game && (name === 'kingdown_abort' || name === 'kingdown_draw' && args.choice === 'offer')) refused.add(name);
+      if (notice && notice.game === game && notice.code === 'NOT_ALLOWED' && (name === 'kingdown_abort' || name === 'kingdown_draw' && args.choice === 'offer')) refused.add(name);
       await call('kingdown_get', {}); refresh();
     }
     return next;

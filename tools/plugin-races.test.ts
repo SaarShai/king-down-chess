@@ -637,6 +637,23 @@ it('R5: a refused Abort leaves the board menu (a.out 5)', async () => {
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
+it('R5: a stale-revision Abort keeps Abort in the board menu', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    // Another command changed the revision after the sheet opened; Abort itself is still open.
+    await page.evaluate(() => { (window as any).rejectNextAction = { name: 'kingdown_abort', code: 'STALE_REVISION', text: 'The game changed; reload before you act' }; });
+    await frame.locator('#board-menu:not(:disabled)').click();
+    await frame.locator('#menu-abort').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Abort', exact: true }).click();
+    await settled(page);
+    expect(await frame.locator('#error').textContent()).toBe('The game changed; reload before you act');
+    await frame.locator('#board-menu:not(:disabled)').click();
+    expect(await frame.locator('#menu-abort').count()).toBe(1);
+  } finally { await page.close(); }
+});
+
 it('R7: a move with a view clears Try again and its read text (a.out 7)', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
