@@ -561,7 +561,8 @@ $('presets').replaceChildren(...Object.entries(ICONS).map(([key, path]) => {
   const portrait = document.createElement('span'); portrait.className = 'portrait'; const image = document.createElement('img'); image.src = art(path); image.alt = ''; portrait.append(image); button.append(portrait);
   button.onclick = () => { picture = key as Icon; $('presets').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === button))); }; return button;
 }));
-let handleCheck = 0, handleTimer: ReturnType<typeof setTimeout> | undefined;
+// One name check runs at a time: the server allows three calls at once for each account, and Save needs one (http.ts).
+let handleCheck = 0, handleTimer: ReturnType<typeof setTimeout> | undefined, checking: Promise<unknown> | undefined;
 function stopHandleCheck() { clearTimeout(handleTimer); handleCheck++; }
 function renderIdentity() {
   if (!memory.me) return;
@@ -577,9 +578,11 @@ function scheduleHandleCheck() {
   input.setCustomValidity(''); $('handle-free').hidden = true; $('handle-check-error').textContent = '';
   if (!handle) return;
   handleTimer = setTimeout(async () => {
+    await checking;
     if (queue.closed() || check !== handleCheck) return;
     try {
-      const result = await client.call('kingdown_handle', { handle, check: true });
+      const sent = client.call('kingdown_handle', { handle, check: true }); checking = sent.catch(() => {});
+      const result = await sent;
       if (queue.closed() || check !== handleCheck) return;
       if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
       $('handle-free').hidden = (result.structuredContent as { available?: boolean } | undefined)?.available !== true;

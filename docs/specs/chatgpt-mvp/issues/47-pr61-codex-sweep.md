@@ -46,6 +46,11 @@ All four reviews passed. Merged at `65c7058f`; `tsc` passes.
   teardown); its settings, open, board and list calls take the signal,
   as on main. Test: 'aborts the calls of a mount that a newer chat result
   supersedes' (red before the fix).
+- 4307954059 (P2): each name edit started a new check after 250 ms, and
+  older checks kept running, so slow checks could fill the account's three
+  server slots and refuse Save. The checks now run one at a time; after a
+  check ends, only the newest name runs. Test: 'runs one name check at a
+  time and then only the newest name' (red before the fix).
 
 ## CI
 

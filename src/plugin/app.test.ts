@@ -190,6 +190,22 @@ it.each(['onclose', 'onteardown', 'queue.close'])('drops a name check success af
   expect(free.hidden).toBe(true); expect(error.textContent).toBe('');
 });
 
+it('runs one name check at a time and then only the newest name', async () => {
+  const app = await mounted(); app.navigate('handle');
+  const replies: ((value: unknown) => void)[] = [];
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_handle' ? new Promise(resolve => { replies.push(resolve); }) : { content: [] });
+  const checks = () => transport.call.mock.calls.filter(([call]) => call.name === 'kingdown_handle').map(([call]) => call.arguments.handle);
+  const input = document.getElementById('handle')! as HTMLInputElement;
+  // The server allows three calls at once for each account; slow checks must leave a slot for Save (http.ts).
+  for (const handle of ['name1', 'name2', 'name3', 'name4']) { input.value = handle; Reflect.apply(input.oninput!, input, [{}]); await vi.advanceTimersByTimeAsync(251); }
+  expect(checks()).toEqual(['name1']);
+  replies[0]({ content: [], structuredContent: { available: true } }); await vi.advanceTimersByTimeAsync(0);
+  expect(checks()).toEqual(['name1', 'name4']);
+  expect(document.getElementById('handle-free')!.hidden).toBe(true);
+  replies[1]({ content: [], structuredContent: { available: true } }); await vi.advanceTimersByTimeAsync(0);
+  expect(document.getElementById('handle-free')!.hidden).toBe(false);
+});
+
 it.each(['onclose', 'onteardown'])('drops a name check failure after %s', async stop => {
   const app = await mounted(); app.navigate('handle');
   let reject!: (reason: unknown) => void;
