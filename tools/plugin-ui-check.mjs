@@ -259,6 +259,8 @@ try {
   // must show after it; a saved game screen can follow the game's fresh status to another screen.
   const retiredWidgetStates = [];
   async function freshHost(screen) {
+    // A widget-state write still in transit would be lost with the old page.
+    await settled();
     const saved = await page.evaluate(() => ({ context: window.harnessHostContext, mode: window.harnessDisplayMode, result: window.harnessWidgets.at(-1).initialResult, state: window.harnessWidgetState, states: window.harnessWidgetStates }));
     retiredWidgetStates.push(...saved.states);
     await page.goto(base);
