@@ -16,12 +16,17 @@ const CLASSIC = { fairy: false, pool: [], arrangement: false, classic: true, car
 // A phone host in fullscreen: touch on, so the touch hit layers (and their z-index) apply.
 async function open({ width = 393, height = 852, top = 0, bottom = 0 } = {}) {
   const page = await browser.newPage({ viewport: { width, height } }); page.setDefaultTimeout(5000);
-  await page.goto(harness.url); await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+  await page.goto(harness.url); await sourceReady(page);
+  await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   await page.evaluate(([top, bottom]) => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'], deviceCapabilities: { touch: true }, safeAreaInsets: { top, bottom, left: 0, right: 0 } }), [top, bottom]);
   return page;
 }
 const html = (page: Page) => page.frameLocator('iframe').locator('html');
 const widget = (page: Page) => page.mainFrame().childFrames()[0];
+// The frame load does not wait for the source module's dynamic import.
+const sourceReady = (page: Page) => page.frameLocator('iframe').locator('#home-play').evaluate("async () => { await window.harnessBoot; await import('/src/plugin/app.ts'); }");
+// A view and a widget write can precede the mount's last list read and control unlock.
+const mounted = (page: Page) => html(page).evaluate(async () => { await (window as any).harnessApp.queue.mountJob()?.promise; });
 const tool = async (page: Page, path: string, name: string, args: Record<string, unknown> = {}) => (await page.request.post(new URL(path, harness.url).href, { data: { name, arguments: args } })).json();
 const soloBoard = (page: Page) => html(page).evaluate(async (_, options) => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options }); }, CLASSIC);
 const reads = (page: Page) => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
@@ -171,6 +176,7 @@ it.each([
     await nextWrite(page, () => page.evaluate(result => (window as any).harnessShow(result), result));
     expect(await reads(page)).toBe(before);
     await page.evaluate(release, hold);
+    await mounted(page);
     // Read all six fields in one frame state. Separate reads can span a screen change.
     await widget(page).waitForFunction(({ game, board }) => {
       const app = (window as any).harnessApp, doc = document;
@@ -267,8 +273,9 @@ it('keeps the newer games list when an older chat result reads its list late', a
     const made = await soloGame(page);
     await page.evaluate(result => (window as any).harnessShow(result), await tool(page, '/fixture-tool', 'kingdown_open', { game_id: made }));
     await widget(page).waitForFunction(shows, made);
+    await mounted(page);
     const listed = () => html(page).evaluate((_, game) => (window as any).harnessApp.memory.games.some((entry: any) => entry.game_id === game), made);
-    await expect.poll(listed).toBe(true);
+    expect(await listed()).toBe(true);
     await page.evaluate(() => (window as any).releaseHeld());
     await settled(page);
     expect(await listed()).toBe(true);
@@ -289,8 +296,10 @@ it('sends a move that waited over a remount again by itself when a chat result f
     await page.locator('#remount').click();
     // The first read after the remount holds its games list; then the model opens the game again.
     await page.waitForFunction(() => !!(window as any).releaseHeld);
-    await page.evaluate(result => (window as any).harnessShow(result), again);
+    await nextWrite(page, () => page.evaluate(result => (window as any).harnessShow(result), again));
     await page.evaluate(() => (window as any).releaseHeld());
+    await mounted(page);
+    await html(page).evaluate(async () => { await (window as any).harnessApp.queue.idle(); });
     await expect.poll(() => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').map((c: any) => c.arguments.command_id))).toEqual(['remount-move', 'remount-move']);
     await expect.poll(() => page.evaluate(() => (window as any).harnessWidgetState?.privateContent?.pending ?? null)).toBeNull();
     expect(await html(page).evaluate(() => ({ retry: document.getElementById('retry')!.hidden, error: document.getElementById('error')!.textContent, game: (window as any).harnessApp.memory.view?.game_id }))).toEqual({ retry: true, error: '', game });
@@ -317,7 +326,8 @@ it('keeps the controls locked, with no error, when a newer chat result stops an 
     expect(await locks(page)).toEqual({ locked: true, error: '', home: '' });
     await page.evaluate(() => (window as any).releaseBefore());
     await widget(page).waitForFunction(shows, newer);
-    await expect.poll(() => locks(page)).toEqual({ locked: false, error: '', home: '' });
+    await mounted(page);
+    expect(await locks(page)).toEqual({ locked: false, error: '', home: '' });
   } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseBefore?.(); }); await page.close(); }
 });
 
@@ -418,10 +428,11 @@ it.each([
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     const game = destination === 'game' ? await soloGame(page) : undefined;
     const chat = await tool(page, '/fixture-tool', 'kingdown_open', game ? { game_id: game } : { screen: 'profile' });
-    await page.evaluate(result => (window as any).harnessShow(result), chat);
+    await nextWrite(page, () => page.evaluate(result => (window as any).harnessShow(result), chat));
+    await mounted(page);
     await frame.locator('#home-play:not(:disabled)').waitFor({ state: 'attached' });
     const expected = { game, screen: game ? 'board' : 'profile', board: chat._meta.board_id };
-    await expect.poll(() => shownGame(page)).toEqual(expected);
+    expect(await shownGame(page)).toEqual(expected);
     const seen = await watch(page);
     await page.evaluate(() => (window as any).releaseHeld());
     await settled(page);
@@ -470,7 +481,8 @@ it('R2: a failed start does not lock another game (a.out 2)', async () => {
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await page.clock.install();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
-    await frame.locator('#setup-start').click();
+    // This action has no navigation; wait for its held create request.
+    await frame.locator('#setup-start').click({ noWaitAfter: true });
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     await page.clock.fastForward(5_001);
     await frame.locator('[data-screen="play"] [data-nav="settings"]').click();
@@ -550,6 +562,8 @@ it('R9: a failed connect shows an enabled Try again that connects again (a.out 9
     expect(await retry.isVisible()).toBe(true);
     expect(await retry.isEnabled()).toBe(true);
     await retry.click();
+    await sourceReady(page);
+    await frame.locator('#home-play:not(:disabled)').waitFor({ state: 'attached' });
     await expect.poll(() => line.count(), { timeout: 5000 }).toBe(0);
     await expect.poll(() => page.evaluate(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length, mounts)).toBeGreaterThan(mounts);
   } finally { await page.close(); }
