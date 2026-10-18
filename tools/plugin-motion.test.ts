@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { chromium, type Browser, type FrameLocator, type Page } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
+import { watchMotion } from './plugin-motion-observer';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 });
 // Each motion moment exists, ends, and under reduced motion shows its final state at once.
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -34,31 +35,52 @@ async function newGame(frame: FrameLocator, toggles: [string, boolean][], start 
   if (start) await frame.locator('#setup-start').click();
 }
 const only = (on: string[]) => ['Fairy pieces', 'Arrangement', 'Classic chess', 'King powers', 'Cards'].map(name => [name, on.includes(name)] as [string, boolean]);
-async function mate(page: Page, frame: FrameLocator) {
+async function mate(page: Page, frame: FrameLocator, paused = false) {
   const result = await (await page.request.post(new URL(`/fixture-position?fen=${encodeURIComponent('7k/8/6K1/8/8/8/8/Q7 w - - 0 1')}`, harness.url).href)).json();
   await page.evaluate(r => (window as any).harnessShow(r), result);
   await frame.locator('#board[aria-busy="false"]').waitFor(); await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
-  await tapSquare(frame, 'a1'); await page.waitForTimeout(300);
+  await tapSquare(frame, 'a1');
   await tapSquare(frame, 'a8');
   const send = frame.locator('#end-turn[aria-disabled="false"]'); await send.waitFor();
   expect(await frame.locator('#over').evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
-  await send.click();
+  if (paused) {
+    // Stop before the result arrives. Browser calls must not use the tap guard's time.
+    await page.clock.setFixedTime(new Date()); await page.clock.pauseAt(await page.evaluate(() => Date.now()));
+    await send.evaluate((b: HTMLButtonElement) => b.click());
+    await expect.poll(async () => {
+      if (await frame.locator('#over[open]').count()) return true;
+      await page.clock.runFor(50); return false;
+    }, { timeout: 15_000 }).toBe(true);
+  } else await send.click();
 }
 it.each([false, true])('opens end actions during a live win (reduced motion %s)', async reduced => {
   const { page, frame } = await open(reduced);
   try {
+    await frame.locator('html').evaluate(() => {
+      const state = (window as any).liveEnd = { opened: false, toppling: false, skip: false, actions: false, words: false, sentAt: 0, startedAt: 0, openedAfter: 0 };
+      document.getElementById('end-turn')!.addEventListener('click', () => { state.sentAt = performance.now(); }, { once: true });
+      new MutationObserver(() => {
+        const over = document.querySelector<HTMLDialogElement>('#over')!;
+        if (!state.startedAt && document.querySelector('#board[data-toppling]')) state.startedAt = performance.now();
+        if (over.open && !state.opened) {
+          state.openedAfter = performance.now() - (state.startedAt || state.sentAt);
+          state.opened = true; state.toppling = !!document.querySelector('#board[data-toppling]');
+          const actions = [...over.querySelectorAll('button')].filter(b => ['Play again', 'New game'].includes(b.textContent ?? ''));
+          state.actions = actions.length === 2 && actions.every(b => getComputedStyle(b).visibility === 'visible' && b.getBoundingClientRect().width > 0 && b.getBoundingClientRect().height > 0);
+          const skip = document.querySelector<HTMLElement>('#end-skip'); state.skip = !!skip && getComputedStyle(skip).visibility === 'visible' && skip.getBoundingClientRect().width > 0 && skip.getBoundingClientRect().height > 0;
+        }
+        const words = document.querySelector<HTMLElement>('#board .kd-words:not([hidden])');
+        if (words && getComputedStyle(words).visibility === 'visible' && words.getBoundingClientRect().width > 0 && words.getBoundingClientRect().height > 0) state.words = true;
+      }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['open', 'hidden', 'data-toppling'] });
+    });
     await mate(page, frame);
-    if (!reduced) {
-      await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
-    }
-    const start = Date.now(); await frame.locator('#over.end-card[open]').waitFor();
-    expect(Date.now() - start).toBeLessThan(1500);
+    await frame.locator('#over.end-card[open]').waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).liveEnd.openedAfter)).toBeLessThan(1500);
     expect(await frame.locator('#over').getByRole('button', { name: 'Play again', exact: true }).isVisible()).toBe(true);
     expect(await frame.locator('#over').getByRole('button', { name: 'New game', exact: true }).isVisible()).toBe(true);
     if (!reduced) {
-      expect(await frame.locator('#board[data-toppling]').count()).toBe(1);
-      expect(await frame.locator('#end-skip').isVisible()).toBe(true);
-      await frame.locator('#board .kd-words:not([hidden])').waitFor();
+      expect(await frame.locator('html').evaluate(() => (window as any).liveEnd)).toMatchObject({ opened: true, toppling: true, skip: true, actions: true });
+      await expect.poll(() => frame.locator('html').evaluate(() => (window as any).liveEnd.words)).toBe(true);
     }
     await frame.locator('#board[data-toppling]').waitFor({ state: 'detached' });
     expect(await frame.locator('#end-skip').isVisible()).toBe(false);
@@ -68,8 +90,8 @@ it('skips the end ceremony at 200 ms while game actions are guarded', async () =
   const { page, frame } = await open(false);
   try {
     await page.clock.install();
-    await mate(page, frame); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
-    await frame.locator('#over[open]').waitFor(); await page.clock.setFixedTime(new Date()); await page.clock.pauseAt(await page.evaluate(() => Date.now())); await page.clock.runFor(200);
+    await mate(page, frame, true); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
+    await frame.locator('#over[open]').waitFor(); await page.clock.runFor(200);
     await frame.locator('#end-skip').evaluate((b: HTMLButtonElement) => b.click());
     expect(await frame.locator('#board .kd-words').count()).toBe(0);
     expect(await frame.locator('#over[open]').count()).toBe(1);
@@ -79,11 +101,11 @@ it.each(['Play again', 'New game', 'See the board'])('uses %s at its allowed tim
   const { page, frame } = await open(false);
   try {
     await page.clock.install();
-    await mate(page, frame); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
+    await mate(page, frame, true); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
     const old = await page.evaluate(() => (window as any).harnessView.game_id);
     await frame.locator('#over[open]').waitFor();
     expect(await frame.locator('#over').getByRole('button', { name: action, exact: true }).isEnabled()).toBe(true);
-    await page.clock.setFixedTime(new Date()); await page.clock.pauseAt(await page.evaluate(() => Date.now())); await page.clock.runFor(200);
+    await page.clock.runFor(200);
     const press = () => frame.locator('#over').getByRole('button', { name: action, exact: true }).evaluate((b: HTMLButtonElement) => b.click());
     await press();
     if (action !== 'See the board') {
@@ -99,7 +121,7 @@ it.each(['Play again', 'New game', 'See the board'])('uses %s at its allowed tim
     else if (action === 'Play again') await page.waitForFunction(old => (window as any).harnessView.game_id !== old, old);
     else {
       expect(await frame.locator('#over[open]').count()).toBe(0);
-      await page.waitForTimeout(1200);
+      await page.clock.runFor(1200);
       expect(await frame.locator('#over[open]').count()).toBe(0);
       await frame.locator('#end-result').click(); await frame.locator('#over[open]').waitFor();
     }
@@ -166,10 +188,10 @@ const animations = (frame: FrameLocator, selector: string) => frame.locator(sele
 it.each([false, true])('deals the four cards once at a live start (reduced motion %s)', async reduced => {
   const { page, frame } = await open(reduced);
   try {
+    const deal = await watchMotion(page, '#game-table .card-coin.is-dealt');
     await newGame(frame, only(['Cards']));
-    if (!reduced) await frame.locator('#card-w-3.is-dealt').waitFor({ state: 'attached' });
     await frame.locator('#card-w-3').waitFor();
-    expect(await frame.locator('#game-table .card-coin.is-dealt').count()).toBe(reduced ? 0 : 8);
+    expect((await deal()).count).toBe(reduced ? 0 : 8);
     await expect.poll(() => animations(frame, '#game-table'), { timeout: 1500 }).toBe(0);
     const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
     await page.locator('#remount').click();
@@ -186,9 +208,10 @@ it('deals a new card game after the empty hall remounts', async () => {
     await page.locator('#remount').click();
     await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, reads);
     await frame.locator('#setup-start:not(:disabled)').waitFor();
+    const deal = await watchMotion(page, '#game-table .card-coin.is-dealt');
     await newGame(frame, only(['Cards']));
-    await frame.locator('#card-w-3.is-dealt').waitFor({ state: 'attached' });
-    expect(await frame.locator('#game-table .card-coin.is-dealt').count()).toBe(8);
+    await frame.locator('#card-w-3').waitFor();
+    expect((await deal()).count).toBe(8);
   } finally { await page.close(); }
 });
 it.each([false, true])('pulses the checked side once (reduced motion %s)', async reduced => {
@@ -221,9 +244,10 @@ it.each([false, true])('turns the chosen king over once (reduced motion %s)', as
   try {
     await newGame(frame, only(['King powers']), false); await frame.locator('#setup-king').click();
     const other = frame.locator('#king-picker button.emblem[aria-pressed="false"]:not(:disabled)').first(), king = await other.getAttribute('data-king');
+    const flip = await watchMotion(page, '#king-picker button.emblem.is-flip');
     await other.click();
     await frame.locator(`#king-picker button.emblem.is-flip[data-king="${king}"]`).waitFor();
-    if (!reduced) expect(await animations(frame, '#king-picker button.emblem.is-flip')).toBe(1);
+    expect((await flip()).running).toBe(reduced ? 0 : 1);
     await expect.poll(() => animations(frame, '#king-picker button.emblem.is-flip'), { timeout: 1000 }).toBe(0);
   } finally { await page.close(); }
 });
