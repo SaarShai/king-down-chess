@@ -18,10 +18,12 @@ export type WidgetHost = { widgetState?: { privateContent?: Partial<PageState> }
 
 // Widget state from an older build can name a screen that this build does not have (PR 57 'setup'). It reads as no screen.
 export const knownScreen = (name: unknown) => SCREENS.find(screen => screen === name);
+// A saved command from PR 57's 'setup' screen is a New game step, which this build runs on Play.
+const commandScreen = (name: unknown) => name === 'setup' ? 'play' : knownScreen(name);
 
 export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost) {
   const saved = host?.widgetState?.privateContent, settings_back = knownScreen(saved?.settings_back), queued = knownScreen(saved?.queued);
-  const pending = saved?.pending && { ...saved.pending, screen: knownScreen(saved.pending.screen), error_screen: knownScreen(saved.pending.error_screen) };
+  const pending = saved?.pending && { ...saved.pending, screen: commandScreen(saved.pending.screen), error_screen: commandScreen(saved.pending.error_screen) };
   // A saved draft is widget state from an older build: keep its three fields only, and its LANs as strings.
   const savedDraft = saved?.draft, draft = savedDraft && { game_tag: String(savedDraft.game_tag ?? ''), fen: String(savedDraft.fen ?? ''), lans: (savedDraft.lans ?? []).map(String) };
   const state: PageState = { screen: knownScreen(saved?.screen) ?? 'home', ...(settings_back && {settings_back}), ...(queued && {queued}), sheet: saved?.sheet, board_id: saved?.board_id, pending, ...(draft && { draft }) };

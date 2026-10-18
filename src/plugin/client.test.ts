@@ -64,12 +64,12 @@ describe('app client', () => {
     await expect(failing.call('kingdown_get', {})).rejects.toThrow('The game is not available.');
     expect(failing.inflight).toBe(0);
   });
-  it('reads a saved screen name that this build does not have as no screen', () => {
+  it('reads a saved screen name that this build does not have as no screen, and a saved setup command as Play', () => {
     // PR 57 widget state: its New game screen was 'setup'.
     const pending = { name: 'kingdown_create', args: { kind: 'solo', command_id: 'once' }, screen: 'setup', error: 'The reply was lost.', error_screen: 'setup' };
     const saved = { privateContent: { screen: 'setup', settings_back: 'setup', queued: 'setup', board_id: 'b1', pending } } as unknown as NonNullable<WidgetHost['widgetState']>;
     const client = createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: saved });
-    expect(client.state).toStrictEqual({ screen: 'home', sheet: undefined, board_id: 'b1', pending: { ...pending, screen: undefined, error_screen: undefined } });
+    expect(client.state).toStrictEqual({ screen: 'home', sheet: undefined, board_id: 'b1', pending: { ...pending, screen: 'play', error_screen: 'play' } });
     expect(createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: { privateContent: { screen: 'seat', settings_back: 'board', queued: 'end' } } }).state).toMatchObject({ screen: 'seat', settings_back: 'board', queued: 'end' });
   });
   it('reads and writes settings through the account tool without saving them in widget state', async () => {
