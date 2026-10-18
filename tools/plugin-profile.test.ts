@@ -450,10 +450,14 @@ it.each([[768, 1024], [820, 600], [899, 900]])('keeps each W mark and date of 12
         return out;
       }, { from: ratios[0].length, marks });
       expect(boxes.length).toBeGreaterThan(0);
-      const { data, info } = await sharp(await page.screenshot()).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+      // Capture only the region that contains the sampled marks and dates.
+      const rects = boxes.flat();
+      const x = Math.floor(origin.x + Math.min(...rects.map(box => box[0]))), y = Math.floor(origin.y + Math.min(...rects.map(box => box[1])));
+      const clip = { x, y, width: Math.ceil(origin.x + Math.max(...rects.map(box => box[2]))) - x, height: Math.ceil(origin.y + Math.max(...rects.map(box => box[3]))) - y };
+      const { data, info } = await sharp(await page.screenshot({ clip })).removeAlpha().raw().toBuffer({ resolveWithObject: true });
       for (const row of boxes) row.forEach(([left, top, right, bottom], k) => {
         const paper: number[] = [];
-        for (let y = top + origin.y; y < bottom + origin.y; y++) for (let x = left + origin.x; x < right + origin.x; x++) { const p = (y * info.width + x) * 3; paper.push(lum([data[p], data[p + 1], data[p + 2]])); }
+        for (let y = top + origin.y; y < bottom + origin.y; y++) for (let x = left + origin.x; x < right + origin.x; x++) { const p = ((y - clip.y) * info.width + x - clip.x) * 3; paper.push(lum([data[p], data[p + 1], data[p + 2]])); }
         ratios[k].push((paper.sort((a, b) => a - b)[paper.length >> 1] + 0.05) / (inks[k] + 0.05));
       });
     }
