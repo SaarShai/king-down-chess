@@ -43,6 +43,8 @@ let view: View | undefined, rules: { game: string; value: NonNullable<View['rule
 let polling = false, gamesDirty = false, newGameFirst = false;
 let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0;
 let handleBack: Screen = state.pending?.screen ?? 'settings';
+// A command the page does not keep (Accept, Join) asked for the name: Save goes back to its screen, which sends it again.
+let nameForCaller = false;
 // The one command lane and the one epoch gate (design §1.2 and §2, ticket 19 S3).
 export const queue = createQueue();
 // The pre-mount window counts as mounting too, so every control stays off until the first mount ends (design §3.3).
@@ -87,7 +89,7 @@ export function actions() {
   applyLocks(store.page());
   const lock = locks(store.page());
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = lock.blocked || !memory.settings;
-  for (const id of ['setup-start', 'hall-play', 'games-start', 'wait-computer']) $<HTMLButtonElement>(id).disabled = lock.start || setupStarting();
+  for (const id of ['setup-start', 'hall-play', 'games-start', 'wait-computer', 'find-opponent']) $<HTMLButtonElement>(id).disabled = lock.start || setupStarting();
   $<HTMLInputElement>('join-code').disabled = lock.blocked;
   $<HTMLInputElement>('handle').disabled = lock.blocked;
   homeActions();
@@ -243,7 +245,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
         if (code === 'HANDLE_NEEDED') {
           // A retained command keeps state.pending with its error (design §2); a selection keeps its own continuation.
           if (own && state.pending === own) failPending(text, own, job);
-          if (queue.current(job)) navigate('handle');
+          if (queue.current(job)) { navigate('handle'); if (!own) { nameForCaller = true; handleBack = commandScreen; } }
           return { status: 'failed', code, text };
         }
         if (REFUSALS.includes(code)) {
@@ -267,7 +269,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       if (name === 'kingdown_block' && shown) { memory.blockNotice = resultText(result); $('context-note').textContent = memory.blockNotice; }
       if (name === 'kingdown_get' && !quiet) { await games(job); if (late()) { settleLate(result); return { status: 'superseded' }; } }
       // Save sends the waiting command again at once, so its old error and Retry go now.
-      if (name === 'kingdown_handle' && queue.current(job)) { followup = state.pending; if (followup) followup.error = followup.error_screen = undefined; if (queue.current(job)) navigate(followup?.screen ?? handleBack); }
+      if (name === 'kingdown_handle' && queue.current(job)) { followup = nameForCaller ? undefined : state.pending; if (followup) followup.error = followup.error_screen = undefined; if (queue.current(job)) navigate(followup?.screen ?? handleBack); }
       // An older job never routes. A poll reply routes only between the game screens of the shown game (design §1.2).
       if (shown && received && queue.current(job) && (route ?? SELECTION_TOOLS.includes(name)) && (!quiet || POLL_SCREENS.includes(state.screen))) routeView(received);
       if (name === 'kingdown_invite' && queue.current(job)) { const { code } = result.structuredContent as { code: string }; $('invitation').textContent = `Share this code: ${code}`; }
@@ -486,7 +488,7 @@ export function navigate(screen: Screen) {
   unqueue();
   resume = undefined;
   if (screen === 'home' && !mounting()) openHallOnExpand = false;
-  if (screen === 'handle' && state.screen !== 'handle') handleBack = state.screen === 'settings' ? 'settings' : state.pending?.screen ?? state.screen;
+  if (screen === 'handle' && state.screen !== 'handle') { handleBack = state.screen === 'settings' ? 'settings' : state.pending?.screen ?? state.screen; nameForCaller = false; }
   if (screen === 'settings' && !['settings','handle'].includes(state.screen)) {
     if (['board','seat'].includes(state.screen)) state.settings_back = state.screen; else delete state.settings_back;
   }

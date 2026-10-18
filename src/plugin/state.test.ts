@@ -103,6 +103,13 @@ describe('the pending scope', () => {
     expect(pendingHere(page({ screen: 'board', pending: { name: 'kingdown_create', args: {}, screen: 'play' } }))).toBe(false);
   });
 
+  it('keeps a start from Open games on Open games and on Play', () => {
+    const pending = { name: 'kingdown_find', args: {}, screen: 'lobby' as const, error: 'Lost the reply' };
+    expect(pendingHere(page({ screen: 'lobby', pending }))).toBe(true);
+    expect(pendingHere(page({ screen: 'play', pending }))).toBe(true);
+    expect(pendingHere(page({ screen: 'wait', pending }))).toBe(false);
+  });
+
   it('shows a game-less command on the screen where it failed', () => {
     const pending = { name: 'kingdown_settings', args: {}, screen: 'settings' as const, error_screen: 'settings' as const };
     expect(pendingHere(page({ screen: 'settings', pending }))).toBe(true);
