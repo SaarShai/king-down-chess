@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
+import { watchMotion } from './plugin-motion-observer';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -16,7 +17,13 @@ afterAll(async () => { await browser?.close(); await harness?.close(); await rm(
 const options = { ...DEFAULT_OPTIONS, fairy: false, pool: [], arrangement: false, classic: true, cards: false, kingPowers: false };
 async function open() {
   const page = await browser.newPage({ reducedMotion: 'no-preference' }); page.setDefaultTimeout(5000);
-  await page.goto(harness.url); await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+  await page.goto(harness.url);
+  // Wait for source load before the control budget starts. A string keeps the import in the browser.
+  await page.frameLocator('iframe').locator('#home-play').evaluate(`(async () => {
+    await window.harnessBoot;
+    await import('/src/plugin/app.ts');
+  })()`);
+  await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   return page;
 }
 const tool = async (page: Page, friend: boolean, name: string, args = {}) => (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', harness.url).href, { data: { name, arguments: args } })).json();
@@ -30,6 +37,7 @@ async function remount(page: Page) {
 it.each([false, true])('deals a chat game on first display (new widget %s)', async fresh => {
   const page = await open(), frame = page.frameLocator('iframe'); let game_id: string | undefined;
   try {
+    const deal = await watchMotion(page, '#game-table .card-coin.is-dealt');
     await expand(page);
     const created = await tool(page, false, 'kingdown_create', { kind: 'solo', colour: 'white', options: { ...options, cards: true } });
     expect(created.isError).toBeFalsy(); game_id = created._meta.view.game_id;
@@ -45,8 +53,8 @@ it.each([false, true])('deals a chat game on first display (new widget %s)', asy
       await page.waitForFunction(() => Boolean((window as any).releaseBefore));
       await page.evaluate(() => (window as any).releaseBefore());
     } else await page.evaluate(result => (window as any).harnessShow(result), created);
-    await frame.locator('#card-w-3.is-dealt').waitFor({ state: 'attached' });
-    expect(await frame.locator('#game-table .card-coin.is-dealt').count()).toBe(8);
+    await frame.locator('#card-w-3').waitFor();
+    expect((await deal()).count).toBe(8);
   } finally { if (game_id) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } }); await page.close(); }
 });
 it('names the current game on Resume after Play now and after the computer reply', async () => {
