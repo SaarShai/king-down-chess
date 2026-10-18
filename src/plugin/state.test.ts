@@ -19,6 +19,12 @@ describe('the notice reducer', () => {
     expect(reduce(slot({ notice }), { type: 'command' }, shown).notice).toBeUndefined();
   });
 
+  it('clears an error on a command, and keeps it through a read', () => {
+    const notice: Notice = { kind: 'error', text: CANNOT_CONNECT, screen: 'board' };
+    expect(reduce(slot({ notice }), { type: 'good-read', game: 'g1' }, page()).notice).toBe(notice);
+    expect(reduce(slot({ notice }), { type: 'command' }, page()).notice).toBeUndefined();
+  });
+
   it('clears a refusal or a read only on a view of another game', () => {
     const refusal: Notice = { kind: 'refusal', text: 'Abort is closed', game: 'g1' };
     const read: Notice = { kind: 'read', text: CANNOT_CONNECT, game: 'g1' };

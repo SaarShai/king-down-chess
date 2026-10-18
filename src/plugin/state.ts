@@ -157,8 +157,8 @@ export function reduce(slot: Slot, action: Action, page: Page): Slot {
     case 'connected': return { notice: slot.notice?.kind === 'connect' ? undefined : slot.notice, polls: slot.polls };
     // A good view of a game clears the read notice of that game and resets the poll counter.
     case 'good-read': return { notice: slot.notice?.kind === 'read' && (!slot.notice.game || slot.notice.game === action.game) ? undefined : slot.notice, polls: 0 };
-    // A user command clears a refusal; a read never does.
-    case 'command': return slot.notice?.kind === 'refusal' ? { notice: undefined, polls: slot.polls } : { ...slot };
+    // A user command clears a refusal and an error, so a Block that works after a failed one shows no old failure; a read never does.
+    case 'command': return slot.notice?.kind === 'refusal' || slot.notice?.kind === 'error' ? { notice: undefined, polls: slot.polls } : { ...slot };
     // A view of another game clears a refusal and a read that name another game.
     case 'view': return slot.notice && (slot.notice.kind === 'refusal' || slot.notice.kind === 'read') && slot.notice.game && slot.notice.game !== action.game ? { notice: undefined, polls: slot.polls } : { ...slot };
     // Navigation clears an error notice. It keeps a refusal and a read: they are scoped to their game.

@@ -656,6 +656,22 @@ it('clears a board refusal when the player then blocks the opponent', async () =
   expect(app.store.refusal()).toBeUndefined();
 });
 
+it('clears a failed Block error when the player blocks again and it works', async () => {
+  const app = await mounted(), { messageLine } = await import('./state');
+  app.routeView(game);
+  let failed = true;
+  transport.call.mockImplementation(async ({ name }) => {
+    if (name === 'kingdown_block' && failed) throw new Error('Failed to fetch');
+    return { content: [], _meta: { view: { ...game, revision: 2 } } };
+  });
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  await app.call('kingdown_block', { game_id: game.game_id, blocked: true });
+  expect(messageLine(app.store.page()).text).toBe('Cannot connect. Check your connection, then try again.');
+  failed = false;
+  await app.call('kingdown_block', { game_id: game.game_id, blocked: true });
+  expect(messageLine(app.store.page()).text).toBe('');
+});
+
 it('scopes a refused Retry to the game ID restored after a remount', async () => {
   (window as any).openai.widgetState = { privateContent: { screen: 'board', pending: { name: 'kingdown_move', args: { command_id: 'saved', expected_revision: 0 }, game_tag: 'game-a00', screen: 'board', error: 'Lost reply' } } };
   const app = await import('./app');
