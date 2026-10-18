@@ -55,4 +55,30 @@ All four reviews passed. Merged at `65c7058f`; `tsc` passes.
   the slow runner made the move. The test now waits for that move, then
   checks that no command is pending. The checks are the same.
 
-A second sweep round runs on `65c7058f`.
+## Round 2 (base `65c7058f`)
+
+Ten reports, eight confirmed (two duplicates), two false: the server
+does not refuse the live board's one-action turns, and a resent PR 57
+start keeps its king pick.
+
+| Group | Fault | Commit |
+| --- | --- | --- |
+| queue | A failed Find from Open games showed no error and no Retry there. | `953a39c8` |
+| queue | A name saved after an Accept or Join HANDLE_NEEDED resent an unrelated pending command. | `05de157d` |
+| board | A failed turn kept 'Sending…' next to the Retry error. | `9271c54d` |
+| start | A failed handoff Choose or Get left Play the computer on, so a second tap made a second solo game. | `4ab7f979` |
+| screens | A collapse to inline cleared the Join code, the preview and the Save follow-up before Resume. | `a202dcde`, `03533659` |
+| shared | The web game read capitalized the piece name. | `e1713bc6` |
+
+Not changed: a rename from Settings or Profile still resends an old
+failed start; 'recovers a lost Create or Find reply when Save resumes the
+pending start' tests that on purpose.
+
+All six reviews passed (screens after one fix-up and a second review). A
+review of the merged result found no fault. Two merge conflicts, both in
+`app.ts`, keep both sides: the start lock list has `find-opponent`, and
+the handoff locks `wait-computer`; a name screen opened again sets its
+Back and clears `nameForCaller`, except on the Resume after a collapse.
+Known limit: if the player collapses the widget while a Join waits for its
+reply and the reply is HANDLE_NEEDED, the Resume opens the name screen
+with Back to Home and the old follow-up rule.
