@@ -475,14 +475,16 @@ function scrollNewGame() {
   body.scrollTop += heading.getBoundingClientRect().top - body.getBoundingClientRect().top;
   newGameFirst = false;
 }
-export function navigate(screen: Screen) {
+/** `queued` is the screen that waits behind the home card; it is set before the page syncs, so its memory stays. */
+export function navigate(screen: Screen, queued?: Screen) {
   if (screen !== 'home' && displayMode === 'inline' && canFullscreen()) {
     resume = state.queued = screen; if (asking) target = screen; client.save(); return;
   }
   unqueue();
-  resume = undefined;
+  resume = queued; if (queued) state.queued = queued;
   if (screen === 'home' && !mounting()) openHallOnExpand = false;
-  if (screen === 'handle' && state.screen !== 'handle') handleBack = state.screen === 'settings' ? 'settings' : state.pending?.screen ?? state.screen;
+  // Home goes to the name screen only by Resume, and the name screen then keeps the Back screen from before the collapse.
+  if (screen === 'handle' && !['handle','home'].includes(state.screen)) handleBack = state.screen === 'settings' ? 'settings' : state.pending?.screen ?? state.screen;
   if (screen === 'settings' && !['settings','handle'].includes(state.screen)) {
     if (['board','seat'].includes(state.screen)) state.settings_back = state.screen; else delete state.settings_back;
   }
@@ -512,7 +514,7 @@ function hostContext(context: McpUiHostContext | undefined) {
   for (const edge of ['top', 'right', 'bottom', 'left'] as const) document.documentElement.style.setProperty(`--safe-${edge}`, `${Math.max(0, context.safeAreaInsets?.[edge] ?? 0)}px`);
   if (context.displayMode === 'inline' && displayMode === 'fullscreen' && state.screen !== 'home' && canFullscreen()) {
     const screen = state.screen;
-    displayMode = 'inline'; navigate('home'); resume = state.queued = screen; client.save(); collapsed = true; store.sync();
+    displayMode = 'inline'; navigate('home', screen); collapsed = true; store.sync();
   }
   const showHall = context.displayMode === 'fullscreen' && openHallOnExpand;
   if (context.displayMode) displayMode = context.displayMode;

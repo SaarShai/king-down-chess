@@ -63,7 +63,8 @@ async function acceptGame(game: string) {
 }
 /** The lobby's target of the one poll: the list on its 15-second clock (design §4). */
 export const lobbyPoll = (): PollTarget => ({ view: listClock, read: readLobby });
-export function lobbySync(page: Page) { if (!['lobby','handle'].includes(page.screen)) afterHandle = undefined; }
+// A collapse keeps the lobby or name screen on the queue behind the home card, so Accept stays for its Resume.
+export function lobbySync(page: Page) { if (![page.screen, client.state.queued].some(screen => screen === 'lobby' || screen === 'handle')) afterHandle = undefined; }
 const back = () => { if (client.state.screen === 'handle') afterHandle = undefined; };
 $('page-back').addEventListener('click', back, true);
 onStop(() => { $('page-back').removeEventListener('click', back, true); });

@@ -164,6 +164,24 @@ it.each([true, false])('keeps an inline chat join for Resume (good code %s)', as
     }
   } finally { if (game_id) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } }); await page.close(); }
 });
+it('keeps the Join preview when the player collapses to inline before Resume', async () => {
+  const page = await open(), frame = page.frameLocator('iframe'); let game_id: string | undefined;
+  try {
+    await expand(page);
+    const offered = await tool(page, true, 'kingdown_create', { kind: 'friend', colour: 'black', options });
+    expect(offered.isError).toBeFalsy(); game_id = offered._meta.view.game_id;
+    const code = (await tool(page, true, 'kingdown_invite', { game_id })).structuredContent.code;
+    await page.evaluate(result => (window as any).harnessShow(result, true), await tool(page, false, 'kingdown_open', { code }));
+    await frame.locator('#join-confirm:not([hidden])').waitFor();
+    // The host control collapses the widget; the home card offers Resume.
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
+    await frame.locator('#home-card').waitFor({ state: 'visible' });
+    await frame.locator('#home-play').click();
+    await frame.locator('[data-screen="join"]:not([hidden])').waitFor();
+    await frame.locator('#join-confirm:not([hidden])').waitFor();
+    expect(await frame.locator('#join-help').textContent()).toBe('Review this game before you join.');
+  } finally { if (game_id) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } }); await page.close(); }
+});
 it('keeps the handle field blocked until the mount identity read ends', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
