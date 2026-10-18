@@ -720,3 +720,18 @@ it('keeps a failed start-settings save off the page opened with Back', async () 
   expect((await import('./state')).messageLine(app.store.page()).text).toBe('');
   expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create')).toHaveLength(0);
 });
+
+it('review: a failed Find from Open games keeps its error and Retry there and locks a second Find', async () => {
+  const app = await mounted(), { locks, messageLine } = await import('./state'); app.navigate('lobby');
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_find'
+    ? { content: [{ type: 'text', text: 'Lost Find reply' }], isError: true } : { content: [], _meta: { games: [] } });
+  await app.start('random', { colour: 'white' }); await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.pending).toMatchObject({ name: 'kingdown_find', screen: 'lobby', error: 'Lost Find reply' });
+  expect(messageLine(app.store.page())).toEqual({ text: 'Lost Find reply', action: 'retry', status: false });
+  expect(locks(app.store.page()).retry).toBe(true);
+  expect((document.getElementById('find-opponent') as HTMLButtonElement).disabled).toBe(true);
+  // Retry sends the same command ID, so the server gives back the first game.
+  press('retry'); await vi.advanceTimersByTimeAsync(0);
+  const ids = transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_find').map(([input]) => input.arguments.command_id);
+  expect(ids).toHaveLength(2); expect(ids[1]).toBe(ids[0]);
+});

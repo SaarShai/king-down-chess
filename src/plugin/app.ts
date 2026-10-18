@@ -87,7 +87,7 @@ export function actions() {
   applyLocks(store.page());
   const lock = locks(store.page());
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = lock.blocked || !memory.settings;
-  for (const id of ['setup-start', 'hall-play', 'games-start', 'wait-computer']) $<HTMLButtonElement>(id).disabled = lock.start || setupStarting();
+  for (const id of ['setup-start', 'hall-play', 'games-start', 'wait-computer', 'find-opponent']) $<HTMLButtonElement>(id).disabled = lock.start || setupStarting();
   $<HTMLInputElement>('join-code').disabled = lock.blocked;
   $<HTMLInputElement>('handle').disabled = lock.blocked;
   homeActions();
