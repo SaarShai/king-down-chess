@@ -51,6 +51,12 @@ All four reviews passed. Merged at `65c7058f`; `tsc` passes.
   server slots and refuse Save. The checks now run one at a time; after a
   check ends, only the newest name runs. Test: 'runs one name check at a
   time and then only the newest name' (red before the fix).
+- 4307999875 (P2): a Join that got HANDLE_NEEDED after a collapse queued
+  the name screen without its Back; the Resume set Back to Home and
+  cleared `nameForCaller`, so Save dropped the Join. `navigate()` now sets
+  the Back when it queues the name screen, and the Resume keeps it. Test:
+  'keeps the Join return through a collapse while its reply asks for a
+  name' (red before the fix).
 
 ## CI
 
@@ -84,6 +90,5 @@ review of the merged result found no fault. Two merge conflicts, both in
 `app.ts`, keep both sides: the start lock list has `find-opponent`, and
 the handoff locks `wait-computer`; a name screen opened again sets its
 Back and clears `nameForCaller`, except on the Resume after a collapse.
-Known limit: if the player collapses the widget while a Join waits for its
-reply and the reply is HANDLE_NEEDED, the Resume opens the name screen
-with Back to Home and the old follow-up rule.
+A known limit here (a Join that gets HANDLE_NEEDED after a collapse lost
+its Back to Join) is fixed: see Codex comment 4307999875 below.

@@ -817,6 +817,21 @@ it('review: a name saved for a lobby Accept goes back to Open games and does not
   expect(app.client.state.pending).toBe(pending); expect(pending.error).toBe('Lost Create reply');
 });
 
+it('keeps the Join return through a collapse while its reply asks for a name', async () => {
+  const app = await mounted(); app.navigate('join');
+  let release!: (value: unknown) => void;
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_join' ? new Promise(resolve => { release = resolve; }) : { content: [], _meta: { games: [] } });
+  const sent = app.send('kingdown_join', { code: 'ABC123' }); await vi.advanceTimersByTimeAsync(0);
+  transport.mode = 'inline'; transport.instance.onhostcontextchanged(); await vi.advanceTimersByTimeAsync(0);
+  release({ content: [{ type: 'text', text: 'Choose a name' }], isError: true, _meta: { code: 'HANDLE_NEEDED' } }); await sent;
+  expect(app.client.state.queued).toBe('handle');
+  transport.mode = 'fullscreen'; transport.instance.onhostcontextchanged(); await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.screen).toBe('handle'); expect(app.store.page().handle_back).toBe('join');
+  transport.call.mockResolvedValue({ content: [], _meta: { me: { handle: 'newname', icon: 'spirit' } } });
+  await app.call('kingdown_handle', { handle: 'newname', icon: 'spirit' }); await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.screen).toBe('join');
+});
+
 it('sends the start that needed a name again when Save succeeds, also after a remount', async () => {
   let saved: any; (window as any).openai.setWidgetState = (value: any) => { saved = value; };
   const first = await mounted(); first.navigate('play');
