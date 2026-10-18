@@ -381,9 +381,7 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
 
 /* Stone rows need an inner text gutter, also when they have no lead art. */
 #app-root button.menu-row { padding: 8px 32px 8px 12px; }
-#app-root button/* Keep the dot with the date when a game row wraps. */
-.menu-row .game-detail { display: inline-flex; align-items: baseline; gap: 8px; }
-.menu-row > i { right: 12px; }
+#app-root button.menu-row > i { right: 12px; }
 #app-root #profile-open button { padding: 8px 12px; }
 #app-root :is(#moves-line, .fields label:has(input[type='checkbox'])) { padding-inline: 12px; }
 

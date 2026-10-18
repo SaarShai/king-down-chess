@@ -48,4 +48,3 @@ The three focused test files pass at 29ba68cd: 61 tests, plus 51 art tests. No t
 
 Final logs and the complete result go to the lane report that the owner names. The ticket stays open for the main Android device recheck.
 Report: /private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/device-faults/39-device-faults-build.md
-
