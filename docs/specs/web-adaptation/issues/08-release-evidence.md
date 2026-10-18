@@ -27,3 +27,11 @@ A moving release branch and an old pass log do not define a build base.
 ## Pass criterion
 
 Every record names the checked source and its result. Missing operational facts stay explicit gates. This task does not authorize a deploy, a database write or a visual change.
+
+## Pre-merge run (2026-10-18; the ticket stays open)
+
+A pre-merge run compared the live app source (`04b7af87`) with the release candidate (`52aca5fe`) at 390 × 844 and 1440 × 900. Report: `docs/research/web-adaptation-2026-10-18/baseline-pre-merge/report.md` on branch `prototype/web-account-sample` (the render pairs stayed in a temporary folder). The run after the merge still decides this ticket.
+
+- Visible changes that reach the site on merge: "Tap" becomes "Select" in the turn lines, the armed-power hints, the Beast chain refusal and the Beast and Reaver guides (`src/turn.ts`, `src/context-line.ts`, `src/read.ts`); the board canvas stays hidden until the stone art decodes (first frame only); the Privacy, Support (a new Credits section) and Terms pages change their text.
+- Already live, so not new: the coordinate limit below 8 CSS px, the 5-second idle stop and the growing context row.
+- No visible change: normal coin faces match; the new disabled-coin style has no trigger in the local app.

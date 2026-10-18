@@ -34,6 +34,10 @@ On yes: use the Testing Decisions and phase exits in the spec. Tests run only th
 - Real iOS Safari and Android Chrome for pan, drag, keyboard, safe areas, Share and the real End turn hit point.
 - Cold and warm loads, active and blocked worker, offline return, hidden tab, sleep and wake, Back and Forward, token expiry and an account switch.
 
+## Inputs from the browser sample
+
+[The browser sample](14-visual-sample.md) adds these checks: board squares at least 44 CSS px at 390 × 844 and at least 24 CSS px at 320 × 568 and 844 × 390; every DOM control on the account page at least 48 CSS px; focus visible (2.4.7) and not obscured by the sticky board or a sheet (2.4.11); the spent-coin and focus contrast values; the local-home "Play online" row; and real-device checks for the software keyboard, native safe areas, real zoom and larger text.
+
 ## Pass criterion
 
 No confirmed release fault remains. Each changed control selector has its affected checks run. Render compares use two stable main captures in the same environment. The report names devices, source, skipped cover and known limits. The cold-load compare includes a run with workers blocked.
