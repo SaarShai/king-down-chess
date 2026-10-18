@@ -3,7 +3,7 @@ import { needsArming, offered } from './powers-ui';
 import { POOL } from './rules/setup';
 import { describe } from './workshop/text';
 
-/** The title of a piece in the board context line. */
+/** The title of a piece in the plugin board context line. The web game keeps the lower-case name. */
 export function pieceTitle(code: number): string {
   const name = nameOf(typeOf(code));
   return `${colorOf(code) ? 'Black' : 'White'} ${name[0].toUpperCase() + name.slice(1)}.`;
