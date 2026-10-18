@@ -95,6 +95,10 @@ All four reviews passed. Merged at `65c7058f`; `tsc` passes.
     call. The harness server closed idle sockets after 5 s, and
     Playwright reuses its sockets. The server now keeps them
     (`plugin-ui-harness.ts`, `keepAliveTimeout = 0`).
+  - With the host reloads, CI WebKit reached the M2 win check for the
+    first time. Its sampler started after the 1.1 s ceremony had ended
+    (one sample, no words). The sampler now starts in the page before
+    the winning snapshot.
 
 ## Round 2 (base `65c7058f`)
 

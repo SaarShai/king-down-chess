@@ -2804,16 +2804,20 @@ try {
         await page.setViewportSize({ width, height });
         const before = { ...snapshot, game_id: randomUUID(), fen: initial_fen, turn: fromFen(initial_fen).turn, legal: legalMoves(fromFen(initial_fen)).map(move => toLan(fromFen(initial_fen), move)) };
         await showSnapshot(before); await boardBox();
-        await showSnapshot({ ...before, ...finished, revision: 101, fen: toFen(position), turn: position.turn, in_check: true, legal: [], last_commands: commands }, story);
-        await frame.locator('#over.end-card[open]').waitFor();
-        await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
-        const sampling = frame.locator('html').evaluate(() => new Promise(resolve => {
+        // The sampler is in the page before the win: the ceremony's timers run with the page clock, so on a slow
+        // runner it can end before a sampler that starts after it (CI WebKit, run 39163839294). It gives up after
+        // 1800 frames (30 s of page clock) with no ceremony.
+        await frame.locator('html').evaluate(restart => { window.winSampling = new Promise(resolve => {
           const report = { samples: 0, wordSamples: 0, scaledSamples: 0, overflow: [], whole: true };
+          let waited = 0;
           function sample() {
             const doc = document.documentElement, board = document.getElementById('board'), words = board.querySelector('.kd-words:not([hidden])');
+            if (!report.samples && !board.hasAttribute('data-toppling')) { if (++waited < 1800) requestAnimationFrame(sample); else resolve(report); return; }
             report.samples++;
             if (doc.scrollWidth > doc.clientWidth) report.overflow.push([doc.scrollWidth, doc.clientWidth]);
             if (words) {
+              // Keep the 400 px regression: restart the real entrance while its words exist.
+              if (restart) { restart = false; words.classList.remove('is-in'); void words.getBoundingClientRect(); words.classList.add('is-in'); }
               report.wordSamples++;
               if (getComputedStyle(words).transform !== 'none') report.scaledSamples++;
               const range = document.createRange(); range.selectNodeContents(words);
@@ -2822,14 +2826,12 @@ try {
             }
             if (board.hasAttribute('data-toppling')) requestAnimationFrame(sample); else resolve(report);
           }
-          sample();
-        }));
-        // Keep the 400 px regression: restart the real entrance while its words exist.
-        if (width === 400) await frame.locator('#board .kd-words:not([hidden])').evaluate(word => {
-          word.classList.remove('is-in'); void word.getBoundingClientRect(); word.classList.add('is-in');
-        });
+          requestAnimationFrame(sample);
+        }); }, width === 400);
+        await showSnapshot({ ...before, ...finished, revision: 101, fen: toFen(position), turn: position.turn, in_check: true, legal: [], last_commands: commands }, story);
+        await frame.locator('#over.end-card[open]').waitFor();
         await page.clock.runFor(1200);
-        const report = await sampling;
+        const report = await frame.locator('html').evaluate(() => window.winSampling);
         console.log(`M2 win width at ${width} x ${height}: ${JSON.stringify(report)}`);
         assert(report.samples > 1 && report.wordSamples > 0 && report.scaledSamples > 0, 'M2 samples the live win text while it scales');
         assert.deepEqual(report.overflow, [], `The page never scrolls sideways during the win at ${width} x ${height}`);
