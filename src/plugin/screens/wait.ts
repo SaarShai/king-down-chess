@@ -1,4 +1,4 @@
-import { call, client, memory, navigate, pollUpdate, queue, routeView, start } from '../app';
+import { call, client, gameActionsBlocked, memory, navigate, pollUpdate, queue, routeView, start } from '../app';
 import { setupBusy } from './setup';
 import type { Job } from '../queue';
 import { art } from '../art';
@@ -43,7 +43,8 @@ function tick() {
   $('wait-computer').hidden = seconds < 25;
 }
 async function computer() {
-  if (!open || offering || setupBusy()) return; offering = true;
+  // A failed handoff Choose or Get keeps its solo game: its Retry or Try again finishes it, never a second Create.
+  if (!open || offering || setupBusy() || gameActionsBlocked()) return; offering = true;
   try {
     const options = open.options ?? DEFAULT_OPTIONS;
     await start('solo', { options, colour: open.seat === 0 ? 'white' : 'black', level: memory.settings?.last_setup?.level ?? 'club' }, { route: false, then: finishComputer });
