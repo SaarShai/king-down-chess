@@ -9,8 +9,10 @@ Each user has these limits: 120 Computer calls per minute, 60 Create calls per m
 Short invite codes use HMAC-SHA-256 with `KINGDOWN_INTERNAL_SECRET`. Keep the same secret
 on every server instance and across restarts. Each new invitation needs the secret. An absent
 secret, or one shorter than 32 characters, stops all new invitations (codes and links) and all
-short-code joins. Both deploy configure paths require it. Old short codes stop working at this release. Ask the host
-for a new code. Long invite links still work. A secret change also ends all current short codes.
+short-code joins. Both deploy configure paths require it. Short codes from the earlier build (plain SHA-256)
+still work for their normal life (up to 7 days), through a legacy lookup that goes after that window. Long invite
+links still work. A secret change ends the HMAC short codes made after this release; legacy codes keep working
+until they expire.
 
 ## Preparation and release gate
 
