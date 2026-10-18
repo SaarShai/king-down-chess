@@ -13,12 +13,6 @@ import { errorText } from '../client';
 type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null };
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 let request = 0;
-// The server allows three calls at once for each account (MAX_ACTIVE_MCP_PER_USER, http.ts). A reopened Profile
-// waits until its superseded reads leave room for its own, so the server refuses none; a held More read leaves room.
-const SLOTS = 3;
-let busy = 0, wake: (() => void)[] = [];
-const release = () => { busy--; for (const go of wake.splice(0)) go(); };
-async function reserve(calls: number) { while (busy + calls > SLOTS) await new Promise<void>(go => wake.push(go)); busy += calls; }
 let before: string | null = null, blocksAfter: string | null = null;
 const date = (at: string) => formatDate(at, { day: 'numeric', month: 'short' });
 const fullDate = (at: string) => formatDate(at, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -33,9 +27,7 @@ async function readProfile(cursor?: string) {
   try {
     $('profile-more').setAttribute('disabled', '');
     $('profile-blocks-more').setAttribute('disabled', '');
-    await reserve(cursor ? 1 : 2);
-    if (reading !== request || client.state.screen !== 'profile') { release(); if (!cursor) release(); return; }
-    const [result, games] = await Promise.all([client.call('kingdown_profile', cursor ? { before: cursor } : {}).finally(release), cursor ? undefined : client.call('kingdown_games').finally(release)]);
+    const [result, games] = await Promise.all([client.call('kingdown_profile', cursor ? { before: cursor } : {}), cursor ? undefined : client.call('kingdown_games')]);
     if (reading !== request || client.state.screen !== 'profile') return;
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     if (games?.isError) throw new Error(games.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
@@ -80,9 +72,7 @@ async function readMoreBlocks() {
   $('profile-more').setAttribute('disabled', '');
   $('profile-blocks-more').setAttribute('disabled', '');
   try {
-    await reserve(1);
-    if (reading !== request || client.state.screen !== 'profile') { release(); return; }
-    const result = await client.call('kingdown_profile', { blocks_after: blocksAfter }).finally(release);
+    const result = await client.call('kingdown_profile', { blocks_after: blocksAfter });
     if (reading !== request || client.state.screen !== 'profile') return;
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     renderBlocks(result._meta as Profile, true);

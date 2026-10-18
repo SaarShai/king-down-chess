@@ -64,6 +64,28 @@ describe('app client', () => {
     await expect(failing.call('kingdown_get', {})).rejects.toThrow('The game is not available.');
     expect(failing.inflight).toBe(0);
   });
+  it('sends at most three calls at once, the oldest waiting call next, and drops a waiting call that its mount aborts', async () => {
+    // The server refuses a fourth call of one account (http.ts): a reopened Lobby or Profile, a poll or a repeated tap waits here.
+    const sent: string[] = [], releases: Array<(value: { content: [] }) => void> = [];
+    const client = createClient({ callServerTool: async ({ name }) => new Promise(resolve => { sent.push(name); releases.push(resolve); }) });
+    const mount = new AbortController();
+    const [first, , third, aborted, last] = ['kingdown_lobby', 'kingdown_games', 'kingdown_lobby', 'kingdown_games', 'kingdown_profile']
+      .map((name, index) => client.call(name, {}, index === 3 ? { signal: mount.signal } : {}));
+    await Promise.resolve();
+    expect(sent).toEqual(['kingdown_lobby', 'kingdown_games', 'kingdown_lobby']);
+    expect(client.inflight).toBe(5);
+    mount.abort();
+    await expect(aborted).rejects.toMatchObject({ name: 'AbortError' });
+    releases[2]({ content: [] }); await third;
+    expect(sent).toEqual(['kingdown_lobby', 'kingdown_games', 'kingdown_lobby', 'kingdown_profile']);
+    releases[0]({ content: [] }); await first;
+    const late = client.call('kingdown_get');
+    await Promise.resolve();
+    expect(sent).toHaveLength(5);
+    for (const release of releases.slice(1)) release({ content: [] });
+    await Promise.all([last, late]);
+    expect(client.inflight).toBe(0);
+  });
   it('reads a saved screen name that this build does not have as no screen, and a saved setup command as Play', () => {
     // PR 57 widget state: its New game screen was 'setup'.
     const pending = { name: 'kingdown_create', args: { kind: 'solo', command_id: 'once' }, screen: 'setup', error: 'The reply was lost.', error_screen: 'setup' };

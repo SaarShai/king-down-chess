@@ -13,6 +13,7 @@ export type PageState = { screen: Screen; settings_back?: Screen; queued?: Scree
 // Every failed connection and time-out shows this one sentence.
 export const CANNOT_CONNECT = 'Cannot connect. Check your connection, then try again.';
 // An Error shows its message only; String(error) would add its name ("Error: …").
+const SLOTS = 3;
 export const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
 export type WidgetHost = { widgetState?: { privateContent?: Partial<PageState> }; setWidgetState?: (state: unknown) => void };
 
@@ -27,7 +28,17 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
   // A saved draft is widget state from an older build: keep its three fields only, and its LANs as strings.
   const savedDraft = saved?.draft, draft = savedDraft && { game_tag: String(savedDraft.game_tag ?? ''), fen: String(savedDraft.fen ?? ''), lans: (savedDraft.lans ?? []).map(String) };
   const state: PageState = { screen: knownScreen(saved?.screen) ?? 'home', ...(settings_back && {settings_back}), ...(queued && {queued}), sheet: saved?.sheet, board_id: saved?.board_id, pending, ...(draft && { draft }) };
-  let inflight = 0;
+  // The server allows three calls at once for each account (MAX_ACTIVE_MCP_PER_USER, http.ts). A fourth call waits
+  // here for a free slot, so no screen, poll or repeat tap gets a 429; a free slot goes to the oldest waiting call.
+  let inflight = 0, sending = 0;
+  const waiting: (() => void)[] = [];
+  const room = (signal?: AbortSignal) => new Promise<void>((go, stop) => {
+    signal?.throwIfAborted();
+    const wake = () => { signal?.removeEventListener('abort', drop); go(); };
+    const drop = () => { waiting.splice(waiting.indexOf(wake), 1); stop(signal!.reason); };
+    waiting.push(wake); signal?.addEventListener('abort', drop, { once: true });
+  });
+  const free = () => { const next = waiting.shift(); if (next) next(); else sending--; };
   function save() {
     const pending = state.pending;
     const args = pending && Object.fromEntries(Object.entries(pending.args).filter(([key]) => !['game_id', 'code', 'handle'].includes(key)));
@@ -40,7 +51,11 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
     // Mount reads pass limit: false and keep the SDK's own limit; a slow first load is not a failed command.
     // A newer chat result aborts the calls of an older mount (signal).
     inflight++;
-    try { result = await app.callServerTool({ name, arguments: sent }, { ...(options.limit !== false && { timeout: 10_000 }), signal: options.signal }); }
+    try {
+      if (sending < SLOTS) sending++; else await room(options.signal);
+      try { result = await app.callServerTool({ name, arguments: sent }, { ...(options.limit !== false && { timeout: 10_000 }), signal: options.signal }); }
+      finally { free(); }
+    }
     catch (error) {
       if (!/failed to fetch|networkerror|load failed|network request failed|timed out/i.test(errorText(error))) throw error;
       console.error('King Down connection failed', error);
