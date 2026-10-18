@@ -23,7 +23,7 @@ test('the limit refusals quoted in row 31 are the server text', () => {
 
 test('the release notes record the short-code decision, and the runbook has the website note', () => {
  expect(readFileSync('docs/submission/release-notes.md', 'utf8')).toContain('the listing needs no note about the change from plain short codes to HMAC short codes');
- expect(readFileSync('docs/specs/chatgpt-mvp/release/RUNBOOK.md', 'utf8')).toContain('Old short codes stop working at this release');
+ expect(readFileSync('docs/specs/chatgpt-mvp/release/RUNBOOK.md', 'utf8')).toContain('still work for their normal life (up to 7 days), through a legacy lookup');
 });
 
 // The first test pins the approved turn words (W7, T1 a). A new pick changes that test and the packet together.
