@@ -91,8 +91,9 @@ export class PaintedView implements BoardView {
     this.applyLively();
     // F13: no board before the stone art is decoded; the first frame shows stone and pieces together.
     this.canvas.style.visibility = 'hidden';
-    const show = (): void => { requestAnimationFrame(() => { this.canvas.style.visibility = ''; }); };
-    this.loaded = this.scene.load().then(show, error => { show(); this.onLoadError?.(error); });
+    this.loaded = this.scene.load().catch(error => { this.onLoadError?.(error); }).then(() => new Promise<void>(resolve => {
+      requestAnimationFrame(() => { this.canvas.style.visibility = ''; resolve(); });
+    }));
     // Keep the square board as large as the container allows.
     new ResizeObserver(([entry]) => {
       const box = entry.contentRect; // excludes the padding that keeps the title card clear

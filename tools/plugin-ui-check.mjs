@@ -2173,14 +2173,14 @@ try {
       await expectScrollEnd();
       if (touch) {
         const host = await page.locator('iframe').boundingBox(); assert(host);
-        // Chromium adds touch slop to the distance. Keep the release inside the frame too.
+        // Keep every touch point and the release inside the frame.
         distance = Math.min(distance, y - host.y - 32);
         assert(distance > 0, `${label}: the swipe has room above its start`);
         await screen.evaluate(el => {
           window.harnessTouchEnd = undefined;
           el.addEventListener('touchend', e => { window.harnessTouchEnd = e.changedTouches[0].clientY; }, { once: true });
         });
-        await touch.send('Input.synthesizeScrollGesture',{x,y,yDistance:-distance,speed:800,gestureSourceType:'touch',preventFling:true});
+        await touchStroke(touch,{x,y},{x,y:y-distance});
         await widget().waitForFunction(() => window.harnessTouchEnd !== undefined);
         assert(await screen.evaluate(() => window.harnessTouchEnd > 0 && window.harnessTouchEnd < innerHeight), `${label}: the touch ends inside the frame`);
       } else {
@@ -2534,6 +2534,8 @@ try {
     const friend = await page.evaluate(() => window.harnessView);
     const replied = await friendTool('kingdown_move',{ game_id: friend.game_id, command_id: 'friend-reply', expected_revision: friend.revision, lan: 'e7-e5' });
     assert(!replied.isError);
+    // The move also refreshes the games list. Finish that reply before the poll clock jumps past its request limit.
+    await settled();
     await page.clock.fastForward(30000);
     await settled();
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();

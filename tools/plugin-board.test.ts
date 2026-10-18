@@ -562,12 +562,22 @@ it.each([[393, 852], [360, 740], [320, 568]])('serves 48 px targets on Seat and 
       }, { ...DEFAULT_OPTIONS, arrangement: !cards, cards, kingPowers: !cards, cardPool: cards ? ['Freeze', 'Vault', 'March', 'IceWall'] : [] });
       await frame.locator(`[data-screen="${cards ? 'board' : 'seat'}"]:not([hidden])`).waitFor();
       for (const screen of cards ? ['board'] : ['seat', 'board']) {
-        if (screen === 'board' && !cards) { await frame.locator('#seat-ready:not(:disabled)').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); }
+        if (screen === 'board' && !cards) {
+          const ready = frame.locator('#seat-ready:not(:disabled)');
+          await ready.scrollIntoViewIfNeeded(); await clickButton(page, ready);
+          // Ready commits the choice, then reads the full rules before it opens the board.
+          await page.waitForFunction(() => (window as any).harnessView.status === 'playing');
+          await page.waitForFunction(() => !!(window as any).harnessView.rules);
+          await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+        }
         const coin = `#${cards ? 'card-w-0' : screen === 'seat' ? 'seat-king' : 'power-w'}`;
         await frame.locator(`${coin}:visible`).waitFor();
         // Wait until no motion runs. A strip rebuild during the deal can cancel the old coin's animation (its finished
         // promise rejects) and starts it again on the new coin, so a single wait can reject or end too soon.
-        await frame.locator('#game-table').evaluate(async e => { for (let run: Animation[]; (run = e.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {}))); });
+        await frame.locator('#game-table').evaluate(async e => {
+          for (let run: Animation[]; (run = e.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
+          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        });
         // The coin shows at the first draw of the game; the screen draws again after the games-list read.
         const section = frame.locator(`[data-screen="${screen}"]`);
         expect(await section.evaluate(targetMisses)).toEqual([]);
@@ -789,8 +799,8 @@ it.each([[320, 568], [393, 852]])('keeps the board size after a beginner selects
 });
 
 // W7 journeys use board input. The endpoint only sets the starting position.
-async function turnBoard(fen?: string) {
-  const page = await open(view('')), frame = page.frameLocator('iframe');
+async function turnBoard(fen?: string, clock = false) {
+  const page = await open(view(''), 393, 852, clock), frame = page.frameLocator('iframe');
   const result = await (await page.request.post(new URL(fen ? `/fixture-position?fen=${encodeURIComponent(fen)}` : '/fixture-position?case=haste', harness.url).href)).json();
   expect(result.isError).not.toBe(true);
   await page.evaluate(result => (window as any).harnessShow(result), result);
@@ -1236,7 +1246,7 @@ it('W7: sends a mid-way Haste turn with a pass in the same command', async () =>
 });
 
 it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and during Send', async () => {
-  const {page,frame,base} = await turnBoard();
+  const {page,frame,base} = await turnBoard(undefined, true);
   try {
     await chooseTurnMove(page,'e2-e4',12);
     const staged = applyLan(fromFen(base.fen),'e2-e4',base.rules!)!;
@@ -1246,7 +1256,15 @@ it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and dur
       host.dragAttempts=[]; host.testBoard.onDragSelect=(square: number) => { host.dragAttempts.push(square); drag(square); };
     });
     for (const sending of [false,true]) {
-      if (sending) { await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_move'; }); await frame.locator('#end-turn').click(); await page.waitForFunction(() => typeof (window as any).releaseBefore==='function'); }
+      if (sending) {
+        // Input checks can outlast the request limit. Keep the held reply inside that limit.
+        // Pause ahead of now; the page can pass that time before the command reaches it.
+        for (let tries = 0; ; tries++) {
+          try { await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000)); break; }
+          catch (error) { if (tries >= 2 || !String(error).includes('Cannot fast-forward to the past')) throw error; }
+        }
+        await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_move'; }); await frame.locator('#end-turn').click(); await page.waitForFunction(() => typeof (window as any).releaseBefore==='function');
+      }
       expect(await frame.locator('#status').textContent()).toBe(sending ? 'Sending…' : 'Your turn is ready. Select End turn.');
       const unchanged = async () => {
         expect(await frame.locator('#board').getAttribute('data-animating')).toBe('false');
@@ -1282,6 +1300,7 @@ it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and dur
       expect(await frame.locator('#last-move').innerText()).toContain('White pawn e2 to e4.');
       expect((await moveCalls(page)).length).toBe(sending?1:0);
     }
+    await page.clock.resume();
     await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_computer'; (window as any).releaseBefore(); });
     await page.waitForFunction(() => (window as any).harnessCalls.some((c: any) => c.name==='kingdown_computer'));
     await squareTap(page,28);
