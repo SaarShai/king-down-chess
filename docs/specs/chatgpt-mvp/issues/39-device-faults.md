@@ -46,6 +46,8 @@ The raw tap added after the native swipe is outside the required F-2 unit check.
 F-1 hides the win words at every width below 320 px. This can show New game in full at 197 px. The owner ticket requires at least 12 px, so the check permits a full button and still requires a scrollable card and access to all actions. The loss at 206 px also keeps its 42 px view, with 1 px rounding.
 The three focused test files pass at 29ba68cd: 61 tests, plus 51 art tests. No time limit changes.
 
+At f5bde6a0, the type check and full suite pass: 191 files, 3,140 tests, 8 skips, and 51 art tests. The M1 plugin-ui check also passes.
+Render review finds that the hall shot is below the game rows and the power shot hides Use. Scroll the hall to the top and the sheet action into view before each shot. This changes the check only.
 Final logs and the complete result go to the lane report that the owner names. The ticket stays open for the main Android device recheck.
 The M1 check passes at 0baf7341. A later CSS selector repair changes the final head. The full test run that overlaps that edit is invalid: live servers reload and report module-load errors. End only that owned test process, then run from the fixed source.
 Report: /private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/device-faults/39-device-faults-build.md

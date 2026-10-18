@@ -1157,6 +1157,7 @@ try {
     const viewport = page.viewportSize();
     try {
       await page.setViewportSize({ width: 402, height: 874 });
+      await frame.locator('#board-sheet .sheet-body > button').last().scrollIntoViewIfNeeded();
       await frame.locator('html').evaluate(() => document.fonts.ready);
       const buttons = await frame.locator('#board-sheet .sheet-body > button').evaluateAll(buttons => buttons.map(button => {
         const style = getComputedStyle(button), box = button.getBoundingClientRect(), range = document.createRange();
@@ -2255,6 +2256,7 @@ try {
   async function zoomHallFits() {
     const viewport = page.viewportSize();
     await zoomViewport(402,874,0,0);
+    await frame.locator('#new-game .new-game-body').evaluate(el => { el.scrollTop = 0; });
     await frame.locator('html').evaluate(() => document.fonts.ready);
     const gaps = await frame.locator('#games-list .line').evaluateAll(lines => lines.map(line => {
       const [dot, detail] = line.querySelector('.game-detail').children, range = document.createRange();
