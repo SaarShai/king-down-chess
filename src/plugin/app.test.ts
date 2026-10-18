@@ -87,6 +87,22 @@ it.each(['wait', 'play'] as const)('keeps one computer Create and finishes its R
   expect(app.client.state.screen).toBe('board'); expect(app.client.state.pending).toBeUndefined();
 });
 
+it.each(['kingdown_choose', 'kingdown_get'])('makes no second computer game while the handoff %s needs Retry', async lost => {
+  const app = await mounted(), waiting = await waitingGame(); app.routeView(waiting);
+  const solo = { ...waiting, game_id: 'solo-a000', kind: 'solo', status: 'setup', draw: 'RNBQKBNR', rules: {} } as View;
+  transport.call.mockImplementation(async ({ name, arguments: args }) => {
+    if (name === lost && args.game_id !== waiting.game_id) return { isError: true, content: [{ type: 'text', text: 'Lost reply' }] };
+    const view = name === 'kingdown_create' ? solo : name === 'kingdown_choose' ? { ...solo, status: 'playing', revision: 2 } : undefined;
+    return { content: [], _meta: { ...(view && { view }), games: [] } };
+  });
+  press('wait-computer'); await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.screen).toBe('wait'); expect(app.memory.view?.game_id).toBe(solo.game_id);
+  expect((await import('./state')).messageLine(app.store.page()).action).not.toBe('none');
+  expect((document.getElementById('wait-computer') as HTMLButtonElement).disabled).toBe(true);
+  press('wait-computer'); await vi.advanceTimersByTimeAsync(0);
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create')).toHaveLength(1);
+});
+
 it.each(['waiting', 'setup', 'error'])('drops an old wait %s reply after a new waiting game mounts', async reply => {
   const app = await mounted(), first = await waitingGame(); app.routeView(first);
   const solo = { ...first, game_id: 'solo-a000', kind: 'solo', status: 'playing', rules: {} } as View;

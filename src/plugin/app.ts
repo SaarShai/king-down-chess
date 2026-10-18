@@ -90,6 +90,8 @@ export function actions() {
   const lock = locks(store.page());
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = lock.blocked || !memory.settings;
   for (const id of ['setup-start', 'hall-play', 'games-start', 'wait-computer', 'find-opponent']) $<HTMLButtonElement>(id).disabled = lock.start || setupStarting();
+  // The handoff's Choose and Get are steps of its start: their Retry or Try again on wait also locks its start.
+  if (lock.game) $<HTMLButtonElement>('wait-computer').disabled = true;
   $<HTMLInputElement>('join-code').disabled = lock.blocked;
   $<HTMLInputElement>('handle').disabled = lock.blocked;
   homeActions();
