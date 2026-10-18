@@ -1962,6 +1962,27 @@ it.each(['offer', 'accept', 'decline'])('disables the end card %s action after a
   } finally { await page.close(); }
 });
 
+it('sends the end card Rematch while a failed start keeps its error for Play', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    // A start fails: its error and Retry belong to Play, and the pending command stays.
+    await page.evaluate(() => { (window as any).failNextAction = true; });
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } }, true); });
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending?.error)).toBeTruthy();
+    // The opponent resigns, and the poll opens End.
+    const game_id = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
+    const other = (await (await page.request.post(new URL('/fixture-friend-tool',harness.url).href,{data:{name:'kingdown_get',arguments:{game_id}}})).json())._meta.view;
+    await page.request.post(new URL('/fixture-friend-tool',harness.url).href,{data:{name:'kingdown_resign',arguments:{game_id,command_id:'end-other-pending',expected_revision:other.revision}}});
+    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true, true); });
+    await frame.locator('#over.end-card[open]').waitFor();
+    // C4 c: the end card ignores taps for 1 s after a live end.
+    await page.waitForTimeout(1100);
+    await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).click();
+    await expect.poll(() => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_rematch').length)).toBe(1);
+  } finally { await page.close(); }
+});
+
 it.each(['power-w', 'card-w-0'])('keeps focus on %s through a minute tick and updates actions at the deadline', async id => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

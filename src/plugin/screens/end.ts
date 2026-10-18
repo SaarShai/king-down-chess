@@ -3,7 +3,7 @@ import { art } from '../art';
 import { ending, endReason } from '../ending';
 import type { PollTarget } from '../poll';
 import { PLAIN_KINGS } from '../../rules/engine';
-import { staleRead, type Page } from '../state';
+import { pendingHere, staleRead, type Page } from '../state';
 import { boardGame, closeBoardSheet, sendBoardCommand, skipBoardCeremony } from './board';
 import { playerBlockButton } from './board-actions';
 import { rematchChoices } from './end-model';
@@ -53,12 +53,14 @@ export function endPoll(): PollTarget | undefined {
 export function updateEnd() {
   if (client.state.screen !== 'end') { closeEnd(); return; }
   endScreen(false);
-  if (client.state.screen !== 'end' || updating || $<HTMLButtonElement>('reload').disabled || client.state.pending) return;
+  if (client.state.screen !== 'end' || updating || $<HTMLButtonElement>('reload').disabled) return;
   const view = boardGame(); if (!view) return;
-  if (queuedRematch) {
+  // A rematch tap waits only for a pending command of this game: a start or another game's command keeps its error elsewhere.
+  if (queuedRematch && !pendingHere(store.page())) {
     const queued = queuedRematch; queuedRematch = undefined;
     if (queued.game === view.game_id && rematchChoices(view).includes(queued.choice)) { void sendBoardCommand('kingdown_rematch',{choice:queued.choice}); return; }
   }
+  if (client.state.pending) return;
   if (view.rematch_game_id && !resumed.has(view.rematch_game_id)) {
     const game = view.rematch_game_id, ended = view.game_id; resumed.add(game); updating = true;
     void call('kingdown_resume', {game_id:game}, false, false, false).then(next => {

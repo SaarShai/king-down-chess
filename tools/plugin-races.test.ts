@@ -654,6 +654,31 @@ it('R5: a stale-revision Abort keeps Abort in the board menu', async () => {
   } finally { await page.close(); }
 });
 
+it('routes a newer chat game to its own screen when an older board command replies during its mount', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await friendGame(page);
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    // Game B waits for a friend, so its own screen is Friend, not Board.
+    const created = await tool(page, '/fixture-tool', 'kingdown_create', { kind: 'friend', colour: 'white', options: CLASSIC });
+    const b = await tool(page, '/fixture-tool', 'kingdown_open', { game_id: created._meta.view.game_id });
+    // The draw offer on A runs on the server; the host holds its reply. A stays in play.
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_draw'; });
+    await frame.locator('#board-menu:not(:disabled)').click();
+    await frame.locator('#menu-draw').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Offer draw', exact: true }).click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    // The chat result for B mounts: it selects B's board, and its board read waits behind the draw offer.
+    await page.evaluate(result => (window as any).harnessShow(result), b);
+    await widget(page).waitForFunction(board => (window as any).harnessApp.client.state.board_id === board, b._meta.board_id);
+    // The superseded draw reply must not stop the mount: B goes to its own screen.
+    await page.evaluate(() => (window as any).releaseHeld());
+    await settled(page);
+    await mounted(page);
+    expect(await shownGame(page)).toEqual({ game: created._meta.view.game_id, screen: 'friend', board: b._meta.board_id });
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
+});
+
 it('R7: a move with a view clears Try again and its read text (a.out 7)', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
