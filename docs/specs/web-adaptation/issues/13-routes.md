@@ -42,7 +42,7 @@ A route table, a keyboard trace, a phone render, a desktop render and the owner'
 
 ## Answer
 
-Decided by delegation (owner, 2026-10-18: "regarding \"my decisions\" - please use your best judgement. i trust you to make the decisions."). One independent review (Opus 5.5) checked the draft: accept with changes; its five required changes are in.
+Decided by delegation (owner, 2026-10-18: "regarding \"my decisions\" - please use your best judgement. i trust you to make the decisions."). One independent review checked the draft: accept with changes; its five required changes are in.
 
 Prototype and evidence: branch `prototype/web-account-routes` (from `claude/release-candidate` `6dee1e8f`, last commit `1e079275`; a reference, never merged), folder `docs/research/web-adaptation-2026-10-18/routes-prototype/` on that branch:
 
