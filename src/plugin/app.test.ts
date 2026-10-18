@@ -63,6 +63,25 @@ async function waitingGame() {
     options: { ...options, arrangement: true, kingPowers: false, cards: false } } as View;
 }
 
+it.each([false, true])('keeps the Cancel origin while Games waits (new chat: %s)', async changed => {
+  const app = await mounted(), waiting = await waitingGame(); app.routeView(waiting);
+  let games!: (value: unknown) => void, hold = true;
+  transport.call.mockImplementation(async ({ name }) => {
+    if (name === 'kingdown_games' && hold) { hold = false; return new Promise(resolve => { games = resolve; }); }
+    return { content: [], _meta: name === 'kingdown_cancel' ? { view: { ...waiting, status: 'aborted' } } : { games: [] } };
+  });
+  const cancelled = press('wait-cancel'); await vi.advanceTimersByTimeAsync(0); expect(games).toBeTypeOf('function');
+  if (changed) {
+    transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'profile' }, _meta: { board_id: 'profile-board' } });
+    await vi.advanceTimersByTimeAsync(0);
+  }
+  const before = app.client.state.screen;
+  games({ content: [], _meta: { games: [] } }); await cancelled; await vi.advanceTimersByTimeAsync(0);
+  expect(before).toBe(changed ? 'profile' : 'wait');
+  expect(app.client.state.screen).toBe(changed ? 'profile' : 'lobby');
+  expect(app.client.state.board_id).toBe(changed ? 'profile-board' : 'board-a');
+});
+
 it.each(['wait', 'play'] as const)('keeps one computer Create and finishes its Retry from %s', async screen => {
   const app = await mounted(), waiting = await waitingGame(); app.routeView(waiting);
   const solo = { ...waiting, game_id: 'solo-a000', kind: 'solo', status: 'setup', draw: 'RNBQKBNR' } as View;

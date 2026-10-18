@@ -30,8 +30,9 @@ export function waitScreen() {
   $('wait-computer').onclick = () => void computer();
   $('wait-cancel').onclick = async () => {
     if (!open) return;
-    const next = await call('kingdown_cancel', { game_id: open.game_id }, false, false, false);
-    if (next) { open = undefined; stopWatch(); await call('kingdown_games', {}); navigate('lobby'); }
+    const origin = queue.command('write', 'kingdown_cancel', {});
+    const next = await call('kingdown_cancel', { game_id: open.game_id }, { route: false, origin });
+    if (next) { open = undefined; stopWatch(); await call('kingdown_games', {}, { origin }); if (queue.current(origin)) navigate('lobby'); }
   };
   clearInterval(timer); timer = setInterval(tick, 1000); tick(); syncWatch();
 }

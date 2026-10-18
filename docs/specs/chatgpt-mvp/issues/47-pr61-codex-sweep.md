@@ -138,13 +138,14 @@ app and queue unit files, the type check, and the name and Wait browser
 files once each in Chromium through the test lock. Keep all assertions
 and time limits.
 
-- Switch now opens an old game over a newer screen. One origin now guards
-  Abort, Resume and Games. Test: `keeps the Switch now origin while Abort
-  waits (new chat: %s)`. Red: 2 stale cases fail (an extra Resume); the
-  control passes. Green: all 70 app tests pass.
+- Switch now opens an old game over a newer screen. One origin guards Abort, Resume and Games. Test: `keeps the Switch now origin while Abort waits (new chat: %s)`.
+- A remounted name Save resends an old failed start. Private widget state keeps the return screen and caller flag; Join codes stay in memory. Test: `keeps the name return after a remount without resending an old start from %s`.
+- Wait Cancel opens Open games after a newer result supersedes Games. Cancel and Games share one origin; the final route checks it. Test: `keeps the Cancel origin while Games waits (new chat: %s)`.
 
-- A remounted name Save resends an old failed start. Private widget state
-  now keeps the name return screen and caller flag, including an inline
-  return. Join codes stay in memory. Test: `keeps the name return after a
-  remount without resending an old start from %s`. Red: Accept and Join
-  return to Play. Green: both cases pass; the old receipt and error stay.
+Verification: the locked app file passes all 74 tests. The locked queue
+file passes all 18 tests. `npx tsc --noEmit -p .` passes. Chromium runs once
+per file, one at a time through the lock: `tools/plugin-lobby.test.ts`
+passes all 33 tests (77.00 s); `tools/plugin-join-review.test.ts` passes all
+14 tests (21.05 s). Existing assertions, time limits and STEP stay the
+same. Finding 3 from the sweep stays unchanged: the reviewers find it
+unreachable by a player. No push or merge.
