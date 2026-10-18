@@ -13,6 +13,9 @@ import { errorText } from '../client';
 type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null };
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 let request = 0;
+// One profile read at a time: the server allows three calls at once for each account (http.ts), and a reopened
+// Profile must not send its two reads while the superseded two still run.
+let reads: Promise<unknown> = Promise.resolve();
 let before: string | null = null, blocksAfter: string | null = null;
 const date = (at: string) => formatDate(at, { day: 'numeric', month: 'short' });
 const fullDate = (at: string) => formatDate(at, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -27,7 +30,11 @@ async function readProfile(cursor?: string) {
   try {
     $('profile-more').setAttribute('disabled', '');
     $('profile-blocks-more').setAttribute('disabled', '');
-    const [result, games] = await Promise.all([client.call('kingdown_profile', cursor ? { before: cursor } : {}), cursor ? undefined : client.call('kingdown_games')]);
+    await reads;
+    if (reading !== request || client.state.screen !== 'profile') return;
+    const sent = Promise.all([client.call('kingdown_profile', cursor ? { before: cursor } : {}), cursor ? undefined : client.call('kingdown_games')]);
+    reads = sent.catch(() => {});
+    const [result, games] = await sent;
     if (reading !== request || client.state.screen !== 'profile') return;
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     if (games?.isError) throw new Error(games.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
@@ -72,7 +79,11 @@ async function readMoreBlocks() {
   $('profile-more').setAttribute('disabled', '');
   $('profile-blocks-more').setAttribute('disabled', '');
   try {
-    const result = await client.call('kingdown_profile', { blocks_after: blocksAfter });
+    await reads;
+    if (reading !== request || client.state.screen !== 'profile') return;
+    const sent = client.call('kingdown_profile', { blocks_after: blocksAfter });
+    reads = sent.catch(() => {});
+    const result = await sent;
     if (reading !== request || client.state.screen !== 'profile') return;
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     renderBlocks(result._meta as Profile, true);
