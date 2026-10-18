@@ -577,6 +577,23 @@ it('keeps a refused Join out of the page notice', async () => {
   expect(messageLine(app.store.page()).text).toBe('');
 });
 
+it('aborts the calls of a mount that a newer chat result supersedes', async () => {
+  await mounted();
+  const signals: (AbortSignal | undefined)[] = [];
+  transport.call.mockImplementation(({ name }, options) => {
+    if (name !== 'kingdown_open') return Promise.resolve({ content: [], _meta: { games: [] } });
+    signals.push(options?.signal); return new Promise(() => {});
+  });
+  transport.instance.ontoolresult({ content: [], structuredContent: { game_id: 'game-b000' } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(signals).toHaveLength(1);
+  expect(signals[0]?.aborted).toBe(false);
+  // The server allows three calls at once for each account, so a stale mount must not keep its slot.
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'home' }, _meta: { board_id: 'board-c' } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(signals[0]?.aborted).toBe(true);
+});
+
 it('clears a board refusal when the player then blocks the opponent', async () => {
   const app = await mounted();
   app.routeView(game);

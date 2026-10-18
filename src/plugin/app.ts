@@ -337,13 +337,16 @@ function remember(result: ToolResult, job?: Job) {
 app.ontoolresult = result => {
   const initial = awaitingInitialResult; awaitingInitialResult = false;
   const job = queue.chatResult(initial);
+  // A detached mount stops its calls too, so it holds none of the account's three server slots (http.ts).
+  const abort = new AbortController();
+  void job.promise.then(outcome => { if (outcome.status === 'superseded') abort.abort(); });
   // The lock shows at once: `mounting` is true from here, so every control stays off until the mount ends, also while
   // the mount waits for a selection or a settings read (design §2 and §3.3).
   store.sync();
   // render() unlocks the controls after the job settles: `mounting` stays true through the body (design §2).
-  void queue.run(job, () => mountBody(job, result)).then(outcome => { if (outcome.status !== 'superseded') store.sync(); });
+  void queue.run(job, () => mountBody(job, result, abort.signal)).then(outcome => { if (outcome.status !== 'superseded') store.sync(); });
 };
-async function mountBody(job: Job, result: ToolResult) {
+async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
   const initial = job.options.initial === true;
   // A newer chat result detaches this job; every write below stops at the next wait.
   const stale = () => !queue.current(job);
@@ -354,7 +357,7 @@ async function mountBody(job: Job, result: ToolResult) {
     if (!initial || !state.board_id) state.board_id = typeof board === 'string' ? board : typeof value?.game_id === 'string' ? state.board_id : undefined;
     remember(result);
     if (initial || !memory.settings || !memory.me) {
-      const settings = await client.call('kingdown_settings', {}, { limit: false });
+      const settings = await client.call('kingdown_settings', {}, { limit: false, signal });
       if (stale()) return;
       if (settings.isError) throw new Error(resultText(settings));
       remember(settings); await applySettings();
@@ -364,7 +367,7 @@ async function mountBody(job: Job, result: ToolResult) {
       memory.preview = undefined;
       memory.joinError = { code: resultCode(result), message: resultText(result) };
       view = undefined; navigate('join');
-      const home = await client.call('kingdown_open', {}, { limit: false });
+      const home = await client.call('kingdown_open', {}, { limit: false, signal });
       if (stale()) return;
       if (home.isError) throw new Error(resultText(home));
       // The empty Open gives this board its own board; the mount keeps it (design §1.2, the mount selects the board).
@@ -376,7 +379,7 @@ async function mountBody(job: Job, result: ToolResult) {
     if (value && ['home', 'play', 'board', 'profile', 'join'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen === 'home' && initial && !savedScreen && displayMode === 'fullscreen' ? 'play' : value.screen as Screen);
     // A game with no board gets its own new board, so mounts never race on one server board; only a current mount takes it.
     if (typeof value?.game_id === 'string' && !board && (!initial || !state.board_id)) {
-      const selected = await client.call('kingdown_open', { game_id: value.game_id }, { limit: false, background: true });
+      const selected = await client.call('kingdown_open', { game_id: value.game_id }, { limit: false, background: true, signal });
       if (stale()) return;
       if (selected.isError) throw new Error(resultText(selected));
       state.board_id = selected._meta?.board_id as string | undefined; remember(selected);
@@ -387,7 +390,7 @@ async function mountBody(job: Job, result: ToolResult) {
     const readBoard = state.board_id && (typeof value?.game_id === 'string' || initial && savedScreen);
     // The board read waits for an idle lane, so it never reads through a write in flight (design §2, R6).
     if (readBoard) {
-      const next = await call('kingdown_get', {}, { route, origin: job, mount: true, user: false });
+      const next = await call('kingdown_get', {}, { route, origin: job, mount: true, user: false, signal });
       if (stale()) return;
       if (savedGame && !route && next && (next.status === 'finished' || next.status === 'aborted')) routeView(next);
     } else if (!result._meta?.view) {
@@ -395,7 +398,7 @@ async function mountBody(job: Job, result: ToolResult) {
       // A game return screen needs a view; a chat result with no route leaves the hall as its return screen.
       if (resume && GAME_SCREENS.includes(resume)) navigate('play');
     }
-    if (!readBoard) await games(job);
+    if (!readBoard) await games(job, signal);
     if (stale()) return;
     client.save();
   } catch (error) {
@@ -523,14 +526,14 @@ function hostContext(context: McpUiHostContext | undefined) {
 }
 let listRead = 0;
 /** Only the newest list read in the current epoch can write its result. */
-async function games(origin?: Job) {
+async function games(origin?: Job, signal = origin?.options.signal) {
   if (queue.closed() || origin && !queue.current(origin)) return false;
   const job = queue.command('read', 'kingdown_games', {}, { user: false, origin });
   const read = ++listRead, current = () => read === listRead && queue.current(job);
   $('games-status').textContent = 'Loading games…';
   const outcome = await queue.run(job, async () => {
     try {
-      const result = await client.call('kingdown_games', {}, { ...(origin?.options.mount && { limit: false }) });
+      const result = await client.call('kingdown_games', {}, { ...(origin?.options.mount && { limit: false }), signal });
       if (!current()) return { status: 'superseded' };
       if (result.isError) throw new Error(resultText(result));
       renderGames((result._meta?.games as InboxEntry[] | undefined) ?? []);

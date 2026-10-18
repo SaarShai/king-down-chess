@@ -39,5 +39,12 @@ All four reviews passed. Merged at `65c7058f`; `tsc` passes.
   one rule for a user command, and `send()` clears the refusal for each
   user write. Test: 'clears a board refusal when the player then blocks
   the opponent' in `src/plugin/app.test.ts` (red before the fix).
+- 4307755876 (P2): a superseded mount kept its server calls running, so
+  four quick chat results could hit the limit of three calls for each
+  account. Each mount now has an AbortController that aborts when the
+  queue detaches the mount (a newer chat result, a user command or the
+  teardown); its settings, open, board and list calls take the signal,
+  as on main. Test: 'aborts the calls of a mount that a newer chat result
+  supersedes' (red before the fix).
 
 A second sweep round runs on `65c7058f`.
