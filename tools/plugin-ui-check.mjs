@@ -2172,7 +2172,17 @@ try {
     async function swipe(x, y, distance = 500) {
       await expectScrollEnd();
       if (touch) {
+        const host = await page.locator('iframe').boundingBox(); assert(host);
+        // Chromium adds touch slop to the distance. Keep the release inside the frame too.
+        distance = Math.min(distance, y - host.y - 32);
+        assert(distance > 0, `${label}: the swipe has room above its start`);
+        await screen.evaluate(el => {
+          window.harnessTouchEnd = undefined;
+          el.addEventListener('touchend', e => { window.harnessTouchEnd = e.changedTouches[0].clientY; }, { once: true });
+        });
         await touch.send('Input.synthesizeScrollGesture',{x,y,yDistance:-distance,speed:800,gestureSourceType:'touch',preventFling:true});
+        await widget().waitForFunction(() => window.harnessTouchEnd !== undefined);
+        assert(await screen.evaluate(() => window.harnessTouchEnd > 0 && window.harnessTouchEnd < innerHeight), `${label}: the touch ends inside the frame`);
       } else {
         assert.deepEqual(await frame.locator('#board, #board canvas').evaluateAll(els=>els.map(el=>getComputedStyle(el).touchAction)),['pan-y','pan-y'],'WebKit parses vertical pan on the board and canvas');
         await page.mouse.move(x,y); await page.mouse.wheel(0,distance);
@@ -2216,6 +2226,19 @@ try {
         });
         const statusBeforeSwipe = await frame.locator('#status').textContent();
         await swipe(host.x+start.x,host.y+start.y);
+        assert(await screen.evaluate(el => el.scrollTop) > start.scroll, `${label}: the first board swipe scrolls the screen`);
+        // A short screen needs more than one swipe. Continue in the screen's empty left margin.
+        while (await screen.evaluate(el => el.scrollTop < el.scrollHeight - el.clientHeight - 1)) {
+          const edge = await screen.evaluate(el => {
+            const b = el.getBoundingClientRect(), f = document.querySelector('.frame').getBoundingClientRect();
+            const x = b.left + 1, y = Math.min(b.bottom, f.bottom) - 16, hit = document.elementFromPoint(x, y);
+            return { x, y, hit: el.contains(hit) && !hit.closest('button, a, input, label, canvas') };
+          });
+          assert(edge.hit, `${label}: the next swipe starts in the visible screen margin`);
+          const before = await screen.evaluate(el => el.scrollTop);
+          await swipe(host.x + edge.x, host.y + edge.y);
+          assert(await screen.evaluate(el => el.scrollTop) > before, `${label}: each board swipe makes progress`);
+        }
         if (label === 'board-their-turn') assert.equal(await frame.locator('#status').textContent(), statusBeforeSwipe, 'A swipe on their piece keeps the status line');
         const boardScroll = await screen.evaluate(el=>el.scrollTop);
         const boxes = await zoomBoxes(['#undo','#end-turn','#board-menu']);
@@ -2231,7 +2254,7 @@ try {
             const r = el.getBoundingClientRect();
             return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
           }), `${label}: the swipe starts on the visible top strip`);
-          // Keep this short swipe inside the viewport; the strip starts close to its top edge.
+          // The strip swipe uses the same frame bounds as a board swipe.
           await swipe(x, y, y - 1);
           stripScroll = await screen.evaluate(el=>el.scrollTop);
           assert(stripScroll>0,`${label}: a ${gesture} from the top strip scrolls the board screen`);
