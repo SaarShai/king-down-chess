@@ -16,7 +16,7 @@ test('the QA hall step names the current home actions, setup and menu rows', () 
   const hall = sequence.split('\n').find(line => line.startsWith('2. '))!;
   expect(hall).toContain('**Quick-start hall.**');
   for (const id of ['home-play', 'home-games', 'games-head', 'setup-start']) {
-    const control = new RegExp(`<[^>]+id="${id}"[^>]*>(.*?)</(?:button|h3)>`, 's').exec(html)![1];
+    const control = new RegExp(`<[^>]+id="${id}"[^>]*>(.*?)</(?:button|h3|summary)>`, 's').exec(html)![1];
     expect(hall).toContain(`"${control.replace(/<[^>]+>/g, '')}"`);
   }
   const play = html.split('data-screen="play"')[1].split('</section>')[0];

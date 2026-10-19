@@ -113,6 +113,7 @@ it('keeps every game row within reach after a saved Play mount', async () => {
     await page.evaluate(() => (window as any).releaseHeldGet());
     await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
     expect(await frame.locator('#games-list [data-game-id^="menus-"]').count()).toBe(50);
+    await frame.locator('#games-head').click();
     for (const row of await frame.locator('#games-list button').all()) {
       await row.scrollIntoViewIfNeeded();
       expect((await row.evaluate(controlBounds)).accessible).toBe(true);
@@ -203,7 +204,7 @@ it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s
     const start = frame.locator('#setup-start');
     await start.click();
     // Read at once, in one step: a quick start shows no words.
-    expect(await start.evaluate((button: HTMLButtonElement) => [button.disabled, button.getAttribute('aria-busy'), button.textContent])).toEqual([true, 'true', 'Start game']);
+    expect(await start.evaluate((button: HTMLButtonElement) => [button.disabled, button.getAttribute('aria-busy'), button.textContent])).toEqual([true, 'true', 'Create invite']);
     await expect.poll(() => page.evaluate(() => typeof (window as any).releaseHeld)).toBe('function');
     await page.clock.fastForward(1_000);
     await expect.poll(() => start.textContent()).toBe('Starting…');
@@ -224,7 +225,7 @@ it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s
     const ids = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').map((c: any) => c.arguments.command_id));
     expect(ids).toEqual([ids[0], ids[0]]);
     await go(page, 'play');
-    expect(await frame.locator('#setup-start').textContent()).toBe('Start game');
+    expect(await frame.locator('#setup-start').textContent()).toBe('Create invite');
   } finally { await page.close(); }
 });
 

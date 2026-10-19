@@ -81,10 +81,10 @@ function render() {
   // The button is disabled and busy at once (F5). Its words are the owner's items W3 b ('Starting…' after 1 s) and W6 a
   // ('Start game' again while the error and Retry show).
   const button = $<HTMLButtonElement>('setup-start'), busy = starting && !client.state.pending?.error;
-  // The app's one action update locks every start control (setup-start, hall-play, games-start) while a start waits.
+  // The app's one action update locks every start control (setup-start) while a start waits.
   actions();
   button.setAttribute('aria-busy', String(busy));
-  button.textContent = busy && late ? 'Starting…' : 'Start game';
+  button.textContent = busy && late ? 'Starting…' : setup.kind === 'friend' ? 'Create invite' : 'Start game';
 }
 function sheet(name: string, title: string, done: () => void) {
   closeSheet?.();

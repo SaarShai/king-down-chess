@@ -332,6 +332,7 @@ it('opens Play from the seat and board Back buttons on a portrait phone', async 
     expect(await frame.locator('#page-head').isVisible()).toBe(false);
     await frame.getByRole('button', { name: 'Back to Play', exact: true }).click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator('#games-head').click();
     await frame.locator(`#games-list [data-game-id="${gameId}"]`).click();
     await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
     await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
@@ -441,6 +442,7 @@ it('reflows New game and a waiting friend invite at 200% zoom (197 CSS px)', asy
     await frame.locator('#setup-start').click(); await frame.locator('.game-code span').first().waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join('');
     await frame.locator('#page-back').click();
+    await frame.locator('#games-head').click();
     const invite = frame.locator('.friend-invite-row').filter({ hasText: code }); await invite.waitFor();
     expect(await invite.evaluate(async row => {
       await document.fonts.ready;

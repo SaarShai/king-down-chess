@@ -89,7 +89,7 @@ export function actions() {
   applyLocks(store.page());
   const lock = locks(store.page());
   $<HTMLButtonElement>('home-play').disabled = $<HTMLButtonElement>('home-games').disabled = lock.blocked || !memory.settings;
-  for (const id of ['setup-start', 'hall-play', 'games-start', 'wait-computer', 'find-opponent']) $<HTMLButtonElement>(id).disabled = lock.start || setupStarting();
+  for (const id of ['setup-start', 'wait-computer', 'find-opponent']) $<HTMLButtonElement>(id).disabled = lock.start || setupStarting();
   // The handoff's Choose and Get are steps of its start: their Retry or Try again on wait also locks its start.
   if (lock.game) $<HTMLButtonElement>('wait-computer').disabled = true;
   $<HTMLInputElement>('join-code').disabled = lock.blocked;
@@ -317,7 +317,8 @@ $('invite').onclick = () => { if (view) void call('kingdown_invite', { game_id: 
 type ToolResult = Awaited<ReturnType<typeof client.call>>;
 function renderGames(entries: InboxEntry[]) {
   memory.games = entries; gamesDirty = false;
-  $('games-status').textContent = ''; $('games-empty').hidden = !!entries.length;
+  $('games-status').textContent = ''; $('saved-games').hidden = entries.length === 0;
+  $('games-head').textContent = `Your games (${entries.length})`;
   turnLine(entries.filter(entry => entry.action === 'ready').length);
   renderGameRows();
 }
@@ -510,6 +511,7 @@ export function navigate(screen: Screen, queued?: Screen) {
   store.dispatch({ type: 'navigate' });
   $('page-title').removeAttribute('title');
   // New game opens at its top (F12); other pages keep their place when the player comes back.
+  if (screen === 'play') $<HTMLDetailsElement>('saved-games').open = gamesFirst && memory.games.length > 0;
   if (screen === 'play') document.querySelectorAll<HTMLElement>('[data-screen="play"] .new-game-body').forEach(el => { el.scrollTop = 0; });
   if (!mounting() && screen in screens) screens[screen as keyof typeof screens]();
   client.save(); poll?.update();
@@ -623,7 +625,6 @@ $('home-play').onclick = () => {
   else homePlayNow();
 };
 $('home-games').onclick = () => { collapsed = false; resume = undefined; gamesFirst = true; void fullscreen('play'); };
-$('hall-play').onclick = $('games-start').onclick = () => playNow();
 document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => { button.onclick = () => navigate(button.dataset.nav as Screen); });
 $('page-back').onclick = () => navigate(state.screen === 'handle' ? handleBack : state.screen === 'collection' ? 'profile' : state.screen === 'settings' ? state.settings_back ?? 'play' : 'play');
 app.onhostcontextchanged = () => hostContext(app.getHostContext());

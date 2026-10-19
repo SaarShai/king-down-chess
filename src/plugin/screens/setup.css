@@ -53,3 +53,8 @@ label.check.pick.locked input:disabled { background-color: var(--stone-500); bor
 /* Lively: the chosen king's emblem turns over once (320 ms). */
 .setup-sheet button.emblem.is-flip img { animation: emblem-flip 320ms cubic-bezier(.05,.7,.1,1); }
 @keyframes emblem-flip { from { transform: perspective(240px) rotateY(-180deg) scale(1.1); } }
+
+#saved-games { flex: none; }
+#saved-games summary { min-height: var(--tap); padding: 12px 0; font-weight: 700; cursor: pointer; border-bottom: 1px solid var(--line); }
+#saved-games summary:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
+#saved-games[hidden] ~ #new-game-head { margin-top: 0 !important; }

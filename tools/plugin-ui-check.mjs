@@ -497,6 +497,27 @@ try {
       await frame.locator('#setup-start:not(:disabled)').waitFor();
       await page.evaluate(()=>{window.harnessDropWidgetWrites=false;});
     }
+    async function quickFromHome(drop) {
+      await page.route('**/fixture-tool', async route => {
+        const response = await route.fetch(), result = await response.json();
+        if (route.request().postDataJSON().name === 'kingdown_games') result._meta.games = [];
+        await route.fulfill({ response, json: result });
+      });
+      const result = await setupTool('kingdown_open', { screen: 'home' });
+      assert(result._meta.board_id, 'Home keeps its server board ID for quick play');
+      delete result._meta.view;
+      await page.evaluate(result => {
+        window.harnessDropWidgetWrites = true;
+        window.harnessWidgets.at(-1).initialResult = result;
+        window.harnessWidgetState = { privateContent: { screen: 'home', board_id: result._meta.board_id } };
+        window.harnessDisplayMode = 'inline';
+      }, result);
+      await remountFrame();
+      await frame.locator('#home-play:not(:disabled)').filter({ hasText: 'Play now' }).waitFor();
+      await page.evaluate(drop => { window.harnessDropWidgetWrites = false; if (drop) window.dropNextReply = drop; }, drop);
+      await frame.locator('#home-play').click();
+      await page.unrouteAll({ behavior: 'wait' });
+    }
     async function setupFits(width, height, state, compare = true) {
       await page.setViewportSize({ width, height });
       const root = await frame.locator('body').evaluate(el => ({ overflow: el.scrollWidth > innerWidth, width: innerWidth }));
@@ -673,9 +694,9 @@ try {
     for (const kind of ['friend', 'random']) {
       const remembered = { ...saved, kind, options: { ...saved.options, arrangement: true } };
       await setupMount(remembered);
-      // Spec J10 a: the hall has Play now (the home card shows it only while you have no games).
-      await frame.locator('#hall-play').click();
-      await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+      // Quick play starts on the inline Home card.
+      await quickFromHome();
+      await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 * STEP });
       const quick = await page.evaluate(() => window.harnessView);
       assert.equal(quick.kind, 'solo', `Play now starts a computer game from a saved ${kind} setup`);
       assert.equal(quick.level, 'beginner');
@@ -692,8 +713,7 @@ try {
     for (const [name, recovery] of [['kingdown_create', 'retry'], ['kingdown_create', 'remount'], ['kingdown_choose', 'retry'], ['kingdown_get', 'retry']]) {
       const remembered = { ...baseSetup, kind: 'friend', level: 'strong', options: { ...DEFAULT_OPTIONS, arrangement: true, kingPowers: true } };
       await setupMount(remembered);
-      await page.evaluate(name => { window.dropNextReply = name; }, name);
-      await frame.locator('#hall-play').click();
+      await quickFromHome(name);
       await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
       await frame.locator('#retry:not(:disabled)').waitFor();
       const pending = await page.evaluate(() => window.harnessWidgetState.privateContent.pending);
@@ -706,7 +726,7 @@ try {
       // A remount of a pending with an error shows its saved words and Retry; the player taps Retry (design §5.3).
       if (recovery === 'remount') { await page.locator('#remount').click(); await frame.locator('#retry:not(:disabled)').waitFor(); }
       await frame.locator('#retry').click();
-      await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+      await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 * STEP });
       const quick = await page.evaluate(() => window.harnessView);
       assert.equal(quick.kind, 'solo'); assert.equal(quick.level, 'beginner'); assert.equal(quick.options.arrangement, false);
       assert.deepEqual((await setupTool('kingdown_settings'))._meta.settings.last_setup, remembered);
@@ -1119,6 +1139,7 @@ try {
   }
   await page.setViewportSize({width:1000,height:1000});
   await openPlay();
+  await frame.locator('#saved-games').evaluate(el => { el.open = true; });
   const savedGame = frame.locator('#games-list button').first();
   await savedGame.waitFor();
   const inbox = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_games', arguments: {} } })).json();
@@ -1149,6 +1170,7 @@ try {
 
   await openPlay();
   const newFriendId = await page.evaluate(() => window.harnessView.game_id);
+  await frame.locator('#saved-games').evaluate(el => { el.open = true; });
   await frame.locator(`#games-list [data-game-id="${newFriendId}"]`).waitFor();
   assert.equal(await frame.locator(`#games-list [data-game-id="${newFriendId}"] .row-title`).innerText(), 'Waiting for a friend', 'Back shows the new game row');
   await legacyStart('solo');
@@ -1339,6 +1361,7 @@ try {
     assert.equal(await frame.locator('html').evaluate(() => window.sharedInvite), fullInvite, 'Share sends the same full invite');
     const invites = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length);
     await openPlay();
+    await frame.locator('#saved-games').evaluate(el => { el.open = true; });
     const inviteRow = frame.locator('.friend-invite-row').filter({ hasText: code });
     await inviteRow.waitFor();
     for (const [width, height] of [[197,426], [320,568], [390,844]]) {
@@ -1411,6 +1434,7 @@ try {
     assert(await frame.locator('#online-visibility').evaluate(control => control.nextElementSibling.getBoundingClientRect().top >= control.getBoundingClientRect().bottom), 'The online help text does not overlap the choices');
     await shot(page, `online-visibility-${mode}`);
     await openPlay();
+    await frame.locator('#saved-games').evaluate(el => { el.open = true; });
     await frame.locator(`#games-list [data-game-id="${friend.game_id}"]`).click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); await idleBoard();
     // Part 18-b: a failed status read keeps the other Menu controls and can retry.
@@ -2377,6 +2401,7 @@ try {
     await zoomViewport(402,874,0,0);
     await frame.locator('#new-game .new-game-body').evaluate(el => { el.scrollTop = 0; });
     await frame.locator('html').evaluate(() => document.fonts.ready);
+    await frame.locator('#saved-games').evaluate(el => { el.open = true; });
     const gaps = await frame.locator('#games-list .line').evaluateAll(lines => lines.map(line => {
       const [dot, detail] = line.querySelector('.game-detail').children, range = document.createRange();
       range.selectNode(line.firstChild);

@@ -97,6 +97,9 @@ it('keeps a board open without a game on home and stores its ID only in private 
 // Each screen but home shows only in fullscreen (spec Q25). A test that opens a screen directly puts the host there first.
 const expand = (page: Page) => page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'] }));
 // Tests of the hall itself open it directly.
+async function quickStart(frame: ReturnType<Page['frameLocator']>) {
+  await frame.locator('html').evaluate('(async () => { const setup = await import("/src/plugin/screens/setup.ts"); setup.playNow(); })()');
+}
 async function hall(page: Page) { await expand(page); await page.frameLocator('iframe').locator('html').evaluate(() => (window as any).harnessApp.navigate('play')); }
 it.each(['games', 'profile'] as const)('keeps a valid Resume route after a %s result clears the game behind home', async route => {
   const page = await open(), frame = page.frameLocator('iframe');
@@ -319,6 +322,7 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
     });
     const game_id = await page.evaluate(() => (window as any).harnessView.game_id);
     await frame.locator('#page-back').click();
+    await frame.locator('#saved-games').evaluate(el => { (el as HTMLDetailsElement).open = true; });
     const row = frame.locator(`#games-list [data-game-id="${game_id}"]`);
     await row.waitFor();
     expect(await row.locator('.line').textContent()).toMatch(/Move 1 ·\sWhite/);
@@ -327,6 +331,7 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
       await (window as any).harnessApp.call('kingdown_move', { game_id, command_id: 'play-rows-move', expected_revision: 0, lan: 'e2-e4' }, true);
       (window as any).harnessApp.navigate('play');
     }, game_id);
+    await frame.locator('#saved-games').evaluate(el => { (el as HTMLDetailsElement).open = true; });
     await row.locator('.line').filter({ hasText: /Their turn ·\smove 1/ }).waitFor();
     expect(await row.locator('.turn-mark').count()).toBe(0);
     expect(await frame.locator('html').evaluate((_, game_id) => (window as any).harnessApp.memory.games.find((entry: any) => entry.game_id === game_id).revision, game_id)).toBe(1);
@@ -658,6 +663,7 @@ it('shows both setup states in the app games rows', async () => {
     expect(accepted.isError).toBeFalsy();
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
     await frame.locator('#page-back').click();
+    await frame.locator('#saved-games').evaluate(el => { (el as HTMLDetailsElement).open = true; });
     const row = frame.locator(`#games-list [data-game-id="${game_id}"]`);
     expect(await row.locator('.line').textContent()).toMatch(/Choose your side ·\sWhite/);
     expect(await row.locator('.turn-mark').textContent()).toBe('Your turn');
@@ -668,6 +674,7 @@ it('shows both setup states in the app games rows', async () => {
       await app.call('kingdown_choose', { game_id: view.game_id, command_id: 'setup-rows-ready', expected_revision: view.revision, king: null, order: view.draw, ready: true }, true);
     });
     await frame.locator('#page-back').click();
+    await frame.locator('#saved-games').evaluate(el => { (el as HTMLDetailsElement).open = true; });
     await row.locator('.line').filter({ hasText: 'Waiting for the other player' }).waitFor();
     expect(await row.locator('.turn-mark').count()).toBe(0);
   } finally { await page.close(); }
@@ -1070,7 +1077,7 @@ it.each(['Abort', 'New game'])('opens the draft heading after %s and a held game
     if (action === 'Abort') { await page.waitForFunction(() => !!(window as any).releaseHeld); await page.evaluate(() => (window as any).releaseHeld()); }
     await frame.locator('#games-list [data-game-id]').nth(5).waitFor({state:'attached'});
     await expect.poll(() => frame.locator('#new-game-head').evaluate(e => Math.abs(e.getBoundingClientRect().top - e.closest('.new-game-body')!.getBoundingClientRect().top))).toBeLessThan(2);
-    expect(await frame.locator('[data-screen="play"] .new-game-body').evaluate(e => e.scrollTop)).toBeGreaterThan(100);
+    expect(await frame.locator('[data-screen="play"] .new-game-body').evaluate(e => e.scrollTop)).toBeGreaterThan(0);
     expect(await frame.getByRole('radio', {name:'Computer',exact:true}).isChecked()).toBe(true);
     expect(await frame.getByRole('radio', {name:'White',exact:true}).isChecked()).toBe(true);
     expect(await frame.getByRole('radio', {name:'Casual',exact:true}).isChecked()).toBe(true);
@@ -1206,7 +1213,7 @@ it('starts a friend game from the Play hall in three taps, with each list under 
     await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
     expect([await frame.locator('#play-open').isVisible(), await frame.locator('#join-form').isVisible()]).toEqual([false, true]);
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
-    await frame.locator('#page-back').click(); await frame.locator('#games-list .menu-row').first().waitFor();
+    await frame.locator('#page-back').click(); await frame.locator('#games-head').click(); await frame.locator('#games-list .menu-row').first().waitFor();
     expect(await frame.locator('#games-head').isVisible()).toBe(true);
   } finally { await page.close(); }
 });
@@ -1245,12 +1252,12 @@ it.each(['retry', 'remount'])('keeps the saved New game choices after a lost Pla
     });
     await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_create'; });
     await hall(page);
-    await frame.locator('#hall-play').click();
+    await quickStart(frame);
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await frame.locator('#retry').waitFor();
     expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
-    expect(await frame.locator('#hall-play').isDisabled()).toBe(true);
-    expect(await frame.locator('#games-start').isDisabled()).toBe(true);
+    expect(await frame.locator('#hall-play').count()).toBe(0);
+    expect(await frame.locator('#games-start').count()).toBe(0);
     expect(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked()).toBe(true);
     expect(await frame.getByRole('radio', { name: 'Beginner', exact: true }).isChecked()).toBe(true);
     expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(false);
@@ -1284,7 +1291,7 @@ it.each(['kingdown_choose', 'kingdown_get'])('shows Retry when Play now times ou
     await hall(page);
     await page.clock.install();
     await page.evaluate(name => { (window as any).holdBeforeNext = name; }, name);
-    await frame.locator('#hall-play').click();
+    await quickStart(frame);
     await page.waitForFunction(() => !!(window as any).releaseBefore);
     await page.clock.fastForward(10_001);
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
@@ -1397,6 +1404,7 @@ it('shows a neutral Start game beside the connection line when a slow start time
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await hall(page);
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await page.clock.install();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
     await frame.locator('#setup-start').click();
@@ -1605,7 +1613,7 @@ it('keeps a timed-out start and its Retry on New game when the player leaves at 
     await frame.locator('#page-back').click();
     await frame.locator('#retry').waitFor();
     expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
-    expect(await frame.locator('#setup-start').textContent()).toBe('Start game');
+    expect(await frame.locator('#setup-start').textContent()).toBe('Create invite');
     await frame.locator('#retry').click();
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     // Retry resends the same command ID; the receipt gives back one game (design §5.2).
@@ -1630,6 +1638,7 @@ it('keeps a timed-out start on Play and finishes it there while another game pla
     await frame.locator('#retry').waitFor();
     expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
     // The player opens another game: its board plays, with no start text.
+    await frame.locator('#saved-games').evaluate(el => { (el as HTMLDetailsElement).open = true; });
     await frame.locator(`#games-list [data-game-id="${friend}"]:not(:disabled)`).click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await frame.locator('#error').textContent()).toBe('');
@@ -1683,7 +1692,7 @@ it('shows the name reason and Retry on New game after Back from the name page, a
     await page.clock.fastForward(6_000);
     await frame.locator('#retry').waitFor();
     expect(await frame.locator('#error').textContent()).toBe('Pick a name and picture first.');
-    expect(await frame.locator('#setup-start').textContent()).toBe('Start game');
+    expect(await frame.locator('#setup-start').textContent()).toBe('Create invite');
     expect(await sent(page, 'kingdown_create')).toBe(1);
     // Retry sends the start again; here the player has a name now.
     await frame.locator('#retry').click();
@@ -1876,7 +1885,7 @@ it.each(['timeout', 'remount'])('retries Play now with the same command ID after
     await page.clock.install();
     await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_create'; });
     await hall(page);
-    await frame.locator('#hall-play').click();
+    await quickStart(frame);
     await page.waitForFunction(() => !!(window as any).releaseBefore);
     if (failure === 'timeout') {
       await page.clock.fastForward(10_001);
@@ -2185,18 +2194,28 @@ it.each([true, false])('keeps a saved setting when the first settings reply come
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await tool('kingdown_settings', { symbols_only: false }); await page.close(); }
 });
 
-it('shows the pitch, hides the zero count, and starts from the empty games list', async () => {
+it('shows the pitch and one start, hides empty saved games, and names a friend invite', async () => {
   const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
   const page = await open(isolated.url), frame = page.frameLocator('iframe');
   try {
     expect(await frame.getByText('Chess, the way it was never meant to be played.', { exact: true }).isVisible()).toBe(true);
     expect(await frame.locator('#home-line').isHidden()).toBe(true);
-    await hall(page);
-    await frame.locator('#games-empty:not([hidden])').waitFor();
-    expect(await frame.locator('#games-empty p').innerText()).toBe('No games yet.');
-    expect(await frame.locator('#games-empty button').allTextContents()).toEqual(['Start']);
-    await frame.locator('#games-start:not(:disabled)').click();
+    await frame.locator('#home-games').click();
+    expect(await frame.locator('#saved-games').isHidden()).toBe(true);
+    expect(await frame.locator('#hall-play, #games-start').count()).toBe(0);
+    expect(await frame.locator('#setup-start').innerText()).toBe('Start game');
+    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
+    expect(await frame.locator('#setup-start').innerText()).toBe('Create invite');
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).locator('..').click();
+    await frame.locator('#setup-start').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await hall(page);
+    await frame.locator('#saved-games:not([hidden])').waitFor();
+    expect(await frame.locator('#saved-games').isVisible()).toBe(true);
+    expect(await frame.locator('#saved-games').getAttribute('open')).toBeNull();
+    await frame.locator('#games-head').click();
+    expect(await frame.locator('#games-list button').first().isVisible()).toBe(true);
   } finally { await page.close(); await isolated.close(); }
 });
 it('shows one action in an empty open-games list and starts the search', async () => {
@@ -2229,7 +2248,7 @@ it('shows the game count, resumes a person first, and opens the hall without a n
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     expect(await frame.locator('[data-screen="play"] .new-game-body').evaluate(e => e.scrollTop)).toBe(0);
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(0);
-    await frame.locator('#hall-play:not(:disabled)').click();
+    await quickStart(frame);
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
   } finally { await page.close(); await isolated.close(); }
 });
@@ -2402,7 +2421,7 @@ it('locks Home Play now while a lost hall start waits for Retry', async () => {
   try {
     await hall(page);
     await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_create'; });
-    await frame.locator('#hall-play:not(:disabled)').click();
+    await quickStart(frame);
     await frame.locator('#retry:not(:disabled)').waitFor();
     await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'inline' }));
     await frame.locator('#home-card:not([hidden])').waitFor();
@@ -2460,3 +2479,4 @@ it('recovers a lost seat Ready before the computer makes the first move after re
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_choose').map((c: any) => c.arguments.command_id))).toEqual([command, command]);
   } finally { await page.close(); await isolated.close(); }
 });
+

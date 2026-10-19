@@ -57,6 +57,7 @@ it('makes a friend code after create and offers a new code after remount', async
     await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join('');
     await frame.locator('#page-back').click();
+    await frame.locator('#games-head').click();
     const row = frame.locator('.friend-invite-row').filter({ hasText: code }); await row.waitFor();
     expect(await row.getByRole('button', { name: `Share game ${code}`, exact: true }).isVisible()).toBe(true);
   } finally { await page.close(); }
@@ -99,6 +100,7 @@ it('shares the known code from Your games without a new code or a resume', async
     await frame.locator('#friend-share').click();
     expect(await frame.locator('#friend-copy-status').textContent()).toBe('Shared');
     await frame.locator('#page-back').click();
+    await frame.locator('#games-head').click();
     const row = frame.locator('.friend-invite-row').filter({ hasText: code }); await row.waitFor();
     expect(await row.locator('[data-game-id]').getAttribute('data-game-id')).toBe(view.game_id);
     const calls = () => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => ['kingdown_invite', 'kingdown_resume'].includes(c.name)).length);
@@ -137,6 +139,7 @@ it('updates Your games after Back and keeps rows locked during Resume', async ()
     await frame.locator('#friend-new').click();
     await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
     await frame.locator('#page-back').click();
+    await frame.locator('#games-head').click();
     await frame.locator(`[data-screen="play"]:not([hidden]) [data-game-id="${view.game_id}"]`).waitFor();
     await page.evaluate(() => {
       const host = window as any; host.releaseInvite = host.releaseHeld; host.releaseHeld = undefined; host.holdNext = 'kingdown_resume';

@@ -60,6 +60,7 @@ it('names game features and each history result for screen readers', async () =>
     const entries = history.slice(0, 3).map((entry, i) => ({ ...entry, features: { ...entry.features, fairy: i === 0, arrangement: i === 0, classic: i === 1, cards: i === 0, powers: i === 0 } }));
     await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { games, history: entries, record } } });
     await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_games', {}); app.navigate('play'); });
+    await frame.locator('#games-head').click();
     const featureNames = ['- img "Fairy pieces"\n- img "Arrangement"\n- img "Cards"\n- img "King powers"', '- img "Classic chess"', ''];
     for (const [i, game] of games.entries()) {
       const row = frame.locator(`#games-list [data-game-id="${game.game_id}"]`);

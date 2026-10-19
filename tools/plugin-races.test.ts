@@ -489,6 +489,7 @@ it('R2: a failed start does not lock another game (a.out 2)', async () => {
     await page.clock.fastForward(5_000);
     await frame.locator('#page-back').click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator('#games-head').click();
     await frame.locator(`#games-list [data-game-id="${friend}"]:not(:disabled)`).click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     // Changed (fault b): the start's text and Retry show on Play only; the other game plays.
