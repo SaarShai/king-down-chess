@@ -35,3 +35,8 @@ A pre-merge run compared the live app source (`04b7af87`) with the release candi
 - Visible changes that reach the site on merge: "Tap" becomes "Select" in the turn lines, the armed-power hints, the Beast chain refusal and the Beast and Reaver guides (`src/turn.ts`, `src/context-line.ts`, `src/read.ts`); the board canvas stays hidden until the stone art decodes (first frame only); the Privacy, Support (a new Credits section) and Terms pages change their text.
 - Already live, so not new: the coordinate limit below 8 CSS px, the 5-second idle stop and the growing context row.
 - No visible change: normal coin faces match; the new disabled-coin style has no trigger in the local app.
+
+## Merge record (2026-10-19)
+
+- PR 61 merged at `cd8fa9f2` (2026-10-19 03:53 UTC). The first deploy stopped at the engines-in-use check: a source-stamp engine was missing ([ticket 07](07-engine-compatibility.md)). PR 62 archives it; the deploy runs again after PR 62 merges. The deploy publishes the combined tree, so kingdown.dev gets the visible changes of the pre-merge run above with it. Each is a recorded pick or fix: the Select words (owner pick B4), the first-frame board load (plugin fault F13), and the submission text of the legal and support pages.
+- Steps 2 to 4 come from that deploy's record (its `npm test`, default browser checks, engines report, migrations and deploy ID), from the release owner. Steps 1, 5 and 6 run after the deploy, because the deploy's browser checks use this Mac.
