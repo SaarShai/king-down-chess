@@ -67,6 +67,8 @@ const text = (words: string) => { const p = document.createElement('p'); p.textC
 const button = (words: string, click: () => void) => { const b = document.createElement('button'); b.textContent = words; b.onclick = click; return b; };
 export function boardScreen(store: Store) {
   let generation = 0, animating = false, steps: BoardMove[] = [];
+  const marksLayer = document.createElement('div');
+  marksLayer.id = 'board-marks'; marksLayer.setAttribute('aria-hidden', 'true'); $('board').append(marksLayer);
   const call = store.call;
   // The game lock covers a write, a mount, a command that belongs here and a stale board.
   const networkBlocked = () => locks(store.page()).game;
@@ -84,6 +86,16 @@ export function boardScreen(store: Store) {
   const canRead = () => !animating;
   let armed: PowerName | undefined, armedCard: number | undefined;
   let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0, cursorShown = false;
+  function drawCursor() {
+    marksLayer.replaceChildren();
+    if (!cursorShown) return;
+    const box = $('board').getBoundingClientRect(), at = board.screenOf(cursor), next = board.screenOf(cursor % 8 < 7 ? cursor + 1 : cursor - 1);
+    const width = Math.hypot(at.x - next.x, at.y - next.y), mark = document.createElement('i');
+    mark.className = 'mk-cursor';
+    Object.assign(mark.style, { left: `${at.x - box.left - width / 2}px`, top: `${at.y - box.top - width / 2}px`, width: `${width}px`, height: `${width}px` });
+    marksLayer.append(mark);
+  }
+  new ResizeObserver(drawCursor).observe($('board'));
   // G3 a: a shove or swap onto your own piece needs a second tap.
   let held: Choice | undefined;
   const heldSquare = (move: Move) => move.shove?.from ?? move.to;
@@ -214,7 +226,7 @@ export function boardScreen(store: Store) {
   }
   $('app-frame').addEventListener('keydown', event => {
     if (event.key !== 'Escape' || client.state.screen !== 'board' && !sheet?.contains(event.target as Node)) return;
-    event.preventDefault(); armed = undefined; armedCard = undefined; selected = held = undefined; choices([]); refresh(); closeBoardSheet();
+    event.preventDefault(); cursorShown = false; armed = undefined; armedCard = undefined; selected = held = undefined; choices([]); refresh(); closeBoardSheet();
   });
   function select(square: number, submit = true) {
     if (!view || !pos || !canRead()) return;
@@ -247,10 +259,11 @@ export function boardScreen(store: Store) {
     if ($('board').parentElement !== $('game-table')) $('game-table').prepend($('board'));
     board.onSquareClick = square => select(square); board.onDragSelect = square => select(square, false);
     $('board').tabIndex = 0;
+    $('board').onblur = () => { cursorShown = false; const hold = holding(); board.setPreview(hold ? heldSquare(hold.move) : null); drawCursor(); };
     $('board').onkeydown = event => {
       // The cursor moves while play waits. Enter reads a square when motion stops.
       const delta = ({ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,1], ArrowDown:[0,-1]} as Record<string,number[]>)[event.key];
-      if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); cursorShown = true; board.setPreview(cursor); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
+      if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); cursorShown = true; board.setPreview(cursor); drawCursor(); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
       else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(cursor); }
       else if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undo(); }
     };
@@ -407,7 +420,7 @@ export function boardScreen(store: Store) {
     const table = $('game-table');
     if (drawReply) { table.dataset.replies = ''; if (boardRoom) table.style.setProperty('--board-floor', `${boardRoom}px`); }
     else { delete table.dataset.replies; table.style.removeProperty('--board-floor'); boardRoom = $('board').getBoundingClientRect().height || boardRoom; }
-    board.setLifted(selected ?? null); board.setPreview(hold ? heldSquare(hold.move) : cursorShown ? cursor : null);
+    board.setLifted(selected ?? null); board.setPreview(hold ? heldSquare(hold.move) : cursorShown ? cursor : null); drawCursor();
     // Never lay the king down on the position before the final move.
     const fallen = !animating && view.result?.reason === 'checkmate' && view.result.winner !== null ? findKing(pos.board,(1-view.result.winner) as Color) : null;
     const win = view.result?.winner === view.seat;

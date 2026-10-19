@@ -1669,3 +1669,32 @@ it.each(['teardown', 'close'] as const)('keeps the player strips fixed when a pr
     }))).toBe(true);
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()).catch(() => {}); await page.close(); }
 });
+
+it('F05: draws one keyboard cursor at the tile and clears it on Escape or blur', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), 390, 844), frame = page.frameLocator('iframe');
+  const proof = join(tmpdir(), 'kingdown-gui-board-proof'); await import('node:fs/promises').then(fs => fs.mkdir(proof, { recursive: true }));
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
+    await frame.locator('#board').focus();
+    await frame.locator('#board').press('ArrowRight');
+    async function cursorBox() {
+      return frame.locator('#board .mk-cursor').evaluate(mark => {
+        const at = (window as any).testBoard.screenOf(1), next = (window as any).testBoard.screenOf(2), width = Math.hypot(at.x - next.x, at.y - next.y), box = mark.getBoundingClientRect(), style = getComputedStyle(mark);
+        return { dx: Math.abs(box.x - at.x + width / 2), dy: Math.abs(box.y - at.y + width / 2), dw: Math.abs(box.width - width), border: style.borderTopWidth, color: style.borderTopColor };
+      });
+    }
+    expect(await frame.locator('#board-marks[aria-hidden="true"]').count()).toBe(1);
+    expect(await frame.locator('#board .mk-cursor').count()).toBe(1);
+    const box = await cursorBox(); expect(box.dx).toBeLessThanOrEqual(1); expect(box.dy).toBeLessThanOrEqual(1); expect(box.dw).toBeLessThanOrEqual(1);
+    expect(box.border).toBe('3px'); expect(box.color).toBe('rgb(28, 91, 176)');
+    await frame.locator('#board .mk-cursor').evaluate(e => { (e as HTMLElement).style.visibility = 'hidden'; });
+    await frame.locator('#board').screenshot({ path: join(proof, 'f05-before.png') });
+    await frame.locator('#board .mk-cursor').evaluate(e => { (e as HTMLElement).style.visibility = ''; });
+    await frame.locator('#board').screenshot({ path: join(proof, 'f05-after.png') });
+    await page.setViewportSize({ width: 430, height: 844 });
+    await expect.poll(async () => (await cursorBox()).dx).toBeLessThanOrEqual(1);
+    await frame.locator('#board').press('Escape'); expect(await frame.locator('.mk-cursor').count()).toBe(0);
+    await frame.locator('#board').press('ArrowLeft'); expect(await frame.locator('.mk-cursor').count()).toBe(1);
+    await frame.locator('#board-menu').focus(); expect(await frame.locator('.mk-cursor').count()).toBe(0);
+  } finally { await page.close(); }
+});
