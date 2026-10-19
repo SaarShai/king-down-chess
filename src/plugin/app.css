@@ -120,7 +120,6 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 #table-bar > #board-menu { grid-column: 3; }
 #short-last-move { display: none; }
 #table-bar > button.primary { background: var(--accent); color: var(--vellum); }
-#table-bar > button[aria-disabled='true'] { color: rgb(91 80 69 / 60%); }
 /* Card coins (card mode C): smaller than the power coin, so a full hand fits the strip at 360 px. The card face fills
    the coin inside the ring, so it grows with the coin (26 px in a 34 px coin, 36 px in a 44 px coin). */
 .coin-row { gap: 4px; }
@@ -372,6 +371,7 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
   box-shadow: inset 0 2px 0 var(--brick-edge), inset 0 0 0 2px var(--brick-ring);
 }
 #app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):is(:disabled, [aria-disabled='true'], :has(> input:disabled)) {
+  --ink-soft: rgb(91 80 69 / 75%); --fg-soft: rgb(91 80 69 / 75%);
   color: var(--ink-soft); background: var(--stone-100); border-color: var(--stone-300);
   box-shadow: none; transform: none; opacity: 1;
 }
