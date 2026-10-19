@@ -12,6 +12,9 @@ import { ENGINE_STAMP, ENGINES } from './plugin-runtime-build.mjs';
 const files = readdirSync(ENGINES);
 const bundles = files.filter(file => file.endsWith('.mjs')).map(file => file.slice(0, -4));
 const legacyBundles = ['2675a7e6e32d635615350089a490902f4842ae26a7866d7123c6d95b49c60c5b', 'a6f9ebec5f0f2d5ff0a7b24e726e196fd27821a5133176bcfda26b70de9b75cd'];
+// A tsx run (the review seed, tools/plugin-db/seed-review.ts) stamps the source-tree hash of src/match/worker.ts.
+// Each alias is the compiled bundle of that same source with the source stamp in place of its own.
+const sourceAliases: Record<string, string> = { e668782a46ed3661312f39a8d246c19722686054317a4c9a35da31d726dabcb6: 'bab22e94d4df81591374763a7f3abe703c30534f80ce771ee3fe7e095dcec7da' };
 const fixture = (hex: string) => readFileSync(join(ENGINES, `${hex}.save.json`), 'utf8');
 const matches: LocalMatch[] = [];
 afterEach(async () => { await Promise.all(matches.splice(0).map(m => m.close())); });
@@ -21,9 +24,10 @@ describe('engine archive', () => {
     expect(bundles.length).toBeGreaterThan(0);
     expect(files.filter(file => file.endsWith('.save.json')).map(file => file.slice(0, -10)).sort()).toEqual([...bundles].sort());
     for (const hex of bundles) {
-      const text = readFileSync(join(ENGINES, `${hex}.mjs`), 'utf8');
+      const text = readFileSync(join(ENGINES, `${hex}.mjs`), 'utf8'), base = sourceAliases[hex];
+      if (base) expect(text.replace(`sha256:${hex}`, `sha256:${base}`)).toBe(readFileSync(join(ENGINES, `${base}.mjs`), 'utf8'));
       // The build hashed the bundle while it held the stamp; a changed bundle no longer matches its name.
-      expect(createHash('sha256').update(text.replace(`sha256:${hex}`, ENGINE_STAMP)).digest('hex')).toBe(hex);
+      else expect(createHash('sha256').update(text.replace(`sha256:${hex}`, ENGINE_STAMP)).digest('hex')).toBe(hex);
       expect(JSON.parse(fixture(hex)).engine).toBe(`sha256:${hex}`);
     }
   });
