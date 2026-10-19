@@ -4,7 +4,7 @@ This folder holds the build tickets for [the adaptation spec](../web-adaptation/
 
 ## Current gate
 
-[Adaptation ticket 18](../web-adaptation/issues/18-approve-spec.md) approved the spec on 2026-10-19, at `2837bcc6`, before the plugin deploy record (owner, 2026-10-19). Each build branch starts from the current main and rebases onto main after that deploy. A publish also needs the deploy record in [ticket 08](../web-adaptation/issues/08-release-evidence.md) (step 4). Use no old release candidate or parked branch as a build base.
+[Adaptation ticket 18](../web-adaptation/issues/18-approve-spec.md) approved the spec on 2026-10-19, at `2837bcc6`, before the plugin deploy record (owner, 2026-10-19). Each build branch starts from the current main and rebases onto main after that deploy. [Ticket 08](../web-adaptation/issues/08-release-evidence.md) holds that deploy record: kingdown.dev serves `3d4c97ae` since 2026-10-19. Each publish names the live source from the last deploy record. Use no old release candidate or parked branch as a build base.
 
 ## Owner and branch gates
 

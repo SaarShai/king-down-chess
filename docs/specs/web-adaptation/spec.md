@@ -4,9 +4,9 @@ Status: ready-for-agent
 Approval: approved by delegation (owner, 2026-10-18) on 2026-10-19, at `2837bcc6`, for phases 1 to 8; see [ticket 18](issues/18-approve-spec.md)
 Build gate: [Approve the adaptation spec and build order](issues/18-approve-spec.md)
 
-The spec approval is complete; each merge and each publish still needs the owner's word. Tickets 01 to 17 supply the answers below. Ticket 08 stays open only for step 4 and the served commit from the release owner's deploy record. The build follows [the web build tickets](../web-build/README.md). See [the map](map.md).
+The spec approval is complete; each merge and each publish still needs the owner's word. Tickets 01 to 17 supply the answers below. Ticket 08 closes with the deploy record of 2026-10-19. The build follows [the web build tickets](../web-build/README.md). See [the map](map.md).
 
-Code base: the PR 61 merge `cd8fa9f2` replaces `04b7af87` and `442c5eb3` as the adaptation base. The supplied live build stays `04b7af87` until the release owner's deploy. PR 62 is merged (`2837bcc6`). The deploy record closes [ticket 08](issues/08-release-evidence.md) (step 4). Build branches start from main and rebase onto main after that deploy. [The inventory](inventory.md) holds the 81 work units and source evidence; [the comparison](comparison.md) records the two planning inputs. Older source IDs there describe those reads.
+Code base: the PR 61 merge `cd8fa9f2` replaces `04b7af87` and `442c5eb3` as the adaptation base. Since deploy `kingdown-1uncjepb9` (2026-10-19), kingdown.dev serves `3d4c97ae`. PR 62 is merged (`2837bcc6`). The deploy record closes [ticket 08](issues/08-release-evidence.md) (step 4). Build branches start from main and rebase onto main after that deploy. [The inventory](inventory.md) holds the 81 work units and source evidence; [the comparison](comparison.md) records the two planning inputs. Older source IDs there describe those reads.
 
 ## Problem Statement
 
@@ -324,8 +324,8 @@ These limits follow [the map](map.md), [ticket 09](issues/09-web-play.md), [tick
 
 The plan keeps the working local app, shares the account UI and extends the existing handler, renderer, rules and service transactions. [The inventory](inventory.md) covers 81 work units; it is not an effort estimate.
 
-Tickets 01 to 18 hold the resolved answers; ticket 08 waits only for step 4 and the served commit. [Ticket 18](issues/18-approve-spec.md) records the approval.
+Tickets 01 to 18 hold the resolved answers; ticket 08 closes with the deploy record. [Ticket 18](issues/18-approve-spec.md) records the approval.
 
 The PR 61 merge carries the outbox-text repair. Phase 1 removes the unsafe worker cache path; phase 3 removes the unused watcher when the shared poll takes over. [The comparison](comparison.md) records the source faults.
 
-The final deploy record, shared-file handover, exact recovery build, real Android tester/device and accepted speed budget remain explicit gates in [ticket 08](issues/08-release-evidence.md), [the test gate](test-gate.md) and [the release route](release-route.md). Earlier results and prototype samples do not close product release checks.
+The shared-file handover, the exact recovery build of each publish, the real Android tester/device and the accepted speed budget remain explicit gates in [the test gate](test-gate.md) and [the release route](release-route.md). [Ticket 08](issues/08-release-evidence.md) holds the last deploy record. Earlier results and prototype samples do not close product release checks.

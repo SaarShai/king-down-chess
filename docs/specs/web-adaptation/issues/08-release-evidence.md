@@ -1,7 +1,7 @@
 # Collect the final plugin release evidence and the web baseline
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: none
 Starts: when PR 61 merges (an outside event, not a ticket)
 Parent: [Web adaptation map](../map.md)
@@ -58,3 +58,15 @@ The release owner (the plugin session) ran the check with the read-only release 
 - **Engines in use:** the engines check passes. Two engines are in use, and the archive holds both: `bab22e94` (1 unfinished game) and its source-stamp alias `e668782a` (4 unfinished games).
 - **Migrations and grants:** migration 0014 and its runtime grant are present on production.
 - **Still open:** step 4 (the deploy ID, its source commit and the recovery path) and the served commit, from the deploy record. The deploy source is the PR 63 merge, with test-only changes on top of `2837bcc6`. These facts gate each web publish, not the spec approval ([ticket 18](18-approve-spec.md)).
+
+## Step 4 from the deploy record (2026-10-19)
+
+The release owner (the plugin session) supplied this record. No credential file was opened.
+
+- **Deploy:** ID `kingdown-1uncjepb9`, source commit `3d4c97ae`. Checks: npm test passes 3185 tests with 8 skips (191 files). All 24 browser checks and 2 of 2 plugin browser checks pass. The engine archive guard, the engines-in-use check, check:vercel, the MCP protocol check (26 tools) and the site and plugin live checks pass.
+- **Recovery:** the previous production deployment `kingdown-7y0oxen9y` (source `04b7af87`, published 2026-10-17). A rollback needs the owner's word. That build is older than the `e668782a` archive, so the 4 unfinished games on that engine refuse with MATCH_INCOMPATIBLE there. Migration 0014 adds only, so the old build ignores it.
+- **Served commit (step 5):** `tools/deploy.sh --publish` ends with "deploy: published 3d4c97ae… to kingdown; live checks pass" at about 11:19 UTC. kingdown.dev is the alias of the new deployment. The site live check finds the bundle `assets/index-DS4E-bHB.js` and identical legal pages.
+
+## Answer
+
+The web work uses main; kingdown.dev serves `3d4c97ae` since deploy `kingdown-1uncjepb9`. Steps 1, 2, 5 and 6 are in the merge sections above, step 3 in the read-only check, and step 4 in the deploy record. The merge brings no new web trade-off. The five later-update branches are parked. Real-device evidence stays a gate of [the test gate](../test-gate.md), not of this record.
