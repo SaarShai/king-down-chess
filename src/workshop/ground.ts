@@ -1,3 +1,4 @@
+import { cardPicture } from '../card-symbol';
 import { cardDiagram } from '../card-diagram';
 /**
  * The Workshop (docs/WORKSHOP.md): the Proving Ground, view A of docs/specs/workshop-proving-ground.
@@ -67,6 +68,7 @@ const LAY: readonly CardName[] = ['Freeze', 'IceWall', 'Leap', 'March', 'Mimic',
 /** A design with a When that counts moves or cards: the socket and the card slot wait (powersWork). */
 const WAIT_POWERS = 'Powers wait: a rule of this piece counts moves or cards.', WAIT_CARDS = 'Cards wait: a rule of this piece counts moves or cards.';
 const cardArt = (c: CardName): string => `${import.meta.env.BASE_URL}ui/cards/${ART.includes(c) ? c.toLowerCase() : 'back'}.webp`;
+const cardFace = (c: CardName): string => ART.includes(c) ? `<img class="art" src="${cardArt(c)}" alt="">` : `<span class="art">${cardPicture(c)}</span>`;
 /** "Ice Wall", "Sky Lift", "Spawn K2". */
 const cardName = (c: CardName): string => (c in USES_RULE ? POWER_NAME[c as PowerName] : c.replace(/([a-z])([A-Z0-9])/g, '$1 $2'));
 /** A card's sentence in the web's words (powerText's webWords). */
@@ -679,7 +681,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (labOpen) {
       const n = cardName(labOpen);
       plinthEl.innerHTML = `<div class="pg-name"><div class="row"><h3${n.length > 9 ? ' class="long"' : ''}>${n}</h3></div></div>`
-        + `<div class="pg-bigcard lab-host"><img class="art" src="${cardArt(labOpen)}" alt=""><b class="ttl">${n}</b><span class="rule"></span><p>${esc(cardWords(labOpen))}.</p>${cardDiagram(labOpen) ? `<div class="card-diagram">${cardDiagram(labOpen)}</div>` : ''}<span class="lab-ribbon" aria-hidden="true">LAB</span></div>`;
+        + `<div class="pg-bigcard lab-host">${cardFace(labOpen)}<b class="ttl">${n}</b><span class="rule"></span><p>${esc(cardWords(labOpen))}.</p>${cardDiagram(labOpen) ? `<div class="card-diagram">${cardDiagram(labOpen)}</div>` : ''}</div>`;
       return;
     }
     const d = cur.d, name = d.name || 'Piece', origin = cur.key.startsWith('piece:') ? undefined : PRESETS.find(p => d.from.length === 1 && p.key === d.from[0]);
@@ -1277,7 +1279,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     const empty = `<span class="sockc"><img src="${import.meta.env.BASE_URL}ui/emblems/spirit.webp" alt=""></span>`;
     // The card slot (ticket 14; :1383-1384) waits on such a piece too; else it opens LAY A LAB CARD.
     const slot = `<button type="button" class="tok cardslot${laid && powersWork() ? ' on' : ''}" ${powersWork() ? `data-act="lay" aria-expanded="${laying}"` : 'data-act="nocard" aria-disabled="true"'} title="Card: lay a LAB card"`
-      + ` aria-label="${!powersWork() ? `Card. ${WAIT_CARDS}` : laid ? `${cardName(laid)} card (LAB): lay another` : 'Card: lay a LAB card'}"><span class="cs${laid ? ' filled' : ''}"${laid ? ` style="background-image:url(${cardArt(laid)})"` : ''}><i></i></span></button>`;
+      + ` aria-label="${!powersWork() ? `Card. ${WAIT_CARDS}` : laid ? `${cardName(laid)} card (LAB): lay another` : 'Card: lay a LAB card'}"><span class="cs${laid ? ' filled' : ''}"${laid ? ` style="background-image:url(${cardArt(laid)})"` : ''}></span></button>`;
     const socket = !powersWork() ? `<button type="button" class="tok pg-socket" data-act="nosocket" aria-disabled="true" aria-label="King. ${WAIT_POWERS}">${empty}</button>${slot}<span class="pg-kingnote">${WAIT_POWERS}</span>`
       : !king ? `<button type="button" class="tok pg-socket" data-act="seat" aria-expanded="${seating}" aria-label="King: seat a king and his powers" title="King: seat a king and his powers">${empty}</button>${slot}`
       : `<span class="tok kingseat"><button type="button" class="pg-kingfig" data-act="seat" aria-expanded="${seating}" aria-label="${king} king: seat another king" title="${king} king"><img src="${kingArt(king)}" alt=""></button>`
@@ -1287,7 +1289,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       + `<div class="tokens">${tok('friend', 'Friend: one of your pieces')}${tok('enemy', 'Enemy: tap, then tap a square')}${socket}</div>`
       + (seating ? `<div class="picker" role="group" aria-labelledby="pg-seat-h"><h4 id="pg-seat-h">SEAT A KING</h4><div class="row">${KING_LIST.map(k => `<button type="button" data-seat="${k}" aria-pressed="${king === k}"><img src="${kingArt(k)}" alt="">${k}</button>`).join('')}</div></div>` : '')
       + (laying ? `<div class="picker" role="group" aria-labelledby="pg-lay-h"><h4 id="pg-lay-h">LAY A LAB CARD</h4><div class="row">${LAY.map(c => `<button type="button" data-lay="${c}" aria-pressed="${laid === c}">`
-        + `<span class="mini-card lab-host" style="background-image:url(${cardArt(c)})"><i></i></span>${cardName(c)}</button>`).join('')}</div></div>` : '')
+        + `<span class="mini-card lab-host" style="background-image:url(${cardArt(c)})"></span>${cardName(c)}</button>`).join('')}</div></div>` : '')
       + `<div class="trow2"><button type="button" data-act="threats" aria-pressed="${threats}" aria-label="Threats" title="Threats: what can hit your piece">${sigil('eye', 22)}</button>`
       + `<button type="button" data-act="stir" aria-label="Stir" title="Stir: another board">${sigil('die', 22)}</button>`
       + `<button type="button" data-act="clear" aria-label="Clear" title="Clear: the piece alone">${sigil('broom', 22)}</button>`
@@ -1306,7 +1308,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     // An open card's words (renderInfo, :1118-1123): the LAB note, its king for a power card, its second form, and what to do.
     if (labOpen && !brush) {
       const c = labOpen, twin = c in USES_RULE ? kingOf(c as PowerName) : null, b = SECOND[c];
-      brushesEl.innerHTML = phone ? '' : '<p class="lab-note"><i>LAB</i>Test deck. Not in the game.</p>'
+      brushesEl.innerHTML = phone ? '' : '<p class="lab-note">Test deck. Not in the game.</p>'
         + (twin ? `<h4 class="info-h">Also a king's power</h4><p class="twin"><button type="button" data-twin="${twin}" aria-label="Open the ${twin} king">${coinHtml(c as PowerName)}</button>${POWER_NAME[c as PowerName]}, a power of the ${twin} king.</p>` : '')
         + (b ? `<h4 class="info-h">Second form</h4><p class="variant"><b>${cardName(b)}</b>${esc(cardWords(b))}.</p>` : '')
         + `<p class="info-p">${!LAY.includes(c) ? 'No test board for this card yet.' : !powersWork() ? WAIT_CARDS : laid !== c ? 'Lay it from the card slot.'
@@ -1379,7 +1381,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     // The Cards tab (renderLedge, :1459-1465): the cards with art make a fan; the others wait in a stack, which a tap spreads.
     if (t === 'cards') {
       const rest = DECK.filter(c => !ART.includes(c)), face = (c: CardName): string => `<button type="button" class="cface lab-host${labOpen === c ? ' open' : ''}" data-lab="${c}"${labOpen === c ? ' aria-current="true"' : ''} aria-label="${cardName(c)} (LAB)">`
-        + `<img class="art" src="${cardArt(c)}" alt=""><span class="t">${cardName(c)}</span>${c in USES_RULE ? `<span class="badge"><img src="${import.meta.env.BASE_URL}ui/emblems/${kingOf(c as PowerName).toLowerCase()}.webp" alt=""></span>` : ''}<span class="lab-ribbon" aria-hidden="true">LAB</span></button>`;
+        + `${cardFace(c)}<span class="t">${cardName(c)}</span>${c in USES_RULE ? `<span class="badge"><img src="${import.meta.env.BASE_URL}ui/emblems/${kingOf(c as PowerName).toLowerCase()}.webp" alt=""></span>` : ''}</button>`;
       slotsEl.innerHTML = `<div class="cfan">${(spread ? rest : ART).map(face).join('')}</div>` + (spread ? '<button type="button" class="quiet cback" data-act="cardsback">‹ Back</button>'
         : `<button type="button" class="cstack" data-act="cardsall" aria-label="${rest.length} more cards"><span class="c"></span><span class="c"></span><span class="c"></span><b>+${rest.length}</b></button>`);
       return;
@@ -1505,7 +1507,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     // With a laid card the plaque turns burgundy: "LAB card" (proving-ground.html:1177-1179).
     const lab = !!laid && powersWork();
     q('.pg-plaque').hidden = !plaqueOn() && !lab;
-    q('.pg-plaque').innerHTML = lab ? `<span class="plaque lab" title="A test card. It is not in the game.">${sigil('card', 13)}LAB card</span>` : plaque();
+    q('.pg-plaque').innerHTML = lab ? `<span class="plaque lab" title="A test card. It is not in the game.">${sigil('card', 13)}Card</span>` : plaque();
     drawAlert();
     renderWhy();
     // A short right column has no room for the tray under the tag: the tray waits until the tag closes.

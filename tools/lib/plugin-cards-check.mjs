@@ -99,15 +99,15 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   await frame.locator('#setup-done').click();
   assert((await frame.locator('#setup-cards').innerText()).startsWith('5 cards'), 'Done saves the draft after a host refresh');
   await frame.locator('#setup-cards').click();
-  const art = await sheet.locator('.card-face').evaluateAll(faces => faces.map(f => ({ card: f.querySelector('input').value, image: !!f.querySelector('.cf-art img'), scene: !!f.querySelector('.cf-art .pm'), plain: f.querySelector('.cf-word')?.textContent, name: f.querySelector('b').textContent })));
-  assert.equal(art.filter(a => a.image).length, 12); assert.equal(art.filter(a => a.scene).length, 0); assert.equal(art.filter(a => a.plain).length, 9);
+  const art = await sheet.locator('.card-face').evaluateAll(faces => faces.map(f => ({ card: f.querySelector('input').value, image: !!f.querySelector('.cf-art img'), scene: !!f.querySelector('.cf-art .pm'), picture: !!f.querySelector('.cf-art .card-picture'), name: f.querySelector('b').textContent })));
+  assert.equal(art.filter(a => a.image).length, 12); assert.equal(art.filter(a => a.scene).length, 0); assert.equal(art.filter(a => a.picture).length, 9);
   assert(!await sheet.locator('img[src*="back.webp"]').count());
   await frame.locator('#menu-close').click();
   // Built-page checks use visible controls; source-harness app helpers are absent.
   await frame.locator('[data-screen="play"] [data-nav="profile"]').click();
   await frame.locator('[data-screen="profile"] [data-nav="collection"]').click();
   await frame.locator('#collection-tabs label').filter({ hasText: 'Cards' }).click();
-  const collection = await frame.locator('#collection-items .card-face').evaluateAll(faces => faces.map(f => ({ card: f.dataset.card, image: !!f.querySelector('.cf-art img'), scene: !!f.querySelector('.cf-art .pm'), plain: f.querySelector('.cf-word')?.textContent, name: f.querySelector('b').textContent })));
+  const collection = await frame.locator('#collection-items .card-face').evaluateAll(faces => faces.map(f => ({ card: f.dataset.card, image: !!f.querySelector('.cf-art img'), scene: !!f.querySelector('.cf-art .pm'), picture: !!f.querySelector('.cf-art .card-picture'), name: f.querySelector('b').textContent })));
   assert.deepEqual(collection, art, 'The sheet and Collection share card art and names');
   await noLoops(frame.locator('#collection-items'));
   console.log('Cards: grid, names, art, costs, both modes and all three cancel paths pass');
@@ -150,20 +150,11 @@ export async function measureCardCoins(frame, output) {
     assert(min >= 3, `${side} ring has at least 3:1 contrast against its coin face (${min.toFixed(2)})`);
     for (const ring of rings.filter(r => r.side === side)) ring.minContrastOnCoinFace = Number(min.toFixed(2));
   }
-  const letters = [];
-  for (const word of await frame.locator('.card-coin .cc-word').all()) {
-    const bounds = await word.evaluate(w => { const range = document.createRange(); range.selectNodeContents(w); const r = range.getBoundingClientRect(), c = w.closest('button').getBoundingClientRect(); return { text: w.textContent, color: getComputedStyle(w).color, x: r.x - c.x, y: r.y - c.y, width: r.width, height: r.height }; });
-    await word.evaluate(w => { w.style.visibility = 'hidden'; });
-    const { data, info } = await sharp(await word.locator('..').screenshot()).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-    await word.evaluate(w => { w.style.visibility = ''; });
-    let min = Infinity;
-    for (let y = Math.max(0, Math.floor(bounds.y)); y < Math.min(info.height, Math.ceil(bounds.y + bounds.height)); y++) for (let x = Math.max(0, Math.floor(bounds.x)); x < Math.min(info.width, Math.ceil(bounds.x + bounds.width)); x++) {
-      const offset = (y * info.width + x) * info.channels;
-      min = Math.min(min, contrast(rgb(bounds.color), [...data.subarray(offset, offset + 3)]));
-    }
-    letters.push({ text: bounds.text, minTextBoxContrast: Number(min.toFixed(2)) });
+  assert.equal(await frame.locator('.card-coin .cc-word').count(), 0, 'Card coins use no letter pairs');
+  for (const symbol of await frame.locator('.card-coin .card-symbol').all()) {
+    assert(await symbol.evaluate(el => el.getBoundingClientRect().width >= 20), 'A coin symbol stays clear at its smallest size');
   }
-  const report = { rings, ringDifference: Number(ringDifference.toFixed(2)), letters, status: letters.length ? 'Board letters remain. The board lane owns their replacement.' : 'No coin letters remain.' };
+  const report = { rings, ringDifference: Number(ringDifference.toFixed(2)), status: 'No coin letters remain.' };
   await writeFile(join(output, 'card-contrast.json'), JSON.stringify(report, null, 2) + '\n');
   console.log('F38 card contrast:', JSON.stringify(report));
 }

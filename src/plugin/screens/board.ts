@@ -11,6 +11,7 @@ import type { PlayerRecord, View } from '../../match/protocol';
 import { ending } from '../ending';
 import { board, highlight } from '../board-view';
 import { art, symbols } from '../art';
+import { cardSymbol } from '../../card-symbol';
 import { cardArt } from '../card-face';
 import { cardDiagram } from '../../card-diagram';
 import { pieceIcon } from '../../piece-icons';
@@ -338,8 +339,8 @@ export function boardScreen(store: Store) {
         b.dataset.state = mine && armedCard === index && !card.spent ? 'armed' : card.spent && !spending ? 'used' : 'always';
         if (mine && !card.spent) b.setAttribute('aria-pressed', String(armedCard === index));
         if (!spending) { b.style.setProperty('--i', String(index)); moment(b, 'is-dealt', dealtAt, 560); } b.setAttribute('aria-label', (mine ? 'Your ' : "Opponent's ") + cardName(card.card) + (card.spent ? ', spent' : ''));
-        image.src = face ?? art('ui/cards/back.webp'); image.alt = ''; b.append(image);
-        if (!face) { const word = document.createElement('span'); word.className = 'cc-word'; word.textContent = cardName(card.card).slice(0,2); b.append(word); }
+        if (face) { image.src = face; image.alt = ''; b.append(image); }
+        else b.innerHTML = cardSymbol(card.card);
         row.append(b);
       }
     }

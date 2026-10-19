@@ -82,3 +82,13 @@ Checks: the type check passes. The focused test command waits for the shared tes
 The board sheet uses the same face function as Collection. It shows no card back. The rule text and Use action keep their current behavior. A board test compares a painted face and a face with no painting with Collection. No taste choice is needed.
 
 A5 visual check: the phone and desktop views use the current frames with clean image edges. The art and the diagram fit the phone sheet. The new knight, rook and bishop stay clear at the small card size. The test command still waits for the shared lock.
+
+## A33 preview
+
+Cards with no painting use a clear symbol on the coin and a small rule picture on the face. The picture has no letters. Setup, Collection, the board sheet and the Workshop share these pictures. Painted coins keep their art, as L1 requires. The Cards tab keeps one LAB mark. The repeated ribbons and extra LAB marks leave the cards, the tray and the side note. No old source art enters this change.
+
+Taste: use cream line symbols on the dark coins. Use stone and parchment for the small rule pictures. Keep the current coin sizes and card layout. A card variant keeps its base symbol. The full name and rule stay on tap.
+
+Checks: the type check passes. New tests cover all dealt card symbols and pictures. The board test checks the symbol size and the spent state. The browser check requires twelve paintings, nine rule pictures and no letter pairs. A16 captures show that the sheet and Collection use the same face.
+
+A33 visual repairs: the first 2x review finds low contrast on the opponent's pale coin. Its symbol now uses dark ink. Your dark coin keeps cream. Burn, Fire Starter and Control now show a knight, since those cards cannot use a pawn. Tests cover both repairs.

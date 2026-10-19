@@ -5,13 +5,13 @@ import { cardArt } from './card-face';
 const painted = ['Freeze','IceWall','Strike','Haste','Flight','Sacrifice','March','Leap','Salvation','Mimic','Vault','SkyLift'];
 vi.mock('./art', () => ({ art: (path: string) => ['freeze','icewall','strike','haste','flight','sacrifice','march','leap','salvation','mimic','vault','skylift'].some(c => path === `ui/cards/${c}.webp`) ? path : undefined }));
 
-it('uses the twelve paintings and nine plain names', () => {
+it('uses twelve paintings and nine rule pictures', () => {
   for (const card of DEAL_CARDS) {
     const face = cardArt(card);
     if (painted.includes(card)) expect(face).toContain(`<img src="ui/cards/${card.toLowerCase()}.webp" alt="">`);
-    else expect(face).toMatch(/^<span class="cf-word" aria-hidden="true">[^<]+<\/span>$/);
+    else expect(face).toContain(`class="card-picture" data-card-picture="${card}"`);
     expect(face).not.toContain('back.webp');
   }
-  expect(cardArt('MirrorB')).toContain('>Mirror<');
-  expect(cardArt('MorphP')).toContain('>Morph<');
+  expect(cardArt('MirrorB')).not.toContain('<text');
+  expect(cardArt('MorphP')).not.toContain('<text');
 });

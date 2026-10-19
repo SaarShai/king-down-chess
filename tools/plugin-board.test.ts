@@ -264,17 +264,19 @@ it('keeps round coin faces while a command disables the buttons', async () => {
   } finally { await page.close(); }
 });
 
-it('keeps spent coin contrast, token text and full coin faces together', async () => {
+it('keeps spent coin contrast and clear symbols together', async () => {
   const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [['MorphP'], ['MirrorB']] })), frame = page.frameLocator('iframe');
   try {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const coins = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll<HTMLButtonElement>('.card-coin')].map(coin => {
       coin.dataset.state = 'used'; coin.disabled = true;
-      const style = getComputedStyle(coin), image = coin.querySelector('img')!, face = image.getBoundingClientRect(), box = coin.getBoundingClientRect();
-      return { opacity: style.opacity, font: getComputedStyle(coin.querySelector('.cc-word')!).fontSize, token: getComputedStyle(document.documentElement).getPropertyValue('--fs-xs').trim(), inset: box.width - face.width };
+      const style = getComputedStyle(coin), symbol = coin.querySelector('svg')!, face = symbol.getBoundingClientRect(), box = coin.getBoundingClientRect();
+      return { opacity: style.opacity, symbol: !!symbol, letters: coin.textContent, color: getComputedStyle(symbol).color, inset: box.width - face.width };
     }));
     expect(coins).toHaveLength(2);
-    for (const coin of coins) { expect(coin.opacity).toBe('0.85'); expect(coin.font).toBe(coin.token); expect(coin.inset).toBeCloseTo(8, 0); }
+    expect(coins[0].color).not.toBe(coins[1].color);
+    expect(coins[1].color).toBe('rgb(255, 245, 218)');
+    for (const coin of coins) { expect(coin.opacity).toBe('0.85'); expect(coin.symbol).toBe(true); expect(coin.letters).toBe(''); expect(coin.inset).toBeCloseTo(12, 0); }
   } finally { await page.close(); }
 });
 
@@ -1870,7 +1872,7 @@ it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons
 
 it.each(['Strike', 'MorphP'] as const)('shows the Collection face in the %s board sheet', async card => {
   const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [[card], []] })), frame = page.frameLocator('iframe');
-  const picture = (el: Element) => ({ image: el.querySelector('img')?.getAttribute('src'), diagram: el.querySelector('svg')?.getAttribute('data-card'), text: el.textContent?.trim() });
+  const picture = (el: Element) => ({ image: el.querySelector('img')?.getAttribute('src'), diagram: el.querySelector('svg')?.getAttribute('data-card-picture'), text: el.textContent?.trim() });
   try {
     await frame.locator('#card-w-0').click();
     const face = await frame.locator('#board-sheet .cf-art').evaluate(picture);
