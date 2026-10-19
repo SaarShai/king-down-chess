@@ -48,24 +48,43 @@ self.addEventListener('install', event => {
   })());
 });
 
+let activeWorker = self.registration.active;
 let purgeInProgress;
+function checkActiveWorker() {
+  const { installing, waiting, active } = self.registration;
+  if (installing || waiting || !active || active !== activeWorker
+    || active.scriptURL !== self.location.href || !['activating', 'activated'].includes(active.state)) {
+    throw new Error('Worker update in progress');
+  }
+}
+
 function purgeOldCaches() {
   if (!purgeInProgress) purgeInProgress = (async () => {
     const obsolete = key => key.startsWith('kingdown-') && key !== CACHE;
-    for (const key of await caches.keys()) if (obsolete(key)) await caches.delete(key);
+    // List first. A replacement enters the registration before it opens its cache.
+    const names = await caches.keys();
+    checkActiveWorker();
+    for (const key of names) if (obsolete(key)) {
+      checkActiveWorker();
+      await caches.delete(key);
+    }
     // A false delete can mean that another client removes the cache first.
     const cache = await caches.open(CACHE);
     for (const request of await cache.keys()) {
       if (publicKey(request) !== request.url) throw new Error('Forbidden application cache key');
     }
-    if ((await caches.keys()).some(obsolete)) throw new Error('Old application cache remains');
+    const remaining = await caches.keys();
+    checkActiveWorker();
+    if (remaining.some(obsolete)) throw new Error('Old application cache remains');
   })().finally(() => { purgeInProgress = undefined; });
   return purgeInProgress;
 }
 
 self.addEventListener('activate', event => {
+  activeWorker = self.registration.active;
   event.waitUntil((async () => {
     await purgeOldCaches();
+    checkActiveWorker();
     await self.clients.claim();
   })());
 });
@@ -77,19 +96,15 @@ self.addEventListener('message', event => {
     || ports.length !== 1 || typeof ports[0]?.postMessage !== 'function') return;
   event.waitUntil((async () => {
     await purgeOldCaches();
+    checkActiveWorker();
     ports[0].postMessage({ type: 'kingdown-cache-policy', requestId: data.requestId, policy: POLICY, version: VERSION });
   })());
 });
 
-/** Network first. Keep a late network write alive after the timeout. */
+/** Network first. Keep the install shell for offline use. */
 async function page(request, event) {
   const cache = await caches.open(CACHE).catch(() => null);
-  const network = fetch(request).then(async response => {
-    if (cache && cacheable(request, response)) {
-      try { await cache.put(START, response.clone()); } catch { /* Keep the network response. */ }
-    }
-    return response;
-  });
+  const network = fetch(request);
   event.waitUntil(network.then(() => {}, () => {}));
   let timer;
   const timeout = new Promise(resolve => { timer = setTimeout(resolve, PAGE_TIMEOUT_MS, null); });

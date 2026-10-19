@@ -8,9 +8,6 @@ const current = `kingdown-${version}`;
 const files = ['./', 'index.html', 'assets/main.js', 'assets/main.css', 'assets/workshop.js', 'assets/worker.js', 'ui/pawn.webp'];
 const url = (path: string) => new URL(path, `${origin}/`).href;
 const template = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8');
-const script = template.replace("const VERSION = 'dev';", `const VERSION = '${version}';`)
-  .replace('const ALLOWLIST = [];', `const ALLOWLIST = ${JSON.stringify(files)};`)
-  .replace('const PRECACHE = [];', `const PRECACHE = ${JSON.stringify(files.filter(file => file !== 'index.html'))};`);
 
 function deferred<T = void>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -20,7 +17,7 @@ function deferred<T = void>() {
 }
 
 /** Node responses have no network URL or basic type. Keep the real body and headers. */
-function response(path: string, init: ResponseInit & { type?: ResponseType; redirected?: boolean } = {}) {
+function response(path: string, init: ResponseInit & { type?: ResponseType; redirected?: boolean } = {}, body = 'public bytes') {
   const decorate = (result: Response): Response => {
     const clone = result.clone.bind(result);
     Object.defineProperties(result, {
@@ -29,7 +26,7 @@ function response(path: string, init: ResponseInit & { type?: ResponseType; redi
     });
     return result;
   };
-  return decorate(new Response('public bytes', init));
+  return decorate(new Response(body, init));
 }
 
 class MemoryCache {
@@ -52,7 +49,15 @@ function storage() {
   };
 }
 
-function worker(caches = storage()) {
+type WorkerState = Pick<ServiceWorker, 'scriptURL' | 'state'>;
+
+function worker(caches = storage(), build = version, buildFiles = files, registration = {
+  scope: `${origin}/`, installing: null as WorkerState | null, waiting: null as WorkerState | null,
+  active: { scriptURL: url('/sw.js'), state: 'activated' } as WorkerState | null,
+}) {
+  const script = template.replace("const VERSION = 'dev';", `const VERSION = '${build}';`)
+    .replace('const ALLOWLIST = [];', `const ALLOWLIST = ${JSON.stringify(buildFiles)};`)
+    .replace('const PRECACHE = [];', `const PRECACHE = ${JSON.stringify(buildFiles.filter(file => file !== 'index.html'))};`);
   const listeners = new Map<string, (event: any) => void>();
   const fetch = vi.fn(async (request: Request) => response(request.url));
   const claim = vi.fn(async () => {}), skipWaiting = vi.fn(async () => {});
@@ -62,7 +67,7 @@ function worker(caches = storage()) {
   const storageAccess = vi.fn(() => { throw new Error('Other storage must stay closed'); });
   runInNewContext(script, {
     Request, Response, URL, caches, fetch,
-    self: { location: new URL(`${origin}/sw.js`), registration: { scope: `${origin}/` }, clients: { claim }, skipWaiting, addEventListener: (type: string, listener: (event: any) => void) => listeners.set(type, listener) },
+    self: { location: new URL(`${origin}/sw.js`), registration, clients: { claim }, skipWaiting, addEventListener: (type: string, listener: (event: any) => void) => listeners.set(type, listener) },
     localStorage: { ...saved, clear: storageAccess, removeItem: storageAccess, setItem: storageAccess },
     sessionStorage: { clear: storageAccess }, indexedDB: { deleteDatabase: storageAccess, open: storageAccess },
     setTimeout: (callback: (value: null) => void, _ms: number, value: null) => {
@@ -86,7 +91,7 @@ function worker(caches = storage()) {
     const event = fire('message', { data: { type: 'kingdown-cache-policy', requestId: 'fresh-request' }, source: { type: 'window', url: `${origin}/play/` }, ports: [{ postMessage }], ...fields });
     return { ...event, postMessage };
   };
-  return { caches, fetch, claim, skipWaiting, fire, request, message, timers, timerStarted, saved, storageAccess };
+  return { caches, registration, fetch, claim, skipWaiting, fire, request, message, timers, timerStarted, saved, storageAccess };
 }
 
 const privatePaths = ['/api', '/mcp', '/authorize', '/auth', '/oauth', '/consent', '/login', '/logout', '/signin', '/signout', '/callback', '/.well-known', '/internal', '/play', '/g', '/j'];
@@ -145,12 +150,14 @@ describe('public request boundary', () => {
     expect(cache.put).not.toHaveBeenCalled();
   });
 
-  it.each(['/', '/index.html', '/?game=local#board', '/index.html?game=local#board'])('fetches the actual local URL and caches only the root: %s', async path => {
+  it.each(['/', '/index.html', '/?game=local#board', '/index.html?game=local#board'])('fetches the actual local URL and keeps the install shell: %s', async path => {
     const w = worker();
+    await w.fire('install').done();
+    const cache = w.caches.entries.get(current)!; cache.put.mockClear(); w.fetch.mockClear();
     w.fetch.mockImplementation(async request => response(request.url.replace(/#.*$/, '')));
     await w.request(path, { mode: 'navigate' }).done();
     expect(w.fetch.mock.calls[0][0].url).toBe(url(path));
-    expect([...w.caches.entries.get(current)!.entries.keys()]).toEqual([url('/')]);
+    expect(cache.put).not.toHaveBeenCalled();
     w.fetch.mockRejectedValue(new Error('offline'));
     const offline = w.request(path, { mode: 'navigate' }); await offline.done();
     expect(await (await offline.response)!.text()).toBe('public bytes');
@@ -197,6 +204,32 @@ describe('cache writes', () => {
     expect(w.caches.entries.has('kingdown-old')).toBe(true);
   });
 
+  it('keeps the old shell and assets after new HTML loads and the new install fails', async () => {
+    const a = worker(), shellA = '<script src="/assets/main.js"></script>', shellB = '<script src="/assets/main-B.js"></script>';
+    a.fetch.mockImplementation(async request => response(request.url, {}, request.url === url('/') ? shellA : 'A asset'));
+    await a.fire('install').done(); await a.fire('activate').done();
+    const cache = a.caches.entries.get(current)!; cache.put.mockClear();
+    a.fetch.mockResolvedValue(response('/', {}, shellB));
+    const online = a.request('/', { mode: 'navigate' }); await online.done();
+    expect(await (await online.response)!.text()).toBe(shellB);
+    expect(cache.put).not.toHaveBeenCalled();
+
+    a.registration.installing = { scriptURL: url('/sw.js'), state: 'installing' };
+    const b = worker(a.caches, 'next-build', files.map(file => file.replace('main.js', 'main-B.js')), a.registration);
+    b.fetch.mockImplementation(async request => request.url === url('/') ? response('/', {}, shellB) : response(request.url, { status: 404 }));
+    await expect(b.fire('install').done()).rejects.toThrow('Unsafe offline response');
+    expect(b.skipWaiting).not.toHaveBeenCalled();
+    a.registration.installing = null;
+    const policy = a.message(); await policy.done(); expect(policy.postMessage).toHaveBeenCalledOnce();
+    a.fetch.mockRejectedValue(new Error('offline'));
+    for (const file of files.filter(file => file !== 'index.html')) {
+      const offline = a.request(file); await offline.done();
+      expect(await (await offline.response)!.text()).toBe(file === './' ? shellA : 'A asset');
+    }
+    expect(a.request('/assets/main-B.js').response).toBeUndefined();
+    expect(cache.put).not.toHaveBeenCalled();
+  });
+
   it('fails install on network or cache-write failure', async () => {
     for (const failure of ['network', 'write']) {
       const w = worker(), cache = await w.caches.open(current);
@@ -207,10 +240,10 @@ describe('cache writes', () => {
     }
   });
 
-  it.each(['/', '/assets/main.js'])('keeps a successful network response when a runtime write fails: %s', async path => {
+  it('keeps a successful network response when an asset write fails', async () => {
     const w = worker(), cache = await w.caches.open(current);
     cache.put.mockRejectedValue(new Error('quota'));
-    const event = w.request(path); await event.done();
+    const event = w.request('/assets/main.js'); await event.done();
     expect((await event.response)!.status).toBe(200);
     expect(cache.put).toHaveBeenCalledOnce();
   });
@@ -231,7 +264,7 @@ describe('cache writes', () => {
     write.resolve(); await event.done(); expect(finished).toBe(true);
   });
 
-  it('returns a cached local link on timeout and keeps the late write alive', async () => {
+  it('returns a cached local link on timeout and keeps it after the late response', async () => {
     const w = worker(), cache = await w.caches.open(current), network = deferred<Response>();
     cache.entries.set(url('/'), response('/'));
     w.fetch.mockReturnValue(network.promise);
@@ -241,13 +274,96 @@ describe('cache writes', () => {
     expect((await event.response)!.status).toBe(200);
     expect(event.waits).toHaveLength(1);
     expect(cache.put).not.toHaveBeenCalled();
-    network.resolve(response('/index.html?game=local')); await event.done();
+    network.resolve(response('/index.html?game=local', {}, 'new shell')); await event.done();
     expect([...cache.entries.keys()]).toEqual([url('/')]);
-    expect(cache.put).toHaveBeenCalledOnce();
+    expect(await cache.entries.get(url('/'))!.clone().text()).toBe('public bytes');
+    expect(cache.put).not.toHaveBeenCalled();
   });
 });
 
 describe('purge and policy proof', () => {
+  it('keeps the incoming cache and refuses proof until the new worker takes over', async () => {
+    const a = worker(), opened = deferred(), resume = deferred();
+    await a.fire('install').done(); await a.fire('activate').done();
+    const replacement: WorkerState = { scriptURL: url('/sw.js'), state: 'installing' };
+    a.registration.installing = replacement;
+    const nextFiles = files.map(file => file.replace('main.js', 'main-B.js'));
+    const b = worker(a.caches, 'next-build', nextFiles, a.registration);
+    b.fetch.mockImplementationOnce(async request => { opened.resolve(); await resume.promise; return response(request.url); });
+    const install = b.fire('install'); await opened.promise;
+    const incoming = a.caches.entries.get('kingdown-next-build')!;
+    const installing = a.message(); await expect(installing.done()).rejects.toThrow('Worker update in progress');
+    expect(installing.postMessage).not.toHaveBeenCalled();
+    expect(a.caches.delete).not.toHaveBeenCalled();
+    expect(a.caches.entries.get('kingdown-next-build')).toBe(incoming);
+
+    resume.resolve(); await install.done();
+    expect(b.skipWaiting).toHaveBeenCalledOnce();
+    replacement.state = 'installed'; a.registration.waiting = replacement; a.registration.installing = null;
+    const waiting = a.message(); await expect(waiting.done()).rejects.toThrow('Worker update in progress');
+    expect(waiting.postMessage).not.toHaveBeenCalled();
+    expect(a.caches.delete).not.toHaveBeenCalled();
+    expect([...incoming.entries.keys()]).toEqual(nextFiles.filter(file => file !== 'index.html').map(url));
+
+    a.registration.active!.state = 'redundant'; a.registration.active = replacement; a.registration.waiting = null;
+    replacement.state = 'activating'; await b.fire('activate').done(); replacement.state = 'activated';
+    expect(b.claim).toHaveBeenCalledOnce();
+    expect(a.caches.entries.get('kingdown-next-build')).toBe(incoming);
+    const stale = a.message(); await expect(stale.done()).rejects.toThrow('Worker update in progress');
+    expect(stale.postMessage).not.toHaveBeenCalled();
+    const policy = b.message(); await policy.done();
+    expect(policy.postMessage).toHaveBeenCalledExactlyOnceWith({ type: 'kingdown-cache-policy', requestId: 'fresh-request', policy: 'public-build-v1', version: 'next-build' });
+    expect(a.caches.entries.has(current)).toBe(false);
+    b.fetch.mockRejectedValue(new Error('offline'));
+    for (const file of nextFiles.filter(file => file !== 'index.html')) {
+      const offline = b.request(file); await offline.done();
+      expect(await (await offline.response)!.text()).toBe('public bytes');
+    }
+  });
+
+  it.each(['message', 'activate'])('refuses %s if an install starts during cache enumeration', async type => {
+    const a = worker(), started = deferred(), resume = deferred();
+    await a.caches.open('kingdown-old');
+    a.caches.keys.mockImplementationOnce(async () => { const names = [...a.caches.entries.keys()]; started.resolve(); await resume.promise; return names; });
+    const event = type === 'message' ? a.message() : a.fire('activate'); await started.promise;
+    a.registration.installing = { scriptURL: url('/sw.js'), state: 'installing' };
+    const b = worker(a.caches, 'next-build', files, a.registration); await b.fire('install').done();
+    resume.resolve(); await expect(event.done()).rejects.toThrow('Worker update in progress');
+    expect(a.caches.delete).not.toHaveBeenCalled();
+    expect(a.claim).not.toHaveBeenCalled();
+    if ('postMessage' in event) expect(event.postMessage).not.toHaveBeenCalled();
+    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()]).toEqual(files.filter(file => file !== 'index.html').map(url));
+  });
+
+  it.each(['message', 'activate'])('stops %s before it deletes a cache that an install uses', async type => {
+    const a = worker(), started = deferred(), resume = deferred();
+    await a.caches.open('kingdown-old'); await a.caches.open('kingdown-next-build');
+    a.caches.delete.mockImplementationOnce(async key => { started.resolve(); await resume.promise; return a.caches.entries.delete(key); });
+    const event = type === 'message' ? a.message() : a.fire('activate'); await started.promise;
+    a.registration.installing = { scriptURL: url('/sw.js'), state: 'installing' };
+    const b = worker(a.caches, 'next-build', files, a.registration); await b.fire('install').done();
+    resume.resolve(); await expect(event.done()).rejects.toThrow('Worker update in progress');
+    expect(a.caches.delete).toHaveBeenCalledExactlyOnceWith('kingdown-old');
+    expect(a.claim).not.toHaveBeenCalled();
+    if ('postMessage' in event) expect(event.postMessage).not.toHaveBeenCalled();
+    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()]).toEqual(files.filter(file => file !== 'index.html').map(url));
+  });
+
+  it.each(['current keys', 'final names'])('refuses proof if the active worker changes during %s', async phase => {
+    const a = worker(), cache = await a.caches.open(current);
+    const replace = async () => {
+      a.registration.active = { scriptURL: url('/sw.js'), state: 'activated' };
+      await a.caches.open('kingdown-next-build');
+    };
+    if (phase === 'current keys') cache.keys.mockImplementationOnce(async () => { await replace(); return []; });
+    else a.caches.keys.mockImplementationOnce(async () => [...a.caches.entries.keys()])
+      .mockImplementationOnce(async () => { await replace(); return [...a.caches.entries.keys()]; });
+    const event = a.message(); await expect(event.done()).rejects.toThrow('Worker update in progress');
+    expect(event.postMessage).not.toHaveBeenCalled();
+    expect(a.caches.entries.has('kingdown-next-build')).toBe(true);
+    expect(a.caches.delete).not.toHaveBeenCalled();
+  });
+
   it('purges all old application caches, then claims, without other storage access', async () => {
     const w = worker();
     for (const key of ['kingdown-old', 'kingdown-older', 'other-app']) await w.caches.open(key);
