@@ -15,5 +15,16 @@ export async function ownTestDatabase(suffix: string, shared = process.env.PLUGI
  try { if (!(await client.query('select from pg_database where datname=$1', [name])).rowCount) await client.query(`create database ${name}`); }
  finally { await client.end(); }
  execFileSync(process.execPath, [fileURLToPath(new URL('./bootstrap-test.mjs', import.meta.url))], { env: { ...process.env, PLUGIN_TEST_DATABASE_URL: own.href } });
+ // No autovacuum on the copy. A VACUUM or ANALYZE that ends after a role script grants on its table waits for the script's
+ // transaction (the in-place pg_class update), and the script's next create policy or drop owned waits for the vacuum's
+ // table lock: PostgreSQL then ends one of the two with "deadlock detected" (CI run 39247632012, the jobs test). The tests
+ // delete their rows, so one VACUUM here keeps a copy that later runs use again small.
+ const copy = new pg.Client({ connectionString: own.href }); await copy.connect();
+ try {
+  const tables = (await copy.query(`select c.oid::regclass::text as name from pg_class c join pg_namespace n on n.oid=c.relnamespace
+   where c.relkind='r' and c.relpersistence='p' and n.nspname not in ('pg_catalog','information_schema')`)).rows.map(row => row.name as string);
+  await copy.query(tables.map(table => `alter table ${table} set (autovacuum_enabled=false);`).join('\n'));
+  await copy.query(`vacuum ${tables.join(',')}`);
+ } finally { await copy.end(); }
  return own;
 }
