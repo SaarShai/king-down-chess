@@ -13,8 +13,8 @@ An owner-approved spec, [Web app adaptation spec](spec.md), with its build order
 - Read [the spec](spec.md) for the product and the phases, [the inventory](inventory.md) for paths and evidence (81 work units), and [the comparison](comparison.md) for what this plan adopted, rejected and merged from two independent plans.
 - The survey reports are in [docs/research/web-adaptation-2026-10-18](../../research/web-adaptation-2026-10-18/README.md). Research answers go there too (this repo keeps research notes in `docs/research/`, so research findings do not go on throwaway branches).
 - Skills for each session on this map: wayfinder (the map), to-spec (the spec), ponytail (the smallest complete change). Grilling tickets use the grilling and domain-modeling skills with the owner. Write in ASD-STE100.
-- Base: `origin/main` `04b7af87`; release candidate `442c5eb3` (PR 61, open; 499 commits ahead). The final PR 61 merge replaces this base before any build ([ticket 08](issues/08-release-evidence.md)). See the base correction in [the inventory](inventory.md#base-correction).
-- One writer at a time for the plugin app, client and screens. The shared-seam extraction waits for the PR 61 merge and for the approved later-update branches (`claude/od-home`, `claude/od-board`, `claude/od-look`, `taste/b2-row-preview`, `taste/c5-seat-reveal`) to land or be parked.
+- Base: the PR 61 merge `cd8fa9f2` (2026-10-19) replaces the planning base `origin/main` `04b7af87` and the release candidate `442c5eb3` ([ticket 08](issues/08-release-evidence.md), steps 1 and 2). The live build stays `04b7af87` until the release owner's deploy. See the base correction in [the inventory](inventory.md#base-correction).
+- One writer at a time for the plugin app, client and screens. The shared-seam extraction waits for the plugin session to hand over `src/plugin/`. Its two other conditions are met: PR 61 is merged, and the five later-update branches (`claude/od-home`, `claude/od-board`, `claude/od-look`, `taste/b2-row-preview`, `taste/c5-seat-reveal`) are parked (owner, 2026-10-18).
 - Ticket lines: `Type:`, `Status:` (`open`, `claimed`, `resolved`) and `Blocked by:`. The frontier is the open, unclaimed tickets whose blockers are all resolved; scan `issues/` by number. Blocking edges live only in the ticket files.
 - A grilling ticket holds a rule, options and a recommended pick. The owner delegated this map's decisions, samples and spec approval to the agent on 2026-10-18 ("regarding \"my decisions\" - please use your best judgement. i trust you to make the decisions."). Each delegated decision gets independent reviews and says "decided by delegation (owner, 2026-10-18)". Deploys, runs, rule changes, spending and feature-branch merges to main still need his word.
 - Planning only: no build, run, deploy or visual change follows from this map without the owner's word.
@@ -36,6 +36,7 @@ An owner-approved spec, [Web app adaptation spec](spec.md), with its build order
 - [Approve a browser sample from the game UI](issues/14-visual-sample.md): the actual plugin screens in a page host; existing sheets and columns; 48 px DOM controls; board squares an accepted exception (44 px on the main phone); full target words with page scroll; "Play online" on the local home and "Play on this device" on the account page; sample on branch `prototype/web-account-sample`.
 - [Choose the public play and alert scope](issues/15-public-safety.md): alerts and chat off; one budget across surfaces; email support with an operator intake step instead of an in-app Report; a shared notice view; these gate public random matching.
 - [Choose the test and device gate](issues/16-test-gate.md): the HTTP boundary with a real database is the main seam; one `web-online` browser driver; the web gate in `plugin-checks.yml` with Firefox added; a device matrix with a person per row; real Android open and a release blocker ([test-gate.md](test-gate.md)).
+- [Choose the web release route and stop conditions](issues/17-release-route.md): small slices through the one deploy path; the safe worker first, a closed `/api` dispatch, then the account page; a read-only game GET and a tested account-off switch before the first account publish; a recovery build that reads current data ([release-route.md](release-route.md)).
 
 ## Not yet specified
 
@@ -47,6 +48,7 @@ An owner-approved spec, [Web app adaptation spec](spec.md), with its build order
 
 ## Out of scope
 
+- The features of the five parked later-update branches (owner, 2026-10-18: "yes, park them and send it"): later work on the shared screens, in [shared-screens-later](../shared-screens-later/README.md).
 - New rules, balance work, new pieces, cards or powers, and compute runs.
 - A replacement of local play, a new backend, a new account system, a second copy of the account UI, or an iframe host simulation.
 - Other chat platforms, ChatGPT submission work and reviewer-only onboarding.
