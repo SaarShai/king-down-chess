@@ -87,7 +87,7 @@ async function mount(widget: Widget) {
     fresh.removeAttribute('src'); widget.frame.replaceWith(fresh); widget.frame = fresh;
   }
   await widget.bridge?.close();
-  // The SDK logs message events. WebKit's console keeps their old widget windows until its object group is cleared.
+  // The SDK logs message events. Clear their console references at each remount.
   console.clear();
   const bridge = widget.bridge = new AppBridge(null, { name: 'King Down local harness', version: '1' }, { serverTools: {}, updateModelContext: {} }, { hostContext: { displayMode: host.harnessDisplayMode ?? 'inline', availableDisplayModes: ['inline', 'fullscreen'], ...host.harnessHostContext } });
   bridge.onrequestdisplaymode = async ({ mode }) => { (host.harnessDisplayRequests ??= []).push(mode); if (host.denyDisplayNext) { host.denyDisplayNext = false; return { mode: host.harnessDisplayMode ?? 'inline' }; } if (host.holdDisplayNext) { host.holdDisplayNext = false; await new Promise(resolve => { host.releaseDisplay = resolve; }); } host.harnessDisplayMode = mode; await bridge.setHostContext({ displayMode: mode }); return { mode }; };
