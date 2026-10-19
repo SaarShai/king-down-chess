@@ -115,3 +115,11 @@ Plan: reverse the card rotation for Black in the shared CSS. Add browser checks 
 Pass criteria: the direction check rejects the old Black rotation. The new checks pass on the web and in the plugin. The full `npm test` run and the approved `plugin-ui` and `end` browser checks pass. Commit the repair before the browser run. Record the results here.
 
 The first browser run at 6a465227 passes `end` in 22.2 s. It confirms that the old Black rotation fails the new check. All 12 plugin direction cases pass. The plugin check then stops at the return to its prior sample: the test omits the full history, so the last-move text is absent. Add that history as the existing sample rule requires. The product fix stays one CSS line.
+
+Review A: fixed. Review B: fixed. Both report the same mirror and rotation fault. Commit 6a465227 reverses the Black card rotation in the shared CSS. Commit d14b8fb1 restores the full history in the browser sample. The final crown direction agrees with the board for both colours, both views, both edge files and the centre. Each host checks all 12 cases. The web check also rejects the old Black rotation. The existing angle and draw checks stay in place. The saved web and plugin images confirm that the Black crown points left at h8 from White's view.
+
+The approved browser runner checks d14b8fb1 on the M1. `plugin-ui` passes in 229.6 s. `end` passes in 21.8 s. The runner exits 0. No server code changes, so `plugin-ui-http` is not required.
+
+The first full `npm test` run passes 3,242 tests and hits two time limits in unchanged files: 5 s in `src/ai/search.test.ts` and 30 s in `src/workshop/judge.test.ts`. The full retry uses `VITEST_MAX_WORKERS=2` and the lane's local test database. It passes all 194 files: 3,244 tests pass and 8 opt-in tests skip. All 51 art checks pass. The run exits 0. No test or check time limit changes.
+
+The final source review keeps one shared product rule and one shared browser assertion. It adds no dependency or product path. The last commit records the check results only.
