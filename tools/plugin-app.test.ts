@@ -2604,3 +2604,30 @@ it('rings the chosen king power and draws always-on choices flat', async () => {
     expect(flat).toEqual({ shadow: 'none', image: 'none' });
   } finally { await page.close(); }
 });
+
+it('puts a taken-name error at the field and clears it when the name changes', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page); await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('handle'));
+    await frame.locator('#handle').fill('preview_name');
+    await page.evaluate(() => { (window as any).rejectNextAction = { name: 'kingdown_handle', code: 'HANDLE_TAKEN', text: 'This name is in use.' }; });
+    await frame.locator('#save-handle').click();
+    await frame.locator('#handle[aria-invalid="true"]').waitFor();
+    expect(await frame.locator('#handle-check-error').innerText()).toBe('This name is in use.');
+    expect(await frame.locator('#handle').getAttribute('aria-describedby')).toBe('handle-check-error');
+    await frame.locator('#handle').fill('another_name');
+    expect(await frame.locator('#handle').getAttribute('aria-invalid')).toBeNull();
+    expect(await frame.locator('#handle-check-error').innerText()).toBe('');
+  } finally { await page.close(); }
+});
+
+it('marks a name in use during the field check', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const friend = await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name: 'kingdown_settings', arguments: {} } })).json();
+    await expand(page); await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('handle'));
+    await frame.locator('#handle').fill(friend._meta.me.handle);
+    await frame.locator('#handle[aria-invalid="true"]').waitFor();
+    expect(await frame.locator('#handle-check-error').innerText()).toBe('This name is in use.');
+  } finally { await page.close(); }
+});

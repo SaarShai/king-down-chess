@@ -192,3 +192,9 @@ Taste: use the current 24 px wide-screen margin.
 A 3 px ring marks the chosen power on web and plugin. Always-on power choices use a flat face. The plugin king sheet shares the content size rule from A25. The web keeps its current power pictures and No power choice.
 
 Taste: use the current gold ink for the ring. Use the current parchment for flat choices.
+
+### A28
+
+A taken name shows This name is in use. under the field. The field has an error border and an accessible error link. Both the check and Save use this place. A new edit clears the mark.
+
+Taste: use the current danger ink and keep one message at the field.

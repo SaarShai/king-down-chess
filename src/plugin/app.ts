@@ -244,6 +244,10 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       }
       if (result.isError) {
         const text = resultText(result), code = resultCode(result);
+        if (name === 'kingdown_handle' && code === 'HANDLE_TAKEN') {
+          markHandleTaken(true);
+          return { status: 'refused', code, text, result };
+        }
         if (code === 'HANDLE_NEEDED') {
           // A retained command keeps state.pending with its error (design §2); a selection keeps its own continuation.
           if (own && state.pending === own) failPending(text, own, job);
@@ -578,10 +582,14 @@ function renderIdentity() {
   $('presets').querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button.getAttribute('aria-label') === picture)));
   if (state.screen === 'handle') scheduleHandleCheck();
 }
+function markHandleTaken(taken: boolean) {
+  if (taken) $('handle').setAttribute('aria-invalid', 'true'); else $('handle').removeAttribute('aria-invalid');
+  $('handle-check-error').textContent = taken ? 'This name is in use.' : '';
+}
 function scheduleHandleCheck() {
   if (queue.closed()) return;
   clearTimeout(handleTimer); const check = ++handleCheck, input = $<HTMLInputElement>('handle'), handle = input.value.trim().toLowerCase();
-  input.setCustomValidity(''); $('handle-free').hidden = true; $('handle-check-error').textContent = '';
+  input.setCustomValidity(''); $('handle-free').hidden = true; markHandleTaken(false);
   if (!handle) return;
   handleTimer = setTimeout(async () => {
     await checking;
@@ -590,8 +598,12 @@ function scheduleHandleCheck() {
       const sent = client.call('kingdown_handle', { handle, check: true }); checking = sent.catch(() => {});
       const result = await sent;
       if (queue.closed() || check !== handleCheck) return;
-      if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
-      $('handle-free').hidden = (result.structuredContent as { available?: boolean } | undefined)?.available !== true;
+      if (result.isError) {
+        if (resultCode(result) === 'HANDLE_TAKEN') { markHandleTaken(true); return; }
+        throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+      }
+      const available = (result.structuredContent as { available?: boolean } | undefined)?.available;
+      $('handle-free').hidden = available !== true; markHandleTaken(available === false);
     } catch (error) { if (!queue.closed() && check === handleCheck) $('handle-check-error').textContent = errorText(error); }
   }, 250);
 }
