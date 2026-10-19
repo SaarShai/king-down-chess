@@ -745,3 +745,15 @@ button[aria-disabled="true"], button[aria-disabled="true"]:hover {
 }
 
 button:is([aria-label='Close'], #menu-close, #seat-menu-close, .table-back) { padding: 0; }
+/* One boundary around each choice group. Selection is dark ink with a gold ring. */
+:is(.seg-row, .modes) { gap: 0; padding: 0; background: transparent; border: 1px solid var(--stone-700); border-radius: var(--radius-sm); box-shadow: none; }
+:is(.seg-row label, label.mode) { min-height: 48px; border: 0; border-inline-start: 1px solid var(--line); border-radius: 0; }
+:is(.seg-row label, label.mode):first-child { border-inline-start: 0; border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+:is(.seg-row label, label.mode):last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+:is(.seg-row label, label.mode):has(input:checked), #new-game :is(.seg-row label, label.mode):has(input:checked) {
+  color: var(--vellum); background: var(--stone-700); border-color: transparent; box-shadow: inset 0 0 0 2px var(--gold-bright);
+}
+.fields > label:has(input[type='checkbox']) { min-height: 48px; border-bottom: 1px solid var(--line); padding-inline: 12px; }
+
+#new-game :is(.seg-row label, label.mode) { border: 0; border-inline-start: 1px solid var(--line); }
+#new-game :is(.seg-row label, label.mode):first-child { border-inline-start: 0; }

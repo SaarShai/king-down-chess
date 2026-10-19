@@ -47,13 +47,13 @@
 #sheet-moves #moves { max-height: none; overflow: visible; margin-bottom: 12px; }
 #sheet-moves #moves [data-ply] { min-height: 44px; min-width: 44px; gap: 6px; }
 #sheet-moves #moves .pi { width: 22px; height: 22px; }
-#menu-sheet section { gap: 4px; }
-#menu-sheet .menu-row { position: relative; display: block; text-align: left; width: 100%; min-height: 52px; background: transparent; box-shadow: none; border: 0; border-bottom: 1px solid var(--line); padding: 8px 32px 8px 0; font-size: 18px; }
+#menu-sheet section { gap: 0; }
+#menu-sheet .menu-row { position: relative; display: block; text-align: left; width: 100%; min-height: 48px; background: transparent; box-shadow: none; border: 0; border-bottom: 1px solid var(--line); padding: 4px 32px 3px 12px; font-size: 18px; border-radius: 0; transform: none; }
 #menu-sheet .menu-row span { display: block; font-size: 14px; font-weight: 400; color: var(--ink-soft); }
 #menu-sheet .menu-row i { position: absolute; right: 4px; top: 12px; font-style: normal; }
 #menu-sheet .resign-row { margin-top: 24px; }
 #menu-sheet .menu-fox { width: 44px; height: 52px; object-fit: contain; float: left; margin-right: 8px; }
-#menu-sheet label { min-height: 44px; }
+#menu-sheet label { min-height: 48px; }
 #menu-sheet h3 { margin: 14px 0 4px; }
 #menu-sheet .coming-row { color: var(--ink-soft); margin: 4px 0; }
 #menu-sheet [aria-disabled='true'] { opacity: .65; cursor: default; }
@@ -105,7 +105,7 @@
 @media (max-height: 640px) and (max-width: 899px) and (orientation: portrait) {
   #game-table {
     --strip-height: 44px; --context-height: 57px;
-    grid-template-rows: var(--strip-row, 44px) minmax(0, max-content) var(--strip-row, 44px) minmax(var(--context-height), max-content) 44px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
+    grid-template-rows: var(--strip-row, 44px) minmax(0, max-content) var(--strip-row, 44px) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
   }
   #game-table .player-strip { padding-block: 0; }
   #game-table .portrait { width: 36px; height: 36px; }
@@ -119,7 +119,7 @@
   #context-text #previously-before { display: none; }
   #context-actions #all-rules { font-size: 0; width: 44px; padding: 4px; }
   #all-rules::after { content: 'ⓘ'; font-size: 22px; }
-  #moves-line { height: 44px; min-height: 44px; }
+  #moves-line { height: 48px; min-height: 48px; }
 }
 
 #menu-sheet { height: fit-content; --menu-bottom-pad: 16px; }
@@ -137,7 +137,7 @@
 #menu-sheet [data-menu-page='resign'] h3 { font-family: var(--font-display); font-size: var(--fs-lg); color: var(--ink); text-transform: none; letter-spacing: normal; }
 
 @media (max-height: 640px) and (max-width: 899px) and (orientation: portrait) {
-  #menu-sheet .menu-row { min-height: 44px; padding-block: 4px; line-height: 1.1; }
+  #menu-sheet .menu-row { min-height: 48px; padding-block: 4px; line-height: 1.1; }
   #menu-sheet .resign-row { margin-top: 8px; }
   #menu-sheet .fields { gap: 4px; }
 }

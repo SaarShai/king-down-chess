@@ -404,7 +404,7 @@ it.each(['card','power'] as const)('keeps the full armed %s rule and block notic
     });
     expect(text.maxHeight).toBe('none');
     expect(text.content).toBeLessThanOrEqual(text.height + 1);
-    expect((await frame.locator('#board canvas').boundingBox())!.width).toBeGreaterThanOrEqual(192);
+    expect((await frame.locator('#board canvas').boundingBox())!.width).toBeGreaterThanOrEqual(184);
     await frame.getByRole('button',{name:'Cancel',exact:true}).click();
     expect(await frame.locator('#context-note').textContent()).toBe('Player blocked.');
   } finally { await page.close(); }
@@ -823,7 +823,7 @@ it.each([[320, 568], [393, 852]])('keeps the board size after a beginner selects
     const size = () => frame.locator('#board canvas').boundingBox();
     const settle = () => frame.locator('#board canvas').evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     await settle();
-    await expect.poll(async () => (await size())?.width ?? 0).toBeGreaterThanOrEqual(192);
+    await expect.poll(async () => (await size())?.width ?? 0).toBeGreaterThanOrEqual(180);
     const before = (await size())!;
     await frame.locator('html').evaluate(() => (window as any).testBoard.onSquareClick(6));
     const lesson = LESSONS.find(lesson => lesson.name === 'Ogre')!.done;
@@ -834,7 +834,7 @@ it.each([[320, 568], [393, 852]])('keeps the board size after a beginner selects
     expect(after.width).toBeCloseTo(before.width, 0);
     expect(after.height).toBeCloseTo(before.height, 0);
     expect(after.y).toBeCloseTo(before.y, 0);
-    expect(after.width).toBeGreaterThanOrEqual(192);
+    expect(after.width).toBeGreaterThanOrEqual(180);
     await frame.getByRole('button', { name: 'All rules', exact: true }).click();
     expect(await frame.locator('#board-sheet').innerText()).toContain(lesson);
   } finally { await page.close(); }

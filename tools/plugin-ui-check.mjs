@@ -1,5 +1,5 @@
 import { checkTabletSelection } from './lib/plugin-tablet-check.mjs';
-import { checkTablet } from './lib/plugin-tablet-check.mjs';
+import { checkTablet, checkFlatRows, checkSegments } from './lib/plugin-tablet-check.mjs';
 import { checkAndroidFixes } from './lib/plugin-android-check.mjs';
 import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
@@ -173,6 +173,8 @@ try {
   await checkTablet(page, frame);
   await frame.locator('#home-games').click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  await checkFlatRows(frame, '[data-screen="play"] .menu-row');
+  assert.equal(await frame.locator('[data-screen="play"] [data-nav="settings"]').evaluate(row => row.getBoundingClientRect().height), 48, 'The plain Settings row is exactly 48 px tall');
   assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Choose a game opens the Play hall');
   // M3: a failed first read on Play has one error and one way to read again.
   async function readErrorOnce(screen) {
@@ -386,6 +388,7 @@ try {
     for (const [size,width,height] of [['phone',390,844],['panel',400,900],['desktop',1440,900]]) {
       await page.setViewportSize({width,height}); await openScreen('profile');
       await frame.locator('#profile-open button').first().waitFor();
+      await checkFlatRows(frame, '#profile-open button');
       assert.deepEqual(await frame.locator('#profile-open button').evaluateAll(rows=>rows.map(row=>row.dataset.gameId)),openIds,'Open games keep your turn first');
       assert.equal(await frame.locator('#profile-open button').first().locator('.when .turn-mark').textContent(),'Turn');
       assert(await frame.locator('#profile-open').evaluate(el=>!!(el.compareDocumentPosition(document.querySelector('#profile-history'))&Node.DOCUMENT_POSITION_FOLLOWING)),'Open rows precede finished rows');
@@ -1188,6 +1191,8 @@ try {
   await frame.locator('#symbols-only').check();
   await frame.locator('#symbols-only:not(:disabled)').waitFor();
   assert(await frame.locator('#symbols-only').isChecked());
+  await checkFlatRows(frame, '#settings-sheet .fields > label');
+  await checkSegments(frame);
   assert.equal(await page.evaluate(() => window.harnessWidgetState.modelContent.game_id), undefined);
   assert.deepEqual(await page.evaluate(() => Object.keys(window.harnessWidgetState.privateContent).sort()), ['board_id', 'pending', 'screen', 'sheet']);
   const settingsReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
@@ -1235,7 +1240,7 @@ try {
   }
 
   // Ticket 39 F-3: use the label bounds as well as the button style.
-  async function sheetLabelsCentered(label) {
+  async function sheetLabelsFit(label) {
     const viewport = page.viewportSize();
     try {
       await page.setViewportSize({ width: 402, height: 874 });
@@ -1244,10 +1249,14 @@ try {
       const buttons = await frame.locator('#board-sheet .sheet-body > button:visible').evaluateAll(buttons => buttons.map(button => {
         const style = getComputedStyle(button), box = button.getBoundingClientRect(), range = document.createRange();
         range.selectNodeContents(button); const words = range.getBoundingClientRect();
-        return { text: button.textContent, justify: style.justifyContent, align: style.textAlign, column: style.flexDirection === 'column', offset: Math.abs(words.left + words.width / 2 - box.left - box.width / 2) };
+        return { text: button.textContent, justify: style.justifyContent, align: style.textAlign, column: style.flexDirection === 'column', inset: words.left - box.left, offset: Math.abs(words.left + words.width / 2 - box.left - box.width / 2) };
       }));
       await shot(page, `device-sheet-${label}-402-${mode}`);
-      assert(buttons.length > 0 && buttons.every(b => b.justify === 'center' && b.align === 'center' && (b.column || b.offset <= 1)), `${label}: sheet button labels are centred: ${JSON.stringify(buttons)}`);
+      if (label === 'menu') {
+        assert(buttons.length > 0 && buttons.every(b => b.justify === 'flex-start' && b.align === 'left' && Math.abs(b.inset - 12) <= 1), `Flat menu rows use the 12 px text inset: ${JSON.stringify(buttons)}`);
+      } else {
+        assert(buttons.length > 0 && buttons.every(b => b.justify === 'center' && b.align === 'center' && (b.column || b.offset <= 1)), `${label}: sheet button labels are centred: ${JSON.stringify(buttons)}`);
+      }
     } finally { await page.setViewportSize(viewport); }
   }
 
@@ -1898,7 +1907,7 @@ try {
     assert.equal(await page.evaluate(()=>window.harnessView.revision),start);
     await tap(file,rank);
     if (!black) { await dragOwnSquare(file,rank); assert.equal(await page.evaluate(()=>window.harnessView.revision),start,'Drag must not shoot'); await tap(2,2); await tap(2,4); }
-    else { await frame.locator('#power-b').click(); await sheetLabelsCentered('power'); await frame.locator('#board-sheet').getByRole('button', {name:'Use', exact:true}).click(); await openMoveChoices(); await frame.locator('#choices button').filter({hasText:/freeze/i}).click(); }
+    else { await frame.locator('#power-b').click(); await sheetLabelsFit('power'); await frame.locator('#board-sheet').getByRole('button', {name:'Use', exact:true}).click(); await openMoveChoices(); await frame.locator('#choices button').filter({hasText:/freeze/i}).click(); }
     // W7: End turn sends the whole turn, so the turn passes to the friend. Wait for the reply before the keys (blocked()).
     await sendTurn(); await page.waitForFunction(r=>window.harnessView.revision>=r,start+1);
     await idleBoard();
@@ -1986,7 +1995,7 @@ try {
   await frame.locator('#board-sheet[open] h2').filter({ hasText: cardWords }).waitFor();
   await page.waitForFunction(() => window.harnessWidgetState.privateContent.sheet === 'board-sheet');
   assertCardReadState(beforeCardRead, await page.evaluate(() => window.harnessWidgetState));
-  await sheetLabelsCentered('card');
+  await sheetLabelsFit('card');
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
   for (const [width, height, top, bottom] of [[197, 426, 51, 59], [393, 852, 102, 118]]) {
     const host = await hostPage(width, height, top, bottom);
@@ -2427,7 +2436,7 @@ try {
     await tapCentre(button);
     await zoomViewport(viewport.width,viewport.height,0,0);
   }
-  await legacyStart('solo'); await frame.locator('#board-menu').click(); await sheetLabelsCentered('menu'); await frame.locator('#menu-resign').click(); await sheetLabelsCentered('resign');
+  await legacyStart('solo'); await frame.locator('#board-menu').click(); await sheetLabelsFit('menu'); await frame.locator('#menu-resign').click(); await sheetLabelsFit('resign');
   await frame.locator('#board-sheet h2').filter({hasText:'Lay your king down?'}).waitFor({timeout: 3000 * STEP});
   assert.equal(await page.evaluate(()=>window.harnessView.status),'playing','Resign waits for its confirm');
   await frame.locator('#board-sheet').getByRole('button',{name:'Keep playing',exact:true}).click();
@@ -2975,16 +2984,20 @@ try {
       const hostStyle = await page.locator('iframe').getAttribute('style');
       await page.locator('iframe').evaluate(el => el.style.setProperty('height','100dvh','important'));
       await zoomViewport(393,852,0,0); await boardBox();
-      const boxes = await zoomBoxes(['#board','#board canvas','#strip-them','#strip-me','#context-line','#moves-line','#recent-moves','#table-bar']);
+      let boxes = await zoomBoxes(['#board','#board canvas','#strip-them','#strip-me','#context-line','#moves-line','#recent-moves','#table-bar']);
       console.log(`T6/T7 tall-phone boxes: ${JSON.stringify(boxes)}`);
       const expected = {
-        frame:[0,0,393,756], '#board':[4,44,385,411], '#board canvas':[4,44,385,411],
-        '#strip-them':[0,0,393,44], '#strip-me':[0,455,393,44], '#context-line':[12,499,369,44],
-        '#moves-line':[12,543,369,44], '#recent-moves':[12,587,369,108], '#table-bar':[0,708,393,48],
+        frame:[0,0,393,756], '#board':[4,48,385,411], '#board canvas':[4,48,385,411],
+        '#strip-them':[0,0,393,48], '#strip-me':[0,459,393,44], '#context-line':[12,503,369,44],
+        '#moves-line':[12,547,369,48], '#recent-moves':[0,0,0,0], '#table-bar':[0,700,393,56],
       };
       for (const [id,box] of Object.entries(expected)) assert(boxes[id]?.every((value,i) => Math.abs(value-box[i]) <= 1),
         `At 393 x 852 ${id} keeps its measured box (1 px rounding): ${JSON.stringify(boxes)}`);
       const movesControl = frame.locator('#moves-line'), recentMoves = frame.locator('#recent-moves');
+      assert(await recentMoves.isHidden(), 'The 48 px Back tablet leaves less than 108 px for the list at 393 x 852');
+      // Eight more host pixels fit the full list. Keep all open-list checks at that size.
+      await zoomViewport(393,860,0,0); await boardBox();
+      boxes = await zoomBoxes(['#table-bar']);
       await frame.locator('#moves-line[aria-expanded="true"]').waitFor();
       assert.match(await movesControl.innerText(), /Moves/, 'The Moves control keeps its name');
       assert.equal(await movesControl.getAttribute('aria-controls'), 'recent-moves', 'Moves names the list it controls');
@@ -3000,18 +3013,18 @@ try {
       assert(noPageScroll, 'The open list adds no page scroll');
       assert.equal(boxes['#table-bar'][1] + boxes['#table-bar'][3], boxes.frame[1] + boxes.frame[3], 'The bar stays at the bottom');
       await shot(page,`tall-board-their-turn-393-${mode}`);
-      for (const [width,height] of [[320,568],[197,426],[393,740]]) {
+      for (const [width,height] of [[320,568],[197,426],[393,740],[393,852]]) {
         await zoomViewport(width,height,0,0);
         await frame.locator('#moves-line[aria-expanded="false"]').waitFor({state:'attached'});
         assert(await recentMoves.isHidden(), `The list stays closed at ${width} x ${height}`);
       }
-      await zoomViewport(393,852,0,0);
+      await zoomViewport(393,860,0,0);
       await frame.locator('#moves-line[aria-expanded="true"]').waitFor();
       await tapCentre(movesControl);
       assert.equal(await movesControl.getAttribute('aria-expanded'), 'false', 'A tap closes Moves');
       assert(await recentMoves.isHidden(), 'A tap hides the list');
       await showSnapshot({...tallView,revision:1},tallWords.at(-1));
-      await zoomViewport(320,568,0,0); await zoomViewport(393,852,0,0);
+      await zoomViewport(320,568,0,0); await zoomViewport(393,860,0,0);
       await boardBox();
       assert.equal(await movesControl.getAttribute('aria-expanded'), 'false', 'The player close holds after a board update and resize');
       await tapCentre(movesControl);

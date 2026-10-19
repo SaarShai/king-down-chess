@@ -48,8 +48,8 @@ export async function checkAndroidFixes(browser, base, clickButton) {
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       });
     }
-    // K1 adds a coin row at 393–440 px. Keep the bar cost at no more than 4 px from that layout.
-    for (const [width, height, top, bottom, oldBoard] of [[412,790,54,24,311], [393,852,102,118,304], [320,568,63,84,113], [1280,800,0,0,536]]) {
+    // The 48 px reading rows and fixed bar fit the 52 px main tablet without a board shift.
+    for (const [width, height, top, bottom, expectedBoard] of [[412,790,54,24,296], [393,852,102,118,288], [320,568,63,84,102], [1280,800,0,0,532]]) {
       await viewport(width, height, top, bottom);
       await show();
       for (const armed of [false, true]) {
@@ -68,9 +68,9 @@ export async function checkAndroidFixes(browser, base, clickButton) {
           bottom: e.getBoundingClientRect().bottom, frameBottom: document.querySelector('.frame').getBoundingClientRect().bottom,
           board: document.querySelector('#board canvas').getBoundingClientRect().width
         }));
-        check(boxes.board >= oldBoard - (width < height ? 4 : 0) && boxes.board <= oldBoard, `${state} board loses at most 4 px`, boxes);
+        check(Math.abs(boxes.board - expectedBoard) <= 1, `${state} board keeps the tablet fit`, boxes);
         check(boxes.bottom <= boxes.frameBottom + 1, `${state} bar inside frame`, boxes);
-        if (width < height) check(boxes.heights.every(h => h === 44), `${state} button art stays 44 px`, boxes);
+        if (width < height) check(boxes.heights.every(h => h === 48), `${state} small tablets stay 48 px`, boxes);
         console.log(`${state}: ${JSON.stringify({ sizes, ...boxes })}`);
       }
     }

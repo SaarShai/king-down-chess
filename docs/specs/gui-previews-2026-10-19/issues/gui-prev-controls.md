@@ -89,3 +89,9 @@ Taste choice: keep the current stone crop and a thin edge. Keep the table bar in
 The red tablet has a plain #842c21 face, a #5a1c14 edge, a 1 px #9c3a2d top line, and #fbf7ee words. It has no stone image or blend. The browser check reads these values from the drawn face.
 
 Taste choice: use the existing deep red and cream tokens for the face and words. Use no gradient.
+
+## A3 preview
+
+Menu rows, settings rows, the moves line, and profile rows use a flat face and a 1 px divider. Each row has a 48 px minimum height. Long words can grow the row. Segments share one boundary. A selected segment uses dark stone colour and a 2 px gold ring. The old broad stone rule is removed.
+
+Taste choices: use a 12 px text inset. Keep art and portraits at 40 px in a menu row. Put the board menu in one column, so its dividers form one clear list. Keep a 56 px game bar to fit the 52 px main tablet and its touch space.

@@ -47,3 +47,23 @@ export async function checkTablet(page, frame) {
     assert.equal(await small.evaluate(el => getComputedStyle(el, '::before').bottom), '2px', 'The face fits the 2 px press');
   } finally { await page.mouse.move(0, 0); await page.mouse.up(); }
 }
+
+export async function checkFlatRows(frame, selector) {
+  const rows = await frame.locator(selector).evaluateAll(rows => rows.filter(el => el.checkVisibility()).map(el => {
+    const s = getComputedStyle(el);
+    return { image: s.backgroundImage, shadow: s.boxShadow, border: s.borderBottomWidth, height: el.getBoundingClientRect().height, transform: s.transform };
+  }));
+  assert(rows.length, 'The reading-row sample is visible');
+  for (const row of rows) {
+    assert.equal(row.image, 'none'); assert.equal(row.shadow, 'none'); assert.equal(row.border, '1px');
+    assert(row.height >= 48, 'A reading row keeps its 48 px target'); assert.equal(row.transform, 'none');
+  }
+}
+
+export async function checkSegments(frame) {
+  const style = await frame.locator('#online-visibility label:has(input:checked)').evaluate(el => {
+    const s = getComputedStyle(el); return { color: s.color, face: s.backgroundColor, image: s.backgroundImage, ring: s.boxShadow };
+  });
+  assert.equal(style.face, 'rgb(77, 69, 60)'); assert.equal(style.color, 'rgb(251, 247, 238)');
+  assert.equal(style.image, 'none'); assert.match(style.ring, /rgb\(233, 192, 113\).*2px/);
+}
