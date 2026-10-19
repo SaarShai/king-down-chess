@@ -22,6 +22,7 @@ export function vercelRoutes(site) {
       routes.push({ src: '^/\\.well-known/openai-apps-challenge$', headers: { 'Content-Type': 'text/plain' }, continue: true });
     }
     routes.push({ src: '^/internal/.+$', dest: '/internal' });
+    routes.push({ src: '^/api(?:/.*)?$', dest: '/mcp' });
   }
   return routes;
 }

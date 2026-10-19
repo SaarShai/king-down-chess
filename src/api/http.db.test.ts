@@ -7,10 +7,10 @@
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
-import { createServer, type Server } from 'node:http';
+import { createServer, request, type Server } from 'node:http';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from '../match/setup';
 import type { View } from '../match/protocol';
 import { GameService } from '../match/service';
@@ -19,10 +19,29 @@ import { AccountService } from '../online/accounts';
 import { onlineClient, type OnlineClient } from '../online/client';
 import { fakeSender } from '../online/mail';
 import { SafetyService } from '../online/safety';
-import { createApiHandler, createInternalHandler, sessionVerifier } from './http';
+import { createApiHandler, createInternalHandler, MAX_API_BODY, sessionVerifier, type ApiOptions } from './http';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 
+const operations = new Set([
+ 'POST /api/games',
+ 'GET /api/games/:id',
+ 'POST /api/games/:id/commands',
+ 'POST /api/games/:id/invite',
+ 'POST /api/invites/redeem',
+ 'GET /api/me/games',
+ 'GET /api/me/profile',
+ 'PATCH /api/me/profile',
+ 'POST /api/me/handle',
+ 'POST /api/me/deletion',
+ 'DELETE /api/me/deletion',
+ 'GET /api/me/notifications',
+ 'PUT /api/me/notifications',
+ 'GET /api/relations',
+ 'POST /api/relations',
+ 'DELETE /api/relations',
+ 'POST /api/reports',
+]);
 const CLASSIC_OPTIONS = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
 const url = process.env.PLUGIN_TEST_DATABASE_URL, supabase = 'https://project.supabase.co', secret = randomUUID() + randomUUID();
 const suite = url ? describe : describe.skip;
@@ -30,6 +49,7 @@ const plain = (view: View) => view.legal.find(lan => !lan.includes('!'))!;
 
 suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () => {
  let own: URL, admin: pg.Pool, runtime: pg.Pool, server: Server, address: string, sign: (sub: string) => Promise<string>;
+ let api: ReturnType<typeof createApiHandler>, options: ApiOptions;
  const role = `api_test_${randomUUID().replaceAll('-', '')}`, users: string[] = [], tag = randomUUID().slice(0, 6), sender = fakeSender();
  const rows = async (sql: string, params: unknown[] = []) => (await admin.query(sql, params)).rows;
  const locked = (sql: string) => withRoleLock(own.href, () => admin.query(sql));
@@ -41,6 +61,10 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   return { id, handle, api: onlineClient({ token: () => sign(id), origin: address, wait: async () => {} }) };
  }
  const internal = (path: string, key = secret) => fetch(`${address}/internal/${path}`, { method: 'POST', headers: { 'X-Kingdown-Internal': key, 'Content-Type': 'application/json' }, body: '{}' });
+ const raw = (path: string, headers: Record<string, string>, body?: string) => new Promise<{ status: number; cors: string | string[] | undefined }>((resolve, reject) => {
+  const req = request(address + path, { method: 'POST', headers }, res => { res.resume(); res.on('end', () => resolve({ status: res.statusCode!, cors: res.headers['access-control-allow-origin'] })); });
+  req.on('error', reject); if (body) req.write(body); req.end();
+ });
 
  beforeAll(async () => {
   own = await ownTestDatabase('api');
@@ -54,9 +78,10 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   sign = sub => { const now = Math.floor(Date.now() / 1000); return new SignJWT({ iss: `${supabase}/auth/v1`, aud: 'authenticated', sub, role: 'authenticated', is_anonymous: false, iat: now, exp: now + 600 }).setProtectedHeader({ alg: 'ES256', kid: 'local' }).sign(pair.privateKey); };
   server = createServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   address = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
-  const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), publicOrigin: address, verify: sessionVerifier(supabase, keys) });
+  options = { games, accounts: new AccountService(store), safety: new SafetyService(store), publicOrigin: address, operations, verify: sessionVerifier(supabase, keys) };
+  api = createApiHandler(options);
   const jobs = createInternalHandler({ games, publicOrigin: address, secret, sender: () => sender });
-  // The same dispatch as the function entry (tools/plugin-server.mjs).
+  // This listener checks the handlers. The compiled check covers the function entry.
   server.on('request', (req, res) => { void (/^\/internal(\/|$)/.test(req.url!) ? jobs : api)(req, res); });
  }, 60_000);
  afterAll(async () => {
@@ -70,6 +95,55 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   await admin.query('delete from public.outbox'); // this database is the suite's own
   await locked(`drop owned by ${role}; drop role ${role}`);
   await admin.end();
+ });
+
+ it('keeps closed operations clear of the runtime pool and stored data', async () => {
+  const actor = await player('closed'), token = await sign(actor.id);
+  const tables = await rows("select tablename from pg_tables where schemaname='public' order by tablename");
+  const snapshot = () => Promise.all(tables.map(({ tablename }) => rows(`select to_jsonb(t) as row from public."${tablename}" t order by to_jsonb(t)::text`)));
+  const before = await snapshot(), query = vi.spyOn(runtime, 'query'), connect = vi.spyOn(runtime, 'connect'), verify = vi.fn(options.verify!);
+  try {
+   for (const closed of [undefined, new Set<string>()]) {
+    api = createApiHandler({ ...options, operations: closed, verify });
+    for (const key of operations) {
+     const [method, path] = key.split(' ');
+     const response = await fetch(address + path.replace(':id', randomUUID()), { method, headers: { Authorization: `Bearer ${token}` }, ...(method !== 'GET' && { body: '{broken' }) });
+     expect([key, response.status, response.headers.get('Cache-Control'), await response.json()]).toEqual([key, 404, 'no-store', { code: 'NOT_FOUND', message: 'Not found' }]);
+    }
+    for (const path of ['/api', '/api/unknown', `/api/games/${randomUUID()}?since=0`]) {
+     const response = await fetch(address + path); expect(response.status).toBe(404); await response.arrayBuffer();
+    }
+   }
+   expect(verify).not.toHaveBeenCalled(); expect(query).not.toHaveBeenCalled(); expect(connect).not.toHaveBeenCalled();
+   expect(await snapshot()).toEqual(before);
+  } finally { api = createApiHandler(options); query.mockRestore(); connect.mockRestore(); }
+ });
+
+ it('keeps identity, origin, method and input bounds on enabled real-service routes', async () => {
+  const actor = await player('bounds'), token = await sign(actor.id), query = vi.spyOn(runtime, 'query'), connect = vi.spyOn(runtime, 'connect');
+  try {
+   for (const headers of [{}, { 'X-Kingdown-Dev-Actor': actor.id }] as Record<string, string>[]) {
+    const response = await fetch(`${address}/api/me/games`, { headers });
+    expect([response.status, response.headers.get('WWW-Authenticate'), response.headers.get('Cache-Control'), (await response.json()).code]).toEqual([401, 'Bearer', 'no-store', 'UNAUTHENTICATED']);
+   }
+   for (const headers of [{ Origin: 'https://evil.example' }, { Origin: 'null' }, { 'Sec-Fetch-Site': 'cross-site' }] as Record<string, string>[]) {
+    const response = await fetch(`${address}/api/me/games`, { headers: { Authorization: `Bearer ${token}`, ...headers } });
+    expect([headers, response.status, response.headers.get('Access-Control-Allow-Origin')]).toEqual([headers, 403, null]); await response.arrayBuffer();
+   }
+   expect(await raw('/api/me/games', { Host: 'evil.example', Authorization: `Bearer ${token}` })).toEqual({ status: 403, cors: undefined });
+   const wrong = await fetch(`${address}/api/me/profile`, { method: 'DELETE' });
+   expect([wrong.status, wrong.headers.get('Allow')]).toEqual([405, 'GET, PATCH']); await wrong.arrayBuffer();
+   for (const path of ['/api', '/api/unknown']) {
+    const response = await fetch(address + path); expect([response.status, (await response.json()).code]).toEqual([404, 'NOT_FOUND']);
+   }
+   for (const [body, status] of [['{broken', 400], ['x'.repeat(MAX_API_BODY + 1), 413]] as const) {
+    const response = await fetch(`${address}/api/games`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body });
+    expect([response.status, (await response.json()).code]).toEqual([status, 'INVALID_INPUT']);
+   }
+   expect((await raw('/api/games', { Authorization: `Bearer ${token}` }, 'x'.repeat(MAX_API_BODY + 1))).status).toBe(413);
+   expect(query).not.toHaveBeenCalled(); expect(connect).not.toHaveBeenCalled();
+  } finally { query.mockRestore(); connect.mockRestore(); }
+  expect((await actor.api.profile()).user_id).toBe(actor.id);
  });
 
  it('plays a Daily friend game between two website identities, with retries that apply once', async () => {

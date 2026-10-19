@@ -8,8 +8,27 @@ import { createApiHandler, createInternalHandler, MAX_ACTIVE_ENGINE, MAX_API_BOD
 
 const alice = '11111111-1111-4111-8111-111111111111', gameId = '33333333-3333-4333-8333-333333333333';
 const supabase = 'https://project.supabase.co', issuer = `${supabase}/auth/v1`, secret = 'x'.repeat(40);
+const operations = new Set([
+ 'POST /api/games',
+ 'GET /api/games/:id',
+ 'POST /api/games/:id/commands',
+ 'POST /api/games/:id/invite',
+ 'POST /api/invites/redeem',
+ 'GET /api/me/games',
+ 'GET /api/me/profile',
+ 'PATCH /api/me/profile',
+ 'POST /api/me/handle',
+ 'POST /api/me/deletion',
+ 'DELETE /api/me/deletion',
+ 'GET /api/me/notifications',
+ 'PUT /api/me/notifications',
+ 'GET /api/relations',
+ 'POST /api/relations',
+ 'DELETE /api/relations',
+ 'POST /api/reports',
+]);
 const view = { game_id: gameId, revision: 1, kind: 'solo' };
-let address: string, sign: (claims?: JWTPayload, key?: CryptoKey) => Promise<string>, games: Record<string, ReturnType<typeof vi.fn>>, accounts: Record<string, ReturnType<typeof vi.fn>>;
+let address: string, sign: (claims?: JWTPayload, key?: CryptoKey) => Promise<string>, games: Record<string, ReturnType<typeof vi.fn>>, accounts: Record<string, ReturnType<typeof vi.fn>>, safety: Record<string, ReturnType<typeof vi.fn>>;
 let other: CryptoKey, server: Server;
 async function serve(options: Partial<ApiOptions> = {}, internal: { secret?: string; sender?: () => never } = {}) {
  server = createServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
@@ -19,9 +38,10 @@ async function serve(options: Partial<ApiOptions> = {}, internal: { secret?: str
  // A Supabase session's claims; a test changes one of them.
  sign = (claims = {}, key = pair.privateKey) => { const now = Math.floor(Date.now() / 1000);
   return new SignJWT({ iss: issuer, aud: 'authenticated', sub: alice, role: 'authenticated', is_anonymous: false, session_id: 's', iat: now, exp: now + 300, ...claims }).setProtectedHeader({ alg: 'ES256', kid: 'test' }).sign(key); };
- games = { create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view), inbox: vi.fn(async () => []), invite: vi.fn(), join: vi.fn(async () => view), sweep: vi.fn(async () => 0) };
- accounts = { profile: vi.fn(async () => ({ user_id: alice })), relate: vi.fn(async () => undefined) };
- const api = createApiHandler({ games: games as never, accounts: accounts as never, safety: {} as never, publicOrigin: address, verify: sessionVerifier(supabase, keys), ...options });
+ games = { create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view), inbox: vi.fn(async () => []), invite: vi.fn(), join: vi.fn(async () => view), seen: vi.fn(), sweep: vi.fn(async () => 0) };
+ accounts = { profile: vi.fn(async () => ({ user_id: alice })), relate: vi.fn(async () => undefined), ...Object.fromEntries(['updateSettings', 'setHandle', 'requestDeletion', 'cancelDeletion', 'notificationPrefs', 'setNotificationPrefs', 'relations', 'unrelate'].map(name => [name, vi.fn()])) };
+ safety = { report: vi.fn() };
+ const api = createApiHandler({ games: games as never, accounts: accounts as never, safety: safety as never, publicOrigin: address, operations, verify: sessionVerifier(supabase, keys), ...options });
  const jobs = createInternalHandler({ games: games as never, publicOrigin: address, secret, sender: () => { throw new Error('no email'); }, ...internal });
  server.on('request', (req, res) => { void (req.url!.startsWith('/internal') ? jobs : api)(req, res); });
 }
@@ -35,6 +55,46 @@ const raw = (path: string, headers: Record<string, string>, body?: string) => ne
 });
 
 describe('website API boundary', () => {
+ it.each([undefined, new Set<string>()])('closes all operations before request work with operations=%s', async closedOperations => {
+  const verify = vi.fn(async () => alice), read = vi.fn(() => { throw new Error('Closed request reads its body'); });
+  const closed = createApiHandler({ games: games as never, accounts: accounts as never, safety: safety as never, publicOrigin: address, verify, operations: closedOperations });
+  server.removeAllListeners('request'); server.on('request', (req, res) => { vi.spyOn(req, 'iterator').mockImplementation(read); void closed(req, res); });
+  const token = await sign();
+  const paths = [
+   ...Array.from(operations, key => { const [method, path] = key.split(' '); return { method, path: path.replace(':id', gameId) }; }),
+   ...['/api', '/api/', '/api/unknown', `/api/games/${gameId}?since=-1`].map(path => ({ method: 'GET', path })),
+   { method: 'OPTIONS', path: '/api/games' }, { method: 'HEAD', path: '/api/me/games' },
+  ];
+  for (const { path, method } of paths) for (const identity of [undefined, token]) {
+   const response = await call(path, { method, token: identity, ...(!['GET', 'HEAD'].includes(method) && { body: '{broken' }) });
+   expect([path, method, response.status, response.headers.get('Content-Type'), response.headers.get('Cache-Control'), response.headers.get('X-Content-Type-Options'), response.headers.get('Allow')]).toEqual([path, method, 404, 'application/json; charset=utf-8', 'no-store', 'nosniff', null]);
+   expect(method === 'HEAD' ? await response.text() : await response.json()).toEqual(method === 'HEAD' ? '' : { code: 'NOT_FOUND', message: 'Not found' });
+  }
+  expect((await call('/api/games', { method: 'POST', token, body: 'x'.repeat(MAX_API_BODY + 1), headers: { Host: 'evil.example', Origin: 'null' } })).status).toBe(404);
+  expect(await raw('/api/games', { Authorization: `Bearer ${token}` }, 'x'.repeat(MAX_API_BODY + 1))).toBe(404);
+  for (const spy of [verify, read, ...Object.values(games), ...Object.values(accounts), ...Object.values(safety)]) expect(spy).not.toHaveBeenCalled();
+ });
+ it('opens only exact operation keys and lists only enabled methods', async () => {
+  const verify = vi.fn(async () => alice), read = vi.fn(() => { throw new Error('Closed request reads its body'); });
+  const enabled = new Set(['GET /api/me/profile']);
+  const partial = createApiHandler({ games: games as never, accounts: accounts as never, safety: safety as never, publicOrigin: address, verify, operations: enabled });
+  server.removeAllListeners('request'); server.on('request', (req, res) => { if (req.method !== 'GET' || req.url !== '/api/me/profile') vi.spyOn(req, 'iterator').mockImplementation(read); void partial(req, res); });
+  const token = await sign();
+  for (const key of operations) {
+   if (enabled.has(key)) continue;
+   const [method, path] = key.split(' '), response = await call(path.replace(':id', gameId), { method, token, ...(method !== 'GET' && { body: 'x'.repeat(MAX_API_BODY + 1) }) });
+   expect([key, response.status, (await response.json()).code, response.headers.get('Allow')]).toEqual([key, 404, 'NOT_FOUND', null]);
+  }
+  for (const spy of [verify, read, ...Object.values(games), ...Object.values(accounts), ...Object.values(safety)]) expect(spy).not.toHaveBeenCalled();
+  for (const method of ['DELETE', 'HEAD', 'OPTIONS']) {
+   const response = await call('/api/me/profile', { method, token });
+   expect([method, response.status, response.headers.get('Allow')]).toEqual([method, 405, 'GET']);
+  }
+  expect(verify).not.toHaveBeenCalled();
+  expect((await call('/api/me/profile', { token, headers: { Origin: 'null' } })).status).toBe(403);
+  expect((await call('/api/me/profile', { token })).status).toBe(200);
+  expect(verify).toHaveBeenCalledTimes(1); expect(accounts.profile).toHaveBeenCalledWith(alice);
+ });
  it('admits a website session and refuses every other token before any service call', async () => {
   const ok = await call('/api/me/games', { token: await sign() });
   expect([ok.status, ok.headers.get('Cache-Control'), ok.headers.get('Access-Control-Allow-Origin')]).toEqual([200, 'no-store', null]);
@@ -59,11 +119,11 @@ describe('website API boundary', () => {
   expect(games.inbox).toHaveBeenCalledTimes(1);
  });
  it('answers 503, not 401, when the key set cannot load, and when sign-in is not configured', async () => {
-  const down = createApiHandler({ games: games as never, accounts: accounts as never, safety: {} as never, publicOrigin: address, verify: sessionVerifier(supabase, async () => { throw new errors.JWKSTimeout(); }) });
+  const down = createApiHandler({ games: games as never, accounts: accounts as never, safety: safety as never, publicOrigin: address, operations, verify: sessionVerifier(supabase, async () => { throw new errors.JWKSTimeout(); }) });
   server.removeAllListeners('request'); server.on('request', (req, res) => { void down(req, res); });
   const response = await call('/api/me/games', { token: await sign() });
   expect([response.status, response.headers.get('Retry-After'), (await response.json()).code]).toEqual([503, '5', 'UNAVAILABLE']);
-  const off = createApiHandler({ games: games as never, accounts: accounts as never, safety: {} as never, publicOrigin: address });
+  const off = createApiHandler({ games: games as never, accounts: accounts as never, safety: safety as never, publicOrigin: address, operations });
   server.removeAllListeners('request'); server.on('request', (req, res) => { void off(req, res); });
   expect((await call('/api/me/games', { token: await sign() })).status).toBe(503);
   expect(games.inbox).not.toHaveBeenCalled();
