@@ -12,3 +12,6 @@ body[data-page='seat'] #page-head { padding-block: 4px; }
 #seat-menu-sheet .sheet-head h2 { flex: 1; margin: 0; }
 #seat-menu-sheet .sheet-head button { width: 44px; min-width: 44px; min-height: 44px; padding: 0; justify-content: center; }
 #seat-menu-sheet .sheet-body { display: flex; flex-direction: column; gap: 8px; }
+
+#seat-screen #seat-me-line { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+#seat-screen #game-table { --strip-row: auto; }

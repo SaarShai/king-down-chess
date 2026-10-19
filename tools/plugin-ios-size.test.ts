@@ -582,7 +582,8 @@ it('keeps the board screen unscrolled without cards where the rows fit under 320
 // The zoom rule leaves normal sizes alone. Device matrix round 2 measured 169/158 and 302/302 on the old phone rows;
 // layout B (short portrait rows, Back in the opponent row) gives the seat more height, and with Cards and King powers
 // its narrow opponent and player rows take two 44 px rows on the board. The touch bar adds 4 px; the short last-move row takes 24 px at short heights.
-it.each([[320, 568, 63, 84, true, 214, 109], [393, 852, 102, 118, true, 382, 300], [820, 600, 59, 34, false, 360, 338]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
+// The full king hint takes 6 more px at 320 px. The board gives that space to the player row.
+it.each([[320, 568, 63, 84, true, 208, 109], [393, 852, 102, 118, true, 382, 300], [820, 600, 59, 34, false, 360, 338]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: touch, hasTouch: touch }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000 * STEP);
   try {

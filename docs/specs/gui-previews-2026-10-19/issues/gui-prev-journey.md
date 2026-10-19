@@ -158,3 +158,9 @@ Taste: keep the king stage at 44 percent of the screen width, up to 200 px. Use 
 The profile name and setup veil use the reading face. Rule paragraphs, power text and piece rules have a 68ch width limit. Headings keep their current face.
 
 Taste: keep the current sizes and weights.
+
+### A19
+
+The setup hint wraps in its current line. The player row grows to hold it. The coin keeps its icon-only form. Tests check the full hint and row bounds at 390 px.
+
+Taste: use the current line height.

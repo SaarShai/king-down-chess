@@ -2531,3 +2531,20 @@ it('uses the reading face for a profile name and the setup veil', async () => {
     expect(await frame.locator('#seat-veil-layer span').evaluate(el => getComputedStyle(el).fontFamily)).toContain('Alegreya');
   } finally { await page.close(); }
 });
+
+it('wraps the setup hint on a phone and keeps the icon-only coin', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.setViewportSize({ width: 390, height: 844 }); await hall(page);
+    await frame.locator('html').evaluate(async () => {
+      await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: true, pool: ['A','L','G','M','S','O','N','Q','R','B'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: true } });
+    });
+    await frame.locator('#seat-me-line').filter({ hasText: 'select the coin to change' }).waitFor();
+    const line = await frame.locator('#seat-me-line').evaluate(el => {
+      const box = el.getBoundingClientRect(), row = el.closest('.player-strip')!.getBoundingClientRect();
+      return { whiteSpace: getComputedStyle(el).whiteSpace, fits: el.scrollWidth <= el.clientWidth, inside: box.bottom <= row.bottom };
+    });
+    expect(line).toEqual({ whiteSpace: 'normal', fits: true, inside: true });
+    expect(await frame.locator('#seat-king').innerText()).toBe('');
+  } finally { await page.close(); }
+});
