@@ -25,6 +25,7 @@ export interface BoardView {
   skip(): void;
   /** The beaten king on `sq` topples; it stays down while the board shows this position. */
   setFallen(sq: number | null, animate?: boolean): void;
+  fallRotation(sq: number | null): number;
   highlight(h: Highlights): void;
   flip(black: boolean): void;
   setLabels(on: boolean): void;
@@ -139,7 +140,7 @@ export class PaintedView implements BoardView {
     this.scene.setFallen(sq, animate && this.motion(), this.fallRotation(sq));
   }
 
-  private fallRotation(sq: number | null): number {
+  fallRotation(sq: number | null): number {
     return this.options.webInk && sq != null && this.scene.cell(sq).col === 7 ? 1.5 : -1.5;
   }
 

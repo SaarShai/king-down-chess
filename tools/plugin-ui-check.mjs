@@ -2437,6 +2437,8 @@ try {
   assert.deepEqual(rounded(await frame.locator('#board canvas').boundingBox()), rounded(boardBeforeEnd), 'The board keeps its rect when the end card opens');
   assert(await frame.locator('#table-bar').evaluate(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0;}),'The table bar keeps its grid cell behind the end card');
   assert.equal(await frame.locator('#end-reason').innerText(),'You resigned.');
+  assert.equal(await frame.locator('#over .over-w.is-fallen').count(), 1, 'The resigning king lies down on the result card');
+  assert.equal(await frame.locator('#over .over-b.is-fallen').count(), 0, 'The winning king stays upright');
   assert.equal(await frame.locator('#over.is-win, #board[data-toppling]').count(),0,'A loss stays calm');
   const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);
   await page.clock.fastForward(1100);
@@ -2505,6 +2507,7 @@ try {
     await page.waitForFunction(()=>typeof window.releaseHeld==='function');
     await page.evaluate(()=>{window.rejectNextGet=true; window.releaseHeld();});
     await frame.locator('#over.end-card[open] h2').filter({hasText:'Draw'}).waitFor(); await idleBoard();
+    assert.equal(await frame.locator('#over .is-fallen').count(), 0, 'A draw keeps both result kings upright');
     assert.equal(await frame.locator('#end-reason').innerText(),'Draw by agreement.');
     assert.equal(await frame.locator('#over.is-win, #board[data-toppling]').count(),0,'A draw stays calm');
     await frame.locator('#over #retry').waitFor({timeout: 3000 * STEP});
@@ -2844,6 +2847,7 @@ try {
         await showSnapshot(before); await boardBox();
         await showSnapshot({ ...before, ...finished, revision: 101, fen: toFen(position), turn: position.turn, in_check: true, legal: [], last_commands: commands }, story);
         await frame.locator('#over.end-card[open]').waitFor();
+        assert.equal(await frame.locator('#over .over-b.is-fallen').count(), 1, 'The beaten king lies down after checkmate');
         assert.equal(await frame.locator('#board .kd-words, #board[data-toppling], #end-skip').count(), 0, 'The plugin shows the result directly, with no board words or ceremony');
         const layout = await frame.locator('#over form').evaluate(form => {
           const box = form.getBoundingClientRect(), buttons = [...form.querySelectorAll('button')].filter(b => b.getClientRects().length && b.id !== 'end-block-player');

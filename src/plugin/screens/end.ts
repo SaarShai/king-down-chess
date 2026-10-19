@@ -2,7 +2,9 @@ import { call, client, memory, pollUpdate, routeView, showNewGame, store } from 
 import { art } from '../art';
 import { ending, endReason } from '../ending';
 import type { PollTarget } from '../poll';
-import { PLAIN_KINGS } from '../../rules/engine';
+import { findKing, PLAIN_KINGS, type Color } from '../../rules/engine';
+import { fromFen } from '../../rules/setup';
+import { board } from '../board-view';
 import { pendingHere, staleRead, type Page } from '../state';
 import { boardGame, closeBoardSheet, sendBoardCommand } from './board';
 import { playerBlockButton } from './board-actions';
@@ -91,8 +93,13 @@ export function endScreen(schedule = true) {
   over.className = 'end-card' + (win ? ' is-win' : ''); over.setAttribute('aria-labelledby','over-title');
   over.innerHTML = '<div class="over-art" aria-hidden="true"></div><p class="over-words"></p><h2 id="over-title"></h2><p id="end-reason"></p><div class="end-facts"></div><form method="dialog"></form><p class="quiet-line"></p><p id="end-block-status" role="status"></p>';
   const kings = view.rules?.kings;
+  const loser = view.result?.winner == null ? null : (1 - view.result.winner) as Color;
+  const square = loser == null || !view.fen ? -1 : findKing(fromFen(view.fen).board, loser);
+  const fallen = square < 0 ? null : square;
   for (const side of [0,1] as const) {
     const img = document.createElement('img'); img.className = 'over-king over-' + (side ? 'b':'w'); img.alt = '';
+    img.classList.toggle('is-fallen', side === loser);
+    img.style.setProperty('--fall-angle', `${board.fallRotation(fallen)}rad`);
     img.src = art(`ui/kings/${(kings?.[side]?.king ?? PLAIN_KINGS[side]).toLowerCase()}${side ? '-b':''}.webp`); over.querySelector('.over-art')!.append(img);
   }
   const result = view.result;
@@ -141,7 +148,7 @@ export function endScreen(schedule = true) {
     opening=true; const game=view.game_id;
     const show=()=>{
       if (stopped || client.state.screen!=='end' || boardGame()?.game_id!==game) {opening=false; return;}
-      opening=false; if(!looking){if(!over.open) { over.show(); if (tapReadyAt === Infinity) tapReadyAt = performance.now() + 1000; } scrim.hidden=false;}
+      opening=false; if(!looking){if(!over.open) { over.show(); over.scrollTop = 0; if (tapReadyAt === Infinity) tapReadyAt = performance.now() + 1000; } scrim.hidden=false;}
     };
     requestAnimationFrame(show);
   }

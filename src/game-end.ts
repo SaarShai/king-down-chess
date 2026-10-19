@@ -69,6 +69,11 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
     const loser = c.resigned() ?? (game.status === 'checkmate' ? final.turn : null);
     const square = loser == null ? -1 : findKing(final.board, loser);
     king = square < 0 ? null : square;
+    for (const side of [0, 1] as const) {
+      const figure = dialog.querySelector<HTMLElement>(side ? '.over-b' : '.over-w')!;
+      figure.classList.toggle('is-fallen', side === loser);
+      figure.style.setProperty('--fall-angle', `${view.fallRotation(king)}rad`);
+    }
     if (!shouldPlayCeremony(game.status, final.turn, c.sides(), c.linkSide(), c.resigned())) {
       view.setFallen(king, false);
       open(false, live); return;

@@ -24,6 +24,18 @@ function stubDom() {
 }
 afterEach(() => { vi.unstubAllGlobals(); frames.length = 0; listeners.clear(); pickedSquare = null; });
 
+it('shares the board fall angle with result art, including the right edge', async () => {
+  const container = stubDom();
+  const { PaintedView } = await import('./PaintedView');
+  const view = new PaintedView(container as unknown as HTMLElement, { webInk: true });
+  const scene = (view as unknown as { scene: object }).scene;
+  Object.assign(scene, { cell: () => ({ col: 7 }) });
+  expect(view.fallRotation(63)).toBe(1.5);
+  Object.assign(scene, { cell: () => ({ col: 0 }) });
+  expect(view.fallRotation(56)).toBe(-1.5);
+  expect(view.fallRotation(null)).toBe(-1.5);
+});
+
 describe('PaintedView first paint', () => {
   it('stays unready until the loaded scene is visible on its first frame', async () => {
     const container = stubDom();

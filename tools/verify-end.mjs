@@ -62,6 +62,8 @@ try {
   assert.doesNotMatch(await page.locator('#over-detail').innerText(), /setup|Ra3-a8/, 'the result uses words');
   assert.match(await page.locator('#over-detail').innerText(), /3 moves\.$/);
   assert.equal(await page.evaluate(() => window.view.fallen?.sq), 63, 'the beaten king stays down');
+  assert.equal(await page.locator('#over .over-b.is-fallen').count(), 1, 'The beaten king lies down on the card');
+  assert.equal(await page.locator('#over .over-b').evaluate(el => el.style.getPropertyValue('--fall-angle')), '1.5rad', 'The card uses the board right-edge angle');
   await ceremonyTile(page, 0).click();
   await waitForUi(page, ui => /Review/.test(ui.context));
   assert.equal(await page.locator('#over').isVisible(), false, 'a tile closes the result');
@@ -169,6 +171,7 @@ try {
   await page.locator('#over').waitFor({ state: 'visible' });
   assert.equal(await page.locator('.kd-words').count(), 0, 'a draw stays quiet');
   assert.equal(await page.evaluate(() => window.view.fallen), null, 'a draw has no beaten king');
+  assert.equal(await page.locator('#over .is-fallen').count(), 0, 'A draw leaves the result art upright');
   console.log('checked quiet loss, draw and result announcement');
   assertNoErrors();
   if (faults.length) throw new AggregateError(faults, 'End frame checks fail');

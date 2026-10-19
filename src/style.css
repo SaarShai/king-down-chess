@@ -454,6 +454,8 @@ label.army select { width: 100%; font-weight: 400; }
 }
 .over-king { height: 104px; width: auto; }
 .over-b { transform: scaleX(-1); }
+.over-art:has(.is-fallen) .over-king { width: 112px; max-width: calc((100% - 18px) / 2); object-fit: contain; }
+.over-king.is-fallen { rotate: var(--fall-angle); translate: 0 24px; }
 
 /* ---- Guide: painted piece cards ---- */
 #rules { width: min(940px, calc(100vw - 32px)); max-width: none; }
