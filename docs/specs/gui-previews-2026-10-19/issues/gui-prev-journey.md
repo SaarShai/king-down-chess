@@ -223,3 +223,27 @@ The final suite first waits in the shared test queue. A blocking outer wait then
 The 2x review repairs the folded-row space, the Guide's stone-card style, caption edge space, the phone king-sheet width and the small-board grid. No further fault is found in the changed views at the required sizes.
 
 This status closes the preview build. Each item still needs Saar's taste approval. The A23 native ChatGPT host check stays open, as the limit above states. No push, merge, deploy or sign-in is done.
+
+## Review repair plan
+
+Status: checks in progress.
+
+1. Check both reviews against the current code. Treat the two edge reports as one fault.
+2. Reset the lesson cursor, clamp each axis, and test the cursor and all six final positions. Test real board taps.
+3. Keep the Guide note centred. Test its bounds and keep the rule text width limit.
+4. Wait for the playing screen, the end of the reveal, and the visible board. Replace the affected A23 image pairs in both themes.
+5. Clear Free when a name becomes taken. Test the change from free to taken.
+6. Run `npm test` with the house test database. Commit the fixes, then run the required browser runner against that commit. Record the results and commit the ticket.
+
+Pass criteria: each confirmed finding has a test; all required checks pass; the replaced images show the full board; `git diff --check` passes. No server change needs `plugin-ui-http` unless the code check finds one.
+
+### Review findings
+
+- A6, old cursor: confirmed. The view is reused, but only the local cursor resets. Set the view preview when each lesson opens. The test reopens Beast after Archer and checks the drawn cursor, label and Enter choice.
+- A6, board edges (both reviews): confirmed. A single square index lets Left and Right cross a rank. Clamp file and rank separately. Tests press past all four edges.
+- A6, final positions: confirmed, with a product fault. `makeMove` returns a new position. The old code discards it. Keep that result. Tests check all six full final FENs, wrong moves, live rules, board taps and the position sent to the view.
+- A11, saved-game note: confirmed. The broad `#rules` selector limits the shelf note too. Limit the direct rule text and list. The test checks the note and button centres at 1440 × 900 and keeps the 68ch check.
+- A23, early captures: confirmed. The load flag can be false in setup. Both capture scripts now wait for the visible playing board and all board reveal animations. The unnamed-player test uses the same waits and checks that setup is hidden.
+- A28, Free after refusal: confirmed. `markHandleTaken(true)` leaves the free mark visible. It now hides that mark. The test waits for Free, refuses Save, then checks the field, error and hidden mark.
+
+No finding is refuted. No production server code changes.

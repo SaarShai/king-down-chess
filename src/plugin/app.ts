@@ -583,6 +583,7 @@ function renderIdentity() {
   if (state.screen === 'handle') scheduleHandleCheck();
 }
 function markHandleTaken(taken: boolean) {
+  if (taken) $('handle-free').hidden = true;
   if (taken) $('handle').setAttribute('aria-invalid', 'true'); else $('handle').removeAttribute('aria-invalid');
   $('handle-check-error').textContent = taken ? 'This name is in use.' : '';
 }

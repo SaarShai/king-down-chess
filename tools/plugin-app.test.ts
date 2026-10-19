@@ -6,8 +6,9 @@ import { chromium, type Browser, type Page } from 'playwright';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { LESSONS } from '../src/lessons';
-import { lessonMoves, lessonPosition } from '../src/plugin/screens/guide-model';
-import { toLan } from '../src/rules/setup';
+import { lessonAttempt, lessonMoves, lessonPosition } from '../src/plugin/screens/guide-model';
+import { toFen } from '../src/rules/setup';
+import { clickPath } from '../src/marks-model';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string;
 let harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -2502,13 +2503,43 @@ it('opens six Guide lessons and returns to the same game without a write', async
     expect(await frame.locator('.shelf-piece').count()).toBe(6);
     expect(await frame.locator('.shelf-piece').first().evaluate(el => getComputedStyle(el).boxShadow)).toBe('none');
     expect(await frame.locator('.shelf-line').first().evaluate(el => getComputedStyle(el).paddingInlineStart)).toBe('8px');
+    await frame.locator('html').evaluate(`(async () => {
+      const { PaintedView } = await import('/src/render/PaintedView.ts'), sync = PaintedView.prototype.sync;
+      PaintedView.prototype.sync = function(position) {
+        if (this.canvas.parentElement?.id === 'lesson-board') window.harnessLessonView = this;
+        return sync.call(this, position);
+      };
+    })()`);
+    await frame.locator('.shelf-piece[data-lesson="0"]').click();
+    const lessonBoard = frame.locator('#lesson-board');
+    await lessonBoard.press('ArrowRight');
+    expect(await lessonBoard.getAttribute('aria-label')).toContain('e4.');
+    await lessonBoard.press('Escape');
+    await frame.locator('#board-menu').click(); await frame.locator('#menu-guide').click();
+    await frame.locator('.shelf-piece[data-lesson="1"]').click();
+    expect(await lessonBoard.getAttribute('aria-label')).toContain('d4.');
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessLessonView.cursor)).toBe(27);
+    await lessonBoard.press('Enter');
+    expect(await frame.locator('.lesson-choices button').count()).toBeGreaterThan(0);
+    for (const [key, square, cursor] of [['ArrowRight', 'h4', 31], ['ArrowLeft', 'a4', 24], ['ArrowUp', 'a8', 56], ['ArrowDown', 'a1', 0]] as const) {
+      for (let count = 0; count < 8; count++) await lessonBoard.press(key);
+      expect(await lessonBoard.getAttribute('aria-label')).toContain(`${square}.`);
+      expect(await frame.locator('html').evaluate(() => (window as any).harnessLessonView.cursor)).toBe(cursor);
+    }
+    await menu.locator('.sheet-body > button').filter({ hasText: /^Guide$/ }).click();
     for (let i = 0; i < 6; i++) {
       await frame.locator(`.shelf-piece[data-lesson="${i}"]`).click();
       await frame.locator('#lesson-board canvas').waitFor();
       const position = lessonPosition(i), move = lessonMoves(i).find(move => LESSONS[i].goal(position, move))!;
-      await frame.locator('#lesson-board').press('Enter');
-      await frame.locator(`[data-lesson-move=${JSON.stringify(toLan(position, move))}]`).click();
+      const box = (await frame.locator('#lesson-board canvas').boundingBox())!;
+      for (const square of [move.from, ...clickPath(move)]) {
+        await page.mouse.click(box.x + (32 + (square % 8 + .5) * 112) * box.width / 960, box.y + (96 + (7 - Math.floor(square / 8) + .5) * 112) * box.width / 960);
+      }
+      if (move.shove) await frame.locator('.lesson-choices').getByRole('button', { name: /shoves/ }).click();
       expect(await frame.locator('#lesson-task').innerText()).toBe(LESSONS[i].done);
+      expect(await frame.locator('html').evaluate(`(async () => {
+        const { toFen } = await import('/src/rules/setup.ts'); return toFen(window.harnessLessonView.pos);
+      })()`)).toBe(toFen(lessonAttempt(i, move).position));
       await menu.locator('.sheet-body > button').filter({ hasText: /^Guide$/ }).click();
     }
     await menu.getByRole('button', { name: 'Return to game', exact: true }).click();
@@ -2559,7 +2590,11 @@ it('shows You and Profile for an unnamed player, and keeps a chosen host-like na
     await frame.getByRole('checkbox', { name: 'King powers', exact: true }).locator('..').click();
     await frame.locator('#setup-start').click(); await frame.locator('#seat-ready').waitFor();
     expect(await frame.locator('#seat-me-name').innerText()).toBe('You');
-    await frame.locator('#seat-ready').click(); await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('#seat-ready').click();
+    await frame.locator('[data-screen="board"]:not([hidden]) #board[aria-busy="false"] canvas').waitFor();
+    await frame.locator('#board').evaluate(async el => { await Promise.all(el.getAnimations().map(animation => animation.finished)); });
+    expect(await frame.locator('#seat-screen').isVisible()).toBe(false);
+    expect(await frame.locator('#board').evaluate(el => el.getAnimations().length)).toBe(0);
     expect(await frame.locator('#strip-me .player-name b').innerText()).toBe('You');
     await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
     await frame.locator('#profile-status').filter({ hasText: 'Loading' }).waitFor({ state: 'hidden' });
@@ -2610,9 +2645,11 @@ it('puts a taken-name error at the field and clears it when the name changes', a
   try {
     await expand(page); await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('handle'));
     await frame.locator('#handle').fill('preview_name');
+    await frame.locator('#handle-free:not([hidden])').waitFor();
     await page.evaluate(() => { (window as any).rejectNextAction = { name: 'kingdown_handle', code: 'HANDLE_TAKEN', text: 'This name is in use.' }; });
     await frame.locator('#save-handle').click();
     await frame.locator('#handle[aria-invalid="true"]').waitFor();
+    expect(await frame.locator('#handle-free').isVisible()).toBe(false);
     expect(await frame.locator('#handle-check-error').innerText()).toBe('This name is in use.');
     expect(await frame.locator('#handle').getAttribute('aria-describedby')).toBe('handle-check-error');
     await frame.locator('#handle').fill('another_name');

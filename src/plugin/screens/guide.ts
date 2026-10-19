@@ -70,10 +70,11 @@ function lesson(index: number) {
   view.onSquareClick = select;
   let cursor = position.board.findIndex(piece => piece !== 0 && colorOf(piece) === 0 && typeOf(piece) !== K);
   const cursorLabel = () => canvas.setAttribute('aria-label', `Lesson board, ${sqName(cursor)}. Enter selects a square.`);
+  view.setPreview(cursor);
   cursorLabel();
   canvas.onkeydown = event => {
-    const offset = ({ ArrowLeft: -1, ArrowRight: 1, ArrowUp: 8, ArrowDown: -8 } as Record<string, number>)[event.key];
-    if (offset) { event.preventDefault(); cursor = Math.max(0, Math.min(63, cursor + offset)); view.setPreview(cursor); cursorLabel(); }
+    const delta = ({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] } as Record<string, number[]>)[event.key];
+    if (delta) { event.preventDefault(); cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0])) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1])); view.setPreview(cursor); cursorLabel(); }
     else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(cursor); }
   };
   body.append(task, canvas, choices);

@@ -16,7 +16,6 @@ export function lessonMoves(index: number) {
 export function lessonAttempt(index: number, move: Move) {
   return withLessonRules(() => {
     const position = lessonPosition(index), done = LESSONS[index].goal(position, move);
-    if (done) makeMove(position, move);
-    return { position, done };
+    return { position: done ? makeMove(position, move) : position, done };
   });
 }

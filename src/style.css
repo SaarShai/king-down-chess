@@ -389,7 +389,7 @@ button.emblem[aria-pressed='true'] img { opacity: 1; filter: drop-shadow(0 2px 3
 .power-choice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
 .power-choice button { justify-content: center; padding: 6px 4px; text-align: center; font-size: var(--fs-sm); }
 
-#rules :is(p, li), .piece-card dd, .power-text { max-width: 68ch; }
+#rules .lesson-guide-body > :is(p, ul), .piece-card dd, .power-text { max-width: 68ch; }
 .power-text { min-height: 2.9em; margin: var(--space-2) 0 0; font-size: var(--fs-sm); line-height: 1.45; }
 
 #more-options { margin-top: var(--space-4); padding-top: var(--space-1); border-top: 1px solid var(--stone-300); }

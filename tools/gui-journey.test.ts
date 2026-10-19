@@ -35,7 +35,7 @@ it('makes Keep playing the main web resign action', async () => {
   } finally { await page.close(); }
 });
 
-it('keeps web rule lines within 68 characters', async () => {
+it('keeps web rule lines within 68 characters and centres the saved-game note', async () => {
   const page = await open();
   try {
     await page.setViewportSize({ width: 1440, height: 900 }); await menu(page); await page.locator('#rules-btn').click();
@@ -43,6 +43,11 @@ it('keeps web rule lines within 68 characters', async () => {
       const probe = document.createElement('span'); probe.style.cssText = 'position:absolute;width:68ch;font:inherit'; el.append(probe);
       const limit = probe.getBoundingClientRect().width, width = el.getBoundingClientRect().width; probe.remove(); return width <= limit + 1;
     })).toBe(true);
+    const centres = await page.locator('.shelf-safe').evaluate(el => {
+      const note = el.getBoundingClientRect(), button = document.getElementById('learn')!.getBoundingClientRect();
+      return { note: note.left + note.width / 2, button: button.left + button.width / 2 };
+    });
+    expect(Math.abs(centres.note - centres.button)).toBeLessThan(1);
   } finally { await page.close(); }
 });
 

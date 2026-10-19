@@ -13,6 +13,14 @@ export async function checkGuide(page, frame) {
   for (const [index, lesson] of LESSONS.entries()) {
     await frame.locator(`.shelf-piece[data-lesson="${index}"]`).click();
     await frame.locator('#lesson-board canvas').waitFor();
+    if (index === 0) {
+      for (const [key, square] of [['ArrowRight', 'h4'], ['ArrowLeft', 'a4'], ['ArrowUp', 'a8'], ['ArrowDown', 'a1']]) {
+        for (let count = 0; count < 8; count++) await frame.locator('#lesson-board').press(key);
+        assert.match(await frame.locator('#lesson-board').getAttribute('aria-label'), new RegExp(`${square}\\.`));
+      }
+      await sheet.locator('.sheet-body > button').filter({ hasText: /^Guide$/ }).click();
+      await frame.locator('.shelf-piece[data-lesson="0"]').click();
+    }
     const position = lessonPosition(index), move = lessonMoves(index).find(move => lesson.goal(position, move));
     assert(move, `${lesson.name} has a goal move`);
     await frame.locator('#lesson-board').press('Enter');
