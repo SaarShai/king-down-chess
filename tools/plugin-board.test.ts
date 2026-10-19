@@ -1844,7 +1844,7 @@ it('F11: a tap skips a local move without selecting a piece', async () => {
   } finally { await page.close(); }
 });
 
-it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons (%s)', async theme => {
+it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 by 48 px tablets (%s)', async theme => {
   const base = view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), page = await open(base, 390, 844), frame = page.frameLocator('iframe');
   const proof = join(tmpdir(), 'kingdown-gui-board-proof'); await import('node:fs/promises').then(fs => fs.mkdir(proof, { recursive: true }));
   async function centered(selector: string) {
@@ -1853,7 +1853,7 @@ it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons
       const glyph = range.getBoundingClientRect(), box = button.getBoundingClientRect();
       return { width: box.width, height: box.height, dx: Math.abs(glyph.x + glyph.width / 2 - box.x - box.width / 2), dy: Math.abs(glyph.y + glyph.height / 2 - box.y - box.height / 2), text: button.textContent };
     });
-    expect(box.width).toBe(44); expect(box.height).toBe(44); expect(box.dx).toBeLessThanOrEqual(1); expect(box.dy).toBeLessThanOrEqual(1); expect(box.text).toBe('×');
+    expect(box.width).toBe(44); expect(box.height).toBe(48); expect(box.dx).toBeLessThanOrEqual(1); expect(box.dy).toBeLessThanOrEqual(1); expect(box.text).toBe('×');
   }
   try {
     await page.evaluate(theme => (window as any).harnessSetContext({ theme }), theme);

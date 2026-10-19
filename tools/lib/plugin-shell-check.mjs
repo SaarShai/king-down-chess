@@ -19,7 +19,7 @@ export async function checkShell(browser, base) {
     await frame.locator('[data-art]').evaluateAll(images => Promise.all(images.map(image => image.decode())));
     const grain = await frame.locator('#home-card button').evaluateAll(async buttons => {
       const image = new Image();
-      image.src = getComputedStyle(buttons[0]).backgroundImage.match(/url\("?([^"\)]+)"?\)/)[1];
+      image.src = getComputedStyle(buttons.find(button => !button.classList.contains('primary')), '::before').backgroundImage.match(/url\("?([^"\)]+)"?\)/)[1];
       await image.decode();
       return { pixels: image.naturalWidth, css: Math.max(384, ...buttons.map(button => button.getBoundingClientRect().width)) };
     });

@@ -54,9 +54,9 @@ export async function checkOwnerPicks(page, frame, saved, idleBoard, boardBox) {
       const first = document.createRange(); first.selectNodeContents(span.firstChild);
       const title = first.getBoundingClientRect(), sub = detail?.getBoundingClientRect();
       const b = button.getBoundingClientRect(), other = document.querySelector('#home-games').getBoundingClientRect();
-      return { title: span.firstChild.textContent.trim(), detail: detail?.textContent, full: span.scrollWidth <= span.clientWidth && span.scrollHeight <= span.clientHeight && (!detail || detail.scrollWidth <= detail.clientWidth), twoLines: !!sub && sub.top >= title.bottom, height: b.height, beside: Math.abs(b.top - other.top) < 1, column: other.top >= b.bottom };
+      return { title: span.firstChild.textContent.trim(), detail: detail?.textContent, full: span.scrollWidth <= span.clientWidth && span.scrollHeight <= span.clientHeight && (!detail || detail.scrollWidth <= detail.clientWidth), twoLines: !!sub && sub.top >= title.bottom, height: b.height, beside: Math.abs((b.top + b.bottom) / 2 - (other.top + other.bottom) / 2) < 1, column: other.top >= b.bottom };
     });
-    check(fit.title === 'Resume' && fit.detail === 'Computer · Your move' && fit.full && fit.twoLines && fit.height >= 48 && (width < 340 ? fit.column : fit.beside), `K2 Resume at ${width}px`, fit);
+    check(fit.title === 'Resume' && fit.detail === 'Computer · Your move' && fit.full && fit.twoLines && fit.height === 52 && (width < 340 ? fit.column : fit.beside), `K2 Resume at ${width}px`, fit);
     check(await frame.getByRole('button', { name: /^Resume\s+Computer · Your move$/ }).count() === 1, `K2 one accessible name at ${width}px`, fit);
     await shot(page, `k2-resume-${width}`);
   }

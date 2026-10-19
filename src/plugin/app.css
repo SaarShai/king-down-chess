@@ -115,11 +115,10 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .board-layer .veil { position: absolute; display: grid; place-items: center; padding: 6px; overflow: hidden; text-align: center; background: rgba(243, 234, 215, .82); backdrop-filter: blur(3px); border-bottom: 2px dashed var(--stone-500); }
 .board-layer .veil span { max-width: 22ch; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-md); color: var(--ink-soft); }
 /* The turn button sits between Undo and Menu. */
-#table-bar { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr); }
+#table-bar { grid-template-columns: minmax(48px, 1fr) minmax(0, 2fr) minmax(48px, 1fr); }
 #table-bar > button { grid-column: auto; }
 #table-bar > #board-menu { grid-column: 3; }
 #short-last-move { display: none; }
-#table-bar > button.primary { background: var(--accent); color: var(--vellum); }
 /* Card coins (card mode C): smaller than the power coin, so a full hand fits the strip at 360 px. The card face fills
    the coin inside the ring, so it grows with the coin (26 px in a 34 px coin, 36 px in a 44 px coin). */
 .coin-row { gap: 4px; }
@@ -159,7 +158,8 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .inline-line { margin: 0; color: var(--ink-soft); }
 .inline-card .title-actions { width: 100%; flex-direction: row; flex-wrap: nowrap; margin-top: var(--space-1); }
 .inline-card .title-actions button { flex: 1; min-width: 0; min-height: 48px; font-size: var(--fs-md); white-space: nowrap; padding: 8px 10px; }
-.inline-card .title-actions button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#app-root .inline-card .title-actions button { flex: 1 1 auto; padding: 6px 12px; }
+.inline-card .title-actions button span { min-width: 0; white-space: normal; }
 .inline-card .title-actions button small { display: block; font-size: var(--fs-xs); font-weight: 400; white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 339px) {
   .inline-card .title-actions { flex-direction: column; }
@@ -198,6 +198,7 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 /* 200% zoom: the page title scales with its head, so words stay whole and the seat title keeps two lines at most.
    It is never smaller than the body text, so it still grows with zoom (WCAG 1.4.4). */
 #page-head { container-type: inline-size; }
+#app-root .sheet-head #page-back { padding-inline: 8px; }
 @container (max-width: 285px) { #page-title { font-size: max(var(--fs-md), 7cqi); } }
 .page-sheet .sheet-head button { flex: none; width: auto; min-width: 44px; min-height: 44px; padding: 0 8px; justify-content: center; font-size: var(--fs-sm); }
 .page-error { flex: none; }
@@ -228,7 +229,7 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 }
 .table-back { display: none; }
 @media (max-width: 899px) and (orientation: portrait) {
-  #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 44px; grid-template-rows: minmax(var(--strip-row, 44px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) 44px minmax(0, 1fr) var(--bar-height); }
+  #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 56px; grid-template-rows: minmax(var(--strip-row, 44px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) 44px minmax(0, 1fr) var(--bar-height); }
   #game-table .player-strip { padding-block: 0; min-height: 44px; }
   #game-table .portrait { width: 36px; height: 36px; }
   #game-table .player-name { display: flex; align-items: baseline; }
@@ -243,7 +244,7 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table #table-bar > button { min-height: 44px; flex-direction: row; }
   body:is([data-page='board'], [data-page='seat'], [data-page='end']) #page-head { display: none; }
   body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table #strip-them { padding-left: 60px; }
-  body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table .table-back { display: grid; grid-area: them; justify-self: start; align-self: start; place-items: center; margin-left: 8px; width: 44px; height: 44px; min-height: 44px; padding: 0; z-index: 2; font-size: var(--fs-xl); line-height: 1; }
+  body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table .table-back { display: grid; grid-area: them; justify-self: start; align-self: start; place-items: center; margin-left: 8px; width: 48px; height: 48px; min-height: 48px; padding: 0; z-index: 2; font-size: var(--fs-xl); line-height: 1; }
   #game-table .table-back::after, #game-table #strip-them button::after { top: 0; transform: translate(-50%, 0); }
 @container table-screen (max-height: 480px) {
   #game-table { grid-template-rows: minmax(var(--strip-row, 44px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) 0 minmax(0, 1fr) var(--bar-height); }
@@ -281,8 +282,8 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table .player-strip:has(.card-coin) .coin-row > * { flex: none; }
   #game-table .player-strip:has(.card-coin) .player-name { flex: 1 0 45%; }
 }
-/* 200% zoom (197 px): a quarter of the bar is under 58 px, too narrow for an icon and its word side by side. */
-@container table-screen (max-width: 239px) {
+/* Narrow bars stack each icon above its 18 px word. */
+@container table-screen (max-width: 319px) {
   #game-table #table-bar > button { flex-direction: column; gap: 0; }
 }
 @media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
@@ -315,7 +316,7 @@ body[data-touch='true'] #game-table .coin.card-coin { overflow: visible; }
 body[data-touch='true'] button#moves-line { z-index: 1; }
 body[data-touch='true'] #context-actions button { z-index: 2; }
 /* The bar owns the 4 px above each button's touch layer. */
-body[data-touch='true'] #game-table { --bar-height: 48px; }
+body[data-touch='true'] #game-table { --bar-height: 56px; }
 body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
 @media (pointer: coarse) {
   button, .seg-row label, .fields > label { position: relative; }
@@ -325,7 +326,7 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
   #game-table .coin.card-coin { overflow: visible; }
   button#moves-line { z-index: 1; }
   #context-actions button { z-index: 2; }
-  #game-table { --bar-height: 48px; }
+  #game-table { --bar-height: 56px; }
   #game-table #table-bar { padding-top: 4px; }
 }
 
@@ -334,7 +335,7 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
 :where(#app-root) :is(button:not(:where(.coin)), select, input:not([type='radio'], [type='checkbox']), label:has(> input)) {
   min-width: var(--tap); min-height: var(--tap);
 }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])) {
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button, .primary, .title-actions button, .new-game-foot button, .wide-btn, .code-row button, .power-choice button, #games-start, #profile-more, #profile-blocks-more, #retry, #table-bar > button, #context-actions button, .sheet-head button, .game-action, .sheet-body > button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])) {
   --brick-face: var(--stone-100);
   --brick-edge: var(--stone-700);
   --brick-ring: transparent;
@@ -348,29 +349,29 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
   box-shadow: 0 4px 0 var(--brick-edge), inset 0 0 0 1px var(--brick-edge), inset 0 3px 0 var(--brick-top), inset 2px 0 0 var(--brick-top), inset -2px 0 0 var(--brick-side), inset 0 -3px 0 var(--brick-side), inset 0 0 0 2px var(--brick-ring);
   transition: transform 80ms ease-out;
 }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox']))[aria-pressed='true'] {
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button, .primary, .title-actions button, .new-game-foot button, .wide-btn, .code-row button, .power-choice button, #games-start, #profile-more, #profile-blocks-more, #retry, #table-bar > button, #context-actions button, .sheet-head button, .game-action, .sheet-body > button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox']))[aria-pressed='true'] {
   --brick-ring: var(--stone-700);
   --brick-top: var(--gold-bright);
 }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):nth-of-type(3n + 1) { --grain-position: 20% 60%; }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):nth-of-type(3n + 2) { --grain-position: 80% 85%; }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):is(:has(> input:checked), [aria-checked='true']) {
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button, .primary, .title-actions button, .new-game-foot button, .wide-btn, .code-row button, .power-choice button, #games-start, #profile-more, #profile-blocks-more, #retry, #table-bar > button, #context-actions button, .sheet-head button, .game-action, .sheet-body > button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):nth-of-type(3n + 1) { --grain-position: 20% 60%; }
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button, .primary, .title-actions button, .new-game-foot button, .wide-btn, .code-row button, .power-choice button, #games-start, #profile-more, #profile-blocks-more, #retry, #table-bar > button, #context-actions button, .sheet-head button, .game-action, .sheet-body > button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):nth-of-type(3n + 2) { --grain-position: 80% 85%; }
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button, .primary, .title-actions button, .new-game-foot button, .wide-btn, .code-row button, .power-choice button, #games-start, #profile-more, #profile-blocks-more, #retry, #table-bar > button, #context-actions button, .sheet-head button, .game-action, .sheet-body > button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):is(:has(> input:checked), [aria-checked='true']) {
   --brick-face: var(--stone-700); --brick-ring: var(--gold-bright);
   --ink-soft: var(--vellum); --fg-soft: var(--vellum);
   color: var(--vellum); background-blend-mode: multiply;
   box-shadow: inset 0 0 0 3px var(--brick-ring), inset 0 5px 6px var(--stone-900);
 }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])).primary {
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button, .primary, .title-actions button, .new-game-foot button, .wide-btn, .code-row button, .power-choice button, #games-start, #profile-more, #profile-blocks-more, #retry, #table-bar > button, #context-actions button, .sheet-head button, .game-action, .sheet-body > button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])).primary {
   --brick-face: var(--accent); --brick-edge: var(--accent-deep);
   color: var(--vellum); background-blend-mode: multiply;
   --brick-top: var(--accent-bright); --brick-side: var(--accent-deep);
 }
 #app-root button.primary :is(.line, small) { color: inherit; }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):not(:disabled, [aria-disabled='true'], :has(button:active)):active {
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button, .primary, .title-actions button, .new-game-foot button, .wide-btn, .code-row button, .power-choice button, #games-start, #profile-more, #profile-blocks-more, #retry, #table-bar > button, #context-actions button, .sheet-head button, .game-action, .sheet-body > button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):not(:disabled, [aria-disabled='true'], :has(button:active)):active {
   transform: translateY(4px);
   box-shadow: inset 0 2px 0 var(--brick-edge), inset 0 0 0 2px var(--brick-ring);
 }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):is(:disabled, [aria-disabled='true'], :has(> input:disabled)) {
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button, .primary, .title-actions button, .new-game-foot button, .wide-btn, .code-row button, .power-choice button, #games-start, #profile-more, #profile-blocks-more, #retry, #table-bar > button, #context-actions button, .sheet-head button, .game-action, .sheet-body > button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):is(:disabled, [aria-disabled='true'], :has(> input:disabled)) {
   --ink-soft: rgb(91 80 69 / 75%); --fg-soft: rgb(91 80 69 / 75%);
   color: var(--ink-soft); background: var(--stone-100); border-color: var(--stone-300);
   box-shadow: none; transform: none; opacity: 1;
@@ -401,7 +402,7 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
 }
 }
 
-#end-turn .turn-sword { width: 66px; height: 20px; fill: currentColor; stroke: none; }
+#end-turn .turn-sword { max-width: 100%; width: 66px; height: 20px; fill: currentColor; stroke: none; }
 #end-turn.primary { animation: turn-ready 400ms var(--ease-out); }
 @keyframes turn-ready { 50% { filter: brightness(1.3); } }
 @media (prefers-reduced-motion: reduce) { #end-turn.primary { animation: none; } }

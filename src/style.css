@@ -174,11 +174,6 @@ button > span { min-width: 0; }
 /* Touch screens keep :hover after a tap, which left a tapped button dark. */
 @media (hover: hover) { button:hover { background: linear-gradient(#fffdf6, #f5ebd5); } }
 button:active { transform: translateY(2px); box-shadow: 0 0 0 var(--stone-700), inset 0 1px 0 rgba(255, 255, 255, 0.8); }
-button.primary {
-  color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent));
-  border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35);
-}
-@media (hover: hover) { button.primary:hover { background: linear-gradient(#a8422f, #8f3124); } }
 button.quiet { background: transparent; box-shadow: none; border-color: var(--stone-500); font-weight: 400; }
 @media (hover: hover) { button.quiet:hover { background: rgba(255, 255, 255, 0.5); } }
 button:disabled:not(:where(.coin)), button:disabled:hover:not(:where(.coin)) {
@@ -388,10 +383,6 @@ button.emblem[aria-pressed='true'] {
 button.emblem[aria-pressed='true'] img { opacity: 1; filter: drop-shadow(0 2px 3px rgba(43, 38, 33, 0.35)) drop-shadow(0 0 6px rgba(201, 154, 62, 0.55)); }
 .power-choice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
 .power-choice button { justify-content: center; padding: 6px 4px; text-align: center; font-size: var(--fs-sm); }
-.power-choice button[aria-pressed='true'] {
-  color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent));
-  border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35);
-}
 .power-text { min-height: 2.9em; margin: var(--space-2) 0 0; font-size: var(--fs-sm); line-height: 1.45; }
 
 #more-options { margin-top: var(--space-4); padding-top: var(--space-1); border-top: 1px solid var(--stone-300); }
@@ -409,8 +400,8 @@ button.emblem[aria-pressed='true'] img { opacity: 1; filter: drop-shadow(0 2px 3
 #side-army-value { margin-left: auto; text-align: right; }
 #other-armies { margin-top: 12px; }
 #new-game button.emblem { min-height: 44px; }
-#new-game :is(label.mode, .seg-row label, .power-choice button, button.emblem) { border: 2px solid transparent; box-shadow: none; }
-#new-game :is(label.mode:has(input:checked), .seg-row label:has(input:checked), .power-choice button[aria-pressed='true'], button.emblem[aria-pressed='true']) { color: var(--ink); background: var(--parchment-deep); border-color: var(--stone-700); }
+#new-game :is(label.mode, .seg-row label, button.emblem) { border: 2px solid transparent; box-shadow: none; }
+#new-game :is(label.mode:has(input:checked), .seg-row label:has(input:checked), button.emblem[aria-pressed='true']) { color: var(--ink); background: var(--parchment-deep); border-color: var(--stone-700); }
 #more-options .seg { margin-top: var(--space-2); }
 label.army { flex-direction: column; align-items: stretch; gap: 6px; margin-top: var(--space-4); font-weight: 700; }
 label.army select { width: 100%; font-weight: 400; }
@@ -574,7 +565,6 @@ label.army select { width: 100%; font-weight: 400; }
 }
 .title-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); margin-top: var(--space-2); }
 .title-actions button { width: auto; min-width: 200px; min-height: 52px; justify-content: center; font-size: var(--fs-lg); padding: 10px 22px; }
-.title-actions button.primary { border-color: var(--gold-bright); box-shadow: 0 2px 0 var(--accent-deep), 0 0 0 1px rgba(233, 192, 113, 0.5); }
 /* The lineup: every piece on a stone ledge, alternating armies, sized as they stand on the board. */
 .title-lineup {
   --fig: 112px; /* the tallest figure (the Ogre); the others scale by --h */
@@ -704,3 +694,54 @@ button[aria-disabled="true"], button[aria-disabled="true"]:hover {
   .coin { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.5); }
   .coin[data-state='armed'] { box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 5px var(--gold-bright); }
 }
+
+/* Tablet actions: clip the face only. Text, hit areas, and focus stay whole. */
+:is(.title-actions button, .new-game-foot button, .new-game-head button, .wide-btn, .code-row button, dialog > form button, .power-choice button, #table-bar > button, #context-actions button, .sheet-head button, .game-action, .table-back, .sheet-body > button, #games-start, #profile-more, #profile-blocks-more, #retry, button.primary) {
+  --tablet-face: var(--stone-100);
+  --tablet-image: url('./plugin/assets/stone-control.webp');
+  --tablet-blend: normal;
+  --tablet-edge: var(--stone-700);
+  --tablet-top: var(--vellum);
+  position: relative; isolation: isolate; align-self: center;
+  min-height: 48px; padding: 8px 20px;
+  font-size: var(--fs-lg); font-weight: 700; color: var(--ink);
+  background: transparent; border: 0; border-radius: 0; box-shadow: none;
+  transition: transform 120ms ease-out;
+  &:is(.power-choice button) { align-self: stretch; }
+
+  &::before {
+    content: ''; position: absolute; z-index: -1; inset: 0; pointer-events: none;
+    clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px);
+    background: var(--tablet-face) var(--tablet-image) var(--grain-position, 50% 25%) / max(100%, 384px) auto no-repeat;
+    background-blend-mode: var(--tablet-blend);
+    border: 1px solid var(--tablet-edge);
+    box-shadow: inset 0 1px 0 var(--tablet-top), inset 0 -2px 0 var(--tablet-edge);
+  }
+  &[aria-pressed='true']:not(.primary) {
+    --tablet-face: var(--stone-700); --tablet-blend: multiply;
+    --tablet-edge: var(--gold-bright); --tablet-top: var(--gold-bright);
+    color: var(--vellum);
+    &::before { box-shadow: inset 0 0 0 1px var(--tablet-edge), inset 0 -2px 0 var(--tablet-edge); }
+  }
+  &.primary {
+    --tablet-face: var(--accent); --tablet-blend: multiply;
+    --tablet-edge: var(--accent-deep); --tablet-top: var(--accent-bright);
+    min-height: 52px; color: var(--vellum);
+  }
+  &:not(:disabled, [aria-disabled='true']):active {
+    transform: translateY(2px); transition-duration: 80ms; background: transparent; box-shadow: none;
+  }
+  &:active::before { bottom: 2px; }
+  &:is(:disabled, [aria-disabled='true']) {
+    --tablet-face: var(--stone-100); --tablet-image: none; --tablet-edge: var(--stone-300);
+    color: var(--ink-soft); background: transparent; box-shadow: none; transform: none;
+  }
+  @media (hover: hover) {
+    &:hover { background: transparent; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:active { transform: none; }
+  }
+}
+
+button:is([aria-label='Close'], #menu-close, #seat-menu-close, .table-back) { padding: 0; }

@@ -1,3 +1,5 @@
+import { checkTabletSelection } from './lib/plugin-tablet-check.mjs';
+import { checkTablet } from './lib/plugin-tablet-check.mjs';
 import { checkAndroidFixes } from './lib/plugin-android-check.mjs';
 import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
@@ -168,6 +170,7 @@ try {
   assert(await frame.locator('#home-line').isHidden(), 'Home hides the zero turn count');
   assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests ?? []), [], 'Mount sends no fullscreen request');
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), 0, 'An empty home reads no board');
+  await checkTablet(page, frame);
   await frame.locator('#home-games').click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
   assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Choose a game opens the Play hall');
@@ -565,6 +568,7 @@ try {
       if (state === 'setup-cards') await frame.locator('#setup-cards').click();
       if (state === 'setup-king') {
         await frame.locator('#setup-king').click();
+        await checkTabletSelection(frame);
         assert.equal(await frame.locator('#king-picker .emblem').count(), 6);
         assert(await frame.locator('#king-picker .emblem').evaluateAll(buttons => buttons.every(button => {
           const style = getComputedStyle(button), box = button.getBoundingClientRect();
@@ -639,7 +643,7 @@ try {
     // The Black seat waits for the computer's first move. Until its reply the Menu is off and shows the disabled face;
     // the real server (plugin-ui-http) replies later than the fixture.
     await frame.locator('#board-menu:not(:disabled)').waitFor();
-    assert((await frame.locator('#board-menu').evaluate(button => getComputedStyle(button).backgroundImage)).includes('stone-control'), 'Menu keeps the stone face');
+    assert((await frame.locator('#board-menu').evaluate(button => getComputedStyle(button, '::before').backgroundImage)).includes('stone-control'), 'Menu keeps the stone face');
     await shot(page, `base-round-coins-393-${mode}`);
     await page.setViewportSize({ width: 390, height: 844 });
     const desktop = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: false, reducedMotion: 'reduce' });
@@ -1069,10 +1073,10 @@ try {
   })), 'Name pictures keep their round transparent face');
   assert(await frame.locator('#setup-body').evaluate(body => {
     const button = document.createElement('button');
-    button.className = 'preset'; button.textContent = 'King Down'; body.append(button);
+    button.className = 'preset wide-btn'; button.textContent = 'King Down'; body.append(button);
     try {
-      const style = getComputedStyle(button);
-      return style.backgroundImage.includes('stone-control') && style.borderRadius !== '50%' && style.aspectRatio === 'auto';
+      const style = getComputedStyle(button), face = getComputedStyle(button, '::before');
+      return face.backgroundImage.includes('stone-control') && style.borderRadius !== '50%' && style.aspectRatio === 'auto';
     } finally { button.remove(); }
   }), 'A preset button outside the name pictures keeps its stone face and control shape');
   assert.equal(await frame.locator('[data-screen="handle"] .quiet-line').last().innerText(), 'Each name is unique.');
@@ -1303,7 +1307,7 @@ try {
           assert(label.rightGap >= 8, `The ${label.id} text keeps at least 8 px on the right: ${all}`);
         }
         if (width <= 299) assert(labels[1].top >= labels[0].bottom && labels.every(label => Math.abs(label.width - label.rowWidth) < 1), `Share and Copy stack at full width: ${all}`);
-        else assert(Math.abs(labels[0].top - labels[1].top) < 1 && labels[0].right <= labels[1].left, `Share and Copy stay side by side: ${all}`);
+        else assert(Math.abs((labels[0].top + labels[0].bottom) / 2 - (labels[1].top + labels[1].bottom) / 2) < 1 && labels[0].right <= labels[1].left, `Share and Copy keep one centre line: ${all}`);
         await host.frame.locator('#friend-copy').scrollIntoViewIfNeeded();
         await shot(host.page, `friend-actions-${width}-${mode}`);
       } finally { await host.page.close(); }
@@ -2516,6 +2520,8 @@ try {
     await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen',safeAreaInsets:{top:51,bottom:59,left:0,right:0},deviceCapabilities:{touch:true}}));
     assert(await frame.locator('#over').evaluate(e=>e.scrollHeight>e.clientHeight),'The 197 px end card scrolls');
     assert(await frame.locator('#game-table .table-back').evaluate(e=>{const r=e.getBoundingClientRect(),card=document.getElementById('over').getBoundingClientRect();return r.height>=44&&r.bottom<=card.top&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'Back stays clear of the end card');
+    const backFace = await frame.locator('#game-table .table-back').evaluate(e => ({ height: e.getBoundingClientRect().height, cut: getComputedStyle(e, '::before').clipPath }));
+    assert.equal(backFace.height, 48, 'Back uses the small tablet height'); assert.match(backFace.cut, /polygon\(4px 0px/);
     for (const name of ['Rematch','New game','See the board']) {
       const b=frame.locator('#over').getByRole('button',{name,exact:true}); await b.scrollIntoViewIfNeeded();
       assert(await b.evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),name+' stays reachable at 197 px');
