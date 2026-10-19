@@ -72,3 +72,17 @@ Test database `kingdown_dlfix_test` on `127.0.0.1:55432` (PostgreSQL 17.11), all
   production SQL.
 - A test that drops and makes its tables again (`tools/plugin-db/release-packet.db.test.ts`) gets new tables with
   autovacuum on. Its tables stay almost empty, so autovacuum does not start on them.
+
+## Review
+
+A reader that did not write the diff reviewed commit `c2c0420f`: no should-fix. It confirms the cycle (since 17.1 an
+in-place `pg_class` update waits for the transaction that changed the row; a hard cycle does not cancel the autovacuum
+task) and finds no new lock wait: an autovacuum task that is already on a table blocks the `alter table`, so PostgreSQL
+cancels that task. Nits, not taken:
+
+- The check uses the same table query as the helper, and on a copy from an earlier run it passes without the
+  `alter table`. CI makes new copies, so CI finds a removed `alter table`.
+- `vacuum (analyze)` instead of `vacuum`: the plain `vacuum` already sets `reltuples` and `relpages`, and the tables are
+  small, so the plans do not change in a way that matters.
+
+The push hook's full `npm test` (database tests skipped) and the gate pass on `c2c0420f`.
