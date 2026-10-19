@@ -1698,3 +1698,26 @@ it('F05: draws one keyboard cursor at the tile and clears it on Escape or blur',
     await frame.locator('#board-menu').focus(); expect(await frame.locator('.mk-cursor').count()).toBe(0);
   } finally { await page.close(); }
 });
+
+it('F06: marks only the armed usable card and shows the gold band', async () => {
+  const rules: Partial<Rules> = { hands: [['Strike', 'Freeze', 'IceWall', 'Vault'], ['Strike']] };
+  const page = await open(view('7k/8/8/8/8/8/P7/R6K w - - 0 1', rules), 390, 844), frame = page.frameLocator('iframe');
+  const proof = join(tmpdir(), 'kingdown-gui-board-proof'); await import('node:fs/promises').then(fs => fs.mkdir(proof, { recursive: true }));
+  try {
+    await page.evaluate(() => (window as any).harnessSetContext({ theme: 'dark' }));
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await frame.locator('#card-w-0').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
+    const coin = frame.locator('#card-w-0');
+    expect(await coin.getAttribute('data-state')).toBe('armed'); expect(await coin.getAttribute('aria-pressed')).toBe('true');
+    expect(await frame.locator('#strip-me .card-coin[aria-pressed="false"]').count()).toBe(3);
+    expect(await frame.locator('#strip-them .card-coin[aria-pressed]').count()).toBe(0);
+    const pixels = await coin.screenshot({ path: join(proof, 'f06-coin.png') });
+    const sharp = (await import('sharp')).default, image = await sharp(pixels).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const x = Math.floor(image.info.width / 2), at = (3 * image.info.width + x) * 4;
+    for (const [i, value] of [233, 192, 113].entries()) expect(Math.abs(image.data[at + i] - value)).toBeLessThanOrEqual(1);
+    await page.screenshot({ path: join(proof, 'plugin-card-targets-390x844-dark.png') });
+    await frame.locator('#context-actions').getByRole('button', { name: 'Cancel', exact: true }).click();
+    expect(await coin.getAttribute('data-state')).toBe('always'); expect(await coin.getAttribute('aria-pressed')).toBe('false');
+    expect(await coin.evaluate(e => e.querySelector('img')!.getBoundingClientRect().width)).toBe(await coin.evaluate(e => e.clientWidth - 6));
+  } finally { await page.close(); }
+});

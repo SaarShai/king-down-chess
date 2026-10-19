@@ -322,7 +322,8 @@ export function boardScreen(store: Store) {
         cardSpent.set(key, card.spent);
         b.className = 'coin card-coin'; b.id = `card-${side ? 'b' : 'w'}-${index}`;
         const spending = card.spent && moment(b, 'is-spending', spentAt.get(key) ?? -Infinity, 300);
-        b.dataset.state = card.spent && !spending ? 'used' : 'always';
+        b.dataset.state = mine && armedCard === index && !card.spent ? 'armed' : card.spent && !spending ? 'used' : 'always';
+        if (mine && !card.spent) b.setAttribute('aria-pressed', String(armedCard === index));
         if (!spending) { b.style.setProperty('--i', String(index)); moment(b, 'is-dealt', dealtAt, 560); } b.setAttribute('aria-label', (mine ? 'Your ' : "Opponent's ") + cardName(card.card) + (card.spent ? ', spent' : ''));
         image.src = face ?? art('ui/cards/back.webp'); image.alt = ''; b.append(image);
         if (!face) { const word = document.createElement('span'); word.className = 'cc-word'; word.textContent = cardName(card.card).slice(0,2); b.append(word); }
