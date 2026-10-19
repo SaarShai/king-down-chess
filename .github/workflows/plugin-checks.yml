@@ -94,11 +94,6 @@ jobs:
     runs-on: ubuntu-latest
     # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP), and then the full plugin-ui check.
     timeout-minutes: 45
-    # Ticket 55 measurement: two independent runners check the same driver fix.
-    strategy:
-      fail-fast: false
-      matrix:
-        copy: [1, 2]
     services:
       postgres:
         image: postgres:17
@@ -129,14 +124,13 @@ jobs:
           KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size,ui-harness}.test.ts'
       - run: npm run check:browser plugin-ui
         env:
-          # Keep the browser's own crash reason and measure memory for ticket 55.
+          # Keep the browser's own crash reason in the check log (ticket 55).
           DEBUG: pw:browser
-          NODE_OPTIONS: --import ${{ github.workspace }}/tools/probe-webkit-mem.mjs
       - run: npm run check:browser web-online
-      - if: always()
+      - if: failure() || cancelled()
         uses: actions/upload-artifact@v4
         with:
-          name: webkit-check-logs-${{ matrix.copy }}
+          name: webkit-check-logs
           path: /tmp/kingdown-check-runs/
           retention-days: 7
 

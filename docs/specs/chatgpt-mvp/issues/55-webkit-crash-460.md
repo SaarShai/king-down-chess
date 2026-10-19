@@ -130,6 +130,45 @@ The candidate updates `playwright` to `^1.64.1` and locks both packages to
 1.64.1. The two lock entries come from the isolated installation. No
 package operation writes through the linked `node_modules`.
 
+The full Mac check with the new client and the old engine passes in
+311.8 s. Command:
+`NODE_OPTIONS='--import <scratch>/use-playwright164.mjs' PLAYABLE_BROWSER=webkit tools/test-lock.sh npm run check:browser plugin-ui`.
+Log: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/webkit-crash-460-CXs644/plugin-ui.log`.
+The driver fix is commit `b7fcce25`. Commit `8277d12e` adds two independent
+Linux job copies for the measurement. It changes no assertion or limit.
+
+Run 39297694246, attempt 2, passes. All 164 tests pass. The plugin-ui check
+passes in 1,140.4 s and web-online passes in 4.9 s. This still uses 1.63.0
+and only the console clear. Its artifact is 12212749761.
+
+Its sampled peak is 4,243 MiB. Its host reloads start at 69.8, 158.9,
+284.9, 490.8, 848.5, 876.7, 905.4 and 946.2 s. The final mode message
+comes at 1,137.8 s. The measured block times are 69.8, 89.1, 126.0,
+205.9, 357.7, 28.2, 28.7, 40.8 and 191.6 s.
+
+At the two swap-scroll messages, just before the first crash region,
+RSS is 1,588 MiB. The first message is 37.4 s after the board reload.
+At the last look message, just before the old crash region, RSS is
+1,598 MiB. That message is 162.0 s after the last board reload.
+There is no common long growth stretch before both points. These are
+measurements of the passing comparison run, not the failed runs.
+Source: `ci-02-plugin-ui.log` lines 151, 158 to 161, 273, 329 to 331;
+`ci-02-summary.json` in the task scratch folder.
+
+Run 39306798243 checks the driver fix, commit `8277d12e`, on two independent
+Linux runners. Command:
+`gh workflow run plugin-checks.yml --ref claude/webkit-crash-460`.
+
+Both jobs pass all 165 tests. Their plugin-ui times are 1,160.9 and
+1,160.2 s. Their sampled peaks are 4,377 and 4,219 MiB. The driver fix
+does not reduce Linux RSS in this check. Do not call it a Linux memory
+fix or a proven fix for the old crash. It fixes the reference test.
+
+A final small probe compares minimal and built widgets, with and without
+the clock, and with the boot ports closed. Each widget has a 96 MiB
+marker. Six remounts, collection, old-iframe WeakRefs and a WebKit heap
+snapshot separate retained references from cached native memory.
+
 ## Verification criteria
 
 - A focused retention probe separates the cause from the other candidates.

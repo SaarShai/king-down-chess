@@ -13,6 +13,7 @@ it('frees a removed iframe after a click inside it', async () => {
   await page.evaluate(() => { (window as any).removedFrame = new WeakRef(document.querySelector('iframe')!); });
   await page.frameLocator('iframe').getByRole('button').click();
   await page.evaluate(() => document.querySelector('iframe')!.remove());
+  // Move off the removed frame to release the browser's hover reference.
   await page.mouse.move(500,500);
   await expect.poll(async () => {
    await page.requestGC();
