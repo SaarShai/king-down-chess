@@ -1,4 +1,5 @@
 import { checkAndroidFixes } from './lib/plugin-android-check.mjs';
+import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
@@ -53,6 +54,7 @@ async function clickButton(page, button) {
 }
 
 try {
+  await checkShell(browser, base);
   await checkAndroidFixes(browser, base, clickButton);
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
