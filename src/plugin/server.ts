@@ -185,7 +185,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   register('kingdown_draw', 'Use this when the player wants to offer a draw in a King Down game, or to accept or decline the other side’s offer (draw_offer "opponent"). Accept ends the game.',
     { ...optional, choice: z.enum(['offer', 'accept', 'decline']) }, { visibility: ['model', 'app'], destructive: true }, ({ choice, ...args }) => decide(args, { type: 'draw', choice }));
   register('kingdown_claim', 'Claim the game when the opponent missed the Daily deadline.', command, { visibility: ['app'], destructive: true }, args => play(args, { type: 'claim', reason: 'timeout' }));
-  register('kingdown_resign', 'Use this when the player wants to resign a King Down game. The opponent wins.', optional, { visibility: ['model', 'app'], destructive: true }, args => decide(args, { type: 'resign' }));
+  register('kingdown_resign', 'Use this when the player wants to resign a King Down game. The opponent wins, so first ask the player in the chat to confirm, and call this only after a yes.', optional, { visibility: ['model', 'app'], destructive: true }, args => decide(args, { type: 'resign' }));
   register('kingdown_abort', 'Use this when the player wants to cancel a King Down game before each side has played a turn. Nobody wins.', optional, { visibility: ['model', 'app'], destructive: true }, args => decide(args, { type: 'abort' }));
   register('kingdown_invite', 'Use this when the player wants to invite a friend to their waiting friend game. Gives a short code; a new invitation ends the old one.',
     { game_id: gameId }, { openWorld: true, visibility: ['model', 'app'], idempotent: false, destructive: true }, async args => {
