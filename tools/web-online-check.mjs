@@ -79,7 +79,7 @@ export async function main() {
   let browser, persistent, server, app, cleaning;
   const started = performance.now(), events = [], signal = new EventEmitter();
   const record = event => { events.push(event); signal.emit('record'); };
-  let served, old = false, instrument = false, deleteMode = 'ok', holdReply = false, failPrecache = false;
+  let served, old = false, instrument = false, deleteMode = 'ok', holdReply = false, failPrecache = false, offline = false;
   const held = new Set();
   function cleanup() {
     return cleaning ??= (async () => {
@@ -131,6 +131,8 @@ export async function main() {
     server = createServer((req, res) => {
       void (async () => {
         const url = new URL(req.url, origin), path = url.pathname;
+        // Offline, the server is unreachable: Playwright's Firefox keeps the worker's own fetch online.
+        if (offline) { record({ event: 'offline-refused', url: req.url }); req.socket.destroy(); return; }
         if (path !== '/fixture/event') record({ event: path === '/sw.js' && req.headers['service-worker'] === 'script' ? 'worker-update' : 'http', url: req.url });
         res.setHeader('Cache-Control', 'no-store');
         if (path === '/' && url.searchParams.get('fixture') === 'page') { res.setHeader('Content-Type', 'text/html'); res.end('<script type="module" src="/fixture/probe.js"></script>'); return; }
@@ -465,8 +467,8 @@ export async function main() {
         localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', sound: false, pace: 'off' }));
         sessionStorage.setItem('kingdown.title-seen', '1');
       });
-      await persistent.setOffline(true);
       const offlineAfter = events.length;
+      offline = true; await persistent.setOffline(true);
       await active.goto(origin); await readyBoard(active); assert.deepEqual(await lanMoves(active), ['e2-e4']);
       const saved = await active.evaluate(() => localStorage.getItem('kingdown.save'));
       await startLesson(active, 'Beast'); await active.locator('#show-me').click();
@@ -484,8 +486,9 @@ export async function main() {
       await active.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length >= 2, null, { timeout: 30_000 * STEP });
       assert.equal((await lanMoves(active))[0], 'e2-e4', 'The offline AI continues the saved game');
       await inspect(active);
-      assert.equal(events.slice(offlineAfter).filter(event => event.event === 'http').length, 0, 'Offline play fetches no page or asset from the server');
-      await persistent.setOffline(false);
+      const refused = events.slice(offlineAfter).filter(event => event.event === 'offline-refused').map(event => event.url);
+      assert.ok(refused.every(url => url === '/sw.js' || new URL(url, origin).pathname === '/'), `Offline play requests no asset from the server, only the network-first page and worker checks: ${JSON.stringify(refused)}`);
+      await persistent.setOffline(false); offline = false;
       await active.goto(`${origin}/?fixture=page`); await active.waitForFunction(() => window.privateProbe);
     }
     await closeProfile();
