@@ -35,6 +35,18 @@ function cacheable(request, response) {
     && response.url === url.href && !noStore(response.headers);
 }
 
+async function checkOwnCache() {
+  const cache = await caches.open(CACHE);
+  const keys = new Set();
+  for (const request of await cache.keys()) {
+    if (publicKey(request) !== request.url) throw new Error('Forbidden application cache key');
+    keys.add(request.url);
+  }
+  for (const file of PRECACHE) {
+    if (!keys.has(publicKey(new Request(new URL(file, START))))) throw new Error('Incomplete offline cache');
+  }
+}
+
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
@@ -44,6 +56,8 @@ self.addEventListener('install', event => {
       if (!cacheable(request, response)) throw new Error('Unsafe offline response');
       await cache.put(publicKey(request), response);
     }
+    // A pending delete can remove the name while this cache object stays open.
+    await checkOwnCache();
     await self.skipWaiting();
   })());
 });
@@ -64,15 +78,13 @@ function purgeOldCaches() {
     // List first. A replacement enters the registration before it opens its cache.
     const names = await caches.keys();
     checkActiveWorker();
+    await checkOwnCache();
     for (const key of names) if (obsolete(key)) {
       checkActiveWorker();
       await caches.delete(key);
     }
     // A false delete can mean that another client removes the cache first.
-    const cache = await caches.open(CACHE);
-    for (const request of await cache.keys()) {
-      if (publicKey(request) !== request.url) throw new Error('Forbidden application cache key');
-    }
+    await checkOwnCache();
     const remaining = await caches.keys();
     checkActiveWorker();
     if (remaining.some(obsolete)) throw new Error('Old application cache remains');

@@ -282,6 +282,72 @@ describe('cache writes', () => {
 });
 
 describe('purge and policy proof', () => {
+  it.each([false, true])('keeps offline files after a pending delete removes the incoming cache (fresh A global: %s)', async restart => {
+    let a = worker();
+    a.fetch.mockImplementation(async request => response(request.url, {}, 'A bytes'));
+    await a.fire('install').done(); await a.fire('activate').done();
+    if (restart) a = worker(a.caches, version, files, a.registration);
+    const incoming = await a.caches.open('kingdown-next-build');
+    incoming.entries.set(url('/'), response('/', {}, 'failed B shell'));
+    const started = deferred(), deletion = deferred(), opened = deferred(), resume = deferred();
+    a.caches.delete.mockImplementationOnce(async key => { started.resolve(); await deletion.promise; return a.caches.entries.delete(key); });
+    const policy = a.message(); await started.promise;
+    expect(a.caches.delete).toHaveBeenCalledExactlyOnceWith('kingdown-next-build');
+
+    const replacement: WorkerState = { scriptURL: url('/sw.js'), state: 'installing' };
+    a.registration.installing = replacement;
+    const nextFiles = files.map(file => file.replace('main.js', 'main-B.js'));
+    const b = worker(a.caches, 'next-build', nextFiles, a.registration);
+    b.fetch.mockImplementation(async request => response(request.url, {}, 'B bytes'));
+    b.fetch.mockImplementationOnce(async request => { opened.resolve(); await resume.promise; return response(request.url, {}, 'B bytes'); });
+    const install = b.fire('install'); await opened.promise;
+    expect(a.caches.entries.get('kingdown-next-build')).toBe(incoming);
+    deletion.resolve(); await expect(policy.done()).rejects.toThrow('Worker update in progress');
+    expect(policy.postMessage).not.toHaveBeenCalled();
+    resume.resolve(); await expect(install.done()).rejects.toThrow('Incomplete offline cache');
+    expect(b.skipWaiting).not.toHaveBeenCalled(); expect(b.claim).not.toHaveBeenCalled();
+    expect([...incoming.entries.keys()]).toEqual(nextFiles.filter(file => file !== 'index.html').map(url));
+    expect([...a.caches.entries.get(current)!.entries.keys()]).toEqual(files.filter(file => file !== 'index.html').map(url));
+    expect(a.caches.delete).not.toHaveBeenCalledWith(current);
+
+    replacement.state = 'redundant'; a.registration.installing = null;
+    const retained = a.message(); await retained.done(); expect(retained.postMessage).toHaveBeenCalledOnce();
+    a.fetch.mockRejectedValue(new Error('offline'));
+    for (const file of files.filter(file => file !== 'index.html')) {
+      const offline = a.request(file); await offline.done();
+      expect(await (await offline.response)!.text()).toBe('A bytes');
+    }
+
+    const clean: WorkerState = { scriptURL: url('/sw.js'), state: 'installing' };
+    a.registration.installing = clean;
+    const next = worker(a.caches, 'next-build', nextFiles, a.registration);
+    next.fetch.mockImplementation(async request => response(request.url, {}, 'B bytes'));
+    await next.fire('install').done(); expect(next.skipWaiting).toHaveBeenCalledOnce();
+    a.registration.installing = null; a.registration.waiting = clean; clean.state = 'installed';
+    a.registration.active!.state = 'redundant'; a.registration.active = clean; a.registration.waiting = null;
+    clean.state = 'activating'; await next.fire('activate').done(); clean.state = 'activated';
+    expect(next.claim).toHaveBeenCalledOnce(); expect(a.caches.entries.has(current)).toBe(false);
+    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()]).toEqual(nextFiles.filter(file => file !== 'index.html').map(url));
+    const proof = next.message(); await proof.done();
+    expect(proof.postMessage).toHaveBeenCalledExactlyOnceWith({ type: 'kingdown-cache-policy', requestId: 'fresh-request', policy: 'public-build-v1', version: 'next-build' });
+    next.fetch.mockRejectedValue(new Error('offline'));
+    for (const file of nextFiles.filter(file => file !== 'index.html')) {
+      const offline = next.request(file); await offline.done();
+      expect(await (await offline.response)!.text()).toBe('B bytes');
+    }
+  });
+
+  it.each(['cache name', ...files.filter(file => file !== 'index.html')])('refuses activation and policy proof with an incomplete own cache: %s', async missing => {
+    const w = worker(); await w.fire('install').done();
+    if (missing === 'cache name') w.caches.entries.delete(current);
+    else w.caches.entries.get(current)!.entries.delete(url(missing));
+    await w.caches.open('kingdown-old');
+    await expect(w.fire('activate').done()).rejects.toThrow('Incomplete offline cache');
+    const policy = w.message(); await expect(policy.done()).rejects.toThrow('Incomplete offline cache');
+    expect(w.caches.delete).not.toHaveBeenCalled(); expect(w.claim).not.toHaveBeenCalled();
+    expect(w.caches.entries.has('kingdown-old')).toBe(true); expect(policy.postMessage).not.toHaveBeenCalled();
+  });
+
   it('keeps the incoming cache and refuses proof until the new worker takes over', async () => {
     const a = worker(), opened = deferred(), resume = deferred();
     await a.fire('install').done(); await a.fire('activate').done();
@@ -323,6 +389,7 @@ describe('purge and policy proof', () => {
 
   it.each(['message', 'activate'])('refuses %s if an install starts during cache enumeration', async type => {
     const a = worker(), started = deferred(), resume = deferred();
+    await a.fire('install').done();
     await a.caches.open('kingdown-old');
     a.caches.keys.mockImplementationOnce(async () => { const names = [...a.caches.entries.keys()]; started.resolve(); await resume.promise; return names; });
     const event = type === 'message' ? a.message() : a.fire('activate'); await started.promise;
@@ -337,6 +404,7 @@ describe('purge and policy proof', () => {
 
   it.each(['message', 'activate'])('stops %s before it deletes a cache that an install uses', async type => {
     const a = worker(), started = deferred(), resume = deferred();
+    await a.fire('install').done();
     await a.caches.open('kingdown-old'); await a.caches.open('kingdown-next-build');
     a.caches.delete.mockImplementationOnce(async key => { started.resolve(); await resume.promise; return a.caches.entries.delete(key); });
     const event = type === 'message' ? a.message() : a.fire('activate'); await started.promise;
@@ -351,11 +419,12 @@ describe('purge and policy proof', () => {
 
   it.each(['current keys', 'final names'])('refuses proof if the active worker changes during %s', async phase => {
     const a = worker(), cache = await a.caches.open(current);
+    await a.fire('install').done();
     const replace = async () => {
       a.registration.active = { scriptURL: url('/sw.js'), state: 'activated' };
       await a.caches.open('kingdown-next-build');
     };
-    if (phase === 'current keys') cache.keys.mockImplementationOnce(async () => { await replace(); return []; });
+    if (phase === 'current keys') cache.keys.mockImplementationOnce(async () => { await replace(); return [...cache.entries.keys()].map(key => new Request(key)); });
     else a.caches.keys.mockImplementationOnce(async () => [...a.caches.entries.keys()])
       .mockImplementationOnce(async () => { await replace(); return [...a.caches.entries.keys()]; });
     const event = a.message(); await expect(event.done()).rejects.toThrow('Worker update in progress');
@@ -365,7 +434,7 @@ describe('purge and policy proof', () => {
   });
 
   it('purges all old application caches, then claims, without other storage access', async () => {
-    const w = worker();
+    const w = worker(); await w.fire('install').done();
     for (const key of ['kingdown-old', 'kingdown-older', 'other-app']) await w.caches.open(key);
     await w.fire('activate').done();
     expect([...w.caches.entries.keys()].sort()).toEqual([current, 'other-app'].sort());
@@ -376,6 +445,7 @@ describe('purge and policy proof', () => {
 
   it('holds activation and concurrent policy replies until deletion and final checks end', async () => {
     const w = worker(), deletion = deferred<boolean>(), started = deferred();
+    await w.fire('install').done();
     await w.caches.open('kingdown-old');
     w.caches.delete.mockImplementation(async key => { started.resolve(); await deletion.promise; return w.caches.entries.delete(key); });
     const activation = w.fire('activate'), first = w.message(), second = w.message({ data: { type: 'kingdown-cache-policy', requestId: 'second-request' } });
@@ -389,8 +459,23 @@ describe('purge and policy proof', () => {
     expect(w.claim).toHaveBeenCalledOnce();
   });
 
+  it.each(['missing file', 'forbidden key'])('refuses claim and policy proof if the own cache changes during deletion: %s', async failure => {
+    const w = worker(), started = deferred(), resume = deferred();
+    await w.fire('install').done(); await w.caches.open('kingdown-old');
+    w.caches.delete.mockImplementationOnce(async key => { started.resolve(); await resume.promise; return w.caches.entries.delete(key); });
+    const activation = w.fire('activate'), policy = w.message(); await started.promise;
+    const cache = w.caches.entries.get(current)!;
+    if (failure === 'missing file') {
+      w.caches.entries.delete(current);
+      const replacement = await w.caches.open(current);
+      for (const [key, value] of cache.entries) if (key !== url('/assets/worker.js')) replacement.entries.set(key, value);
+    } else cache.entries.set(url('/api/private'), response('/api/private'));
+    resume.resolve(); await expect(activation.done()).rejects.toThrow(); await expect(policy.done()).rejects.toThrow();
+    expect(w.claim).not.toHaveBeenCalled(); expect(policy.postMessage).not.toHaveBeenCalled();
+  });
+
   it.each(['throw', 'false', 'new cache'])('gives no success on a failed purge (%s), then can try again', async failure => {
-    const w = worker(); await w.caches.open('kingdown-old');
+    const w = worker(); await w.fire('install').done(); await w.caches.open('kingdown-old');
     w.caches.delete.mockImplementationOnce(async key => {
       if (failure === 'throw') throw new Error('delete failed');
       if (failure === 'new cache') { w.caches.entries.delete(key); w.caches.entries.set('kingdown-late', new MemoryCache()); return true; }
@@ -405,7 +490,7 @@ describe('purge and policy proof', () => {
   });
 
   it('accepts a false delete only when a fresh enumeration proves absence', async () => {
-    const w = worker(); await w.caches.open('kingdown-old');
+    const w = worker(); await w.fire('install').done(); await w.caches.open('kingdown-old');
     w.caches.delete.mockImplementationOnce(async key => { w.caches.entries.delete(key); return false; });
     const event = w.message(); await event.done();
     expect(w.caches.keys).toHaveBeenCalledTimes(2);
@@ -414,13 +499,18 @@ describe('purge and policy proof', () => {
 
   it.each(['/api/game?one', '/api/game?two', '/play.html', '/assets/unknown.js', '/assets/main.js?code=private', '/index.html?game=local'])('refuses a current cache with a forbidden key: %s', async path => {
     const w = worker(), cache = await w.caches.open(current);
+    await w.fire('install').done(); await w.caches.open('kingdown-old');
     cache.entries.set(url(path), response(path));
+    await expect(w.fire('activate').done()).rejects.toThrow('Forbidden application cache key');
     const event = w.message(); await expect(event.done()).rejects.toThrow('Forbidden application cache key');
+    expect(w.caches.delete).not.toHaveBeenCalled(); expect(w.claim).not.toHaveBeenCalled();
+    expect(w.caches.entries.has('kingdown-old')).toBe(true);
     expect(event.postMessage).not.toHaveBeenCalled();
   });
 
   it('holds success until the current cache enumeration ends', async () => {
     const w = worker(), cache = await w.caches.open(current), keys = deferred<Request[]>(), started = deferred();
+    await w.fire('install').done();
     cache.keys.mockImplementationOnce(async () => { started.resolve(); return keys.promise; });
     const event = w.message(); await started.promise;
     expect(event.postMessage).not.toHaveBeenCalled();
@@ -430,6 +520,7 @@ describe('purge and policy proof', () => {
 
   it.each(['cache names', 'current keys'])('refuses proof when enumeration fails: %s', async failure => {
     const w = worker(), cache = await w.caches.open(current);
+    await w.fire('install').done();
     if (failure === 'cache names') w.caches.keys.mockRejectedValue(new Error('storage blocked'));
     else cache.keys.mockRejectedValue(new Error('storage blocked'));
     const event = w.message(); await expect(event.done()).rejects.toThrow('storage blocked');
@@ -438,13 +529,15 @@ describe('purge and policy proof', () => {
 
   it('checks cache names again after the current cache check', async () => {
     const w = worker(), cache = await w.caches.open(current);
-    cache.keys.mockImplementationOnce(async () => { await w.caches.open('kingdown-late'); return []; });
+    await w.fire('install').done();
+    cache.keys.mockImplementationOnce(async () => [...cache.entries.keys()].map(key => new Request(key)))
+      .mockImplementationOnce(async () => { await w.caches.open('kingdown-late'); return [...cache.entries.keys()].map(key => new Request(key)); });
     const event = w.message(); await expect(event.done()).rejects.toThrow('Old application cache remains');
     expect(event.postMessage).not.toHaveBeenCalled();
   });
 
   it('enumerates on each request and after a worker restart', async () => {
-    const w = worker(); const first = w.message(); await first.done();
+    const w = worker(); await w.fire('install').done(); const first = w.message(); await first.done();
     await w.caches.open('kingdown-after-success');
     const second = w.message(); await second.done();
     expect(w.caches.entries.has('kingdown-after-success')).toBe(false);
@@ -456,6 +549,7 @@ describe('purge and policy proof', () => {
 
   it('gives no reply to an interrupted purge; a new global proves the retained caches again', async () => {
     const w = worker(), blocked = deferred<boolean>(), started = deferred();
+    await w.fire('install').done();
     await w.caches.open('kingdown-old');
     w.caches.delete.mockImplementationOnce(async () => { started.resolve(); return blocked.promise; });
     const interrupted = w.message(); await started.promise;
