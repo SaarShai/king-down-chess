@@ -1,10 +1,11 @@
 import { fromFen, toFen } from '../../rules/setup';
-import { colorOf, findKing, K, inCheck, status, moveNumber, nameOf, NAMES, LETTERS, piece, playedDesign, PLAIN_KINGS, RULES, setRules, sqName, T, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
+import { colorOf, findKing, K, inCheck, status, moveNumber, nameOf, NAMES, LETTERS, piece, playedDesign, PLAIN_KINGS, RULES, setRules, T, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
 import { cardName, cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
 import { checkCause, checkersOf, describeMove, shortMove, threatsIn } from '../../move-text';
 import { marksModel, railsOf } from '../../marks-model';
 import { pieceTitle, readText, reachOf, teachNote } from '../../read';
 import { LESSONS } from '../../lessons';
+import { cursorText } from '../../cursor-text';
 import { contextLine } from '../../context-line';
 import { waitNotice } from '../../turn';
 import type { PlayerRecord, View } from '../../match/protocol';
@@ -85,7 +86,12 @@ export function boardScreen(store: Store) {
   board.canDrag = () => client.state.screen === 'seat' || canPlay() && pos!.turn === view!.seat;
   const canRead = () => !animating;
   let armed: PowerName | undefined, armedCard: number | undefined;
-  let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0, cursorShown = false;
+  let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0, cursorShown = false, cursorTargets: number[] = [];
+  function sayCursor() {
+    if (!pos) return;
+    const label = cursorText(pos, cursor, selected, cursorTargets.includes(cursor));
+    $('board').setAttribute('aria-label', label); $('cursor-say').textContent = label;
+  }
   function drawCursor() {
     marksLayer.replaceChildren();
     if (!cursorShown) return;
@@ -273,8 +279,8 @@ export function boardScreen(store: Store) {
     $('board').onkeydown = event => {
       // The cursor moves while play waits. Enter reads a square when motion stops.
       const delta = ({ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,1], ArrowDown:[0,-1]} as Record<string,number[]>)[event.key];
-      if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); cursorShown = true; board.setPreview(cursor); drawCursor(); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
-      else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(cursor); }
+      if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); cursorShown = true; board.setPreview(cursor); drawCursor(); sayCursor(); }
+      else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); cursorShown = true; select(cursor); }
       else if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undo(); }
     };
   }
@@ -364,6 +370,8 @@ export function boardScreen(store: Store) {
     if (check !== checked) { checked = check; if (check !== null && board.motion()) checkAt = performance.now(); }
     // Show only the previewed move's marks.
     rules(); const hold = holding(), cands = hold ? [hold.move] : selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
+    cursorTargets = [...marks.moves, ...marks.captures, ...marks.swaps, ...marks.shoves];
+    if (cursorShown) sayCursor();
     // Mark every step of the last turn (Haste, free marks); a pass step has no square.
     let start = history.length;
     if (lastMove && history.at(-1) === lastMove) while (start > 0 && history[start - 1].pre.turn === lastMove.pre.turn) start--;

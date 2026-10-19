@@ -54,5 +54,17 @@ No taste change is in scope.
 - The harness checks for no text at 390×844 and 1280×800. It checks the moved knight, pawn taps, remounts, the submitted Black order and Ready.
 - `npx tsc --noEmit`: pass.
 - `npm test`: pass. The test log is `tests-n03-1.txt` in the lane handoff folder.
-- Browser check: run after this commit. The next part records its result.
+- Browser check: `plugin-ui` passes on the M1 at `e4764a0d` (287.5 s). Log: `checks-n03-1.txt`.
+- Compare: `n03-compare-1280x800.png` places the supplied before image beside the harness image. The engine letters are gone. The swap instruction and controls stay visible. The fixtures use different armies and opponents; this is a visual check, not a pixel match.
+- Taste choices: none.
+
+## N10 build and proof
+
+- Both screens call `cursorText`. It uses the existing web words.
+- The plugin reads its position, selected square and marked targets. It writes the same text to the board label and one polite live region.
+- The harness presses arrows and Enter. It checks a piece, an empty square, selection and a move target.
+- `npx tsc --noEmit`: pass.
+- Focused `npm test`: pass for the shared text and web keys (2 tests). The 51 drawing tests also pass. Log: `tests-n10-1.txt`.
+- Browser check: `plugin-ui` passes on the M1 at `3fc1371f` (278.1 s). Log: `checks-n10-1.txt`.
+- Update the six older board-label assertions for the new words. This test-only update is part of this commit. The final checks cover it.
 - Taste choices: none.

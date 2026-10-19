@@ -717,7 +717,7 @@ it('moves the keyboard cursor while the opponent move animates', async () => {
   try {
     await frame.locator('#board[aria-busy="false"]').waitFor();
     await frame.locator('#board').press('ArrowLeft');
-    expect(await frame.locator('#board').getAttribute('aria-label')).toBe('Chess board, b1. Enter selects a square.');
+    expect(await frame.locator('#board').getAttribute('aria-label')).toBe('b1, empty');
     await frame.locator('html').evaluate((_, next) => {
       const host = window as any, board = document.getElementById('board')!;
       // Hold the replay until the real cursor key arrives, as in the ceremony test.
@@ -729,7 +729,7 @@ it('moves the keyboard cursor while the opponent move animates', async () => {
     await frame.locator('#board[data-animating="true"]').waitFor();
     await frame.locator('#board').focus(); await page.keyboard.press('ArrowRight');
     expect(await frame.locator('html').evaluate(() => (window as any).cursorKeyAnimating)).toBe('true');
-    expect(await frame.locator('#board').getAttribute('aria-label')).toBe('Chess board, a1. Enter selects a square.');
+    expect(await frame.locator('#board').getAttribute('aria-label')).toBe('a1, empty');
     await frame.locator('html').evaluate(() => (window as any).endReplay());
     await frame.locator('#board[data-animating="false"]').waitFor();
   } finally { await page.close(); }
@@ -1338,9 +1338,9 @@ it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and dur
       for (let n=0;n<7;n++) { await board.press('ArrowLeft'); await board.press('ArrowDown'); }
       for (let n=0;n<4;n++) await board.press('ArrowRight');
       for (let n=0;n<6;n++) await board.press('ArrowUp');
-      expect(await board.getAttribute('aria-label')).toContain('e7.'); await board.press('Enter');
+      expect(await board.getAttribute('aria-label')).toContain('e7,'); await board.press('Enter');
       await board.press('ArrowDown'); await board.press('ArrowDown');
-      expect(await board.getAttribute('aria-label')).toContain('e5.'); await board.press('Enter'); await unchanged();
+      expect(await board.getAttribute('aria-label')).toContain('e5,'); await board.press('Enter'); await unchanged();
       const source=await squarePoint(page,52), target=await squarePoint(page,36);
       await page.mouse.move(source.x,source.y); await page.mouse.down(); await page.mouse.move(target.x,target.y,{steps:5}); await page.mouse.up();
       expect(await frame.locator('html').evaluate(() => (window as any).dragAttempts)).toEqual([]);
@@ -1388,8 +1388,8 @@ it('W7: blocks a legal Haste follow-up while Send waits', async () => {
     const board=frame.locator('#board'); await board.focus();
     for (let n=0;n<4;n++) await board.press('ArrowRight');
     for (let n=0;n<3;n++) await board.press('ArrowUp');
-    expect(await board.getAttribute('aria-label')).toContain('e4.'); await board.press('Enter');
-    await board.press('ArrowUp'); expect(await board.getAttribute('aria-label')).toContain('e5.'); await board.press('Enter'); await unchanged();
+    expect(await board.getAttribute('aria-label')).toContain('e4,'); await board.press('Enter');
+    await board.press('ArrowUp'); expect(await board.getAttribute('aria-label')).toContain('e5,'); await board.press('Enter'); await unchanged();
     const source=await squarePoint(page,28), target=await squarePoint(page,36);
     await page.mouse.move(source.x,source.y); await page.mouse.down(); await page.mouse.move(target.x,target.y,{steps:5}); await page.mouse.up();
     expect(await frame.locator('html').evaluate(() => (window as any).dragAttempts)).toEqual([]);

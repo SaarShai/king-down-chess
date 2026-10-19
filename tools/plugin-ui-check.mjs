@@ -1028,7 +1028,22 @@ try {
     assert(await page.evaluate(() => !!window.harnessView.rules));
     assert.equal(await frame.locator('#board').getAttribute('aria-label'), boardLabel, 'The board hand-off restores its label with its keyboard handler');
     await frame.locator('#board').press('ArrowRight');
-    assert.equal(await frame.locator('#board').getAttribute('aria-label'), 'Chess board, b1. Enter selects a square.', 'Ready restores a working board keyboard handler after a setup remount');
+    const keyView = await page.evaluate(() => window.harnessView), keyPiece = fromFen(keyView.fen).board[1];
+    const { nameOf, colorOf } = await import('../src/rules/engine.ts');
+    assert.equal(await frame.locator('#board').getAttribute('aria-label'), `b1, ${keyPiece ? `${colorOf(keyPiece) ? 'black' : 'white'} ${nameOf(typeOf(keyPiece))}` : 'empty'}`, 'Ready restores a working board keyboard handler after a setup remount');
+    const say = async (key, words) => {
+      await frame.locator('#board').press(key);
+      assert.equal(await frame.locator('#board').getAttribute('aria-label'), words, `N10: ${key} names the cursor`);
+      assert.equal(await frame.locator('#cursor-say').textContent(), words, 'N10: the live text matches the board label');
+    };
+    assert.equal(await frame.locator('#cursor-say[aria-live="polite"]').count(), 1);
+    await frame.locator('#board').press('ArrowLeft');
+    await say('ArrowUp', 'a2, white pawn');
+    await say('Enter', 'a2, white pawn, selected');
+    await say('ArrowUp', 'a3, empty, can go here');
+    await say('ArrowRight', 'b3, empty');
+    await say('ArrowLeft', 'a3, empty, can go here');
+    await say('ArrowDown', 'a2, white pawn, selected');
     await seatTool('kingdown_abort',{game_id:fullRead._meta.view.game_id});
     const legacy = await (await page.request.post(new URL('/fixture-position?case=threats',base).href)).json();
     assert(!legacy.isError); assert.equal(legacy._meta.view.options,undefined);
