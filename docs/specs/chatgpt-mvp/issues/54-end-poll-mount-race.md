@@ -1,6 +1,6 @@
 # End poll check: a hold catches the mount read
 
-Status: in-progress
+Status: done
 Type: task
 
 ## Fault
@@ -66,6 +66,26 @@ exact. The assertion stays. No time limit changes.
 
 ## Checks
 
-- [ ] `npm run check:browser plugin-ui` on WebKit, several runs, one at
-  a time on this Mac through `tools/test-lock.sh`.
-- [ ] `npm test`.
+- [x] `PLAYABLE_BROWSER=webkit tools/test-lock.sh npm run check:browser
+  plugin-ui` at `2a8fc0c3`, three runs, one at a time on this Mac (the
+  repo has no M1 path for browser checks): all pass, 287 s, 293 s and
+  326 s, fixture mode.
+- [x] `npm test`: 3,062 tests and 51 doc lints pass.
+
+## Review
+
+A reader that did not write the diff checked the cause and the fix: no
+blocking finding. The mount read has no `since_revision`, `#reload`
+stays off from that read until the mount ends, and the wait cannot
+hang (a lost read times out with an error).
+
+One low finding: a poll read with no `since_revision` before the mount
+would also count. It does not apply at these call sites. The board poll
+sends `since_revision` when the view has a FEN, and each view here has
+one. The End poll sends the board game's revision. The wait poll reads
+only during a solo game, and the lobby poll calls `kingdown_lobby`. No
+change.
+
+The reader also named a cleaner signal: a frame attribute set while a
+mount runs. That needs an app change for a test need, so it is not
+made.
