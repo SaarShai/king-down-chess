@@ -34,3 +34,26 @@ it('makes Keep playing the main web resign action', async () => {
     expect(await page.locator('[data-menu-page="resign"] .primary').innerText()).toBe('Keep playing');
   } finally { await page.close(); }
 });
+
+it('keeps web rule lines within 68 characters', async () => {
+  const page = await open();
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 }); await menu(page); await page.locator('#rules-btn').click();
+    expect(await page.locator('#rules-notation').evaluate(el => {
+      const probe = document.createElement('span'); probe.style.cssText = 'position:absolute;width:68ch;font:inherit'; el.append(probe);
+      const limit = probe.getBoundingClientRect().width, width = el.getBoundingClientRect().width; probe.remove(); return width <= limit + 1;
+    })).toBe(true);
+  } finally { await page.close(); }
+});
+
+it('keeps space between phone Guide captions without a gap in the shelf', async () => {
+  const page = await open();
+  try {
+    await menu(page); await page.locator('#rules-btn').click();
+    const gaps = await page.locator('.shelf-list').evaluate(list => {
+      const captions = [...list.querySelectorAll<HTMLElement>('.shelf-line')];
+      return { gap: getComputedStyle(list).columnGap, padding: captions.map(el => getComputedStyle(el).paddingInlineStart), fits: captions.every(el => el.scrollWidth <= el.clientWidth) };
+    });
+    expect(gaps.gap).toBe('normal'); expect(gaps.padding).toEqual(Array(6).fill('8px')); expect(gaps.fits).toBe(true);
+  } finally { await page.close(); }
+});

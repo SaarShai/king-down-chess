@@ -62,3 +62,5 @@ body[data-page='profile'] .frame dialog#over.badge-sheet { position: fixed; inse
 }
 
 #profile-blocks button { overflow-wrap: anywhere; }
+
+body[data-page='profile'] #page-title { font-family: var(--font-body); letter-spacing: normal; text-transform: none; }

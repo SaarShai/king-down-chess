@@ -113,7 +113,7 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .board-layer { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; }
 .board-layer .pi { position: absolute; }
 .board-layer .veil { position: absolute; display: grid; place-items: center; padding: 6px; overflow: hidden; text-align: center; background: rgba(243, 234, 215, .82); backdrop-filter: blur(3px); border-bottom: 2px dashed var(--stone-500); }
-.board-layer .veil span { max-width: 22ch; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-md); color: var(--ink-soft); }
+.board-layer .veil span { max-width: 22ch; font-family: var(--font-body); font-weight: 700; font-size: var(--fs-md); color: var(--ink-soft); }
 /* The turn button sits between Undo and Menu. */
 #table-bar { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr); }
 #table-bar > button { grid-column: auto; }

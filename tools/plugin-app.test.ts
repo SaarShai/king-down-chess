@@ -2517,3 +2517,17 @@ it('opens six Guide lessons and returns to the same game without a write', async
     expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
+
+it('uses the reading face for a profile name and the setup veil', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page);
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await frame.locator('#profile-status').filter({ hasText: 'Loading' }).waitFor({ state: 'hidden' });
+    expect(await frame.locator('#page-title').evaluate(el => getComputedStyle(el).fontFamily)).toContain('Alegreya');
+    await frame.locator('html').evaluate(async () => {
+      await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: true, pool: ['A','L','G','M','S','O','N','Q','R','B'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } });
+    });
+    expect(await frame.locator('#seat-veil-layer span').evaluate(el => getComputedStyle(el).fontFamily)).toContain('Alegreya');
+  } finally { await page.close(); }
+});

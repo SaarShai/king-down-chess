@@ -152,3 +152,9 @@ Taste: use the current joined shelf in three columns. Use the current board art 
 The phone title group uses the centre of the screen height. The twelve figures and their sizes stay the same. Short screens can scroll.
 
 Taste: keep the king stage at 44 percent of the screen width, up to 200 px. Use the current 24 px space under the title copy.
+
+### A11
+
+The profile name and setup veil use the reading face. Rule paragraphs, power text and piece rules have a 68ch width limit. Headings keep their current face.
+
+Taste: keep the current sizes and weights.

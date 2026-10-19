@@ -392,6 +392,7 @@ button.emblem[aria-pressed='true'] img { opacity: 1; filter: drop-shadow(0 2px 3
   color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent));
   border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35);
 }
+#rules :is(p, li), .piece-card dd, .power-text { max-width: 68ch; }
 .power-text { min-height: 2.9em; margin: var(--space-2) 0 0; font-size: var(--fs-sm); line-height: 1.45; }
 
 #more-options { margin-top: var(--space-4); padding-top: var(--space-1); border-top: 1px solid var(--stone-300); }
