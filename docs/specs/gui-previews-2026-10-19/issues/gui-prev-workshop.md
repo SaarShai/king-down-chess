@@ -126,3 +126,11 @@ The tab handler now keeps the current design when its save fails. The library ta
 The Workshop browser test now changes through all four library tabs after each save failure. The full-shelf case checks Copy link and deletion to make room. The refused-write case uses the phone size. It checks Copy link, retry, and the next automatic tab choice. Both cases check that the saved or copied design keeps the paint.
 
 Checks are in progress. The full unit command is at the shared test lock. Browser checks follow the fix commits.
+
+## Phone fade review finding
+
+Review A P2: confirmed. The row mask fades across 24 px at each edge. The phone sets only 12 px of padding. Thus, the fade covers the start of the rule headings and the first card edge.
+
+The phone now uses the existing 24 px row padding. Its ledge line uses the same inset. The mask stays the same on wide and narrow screens.
+
+The Workshop browser test measures the first item at the start and the last item at the end of each phone library row. It requires at least 24 px of clear space for Pieces, Kings, Cards, and Rules. It saves eight screens for visual review. Checks are in progress.

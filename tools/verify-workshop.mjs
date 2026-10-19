@@ -1942,6 +1942,22 @@ async function rulesTab() {
   const ph = await open('', { width: 390, height: 844 });
   await door(ph);
   assert.equal(await ph.locator('.lrow').evaluate(e => getComputedStyle(e).maskImage), rowMask, 'the phone uses the same fade as the wide row');
+  for (const [tab, selector] of [['pieces', '.slot'], ['kings', '.slot'], ['cards', '.cface, .cstack'], ['rules', '.rgrp']]) {
+    await ph.click(`[data-tab="${tab}"]`);
+    // Finish the entry motion before measuring a card's edge.
+    await ph.locator('.lrow').evaluate(e => e.getAnimations({ subtree: true }).forEach(a => a.finish()));
+    for (const end of [false, true]) {
+      const space = await ph.locator('.lrow').evaluate((e, { selector, end }) => {
+        e.scrollLeft = end ? e.scrollWidth : 0;
+        const row = e.getBoundingClientRect(), items = [...e.querySelectorAll(selector)];
+        const first = items[0].getBoundingClientRect(), last = items.at(-1).getBoundingClientRect();
+        return end ? row.right - last.right : first.left - row.left;
+      }, { selector, end });
+      assert.ok(space >= 24, `${tab}: complete content stays outside the fade at the ${end ? 'end' : 'start'} (${space} px)`);
+      await shot(ph, `row-fade-${tab}-${end ? 'end' : 'start'}-390x844`);
+    }
+  }
+  await ph.click('[data-tab="pieces"]');
   const scroll = await ph.locator('.lrow').evaluate(e => {
     const overflow = e.scrollWidth > e.clientWidth;
     e.scrollLeft = e.scrollWidth;
