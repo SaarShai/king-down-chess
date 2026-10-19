@@ -1,6 +1,6 @@
 # The painted-game check: "lessons leave the saved game alone" fails after a game link
 
-Status: claimed
+Status: done
 Type: task
 
 Record: copy this ticket to docs/specs/chatgpt-mvp/issues/56-painted-link-save.md in the repo, and set its Status to done with the check results at the end.
@@ -34,7 +34,7 @@ The check (tools/verify-painted-game.mjs, block 2f then 2g): the friend's device
 4. Run `npx tsc --noEmit` and `npm test` with the local test database. Commit the fix.
 5. Run `painted-game` five times in a row through the supplied check runner. Run `plugin-ui` through that runner. Record each result and the tested head.
 
-Pass criteria: the held-write test fails without the fix; all required checks pass; no check time limit changes.
+Proof criteria: the held-write test fails without the fix; painted-game passes five times in a row; the lesson save assertion stays unchanged; no check time limit changes. Record all requested check results, including any full-suite failure.
 
 ## Root cause
 
@@ -51,3 +51,32 @@ The preceding reload has the same gap. The check can write the friend's test sav
 Use `waitForLinkSave()` at all three link load boundaries in block 2f. It waits for the loading status to clear, the exact army and move list, both human players, and this device's side. The loading condition also protects a reload whose prior save already matches. The full save comparison after all six lessons stays unchanged. No product code, sleep or time limit changes.
 
 Tests hold the old save while the board already shows the final position. They cover a missing save, the wrong side, missing or extra moves, the wrong army, computer players, and a reload that still loads art. The test releases the save write and checks that the wait then ends.
+
+## Check results
+
+Tested code head: `61d7a01a`.
+
+- `npx tsc --noEmit`: pass. The commit hooks also pass.
+- Old-condition proof: replace only the new wait with the former board condition in a separate test copy. All 16 new cases fail because the wait ends before the save write. The other 18 helper tests pass.
+- Fixed helper: `KINGDOWN_TEST_FILE=tools/app-ui.test.ts npm test` passes all 34 helper tests and all 51 scene tests.
+- Full `npm test`: 3 files fail; 190 files pass. Tests: 5 fail, 3,233 pass, 8 skip. All five failures are timeouts in unchanged files: the fixed-depth search test (5 s), the workshop judge property test (30 s), and three plugin board Home loads (3 s each). The full run ends with exit 1.
+- A second full run uses `VITEST_MAX_WORKERS=1` with the same time limits. It stays in the shared test queue. Another lane holds the lock and has been active for 43 minutes at the check. This lane cancels its own queued retry with exit 130. The full suite remains red; this ticket does not claim a clean full test result.
+
+The supplied check runner runs each browser check from the committed head. These five `painted-game` runs are consecutive. Each ends with `check-runner: <runner> exit 0 at 61d7a01a`.
+
+| Check | Runner | Seconds | Result |
+|---|---|---:|---|
+| painted-game 1 | M1 | 136.5 | pass |
+| painted-game 2 | this Mac | 150.1 | pass |
+| painted-game 3 | this Mac | 141.9 | pass |
+| painted-game 4 | this Mac | 126.3 | pass |
+| painted-game 5 | this Mac | 112.9 | pass |
+| plugin-ui | this Mac | 251.7 | pass |
+
+No server code changes, so `plugin-ui-http` does not apply. The lane scratch folder holds `unit-red.txt`, `unit-targeted.txt`, `unit-full.txt`, `unit-full-serial.txt`, and `checks-<name>-<number>.txt`.
+
+## Review and scope
+
+The smallest complete fix is a check wait. An earlier product save would change working start-up code to repair a test data race. The shared helper serves all three affected loads. The held-write tests guard its conditions. The six-lesson comparison stays unchanged. No time limit changes.
+
+All three ticket parts are complete. No taste choice is needed. The full unit test result above remains a verification limit. No push, merge or deploy occurs.
