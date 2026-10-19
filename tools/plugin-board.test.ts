@@ -1714,7 +1714,9 @@ it('F06: marks only the armed usable card and shows the gold band', async () => 
     const pixels = await coin.screenshot({ path: join(proof, 'f06-coin.png') });
     const sharp = (await import('sharp')).default, image = await sharp(pixels).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     const x = Math.floor(image.info.width / 2), at = (3 * image.info.width + x) * 4;
-    for (const [i, value] of [233, 192, 113].entries()) expect(Math.abs(image.data[at + i] - value)).toBeLessThanOrEqual(1);
+    expect(await coin.evaluate(e => getComputedStyle(e).boxShadow)).toMatch(/rgb\(233, 192, 113\)[^,]*\b5px\b/);
+    // Linux rasters put this pixel up to 14 levels off gold-bright; the ink ring and the card art are more than 80 away.
+    for (const [i, value] of [233, 192, 113].entries()) expect(Math.abs(image.data[at + i] - value)).toBeLessThanOrEqual(24);
     await page.screenshot({ path: join(proof, 'plugin-card-targets-390x844-dark.png') });
     await frame.locator('#context-actions').getByRole('button', { name: 'Cancel', exact: true }).click();
     expect(await coin.getAttribute('data-state')).toBe('always'); expect(await coin.getAttribute('aria-pressed')).toBe('false');
