@@ -1572,11 +1572,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       if (token) toast(`Tap a square to put a ${tok === 'friend' ? 'white' : 'black'} pawn there, or tap a piece to take it away.`);
       return;
     }
-    // A new library tab opens its first item. Board keeps the current item.
+    // A new library tab opens its first item. Board and a failed save keep the current draft.
     if (tb) {
       const changed = tab !== tb, keepLedge = ledgeOpen;
       tab = tb as typeof tab;
-      if (!changed || tab === 'board') render();
+      if (!changed || tab === 'board' || unsaved?.id === cur.d.id) render();
       else if (tab === 'pieces') show(pool(PRESETS[0].key));
       else if (tab === 'kings') openKing(KING_LIST[0]);
       else if (tab === 'cards') openLab(spread ? DECK.find(c => !ART.includes(c))! : ART[0]);

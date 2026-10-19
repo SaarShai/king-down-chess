@@ -1,6 +1,6 @@
 # GUI previews 2026-10-19: the web Workshop
 
-Status: done
+Status: claimed
 Type: task
 
 ## Why and the rule
@@ -106,3 +106,23 @@ Screen index: `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd0
 The Workshop is a web screen. It has no plugin screen or host theme. The plugin checks still guard the shared code. The short labels with an ellipsis and the vertical scroll in the rule shelf and See all match the base. The next item at a row edge fades as the pick requires. No other pixel fault is found in the tested states.
 
 Unbuilt parts: none. Saar still needs to approve the three taste previews.
+
+## Review fix plan
+
+Base: `a8b50245`. Review A and Review B report the same save-loss fault. Review A also reports a phone fade fault.
+
+1. Keep the current draft on an automatic tab change when its save fails. Test a full shelf and a refused storage write. Check the draft, Undo, Copy link, and save recovery after tab changes.
+2. Keep the phone row content outside the 24 px fade. Check both scroll limits in Pieces, Kings, Cards, and Rules.
+3. Run `npm test` with one worker and the owner's local test database. Commit the fixes and run `plugin-ui` and `workshop` through the given runner. Record each result here. Keep all test and check limits.
+
+Scope: the tab handler, phone row spacing, and the Workshop browser tests. No server code changes.
+
+## Save-loss review finding
+
+Review A P1 and Review B P1: confirmed. The new tab handler calls `show()` for Pieces and Rules. That path replaces the draft and clears Undo. Its save alert then has no current design to show. The Kings and Cards paths also change the bench, so the guard covers all automatic tab choices.
+
+The tab handler now keeps the current design when its save fails. The library tab still changes. The draft, Undo, and save/copy actions stay. A successful save permits automatic item choices again. Direct item taps keep their existing action.
+
+The Workshop browser test now changes through all four library tabs after each save failure. The full-shelf case checks Copy link and deletion to make room. The refused-write case uses the phone size. It checks Copy link, retry, and the next automatic tab choice. Both cases check that the saved or copied design keeps the paint.
+
+Checks are in progress. The full unit command is at the shared test lock. Browser checks follow the fix commits.

@@ -732,23 +732,44 @@ async function undo() {
 }
 
 async function saveAlerts() {
+  const keepDraft = async p => {
+    const before = await marks(p), actions = await p.locator('.pg-alert button').allTextContents();
+    for (const tab of ['rules', 'pieces', 'kings', 'cards', 'pieces']) {
+      await p.click(`[data-tab="${tab}"]`);
+      assert.equal(await p.getAttribute(`[data-tab="${tab}"]`, 'aria-selected'), 'true', 'the library tab still changes');
+      assert.equal(await name(p), 'My Pawn', `${tab}: a failed save keeps the draft`);
+      assert.deepEqual(await marks(p), before, `${tab}: the draft keeps its painted squares`);
+      assert.equal(await p.getAttribute('[data-act="undo"]', 'aria-label'), 'Undo paint', `${tab}: Undo keeps its step`);
+      assert.equal(await p.locator('.pg-alert').isVisible(), true, `${tab}: the save alert stays visible`);
+      assert.deepEqual(await p.locator('.pg-alert button').allTextContents(), actions, `${tab}: the recovery actions stay`);
+    }
+    await p.click('.pg-alert [data-act="copy"]');
+    await copied(p, 'the draft can be copied after tab changes');
+    const code = new URL(await p.evaluate(() => navigator.clipboard.readText())).searchParams.get('design');
+    const d = JSON.parse(Buffer.from(code, 'base64url').toString());
+    assert.equal(d.name, 'My Pawn', 'the copied link holds the draft');
+    assert.ok(d.squares.some(s => s.x === -1 && s.y === 1 && s.mark === 'both'), 'the copied link keeps the paint');
+  };
   const seed = JSON.parse(SHELF).designs[0];
   const full = JSON.stringify({ v: 1, designs: Array.from({ length: 50 }, (_, i) => ({ ...seed, id: `seed-${i}`, name: `Seed ${i}` })) });
   const p = await open('', { shelf: full });
+  await p.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await door(p);
   await arm(p, 'both');
   await tap(p, 'c5');
   const alert = p.locator('.pg-alert');
   assert.equal(await alert.locator('p').textContent(), 'Not saved: your shelf is full (50 designs). Delete one to keep this piece.', 'a full shelf shows the alert');
   assert.deepEqual(await alert.locator('button').allTextContents(), ['Choose one to delete', 'Copy link'], 'with its two actions');
+  await keepDraft(p);
   await alert.getByRole('button', { name: 'Choose one to delete' }).click();
   await p.click('.pg-sheet [aria-label="Delete Seed 0"]');
   assert.equal(await toast(p), 'Deleted Seed 0. My Pawn is saved.', 'a delete makes room and saves the copy');
   assert.equal(await alert.isVisible(), false, 'the alert goes');
   const names = (await stored(p)).map(d => d.name);
   assert.ok(names.length === 50 && names.includes('My Pawn') && !names.includes('Seed 0'), 'the shelf holds the copy in place of Seed 0');
+  assert.ok((await stored(p)).find(d => d.name === 'My Pawn').squares.some(s => s.x === -1 && s.y === 1 && s.mark === 'both'), 'the recovered draft keeps the paint');
   await p.context().close();
-  const q = await open();
+  const q = await open('', { width: 390, height: 844 });
   await q.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await door(q);
   await refuse(q);
@@ -757,6 +778,7 @@ async function saveAlerts() {
   const alert2 = q.locator('.pg-alert');
   assert.equal(await alert2.locator('p').textContent(), 'Not saved: this device did not keep the design.', 'a refused save shows the alert');
   assert.deepEqual(await alert2.locator('button').allTextContents(), ['Try again', 'Copy link'], 'with Try again and Copy link');
+  await keepDraft(q);
   await alert2.getByRole('button', { name: 'Copy link' }).click();
   await copied(q, 'Copy link copies');
   assert.match(await q.evaluate(() => navigator.clipboard.readText()), /\?design=/, 'the clipboard holds the design link');
@@ -765,6 +787,9 @@ async function saveAlerts() {
   assert.equal(await toast(q), 'Saved on this device.', 'Try again saves');
   assert.equal(await alert2.isVisible(), false, 'the alert goes');
   assert.deepEqual((await stored(q)).map(d => d.name), ['My Pawn'], 'the shelf holds the copy');
+  assert.ok((await stored(q))[0].squares.some(s => s.x === -1 && s.y === 1 && s.mark === 'both'), 'the retry saves the painted draft');
+  await q.click('[data-tab="kings"]');
+  assert.equal(await name(q), 'Flame King', 'a successful save allows automatic item changes again');
   await q.context().close();
 }
 
