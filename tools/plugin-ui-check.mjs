@@ -1030,11 +1030,11 @@ try {
     await frame.locator('#board').press('ArrowRight');
     const keyView = await page.evaluate(() => window.harnessView), keyPiece = fromFen(keyView.fen).board[1];
     const { nameOf, colorOf } = await import('../src/rules/engine.ts');
-    assert.equal(await frame.locator('#board').getAttribute('aria-label'), `b1, ${keyPiece ? `${colorOf(keyPiece) ? 'black' : 'white'} ${nameOf(typeOf(keyPiece))}` : 'empty'}`, 'Ready restores a working board keyboard handler after a setup remount');
+    assert.equal(await frame.locator('#board').getAttribute('aria-label'), `Chess board, b1, ${keyPiece ? `${colorOf(keyPiece) ? 'black' : 'white'} ${nameOf(typeOf(keyPiece))}` : 'empty'}. Enter selects a square.`, 'Ready restores a working board keyboard handler after a setup remount');
     const say = async (key, words) => {
       await frame.locator('#board').press(key);
-      assert.equal(await frame.locator('#board').getAttribute('aria-label'), words, `N10: ${key} names the cursor`);
-      assert.equal(await frame.locator('#cursor-say').textContent(), words, 'N10: the live text matches the board label');
+      assert.equal(await frame.locator('#board').getAttribute('aria-label'), `Chess board, ${words}. Enter selects a square.`, `N10: ${key} keeps the board name and Enter hint`);
+      assert.equal(await frame.locator('#cursor-say').textContent(), words, 'N10: the live text gives the short cursor words');
     };
     assert.equal(await frame.locator('#cursor-say[aria-live="polite"]').count(), 1);
     await frame.locator('#board').press('ArrowLeft');
@@ -1044,6 +1044,13 @@ try {
     await say('ArrowRight', 'b3, empty');
     await say('ArrowLeft', 'a3, empty, can go here');
     await say('ArrowDown', 'a2, white pawn, selected');
+    await frame.locator('#board').press('Escape');
+    assert.equal(await frame.locator('#board').getAttribute('aria-label'), 'Chess board', 'N10: Escape clears the selected cursor label');
+    assert.equal(await frame.locator('#cursor-say').textContent(), '', 'N10: Escape clears the live cursor text');
+    await say('ArrowUp', 'a3, empty');
+    await frame.locator('#board-menu').focus();
+    assert.equal(await frame.locator('#board').getAttribute('aria-label'), 'Chess board', 'N10: blur clears the cursor label');
+    assert.equal(await frame.locator('#cursor-say').textContent(), '', 'N10: blur clears the live cursor text');
     await seatTool('kingdown_abort',{game_id:fullRead._meta.view.game_id});
     const legacy = await (await page.request.post(new URL('/fixture-position?case=threats',base).href)).json();
     assert(!legacy.isError); assert.equal(legacy._meta.view.options,undefined);

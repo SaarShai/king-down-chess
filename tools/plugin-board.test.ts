@@ -719,7 +719,7 @@ it('moves the keyboard cursor while the opponent move animates', async () => {
   try {
     await frame.locator('#board[aria-busy="false"]').waitFor();
     await frame.locator('#board').press('ArrowLeft');
-    expect(await frame.locator('#board').getAttribute('aria-label')).toBe('b1, empty');
+    expect(await frame.locator('#board').getAttribute('aria-label')).toBe('Chess board, b1, empty. Enter selects a square.');
     await frame.locator('html').evaluate((_, next) => {
       const host = window as any, board = document.getElementById('board')!;
       // Hold the replay until the real cursor key arrives, as in the ceremony test.
@@ -731,7 +731,7 @@ it('moves the keyboard cursor while the opponent move animates', async () => {
     await frame.locator('#board[data-animating="true"]').waitFor();
     await frame.locator('#board').focus(); await page.keyboard.press('ArrowRight');
     expect(await frame.locator('html').evaluate(() => (window as any).cursorKeyAnimating)).toBe('true');
-    expect(await frame.locator('#board').getAttribute('aria-label')).toBe('a1, empty');
+    expect(await frame.locator('#board').getAttribute('aria-label')).toBe('Chess board, a1, empty. Enter selects a square.');
     await frame.locator('html').evaluate(() => (window as any).endReplay());
     await frame.locator('#board[data-animating="false"]').waitFor();
   } finally { await page.close(); }
@@ -1698,6 +1698,41 @@ it('F05: draws one keyboard cursor at the tile and clears it on Escape or blur',
     await frame.locator('#board').press('Escape'); expect(await frame.locator('.mk-cursor').count()).toBe(0);
     await frame.locator('#board').press('ArrowLeft'); expect(await frame.locator('.mk-cursor').count()).toBe(1);
     await frame.locator('#board-menu').focus(); expect(await frame.locator('.mk-cursor').count()).toBe(0);
+  } finally { await page.close(); }
+});
+
+it('N10: keeps the board name and Enter hint with the short cursor words', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1')), frame = page.frameLocator('iframe');
+  try {
+    const board = frame.locator('#board'), live = frame.locator('#cursor-say');
+    expect(await frame.locator('#cursor-say[aria-live="polite"]').count()).toBe(1);
+    for (const [key, words] of [
+      ['ArrowUp', 'a2, white pawn'], ['Enter', 'a2, white pawn, selected'],
+      ['ArrowUp', 'a3, empty, can go here'], ['ArrowRight', 'b3, empty'],
+    ]) {
+      await board.press(key);
+      expect(await board.getAttribute('aria-label')).toBe(`Chess board, ${words}. Enter selects a square.`);
+      expect(await live.textContent()).toBe(words);
+    }
+  } finally { await page.close(); }
+});
+
+it.each(['Escape', 'blur'] as const)('N10: clears the cursor text when %s hides a selected cursor', async input => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1')), frame = page.frameLocator('iframe');
+  try {
+    const board = frame.locator('#board'), live = frame.locator('#cursor-say');
+    await board.press('ArrowUp'); await board.press('Enter');
+    expect(await live.textContent()).toBe('a2, white pawn, selected');
+    if (input === 'Escape') await board.press('Escape');
+    else await frame.locator('#board-menu').focus();
+    expect(await board.getAttribute('aria-label')).toBe('Chess board');
+    expect(await live.textContent()).toBe('');
+    expect(await frame.locator('.mk-cursor').count()).toBe(0);
+    if (input === 'Escape') {
+      expect((await marks(page)).selected).toBeUndefined();
+      await board.press('ArrowUp');
+      expect(await live.textContent()).toBe('a3, empty');
+    }
   } finally { await page.close(); }
 });
 

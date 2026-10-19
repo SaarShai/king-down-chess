@@ -1,6 +1,6 @@
 # GUI faults 2026-10-19: more plugin faults (seat, board speech, sound)
 
-Status: done
+Status: in-progress
 Type: task
 
 Source: the GUI review merge (/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/gui-review/review-opus.md, review-astra.md, suggestions.md) and two independent checks of each item in the review merge run (2026-10-19). Each part below is a verified FAULT with one right fix. Build only what each part says. Anything the part calls taste or "for Saar" stays out. Saar's look decisions stand (docs/specs/*/spec.md; the painted look only).
@@ -47,6 +47,19 @@ Web overlap: None. web-adaptation inventory B12 and B15 cite board.ts as a sourc
 4. Run the type check and tests. Commit each part in order. Run the required browser runner on each commit. Record each result here.
 
 No taste change is in scope.
+
+## Review fix plan and checks
+
+1. Check each review finding against the code. Keep the board name and Enter hint in the full label. Keep the short cursor words in the live region.
+2. Reset the label and live text when Escape or blur hides the cursor. Add harness tests for both faults. Update the existing label checks.
+3. Run `npm test` with one worker and the named local test database. Keep all test limits. Commit the fix, then run `plugin-ui` through the required runner. Record the results here.
+
+## Review findings
+
+- Review A: no reported fault. N03 clears the text. N11 uses the shared sound map on both paths. The existing F10 tests check the check sound after rest for local play and replay. The twelve N11 cases do not check that sound on their own.
+- Review B, finding 1: confirmed. `sayCursor` replaces the full board label with the short cursor text. The fix keeps `Chess board` and `Enter selects a square.` in the label. The live region keeps only the short cursor text. A new harness test checks pieces, selection, targets and empty squares.
+- Review B, finding 2: confirmed. Escape hides the cursor, but refresh skips the label update. The fix updates the label on each refresh and on blur. A hidden cursor clears the live text and resets the label to `Chess board`. Two harness cases check Escape and blur. The browser check also checks both paths.
+- The report of repeated speech needs a screen reader check. The code has one polite live region, as the ticket requires. No screen reader test is part of these checks.
 
 ## N03 build and proof
 

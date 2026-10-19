@@ -91,8 +91,8 @@ export function boardScreen(store: Store) {
   let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0, cursorShown = false, cursorTargets: number[] = [];
   function sayCursor() {
     if (!pos) return;
-    const label = cursorText(pos, cursor, selected, cursorTargets.includes(cursor));
-    $('board').setAttribute('aria-label', label); $('cursor-say').textContent = label;
+    const label = cursorShown ? cursorText(pos, cursor, selected, cursorTargets.includes(cursor)) : '';
+    $('board').setAttribute('aria-label', label ? `Chess board, ${label}. Enter selects a square.` : 'Chess board'); $('cursor-say').textContent = label;
   }
   function drawCursor() {
     marksLayer.replaceChildren();
@@ -279,7 +279,7 @@ export function boardScreen(store: Store) {
     board.onSquareClick = square => { if (animating) { rush = true; board.skip(); return; } select(square); };
     board.onDragSelect = square => { if (animating) { rush = true; board.skip(); return; } select(square, false); };
     $('board').tabIndex = 0;
-    $('board').onblur = () => { cursorShown = false; const hold = holding(); board.setPreview(hold ? heldSquare(hold.move) : null); drawCursor(); };
+    $('board').onblur = () => { cursorShown = false; const hold = holding(); board.setPreview(hold ? heldSquare(hold.move) : null); drawCursor(); sayCursor(); };
     $('board').onkeydown = event => {
       // The cursor moves while play waits. Enter reads a square when motion stops.
       const delta = ({ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,1], ArrowDown:[0,-1]} as Record<string,number[]>)[event.key];
@@ -375,7 +375,7 @@ export function boardScreen(store: Store) {
     // Show only the previewed move's marks.
     rules(); const hold = holding(), cands = hold ? [hold.move] : selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
     cursorTargets = [...marks.moves, ...marks.captures, ...marks.swaps, ...marks.shoves];
-    if (cursorShown) sayCursor();
+    sayCursor();
     // Mark every step of the last turn (Haste, free marks); a pass step has no square.
     let start = history.length;
     if (lastMove && history.at(-1) === lastMove) while (start > 0 && history[start - 1].pre.turn === lastMove.pre.turn) start--;
