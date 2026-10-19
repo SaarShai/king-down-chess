@@ -100,3 +100,9 @@ Taste: the sword is 22 by 16 px. The gap is 6 px. The 16 px label can wrap on na
 ## A15 preview
 
 Keep the foot glow. Draw a 1.5 CSS px gold ring after the last figure row. Use the legend gold and a dark gold edge. The unit check covers both board directions and the final draw order.
+
+## A17 preview
+
+Share the Workshop frost drawing with the painted board. Keep its blue tint, crystal lines, blue ring, and moon pips. Read the mark and turns from the engine. Clear the drawing when the mark ends or its piece leaves. The pips draw after all figures. The unit check covers two sides, two turns, expiry, empty squares, own pieces, and Ice Wall.
+
+A15 saves its plugin and web builds at commit `1694b5f9` for the final screen check.

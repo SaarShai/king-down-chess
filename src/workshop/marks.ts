@@ -5,6 +5,7 @@
  * When words from vocab.ts. The refused forms, the stamps, the knots and the zone chalk stay here: the legend has
  * none. The mockup's looks `wash` and `familyWax` are always on. Later tickets port the rest.
  */
+import { frost, FROST_DEFS } from '../render/frost';
 import { DEFS as LEG_DEFS, LEG, arrowHead, arrowLine, badge, glow, occupied, railLine, rail, target, threat as threatLayer, tile as legendTile, toSvg, type Layer, type RailStyle, type Shape } from '../render/legend';
 import { DIR, likeSquares, type Ability, type Dir, type PaintOn, type PieceDesign, type When, type Zone } from './model';
 import type { Scene, ScenePiece } from './scene';
@@ -69,8 +70,7 @@ const DEFS = LEG_DEFS
   + '<filter id="kdm-arc-shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#1d1915" flood-opacity=".55"/></filter>'
   + '<filter id="kdm-rim" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0" stdDeviation=".75" flood-color="#2b2621" flood-opacity=".7"/></filter>'
   + '<filter id="kdm-seal-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2.5" stdDeviation="2.2" flood-color="#1d1915" flood-opacity=".42"/></filter>'
-  + '<radialGradient id="kdm-frost"><stop offset="0" stop-color="rgb(127,178,255)" stop-opacity=".6"/><stop offset=".55" stop-color="rgb(127,178,255)" stop-opacity=".35"/><stop offset="1" stop-color="rgb(127,178,255)" stop-opacity="0"/></radialGradient>'
-  + '<pattern id="kdm-crystal" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><path d="M0 3.5h7M3.5 0v7" stroke="rgba(255,255,255,.55)" stroke-width=".6"/></pattern>'
+  + FROST_DEFS
   + '<pattern id="kdm-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="rgba(251,247,238,.18)" stroke-width="1"/><line x1="1" y1="0" x2="1" y2="8" stroke="rgba(43,38,33,.10)" stroke-width="1"/></pattern>';
 
 /** Puts the gradients and filters that the marks name into the page once. */
@@ -266,20 +266,6 @@ function rune(cx: number, cy: number, r: number, barred?: boolean): string {
       return `<path d="M${n(px)} ${n(py - d)}L${n(px + d)} ${n(py)}L${n(px)} ${n(py + d)}L${n(px - d)} ${n(py)}z" fill="${barred ? C.bFill : C.pHi}" stroke="${barred ? C.bX : LEG.power}" stroke-width="1.5" stroke-linejoin="round"/>`;
     }).join('')
     + (barred ? line(cx - k, cy + k, cx + k, cy - k, LEG.halo, 5, 'stroke-linecap="round"') + line(cx - k, cy + k, cx + k, cy - k, C.bBar, 3, 'stroke-linecap="round"') : '');
-}
-/** Freeze on a square (frostOverlay, baseRing and ringPips, marks.js:573-595): the frost and a blue ring under the piece, and
- *  over it one moon pip for each turn left. */
-function frost(x: number, y: number, s: number, turns: number): [string, string] {
-  const cx = x + s / 2, cy = y + 0.9 * s, rx = 0.36 * s, ry = 0.11 * s, d = clamp(0.17 * s, 10, 15);
-  const under = `<rect x="${n(x + 1)}" y="${n(y + 1)}" width="${n(s - 2)}" height="${n(s - 2)}" rx="${n(0.06 * s)}" fill="url(#kdm-frost)"/>`
-    + `<rect x="${n(x + 0.12 * s)}" y="${n(y + 0.12 * s)}" width="${n(0.76 * s)}" height="${n(0.76 * s)}" rx="${n(0.1 * s)}" fill="url(#kdm-crystal)" opacity=".8"/>`
-    + `<rect x="${n(x + 2)}" y="${n(y + 2)}" width="${n(s - 4)}" height="${n(s - 4)}" rx="${n(0.06 * s)}" fill="none" stroke="rgba(227,240,255,.9)" stroke-width="1.5"/>`
-    + `<ellipse cx="${n(cx)}" cy="${n(cy)}" rx="${n(rx)}" ry="${n(ry)}" fill="rgba(127,178,255,.25)" stroke="${LEG.power}" stroke-width="3.5"/><ellipse cx="${n(cx)}" cy="${n(cy)}" rx="${n(rx)}" ry="${n(ry)}" fill="none" stroke="${LEG.powerMid}" stroke-width="2"/>`;
-  const over = Array.from({ length: turns }, (_, i) => {
-    const px = cx + (i - (turns - 1) / 2) * (d + 2), py = cy + 0.11 * s;
-    return `<circle cx="${n(px)}" cy="${n(py)}" r="${n(d / 2)}" fill="${C.pHi}" stroke="${LEG.power}" stroke-width="1.5"/>` + sigilInline('moon', px - d * 0.34, py - d * 0.34, d * 0.68, LEG.power, 2.6);
-  }).join('');
-  return [under, over];
 }
 /** A stamp alone, for the key row. */
 export const impression = (a: Ability['a'], size: number): string =>

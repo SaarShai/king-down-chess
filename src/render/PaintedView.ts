@@ -1,6 +1,7 @@
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, RULES, S, T, colorOf, playedDesign, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { figureUrl, selectedFigure } from '../workshop/figures';
+import { frost, FROST_DEFS, frozenPieces } from './frost';
 import { drawMarks, POP_MS, RIPPLE_MS, type Highlights } from './marks';
 import { boardInk, coordInk } from './board-ink';
 import { pastTap } from './tap';
@@ -55,6 +56,7 @@ export class PaintedView implements BoardView {
   private pos: Position | null = null;
   private symbols?: (piece: number) => HTMLImageElement;
   private marks: Highlights = {};
+  private frostImages = new Map<string, HTMLImageElement>();
   private hovered: number | null = null;
   private tap: PointerEvent | null = null;
   private tapSq: number | null = null; // the square under the press: a tap acts on it
@@ -226,6 +228,24 @@ export class PaintedView implements BoardView {
     this.scene.setAim(h != null && [...(m.captures ?? []), ...(m.moves ?? [])].includes(h) ? h : null);
   }
 
+  private drawFrost(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number): void {
+    if (layer === 'over' && row != null && row !== 7) return;
+    for (const { sq, turns } of frozenPieces(this.pos)) {
+      const key = `${turns}-${layer}`;
+      let image = this.frostImages.get(key);
+      if (!image) {
+        image = new Image();
+        image.onload = () => scene.redraw();
+        const drawing = frost(0, 0, 112, turns)[layer === 'under' ? 0 : 1];
+        image.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="448" height="538" viewBox="0 0 112 134.4"><defs>${FROST_DEFS}</defs>${drawing}</svg>`)}`;
+        this.frostImages.set(key, image);
+      }
+      if (!image.complete || !image.naturalWidth) continue;
+      const c = scene.cell(sq);
+      ctx.drawImage(image, scene.PAD + c.col * scene.TILE, scene.PAD + c.row * scene.TILE, scene.TILE, scene.TILE * 1.2);
+    }
+  }
+
   private drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number): void {
     const { PAD, TILE } = scene, m = this.marks;
     if (layer === 'under') {
@@ -245,6 +265,7 @@ export class PaintedView implements BoardView {
       }
       ctx.restore();
     }
+    this.drawFrost(ctx, scene, layer, row);
     if (scene.animating) return;
     const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
     drawMarks(ctx, scene, layer, {
