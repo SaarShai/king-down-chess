@@ -178,7 +178,7 @@ export class PaintedView implements BoardView {
   private applyLively(): void {
     const motion = this.pace !== 'off' && !this.motionQuery.matches, shown = motion && !document.hidden;
     if (this.pace === 'off') this.scene.setLifted(null);
-    this.scene.setReducedMotion(this.motionQuery.matches);
+    this.scene.setReducedMotion(!motion);
     this.scene.setLively({ moves: motion, atmosphere: true, captures: motion, idle: motion, kings: shown, pawns: false });
   }
 

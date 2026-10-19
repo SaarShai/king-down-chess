@@ -106,6 +106,15 @@ try {
               return left(el.closest('label')) - left(document.getElementById('sound').closest('label'));
             });
             assert(Math.abs(gap) < 1, 'Animations and Sound labels align');
+            if (width === 390) {
+              await pace.evaluate(el => {
+                el.addEventListener('pointerdown', event => { window.paceTap = { trusted:event.isTrusted, direct:event.target === el }; }, {once:true});
+              });
+              await pace.tap();
+              assert.deepEqual(await f.locator('html').evaluate(() => window.paceTap), {trusted:true,direct:true}, 'The tap reaches the select above the label hit layer');
+              assert.equal(await pace.evaluate(el => el.matches(':open')), true, 'The real tap opens the choices');
+              await p.keyboard.press('Escape');
+            }
             for (const value of ['normal','fast','off']) { await pace.selectOption(value); assert.equal(await pace.inputValue(),value); assert.equal(await f.locator('html').getAttribute('data-pace'),value); }
             await p.locator('#remount').evaluate(b => b.click()); await f.locator('#animations').waitFor({state:'attached'});
             assert.equal(await f.locator('#animations').inputValue(),'off','The device keeps the setting after a remount');
@@ -148,7 +157,17 @@ try {
             if (phase === 'after') assert.equal(await p.locator('#board').evaluate(b => b.style.maxHeight), '', 'Cancel releases the board space');
           }
         }
-        if(id==='A8'){await open('7k/8/8/8/8/8/P7/K7 w - - 0 1');await p.locator('#menu-btn').click();await p.locator('[data-go="help"]').click();await shot(id,'settings');}
+        if (id === 'A8') {
+          await open('7k/8/8/8/8/8/P7/K7 w - - 0 1');
+          await p.locator('#menu-btn').click();
+          const pace = p.locator('#pace');
+          await pace.waitFor({state:'visible'});
+          assert.equal(await p.locator('#sound').isVisible(), true, 'Sound is on the Menu');
+          assert.equal(await p.locator('#sound').evaluate(el => el.closest('label').firstChild.textContent.trim()), 'Sound');
+          assert.equal(await pace.evaluate(el => el.closest('label').firstChild.textContent.trim()), phase === 'after' ? 'Animations' : 'Motion');
+          assert.deepEqual(await pace.locator('option').allTextContents(), ['Normal','Fast','Off']);
+          await shot(id,'settings');
+        }
       }
       await ctx.close();
     }

@@ -3,10 +3,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fromFen } from '../rules/setup';
 
+const { reducedMotion, lively, aim } = vi.hoisted(() => ({ reducedMotion: vi.fn(), lively: vi.fn(), aim: vi.fn() }));
 let resolveLoad: () => void = () => {};
 let pickedSquare: number | null = null;
 vi.mock('../../docs/2d-first-pieces/board/scene.mjs', () => ({
-  createScene: () => new Proxy({ load: () => new Promise<void>(r => { resolveLoad = r; }), squareAt: () => pickedSquare, kings: [], drawnKings: [] } as Record<string, unknown>,
+  createScene: () => new Proxy({ load: () => new Promise<void>(r => { resolveLoad = r; }), squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim } as Record<string, unknown>,
     { get: (t, k: string) => k in t ? t[k] : () => {} }),
 }));
 
@@ -22,7 +23,7 @@ function stubDom() {
   vi.stubGlobal('requestAnimationFrame', (f: FrameRequestCallback) => frames.push(f));
   return el();
 }
-afterEach(() => { vi.unstubAllGlobals(); frames.length = 0; listeners.clear(); pickedSquare = null; });
+afterEach(() => { vi.unstubAllGlobals(); frames.length = 0; listeners.clear(); pickedSquare = null; vi.clearAllMocks(); });
 
 describe('PaintedView first paint', () => {
   it('stays unready until the loaded scene is visible on its first frame', async () => {
@@ -94,5 +95,24 @@ describe('PaintedView touch input', () => {
     expect(view.onSquareClick).not.toHaveBeenCalled(); expect(view.onDragSelect).not.toHaveBeenCalled();
     pickedSquare = 12; fire('pointerdown', down); fire('pointerup', down);
     expect(view.onSquareClick).toHaveBeenCalledExactlyOnceWith(12, false);
+  });
+});
+
+// Off must reach the scene. A select value alone does not stop weapon motion.
+describe('PaintedView motion setting', () => {
+  it.each([false, true])('sets scene motion for system reduced motion %s', async systemReduced => {
+    const container = stubDom();
+    vi.stubGlobal('matchMedia', () => ({ matches: systemReduced, addEventListener() {} }));
+    const { PaintedView } = await import('./PaintedView');
+    const view = new PaintedView(container as unknown as HTMLElement);
+    for (const pace of ['normal', 'fast', 'off'] as const) {
+      view.setPace(pace);
+      expect(reducedMotion).toHaveBeenLastCalledWith(systemReduced || pace === 'off');
+      expect(lively).toHaveBeenLastCalledWith(expect.objectContaining({ moves: !systemReduced && pace !== 'off', idle: !systemReduced && pace !== 'off', pawns: false }));
+      view.highlight({ selected: 12, moves: [20] });
+      pickedSquare = 20;
+      listeners.get('pointermove')!({ clientX: 0, clientY: 0 } as PointerEvent);
+      expect(aim).toHaveBeenLastCalledWith(20);
+    }
   });
 });

@@ -308,7 +308,7 @@ body[data-touch='true'] #game-table .coin, body[data-touch='true'] #game-table .
 /* Extend touch targets up, inside the frame, without changing art or rows. */
 body[data-touch='true'] :is(button, .seg-row label, .fields > label) { position: relative; }
 body[data-touch='true'] .field { min-height: 48px; }
-body[data-touch='true'] .fields > label input { position: relative; z-index: 1; }
+body[data-touch='true'] .fields > label :is(input, select) { position: relative; z-index: 1; }
 body[data-touch='true'] :is(button, .seg-row label, .fields > label)::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
 body[data-touch='true'] #game-table .coin.card-coin { overflow: visible; }
 /* A hit layer extends up; each control keeps its own lower edge against the control below. */
@@ -320,7 +320,7 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
 @media (pointer: coarse) {
   button, .seg-row label, .fields > label { position: relative; }
   .field { min-height: 48px; }
-  .fields > label input { position: relative; z-index: 1; }
+  .fields > label :is(input, select) { position: relative; z-index: 1; }
   :is(button, .seg-row label, .fields > label)::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
   #game-table .coin.card-coin { overflow: visible; }
   button#moves-line { z-index: 1; }

@@ -59,9 +59,12 @@ test('quiet pawn, rook, knight and paladin moves keep the Normal and Fast limits
 });
 
 test('pawns stay still when their idle motion is off, including a selected pawn',async()=>{
- const scene=createScene({canvas:canvas(),pieces:{P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName},kings:['plain','plain']});
- await scene.load().catch(()=>{});scene.setLively({moves:true,idle:true,pawns:false,kings:false});
- const pos=createPosition('king');pos.board=Array(64).fill(0);pos.board[8]=P;scene.setPosition(pos);scene.setSelected(8);
- run(300);const framesBefore=scene.frames;run(1000);
- assert.deepEqual(scene.pawns,{resting:0,acting:0});assert.equal(scene.frames,framesBefore,'no idle pawn schedules a frame');
+ globalThis.setTimeout=(fn,ms)=>{timers.push({fn,at:now+ms});return timers.length;};
+ try{
+  const scene=createScene({canvas:canvas(),pieces:{P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName},kings:['plain','plain']});
+  await scene.load().catch(()=>{});scene.setLively({moves:true,idle:true,pawns:false,kings:false});
+  const pos=createPosition('king');pos.board=Array(64).fill(0);pos.board[8]=P;scene.setPosition(pos);scene.setSelected(8);
+  run(300);const framesBefore=scene.frames;run(1000);
+  assert.deepEqual(scene.pawns,{resting:0,acting:0});assert.equal(scene.frames,framesBefore,'no idle pawn schedules a frame');
+ }finally{globalThis.setTimeout=realSetTimeout;}
 });

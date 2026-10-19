@@ -168,3 +168,11 @@ Check both reviews against the source. Fix the six distinct faults. Keep the thr
 - A17: check the actual board drawing after Freeze, expiry, and Undo. A removed draw call must fail the test.
 
 Verification: run `npm test` with the local test database. Run `plugin-ui` and `gui-board-preview` through the lane runner after commits. Keep the fixed time limits. No server code changes are needed.
+
+### A39 review fix
+
+Reviews A1 and B2 are confirmed. The old viewport clamp covers d2 and d1. Reserve the measured choice height below the board. Reduce the board height when needed. The check uses d3 to d2 and, after a flip, d6 to d7. It checks the full board bounds, resize, focus, and Cancel.
+
+### A8 review fixes
+
+Reviews A2, A3, A4, B1, and B3 are confirmed. Off now sets reduced motion in the scene. The board test checks that call for all three settings, with and without system reduced motion, while aiming at a legal square. The pawn test installs its timer queue and restores the real timer in `finally`. Both phone hit-layer rules raise selects with inputs. The browser test uses a real tap and checks its target and the open select. The web proof opens Menu and checks Sound, Animations, and Normal/Fast/Off before capture. It also captures Motion on the base build.
