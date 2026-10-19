@@ -1,5 +1,5 @@
 /** Opt-in (PLUGIN_TEST_DATABASE_URL): roles belong to the whole server, so role changes from two test databases on one
- * server wait for each other. */
+ * server wait for each other. In a test file's own copy, no autovacuum runs beside a role change. */
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -64,4 +64,14 @@ suite('the role lock (real PostgreSQL)', () => {
   await expect.poll(sessions, { timeout: 5_000 }).toBe(0);
   expect(await withRoleLock(other.href, async () => 'done')).toBe('done');
  }, 30_000);
+
+ it('turns autovacuum off on every table of a test file\'s own copy', async () => {
+  const copy = new pg.Client({ connectionString: own.href }); await copy.connect();
+  try {
+   const tables = (await copy.query(`select c.oid::regclass::text as name, coalesce(c.reloptions @> '{autovacuum_enabled=false}', false) as off
+    from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind='r' and c.relpersistence='p' and n.nspname not in ('pg_catalog','information_schema')`)).rows;
+   expect(tables.map(table => table.name)).toContain('games');
+   expect(tables.filter(table => !table.off)).toEqual([]);
+  } finally { await copy.end(); }
+ });
 });
