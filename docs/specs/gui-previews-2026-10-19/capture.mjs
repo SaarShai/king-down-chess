@@ -82,8 +82,13 @@ try {
           if (phase === 'after' && width === 390) assert(await f.locator('#recent-moves').isHidden(),'A staged move is not sent history');
           await p.evaluate(() => window.holdBeforeNext='kingdown_computer');
           await f.locator('#end-turn[aria-disabled="false"]').click();
-          await f.locator('#last-move').filter({hasText:'e4'}).waitFor(); await p.waitForTimeout(200); await shot(id,'moves-sent');
-          if (phase === 'after' && width === 390) assert(await f.locator('#recent-moves').isVisible(),'The first sent move opens the band');
+          await p.waitForFunction(() => window.harnessView.last_commands?.length > 0); await ready(); await shot(id,'moves-sent');
+          if (phase === 'after' && width === 390) {
+            assert(await f.locator('#recent-moves').isVisible(),'The first sent move opens the band');
+            await f.locator('#moves-line').click(); assert(await f.locator('#recent-moves').isHidden(),'A manual close stays shut');
+            await p.setViewportSize({width:width+1,height}); await p.setViewportSize({width,height});
+            assert(await f.locator('#recent-moves').isHidden(),'Resize keeps the manual choice');
+          }
           await p.evaluate(() => window.releaseBefore?.()); await ready();
         }
         if (id === 'A8') {

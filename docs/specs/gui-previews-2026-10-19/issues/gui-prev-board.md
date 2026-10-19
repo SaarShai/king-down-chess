@@ -112,3 +112,9 @@ A15 saves its plugin and web builds at commit `1694b5f9` for the final screen ch
 Both empty history views say “No turns sent yet.” The staged move line stays as it is. No unsent mark is added. The browser check stages a move, opens Moves, and checks the words.
 
 A17 saves its plugin and web builds at commit `1b24c86b`.
+
+## A27 preview
+
+The phone band stays shut with no sent moves. The first sent move opens it. A manual close still holds on resize. A staged move alone does not open an empty list. The browser check covers these four states.
+
+Taste: “first move” means the first sent move, because this list shows sent history. A18 saves its plugin build at `da987ecc`.

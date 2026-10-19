@@ -463,7 +463,7 @@ export function boardScreen(store: Store) {
   function fitMoves() {
     const band = $('moves-band').getBoundingClientRect(), line = $('moves-line').getBoundingClientRect();
     bandFits = matchMedia('(max-width: 899px) and (orientation: portrait)').matches && line.height > 0 && band.height >= 108;
-    const open = active() && bandFits && movesChoice !== false;
+    const open = active() && bandFits && (movesChoice ?? history.length > 0);
     recentMoves.hidden = !open;
     $('moves-line').setAttribute('aria-expanded', String(open || !!sheet?.open && sheet.querySelector('h2')?.textContent === 'Moves'));
     if (open) recentMoves.scrollTop = recentMoves.scrollHeight;
