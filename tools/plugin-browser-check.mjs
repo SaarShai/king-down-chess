@@ -76,9 +76,17 @@ try {
     const { startHarness } = await import('./plugin-ui-harness.ts');
     harness = await startHarness({ boardPath: join(build, 'board.html'), endpoint, actor: actors[0], friendActor: actors[1], laterFriendActor: actors[2], seedPosition, deleteMatch });
   }
+  if (mode === 'fixture' && process.env.KD_GUI_PREVIEW) {
+    child = spawn(process.execPath, ['docs/specs/gui-previews-2026-10-19/capture.mjs', build], {
+      stdio: 'inherit', env: process.env,
+    });
+    const [previewCode] = await once(child, 'exit');
+    assert.equal(previewCode, 0, 'Board preview checks pass');
+  }
   child = spawn(process.execPath, [mode === 'oauth' ? 'tools/plugin-oauth-check.mjs' : 'tools/plugin-ui-check.mjs', build], {
     stdio: 'inherit', env: { ...process.env, ...(harness ? { PLAYABLE_URL: harness.url, PLUGIN_EXPECT_MODE: mode } : {}) },
   });
   const [code, signal] = await once(child, 'exit');
   assert.equal(code, 0, `Plugin ${mode} check failed${signal ? ` (${signal})` : ''}`);
+
 } finally { await cleanup(); }

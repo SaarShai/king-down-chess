@@ -349,6 +349,7 @@ export function boardScreen(store: Store) {
     const ready = !open && view.action === 'ready' && view.status === 'playing' && draft.ready;
     $('undo').setAttribute('aria-disabled', String(open || !steps.length));
     const end = $('end-turn'), label = mode() === 'computer' ? 'End turn' : 'Send your turn';
+    end.querySelector('.turn-label')!.textContent = label;
     end.setAttribute('aria-disabled', String(!ready)); end.setAttribute('aria-label', label); end.title = label; end.classList.toggle('primary', ready);
   }
   function refresh() {

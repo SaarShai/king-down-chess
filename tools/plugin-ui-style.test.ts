@@ -11,6 +11,7 @@ it('imports game tokens and components without lesson, account or title lineup r
     const html = await readFile(join(folder, 'board.html'), 'utf8'), css = html.match(/<style>(.*?)<\/style>/s)![1];
     expect(/lesson-progress|account-body|account-who|delete-account|title-lineup/.test(css)).toBe(false);
     expect(html).toContain('id="i-sword"');
+    expect(html).toContain('<span class="turn-label">End turn</span>');
     expect(await readFile('public/support.html', 'utf8')).toContain('Sword by Studio Danro from Noun Project (CC BY 3.0)');
     for (const component of ['--mark-swap', '.title-kings', '.new-game-head', '.coin', '#game-table', '.piece-card']) expect(css).toContain(component);
     // G2 a: a spent card coin keeps a lighter dim (0.85), in the settled state and at the end of its spend pulse.
