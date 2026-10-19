@@ -1,6 +1,6 @@
 # GUI faults 2026-10-19: more plugin faults (seat, board speech, sound)
 
-Status: in-progress
+Status: done
 Type: task
 
 Source: the GUI review merge (/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/gui-review/review-opus.md, review-astra.md, suggestions.md) and two independent checks of each item in the review merge run (2026-10-19). Each part below is a verified FAULT with one right fix. Build only what each part says. Anything the part calls taste or "for Saar" stays out. Saar's look decisions stand (docs/specs/*/spec.md; the painted look only).
@@ -60,6 +60,14 @@ No taste change is in scope.
 - Review B, finding 1: confirmed. `sayCursor` replaces the full board label with the short cursor text. The fix keeps `Chess board` and `Enter selects a square.` in the label. The live region keeps only the short cursor text. A new harness test checks pieces, selection, targets and empty squares.
 - Review B, finding 2: confirmed. Escape hides the cursor, but refresh skips the label update. The fix updates the label on each refresh and on blur. A hidden cursor clears the live text and resets the label to `Chess board`. Two harness cases check Escape and blur. The browser check also checks both paths.
 - The report of repeated speech needs a screen reader check. The code has one polite live region, as the ticket requires. No screen reader test is part of these checks.
+
+## Review fix proof
+
+- Fix commit: `fcf3b014`. The commit type check and staged gate pass.
+- `plugin-ui`: pass on this Mac at `fcf3b014`, 276.7 s. The required runner reports `check-runner: mac exit 0 at fcf3b014`. Log: `checks-review-fix-1.txt` in the lane folder.
+- No server code changes. `plugin-ui-http` does not apply.
+- `npm test`: pass, exit 0. All 194 test files pass: 3,251 tests pass and 8 skip. All 51 drawing tests pass. The run uses one worker and the named local test database. Test limits stay unchanged. Log: `tests-review-fix-1.txt` in the lane folder.
+- The later proof commit changes only this ticket. Its code and tests match the tested fix commit.
 
 ## N03 build and proof
 
