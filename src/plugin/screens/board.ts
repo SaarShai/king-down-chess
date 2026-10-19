@@ -118,7 +118,10 @@ export function boardScreen(store: Store) {
   // strips() rebuilds the coins; a negative delay keeps a running moment in its place.
   const moment = (el: HTMLElement, name: string, start: number, ms: number) => { const age = performance.now() - start; if (age >= ms) return false; el.classList.add(name); el.style.setProperty('--age', `${-age}ms`); return true; };
   // Sound is off unless the player turns it on in Settings (render/sfx.ts).
-  const sound = (step: BoardMove) => { if (step.move.captures.length) snd.capture(); else snd.move(); if (inCheck(step.pos)) snd.check(); };
+  const hitSound = (step: BoardMove, token: number) => {
+    let struck = false;
+    return () => { if (struck || token !== generation) return; struck = true; if (step.move.captures.length) snd.capture(); else snd.move(); };
+  };
   const refused = new Set<string>(), taught = new Map<string, number>();
   const active = () => ['board', 'end'].includes(client.state.screen);
   const rules = () => setRules(view!.rules!);
@@ -191,7 +194,11 @@ export function boardScreen(store: Store) {
     const token = ++generation; steps.push(step); lastMove = step; pos = step.pos; animating = true;
     board.skip(); board.setLifted(null); moveLine(); refresh(); saveDraft();
     if (step.move.drop !== undefined) board.sync(step.pos);
-    void (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve()).then(() => { if (token === generation) sound(step); }).finally(() => {
+    const hit = hitSound(step, token);
+    void (step.move.drop === undefined ? board.animateMove(step.pre, step.move, hit) : Promise.resolve()).then(() => {
+      if (token !== generation) return;
+      hit(); if (inCheck(step.pos)) snd.check();
+    }).finally(() => {
       if (token !== generation) return;
       board.sync(step.pos); animating = false; refresh();
       if (keyboard) $(turn().waits ? 'end-turn' : 'board').focus({preventScroll:true});
@@ -525,7 +532,13 @@ export function boardScreen(store: Store) {
     if (replay.length) {
       animating = true;
       void (async () => {
-        for (const step of replay) { if (token !== generation) return; rules(); if (step.move.drop === undefined) await board.animateMove(step.pre, step.move); if (token !== generation) return; board.sync(step.pos); sound(step); }
+        for (const step of replay) {
+          if (token !== generation) return;
+          rules(); const hit = hitSound(step, token);
+          if (step.move.drop === undefined) await board.animateMove(step.pre, step.move, hit);
+          if (token !== generation) return;
+          board.sync(step.pos); hit(); if (inCheck(step.pos)) snd.check();
+        }
         if (token === generation) { rules(); board.sync(authoritative); animating = false; refresh(); scheduleComputer(); }
       })();
     } else board.sync(pos);

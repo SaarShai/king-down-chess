@@ -1721,3 +1721,60 @@ it('F06: marks only the armed usable card and shows the gold band', async () => 
     expect(await coin.evaluate(e => e.querySelector('img')!.getBoundingClientRect().width)).toBe(await coin.evaluate(e => e.clientWidth - 6));
   } finally { await page.close(); }
 });
+
+it.each(['contact', 'reduced', 'off', 'skip', 'superseded'] as const)('F10: sounds the local capture once at contact or fallback (%s)', async path => {
+  const base = view('7k/8/8/8/8/8/7p/K6R w - - 0 1'), page = await open(base), frame = page.frameLocator('iframe');
+  try {
+    if (path === 'reduced') await page.emulateMedia({ reducedMotion: 'reduce' });
+    await frame.locator('html').evaluate(`(async () => {
+      const { snd, setSound } = await import('/src/render/sfx.ts'); setSound(true);
+      window.sounds = []; for (const name of ['capture', 'move', 'check']) snd[name] = () => window.sounds.push({ name, at: performance.now() });
+      const b = window.testBoard; window.realAnimate = b.animateMove.bind(b);
+      b.animateMove = (pre, move, contact) => {
+        if (${JSON.stringify(path)} === 'off') { b.setPace('off'); return window.realAnimate(pre, move, contact).then(() => { window.restAt = performance.now(); }); }
+        if (${JSON.stringify(path)} === 'reduced') { window.restAt = performance.now(); return Promise.resolve(); }
+        window.contact = contact; return new Promise(resolve => { window.finishMove = () => { window.restAt = performance.now(); resolve(); }; });
+      };
+    })()`);
+    await squareTap(page, 7); await squareTap(page, 15);
+    if (['contact', 'skip', 'superseded'].includes(path)) {
+      expect(await frame.locator('#board').getAttribute('data-animating')).toBe('true');
+      if (path === 'contact') {
+        await frame.locator('html').evaluate(() => { (window as any).contact(); (window as any).contact(); });
+        expect(await frame.locator('html').evaluate(() => (window as any).sounds.map((s: any) => s.name))).toEqual(['capture']);
+      }
+      if (path === 'superseded') {
+        await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), { ...base, game_id: crypto.randomUUID() });
+        await frame.locator('html').evaluate(() => { (window as any).contact(); (window as any).finishMove(); });
+        expect(await frame.locator('html').evaluate(() => (window as any).sounds)).toEqual([]); return;
+      }
+      if (path === 'skip') await frame.locator('html').evaluate(() => { (window as any).testBoard.skip = () => (window as any).finishMove(); (window as any).testBoard.skip(); });
+      else await frame.locator('html').evaluate(() => (window as any).finishMove());
+    }
+    await frame.locator('#board[data-animating="false"]').waitFor();
+    const result = await frame.locator('html').evaluate(() => ({ sounds: (window as any).sounds, rest: (window as any).restAt }));
+    expect(result.sounds.map((s: any) => s.name)).toEqual(['capture', 'check']);
+    if (path === 'contact') expect(result.sounds[0].at).toBeLessThanOrEqual(result.rest);
+    else expect(result.sounds[0].at).toBeGreaterThanOrEqual(result.rest);
+    expect(result.sounds[1].at).toBeGreaterThanOrEqual(result.rest);
+  } finally { await page.close(); }
+});
+
+it('F10: sounds a replay capture at contact and check after rest', async () => {
+  const base = view('7k/8/8/8/8/8/7p/K6R w - - 0 1', {}, { kind: 'friend' }), page = await open(base), frame = page.frameLocator('iframe');
+  const step = applyLan(fromFen(base.fen), 'Rh1xh2', base.rules!)!; expect(step).toBeDefined();
+  try {
+    await frame.locator('html').evaluate(`(async () => {
+      const { snd, setSound } = await import('/src/render/sfx.ts'); setSound(true); window.sounds = [];
+      for (const name of ['capture', 'move', 'check']) snd[name] = () => window.sounds.push({ name, at: performance.now() });
+      window.testBoard.animateMove = (pre, move, hit) => { hit(); hit(); return new Promise(resolve => { window.finishMove = () => { window.restAt = performance.now(); resolve(); }; }); };
+    })()`);
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), { ...base, revision: 1, fen: toFen(step.pos), turn: 1, action: 'waiting', legal: [], last_commands: [{ seq: 1, seat: 0, at: base.server_now, action: { type: 'turn', actions: [step.lan] } }] });
+    expect(await frame.locator('html').evaluate(() => (window as any).sounds.map((s: any) => s.name))).toEqual(['capture']);
+    await frame.locator('html').evaluate(() => (window as any).finishMove());
+    await frame.locator('#board[data-animating="false"]').waitFor();
+    const result = await frame.locator('html').evaluate(() => ({ sounds: (window as any).sounds, rest: (window as any).restAt }));
+    expect(result.sounds.map((s: any) => s.name)).toEqual(['capture', 'check']);
+    expect(result.sounds[0].at).toBeLessThanOrEqual(result.rest); expect(result.sounds[1].at).toBeGreaterThanOrEqual(result.rest);
+  } finally { await page.close(); }
+});
