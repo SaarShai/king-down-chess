@@ -1,7 +1,9 @@
 /** The website client: retries keep the command ID; views follow the revision rules of report part 03, section 4.3. */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { LoggedCommand, View } from '../match/protocol';
 import { merge, onlineClient, OnlineError, watch, type OnlineClient } from './client';
+
+afterEach(() => vi.unstubAllGlobals());
 
 const gameId = '33333333-3333-4333-8333-333333333333';
 const log = (...seqs: number[]): LoggedCommand[] => seqs.map(seq => ({ seq, seat: 0, action: { type: 'resign' }, at: '' }));
@@ -33,6 +35,30 @@ describe('online client', () => {
   expect(fetch).toHaveBeenCalledTimes(4);
   await expect(onlineClient({ token: async () => null, fetch }).games()).rejects.toBeInstanceOf(OnlineError);
   expect(fetch).toHaveBeenCalledTimes(4);
+ });
+ it('guards reads, writes and every retry after the token work, even with an injected fetch', async () => {
+  const order: string[] = [], ids: string[] = [];
+  const controller = { state: 'activated', postMessage: vi.fn((request, ports) => {
+   order.push('proof'); ids.push(request.requestId);
+   ports[0].postMessage({ ...request, policy: 'public-build-v1', version: 'test' });
+  }) };
+  const workers = Object.assign(new EventTarget(), { controller, register: async () => ({}) });
+  vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: workers });
+  const fetch = vi.fn<typeof globalThis.fetch>(async () => { order.push('send'); return json(200, []); });
+  const api = onlineClient({ token: async () => { await Promise.resolve(); order.push('token'); return 'jwt'; }, fetch, wait: async () => {} });
+  await api.games(); await api.updateProfile({});
+  fetch.mockImplementationOnce(async () => { order.push('send'); throw new TypeError('lost'); });
+  await api.command(gameId, 0, { type: 'resign' }, 'fixed');
+  expect(order).toEqual(Array.from({ length: 4 }, () => ['token', 'proof', 'send']).flat());
+  expect(new Set(ids).size).toBe(4);
+  expect(fetch.mock.calls.slice(2).map(([, init]) => JSON.parse(init!.body as string).command_id)).toEqual(['fixed', 'fixed']);
+ });
+ it('returns a clear unavailable error without a private send when proof fails', async () => {
+  const controller = { state: 'activated', postMessage: (request: object, ports: MessagePort[]) => ports[0].postMessage({ ...request, policy: 'old', version: 'old' }) };
+  vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: Object.assign(new EventTarget(), { controller, register: async () => ({}) }) });
+  const fetch = vi.fn();
+  await expect(onlineClient({ token: async () => 'jwt', fetch }).games()).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 });
+  expect(fetch).not.toHaveBeenCalled();
  });
  it('drops a view that is not newer, adds the new commands and keeps the rules', () => {
   const local = view(3, [2, 3], { rules: { kings: [] } as never });

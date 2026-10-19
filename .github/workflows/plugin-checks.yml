@@ -80,10 +80,13 @@ jobs:
       - run: npm run plugin:db:init-test
       - run: npx playwright install --with-deps chromium
       - run: npm run check:browser plugin-oauth plugin-ui plugin-ui-http
+      - run: npm run check:browser home account link-game lessons lesson-return workshop workshop-cast
+        env:
+          PLAYABLE_BROWSER: chromium
       - run: npm run check:browser web-online
         env:
           PLAYABLE_BROWSER: chromium
-      - if: failure() || cancelled()
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: check-logs
@@ -124,7 +127,7 @@ jobs:
           KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'
       - run: npm run check:browser plugin-ui
       - run: npm run check:browser web-online
-      - if: failure() || cancelled()
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: webkit-check-logs
@@ -161,7 +164,7 @@ jobs:
       - run: npm run plugin:db:init-test
       - run: npx playwright install --with-deps firefox
       - run: npm run check:browser web-online
-      - if: failure() || cancelled()
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: firefox-check-logs

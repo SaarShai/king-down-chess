@@ -6,6 +6,7 @@
 import type { MyProfile, NotifyKind, ReportCategory, Settings } from '../account/profile';
 import type { Action, CreateOptions, ErrorCode, InboxEntry, Preset, Reply, View } from '../match/protocol';
 import type { InviteLink } from '../api/http';
+import { CachePolicyUnavailable, withPrivateCachePolicy } from './cache-policy';
 
 export type { InviteLink };
 /** One other player: a handle, a game you share with them, or a user ID. */
@@ -31,7 +32,10 @@ export function onlineClient({ token, origin = '', fetch: send = (...args) => fe
   async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
     const bearer = await token();
     if (!bearer) throw new OnlineError('UNAUTHENTICATED', 401, 'Sign in to play online');
-    const response = await send(origin + path, { method, cache: 'no-store', headers: { Authorization: `Bearer ${bearer}`, ...(body !== undefined && { 'Content-Type': 'application/json' }) }, ...(body !== undefined && { body: JSON.stringify(body) }) });
+    const response = await withPrivateCachePolicy(() => send(origin + path, { method, cache: 'no-store', headers: { Authorization: `Bearer ${bearer}`, ...(body !== undefined && { 'Content-Type': 'application/json' }) }, ...(body !== undefined && { body: JSON.stringify(body) }) })).catch(error => {
+      if (error instanceof CachePolicyUnavailable) throw new OnlineError('UNAVAILABLE', 503, error.message);
+      throw error;
+    });
     if (response.status === 204) return undefined as T;
     const value = await response.json().catch(() => null);
     if (!response.ok) throw new OnlineError(value?.code ?? 'UNAVAILABLE', response.status, value?.message ?? `Request failed (${response.status})`);

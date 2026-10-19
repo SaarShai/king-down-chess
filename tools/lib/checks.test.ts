@@ -6,7 +6,7 @@ import { mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { chromium, firefox, webkit } from 'playwright';
-import { env, isInside, launch, outRoot } from './checks.mjs';
+import { env, isInside, launch, launchPersistent, outRoot } from './checks.mjs';
 
 const checkout = resolve(__dirname, '../..');
 let argv1: string;
@@ -86,6 +86,25 @@ describe('launch', () => {
     const help = spawnSync(process.execPath, ['tools/check.mjs', '--help'], { cwd: checkout, encoding: 'utf8' });
     expect(help.status).toBe(0);
     expect(help.stdout.replace(/\s+/g, ' ')).toContain('Use webkit for plugin-ui, plugin-ui-http and web-online, and firefox for web-online only');
+  });
+});
+
+describe('launchPersistent', () => {
+  it.each(['chrome', 'chromium', 'webkit', 'firefox'])('opens a retained %s profile', async channel => {
+    vi.stubEnv('PLAYABLE_BROWSER', channel);
+    const methods = [chromium, webkit, firefox].map(engine => vi.spyOn(engine, 'launchPersistentContext').mockResolvedValue({} as any));
+    const selected = channel === 'webkit' ? 1 : channel === 'firefox' ? 2 : 0;
+    await launchPersistent('/tmp/retained-profile', { headless: true });
+    for (const [index, method] of methods.entries()) {
+      if (index === selected) expect(method).toHaveBeenCalledWith('/tmp/retained-profile', { headless: true, ...(selected === 0 ? { channel } : {}) });
+      else expect(method).not.toHaveBeenCalled();
+    }
+  });
+  it('uses an explicit engine before the setting', async () => {
+    vi.stubEnv('PLAYABLE_BROWSER', 'chromium');
+    const method = vi.spyOn(webkit, 'launchPersistentContext').mockResolvedValue({} as any);
+    await launchPersistent('/tmp/profile', { channel: 'webkit' });
+    expect(method).toHaveBeenCalledWith('/tmp/profile', {});
   });
 });
 
