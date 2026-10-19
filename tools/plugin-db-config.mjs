@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs';
 
-/** Accepts only a disposable loopback PostgreSQL database for browser checks. The errors never hold the URL. */
+/** Accept only a disposable loopback PostgreSQL database. The errors never hold the URL. */
 export function testDatabase(connectionString) {
   if (!connectionString) throw new Error('Set PLUGIN_TEST_DATABASE_URL to a disposable loopback database');
   let db;
   try { db = new URL(connectionString); }
   catch { throw new Error('Expected a PostgreSQL connection URL'); }
-  if (!['postgres:', 'postgresql:'].includes(db.protocol) || !['127.0.0.1', 'localhost', '[::1]'].includes(db.hostname) || !db.pathname.endsWith('_test')) throw new Error('Browser checks require a disposable loopback database ending in _test');
+  if (!['postgres:', 'postgresql:'].includes(db.protocol) || !['127.0.0.1', 'localhost', '[::1]'].includes(db.hostname) || !db.pathname.endsWith('_test')) throw new Error('Source tools and checks require a disposable loopback database ending in _test');
   if (db.search || db.hash) throw new Error('Test database URLs must have no query or fragment');
   return connectionString;
 }

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { pluginDatabaseConfig } from './plugin-db-config.mjs';
 
-const engineHex = engine => typeof engine === 'string' && /^(?:sha256:)?([a-f0-9]{64})$/.exec(engine)?.[1];
+const engineHex = engine => typeof engine === 'string' && /^sha256:([a-f0-9]{64})$/.exec(engine)?.[1];
 const engineRows = counts => [...counts].sort(([a], [b]) => a.localeCompare(b)).map(([engine, games]) => ({ engine, games }));
 
 /** Count bad states without putting saves or game identifiers in the report. */

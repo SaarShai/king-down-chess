@@ -11,6 +11,15 @@ export const ENGINE_STAMP = 'sha256:KINGDOWN_ENGINE_STAMP';
 /** The engine archive: each released worker bundle as `<hex>.mjs`, with a fixture save `<hex>.save.json`. */
 export const ENGINES = fileURLToPath(new URL('../engines/', import.meta.url));
 
+/** Check the save pair before a runtime copies an archive. */
+export async function checkEnginePair(dir, hex, worker) {
+  const bundle = await readFile(resolve(dir, `${hex}.mjs`));
+  const save = JSON.parse(await readFile(resolve(dir, `${hex}.save.json`), 'utf8'));
+  if (save?.schema !== 'kingdown-local-match/1' || save.engine !== `sha256:${hex}`) throw new Error(`Invalid engine fixture: ${hex}`);
+  if (worker && !bundle.equals(worker)) throw new Error('The compiled worker differs from its engine archive');
+  return bundle;
+}
+
 export async function buildRuntime(outDir = resolve('plugin-dist')) {
   const root = fileURLToPath(new URL('../', import.meta.url));
   await rm(outDir, { recursive: true, force: true });
@@ -30,7 +39,7 @@ export async function buildRuntime(outDir = resolve('plugin-dist')) {
   if (text.split(ENGINE_STAMP).length !== 2) throw new Error('The worker bundle must hold the engine stamp exactly once');
   const hex = createHash('sha256').update(text).digest('hex');
   await writeFile(worker, text.replace(ENGINE_STAMP, `sha256:${hex}`));
-  // ponytail: every build archives a new engine in the repository; delete the bundles that you do not release.
+  // Each new worker needs its archive and save in the same commit.
   if (!existsSync(resolve(ENGINES, `${hex}.mjs`))) {
     const { createMatch } = await import(pathToFileURL(resolve(outDir, 'index.mjs')).href);
     const match = await createMatch();
@@ -44,8 +53,12 @@ export async function buildRuntime(outDir = resolve('plugin-dist')) {
     await cp(worker, resolve(ENGINES, `${hex}.mjs`));
     console.log(`New engine ${hex}: commit engines/${hex}.mjs and engines/${hex}.save.json`);
   }
+  await checkEnginePair(ENGINES, hex, await readFile(worker));
   await mkdir(resolve(outDir, 'engines'));
-  for (const file of await readdir(ENGINES)) if (file.endsWith('.mjs')) await cp(resolve(ENGINES, file), resolve(outDir, 'engines', file));
+  for (const file of await readdir(ENGINES)) if (file.endsWith('.mjs')) {
+    await checkEnginePair(ENGINES, file.slice(0, -4));
+    await cp(resolve(ENGINES, file), resolve(outDir, 'engines', file));
+  }
   await writeFile(resolve(outDir, 'package.json'), JSON.stringify({ private: true, type: 'module', engines: { node: '>=20' } }) + '\n');
   return outDir;
 }
