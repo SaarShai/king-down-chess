@@ -90,6 +90,8 @@ try {
     const u = new URL(url); u.searchParams.set('fen', fen);
     await page.goto(u.href);
     await page.waitForFunction(sq => window.view?.pos?.board[sq] > 0, to); // the FEN position has loaded
+    // The board stays hidden, and takes no click, until its art shows (PaintedView F13).
+    await page.evaluate(() => window.view.ready());
     for (const sq of [from, to]) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
     await waitForUi(page, (ui, m) => ui.lan.join(' ').includes(m), move, { timeout: 5000 });
     await page.waitForFunction(() => !window.view.scene.animating, null, { timeout: 5000 });
@@ -102,6 +104,7 @@ try {
     const u = new URL(url); u.searchParams.set('fen', '7k/8/8/3p4/4P3/8/8/K7 w - - 0 1');
     await page.goto(u.href);
     await page.waitForFunction(() => window.view?.pos?.board[35] > 0);
+    await page.evaluate(() => window.view.ready());
     await page.evaluate(v => { const s = document.getElementById('pace'); s.value = v; s.dispatchEvent(new Event('change')); }, pace);
     for (const sq of [28, 35]) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
     const t0 = Date.now(), started = await page.evaluate(() => window.view.scene.animating);
@@ -164,6 +167,7 @@ try {
     const u = new URL(url); u.searchParams.set('fen', '7k/8/8/3p4/4P3/8/8/K7 w - - 0 1'); u.searchParams.set('players', 'human,human');
     await page.goto(u.href);
     await page.waitForFunction(() => window.view?.pos?.board[35] > 0);
+    await page.evaluate(() => window.view.ready());
     for (const sq of [28, 35, 63, 62]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); if (sq === 35 || sq === 62) await endTurn(page); }
     await waitForUi(page, ui => /Kh8-g8/.test(ui.lan.join(' ')));
     const board = () => page.evaluate(() => [28, 35, 62, 63].map(sq => window.view.pos.board[sq] > 0 ? 1 : 0).join(''));
@@ -194,6 +198,7 @@ try {
     const u = new URL(url); u.searchParams.set('fen', '4r1k1/8/8/8/8/8/5PPP/R5K1 w - - 0 1'); u.searchParams.set('players', 'human,human');
     await page.goto(u.href);
     await page.waitForFunction(() => window.view?.pos?.board[60] > 0);
+    await page.evaluate(() => window.view.ready());
     for (const sq of [0, 48, 60, 4]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); if (sq === 48 || sq === 4) await endTurn(page); }
     await openEndReview(page);
     await page.waitForFunction(() => document.querySelector('#over-moments button'), null, { timeout: 15000 });
