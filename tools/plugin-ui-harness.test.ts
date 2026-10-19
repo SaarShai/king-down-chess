@@ -5,6 +5,22 @@ import { join } from 'node:path';
 import { framePolicy, startHarness } from './plugin-ui-harness';
 import { launch, trapErrors } from './lib/checks.mjs';
 
+it('frees a removed iframe after a click inside it', async () => {
+ const browser = await launch({headless:true, channel:process.env.PLAYABLE_BROWSER || 'chromium'});
+ try {
+  const page = await browser.newPage();
+  await page.setContent('<iframe srcdoc="<button>Click</button>"></iframe>');
+  await page.evaluate(() => { (window as any).removedFrame = new WeakRef(document.querySelector('iframe')!); });
+  await page.frameLocator('iframe').getByRole('button').click();
+  await page.evaluate(() => document.querySelector('iframe')!.remove());
+  await page.mouse.move(500,500);
+  await expect.poll(async () => {
+   await page.requestGC();
+   return page.evaluate(() => (window as any).removedFrame.deref() === undefined);
+  }, {timeout:5000}).toBe(true);
+ } finally { await browser.close(); }
+}, 30000);
+
 it('frees the old widget message events after a remount', async () => {
  const folder = await mkdtemp(join(tmpdir(), 'kingdown-harness-retention-'));
  const boardPath = join(folder, 'board.html');
