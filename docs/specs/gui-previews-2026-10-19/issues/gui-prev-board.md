@@ -1,6 +1,6 @@
 # GUI previews 2026-10-19: the board screen and play loop
 
-Status: in-progress
+Status: done
 Type: task
 
 ## Why and the rule
@@ -124,3 +124,37 @@ Taste: “first move” means the first sent move, because this list shows sent 
 The web Take or Shove choice sits below the board when it fits. On a tall board, it sits at the board foot and stays in the viewport. It follows a resize. The dialog keeps its focus and Cancel rules. The unit check covers a phone, desktop, and short viewport. The browser check checks that the target square stays above the choice. The plugin choice already sits at the foot.
 
 Taste: use a 12 px gap and a light 16 percent veil with no blur for this choice. A27 saves its plugin build at `12555419`.
+
+## A8 preview
+
+Normal quiet moves take at most 420 ms. Fast quiet moves take at most 260 ms. The shared renderer sets these limits, including quiet knight and paladin moves. Legal move marks appear together. Resting pawns stay still. The turn button has no flash.
+
+Animations sits beside Sound in Settings. Normal, Fast, and Off stay on this device. Off stops canvas and CSS motion. The system reduced motion setting still holds. The web setting uses the same name.
+
+Taste: Normal is the default. A39 saves its web build at `26690bb5`.
+
+## Check split and visual review
+
+All saved preview assertions pass in run final-2. The combined capture and plugin flow reaches the fixed 420 second limit. The preview now has its own named check, `gui-board-preview`, with a 180 second limit. `plugin-ui` keeps its 420 second limit. Both run through the lane runner.
+
+The 2× review finds one new spacing fault: the Animations label sits 12 px left of Sound. The final A8 change gives both rows the same inner gutter. The preview check measures their text edges.
+
+## Final check results
+
+The seven preview builds are done. Owner approval is still open. The full unit suite is blocked.
+
+- `npx tsc --noEmit`: passes. It also passes in each commit hook.
+- `gui-board-preview`: passes in 119.7 seconds at `2e47f799`. It checks the saved item builds and the final A8 build.
+- `plugin-ui`: passes in 324.6 seconds at `2e47f799`. The lane runner ends with exit 0.
+- `npm test`: cannot start the suite. Another lane holds the shared test lock. The first request stays in the queue for more than 40 minutes. This lane stops only that queued request. A five-second lock retry ends with exit 75. No test time limit is raised. The new unit tests have not run.
+- `plugin-ui-http`: not required. No server code or contract changes.
+- The final MCP board resource payload is 762,291 bytes, below 1,000,000 bytes.
+- There are 88 proof screens, at device scale 2: 44 before and 44 after. The artifact `previews/INDEX.md` links each pair. The base is `bc62f4ee`. The saved builds keep each after screen tied to its item commit.
+
+The final record change also makes a missing saved build fail with a clear error. It cannot label the current board as a before screen. This guard does not change the product.
+
+## 2× review
+
+The review checks the changed marks, words, action targets, spacing, and dialog positions against the seven picks. The turn label first has a 14 px cascade fault; the fix sets it to 16 px. The Animations row first has a 12 px gutter fault; the fix aligns it with Sound. The final screens show no further fault in the changed parts. The selected pawn's ring stays visible above the front king. The frost pips stay sharp. The choice leaves the Ogre, victim, and landing square in view.
+
+No item is left unbuilt. No new bitmap art is needed. Nothing is pushed, merged, or deployed. The required full unit check remains open because of the shared lock.

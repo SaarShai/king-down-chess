@@ -9,22 +9,28 @@ const unregister = register();
 const { startHarness } = await import('../../../tools/plugin-ui-harness.ts');
 const root = process.env.KD_GUI_PREVIEW_ROOT || '/tmp/kd-gui-prev-board-previews';
 const out = join(root, 'previews'); await mkdir(out, { recursive: true });
-const item = process.env.KD_GUI_PREVIEW || JSON.parse(await (await import('node:fs/promises')).readFile(new URL('./capture.json', import.meta.url), 'utf8')).item;
-const all = ['A14','A15','A17','A18','A27','A39','A8'];
+const item = process.argv[3] || process.env.KD_GUI_PREVIEW;
+assert(item, 'Name the preview item');
+assert(['A14','A15','A17','A18','A27','A39','A8'].includes(item), 'Name a board preview item');
 const browser = await chromium.launch({ headless: true });
-let baseline, current, web;
+let current, web;
 const notes = [];
 try {
-  current = await startHarness({ boardPath: join(process.argv[2], 'board.html') });
-  const phases = item === 'base' ? ['before', 'after'] : ['after'];
+  const { existsSync } = await import('node:fs');
+  const snapshot = process.argv[4] === 'before' ? 'base' : item;
+  const saved = join(root, `${snapshot}-plugin/board.html`);
+  const pluginPath = ['A8','A39'].includes(item) && process.argv[4] !== 'before' ? join(process.argv[2], 'board.html') : saved;
+  assert(existsSync(pluginPath), `Missing saved preview build: ${pluginPath}`);
+  current = await startHarness({ boardPath: pluginPath });
+  const savedWeb = join(root, `${snapshot}-web`);
+  if (['A15','A17','A39','base'].includes(snapshot)) {
+    assert(existsSync(savedWeb), `Missing saved web build: ${savedWeb}`);
+    web = await preview({ configFile: false, logLevel: 'error', build: { outDir: savedWeb }, preview: { host: '127.0.0.1', port: 0, strictPort: true } });
+  }
+  const phases = [process.argv[4] || 'after'];
   for (const phase of phases) {
-    const items = phase === 'before' || item === 'all' ? all : [item === 'base' ? 'A14' : item];
-    let pluginURL = current.url, webURL = process.env.PLAYABLE_URL;
-    if (phase === 'before') {
-      baseline = await startHarness({ boardPath: join(root, 'base-plugin/board.html') }); pluginURL = baseline.url;
-      web = await preview({ configFile: false, logLevel: 'error', build: { outDir: join(root, 'base-web') }, preview: { host: '127.0.0.1', port: 0, strictPort: true } });
-      webURL = web.resolvedUrls.local[0];
-    }
+    const items = [item];
+    let pluginURL = current.url, webURL = web?.resolvedUrls.local[0] || process.env.PLAYABLE_URL;
     for (const width of [390,1280]) for (const theme of ['light','dark']) {
       const height = width === 390 ? 844 : 800;
       const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 2, hasTouch: width === 390, colorScheme: theme, serviceWorkers: 'block' });
@@ -64,7 +70,7 @@ try {
             assert.equal(fit.font,'16px'); assert.equal(fit.bold,'700'); assert(fit.fits && fit.height >= 44, JSON.stringify(fit));
           }
         }
-        if (id === 'A15') { await tap(4); await shot(id,'selected-behind'); }
+        if (id === 'A15') { await tap(12); await shot(id,'selected-behind'); }
         if (id === 'A17') {
           await seed('7k/8/8/4p3/8/8/P7/K7 w - - 0 1 me5w2', { rules: { kings: [{king:'Frost',power:'Freeze'},null] } });
           await shot(id,'frozen');
@@ -89,13 +95,20 @@ try {
             await p.setViewportSize({width:width+1,height}); await p.setViewportSize({width,height});
             assert(await f.locator('#recent-moves').isHidden(),'Resize keeps the manual choice');
           }
-          await p.evaluate(() => window.releaseBefore?.()); await ready();
+          await p.evaluate(() => window.releaseBefore?.()); await p.waitForFunction(() => window.harnessInflight === 0); await ready();
         }
         if (id === 'A8') {
           await f.locator('#board-menu').click(); await f.getByRole('button',{name:'Settings',exact:true}).click(); await shot(id,'settings');
           if (phase === 'after') {
             const pace = f.locator('#animations');
-            for (const value of ['fast','off','normal']) { await pace.selectOption(value); assert.equal(await pace.inputValue(),value); }
+            const gap = await f.locator('#animations').evaluate(el => {
+              const left = label => { const range = document.createRange(); range.selectNodeContents(label.firstChild); return range.getBoundingClientRect().left; };
+              return left(el.closest('label')) - left(document.getElementById('sound').closest('label'));
+            });
+            assert(Math.abs(gap) < 1, 'Animations and Sound labels align');
+            for (const value of ['normal','fast','off']) { await pace.selectOption(value); assert.equal(await pace.inputValue(),value); assert.equal(await f.locator('html').getAttribute('data-pace'),value); }
+            await p.locator('#remount').evaluate(b => b.click()); await f.locator('#animations').waitFor({state:'attached'});
+            assert.equal(await f.locator('#animations').inputValue(),'off','The device keeps the setting after a remount');
           }
         }
       }
@@ -109,7 +122,7 @@ try {
       async function tap(sq){ const point=await p.evaluate(sq=>window.view.screenOf(sq),sq);await p.mouse.click(point.x,point.y);await p.waitForTimeout(400); }
       async function shot(id,screen){const file=`${id}-web-${screen}-${width}x${height}-light-${phase}.png`;await p.screenshot({path:join(out,file)});notes.push(file);}
       for(const id of items) {
-        if(id==='A15'){await open('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1');await tap(4);await shot(id,'selected-behind');}
+        if(id==='A15'){await open('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1');await tap(12);await shot(id,'selected-behind');}
         if(id==='A17'){await open('7k/8/8/4p3/8/8/P7/K7 w - - 0 1 me5w2','&kings=Frost:Freeze,none');await shot(id,'frozen');}
         if(id==='A39'){await open('7k/8/8/3p4/3O4/8/8/K7 w - - 0 1');await tap(27);await tap(35);await p.locator('#move-choice[open]').waitFor();await shot(id,'take-shove');if(phase==='after'){const bounds=await p.evaluate(()=>{const b=document.querySelector('#board').getBoundingClientRect(),d=document.querySelector('#move-choice').getBoundingClientRect(),q=window.view.screenOf(35);return {board:b.bottom,top:d.top,bottom:d.bottom,height:innerHeight,target:q.y};});assert(bounds.top>bounds.target && bounds.bottom<=bounds.height,JSON.stringify(bounds));}}
         if(id==='A8'){await open('7k/8/8/8/8/8/P7/K7 w - - 0 1');await p.locator('#menu-btn').click();await p.locator('[data-go="help"]').click();await shot(id,'settings');}
@@ -119,4 +132,4 @@ try {
   }
   await writeFile(join(root,`capture-${item}.json`),JSON.stringify(notes,null,2)+'\n');
   console.log(`Board previews: ${notes.length} screens at device scale 2 (${item}).`);
-} finally { await browser.close(); await baseline?.close(); await current?.close(); await new Promise(resolve => web ? web.httpServer.close(resolve) : resolve()); unregister(); }
+} finally { await browser.close(); await current?.close(); await new Promise(resolve => web ? web.httpServer.close(resolve) : resolve()); unregister(); }

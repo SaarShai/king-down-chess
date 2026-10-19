@@ -862,7 +862,7 @@ function drawEncounter(a,t) {
   if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading)wake(false);
   else{previousTime=0;if(time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
- function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
+ function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&(lively.pawns||typeOf(position.board[selected])!==P)&&fallen?.sq!==selected;}
  function drawLabels() {
   ctx.save();ctx.font='bold 15px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
   for(let sq=0;sq<64;sq++){const v=position.board[sq];if(!v||animation)continue;const p=foot(sq),x=p.x+TILE*.36,y=p.y-TILE*.12;
@@ -997,10 +997,11 @@ function drawEncounter(a,t) {
   /** A see-through copy of a figure standing on `square` (a move preview); for setDecorate. */
   ghost(out,value,square,opacity=.4){if(ready&&value)drawPiece(out,value,poseFor(value,square),opacity);},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
-  play(move,{speed=1,onContact=null,gait=null}={}){
+  play(move,{speed=1,onContact=null,gait=null,quietMs=null}={}){
    lifted=null;
    if(animation&&!animation.done)animation.resolve(false);
    const {base,verb}=plan(move,speed,gait);
+   if(quietMs!==null&&!move.captures.length&&!move.shove&&base.duration>0)base.speed=Math.min(base.speed,quietMs/base.duration);
    return new Promise(resolve=>{animation={...base,resolve,onContact};onStatus(verb);wake();});
   },
   cancel(){endMove();if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();},

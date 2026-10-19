@@ -403,9 +403,6 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
 
 #game-table #table-bar > #end-turn { flex-direction: row; gap: 6px; font-size: 16px; font-weight: 700; white-space: normal; }
 #end-turn .turn-sword { width: 22px; height: 16px; flex-shrink: 0; fill: currentColor; stroke: none; }
-#end-turn.primary { animation: turn-ready 400ms var(--ease-out); }
-@keyframes turn-ready { 50% { filter: brightness(1.3); } }
-@media (prefers-reduced-motion: reduce) { #end-turn.primary { animation: none; } }
 #online-visibility .seg-row label { min-height: 44px; }
 
 /* The piece portrait opens its rules before the context words. */
@@ -417,3 +414,8 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
 #game-table #context-actions:empty { display: none; }
 #app-root #all-rules::after { content: ''; }
 #app-root #all-rules .portrait { display: grid; place-items: center; width: 36px; height: 36px; font-size: var(--fs-xl); }
+
+:root[data-pace='off'] *, :root[data-pace='off'] *::before, :root[data-pace='off'] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+:root[data-pace='off'] #app-root :is(button, label):active { transform: none !important; }
+
+#settings-sheet .fields label:has(#animations) { min-height: 44px; padding-inline: 12px; }

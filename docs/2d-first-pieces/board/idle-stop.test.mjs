@@ -46,3 +46,22 @@ test('with passive effects lively (resting pawns, a selected pawn), the draw loo
   assert.ok(run(20000)<=again+5100,'a new change wakes it for five seconds again, then it stops');
  }finally{globalThis.setTimeout=realSetTimeout;}
 });
+
+test('quiet pawn, rook, knight and paladin moves keep the Normal and Fast limits',async()=>{
+ for(const quietMs of [420,260])for(const value of [P,R,N,L]){
+  const scene=createScene({canvas:canvas(),pieces:{P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName},kings:['plain','plain']});
+  await scene.load().catch(()=>{});scene.setLively({moves:true});
+  const pos=createPosition('king');pos.board=Array(64).fill(0);pos.board[8]=value;scene.setPosition(pos);
+  let done=false;const play=scene.play({from:8,to:48,captures:[]},{quietMs});play.then(()=>{done=true;});
+  run(quietMs-40);await Promise.resolve();assert.equal(done,false,'the move has not snapped');
+  run(80);await play;assert.equal(done,true,'the move ends within its limit plus one frame');
+ }
+});
+
+test('pawns stay still when their idle motion is off, including a selected pawn',async()=>{
+ const scene=createScene({canvas:canvas(),pieces:{P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName},kings:['plain','plain']});
+ await scene.load().catch(()=>{});scene.setLively({moves:true,idle:true,pawns:false,kings:false});
+ const pos=createPosition('king');pos.board=Array(64).fill(0);pos.board[8]=P;scene.setPosition(pos);scene.setSelected(8);
+ run(300);const framesBefore=scene.frames;run(1000);
+ assert.deepEqual(scene.pawns,{resting:0,acting:0});assert.equal(scene.frames,framesBefore,'no idle pawn schedules a frame');
+});

@@ -36,6 +36,7 @@ export const checks = [
   { name: 'plugin-oauth', script: 'tools/plugin-browser-check.mjs', args: ['oauth'], limit: 240, channel: 'chromium', byName: true, exclusive: true },
   { name: 'w6-parts', script: 'tools/verify-w6-parts.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'plugin-ui', script: 'tools/plugin-browser-check.mjs', args: ['fixture'], limit: 420, channel: 'chromium', byName: true },
+  { name: 'gui-board-preview', script: 'tools/plugin-browser-check.mjs', args: ['preview'], limit: 180, channel: 'chromium', byName: true },
   { name: 'plugin-ui-http', script: 'tools/plugin-browser-check.mjs', args: ['http'], limit: 480, channel: 'chromium', byName: true, exclusive: true },
   { name: 'web-online', script: 'tools/web-online-check.mjs', limit: 480, byName: true, exclusive: true },
   { name: 'selftest-dirty', script: 'tools/check-selftest-dirty.mjs', limit: 30, byName: true },

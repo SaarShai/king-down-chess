@@ -72,7 +72,7 @@ export interface PaintedScene {
   /** onContact fires once when the strike lands (not for plain moves or swaps). */
   /** speed scales duration: 2 is half playback speed; 0.5 is double. */
   /** gait: play a quiet move with this gait (a GAITS name) even when `moves` is off. */
-  play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null }): Promise<boolean>;
+  play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null; quietMs?: number | null }): Promise<boolean>;
   cancel(): void;
 }
 export function createScene(options: {

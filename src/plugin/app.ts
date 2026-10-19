@@ -8,7 +8,8 @@ import { CANNOT_CONNECT, createClient, errorText, knownScreen, SELECTION_TOOLS, 
 import { art } from './art';
 import { handleProblem, ICONS, type Icon } from '../account/profile';
 import { boardScreen, rollbackBoardMove } from './screens/board';
-import { setSettings } from './board-view';
+import { animations, setAnimations, setSettings } from './board-view';
+import type { Pace } from '../render/PaintedView';
 import { setSound, snd } from '../render/sfx';
 import { runPoll, type PollTarget } from './poll';
 import { createRouter } from './router';
@@ -638,6 +639,8 @@ $<HTMLInputElement>('sound').onchange = event => {
   const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession; if (session) session.type = 'ambient';
   if (on) snd.move();
 };
+$<HTMLSelectElement>('animations').value = animations;
+$<HTMLSelectElement>('animations').onchange = () => setAnimations($<HTMLSelectElement>('animations').value as Pace);
 async function applySettings() {
   if (!memory.settings) return;
   actions();
