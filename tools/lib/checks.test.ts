@@ -6,9 +6,11 @@ import { mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { chromium, webkit } from 'playwright';
-import { env, isInside, launch, outRoot } from './checks.mjs';
+import { env, isInside, launch, outRoot, trapErrors } from './checks.mjs';
 
 const checkout = resolve(__dirname, '../..');
+// The browser of the suite, read before beforeEach clears the setting.
+const suiteBrowser = process.env.PLAYABLE_BROWSER || 'chromium';
 let argv1: string;
 
 beforeEach(() => {
@@ -129,6 +131,29 @@ describe('isInside', () => {
     expect(isInside(checkout, join(temp, 'link', 'renders'))).toBe(true);
     expect(isInside(join(temp, 'link'), join(checkout, 'docs'))).toBe(true);
   });
+});
+
+describe('trapErrors', () => {
+  // Playwright holds a handle to each console argument, and the page keeps the object until the handle is disposed.
+  // A long check page that kept every logged object crashed CI WebKit (chatgpt-mvp ticket 53).
+  it('lets the page free an object that it logged', async () => {
+    const browser = await launch({ headless: true, channel: suiteBrowser });
+    try {
+      const page = await browser.newPage();
+      trapErrors(page);
+      // The browser also keeps its last console messages (Chromium 1000, WebKit 100), so more lines push the object out.
+      await page.evaluate(() => {
+        const logged = { name: 'logged' };
+        (window as any).loggedRef = new WeakRef(logged);
+        console.log('object', logged);
+        for (let i = 0; i < 1100; i++) console.log(`line ${i}`);
+      });
+      await expect.poll(async () => {
+        await page.requestGC();
+        return page.evaluate(() => (window as any).loggedRef.deref() === undefined);
+      }, { timeout: 10_000 }).toBe(true);
+    } finally { await browser.close(); }
+  }, 30_000);
 });
 
 it('env refuses an unknown setting', () => {
