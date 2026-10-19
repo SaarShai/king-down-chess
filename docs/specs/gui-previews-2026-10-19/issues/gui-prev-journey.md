@@ -134,3 +134,15 @@ Run the type check, unit tests and the named browser runner. Keep the page below
 ## Results
 
 Base: bc62f4eec18f58b9e99c426422e362a6b5a8dc56
+
+### A4
+
+One Start game button stays in setup. Friend setup says Create invite. Saved games open from a count row. Home keeps quick play. Tests cover the start labels, the folded row and quick-start recovery. Type check passes.
+
+Taste: use the native disclosure mark and the current row style.
+
+### A6
+
+Guide opens the six current lessons. A separate board holds each lesson. It sends no game command. Return to game keeps the live game. Resign is last with a 16 px gap. The web confirm gives Keep playing the main style. Tests cover each lesson goal, live rules and the return path.
+
+Taste: use the current joined shelf in three columns. Use the current board art and rule text.

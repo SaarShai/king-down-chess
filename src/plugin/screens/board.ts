@@ -20,6 +20,7 @@ import { nextGame } from '../next-game';
 import { actionButtons, playerBlockButton } from './board-actions';
 import { guardEndTaps, updateEnd } from './end';
 import { applyLan, boardActions, cardCoins, draftChoices, draftTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
+import { guide } from './guide';
 import './board.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 type Choice = { lan: string; move: Move };
@@ -57,7 +58,7 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   }
   const opener = sheet.contains(document.activeElement) ? sheetFocus : document.activeElement as HTMLElement;
   closeBoardSheet(); sheetFocus = opener;
-  sheet.classList.remove('board-menu');
+  sheet.classList.remove('board-menu', 'board-guide');
   sheet.innerHTML = '<header class="sheet-head"><h2 id="board-sheet-title"></h2><button aria-label="Close">×</button></header><div class="sheet-body"></div>';
   sheet.querySelector('h2')!.textContent = title; sheet.querySelector('button')!.onclick = closeBoardSheet;
   sheet.querySelector('.sheet-body')!.append(...nodes); scrim.hidden = false; document.querySelector<HTMLElement>('.page-sheet')!.inert = true; sheet.show(); sheet.querySelector('button')!.focus({preventScroll:true});
@@ -452,7 +453,9 @@ export function boardScreen(store: Store) {
     const chooseMove = button('Choose a move', () => boardSheet('Choose a move', $('choices'))); chooseMove.className = 'game-action';
     const actions = [chooseMove, ...view ? [...actionButtons(view, Date.now() - readAt, refused, true), ...playerBlockButton(view)] : []];
     for (const action of actions) action.disabled = networkBlocked();
-    boardSheet('Menu', button('Moves', showMoves), ...actions, button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('invite'), $('invitation'));
+    const resign = actions.find(action => action.id === 'menu-resign');
+    const learn = button('Guide', guide); learn.id = 'menu-guide';
+    boardSheet('Menu', button('Moves', showMoves), learn, ...actions.filter(action => action !== resign), button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('invite'), $('invitation'), ...resign ? [resign] : []);
     sheet.classList.add('board-menu');
   };
   function showMoves() { boardSheet('Moves', ...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No moves shown yet.')]); $('moves-line').setAttribute('aria-expanded', 'true'); }

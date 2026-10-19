@@ -5,6 +5,9 @@ import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { startHarness } from './plugin-ui-harness';
+import { LESSONS } from '../src/lessons';
+import { lessonMoves, lessonPosition } from '../src/plugin/screens/guide-model';
+import { toLan } from '../src/rules/setup';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string;
 let harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -2480,3 +2483,37 @@ it('recovers a lost seat Ready before the computer makes the first move after re
   } finally { await page.close(); await isolated.close(); }
 });
 
+it('opens six Guide lessons and returns to the same game without a write', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await hall(page);
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } });
+    });
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    const before = await page.evaluate(() => (window as any).harnessView);
+    const calls = await page.evaluate(() => (window as any).harnessCalls.length);
+    await frame.locator('#board-menu').click();
+    const menu = frame.locator('#board-sheet');
+    expect(await menu.locator('.sheet-body > button').last().getAttribute('id')).toBe('menu-resign');
+    expect(await menu.locator('#menu-resign').evaluate(el => parseFloat(getComputedStyle(el).marginTop))).toBeGreaterThanOrEqual(16);
+    await frame.locator('#menu-guide').click();
+    expect(await frame.locator('.shelf-piece').count()).toBe(6);
+    expect(await frame.locator('.shelf-piece').first().evaluate(el => getComputedStyle(el).boxShadow)).toBe('none');
+    expect(await frame.locator('.shelf-line').first().evaluate(el => getComputedStyle(el).paddingInlineStart)).toBe('8px');
+    for (let i = 0; i < 6; i++) {
+      await frame.locator(`.shelf-piece[data-lesson="${i}"]`).click();
+      await frame.locator('#lesson-board canvas').waitFor();
+      const position = lessonPosition(i), move = lessonMoves(i).find(move => LESSONS[i].goal(position, move))!;
+      await frame.locator('#lesson-board').press('Enter');
+      await frame.locator(`[data-lesson-move=${JSON.stringify(toLan(position, move))}]`).click();
+      expect(await frame.locator('#lesson-task').innerText()).toBe(LESSONS[i].done);
+      await menu.locator('.sheet-body > button').filter({ hasText: /^Guide$/ }).click();
+    }
+    await menu.getByRole('button', { name: 'Return to game', exact: true }).click();
+    expect(await page.evaluate(() => (window as any).harnessView)).toEqual(before);
+    expect(await page.evaluate(calls => (window as any).harnessCalls.slice(calls).filter((c: any) => c.name !== 'kingdown_get'), calls)).toEqual([]);
+    expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
+  } finally { await page.close(); }
+});

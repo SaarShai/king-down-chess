@@ -1,0 +1,10 @@
+#board-sheet.board-guide .sheet-body > div { min-width: 0; }
+#board-sheet.board-guide .shelf-list { grid-template-columns: repeat(3, minmax(0, 1fr)); --sq: 74px; --fig-h: 104px; }
+#board-sheet.board-guide .shelf-list li:nth-child(n)::after { border-radius: 0; }
+#board-sheet.board-guide .shelf-list li:nth-child(3n + 1)::after { border-radius: 5px 0 0 5px; }
+#board-sheet.board-guide .shelf-list li:nth-child(3n)::after { border-radius: 0 5px 5px 0; }
+.plugin-lesson p { margin: 0 0 8px; }
+#lesson-board { display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 1; max-height: 400px; }
+.lesson-choices { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.lesson-choices:empty { display: none; }
+#board-sheet.board-guide .shelf-line { padding-inline: 8px; overflow-wrap: anywhere; }

@@ -1,3 +1,4 @@
+import { checkGuide } from './lib/plugin-guide-check.mjs';
 import { checkAndroidFixes } from './lib/plugin-android-check.mjs';
 import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
@@ -2448,7 +2449,7 @@ try {
     await tapCentre(button);
     await zoomViewport(viewport.width,viewport.height,0,0);
   }
-  await legacyStart('solo'); await frame.locator('#board-menu').click(); await sheetLabelsCentered('menu'); await frame.locator('#menu-resign').click(); await sheetLabelsCentered('resign');
+  await legacyStart('solo'); await checkGuide(page, frame); await frame.locator('#board-menu').click(); await sheetLabelsCentered('menu'); await frame.locator('#menu-resign').click(); await sheetLabelsCentered('resign');
   await frame.locator('#board-sheet h2').filter({hasText:'Lay your king down?'}).waitFor({timeout: 3000 * STEP});
   assert.equal(await page.evaluate(()=>window.harnessView.status),'playing','Resign waits for its confirm');
   await frame.locator('#board-sheet').getByRole('button',{name:'Keep playing',exact:true}).click();

@@ -334,7 +334,7 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
 :where(#app-root) :is(button:not(:where(.coin)), select, input:not([type='radio'], [type='checkbox']), label:has(> input)) {
   min-width: var(--tap); min-height: var(--tap);
 }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])) {
+#app-root :is(button:not(:where(.coin, .shelf-piece, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])) {
   --brick-face: var(--stone-100);
   --brick-edge: var(--stone-700);
   --brick-ring: transparent;
@@ -348,29 +348,29 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
   box-shadow: 0 4px 0 var(--brick-edge), inset 0 0 0 1px var(--brick-edge), inset 0 3px 0 var(--brick-top), inset 2px 0 0 var(--brick-top), inset -2px 0 0 var(--brick-side), inset 0 -3px 0 var(--brick-side), inset 0 0 0 2px var(--brick-ring);
   transition: transform 80ms ease-out;
 }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox']))[aria-pressed='true'] {
+#app-root :is(button:not(:where(.coin, .shelf-piece, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox']))[aria-pressed='true'] {
   --brick-ring: var(--stone-700);
   --brick-top: var(--gold-bright);
 }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):nth-of-type(3n + 1) { --grain-position: 20% 60%; }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):nth-of-type(3n + 2) { --grain-position: 80% 85%; }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):is(:has(> input:checked), [aria-checked='true']) {
+#app-root :is(button:not(:where(.coin, .shelf-piece, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):nth-of-type(3n + 1) { --grain-position: 20% 60%; }
+#app-root :is(button:not(:where(.coin, .shelf-piece, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):nth-of-type(3n + 2) { --grain-position: 80% 85%; }
+#app-root :is(button:not(:where(.coin, .shelf-piece, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):is(:has(> input:checked), [aria-checked='true']) {
   --brick-face: var(--stone-700); --brick-ring: var(--gold-bright);
   --ink-soft: var(--vellum); --fg-soft: var(--vellum);
   color: var(--vellum); background-blend-mode: multiply;
   box-shadow: inset 0 0 0 3px var(--brick-ring), inset 0 5px 6px var(--stone-900);
 }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])).primary {
+#app-root :is(button:not(:where(.coin, .shelf-piece, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])).primary {
   --brick-face: var(--accent); --brick-edge: var(--accent-deep);
   color: var(--vellum); background-blend-mode: multiply;
   --brick-top: var(--accent-bright); --brick-side: var(--accent-deep);
 }
 #app-root button.primary :is(.line, small) { color: inherit; }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):not(:disabled, [aria-disabled='true'], :has(button:active)):active {
+#app-root :is(button:not(:where(.coin, .shelf-piece, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):not(:disabled, [aria-disabled='true'], :has(button:active)):active {
   transform: translateY(4px);
   box-shadow: inset 0 2px 0 var(--brick-edge), inset 0 0 0 2px var(--brick-ring);
 }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):is(:disabled, [aria-disabled='true'], :has(> input:disabled)) {
+#app-root :is(button:not(:where(.coin, .shelf-piece, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):is(:disabled, [aria-disabled='true'], :has(> input:disabled)) {
   --ink-soft: rgb(91 80 69 / 75%); --fg-soft: rgb(91 80 69 / 75%);
   color: var(--ink-soft); background: var(--stone-100); border-color: var(--stone-300);
   box-shadow: none; transform: none; opacity: 1;
