@@ -23,6 +23,15 @@ export function cardCoins(pos: Position, side: Color, hand: readonly CardName[],
     return { card, spent, moves: spent ? [] : moves.filter(move => move.power && (move.via === 'mirrorb' ? card === 'MirrorB' : !move.via && TAG_POWER[move.power] === card)) };
   });
 }
+/** An empty line means that the card can be used now. */
+export function cardUseReason(coin: { spent: boolean; moves: readonly Move[] }, side: Color, view: Pick<View, 'seat' | 'status'>, pos: Pick<Position, 'turn'>, ready: boolean): string {
+  if (coin.spent) return 'This card is spent.';
+  if (side !== view.seat) return "This is your opponent's card.";
+  if (view.status !== 'playing') return 'This game has ended.';
+  if (pos.turn !== view.seat) return 'Use this card on your turn.';
+  if (!ready) return 'Wait for the current action to finish.';
+  return coin.moves.length ? '' : 'This card has no move now.';
+}
 export function applyLan(pre: Position, lan: string, rules: Partial<Rules>, legal?: readonly string[]): BoardMove | undefined {
   if (legal && !legal.includes(lan)) return;
   setRules(rules);

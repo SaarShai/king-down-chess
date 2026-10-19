@@ -22,7 +22,7 @@ import { locks, noticeShows, pendingHere, staleRead, type Page, type Store } fro
 import { nextGame } from '../next-game';
 import { actionButtons, playerBlockButton } from './board-actions';
 import { guardEndTaps, updateEnd } from './end';
-import { applyLan, boardActions, cardCoins, draftChoices, draftTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
+import { applyLan, boardActions, cardCoins, cardUseReason, draftChoices, draftTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 import './board.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 type Choice = { lan: string; move: Move };
@@ -290,7 +290,9 @@ export function boardScreen(store: Store) {
       const nodes: HTMLElement[] = [window, text(ruleLine(cardText(card)))], diagram = cardDiagram(card);
       if (diagram) { const picture = document.createElement('div'); picture.className = 'card-diagram'; picture.innerHTML = diagram; nodes.push(picture); }
       const coin = cardCoins(pos,side,RULES.hands[side],moves.map(c=>c.move))[index];
-      if (side === view.seat && canPlay() && !coin.spent && coin.moves.length) nodes.push(button('Use', () => {
+      const reason = cardUseReason(coin, side, view, pos, canPlay());
+      if (reason) { const note = text(reason); note.className = 'card-reason'; nodes.push(note); }
+      else nodes.push(button('Use', () => {
         if (!canPlay()) return;
         armed = undefined; armedCard = index; selected = inspected = held = undefined; closeBoardSheet(); choices(cardChoices()); refresh();
       }));

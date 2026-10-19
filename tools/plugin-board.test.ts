@@ -1883,3 +1883,16 @@ it.each(['Strike', 'MorphP'] as const)('shows the Collection face in the %s boar
     expect(await frame.locator(`#collection-items [data-card="${card}"] .cf-art`).evaluate(picture)).toEqual(face);
   } finally { await page.close(); }
 });
+
+it('explains why a card sheet has no Use button', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [['MirrorB'], ['Freeze']] })), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#card-w-0').click();
+    expect(await frame.locator('#board-sheet .card-reason').textContent()).toBe('This card has no move now.');
+    expect(await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).count()).toBe(0);
+    await frame.locator('#board-sheet [aria-label="Close"]').click();
+    await frame.locator('#card-b-0').click();
+    expect(await frame.locator('#board-sheet .card-reason').textContent()).toBe("This is your opponent's card.");
+    expect(await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).count()).toBe(0);
+  } finally { await page.close(); }
+});

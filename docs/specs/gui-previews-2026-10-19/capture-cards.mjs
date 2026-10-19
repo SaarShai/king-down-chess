@@ -7,7 +7,7 @@ register();
 const { startHarness } = await import('../../../tools/plugin-ui-harness.ts');
 const { DEFAULT_OPTIONS } = await import('../../../src/match/setup.ts');
 const { RULES, setRules, legalMoves } = await import('../../../src/rules/engine.ts');
-const { fromFen, toLan } = await import('../../../src/rules/setup.ts');
+const { fromFen, toFen, toLan } = await import('../../../src/rules/setup.ts');
 const [out, phase, build, only] = process.argv.slice(2);
 await mkdir(out, { recursive: true });
 const wanted = item => !only || only.split(',').includes(item);
@@ -15,10 +15,15 @@ const webOnly = process.argv.includes('--web-only');
 const browser = await chromium.launch({ headless: true });
 let harness, web;
 try {
-  harness = await startHarness({ boardPath: resolve(build, 'board.html'), sourcePage: true });
+  harness = await startHarness({ boardPath: resolve(build, 'board.html'), sourcePage: !process.argv.includes('--built') });
   for (const [width, height] of (webOnly ? [] : [[390,844],[1280,800]])) for (const theme of ['light','dark']) {
     const ctx = await browser.newContext({ viewport: {width,height}, deviceScaleFactor: 2, colorScheme: theme, isMobile: width === 390, hasTouch: width === 390, serviceWorkers: 'block' });
     const p = await ctx.newPage(); p.setDefaultTimeout(10000);
+    let sampleView;
+    if (process.argv.includes('--built')) await p.route('**/fixture-tool', async route => {
+      if (sampleView && route.request().postDataJSON()?.name === 'kingdown_get') await route.fulfill({json:{content:[],structuredContent:{game_id:sampleView.game_id},_meta:{view:sampleView}}});
+      else await route.continue();
+    });
     await p.addInitScript(theme => { window.harnessHostContext = {theme,displayMode:'fullscreen'}; }, theme);
     await p.goto(harness.url); const f = p.frameLocator('iframe');
     await f.locator('#home-play:not(:disabled)').waitFor({state:'attached'});
@@ -57,9 +62,12 @@ try {
       }
     }
     async function board(hands, extra={}) {
-      setRules({hands}); const fen='7k/6p1/8/8/8/8/P7/KN5R w - - 0 1',pos=fromFen(fen);
+      setRules({hands}); const pos=fromFen('7k/6p1/8/8/8/8/P7/KN5R w - - 0 1');
+      if (extra.spent) pos.used=[1,0];
+      const fen=toFen(pos);delete extra.spent;
       const next={game_id:crypto.randomUUID(),revision:0,created_at:'2026-10-19T00:00:00Z',abort_open:false,seat:0,kind:'solo',speed:'daily',days_per_move:3,status:'playing',turn:0,action:'ready',fen,in_check:false,legal:legalMoves(pos).map(m=>toLan(pos,m)),last_commands:[],opponent:{handle:null,icon:null,computer:true,deleted:false,last_seen_ms:null},draw_offer:null,deadline_at:null,server_now:'2026-10-19T00:00:00Z',rules:structuredClone(RULES),...extra};
-      await f.locator('html').evaluate((_,next)=>window.harnessApp.routeView(next),next);
+      if (process.argv.includes('--built')) {sampleView=next;await p.evaluate(view=>window.harnessShow({content:[],structuredContent:{screen:'board',game_id:view.game_id},_meta:{view,board_id:'card-preview'}},true),next);}
+      else await f.locator('html').evaluate((_,next)=>window.harnessApp.routeView(next),next);
       await f.locator('#board[aria-busy="false"]').waitFor();
     }
     for(const item of ['A5','A16','A33','A35'].filter(wanted)) {
@@ -70,10 +78,13 @@ try {
         await f.locator(`#card-w-${i}`).click(); await shot(item,`card-read-${i}`); await f.locator('#board-sheet [aria-label="Close"]').click();
       }
       if(item==='A16'||item==='A35') {
-        await board([['Curse','MirrorB','MorphP','FireStarter'],['Burn','Rally','Control','EarthQuake']]);
-        await f.locator('#card-w-1').click(); await shot(item,'card-no-move'); await f.locator('#board-sheet [aria-label="Close"]').click();
+        await board(item==='A35'?[['MirrorB'],['Burn']]:[['Curse','MirrorB','MorphP','FireStarter'],['Burn','Rally','Control','EarthQuake']]);
+        await f.locator(item==='A35'?'#card-w-0':'#card-w-1').click(); await shot(item,'card-no-move'); await f.locator('#board-sheet [aria-label="Close"]').click();
       }
-      if(item==='A35') { await f.locator('#card-b-0').click(); await shot(item,'card-opponent'); await f.locator('#board-sheet [aria-label="Close"]').click(); }
+      if(item==='A35') {
+        await f.locator('#card-b-0').click(); await shot(item,'card-opponent'); await f.locator('#board-sheet [aria-label="Close"]').click();
+        await board([['MirrorB'],['Burn']],{spent:true});await f.locator('#card-w-0').click();await shot(item,'card-spent');await f.locator('#board-sheet [aria-label="Close"]').click();
+      }
     }
     await ctx.close();
   }

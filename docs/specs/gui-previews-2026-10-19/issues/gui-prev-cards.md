@@ -92,3 +92,9 @@ Taste: use cream line symbols on the dark coins. Use stone and parchment for the
 Checks: the type check passes. New tests cover all dealt card symbols and pictures. The board test checks the symbol size and the spent state. The browser check requires twelve paintings, nine rule pictures and no letter pairs. A16 captures show that the sheet and Collection use the same face.
 
 A33 visual repairs: the first 2x review finds low contrast on the opponent's pale coin. Its symbol now uses dark ink. Your dark coin keeps cream. Burn, Fire Starter and Control now show a knight, since those cards cannot use a pawn. Tests cover both repairs.
+
+## A35 preview
+
+A card sheet with no Use action shows one short reason. It covers a spent card, an opponent's card, a game that has ended, the other turn, an action in progress and no move now. A usable card keeps Use and has no reason line. Unit tests cover all seven states. A board test checks the no-move and opponent sheets.
+
+Taste: use a plain sentence below the rule. Keep the current body type. Add no badge, cost or disabled button.
