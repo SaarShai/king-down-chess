@@ -98,6 +98,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     if (board) await service.selectBoard(actorId, board, view.game_id);
     return reply(view, board);
   }
+  const recordText = ({ rating, totals: { played, won, drawn, lost }, badges }: Awaited<ReturnType<typeof service.record>>) => `Rating ${Math.round(rating.rating)}${rating.provisional ? '?' : ''}; ${played} played, ${won} won, ${drawn} drawn, ${lost} lost; ${badges.length} badge${badges.length === 1 ? '' : 's'}.`;
   const home = async (board?: string): Promise<Reply> => { const { handle, icon } = await service.profile(actorId); return { content: text('King Down. Start a game from Play.'), structuredContent: { screen: 'home' }, _meta: { ...(board && { board_id: board }), me: { handle, icon } } }; };
   /** The most urgent game, or home when no game is open. */
   async function next(): Promise<View | null> {
@@ -117,7 +118,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   };
   const optional = { game_id: gameId, command_id: command.command_id.optional(), expected_revision: command.expected_revision.optional() };
 
-  register('kingdown_open', 'Use this when the player says "play King Down", wants to open a game, says "join King Down game K7QX2M", or says "show my King Down profile". Use code to preview a join; a short-code preview counts toward the hourly limit. Use screen "profile" for the profile page. Each open stores a new board record. Opens home with no new game; game_id or "next" selects a game.',
+  register('kingdown_open', 'Use this when the player says "play King Down", wants to open a game, says "join King Down game K7QX2M", or says "show my King Down profile". Use code to preview a join; a short-code preview counts toward the hourly limit. Use screen "profile" for the profile page. Each open stores a new board record. Opens home with no new game; game_id or "next" selects a game. Give the player the reply text: the number of games that wait for their move, or on the profile screen the rating, totals and badge count.',
     { screen: z.enum(['home', 'play', 'board', 'profile']).optional(), game_id: z.union([gameId, z.literal('next')]).optional(), code: z.string().min(1).max(300).optional() }, { visibility: ['model', 'app'], idempotent: false, meta: { 'openai/ui': { entrypoints: [{ type: 'thread' }, { type: 'global' }] } } }, async args => {
       const preview = args.code ? await service.preview(actorId, args.code) : undefined;
       const view = preview ? null : args.game_id === 'next' ? await next() : args.game_id ? await service.view(actorId, args.game_id) : null;
@@ -125,13 +126,14 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const games = await service.inbox(actorId), count = games.filter(game => game.action === 'ready').length;
       const result = view ? await reply(view, board) : await home(board);
       result.structuredContent = { ...result.structuredContent, screen: preview ? 'join' : args.screen === 'board' && !view ? 'home' : args.screen ?? (view ? 'board' : 'home'), your_turn_count: count };
-      if (!view) result.content = text(`Your move in ${count} game${count === 1 ? '' : 's'}.`);
+      if (args.screen === 'profile') result.content = text(recordText(await service.record(actorId)));
+      else if (!view) result.content = text(`Your move in ${count} game${count === 1 ? '' : 's'}.`);
       const settings = await service.settings(actorId);
       result._meta = { ...result._meta, games, settings, ...(preview && { preview }) };
       if (preview) result.content = text('Review the game features before you join.');
       return result;
     });
-  register('kingdown_create', 'Use this when the player wants a new King Down game against the computer, a friend or a random player. Choose the features, colour and computer level. Without options, uses the last setup options, then the default options. A random game joins the oldest open game with the same Fairy pieces, Arrangement, Classic, Cards and King powers switches (any_rules: any open game), else opens a new table; the colour applies only to a new table. A board_id also changes that board’s selected game.',
+  register('kingdown_create', 'Use this when the player wants a new King Down game against the computer, a friend or a random player. Choose the features, colour and computer level. Without options, uses the last setup options, then the default options. A random game joins the oldest open game with the same Fairy pieces, Arrangement, Classic, Cards and King powers switches (any_rules: any open game), else opens a new table; the colour applies only to a new table. A board_id also changes that board’s selected game. With no board_id, then call kingdown_open with the new game_id, so the player makes the setup choices on the board.',
     { kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(), any_rules: z.boolean().optional(),
       // RV5-3: the model sees this field, so it must know that one ID names one request.
       command_id: command.command_id.optional().describe('For the King Down board only: leave it out. The same value with other input gives COMMAND_CONFLICT.'), board_id: boardId },
@@ -221,8 +223,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   // ChatGPT tells connected accounts apart by this ID; an invalid reply can stop the account from connecting.
   register('kingdown_profile', 'Use this when the player asks for their King Down rating, totals or badges in text. Give the rating, the totals and the badge count from the reply. For "show my King Down profile", open kingdown_open with screen "profile".', { before: z.string().max(100).optional(), blocks_after: z.uuid().optional() }, { visibility: ['model', 'app'], readOnly: true, meta: { 'openai/profile': true }, output: { id: z.string(), name: z.string().optional() } }, async args => {
     const [{ user_id, handle, icon }, record, history, blocks] = await Promise.all([service.profile(actorId), service.record(actorId), service.history(actorId, args.before), service.blocks(actorId, args.blocks_after)]);
-    const { played, won, drawn, lost } = record.totals;
-    return { content: text(`Rating ${Math.round(record.rating.rating)}${record.rating.provisional ? '?' : ''}; ${played} played, ${won} won, ${drawn} drawn, ${lost} lost; ${record.badges.length} badge${record.badges.length === 1 ? '' : 's'}.`), structuredContent: { id: user_id, ...(handle && { name: handle }) }, _meta: { handle, icon, record, blocks: blocks.slice(0, 50), next_blocks_after: blocks.length > 50 ? blocks[49].user_id : null, history: history.games, next_before: history.next_before } };
+    return { content: text(recordText(record)), structuredContent: { id: user_id, ...(handle && { name: handle }) }, _meta: { handle, icon, record, blocks: blocks.slice(0, 50), next_blocks_after: blocks.length > 50 ? blocks[49].user_id : null, history: history.games, next_before: history.next_before } };
   });
   return server;
 }

@@ -126,6 +126,10 @@ jobs:
         env:
           KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'
       - run: npm run check:browser plugin-ui
+        env:
+          # The browser's own output goes to the check log, so a WebKit crash or memory kill names its reason
+          # (chatgpt-mvp ticket 53: run 39230893586 crashed with no reason; WebKit kills its page at 8192 MB).
+          DEBUG: pw:browser
       - run: npm run check:browser web-online
       - if: always()
         uses: actions/upload-artifact@v4

@@ -86,4 +86,8 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(webkit).toContain('- run: npm run check:browser plugin-ui');
     expect(webkit).toContain('name: webkit-check-logs');
   });
+
+  it('writes the WebKit browser output to the plugin-ui log, so a crash names its reason', () => {
+    expect(job('browser-webkit')).toMatch(/- run: npm run check:browser plugin-ui\n\s+env:\n(\s+#.*\n)*\s+DEBUG: pw:browser\n/);
+  });
 });
