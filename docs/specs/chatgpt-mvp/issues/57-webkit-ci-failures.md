@@ -171,3 +171,30 @@ sets the three names: `WPEWebProcess`, `WPENetworkProcess`, and `WPEGPUProcess`.
 
 The shared test queue delays the focused test. Apply the confirmed fix
 before that test starts. No test result from before the fix is claimed.
+
+## Review fix results
+
+Review fix status: done.
+
+- Review A, P1: confirmed and fixed in `121d3e1f`. The filter accepts
+  `WPEWebProcess`, `WPENetworkProcess`, and `WPEGPUProcess`. It keeps the
+  original process names. The test requires all seven names and compares
+  every process row, so it detects missing or extra rows.
+- Review B: the supplied text is `undefined`. It has no finding to check.
+- `bash -n tools/ci/webkit-sampler.sh` passes.
+- The focused sampler test passes: one file, one test. It uses the shared
+  test lock. Its log is `fix-sampler-unit.txt` in the supplied lane folder.
+- WebKit `plugin-ui` passes on this Mac in 355.9 s at `121d3e1f`.
+  The supplied runner reports `check-runner: mac exit 0 at 121d3e1f`.
+  Its log is `checks-fix-1-1.txt` in the supplied lane folder.
+- `npm test` uses the supplied local test database URL and shared lock.
+  It exits 1 after 315.82 s: 193 files pass and one fails; 3,225 tests pass,
+  eight skip, and one fails. The failure is the 30,000 ms limit in
+  `src/workshop/judge.test.ts:193`. The test reports 34,575 ms. The judge
+  source and test match the branch base, `aaa7bf2b`. This fix changes only
+  the sampler, its test, and this record. No retry or limit change follows.
+  The final document-test command does not run after this failure.
+  The log is `fix-npm-test.txt` in the supplied lane folder.
+
+No server code changes, so `plugin-ui-http` is not required. The first
+Linux CI sampler artifact still needs a check by the main session.
