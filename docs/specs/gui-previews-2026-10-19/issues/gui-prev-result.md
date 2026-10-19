@@ -113,3 +113,5 @@ Review A and Review B report the same A24 fault. Both findings are confirmed. Th
 Plan: reverse the card rotation for Black in the shared CSS. Add browser checks of the final crown direction for both colours, both board views, and left-edge, right-edge and centre squares. Keep the existing angle and draw checks.
 
 Pass criteria: the direction check rejects the old Black rotation. The new checks pass on the web and in the plugin. The full `npm test` run and the approved `plugin-ui` and `end` browser checks pass. Commit the repair before the browser run. Record the results here.
+
+The first browser run at 6a465227 passes `end` in 22.2 s. It confirms that the old Black rotation fails the new check. All 12 plugin direction cases pass. The plugin check then stops at the return to its prior sample: the test omits the full history, so the last-move text is absent. Add that history as the existing sample rule requires. The product fix stays one CSS line.

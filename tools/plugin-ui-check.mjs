@@ -2867,7 +2867,7 @@ try {
       }
       console.log('ok plugin result crown direction: both colours, both views, both edges and centre');
       await showSnapshot({ ...snapshot, ...finished, revision: 100 + commands.length, fen: toFen(position), turn: position.turn,
-        in_check: true, legal: [], last_commands: commands }, story);
+        in_check: true, legal: [], last_commands: commands, history: { initial_fen, actions: state.play } }, story);
       await page.setViewportSize(viewport);
     }
     // Ticket 28 T1 and T2 at 200% zoom.
