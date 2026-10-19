@@ -1,7 +1,7 @@
 import { X509Certificate } from 'node:crypto';
 import pg from 'pg';
 import { describe, expect, it } from 'vitest';
-import { pluginDatabaseConfig } from './plugin-db-config.mjs';
+import { pluginDatabaseConfig, testDatabase } from './plugin-db-config.mjs';
 
 const url = 'postgresql://kingdown_plugin_runtime.project:p%40ss%2Fword@pooler.supabase.com:6543/postgres';
 
@@ -35,5 +35,28 @@ describe('plugin database TLS', () => {
       db.search = '?sslmode=require';
       expect(() => pluginDatabaseConfig(db, { localDev: true })).toThrow('Database URL');
     }
+  });
+});
+
+describe('browser check database guard', () => {
+  it.each(['127.0.0.1', 'localhost', '[::1]'])('accepts a disposable database on %s', host => {
+    const url = `postgresql://user:password@${host}/kingdown_test`;
+    expect(testDatabase(url)).toBe(url);
+    expect(testDatabase(url.replace('postgresql:', 'postgres:'))).toBe(url.replace('postgresql:', 'postgres:'));
+  });
+
+  it.each([
+    undefined, '', 'bad-url', 'https://localhost/kingdown_test',
+    'postgresql://db.example/kingdown_test', 'postgresql://localhost/kingdown',
+    'postgresql://localhost/kingdown_test?host=db.example',
+    'postgresql://localhost/kingdown_test?dbname=live',
+    'postgresql://localhost/kingdown_test#fragment',
+  ])('rejects an unsafe setting (%s)', value => {
+    expect(() => testDatabase(value)).toThrow();
+  });
+
+  it('keeps a bad connection value out of the error', () => {
+    expect(() => testDatabase('private-value')).toThrow(/^Expected a PostgreSQL connection URL$/);
+    expect(() => testDatabase('postgresql://user:private-value@db.example/kingdown_test')).toThrow(/^Browser checks require a disposable loopback database ending in _test$/);
   });
 });

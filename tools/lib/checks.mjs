@@ -5,10 +5,10 @@
 //   env(name)                 One of the three settings. A set environment variable wins; else the default:
 //                               PLAYABLE_URL      http://127.0.0.1:5189/
 //                               PLAYABLE_OUT      <outRoot>/by-hand/<check>, <check> is the script name without "verify-"
-//                               PLAYABLE_BROWSER  webkit, or a Chromium channel; default chromium when
+//                               PLAYABLE_BROWSER  webkit, firefox, or a Chromium channel; default chromium when
 //                                                 CLAUDE_CODE_REMOTE is "true", else chrome. Use webkit for
-//                                                 the plugin widget only: other checks can use CDP or open
-//                                                 Chromium directly, and they stop on WebKit.
+//                                                 plugin-ui, plugin-ui-http and web-online; use firefox for web-online.
+//                                                 Other checks can use CDP or open Chromium directly.
 //                             An unknown name throws.
 //   outRoot                   The parent of the runner's output folders: <system temp folder>/kingdown-check-runs, never
 //                             in a checkout. The runner makes one folder a run under it (after-redesign/01).
@@ -41,7 +41,7 @@
 //   shot(page, name, options = {})
 //                             Writes a screenshot to PLAYABLE_OUT/<name>.png (or the .jpg or .png name you give) and
 //                             returns the path. A name that goes outside PLAYABLE_OUT throws. `options` go to page.screenshot.
-import { chromium, webkit } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright';
 import { tmpdir } from 'node:os';
 import { mkdirSync, realpathSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -72,16 +72,18 @@ export function env(name) {
 }
 
 /**
- * The step-limit factor: 3 for WebKit on CI, 2 for Chromium on CI, else 1. GitHub's Linux runner draws WebKit in
+ * The step-limit factor: 3 for WebKit and Firefox on CI, 2 for Chromium on CI, else 1. GitHub's Linux runner draws WebKit in
  * software, about three times slower than the Macs that set the limits, and runs the Chromium checks about 2.5 times
  * slower (Saar, 2026-10-18: "Slower limits on CI WebKit", then "Raise CI limits"). It scales waits only; a checked timing
  * (an animation length, a reply budget) never uses it. Local runs and the pre-push hook keep the limits at 1.
+ * Firefox uses the WebKit wait budget for the web journey on CI.
  */
-export const STEP = !process.env.CI ? 1 : process.env.PLAYABLE_BROWSER === 'webkit' ? 3 : 2;
+export const STEP = !process.env.CI ? 1 : ['webkit', 'firefox'].includes(process.env.PLAYABLE_BROWSER) ? 3 : 2;
 
-/** Opens WebKit or the Chromium channel that PLAYABLE_BROWSER names. */
+/** Opens the engine or Chromium channel that PLAYABLE_BROWSER names. */
 export const launch = ({ channel = env('PLAYABLE_BROWSER'), ...options } = {}) => channel === 'webkit'
   ? webkit.launch(options)
+  : channel === 'firefox' ? firefox.launch(options)
   : chromium.launch({ channel, ...options });
 
 /** Measures the viewport and each element that matches the selector. */

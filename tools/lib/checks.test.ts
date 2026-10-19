@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
-import { chromium, webkit } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright';
 import { env, isInside, launch, outRoot } from './checks.mjs';
 
 const checkout = resolve(__dirname, '../..');
@@ -14,7 +14,7 @@ let argv1: string;
 beforeEach(() => {
   argv1 = process.argv[1];
   process.argv[1] = '/somewhere/tools/verify-workshop.mjs';
-  for (const name of ['PLAYABLE_URL', 'PLAYABLE_OUT', 'PLAYABLE_BROWSER', 'CLAUDE_CODE_REMOTE']) vi.stubEnv(name, undefined);
+  for (const name of ['PLAYABLE_URL', 'PLAYABLE_OUT', 'PLAYABLE_BROWSER', 'CLAUDE_CODE_REMOTE', 'CI']) vi.stubEnv(name, undefined);
 });
 afterEach(() => {
   process.argv[1] = argv1;
@@ -26,10 +26,12 @@ describe('launch', () => {
   it.each(['chrome', 'chromium'])('opens the %s channel with the caller options', async channel => {
     vi.stubEnv('PLAYABLE_BROWSER', channel);
     const chromiumLaunch = vi.spyOn(chromium, 'launch').mockResolvedValue({} as any);
+    const firefoxLaunch = vi.spyOn(firefox, 'launch').mockResolvedValue({} as any);
     const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue({} as any);
     const options = { headless: true, slowMo: 10 };
     const browser = await launch(options);
     expect(chromiumLaunch).toHaveBeenCalledWith({ channel, ...options });
+    expect(firefoxLaunch).not.toHaveBeenCalled();
     expect(webkitLaunch).not.toHaveBeenCalled();
     expect(browser).toBe(await chromiumLaunch.mock.results[0].value);
   });
@@ -37,11 +39,13 @@ describe('launch', () => {
   it('opens WebKit with the caller options and no Chromium channel', async () => {
     vi.stubEnv('PLAYABLE_BROWSER', 'webkit');
     const chromiumLaunch = vi.spyOn(chromium, 'launch').mockResolvedValue({} as any);
+    const firefoxLaunch = vi.spyOn(firefox, 'launch').mockResolvedValue({} as any);
     const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue({} as any);
     const options = { headless: true, slowMo: 10 };
     const browser = await launch(options);
     expect(webkitLaunch).toHaveBeenCalledWith(options);
     expect(chromiumLaunch).not.toHaveBeenCalled();
+    expect(firefoxLaunch).not.toHaveBeenCalled();
     expect(browser).toBe(await webkitLaunch.mock.results[0].value);
   });
 
@@ -64,11 +68,39 @@ describe('launch', () => {
     expect(webkitLaunch).toHaveBeenCalledWith({ headless: true });
   });
 
-  // Some checks use CDP or open Chromium directly, so the runner help must not offer WebKit for every check.
-  it('limits WebKit to plugin-ui in the runner help', () => {
+  it.each([undefined, 'firefox'])('opens Firefox with caller options (explicit channel: %s)', async channel => {
+    vi.stubEnv('PLAYABLE_BROWSER', channel ? 'chromium' : 'firefox');
+    const firefoxLaunch = vi.spyOn(firefox, 'launch').mockResolvedValue({} as any);
+    const chromiumLaunch = vi.spyOn(chromium, 'launch').mockResolvedValue({} as any);
+    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue({} as any);
+    const options = { headless: true, slowMo: 10 };
+    const browser = await launch({ ...options, ...(channel ? { channel } : {}) });
+    expect(firefoxLaunch).toHaveBeenCalledWith(options);
+    expect(chromiumLaunch).not.toHaveBeenCalled();
+    expect(webkitLaunch).not.toHaveBeenCalled();
+    expect(browser).toBe(await firefoxLaunch.mock.results[0].value);
+  });
+
+  // Some checks use CDP or open Chromium directly, so the runner help must not offer WebKit or Firefox for every check.
+  it('limits WebKit and Firefox to their checks in the runner help', () => {
     const help = spawnSync(process.execPath, ['tools/check.mjs', '--help'], { cwd: checkout, encoding: 'utf8' });
     expect(help.status).toBe(0);
-    expect(help.stdout.replace(/\s+/g, ' ')).toContain('Use webkit for plugin-ui only');
+    expect(help.stdout.replace(/\s+/g, ' ')).toContain('Use webkit for plugin-ui, plugin-ui-http and web-online, and firefox for web-online only');
+  });
+});
+
+describe('CI step limits', () => {
+  it.each([['webkit', 3], ['firefox', 3], ['chromium', 2], ['chrome', 2]] as const)('scales %s waits on CI by %s', async (channel, factor) => {
+    vi.stubEnv('CI', 'true');
+    vi.stubEnv('PLAYABLE_BROWSER', channel);
+    vi.resetModules();
+    expect((await import('./checks.mjs')).STEP).toBe(factor);
+  });
+
+  it.each(['webkit', 'firefox', 'chromium', 'chrome'])('keeps local %s waits at 1', async channel => {
+    vi.stubEnv('PLAYABLE_BROWSER', channel);
+    vi.resetModules();
+    expect((await import('./checks.mjs')).STEP).toBe(1);
   });
 });
 
