@@ -189,7 +189,7 @@ it('reads the board without a write, and records seat activity only through king
 });
 
 it('says "1 game" for one game on the home summary, and gives the record on the profile screen', async () => {
- const service = {toolTry:async()=>{},openBoard:async()=>'00000000-0000-4000-8000-000000000002',inbox:async()=>[{action:'ready'}],profile:async()=>({handle:null,icon:null}),settings:async()=>({}),record:async()=>({rating:{rating:1617.4,provisional:true},totals:{played:2,won:1,drawn:0,lost:1},badges:[{},{},{}]})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const service = {toolTry:async()=>{},openBoard:async()=>'00000000-0000-4000-8000-000000000002',inbox:async()=>[{action:'ready'}],profile:async()=>({handle:null,icon:null}),settings:async()=>({}),record:async()=>({rating:{rating:1617.4,provisional:true},totals:{played:2,won:1,drawn:0,lost:1},badges:[{},{},{}]}),view:async()=>({game_id:'00000000-0000-4000-8000-000000000001',status:'active',kind:'solo',speed:'daily',days_per_move:3,seat:0,action:'ready',fen:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',deadline_at:null,draw_offer:null})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
  const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
  const client = new Client({name:'count-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
  await server.connect(a); await client.connect(b);
@@ -204,6 +204,10 @@ it('says "1 game" for one game on the home summary, and gives the record on the 
   const profile = await client.callTool({name:'kingdown_open',arguments:{screen:'profile'}});
   expect(profile.content).toEqual([{type:'text',text:'Rating 1617?; 2 played, 1 won, 0 drawn, 1 lost; 3 badges.'}]);
   expect(profile.structuredContent).toEqual({screen:'profile',your_turn_count:1});
+  // A game ID carried into a profile request still gets the record, not the board line.
+  const withGame = await client.callTool({name:'kingdown_open',arguments:{screen:'profile',game_id:'00000000-0000-4000-8000-000000000001'}});
+  expect(withGame.content).toEqual(profile.content);
+  expect(withGame.structuredContent).toMatchObject({screen:'profile'});
  }
  finally {await client.close(); await server.close();}
 });

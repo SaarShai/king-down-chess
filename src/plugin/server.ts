@@ -126,7 +126,8 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const games = await service.inbox(actorId), count = games.filter(game => game.action === 'ready').length;
       const result = view ? await reply(view, board) : await home(board);
       result.structuredContent = { ...result.structuredContent, screen: preview ? 'join' : args.screen === 'board' && !view ? 'home' : args.screen ?? (view ? 'board' : 'home'), your_turn_count: count };
-      if (!view) result.content = text(args.screen === 'profile' ? recordText(await service.record(actorId)) : `Your move in ${count} game${count === 1 ? '' : 's'}.`);
+      if (args.screen === 'profile') result.content = text(recordText(await service.record(actorId)));
+      else if (!view) result.content = text(`Your move in ${count} game${count === 1 ? '' : 's'}.`);
       const settings = await service.settings(actorId);
       result._meta = { ...result._meta, games, settings, ...(preview && { preview }) };
       if (preview) result.content = text('Review the game features before you join.');
