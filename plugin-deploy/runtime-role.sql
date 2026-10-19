@@ -162,3 +162,10 @@ drop policy if exists kingdown_plugin_runtime_old_reports on public.reports;
 create policy kingdown_plugin_runtime_old_reports on public.reports as restrictive for delete to kingdown_plugin_runtime
   using (created_at < now() - interval '12 months' and (hold_until is null or hold_until <= now()));
 commit;
+
+-- 11. Per-user tool counters (0014). Browser roles have no access.
+begin;
+grant select, insert (user_id,tool), update (window_start,tries) on public.plugin_tool_tries to kingdown_plugin_runtime;
+drop policy if exists kingdown_plugin_runtime on public.plugin_tool_tries;
+create policy kingdown_plugin_runtime on public.plugin_tool_tries for all to kingdown_plugin_runtime using (true) with check (true);
+commit;

@@ -50,7 +50,10 @@ try {
 
     await open(undefined, '', [], true);
     await setPace(page, 'normal');
-    await move('e2', 'e4'); await endTurn(page);
+    await move('e2', 'e4');
+    assert.match(await page.textContent('#context-text'), /Select End turn/);
+    assert.doesNotMatch(await page.textContent('#move-help'), /\bTap\b/);
+    await endTurn(page);
     await page.waitForFunction(() => window.view.scene.lifted != null, null, { timeout: 5000, polling: 10 });
     assert.equal(await page.evaluate(() => window.view.scene.animating), false, 'the tell comes before the reply');
     assert.deepEqual(await lanMoves(page), ['e2-e4'], 'the lift plays no move');

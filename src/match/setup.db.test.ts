@@ -173,10 +173,11 @@ suite('game setup through PostgreSQL', () => {
    expect(await service.sweep(deadline)).toBe(0);
   }
  }, 30_000);
- it('keeps the player choice open in a computer rematch, including a game at the move limit', async () => {
-  const created = await service.create(a, { kind: 'solo', options: { ...DEFAULT_OPTIONS, kingPowers: true }, level: 'strong' });
-  expect(created).toMatchObject({ status: 'setup', options: { arrangement: true, kingPowers: true }, ready: [false, true] });
-  const playing = await service.command(a, created.game_id, command(0, { type: 'choose', choice: created.choices![0], ready: true }));
+ it.each(['white', 'black'] as const)('keeps the player %s in a computer rematch at the move limit', async colour => {
+  const seat = colour === 'white' ? 0 : 1, readySeats = seat === 0 ? [false, true] : [true, false];
+  const created = await service.create(a, { kind: 'solo', colour, options: { ...DEFAULT_OPTIONS, kingPowers: true }, level: 'strong' });
+  expect(created).toMatchObject({ status: 'setup', options: { arrangement: true, kingPowers: true }, ready: readySeats });
+  const playing = await service.command(a, created.game_id, command(0, { type: 'choose', choice: created.choices![seat], ready: true }));
   expect(playing).toMatchObject({ status: 'playing', revision: 1, ready: [true, true] });
   await service.command(a, created.game_id, command(1, { type: 'resign' }));
   await admin.query('update public.games set revision=1000 where id=$1', [created.game_id]);
@@ -185,15 +186,15 @@ suite('game setup through PostgreSQL', () => {
   expect(await service.command(a, created.game_id, sent)).toEqual(expect.objectContaining({ revision: accepted.revision, rematch_game_id: accepted.rematch_game_id }));
   expect(accepted.rematch_game_id).toEqual(expect.any(String));
   const next = await service.view(a, accepted.rematch_game_id!);
-  expect(next).toMatchObject({ status: 'setup', revision: 0, seat: 1, opponent: { computer: true }, ready: [true, false], options: created.options });
+  expect(next).toMatchObject({ status: 'setup', revision: 0, seat, opponent: { computer: true }, ready: readySeats, options: created.options });
   expect(next.fen).toBe('');
-  const ready = await service.command(a, next.game_id, command(0, { type: 'choose', choice: next.choices![1], ready: true }));
+  const ready = await service.command(a, next.game_id, command(0, { type: 'choose', choice: next.choices![seat], ready: true }));
   expect(ready).toMatchObject({ status: 'playing', ready: [true, true] });
   expect((await admin.query('select level from public.games where id=$1', [accepted.rematch_game_id])).rows[0].level).toBe('strong');
-  const computer = await service.command(a, next.game_id, command(1, { type: 'computer' }));
-  expect(computer).toMatchObject({ status: 'playing', revision: 2, turn: 1, action: 'ready' });
-  const moved = await service.command(a, next.game_id, command(2, { type: 'turn', actions: [computer.legal[0]] }));
-  expect(moved).toMatchObject({ status: 'playing', revision: 3, turn: 0 });
+  const first = seat === 1 ? await service.command(a, next.game_id, command(1, { type: 'computer' })) : ready;
+  expect(first).toMatchObject({ status: 'playing', turn: seat, action: 'ready' });
+  const moved = await service.command(a, next.game_id, command(first.revision, { type: 'turn', actions: [first.legal[0]] }));
+  expect(moved).toMatchObject({ status: 'playing', turn: 1-seat });
   expect(moved.fen).not.toBe(ready.fen);
  }, 30_000);
  it('shows setup choices safely and carries each toggle mix through the first move', async () => {
@@ -233,12 +234,13 @@ suite('game setup through PostgreSQL', () => {
   const full = await service.view(a, game.game_id);
   expect(full.choices?.map(c => c?.order)).toEqual(['RNBQKBNR', 'RNBKQBNR']);
   expect(full.legal).toContain('e2-e4!H');
-  const card = await service.command(a, game.game_id, command(4, { type: 'turn', actions: ['e2-e4!H'] }));
+  // A Haste card is one turn of two actions: alone, its first move is refused (W7 ticket 06).
+  await expect(service.command(a, game.game_id, command(4, { type: 'turn', actions: ['e2-e4!H'] }))).rejects.toMatchObject({ code: 'INVALID_MOVE' });
+  const moved = await service.command(a, game.game_id, command(4, { type: 'turn', actions: ['e2-e4!H', 'e4-e5'] }));
   const hasteBit = 1 << full.deal!.indexOf('Haste');
-  expect(card.fen.split(' ')[6].split('/')).toContain(`u${hasteBit}.0`);
-  expect(card.hands).toEqual(full.hands); expect(card.deal).toEqual(full.deal);
-  const moved = await service.command(a, game.game_id, command(5, { type: 'turn', actions: ['e4-e5'] }));
-  expect(moved).toMatchObject({ revision: 6, turn: 1 });
+  expect(moved.fen.split(' ')[6].split('/')).toContain(`u${hasteBit}.0`);
+  expect(moved.hands).toEqual(full.hands); expect(moved.deal).toEqual(full.deal);
+  expect(moved).toMatchObject({ revision: 5, turn: 1 });
   const retried = await service.command(a, game.game_id, draft);
   expect(retried).toMatchObject({ status: 'playing', revision: moved.revision, fen: moved.fen, choices: moved.choices, ready: [true, true] });
   expect(retried.last_commands.filter(entry => entry.action.type === 'choose' && !entry.action.ready)).toHaveLength(1);

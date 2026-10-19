@@ -1,7 +1,7 @@
 /** Opt-in: the ChatGPT tools over in-memory MCP against a disposable real PostgreSQL database (PLUGIN_TEST_DATABASE_URL).
  * The tests use their own copy of it (the name with "_chatgpt" before "_test"): a claim needs a deadline in the past,
  * and a sweep of src/match/service.db.test.ts, which runs at the same time, would end that game first. */
-import { randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -37,7 +37,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
    const model = JSON.stringify([result.content,result.structuredContent]);
    expect(model).not.toMatch(/"(?:fen|legal|handle|icon|choices|draw|deal|board_id|revision|created_at)"\s*:/);
    const meta = result._meta;
-   for (const opponent of [meta?.view?.opponent,meta?.preview?.creator,...(meta?.games ?? []).map((g:any)=>g.opponent),...(meta?.lobby?.games ?? []).map((g:any)=>g.creator),...(meta?.history ?? []).map((g:any)=>g.opponent)])
+   for (const opponent of [meta?.view?.opponent,meta?.preview?.creator,...(meta?.games ?? []).map((g:any)=>g.opponent),...(meta?.lobby?.games ?? []).map((g:any)=>g.creator),...(meta?.history ?? []).map((g:any)=>g.opponent),...(meta?.blocks ?? [])])
     if (opponent?.handle) expect(model).not.toContain(opponent.handle);
    if (meta?.view?.fen) expect(model).not.toContain(meta.view.fen.split(' ')[0]);
    for (const lan of meta?.view?.legal ?? []) expect(model).not.toContain(JSON.stringify(lan));
@@ -71,6 +71,161 @@ suite('ChatGPT tools on PostgreSQL', () => {
   await admin.query('delete from public.games g where created_by=any($1) or exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1))', [users]);
   await admin.query('delete from auth.users where id=any($1)', [users]);
   await admin.end();
+ });
+
+ it.each([
+  ['kingdown_computer', 120, 60], ['kingdown_create', 60, 60], ['kingdown_open', 60, 60], ['kingdown_report', 30, 3600],
+ ] as const)('limits %s for each user and resets its window', async (tool, count, seconds) => {
+  const actor = await user(`cap-${tool.slice(9)}`), player = await connect(actor);
+  const made = await player.ok('kingdown_create', { kind: 'solo', colour: 'black', level: 'beginner', options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } });
+  let reportGame: string | undefined;
+  if (tool === 'kingdown_report') {
+   const games = new GameService(new PostgresMatchStore(admin));
+   reportGame = (await games.create(actor, { kind: 'friend', options: DEFAULT_OPTIONS })).game_id;
+   await games.join(await user('cap-peer'), (await games.invite(actor, reportGame)).token);
+  }
+  const args = tool === 'kingdown_computer' ? move(made) : tool === 'kingdown_create' ? { kind: 'solo' }
+   : tool === 'kingdown_report' ? { game_id: reportGame, target: 'player', category: 'harassment' } : {};
+  await admin.query(`insert into public.plugin_tool_tries(user_id,tool,tries) values($1,$2,$3)
+   on conflict (user_id,tool) do update set tries=$3`, [actor, tool, count - 1]);
+  await player.ok(tool, args);
+  const before = (await rows(`select (select count(*) from public.games where created_by=$1) as games,
+   (select count(*) from public.plugin_boards where actor_id=$1) as boards,
+   (select count(*) from public.reports where reporter_id=$1) as reports,
+   (select sum(revision) from public.games where created_by=$1) as revisions`, [actor]))[0];
+  const limited = await (await connect(actor)).call(tool, args);
+  expect(limited).toMatchObject({ isError: true, _meta: { code: 'RATE_LIMITED' } });
+  expect(limited.content[0].text).toMatch(tool === 'kingdown_report' ? /Wait one hour/ : /Wait one minute/);
+  expect((await rows(`select (select count(*) from public.games where created_by=$1) as games,
+   (select count(*) from public.plugin_boards where actor_id=$1) as boards,
+   (select count(*) from public.reports where reporter_id=$1) as reports,
+   (select sum(revision) from public.games where created_by=$1) as revisions`, [actor]))[0]).toEqual(before);
+  const other = await user(`peer-${tool.slice(9)}`);
+  await new PluginService(new PostgresMatchStore(admin)).toolTry(other, tool);
+  expect((await rows('select tries from public.plugin_tool_tries where user_id=$1 and tool=$2', [other, tool]))[0].tries).toBe(1);
+  await player.ok('kingdown_games');
+  await new PluginService(new PostgresMatchStore(admin)).toolTry(actor, tool === 'kingdown_open' ? 'kingdown_create' : 'kingdown_open');
+  await admin.query("update public.plugin_tool_tries set window_start=now()-$3*interval '1 second' where user_id=$1 and tool=$2", [actor, tool, seconds + 1]);
+  const reset = await player.call(tool, args);
+  expect(reset._meta?.code).not.toBe('RATE_LIMITED');
+  expect((await rows('select tries from public.plugin_tool_tries where user_id=$1 and tool=$2', [actor, tool]))[0].tries).toBe(1);
+ });
+
+ it('counts refused tools and admits only one of two calls at the last slot', async () => {
+  const actor = await user('limit-race'), player = await connect(actor);
+  const args = { game_id: randomUUID(), command_id: randomUUID(), expected_revision: 0 };
+  expect((await player.call('kingdown_computer', args)).isError).toBe(true);
+  expect((await rows('select tries from public.plugin_tool_tries where user_id=$1', [actor]))[0].tries).toBe(1);
+  await admin.query("insert into public.plugin_tool_tries(user_id,tool,tries) values($1,'kingdown_open',59)", [actor]);
+  const other = await connect(actor);
+  const results = await Promise.all([player.call('kingdown_open'), other.call('kingdown_open')]);
+  expect(results.filter(result => result.isError)).toHaveLength(1);
+  expect(results.find(result => result.isError)?._meta.code).toBe('RATE_LIMITED');
+  expect((await rows('select count(*)::int as n from public.plugin_boards where actor_id=$1', [actor]))[0].n).toBe(1);
+ });
+
+ it('counts kingdown_find on the Create limit, so Find and Cancel cannot make games past it', async () => {
+  const actor = await user('cap-find'), player = await connect(actor), options = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
+  await admin.query("insert into public.plugin_tool_tries(user_id,tool,tries) values($1,'kingdown_create',59)", [actor]);
+  const found = view(await player.ok('kingdown_find', { options }));
+  if (found.status === 'waiting') await player.ok('kingdown_cancel', { game_id: found.game_id });
+  expect((await rows("select tries from public.plugin_tool_tries where user_id=$1 and tool='kingdown_create'", [actor]))[0].tries).toBe(60);
+  const games = async () => (await rows('select count(*)::int as n from public.games where created_by=$1', [actor]))[0].n;
+  const before = await games(), limited = await player.call('kingdown_find', { options, any_rules: true });
+  expect(limited).toMatchObject({ isError: true, _meta: { code: 'RATE_LIMITED' } }); expect(limited.content[0].text).toMatch(/Too many new games/);
+  expect(await games()).toBe(before);
+ });
+
+ it('stores an HMAC for short codes and joins with the same code after a server restart', async () => {
+  const actor = await user('hmac-host'), guestId = await user('hmac-guest'), host = await connect(actor), guest = await connect(guestId);
+  const game = view(await host.ok('kingdown_create', { kind: 'friend', options: DEFAULT_OPTIONS })).game_id;
+  const { code, token } = await new PluginService(new PostgresMatchStore(admin)).invite(actor, game);
+  const stored = (await rows('select code_hash,token_hash from public.game_invites where game_id=$1', [game]))[0];
+  expect(stored.code_hash).not.toBe(createHash('sha256').update(code).digest('hex'));
+  expect(stored.code_hash).toBe(createHmac('sha256', process.env.KINGDOWN_INTERNAL_SECRET!).update('kingdown:invite-code:').update(code).digest('hex'));
+  expect(stored.token_hash).toBe(createHash('sha256').update(token).digest('hex'));
+  const changed = new GameService(new PostgresMatchStore(admin), 'another-test-secret-for-invite-codes');
+  await expect(changed.preview(guestId, code)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
+  expect((await guest.ok('kingdown_join', { code: code.toLowerCase().replace(/^(...)/, '$1-'), preview: true }))._meta.preview.code).toBe(code);
+  expect(view(await (await connect(guestId)).ok('kingdown_join', { code })).game_id).toBe(game);
+ });
+
+ it('previews and joins a legacy SHA-256 short code', async () => {
+  const actor = await user('legacy-host'), guest = await user('legacy-guest'), games = new GameService(new PostgresMatchStore(admin));
+  const game = (await games.create(actor, { kind: 'friend', options: DEFAULT_OPTIONS, colour: 'white' })).game_id, code = 'K7QX2M';
+  await admin.query('insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,1,$4,now()+interval \'7 days\')',
+   [createHash('sha256').update(randomUUID()).digest('hex'), createHash('sha256').update(code).digest('hex'), game, actor]);
+  expect(await games.preview(guest, 'k7q-x2m')).toMatchObject({ code, colour: 'black', creator: { handle: `legacy-host-${tag}` } });
+  expect(await games.join(guest, 'k7q-x2m')).toMatchObject({ game_id: game, seat: 1, revision: 1 });
+  expect(await games.join(guest, code)).toMatchObject({ game_id: game, seat: 1, revision: 1 });
+  await expect(games.preview(await user('legacy-late'), code)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
+ });
+
+ it('prefers the HMAC game when a legacy row has the same short code and leaves that row unlocked', async () => {
+  const actor = await user('prefer-host'), oldActor = await user('prefer-old'), guest = await user('prefer-guest');
+  const games = new GameService(new PostgresMatchStore(admin));
+  const oldGame = (await games.create(oldActor, { kind: 'friend', options: DEFAULT_OPTIONS, colour: 'black' })).game_id;
+  const game = (await games.create(actor, { kind: 'friend', options: DEFAULT_OPTIONS, colour: 'white' })).game_id;
+  const { code } = await games.invite(actor, game);
+  await admin.query('insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,0,$4,now()+interval \'7 days\')',
+   [createHash('sha256').update(randomUUID()).digest('hex'), createHash('sha256').update(code).digest('hex'), oldGame, oldActor]);
+  const lock = await admin.connect(), pool = new pg.Pool({ connectionString: admin.options.connectionString, max: 1, options: '-c lock_timeout=1000' });
+  try {
+   await lock.query('begin');
+   await lock.query('select from public.games where id=$1 for update', [oldGame]);
+   await lock.query('select from public.game_invites where game_id=$1 for update', [oldGame]);
+   const joining = new GameService(new PostgresMatchStore(pool));
+   expect(await joining.preview(guest, code)).toMatchObject({ code, colour: 'black', creator: { handle: `prefer-host-${tag}` } });
+   expect(await joining.join(guest, code)).toMatchObject({ game_id: game, seat: 1, revision: 1 });
+   expect(await joining.join(guest, code)).toMatchObject({ game_id: game, seat: 1, revision: 1 });
+   await expect(joining.preview(oldActor, code)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
+   await expect(joining.join(oldActor, code)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
+   expect((await lock.query('select used_by,used_at from public.game_invites where game_id=$1', [oldGame])).rows[0]).toEqual({ used_by: null, used_at: null });
+   expect((await lock.query('select user_id from public.game_players where game_id=$1 and seat=0', [oldGame])).rows[0]).toEqual({ user_id: null });
+   expect((await lock.query('select status,revision from public.games where id=$1', [oldGame])).rows[0]).toEqual({ status: 'waiting', revision: 0 });
+   expect((await lock.query("select count(*)::int as n from public.game_commands where game_id=$1 and kind='join'", [oldGame])).rows[0].n).toBe(0);
+  } finally { await lock.query('rollback'); lock.release(); await pool.end(); }
+ });
+
+ it('checks the code-try limit before any invitation lookup', async () => {
+  const guest = await user('code-limit');
+  await admin.query('insert into public.invite_code_tries(user_id,tries) values($1,10)', [guest]);
+  const lock = await admin.connect(), pool = new pg.Pool({ connectionString: admin.options.connectionString, max: 1, options: '-c lock_timeout=1000' });
+  try {
+   await lock.query('begin');
+   await lock.query('lock table public.game_invites in access exclusive mode');
+   const games = new GameService(new PostgresMatchStore(pool));
+   await expect(games.preview(guest, 'K7QX2M')).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429 });
+   await expect(games.join(guest, 'K7QX2M')).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429 });
+  } finally { await lock.query('rollback'); lock.release(); await pool.end(); }
+ });
+
+ it('refuses short codes without a valid secret and keeps old long links usable', async () => {
+  const actor = await user('hmac-old'), guest = await user('old-guest'), store = new PostgresMatchStore(admin), games = new GameService(store);
+  const game = (await games.create(actor, { kind: 'friend', options: DEFAULT_OPTIONS })).game_id;
+  const { code, token } = await games.invite(actor, game);
+  await admin.query('update public.game_invites set code_hash=$2 where game_id=$1', [game, createHash('sha256').update(code).digest('hex')]);
+  for (const secret of ['', 'too-short']) {
+   const missing = new GameService(store, secret);
+   await expect(missing.invite(actor, game)).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 });
+   await expect(missing.preview(guest, code)).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 });
+   await expect(missing.join(guest, code)).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 });
+  }
+  expect((await new GameService(store, '').join(guest, token)).game_id).toBe(game);
+ });
+
+ it('keeps a long invitation token through Open, preview and Join', async () => {
+  const actor = await user('token-host'), guest = await connect(await user('token-guest'));
+  const games = new GameService(new PostgresMatchStore(admin));
+  const game = (await games.create(actor, { kind: 'friend', options: DEFAULT_OPTIONS })).game_id;
+  await games.invite(actor, game);
+  const token = 'aB-cD_'.repeat(7) + 'z';
+  await admin.query('update public.game_invites set token_hash=$2 where game_id=$1', [game, createHash('sha256').update(token).digest('hex')]);
+  const opened = await guest.ok('kingdown_open', { code: token });
+  expect(opened._meta.preview.code).toBe(token);
+  const previewed = await guest.ok('kingdown_join', { code: opened._meta.preview.code, preview: true });
+  expect(previewed._meta.preview.code).toBe(token);
+  expect(view(await guest.ok('kingdown_join', { code: previewed._meta.preview.code })).game_id).toBe(game);
  });
 
  it('reuses one open random game for two create calls', async () => {
@@ -151,6 +306,18 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect((await player.ok('kingdown_profile'))._meta.history[0].game_id).toBe(legacy.game_id);
  });
 
+ it('saves Haste and its second move in one revision and one command row', async () => {
+  const actor = await user('whole-turn'), player = await connect(actor);
+  const created = await new GameService(new PostgresMatchStore(admin)).create(actor,{kind:'solo',colour:'white',setup:{kings:'Flame:Haste,none',fen:'7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1'}});
+  const args = {game_id:created.game_id,command_id:randomUUID(),expected_revision:created.revision,actions:['Ra1-a2!H','Ra2-a3']};
+  const moved = await player.ok('kingdown_move',args);
+  expect(view(moved)).toMatchObject({revision:1,turn:1,action:'waiting',status:'playing'});
+  expect(view(moved).last_commands).toMatchObject([{seq:1,seat:0,action:{type:'turn',actions:args.actions}}]);
+  expect(view(await player.ok('kingdown_move',args)).revision).toBe(1);
+  expect(await rows('select revision from public.games where id=$1',[created.game_id])).toEqual([{revision:1}]);
+  expect(await rows('select seq,command_id,actions from public.game_commands where game_id=$1',[created.game_id])).toEqual([{seq:1,command_id:args.command_id,actions:args.actions}]);
+ });
+
  it('accepts revision 1100 and refuses 1101 without changing a game', async () => {
   const actor = await user('bounds'), player = await connect(actor);
   const created = await player.ok('kingdown_create',{kind:'solo',options:{...DEFAULT_OPTIONS,arrangement:false}});
@@ -222,7 +389,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(view(offered).game_id).toBe(old); expect(view(offered).rematch_game_id).toEqual(expect.any(String));
   expect(view(await host.ok('kingdown_get', { board_id })).game_id).toBe(old);
   const resumed = await host.ok('kingdown_resume', { board_id, game_id: view(offered).rematch_game_id });
-  expect(view(resumed)).toMatchObject({ game_id: view(offered).rematch_game_id, seat: 1 });
+  expect(view(resumed)).toMatchObject({ game_id: view(offered).rematch_game_id, seat: 0 });
   expect(view(await host.ok('kingdown_get', { board_id })).game_id).toBe(view(resumed).game_id);
  });
 
@@ -249,20 +416,120 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(view(await guest.ok('kingdown_get', { game_id })).opponent!.last_seen_ms).toBeNull();
  });
 
- it("sets who gets the seat activity with 'Show when I am online': on is everyone, off is nobody", async () => {
+ it('keeps Friends only as the default and checks all three online values through the tools', async () => {
   const [a, b] = [await user('online-a'), await user('online-b')], host = await connect(a), guest = await connect(b);
   const game_id = view(await host.ok('kingdown_create', { kind: 'friend', options: { ...DEFAULT_OPTIONS, arrangement: false } })).game_id;
   await guest.ok('kingdown_join', { code: (await host.ok('kingdown_invite', { game_id })).structuredContent.code });
   const state = async () => [(await rows('select online_visible_to from public.profiles where id=$1', [a]))[0].online_visible_to, view(await guest.ok('kingdown_get', { game_id })).opponent!.last_seen_ms];
-  // The default 'mutual' shows as off: nobody can follow yet, so nobody gets the time.
-  expect((await host.ok('kingdown_settings'))._meta.settings.show_online).toBe(false);
+  expect((await host.ok('kingdown_settings'))._meta.settings.online_visible_to).toBe('mutual');
   expect(await state()).toEqual(['mutual', null]);
-  expect((await host.ok('kingdown_settings', { show_online: true }))._meta.settings).toMatchObject({ show_online: true, symbols_only: false });
-  expect(await state()).toEqual(['everyone', expect.any(Number)]);
-  expect((await host.ok('kingdown_open'))._meta.settings.show_online).toBe(true);
-  expect((await host.ok('kingdown_settings', { show_online: false }))._meta.settings.show_online).toBe(false);
-  expect(await state()).toEqual(['nobody', null]);
-  expect((await host.call('kingdown_settings', { show_online: 'everyone' })).isError).toBe(true);
+  await admin.query("insert into public.relations(user_id,other_id,kind) values($1,$2,'follow')", [b,a]);
+  expect(await state()).toEqual(['mutual', null]);
+  await admin.query("insert into public.relations(user_id,other_id,kind) values($1,$2,'follow')", [a,b]);
+  for (const online_visible_to of ['everyone', 'nobody', 'mutual']) {
+   expect((await host.ok('kingdown_settings', { online_visible_to }))._meta.settings).toMatchObject({ online_visible_to, symbols_only: false });
+   expect(await state()).toEqual([online_visible_to, online_visible_to === 'nobody' ? null : expect.any(Number)]);
+   expect((await host.ok('kingdown_open'))._meta.settings.online_visible_to).toBe(online_visible_to);
+  }
+  for (const input of [{ online_visible_to: true }, { online_visible_to: 'friends' }, { show_online: true }]) expect((await host.call('kingdown_settings', input))._meta.code).toBe('INVALID_INPUT');
+ });
+
+ it('blocks and unblocks through account relations, Find, joins and hidden messages', async () => {
+  const [a,b] = [await user('block-a'), await user('block-b')], host = await connect(a), guest = await connect(b);
+  const options = { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: false, cards: false };
+  const game_id = view(await host.ok('kingdown_create', { kind: 'friend', options })).game_id;
+  const joined = await guest.ok('kingdown_join', { code: (await host.ok('kingdown_invite', { game_id })).structuredContent.code });
+  const said = await guest.ok('kingdown_say', { ...move(joined), preset: 'hello' });
+  expect(view(await host.ok('kingdown_get', { game_id })).last_commands.at(-1)!.action.type).toBe('say');
+  await admin.query("insert into public.relations(user_id,other_id,kind) values($1,$2,'follow'),($2,$1,'follow')", [a,b]);
+  expect((await host.ok('kingdown_block', { game_id }))._meta.blocked).toBe(false);
+  for (let n=0;n<2;n++) {
+   const blocked = await host.ok('kingdown_block', { game_id, blocked: true });
+   expect(blocked._meta.blocked).toBe(true);
+   expect(blocked.content[0].text).toBe('Player blocked. Your current game continues.');
+   expect(view(blocked).status).toBe('playing');
+   expect(view(blocked).last_commands.at(-1)!.action.type).toBe('hidden');
+  }
+  expect(await rows('select user_id,other_id,kind from public.relations where user_id=$1 or user_id=$2', [a,b])).toEqual([{user_id:a,other_id:b,kind:'block'}]);
+  expect((await (await connect(a)).ok('kingdown_block', { game_id }))._meta.blocked).toBe(true);
+  expect((await guest.ok('kingdown_block', { game_id }))._meta.blocked).toBe(false);
+  await guest.ok('kingdown_say', { ...move(said), preset: 'thanks' });
+  expect(view(await host.ok('kingdown_get', { game_id })).last_commands.slice(-2).map(c=>c.action.type)).toEqual(['hidden','hidden']);
+  // Seed an open table: the Create tool may join a table from an earlier test.
+  const waiting = (await new GameService(new PostgresMatchStore(admin)).create(a, { kind: 'random', options })).game_id;
+  expect((await guest.ok('kingdown_lobby'))._meta.lobby.games.some((g:any)=>g.game_id===waiting)).toBe(false);
+  expect((await guest.call('kingdown_accept', { game_id: waiting }))._meta.code).toBe('FORBIDDEN');
+  const found = view(await guest.ok('kingdown_find', { options }));
+  expect(found.game_id).not.toBe(waiting);
+  await guest.ok('kingdown_abort', { game_id: found.game_id });
+  const friend = view(await host.ok('kingdown_create', { kind: 'friend', options })).game_id;
+  const code = (await host.ok('kingdown_invite', { game_id: friend })).structuredContent.code;
+  expect((await guest.call('kingdown_join', { code })).isError).toBe(true);
+  const unblocked = await host.ok('kingdown_block', { game_id, blocked: false });
+  expect(unblocked._meta.blocked).toBe(false);
+  expect(view(unblocked).last_commands.at(-1)!.action.type).toBe('say');
+  expect(await rows('select kind from public.relations where user_id=$1 or user_id=$2', [a,b])).toEqual([]);
+  expect((await guest.ok('kingdown_lobby'))._meta.lobby.games.some((g:any)=>g.game_id===waiting)).toBe(true);
+  expect(view(await guest.ok('kingdown_accept', { game_id: waiting })).game_id).toBe(waiting);
+  expect(view(await guest.ok('kingdown_join', { code })).game_id).toBe(friend);
+ });
+
+ it('reads block status without a write and refuses other accounts, solo games and bad input', async () => {
+  const [a,b,c] = [await user('target-a'),await user('target-b'),await user('target-c')], host = await connect(a), guest = await connect(b), stranger = await connect(c), reader = await connect(a,readOnly);
+  const game_id = view(await host.ok('kingdown_create', { kind:'friend', options:{...DEFAULT_OPTIONS,arrangement:false} })).game_id;
+  await guest.ok('kingdown_join', { code:(await host.ok('kingdown_invite',{game_id})).structuredContent.code });
+  expect((await reader.ok('kingdown_block',{game_id}))._meta.blocked).toBe(false);
+  expect((await stranger.call('kingdown_block',{game_id,blocked:true}))._meta.code).toBe('NOT_FOUND');
+  const solo = view(await host.ok('kingdown_create',{kind:'solo'})).game_id;
+  expect((await host.call('kingdown_block',{game_id:solo,blocked:true}))._meta.code).toBe('NOT_FOUND');
+  for (const input of [{ blocked:true },{ game_id,blocked:'yes' },{game_id,user_id:b},{game_id,actorId:c},{game_id:'bad',blocked:true}]) expect((await host.call('kingdown_block',input))._meta.code).toBe('INVALID_INPUT');
+  await host.ok('kingdown_block',{game_id,blocked:true});
+  await host.ok('kingdown_resign',{game_id});
+  expect((await host.ok('kingdown_block',{game_id,blocked:true})).content[0].text).toBe('Player blocked.');
+  expect((await host.ok('kingdown_profile'))._meta.blocks).toEqual([{user_id:b,handle:`target-b-${tag}`}]);
+  expect((await stranger.ok('kingdown_profile'))._meta.blocks).toEqual([]);
+  expect((await host.ok('kingdown_block',{user_id:b,blocked:false}))._meta.blocked).toBe(false);
+  expect((await host.ok('kingdown_profile'))._meta.blocks).toEqual([]);
+  expect(await rows("select from public.relations where kind='block' and user_id=$1",[a])).toEqual([]);
+ });
+
+ it('refuses rematch offers and accepts across a block in either direction', async () => {
+  const [a,b] = [await user('rematch-a'), await user('rematch-b')], host = await connect(a), guest = await connect(b);
+  for (const blocker of [host, guest]) {
+   const game_id = view(await host.ok('kingdown_create', { kind:'friend', options:{...DEFAULT_OPTIONS,arrangement:false,kingPowers:false,cards:false} })).game_id;
+   await guest.ok('kingdown_join', { code:(await host.ok('kingdown_invite',{game_id})).structuredContent.code });
+   const ended = await host.ok('kingdown_resign', { game_id });
+   const offered = await host.ok('kingdown_rematch', { ...move(ended), choice:'offer' });
+   await blocker.ok('kingdown_block', { game_id, blocked:true });
+   for (const player of [host, guest]) expect(view(await player.ok('kingdown_get',{game_id})).rematch_allowed).toBe(false);
+   expect((await guest.call('kingdown_rematch',{...move(offered),choice:'accept'}))._meta.code).toBe('NOT_ALLOWED');
+   const declined = await guest.ok('kingdown_rematch',{...move(offered),choice:'decline'});
+   for (const player of [host, guest]) expect((await player.call('kingdown_rematch',{...move(declined),choice:'offer'}))._meta.code).toBe('NOT_ALLOWED');
+   expect((await rows('select rematch_game_id from public.games where id=$1',[game_id]))[0].rematch_game_id).toBeNull();
+   await blocker.ok('kingdown_block',{game_id,blocked:false});
+   expect(view(await host.ok('kingdown_get',{game_id})).rematch_allowed).toBe(true);
+   const nextOffer = await host.ok('kingdown_rematch',{...move(declined),choice:'offer'});
+   expect(view(await guest.ok('kingdown_rematch',{...move(nextOffer),choice:'accept'})).rematch_game_id).toEqual(expect.any(String));
+  }
+ });
+
+ it('keeps old blocks reachable after 1000 newer follows and pages every block', async () => {
+  const a = await user('paged-blocks'), host = await connect(a), targets = Array.from({length:1052},()=>randomUUID()).sort();
+  users.push(...targets);
+  await admin.query('insert into auth.users(id) select unnest($1::uuid[])',[targets]);
+  await admin.query("insert into public.relations(user_id,other_id,kind,created_at) select $1,id,'block',now()-interval '1 day' from unnest($2::uuid[]) id",[a,targets.slice(0,52)]);
+  await admin.query("insert into public.relations(user_id,other_id,kind) select $1,id,'follow' from unnest($2::uuid[]) id",[a,targets.slice(52)]);
+  const first = (await host.ok('kingdown_profile'))._meta;
+  expect(first.blocks.map((row:any)=>row.user_id)).toEqual(targets.slice(0,50));
+  expect(first.next_blocks_after).toBe(targets[49]);
+  // Removing the cursor's row must not hide the next page.
+  await host.ok('kingdown_block',{user_id:targets[49],blocked:false});
+  const last = (await host.ok('kingdown_profile',{blocks_after:first.next_blocks_after}))._meta;
+  expect(last.blocks.map((row:any)=>row.user_id)).toEqual(targets.slice(50,52));
+  expect(last.next_blocks_after).toBeNull();
+  for (const {user_id} of last.blocks) await host.ok('kingdown_block',{user_id,blocked:false});
+  expect((await host.ok('kingdown_profile',{blocks_after:first.next_blocks_after}))._meta.blocks).toEqual([]);
+  expect((await host.call('kingdown_profile',{blocks_after:'bad'}))._meta.code).toBe('INVALID_INPUT');
  });
 
  it('keeps an active reader recent when the server clock is two days ahead', async () => {
@@ -286,7 +553,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
 
  it('starts a fresh account with the approved game defaults', async () => {
   const actor = await user('defaults'), player = await connect(actor);
-  expect((await player.ok('kingdown_settings'))._meta.settings).toEqual({ symbols_only: false, show_threats: false, show_online: false, last_setup: null });
+  expect((await player.ok('kingdown_settings'))._meta.settings).toEqual({ symbols_only: false, show_threats: false, online_visible_to: 'mutual', last_setup: null });
   expect(view(await player.ok('kingdown_create', { kind: 'solo' }))).toMatchObject({ status: 'setup', level: 'club', options: { fairy: true, arrangement: true, classic: false, cards: false, kingPowers: false } });
  });
 
@@ -304,7 +571,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
 
  it('keeps the retry hints for each tool', async () => {
   const player = await connect(await user('retry-hints')), tools = (await player.client.listTools()).tools;
-  expect(tools).toHaveLength(25);
+  expect(tools).toHaveLength(26);
   expect(tools.filter(tool => tool.annotations?.idempotentHint === false).map(tool => tool.name).sort()).toEqual(['kingdown_create', 'kingdown_find', 'kingdown_invite', 'kingdown_join', 'kingdown_open', 'kingdown_report', 'kingdown_resume', 'kingdown_seen']);
   for (const tool of tools) expect(typeof tool.annotations?.idempotentHint).toBe('boolean');
  });
@@ -317,7 +584,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   await player.ok('kingdown_settings', { symbols_only: true, last_setup });
   await player.ok('kingdown_settings', { show_threats: true });
   const reopened = await player.ok('kingdown_open');
-  expect(reopened._meta.settings).toEqual({ symbols_only: true, show_threats: true, show_online: false, last_setup });
+  expect(reopened._meta.settings).toEqual({ symbols_only: true, show_threats: true, online_visible_to: 'mutual', last_setup });
   expect(view(await player.ok('kingdown_create', { kind: 'solo' })).options).toEqual(last_setup.options);
   for (const input of [{ last_setup: { ...last_setup, options: { ...DEFAULT_OPTIONS, pool: [] } } }, { last_setup: { ...last_setup, king: { king: 'Flame', power: 'Mercy' } } }]) expect((await player.call('kingdown_settings', input)).isError).toBe(true);
   expect((await reader.ok('kingdown_settings'))._meta.settings).toEqual(reopened._meta.settings);

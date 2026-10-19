@@ -6,18 +6,57 @@ body:is([data-page='board'], [data-page='end']) #page-title { display: none; }
 #game-table { min-height: 0; width: 100%; }
 #game-table #board { display: flex; }
 #game-table #table-bar { margin-top: 0; }
+/* The end card is an overlay over #game-table. On the end screen the table bar keeps its place in the grid,
+   so #board and its canvas keep their box; it does not show under the card. */
+body[data-page='end'] #table-bar { visibility: hidden; }
 
 #game-table .coin { min-height: 40px; padding: 0; }
 #game-table .coin.card-coin { width: 34px; height: 34px; min-height: 34px; }
-#game-table .coin.card-coin img { width: 26px; height: 26px; }
+#game-table .coin.card-coin img { width: calc(100% - 6px); height: calc(100% - 6px); }
 #game-table #context-note:empty { display: none; }
+/* G1 a: phone portrait view limits armed text to two lines; below 320 px, T2 shows all words and the page scrolls. */
+@media (min-width: 320px) and (max-width: 899px) and (orientation: portrait) {
+  #game-table #context-text[data-rank='armed'] { max-height: 40px; overflow: auto; -webkit-line-clamp: unset; }
+}
 #board-sheet { padding: 0; overflow: hidden; display: none; }
 #board-sheet[open] { display: flex; flex-direction: column; }
 #board-sheet .sheet-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; }
 #board-sheet .sheet-head h2 { flex: 1; margin: 0; }
 #board-sheet .sheet-head button { width: auto; min-width: 44px; padding: 0 8px; }
 #board-sheet .sheet-body { display: flex; flex-direction: column; gap: 8px; }
+#board-sheet .sheet-body > button { justify-content: center; text-align: center; }
+.frame #board-sheet.board-menu { max-height: 100%; }
+#board-sheet.board-menu .sheet-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#board-sheet.board-menu .sheet-body > button { min-width: 0; flex-direction: column; padding: 6px; }
+#board-sheet.board-menu small { font-size: var(--fs-xs); line-height: 1.2; font-weight: 400; }
+#board-sheet.board-menu #invitation:empty { display: none; }
+#board-sheet.board-menu #invitation { grid-column: 1 / -1; margin: 0; }
 #board-sheet #choices { height: auto; overflow: visible; flex-direction: column; }
 #board-sheet #choices button { min-height: 44px; width: 100%; justify-content: flex-start; text-align: left; }
 
 #game-table[data-empty='true'] #board { visibility: hidden; }
+
+/* A card that a live use spends: a gold pulse while it fades, 300 ms, then the grey 'used' coin. Restarted coins keep their place in it. */
+#game-table .coin.card-coin.is-spending { animation: card-spend 300ms var(--ease-out) var(--age, 0ms) both; }
+#game-table .coin.card-coin.is-spending::after { content: ''; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 3px var(--gold-bright), inset 0 0 10px 4px var(--gold); animation: card-pulse 300ms var(--ease-out) var(--age, 0ms) both; pointer-events: none; }
+@keyframes card-spend { to { opacity: 0.85; } }
+@keyframes card-pulse { 0% { opacity: 0; transform: scale(0.8); } 35% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.1); } }
+
+/* Lively: the four cards deal once at a live game start (280 ms each, 60 ms apart), and the side in check gets one red pulse (600 ms). */
+#game-table .coin.card-coin.is-dealt { animation: card-deal 320ms cubic-bezier(.05,.7,.1,1) calc(var(--i) * 60ms + var(--age, 0ms)) both; }
+@keyframes card-deal { from { opacity: 0; transform: translateY(-14px) scale(.85) rotate(-6deg); } 30% { opacity: 1; } }
+#game-table .portrait.is-checked::after { content: ''; position: absolute; inset: 0; z-index: 1; border-radius: 50%; box-shadow: inset 0 0 0 4px #b3261e, inset 0 0 14px 2px rgb(179 38 30 / 60%); animation: check-pulse 600ms var(--ease-out) var(--age, 0ms) both; pointer-events: none; }
+@keyframes check-pulse { 0% { opacity: 0; transform: scale(1.25); } 30% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
+
+
+@media (orientation: landscape) and (max-height: 500px) {
+  #board-sheet.board-menu .sheet-head { padding: 4px 8px; }
+  #board-sheet.board-menu .sheet-body { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px 8px 8px; }
+}
+
+/* The list uses only the free grid row. It cannot move the board or the bar. */
+#moves-band { position: relative; min-height: 0; }
+#recent-moves { position: absolute; inset: 0 12px auto; height: 108px; overflow-y: auto; overscroll-behavior: contain; font-size: var(--fs-sm); line-height: 20px; color: var(--ink-soft); }
+#recent-moves p { margin: 0; min-height: 36px; padding: 8px 4px; }
+#recent-moves p:nth-child(odd) { background: rgba(231, 216, 184, .45); }
+#moves-line[aria-expanded='true'] .moves-label > span { display: inline-block; transform: rotate(180deg); }

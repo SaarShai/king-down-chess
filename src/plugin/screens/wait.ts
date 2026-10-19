@@ -1,11 +1,13 @@
-import { call, client, memory, navigate, routeView, start } from '../app';
+import { call, client, gameActionsBlocked, memory, navigate, pollUpdate, queue, routeView, start } from '../app';
+import { setupBusy } from './setup';
+import type { Job } from '../queue';
 import { art } from '../art';
-import { runPoll } from '../poll';
+import type { PollTarget } from '../poll';
 import { DEFAULT_OPTIONS, defaultChoice } from '../../match/setup';
 import type { View } from '../../match/protocol';
 import { $, features, onStop, portrait, showError } from './friend';
 let open: View | undefined, began = 0, timer: ReturnType<typeof setInterval> | undefined;
-let watch: ReturnType<typeof runPoll> | undefined, watched: string | undefined, offering = false, switching = false, background = false;
+let watched: string | undefined, offering = false, switching = false, background = false;
 const dismissed = new Set<string>();
 let abortReceipt: View | undefined, recoverJoined: boolean | undefined;
 export function waitScreen() {
@@ -18,7 +20,7 @@ export function waitScreen() {
   if (!open || open.status !== 'waiting') {
     $('wait-status').textContent = 'Open your waiting game from Your games.';
     const entry = memory.games.find(game => game.kind === 'random' && game.status === 'waiting');
-    if (entry) void readOpen(entry.game_id);
+    if (entry) { syncWatch(); void readOpen(entry.game_id); }
     return;
   }
   $('wait-status').textContent = '';
@@ -28,8 +30,9 @@ export function waitScreen() {
   $('wait-computer').onclick = () => void computer();
   $('wait-cancel').onclick = async () => {
     if (!open) return;
-    const next = await call('kingdown_cancel', { game_id: open.game_id }, false, false, false);
-    if (next) { open = undefined; stopWatch(); await call('kingdown_games', {}); navigate('lobby'); }
+    const origin = queue.command('write', 'kingdown_cancel', {});
+    const next = await call('kingdown_cancel', { game_id: open.game_id }, { route: false, origin });
+    if (next) { open = undefined; stopWatch(); await call('kingdown_games', {}, { origin }); if (queue.current(origin)) navigate('lobby'); }
   };
   clearInterval(timer); timer = setInterval(tick, 1000); tick(); syncWatch();
 }
@@ -41,43 +44,45 @@ function tick() {
   $('wait-computer').hidden = seconds < 25;
 }
 async function computer() {
-  if (!open || offering) return; offering = true;
+  // A failed handoff Choose or Get keeps its solo game: its Retry or Try again finishes it, never a second Create.
+  if (!open || offering || setupBusy() || gameActionsBlocked()) return; offering = true;
   try {
     const options = open.options ?? DEFAULT_OPTIONS;
-    let solo = await start('solo', { options, colour: open.seat === 0 ? 'white' : 'black', level: memory.settings?.last_setup?.level ?? 'club' }, { route: false });
-    if (solo?.status === 'setup' && solo.draw) {
-      const choice = defaultChoice(options, { army: solo.draw, hand: solo.deal ?? [] }, solo.seat, Math.random, false);
-      const args = { game_id: solo.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: solo.revision, ...choice, ready: true };
-      const choose = async (resend = false) => {
-        const chosen = await call('kingdown_choose', args, true, false, false, resend);
-        if (!chosen) return;
-        $('retry').removeEventListener('click', retry, true);
-        const next = await call('kingdown_get', {}, false, false, true);
-        if (next) syncWatch();
-      };
-      const retry = (event: Event) => {
-        if (client.state.pending?.args.command_id !== args.command_id) { $('retry').removeEventListener('click', retry, true); return; }
-        event.stopImmediatePropagation(); void choose(true);
-      };
-      $('retry').addEventListener('click', retry, true);
-      onStop(() => $('retry').removeEventListener('click', retry, true));
-      await choose(); return;
-    }
-    if (solo) { routeView(solo); await call('kingdown_games', {}); syncWatch(); }
+    await start('solo', { options, colour: open.seat === 0 ? 'white' : 'black', level: memory.settings?.last_setup?.level ?? 'club' }, { route: false, then: finishComputer });
   } finally { offering = false; }
 }
+/** Create and its Retry use the same automatic setup and full read. */
+export async function finishComputer(solo: View, origin: Job) {
+  if (solo.status === 'setup' && solo.draw) {
+    const options = solo.options ?? DEFAULT_OPTIONS;
+    const choice = defaultChoice(options, { army: solo.draw, hand: solo.deal ?? [] }, solo.seat, Math.random, false);
+    const args = { game_id: solo.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: solo.revision, ...choice, ready: true };
+    await call('kingdown_choose', args, { retain: true, route: false, origin, then: finishHandoff });
+  } else await finishHandoff(solo, origin);
+}
+/** The continuation of the handoff's Choose, also after Retry (design §5.2): read the game, then watch the human game. */
+export async function finishHandoff(_next?: View, origin?: Job) {
+  if (await call('kingdown_get', {}, { route: true, origin })) syncWatch();
+}
 async function readOpen(game: string) {
-  const result = await client.call('kingdown_get', { game_id: game }, { background: true });
-  if (result.isError) { if (client.state.screen === 'wait') showError(new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' ')), $('wait-status')); return; }
-  const next = result._meta?.view as View | undefined;
-  if (!next || !['wait','board'].includes(client.state.screen)) return;
-  if (open?.game_id !== next.game_id) began = Date.now() - Math.max(0, Date.parse(next.server_now) - Date.parse(next.created_at));
-  open = next;
-  if (next.status === 'waiting') { if (client.state.screen === 'wait' && memory.view?.kind !== 'random') waitScreen(); return; }
-  stopWatch();
-  if (next.status === 'aborted' || next.status === 'finished') { if (client.state.screen === 'wait') navigate('lobby'); return; }
-  if (client.state.screen === 'wait') { const bound = await call('kingdown_resume', { game_id: next.game_id }, false, false, false); if (bound) routeView(bound); }
-  else if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && !dismissed.has(next.game_id)) found(next);
+  if (queue.closed() || watched !== game) return;
+  const job = queue.command('read', 'kingdown_get', { game_id: game }, { user: false });
+  const current = () => queue.current(job) && watched === game;
+  await queue.run(job, async () => {
+    const result = await client.call('kingdown_get', { game_id: game }, { background: true });
+    if (!current()) return;
+    if (result.isError) { if (client.state.screen === 'wait') showError(new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' ')), $('wait-status')); return; }
+    const next = result._meta?.view as View | undefined;
+    if (!next || next.game_id !== game || !['wait','board'].includes(client.state.screen)) return;
+    if (open?.game_id !== next.game_id) began = Date.now() - Math.max(0, Date.parse(next.server_now) - Date.parse(next.created_at));
+    open = next;
+    if (next.status === 'waiting') { if (client.state.screen === 'wait' && memory.view?.kind !== 'random') waitScreen(); return; }
+    stopWatch();
+    if (next.status === 'aborted' || next.status === 'finished') { if (client.state.screen === 'wait') navigate('lobby'); return; }
+    recoverJoined = false;
+    if (client.state.screen === 'wait') await call('kingdown_resume', { game_id: next.game_id }, { route: true, origin: job });
+    else if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && !dismissed.has(next.game_id)) found(next);
+  });
 }
 function syncWatch() {
   recoverJoined ??= client.state.screen === 'board';
@@ -86,25 +91,33 @@ function syncWatch() {
   const active = solo && ['board','wait'].includes(client.state.screen);
   const joined = recoverJoined && solo ? memory.games.filter(game => game.kind === 'random' && game.status !== 'waiting' && Date.parse(game.created_at) <= Date.parse(memory.view!.created_at) && Date.parse(game.updated_at) >= Date.parse(memory.view!.created_at))
     .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] : undefined;
-  if (memory.view && memory.games.some(game => game.game_id === memory.view?.game_id)) recoverJoined = false;
+  if (!joined && memory.view && memory.games.some(game => game.game_id === memory.view?.game_id)) recoverJoined = false;
   const entry = memory.games.find(game => game.kind === 'random' && game.status === 'waiting') ?? joined;
   const id = open?.status === 'waiting' ? open.game_id : entry?.game_id;
   if (!id || solo && id === memory.view?.game_id || dismissed.has(id)) { stopWatch(); return; }
-  if (watch && watched === id) {
+  if (watched === id) {
     if (active && !background) { background = true; void readOpen(id); }
     else if (!active) background = false;
     return;
   }
   if (!active && client.state.screen !== 'wait') return;
-  stopWatch(); watched = id; background = active;
-  // Keep the wait clock on Play too. Only a computer board makes this runner read.
-  watch = runPoll(() => open?.game_id === id ? open : 'waiting for a join', async () => {
-    if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && ['board','wait'].includes(client.state.screen) && !client.state.pending) await readOpen(id);
-  });
+  stopWatch(); watched = id; background = active; if (active) void readOpen(id);
+  pollUpdate();
+}
+/**
+ * The watch of a waiting human game, a target of the one poll (design §4). The wait clock runs on Play too; only a
+ * computer board or the wait screen makes it read. It never selects that game.
+ */
+export function waitPoll(): PollTarget | undefined {
+  const id = watched;
+  return id ? { view: open?.game_id === id ? open : 'waiting for a join', read: async () => {
+    if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && ['board','wait'].includes(client.state.screen)) await readOpen(id);
+  } } : undefined;
 }
 function found(human: View) {
   const over = $<HTMLDialogElement>('over');
-  if (over.open && !over.classList.contains('found')) return;
+  // An open dialog stays: a later watch read does not rebuild Switch now (or its error) while the player answers.
+  if (over.open) return;
   over.className = 'found'; over.setAttribute('aria-labelledby', 'found-title');
   over.innerHTML = '<div class="over-art"></div><h2 id="found-title">Opponent found</h2><p></p><form method="dialog"><button id="found-switch" class="primary" type="button">Switch now</button><button id="found-later" type="button">Not now</button></form><p id="found-error" role="alert"></p>';
   over.querySelector('.over-art')!.append(portrait(human.opponent?.icon, true));
@@ -112,27 +125,32 @@ function found(human: View) {
   over.querySelector('p')!.append(name, ' joined your open game. Switch now? The computer game then ends with no result.');
   $('found-later').onclick = () => { dismissed.add(human.game_id); over.close(); void call('kingdown_games', {}); };
   $('found-switch').onclick = async () => {
-    if (switching) return; switching = true; $<HTMLButtonElement>('found-switch').disabled = true;
+    if (switching) return;
+    const origin = queue.command('write', 'kingdown_abort', {});
+    switching = true; $<HTMLButtonElement>('found-switch').disabled = true;
     try {
       const solo = memory.view;
       if (solo?.kind === 'solo' && solo.status === 'playing' && abortReceipt?.game_id !== solo.game_id) {
         const result = await client.call('kingdown_abort', { game_id: solo.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: solo.revision });
+        if (!queue.current(origin)) return;
         if (result.isError && result._meta?.code !== 'NOT_ALLOWED') throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
         if (!result.isError) abortReceipt = result._meta?.view as View;
       }
-      const next = await call('kingdown_resume', { game_id: human.game_id }, false, false, false);
-      if (next) { over.close(); routeView(next); await call('kingdown_games', {}); }
+      const next = await call('kingdown_resume', { game_id: human.game_id }, { route: false, origin });
+      if (!queue.current(origin)) return;
+      if (next) { over.close(); routeView(next); await call('kingdown_games', {}, { origin }); }
       else showError(new Error($('error').textContent ?? 'Could not open the game.'), $('found-error'));
-    } catch (error) { showError(error, $('found-error')); }
+    } catch (error) { if (queue.current(origin)) showError(error, $('found-error')); }
     finally { switching = false; $<HTMLButtonElement>('found-switch').disabled = false; }
   };
   if (!over.open) over.showModal();
 }
-function stopWatch() { watch?.stop(); watch = undefined; watched = undefined; background = false; }
-const observer = new MutationObserver(() => {
+function stopWatch() { watched = undefined; background = false; }
+export function waitSync() {
   if (client.state.screen !== 'wait') { clearInterval(timer); timer = undefined; }
   syncWatch();
-});
-observer.observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
+}
+// The games list changes outside the store: its rows can name a new waiting game.
+const observer = new MutationObserver(waitSync);
 observer.observe($('games-list'), { childList: true });
 onStop(() => { clearInterval(timer); stopWatch(); observer.disconnect(); });

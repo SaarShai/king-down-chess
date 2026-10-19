@@ -1,0 +1,203 @@
+# 18 · Server follow-ups, lane server-2
+
+Status: needs-triage
+
+## Scope
+
+Build ticket 14 B4 and parts 18-a, 18-b and 18-c on `claude/r9-server`. Part 18-a also covers A-F4 from ticket 11.
+The owner approves this scope and the exact B4 words on 2026-10-16.
+The source tickets are in the owner's scratch ticket folder.
+
+## Plan
+
+1. Use the approved consent heading and six permission lines. Remove the token text and raw scope row. Keep the providers, account details and D8 password form.
+2. Let each tool set `openWorldHint`. Set it true on accept, create, find, say, invite, join and handle. Set it false on all other tools. Update the protocol check and checklist rows 28, 30 and 44, with the A6 result.
+3. Add consent and tool-hint tests. Run `npx tsc --noEmit` and `npm test` with the specified local test database. Run `plugin-ui`, `plugin-ui-http` and the consent check on the M1, with the shared browser lock.
+4. Check the diff and commit with both required trailers. Record results here.
+
+## Verification criteria
+
+- The consent page uses the owner's exact words. It shows no raw scope code or token text.
+- The D8 form stays closed at first. Its mock password failure and success paths pass.
+- Every tool has a boolean open-world hint. The seven named tools have a true value, including create because its random path can join another player's game.
+- Typecheck, unit tests and both required browser checks pass with the existing limits.
+
+## Limits
+
+- The current step covers 18-a, 18-b and A-F4. Earlier commits cover B4 and 18-c.
+- Report has no app control. The owner keeps it for later: Block only.
+- Parts 18-d and 18-e stay outside this step.
+
+## Choices
+
+- Remove the raw scope row, as the approved B4 rules permit. Keep the existing page layout and sign-in controls.
+
+## Results
+
+- B4 uses the exact approved heading, six list items and chat/email sentence. It removes the token text and scope row. The account details, provider buttons and D8 password form stay in place.
+- 18-c adds an open-world value to the existing tool registration helper. Find, say, invite, join and handle set it true. The other 20 tools set it false. The unit test and protocol check cover all 25 tools. Checklist rows 28, 30 and 44 include the changes and the A6 result.
+- `npx tsc --noEmit` passes. The commit hook's typecheck and staged gate also pass.
+- Full `npm test`, with the specified test database: 2,554 passed, 8 skipped, 2 failed in 167 files. The two changed test files pass in that run. The later document tests do not run because the unit stage fails.
+- Both changed files also pass on their own through `npm test` and `KINGDOWN_TEST_FILE`: 6 consent tests and 12 server tests. Each command also passes all 50 document tests. Both exit with code 0.
+- The failures are in unchanged files. `tools/plugin-board.test.ts:245` reports targets below 48 px for eight card buttons and Abort at 320 × 568. `src/online/accounts.db.test.ts:266` expects report deletion to be refused. The current runtime SQL grants that operation for 12-month cleanup, with a row policy. These tests and their code have no diff from the code base `dbf79f54`. This step does not change either path.
+- On the M1 at `a227601d`, `plugin-ui` passes (218.6 seconds), `plugin-oauth` passes (3.8 seconds), and the protocol check passes. The consent browser assertions check every approved line and the account details after the D8 mock password path. No real account signs in.
+- The first `plugin-ui-http` run fails (152.4 seconds): the Join button stays hidden after a remount (`tools/plugin-ui-check.mjs:905`). The same check on the code base `dbf79f54` fails at the same line (162.6 seconds). No check limit changes. The comparison uses the lane's M1 folder and the shared browser lock.
+- The final code repeat also fails at line 905 (160.1 seconds). The comparison restores `a227601d`, leaves the M1 lane clean, and releases its browser lock. All check jobs end. The two unit failures and this base HTTP failure need triage; the requested code and its focused checks are complete.
+
+## Evidence
+
+- Local: `/tmp/kd-r9-server-typecheck.log`, `/tmp/kd-r9-server-tests.log` and their `.exit` files.
+- Focused tests: `/tmp/kd-r9-server-consent-test.log`, `/tmp/kd-r9-server-server-test.log` and `/tmp/kd-r9-server-targeted.exit` (`0 0`).
+- M1: `/tmp/kd-r9-server-plugin-ui.log`, `/tmp/kd-r9-server-plugin-ui-http.log`, `/tmp/kd-r9-server-plugin-oauth.log`, `/tmp/kd-r9-server-protocol.log`, `/tmp/kd-r9-server-http-base.log` and `/tmp/kd-r9-server-http-repeat.log`. Each browser summary names its full check log.
+
+## Review fix plan
+
+1. Check A1–A5 and B1 against the source and the approved choices. Ask the owner to replace the exact closing consent sentence. Keep the heading and six permission lines.
+2. Restore the approved privacy link. Replace the old consent quote in the privacy evidence. Base case N2 on input schemas. Set the hints on accept and create to true: both can join another player's random game, under the owner's rule, "True on tools that reach others".
+3. Add tests for each confirmed fault. Check the OAuth issue and refresh claims in the local test database. Keep all test limits.
+4. Run `npm test` here with the specified test database. Run `plugin-ui`, `plugin-ui-http`, `plugin-oauth` and the protocol check on the M1 in this lane, with the browser lock. Record each result, check the diff and commit with both trailers.
+
+### Review verification criteria
+
+- The consent text states the true chat and email limits, with the owner's approval. The privacy link opens a new tab and keeps the consent page open.
+- Tests check the email and provider metadata that the token hook keeps for the client on issue and refresh.
+- The privacy evidence cites tool inputs. N2 does not use open-world hints to claim that tools can open other sites.
+- All 25 tools have a boolean open-world hint. The seven true values include accept and create.
+- Each changed test passes. Full tests and required M1 checks have recorded results. Any old failure has evidence from the base.
+
+### Finding checks
+
+- A1 and B1: confirmed. The access token hook keeps the email claim and provider metadata. The consent sentence also names the wrong reader of the chat. The owner must choose the new exact closing words. [Supabase's token hook contract](https://supabase.com/docs/guides/auth/auth-hooks/custom-access-token-hook) requires the email claim; [its OAuth flow](https://supabase.com/docs/guides/auth/oauth-server/oauth-flows) gives the tokens to the client. The new database test checks the claims on issue and refresh for Google and GitHub metadata. It uses test data and does not sign in.
+- A2: confirmed. The option file includes the privacy link in all three footers. The owner removes only the stop line. The source restores the link before the buttons, with a new tab and `noopener`. Unit and mock browser assertions check it.
+- A3: confirmed. The privacy evidence quotes words that the page no longer has. It now cites the strict tool input schemas, which have no chat transcript. A document test checks this evidence.
+- A4: confirmed. N2 uses a false all-tools hint claim. It now cites the tool input schemas for the other-site refusal. A document test checks that basis.
+- A5: confirmed. Accept joins another player's game. Create can call the same find path as Find when kind is random. Both hints now use true under the owner's rule. The tool unit test and protocol check cover all seven true values and all 18 false values. Checklist rows 28 and 30 give the reason.
+
+### Review check results
+
+- Code commit: `9cdb1e2c`. Typecheck and both commit gates pass. The consent closing sentence still needs the owner's new choice; row 44 records this limit.
+- Full local `npm test`, with the specified test database: 2,558 passed, 8 skipped, 2 failed in 167 files (130.76 seconds). All changed test files pass. The unit stage failure stops the later document stage.
+- The accounts failure is the same report-delete expectation at `src/online/accounts.db.test.ts:266` as before. The other failure is `tools/plugin-app.test.ts:32`: after remount, `body[data-page]` is null when the test expects home. Both files, the app code and the browser check have no diff from `dbf79f54`. A focused repeat includes the changed tests and this app test. No test limit changes.
+- Local logs: `/tmp/kd-r9-review-tests.log` and `.exit`; the focused repeat uses `/tmp/kd-r9-review-focused.log` and `.exit`.
+- M1 identity and local test database checks pass. The lane is clean at the code commit. Its detached job waits for the shared browser lock. It will run `plugin-ui`, `plugin-ui-http`, `plugin-oauth` and the protocol check, then release the lock. Logs use `/tmp/kd-r9-review-<check>.log` and `.exit`; the job log is `/tmp/kd-r9-review-browser.log`.
+
+## Parts 18-a and 18-b: plan
+
+1. Replace `show_online` with `online_visible_to`: everyone, mutual and nobody. Use three Settings choices. Change both Settings menu rows (A-F4), privacy text and review notes.
+2. Add `kingdown_block` through the account service. Read the current block, block and unblock by a shared game. Add a confirmed action and an undo path to the game Menu. Use the existing Find, join and message rules.
+3. Test all three online values through MCP and the database. Test block, unblock, input checks, Find, joins and hidden messages. Check the controls in both M1 browser checks.
+4. Run `npx tsc --noEmit` and `npm test` with the local test database. Keep all limits. Check the diff and commit each part with both trailers. Record each result here.
+
+### Acceptance checks
+
+- The default shows Friends only. Each choice persists and controls who gets the activity time. Each target is at least 44 px high.
+- Block and unblock use the same account relations as the website. Each tool hint is explicit. A block prevents matches through Find and joins to open games, and hides messages. The Menu shows the saved block after a reload.
+- Each new test passes. Record all required check results and any old failure with its evidence.
+
+### Scope for this step
+
+Parts 18-a and 18-b, with A-F4, are approved by the owner's task. Parts 18-d and 18-e stay outside this step. Part 18-c and B4 are in the earlier commits above.
+
+### Build choices for 18-a and 18-b
+
+- Use the existing three-choice control and the stored `online_visible_to` values. No database change is needed. Both Settings menu rows name the control.
+- Put Unblock player in the same Menu and in a blocked-player list in Profile. The Profile path stays available after the game ends. Use the same control during setup and play. Confirm both actions. Keep the current game in progress, as the website's block rules do. Unblock does not restore follows.
+- Read block status through the same tool with no `blocked` input. This read does not write. The Menu's other controls open at once while this read runs. A failed read has Retry on its row.
+- Keep Report for later, as the owner asks. Add no new rule for the current game and no new account store.
+
+### Check checkpoint
+
+- Part 18-a code commit: `c9e7a8ed`. Typecheck and the commit gates pass.
+- The focused local test run waits for the clone's shared test lock. The lock has another test process. This step does not bypass the lock or stop that process.
+- The M1 identity matches the project record. Browser checks will use this lane's folder and the shared browser lock.
+
+### First full test result
+
+- Full `npm test` at `4b968359`: 2,556 pass, 8 skip and 7 fail in 167 files (147.84 seconds). Both new block tests and the three-state online test pass.
+- Five failures need changes in this step: two old toggle-count checks still expect three checkboxes; the tool count still expects 25; the owner-answer document test still expects the old ticket words; and the Find test leaves an open table that a later expiry test joins. Update the counts and text checks. Abort the Find test's table after its assertion.
+- The other two failures match the earlier ticket: the card and Abort target sizes, and the report-delete permission test. Neither path changes in this step. Keep the limits and record the repeat result.
+
+### Local results for 18-a and 18-b
+
+- Code: `62adc425`. The online control, both Settings menu rows (A-F4), Block player, Unblock player and the Profile undo path are built. The controls use the existing styles. Long names wrap in the Profile list.
+- `npx tsc --noEmit`, the commit gates and the 26-tool protocol check pass. All tool hints have explicit boolean values. Block has destructive and open-world hints set to true.
+- The full repeat of `npm test` passes 2,561 tests, skips 8 and fails 2 in 167 files (141.18 seconds). Every changed test file passes. The failures are the unchanged report-delete permission test and a five-second timeout in `src/rules/power-fixes.test.ts:470`. The engine and that test have no diff from the task base `26f3c3a2`.
+- The focused server, migration and privacy run passes all 34 tests, then all 50 document and artwork tests. It includes all three online values, the default and mutual follows; block status, repeated blocks, Find, open-game and code joins, hidden messages, ended-game undo, private lists and bad targets.
+- The engine file passes all 35 tests on its own, then all 50 document and artwork tests. Its limit stays at five seconds. The old board-target failure from the first full run passes in the repeat. No unrelated source or test changes are made.
+- The privacy category repeat at `be163c2f` passes all 6 policy tests, then all 50 document and artwork tests. Its log is `/tmp/kd-r9-18-privacy-repeat.log`, with exit code 0.
+- Local logs: `/tmp/kd-r9-18-typecheck.log`, `/tmp/kd-r9-18-local-protocol.log`, `/tmp/kd-r9-18-repeat-tests.log`, `/tmp/kd-r9-18a-tests.log` and `/tmp/kd-r9-18-rules-test.log`. Each has its exit file.
+- The M1 job first waits for the shared browser lock. The repair and final results below cover that run. The initial job log is `/tmp/kd-r9-18-browser.log`.
+
+### M1 first check and repair
+
+- The M1 job gets the shared lock and checks `be163c2f`. All three online values pass their save, target-size and remount assertions in the fixture run. The next test step fails because the check helper tries to open a Board menu row from Play; Play has no such row. Resume the same game through its actual list row instead. This changes the check, not the product code.
+- Keep this lane's lock while the original HTTP child ends at its existing limit. Pause only the parent shell by PID. Then repeat both named browser checks, one at a time, before the parent releases the lock. The named checks keep their limits.
+
+- Visual check: the saved Settings render shows the online help line against the choice border. Use the existing `quiet-line` style, which has a positive top margin. Add a browser assertion that the help line does not overlap the control. Repeat the fixture check after this repair, then let the HTTP check use the same code.
+
+- The second fixture run reaches the Profile undo. It refuses the fixture's `bob` target because the tool requires a UUID. Give fixture profiles public UUIDs while their internal actor names stay short. Use those UUIDs in the block list and resolve them on undo. Check this path through MCP in the protocol check and in the fixture unit test. The real account code and its UUID input check stay in place.
+
+- The spacing repair adds a second `quiet-line` to Settings. The old account-sync text assertion now has two matches. Select its final help line. Keep both help lines and keep the new overlap assertion.
+
+## Final results for 18-a and 18-b
+
+- Both requested parts and A-F4 are built. Settings takes and returns `everyone`, `mutual` or `nobody`. Friends only stays the default. Both Settings menu rows, the privacy page and the review notes use the new words. The policy also names stored follows and blocks.
+- `kingdown_block` reads, blocks and unblocks through the existing account relations. Its destructive and open-world hints are true. The game Menu has confirmation and saved Block or Unblock status. Profile has a lasting undo path after the game ends. A block ends follows, stops Find and open-game joins, and hides messages. The current game continues.
+- Latest checked code: `22c6a20b`. `npx tsc --noEmit` and the commit gates pass. The 26-tool protocol check passes locally and on the M1. It includes Profile → Unblock with the public UUID.
+- Latest full `npm test`, with the specified local database: **2,561 pass, 8 skip, 2 fail in 167 files** (145.50 seconds). All changed test files pass. The failures are the unchanged report-delete permission expectation (`src/online/accounts.db.test.ts:266`) and the old card/Abort target-size check (`tools/plugin-board.test.ts:245`). The earlier results above record both faults before this step. No limit changes.
+- Focused checks pass: 34 server/migration/privacy tests, 9 fixture tests, the 6 policy tests after the final data item, and the 35-test engine file after its one full-run timeout. Each focused command also passes all 50 document and artwork tests. Counts belong to each command; they are not a combined total.
+- M1 `plugin-ui`: **pass, 225.7 seconds**. It covers all three online values, 44 px targets, help spacing, remounts, block-read failure and retry, Cancel, Block, saved status, Menu undo and Profile undo after a finished game.
+- M1 `plugin-ui-http`: **fail, 164.1 seconds**. All 18-a and 18-b assertions pass first. The later Join check stops at a hidden `#join-confirm` after a remount (`tools/plugin-ui-check.mjs:974`). This is the same check statement as line 905 at the task base. The earlier B4 results reproduce that fault on `dbf79f54`. The Join screen, router and client have no diff from task base `26f3c3a2`. This step keeps the case and its limit.
+- Visual QA: the corrected Settings help text has a clear gap below the choices. The Block confirmation and Unblock menu fit the phone screen. Local renders: `/tmp/kd-r9-18-online-final.png`, `/tmp/kd-r9-18-block-confirm.png` and `/tmp/kd-r9-18-block-undo.png`.
+- All jobs for this step end. The M1 lane is clean at the checked code. The original lock owner resumes, passes the protocol check and releases its lock. The current step has no missing build part. The old full-check failures and the rest of ticket 18 still need triage.
+
+### Final evidence
+
+- Latest full suite: `/tmp/kd-r9-18-postfix-tests.log` and `.exit` (`1`).
+- Fixture UUID repair: `/tmp/kd-r9-18-uuid-fixture.log` and `.exit` (`0`); `/tmp/kd-r9-18-uuid-protocol.log` and `.exit` (`0`).
+- Local M1 summaries: `/tmp/kd-r9-18-m1-plugin-ui.log`, `/tmp/kd-r9-18-m1-plugin-ui-http.log` and `/tmp/kd-r9-18-m1-protocol.log`.
+- Full HTTP failure: `/tmp/kd-r9-18-verified-http-detail.log`.
+- M1 final summaries and exit files: `/tmp/kd-r9-18-verified-plugin-ui` (`0`), `/tmp/kd-r9-18-verified-plugin-ui-http` (`1`) and `/tmp/kd-r9-18-protocol` (`0`). Each named check summary gives its full log folder.
+
+## Block review repair
+
+Status: complete
+
+### Plan and checks
+
+1. Check A1–A5 and B1–B2 against the code. Fix each confirmed fault with a test.
+2. Seed an active friend game. Add Block to the end card. Show the saved action in a polite status region. Name Profile as the undo path.
+3. Refuse rematch offers and accepts across a block in either direction. Hide those actions on the end card. Keep the current game in play.
+4. Select blocks before the page limit. Give Profile a separate block cursor and More control. Keep keyboard focus after an online setting save. State the current follow limit in the help and policy.
+5. Keep the source fixed while a check serves this worktree. Run `npm test` with the required local database. Run `plugin-ui` and `plugin-ui-http` on the M1 with the shared lock and existing limits. Check the diff, record results, and commit with both trailers.
+
+Each fault needs a passing test. Record each full check result, including any old failure. Use the existing controls and styles. The owner's request to fix the confirmed findings includes the rematch guard in A4.
+
+### Finding checks and repairs
+
+- A1: confirmed. The seed has no active game against a person. It now adds a friend game with the opponent to move. The seed database test checks both active games and the turn count. The review notes, owner steps, P1 and P3 examples now use those counts.
+- A2: confirmed. The end card hides Menu. It now uses the same Block control, with Profile as the undo path. The browser check blocks a person from the end card and unblocks from Profile. It also checks that a deleted opponent has no Block control. The end-card confirmation and server reply do not say that an ended game continues.
+- A3: confirmed. A good Block reply has no visible status. The app now puts the server text in the board's polite status region and in the end card's status region. The text stays through board refreshes until the game changes. Browser assertions check Block and Unblock text. Database assertions check the active and ended replies.
+- A4: confirmed. Rematch does not check blocks. The shared game service now refuses offers and accepts across a block in either direction. Decline and the current game stay available. A database test checks both block directions, a pending offer, refused offers and accepts, no new game, and an accepted rematch after undo. The end-card test and browser poll test check that blocked rematch controls stay hidden.
+- A5: confirmed. No screen can create a follow. Settings, the policy and the review notes now state that Friends only shows the time to nobody for now. The policy test checks all three texts.
+- B1: confirmed. The old query limits all relations before it selects blocks. The new query selects only blocks and uses a separate UUID cursor. Profile has More blocked players. A database test uses 1,000 newer follows and 52 older blocks. It checks each page, removal of the cursor row, and undo on the last page. The browser check appends the last page and uses its Unblock control.
+- B2: confirmed. The save disables the focused radio. It now restores focus if the player has not moved to another control. The browser check uses Right Arrow, then Left Arrow, and checks that a slow save does not take focus from Back.
+
+### Final repair results
+
+- All seven findings are confirmed and fixed. Checked code: `c948b499`. The final results commit changes this ticket only. Typecheck and both commit gates pass. No dependency changes or test limit changes.
+- Final local `npm test`, with the required test database: **2,564 pass, 8 skip, 1 fail in 167 files**, 123.14 seconds. Every changed test file passes. The only failure is the old report-delete permission expectation at `src/online/accounts.db.test.ts:266`. The test expects DELETE to fail, but runtime SQL permits the operation for cleanup, with a row policy. This test and the SQL have no change in this repair; earlier results in this ticket record the same fault.
+- The fresh app file passes all **63 tests**, then all **50 document and artwork tests**. The final full run also passes the app file and every board target-size test. An earlier full run reports 20 app start errors after a source edit during the run. The fresh file and final full run clear those errors with fixed source. The plan now requires fixed source while a check serves the worktree.
+- Final M1 `plugin-ui`: **pass, 222.9 seconds**. It checks keyboard arrows, focus after save, focus moved to Back during a slow save, Block and Unblock status text, end-card Block, Profile undo, block pages, deleted players, and rematch controls after a same-revision poll.
+- Final M1 `plugin-ui-http`: **fail, 161.5 seconds**. All new assertions before Join pass. The later Join remount still hides `#join-confirm` at `tools/plugin-ui-check.mjs:1027`. It is the same statement and fault recorded at line 974 before this repair and at line 905 at the task base. The Join screen, router and client have no diff from `e991f917`. The fixture check covers the later end-poll cases that the HTTP check cannot reach.
+- The first HTTP run at `c51d7972` also reports 19 request errors. The end card now keeps its Block control between polls. Its read-count assertion passes, and the final HTTP log has no extra request errors. The end-card control has its own ID, separate from the hidden Menu row.
+- Visual check: the Settings help has a clear gap below the choices. The end card fits the phone screen and says only "Player blocked." after an ended game. Local renders: `/tmp/kd-r9-block-final-online.png` and `/tmp/kd-r9-block-final-end.png`.
+- The local and M1 jobs end. The M1 lane is clean at the checked code. Its job releases the shared browser lock. No job is paused or left running for this repair.
+
+### Repair evidence
+
+- Final full suite: `/tmp/kd-r9-block-final-tests.log` and `.exit` (`1`).
+- Fresh app and document checks: `/tmp/kd-r9-block-app-focused.log` and `.exit` (`0`).
+- Final M1 summaries: `/tmp/kd-r9-block-final-plugin-ui.log` and `/tmp/kd-r9-block-final-plugin-ui-http.log`. The M1 has their `.exit` files (`0` and `1`) and `/tmp/kd-r9-block-final-browser.log`.
+- Final HTTP details: `/tmp/kd-r9-block-final-http-detail.log`. The summaries give the full M1 check folders.
+- First diagnostic runs: `/tmp/kd-r9-block-review-tests.log`, M1 `/tmp/kd-r9-block-review-plugin-ui.log` and M1 `/tmp/kd-r9-block-review-plugin-ui-http.log`.

@@ -1,5 +1,4 @@
-/** The review sign-up hook and the password check of the access token hook (approval D8 a) as Supabase Auth calls
- * them, in one transaction that rolls back. */
+/** Supabase sign-up and access token hooks, with each test in a transaction that rolls back. */
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import pg from 'pg';
@@ -15,7 +14,28 @@ async function connect() {
  const client = new pg.Client({ connectionString: url }); await client.connect(); return client;
 }
 
-suite('the review password sign-up hook', () => {
+suite('Supabase sign-up and access token hooks', () => {
+ it('keeps the email and provider metadata sent to the OAuth client on issue and refresh', async () => {
+  const client = await connect();
+  try {
+   await client.query('begin');
+   await client.query(sql('plugin-deploy/oauth-audience-hook.sql'));
+   const clientId = randomUUID(), actor = randomUUID(), now = Math.floor(Date.now() / 1000);
+   const resource = 'https://plugin.example/mcp';
+   await client.query('insert into kingdown_oauth.client_resources(client_id,resource) values($1,$2)', [clientId, resource]);
+   await client.query('set local role supabase_auth_admin');
+   for (const provider of ['google', 'github']) {
+    const claims = { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', exp: now + 3600, iat: now, sub: actor,
+     role: 'authenticated', aal: 'aal1', session_id: randomUUID(), email: 'player@example.test', phone: '', is_anonymous: false,
+     client_id: clientId, scope: 'openid email', app_metadata: { provider, providers: [provider] }, user_metadata: { email: 'player@example.test' } };
+    for (const method of ['oauth_provider/authorization_code', 'token_refresh']) {
+     const result = (await client.query('select public.kingdown_access_token_hook($1::jsonb) as result', [{ user_id: actor, authentication_method: method, claims }])).rows[0].result;
+     expect(result, `${provider} ${method}`).toEqual({ claims: { ...claims, aud: resource } });
+    }
+   }
+  } finally { await client.query('rollback'); await client.end(); }
+ });
+
  it('lets in Google, GitHub, Facebook and the listed review address, and refuses every other sign-up', async () => {
   const client = await connect();
   try {

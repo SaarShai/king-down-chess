@@ -29,11 +29,9 @@ html { font-variant-numeric: lining-nums; }
 .page-sheet .new-game-foot { display: flex; align-items: center; gap: var(--space-3); }
 .page-sheet .new-game-foot button { flex: 1; }
 .group-head { margin: var(--space-5) 0 var(--space-2) !important; }
+#games-head { margin-top: 0 !important; }
 .group-head small { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; font-size: var(--fs-xs); }
 .quiet-line { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0 !important; }
-#layout-check { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0; overflow-wrap: anywhere; user-select: text; }
-/* A long press on the Settings title shows #layout-check (ticket 21): no text selection or callout takes the press. */
-#page-title { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .wide-btn { justify-content: center; min-height: 48px; margin-top: var(--space-3); font-size: var(--fs-lg); }
 .seg-line { margin: 8px 0 0; color: var(--ink-soft); }
 /* A second sheet over the first (the game's Menu sheet: a bottom sheet on a phone, centred on a wide screen). */
@@ -54,13 +52,15 @@ html { font-variant-numeric: lining-nums; }
 .page-sheet .menu-row, .over-sheet .menu-row {
   /* No shrink in a scrolling column: a shrunk row drew its divider through its second line. */
   flex-shrink: 0; position: relative; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 12px; align-items: center;
-  width: 100%; min-height: 60px; padding: 8px 32px 8px 0; text-align: left; font-size: 18px;
+  width: 100%; min-height: 60px; padding: 8px 32px 8px 0; text-align: left; font-size: var(--fs-lg);
   background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none;
 }
 .menu-row.has-lead { grid-template-columns: auto minmax(0, 1fr); }
 .menu-row.has-lead > :first-child { grid-row: 1 / span 2; }
 .menu-row .row-title { grid-column: -2; font-weight: 700; }
-.menu-row .line { grid-column: -2; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: 14px; font-weight: 400; color: var(--ink-soft); }
+.menu-row .line { grid-column: -2; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: var(--fs-sm); font-weight: 400; color: var(--ink-soft); }
+/* Keep the dot with the date when a game row wraps. */
+.menu-row .game-detail { display: inline-flex; align-items: baseline; gap: 8px; }
 .menu-row > i { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-style: normal; }
 .row-art { width: 52px; height: 52px; object-fit: contain; display: flex; align-items: flex-end; justify-content: center; }
 .row-art.pair img { height: 48px; width: auto; }
@@ -75,7 +75,7 @@ html { font-variant-numeric: lining-nums; }
 .when .turn-mark, .when .open-mark { position: static; transform: none; }
 .feats { display: inline-flex; gap: 4px; color: var(--gold-ink); }
 .feats .icon { width: 16px; height: 16px; }
-.accept { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 6px 14px; font-size: 15px; font-weight: 700; color: var(--ink); background: linear-gradient(var(--vellum), #efe4cc); border: 1px solid var(--stone-700); border-radius: var(--radius); box-shadow: var(--lift); }
+.accept { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 6px 14px; font-size: var(--fs-md); font-weight: 700; color: var(--ink); background: linear-gradient(var(--vellum), #efe4cc); border: 1px solid var(--stone-700); border-radius: var(--radius); box-shadow: var(--lift); }
 .game-row { padding-right: 96px !important; }
 .online { text-align: right; color: var(--ink-soft); font-size: var(--fs-sm); margin: 0 !important; }
 .key { line-height: 2; }
@@ -90,18 +90,22 @@ html { font-variant-numeric: lining-nums; }
 .free { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: #3d6b1f; }
 /* The cards sheet: a card face in the Guide's piece-card look (vellum, stone edge, the art in a stone window). */
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: var(--space-2); }
-label.card-face {
+.card-face {
   position: relative; display: grid; grid-template-rows: auto 1fr; align-items: start; gap: 6px; min-height: 0; padding: 6px; cursor: pointer;
   background: linear-gradient(var(--vellum), #f4ead4); border: 1px solid var(--stone-300); border-radius: 12px; box-shadow: var(--shadow-card);
 }
-label.card-face:has(input:checked) { border-color: var(--stone-700); }
+.card-face:has(input:checked) { border-color: var(--stone-700); transform: translateY(-3px); }
+.card-face { transition: transform 140ms; }
 label.card-face.out { opacity: .62; }
 .cf-art { display: grid; place-items: center; aspect-ratio: 16 / 9; overflow: hidden; border-radius: var(--radius); background: linear-gradient(#ddd6c6, #c9c0ae); box-shadow: inset 0 0 0 1px rgba(77, 69, 60, .35); }
 .cf-art img { width: 100%; height: 100%; object-fit: cover; }
+.cf-art .pm { width: 100%; height: 100%; opacity: 1; }
+.cf-art .pm .a { animation-name: none; }
 .cf-art img.back { object-position: center 30%; opacity: .85; }
 .cf-word { font-family: var(--font-display); font-weight: 700; font-size: var(--fs-md); color: var(--stone-700); letter-spacing: .04em; text-align: center; padding: 0 6px; }
 .cf-text b { display: block; font-family: var(--font-display); font-size: var(--fs-md); letter-spacing: .03em; padding-right: 26px; }
 .cf-text small { display: block; font-size: var(--fs-xs); line-height: 1.35; color: var(--ink-soft); }
+.cf-cost { display: block; margin-top: 4px; font-size: var(--fs-xs); color: var(--ink); }
 label.card-face input { position: absolute; right: 10px; top: 10px; }
 /* ---- the table in the frame ---- */
 .frame #game-table { height: 100%; }
@@ -110,21 +114,30 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .board-layer .pi { position: absolute; }
 .board-layer .veil { position: absolute; display: grid; place-items: center; padding: 6px; overflow: hidden; text-align: center; background: rgba(243, 234, 215, .82); backdrop-filter: blur(3px); border-bottom: 2px dashed var(--stone-500); }
 .board-layer .veil span { max-width: 22ch; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-md); color: var(--ink-soft); }
-/* No End turn in the plugin game: Offer draw, Resign and Menu fill the game's bar. */
-#table-bar { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); grid-auto-flow: column; }
+/* The turn button sits between Undo and Menu. */
+#table-bar { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr); }
 #table-bar > button { grid-column: auto; }
+#table-bar > #board-menu { grid-column: 3; }
+#short-last-move { display: none; }
 #table-bar > button.primary { background: var(--accent); color: var(--vellum); }
 #table-bar > button[aria-disabled='true'] { color: rgb(91 80 69 / 60%); }
-/* Card coins (card mode C): smaller than the power coin, so a full hand fits the strip at 360 px. */
+/* Card coins (card mode C): smaller than the power coin, so a full hand fits the strip at 360 px. The card face fills
+   the coin inside the ring, so it grows with the coin (26 px in a 34 px coin, 36 px in a 44 px coin). */
 .coin-row { gap: 4px; }
 #game-table .player-strip { gap: 8px; }
 .coin.card-coin { width: 34px; height: 34px; overflow: hidden; }
-.coin.card-coin img { inset: 3px; width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
-.cc-word { position: absolute; inset: 0; color: var(--vellum) !important; text-shadow: 0 1px 2px rgba(0,0,0,.6); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--ink); }
+/* Your card coins: a dark coin face (a coin keeps its radial face, never the stone control face) under a gold ring. */
+#app-root #strip-me .coin.card-coin { background: radial-gradient(circle at 40% 30%, var(--stone-700) 70%, var(--stone-900)); border-color: var(--gold); --card-ring: var(--gold); }
+#app-root #strip-them .coin.card-coin { border-color: var(--stone-700); --card-ring: var(--stone-700); }
+#game-table .coin.card-coin:not([data-state='armed']) { box-shadow: var(--lift), inset 0 0 0 2px var(--card-ring); }
+/* G2 a: a spent card coin still opens its read sheet, so its word keeps 4.5:1. The grey and a lighter dim (0.85) mark it as spent. */
+#game-table .coin.card-coin[data-state='used'] { opacity: .85; }
+.coin.card-coin img { inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); border-radius: 50%; object-fit: cover; }
+.cc-word { position: absolute; inset: 0; color: var(--vellum) !important; text-shadow: 0 1px 2px rgba(0,0,0,.6); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-xs); color: var(--ink); }
 #game-table .coin:not(.card-coin) { width: 40px; height: 40px; }
 #game-table .coin:not(.card-coin) img { inset: 4px; width: 30px; height: 30px; }
-#game-table .player-name b { font-size: 16px; }
-#game-table .player-name small { font-size: 13px; }
+#game-table .player-name b { font-size: var(--fs-body); }
+#game-table .player-name small { font-size: var(--fs-xs); }
 #context-actions button.primary { color: var(--vellum); }
 .frame dialog#over { position: absolute; inset: auto 0 12px; margin: 0 auto; height: fit-content; max-height: calc(100% - 24px); width: min(440px, calc(100% - 24px)); padding: var(--space-4); }
 #settings-sheet .fields label { font-weight: 400; }
@@ -132,24 +145,29 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .sym-demo { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; vertical-align: middle; }
 .sym-demo img { height: 36px; }
 /* The arrow between the samples is the rows' arrow icon (.menu-row > i): upright, 18 px, bold, in ink. */
-.sym-demo > i { font-style: normal; font-size: 18px; font-weight: 700; color: var(--ink); }
+.sym-demo > i { font-style: normal; font-size: var(--fs-lg); font-weight: 700; color: var(--ink); }
 .sym-demo .pi { width: 30px; height: 30px; }
 #handle-check-error:empty { display: none; }
 .presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: var(--space-2); margin-bottom: 16px; }
-button.preset { justify-content: center; min-width: 0; min-height: var(--tap); padding: 4px; background: transparent; border: 2px solid transparent; box-shadow: none; border-radius: 50%; aspect-ratio: 1; }
-button.preset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--gold-bright); }
+#presets .preset { justify-content: center; min-width: 0; min-height: var(--tap); padding: 4px; background: transparent; border: 2px solid transparent; box-shadow: none; border-radius: 50%; aspect-ratio: 1; }
+#presets .preset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--gold-bright); }
 .inline-card { max-width: 760px; margin: 0 auto; position: relative; overflow: hidden; border: 1px solid var(--stone-300); border-radius: 20px; background: var(--floor); --rim: drop-shadow(0 0 .75px rgba(43,38,33,.7)); }
 .inline-card .title-stage { height: 190px; overflow: hidden; }
 .inline-card .title-floor, .inline-card .title-stage::before { width: min(400px, 96%); bottom: -40%; }
 .inline-card .title-kings { height: min(150px, 36vw); bottom: 6px; }
 .inline-card .title-copy { gap: var(--space-2); padding: var(--space-2) var(--space-4) var(--space-4); }
-.inline-card .wordmark { font-size: 40px; }
+.inline-card .wordmark { font-size: var(--fs-3xl); }
 .inline-line { margin: 0; color: var(--ink-soft); }
 .inline-card .title-actions { width: 100%; flex-direction: row; flex-wrap: nowrap; margin-top: var(--space-1); }
 .inline-card .title-actions button { flex: 1; min-width: 0; min-height: 48px; font-size: var(--fs-md); white-space: nowrap; padding: 8px 10px; }
+.inline-card .title-actions button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.inline-card .title-actions button small { display: block; font-size: var(--fs-xs); font-weight: 400; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 339px) {
+  .inline-card .title-actions { flex-direction: column; }
+}
 .board-layout { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 8px 12px; }
-#board { display: flex; justify-content: center; position: relative; flex: 1; min-height: 0; width: 100%; touch-action: none; }
-#board canvas { flex: none; }
+#board { display: flex; justify-content: center; position: relative; flex: 1; min-height: 0; width: 100%; touch-action: pan-y; }
+#board.painted canvas { flex: none; touch-action: pan-y; }
 #move-hint { flex: none; min-height: 40px; margin: 4px 0; font-size: var(--fs-sm); }
 #choices { display: flex; flex: none; flex-wrap: wrap; gap: 4px; height: 100px; overflow-y: auto; padding: 2px; }
 #choices button { width: auto; font-size: var(--fs-sm); }
@@ -173,7 +191,7 @@ button.preset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 
 .page-sheet .new-game-foot { flex: none; padding: 12px 16px; }
 .field { width: 100%; }
 .code-row button { width: auto; min-width: 96px; justify-content: center; }
-.preset .portrait { display: block; width: 100%; height: 100%; }
+#presets .preset .portrait { display: block; width: 100%; height: 100%; }
 .page-sheet .sheet-head { display: flex; gap: 8px; align-items: center; padding: 12px 16px; flex: none; }
 .page-sheet .sheet-head h2 { flex: 1; margin: 0; }
 /* Titles wrap; they are never cut. */
@@ -182,7 +200,7 @@ button.preset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 
    It is never smaller than the body text, so it still grows with zoom (WCAG 1.4.4). */
 #page-head { container-type: inline-size; }
 @container (max-width: 285px) { #page-title { font-size: max(var(--fs-md), 7cqi); } }
-.page-sheet .sheet-head button { flex: none; width: auto; min-width: 44px; min-height: 44px; padding: 0 8px; justify-content: center; font-size: 14px; }
+.page-sheet .sheet-head button { flex: none; width: auto; min-width: 44px; min-height: 44px; padding: 0 8px; justify-content: center; font-size: var(--fs-sm); }
 .page-error { flex: none; }
 .page-error > button { margin: 0 16px 8px; width: auto; }
 body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
@@ -191,32 +209,82 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 #end-table { position: absolute; inset: 0; }
 #game-table .player-name :is(b, small), #seat-screen .player-name :is(b, small) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #game-table #context-text { display: block; max-height: none; overflow: visible; }
+/* A 44 px portrait row and a 4 px row gap keep the draw reply at its prior height. */
+#game-table #context-line:has(#accept-draw) { flex-wrap: wrap; row-gap: 4px; }
+#game-table #context-line:has(#accept-draw) #context-text { flex-basis: calc(100% - 52px); min-height: 44px; }
+#game-table #context-line:has(#accept-draw) #context-text > span { display: inline; }
+#game-table #context-line:has(#accept-draw) #context-text > span + span::before { content: ' '; }
+#game-table #context-actions:has(#accept-draw) { flex-basis: 100%; flex-wrap: wrap; }
+/* Two label lines fit the existing row. */
+#game-table #context-actions:has(#accept-draw) button { flex: 1; padding: 3px 4px; white-space: normal; }
+/* Q3 b: a draw offer keeps the board's size. board.ts pins the board to its last size with no reply; 210 px is the
+   fallback on a fresh mount. The replies take their room, and the screen scrolls to them. */
+#game-table[data-replies] { --board-floor: 210px; --context-floor: max-content; }
+@media (max-width: 899px) {
+  .page-sheet > [data-screen='board']:has(#game-table[data-replies]) { overflow: hidden auto; }
+}
+/* The portrait table grows to its rows, so no row shrinks under its content; the screen scrolls instead. */
 @media (max-width: 899px) and (orientation: portrait) {
-@container table-screen (max-height: 520px) {
-  #game-table { --context-height: 44px; grid-template-rows: var(--strip-row, 44px) minmax(var(--board-floor, 0px), 1fr) var(--strip-row, 44px) minmax(var(--context-floor, 44px), max-content) 44px 0 44px; }
-  #game-table #context-line { min-height: 44px; padding-block: 0; flex-wrap: nowrap; }
+  .page-sheet > [data-screen='board'] > #game-table[data-replies] { bottom: auto; min-height: 100%; }
+}
+.table-back { display: none; }
+@media (max-width: 899px) and (orientation: portrait) {
+  #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 44px; grid-template-rows: minmax(var(--strip-row, 44px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) 44px minmax(0, 1fr) var(--bar-height); }
+  #game-table .player-strip { padding-block: 0; min-height: 44px; }
+  #game-table .portrait { width: 36px; height: 36px; }
+  #game-table .player-name { display: flex; align-items: baseline; }
+  #game-table .player-name :is(b, small) { min-width: 0; font-size: var(--fs-sm); }
+  #game-table .player-name small { margin-left: 4px; }
+  #game-table #context-text { display: -webkit-box; height: 40px; overflow: hidden; -webkit-line-clamp: 2; }
+  #game-table #context-line { min-height: 44px; padding-block: 0; flex-wrap: nowrap; border-top: 0; box-shadow: 0 -1px 0 var(--line); }
+  #game-table #context-text > span { display: inline; }
+  #game-table #context-text > span + span::before { content: ' '; }
   #game-table #moves-line { height: 44px; min-height: 44px; }
   #game-table #table-bar { padding-block: 0; }
   #game-table #table-bar > button { min-height: 44px; flex-direction: row; }
-}
-@container table-screen (max-height: 420px) {
-  #game-table { grid-template-rows: var(--strip-row, 44px) minmax(var(--board-floor, 0px), 1fr) var(--strip-row, 44px) minmax(var(--context-floor, 44px), max-content) 0 0 44px; }
+  body:is([data-page='board'], [data-page='seat'], [data-page='end']) #page-head { display: none; }
+  body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table #strip-them { padding-left: 60px; }
+  body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table .table-back { display: grid; grid-area: them; justify-self: start; align-self: start; place-items: center; margin-left: 8px; width: 44px; height: 44px; min-height: 44px; padding: 0; z-index: 2; font-size: var(--fs-xl); line-height: 1; }
+  #game-table .table-back::after, #game-table #strip-them button::after { top: 0; transform: translate(-50%, 0); }
+@container table-screen (max-height: 480px) {
+  #game-table { grid-template-rows: minmax(var(--strip-row, 44px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) 0 minmax(0, 1fr) var(--bar-height); }
   #game-table #moves-line { display: none; }
+  body:is([data-page='board'], [data-page='end']) #game-table #moves-line { display: none; }
+  body:is([data-page='board'], [data-page='end']) #game-table { grid-template-areas: 'them' 'moves' 'board' 'me' 'context' 'space' 'bar'; grid-template-rows: minmax(var(--strip-row, 44px), max-content) 24px minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) minmax(0, 1fr) var(--bar-height); }
+}
+/* Card coins get their own row so both player names fit through 440 px. Under 320 px the coins scroll instead. */
+@container table-screen (319px < width <= 440px) {
+  #game-table :is(#strip-them, #strip-me):has(.card-coin) { display: grid; grid-template-columns: repeat(5, 44px); grid-template-rows: 44px 44px; gap: 0 4px; }
+  #game-table :is(#strip-them, #strip-me):has(.card-coin) .coin-row { display: contents; }
+  #game-table :is(#strip-them, #strip-me):has(.card-coin) .player-name { display: block; grid-row: 1; grid-column: 2 / -1; }
+  #game-table :is(#strip-them, #strip-me):has(.card-coin) .coin { grid-row: 2; }
 }
 }
 /* 200% zoom (under 320 px): the board keeps the full width and a 210 px floor in the short table rows (a 197 px canvas
    at 960/1024). The table keeps the screen height; only when the other rows leave less than the floor does it overflow,
-   and the screen scrolls (M1, review R1).
-   The context row then keeps its content height, so its buttons do not spill over the bar. */
+   and the screen scrolls (M1, review R1). A board that fits the 255 px frame with all rows is under 80 px: too small
+   to tap (ticket 28 T2 keeps this floor; tools/plugin-ios-size.test.ts).
+   The context row keeps its content height and shows all its words, so its buttons do not spill over the bar. */
 @media (max-width: 319px) and (orientation: portrait) {
   .page-sheet > :is([data-screen='seat'], [data-screen='board'], [data-screen='end']) { overflow: hidden auto; }
   #game-table { --board-floor: 210px; --context-floor: max-content; }
   #game-table #board { width: 100%; }
 }
 @container table-screen (max-width: 319px) {
-  #game-table:has(.card-coin) { --strip-row: max-content; }
-  #game-table .player-strip:has(.card-coin) { flex-direction: column; align-items: stretch; }
-  #game-table .coin-row { flex-wrap: wrap; }
+  /* The words keep at least 96 px; wider actions go to their own line below them. */
+  #game-table #context-line { flex-wrap: wrap; }
+  #game-table #context-text { display: block; flex: 1 1 96px; min-width: 96px; height: auto; -webkit-line-clamp: none; }
+  #game-table #context-actions { max-width: 100%; flex-wrap: wrap; margin-left: auto; }
+  /* Each strip stays one 44 px row: the portrait and the coins scroll sideways in their own row, and the name keeps
+     the rest. The coins keep 44 px targets. */
+  #game-table .player-strip:has(.card-coin) { gap: 6px; }
+  #game-table .player-strip:has(.card-coin) .coin-row { flex: 0 1 auto; min-width: 44px; flex-wrap: nowrap; overflow: auto hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
+  #game-table .player-strip:has(.card-coin) .coin-row > * { flex: none; }
+  #game-table .player-strip:has(.card-coin) .player-name { flex: 1 0 45%; }
+}
+/* 200% zoom (197 px): a quarter of the bar is under 58 px, too narrow for an icon and its word side by side. */
+@container table-screen (max-width: 239px) {
+  #game-table #table-bar > button { flex-direction: column; gap: 0; }
 }
 @media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
   #game-table .table-side { overflow-y: auto; overscroll-behavior: contain; }
@@ -233,6 +301,11 @@ body[data-touch='true'] #game-table .coin, body[data-touch='true'] #game-table .
 @media (pointer: coarse) {
   #game-table .coin, #game-table .coin.card-coin { width: 44px; height: 44px; min-height: 44px; }
 }
+/* Q6 b: a segment name wraps only between words. On a 197 px (200% zoom) screen the four Collection names keep
+   one line inside their labels at the small token size. The narrow status text keeps 12 px at each side. */
+.seg-row label > span { overflow-wrap: normal; word-break: normal; hyphens: none; }
+@media (max-width: 260px) { .seg-row label > span { font-size: var(--fs-xs); } }
+@container table-screen (max-width: 350px) { #game-table #context-line { margin-inline: 12px; } }
 /* Extend touch targets up, inside the frame, without changing art or rows. */
 body[data-touch='true'] :is(button, .seg-row label, .fields > label) { position: relative; }
 body[data-touch='true'] .field { min-height: 48px; }
@@ -242,6 +315,9 @@ body[data-touch='true'] #game-table .coin.card-coin { overflow: visible; }
 /* A hit layer extends up; each control keeps its own lower edge against the control below. */
 body[data-touch='true'] button#moves-line { z-index: 1; }
 body[data-touch='true'] #context-actions button { z-index: 2; }
+/* The bar owns the 4 px above each button's touch layer. */
+body[data-touch='true'] #game-table { --bar-height: 48px; }
+body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
 @media (pointer: coarse) {
   button, .seg-row label, .fields > label { position: relative; }
   .field { min-height: 48px; }
@@ -250,4 +326,93 @@ body[data-touch='true'] #context-actions button { z-index: 2; }
   #game-table .coin.card-coin { overflow: visible; }
   button#moves-line { z-index: 1; }
   #context-actions button { z-index: 2; }
+  #game-table { --bar-height: 48px; }
+  #game-table #table-bar { padding-top: 4px; }
 }
+
+
+/* One large grain image fills each face, so no tile repeats inside a control. */
+:where(#app-root) :is(button:not(:where(.coin)), select, input:not([type='radio'], [type='checkbox']), label:has(> input)) {
+  min-width: var(--tap); min-height: var(--tap);
+}
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])) {
+  --brick-face: var(--stone-100);
+  --brick-edge: var(--stone-700);
+  --brick-ring: transparent;
+  --brick-top: var(--vellum);
+  --brick-side: var(--stone-500);
+  --ink-soft: var(--ink); --fg-soft: var(--ink);
+  color: var(--ink);
+  background: var(--brick-face) url('./assets/stone-control.webp') var(--grain-position, 50% 25%) / max(100%, 384px) auto no-repeat;
+  background-blend-mode: normal;
+  border-color: var(--brick-edge); border-radius: var(--radius-sm);
+  box-shadow: 0 4px 0 var(--brick-edge), inset 0 0 0 1px var(--brick-edge), inset 0 3px 0 var(--brick-top), inset 2px 0 0 var(--brick-top), inset -2px 0 0 var(--brick-side), inset 0 -3px 0 var(--brick-side), inset 0 0 0 2px var(--brick-ring);
+  transition: transform 80ms ease-out;
+}
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox']))[aria-pressed='true'] {
+  --brick-ring: var(--stone-700);
+  --brick-top: var(--gold-bright);
+}
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):nth-of-type(3n + 1) { --grain-position: 20% 60%; }
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):nth-of-type(3n + 2) { --grain-position: 80% 85%; }
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):is(:has(> input:checked), [aria-checked='true']) {
+  --brick-face: var(--stone-700); --brick-ring: var(--gold-bright);
+  --ink-soft: var(--vellum); --fg-soft: var(--vellum);
+  color: var(--vellum); background-blend-mode: multiply;
+  box-shadow: inset 0 0 0 3px var(--brick-ring), inset 0 5px 6px var(--stone-900);
+}
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])).primary {
+  --brick-face: var(--accent); --brick-edge: var(--accent-deep);
+  color: var(--vellum); background-blend-mode: multiply;
+  --brick-top: var(--accent-bright); --brick-side: var(--accent-deep);
+}
+#app-root button.primary :is(.line, small) { color: inherit; }
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):not(:disabled, [aria-disabled='true'], :has(button:active)):active {
+  transform: translateY(4px);
+  box-shadow: inset 0 2px 0 var(--brick-edge), inset 0 0 0 2px var(--brick-ring);
+}
+#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):is(:disabled, [aria-disabled='true'], :has(> input:disabled)) {
+  color: var(--ink-soft); background: var(--stone-100); border-color: var(--stone-300);
+  box-shadow: none; transform: none; opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  #app-root :is(button, label):active { transform: none !important; }
+}
+
+/* Stone rows need an inner text gutter, also when they have no lead art. */
+#app-root button.menu-row { padding: 8px 32px 8px 12px; }
+#app-root button.menu-row > i { right: 12px; }
+#app-root #profile-open button { padding: 8px 12px; }
+#app-root :is(#moves-line, .fields label:has(input[type='checkbox'])) { padding-inline: 12px; }
+
+@container table-screen (max-height: 480px) {
+  #game-table #moves-line { display: none; }
+  #game-table #short-last-move { grid-area: moves; display: flex; align-items: center; min-width: 0; height: 24px; margin: 0 12px; white-space: nowrap; font-size: var(--fs-xs); }
+  #short-move-words { overflow: hidden; text-overflow: ellipsis; }
+  #move-time-left { flex-shrink: 0; }
+  #move-time-left:not(:empty)::before { content: ' · '; }
+}
+
+@media (orientation: landscape) {
+@container table-screen (max-height: 480px) {
+  body:is([data-page='board'], [data-page='end']) #game-table { position: relative; padding-top: 28px; }
+  #game-table #short-last-move { position: absolute; top: 0; left: 8px; width: calc(100% - 16px); margin: 0; }
+  #game-table .table-side { grid-template-rows: var(--strip-height) var(--strip-height) minmax(var(--context-height), max-content) 0 minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom))); }
+}
+}
+
+#end-turn .turn-sword { width: 66px; height: 20px; fill: currentColor; stroke: none; }
+#end-turn.primary { animation: turn-ready 400ms var(--ease-out); }
+@keyframes turn-ready { 50% { filter: brightness(1.3); } }
+@media (prefers-reduced-motion: reduce) { #end-turn.primary { animation: none; } }
+#online-visibility .seg-row label { min-height: 44px; }
+
+/* The piece portrait opens its rules before the context words. */
+#app-root #all-rules {
+  display: flex; align-items: center; justify-content: center; flex: 0 0 44px;
+  width: 44px; height: 44px; min-height: 44px; padding: 0;
+  border: 0; border-radius: 50%; background: none; box-shadow: none;
+}
+#game-table #context-actions:empty { display: none; }
+#app-root #all-rules::after { content: ''; }
+#app-root #all-rules .portrait { display: grid; place-items: center; width: 36px; height: 36px; font-size: var(--fs-xl); }

@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createClient, BOARD_ID_TOOLS } from './client';
+import { createClient, BOARD_ID_TOOLS, type WidgetHost } from './client';
 
 describe('app client', () => {
+  it.each([null, { king: 'Flame', power: 'Haste' } as const])('keeps the start king through a widget save and remount: %s', king => {
+    const host: WidgetHost = { setWidgetState: state => { host.widgetState = state as NonNullable<WidgetHost['widgetState']>; } };
+    const client = createClient({ callServerTool: async () => ({ content: [] }) }, host);
+    client.state.pending = { name: 'kingdown_create', args: { kind: 'solo', command_id: 'once' }, king };
+    client.save();
+    expect(createClient({ callServerTool: async () => ({ content: [] }) }, host).state.pending?.king).toEqual(king);
+  });
   it('limits commands to 10 seconds, leaves mount reads to the SDK limit and passes a mount\'s abort signal', async () => {
     const callServerTool = vi.fn(async () => ({ content: [] }));
     const client = createClient({ callServerTool }), { signal } = new AbortController();
@@ -42,6 +49,51 @@ describe('app client', () => {
     expect(widgetState).toEqual({ modelContent: {}, privateContent: { screen: 'settings', sheet: 'king', board_id: 'b1', pending: { name: 'kingdown_move', args: { lan: 'e2-e4', command_id: 'once' }, game_tag: 'aabbccdd' } } });
     expect((widgetState as { modelContent: object }).modelContent).not.toHaveProperty('pending');
   });
+  it('counts the transport calls that have not returned', async () => {
+    const releases: Array<(value: { content: [] }) => void> = [];
+    const client = createClient({ callServerTool: async () => new Promise(resolve => { releases.push(resolve); }) });
+    expect(client.inflight).toBe(0);
+    const first = client.call('kingdown_get', {}), second = client.call('kingdown_open', {});
+    expect(client.inflight).toBe(2);
+    releases[0]({ content: [] }); await first;
+    expect(client.inflight).toBe(1);
+    releases[1]({ content: [] }); await second;
+    expect(client.inflight).toBe(0);
+    // A failed call also leaves the count: the caller must not wait forever.
+    const failing = createClient({ callServerTool: async () => { throw new Error('The game is not available.'); } });
+    await expect(failing.call('kingdown_get', {})).rejects.toThrow('The game is not available.');
+    expect(failing.inflight).toBe(0);
+  });
+  it('sends at most three calls at once, the oldest waiting call next, and drops a waiting call that its mount aborts', async () => {
+    // The server refuses a fourth call of one account (http.ts): a reopened Lobby or Profile, a poll or a repeated tap waits here.
+    const sent: string[] = [], releases: Array<(value: { content: [] }) => void> = [];
+    const client = createClient({ callServerTool: async ({ name }) => new Promise(resolve => { sent.push(name); releases.push(resolve); }) });
+    const mount = new AbortController();
+    const [first, , third, aborted, last] = ['kingdown_lobby', 'kingdown_games', 'kingdown_lobby', 'kingdown_games', 'kingdown_profile']
+      .map((name, index) => client.call(name, {}, index === 3 ? { signal: mount.signal } : {}));
+    await Promise.resolve();
+    expect(sent).toEqual(['kingdown_lobby', 'kingdown_games', 'kingdown_lobby']);
+    expect(client.inflight).toBe(5);
+    mount.abort();
+    await expect(aborted).rejects.toMatchObject({ name: 'AbortError' });
+    releases[2]({ content: [] }); await third;
+    expect(sent).toEqual(['kingdown_lobby', 'kingdown_games', 'kingdown_lobby', 'kingdown_profile']);
+    releases[0]({ content: [] }); await first;
+    const late = client.call('kingdown_get');
+    await Promise.resolve();
+    expect(sent).toHaveLength(5);
+    for (const release of releases.slice(1)) release({ content: [] });
+    await Promise.all([last, late]);
+    expect(client.inflight).toBe(0);
+  });
+  it('reads a saved screen name that this build does not have as no screen, and a saved setup command as Play', () => {
+    // PR 57 widget state: its New game screen was 'setup'.
+    const pending = { name: 'kingdown_create', args: { kind: 'solo', command_id: 'once' }, screen: 'setup', error: 'The reply was lost.', error_screen: 'setup' };
+    const saved = { privateContent: { screen: 'setup', settings_back: 'setup', queued: 'setup', board_id: 'b1', pending } } as unknown as NonNullable<WidgetHost['widgetState']>;
+    const client = createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: saved });
+    expect(client.state).toStrictEqual({ screen: 'home', sheet: undefined, board_id: 'b1', pending: { ...pending, screen: 'play', error_screen: 'play' } });
+    expect(createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: { privateContent: { screen: 'seat', settings_back: 'board', queued: 'end' } } }).state).toMatchObject({ screen: 'seat', settings_back: 'board', queued: 'end' });
+  });
   it('reads and writes settings through the account tool without saving them in widget state', async () => {
     const requests: unknown[] = [];
     const settings = { symbols_only: true, show_threats: true, last_setup: null };
@@ -52,28 +104,14 @@ describe('app client', () => {
     expect(requests).toEqual([{ name: 'kingdown_settings', arguments: {} }, { name: 'kingdown_settings', arguments: { symbols_only: false } }]);
     expect(client.state).not.toHaveProperty('settings');
   });
-  it('keeps the new board binding when an old read returns after opening a game', async () => {
-    let release!: (value: { content: []; _meta: { board_id: string } }) => void;
-    const client = createClient({ callServerTool: async ({ name }) => name === 'kingdown_get' ? new Promise(resolve => { release = resolve; }) : { content: [], _meta: { board_id: 'new' } } });
-    client.state.board_id = 'old';
-    const read = client.call('kingdown_get', { game_id: 'old-game' });
-    await client.call('kingdown_open', { screen: 'board', game_id: 'new-game' });
-    release({ content: [], _meta: { board_id: 'old' } });
-    await read;
-    expect(client.state.board_id).toBe('new');
-  });
-  it('keeps a board that a newer chat result set while a selection reply was late', async () => {
-    let release!: (value: { content: []; _meta: { board_id: string } }) => void;
-    const client = createClient({ callServerTool: async () => new Promise(resolve => { release = resolve; }) });
-    client.state.board_id = 'page';
-    const resumed = client.call('kingdown_resume', { game_id: 'tapped' });
-    client.state.board_id = 'chat';
-    release({ content: [], _meta: { board_id: 'page' } }); await resumed;
-    expect(client.state.board_id).toBe('chat');
-    // With no newer board, the reply sets its board.
-    const opened = client.call('kingdown_open', { game_id: 'game' });
-    release({ content: [], _meta: { board_id: 'new' } }); await opened;
-    expect(client.state.board_id).toBe('new');
+  it('keeps the Play now marker when a pending start mounts again', () => {
+    let widgetState: any;
+    const app = { callServerTool: async () => ({ content: [] }) };
+    const pending = { name: 'kingdown_create', args: { kind: 'solo', level: 'beginner', command_id: 'once' }, screen: 'play' as const, quick: true };
+    const client = createClient(app, { widgetState: { privateContent: { screen: 'play', pending } }, setWidgetState: state => { widgetState = state; } });
+    client.save();
+    expect(createClient(app, { widgetState }).state.pending).toEqual(pending);
+    expect(widgetState.modelContent).toEqual({});
   });
 });
 
@@ -106,4 +144,25 @@ it('saves only a short game tag and safe pending args while page memory keeps th
   const modelState = JSON.stringify({ ...widgetState, privateContent: { ...widgetState.privateContent, board_id: undefined } });
   expect(modelState).not.toMatch(/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/i);
   expect(modelState).not.toContain('K7QX2M'); expect(modelState).not.toContain('private_name');
+});
+
+it('saves the draft with a short tag and its LANs, never the game ID, and brings it back apart from pending', () => {
+  let widgetState: any;
+  const game_id = 'aabbccdd-1122-4455-8899-aabbccddeeff', board_id = '11223344-5566-4788-99aa-bbccddeeff00';
+  const client = createClient({ callServerTool: async () => ({ content: [] }) }, { setWidgetState: state => { widgetState = state; } });
+  client.state.board_id = board_id;
+  client.state.draft = { game_tag: game_id.slice(0, 8), fen: '7k/8/8/8/8/8/P7/K7 w - - 0 1', lans: ['a2-a4'] };
+  client.state.pending = { name: 'kingdown_move', args: { game_id, command_id: 'once', actions: ['a2-a4'] } };
+  client.save();
+  // The draft holds the tag and the LANs only; the full game ID never goes into widget state.
+  expect(widgetState.privateContent.draft).toEqual({ game_tag: 'aabbccdd', fen: '7k/8/8/8/8/8/P7/K7 w - - 0 1', lans: ['a2-a4'] });
+  expect(JSON.stringify(widgetState.privateContent.draft)).not.toContain(game_id);
+  expect(widgetState.modelContent).toEqual({});
+  // The draft comes back at start, and it stays apart from the pending command.
+  const restored = createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState });
+  expect(restored.state.draft).toEqual(client.state.draft);
+  expect(restored.state.pending).toEqual({ name: 'kingdown_move', args: { command_id: 'once', actions: ['a2-a4'] }, game_tag: 'aabbccdd' });
+  // A saved draft from an older build keeps its three fields and its LANs as strings.
+  const older = createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: { privateContent: { screen: 'board', draft: { game_tag: 'aa', fen: 'f', lans: [1, 2] } } } as any });
+  expect(older.state.draft).toEqual({ game_tag: 'aa', fen: 'f', lans: ['1', '2'] });
 });

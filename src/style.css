@@ -181,7 +181,7 @@ button.primary {
 @media (hover: hover) { button.primary:hover { background: linear-gradient(#a8422f, #8f3124); } }
 button.quiet { background: transparent; box-shadow: none; border-color: var(--stone-500); font-weight: 400; }
 @media (hover: hover) { button.quiet:hover { background: rgba(255, 255, 255, 0.5); } }
-button:disabled, button:disabled:hover {
+button:disabled:not(:where(.coin)), button:disabled:hover:not(:where(.coin)) {
   cursor: default; color: var(--ink-soft); background: var(--stone-100);
   border-color: var(--stone-300); box-shadow: none; transform: none;
 }
@@ -501,6 +501,7 @@ label.army select { width: 100%; font-weight: 400; }
   transition: box-shadow var(--dur-2), filter var(--dur-2);
 }
 .coin img { position: absolute; inset: 5px; width: 36px; height: 36px; }
+.coin:disabled { cursor: default; }
 .coin .notches { position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%); display: flex; gap: 3px; }
 .coin .notch { width: 9px; height: 9px; transform: rotate(45deg); background: #7fb2ff; border: 1.5px solid var(--frost-ink); }
 .coin .notch.is-spent { background: var(--stone-300); border-color: var(--stone-500); }

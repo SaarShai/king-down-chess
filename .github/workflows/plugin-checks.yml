@@ -16,7 +16,8 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The full npm test takes about 15 minutes on the runner, twice main's (Saar, 2026-10-18: "Raise CI limits").
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17
@@ -52,7 +53,8 @@ jobs:
   # The browser checks run beside npm test, so each job keeps its own 15 minutes.
   browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The Chromium checks run with the step limits times 2 on CI (tools/lib/checks.mjs STEP).
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17
@@ -82,5 +84,30 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: check-logs
+          path: /tmp/kingdown-check-runs/
+          retention-days: 7
+
+  browser-webkit:
+    runs-on: ubuntu-latest
+    # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP), and then the full plugin-ui check.
+    timeout-minutes: 45
+    env:
+      PLAYABLE_BROWSER: webkit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps webkit
+      - run: npm test
+        env:
+          KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'
+      - run: npm run check:browser plugin-ui
+      - if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-check-logs
           path: /tmp/kingdown-check-runs/
           retention-days: 7

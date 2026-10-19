@@ -5,7 +5,7 @@
 -- Run only after the release serves /internal/* at the new origin.
 -- cron.schedule replaces a job with the same name. This file is safe to repeat.
 -- pg_net sends after commit. It does not retry. The next job run repeats a lost call.
--- Unsent outbox rows keep done_at null. The daily cleanup deletes only finished rows.
+-- Unsent outbox rows keep done_at null. The daily cleanup deletes each row made or done more than 30 days ago.
 
 begin;
 

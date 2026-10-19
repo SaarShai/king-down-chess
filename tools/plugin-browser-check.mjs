@@ -57,7 +57,7 @@ try {
       server.listen(0, '127.0.0.1'); await once(server, 'listening');
       const origin = `http://127.0.0.1:${server.address().port}`;
       const { configurePlugin } = await import(pathToFileURL(join(build, 'server.mjs')).href);
-      app = await configurePlugin({ ...process.env, NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString }, { localDev: true });
+      app = await configurePlugin({ ...process.env, NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: randomUUID() }, { localDev: true });
       endpoint = new URL('/mcp', origin);
       const {createMatch} = await import(pathToFileURL(join(build,'runtime/index.mjs')).href);
       seedPosition = async (setup,black) => {

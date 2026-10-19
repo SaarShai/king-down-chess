@@ -1,10 +1,11 @@
-import { call, client, memory, navigate, routeView, start } from '../app';
+import { call, client, memory, navigate, routeView, send, start } from '../app';
 import { DEFAULT_OPTIONS, switches } from '../../match/setup';
 import type { InboxEntry, Lobby, View } from '../../match/protocol';
-import { runPoll } from '../poll';
+import type { PollTarget } from '../poll';
+import type { Page } from '../state';
 import { ANY_RULES } from './setup';
 import { $, featureNames, features, icon, onStop, portrait, row, showError } from './friend';
-let poll: ReturnType<typeof runPoll> | undefined, finding = false, accepting = false, afterHandle: string | undefined;
+let finding = false, accepting = false, afterHandle: string | undefined;
 // The list uses the runner's visible 15-second schedule, with no board position.
 const listClock = { kind: 'random', status: 'playing', speed: 'live', seat: 0, turn: 0, opponent: null, last_commands: [], server_now: '' } as unknown as View;
 export function lobbyScreen() {
@@ -23,8 +24,7 @@ export function lobbyScreen() {
     } finally { finding = false; }
   };
   $('lobby-key').innerHTML = featureNames.map(([, name, label]) => `${icon(name)} ${label}`).join(' · ');
-  if (!poll) poll = runPoll(() => client.state.screen === 'lobby' ? listClock : undefined, readLobby);
-  else void readLobby();
+  void readLobby();
 }
 async function readLobby() {
   try {
@@ -42,29 +42,29 @@ async function readLobby() {
       entry.onclick = () => void acceptGame(game.game_id);
       entry.append(accept); return entry;
     }));
-    $('lobby-status').textContent = '';
+    $('lobby-status').textContent = ''; $('lobby-empty').hidden = !!lobby.games.length;
   } catch (error) { if (client.state.screen === 'lobby') showError(error, $('lobby-status')); }
 }
 async function acceptGame(game: string) {
   if (accepting || finding) return; accepting = true;
-  const board = client.state.board_id;
   try {
-    const result = await client.call('kingdown_accept', { game_id: game });
-    // A newer chat selection keeps its board and screen, even if this reply is an error.
-    const selected = result._meta?.board_id;
-    if ((typeof selected === 'string' ? selected : board) !== client.state.board_id) return;
-    if (result.isError) {
-      if (result._meta?.code === 'HANDLE_NEEDED') { afterHandle = game; navigate('handle'); return; }
-      if (['NOT_ALLOWED','FORBIDDEN'].includes(String(result._meta?.code))) { await readLobby(); $('lobby-status').textContent = 'Someone else took this game'; return; }
-      throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+    // An accept is a selection: it goes on the queue, so a newer chat result detaches it (design §1.2).
+    const outcome = await send('kingdown_accept', { game_id: game });
+    if (outcome.status === 'superseded') return;
+    if (outcome.status !== 'done') {
+      const code = outcome.status === 'refused' ? outcome.code : outcome.code ?? '';
+      if (code === 'HANDLE_NEEDED') { afterHandle = game; navigate('handle'); return; }
+      if (['NOT_ALLOWED','FORBIDDEN'].includes(code)) { await readLobby(); $('lobby-status').textContent = 'Someone else took this game'; return; }
+      throw new Error(outcome.text);
     }
-    const next = result._meta?.view as View | undefined; if (next) routeView(next);
+    const next = outcome.view as View | undefined; if (next) routeView(next);
   } catch (error) { showError(error, $('lobby-status')); }
   finally { accepting = false; }
 }
-function stop() { poll?.stop(); poll = undefined; }
-const observer = new MutationObserver(() => { if (client.state.screen !== 'lobby') stop(); if (!['lobby','handle'].includes(client.state.screen)) afterHandle = undefined; });
-observer.observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
+/** The lobby's target of the one poll: the list on its 15-second clock (design §4). */
+export const lobbyPoll = (): PollTarget => ({ view: listClock, read: readLobby });
+// A collapse keeps the lobby or name screen on the queue behind the home card, so Accept stays for its Resume.
+export function lobbySync(page: Page) { if (![page.screen, client.state.queued].some(screen => screen === 'lobby' || screen === 'handle')) afterHandle = undefined; }
 const back = () => { if (client.state.screen === 'handle') afterHandle = undefined; };
 $('page-back').addEventListener('click', back, true);
-onStop(() => { stop(); observer.disconnect(); $('page-back').removeEventListener('click', back, true); });
+onStop(() => { $('page-back').removeEventListener('click', back, true); });

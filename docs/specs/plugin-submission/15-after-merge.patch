@@ -1,0 +1,116 @@
+diff --git a/docs/submission/checklist.md b/docs/submission/checklist.md
+index 2f1d9dc8..04b3efe5 100644
+--- a/docs/submission/checklist.md
++++ b/docs/submission/checklist.md
+@@ -122,7 +122,7 @@ Do these in order. Each step names its rows below.
+ |---|---|---|---|---|
+ | 47 | Exactly five positive and three negative test cases [O1]. | E1 | drafted | Both copies have five positive and three negative cases. P1 uses “1 game”. P2 includes king/power, arrangement, Ready and then Your move. Final host tests remain. |
+ | 48 | Each test case passes with the reviewer account before submission [O1][O2]. | E1 | owner | Run P1–P5 and N1–N3 on the ChatGPT website and a phone with the test account (owner step 2.7), which the seed makes like the review account. Do not use the review account: its P4 record is the one that owner step 2.6 prints. Rehearsal: Local protocol evidence is supplied. Final host routing, confirmation and refusals remain. |
+-| 49 | **Demo video** URL, reviewer-accessible [O1]. | E2 | owner | Record the eight test cases on the ChatGPT website and the iPhone app with the test account (owner step 3): sign-in, home, a computer game with one move, the games list, the profile, resign, the three refusals. Upload as unlisted; put the link in `<DEMO_VIDEO_URL>`. Keep other chats and the account email out of the frame. Rehearsal: The video field is still a placeholder. |
++| 49 | **Demo video** URL, reviewer-accessible [O1]. | E2 | owner | Record the eight test cases on the ChatGPT website and the iPhone app with the test account (owner step 3): sign-in, home, a computer game with one move, then End turn, the games list, the profile, resign, the three refusals. Upload as unlisted; put the link in `<DEMO_VIDEO_URL>`. Keep other chats and the account email out of the frame. Rehearsal: The video field is still a placeholder. |
+ | 50 | Release notes [O1]. | E3 | drafted | Release notes match the package string. Recheck claims after the final fixes. |
+ 
+ ## 8. Server, domain and scan
+diff --git a/docs/submission/package/plugin.json b/docs/submission/package/plugin.json
+index 5aaa5277..2625b371 100644
+--- a/docs/submission/package/plugin.json
++++ b/docs/submission/package/plugin.json
+@@ -43,13 +43,13 @@
+               "description": "Open King Down with no game selected. The seeded account has two active games, with one on your move. The home screen shows Play and Your games.",
+               "prompt": "Play King Down.",
+               "tools_triggered": "kingdown_open",
+-              "expected_behavior": "The King Down home screen opens in the chat with two actions: Play and Your games. The text reply gives the number of games that wait for the player's move, for example \"Your move in 1 game.\" No new game starts."
++              "expected_behavior": "The home screen opens in the chat with two actions: Play and Your games. The text reply gives the number of games that wait for the player's move (\"Your move in 1 game.\"). No new game starts. The app does not ask for fullscreen until the player taps an action; then the game opens fullscreen. If ChatGPT opens the app fullscreen itself, the Play screen shows in place of the home card."
+             },
+             {
+               "description": "Start a beginner computer game as White, with king powers and arrangement. Choose the king and order, then Ready.",
+               "prompt": "Start a new King Down game against the computer at beginner level, as White, with king powers and arrangement on.",
+               "tools_triggered": "kingdown_create, kingdown_open, kingdown_choose, kingdown_move, kingdown_computer",
+-              "expected_behavior": "kingdown_create starts a solo game with level beginner, colour white, king powers on and arrangement on. It returns \"Choose your king and arrangement.\" kingdown_open with the new game_id shows the setup screen. On the board, choose a king and its power, set the arrangement, then select Ready. The board sends kingdown_choose with ready true. The reply then says \"Your move, move 1.\" The board shows White at the bottom. A move on the board sends kingdown_move; kingdown_computer returns the computer reply on the board. The player, not ChatGPT, makes the setup and move choices."
++              "expected_behavior": "kingdown_create starts a solo game with level beginner, colour white, king powers on and arrangement on. It returns \"Choose your king and arrangement.\" kingdown_open with the new game_id shows the setup screen. On the board, choose a king and its power, set the arrangement, then select Ready. The board sends kingdown_choose with ready true. The reply then says \"Your move, move 1.\" The board shows White at the bottom. A move on the board changes the board only. Undo takes it back. End turn (the sword button) sends kingdown_move with the turn's moves; then kingdown_computer returns the computer reply on the board. The player, not ChatGPT, makes the setup and move choices."
+             },
+             {
+               "description": "List the active games and say where it is the player's turn.",
+diff --git a/docs/submission/package/skills/play-king-down/SKILL.md b/docs/submission/package/skills/play-king-down/SKILL.md
+index fea0e9f1..a47a493d 100644
+--- a/docs/submission/package/skills/play-king-down/SKILL.md
++++ b/docs/submission/package/skills/play-king-down/SKILL.md
+@@ -9,7 +9,7 @@ description: Help the player start, open and manage King Down chess games with t
+      (error plugin_runtime_surface_missing). This is the smallest skill that meets that rule.
+      Remove it if OpenAI support says a remote-MCP plugin needs no skill. -->
+ 
+-King Down is a chess variant. The player makes moves on the King Down board. You do not see the board position, and you do not choose moves.
++King Down is a chess variant. The player makes moves on the King Down board. You do not see the board position, and you do not choose moves. A turn goes to the game only when the player presses the turn button on the board: End turn against the computer, Send your turn against a person.
+ 
+ 1. To open King Down, call `kingdown_open`. With no game, it shows the home screen.
+ 2. To start a game, call `kingdown_create` with `kind` `solo` (the computer), `friend` or `random`. Then call `kingdown_open` with the new `game_id` to show the board.
+diff --git a/docs/submission/test-cases.md b/docs/submission/test-cases.md
+index 93f55f46..95b0d9f5 100644
+--- a/docs/submission/test-cases.md
++++ b/docs/submission/test-cases.md
+@@ -14,8 +14,8 @@ Source keys ([O1] and others) refer to the [research report](../research/plugin-
+ 
+ | # | Description | Prompt | Tools triggered | Expected result | Source in code |
+ |---|---|---|---|---|---|
+-| P1 | Open King Down with no game selected. | Play King Down. | `kingdown_open` | The home screen opens in the chat with two actions: Play and Your games. The text reply gives the number of games that wait for the player's move ("Your move in 1 game."). No new game starts. | `src/plugin/server.ts`: `kingdown_open`, `home()` and the count text. |
+-| P2 | Start a beginner computer game as White, with king powers and arrangement. Choose the king and order, then Ready. | Start a new King Down game against the computer at beginner level, as White, with king powers and arrangement on. | `kingdown_create`, `kingdown_open`, `kingdown_choose`, `kingdown_move`, `kingdown_computer` | kingdown_create starts a solo game with level beginner, colour white, king powers on and arrangement on. It returns "Choose your king and arrangement." kingdown_open with the new game_id shows the setup screen. On the board, choose a king and its power, set the arrangement, then select Ready. The board sends kingdown_choose with ready true. The reply then says "Your move, move 1." The board shows White at the bottom. A move on the board sends kingdown_move; kingdown_computer returns the computer reply on the board. The player, not ChatGPT, makes the setup and move choices. | `src/plugin/server.ts`: `kingdown_create`, `kingdown_open`, `kingdown_choose` and `reply()`; `src/plugin/screens/seat.ts`: Ready. |
++| P1 | Open King Down with no game selected. | Play King Down. | `kingdown_open` | The home screen opens in the chat with two actions: Play and Your games. The text reply gives the number of games that wait for the player's move ("Your move in 1 game."). No new game starts. The app does not ask for fullscreen until the player taps an action; then the game opens fullscreen. If ChatGPT opens the app fullscreen itself, the Play screen shows in place of the home card. | `src/plugin/server.ts`: `kingdown_open`, `home()` and the count text. |
++| P2 | Start a beginner computer game as White, with king powers and arrangement. Choose the king and order, then Ready. | Start a new King Down game against the computer at beginner level, as White, with king powers and arrangement on. | `kingdown_create`, `kingdown_open`, `kingdown_choose`, `kingdown_move`, `kingdown_computer` | kingdown_create starts a solo game with level beginner, colour white, king powers on and arrangement on. It returns "Choose your king and arrangement." kingdown_open with the new game_id shows the setup screen. On the board, choose a king and its power, set the arrangement, then select Ready. The board sends kingdown_choose with ready true. The reply then says "Your move, move 1." The board shows White at the bottom. A move on the board changes the board only. Undo takes it back. End turn (the sword button) sends kingdown_move with the turn's moves; then kingdown_computer returns the computer reply on the board. The player, not ChatGPT, makes the setup and move choices. | `src/plugin/server.ts`: `kingdown_create`, `kingdown_open`, `kingdown_choose` and `reply()`; `src/plugin/screens/seat.ts`: Ready; `src/plugin/screens/board.ts`: Undo and End turn. |
+ | P3 | List the active games and say where it is the player's turn. | Is it my turn in any King Down game? | `kingdown_games` | The reply gives the number of active games and the number that wait for the player ("3 active games; your turn in 1."). The count includes setup choices. Each game shows its kind, colour and turn. The text has no board position and no opponent name. | `src/plugin/server.ts`: `kingdown_games`; `opponent` is only "computer", "player", "deleted player" or "none yet". |
+ | P4 | Show the rating, totals and badge count in text. | What is my King Down rating? | `kingdown_profile` | The reply gives the rating, the games played, won, drawn and lost, and the badge count ("Rating 1662?; 1 played, 1 won, 0 drawn, 0 lost; 3 badges."). A question mark means a provisional rating. | `src/plugin/server.ts`: `kingdown_profile`. |
+ | P5 | Resign an active game against the computer, with a confirmation. | Resign my King Down game against the computer. | `kingdown_games`, `kingdown_resign` | ChatGPT finds the solo game and asks the player to confirm. After the confirmation, the game ends and the reply says who won ("Game over: Black wins · Resignation."). The game no longer shows in the active games. | `src/plugin/server.ts`: `kingdown_resign` has `destructiveHint: true`; `src/plugin/ending.ts`: result text. The live test must prove the confirmation. |
+diff --git a/tools/submission-packet.docs.test.ts b/tools/submission-packet.docs.test.ts
+index f394d27f..2939bdb9 100644
+--- a/tools/submission-packet.docs.test.ts
++++ b/tools/submission-packet.docs.test.ts
+@@ -25,3 +25,50 @@ test('the release notes record the short-code decision, and the runbook has the
+  expect(readFileSync('docs/submission/release-notes.md', 'utf8')).toContain('the listing needs no note about the change from plain short codes to HMAC short codes');
+  expect(readFileSync('docs/specs/chatgpt-mvp/release/RUNBOOK.md', 'utf8')).toContain('Old short codes stop working at this release');
+ });
++
++// After the merge: the packet names the turn button words that the board shows (W7, T1 a) and the D7 fullscreen open.
++const imported = JSON.parse(readFileSync('docs/submission/package/plugin.json', 'utf8')).extensions['com.openai'].review.test_cases;
++const rows = new Map(readFileSync('docs/submission/test-cases.md', 'utf8').split('\n').filter(line => /^\| [PN]\d \|/.test(line))
++  .map(line => { const [id, ...cells] = line.slice(2, -2).split(' | '); return [id, cells] as const; }));
++const plain = (cell: string) => cell.replaceAll('`', '');
++const [computer, person] = /label = mode\(\) === 'computer' \? '([^']+)' : '([^']+)'/.exec(readFileSync('src/plugin/screens/board.ts', 'utf8'))?.slice(1) ?? [];
++
++test('reads the turn button words of the board', () => {
++  expect([computer, person]).toEqual(['End turn', 'Send your turn']);
++});
++
++test('both copies hold five positive and three negative cases with the same prompts and tools', () => {
++  expect([...rows.keys()]).toEqual(['P1', 'P2', 'P3', 'P4', 'P5', 'N1', 'N2', 'N3']);
++  expect([imported.positive.length, imported.negative.length]).toEqual([5, 3]);
++  for (const [id, [, prompt, tools]] of rows) {
++    const copy = imported[id[0] === 'P' ? 'positive' : 'negative'][+id.slice(1) - 1];
++    expect(copy.prompt, id).toBe(prompt);
++    if (id[0] === 'P') expect(copy.tools_triggered, id).toBe(plain(tools));
++  }
++});
++
++test('the two P2 copies agree word for word, and the two P1 expected results agree', () => {
++  const [description, prompt, tools, expected] = rows.get('P2')!;
++  expect(imported.positive[1]).toEqual({ description, prompt, tools_triggered: plain(tools), expected_behavior: expected });
++  expect(imported.positive[0].expected_behavior).toBe(rows.get('P1')![3]);
++});
++
++test('P1 gives the D7 fullscreen open', () => {
++  expect(rows.get('P1')![3]).toContain('The app does not ask for fullscreen until the player taps an action; then the game opens fullscreen.');
++});
++
++test('P2: a board move sends nothing, Undo takes it back, and the turn button sends the whole turn', () => {
++  const [, , , expected, source] = rows.get('P2')!;
++  expect(expected).toContain(`A move on the board changes the board only. Undo takes it back. ${computer} (the sword button) sends kingdown_move with the turn's moves; then kingdown_computer returns the computer reply on the board.`);
++  expect(expected).not.toContain('A move on the board sends kingdown_move');
++  expect(source).toContain(`\`src/plugin/screens/board.ts\`: Undo and ${computer}.`);
++});
++
++test('the demo video (checklist row 49) shows a computer game with one move, then the turn button', () => {
++  expect(checklist.split('\n').find(line => line.startsWith('| 49 |'))).toContain(`a computer game with one move, then ${computer},`);
++});
++
++test('the skill names both turn button words', () => {
++  expect(readFileSync('docs/submission/package/skills/play-king-down/SKILL.md', 'utf8')).toContain(
++    `A turn goes to the game only when the player presses the turn button on the board: ${computer} against the computer, ${person} against a person.`);
++});

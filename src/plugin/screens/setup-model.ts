@@ -20,6 +20,15 @@ export function readSetup(value: unknown): SetupState {
   return state;
 }
 
+export function gameSetup(view: View): SetupState {
+  return readSetup({ kind: view.kind, options: view.options, colour: view.seat === 1 ? 'black' : 'white', level: view.level, king: view.choices?.[view.seat]?.king ?? view.kings?.[view.seat] ?? view.rules?.kings[view.seat] });
+}
+
+/** Play now uses Beginner and an automatic army, and keeps the saved setup. */
+export function quickSetup(saved: unknown): SetupState {
+  const state = readSetup(saved);
+  return { ...state, kind: 'solo', level: 'beginner', options: { ...state.options, arrangement: false } };
+}
 export const setupOptions = (o: Options): Options => ({ ...o, arrangement: o.fairy && o.arrangement, classic: !o.fairy && o.classic });
 export function withToggle(state: SetupState, key: 'fairy' | 'arrangement' | 'classic' | 'cards' | 'kingPowers', on: boolean): SetupState {
   const options = { ...state.options, [key]: on };
@@ -30,13 +39,12 @@ export function withToggle(state: SetupState, key: 'fairy' | 'arrangement' | 'cl
 export function pieceLocked(o: Options, letter: string): boolean {
   return o.pool.includes(letter) && validate({ ...o, fairy: true, classic: false, pool: o.pool.filter(k => k !== letter) }) === 'Keep at least 7 pieces in the pool.';
 }
-export const cardLocked = (o: Options, card: CardName): boolean => o.cardPool.includes(card) && o.cardPool.length <= 4;
 export function withPiece(state: SetupState, letter: string, on: boolean): SetupState {
   if (!POOL_KINDS.includes(letter) || on === state.options.pool.includes(letter) || !on && pieceLocked(state.options, letter)) return state;
   return { ...state, options: { ...state.options, pool: on ? [...state.options.pool, letter] : state.options.pool.filter(k => k !== letter) } };
 }
-export function withCard(state: SetupState, card: CardName, on: boolean): SetupState {
-  if (!DEAL_CARDS.includes(card) || on === state.options.cardPool.includes(card) || !on && cardLocked(state.options, card)) return state;
+export function withCard(state: SetupState, card: CardName, on: boolean, pickFour = false): SetupState {
+  if (!DEAL_CARDS.includes(card) || on === state.options.cardPool.includes(card) || on && pickFour && state.options.cardPool.length >= 4) return state;
   return { ...state, options: { ...state.options, cardPool: on ? [...state.options.cardPool, card] : state.options.cardPool.filter(c => c !== card) } };
 }
 export function createArguments(state: SetupState) {

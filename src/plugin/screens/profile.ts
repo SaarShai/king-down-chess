@@ -5,17 +5,20 @@ import { WHY } from '../ending';
 import { BADGES, type Badge } from '../../match/badges';
 import { ICONS, type Icon } from '../../account/profile';
 import type { HistoryEntry, InboxEntry, PlayerRecord } from '../../match/protocol';
+import { DEFAULT_OPTIONS } from '../../match/setup';
+import { features } from './friend';
 import './profile.css';
+import { confirmBoardAction } from './board-actions';
 import { errorText } from '../client';
-type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; history: HistoryEntry[]; next_before: string | null };
+type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null };
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 let request = 0;
-let before: string | null = null;
+let before: string | null = null, blocksAfter: string | null = null;
 const date = (at: string) => formatDate(at, { day: 'numeric', month: 'short' });
 const fullDate = (at: string) => formatDate(at, { day: 'numeric', month: 'short', year: 'numeric' });
 const GOALS: Record<Badge, string> = { first_win: 'Win a game.', friend_match: 'Finish a game with a friend.', stranger_match: 'Finish a game with a random player.', purist: 'Win a Classic game.', fairy_tale: 'Win with fairy pieces.', architect: 'Win with your own arrangement.', card_sharp: 'Win a game with cards.', crowned: 'Win with a king power.', royal_collection: 'Win with all six kings.', giant_slayer: 'Beat the Strong computer.' };
 const badgeArt = (badge: Badge) => art(`assets/badge-${badge.replaceAll('_', '-')}.webp`);
-export function profileScreen() { $('profile-name').onclick = () => navigate('handle'); $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }
+export function profileScreen() { $('profile-blocks-more').onclick = () => void readMoreBlocks(); $('profile-name').onclick = () => navigate('handle'); $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }
 async function readProfile(cursor?: string) {
   const reading = ++request;
   if (!cursor) { before = null; $('profile-more').hidden = true; }
@@ -23,6 +26,7 @@ async function readProfile(cursor?: string) {
   $('profile-status').textContent = cursor ? '' : 'Loading profile…';
   try {
     $('profile-more').setAttribute('disabled', '');
+    $('profile-blocks-more').setAttribute('disabled', '');
     const [result, games] = await Promise.all([client.call('kingdown_profile', cursor ? { before: cursor } : {}), cursor ? undefined : client.call('kingdown_games')]);
     if (reading !== request || client.state.screen !== 'profile') return;
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
@@ -44,9 +48,37 @@ async function readProfile(cursor?: string) {
     $('profile-history').append(...profile.history.map(historyRow));
     before = profile.next_before; $('profile-more').hidden = before === null;
     renderBadges(record);
+    if (!cursor) renderBlocks(profile);
     $('profile-status').textContent = '';
   } catch (error) { if (reading === request && client.state.screen === 'profile') $('profile-status').textContent = errorText(error); }
-  finally { if (reading === request) $('profile-more').removeAttribute('disabled'); }
+  finally { if (reading === request) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); } }
+}
+function renderBlocks(profile: Profile, append = false) {
+  const rows = profile.blocks.map(player => {
+    const row = document.createElement('button'); row.className = 'menu-row'; row.type = 'button';
+    row.textContent = `Unblock ${player.handle ?? 'player'}`;
+    row.onclick = () => confirmBoardAction('Unblock player?', 'Your block no longer stops Find or joins to open games. Follows stay off.', 'Unblock player', () => void unblock(player.user_id), 'Cancel');
+    return row;
+  });
+  if (!append) $('profile-blocks').replaceChildren();
+  $('profile-blocks').append(...rows);
+  $('profile-blocks-empty').hidden = $('profile-blocks').childElementCount > 0;
+  blocksAfter = profile.next_blocks_after;
+  $('profile-blocks-more').hidden = blocksAfter === null;
+}
+async function readMoreBlocks() {
+  if (!blocksAfter) return;
+  const reading = ++request;
+  $('profile-more').setAttribute('disabled', '');
+  $('profile-blocks-more').setAttribute('disabled', '');
+  try {
+    const result = await client.call('kingdown_profile', { blocks_after: blocksAfter });
+    if (reading !== request || client.state.screen !== 'profile') return;
+    if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+    renderBlocks(result._meta as Profile, true);
+    $('profile-status').textContent = '';
+  } catch (error) { if (reading === request && client.state.screen === 'profile') $('profile-status').textContent = errorText(error); }
+  finally { if (reading === request) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); } }
 }
 function renderBadges(record: PlayerRecord) {
   $('profile-badge-count').textContent = `${record.badges.length} of 10`;
@@ -82,10 +114,7 @@ function openRow(entry: InboxEntry) {
   const player = document.createElement('span'); player.className = 'grow';
   const name = document.createElement('b'); name.textContent = waiting ? 'Open game' : entry.opponent?.computer ? `Computer · ${entry.level[0].toUpperCase()}${entry.level.slice(1)}` : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
   const line = document.createElement('small'); line.textContent = waiting ? waitingLine(entry) : entry.status === 'setup' ? yours ? 'Choose your side' : 'Waiting for the other player' : yours ? `Move ${entry.move}` : `Their turn ·\u00a0move ${entry.move}`; const detail = document.createElement('small'); detail.textContent = gameDetail(entry); player.append(name, line, detail);
-  const feats = document.createElement('span'); feats.className = 'feats';
-  for (const [field, icon, label] of [['fairy', 'fairy', 'Fairy pieces'], ['arrangement', 'arrange', 'Arrangement'], ['classic', 'classic', 'Classic'], ['cards', 'cards', 'Cards'], ['kingPowers', 'powers', 'King powers']] as const) {
-    if (entry.options?.[field]) { const feat = document.createElement('span'); feat.title = label; feat.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-${icon}"/></svg>`; feats.append(feat); }
-  }
+  const feats = features(entry.options);
   row.append(when, colour, player, feats);
   row.onclick = async () => { const view = await call('kingdown_resume', { game_id: entry.game_id }, false, false, false); if (view) routeView(view); };
   return row;
@@ -97,12 +126,15 @@ function historyRow(entry: HistoryEntry) {
   const player = document.createElement('span'); player.className = 'grow';
   const name = document.createElement('b'); name.textContent = entry.opponent.computer ? `Computer${entry.opponent.level ? ` · ${entry.opponent.level[0].toUpperCase()}${entry.opponent.level.slice(1)}` : ''}` : entry.opponent.deleted ? 'Deleted player' : entry.opponent.handle ?? 'A player';
   const reason = document.createElement('small'); reason.textContent = WHY[entry.reason]; player.append(name, reason);
-  const feats = document.createElement('span'); feats.className = 'feats';
-  const labels: string[] = [];
-  for (const [field, icon, label] of [['fairy', 'fairy', 'Fairy pieces'], ['arrangement', 'arrange', 'Arrangement'], ['classic', 'classic', 'Classic'], ['cards', 'cards', 'Cards'], ['powers', 'powers', 'King powers']] as const) {
-    if (entry.features[field]) { labels.push(label); feats.insertAdjacentHTML('beforeend', `<svg class="icon" aria-hidden="true"><use href="#i-${icon}"/></svg>`); }
-  }
-  feats.setAttribute('aria-label', labels.join(', '));
-  const res = document.createElement('span'), letter = { won: 'W', drawn: 'D', lost: 'L' }[entry.result]; res.className = `res res-${letter.toLowerCase()}`; res.textContent = letter; res.setAttribute('aria-label', entry.result);
+  const feats = features({ ...DEFAULT_OPTIONS, ...entry.features, kingPowers: entry.features.powers });
+  const res = document.createElement('span'), letter = { won: 'W', drawn: 'D', lost: 'L' }[entry.result]; res.className = `res res-${letter.toLowerCase()}`; res.textContent = letter; res.setAttribute('role', 'img'); res.setAttribute('aria-label', entry.result);
   row.append(when, colour, player, feats, res); return row;
+}
+
+async function unblock(user_id: string) {
+  try {
+    const result = await client.call('kingdown_block', { user_id, blocked: false });
+    if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+    if (client.state.screen === 'profile') await readProfile();
+  } catch (error) { if (client.state.screen === 'profile') $('profile-status').textContent = errorText(error); }
 }

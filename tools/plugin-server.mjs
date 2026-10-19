@@ -49,8 +49,8 @@ export async function configurePlugin(env = process.env, { localDev = false } = 
   pool.on('error', error => { console.error('King Down database connection failed', diagnostic(error)); });
   try { await checkPluginDatabase(pool, config, auth?.resource); }
   catch (error) { await pool.end(); throw error; }
-  const store = new PostgresMatchStore(pool), games = new GameService(store);
-  const mcp = createPluginHandler({ consent, service: new PluginService(store), publicOrigin, resourceHtml, auth, localDev });
+  const store = new PostgresMatchStore(pool), secret = env.KINGDOWN_INTERNAL_SECRET ?? '', games = new GameService(store, secret);
+  const mcp = createPluginHandler({ consent, service: new PluginService(store, secret), publicOrigin, resourceHtml, auth, localDev });
   const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET, sender: () => resendSender(env) });
   // The MVP serves internal jobs, MCP and OAuth pages.
   const handler = async (req, res) => {

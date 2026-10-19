@@ -70,5 +70,5 @@ export default defineConfig({
   build: { copyPublicDir: false },
   plugins: [offlineBuild()],
   // Vitest collects the source, tools and Claude hook tests. docs/2d-first-pieces uses node:test (npm test).
-  test: { environment: 'node', include: process.env.KINGDOWN_TEST_FILE ? [process.env.KINGDOWN_TEST_FILE] : ['src/**/*.test.ts', 'tools/**/*.test.ts', '.claude/hooks/**/*.test.ts'] },
+  test: { environment: 'node', env: { KINGDOWN_INTERNAL_SECRET: 'kingdown-test-internal-secret-not-for-live-use' }, include: process.env.KINGDOWN_TEST_FILE ? [process.env.KINGDOWN_TEST_FILE] : ['src/**/*.test.ts', 'tools/**/*.test.ts', '.claude/hooks/**/*.test.ts'] },
 });

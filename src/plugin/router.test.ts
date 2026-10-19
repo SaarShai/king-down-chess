@@ -12,6 +12,14 @@ it('routes each server game phase to its one screen', () => {
   expect(screens).toEqual(['friend', 'wait', 'seat', 'board', 'board', 'end', 'end']);
 });
 
+it('returns only an explicit computer abort to the draft', () => {
+  const router = createRouter(async () => undefined, () => {}, () => {});
+  const view = { status: 'aborted', kind: 'solo', result: { winner: null, reason: 'abort' } } as View;
+  expect(router.routeView(view)).toBe('play');
+  expect(router.routeView({ ...view, kind: 'friend' })).toBe('end');
+  expect(router.routeView({ ...view, result: { winner: null, reason: 'no_start' } })).toBe('end');
+});
+
 it('starts each kind as a pending call and lets a caller defer the route', async () => {
   const calls: unknown[] = [], screens: string[] = [];
   const view = { status: 'setup', kind: 'solo', options: {} } as View;
@@ -21,17 +29,11 @@ it('starts each kind as a pending call and lets a caller defer the route', async
   await router.start('friend', { colour: 'black' }); await router.start('random', { colour: 'white' });
   const command_id = expect.stringMatching(/^[0-9a-f]{32}$/);
   expect(calls).toEqual([
-    ['kingdown_create', { kind: 'solo', colour: 'white', command_id }, true],
-    ['kingdown_create', { kind: 'friend', colour: 'black', command_id }, true],
-    ['kingdown_find', { colour: 'white', command_id }, true],
+    ['kingdown_create', { kind: 'solo', colour: 'white', command_id }, { retain: true, route: false }],
+    ['kingdown_create', { kind: 'friend', colour: 'black', command_id }, { retain: true, route: false }],
+    ['kingdown_find', { colour: 'white', command_id }, { retain: true, route: false }],
   ]);
   // Each start has its own command ID: only a resend of the same start reuses one.
   expect(new Set(calls.map(call => (call as [string, { command_id: string }])[1].command_id)).size).toBe(3);
   expect(screens).toEqual(['seat', 'seat']);
-});
-
-it('can cancel a pending start when the page closes', async () => {
-  const router = createRouter(async () => undefined, () => {}, () => {}, () => true);
-  const cancelled = router.start('random'); await Promise.resolve();
-  router.finishStart(); expect(await cancelled).toBeUndefined();
 });

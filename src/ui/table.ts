@@ -59,7 +59,7 @@ export interface TableSnapshot {
   /** The chain can stop on the last square clicked (Stop here). */
   canFinish: boolean;
   busy: boolean; thinking: boolean;
-  /** Why the last tap did nothing; the help line shows it until the next action. */
+  /** Why the last select did nothing; the help line shows it until the next action. */
   notice: string;
   /** Plies shown in review, or null for the live game; the review note of the moment shown. */
   viewing: number | null; reviewNote: string;
@@ -98,20 +98,20 @@ export function renderTable(s: TableSnapshot): void {
   $('stop-chain').hidden = !canFinish;
   $('stop-chain').textContent = selectedType === S ? `Stop here (${pending.length} bite${pending.length === 1 ? '' : 's'})` : 'Stop here';
   const help: Partial<Record<PieceType, string>> = {
-    [O]: 'Tap a neighbour to take or shove.',
-    [A]: 'Tap a marked enemy to shoot without moving, or a marked empty square to move.',
-    [M]: 'Tap your own piece to swap places.',
-    [S]: pending.length ? 'Tap the next bite, or stop here.' : 'Tap a marked enemy to start a chain.',
+    [O]: 'Select a neighbour to take or shove.',
+    [A]: 'Select a marked enemy to shoot without moving, or a marked empty square to move.',
+    [M]: 'Select your own piece to swap places.',
+    [S]: pending.length ? 'Select the next bite, or stop here.' : 'Select a marked enemy to start a chain.',
     [L]: 'Jump over your own pieces like a queen.',
-    [C]: 'Tap a marked enemy beyond a screen to lob, or an empty square to move.',
-    [V]: pending.length ? 'Tap a marked landing, or stop here.' : 'Tap an enemy, then a marked landing.',
+    [C]: 'Select a marked enemy beyond a screen to lob, or an empty square to move.',
+    [V]: pending.length ? 'Select a marked landing, or stop here.' : 'Select an enemy, then a marked landing.',
   };
   $('move-help').textContent = notice ? notice : viewing != null
-    ? s.reviewNote || `Tap the board to return to the game.${matchMedia('(hover: hover)').matches ? ' ← → step through the moves.' : ''}`
+    ? s.reviewNote || `Select the board to return to the game.${matchMedia('(hover: hover)').matches ? ' ← → step through the moves.' : ''}`
     : lesson == null && s.turnLine
       ? s.turnLine
       : selected == null || busy ? ''
-      : help[selectedType as PieceType] ?? 'Tap a marked square to move or take.';
+      : help[selectedType as PieceType] ?? 'Select a marked square to move or take.';
   const turn = s.activeSide ? 'Black' : 'White';
   // In review the header names the move shown, as the list numbers it ("after 5… a5-a4").
   const shown = viewing == null ? '' : viewing === 0 ? 'the start'

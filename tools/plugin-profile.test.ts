@@ -49,9 +49,47 @@ afterAll(async () => { await browser?.close(); await harness?.close(); await rm(
 async function open() {
   const page = await browser.newPage({ timezoneId: 'UTC' }); page.setDefaultTimeout(5000); await page.goto(harness.url);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+  await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen' }));
   return page;
 }
 const tool = async (page: Awaited<ReturnType<typeof open>>, name: string, args = {}) => (await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name, arguments: args } })).json();
+it('names game features and each history result for screen readers', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    const games = waitingGames.map((entry, i) => ({ ...entry, options: i ? { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } : entry.options }));
+    const entries = history.slice(0, 3).map((entry, i) => ({ ...entry, features: { ...entry.features, fairy: i === 0, arrangement: i === 0, classic: i === 1, cards: i === 0, powers: i === 0 } }));
+    await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { games, history: entries, record } } });
+    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_games', {}); app.navigate('play'); });
+    const featureNames = ['- img "Fairy pieces"\n- img "Arrangement"\n- img "Cards"\n- img "King powers"', '- img "Classic chess"', ''];
+    for (const [i, game] of games.entries()) {
+      const row = frame.locator(`#games-list [data-game-id="${game.game_id}"]`);
+      expect(await row.locator('.feats').ariaSnapshot()).toBe(featureNames[i]);
+      expect(await row.ariaSnapshot()).toContain(i ? 'Classic chess' : 'Fairy pieces Arrangement Cards King powers');
+    }
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await expect.poll(() => frame.locator('#profile-history li').count()).toBe(3);
+    for (const [i, game] of games.entries()) {
+      expect(await frame.locator(`#profile-open [data-game-id="${game.game_id}"] .feats`).ariaSnapshot()).toBe(featureNames[i]);
+    }
+    for (const [i, entry] of entries.entries()) {
+      const row = frame.locator(`#profile-history [data-game-id="${entry.game_id}"]`);
+      expect(await row.locator('.feats').ariaSnapshot()).toBe(featureNames[i]);
+      expect(await row.ariaSnapshot()).toContain(`- img "${entry.result}"`);
+      const bounds = await row.evaluate(el => {
+        const plain = el.cloneNode(true) as HTMLElement;
+        plain.querySelectorAll('.feats > span').forEach(mark => mark.replaceWith(...mark.childNodes));
+        el.after(plain);
+        const measure = (row: Element) => {
+          const base = row.getBoundingClientRect();
+          return [row, ...row.querySelectorAll('.feats svg')].map(mark => { const box = mark.getBoundingClientRect(); return [box.x - base.x, box.y - base.y, box.width, box.height]; });
+        };
+        const result = { named: measure(el), plain: measure(plain) }; plain.remove(); return result;
+      });
+      expect(bounds.named).toEqual(bounds.plain);
+    }
+    expect(await frame.locator('#profile-history .res').allTextContents()).toEqual(['W', 'D', 'L']);
+  } finally { await page.close(); }
+});
 it('reads the profile name, picture, rounded rating and totals from the server', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -154,7 +192,7 @@ it('lists all pieces, kings, powers and cards with the game text and Unlocked', 
         expect(await card.locator('dd').first().innerText()).toBe(group.options.map(option => `${option.label}: ${ruleLine(option.title)}`).join('\n'));
       }
       // The Collection's cards read as in a game with the default options: King powers off (fault F2).
-      if (tab === 'Cards') for (const card of DEAL_CARDS) expect(await frame.locator(`[data-card="${card}"] .cf-text small`).textContent()).toBe(ruleLine(cardText(card, DEFAULT_RULES)));
+      if (tab === 'Cards') for (const card of DEAL_CARDS) expect(await frame.locator(`#collection-items [data-card="${card}"] .cf-text small`).textContent()).toBe(ruleLine(cardText(card, DEFAULT_RULES)));
       if (tab === 'Powers') for (const [power, line] of Object.entries(data.powers)) expect(await frame.locator(`[data-power="${power}"] dd`).first().textContent()).toBe(webWords(balanced[power] ?? line));
     }
     await page.locator('#remount').click();
@@ -345,6 +383,7 @@ const bigRecord = { ...record, totals: { played: 1234, won: 700, drawn: 34, lost
 async function openAt(width: number, height: number, locale = 'en-US', timezoneId = 'UTC') {
   const context = await browser.newContext({ viewport: { width, height }, locale, timezoneId }), page = await context.newPage(); page.setDefaultTimeout(5000);
   await page.goto(harness.url); await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+  await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen' }));
   await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history, record: bigRecord, games: waitingGames } } });
   return { page, frame: page.frameLocator('iframe'), close: () => context.close() };
 }
@@ -411,10 +450,14 @@ it.each([[768, 1024], [820, 600], [899, 900]])('keeps each W mark and date of 12
         return out;
       }, { from: ratios[0].length, marks });
       expect(boxes.length).toBeGreaterThan(0);
-      const { data, info } = await sharp(await page.screenshot()).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+      // Capture only the region that contains the sampled marks and dates.
+      const rects = boxes.flat();
+      const x = Math.floor(origin.x + Math.min(...rects.map(box => box[0]))), y = Math.floor(origin.y + Math.min(...rects.map(box => box[1])));
+      const clip = { x, y, width: Math.ceil(origin.x + Math.max(...rects.map(box => box[2]))) - x, height: Math.ceil(origin.y + Math.max(...rects.map(box => box[3]))) - y };
+      const { data, info } = await sharp(await page.screenshot({ clip })).removeAlpha().raw().toBuffer({ resolveWithObject: true });
       for (const row of boxes) row.forEach(([left, top, right, bottom], k) => {
         const paper: number[] = [];
-        for (let y = top + origin.y; y < bottom + origin.y; y++) for (let x = left + origin.x; x < right + origin.x; x++) { const p = (y * info.width + x) * 3; paper.push(lum([data[p], data[p + 1], data[p + 2]])); }
+        for (let y = top + origin.y; y < bottom + origin.y; y++) for (let x = left + origin.x; x < right + origin.x; x++) { const p = ((y - clip.y) * info.width + x - clip.x) * 3; paper.push(lum([data[p], data[p + 1], data[p + 2]])); }
         ratios[k].push((paper.sort((a, b) => a - b)[paper.length >> 1] + 0.05) / (inks[k] + 0.05));
       });
     }
@@ -432,7 +475,7 @@ it.each(['de-DE', 'ja-JP', 'en-US'])('uses one English date style in Play, Profi
     await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
     await frame.locator('#profile-history li').first().waitFor();
     expect(await frame.locator('#profile-history .when').first().textContent()).toBe('Oct 10');
-    await frame.locator('html').evaluate(async (_, options) => { const app = (window as any).harnessApp; app.navigate('setup'); await app.start('friend', { options, colour: 'white' }); }, DEFAULT_OPTIONS);
+    await frame.locator('html').evaluate(async (_, options) => { const app = (window as any).harnessApp; app.navigate('play'); await app.start('friend', { options, colour: 'white' }); }, DEFAULT_OPTIONS);
     await frame.locator('.game-code span').first().waitFor();
     expect(await frame.locator('#friend-expiry').textContent()).toMatch(/^Ends [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2}\u00a0[AP]M\.$/);
   } finally { await close(); }

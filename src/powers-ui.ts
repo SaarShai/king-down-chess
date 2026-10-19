@@ -10,6 +10,13 @@ export const POWER_NAME: Record<PowerName, string> = {
   March: 'March', Leap: 'Leap', HolyLight: 'Holy Light', Mercy: 'Mercy', DeathTouch: 'Death Touch', Darkness: 'Darkness',
 };
 
+export const cardName = (card: CardName): string => card === 'MirrorB' ? 'Mirror' : card === 'MorphP' ? 'Morph'
+  : card.replace(/([a-z])([A-Z])/g, '$1 $2');
+
+export const cardCost = (card: CardName, r: Rules = RULES): string =>
+  card === 'MirrorB' || card === 'Mirror' ? 'Same cost as the copied card'
+  : r.markFree && ['Freeze', 'IceWall', 'Firewall', 'Rescue'].includes(card) || card === 'GrowthB' ? 'Free, then move' : 'Uses your turn';
+
 /**
  * One line per power, as a player reads it, under the rules in force (the balance-lab readings of
  * docs/research/kings-powers-balance-2026-10-02.md change several). Use counts come from the rules.

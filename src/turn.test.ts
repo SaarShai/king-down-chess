@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Game, resigningSide } from './game';
 import { CLASSIC_CHESS, fromFen, toFen, toLan } from './rules/setup';
 import { POWERS_BALANCED, setRules } from './rules/engine';
+import { contextLine } from './context-line';
 import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, pressPass, sendLans, turnAnnouncement, turnButton, turnLine, turnOf, waitNotice } from './turn';
 
 /** Play the first legal move whose LAN matches, so the tests read like a score sheet. */
@@ -102,40 +103,41 @@ describe('turnLine: the words beside the board', () => {
 
   it('the turn waits: against the computer, on one device and in a link game', () => {
     const g = play(new Game(CLASSIC_CHESS), 'e2-e4');
-    expect(turnLine(g, turnOf(g, 0), 'computer')).toBe('Your turn is ready. Tap End turn.');
-    expect(turnLine(g, turnOf(g, 0), 'device')).toBe("White's turn is ready. Tap End turn.");
-    expect(turnLine(g, turnOf(g, 0), 'link')).toBe('Your turn is ready. Tap Send your turn.');
+    expect(turnLine(g, turnOf(g, 0), 'computer')).toBe('Your turn is ready. Select End turn.');
+    expect(contextLine({ voice: 'you', waiting: true, turnLine: turnLine(g, turnOf(g, 0), 'computer') }).line).toBe('Your turn is ready. Select End turn.');
+    expect(turnLine(g, turnOf(g, 0), 'device')).toBe("White's turn is ready. Select End turn.");
+    expect(turnLine(g, turnOf(g, 0), 'link')).toBe('Your turn is ready. Select Send your turn.');
   });
 
   it('a staged check says so first', () => {
     const g = play(new Game(CLASSIC_CHESS), 'e2-e4', 'd7-d6', 'Bf1-b5');
     expect([g.inCheck, g.status]).toEqual([true, 'playing']);
-    expect(turnLine(g, turnOf(g, 2), 'computer')).toBe('Check. Your turn is ready. Tap End turn.');
-    expect(turnLine(g, turnOf(g, 2), 'device')).toBe("Check. White's turn is ready. Tap End turn.");
-    expect(turnLine(g, turnOf(g, 2), 'link')).toBe('Check. Tap Send your turn.');
+    expect(turnLine(g, turnOf(g, 2), 'computer')).toBe('Check. Your turn is ready. Select End turn.');
+    expect(turnLine(g, turnOf(g, 2), 'device')).toBe("Check. White's turn is ready. Select End turn.");
+    expect(turnLine(g, turnOf(g, 2), 'link')).toBe('Check. Select Send your turn.');
   });
 
   it('a staged end: the press finishes the game', () => {
     const mate = play(new Game(CLASSIC_CHESS), 'f2-f3', 'e7-e5', 'g2-g4', 'Qd8-h4');
-    expect(turnLine(mate, turnOf(mate, 3), 'computer')).toBe('Checkmate. Tap End turn to finish.');
-    expect(turnLine(mate, turnOf(mate, 3), 'link')).toBe('Checkmate. Tap Send your turn.');
+    expect(turnLine(mate, turnOf(mate, 3), 'computer')).toBe('Checkmate. Select End turn to finish.');
+    expect(turnLine(mate, turnOf(mate, 3), 'link')).toBe('Checkmate. Select Send your turn.');
     const stale = new Game();
     stale.load(fromFen('7k/8/6Q1/8/8/8/8/K7 w - - 0 1'));
     play(stale, 'Qg6-f7');
     expect(stale.status).toBe('stalemate');
-    expect(turnLine(stale, turnOf(stale, 0), 'device')).toBe('Stalemate. Tap End turn to finish.');
+    expect(turnLine(stale, turnOf(stale, 0), 'device')).toBe('Stalemate. Select End turn to finish.');
   });
 
   it('mid-way: the follow-up move, or the press', () => {
     const g = haste();
-    expect(turnLine(g, turnOf(g, 0), 'computer')).toBe('Move it again, or tap End turn.');
-    expect(turnLine(g, turnOf(g, 0), 'link')).toBe('Move it again, or tap Send your turn.');
+    expect(turnLine(g, turnOf(g, 0), 'computer')).toBe('Move it again, or select End turn.');
+    expect(turnLine(g, turnOf(g, 0), 'link')).toBe('Move it again, or select Send your turn.');
     setRules({ ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
     const f = new Game();
     f.load(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'));
     play(f, '!F:d5');
-    expect(turnLine(f, turnOf(f, 0), 'device')).toBe('Now make your move, or tap End turn.');
-    expect(turnLine(f, turnOf(f, 0), 'link')).toBe('Make your move, or tap Send your turn.');
+    expect(turnLine(f, turnOf(f, 0), 'device')).toBe('Now make your move, or select End turn.');
+    expect(turnLine(f, turnOf(f, 0), 'link')).toBe('Make your move, or select Send your turn.');
   });
 
   it('mid-way after a Rally: another piece moves next', () => {
@@ -143,7 +145,7 @@ describe('turnLine: the words beside the board', () => {
     const g = new Game();
     g.load(fromFen('4k3/8/p7/8/8/2p5/8/RN2K3 w - - 0 1'));
     play(g, 'Ra1-a5!J');
-    expect(turnLine(g, turnOf(g, 0), 'computer')).toBe('Move another piece, or tap End turn.');
+    expect(turnLine(g, turnOf(g, 0), 'computer')).toBe('Move another piece, or select End turn.');
   });
 
   it('every line has 8 words or fewer', () => {
@@ -171,11 +173,11 @@ describe('turnLine: the words beside the board', () => {
   });
 });
 
-describe('waitNotice: a tap while the turn waits', () => {
+describe('waitNotice: a select while the turn waits', () => {
   it('asks for the press; on one device it names the side and does not offer Undo', () => {
-    expect(waitNotice('computer', 0)).toBe('Tap End turn, or Undo.');
-    expect(waitNotice('device', 1)).toBe('Black: tap End turn.');
-    expect(waitNotice('link', 0)).toBe('Tap Send your turn, or Undo.');
+    expect(waitNotice('computer', 0)).toBe('Select End turn, or Undo.');
+    expect(waitNotice('device', 1)).toBe('Black: select End turn.');
+    expect(waitNotice('link', 0)).toBe('Select Send your turn, or Undo.');
   });
 });
 

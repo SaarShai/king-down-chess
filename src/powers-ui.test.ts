@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { LESSONS } from './lessons';
 import { Game } from './game';
 import { Q, legalMoves, makeMove, parseKings } from './rules/engine';
-import { POWERS_BALANCED, RULES_2017, setRules } from './rules/rules';
+import { DEFAULT_RULES, POWERS_BALANCED, RULES_2017, setRules } from './rules/rules';
 import { fromFen, toLan } from './rules/setup';
-import { autoQueen, coinState, coinWords, hintMoves, needsArming, powerOptions, powerText, powersRules } from './powers-ui';
+import { cardName, cardCost, autoQueen, coinState, coinWords, hintMoves, needsArming, powerOptions, powerText, powersRules } from './powers-ui';
 
 afterEach(() => setRules());
 
@@ -208,4 +208,23 @@ it('uses take words only when the web Guide asks', () => {
   }
   expect(powerText('IceWall', r)).toContain('captured');
   expect(powerText('Haste', r)).toContain('captures');
+});
+
+
+it('shows card names without the lab suffix and keeps deal names distinct', async () => {
+  const { DEAL_CARDS } = await import('./match/setup');
+  expect(cardName('MirrorB')).toBe('Mirror');
+  expect(cardName('MorphP')).toBe('Morph');
+  expect(cardName('EarthQuake')).toBe('Earth Quake');
+  expect(cardName('SkyLift')).toBe('Sky Lift');
+  expect(new Set(DEAL_CARDS.map(cardName)).size).toBe(DEAL_CARDS.length);
+});
+
+it('shows each card cost under the rules in force', () => {
+  for (const card of ['Freeze','IceWall','Firewall','Rescue'] as const) {
+    expect(cardCost(card, DEFAULT_RULES)).toBe('Uses your turn');
+    expect(cardCost(card, { ...DEFAULT_RULES, markFree: true })).toBe('Free, then move');
+  }
+  expect(cardCost('Strike', { ...DEFAULT_RULES, markFree: true })).toBe('Uses your turn');
+  expect(cardCost('MirrorB', DEFAULT_RULES)).toBe('Same cost as the copied card');
 });

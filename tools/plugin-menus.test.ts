@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { chromium, type Browser, type Page } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
+import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import type { HistoryEntry } from '../src/match/protocol';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -40,14 +41,14 @@ it('keeps the home kings in the card, equal New game margins, a 640 px Play list
     for (const [left, right] of kings) { expect(left).toBeGreaterThanOrEqual(0); expect(right).toBeGreaterThanOrEqual(0); }
     // F22: New game has the same left and right margins.
     await page.setViewportSize({ width: OWNER.width, height: OWNER.height }); await fullscreen(page, OWNER.top, OWNER.bottom);
-    await go(page, 'setup');
+    await go(page, 'play');
     const margins = await frame.locator('#setup-body .modes').evaluate(el => { const r = el.getBoundingClientRect(), s = el.closest('.page-sheet')!.getBoundingClientRect(); return [r.left - s.left, s.right - r.right]; });
     expect(margins[1]).toBeCloseTo(margins[0], 0);
     // F23 and F25: on a wide screen the Play list stops at 640 px; Play uses only the token type sizes.
     await seedGames(page, [entry(1, 'ready')]); await readGames(page);
     for (const width of [OWNER.width, 820]) {
       await page.setViewportSize({ width, height: 1180 }); await go(page, 'play');
-      for (const row of await frame.locator('[data-screen="play"] .menu-row').all()) expect((await row.boundingBox())!.width).toBeLessThanOrEqual(640);
+      for (const row of await frame.locator('[data-screen="play"] .menu-row:visible').all()) expect((await row.boundingBox())!.width).toBeLessThanOrEqual(640);
       const sizes = await frame.locator('[data-screen="play"]').evaluate(s => [...new Set([...s.querySelectorAll<HTMLElement>('*')].filter(e => e.offsetParent && (e.matches('input') || [...e.childNodes].some(n => n.nodeType === 3 && n.textContent!.trim()))).map(e => getComputedStyle(e).fontSize))]);
       expect(sizes.filter(size => !TOKENS.includes(size)), `${width} px`).toEqual([]);
     }
@@ -58,6 +59,8 @@ it('says 1 game, shows Your turn once, and gives the name page, code fields and 
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     // F18 and F16.
+    await seedGames(page, []); await readGames(page);
+    expect(await frame.locator('#home-line').isHidden()).toBe(true);
     await seedGames(page, [entry(1, 'ready'), entry(2, 'waiting')]); await readGames(page);
     expect(await frame.locator('#home-line').textContent()).toBe('Your move in 1 game.');
     await go(page, 'play');
@@ -89,12 +92,50 @@ it('says 1 game, shows Your turn once, and gives the name page, code fields and 
 it('opens New game at the top', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await go(page, 'setup');
-    await frame.locator('#setup-body').evaluate(el => { el.scrollTop = 300; });
-    expect(await frame.locator('#setup-body').evaluate(el => el.scrollTop)).toBeGreaterThan(0);
-    await go(page, 'play'); await go(page, 'setup');
-    expect(await frame.locator('#setup-body').evaluate(el => el.scrollTop)).toBe(0);
+    await go(page, 'play');
+    await frame.locator('#new-game .new-game-body').evaluate(el => { el.scrollTop = 300; });
+    expect(await frame.locator('#new-game .new-game-body').evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+    await go(page, 'settings'); await go(page, 'play');
+    expect(await frame.locator('#new-game .new-game-body').evaluate(el => el.scrollTop)).toBe(0);
   } finally { await page.close(); }
+});
+
+it('keeps every game row within reach after a saved Play mount', async () => {
+  const page = await open({ width: 390, height: 844, top: 24, bottom: 120 }), frame = page.frameLocator('iframe');
+  const savedGames = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.games);
+  try {
+    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.start('solo', {}); app.navigate('play'); });
+    await seedGames(page, Array.from({ length: 50 }, (_, n) => entry(n, 'ready')));
+    await page.evaluate(() => { (window as any).holdNextGet = true; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeldGet);
+    expect(await frame.locator('#reload').isDisabled()).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeldGet());
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    expect(await frame.locator('#games-list [data-game-id^="menus-"]').count()).toBe(50);
+    for (const row of await frame.locator('#games-list button').all()) {
+      await row.scrollIntoViewIfNeeded();
+      expect((await row.evaluate(controlBounds)).accessible).toBe(true);
+    }
+  } finally { await page.evaluate(() => (window as any).releaseHeldGet?.()); await seedGames(page, savedGames); await page.close(); }
+});
+
+it('locks Name until settings finish on a saved screen', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const current = `mount_${randomUUID().slice(0, 8)}`, draft = `draft_${randomUUID().slice(0, 8)}`;
+  try {
+    await frame.locator('html').evaluate(async (_, handle) => { const app = (window as any).harnessApp; await app.call('kingdown_handle', { handle, icon: 'spirit' }); app.navigate('handle'); }, current);
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_settings'; });
+    await page.locator('#remount').click();
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
+    expect(await frame.locator('#handle').isDisabled()).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('#handle:not(:disabled)').waitFor();
+    expect(await frame.locator('#handle').inputValue()).toBe(current);
+    await frame.locator('#handle').fill(draft);
+    await frame.locator('#handle-free:not([hidden])').waitFor();
+    expect(await frame.locator('#handle').inputValue()).toBe(draft);
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
 it('scrolls the Profile scroll with the page, with its bottom roller at the page end', async () => {
@@ -114,7 +155,7 @@ it('scrolls the Profile scroll with the page, with its bottom roller at the page
 it('shows each card and power with the same rules and words on the Cards sheet, the king sheet and the Collection', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await go(page, 'setup');
+    await go(page, 'play');
     await frame.locator('#cards-row').click();
     await frame.locator('#setup-cards').click();
     const sheet = Object.fromEntries(await frame.locator('#menu-sheet .card-face').evaluateAll(faces => faces.map(f => [f.querySelector('input')!.value, f.querySelector('small')!.textContent])));
@@ -133,11 +174,30 @@ it('shows each card and power with the same rules and words on the Cards sheet, 
   } finally { await page.close(); }
 });
 
+// Q6 b: on a 197 px (200% zoom) screen the four Collection names stay whole and inside their labels, at a smaller size.
+it('keeps the Collection tab names whole and inside their labels at 197 px', async () => {
+  const page = await open({ width: 197, height: 426, top: 0, bottom: 0 }), frame = page.frameLocator('iframe');
+  try {
+    await go(page, 'collection'); await frame.locator('#collection-tabs').waitFor();
+    const tabs = await frame.locator('#collection-tabs label').evaluateAll(labels => labels.map(label => {
+      const box = label.getBoundingClientRect(), span = label.querySelector('span')!, words = span.getBoundingClientRect();
+      const range = document.createRange(); range.selectNodeContents(span);
+      return { name: span.textContent, left: Math.round(words.left - box.left), right: Math.round(box.right - words.right), lines: range.getClientRects().length, size: getComputedStyle(span).fontSize };
+    }));
+    for (const tab of tabs) {
+      expect(tab.left, `${tab.name} left`).toBeGreaterThanOrEqual(2);
+      expect(tab.right, `${tab.name} right`).toBeGreaterThanOrEqual(2);
+      expect(tab.lines, `${tab.name} lines`).toBe(1);
+    }
+    expect(tabs.map(tab => tab.size)).toEqual(['12.5px', '12.5px', '12.5px', '12.5px']);
+  } finally { await page.close(); }
+});
+
 // F5 and the owner's item W3 b: Start is busy at once, says 'Starting…' after 1 s, and frees ‹ Play at 5 s.
 it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s, with one Create', async () => {
   const page = await open(OWNER, true), frame = page.frameLocator('iframe');
   try {
-    await go(page, 'setup');
+    await go(page, 'play');
     await frame.locator('.mode').filter({ hasText: 'A friend' }).click();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
     const start = frame.locator('#setup-start');
@@ -149,15 +209,21 @@ it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s
     await expect.poll(() => start.textContent()).toBe('Starting…');
     expect(await frame.locator('#page-back').isDisabled()).toBe(true);
     await page.clock.fastForward(4_000);
-    await frame.locator('#page-back:not(:disabled)').waitFor();
+    // Play has no ‹ Play: its Settings row is the way out that the 5 s wait frees.
+    await frame.locator('[data-screen="play"] [data-nav="settings"]:not(:disabled)').waitFor();
     expect(await start.textContent()).toBe('Starting…');
+    await frame.locator('[data-screen="play"] [data-nav="settings"]').click();
     await frame.locator('#page-back:not(:disabled)').click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-    expect(await frame.locator('#play-new').isDisabled()).toBe(true);
+    expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
+    await page.clock.fastForward(5_001);
     await page.evaluate(() => (window as any).releaseHeld());
+    // The 10-second limit rejects the late reply. Retry sends the same command ID; the receipt gives back the same game.
+    await frame.locator('#retry').click();
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
-    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').length)).toBe(1);
-    await go(page, 'setup');
+    const ids = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create').map((c: any) => c.arguments.command_id));
+    expect(ids).toEqual([ids[0], ids[0]]);
+    await go(page, 'play');
     expect(await frame.locator('#setup-start').textContent()).toBe('Start game');
   } finally { await page.close(); }
 });
@@ -165,15 +231,17 @@ it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s
 it('keeps ‹ Play free after a slow settings save, while Create still waits', async () => {
   const page = await open(OWNER, true), frame = page.frameLocator('iframe');
   try {
-    await go(page, 'setup');
+    await go(page, 'play');
     await frame.locator('.mode').filter({ hasText: 'A friend' }).click();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_settings'; });
     await frame.locator('#setup-start').click();
     await expect.poll(() => page.evaluate(() => typeof (window as any).releaseHeld)).toBe('function');
     await page.clock.fastForward(5_000);
-    await frame.locator('#page-back:not(:disabled)').waitFor();
+    await frame.locator('[data-screen="play"] [data-nav="settings"]:not(:disabled)').waitFor();
     await page.evaluate(() => { const host = window as any, release = host.releaseHeld; host.releaseHeld = undefined; host.holdNext = 'kingdown_create'; release(); });
     await expect.poll(() => page.evaluate(() => typeof (window as any).releaseHeld)).toBe('function');
+    await page.clock.fastForward(1_001);
+    await expect.poll(() => frame.locator('#setup-start').textContent()).toBe('Starting…');
     expect(await frame.locator('#page-back').isDisabled()).toBe(false);
     await page.evaluate(() => (window as any).releaseHeld());
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
@@ -184,14 +252,18 @@ it('keeps ‹ Play free after a slow settings save, while Create still waits', a
 it('records seat activity from the poll at most once each 30 seconds', async () => {
   const page = await open(OWNER, true), frame = page.frameLocator('iframe');
   const count = (name: string) => page.evaluate(name => (window as any).harnessCalls.filter((c: any) => c.name === name).length, name);
+  // Finish the replies before a clock jump can expire an in-flight call's 10-second limit.
+  const idle = () => expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
   try {
-    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; app.navigate('setup'); await app.start('friend', { colour: 'white' }); });
+    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; app.navigate('play'); await app.start('friend', { colour: 'white' }); });
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     await page.clock.fastForward(6_000);
     await expect.poll(() => count('kingdown_seen')).toBe(1);
+    await idle();
     const gets = await count('kingdown_get');
     await page.clock.fastForward(20_000);
     await expect.poll(() => count('kingdown_get')).toBeGreaterThan(gets);
+    await idle();
     expect(await count('kingdown_seen')).toBe(1);
     await page.clock.fastForward(15_000);
     await expect.poll(() => count('kingdown_seen')).toBe(2);
@@ -204,7 +276,7 @@ it('shows the opponent\'s moves and the mate without Reload (F4, the J12 steps f
   const view = () => frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view);
   const move = (lan: string) => frame.locator('html').evaluate(async (_, lan) => { const app = (window as any).harnessApp, v = app.memory.view; await app.call('kingdown_move', { game_id: v.game_id, command_id: crypto.randomUUID(), expected_revision: v.revision, lan }, true); }, lan);
   try {
-    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; app.navigate('setup'); await app.start('friend', { colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } }); });
+    await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; app.navigate('play'); await app.start('friend', { colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } }); });
     const game_id = (await view()).game_id, { structuredContent: { code } } = await tool('/fixture-tool', 'kingdown_invite', { game_id });
     expect((await tool('/fixture-friend-tool', 'kingdown_join', { code })).isError).toBeFalsy();
     await page.clock.fastForward(16_000);
@@ -220,5 +292,20 @@ it('shows the opponent\'s moves and the mate without Reload (F4, the J12 steps f
     }
     expect((await view()).status).toBe('finished');
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get' && c.arguments.since_revision === undefined).length)).toBeLessThanOrEqual(2);
+  } finally { await page.close(); }
+});
+
+it('keeps the three online choices with no Display check line', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await go(page, 'settings');
+    expect(await frame.locator('#online-visibility input').evaluateAll(inputs => inputs.map(input => (input as HTMLInputElement).value))).toEqual(['everyone', 'mutual', 'nobody']);
+    expect(await frame.locator('#layout-check, #show-online').count()).toBe(0);
+    await page.clock.install();
+    await frame.locator('#page-title').dispatchEvent('pointerdown');
+    await page.clock.runFor(800);
+    await frame.locator('#page-title').dispatchEvent('pointerup');
+    expect(await frame.locator('#settings-sheet').textContent()).not.toContain('Display check:');
+    expect(await frame.locator('#online-visibility input:checked').inputValue()).toBe('mutual');
   } finally { await page.close(); }
 });

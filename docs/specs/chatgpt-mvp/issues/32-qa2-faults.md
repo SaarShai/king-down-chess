@@ -1,0 +1,173 @@
+# Rolling QA 2: end card, friend actions and armed card text
+
+Status: ready-for-human
+
+The first step covers ticket 32 fault C only. The base is `4692477c`.
+The owner asks for the cut-action cue. No new visual cue is needed.
+Faults A and B are refuted. Faults D and G are outside the first step.
+
+## Plan and checks
+
+1. Tighten `zoomEndFits` on a built page. Open a fresh mobile host at 197 x 426 with touch, fullscreen and insets 51/59. At scroll top zero, Play again fits and at least 12 px of New game shows below it. New game must cross the card edge. Scroll each of the three actions into the card and frame. Check each centre with `elementFromPoint`.
+2. Commit the check before the CSS fix. Run `plugin-ui` with the owner's runner. Record its failure against the base CSS. Add the same cue and full-button checks to the existing host-size test.
+3. Fix `end.css` under 320 px. Keep the cut-action cue and Back clear. Test a frame bottom gap of 96 px and 59 px. Keep the board and hall CSS as they are.
+4. Run `npx tsc --noEmit`, `npm test` with the local test database, and `plugin-ui` through the owner's runner. Keep all time limits. Check the existing normal-size cases. Record the evidence and commit the result.
+
+## Evidence
+
+Work starts with a clean worktree on `claude/qa2-faults` at `4692477c`.
+
+- The base CSS fails the new check at `f76584ce` on the M1. This commit changes checks only. Frame: y 51 to 330. Card: y 107 to 318. New game starts at y 332.84 and ends at 376.84. No part shows. Log: `checks-zoom-end-baseline-3.txt` in the lane folder.
+- The first check run at `9bd6a47c` stops on the full Play again assertion. It ends at y 322.84, 4.84 px past the card edge. The next check puts the cut-action assertion first. Both runs use a fresh mobile host, with the built page and fonts ready.
+- The fix changes only the under-320 px rules in `end.css`. It caps the card at 224 px, sets top padding to 8 px, hides the empty line above a loss, and removes the title's bottom margin. It keeps the win text, result type, button order and cut-action cue.
+
+## Final checks
+
+- `npx tsc --noEmit`: pass, including a final run after the check repairs.
+- `npm test`: pass with the local test database. All 188 files pass. There are 3,051 passed tests, one expected failure and eight skips. All 51 art tests pass. Log: `tests-zoom-end-1.txt`. The command waits for the shared test lock before it starts. No time limit changes.
+- `plugin-ui`: pass on the M1 at `5a3ebde3` in 141.2 seconds. The runner ends with `check-runner: M1 exit 0 at 5a3ebde3`. Log: `checks-zoom-end-fix-3.txt`. Full detail: `browser-final-detail.txt`.
+- The existing 320 x 568, 393 x 852 and 1280 x 800 checks pass. The product diff applies below 320 px only. The board and hall CSS do not change.
+- The new check uses a fresh 197 x 426 mobile host with touch, fullscreen and insets 51/59. It tests both win and loss with the three solo actions. It checks the result, the full first action, the cut second action and all three full action boxes and centre hits after scroll.
+- The host-size test also checks the cut second action at scroll top zero and the full bounds of each action after scroll. Its existing Back check stays.
+- All four saved images pass visual review. Back stays clear. The win text and the button order stay. The cue uses the cut action. No new visual element is added.
+- `node --check tools/plugin-ui-check.mjs` and `git diff --check`: pass.
+
+The measured boxes use CSS pixels. New game is 44 px high in all four cases.
+
+| Result | Bottom gap | Frame y | Card y | New game y | Part in view |
+| --- | --- | --- | --- | --- | --- |
+| Loss | 96 | 51 to 330 | 107 to 318 | 300.84 to 344.84 | 17.16 px |
+| Win | 96 | 51 to 330 | 107 to 318 | 303.75 to 347.75 | 14.25 px |
+| Loss | 59 | 51 to 367 | 131 to 355 | 324.84 to 368.84 | 30.16 px |
+| Win | 59 | 51 to 367 | 131 to 355 | 327.75 to 371.75 | 27.25 px |
+
+The 59 px bottom-gap case passes. It does not need a follow-up.
+
+## Check repairs and limits
+
+The first fixed run at `ee8a01b7` passes both loss cases. The win sample fails to mount because the new host has no board ID for that sample. The repair passes the host board ID and holds the sample through the mount read with the harness's existing reply override.
+
+The next run at `8f9c071b` reaches the win buttons. That old sample is a friend game, so it has Rematch and a block control. The check asks for Play again. The repair uses the solo actions for both results. The full check then passes at `5a3ebde3`. These are check setup repairs. The CSS stays at `ee8a01b7`.
+
+The failed `8f9c071b` check ends on the M1 in 154.4 seconds. Its SSH process remains open after that end. The lane stops only its own SSH PID 99719 after it reads the saved end record. The runner returns 255. The final passing run ends on its own.
+
+No server code changes. `plugin-ui-http` is not needed. No requested part of fault C remains. A and B stay refuted. D and G are outside this step. No push, merge or deploy is made.
+
+The compact spacing keeps the approved cut-action cue and the current text. No new visual element is added.
+
+## Review repair plan
+
+Review A reports no fault. Review B reports that the width-only 224 px cap cuts the actions in a tall frame. The CSS confirms this cause.
+
+1. Add a fresh 197 x 800 mobile host with insets 51/0 to `zoomEndFits`, for loss and win. At scroll top zero, all three actions must fit inside the card and frame, with no scroll. Add the tall case to the host-size test.
+2. Commit the checks. Run `plugin-ui` through the owner's runner against the current CSS. Record the tall-case failure.
+3. Keep the 224 px cap on short viewports only. Keep the narrow spacing and `calc(100% - 68px)` at other heights.
+4. Run `npm test` with the local test database and `plugin-ui` through the owner's runner. Keep all time limits. Check both short bottom gaps and the existing normal sizes. Record the results and commit the repair.
+
+## Review repair evidence
+
+- Review A: no findings. No repair is needed.
+- Review B, finding 1: confirmed. The new browser check fails on the current CSS at `7a71f9c7`. The loss case has a 653 px frame and a 224 px card at 197 x 800. All three actions do not fit. The M1 ends with `check-runner: M1 exit 1 at 7a71f9c7` after 91.9 seconds. Log: `checks-zoom-end-review-baseline-1.txt`; full detail: `zoom-end-review-baseline-detail.txt` in the lane folder.
+- The repair keeps the 224 px cap only at viewport heights of 480 px or less. All other narrow viewports use `calc(100% - 68px)`. The two short cases keep their existing rules. Widths of 320 px or more keep their existing rules.
+- The checks use fresh mobile hosts at 197 x 426 with insets 51/59 and at 197 x 800 with insets 51/0. Both result types must pass. The tall case requires all three actions to fit at scroll top zero and no card scroll. The host-size test adds the same tall loss case.
+
+- `plugin-ui`: pass on the M1 at `72616464` in 144.0 seconds. The runner ends with `check-runner: M1 exit 0 at 72616464`. Log: `checks-zoom-end-review-fix-1.txt`; full detail: `zoom-end-review-fix-detail.txt` in the lane folder.
+- At 197 x 800, the loss card is 369.44 px high (`scrollHeight` and `clientHeight`: 367). The win card is 372.34 px high (`scrollHeight` and `clientHeight`: 370). All three actions fit at scroll top zero. Both short bottom-gap cases keep the cut New game cue and the full action checks after scroll.
+- The existing 320 x 568, 393 x 852 and 1280 x 800 browser checks pass. All six saved end images pass visual review. Back stays clear. The tall cards show all three actions.
+- No server code changes. `plugin-ui-http` is not needed.
+
+The first full test run starts after about 22 minutes in the shared queue. It reports three match test failures, one database test failure, and one failure in the new tall unit check. The new assertion includes the hidden Skip button. Its empty box fails the bounds check. The repair excludes hidden buttons, as the browser check already does. The lane stops only its own test runner, PID 94289, with SIGINT to repair this check. The command exits 130. Log: `tests-zoom-end-review-1.txt`. This run is incomplete and is not a pass. No time limit changes.
+
+The host-size and full-suite repeats use the local test database and the current limits.
+
+The host-size file passes through `npm test` with `KINGDOWN_TEST_FILE=tools/plugin-ios-size.test.ts`. All 31 tests pass in 40.21 seconds, including the tall case. All 51 art tests also pass. Log: `tests-zoom-end-review-size-1.txt`. The command exits 0. No time limit changes. The full suite starts again with the local test database.
+
+The final `plugin-ui` run passes on the M1 at `48bcc1de` in 141.9 seconds. It ends with `check-runner: M1 exit 0 at 48bcc1de`. Log: `checks-zoom-end-review-final-1.txt`; full detail: `zoom-end-review-final-detail.txt` in the lane folder. Both tall results and both short bottom gaps pass again.
+
+The second full `npm test` run completes in 304.73 seconds. It has 187 passed files and one failed file. There are 3,051 passed tests, one failure, one expected failure and eight skips. The failure is the unchanged home remount check at `tools/plugin-app.test.ts:93`: `data-page` is null instead of `home` after the test sees the enabled Home button. The match and database tests from the first run pass. The end-card tests pass. This run exits 1. Log: `tests-zoom-end-review-2.txt`. The app source and its test have no diff from `1de36781`. A single-file repeat checks this failure with the same limits.
+
+The unchanged app test file passes on repeat through `npm test` with `KINGDOWN_TEST_FILE=tools/plugin-app.test.ts`. All 129 tests pass in 263.36 seconds. All 51 art tests pass. The command exits 0. Log: `tests-zoom-end-review-app-1.txt`. No app code or app test changes. The full suite starts again with the same limits.
+
+The third full `npm test` run exits 1 in 331.73 seconds. It has 185 passed files and three failed files: 3,049 passed tests, three failures, one expected failure and eight skips. The home remount test now passes. The end-card tests pass. The failures are timing checks in unchanged files: the computer reply poll at `tools/plugin-join-review.test.ts:65`, the 5-second fixed-depth test at `src/ai/search.test.ts:115`, and the 30-second random-design test at `src/workshop/judge.test.ts:193`. These files have no diff from `1de36781`. Log: `tests-zoom-end-review-3.txt`. Three single-file repeats run through the shared test lock with the current limits. That run is not a pass.
+
+All three unchanged files pass alone through `npm test`: join review, 8 tests in 18.67 seconds; judge, 12 tests in 15.87 seconds; search, 18 tests in 96.00 seconds. Each command also passes all 51 art tests and exits 0. Logs: `tests-zoom-end-review-join-1.txt`, `tests-zoom-end-review-judge-1.txt`, `tests-zoom-end-review-search-1.txt`.
+
+The installed test runner reads `VITEST_MAX_WORKERS`. A final full `npm test` run uses `VITEST_MAX_WORKERS=1` to reduce contention. All test limits stay as they are. No runner or package configuration changes.
+
+## Final review result
+
+- Review A: no findings. No repair is needed.
+- Review B, finding 1: fixed. The width-only cap now also checks the viewport height. It applies at 480 px or less. Taller narrow views use `calc(100% - 68px)`. Both 197 x 800 results show all three actions with no scroll. The new check fails before the repair and passes after it.
+- Full `npm test` with `VITEST_MAX_WORKERS=1` and the local test database: pass, exit 0. All 188 files pass in 1,175.53 seconds. There are 3,052 passed tests, one expected failure and eight skips. All 51 art tests pass. Log: `tests-zoom-end-review-serial-1.txt` in the lane folder. The full runs with the default worker count report timing failures in unchanged files. Their single-file repeats pass. No time limit changes.
+- `plugin-ui`: pass on the M1 at `48bcc1de` in 141.9 seconds. Both tall results, both short bottom gaps, and the existing normal-size checks pass. All six saved end images pass visual review. Log: `checks-zoom-end-review-final-1.txt`.
+- The product diff changes `end.css` only. No board, hall or server changes. `plugin-ui-http` is not needed. No push, merge or deploy.
+
+## D and G plan and checks
+
+This step covers D and G only. It starts at `10115a2c` on the same branch.
+The prior C work stays. E is refuted; the portrait stays.
+
+1. Add an armed Vault stop assertion to the board unit test and the browser path. Use fresh mobile hosts at 393 x 852 with insets 102/118 and at 197 x 426 with insets 51/59. Run the checks before the product fix.
+2. Add a lobby wait check with a fresh 197 x 426 mobile host and insets 51/59. Measure each Share and Copy label and its text range. Require no label overflow and at least 8 px to the button right edge. Check the normal widths too. Run it before the CSS fix.
+3. Stack the friend actions in the existing under-299 px CSS rule. Add the stop to the armed card line. Update bare-name checks.
+4. Run `npx tsc --noEmit`, `npm test` with the local test database, and `plugin-ui` through the owner runner. Keep all time limits. Record the base failures and final results. Commit each check and fix.
+
+## D and G base evidence
+
+The product files `board.ts` and `lobby.css` match `4692477c` byte for byte before these fixes. The checks run on commits after C so that the prior C work stays.
+
+- G: the new browser check fails on the M1 at `3553d1ea` in 104.0 seconds. It reads `Vault` and expects `Vault.` at 393 x 852 with insets 102/118. The runner exits 1. Logs: `checks-small-g-baseline-2.txt` and `small-g-baseline-detail.txt` in the lane folder.
+- The first D check at `8d11c4c8` stops on a test setup error. Share has plain button text; Copy has a `.label` span. The repaired check measures the plain text or the span, as the page supplies it. This run is not fault evidence.
+
+- D: the repaired browser check fails on the M1 at `b1ce0066` in 74.4 seconds. At 197 x 426 with insets 51/59, Copy has 35 px of text in a 25 px label box. Its text has about 2.4 px to the button right edge. The runner exits 1. Logs: `checks-small-d-baseline-2.txt` and `small-d-baseline-detail.txt`.
+- The D fix adds one CSS declaration to the existing max-width 299 px rule: `.friend-actions { flex-direction: column; }`. The row gives each action its full width. Wider screens keep the row.
+
+The next browser pass checks the D fix at all four widths and puts the 197 x 426 armed-card host first. G still has the base source. This pass must reach G and fail there, so both required G host sizes have base failure evidence. Saved images show the friend actions and the armed context after a scroll to them.
+
+- D passes at 197, 320, 393 and 1280 px in the next browser run at `c07b85e1`. At 197 px each action is 165 px wide. Copy has a 35 px label box for its 35 px text and a 50.97 px right gap. Share and Copy stack. The wider cases keep the row and pass both text checks.
+- The same run then fails G at 197 x 426 with insets 51/59: `Vault` differs from `Vault.`. The M1 runner exits 1 after 106.9 seconds. Logs: `checks-small-g-zoom-baseline-1.txt` and `small-g-zoom-baseline-detail.txt`. Both required G host sizes now have base browser failure evidence.
+
+The saved 197 px and 320 px friend images pass visual review. At 197 px the two full-width actions show after a scroll to Copy. At 320 px they stay side by side with clear text. Local images: `small-friend-actions-197.png` and `small-friend-actions-320.png` in the lane folder.
+
+The G unit base run uses `KINGDOWN_TEST_FILE=tools/plugin-board.test.ts npm test` with the local test database. It must get the shared test lock before the G product fix. The lane keeps the base `board.ts` until that run ends. No time limit changes.
+
+- G unit base: the board file runs through `npm test` after the shared lock opens. The new assertion fails: expected `Vault.`, received `Vault`. The file exits 1 in 91.66 seconds, with 116 passed tests and two failures. The second failure is an unchanged W7 draw test: its e2-e4 choice click reaches the existing 3-second limit. Log: `tests-small-g-baseline-1.txt`. This run supplies the required G failure; it is not a suite pass.
+- The G fix changes only the armed card line in `board.ts` to `${cardName(card)}.`. The old Morph status check now expects `Morph.`. Card sheet titles and coin names keep their current words.
+
+## D and G final check plan
+
+Run `npx tsc --noEmit`, full `npm test` with the local test database and `VITEST_MAX_WORKERS=1`, and `plugin-ui` through the owner runner. The single worker reduces test contention, as the prior C check does. All test and check limits stay the same. No server code changes; `plugin-ui-http` does not apply.
+
+## D and G final browser result
+
+- `npx tsc --noEmit`: pass after the G fix.
+- `node --check tools/plugin-ui-check.mjs` and `git diff --check`: pass.
+- `plugin-ui`: pass on the M1 at `7dfbe9c4` in 180.6 seconds. The runner ends with `check-runner: M1 exit 0 at 7dfbe9c4`. Logs: `checks-small-final-1.txt` and `small-final-browser-detail.txt` in the lane folder.
+- D: the 197 x 426 host with insets 51/59 passes both label checks and the full-width stack check. The 320 x 568, 393 x 852 and 1280 x 800 hosts pass both label checks and keep the row.
+- G: fresh hosts at 197 x 426 with insets 51/59 and at 393 x 852 with insets 102/118 both read `Vault.`. The saved images pass visual review. Local images: `small-board-cards-armed-197.png` and `small-board-cards-armed-393.png` in the lane folder.
+- The existing normal-size browser checks pass. The prior C checks pass too. No server code changes.
+
+The product diff has one line for D and one line for G. It uses the existing CSS size rule and the existing card-name function. No new dependency or visual element is needed. There is no new taste choice. E stays refuted, and the portrait stays.
+
+## D and G check repair
+
+The first full suite exits 1 in 1,121.31 seconds. It has 187 passed files and one failed file: 3,051 passed tests, one failure, one expected failure and eight skips. The G board assertion passes. The W7 draw test from the base run passes too.
+
+The failed file is `tools/plugin-ui-check.test.ts`. Its source-order test finds the new host helper's `page.goto` before the main page's Home hold setup. The helper works in the browser, but its position breaks that check. The repair moves the helper below the main setup, next to the friend path that uses it. The source-order assertion stays as it is. The product source stays as it is. Log: `tests-small-final-1.txt`.
+
+Run the source-order file through `npm test`, then repeat the full suite and `plugin-ui` with the same limits.
+
+The browser repeat passes on the M1 at `5503893c` in 170.3 seconds. It ends with `check-runner: M1 exit 0 at 5503893c`. D, G, the existing normal sizes and the prior C checks pass. Logs: `checks-small-final-2.txt` and `small-final-browser-2-detail.txt`. The helper move changes no product code.
+
+The source-order file passes through `npm test` after the helper move. All three tests pass, and all 51 art tests pass. Log: `tests-small-check-order-1.txt`. The command then starts the full suite with one worker and the same limits.
+
+## D and G final result
+
+- Full `npm test` with the local test database and `VITEST_MAX_WORKERS=1`: pass, exit 0. All 188 files pass in 1,155.18 seconds. There are 3,052 passed tests, one expected failure and eight skips. All 51 art tests pass. Log: `tests-small-final-2.txt`. All limits stay the same.
+- `npx tsc --noEmit`: pass again after the helper repair.
+- `node --check tools/plugin-ui-check.mjs` and `git diff --check`: pass.
+- `plugin-ui`: pass on the M1 at `5503893c` in 170.3 seconds. The final runner line reports exit 0 at that commit. Both D label checks, both G host sizes, the normal sizes and the prior C checks pass.
+- D and G each have a check that fails with their base source from `4692477c` and passes after the fix. G also has the requested unit assertion. The old Morph status assertion now includes the stop.
+- No requested part of D or G remains. No new taste choice is needed. The CSS uses the existing max-width 299 px rule. E stays refuted; the portrait stays. No server code changes, so `plugin-ui-http` does not apply.
+
+The source and checks match `5503893c`. The final commit adds check results only. The lane makes no push, merge, deploy or sign-in.

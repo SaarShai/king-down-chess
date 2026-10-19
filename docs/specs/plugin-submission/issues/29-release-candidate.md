@@ -1,0 +1,269 @@
+# 29 Release candidate
+
+Status: built
+Branch: claude/release-candidate
+Base: a5cac8f8
+
+## Scope
+
+Use the approved ticket 29 merge order. Keep S5 for its later merge.
+The source ticket is in the release scratchpad, under tickets/issues/29-release-candidate.md.
+
+## Plan and checks
+
+1. Merge submit-prep. Keep its three-choice privacy text. Keep the fullscreen words and the game limit from the code. Apply the ticket 15 patch in a separate commit.
+2. Merge od-coin-back. Pick only the w7-05 and w7-06 build and fix commits from od-board, with source commit links.
+3. Merge acct-words. Check the completion files before each optional merge: check-flakes, od-picks, od-faults.
+4. Check each conflict against both inputs. Keep the client state work for the later S5 merge. Add a test for any new merge behaviour.
+5. Run npx tsc --noEmit and npm test. Use the local test database. Commit the code before the approved runner checks plugin-ui and plugin-ui-http.
+6. Record the merge commits, conflicts, skipped lanes, tests and results here. Write the full report to the required scratchpad file.
+
+The checks pass only when each command ends with exit 0. The browser log must name the checked commit and show the final runner exit line.
+
+## Progress
+
+- The worktree is clean at the base. The branch is correct.
+- Read the final-merge spec note and pre-check section 3 before the first merge.
+
+### Step 1: submit-prep
+
+- Merge source: f4571b9d. Keep the privacy, consent, server limits and host changes.
+- The review seed makes two active games. P2 adds one game before P3. Both P3 copies must count all three games, with two on the player's turn.
+- Keep the current fullscreen P1 text. The ticket 15 patch follows this merge.
+- Resolve 20 file conflicts. The merge message lists each file and its result.
+- Keep the state store, command queue and one poll. Add the online choices and block notice to those paths.
+- Keep the second-origin test host. Port the held-call counts and connect refusal to each widget.
+- Keep the current hall, turn draft, end card, sound and motion. Keep the new privacy and block controls.
+- The type check passes after the code merge. Full checks follow all merges.
+
+- Apply ticket 15 after-merge changes to P2, row 49, the skill and copy checks. Keep the approved fullscreen P1 words in both copies. Check the P3 count after P2, as the packet order requires.
+
+### Steps 2 to 6
+
+- Coin back: merge 9140d761 without conflicts.
+- W7: pick 08f11be8, d24b5517, e77985dc, f0795e4a, f33ab769, cec8d381, 496dc7f0, 0dd4277e and 4b293393 with source links. These are only the w7-05 and w7-06 build, fix and evidence commits.
+- W7 conflicts: keep startKey and UNFINISHED in the fixture import. Keep ticket 15 packet words and checks where the packet build repeats them. Keep the corrected test comment from 0dd4277e.
+- acct-words d27659fd is already an ancestor through submit-prep. Its website delete-account words are present. No extra merge is needed.
+- check-flakes: the 25-b-fix.done file exists with exit 0. Merge its head f29ed7a5. Keep the current hall tests and the new boot hold release in the two conflicts.
+- Skip od-picks: 26-board-build is the latest brief; its completion file is absent.
+- Skip od-faults: the last logic build ends with exit 1. No last-fix completion file is present. The lane has no complete build to merge.
+- Keep od-qa1, od-end, od-home and the later owner-decisions work out, as ticket 29 requires.
+
+### Merge check fixes
+
+- First full suite: 180 files pass; 6 files fail, with 36 failed cases. Log: tests-merge-1.txt in the release lane.
+- Port the 31 race failures to frame reads on the second origin. Keep their held-call and late-reply checks. Remove the older duplicate race cases from plugin-journeys; plugin-races holds the current cases.
+- Add the rate-limit method to the next-game server test stub. The live service already has it.
+- Use the current hall controls in the focus and slow-start tests. Keep the slow-start cancel guard from submit-prep: Back before Create sends no Create.
+- Wait for the keyboard send to reach the host before counting it. Keep the focus check.
+- The offline check now expects the current state contract: Not current and Try again after three failed polls. A good read clears both.
+- The type check passes. No test or check time limit changes.
+
+- Second full suite: 184 files pass; 2 fail. All race, server, keyboard and offline fixes pass. The two failures still target removed controls.
+- The slow-start test now leaves the hall through Profile. The focus test opens Resign through Menu and checks focus returns to Menu. Keep all 14 focus cases.
+
+### Test evidence and final gate
+
+- Third full suite passes at dfd703d0: 186 test files pass. The log is tests-merge-3.txt in the release lane. The command also passes the 50 drawing tests.
+- Port the desktop coin animation wait to the frame. The coin lane adds that wait after the host moves to a second origin.
+- The final gate runs again after this check-only change: npx tsc --noEmit, npm test, plugin-ui and plugin-ui-http.
+- The final report, checked head and full logs are in the release scratchpad lane. The required report file is 29-merge-build.md. No taste choice is needed; keep the approved text, layout and actions.
+
+### Browser check fixes
+
+- Final full suite at 054b3780 passes: 186 files, 2,994 tests, 1 expected failure and 8 skipped cases. The 50 drawing tests also pass.
+- The first browser run fails both checks. The fixture check derives Morph P from the internal code, but the approved shared name is Morph. Use cardName(), as the board does. The existing board test checks the coin, sheet and armed-line names.
+- The HTTP coin check uses locator.evaluateAll() on coins that a strip redraw can remove. Use the stable game-table root and find the coins in the measure call, as the ticket 22 face check does. Keep the size, shape and background checks. The existing redraw test holds the same root and proves that removed elements measure zero.
+- Keep the approved runner as the browser feedback loop. The house rule permits no other browser check route. No check time limit changes.
+
+- The next browser run is diagnostic only: its header names the prior commit. The shared card name now passes. The card-read assertion reaches the visible sheet before the host receives its saved state; wait for that same saved sheet before the unchanged comparison.
+- The phone coin assertion still fails with a stable root. Add the measured sizes, radii, background flags and motion states to its failure message. This separates CSS faults from motion at the read.
+
+- At 3e43318f, plugin-ui passes in 174.6 s. The HTTP measurement proves all ten coins are round and 44 by 44, with no running motion. Six disabled coins lose their radial background. The generic disabled-button selector wins over the base coin selector.
+- Fix the shared selector to exclude coins. Keep the default pointer on a disabled coin. Add a board test that disables the coin buttons and checks their round radial faces and pointer.
+- The browser run is the observed failing control. The new unit test queues behind other lanes for the shared test lock, so its first run checks the fixed CSS. Do not claim a separate failed unit run.
+
+- The first coin-selector fix raises the generic disabled rule's specificity. Both browser checks catch its effect on disabled king pictures. Use :not(:where(.coin)) to keep the generic rule's original specificity. This is the same exclusion pattern as the app controls. Keep the existing king-picture assertion.
+
+- At 568a9f42, plugin-ui-http passes in 199.1 s. The fixture check finds end-table content 402 px wide inside a 400 px table. Add child bounds to the same assertion to identify the source. Keep the 1 px tolerance.
+
+### Part 29-merge-review: plan and checks
+
+1. Check each review finding against the current code. Test the review seed, P2 setup, one submitted turn, the computer reply and the P3 text on the local test database.
+2. Test a chat result that clears the game behind the home card. Check an explicit Profile route and a result with no route. Clear any game return screen when its view clears. Keep valid routes.
+3. Run `npm test` with the local test database. Commit the fixes and tests. Run `plugin-ui` and `plugin-ui-http` through the required check runner at that commit.
+4. Record the findings, reasons, checked head and check results here. Write the complete answer to `29-merge-review-fix.md` in the release scratchpad lane.
+
+The checks pass only when the unit suite ends with exit 0 and each browser log has its final runner exit line. Do not change any time limit.
+
+#### Findings
+
+- Review A, finding 1: confirmed. P3 runs after P2. Both packet copies now say `3 active games; your turn in 2.` The copy test checks that count. The database test runs the seed, P1, P2 setup, one submitted turn and the computer reply before it checks P3.
+- Review B, finding 1: the stale return screen is a fault for a chat result with no view and no route, such as `kingdown_games`. Clear the game return screen when that view clears. Resume then reads the selected game. A result with no board ID uses Open to get its board. The app test checks the saved return screen, a fresh read and the same game ID.
+- Review B's Profile example does not keep the old game return screen in this code. `navigate('profile')` replaces it. The error path also replaces it with Join. Keep both routes. The second app case checks that the explicit Profile result still opens Profile.
+
+#### Check evidence
+
+- The packet and seed checks pass: 14 tests and 50 drawing tests. Log: `tests-review-packet-2.txt` in the release scratchpad lane.
+- The full `npm test` run passes with the local test database: 186 files; 2,998 passed tests, one expected failure and eight skipped tests. All 50 drawing tests pass. The type check passes as part of that command. Log: `tests-review-full-1.txt` in the same lane.
+- The browser checks run after this commit through the required runner. Their checked head, final exit lines and results go in `29-merge-review-fix.md` in the same lane. Keep all source files fixed during that run.
+
+### Part 29-merge-2: plan and checks
+
+Status: built. Base: 3f1281d1.
+
+1. Merge od-picks at 64805f5e with --no-ff. Check each conflict against both parents. Keep G1, G2, G3, Q3 and Q6.
+2. Merge od-faults at 606584b8 with --no-ff. Keep F13, F14, F25, F26 and F32. Keep the Display check line removed.
+3. Keep the release privacy text, review packet, state store, command queue, one poll and Resume route fix. Keep od-qa1 and S5 out. List each conflict and its result in the merge message.
+4. Add a test for each new merge behaviour. Run npx tsc --noEmit and npm test with the local test database. Keep all time limits.
+5. Commit all merge fixes. Run plugin-ui and plugin-ui-http at the final code commit through the required check runner. Record its checked head and final exit line.
+6. Record the merges, conflicts and checks here. Write the full report and final answer in the release scratchpad lane.
+
+Pass criteria: both exact lane heads are ancestors; held release changes remain; each required command exits 0; both browser checks pass at the final commit.
+
+#### Merge 1: od-picks
+
+- Source: 64805f5e. Use one --no-ff merge.
+- src/plugin/app.css: keep the release coin image size and the G2 spent opacity of 0.85.
+- src/plugin/screens/board.ts: keep the release block notice and G1 keyboard scroll stop. Keep the state store, command queue and one poll.
+- tools/plugin-board.test.ts: keep both imports and both test groups. Add a test for the block notice with the armed scroll stop.
+- Keep G1 target words, G3 shove and swap previews, Q3 board size with page scroll, and Q6 word wrapping and margins. Keep the release privacy text, packet and Resume route fix.
+
+#### Merge 2: od-faults
+
+- Source: 606584b8. Use one --no-ff merge.
+- src/plugin/app.css: keep release coin image size, G2 opacity 0.85, and F25 font tokens. Add a combined coin test.
+- src/plugin/index.html: keep all three release online privacy choices. Remove only the Display check element, as F26 requires. Add a test for the choices and the removed long-press output.
+- Keep F13 art decode before board display, F14 stable end-card board bounds, F25 font tokens, F26 debug removal and F32 idle drawing stop. The source tests stay in place.
+- The source logic completion file has exit 1. The owner directs this merge and identifies the 197 px sideways-read failure as the race fixed at 3f1281d1. Keep that release fix and run both final browser checks.
+
+#### Checks and merge fixes
+
+- Merge commits: dd06ffa6 has parents 3f1281d1 and 64805f5e. 8fe2d975 has parents dd06ffa6 and 606584b8. Both source heads are ancestors.
+- Compare the protected files to 3f1281d1: privacy pages, review packet, client, state store, command queue and poll module have no changes. The only app change removes F26 debug code. The Resume fix remains.
+- npx tsc --noEmit exits 0. The first full npm test run at 8fe2d975 exits 0: 188 files, 3,036 passed tests, one expected failure, eight skips, and 51 drawing tests. Log: tests-29-merge-2-1.txt.
+- The first approved browser run at 8fe2d975 exits 1. Both plugin-ui and plugin-ui-http fail at the new G1 keyboard scroll wait. The lane reads iframe.contentDocument from the parent page; the release harness uses a second origin, so that value is null. Log: checks-29-merge-2-1.txt.
+- The planned fix uses the existing widget() helper for this wait. Keep the scroll assertion and the time limit. Add a test that rejects direct parent-page reads of the widget document.
+
+- The new origin test fails before the fix: one failed case and two passed cases. Log: tests-29-merge-2-origin-before.txt. It runs through npm test and the shared test lock.
+- Apply the one-line fix: the G1 scroll wait now runs in widget(). Keep the same scroll condition, assertion and time limit. The source guard rejects parent-page widget document reads. This fixes the cause in the check; game code does not change.
+
+#### Final evidence
+
+- The merge fix is 550b238e. Four added merge tests check the block notice with armed focus, spent coin styles, privacy choices without Display check, and widget document reads. All source tests remain except the obsolete F26 Display check case.
+- npx tsc --noEmit exits 0 after the fix. Full npm test at 550b238e exits 0: 188 files, 3,037 passed tests, one expected failure and eight skips. All 51 drawing tests pass. Log: tests-29-merge-2-2.txt.
+- The approved browser run at 550b238e passes plugin-ui in 128.3 s and plugin-ui-http in 133.5 s. Its last line is check-runner: mac exit 0 at 550b238e. Log: checks-29-merge-2-2.txt. Both the armed scroll wait and the 197 px board checks pass.
+- This evidence commit changes only this ticket. Repeat npx tsc --noEmit, npm test and both browser checks at that final head. The exact head and final exit lines are in tests-29-merge-2-3.txt, checks-29-merge-2-3.txt and 29-merge-2-build-report.md in the release scratchpad lane.
+- All requested parts are built: G1, G2, G3, Q3, Q6, F13, F14, F25, F26 and F32. Keep od-qa1 and S5 for their later merge. No requested part is omitted. No new taste choice is needed. No time limit changes.
+
+#### Final-head retry check fix
+
+- At 0e42c326, npx tsc --noEmit and full npm test pass: 188 files, 3,037 tests, one expected failure, eight skips and 51 drawing tests. Log: tests-29-merge-2-3.txt.
+- The final-head browser run passes plugin-ui in 128.3 s. The HTTP check fails at the lost-reply Retry comparison. It reads the last two sends before Retry reaches the host, so one send belongs to the prior game. Log: checks-29-merge-2-3.txt.
+- Fix the check at its cause. Wait for two move sends for the selected game, then compare those sends. Keep the exact count of two, identical arguments and the server commit-once check. No product code or time limit changes. The failed browser run is the control for this check repair.
+- Repeat all required checks after this commit. The final head and results are in tests-29-merge-2-4.txt, checks-29-merge-2-4.txt and 29-merge-2-build-report.md in the release scratchpad lane.
+
+### Part 29-merge-2-conflicts: plan and checks
+
+1. Check both reviews against the code. Review A lists no findings. Review B identifies one fault: the block notice hides the armed target words and rule.
+2. Add tests for both affected cards and a held swap. First confirm that the tests fail with the current code. Put the armed or held note before the block notice. After Cancel, keep only the block notice.
+3. Run `npm test` with the local test database. Commit the fix and tests. Run `plugin-ui` and `plugin-ui-http` through the approved runner at that commit. Keep all time limits.
+4. Record each finding, the checked head and the check results here. Write the complete answer to `29-merge-2-conflicts-fix.md` in the release scratchpad lane.
+
+Pass criteria: the new cases fail before the fix; the full test suite and both browser checks exit 0 after the fix; the browser log names the code commit and has its final runner exit line.
+
+#### Findings and failing test evidence
+
+- Review A lists no findings. Its block-notice merge test keeps the focus stop but expects the wrong words when a card is armed. Review B identifies this fault.
+- Review B, finding 1: confirmed. `memory.blockNotice || context.note` hides the target words and rule. Arming a card changes neither the game nor its revision, so the notice stays. The shared display now puts an armed or held note first and the block notice second. Other ranks keep the current notice order.
+- The regression test checks Earth Quake and Sky Lift target words, the full rule, the block notice, the armed focus stop and Cancel. A second test checks the held swap description and clears the held state. These tests record the display rule in code.
+- Before the fix, `npm test` with `KINGDOWN_TEST_FILE=tools/plugin-board.test.ts` exits 1: all three new cases fail at the expected text check; the other 104 board tests pass. Log: `tests-29-merge-2-conflicts-before.txt` in the release scratchpad lane. No time limit changes.
+
+#### Check evidence
+
+- Full `npm test` with the local test database exits 0: 188 files; 3,039 passed tests, one expected failure and eight skips. All 51 drawing tests pass. The type check passes as part of that command. Log: `tests-29-merge-2-conflicts-full-1.txt` in the release scratchpad lane.
+- The protected privacy pages, review packet, client, state store, command queue and poll module match 3f1281d1. The app diff from that base only removes the F26 Display check code. The Resume fix stays in place.
+- The source review keeps the fix in the shared display line. It needs no new helper or dependency. The tests retain the armed keyboard stop and verify the notice after Cancel.
+- Both browser checks run at the fix commit through the approved runner. Their checked head and final exit line go in `checks-29-merge-2-conflicts-1.txt` and `29-merge-2-conflicts-fix.md` in the release scratchpad lane. Keep the source fixed during that run.
+
+
+### Part 29-merge-3: plan and checks
+
+1. Merge ticket 28 from claude/od-qa1 at 343b8a13 into 94dde1a2 with one merge commit. List each conflict and its result in the merge message.
+2. Keep the prior release work and ticket 28 intent in each conflict. Keep S5 out. Compare the protected privacy, review, state, queue, poll and Resume paths to the release base.
+3. Add one sentence under Local checks in docs/plugin-preparation.md. Keep the test database data folder out of /tmp to prevent the missing global/pg_filenode.map fault.
+4. Add a test for each new merge behaviour. Run npx tsc --noEmit and npm test with the local test database. Keep all time limits.
+5. Commit before the approved runner checks plugin-ui and plugin-ui-http. Repeat once if the known end-fit fault occurs in unchanged code. Record both runs.
+6. Record the merge, conflicts and final check results here. Write the full report and final answer to the required release lane files.
+
+Pass criteria: both source heads are ancestors; S5 stays out; the protected release paths keep their behaviour; all required checks exit 0 at the final head; the browser log has the final runner exit line.
+
+#### Merge and conflict results
+
+- Source: 343b8a13. Release base: 94dde1a2. Merge only claude/od-qa1. S5 stays out.
+- src/plugin/app.css: keep the release online-choice 44 px targets and add the ticket 28 portrait rules. Keep the zoom rows, the coin scroll row and the end-card changes.
+- tools/plugin-board.test.ts: keep the release launch helper and all card, move and rule imports. Add the ticket 28 design imports and missing-portrait tests. Both test sets stay.
+- tools/plugin-ui-check.mjs: keep the release table bounds report. Add ticket 28 zoom, portrait, hall and tall-board checks. Keep the second-origin reads, the two-frame sideways reread, the early live-poll guard and spent-power history.
+- Add a combined test at 320 x 568 and 393 x 852. The held swap keeps its portrait, shared title, rules action, return focus, held note and block notice. Clearing the selection keeps the block notice.
+- Add the requested Local checks sentence about the database data folder. No product behaviour changes beyond ticket 28. No time limit changes.
+
+#### Parts and taste
+
+- T1: the end card scrolls at 197 x 426. The result and the first action show before a scroll. The last action can scroll into view.
+- T2: at 197 x 426 the context words show, the coin rows scroll on one line, and each strip and control can scroll into view. Keep the 210 px board floor.
+- T3: keep the hall layout and add its clip audit, last-choice check and a control that proves the audit detects a cut box.
+- T4: put the selected piece portrait before the context words. Keep a 44 px rules control and the letter tile when no art exists.
+- T5: use the shared piece title in both board views. The unit test and built-page check require White Maester.
+- T6: keep the measured 393 x 852 layout. The board already fills its available width. Keep the sample poll guard and history with spent-power counts.
+- No requested part is omitted. No new taste choice is needed. Keep the lane's 36 px face in its 44 px control, its 4 px draw-row gap, the existing margins and the low bar.
+
+#### First test results
+
+- npx tsc --noEmit exits 0. The first full npm test exits 1: 186 files pass and two fail; 3,044 tests pass and five fail, with one expected failure and eight skips. Logs: tsc-29-merge-3-1.txt and tests-29-merge-3-1.txt in the release lane.
+- F25 rejects the lane's new raw 22 px letter size. Use the existing type token and keep the F25 test.
+- The retained G3 test expects Black pawn. T5 now uses the shared title Black Pawn. Update that assertion and keep its shove and enemy-read checks.
+- The two new portrait tests incorrectly expect the piece title during a held swap. Check the title before the hold, then keep the required Tap again to swap line during the hold.
+- One missing-art case reads the control as hidden after the board tap. Check this case after the deterministic repairs; keep its rules, bounds and focus assertions.
+
+#### Merge repairs and passing unit checks
+
+- Merge commit: 47a5ca20, with parents 94dde1a2 and 343b8a13. All three conflict files and results are in its message.
+- Keep F25 with the existing --fs-xl token (23 px) for the letter tile. The retained type-scale test catches the raw-size fault. All eight missing-art cases also check that the letter uses that token.
+- Keep T5 with the Black Pawn assertion in G3. The test keeps all enemy-read, held-shove and move checks.
+- The combined portrait tests check White Maester before the hold and Tap again to swap during it. The rules sheet keeps the held move, the block notice and return focus at both widths.
+- The missing-art test waits for board art, fonts and two layout frames before its tap. The first run fails at the immediate visibility read; the repaired full run passes all eight cases. No time limit changes.
+- Protected files match 94dde1a2: public/privacy.html, the review notes and privacy additions, app.ts, client.ts, state.ts, queue.ts and poll.ts. The Resume fix 91c8c086, scroll fix 3f1281d1, ticket 26 head 64805f5e and ticket 27 head 606584b8 remain ancestors. The merge brings no S5 work.
+- npx tsc --noEmit exits 0 after the repairs. Full npm test with the local test database exits 0: all 188 files pass; 3,049 tests pass, with one expected failure and eight skips. All 51 drawing tests pass. Logs: tsc-29-merge-3-2.txt and tests-29-merge-3-2.txt.
+- Run plugin-ui and plugin-ui-http through the approved runner after this repair commit. Record the checked head and final runner exit line. The browser source keeps the two-frame sideways reread, second-origin reads, current-game Retry wait, early sample poll guard and spent-power history.
+- The only size choice in this merge repair is the existing 23 px type token for the letter tile. It follows F25. No new layout or action choice is needed.
+
+#### Armed words at 200 percent zoom
+
+- Both approved browser checks at f65b7674 fail at the same merged behaviour: board-cards-armed at 197 x 426. The armed text has 120 px of content in a 40 px scroll box. The runner ends with check-runner: mac exit 1 at f65b7674. Log: checks-29-merge-3-1.txt. plugin-ui takes 172.2 s; plugin-ui-http takes 88.4 s.
+- The cause is the G1 armed selector in screens/board.css. Its phone rule overrides T2's full-height zoom words. Limit the G1 two-line scroll box to widths from 320 through 899 px. Below 320 px, keep T2's full words and page scroll. Normal phone, desktop and landscape G1 behaviour stays checked.
+- Add two tests at 197 x 426, with the required 51 px top and 59 px bottom insets: an armed card and an armed power. Each keeps its full rule, block notice and board floor. Cancel keeps the block notice. The existing G1 tests still check the two-line keyboard scroll at 320 and 393 px.
+- This is a merge fix, not the known end-fit flake. Do not repeat the failed check without this repair. Keep every time limit.
+
+- After the armed-text repair, npx tsc --noEmit exits 0. Full npm test with the local test database exits 0: 188 files and 3,051 passed tests, one expected failure and eight skips. All 51 drawing tests pass. Logs: tsc-29-merge-3-3.txt and tests-29-merge-3-3.txt.
+- The full run includes both new 197 px cases, both combined portrait cases, all eight missing-art cases, the type-scale guard and the normal-phone G1 keyboard scroll cases. The repair narrows the existing media rule; it adds no helper or new selector.
+
+#### Repeated end-fit check fault
+
+- Browser run 2 at b691cc97 passes all ticket 28 checks through T6, then plugin-ui fails the old end-fit check at 360 px in 117.8 s. plugin-ui-http passes in 232.3 s. The runner exits 1. Log: checks-29-merge-3-2.txt.
+- Run 3 is the owner's one repeat, at the same head with no code or time-limit change. plugin-ui fails the same check in 114.7 s; plugin-ui-http fails it in 123.7 s. The runner exits 1. Log: checks-29-merge-3-3.txt. Both runs are kept.
+- The fit report names only kd-words.is-in outside the table. The table and frame are 360 px wide. Run 2 sees 364 px of scroll width; run 3 sees 366 px. The entrance starts at scale 1.08 and ends at scale 1. This code has no product change in this merge.
+- The required runner is the red-capable feedback loop. It gives the same fault twice. Keep that route instead of adding a separate browser harness. Its runtime is longer than a focused unit test because the owner permits browser checks only through this runner.
+- Ranked causes: first, the fit read runs during the entrance scale; second, a late font changes width; third, the settled layout is too wide. Test the first cause with the animation-state wait already used by the coin checks.
+- Keep every end-fit assertion and its full bounds report. Before the end sample's width check, wait in the widget for its table animations to finish. Add a regression step at 400 px that restarts the real end-word entrance before the wait. This keeps the actual animated path in the check.
+- No product code, clock duration or time limit changes for this repair. The existing failing end-fit assertions are the runtime regression checks. No debug output or separate harness is added.
+
+- After the end-fit check repair, node --check tools/plugin-ui-check.mjs, git diff --check and npx tsc --noEmit pass. Full npm test with the local test database passes: 188 files, 3,051 tests, one expected failure, eight skips and 51 drawing tests. Logs: tsc-29-merge-3-4.txt and tests-29-merge-3-4.txt.
+- The next approved browser run tests both the original fit path and the new 400 px entrance restart at the repair commit. Keep the source fixed for that run.
+
+#### Passing browser checks and final gate
+
+- Browser run 4 passes at 84d852c6: plugin-ui in 130.6 s and plugin-ui-http in 198.8 s. The approved runner ends with check-runner: mac exit 0 at 84d852c6. Log: checks-29-merge-3-4.txt. Full per-check logs are copied to browser-29-merge-3-4-plugin-ui.txt and browser-29-merge-3-4-plugin-ui-http.txt in the release lane.
+- Both checks pass the original fit assertions and the 400 px entrance restart. The animation-state wait fixes the repeated transient bounds read. The font and product layout stay unchanged for that repair. The two failed end-fit runs remain recorded above.
+- Both checks pass T1 through T6. T6 measures a 385 px board box and a 384 px canvas at 393 x 852. The 197 px full words, scroll access, one-row coins, hall audit, portrait rules action and shared title pass. The live-poll guard and spent-power history stay in place.
+- This evidence commit changes only this ticket. Run npx tsc --noEmit, full npm test with the local test database, and both approved browser checks again at that final head. Exact final-head results go in tsc-29-merge-3-5.txt, tests-29-merge-3-5.txt, checks-29-merge-3-5.txt and 29-merge-3-build-report.md in the release lane.
+- All requested parts are built. S5 stays out for its later merge. The only size choice in the merge repair is the existing --fs-xl token, 23 px, for the letter tile. Keep the lane's 36 px face, 44 px control and 4 px draw-row gap. No time limit changes.

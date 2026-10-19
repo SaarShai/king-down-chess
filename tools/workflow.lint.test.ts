@@ -57,3 +57,33 @@ describe('.github/workflows/test.yml', () => {
     expect(steps().at(-1)).toContain('- run: npm test');
   });
 });
+
+describe('.github/workflows/plugin-checks.yml', () => {
+  const workflow = readFileSync(join(import.meta.dirname, '..', '.github', 'workflows', 'plugin-checks.yml'), 'utf8');
+  const job = (name: string) => workflow.split(`\n  ${name}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0] ?? '';
+
+  it('runs WebKit in a separate job with its own install and the time limit for its scaled steps', () => {
+    const webkit = job('browser-webkit');
+    // The WebKit steps run with limits times 3 (tools/lib/checks.mjs STEP), so the job has 45 minutes.
+    expect(webkit).toContain('timeout-minutes: 45');
+    expect(webkit).toContain('PLAYABLE_BROWSER: webkit');
+    expect(webkit).toContain('npx playwright install --with-deps webkit');
+    expect(webkit).not.toContain('needs:');
+    expect(job('browser')).toContain('npx playwright install --with-deps chromium');
+    expect(job('browser')).not.toContain('webkit');
+  });
+
+  it('gives the full test job and the Chromium checks 30 minutes for their CI step limits', () => {
+    // CI runs the steps with limits times 2 (tools/lib/checks.mjs STEP); the full npm test takes about 15 minutes there.
+    expect(job('verify')).toContain('timeout-minutes: 30');
+    expect(job('browser')).toContain('timeout-minutes: 30');
+  });
+
+  it('runs the board, phone-size and widget checks on WebKit', () => {
+    const webkit = job('browser-webkit');
+    expect(webkit).toContain('- run: npm test');
+    expect(webkit).toContain("KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'");
+    expect(webkit).toContain('- run: npm run check:browser plugin-ui');
+    expect(webkit).toContain('name: webkit-check-logs');
+  });
+});

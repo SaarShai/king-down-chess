@@ -4,6 +4,65 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { REPORT_CATEGORIES } from '../account/profile';
 import { DEFAULT_OPTIONS } from '../match/setup';
 import { ART_ORIGIN, createPluginServer } from './server';
+import { MatchServiceError } from '../match/service';
+
+it.each([
+ { name: 'automatic revision', expected: undefined, code: 'STALE_REVISION', always: false, calls: 2, error: false },
+ { name: 'explicit revision', expected: 1, code: 'STALE_REVISION', always: false, calls: 1, error: true },
+ { name: 'definitive refusal', expected: undefined, code: 'NOT_ALLOWED', always: false, calls: 1, error: true },
+ { name: 'second race', expected: undefined, code: 'STALE_REVISION', always: true, calls: 2, error: true },
+] as const)('handles Abort with $name when the computer moves during the read', async test => {
+ const game_id = '00000000-0000-4000-8000-000000000001';
+ const commands: { command_id: string; expected_revision: number }[] = [];
+ let reads = 0;
+ const service = {
+  view: async () => ({ revision: ++reads }),
+  command: async (_actor: string, _game: string, command: { command_id: string; expected_revision: number }) => {
+   commands.push(command);
+   if (commands.length === 1 || test.always) throw new MatchServiceError(test.code, 409, 'The game changed.');
+   return { game_id, status: 'aborted', seat: 0, action: 'done', fen: null, draw_offer: null, result: { winner: null, reason: 'abort' } };
+  },
+  profile: async () => ({ handle: null, icon: null }),
+ } as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({ service, actorId: 'alice', resourceHtml: '<html>board</html>', publicOrigin: 'https://kingdown.example' });
+ const client = new Client({ name: 'abort-race-host', version: '1' }), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const result = await client.callTool({ name: 'kingdown_abort', arguments: { game_id, ...(test.expected !== undefined && { expected_revision: test.expected }) } });
+  expect(!!result.isError).toBe(test.error);
+  expect(commands.map(command => command.expected_revision)).toEqual(test.calls === 2 ? [1,2] : [1]);
+  expect(new Set(commands.map(command => command.command_id)).size).toBe(1);
+  expect(commands[0].command_id).toEqual(expect.any(String));
+ } finally { await client.close(); await server.close(); }
+});
+
+it('accepts exactly one move input form and keeps the whole-turn tool contract', async () => {
+ const game_id = '00000000-0000-4000-8000-000000000001';
+ const command = vi.fn(async () => ({game_id,seat:0,status:'playing',action:'waiting',fen:'',draw_offer:null}));
+ const service = {command,profile:async()=>({handle:null,icon:null})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'turn-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const args = {game_id,command_id:'turn',expected_revision:0};
+  const call = (input:Record<string,unknown>) => client.callTool({name:'kingdown_move',arguments:{...args,...input}});
+  for (const input of [{actions:['e2-e4']},{actions:['Ra1-a2!H','Ra2-a3']},{actions:['a','b','c']},{actions:['a','b','c','d']},{lan:'e2-e4'},{lan:'x'.repeat(120)}]) {
+   expect((await call(input)).isError).not.toBe(true);
+   expect(command.mock.lastCall).toEqual(['alice',game_id,{command_id:'turn',expected_revision:0,action:{type:'turn',actions:input.actions ?? [input.lan]}}]);
+  }
+  command.mockClear();
+  for (const input of [{lan:'e2-e4',actions:['e2-e4']},{},{actions:[]},{actions:['a','b','c','d','e']},{actions:['']},{actions:['x'.repeat(121)]},{actions:[1]},{actions:'e2-e4'},{actions:null},{lan:''},{lan:'x'.repeat(121)}]) {
+   expect(await call(input)).toMatchObject({isError:true,_meta:{code:'INVALID_INPUT'}});
+  }
+  expect(command).not.toHaveBeenCalled();
+  const tool = (await client.listTools()).tools.find(tool=>tool.name==='kingdown_move')!;
+  expect(tool.description).toBe("Play the player's whole turn: one to four exact legal moves, in order, all or nothing. Retry with the same command ID and the same input.");
+  expect(tool._meta?.ui).toEqual({visibility:['app']});
+  expect(tool.annotations).toEqual({readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false});
+  expect(tool.inputSchema.required).toEqual(['game_id','command_id','expected_revision']);
+  expect(tool.inputSchema.properties?.actions).toMatchObject({type:'array',minItems:1,maxItems:4,items:{type:'string',minLength:1,maxLength:120}});
+ } finally {await client.close(); await server.close();}
+});
 
 it('loads changed board HTML through a resource cache while reusing identical builds across actors', async () => {
  const cache = new Map<string,string>();
@@ -55,7 +114,7 @@ it('offers inline and fullscreen display, empty thread and global entrypoints, a
   for (const tool of tools.filter(tool => (tool._meta?.ui as {visibility:string[]}).visibility.includes('model'))) expect(tool.description).toMatch(/^Use this when/);
   const uri = (open._meta?.ui as {resourceUri:string}).resourceUri;
   const resource = (await client.readResource({uri})).contents[0];
-  expect(resource._meta).toMatchObject({ui:{permissions:{clipboardWrite:{}}},'openai/ui':{availableDisplayModes:['inline','fullscreen'],preferredDisplayMode:'inline'}});
+  expect(resource._meta).toMatchObject({ui:{permissions:{clipboardWrite:{}}},'openai/ui':{availableDisplayModes:['inline','fullscreen'],preferredDisplayMode:'fullscreen'}});
  } finally {await client.close(); await server.close();}
 });
 
@@ -80,7 +139,7 @@ it('returns a safe field name for schema errors without echoing input', async ()
 });
 
 it('bounds report notes at 1000 characters apart from game revisions', async () => {
- const service = {report:async()=>({id:1,created_at:'2026-10-11T00:00:00.000Z'})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const service = {toolTry:async()=>{},report:async()=>({id:1,created_at:'2026-10-11T00:00:00.000Z'})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
  const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
  const client = new Client({name:'report-bound-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
  await server.connect(a); await client.connect(b);
@@ -130,7 +189,7 @@ it('reads the board without a write, and records seat activity only through king
 });
 
 it('says "1 game" for one game on the home summary', async () => {
- const service = {openBoard:async()=>'00000000-0000-4000-8000-000000000002',inbox:async()=>[{action:'ready'}],profile:async()=>({handle:null,icon:null}),settings:async()=>({})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const service = {toolTry:async()=>{},openBoard:async()=>'00000000-0000-4000-8000-000000000002',inbox:async()=>[{action:'ready'}],profile:async()=>({handle:null,icon:null}),settings:async()=>({})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
  const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
  const client = new Client({name:'count-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
  await server.connect(a); await client.connect(b);
@@ -145,13 +204,24 @@ it('says "1 game" for one game on the home summary', async () => {
  finally {await client.close(); await server.close();}
 });
 
- it('advertises the irreversible writes and repeat effects for review', async () => {
+it('sets an open-world hint on each tool, including both ways to join a random game', async () => {
+ const server = createPluginServer({service:{} as Parameters<typeof createPluginServer>[0]['service'],actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'open-world-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const tools = (await client.listTools()).tools;
+  expect(tools.filter(tool => tool.annotations?.openWorldHint).map(tool => tool.name).sort()).toEqual(['kingdown_accept','kingdown_block','kingdown_create','kingdown_find','kingdown_handle','kingdown_invite','kingdown_join','kingdown_say']);
+  for (const tool of tools) expect(typeof tool.annotations?.openWorldHint, tool.name).toBe('boolean');
+ } finally {await client.close(); await server.close();}
+});
+
+it('advertises the irreversible writes and repeat effects for review', async () => {
  const server = createPluginServer({service:{} as Parameters<typeof createPluginServer>[0]['service'],actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
  const client = new Client({name:'hints-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
  await server.connect(a); await client.connect(b);
  try {
   const tools = (await client.listTools()).tools;
-  for (const name of ['invite','say','rematch','handle','settings','report']) expect(tools.find(t=>t.name===`kingdown_${name}`)?.annotations?.destructiveHint, name).toBe(true);
+  for (const name of ['accept','find','join','invite','say','rematch','handle','settings','report','block']) expect(tools.find(t=>t.name===`kingdown_${name}`)?.annotations?.destructiveHint, name).toBe(true);
   for (const name of ['join','seen']) expect(tools.find(t=>t.name===`kingdown_${name}`)?.annotations?.idempotentHint, name).toBe(false);
   expect(tools.find(t=>t.name==='kingdown_open')?.description).toContain('board record');
   expect(tools.find(t=>t.name==='kingdown_create')?.description).toContain('last setup');
@@ -161,7 +231,7 @@ it('says "1 game" for one game on the home summary', async () => {
 
 it('uses singular and plural words for badge and lobby counts', async () => {
  let count = 0;
- const service = {profile:async()=>({user_id:'alice'}),record:async()=>({rating:{rating:1500,provisional:true},totals:{played:0,won:0,drawn:0,lost:0},badges:Array(count).fill({})}),history:async()=>({games:[],next_before:null}),lobby:async()=>({games:Array(count).fill({})})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const service = {blocks:async()=>[],profile:async()=>({user_id:'alice'}),record:async()=>({rating:{rating:1500,provisional:true},totals:{played:0,won:0,drawn:0,lost:0},badges:Array(count).fill({})}),history:async()=>({games:[],next_before:null}),lobby:async()=>({games:Array(count).fill({})})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
  const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
  const client = new Client({name:'plural-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
  await server.connect(a); await client.connect(b);
@@ -175,7 +245,7 @@ it('uses singular and plural words for badge and lobby counts', async () => {
 
 it('sends any rules from Create and Find to matchmaking, and says that the colour applies only to a new table (D1 a)', async () => {
  const view = {game_id:'00000000-0000-4000-8000-000000000001',status:'waiting',kind:'random',speed:'daily',days_per_move:3,seat:0,action:'waiting',fen:'',deadline_at:null,draw_offer:null};
- const find = vi.fn().mockResolvedValue(view), service = {find,profile:async () => ({handle:'ann',icon:null})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const find = vi.fn().mockResolvedValue(view), service = {toolTry:async()=>{},find,profile:async () => ({handle:'ann',icon:null})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
  const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
  const client = new Client({name:'any-rules-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
  await server.connect(a); await client.connect(b);
@@ -186,5 +256,20 @@ it('sends any rules from Create and Find to matchmaking, and says that the colou
   await client.callTool({name:'kingdown_create',arguments:{kind:'random',options:DEFAULT_OPTIONS,any_rules:true,command_id:'c1'}});
   await client.callTool({name:'kingdown_find',arguments:{options:DEFAULT_OPTIONS,colour:'black'}});
   expect(find.mock.calls).toEqual([['alice',DEFAULT_OPTIONS,undefined,'c1',true],['alice',DEFAULT_OPTIONS,'black',undefined,undefined]]);
+ } finally {await client.close(); await server.close();}
+});
+
+
+it.each(['kingdown_open', 'kingdown_resume'])('%s prefers a ready person to a computer', async name => {
+ const computer = '00000000-0000-4000-8000-000000000001', person = '00000000-0000-4000-8000-000000000002', board_id = '00000000-0000-4000-8000-000000000003';
+ const entry = (game_id: string, computer: boolean) => ({game_id,status:'playing',action:'ready',opponent:{computer}});
+ const service = {toolTry:async()=>{},inbox:async()=>[entry(computer,true),entry(person,false)],view:async(_:string,game_id:string)=>({game_id,seat:0,status:'playing',action:'ready',fen:null,draw_offer:null}),profile:async()=>({handle:null,icon:null}),settings:async()=>({}),openBoard:async()=>board_id,board:async()=>computer,selectBoard:async()=>{}} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'next-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const result = await client.callTool({name,arguments:name === 'kingdown_open' ? {game_id:'next'} : {board_id}});
+  expect(result.isError).toBeFalsy();
+  expect(result.structuredContent).toMatchObject({game_id:person});
  } finally {await client.close(); await server.close();}
 });

@@ -1,7 +1,13 @@
-import { A, B, C, G, K, L, M, N, nameOf, LETTERS, O, P, Q, R, RULES as GAME_RULES, S, T, V, colorOf, file, findKing, rank, legalMoves, pseudoMoves, sqName, markKind, playedDesign, theName, type ArcherShots, type Color, typeOf, type PieceType, type Position } from './rules/engine';
+import { A, B, C, G, K, L, M, N, nameOf, LETTERS, O, P, Q, R, RULES as GAME_RULES, S, T, V, colorOf, file, findKing, rank, legalMoves, pseudoMoves, sqName, markKind, playedDesign, theName, type ArcherShots, type Color, type Move, typeOf, type PieceType, type Position } from './rules/engine';
 import { needsArming, offered } from './powers-ui';
 import { POOL } from './rules/setup';
 import { describe } from './workshop/text';
+
+/** The title of a piece in the plugin board context line. The web game keeps the lower-case name. */
+export function pieceTitle(code: number): string {
+  const name = nameOf(typeOf(code));
+  return `${colorOf(code) ? 'Black' : 'White'} ${name[0].toUpperCase() + name.slice(1)}.`;
+}
 
 export interface Reach {
   step: Set<number>;
@@ -61,6 +67,10 @@ const ARCHER_READ: Record<ArcherShots, string> = {
   fwdNearOver2: 'Shoots nearby diagonally forward; 2 straight or diagonally forward, only over a piece.',
 };
 
+const paladinLeaves = () => GAME_RULES.paladinKamikaze === 'always' ? 'Leaves the board after each take.'
+  : GAME_RULES.paladinKamikaze === 'never' ? 'Stays on the board after each take.'
+  : 'Leaves the board after a take, except a pawn.';
+
 /** One guide for both the dialog table and the hover card — reads live rules and POOL. */
 export function pieceGuide(t: PieceType): GuideRow {
   const r = GAME_RULES;
@@ -96,9 +106,7 @@ export function pieceGuide(t: PieceType): GuideRow {
       };
     }
     case L: {
-      const die = r.paladinKamikaze === 'always' ? 'Leaves the board after each take.'
-        : r.paladinKamikaze === 'never' ? 'Stays on the board after each take.'
-        : 'Leaves the board after a take, except a pawn.';
+      const die = paladinLeaves();
       const check = r.paladinChecks
         ? 'Can take a king (gives check).'
         : 'Cannot take a king (never gives check).';
@@ -144,7 +152,7 @@ export function pieceGuide(t: PieceType): GuideRow {
       return {
         moves: step,
         captures: take,
-        special: r.beastChains ? 'After a bite, it can bite again from its new square. A chain cannot continue onto a king. Tap each piece to bite. Tap "Stop here" to end the chain.' : 'One bite per turn.',
+        special: r.beastChains ? 'After a bite, it can bite again from its new square. A chain cannot continue onto a king. Select each piece to bite. Select "Stop here" to end the chain.' : 'One bite per turn.',
       };
     }
     case O: {
@@ -167,7 +175,7 @@ export function pieceGuide(t: PieceType): GuideRow {
       return {
         moves: 'Moves like a knight. After a take it can step one square onto an empty square as part of the same move.',
         captures: 'Takes like a knight; the step after never takes.',
-        special: 'Tap the enemy piece, then the landing square.',
+        special: 'Select the enemy piece, then the landing square.',
       };
     case T: {
       // A design in the slot (ticket 17): the Workshop's own sentences for it.
@@ -205,6 +213,16 @@ export function readText(pos: Position, sq: number): string {
   const first = special[t] ?? pieceGuide(t).moves.split(/(?<=[.!?])\s/)[0];
   const states = pieceStates(pos, sq);
   return `${nameOf(t)} · ${first}` + (states.length ? `\n${states.join(' · ')}` : '');
+}
+
+/** Kind and words of an enemy move that chess does not have, for the Beginner notes (option A). */
+export function teachNote(pre: Position, m: Move): [string, string] | undefined {
+  const t = typeOf(pre.board[m.from]), r = GAME_RULES, lower = (s: string) => s[0].toLowerCase() + s.slice(1);
+  if (t === A && m.to === m.from && m.captures.length) return ['shot', `Their archer took without moving; it ${lower(ARCHER_READ[r.archerShots])}`];
+  if (t === O && m.shove) return ['shove', `Their ogre shoved a piece 1 square and ${r.ogreMode === 'push' ? 'stepped into its place' : 'stayed in place'}.`];
+  if (t === S && m.captures.length > 1) return ['chain', `Their beast took ${m.captures.length} pieces; it can bite again after a bite.`];
+  if (t === L && m.selfRemove) return ['leave', `Their paladin is gone; it ${lower(paladinLeaves())}`];
+  if (t === M && m.swap) return ['swap', 'Their maester swapped places with one of their pieces.'];
 }
 
 /** Live state words, also used for a refused move. */
@@ -264,7 +282,7 @@ export function readTap(pos: Position, sq: number, selected: number | null, insp
 
 /** Refusals keep the move role; a bite chain waits for its next marked tap. */
 export function unmarkedTap(pos: Position, sq: number, selected: number | null, inspected: number | null, pending: number[], tag: string | null = null) {
-  if (pending.length) return { selected, inspected, pending, notice: 'Tap a marked piece, or stop here.' };
+  if (pending.length) return { selected, inspected, pending, notice: 'Select a marked piece, or stop here.' };
   const next = readTap(pos, sq, selected, inspected, true);
   const enemy = pos.board[sq] && colorOf(pos.board[sq]) !== pos.turn;
   let notice = selected != null && (!pos.board[sq] || enemy) ? whyNot(pos, selected, sq, tag) : '';

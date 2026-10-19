@@ -16,26 +16,41 @@ export function pollDelay(view: PollView, waitingMs: number, hidden: boolean): n
   return view.speed === 'daily' ? 30000 : 15000;
 }
 
-export function runPoll(current: () => PollView, read: () => Promise<unknown>, page: EventTarget & { readonly hidden: boolean } = document) {
-  let timer: ReturnType<typeof setTimeout> | undefined, stopped = false, reading = false;
-  let waitKey: string | undefined, began = Date.now();
+/** One poll target: the view that sets the delay, and the read that a tick runs (design §4). */
+export type PollTarget = { view: PollView; read: () => Promise<unknown> };
+/**
+ * The page's one poll. A tick runs only while the page shows, a target exists and `gate()` is true; a closed gate skips
+ * the tick and waits one more delay. `visibilitychange` and `pageshow` start one fresh read; missed ticks do not run.
+ */
+export function runPoll(target: () => PollTarget | undefined, gate: () => boolean = () => true, page: EventTarget & { readonly hidden: boolean } = document) {
+  let timer: ReturnType<typeof setTimeout> | undefined, stopped = false, reading = false, woke = -Infinity;
+  // Each wait keeps its own clock, so a target switch (the computer handoff) does not restart it.
+  const began = new Map<string | undefined, number>();
   function update() {
     clearTimeout(timer);
     if (stopped || reading) return;
-    const view = current();
+    const view = target()?.view;
     const key = view === 'waiting for a join' ? view : view && (view.status === 'waiting' || view.status === 'setup') ? `${view.game_id}:${view.status}` : undefined;
-    if (view && key !== waitKey) { waitKey = key; began = Date.now(); }
-    const delay = pollDelay(view, Date.now() - began, page.hidden);
+    if (key !== undefined && !began.has(key)) {
+      // A new human wait takes over the clock of its unnamed start and drops every older clock.
+      const join = began.get('waiting for a join'), named = key !== 'waiting for a join' && view !== 'waiting for a join' && view!.kind !== 'solo';
+      if (named) began.clear();
+      began.set(key, named && join !== undefined ? join : Date.now());
+    }
+    const delay = pollDelay(view, key === undefined ? 0 : Date.now() - began.get(key)!, page.hidden);
     if (delay !== undefined) timer = setTimeout(tick, delay);
   }
   async function tick() {
     clearTimeout(timer);
     if (stopped || reading || page.hidden) return;
+    const next = target();
+    if (!next || !gate()) { update(); return; }
     reading = true;
-    try { await read(); } catch {} finally { reading = false; update(); }
+    try { await next.read(); } catch {} finally { reading = false; update(); }
   }
-  function visible() { if (page.hidden) clearTimeout(timer); else void tick(); }
-  page.addEventListener('visibilitychange', visible);
+  // The two wake events of one return come together: they start one read. A skipped wake still sets the timer again.
+  function wake() { if (page.hidden) clearTimeout(timer); else if (Date.now() - woke >= 1000) { woke = Date.now(); void tick(); } else update(); }
+  page.addEventListener('visibilitychange', wake); page.addEventListener('pageshow', wake);
   void tick();
-  return { update, stop() { stopped = true; clearTimeout(timer); page.removeEventListener('visibilitychange', visible); } };
+  return { update, stop() { stopped = true; clearTimeout(timer); page.removeEventListener('visibilitychange', wake); page.removeEventListener('pageshow', wake); } };
 }

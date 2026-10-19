@@ -47,6 +47,7 @@ export class PaintedView implements BoardView {
   onDragSelect: (sq: number) => void = () => {};
   onSquareHover: (sq: number | null) => void = () => {};
   onLoadError?: (error: unknown) => void;
+  canDrag = () => true;
 
   private canvas = document.createElement('canvas');
   private scene: PaintedScene;
@@ -88,7 +89,12 @@ export class PaintedView implements BoardView {
     // The kings' effects redraw the board about 30 times a second: not while the tab is hidden.
     document.addEventListener('visibilitychange', () => this.applyLively());
     this.applyLively();
-    this.loaded = this.scene.load().catch(error => { this.onLoadError?.(error); });
+    // F13: no board before the stone art is decoded; the first frame shows stone and pieces together.
+    // ready() waits for that frame, so a hidden tab or off-screen frame becomes ready when it shows.
+    this.canvas.style.visibility = 'hidden';
+    this.loaded = this.scene.load().catch(error => { this.onLoadError?.(error); }).then(() => new Promise<void>(resolve => {
+      requestAnimationFrame(() => { this.canvas.style.visibility = ''; resolve(); });
+    }));
     // Keep the square board as large as the container allows.
     new ResizeObserver(([entry]) => {
       const box = entry.contentRect; // excludes the padding that keeps the title card clear
@@ -102,6 +108,8 @@ export class PaintedView implements BoardView {
       this.scene.setResolution(Math.min(2, Math.max(1, Math.ceil(width * devicePixelRatio / 960 * 4) / 4)));
     }).observe(container);
     this.canvas.addEventListener('pointerdown', e => this.onDown(e));
+    // Keep piece drags; a touch that starts elsewhere can scroll the screen.
+    this.canvas.addEventListener('touchstart', e => { if (this.dragFrom != null && this.canDrag()) e.preventDefault(); }, { passive: false });
     this.canvas.addEventListener('pointermove', e => this.onMove(e));
     this.canvas.addEventListener('pointerup', e => this.onUp(e));
     this.canvas.addEventListener('pointercancel', () => this.clearPointer());
@@ -194,7 +202,7 @@ export class PaintedView implements BoardView {
   }
 
   /** Markers animate only while animations are on and the system allows motion. */
-  private motion(): boolean { return this.pace !== 'off' && !this.motionQuery.matches; }
+  motion(): boolean { return this.pace !== 'off' && !this.motionQuery.matches; }
 
   flip(black: boolean): void { this.scene.setFlipped(black); }
   setLabels(on: boolean): void { this.scene.setLabels(on); }
@@ -298,7 +306,7 @@ export class PaintedView implements BoardView {
     this.tap = e;
     if (e.button !== 0) return;
     const sq = this.tapSq = this.pick(e);
-    if (sq == null || !this.ownPieceAt(sq)) return;
+    if (sq == null || !this.ownPieceAt(sq) || !this.canDrag()) return;
     this.dragFrom = sq;
     this.canvas.setPointerCapture(e.pointerId);
   }

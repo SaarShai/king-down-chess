@@ -1,11 +1,15 @@
+import { errorText } from '../client';
+import { call, client, memory } from '../app';
 import type { View } from '../../match/protocol';
 import { boardSheet, closeBoardSheet, sendBoardCommand } from './board';
 import { boardActions } from './board-model';
 const words = (value: string) => { const p = document.createElement('p'); p.textContent = value; return p; };
 const button = (label: string, click: () => void, id?: string) => { const b = document.createElement('button'); b.textContent = label; b.onclick = click; if (id) b.id = id; return b; };
-export function confirmBoardAction(title: string, detail: string, label: string, send: () => void) {
-  const yes = button(label, () => { closeBoardSheet(); send(); }); yes.className = 'primary';
-  boardSheet(title, words(detail), yes, button('Keep playing', closeBoardSheet));
+export function confirmBoardAction(title: string, detail: string, label: string, send: () => void, cancel = 'Keep playing') {
+  const yes = button(label, () => { closeBoardSheet(); send(); });
+  yes.className = 'game-action';
+  const keep = button(cancel, closeBoardSheet); keep.className = 'primary';
+  boardSheet(title, words(detail), yes, keep);
 }
 export function confirmAbort(view: View, send = () => void sendBoardCommand('kingdown_abort')) {
   if (!view.abort_open) return;
@@ -17,21 +21,51 @@ export function confirmDraw(choice: 'offer' | 'accept' | 'decline') {
   confirmBoardAction(title, choice === 'accept' ? 'The game ends in a draw.' : choice === 'decline' ? 'The game continues.' : 'Your opponent can accept or decline.', choice === 'offer' ? 'Offer draw' : choice === 'accept' ? 'Accept' : 'Decline', () => void sendBoardCommand('kingdown_draw', {choice}));
 }
 export function actionButtons(view: View, elapsed: number, hidden: Set<string>, menu = false) {
-  // The status row shows some of these too; the Menu's copies take their own ids.
   const id = (name: string) => menu ? `menu-${name}` : name;
   if (view.status !== 'playing' && view.status !== 'setup' && view.status !== 'waiting') return [];
   const actions = boardActions(view, elapsed), result: HTMLButtonElement[] = [];
   if (view.status === 'playing') {
-    result.push(button('Resign', confirmResign, 'menu-resign'));
+    if (menu) result.push(button('Resign', confirmResign, 'menu-resign'));
     if (view.kind !== 'solo') {
-      if (view.draw_offer === null && !hidden.has('kingdown_draw')) result.push(button('Offer draw', () => confirmDraw('offer'), 'menu-draw'));
-      else if (view.draw_offer !== null && view.draw_offer !== view.seat) result.push(button('Accept draw', () => confirmDraw('accept'), id('accept-draw')), button('Decline draw', () => confirmDraw('decline'), id('decline-draw')));
+      if (menu && view.draw_offer === null && !hidden.has('kingdown_draw')) result.push(button('Offer draw', () => confirmDraw('offer'), 'menu-draw'));
+      if (!menu && view.draw_offer !== null && view.draw_offer !== view.seat) result.push(button('Accept draw', () => confirmDraw('accept'), id('accept-draw')), button('Decline draw', () => confirmDraw('decline'), id('decline-draw')));
     }
   }
-  if (actions.abort && !hidden.has('kingdown_abort')) result.push(button('Abort', () => confirmAbort(view), id('abort')));
-  if (actions.claim && !hidden.has('kingdown_claim')) {
+  if (menu && actions.abort && !hidden.has('kingdown_abort')) {
+    const abort = button('Abort', () => confirmAbort(view), id('abort'));
+    const note = document.createElement('small'); note.textContent = 'No result, until each side moves once.';
+    abort.append(note); result.push(abort);
+  }
+  if (!menu && actions.claim && !hidden.has('kingdown_claim')) {
     const label = actions.claim === 'win' ? 'Claim the win' : 'End game';
     const b = button(label, () => confirmBoardAction(label + '?', actions.claim === 'win' ? 'Your opponent misses the move deadline. You win.' : 'Your opponent makes no first move. The game ends with no result.', label, () => void sendBoardCommand('kingdown_claim')), id('claim')); b.className='primary'; result.push(b);
   }
+  for (const action of result) action.classList.add('game-action');
   return result;
+}
+
+/** Read the saved relation without delaying the Menu's other controls. */
+export function playerBlockButton(view: View, close = () => {}): HTMLButtonElement[] {
+  if (view.kind === 'solo' || !view.opponent || view.opponent.computer || view.opponent.deleted) return [];
+  let blocked: boolean | undefined, reading = false;
+  const row = button('Loading block setting…', () => {
+    if (reading || memory.view?.game_id !== view.game_id) return;
+    if (blocked === undefined) { void read(); return; }
+    const next = !blocked, label = blocked ? 'Unblock player' : 'Block player';
+    close();
+    confirmBoardAction(`${label}?`, blocked ? 'Your block no longer stops Find or joins to open games. Follows stay off.' : `Find does not match you again. This player cannot join your open games. Their messages are hidden. Follows end both ways. ${['finished', 'aborted'].includes(view.status) ? '' : 'This game continues. '}You can unblock them in Profile.`, label, () => {
+      if (memory.view?.game_id === view.game_id) void call('kingdown_block', { game_id: view.game_id, blocked: next });
+    }, ['finished', 'aborted'].includes(view.status) ? 'Cancel' : 'Keep playing');
+  }, 'menu-block-player');
+  async function read() {
+    reading = true; row.disabled = true; row.setAttribute('aria-busy', 'true');
+    try {
+      const result = await client.call('kingdown_block', { game_id: view.game_id });
+      if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+      blocked = result._meta?.blocked === true;
+      row.textContent = blocked ? 'Unblock player' : 'Block player';
+    } catch (error) { row.textContent = 'Cannot read block setting. Retry'; row.title = errorText(error); }
+    finally { reading = false; row.disabled = (document.getElementById('reload') as HTMLButtonElement).disabled; row.removeAttribute('aria-busy'); }
+  }
+  void read(); return [row];
 }

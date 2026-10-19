@@ -7,7 +7,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { env, isInside, outRoot } from './lib/checks.mjs';
+import { env, isInside, outRoot, STEP } from './lib/checks.mjs';
 import { firstFault as faultLine } from './lib/first-fault.mjs';
 import { SLOTS, releaseAll, runLockPath, takeAllSlots, takeLock, takeSlot } from './lib/lock.mjs';
 import { checks } from './lib/registry.mjs';
@@ -29,8 +29,9 @@ ${rows.join('\n')}
 Each check gets three settings:
   PLAYABLE_URL      the address of the preview server
   PLAYABLE_OUT      <run folder>/<name>
-  PLAYABLE_BROWSER  your PLAYABLE_BROWSER if set, else the check's channel, else chromium when
-                    CLAUDE_CODE_REMOTE is "true", else chrome
+  PLAYABLE_BROWSER  webkit, or a Chromium channel; your value wins, else the check's channel, else chromium when
+                    CLAUDE_CODE_REMOTE is "true", else chrome. Use webkit for plugin-ui only: other checks can
+                    use CDP or open Chromium directly, and they stop on WebKit.
 
 Output: one new folder for each run under ${outRoot}, printed at the start, with run.json and one
 log per check (<run folder>/<name>.log). The system removes old folders after three days.
@@ -165,7 +166,7 @@ for (const c of selected) {
     writeRecord();
     const before = treeStatus(root);
     const result = await run(process.execPath, [c.script, ...(c.args ?? [])], {
-      log, limit: c.limit,
+      log, limit: c.limit * STEP,
       extraEnv: { PLAYABLE_URL: url, PLAYABLE_OUT: join(runDir, c.name), PLAYABLE_BROWSER: process.env.PLAYABLE_BROWSER || c.channel || env('PLAYABLE_BROWSER') },
     });
     exitIfInterrupted();

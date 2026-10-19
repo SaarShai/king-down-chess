@@ -1,8 +1,13 @@
 /* The id and class outrank the website's #new-game dialog size, which loads after this file. */
 .page-sheet > #new-game { width: 100%; max-height: none; }
+#setup-body { display: contents; }
 #setup-body > * { flex-shrink: 0; }
+#setup-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-block: 4px; }
+#setup-card-grid .card-face { min-width: 0; text-align: left; font-family: var(--font-body); }
+#app-root #setup-card-grid .card-face { transition: transform 140ms; }
+#setup-card-grid .cf-text b { padding-right: 0; overflow-wrap: anywhere; }
 /* 200% zoom: the rows reflow; the text takes its own line and the "kinds" button goes below it. */
-#setup-body { container-type: inline-size; }
+[data-screen='play'] .new-game-body { container-type: inline-size; }
 @container (max-width: 260px) {
   #setup-body .modes { grid-template-columns: minmax(0, 1fr); }
   #setup-body .seg-row { flex-wrap: wrap; }
@@ -22,7 +27,7 @@ label.check.toggle .all { flex: none; width: auto; min-height: var(--tap); paddi
 .your-king { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
 .your-king h3 { margin: 0 !important; }
 .your-king .power-text { min-height: 0; margin: 2px 0 0; color: var(--ink-soft); }
-.your-king .chev { font-size: 22px; color: var(--ink); }
+.your-king .chev { font-size: var(--fs-xl); color: var(--ink); }
 .kings-off { display: flex; align-items: flex-end; gap: 4px; margin-top: var(--space-3); padding: var(--space-3); background: color-mix(in srgb, var(--vellum) 70%, transparent); border: 1px solid var(--stone-300); border-radius: var(--radius); }
 .kings-off img { height: 56px; }
 .kings-off .face-left { transform: scaleX(-1); margin-left: -10px; }
@@ -44,3 +49,7 @@ label.check.pick.locked input:disabled { background-color: var(--stone-500); bor
 .setup-sheet .power-text.off { color: var(--ink-soft); min-height: 0; }
 .frame #menu-sheet.setup-sheet { width: 100%; height: auto; max-height: calc(100% - 40px); }
 @media (min-width: 900px) { .frame #menu-sheet.setup-sheet { width: min(560px, calc(100% - 48px)); max-height: calc(100% - 48px); } }
+
+/* Lively: the chosen king's emblem turns over once (320 ms). */
+.setup-sheet button.emblem.is-flip img { animation: emblem-flip 320ms cubic-bezier(.05,.7,.1,1); }
+@keyframes emblem-flip { from { transform: perspective(240px) rotateY(-180deg) scale(1.1); } }

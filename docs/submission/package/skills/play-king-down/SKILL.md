@@ -9,7 +9,7 @@ description: Help the player start, open and manage King Down chess games with t
      (error plugin_runtime_surface_missing). This is the smallest skill that meets that rule.
      Remove it if OpenAI support says a remote-MCP plugin needs no skill. -->
 
-King Down is a chess variant. The player makes moves on the King Down board. You do not see the board position, and you do not choose moves.
+King Down is a chess variant. The player makes moves on the King Down board. You do not see the board position, and you do not choose moves. A turn goes to the game only when the player presses the turn button on the board: End turn against the computer, Send your turn against a person.
 
 1. To open King Down, call `kingdown_open`. With no game, it shows the home screen.
 2. To start a game, call `kingdown_create` with `kind` `solo` (the computer), `friend` or `random`. Then call `kingdown_open` with the new `game_id` to show the board.

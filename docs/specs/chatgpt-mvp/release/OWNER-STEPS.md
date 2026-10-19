@@ -60,7 +60,8 @@ Use [RUNBOOK.md](RUNBOOK.md) for the full checks and rollback.
    ```
    Use origin `https://kingdown.dev`, the new client ID and readiness 1 only after the hook check.
    Use the runtime role for the service URL, with `?sslmode=require`.
-   Use an internal secret of at least 32 characters. Keep `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` unset.
+   Use an internal secret of at least 32 characters. The same secret protects short invite codes.
+   Keep it the same on every instance and across restarts. A secret change ends current short codes. Keep `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` unset.
    Keep `PLUGIN_TEST_DATABASE_URL` local; it is not a production setting.
    Keep `KINGDOWN_ENGINES_DATABASE_URL` out of this file; `--configure` rejects it.
    Before either deploy check or publication, set it in the local release shell to the private
@@ -93,7 +94,7 @@ Use [RUNBOOK.md](RUNBOOK.md) for the full checks and rollback.
    Run it detached; keep the log private. It publishes to `kingdown` and waits for schema readiness.
    While it waits, finish step 6 and, in a new SQL Editor query, paste the whole exact file
    [apply-0010-0013.sql](apply-0010-0013.sql). Press **Run** as the admin role.
-   Success: the paste commits, runtime startup probes pass and both live checks pass in the log.
+   Success: the paste commits, migration 0014 and role block 11 are present, runtime startup probes pass and both live checks pass in the log.
    A missing prerequisite raises an exception and changes nothing. Run `rollback;` if the Editor keeps the failed transaction open.
    Fix that prerequisite and retry the whole file.
    On another failure, stop play and remove MVP jobs if present. With your go, revert the release

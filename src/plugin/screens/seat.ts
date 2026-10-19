@@ -1,4 +1,5 @@
-import { call, client, memory, navigate, routeView } from '../app';
+import { call, client, gameActionsBlocked, memory, navigate, routeView } from '../app';
+import type { Job } from '../queue';
 import { art } from '../art';
 import { board, highlight } from '../board-view';
 import { ending } from '../ending';
@@ -9,6 +10,8 @@ import { seatChoicesNeeded, validateChoice, type Choice } from '../../match/setu
 import type { View } from '../../match/protocol';
 import { ICONS } from '../../account/profile';
 import { POWER_NAME } from '../../powers-ui';
+import type { Page } from '../state';
+import { playerBlockButton } from './board-actions';
 import { kingSheet } from './setup';
 import { legalSwaps, seatChoice, seatFen, seatIndex, seatSquare, screenOrder, shuffleOrder, submitReady, swapOrder } from './seat-model';
 import './seat.css';
@@ -19,7 +22,7 @@ let game = '', choice: Choice | null = null, selected: number | null = null, sen
 let home: { parent: HTMLElement; next: ChildNode | null; click: typeof board.onSquareClick; drag: typeof board.onDragSelect; hover: typeof board.onSquareHover; key: HTMLElement['onkeydown']; label: string | null } | undefined;
 let closeMenu: (() => void) | undefined, cursor = 0;
 const current = () => client.state.screen === 'seat' && memory.view?.game_id === game ? memory.view : undefined;
-const locked = () => sending || picking || $<HTMLButtonElement>('seat-menu').disabled || !!client.state.pending || !!current()?.ready?.[current()!.seat];
+const locked = () => sending || picking || $<HTMLButtonElement>('seat-menu').disabled || gameActionsBlocked() || !!current()?.ready?.[current()!.seat];
 const uuid = () => crypto.randomUUID().replaceAll('-', '');
 
 function release() {
@@ -94,10 +97,10 @@ function render() {
   highlight({ selected: ready ? null : selected, swaps: !ready && selected !== null ? legalSwaps(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice, view.seat, selected) : [] });
   locks(); requestAnimationFrame(placeVeil);
 }
-async function finish(next: View) {
+async function finish(next: View, origin?: Job) {
   if (next.game_id !== game || client.state.screen !== 'seat') return;
   if (next.status === 'playing') {
-    const full = next.rules ? next : await call('kingdown_get', {}, true, false, false); if (!full) return;
+    const full = next.rules ? next : await call('kingdown_get', {}, { retain: true, route: false, origin }); if (!full) return;
     release();
     if (full.rules) setRules(full.rules); routeView(full);
   } else if (next.status === 'finished' || next.status === 'aborted') {
@@ -108,7 +111,7 @@ async function ready() {
   const view = current(); if (!view?.options || !choice || locked() || validateChoice(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice)) return;
   sending = true; locks();
   try {
-    const next = await submitReady(view, { ...choice }, { send: args => call('kingdown_choose', args, true, false, false), read: () => call('kingdown_get', {}, false, false, false), pending: () => !!client.state.pending, id: uuid });
+    const next = await submitReady(view, { ...choice }, { send: args => call('kingdown_choose', args, true, false, false), read: () => call('kingdown_get', {}, false, false, false), pending: gameActionsBlocked, id: uuid });
     if (next) await finish(next);
   } finally { sending = false; render(); }
 }
@@ -116,36 +119,36 @@ async function pickKing() {
   const view = current(); if (!view?.options || !choice?.king || locked()) return;
   picking = true; locks();
   try { const pick = await kingSheet(view.options, choice.king); if (current()?.game_id === view.game_id && choice && !current()?.ready?.[view.seat]) choice.king = pick; }
-  finally { picking = false; render(); }
+  // The sheet gives focus back while the coin is still locked, and a disabled coin cannot take it.
+  finally { picking = false; render(); if (!document.activeElement || document.activeElement === document.body) $('seat-king').focus({ preventScroll: true }); }
 }
 function menu(confirm = false) {
   closeMenu?.(); const view = current(); if (!view) return;
   const dialog = document.createElement('dialog'), scrim = document.createElement('div'), page = document.querySelector<HTMLElement>('.page-sheet')!, focus = document.activeElement as HTMLElement;
   dialog.id = 'seat-menu-sheet'; dialog.className = 'over-sheet'; dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', 'seat-menu-title'); scrim.className = 'scrim';
-  dialog.innerHTML = `<header class="sheet-head"><h2 id="seat-menu-title">${confirm ? 'Abort this game?' : 'Menu'}</h2><button id="seat-menu-close" aria-label="Close">×</button></header><div class="sheet-body">${confirm ? '<p>The game ends with no result.</p><button id="seat-abort-confirm" class="primary">Abort</button><button id="seat-abort-cancel">Cancel</button>' : `${view.abort_open ? '<button id="seat-abort" class="menu-row">Abort</button>' : ''}<button id="seat-settings" class="menu-row">Settings</button>`}</div>`;
+  dialog.innerHTML = `<header class="sheet-head"><h2 id="seat-menu-title">${confirm ? 'Abort this game?' : 'Menu'}</h2><button id="seat-menu-close" aria-label="Close">×</button></header><div class="sheet-body">${confirm ? '<p>The game ends with no result.</p><button id="seat-abort-confirm">Abort</button><button id="seat-abort-cancel" class="primary">Cancel</button>' : `${view.abort_open ? '<button id="seat-abort" class="menu-row">Abort</button>' : ''}<button id="seat-settings" class="menu-row">Settings</button>`}</div>`;
   page.inert = true; $('app-frame').append(scrim, dialog); dialog.show(); client.state.sheet = confirm ? 'seat-abort' : 'seat-menu'; client.save();
   const close = () => { dialog.remove(); scrim.remove(); page.inert = false; closeMenu = undefined; client.state.sheet = undefined; client.save(); document.removeEventListener('keydown', key); focus?.focus({preventScroll:true}); };
   const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); close(); }
     else if (event.key === 'Tab') { const buttons = [...dialog.querySelectorAll<HTMLButtonElement>('button')], i = buttons.indexOf(document.activeElement as HTMLButtonElement); if (event.shiftKey && i <= 0 || !event.shiftKey && i === buttons.length - 1) { event.preventDefault(); buttons[event.shiftKey ? buttons.length - 1 : 0].focus(); } } };
   document.addEventListener('keydown', key); closeMenu = close; $('seat-menu-close').onclick = scrim.onclick = close;
-  if (confirm) { $('seat-abort-cancel').onclick = close; $('seat-abort-confirm').onclick = async () => { const v = current(); if (!v?.abort_open || sending || client.state.pending) return; close(); sending = true; locks(); try { const next = await call('kingdown_abort', { game_id: v.game_id, command_id: uuid(), expected_revision: v.revision }, true, false, false); if (next) await finish(next); } finally { sending = false; render(); } }; }
+  if (confirm) { $('seat-abort-cancel').onclick = close; $('seat-abort-confirm').onclick = async () => { const v = current(); if (!v?.abort_open || sending || gameActionsBlocked()) return; close(); sending = true; locks(); try { const next = await call('kingdown_abort', { game_id: v.game_id, command_id: uuid(), expected_revision: v.revision }, true, false, false); if (next) await finish(next); } finally { sending = false; render(); } }; }
   else { if (view.abort_open) $('seat-abort').onclick = () => menu(true); $('seat-settings').onclick = () => { close(); navigate('settings'); }; }
+  if (!confirm) for (const block of playerBlockButton(view, close)) { block.className = 'menu-row'; $('seat-settings').before(block); }
   $('seat-menu-close').focus();
 }
 
-async function retryPending() {
-  const pending = client.state.pending; if (!pending || sending || client.state.screen !== 'seat') return;
+/** The continuation of a resent Seat command (design §5.2): Seat finishes with the reply. */
+export async function finishSeat(next: View, origin: Job) {
   sending = true; locks();
-  try { const next = await call(pending.name, pending.args, true, false, false, true); if (next) await finish(next); }
-  finally { sending = false; render(); }
+  try { await finish(next, origin); } finally { sending = false; render(); }
 }
-document.addEventListener('click', event => {
-  if (!(event.target as HTMLElement).closest('#retry') || client.state.screen !== 'seat' || !['kingdown_choose','kingdown_abort','kingdown_get'].includes(client.state.pending?.name ?? '')) return;
-  event.preventDefault(); event.stopImmediatePropagation(); void retryPending();
-}, true);
-new MutationObserver(() => { if (client.state.screen !== 'seat') release(); }).observe(document.body, { attributes: true, attributeFilter: ['data-page'] });
-new MutationObserver(() => { if (current()?.status === 'setup' && !sending) seatScreen(); }).observe($('status'), { childList: true });
-new MutationObserver(locks).observe($('seat-ready'), { attributes: true, attributeFilter: ['disabled'] });
+// The store's subscriber replaces the data-page, #status and #seat-ready observers. The ResizeObserver stays: it measures layout.
+export function seatSync(page: Page) {
+  if (page.screen !== 'seat') { release(); return; }
+  if (current()?.status === 'setup' && !sending) seatScreen();
+  else locks();
+}
 new ResizeObserver(() => requestAnimationFrame(placeVeil)).observe($('board'));
 $('seat-ready').onclick = () => void ready(); $('seat-menu').onclick = () => menu(); $('seat-king').onclick = () => void pickKing();
 $('seat-shuffle').onclick = () => { const view = current(); if (view?.options?.arrangement && choice && !locked()) { choice.order = shuffleOrder(view); selected = null; render(); } };
@@ -154,8 +157,7 @@ export function seatScreen() {
   if (!view.options) { release(); routeView(view); return; }
   if (view.status !== 'setup') {
     game = view.game_id;
-    if (['kingdown_choose','kingdown_abort','kingdown_get'].includes(client.state.pending?.name ?? '')) setTimeout(() => void retryPending(), 0);
-    else if (!sending && view.options && Object.values(seatChoicesNeeded(view.options)).some(Boolean)) { sending = true; void finish(view).finally(() => { sending = false; }); }
+    if (!gameActionsBlocked() && !sending && view.options && Object.values(seatChoicesNeeded(view.options)).some(Boolean)) { sending = true; void finish(view).finally(() => { sending = false; }); }
     return;
   }
   const own = seatChoice(view, memory.settings?.last_setup?.king ?? null); if (!own) return;
@@ -163,7 +165,6 @@ export function seatScreen() {
   else if (view.ready?.[view.seat]) { choice = own; selected = null; }
   if (!$('seat-board-slot') && !home) { const slot = document.createElement('div'); slot.id = 'seat-board-slot'; $('game-table').prepend(slot); }
   ownBoard(view); render();
-  if (!sending && ['kingdown_choose','kingdown_abort','kingdown_get'].includes(client.state.pending?.name ?? '') && !client.state.pending?.error) setTimeout(() => void retryPending(), 0);
   if (!closeMenu && ['seat-menu','seat-abort'].includes(client.state.sheet ?? '')) menu(client.state.sheet === 'seat-abort');
   else if (!picking && client.state.sheet === 'king') setTimeout(() => { if (client.state.sheet === 'king' && !locked()) void pickKing(); }, 0);
 }

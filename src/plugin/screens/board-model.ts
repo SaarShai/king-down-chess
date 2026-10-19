@@ -1,13 +1,21 @@
 import type { View } from '../../match/protocol';
-import { legalMoves, makeMove, setRules, TAG_POWER, type CardName, type Color, type Move, type Position, type Rules } from '../../rules/engine';
+import { inCheck, legalMoves, makeMove, setRules, status, TAG_POWER, type CardName, type Color, type Move, type Position, type Rules } from '../../rules/engine';
 import { fromFen, toFen, toLan } from '../../rules/setup';
 import { describeMove } from '../../move-text';
+import { turnLine, turnOf, type Mode } from '../../turn';
 
 export type BoardMove = { pre: Position; pos: Position; move: Move; lan: string; words: string };
 export function stripLine(side: Color, rating?: NonNullable<View['opponent']>['rating'], level?: View['level']): string {
   if (level) return level[0].toUpperCase() + level.slice(1);
   const colour = side === 0 ? 'White' : 'Black';
-  return rating ? `${Math.round(rating.rating)}${rating.provisional ? '?' : ''} · ${colour}` : colour;
+  return rating ? `${rating.provisional ? 'New player' : Math.round(rating.rating)} · ${colour}` : colour;
+}
+export function timeLeft(view: View, elapsed = 0): string {
+  if (view.status !== 'playing' || !view.deadline_at) return '';
+  const ms = Date.parse(view.deadline_at) - Date.parse(view.server_now) - elapsed;
+  if (!Number.isFinite(ms)) return '';
+  if (ms <= 0) return 'Time is up';
+  return ms >= 3600000 ? `${Math.ceil(ms / 3600000)} h left` : `${Math.ceil(ms / 60000)} min left`;
 }
 export function cardCoins(pos: Position, side: Color, hand: readonly CardName[], moves: readonly Move[]): { card: CardName; spent: boolean; moves: Move[] }[] {
   return hand.map((card, index) => {
@@ -20,6 +28,37 @@ export function applyLan(pre: Position, lan: string, rules: Partial<Rules>, lega
   setRules(rules);
   const move = legalMoves(pre).find(move => toLan(pre, move) === lan);
   return move && { pre, pos: makeMove(pre, move), move, lan, words: describeMove(pre, move, true) };
+}
+
+export function draftTurn(steps: readonly BoardMove[], pos: Position, mode: Exclude<Mode, 'device'>, seat: Color) {
+  const game = { history: steps.map(step => ({ pos: step.pre })), pos, status: status(pos), legal: legalMoves(pos), inCheck: inCheck(pos) };
+  const turn = turnOf(game, 0);
+  if (!turn.staged && pos.turn === seat && turn.midWay && game.legal.some(move => move.pass)) turn.ready = true;
+  const { staged, midWay, waits, ready } = turn;
+  return { staged, midWay, waits, ready, line: turnLine(game, ready && !staged ? { ...turn, staged: 1 } : turn, mode) };
+}
+
+export function sendActions(steps: readonly BoardMove[], pos: Position, seat: Color): string[] {
+  const turn = draftTurn(steps, pos, 'computer', seat), lans = steps.map(step => step.lan);
+  return turn.ready && turn.midWay && !turn.waits ? [...lans, '--'] : lans;
+}
+
+export function draftChoices(view: View, pos: Position, steps: readonly BoardMove[]): { lan: string; move: Move }[] {
+  if (draftTurn(steps, pos, 'computer', view.seat).waits) return [];
+  return legalMoves(pos).map(move => ({ lan: toLan(pos, move), move })).filter(({ lan }) => steps.length > 0 || view.legal.includes(lan));
+}
+
+export function restoreDraft(view: View, saved: { game_tag: string; fen: string; lans: readonly string[] } | undefined, rules: Partial<Rules>): BoardMove[] | undefined {
+  if (!saved || saved.game_tag !== view.game_id.slice(0, 8) || saved.fen !== view.fen || view.action !== 'ready' || view.status !== 'playing') return;
+  setRules(rules);
+  let pos = fromFen(view.fen);
+  const steps: BoardMove[] = [];
+  for (const lan of saved.lans) {
+    const step = applyLan(pos, lan, rules, draftChoices(view, pos, steps).map(choice => choice.lan));
+    if (!step) return;
+    steps.push(step); pos = step.pos;
+  }
+  return steps;
 }
 
 export function replayLans(before: Pick<View, 'game_id' | 'revision' | 'fen'>, next: View, rules: Partial<Rules>): BoardMove[] | undefined {

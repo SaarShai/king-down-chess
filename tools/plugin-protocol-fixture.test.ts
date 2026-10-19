@@ -1,6 +1,57 @@
 import { expect, it, vi } from 'vitest';
 import { fixtureService } from './plugin-protocol-fixture';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
+import * as matchEngine from '../src/match';
+import { UNFINISHED } from '../src/match/service';
+
+it('keeps full reads and polls open while a refused turn restores the fixture', async () => {
+ const s = fixtureService(), loadMatch = matchEngine.loadMatch;
+ const reads:Promise<PromiseSettledResult<unknown>[]>[] = [];
+ const restore = vi.spyOn(matchEngine,'loadMatch');
+ try {
+  await s.handle('alice',{handle:'alice'}); await s.handle('bob',{handle:'bob'});
+  const game = await s.create('alice',{kind:'friend',colour:'white',options:{...DEFAULT_OPTIONS,fairy:false,arrangement:false,classic:true}});
+  await s.accept('bob',game.game_id);
+  const before = await s.view('alice',game.game_id);
+  const read = () => reads.push(Promise.allSettled([
+   s.view('alice',game.game_id),s.view('bob',game.game_id,before.revision),
+  ]));
+  restore.mockImplementationOnce(async save => {
+   read();
+   const next = await loadMatch(save);
+   read();
+   return next;
+  });
+  await expect(s.command('alice',game.game_id,{
+   command_id:'refused',expected_revision:before.revision,action:{type:'turn',actions:['e2-e4','zzzz']},
+  })).rejects.toMatchObject({code:'INVALID_MOVE'});
+  expect(restore).toHaveBeenCalledOnce();
+  const results = (await Promise.all(reads)).flat();
+  expect(results).toHaveLength(4);
+  expect(results.map(result=>result.status)).toEqual(Array(4).fill('fulfilled'));
+  expect(await s.view('alice',game.game_id)).toMatchObject({fen:before.fen,revision:before.revision,last_commands:before.last_commands});
+ } finally {restore.mockRestore();await s.close();}
+});
+
+it('refuses an unfinished player turn and keeps the computer to one action for each call (W7 ticket 06)', async () => {
+ const s = fixtureService(), setup = {kings:'Flame:Haste,none',fen:'7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1'};
+ const choose = vi.spyOn(matchEngine.LocalMatch.prototype,'chooseMove');
+ try {
+  const game = await s.create('alice',{kind:'solo',colour:'white',setup});
+  const send = (actions:string[]) => s.command('alice',game.game_id,{command_id:'turn',expected_revision:game.revision,action:{type:'turn',actions}});
+  await expect(send(['Ra1-a2!H'])).rejects.toMatchObject({code:'INVALID_MOVE',message:UNFINISHED});
+  expect(await s.view('alice',game.game_id)).toMatchObject({revision:game.revision,fen:game.fen,turn:0,legal:game.legal,last_commands:[]});
+  // The refusal leaves no receipt, so the same command ID sends the whole turn.
+  expect(await send(['Ra1-a2!H','--'])).toMatchObject({revision:game.revision+1,turn:1});
+  const computer = await s.create('alice',{kind:'solo',colour:'black',setup});
+  const think = (command_id:string, expected_revision:number) => s.command('alice',computer.game_id,{command_id,expected_revision,action:{type:'computer'}});
+  choose.mockResolvedValueOnce('Ra1-a2!H');
+  const half = await think('first',computer.revision);
+  expect(half).toMatchObject({revision:computer.revision+1,turn:0,action:'waiting'});
+  expect(half.last_commands.at(-1)!.action).toEqual({type:'computer',actions:['Ra1-a2!H']});
+  expect(await think('second',half.revision)).toMatchObject({revision:half.revision+1,turn:1,action:'ready'});
+ } finally {choose.mockRestore();await s.close();}
+});
 
 it('supports the screen tools, hidden setup choices, board selection and rematch in the fixture', async () => {
  const s = fixtureService();
@@ -30,6 +81,11 @@ it('supports the screen tools, hidden setup choices, board selection and rematch
   expect(Date.parse(invite.expires_at)-Date.now()).toBeGreaterThan(6*86_400_000); expect(Date.parse(invite.expires_at)-Date.now()).toBeLessThanOrEqual(7*86_400_000);
   expect((await s.view('alice',friend.game_id)).opponent).toBeNull();
   expect((await s.join('bob',invite.code)).status).toBe('playing');
+  await s.block('alice',{game_id:friend.game_id},true);
+  const blocks = await s.blocks('alice'); expect(blocks).toHaveLength(1);
+  expect(blocks[0].user_id).toMatch(/^[0-9a-f-]{36}$/);
+  await s.block('alice',{user_id:blocks[0].user_id},false); expect(await s.blocks('alice')).toEqual([]);
+
   const pending = await s.find('alice',DEFAULT_OPTIONS); expect((await s.cancel('alice',pending.game_id)).status).toBe('aborted');
  } finally {await s.close();}
 });

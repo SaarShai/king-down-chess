@@ -1,5 +1,19 @@
 # Private release runbook
 
+## Release notes: server limits and codes
+
+Each user has these limits: 120 Computer calls per minute, 60 Create calls per minute,
+60 Open calls per minute and 30 reports per hour. Find shares the Create count. A refused call counts. The server returns
+`RATE_LIMITED` with the wait time. Each user can hold three of the four active HTTP slots. The fourth stays available to another user.
+
+Short invite codes use HMAC-SHA-256 with `KINGDOWN_INTERNAL_SECRET`. Keep the same secret
+on every server instance and across restarts. Each new invitation needs the secret. An absent
+secret, or one shorter than 32 characters, stops all new invitations (codes and links) and all
+short-code joins. Both deploy configure paths require it. Short codes from the earlier build (plain SHA-256)
+still work for their normal life (up to 7 days), through a legacy lookup that goes after that window. Long invite
+links still work. A secret change ends the HMAC short codes made after this release; legacy codes keep working
+until they expire.
+
 ## Preparation and release gate
 
 The owner approves preparation on 2026-10-12: "do ticket 19 and anything else you need to do to get it ready to go live. don't stop to ask me."
@@ -77,7 +91,7 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
 
    Rollback: a failed migration transaction changes nothing. Stop and review the failure. After commit, keep its data. Use the saved recovery plan with the owner's word.
 
-9. **Owner word — paste [apply-0010-0013.sql](apply-0010-0013.sql) once.** Use a new SQL Editor query as the admin role. Paste the whole file. It first checks the 0005–0009 foundation and runtime-role blocks 3–6. It then applies 0010, block 7, 0011, 0012, block 8, 0013, block 9 and block 10 in one transaction. The source statements stay the same; only their outer transaction pairs become one pair.
+9. **Owner word — paste [apply-0010-0013.sql](apply-0010-0013.sql) once.** Use a new SQL Editor query as the admin role. Paste the whole file. It first checks the 0005–0009 foundation and runtime-role blocks 3–6. It then applies 0010, block 7, 0011, 0012, block 8, 0013, block 9, block 10, 0014 and block 11 in one transaction. The source statements stay the same; only their outer transaction pairs become one pair.
 
    This adds game and hidden seat choices, setup deadlines, rematches, lobby indexes, ratings, history, badges, settings and home-board state. Block 9 also permits old-board deletion for daily cleanup. Block 10 permits only the deletion of reports older than 12 months that no hold covers. Both board switches default off. Result history and badges have no runtime UPDATE grant.
 
@@ -93,7 +107,7 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
 
 11. **Check the final screens.** Use the board, end, seat, lobby and profile words in [TESTER-GUIDE.md](TESTER-GUIDE.md). Friend and random creates include options. A repeated random request keeps one open game. Chat has no report tool; the app has no Report button.
 
-    Check: the guide matches the release. The end card shows the result, rating and new badges where earned, plus Rematch or Accept/Decline and Your games.
+    Check: the guide matches the release. The end card shows the result, rating and new badges where earned, plus Play again against the computer, or Rematch and Accept/Decline against a person. Play again keeps your colour against the computer. New game opens the draft with the same setup. See the board hides the card; Game result opens it again. Skip stops the win motion. Skip and See the board work at once. Game actions ignore taps for 1 s after a live result opens. A computer abort returns to Play with the same setup.
 
     Rollback: stop test access. Correct the guide or build, then repeat the failed check.
 
@@ -105,7 +119,7 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
 
 13. **Owner word — install only the MVP jobs.** Enable pg_cron and pg_net. Put the internal secret in Vault as `kingdown_internal_secret` through the private path. Paste only [cron-mvp.sql](cron-mvp.sql). Its helper posts to `https://kingdown.dev/internal/tick` and `/internal/daily` with `x-kingdown-internal`, which the server checks. The secret matches `KINGDOWN_INTERNAL_SECRET`.
 
-    Tick runs each minute. Daily runs at 03:17 UTC. Cron history cleanup runs at 03:47 UTC and keeps seven days. The file removes old outbox and reminder jobs by ID if present. Pending outbox rows keep `done_at` null; cleanup removes only finished rows older than 30 days. Record the pending count without payloads. No email or push runs.
+    Tick runs each minute. Daily runs at 03:17 UTC. Cron history cleanup runs at 03:47 UTC and keeps seven days. The file removes old outbox and reminder jobs by ID if present. Pending outbox rows keep `done_at` null; the daily cleanup deletes each row made or done more than 30 days ago, as the privacy page says. Record the pending count without payloads. No email or push runs.
 
     Check: `tools/cron-mvp.docs.test.ts` passes. In the SQL Editor, run:
 
