@@ -606,7 +606,9 @@ try {
       if (state === 'setup-king') {
         await page.setViewportSize({ width: 1440, height: 900 });
         const frameBox = await frame.locator('#app-frame').boundingBox(), sheetBox = await frame.locator('#menu-sheet').boundingBox();
-        assert(Math.abs(sheetBox.height - (frameBox.height - 48)) < 2, 'The desktop king sheet keeps the sample height');
+        assert(sheetBox.height <= frameBox.height - 47 && sheetBox.y >= frameBox.y + 23 && sheetBox.y + sheetBox.height <= frameBox.y + frameBox.height - 23, 'The desktop king sheet stays within its height limit');
+        const contentHeight = await frame.locator('#menu-sheet').evaluate(sheet => [...sheet.children].reduce((sum, child) => sum + Math.max(child.scrollHeight, child.getBoundingClientRect().height), 0));
+        assert(sheetBox.height <= contentHeight + 3, 'The king sheet has no empty height after its content');
       }
       await page.evaluate(() => window.harnessSetContext({ theme: 'light', deviceCapabilities: { touch: true }, safeAreaInsets: { top: 6, right: 8, bottom: 18, left: 12 } }));
       await setupFits(390, 844, `${state}-safe`, false);

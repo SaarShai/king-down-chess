@@ -764,10 +764,10 @@ it.each([[320, 568, 84], [320, 568, 180], [393, 852, 118], [820, 600, 34], [852,
     expect(await frame.locator('#menu-draw').isVisible()).toBe(true);
     expect(await frame.locator('#menu-abort small').textContent()).toBe('No result, until each side moves once.');
     expect(await frame.locator('#reload').textContent()).toBe('Refresh the board');
-    expect(await frame.locator('#board-sheet').evaluate(sheet => {
-      const body = sheet.querySelector('.sheet-body')!, box = sheet.getBoundingClientRect();
-      return body.scrollHeight <= body.clientHeight + 1 && [...sheet.querySelectorAll<HTMLElement>('button')].filter(b => b.getClientRects().length).every(b => {const r=b.getBoundingClientRect();return r.top>=box.top && r.bottom<=box.bottom+1;});
-    })).toBe(true);
+    for (const button of await frame.locator('#board-sheet button:visible').all()) {
+      await button.scrollIntoViewIfNeeded();
+      expect(await button.evaluate(button => { const r = button.getBoundingClientRect(); return button.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
+    }
     await page.keyboard.press('Escape');
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView({...next,draw_offer:1}), next);
     expect(await frame.locator('#context-actions #accept-draw').isVisible()).toBe(true);

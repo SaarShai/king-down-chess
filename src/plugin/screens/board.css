@@ -26,7 +26,6 @@ body[data-page='end'] #table-bar { visibility: hidden; }
 #board-sheet .sheet-head button { width: 44px; min-width: 44px; padding: 0; justify-content: center; }
 #board-sheet .sheet-body { display: flex; flex-direction: column; gap: 8px; }
 #board-sheet .sheet-body > button { justify-content: center; text-align: center; }
-.frame #board-sheet.board-menu { max-height: 100%; }
 #board-sheet.board-menu .sheet-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 #board-sheet.board-menu .sheet-body > button { min-width: 0; flex-direction: column; padding: 6px; }
 #board-sheet.board-menu small { font-size: var(--fs-xs); line-height: 1.2; font-weight: 400; }

@@ -2571,3 +2571,20 @@ it('shows You and Profile for an unnamed player, and keeps a chosen host-like na
     await frame.locator('#page-title').filter({ hasText: 'host0-player' }).waitFor();
   } finally { await page.close(); await isolated.close(); }
 });
+
+it.each([390, 1280])('fits a short sheet at %s px and keeps a tall sheet scrollable', async width => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.setViewportSize({ width, height: 844 }); await hall(page);
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } });
+    });
+    await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click();
+    const sizes = await frame.locator('#board-sheet').evaluate(el => ({ sheet: el.getBoundingClientRect().height, frame: document.getElementById('app-frame')!.getBoundingClientRect().height }));
+    if (width === 390) expect(sizes.sheet).toBe(sizes.frame);
+    else expect(sizes.sheet).toBeLessThan(sizes.frame - 100);
+    await frame.locator('#board-sheet .sheet-body').evaluate(body => { for (let i = 0; i < 100; i++) { const p = document.createElement('p'); p.textContent = 'A tall sheet keeps all its words.'; body.append(p); } body.scrollTop = body.scrollHeight; });
+    expect(await frame.locator('#board-sheet .sheet-body').evaluate(el => el.scrollTop > 0 && el.clientHeight < el.scrollHeight)).toBe(true);
+  } finally { await page.close(); }
+});

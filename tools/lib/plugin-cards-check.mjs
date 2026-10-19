@@ -57,6 +57,7 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   const saved = await shown();
   await grid.scrollIntoViewIfNeeded(); await shot(page, 'cards-picked-four');
   for (const exit of ['Close','Escape','scrim']) {
+    await page.setViewportSize({ width: exit === 'scrim' ? 1000 : 393, height: 900 });
     await frame.locator('#setup-cards').click(); await sheet.locator('input[value="MorphP"]').uncheck();
     if (exit === 'Close') await frame.locator('#menu-close').click();
     else if (exit === 'Escape') await page.keyboard.press('Escape');

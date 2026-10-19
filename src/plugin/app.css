@@ -39,10 +39,10 @@ html { font-variant-numeric: lining-nums; }
 /* Above the page's raised controls (the Moves line, the status-row actions, the end header: z-index 1 to 3). */
 .frame :is(.scrim, .over-sheet) { z-index: 10; }
 .frame .over-sheet {
-  position: absolute; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: calc(100% - 40px); height: auto;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  position: absolute; inset: 0; margin: 0; width: 100%; max-width: none; max-height: 100%; height: 100%;
+  border-radius: 0;
 }
-@media (min-width: 900px) { .frame .over-sheet { inset: 0; margin: auto; width: min(560px, calc(100% - 48px)); max-height: calc(100% - 48px); border-radius: var(--radius-lg); } }
+@media (min-width: 900px) { .frame .over-sheet { inset: 0; margin: auto; width: min(560px, calc(100% - 48px)); height: fit-content; max-height: calc(100% - 48px); border-radius: var(--radius-lg); } }
 .over-sheet .new-game-foot { display: flex; align-items: center; gap: var(--space-3); padding-bottom: 16px; }
 .over-sheet .new-game-foot button { width: auto; flex: 1; }
 .foot-count { flex: 1; margin: 0; color: var(--ink-soft); }
@@ -183,8 +183,8 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
    The screen is the size container for the short-phone table rows (tools/plugin-ui-build.mjs). */
 .page-sheet > :is([data-screen='seat'], [data-screen='board'], [data-screen='end']) { position: relative; container: table-screen / size; }
 .page-sheet > :is([data-screen='seat'], [data-screen='board']) > #game-table, #end-table > #game-table { position: absolute; inset: 0; height: auto; margin: 0 auto; }
-.frame #menu-sheet { max-height: calc(100% - 40px); }
-@media (min-width: 900px) { .frame #menu-sheet { max-height: calc(100% - 48px); } }
+.frame #menu-sheet { width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
+@media (min-width: 900px) { .frame #menu-sheet { width: min(560px, calc(100% - 48px)); height: fit-content; max-height: calc(100% - 48px); border-radius: var(--radius-lg); } }
 .page-sheet form.new-game-body { display: block; margin: 0; }
 .page-sheet .code-row { margin: 0; flex-wrap: nowrap; }
 .page-sheet .new-game-foot { flex: none; padding: 12px 16px; }

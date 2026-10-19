@@ -47,8 +47,7 @@ label.check.pick.locked input:disabled { background-color: var(--stone-500); bor
 .setup-sheet .power-choice button[aria-disabled='true'] { opacity: 1; color: var(--stone-500); background: var(--stone-100); box-shadow: none; border-color: var(--stone-300); }
 .setup-sheet .power-choice button[aria-pressed='true'] { color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent)); border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep); }
 .setup-sheet .power-text.off { color: var(--ink-soft); min-height: 0; }
-.frame #menu-sheet.setup-sheet { width: 100%; height: auto; max-height: calc(100% - 40px); }
-@media (min-width: 900px) { .frame #menu-sheet.setup-sheet { width: min(560px, calc(100% - 48px)); max-height: calc(100% - 48px); } }
+
 
 /* Lively: the chosen king's emblem turns over once (320 ms). */
 .setup-sheet button.emblem.is-flip img { animation: emblem-flip 320ms cubic-bezier(.05,.7,.1,1); }

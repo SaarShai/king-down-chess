@@ -180,3 +180,9 @@ The app already shows You on the board and seat, Profile as the title, and Choos
 Limit: this lane cannot inspect a signed-in ChatGPT session. The house rules forbid sign-in. The null case uses the real plugin protocol in the local host.
 
 Taste: keep Choose a name in Settings. No name is made up or hidden.
+
+### A25
+
+Wide sheets fit their content within a 24 px top and bottom margin. Tall sheets scroll inside that limit. Phone sheets fill the frame. Shared sheet rules replace the separate king-sheet size rules.
+
+Taste: use the current 24 px wide-screen margin.
