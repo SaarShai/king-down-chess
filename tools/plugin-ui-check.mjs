@@ -1,5 +1,5 @@
 import { checkTabletSelection } from './lib/plugin-tablet-check.mjs';
-import { checkTablet, checkFlatRows, checkSegments } from './lib/plugin-tablet-check.mjs';
+import { checkTablet, checkFlatRows, checkSegments, checkFocus } from './lib/plugin-tablet-check.mjs';
 import { checkAndroidFixes } from './lib/plugin-android-check.mjs';
 import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
@@ -171,6 +171,7 @@ try {
   assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests ?? []), [], 'Mount sends no fullscreen request');
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), 0, 'An empty home reads no board');
   await checkTablet(page, frame);
+  await checkFocus(page, frame);
   await frame.locator('#home-games').click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
   await checkFlatRows(frame, '[data-screen="play"] .menu-row');
@@ -1192,7 +1193,7 @@ try {
   await frame.locator('#symbols-only:not(:disabled)').waitFor();
   assert(await frame.locator('#symbols-only').isChecked());
   await checkFlatRows(frame, '#settings-sheet .fields > label');
-  await checkSegments(frame);
+  await checkSegments(page, frame);
   assert.equal(await page.evaluate(() => window.harnessWidgetState.modelContent.game_id), undefined);
   assert.deepEqual(await page.evaluate(() => Object.keys(window.harnessWidgetState.privateContent).sort()), ['board_id', 'pending', 'screen', 'sheet']);
   const settingsReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
@@ -2021,6 +2022,17 @@ try {
   await frame.locator('#strip-me .card-coin').nth(cardIndex).and(frame.locator('[data-state="used"]')).waitFor();
   assert.equal(await frame.locator('#strip-me .card-coin').nth(cardIndex).getAttribute('data-state'),'used','The played card is spent');
   await page.waitForFunction(id=>window.harnessView.game_id===id&&window.harnessView.turn===window.harnessView.seat,cardView.game_id); await idleBoard(); await boardBox();
+  const spentCoin = frame.locator('#strip-me .card-coin').nth(cardIndex);
+  await page.keyboard.press('Tab'); await spentCoin.focus();
+  const spentFocus = await spentCoin.evaluate(el => {
+    const s = getComputedStyle(el); return { keyboard: el.matches(':focus-visible'), filter: s.filter, art: getComputedStyle(el.querySelector('img')).filter, ink: s.outlineColor, width: s.outlineWidth, gold: s.boxShadow };
+  });
+  assert(spentFocus.keyboard, 'A spent coin can have keyboard focus');
+  assert.equal(spentFocus.filter, 'none', 'The spent state does not turn the focus ring grey');
+  assert.equal(spentFocus.art, 'grayscale(1)', 'The spent card art stays grey');
+  assert.equal(spentFocus.ink, 'rgb(43, 38, 33)'); assert.equal(spentFocus.width, '2px');
+  assert.match(spentFocus.gold, /rgb\(233, 192, 113\).*4px/);
+  await spentCoin.blur();
   async function arrivalTool(name,args,friend=false) {return (await page.request.post(new URL(friend?'/fixture-friend-tool':'/fixture-tool',base).href,{data:{name,arguments:args}})).json();}
   const arrival=await arrivalTool('kingdown_create',{kind:'friend',colour:'white',board_id:cardBoard,options:{...DEFAULT_OPTIONS,fairy:false,arrangement:false,kingPowers:false,cards:true,cardPool:['Salvation','Freeze','IceWall','Vault']}}); assert(!arrival.isError);
   const arrivalInvite=await arrivalTool('kingdown_invite',{game_id:arrival._meta.view.game_id}); assert(!arrivalInvite.isError);

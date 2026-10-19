@@ -60,10 +60,23 @@ export async function checkFlatRows(frame, selector) {
   }
 }
 
-export async function checkSegments(frame) {
+export async function checkSegments(page, frame) {
   const style = await frame.locator('#online-visibility label:has(input:checked)').evaluate(el => {
     const s = getComputedStyle(el); return { color: s.color, face: s.backgroundColor, image: s.backgroundImage, ring: s.boxShadow };
   });
   assert.equal(style.face, 'rgb(77, 69, 60)'); assert.equal(style.color, 'rgb(251, 247, 238)');
   assert.equal(style.image, 'none'); assert.match(style.ring, /rgb\(233, 192, 113\).*2px/);
+  const radio = frame.locator('#online-visibility input:checked');
+  await page.keyboard.press('Tab'); await radio.focus();
+  const focus = await radio.evaluate(el => { const s = getComputedStyle(el.closest('label')); return { keyboard: el.matches(':focus-visible'), ink: s.outlineColor, width: s.outlineWidth, gold: s.boxShadow }; });
+  assert(focus.keyboard, 'The selected segment has keyboard focus'); assert.equal(focus.ink, 'rgb(43, 38, 33)'); assert.equal(focus.width, '2px');
+  assert.match(focus.gold, /rgb\(233, 192, 113\).*2px/);
+}
+
+export async function checkFocus(page, frame) {
+  const button = frame.locator('#home-play');
+  await page.keyboard.press('Tab'); await button.focus();
+  const ring = await button.evaluate(el => { const s = getComputedStyle(el); return { keyboard: el.matches(':focus-visible'), color: s.outlineColor, width: s.outlineWidth, shadow: s.boxShadow }; });
+  assert(ring.keyboard, 'The main action has keyboard focus'); assert.equal(ring.color, 'rgb(43, 38, 33)'); assert.equal(ring.width, '2px');
+  assert.match(ring.shadow, /rgb\(233, 192, 113\).*4px/);
 }

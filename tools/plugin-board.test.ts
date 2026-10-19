@@ -1686,7 +1686,7 @@ it('F05: draws one keyboard cursor at the tile and clears it on Escape or blur',
     expect(await frame.locator('#board-marks[aria-hidden="true"]').count()).toBe(1);
     expect(await frame.locator('#board .mk-cursor').count()).toBe(1);
     const box = await cursorBox(); expect(box.dx).toBeLessThanOrEqual(1); expect(box.dy).toBeLessThanOrEqual(1); expect(box.dw).toBeLessThanOrEqual(1);
-    expect(box.border).toBe('3px'); expect(box.color).toBe('rgb(28, 91, 176)');
+    expect(box.border).toBe('2px'); expect(box.color).toBe('rgb(43, 38, 33)');
     await frame.locator('#board .mk-cursor').evaluate(e => { (e as HTMLElement).style.visibility = 'hidden'; });
     await frame.locator('#board').screenshot({ path: join(proof, 'f05-before.png') });
     await frame.locator('#board .mk-cursor').evaluate(e => { (e as HTMLElement).style.visibility = ''; });

@@ -95,3 +95,9 @@ Taste choice: use the existing deep red and cream tokens for the face and words.
 Menu rows, settings rows, the moves line, and profile rows use a flat face and a 1 px divider. Each row has a 48 px minimum height. Long words can grow the row. Segments share one boundary. A selected segment uses dark stone colour and a 2 px gold ring. The old broad stone rule is removed.
 
 Taste choices: use a 12 px text inset. Keep art and portraits at 40 px in a menu row. Put the board menu in one column, so its dividers form one clear list. Keep a 56 px game bar to fit the 52 px main tablet and its touch space.
+
+## A34 preview
+
+Keyboard focus uses two 2 px rings: warm ink and light gold. It works on the web and in the plugin. Segments and the board keep the rings inside their bounds. The keyboard square cursor uses the same colours.
+
+Taste choice: use #2b2621 ink and #e9c071 gold. The focus shadow has priority over a control finish while keyboard focus is visible. The ink has more contrast on parchment than the old blue. Gold has at least 4.5:1 on dark stone. A unit test checks both.
