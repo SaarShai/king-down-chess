@@ -2465,15 +2465,24 @@ try {
   assert(await frame.getByRole('radio',{name:'Computer',exact:true}).isChecked());
   assert(await frame.getByRole('radio',{name:'White',exact:true}).isChecked());
   if (capabilities.friend) {
+    // harnessShow returns when the host sends the chat result, before the frame mounts it, so #reload can still show the
+    // step before it. The mount's board read (a kingdown_get with no since_revision; a poll read has one) proves that the
+    // frame took the result, and the mount keeps #reload off until it ends. Else a later hold catches that read (ticket 54).
+    async function showFull(full) {
+      const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get'&&c.arguments?.since_revision===undefined).length);
+      await page.evaluate(r=>window.harnessShow(r),full);
+      await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get'&&c.arguments?.since_revision===undefined).length>n,reads);
+      await idleBoard();
+    }
     async function joinedGame() {
       const board_id=await page.evaluate(()=>window.harnessWidgetState.privateContent.board_id);
       const made=await tool('kingdown_create',{kind:'friend',options,colour:'white',board_id}); assert(!made.isError);
       const invite=await tool('kingdown_invite',{game_id:made._meta.view.game_id}); assert(!invite.isError);
       const join=await friendTool('kingdown_join',{code:invite.structuredContent.code}); assert(!join.isError);
-      const full=await tool('kingdown_get',{board_id}); await page.evaluate(r=>window.harnessShow(r),full); await idleBoard();
+      const full=await tool('kingdown_get',{board_id}); await showFull(full);
       await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); return full._meta.view;
     }
-    async function readGame() { const board_id=await page.evaluate(()=>window.harnessWidgetState.privateContent.board_id); const full=await tool('kingdown_get',{board_id}); await page.evaluate(r=>window.harnessShow(r),full); await idleBoard(); return full._meta.view; }
+    async function readGame() { const board_id=await page.evaluate(()=>window.harnessWidgetState.privateContent.board_id); const full=await tool('kingdown_get',{board_id}); await showFull(full); return full._meta.view; }
     let human=await joinedGame();
     await frame.locator('#board-menu').click(); await frame.locator('#menu-draw').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Offer draw',exact:true}).click(); await idleBoard();
     let current=await page.evaluate(()=>window.harnessView);
