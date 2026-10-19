@@ -169,6 +169,11 @@ the clock, and with the boot ports closed. Each widget has a 96 MiB
 marker. Six remounts, collection, old-iframe WeakRefs and a WebKit heap
 snapshot separate retained references from cached native memory.
 
+Probe run 39319558684 fails before checkout. It runs no browser or probe.
+The job-level `NODE_OPTIONS` names a file that does not exist before
+checkout. Put such a preload on the shell test step, as the full check's
+sampler does. The correction moves that setting to `npm test`.
+
 ## Verification criteria
 
 - A focused retention probe separates the cause from the other candidates.

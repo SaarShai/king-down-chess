@@ -11,7 +11,6 @@ jobs:
     env:
       PLAYABLE_BROWSER: webkit
       KINGDOWN_TEST_FILE: tools/webkit-retention-probe.test.ts
-      NODE_OPTIONS: --import ${{ github.workspace }}/tools/probe-retention-handles.mjs
       DEBUG: pw:browser
     steps:
       - uses: actions/checkout@v4
@@ -22,6 +21,9 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps webkit
       - run: npm test
+        env:
+          # A preload from the checkout belongs on the test step; Node actions run before checkout.
+          NODE_OPTIONS: --import ${{ github.workspace }}/tools/probe-retention-handles.mjs
       - if: always()
         uses: actions/upload-artifact@v4
         with:
