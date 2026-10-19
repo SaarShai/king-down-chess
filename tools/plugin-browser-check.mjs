@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { mkdtemp, rm } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -76,7 +77,7 @@ try {
     const { startHarness } = await import('./plugin-ui-harness.ts');
     harness = await startHarness({ boardPath: join(build, 'board.html'), endpoint, actor: actors[0], friendActor: actors[1], laterFriendActor: actors[2], seedPosition, deleteMatch });
   }
-  if (mode === 'fixture' && process.env.KD_GUI_PREVIEW) {
+  if (mode === 'fixture' && existsSync('docs/specs/gui-previews-2026-10-19/capture.json')) {
     child = spawn(process.execPath, ['docs/specs/gui-previews-2026-10-19/capture.mjs', build], {
       stdio: 'inherit', env: process.env,
     });

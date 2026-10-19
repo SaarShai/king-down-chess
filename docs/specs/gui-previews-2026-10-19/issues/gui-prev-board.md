@@ -90,3 +90,13 @@ Base: `bc62f4ee`. Build A14, A15, A17, A18, A27, A39, and A8 in that order. Keep
 For each item: add a behaviour check, run the type check and unit tests, commit, then run `plugin-ui` with the lane runner. Capture the changed screens at device scale 2. Use the saved base build for before screens. Inspect the screen pairs. Keep all work on this branch for owner approval.
 
 The final check covers all seven items. No server contract changes are planned.
+
+## A14 check record
+
+The visible label and sword pass the screen check at both plugin sizes, in both host themes, for computer and person games. The type check passes. The eight after screens are in `previews/`. The full plugin check passes before the capture step in run A14-1. Run A14-4 reaches the fixed 420 second limit. The unit test run remains in the shared test queue.
+
+Taste: the sword is 22 by 16 px. The gap is 6 px. The 16 px label can wrap on narrow screens.
+
+## A15 preview
+
+Keep the foot glow. Draw a 1.5 CSS px gold ring after the last figure row. Use the legend gold and a dark gold edge. The unit check covers both board directions and the final draw order.

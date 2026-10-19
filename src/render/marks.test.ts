@@ -54,7 +54,7 @@ it('draws a move as a tile, and a take on a figure as the red edge and ring unde
   expect(draw(undefined, undefined, { marks, board }).calls).toEqual(['rect', 'rect', 'badge', 'badge']);
 });
 
-it('puts the gold glow under the selected piece, with no ring, and joins its line with a rail', () => {
+it('keeps the gold glow under the selected piece and joins its line with a rail', () => {
   const calls: string[] = [], gradient = () => ({ addColorStop() {} });
   const ctx = {
     globalAlpha: 1, save() {}, restore() {}, beginPath() {}, fill() {}, stroke() {}, translate() {}, scale() {}, lineTo() {}, roundRect() {}, arc() {},
@@ -94,4 +94,21 @@ it('uses the piece look for the move preview at half opacity', () => {
   let preview: unknown;
   draw(undefined, undefined, { marks: { moves: [0] }, piece: 2, ...{ ghost: (_ctx: CanvasRenderingContext2D, piece: number, square: number, opacity: number) => { preview = [piece, square, opacity]; } } }, 'under');
   expect(preview).toEqual([2, 0, 0.5]);
+});
+
+it('draws the selected ring after all figure rows, at CSS width in either board direction', () => {
+  for (const flipped of [false, true]) {
+    const strokes: [string, number][] = [], rings: number[][] = [];
+    const ctx = { globalAlpha: 1, save() {}, restore() {}, beginPath() {},
+      ellipse(...args: number[]) { rings.push(args); },
+      stroke(this: {strokeStyle: string; lineWidth: number}) { strokes.push([this.strokeStyle, this.lineWidth]); },
+    } as unknown as CanvasRenderingContext2D;
+    const scene = { PAD: 32, TILE: 112, cell: () => ({col:4,row:flipped ? 7 : 0}), foot: () => ({x:480,y:flipped ? 900 : 120}) } as unknown as PaintedScene;
+    const state: MarkState = { marks: {selected:60}, piece:0, preview:null, k:1, px:2, motion:false, since:0 };
+    for(let row=0;row<7;row++) drawMarks(ctx,scene,'over',state,row);
+    expect(rings).toEqual([]);
+    drawMarks(ctx,scene,'over',state,7);
+    expect(rings).toEqual([[480,flipped ? 896 : 116,40.32,12.32,0,0,Math.PI*2]]);
+    expect(strokes).toEqual([['#7a5712',6],['#e9c071',3]]);
+  }
 });
