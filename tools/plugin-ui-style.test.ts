@@ -19,3 +19,9 @@ it('imports game tokens and components without lesson, account or title lineup r
     expect(flat).toMatch(/@keyframes card-spend\{to\{opacity:\.85\}/);
   } finally { await rm(folder, { recursive: true, force: true }); }
 });
+
+it('centres the phone title group and keeps all twelve figures', async () => {
+  const css = await readFile('src/style.css', 'utf8'), html = await readFile('index.html', 'utf8');
+  expect(css).toContain('grid-template-rows: min(44vw, 200px) auto auto; align-content: safe center');
+  expect(html.match(/class="title-lineup"[\s\S]*?<\/ul>/)?.[0].match(/<li /g)).toHaveLength(12);
+});

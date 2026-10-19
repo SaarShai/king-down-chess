@@ -146,3 +146,9 @@ Taste: use the native disclosure mark and the current row style.
 Guide opens the six current lessons. A separate board holds each lesson. It sends no game command. Return to game keeps the live game. Resign is last with a 16 px gap. The web confirm gives Keep playing the main style. Tests cover each lesson goal, live rules and the return path.
 
 Taste: use the current joined shelf in three columns. Use the current board art and rule text.
+
+### A7
+
+The phone title group uses the centre of the screen height. The twelve figures and their sizes stay the same. Short screens can scroll.
+
+Taste: keep the king stage at 44 percent of the screen width, up to 200 px. Use the current 24 px space under the title copy.

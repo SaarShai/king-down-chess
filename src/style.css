@@ -648,9 +648,10 @@ label.army select { width: 100%; font-weight: 400; }
   .pc-medallion { width: 52px; height: 52px; font-size: 24px; margin-bottom: 20px; }
   .piece-card dl { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .piece-card dd { margin-bottom: 4px; }
-  #title-screen[open] { grid-template-rows: minmax(0, 1fr) auto auto; }
+  #title-screen[open] { grid-template-rows: min(44vw, 200px) auto auto; align-content: safe center; overflow-y: auto; }
+  #title-screen .title-copy { padding-bottom: var(--space-4); }
   /* All six inside a 390 px screen with its 16 px gutters: smaller, overlapping a little more. */
-  .title-kings { height: min(52%, 32vw); bottom: 8%; }
+  .title-kings { height: 32vw; bottom: 8%; }
   .title-kings img { margin: 0 -2.4%; }
   /* Two rows of six on a phone, each on its own ledge line. */
   .title-lineup { --fig: 64px; flex-wrap: wrap; gap: 4px 0; width: min(100%, 380px); padding: 0 var(--space-3); }
