@@ -23,7 +23,7 @@ try {
   assert(existsSync(pluginPath), `Missing saved preview build: ${pluginPath}`);
   current = await startHarness({ boardPath: pluginPath });
   const savedWeb = join(root, `${snapshot}-web`);
-  if (['A15','A17','A39','base'].includes(snapshot)) {
+  if (['A15','A17','base'].includes(snapshot)) {
     assert(existsSync(savedWeb), `Missing saved web build: ${savedWeb}`);
     web = await preview({ configFile: false, logLevel: 'error', build: { outDir: savedWeb }, preview: { host: '127.0.0.1', port: 0, strictPort: true } });
   }
@@ -124,7 +124,30 @@ try {
       for(const id of items) {
         if(id==='A15'){await open('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1');await tap(12);await shot(id,'selected-behind');}
         if(id==='A17'){await open('7k/8/8/4p3/8/8/P7/K7 w - - 0 1 me5w2','&kings=Frost:Freeze,none');await shot(id,'frozen');}
-        if(id==='A39'){await open('7k/8/8/3p4/3O4/8/8/K7 w - - 0 1');await tap(27);await tap(35);await p.locator('#move-choice[open]').waitFor();await shot(id,'take-shove');if(phase==='after'){const bounds=await p.evaluate(()=>{const b=document.querySelector('#board').getBoundingClientRect(),d=document.querySelector('#move-choice').getBoundingClientRect(),q=window.view.screenOf(35);return {board:b.bottom,top:d.top,bottom:d.bottom,height:innerHeight,target:q.y};});assert(bounds.top>bounds.target && bounds.bottom<=bounds.height,JSON.stringify(bounds));}}
+        if (id === 'A39') {
+          for (const flipped of [false, true]) {
+            await open(flipped ? 'K7/3p4/3O4/8/8/8/8/7k w - - 0 1' : '7k/8/8/8/8/3O4/3p4/K7 w - - 0 1');
+            await p.evaluate(flipped => window.view.flip(flipped), flipped);
+            await tap(flipped ? 43 : 19); await tap(flipped ? 51 : 11);
+            await p.locator('#move-choice[open]').waitFor();
+            async function clearSquares() {
+              await p.waitForFunction(() => {
+                const board = document.querySelector('#board').getBoundingClientRect(), canvas = document.querySelector('#board canvas').getBoundingClientRect(), choice = document.querySelector('#move-choice').getBoundingClientRect();
+                return board.height > 0 && canvas.bottom <= board.bottom + 1 && choice.top >= board.bottom + 11 && choice.bottom <= innerHeight - 11;
+              });
+            }
+            if (phase === 'after') await clearSquares();
+            await shot(id, flipped ? 'take-shove-flipped' : 'take-shove');
+            if (phase === 'after') {
+              await p.setViewportSize({width, height:height - 100}); await clearSquares();
+              await p.setViewportSize({width,height}); await clearSquares();
+              assert.equal(await p.locator('#move-choice').evaluate(d => d.contains(document.activeElement)), true, 'The choice keeps focus after resize');
+            }
+            await p.keyboard.press('Escape');
+            assert.equal(await p.locator('#move-choice').evaluate(d => d.open), false);
+            if (phase === 'after') assert.equal(await p.locator('#board').evaluate(b => b.style.maxHeight), '', 'Cancel releases the board space');
+          }
+        }
         if(id==='A8'){await open('7k/8/8/8/8/8/P7/K7 w - - 0 1');await p.locator('#menu-btn').click();await p.locator('[data-go="help"]').click();await shot(id,'settings');}
       }
       await ctx.close();

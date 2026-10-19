@@ -1,6 +1,6 @@
 # GUI previews 2026-10-19: the board screen and play loop
 
-Status: done
+Status: in progress
 Type: task
 
 ## Why and the rule
@@ -158,3 +158,13 @@ The final record change also makes a missing saved build fail with a clear error
 The review checks the changed marks, words, action targets, spacing, and dialog positions against the seven picks. The turn label first has a 14 px cascade fault; the fix sets it to 16 px. The Animations row first has a 12 px gutter fault; the fix aligns it with Sound. The final screens show no further fault in the changed parts. The selected pawn's ring stays visible above the front king. The frost pips stay sharp. The choice leaves the Ogre, victim, and landing square in view.
 
 No item is left unbuilt. No new bitmap art is needed. Nothing is pushed, merged, or deployed. The required full unit check remains open because of the shared lock.
+
+## Review fix plan
+
+Check both reviews against the source. Fix the six distinct faults. Keep the three item fixes in separate commits.
+
+- A39: reserve space below the board. Check lower-rank targets and landing squares in both board directions, on phone and desktop. Check resize and Cancel.
+- A8: make Off stop aiming. Advance the pawn test timers. Check the phone select with a real tap. Capture the web Menu and assert its labels and options.
+- A17: check the actual board drawing after Freeze, expiry, and Undo. A removed draw call must fail the test.
+
+Verification: run `npm test` with the local test database. Run `plugin-ui` and `gui-board-preview` through the lane runner after commits. Keep the fixed time limits. No server code changes are needed.

@@ -439,7 +439,12 @@ export function connectPlay(view: BoardView, c: {
     $('choose-capture').textContent = `Take on ${target}`;
     $('choose-push').textContent = `Shove to ${destination}`;
     let stopPlacing = () => {};
-    const place = () => Object.assign(dlg.style, boardFoot($('board').getBoundingClientRect(), dlg.getBoundingClientRect(), {width:innerWidth,height:innerHeight}));
+    const board = $('board');
+    const place = () => {
+      board.classList.add('choosing-move');
+      board.style.maxHeight = `${Math.max(0, innerHeight - board.getBoundingClientRect().top - dlg.getBoundingClientRect().height - 24)}px`;
+      Object.assign(dlg.style, boardFoot(board.getBoundingClientRect(), dlg.getBoundingClientRect(), {width:innerWidth,height:innerHeight}));
+    };
     const move = await new Promise<Move | null>(resolve => {
       const done = (m: Move | null): void => { stopPlacing(); closeMoveChoice = null; dlg.close(); resolve(m); };
       closeMoveChoice = () => done(null);
@@ -451,7 +456,7 @@ export function connectPlay(view: BoardView, c: {
       dlg.showModal(); place();
       const observer = new ResizeObserver(place); observer.observe($('board')); observer.observe(dlg);
       window.addEventListener('resize', place);
-      stopPlacing = () => { observer.disconnect(); window.removeEventListener('resize', place); };
+      stopPlacing = () => { observer.disconnect(); window.removeEventListener('resize', place); board.classList.remove('choosing-move'); board.style.maxHeight = ''; };
     });
     if (generation !== gen) return;
     busy = false;
