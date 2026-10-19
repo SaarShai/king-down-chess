@@ -226,7 +226,7 @@ This status closes the preview build. Each item still needs Saar's taste approva
 
 ## Review repair plan
 
-Status: checks in progress.
+Status: complete. All review checks pass.
 
 1. Check both reviews against the current code. Treat the two edge reports as one fault.
 2. Reset the lesson cursor, clamp each axis, and test the cursor and all six final positions. Test real board taps.
@@ -247,3 +247,19 @@ Pass criteria: each confirmed finding has a test; all required checks pass; the 
 - A28, Free after refusal: confirmed. `markHandleTaken(true)` leaves the free mark visible. It now hides that mark. The test waits for Free, refuses Save, then checks the field, error and hidden mark.
 
 No finding is refuted. No production server code changes.
+
+### Review check results
+
+Code commit: `0b29f7cf63cb9791fe1c9e28c6f89be63c186924`.
+
+- `PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:55432/kingdown_dbc_fault_round_2_test VITEST_MAX_WORKERS=2 npm test` passes. All 195 files pass. There are 3,267 passing tests and 8 skips. All 51 art tests pass. Type check passes. The suite takes 625.40 s after it gets the shared lock. No test limit changes.
+- The required runner passes `plugin-ui` on the M1 in 229.9 s. Its last line is `check-runner: M1 exit 0 at 0b29f7cf`. The four edge checks run against the built page. The full source suite checks the drawn cursor, taps and final positions.
+- No server code changes. `plugin-ui-http` is not required.
+- The image repair replaces all four A23 board pairs: phone and wide, light and dark. Both capture scripts wait for the playing screen, visible canvas and completed board reveal. It also refreshes the A6 plugin after images and A11 web after images. There are 68 new captures in total: 16 base images and 52 repair images.
+- The image audit passes for all 244 images and 122 pairs. It checks size, commit, pair and hash. The repair manifest records each image's exact commit. The web note is centred under its button. The full board shows in both host themes and sizes. The Beast view starts its drawn cursor on d4.
+- The built plugin HTML is 765,677 bytes. Its MCP payload is 769,600 bytes. Both stay below 1,000,000 bytes.
+- `git diff --check` passes. The final ticket commit changes no code or test file after the tested code commit.
+
+Evidence in the lane folder: `tests-review-fix-1.txt`, `checks-review-fix-1.txt`, `browser-review-fix.log`, `captures-review-fix-1.txt`, `review-image-commits.json`, and `previews/manifest.json`. `previews/INDEX.md` links the image pairs. `capture.mjs`, `capture-dark.mjs` and `audit-previews.py` hold the capture repair.
+
+The native ChatGPT check stays open under the no-sign-in rule. This repair adds no taste choice. The original preview items still need the owner's taste approval.
