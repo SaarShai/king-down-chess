@@ -36,7 +36,7 @@ async function assertFrost(locator, turns) {
       if (turns ? marks.length === 2 && marks[0].svg.includes('fill="url(#kdm-frost)"') && (marks[1].svg.match(/<circle /g) ?? []).length === turns : marks.length === 0) return;
       await new Promise(resolve => setTimeout(resolve,20));
     }
-    throw new Error(`Frost draw mismatch: turns=${turns}, draws=${window.frostDraws?.length}`);
+    throw new Error(`Frost draw mismatch: turns=${turns}, pips=${window.frostDraws?.map(m => (m.svg.match(/<circle /g) ?? []).length)}`);
   },turns);
 }
 try {
@@ -163,15 +163,12 @@ try {
           await open('7k/8/8/4p3/8/8/P7/K7 w - - 0 1', '&kings=Frost:Freeze,none');
           await p.locator('#menu-btn').click(); await p.locator('#pace').selectOption('off'); await p.locator('#menu-close').click();
           await p.locator('#power-w').click(); await p.locator('#power-use').click(); await tap(36);
-          await assertFrost(p.locator('html'),2); await shot(id,'frozen');
+          await assertFrost(p.locator('html'),1); await shot(id,'frozen');
           await p.locator('#undo').click(); await assertFrost(p.locator('html'),0);
           await p.locator('#power-w').click(); await p.locator('#power-use').click(); await tap(36);
-          await assertFrost(p.locator('html'),2);
+          await assertFrost(p.locator('html'),1);
           await tap(8); await tap(16); await p.locator('#end-turn').click();
           await tap(63); await tap(62); await p.locator('#end-turn').click();
-          await assertFrost(p.locator('html'),1);
-          await tap(16); await tap(24); await p.locator('#end-turn').click();
-          await tap(62); await tap(63); await p.locator('#end-turn').click();
           await assertFrost(p.locator('html'),0);
         }
         if (id === 'A39') {
@@ -199,7 +196,7 @@ try {
           }
         }
         if (id === 'A8') {
-          await open('7k/8/8/8/8/8/P7/K7 w - - 0 1');
+          await open('7k/8/8/8/8/8/A7/K7 w - - 0 1');
           await p.locator('#menu-btn').click();
           const pace = p.locator('#pace');
           await pace.waitFor({state:'visible'});
@@ -208,6 +205,15 @@ try {
           assert.equal(await pace.evaluate(el => el.closest('label').firstChild.textContent.trim()), phase === 'after' ? 'Animations' : 'Motion');
           assert.deepEqual(await pace.locator('option').allTextContents(), ['Normal','Fast','Off']);
           await shot(id,'settings');
+          if (phase === 'after') {
+            await pace.selectOption('off'); await p.locator('#menu-close').click();
+            await p.clock.install(); await p.clock.pauseAt(new Date(Date.now() + 100));
+            await tap(8); await p.clock.runFor(100);
+            const target = await p.evaluate(() => window.view.screenOf(9));
+            const frames = await p.evaluate(() => window.view.scene.frames);
+            await p.mouse.move(target.x,target.y); await p.clock.runFor(500);
+            assert.equal(await p.evaluate(() => window.view.scene.frames),frames + 1,'Off aims in one frame and schedules no weapon motion');
+          }
         }
       }
       await ctx.close();

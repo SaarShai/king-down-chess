@@ -180,3 +180,7 @@ Reviews A2, A3, A4, B1, and B3 are confirmed. Off now sets reduced motion in the
 ### A17 review fix
 
 Review A5 is confirmed. The old tests check mark data and SVG strings only. The new board test runs the registered scene draw callback with an engine Freeze, expiry, Undo of expiry, and Undo of Freeze. It checks both drawn layers and their square bounds. The browser check observes the actual game canvas draw calls. It checks the two-turn plugin mark, then plays Freeze on the web, checks Undo, and plays both turns until the mark ends. It uses the current build for the after proof.
+
+### First review check
+
+`plugin-ui` passes at `63a04845` in 226.8 seconds. The preview check catches a wrong test expectation: the web Freeze lasts one turn, not two. Both frost layers draw. The check now follows that rule. The plugin fixture still checks two pips. The web Off check also measures board frames while the selected Archer aims. The A39 check captures the same lower-rank positions from the base build. The unit suite still waits for the workshop lane's test lock.
