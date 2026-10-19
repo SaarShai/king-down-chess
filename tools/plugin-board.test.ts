@@ -1798,6 +1798,7 @@ it.each(['tap', 'Escape', 'drag', 'Menu Escape', 'Moves Escape'] as const)('F11:
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), { ...base, revision: 1, fen: toFen(pos), turn: 0, action: 'ready', legal: legalMoves(pos).map(m => toLan(pos, m)), last_commands: [{ seq: 1, seat: 1, at: base.server_now, action: { type: 'turn', actions } }] });
     expect(await frame.locator('#board').getAttribute('data-animating')).toBe('true');
     const timers = await frame.locator('html').evaluate(() => (window as any).zeroTimers);
+    if (input === 'Escape') { await frame.locator('#board').press('ArrowLeft'); expect(await frame.locator('#board .mk-cursor').count()).toBe(1); }
     const sheetEscape = input === 'Menu Escape' || input === 'Moves Escape';
     if (sheetEscape) {
       await frame.locator('#board-menu').click();
@@ -1820,6 +1821,8 @@ it.each(['tap', 'Escape', 'drag', 'Menu Escape', 'Moves Escape'] as const)('F11:
     expect(result.animating).toBe('false'); expect(result.calls).toBe(1); expect(result.hits).toBe(2);
     expect(result.syncs).toEqual([...positions, toFen(pos)]); expect(result.timers).toBeGreaterThan(timers);
     expect(await boardFen(page)).toBe(toFen(pos)); expect((await marks(page)).selected).toBeUndefined();
+    // Escape during motion also ends the keyboard cursor, as it does at rest.
+    if (input === 'Escape') expect(await frame.locator('#board .mk-cursor').count()).toBe(0);
     await squareTap(page, 12); expect((await marks(page)).selected).toBe(12);
   } finally { await page.close(); }
 });
