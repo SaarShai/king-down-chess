@@ -7,7 +7,8 @@ import { expect, it } from 'vitest';
 it('appends system data and only WebKit process rows, with 120 command characters, every five seconds', () => {
   const dir = mkdtempSync(join(tmpdir(), 'webkit-sampler-'));
   try {
-    const names = ['WebKitWebProcess', 'WebKitNetworkProcess', 'WebKitGPUProcess', 'MiniBrowser'];
+    const names = ['WebKitWebProcess', 'WebKitNetworkProcess', 'WebKitGPUProcess',
+      'WPEWebProcess', 'WPENetworkProcess', 'WPEGPUProcess', 'MiniBrowser'];
     const rows = names.map((name, i) => `${100 + i} 2048 1.5 00:10 /opt/webkit/${name} ${'x'.repeat(150)}`);
     rows.push('999 1024 0.0 00:01 /usr/bin/node unrelated');
     const command = (name: string, body: string) => writeFileSync(join(dir, name), `#!/bin/sh\n${body}\n`, { mode: 0o755 });
@@ -25,7 +26,7 @@ it('appends system data and only WebKit process rows, with 120 command character
     const text = readFileSync(log, 'utf8');
     expect(text).toMatch(/^prior data\nepoch: 1234567890\n/);
     expect(text.endsWith('\n\n')).toBe(true);
-    const processes = text.split('\n').filter(line => /^10[0-3] /.test(line));
+    const processes = text.split('\n').filter(line => /^\d+ /.test(line));
     expect(processes).toEqual(names.map((name, i) => `${100 + i} 2048 1.5 00:10 ${(`/opt/webkit/${name} ${'x'.repeat(150)}`).slice(0, 120)}`));
     expect(text).not.toContain('unrelated');
     expect(text.includes('loadavg: ')).toBe(existsSync('/proc/loadavg'));

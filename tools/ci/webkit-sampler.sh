@@ -17,7 +17,7 @@ while true; do
         args = $0
         sub(/^[[:space:]]*[0-9]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+/, "", args)
         split(args, words, /[[:space:]]+/)
-        if (words[1] ~ /(^|\/)(WebKitWebProcess|WebKitNetworkProcess|WebKitGPUProcess|MiniBrowser)$/)
+        if (words[1] ~ /(^|\/)((WebKit|WPE)(Web|Network|GPU)Process|MiniBrowser)$/)
           printf "%s %s %s %s %s\n", $1, $2, $3, $4, substr(args, 1, 120)
       }'
     printf '\n'

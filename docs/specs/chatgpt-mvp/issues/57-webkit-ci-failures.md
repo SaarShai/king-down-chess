@@ -123,7 +123,7 @@ No product code, test limit, check limit, STEP factor, retry, or existing
 - A 12-second local run writes three blocks. This Mac has no `/proc`.
   The script skips those lines. This run uses the real process list.
 - The sampler unit test passes. It checks append, epoch time, process
-  fields, the four executable names, the command cut, and the interval.
+  fields, the four original executable names, the command cut, and the interval.
   It also checks the presence or absence of the `/proc` fields.
 - Without the new CI steps, the three new workflow lint tests fail and
   nine tests pass. With the steps, all 12 tests pass.
@@ -150,6 +150,24 @@ No product code, test limit, check limit, STEP factor, retry, or existing
 
 ## Build choices
 
-Skip missing `/proc` files on this Mac. Filter the four Linux WebKit
+Skip missing `/proc` files on this Mac. Filter the WebKit and WPE
 executable names by the first command word. Use WebKit for the required
 `plugin-ui` run. No product or visual choice is part of this build.
+
+## Review fix plan
+
+Review A reports that the sampler drops the three WPE process names.
+The current filter confirms this fault. Review B supplies no finding.
+
+The [Playwright launcher](https://github.com/microsoft/playwright/blob/v1.63.0/browser_patches/webkit/pw_run.sh#L29-L32)
+selects WPE for headless Linux. The [WebKit build file](https://github.com/WebKit/WebKit/blob/56453fdfe0b0ca6258c23e6453b34f70b885d13f/Source/WebKit/PlatformWPE.cmake#L15-L17)
+sets the three names: `WPEWebProcess`, `WPENetworkProcess`, and `WPEGPUProcess`.
+
+1. Extend the sampler test to require all three WPE names.
+2. Add those names to the process filter. Keep the existing names.
+3. Require the sampler test and shell syntax check to pass. Run `npm test`.
+4. Commit the fix. Run WebKit `plugin-ui` with the supplied check runner.
+   Record each result here. Keep all time limits as they are.
+
+The shared test queue delays the focused test. Apply the confirmed fix
+before that test starts. No test result from before the fix is claimed.
