@@ -51,3 +51,10 @@ Full record: [release-record-2026-10-19.md](../../../research/web-adaptation-202
 - **Step 6.** The five later-update branches are parked (owner, 2026-10-18, relayed by the plugin session: "yes, park them and send it"). They stay local and unchanged (468 to 601 commits behind main). Their 27 features are later tickets in [shared-screens-later](../../shared-screens-later/README.md), each with its branch as a reference only. The parking meets the spec's "land or are parked" condition for the shared-seam moves.
 - **Still open:** steps 3 and 4 (migrations, grants, engines report, deploy ID, recovery path) from the release owner's deploy record, and the served commit of kingdown.dev after that deploy.
 
+## Step 3 from a read-only check (2026-10-19, 09:50 UTC)
+
+The release owner (the plugin session) ran the check with the read-only release login. No credential file was opened.
+
+- **Engines in use:** the engines check passes. Two engines are in use, and the archive holds both: `bab22e94` (1 unfinished game) and its source-stamp alias `e668782a` (4 unfinished games).
+- **Migrations and grants:** migration 0014 and its runtime grant are present on production.
+- **Still open:** step 4 (the deploy ID, its source commit and the recovery path) and the served commit, from the deploy record. The deploy source is the PR 63 merge, with test-only changes on top of `2837bcc6`. These facts gate each web publish, not the spec approval ([ticket 18](18-approve-spec.md)).

@@ -1,30 +1,28 @@
 # Web app adaptation spec
 
 Status: ready-for-agent
-Approval: pending; the owner delegated it to the agent on 2026-10-18, after the open tickets and the browser sample
+Approval: approved by delegation (owner, 2026-10-18) on 2026-10-19, at `2837bcc6`, for phases 1 to 8; see [ticket 18](issues/18-approve-spec.md)
 Build gate: [Approve the adaptation spec and build order](issues/18-approve-spec.md)
 
-This status makes the plan ready for decision work. It is not approval to build. Tickets 09, 10, 11, 12 and 15 are decided by delegation (owner, 2026-10-18), each after three independent reviews; this spec includes their answers. The other picks stay recommendations until their tickets resolve.
+The spec approval is complete; each merge and each publish still needs the owner's word. Tickets 01 to 17 supply the answers below. Ticket 08 stays open only for step 4 and the served commit from the release owner's deploy record. The build follows [the web build tickets](../web-build/README.md). See [the map](map.md).
 
-Source date: 2026-10-18. Main is `origin/main` at `04b7af87`; the plan's first reads used the stale local ref `38a6bbff` (see the base correction in the inventory). The release candidate is `442c5eb3` (PR 61, open). The final PR merge and its checks replace this provisional base before the build. [The inventory](inventory.md) holds paths and evidence. [The map](map.md) holds the decision index. [The comparison](comparison.md) records what this spec adopted, rejected and merged from two independent plans.
+Code base: the PR 61 merge `cd8fa9f2` replaces `04b7af87` and `442c5eb3` as the adaptation base. The supplied live build stays `04b7af87` until the release owner's deploy. PR 62 is merged (`2837bcc6`). The deploy record closes [ticket 08](issues/08-release-evidence.md) (step 4). Build branches start from main and rebase onto main after that deploy. [The inventory](inventory.md) holds the 81 work units and source evidence; [the comparison](comparison.md) records the two planning inputs. Older source IDs there describe those reads.
 
 ## Problem Statement
 
-The website and the ChatGPT app use the same game, but they offer different ways to play. The website has local play, lessons, the Workshop, sign-in, and a cloud save. It does not expose the newer account game flow. A player cannot use its new setup, friend games, open games, account board, record, or Collection through the normal website.
+The website and the ChatGPT app use the same game, but they offer different ways to play. The website has local play, lessons, the Workshop, sign-in and a cloud save. It does not expose the account game flow: setup, friend games, open games, the account board, results, profile and Collection.
 
-The plugin build supplies much of this work. It also supplies stronger state recovery, phone fit, input checks, and release tools. A merge alone does not connect these parts to the website. Several screens depend on plugin app state. Several server methods have no web route. The deploy does not serve the API. The current offline worker can cache private GET responses if those routes open unchanged.
+The merged plugin code supplies much of this work. A code merge does not connect it to the website. The account screens need a shared client boundary. The server does not serve the web API. The current worker can cache private GET replies if the API opens unchanged. [Ticket 01](issues/01-baseline.md) and [ticket 06](issues/06-hosting-routes.md) record these gaps.
 
-A direct replacement also risks the working web product. The plugin does not replace offline play, two players on one device, local game links, lessons, Today’s army, custom positions, review, or the Workshop. The plan must retain these features and their saves.
+The local app also has offline play, two players on one device, local game links, lessons, Today's army, custom positions, review and the Workshop. Account play must keep these paths and their saves usable. [Ticket 09](issues/09-web-play.md) fixes that boundary.
 
 ## Solution
 
-Add account play to the website through the same game service and the same account-play UI as the plugin. Keep the local web app complete. Use the existing website sign-in, account IDs, game pool, database, engine, painted renderer, and rule text.
+Add a separate account page through the same services and account UI as the plugin. Keep the local app at the root, with one controller per page and links in both directions. Use the existing website sign-in, account IDs, game pool, engine, renderer and rule text. [Tickets 02](issues/02-shared-client.md), [09](issues/09-web-play.md) and [10](issues/10-account-entry.md) hold these decisions.
 
-The proposed web entry has two clear destinations. Local play stays at the current root. Account play opens its own page. Both have a link to the other. Account play includes the computer, friends, random opponents, setup, the board, results, profile, Collection, and settings. Its pages support normal browser links, Back, Forward, and reload.
+Account play adds the computer, friends, random opponents, setup, board, results, profile, Collection and settings. New setup, cards, Classic, the hidden arrangement and server computer games need sign-in in this release; current local play needs no account. [Ticket 09](issues/09-web-play.md) holds the accepted scope.
 
-Share the account screens and state. Keep transport, sign-in, browser navigation, and host dimensions at small explicit boundaries. Carry the actual owner picks and tested fixes. Do not make a new theme or a third version of the game.
-
-The result is one service and one account game UI for two surfaces. The local app remains a separate, useful play context. An account is not required for current local play.
+Use browser history and the real account screens with a page host and a game client. The accepted route prototype and rendered sample define browser behavior and fit. [Tickets 13](issues/13-routes.md) and [14](issues/14-visual-sample.md) hold those choices.
 
 ## User Stories
 
@@ -151,179 +149,149 @@ The result is one service and one account game UI for two surfaces. The local ap
 98. As a owner, I want direct web calls to meet the same per-account limits as the plugin, so that the website is not a way around them.
 99. As a owner, I want to see each visible change that the plugin merge brings to the live web app, so that I approve it before a deploy.
 100. As a signed-out visitor, I want to see what an account adds and how to get it, so that I know where cards, Classic and friend games are.
-101. As a player, I want to read a moderation notice about my account, so that I know what happened and how to appeal (if the owner picks an in-app notice view).
+101. As a player, I want to read a moderation notice about my account, so that I know what happened and how to appeal.
 102. As a player, I want my open human game to stay open when I leave the page, so that only my own Cancel stops it.
-103. As a player who uses both surfaces, I want the same board settings where the meaning is the same, so that symbols and threats do not change between them (once the owner picks a shared value).
+103. As a player who uses the web account page and the plugin, I want the same account board settings, so that symbols and threats do not change between them.
 
 ## Implementation Decisions
 
-These are proposed implementation decisions. The open tickets record the owner choices and unresolved evidence. File paths stay in the inventory and tickets so this section describes durable boundaries.
+These lines state the resolved choices. The linked answers hold the detail. No new choice follows from this refresh.
 
 ### Product boundary
 
-- Keep the current local app and its save contract. Add a separate account-play page. A full page change stops one controller before another starts. Do not run two owners of the engine’s global rules in one page.
-- Use the same account-play screens in the browser and plugin. Move code as a slice needs it. Remove the old definition after the move. Do not leave two copies of the state machine, board, or setup rules.
-- Keep the local app’s special tools on its existing path. Do not make Workshop designs legal in account matches. Do not turn old local games into rated games.
-- The local Chess army remains an army choice under the saved rules. New account Classic chess explicitly enables its rule flag. Never infer the flag from the army alone.
-- Under the recommended web play boundary, the five-switch setup, cards, Classic, the hidden arrangement and server computer games need sign-in in the first release. Local play does not change. A later local game-client adapter for the shared UI is fog on the map, not part of this build.
+- Keep local play and its save contract on the root page; put account play in a separate page lifetime. [Ticket 09](issues/09-web-play.md).
+- Share the account state and screens through two small boundaries, game client and page host; remove each old definition when it moves. [Ticket 02](issues/02-shared-client.md).
+- Keep local tools, local No power and old saved rules; new account Classic uses its explicit rule flag. [Tickets 09](issues/09-web-play.md) and [12](issues/12-scope-picks.md).
 
 ### Common UI and host boundary
 
-- The common client owns screen state, notice state, scoped locks, one write queue, accepted views, turn drafts, and screen rendering.
-- The game-client boundary returns typed views, lists, records, and settings. The browser uses HTTP JSON. The plugin maps MCP results to the same values. Keep tool envelopes and chat-visible metadata in the plugin adapter.
-- The shared-seam moves start after the PR 61 merge and after the approved later-update branches land or are parked. One writer edits the plugin app, client and screens at a time. Each move keeps the plugin checks green before the web uses it.
-- The page-host boundary owns initial navigation, saved page state, viewport data, page close, and route changes. It has two concrete callers. Do not add a provider framework, generic event bus, dependency container, or new UI package.
-- The plugin retains its board pointer, widget state, resource URI, fullscreen request, and host messages. The browser has no fake host and no iframe around the game.
-- Reuse the shared assets and the existing symbol transform in both builds. Relative asset URLs must work on a direct game route. A browser bundle must not contain server modules or a service credential.
+- The common client owns account state, notices, locks, queue, accepted views, drafts and rendering; transport and host duties stay in the two adapters. [Ticket 02](issues/02-shared-client.md).
+- PR 61 is merged and the five later branches are parked; shared moves still wait for the plugin session's handover of `src/plugin/`, with one writer and plugin checks for each move. [Tickets 08](issues/08-release-evidence.md) and [17](issues/17-release-route.md).
+- Keep plugin board pointers, widget state, resource URIs and host messages in the plugin adapter; use a top-level page in the browser. [Ticket 02](issues/02-shared-client.md).
+- Reuse the shared art and symbol transform, with root asset paths in the combined build and no server code in the browser bundle. [Ticket 06](issues/06-hosting-routes.md) and [release route](release-route.md).
 
 ### API and identity
 
-- Construct the website API handler in the existing server, from the same store and game service, and dispatch `/api` before MCP. Add its deploy route before the browser calls it. Keep the plugin and internal routes intact. One admission gate per server instance serves both transports, and both call the same per-account counter rows.
-- Use the existing website session and verified user ID. Reject an MCP OAuth token at the web API. Never trust an account or seat ID from request data as the actor.
-- Sign-in redirects to one fixed callback (`/play/`). A per-tab flow record holds the SDK flow ID, the return target (checked against the account route patterns) and a creation time; the page consumes it once. The invite token never goes to the auth provider in a redirect URL.
-- The account client gives the token with its user ID. Each queued job, pending command and retry is bound to the user ID at its start and is never sent with another account's token.
-- API writes run in this order: local token checks, the shared admission slot, the current-user check, bounded input, the operation budget, service work. Reads accept a valid token until it expires. The game GET is read-only; seat activity is its own write.
-- A pending deletion blocks entry to any new game (Create, Find, Accept, Join, invite renewal, rematch) in the shared game service; a suspended or deleting host drops out of the lobby. Refusals tell a verified suspension, an expired session and a temporary failure apart, and each links Support.
-- Complete the explicit contract in [Complete the web API contract](issues/03-http-contract.md). Reuse game commands for seat choices, complete turns, computer play, draw actions, abort, resign, claims, and rematches. Add only the missing reads and start/matching operations.
-- Move the shared settings, handle checks, and block queries to their account modules. The API does not call MCP or use plugin board storage.
-- Retain same-origin checks, bounded input, no-store responses, seat checks, hidden choices, invite expiry, and short-code attempt limits. Apply the accepted per-account budgets to direct API calls from the first served write route; the MCP limits do not protect the API.
-- Confirm account status on sensitive operations. The existing website verifier can accept a signed token until expiry. Decide and test the effective ban, deletion, and sign-out behavior before public exposure.
-- Use the same service user ID in both clients. Do not link different users by matching email addresses. Confirm any production identity gap with test accounts before a schema or sign-in change.
+- Mount the existing API before MCP in the same function, initially closed to service work; open only the operations of each complete slice. [Tickets 06](issues/06-hosting-routes.md) and [17](issues/17-release-route.md).
+- Extend the existing HTTP contract and shared account queries; keep the same store, services, validation and seat privacy, without MCP calls from the API. [Ticket 03](issues/03-http-contract.md).
+- Reuse the website session and service user ID; keep MCP and website tokens distinct and never merge users by email. The actor comes only from the verified session, never from an account or seat ID in the request data. [Tickets 05](issues/05-one-account.md) and [10](issues/10-account-entry.md).
+- Use only `/play/` as the sign-in callback, with the checked, single-use per-tab flow record and Retry for missing, stale or crossed flows. [Tickets 10](issues/10-account-entry.md) and [13](issues/13-routes.md).
+- Bind jobs, commands and retries to their starting user ID; clear private state and reject late replies after an account change. [Ticket 10](issues/10-account-entry.md).
+- Follow the accepted API write order, current-user checks and shared admission/counter budgets from the first served write; reads accept valid tokens until expiry. [Tickets 10](issues/10-account-entry.md) and [15](issues/15-public-safety.md).
+- Make game GET read-only before the first account publish; seat activity is a separate protected write. [Tickets 03](issues/03-http-contract.md) and [17](issues/17-release-route.md).
+- Enforce pending deletion and suspension at shared game admission, rematches included, with the accepted refusal and Support paths. [Ticket 10](issues/10-account-entry.md).
 
-### State, commands, and recovery
+### State, commands and recovery
 
-- Keep four facts separate: server View, unsent draft, pending command, and selected route. A draft never writes into the server View.
-- Serialize writes through one queue. Advance the current job epoch when the user selects a newer route or command. Cancel obsolete reads. A stale reply can finish its own receipt but cannot repaint another game or route.
-- Give Create, Find, and a submitted turn stable command IDs. Save the ID and unchanged input before send. Retry the same action with the same ID. A changed input under that ID is a conflict.
-- Make a new invite an explicit operation. Do not rotate an invite as a side effect of reading or retrying Create. If an invite response is lost, an explicit retry may make a new code and says so.
-- Restore a draft only after a fresh account and game read. It must match the full game ID, account, turn base, and rules. Validate each move against the shared engine and the server’s first-step legal list. The server validates the whole submitted turn again.
-- Keep a draft across a non-move revision when its turn base stays valid. Drop it on an incompatible move or game change with a clear notice. Keep Undo local. A successful submit locks play but permits piece reads.
-- Use browser session storage for per-tab account drafts and receipts. Reload can recover them. Closing a tab can discard an unsent draft. The account game itself remains on the server. State this limit; do not promise cross-device unsent turns.
-- If storage fails, keep play available and report the recovery limit. Sign-out and account switch clear private state and stop old calls. A new tab loads the current server list before it offers a new start.
-- Use the mature polling rules for waiting, setup, playing, and rematch states. Stop hidden polling. A visible return, browser back/forward restore, or network return triggers one current read. Delete the older watcher in the old online client (it stops at setup and drops equal revisions) when the shared poll takes over.
-- Do not drop useful equal-revision display data. Game revision orders moves; it does not necessarily order presence or every account field. Use the accepted-view rule for each value.
-- Preserve server error codes. A refusal, a failed read, and an unknown write outcome need different recovery. A poll does not erase a command refusal. A failed game does not block an unrelated start.
+- Keep server View, unsent draft, pending receipt and route separate; use the shared queue, epoch and accepted-view rules. [Tickets 02](issues/02-shared-client.md) and [11](issues/11-save-ownership.md).
+- Save stable start/turn IDs and unchanged input before send; retries keep them, and invite renewal is an explicit action. [Tickets 03](issues/03-http-contract.md) and [11](issues/11-save-ownership.md).
+- Restore a draft only after a fresh account and game read. Validate each move against the shared engine and the server's first-step legal list; the server validates the whole submitted turn again. [Ticket 11](issues/11-save-ownership.md).
+- Store per-tab drafts by user, full game ID, turn base and engine stamp; reconcile copied receipts after a fresh read and keep unknown receipts even when drafting is unsupported. [Ticket 11](issues/11-save-ownership.md).
+- Cancel obsolete reads; a stale reply can finish only its own receipt and cannot repaint another game or route. Preserve the server error codes: a refusal, a failed read and an unknown write outcome need different recovery; a poll does not erase a command refusal; a failed game does not block an unrelated start. [Ticket 02](issues/02-shared-client.md).
+- State the storage-failure and tab-close limits; sign-out and account changes clear private state while the local save stays intact. [Ticket 11](issues/11-save-ownership.md).
+- Replace the unused old watcher with the shared poll, including equal-revision display data, hidden-page stops and one fresh read on return. [Tickets 02](issues/02-shared-client.md) and [03](issues/03-http-contract.md).
 
 ### Game setup and play
 
-- Use the common setup validator and builder. Keep the weighted piece pool, a matching army for both sides, and a public four-card deal. Do not reimplement these rules in a page.
-- Keep the five feature switches and their constraints. Classic needs Fairy pieces off. Arrangement applies to Fairy pieces. Cards permit only powers that are always on. Pick four deals those four; Use all deals four from a valid pool.
-- Keep the approved default options. Quick play uses the existing Beginner shortcut and does not overwrite the saved setup. The human initiator chooses the colour; a joiner controls only its seat choices.
-- Hide seat choices until both seats are ready. Validate the order, bishop colours, and guard position. Keep the three-day setup deadline and the existing no-result expiry.
-- The account board uses the server’s seat view. It does not allow a browser to choose another side’s legal moves, alter a hidden setup, write a score, or set a deadline.
-- Use the shared staged-turn rule. One send carries the complete turn, including an explicit pass when needed. End detection comes from the engine, not a fixed number of actions.
-- Keep the actual shipped card/power flow. The current board has a read sheet and Use. Approved direct card use (arm a coin on tap) and Collection costs exist on a separate branch; they enter through the plugin and the shared UI if the owner includes them in the scope picks.
-- Keep the own-piece shove/swap preview, target-first words, card cost text, both public hands, spent-card reading, keyboard board access, named moves, and piece reading during a wait.
-- The server computer uses the same four level definitions as local play. Account computer games use the server worker. Offline computer games keep the local engine.
-- Preserve recorded engine versions for stored account games. Do not convert games or remove referenced engine bundles. Every View carries the game's engine stamp. The browser keeps a list of supported stamps with evidence; an unsupported stamp gets no local draft or rebuilt history, only the server facts. Each engine that an unfinished game uses needs a tested continuation path before release. Server results are final; draft results are previews. The two oldest engines keep one built-in computer strength under any level name.
+- Reuse the common setup builder and the five switches with their constraints: Classic needs Fairy pieces off; the arrangement applies to Fairy pieces; cards permit only powers that are always on; Pick four deals those four, and Use all deals four from a valid pool. The human initiator chooses the colour; a joiner controls only its seat choices. Keep the seat validation (order, bishop colours, guard position), the hidden Ready flow, the three-day setup deadline and the existing no-result expiry. [Tickets 03](issues/03-http-contract.md) and [12](issues/12-scope-picks.md).
+- Play now always uses Beginner and keeps saved setup unchanged; New game keeps the saved level and the current defaults. [Ticket 12](issues/12-scope-picks.md).
+- Share the seat-view board, staged whole turns, local Undo, own-piece preview, target-first words, piece reads and result handling. [Tickets 02](issues/02-shared-client.md), [03](issues/03-http-contract.md) and [14](issues/14-visual-sample.md).
+- The account board uses the server's seat view: a browser cannot choose another side's legal moves, alter a hidden setup, write a score or set a deadline. One send carries the complete turn, with an explicit pass when needed; end detection comes from the engine, not from a fixed number of actions. [Ticket 03](issues/03-http-contract.md).
+- Keep the merged card/power read sheet and Use flow, card-back art fallback and game fonts; the parked direct-use, face and cost features stay later work. [Tickets 12](issues/12-scope-picks.md), [14](issues/14-visual-sample.md) and [shared screens later](../shared-screens-later/README.md).
+- Account computer play uses the server and its existing levels; offline play keeps its local engine. [Tickets 07](issues/07-engine-compatibility.md) and [09](issues/09-web-play.md).
+- Stamp every View and gate local draft/history by proved engine support, with each alias treated as its base; every active engine needs a tested continuation, and server outcomes stay final. [Ticket 07](issues/07-engine-compatibility.md).
 
 ### Friends and matching
 
-- Share an invite with code, web destination, rule names, and expiry. Keep Share first and Copy beside it. A cancelled native share does not copy. Manual selection remains the final copy path.
-- A join route is a preview. Opening it or returning from sign-in does not take a seat. The Join button names the open colour. The server decides whether the invite is still valid at acceptance.
-- Find selects the oldest eligible game with the same five switches. Exact piece/card pools need not match. Any rules is explicit. Blocks apply in both directions through the service rules.
-- Keep the 24-hour open-game period and the existing seven-day friend invite period. Do not add live clocks or a new deadline option UI.
-- Keep the computer-while-waiting flow. It tracks a waiting human game separately from the shown computer game. Switch now ends that temporary computer game with no result. Not now keeps the human game in the list.
-- A browser Back, close, or background event does not cancel a game. Cancellation requires its explicit action.
+- Share full invites with Share, Copy and manual selection; a cancelled share leaves the clipboard unchanged. [Tickets 12](issues/12-scope-picks.md) and [13](issues/13-routes.md).
+- An invite URL only previews; Join is explicit, and a creator reload offers Make a new invite instead of rotating a code on read. [Tickets 03](issues/03-http-contract.md) and [13](issues/13-routes.md).
+- Keep the existing exact-switch/Any rules matching, the 24-hour open-game period, the seven-day friend invite period, both-way blocks, deadlines and explicit cancellation. [Tickets 03](issues/03-http-contract.md), [12](issues/12-scope-picks.md) and [15](issues/15-public-safety.md).
+- Keep waiting human and temporary computer games separate; only Switch now changes the shown game, and Back or close cancels neither. [Tickets 11](issues/11-save-ownership.md) and [13](issues/13-routes.md), with the phase 6 checks in [the test gate](test-gate.md).
 
-### Account record, settings, and safety
+### Account record, settings and safety
 
-- Show active games, paged history, totals, rating, and badges from the existing service. Only human games change ratings. A new rating stays provisional under the existing rule. Keep all content unlocked.
-- Use the existing preset icons and handle rules. Availability checks run one at a time and keep only the latest requested name. Save and error paths retain the game-start intent.
-- Keep local save/sync settings on the local path. Account symbols, threats, and last setup use the account settings service. Visibility uses the profile. Sound remains a device choice. No two stores compete to write one account setting.
-- Carry Block, Unblock, and the three visibility choices. A block prevents future matching but does not erase or auto-end the current game. Keep the current move-time visibility limits clear.
-- Keep chat, email, push, and reminder delivery off. Do not enable dormant jobs because their code exists. Keep the existing tick, cleanup, and deletion jobs.
-- No in-app Report control in the first web release. Email support is the report path: an operator intake step in the existing moderation command makes a report row from a support case; the owner handles it with a first-response target of 7 days. A shared, actor-scoped notice view serves players who can sign in; a suspended player gets the reason and the appeal reply through support. The Support page carries real appeal steps. These are prerequisites of public random matching.
-- Retain the seven-day account deletion grace and cancellation on sign-in. Keep local games as the existing account flow promises.
+- Profile totals and badges count server games only; keep the built human-rating rule and all content unlocked. [Tickets 11](issues/11-save-ownership.md) and [12](issues/12-scope-picks.md).
+- Keep account settings in their existing services, local settings separate and sound on the device; public identity uses handles and preset pictures. [Tickets 10](issues/10-account-entry.md) and [11](issues/11-save-ownership.md).
+- Carry Block, Unblock, visibility and the deletion grace, with no new in-app Report, email, push or chat. [Tickets 10](issues/10-account-entry.md) and [15](issues/15-public-safety.md).
+- Before public matching, complete support intake, shared actor-scoped notices on both transports and appeal steps, with the owner as handler and the 7-day first-response target. [Ticket 15](issues/15-public-safety.md).
+- Keep only the accepted tick, daily and cron-history schedules; record HTTP job outcomes separately from the SQL cleanup result. [Release route](release-route.md).
 
 ### Visible shared changes on merge
 
-- The PR 61 merge changes the live web app with no web work: coordinate labels hide below 8 CSS px, passive board effects stop after 5 seconds, shared text says Select, the context row can grow, disabled coins keep their face, and the board stays hidden until its first frame. The post-merge web baseline lists them. A recorded owner pick carries; a new web trade-off goes to the owner before a deploy.
-- The balance tool keeps its refusal of the Classic flag. It does not limit the game.
+- Carry the reviewed Select words, first-frame board fix and public text; the coordinate limit, idle stop and context-row growth are already live at the supplied base, and disabled-coin faces have no local trigger. [Ticket 08](issues/08-release-evidence.md).
+- Keep the balance tool's Classic refusal as a tool limit. [Ticket 12](issues/12-scope-picks.md).
 
-### Browser cache, routes, and layout
+### Browser cache, routes and layout
 
-- Cache only an allowlist of public build files. Requests with an Authorization header, non-GET requests, `/api`, `/mcp`, auth and consent paths, `/play`, `/g` and `/j` bypass the offline worker. Activation deletes old cache generations. The account page sends no private request until the controlling worker answers a cache-policy message; an old worker cannot answer. Server no-store alone is not sufficient.
-- Keep the offline local page working. Do not cache account HTML responses with user data, API payloads, invite secrets, or session-bearing requests. Test a real worker upgrade from the old cache behavior.
-- Serve the account page as its own HTML entry at `/play`, `/g/<id>` and `/j/<token>`, with no-store and no-referrer headers. The deploy build uses an absolute asset base so deep routes load their files. Use the account hall and direct game/invite routes from the route ticket. Allowlist sign-in return paths. Replace an accepted invite URL with the game URL. Do not send invite tokens to logs or analytics.
-- Use browser viewport and safe-area behavior. Remove the plugin composer gap from the web. Keep controls reachable when browser chrome or the software keyboard changes the visible height.
-- Reuse the approved stone controls, painted board, scroll, badges, card faces, shared type scale, and reduced-motion rules. Do not infer that a separate font proposal is already in the product.
-- Carry the actual small-screen fixes: card strips, whole-word tabs, scrollable rule text, end-card fit, visible turn controls, and the board floor when a draw reply appears. Preserve WebKit scroll by avoiding needless DOM moves.
-- Keep board pan and piece drag distinct. Verify the actual hit target after scroll, zoom, and orientation change. An element’s bounding box alone is not proof that a tap reaches it.
+- Use a public-build-file worker allowlist; private calls wait for the controlling worker's policy reply after a successful, repeatable purge, including restart and failure cases. [Ticket 06](issues/06-hosting-routes.md) and [release route](release-route.md).
+- Serve the account shell at `/play/`, the accepted account subroutes, `/g/<id>` and `/j`, with no-store/no-referrer; use `/j#<token>` or `/j#<CODE>`, refuse the path-token form and keep unrelated paths at 404. [Ticket 13](issues/13-routes.md).
+- A URL only reads; Join, sign-in return and canonical fixes replace history as specified, with token and sign-in-code redaction. [Ticket 13](issues/13-routes.md).
+- Use the sample's sheets, columns, browser safe areas, page scroll, full target words and 48 px DOM controls, with its accepted board-square exception. [Ticket 14](issues/14-visual-sample.md).
+- Preserve WebKit scroll by avoiding needless DOM moves. Keep board pan and piece drag distinct, and verify the actual hit target after scroll, zoom and orientation change. [The test gate](test-gate.md).
+- Use Play online on the local home and Play on this device in signed-in account play; keep the signed-out local exit. [Ticket 14](issues/14-visual-sample.md).
+- Carry the measured spent-coin and focus fixes in shared CSS; keep the sample's narrow player strips, coin-scroll cue, input and reduced-motion behavior. [Ticket 14](issues/14-visual-sample.md).
+
+### Release and recovery
+
+- Use `codex/web-*` branches and the one deploy path: worker publish, closed dispatch with no publish of its own, account reads after handover, then complete game slices. [Ticket 17](issues/17-release-route.md).
+- Before the first account publish, prove the server account-off switch closes API operations and page private calls without a code change, with local play usable. [Ticket 17](issues/17-release-route.md).
+- Each publish needs a packet, an independent reader, the owner's merge word and a separate publish go; recovery keeps current data, add-only migrations, engine archives/aliases and the safe worker. [Release route](release-route.md).
+- Require fresh engine reports against exact release and recovery files, save/column agreement and each used stamp's continuation; a skipped query stops publish, and no `tsx` path writes to the live database. [Tickets 07](issues/07-engine-compatibility.md) and [17](issues/17-release-route.md).
 
 ## Testing Decisions
 
-No test runs in this planning task. These are build and release checks.
+[The test gate](test-gate.md), accepted in [ticket 16](issues/16-test-gate.md), holds the checks, commands, phase rows, device matrix and stop rules. These are build requirements, not results of this refresh.
 
 ### What a good test proves
 
-A good test checks an observable result. It uses the highest boundary that can expose the fault. It proves the stored game, returned view, visible state, focus, or effective hit point. It does not mirror an implementation loop or assert only a CSS string. A retry check counts committed games and commands. A hidden-choice check reads the other player’s real response. A phone move check taps a board square and verifies the saved turn.
+Check behavior at the highest useful boundary: a stored effect, returned seat view, visible state, focus or actual hit point. A screenshot or a CSS value alone does not prove input. [Tickets 04](issues/04-test-reuse.md) and [16](issues/16-test-gate.md).
 
 ### Seams
 
-| Seam | Coverage | Existing basis | New work |
-|---|---|---|---|
-| T1: website HTTP boundary with real services and disposable PostgreSQL | Identity, input, permissions, hidden choices, start IDs, whole turns, matching, results, blocks, settings | `src/api/http.db.test.ts`, `src/match/*.db.test.ts`, `src/plugin/server.db.test.ts` | Complete the route contract and cross-surface scenarios. Use test website sessions, not production credentials. |
-| T2: existing pure client and game modules | Draft restore, turn completion, queue epochs, scoped notices, polls, setup constraints, Classic rules | `src/plugin/state.test.ts`, `queue.test.ts`, `poll.test.ts`, `screens/board-model.test.ts`, `src/rules/classic-chess.test.ts` | Keep these tests with moved modules. Add only new browser-store or route state branches. |
-| T3: built browser page | Full user journeys, Back/reload, failed writes, sign-in return, touch, focus, layout, motion | `tools/plugin-ui-harness.ts`, `tools/plugin-protocol-fixture.ts`, `tools/plugin-*.test.ts`, `tools/plugin-ui-check.mjs` | A top-level-page driver and one registered `web-online` check. This name is proposed, not present. |
-| T4: current web behavior | Local saves, links, lessons, settings, Workshop, local turns, art | Existing named web browser checks and save/sync tests | Extend only where a shared change reaches these paths. |
-| T5: deploy output and worker boundary | Direct routes, API dispatch, cache privacy, asset paths, old worker upgrade, compatible rollback | `tools/vercel-check.mjs`, deploy tests, worker/build code | Probe the actual built static/function tree and a worker-controlled browser. |
+| Seam | Decision |
+|---|---|
+| T1: HTTP with real services and disposable PostgreSQL | Main correctness seam; add HTTP/MCP scenarios on the same stored game. |
+| T2: pure client and game logic | Keep tests with moved modules; add only new route, storage and account-change cases. |
+| T3: built top-level page | Add one registered `web-online` driver, with real HTTP/database journeys and reused fault/input assertions. |
+| T4: current local app | Keep affected named checks; run the full default set at the base and final release. |
+| T5: built output and worker | Extend probes in place for closed/enabled API, deep routes, public assets, safe upgrade and recovery. |
 
-T1 is the main new seam. T2 preserves existing focused evidence. T3 covers behavior that a service test cannot see. Do not duplicate T1 behind each screen.
+[The test gate](test-gate.md) defines each seam and its present gaps; existing plugin checks alone do not prove the web page.
 
 ### Required correctness cases
 
-- Missing, expired, wrong-audience, anonymous, wrong-role, and wrong-seat requests fail with no private data. A cross-origin caller gets no accepted browser API response. Test bans and deletion state under the chosen policy.
-- Two clients race to accept one seat. One wins. The loser receives a stable refusal. A blocked pair cannot match through either surface.
-- A lost Create, Find, Choose, move, computer, or rematch reply does not create a second effect. Retry carries the original ID and input. A changed payload under the same ID fails.
-- A Haste, free-card, chain, or terminal turn commits in full or not at all. An unfinished turn is refused. Undo and inspection never send a command.
-- A stale poll, old list, failed mount, delayed profile, and superseded computer reply cannot replace the current game, route, notice, or receipt. Test reversed reply order.
-- A setup View and an equal-revision display update still refresh. A revision gap causes a full read. A hidden page stops work; wake makes one current read.
-- Hidden seat choices stay hidden. Profile data omits email and provider photos. Invite preview does not join. Code guessing meets the existing limit.
-- Result, rating, and badge writes happen once across retries and both clients. Computer games do not change the human rating.
-- Browser A and the plugin can take alternate turns in one game. One user can resume the same game from both clients. Shared settings and history reflect the accepted source of truth.
-- An old local save, old local game link, and each retained active-engine fixture remain usable under their recorded rules. New Classic does not change old default play.
-- An active old service worker upgrades before private requests. Two different accounts on the same browser do not receive a cached profile, view, or invite. Public local assets still work offline.
-- A failed or denied storage write gives the stated recovery limit. Reload recovers only a matching draft. Closing a tab does not falsely claim a server save of unsent actions.
+Use the phase rows in [the test gate](test-gate.md) for identity, seat privacy, stored effects, retries, shared budgets, drafts, equal revisions, copied tabs, cross-surface play and engine continuation. Each feature carries its own failure and input cases.
+
+Phase 2 includes crossed/stale callbacks, local-save isolation and log/Referer redaction; phase 5 extends redaction to invites; phase 3 proves the same create budget across MCP and API. [Ticket 16](issues/16-test-gate.md).
 
 ### Browser and device acceptance
 
-Use desktop Chromium, Firefox, and WebKit. Cover phone portrait at 320 × 568, 390/393 × 844/852, and 412/440 px widths; short landscape; a tablet in both orientations; and desktop at 1280 × 800 and 1440 × 900. Include 200% zoom and the 197 × 426 fit case. Check larger browser text separately from CSS viewport emulation.
+Use the complete person/device matrix in [the test gate](test-gate.md), including Chromium, Firefox, WebKit, the sample sizes and hit/contrast values, native input, real zoom/text and screen readers. Real Android has no named person/device yet and blocks the complete release. Simulator and real-phone results stay distinct.
 
-Check actual iOS Safari and Android Chrome for board pan, piece drag, software keyboard, safe areas, Share, Back, and turn-button input. Desktop WebKit is useful evidence, but it does not prove native iOS pan. Record the exact device and browser for each result.
-
-Keyboard and screen-reader journeys cover the hall, identity form, setup sheets, seat, board, card/power action, draw confirmation, result, profile, and block list. Check accessible names, state announcements, focus order, focus return, readable contrast, and reduced motion. Do not certify the whole app from a handful of aria attributes.
-
-The proposed speed gate reuses the existing QA target: under the same test conditions, the median of three cold runs reaches the first account screen within 2.5 seconds, and a local visual response within 300 ms. Separate a local response from a server-confirmed result. Measure against the accepted plugin and main baselines before the owner fixes this gate. Run a cold comparison with service workers blocked, then with the real worker. The two measurements must not hide transferred work in a worker cache.
-
-Render comparisons use the same environment. Capture main twice first. Count a visual change only when the baseline state is stable. Use the engine to draw board states. Review controls after real input, not only the initial page.
+The speed numbers stay proposed until the main session accepts the recorded main/plugin baselines and fixes the budget. Stable render comparisons need two main captures in the same environment. [Ticket 16](issues/16-test-gate.md).
 
 ### Commands and evidence
 
-Run source tests through `npm test` only. Run doc-only checks through `npm run test:docs` when needed. Run browser checks through `npm run check:browser <name>`. The future web driver registers `web-online`. Reuse `plugin-ui` and `plugin-ui-http` for shared changes.
+Put the web gate in `plugin-checks.yml` only; keep its database jobs, add the database-backed Firefox path and `web-online` on all three engines, and fail required jobs before launch if the test database is absent. [Ticket 16](issues/16-test-gate.md).
 
-The relevant existing local web names include `account`, `home`, `new-game`, `turn`, `link-game`, `end`, `their-turn`, `game-screen`, `menu-extra`, `read-piece`, `verb-marks`, `lessons`, `lesson-return`, `powers`, `special-moves`, `painted-game`, `workshop`, and `workshop-cast`. A moved control requires a selector search and each affected check. The final integrated build runs the required full suite, with the test database checks enabled. Record skips and limits.
-
-Each phase records source commit, commands, exit status, counts, device/build identity, and evidence paths. A pass on an earlier code tree is not a pass on a changed tree. Follow the project’s future execution rules for long checks. This planning run starts none of them.
+Use only the commands and machine placement in [the test gate](test-gate.md). Keep `plugin-ui` and `plugin-ui-http` for shared changes. Record exact source, exits, counts, skips, devices and limits per slice. No code test, browser check or live action runs for this refresh; its doc-check result belongs in the preparation report.
 
 ## Phased Build Order
 
-Each slice ends in a complete behavior. It can ship through a PR when its checks pass and the required owner approvals exist. A phase does not imply permission to publish. Visual work uses the accepted sample. Every phase keeps the existing local app usable.
+[The release route](release-route.md) holds slice exposure and release detail. [The build tickets](../web-build/README.md) split these phases into work for one fresh session each. [Ticket 18](issues/18-approve-spec.md) approves the spec; each merge and each publish still needs the owner's word. Each feature includes its input and recovery checks when it arrives.
 
 | Phase | Small slices and result | Exit checks | Depends on |
 |---|---|---|---|
-| 1. Accept the common base | Record the final PR merge and run the web baseline (full web suite, render compare against pre-merge main, list of visible shared changes). Recheck this inventory. Take the common engine, renderer, account copy, schema tools, and tests. Fix the worker cache boundary before any API exposure. No account route is made public in this slice. | T2, T4, T5. Old local saves and links work. The worker still serves public offline assets and cannot cache private requests. Final source and required plugin results are recorded. | Owner spec approval; final release evidence and web baseline; engine decision. |
-| 2. Open a safe account page | First add the shared host/client seam with plugin behavior unchanged. Then add the browser entry, existing sign-in, safe return, and read-only Your games. Add direct game/invite route shells with complete sign-in/error exits. Expose only complete, protected read/account operations in this slice. | T1 identity/reads, T3 sign-in return/Back/reload/account switch, T4 account/local continuity, T5 direct routes. No private request goes through an unsafe worker. Shared plugin screens still pass. | Phase 1; the later-update branches landed or parked; route and visual sample; account and storage picks. |
-| 3. Finish one account computer game | Share the board, state queue, draft, poll lifecycle, and result handling. Start a simple computer game, stage a turn, Undo, submit, recover a lost reply, finish, and play again. Add stable Create IDs and the command API. Apply the per-account budgets with the first write route. | T1 one start/one turn/result and budget refusals, T2 draft/queue, T3 a full computer game with a lost reply and reload. Check touch, keyboard, symbols, threats, and reduced motion as these controls move. | Phase 2; API contract. |
-| 4. Add the full setup | Ship three complete option slices: Classic and piece pool; cards and legal powers; hidden seat arrangement and Ready. Each slice uses the common builder and the same account board. Keep quick play and last setup intact. | T1 setup/private view, T2 Classic and option constraints, T3 each new option through a finished turn. Card, power, and arrangement controls pass phone/zoom checks when they arrive. Old saved rule flags stay unchanged. | Phase 3. |
-| 5. Finish a friend game across surfaces | Add Share/Copy, code and token preview, Join, identity prompt, deadlines, draw/abort/claim, and human rematch. Carry Block before the path reaches public use. A browser seat and plugin seat finish a game. | T1 cross-surface identity/seat/turn/result, T3 share cancel/copy failure/expired invite/taken seat/reload, T5 direct invite route. Rating and badges write once. Existing local game links still work. | Phase 4; safety and identity decisions. |
-| 6. Add open matching and the wait flow | Ship lobby/Find/Accept/Cancel with exact-switch matching and Any rules. Then add computer-while-waiting and explicit handoff. Before random public access: the support intake step, the shared notice view (both transports), real appeal steps on Support, and the shared limits, with rematches on the create budget. | T1 seat race/block/expiry/limits; T3 lost Find, return after close, delayed match, Not now, Switch now, and temporary computer abort. No late reply selects another game. | Phase 5; public safety gate. |
-| 7. Complete profile and Collection | Ship record/history/totals/rating first. Then add badges and all Collection tabs. Finish paged blocks, profile settings, and identity edits. Use the same services and art. | T1 paging/settings/results, T3 long history/empty states/keyboard/zoom/account switch. All content is unlocked. No second rule catalog or private cache appears. | Phase 5; matching paths join the integrated check after Phase 6. |
-| 8. Verify and publish the complete adaptation | Check the integrated product, direct route build, old-worker upgrade, actual phones, cold loads, public help, and recovery build. Update the web instructions. Publish only the owner-approved scope through the existing deploy path. | Full required `npm test`, T1–T5, affected named local checks, shared plugin checks, real-device record, no confirmed release fault, and the concrete publish go. Confirm API/asset routes and internal job outcomes after an authorized publish. | Phases 1–7; accepted release packet. |
+| 1. Accept the common base | Prepare the web driver and the worker code on codex/web-* branches from main. Carry the reviewed baseline and keep account routes closed. | Phase 1 of [the test gate](test-gate.md): T1–T5 as applicable, full local set, stable comparison, old-worker/offline cases and required engine evidence; worker publish also enforces the engine-query stop. | Ticket 18 approval. The worker publish also needs the ticket 08 deploy record. |
+| 2. Open a safe account page | Add the closed API dispatch with no publish of its own; make game GET read-only and add the account-off switch; after handover, share the host/client seam, prove stored-engine continuation on both surfaces, and ship only protected identity/reads with complete route exits. | Phase 2 of [the test gate](test-gate.md): sign-in/history, redaction, local-save and account isolation, T1/T5 GET/switch proof, engine continuation evidence, sample fit and shared plugin checks. | Phase 1; plugin handover of `src/plugin/`; accepted route and visual samples. |
+| 3. Finish one account computer game | Share board, queue, stamped drafts, poll and results; Create, stage, Undo, send, recover a lost reply, finish and play again with current-user checks and shared budgets. | Phase 3 of [the test gate](test-gate.md): saved whole turn/result once, one cross-surface budget, storage/account-change cases and affected input checks. | Phase 2; proved engine support. |
+| 4. Add the full setup | Three complete slices: Classic/piece pool; cards/legal powers; hidden arrangement/Ready, using the shared builder and existing defaults. | Phase 4 of [the test gate](test-gate.md): 16 mixes, hidden views, each option through a turn, saved-rule/engine evidence and phone/zoom input. | Phase 3. |
+| 5. Finish a friend game across surfaces | Ship fragment invites, Share/Copy, explicit Join, identity, Block, deadlines, end actions and rematch through one browser/plugin game. | Phase 5 of [the test gate](test-gate.md): seat race, retry/result once, fragment/path refusal, redaction and native sharing. | Phase 4; shared identity and safety checks. |
+| 6. Add open matching and the wait flow | Complete support intake and shared notices before public matching; then lobby/Find/Accept/Cancel and the explicit temporary-computer handoff. | Phase 6 of [the test gate](test-gate.md): support-to-appeal path, blocks/budgets, seat races, lost Find, delayed replies and both handoff choices. | Phase 5; public-safety and operator gates. |
+| 7. Complete profile and Collection | Small slices for record/history/badges, all Collection tabs, and paged blocks/identity/settings, through the same services and art. | Phase 7 of [the test gate](test-gate.md): paging, private data, empty/long states, keyboard, zoom and screen readers. | Phase 5; may precede phase 6, with matching added to integrated checks later. |
+| 8. Verify and publish the complete adaptation | Complete the integrated, device, speed, public-help, engine and compatible-recovery records; publish only the exact approved scope. | Phase 8 of [the test gate](test-gate.md) and every applicable stop/packet row in [the release route](release-route.md), including live probes and job outcomes after an authorized publish. | Phases 1–7; reviewed packet; owner's merge word and separate publish go. |
 
-Phase 7 can proceed before the random-match slice if the shared source is stable. Only one writer edits the common app boundary at a time. The future build uses project worktrees and review rules. This plan does not change any worktree.
-
-Do not save phone, keyboard, or recovery work for Phase 8. Each feature carries its own input and failure checks when it moves. Phase 8 verifies the integrated product; it is not a repair phase for intentionally incomplete slices.
+Only one writer changes the shared client at a time. Each merge needs an independent reader and the owner's word. Each publish needs its own packet and go. [Ticket 17](issues/17-release-route.md).
 
 ### Inventory coverage
 
@@ -342,27 +310,22 @@ Do not save phone, keyboard, or recovery work for Phase 8. Each feature carries 
 
 ## Out of Scope
 
-- A new ruleset, piece, card, power, balance run, or computer level.
-- A new game engine, backend, account database, UI framework, or plugin host simulation.
-- A replacement of current offline/local play or a conversion of old local saves into account games.
-- Workshop designs in online games, new public replay, hints, or undo after a server commit.
-- Live clocks, new turn-length options, guests, chat, email/push delivery, a friends directory, leaderboards, seasons, or unlock gates.
-- Local ports of the new setup, cards and Classic into the local New game, unless the owner picks that option in the web play boundary.
-- New card paintings, a new visual theme, and plugin taste proposals absent from the accepted merge unless the owner adds them to this spec.
-- Other platform plugins, submission portal work, reviewer-only onboarding, or a new domain/DNS change.
-- A legal compliance judgment from this source review. Existing public-safety records need the owner’s release decision.
-- Any build, test, browser session, account sign-in, live query, merge or deploy as part of this plan.
+- New rules, pieces, cards, powers, balance runs or computer levels.
+- A new engine, backend, account database, UI framework or plugin host simulation.
+- Replacement of local play, conversion of old saves, local ports of new setup/cards/Classic, or online Workshop designs.
+- New public replay, hints, undo after commit, clocks, turn-length options, guests, chat, email/push, friends directory, leaderboards, seasons or unlock gates.
+- The five parked branches and their features in [shared screens later](../shared-screens-later/README.md); no direct card arming, new face/cost display, hall presets or new taste work enters this build from them.
+- New art, fonts or themes, other platform plugins, submission work, reviewer-only onboarding, DNS changes or a legal compliance judgment.
+- A code build, code test, browser session, sign-in, live query, database write, merge or deploy in this planning task.
+
+These limits follow [the map](map.md), [ticket 09](issues/09-web-play.md), [ticket 12](issues/12-scope-picks.md) and [ticket 15](issues/15-public-safety.md).
 
 ## Further Notes
 
-The earlier session is right about the large common base. Its conclusion understates the web API gap, browser state work, existing sign-in, cache risk, and plugin-local device fixes. The inventory supplies the evidence and the owner-pick ledger.
+The plan keeps the working local app, shares the account UI and extends the existing handler, renderer, rules and service transactions. [The inventory](inventory.md) covers 81 work units; it is not an effort estimate.
 
-The plan uses the smallest complete change: keep the working local app; share the working account UI; extend the existing HTTP client and handler; reuse the existing renderer, rules, setup, and service transactions. It avoids an iframe wrapper, a second server, a second account UI, and a broad client rewrite before a first playable slice.
+Tickets 01 to 18 hold the resolved answers; ticket 08 waits only for step 4 and the served commit. [Ticket 18](issues/18-approve-spec.md) records the approval.
 
-Open tickets hold recommended picks, not owner answers. Seven research tickets hold resolved source facts. The other tickets wait for the owner, the final release facts or a sample. Nothing here authorizes a build or a publish.
+The PR 61 merge carries the outbox-text repair. Phase 1 removes the unsafe worker cache path; phase 3 removes the unused watcher when the shared poll takes over. [The comparison](comparison.md) records the source faults.
 
-Faults found during planning: the PR 61 release packet says unsent outbox rows stay, but the code, the privacy page and the database test delete them after 30 days (fixed on the PR 61 branch in `5e5b7fd8`); the offline worker cache and the old watcher are latent web faults that phases 1 and 3 remove.
-
-The top risks are private data in a worker cache or the wrong account state; divergent client behavior or duplicate commands after extraction; and a moving release base whose checks, schema, and real-device evidence do not match. The phase order addresses these before public play.
-
-No wall-clock estimate follows from 499 commits or 81 work units. The first shared-client and browser-route slices provide a measured basis for an estimate.
+The final deploy record, shared-file handover, exact recovery build, real Android tester/device and accepted speed budget remain explicit gates in [ticket 08](issues/08-release-evidence.md), [the test gate](test-gate.md) and [the release route](release-route.md). Earlier results and prototype samples do not close product release checks.

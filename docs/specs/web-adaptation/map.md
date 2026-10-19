@@ -1,7 +1,7 @@
 # Web adaptation map
 
 Type: map
-Status: open
+Status: resolved
 Labels: wayfinder:map
 
 ## Destination
@@ -37,6 +37,7 @@ An owner-approved spec, [Web app adaptation spec](spec.md), with its build order
 - [Choose the public play and alert scope](issues/15-public-safety.md): alerts and chat off; one budget across surfaces; email support with an operator intake step instead of an in-app Report; a shared notice view; these gate public random matching.
 - [Choose the test and device gate](issues/16-test-gate.md): the HTTP boundary with a real database is the main seam; one `web-online` browser driver; the web gate in `plugin-checks.yml` with Firefox added; a device matrix with a person per row; real Android open and a release blocker ([test-gate.md](test-gate.md)).
 - [Choose the web release route and stop conditions](issues/17-release-route.md): small slices through the one deploy path; the safe worker first, a closed `/api` dispatch, then the account page; a read-only game GET and a tested account-off switch before the first account publish; a recovery build that reads current data ([release-route.md](release-route.md)).
+- [Approve the adaptation spec and build order](issues/18-approve-spec.md): option 1; the spec is approved for phases 1 to 8 at `2837bcc6`, before ticket 08 closes (owner, 2026-10-19); 20 build tickets in [web build](../web-build/README.md). Ticket 08 stays open for the deploy facts that gate each publish.
 
 ## Not yet specified
 
