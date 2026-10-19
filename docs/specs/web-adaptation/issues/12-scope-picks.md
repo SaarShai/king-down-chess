@@ -60,3 +60,7 @@ Decided by delegation (owner, 2026-10-18: "regarding \"my decisions\" - please u
 - **Part 1: option 1.** All built, in-scope work at the accepted PR 61 merge is the base.
 - **Part 2.** The approved code outside PR 61 (direct card use and Collection costs on `claude/od-board`; hall presets on `claude/od-home`; the L2 move chooser on `claude/od-look`; `taste/b2-row-preview` and `taste/c5-seat-reveal` after their samples) reaches the web only through the shared UI, after it lands in the plugin. No web-only port. A parked branch goes on the later-work list.
 - **Part 3.** Play now always uses Beginner, and New game keeps the saved level (the explicit build ticket and the current code outweigh the short D2 summary). The rating rule stays as built: every eligible human game counts. Local modes keep No power. The open plugin samples follow the plugin's answers and appear at browser sizes in the browser sample. D6 card costs stay out of scope: a rule change needs its own Matrix entry and spec.
+
+## Comments
+
+- 2026-10-19: the five branches of Part 2 are parked (owner, 2026-10-18, relayed by the plugin session: "yes, park them and send it"). Their features are later tickets in [shared-screens-later](../../shared-screens-later/README.md). See [ticket 08](08-release-evidence.md), step 6.

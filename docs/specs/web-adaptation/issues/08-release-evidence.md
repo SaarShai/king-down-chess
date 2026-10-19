@@ -1,7 +1,7 @@
 # Collect the final plugin release evidence and the web baseline
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: none
 Starts: when PR 61 merges (an outside event, not a ticket)
 Parent: [Web adaptation map](../map.md)
@@ -35,3 +35,38 @@ A pre-merge run compared the live app source (`04b7af87`) with the release candi
 - Visible changes that reach the site on merge: "Tap" becomes "Select" in the turn lines, the armed-power hints, the Beast chain refusal and the Beast and Reaver guides (`src/turn.ts`, `src/context-line.ts`, `src/read.ts`); the board canvas stays hidden until the stone art decodes (first frame only); the Privacy, Support (a new Credits section) and Terms pages change their text.
 - Already live, so not new: the coordinate limit below 8 CSS px, the 5-second idle stop and the growing context row.
 - No visible change: normal coin faces match; the new disabled-coin style has no trigger in the local app.
+
+## Merge record (2026-10-19)
+
+- PR 61 merged at `cd8fa9f2` (2026-10-19 03:53 UTC). The first deploy stopped at the engines-in-use check: a source-stamp engine was missing ([ticket 07](07-engine-compatibility.md)). PR 62 archives it; the deploy runs again after PR 62 merges. The deploy publishes the combined tree, so kingdown.dev gets the visible changes of the pre-merge run above with it. Each is a recorded pick or fix: the Select words (owner pick B4), the first-frame board load (plugin fault F13), and the submission text of the legal and support pages.
+- Steps 2 to 4 come from that deploy's record (its `npm test`, default browser checks, engines report, migrations and deploy ID), from the release owner. Steps 1, 5 and 6 run after the deploy, because the deploy's browser checks use this Mac.
+
+## Steps 1, 2, 5 and 6 at the merge (2026-10-19)
+
+Full record: [release-record-2026-10-19.md](../../../research/web-adaptation-2026-10-18/release-record-2026-10-19.md) (steps 1, 2 and 6) and [baseline-post-merge.md](../../../research/web-adaptation-2026-10-18/baseline-post-merge.md) (step 5). An independent review found no fact fault.
+
+- **Step 1.** Merge `cd8fa9f2`, tree `1183dd83`, parents `b5327dd2` and `db3d4d44`. Against the plan base `442c5eb3`: 67 paths, +6,164 / −111, mostly plan and release records. Source changes: eight files in `src/plugin/` (late-reply routing, name return, error clearing, three concurrent tool calls, the Select words) and the check tools. The record lists each changed inventory row.
+- **Step 2.** CI passes at the merge itself (main push, run 39196850801): full `npm test` with PostgreSQL (3,183 pass, 9 skip: eight opt-in balance drift tests and one shallow-checkout history check), the plugin build, server, smoke, protocol, `build:vercel` and `check:vercel`, Chromium `plugin-oauth`, `plugin-ui` and `plugin-ui-http`, and the WebKit selection (161 tests). The PR 61 runs passed on the temporary PR merge `7664bd95`. No real-device pass exists at this commit: the iPhone record is fault evidence from 2026-10-15, the device matrix used desktop browser copies, and the Android and native iOS swipe rechecks are still open. The full default local browser suite is not in CI; the deploy runs it.
+- **Step 5.** Merged main against the live build `04b7af87`, after two stable captures of the live build: the visible changes match the pre-merge run. Already live: the coordinate limit, the 5-second idle stop and the growing context row. With the merge: the Select words (owner pick B4), the board hidden until its first frame (fix F13), the Privacy, Support and Terms text (submission), and the forced disabled-coin style (no local trigger). No new web trade-off; nothing for the owner to see before the deploy.
+- **Step 6.** The five later-update branches are parked (owner, 2026-10-18, relayed by the plugin session: "yes, park them and send it"). They stay local and unchanged (468 to 601 commits behind main). Their 27 features are later tickets in [shared-screens-later](../../shared-screens-later/README.md), each with its branch as a reference only. The parking meets the spec's "land or are parked" condition for the shared-seam moves.
+- **Still open:** steps 3 and 4 (migrations, grants, engines report, deploy ID, recovery path) from the release owner's deploy record, and the served commit of kingdown.dev after that deploy.
+
+## Step 3 from a read-only check (2026-10-19, 09:50 UTC)
+
+The release owner (the plugin session) ran the check with the read-only release login. No credential file was opened.
+
+- **Engines in use:** the engines check passes. Two engines are in use, and the archive holds both: `bab22e94` (1 unfinished game) and its source-stamp alias `e668782a` (4 unfinished games).
+- **Migrations and grants:** migration 0014 and its runtime grant are present on production.
+- **Still open:** step 4 (the deploy ID, its source commit and the recovery path) and the served commit, from the deploy record. The deploy source is the PR 63 merge, with test-only changes on top of `2837bcc6`. These facts gate each web publish, not the spec approval ([ticket 18](18-approve-spec.md)).
+
+## Step 4 from the deploy record (2026-10-19)
+
+The release owner (the plugin session) supplied this record. No credential file was opened.
+
+- **Deploy:** ID `kingdown-1uncjepb9`, source commit `3d4c97ae`. Checks: npm test passes 3185 tests with 8 skips (191 files). All 24 browser checks and 2 of 2 plugin browser checks pass. The engine archive guard, the engines-in-use check, check:vercel, the MCP protocol check (26 tools) and the site and plugin live checks pass.
+- **Recovery:** the previous production deployment `kingdown-7y0oxen9y` (source `04b7af87`, published 2026-10-17). A rollback needs the owner's word. That build is older than the `e668782a` archive, so the 4 unfinished games on that engine refuse with MATCH_INCOMPATIBLE there. Migration 0014 adds only, so the old build ignores it.
+- **Served commit (step 5):** `tools/deploy.sh --publish` ends with "deploy: published 3d4c97ae… to kingdown; live checks pass" at about 11:19 UTC. kingdown.dev is the alias of the new deployment. The site live check finds the bundle `assets/index-DS4E-bHB.js` and identical legal pages.
+
+## Answer
+
+The web work uses main; kingdown.dev serves `3d4c97ae` since deploy `kingdown-1uncjepb9`. Steps 1, 2, 5 and 6 are in the merge sections above, step 3 in the read-only check, and step 4 in the deploy record. The merge brings no new web trade-off. The five later-update branches are parked. Real-device evidence stays a gate of [the test gate](../test-gate.md), not of this record.

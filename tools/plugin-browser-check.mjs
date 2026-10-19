@@ -10,16 +10,13 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { register } from 'tsx/esm/api';
+import { testDatabase } from './plugin-db-config.mjs';
 import { buildPluginServer } from './plugin-server-build.mjs';
 
 const mode = process.argv[2];
 assert(['oauth', 'fixture', 'http'].includes(mode), 'Choose oauth, fixture or http');
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
-if (mode !== 'fixture') {
-  assert(connectionString, 'Set PLUGIN_TEST_DATABASE_URL to a disposable loopback database');
-  const db = new URL(connectionString);
-  assert(['postgres:', 'postgresql:'].includes(db.protocol) && ['127.0.0.1', 'localhost', '[::1]'].includes(db.hostname) && db.pathname.endsWith('_test'), 'Plugin checks require a disposable loopback database ending in _test');
-}
+if (mode !== 'fixture') testDatabase(connectionString);
 const work = await mkdtemp(join(tmpdir(), 'kingdown-plugin-check-'));
 const build = join(work, 'server');
 const actors = [randomUUID(), randomUUID(), randomUUID()];

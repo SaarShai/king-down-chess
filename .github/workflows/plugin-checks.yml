@@ -80,6 +80,9 @@ jobs:
       - run: npm run plugin:db:init-test
       - run: npx playwright install --with-deps chromium
       - run: npm run check:browser plugin-oauth plugin-ui plugin-ui-http
+      - run: npm run check:browser web-online
+        env:
+          PLAYABLE_BROWSER: chromium
       - if: failure() || cancelled()
         uses: actions/upload-artifact@v4
         with:
@@ -91,8 +94,22 @@ jobs:
     runs-on: ubuntu-latest
     # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP), and then the full plugin-ui check.
     timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kingdown_test
+          POSTGRES_PASSWORD: local_test_only
+          POSTGRES_DB: kingdown_plugin_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       PLAYABLE_BROWSER: webkit
+      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -100,6 +117,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run plugin:db:init-test
       - run: npx playwright install --with-deps webkit
       - run: npm test
         env:
@@ -109,9 +127,47 @@ jobs:
           # The browser's own output goes to the check log, so a WebKit crash or memory kill names its reason
           # (chatgpt-mvp ticket 53: run 39230893586 crashed with no reason; WebKit kills its page at 8192 MB).
           DEBUG: pw:browser
+      - run: npm run check:browser web-online
       - if: failure() || cancelled()
         uses: actions/upload-artifact@v4
         with:
           name: webkit-check-logs
+          path: /tmp/kingdown-check-runs/
+          retention-days: 7
+
+  browser-firefox:
+    runs-on: ubuntu-latest
+    # Firefox uses the CI step limits times 3 for the web journey (tools/lib/checks.mjs STEP).
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kingdown_test
+          POSTGRES_PASSWORD: local_test_only
+          POSTGRES_DB: kingdown_plugin_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PLAYABLE_BROWSER: firefox
+      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run plugin:db:init-test
+      - run: npx playwright install --with-deps firefox
+      - run: npm run check:browser web-online
+      - if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-check-logs
           path: /tmp/kingdown-check-runs/
           retention-days: 7
