@@ -274,11 +274,14 @@ it('shows the opponent\'s moves and the mate without Reload (F4, the J12 steps f
   const page = await open(OWNER, true), frame = page.frameLocator('iframe');
   const tool = async (path: string, name: string, args: Record<string, unknown>) => (await page.request.post(new URL(path, harness.url).href, { data: { name, arguments: args } })).json();
   const view = () => frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view);
+  // Finish the replies before a clock jump can expire an in-flight call's 10-second limit.
+  const idle = () => expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
   const move = (lan: string) => frame.locator('html').evaluate(async (_, lan) => { const app = (window as any).harnessApp, v = app.memory.view; await app.call('kingdown_move', { game_id: v.game_id, command_id: crypto.randomUUID(), expected_revision: v.revision, lan }, true); }, lan);
   try {
     await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; app.navigate('play'); await app.start('friend', { colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } }); });
     const game_id = (await view()).game_id, { structuredContent: { code } } = await tool('/fixture-tool', 'kingdown_invite', { game_id });
     expect((await tool('/fixture-friend-tool', 'kingdown_join', { code })).isError).toBeFalsy();
+    await idle();
     await page.clock.fastForward(16_000);
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     for (const [white, black] of [['f2-f3', 'e7-e5'], ['g2-g4', 'Qd8-h4']]) {
@@ -287,6 +290,7 @@ it('shows the opponent\'s moves and the mate without Reload (F4, the J12 steps f
       const reply = await tool('/fixture-friend-tool', 'kingdown_move', { game_id, command_id: randomUUID(), expected_revision: before.revision, lan: black });
       expect(reply.isError, JSON.stringify(reply.content)).toBeFalsy();
       // A daily game with no recent sign of the opponent reads every 30 s (poll.ts); no Reload is needed.
+      await idle();
       await page.clock.fastForward(31_000);
       await expect.poll(async () => (await view()).revision).toBeGreaterThan(before.revision);
     }
