@@ -63,7 +63,7 @@ async function board(client: Client) {
   console.log(`Read board resource through MCP: ${Buffer.byteLength(JSON.stringify(result))} JSON bytes`);
   return { html: resource.text, meta: (resource._meta ?? {}) as UiMeta };
 }
-export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor, laterFriendActor, seedPosition, deleteMatch, sourcePage = false }: { sourcePage?: boolean; boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string; laterFriendActor?: string; seedPosition?: (setup: MatchSetup, black: boolean) => Promise<string>; deleteMatch?: (id: string) => Promise<void> } = {}) {
+export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor, laterFriendActor, seedPosition, deleteMatch, sourcePage = false, unnamedPlayer = false }: { unnamedPlayer?: boolean; sourcePage?: boolean; boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string; laterFriendActor?: string; seedPosition?: (setup: MatchSetup, black: boolean) => Promise<string>; deleteMatch?: (id: string) => Promise<void> } = {}) {
   if (endpoint && (endpoint.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname) || endpoint.username || endpoint.password)) throw new Error('The HTTP harness accepts only a loopback development endpoint');
   let buddy: Client | undefined, laterBuddy: Client | undefined;
   const client = new Client({ name: 'local-browser-host', version: '1' });
@@ -166,7 +166,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
     resource = await board(client);
   }
   const tag = randomUUID().slice(0,8);
-  for (const [i, persona] of [client,buddy,laterBuddy].entries()) if (persona) { const result = await persona.callTool({name:'kingdown_handle',arguments:{handle:`host${i}-${tag}`}}); if (result.isError) throw new Error('The harness cannot set its disposable handles'); }
+  for (const [i, persona] of [client,buddy,laterBuddy].entries()) if (persona && (!unnamedPlayer || i > 0)) { const result = await persona.callTool({name:'kingdown_handle',arguments:{handle:`host${i}-${tag}`}}); if (result.isError) throw new Error('The harness cannot set its disposable handles'); }
   return { url, close };
   } catch (error) { await close(); throw error; }
 }

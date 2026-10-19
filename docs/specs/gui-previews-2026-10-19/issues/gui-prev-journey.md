@@ -170,3 +170,13 @@ Taste: use the current line height.
 Each Guide caption has 8 px of space on each side. The shelf edges still join. The words stay the same.
 
 Taste: use 8 px inside each caption.
+
+### A23
+
+The long host name comes from tools/plugin-ui-harness.ts. It sets a random disposable handle for every test player. The server sends the stored handle, or null. The host bridge does not supply a player name.
+
+The app already shows You on the board and seat, Profile as the title, and Choose a name in Settings when the handle is null. Keep this code. A new harness mode tests the real null response. A test also keeps a chosen name that starts with host.
+
+Limit: this lane cannot inspect a signed-in ChatGPT session. The house rules forbid sign-in. The null case uses the real plugin protocol in the local host.
+
+Taste: keep Choose a name in Settings. No name is made up or hidden.

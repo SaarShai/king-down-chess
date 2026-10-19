@@ -2548,3 +2548,26 @@ it('wraps the setup hint on a phone and keeps the icon-only coin', async () => {
     expect(await frame.locator('#seat-king').innerText()).toBe('');
   } finally { await page.close(); }
 });
+
+it('shows You and Profile for an unnamed player, and keeps a chosen host-like name', async () => {
+  const isolated = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true, unnamedPlayer: true });
+  const page = await open(isolated.url), frame = page.frameLocator('iframe');
+  try {
+    const me = await page.evaluate(async () => (await (window as any).harnessTool({ name: 'kingdown_settings' }))._meta.me);
+    expect(me.handle).toBeNull();
+    await hall(page);
+    await frame.getByRole('checkbox', { name: 'King powers', exact: true }).locator('..').click();
+    await frame.locator('#setup-start').click(); await frame.locator('#seat-ready').waitFor();
+    expect(await frame.locator('#seat-me-name').innerText()).toBe('You');
+    await frame.locator('#seat-ready').click(); await frame.locator('#board[aria-busy="false"]').waitFor();
+    expect(await frame.locator('#strip-me .player-name b').innerText()).toBe('You');
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await frame.locator('#profile-status').filter({ hasText: 'Loading' }).waitFor({ state: 'hidden' });
+    expect(await frame.locator('#page-title').innerText()).toBe('Profile');
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('settings'));
+    expect(await frame.locator('#me-handle').innerText()).toBe('Choose a name');
+    await frame.locator('html').evaluate(async () => (window as any).harnessApp.call('kingdown_handle', { handle: 'host0-player' }));
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
+    await frame.locator('#page-title').filter({ hasText: 'host0-player' }).waitFor();
+  } finally { await page.close(); await isolated.close(); }
+});
