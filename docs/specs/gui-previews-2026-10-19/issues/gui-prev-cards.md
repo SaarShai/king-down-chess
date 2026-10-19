@@ -76,3 +76,9 @@ Add paintings for Strike, Haste and Flight. Keep the move diagrams in the detail
 Taste: use cream and burgundy for all three. Use warm amber for Strike and Haste. Use muted teal for Flight. Keep the current square crop and the current type.
 
 Checks: the type check passes. The focused test command waits for the shared test lock. The base has 200 plugin captures and 14 web captures at device scale 2. The capture script uses visible image readiness for the web; hidden image loads must not hold a capture.
+
+## A16 preview
+
+The board sheet uses the same face function as Collection. It shows no card back. The rule text and Use action keep their current behavior. A board test compares a painted face and a face with no painting with Collection. No taste choice is needed.
+
+A5 visual check: the phone and desktop views use the current frames with clean image edges. The art and the diagram fit the phone sheet. The new knight, rook and bishop stay clear at the small card size. The test command still waits for the shared lock.

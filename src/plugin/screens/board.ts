@@ -11,6 +11,7 @@ import type { PlayerRecord, View } from '../../match/protocol';
 import { ending } from '../ending';
 import { board, highlight } from '../board-view';
 import { art, symbols } from '../art';
+import { cardArt } from '../card-face';
 import { cardDiagram } from '../../card-diagram';
 import { pieceIcon } from '../../piece-icons';
 import { snd } from '../../render/sfx';
@@ -283,9 +284,8 @@ export function boardScreen(store: Store) {
     if (!view || !pos || !canRead()) return;
     rules();
     if (index !== undefined) {
-      const card = RULES.hands[side][index], image = document.createElement('img'), face = art(`ui/cards/${card.toLowerCase()}.webp`);
-      image.src = face ?? art('ui/cards/back.webp'); image.alt = '';
-      const window = document.createElement('div'); window.className = 'cf-art'; window.append(image);
+      const card = RULES.hands[side][index];
+      const window = document.createElement('div'); window.className = 'cf-art'; window.innerHTML = cardArt(card);
       const nodes: HTMLElement[] = [window, text(ruleLine(cardText(card)))], diagram = cardDiagram(card);
       if (diagram) { const picture = document.createElement('div'); picture.className = 'card-diagram'; picture.innerHTML = diagram; nodes.push(picture); }
       const coin = cardCoins(pos,side,RULES.hands[side],moves.map(c=>c.move))[index];

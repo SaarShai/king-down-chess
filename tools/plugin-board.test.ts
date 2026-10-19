@@ -1867,3 +1867,17 @@ it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons
     await page.screenshot({ path: join(proof, `plugin-seat-menu-390x844-${theme}.png`) });
   } finally { await page.close(); }
 });
+
+it.each(['Strike', 'MorphP'] as const)('shows the Collection face in the %s board sheet', async card => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [[card], []] })), frame = page.frameLocator('iframe');
+  const picture = (el: Element) => ({ image: el.querySelector('img')?.getAttribute('src'), diagram: el.querySelector('svg')?.getAttribute('data-card'), text: el.textContent?.trim() });
+  try {
+    await frame.locator('#card-w-0').click();
+    const face = await frame.locator('#board-sheet .cf-art').evaluate(picture);
+    expect(await frame.locator('#board-sheet .cf-art img[src*="back"]').count()).toBe(0);
+    await frame.locator('#board-sheet [aria-label="Close"]').click();
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('collection'));
+    await frame.locator('#collection-tabs input[value="Cards"]').locator('..').click();
+    expect(await frame.locator(`#collection-items [data-card="${card}"] .cf-art`).evaluate(picture)).toEqual(face);
+  } finally { await page.close(); }
+});
