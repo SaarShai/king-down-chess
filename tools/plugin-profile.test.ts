@@ -156,7 +156,7 @@ it('shows all ten badges and opens the earned date or goal on a tap', async () =
     expect(await frame.locator('#over').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
-it('lists all pieces, kings, powers and cards with the game text and Unlocked', async () => {
+it('lists every collection rule and hides shared unlocked status', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('collection'));
@@ -180,6 +180,8 @@ it('lists all pieces, kings, powers and cards with the game text and Unlocked', 
       await frame.locator('#collection-tabs label').filter({ hasText: tab }).click();
       expect(await frame.locator('#collection-items > *').count()).toBe(count);
       expect(await frame.locator('#collection-items .unlocked').count()).toBe(count);
+      expect(await frame.locator('#collection-items').innerText()).not.toContain('Unlocked');
+      expect(await frame.locator('#collection-items').innerText()).not.toContain('Status');
       if (tab === 'Pieces') for (const letter of ['P', ...POOL_KINDS]) {
         const type = LETTERS.indexOf(letter) as PieceType, guide = pieceGuide(type), card = frame.locator(`[data-piece="${NAMES[type]}"]`);
         expect(await card.locator('dt').allTextContents()).toEqual(['Moves', 'Takes', ...(guide.special ? ['Special'] : []), 'Status']);
@@ -508,4 +510,20 @@ it('reflows Profile at 200% zoom (197 CSS px) with no sideways scroll', async ()
     }).map(figure => figure.dataset.badge));
     expect(spill).toEqual([]);
   } finally { await close(); }
+});
+
+it('shows collection status again when an entry is locked', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('collection'));
+    await frame.locator('#collection-items .piece-card').first().waitFor();
+    expect(await frame.locator('#collection-items').innerText()).not.toContain('Unlocked');
+    await frame.locator('html').evaluate('(async () => { const { syncCollectionStatus } = await import("/src/plugin/screens/collection.ts"); const list = document.getElementById("collection-items"); const mark = list.querySelector(".unlocked"); mark.className = "locked"; mark.textContent = "Locked"; syncCollectionStatus(list); })()');
+    expect(await frame.locator('#collection-items').innerText()).toContain('Locked');
+    expect(await frame.locator('#collection-items').innerText()).toContain('Unlocked');
+    expect(await frame.locator('#collection-items').innerText()).toContain('Status');
+    await frame.locator('html').evaluate('(async () => { const { syncCollectionStatus } = await import("/src/plugin/screens/collection.ts"); const list = document.getElementById("collection-items"); const mark = list.querySelector(".locked"); mark.className = "unlocked"; mark.textContent = "Unlocked"; syncCollectionStatus(list); })()');
+    expect(await frame.locator('#collection-items').innerText()).not.toContain('Unlocked');
+    expect(await frame.locator('#collection-items').innerText()).not.toContain('Status');
+  } finally { await page.close(); }
 });

@@ -1,6 +1,6 @@
 # GUI previews 2026-10-19: cards: art, faces, coins, reasons, collection
 
-Status: in-progress
+Status: done
 Type: task
 
 ## Why and the rule
@@ -98,3 +98,29 @@ A33 visual repairs: the first 2x review finds low contrast on the opponent's pal
 A card sheet with no Use action shows one short reason. It covers a spent card, an opponent's card, a game that has ended, the other turn, an action in progress and no move now. A usable card keeps Use and has no reason line. Unit tests cover all seven states. A board test checks the no-move and opponent sheets.
 
 Taste: use a plain sentence below the rule. Keep the current body type. Add no badge, cost or disabled button.
+
+## A40 preview
+
+Hide each status label and value while all entries are unlocked. Keep the intro and the rule text. After each draw, check the entries. If an entry is not unlocked, show the status rows again. A test covers each tab and a locked entry that becomes unlocked again. No taste choice is needed.
+
+A35 visual check: the no-move and spent lines fit on phones and desktops, in light and dark. The Use action stays on a usable card. The base-page captures use the saved branch-base build.
+
+Final picture review: Control uses two friendly pieces. Spawn 2 and Spawn K2 show two pawns. The Spawn K pictures show the king. Tests check these facts. These repairs are in the A33 commit.
+
+## Check results
+
+The five preview builds are done. Each item has one commit. The owner still approves each preview before a merge.
+
+- `npx tsc --noEmit`: pass. Each commit hook also passes the type check and the staged gate.
+- `git diff --check`: pass.
+- `plugin-ui`: pass on the M1 at `9759ab27`, 284.7 seconds. The required check runner reports exit 0. The resource uses 764,030 JSON bytes, below the 1,000,000-byte limit. Server code has no change, so this lane needs no `plugin-ui-http` run.
+- The first active browser run finds duplicate card entries. The picture SVGs use the card controls' `data-card` attribute. Pictures and symbols now use separate attributes. The existing browser check passes after this repair. The symbol tests guard this boundary.
+- Full `npm test`: exit 75 after 900 seconds in the shared test-lock queue. No test starts. The changed-unit attempt also exits 75 after 60 seconds in that queue. No unit result is claimed. The unit checks remain blocked by the shared lock. This lane stops no other lane's process.
+- Added tests cover paintings, detail diagrams, symbols, rule pictures, valid piece types, friendly Control pieces, Spawn pawn counts, shared sheet faces, use reasons, hidden status and its return for a locked entry.
+- Proof: 430 PNG files, with 212 before/after pairs. Every image has device scale 2 and the required size. The shorter Collection needs six fewer scroll views. Each after view has a before view. The proof index is in the lane's `previews/INDEX.md`.
+
+## Visual review
+
+A5 keeps the current type, card frames, coin sizes and image windows. The three paintings have clear subjects and clean edges. The detail diagrams fit the phone sheet. A16 shows the same face as Collection. A33 removes the empty faces and repeated ribbons. The 2x review repairs low contrast on the opponent's symbols, wrong pawn pictures for three cards, an enemy piece in Control and the pawn count in Spawn 2. The Cards tab has the one LAB mark. A35 gives one clear reason in the current body type. A40 removes both the status label and its value while all entries are unlocked.
+
+No requested part is left unbuilt. Unit execution is the check gap. The taste choices are in each item's preview note and in the art prompt file. The final record changes no game rule.

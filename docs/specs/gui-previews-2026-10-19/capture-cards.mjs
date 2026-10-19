@@ -35,7 +35,12 @@ try {
       await p.screenshot({path:resolve(out,`${item}-plugin-${name}-${width}x${height}-${theme}-${phase}.png`)});console.log(item,name,width,theme);
     }
     async function open(screen) {
-      await f.locator('html').evaluate((_,screen)=>window.harnessApp.navigate(screen),screen);
+      if (process.argv.includes('--built')) {
+        const route=screen==='collection'?'profile':screen;
+        const result=await (await p.request.post(new URL('/fixture-tool',harness.url).href,{data:{name:'kingdown_open',arguments:{screen:route}}})).json();
+        await p.evaluate(result=>window.harnessShow(result,true),result);
+        if(screen==='collection') await f.locator('[data-screen="profile"] [data-nav="collection"]').click();
+      } else await f.locator('html').evaluate((_,screen)=>window.harnessApp.navigate(screen),screen);
       await f.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
     }
     async function scrollShots(item,name,pane) {

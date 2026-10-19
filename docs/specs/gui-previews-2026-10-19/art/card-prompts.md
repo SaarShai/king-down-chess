@@ -15,4 +15,3 @@ Use case: stylized-concept. Asset type: square card painting for King Down chess
 ### flight
 
 Use case: stylized-concept. Asset type: square card painting for King Down chess. Match the shown March and Vault card family: hand-painted fantasy, confident broad brush shapes, brush texture, warm cream sunlight with muted teal sky. An ivory chess bishop with a burgundy sash floats gently on a sweeping ribbon of wind over a short row of small ivory pawns on a stone chess field. Large single bishop centered, complete base visible, no wings, no extra characters. Wind forms one clear upward arc. Quiet distant hills. Cream, burgundy and muted teal. Readable at a small card size. No letters, symbols, diagram, border, text, watermark or card frame. Square image.
-
