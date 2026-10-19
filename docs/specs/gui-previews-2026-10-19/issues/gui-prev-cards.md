@@ -124,3 +124,22 @@ The five preview builds are done. Each item has one commit. The owner still appr
 A5 keeps the current type, card frames, coin sizes and image windows. The three paintings have clear subjects and clean edges. The detail diagrams fit the phone sheet. A16 shows the same face as Collection. A33 removes the empty faces and repeated ribbons. The 2x review repairs low contrast on the opponent's symbols, wrong pawn pictures for three cards, an enemy piece in Control and the pawn count in Spawn 2. The Cards tab has the one LAB mark. A35 gives one clear reason in the current body type. A40 removes both the status label and its value while all entries are unlocked.
 
 No requested part is left unbuilt. Unit execution is the check gap. The taste choices are in each item's preview note and in the art prompt file. The final record changes no game rule.
+
+## Review repair plan
+
+Both reviews confirm three faults in the code. A33 shows a swap between two knights for Control. A5 hides the Workshop diagrams on a phone. A35 gives the wait line for failed commands and reads.
+
+1. Show a knight beside a friendly rook and one borrowed rook move. Check the picture and its move against the engine.
+2. Put the Workshop diagram below the card heading on a phone. Check all three diagrams at phone and desktop sizes, and check the board sheet calls.
+3. Pass the page lock state to the card reason. Test a failed command, a failed read, recovery, and an action in flight through the board.
+4. Run `npm test` and the required `plugin-ui` runner. Commit before the browser check. Record the results here and in the lane report.
+
+The checks must prove that the picture is legal, the diagrams are visible at a useful size, and each failed state names its recovery control. No game rule changes.
+
+## Review repairs
+
+- A33, both reviews: confirmed and fixed. Control shows one knight beside a friendly rook, with one move from a1 to a2. The picture has no swap arrows. The test reads the picture's squares and move, checks the move against the engine, and checks that the rook stays in place. Two knights cannot make the pictured move.
+- A5, review A: confirmed and fixed. The diagram leaves the small art window. It has its own row below the card heading on a phone. The browser check covers Strike, Haste and Flight in Workshop and the board sheet, at 390 × 844 and 1280 × 800, in light and dark. Each diagram must be visible, have room to read, fit the view and have no cover.
+- A35, both reviews: confirmed and fixed. The card reason reads the page state. A failed command names Retry. A failed read names Try again. An action in flight gives the wait line. The browser check fails a computer-game read and a friend-game draw offer, checks each sheet, retries, and checks that Use returns. It also checks that the coin stays off while the retry runs. The unit test checks the wait line.
+
+The type check, script syntax check and diff check pass. The first `npm test` repair attempt exits 75 after 60 seconds in the shared test queue. No test starts. The browser check log is `scratchpad/lanes/gui-prev-cards/checks-review-fixes-1.txt` in the task scratch folder. The final lane report records the completed check results.

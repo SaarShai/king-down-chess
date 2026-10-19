@@ -49,7 +49,8 @@ export function cardPicture(card: CardName): string {
   else if (kind === 'shield') scene = pawn(16) + pawn(32) + pawn(48) + '<path d="M12 36V21a28 18 0 0 1 56 0v15"/>';
   else if (kind === 'rally') scene = pawn(12) + pawn(44) + '<path d="M20 15V5m-4 4 4-4 4 4M52 15V5m-4 4 4-4 4 4"/>';
   else if (kind === 'mirror' || kind === 'mimic' || kind === 'growth') scene = `<g transform="translate(12 12)">${marks[kind]}</g>${arrow}<g transform="translate(48 12)">${marks[kind]}</g>`;
-  else if (kind === 'control' || kind === 'swap') scene = (kind === 'control' ? knight(12) + knight(52) : pawn(12) + pawn(52)) + '<path d="M25 10h30m-4-4 4 4-4 4M55 38H25m4-4-4 4 4 4"/>';
+  else if (kind === 'control') scene = `<g data-square="a1" transform="translate(0 9)">${knight(12)}</g><g data-piece="rook" data-square="b1" transform="translate(32 23)" fill="#fff5da"><path d="M1 2h4v3h3V2h3v3h3V2h3v6l-3 2v5l2 3H2l2-3v-5L1 8z"/></g><circle cx="20" cy="15" r="6" stroke-dasharray="2 2"/><path data-move="Na1-a2!O" d="M20 26V13m-4 4 4-4 4 4"/>`;
+  else if (kind === 'swap') scene = pawn(12) + pawn(52) + '<path d="M25 10h30m-4-4 4 4-4 4M55 38H25m4-4-4 4 4 4"/>';
   else if (kind === 'spawn') {
     const two = card === 'Spawn2' || card === 'SpawnK2', king = card === 'SpawnK' || card === 'SpawnK2';
     scene = (king ? '<g data-piece="king" fill="#fff5da"><path d="M17 19h10l-1 13h-8zM22 8v9M18 12h8"/></g>' : '<path d="M20 18v12m-6-6h12"/>')

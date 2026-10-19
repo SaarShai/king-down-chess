@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from 'vitest';
+import type { Page } from '../state';
 import type { View } from '../../match/protocol';
 import { fromFen, toFen, toLan } from '../../rules/setup';
 import { legalMoves, setRules, status, type CardName, type Rules } from '../../rules/engine';
@@ -309,11 +310,18 @@ test.each([
 
 test('a card with no Use action gives one reason; a usable card gives no reason', () => {
   const move = {} as import('../../rules/engine').Move, card = { spent: false, moves: [move] }, game = view({ turn: 0, action: 'ready' }), pos = { turn: 0 as const };
-  expect(cardUseReason(card, 0, game, pos, true)).toBe('');
-  expect(cardUseReason({ ...card, spent: true }, 0, game, pos, true)).toBe('This card is spent.');
-  expect(cardUseReason(card, 1, game, pos, true)).toBe("This is your opponent's card.");
-  expect(cardUseReason(card, 0, { ...game, status: 'finished' }, pos, true)).toBe('This game has ended.');
-  expect(cardUseReason(card, 0, game, { turn: 1 }, false)).toBe('Use this card on your turn.');
-  expect(cardUseReason(card, 0, game, pos, false)).toBe('Wait for the current action to finish.');
-  expect(cardUseReason({ ...card, moves: [] }, 0, game, pos, true)).toBe('This card has no move now.');
+  const page: Page = { screen: 'board', view: game, connected: true, mounting: false, writing: false };
+  expect(cardUseReason(card, 0, game, pos, true, page)).toBe('');
+  expect(cardUseReason({ ...card, spent: true }, 0, game, pos, true, page)).toBe('This card is spent.');
+  expect(cardUseReason(card, 1, game, pos, true, page)).toBe("This is your opponent's card.");
+  expect(cardUseReason(card, 0, { ...game, status: 'finished' }, pos, true, page)).toBe('This game has ended.');
+  expect(cardUseReason(card, 0, game, { turn: 1 }, false, page)).toBe('Use this card on your turn.');
+  expect(cardUseReason(card, 0, game, pos, false, { ...page, writing: true })).toBe('Wait for the current action to finish.');
+  expect(cardUseReason(card, 0, game, pos, false, page)).toBe('Finish your turn before you use this card.');
+  expect(cardUseReason({ ...card, moves: [] }, 0, game, pos, true, page)).toBe('This card has no move now.');
+  const pending = { name: 'kingdown_draw', args: {}, game_tag: 'game', error: 'Request failed' };
+  expect(cardUseReason(card, 0, game, pos, false, { ...page, pending })).toBe('Close this sheet and select Retry.');
+  const stale: Page = { ...page, notice: { kind: 'read', game: game.game_id, text: 'Read failed' } };
+  expect(cardUseReason(card, 0, game, pos, false, stale)).toBe('Close this sheet and select Try again.');
+  expect(cardUseReason(card, 0, game, pos, false, { ...stale, mounting: true })).toBe('Wait for the current action to finish.');
 });

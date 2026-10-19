@@ -290,7 +290,7 @@ export function boardScreen(store: Store) {
       const nodes: HTMLElement[] = [window, text(ruleLine(cardText(card)))], diagram = cardDiagram(card);
       if (diagram) { const picture = document.createElement('div'); picture.className = 'card-diagram'; picture.innerHTML = diagram; nodes.push(picture); }
       const coin = cardCoins(pos,side,RULES.hands[side],moves.map(c=>c.move))[index];
-      const reason = cardUseReason(coin, side, view, pos, canPlay());
+      const reason = cardUseReason(coin, side, view, pos, canPlay(), store.page());
       if (reason) { const note = text(reason); note.className = 'card-reason'; nodes.push(note); }
       else nodes.push(button('Use', () => {
         if (!canPlay()) return;

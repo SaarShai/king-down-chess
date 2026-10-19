@@ -679,9 +679,10 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     }
     // An open card (renderPlinth, proving-ground.html:1067-1070): its name, and on the plinth its art, title and sentence with the LAB ribbon.
     if (labOpen) {
-      const n = cardName(labOpen);
+      const n = cardName(labOpen), diagram = cardDiagram(labOpen);
       plinthEl.innerHTML = `<div class="pg-name"><div class="row"><h3${n.length > 9 ? ' class="long"' : ''}>${n}</h3></div></div>`
-        + `<div class="pg-bigcard lab-host">${cardFace(labOpen)}<b class="ttl">${n}</b><span class="rule"></span><p>${esc(cardWords(labOpen))}.</p>${cardDiagram(labOpen) ? `<div class="card-diagram">${cardDiagram(labOpen)}</div>` : ''}</div>`;
+        + `<div class="pg-bigcard lab-host">${cardFace(labOpen)}<b class="ttl">${n}</b><span class="rule"></span><p>${esc(cardWords(labOpen))}.</p></div>`
+        + (diagram ? `<div class="card-diagram">${diagram}</div>` : '');
       return;
     }
     const d = cur.d, name = d.name || 'Piece', origin = cur.key.startsWith('piece:') ? undefined : PRESETS.find(p => d.from.length === 1 && p.key === d.from[0]);
