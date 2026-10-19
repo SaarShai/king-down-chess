@@ -7,13 +7,15 @@ import type { Browser, Locator, Page } from 'playwright';
 import { launch, STEP } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
-import { legalMoves, makeMove, parseRule, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
+import { inCheck, legalMoves, makeMove, parseRule, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import type { View } from '../src/match/protocol';
 import { applyLan } from '../src/plugin/screens/board-model';
 import { LESSONS } from '../src/lessons';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { readText } from '../src/read';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
+import { momentKind } from '../src/moment';
+import { soundsFor } from '../src/screen/moments';
 import { describeMove } from '../src/move-text';
 import { cardText, powerText, ruleLine } from '../src/powers-ui';
 import { PRESETS, designCode, fromPreset } from '../src/workshop/model';
@@ -1862,3 +1864,53 @@ it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons
     await page.screenshot({ path: join(proof, `plugin-seat-menu-390x844-${theme}.png`) });
   } finally { await page.close(); }
 });
+
+const soundCases = [
+  { kind: 'move', fen: '7k/8/8/8/8/8/P7/K7 w - - 0 1', now: 'move', hit: null },
+  { kind: 'capture', fen: '7k/8/8/8/8/8/7p/K6R w - - 0 1', now: null, hit: 'capture' },
+  { kind: 'shot', fen: '7k/8/8/2p5/8/2A5/8/K7 w - - 0 1', now: 'shot', hit: 'capture' },
+  { kind: 'shove', fen: 'k7/8/8/8/8/2p5/3pP3/4O2K w - - 0 1', now: null, hit: 'shove' },
+  { kind: 'chain', fen: '7k/8/8/2pp4/2S5/8/8/K7 w - - 0 1', now: null, hit: 'chain' },
+  { kind: 'swap', fen: '7k/8/8/8/2RM4/8/8/K7 w - - 0 1', now: 'swap', hit: null },
+] as const;
+it.each(soundCases.flatMap(test => ['local', 'replay'].map(path => ({ ...test, path }))))(
+  'N11: the $path $kind uses the web sounds at start, contact and rest', async ({ kind, fen, now, hit, path }) => {
+    const base = view(fen, {}, { kind: 'friend' }), page = await open(base), frame = page.frameLocator('iframe');
+    try {
+      setRules(base.rules!); const pre = fromFen(fen);
+      const move = legalMoves(pre).find(m => kind === 'capture' ? m.captures.length === 1 && m.to !== m.from
+        : kind === 'move' ? momentKind(pre, m) === null && !m.captures.length : momentKind(pre, m) === kind)!;
+      expect(move).toBeDefined();
+      const post = makeMove(pre, move), lan = toLan(pre, move), web = soundsFor(momentKind(pre, move), move);
+      expect(web).toEqual({ now, hit });
+      await frame.locator('html').evaluate(`(async () => {
+        const { snd, setSound } = await import('/src/render/sfx.ts'); setSound(true); window.soundEvents = [];
+        for (const name of ['move', 'capture', 'shot', 'shove', 'chain', 'swap', 'check']) snd[name] = () => window.soundEvents.push('sound:' + name);
+        window.testBoard.animateMove = (pre, move, contact) => {
+          window.soundEvents.push('animate');
+          window.soundContact = () => { window.soundEvents.push('contact'); contact(); };
+          return new Promise(resolve => { window.finishSoundMove = () => { window.soundEvents.push('rest'); resolve(); }; });
+        };
+      })()`);
+      if (path === 'local') {
+        await squareTap(page, move.from); await frame.locator('#board-menu').click();
+        await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+        await frame.locator(`#choices button[title="${lan}"]`).click();
+      } else {
+        await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {
+          ...base, revision: 1, fen: toFen(post), turn: post.turn, action: 'waiting', legal: [],
+          last_commands: [{ seq: 1, seat: 0, at: base.server_now, action: { type: 'turn', actions: [lan] } }],
+        });
+      }
+      const events = () => frame.locator('html').evaluate<string[]>(() => (window as any).soundEvents);
+      expect(await events()).toEqual([...(now ? [`sound:${now}`] : []), 'animate']);
+      await frame.locator('html').evaluate(() => { (window as any).soundContact(); (window as any).soundContact(); });
+      expect((await events()).filter(event => event.startsWith('sound:'))).toEqual([now, hit].filter(Boolean).map(name => `sound:${name}`));
+      await frame.locator('html').evaluate(() => (window as any).finishSoundMove());
+      await frame.locator('#board[data-animating="false"]').waitFor();
+      const result = await events(), check = inCheck(post);
+      expect(result.filter(event => event.startsWith('sound:'))).toEqual([web.now, web.hit, check ? 'check' : null].filter(Boolean).map(name => `sound:${name}`));
+      if (hit) expect(result.indexOf(`sound:${hit}`)).toBeLessThan(result.indexOf('rest'));
+      if (check) expect(result.indexOf('sound:check')).toBeGreaterThan(result.indexOf('rest'));
+    } finally { await page.close(); }
+  });

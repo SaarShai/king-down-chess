@@ -5,6 +5,8 @@ import { checkCause, checkersOf, describeMove, shortMove, threatsIn } from '../.
 import { marksModel, railsOf } from '../../marks-model';
 import { pieceTitle, readText, reachOf, teachNote } from '../../read';
 import { LESSONS } from '../../lessons';
+import { momentKind } from '../../moment';
+import { soundsFor } from '../../screen/moments';
 import { cursorText } from '../../cursor-text';
 import { contextLine } from '../../context-line';
 import { waitNotice } from '../../turn';
@@ -125,8 +127,10 @@ export function boardScreen(store: Store) {
   const moment = (el: HTMLElement, name: string, start: number, ms: number) => { const age = performance.now() - start; if (age >= ms) return false; el.classList.add(name); el.style.setProperty('--age', `${-age}ms`); return true; };
   // Sound is off unless the player turns it on in Settings (render/sfx.ts).
   const hitSound = (step: BoardMove, token: number) => {
+    const sounds = soundsFor(momentKind(step.pre, step.move), step.move);
+    if (sounds.now) snd[sounds.now]();
     let struck = false;
-    return () => { if (struck || token !== generation) return; struck = true; if (step.move.captures.length) snd.capture(); else snd.move(); };
+    return () => { if (struck || token !== generation) return; struck = true; if (sounds.hit) snd[sounds.hit](); };
   };
   const refused = new Set<string>(), taught = new Map<string, number>();
   const active = () => ['board', 'end'].includes(client.state.screen);

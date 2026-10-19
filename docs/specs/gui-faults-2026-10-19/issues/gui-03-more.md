@@ -1,6 +1,6 @@
 # GUI faults 2026-10-19: more plugin faults (seat, board speech, sound)
 
-Status: in-progress
+Status: done
 Type: task
 
 Source: the GUI review merge (/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/gui-review/review-opus.md, review-astra.md, suggestions.md) and two independent checks of each item in the review merge run (2026-10-19). Each part below is a verified FAULT with one right fix. Build only what each part says. Anything the part calls taste or "for Saar" stays out. Saar's look decisions stand (docs/specs/*/spec.md; the painted look only).
@@ -68,3 +68,23 @@ No taste change is in scope.
 - Browser check: `plugin-ui` passes on the M1 at `3fc1371f` (278.1 s). Log: `checks-n10-1.txt`.
 - Update the six older board-label assertions for the new words. This test-only update is part of this commit. The final checks cover it.
 - Taste choices: none.
+
+## N11 build and proof
+
+- Use `soundsFor(momentKind(...))` for both local moves and server replay.
+- Play the start sound at launch. Play the hit sound once at contact, or at the existing fallback. Keep the check sound after rest and the guard against an old animation.
+- Twelve harness cases pass: move, capture, shot, shove, chain and swap, each through local play and server replay. The cases check the web sound map and event order.
+- All 156 board harness tests pass in `tests-n11-2.txt`. The web keys and shared text tests pass too.
+- `npx tsc --noEmit`: pass.
+- Full suite attempts: the first has three old label expectations (fixed in N10) and a five-second match test limit. The next has only the unchanged workshop judge test at its 30-second limit. The match test passes in that next run. Logs: `tests-n11-1.txt` and `tests-n11-2.txt`.
+- The judge file passes on its own. The full suite passes with `VITEST_MAX_WORKERS=1`: 194 test files, 3,248 tests passed, 8 skipped. The 51 drawing tests also pass. Test limits stay unchanged. Logs: `tests-judge-1.txt` and `tests-final-1.txt`.
+- Browser check: `plugin-ui` passes on the M1 at `0d947cfd` (281.9 s). Log: `checks-n11-1.txt`. This final amendment changes only this proof record; the tested code and tests stay the same.
+- Taste choices: none. No part is omitted.
+
+## Final result
+
+- N03, N10 and N11 are complete, in that order, with one commit each.
+- The type check, full test suite and all three required browser runs pass.
+- The lane folder holds the runner logs, the full browser logs and the N03 image comparison.
+- No server code changes. `plugin-ui-http` does not apply.
+- No part is omitted. No taste choice is made.
