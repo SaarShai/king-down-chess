@@ -1861,7 +1861,10 @@ it.each(['tap', 'Escape', 'drag', 'Menu Escape', 'Moves Escape'] as const)('F11:
     expect(result.syncs).toEqual([...positions, toFen(pos)]); expect(result.timers).toBeGreaterThan(timers);
     expect(await boardFen(page)).toBe(toFen(pos)); expect((await marks(page)).selected).toBeUndefined();
     // Escape during motion also ends the keyboard cursor, as it does at rest.
-    if (input === 'Escape') expect(await frame.locator('#board .mk-cursor').count()).toBe(0);
+    if (input === 'Escape') {
+      expect(await frame.locator('#board .mk-cursor').count()).toBe(0);
+      expect(await frame.locator('#board').getAttribute('aria-label')).toBe('Chess board'); expect(await frame.locator('#cursor-say').textContent()).toBe('');
+    }
     await squareTap(page, 12); expect((await marks(page)).selected).toBe(12);
   } finally { await page.close(); }
 });
