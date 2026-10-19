@@ -142,4 +142,10 @@ The checks must prove that the picture is legal, the diagrams are visible at a u
 - A5, review A: confirmed and fixed. The diagram leaves the small art window. It has its own row below the card heading on a phone. The browser check covers Strike, Haste and Flight in Workshop and the board sheet, at 390 × 844 and 1280 × 800, in light and dark. Each diagram must be visible, have room to read, fit the view and have no cover.
 - A35, both reviews: confirmed and fixed. The card reason reads the page state. A failed command names Retry. A failed read names Try again. An action in flight gives the wait line. The browser check fails a computer-game read and a friend-game draw offer, checks each sheet, retries, and checks that Use returns. It also checks that the coin stays off while the retry runs. The unit test checks the wait line.
 
-The type check, script syntax check and diff check pass. The first `npm test` repair attempt exits 75 after 60 seconds in the shared test queue. No test starts. The browser check log is `scratchpad/lanes/gui-prev-cards/checks-review-fixes-1.txt` in the task scratch folder. The final lane report records the completed check results.
+The type check, script syntax check and diff check pass. Both `npm test` repair attempts exit 75 after 60 seconds in the shared test queue. No test starts. No other lane's process is stopped.
+
+The required `plugin-ui` check passes at `fa29df39` on this Mac in 229.5 seconds. The runner reports `check-runner: mac exit 0 at fa29df39`. The new diagram, picture and recovery checks pass. The existing plugin checks also pass. The resource uses 764,518 JSON bytes, below its limit. The check changes no product server code, so `plugin-ui-http` is not required.
+
+The first browser attempt stops in the new test because it tries to open a disabled coin during a command. The test now checks that the coin stays off. No time limit changes. The second attempt passes.
+
+Logs: `scratchpad/lanes/gui-prev-cards/unit-fixes-1.txt`, `unit-fixes-2.txt` and `checks-review-fixes-2.txt` in the task scratch folder. The new 2× views use the `repair-` prefix in the lane's `previews/` folder. The final lane report records the final head. The final ticket update changes no code or art from the passed browser commit.
