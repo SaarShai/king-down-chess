@@ -13,7 +13,7 @@ import { POWER_NAME } from '../../powers-ui';
 import type { Page } from '../state';
 import { playerBlockButton } from './board-actions';
 import { kingSheet } from './setup';
-import { legalSwaps, seatChoice, seatFen, seatIndex, seatSquare, screenOrder, shuffleOrder, submitReady, swapOrder } from './seat-model';
+import { legalSwaps, seatChoice, seatFen, seatIndex, seatSquare, shuffleOrder, submitReady, swapOrder } from './seat-model';
 import './seat.css';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => (document.querySelector(`#seat-screen [data-seat-id="${id}"]`) ?? document.getElementById(id))! as T;
@@ -91,7 +91,7 @@ function render() {
   const piece = selected === null ? '' : NAMES[LETTERS.indexOf(choice.order[selected % 8])];
   $('seat-context').textContent = ready ? 'Waiting for the other player.' : error ?? (selected === null ? needs.order ? 'Select one back-rank piece, then another, to swap them.' : 'Choose your king, then press Ready.' : `Select a marked piece to swap the ${piece} with it.`);
   $('seat-note').textContent = ready ? days === null ? '' : `${them} has ${days} ${days === 1 ? 'day' : 'days'} to choose.` : choice.order.includes('G') && needs.order ? 'The guard stays next to the king.' : '';
-  $('last-move').textContent = `Your back rank: ${screenOrder(choice.order, view.seat)}`;
+  $('last-move').textContent = '';
   const kings: [KingChoice | null, KingChoice | null] = [null,null]; kings[view.seat] = choice.king; setRules({ kings });
   const pos = fromFen(seatFen(choice.order, view.seat)); pos.turn = view.seat; board.sync(pos); board.flip(view.seat === 1);
   highlight({ selected: ready ? null : selected, swaps: !ready && selected !== null ? legalSwaps(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice, view.seat, selected) : [] });
