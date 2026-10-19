@@ -1,6 +1,6 @@
 # GUI faults 2026-10-19: the shell controls
 
-Status: in-progress
+Status: done
 Type: task
 
 Source: the expert design panel (/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/gui-expert/panel.md) and an independent check of each fault (/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/gui-expert/fault-plan.json). Each part below is a verified FAULT with one right fix. Build only what each part says. Anything the part calls taste or "for Saar" stays out. Saar's look decisions stand (docs/specs/*/spec.md; the painted look only).
@@ -64,3 +64,42 @@ missing image. Both 400% close-ups keep their exact size (832 × 360 and
 816 × 360). Their outer 24 px edges have no pixel change above threshold 16.
 Image review shows the same colours, labels, borders and layout, with clear
 grain. The page payload stays at 757,276 bytes. No taste choice is added.
+
+## F03 result
+
+The stone disabled rule sets both soft text tokens to `rgb(91 80 69 / 75%)`.
+The dead table-bar 60% rule is removed. The web table CSS stays the same.
+The browser test checks native disabled text, nested line text, the soft
+foreground token, Undo, the sword colour and fill, and enabled Menu.
+
+The contrast check passes all 36 pairs. The disabled-button row gives
+3.59:1, above 3:1. Typecheck passes.
+
+## Final verification
+
+- `npx tsc --noEmit`: pass for both parts.
+- Final `npm test`: 193 files pass; 3,219 tests pass, eight skip.
+  All 51 artwork tests pass. The first run's search timeout does not recur.
+  No test limit changes. The local test database uses the owner's URL.
+- F01 `plugin-ui`: pass at `0527cc28`, 299.2 s. The F01 amendment only
+  records these results. Its product and test code stay the same.
+- F03 `plugin-ui`: pass at `5469936f`, 205.4 s. The required runner exits 0.
+  Both proof runs use this Mac and the same browser, at 2× device scale.
+- At 390 × 844, disabled Undo and the sword colour and fill compute to
+  `rgba(91, 80, 69, 0.75)`. Enabled Menu computes to `rgb(43, 38, 33)`.
+  Native disabled nested line text and the soft foreground token also pass.
+- F03 render compare: four pairs, one expected board-bar change, no missing
+  image. Home and both 400% button close-ups match F01 pixel for pixel.
+  Image review shows the disabled labels change. Layout stays the same.
+- Final page: 753,365 bytes. Final resource payload: 757,233 bytes.
+- `git diff --check`: pass. Both parts are complete. No taste choice is added.
+  No server code changes, so `plugin-ui-http` is not required.
+
+Evidence root:
+`/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/gui-shell/`.
+It holds `tests-f01.txt`, `tests-f03.txt`, both typecheck logs,
+`checks-f01-1.txt`, `checks-f03-1.txt`, `contrast-f03.txt`, the three page-size
+logs, both `render-compare-*.txt` files and `f01-geometry.json`.
+`proof/before/`, `proof/f01/` and `proof/f03/` hold the four matching PNGs.
+The final folder also holds `plugin-shell-colours.json`.
+The checks use the local plugin harness. The native ChatGPT app is not checked.
