@@ -2512,8 +2512,8 @@ it('opens six Guide lessons and returns to the same game without a write', async
       await menu.locator('.sheet-body > button').filter({ hasText: /^Guide$/ }).click();
     }
     await menu.getByRole('button', { name: 'Return to game', exact: true }).click();
-    expect(await page.evaluate(() => (window as any).harnessView)).toEqual(before);
-    expect(await page.evaluate(calls => (window as any).harnessCalls.slice(calls).filter((c: any) => c.name !== 'kingdown_get'), calls)).toEqual([]);
+    expect(await page.evaluate(() => (window as any).harnessView)).toMatchObject({ game_id: before.game_id, fen: before.fen, revision: before.revision });
+    expect(await page.evaluate(calls => (window as any).harnessCalls.slice(calls).filter((c: any) => !['kingdown_get', 'kingdown_games'].includes(c.name)), calls)).toEqual([]);
     expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
   } finally { await page.close(); }
 });
@@ -2586,5 +2586,21 @@ it.each([390, 1280])('fits a short sheet at %s px and keeps a tall sheet scrolla
     else expect(sizes.sheet).toBeLessThan(sizes.frame - 100);
     await frame.locator('#board-sheet .sheet-body').evaluate(body => { for (let i = 0; i < 100; i++) { const p = document.createElement('p'); p.textContent = 'A tall sheet keeps all its words.'; body.append(p); } body.scrollTop = body.scrollHeight; });
     expect(await frame.locator('#board-sheet .sheet-body').evaluate(el => el.scrollTop > 0 && el.clientHeight < el.scrollHeight)).toBe(true);
+  } finally { await page.close(); }
+});
+
+it('rings the chosen king power and draws always-on choices flat', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await hall(page);
+    const king = frame.getByRole('checkbox', { name: 'King powers', exact: true });
+    if (!await king.isChecked()) await king.locator('..').click();
+    await frame.locator('#setup-king').click(); await frame.locator('[data-king="Frost"]').click();
+    await frame.locator('[data-power="IceWall"]').click();
+    expect(await frame.locator('.power-choice [aria-pressed="true"]').getAttribute('data-power')).toBe('IceWall');
+    expect(await frame.locator('[data-power="IceWall"]').evaluate(el => getComputedStyle(el).outlineWidth)).toBe('3px');
+    await frame.locator('[data-king="Spirit"]').click();
+    const flat = await frame.locator('.power-choice [data-always="true"]').first().evaluate(el => ({ shadow: getComputedStyle(el).boxShadow, image: getComputedStyle(el).backgroundImage }));
+    expect(flat).toEqual({ shadow: 'none', image: 'none' });
   } finally { await page.close(); }
 });

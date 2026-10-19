@@ -7,7 +7,7 @@ import type { SkillName } from './ai/skill';
 import type { Game, Side } from './game';
 import { HISTORY_WHENS, KINGS, LETTERS, PLAIN_KINGS, T, moveNumber, nameOf, type PieceType, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
 import { emblemArt, powerArt } from './power-motion';
-import { POWER_NAME, powerOptions } from './powers-ui';
+import { POWER_NAME, powerOptions, powersRules, usesAllowed } from './powers-ui';
 import { pieceIcon } from './piece-icons';
 import { CLASSIC_CHESS, POOL, randomBackRank } from './rules/setup';
 import { mulberry32 } from './sim/rng';
@@ -189,6 +189,7 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
         if (p && b.dataset.power !== p) { b.innerHTML = `${powerArt(p)}<span class="pm-label">${POWER_NAME[p]}</span>`; b.dataset.power = p; }
         if (p) b.title = opts[+slot].title;
         b.setAttribute('aria-pressed', String(p === power));
+        b.dataset.always = String(!!p && !usesAllowed(p, powersRules(preset)));
       }
       const chosen = power ? opts[KINGS[king].indexOf(power)] : null, line = box.querySelector('.power-text')!;
       const text = chosen ? newGamePowerLine(chosen.label, chosen.title) : 'No power: a plain chess king.';

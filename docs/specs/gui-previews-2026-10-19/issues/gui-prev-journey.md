@@ -186,3 +186,9 @@ Taste: keep Choose a name in Settings. No name is made up or hidden.
 Wide sheets fit their content within a 24 px top and bottom margin. Tall sheets scroll inside that limit. Phone sheets fill the frame. Shared sheet rules replace the separate king-sheet size rules.
 
 Taste: use the current 24 px wide-screen margin.
+
+### A26
+
+A 3 px ring marks the chosen power on web and plugin. Always-on power choices use a flat face. The plugin king sheet shares the content size rule from A25. The web keeps its current power pictures and No power choice.
+
+Taste: use the current gold ink for the ring. Use the current parchment for flat choices.

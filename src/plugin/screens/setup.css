@@ -45,7 +45,7 @@ label.check.pick.locked input:disabled { background-color: var(--stone-500); bor
 .setup-sheet button.emblem.is-out { opacity: 1; color: var(--stone-500); }
 .setup-sheet .power-choice.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .setup-sheet .power-choice button[aria-disabled='true'] { opacity: 1; color: var(--stone-500); background: var(--stone-100); box-shadow: none; border-color: var(--stone-300); }
-.setup-sheet .power-choice button[aria-pressed='true'] { color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent)); border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep); }
+
 .setup-sheet .power-text.off { color: var(--ink-soft); min-height: 0; }
 
 

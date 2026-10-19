@@ -57,3 +57,15 @@ it('keeps space between phone Guide captions without a gap in the shelf', async 
     expect(gaps.gap).toBe('normal'); expect(gaps.padding).toEqual(Array(6).fill('8px')); expect(gaps.fits).toBe(true);
   } finally { await page.close(); }
 });
+
+it('marks the chosen web power and keeps an always-on power flat', async () => {
+  const page = await open();
+  try {
+    await menu(page); await page.locator('[data-go="new"]').click(); await page.locator('#new-game-btn').click();
+    await page.locator('#mode-powers').locator('..').click();
+    await page.locator('#pick-0 [data-king="Frost"]').click(); await page.locator('#pick-0 [data-power="IceWall"]').click();
+    expect(await page.locator('#pick-0 [data-power="IceWall"]').evaluate(el => getComputedStyle(el).outlineWidth)).toBe('3px');
+    await page.locator('#pick-0 [data-king="Spirit"]').click();
+    expect(await page.locator('#pick-0 [data-always="true"]').first().evaluate(el => getComputedStyle(el).boxShadow)).toBe('none');
+  } finally { await page.close(); }
+});

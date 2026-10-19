@@ -416,3 +416,7 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
 #game-table #context-actions:empty { display: none; }
 #app-root #all-rules::after { content: ''; }
 #app-root #all-rules .portrait { display: grid; place-items: center; width: 36px; height: 36px; font-size: var(--fs-xl); }
+
+#app-root #king-picker .power-choice button[data-always='true'] { color: var(--ink); background: var(--parchment); border: 1px solid var(--stone-300); box-shadow: none; transform: none; }
+#app-root #king-picker .power-choice button[aria-pressed='true'] { outline: 3px solid var(--gold-ink); outline-offset: 2px; }
+#app-root #king-picker .power-choice button:focus-visible { outline-color: var(--focus); }
