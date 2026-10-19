@@ -78,5 +78,17 @@ it.each([
   await body!.dispose();
   expect(await page.evaluate(() => (window as any).harnessBoots)).toBe(7);
   expect(errors).toEqual([]);
+  if (kind === 'minimal' && !clock) {
+   await page.reload(); await ready(1); await page.requestGC(); await page.requestGC();
+   console.log('[retention-reload]', JSON.stringify({name, afterReload:rss()}));
+   const current = await page.locator('body').elementHandle();
+   const currentServer = [...handles.keys()].find(h => h._context?.delegate?._session);
+   expect(currentServer).toBeTruthy();
+   const afterReload = await currentServer._context.delegate._session.send('Heap.snapshot');
+   await writeFile(`/tmp/kingdown-check-runs/${name}-reload-heap.json`, JSON.stringify(afterReload));
+   await current!.dispose();
+   expect(await page.evaluate(() => (window as any).harnessBoots)).toBe(1);
+   expect(errors).toEqual([]);
+  }
  } finally { await browser.close(); }
 }, 30000);
