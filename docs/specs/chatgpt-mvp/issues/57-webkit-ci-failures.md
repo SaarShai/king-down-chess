@@ -134,6 +134,22 @@ No product code, test limit, check limit, STEP factor, retry, or existing
   ends after `fonts loaded`. The contrast assertion does not run.
   That file matches the branch base, `aaa7bf2b`. No retry or limit change
   follows. The final document-test command does not run after this failure.
-- The WebKit `plugin-ui` check runs after the build commit. Its result goes
-  in the next check entry. The main session must still push and read the
-  first Linux CI `webkit-sampler` artifact.
+- The supplied check runner runs `plugin-ui` with `PLAYABLE_BROWSER=webkit`
+  on this Mac at build commit `662bee28`. It exits 1 after 420.4 s at the
+  unchanged 420 s limit. The runner reports:
+  `check-runner: mac exit 1 at 662bee28`. No retry follows. The closed-page
+  error at shutdown does not prove a native page crash.
+- The lane logs are `lint-red.txt`, `lint-green.txt`, `sampler-test.txt`,
+  `typecheck.txt`, `npm-test.txt`, and `checks-webkit-1-1.txt` in the supplied
+  `scratchpad/lanes/webkit-ci-diag` folder. The real sampler output is
+  `sampler-local.log` in that folder.
+- All five build parts are present. The unit-suite and browser proofs fail.
+  The main session must still push and read the first Linux CI
+  `webkit-sampler` artifact. No Linux artifact proof exists for this change.
+  This failure record stays open.
+
+## Build choices
+
+Skip missing `/proc` files on this Mac. Filter the four Linux WebKit
+executable names by the first command word. Use WebKit for the required
+`plugin-ui` run. No product or visual choice is part of this build.
