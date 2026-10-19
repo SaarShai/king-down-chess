@@ -62,3 +62,9 @@ The seal uses the review values. The wax light is .06. The shadow uses 1.5 down,
 The type check passes. A unit check covers all ten seals. The browser check reads the shared shadow and all ten lights. The full test run waits for the shared test lock. Screens and browser results follow after the commit.
 
 The 2× review finds a second CSS shadow on the large seal. It is removed. The shared SVG shadow now draws each seal at its size. This is the only extra taste choice in A13.
+
+## A29 preview
+
+The phone row now keeps the wide row's 24 px fade. The phone override for both mask properties is removed. The row height, item gaps and scroll stay the same. No new taste choice is needed.
+
+The browser check compares the phone mask with the wide mask. It also moves the phone row to its end. The type check passes. The after screens follow the commit.

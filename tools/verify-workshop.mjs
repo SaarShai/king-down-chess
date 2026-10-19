@@ -1825,6 +1825,8 @@ const PHONE = [
 async function rulesTab() {
   const p = await open();
   await door(p);
+  const rowMask = await p.locator('.lrow').evaluate(e => getComputedStyle(e).maskImage);
+  assert.match(rowMask, /linear-gradient/, 'the wide row has a soft edge');
   await p.click('[data-tab="rules"]');
   assert.equal(await p.getAttribute('[data-tab="rules"]', 'aria-selected'), 'true', 'Rules is the selected tab');
   assert.deepEqual(await p.$$eval('.rgrp h4', hs => hs.map(h => h.textContent)), ['Moving', 'Taking', 'Safe', 'Moving others', 'Changing', 'Holding back'], 'the 6 groups');
@@ -1872,6 +1874,13 @@ async function rulesTab() {
 
   const ph = await open('', { width: 390, height: 844 });
   await door(ph);
+  assert.equal(await ph.locator('.lrow').evaluate(e => getComputedStyle(e).maskImage), rowMask, 'the phone uses the same fade as the wide row');
+  const scroll = await ph.locator('.lrow').evaluate(e => {
+    const overflow = e.scrollWidth > e.clientWidth;
+    e.scrollLeft = e.scrollWidth;
+    return { overflow, moved: e.scrollLeft > 0 };
+  });
+  assert.deepEqual(scroll, { overflow: true, moved: true }, 'the faded phone row still scrolls to its end');
   await ph.click('[data-tab="rules"]');
   assert.equal(await ph.locator('.laws').isVisible(), false, 'the phone hides the laws');
   await minTarget(ph, '#workshop [data-openseal]');
