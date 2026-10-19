@@ -2842,41 +2842,16 @@ try {
         await page.setViewportSize({ width, height });
         const before = { ...snapshot, game_id: randomUUID(), fen: initial_fen, turn: fromFen(initial_fen).turn, legal: legalMoves(fromFen(initial_fen)).map(move => toLan(fromFen(initial_fen), move)) };
         await showSnapshot(before); await boardBox();
-        // The sampler is in the page before the win: the ceremony's timers run with the page clock, so on a slow
-        // runner it can end before a sampler that starts after it (CI WebKit, run 39163839294). It gives up after
-        // 1800 frames (30 s of page clock) with no ceremony.
-        await frame.locator('html').evaluate(restart => { window.winSampling = new Promise(resolve => {
-          const report = { samples: 0, wordSamples: 0, scaledSamples: 0, overflow: [], whole: true };
-          let waited = 0;
-          function sample() {
-            const doc = document.documentElement, board = document.getElementById('board'), words = board.querySelector('.kd-words:not([hidden])');
-            if (!report.samples && !board.hasAttribute('data-toppling')) { if (++waited < 1800) requestAnimationFrame(sample); else resolve(report); return; }
-            report.samples++;
-            if (doc.scrollWidth > doc.clientWidth) report.overflow.push([doc.scrollWidth, doc.clientWidth]);
-            if (words) {
-              // Keep the 400 px regression: restart the real entrance while its words exist.
-              if (restart) { restart = false; words.classList.remove('is-in'); void words.getBoundingClientRect(); words.classList.add('is-in'); }
-              report.wordSamples++;
-              if (getComputedStyle(words).transform !== 'none') report.scaledSamples++;
-              const range = document.createRange(); range.selectNodeContents(words);
-              const text = range.getBoundingClientRect(), clip = board.getBoundingClientRect();
-              report.whole &&= words.textContent === 'King Down' && text.left >= clip.left && text.right <= clip.right;
-            }
-            if (board.hasAttribute('data-toppling')) requestAnimationFrame(sample); else resolve(report);
-          }
-          requestAnimationFrame(sample);
-        }); }, width === 400);
         await showSnapshot({ ...before, ...finished, revision: 101, fen: toFen(position), turn: position.turn, in_check: true, legal: [], last_commands: commands }, story);
         await frame.locator('#over.end-card[open]').waitFor();
-        await page.clock.runFor(1200);
-        const report = await frame.locator('html').evaluate(() => window.winSampling);
-        console.log(`M2 win width at ${width} x ${height}: ${JSON.stringify(report)}`);
-        assert(report.samples > 1 && report.wordSamples > 0 && report.scaledSamples > 0, 'M2 samples the live win text while it scales');
-        assert.deepEqual(report.overflow, [], `The page never scrolls sideways during the win at ${width} x ${height}`);
-        assert(report.whole, 'Clipping keeps the full King Down text');
-        // The result card opens while the win words still scale outside the board.
-        await frame.locator('#board[data-toppling]').waitFor({ state: 'detached' });
-        assert.equal(await frame.locator('#board .kd-words').count(), 0, 'End layout starts after the win sequence');
+        assert.equal(await frame.locator('#board .kd-words, #board[data-toppling], #end-skip').count(), 0, 'The plugin shows the result directly, with no board words or ceremony');
+        const layout = await frame.locator('#over form').evaluate(form => {
+          const box = form.getBoundingClientRect(), buttons = [...form.querySelectorAll('button')].filter(b => b.getClientRects().length && b.id !== 'end-block-player');
+          return { width: box.width, buttons: buttons.map(b => { const r = b.getBoundingClientRect(); return { width: r.width, top: r.top }; }) };
+        });
+        assert(Math.abs(layout.buttons[0].width - layout.width) < 1, 'The main result action fills its row');
+        assert.equal(layout.buttons[1].top, layout.buttons[2].top, 'The two small result actions share a row');
+        assert(Math.abs(layout.buttons[1].width - layout.buttons[2].width) < 1, 'The small result actions have equal width');
       }
       await page.setViewportSize(viewport);
     }

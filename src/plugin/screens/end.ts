@@ -4,7 +4,7 @@ import { ending, endReason } from '../ending';
 import type { PollTarget } from '../poll';
 import { PLAIN_KINGS } from '../../rules/engine';
 import { pendingHere, staleRead, type Page } from '../state';
-import { boardGame, closeBoardSheet, sendBoardCommand, skipBoardCeremony } from './board';
+import { boardGame, closeBoardSheet, sendBoardCommand } from './board';
 import { playerBlockButton } from './board-actions';
 import { rematchChoices } from './end-model';
 import { draftFromGame } from './setup';
@@ -26,7 +26,7 @@ function closeEnd() {
   const error = document.querySelector('.page-error'); if (error) document.querySelector('.page-sheet')!.append(error);
   if ($('over').classList.contains('end-card')) { $<HTMLDialogElement>('over').close(); $('over').classList.remove('end-card'); }
   if (scrim) scrim.hidden = true;
-  skipBoardCeremony(); looking = false; queuedRematch = undefined; $('end-result').hidden = true;
+  looking = false; queuedRematch = undefined; $('end-result').hidden = true;
   opening = false;
 }
 function pollView() {
@@ -84,7 +84,6 @@ export function endScreen(schedule = true) {
   const error = document.querySelector('.page-error')!; error.remove();
   if (!scrim) {
     scrim = document.createElement('div'); scrim.id = 'end-scrim'; scrim.className = 'scrim'; scrim.hidden=true; $('app-frame').insertBefore(scrim,over);
-    new MutationObserver(() => { const skip = document.getElementById('end-skip'); if (skip) skip.hidden = !$('board').dataset.toppling; }).observe($('board'),{attributes:true,attributeFilter:['data-toppling']});
     window.addEventListener('message',event=>{ if(event.data?.method==='ui/resource-teardown') {stopped=true; closeEnd();} });
   }
   $('end-table').append($('game-table'));
@@ -119,7 +118,7 @@ export function endScreen(schedule = true) {
   for (const choice of rematches) {
     const b = button(choice==='offer'?view.kind==='solo'?'Play again':'Rematch':choice==='accept'?'Accept':'Decline',()=>{
       if (performance.now() < tapReadyAt) return;
-      skipBoardCeremony(); queuedRematch ??= {game:view.game_id,choice}; updateEnd();
+      queuedRematch ??= {game:view.game_id,choice}; updateEnd();
     });
     // C4 c: the choice stays active while the result data loads (data-free, queued); a stale board locks it.
     b.className = 'game-action'; b.disabled = !!queuedRematch || readFailed();
@@ -133,8 +132,7 @@ export function endScreen(schedule = true) {
   form.append(...blockButtons);
   $('end-block-status').textContent = memory.blockNotice;
   form.append(button('New game',()=>{if (performance.now() < tapReadyAt) return; draftFromGame(view); closeEnd(); showNewGame();}));
-  const see = button('See the board',()=>{skipBoardCeremony(); looking=true; document.querySelector('.page-sheet')!.append(error); over.close(); scrim.hidden=true; $('end-result').hidden=false; $('end-result').focus();}); form.append(see);
-  const skip = button('Skip',()=>{skipBoardCeremony(); see.focus();}); skip.id='end-skip'; skip.hidden=!$('board').dataset.toppling; form.append(skip);
+  const see = button('See the board',()=>{looking=true; document.querySelector('.page-sheet')!.append(error); over.close(); scrim.hidden=true; $('end-result').hidden=false; $('end-result').focus();}); form.append(see);
   $('end-result').onclick = () => { looking=false; $('end-result').hidden=true; endScreen(); };
   (looking ? document.querySelector('.page-sheet')! : over).append(error);
   over.querySelector('.quiet-line')!.textContent = opponent?.deleted || rematchAllowed === false ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? view.kind==='solo' ? 'Play again with the same rules and colour.' : 'A rematch keeps the features and swaps the colours.' : '';

@@ -77,10 +77,10 @@ try {
   assert.equal(await page.locator('#over .ceremony-tile span').last().innerText(), 'Rook moves with Haste');
 
   await stageMate('normal'); await endTurn(page);
-  await page.locator('.kd-words').waitFor({ state: 'attached' });
+  await page.locator('.ceremony-caption').waitFor({ state: 'attached' });
   assert.equal(await page.locator('.ceremony-caption').evaluate(el => el.closest('#board') === null && el.closest('#context-line') !== null), true, 'the replay caption sits outside the squares');
   assert.equal(await page.locator('#end-turn').innerText(), 'End turn', 'the Ceremony keeps the turn label');
-  assert.equal(await page.locator('.ceremony-caption').innerText(), 'The final blow · Tap the board to skip', 'the caption names its tap target');
+  assert.equal(await page.locator('.ceremony-caption').innerText(), 'Tap the board to skip', 'the caption names its tap target');
   assert.equal(await page.locator('#end-turn').getAttribute('aria-disabled'), 'true', 'the bar stays off during the Ceremony');
   await page.locator('#end-turn').focus();
   await page.keyboard.press('Space');
@@ -100,7 +100,7 @@ try {
 
   for (const start of [false, true]) {
     await stageMate('normal'); await endTurn(page);
-    await page.locator('.kd-words').waitFor({ state: 'attached' });
+    await page.locator('.ceremony-caption').waitFor({ state: 'attached' });
     await pressMenu(page, 'New game');
     await page.locator('#start-game').focus();
     if (start) {
@@ -120,7 +120,7 @@ try {
   console.log('ok New game keeps its keys and focus during the Ceremony');
 
   await stageMate('normal'); await endTurn(page);
-  await page.locator('.kd-words').waitFor({ state: 'attached' });
+  await page.locator('.ceremony-caption').waitFor({ state: 'attached' });
   await pressMenu(page, 'Settings');
   await page.locator('#menu-back').focus(); await page.keyboard.press('Space');
   assert.equal(await page.locator('#menu-title').textContent(), 'Menu', 'Space works on the sheet button');
@@ -135,7 +135,7 @@ try {
   assert.equal(await page.locator('.kd-words').count(), 0, 'a staged mate plays no Ceremony');
   await page.evaluate(() => { const s = window.view.scene, play = s.play.bind(s); s.play = (m, o) => { window.blowSpeed = o?.speed; return play(m, o); }; });
   await endTurn(page);
-  await page.locator('.kd-words').waitFor({ state: 'attached' });
+  await page.locator('.ceremony-caption').waitFor({ state: 'attached' });
   check(await (await page.waitForFunction(() => window.blowSpeed)).jsonValue(), 2, 'the Ceremony replays the final blow at half speed');
   assert.equal(await page.locator('#over').isVisible(), false, 'the board beats come before the dialog');
   await page.locator('#board').focus();

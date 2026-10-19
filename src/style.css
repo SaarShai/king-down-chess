@@ -441,7 +441,9 @@ label.army select { width: 100%; font-weight: 400; }
 #over { width: min(440px, calc(100vw - 32px)); text-align: center; }
 #over h2 { font-size: 26px; background-position: center bottom; background-image: linear-gradient(90deg, transparent, var(--gold) 30%, var(--gold) 70%, transparent); }
 #over p { color: var(--ink-soft); margin-inline: auto; }
-#over form { justify-content: center; }
+#over form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+#over form button { width: 100%; min-width: 0; }
+#over form .primary { grid-column: 1 / -1; }
 #over-moments { text-align: left; }
 #over-moments h3 { margin-top: 4px; }
 #over-moments button { font-size: var(--fs-sm); font-weight: 400; line-height: 1.4; }

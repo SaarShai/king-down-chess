@@ -21,15 +21,9 @@ export function startCeremony({ view, board, captionHost, moments, history, fina
   live: () => boolean;
 }): { done: Promise<boolean>; skip: () => void; cancel: () => void } {
   motion &&= !matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const words = document.createElement('div');
-  words.className = 'kd-words';
-  words.textContent = 'King Down';
-  words.hidden = true;
-  words.setAttribute('aria-hidden', 'true');
-  board.append(words);
   const caption = document.createElement('div');
   caption.className = 'ceremony-caption';
-  caption.textContent = 'The final blow · Tap the board to skip';
+  caption.textContent = 'Tap the board to skip';
   caption.hidden = !motion;
   captionHost.append(caption);
   moments.replaceChildren();
@@ -76,12 +70,11 @@ export function startCeremony({ view, board, captionHost, moments, history, fina
   };
   const cancel = (): void => {
     completed = false;
-    if (stopped) { words.remove(); return; }
+    if (stopped) return;
     stopped = true;
     // A stale wait must not stop a move in the next game.
     if (live()) view.skip();
     resume?.();
-    words.remove();
     cleanup();
   };
   const skip = (): void => {
@@ -92,8 +85,6 @@ export function startCeremony({ view, board, captionHost, moments, history, fina
     resume?.();
     view.sync(final);
     view.setFallen(king, false);
-    words.hidden = false;
-    words.classList.remove('is-in');
     motion = false;
     tiles();
     cleanup();
@@ -127,23 +118,9 @@ export function startCeremony({ view, board, captionHost, moments, history, fina
     try {
       if (!live()) { cancel(); return false; }
       if (!motion || document.hidden) { skip(); return completed; }
-      view.setFallen(null);
-      await wait(120);
-      if (!current()) return completed;
-      if (blow >= 0) {
-        const h = history[blow];
-        view.sync(h.pos);
-        await view.animateMove(h.pos, h.move, undefined, 0.5);
-        if (!current()) return completed;
-      }
       view.sync(final);
-      caption.remove();
       view.setFallen(king);
       await wait(650);
-      if (!current()) return completed;
-      words.hidden = false;
-      words.classList.add('is-in');
-      await wait(900);
       if (!current()) return completed;
       tiles();
       stopped = completed = true;
