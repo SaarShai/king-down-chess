@@ -94,6 +94,11 @@ jobs:
     runs-on: ubuntu-latest
     # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP), and then the full plugin-ui check.
     timeout-minutes: 45
+    # Ticket 55 measurement: two independent runners check the same driver fix.
+    strategy:
+      fail-fast: false
+      matrix:
+        copy: [1, 2]
     services:
       postgres:
         image: postgres:17
@@ -131,7 +136,7 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: webkit-check-logs
+          name: webkit-check-logs-${{ matrix.copy }}
           path: /tmp/kingdown-check-runs/
           retention-days: 7
 
