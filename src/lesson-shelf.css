@@ -64,3 +64,5 @@
 }
 
 #powers-list [data-power] { display: block; margin: 4px 0 8px; padding: 4px; }
+
+.lesson-shelf :is(.shelf-name, .shelf-line, .shelf-status) { max-width: 100%; padding-inline: 8px; overflow-wrap: anywhere; }

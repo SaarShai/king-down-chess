@@ -7,4 +7,3 @@
 #lesson-board { display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 1; max-height: 400px; }
 .lesson-choices { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .lesson-choices:empty { display: none; }
-#board-sheet.board-guide .shelf-line { padding-inline: 8px; overflow-wrap: anywhere; }

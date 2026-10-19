@@ -25,3 +25,10 @@ it('centres the phone title group and keeps all twelve figures', async () => {
   expect(css).toContain('grid-template-rows: min(44vw, 200px) auto auto; align-content: safe center');
   expect(html.match(/class="title-lineup"[\s\S]*?<\/ul>/)?.[0].match(/<li /g)).toHaveLength(12);
 });
+
+it('puts space inside each Guide caption and keeps the joined shelf', async () => {
+  const css = await readFile('src/lesson-shelf.css', 'utf8');
+  expect(css).toContain('.lesson-shelf :is(.shelf-name, .shelf-line, .shelf-status)');
+  expect(css).toContain('padding-inline: 8px');
+  expect(css).toContain('row-gap: var(--space-3)');
+});

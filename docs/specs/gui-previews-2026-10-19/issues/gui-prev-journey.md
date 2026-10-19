@@ -164,3 +164,9 @@ Taste: keep the current sizes and weights.
 The setup hint wraps in its current line. The player row grows to hold it. The coin keeps its icon-only form. Tests check the full hint and row bounds at 390 px.
 
 Taste: use the current line height.
+
+### A21
+
+Each Guide caption has 8 px of space on each side. The shelf edges still join. The words stay the same.
+
+Taste: use 8 px inside each caption.
