@@ -1,6 +1,6 @@
 # GUI previews 2026-10-19: the web Workshop
 
-Status: claimed
+Status: done
 Type: task
 
 ## Why and the rule
@@ -125,7 +125,7 @@ The tab handler now keeps the current design when its save fails. The library ta
 
 The Workshop browser test now changes through all four library tabs after each save failure. The full-shelf case checks Copy link and deletion to make room. The refused-write case uses the phone size. It checks Copy link, retry, and the next automatic tab choice. Both cases check that the saved or copied design keeps the paint.
 
-Checks are in progress. The full unit command is at the shared test lock. Browser checks follow the fix commits.
+The check results below cover both fixes.
 
 ## Phone fade review finding
 
@@ -133,4 +133,16 @@ Review A P2: confirmed. The row mask fades across 24 px at each edge. The phone 
 
 The phone now uses the existing 24 px row padding. Its ledge line uses the same inset. The mask stays the same on wide and narrow screens.
 
-The Workshop browser test measures the first item at the start and the last item at the end of each phone library row. It requires at least 24 px of clear space for Pieces, Kings, Cards, and Rules. It saves eight screens for visual review. Checks are in progress.
+The Workshop browser test measures the first item at the start and the last item at the end of each phone library row. It requires at least 24 px of clear space for Pieces, Kings, Cards, and Rules. It saves eight screens for visual review. All these checks pass.
+
+## Review fix checks
+
+- Save-loss fix: `e66bce0e`. Phone fade fix: `d9a7d88d`.
+- The given browser runner checks `d9a7d88d` on this Mac. `plugin-ui` passes in 265.5 s. `workshop` passes in 221.0 s. The runner ends with `check-runner: mac exit 0 at d9a7d88d`.
+- The new tests pass. A full shelf and a refused write both keep the draft, Undo, and recovery actions through tab changes. Copy link and save recovery keep the painted square. A successful save permits the next automatic item change.
+- All eight phone row screens pass visual review. The first item clears the fade at the start. The last item clears it at the end. The rule headings and the Freeze card are clear at the start. Screens: `previews/review-fix/` in this lane's scratch folder.
+- Browser log: `checks-fix-1.txt` in this lane's scratch folder. Raw output: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/gui-prev-workshop-Bk0SDS/`.
+- Full `npm test`: pass, exit 0. All 193 unit files pass: 3,239 tests pass and eight skip. All 51 art tests pass. The unit suite takes 1,178.56 s after the shared lock opens. Log: `unit-fix-1.txt` in this lane's scratch folder. The command uses one worker and the owner's local test database. No test or check limit changes.
+- No server code changes. The HTTP browser group is not required.
+
+Both review findings are fixed. This final record changes only the ticket. The product code and browser tests match the checked commit, `d9a7d88d`.
