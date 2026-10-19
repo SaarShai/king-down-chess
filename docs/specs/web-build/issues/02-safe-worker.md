@@ -38,3 +38,6 @@ Use the phase 1 row and common push gate in [the test gate][gate]. Keep future o
 ## Comments
 
 - 2026-10-19: started on `codex/web-02` from `9c337247`. Owner, 2026-10-19: "Yes: merge PR 65 when its verify passes, then start ticket 02 on codex/web-02. No publish without my word."
+- 2026-10-19: slices 1 to 3 and one review fix round are on `codex/web-02`, rebased on `772b578c`. Two independent reviews found ten faults. A verify pass refuted one (a late delete; cache operations run in order) and confirmed nine. Each fix has a test that fails before it and passes after it.
+  - Local evidence: 109 focused unit tests pass. Chromium passes the whole `web-online` check (109 s). WebKit passes every worker lifecycle and two-tab case, then stops at its first offline navigation with "WebKit encountered an internal error". That is Playwright issue 42775, fixed in Playwright 1.64.0; this repository pins 1.63.0. Firefox runs in CI only.
+  - Open: the WebKit offline cases (they need the Playwright upgrade, the owner's call), CI on the pushed source, the full local set and stable captures, the exact release and recovery packet, the owner's merge word, and his separate publish word.
