@@ -188,3 +188,25 @@ Review A5 is confirmed. The old tests check mark data and SVG strings only. The 
 ### Clock check
 
 The second preview run passes frost, both lower-rank board directions, and the real phone select tap. Its new Off frame check resets the fake clock after scene timers start. That leaves an old draw deadline in the future. Install the clock before page load, then pause it for the frame check. No product change is needed.
+
+## Review fix results
+
+All eight review entries are confirmed. They describe six faults. Each fault has a fix and a test. The review fix stays on `claude/gui-prev-board`.
+
+- A1 and B2: reserve room below the board for Take or Shove. The board shrinks when needed. Lower-rank targets and landing squares stay clear in both board directions. Resize, dialog focus, and Cancel pass.
+- A2: Off sets reduced motion in the scene. The browser frame check shows one frame for Archer aiming, with no follow-up weapon frames. The unit check also covers all settings and system reduced motion.
+- A3: the pawn test uses the fake timer queue and restores the real timer in `finally`.
+- A4 and B3: web captures show Menu with Sound and Animations. The check asserts the label and Normal/Fast/Off. The base captures show Motion. Both web sizes have the correct before and after screens.
+- A5: the board draw test checks Freeze, expiry, and Undo. The browser check observes both frost layers on the real game canvas and checks expiry and Undo. The plugin fixture checks two pips. The web game checks its one-turn rule.
+- B1: both phone hit-layer rules raise the select above the label. A real tap reaches the select and opens its choices.
+
+Check results:
+
+- `plugin-ui`: passes at `63a04845` in 226.8 seconds. Later commits change the check scripts and this record only.
+- `gui-board-preview`: passes at `7102e06f` in 151.7 seconds. The lane runner reports exit 0.
+- The commit hooks pass the type check and repository gate. JavaScript syntax checks and `git diff --check` pass.
+- `npm test`: blocked. The last five-second lock retry exits 75 before the suite starts. The workshop lane holds the shared lock. Only this lane's first queued request is stopped. No test or check limit is raised.
+- `plugin-ui-http`: not required. No server code changes.
+- The screen index has 46 complete pairs, 92 PNGs, at device scale 2. The screen review checks the desktop lower ranks, the flipped phone lower ranks, frost, and both web Menu sizes. The largest current board resource is 762,389 bytes.
+
+Unit verification remains open. Keep this ticket in progress until the full suite can run.
