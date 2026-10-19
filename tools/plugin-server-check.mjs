@@ -17,7 +17,7 @@ if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || !url.pathname
 const artifact = await mkdtemp(join(tmpdir(), 'kingdown-http-artifact-'));
 const pool = new pg.Pool({ connectionString });
 const actors = [randomUUID(), randomUUID()], secret = randomUUID();
-const server = createServer(); let app, requestId = 0;
+const server = createServer(); let app, savedAccountAccess, requestId = 0;
 try {
   await cp(resolve(process.argv[2] || 'plugin-server-dist'), artifact, { recursive: true });
   const ca = new X509Certificate(await readFile(resolve(artifact, 'supabase-ca.crt')));
@@ -103,6 +103,16 @@ try {
   assert.equal((await tool(actors[1], 'kingdown_get', {game_id:waiting.game_id,board_id:recoveryBoard.board_id})).structuredContent.game_id,recovered.structuredContent.game_id);
   assert.equal((await tool(actors[0], 'kingdown_create', {kind:'solo',options,board_id:recoveryBoard.board_id}))._meta.code,'FORBIDDEN');
   await app.pool.end(); app = undefined;
+  savedAccountAccess = (await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0]?.enabled;
+  assert.equal(typeof savedAccountAccess, 'boolean');
+  await pool.query('update public.web_account_access set enabled=false where singleton=true');
+  app = await configurePlugin(webEnv, { localDev: true, websiteKeys });
+  const off = await fetch(`${origin}/api/me/profile`, { headers: { Authorization: `Bearer ${token}` } });
+  assert.equal(off.status, 503); assert.match(off.headers.get('content-type'), /^application\/json/);
+  assert.equal(off.headers.get('cache-control'), 'no-store'); assert.equal(off.headers.get('retry-after'), '5');
+  assert.deepEqual(await off.json(), { code: 'UNAVAILABLE', message: 'Account play is temporarily unavailable. Try again or play on this device.' });
+  await app.pool.end(); app = undefined;
+  await pool.query('update public.web_account_access set enabled=true where singleton=true');
   app = await configurePlugin(webEnv, { localDev: true, websiteKeys });
   for (const [headers, status] of [[{}, 401], [{ 'X-Kingdown-Dev-Actor': actors[0] }, 401], [{ Authorization: `Bearer ${await sign({ exp: Math.floor(Date.now() / 1000) - 60 })}` }, 401], [{ Authorization: `Bearer ${await sign({ aud: `${origin}/mcp`, client_id: randomUUID() })}` }, 401], [{ Authorization: `Bearer ${token}` }, 200]]) {
     const response = await fetch(`${origin}/api/me/profile`, { headers });
@@ -141,12 +151,19 @@ try {
   assert.equal((await fetch(`${origin}/plugin-art/missing.webp`)).status, 404); assert.equal((await fetch(`${origin}/plugin-art/..%2fserver.mjs`)).status, 404);
   await assert.rejects(configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: 'https://plugin.example', KINGDOWN_PLUGIN_DATABASE_URL: connectionString, SUPABASE_URL: 'https://project.supabase.co', KINGDOWN_PLUGIN_OAUTH_READY: '0' }), /Enable Supabase OAuth/);
   await assert.rejects(configurePlugin({ NODE_ENV: 'production', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: secret }, { localDev: true }), /Local personas/);
-  console.log(`Compiled HTTP + real PostgreSQL: ${closedCases} default API closures with zero pool calls, ${unsafeCases} unsafe website-key refusals, isolated website identity and full/since reads, open, move, AI, retry, foreign seat rejection, service restart/resume, friend code/join, board recovery, resource (${resource.bytes} JSON bytes), ${art.length} art files (${JSON.stringify(counts)}), and production auth gate passed`);
+  console.log(`Compiled HTTP + real PostgreSQL: ${closedCases} default API closures with zero pool calls, ${unsafeCases} unsafe website-key refusals, off-switch closure, isolated website identity and full/since reads, open, move, AI, retry, foreign seat rejection, service restart/resume, friend code/join, board recovery, resource (${resource.bytes} JSON bytes), ${art.length} art files (${JSON.stringify(counts)}), and production auth gate passed`);
 } finally {
-  server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
-  await app?.pool.end();
-  await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [actors]);
-  for (const actor of actors) await pool.query('delete from auth.users where id=$1', [actor]);
-  await pool.end();
-  await rm(artifact, { recursive: true, force: true });
+  try {
+    if (savedAccountAccess !== undefined) {
+      await pool.query('update public.web_account_access set enabled=$1 where singleton=true', [savedAccountAccess]);
+      assert.equal((await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0]?.enabled, savedAccountAccess, 'Restore account switch');
+    }
+  } finally {
+    server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
+    await app?.pool.end();
+    await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [actors]);
+    for (const actor of actors) await pool.query('delete from auth.users where id=$1', [actor]);
+    await pool.end();
+    await rm(artifact, { recursive: true, force: true });
+  }
 }

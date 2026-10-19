@@ -19,7 +19,7 @@ if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || !url.pathname
 const tree = await mkdtemp(join(tmpdir(), 'kingdown-vercel-'));
 const pool = new pg.Pool({ connectionString });
 const actor = randomUUID(), clientId = randomUUID(), secret = randomUUID() + randomUUID();
-const server = createServer(); let app;
+const server = createServer(); let app, savedAccountAccess;
 const exists = path => stat(path).then(s => s, () => undefined);
 try {
   // Keep the relative function links: they must resolve inside the copy.
@@ -192,6 +192,16 @@ try {
   assert.deepEqual([...served].sort(), [...new Set(['function /.well-known/oauth-protected-resource', 'function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /internal/unknown', 'function /mcp', 'function /api/games', ...closedApi.map(([, path]) => `function ${new URL(path, origin).pathname}`), 'static /', 'static /plugin-art/*', 'static /privacy.html', 'static /sw.js', ...publicPaths.map(path => `static ${path}`), ...(hasChallenge ? [`static ${challenge}`] : [])])].sort(), 'Closed/default served paths');
 
   await app.pool.end(); app = undefined;
+  savedAccountAccess = (await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0]?.enabled;
+  assert.equal(typeof savedAccountAccess, 'boolean');
+  await pool.query('update public.web_account_access set enabled=false where singleton=true');
+  app = await configurePlugin(webEnv, { localDev: true, websiteKeys });
+  const off = await fetch(`${origin}/api/me/profile`, { headers: { Authorization: `Bearer ${token}` } });
+  assert.equal(off.status, 503); assert.match(off.headers.get('content-type'), /^application\/json/);
+  assert.equal(off.headers.get('cache-control'), 'no-store'); assert.equal(off.headers.get('retry-after'), '5');
+  assert.deepEqual(await off.json(), { code: 'UNAVAILABLE', message: 'Account play is temporarily unavailable. Try again or play on this device.' });
+  await app.pool.end(); app = undefined;
+  await pool.query('update public.web_account_access set enabled=true where singleton=true');
   app = await configurePlugin(webEnv, { localDev: true, websiteKeys });
   served.clear();
   let enabledCases = 0;
@@ -233,20 +243,31 @@ try {
   assert.equal(invalidSince.status, 400); assert.equal((await invalidSince.json()).code, 'INVALID_INPUT');
   const gameRows = () => pool.query('select to_jsonb(g) as game from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=$1) order by g.id', [actor]);
   const before = (await gameRows()).rows;
+  const assertWriteClosure = async response => {
+    assert.equal(response.status, 503); assert.equal(response.headers.get('retry-after'), '5');
+    assert.deepEqual(await response.json(), { code: 'UNAVAILABLE', message: 'Website writes are not configured' });
+  };
   const malformed = await api('/api/games', { method: 'POST', headers: { ...signed, 'Content-Type': 'application/json' }, body: '{broken' });
-  assert.equal(malformed.status, 400); assert.equal((await malformed.json()).code, 'INVALID_INPUT');
+  await assertWriteClosure(malformed);
   const large = 'x'.repeat(32 * 1024);
   for (const headers of [{ 'Content-Length': String(Buffer.byteLength(large)) }, { 'Transfer-Encoding': 'chunked' }]) {
     const response = await raw('/api/games', { ...signed, 'Content-Type': 'application/json', ...headers }, [large.slice(0, 8192), large.slice(8192)]);
-    assert.equal(response.status, 413); assert.equal((await response.json()).code, 'INVALID_INPUT');
+    await assertWriteClosure(response);
   }
   assert.deepEqual((await gameRows()).rows, before, 'Refused bodies have no game effect');
   assert.deepEqual([...served].sort(), ['/api', '/api/', '/api/games', `/api/games/${game_id}`, '/api/me/games', '/api/me/profile', '/api/unknown'].map(path => `function ${path}`).sort(), 'Enabled/test served paths');
-  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${closedPaths.length} closed account/unknown paths, ${art.length} board art files, MCP open and move, OAuth, ${closedCases} closed/default API probes with zero pool calls, ${enabledCases} enabled/test API probes, internal jobs and ${archive.length} archived engine(s) passed`);
+  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${closedPaths.length} closed account/unknown paths, ${art.length} board art files, MCP open and move, OAuth, ${closedCases} closed/default API probes with zero pool calls, off-switch closure, ${enabledCases} enabled/test API probes with 3 write-configuration refusals, internal jobs and ${archive.length} archived engine(s) passed`);
 } finally {
-  server.closeAllConnections(); await new Promise(done => server.close(done));
-  await app?.pool.end();
-  await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [[actor]]);
-  await pool.query('delete from auth.users where id=any($1::uuid[])', [[actor]]); await pool.end();
-  await rm(tree, { recursive: true, force: true });
+  try {
+    if (savedAccountAccess !== undefined) {
+      await pool.query('update public.web_account_access set enabled=$1 where singleton=true', [savedAccountAccess]);
+      assert.equal((await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0]?.enabled, savedAccountAccess, 'Restore account switch');
+    }
+  } finally {
+    server.closeAllConnections(); await new Promise(done => server.close(done));
+    await app?.pool.end();
+    await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [[actor]]);
+    await pool.query('delete from auth.users where id=any($1::uuid[])', [[actor]]); await pool.end();
+    await rm(tree, { recursive: true, force: true });
+  }
 }
