@@ -118,3 +118,9 @@ A17 saves its plugin and web builds at commit `1b24c86b`.
 The phone band stays shut with no sent moves. The first sent move opens it. A manual close still holds on resize. A staged move alone does not open an empty list. The browser check covers these four states.
 
 Taste: “first move” means the first sent move, because this list shows sent history. A18 saves its plugin build at `da987ecc`.
+
+## A39 preview
+
+The web Take or Shove choice sits below the board when it fits. On a tall board, it sits at the board foot and stays in the viewport. It follows a resize. The dialog keeps its focus and Cancel rules. The unit check covers a phone, desktop, and short viewport. The browser check checks that the target square stays above the choice. The plugin choice already sits at the foot.
+
+Taste: use a 12 px gap and a light 16 percent veil with no blur for this choice. A27 saves its plugin build at `12555419`.

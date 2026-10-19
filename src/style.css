@@ -305,6 +305,8 @@ dialog form button { width: auto; min-width: 96px; justify-content: center; padd
 .fields { display: flex; flex-direction: column; gap: 10px; }
 dialog small { color: var(--ink-soft); }
 #asset-status, #army-note, #pace-note, #threats-note { font-size: var(--fs-xs); color: var(--ink-soft); line-height: 1.4; }
+#move-choice { position: fixed; inset: auto; margin: 0; width: min(460px, calc(100vw - 32px)); }
+#move-choice::backdrop { background: rgba(29, 25, 21, 0.16); backdrop-filter: none; }
 #move-choice, #promo { max-width: min(460px, calc(100vw - 32px)); }
 #move-choice button, #promo button { min-height: var(--tap); }
 #cancel-choice, #cancel-promo { margin-top: var(--space-4); justify-content: center; }
