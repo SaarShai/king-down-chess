@@ -1,7 +1,10 @@
 import { onlineClient } from '../../../src/online/client';
 
 declare global {
-  interface Window { privateProbe: (marker: string) => Promise<{ status: number; code: string }>; }
+  interface Window {
+    privateProbe: (marker: string) => Promise<{ status: number; code: string }>;
+    recordWorkerEvent: (event: { event: string; marker: string; client: string }) => Promise<void>;
+  }
 }
 // Hold receipt in the page. A held worker event prevents takeover.
 const NativeChannel = window.MessageChannel;
@@ -17,9 +20,10 @@ window.MessageChannel = class {
       set onmessage(value: MessagePort['onmessage']) {
         listener = value;
         channel.port1.onmessage = value ? async event => {
+          const applicationCaches = (await caches.keys()).filter(name => name.startsWith('kingdown-'));
           await fetch(`/fixture/reply?client=${encodeURIComponent(location.href)}`);
           if (!listener) return;
-          await fetch('/fixture/event', { method: 'POST', body: JSON.stringify({ event: 'reply', requestId: event.data.requestId, version: event.data.version, client: location.href }) });
+          await fetch('/fixture/event', { method: 'POST', body: JSON.stringify({ event: 'reply', requestId: event.data.requestId, version: event.data.version, client: location.href, applicationCaches }) });
           listener?.call(channel.port1, event);
         } : null;
       },
@@ -37,7 +41,7 @@ window.privateProbe = async marker => {
     return { status: 200, code: '' };
   } catch (error) {
     const failure = error as { status: number; code: string };
-    if (failure.status === 503) await fetch('/fixture/event', { method: 'POST', body: JSON.stringify({ event: 'refused', marker, client: location.href }) });
+    if (failure.status === 503) await window.recordWorkerEvent({ event: 'refused', marker, client: location.href });
     return { status: failure.status, code: failure.code };
   }
 };

@@ -37,9 +37,12 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
       try { controller.postMessage({ type: TYPE, requestId }, [channel.port2]); } catch (error) { cleanup(); bad(error); }
     });
     void (async () => {
-      let registered = false;
+      let registration: ServiceWorkerRegistration | undefined;
       if (workers) {
-        try { await workers.register('/sw.js', { scope: '/', updateViaCache: 'none' }); registered = true; }
+        try {
+          registration = await workers.register('/sw.js', { scope: '/', updateViaCache: 'none' });
+          void registration.update().catch(() => {});
+        }
         catch { /* With no controller, the page can prove an empty cache. */ }
       }
       while (!ended) {
@@ -57,7 +60,11 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
             continue;
           }
           if (await proof(controller) && start(controller)) return;
-        } else if (registered) {
+        } else if (registration) {
+          if (registration.active?.state === 'activated') {
+            if (await proof(registration.active) && start(null)) return;
+            continue;
+          }
           await new Promise<void>(done => {
             const changed = () => { close(); done(); };
             close = () => workers.removeEventListener('controllerchange', changed);

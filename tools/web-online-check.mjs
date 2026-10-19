@@ -55,8 +55,16 @@ export function assertProbeOrder(events, marker, after = 0) {
   assert.equal(slice.filter(event => event.event === 'probe' && event.marker === marker).length, 1, `${marker}: exactly one private send`);
   const replies = slice.slice(0, probe).filter(event => event.event === 'reply' && event.client === slice[probe].client && event.version === slice[probe].version);
   assert.ok(replies.length, `${marker}: this tab proves the current policy before the probe`);
+  assert.deepEqual(replies.at(-1).applicationCaches, [`kingdown-${replies.at(-1).version}`], `${marker}: only the current application cache remains at reply receipt`);
   assert.ok(slice.findLastIndex(event => event.event === 'deleted') < slice.findLastIndex(event => event === replies.at(-1)), `${marker}: purge ends before the reply`);
   assert.ok(!slice.slice(probe).some(event => event.event === 'deleted'), `${marker}: deletion ends before the probe`);
+}
+
+/** An interrupted purge reaches refusal without a reply or private send. */
+export function assertInterruptedPurge(events, after = 0) {
+  const slice = events.slice(after);
+  assert.ok(slice.some(event => event.event === 'refused' && event.marker === 'interrupted'), 'Interrupted purge reaches refusal before the check ends');
+  assert.equal(slice.filter(event => ['reply', 'probe'].includes(event.event)).length, 0, 'Interrupted purge has no reply or send');
 }
 
 /** Compile the real private client for the fixture page. */
@@ -65,13 +73,13 @@ export async function buildWorkerProbe() {
   return probeBuild[0].output.find(file => file.type === 'chunk').code;
 }
 
-async function main() {
+export async function main() {
   const connectionString = testDatabase(process.env.PLUGIN_TEST_DATABASE_URL);
   const work = await mkdtemp(join(tmpdir(), 'kingdown-web-check-'));
   let browser, persistent, server, app, cleaning;
   const started = performance.now(), events = [], signal = new EventEmitter();
   const record = event => { events.push(event); signal.emit('record'); };
-  let served, old = false, instrument = false, deleteMode = 'ok', holdReply = false;
+  let served, old = false, instrument = false, deleteMode = 'ok', holdReply = false, failPrecache = false;
   const held = new Set();
   function cleanup() {
     return cleaning ??= (async () => {
@@ -123,7 +131,7 @@ async function main() {
     server = createServer((req, res) => {
       void (async () => {
         const url = new URL(req.url, origin), path = url.pathname;
-        if (path !== '/fixture/event') record({ event: 'http', url: req.url });
+        if (path !== '/fixture/event') record({ event: path === '/sw.js' && req.headers['service-worker'] === 'script' ? 'worker-update' : 'http', url: req.url });
         res.setHeader('Cache-Control', 'no-store');
         if (path === '/fixture/page') { res.setHeader('Content-Type', 'text/html'); res.end('<script type="module" src="/fixture/probe.js"></script>'); return; }
         if (path === '/fixture/probe.js') { res.setHeader('Content-Type', 'text/javascript'); res.end(probeCode); return; }
@@ -150,9 +158,12 @@ async function main() {
           res.removeHeader('Cache-Control'); res.setHeader('Content-Type', 'text/javascript'); res.end('// query variant'); return;
         }
         if (path.startsWith('/api/')) record({ event: 'probe', marker: req.headers.authorization?.replace(/^Bearer /, ''), client: req.headers['x-fixture-tab'], version: old ? 'dev' : workerVersions.get(served), url: req.url });
+        if (failPrecache && path.startsWith('/assets/')) {
+          record({ event: 'install-failed', url: req.url }); res.writeHead(503).end(); return;
+        }
         if (path === '/sw.js') {
           res.setHeader('Content-Type', 'text/javascript');
-          res.end(old ? oldWorker : (instrument ? faults : '') + await readFile(join(served, 'static/sw.js'), 'utf8')); return;
+          res.end(old ? oldWorker + "\nself.addEventListener('message', event => { if (event.data?.type === 'fixture-version') event.ports[0].postMessage({ version: VERSION }); });" : (instrument ? faults : '') + await readFile(join(served, 'static/sw.js'), 'utf8')); return;
         }
         res.setHeader('Cache-Control', 'no-cache, must-revalidate');
         const { dest, headers } = siteRoute(configs.get(served), path);
@@ -231,12 +242,32 @@ async function main() {
     const options = { headless: true, viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' };
     const openProfile = async profile => {
       persistent = await launchPersistent(profile, options);
+      await persistent.exposeFunction('recordWorkerEvent', record);
       const page = persistent.pages()[0] ?? await persistent.newPage();
       page.setDefaultTimeout(30_000 * STEP);
+      page.setDefaultNavigationTimeout(30_000 * STEP);
       await page.goto(`${origin}/fixture/page`); await page.waitForFunction(() => typeof window.privateProbe === 'function');
       return page;
     };
     const controlled = page => page.waitForFunction(() => !!navigator.serviceWorker.controller);
+    const retained = async (page, version) => {
+      const kept = await page.evaluate(async () => {
+        const registration = await navigator.serviceWorker.getRegistration('/'), controller = navigator.serviceWorker.controller;
+        return { controlled: !!controller, active: !!registration?.active, same: controller === registration?.active, url: controller?.scriptURL };
+      });
+      assert.ok(kept.controlled && kept.active && kept.same, 'The reopened profile keeps its registration and controller before the probe');
+      assert.equal(kept.url, origin + '/sw.js');
+      if (version === 'dev') {
+        await page.evaluate(() => {
+          window.retainedVersion = undefined;
+          const channel = new MessageChannel();
+          channel.port1.onmessage = event => { window.retainedVersion = event.data.version; channel.port1.close(); channel.port2.close(); };
+          navigator.serviceWorker.controller.postMessage({ type: 'fixture-version' }, [channel.port2]);
+        });
+        await page.waitForFunction(() => window.retainedVersion === 'dev');
+      }
+      record({ event: 'retained', version, ...kept });
+    };
     const takeover = async (page, output, withFaults = instrument) => {
       await page.evaluate(() => {
         window.changed = false;
@@ -250,7 +281,7 @@ async function main() {
       const asset = JSON.parse((await readFile(join(served, 'static/sw.js'), 'utf8')).match(/const ALLOWLIST = (.+);/)[1]).find(file => file.startsWith('assets/') && file.endsWith('.js'));
       await page.evaluate(async asset => {
         const cache = await caches.open('kingdown-stale');
-        await cache.put('/' + asset, await fetch('/' + asset));
+        await cache.put('/' + asset, new Response('STALE-ASSET'));
         for (const path of ['/api/me/games?account=one', '/api/me/games?account=two', '/play.html?token=private']) await cache.put(path, new Response('PRIVATE-CANARY'));
         await (await caches.open('unrelated-app')).put('/keep', new Response('keep'));
         localStorage.setItem('fixture-local', 'keep');
@@ -304,6 +335,17 @@ async function main() {
     const closeProfile = async () => { await persistent.close(); persistent = undefined; };
     const releaseHolds = () => { for (const response of held) response.end('ok'); held.clear(); };
     let active;
+    old = true;
+    active = await openProfile(join(work, 'retry-profile'));
+    await assert.rejects(() => retained(active, 'dev'), /keeps its registration and controller/, 'A fresh profile cannot pass the retained-worker check');
+    await active.evaluate(() => navigator.serviceWorker.register('/sw.js', { scope: '/' })); await controlled(active); await seed(active);
+    old = false; failPrecache = true;
+    const failedAfter = events.length;
+    assert.deepEqual(await active.evaluate(() => window.privateProbe('failed-install')), { status: 503, code: 'UNAVAILABLE' });
+    await waitEvent(event => event.event === 'install-failed', failedAfter);
+    assert.equal(events.slice(failedAfter).filter(event => event.event === 'probe').length, 0, 'Failed install keeps the private send closed');
+    failPrecache = false;
+    await probe(active, 'same-page-retry'); await inspect(active); await closeProfile();
     for (const [index, output] of [tree, recovery.root].entries()) {
       served = output;
       const profile = join(work, `retained-profile-${index}`);
@@ -316,17 +358,18 @@ async function main() {
       await probe(active, 'active-old'); await inspect(active);
       await seed(active); await closeProfile();
       active = await openProfile(profile);
+      await retained(active, workerVersions.get(output));
       await probe(active, 'worker-restart'); await inspect(active);
       await closeProfile();
       old = true;
       const dormantProfile = join(work, `dormant-profile-${index}`);
       active = await openProfile(dormantProfile);
       await active.evaluate(() => navigator.serviceWorker.register('/sw.js', { scope: '/' })); await controlled(active); await seed(active); await closeProfile();
-      old = false;
       active = await openProfile(dormantProfile);
+      await retained(active, 'dev'); old = false;
       await probe(active, 'dormant-old'); await inspect(active);
 
-      await probe(active, output === tree ? 'release-takeover' : 'recovery-takeover');
+      await seed(active); await probe(active, output === tree ? 'release-takeover' : 'recovery-takeover');
       await takeover(active, output, true);
       for (const mode of ['throw', 'false']) {
         await seed(active); deleteMode = mode;
@@ -336,19 +379,23 @@ async function main() {
         deleteMode = 'ok'; await probe(active, `repair-${mode}`); await inspect(active);
       }
       await takeover(active, output === tree ? recovery.root : tree);
-      await probe(active, 'safe-predecessor');
+      await seed(active); await probe(active, 'safe-predecessor');
       await seed(active); deleteMode = 'activation-hold'; served = output;
       const interruptedAfter = events.length;
       await active.evaluate(async () => { await (await navigator.serviceWorker.getRegistration('/')).update(); });
       await waitEvent(event => event.event === 'delete' && event.state === 'activating', interruptedAfter);
       void active.evaluate(() => window.privateProbe('interrupted')).catch(() => {});
-      await waitEvent(event => event.event === 'request' || event.event === 'refused' && event.marker === 'interrupted', interruptedAfter);
-      assert.equal(events.slice(interruptedAfter).filter(event => ['reply', 'probe'].includes(event.event)).length, 0, 'Interrupted purge has no reply or send');
+      await waitEvent(event => event.event === 'refused' && event.marker === 'interrupted', interruptedAfter);
+      assertInterruptedPurge(events, interruptedAfter);
       await closeProfile(); deleteMode = 'ok'; releaseHolds();
+      assertInterruptedPurge(events, interruptedAfter);
       active = await openProfile(dormantProfile); await probe(active, 'after-interruption'); await inspect(active);
 
       await takeover(active, output, false);
-      const second = await persistent.newPage(); await second.goto(`${origin}/fixture/page?tab=two`); await second.waitForFunction(() => window.privateProbe);
+      const second = await persistent.newPage();
+      second.setDefaultTimeout(30_000 * STEP); second.setDefaultNavigationTimeout(30_000 * STEP);
+      await second.goto(`${origin}/fixture/page?tab=two`); await second.waitForFunction(() => window.privateProbe);
+      await seed(active);
       holdReply = true;
       let after = events.length;
       void active.evaluate(() => window.privateProbe('account-one')).catch(() => {});
@@ -361,7 +408,7 @@ async function main() {
       holdReply = false; releaseHolds();
       await waitEvent(event => event.event === 'probe' && event.marker === 'account-one', after);
       assertProbeOrder(events, 'account-one', after);
-      await probe(active, 'account-two'); await probe(second, 'account-one'); await inspect(active);
+      await seed(active); await probe(active, 'account-two'); await seed(second); await probe(second, 'account-one'); await inspect(active);
       await second.close(); await closeProfile();
     }
 
@@ -409,10 +456,16 @@ async function main() {
       await active.locator('#workshop').evaluate(dialog => dialog.close());
       assert.equal(await active.evaluate(() => localStorage.getItem('kingdown.save')), saved, 'Offline lesson and lazy Workshop keep the save');
       await active.goto(`${origin}/?army=RNBQKBNR&moves=e2-e4&players=human,ai`); await readyBoard(active);
+      assert.deepEqual(await lanMoves(active), ['e2-e4'], 'The offline game link keeps the local move');
+      await active.evaluate(() => {
+        const saved = JSON.parse(localStorage.getItem('kingdown.save')); saved.black = 'ai'; saved.link = null;
+        localStorage.setItem('kingdown.save', JSON.stringify(saved));
+      });
+      await active.goto(origin); await readyBoard(active);
       await active.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length >= 2, null, { timeout: 30_000 * STEP });
-      assert.equal((await lanMoves(active))[0], 'e2-e4', 'The offline AI continues the local link');
+      assert.equal((await lanMoves(active))[0], 'e2-e4', 'The offline AI continues the saved game');
       await inspect(active);
-      assert.equal(events.slice(offlineAfter).filter(event => event.event === 'http').length, 0, 'Offline play sends no request to the server');
+      assert.equal(events.slice(offlineAfter).filter(event => event.event === 'http').length, 0, 'Offline play fetches no page or asset from the server');
       await persistent.setOffline(false);
       await active.goto(`${origin}/fixture/page`); await active.waitForFunction(() => window.privateProbe);
     }
@@ -439,9 +492,10 @@ async function main() {
     console.log(`PASS: worker journeys; ${pair}; ${events.filter(event => event.event === 'probe').length} protected/bypass requests; ${((performance.now() - started) / 1000).toFixed(1)} s`);
     console.log(`PASS: web-online (${env('PLAYABLE_BROWSER')}): built root, test database, local move, End turn, saved reload, closed account and API routes`);
   } finally {
-    await mkdir(env('PLAYABLE_OUT'), { recursive: true });
-    await writeFile(join(env('PLAYABLE_OUT'), 'worker-events.json'), JSON.stringify(events, null, 2));
-    await cleanup();
+    try {
+      await mkdir(env('PLAYABLE_OUT'), { recursive: true });
+      await writeFile(join(env('PLAYABLE_OUT'), 'worker-events.json'), JSON.stringify(events, null, 2));
+    } finally { await cleanup(); }
   }
 }
 

@@ -76,11 +76,22 @@ describe('engine archive', () => {
 
 const stamp = `sha256:${bundles[0]}`;
 const alias = `sha256:${Object.keys(sourceAliases)[0]}`;
-const save = (engine: unknown) => JSON.stringify({ schema: 'kingdown-local-match/1', engine });
+const save = (engine: unknown) => JSON.stringify({ ...JSON.parse(fixture(bundles[0])), engine });
 const game = (engine: unknown = stamp, state: unknown = save(engine), status = 'playing') => ({ engine, state, status });
 const reportFor = (rows: ReturnType<typeof game>[]) => ({ tables: [summarizeEngines('games', rows)], engines: summarizeEngines('games', rows).engines });
 
 describe('engine report', () => {
+  it.each([
+    ['a save with only a schema and engine', { schema: 'kingdown-local-match/1', engine: stamp }],
+    ...['engine', 'setup', 'initialFen', 'rules', 'revision', 'commands'].map(key => {
+      const state = JSON.parse(save(stamp)); delete state[key]; return [`a save without ${key}`, state];
+    }),
+    ...[-1, 0.5, '0'].map(revision => [`revision ${JSON.stringify(revision)}`, { ...JSON.parse(save(stamp)), revision }]),
+    ...[null, {}, []].map(commands => [`commands ${JSON.stringify(commands)}`, { ...JSON.parse(save(stamp)), revision: 1, commands }]),
+  ])('refuses %s', (_label, state) => {
+    const report = checkRuntime(reportFor([game(stamp, JSON.stringify(state))]), ENGINES);
+    expect(report.tables[0].malformedState).toBe(1); expect(report.ok).toBe(false);
+  });
   it('reports the exact runtime folder and the hashes of its bundle bytes', () => {
     const report = checkRuntime(reportFor([game(stamp), game(alias)]), ENGINES);
     expect(report.ok).toBe(true);

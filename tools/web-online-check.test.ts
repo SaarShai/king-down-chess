@@ -4,7 +4,7 @@ import { runInNewContext } from 'node:vm';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { assertProbeOrder, buildWorkerProbe, recoveryOutput, siteRoute } from './web-online-check.mjs';
+import { assertInterruptedPurge, assertProbeOrder, buildWorkerProbe, recoveryOutput, siteRoute } from './web-online-check.mjs';
 import { vercelRoutes } from './plugin-server-build.mjs';
 import { ART_HEADERS } from './plugin-art-headers.mjs';
 
@@ -31,8 +31,15 @@ describe('web check site routes', () => {
 });
 
 describe('worker probe order', () => {
+  it('checks terminal refusal and catches a late reply or send during an interrupted purge', () => {
+    const refusal = [{ event: 'request' }, { event: 'refused', marker: 'interrupted' }];
+    expect(() => assertInterruptedPurge(refusal)).not.toThrow();
+    for (const events of [refusal.slice(0, 1), [{ event: 'refused', marker: 'other' }], ...['reply', 'probe'].map(event => [...refusal, { event }])]) {
+      expect(() => assertInterruptedPurge(events)).toThrow();
+    }
+  });
   it('requires a fresh reply before one probe, after old-cache deletion', () => {
-    const events = [{ event: 'deleted' }, { event: 'reply' }, { event: 'probe', marker: 'one' }];
+    const events = [{ event: 'deleted' }, { event: 'reply', version: 'current', applicationCaches: ['kingdown-current'] }, { event: 'probe', marker: 'one', version: 'current' }];
     expect(() => assertProbeOrder(events, 'one')).not.toThrow();
     for (const trace of [events.slice(2), [...events.slice(1), events[0]], events.slice(0, 2)]) {
       expect(() => assertProbeOrder(trace, 'one')).toThrow();
@@ -43,6 +50,13 @@ describe('worker probe order', () => {
     for (const mismatch of [{ client: 'other-tab' }, { version: 'old' }]) {
       expect(() => assertProbeOrder([events[0], { event: 'reply', ...mismatch }, events[2]], 'one')).toThrow();
     }
+  });
+  it('refuses a reply while the stale cache remains, even if deletion ends before inspection', () => {
+    expect(() => assertProbeOrder([
+      { event: 'reply', version: 'current', applicationCaches: ['kingdown-current', 'kingdown-stale'] },
+      { event: 'probe', marker: 'early', version: 'current' },
+    ], 'early')).toThrow();
+    expect(() => assertProbeOrder([{ event: 'reply' }, { event: 'probe', marker: 'missing' }], 'missing')).toThrow();
   });
 });
 
@@ -89,9 +103,11 @@ it('builds the browser probe with the real private-send boundary', async () => {
 it('holds page receipt without keeping a worker event open and drops a closed port reply', async () => {
   const surface = { MessageChannel: globalThis.MessageChannel };
   vi.stubGlobal('window', surface); vi.stubGlobal('location', { href: 'http://fixture/one' });
+  const names = new Set(['kingdown-stale', 'unrelated-app']);
+  const keys = vi.fn(async () => [...names]); vi.stubGlobal('caches', { keys });
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  const send = vi.fn(async (url: string) => { if (url.startsWith('/fixture/reply')) await gate; return new Response('ok'); });
+  const send = vi.fn(async (url: string, _init?: RequestInit) => { if (url.startsWith('/fixture/reply')) await gate; return new Response('ok'); });
   vi.stubGlobal('fetch', send);
   await import('./fixtures/web-worker/page');
   const old = new surface.MessageChannel(), fresh = new surface.MessageChannel();
@@ -101,11 +117,14 @@ it('holds page receipt without keeping a worker event open and drops a closed po
     old.port2.postMessage({ requestId: 'old', version: 'old' });
     fresh.port2.postMessage({ requestId: 'fresh', version: 'fresh' });
     await vi.waitFor(() => expect(send.mock.calls.filter(([url]) => url.startsWith('/fixture/reply'))).toHaveLength(2));
+    expect(keys).toHaveBeenCalledTimes(2); names.delete('kingdown-stale');
     expect(stale).not.toHaveBeenCalled(); expect(received).not.toHaveBeenCalled();
     old.port1.onmessage = null; old.port1.close(); release();
     await vi.waitFor(() => expect(received).toHaveBeenCalledOnce());
     expect(stale).not.toHaveBeenCalled();
     expect(received.mock.calls[0][0].data.requestId).toBe('fresh');
+    const events = send.mock.calls.filter(([url]) => url === '/fixture/event');
+    expect(JSON.parse(events[0][1]!.body as string).applicationCaches).toEqual(['kingdown-stale']);
   } finally {
     release(); old.port1.close(); old.port2.close(); fresh.port1.close(); fresh.port2.close(); vi.unstubAllGlobals();
   }
@@ -125,4 +144,39 @@ it('finishes the worker message before the page holds receipt', async () => {
   await Promise.all(lifetimes);
   expect(post).toHaveBeenCalledWith(reply);
   expect(send.mock.calls.map(([url]) => url)).toEqual(['/fixture/event', '/fixture/event']);
+});
+
+it('reports refusal without a fetch that can wait behind activation', async () => {
+  const record = vi.fn().mockResolvedValue(undefined), send = vi.fn();
+  const surface = { MessageChannel: globalThis.MessageChannel, recordWorkerEvent: record, privateProbe: undefined as unknown as Window['privateProbe'] };
+  vi.stubGlobal('window', surface); vi.stubGlobal('location', { href: 'http://fixture/one' });
+  vi.stubGlobal('navigator', {}); vi.stubGlobal('caches', { keys: async () => { throw new Error('Blocked storage'); } }); vi.stubGlobal('fetch', send);
+  vi.resetModules();
+  try {
+    await import('./fixtures/web-worker/page');
+    expect(await surface.privateProbe('interrupted')).toEqual({ status: 503, code: 'UNAVAILABLE' });
+    expect(record).toHaveBeenCalledWith({ event: 'refused', marker: 'interrupted', client: 'http://fixture/one' });
+    expect(send).not.toHaveBeenCalled();
+  } finally { vi.unstubAllGlobals(); vi.resetModules(); }
+});
+
+it('cleans the work tree when the event log cannot be written', async () => {
+  const remove = vi.fn().mockResolvedValue(undefined);
+  const listeners = ['SIGINT', 'SIGTERM', 'SIGHUP'].map(name => ({ name, before: process.listeners(name) }));
+  vi.stubEnv('PLUGIN_TEST_DATABASE_URL', 'postgresql://kingdown_test@127.0.0.1:55432/kingdown_web_test');
+  vi.resetModules();
+  vi.doMock('node:fs/promises', async () => ({
+    ...await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises'),
+    mkdtemp: vi.fn().mockResolvedValue('/fixture/work'), mkdir: vi.fn().mockResolvedValue(undefined), rm: remove,
+    writeFile: vi.fn().mockRejectedValue(new Error('ENOSPC')),
+  }));
+  vi.doMock('./plugin-server-build.mjs', () => ({ buildPluginServer: async () => { throw new Error('Build fails before launch'); } }));
+  try {
+    const { main } = await import('./web-online-check.mjs');
+    await expect(main()).rejects.toThrow('ENOSPC');
+    expect(remove).toHaveBeenCalledWith('/fixture/work', { recursive: true, force: true });
+  } finally {
+    for (const { name, before } of listeners) for (const listener of process.listeners(name)) if (!before.includes(listener)) process.removeListener(name, listener);
+    vi.doUnmock('node:fs/promises'); vi.doUnmock('./plugin-server-build.mjs'); vi.unstubAllEnvs(); vi.resetModules();
+  }
 });

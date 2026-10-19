@@ -24,6 +24,8 @@ export function summarizeEngines(table, rows) {
     try {
       state = JSON.parse(row.state);
       if (!state || typeof state !== 'object' || Array.isArray(state) || state.schema !== 'kingdown-local-match/1') throw new Error();
+      if (['engine', 'setup', 'initialFen', 'rules', 'revision', 'commands'].some(key => !Object.hasOwn(state, key))
+        || !Number.isInteger(state.revision) || state.revision < 0 || !Array.isArray(state.commands) || state.commands.length !== state.revision) throw new Error();
     } catch { report.malformedState++; }
     const engine = state?.engine;
     if (!engineHex(engine) || (table === 'games' && !engineHex(row.engine))) report.malformedEngine++;

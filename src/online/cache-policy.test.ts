@@ -25,7 +25,7 @@ const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve()
 
 beforeEach(() => {
   vi.useFakeTimers(); channels.length = 0;
-  workers = Object.assign(new EventTarget(), { controller: worker(), register: vi.fn().mockResolvedValue({}) });
+  workers = Object.assign(new EventTarget(), { controller: worker(), register: vi.fn().mockResolvedValue({ update: vi.fn().mockResolvedValue(undefined) }) });
   names = new Set(['kingdown-old', 'other-app']);
   storage = { keys: vi.fn(async () => [...names]), delete: vi.fn(async (name: string) => names.delete(name)) };
   vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: workers }); vi.stubGlobal('caches', storage);
@@ -108,6 +108,49 @@ describe('private cache policy', () => {
   it('waits for the first controller without using ready', async () => {
     change(null); const send = vi.fn(), result = withPrivateCachePolicy(send); await flush(); expect(send).not.toHaveBeenCalled();
     const controller = worker(); change(controller); await flush(); reply(controller); await result; expect(send).toHaveBeenCalledOnce();
+  });
+  it('proves the active registration on each send after a hard reload', async () => {
+    change(null); const active = worker(), update = vi.fn(() => new Promise(() => {}));
+    workers.register.mockResolvedValue({ active, update });
+    const send = vi.fn(() => 'sent');
+    for (let i = 0; i < 2; i++) {
+      const result = withPrivateCachePolicy(send); await flush();
+      expect(active.postMessage).toHaveBeenCalledTimes(i + 1); expect(send).toHaveBeenCalledTimes(i);
+      reply(active); expect(await result).toBe('sent');
+    }
+    expect(update).toHaveBeenCalledTimes(2); expect(storage.delete).not.toHaveBeenCalled();
+  });
+  it('proves a new controller that claims just after an uncontrolled reply', async () => {
+    change(null); const active = worker(), next = worker(), send = vi.fn();
+    workers.register.mockResolvedValue({ active, update: vi.fn().mockResolvedValue(undefined) });
+    const result = withPrivateCachePolicy(send); await flush();
+    expect(active.postMessage).toHaveBeenCalledOnce(); reply(active); change(next); await flush();
+    expect(send).not.toHaveBeenCalled(); reply(next); await result; expect(send).toHaveBeenCalledOnce();
+  });
+  it('refuses a silent active registration after a hard reload', async () => {
+    change(null); const active = worker(), send = vi.fn();
+    workers.register.mockResolvedValue({ active, update: vi.fn().mockResolvedValue(undefined) });
+    const result = withPrivateCachePolicy(send), refusal = expect(result).rejects.toBeInstanceOf(CachePolicyUnavailable);
+    await flush(); const requests = active.postMessage.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(8000); await refusal; expect(requests).toBe(1); reply(active); await flush();
+    expect(send).not.toHaveBeenCalled(); expect(storage.delete).not.toHaveBeenCalled();
+  });
+  it('starts each update without waiting for it or replacing fresh proof', async () => {
+    const update = vi.fn(() => new Promise(() => {})), controller = workers.controller, send = vi.fn();
+    workers.register.mockResolvedValue({ update });
+    const result = withPrivateCachePolicy(send); await flush();
+    expect(update).toHaveBeenCalledOnce(); expect(controller.postMessage).toHaveBeenCalledOnce();
+    expect(send).not.toHaveBeenCalled(); reply(controller); await result; expect(send).toHaveBeenCalledOnce();
+  });
+  it('retries a failed update on the next send in the same page', async () => {
+    const update = vi.fn(), next = worker(), send = vi.fn();
+    update.mockImplementationOnce(async () => { throw new Error('offline'); }).mockImplementationOnce(async () => { change(next); });
+    workers.register.mockResolvedValue({ update });
+    const first = withPrivateCachePolicy(send), refusal = expect(first).rejects.toBeInstanceOf(CachePolicyUnavailable);
+    await vi.advanceTimersByTimeAsync(8000); await refusal; expect(send).not.toHaveBeenCalled();
+    const second = withPrivateCachePolicy(send); await flush();
+    expect(update).toHaveBeenCalledTimes(2); expect(next.postMessage).toHaveBeenCalledOnce();
+    reply(next); await second; expect(send).toHaveBeenCalledOnce();
   });
   it.each(['blocked', 'offline'])('refuses an old silent controller when registration is %s', async reason => {
     workers.register.mockRejectedValue(new Error(reason));
