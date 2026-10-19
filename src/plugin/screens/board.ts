@@ -66,7 +66,9 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
 const text = (words: string) => { const p = document.createElement('p'); p.textContent = words; return p; };
 const button = (words: string, click: () => void) => { const b = document.createElement('button'); b.textContent = words; b.onclick = click; return b; };
 export function boardScreen(store: Store) {
-  let generation = 0, animating = false, steps: BoardMove[] = [];
+  let generation = 0, animating = false, rush = false, steps: BoardMove[] = [];
+  const marksLayer = document.createElement('div');
+  marksLayer.id = 'board-marks'; marksLayer.setAttribute('aria-hidden', 'true'); $('board').append(marksLayer);
   const call = store.call;
   // The game lock covers a write, a mount, a command that belongs here and a stale board.
   const networkBlocked = () => locks(store.page()).game;
@@ -84,6 +86,16 @@ export function boardScreen(store: Store) {
   const canRead = () => !animating;
   let armed: PowerName | undefined, armedCard: number | undefined;
   let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0, cursorShown = false;
+  function drawCursor() {
+    marksLayer.replaceChildren();
+    if (!cursorShown) return;
+    const box = $('board').getBoundingClientRect(), at = board.screenOf(cursor), next = board.screenOf(cursor % 8 < 7 ? cursor + 1 : cursor - 1);
+    const width = Math.hypot(at.x - next.x, at.y - next.y), mark = document.createElement('i');
+    mark.className = 'mk-cursor';
+    Object.assign(mark.style, { left: `${at.x - box.left - width / 2}px`, top: `${at.y - box.top - width / 2}px`, width: `${width}px`, height: `${width}px` });
+    marksLayer.append(mark);
+  }
+  new ResizeObserver(drawCursor).observe($('board'));
   // G3 a: a shove or swap onto your own piece needs a second tap.
   let held: Choice | undefined;
   const heldSquare = (move: Move) => move.shove?.from ?? move.to;
@@ -106,7 +118,10 @@ export function boardScreen(store: Store) {
   // strips() rebuilds the coins; a negative delay keeps a running moment in its place.
   const moment = (el: HTMLElement, name: string, start: number, ms: number) => { const age = performance.now() - start; if (age >= ms) return false; el.classList.add(name); el.style.setProperty('--age', `${-age}ms`); return true; };
   // Sound is off unless the player turns it on in Settings (render/sfx.ts).
-  const sound = (step: BoardMove) => { if (step.move.captures.length) snd.capture(); else snd.move(); if (inCheck(step.pos)) snd.check(); };
+  const hitSound = (step: BoardMove, token: number) => {
+    let struck = false;
+    return () => { if (struck || token !== generation) return; struck = true; if (step.move.captures.length) snd.capture(); else snd.move(); };
+  };
   const refused = new Set<string>(), taught = new Map<string, number>();
   const active = () => ['board', 'end'].includes(client.state.screen);
   const rules = () => setRules(view!.rules!);
@@ -179,7 +194,11 @@ export function boardScreen(store: Store) {
     const token = ++generation; steps.push(step); lastMove = step; pos = step.pos; animating = true;
     board.skip(); board.setLifted(null); moveLine(); refresh(); saveDraft();
     if (step.move.drop !== undefined) board.sync(step.pos);
-    void (step.move.drop === undefined ? board.animateMove(step.pre, step.move) : Promise.resolve()).then(() => { if (token === generation) sound(step); }).finally(() => {
+    const hit = hitSound(step, token);
+    void (step.move.drop === undefined ? board.animateMove(step.pre, step.move, hit) : Promise.resolve()).then(() => {
+      if (token !== generation) return;
+      hit(); if (inCheck(step.pos)) snd.check();
+    }).finally(() => {
       if (token !== generation) return;
       board.sync(step.pos); animating = false; refresh();
       if (keyboard) $(turn().waits ? 'end-turn' : 'board').focus({preventScroll:true});
@@ -214,7 +233,9 @@ export function boardScreen(store: Store) {
   }
   $('app-frame').addEventListener('keydown', event => {
     if (event.key !== 'Escape' || client.state.screen !== 'board' && !sheet?.contains(event.target as Node)) return;
-    event.preventDefault(); armed = undefined; armedCard = undefined; selected = held = undefined; choices([]); refresh(); closeBoardSheet();
+    event.preventDefault();
+    if (animating) { cursorShown = false; drawCursor(); rush = true; board.skip(); if (sheet?.open) closeBoardSheet(); return; }
+    cursorShown = false; armed = undefined; armedCard = undefined; selected = held = undefined; choices([]); refresh(); closeBoardSheet();
   });
   function select(square: number, submit = true) {
     if (!view || !pos || !canRead()) return;
@@ -245,12 +266,14 @@ export function boardScreen(store: Store) {
   function bindBoard() {
     mountTable();
     if ($('board').parentElement !== $('game-table')) $('game-table').prepend($('board'));
-    board.onSquareClick = square => select(square); board.onDragSelect = square => select(square, false);
+    board.onSquareClick = square => { if (animating) { rush = true; board.skip(); return; } select(square); };
+    board.onDragSelect = square => { if (animating) { rush = true; board.skip(); return; } select(square, false); };
     $('board').tabIndex = 0;
+    $('board').onblur = () => { cursorShown = false; const hold = holding(); board.setPreview(hold ? heldSquare(hold.move) : null); drawCursor(); };
     $('board').onkeydown = event => {
       // The cursor moves while play waits. Enter reads a square when motion stops.
       const delta = ({ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,1], ArrowDown:[0,-1]} as Record<string,number[]>)[event.key];
-      if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); cursorShown = true; board.setPreview(cursor); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
+      if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); cursorShown = true; board.setPreview(cursor); drawCursor(); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
       else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(cursor); }
       else if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undo(); }
     };
@@ -309,7 +332,8 @@ export function boardScreen(store: Store) {
         cardSpent.set(key, card.spent);
         b.className = 'coin card-coin'; b.id = `card-${side ? 'b' : 'w'}-${index}`;
         const spending = card.spent && moment(b, 'is-spending', spentAt.get(key) ?? -Infinity, 300);
-        b.dataset.state = card.spent && !spending ? 'used' : 'always';
+        b.dataset.state = mine && armedCard === index && !card.spent ? 'armed' : card.spent && !spending ? 'used' : 'always';
+        if (mine && !card.spent) b.setAttribute('aria-pressed', String(armedCard === index));
         if (!spending) { b.style.setProperty('--i', String(index)); moment(b, 'is-dealt', dealtAt, 560); } b.setAttribute('aria-label', (mine ? 'Your ' : "Opponent's ") + cardName(card.card) + (card.spent ? ', spent' : ''));
         image.src = face ?? art('ui/cards/back.webp'); image.alt = ''; b.append(image);
         if (!face) { const word = document.createElement('span'); word.className = 'cc-word'; word.textContent = cardName(card.card).slice(0,2); b.append(word); }
@@ -407,7 +431,7 @@ export function boardScreen(store: Store) {
     const table = $('game-table');
     if (drawReply) { table.dataset.replies = ''; if (boardRoom) table.style.setProperty('--board-floor', `${boardRoom}px`); }
     else { delete table.dataset.replies; table.style.removeProperty('--board-floor'); boardRoom = $('board').getBoundingClientRect().height || boardRoom; }
-    board.setLifted(selected ?? null); board.setPreview(hold ? heldSquare(hold.move) : cursorShown ? cursor : null);
+    board.setLifted(selected ?? null); board.setPreview(hold ? heldSquare(hold.move) : cursorShown ? cursor : null); drawCursor();
     // Never lay the king down on the position before the final move.
     const fallen = !animating && view.result?.reason === 'checkmate' && view.result.winner !== null ? findKing(pos.board,(1-view.result.winner) as Color) : null;
     const win = view.result?.winner === view.seat;
@@ -509,9 +533,15 @@ export function boardScreen(store: Store) {
     const replay = replayed?.filter((step, index) => !step.move.pass && !(local[index] && toFen(local[index].pos) === toFen(step.pos))) ?? [];
     const authoritative = pos;
     if (replay.length) {
-      animating = true;
+      animating = true; rush = false;
       void (async () => {
-        for (const step of replay) { if (token !== generation) return; rules(); if (step.move.drop === undefined) await board.animateMove(step.pre, step.move); if (token !== generation) return; board.sync(step.pos); sound(step); }
+        for (const step of replay) {
+          if (token !== generation) return;
+          rules(); const hit = hitSound(step, token);
+          if (!rush && step.move.drop === undefined) await board.animateMove(step.pre, step.move, hit);
+          if (token !== generation) return;
+          board.sync(step.pos); hit(); if (inCheck(step.pos)) snd.check();
+        }
         if (token === generation) { rules(); board.sync(authoritative); animating = false; refresh(); scheduleComputer(); }
       })();
     } else board.sync(pos);

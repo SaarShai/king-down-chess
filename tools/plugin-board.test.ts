@@ -1669,3 +1669,201 @@ it.each(['teardown', 'close'] as const)('keeps the player strips fixed when a pr
     }))).toBe(true);
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()).catch(() => {}); await page.close(); }
 });
+
+it('F05: draws one keyboard cursor at the tile and clears it on Escape or blur', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), 390, 844), frame = page.frameLocator('iframe');
+  const proof = join(tmpdir(), 'kingdown-gui-board-proof'); await import('node:fs/promises').then(fs => fs.mkdir(proof, { recursive: true }));
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
+    await frame.locator('#board').focus();
+    await frame.locator('#board').press('ArrowRight');
+    async function cursorBox() {
+      return frame.locator('#board .mk-cursor').evaluate(mark => {
+        const at = (window as any).testBoard.screenOf(1), next = (window as any).testBoard.screenOf(2), width = Math.hypot(at.x - next.x, at.y - next.y), box = mark.getBoundingClientRect(), style = getComputedStyle(mark);
+        return { dx: Math.abs(box.x - at.x + width / 2), dy: Math.abs(box.y - at.y + width / 2), dw: Math.abs(box.width - width), border: style.borderTopWidth, color: style.borderTopColor };
+      });
+    }
+    expect(await frame.locator('#board-marks[aria-hidden="true"]').count()).toBe(1);
+    expect(await frame.locator('#board .mk-cursor').count()).toBe(1);
+    const box = await cursorBox(); expect(box.dx).toBeLessThanOrEqual(1); expect(box.dy).toBeLessThanOrEqual(1); expect(box.dw).toBeLessThanOrEqual(1);
+    expect(box.border).toBe('3px'); expect(box.color).toBe('rgb(28, 91, 176)');
+    await frame.locator('#board .mk-cursor').evaluate(e => { (e as HTMLElement).style.visibility = 'hidden'; });
+    await frame.locator('#board').screenshot({ path: join(proof, 'f05-before.png') });
+    await frame.locator('#board .mk-cursor').evaluate(e => { (e as HTMLElement).style.visibility = ''; });
+    await frame.locator('#board').screenshot({ path: join(proof, 'f05-after.png') });
+    await page.setViewportSize({ width: 430, height: 844 });
+    await expect.poll(async () => (await cursorBox()).dx).toBeLessThanOrEqual(1);
+    await frame.locator('#board').press('Escape'); expect(await frame.locator('.mk-cursor').count()).toBe(0);
+    await frame.locator('#board').press('ArrowLeft'); expect(await frame.locator('.mk-cursor').count()).toBe(1);
+    await frame.locator('#board-menu').focus(); expect(await frame.locator('.mk-cursor').count()).toBe(0);
+  } finally { await page.close(); }
+});
+
+it('F06: marks only the armed usable card and shows the gold band', async () => {
+  const rules: Partial<Rules> = { hands: [['Strike', 'Freeze', 'IceWall', 'Vault'], ['Strike']] };
+  const page = await open(view('7k/8/8/8/8/8/P7/R6K w - - 0 1', rules), 390, 844), frame = page.frameLocator('iframe');
+  const proof = join(tmpdir(), 'kingdown-gui-board-proof'); await import('node:fs/promises').then(fs => fs.mkdir(proof, { recursive: true }));
+  try {
+    await page.evaluate(() => (window as any).harnessSetContext({ theme: 'dark' }));
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await frame.locator('#card-w-0').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
+    const coin = frame.locator('#card-w-0');
+    expect(await coin.getAttribute('data-state')).toBe('armed'); expect(await coin.getAttribute('aria-pressed')).toBe('true');
+    expect(await frame.locator('#strip-me .card-coin[aria-pressed="false"]').count()).toBe(3);
+    expect(await frame.locator('#strip-them .card-coin[aria-pressed]').count()).toBe(0);
+    const pixels = await coin.screenshot({ path: join(proof, 'f06-coin.png') });
+    const sharp = (await import('sharp')).default, image = await sharp(pixels).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const x = Math.floor(image.info.width / 2), at = (3 * image.info.width + x) * 4;
+    expect(await coin.evaluate(e => getComputedStyle(e).boxShadow)).toMatch(/rgb\(233, 192, 113\)[^,]*\b5px\b/);
+    // Linux rasters put this pixel up to 14 levels off gold-bright; the ink ring and the card art are more than 80 away.
+    for (const [i, value] of [233, 192, 113].entries()) expect(Math.abs(image.data[at + i] - value)).toBeLessThanOrEqual(24);
+    await page.screenshot({ path: join(proof, 'plugin-card-targets-390x844-dark.png') });
+    await frame.locator('#context-actions').getByRole('button', { name: 'Cancel', exact: true }).click();
+    expect(await coin.getAttribute('data-state')).toBe('always'); expect(await coin.getAttribute('aria-pressed')).toBe('false');
+    expect(await coin.evaluate(e => e.querySelector('img')!.getBoundingClientRect().width)).toBe(await coin.evaluate(e => e.clientWidth - 6));
+  } finally { await page.close(); }
+});
+
+it.each(['contact', 'reduced', 'off', 'skip', 'superseded'] as const)('F10: sounds the local capture once at contact or fallback (%s)', async path => {
+  const base = view('7k/8/8/8/8/8/7p/K6R w - - 0 1'), page = await open(base), frame = page.frameLocator('iframe');
+  try {
+    if (path === 'reduced') await page.emulateMedia({ reducedMotion: 'reduce' });
+    await frame.locator('html').evaluate(`(async () => {
+      const { snd, setSound } = await import('/src/render/sfx.ts'); setSound(true);
+      window.sounds = []; for (const name of ['capture', 'move', 'check']) snd[name] = () => window.sounds.push({ name, at: performance.now() });
+      const b = window.testBoard; window.realAnimate = b.animateMove.bind(b);
+      b.animateMove = (pre, move, contact) => {
+        if (${JSON.stringify(path)} === 'off') { b.setPace('off'); return window.realAnimate(pre, move, contact).then(() => { window.restAt = performance.now(); }); }
+        if (${JSON.stringify(path)} === 'reduced') { window.restAt = performance.now(); return Promise.resolve(); }
+        window.contact = contact; return new Promise(resolve => { window.finishMove = () => { window.restAt = performance.now(); resolve(); }; });
+      };
+    })()`);
+    await squareTap(page, 7); await squareTap(page, 15);
+    if (['contact', 'skip', 'superseded'].includes(path)) {
+      expect(await frame.locator('#board').getAttribute('data-animating')).toBe('true');
+      if (path === 'contact') {
+        await frame.locator('html').evaluate(() => { (window as any).contact(); (window as any).contact(); });
+        expect(await frame.locator('html').evaluate(() => (window as any).sounds.map((s: any) => s.name))).toEqual(['capture']);
+      }
+      if (path === 'superseded') {
+        await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), { ...base, game_id: crypto.randomUUID() });
+        await frame.locator('html').evaluate(() => { (window as any).contact(); (window as any).finishMove(); });
+        expect(await frame.locator('html').evaluate(() => (window as any).sounds)).toEqual([]); return;
+      }
+      if (path === 'skip') await frame.locator('html').evaluate(() => { (window as any).testBoard.skip = () => (window as any).finishMove(); (window as any).testBoard.skip(); });
+      else await frame.locator('html').evaluate(() => (window as any).finishMove());
+    }
+    await frame.locator('#board[data-animating="false"]').waitFor();
+    const result = await frame.locator('html').evaluate(() => ({ sounds: (window as any).sounds, rest: (window as any).restAt }));
+    expect(result.sounds.map((s: any) => s.name)).toEqual(['capture', 'check']);
+    if (path === 'contact') expect(result.sounds[0].at).toBeLessThanOrEqual(result.rest);
+    else expect(result.sounds[0].at).toBeGreaterThanOrEqual(result.rest);
+    expect(result.sounds[1].at).toBeGreaterThanOrEqual(result.rest);
+  } finally { await page.close(); }
+});
+
+it('F10: sounds a replay capture at contact and check after rest', async () => {
+  const base = view('7k/8/8/8/8/8/7p/K6R w - - 0 1', {}, { kind: 'friend' }), page = await open(base), frame = page.frameLocator('iframe');
+  const step = applyLan(fromFen(base.fen), 'Rh1xh2', base.rules!)!; expect(step).toBeDefined();
+  try {
+    await frame.locator('html').evaluate(`(async () => {
+      const { snd, setSound } = await import('/src/render/sfx.ts'); setSound(true); window.sounds = [];
+      for (const name of ['capture', 'move', 'check']) snd[name] = () => window.sounds.push({ name, at: performance.now() });
+      window.testBoard.animateMove = (pre, move, hit) => { hit(); hit(); return new Promise(resolve => { window.finishMove = () => { window.restAt = performance.now(); resolve(); }; }); };
+    })()`);
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), { ...base, revision: 1, fen: toFen(step.pos), turn: 1, action: 'waiting', legal: [], last_commands: [{ seq: 1, seat: 0, at: base.server_now, action: { type: 'turn', actions: [step.lan] } }] });
+    expect(await frame.locator('html').evaluate(() => (window as any).sounds.map((s: any) => s.name))).toEqual(['capture']);
+    await frame.locator('html').evaluate(() => (window as any).finishMove());
+    await frame.locator('#board[data-animating="false"]').waitFor();
+    const result = await frame.locator('html').evaluate(() => ({ sounds: (window as any).sounds, rest: (window as any).restAt }));
+    expect(result.sounds.map((s: any) => s.name)).toEqual(['capture', 'check']);
+    expect(result.sounds[0].at).toBeLessThanOrEqual(result.rest); expect(result.sounds[1].at).toBeGreaterThanOrEqual(result.rest);
+  } finally { await page.close(); }
+});
+
+it.each(['tap', 'Escape', 'drag', 'Menu Escape', 'Moves Escape'] as const)('F11: %s skips the whole reply and keeps the server position', async input => {
+  const rules: Partial<Rules> = { kings: [null, { king: 'Flame', power: 'Haste' }] }, fen = '4k3/p7/8/8/8/8/4P3/K7 b - - 0 1';
+  setRules(rules); let pos = fromFen(fen); const actions: string[] = [], positions: string[] = [];
+  for (const pick of [(m: Move) => m.power === 'haste' && m.from === 48 && m.to === 40, (m: Move) => !m.pass && m.from === 40 && m.to === 32]) {
+    const move = legalMoves(pos).find(pick)!; expect(move).toBeDefined(); actions.push(toLan(pos, move)); pos = makeMove(pos, move); positions.push(toFen(pos));
+  }
+  const base = view(fen, rules, { kind: 'friend', seat: 0, action: 'waiting' }), page = await open(base), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(`(async () => {
+      const { snd } = await import('/src/render/sfx.ts'), { toFen } = await import('/src/rules/setup.ts'); window.hits = 0; snd.move = () => window.hits++;
+      const b = window.testBoard, sync = b.sync.bind(b), timeout = window.setTimeout; window.syncs = []; window.animationCalls = 0; window.zeroTimers = 0;
+      window.setTimeout = (fn, ms, ...args) => { if (ms === 0) window.zeroTimers++; return timeout(fn, ms, ...args); };
+      b.sync = pos => { window.syncs.push(toFen(pos)); sync(pos); };
+      b.animateMove = () => { window.animationCalls++; return new Promise(resolve => { window.finishMove = resolve; }); };
+      b.skip = () => { window.finishMove?.(); };
+    })()`);
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), { ...base, revision: 1, fen: toFen(pos), turn: 0, action: 'ready', legal: legalMoves(pos).map(m => toLan(pos, m)), last_commands: [{ seq: 1, seat: 1, at: base.server_now, action: { type: 'turn', actions } }] });
+    expect(await frame.locator('#board').getAttribute('data-animating')).toBe('true');
+    const timers = await frame.locator('html').evaluate(() => (window as any).zeroTimers);
+    if (input === 'Escape') { await frame.locator('#board').press('ArrowLeft'); expect(await frame.locator('#board .mk-cursor').count()).toBe(1); }
+    const sheetEscape = input === 'Menu Escape' || input === 'Moves Escape';
+    if (sheetEscape) {
+      await frame.locator('#board-menu').click();
+      if (input === 'Moves Escape') await frame.locator('#board-sheet').getByRole('button', { name: 'Moves', exact: true }).click();
+      const close = frame.locator('#board-sheet [aria-label="Close"]');
+      expect(await close.evaluate(button => button === document.activeElement)).toBe(true);
+      await close.press('Escape');
+      expect(await frame.locator('#board-sheet[open]').count()).toBe(0);
+      expect(await frame.locator('.page-sheet').evaluate(page => page.inert)).toBe(false);
+      expect(await frame.locator('#board-menu').evaluate(button => button === document.activeElement)).toBe(true);
+    }
+    const result = await frame.locator('html').evaluate(async (_, input) => {
+      const b = (window as any).testBoard, board = document.getElementById('board')!;
+      if (input === 'Escape') board.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      else if (input === 'drag') b.onDragSelect(12);
+      else if (input === 'tap') b.onSquareClick(12);
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      return { animating: board.dataset.animating, calls: (window as any).animationCalls, syncs: (window as any).syncs, hits: (window as any).hits, timers: (window as any).zeroTimers };
+    }, input);
+    expect(result.animating).toBe('false'); expect(result.calls).toBe(1); expect(result.hits).toBe(2);
+    expect(result.syncs).toEqual([...positions, toFen(pos)]); expect(result.timers).toBeGreaterThan(timers);
+    expect(await boardFen(page)).toBe(toFen(pos)); expect((await marks(page)).selected).toBeUndefined();
+    // Escape during motion also ends the keyboard cursor, as it does at rest.
+    if (input === 'Escape') expect(await frame.locator('#board .mk-cursor').count()).toBe(0);
+    await squareTap(page, 12); expect((await marks(page)).selected).toBe(12);
+  } finally { await page.close(); }
+});
+
+it('F11: a tap skips a local move without selecting a piece', async () => {
+  const base = view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), page = await open(base), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(() => {
+      const b = (window as any).testBoard;
+      b.animateMove = () => new Promise(resolve => { b.skip = resolve; });
+    });
+    await squareTap(page, 8); await squareTap(page, 16);
+    expect(await frame.locator('#board').getAttribute('data-animating')).toBe('true');
+    await squareTap(page, 0); await frame.locator('#board[data-animating="false"]').waitFor();
+    expect((await marks(page)).selected).toBeUndefined();
+    expect(await boardFen(page)).toBe(toFen(applyLan(fromFen(base.fen), 'a2-a3', base.rules!)!.pos));
+  } finally { await page.close(); }
+});
+
+it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons (%s)', async theme => {
+  const base = view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), page = await open(base, 390, 844), frame = page.frameLocator('iframe');
+  const proof = join(tmpdir(), 'kingdown-gui-board-proof'); await import('node:fs/promises').then(fs => fs.mkdir(proof, { recursive: true }));
+  async function centered(selector: string) {
+    const box = await frame.locator(selector).evaluate(button => {
+      const range = document.createRange(); range.selectNodeContents(button);
+      const glyph = range.getBoundingClientRect(), box = button.getBoundingClientRect();
+      return { width: box.width, height: box.height, dx: Math.abs(glyph.x + glyph.width / 2 - box.x - box.width / 2), dy: Math.abs(glyph.y + glyph.height / 2 - box.y - box.height / 2), text: button.textContent };
+    });
+    expect(box.width).toBe(44); expect(box.height).toBe(44); expect(box.dx).toBeLessThanOrEqual(1); expect(box.dy).toBeLessThanOrEqual(1); expect(box.text).toBe('×');
+  }
+  try {
+    await page.evaluate(theme => (window as any).harnessSetContext({ theme }), theme);
+    await frame.locator('#board-menu').click(); await centered('#board-sheet .sheet-head button');
+    await page.screenshot({ path: join(proof, `plugin-board-menu-390x844-${theme}.png`) });
+    await frame.locator('#board-sheet .sheet-head button').click();
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {
+      ...base, game_id: crypto.randomUUID(), status: 'setup', fen: '', options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: true, cards: false, kingPowers: false }, draw: 'RNBQKBNR', choices: [{ order: 'RNBQKBNR', king: null }, null], ready: [false, false],
+    });
+    await frame.locator('#seat-menu').click(); await centered('#seat-menu-close');
+    await page.screenshot({ path: join(proof, `plugin-seat-menu-390x844-${theme}.png`) });
+  } finally { await page.close(); }
+});
