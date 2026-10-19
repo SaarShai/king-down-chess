@@ -184,3 +184,7 @@ Review A5 is confirmed. The old tests check mark data and SVG strings only. The 
 ### First review check
 
 `plugin-ui` passes at `63a04845` in 226.8 seconds. The preview check catches a wrong test expectation: the web Freeze lasts one turn, not two. Both frost layers draw. The check now follows that rule. The plugin fixture still checks two pips. The web Off check also measures board frames while the selected Archer aims. The A39 check captures the same lower-rank positions from the base build. The unit suite still waits for the workshop lane's test lock.
+
+### Clock check
+
+The second preview run passes frost, both lower-rank board directions, and the real phone select tap. Its new Off frame check resets the fake clock after scene timers start. That leaves an old draw deadline in the future. Install the clock before page load, then pause it for the frame check. No product change is needed.

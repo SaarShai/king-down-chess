@@ -153,6 +153,7 @@ try {
       const height=width===390?844:900;
       const ctx=await browser.newContext({viewport:{width,height},deviceScaleFactor:2,serviceWorkers:'block'});
       const p=await ctx.newPage();p.setDefaultTimeout(10000);
+      if (item === 'A8' && phase === 'after') await p.clock.install();
       if (item === 'A17') await p.addInitScript(watchFrost);
       async function open(fen, args='') { await p.goto(webURL+'?title=0&players=human,human&fen='+encodeURIComponent(fen)+args);await p.waitForFunction(()=>window.view?.ready);await p.evaluate(()=>window.view.ready());await p.evaluate(()=>document.fonts.ready); }
       async function tap(sq){ const point=await p.evaluate(sq=>window.view.screenOf(sq),sq);await p.mouse.click(point.x,point.y);await p.waitForTimeout(400); }
@@ -207,7 +208,7 @@ try {
           await shot(id,'settings');
           if (phase === 'after') {
             await pace.selectOption('off'); await p.locator('#menu-close').click();
-            await p.clock.install(); await p.clock.pauseAt(new Date(Date.now() + 100));
+            await p.clock.pauseAt(new Date(Date.now() + 100));
             await tap(8); await p.clock.runFor(100);
             const target = await p.evaluate(() => window.view.screenOf(9));
             const frames = await p.evaluate(() => window.view.scene.frames);
