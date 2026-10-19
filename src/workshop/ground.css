@@ -479,7 +479,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .law.fixed b { justify-self: start; font: 700 12.5px/1 var(--font-display); letter-spacing: 0.06em; color: #3d362f; display: flex; gap: 5px; align-items: center; }
 /* the seal view: the seal at 168 px over the stone; the example, the MATRIX row and Seen on in the right column (:140-141, :230-240) */
 .pg-bigseal { align-items: center; }
-.pg-bigseal .kd-seal { position: relative; z-index: 2; width: 168px; height: 168px; filter: drop-shadow(0 14px 12px rgba(29, 25, 21, 0.35)); }
+.pg-bigseal .kd-seal { position: relative; z-index: 2; width: 168px; height: 168px; }
 .pg-info { padding: 24px 8px 0; }
 #workshop.pg .pg-info .pg-ex { font-size: 18px; line-height: 1.35; color: var(--ink); }
 #workshop.pg .pg-info h3 { margin: 18px 0 6px; font: 600 12.5px/1 var(--font-display); letter-spacing: 0.1em; color: var(--ink-soft); text-transform: uppercase; }
@@ -675,7 +675,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .lrow .inner:has(.rgroups) { height: auto; }
   .rgroups { flex-wrap: wrap; width: 360px; gap: 10px; padding-top: 10px; }
   .lrow .lsep:has(+ .laws), .laws { display: none; }
-  .pg-bigseal .kd-seal { width: 56px; height: 56px; filter: none; }
+  .pg-bigseal .kd-seal { width: 56px; height: 56px; }
   /* the phone's right column has room for the example only */
   .pg-info { padding: 4px 4px 0; }
   .pg-info > :not(.pg-ex) { display: none; }

@@ -1829,6 +1829,10 @@ async function rulesTab() {
   assert.equal(await p.getAttribute('[data-tab="rules"]', 'aria-selected'), 'true', 'Rules is the selected tab');
   assert.deepEqual(await p.$$eval('.rgrp h4', hs => hs.map(h => h.textContent)), ['Moving', 'Taking', 'Safe', 'Moving others', 'Changing', 'Holding back'], 'the 6 groups');
   assert.equal(await p.locator('[data-openseal]').count(), 10, 'the 10 seals');
+  assert.deepEqual(await p.locator('#kdm-seal-shadow feDropShadow').evaluate(s =>
+    ['dy', 'stdDeviation', 'flood-opacity'].map(a => s.getAttribute(a))), ['1.5', '1.2', '.22'], 'the wax shadow is soft and close');
+  assert.deepEqual(await p.locator('.rgroups .kd-seal ellipse').evaluateAll(es => [...new Set(es.map(e => e.getAttribute('fill')))]),
+    ['rgba(255,240,226,.06)'], 'each seal has a faint wax light');
   await minTarget(p, '#workshop [data-openseal]');
   // The laws follow RULES in force (the defaults in the browser), as words and not as switches.
   assert.deepEqual(await p.$$eval('.law', ls => ls.map(l => l.textContent)), ['PromotionQ R B Nqueen, rook, bishop or knight', '50-move drawOn', 'ThreefoldOn', 'MaterialOn', 'Guard by its kingOn', 'Bishops on two coloursOn',
@@ -1837,6 +1841,7 @@ async function rulesTab() {
   await p.click('[data-openseal="linesPass"]');
   assert.equal(await name(p), 'Lines pass', 'the plinth names the seal');
   assert.equal(await p.$eval('.pg-bigseal .kd-seal', s => Math.round(s.getBoundingClientRect().width)), 168, 'the seal is 168 px');
+  assert.equal(await p.locator('.pg-bigseal .kd-seal').evaluate(s => getComputedStyle(s).filter), 'none', 'the large seal adds no second shadow');
   assert.deepEqual(await p.$$eval('.pg-info > *', es => es.map(e => e.textContent)),
     ['It slides past its own pieces, as the Paladin does.', 'Matrix row', '4d Hop — over friends only', 'Seen on', 'Paladin'], 'the example, the MATRIX row and Seen on');
   assert.equal(await p.getAttribute('[data-openseal="linesPass"]', 'aria-pressed'), 'true', 'the open seal is pressed');
