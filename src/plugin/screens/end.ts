@@ -19,7 +19,7 @@ let updating = false, stopped = false, opening = false;
 let blockKey = '', blockButtons: HTMLButtonElement[] = [];
 let endGame: string | undefined, looking = false;
 let guardedGame: string | undefined, tapReadyAt = 0;
-// Ignore a late board tap. Skip and See the board stay active.
+// Ignore a late board tap. See the board stays active.
 export function guardEndTaps(game: string) { guardedGame = game; tapReadyAt = Infinity; }
 let queuedRematch: { game: string; choice: 'offer' | 'accept' | 'decline' } | undefined;
 const button = (label: string, click: (event: MouseEvent) => void) => { const b = document.createElement('button'); b.textContent = label; b.setAttribute('data-free',''); b.onclick = click; return b; };

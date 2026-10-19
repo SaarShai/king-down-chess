@@ -135,10 +135,10 @@ try {
 
   await stageMate('normal');
   assert.equal(await page.locator('.kd-words').count(), 0, 'a staged mate plays no Ceremony');
-  await page.evaluate(() => { const s = window.view.scene, play = s.play.bind(s); s.play = (m, o) => { window.blowSpeed = o?.speed; return play(m, o); }; });
+  await page.evaluate(() => { const s = window.view.scene, play = s.play.bind(s); s.play = (m, o) => { window.blowCount = (window.blowCount || 0) + 1; return play(m, o); }; });
   await endTurn(page);
   await page.locator('.ceremony-caption').waitFor({ state: 'attached' });
-  check(await (await page.waitForFunction(() => window.blowSpeed)).jsonValue(), 2, 'the Ceremony replays the final blow at half speed');
+  assert.equal(await page.evaluate(() => window.blowCount || 0), 0, 'The result flow does not replay the final move');
   assert.equal(await page.locator('#over').isVisible(), false, 'the board beats come before the dialog');
   await page.locator('#board').focus();
   await page.keyboard.press('Enter');
@@ -173,6 +173,24 @@ try {
   assert.equal(await page.evaluate(() => window.view.fallen), null, 'a draw has no beaten king');
   assert.equal(await page.locator('#over .is-fallen').count(), 0, 'A draw leaves the result art upright');
   console.log('checked quiet loss, draw and result announcement');
+
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    await open('7k/P7/8/8/8/8/8/K7 w - - 0 1');
+    await tap(48); await tap(56);
+    await page.locator('#promo[open]').waitFor();
+    const cards = await page.locator('#promo-choices button').evaluateAll(buttons => buttons.map(b => {
+      const r = b.getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width, height: r.height };
+    }));
+    assert.equal(cards.length, 4, 'Promotion has four choices');
+    assert.equal(new Set(cards.map(b => b.left)).size, 2, 'Promotion has two columns at every width');
+    assert.equal(new Set(cards.map(b => b.top)).size, 2, 'Promotion has two rows at every width');
+    assert(cards.every(b => Math.abs(b.width - cards[0].width) < 1 && b.height === cards[0].height && b.height >= 120), 'All promotion cards have the same size');
+    await noSidewaysScroll(page);
+    await shot(page, `promotion-${width}`);
+    await page.locator('#cancel-promo').click();
+  }
+
   assertNoErrors();
   if (faults.length) throw new AggregateError(faults, 'End frame checks fail');
   console.log('ok end frames and one result announcement');

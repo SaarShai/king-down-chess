@@ -138,7 +138,7 @@ it.each(['See the board', 'New game'])('cancels a pending ceremony with %s durin
   } finally { await page.close(); }
 });
 
-it.each(['Skip', 'Finish'])('keeps the king fall running when the result card opens, then %s clears it', async ending => {
+it('shows the final fallen king directly when the result card opens', async () => {
   const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), pre = fromFen(before.fen);
   const move = legalMoves(pre).find(m => toLan(pre,m) === 'Qa1-a8')!, post = makeMove(pre,move);
   const page = await open(before, 360, 844, true), frame = page.frameLocator('iframe');
@@ -147,16 +147,18 @@ it.each(['Skip', 'Finish'])('keeps the king fall running when the result card op
       const w = window as any; w.falls = []; const set = w.testBoard.setFallen.bind(w.testBoard);
       w.testBoard.setFallen = (sq: number|null, animate: boolean) => { if (sq !== null) w.falls.push(animate); set(sq,animate); };
     });
-    // Hold the short ceremony while browser calls read it and press Skip.
+    // Hold the clock to check the first result frame.
     await page.clock.setFixedTime(new Date()); await page.clock.pauseAt(await page.evaluate(() => Date.now()));
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), { ...before, fen: toFen(post), revision: 1, status: 'finished', action: 'finished', turn: 1, legal: [], result: { winner: 0, reason: 'checkmate' }, last_commands: [] });
-    // Open the result card through its queued timers and frame, then keep the ceremony paused.
+    // Open the result card through its queued timers and frame.
     await page.clock.runFor(50);
-    await frame.locator('#over[open]').waitFor(); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
-    expect(await frame.locator('html').evaluate(() => (window as any).falls)).toEqual([true]);
-    if (ending === 'Skip') await frame.locator('#end-skip').evaluate((b: HTMLButtonElement) => b.click());
-    else await page.clock.fastForward(1130);
-    expect(await frame.locator('html').evaluate(() => (window as any).falls.at(-1))).toBe(false);
+    await frame.locator('#over[open]').waitFor();
+    const falls = await frame.locator('html').evaluate(() => (window as any).falls);
+    expect(falls.length).toBeGreaterThan(0);
+    expect(falls.every((animate: boolean) => animate === false)).toBe(true);
+    expect(await frame.locator('#end-skip').count()).toBe(0);
+    await page.clock.fastForward(1000);
+    expect(await frame.locator('html').evaluate(() => (window as any).falls.includes(true))).toBe(false);
     expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
     expect(await frame.locator('#game-table').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   } finally { await page.close(); }

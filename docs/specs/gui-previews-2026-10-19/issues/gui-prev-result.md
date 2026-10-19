@@ -1,6 +1,6 @@
 # GUI previews 2026-10-19: the result moment and promotion
 
-Status: in-progress
+Status: done
 Type: task
 
 ## Why and the rule
@@ -73,3 +73,35 @@ Base: bc62f4eec18f58b9e99c426422e362a6b5a8dc56.
 5. A12: use two equal columns for promotion at all widths.
 
 For each part, save before and after images at device scale 2. Inspect each image. Add a behavior check. Commit each part on this branch. Run the type check, unit tests, and the approved plugin browser runner. Do not merge or publish.
+
+## Build record
+
+- A9: d407b1f3. The plugin opens the card directly. The web plays one fall for at most 650 ms. A tap or a key skips it. The main action fills its row. The two small actions have equal width.
+- A20: e3afb24f. The web says “Resigned on move 23.” The move count uses the position. Review holds the last move.
+- A22: d0d39017. Native key activation works at once. Pointer taps keep the one-second guard. Unit checks cover the guard. Browser tests press Enter and Space.
+- A24: 4d4c710c. The result art uses the board fall angle. The right-edge angle agrees with the board. Both kings stay upright on a draw.
+- A12: the last commit. The four painted promotion choices use two equal columns at all widths. Cards have a 120 px minimum height and 72 px art. The desktop dialog is 440 px wide. Cancel stays below.
+
+## Visual review
+
+The proof folder holds 50 before-and-after pairs at device scale 2. Its INDEX.md links each pair. Plugin sizes: 390 × 844 and 1280 × 800, light and dark. Web sizes: 390 × 844 and 1440 × 900.
+
+The review finds three faults and fixes them:
+
+- Initial focus scrolls the result title out of view on short landscape screens. Set the card scroll to the top when it opens.
+- The desktop promotion heading leaves “a8” on a line by itself at 360 px. Use a 440 px dialog.
+- An older ID rule overrides the promotion card height. Give the 120 px rule the promotion group ID.
+
+The kings clear each other and the card edge. The card text and actions have no cut text. The action gaps and widths agree. Draw art keeps both kings upright.
+
+Taste choices: keep the existing type, colours and art. Use an 180 ms, 8 px win entrance and a 120 ms fade for other plugin results. Keep Review as a quiet web action below the main action group. Keep rematch reply actions full width, with New game and See the board in one equal row. Use 112 px art slots for a decisive result, with a static fall. Set the fallen art down by 22 px in the plugin and 24 px on the web, so it rests on the same floor. Use 440 px for the desktop promotion dialog.
+
+The sample review also corrects the web resignation fixture. Move the queen from h2 to g2, so Black is not in check while White has the turn. Retake the affected before images from the branch base and the after images from each part’s commit.
+
+Capture rule: wait for the visible art. Do not wait for image decode in hidden dialogs; their deferred images can hold the capture.
+
+## Check results
+
+The type check passes. The first plugin browser run at d407b1f3 finds the short-screen scroll fault above. A24 fixes it. The run at 0c003511 confirms the promotion height fault. It also finds an old test that requires a scroll bar when the new card fits. The check now tests sideways overflow; the action access and hit checks stay in place. The run at 32faad26 passes on the M1: plugin-ui in 289.8 s and end in 20.5 s. The runner exits 0. The page is 752,279 bytes; its resource payload is 756,145 bytes. Both stay below 1,000,000 bytes. The focused npm test run passes: 4 ceremony tests and 51 art checks, exit 0. The full npm test run passes: 194 files, 3,244 tests pass, and 8 opt-in balance checks skip. The 51 art checks also pass. Exit 0. The run uses the local test database URL from the lane rules.
+
+The final source edit removes two old ceremony comments. A fresh plugin build is byte-for-byte identical to the checked page; cmp exits 0. The final commit also records these results. All five parts are built. Each preview still needs Saar’s approval.

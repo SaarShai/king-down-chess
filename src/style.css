@@ -432,9 +432,12 @@ label.army select { width: 100%; font-weight: 400; }
 #delete-account { width: min(440px, calc(100vw - 32px)); }
 
 /* promotion: each choice shows its painted figure */
+#promo:has(.promo img) { width: min(440px, calc(100vw - 32px)); }
 .promo { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+.promo:has(img) { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; }
+#promo-choices:has(img) button { min-height: 120px; }
 .promo button { flex-direction: column; gap: 4px; padding: 8px 4px; }
-.promo button img { height: 64px; width: auto; max-width: 100%; object-fit: contain; filter: drop-shadow(0 2px 2px rgba(43, 38, 33, 0.3)); }
+.promo button img { height: 72px; width: auto; max-width: 100%; object-fit: contain; filter: drop-shadow(0 2px 2px rgba(43, 38, 33, 0.3)); }
 .promo button span { text-transform: capitalize; }
 
 /* ---- result dialog ---- */

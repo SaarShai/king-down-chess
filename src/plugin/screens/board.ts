@@ -13,7 +13,6 @@ import { board, highlight } from '../board-view';
 import { art, symbols } from '../art';
 import { pieceIcon } from '../../piece-icons';
 import { snd } from '../../render/sfx';
-import '../../ceremony.css';
 import { client, memory, navigate, queue, routeView, send } from '../app';
 import { locks, noticeShows, pendingHere, staleRead, type Page, type Store } from '../state';
 import { nextGame } from '../next-game';

@@ -15,7 +15,7 @@ body[data-page='end'] #page-head { position: relative; z-index: 3; }
 .new-badge small { color: var(--ink-soft); font-weight: 400; }
 #over.end-card form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
 #over.end-card form button { width: 100%; min-width: 0; }
-#over.end-card form .primary, #end-block-player { grid-column: 1 / -1; }
+#over.end-card form .game-action, #end-block-player { grid-column: 1 / -1; }
 #over.end-card .quiet-line { margin-top: var(--space-2) !important; }
 /* Under 320 px, leave Back and 12 px clear. Short viewports keep the actions in a scroll box. */
 @media (max-width: 319px) {
@@ -55,7 +55,6 @@ body[data-page='end'] #page-head { position: relative; z-index: 3; }
 }
 @media (min-width: 900px) { .frame dialog#over.end-card { inset: 0 auto 0 calc(50% - 440px); margin: auto 0; } }
 
-/* Lively: only a win raises the end card. Its actions work during the ceremony. */
 #over.end-card[open] { animation: end-fade 120ms ease-out both; }
 #over.end-card.is-win[open] { animation: end-rise 180ms cubic-bezier(.05,.7,.1,1) both; }
 @keyframes end-rise { from { opacity: 0; transform: translateY(8px); } }

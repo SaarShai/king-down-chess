@@ -2413,7 +2413,7 @@ try {
       const back = frame.locator('#page-back:visible, #game-table .table-back:visible').first();
       const layout = await card.evaluate(el => ({top:el.getBoundingClientRect().top,head:Math.max(0,...[...document.querySelectorAll('#page-head, #game-table .table-back')].filter(e=>e.getClientRects().length).map(e=>e.getBoundingClientRect().bottom)),scrolls:el.scrollHeight>el.clientHeight}));
       assert(layout.top >= layout.head, `At ${width} px the end card leaves the page head and Back clear`);
-      assert(layout.scrolls, `At ${width} px the end card scrolls inside`);
+      assert(await card.evaluate(el => el.scrollWidth <= el.clientWidth), `At ${width} px the end card has no sideways overflow`);
       assert((await back.evaluate(controlBounds)).accessible, `At ${width} px Back stays in view`);
       assert(await back.evaluate(el => { const r=el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)); }), `At ${width} px the end card leaves Back clear for a tap`);
       await scrollVertically(button);
