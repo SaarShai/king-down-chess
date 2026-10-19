@@ -133,7 +133,7 @@ export async function main() {
         const url = new URL(req.url, origin), path = url.pathname;
         if (path !== '/fixture/event') record({ event: path === '/sw.js' && req.headers['service-worker'] === 'script' ? 'worker-update' : 'http', url: req.url });
         res.setHeader('Cache-Control', 'no-store');
-        if (path === '/fixture/page') { res.setHeader('Content-Type', 'text/html'); res.end('<script type="module" src="/fixture/probe.js"></script>'); return; }
+        if (path === '/' && url.searchParams.get('fixture') === 'page') { res.setHeader('Content-Type', 'text/html'); res.end('<script type="module" src="/fixture/probe.js"></script>'); return; }
         if (path === '/fixture/probe.js') { res.setHeader('Content-Type', 'text/javascript'); res.end(probeCode); return; }
         if (path === '/fixture/event') {
           let body = ''; for await (const part of req) body += part;
@@ -240,13 +240,16 @@ export async function main() {
       });
     };
     const options = { headless: true, viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' };
+    let profileDir;
     const openProfile = async profile => {
+      profileDir = profile;
       persistent = await launchPersistent(profile, options);
       await persistent.exposeFunction('recordWorkerEvent', record);
       const page = persistent.pages()[0] ?? await persistent.newPage();
       page.setDefaultTimeout(30_000 * STEP);
       page.setDefaultNavigationTimeout(30_000 * STEP);
-      await page.goto(`${origin}/fixture/page`); await page.waitForFunction(() => typeof window.privateProbe === 'function');
+      // The worker serves this start-page URL. Playwright's Firefox clears the controller of a page that the worker passes to the network (Playwright issue 37012).
+      await page.goto(`${origin}/?fixture=page`); await page.waitForFunction(() => typeof window.privateProbe === 'function');
       return page;
     };
     const controlled = page => page.waitForFunction(() => !!navigator.serviceWorker.controller);
@@ -255,7 +258,18 @@ export async function main() {
         const registration = await navigator.serviceWorker.getRegistration('/'), controller = navigator.serviceWorker.controller;
         return { controlled: !!controller, active: !!registration?.active, same: controller === registration?.active, url: controller?.scriptURL };
       });
-      assert.ok(kept.controlled && kept.active && kept.same, 'The reopened profile keeps its registration and controller before the probe');
+      if (!(kept.controlled && kept.active && kept.same)) {
+        // Record the state that tells a lost registration from an uncontrolled page.
+        const later = await page.evaluate(async () => {
+          const registrations = (await navigator.serviceWorker.getRegistrations()).map(r => ({ scope: r.scope, active: r.active?.state, waiting: r.waiting?.state, installing: r.installing?.state }));
+          await new Promise(done => setTimeout(done, 2000));
+          return { registrations, controlledLater: !!navigator.serviceWorker.controller };
+        });
+        await page.goto(page.url()); await page.waitForFunction(() => typeof window.privateProbe === 'function');
+        const again = await page.evaluate(() => !!navigator.serviceWorker.controller);
+        record({ event: 'not-retained', ...kept, ...later, controlledAfterNavigation: again });
+        assert.fail(`The reopened profile keeps its registration and controller before the probe: ${JSON.stringify({ ...kept, ...later, controlledAfterNavigation: again })}`);
+      }
       assert.equal(kept.url, origin + '/sw.js');
       if (version === 'dev') {
         await page.evaluate(() => {
@@ -332,7 +346,12 @@ export async function main() {
       if (safety) assertProbeOrder(events, marker, after);
       else assert.equal(events.slice(after).filter(event => event.event === 'probe' && event.marker === marker).length, 1);
     };
-    const closeProfile = async () => { await persistent.close(); persistent = undefined; };
+    const closeProfile = async () => {
+      await persistent.close(); persistent = undefined;
+      // Firefox keeps its worker registrations in this file; other engines have none.
+      const registrar = await readFile(join(profileDir, 'serviceworker.txt'), 'utf8').catch(error => error.code);
+      record({ event: 'profile-closed', profile: profileDir.slice(work.length + 1), registrar });
+    };
     const releaseHolds = () => { for (const response of held) response.end('ok'); held.clear(); };
     let active;
     old = true;
@@ -394,7 +413,7 @@ export async function main() {
       await takeover(active, output, false);
       const second = await persistent.newPage();
       second.setDefaultTimeout(30_000 * STEP); second.setDefaultNavigationTimeout(30_000 * STEP);
-      await second.goto(`${origin}/fixture/page?tab=two`); await second.waitForFunction(() => window.privateProbe);
+      await second.goto(`${origin}/?fixture=page&tab=two`); await second.waitForFunction(() => window.privateProbe);
       await seed(active);
       holdReply = true;
       let after = events.length;
@@ -467,7 +486,7 @@ export async function main() {
       await inspect(active);
       assert.equal(events.slice(offlineAfter).filter(event => event.event === 'http').length, 0, 'Offline play fetches no page or asset from the server');
       await persistent.setOffline(false);
-      await active.goto(`${origin}/fixture/page`); await active.waitForFunction(() => window.privateProbe);
+      await active.goto(`${origin}/?fixture=page`); await active.waitForFunction(() => window.privateProbe);
     }
     await closeProfile();
     active = await openProfile(join(work, 'blocked-profile'));
