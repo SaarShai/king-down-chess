@@ -83,3 +83,9 @@ The shared action face has 4 px cuts. Main buttons use 52 px; small buttons use 
 Check: the type check passes. Unit and browser results follow below. Screen proof uses the base build and this item commit.
 
 Taste choice: keep the current stone crop and a thin edge. Keep the table bar in its current fixed row.
+
+## A2 preview
+
+The red tablet has a plain #842c21 face, a #5a1c14 edge, a 1 px #9c3a2d top line, and #fbf7ee words. It has no stone image or blend. The browser check reads these values from the drawn face.
+
+Taste choice: use the existing deep red and cream tokens for the face and words. Use no gradient.

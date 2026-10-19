@@ -724,7 +724,7 @@ button[aria-disabled="true"], button[aria-disabled="true"]:hover {
     &::before { box-shadow: inset 0 0 0 1px var(--tablet-edge), inset 0 -2px 0 var(--tablet-edge); }
   }
   &.primary {
-    --tablet-face: var(--accent); --tablet-blend: multiply;
+    --tablet-face: var(--accent); --tablet-image: none; --tablet-blend: normal;
     --tablet-edge: var(--accent-deep); --tablet-top: var(--accent-bright);
     min-height: 52px; color: var(--vellum);
   }

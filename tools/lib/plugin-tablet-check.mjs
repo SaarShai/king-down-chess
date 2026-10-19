@@ -27,6 +27,13 @@ export async function checkTablet(page, frame) {
     assert.equal(s.clip, 'none', 'The text and focus are not clipped');
     assert.match(s.face, /polygon\(4px 0px/); assert.equal(s.pointer, 'none'); assert.equal(s.radius, '0px');
   }
+  const red = await main.evaluate(el => {
+    const s = getComputedStyle(el), face = getComputedStyle(el, '::before');
+    return { color: s.color, image: face.backgroundImage, face: face.backgroundColor, edge: face.borderTopColor, light: face.boxShadow };
+  });
+  assert.equal(red.image, 'none', 'The red face has no stone grain');
+  assert.equal(red.face, 'rgb(132, 44, 33)'); assert.equal(red.color, 'rgb(251, 247, 238)');
+  assert.equal(red.edge, 'rgb(90, 28, 20)'); assert.match(red.light, /rgb\(156, 58, 45\).*0px 1px/);
   const box = await small.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
