@@ -135,7 +135,7 @@ describe('isInside', () => {
 
 describe('trapErrors', () => {
   // Playwright holds a handle to each console argument, and the page keeps the object until the handle is disposed.
-  // A long check page that kept every logged object crashed CI WebKit (chatgpt-mvp ticket 53).
+  // A long check page kept every widget document that its host logged (chatgpt-mvp ticket 53).
   it('lets the page free an object that it logged', async () => {
     const browser = await launch({ headless: true, channel: suiteBrowser });
     try {
