@@ -2,12 +2,15 @@
 // shows in its place; it appears in the frame that first draws stone and pieces.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fromFen } from '../rules/setup';
+import { Game } from '../game';
+import { setRules } from '../rules/engine';
+import type { PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 
-const { reducedMotion, lively, aim } = vi.hoisted(() => ({ reducedMotion: vi.fn(), lively: vi.fn(), aim: vi.fn() }));
+const { reducedMotion, lively, aim, decorate } = vi.hoisted(() => ({ reducedMotion: vi.fn(), lively: vi.fn(), aim: vi.fn(), decorate: vi.fn() }));
 let resolveLoad: () => void = () => {};
 let pickedSquare: number | null = null;
 vi.mock('../../docs/2d-first-pieces/board/scene.mjs', () => ({
-  createScene: () => new Proxy({ load: () => new Promise<void>(r => { resolveLoad = r; }), squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim } as Record<string, unknown>,
+  createScene: () => new Proxy({ load: () => new Promise<void>(r => { resolveLoad = r; }), squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setDecorate: decorate, animating: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
     { get: (t, k: string) => k in t ? t[k] : () => {} }),
 }));
 
@@ -23,7 +26,7 @@ function stubDom() {
   vi.stubGlobal('requestAnimationFrame', (f: FrameRequestCallback) => frames.push(f));
   return el();
 }
-afterEach(() => { vi.unstubAllGlobals(); frames.length = 0; listeners.clear(); pickedSquare = null; vi.clearAllMocks(); });
+afterEach(() => { vi.unstubAllGlobals(); frames.length = 0; listeners.clear(); pickedSquare = null; vi.clearAllMocks(); setRules({}); });
 
 describe('PaintedView first paint', () => {
   it('stays unready until the loaded scene is visible on its first frame', async () => {
@@ -115,4 +118,37 @@ describe('PaintedView motion setting', () => {
       expect(aim).toHaveBeenLastCalledWith(20);
     }
   });
+});
+
+it('draws frost on the game board after Freeze and clears it on expiry and Undo', async () => {
+  const container = stubDom();
+  vi.stubGlobal('Image', class { complete = true; naturalWidth = 448; src = ''; });
+  const { PaintedView } = await import('./PaintedView');
+  setRules({ kings: [{ king: 'Frost', power: 'Freeze' }, null] });
+  const game = new Game();
+  game.load(fromFen('7k/8/8/4p3/8/8/P7/K7 w - - 0 1'));
+  const view = new PaintedView(container as unknown as HTMLElement);
+  const scene = (view as unknown as {scene: PaintedScene}).scene;
+  const draw = decorate.mock.lastCall![0];
+  const drawImage = vi.fn();
+  const ctx = new Proxy({ drawImage }, { get: (target, key: string) => key === 'drawImage' ? target.drawImage : () => {} });
+  const boardDrawing = () => {
+    view.sync(game.pos); drawImage.mockClear();
+    draw(ctx, scene, 'under');
+    for (let row = 0; row < 8; row++) draw(ctx, scene, 'over', row);
+    return drawImage.mock.calls.map(([image, ...box]) => ({svg:decodeURIComponent(image.src),box}));
+  };
+  expect(boardDrawing()).toEqual([]);
+  const freeze = () => game.play(game.legal.find(move => move.power === 'freeze' && move.to === 36)!);
+  freeze();
+  const frozen = boardDrawing();
+  expect(frozen).toHaveLength(2);
+  expect(frozen[0].svg).toContain('fill="url(#kdm-frost)"');
+  expect(frozen[1].svg).toContain('<circle ');
+  for (const mark of frozen) expect(mark.box).toEqual([480,368,112,134.4]);
+  game.play(game.legal.find(move => move.from === 63 && move.to === 62)!);
+  expect(boardDrawing()).toEqual([]);
+  expect(game.undo()).toBe(true); expect(boardDrawing()).toEqual(frozen);
+  expect(game.undo()).toBe(true); expect(boardDrawing()).toEqual([]);
+  freeze(); expect(boardDrawing()).toEqual(frozen);
 });

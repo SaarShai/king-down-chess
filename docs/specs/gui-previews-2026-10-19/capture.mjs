@@ -15,15 +15,39 @@ assert(['A14','A15','A17','A18','A27','A39','A8'].includes(item), 'Name a board 
 const browser = await chromium.launch({ headless: true });
 let current, web;
 const notes = [];
+function watchFrost() {
+  const clear = CanvasRenderingContext2D.prototype.clearRect, draw = CanvasRenderingContext2D.prototype.drawImage;
+  CanvasRenderingContext2D.prototype.clearRect = function (...args) {
+    if (this.canvas.closest('#board')) window.frostDraws = [];
+    return clear.apply(this,args);
+  };
+  CanvasRenderingContext2D.prototype.drawImage = function (image,...args) {
+    if (this.canvas.closest('#board') && image instanceof HTMLImageElement && image.src.startsWith('data:image/svg+xml,')) {
+      const svg = decodeURIComponent(image.src);
+      if (svg.includes('kdm-frost')) (window.frostDraws ??= []).push({svg,box:args});
+    }
+    return draw.call(this,image,...args);
+  };
+}
+async function assertFrost(locator, turns) {
+  await locator.evaluate(async (_, turns) => {
+    for (let tries = 0; tries < 100; tries++) {
+      const marks = window.frostDraws ?? [];
+      if (turns ? marks.length === 2 && marks[0].svg.includes('fill="url(#kdm-frost)"') && (marks[1].svg.match(/<circle /g) ?? []).length === turns : marks.length === 0) return;
+      await new Promise(resolve => setTimeout(resolve,20));
+    }
+    throw new Error(`Frost draw mismatch: turns=${turns}, draws=${window.frostDraws?.length}`);
+  },turns);
+}
 try {
   const { existsSync } = await import('node:fs');
   const snapshot = process.argv[4] === 'before' ? 'base' : item;
   const saved = join(root, `${snapshot}-plugin/board.html`);
-  const pluginPath = ['A8','A39'].includes(item) && process.argv[4] !== 'before' ? join(process.argv[2], 'board.html') : saved;
+  const pluginPath = ['A8','A39','A17'].includes(item) && process.argv[4] !== 'before' ? join(process.argv[2], 'board.html') : saved;
   assert(existsSync(pluginPath), `Missing saved preview build: ${pluginPath}`);
   current = await startHarness({ boardPath: pluginPath });
   const savedWeb = join(root, `${snapshot}-web`);
-  if (['A15','A17','base'].includes(snapshot)) {
+  if (['A15','base'].includes(snapshot)) {
     assert(existsSync(savedWeb), `Missing saved web build: ${savedWeb}`);
     web = await preview({ configFile: false, logLevel: 'error', build: { outDir: savedWeb }, preview: { host: '127.0.0.1', port: 0, strictPort: true } });
   }
@@ -35,6 +59,7 @@ try {
       const height = width === 390 ? 844 : 800;
       const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 2, hasTouch: width === 390, colorScheme: theme, serviceWorkers: 'block' });
       const p = await ctx.newPage(); p.setDefaultTimeout(10000);
+      if (item === 'A17') await p.addInitScript(watchFrost);
       await p.addInitScript(theme => { window.harnessHostContext = { theme, displayMode: 'fullscreen' }; window.harnessDisplayMode = 'fullscreen'; }, theme);
       await p.goto(pluginURL); await p.waitForFunction(() => window.harnessShow && window.harnessBoots > 0);
       await p.addStyleTag({ content: '#remount{display:none}body{margin:0}iframe{height:100dvh!important}' });
@@ -73,6 +98,7 @@ try {
         if (id === 'A15') { await tap(12); await shot(id,'selected-behind'); }
         if (id === 'A17') {
           await seed('7k/8/8/4p3/8/8/P7/K7 w - - 0 1 me5w2', { rules: { kings: [{king:'Frost',power:'Freeze'},null] } });
+          if (phase === 'after') await assertFrost(f.locator('html'),2);
           await shot(id,'frozen');
         }
         if (id === 'A18') {
@@ -127,12 +153,27 @@ try {
       const height=width===390?844:900;
       const ctx=await browser.newContext({viewport:{width,height},deviceScaleFactor:2,serviceWorkers:'block'});
       const p=await ctx.newPage();p.setDefaultTimeout(10000);
+      if (item === 'A17') await p.addInitScript(watchFrost);
       async function open(fen, args='') { await p.goto(webURL+'?title=0&players=human,human&fen='+encodeURIComponent(fen)+args);await p.waitForFunction(()=>window.view?.ready);await p.evaluate(()=>window.view.ready());await p.evaluate(()=>document.fonts.ready); }
       async function tap(sq){ const point=await p.evaluate(sq=>window.view.screenOf(sq),sq);await p.mouse.click(point.x,point.y);await p.waitForTimeout(400); }
       async function shot(id,screen){const file=`${id}-web-${screen}-${width}x${height}-light-${phase}.png`;await p.screenshot({path:join(out,file)});notes.push(file);}
       for(const id of items) {
         if(id==='A15'){await open('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1');await tap(12);await shot(id,'selected-behind');}
-        if(id==='A17'){await open('7k/8/8/4p3/8/8/P7/K7 w - - 0 1 me5w2','&kings=Frost:Freeze,none');await shot(id,'frozen');}
+        if (id === 'A17') {
+          await open('7k/8/8/4p3/8/8/P7/K7 w - - 0 1', '&kings=Frost:Freeze,none');
+          await p.locator('#menu-btn').click(); await p.locator('#pace').selectOption('off'); await p.locator('#menu-close').click();
+          await p.locator('#power-w').click(); await p.locator('#power-use').click(); await tap(36);
+          await assertFrost(p.locator('html'),2); await shot(id,'frozen');
+          await p.locator('#undo').click(); await assertFrost(p.locator('html'),0);
+          await p.locator('#power-w').click(); await p.locator('#power-use').click(); await tap(36);
+          await assertFrost(p.locator('html'),2);
+          await tap(8); await tap(16); await p.locator('#end-turn').click();
+          await tap(63); await tap(62); await p.locator('#end-turn').click();
+          await assertFrost(p.locator('html'),1);
+          await tap(16); await tap(24); await p.locator('#end-turn').click();
+          await tap(62); await tap(63); await p.locator('#end-turn').click();
+          await assertFrost(p.locator('html'),0);
+        }
         if (id === 'A39') {
           for (const flipped of [false, true]) {
             await open(flipped ? 'K7/3p4/3O4/8/8/8/8/7k w - - 0 1' : '7k/8/8/8/8/3O4/3p4/K7 w - - 0 1');

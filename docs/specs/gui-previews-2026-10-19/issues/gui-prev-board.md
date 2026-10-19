@@ -176,3 +176,7 @@ Reviews A1 and B2 are confirmed. The old viewport clamp covers d2 and d1. Reserv
 ### A8 review fixes
 
 Reviews A2, A3, A4, B1, and B3 are confirmed. Off now sets reduced motion in the scene. The board test checks that call for all three settings, with and without system reduced motion, while aiming at a legal square. The pawn test installs its timer queue and restores the real timer in `finally`. Both phone hit-layer rules raise selects with inputs. The browser test uses a real tap and checks its target and the open select. The web proof opens Menu and checks Sound, Animations, and Normal/Fast/Off before capture. It also captures Motion on the base build.
+
+### A17 review fix
+
+Review A5 is confirmed. The old tests check mark data and SVG strings only. The new board test runs the registered scene draw callback with an engine Freeze, expiry, Undo of expiry, and Undo of Freeze. It checks both drawn layers and their square bounds. The browser check observes the actual game canvas draw calls. It checks the two-turn plugin mark, then plays Freeze on the web, checks Undo, and plays both turns until the mark ends. It uses the current build for the after proof.
