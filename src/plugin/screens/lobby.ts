@@ -4,14 +4,14 @@ import type { InboxEntry, Lobby, View } from '../../match/protocol';
 import type { PollTarget } from '../poll';
 import type { Page } from '../state';
 import { ANY_RULES } from './setup';
-import { $, featureNames, features, icon, onStop, portrait, row, showError } from './friend';
+import { $, features, onStop, portrait, row, showError } from './friend';
 let finding = false, accepting = false, afterHandle: string | undefined;
 // The list uses the runner's visible 15-second schedule, with no board position.
 const listClock = { kind: 'random', status: 'playing', speed: 'live', seat: 0, turn: 0, opponent: null, last_commands: [], server_now: '' } as unknown as View;
 export function lobbyScreen() {
   if (afterHandle && memory.me?.handle) { const game = afterHandle; afterHandle = undefined; void acceptGame(game); return; }
   const setup = memory.settings?.last_setup;
-  $('find-features').replaceChildren(features(setup?.options ?? DEFAULT_OPTIONS));
+  $('find-features').replaceChildren(features(setup?.options ?? DEFAULT_OPTIONS, true));
   $('find-any-line').textContent = ANY_RULES;
   $('find-opponent').onclick = async () => {
     if (finding || accepting) return; finding = true;
@@ -23,7 +23,6 @@ export function lobbyScreen() {
       else await start('random', { options, colour: setup?.colour ?? 'white', ...(anyRules && { any_rules: true }) });
     } finally { finding = false; }
   };
-  $('lobby-key').innerHTML = featureNames.map(([, name, label]) => `${icon(name)} ${label}`).join(' · ');
   void readLobby();
 }
 async function readLobby() {
@@ -37,7 +36,7 @@ async function readLobby() {
     $('lobby-online').textContent = `${lobby.active_count ?? 0} players online`;
     $('lobby-list').replaceChildren(...lobby.games.map(game => {
       const minutes = Math.max(0, Math.floor((Date.parse(lobby.server_now) - Date.parse(game.created_at)) / 60000));
-      const entry = row(game.creator.handle, portrait(game.creator.icon), [features(game.options), minutes === 0 ? '· just opened' : `· open ${minutes} min`], 'button'); entry.classList.add('game-row');
+      const entry = row(game.creator.handle, portrait(game.creator.icon), [features(game.options, true), minutes === 0 ? '· just opened' : `· open ${minutes} min`], 'button'); entry.classList.add('game-row');
       const accept = document.createElement('span'); accept.className = 'accept'; accept.textContent = 'Accept';
       entry.onclick = () => void acceptGame(game.game_id);
       entry.append(accept); return entry;

@@ -14,7 +14,7 @@ export { featureNames };
 export function finishCancel(next: View) { codes.delete(next.game_id); navigate('play'); return Promise.resolve(); }
 export function features(options: Options | null | undefined, words = false) {
   const span = document.createElement('span'); span.className = 'feats';
-  if (words) { span.textContent = ruleNames(options); return span; }
+  if (words) { span.classList.add('words'); span.textContent = ruleNames(options); return span; }
   for (const [field, name, label] of featureNames) if (options?.[field]) { const mark = document.createElement('span'); mark.title = label; mark.setAttribute('role', 'img'); mark.setAttribute('aria-label', label); mark.innerHTML = icon(name); span.append(mark); }
   return span;
 }

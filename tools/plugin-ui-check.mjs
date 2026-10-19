@@ -1560,7 +1560,7 @@ try {
     const lobbyRow = frame.locator('#lobby-list .game-row').filter({ hasText: longName });
     assert.equal(await lobbyRow.locator('.row-title').innerText(), longName);
     assert(await lobbyRow.locator('.row-title').evaluate(el => { const r = el.getBoundingClientRect(), hit = document.elementFromPoint(r.x+r.width/2, r.y+r.height/2); return el.contains(hit) || hit?.closest('button')?.classList.contains('menu-row'); }), 'The name stays visible beside Accept');
-    assert.equal(await lobbyRow.locator('.feats [title="Fairy pieces"]').count(), 1);
+    assert.match(await lobbyRow.locator('.feats.words').innerText(), /Fairy pieces/);
     await lookAt('lobby', 'lobby');
     assert(await lobbyRow.locator('.row-title').evaluate(el => getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth), 'The long handle has an ellipsis on the phone');
     await remount('lobby'); await frame.locator('#lobby-list .game-row').filter({ hasText: longName }).waitFor();

@@ -2631,3 +2631,15 @@ it('marks a name in use during the field check', async () => {
     expect(await frame.locator('#handle-check-error').innerText()).toBe('This name is in use.');
   } finally { await page.close(); }
 });
+it('names the open-game filter in words and removes its icon key', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page); await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_settings', { last_setup: { kind: 'random', colour: 'white', level: 'club', king: null, options: { fairy: true, pool: ['A','L','G','M','S','O','N','Q','R','B'], arrangement: true, classic: false, cards: true, cardPool: ['Freeze','Strike','Flight','March'], kingPowers: false } } });
+      app.navigate('lobby');
+    });
+    expect(await frame.locator('#find-features').innerText()).toBe('Fairy pieces, Arrangement, Cards');
+    expect(await frame.locator('#find-features svg, #lobby-key').count()).toBe(0);
+  } finally { await page.close(); }
+});

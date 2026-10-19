@@ -182,7 +182,7 @@ it('lists another player with features and accepts the open seat', async () => {
     const created = await buddy(page, 'kingdown_create', { kind: 'random', options, colour: 'white' });
     await hall(page); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click();
     await frame.locator('#lobby-list .accept').first().waitFor();
-    expect(await frame.locator('#lobby-list .feats [title="Fairy pieces"]').count()).toBe(1);
+    expect(await frame.locator('#lobby-list .feats').first().innerText()).toBe('Fairy pieces');
     await frame.locator('#lobby-list .accept').first().click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await page.evaluate(() => (window as any).harnessView.game_id)).toBe(created._meta.view.game_id);

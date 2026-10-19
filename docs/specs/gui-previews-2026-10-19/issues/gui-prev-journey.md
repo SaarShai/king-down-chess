@@ -1,6 +1,6 @@
 # GUI previews 2026-10-19: the journey and shell screens
 
-Status: in-progress
+Status: done
 Type: task
 
 ## Why and the rule
@@ -198,3 +198,28 @@ Taste: use the current gold ink for the ring. Use the current parchment for flat
 A taken name shows This name is in use. under the field. The field has an error border and an accessible error link. Both the check and Save use this place. A new edit clears the mark.
 
 Taste: use the current danger ink and keep one message at the field.
+
+### A31
+
+Open games names the filter and each game's rules in words. The icon key is removed. The current rule-name helper supplies the text.
+
+Taste: use the existing comma list. Add no new labels or chips.
+
+
+## Final checks
+
+- `npx tsc --noEmit` passes.
+- `VITEST_MAX_WORKERS=2 npm test` uses the house test database. All 195 files pass: 3,261 tests pass and 8 skip. All 51 art tests pass. The test limits stay the same.
+- The required runner's `plugin-ui` check passes on the M1 in 285.2 s, at `881916ef`. The production files and browser check files match the final code. The check completes all six Guide lessons and returns to the same live game.
+- No production server code changes. `plugin-ui-http` is not required.
+- The 244 PNGs form 122 before and after pairs. All use device scale 2. Their sizes, pairs and commit records pass the image audit.
+- The plugin HTML is 765,579 bytes. Its MCP JSON is 769,158 bytes. Both stay below 1,000,000 bytes.
+- `git diff --check` passes.
+
+Proof is in the lane folder that this ticket names. `previews/INDEX.md` links each pair. `previews/manifest.json` records each commit, size and image hash. `visual-review.md` records the faults and repairs. The check logs are `typecheck-final.txt`, `tests-full-final-3.txt`, `checks-final-12.txt` and `browser-pass.log`.
+
+The final suite first waits in the shared test queue. A blocking outer wait then holds the same exclusive lock. It keeps the original wait deadline. The inner test command uses the existing held-lock path. No other lane's process is stopped.
+
+The 2x review repairs the folded-row space, the Guide's stone-card style, caption edge space, the phone king-sheet width and the small-board grid. No further fault is found in the changed views at the required sizes.
+
+This status closes the preview build. Each item still needs Saar's taste approval. The A23 native ChatGPT host check stays open, as the limit above states. No push, merge, deploy or sign-in is done.
