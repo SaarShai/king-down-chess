@@ -169,3 +169,10 @@ grant select, insert (user_id,tool), update (window_start,tries) on public.plugi
 drop policy if exists kingdown_plugin_runtime on public.plugin_tool_tries;
 create policy kingdown_plugin_runtime on public.plugin_tool_tries for all to kingdown_plugin_runtime using (true) with check (true);
 commit;
+
+-- 12. Web account access (0015). The runtime can read the operator's switch only.
+begin;
+grant select on public.web_account_access to kingdown_plugin_runtime;
+drop policy if exists kingdown_plugin_runtime on public.web_account_access;
+create policy kingdown_plugin_runtime on public.web_account_access for select to kingdown_plugin_runtime using (true);
+commit;
