@@ -199,7 +199,11 @@ export class GameService {
   else game.setup_deadline_at = new Date(at.getTime() + FIRST_TURN_DAYS * DAY);
  }
  /** Records the actor's seat activity at most once each 30 seconds. A read (view) never writes. */
- async seen(actor: string, gameId: string): Promise<void> { await this.store.seen(id(gameId), id(actor)); }
+ async seen(actor: string, gameId: string): Promise<void> {
+  actor = id(actor); gameId = id(gameId);
+  seatOf(await this.store.load(gameId), actor);
+  await this.store.seen(gameId, actor);
+ }
  /** One seat's view. Read-only. */
  async view(actor: string, gameId: string, since?: number): Promise<View> {
   actor = id(actor); gameId = id(gameId);
