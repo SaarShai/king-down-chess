@@ -59,6 +59,7 @@ try {
   // Returning player: Home keeps the saved board; New game opens the sheet.
   const save = { back: 'RNBQKBNR', fen: START, moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', sound: false };
   page = await open('', { skipTitle: false, save });
+  await arriveContinue(page).waitFor(); // Home opens only after the pieces load (main.ts)
   assert.equal(await arriveContinue(page).isVisible(), true);
   assert.match(await arriveContinue(page).innerText(), /Continue/);
   assert.equal(await page.locator('#home-progress').innerText(), 'Move 2', 'Home shows the saved move');

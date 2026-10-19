@@ -233,12 +233,15 @@ try {
     await endTurn(page);
     const sent = new URL(await page.evaluate(() => navigator.clipboard.readText()));
     assert.deepEqual([sent.searchParams.get('army'), sent.searchParams.get('moves')], ['RNBQKBNR', 'e2-e4_e7-e5']);
-    await page.reload(); await page.waitForFunction(() => window.view?.pos?.board[36] > 0);
+    // The board shows the game before the pieces load; main.ts clears "Loading pieces…" and writes its
+    // start-up save in one step, so wait for that before the save is read or replaced.
+    const started = () => page.waitForFunction(() => window.view?.pos?.board[36] > 0 && document.getElementById('asset-status').textContent === '');
+    await page.reload(); await started();
     assert.ok((await at(56)).y > (await at(0)).y, 'a reload keeps the side and the game');
     // The friend's device: its saved game is the start of the link, so it opens without a question.
     await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('kingdown.save')); s.moves = ['e2-e4']; s.link = 0; localStorage.setItem('kingdown.save', JSON.stringify(s)); });
     asked = null; const ask = d => { asked = d.message(); d.dismiss(); }; page.on('dialog', ask);
-    await page.goto(sent.href); await page.waitForFunction(() => window.view?.pos?.board[36] > 0);
+    await page.goto(sent.href); await started();
     page.off('dialog', ask);
     assert.equal(asked, null, 'a continuation opens without a question');
     assert.ok((await at(56)).y < (await at(0)).y, 'White, to move, plays from the bottom');
