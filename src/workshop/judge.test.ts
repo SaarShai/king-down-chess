@@ -192,17 +192,21 @@ while (DESIGNS.length < POOL.length + 1000) { const x = random(); if (ok(x)) DES
 describe('the judge on random designs', () => {
   it('never lowers W for an added square, line or ability, and never raises it for a flaw (§8.4.4)', () => {
     let n = 0;
-    for (const x of DESIGNS.slice(0, POOL.length + 1000)) {
+    const bad: string[] = [];
+    // The pool and every 14th one-step addition: the bases spread over the whole pool, not only its first 19 designs.
+    // All 3,620 bases (194,000 pairs, 14 s alone) passed on 2026-10-19.
+    for (const x of DESIGNS.filter((_, i) => i < POOL.length || (i - POOL.length) % 14 === 0)) {
       const w = worthOf(x);
       for (const o of additions(x)) {
         const v = worthOf(o.d);
-        if (o.kind === 'gain') expect(v, `${keyOf(x)} + ${keyOf(o.d)}`).toBeGreaterThanOrEqual(w - 1e-9);
-        else expect(v, `${keyOf(x)} + flaw ${keyOf(o.d)}`).toBeLessThanOrEqual(w + 1e-9);
+        // A plain comparison, and the keys only for a fault: an expect and two keys for each pair took 0.6 s of 3.5 s.
+        if (o.kind === 'gain' ? !(v >= w - 1e-9) : !(v <= w + 1e-9)) bad.push(`${keyOf(x)} + ${o.kind === 'flaw' ? 'flaw ' : ''}${keyOf(o.d)}: ${w} to ${v}`);
         n++;
       }
     }
+    expect(bad).toEqual([]);
     expect(n).toBeGreaterThan(10000);
-  }, 30000); // More than 10,000 judge calls: about 4 s alone, over 5 s when the machine is busy.
+  }, 30000); // About 17,000 pairs: about 1 s alone. The old 58,000 took 3.5 s alone and over 30 s under a deploy (2026-10-19).
 
   it('gives each rule-book badge the change that adding the rule then shows', () => {
     for (const x of POOL) {
