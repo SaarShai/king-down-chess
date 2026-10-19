@@ -1779,7 +1779,7 @@ it('F10: sounds a replay capture at contact and check after rest', async () => {
   } finally { await page.close(); }
 });
 
-it.each(['tap', 'Escape', 'drag'] as const)('F11: %s skips the whole reply and keeps the server position', async input => {
+it.each(['tap', 'Escape', 'drag', 'Menu Escape', 'Moves Escape'] as const)('F11: %s skips the whole reply and keeps the server position', async input => {
   const rules: Partial<Rules> = { kings: [null, { king: 'Flame', power: 'Haste' }] }, fen = '4k3/p7/8/8/8/8/4P3/K7 b - - 0 1';
   setRules(rules); let pos = fromFen(fen); const actions: string[] = [], positions: string[] = [];
   for (const pick of [(m: Move) => m.power === 'haste' && m.from === 48 && m.to === 40, (m: Move) => !m.pass && m.from === 40 && m.to === 32]) {
@@ -1798,11 +1798,22 @@ it.each(['tap', 'Escape', 'drag'] as const)('F11: %s skips the whole reply and k
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), { ...base, revision: 1, fen: toFen(pos), turn: 0, action: 'ready', legal: legalMoves(pos).map(m => toLan(pos, m)), last_commands: [{ seq: 1, seat: 1, at: base.server_now, action: { type: 'turn', actions } }] });
     expect(await frame.locator('#board').getAttribute('data-animating')).toBe('true');
     const timers = await frame.locator('html').evaluate(() => (window as any).zeroTimers);
+    const sheetEscape = input === 'Menu Escape' || input === 'Moves Escape';
+    if (sheetEscape) {
+      await frame.locator('#board-menu').click();
+      if (input === 'Moves Escape') await frame.locator('#board-sheet').getByRole('button', { name: 'Moves', exact: true }).click();
+      const close = frame.locator('#board-sheet [aria-label="Close"]');
+      expect(await close.evaluate(button => button === document.activeElement)).toBe(true);
+      await close.press('Escape');
+      expect(await frame.locator('#board-sheet[open]').count()).toBe(0);
+      expect(await frame.locator('.page-sheet').evaluate(page => page.inert)).toBe(false);
+      expect(await frame.locator('#board-menu').evaluate(button => button === document.activeElement)).toBe(true);
+    }
     const result = await frame.locator('html').evaluate(async (_, input) => {
       const b = (window as any).testBoard, board = document.getElementById('board')!;
       if (input === 'Escape') board.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       else if (input === 'drag') b.onDragSelect(12);
-      else b.onSquareClick(12);
+      else if (input === 'tap') b.onSquareClick(12);
       await new Promise(resolve => requestAnimationFrame(resolve));
       return { animating: board.dataset.animating, calls: (window as any).animationCalls, syncs: (window as any).syncs, hits: (window as any).hits, timers: (window as any).zeroTimers };
     }, input);

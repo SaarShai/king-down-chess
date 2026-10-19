@@ -234,7 +234,7 @@ export function boardScreen(store: Store) {
   $('app-frame').addEventListener('keydown', event => {
     if (event.key !== 'Escape' || client.state.screen !== 'board' && !sheet?.contains(event.target as Node)) return;
     event.preventDefault();
-    if (animating) { rush = true; board.skip(); return; }
+    if (animating) { rush = true; board.skip(); if (sheet?.open) closeBoardSheet(); return; }
     cursorShown = false; armed = undefined; armedCard = undefined; selected = held = undefined; choices([]); refresh(); closeBoardSheet();
   });
   function select(square: number, submit = true) {

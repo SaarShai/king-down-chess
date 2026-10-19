@@ -98,3 +98,44 @@ Use `docs/specs/web-ux/render-compare.mjs`, threshold 16. All three comparisons 
 Evidence is in `gui-01-board-proof/` beside the requested lane report. It contains the final logs, screenshots and compare images.
 
 No part is omitted. No taste choice is made. The focus style, ring design, launch sounds, motion pace, close text, Back text and shared web screen stay unchanged.
+
+## Review fix plan
+
+Review A and Review B report the same F11 fault. The animation branch returns
+before `closeBoardSheet()`. Escape from an open sheet skips the reply but leaves
+the sheet open. Both findings are confirmed against the handler and sheet code.
+
+1. Add Menu and Moves sheet cases to the F11 replay test. Confirm they fail.
+2. Close the sheet in the animation branch. Keep the rush flag and return.
+3. Run the board test file and source unit tests through `npm test`.
+4. Commit the fix. Run `plugin-ui` from HEAD with the supplied runner.
+
+Pass criteria: one Escape closes each sheet and restores focus. The reply ends
+by the next frame. The final FEN, sound count, selection and schedule checks pass.
+No server code changes are needed.
+
+### Review fix evidence
+
+- Review A: confirmed. Review B: confirmed; it reports the same fault.
+- Before the fix, both new cases fail at the open-sheet count after Escape.
+  The other 142 board tests pass. Log: `gui-01-review-red.txt` in the lane folder.
+- The fix calls `closeBoardSheet()` when Escape skips motion and a sheet is open.
+  The existing close code restores focus and clears the page lock.
+- The test covers Menu and Moves. It keeps the reply position, selection, hit
+  sound and computer schedule checks.
+
+- After the fix, `KINGDOWN_TEST_FILE=tools/plugin-board.test.ts npm test` passes:
+  144 board tests and 51 artwork tests. Log: `gui-01-review-board-tests.txt`.
+- `KINGDOWN_TEST_FILE='src/**/*.test.ts' npm test` passes: 122 files,
+  1,838 tests passed, 8 skipped, and 51 artwork tests passed.
+  Log: `gui-01-review-source-tests.txt`.
+- Both commands use the supplied database URL and shared test lock. Both type
+  checks pass. `git diff --check` passes.
+- The supplied runner passes `plugin-ui` on the M1 at code commit `78fb9f60`
+  in 275.2 s. It reports `check-runner: M1 exit 0 at 78fb9f60`.
+  Log: `checks-review-fix-1.txt` in the lane folder.
+  The final amendment changes only this ticket. No server code changes occur,
+  so `plugin-ui-http` is not required.
+
+Both review findings are fixed by the same close call. Neither is refuted.
+All review fix checks pass. No time limit changes occur.
