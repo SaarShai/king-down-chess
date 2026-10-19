@@ -119,6 +119,12 @@ jobs:
       - run: npm ci
       - run: npm run plugin:db:init-test
       - run: npx playwright install --with-deps webkit
+      - name: Start WebKit sampler
+        run: |
+          mkdir -p /tmp/kingdown-check-runs
+          nproc
+          free -m
+          nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
       - run: npm test
         env:
           KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'
@@ -128,6 +134,15 @@ jobs:
           # (chatgpt-mvp ticket 53: run 39230893586 crashed with no reason; WebKit kills its page at 8192 MB).
           DEBUG: pw:browser
       - run: npm run check:browser web-online
+      - name: Save kernel log
+        if: failure() || cancelled()
+        run: sudo dmesg -T | tail -n 400 > /tmp/kingdown-check-runs/dmesg.txt || true
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-sampler
+          path: /tmp/kingdown-check-runs/webkit-sampler.log
+          retention-days: 7
       - if: failure() || cancelled()
         uses: actions/upload-artifact@v4
         with:
