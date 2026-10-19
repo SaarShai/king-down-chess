@@ -1,6 +1,6 @@
 # GUI previews 2026-10-19: the web Workshop
 
-Status: in-progress
+Status: done
 Type: task
 
 ## Why and the rule
@@ -47,24 +47,62 @@ Other options (do not build): Show an empty bench with a short prompt (The playe
 
 Base: `bc62f4ee`. Branch: `claude/gui-prev-workshop`.
 
-1. A13: reduce the seal light to .06. Use the review shadow: 1.5 down, 1.2 blur, .22 opacity. Keep each shape and colour.
-2. A29: remove the phone mask override. Use the same 24 px fade as the wide row. Keep the scroll and the row height.
-3. A32: open the first item when the player changes a library tab. Keep the Board tab on the current item.
+1. A13: use a faint wax light and a soft shadow. Keep each shape and colour.
+2. A29: keep the wide row's fade on the phone. Keep the scroll and row height.
+3. A32: open the first item of a new library tab. Keep Board on the inspected piece.
 
-For each part, save before and after web screens at 390×844 and 1440×900, at 2× scale. Review each changed area at 2×. Add a check for each change. Run the type check, unit tests and the approved browser runner. The runner checks committed code. Record the results here. Keep each part in one commit.
-
-The Workshop is a web screen. It has no plugin screen or host theme. Plugin checks still guard the shared game code. No server code changes are planned.
+Each part has one commit. The type check, full unit suite and browser checks pass. The browser runner checks committed code. The final record changes only this ticket. The code stays on this branch for Saar's approval.
 
 ## A13 preview
 
-The seal uses the review values. The wax light is .06. The shadow uses 1.5 down, 1.2 blur and .22 opacity. The shapes and colours stay the same.
+The wax light uses .06 opacity. The shared shadow uses 1.5 down, 1.2 blur and .22 opacity, as the expert review says. The shapes, colours, symbols and sizes stay the same.
 
-The type check passes. A unit check covers all ten seals. The browser check reads the shared shadow and all ten lights. The full test run waits for the shared test lock. Screens and browser results follow after the commit.
+The 2× review finds a second CSS shadow on the large seal. That shadow is removed. Each seal now uses its shared SVG shadow at its own size. This is the extra taste choice for A13.
 
-The 2× review finds a second CSS shadow on the large seal. It is removed. The shared SVG shadow now draws each seal at its size. This is the only extra taste choice in A13.
+A unit check covers all ten seals. The browser check reads the shared shadow and each wax light. It also checks that the large seal adds no second shadow.
+
+Twelve before and twelve after screens cover Pieces, the rule shelf, Rules, a rule detail, Share and See all at both web sizes. The 2× review finds no new gap, cut text, overlap, blur or colour fault in these states.
 
 ## A29 preview
 
-The phone row now keeps the wide row's 24 px fade. The phone override for both mask properties is removed. The row height, item gaps and scroll stay the same. No new taste choice is needed.
+The phone row keeps the wide row's 24 px fade. The phone override for both mask properties is removed. The row keeps its height, gaps and scroll. No new taste choice is needed.
 
-The browser check compares the phone mask with the wide mask. It also moves the phone row to its end. The type check passes. The after screens follow the commit.
+The browser check compares the phone mask with the wide mask. It also moves the phone row to its end. Eight before and eight after screens cover the Pieces, Kings, Cards and Rules rows at both web sizes. The 2× review shows the soft phone edge and the same desktop layout.
+
+## A32 preview
+
+A new library tab opens its first visible item through the same path as an item tap. Kings starts with Flame. Cards starts with Freeze, or the first card of the spread stack when that stack stays open. Rules starts with Steps 2. Pieces starts with Pawn.
+
+A tap on the current tab keeps its item. Board keeps the inspected piece. A tab change keeps keyboard focus on that tab. In short landscape, the library sheet stays open.
+
+The browser checks cover all four library tabs, a repeated tab, a spread deck, the phone Board tab and the short landscape sheet. The phone check also keeps its Leap test. It checks that a new king clears the old king's armed power.
+
+Taste choices: use the row's current order; apply the first-item rule to Pieces too; keep the open card stack and choose its first visible card. Board stays a view of the current item.
+
+Eight before and eight after screens cover Kings, Cards, Rules and the return to Pieces at both web sizes. The 2× review finds no new cut name, overlap, gap, blur or colour fault.
+
+## Check results
+
+- `npx tsc --noEmit`: pass. The commit hooks also run the type check.
+- Full `npm test`, with `VITEST_MAX_WORKERS=1` and the owner's local test database: pass. All 193 unit files pass. There are 3,239 passes and eight skips. All 51 art tests pass. The suite takes 1,205.20 s after the shared test lock opens. No test or check limit changes.
+- The first full run uses the default worker count. It has 3,210 passes and 29 time-limit failures. The one-worker run resolves these failures.
+
+| Part | Checked code | Runner | plugin-ui | workshop |
+|---|---|---|---|---|
+| A13 | `4b88dd1f` | M1 | Pass, 277.3 s | Pass, 151.6 s |
+| A29 | `119e579b` | M1 | Pass, 294.1 s | Pass, 187.1 s |
+| A32 | `a4654fe8` / `e36aa250` | M1 / this Mac | Pass, 282.9 s | Pass, 132.5 s |
+
+A32's first Workshop check expects Leap to stay armed when Kings opens. The new tab now opens Flame, whose existing seat action clears the old power. The repaired test checks that state and keeps the phone Board Leap check. The commit records the changed check in its `Removed-check` trailer. A recheck starts before that repair commit succeeds; the runner rejects the changed checkout. The clean run at `e36aa250` passes all groups. The repair changes the check and ticket only. The product code matches the passing plugin check and the after screens.
+
+No server code changes. The HTTP browser check is not needed. The full suite includes the plugin size checks.
+
+## Screens and review
+
+All 56 named PNGs use 2× scale. Their sizes are 780×1688 and 2880×1800. Before screens use the branch base. After screens use each part's code commit.
+
+Screen index: `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/gui-prev-workshop/previews/INDEX.md`. The manifest records the source commit for each image.
+
+The Workshop is a web screen. It has no plugin screen or host theme. The plugin checks still guard the shared code. The short labels with an ellipsis and the vertical scroll in the rule shelf and See all match the base. The next item at a row edge fades as the pick requires. No other pixel fault is found in the tested states.
+
+Unbuilt parts: none. Saar still needs to approve the three taste previews.

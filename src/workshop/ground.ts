@@ -1572,8 +1572,20 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       if (token) toast(`Tap a square to put a ${tok === 'friend' ? 'white' : 'black'} pawn there, or tap a piece to take it away.`);
       return;
     }
-    // A new tab starts at the left of its row, with the open slot in view.
-    if (tb) { tab = tb as typeof tab; render(); rowEl.scrollLeft = 0; return revealOpenSlot(); }
+    // A new library tab opens its first item. Board keeps the current item.
+    if (tb) {
+      const changed = tab !== tb, keepLedge = ledgeOpen;
+      tab = tb as typeof tab;
+      if (!changed || tab === 'board') render();
+      else if (tab === 'pieces') show(pool(PRESETS[0].key));
+      else if (tab === 'kings') openKing(KING_LIST[0]);
+      else if (tab === 'cards') openLab(spread ? DECK.find(c => !ART.includes(c))! : ART[0]);
+      else openSeal(BLOCKS[0].a);
+      if (keepLedge && !ledgeOpen) { ledgeOpen = true; render(); }
+      rowEl.scrollLeft = 0;
+      revealOpenSlot();
+      return q<HTMLElement>(`#pg-tab-${tab}`)?.focus({ preventScroll: true });
+    }
     if (os) return openSeal(os as Ability['a']);
     if (seen) { const a = sealOn; show(pool(seen)); focus = canonical(cur.d).rules.findIndex(r => r.does.a === a); tab = 'pieces'; render(); return q<HTMLElement>(`[data-piece="${seen}"]`)?.focus({ preventScroll: true }); }
     if (tr) return playOne(movesAt(why!).filter(m => actOf(m) === tr));

@@ -1822,6 +1822,48 @@ const PHONE = [
   ['a seal on the shelf', async p => { await p.click('.padd'); await p.click('[data-sealitem="movesLike"]'); }, ['svg.kd-seal', 'kdm-pulse']],
   ['Stamp', p => p.click('[data-act="stamp"]'), ['button.pg-pseal', 'span.pg-wax', 'kdm-pop']],
 ];
+async function tabSelection() {
+  for (const [width, height] of [[1440, 900], [390, 844], [640, 400]]) {
+    const p = await open('', { width, height, reducedMotion: 'reduce' });
+    await door(p);
+    const sideways = height === 400, label = `${width}x${height}`;
+    const change = async tab => {
+      if (sideways && await p.locator('.pg-ledge').isHidden()) await p.click('[data-act="pieces"]');
+      await p.click(`[data-tab="${tab}"]`);
+      assert.equal(await p.getAttribute(`[data-tab="${tab}"]`, 'aria-selected'), 'true', `${label}: the tab is selected`);
+      assert.equal(await focused(p), `pg-tab-${tab}`, `${label}: focus stays on the tab`);
+      if (sideways) assert.equal(await p.locator('.pg-ledge').isVisible(), true, `${label}: a tab keeps the library sheet open`);
+    };
+    await change('kings');
+    assert.equal(await name(p), 'Flame King', `${label}: Kings opens its first king`);
+    assert.equal(await p.getAttribute('.slot[data-king="Flame"]', 'aria-current'), 'true');
+    await p.click('.slot[data-king="Mud"]');
+    await change('kings');
+    assert.equal(await name(p), 'Mud King', `${label}: the same tab keeps the chosen king`);
+    await change('cards');
+    assert.equal(await name(p), 'Freeze', `${label}: Cards opens its first card`);
+    assert.equal(await p.getAttribute('.cface[data-lab="Freeze"]', 'aria-current'), 'true');
+    await p.click('.cstack');
+    const firstSpread = await p.locator('.cfan .cface').first().getAttribute('aria-label');
+    await change('rules');
+    assert.equal(await name(p), 'Steps 2', `${label}: Rules opens its first seal`);
+    assert.equal(await p.getAttribute('[data-openseal="step2"]', 'aria-pressed'), 'true');
+    await change('cards');
+    assert.equal(`${await name(p)} (LAB)`, firstSpread, `${label}: a spread deck opens its first visible card`);
+    await change('pieces');
+    assert.equal(await name(p), 'Pawn', `${label}: Pieces opens its first piece`);
+    assert.equal(await p.getAttribute('.slot[data-piece="pawn"]', 'aria-current'), 'true');
+    await p.click('.slot[data-piece="rook"]');
+    await change('pieces');
+    assert.equal(await name(p), 'Rook', `${label}: the same tab keeps the chosen piece`);
+    if (width === 390) {
+      await change('board');
+      assert.equal(await name(p), 'Rook', 'Board keeps the inspected piece');
+    }
+    await p.context().close();
+  }
+}
+
 async function rulesTab() {
   const p = await open();
   await door(p);
@@ -1991,8 +2033,9 @@ async function kings() {
   await f.click('.pg-tray [data-power="Leap"]');
   assert.ok((await marks(f)).includes('d7 take'), 'the phone: Leap from the Board tab');
   await f.click('[data-tab="kings"]');
+  assert.equal(await name(f), 'Flame King', 'the phone: the new Kings tab opens Flame and seats him');
   await f.click('.slot[data-king="Mud"]');
-  assert.deepEqual([await name(f), await f.locator('.pline').count(), (await marks(f)).includes('d7 take')], ['Mud King', 0, true], 'the phone: an open king shows his name and the board');
+  assert.deepEqual([await name(f), await f.locator('.pline').count(), (await marks(f)).includes('d7 take')], ['Mud King', 0, false], 'the phone: the king name and board show, and a new king clears the armed power');
   await minTarget(f, '#workshop .pg-ledge button', 44);
   await shot(f, 'kings-390x844');
   await f.context().close();
@@ -2263,6 +2306,7 @@ try {
   await shareSheet();
   await linkCard();
   await reachPopover();
+  await tabSelection();
   await kings();
   await labCards();
   await motion();
