@@ -1778,3 +1778,52 @@ it('F10: sounds a replay capture at contact and check after rest', async () => {
     expect(result.sounds[0].at).toBeLessThanOrEqual(result.rest); expect(result.sounds[1].at).toBeGreaterThanOrEqual(result.rest);
   } finally { await page.close(); }
 });
+
+it.each(['tap', 'Escape', 'drag'] as const)('F11: %s skips the whole reply and keeps the server position', async input => {
+  const rules: Partial<Rules> = { kings: [null, { king: 'Flame', power: 'Haste' }] }, fen = '4k3/p7/8/8/8/8/4P3/K7 b - - 0 1';
+  setRules(rules); let pos = fromFen(fen); const actions: string[] = [], positions: string[] = [];
+  for (const pick of [(m: Move) => m.power === 'haste' && m.from === 48 && m.to === 40, (m: Move) => !m.pass && m.from === 40 && m.to === 32]) {
+    const move = legalMoves(pos).find(pick)!; expect(move).toBeDefined(); actions.push(toLan(pos, move)); pos = makeMove(pos, move); positions.push(toFen(pos));
+  }
+  const base = view(fen, rules, { kind: 'friend', seat: 0, action: 'waiting' }), page = await open(base), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(`(async () => {
+      const { snd } = await import('/src/render/sfx.ts'), { toFen } = await import('/src/rules/setup.ts'); window.hits = 0; snd.move = () => window.hits++;
+      const b = window.testBoard, sync = b.sync.bind(b), timeout = window.setTimeout; window.syncs = []; window.animationCalls = 0; window.zeroTimers = 0;
+      window.setTimeout = (fn, ms, ...args) => { if (ms === 0) window.zeroTimers++; return timeout(fn, ms, ...args); };
+      b.sync = pos => { window.syncs.push(toFen(pos)); sync(pos); };
+      b.animateMove = () => { window.animationCalls++; return new Promise(resolve => { window.finishMove = resolve; }); };
+      b.skip = () => { window.finishMove?.(); };
+    })()`);
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), { ...base, revision: 1, fen: toFen(pos), turn: 0, action: 'ready', legal: legalMoves(pos).map(m => toLan(pos, m)), last_commands: [{ seq: 1, seat: 1, at: base.server_now, action: { type: 'turn', actions } }] });
+    expect(await frame.locator('#board').getAttribute('data-animating')).toBe('true');
+    const timers = await frame.locator('html').evaluate(() => (window as any).zeroTimers);
+    const result = await frame.locator('html').evaluate(async (_, input) => {
+      const b = (window as any).testBoard, board = document.getElementById('board')!;
+      if (input === 'Escape') board.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      else if (input === 'drag') b.onDragSelect(12);
+      else b.onSquareClick(12);
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      return { animating: board.dataset.animating, calls: (window as any).animationCalls, syncs: (window as any).syncs, hits: (window as any).hits, timers: (window as any).zeroTimers };
+    }, input);
+    expect(result.animating).toBe('false'); expect(result.calls).toBe(1); expect(result.hits).toBe(2);
+    expect(result.syncs).toEqual([...positions, toFen(pos)]); expect(result.timers).toBeGreaterThan(timers);
+    expect(await boardFen(page)).toBe(toFen(pos)); expect((await marks(page)).selected).toBeUndefined();
+    await squareTap(page, 12); expect((await marks(page)).selected).toBe(12);
+  } finally { await page.close(); }
+});
+
+it('F11: a tap skips a local move without selecting a piece', async () => {
+  const base = view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), page = await open(base), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(() => {
+      const b = (window as any).testBoard;
+      b.animateMove = () => new Promise(resolve => { b.skip = resolve; });
+    });
+    await squareTap(page, 8); await squareTap(page, 16);
+    expect(await frame.locator('#board').getAttribute('data-animating')).toBe('true');
+    await squareTap(page, 0); await frame.locator('#board[data-animating="false"]').waitFor();
+    expect((await marks(page)).selected).toBeUndefined();
+    expect(await boardFen(page)).toBe(toFen(applyLan(fromFen(base.fen), 'a2-a3', base.rules!)!.pos));
+  } finally { await page.close(); }
+});

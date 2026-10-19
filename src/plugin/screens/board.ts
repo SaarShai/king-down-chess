@@ -66,7 +66,7 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
 const text = (words: string) => { const p = document.createElement('p'); p.textContent = words; return p; };
 const button = (words: string, click: () => void) => { const b = document.createElement('button'); b.textContent = words; b.onclick = click; return b; };
 export function boardScreen(store: Store) {
-  let generation = 0, animating = false, steps: BoardMove[] = [];
+  let generation = 0, animating = false, rush = false, steps: BoardMove[] = [];
   const marksLayer = document.createElement('div');
   marksLayer.id = 'board-marks'; marksLayer.setAttribute('aria-hidden', 'true'); $('board').append(marksLayer);
   const call = store.call;
@@ -233,7 +233,9 @@ export function boardScreen(store: Store) {
   }
   $('app-frame').addEventListener('keydown', event => {
     if (event.key !== 'Escape' || client.state.screen !== 'board' && !sheet?.contains(event.target as Node)) return;
-    event.preventDefault(); cursorShown = false; armed = undefined; armedCard = undefined; selected = held = undefined; choices([]); refresh(); closeBoardSheet();
+    event.preventDefault();
+    if (animating) { rush = true; board.skip(); return; }
+    cursorShown = false; armed = undefined; armedCard = undefined; selected = held = undefined; choices([]); refresh(); closeBoardSheet();
   });
   function select(square: number, submit = true) {
     if (!view || !pos || !canRead()) return;
@@ -264,7 +266,8 @@ export function boardScreen(store: Store) {
   function bindBoard() {
     mountTable();
     if ($('board').parentElement !== $('game-table')) $('game-table').prepend($('board'));
-    board.onSquareClick = square => select(square); board.onDragSelect = square => select(square, false);
+    board.onSquareClick = square => { if (animating) { rush = true; board.skip(); return; } select(square); };
+    board.onDragSelect = square => { if (animating) { rush = true; board.skip(); return; } select(square, false); };
     $('board').tabIndex = 0;
     $('board').onblur = () => { cursorShown = false; const hold = holding(); board.setPreview(hold ? heldSquare(hold.move) : null); drawCursor(); };
     $('board').onkeydown = event => {
@@ -530,12 +533,12 @@ export function boardScreen(store: Store) {
     const replay = replayed?.filter((step, index) => !step.move.pass && !(local[index] && toFen(local[index].pos) === toFen(step.pos))) ?? [];
     const authoritative = pos;
     if (replay.length) {
-      animating = true;
+      animating = true; rush = false;
       void (async () => {
         for (const step of replay) {
           if (token !== generation) return;
           rules(); const hit = hitSound(step, token);
-          if (step.move.drop === undefined) await board.animateMove(step.pre, step.move, hit);
+          if (!rush && step.move.drop === undefined) await board.animateMove(step.pre, step.move, hit);
           if (token !== generation) return;
           board.sync(step.pos); hit(); if (inCheck(step.pos)) snd.check();
         }
