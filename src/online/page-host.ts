@@ -57,8 +57,8 @@ export function createWebPageHost(userId: string): PageHost {
       const begin = () => {
         if (!active || ready) return;
         ready = true;
-        const route = locationRoute() ?? current ?? restored() ?? { screen: 'play' };
-        if (window.location.pathname === '/play') window.history.replaceState(null, '', '/play/' + window.location.search + window.location.hash);
+        const pathRoute = locationRoute(), route = pathRoute ?? current ?? restored() ?? { screen: 'play' };
+        if (!pathRoute || window.location.pathname === '/play') window.history.replaceState(null, '', routePath(route) + window.location.search + window.location.hash);
         take(route);
       };
       const cleanup = () => {

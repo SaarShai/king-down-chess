@@ -87,6 +87,20 @@ describe('web page host', () => {
     }
   });
 
+  it.each(['/j', '/account-entry'])('returns to the saved route with a matching URL after Back from %s', path => {
+    const { page, history, records } = browser(path + '?code=private#private');
+    records.set(key, '{"screen":"profile"}');
+    const host = createWebPageHost('user-a'), { enter } = mount(host);
+    expect(enter.mock.calls).toEqual([[{ screen: 'profile' }]]);
+    host.navigate({ screen: 'settings' });
+    expect(page.location.pathname).toBe('/play/settings');
+    history.back();
+    expect(enter.mock.calls).toEqual([[{ screen: 'profile' }], [{ screen: 'settings' }], [{ screen: 'profile' }]]);
+    expect(page.location.href).toBe('https://kingdown.test/play/profile?code=private#private');
+    expect(history.replaceState.mock.calls).toEqual([[null, '', '/play/profile?code=private#private']]);
+    expect(history.pushState).toHaveBeenCalledTimes(1);
+  });
+
   it('pushes each in-page route once and emits Back and Forward without a new push', () => {
     const { page, history, records } = browser();
     const host = createWebPageHost('user-a'), { enter } = mount(host);
