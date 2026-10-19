@@ -3,8 +3,8 @@ import { positionKey, type SearchResult } from '../ai/search';
 import type { Engine, Game, Side } from '../game';
 import { clickPath } from '../marks-model';
 import { keyMoments, momentText, type KeyMoment, type momentKind } from '../moment';
-import { describeMove, moveNumbers } from '../move-text';
-import { findKing, type Color, type Move, type Position, type Status } from '../rules/engine';
+import { moveNumbers } from '../move-text';
+import { findKing, moveNumber, type Color, type Move, type Position, type Status } from '../rules/engine';
 import { toLan } from '../rules/setup';
 import { kingArt } from '../ui/guide';
 import { copyAndSay } from './links';
@@ -31,7 +31,7 @@ export function endReason(status: Status, pos: Position, resigned: Color | null,
     || (status === 'draw50' ? 'Fifty moves with no take and no pawn move.' : '')
     || (status === 'drawRepetition' ? 'The same position came up three times.' : '')
     || (status === 'drawMaterial' ? 'Neither side has enough material to mate.' : '')
-    || (resigned != null ? 'That side gave up.' : '')
+    || (resigned != null ? `Resigned on move ${moveNumber(pos)}.` : '')
     || said;
 }
 
@@ -116,10 +116,9 @@ export function connectMoments(c: {
     const n = movesPlayed();
     const dlg = $<HTMLDialogElement>('over');
     $('over-title').textContent = result();
-    const last = [...game.history].reverse().find(h => !h.move.pass);
-    // Ending reason wins over a prior moment caption (`said`); last-move text stays above.
+    // Keep the last move in Review. The result has one outcome line.
     const why = endReason(game.status, game.pos, c.resigned(), said);
-    $('over-detail').textContent = [last ? describeMove(last.pos, last.move, true, true) : '', why, `${n} move${n === 1 ? '' : 's'}.`].filter(Boolean).join(' ');
+    $('over-detail').textContent = c.resigned() != null ? why : `${why} ${n} move${n === 1 ? '' : 's'}.`;
     dlg.returnValue = ''; // Esc leaves the last button's value behind, which would re-fire it
     dlg.querySelector<HTMLImageElement>('.over-w')!.src = kingArt(0); // the kings that played, as on the board
     dlg.querySelector<HTMLImageElement>('.over-b')!.src = kingArt(1);

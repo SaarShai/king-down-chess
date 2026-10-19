@@ -33,8 +33,11 @@ describe('the end reason of the result dialog', () => {
       'The same position came up three times.', 'Neither side has enough material to mate.']);
   });
 
-  it('a resign gives up; else the last moment line stays', () => {
-    expect(endReason('playing', mated, 1, 'said')).toBe('That side gave up.');
+  it('gives the move number after either side resigns; else the last moment line stays', () => {
+    const pos = fromFen('7k/8/8/8/8/8/7Q/K7 w - - 0 23');
+    expect(endReason('playing', pos, 0, 'said')).toBe('Resigned on move 23.');
+    expect(endReason('playing', { ...pos, turn: 1 }, 1, 'said')).toBe('Resigned on move 23.');
+    expect(endReason('playing', mated, 1, 'said')).toBe('Resigned on move 1.');
     expect(endReason('playing', mated, null, 'The archer shot without moving.')).toBe('The archer shot without moving.');
   });
 });
