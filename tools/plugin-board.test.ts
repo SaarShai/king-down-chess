@@ -1717,6 +1717,19 @@ it('N10: keeps the board name and Enter hint with the short cursor words', async
   } finally { await page.close(); }
 });
 
+it('N10: says "can go here" on the squares that an armed power can use', async () => {
+  const page = await open(view('4k3/1p6/8/8/8/8/4P3/4K3 w - - 0 1', { kings: [{ king: 'Frost', power: 'Freeze' }, null] })), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#power-w').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
+    const board = frame.locator('#board'), live = frame.locator('#cursor-say');
+    await board.press('ArrowRight'); for (let i = 0; i < 5; i++) await board.press('ArrowUp');
+    expect(await live.textContent()).toBe('b6, empty');
+    await board.press('ArrowUp');
+    expect(await live.textContent()).toBe('b7, black pawn, can go here');
+  } finally { await page.close(); }
+});
+
 it.each(['Escape', 'blur'] as const)('N10: clears the cursor text when %s hides a selected cursor', async input => {
   const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1')), frame = page.frameLocator('iframe');
   try {

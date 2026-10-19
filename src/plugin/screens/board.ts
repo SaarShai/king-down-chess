@@ -374,7 +374,8 @@ export function boardScreen(store: Store) {
     if (check !== checked) { checked = check; if (check !== null && board.motion()) checkAt = performance.now(); }
     // Show only the previewed move's marks.
     rules(); const hold = holding(), cands = hold ? [hold.move] : selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
-    cursorTargets = [...marks.moves, ...marks.captures, ...marks.swaps, ...marks.shoves];
+    // An armed power or target card has no selected piece; its marked squares are targets too.
+    cursorTargets = [...marks.moves, ...marks.captures, ...marks.swaps, ...marks.shoves, ...named().map(c => c.move.to)];
     sayCursor();
     // Mark every step of the last turn (Haste, free marks); a pass step has no square.
     let start = history.length;
