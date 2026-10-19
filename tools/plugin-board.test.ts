@@ -1827,3 +1827,27 @@ it('F11: a tap skips a local move without selecting a piece', async () => {
     expect(await boardFen(page)).toBe(toFen(applyLan(fromFen(base.fen), 'a2-a3', base.rules!)!.pos));
   } finally { await page.close(); }
 });
+
+it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons (%s)', async theme => {
+  const base = view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), page = await open(base, 390, 844), frame = page.frameLocator('iframe');
+  const proof = join(tmpdir(), 'kingdown-gui-board-proof'); await import('node:fs/promises').then(fs => fs.mkdir(proof, { recursive: true }));
+  async function centered(selector: string) {
+    const box = await frame.locator(selector).evaluate(button => {
+      const range = document.createRange(); range.selectNodeContents(button);
+      const glyph = range.getBoundingClientRect(), box = button.getBoundingClientRect();
+      return { width: box.width, height: box.height, dx: Math.abs(glyph.x + glyph.width / 2 - box.x - box.width / 2), dy: Math.abs(glyph.y + glyph.height / 2 - box.y - box.height / 2), text: button.textContent };
+    });
+    expect(box.width).toBe(44); expect(box.height).toBe(44); expect(box.dx).toBeLessThanOrEqual(1); expect(box.dy).toBeLessThanOrEqual(1); expect(box.text).toBe('×');
+  }
+  try {
+    await page.evaluate(theme => (window as any).harnessSetContext({ theme }), theme);
+    await frame.locator('#board-menu').click(); await centered('#board-sheet .sheet-head button');
+    await page.screenshot({ path: join(proof, `plugin-board-menu-390x844-${theme}.png`) });
+    await frame.locator('#board-sheet .sheet-head button').click();
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {
+      ...base, game_id: crypto.randomUUID(), status: 'setup', fen: '', options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: true, cards: false, kingPowers: false }, draw: 'RNBQKBNR', choices: [{ order: 'RNBQKBNR', king: null }, null], ready: [false, false],
+    });
+    await frame.locator('#seat-menu').click(); await centered('#seat-menu-close');
+    await page.screenshot({ path: join(proof, `plugin-seat-menu-390x844-${theme}.png`) });
+  } finally { await page.close(); }
+});

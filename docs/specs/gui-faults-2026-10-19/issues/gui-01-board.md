@@ -1,6 +1,6 @@
 # GUI faults 2026-10-19: the board screen
 
-Status: in-progress
+Status: done
 Type: task
 
 Source: the expert design panel (/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/gui-expert/panel.md) and an independent check of each fault (/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/gui-expert/fault-plan.json). Each part below is a verified FAULT with one right fix. Build only what each part says. Anything the part calls taste or "for Saar" stays out. Saar's look decisions stand (docs/specs/*/spec.md; the painted look only).
@@ -68,10 +68,33 @@ Do not change the look, sound design, motion pace or shared web screen.
 
 ## Results
 
-- F05: the shared cursor mark passes bounds, border, resize, Escape and blur checks. The type check passes. All 129 board tests and 51 artwork tests pass (`/tmp/gui-board-f05-tests-2.txt`). The first run found a blur refresh that removed action buttons before click. Blur now changes only the cursor. The repeat passes. The light-tile render compare reports the expected cursor change: 1,166 pixels exceed threshold 16 (exit 1); images are in `/tmp/gui-board-render/`. The M1 `plugin-ui` check passes at `8b792e42` (271.2 s, runner exit 0). Its log is `checks-f05-2.txt` in the lane folder. The first launch left an empty log and no running PID; the second launch keeps its parent shell until the runner exits.
+All five parts are built in order. Each part has its own commit and test.
 
-- F06: use the existing armed state and ring. Own unspent coins expose pressed state. The armed image has a 5 px inset. The first board run passes 129 tests; only the exact gold pixel check fails by one level per color channel. The repeat allows one level, per the render rule. The repeat passes F06 and 135 of 136 board tests. The one failure is an F10 fallback timing assertion collected before its correction. See `/tmp/gui-board-f06-tests-2.txt`. The gallery render compare uses a 390 x 844 copy of its 2x reference image. The new test uses a small rules fixture and host safe areas, so the full images differ beyond the coin. The separate coin pixel proof confirms the gold band.
+- F05: one shared keyboard cursor mark follows the tile on resize. Escape and blur clear it. The test checks the tile bounds within 1 px and the 3 px blue border. Blur changes only the cursor, so an action button keeps its click target.
+- F06: your unspent cards expose pressed state. Only the armed card uses the existing armed ring and 5 px image inset. The test opens Strike, uses it, checks the state and gold band pixels, then cancels it. Other own coins stay unpressed; opponent coins have no pressed state.
+- F10: each step has a once-only hit callback under the generation guard. Contact plays the hit. Rest supplies the fallback and check sound. Tests cover local capture, replay, reduced motion without contact, Motion Off, skip and a superseded board state. Sound stays off by default.
+- F11: tap, drag-select and Escape skip before selection. Replay skips its remaining motion, keeps each position sync and hit fallback, then restores the server position and schedules the computer. Tests check a two-step reply, completion by the next frame, final FEN, no selected piece, the schedule timer and a later normal selection. A real pointer tap also skips a local move. Network locks and generation stay unchanged.
+- F13: the existing close mark is centered in both sheet headers. In dark and light at 390 x 844, DOM Range checks put each glyph center within 1 px of the button center. Both buttons measure 44 x 44. The Back text stays unchanged.
 
-- F10: the hit callback runs once under the generation guard. Local moves and replay use contact, with an after-motion fallback. Check sounds stay after rest. Sound stays off by default. Tests cover contact, reduced motion without contact, Motion Off, skip, a superseded board state and replay. The type check passes. The first run passes contact, Motion Off, skip, supersession and replay. Its reduced-motion case used the contact timing assertion from before its correction. The saved test checks fallback after rest. The final full run checks the correction.
+### Final checks
 
-- F11: tap, drag-select and Escape skip motion before selection. A replay rushes its remaining steps, keeps each sync and hit fallback, then syncs the server position and schedules the computer. The generation and network locks stay unchanged. Tests cover all three inputs, a two-step reply, one-frame completion, final FEN, no selection and the schedule timer. A real pointer tap also skips a local move. The type check passes. The final full run checks these tests.
+- `npx tsc --noEmit`: pass. Both test commands also run the type check.
+- `KINGDOWN_TEST_FILE=tools/plugin-board.test.ts npm test`: 142 passed; 51 artwork tests passed. Log: `gui-board-final-board-tests.txt`.
+- `KINGDOWN_TEST_FILE='src/**/*.test.ts' npm test`: 122 files passed; 1,838 tests passed; 8 skipped; 51 artwork tests passed. Log: `gui-board-source-tests.txt`.
+- Both test commands use the supplied local test database URL and the shared test lock. No time limit changes.
+- Supplied runner, M1, `plugin-ui`: pass at `8b792e42` in 271.2 s (`checks-f05-2.txt`).
+- Supplied runner, M1, `plugin-ui`: pass at code commit `1ceed760` in 277.7 s (`checks-final-1.txt`). The final amendment changes only this ticket.
+- No server code changes. `plugin-ui-http` is not required.
+- `git diff --check`: pass.
+
+### Render checks
+
+Use `docs/specs/web-ux/render-compare.mjs`, threshold 16. All three comparisons return 1 because the images differ.
+
+- F05: controlled light-tile before/after, 1,166 changed pixels. The visible cursor is the expected change.
+- F06: compare with `plugin-card-targets-390x844-dark.png`, 171,928 changed pixels. The reference is reduced from 2x to CSS size. The new rules fixture and host safe areas also differ, so this full-page comparison does not isolate the ring. The separate coin pixel test proves the gold band within one color level.
+- F13: compare with `plugin-board-menu-390x844-dark.png`, 172,655 changed pixels. The reference is reduced from 2x to CSS size. The rules fixture and host safe areas also differ. The direct glyph and button bounds checks prove the correction. Visual inspection confirms both close marks are centered.
+
+Evidence is in `gui-01-board-proof/` beside the requested lane report. It contains the final logs, screenshots and compare images.
+
+No part is omitted. No taste choice is made. The focus style, ring design, launch sounds, motion pace, close text, Back text and shared web screen stay unchanged.
