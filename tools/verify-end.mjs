@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { readyBoard, ceremonyTile, ceremonyWords, endTurn, usePower, lanMoves, openEndReview, openMoves, pressMenu, startNewGame, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
+import { assertResultFall, resultFallCases } from './lib/result-fall.mjs';
 const base = env('PLAYABLE_URL'), browser = await launch();
 const faults = [];
 const check = (actual, expected, name) => {
@@ -173,6 +174,20 @@ try {
   assert.equal(await page.evaluate(() => window.view.fallen), null, 'a draw has no beaten king');
   assert.equal(await page.locator('#over .is-fallen').count(), 0, 'A draw leaves the result art upright');
   console.log('checked quiet loss, draw and result announcement');
+
+  for (const seat of [0, 1]) for (const fixture of resultFallCases) {
+    await open(fixture.fen, [], 'off', seat ? ['ai', 'human'] : ['human', 'ai']);
+    await page.locator('#over').waitFor({ state: 'visible' });
+    await assertResultFall(page, fixture, seat);
+    if (seat === 0 && fixture.square === 63) {
+      const figure = page.locator('#over .over-b');
+      await figure.evaluate(el => { el.style.rotate = 'var(--fall-angle)'; });
+      await assert.rejects(assertResultFall(page, fixture, seat), /the crown points in the board direction/);
+      await figure.evaluate(el => { el.style.removeProperty('rotate'); });
+    }
+    await shot(page, `result-fall-${fixture.loser}-${fixture.square}-${seat}`);
+  }
+  console.log('ok result crown direction: both colours, both views, both edges and centre; old Black rotation fails');
 
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });

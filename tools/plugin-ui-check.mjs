@@ -2,6 +2,7 @@ import { checkAndroidFixes } from './lib/plugin-android-check.mjs';
 import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
+import { assertResultFall, resultFallCases } from './lib/result-fall.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
 import { assertCardReadState } from './lib/plugin-card-read.mjs';
 import assert from 'node:assert/strict';
@@ -2857,6 +2858,16 @@ try {
         assert.equal(layout.buttons[1].top, layout.buttons[2].top, 'The two small result actions share a row');
         assert(Math.abs(layout.buttons[1].width - layout.buttons[2].width) < 1, 'The small result actions have equal width');
       }
+      for (const seat of [0, 1]) for (const fixture of resultFallCases) {
+        await showSnapshot({ ...snapshot, ...finished, game_id: randomUUID(), seat, fen: fixture.fen, turn: fixture.loser,
+          in_check: true, legal: [], last_commands: [], result: { winner: 1 - fixture.loser, reason: 'checkmate' } });
+        await frame.locator('#over.end-card[open]').waitFor();
+        await assertResultFall(frame, fixture, seat);
+        await shot(page, `result-fall-${fixture.loser}-${fixture.square}-${seat}-${mode}`);
+      }
+      console.log('ok plugin result crown direction: both colours, both views, both edges and centre');
+      await showSnapshot({ ...snapshot, ...finished, revision: 100 + commands.length, fen: toFen(position), turn: position.turn,
+        in_check: true, legal: [], last_commands: commands }, story);
       await page.setViewportSize(viewport);
     }
     // Ticket 28 T1 and T2 at 200% zoom.

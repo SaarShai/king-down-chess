@@ -105,3 +105,11 @@ Capture rule: wait for the visible art. Do not wait for image decode in hidden d
 The type check passes. The first plugin browser run at d407b1f3 finds the short-screen scroll fault above. A24 fixes it. The run at 0c003511 confirms the promotion height fault. It also finds an old test that requires a scroll bar when the new card fits. The check now tests sideways overflow; the action access and hit checks stay in place. The run at 32faad26 passes on the M1: plugin-ui in 289.8 s and end in 20.5 s. The runner exits 0. The page is 752,279 bytes; its resource payload is 756,145 bytes. Both stay below 1,000,000 bytes. The focused npm test run passes: 4 ceremony tests and 51 art checks, exit 0. The full npm test run passes: 194 files, 3,244 tests pass, and 8 opt-in balance checks skip. The 51 art checks also pass. Exit 0. The run uses the local test database URL from the lane rules.
 
 The final source edit removes two old ceremony comments. A fresh plugin build is byte-for-byte identical to the checked page; cmp exits 0. The final commit also records these results. All five parts are built. Each preview still needs Saar’s approval.
+
+## Review repair
+
+Review A and Review B report the same A24 fault. Both findings are confirmed. The board mirrors Black after rotation. The card applies rotation after the mirror, so the crown points the other way.
+
+Plan: reverse the card rotation for Black in the shared CSS. Add browser checks of the final crown direction for both colours, both board views, and left-edge, right-edge and centre squares. Keep the existing angle and draw checks.
+
+Pass criteria: the direction check rejects the old Black rotation. The new checks pass on the web and in the plugin. The full `npm test` run and the approved `plugin-ui` and `end` browser checks pass. Commit the repair before the browser run. Record the results here.
