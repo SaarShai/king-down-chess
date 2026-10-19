@@ -1,6 +1,15 @@
 import { expect, test } from 'vitest';
 import type { View } from '../../match/protocol';
-import { rematchChoices } from './end-model';
+import { endTapAllowed, rematchChoices } from './end-model';
+
+test('keys work at once while pointer taps keep the one-second guard', () => {
+  expect(endTapAllowed({ detail: 0 }, 100, 1100)).toBe(true);
+  expect(endTapAllowed({ detail: 0 }, 100, Infinity)).toBe(true);
+  expect(endTapAllowed({ detail: 1 }, 100, 1100)).toBe(false);
+  expect(endTapAllowed({ detail: 1 }, 1099, 1100)).toBe(false);
+  expect(endTapAllowed({ detail: 1 }, 1100, 1100)).toBe(true);
+  expect(endTapAllowed({ detail: 2 }, 100, 1100)).toBe(false);
+});
 test('a rematch excludes deleted seats and gives only the available choices', () => {
   const view = {status:'finished',kind:'solo',seat:0,rematch_game_id:null,rematch_offer:null,opponent:{deleted:false}} as View;
   expect(rematchChoices(view)).toEqual(['offer']);

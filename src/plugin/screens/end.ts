@@ -6,7 +6,7 @@ import { PLAIN_KINGS } from '../../rules/engine';
 import { pendingHere, staleRead, type Page } from '../state';
 import { boardGame, closeBoardSheet, sendBoardCommand } from './board';
 import { playerBlockButton } from './board-actions';
-import { rematchChoices } from './end-model';
+import { endTapAllowed, rematchChoices } from './end-model';
 import { draftFromGame } from './setup';
 import './end.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
@@ -20,7 +20,7 @@ let guardedGame: string | undefined, tapReadyAt = 0;
 // Ignore a late board tap. Skip and See the board stay active.
 export function guardEndTaps(game: string) { guardedGame = game; tapReadyAt = Infinity; }
 let queuedRematch: { game: string; choice: 'offer' | 'accept' | 'decline' } | undefined;
-const button = (label: string, click: () => void) => { const b = document.createElement('button'); b.textContent = label; b.setAttribute('data-free',''); b.onclick = click; return b; };
+const button = (label: string, click: (event: MouseEvent) => void) => { const b = document.createElement('button'); b.textContent = label; b.setAttribute('data-free',''); b.onclick = click; return b; };
 function closeEnd() {
   blockKey = ''; blockButtons = [];
   const error = document.querySelector('.page-error'); if (error) document.querySelector('.page-sheet')!.append(error);
@@ -116,8 +116,8 @@ export function endScreen(schedule = true) {
   }
   const form = over.querySelector('form')!; form.onsubmit=event=>event.preventDefault();
   for (const choice of rematches) {
-    const b = button(choice==='offer'?view.kind==='solo'?'Play again':'Rematch':choice==='accept'?'Accept':'Decline',()=>{
-      if (performance.now() < tapReadyAt) return;
+    const b = button(choice==='offer'?view.kind==='solo'?'Play again':'Rematch':choice==='accept'?'Accept':'Decline',event=>{
+      if (!endTapAllowed(event, performance.now(), tapReadyAt)) return;
       queuedRematch ??= {game:view.game_id,choice}; updateEnd();
     });
     // C4 c: the choice stays active while the result data loads (data-free, queued); a stale board locks it.
@@ -131,7 +131,7 @@ export function endScreen(schedule = true) {
   }
   form.append(...blockButtons);
   $('end-block-status').textContent = memory.blockNotice;
-  form.append(button('New game',()=>{if (performance.now() < tapReadyAt) return; draftFromGame(view); closeEnd(); showNewGame();}));
+  form.append(button('New game',event=>{if (!endTapAllowed(event, performance.now(), tapReadyAt)) return; draftFromGame(view); closeEnd(); showNewGame();}));
   const see = button('See the board',()=>{looking=true; document.querySelector('.page-sheet')!.append(error); over.close(); scrim.hidden=true; $('end-result').hidden=false; $('end-result').focus();}); form.append(see);
   $('end-result').onclick = () => { looking=false; $('end-result').hidden=true; endScreen(); };
   (looking ? document.querySelector('.page-sheet')! : over).append(error);

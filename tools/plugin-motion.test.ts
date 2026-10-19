@@ -46,7 +46,7 @@ async function mate(page: Page, frame: FrameLocator, paused = false) {
   if (paused) {
     // Stop before the result arrives. Browser calls must not use the tap guard's time.
     await page.clock.setFixedTime(new Date()); await page.clock.pauseAt(await page.evaluate(() => Date.now()));
-    await send.evaluate((b: HTMLButtonElement) => b.click());
+    await send.dispatchEvent('click', { detail: 1 });
     await expect.poll(async () => {
       if (await frame.locator('#over[open]').count()) return true;
       await page.clock.runFor(50); return false;
@@ -79,40 +79,42 @@ it.each([false, true])('opens end actions during a live win (reduced motion %s)'
     expect(await frame.locator('#over').getByRole('button', { name: 'Play again', exact: true }).isVisible()).toBe(true);
     expect(await frame.locator('#over').getByRole('button', { name: 'New game', exact: true }).isVisible()).toBe(true);
     if (!reduced) {
-      expect(await frame.locator('html').evaluate(() => (window as any).liveEnd)).toMatchObject({ opened: true, toppling: true, skip: true, actions: true });
-      await expect.poll(() => frame.locator('html').evaluate(() => (window as any).liveEnd.words)).toBe(true);
+      expect(await frame.locator('html').evaluate(() => (window as any).liveEnd)).toMatchObject({ opened: true, toppling: false, skip: false, actions: true });
+      expect(await frame.locator('html').evaluate(() => (window as any).liveEnd.words)).toBe(false);
     }
     await frame.locator('#board[data-toppling]').waitFor({ state: 'detached' });
-    expect(await frame.locator('#end-skip').isVisible()).toBe(false);
+    expect(await frame.locator('#end-skip').count()).toBe(0);
   } finally { await page.close(); }
 });
-it('skips the end ceremony at 200 ms while game actions are guarded', async () => {
+it.each(['Enter', 'Space'])('uses %s on the main action inside the pointer guard', async key => {
   const { page, frame } = await open(false);
   try {
     await page.clock.install();
-    await mate(page, frame, true); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
-    await frame.locator('#over[open]').waitFor(); await page.clock.runFor(200);
-    await frame.locator('#end-skip').evaluate((b: HTMLButtonElement) => b.click());
-    expect(await frame.locator('#board .kd-words').count()).toBe(0);
-    expect(await frame.locator('#over[open]').count()).toBe(1);
+    await mate(page, frame, true);
+    await frame.locator('#over[open]').waitFor();
+    const old = await page.evaluate(() => (window as any).harnessView.game_id);
+    const action = frame.locator('#over').getByRole('button', { name: 'Play again', exact: true });
+    await action.focus(); await action.press(key);
+    await page.clock.resume();
+    await page.waitForFunction(old => (window as any).harnessView.game_id !== old, old);
   } finally { await page.close(); }
 });
 it.each(['Play again', 'New game', 'See the board'])('uses %s at its allowed time after a live end opens', async action => {
   const { page, frame } = await open(false);
   try {
     await page.clock.install();
-    await mate(page, frame, true); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
+    await mate(page, frame, true);
     const old = await page.evaluate(() => (window as any).harnessView.game_id);
     await frame.locator('#over[open]').waitFor();
     expect(await frame.locator('#over').getByRole('button', { name: action, exact: true }).isEnabled()).toBe(true);
     await page.clock.runFor(200);
-    const press = () => frame.locator('#over').getByRole('button', { name: action, exact: true }).evaluate((b: HTMLButtonElement) => b.click());
+    const press = () => frame.locator('#over').getByRole('button', { name: action, exact: true }).dispatchEvent('click', { detail: 1 });
     await press();
     if (action !== 'See the board') {
       expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_rematch').length)).toBe(0);
       expect(await frame.locator('#over[open]').count()).toBe(1);
       expect(await frame.locator('body').getAttribute('data-page')).toBe('end');
-      expect(await frame.locator('#board[data-toppling]').count()).toBe(1);
+      expect(await frame.locator('#board[data-toppling]').count()).toBe(0);
       await page.clock.runFor(1000); await press();
     }
     await page.clock.resume(); await page.clock.setSystemTime(new Date());
