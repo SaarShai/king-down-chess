@@ -3,6 +3,36 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { framePolicy, startHarness } from './plugin-ui-harness';
+import { launch, trapErrors } from './lib/checks.mjs';
+
+it('frees the old widget message events after a remount', async () => {
+ const folder = await mkdtemp(join(tmpdir(), 'kingdown-harness-retention-'));
+ const boardPath = join(folder, 'board.html');
+ // The real boot shim sends the message that the SDK logs. No board is needed.
+ await writeFile(boardPath, '<html><head></head><body>fixture</body></html>');
+ const harness = await startHarness({boardPath});
+ const browser = await launch({headless:true, channel:process.env.PLAYABLE_BROWSER || 'chromium'});
+ try {
+  const page = await browser.newPage(), errors = trapErrors(page);
+  await page.addInitScript(() => {
+   if (window !== top) return;
+   (window as any).bootEvents = [];
+   addEventListener('message', event => {
+    if (event.data?.harness === 'boot') (window as any).bootEvents.push(new WeakRef(event));
+   });
+  });
+  await page.goto(harness.url);
+  await page.waitForFunction(() => (window as any).harnessBoots === 1);
+  await page.evaluate(() => console.error('Harness error before remount'));
+  await page.locator('#remount').click();
+  await page.waitForFunction(() => (window as any).harnessBoots === 2);
+  await expect.poll(async () => {
+   await page.requestGC();
+   return page.evaluate(() => (window as any).bootEvents[0].deref() === undefined);
+  }, {timeout:5000}).toBe(true);
+  expect(errors).toContain('console.error: Harness error before remount');
+ } finally { await browser.close(); await harness.close(); await rm(folder, {recursive:true,force:true}); }
+}, 30000);
 
 it('lets screen checks seed one record and call any friend tool', async () => {
  const folder = await mkdtemp(join(tmpdir(),'kingdown-harness-test-')), boardPath = join(folder,'board.html');

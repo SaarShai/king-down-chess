@@ -121,10 +121,14 @@ jobs:
       - run: npx playwright install --with-deps webkit
       - run: npm test
         env:
-          KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'
+          KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size,ui-harness}.test.ts'
       - run: npm run check:browser plugin-ui
+        env:
+          # Keep the browser's own crash reason and measure memory for ticket 55.
+          DEBUG: pw:browser
+          NODE_OPTIONS: --import ${{ github.workspace }}/tools/probe-webkit-mem.mjs
       - run: npm run check:browser web-online
-      - if: failure() || cancelled()
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: webkit-check-logs

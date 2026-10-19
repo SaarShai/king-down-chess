@@ -82,8 +82,12 @@ describe('.github/workflows/plugin-checks.yml', () => {
   it('runs the board, phone-size and widget checks on WebKit', () => {
     const webkit = job('browser-webkit');
     expect(webkit).toContain('- run: npm test');
-    expect(webkit).toContain("KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'");
+    expect(webkit).toContain("KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size,ui-harness}.test.ts'");
     expect(webkit).toContain('- run: npm run check:browser plugin-ui');
     expect(webkit).toContain('name: webkit-check-logs');
+  });
+
+  it('keeps the WebKit crash reason in the plugin-ui log', () => {
+    expect(job('browser-webkit')).toMatch(/- run: npm run check:browser plugin-ui\n\s+env:\n(\s+#.*\n)*\s+DEBUG: pw:browser\n/);
   });
 });
