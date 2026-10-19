@@ -1,3 +1,4 @@
+import { cardDiagram } from '../card-diagram';
 /**
  * The Workshop (docs/WORKSHOP.md): the Proving Ground, view A of docs/specs/workshop-proving-ground.
  * The open piece stands on its example board with its marks; the plinth shows its name, its figure and its rules;
@@ -61,7 +62,7 @@ const kingOf = (p: PowerName): KingName => KING_LIST.find(k => KINGS[k].includes
 const DECK: readonly CardName[] = ['Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap', 'Mimic', 'Vault', 'Curse', 'SkyLift', 'Salvation',
   'Rescue', 'Firewall', 'EarthQuake', 'Burn', 'FireStarter', 'Control', 'Growth', 'Rally', 'Spawn2', 'SpawnK', 'MorphP', 'MirrorB'];
 const SECOND: Partial<Record<CardName, CardName>> = { Firewall: 'FirewallB', EarthQuake: 'EarthQuakeB', Growth: 'GrowthB', SpawnK: 'SpawnK2' };
-const ART: readonly CardName[] = ['Freeze', 'IceWall', 'Sacrifice', 'March', 'Leap', 'Mimic', 'Vault', 'SkyLift', 'Salvation', 'Rescue'];
+const ART: readonly CardName[] = ['Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap', 'Mimic', 'Vault', 'SkyLift', 'Salvation', 'Rescue'];
 const LAY: readonly CardName[] = ['Freeze', 'IceWall', 'Leap', 'March', 'Mimic', 'Vault'];
 /** A design with a When that counts moves or cards: the socket and the card slot wait (powersWork). */
 const WAIT_POWERS = 'Powers wait: a rule of this piece counts moves or cards.', WAIT_CARDS = 'Cards wait: a rule of this piece counts moves or cards.';
@@ -678,7 +679,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (labOpen) {
       const n = cardName(labOpen);
       plinthEl.innerHTML = `<div class="pg-name"><div class="row"><h3${n.length > 9 ? ' class="long"' : ''}>${n}</h3></div></div>`
-        + `<div class="pg-bigcard lab-host"><img class="art" src="${cardArt(labOpen)}" alt=""><b class="ttl">${n}</b><span class="rule"></span><p>${esc(cardWords(labOpen))}.</p><span class="lab-ribbon" aria-hidden="true">LAB</span></div>`;
+        + `<div class="pg-bigcard lab-host"><img class="art" src="${cardArt(labOpen)}" alt=""><b class="ttl">${n}</b><span class="rule"></span><p>${esc(cardWords(labOpen))}.</p>${cardDiagram(labOpen) ? `<div class="card-diagram">${cardDiagram(labOpen)}</div>` : ''}<span class="lab-ribbon" aria-hidden="true">LAB</span></div>`;
       return;
     }
     const d = cur.d, name = d.name || 'Piece', origin = cur.key.startsWith('piece:') ? undefined : PRESETS.find(p => d.from.length === 1 && p.key === d.from[0]);

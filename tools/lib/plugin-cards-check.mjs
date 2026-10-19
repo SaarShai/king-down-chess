@@ -100,7 +100,7 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   assert((await frame.locator('#setup-cards').innerText()).startsWith('5 cards'), 'Done saves the draft after a host refresh');
   await frame.locator('#setup-cards').click();
   const art = await sheet.locator('.card-face').evaluateAll(faces => faces.map(f => ({ card: f.querySelector('input').value, image: !!f.querySelector('.cf-art img'), scene: !!f.querySelector('.cf-art .pm'), plain: f.querySelector('.cf-word')?.textContent, name: f.querySelector('b').textContent })));
-  assert.equal(art.filter(a => a.image).length, 9); assert.equal(art.filter(a => a.scene).length, 3); assert.equal(art.filter(a => a.plain).length, 9);
+  assert.equal(art.filter(a => a.image).length, 12); assert.equal(art.filter(a => a.scene).length, 0); assert.equal(art.filter(a => a.plain).length, 9);
   assert(!await sheet.locator('img[src*="back.webp"]').count());
   await frame.locator('#menu-close').click();
   // Built-page checks use visible controls; source-harness app helpers are absent.
