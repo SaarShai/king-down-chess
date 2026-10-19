@@ -12,7 +12,7 @@
 # then build:vercel, the engine guards, check:vercel, the MCP protocol and the plugin UI checks.
 # PLUGIN_TEST_DATABASE_URL must name a disposable loopback database ending in _test.
 # A build that adds an uncommitted engine stops. KINGDOWN_ENGINES_DATABASE_URL enables the read-only
-# check of engines in use; without it the script reports that check as skipped.
+# check of engines in use; publish stops without it. Check-only mode can skip it.
 #
 # --publish copies the tested Build Output API tree, links the approved team and project, and uses
 # the pinned CLI with --prebuilt --prod. No website-only tree can publish to kingdown.
@@ -55,6 +55,9 @@ while [ $# -gt 0 ]; do
     *) die "$usage" ;;
   esac
 done
+if [ "$publish" = yes ]; then
+  [ -n "${KINGDOWN_ENGINES_DATABASE_URL:-}" ] || die 'set KINGDOWN_ENGINES_DATABASE_URL before --publish; the engines-in-use check is required'
+fi
 if [ "$setup_plugin" = no ] && [ -z "$configure" ]; then
   [ -n "${PLUGIN_TEST_DATABASE_URL:-}" ] || die 'set PLUGIN_TEST_DATABASE_URL to a disposable loopback database ending in _test'
   node --input-type=module - <<'NODE'

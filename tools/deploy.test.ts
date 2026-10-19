@@ -19,6 +19,7 @@ const script = fileURLToPath(new URL('./deploy.sh', import.meta.url));
 const liveCheck = fileURLToPath(new URL('./deploy-live-check.mjs', import.meta.url));
 const pluginLiveCheck = fileURLToPath(new URL('./deploy-plugin-live-check.mjs', import.meta.url));
 const siteProject = { projectId: 'prj_SiteTest', orgId: 'team_mIlANWWDRbX1NT4jgJn9jAna', projectName: 'kingdown' };
+const enginesDatabase = 'postgresql://reader:fake-engines-password@db.example/postgres?sslmode=require';
 const pluginProject = { projectId: 'prj_2H4LcrzOXCQbFuKbq0z0G7lCFFC6', orgId: 'team_mIlANWWDRbX1NT4jgJn9jAna', projectName: 'kingdown-plugin' };
 
 type Repo = ReturnType<typeof tempRepo>;
@@ -127,6 +128,18 @@ describe('deploy.sh', () => {
     }
   });
 
+  it.each(['website', 'plugin'])('requires the engines setting before any %s publish work', target => {
+    const { repo, deploy, calls } = setup();
+    const gitLog = join(repo.root, 'git-calls');
+    stub(join(repo.root, 'bin', 'git'), [`echo git >> "${gitLog}"`, 'exit 99']);
+    const result = deploy(['--target', target, '--publish'], { KINGDOWN_ENGINES_DATABASE_URL: '' });
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('set KINGDOWN_ENGINES_DATABASE_URL before --publish');
+    expect(result.stdout).not.toMatch(/step|worktree|skipped/);
+    expect(calls()).toEqual([]);
+    expect(existsSync(gitLog)).toBe(false);
+  });
+
   it('sets only the seven plugin values through stdin and prints none of their values', () => {
     const { repo, deploy, calls } = setup();
     const values = {
@@ -218,7 +231,7 @@ describe('deploy.sh', () => {
 
   it.each(['website', 'plugin'])('checks unfinished engines for %s without printing the database URL', target => {
     const { deploy, calls } = setup();
-    const database = { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', KINGDOWN_ENGINES_DATABASE_URL: 'postgresql://reader:fake-engines-password@db.example/postgres?sslmode=require' };
+    const database = { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase };
     const result = deploy(['--target', target], database);
     expect(result.status, result.stderr).toBe(0);
     const lines = calls().map(line => line.replace(/ @ .*/, ''));
@@ -231,12 +244,13 @@ describe('deploy.sh', () => {
     const failed = deploy(['--target', target, '--publish'], { ...database, STUB_FAIL: 'tools/engines-check.mjs' });
     expect(failed.status).not.toBe(0);
     expect(failed.stderr).toContain('FAIL at engines in use');
+    expect(failed.stdout + failed.stderr + calls().join('\n')).not.toContain('fake-engines-password');
     expect(calls().some(line => line.startsWith('npx '))).toBe(false);
   });
 
   it.each(['website', 'plugin'])('refuses a %s release with an engine not on origin/main', target => {
     const { repo, deploy, calls } = setup();
-    const result = deploy(['--target', target, '--publish'], { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_NEW_ENGINE: '1' });
+    const result = deploy(['--target', target, '--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_NEW_ENGINE: '1' });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('FAIL at engine archive');
     expect(result.stderr).toContain('engines/');
@@ -246,7 +260,7 @@ describe('deploy.sh', () => {
 
   it.each(['plugin:db:init-test', 'test', 'plugin:build:vercel', 'plugin:server:check', 'plugin:smoke', 'plugin:check:protocol', 'plugin-ui'])('stops the failed plugin gate %s before publication', fail => {
     const { repo, deploy, calls } = setup();
-    const result = deploy(['--target', 'plugin', '--publish'], { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_FAIL: fail });
+    const result = deploy(['--target', 'plugin', '--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_FAIL: fail });
     expect(result.status, fail).not.toBe(0);
     expect(calls().some(line => line.startsWith('npx '))).toBe(false);
     expectGone(repo, worktreeOf(result.stdout));
@@ -254,7 +268,7 @@ describe('deploy.sh', () => {
 
   it.each(['plugin:db:init-test', 'test', 'check:browser', 'build:vercel', 'check:vercel', 'plugin:check:protocol', 'plugin-ui'])('stops the failed site gate %s before publication', fail => {
     const { repo, deploy, calls } = setup();
-    const result = deploy(['--publish'], { STUB_FAIL: fail });
+    const result = deploy(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_FAIL: fail });
     expect(result.status, fail).not.toBe(0);
     expect(calls().some(line => line.startsWith('npx '))).toBe(false);
     expectGone(repo, worktreeOf(result.stdout));
@@ -371,13 +385,27 @@ afterEach(() => {
 });
 
 /** The pages of a build: the entry script name is the bundle name. */
+const offlineFiles = ['./', 'index.html', 'assets/style.css', 'assets/lazy.js', 'assets/ai-worker.js', 'fonts/game.woff2', 'icons/game.png', 'ui/board.webp', 'ui/piece.svg', 'manifest.webmanifest'];
 const pages = (bundle = 'index-Abc123_x', terms = 'Terms v1') => ({
   'index.html': `<!doctype html><html><head><script type="module" crossorigin src="./assets/${bundle}.js"></script></head><body></body></html>`,
   'privacy.html': '<!doctype html><title>Privacy</title><p>Privacy v1</p>\n',
   'terms.html': `<!doctype html><title>Terms</title><p>${terms}</p>\n`,
   'delete-data.html': '<!doctype html><title>Delete data</title><p>Delete v1</p>\n',
   'support.html': '<!doctype html><title>Support</title><p>Support v1</p>\n',
+  'sw.js': `const VERSION = 'build-v1';\nconst POLICY = 'public-build-v1';\nconst ALLOWLIST = ${JSON.stringify([...offlineFiles, `assets/${bundle}.js`])};\nconst PRECACHE = ${JSON.stringify([...offlineFiles, `assets/${bundle}.js`])};`,
+  [`assets/${bundle}.js`]: 'entry-v1',
+  'assets/style.css': 'body { color: black; }',
+  'assets/lazy.js': 'lazy-v1',
+  'assets/ai-worker.js': 'worker-v1',
+  'fonts/game.woff2': 'font-v1',
+  'icons/game.png': 'icon-v1',
+  'ui/board.webp': 'board-v1',
+  'ui/piece.svg': '<svg/>',
+  'manifest.webmanifest': '{}',
 });
+const closedPages = ['/play', '/play/', '/play/profile', '/play/settings', '/play.html', '/g/00000000-0000-4000-8000-000000000000', '/j', '/j/', '/j/deploy-check-inert-token', '/deploy-check-unknown'];
+const apiPaths = ['/api', '/api/games', '/api/me/games'];
+const contentType = (path: string) => ({ js: 'text/javascript', css: 'text/css', woff2: 'font/woff2', png: 'image/png', webp: 'image/webp', svg: 'image/svg+xml', webmanifest: 'application/manifest+json' })[path.split('.').at(-1)!] ?? 'text/html';
 
 /** A build folder with the given pages. */
 function buildFolder(files: Record<string, string>) {
@@ -391,20 +419,20 @@ function buildFolder(files: Record<string, string>) {
 }
 
 /** A local site. `files` can change between requests; `/` serves `index.html`. */
-async function site(files: () => Record<string, string>, challengeReply: { status?: number; type?: string | null; location?: string } = {}) {
-  const requests: { path: string; cookie?: string }[] = [];
+async function site(files: () => Record<string, string>, challengeReply: { status?: number; type?: string | null; location?: string; path?: string } = {}) {
+  const requests: { path: string; method?: string; cookie?: string }[] = [];
   const server = createServer((req, res) => {
     const path = (req.url ?? '/').split('?')[0];
-    requests.push({ path, cookie: req.headers.cookie });
+    requests.push({ path, method: req.method, cookie: req.headers.cookie });
     if (req.headers.cookie !== undefined) { res.writeHead(400).end('cookie sent'); return; }
     const body = files()[path === '/' ? 'index.html' : path.slice(1)];
-    if (body === undefined) { res.writeHead(404).end('not found'); return; }
-    if (path === '/.well-known/openai-apps-challenge') {
+    if (path === (challengeReply.path ?? '/.well-known/openai-apps-challenge')) {
       const type = challengeReply.type === undefined ? 'text/plain; charset=utf-8' : challengeReply.type;
-      res.writeHead(challengeReply.status ?? 200, { ...(type ? { 'content-type': type } : {}), ...(challengeReply.location ? { location: challengeReply.location } : {}) }).end(body);
+      res.writeHead(challengeReply.status ?? (body === undefined ? 404 : 200), { ...(type ? { 'content-type': type } : {}), ...(challengeReply.location ? { location: challengeReply.location } : {}) }).end(body);
       return;
     }
-    res.writeHead(200, { 'content-type': 'text/html', 'set-cookie': 'visit=1; Path=/' }).end(body);
+    if (body === undefined) { res.writeHead(404).end('not found'); return; }
+    res.writeHead(200, { 'content-type': contentType(path), 'set-cookie': 'visit=1; Path=/' }).end(body);
   });
   await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
   servers.push(server);
@@ -436,12 +464,16 @@ describe('deploy-live-check.mjs', () => {
     const result = await check(buildFolder(files), live.url);
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('index-Abc123_x.js');
-    expect(live.requests.map(r => r.path).sort()).toEqual(['/', '/delete-data.html', '/privacy.html', '/support.html', '/terms.html']);
+    expect(live.requests.map(r => `${r.method} ${r.path}`).sort()).toEqual([
+      ...Object.keys(files).map(file => `GET /${file}`), 'GET /', ...closedPages.map(path => `GET ${path}`), ...apiPaths.flatMap(path => [`GET ${path}`, `POST ${path}`]),
+    ].sort());
+    expect(result.stdout).toContain('sw.js version build-v1, policy public-build-v1, sha256');
+    expect(result.stdout).toContain('16 closed-route probes pass');
     expect(live.requests.filter(r => r.cookie !== undefined)).toEqual([]);
   });
 
   it('fails within the time limit when the live site loads a different bundle, and names both bundles', async () => {
-    const live = await site(() => pages('index-Old999'));
+    const live = await site(() => ({ ...pages(), 'index.html': pages('index-Old999')['index.html'] }));
     const result = await check(buildFolder(pages()), live.url, 1500);
     expect(result.status).toBe(1);
     expect(result.seconds).toBeLessThan(1.5 + 5);
@@ -472,10 +504,66 @@ describe('deploy-live-check.mjs', () => {
 
   it('tries again until the live site serves the build, inside the time limit', async () => {
     let served = 0;
-    const live = await site(() => (served++ < 4 ? pages('index-Old999') : pages()));
+    const live = await site(() => (served++ === 0 ? { ...pages(), 'index.html': pages('index-Old999')['index.html'] } : pages()));
     const result = await check(buildFolder(pages()), live.url, 3000);
     expect(result.status, result.stderr).toBe(0);
     expect(live.requests.filter(r => r.path === '/').length).toBe(2);
+  });
+
+  it.each(['sw.js', 'assets/index-Abc123_x.js', 'assets/lazy.js', 'assets/ai-worker.js', 'assets/style.css', 'fonts/game.woff2', 'icons/game.png', 'ui/board.webp', 'ui/piece.svg', 'manifest.webmanifest'])('rejects stale public bytes at %s', async path => {
+    const files = pages();
+    const live = await site(() => ({ ...files, [path]: 'stale bytes' }));
+    const result = await check(buildFolder(files), live.url, 0);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`${path}: the live page differs`);
+  });
+
+  it('rejects a missing offline asset', async () => {
+    const files = pages(), served: Record<string, string> = { ...files };
+    delete served['assets/lazy.js'];
+    const live = await site(() => served);
+    const result = await check(buildFolder(files), live.url, 0);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('/assets/lazy.js: HTTP 404');
+  });
+
+  it.each(['sw.js', 'assets/index-Abc123_x.js', 'assets/style.css', 'fonts/game.woff2', 'icons/game.png', 'ui/board.webp', 'ui/piece.svg', 'manifest.webmanifest'])('rejects an HTML fallback type for %s', async path => {
+    const files = pages(), live = await site(() => files, { path: `/${path}`, type: 'text/html' });
+    const result = await check(buildFolder(files), live.url, 0);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`/${path}: expected `);
+  });
+
+  it.each([...closedPages, ...apiPaths])('rejects an open route at %s', async path => {
+    const files = pages(), live = await site(() => ({ ...files, [path.slice(1)]: '<html>unexpected</html>' }));
+    const result = await check(buildFolder(files), live.url, 0);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`GET ${path}: expected 404 without redirect, got HTTP 200`);
+  });
+
+  it.each([302, 404])('rejects a closed-route redirect header with HTTP %s and does not follow it', async status => {
+    const live = await site(() => pages(), { path: '/play/', status, location: '/redirect-target' });
+    const result = await check(buildFolder(pages()), live.url, 0);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('GET /play/: expected 404 without redirect');
+    expect(live.requests.some(request => request.path === '/redirect-target')).toBe(false);
+  });
+
+  it('rejects a redirect for the worker and does not follow it', async () => {
+    const live = await site(() => pages(), { path: '/sw.js', status: 307, location: '/redirect-target' });
+    const result = await check(buildFolder(pages()), live.url, 0);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('/sw.js: HTTP 307');
+    expect(live.requests.some(request => request.path === '/redirect-target')).toBe(false);
+  });
+
+  it('rejects an incomplete local build before it sends a probe', async () => {
+    const files: Record<string, string> = { ...pages() }, live = await site(() => pages());
+    delete files['assets/lazy.js'];
+    const result = await check(buildFolder(files), live.url, 0);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('the build has no assets/lazy.js');
+    expect(live.requests).toEqual([]);
   });
 
   it('checks the exact domain challenge bytes as plain text with no cookie', async () => {
@@ -536,7 +624,7 @@ async function pluginSite(fault = '', files?: Record<string, string>) {
     requests.push({ path, cookie: req.headers.cookie, authorization: req.headers.authorization });
     res.setHeader('set-cookie', 'visit=1; Path=/');
     const file = files?.[path === '/' ? 'index.html' : path.slice(1)];
-    if (file !== undefined) res.end(file);
+    if (file !== undefined) { res.setHeader('content-type', contentType(path)); res.end(file); }
     else if (path === '/.well-known/oauth-protected-resource/mcp' || path === '/.well-known/oauth-protected-resource') {
       if (fault === 'metadata-root' && path === '/.well-known/oauth-protected-resource') { res.writeHead(404).end(); return; }
       res.setHeader('content-type', 'application/json');
@@ -604,19 +692,21 @@ describe('deploy.sh --target plugin --publish', () => {
   it('publishes only the tested artifact to the approved project and checks it without a player session', async () => {
     const { repo, deployAsync, calls } = setup();
     const live = await pluginSite();
-    const result = await deployAsync(['--target', 'plugin', '--publish'], { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_PLUGIN_ORIGIN: live.url });
+    const result = await deployAsync(['--target', 'plugin', '--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_PLUGIN_ORIGIN: live.url });
     expect(result.status, result.stderr).toBe(0);
     expect(calls().filter(line => line.startsWith('npx ')).map(line => line.replace(/ @ .*/, ''))).toEqual([
       'npx --yes vercel@62.2.0 link --project kingdown-plugin --scope saars-projects-2c777ec5 --yes',
       'npx --yes vercel@62.2.0 deploy --prebuilt --prod --scope saars-projects-2c777ec5 --yes',
     ]);
     expect(result.stdout).toContain('plugin-live-check: pass');
+    expect(calls().some(line => line.startsWith('node tools/engines-check.mjs plugin-deploy/.vercel/output/functions/mcp.func/runtime/engines '))).toBe(true);
+    expect(result.stdout).not.toContain('skipped the check of engines in use');
     expectGone(repo, worktreeOf(result.stdout));
   });
 
   it('rejects a different linked project before the production command', () => {
     const { deploy, calls } = setup();
-    const result = deploy(['--target', 'plugin', '--publish'], { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_PROJECT: JSON.stringify({ projectId: 'prj_Wrong', projectName: 'kingdown-plugin', orgId: 'team_mIlANWWDRbX1NT4jgJn9jAna' }) });
+    const result = deploy(['--target', 'plugin', '--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_PROJECT: JSON.stringify({ projectId: 'prj_Wrong', projectName: 'kingdown-plugin', orgId: 'team_mIlANWWDRbX1NT4jgJn9jAna' }) });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('FAIL at verify plugin project');
     expect(calls().some(line => line.includes(' deploy --prebuilt'))).toBe(false);
@@ -633,10 +723,13 @@ describe('deploy.sh --publish', () => {
     const { repo, deployAsync, calls } = setup();
     const files = pages();
     const live = await pluginSite('', files);
-    const result = await deployAsync(['--publish'], { STUB_DIST: buildFolder(files), DEPLOY_LIVE_URL: live.url, DEPLOY_LIVE_TIMEOUT_MS: '900000' });
+    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), DEPLOY_LIVE_URL: live.url, DEPLOY_LIVE_TIMEOUT_MS: '900000' });
     expect(result.status, result.stderr).toBe(0);
     const log = calls().map(words);
     const runner = log.indexOf('npm run check:browser');
+    const engines = log.indexOf('node tools/engines-check.mjs kingdown-deploy/.vercel/output/functions/mcp.func/runtime/engines');
+    expect(engines).toBeGreaterThan(log.indexOf('npm run build:vercel'));
+    expect(result.stdout).not.toContain('skipped the check of engines in use');
     expect(runner).toBeGreaterThan(-1);
     // One link of the kingdown project, then one deploy, both with the same pinned version: an exact
     // version, never a range or a tag such as latest.
@@ -645,6 +738,7 @@ describe('deploy.sh --publish', () => {
     expect(version).toBeTruthy();
     expect(npx.map(words)).toEqual([`npx --yes vercel@${version} link --project kingdown --scope saars-projects-2c777ec5 --yes`, `npx --yes vercel@${version} deploy --prebuilt --prod --scope saars-projects-2c777ec5 --yes`]);
     expect(log.indexOf(words(npx[0]))).toBeGreaterThan(runner);
+    expect(log.indexOf(words(npx[0]))).toBeGreaterThan(engines);
     // The fake CLI checks the copied static files and function before it accepts a prebuilt publish.
     expect(npx[1]).toMatch(/\/kingdown with *$/);
     expect(result.stdout).toContain('plugin-live-check: pass');
@@ -659,7 +753,7 @@ describe('deploy.sh --publish', () => {
   it('refuses the wrong site project before publication or an environment write', () => {
     const { deploy, calls } = setup();
     for (const change of [{ orgId: 'team_wrong' }, { projectName: 'kingdown-plugin' }, { projectId: 'invalid' }]) {
-      const result = deploy(['--publish'], { STUB_PROJECT: JSON.stringify({ ...siteProject, ...change }) });
+      const result = deploy(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_PROJECT: JSON.stringify({ ...siteProject, ...change }) });
       expect(result.status).not.toBe(0); expect(result.stderr).toContain('FAIL at verify site project');
       expect(calls().some(line => line.includes(' deploy ') || line.includes(' env add '))).toBe(false);
     }
@@ -668,7 +762,7 @@ describe('deploy.sh --publish', () => {
   it('stops on a failed plugin live check after the site check passes', async () => {
     const { repo, deployAsync } = setup();
     const files = pages(), live = await pluginSite('challenge', files);
-    const result = await deployAsync(['--publish'], { STUB_DIST: buildFolder(files), DEPLOY_LIVE_URL: live.url });
+    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), DEPLOY_LIVE_URL: live.url });
     expect(result.status).not.toBe(0); expect(result.stdout).toContain('live-check: pass:');
     expect(result.stderr).toContain('FAIL at plugin live check');
     expectGone(repo, worktreeOf(result.stdout));
@@ -677,7 +771,7 @@ describe('deploy.sh --publish', () => {
   it('a failed check stops the script before the npx call', async () => {
     const { repo, deployAsync, calls } = setup();
     for (const fail of ['test', 'run']) {
-      const result = await deployAsync(['--publish'], { STUB_FAIL: fail, STUB_DIST: buildFolder(pages()) });
+      const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_FAIL: fail, STUB_DIST: buildFolder(pages()) });
       expect(result.status).not.toBe(0);
       expect(npxCalls(calls())).toEqual([]);
       expect(result.stdout).not.toContain('live-check');
@@ -687,7 +781,7 @@ describe('deploy.sh --publish', () => {
 
   it('a failed Vercel deploy stops the script before the live check', async () => {
     const { repo, deployAsync } = setup();
-    const result = await deployAsync(['--publish'], { STUB_FAIL: 'deploy', STUB_DIST: buildFolder(pages()) });
+    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_FAIL: 'deploy', STUB_DIST: buildFolder(pages()) });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('FAIL at publish');
     expect(result.stdout).not.toContain('live-check');
@@ -697,7 +791,7 @@ describe('deploy.sh --publish', () => {
   it('fails when the live site does not serve the build, names the difference, and removes its worktree', async () => {
     const { repo, deployAsync } = setup();
     const live = await site(() => pages(undefined, 'Terms v2'));
-    const result = await deployAsync(['--publish'], { STUB_DIST: buildFolder(pages()), DEPLOY_LIVE_URL: live.url });
+    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(pages()), DEPLOY_LIVE_URL: live.url });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toMatch(/terms\.html: the live page differs/);
     expect(result.stderr).toContain('FAIL at live check');
