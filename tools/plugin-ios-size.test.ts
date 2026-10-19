@@ -35,7 +35,10 @@ async function clickButton(page: Page, button: Locator) {
     const r = button.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].join();
   });
   let last = '';
-  await expect.poll(async () => { const next = await box(), still = next === last; last = next; return still; }, { intervals: [20] }).toBe(true);
+  const seen: string[] = [];
+  // The limit of the page wait that this step replaced (each page: 10 000 ms × STEP), not the 1 s poll default.
+  await expect.poll(async () => { const next = await box(), still = next === last; seen.push(next); last = next; return still; }, { interval: 20, timeout: 10_000 * STEP }).toBe(true)
+    .catch(error => { throw new Error(`clickButton: no two equal boxes in ${seen.length} reads, last ${seen.slice(-4).join(' | ')}`, { cause: error }); });
   const pane = await page.locator('iframe').evaluate(e => ({ x: e.getBoundingClientRect().x, y: e.getBoundingClientRect().y }));
   const point = await button.evaluate((button: HTMLButtonElement) => {
     const r = button.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + r.height / 2;
