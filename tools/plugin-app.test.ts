@@ -381,6 +381,42 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
     expect(await frame.locator('html').evaluate((_, game_id) => (window as any).harnessApp.memory.games.find((entry: any) => entry.game_id === game_id).revision, game_id)).toBe(1);
   } finally { await page.close(); }
 });
+it('finds a game created elsewhere when Back returns a clean board to Play', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const games: string[] = [];
+  try {
+    await expand(page);
+    const before = await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } });
+      await app.call('kingdown_get', {});
+      return { game: app.memory.view.game_id, fen: app.memory.view.fen, revision: app.memory.view.revision, dirty: app.memory.dirty };
+    });
+    games.push(before.game); expect(before.dirty).toBe(false);
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    const canvas = frame.locator('#board canvas'), box = (await canvas.boundingBox())!;
+    for (const rank of [1, 3]) await canvas.click({ position: { x: (32 + 4.5 * 112) * box.width / 960, y: (96 + (7 - rank + .5) * 112) * box.width / 960 } });
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft?.lans)).toEqual(['e2-e4']);
+    const draft = await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft);
+    const calls = await page.evaluate(() => (window as any).harnessCalls.length);
+    const external = await (await page.request.post(new URL('/fixture-position?case=haste', harness.url).href)).json();
+    const other = external._meta.view.game_id; games.push(other);
+    expect(await frame.locator('html').evaluate((_, id) => (window as any).harnessApp.memory.games.some((entry: any) => entry.game_id === id), other)).toBe(false);
+    await frame.locator('#page-back').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator(`#games-list [data-game-id="${other}"]`).waitFor();
+    expect(await frame.locator(`#games-list [data-game-id="${before.game}"]`).count()).toBe(1);
+    expect(await frame.locator('html').evaluate(() => {
+      const view = (window as any).harnessApp.memory.view;
+      return { game: view.game_id, fen: view.fen, revision: view.revision };
+    })).toEqual({ game: before.game, fen: before.fen, revision: before.revision });
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft)).toEqual(draft);
+    expect(await page.evaluate(start => (window as any).harnessCalls.slice(start).map((call: any) => call.name), calls)).toEqual(['kingdown_games']);
+  } finally {
+    await page.close();
+    for (const game_id of games) await fetch(new URL('/fixture-delete-match', harness.url), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id }) });
+  }
+});
 it('opens a chat route in host fullscreen with no display request', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -894,6 +930,7 @@ it.each(['end', 'friend'])('restores a saved %s route to the board when the game
     await page.evaluate(screen => { (window as any).harnessWidgetState.privateContent.screen = screen; }, screen);
     await page.locator('#remount').click();
     await frame.locator('body[data-page="board"]').waitFor();
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
     expect(await page.evaluate(() => (window as any).harnessView.status)).toBe('playing');
     expect(await frame.locator('#over.end-card').isVisible()).toBe(false);
   } finally { await page.close(); }
@@ -1824,6 +1861,7 @@ it('keeps two failed polls silent, resets the count on a good read, and locks af
   try {
     // White, this player, moves next: the timed poll waits 30 s, so only the reads below run.
     await friendGame(page);
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
     for (let n = 0; n < 4; n++) await frame.locator('#board').press('ArrowRight');
     await frame.locator('#board').press('ArrowUp'); await frame.locator('#board').press('Enter');
     expect(await frame.locator('#choices button').count()).toBe(2);
@@ -1975,6 +2013,7 @@ it('clears a failed read when Your games resumes a different solo board', async 
     await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
     expect(await frame.locator('#retry').isVisible()).toBe(false);
     expect(await frame.locator('#error').textContent()).toBe('');
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
     for (let n = 0; n < 4; n++) await frame.locator('#board').press('ArrowRight');
     await frame.locator('#board').press('ArrowUp'); await frame.locator('#board').press('Enter');
     expect(await frame.locator('#choices button').count()).toBe(2);
@@ -2112,7 +2151,8 @@ it('offers ordinary continuation choices after a Freeze card without another pie
     await frame.locator('#board-menu').click();
     await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
     await frame.locator('#choices button[title="!F:a7"]').click();
-    await frame.locator('#board:not([data-animating="true"])').waitFor();
+    await frame.locator('#board-sheet[open]').waitFor({ state: 'hidden' });
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
     expect(await sent(page, 'kingdown_move')).toBe(writes);
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft.lans)).toEqual(['!F:a7']);
     expect(await frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('false');
@@ -2120,7 +2160,8 @@ it('offers ordinary continuation choices after a Freeze card without another pie
     await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
     expect(await frame.locator('#choices button[title="e2-e4"]').count()).toBe(1);
     await frame.locator('#choices button[title="e2-e4"]').click();
-    await frame.locator('#board:not([data-animating="true"])').waitFor();
+    await frame.locator('#board-sheet[open]').waitFor({ state: 'hidden' });
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft.lans)).toEqual(['!F:a7', 'e2-e4']);
     const accepted = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === '/fixture-tool' && response.request().postDataJSON().name === 'kingdown_move');
     await frame.locator('#end-turn[aria-disabled="false"]').click();

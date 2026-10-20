@@ -512,6 +512,7 @@ function scrollNewGame() {
 }
 /** `queued` is the screen that waits behind the home card; it is set before the page syncs, so its memory stays. */
 export function navigate(screen: Screen, queued?: Screen) {
+  const enteringPlay = screen === 'play' && state.screen !== 'play';
   const keepBack = keepHandleBack; keepHandleBack = queued === 'handle';
   if (screen === 'handle' && state.screen !== 'handle' && !keepBack) { handleBack = state.handle_back = state.screen === 'settings' ? 'settings' : state.pending?.screen ?? state.screen; nameForCaller = state.name_for_caller = false; }
   if (screen !== 'handle' && queued !== 'handle' && (state.screen === 'handle' || state.queued === 'handle')) { delete state.handle_back; delete state.name_for_caller; }
@@ -539,7 +540,7 @@ export function navigate(screen: Screen, queued?: Screen) {
   client.save(); poll?.update();
   app.route?.(screen, view?.game_id);
   if (screen === 'play' || screen === 'profile' || screen === 'settings') {
-    if (!mounting()) enterRead?.({ screen });
+    if (!mounting()) { if (enteringPlay) memory.dirty = true; enterRead?.({ screen }); }
   } else if (screen === 'home' && !mounting() && memory.dirty) void games();
   if (screen === 'play') scrollNewGame();
   if (screen === 'play' && gamesFirst) { gamesFirst = false; $('games-list').closest<HTMLElement>('.new-game-body')!.scrollTop = 0; }

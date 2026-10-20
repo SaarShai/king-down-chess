@@ -57,7 +57,7 @@ async function callTool(widget: Widget, params: any) {
   if (host.rejectNextGet && params.name === 'kingdown_get') { host.rejectNextGet = false; throw new Error('Harness saved-game read failed'); }
   if (host.rejectNextMove && params.name === 'kingdown_move') { const code = host.rejectNextMove; host.rejectNextMove = undefined; return { isError: true, content: [{ type: 'text', text: 'Harness definitive rejection' }], _meta: { code } }; }
   if (host.requireHandleNext && params.name === 'kingdown_create') { host.requireHandleNext = false; return { isError: true, content: [{ type: 'text', text: 'Pick a name and picture first.' }], _meta: { code: 'HANDLE_NEEDED' } }; }
-  if (host.failNextAction && params.name !== 'kingdown_handle') { host.failNextAction = false; throw new Error('Harness action after Save failed'); }
+  if (host.failNextAction && !['kingdown_handle', 'kingdown_games'].includes(params.name)) { host.failNextAction = false; throw new Error('Harness action after Save failed'); }
   if (params.name === 'kingdown_handle' && params.arguments?.check !== true) { if (host.failActionAfterHandle) { host.failActionAfterHandle = false; host.failNextAction = true; } host.harnessHandle = params.arguments; }
   // holdBeforeNext holds a call before the server runs it; holdNext (below) holds the reply after the server commits.
   // Each names one tool, or a list of tools for the first call to any of them.
