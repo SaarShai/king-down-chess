@@ -15,6 +15,7 @@ import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { readText } from '../src/read';
 import { checkTabletButtons, checkButtonContent } from './lib/plugin-tablet-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
+import { checkCoinFocus } from './lib/plugin-coin-focus-check.mjs';
 import { momentKind } from '../src/moment';
 import { soundsFor } from '../src/screen/moments';
 import { describeMove } from '../src/move-text';
@@ -267,11 +268,24 @@ it('keeps round coin faces while a command disables the buttons', async () => {
   try {
     const coins = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll<HTMLButtonElement>('.coin')].map(coin => {
       coin.disabled = true;
-      const style = getComputedStyle(coin);
-      return { round: style.borderRadius === '50%', radial: style.backgroundImage.includes('radial-gradient'), cursor: style.cursor };
+      const style = getComputedStyle(coin.querySelector('.coin-paint')!);
+      return { round: style.borderRadius === '50%', radial: style.backgroundImage.includes('radial-gradient'), cursor: getComputedStyle(coin).cursor };
     }));
     expect(coins.length).toBeGreaterThan(0);
     expect(coins.every(coin => coin.round && coin.radial && coin.cursor === 'default')).toBe(true);
+  } finally { await page.close(); }
+});
+
+it.each(['light', 'dark'])('keeps spent card and used power focus above 3:1 in %s at 390 × 844', async theme => {
+  const rules: Partial<Rules> = { kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'Freeze' }], hands: [['Freeze', 'Vault'], ['Freeze', 'Vault']] };
+  const page = await open(view('7k/8/8/8/8/8/P7/R6K w - - 0 1 u3.3', rules), 390, 844), frame = page.frameLocator('iframe');
+  try {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.evaluate(theme => (window as any).harnessSetContext({ theme }), theme);
+    const ids = await frame.locator('#game-table .coin[data-state="used"]').evaluateAll(coins => coins.map(c => c.id));
+    expect(ids).toHaveLength(6);
+    for (const id of ids) await checkCoinFocus(page, frame, `#${id}`);
+    expect(await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll('.notches')].every(n => n.parentElement?.className === 'coin-paint'))).toBe(true);
   } finally { await page.close(); }
 });
 
@@ -281,13 +295,13 @@ it('keeps spent coin contrast and clear symbols together', async () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const coins = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll<HTMLButtonElement>('.card-coin')].map(coin => {
       coin.dataset.state = 'used'; coin.disabled = true;
-      const style = getComputedStyle(coin), symbol = coin.querySelector('svg')!, face = symbol.getBoundingClientRect(), box = coin.getBoundingClientRect();
-      return { opacity: style.opacity, symbol: !!symbol, letters: coin.textContent, color: getComputedStyle(symbol).color, inset: box.width - face.width };
+      const style = getComputedStyle(coin.querySelector('.coin-paint')!), symbol = coin.querySelector('svg')!, face = symbol.getBoundingClientRect(), box = coin.getBoundingClientRect();
+      return { opacity: style.opacity, buttonOpacity: getComputedStyle(coin).opacity, symbol: !!symbol, letters: coin.textContent, color: getComputedStyle(symbol).color, inset: box.width - face.width };
     }));
     expect(coins).toHaveLength(2);
     expect(coins[0].color).not.toBe(coins[1].color);
     expect(coins[1].color).toBe('rgb(255, 245, 218)');
-    for (const coin of coins) { expect(coin.opacity).toBe('0.85'); expect(coin.symbol).toBe(true); expect(coin.letters).toBe(''); expect(coin.inset).toBeCloseTo(12, 0); }
+    for (const coin of coins) { expect(coin.opacity).toBe('0.85'); expect(coin.buttonOpacity).toBe('1'); expect(coin.symbol).toBe(true); expect(coin.letters).toBe(''); expect(coin.inset).toBeCloseTo(12, 0); }
   } finally { await page.close(); }
 });
 
@@ -1799,7 +1813,7 @@ it('F06: marks only the armed usable card and shows the gold band', async () => 
     const pixels = await coin.screenshot({ path: join(proof, 'f06-coin.png') });
     const sharp = (await import('sharp')).default, image = await sharp(pixels).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     const x = Math.floor(image.info.width / 2), at = (3 * image.info.width + x) * 4;
-    expect(await coin.evaluate(e => getComputedStyle(e).boxShadow)).toMatch(/rgb\(233, 192, 113\)[^,]*\b5px\b/);
+    expect(await coin.evaluate(e => getComputedStyle(e.querySelector('.coin-paint')!).boxShadow)).toMatch(/rgb\(233, 192, 113\)[^,]*\b5px\b/);
     // Linux rasters put this pixel up to 14 levels off gold-bright; the ink ring and the card art are more than 80 away.
     for (const [i, value] of [233, 192, 113].entries()) expect(Math.abs(image.data[at + i] - value)).toBeLessThanOrEqual(24);
     await page.screenshot({ path: join(proof, 'plugin-card-targets-390x844-dark.png') });

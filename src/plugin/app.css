@@ -123,13 +123,15 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .coin-row { gap: 4px; }
 #game-table .player-strip { gap: 8px; }
 .coin.card-coin { width: 34px; height: 34px; overflow: hidden; }
+/* The button keeps the focus pair. Only its paint span dims or turns grey. */
+#game-table .coin { background: transparent; border-color: transparent; box-shadow: none; opacity: 1; filter: none; }
 /* Your card coins: a dark coin face (a coin keeps its radial face, never the stone control face) under a gold ring. */
-#app-root #strip-me .coin.card-coin { background: radial-gradient(circle at 40% 30%, var(--stone-700) 70%, var(--stone-900)); border-color: var(--gold); --card-ring: var(--gold); }
-#app-root #strip-them .coin.card-coin { border-color: var(--stone-700); --card-ring: var(--stone-700); }
-#game-table .coin.card-coin:not([data-state='armed']) { box-shadow: var(--lift), inset 0 0 0 2px var(--card-ring); }
+#app-root #strip-me .coin.card-coin > .coin-paint { background: radial-gradient(circle at 40% 30%, var(--stone-700) 70%, var(--stone-900)); border-color: var(--gold); --card-ring: var(--gold); }
+#app-root #strip-them .coin.card-coin > .coin-paint { border-color: var(--stone-700); --card-ring: var(--stone-700); }
+#game-table .coin.card-coin:not([data-state='armed']) > .coin-paint { box-shadow: var(--lift), inset 0 0 0 2px var(--card-ring); }
 /* G2 a: a spent card coin still opens its read sheet, so its word keeps 4.5:1. The grey and a lighter dim (0.85) mark it as spent. */
-#game-table .coin.card-coin[data-state='used'] { opacity: .85; }
-.coin.card-coin img { inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); border-radius: 50%; object-fit: cover; }
+#game-table .coin.card-coin[data-state='used'] > .coin-paint { opacity: .85; }
+.coin.card-coin > .coin-paint > img { inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); border-radius: 50%; object-fit: cover; }
 #game-table .coin:not(.card-coin) { width: 40px; height: 40px; }
 #game-table .coin:not(.card-coin) img { inset: 4px; width: 30px; height: 30px; }
 #game-table .player-name b { font-size: var(--fs-body); }

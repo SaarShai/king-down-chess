@@ -367,8 +367,9 @@ export function boardScreen(store: Store) {
       const row = strip.querySelector('.coin-row')!, coin = coinState(pos, side, RULES, [], mine && !!armed, mine ? moves.map(c => c.move) : undefined, canPlay() ? view.seat : null);
       if (coin) {
         const b = button('', () => coinRead(side)); b.className = 'coin'; b.id = `power-${side ? 'b' : 'w'}`; b.dataset.state = coin.state; if (coin.state !== 'always') b.setAttribute('aria-pressed', String(coin.state === 'armed')); b.setAttribute('aria-label', (mine ? 'Your ' : "Opponent's ") + coinWords(coin, pos).replace(' · ', ', '));
-        const image = document.createElement('img'); image.src = art(`ui/emblems/${coin.king.toLowerCase()}.webp`); image.alt = ''; b.append(image);
-        if (coin.total !== null && coin.total > 0) { const n = document.createElement('span'); n.className = 'notches'; n.setAttribute('aria-hidden','true'); for (let i=0;i<coin.total;i++) { const notch = document.createElement('span'); notch.className = 'notch' + (i < coin.spent ? ' is-spent' : ''); n.append(notch); } b.append(n); }
+        const paint = document.createElement('span'); paint.className = 'coin-paint'; b.append(paint);
+        const image = document.createElement('img'); image.src = art(`ui/emblems/${coin.king.toLowerCase()}.webp`); image.alt = ''; paint.append(image);
+        if (coin.total !== null && coin.total > 0) { const n = document.createElement('span'); n.className = 'notches'; n.setAttribute('aria-hidden','true'); for (let i=0;i<coin.total;i++) { const notch = document.createElement('span'); notch.className = 'notch' + (i < coin.spent ? ' is-spent' : ''); n.append(notch); } paint.append(n); }
         row.append(b);
       }
       for (const [index, card] of cardCoins(pos, side, RULES.hands[side], []).entries()) {
@@ -381,8 +382,9 @@ export function boardScreen(store: Store) {
         b.dataset.state = mine && armedCard === index && !card.spent ? 'armed' : card.spent && !spending ? 'used' : 'always';
         if (mine && !card.spent) b.setAttribute('aria-pressed', String(armedCard === index));
         if (!spending) { b.style.setProperty('--i', String(index)); moment(b, 'is-dealt', dealtAt, 560); } b.setAttribute('aria-label', (mine ? 'Your ' : "Opponent's ") + cardName(card.card) + (card.spent ? ', spent' : ''));
-        if (face) { image.src = face; image.alt = ''; b.append(image); }
-        else b.innerHTML = cardSymbol(card.card);
+        const paint = document.createElement('span'); paint.className = 'coin-paint'; b.append(paint);
+        if (face) { image.src = face; image.alt = ''; paint.append(image); }
+        else paint.innerHTML = cardSymbol(card.card);
         row.append(b);
       }
     }

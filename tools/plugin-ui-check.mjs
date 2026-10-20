@@ -4,6 +4,7 @@ import { checkAndroidFixes } from './lib/plugin-android-check.mjs';
 import { checkCardDetails } from './lib/card-detail-check.mjs';
 import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
+import { checkCoinFocus } from './lib/plugin-coin-focus-check.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
 import { assertCardReadState } from './lib/plugin-card-read.mjs';
@@ -645,7 +646,7 @@ try {
     });
     assert.equal(await frame.locator('#game-table .coin').count(), 10, 'Both strips show four cards and one power');
     const coins44 = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll('.coin')].map(coin => {
-      const style = getComputedStyle(coin), box = coin.getBoundingClientRect();
+      const style = getComputedStyle(coin.querySelector('.coin-paint')), box = coin.getBoundingClientRect();
       return { id: coin.id, width: box.width, height: box.height, radii: [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomLeftRadius, style.borderBottomRightRadius], radial: style.backgroundImage.includes('radial-gradient'), stone: style.backgroundImage.includes('stone-control'), disabled: coin.disabled, motion: coin.getAnimations().map(animation => animation.playState) };
     }));
     assert(coins44.every(coin => coin.radii.every(radius => radius === '50%') && Math.abs(coin.width - coin.height) < .5 && coin.width >= 44 && coin.radial && !coin.stone), `Card and power coins stay round with 44 px targets at 393 × 852: ${JSON.stringify(coins44)}`);
@@ -2025,6 +2026,26 @@ try {
   const { measureCardCoins } = await import('./lib/plugin-cards-check.mjs');
   await measureCardCoins(frame, env('PLAYABLE_OUT'));
   const cardView = cardGame._meta.view; setRules(cardView.rules);
+  const focusHost = await hostPage(390, 844, 102, 118);
+  try {
+    await focusHost.page.emulateMedia({ reducedMotion: 'reduce' });
+    await focusHost.frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
+    const focusPos = fromFen(cardView.fen); focusPos.used = [15, 15];
+    const focusView = { ...cardView, fen: toFen(focusPos), rules: { ...cardView.rules, kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'Freeze' }] } };
+    await focusHost.page.evaluate(view => {
+      window.harnessNextView = view;
+      return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id, screen: 'board' }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
+    }, focusView);
+    await focusHost.frame.locator('#power-w[data-state="used"]').waitFor();
+    const ids = await focusHost.frame.locator('#game-table .coin[data-state="used"]').evaluateAll(coins => coins.map(c => c.id));
+    assert.equal(ids.length, 10, 'Both hands and powers are spent');
+    for (const theme of ['light', 'dark']) {
+      await focusHost.page.evaluate(theme => window.harnessSetContext({ theme }), theme);
+      const proof = [];
+      for (const id of ids) proof.push(await checkCoinFocus(focusHost.page, focusHost.frame, `#${id}`, env('PLAYABLE_OUT'), `coin-${theme}-${id}`));
+      console.log(`Coin focus at 390 × 844 (${theme}):`, JSON.stringify(proof));
+    }
+  } finally { await focusHost.page.close(); }
   const cardPos = fromFen(cardView.fen), cardLegal = legalMoves(cardPos).filter(m => cardView.legal.includes(toLan(cardPos,m))), hand = cardCoins(cardPos,cardView.seat,cardView.rules.hands[cardView.seat],cardLegal);
   const cardIndex = hand.findIndex(c=>c.card === 'Vault' && c.moves.length); assert(cardIndex>=0,'The dealt Vault has a move');
   const card = hand[cardIndex], cardWords = cardName(card.card), cardLan = toLan(cardPos,card.moves[0]);
@@ -2064,10 +2085,11 @@ try {
   const spentCoin = frame.locator('#strip-me .card-coin').nth(cardIndex);
   await page.keyboard.press('Tab'); await spentCoin.focus();
   const spentFocus = await spentCoin.evaluate(el => {
-    const s = getComputedStyle(el); return { keyboard: el.matches(':focus-visible'), filter: s.filter, art: getComputedStyle(el.querySelector('img')).filter, ink: s.outlineColor, width: s.outlineWidth, gold: s.boxShadow };
+    const s = getComputedStyle(el); return { keyboard: el.matches(':focus-visible'), filter: s.filter, opacity: s.opacity, art: getComputedStyle(el.querySelector('.coin-paint')).filter, ink: s.outlineColor, width: s.outlineWidth, gold: s.boxShadow };
   });
   assert(spentFocus.keyboard, 'A spent coin can have keyboard focus');
   assert.equal(spentFocus.filter, 'none', 'The spent state does not turn the focus ring grey');
+  assert.equal(spentFocus.opacity, '1', 'The spent state does not dim the focus ring');
   assert.equal(spentFocus.art, 'grayscale(1)', 'The spent card art stays grey');
   assert.equal(spentFocus.ink, 'rgb(43, 38, 33)'); assert.equal(spentFocus.width, '2px');
   assert.match(spentFocus.gold, /rgb\(233, 192, 113\).*4px/);

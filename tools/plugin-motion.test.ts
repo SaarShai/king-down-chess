@@ -172,7 +172,7 @@ it.each([false, true])('gives a spent card a short gold pulse (reduced motion %s
     await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move' }).click();
     // The pulse can start and end inside click(). Record it before the click.
     await frame.locator('body').evaluate((e, id) => { const w = window as any; w.spentPulse = '';
-      new MutationObserver(() => { const c = document.getElementById(id); if (!w.spentPulse && c?.classList.contains('is-spending')) w.spentPulse = getComputedStyle(c).animationName; })
+      new MutationObserver(() => { const c = document.getElementById(id); if (!w.spentPulse && c?.classList.contains('is-spending')) w.spentPulse = getComputedStyle(c.querySelector('.coin-paint')!).animationName; })
         .observe(e, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] }); }, `card-w-${index}`);
     await frame.locator('#board-sheet #choices button').first().click();
     const coin = frame.locator(`#card-w-${index}`);
@@ -180,7 +180,8 @@ it.each([false, true])('gives a spent card a short gold pulse (reduced motion %s
     expect(await frame.locator('body').evaluate(() => (window as any).spentPulse)).toBe(reduced ? '' : 'card-spend');
     // G2 a: a spent card coin dims to 0.85, so its word keeps 4.5:1.
     // strips() rebuilds the coin row on a poll. A detached coin reads no style, so poll until an attached coin dims.
-    await expect.poll(() => coin.evaluate(e => (e as HTMLElement).isConnected ? getComputedStyle(e).opacity : null), { timeout: 5000 }).toBe('0.85');
+    await expect.poll(() => coin.evaluate(e => (e as HTMLElement).isConnected ? getComputedStyle(e.querySelector('.coin-paint')!).opacity : null), { timeout: 5000 }).toBe('0.85');
+    expect(await coin.evaluate(e => getComputedStyle(e).opacity)).toBe('1');
   } finally { await page.close(); }
 });
 

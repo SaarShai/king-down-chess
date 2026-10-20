@@ -120,12 +120,12 @@ export async function measureCardCoins(frame, output) {
   const rgb = text => text.match(/[\d.]+/g).slice(0, 3).map(Number);
   const light = values => values.map(c => c / 255).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4).reduce((s, c, i) => s + c * [.2126,.7152,.0722][i], 0);
   const contrast = (a, b) => { const x = light(a), y = light(b); return (Math.max(x,y) + .05) / (Math.min(x,y) + .05); };
-  const rings = await frame.locator('.card-coin').evaluateAll(coins => coins.map(c => ({ side: c.closest('.player-strip').id, color: getComputedStyle(c).borderColor })));
+  const rings = await frame.locator('.card-coin > .coin-paint').evaluateAll(coins => coins.map(c => ({ side: c.closest('.player-strip').id, color: getComputedStyle(c).borderColor })));
   assert.equal(new Set(rings.map(r => r.color)).size, 2, 'The hands have different rings');
   const ringDifference = contrast(rgb(rings.find(r => r.side === 'strip-me').color), rgb(rings.find(r => r.side === 'strip-them').color));
   assert(ringDifference >= 3, 'The two hand rings have at least 3:1 contrast');
   for (const side of ['strip-me', 'strip-them']) {
-    const coin = frame.locator(`#${side} .card-coin`).first();
+    const coin = frame.locator(`#${side} .card-coin > .coin-paint`).first();
     const style = await coin.getAttribute('style');
     // Read the face under the ring, with its border, shadow and children hidden.
     const children = await coin.evaluate(el => {
