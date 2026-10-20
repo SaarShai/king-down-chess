@@ -1241,7 +1241,7 @@ it('W7: stages a move, sends once, and starts the computer only after the press'
     expect(await frame.locator('#status').textContent()).toBe('Your turn is ready. Select End turn.');
     expect(await frame.locator('#end-turn').getAttribute('aria-label')).toBe('End turn');
     expect(await frame.locator('#end-turn').getAttribute('title')).toBe('End turn');
-    expect(await frame.locator('#end-turn .turn-label').innerText()).toBe('End turn');
+    expect(await frame.locator('#end-turn').innerText()).toBe('End turn');
     expect(await frame.locator('#end-turn use').getAttribute('href')).toBe('#i-sword');
     await page.emulateMedia({reducedMotion:'reduce'});
     expect(await frame.locator('#end-turn').evaluate(e => getComputedStyle(e).animationName)).toBe('none');
