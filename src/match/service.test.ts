@@ -16,6 +16,31 @@ beforeEach(() => {
  vi.mocked(loadMatch).mockResolvedValue({apply,close,exportSave} as unknown as LocalMatch);
 });
 describe('game service failure boundaries', () => {
+ it('checks draft authority, revision, implementation and prefix bounds before opening a worker', async () => {
+  const engine = 'sha256:' + 'a'.repeat(64), game = { id, kind:'solo', status:'playing', turn:0, revision:0, engine_fingerprint:engine, state:JSON.stringify({engine}), snapshot:{turn:0,status:'playing',revision:0}, players:[seat(0,actor),seat(1,null)] };
+  const input = {expected_revision:0,engine_fingerprint:engine,actions:[]};
+  for (const [change, code] of [[{players:[seat(0,id),seat(1,null)]},'FORBIDDEN'],[{revision:1},'STALE_REVISION'],[{engine_fingerprint:'sha256:'+'b'.repeat(64)},'MATCH_INCOMPATIBLE'],[{state:JSON.stringify({engine:'other'})},'MATCH_INCOMPATIBLE'],[{status:'finished'},'NOT_ALLOWED'],[{turn:1},'WRONG_TURN']] as const) {
+   load.mockResolvedValueOnce({...game,...change});
+   await expect(service.previewDraft(actor,id,input)).rejects.toMatchObject({code});
+  }
+  for (const invalid of [{...input,actions:Array(5).fill('e2-e4')},{...input,actions:['bad\n']},{...input,engine_fingerprint:'unknown'},{...input,actor_id:actor},{...input,expected_revision:-1}]) await expect(service.previewDraft(actor,id,invalid)).rejects.toMatchObject({code:'INVALID_INPUT'});
+  expect(loadMatch).not.toHaveBeenCalled(); expect(transaction).not.toHaveBeenCalled(); expect(seen).not.toHaveBeenCalled(); expect(receipt).not.toHaveBeenCalled();
+ });
+ it('closes a draft worker on success, illegal moves, handover and worker failure, without writing', async () => {
+  const engine = 'sha256:'+'a'.repeat(64), initial = {turn:0,status:'playing',revision:0,fen:'base',inCheck:false,moves:[]};
+  load.mockResolvedValue({id,status:'playing',turn:0,revision:0,engine_fingerprint:engine,state:JSON.stringify({engine}),snapshot:initial,players:[seat(0,actor),seat(1,null)]});
+  const snapshot = vi.fn().mockResolvedValue(initial);
+  vi.mocked(loadMatch).mockResolvedValue({apply,close,exportSave,snapshot} as unknown as LocalMatch);
+  const preview = (actions:string[]) => service.previewDraft(actor,id,{expected_revision:0,engine_fingerprint:engine,actions});
+  expect((await preview([])).positions).toHaveLength(1);
+  apply.mockRejectedValueOnce(new MatchError('Illegal or ambiguous move'));
+  await expect(preview(['bad'])).rejects.toMatchObject({code:'INVALID_MOVE'});
+  apply.mockResolvedValueOnce({...initial,turn:1,revision:1});
+  await expect(preview(['e2-e4','e4-e5'])).rejects.toMatchObject({code:'INVALID_MOVE'});
+  snapshot.mockRejectedValueOnce(new Error('private worker path'));
+  await expect(preview([])).rejects.toMatchObject({code:'UNAVAILABLE',message:'The game worker is unavailable. Retry.'});
+  expect(close).toHaveBeenCalledTimes(4); expect(exportSave).not.toHaveBeenCalled(); expect(transaction).not.toHaveBeenCalled(); expect(seen).not.toHaveBeenCalled(); expect(receipt).not.toHaveBeenCalled();
+ });
  it('checks normalized game and actor IDs and seat authority before activity', async () => {
   const user = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', game = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
   load.mockResolvedValueOnce({ players: [seat(0, user), seat(1, null)] });

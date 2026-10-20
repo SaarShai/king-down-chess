@@ -30,7 +30,7 @@ beforeAll(async () => {
   // Normal shared build: at most 601 ms in the M1 style test.
   execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe', timeout: 30_000 });
   const boardPath = join(folder, 'board.html');
-  harness = await startHarness({ boardPath, sourcePage: true }); served = await startHarness({ boardPath }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
+  harness = await startHarness({ boardPath, sourcePage: true, pageEngine: 'test-engine' }); served = await startHarness({ boardPath }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
   // The first board page of a new browser pays one-time costs (Vite's transform of the board modules, the first painted
   // board): over 3 s on cold Linux WebKit in CI runs 39135693919 and 39138716531. Open one board here with the hook's
   // limit, so the first test's 3 s steps measure the page, not the cold start.
@@ -922,6 +922,7 @@ async function chooseTurnMove(page: Page, lan: string, from: number) {
   await squareTap(page, from); await frame.locator('#board-menu').click();
   await frame.locator('#board-sheet').getByRole('button',{name:'Choose a move',exact:true}).click();
   await frame.locator(`#choices button[title="${lan}"]`).click();
+  await expect.poll(async () => (await savedDraft(page))?.lans.at(-1)).toBe(lan);
   await frame.locator('#board[data-animating="false"]').waitFor();
 }
 const moveCalls = (page: Page) => page.evaluate(() => ((window as any).harnessCalls ?? []).filter((c: any) => c.name === 'kingdown_move'));
@@ -2268,4 +2269,103 @@ it('A8: Off ends the active marker draw timer', async () => {
     await page.clock.runFor(500);
     expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.frames)).toBe(frames);
   } finally { await page.close(); }
+});
+
+it('keeps a stored-engine draft through undo, remount and a late preview when the page calculator differs', async () => {
+  const { LocalMatch } = await import('../src/match');
+  const { GameService } = await import('../src/match/service');
+  const { pathToFileURL } = await import('node:url');
+  const { resolve } = await import('node:path');
+  const actor = '11111111-1111-4111-8111-111111111111', engine = 'sha256:bab22e94d4df81591374763a7f3abe703c30534f80ce771ee3fe7e095dcec7da';
+  const match = new LocalMatch(pathToFileURL(resolve('engines', engine.slice(7) + '.mjs')));
+  const page = await browser.newPage({viewport:{width:393,height:852}}); page.setDefaultTimeout(10_000);
+  const errors:string[] = []; page.on('pageerror', error=>errors.push(error.message));
+  let release: (()=>void) | undefined, hold = false, commit:string[]|undefined, previews=0, returned=0, boardId:string|undefined, committedFen:string|undefined;
+  try {
+    await match.initialize({fen:'7k/p7/8/8/8/8/8/R5K1 w - - 0 1',kings:'Flame:Haste,none'});
+    const snapshot = await match.snapshot(), state = await match.exportSave();
+    const base = view(snapshot.fen,snapshot.rules,{engine_fingerprint:engine,kind:'friend',history:{initial_fen:snapshot.fen,actions:[]}});
+    const game = {id:base.game_id,revision:0,engine_fingerprint:engine,status:'playing',turn:0,state,snapshot,players:[{seat:0,user_id:actor},{seat:1,user_id:null}]};
+    const service = new GameService({load:async()=>game} as unknown as import('../src/match/store').PostgresMatchStore);
+    await page.route('**/board-resource', async route=>{
+      const response=await route.fetch(), source=await response.text();
+      const entry='<script type="module">await window.harnessBoot;';
+      expect(source).toContain(entry);
+      const divergent=`const {GameRules}=await import('/src/game-rules.ts');
+        GameRules.prototype.legalMoves=()=>[];
+        GameRules.prototype.makeMove=()=>{throw new Error('Divergent page must not enforce this draft');};
+        GameRules.prototype.status=()=>{throw new Error('Divergent page must not decide this result');};
+        window.testBoard=(await import('/src/plugin/board-view.ts')).board;`;
+      await route.fulfill({response,body:source.replace(entry,entry+divergent)});
+    });
+    await page.route('**/fixture-tool', async route=>{
+      const request = route.request().postDataJSON();
+      if (request.name === 'kingdown_preview') {
+        previews++;
+        const {game_id:_,...input}=request.arguments;
+        const result = await service.previewDraft(actor,base.game_id,input);
+        if (hold) { hold=false; await new Promise<void>(done=>{release=done;}); }
+        await route.fulfill({json:{content:[],_meta:{draft:result}}}); returned++;
+      } else if (request.name === 'kingdown_get') await route.fulfill({json:{content:[],structuredContent:{screen:'board'},_meta:{board_id:boardId,view:base}}});
+      else if (request.name === 'kingdown_move') {
+        commit=request.arguments.actions;
+        for (const [index,lan] of commit!.entries()) await match.apply({id:`commit-${index}`,expectedRevision:index,lan});
+        const after = await match.snapshot(); committedFen=after.fen;
+        await route.fulfill({json:{content:[],_meta:{view:{...base,revision:1,fen:after.fen,turn:after.turn,action:'waiting',legal:[],history:{initial_fen:snapshot.fen,actions:commit},last_commands:[{seq:1,seat:0,at:'2026-10-20T00:00:00Z',action:{type:'turn',actions:commit}}]}}}});
+      } else await route.continue();
+    });
+    await page.goto(harness.url); await waitForSourceApp(page);
+    const frame=page.frameLocator('iframe');
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    boardId=await page.evaluate(()=>(window as any).harnessWidgetState.privateContent.board_id);
+    await page.evaluate(async ()=>(window as any).harnessSetContext({displayMode:'fullscreen'}));
+    await frame.locator('html').evaluate((_,base)=>(window as any).harnessApp.routeView(base),base);
+    await frame.locator('#board').waitFor({state:'visible'});
+    await expect.poll(()=>previews).toBe(1);
+    const move = async (lan:string) => {
+      await frame.locator('#board').focus();
+      await frame.locator('#power-w').click();
+      await frame.getByRole('button',{name:'Use',exact:true}).click();
+      await squareTap(page,0);
+      await frame.locator('#board-menu').click();
+      await frame.locator('#board-sheet').getByRole('button',{name:'Choose a move',exact:true}).click();
+      await frame.locator(`#choices button[title="${lan}"]`).click();
+      await expect.poll(()=>frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('false');
+      await expect.poll(()=>frame.locator('#board').getAttribute('data-animating')).toBe('false');
+    };
+    await move('Ra1-a4!H');
+    await expect.poll(()=>frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('false');
+    expect(await boardFen(page)).toBe('7k/p7/8/8/R7/8/8/6K1 w - - 1 1 u1.0/ha4');
+    await frame.locator('#undo').click();
+    await expect.poll(()=>frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('true');
+    expect(await boardFen(page)).toBe(base.fen);
+    await move('Ra1-a4!H');
+    expect((await savedDraft(page)).lans).toEqual(['Ra1-a4!H']);
+    const boots=await page.evaluate(()=>(window as any).harnessBoots);
+    await page.locator('#remount').click();
+    await expect.poll(()=>page.evaluate(()=>(window as any).harnessBoots)).toBe(boots+1);
+    await page.frameLocator('iframe').locator('#board[aria-busy="false"]').waitFor({state:'visible'});
+    await expect.poll(()=>page.frameLocator('iframe').locator('#end-turn').getAttribute('aria-disabled')).toBe('false');
+    expect(await page.evaluate(()=>(window as any).harnessWidgetState.privateContent.draft.lans)).toEqual(['Ra1-a4!H']);
+    await page.frameLocator('iframe').locator('#end-turn').click();
+    await expect.poll(()=>commit).toEqual(['Ra1-a4!H','--']);
+    expect((await match.snapshot()).turn).toBe(1);
+    await expect.poll(()=>boardFen(page)).toBe(committedFen);
+    expect(await page.frameLocator('iframe').locator('#recent-moves').textContent()).toContain('White rook');
+    expect(errors).toEqual([]);
+    // A held read belongs to its old view, not a newly selected board.
+    const settled=returned;
+    hold=true; game.revision=2;
+    await page.frameLocator('iframe').locator('html').evaluate((_,base)=>(window as any).harnessApp.routeView({...base,revision:2}),base);
+    await expect.poll(()=>!!release).toBe(true);
+    const other={...base,game_id:crypto.randomUUID(),revision:3,fen:'7k/8/8/8/8/8/P7/K7 b - - 0 1',action:'waiting',turn:1} as View;
+    await page.frameLocator('iframe').locator('html').evaluate((_,other)=>(window as any).harnessApp.routeView(other),other);
+    release!(); release=undefined;
+    await expect.poll(()=>page.frameLocator('iframe').locator('html').evaluate(()=>(window as any).harnessApp.memory.view?.game_id)).toBe(other.game_id);
+    await expect.poll(()=>returned).toBe(settled+1);
+    expect(await boardFen(page)).toBe(other.fen);
+    expect(await savedDraft(page)).toBeNull();
+    expect(errors).toEqual([]);
+  } catch (error) { throw new Error(`${String(error)}; page errors: ${JSON.stringify(errors)}`,{cause:error}); }
+  finally {release?.();await page.close();await match.close();}
 });

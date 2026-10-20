@@ -2,7 +2,7 @@
  * Browser code imports the types only (`import type`), so zod stays out of the website bundle. */
 import { z } from 'zod';
 import type { PublicMatchRules } from './index';
-import type { Status } from '../rules/engine';
+import type { Move, Status } from '../rules/engine';
 import { choiceSchema, optionsSchema } from './setup-schema';
 import type { Choice, Options, SetupAdmission } from './setup';
 import type { CardName, KingChoice, KingName, PowerName } from '../rules/rules';
@@ -19,6 +19,11 @@ export const PRESETS = ['hello', 'good_luck', 'good_game', 'well_played', 'thank
 export type Preset = typeof PRESETS[number];
 
 const text = (max: number) => z.string().min(1).max(max).regex(/^[^\u0000-\u001f\u007f]+$/);
+/** A private, uncommitted prefix of the current seat's turn. */
+export const draftSchema = z.strictObject({ expected_revision: z.number().int().min(0).max(MAX_REVISION), engine_fingerprint: z.string().regex(/^sha256:[a-f0-9]{64}$/), actions: z.array(text(120)).max(4) });
+export type DraftInput = z.infer<typeof draftSchema>;
+export interface DraftPosition { fen: string; status: Status; turn: Seat; in_check: boolean; moves: { lan: string; move: Move }[] }
+export interface DraftPreview { game_id: string; revision: number; engine_fingerprint: string; actions: string[]; positions: DraftPosition[] }
 export const actionSchema = z.discriminatedUnion('type', [
   // One or more actions of the mover, applied in order, all or nothing (a Daily website turn is one command).
   z.strictObject({ type: z.literal('turn'), actions: z.array(text(120)).min(1).max(4) }),

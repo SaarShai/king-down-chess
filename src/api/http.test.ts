@@ -16,6 +16,7 @@ const operations = new Set([
  'GET /api/games/:id',
  'POST /api/games/:id/seen',
  'POST /api/games/:id/commands',
+ 'POST /api/games/:id/preview',
  'POST /api/games/:id/invite',
  'POST /api/invites/redeem',
  'GET /api/me/games',
@@ -504,4 +505,19 @@ describe('internal job endpoints', () => {
   }
   expect(games.sweep).not.toHaveBeenCalled();
  });
+});
+
+it('authenticates and bounds a private draft preview without a command or activity write', async () => {
+ const engine_fingerprint = 'sha256:'+'a'.repeat(64), input = {expected_revision:3,engine_fingerprint,actions:['Ra1-a4!H']};
+ const draft = {game_id:gameId,revision:3,engine_fingerprint,actions:input.actions,positions:[{fen:'private draft',status:'playing',turn:0,in_check:false,moves:[]}]};
+ games.previewDraft = vi.fn(async()=>draft);
+ expect((await call(`/api/games/${gameId}/preview`,{method:'POST',body:input})).status).toBe(401);
+ expect(games.previewDraft).not.toHaveBeenCalled();
+ const token = await sign();
+ const response = await call(`/api/games/${gameId}/preview`,{token,method:'POST',body:input});
+ expect(response.status).toBe(200); expect(response.headers.get('cache-control')).toBe('no-store');
+ expect(await response.json()).toEqual(draft);
+ expect(games.previewDraft).toHaveBeenCalledExactlyOnceWith(alice,gameId,input);
+ for (const extra of [{actor_id:alice},{actions:Array(5).fill('e2-e4')},{engine_fingerprint:'unknown'}]) expect((await call(`/api/games/${gameId}/preview`,{token,method:'POST',body:{...input,...extra}})).status).toBe(400);
+ expect(games.previewDraft).toHaveBeenCalledOnce(); expect(games.command).not.toHaveBeenCalled(); expect(games.seen).not.toHaveBeenCalled();
 });

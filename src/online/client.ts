@@ -4,7 +4,7 @@
  * bundle gets no zod and no server code.
  */
 import type { AccountNotices, MyProfile, NotifyKind, ReportCategory, Settings } from '../account/profile';
-import type { Action, CreateOptions, ErrorCode, InboxEntry, Preset, Reply, View, JoinPreview, HistoryEntry, PlayerRecord } from '../match/protocol';
+import type { Action, CreateOptions, DraftInput, DraftPreview, ErrorCode, InboxEntry, Preset, Reply, View, JoinPreview, HistoryEntry, PlayerRecord } from '../match/protocol';
 import type { PlayerSettings } from '../plugin/settings';
 import type { Icon } from '../account/profile';
 import type { InviteLink } from '../api/http';
@@ -62,6 +62,7 @@ export function onlineClient({ token, origin = '', fetch: send = (...args) => fe
     block: (input: { game_id?: string; user_id?: string; blocked?: boolean }) => call<{ blocked: boolean; view?: View }>('POST', '/api/blocks', input),
     /** The full view (with the rules), or the commands after `since`. */
     game: (gameId: string, since?: number, signal?: AbortSignal) => call<View>('GET', `/api/games/${encodeURIComponent(gameId)}${since === undefined ? '' : `?since=${since}`}`, undefined, signal),
+    previewDraft: (gameId: string, input: DraftInput, signal?: AbortSignal) => call<DraftPreview>('POST', `/api/games/${encodeURIComponent(gameId)}/preview`, input, signal),
     /** Records activity only when the caller asks for it. */
     seen: (gameId: string) => call<void>('POST', `/api/games/${encodeURIComponent(gameId)}/seen`),
     /** One command; a lost reply sends it again with the same command_id, and the server applies it once. */

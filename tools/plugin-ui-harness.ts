@@ -64,7 +64,7 @@ async function board(client: Client) {
   console.log(`Read board resource through MCP: ${Buffer.byteLength(JSON.stringify(result))} JSON bytes`);
   return { html: resource.text, meta: (resource._meta ?? {}) as UiMeta };
 }
-export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor, laterFriendActor, seedPosition, deleteMatch, sourcePage = false }: { sourcePage?: boolean; boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string; laterFriendActor?: string; seedPosition?: (setup: MatchSetup, black: boolean) => Promise<string>; deleteMatch?: (id: string) => Promise<void> } = {}) {
+export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor, laterFriendActor, seedPosition, deleteMatch, sourcePage = false, pageEngine }: { pageEngine?: string; sourcePage?: boolean; boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string; laterFriendActor?: string; seedPosition?: (setup: MatchSetup, black: boolean) => Promise<string>; deleteMatch?: (id: string) => Promise<void> } = {}) {
   if (endpoint && (endpoint.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname) || endpoint.username || endpoint.password)) throw new Error('The HTTP harness accepts only a loopback development endpoint');
   let buddy: Client | undefined, laterBuddy: Client | undefined;
   const client = new Client({ name: 'local-browser-host', version: '1' });
@@ -98,7 +98,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
   frameServer.listen(0, '127.0.0.1'); await new Promise(resolve => frameServer.once('listening', resolve));
   const frameHost = `127.0.0.1:${(frameServer.address() as AddressInfo).port}`;
   const body = async (req: AsyncIterable<Buffer>) => { const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(chunk); return JSON.parse(Buffer.concat(chunks).toString()); };
-  vite = await createServer({ configFile: false, logLevel: 'error', cacheDir: resolve(dirname(boardPath), '.harness-cache'), optimizeDeps: { include: ['@modelcontextprotocol/ext-apps/app-bridge'] }, server: { host: '127.0.0.1', port: 0, strictPort: true }, plugins: [pluginSymbols(), { name: 'mcp-app-harness', configureServer(vite) {
+  vite = await createServer({ define: sourcePage && pageEngine ? { __KINGDOWN_PAGE_ENGINE__: JSON.stringify(pageEngine) } : {}, configFile: false, logLevel: 'error', cacheDir: resolve(dirname(boardPath), '.harness-cache'), optimizeDeps: { include: ['@modelcontextprotocol/ext-apps/app-bridge'] }, server: { host: '127.0.0.1', port: 0, strictPort: true }, plugins: [pluginSymbols(), { name: 'mcp-app-harness', configureServer(vite) {
     vite.middlewares.use(async (req, res, next) => {
       // The frame origin serves the widget page and the files it loads; the host page and its routes stay on the host origin.
       const path = req.url?.split('?')[0] ?? '';

@@ -33,6 +33,7 @@ export class PluginService {
   create(actor: string, input: unknown, commandId?: string) { return this.games.create(actor, input, commandId); }
   /** Read-only. */
   view(actor: string, gameId: string, since?: number) { return this.games.view(actor, gameId, since); }
+  previewDraft(actor: string, gameId: string, input: unknown) { return this.games.previewDraft(actor, gameId, input); }
   /** Records seat activity at most once each 30 seconds. */
   seen(actor: string, gameId: string) { return this.games.seen(actor, gameId); }
   /** Read-only. */

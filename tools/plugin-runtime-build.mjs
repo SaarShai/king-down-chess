@@ -41,27 +41,42 @@ export async function publishEnginePair(dir, hex, worker, fixture) {
   catch (error) { await rm(bundle); throw error; }
 }
 
+/** The page and server use the same compiled worker identity; no archive is written here. */
+export async function buildWorker() {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const result = await build({
+    configFile: false, root, publicDir: false, logLevel: 'warn',
+    define: { __KINGDOWN_COMPILED__: 'true', __KINGDOWN_ENGINE__: JSON.stringify(ENGINE_STAMP) },
+    build: {
+      ssr: true, target: 'node20', write: false, minify: true,
+      lib: { entry: resolve(root, 'src/match/worker.ts'), formats: ['es'], fileName: () => 'worker.mjs' },
+      rollupOptions: { external: /^node:/, output: { entryFileNames: 'worker.mjs' } },
+    },
+  });
+  const output = Array.isArray(result) ? result[0].output : result.output;
+  const text = output.find(file => file.type === 'chunk' && file.fileName === 'worker.mjs')?.code;
+  if (!text || text.split(ENGINE_STAMP).length !== 2) throw new Error('The worker bundle must hold the engine stamp exactly once');
+  const hex = createHash('sha256').update(text).digest('hex');
+  return { hex, engine: `sha256:${hex}`, source: text.replace(ENGINE_STAMP, `sha256:${hex}`) };
+}
+
 export async function buildRuntime(outDir = resolve('plugin-dist'), { publish = false, archiveDir = ENGINES } = {}) {
   const root = fileURLToPath(new URL('../', import.meta.url));
   const output = resolve(outDir) + sep, archive = resolve(archiveDir) + sep;
   if (output.startsWith(archive) || archive.startsWith(output)) throw new Error('Runtime output must not overlap the engine archive');
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
-  for (const entry of ['index', 'worker']) {
-    await build({
-      configFile: false, root, publicDir: false, logLevel: 'warn',
-      define: { __KINGDOWN_COMPILED__: 'true', __KINGDOWN_ENGINE__: JSON.stringify(ENGINE_STAMP) },
-      build: {
-        ssr: true, target: 'node20', outDir, emptyOutDir: false, minify: true,
-        lib: { entry: resolve(root, `src/match/${entry}.ts`), formats: ['es'], fileName: () => `${entry}.mjs` },
-        rollupOptions: { external: /^node:/, output: { entryFileNames: `${entry}.mjs` } },
-      },
-    });
-  }
-  const worker = resolve(outDir, 'worker.mjs'), text = await readFile(worker, 'utf8');
-  if (text.split(ENGINE_STAMP).length !== 2) throw new Error('The worker bundle must hold the engine stamp exactly once');
-  const hex = createHash('sha256').update(text).digest('hex');
-  await writeFile(worker, text.replace(ENGINE_STAMP, `sha256:${hex}`));
+  await build({
+    configFile: false, root, publicDir: false, logLevel: 'warn',
+    define: { __KINGDOWN_COMPILED__: 'true' },
+    build: {
+      ssr: true, target: 'node20', outDir, emptyOutDir: false, minify: true,
+      lib: { entry: resolve(root, 'src/match/index.ts'), formats: ['es'], fileName: () => 'index.mjs' },
+      rollupOptions: { external: /^node:/, output: { entryFileNames: 'index.mjs' } },
+    },
+  });
+  const { hex, source } = await buildWorker(), worker = resolve(outDir, 'worker.mjs');
+  await writeFile(worker, source);
   if (publish) {
     const { createMatch } = await import(pathToFileURL(resolve(outDir, 'index.mjs')).href);
     const match = await createMatch();

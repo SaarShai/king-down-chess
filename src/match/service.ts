@@ -2,7 +2,7 @@
 import { createHash, createHmac, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { createMatch, createPinnedMatch, loadMatch, MatchError, type MatchSnapshot } from './index';
-import { commandSchema, createSchema, MAX_REVISION, type Command, type CreateOptions, type EndReason, type InboxEntry, type Invite, type JoinPreview, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
+import { commandSchema, createSchema, draftSchema, MAX_REVISION, type Command, type CreateOptions, type DraftPosition, type DraftPreview, type EndReason, type InboxEntry, type Invite, type JoinPreview, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
 import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
 import { diagnostic } from '../plugin/diagnostics';
 import { buildSetup, defaultChoice, draw, seatChoicesNeeded, switches, setupAdmission, validateChoice } from './setup';
@@ -224,6 +224,35 @@ export class GameService {
   // A full read also loads the engine save: its initial position starts the move history.
   const game = await this.store.load(gameId, { state: since === undefined });
   return this.render(game, seatOf(game, actor), { since, rules: since === undefined });
+ }
+ /** A private draft read: the disposable worker changes, the stored game does not. */
+ async previewDraft(actor: string, gameId: string, input: unknown): Promise<DraftPreview> {
+  actor = id(actor); gameId = id(gameId);
+  const { expected_revision, engine_fingerprint, actions } = parse(draftSchema, input);
+  const game = await this.store.load(gameId, { state: true }), seat = seatOf(game, actor);
+  if (game.revision !== expected_revision) fail('STALE_REVISION', 409, 'The game changed; reload before you act');
+  if (!game.state || !game.snapshot || game.engine_fingerprint !== engine_fingerprint || JSON.parse(game.state).engine !== engine_fingerprint) fail('MATCH_INCOMPATIBLE', 409, 'This game implementation is unavailable');
+  if (game.status !== 'playing') fail('NOT_ALLOWED', 409, 'This game is not in play');
+  if (game.turn !== seat) fail('WRONG_TURN', 403, 'This operation is not permitted on the current turn');
+  let match;
+  try { match = await loadMatch(game.state!); }
+  catch (error) { if (error instanceof MatchError && error.code === 'MATCH_INCOMPATIBLE') fail('MATCH_INCOMPATIBLE', 409, 'This game implementation is unavailable'); return fail('UNAVAILABLE', 503, 'The game worker is unavailable. Retry.'); }
+  try {
+   let snapshot = await match.snapshot();
+   const positions: DraftPosition[] = [];
+   const keep = () => positions.push({ fen: snapshot.fen, status: snapshot.status, turn: snapshot.turn, in_check: snapshot.inCheck, moves: snapshot.moves });
+   keep();
+   for (const lan of actions) {
+    if (snapshot.status !== 'playing' || snapshot.turn !== seat) fail('INVALID_MOVE', 400, 'This turn is already complete');
+    snapshot = await match.apply({ id: `preview-${randomUUID()}`, expectedRevision: snapshot.revision, lan });
+    keep();
+   }
+   return { game_id: gameId, revision: expected_revision, engine_fingerprint, actions, positions };
+  } catch (error) {
+   if (error instanceof MatchServiceError) throw error;
+   if (error instanceof MatchError && ENGINE_REJECTS.includes(error.message)) fail('INVALID_MOVE', 400, 'This move is not available. Choose another move.');
+   return fail('UNAVAILABLE', 503, 'The game worker is unavailable. Retry.');
+  } finally { await match.close(); }
  }
  /** The actor's active games: your turn first, then the nearest deadline. */
  async inbox(actor: string): Promise<InboxEntry[]> { return this.store.inbox(id(actor)); }

@@ -143,3 +143,11 @@ it.each(['list', 'full', 'since'] as const)('rejects a %s read cancelled while i
   await started; abort.abort(); reject(abort.signal.reason);
   await rejected; expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it('sends a bounded draft read through the private no-store boundary with its abort signal',async()=>{
+ const input={expected_revision:3,engine_fingerprint:'sha256:'+'a'.repeat(64),actions:['Ra1-a4!H']},draft={game_id:gameId,revision:3,positions:[]};
+ const fetch=vi.fn<typeof globalThis.fetch>().mockResolvedValue(json(200,draft)),api=onlineClient({token:async()=>'jwt',fetch}),controller=new AbortController();
+ expect(await api.previewDraft(gameId,input,controller.signal)).toEqual(draft);
+ expect(fetch).toHaveBeenCalledExactlyOnceWith(`/api/games/${gameId}/preview`,expect.objectContaining({method:'POST',cache:'no-store',signal:controller.signal,body:JSON.stringify(input)}));
+ expect(new Headers(fetch.mock.calls[0][1]!.headers).get('Authorization')).toBe('Bearer jwt');
+});

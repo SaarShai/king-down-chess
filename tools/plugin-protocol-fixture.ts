@@ -1,8 +1,8 @@
 /** In-memory screen fixture. The engine plays moves; the database tests check transactions and access. */
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { createMatch, loadMatch, type LocalMatch, type MatchSetup } from '../src/match';
-import { MatchServiceError } from '../src/match/store';
-import { FRIEND_CODE_DAYS, startKey, UNFINISHED } from '../src/match/service';
+import { MatchServiceError, type PostgresMatchStore } from '../src/match/store';
+import { FRIEND_CODE_DAYS, GameService, startKey, UNFINISHED } from '../src/match/service';
 import { createSchema, commandSchema, type CreateOptions, type InboxEntry, type View, type Seat, type LoggedCommand, type HistoryEntry, type PlayerRecord } from '../src/match/protocol';
 import { buildSetup, defaultChoice, draw, seatChoicesNeeded, switches, validateChoice, type Draw, type Choice } from '../src/match/setup';
 import { handleSchema, type PluginService } from '../src/plugin/service';
@@ -67,6 +67,14 @@ export function fixtureService(): Pick<PluginService,keyof PluginService> & { se
    return created.game_id;
   },
   view,create,profile,lobby,accept,
+  async previewDraft(actor,id,input) {
+   const game = load(id); seatOf(game,actor);
+   const caller = (await profile(actor)).user_id;
+   const players = await Promise.all(game.players.map(async (player,seat) => ({seat,user_id:player ? (await profile(player)).user_id : null})));
+   const snapshot = game.match ? await game.match.snapshot() : null, state = game.match ? await game.match.exportSave() : null;
+   const service = new GameService({load:async()=>({id,revision:game.revision,status:game.status,turn:snapshot?.turn ?? 0,engine_fingerprint:game.engine,state,snapshot,players})} as unknown as PostgresMatchStore);
+   return service.previewDraft(caller,id,input);
+  },
   async seen() {},
   async find(actor,options,colour='white',commandId?,anyRules=false) {
    await requireHandle(actor); const input = parse<CreateOptions>(createSchema,{kind:'random',options,colour}), asked = startKey(input,anyRules === true), done = resent(actor,commandId,asked); if (done) return done;

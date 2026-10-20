@@ -7,7 +7,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createRemoteJWKSet, errors, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import { z } from 'zod';
 import { parse, MatchServiceError, type GameService } from '../match/service';
-import { commandSchema, createSchema, type Invite } from '../match/protocol';
+import { commandSchema, createSchema, draftSchema, type Invite } from '../match/protocol';
 import { optionsSchema } from '../match/setup-schema';
 import { handleSchema, type PluginService } from '../plugin/service';
 import { settingsSchema } from '../plugin/settings';
@@ -134,6 +134,7 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
    if (since !== null && !/^\d{1,4}$/.test(since)) throw failure('INVALID_INPUT', 400, 'Invalid revision');
    return games.view(actor, id, since === null ? undefined : Number(since));
   },
+  'POST /api/games/:id/preview': (actor, id, body) => games.previewDraft(actor, id, parse(draftSchema, body)),
   'POST /api/games/:id/seen': (actor, id, body) => { parse(z.strictObject({}).optional(), body); return games.seen(actor, id); },
   'POST /api/games/:id/commands': async (actor, id, body) => { if ((body as { action?: { type?: unknown } } | null)?.action?.type === 'computer') await playerService().toolTry(actor, 'kingdown_computer'); const view = await games.command(actor, id, body, 'web'); return { type: 'ack', command_id: (body as { command_id: string }).command_id, revision: view.revision, view }; },
   'POST /api/games/:id/invite': (actor, id) => link(actor, id),
@@ -181,7 +182,7 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
   const site = req.headers['sec-fetch-site'];
   if (req.headers.origin !== undefined && req.headers.origin !== origin || site !== undefined && site !== 'same-origin' && site !== 'none') { respond(res, 403, { code: 'FORBIDDEN', message: 'Cross-origin requests are refused' }); return; }
   if (!route) { req.resume(); res.setHeader('Allow', allowed.map(r => r.method).join(', ')); respond(res, 405, { code: 'NOT_ALLOWED', message: 'Method not allowed' }); return; }
-  const engine = ['POST /api/games', 'POST /api/games/find', 'POST /api/games/:id/accept', 'POST /api/invites/redeem', 'POST /api/games/:id/commands'].includes(route.key);
+  const engine = ['POST /api/games', 'POST /api/games/find', 'POST /api/games/:id/accept', 'POST /api/invites/redeem', 'POST /api/games/:id/commands', 'POST /api/games/:id/preview'].includes(route.key);
   let body: unknown, release: (() => void) | undefined;
   try {
    if (route.key === 'GET /api/status') {

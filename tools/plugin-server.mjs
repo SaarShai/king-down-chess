@@ -30,6 +30,7 @@ const ENABLED_WEB_OPERATIONS = new Set([
   'GET /api/games/:id',
   'POST /api/games/:id/seen',
   'POST /api/games/:id/commands',
+ 'POST /api/games/:id/preview',
   'POST /api/games/:id/invite',
   'POST /api/invites/redeem',
   'GET /api/me/games',

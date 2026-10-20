@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { build } from 'vite';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { buildRuntime, checkEnginePair, ENGINE_STAMP, publishEnginePair } from './plugin-runtime-build.mjs';
+import { buildRuntime, buildWorker, checkEnginePair, ENGINE_STAMP, publishEnginePair } from './plugin-runtime-build.mjs';
 
 vi.mock('vite', () => ({ build: vi.fn() }));
 
@@ -20,9 +20,15 @@ const fixtureRuntime = `export async function createMatch() { return {
 beforeEach(() => {
   vi.mocked(build).mockImplementation(async config => {
     const entry = (config!.build!.lib as { entry: string }).entry.split('/').at(-1)!.replace('.ts', '.mjs');
+    if (config!.build!.write === false) return { output: [{ type: 'chunk', fileName: entry, code: workerSource }] } as never;
     await writeFile(join(config!.build!.outDir!, entry), entry === 'worker.mjs' ? workerSource : fixtureRuntime);
     return {} as never;
   });
+});
+
+it('gives page builds the exact runtime worker fingerprint without writing files', async () => {
+  expect(await buildWorker()).toEqual({ hex: currentHex, engine: `sha256:${currentHex}`, source: currentWorker.toString() });
+  expect(vi.mocked(build).mock.lastCall?.[0]).toMatchObject({ configFile: false, build: { write: false, ssr: true, target: 'node20' } });
 });
 afterEach(async () => { await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true }))); });
 async function directory() {

@@ -1,6 +1,6 @@
 import { GameRules } from '../../game-rules';
 import type { Draft } from '../client';
-import type { View } from '../../match/protocol';
+import type { DraftPosition, DraftPreview, View } from '../../match/protocol';
 import { TAG_POWER, type CardName, type Color, type Move, type Position, type Rules } from '../../rules/engine';
 import { toFen, toLan } from '../../rules/setup';
 import { turnLine, turnOf, type Mode } from '../../turn';
@@ -46,25 +46,26 @@ export function applyLan(pre: Position, lan: string, rules: Partial<Rules>, lega
   return move && { pre, pos: context.makeMove(pre, move), move, lan, words: context.describeMove(pre, move, true) };
 }
 
-export function draftTurn(steps: readonly BoardMove[], pos: Position, mode: Exclude<Mode, 'device'>, seat: Color, context: GameRules = new GameRules()) {
-  const game = { history: steps.map(step => ({ pos: step.pre })), pos, status: context.status(pos), legal: context.legalMoves(pos), inCheck: context.inCheck(pos) };
+export function draftTurn(steps: readonly BoardMove[], pos: Position, mode: Exclude<Mode, 'device'>, seat: Color, context: GameRules = new GameRules(), preview?: DraftPosition) {
+  const game = { history: steps.map(step => ({ pos: step.pre })), pos, status: preview ? preview.status : context.status(pos), legal: preview ? preview.moves.map(choice => choice.move) : context.legalMoves(pos), inCheck: preview ? preview.in_check : context.inCheck(pos) };
   const turn = turnOf(game, 0);
   if (!turn.staged && pos.turn === seat && turn.midWay && game.legal.some(move => move.pass)) turn.ready = true;
   const { staged, midWay, waits, ready } = turn;
   return { staged, midWay, waits, ready, line: turnLine(game, ready && !staged ? { ...turn, staged: 1 } : turn, mode) };
 }
 
-export function sendActions(steps: readonly BoardMove[], pos: Position, seat: Color, context: GameRules = new GameRules()): string[] {
-  const turn = draftTurn(steps, pos, 'computer', seat, context), lans = steps.map(step => step.lan);
+export function sendActions(steps: readonly BoardMove[], pos: Position, seat: Color, context: GameRules = new GameRules(), preview?: DraftPosition): string[] {
+  const turn = draftTurn(steps, pos, 'computer', seat, context, preview), lans = steps.map(step => step.lan);
   return turn.ready && turn.midWay && !turn.waits ? [...lans, '--'] : lans;
 }
 
-export function draftChoices(view: View, pos: Position, steps: readonly BoardMove[], context: GameRules = new GameRules(view.rules)): { lan: string; move: Move }[] {
-  if (draftTurn(steps, pos, 'computer', view.seat, context).waits) return [];
+export function draftChoices(view: View, pos: Position, steps: readonly BoardMove[], context: GameRules = new GameRules(view.rules), preview?: DraftPosition): { lan: string; move: Move }[] {
+  if (draftTurn(steps, pos, 'computer', view.seat, context, preview).waits) return [];
+  if (preview) return preview.moves;
   return context.legalMoves(pos).map(move => ({ lan: toLan(pos, move), move })).filter(({ lan }) => steps.length > 0 || view.legal.includes(lan));
 }
 
-export function restoreDraft(view: View, saved: Draft | undefined, rules: Partial<Rules>, account: string): BoardMove[] | undefined {
+export function draftLans(view: View, saved: Draft | undefined, rules: Partial<Rules>, account: string): string[] | undefined {
   if (!saved || saved.game_tag !== view.game_id.slice(0, 8) || saved.fen !== view.fen || view.action !== 'ready' || view.status !== 'playing') return;
   const scope = saved.scope;
   if (!scope || scope.account !== account || scope.game !== view.game_id || scope.rules !== JSON.stringify(rules) || !view.engine_fingerprint || scope.engine !== view.engine_fingerprint || scope.revision > view.revision) return;
@@ -72,10 +73,16 @@ export function restoreDraft(view: View, saved: Draft | undefined, rules: Partia
   const nonBoard = (type: string) => type === 'draw' || type === 'say' || type === 'hidden' && view.ready?.every(Boolean);
   const changes = view.last_commands.filter(command => command.seq > scope.revision);
   if (changes.length !== view.revision - scope.revision || changes.some((command, index) => command.seq !== scope.revision + index + 1 || !nonBoard(command.action.type))) return;
+  return saved.lans;
+}
+
+export function restoreDraft(view: View, saved: Draft | undefined, rules: Partial<Rules>, account: string): BoardMove[] | undefined {
+  const lans = draftLans(view, saved, rules, account);
+  if (!lans) return;
   const context = new GameRules(rules);
   let pos = context.fromFen(view.fen);
   const steps: BoardMove[] = [];
-  for (const lan of saved.lans) {
+  for (const lan of lans) {
     const step = applyLan(pos, lan, rules, draftChoices(view, pos, steps, context).map(choice => choice.lan));
     if (!step) return;
     steps.push(step); pos = step.pos;
@@ -83,36 +90,68 @@ export function restoreDraft(view: View, saved: Draft | undefined, rules: Partia
   return steps;
 }
 
-export function replayLans(before: Pick<View, 'game_id' | 'revision' | 'fen'>, next: View, rules: Partial<Rules>): BoardMove[] | undefined {
-  if (before.game_id !== next.game_id || !before.fen || next.revision < before.revision) return;
-  const context = new GameRules(rules);
-  let pos = context.fromFen(before.fen), revision = before.revision;
+/** Only parse positions and describe supplied moves; never enforce an archived draft in the page. */
+export function previewSteps(view: View, preview: DraftPreview, context = new GameRules(view.rules)): BoardMove[] | undefined {
+  if (preview.game_id !== view.game_id || preview.revision !== view.revision || preview.engine_fingerprint !== view.engine_fingerprint || preview.positions.length !== preview.actions.length + 1 || preview.positions[0]?.fen !== view.fen) return;
   const steps: BoardMove[] = [];
-  for (const command of next.last_commands.filter(command => command.seq > before.revision)) {
-    if (command.seq !== ++revision) return;
-    const action = command.action;
-    if (action.type !== 'turn' && action.type !== 'computer') continue;
-    if (!('actions' in action)) return;
-    for (const lan of action.actions) {
+  for (const [index, lan] of preview.actions.entries()) {
+    const before = preview.positions[index], after = preview.positions[index + 1];
+    const move = before.moves.find(choice => choice.lan === lan)?.move;
+    if (!move) return;
+    const pre = context.fromFen(before.fen), pos = context.fromFen(after.fen);
+    steps.push({ pre, pos, move, lan, words: context.describeMove(pre, move, true) });
+  }
+  return steps;
+}
+
+/** The acknowledgement can supply the final position of an automatic pass without local enforcement. */
+export function committedPreview(before: View, next: View, preview: DraftPreview, context = new GameRules(before.rules)): BoardMove[] | undefined {
+  if (next.game_id !== before.game_id || next.revision !== before.revision + 1 || next.engine_fingerprint !== before.engine_fingerprint) return;
+  const command = next.last_commands.find(command => command.seq === next.revision && command.seat === before.seat);
+  if (command?.action.type !== 'turn') return;
+  const steps = previewSteps(before, preview, context), last = preview.positions.at(-1);
+  if (!steps?.length || !last) return;
+  if (JSON.stringify(command.action.actions) === JSON.stringify(preview.actions)) return last.fen === next.fen ? steps : undefined;
+  const pass = last.moves.find(choice => choice.lan === '--')?.move;
+  if (!pass?.pass || last.turn !== before.seat || next.turn === before.seat || JSON.stringify(command.action.actions) !== JSON.stringify([...preview.actions, '--'])) return;
+  const pre = context.fromFen(last.fen), pos = context.fromFen(next.fen);
+  return [...steps, { pre, pos, move: pass, lan: '--', words: context.describeMove(pre, pass, true) }];
+}
+
+export function replayLans(before: Pick<View, 'game_id' | 'revision' | 'fen'>, next: View, rules: Partial<Rules>): BoardMove[] | undefined {
+  try {
+    if (before.game_id !== next.game_id || !before.fen || next.revision < before.revision) return;
+    const context = new GameRules(rules);
+    let pos = context.fromFen(before.fen), revision = before.revision;
+    const steps: BoardMove[] = [];
+    for (const command of next.last_commands.filter(command => command.seq > before.revision)) {
+      if (command.seq !== ++revision) return;
+      const action = command.action;
+      if (action.type !== 'turn' && action.type !== 'computer') continue;
+      if (!('actions' in action)) return;
+      for (const lan of action.actions) {
+        const step = applyLan(pos, lan, rules);
+        if (!step) return;
+        steps.push(step); pos = step.pos;
+      }
+    }
+    return revision === next.revision && toFen(pos) === next.fen ? steps : undefined;
+  } catch { return; }
+}
+
+export function replayHistory(next: View, rules: Partial<Rules>): BoardMove[] | undefined {
+  try {
+    if (!next.history) return;
+    const context = new GameRules(rules);
+    let pos = context.fromFen(next.history.initial_fen);
+    const steps: BoardMove[] = [];
+    for (const lan of next.history.actions) {
       const step = applyLan(pos, lan, rules);
       if (!step) return;
       steps.push(step); pos = step.pos;
     }
-  }
-  return revision === next.revision && toFen(pos) === next.fen ? steps : undefined;
-}
-
-export function replayHistory(next: View, rules: Partial<Rules>): BoardMove[] | undefined {
-  if (!next.history) return;
-  const context = new GameRules(rules);
-  let pos = context.fromFen(next.history.initial_fen);
-  const steps: BoardMove[] = [];
-  for (const lan of next.history.actions) {
-    const step = applyLan(pos, lan, rules);
-    if (!step) return;
-    steps.push(step); pos = step.pos;
-  }
-  return toFen(pos) === next.fen ? steps : undefined;
+    return toFen(pos) === next.fen ? steps : undefined;
+  } catch { return; }
 }
 
 export function boardActions(view: View, elapsed = 0): { abort: boolean; claim: 'win' | 'end' | null } {

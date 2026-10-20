@@ -141,3 +141,15 @@ it('invalidates a held preview when the shared runtime navigates away', async ()
     expect(browser.history.pushState).toHaveBeenCalledExactlyOnceWith(null, '', '/play/');
   } finally { host.dispose?.(); vi.unstubAllGlobals(); }
 });
+
+it('reads a private draft prefix with cancellation and never creates a command receipt', async()=>{
+ const saved=storage(), input={expected_revision:5,engine_fingerprint:'sha256:'+'a'.repeat(64),actions:['Ra1-a4!H']};
+ const draft={game_id:args.game_id,...input,revision:5,positions:[]},previewDraft=vi.fn(async()=>draft),command=vi.fn();
+ const controller=new AbortController(),transport=createWebTransport({previewDraft,command} as unknown as OnlineClient,'account-a',saved);
+ const result=await transport.call('kingdown_preview',{game_id:args.game_id,...input},{signal:controller.signal});
+ expect(previewDraft).toHaveBeenCalledExactlyOnceWith(args.game_id,input,controller.signal);
+ expect(result).toEqual({content:[{type:'text',text:''}],_meta:{draft}});
+ expect(command).not.toHaveBeenCalled();expect(transport.pending()).toBeUndefined();expect(saved.records.size).toBe(0);
+ controller.abort();await expect(transport.call('kingdown_preview',{game_id:args.game_id,...input},{signal:controller.signal})).rejects.toMatchObject({name:'AbortError'});
+ expect(previewDraft).toHaveBeenCalledOnce();
+});

@@ -297,3 +297,26 @@ it('keeps the engine implementation in the authorized view and out of model summ
   for (const privateValue of ['engine_fingerprint','engine-v1','private position','private move','private opponent']) expect(model).not.toContain(privateValue);
  } finally {await client.close(); await server.close();}
 });
+
+it('keeps stored-engine draft previews app-only and private, without selecting or writing a board', async () => {
+ const game_id = '00000000-0000-4000-8000-000000000001', engine_fingerprint = 'sha256:' + 'a'.repeat(64);
+ const draft = {game_id,revision:3,engine_fingerprint,actions:['Ra1-a4!H'],positions:[{fen:'private draft',status:'playing',turn:0,in_check:false,moves:[{lan:'private move',move:{from:0,to:24}}]}]};
+ const previewDraft = vi.fn(async()=>draft), command = vi.fn(), seen = vi.fn(), selectBoard = vi.fn();
+ const service = {previewDraft,command,seen,selectBoard} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'draft-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const input = {expected_revision:3,engine_fingerprint,actions:['Ra1-a4!H']};
+  const result = await client.callTool({name:'kingdown_preview',arguments:{game_id,...input}});
+  expect(result).toMatchObject({_meta:{draft}});
+  expect(previewDraft).toHaveBeenCalledExactlyOnceWith('alice',game_id,input);
+  expect(JSON.stringify({content:result.content,structuredContent:result.structuredContent})).not.toMatch(/private|sha256|Ra1|game_id|positions/);
+  const tool = (await client.listTools()).tools.find(tool=>tool.name==='kingdown_preview')!;
+  expect(tool._meta?.ui).toEqual({visibility:['app']});
+  expect(tool.annotations).toMatchObject({readOnlyHint:true,idempotentHint:true});
+  expect(tool.inputSchema.properties?.actions).toMatchObject({type:'array',maxItems:4});
+  for (const extra of [{actor_id:'mallory'},{board_id:game_id},{actions:Array(5).fill('e2-e4')},{engine_fingerprint:'unknown'}]) expect(await client.callTool({name:'kingdown_preview',arguments:{game_id,...input,...extra}})).toMatchObject({isError:true,_meta:{code:'INVALID_INPUT'}});
+  expect(previewDraft).toHaveBeenCalledOnce(); expect(command).not.toHaveBeenCalled(); expect(seen).not.toHaveBeenCalled(); expect(selectBoard).not.toHaveBeenCalled();
+ } finally {await client.close();await server.close();}
+});

@@ -6,7 +6,7 @@ import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mc
 import { registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import { z } from 'zod';
 import { MatchServiceError } from '../match/service';
-import { MAX_REVISION, PRESETS, type Action, type View } from '../match/protocol';
+import { draftSchema, MAX_REVISION, PRESETS, type Action, type View } from '../match/protocol';
 import { DEFAULT_OPTIONS } from '../match/setup';
 import { choiceSchema, optionsSchema } from '../match/setup-schema';
 import { REPORT_CATEGORIES } from '../account/profile';
@@ -166,6 +166,8 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       // The board may show another game since it last read: then a full view.
       return reply(await service.view(actorId, id, !args.game_id || id === args.game_id ? args.since_revision : undefined), args.board_id);
     });
+  register('kingdown_preview', 'Preview an uncommitted turn prefix in the stored game implementation. Read-only.',
+    { game_id: gameId, ...draftSchema.shape }, { visibility: ['app'], readOnly: true }, async ({ game_id, ...input }) => ({ content: text('Turn preview ready.'), _meta: { draft: await service.previewDraft(actorId, game_id, input) } }));
   register('kingdown_seen', 'Record that the player is at this board, so the opponent sees them online. Records at most once each 30 seconds.',
     { game_id: gameId }, { visibility: ['app'], idempotent: false }, async args => { await service.seen(actorId, args.game_id); return { content: text('Seen.') }; });
   register('kingdown_lobby', 'List open games, oldest first.', {}, { visibility: ['app'], readOnly: true }, async () => {

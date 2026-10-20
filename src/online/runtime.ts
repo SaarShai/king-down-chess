@@ -1,7 +1,7 @@
 import type { AccountGameHost, GameTransport } from '../account-game/host';
 import type { PageState, WidgetHost } from '../plugin/client';
 import type { ToolResult } from '../plugin/queue';
-import type { Action, CreateOptions, View } from '../match/protocol';
+import type { Action, CreateOptions, DraftInput, View } from '../match/protocol';
 import type { Icon } from '../account/profile';
 import type { PlayerSettings } from '../plugin/settings';
 import { OnlineError, type OnlineClient } from './client';
@@ -48,6 +48,7 @@ export function createWebTransport(api: OnlineClient, userId: string, storage: P
           if (created.invite) friendInvites.set(created.view.game_id, created.invite);
           reply = gameResult(created.view); break;
         }
+        case 'kingdown_preview': { const { game_id: _, ...input } = args; reply = result({ draft: await api.previewDraft(game, input as DraftInput, options.signal) }); break; }
         case 'kingdown_games': reply = result({ games: await api.games(options.signal) }); break;
         case 'kingdown_settings': reply = result(await api.settings(args as Partial<PlayerSettings>)); break;
         case 'kingdown_handle': { const value = await api.handle(args as { handle: string; icon?: Icon; check?: boolean }); reply = result({ me: value.me }, args.check ? { available: value.available } : undefined); break; }
