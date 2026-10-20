@@ -73,8 +73,22 @@ All measurements use the M1. The table gives whole-test upper bounds when the te
 
 ## Review fixes
 
-Status: in progress
+Status: done
 
 1. Check the two reviews against the hook, workflow and runner tests. Fix the stale release guide, sample README and step-limit comment. Add a regression test for these claims.
-2. Make the build-selection fixture cheaper. Use stand-ins for locks and tree snapshots, which have their own tests. Keep all five cases, all default checks and every current assertion. Check the selected scripts and arguments too. Keep both time limits.
+2. Make the runner fixture cheaper. Use stand-ins for locks and tree snapshots, which have their own tests. Keep all five cases, all default checks and every current assertion. Check the selected scripts and arguments too. Keep both time limits.
 3. Commit the fixes. Run the full M1 unit suite and `plugin-ui` through the required runners. Record the tested head, exit codes, counts and runner-test duration. Commit this record after the checks pass.
+
+### Findings
+
+- **Review A, finding 1; Review B, finding 2: confirmed and fixed.** The workflow starts branch checks through PRs; only pushes to `main` start it through a push. The hook runs the repo gate. The release guide and sample README now state these facts. The step-limit comment refers to local runs only. A new workflow test checks all three text fixes.
+- **Review B, finding 1: excess test work confirmed; timeout not reproduced.** The default fixture starts all 24 checks and repeats real Git calls for locks and tree snapshots. These calls add work that the build test does not need. The fixture now uses stand-ins for those modules. Their own tests stay, and the browser check uses the real modules. All five runner cases and all current assertions stay. Added assertions check every selected script and its arguments. The child limit stays at 30 s; the test limit stays at 60 s. The default case takes 2,522 ms in the full M1 suite, against the prior 8,833 ms.
+
+### Check results
+
+The tested head is `a0d43d64`. The final commit changes this record only.
+
+- Full M1 suite: exit 0. Type check passes. 186 test files and 3,134 tests pass; 12 files and 164 tests skip. All 51 art tests pass. The unit phase takes 326.83 s. Log: `unit-full-review-1.txt` in the lane output folder.
+- The five runner tests pass in 6,697 ms in total. The ten workflow tests pass. The new text test accounts for the extra test in the full suite.
+- Database suites skip because the supplied M1 runner has no database URL. No server code changes.
+- `plugin-ui`: pass on this Mac through the required runner, in 199.9 s. The runner exits 0 at the tested head. No outer site build or preview starts. Log: `checks-plugin-ui-review-1.txt` in the lane output folder.
