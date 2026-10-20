@@ -68,7 +68,7 @@ const DEFS = LEG_DEFS
   + WAX('-changing', '#f1cf7e', '#d0a046', '#8a6418') + WAX('-holding', '#77706a', '#4c4640', '#26221f')
   + '<filter id="kdm-arc-shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#1d1915" flood-opacity=".55"/></filter>'
   + '<filter id="kdm-rim" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0" stdDeviation=".75" flood-color="#2b2621" flood-opacity=".7"/></filter>'
-  + '<filter id="kdm-seal-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2.5" stdDeviation="2.2" flood-color="#1d1915" flood-opacity=".42"/></filter>'
+  + '<filter id="kdm-seal-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="#1d1915" flood-opacity=".22"/></filter>'
   + '<radialGradient id="kdm-frost"><stop offset="0" stop-color="rgb(127,178,255)" stop-opacity=".6"/><stop offset=".55" stop-color="rgb(127,178,255)" stop-opacity=".35"/><stop offset="1" stop-color="rgb(127,178,255)" stop-opacity="0"/></radialGradient>'
   + '<pattern id="kdm-crystal" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><path d="M0 3.5h7M3.5 0v7" stroke="rgba(255,255,255,.55)" stroke-width=".6"/></pattern>'
   + '<pattern id="kdm-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="rgba(251,247,238,.18)" stroke-width="1"/><line x1="1" y1="0" x2="1" y2="8" stroke="rgba(43,38,33,.10)" stroke-width="1"/></pattern>';
@@ -232,7 +232,7 @@ export function seal(a: Ability['a'], size = 44, o: { asleep?: boolean; label?: 
   return `<svg class="kd-seal" width="${size}" height="${size}" viewBox="0 0 100 100" role="img" aria-label="${label}"${o.asleep ? ' style="filter:grayscale(1);opacity:.5"' : ''}><title>${label}</title>`
     + `<g filter="url(#kdm-seal-shadow)"><path d="${SCALLOP}" fill="url(#${grad})" stroke="${edge}" stroke-width="1.2"/></g>`
     + '<circle cx="50" cy="50" r="33.5" fill="none" stroke="rgba(0,0,0,.32)" stroke-width="2.4"/><circle cx="50" cy="51.2" r="33.5" fill="none" stroke="rgba(255,236,210,.22)" stroke-width="1.2"/>'
-    + '<ellipse cx="38" cy="30" rx="16" ry="8" fill="rgba(255,240,226,.16)" transform="rotate(-30 38 30)"/>'
+    + '<ellipse cx="38" cy="30" rx="16" ry="8" fill="rgba(255,240,226,.06)" transform="rotate(-30 38 30)"/>'
     + g(26.4, deboss, 2.9) + g(24.2, 'rgba(255,250,235,.35)', 2.6) + g(25, glyph, 2.3) + '</svg>';
 }
 /** A value capsule with a caret (G14, marks.js:698); a choice has no caret, and `on` rings the chosen one. */

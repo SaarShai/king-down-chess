@@ -732,23 +732,44 @@ async function undo() {
 }
 
 async function saveAlerts() {
+  const keepDraft = async p => {
+    const before = await marks(p), actions = await p.locator('.pg-alert button').allTextContents();
+    for (const tab of ['rules', 'pieces', 'kings', 'cards', 'pieces']) {
+      await p.click(`[data-tab="${tab}"]`);
+      assert.equal(await p.getAttribute(`[data-tab="${tab}"]`, 'aria-selected'), 'true', 'the library tab still changes');
+      assert.equal(await name(p), 'My Pawn', `${tab}: a failed save keeps the draft`);
+      assert.deepEqual(await marks(p), before, `${tab}: the draft keeps its painted squares`);
+      assert.equal(await p.getAttribute('[data-act="undo"]', 'aria-label'), 'Undo paint', `${tab}: Undo keeps its step`);
+      assert.equal(await p.locator('.pg-alert').isVisible(), true, `${tab}: the save alert stays visible`);
+      assert.deepEqual(await p.locator('.pg-alert button').allTextContents(), actions, `${tab}: the recovery actions stay`);
+    }
+    await p.click('.pg-alert [data-act="copy"]');
+    await copied(p, 'the draft can be copied after tab changes');
+    const code = new URL(await p.evaluate(() => navigator.clipboard.readText())).searchParams.get('design');
+    const d = JSON.parse(Buffer.from(code, 'base64url').toString());
+    assert.equal(d.name, 'My Pawn', 'the copied link holds the draft');
+    assert.ok(d.squares.some(s => s.x === -1 && s.y === 1 && s.mark === 'both'), 'the copied link keeps the paint');
+  };
   const seed = JSON.parse(SHELF).designs[0];
   const full = JSON.stringify({ v: 1, designs: Array.from({ length: 50 }, (_, i) => ({ ...seed, id: `seed-${i}`, name: `Seed ${i}` })) });
   const p = await open('', { shelf: full });
+  await p.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await door(p);
   await arm(p, 'both');
   await tap(p, 'c5');
   const alert = p.locator('.pg-alert');
   assert.equal(await alert.locator('p').textContent(), 'Not saved: your shelf is full (50 designs). Delete one to keep this piece.', 'a full shelf shows the alert');
   assert.deepEqual(await alert.locator('button').allTextContents(), ['Choose one to delete', 'Copy link'], 'with its two actions');
+  await keepDraft(p);
   await alert.getByRole('button', { name: 'Choose one to delete' }).click();
   await p.click('.pg-sheet [aria-label="Delete Seed 0"]');
   assert.equal(await toast(p), 'Deleted Seed 0. My Pawn is saved.', 'a delete makes room and saves the copy');
   assert.equal(await alert.isVisible(), false, 'the alert goes');
   const names = (await stored(p)).map(d => d.name);
   assert.ok(names.length === 50 && names.includes('My Pawn') && !names.includes('Seed 0'), 'the shelf holds the copy in place of Seed 0');
+  assert.ok((await stored(p)).find(d => d.name === 'My Pawn').squares.some(s => s.x === -1 && s.y === 1 && s.mark === 'both'), 'the recovered draft keeps the paint');
   await p.context().close();
-  const q = await open();
+  const q = await open('', { width: 390, height: 844 });
   await q.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await door(q);
   await refuse(q);
@@ -757,6 +778,7 @@ async function saveAlerts() {
   const alert2 = q.locator('.pg-alert');
   assert.equal(await alert2.locator('p').textContent(), 'Not saved: this device did not keep the design.', 'a refused save shows the alert');
   assert.deepEqual(await alert2.locator('button').allTextContents(), ['Try again', 'Copy link'], 'with Try again and Copy link');
+  await keepDraft(q);
   await alert2.getByRole('button', { name: 'Copy link' }).click();
   await copied(q, 'Copy link copies');
   assert.match(await q.evaluate(() => navigator.clipboard.readText()), /\?design=/, 'the clipboard holds the design link');
@@ -765,6 +787,9 @@ async function saveAlerts() {
   assert.equal(await toast(q), 'Saved on this device.', 'Try again saves');
   assert.equal(await alert2.isVisible(), false, 'the alert goes');
   assert.deepEqual((await stored(q)).map(d => d.name), ['My Pawn'], 'the shelf holds the copy');
+  assert.ok((await stored(q))[0].squares.some(s => s.x === -1 && s.y === 1 && s.mark === 'both'), 'the retry saves the painted draft');
+  await q.click('[data-tab="kings"]');
+  assert.equal(await name(q), 'Flame King', 'a successful save allows automatic item changes again');
   await q.context().close();
 }
 
@@ -1822,13 +1847,61 @@ const PHONE = [
   ['a seal on the shelf', async p => { await p.click('.padd'); await p.click('[data-sealitem="movesLike"]'); }, ['svg.kd-seal', 'kdm-pulse']],
   ['Stamp', p => p.click('[data-act="stamp"]'), ['button.pg-pseal', 'span.pg-wax', 'kdm-pop']],
 ];
+async function tabSelection() {
+  for (const [width, height] of [[1440, 900], [390, 844], [640, 400]]) {
+    const p = await open('', { width, height, reducedMotion: 'reduce' });
+    await door(p);
+    const sideways = height === 400, label = `${width}x${height}`;
+    const change = async tab => {
+      if (sideways && await p.locator('.pg-ledge').isHidden()) await p.click('[data-act="pieces"]');
+      await p.click(`[data-tab="${tab}"]`);
+      assert.equal(await p.getAttribute(`[data-tab="${tab}"]`, 'aria-selected'), 'true', `${label}: the tab is selected`);
+      assert.equal(await focused(p), `pg-tab-${tab}`, `${label}: focus stays on the tab`);
+      if (sideways) assert.equal(await p.locator('.pg-ledge').isVisible(), true, `${label}: a tab keeps the library sheet open`);
+    };
+    await change('kings');
+    assert.equal(await name(p), 'Flame King', `${label}: Kings opens its first king`);
+    assert.equal(await p.getAttribute('.slot[data-king="Flame"]', 'aria-current'), 'true');
+    await p.click('.slot[data-king="Mud"]');
+    await change('kings');
+    assert.equal(await name(p), 'Mud King', `${label}: the same tab keeps the chosen king`);
+    await change('cards');
+    assert.equal(await name(p), 'Freeze', `${label}: Cards opens its first card`);
+    assert.equal(await p.getAttribute('.cface[data-lab="Freeze"]', 'aria-current'), 'true');
+    await p.click('.cstack');
+    const firstSpread = await p.locator('.cfan .cface').first().getAttribute('aria-label');
+    await change('rules');
+    assert.equal(await name(p), 'Steps 2', `${label}: Rules opens its first seal`);
+    assert.equal(await p.getAttribute('[data-openseal="step2"]', 'aria-pressed'), 'true');
+    await change('cards');
+    assert.equal(`${await name(p)} (LAB)`, firstSpread, `${label}: a spread deck opens its first visible card`);
+    await change('pieces');
+    assert.equal(await name(p), 'Pawn', `${label}: Pieces opens its first piece`);
+    assert.equal(await p.getAttribute('.slot[data-piece="pawn"]', 'aria-current'), 'true');
+    await p.click('.slot[data-piece="rook"]');
+    await change('pieces');
+    assert.equal(await name(p), 'Rook', `${label}: the same tab keeps the chosen piece`);
+    if (width === 390) {
+      await change('board');
+      assert.equal(await name(p), 'Rook', 'Board keeps the inspected piece');
+    }
+    await p.context().close();
+  }
+}
+
 async function rulesTab() {
   const p = await open();
   await door(p);
+  const rowMask = await p.locator('.lrow').evaluate(e => getComputedStyle(e).maskImage);
+  assert.match(rowMask, /linear-gradient/, 'the wide row has a soft edge');
   await p.click('[data-tab="rules"]');
   assert.equal(await p.getAttribute('[data-tab="rules"]', 'aria-selected'), 'true', 'Rules is the selected tab');
   assert.deepEqual(await p.$$eval('.rgrp h4', hs => hs.map(h => h.textContent)), ['Moving', 'Taking', 'Safe', 'Moving others', 'Changing', 'Holding back'], 'the 6 groups');
   assert.equal(await p.locator('[data-openseal]').count(), 10, 'the 10 seals');
+  assert.deepEqual(await p.locator('#kdm-seal-shadow feDropShadow').evaluate(s =>
+    ['dy', 'stdDeviation', 'flood-opacity'].map(a => s.getAttribute(a))), ['1.5', '1.2', '.22'], 'the wax shadow is soft and close');
+  assert.deepEqual(await p.locator('.rgroups .kd-seal ellipse').evaluateAll(es => [...new Set(es.map(e => e.getAttribute('fill')))]),
+    ['rgba(255,240,226,.06)'], 'each seal has a faint wax light');
   await minTarget(p, '#workshop [data-openseal]');
   // The laws follow RULES in force (the defaults in the browser), as words and not as switches.
   assert.deepEqual(await p.$$eval('.law', ls => ls.map(l => l.textContent)), ['PromotionQ R B Nqueen, rook, bishop or knight', '50-move drawOn', 'ThreefoldOn', 'MaterialOn', 'Guard by its kingOn', 'Bishops on two coloursOn',
@@ -1837,6 +1910,7 @@ async function rulesTab() {
   await p.click('[data-openseal="linesPass"]');
   assert.equal(await name(p), 'Lines pass', 'the plinth names the seal');
   assert.equal(await p.$eval('.pg-bigseal .kd-seal', s => Math.round(s.getBoundingClientRect().width)), 168, 'the seal is 168 px');
+  assert.equal(await p.locator('.pg-bigseal .kd-seal').evaluate(s => getComputedStyle(s).filter), 'none', 'the large seal adds no second shadow');
   assert.deepEqual(await p.$$eval('.pg-info > *', es => es.map(e => e.textContent)),
     ['It slides past its own pieces, as the Paladin does.', 'Matrix row', '4d Hop — over friends only', 'Seen on', 'Paladin'], 'the example, the MATRIX row and Seen on');
   assert.equal(await p.getAttribute('[data-openseal="linesPass"]', 'aria-pressed'), 'true', 'the open seal is pressed');
@@ -1867,6 +1941,29 @@ async function rulesTab() {
 
   const ph = await open('', { width: 390, height: 844 });
   await door(ph);
+  assert.equal(await ph.locator('.lrow').evaluate(e => getComputedStyle(e).maskImage), rowMask, 'the phone uses the same fade as the wide row');
+  for (const [tab, selector] of [['pieces', '.slot'], ['kings', '.slot'], ['cards', '.cface, .cstack'], ['rules', '.rgrp']]) {
+    await ph.click(`[data-tab="${tab}"]`);
+    // Finish the entry motion before measuring a card's edge.
+    await ph.locator('.lrow').evaluate(e => e.getAnimations({ subtree: true }).forEach(a => a.finish()));
+    for (const end of [false, true]) {
+      const space = await ph.locator('.lrow').evaluate((e, { selector, end }) => {
+        e.scrollLeft = end ? e.scrollWidth : 0;
+        const row = e.getBoundingClientRect(), items = [...e.querySelectorAll(selector)];
+        const first = items[0].getBoundingClientRect(), last = items.at(-1).getBoundingClientRect();
+        return end ? row.right - last.right : first.left - row.left;
+      }, { selector, end });
+      assert.ok(space >= 24, `${tab}: complete content stays outside the fade at the ${end ? 'end' : 'start'} (${space} px)`);
+      await shot(ph, `row-fade-${tab}-${end ? 'end' : 'start'}-390x844`);
+    }
+  }
+  await ph.click('[data-tab="pieces"]');
+  const scroll = await ph.locator('.lrow').evaluate(e => {
+    const overflow = e.scrollWidth > e.clientWidth;
+    e.scrollLeft = e.scrollWidth;
+    return { overflow, moved: e.scrollLeft > 0 };
+  });
+  assert.deepEqual(scroll, { overflow: true, moved: true }, 'the faded phone row still scrolls to its end');
   await ph.click('[data-tab="rules"]');
   assert.equal(await ph.locator('.laws').isVisible(), false, 'the phone hides the laws');
   await minTarget(ph, '#workshop [data-openseal]');
@@ -1977,8 +2074,9 @@ async function kings() {
   await f.click('.pg-tray [data-power="Leap"]');
   assert.ok((await marks(f)).includes('d7 take'), 'the phone: Leap from the Board tab');
   await f.click('[data-tab="kings"]');
+  assert.equal(await name(f), 'Flame King', 'the phone: the new Kings tab opens Flame and seats him');
   await f.click('.slot[data-king="Mud"]');
-  assert.deepEqual([await name(f), await f.locator('.pline').count(), (await marks(f)).includes('d7 take')], ['Mud King', 0, true], 'the phone: an open king shows his name and the board');
+  assert.deepEqual([await name(f), await f.locator('.pline').count(), (await marks(f)).includes('d7 take')], ['Mud King', 0, false], 'the phone: the king name and board show, and a new king clears the armed power');
   await minTarget(f, '#workshop .pg-ledge button', 44);
   await shot(f, 'kings-390x844');
   await f.context().close();
@@ -2250,6 +2348,7 @@ try {
   await shareSheet();
   await linkCard();
   await reachPopover();
+  await tabSelection();
   await kings();
   await labCards();
   await motion();

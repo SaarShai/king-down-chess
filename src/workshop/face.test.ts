@@ -2,9 +2,21 @@
 import { describe, expect, it } from 'vitest';
 import { faceHtml, thumbHtml } from './face';
 import { bandOf, judge } from './judge';
-import { diagram } from './marks';
+import { diagram, seal } from './marks';
 import { BLANK, canonical, fromPreset, presetOf, type PieceDesign, type Rule } from './model';
 import { pawns, ruleText } from './text';
+import { BLOCKS } from './vocab';
+
+it('keeps each rule seal and its label with a faint wax light', () => {
+  for (const b of BLOCKS) {
+    const svg = seal(b.a);
+    expect(svg).toContain(`aria-label="${b.title}"`);
+    expect(svg).toContain('viewBox="0 0 100 100"');
+    expect(svg).toContain('filter="url(#kdm-seal-shadow)"');
+    expect(svg).toContain('fill="rgba(255,240,226,.06)"');
+    expect(svg).not.toContain('fill="rgba(255,240,226,.16)"');
+  }
+});
 
 const design = (key: string, more: Partial<PieceDesign> = {}): PieceDesign => ({ ...fromPreset(presetOf(key)), name: presetOf(key).name, letter: 'D', ...more });
 const face = (d: PieceDesign): string => faceHtml(d, judge(d, false), 'ui/pieces/x-w.webp');
