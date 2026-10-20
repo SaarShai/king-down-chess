@@ -22,6 +22,7 @@ const actors = [randomUUID(), randomUUID()];
 const pool = new pg.Pool({ connectionString, max: 1 });
 let app, server, browser, savedAccess;
 const failures = [], commands = [];
+let lostReplies = 0;
 try {
   // Use public fake settings only. The browser gets a real signed local session; no OAuth provider is contacted.
   await build({ logLevel: 'warn', define: {
@@ -67,6 +68,12 @@ try {
   });
   const page = await context.newPage(); page.setDefaultTimeout(15_000);
   const errors = trapErrors(page);
+  page.on('requestfailed', request => {
+    const fault = request.failure()?.errorText, path = new URL(request.url()).pathname;
+    if (fault === 'net::ERR_ABORTED') return;
+    if (fault === 'net::ERR_FAILED' && request.method() === 'POST' && path.endsWith('/commands')) lostReplies++;
+    else failures.push(`${fault} ${path}`);
+  });
   page.on('response', response => {
     const path = new URL(response.url()).pathname;
     if (response.status() >= 400 || response.request().resourceType() === 'script' && !/javascript/.test(response.headers()['content-type'] ?? '')) failures.push(`${response.status()} ${path} ${response.headers()['content-type'] ?? ''}`);
@@ -94,6 +101,15 @@ try {
   const code = (await page.locator('#friend-code').innerText()).trim();
   await tool(1, 'kingdown_join', { code });
   await page.locator('[data-screen="seat"]:not([hidden])').waitFor();
+  await page.locator('#seat-screen #board[aria-busy="false"] canvas').waitFor({ state: 'visible' });
+  await page.locator('.veil').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('[data-seat-id="game-table"]').evaluate(node => getComputedStyle(node).display), 'grid');
+  for (const [strip, area] of [['strip-me', 'me'], ['strip-them', 'them']]) {
+    assert.deepEqual(await page.locator(`[data-seat-id="${strip}"]`).evaluate(node => { const style = getComputedStyle(node); return [style.display, style.gridArea]; }), ['flex', area]);
+  }
+  const setupCanvas = await page.locator('#seat-screen #board canvas').boundingBox(), veil = await page.locator('.veil').boundingBox();
+  assert(setupCanvas && setupCanvas.width >= 200 && setupCanvas.height >= 200);
+  assert(veil && veil.width >= setupCanvas.width * .8 && veil.height >= setupCanvas.height * .35);
   assert.match(await page.locator('.veil').innerText(), /hidden/);
   let a = await view(0), b = await view(1);
   assert.equal(a.game_id, b.game_id); assert.equal(a.choices[1], null); assert.equal(b.choices[0], null); assert.equal(a.fen, ''); assert.equal(b.fen, '');
@@ -147,6 +163,7 @@ try {
   assert.equal(await page.locator('#over-title').innerText(), 'You win');
   await shot(page, 'web-shared-result');
   assert.deepEqual(failures, [], 'No failed resource or external request');
+  assert.equal(lostReplies, 1, 'Only the deliberate lost command reply fails on the network');
   // The deliberately lost HTTP reply produces one browser network error.
   assertNoErrors(errors.filter(error => !String(error).includes('net::ERR_FAILED')));
   await writeFile(join(env('PLAYABLE_OUT'), 'proof.json'), JSON.stringify({ game_id: gameId, origin, revision: a.revision, commands: commands.length, result: a.result, checks: ['emitted /play/ and /g assets', 'real HTTP create', 'MCP join', 'hidden setup', 'UI ready and two-action Haste turn', 'lost reply reload', 'same account MCP', 'shared result'] }, null, 2));
