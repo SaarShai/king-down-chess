@@ -25,8 +25,10 @@ size and card-face assertions keep their values. No server code changes.
 
 ## Choices
 
-Keep the agreed ink and gold focus pair. Keep .85 for spent cards and .7
-for used powers. Add no new colour, size or game rule.
+Keep the agreed ink and gold focus pair. Draw its two 2 px bands inside
+the coin, above the face and notches. The board and segments use this
+inset method. Keep .85 for spent cards and .7 for used powers. Keep the
+original lower shadow. Add no new colour, size or game rule.
 
 ## Part 1 checks
 
@@ -42,8 +44,14 @@ focus band. Keyboard focus now removes that lower shadow only. It keeps
 the face and inset rim. The test keeps the 3:1 check on all four sides and
 saves both images before it checks contrast, so a failure keeps its proof.
 
-At `1783a067`, the lower band reaches 2.35:1. The saved pixels show both
-focus colours. The ring is not clipped. The comparison reads the old dark
-lower shadow before focus. A spent face now uses stone-500 for that 2 px
-lower edge. It keeps its depth, grey filter and opacity. This is the only
-new taste choice. The agreed focus colours and coin sizes stay the same.
+At `1783a067`, the lower band reaches 2.35:1. The saved card pixels show
+both focus colours. The card ring is not clipped. The comparison reads
+the old dark lower shadow before focus. At `e40f0c43`, stone-500 on that
+edge makes all card cases pass at 4.71:1 or more. The power case then finds
+a second fault: the frame clips the outer focus pair at the top edge.
+
+The final design uses one inset focus pair above the paint span. This
+clears the shadow, notches and frame edge. It replaces both lower-shadow
+changes above and restores the original face finish. The test reads the
+new band positions, adds an inset assertion, and keeps 3:1 on each of the
+four sides. This is the only taste choice.
