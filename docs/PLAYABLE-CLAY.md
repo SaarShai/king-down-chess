@@ -1,6 +1,6 @@
 # Current playable build — selective Cursor adoption
 
-> **Parked (2026-10-11).** The clay look is not in the game any more: its code, checks and assets are in `parked/clay/` ([why and how to bring it back](../parked/clay/README.md), [spec](specs/park-clay/spec.md)). This file is history.
+> **Parked (2026-10-11).** The clay look is not in the game any more: its code, checks and assets are in Git at `1476f55c:parked/clay/` ([why and how to bring it back](https://github.com/SaarShai/king-down-chess/blob/1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5/parked/clay/README.md), [spec](specs/park-clay/spec.md)). This file is history.
 
 The integrated checkout is the main repository, `/Users/za/Documents/king down chess`, branch **`main`** (consolidated 2026-09-26 from `codex/cursor-adoption`, the painted 2D trial and `takeover`). It builds on accepted clay commit `c8f4ca7`. The former dirty `takeover` state is preserved as tag `archive/takeover-donor-worktree` and in the private recovery archive; superseded study branches are tags under `archive/`.
 

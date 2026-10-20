@@ -284,6 +284,15 @@ describe('relative links', () => {
     ]);
   });
 
+  it('the clay and Archer history pages and the removal record hold no broken relative link', () => {
+    const files = [
+      'docs/PLAYABLE-CLAY.md', 'docs/2d-first-pieces/README.md',
+      'docs/research/archer-animation-workflow.md', 'docs/research/graphics-prototype-2026-09-21.md',
+      'docs/specs/park-clay/spec.md', 'docs/specs/retro-2026-10-20/issues/04-retro-records.md',
+    ];
+    expect(files.flatMap(file => linkFaults(file, read(file))).map(show)).toEqual([]);
+  });
+
   it('no live file holds a broken relative link', () => {
     expect(liveFiles().flatMap(file => linkFaults(file, read(file))).map(show)).toEqual([]);
   });

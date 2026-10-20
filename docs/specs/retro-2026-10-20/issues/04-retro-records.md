@@ -1,6 +1,6 @@
 # Remove unused records from the checkout
 
-Status: in-progress
+Status: done
 Type: task
 
 The owner approves this work in retro question Q4 on 2026-10-20.
@@ -24,11 +24,11 @@ The requested command, `git ls-files -z | xargs -0 du -ck | tail -1`, prints 3,8
 
 ## Work
 
-Checks are pending. No part is marked done before its checks pass.
+All five parts are complete. The checks below pass.
 
 ### Part 1: simulation records
 
-Move 14 fixtures (13,968 bytes) to `src/sim/fixtures/tournaments/`. The test checks their names and all recorded schedule hashes. Remove 1,653 other files (113,728,886 bytes). Ignore `/sim/out/`, including local previews. Keep `sim/nnue/net.json` and `sim/specs/` unchanged.
+Move 14 fixtures (10,384 bytes) to `src/sim/fixtures/tournaments/`. The test checks their names and all recorded schedule hashes. Remove 1,653 other files (113,732,470 bytes). Ignore `/sim/out/`, including local previews. Keep `sim/nnue/net.json` and `sim/specs/` unchanged.
 
 The card import record is `docs/specs/card-results/issues/01-storage.md`. It records the hash check of all 15,379 source files and zero mismatches. This work does not copy or remove any card or spool data.
 
@@ -36,7 +36,7 @@ Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- sim/out/`.
 
 ### Part 2: clay
 
-Remove `parked/clay/` (260 files, 45,804,496 bytes) and `docs/graphics-prototype/` (273 files, 79,376,051 bytes). Remove `tools/parked.test.ts`, including its full site build. Remove both clay entries from the size allowlist and its test. Remove `three`, `@types/three`, `@gltf-transform/core`, `@gltf-transform/extensions`, `@gltf-transform/functions` and `meshoptimizer`. Use `npm install` in this worktree to update the lockfile.
+Remove `parked/clay/` (260 files, 45,804,496 bytes) and `docs/graphics-prototype/` (273 files, 79,376,051 bytes). Remove `tools/parked.test.ts` (3,056 bytes), including its full site build. Remove both clay entries from the size allowlist and its test. Remove `three`, `@types/three`, `@gltf-transform/core`, `@gltf-transform/extensions`, `@gltf-transform/functions` and `meshoptimizer`. Use `npm install` in this worktree to update the lockfile.
 
 The Ogre prompt names its source with `git show` at the base commit. Keep `docs/playable-clay/` and `docs/special-moves/clay/` unchanged. The owner now approves removal of the clay records kept by the earlier park-clay spec. Clay last runs in commit `0dd3fc36b798b41773a2b60c7ee4a9f75c2663c8`. The parked README at the base commit holds the return steps.
 
@@ -60,8 +60,66 @@ The render sources use the [MakeHuman asset licence](https://github.com/makehuma
 
 ### Part 4: release copy and hash records
 
-Remove `docs/releases/v0.7.0/` (143 files, 4,394,284 bytes), `tools/hash-baseline.mjs` and `docs/takeover/baseline.json`. Point `.gitignore` and `docs/takeover/BASELINE.md` at `d6021674` for the release copy. The baseline page also names the historical manifest and tool.
+Remove `docs/releases/v0.7.0/` (143 files, 4,394,284 bytes), `tools/hash-baseline.mjs` (3,334 bytes) and `docs/takeover/baseline.json` (267,743 bytes). Point `.gitignore` and `docs/takeover/BASELINE.md` at `d6021674` for the release copy. The baseline page also names the historical manifest and tool. Remove the deleted manifest from the transcript lint exceptions and its fixture list.
 
 Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- docs/releases/v0.7.0/`.
 
 Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- tools/hash-baseline.mjs docs/takeover/baseline.json`.
+
+### Part 5: links and checks
+
+Change 13 links in three history pages to full base-commit URLs. This includes the clay restore README, the rejected Archer render and the graphics study images and sources. Point the other current clay notes at Git history. Link the painted-art README and the earlier park-clay spec to this record.
+
+Add an ignore-rule test for output at the root and in child folders. It also checks that source, specs, fixtures and the net stay visible to Git. Add a link test for the clay and Archer history pages and this record. The existing size-allowlist test checks the reduced list. Update the settings test for the broader ignore rule. Update the prune test because Git now reports the whole ignored `sim/out` folder. The prune guard still keeps that worktree.
+
+Keep the balance ledger and its report unchanged. The report has 48 existing links to five untracked reports. Those paths are absent at the base commit. This removal does not delete those reports or change their evidence.
+
+Preserve check: all 14 fixture blobs match the base. All files under `public/`, `sim/specs/`, both retained clay history folders and the balance ledger match the base. The shipped net and all retained painted-art files also match. Only the painted-art README and Ogre source pointer change.
+
+### Verification
+
+- Local `npx tsc --noEmit`: pass.
+- Commit hooks: type check and staged gate pass for all five parts.
+- `git diff --check`: pass.
+- Full M1 unit suite at `9d41ec25`: pass. The type check passes. 3,120 tests pass; 164 skip. All 47 art tests pass. Log: `unit-full-4.txt` in the lane output folder. The M1 has no test database.
+- `npm run build` and `npm run plugin:build`: pass with the six packages absent. Logs: `build-site-1.txt` and `build-plugin-1.txt`.
+- Final lint checks at `2d5b35aa`: all 60 tests pass. Log: `unit-final-lints-1.txt`.
+- M1 `plugin-ui` at `2d5b35aa`: pass in 218.2 seconds. The check runner exits 0. Log: `checks-final-2.txt`.
+
+### Choices
+
+Use `src/sim/fixtures/tournaments/` for the 14 fixtures. Use full commit URLs for removed file links and `git show` for the Ogre prompt source. Use existing Git history for restore. Add no archive tool or package.
+
+## Removal totals
+
+| Group | Files removed | Bytes removed |
+|---|---:|---:|
+| Simulation output | 1,653 | 113,732,470 |
+| Parked clay | 260 | 45,804,496 |
+| Graphics study | 273 | 79,376,051 |
+| Clay test | 1 | 3,056 |
+| Rejected Archer render | 15 | 5,974,524 |
+| Rejected Archer rig | 12 | 2,550,358 |
+| Release copy | 143 | 4,394,284 |
+| Hash tool and manifest | 2 | 271,077 |
+| Total | 2,359 | 252,106,316 |
+
+Move 14 fixtures and keep all 10,384 bytes. Exclude them from the removal totals. The 267 retained package-lock entries match the base. The lockfile drops 23 unused entries. Production files under `src/` match the base.
+
+The first M1 runs have disk-space and temporary-storage faults. The final full run uses the required helper and normal disk storage. It passes after the disk has free space and both stale ignore-rule test expectations are fixed. Cleanup removes the temporary RAM disk and its exclude rule. Test and check time limits stay unchanged.
+
+The full-suite source and `2d5b35aa` differ only in the deleted manifest lint exception and this record. The 60 final lint tests check that change. The final commit updates this record only.
+
+## Checkout size
+
+The table measures tracked files. It excludes Git history and installed packages. The file-byte totals also apply to a fresh checkout.
+
+| Measure | Before | After |
+|---|---:|---:|
+| Tracked files | 5,295 | 2,937 |
+| File bytes | 532,458,454 | 280,353,726 |
+| Disk blocks, KiB | 531,628 | 280,008 |
+
+The requested `git ls-files -z | xargs -0 du -ck | tail -1` command gives 280,008 KiB after the change. The table uses the full tracked-file block sum for both states.
+
+Unbuilt parts: none.
