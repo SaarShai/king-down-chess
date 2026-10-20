@@ -1,6 +1,6 @@
 # Plugin test clock races
 
-Status: done
+Status: in progress
 Type: task
 
 ## Plan and checks
@@ -11,7 +11,15 @@ Type: task
 4. Run each changed test file twice on the M1 with `m1-unit.sh`. Run `npx tsc --noEmit`.
 
 The probes must fail before each fix and pass after it. Remove the probes from the final commits.
-The owner reserves the full suite and browser checks for the main session.
+The first pass reserves the full suite and browser checks for the main session.
+
+## Review fix plan and checks
+
+1. Check Review A against the client and the two-widget test. Review B supplies no finding.
+2. Check the review's failure and pass logs with a 1.5 s delay in the newer widget's first poll reply.
+3. Finish both widgets' calls before the second clock jump. Keep all assertions and time limits.
+4. Keep the delayed reply in the test. Run `npm test`, which includes the full file, and the `plugin-ui` browser check.
+5. Record the results, correct the sweep row, and commit. The browser runner checks a committed HEAD.
 
 ## Evidence
 
@@ -50,10 +58,10 @@ Run `39335474811` supplies the Ready failure.
 | `plugin-motion.test.ts` | `mate(..., true)` pauses before the result and the tap guard checks. Leave it. |
 | `plugin-lobby.test.ts` | `freeze()` pauses before the timed actions. The handoff also drains calls before more clock steps. Leave it. |
 | `plugin-wait-recovery.test.ts` | Installs and pauses before the timed actions. Leave it. |
-| `plugin-real-host.test.ts` | Pauses before poll, wake, boot and wait-clock steps. Reply checks use frame state. Leave it. |
+| `plugin-real-host.test.ts` | Fix the two-widget poll step: a paused clock still expires an open call at the next jump. Finish both frames' calls before that jump. The wake, boot and wait-clock steps hold the call they expire or check the needed frame state. Leave those steps. |
 | `plugin-races.test.ts` | R2 holds Create, then deliberately expires it. Its result is stable after expiry. Leave it. |
 
-Keep the page clock paused across timed steps. Before a clock jump, finish the calls from the last step.
+Keep the page clock paused across timed steps. Before a clock jump, finish the calls from the last step in every live widget.
 For a reply check, wait for the frame state that the next assertion needs.
 
 The other app clock steps stay as follows. These are source checks, not new load probes.
@@ -92,3 +100,12 @@ The other app clock steps stay as follows. These are source checks, not new load
 - Final board runs at `50e712b4`: 160/160 in 172.15 s and 160/160 in 173.97 s. Menus and app are unchanged since their two full passes.
 - Each changed file passes twice. All runs use `m1-unit.sh`. The three-file runs use `--no-file-parallelism`.
 - The lane output keeps `files-1.txt`, `files-2.txt`, `board-final-1.txt` and `board-final-2.txt`. Each log has the commit and exit code.
+
+## Review results
+
+- Review A: confirmed. The first jump waits only for the older frame's revision. The newer frame can still have an open `kingdown_get`. The next 30 s jump expires its 10 s limit. Its poll then misses the opponent's move.
+- The test now waits for `client.inflight === 0` in both frames before the second jump. This count includes open and queued calls.
+- The test keeps the 1.5 s delay in the newer frame's first poll reply. It checks that the delay runs, and keeps all prior assertions and time limits.
+- The review's `review-widgets-before.txt` fails at the revision wait with the delay. `review-widgets-after.txt` passes with the same delay and the two-frame wait. Both logs come from the M1. A repeat probe on this Mac stays in the shared test queue; this pass stops that queued probe before it runs.
+- Review B: no finding is supplied (`undefined`). There is no claim to fix or refute.
+- Final checks: pending.
