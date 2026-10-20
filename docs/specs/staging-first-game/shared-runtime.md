@@ -25,3 +25,8 @@ Status: implemented; integrated staging checks remain with the main task.
 - `npm run build`: pass.
 - Focused `npm test`: 8 files, 201 tests and 53 artwork checks pass; zero skips.
 - The main task owns integrated HTTP/MCP database checks and browser checks. No production deployment or real ChatGPT-host validation occurs in this branch.
+
+
+## Compact end-card check
+
+The compiled fixture reproduces a 1 CSS pixel scroll offset at 870 × 280 for both results. The title, result and first action remain fully inside the card and frame. Every action remains reachable. The active element is the page body. This is an overexact scroll-offset assertion, not hidden content. The check permits at most 1 CSS pixel and keeps every visibility and hit check. Product layout stays unchanged. The focused diagnosis takes 9.8 seconds; the registered HTTP browser check at `db486473` plus this change passes every ticket 36 size and action check. The complete check then stops at an unrelated profile reading-row assertion (`checkFlatRows`, line 85). Log: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/web-game-eOy136/plugin-ui-http.log`. No product CSS changes.

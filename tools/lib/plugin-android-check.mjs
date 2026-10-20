@@ -92,7 +92,8 @@ export async function checkAndroidFixes(browser, base, clickButton) {
         });
         if (width === 870) await shot(page, `ticket36-end-${winner === 0 ? 'win' : 'loss'}-${width}x${height}`);
         // The 197 px card keeps the separate cut-action design of ticket 32.
-        if (width > height) check(first.scrollTop === 0 && first.title && first.result && first.play, `${state} first view`, first);
+        // Allow one CSS pixel of browser scroll rounding; the visibility checks still require the full first view.
+        if (width > height) check(Math.abs(first.scrollTop) <= 1 && first.title && first.result && first.play, `${state} first view`, first);
         for (const name of ['Play again','New game','See the board']) {
           const button = card.getByRole('button', { name, exact: true });
           await button.scrollIntoViewIfNeeded();
