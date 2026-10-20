@@ -126,7 +126,7 @@ function acceptsView(next: View | undefined, job?: Job): next is View {
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
 function show(next: View | undefined, job?: Job) {
   if (!acceptsView(next, job)) return false;
-  next = acceptedView(view, next)!;
+  // End needs the reply's rules marker. The board keeps its cached rules.
   const before = view;
   if (next.rules) rules = { game: next.game_id, value: next.rules };
   // A full read carries the rules; a reply without them is for a game this board no longer shows.

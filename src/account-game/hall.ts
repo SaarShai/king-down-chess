@@ -105,6 +105,16 @@ export function createHall(memory: HallMemory, client: GameClient, host: PageHos
     const button = event.isTrusted && (event.target as Element | null)?.closest?.('button');
     if (button && $('app-root').contains(button) && document.activeElement !== button) button.focus({ preventScroll: true });
   };
+  // Reveal the label, then keep its input in view if the label exceeds the scroll area.
+  const reveal = (event: FocusEvent) => {
+    if (disposed) return;
+    const target = event.target as HTMLElement | null, control = target?.closest?.('label') ?? target;
+    if (control && $('app-root').contains(control)) {
+      control.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      if (target !== control) target!.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  };
+  window.addEventListener('focusin', reveal);
   window.addEventListener('click', focus, true);
   $('retry')?.addEventListener('click', retry, true);
   function close() {
@@ -115,6 +125,7 @@ export function createHall(memory: HallMemory, client: GameClient, host: PageHos
     if (disposed) return;
     disposed = true; close(); stopHost();
     for (const button of navigation) button.onclick = null;
+    window.removeEventListener('focusin', reveal);
     window.removeEventListener('click', focus, true); $('retry')?.removeEventListener('click', retry, true);
   }
   stopHost = host.start(enter, close);

@@ -173,3 +173,26 @@ it('focuses a trusted account button before its click handler and removes the li
   nextFocus({ isTrusted: true, target }); expect(button.focus).toHaveBeenCalledTimes(2);
   next.dispose(); vi.restoreAllMocks();
 });
+
+it('reveals the full input label on focus and stops after dispose', () => {
+  const add = vi.spyOn(window, 'addEventListener'), remove = vi.spyOn(window, 'removeEventListener');
+  const h = mount(), registration = add.mock.calls.find(([name]) => name === 'focusin');
+  expect(registration).toBeDefined();
+  const reveal = registration![1] as (event: unknown) => void;
+  const label = { scrollIntoView: vi.fn() }, outside = { scrollIntoView: vi.fn() };
+  Object.assign(document.getElementById('app-root')!, { contains: (el: unknown) => el === label });
+  const target = { closest: vi.fn(() => label), scrollIntoView: vi.fn() };
+  reveal({ target }); expect(target.closest).toHaveBeenCalledWith('label');
+  expect(label.scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'nearest', inline: 'nearest' });
+  expect(target.scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'nearest', inline: 'nearest' });
+  expect(label.scrollIntoView.mock.invocationCallOrder[0]).toBeLessThan(target.scrollIntoView.mock.invocationCallOrder[0]);
+  reveal({ target: { closest: () => outside } }); expect(outside.scrollIntoView).not.toHaveBeenCalled();
+  reveal({ target: null });
+  const input = { closest: () => null, scrollIntoView: vi.fn() };
+  Object.assign(document.getElementById('app-root')!, { contains: (el: unknown) => el === input });
+  reveal({ target: input }); expect(input.scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'nearest', inline: 'nearest' });
+  h.dispose(); expect(remove).toHaveBeenCalledWith(...registration!);
+  reveal({ target: input }); expect(input.scrollIntoView).toHaveBeenCalledTimes(1);
+  expect(label.scrollIntoView).toHaveBeenCalledTimes(1);
+  vi.restoreAllMocks();
+});

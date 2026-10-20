@@ -89,6 +89,18 @@ it.each([false, true])('scrolls from a result to New game after the list is read
   expect(app.client.state.screen).toBe('play'); expect(body.scrollTop).toBe(800);
 });
 
+it('keeps the full-read marker absent from a compact end reply after caching rules', async () => {
+  const app = await mounted();
+  const full = { ...game, fen: '7k/8/8/8/8/8/P7/K7 w - - 0 1', rules: {} } as View;
+  app.routeView(full);
+  const ended = { ...game, revision: 2, status: 'finished', fen: full.fen, result: { winner: 1, reason: 'resignation' } } as View;
+  transport.call.mockResolvedValue({ content: [], _meta: { view: ended } });
+  await app.call('kingdown_resign', { game_id: game.game_id }, { route: true });
+  expect(app.client.state.screen).toBe('end');
+  expect(app.memory.view).not.toHaveProperty('rules');
+  expect(transport.draw).toHaveBeenLastCalledWith(ended, false);
+});
+
 it('keeps a Resume service code through the real send and read adapter', async () => {
   const app = await mounted(), { pluginGameClient } = await import('./client');
   const reads = pluginGameClient(app.client, app.queue, app.send);
@@ -101,11 +113,14 @@ it.each(['onclose', 'onteardown'])('disposes the hall on plugin %s', async stop 
   const app = await mounted(); app.memory.games = [game as any]; app.renderGameRows();
   const focus = vi.mocked(window.addEventListener).mock.calls.filter(([name]) => name === 'click');
   expect(focus).toHaveLength(1);
+  const reveal = vi.mocked(window.addEventListener).mock.calls.filter(([name]) => name === 'focusin');
+  expect(reveal).toHaveLength(1);
   const open = transport.rows.mock.calls.at(-1)![2];
   await transport.instance[stop]();
   expect(app.memory.games).toEqual([]); expect(app.memory.dirty).toBe(true);
   expect(window.removeEventListener).toHaveBeenCalledWith('click', expect.any(Function), true);
   expect(window.removeEventListener).toHaveBeenCalledWith(...focus[0]);
+  expect(window.removeEventListener).toHaveBeenCalledWith(...reveal[0]);
   transport.call.mockClear(); open(game.game_id); await vi.advanceTimersByTimeAsync(0);
   expect(transport.call).not.toHaveBeenCalled();
 });
