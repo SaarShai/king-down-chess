@@ -4,15 +4,24 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.setConfig({ testTimeout: 60_000 });
 
-function timeouts(file: string) {
-  // Remove strings first: the Python programs contain their own calls and semicolons.
-  const source = readFileSync(new URL(file, import.meta.url), 'utf8')
-    .replace(/(['"`])(?:\\.|(?!\1).)*\1/gs, '""');
+function childLimits(text: string) {
+  // Skip comments and strings together: Python code and comments can contain calls or quotes.
+  const source = text.replace(/\/\/[^\n]*|\/\*.*?\*\/|(['"`])(?:\\.|(?!\1).)*\1/gs, '');
   const calls = source.match(/\bexecFileSync\([\s\S]*?\);/g) ?? [];
   return calls.map(call => Number(call.match(/\btimeout:\s*([\d_]+)/)?.[1].replaceAll('_', '') ?? NaN));
 }
+const timeouts = (file: string) => childLimits(readFileSync(new URL(file, import.meta.url), 'utf8'));
 
 describe('synchronous child limits', () => {
+  it('ignores calls in comments and Python strings, and detects a missing limit', () => {
+    expect(childLimits([
+      "// A widget's child: execFileSync('node');",
+      '/* execFileSync("node", [], { timeout: 1 }); */',
+      'execFileSync("python3", ["-c", `print("execFileSync();")`], { timeout: 4_000 });',
+      'execFileSync("node", [], {});',
+    ].join('\n'))).toEqual([4000, NaN]);
+  });
+
   it.each(['board', 'ios-size', 'motion', 'preview-size', 'real-host', 'ui-style'])('bounds the %s widget build below its hook or test limit', name => {
     const limits = timeouts(`plugin-${name}.test.ts`);
     expect(limits).toHaveLength(1);
