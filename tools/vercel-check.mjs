@@ -1,5 +1,5 @@
 /** Check the site build in a local copy with a disposable PostgreSQL database.
- * The default API stays closed. Local test keys enable the dispatch probes. */
+ * Account routes serve the browser entry. The default API stays closed; local test keys enable dispatch probes. */
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createServer, request } from 'node:http';
@@ -175,7 +175,17 @@ try {
     await assertClosure(await fetch(origin + path));
     await assertClosure(await fetch(origin + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'random', speed: 'live', setup: { fen: '7k/8/8/8/8/8/8/K7 w - - 0 1' } }) }));
   }
-  const closedPaths = ['/play', '/play/', '/play/profile', '/play/settings', '/play.html', '/g/test-id', '/j', '/j/', '/j/inert-token', '/unrelated-path'];
+  const accountPaths = ['/play', '/play/', '/play/profile', '/play/settings', '/g/test-id', '/j', '/j/'];
+  for (const path of accountPaths) for (const query of ['', '?probe=1']) {
+    const response = await fetch(origin + path + query, { redirect: 'manual' });
+    assert.equal(response.status, 200, path + query);
+    assert.equal(response.headers.get('location'), null, path + query);
+    assert.equal(await response.text(), index, `${path + query} serves only the browser entry`);
+    const head = await fetch(origin + path + query, { method: 'HEAD', redirect: 'manual' });
+    assert.equal(head.status, 200, `HEAD ${path + query}`); assert.equal(await head.text(), '');
+    assert.equal((await fetch(origin + path + query, { method: 'POST', redirect: 'manual' })).status, 404, `POST ${path + query}`);
+  }
+  const closedPaths = ['/play.html', '/j/inert-token', '/unrelated-path'];
   for (const path of [...closedPaths, '/api', '/api/games', '/api/me/games']) for (const query of ['', '?probe=1']) {
     const response = await fetch(origin + path + query, { redirect: 'manual' });
     assert.equal(response.status, 404, path + query);
@@ -183,13 +193,14 @@ try {
     if (path.startsWith('/api')) await assertClosure(response);
   }
 
-  // /internal runs a job only with the secret; email stays off without its settings.
+  // /internal runs a job only with the secret; the removed email job has no endpoint.
   const job = (path, key) => fetch(origin + path, { method: 'POST', headers: key ? { 'X-Kingdown-Internal': key } : {} });
   assert.equal((await job('/internal/tick')).status, 403); assert.equal((await job('/internal/tick', `${secret}x`)).status, 403);
   const tick = await job('/internal/tick', secret); assert.equal(tick.status, 200); assert.equal(typeof (await tick.json()).ended, 'number');
-  assert.equal((await job('/internal/outbox', secret)).status, 503);
+  const outbox = await job('/internal/outbox', secret); assert.equal(outbox.status, 404);
+  assert.deepEqual(await outbox.json(), { code: 'NOT_FOUND', message: 'Not found' });
   const unknownJob = await job('/internal/unknown', secret); assert.equal(unknownJob.status, 404);
-  assert.deepEqual([...served].sort(), [...new Set(['function /.well-known/oauth-protected-resource', 'function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /internal/unknown', 'function /mcp', 'function /api/games', ...closedApi.map(([, path]) => `function ${new URL(path, origin).pathname}`), 'static /', 'static /plugin-art/*', 'static /privacy.html', 'static /sw.js', ...publicPaths.map(path => `static ${path}`), ...(hasChallenge ? [`static ${challenge}`] : [])])].sort(), 'Closed/default served paths');
+  assert.deepEqual([...served].sort(), [...new Set(['function /.well-known/oauth-protected-resource', 'function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /internal/unknown', 'function /mcp', 'function /api/games', ...closedApi.map(([, path]) => `function ${new URL(path, origin).pathname}`), 'static /', 'static /plugin-art/*', 'static /privacy.html', 'static /sw.js', ...accountPaths.map(path => `static ${path}`), ...publicPaths.map(path => `static ${path}`), ...(hasChallenge ? [`static ${challenge}`] : [])])].sort(), 'Closed/default served paths');
 
   await app.pool.end(); app = undefined;
   savedAccountAccess = (await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0]?.enabled;
@@ -205,7 +216,11 @@ try {
   assert.deepEqual(await offStatus.json(), { account_access: 'closed', valid_for_ms: 0 });
   await app.pool.end(); app = undefined;
   await pool.query('update public.web_account_access set enabled=true where singleton=true');
-  app = await configurePlugin(webEnv, { localDev: true, websiteKeys });
+  const currentUserRequests = [];
+  app = await configurePlugin(webEnv, { localDev: true, websiteKeys, websiteCurrentUser: async (bearer, user) => {
+    currentUserRequests.push([bearer, user]);
+    throw new Error('The local provider probe refuses the current session');
+  } });
   served.clear();
   let enabledCases = 0;
   const checkApi = response => {
@@ -285,21 +300,22 @@ try {
   assert.equal(invalidSince.status, 400); assert.equal((await invalidSince.json()).code, 'INVALID_INPUT');
   const gameRows = () => pool.query('select to_jsonb(g) as game from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=$1) order by g.id', [actor]);
   const before = (await gameRows()).rows;
-  const assertWriteClosure = async response => {
+  const assertProviderRefusal = async response => {
     assert.equal(response.status, 503); assert.equal(response.headers.get('retry-after'), '5');
-    assert.deepEqual(await response.json(), { code: 'UNAVAILABLE', message: 'Website writes are not configured' });
+    assert.deepEqual(await response.json(), { code: 'UNAVAILABLE', message: 'Sign-in verification is temporarily unavailable. Retry.' });
   };
   const malformed = await api('/api/games', { method: 'POST', headers: { ...signed, 'Content-Type': 'application/json' }, body: '{broken' });
-  await assertWriteClosure(malformed);
+  await assertProviderRefusal(malformed);
   const large = 'x'.repeat(32 * 1024);
   for (const headers of [{ 'Content-Length': String(Buffer.byteLength(large)) }, { 'Transfer-Encoding': 'chunked' }]) {
     const response = await raw('/api/games', { ...signed, 'Content-Type': 'application/json', ...headers }, [large.slice(0, 8192), large.slice(8192)]);
-    await assertWriteClosure(response);
+    await assertProviderRefusal(response);
   }
-  assert.deepEqual((await gameRows()).rows, before, 'Refused bodies have no game effect');
+  assert.deepEqual(currentUserRequests, [[token, actor], [token, actor], [token, actor]], 'Every signed write checks the current provider session before reading its body');
+  assert.deepEqual((await gameRows()).rows, before, 'Provider-refused writes have no game effect');
   assert.deepEqual([...served].sort(), ['/api', '/api/', '/api/games', `/api/games/${game_id}`, '/api/me/games', '/api/me/profile', '/api/status', '/api/unknown'].map(path => `function ${path}`).sort(), 'Enabled/test served paths');
   console.log(`Same-switch compiled status/direct effects: ${JSON.stringify(effects)}`);
-  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${closedPaths.length} closed account/unknown paths, ${art.length} board art files, MCP open and move, OAuth, ${closedCases} closed/default API probes with zero pool calls, off-switch closure, ${enabledCases} enabled/test API probes with 3 write-configuration refusals, internal jobs and ${archive.length} archived engine(s) passed`);
+  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${accountPaths.length} browser entry routes, ${closedPaths.length} closed legacy/unknown paths, ${art.length} board art files, MCP open and move, OAuth, ${closedCases} closed/default API probes with zero pool calls, off-switch closure, ${enabledCases} enabled/test API probes with 3 current-provider refusals, internal jobs and ${archive.length} archived engine(s) passed`);
 } finally {
   try {
     if (savedAccountAccess !== undefined) {
