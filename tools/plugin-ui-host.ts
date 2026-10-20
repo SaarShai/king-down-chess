@@ -5,7 +5,7 @@ const first = document.querySelector<HTMLIFrameElement>('iframe')!;
 const query = new URLSearchParams(location.search);
 // ChatGPT mounts a new widget for each tool result, and the old widgets stay live. ?frame-per-result does the same here.
 const perResult = query.has('frame-per-result');
-type Widget = { frame: HTMLIFrameElement; bridge?: AppBridge; initialResult?: any; calls: any[]; widgetState?: any; widgetStates: any[]; fence?: number; held?: number; inflight?: number };
+type Widget = { frame: HTMLIFrameElement; bridge?: AppBridge; initialResult?: any; calls: any[]; widgetState?: any; injectedState?: { value: any }; widgetStates: any[]; fence?: number; held?: number; inflight?: number };
 // Each widget has its own state, as in ChatGPT. The harnessWidgetState and harnessWidgetStates hooks are the newest widget's.
 const widgets: Widget[] = host.harnessWidgets = [{ frame: first, calls: [], widgetStates: [] }];
 const newest = () => widgets.at(-1)!;
@@ -13,7 +13,7 @@ const newest = () => widgets.at(-1)!;
 // directly. So the host sends the frame a fence, and keeps the check's state until the frame answers it.
 let fences = 0;
 Object.defineProperty(host, 'harnessWidgetState', { configurable: true, get: () => newest().widgetState, set: value => {
-  const widget = newest(); widget.widgetState = value; widget.fence = ++fences;
+  const widget = newest(); widget.widgetState = value; widget.injectedState = { value }; widget.fence = ++fences;
   widget.frame.contentWindow?.postMessage({ harness: 'fence', id: widget.fence }, '*');
 } });
 Object.defineProperty(host, 'harnessWidgetStates', { configurable: true, get: () => newest().widgetStates, set: value => { newest().widgetStates = value ?? []; } });
@@ -83,7 +83,7 @@ addEventListener('message', ({ source, data }) => {
   else if (data.harness === 'boot') { widget.fence = undefined; post({ harness: 'boot', bootDelay: host.harnessBootDelay ?? 0, openai: !host.harnessWithoutWidgetState, widgetState: widget.widgetState }); }
   // The frame has set its boot timer, so a check may now step the page clock over it.
   else if (data.harness === 'booted') host.harnessBoots++;
-  else if (data.harness === 'widget-state') { if (!host.harnessDropWidgetWrites && widget.fence === undefined) widget.widgetState = data.state; widget.widgetStates.push(data.state); }
+  else if (data.harness === 'widget-state') { if (!host.harnessDropWidgetWrites && widget.fence === undefined) { widget.widgetState = data.state; widget.injectedState = undefined; } widget.widgetStates.push(data.state); }
   // A check's frame code sets host hooks (holdNext and the others) in order with the frame's next tool call.
   else if (data.harness === 'set') Object.assign(host, data.values);
   else if (data.harness === 'tool') callTool(widget, data.params).then(result => post({ harness: 'tool', id: data.id, result }), error => post({ harness: 'tool', id: data.id, error: String(error) }));
@@ -92,7 +92,11 @@ addEventListener('message', ({ source, data }) => {
 async function mount(widget: Widget) {
   // The SDK requires resource teardown before the iframe leaves the document.
   if (widget.bridge) {
+    const injected = widget.injectedState;
     if (widget.bridge.getAppCapabilities()) await widget.bridge.teardownResource({});
+    // A check can supply the next boot state; the old app saves its own state during teardown.
+    if (injected) widget.widgetState = injected.value;
+    widget.injectedState = undefined;
     const fresh = widget.frame.cloneNode() as HTMLIFrameElement;
     fresh.removeAttribute('src'); widget.frame.replaceWith(fresh); widget.frame = fresh;
   }
