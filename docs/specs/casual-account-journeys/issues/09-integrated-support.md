@@ -22,7 +22,7 @@ Five additional assertions connect the two slices in the existing support case. 
 
 Only project `puhspsyjyzaghmgtkzqd` is used. Before the grant, runtime notice ID/date reads are false and the existing payload read is true. The applied SQL grants SELECT on `id, created_at` only, to the existing `kingdown_plugin_runtime` role. The result then shows all three reads true. No game, player, notice content or production project is changed.
 
-The parent evidence folder retains `notices-staging-grant.png`. The notice feature is not deployed yet. The current staging artifact contains temporary startup diagnostics, which are already removed from development source and must be absent from the next accepted build.
+The parent evidence folder retains `notices-staging-grant.png`. The notice feature is deployed in `ce61e8d7` to the isolated staging preview. The website Profile loads the existing games and “No account notices” successfully. The artifact contains no temporary startup trace. Actual fresh ChatGPT Profile inspection remains behind the native host gate.
 
 ## Staging help link
 

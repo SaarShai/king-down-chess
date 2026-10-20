@@ -100,3 +100,14 @@ The worker transition repair `0ace4ecb` passes 269 focused tests, independent re
 The live picker regression now passes on the website in game `57b3e89b-be86-89bd-81b4-a91384e93d43`: Freeze on a7, reopen Choose a move, select e2–e4, then End turn. The computer replies b7–b5. The already-open actual ChatGPT app resumes that game and shows the same three history entries. This is actual host parity, not a fresh ChatGPT open. Two extension-controlled fresh ChatGPT opens fail at the host display stage while the Mac is locked; no game-code cause is established.
 
 U05 stays open for the slow-update repair and final fresh host verification without Try again. Existing mechanics and cross-surface receipts remain accepted; this startup gate does not require rebuilding their coverage. Temporary diagnostics are removed from development source in `736a718` and must be absent from the next accepted staging artifact.
+
+
+## Clean update verification
+
+The slow-update correction is integrated as `2c94fa03`. It passes 228 focused tests, full typecheck, 54 art checks and independent review. Combined compiled run `app-g1E47d` passes `web-online` (106.5 seconds) and `plugin-ui-http` (244.9 seconds), including their final browser-error gates. A later staging-help URL correction passes its existing Profile regression in staging and default environments and independent review; it changes no gameplay or cache behavior.
+
+Source `ce61e8d7` reaches staging preview `dpl_HzwXtkD8dQzC7gFJv4mF1hR8SQih`. The alias index matches the checked build. Both clients contain the staging help URL, and the artifact contains no temporary startup trace.
+
+The first website open after release reaches game `57b3e89b-be86-89bd-81b4-a91384e93d43` without retry. Its saved history and new Profile notice query pass. A complete live turn then protects Maester a1 with Ice Wall and moves the pawn e4–e6 with March. The computer replies Maester a8–b7. The website and the existing actual ChatGPT app each show the same six accepted actions after an explicit board refresh. No duplicate turn appears.
+
+The Mac remains locked, so native fresh ChatGPT acceptance is still pending. Do not count the existing app refresh as a fresh host open. U08 proceeds only on independent continuity work; U05 is not marked complete. The parent project's `evidence/staging-shared-mechanics/verification.md` gives the concise coverage report and limits.
