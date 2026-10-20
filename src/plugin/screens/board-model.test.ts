@@ -1,8 +1,9 @@
 import { afterEach, expect, test } from 'vitest';
+import type { Page } from '../state';
 import type { View } from '../../match/protocol';
 import { fromFen, toFen, toLan } from '../../rules/setup';
 import { legalMoves, setRules, status, type CardName, type Rules } from '../../rules/engine';
-import { applyLan, boardActions, cardCoins, draftChoices, draftTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
+import { applyLan, boardActions, cardCoins, cardUseReason, draftChoices, draftTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 
 const view = (fields: Partial<View> = {}): View => ({ game_id: 'game', revision: 2, created_at: '2026-10-11T00:00:00Z', abort_open: false, seat: 0, kind: 'friend', speed: 'daily', days_per_move: 3, status: 'playing', turn: 1, action: 'waiting', fen: '7k/8/8/8/8/8/P7/K7 b - - 0 1', in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: '2026-10-11T00:00:01Z', server_now: '2026-10-11T00:00:00Z', ...fields });
 
@@ -304,4 +305,36 @@ test.each([
 ])('restore drops the whole draft for a refused replay: %j', ({ lans }) => {
   const base = view({ fen: HASTE, action: 'ready', legal: ['Ra1-a4!H'] });
   expect(restoreDraft(base, { game_tag: 'game', fen: HASTE, lans }, hasteRules)).toBeUndefined();
+});
+
+
+test('a card with no Use action gives one reason; a usable card gives no reason', () => {
+  const move = {} as import('../../rules/engine').Move, card = { spent: false, moves: [move] }, game = view({ turn: 0, action: 'ready' }), pos = { turn: 0 as const };
+  const page: Page = { screen: 'board', view: game, connected: true, mounting: false, writing: false };
+  expect(cardUseReason(card, 0, game, pos, true, page)).toBe('');
+  expect(cardUseReason({ ...card, spent: true }, 0, game, pos, true, page)).toBe('This card is spent.');
+  expect(cardUseReason(card, 1, game, pos, true, page)).toBe("This is your opponent's card.");
+  expect(cardUseReason(card, 0, { ...game, status: 'finished' }, pos, true, page)).toBe('This game has ended.');
+  expect(cardUseReason(card, 0, { ...game, turn: 1 }, { turn: 1 }, false, page)).toBe('Use this card on your turn.');
+  expect(cardUseReason(card, 0, game, { turn: 1 }, false, page)).toBe('Finish your turn before you use this card.');
+  expect(cardUseReason(card, 0, game, pos, false, { ...page, writing: true })).toBe('Wait for the current action to finish.');
+  expect(cardUseReason(card, 0, game, pos, false, page)).toBe('Finish your turn before you use this card.');
+  expect(cardUseReason({ ...card, moves: [] }, 0, game, pos, true, page)).toBe('This card has no move now.');
+  const pending = { name: 'kingdown_draw', args: {}, game_tag: 'game', error: 'Request failed' };
+  expect(cardUseReason(card, 0, game, pos, false, { ...page, pending })).toBe('Close this sheet and select Retry.');
+  const stale: Page = { ...page, notice: { kind: 'read', game: game.game_id, text: 'Read failed' } };
+  expect(cardUseReason(card, 0, game, pos, false, stale)).toBe('Close this sheet and select Try again.');
+  expect(cardUseReason(card, 0, game, pos, false, { ...stale, mounting: true })).toBe('Wait for the current action to finish.');
+});
+
+test('a failed ordinary move send names Retry for an unused card after the draft turn changes', () => {
+  const { pre, pos, steps } = stage(HASTE, ['Ra1-a2'], hasteRules);
+  const game = view({ turn: pre.turn, fen: HASTE, action: 'ready' });
+  const coin = cardCoins(pos, 0, hasteRules.hands![0], [])[0];
+  const page: Page = { screen: 'board', view: game, connected: true, mounting: false, writing: false,
+    pending: { name: 'kingdown_move', args: { actions: sendActions(steps, pos, 0) }, game_tag: 'game', error: 'Request failed' } };
+  expect(pos.turn).toBe(1);
+  expect(coin.spent).toBe(false);
+  expect(cardUseReason(coin, 0, game, pos, false, page)).toBe('Close this sheet and select Retry.');
+  expect(cardUseReason(coin, 0, game, pos, false, { ...page, writing: true })).toBe('Wait for the current action to finish.');
 });

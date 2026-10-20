@@ -14,6 +14,9 @@ import type { PlayerRecord, View } from '../../match/protocol';
 import { ending } from '../ending';
 import { board, highlight } from '../board-view';
 import { art, symbols } from '../art';
+import { cardSymbol } from '../../card-symbol';
+import { cardArt } from '../card-face';
+import { cardDiagram } from '../../card-diagram';
 import { pieceIcon } from '../../piece-icons';
 import { snd } from '../../render/sfx';
 import '../../ceremony.css';
@@ -22,7 +25,7 @@ import { locks, noticeShows, pendingHere, staleRead, type Page, type Store } fro
 import { nextGame } from '../next-game';
 import { actionButtons, playerBlockButton } from './board-actions';
 import { guardEndTaps, updateEnd } from './end';
-import { applyLan, boardActions, cardCoins, draftChoices, draftTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
+import { applyLan, boardActions, cardCoins, cardUseReason, draftChoices, draftTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 import './board.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 type Choice = { lan: string; move: Move };
@@ -36,7 +39,9 @@ let command: (name: string, args: Record<string, unknown>) => Promise<View | und
 export const sendBoardCommand = (name: string, args: Record<string, unknown> = {}) => command(name, args);
 const portraitPath = (side: Color) => `ui/kings/${(RULES.kings[side]?.king ?? PLAIN_KINGS[side]).toLowerCase()}${side ? '-b' : ''}.webp`;
 let sheet: HTMLDialogElement, scrim: HTMLDivElement, sheetFocus: HTMLElement | undefined;
+let refreshCardSheet: (() => void) | undefined;
 export function closeBoardSheet() {
+  refreshCardSheet = undefined;
   if (!sheet) return;
   for (const id of ['choices', 'reload', 'computer', 'invite', 'invitation']) $('board-park').append($(id));
   const restore = sheet.open && sheet.contains(document.activeElement);
@@ -292,15 +297,27 @@ export function boardScreen(store: Store) {
     if (!view || !pos || !canRead()) return;
     rules();
     if (index !== undefined) {
-      const card = RULES.hands[side][index], image = document.createElement('img'), face = art(`ui/cards/${card.toLowerCase()}.webp`);
-      image.src = face ?? art('ui/cards/back.webp'); image.alt = '';
-      const window = document.createElement('div'); window.className = 'cf-art'; window.append(image);
-      const nodes: HTMLElement[] = [window, text(ruleLine(cardText(card)))], coin = cardCoins(pos,side,RULES.hands[side],moves.map(c=>c.move))[index];
-      if (side === view.seat && canPlay() && !coin.spent && coin.moves.length) nodes.push(button('Use', () => {
-        if (!canPlay()) return;
-        armed = undefined; armedCard = index; selected = inspected = held = undefined; closeBoardSheet(); choices(cardChoices()); refresh();
-      }));
+      const card = RULES.hands[side][index];
+      const window = document.createElement('div'); window.className = 'cf-art'; window.innerHTML = cardArt(card);
+      const nodes: HTMLElement[] = [window, text(ruleLine(cardText(card)))], diagram = cardDiagram(card);
+      if (diagram) { const picture = document.createElement('div'); picture.className = 'card-diagram'; picture.innerHTML = diagram; nodes.push(picture); }
+      let action: HTMLElement;
+      const update = () => {
+        const coin = cardCoins(pos!,side,RULES.hands[side],moves.map(c=>c.move))[index];
+        const reason = cardUseReason(coin, side, view!, pos!, canPlay(), store.page());
+        if (action?.textContent === (reason || 'Use')) return;
+        const next = reason ? text(reason) : button('Use', () => {
+          if (!canPlay()) return;
+          armed = undefined; armedCard = index; selected = inspected = held = undefined; closeBoardSheet(); choices(cardChoices()); refresh();
+        });
+        if (reason) next.className = 'card-reason';
+        const focused = action === document.activeElement;
+        action?.replaceWith(next); action = next;
+        if (focused) sheet.querySelector<HTMLButtonElement>('[aria-label="Close"]')!.focus({preventScroll:true});
+      };
+      update(); nodes.push(action!);
       boardSheet(cardName(card), ...nodes);
+      refreshCardSheet = update;
     } else {
       const coin = coinState(pos, side, RULES, [], side === view.seat && !!armed, moves.map(c => c.move), canPlay() ? view.seat : null);
       if (!coin) return;
@@ -345,8 +362,8 @@ export function boardScreen(store: Store) {
         b.dataset.state = mine && armedCard === index && !card.spent ? 'armed' : card.spent && !spending ? 'used' : 'always';
         if (mine && !card.spent) b.setAttribute('aria-pressed', String(armedCard === index));
         if (!spending) { b.style.setProperty('--i', String(index)); moment(b, 'is-dealt', dealtAt, 560); } b.setAttribute('aria-label', (mine ? 'Your ' : "Opponent's ") + cardName(card.card) + (card.spent ? ', spent' : ''));
-        image.src = face ?? art('ui/cards/back.webp'); image.alt = ''; b.append(image);
-        if (!face) { const word = document.createElement('span'); word.className = 'cc-word'; word.textContent = cardName(card.card).slice(0,2); b.append(word); }
+        if (face) { image.src = face; image.alt = ''; b.append(image); }
+        else b.innerHTML = cardSymbol(card.card);
         row.append(b);
       }
     }
@@ -364,6 +381,7 @@ export function boardScreen(store: Store) {
   function refresh() {
     if (!view || !pos) return;
     rules(); moves = draftChoices(view, pos, steps);
+    refreshCardSheet?.();
     const draft = turn();
     turnControls(draft);
     $('board').dataset.animating = String(animating);

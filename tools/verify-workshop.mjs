@@ -63,7 +63,7 @@
 // echo), and a design whose rule counts moves has a socket that waits and says why; the phone's
 // Board tab and Kings tab).
 // Then ticket 14: labCards (the Cards tab (LAB): the fan of the 10 cards with art, the "+15" stack that spreads and "‹ Back"; the
-// Freeze card on the plinth with its art, words and LAB ribbon, its king, the burgundy plaque; its picks as runes on the Paladin's
+// Freeze card on the plinth with its art and words, its king, the burgundy plaque; its picks as runes on the Paladin's
 // board, the king's rune barred and the piece's own marks stepped back; d7 plays it: frost, and Take back gives it back; a second
 // form; LAY A LAB CARD and Esc; Leap laid on the Rook; one power or one card at a time; a copy's slot works, and the slot of a
 // design whose rule counts cards waits and says why (ticket 17); the phone).
@@ -1992,19 +1992,20 @@ async function labCards() {
   await p.click('[data-tab="cards"]');
   const fan = p => p.$$eval('.cfan .cface', bs => bs.map(b => b.dataset.lab));
   assert.match(await p.locator('[data-tab="cards"]').textContent(), /^Cards LAB$/, 'the Cards tab has the LAB label');
-  assert.deepEqual(await fan(p), ['Freeze', 'IceWall', 'Sacrifice', 'March', 'Leap', 'Mimic', 'Vault', 'SkyLift', 'Salvation', 'Rescue'], 'the cards with art make the fan');
-  assert.equal(await p.locator('.cstack b').textContent(), '+15', 'the others wait in a "+15" stack');
+  assert.equal(await p.locator('.lab-ribbon').count(), 0, 'The cards have no repeated LAB ribbons');
+  assert.deepEqual(await fan(p), ['Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap', 'Mimic', 'Vault', 'SkyLift', 'Salvation', 'Rescue'], 'the cards with art make the fan');
+  assert.equal(await p.locator('.cstack b').textContent(), '+12', 'the others wait in a stack');
   await p.click('.cstack');
-  assert.equal((await fan(p)).length, 15, 'a tap spreads the stack');
+  assert.equal((await fan(p)).length, 12, 'a tap spreads the stack');
   assert.ok(!(await fan(p)).some(c => ['FirewallB', 'EarthQuakeB', 'GrowthB', 'SpawnK2'].includes(c)), 'a second form is not a card of its own');
   await p.click('[data-act="cardsback"]');
-  assert.equal((await fan(p)).length, 10, '‹ Back closes it');
+  assert.equal((await fan(p)).length, 13, '‹ Back closes it');
   await p.click('.cface[data-lab="Freeze"]');
-  assert.deepEqual([await name(p), (await p.getAttribute('.pg-bigcard .art', 'src')).replace(/^\./, ''), await p.locator('.pg-bigcard p').textContent(), await p.locator('.pg-bigcard .lab-ribbon').textContent()],
-    ['Freeze', '/ui/cards/freeze.webp', 'As your move, freeze an enemy piece (not the king): it cannot move on its next turn.', 'LAB'], 'an open card stands on the plinth with its art, words and LAB ribbon');
+  assert.deepEqual([await name(p), (await p.getAttribute('.pg-bigcard .art', 'src')).replace(/^\./, ''), await p.locator('.pg-bigcard p').textContent()],
+    ['Freeze', '/ui/cards/freeze.webp', 'As your move, freeze an enemy piece (not the king): it cannot move on its next turn.'], 'an open card stands on the plinth with its art and words');
   assert.deepEqual([await p.locator('.lab-note').textContent(), await p.locator('.twin').textContent(), await p.locator('.info-p').textContent()],
-    ['LABTest deck. Not in the game.', 'Freeze, a power of the Frost king.', 'Tap a blue ring on the board.'], 'its words: the LAB note, its king, what to do');
-  assert.deepEqual([await p.locator('.cardslot.on .cs.filled').count(), await p.locator('.pg-plaque .plaque.lab').textContent()], [1, 'LAB card'], 'the card is in the slot, and the plaque turns burgundy');
+    ['Test deck. Not in the game.', 'Freeze, a power of the Frost king.', 'Tap a blue ring on the board.'], 'its words: the LAB note, its king, what to do');
+  assert.deepEqual([await p.locator('.cardslot.on .cs.filled').count(), await p.locator('.pg-plaque .plaque.lab').textContent()], [1, 'Card'], 'the card is in the slot, and the plaque turns burgundy');
   const runes = p => p.$$eval('.pg-board [data-k="rune"]', gs => gs.map(g => `${g.dataset.at}${g.dataset.barred ? ' barred' : ''}`).sort());
   assert.deepEqual(await runes(p), ['b6', 'd7', 'g7 barred'], 'its picks are runes on each enemy piece, barred on the king');
   assert.deepEqual(await p.$$eval('.pg-board [data-sq]', gs => [...new Set(gs.map(g => g.classList.contains('kdm-dim')))]), [true], 'the piece\'s own marks step back');
@@ -2022,8 +2023,8 @@ async function labCards() {
   await p.click('[data-tab="cards"]');
   await p.click('.cstack');
   await p.click('.cface[data-lab="EarthQuake"]');
-  assert.deepEqual([await p.locator('.variant b').textContent(), await p.locator('.info-p').textContent(), (await p.getAttribute('.pg-bigcard .art', 'src')).replace(/^\./, ''), await runes(p)],
-    ['Earth Quake B', 'No test board for this card yet.', '/ui/cards/back.webp', []], 'a B form shows inside its parent; a card with no art has the card back');
+  assert.deepEqual([await p.locator('.variant b').textContent(), await p.locator('.info-p').textContent(), await p.locator('.pg-bigcard .card-picture').getAttribute('data-card-picture'), await runes(p)],
+    ['Earth Quake B', 'No test board for this card yet.', 'EarthQuake', []], 'a B form shows inside its parent; a card with no painting has a rule picture');
   await p.click('[data-act="cardsback"]');
   await p.click('.cface[data-lab="Salvation"]');
   assert.match(await p.getAttribute('.pg-bigcard .art', 'src'), /\/ui\/cards\/salvation\.webp$/, 'Salvation has the graveyard art');

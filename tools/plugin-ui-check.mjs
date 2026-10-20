@@ -1,4 +1,5 @@
 import { checkAndroidFixes } from './lib/plugin-android-check.mjs';
+import { checkCardDetails } from './lib/card-detail-check.mjs';
 import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
@@ -56,6 +57,7 @@ async function clickButton(page, button) {
 try {
   await checkShell(browser, base);
   await checkAndroidFixes(browser, base, clickButton);
+  await checkCardDetails(browser, base);
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
   await page.addInitScript(() => {
@@ -432,6 +434,7 @@ try {
       for(const [tab,count] of [['Pieces',11],['Kings',6],['Powers',12],['Cards',21]]) {
         await frame.locator('#collection-tabs label').filter({hasText:tab}).click(); assert.equal(await frame.locator('#collection-items > *').count(),count); assert.equal(await frame.locator('#collection-items .unlocked').count(),count);
         assert((await frame.locator('#collection-items > *').allTextContents()).every(text=>text.includes('Unlocked')&&text.trim().length>30),'Each collection entry has its rule');
+        assert(!(await frame.locator('#collection-items').innerText()).includes('Unlocked'), 'The all-unlocked Collection hides repeated status');
         await images('#collection-sheet'); await layout('collection');
         await frame.locator('#collection-items > *').last().scrollIntoViewIfNeeded(); assert((await frame.locator('#collection-items > *').last().evaluate(controlBounds)).accessible,'The last collection entry clears the composer');
         await frame.locator('#collection-sheet .new-game-body').evaluate(el=>{el.scrollTop=0;});

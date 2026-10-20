@@ -102,7 +102,6 @@ label.card-face.out { opacity: .62; }
 .cf-art .pm { width: 100%; height: 100%; opacity: 1; }
 .cf-art .pm .a { animation-name: none; }
 .cf-art img.back { object-position: center 30%; opacity: .85; }
-.cf-word { font-family: var(--font-display); font-weight: 700; font-size: var(--fs-md); color: var(--stone-700); letter-spacing: .04em; text-align: center; padding: 0 6px; }
 .cf-text b { display: block; font-family: var(--font-display); font-size: var(--fs-md); letter-spacing: .03em; padding-right: 26px; }
 .cf-text small { display: block; font-size: var(--fs-xs); line-height: 1.35; color: var(--ink-soft); }
 .cf-cost { display: block; margin-top: 4px; font-size: var(--fs-xs); color: var(--ink); }
@@ -132,7 +131,6 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 /* G2 a: a spent card coin still opens its read sheet, so its word keeps 4.5:1. The grey and a lighter dim (0.85) mark it as spent. */
 #game-table .coin.card-coin[data-state='used'] { opacity: .85; }
 .coin.card-coin img { inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); border-radius: 50%; object-fit: cover; }
-.cc-word { position: absolute; inset: 0; color: var(--vellum) !important; text-shadow: 0 1px 2px rgba(0,0,0,.6); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-xs); color: var(--ink); }
 #game-table .coin:not(.card-coin) { width: 40px; height: 40px; }
 #game-table .coin:not(.card-coin) img { inset: 4px; width: 30px; height: 30px; }
 #game-table .player-name b { font-size: var(--fs-body); }

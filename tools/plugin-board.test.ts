@@ -266,17 +266,19 @@ it('keeps round coin faces while a command disables the buttons', async () => {
   } finally { await page.close(); }
 });
 
-it('keeps spent coin contrast, token text and full coin faces together', async () => {
+it('keeps spent coin contrast and clear symbols together', async () => {
   const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [['MorphP'], ['MirrorB']] })), frame = page.frameLocator('iframe');
   try {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const coins = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll<HTMLButtonElement>('.card-coin')].map(coin => {
       coin.dataset.state = 'used'; coin.disabled = true;
-      const style = getComputedStyle(coin), image = coin.querySelector('img')!, face = image.getBoundingClientRect(), box = coin.getBoundingClientRect();
-      return { opacity: style.opacity, font: getComputedStyle(coin.querySelector('.cc-word')!).fontSize, token: getComputedStyle(document.documentElement).getPropertyValue('--fs-xs').trim(), inset: box.width - face.width };
+      const style = getComputedStyle(coin), symbol = coin.querySelector('svg')!, face = symbol.getBoundingClientRect(), box = coin.getBoundingClientRect();
+      return { opacity: style.opacity, symbol: !!symbol, letters: coin.textContent, color: getComputedStyle(symbol).color, inset: box.width - face.width };
     }));
     expect(coins).toHaveLength(2);
-    for (const coin of coins) { expect(coin.opacity).toBe('0.85'); expect(coin.font).toBe(coin.token); expect(coin.inset).toBeCloseTo(8, 0); }
+    expect(coins[0].color).not.toBe(coins[1].color);
+    expect(coins[1].color).toBe('rgb(255, 245, 218)');
+    for (const coin of coins) { expect(coin.opacity).toBe('0.85'); expect(coin.symbol).toBe(true); expect(coin.letters).toBe(''); expect(coin.inset).toBeCloseTo(12, 0); }
   } finally { await page.close(); }
 });
 
@@ -1921,6 +1923,84 @@ it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons
   } finally { await page.close(); }
 });
 
+it.each(['Strike', 'MorphP'] as const)('shows the Collection face in the %s board sheet', async card => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [[card], []] })), frame = page.frameLocator('iframe');
+  const picture = (el: Element) => ({ image: el.querySelector('img')?.getAttribute('src'), diagram: el.querySelector('svg')?.getAttribute('data-card-picture'), text: el.textContent?.trim() });
+  try {
+    await frame.locator('#card-w-0').click();
+    const face = await frame.locator('#board-sheet .cf-art').evaluate(picture);
+    expect(await frame.locator('#board-sheet .cf-art img[src*="back"]').count()).toBe(0);
+    await frame.locator('#board-sheet [aria-label="Close"]').click();
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('collection'));
+    await frame.locator('#collection-tabs input[value="Cards"]').locator('..').click();
+    expect(await frame.locator(`#collection-items [data-card="${card}"] .cf-art`).evaluate(picture)).toEqual(face);
+  } finally { await page.close(); }
+});
+
+it('explains why a card sheet has no Use button', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [['MirrorB'], ['Freeze']] })), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#card-w-0').click();
+    expect(await frame.locator('#board-sheet .card-reason').textContent()).toBe('This card has no move now.');
+    expect(await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).count()).toBe(0);
+    await frame.locator('#board-sheet [aria-label="Close"]').click();
+    await frame.locator('#card-b-0').click();
+    expect(await frame.locator('#board-sheet .card-reason').textContent()).toBe("This is your opponent's card.");
+    expect(await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).count()).toBe(0);
+  } finally { await page.close(); }
+});
+
+it('A35: an unused card names Retry after Send your turn fails', async () => {
+  const base = view('7k/p7/8/8/8/8/8/R5K1 w - - 0 1', { hands: [['Haste'], []] }, { kind: 'friend' });
+  const page = await open(base), frame = page.frameLocator('iframe');
+  try {
+    await chooseTurnMove(page, 'Ra1-a2', 0);
+    await page.evaluate(() => { (window as any).failNextAction = true; });
+    await frame.locator('#end-turn').click();
+    await frame.locator('#retry:not(:disabled)').waitFor();
+    expect((await moveCalls(page)).length).toBe(1);
+    await frame.locator('#card-w-0').click();
+    expect(await frame.locator('#board-sheet .card-reason').textContent()).toBe('Close this sheet and select Retry.');
+    expect(await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).count()).toBe(0);
+  } finally { await page.close(); }
+});
+
+it.each([true, false])('A35: the card sheet follows failed polls and same-revision recovery with openBefore=%s', async openBefore => {
+  const base = view('7k/p7/8/8/8/8/8/R5K1 w - - 0 1', { hands: [['Haste'], []] }, { kind: 'friend' });
+  const page = await open(base, 393, 852, true), frame = page.frameLocator('iframe'), sheet = frame.locator('#board-sheet');
+  try {
+    let failRead = true;
+    await page.route('**/fixture-tool', async route => {
+      if (route.request().postDataJSON().name === 'kingdown_get') {
+        if (failRead) await route.abort('failed');
+        else await route.fulfill({ json: { content: [], _meta: { view: base } } });
+      }
+      else await route.continue();
+    });
+    const read = () => frame.locator('html').evaluate((_, game_id) => (window as any).harnessApp.send('kingdown_get', { game_id }, { quiet: true }), base.game_id);
+    if (openBefore) {
+      await frame.locator('#card-w-0').click();
+      expect(await sheet.getByRole('button', { name: 'Use', exact: true }).isVisible()).toBe(true);
+      await sheet.getByRole('button', { name: 'Use', exact: true }).focus();
+    }
+    for (let i = 0; i < 3; i++) {
+      expect((await read()).status).toBe('failed');
+      if (openBefore && i < 2) expect(await sheet.getByRole('button', { name: 'Use', exact: true }).isVisible()).toBe(true);
+    }
+    if (!openBefore) await frame.locator('#card-w-0').click();
+    await sheet.evaluate(el => { (window as any).openCardFace = el.querySelector('.cf-art'); });
+    expect(await sheet.locator('.card-reason').textContent()).toBe('Close this sheet and select Try again.');
+    expect(await sheet.getByRole('button', { name: 'Use', exact: true }).count()).toBe(0);
+    if (openBefore) expect(await sheet.locator('[aria-label="Close"]').evaluate(el => el === document.activeElement)).toBe(true);
+    failRead = false;
+    expect((await read()).status).toBe('done');
+    expect(await sheet.getByRole('button', { name: 'Use', exact: true }).isVisible()).toBe(true);
+    expect(await sheet.locator('.card-reason').count()).toBe(0);
+    expect(await sheet.evaluate(el => (el as HTMLDialogElement).open && el.querySelector('.cf-art') === (window as any).openCardFace)).toBe(true);
+    await sheet.getByRole('button', { name: 'Use', exact: true }).click();
+    expect(await frame.locator('#card-w-0').getAttribute('aria-pressed')).toBe('true');
+  } finally { await page.close(); }
+});
 const soundCases = [
   { kind: 'move', fen: '7k/8/8/8/8/8/P7/K7 w - - 0 1', now: 'move', hit: null },
   { kind: 'capture', fen: '7k/8/8/8/8/8/7p/K6R w - - 0 1', now: null, hit: 'capture' },
