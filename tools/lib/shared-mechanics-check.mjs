@@ -1,7 +1,7 @@
 /** The same real board controls against emitted web and MCP AppBridge builds. */
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { assertNoErrors, env, shot, trapErrors } from './checks.mjs';
@@ -213,6 +213,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
       for (const state of states) checkWidgetState(state, bases);
     }
     failures.forEach(assertNoErrors);
+    await mkdir(env('PLAYABLE_OUT'), { recursive: true });
     await writeFile(join(env('PLAYABLE_OUT'), 'shared-mechanics.json'), JSON.stringify({ cases: SHARED_MECHANICS.length, reports }, null, 2));
   } finally {
     for (const context of contexts) await context.close();

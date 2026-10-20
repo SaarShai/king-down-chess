@@ -61,6 +61,16 @@ Run `app-CtzJPy` passes setup defaults, 16 toggle mixes, both seat kings, four c
 
 The matrix failure in that run is a different test race: its mount wait catches an outgoing game's poll response. `74759043` matches the selected game's full read for mount and reload, excludes incremental polls, and keeps the exact identity/state/history/result assertions. No stale application response is accepted as correct.
 
-## Limits
+## Complete matrix and final integration
+
+Run `app-TxaUyR` completes all 110 gameplay cases, then catches an Earth Quake renderer error. A legal empty quake center has no single piece to animate. The area-push path incorrectly asks the single-piece planner for that empty square's art. `1b900718` skips that planner for area pushes; the normal authoritative board sync displays the accepted result. A real scene regression reproduces the crash before the fix and covers both motion settings after it (`5872c8bc`). Independent review finds no should-fix.
+
+The integrated renderer, lifecycle, SDK teardown and error-trap checks pass 73 tests in four files, full typecheck and 54 artwork checks. The earlier 420-case focused run remains applicable to unchanged paths. Logs: `/tmp/kingdown-u05-integration-lifecycle.log`, `/tmp/kingdown-u05-quake-red.log` and `/tmp/kingdown-u05-quake-green.log`.
+
+Run `app-Dfr0Y7` passes all 110 cases and their browser error checks. Its final JSON write fails because a successful run takes no failure screenshot and has not created its output directory. The runner now creates that directory explicitly before writing its report. The embedded journey gets farther and exposes a retained-read injection that disappears across SDK teardown; this remains under investigation. Neither overall failed check is marked complete.
+
+## Coverage limits
 
 No exhaustive claim for all possible card/power combinations. Use small complete admission tables and targeted high-risk interactions. No production or original-project writes. Keep the unresolved startup error separate from mechanics claims.
+
+The compiled matrix checks complete-turn boundaries and the final state on both surfaces. Mid-action checkpoints remain engine replay/reload evidence, not browser checkpoint evidence. Actual ChatGPT host smoke is a separate final gate.
