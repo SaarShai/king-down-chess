@@ -331,3 +331,5 @@ The first browser run passes A14, A15, A18, and Y3. Two failures have clear caus
 - A8: the restored marker wave keeps a draw timer active after Motion becomes Off. Reduced motion now clears that timer. A new live-board case starts a wave, selects Off, and checks that frames stop. The existing one-frame hover guard stays unchanged.
 
 No assertion, touch floor, time limit, or retry changes. The fixed code needs the M1 suite and the two failed browser checks again.
+
+The next run passes A8. The main plugin check clicks Menu while the computer piece still moves. A8 consumes that click, as required. The menu helper now waits for the board move to end before it opens Menu. The separate A8 checks still prove that a skip tap cannot open a menu or act on a square. No assertion or time limit changes.

@@ -250,6 +250,7 @@ try {
     await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', {name:'Choose a move', exact:true}).click();
   }
   async function menuAction(id) {
+    await frame.locator('#board:not([data-animating="true"])').waitFor();
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
     await frame.locator('#board-menu').click(); await frame.locator('#' + id).click();
   }
