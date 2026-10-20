@@ -55,6 +55,12 @@ The six artwork CSP errors come from the local host removing an iframe before th
 
 Independent review of the driver and teardown delta finds no confirmed should-fix by source inspection. Execution supplies the additional end-screen and fresh-host-order failures above. This distinction is retained so that source review is not mistaken for a browser pass.
 
+## Remaining lifecycle correction
+
+Run `app-CtzJPy` passes setup defaults, 16 toggle mixes, both seat kings, four computer levels, weighted locks, card-safe powers, saved choices and lost-Start remount. It then finds a real disposal bug: setup `onStop` invokes the user-close path, which clears the persisted open sheet. The remounted seat cannot restore its king dialog. Separate DOM/listener disposal from user close; add a regression that preserves widget state across SDK teardown. Audit other disposal callbacks for the same cause before another compiled run.
+
+The matrix failure in that run is a different test race: its mount wait catches an outgoing game's poll response. `74759043` matches the selected game's full read for mount and reload, excludes incremental polls, and keeps the exact identity/state/history/result assertions. No stale application response is accepted as correct.
+
 ## Limits
 
 No exhaustive claim for all possible card/power combinations. Use small complete admission tables and targeted high-risk interactions. No production or original-project writes. Keep the unresolved startup error separate from mechanics claims.
