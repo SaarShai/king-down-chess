@@ -63,7 +63,8 @@ grain pattern, crop, turn, tone, bevel, outline, and grout.
 
 #### A10 check results
 
-Status: built; the final M1 unit and browser checks are blocked.
+Status: built. The first M1 check attempts below stop on disk space. The
+review-fix checks below pass.
 
 - The type check and both builds pass. The plugin HTML is 909,409 bytes.
   Its resource payload is 913,292 bytes. Both stay below 1,000,000 bytes.
@@ -96,9 +97,8 @@ Status: built; the final M1 unit and browser checks are blocked.
 - No test runs on this Mac. No assertion, test limit, check limit, or retry
   setting changes. No server code changes, so `plugin-ui-http` does not apply.
 
-The remaining check work needs free space on the M1, then the full unit and
-art helper and the required `KD_RUNNER=m1` `plugin-ui` helper at the final
-commit. No command from this lane remains active. The work stays on this
+The first check attempts do not give a full pass. The review-fix results
+below record the next full suite and browser check. The work stays on this
 branch. No scoped build part is omitted.
 
 #### A10 review fix: decoded WebP grain
@@ -131,6 +131,24 @@ board WebP fails in 188 of 192 tile channels. The old UI WebP fails in 100
 of 192. Their largest ratios are 1.462865 and 1.269403. Both still pass the
 old colour check. Proof: `grain-review-fix.json` in the lane folder. The
 measurement reads the old bytes from Git; it does not replace shipped art.
+
+Review A finding 1: confirmed and fixed. Review B finding 1: confirmed and
+fixed by the same change. Each WebP has its own test case.
+
+Checks at fix commit `3a368cd25ef7d063b189d550a7134894b619e272`:
+
+- The full `m1-unit.sh` run passes with exit 0. The type check passes.
+  Unit tests: 187 files pass, 12 skip; 3,150 tests pass, 164 skip.
+  All five board-grain tests pass. All 51 art tests pass.
+  Log: `unit-a10-review-fix-1.txt` in the lane folder.
+- `KD_RUNNER=m1 check-runner.sh` runs `plugin-ui` and passes in 216.1 seconds.
+  The runner records `M1 exit 0 at 3a368cd2`.
+  Log: `checks-a10-review-fix-1.txt` in the lane folder.
+- No server code changes, so `plugin-ui-http` does not apply. No unit test
+  runs on this Mac. No time limit, assertion, or retry setting changes.
+
+This result record changes the ticket only. The checked test code stays at
+the fix commit. No command from this lane remains active.
 
 Plan:
 1. A2: change each red action to a short cloth banner. Keep the full touch box.
