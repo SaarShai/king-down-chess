@@ -15,6 +15,7 @@ const channels: Channel[] = [];
 let workers: EventTarget & { controller: any; register: ReturnType<typeof vi.fn> };
 let names: Set<string>;
 let storage: { keys: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> };
+let warn: ReturnType<typeof vi.spyOn>;
 const worker = () => Object.assign(new EventTarget(), { state: 'activated', postMessage: vi.fn() });
 const change = (controller: unknown) => { workers.controller = controller; workers.dispatchEvent(new Event('controllerchange')); };
 const reply = (controller: ReturnType<typeof worker>, extra = {}) => {
@@ -25,15 +26,67 @@ const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve()
 
 beforeEach(() => {
   vi.useFakeTimers(); channels.length = 0;
+  warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   workers = Object.assign(new EventTarget(), { controller: worker(), register: vi.fn().mockResolvedValue(Object.assign(new EventTarget(), { update: vi.fn().mockResolvedValue(undefined) })) });
   names = new Set(['kingdown-old', 'other-app']);
   storage = { keys: vi.fn(async () => [...names]), delete: vi.fn(async (name: string) => names.delete(name)) };
   vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: workers }); vi.stubGlobal('caches', storage);
   vi.stubGlobal('MessageChannel', class extends Channel { constructor() { super(); channels.push(this); } });
 });
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => { warn.mockRestore(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe('private cache policy', () => {
+  it('records a bounded proof-deadline support code once without sending private data', async () => {
+    const send = vi.fn(), result = withPrivateCachePolicy(send).catch(error => error);
+    await vi.advanceTimersByTimeAsync(8000);
+    const failure = { phase: 'proof', reason: 'deadline', elapsed_ms: 8000, controller: 'activated', active: 'none', installing: 'none', waiting: 'none', register_failed: false, update_failed: false };
+    expect(await result).toMatchObject({ supportCode: 'CACHE_PROOF_DEADLINE', failure, message: 'Online play is unavailable until the public cache is safe [CACHE_PROOF_DEADLINE]' });
+    expect(warn).toHaveBeenCalledExactlyOnceWith('[King Down cache safety] ' + JSON.stringify(failure));
+    reply(workers.controller); await flush();
+    expect(warn).toHaveBeenCalledOnce(); expect(send).not.toHaveBeenCalled();
+    expect(channels[0].port1.close).toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);
+  });
+  it.each(['bad-proof', 'post-message'] as const)('classifies %s without copying raw proof or errors', async reason => {
+    if (reason === 'post-message') workers.controller.postMessage.mockImplementation(() => { throw new Error('private-secret-token'); });
+    const result = withPrivateCachePolicy(vi.fn()).catch(error => error); await flush();
+    if (reason === 'bad-proof') reply(workers.controller, { policy: 'private-secret-token', unexpected: 'https://private.invalid/?token=secret' });
+    expect(await result).toMatchObject({ failure: { phase: 'proof', reason } });
+    expect(warn).toHaveBeenCalledOnce();
+    const logged = warn.mock.calls[0][0] as string;
+    expect(logged).not.toMatch(/private|secret|requestId|https?:/);
+    expect(Object.keys(JSON.parse(logged.slice('[King Down cache safety] '.length)))).toEqual(['phase', 'reason', 'elapsed_ms', 'controller', 'active', 'installing', 'waiting', 'register_failed', 'update_failed']);
+  });
+  it('classifies a redundant installation without waiting for the deadline', async () => {
+    const installing = worker(); installing.state = 'installing';
+    workers.register.mockResolvedValue(Object.assign(new EventTarget(), { installing, update: vi.fn().mockResolvedValue(undefined) }));
+    const result = withPrivateCachePolicy(vi.fn()).catch(error => error); await flush();
+    installing.state = 'redundant'; installing.dispatchEvent(new Event('statechange'));
+    expect(await result).toMatchObject({ supportCode: 'CACHE_INSTALL_REDUNDANT', failure: { phase: 'install', reason: 'redundant', installing: 'redundant' } });
+    expect(warn).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
+  });
+  it('classifies page cleanup failure without logging the registration or storage error', async () => {
+    change(null); workers.register.mockRejectedValue(new Error('private-register-secret')); storage.keys.mockRejectedValue(new Error('private-storage-secret'));
+    const result = withPrivateCachePolicy(vi.fn()).catch(error => error);
+    expect(await result).toMatchObject({ failure: { phase: 'empty-cache', reason: 'exception', register_failed: true } });
+    expect(warn).toHaveBeenCalledOnce(); expect(warn.mock.calls[0][0]).not.toMatch(/private|secret/);
+  });
+  it('adds no cache warning to a successful send or its downstream failure', async () => {
+    const success = withPrivateCachePolicy(() => 42); await flush(); reply(workers.controller); expect(await success).toBe(42);
+    const failure = withPrivateCachePolicy(() => { throw new Error('send failed'); });
+    const refused = expect(failure).rejects.toThrow('send failed'); await flush(); reply(workers.controller); await refused;
+    expect(warn).not.toHaveBeenCalled();
+  });
+  it.each(['throw', 'reject'])('normalizes state strings and records update %s only as a flag', async mode => {
+    workers.controller.state = 'private-state-secret';
+    workers.register.mockResolvedValue(Object.assign(new EventTarget(), { update: vi.fn(() => {
+      if (mode === 'throw') throw new Error('private-update-secret');
+      return Promise.reject(new Error('private-update-secret'));
+    }) }));
+    const result = withPrivateCachePolicy(vi.fn()).catch(error => error);
+    await vi.advanceTimersByTimeAsync(8000);
+    expect(await result).toMatchObject({ failure: { phase: 'controller-activation', reason: 'deadline', controller: 'unknown', register_failed: false, update_failed: true } });
+    expect(warn).toHaveBeenCalledOnce(); expect(warn.mock.calls[0][0]).not.toMatch(/private|secret/);
+  });
   it('keeps Node sends unchanged', async () => {
     vi.stubGlobal('window', undefined);
     expect(await withPrivateCachePolicy(() => 42)).toBe(42);
