@@ -99,10 +99,13 @@ it('keeps a Resume service code through the real send and read adapter', async (
 
 it.each(['onclose', 'onteardown'])('disposes the hall on plugin %s', async stop => {
   const app = await mounted(); app.memory.games = [game as any]; app.renderGameRows();
+  const focus = vi.mocked(window.addEventListener).mock.calls.filter(([name]) => name === 'click');
+  expect(focus).toHaveLength(1);
   const open = transport.rows.mock.calls.at(-1)![2];
   await transport.instance[stop]();
   expect(app.memory.games).toEqual([]); expect(app.memory.dirty).toBe(true);
   expect(window.removeEventListener).toHaveBeenCalledWith('click', expect.any(Function), true);
+  expect(window.removeEventListener).toHaveBeenCalledWith(...focus[0]);
   transport.call.mockClear(); open(game.game_id); await vi.advanceTimersByTimeAsync(0);
   expect(transport.call).not.toHaveBeenCalled();
 });

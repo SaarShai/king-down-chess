@@ -36,3 +36,10 @@
 [data-screen='play'] .new-game-body { width: 100%; max-width: 640px; margin: 0 auto; }
 #games-head { margin-top: 0 !important; }
 .game-row { padding-right: 96px !important; }
+
+#app-root { --focus: #173b6b; --focus-halo: var(--vellum); }
+#app-root #game-table .coin.card-coin[data-state='used'] { opacity: .85; border-color: var(--stone-700); --card-ring: var(--stone-700); }
+#app-root #game-table .card-coin:is([data-state='used'], :has(.cc-word)) img { filter: brightness(.4); }
+#app-root :is(button:focus, a[href]:focus, input:focus, select:focus, label:focus, #board:focus, dialog:focus, [tabindex]:focus, label:has(input:focus)) { outline: 3px solid var(--focus); outline-offset: 2px; box-shadow: 0 0 0 6px var(--focus-halo); }
+#app-root #board:focus { outline-offset: -3px; box-shadow: 0 0 0 3px var(--focus-halo); }
+#app-root #game-table .table-back:focus { outline-offset: -7px; box-shadow: inset 0 0 0 8px var(--focus-halo); }

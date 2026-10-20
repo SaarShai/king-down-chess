@@ -148,3 +148,28 @@ it('removes navigation, Retry and pointer listeners and stops detached row callb
   for (const args of add.mock.calls) expect(remove).toHaveBeenCalledWith(...args);
   vi.restoreAllMocks();
 });
+
+it('focuses a trusted account button before its click handler and removes the listener on dispose', () => {
+  const add = vi.spyOn(window, 'addEventListener'), remove = vi.spyOn(window, 'removeEventListener');
+  const h = mount();
+  const registrations = add.mock.calls.filter(([name]) => name === 'click');
+  expect(registrations).toHaveLength(1); expect(registrations[0][2]).toBe(true);
+  const focus = registrations[0][1] as (event: unknown) => void;
+  const button = { focus: vi.fn() }, outside = { focus: vi.fn() };
+  Object.assign(document.getElementById('app-root')!, { contains: (el: unknown) => el === button });
+  const target = { closest: vi.fn(() => button) };
+  focus({ isTrusted: false, target }); expect(button.focus).not.toHaveBeenCalled();
+  focus({ isTrusted: true, target: { closest: () => outside } }); expect(outside.focus).not.toHaveBeenCalled();
+  focus({ isTrusted: true, target }); expect(target.closest).toHaveBeenCalledWith('button');
+  expect(button.focus).toHaveBeenCalledExactlyOnceWith({ preventScroll: true });
+  Object.assign(document, { activeElement: button }); focus({ isTrusted: true, target });
+  expect(button.focus).toHaveBeenCalledTimes(1);
+  h.dispose(); h.dispose();
+  expect(remove.mock.calls.filter(([name]) => name === 'click')).toEqual(registrations);
+  Object.assign(document, { activeElement: null }); focus({ isTrusted: true, target });
+  expect(button.focus).toHaveBeenCalledTimes(1);
+  const next = mount();
+  const nextFocus = add.mock.calls.filter(([name]) => name === 'click').at(-1)![1] as (event: unknown) => void;
+  nextFocus({ isTrusted: true, target }); expect(button.focus).toHaveBeenCalledTimes(2);
+  next.dispose(); vi.restoreAllMocks();
+});

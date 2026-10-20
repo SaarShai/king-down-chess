@@ -46,6 +46,15 @@ it('builds the shared hall and web adapters without a server or local controller
     expect(symbols.some(svg => svg.includes('--pi-disc:#4a4850'))).toBe(true);
     expect(await readFile(join(out, 'fonts/cinzel-latin.woff2'))).toEqual(await readFile('public/fonts/cinzel-latin.woff2'));
     expect(source).toContain('/fonts/cinzel-latin.woff2');
+    expect.soft(source).toContain('#app-root{--focus:#173b6b;--focus-halo:var(--vellum)}');
+    expect.soft(source).toContain('#app-root #board:focus{outline-offset:-3px;box-shadow:0 0 0 3px var(--focus-halo)}');
+    expect.soft(source).toContain('#app-root #game-table .table-back:focus{outline-offset:-7px;box-shadow:inset 0 0 0 8px var(--focus-halo)}');
+    expect(source.indexOf('#app-root{--focus:#173b6b;--focus-halo:var(--vellum)}')).toBeGreaterThan(source.indexOf('--focus:#1c5bb0'));
+    expect(source).toContain('filter:brightness(.4)');
+    expect(source).toContain('.card-coin:is([data-state=used],:has(.cc-word)) img{filter:brightness(.4)}');
+    expect(source.match(/--focus:#173b6b/g)).toHaveLength(1);
+    const coin = source.match(/#app-root #game-table \.coin\{([^}]+)\}/)?.[1];
+    for (const property of ['width', 'height', 'min-width', 'min-height']) expect(coin).toContain(`${property}:48px`);
   } finally { await rm(folder, { recursive: true, force: true }); }
 });
 it('rejects a real server runtime import before it enters the browser output', async () => {

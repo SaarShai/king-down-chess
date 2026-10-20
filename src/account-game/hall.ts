@@ -103,7 +103,7 @@ export function createHall(memory: HallMemory, client: GameClient, host: PageHos
   const focus = (event: MouseEvent) => {
     if (disposed) return;
     const button = event.isTrusted && (event.target as Element | null)?.closest?.('button');
-    if (button && document.activeElement !== button) button.focus({ preventScroll: true });
+    if (button && $('app-root').contains(button) && document.activeElement !== button) button.focus({ preventScroll: true });
   };
   window.addEventListener('click', focus, true);
   $('retry')?.addEventListener('click', retry, true);

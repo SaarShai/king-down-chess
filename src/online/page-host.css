@@ -4,4 +4,4 @@
 body { height: auto; min-height: 100dvh; overflow: auto; }
 #app-root { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 #app-root :is(button, input, select, .seg-row label) { min-width: 48px; min-height: 48px; }
-#app-root .coin { width: 48px; height: 48px; }
+#app-root #game-table .coin { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
