@@ -87,6 +87,12 @@ export const launch = ({ channel = env('PLAYABLE_BROWSER'), ...options } = {}) =
   : channel === 'firefox' ? firefox.launch(options)
   : chromium.launch({ channel, ...options });
 
+/** Opens a retained profile with the same engine selection as launch(). */
+export const launchPersistent = (profile, { channel = env('PLAYABLE_BROWSER'), ...options } = {}) => channel === 'webkit'
+  ? webkit.launchPersistentContext(profile, options)
+  : channel === 'firefox' ? firefox.launchPersistentContext(profile, options)
+  : chromium.launchPersistentContext(profile, { channel, ...options });
+
 /** Measures the viewport and each element that matches the selector. */
 const measure = (page, selector) => page.evaluate(sel => {
   const els = [...document.querySelectorAll(sel)];

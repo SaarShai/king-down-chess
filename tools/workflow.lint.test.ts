@@ -47,6 +47,17 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(job('browser')).toContain('timeout-minutes: 30');
   });
 
+  it('runs the web journeys on Chromium in their own job beside the plugin checks', () => {
+    // With the plugin checks (about 20 minutes on CI) in one job, they passed its 30 minutes (run 39337731602).
+    const web = job('browser-web');
+    expect(web).toContain('timeout-minutes: 30');
+    expect(web).toContain('npx playwright install --with-deps chromium');
+    expect(web).toContain('- run: npm run check:browser home account link-game lessons lesson-return workshop workshop-cast');
+    expect(web).toContain('- run: npm run check:browser web-online');
+    expect(web).toContain('name: web-check-logs');
+    expect(job('browser')).not.toContain('web-online');
+  });
+
   it('runs the board, phone-size and widget checks on WebKit', () => {
     const webkit = job('browser-webkit');
     expect(webkit).toContain('- run: npm test');
