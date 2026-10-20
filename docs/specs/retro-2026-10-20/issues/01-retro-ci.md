@@ -70,3 +70,11 @@ All measurements use the M1. The table gives whole-test upper bounds when the te
 - Use fixed limits of 30 s, 60 s and 4 s. Each stays below its parent test or hook limit.
 - Bound the Python import probe in the same file too. It must not hold test collection forever.
 - Keep the Kaggle download's checksum check tied to the Node 24 download base. Add no new download path.
+
+## Review fixes
+
+Status: in progress
+
+1. Check the two reviews against the hook, workflow and runner tests. Fix the stale release guide, sample README and step-limit comment. Add a regression test for these claims.
+2. Make the build-selection fixture cheaper. Use stand-ins for locks and tree snapshots, which have their own tests. Keep all five cases, all default checks and every current assertion. Check the selected scripts and arguments too. Keep both time limits.
+3. Commit the fixes. Run the full M1 unit suite and `plugin-ui` through the required runners. Record the tested head, exit codes, counts and runner-test duration. Commit this record after the checks pass.

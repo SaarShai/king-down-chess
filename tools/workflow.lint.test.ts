@@ -19,6 +19,17 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['verify', 'browser', 'browser-webkit', 'browser-firefox']);
   });
 
+  it('keeps the release and sample instructions in line with the CI and push gates', () => {
+    const read = (path: string) => readFileSync(join(import.meta.dirname, '..', path), 'utf8');
+    const release = read('docs/specs/web-adaptation/release-route.md');
+    expect(release).toContain('Keep `plugin-checks.yml` for PRs and pushes to `main`. Open a PR to start branch checks.');
+    expect(release).toContain('The pre-push hook runs only the repo gate.');
+    const sample = read('docs/specs/chatgpt-mvp/sample/candidates/rollers/README.md');
+    expect(sample).toContain('CI and the deploy run `npm test`.');
+    expect(sample).toContain('The repository push hook runs only the repo gate.');
+    expect(read('tools/lib/checks.mjs')).not.toContain('pre-push');
+  });
+
   it('runs WebKit in a separate job with its own install and the time limit for its scaled steps', () => {
     const webkit = job('browser-webkit');
     // The WebKit steps run with limits times 3 (tools/lib/checks.mjs STEP), so the job has 45 minutes.

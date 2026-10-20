@@ -9,7 +9,7 @@ vi.setConfig({ testTimeout: 60_000 });
 const repos: ReturnType<typeof tempRepo>[] = [];
 afterEach(() => { while (repos.length) repos.pop()!.cleanup(); });
 
-// The real runner and registry use small stand-ins for the build, preview and browser scripts.
+// The real runner and registry use stand-ins for the build, preview, browser scripts, locks and tree snapshots.
 function run(names: string[], failBuild = false) {
   const repo = tempRepo({ hooks: false });
   repos.push(repo);
@@ -26,13 +26,25 @@ function run(names: string[], failBuild = false) {
       return { resolvedUrls: { local: ['http://127.0.0.1:1234/'] }, close: async () => appendFileSync(process.env.RUNNER_EVENTS, '"close"\\n') };
     }
   `);
-  for (const file of ['check.mjs', 'lib/checks.mjs', 'lib/first-fault.mjs', 'lib/lock.mjs', 'lib/registry.mjs', 'lib/tree-status.mjs', 'lib/temp-repo.mjs']) {
+  for (const file of ['check.mjs', 'lib/checks.mjs', 'lib/first-fault.mjs', 'lib/registry.mjs', 'lib/temp-repo.mjs']) {
     mkdirSync(join(repo.dir, 'tools', file, '..'), { recursive: true });
     cpSync(new URL(file, import.meta.url), join(repo.dir, 'tools', file));
   }
+  // The default case takes 8.8 s on the M1 with real Git calls. Lock and snapshot tests cover those modules.
+  repo.write('tools/lib/lock.mjs', `
+    export const SLOTS = 3;
+    export const runLockPath = () => '';
+    export const releaseAll = () => {};
+    export const takeLock = async () => () => {};
+    export { takeLock as takeSlot, takeLock as takeAllSlots };
+  `);
+  repo.write('tools/lib/tree-status.mjs', `
+    export const treeStatus = () => new Map();
+    export const changedPaths = () => [];
+  `);
   for (const script of new Set(checks.map(c => c.script))) repo.write(script, `
     import { appendFileSync } from 'node:fs';
-    appendFileSync(process.env.RUNNER_EVENTS, JSON.stringify({ script: process.argv[1], url: process.env.PLAYABLE_URL }) + '\\n');
+    appendFileSync(process.env.RUNNER_EVENTS, JSON.stringify({ script: process.argv[1].slice(process.cwd().length + 1), args: process.argv.slice(2), url: process.env.PLAYABLE_URL }) + '\\n');
   `);
   const result = spawnSync(process.execPath, ['tools/check.mjs', ...names], {
     cwd: repo.dir, env: { ...repo.env, TMPDIR: repo.root, RUNNER_EVENTS: events, PLAYABLE_URL: undefined },
@@ -58,6 +70,8 @@ describe('browser check site build', () => {
     expect(calls.at(-1)).toBe('close');
     expect(calls.slice(2, -1).every(call => call.url === 'http://127.0.0.1:1234/')).toBe(true);
     expect(calls.length).toBe((names.length || checks.filter(c => !c.byName).length) + 3);
+    const selected = names.length ? names.map(name => checks.find(c => c.name === name)!) : checks.filter(c => !c.byName);
+    expect(calls.slice(2, -1)).toEqual(selected.map(c => ({ script: c.script, args: c.args ?? [], url: 'http://127.0.0.1:1234/' })));
   });
 
   it('stops before preview and checks when the site build fails', () => {
