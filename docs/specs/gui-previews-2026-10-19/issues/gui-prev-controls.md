@@ -189,3 +189,11 @@ Checked app source: 601acb34. The final record commit changes this ticket and th
 A 48 px action row uses 3 to 4 px of board width on short portrait phones. It keeps the board still when a card or power is armed. The seat sizes stay the same. The end card keeps the board box.
 
 No server code changes, so `plugin-ui-http` does not run. A10 stays blocked by the existing image-edit constraint. The work stays a preview on this branch.
+
+## Test repair (2026-10-19)
+
+Plan: merge `origin/main` into this branch. Keep its fault fixes and the A1, A2, A3, and A34 previews. Run the full unit suite on the M1. Class each failure as an old expectation (a), a fixture gap (b), a code fault (c), or a load timeout (d). Make the smallest repair and commit each kind on its own.
+
+Pass: each repaired file and the final full M1 suite pass. Only database tests skip on the M1. The local `npx tsc --noEmit` check passes. Keep all assertions and time limits. This step runs no browser checks or captures. Record each conflict, repair, and result below.
+
+Merge: `origin/main` is `0a7ec40b`. Git merges it with no conflicts. The board tests and browser script merge on their own. The merge keeps main's cursor speech, move sounds, seat text fix, and faster judge tests. It keeps all four control previews.
