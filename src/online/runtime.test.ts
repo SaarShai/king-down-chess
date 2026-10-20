@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { createWebTransport } from './runtime';
+import { createBrowserRuntime, createWebTransport } from './runtime';
 import { OnlineError, type OnlineClient } from './client';
 import type { View } from '../match/protocol';
 
@@ -52,4 +52,16 @@ it('uses one stable creation ID and keeps the HTTP game selection local to this 
   expect(create).toHaveBeenCalledExactlyOnceWith({ kind: 'friend', options: {} }, 'creation');
   expect(reply).toMatchObject({ _meta: { view, board_id: view.game_id } });
   expect(saved.records.size).toBe(0);
+});
+
+
+it('restores the saved setup continuation with the durable creation receipt', async () => {
+  const saved = storage(), creation = { kind: 'friend', command_id: 'create-once' };
+  const api = { create: async () => { throw new TypeError('Lost reply'); } } as unknown as OnlineClient;
+  await expect(createWebTransport(api, 'a', saved).call('kingdown_create', creation, {})).rejects.toThrow('Lost reply');
+  saved.setItem('kingdown.account-game.a', JSON.stringify({ screen: 'play', pending: { name: 'kingdown_create', args: creation, screen: 'play', quick: true, king: null, error: 'Lost reply' } }));
+  vi.stubGlobal('window', { localStorage: saved, location: { href: 'http://localhost/play/' } });
+  try {
+    expect(createBrowserRuntime(api, 'a').stateHost?.widgetState?.privateContent?.pending).toMatchObject({ name: 'kingdown_create', args: creation, quick: true, king: null, screen: 'play', error: undefined });
+  } finally { vi.unstubAllGlobals(); }
 });

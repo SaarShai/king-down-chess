@@ -97,7 +97,12 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
   const entry = parseAccountRoute(new URL(window.location.href));
   if (entry) saved = { ...saved, screen: entry.screen === 'game' ? 'board' : entry.screen, board_id: entry.screen === 'game' ? entry.gameId : undefined };
   const receipt = transport.pending();
-  if (receipt) saved = { ...saved, screen: saved?.pending?.screen ?? (receipt.name === 'kingdown_create' || receipt.name === 'kingdown_find' ? 'play' : 'board'), board_id: String(receipt.args.game_id ?? receipt.args.board_id ?? saved?.board_id ?? '') || undefined, pending: { ...receipt, screen: saved?.pending?.screen ?? (receipt.name === 'kingdown_create' || receipt.name === 'kingdown_find' ? 'play' : 'board') } };
+  if (receipt) {
+    const previous = saved?.pending?.name === receipt.name && saved.pending.args.command_id === receipt.args.command_id ? saved.pending : undefined;
+    const screen = previous?.screen ?? (receipt.name === 'kingdown_create' || receipt.name === 'kingdown_find' ? 'play' : 'board');
+    saved = { ...saved, screen, board_id: String(receipt.args.game_id ?? receipt.args.board_id ?? saved?.board_id ?? '') || undefined,
+      pending: { ...previous, ...receipt, screen, error: undefined, error_screen: undefined } };
+  }
   const stateHost: WidgetHost = {
     accountId: userId, widgetState: { privateContent: saved },
     savePage(state) { window.localStorage.setItem(key, JSON.stringify(state)); },
