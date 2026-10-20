@@ -131,13 +131,31 @@ describe('deploy.sh', () => {
   it.each(['website', 'plugin'])('requires the engines setting before any %s publish work', target => {
     const { repo, deploy, calls } = setup();
     const gitLog = join(repo.root, 'git-calls');
-    stub(join(repo.root, 'bin', 'git'), [`echo git >> "${gitLog}"`, 'exit 99']);
+    // The staging guard may locate the checkout; publication still must do no Git work.
+    stub(join(repo.root, 'bin', 'git'), [
+      `if [ "$*" = "rev-parse --show-toplevel" ]; then printf '%s\\n' '${repo.dir}'; exit 0; fi`,
+      `echo git >> "${gitLog}"`, 'exit 99',
+    ]);
     const result = deploy(['--target', target, '--publish'], { KINGDOWN_ENGINES_DATABASE_URL: '' });
     expect(result.status).toBe(2);
     expect(result.stderr).toContain('set KINGDOWN_ENGINES_DATABASE_URL before --publish');
     expect(result.stdout).not.toMatch(/step|worktree|skipped/);
     expect(calls()).toEqual([]);
     expect(existsSync(gitLog)).toBe(false);
+  });
+
+  it('blocks every legacy deploy mode in the independent staging repository', () => {
+    const { repo, deploy, calls } = setup();
+    repo.write('docs/specs/staging-first-game/plan.md', '# Independent staging project\n');
+    const before = repo.git('worktree', 'list', '--porcelain').stdout;
+    for (const args of [[], ['--publish'], ['--target', 'plugin', '--publish'], ['--setup-plugin'], ['--configure', 'unused-private-env']]) {
+      const result = deploy(args);
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain('production deploy is disabled in this staging repository');
+      expect(result.stdout).not.toMatch(/step|worktree|skipped/);
+    }
+    expect(calls()).toEqual([]);
+    expect(repo.git('worktree', 'list', '--porcelain').stdout).toBe(before);
   });
 
   it('sets only the seven plugin values through stdin and prints none of their values', () => {
