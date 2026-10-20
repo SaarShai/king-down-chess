@@ -60,3 +60,13 @@ The candidate passes 259 focused tests and three selected board UI cases, plus t
 The combined six-suite service/DB run first passes 114 tests and fails two obsolete tool-list assertions. The new app-only preview is the 27th tool and the fifth unconditional read-only tool. Updating those declarations and adding real preview calls on the existing read-only database connection yields 116 passes, no skips, full typecheck and 54 art checks. The protocol check table is updated to the same contract. No product change is needed for these failures.
 
 The disposable browser database now has migrations `0001` through `0017`; the existing bootstrap applies each twice successfully. Staging remains on `ce61e8d7` until combined browser acceptance passes.
+
+## First combined compiled run
+
+Run `app-SWDHAx` on `0698807f` passes `web-online` (105.837 seconds) and `painted-game` (116.483 seconds), with their final browser-error checks. Preserve these results after tool-only corrections.
+
+The mechanics driver passes the six fairy pieces, 21 cards and 12 powers on both surfaces, then times out waiting for the reload GET in `promotion-darkness/web`. The failure has no page-state diagnostic; its cause is not established. Add bounded failure capture before another run. Do not change the timeout or product code from this evidence alone.
+
+The full plugin journey stops at its early card-detail sample. That synthetic View lacks an engine identity, so the new preview boundary correctly cannot use it. Ticket 07 fixes this tool fixture with the actual built runtime identity; it does not change product handling of unknown engines. The correction integrates as `01ce1af3`.
+
+Rerun only `shared-mechanics` and `plugin-ui-http` after these tool corrections. The failed run does not close compiled mechanics or full plugin acceptance. The parent evidence folder preserves the run record and all four logs.
