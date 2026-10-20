@@ -27,3 +27,11 @@ size and card-face assertions keep their values. No server code changes.
 
 Keep the agreed ink and gold focus pair. Keep .85 for spent cards and .7
 for used powers. Add no new colour, size or game rule.
+
+## Part 1 checks
+
+At `5be926c1`, the type, script syntax and diff checks pass. The M1 suite
+passes 3,432 tests. Only the two new focus cases fail. Their fixture puts
+spendable powers and cards on the same side, which the engine refuses.
+The tests now use separate card and power games in each theme. No check
+limit or contrast assertion changes. The motion and card-face checks pass.

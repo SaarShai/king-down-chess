@@ -276,15 +276,17 @@ it('keeps round coin faces while a command disables the buttons', async () => {
   } finally { await page.close(); }
 });
 
-it.each(['light', 'dark'])('keeps spent card and used power focus above 3:1 in %s at 390 × 844', async theme => {
-  const rules: Partial<Rules> = { kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'Freeze' }], hands: [['Freeze', 'Vault'], ['Freeze', 'Vault']] };
+it.each([['light', 'cards'], ['dark', 'cards'], ['light', 'powers'], ['dark', 'powers']] as const)('keeps used coin focus above 3:1 in %s with %s at 390 × 844', async (theme, kind) => {
+  const rules: Partial<Rules> = kind === 'cards' ? { hands: [['Freeze', 'Vault'], ['Freeze', 'Vault']] }
+    : { kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'Freeze' }] };
   const page = await open(view('7k/8/8/8/8/8/P7/R6K w - - 0 1 u3.3', rules), 390, 844), frame = page.frameLocator('iframe');
   try {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.evaluate(theme => (window as any).harnessSetContext({ theme }), theme);
     const ids = await frame.locator('#game-table .coin[data-state="used"]').evaluateAll(coins => coins.map(c => c.id));
-    expect(ids).toHaveLength(6);
+    expect(ids).toHaveLength(kind === 'cards' ? 4 : 2);
     for (const id of ids) await checkCoinFocus(page, frame, `#${id}`);
+    expect(await frame.locator('#game-table .coin-paint > .notches').count()).toBe(kind === 'powers' ? 2 : 0);
     expect(await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll('.notches')].every(n => n.parentElement?.className === 'coin-paint'))).toBe(true);
   } finally { await page.close(); }
 });

@@ -2030,20 +2030,23 @@ try {
   try {
     await focusHost.page.emulateMedia({ reducedMotion: 'reduce' });
     await focusHost.frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
-    const focusPos = fromFen(cardView.fen); focusPos.used = [15, 15];
-    const focusView = { ...cardView, fen: toFen(focusPos), rules: { ...cardView.rules, kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'Freeze' }] } };
-    await focusHost.page.evaluate(view => {
-      window.harnessNextView = view;
-      return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id, screen: 'board' }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
-    }, focusView);
-    await focusHost.frame.locator('#power-w[data-state="used"]').waitFor();
-    const ids = await focusHost.frame.locator('#game-table .coin[data-state="used"]').evaluateAll(coins => coins.map(c => c.id));
-    assert.equal(ids.length, 10, 'Both hands and powers are spent');
-    for (const theme of ['light', 'dark']) {
-      await focusHost.page.evaluate(theme => window.harnessSetContext({ theme }), theme);
-      const proof = [];
-      for (const id of ids) proof.push(await checkCoinFocus(focusHost.page, focusHost.frame, `#${id}`, env('PLAYABLE_OUT'), `coin-${theme}-${id}`));
-      console.log(`Coin focus at 390 × 844 (${theme}):`, JSON.stringify(proof));
+    for (const kind of ['cards', 'powers']) {
+      const focusPos = fromFen(cardView.fen); focusPos.used = [15, 15];
+      const rules = kind === 'cards' ? cardView.rules : { ...cardView.rules, hands: [[], []], kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'Freeze' }] };
+      const focusView = { ...cardView, revision: cardView.revision + (kind === 'cards' ? 1 : 2), fen: toFen(focusPos), rules };
+      await focusHost.page.evaluate(view => {
+        window.harnessNextView = view;
+        return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id, screen: 'board' }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
+      }, focusView);
+      await focusHost.frame.locator(`#${kind === 'cards' ? 'card-w-0' : 'power-w'}[data-state="used"]`).waitFor();
+      const ids = await focusHost.frame.locator('#game-table .coin[data-state="used"]').evaluateAll(coins => coins.map(c => c.id));
+      assert.equal(ids.length, kind === 'cards' ? 8 : 2, 'Both strips show the spent coins');
+      for (const theme of ['light', 'dark']) {
+        await focusHost.page.evaluate(theme => window.harnessSetContext({ theme }), theme);
+        const proof = [];
+        for (const id of ids) proof.push(await checkCoinFocus(focusHost.page, focusHost.frame, `#${id}`, env('PLAYABLE_OUT'), `coin-${theme}-${id}`));
+        console.log(`Coin focus at 390 × 844 (${theme}, ${kind}):`, JSON.stringify(proof));
+      }
     }
   } finally { await focusHost.page.close(); }
   const cardPos = fromFen(cardView.fen), cardLegal = legalMoves(cardPos).filter(m => cardView.legal.includes(toLan(cardPos,m))), hand = cardCoins(cardPos,cardView.seat,cardView.rules.hands[cardView.seat],cardLegal);
