@@ -16,8 +16,8 @@ const unregister = register();
 const { fromFen, toFen, toLan } = await import('../src/rules/setup.ts');
 const { setRules, legalMoves, inCheck, typeOf, N, RULES, sqName, moveNumber: positionMoveNumber } = await import('../src/rules/engine.ts');
 const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
-const { applyLan, cardCoins, replayHistory } = await import('../src/plugin/screens/board-model.ts');
-const { threatsIn } = await import('../src/move-text.ts');
+const { applyLan, cardCoins, replayHistory, replayLans } = await import('../src/plugin/screens/board-model.ts');
+const { threatsIn, shortMove } = await import('../src/move-text.ts');
 const { cardName } = await import('../src/powers-ui.ts');
 const { POP_MS, RIPPLE_MS } = await import('../src/render/marks.ts');
 const iconNames = { P:'pawn', N:'knight', B:'bishop', R:'rook', Q:'queen', K:'king', A:'archer', L:'paladin', G:'guard', M:'maester', S:'beast', O:'ogre' };
@@ -2887,7 +2887,13 @@ try {
     async function showSnapshot(value, words=`Move ${positionMoveNumber(fromFen(value.fen))}.`) {
       await page.evaluate(value=>{window.harnessNextView=value; return window.harnessShow({content:[],structuredContent:{game_id:value.game_id,screen:'board'},_meta:{board_id:window.harnessWidgetState.privateContent.board_id,view:value}});},value);
       await page.waitForFunction(value=>window.harnessView.game_id===value.game_id&&window.harnessView.fen===value.fen,value);
-      await frame.locator('#last-move').filter({hasText:words}).waitFor();
+      await frame.locator('#last-move').filter({hasText:words}).waitFor({state:'attached'});
+      const line = frame.locator('#last-move:visible, #short-move-words:visible');
+      await line.waitFor();
+      if (await frame.locator('#short-move-words').isVisible()) {
+        const last = (replayHistory(value,sampleRules) ?? replayLans({...snapshot,fen:initial_fen},value,sampleRules))?.at(-1);
+        assert.equal(await line.innerText(), last ? shortMove(last.pre,last.move) : `Move ${positionMoveNumber(fromFen(value.fen))}.`, 'The visible compact line names the current move');
+      }
       await idleBoard(); await boardBox();
     }
     const legal=()=>position.turn===0?legalMoves(position).map(m=>toLan(position,m)):[];

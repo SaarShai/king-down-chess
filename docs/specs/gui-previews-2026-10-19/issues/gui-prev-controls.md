@@ -238,3 +238,5 @@ Changed previews: A1 and A3 setup and board spacing; A1 plugin move choices and 
 Browser checks follow at the commit. The required runner checks `plugin-ui` and `special-moves`. No server code changes, so `plugin-ui-http` is not required.
 
 The recent-move list again fits at 393 x 852, as on main. Its exact box and a visible-list assertion check that state. Shorter views still check that the list stays hidden. The commit records this change to the former hidden-list assertion.
+
+The first browser run passes `special-moves` in 32.6 seconds. It checks Take, Shove, and Cancel in the live web sheet. The plugin run reaches and passes the restored 393 x 852 list checks. It then finds a sample helper that waits for the hidden full move line at 360 x 640. Keep its full-text check as an attached-state check. Also check the visible line. In compact mode, require the exact short words from the sample's last legal move. This changes the check helper only. The app stays at the source that passes `npm test`. The browser checks run again at the next commit.
