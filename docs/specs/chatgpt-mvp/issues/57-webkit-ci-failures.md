@@ -79,10 +79,11 @@ and kernel log. `plugin-ui` ends with `Target crashed` at 646 s.
   no OOM line shows. `WPEWebProcess` uses 1.7 GB at the crash and
   4.47 GB at its peak.
 
-So the page crashes are a native WPE fault in Playwright 1.63's WebKit
-(build 2359). Playwright 1.64.1 (PR 74) ships build 2370 with a
-different library file. Only its CI runs can show whether the fault
-is gone.
+So this page crash is a native WPE fault in Playwright 1.63's WebKit
+(build 2359). The six crashes above have no kernel data, so this run
+does not prove their cause. Playwright 1.64.1 (PR 74) ships build 2370
+with a different library file. Only its CI runs can show whether the
+fault is gone.
 
 Attempt 2 of the same run stops in plugin-board W7: the `#board-menu`
 click waits after "scrolling into view" until the 9 s limit. The D13
