@@ -107,20 +107,24 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
     accountId: userId, widgetState: { privateContent: saved },
     savePage(state) { window.localStorage.setItem(key, JSON.stringify(state)); },
   };
-  let stopped = false, started = false;
-  const publish = async (route: AccountEntryRoute) => {
-    if (stopped) return;
+  let stopped = false, started = false, routeGeneration = 0;
+  const publish = async (route: AccountEntryRoute, generation: number) => {
+    const current = () => !stopped && generation === routeGeneration;
+    if (!current()) return;
     try {
       if (route.screen === 'join') {
         const preview = route.key ? await api.preview(inviteKey(route.key)) : undefined;
-        if (!stopped) host.onResult?.(result({ ...(preview && { preview }) }, { screen: 'join' }));
+        if (current()) host.onResult?.(result({ ...(preview && { preview }) }, { screen: 'join' }));
       } else if (route.screen === 'game') host.onResult?.(result({ board_id: route.gameId }, { screen: 'board', game_id: route.gameId }));
       else host.onResult?.(result({}, { screen: route.screen }));
     } catch (error) {
-      if (!stopped) host.onResult?.({ isError: true, content: text(error instanceof Error ? error.message : String(error)), _meta: { code: error instanceof OnlineError ? error.code : 'UNAVAILABLE' } });
+      if (current()) host.onResult?.({ isError: true, content: text(error instanceof Error ? error.message : String(error)), _meta: { code: error instanceof OnlineError ? error.code : 'UNAVAILABLE' } });
     }
   };
-  const fromLocation = () => { const route = parseAccountRoute(new URL(window.location.href)); if (route) void publish(route); };
+  const fromLocation = () => {
+    const generation = ++routeGeneration, route = parseAccountRoute(new URL(window.location.href));
+    if (route) void publish(route, generation);
+  };
   const close = () => { stopped = true; window.removeEventListener('popstate', fromLocation); host.onClose?.(); };
   const host: AccountGameHost = {
     call: transport.call, stateHost, dispose: close,
@@ -129,6 +133,7 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
     requestDisplayMode: async () => ({ mode: 'fullscreen' }),
     route(screen, gameId) {
       if (!started) return;
+      routeGeneration++;
       const route: AccountEntryRoute = ['board', 'seat', 'friend', 'wait', 'end'].includes(screen) && gameId ? { screen: 'game', gameId } : screen === 'join' ? { screen: 'join', key: null } : { screen: screen === 'profile' || screen === 'settings' ? screen : 'play' };
       const path = accountPath(route);
       if (window.location.pathname + window.location.hash !== path) window.history.pushState(null, '', path);

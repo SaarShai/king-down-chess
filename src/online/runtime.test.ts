@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { createBrowserRuntime, createWebTransport } from './runtime';
 import { OnlineError, type OnlineClient } from './client';
-import type { View } from '../match/protocol';
+import type { JoinPreview, View } from '../match/protocol';
 
 function storage() {
   const records = new Map<string, string>();
@@ -64,4 +64,64 @@ it('restores the saved setup continuation with the durable creation receipt', as
   try {
     expect(createBrowserRuntime(api, 'a').stateHost?.widgetState?.privateContent?.pending).toMatchObject({ name: 'kingdown_create', args: creation, quick: true, king: null, screen: 'play', error: undefined });
   } finally { vi.unstubAllGlobals(); }
+});
+
+
+function browserAt(path: string) {
+  const records = storage();
+  const browser = Object.assign(new EventTarget(), {
+    location: new URL(path, 'http://localhost'), localStorage: records, sessionStorage: records,
+    history: { pushState: vi.fn((_state: unknown, _title: string, path: string) => { browser.location = new URL(path, browser.location); }) },
+  });
+  vi.stubGlobal('window', browser);
+  return { browser, back(path: string) { browser.location = new URL(path, browser.location); browser.dispatchEvent(new Event('popstate')); } };
+}
+function held<T>() {
+  let resolve!: (value: T) => void, reject!: (error: Error) => void;
+  const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
+  return { promise, resolve, reject };
+}
+
+it.each(['reply', 'error'] as const)('ignores a held invitation %s after Back opens Play', async outcome => {
+  const { browser, back } = browserAt('/j#K7QX2M'), pending = held<JoinPreview>();
+  const host = createBrowserRuntime({ preview: () => pending.promise } as unknown as OnlineClient, 'a');
+  const results = vi.fn(); host.onResult = results;
+  try {
+    await host.connect();
+    back('/play/');
+    expect(results).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ structuredContent: { screen: 'play' } }));
+    if (outcome === 'reply') pending.resolve({ code: 'K7QX2M' } as JoinPreview);
+    else pending.reject(new OnlineError('INVITE_UNAVAILABLE', 404, 'Old invitation'));
+    await Promise.allSettled([pending.promise]);
+    expect(results).toHaveBeenCalledTimes(1);
+    expect(browser.location.pathname).toBe('/play/');
+    expect(browser.history.pushState).not.toHaveBeenCalled();
+  } finally { host.dispose?.(); vi.unstubAllGlobals(); }
+});
+
+it('publishes only the current invitation when two previews return out of order', async () => {
+  const { back } = browserAt('/j#K7QX2M'), first = held<JoinPreview>(), second = held<JoinPreview>();
+  const preview = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+  const host = createBrowserRuntime({ preview } as unknown as OnlineClient, 'a'), results = vi.fn(); host.onResult = results;
+  try {
+    await host.connect();
+    back('/j#H8RX3N');
+    second.resolve({ code: 'H8RX3N' } as JoinPreview); await second.promise;
+    first.resolve({ code: 'K7QX2M' } as JoinPreview); await first.promise;
+    expect(preview.mock.calls).toEqual([[{ code: 'K7QX2M' }], [{ code: 'H8RX3N' }]]);
+    expect(results).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ _meta: { preview: { code: 'H8RX3N' } }, structuredContent: { screen: 'join' } }));
+  } finally { host.dispose?.(); vi.unstubAllGlobals(); }
+});
+
+it('invalidates a held preview when the shared runtime navigates away', async () => {
+  const { browser } = browserAt('/j#K7QX2M'), pending = held<JoinPreview>();
+  const host = createBrowserRuntime({ preview: () => pending.promise } as unknown as OnlineClient, 'a'), results = vi.fn(); host.onResult = results;
+  try {
+    await host.connect();
+    host.route?.('play');
+    pending.resolve({ code: 'K7QX2M' } as JoinPreview); await pending.promise;
+    expect(results).not.toHaveBeenCalled();
+    expect(browser.location.pathname).toBe('/play/');
+    expect(browser.history.pushState).toHaveBeenCalledExactlyOnceWith(null, '', '/play/');
+  } finally { host.dispose?.(); vi.unstubAllGlobals(); }
 });
