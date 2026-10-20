@@ -30,4 +30,13 @@ The built local browser check separately covers a friend game, hidden setup, a c
 
 Five fresh widget mounts through **Plugins → King Down Staging → Open plugin** in a control tab and four native direct-URL opens pass without **Try again**. A saved game resumes with the same history on the website and widget.
 
-Browser-API-created or reloaded tabs still reproduce `Couldn’t display King Down Staging` before observed game HTML. A minimal panel without game code also fails in affected tabs and connects in the control tab. This is an unresolved host/browser startup boundary; no application fix is established. See [the first-load record](issues/10-first-chatgpt-load.md). The original game preview is restored, and the temporary probe is removed.
+The follow-up proves debugger-associated interference: attaching browser control stalls navigation; canceling that debugger releases the same pending load in two tabs. Five distinct native first opens pass without retry or debugger attachment before readiness, including plugin-page entry. One is the earlier control later reused for the attachment test. The actual saved board resumes with the two expected moves. See [the first-load record](issues/10-first-chatgpt-load.md).
+
+## First-load verification
+
+1. Use native Chrome controls to open a new tab. Open the direct staging app URL or **Plugins → King Down Staging → Open plugin**.
+2. Keep the browser-control debugger disconnected during startup. Browser-tab inspection can attach it again. Use native accessibility and screenshots to observe readiness.
+3. Require enabled game controls and a new iframe initialization ID. Do not count **Try again**, automatic retry or a model's summary as first-load proof.
+4. Record the entry path and result. Resume the saved game and inspect its actual history. Browser-tab inspection after readiness is acceptable, but detach before another first-load test.
+
+This procedure corrects test interference. It does not repair the debugger interaction or prove cold-cache, mobile or cross-browser reliability. The staging product is unchanged; no game retry or weaker security policy is added.

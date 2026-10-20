@@ -1,6 +1,6 @@
 # Real web and ChatGPT game
 
-Status: game round trip verified. [Follow-up controls](10-first-chatgpt-load.md) narrow the startup failure to an unresolved host/browser entry path.
+Status: game round trip verified. [Follow-up controls](10-first-chatgpt-load.md) isolate debugger-associated startup interference and verify five new native opens without retry.
 
 ## Scope and checks
 
@@ -51,4 +51,4 @@ No HTML-entry execution is observed on the failing load. HTTP 200 proves server 
 
 The verified `01cbe379` preview is restored and ChatGPT's staging tool definitions are refreshed back to it. The diagnostic preview is deleted and its clean worktree is removed. The probe commit remains unmerged; no diagnostic marker is in the active source or deployment. Browser and server traces are saved as `startup-browser-probe.json` and `startup-server-probe.json`. Screenshots show `chatgpt-first-load-failure.png` and `chatgpt-startup-retry.png`. An independent review confirms that the evidence supports the game milestone and this limited startup conclusion.
 
-The follow-up passes five fresh widget mounts in a control tab and four native direct-URL opens without retry. A minimal panel without game code reproduces the failure in affected tabs and succeeds in the control tab. This corrects any broad attribution to application code; it does not fix or establish the exact cause. See [ticket 10](10-first-chatgpt-load.md) for evidence and cleanup. Reliable first-load behavior across the remaining failing path is still unverified.
+The follow-up first passes five fresh widget mounts and four native direct-URL opens without retry. A minimal panel without game code reproduces the failure in affected tabs. Further native controls isolate debugger-associated interference: attachment stalls navigation, and detachment releases the same pending load in two tabs. Five distinct native first opens pass without debugger attachment before readiness, with actual saved-game resume. One is the control later reused for the attachment test. See [ticket 10](10-first-chatgpt-load.md) for evidence, the corrected verification procedure and cleanup. The exact debugger/host interaction remains a tooling limitation; no application repair is claimed.

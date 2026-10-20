@@ -1,6 +1,6 @@
 # First staging game
 
-Status: first real web–ChatGPT game verified. Native-created control tabs pass observed checks; a host/browser startup path remains unresolved.
+Status: first real web–ChatGPT game and five fresh native ChatGPT opens verified. The test procedure avoids confirmed debugger-associated interference. That tooling interaction remains unresolved.
 
 Owner request: develop in this separate project, reuse the reconciled work, fix integration faults and demonstrate the first web–ChatGPT game in staging. No production deploy.
 
@@ -65,4 +65,4 @@ Status: the game round trip passes. See [the real-host record](issues/09-real-ho
 2. Website game `1e34ff0e-5f7b-84f0-8cc6-22268129d986` resumes inside ChatGPT with the exact website move history.
 3. The widget commits a move and resignation. Fresh website reloads show the matching four moves and final result.
 4. Screenshots record both surfaces. The live solo game supplements the hidden friend setup, complex turn and lost-reply harness evidence.
-5. Browser-API page opens can fail before observed game HTML. [First-load controls](issues/10-first-chatgpt-load.md) pass five fresh widget mounts and four native direct-URL opens without retry. A minimal panel without game code fails in affected tabs and connects in the control tab. The exact host/browser cause remains unconfirmed. The verified game preview is restored; the temporary probe is removed. A fresh page resumes a new saved game with matching website history. The remaining failing path stays open.
+5. Browser-API page opens can fail before observed game HTML. [First-load controls](issues/10-first-chatgpt-load.md) isolate debugger-associated interference: attachment stalls navigation, and detachment releases the pending load in two tabs. Five distinct native first opens pass without retry or debugger attachment before readiness, including plugin-page entry; one is the control later reused for the attachment test. The actual saved board resumes with matching history. The application blocker is closed for this native workflow; the exact debugger interaction stays open as a tooling limitation. The product preview is unchanged and temporary diagnostics are removed.
