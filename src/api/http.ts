@@ -7,7 +7,10 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createRemoteJWKSet, errors, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import { z } from 'zod';
 import { parse, MatchServiceError, type GameService } from '../match/service';
-import type { Invite } from '../match/protocol';
+import { createSchema, type Invite } from '../match/protocol';
+import { optionsSchema } from '../match/setup-schema';
+import { handleSchema, type PluginService } from '../plugin/service';
+import { settingsSchema } from '../plugin/settings';
 import type { AccountService } from '../online/accounts';
 import type { SafetyService } from '../online/safety';
 import { cleanup, runDeletions, sweepDeadlines } from '../online/jobs';
@@ -17,7 +20,7 @@ import { WEB_ACCOUNT_ACCESS_TTL_MS } from './account-access';
 import type { WebAccountStatus } from '../online/account-access';
 
 export const MAX_API_BODY = 16 * 1024;
-/** Engine routes (create and commands) run a worker each: a bound for each instance, as /mcp has. */
+/** Routes that can build or play a match share a bound for each instance, as /mcp has. */
 export const MAX_ACTIVE_ENGINE = 4;
 const AUTH_DOWN = new Set(['ERR_JOSE_GENERIC', 'ERR_JWKS_TIMEOUT', 'ERR_JWKS_INVALID']); // the key set did not load
 const sha256 = (text: string) => createHash('sha256').update(text).digest();
@@ -59,7 +62,9 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
 }
 
 export interface ApiOptions {
- games: GameService; accounts: AccountService; safety: SafetyService; publicOrigin: string; operations?: ReadonlySet<string>;
+ games: GameService; accounts: AccountService; safety: SafetyService;
+ players?: Pick<PluginService, 'settings' | 'profile' | 'handle' | 'block' | 'blocks' | 'toolTry'>;
+ publicOrigin: string; operations?: ReadonlySet<string>;
  /** undefined: website sign-in is not configured */ verify?: (token: string) => Promise<string>;
  webAccountAccess?: () => Promise<{ enabled: boolean; expiresAt: number }>;
  admit?: (actor: string) => () => void;
@@ -68,9 +73,21 @@ export interface ApiOptions {
 type Route = (actor: string, id: string, body: unknown, query: URLSearchParams) => Promise<unknown>;
 /** The invitation as the website shares it: a link built from the fixed origin, and the short code. */
 export type InviteLink = Invite & { url: string };
+const emptySchema = z.strictObject({}).optional();
+const startSchema = createSchema.safeExtend({ command_id: z.uuid() });
+const findSchema = z.strictObject({ options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), any_rules: z.boolean().optional(), command_id: z.uuid() });
+const recordSchema = z.strictObject({ before: z.string().max(100).optional(), blocks_after: z.uuid().optional() });
+const blockTarget = { game_id: z.uuid().optional(), user_id: z.uuid().optional() };
+const blockReadSchema = z.strictObject(blockTarget).refine(target => Number(target.game_id !== undefined) + Number(target.user_id !== undefined) === 1);
+const blockSchema = z.strictObject({ ...blockTarget, blocked: z.boolean().optional() }).refine(target => Number(target.game_id !== undefined) + Number(target.user_id !== undefined) === 1);
+function queryInput(query: URLSearchParams): Record<string, string> {
+ const input: Record<string, string> = Object.create(null);
+ for (const [key, value] of query) { if (Object.hasOwn(input, key)) throw failure('INVALID_INPUT', 400, 'Repeated query parameter'); input[key] = value; }
+ return input;
+}
 const redeemSchema = z.union([z.strictObject({ token: z.string().max(100) }), z.strictObject({ code: z.string().max(20) })]);
 
-export function createApiHandler({ games, accounts, safety, publicOrigin, verify, operations, webAccountAccess, admit, currentUser }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
+export function createApiHandler({ games, accounts, safety, players, publicOrigin, verify, operations, webAccountAccess, admit, currentUser }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
  const origin = pluginOrigin(publicOrigin);
  const readAccess = async () => {
   try {
@@ -84,7 +101,18 @@ export function createApiHandler({ games, accounts, safety, publicOrigin, verify
   const access = await readAccess();
   if (access?.enabled !== true || !Number.isFinite(access.expiresAt) || performance.now() >= access.expiresAt) throw failure('UNAVAILABLE', 503, 'Account play is temporarily unavailable. Try again or play on this device.');
  };
- const link = async (actor: string, id: string): Promise<InviteLink> => { const invite = await games.invite(actor, id); return { ...invite, url: `${origin}/j/${invite.token}` }; };
+ const playerService = () => { if (!players) throw failure('UNAVAILABLE', 503, 'Account service is not configured'); return players; };
+ const settings = async (actor: string, input: unknown = {}) => {
+  const service = playerService();
+  const [settings, { handle, icon }] = await Promise.all([service.settings(actor, parse(settingsSchema, input)), service.profile(actor)]);
+  return { settings, me: { handle, icon } };
+ };
+ const block = async (actor: string, input: z.infer<typeof blockSchema>) => {
+  const service = playerService(), { blocked: change, ...target } = input;
+  const blocked = await service.block(actor, target, change);
+  return { blocked, ...(change !== undefined && target.game_id && { view: await games.view(actor, target.game_id) }) };
+ };
+ const link = async (actor: string, id: string): Promise<InviteLink> => { const invite = await games.invite(actor, id); return { ...invite, url: `${origin}/j#${invite.token}` }; };
  const routes: Record<string, Route> = {
   'GET /api/status': async (): Promise<WebAccountStatus> => {
    if (table.some(route => route.method === 'GET' && route.key !== 'GET /api/status' && operations?.has(route.key))) {
@@ -95,20 +123,34 @@ export function createApiHandler({ games, accounts, safety, publicOrigin, verify
    return { account_access: 'closed', valid_for_ms: 0 };
   },
   // A friend game comes with its invitation (part 03, section 4.4); a lost link gets a new one from /invite.
-  'POST /api/games': async (actor, _, body) => { const view = await games.create(actor, body); return { view, ...(view.kind === 'friend' && { invite: await link(actor, view.game_id) }) }; },
+  'POST /api/games': async (actor, _, body) => { const { command_id, ...options } = parse(startSchema, body); await playerService().toolTry(actor, 'kingdown_create'); const view = await games.create(actor, options, command_id); return { view, ...(view.kind === 'friend' && view.status === 'waiting' && { invite: await link(actor, view.game_id) }) }; },
+  'POST /api/games/find': async (actor, _, body) => { const input = parse(findSchema, body); await playerService().toolTry(actor, 'kingdown_create'); return games.find(actor, input.options, input.colour, input.command_id, input.any_rules); },
+  'POST /api/games/:id/accept': (actor, id, body) => { parse(emptySchema, body); return games.accept(actor, id); },
+  'POST /api/games/:id/cancel': (actor, id, body) => { parse(emptySchema, body); return games.cancel(actor, id); },
+  'GET /api/lobby': async actor => ({ ...await games.lobby(actor), server_now: new Date().toISOString() }),
   'GET /api/games/:id': (actor, id, _, query) => {
    const since = query.get('since');
    if (since !== null && !/^\d{1,4}$/.test(since)) throw failure('INVALID_INPUT', 400, 'Invalid revision');
    return games.view(actor, id, since === null ? undefined : Number(since));
   },
   'POST /api/games/:id/seen': (actor, id, body) => { parse(z.strictObject({}).optional(), body); return games.seen(actor, id); },
-  'POST /api/games/:id/commands': async (actor, id, body) => { const view = await games.command(actor, id, body, 'web'); return { type: 'ack', command_id: (body as { command_id: string }).command_id, revision: view.revision, view }; },
+  'POST /api/games/:id/commands': async (actor, id, body) => { if ((body as { action?: { type?: unknown } } | null)?.action?.type === 'computer') await playerService().toolTry(actor, 'kingdown_computer'); const view = await games.command(actor, id, body, 'web'); return { type: 'ack', command_id: (body as { command_id: string }).command_id, revision: view.revision, view }; },
   'POST /api/games/:id/invite': (actor, id) => link(actor, id),
+  'POST /api/invites/preview': (actor, _, body) => { const key = parse(redeemSchema, body); return games.preview(actor, 'token' in key ? key.token : key.code); },
   'POST /api/invites/redeem': (actor, _, body) => { const key = parse(redeemSchema, body); return games.join(actor, 'token' in key ? key.token : key.code); },
   'GET /api/me/games': actor => games.inbox(actor),
   'GET /api/me/profile': actor => accounts.profile(actor),
   'PATCH /api/me/profile': (actor, _, body) => accounts.updateSettings(actor, body),
-  'POST /api/me/handle': (actor, _, body) => accounts.setHandle(actor, body),
+  'GET /api/me/settings': actor => settings(actor),
+  'PATCH /api/me/settings': (actor, _, body) => settings(actor, body),
+  'POST /api/me/handle': async (actor, _, body) => { const input = parse(handleSchema, body), { handle, icon } = await playerService().handle(actor, input); return { me: { handle, icon }, ...(input.check && { available: true }) }; },
+  'GET /api/me/record': async (actor, _, __, query) => {
+   const { before, blocks_after } = parse(recordSchema, queryInput(query)), service = playerService();
+   const [{ handle, icon }, record, history, blocks] = await Promise.all([service.profile(actor), games.record(actor), games.history(actor, before), service.blocks(actor, blocks_after)]);
+   return { handle, icon, record, blocks: blocks.slice(0, 50), next_blocks_after: blocks.length > 50 ? blocks[49].user_id : null, history: history.games, next_before: history.next_before };
+  },
+  'GET /api/blocks': (actor, _, __, query) => block(actor, parse(blockReadSchema, queryInput(query))),
+  'POST /api/blocks': (actor, _, body) => block(actor, parse(blockSchema, body)),
   'POST /api/me/deletion': actor => accounts.requestDeletion(actor),
   // A sign-in cancels a deletion in the database (0008); the website also calls this after a sign-in.
   'DELETE /api/me/deletion': actor => accounts.cancelDeletion(actor),
@@ -117,10 +159,10 @@ export function createApiHandler({ games, accounts, safety, publicOrigin, verify
   'GET /api/relations': actor => accounts.relations(actor),
   'POST /api/relations': (actor, _, body) => accounts.relate(actor, body),
   'DELETE /api/relations': (actor, _, body) => accounts.unrelate(actor, body),
-  'POST /api/reports': (actor, _, body) => safety.report(actor, body),
+  'POST /api/reports': async (actor, _, body) => { await playerService().toolTry(actor, 'kingdown_report'); return safety.report(actor, body); },
  };
  const created = new Set(['POST /api/games', 'POST /api/reports']);
- const table = Object.entries(routes).map(([key, run]) => { const [method, path] = key.split(' '); return { key, method, pattern: new RegExp(`^${path.replace(':id', '([^/]+)')}$`), run }; });
+ const table = Object.entries(routes).map(([key, run]) => { const [method, path] = key.split(' '); return { key, method, dynamic: path.includes(':id'), pattern: new RegExp(`^${path.replace(':id', '([^/]+)')}$`), run }; });
  let active = 0;
  return async (req, res) => {
   const notFound = () => {
@@ -129,7 +171,8 @@ export function createApiHandler({ games, accounts, safety, publicOrigin, verify
   };
   if (!operations?.size) { notFound(); return; }
   const path = req.url?.startsWith('/') && URL.canParse(req.url, origin) ? new URL(req.url, origin).pathname : '';
-  const matches = table.flatMap(route => { const found = route.pattern.exec(path); return found ? [{ ...route, id: found[1] ?? '' }] : []; });
+  const matched = table.flatMap(route => { const found = route.pattern.exec(path); return found ? [{ ...route, id: found[1] ?? '' }] : []; });
+  const matches = matched.some(route => !route.dynamic) ? matched.filter(route => !route.dynamic) : matched;
   const route = matches.find(r => r.method === req.method), allowed = matches.filter(r => operations.has(r.key));
   if (route ? !operations.has(route.key) : !allowed.length) { notFound(); return; }
   if (guard(req, res, origin) === undefined) return;
@@ -137,7 +180,7 @@ export function createApiHandler({ games, accounts, safety, publicOrigin, verify
   const site = req.headers['sec-fetch-site'];
   if (req.headers.origin !== undefined && req.headers.origin !== origin || site !== undefined && site !== 'same-origin' && site !== 'none') { respond(res, 403, { code: 'FORBIDDEN', message: 'Cross-origin requests are refused' }); return; }
   if (!route) { req.resume(); res.setHeader('Allow', allowed.map(r => r.method).join(', ')); respond(res, 405, { code: 'NOT_ALLOWED', message: 'Method not allowed' }); return; }
-  const engine = route.key === 'POST /api/games' || route.key === 'POST /api/games/:id/commands';
+  const engine = ['POST /api/games', 'POST /api/games/find', 'POST /api/games/:id/accept', 'POST /api/invites/redeem', 'POST /api/games/:id/commands'].includes(route.key);
   let body: unknown, release: (() => void) | undefined;
   try {
    if (route.key === 'GET /api/status') {

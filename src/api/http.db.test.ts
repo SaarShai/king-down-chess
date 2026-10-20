@@ -10,6 +10,9 @@ import { readFile } from 'node:fs/promises';
 import { createServer, request, type Server } from 'node:http';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { createPluginServer } from '../plugin/server';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS, type Choice } from '../match/setup';
 import type { View } from '../match/protocol';
@@ -17,6 +20,7 @@ import { GameService } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
 import { AccountService } from '../online/accounts';
 import { onlineClient, type OnlineClient } from '../online/client';
+import { PluginService } from '../plugin/service';
 import { SafetyService } from '../online/safety';
 import { createWebAccountAccess } from './account-access';
 import { createApiHandler, createInternalHandler, MAX_API_BODY, sessionVerifier, type ApiOptions } from './http';
@@ -43,6 +47,16 @@ const operations = new Set([
  'POST /api/relations',
  'DELETE /api/relations',
  'POST /api/reports',
+ 'POST /api/invites/preview',
+ 'GET /api/lobby',
+ 'POST /api/games/find',
+ 'POST /api/games/:id/accept',
+ 'POST /api/games/:id/cancel',
+ 'GET /api/me/settings',
+ 'PATCH /api/me/settings',
+ 'GET /api/me/record',
+ 'GET /api/blocks',
+ 'POST /api/blocks',
 ]);
 const CLASSIC_OPTIONS = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
 const url = process.env.PLUGIN_TEST_DATABASE_URL, supabase = 'https://project.supabase.co', secret = randomUUID() + randomUUID();
@@ -75,12 +89,12 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   await locked(`${(await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8')).replaceAll('kingdown_plugin_runtime', role)}; alter role ${role} password '${password}'`);
   runtimeUrl = new URL(own.href); runtimeUrl.username = role; runtimeUrl.password = password;
   runtime = new pg.Pool({ connectionString: runtimeUrl.href, max: 4 });
-  const store = new PostgresMatchStore(runtime), games = new GameService(store);
+  const store = new PostgresMatchStore(runtime), games = new GameService(store, secret);
   const pair = await generateKeyPair('ES256'), keys = createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'local', alg: 'ES256' }] });
   sign = sub => { const now = Math.floor(Date.now() / 1000); return new SignJWT({ iss: `${supabase}/auth/v1`, aud: 'authenticated', sub, role: 'authenticated', is_anonymous: false, iat: now, exp: now + 600 }).setProtectedHeader({ alg: 'ES256', kid: 'local' }).sign(pair.privateKey); };
   server = createServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   address = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
-  options = { games, accounts: new AccountService(store), safety: new SafetyService(store), publicOrigin: address, operations, verify: sessionVerifier(supabase, keys), webAccountAccess: async () => ({ enabled: true, expiresAt: performance.now() + 5000 }), admit: () => () => {}, currentUser: async () => {} };
+  options = { games, players: new PluginService(store, secret), accounts: new AccountService(store), safety: new SafetyService(store), publicOrigin: address, operations, verify: sessionVerifier(supabase, keys), webAccountAccess: async () => ({ enabled: true, expiresAt: performance.now() + 5000 }), admit: () => () => {}, currentUser: async () => {} };
   api = createApiHandler(options);
   const jobs = createInternalHandler({ games, publicOrigin: address, secret });
   // This listener checks the handlers. The compiled check covers the function entry.
@@ -147,6 +161,68 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   } finally { query.mockRestore(); connect.mockRestore(); }
   expect((await actor.api.profile()).user_id).toBe(actor.id);
  });
+
+ it('keeps one game for a repeated HTTP start and rejects changed input', async () => {
+  const host = await player('retry-host'), guest = await player('retry-guest'), command_id = randomUUID(), token = await sign(host.id);
+  const body = { kind: 'friend', options: CLASSIC_OPTIONS, command_id };
+  const start = (input = body) => fetch(`${address}/api/games`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+  const first = await start(), made = await first.json(); expect(first.status).toBe(201);
+  const second = await start(), retry = await second.json(); expect(second.status).toBe(201); expect(retry.view.game_id).toBe(made.view.game_id);
+  expect((await rows('select id from public.games where created_by=$1', [host.id])).map(row => row.id)).toEqual([made.view.game_id]);
+  const changed = await start({ ...body, options: DEFAULT_OPTIONS }); expect([changed.status, (await changed.json()).code]).toEqual([409, 'COMMAND_CONFLICT']);
+  await guest.api.redeem({ token: retry.invite.token });
+  const joined = await start(); expect(joined.status).toBe(201); expect(await joined.json()).toMatchObject({ view: { game_id: made.view.game_id, status: 'playing' } });
+ }, 60_000);
+
+ it('previews an invitation without a seat or hidden game data', async () => {
+  const host = await player('preview-host'), guest = await player('preview-guest');
+  const made = await host.api.create({ kind: 'friend', options: { ...DEFAULT_OPTIONS, kingPowers: true } });
+  const preview = await fetch(`${address}/api/invites/preview`, { method: 'POST', headers: { Authorization: `Bearer ${await sign(guest.id)}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ token: made.invite!.token }) });
+  expect(preview.status).toBe(200);
+  const value = await preview.json();
+  expect(Object.keys(value).sort()).toEqual(['code', 'colour', 'creator', 'expires_at', 'kind', 'options']);
+  expect(value.creator.handle).toBe(host.handle);
+  expect((await rows('select user_id from public.game_players where game_id=$1 and user_id is not null', [made.view.game_id])).map(row => row.user_id)).toEqual([host.id]);
+  await expect(guest.api.game(made.view.game_id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  expect((await rows('select used_by from public.game_invites where game_id=$1', [made.view.game_id]))[0].used_by).toBeNull();
+ }, 60_000);
+
+ it('shares one HTTP and MCP game with private setup and one effect for a lost turn reply', async () => {
+  const host = await player('cross-host'), guest = await player('cross-guest'), startId = randomUUID();
+  const gameOptions = { ...CLASSIC_OPTIONS, kingPowers: true }, store = new PostgresMatchStore(runtime);
+  const connect = async (actorId: string) => {
+   const server = createPluginServer({ service: new PluginService(store, secret), actorId, resourceHtml: '<html>board</html>', publicOrigin: address });
+   const client = new Client({ name: 'http-cross-test', version: '1' }), [a, b] = InMemoryTransport.createLinkedPair();
+   await server.connect(a); await client.connect(b);
+   return { call: async (name: string, args: Record<string, unknown>) => {
+    const result = await client.callTool({ name, arguments: args });
+    expect(result.isError).not.toBe(true);
+    return result as typeof result & { _meta: { view: View } };
+   }, close: async () => { await client.close(); await server.close(); } };
+  };
+  const hostMcp = await connect(host.id), guestMcp = await connect(guest.id);
+  try {
+   const start = await fetch(`${address}/api/games`, { method: 'POST', headers: { Authorization: `Bearer ${await sign(host.id)}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'friend', options: gameOptions, colour: 'white', command_id: startId }) });
+   expect(start.status).toBe(201); const made = await start.json(), game_id = made.view.game_id;
+   const retried = await hostMcp.call('kingdown_create', { kind: 'friend', options: gameOptions, colour: 'white', command_id: startId });
+   expect(retried._meta.view.game_id).toBe(game_id);
+   const joined = await guestMcp.call('kingdown_join', { code: made.invite.code }); expect(joined._meta.view.status).toBe('setup');
+   const secretChoice: Choice = { king: { king: 'Flame', power: 'Haste' }, order: 'RNBQKBNR' };
+   await host.api.command(game_id, joined._meta.view.revision, { type: 'choose', choice: secretChoice, ready: true });
+   const hidden = await guestMcp.call('kingdown_get', { game_id });
+   expect(hidden._meta.view.choices?.[0]).toBeNull(); expect(hidden._meta.view.last_commands.at(-1)?.action).toEqual({ type: 'hidden' }); expect(JSON.stringify(hidden)).not.toContain('Flame');
+   const ready = await guestMcp.call('kingdown_choose', { game_id, command_id: randomUUID(), expected_revision: hidden._meta.view.revision, king: { king: 'Shadow', power: 'Darkness' }, order: 'RNBQKBNR', ready: true });
+   const before = await host.api.game(game_id), command_id = randomUUID(), actions = [plain(before)];
+   expect(ready._meta.view.status).toBe('playing');
+   const moved = (await host.api.command(game_id, before.revision, { type: 'turn', actions }, command_id)).view;
+   const retry = await hostMcp.call('kingdown_move', { game_id, command_id, expected_revision: before.revision, actions });
+   expect(retry._meta.view.revision).toBe(moved.revision); expect(retry._meta.view.fen).toBe(moved.fen);
+   const model = JSON.stringify([retry.content, retry.structuredContent]); expect(model).not.toContain(moved.fen!.split(' ')[0]); expect(model).not.toContain(host.handle);
+   expect((await rows('select count(*)::int as n from public.game_commands where game_id=$1 and command_id=$2', [game_id, command_id]))[0].n).toBe(1);
+   const end = await guestMcp.call('kingdown_resign', { game_id, command_id: randomUUID(), expected_revision: moved.revision });
+   expect((await host.api.game(game_id)).result).toEqual(end._meta.view.result); expect(end._meta.view.status).toBe('finished');
+  } finally { await hostMcp.close(); await guestMcp.close(); }
+ }, 60_000);
 
  it('makes no stored change or write attempt on full and since reads in each game state', async () => {
   const [ann, bob] = [await player('read-ann'), await player('read-bob')];
@@ -313,7 +389,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
  it('plays a Daily friend game between two website identities, with retries that apply once', async () => {
   const [ann, bob] = [await player('ann'), await player('bob')];
   const { view: created, invite } = await ann.api.create({ kind: 'friend', options: CLASSIC_OPTIONS, speed: 'daily', days_per_move: 1, colour: 'white' });
-  expect([created.status, created.seat, created.days_per_move, invite!.url]).toEqual(['waiting', 0, 1, `${address}/j/${invite!.token}`]);
+  expect([created.status, created.seat, created.days_per_move, invite!.url]).toEqual(['waiting', 0, 1, `${address}/j#${invite!.token}`]);
   const id = created.game_id;
   const joined = await bob.api.redeem({ code: `${invite!.code.slice(0, 3).toLowerCase()}-${invite!.code.slice(3)}` });
   expect([joined.game_id, joined.seat, joined.status, joined.opponent?.handle]).toEqual([id, 1, 'playing', ann.handle]);

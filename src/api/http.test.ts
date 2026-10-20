@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createServer, request, type Server } from 'node:http';
 import { once } from 'node:events';
 import { createLocalJWKSet, errors, exportJWK, generateKeyPair, SignJWT, type JWTPayload } from 'jose';
+import { DEFAULT_OPTIONS } from '../match/setup';
 import { MatchServiceError } from '../match/service';
 import { AuthenticationError, AuthenticationUnavailable } from '../plugin/auth';
 import { createApiHandler, createInternalHandler, MAX_ACTIVE_ENGINE, MAX_API_BODY, sessionVerifier, type ApiOptions } from './http';
@@ -29,9 +30,20 @@ const operations = new Set([
  'POST /api/relations',
  'DELETE /api/relations',
  'POST /api/reports',
+ 'POST /api/invites/preview',
+ 'GET /api/lobby',
+ 'POST /api/games/find',
+ 'POST /api/games/:id/accept',
+ 'POST /api/games/:id/cancel',
+ 'GET /api/me/settings',
+ 'PATCH /api/me/settings',
+ 'GET /api/me/record',
+ 'GET /api/blocks',
+ 'POST /api/blocks',
 ]);
+const commandId = '44444444-4444-4444-8444-444444444444';
 const view = { game_id: gameId, revision: 1, kind: 'solo' };
-let address: string, sign: (claims?: JWTPayload, key?: CryptoKey) => Promise<string>, games: Record<string, ReturnType<typeof vi.fn>>, accounts: Record<string, ReturnType<typeof vi.fn>>, safety: Record<string, ReturnType<typeof vi.fn>>;
+let address: string, sign: (claims?: JWTPayload, key?: CryptoKey) => Promise<string>, games: Record<string, ReturnType<typeof vi.fn>>, accounts: Record<string, ReturnType<typeof vi.fn>>, safety: Record<string, ReturnType<typeof vi.fn>>, players: Record<string, ReturnType<typeof vi.fn>>;
 let other: CryptoKey, server: Server, defaults: ApiOptions;
 const webAccountAccess = async () => ({ enabled: true, expiresAt: performance.now() + 5000 });
 function useApi(options: Partial<ApiOptions>) {
@@ -46,10 +58,11 @@ async function serve(options: Partial<ApiOptions> = {}, internal: { secret?: str
  // A Supabase session's claims; a test changes one of them.
  sign = (claims = {}, key = pair.privateKey) => { const now = Math.floor(Date.now() / 1000);
   return new SignJWT({ iss: issuer, aud: 'authenticated', sub: alice, role: 'authenticated', is_anonymous: false, session_id: 's', iat: now, exp: now + 300, ...claims }).setProtectedHeader({ alg: 'ES256', kid: 'test' }).sign(key); };
- games = { create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view), inbox: vi.fn(async () => []), invite: vi.fn(), join: vi.fn(async () => view), seen: vi.fn(), sweep: vi.fn(async () => 0) };
+ games = { create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view), inbox: vi.fn(async () => []), invite: vi.fn(), join: vi.fn(async () => view), preview: vi.fn(async () => ({ code: 'ABC234', options: DEFAULT_OPTIONS, kind: 'friend', colour: 'black', creator: { handle: 'host', icon: null }, expires_at: 'soon' })), find: vi.fn(async () => view), accept: vi.fn(async () => view), cancel: vi.fn(async () => view), lobby: vi.fn(async () => ({ games: [] })), record: vi.fn(async () => ({ total: 3 })), history: vi.fn(async () => ({ games: [], next_before: null })), seen: vi.fn(), sweep: vi.fn(async () => 0) };
  accounts = { profile: vi.fn(async () => ({ user_id: alice })), relate: vi.fn(async () => undefined), ...Object.fromEntries(['updateSettings', 'setHandle', 'requestDeletion', 'cancelDeletion', 'notificationPrefs', 'setNotificationPrefs', 'relations', 'unrelate'].map(name => [name, vi.fn()])) };
  safety = { report: vi.fn() };
- defaults = { games: games as never, accounts: accounts as never, safety: safety as never, publicOrigin: address, operations, webAccountAccess, admit: () => () => {}, currentUser: async () => {}, verify: sessionVerifier(supabase, keys), ...options };
+ players = { profile: vi.fn(async () => ({ user_id: alice, handle: 'alice', icon: null })), settings: vi.fn(async () => ({ symbols_only: false, show_threats: true, online_visible_to: 'mutual', last_setup: null })), handle: vi.fn(async () => ({ user_id: alice, handle: 'alice', icon: null })), block: vi.fn(async () => true), blocks: vi.fn(async () => []), toolTry: vi.fn() };
+ defaults = { games: games as never, accounts: accounts as never, safety: safety as never, players: players as never, publicOrigin: address, operations, webAccountAccess, admit: () => () => {}, currentUser: async () => {}, verify: sessionVerifier(supabase, keys), ...options };
  const api = createApiHandler(defaults);
  const jobs = createInternalHandler({ games: games as never, publicOrigin: address, secret, ...internal });
  server.on('request', (req, res) => { void (req.url!.startsWith('/internal') ? jobs : api)(req, res); });
@@ -75,7 +88,7 @@ describe('website API boundary', () => {
     expect([response.status, response.headers.get('Content-Type'), response.headers.get('Cache-Control'), response.headers.get('Referrer-Policy'), response.headers.get('WWW-Authenticate')]).toEqual([200, 'application/json; charset=utf-8', 'no-store', 'no-referrer', null]);
     expect(await response.json()).toEqual({ account_access: expected ? 'open' : 'closed', valid_for_ms: expected });
    }
-   for (const spy of [verify, admit, currentUser, ...Object.values(games), ...Object.values(accounts), ...Object.values(safety)]) expect(spy).not.toHaveBeenCalled();
+   for (const spy of [verify, admit, currentUser, ...Object.values(games), ...Object.values(accounts), ...Object.values(safety), ...Object.values(players)]) expect(spy).not.toHaveBeenCalled();
    expect(access).toHaveBeenCalledTimes(3);
    useApi({ webAccountAccess: access, verify: undefined, admit: undefined, currentUser: undefined });
    expect((await call('/api/status')).status).toBe(200);
@@ -122,7 +135,7 @@ describe('website API boundary', () => {
   }
   expect((await call('/api/games', { method: 'POST', token, body: 'x'.repeat(MAX_API_BODY + 1), headers: { Host: 'evil.example', Origin: 'null' } })).status).toBe(404);
   expect(await raw('/api/games', { Authorization: `Bearer ${token}` }, 'x'.repeat(MAX_API_BODY + 1))).toBe(404);
-  for (const spy of [access, verify, read, ...Object.values(games), ...Object.values(accounts), ...Object.values(safety)]) expect(spy).not.toHaveBeenCalled();
+  for (const spy of [access, verify, read, ...Object.values(games), ...Object.values(accounts), ...Object.values(safety), ...Object.values(players)]) expect(spy).not.toHaveBeenCalled();
  });
  it('opens only exact operation keys and lists only enabled methods', async () => {
   const verify = vi.fn(async () => alice), read = vi.fn(() => { throw new Error('Closed request reads its body'); });
@@ -135,7 +148,7 @@ describe('website API boundary', () => {
    const [method, path] = key.split(' '), response = await call(path.replace(':id', gameId), { method, token, ...(method !== 'GET' && { body: 'x'.repeat(MAX_API_BODY + 1) }) });
    expect([key, response.status, (await response.json()).code, response.headers.get('Allow')]).toEqual([key, 404, 'NOT_FOUND', null]);
   }
-  for (const spy of [access, verify, read, ...Object.values(games), ...Object.values(accounts), ...Object.values(safety)]) expect(spy).not.toHaveBeenCalled();
+  for (const spy of [access, verify, read, ...Object.values(games), ...Object.values(accounts), ...Object.values(safety), ...Object.values(players)]) expect(spy).not.toHaveBeenCalled();
   for (const method of ['DELETE', 'HEAD', 'OPTIONS']) {
    const response = await call('/api/me/profile', { method, token });
    expect([method, response.status, response.headers.get('Allow')]).toEqual([method, 405, 'GET']);
@@ -203,14 +216,94 @@ describe('website API boundary', () => {
  });
  it('passes the verified actor, the path ID and `since`, and never an actor from input', async () => {
   const token = await sign();
-  const created = await call('/api/games', { token, method: 'POST', body: { kind: 'solo', actor: 'someone' } });
+  const created = await call('/api/games', { token, method: 'POST', body: { kind: 'solo', command_id: commandId } });
   expect([created.status, await created.json()]).toEqual([201, { view }]);
-  expect(games.create).toHaveBeenCalledWith(alice, { kind: 'solo', actor: 'someone' });
+  expect(games.create).toHaveBeenCalledWith(alice, { kind: 'solo' }, commandId);
   await call(`/api/games/${gameId}?since=4`, { token }); expect(games.view).toHaveBeenLastCalledWith(alice, gameId, 4);
   await call(`/api/games/${gameId}`, { token }); expect(games.view).toHaveBeenLastCalledWith(alice, gameId, undefined);
   expect((await call(`/api/games/${gameId}?since=-1`, { token })).status).toBe(400);
   const related = await call('/api/relations', { token, method: 'POST', body: { kind: 'block', handle: 'bob' } });
   expect(related.status).toBe(204); expect(accounts.relate).toHaveBeenCalledWith(alice, { kind: 'block', handle: 'bob' });
+ });
+ it('keeps Find reserved when its method is wrong or the operation is closed', async () => {
+  const token = await sign(), wrong = await call('/api/games/find', { token });
+  expect([wrong.status, wrong.headers.get('Allow')]).toEqual([405, 'POST']); expect(games.view).not.toHaveBeenCalled();
+  useApi({ operations: new Set(['GET /api/games/:id']) });
+  expect((await call('/api/games/find', { token })).status).toBe(404); expect(games.view).not.toHaveBeenCalled();
+ });
+ it('rejects missing start IDs and unknown start fields before game work', async () => {
+  const token = await sign();
+  for (const body of [{ kind: 'solo' }, { kind: 'solo', command_id: 'bad' }, { kind: 'solo', command_id: commandId, actor: alice }, { kind: 'solo', command_id: commandId, level: 'no' }]) {
+   const response = await call('/api/games', { token, method: 'POST', body });
+   expect([response.status, (await response.json()).code]).toEqual([400, 'INVALID_INPUT']);
+  }
+  expect(games.create).not.toHaveBeenCalled(); expect(players.toolTry).not.toHaveBeenCalled();
+ });
+ it('passes the stable start ID on retries and returns a changed-input conflict', async () => {
+  const token = await sign(), input = { kind: 'solo', command_id: commandId };
+  for (let attempt = 0; attempt < 2; attempt++) {
+   const response = await call('/api/games', { token, method: 'POST', body: input });
+   expect([response.status, await response.json()]).toEqual([201, { view }]);
+   expect(games.create).toHaveBeenLastCalledWith(alice, { kind: 'solo' }, commandId);
+  }
+  games.create.mockRejectedValueOnce(new MatchServiceError('COMMAND_CONFLICT', 409, 'Command ID was used with different input'));
+  const mismatch = await call('/api/games', { token, method: 'POST', body: { ...input, colour: 'black' } });
+  expect([mismatch.status, (await mismatch.json()).code]).toEqual([409, 'COMMAND_CONFLICT']);
+ });
+ it('returns only the service invite preview and never joins or reads a game', async () => {
+  const token = await sign();
+  for (const body of [{ token: 'private-link' }, { code: 'ABC234' }]) {
+   const response = await call('/api/invites/preview', { token, method: 'POST', body });
+   expect([response.status, await response.json()]).toEqual([200, await games.preview.mock.results[0].value]);
+   expect(games.preview).toHaveBeenLastCalledWith(alice, 'token' in body ? body.token : body.code);
+  }
+  for (const body of [{}, { token: 't', code: 'c' }, { code: 'c', actor: alice }]) expect((await call('/api/invites/preview', { token, method: 'POST', body })).status).toBe(400);
+  for (const spy of [games.join, games.view, games.seen]) expect(spy).not.toHaveBeenCalled();
+ });
+ it('uses shared settings, handle validation and exact profile pagination', async () => {
+  const token = await sign(), me = { handle: 'alice', icon: null };
+  for (const method of ['GET', 'PATCH']) {
+   const response = await call('/api/me/settings', { token, method, ...(method === 'PATCH' && { body: { symbols_only: true } }) });
+   expect(await response.json()).toEqual({ settings: await players.settings.mock.results[0].value, me });
+  }
+  expect(players.settings).toHaveBeenLastCalledWith(alice, { symbols_only: true });
+  const available = await call('/api/me/handle', { token, method: 'POST', body: { handle: 'alice', check: true } });
+  expect(await available.json()).toEqual({ me, available: true }); expect(players.handle).toHaveBeenLastCalledWith(alice, { handle: 'alice', check: true });
+  for (const [path, method, body] of [['/api/me/settings', 'PATCH', { actor: alice }], ['/api/me/handle', 'POST', { handle: 'alice', actor: alice }]] as const) expect((await call(path, { token, method, body })).status).toBe(400);
+  const blocks = Array.from({ length: 51 }, (_, i) => ({ user_id: `player-${i}`, handle: null })); players.blocks.mockResolvedValueOnce(blocks);
+  const response = await call(`/api/me/record?before=cursor&blocks_after=${gameId}`, { token });
+  expect(await response.json()).toEqual({ ...me, record: { total: 3 }, blocks: blocks.slice(0, 50), next_blocks_after: blocks[49].user_id, history: [], next_before: null });
+  expect(players.blocks).toHaveBeenLastCalledWith(alice, gameId); expect(games.history).toHaveBeenLastCalledWith(alice, 'cursor');
+  for (const query of ['blocks_after=bad', 'actor=a', '__proto__=bad', 'before=a&before=b']) expect((await call('/api/me/record?' + query, { token })).status).toBe(400);
+ });
+ it('validates block targets and reads state without write admission', async () => {
+  const token = await sign(), admit = vi.fn(() => () => {}); useApi({ admit });
+  const response = await call(`/api/blocks?game_id=${gameId}`, { token });
+  expect(await response.json()).toEqual({ blocked: true }); expect(admit).not.toHaveBeenCalled(); expect(players.block).toHaveBeenLastCalledWith(alice, { game_id: gameId }, undefined);
+  for (const query of ['', 'game_id=bad', `game_id=${gameId}&user_id=${alice}`, `game_id=${gameId}&blocked=true`, `game_id=${gameId}&game_id=${gameId}`, `user_id=${alice}&actor=a`]) expect((await call('/api/blocks?' + query, { token })).status).toBe(400);
+  const changed = await call('/api/blocks', { token, method: 'POST', body: { game_id: gameId, blocked: false } });
+  expect(await changed.json()).toEqual({ blocked: true, view }); expect(players.block).toHaveBeenLastCalledWith(alice, { game_id: gameId }, false); expect(admit).toHaveBeenCalledOnce();
+  expect((await call('/api/blocks', { token, method: 'POST', body: { user_id: alice, blocked: 'false' } })).status).toBe(400);
+ });
+ it('routes Find, Accept, Cancel and lobby through game service and start quota', async () => {
+  const token = await sign(), body = { options: DEFAULT_OPTIONS, colour: 'random', any_rules: true, command_id: commandId };
+  expect((await call('/api/games/find', { token, method: 'POST', body })).status).toBe(200);
+  expect(games.find).toHaveBeenCalledWith(alice, DEFAULT_OPTIONS, 'random', commandId, true); expect(players.toolTry).toHaveBeenCalledWith(alice, 'kingdown_create');
+  for (const operation of ['accept', 'cancel']) {
+   expect((await call(`/api/games/${gameId}/${operation}`, { token, method: 'POST', body: {} })).status).toBe(200);
+   expect(games[operation]).toHaveBeenCalledWith(alice, gameId);
+   expect((await call(`/api/games/${gameId}/${operation}`, { token, method: 'POST', body: { actor: alice } })).status).toBe(400);
+  }
+  expect(await (await call('/api/lobby', { token })).json()).toEqual({ games: [], server_now: expect.any(String) });
+ });
+ it('shares computer and report quotas and fails closed without the account service', async () => {
+  const token = await sign();
+  await call(`/api/games/${gameId}/commands`, { token, method: 'POST', body: { action: { type: 'computer' } } });
+  expect(players.toolTry).toHaveBeenLastCalledWith(alice, 'kingdown_computer');
+  await call('/api/reports', { token, method: 'POST', body: {} }); expect(players.toolTry).toHaveBeenLastCalledWith(alice, 'kingdown_report');
+  players.toolTry.mockRejectedValueOnce(new MatchServiceError('RATE_LIMITED', 429, 'Wait'));
+  expect((await call('/api/games', { token, method: 'POST', body: { kind: 'solo', command_id: commandId } })).status).toBe(429); expect(games.create).not.toHaveBeenCalled();
+  useApi({ players: undefined }); expect((await call('/api/me/settings', { token })).status).toBe(503);
  });
  it('keeps full, zero, delta and equal-revision reads free of activity and write checks', async () => {
   const admit = vi.fn(), currentUser = vi.fn(); useApi({ admit, currentUser });
@@ -254,7 +347,7 @@ describe('website API boundary', () => {
     expect([key, response.status, response.headers.get('Retry-After'), response.headers.get('Cache-Control'), await response.json()]).toEqual([key, 503, '5', 'no-store', { ...(key === 'POST /api/games/:id/commands' && { type: 'reject', command_id: '' }), code: 'UNAVAILABLE', message: 'Account play is temporarily unavailable. Try again or play on this device.' }]);
    }
   }
-  for (const spy of [verify, admit, currentUser, read, ...Object.values(games), ...Object.values(accounts), ...Object.values(safety)]) expect(spy).not.toHaveBeenCalled();
+  for (const spy of [verify, admit, currentUser, read, ...Object.values(games), ...Object.values(accounts), ...Object.values(safety), ...Object.values(players)]) expect(spy).not.toHaveBeenCalled();
  });
  it.each(['admit', 'currentUser', 'both'])('refuses every enabled mutation when %s is missing', async missing => {
   const admit = vi.fn(() => () => {}), currentUser = vi.fn(async () => {});
@@ -264,7 +357,7 @@ describe('website API boundary', () => {
    const response = await call(path.replace(':id', gameId), { token: await sign(), method, body: '{broken' });
    expect([key, response.status, response.headers.get('Retry-After'), (await response.json()).code]).toEqual([key, 503, '5', 'UNAVAILABLE']);
   }
-  for (const spy of [admit, currentUser, ...Object.values(games), ...Object.values(accounts), ...Object.values(safety)]) expect(spy).not.toHaveBeenCalled();
+  for (const spy of [admit, currentUser, ...Object.values(games), ...Object.values(accounts), ...Object.values(safety), ...Object.values(players)]) expect(spy).not.toHaveBeenCalled();
  });
  it('checks the switch, token, slot, current user and bounded input in order, then releases after service work', async () => {
   const order: string[] = [], token = await sign();
@@ -334,6 +427,22 @@ describe('website API boundary', () => {
   games.command.mockRejectedValueOnce(new Error('postgres://secret@host'));
   const crash = await call(path, { token, method: 'POST', body: command });
   expect([crash.status, JSON.stringify(await crash.json()).includes('secret')]).toEqual([500, false]);
+ });
+ it.each([
+  ['/api/games', 'create', { kind: 'solo', command_id: commandId }],
+  ['/api/games/find', 'find', { options: DEFAULT_OPTIONS, command_id: commandId }],
+  [`/api/games/${gameId}/accept`, 'accept', {}],
+  ['/api/invites/redeem', 'join', { token: 'invite' }],
+ ] as const)('bounds engine work for %s while reads stay available', async (path, operation, body) => {
+  let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });
+  games[operation].mockImplementation(async () => { await gate; return view; });
+  const token = await sign(), pending = Array.from({ length: MAX_ACTIVE_ENGINE }, () => call(path, { token, method: 'POST', body }));
+  try {
+   await vi.waitFor(() => expect(games[operation]).toHaveBeenCalledTimes(MAX_ACTIVE_ENGINE));
+   expect((await call(path, { token, method: 'POST', body })).status).toBe(503);
+   expect((await call(`/api/games/${gameId}`, { token })).status).toBe(200);
+  } finally { release(); }
+  for (const response of await Promise.all(pending)) expect(response.status).toBe(operation === 'create' ? 201 : 200);
  });
  it(`bounds engine work to ${MAX_ACTIVE_ENGINE} requests for each instance; reads still pass`, async () => {
   const slot = vi.fn(); useApi({ admit: () => slot });
