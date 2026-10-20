@@ -1,6 +1,6 @@
 # GUI previews 2026-10-19: the board screen and play loop
 
-Status: in progress
+Status: done
 Type: task
 
 ## Why and the rule
@@ -237,3 +237,20 @@ The merge baseline (`unit-1.txt`, `89fc4e64`) ends with 86 failed, 3,044 passed,
 The repaired files run in sequence at `af0bfae9` (`unit-2.txt`). The run ends with 276 passed and one failed test in 243.79 seconds. All 86 baseline failures pass. The new failure is the Fast reduced-motion check: no victim frame exists when the opacity check starts. This case passes in the full baseline run.
 
 Kind b, A8: the reduced-motion fixture installs its clock before page load, through the existing `open` option. It keeps one clock from scene load through the capture. It no longer replaces a clock after the scene queues frames. This applies the clock rule already used in the preview check. A new assertion requires a victim frame before the opacity checks. The 420/210 ms slide, 150 ms fade, opacity formula, completion, and no-shake guards stay in place. No limit or retry changes. No product change.
+
+### Repair check results
+
+All repaired files pass on the M1:
+
+- `src/plugin/app.test.ts`: 79 passed. The three new A8 cases pass.
+- `src/plugin/type-scale.test.ts`: 7 passed.
+- `tools/plugin-ios-size.test.ts`: 31 passed. All four Settings rows meet the 44 px floor at both sizes.
+- `tools/plugin-board.test.ts`: 160 passed at `f2dc4eca` in 185.49 seconds (`unit-3.txt`). Both reduced-motion speeds, all six Menu fit cases, and W7 pass. This file runs alone.
+
+The first three files pass in sequence in `unit-2.txt`. The final full suite checks all four files again at `f2dc4eca` (`unit-4.txt`): 3,133 passed, zero failed, and 164 skipped tests. It has 186 passed files and 12 skipped files. All skips need PostgreSQL, which the M1 does not have. The suite ends with exit 0 in 283.95 seconds.
+
+`npx tsc --noEmit` and `git diff --check` pass. The commit hooks pass the type check and repository gate. No test limit, STEP value, assertion scope, or retry changes. No kind-d failure remains.
+
+The repair ticket directs browser checks and screen captures to CI. This lane runs no browser check, capture script, or unit suite on this Mac. The only kind-c product repair keeps the same 16 px label size, so it needs no new screen sample. No server code changes.
+
+The test repair is done. All seven parts remain built. Owner approval for the previews is still open. This repair makes no new taste choice. Nothing is pushed, merged to main, or deployed.
