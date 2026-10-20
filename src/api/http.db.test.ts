@@ -224,6 +224,34 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   } finally { await hostMcp.close(); await guestMcp.close(); }
  }, 60_000);
 
+ it('shares the last Create quota slot atomically across HTTP and MCP', async () => {
+  const actor = await player('quota-cross'), token = await sign(actor.id);
+  const mcp = createPluginServer({ service: new PluginService(new PostgresMatchStore(runtime), secret), actorId: actor.id, resourceHtml: '<html>board</html>', publicOrigin: address });
+  const client = new Client({ name: 'http-quota-test', version: '1' }), [a, b] = InMemoryTransport.createLinkedPair();
+  await mcp.connect(a); await client.connect(b);
+  try {
+   await admin.query("insert into public.plugin_tool_tries(user_id,tool,tries) values($1,'kingdown_create',59)", [actor.id]);
+   const input = { kind: 'friend', options: CLASSIC_OPTIONS, colour: 'white' };
+   const [http, tool] = await Promise.all([
+    fetch(`${address}/api/games`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ ...input, command_id: randomUUID() }) }),
+    client.callTool({ name: 'kingdown_create', arguments: { ...input, command_id: randomUUID() } }),
+   ]);
+   const body = await http.json(), meta = tool._meta as { code?: string; view?: View };
+   let gameId: string;
+   if (http.status === 201) {
+    expect(tool).toMatchObject({ isError: true, _meta: { code: 'RATE_LIMITED' } });
+    gameId = body.view.game_id;
+   } else {
+    expect([http.status, body.code]).toEqual([429, 'RATE_LIMITED']);
+    expect(tool.isError).not.toBe(true);
+    expect(meta.view?.status).toBe('waiting');
+    gameId = meta.view!.game_id;
+   }
+   expect(await rows('select id from public.games where created_by=$1', [actor.id])).toEqual([{ id: gameId }]);
+   expect(await rows('select tool,tries from public.plugin_tool_tries where user_id=$1', [actor.id])).toEqual([{ tool: 'kingdown_create', tries: 61 }]);
+  } finally { await client.close(); await mcp.close(); }
+ }, 60_000);
+
  it('makes no stored change or write attempt on full and since reads in each game state', async () => {
   const [ann, bob] = [await player('read-ann'), await player('read-bob')];
   const waiting = (await ann.api.create({ kind: 'friend', options: CLASSIC_OPTIONS })).view;
