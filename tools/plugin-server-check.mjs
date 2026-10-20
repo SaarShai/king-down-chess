@@ -1,6 +1,6 @@
 /** Opt-in end-to-end check of a built artifact against a disposable local PostgreSQL DB. */
 import assert from 'node:assert/strict';
-import { randomUUID, X509Certificate } from 'node:crypto';
+import { createHash, randomUUID, X509Certificate } from 'node:crypto';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -9,12 +9,15 @@ import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
+import { checkRuntime, summarizeEngines } from './engines-check.mjs';
 
+if (process.argv.length > 4) throw new Error('Usage: node tools/plugin-server-check.mjs [release function directory] [recovery function directory]');
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
 if (!connectionString) throw new Error('Set PLUGIN_TEST_DATABASE_URL to a disposable loopback PostgreSQL database');
 const url = new URL(connectionString);
 if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || !url.pathname.endsWith('_test')) throw new Error('This check requires a disposable loopback database ending in _test');
 const artifact = await mkdtemp(join(tmpdir(), 'kingdown-http-artifact-'));
+let recoveryArtifact;
 const pool = new pg.Pool({ connectionString });
 const actors = [randomUUID(), randomUUID()], secret = randomUUID();
 const server = createServer(); let app, savedAccountAccess, requestId = 0;
@@ -157,6 +160,85 @@ try {
   assert.equal((await fetch(`${origin}/plugin-art/missing.webp`)).status, 404); assert.equal((await fetch(`${origin}/plugin-art/..%2fserver.mjs`)).status, 404);
   await assert.rejects(configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: 'https://plugin.example', KINGDOWN_PLUGIN_DATABASE_URL: connectionString, SUPABASE_URL: 'https://project.supabase.co', KINGDOWN_PLUGIN_OAUTH_READY: '0' }), /Enable Supabase OAuth/);
   await assert.rejects(configurePlugin({ NODE_ENV: 'production', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: secret }, { localDev: true }), /Local personas/);
+  if (process.argv[3]) {
+    recoveryArtifact = await mkdtemp(join(tmpdir(), 'kingdown-recovery-artifact-'));
+    await cp(resolve(process.argv[3]), recoveryArtifact, { recursive: true });
+    const identity = async directory => Object.fromEntries(await Promise.all(['server.mjs', 'runtime/index.mjs', 'runtime/worker.mjs'].map(async file => [file, createHash('sha256').update(await readFile(join(directory, file))).digest('hex')])));
+    const releaseIdentity = await identity(artifact), recoveryIdentity = await identity(recoveryArtifact);
+    assert.notEqual(releaseIdentity['server.mjs'], recoveryIdentity['server.mjs'], 'Recovery needs distinct server bytes; source provenance requires separate build receipts');
+    assert(tools.some(tool => tool.name === 'kingdown_preview'), 'The nominated release includes the stored-engine preview adapter');
+    const { configurePlugin: configureRecovery } = await import(pathToFileURL(join(recoveryArtifact, 'server.mjs')).href);
+    const restartRecovery = async () => {
+      await app.pool.end(); app = undefined;
+      app = await configureRecovery(webEnv, { localDev: true, websiteKeys });
+    };
+    const ok = async (actor, name, args) => {
+      const result = await tool(actor, name, args);
+      assert(!result.isError, `${name}: ${result._meta?.code ?? 'unknown error'}`);
+      return result;
+    };
+    const get = async game_id => (await ok(actors[0], 'kingdown_get', { game_id }))._meta.view;
+    const position = ({ game_id, revision, engine_fingerprint, status, turn, action, fen, in_check, legal, rules, history, last_commands, ready, choices, setup_admission }) =>
+      ({ game_id, revision, engine_fingerprint, status, turn, action, fen, in_check, legal, rules, history, last_commands, ready, choices, setup_admission });
+    const durable = async game_id => (await pool.query(`select g.*,
+      (select count(*)::int from public.game_commands where game_id=g.id) as commands,
+      (select jsonb_agg(to_jsonb(c) order by seq) from public.game_commands c where game_id=g.id) as command_rows,
+      (select jsonb_agg(to_jsonb(p) order by seat) from public.game_players p where game_id=g.id) as players,
+      (select jsonb_agg(to_jsonb(n) order by id) from public.notifications n where payload->>'game_id'=g.id::text) as notifications,
+      (select jsonb_agg(to_jsonb(r) order by user_id) from public.player_ratings r where user_id in (select user_id from public.game_players where game_id=g.id)) as player_ratings,
+      (select count(*)::int from public.rating_history where game_id=g.id) as ratings,
+      (select count(*)::int from public.outbox where payload->>'game_id'=g.id::text) as events
+      from public.games g where id=$1`, [game_id])).rows[0];
+    const setup = (await ok(actors[0], 'kingdown_create', { kind: 'friend', options: { ...options, arrangement: true }, colour: 'white' }))._meta.view;
+    const code = (await ok(actors[0], 'kingdown_invite', { game_id: setup.game_id })).structuredContent.code;
+    const joined = (await ok(actors[1], 'kingdown_join', { code }))._meta.view;
+    const ready = { game_id: setup.game_id, command_id: 'recovery-ready-white', expected_revision: joined.revision, king: null, order: setup.draw, ready: true };
+    await ok(actors[0], 'kingdown_choose', ready);
+    const pending = await durable(setup.game_id), pendingView = await get(setup.game_id);
+    assert.equal(pending.status, 'setup'); assert.equal(pending.state, null); assert(pending.setup_admission);
+    assert.deepEqual(pendingView.ready, [true, false]);
+    const before = await durable(initial.game_id), beforeView = await get(initial.game_id);
+    assert(beforeView.rules); assert(beforeView.history);
+    const inventory = summarizeEngines('games', [before, pending].map(row => ({ engine: row.engine_fingerprint, state: row.state, status: row.status, admission: row.setup_admission })));
+    const archives = [artifact, recoveryArtifact].map(directory => checkRuntime({ tables: [inventory], engines: inventory.engines }, join(directory, 'runtime/engines')));
+    for (const report of archives) assert(report.ok, 'Both artifacts must retain every initialized and pending engine');
+    assert.deepEqual(archives[0].bundles.map(({ engine, sha256 }) => ({ engine, sha256 })), archives[1].bundles.map(({ engine, sha256 }) => ({ engine, sha256 })), 'Referenced archive bytes must agree across artifacts');
+
+    await restartRecovery();
+    const recoveryTools = (await rpc(actors[0], 'tools/list', {})).result.tools;
+    assert(!recoveryTools.some(tool => tool.name === 'kingdown_preview'), 'The nominated recovery omits the stored-engine preview adapter');
+    assert.deepEqual(position(await get(initial.game_id)), position(beforeView));
+    assert.deepEqual(position(await get(setup.game_id)), position(pendingView));
+    const retry = await ok(actors[0], 'kingdown_computer', computer);
+    assert.deepEqual(retry.structuredContent, ai.structuredContent);
+    const conflict = await tool(actors[0], 'kingdown_computer', { ...computer, expected_revision: computer.expected_revision + 1 });
+    assert(conflict.isError); assert.equal(conflict._meta.code, 'COMMAND_CONFLICT');
+    assert.deepEqual(await durable(initial.game_id), before, 'Retry and conflict must preserve game, command, player, notification, rating and outbox records');
+    await ok(actors[0], 'kingdown_choose', ready);
+    assert.deepEqual(await durable(setup.game_id), pending, 'Accepted Ready receipt remains valid after recovery');
+    const next = await ok(actors[0], 'kingdown_move', { game_id: initial.game_id, command_id: 'recovery-next', expected_revision: before.revision, actions: [beforeView.legal.find(lan => !lan.includes('!'))] });
+    assert.equal(next._meta.view.revision, before.revision + 1);
+    const continued = await durable(initial.game_id);
+    assert.equal(continued.commands, before.commands + 1); assert.equal(continued.engine_fingerprint, before.engine_fingerprint);
+    assert.equal(JSON.parse(continued.state).engine, before.engine_fingerprint);
+    assert.equal(continued.ratings, before.ratings); assert.equal(continued.events, before.events);
+    const finishedSetup = await ok(actors[1], 'kingdown_choose', { game_id: setup.game_id, command_id: 'recovery-ready-black', expected_revision: pending.revision, king: null, order: setup.draw, ready: true });
+    assert.equal(finishedSetup._meta.view.status, 'playing');
+    const setupView = await get(setup.game_id);
+    assert.equal(setupView.engine_fingerprint, pending.engine_fingerprint);
+    await ok(actors[0], 'kingdown_move', { game_id: setup.game_id, command_id: 'recovery-setup-turn', expected_revision: setupView.revision, actions: [setupView.legal.find(lan => !lan.includes('!'))] });
+    const completed = await durable(setup.game_id);
+    assert.equal(completed.commands, pending.commands + 2); assert.equal(completed.revision, pending.revision + 2);
+    assert.equal(completed.engine_fingerprint, pending.engine_fingerprint); assert.deepEqual(completed.setup_admission, pending.setup_admission);
+    assert.equal(JSON.parse(completed.state).engine, pending.engine_fingerprint);
+    const views = await Promise.all([initial.game_id, setup.game_id].map(get));
+    await restartRecovery();
+    for (const [i, row] of [continued, completed].entries()) {
+      assert.deepEqual(position(await get(row.id)), position(views[i]), 'Fresh recovery service must reload the same full position');
+      assert.deepEqual(await durable(row.id), row);
+    }
+    console.log('Recovery artifact continuation passed', JSON.stringify({ release: { directory: resolve(process.argv[2] || 'plugin-server-dist'), ...releaseIdentity }, recovery: { directory: resolve(process.argv[3]), ...recoveryIdentity }, engines: archives[0].bundles.map(({ engine, sha256 }) => ({ engine, sha256 })), acceptedRetry: true, changedPayloadConflict: true, continuedRevision: continued.revision, completedSetupRevision: completed.revision }));
+  }
   console.log(`Compiled HTTP + real PostgreSQL: ${closedCases} default API closures with zero pool calls, ${unsafeCases} unsafe website-key refusals, off-switch closure, isolated website identity and full/since reads, open, move, AI, retry, foreign seat rejection, service restart/resume, friend code/join, board recovery, resource (${resource.bytes} JSON bytes), ${art.length} art files (${JSON.stringify(counts)}), and production auth gate passed`);
 } finally {
   try {
@@ -171,5 +253,6 @@ try {
     for (const actor of actors) await pool.query('delete from auth.users where id=$1', [actor]);
     await pool.end();
     await rm(artifact, { recursive: true, force: true });
+    if (recoveryArtifact) await rm(recoveryArtifact, { recursive: true, force: true });
   }
 }
