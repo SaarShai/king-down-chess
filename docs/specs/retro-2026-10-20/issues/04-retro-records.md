@@ -57,3 +57,11 @@ Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- docs/2d-first
 Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- docs/2d-first-pieces/RIG.md docs/2d-first-pieces/archer-arms.png docs/2d-first-pieces/archer-parts.png docs/2d-first-pieces/arm-correction-prompt.json docs/2d-first-pieces/arm-parts.json docs/2d-first-pieces/rig-motion.mjs docs/2d-first-pieces/rig-motion.test.mjs docs/2d-first-pieces/rig-parts.json docs/2d-first-pieces/rig-prompt.json docs/2d-first-pieces/rig-tests.log docs/2d-first-pieces/rig.html docs/2d-first-pieces/rig.js`.
 
 The render sources use the [MakeHuman asset licence](https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/LICENSE.ASSETS.md). The source licence also stays in Git at `1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5:docs/2d-first-pieces/rendered-study/source/LICENSE.ASSETS.md`.
+
+### Part 4: release copy and hash records
+
+Remove `docs/releases/v0.7.0/` (143 files, 4,394,284 bytes), `tools/hash-baseline.mjs` and `docs/takeover/baseline.json`. Point `.gitignore` and `docs/takeover/BASELINE.md` at `d6021674` for the release copy. The baseline page also names the historical manifest and tool.
+
+Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- docs/releases/v0.7.0/`.
+
+Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- tools/hash-baseline.mjs docs/takeover/baseline.json`.
