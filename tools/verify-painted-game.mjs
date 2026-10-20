@@ -1,7 +1,7 @@
 // Plays real games in the painted 2D look and checks the view keeps up with the game.
 // Run: npm run check:browser painted-game (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { lessonPath, startLesson, confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
+import { lessonPath, startLesson, confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForLinkSave, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 const url = new URL(env('PLAYABLE_URL'));
@@ -221,6 +221,7 @@ try {
     let asked = null; page.once('dialog', d => { asked = d.message(); d.accept(); });
     await page.goto(u.href);
     await page.waitForFunction(() => window.view?.pos?.board[28] > 0 && !window.view.pos.board[12]);
+    await waitForLinkSave(page, 'RNBQKBNR', ['e2-e4'], 1);
     assert.match(asked ?? '', /replaces your current game/, 'a different saved game asks first');
     assert.equal(new URL(page.url()).searchParams.has('moves'), false, 'the link parameters are dropped');
     assert.deepEqual(await players(page), ['human', 'human']);
@@ -234,11 +235,13 @@ try {
     const sent = new URL(await page.evaluate(() => navigator.clipboard.readText()));
     assert.deepEqual([sent.searchParams.get('army'), sent.searchParams.get('moves')], ['RNBQKBNR', 'e2-e4_e7-e5']);
     await page.reload(); await page.waitForFunction(() => window.view?.pos?.board[36] > 0);
+    await waitForLinkSave(page, 'RNBQKBNR', ['e2-e4', 'e7-e5'], 1);
     assert.ok((await at(56)).y > (await at(0)).y, 'a reload keeps the side and the game');
     // The friend's device: its saved game is the start of the link, so it opens without a question.
     await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('kingdown.save')); s.moves = ['e2-e4']; s.link = 0; localStorage.setItem('kingdown.save', JSON.stringify(s)); });
     asked = null; const ask = d => { asked = d.message(); d.dismiss(); }; page.on('dialog', ask);
     await page.goto(sent.href); await page.waitForFunction(() => window.view?.pos?.board[36] > 0);
+    await waitForLinkSave(page, 'RNBQKBNR', ['e2-e4', 'e7-e5'], 0);
     page.off('dialog', ask);
     assert.equal(asked, null, 'a continuation opens without a question');
     assert.ok((await at(56)).y < (await at(0)).y, 'White, to move, plays from the bottom');
