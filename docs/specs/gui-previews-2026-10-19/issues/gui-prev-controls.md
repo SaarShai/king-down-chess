@@ -210,7 +210,7 @@ All six parts of the test repair ticket are complete. No failure needs a repair 
 
 ## Size and move-choice review repair
 
-Status: in progress. Both findings in Review A are confirmed. Review B has no finding text.
+Status: done. Both findings in Review A are confirmed. Review B has no finding text.
 
 Plan: restore the size guards from main. Remove spare space from portrait rows so the tablet controls fit. Add the move-choice actions to the shared tablet rule. Remove their old size and type rules. Check both live choice sheets.
 
@@ -242,3 +242,17 @@ The recent-move list again fits at 393 x 852, as on main. Its exact box and a vi
 The first browser run passes `special-moves` in 32.6 seconds. It checks Take, Shove, and Cancel in the live web sheet. The plugin run reaches and passes the restored 393 x 852 list checks. It then finds a sample helper that waits for the hidden full move line at 360 x 640. Keep its full-text check as an attached-state check. Also check the visible line. In compact mode, require the exact short words from the sample's last legal move. This changes the check helper only. The app stays at the source that passes `npm test`. The browser checks run again at the next commit.
 
 The next browser run stops with exit 143 at its own recorded process. A source check finds that the win sample uses a fresh game ID. The expected-move replay now uses that sample ID. The app source stays the same. The checks run again after this helper repair.
+
+### Final browser check results
+
+Checked commit: `514f7b1b`. The app source matches `65e4c651`, which passes `npm test`. The later commits change the browser helper and this record only.
+
+- The required runner passes `plugin-ui` on this Mac in 199.3 seconds.
+- It passes `special-moves` in 32.2 seconds. Both live choice sheets pass the tablet checks.
+- The runner ends with `check-runner: mac exit 0 at 514f7b1b`. Log: `checks-review-fix-3.txt` in the lane folder.
+- The card boards measure 311 px at 412 x 790, 303 px at 393 x 852, 117 px at 320 x 568, and 536 px at 1280 x 800. Each armed board keeps the same width. All main floors pass.
+- The resource is 909,445 JSON bytes. It stays below the 1,000,000-byte limit.
+- The live web Ogre sheet and the 320 px plugin board pass the visual check. The action words fit. Back stays clear of the board squares.
+- Saved logs: `review-fix-plugin-ui.log`, `review-fix-special-moves.log`, and `review-fix-run.json`. Saved screens: `review-fix-proof/web-ogre-choice.png` and `review-fix-proof/plugin-board-320.png`.
+
+Both findings in Review A are fixed. None is refuted. Review B has no finding text. The unit suite, database tests, art tests, type check, browser checks, and commit hooks pass. All time limits stay the same. The final commit adds this result record only.
