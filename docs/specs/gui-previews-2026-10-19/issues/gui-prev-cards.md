@@ -198,11 +198,22 @@ Pass criteria: each new test rejects the old fault and passes with the fix. The 
 
 - Review A, finding 1, A35: confirmed. A staged ordinary move changes the draft turn before the send. The reason now checks the request state first and uses the saved view for the other turn. The model and board tests cover a failed move send with an unused Haste card. The draft alone gives the finish-turn line.
 - Review A, finding 2, A35: confirmed. The open sheet now updates its action and reason during a board refresh. It keeps its face, rule and diagram. Close clears the update function. A focused Use action that leaves puts focus on Close. Board tests keep a sheet open through three failed quiet reads and a good read at the same revision. They also cover a sheet first opened during the failure and check that the returned Use action arms the card. The browser check covers the timed background reads and the failed turn send.
-- Review A, finding 3, A33: confirmed. Spawn K shows one pawn beside the king. Spawn K2 shows two pawns on different squares beside the king. The test maps the drawn coordinates to board squares, finds the legal engine drop and checks the new pieces after that move. The browser check saves both Workshop views at phone and desktop sizes in both themes.
+- Review A, finding 3, A33: confirmed. Spawn K shows one pawn beside the king. Spawn K2 shows two pawns on different squares beside the king. The test maps the drawn coordinates to board squares, finds the legal engine drop and checks the new pieces after that move. The browser check saves the Spawn K Workshop view at phone and desktop sizes in both themes. Workshop names Spawn K2 as a second form; it has no separate card entry.
 - Review B: no finding text is supplied. There is no claim to confirm or refute.
 
-The type check, script syntax check and diff check pass. The first focused test stays in the shared test queue and starts no test. This lane stops that one owned queue process and starts the required full `npm test` with the local test database. The full suite is in the shared queue. No other process, test limit or check limit changes.
+The type check, script syntax check and diff check pass. First focused attempt: no test starts in the shared queue. This lane stops only that owned queue process. The required full `npm test` uses the local test database and the shared lock. No other process, test limit or check limit changes.
 
 The final code check finds no smaller complete fix. The sheet uses one update function and changes only its action or reason. The engine and game rules have no change. The unit and browser results follow below.
 
 The first required browser check, at `f8d48c78`, stops in the new Workshop step. The test looks for Spawn K before it opens more cards. The check now opens that list before it reads the two Spawn K cards. No product fix or time limit changes for this test fault.
+
+The second browser attempt, at `0b5dc500`, confirms the Spawn K view, then stops because the new test looks for a separate Spawn K2 card entry. Workshop names that card as a second form. The test now checks the entry that Workshop shows. The engine tests still cover both pictures.
+
+## Review fix check results
+
+- Full local `npm test` at `3baeccac`: exit 0. Vitest: 198 files pass; 3,297 tests pass; 8 skip; no failure. Duration: 266.75 seconds. The 51 art checks also pass, with no skip or failure. The local test database is set to the required database. Log: `scratchpad/lanes/prev-green-cards/unit-review-fix-1.txt` in the task scratch folder.
+- Required `plugin-ui` runner at `3baeccac`: pass on the M1 in 282.6 seconds. The final line is `check-runner: M1 exit 0 at 3baeccac`. The card cases pass: failed turn send, failed command, failed read, action in flight, three timed failed background reads with the sheet open, and recovery at the same revision. The diagram and Workshop picture checks also pass at both sizes and in both themes. Log: `scratchpad/lanes/prev-green-cards/checks-review-fix-3.txt` in the task scratch folder.
+- The resource uses 909,713 JSON bytes, below the 1,000,000-byte limit. Server code has no change, so `plugin-ui-http` is not required.
+- The type check, script syntax check and diff check pass. Commit hooks pass. The phone Spawn K capture shows the new pawn in the square beside the king. The check saves four Workshop Spawn K captures and the open-sheet failure, recovery and failed-send views.
+
+All three Review A findings are fixed and have tests. Review B supplies no finding. No requested fix remains open. The final record commit changes this ticket only. The owner still approves each preview before a merge to main.
