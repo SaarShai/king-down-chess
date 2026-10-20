@@ -173,3 +173,21 @@ Pass criteria: the full unit suite and all three browser checks pass. No time li
 
 
 The first `w6-parts` run at 7780e7bc fails at the initial harness wait. The current `PaintedView.ready()` waits for a frame after art load. The check holds all frames until the harness is ready, so neither side can continue. Advance the manual frame clock during that readiness wait. Keep its 30 s limit. The run does not reach the ceremony tests.
+
+
+The final browser checks run at 118d5a8e through the supplied launcher, one check per call:
+
+| Check | Runner | Time | Exit | Log |
+| --- | --- | ---: | ---: | --- |
+| `w6-parts` | M1 | 3.8 s | 0 | `checks-fix-w6-2.txt` |
+| `plugin-ui` | M1 | 265.4 s | 0 | `checks-fix-plugin-1.txt` |
+| `end` | This Mac | 20.7 s | 0 | `checks-fix-end-1.txt` |
+
+The logs are in the supplied `scratchpad/lanes/prev-green-result/` folder. The repaired check reaches the fall, tile, skip-key, cancel, reduced-motion and layout checks. Its manual clock checks that the fall is at rest by 650 ms. The check records one fall call, no move replay, one wait of at most 650 ms, the final board and no board words. The unit timing test also checks that the fall occurs once and creates no board words. No test or check time limit changes.
+
+
+The first local `npm test` run exits 1 during a disk-space failure. Its partial log lists 63 deploy-test failures, then stops without a suite summary. A shell command also fails with “no space left on device”. The disk has about 108 MiB free. Remove only this lane's generated `dist` folder and `/private/tmp/kd-gui-prev-result.bundle`. A later disk check shows 12 GiB free. No other lane's files or processes change.
+
+The focused command, `bash tools/test-lock.sh npx vitest run src/ceremony.test.ts`, passes all four tests, exit 0. The full retry uses `npm test`, the supplied local test database and `VITEST_MAX_WORKERS=2`. It passes all 197 files: 3,283 tests pass and eight opt-in tests skip. All 51 art checks pass. The type check passes. The run takes 598.17 s and exits 0. Evidence: `fix-unit-1.txt`, `fix-ceremony-1.txt` and `fix-unit-2.txt` in the same lane folder.
+
+Review A, P2: fixed by 7780e7bc and 118d5a8e. The check tests A9 and reaches every retained guard. The second commit also repairs the initial frame wait found by the browser run. Review B supplies no finding, so it has no item to fix or refute. The final source review keeps the repair in the check and unit tests. It adds no product code or dependency. `git diff --check` passes. The final commit records results only; the checked source stays at 118d5a8e.
