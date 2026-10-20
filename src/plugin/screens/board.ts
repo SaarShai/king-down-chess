@@ -6,6 +6,7 @@ import { marksModel, railsOf } from '../../marks-model';
 import { pieceTitle, readText, reachOf, teachNote } from '../../read';
 import { LESSONS } from '../../lessons';
 import { momentKind } from '../../moment';
+import { boardFoot } from '../../screen/board-foot';
 import { soundsFor } from '../../screen/moments';
 import { cursorText } from '../../cursor-text';
 import { contextLine } from '../../context-line';
@@ -36,8 +37,10 @@ let command: (name: string, args: Record<string, unknown>) => Promise<View | und
 export const sendBoardCommand = (name: string, args: Record<string, unknown> = {}) => command(name, args);
 const portraitPath = (side: Color) => `ui/kings/${(RULES.kings[side]?.king ?? PLAIN_KINGS[side]).toLowerCase()}${side ? '-b' : ''}.webp`;
 let sheet: HTMLDialogElement, scrim: HTMLDivElement, sheetFocus: HTMLElement | undefined;
+let stopPlacingChoice = () => {};
 export function closeBoardSheet() {
   if (!sheet) return;
+  stopPlacingChoice(); stopPlacingChoice = () => {};
   for (const id of ['choices', 'reload', 'computer', 'invite', 'invitation']) $('board-park').append($(id));
   const restore = sheet.open && sheet.contains(document.activeElement);
   if (sheet.open) document.querySelector<HTMLElement>('.page-sheet')!.inert = false;
@@ -60,10 +63,25 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   }
   const opener = sheet.contains(document.activeElement) ? sheetFocus : document.activeElement as HTMLElement;
   closeBoardSheet(); sheetFocus = opener;
-  sheet.classList.remove('board-menu');
+  sheet.classList.remove('board-menu', 'move-choice');
+  sheet.removeAttribute('style'); scrim.classList.remove('move-choice-scrim');
   sheet.innerHTML = '<header class="sheet-head"><h2 id="board-sheet-title"></h2><button aria-label="Close">×</button></header><div class="sheet-body"></div>';
   sheet.querySelector('h2')!.textContent = title; sheet.querySelector('button')!.onclick = closeBoardSheet;
   sheet.querySelector('.sheet-body')!.append(...nodes); scrim.hidden = false; document.querySelector<HTMLElement>('.page-sheet')!.inert = true; sheet.show(); sheet.querySelector('button')!.focus({preventScroll:true});
+  if (nodes.includes($('choices'))) {
+    const board = $('board'), frame = $('app-frame');
+    sheet.classList.add('move-choice'); scrim.classList.add('move-choice-scrim');
+    board.classList.add('choosing-move');
+    const place = () => {
+      const room = frame.getBoundingClientRect();
+      board.style.maxHeight = `${Math.max(0, room.bottom - board.getBoundingClientRect().top - sheet.getBoundingClientRect().height - 24)}px`;
+      const box = board.getBoundingClientRect();
+      Object.assign(sheet.style, boardFoot({left:box.left - room.left, bottom:box.bottom - room.top, width:box.width}, sheet.getBoundingClientRect(), room));
+    };
+    place();
+    const observer = new ResizeObserver(place); observer.observe(board); observer.observe(sheet); observer.observe(frame);
+    stopPlacingChoice = () => { observer.disconnect(); board.classList.remove('choosing-move'); board.style.maxHeight = ''; };
+  }
   client.state.sheet = 'board-sheet'; client.save();
 }
 const text = (words: string) => { const p = document.createElement('p'); p.textContent = words; return p; };

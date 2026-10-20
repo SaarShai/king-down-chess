@@ -121,7 +121,7 @@ Taste: “first move” means the first sent move, because this list shows sent 
 
 ## A39 preview
 
-The web Take or Shove choice sits below the board when it fits. On a tall board, it sits at the board foot and stays in the viewport. It follows a resize. The dialog keeps its focus and Cancel rules. The unit check covers a phone, desktop, and short viewport. The browser check checks that the target square stays above the choice. The plugin choice already sits at the foot.
+The web Take or Shove choice sits below the board when it fits. On a tall board, it sits at the board foot and stays in the viewport. It follows a resize. The dialog keeps its focus and Cancel rules. The unit check covers a phone, desktop, and short viewport. The browser check checks that the target square stays above the choice. The plugin still needs the same space rule. See the second review fix below.
 
 Taste: use a 12 px gap and a light 16 percent veil with no blur for this choice. A27 saves its plugin build at `12555419`.
 
@@ -254,3 +254,13 @@ The first three files pass in sequence in `unit-2.txt`. The final full suite che
 The repair ticket directs browser checks and screen captures to CI. This lane runs no browser check, capture script, or unit suite on this Mac. The only kind-c product repair keeps the same 16 px label size, so it needs no new screen sample. No server code changes.
 
 The test repair is done. All seven parts remain built. Owner approval for the previews is still open. This repair makes no new taste choice. Nothing is pushed, merged to main, or deployed.
+
+## Second review fix plan
+
+Review A has two confirmed faults. Review B has no finding.
+
+1. Reserve space below the plugin board for its move choice. Check both seats at phone and desktop sizes. Check the full board, resize, focus, and Cancel.
+2. Use the current plugin build for all after checks. Keep saved builds for before samples. Remove each A18 and A27 product change in turn and confirm that its check fails.
+3. Run `npm test` here with the test database. Commit, then run `plugin-ui` and `gui-board-preview` through the lane runner. Record the results. Keep all time limits.
+
+Pass criteria: each confirmed fault has a test. Both mutation checks fail for the correct cause. The unit suite and browser checks pass at the fixed code. No server code changes are needed.

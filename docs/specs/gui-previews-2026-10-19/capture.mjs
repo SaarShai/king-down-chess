@@ -43,7 +43,7 @@ try {
   const { existsSync } = await import('node:fs');
   const snapshot = process.argv[4] === 'before' ? 'base' : item;
   const saved = join(root, `${snapshot}-plugin/board.html`);
-  const pluginPath = ['A8','A39','A17'].includes(item) && process.argv[4] !== 'before' ? join(process.argv[2], 'board.html') : saved;
+  const pluginPath = process.argv[4] === 'before' ? saved : join(process.argv[2], 'board.html');
   assert(existsSync(pluginPath), `Missing saved preview build: ${pluginPath}`);
   current = await startHarness({ boardPath: pluginPath });
   const savedWeb = join(root, `${snapshot}-web`);
@@ -66,12 +66,13 @@ try {
       const f = p.frameLocator('iframe'); await f.locator('#home-play:not(:disabled)').waitFor({ state: 'attached' });
       async function ready() { await f.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor(); await f.locator('html').evaluate(() => document.fonts.ready); }
       async function seed(fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', extra = {}) {
-        const r = await (await p.request.post(new URL('/fixture-position?fen=' + encodeURIComponent(fen), pluginURL).href)).json(); assert(!r.isError);
+        const r = await (await p.request.post(new URL('/fixture-position?fen=' + encodeURIComponent(fen) + (extra.seat === 1 ? '&black=1' : ''), pluginURL).href)).json(); assert(!r.isError);
         Object.assign(r._meta.view, extra);
         await p.evaluate(r => { window.harnessNextView = r._meta.view; return window.harnessShow(r); }, r);
         await ready();
       }
-      async function tap(sq) {
+      async function tap(sq, flipped = false) {
+        if (flipped) sq = 63 - sq;
         const box = await f.locator('canvas').boundingBox();
         await p.mouse.click(box.x + (32 + (sq % 8 + .5) * 112) * box.width / 960, box.y + (96 + (7 - (sq >> 3) + .5) * 112) * box.width / 960);
         await ready();
@@ -82,8 +83,41 @@ try {
         await p.locator('iframe').screenshot({ path: join(out,file) }); notes.push(file);
       }
       for (const id of items) {
-        if (id === 'A39') continue;
         await seed();
+        if (id === 'A39') {
+          if (phase === 'before') continue;
+          for (const flipped of [false,true]) {
+            await seed(flipped ? 'K7/3P4/3o4/8/8/8/8/7k b - - 0 1' : '7k/8/8/8/8/3O4/3p4/K7 w - - 0 1', { seat: flipped ? 1 : 0 });
+            await f.locator('#board').focus();
+            await tap(flipped ? 43 : 19, flipped); await tap(flipped ? 51 : 11, flipped);
+            await f.locator('#board-sheet[open]').waitFor();
+            assert.equal(await f.locator('#choices button').count(), 2, 'Take and Shove are legal');
+            await p.keyboard.press('Shift+Tab');
+            assert(await f.locator('#choices button').last().evaluate(b => b === document.activeElement), 'Shift+Tab stays in the choice');
+            await p.keyboard.press('Tab');
+            assert(await f.locator('#board-sheet [aria-label="Close"]').evaluate(b => b === document.activeElement), 'Tab returns to Close');
+            async function clearSquares() {
+              await f.locator('html').evaluate(async () => {
+                for (let tries = 0; tries < 100; tries++) {
+                  const board = document.querySelector('#board').getBoundingClientRect(), canvas = document.querySelector('#board canvas').getBoundingClientRect(), choice = document.querySelector('#board-sheet').getBoundingClientRect(), frame = document.querySelector('#app-frame').getBoundingClientRect();
+                  if (canvas.height > 0 && canvas.bottom <= board.bottom + 1 && choice.top >= board.bottom + 11 && choice.bottom <= frame.bottom - 11) return;
+                  await new Promise(resolve => setTimeout(resolve,20));
+                }
+                throw new Error('The plugin move choice must leave the full board in view');
+              });
+            }
+            await clearSquares(); await shot(id,flipped ? 'take-shove-flipped' : 'take-shove');
+            await p.setViewportSize({width,height:height-100}); await clearSquares();
+            await p.setViewportSize({width,height}); await clearSquares();
+            assert(await f.locator('#board-sheet').evaluate(d => d.contains(document.activeElement)), 'The choice keeps focus after resize');
+            if (flipped) await f.locator('#board-sheet [aria-label="Close"]').click();
+            else await p.keyboard.press('Escape');
+            assert(!(await f.locator('#board-sheet').evaluate(d => d.open)), 'Cancel closes the choice');
+            assert.equal(await f.locator('#board').evaluate(b => b.style.maxHeight), '', 'Cancel releases the board space');
+            assert.equal(await f.locator('#board').evaluate(b => b === document.activeElement), true, 'Cancel returns focus to the board');
+            assert.equal(await f.locator('#undo').getAttribute('aria-disabled'), 'true', 'Cancel plays no move');
+          }
+        }
         if (id === 'A14') {
           await tap(12); await tap(28); await shot(id,'turn-computer');
           if (phase === 'after') assert.equal(await f.locator('#end-turn .turn-label').innerText(), 'End turn');
