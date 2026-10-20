@@ -210,3 +210,14 @@ Check results:
 - The screen index has 46 complete pairs, 92 PNGs, at device scale 2. The screen review checks the desktop lower ranks, the flipped phone lower ranks, frost, and both web Menu sizes. The largest current board resource is 762,389 bytes.
 
 Unit verification remains open. Keep this ticket in progress until the full suite can run.
+
+## Test repair (2026-10-19)
+
+Plan:
+
+1. Merge `origin/main` into this preview branch. Keep the fault fixes and the seven preview picks.
+2. Run the unit suite on the M1 at the merge commit. Class each failure as old text (a), a missing fixture field (b), a product fault (c), or load (d).
+3. Fix each cause. Keep every size, touch, timing, and access guard. Commit each repair kind.
+4. Run each repaired test file on the M1. Then run the full unit suite there again. Run `npx tsc --noEmit` here.
+
+Pass criteria: all M1 tests pass, except database tests that need the local database. The type check passes. No check limit changes. Browser checks and new screen captures stay with CI, as the repair ticket directs.
