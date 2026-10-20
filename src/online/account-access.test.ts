@@ -44,7 +44,7 @@ describe('account status contract', () => {
   let reply!: () => void;
   const controller = Object.assign(new EventTarget(), { state: 'activated', postMessage: vi.fn((request, ports) => { reply = () => ports[0].postMessage({ ...request, policy: 'public-build-v1', version: 'test' }); }) });
   vi.stubGlobal('window', {});
-  vi.stubGlobal('navigator', { serviceWorker: Object.assign(new EventTarget(), { controller, register: async () => ({ update: async () => {} }) }) });
+  vi.stubGlobal('navigator', { serviceWorker: Object.assign(new EventTarget(), { controller, register: async () => Object.assign(new EventTarget(), { update: async () => {} }) }) });
   const fetch = vi.fn(async () => json({ account_access: 'open', valid_for_ms: 1000 })); vi.stubGlobal('fetch', fetch);
   const reading = readWebAccountAccess();
   await vi.waitFor(() => expect(controller.postMessage).toHaveBeenCalledOnce());
@@ -61,7 +61,7 @@ describe('account status contract', () => {
   let reply!: () => void;
   const old = Object.assign(new EventTarget(), { state: 'activated', postMessage: vi.fn((request, ports) => { reply = () => ports[0].postMessage({ ...request, policy: 'public-build-v1', version: 'old' }); }) });
   const replacement = Object.assign(new EventTarget(), { state: 'activated', postMessage: vi.fn((request, ports) => ports[0].postMessage({ ...request, policy: safe ? 'public-build-v1' : 'unsafe', version: 'new' })) });
-  const workers = Object.assign(new EventTarget(), { controller: old, register: async () => ({ update: async () => {} }) });
+  const workers = Object.assign(new EventTarget(), { controller: old, register: async () => Object.assign(new EventTarget(), { update: async () => {} }) });
   vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: workers });
   const fetch = vi.fn(async () => json({ account_access: 'open', valid_for_ms: 1000 })); vi.stubGlobal('fetch', fetch);
   const reading = readWebAccountAccess();

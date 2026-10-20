@@ -95,12 +95,12 @@ function worker(caches = storage(), build = version, buildFiles = files, registr
   return { caches, registration, fetch, claim, skipWaiting, fire, request, message, timers, timerStarted, saved, storageAccess };
 }
 
-it('proves a replacement active registration after entry when a reloaded page stays uncontrolled', async () => {
+it.each([{ controlled: false, installMs: 1000 }, { controlled: false, installMs: 12000 }, { controlled: true, installMs: 12000 }])('proves a replacement after entry (controlled: $controlled, install: $installMs ms)', async ({ controlled, installMs }) => {
   vi.useFakeTimers();
   const old = Object.assign(new EventTarget(), { scriptURL: url('/sw.js'), state: 'activated' as ServiceWorkerState, postMessage: vi.fn() });
   const next = Object.assign(new EventTarget(), { scriptURL: url('/sw.js'), state: 'installing' as ServiceWorkerState, postMessage: vi.fn() });
-  const registration = { scope: `${origin}/`, active: old as WorkerState | null, installing: null as WorkerState | null, waiting: null as WorkerState | null, update: vi.fn(async () => {}) };
-  const workers = Object.assign(new EventTarget(), { controller: null, register: vi.fn(async () => registration) });
+  const registration = Object.assign(new EventTarget(), { scope: `${origin}/`, active: old as WorkerState | null, installing: null as WorkerState | null, waiting: null as WorkerState | null, update: vi.fn(async () => {}) });
+  const workers = Object.assign(new EventTarget(), { controller: controlled ? old : null, register: vi.fn(async () => registration) });
   const a = worker(storage(), version, files, registration);
   await a.fire('install').done(); await a.fire('activate').done();
   const deliveries: Promise<unknown>[] = [];
@@ -127,20 +127,22 @@ it('proves a replacement active registration after entry when a reloaded page st
     expect(entry).toHaveBeenCalledOnce();
     registration.installing = next;
     const b = worker(a.caches, 'next-build', files, registration); connect(next, b);
+    await expect(a.message().done()).rejects.toThrow('Worker update in progress');
     const send = vi.fn(() => 'game read sent');
     const result = withPrivateCachePolicy(send).catch(error => error.message);
     await flush(); expect(send).not.toHaveBeenCalled();
-    expect(await deliveries.at(-1)).toMatchObject({ message: 'Worker update in progress' }); // The retiring worker refuses a purge during installation.
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(installMs); expect(send).not.toHaveBeenCalled();
     await b.fire('install').done();
     registration.installing = null; registration.active = next;
     old.state = 'redundant'; old.dispatchEvent(new Event('statechange'));
-    next.state = 'activating'; await b.fire('activate').done();
+    next.state = 'activating';
+    if (controlled) { workers.controller = next; workers.dispatchEvent(new Event('controllerchange')); }
+    await b.fire('activate').done();
     next.state = 'activated'; next.dispatchEvent(new Event('statechange'));
     const available = b.message(); await available.done(); expect(available.postMessage).toHaveBeenCalledOnce();
     await flush(); await vi.advanceTimersByTimeAsync(7000);
     expect(await result).toBe('game read sent');
-    expect(workers.controller).toBeNull(); expect(next.postMessage).toHaveBeenCalledOnce(); expect(send).toHaveBeenCalledOnce();
+    expect(workers.controller).toBe(controlled ? next : null); expect(next.postMessage).toHaveBeenCalledOnce(); expect(send).toHaveBeenCalledOnce();
     expect(a.caches.entries.has(current)).toBe(false);
   } finally { vi.useRealTimers(); vi.unstubAllGlobals(); }
 });

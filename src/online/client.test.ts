@@ -48,7 +48,7 @@ describe('online client', () => {
    order.push('proof'); ids.push(request.requestId);
    ports[0].postMessage({ ...request, policy: 'public-build-v1', version: 'test' });
   }) });
-  const workers = Object.assign(new EventTarget(), { controller, register: async () => ({}) });
+  const workers = Object.assign(new EventTarget(), { controller, register: async () => new EventTarget() });
   vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: workers });
   const fetch = vi.fn<typeof globalThis.fetch>(async () => { order.push('send'); return json(200, []); });
   const api = onlineClient({ token: async () => { await Promise.resolve(); order.push('token'); return 'jwt'; }, fetch, wait: async () => {} });
@@ -61,7 +61,7 @@ describe('online client', () => {
  });
  it('returns a clear unavailable error without a private send when proof fails', async () => {
   const controller = Object.assign(new EventTarget(), { state: 'activated', postMessage: (request: object, ports: MessagePort[]) => ports[0].postMessage({ ...request, policy: 'old', version: 'old' }) });
-  vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: Object.assign(new EventTarget(), { controller, register: async () => ({}) }) });
+  vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: Object.assign(new EventTarget(), { controller, register: async () => new EventTarget() }) });
   const fetch = vi.fn();
   await expect(onlineClient({ token: async () => 'jwt', fetch }).games()).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 });
   await expect(onlineClient({ token: async () => 'jwt', fetch }).seen(gameId)).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 });
@@ -123,7 +123,7 @@ it.each([['games', 'token'], ['games', 'policy'], ['game', 'token'], ['game', 'p
   const controller = Object.assign(new EventTarget(), { state: 'activated', postMessage: vi.fn((request: object, ports: MessagePort[]) => {
     abort.abort(); ports[0].postMessage({ ...request, policy: 'public-build-v1', version: 'test' });
   }) });
-  const register = vi.fn(async () => ({}));
+  const register = vi.fn(async () => new EventTarget());
   vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: Object.assign(new EventTarget(), { controller, register }) });
   const api = onlineClient({ token: async () => { if (phase === 'token') abort.abort(); return 'jwt'; }, fetch });
   await expect(method === 'games' ? api.games(abort.signal) : api.game(gameId, undefined, abort.signal)).rejects.toMatchObject({ name: 'AbortError' });
