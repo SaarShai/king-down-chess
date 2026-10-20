@@ -15,7 +15,8 @@ async function visibleDiagram(diagram) {
   }), 'The move diagram fits the view and has no cover');
 }
 
-export async function checkCardDetails(browser, base) {
+export async function checkCardDetails(browser, base, engine) {
+  assert.match(engine, /^sha256:[a-f0-9]{64}$/, 'Card detail samples require the built runtime identity');
   const { fromFen, toLan } = await import('../../src/rules/setup.ts');
   const { legalMoves, RULES, setRules } = await import('../../src/rules/engine.ts');
   const web = await createServer({ server: { host: '127.0.0.1', port: 0, strictPort: true }, logLevel: 'error' });
@@ -48,7 +49,7 @@ export async function checkCardDetails(browser, base) {
         await page.evaluate(theme => window.harnessSetContext({ theme, displayMode: 'fullscreen' }), theme);
         setRules({ hands: [['Strike', 'Haste', 'Flight', 'Control'], []] });
         const fen = '7k/6p1/8/8/8/8/P7/1NR1K3 w - - 0 1', pos = fromFen(fen);
-        let view = { game_id: randomUUID(), revision: 0, created_at: '2026-10-19T00:00:00Z', abort_open: false, seat: 0, kind: 'solo', speed: 'daily', days_per_move: 3, status: 'playing', turn: 0, action: 'ready', fen, in_check: false, legal: legalMoves(pos).map(move => toLan(pos, move)), last_commands: [], opponent: null, draw_offer: null, deadline_at: null, server_now: '2026-10-19T00:00:00Z', rules: structuredClone(RULES) };
+        let view = { game_id: randomUUID(), engine_fingerprint: engine, revision: 0, created_at: '2026-10-19T00:00:00Z', abort_open: false, seat: 0, kind: 'solo', speed: 'daily', days_per_move: 3, status: 'playing', turn: 0, action: 'ready', fen, in_check: false, legal: legalMoves(pos).map(move => toLan(pos, move)), last_commands: [], opponent: null, draw_offer: null, deadline_at: null, server_now: '2026-10-19T00:00:00Z', rules: structuredClone(RULES) };
         const result = () => ({ content: [], structuredContent: { screen: 'board', game_id: view.game_id }, _meta: { view, board_id: 'card-detail-check' } });
         let failPoll = false;
         await page.route('**/fixture-tool', async route => {
@@ -79,7 +80,7 @@ export async function checkCardDetails(browser, base) {
           };
           const usable = async () => {
             await frame.locator('#card-w-1').click();
-            assert(await sheet.getByRole('button', { name: 'Use', exact: true }).isVisible());
+            assert(await sheet.getByRole('button', { name: 'Use', exact: true }).isVisible(), `Haste is usable after recovery: ${await sheet.innerText()}`);
             assert.equal(await sheet.locator('.card-reason').count(), 0);
             await sheet.locator('[aria-label="Close"]').click();
           };

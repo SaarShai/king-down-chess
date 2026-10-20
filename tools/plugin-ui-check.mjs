@@ -13,7 +13,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { register } from 'tsx/esm/api';
 const unregister = register();
 const { fromFen, toFen, toLan } = await import('../src/rules/setup.ts');
@@ -61,7 +62,12 @@ async function clickButton(page, button) {
 try {
   await checkShell(browser, base);
   await checkAndroidFixes(browser, base, clickButton);
-  await checkCardDetails(browser, base);
+  const { createMatch } = await import(pathToFileURL(resolve(process.argv[2] || 'plugin-server-dist', 'runtime/index.mjs')).href);
+  const match = await createMatch();
+  let engine;
+  try { engine = JSON.parse(await match.exportSave()).engine; }
+  finally { await match.close(); }
+  await checkCardDetails(browser, base, engine);
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
   await page.addInitScript(() => {
